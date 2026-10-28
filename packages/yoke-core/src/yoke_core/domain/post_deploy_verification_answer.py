@@ -49,6 +49,9 @@ DECLARED_NONE = "declared_none"
 UNANSWERED = "unanswered"
 #: The carried member's own completion flow asks no item QA. Stage-only fact.
 NOT_REQUIRED = "not_required"
+#: The member owes only post-deploy plans; the run's plan groups answer them
+#: and the done gate credits it from their ``covered_item_ids``. Stage-only.
+PLAN_GROUPS = "plan_groups"
 
 #: ``qa_kind`` a waiver-backed "needs none" declaration carries.
 DECLARATION_QA_KIND = "post_deploy_not_required"
@@ -82,7 +85,7 @@ class PostDeployAnswer:
     @property
     def discharges_without_cases(self) -> bool:
         """Recorded empty answers or an own-flow exemption leave nothing to run."""
-        return self.verdict in {NO_OBLIGATION, DECLARED_NONE, NOT_REQUIRED}
+        return self.verdict in {NO_OBLIGATION, DECLARED_NONE, NOT_REQUIRED, PLAN_GROUPS}
 
 
 def _post_deploy(rows: Iterable[Mapping[str, Any]]) -> list[dict[str, Any]]:
@@ -196,6 +199,17 @@ def member_post_deploy_answer(
     member_item_id = subject.get("member_item_id")
     if member_item_id is None:
         return PostDeployAnswer(UNANSWERED)
+    from yoke_core.domain.deployment_qa_plan_groups import (
+        member_plan_ids,
+        run_environment_id,
+    )
+
+    if member_plan_ids(
+        conn, int(member_item_id), run_environment_id(conn, str(subject["id"]))
+    ):
+        return PostDeployAnswer(
+            PLAN_GROUPS, ("its post-deploy plans run once for the release as plan groups",)
+        )
     answer = answer_for_item(conn, int(member_item_id))
     if answer.unanswered:
         from yoke_core.domain.carried_member_qa_obligation import (

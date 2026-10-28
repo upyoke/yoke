@@ -164,6 +164,17 @@ def stage_wait_message(
     )
 
 
+def route_phrase(route: str) -> str:
+    """Who a run-scoped notice reached, in the words its body uses."""
+    from yoke_core.domain.deployment_run_driver_notice import CREATOR
+
+    if route == DRIVER:
+        return "its live driver"
+    if route == CREATOR:
+        return "the session that started it (no driver is attached to the run)"
+    return "the project's steering seat (no driver or starting session is live)"
+
+
 def run_stage_wait_message(
     *,
     run_id: str,
@@ -176,11 +187,7 @@ def run_stage_wait_message(
 ) -> str:
     """The run-scoped counterpart to :func:`stage_wait_message`."""
     context = _execution_context(target_tier=target_tier, revision=revision)
-    addressed = (
-        "its live driver"
-        if route == DRIVER
-        else "the project's steering seat (no driver is attached to the run)"
-    )
+    addressed = route_phrase(route)
     return (
         f"Deployment run {run_id} reached run-scoped QA stage {stage_name!r} "
         f"for {context}. Reaching {addressed}: the deploy driver owns this "

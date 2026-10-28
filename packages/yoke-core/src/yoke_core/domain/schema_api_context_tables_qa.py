@@ -86,6 +86,7 @@ QA_TABLES: dict[str, dict] = {
             ("rebind_endpoint_delta_json", "TEXT"),
             ("wake_path", "TEXT"),
             ("wake_evidence", "TEXT"),
+            ("covered_item_ids", "TEXT"),
             ("created_at", "TIMESTAMPTZ"),
         ],
         "notes": (
@@ -98,11 +99,10 @@ QA_TABLES: dict[str, dict] = {
             "qa_simulation_triage.triage_discharge_sql reference missing columns. "
             "Deployment QA test fixtures use "
             "runtime.api.fixtures.completed_delivery.seed_selected_requirement_run; "
-            "the stage environment fixture is "
-            "runtime.api.domain.test_deployment_qa_stage_execution._environment, "
+            "the stage environment fixture is runtime.api.domain.test_deployment_qa_stage_execution._environment, "
             "not test_deployment_qa_admission_execution._environment. "
-            "Plan detail reads use qa_plan_detail.get_plan(conn, plan_id=...); "
-            "the guessed qa_plan_detail.plan_detail helper does not exist. "
+            "Plan detail reads use qa_plan_detail.get_plan(conn, plan_id=...), not plan_detail. "
+            "covered_item_ids lists the run members a closed item-qa plan group answered. "
             "QA cases declare target_envs as a JSON list; each environment "
             "materializes a separate target_env obligation and done requires every target. "
             "qa_plan_cases.stage_reason (creates_or_destroys_data or "

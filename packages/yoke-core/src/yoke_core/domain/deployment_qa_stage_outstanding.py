@@ -302,6 +302,14 @@ def _evaluate(
             blocker_counts.append(len(member_lines))
             member_states.append(state)
             lines.extend(member_lines)
+    if stage.get("scope") == "item" and not (stop_at_first_waiting and lines):
+        from yoke_core.domain.deployment_qa_plan_group_writes import group_blockers
+
+        for label, state, blockers in group_blockers(conn, run_id, stage_name):
+            waiting_members.append(None)  # a plan group: memberless
+            blocker_counts.append(len(blockers))
+            member_states.append(state)
+            lines.extend(f"{label}: {reason}" for reason in blockers)
     return QaStageOutstanding(
         lines=tuple(lines),
         subjects=len(members),

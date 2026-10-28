@@ -22,6 +22,7 @@ from yoke_core.domain.deployment_qa_direct_case_target import (
 from yoke_core.domain.post_deploy_verification_answer import (
     cases_not_selected_refusal,
     NOT_REQUIRED,
+    PLAN_GROUPS,
     member_post_deploy_answer,
 )
 from yoke_core.domain.qa_plan_case_definition import snapshot_fan_out
@@ -121,6 +122,8 @@ def materialize_subject(
                 raise QaCasesNotSelectedError(cases_not_selected_refusal())
             if answer.verdict == NOT_REQUIRED:
                 not_required = answer.reasons
+            elif answer.verdict == PLAN_GROUPS:
+                pass
             else:
                 declared_none = answer.reasons
         existing.extend(bound_direct)

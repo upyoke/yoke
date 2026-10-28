@@ -9,11 +9,6 @@ from yoke_core.domain.deployment_requirement_snapshots import _plan_snapshot
 from yoke_core.domain.deployment_qa_source_plan_refresh import source_refreshed_plan
 from yoke_core.domain.db_helpers import query_rows
 from yoke_core.domain.qa_obligation_settlement import unretracted_requirement_sql
-from yoke_core.domain.qa_plan_attachment_reads import retracted_item_plan_ids
-from yoke_core.domain.qa_deployment_member_attached_plans import (
-    attached_member_plan_ids,
-    stage_environment_id_for_plan_selection,
-)
 
 
 Refresh = Callable[[dict[str, Any]], dict[str, Any]]
@@ -38,18 +33,19 @@ def requirement_applies(
 def member_requirements(
     conn: Any, subject: Mapping[str, Any], *, target: Mapping[str, Any]
 ) -> list[dict[str, Any]]:
-    """Read frozen content, while honoring later source/attachment withdrawals."""
+    """Read frozen item cases, while honoring later source withdrawals."""
     snapshot = subject.get("member_snapshot")
     if not isinstance(snapshot, Mapping):
         return []
     requirements = [
         dict(requirement)
         for requirement in snapshot.get("requirements") or []
-        if isinstance(requirement, Mapping) and requirement_applies(requirement, target)
+        if isinstance(requirement, Mapping)
+        and requirement.get("plan_id") is None
+        and requirement_applies(requirement, target)
     ]
     if not requirements:
         return []
-    withdrawn_plans = retracted_item_plan_ids(conn, int(subject["member_item_id"]))
     ids = tuple(int(requirement["id"]) for requirement in requirements)
     from yoke_core.domain.deployment_qa_presentation_facts import (
         withdrawn_requirement_ids,
@@ -68,7 +64,6 @@ def member_requirements(
         requirement
         for requirement in requirements
         if int(requirement["id"]) not in withdrawn_ids
-        and requirement.get("plan_id") not in withdrawn_plans
     ]
 
 
@@ -79,76 +74,6 @@ def _flow_plan(subject: Mapping[str, Any], refresh: Refresh) -> list[dict[str, A
         for selection in subject["flow_snapshot"].get("selections") or []
         if isinstance(selection, Mapping) and str(selection.get("stage") or "") == stage
     ]
-
-
-def _member_plans(
-    conn: Any,
-    subject: Mapping[str, Any],
-    *,
-    target: Mapping[str, Any],
-    refresh: Refresh,
-) -> list[dict[str, Any]]:
-    snapshot = subject.get("member_snapshot")
-    if not isinstance(snapshot, Mapping):
-        return []
-    stage_environment_id = stage_environment_id_for_plan_selection(conn, target)
-    withdrawn_plans = retracted_item_plan_ids(conn, int(subject["member_item_id"]))
-    selected: list[dict[str, Any]] = []
-    for value in snapshot.get("plans") or []:
-        if not isinstance(value, Mapping):
-            continue
-        # A correction keeps its complete contract, but answers the original
-        # group rather than selecting an additional standalone obligation.
-        if value.get("replacement_scopes"):
-            continue
-        from yoke_core.domain.deployment_qa_snapshot_selection import (
-            require_complete_snapshot,
-        )
-
-        attachment = value.get("attachment")
-        plan = value.get("plan")
-        if not isinstance(attachment, Mapping) or not isinstance(plan, Mapping):
-            continue
-        if str(attachment.get("qa_phase") or "") != "post_deploy":
-            continue
-        if int(plan["id"]) in withdrawn_plans:
-            continue
-        require_complete_snapshot(value)
-        value = refresh(dict(value))
-        from yoke_core.domain.qa_plan_case_targets import (
-            case_applies_to_target,
-            case_target_envs,
-        )
-
-        from yoke_core.domain.deployment_qa_snapshot_selection import (
-            plan_matches_target,
-        )
-
-        default_matches = plan_matches_target(conn, plan, target, stage_environment_id)
-        cases = [
-            case
-            for case in value.get("cases", ())
-            if case_applies_to_target(case, target)
-            and (case_target_envs(case) or default_matches)
-        ]
-        if cases:
-            selected.append({**dict(value), "cases": cases})
-    return selected
-
-
-def _correction_plan_ids(subject: Mapping[str, Any]) -> set[int]:
-    """Plans frozen as corrections, so a live attachment is not a missing selection."""
-    snapshot = subject.get("member_snapshot")
-    if not isinstance(snapshot, Mapping):
-        return set()
-    selected: set[int] = set()
-    for value in snapshot.get("plans") or []:
-        if not isinstance(value, Mapping) or not value.get("replacement_scopes"):
-            continue
-        plan = value.get("plan")
-        if isinstance(plan, Mapping) and plan.get("id") is not None:
-            selected.add(int(plan["id"]))
-    return selected
 
 
 def frozen_stage_plans(
@@ -179,31 +104,19 @@ def frozen_stage_plans(
             return value
         return source_refreshed_plan(conn, subject, value, materialized=materialized)
 
-    frozen = [
-        *_flow_plan(subject, refresh),
-        *_member_plans(conn, subject, target=target, refresh=refresh),
-    ]
+    # Post-deploy plans never ride a member: they run as plan groups
+    # (:mod:`deployment_qa_plan_group_writes`).
+    frozen = _flow_plan(subject, refresh)
     selected_ids = {int(snapshot["plan"]["id"]) for snapshot in frozen}
-    selected_ids.update(_correction_plan_ids(subject))
     project_id = int(subject.get("member_project_id") or subject["project_id"])
-    wanted = {int(r["plan_id"]) for r in admitted if r.get("plan_id") is not None}
-    if subject.get("member_item_id") is not None:
-        wanted.update(
-            attached_member_plan_ids(
-                conn,
-                member_item_id=int(subject["member_item_id"]),
-                environment_id=stage_environment_id_for_plan_selection(conn, target),
-            )
-        )
+    wanted: set[int] = set()
     for snapshot in frozen:
         require_complete_snapshot(snapshot)
     declared = subject["stage"].get("cases")
     if isinstance(declared, Mapping):
         wanted.add(int(declared["plan_id"]))
     for plan_id in sorted(wanted - selected_ids):
-        if any(r.get("plan_id") == plan_id for r in admitted) or (
-            isinstance(declared, Mapping) and int(declared["plan_id"]) == plan_id
-        ):
+        if isinstance(declared, Mapping) and int(declared["plan_id"]) == plan_id:
             incomplete_snapshot(plan_id, "admitted selection has no frozen plan")
         if plan_id in materialized():
             incomplete_snapshot(

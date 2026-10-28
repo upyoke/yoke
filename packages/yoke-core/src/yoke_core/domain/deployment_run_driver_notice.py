@@ -44,12 +44,14 @@ from yoke_core.domain.merge_queue_landing_notice import STEERING
 #: primitives this mirrors, so ``STEERING`` is read from there rather than
 #: restated.
 DRIVER = "driver"
+#: No driver is attached; the live session that started the run answered.
+CREATOR = "creator"
 
 
 def resolve_run_driver_recipient(
     conn: Any, *, run_id: str, project_id: int
 ) -> tuple[str, int, str]:
-    """The run's live driver, else the project's undocumented steering seat.
+    """The run's live driver, else the live session that started it, else steering.
 
     ``("", 0, "")`` means nobody is addressable at all.
     """
@@ -63,6 +65,15 @@ def resolve_run_driver_recipient(
         actor_id = _session_actor(conn, driver.session_id)
         if actor_id is not None:
             return driver.session_id, actor_id, DRIVER
+    creator = conn.execute(
+        "SELECT s.session_id,s.actor_id FROM deployment_runs r JOIN harness_sessions s "
+        "ON s.session_id=r.created_by_session_id WHERE r.id=%s "
+        "AND s.ended_at IS NULL AND s.terminated_at IS NULL AND s.actor_id IS NOT NULL",
+        (str(run_id),),
+    ).fetchone()
+    if creator is not None:
+        values = creator if not hasattr(creator, "keys") else (creator["session_id"], creator["actor_id"])
+        return str(values[0]), int(values[1]), CREATOR
     seat = covering_seat(conn, {PROJECT_KEY: int(project_id)})
     if seat is None or seat.get("actor_id") is None:
         return "", 0, ""
@@ -205,6 +216,7 @@ def push_member_notice(
 
 
 __all__ = [
+    "CREATOR",
     "DRIVER",
     "push_member_notice",
     "push_run_scoped_notice",

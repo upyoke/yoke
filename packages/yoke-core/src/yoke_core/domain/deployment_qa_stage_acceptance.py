@@ -137,13 +137,6 @@ def stage_acceptance(
     on blocker text, or by walking the ladder twice -- is how the two
     surfaces start disagreeing about what "accepted" means.
     """
-    from yoke_core.domain.deployment_qa_shared_acceptance import (
-        shared_member_acceptance,
-    )
-
-    shared = shared_member_acceptance(conn, subject, target, acceptance_qa_kind)
-    if shared is not None:
-        return shared
     run_id = str(subject["id"])
     stage_name = str(subject["stage"]["name"])
     member_item_id = subject.get("member_item_id")

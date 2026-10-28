@@ -19,7 +19,6 @@ _MEMBER_WRITE_SAVEPOINT = "yoke_member_qa_write"
 
 
 def _write_subject(conn, stage_read, *, member, replaced_requirement_ids):
-    from yoke_core.domain.deployment_qa_shared_duplicates import retire_member_copies
     from yoke_core.domain.deployment_qa_snapshot_selection import freeze_selected_plans
     from yoke_core.domain.deployment_qa_subject_materialization import (
         materialize_subject,
@@ -27,60 +26,17 @@ def _write_subject(conn, stage_read, *, member, replaced_requirement_ids):
 
     if stage_read.selected_admission is not None:
         return stage_read.selected_admission
-    subject, target = stage_read.subject, stage_read.target
-    freeze_selected_plans(conn, subject, stage_read.snapshots)
-
-    def write(group, group_target, admitted, snapshots):
-        return materialize_subject(
-            conn,
-            subject=group,
-            target=group_target,
-            admitted=admitted,
-            snapshots=snapshots,
-            commit=False,
-            replaced_requirement_ids=replaced_requirement_ids,
-        )
-
-    if not stage_read.shared:
-        return materialize_subject(
-            conn,
-            subject=subject,
-            target=target,
-            admitted=stage_read.admitted,
-            snapshots=stage_read.snapshots,
-            commit=False,
-            replaced_requirement_ids=replaced_requirement_ids,
-            withdrawn_discharge=stage_read.withdrawn_discharge,
-        )
-    results = []
-    for snapshot, group, group_target, members in stage_read.shared:
-        results.append(write(group, group_target, [], [snapshot]))
-        retire_member_copies(
-            conn,
-            group,
-            group_target,
-            [
-                *results[-1]["created_requirement_ids"],
-                *results[-1]["existing_requirement_ids"],
-            ],
-            members=members,
-        )
-    for group, group_target, snapshot in stage_read.corrections:
-        results.append(write(group, group_target, [], [snapshot]))
-    if stage_read.private or stage_read.private_snapshots:
-        results.append(
-            write(subject, target, stage_read.private, stage_read.private_snapshots)
-        )
-    return {
-        **results[0],
-        "deployment_member_item_id": member,
-        "created_requirement_ids": [
-            r for part in results for r in part["created_requirement_ids"]
-        ],
-        "existing_requirement_ids": [
-            r for part in results for r in part["existing_requirement_ids"]
-        ],
-    }
+    freeze_selected_plans(conn, stage_read.subject, stage_read.snapshots)
+    return materialize_subject(
+        conn,
+        subject=stage_read.subject,
+        target=stage_read.target,
+        admitted=stage_read.admitted,
+        snapshots=stage_read.snapshots,
+        commit=False,
+        replaced_requirement_ids=replaced_requirement_ids,
+        withdrawn_discharge=stage_read.withdrawn_discharge,
+    )
 
 
 def write_prepared_stage(

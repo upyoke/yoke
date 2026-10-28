@@ -187,12 +187,7 @@ def _settle_reads(
     stage_name: str,
     member_item_id: int | None,
 ) -> Any:
-    """An answer, a passed subject owing its acceptance write, or shared parts."""
-    from yoke_core.domain.deployment_qa_shared_acceptance import shared_member_reads
-
-    shared = shared_member_reads(conn, subject, target)
-    if shared is not None:
-        return shared
+    """An answer, or a passed subject owing its acceptance write."""
     current_target_digest = target_authority.target_digest(target)
     # Settle against the frozen target recorded on the run, never a live
     # environment snapshot whose URL or settings may have moved since.

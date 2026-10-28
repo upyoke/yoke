@@ -81,15 +81,7 @@ def settle_execution(conn: Any, execution: Mapping[str, Any]) -> dict[str, Any] 
             "stage's cases against its frozen target"
         )
     if subject.get("shared_plan"):
-        from yoke_core.domain.deployment_qa_shared_acceptance import settle_shared_group
-
-        result = settle_shared_group(
-            conn, subject, deployment_qa_execution_target(conn, subject)
-        )
-        from yoke_core.domain.deployment_qa_shared_wait import wake_shared_stage_waiters
-
-        wake_shared_stage_waiters(conn, execution)
-        return result
+        return settle_plan_group(conn, subject)
     return settle_subject(
         conn,
         run_id=run_id,
@@ -99,6 +91,35 @@ def settle_execution(conn: Any, execution: Mapping[str, Any]) -> dict[str, Any] 
 
 
 SETTLED_OUTCOMES = frozenset({"passed", "discharged", "rejected", "blocked"})
+
+
+def settle_plan_group(conn: Any, subject: Mapping[str, Any]) -> dict[str, Any]:
+    """Settle one plan group; a failure tells the run's session, never a member."""
+    from yoke_core.domain.deployment_qa_plan_group_dispatch import (
+        notify_plan_group_failure,
+        settle_group,
+    )
+    from yoke_core.domain.deployment_qa_plan_groups import group_for_target
+
+    run_id, stage = str(subject["id"]), str(subject["stage"]["name"])
+    status = settle_group(conn, subject)
+    outcome = str(status.get("outcome") or "")
+    if outcome == "blocked":
+        group = group_for_target(conn, run_id, subject["shared_target"])
+        if group is not None:
+            notify_plan_group_failure(
+                conn, run_id=run_id, stage_name=stage, group=group,
+                project_id=int(status_project_id(conn, run_id)),
+                reasons=list(status.get("reasons") or ()),
+                item_refs=lambda member: render_item_ref(conn, member),
+            )
+        return status
+    if outcome not in SETTLED_OUTCOMES:
+        return status
+    return continue_settled_stage(
+        conn, run_id=run_id, stage=stage, member=None, status=status,
+        released=False, item_scoped=True,
+    )
 
 
 def settle_subject(
@@ -163,8 +184,14 @@ def continue_settled_stage(
     member: int | None,
     status: dict[str, Any],
     released: bool,
+    item_scoped: bool = False,
 ) -> dict[str, Any]:
-    """Request the run's continuation after a subject settled, or report why not."""
+    """Request the run's continuation after a subject settled, or report why not.
+
+    ``item_scoped`` marks a plan group: memberless, but its stage still waits
+    on members and other groups before the run continues.
+    """
+    item_scoped = item_scoped or member is not None
     outcome = str(status.get("outcome") or "")
     completion_failure = ""
     if released or outcome in {"passed", "discharged"}:
@@ -175,9 +202,7 @@ def continue_settled_stage(
         # A member's stage is read once: while a sibling still owes QA the
         # run cannot complete, and once none does completion skips the stage.
         waiting = (
-            stage_waiting(conn, run_id=run_id, stage=stage)
-            if member is not None
-            else False
+            stage_waiting(conn, run_id=run_id, stage=stage) if item_scoped else False
         )
         if waiting:
             # One member passing is report state; notify only when the
@@ -193,7 +218,7 @@ def continue_settled_stage(
                 conn,
                 run_id,
                 notify_recovery=False,
-                accepted_qa_stage=stage if member is not None else "",
+                accepted_qa_stage=stage if item_scoped else "",
             )
             if attempt.completed:
                 return status

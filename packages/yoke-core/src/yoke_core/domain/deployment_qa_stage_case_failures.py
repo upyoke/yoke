@@ -149,8 +149,9 @@ def case_failures(
 ) -> list[CaseFailure]:
     """Every blocking case this subject cannot accept, each with its kind.
 
-    A shared-plan group has no member, so ``shared_plan_id`` is what keeps its
-    lookups on its own rows rather than every memberless row in the stage.
+    A plan group (``shared_plan_id`` set) is keyed by its own target digest,
+    which never moves, so it has no recorded-elsewhere fallback: another
+    digest of the same plan is another group.
     """
     rows = scoped_cases(
         conn,
@@ -159,8 +160,7 @@ def case_failures(
         member_item_id=member_item_id,
         execution_target_digest=execution_target_digest,
     )
-    if not rows:
-        plan_scope = "" if shared_plan_id is None else "AND plan_id=%s "
+    if not rows and shared_plan_id is None:
         from yoke_core.domain.deployment_qa_presentation_facts import (
             subject_requirement_rows,
         )
@@ -174,7 +174,6 @@ def case_failures(
                 and row["method_id"] is not None
                 and row["blocking_mode"] == "blocking"
                 and str(row["execution_target_digest"] or "") != ""
-                and (shared_plan_id is None or row["plan_id"] == shared_plan_id)
             ]
         else:
             recorded = [
@@ -184,7 +183,7 @@ def case_failures(
                     "SELECT id,plan_case_key FROM qa_requirements "
                     "WHERE deployment_run_id=%s AND deployment_stage=%s "
                     "AND COALESCE(deployment_member_item_id,0)=%s "
-                    f"{plan_scope}AND {unretracted_requirement_sql(conn)} "
+                    f"AND {unretracted_requirement_sql(conn)} "
                     "AND method_id IS NOT NULL AND blocking_mode='blocking' "
                     "AND COALESCE(execution_target_digest,'')<>'' "
                     "ORDER BY id",
@@ -192,15 +191,12 @@ def case_failures(
                         run_id,
                         stage_name,
                         member_item_id or 0,
-                        *(() if shared_plan_id is None else (shared_plan_id,)),
                     ),
                 )
             ]
         if recorded:
             if member_item_id is not None:
                 owner = f"member {render_item_ref(conn, member_item_id)}"
-            elif shared_plan_id is not None:
-                owner = f"shared plan {shared_plan_id}"
             else:
                 owner = "run-level subject"
             named = ", ".join(

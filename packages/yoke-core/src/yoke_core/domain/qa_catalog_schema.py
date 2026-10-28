@@ -171,6 +171,7 @@ _REQUIREMENT_COLUMNS = (
     ("rebind_endpoint_delta_json", "TEXT"),
     ("wake_path", "TEXT"),  # see yoke_contracts.qa_case_wake_path
     ("wake_evidence", "TEXT"),
+    ("covered_item_ids", "TEXT"),  # members a closed item-qa plan group answered
 )
 
 _PLAN_COLUMNS = (

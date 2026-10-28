@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any
 
 from yoke_core.domain.deployment_qa_presentation_facts import run_presentation
@@ -82,29 +82,34 @@ class _StageRead:
     target: dict
     admitted: list
     snapshots: list
-    # (snapshot, group subject, group target, members attaching the group)
-    shared: list = field(default_factory=list)
-    corrections: list = field(default_factory=list)
-    private: list = field(default_factory=list)
-    private_snapshots: list = field(default_factory=list)
     # Whether a member owing no case withdrew every group it still owed.
     withdrawn_discharge: bool | None = None
     selected_admission: dict | None = None
 
 
-def _plans_with_member_copies(conn, run_id, stage, plan_ids) -> set[int]:
-    """Shared plans whose unsettled member copies a group write would retire."""
-    from yoke_core.domain.qa_obligation_settlement import settled_obligation_sql
+def stage_subject(conn, *, run_id, stage_name, member, plan, require_active=True):
+    """A member's subject, or at an item stage with no member, a plan's open group."""
+    from yoke_core.domain.deployment_qa_stage_contract import (
+        deployment_qa_stage_subject,
+    )
 
-    if not plan_ids:
-        return set()
-    rows = conn.execute(
-        "SELECT DISTINCT q.plan_id FROM qa_requirements q WHERE q.deployment_run_id=%s "
-        "AND q.deployment_stage=%s AND q.plan_id=ANY(%s) "
-        f"AND q.deployment_member_item_id IS NOT NULL AND NOT {settled_obligation_sql(conn, 'q')}",
-        (run_id, str(stage), sorted(set(plan_ids))),
-    ).fetchall()
-    return {int(row["plan_id"]) for row in rows}
+    if member is None and plan is not None:
+        from yoke_core.domain.deployment_qa_plan_group_writes import (
+            resolve_group_subject,
+        )
+
+        group = resolve_group_subject(
+            conn, run_id, stage_name, plan, require_active=require_active
+        )
+        if group is not None:
+            return group
+    return deployment_qa_stage_subject(
+        conn,
+        run_id=run_id,
+        stage_name=stage_name,
+        member_item_id=member,
+        require_active=require_active,
+    )
 
 
 @presentation_operation
@@ -128,12 +133,6 @@ def _read_stage(
         MaterializationProjection,
     )
     from yoke_core.domain.deployment_qa_plan_selection import selected_plans
-    from yoke_core.domain.deployment_qa_shared_corrections import correction_subjects
-    from yoke_core.domain.deployment_qa_shared_plans import shared_subject
-    from yoke_core.domain.deployment_qa_stage_contract import (
-        deployment_qa_stage_subject,
-    )
-
     from yoke_core.domain.deployment_qa_presentation_reads import presentation_read
 
     projection = presentation_read(
@@ -141,13 +140,21 @@ def _read_stage(
         ("qa_materialization_projection", run_id),
         lambda: MaterializationProjection(conn, run_id),
     )
-    subject = deployment_qa_stage_subject(
+    subject = stage_subject(
         conn,
         run_id=run_id,
         stage_name=deployment_stage,
-        member_item_id=deployment_member_item_id,
+        member=deployment_member_item_id,
+        plan=agent_plan,
     )
     target = deployment_qa_execution_target(conn, subject)
+    if subject.get("shared_plan"):
+        from yoke_core.domain.deployment_qa_plan_group_writes import group_snapshots
+
+        snapshots = group_snapshots(
+            conn, subject, target, replacement_keys, replacement_scopes
+        )
+        return _StageRead(projection, subject, target, [], snapshots)
     if agent_plan is not None and not replacement_keys and not replaced_requirement_ids:
         from yoke_core.domain.deployment_qa_admitted_plan_selection import (
             admitted_plan_selection,
@@ -161,19 +168,15 @@ def _read_stage(
                 projection, subject, target, [], [], selected_admission=selected
             )
     admitted = member_requirements(conn, subject, target=target)
-    snapshots = (
-        [subject["shared_snapshot"]]
-        if subject.get("shared_plan")
-        else selected_plans(
-            conn,
-            subject,
-            agent_plan=agent_plan,
-            target=target,
-            admitted=admitted,
-            allow_empty=True,
-            replacement_keys=replacement_keys,
-            replacement_scopes=replacement_scopes,
-        )
+    snapshots = selected_plans(
+        conn,
+        subject,
+        agent_plan=agent_plan,
+        target=target,
+        admitted=admitted,
+        allow_empty=True,
+        replacement_keys=replacement_keys,
+        replacement_scopes=replacement_scopes,
     )
     read = _StageRead(projection, subject, target, admitted, snapshots)
     if not snapshots and not any(r.get("method_id") for r in admitted):
@@ -182,36 +185,6 @@ def _read_stage(
         )
 
         read.withdrawn_discharge = withdrawn_member_discharge(conn, subject, target)
-    shared = projection.shareable(subject, target, snapshots)
-    if not shared:
-        return read
-    copied = _plans_with_member_copies(
-        conn, run_id, deployment_stage, [int(s["plan"]["id"]) for s in shared]
-    )
-    for snapshot in shared:
-        group = shared_subject(subject, target, snapshot)
-        group_target = deployment_qa_execution_target(conn, group)
-        # Only a plan with member copies left to retire asks every member.
-        members = (
-            projection.group_members(group, group_target)
-            if int(snapshot["plan"]["id"]) in copied
-            else []
-        )
-        read.shared.append((snapshot, group, group_target, members))
-    read.private = [
-        r for r in admitted if r.get("plan_id") is None and r.get("method_id")
-    ]
-    corrections, read.private_snapshots = correction_subjects(
-        conn,
-        subject,
-        [snapshot for snapshot in snapshots if snapshot not in shared],
-        replaced_requirement_ids,
-        projection=projection,
-    )
-    read.corrections = [
-        (group, deployment_qa_execution_target(conn, group), snapshot)
-        for group, snapshot in corrections
-    ]
     return read
 
 
