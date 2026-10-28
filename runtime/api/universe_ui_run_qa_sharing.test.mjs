@@ -2,14 +2,22 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 
-import { FakeDocument, byClass } from "./universe_ui_dom_test_support.mjs";
+import {
+  FakeDocument,
+  allNodes,
+  byClass,
+  ownTextContent,
+} from "./universe_ui_dom_test_support.mjs";
 import { member, readingContext } from "./universe_ui_carried_item_test_support.mjs";
 import {
   appendCarriedItemEvidence,
   loadCarriedItemEvidence,
 } from "../../packages/yoke-core/src/yoke_core/ui/static/universe_carried_item_evidence.js";
 import { runQaSection } from "../../packages/yoke-core/src/yoke_core/ui/static/universe_run_qa.js";
-import { appendSharedPlanPointers } from "../../packages/yoke-core/src/yoke_core/ui/static/run_qa_sharing.js";
+import {
+  appendSharedPlanPointers,
+  sharedOnlyVerdict,
+} from "../../packages/yoke-core/src/yoke_core/ui/static/run_qa_sharing.js";
 import { appendRemovedMembers } from "../../packages/yoke-core/src/yoke_core/ui/static/universe_run_removed_members.js";
 import {
   fillRunQaReviewChecks,
@@ -82,7 +90,7 @@ test("Run QA draws a shared plan once, labelled, and counts each live check once
   assert.match(text(byClass(section, "run-qa-history")[0]), /Earlier checks \(1\)/);
 });
 
-test("items point at the shared plan and keep a tile when shared-only", async () => {
+test("a shared-only item shows its shared QA once; an item with own checks points at it", async () => {
   const documentNode = new FakeDocument();
   const context = readingContext(documentNode, client());
   const items = ["YOK-3935", "YOK-3966"].map((ref, at) => ({
@@ -90,20 +98,20 @@ test("items point at the shared plan and keep a tile when shared-only", async ()
   }));
   const facts = await loadCarriedItemEvidence(context, items);
   assert.deepEqual(facts.sharing.get(RUN), sharing);
-  const host = documentNode.createElement("div");
-  for (const item of items) {
+  const [sharedOnlyHost, ownHost] = items.map((item) => {
+    const host = documentNode.createElement("div");
     appendCarriedItemEvidence(context, host, { item, runId: RUN, facts });
-  }
-  const pointers = byClass(host, "item-qa-shared-pointer").map(text);
-  assert.deepEqual(pointers, [
-    "shares Installer campaign (2) · Covers: YOK-3935, YOK-3966 — see Run QA",
-    "shares Installer campaign (2) · Covers: YOK-3935, YOK-3966 — see Run QA",
-  ]);
-  const verdicts = byClass(host, "run-verdict").map(text);
-  assert.deepEqual(verdicts, ["0 own checks, shares Installer campaign", "1 of 1 passed"]);
-  const sharedOnly = byClass(host, "item-qa-section").find((section) =>
-    byClass(section, "run-verdict").some((node) =>
-      text(node) === "0 own checks, shares Installer campaign"));
+    return host;
+  });
+  const naming = allNodes(sharedOnlyHost).filter((node) =>
+    ownTextContent(node).includes("Installer campaign")).map(ownTextContent);
+  assert.deepEqual(naming, ["Shared: Installer campaign — see Run QA"]);
+  assert.equal(byClass(sharedOnlyHost, "item-qa-shared-pointer").length, 0);
+  assert.deepEqual(byClass(ownHost, "run-verdict").map(text), ["1 of 1 passed"]);
+  assert.equal(byClass(ownHost, "run-qa-check").length, 1);
+  assert.deepEqual(byClass(ownHost, "item-qa-shared-pointer").map(text),
+    ["Shared: Installer campaign — see Run QA"]);
+  const [sharedOnly] = byClass(sharedOnlyHost, "item-qa-section");
   const css = readFileSync(new URL(
     "../../packages/yoke-core/src/yoke_core/ui/static/universe_carried_item_evidence.css",
     import.meta.url,
@@ -111,6 +119,20 @@ test("items point at the shared plan and keep a tile when shared-only", async ()
   assert.equal(sharedOnly.classList.contains("carried-item-qa-diagnostic"), true);
   assert.match(css, /\.carried-item-qa-diagnostic\s*\{[^}]*grid-column:\s*1\s*\/\s*-1/);
   assert.match(css, /\.carried-item-qa-diagnostic\s*\{[^}]*overflow-wrap:\s*anywhere/);
+});
+
+test("a shared-only tile joins several plans; pointers stay one per plan", () => {
+  const plans = [{ plan_id: 1, plan_name: "Installer campaign" },
+    { plan_id: 2, plan_name: "Setup walk" }];
+  assert.equal(sharedOnlyVerdict(plans),
+    "Shared: Installer campaign, Setup walk — see Run QA");
+  const documentNode = new FakeDocument();
+  const host = documentNode.createElement("div");
+  appendSharedPlanPointers(documentNode, host, plans);
+  assert.deepEqual(byClass(host, "item-qa-shared-pointer").map(text), [
+    "Shared: Installer campaign — see Run QA",
+    "Shared: Setup walk — see Run QA",
+  ]);
 });
 
 test("the Removed block names the checks its removal cancelled", () => {
@@ -162,6 +184,6 @@ test("a plan shared before item-qa copies it draws its cases once", () => {
   const host = documentNode.createElement("div");
   appendSharedPlanPointers(documentNode, host, pending.shared_plans);
   assert.deepEqual(byClass(host, "item-qa-shared-pointer").map(text),
-    ["shares Setup walk (2) · Covers: YOK-1, YOK-2 — see Run QA"]);
+    ["Shared: Setup walk — see Run QA"]);
   assert.equal(byClass(host, "run-qa-check").length, 0);
 });

@@ -21,9 +21,9 @@ Read decisions and delivery notices, then address messages to their intended rec
   decisions, plus each QA plan several carried items share, drawn once and
   labelled with its sharing items (**Installer campaign · Covers: PREFIX-1,
   PREFIX-2**) — before item-qa copies the plan too, when its cases read
-  **Not started**. A sharing item's Item QA shows its own checks and a pointer
-  (**shares Installer campaign (28) · Covers: PREFIX-1, PREFIX-2 — see Run
-  QA**), or **0 own checks, shares Installer campaign**. A result a takeover
+  **Not started**. A sharing item's Item QA shows its own checks and one
+  pointer per shared plan (**Shared: Installer campaign — see Run QA**); an
+  item whose every check is shared shows only that one line. A result a takeover
   carried from an earlier run links that run and does not count as this run's
   failure (**Failed in RUN · reruns at item-qa**). Both are drawn the same way: each current check reads
   **<method> · Passed** (or its actual result) with its status mark, linked to
