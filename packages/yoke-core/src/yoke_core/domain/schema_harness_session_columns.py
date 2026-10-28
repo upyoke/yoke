@@ -31,8 +31,6 @@ def apply_harness_session_columns(conn: Any) -> None:
         ("recent_item_status", "TEXT DEFAULT NULL"),
         ("recent_item_recorded_at", "TIMESTAMPTZ DEFAULT NULL"),
         ("actor_id", "INTEGER DEFAULT NULL"),
-        ("last_seen_main_sha", "TEXT DEFAULT NULL"),
-        ("last_drift_check_at", "TIMESTAMPTZ DEFAULT NULL"),
         ("executor_surface", "TEXT DEFAULT NULL"),
         ("presentation_surface", "TEXT DEFAULT NULL"),
         ("presentation_state", "TEXT DEFAULT NULL"),
