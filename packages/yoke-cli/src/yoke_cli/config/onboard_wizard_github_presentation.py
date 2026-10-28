@@ -10,17 +10,6 @@ if TYPE_CHECKING:  # pragma: no cover - typing only
     from yoke_cli.config.onboard_wizard_state import _View
 
 
-def bounded_summary(values: list[str], *, total: int | None = None) -> str:
-    """Render a terminal-sized sample without hiding the omitted count."""
-    display_limit = 4
-    actual_total = max(len(values), total or 0)
-    if not values:
-        return "none"
-    visible = ", ".join(values[:display_limit])
-    omitted = actual_total - min(len(values), display_limit)
-    return f"{visible}, and {omitted} more" if omitted > 0 else visible
-
-
 def success_message(report: Mapping[str, Any]) -> str:
     """Summarize a completed GitHub App connection."""
     identity = report.get("identity")
@@ -32,68 +21,8 @@ def success_message(report: Mapping[str, Any]) -> str:
     )
 
 
-AUTHORIZATION_SCOPE_NOTE = (
-    "The one-button Authorize page is GitHub's user authorization; it never "
-    "changes which repositories the App can see."
-)
-
-
-def installation_scope_lines(access: Mapping[str, Any]) -> list[str]:
-    """Say exactly which repositories each installation exposes, and where to change it.
-
-    An App installed on selected repositories is the usual reason a person
-    sees three of their repositories rather than all of them, so each
-    installation names its own selection and carries the GitHub settings page
-    that widens it.
-    """
-    installations = [
-        item for item in access.get("installations") or [] if isinstance(item, Mapping)
-    ]
-    repositories = [str(item) for item in access.get("repos") or [] if str(item)]
-    total = access.get("repo_count")
-    lines: list[str] = []
-    for item in installations:
-        account = str(item.get("account_login") or "").strip()
-        if not account:
-            continue
-        lines.append(f"{account}: {_installation_scope(item, access)}")
-        settings_url = str(item.get("html_url") or "").strip()
-        recommendations = repository_scope_recommendations(
-            {"access": {"installations": [item]}}
-        )
-        if recommendations:
-            lines.extend(recommendations)
-        elif settings_url:
-            lines.append(f"  Change repository access on GitHub: {settings_url}")
-    if not lines:
-        lines.append("Installed for: none")
-    lines.append(AUTHORIZATION_SCOPE_NOTE)
-    lines.append(
-        f"Repositories available: "
-        f"{total if isinstance(total, int) else len(repositories)} — "
-        f"{bounded_summary(repositories, total=total if isinstance(total, int) else None)}"
-    )
-    return lines
-
-
-def _installation_scope(item: Mapping[str, Any], access: Mapping[str, Any]) -> str:
-    """One installation's reach: suspended, all repositories, or the selected ones."""
-    if item.get("suspended"):
-        return "suspended"
-    if str(item.get("repository_selection") or "selected") == "all":
-        return "all repositories"
-    named = [
-        str(repo.get("full_name") or "")
-        for repo in access.get("repositories") or []
-        if isinstance(repo, Mapping)
-        and repo.get("installation_id") == item.get("installation_id")
-        and repo.get("full_name")
-    ]
-    return f"selected repositories — {bounded_summary(named)}"
-
-
 def success_summary_lines(report: Mapping[str, Any]) -> list[str]:
-    """Compact verified facts; the exhaustive access inventory stays optional."""
+    """Compact verified facts; yoke github status owns the full access inventory."""
     identity = report.get("identity")
     app = report.get("app")
     access = report.get("access")
