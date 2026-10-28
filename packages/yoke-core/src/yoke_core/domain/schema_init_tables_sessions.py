@@ -93,8 +93,6 @@ def create_session_tables(conn: Any) -> None:
           recent_item_id TEXT DEFAULT NULL,
           recent_item_status TEXT DEFAULT NULL,
           recent_item_recorded_at TIMESTAMPTZ DEFAULT NULL,
-          last_seen_main_sha TEXT DEFAULT NULL,
-          last_drift_check_at TIMESTAMPTZ DEFAULT NULL,
           last_tool_call_at TIMESTAMPTZ DEFAULT NULL,
           tool_call_count INTEGER NOT NULL DEFAULT 0,
           episode_started_at TIMESTAMPTZ DEFAULT NULL,

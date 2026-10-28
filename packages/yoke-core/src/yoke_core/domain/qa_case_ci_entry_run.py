@@ -9,8 +9,8 @@ check run per name, so a dispatch green can never satisfy entry — the
 adoption :mod:`yoke_core.domain.qa_case_ci_covering_run` already knows how
 to do is reachable only when the pull-request run comes *first*.
 
-Every live CI lane the gate still has to examine reuses the landing
-gate's base update step, then the runner publishes it once. For merge-queue
+Every live CI lane the gate still has to examine is brought current by
+:mod:`yoke_core.domain.lane_base_update`, then the runner publishes it once. For merge-queue
 projects the gate also opens the pull request and waits for the run that opening it produces. The landing
 step later finds the same pull request open and green and simply enqueues
 it. Per-item cost becomes one entry suite plus the train's amortized share.
@@ -22,18 +22,13 @@ train will build; a candidate a run already covers has evidence, so
 
 from __future__ import annotations
 
-import contextlib
-import subprocess
-import sys
 import time
 from pathlib import Path
 from typing import Callable, Optional
 
-from yoke_contracts.git_hook_markers import HEAD_RECORDING_SKIP_ENV
-from yoke_cli.config import credentialed_git
-from yoke_core.domain import process_group_reaping
 from yoke_core.domain import (
     authored_file_merge_preflight,
+    lane_base_update,
     qa_case_ci_covering_run,
     qa_case_ci_lane,
     qa_case_ci_progress,
@@ -76,110 +71,6 @@ def base_branch(project: str, checkout: Path) -> str:
     return _get_base_branch(_resolve_default_branch(project), checkout) or "main"
 
 
-def _git(checkout: Path, *args: str, timeout: int = 120) -> subprocess.CompletedProcess:
-    """Run one git command in its own reaping process group, credentialed.
-
-    A rebase spawns helpers a plain kill leaves behind, so execution stays
-    with the reaping runner; only the environment is delegated.
-    """
-    argv = ["-C", str(checkout), *args]
-    skip = {HEAD_RECORDING_SKIP_ENV: "1"} if args[:1] == ("rebase",) else {}
-    with credentialed_git.git_environment(argv, cwd=str(checkout)) as base:
-        return process_group_reaping.run_in_process_group(
-            ["git", *argv],
-            capture_output=True,
-            text=True,
-            timeout=timeout,
-            env={**base, **skip},
-        )
-
-
-def _merge_context(checkout: Path, *, branch: str, target: str, project: str):
-    from yoke_core.engines.merge_worktree_prepare import MergeArgs, MergeContext
-
-    return MergeContext(
-        args=MergeArgs(branch=branch, target=target),
-        repo_root=str(checkout),
-        worktree_path=str(checkout),
-        project=project,
-    )
-
-
-def rebase_lane_onto_base(
-    checkout: Path,
-    *,
-    branch: str,
-    target: str,
-    project: str,
-) -> None:
-    """Bring the lane current with ``origin/<target>`` before publication.
-
-    Uncommitted work goes through the merge engine's own safety-stash gate
-    first, so nothing a rebase would disturb is unbacked; work the gate
-    cannot classify as Yoke-managed stops the rebase rather than riding it.
-    A lane that already contains the fetched base keeps its merge topology.
-    Merge-shaped lanes merge the base; linear lanes rebase. A conflict aborts
-    and surfaces the conflicted paths, because resolving them is the session's call — the same answer the landing gives
-    when it cannot replay a branch on its own.
-    """
-    from yoke_core.engines.merge_worktree_prepare_state import (
-        _stash_classify_gate,
-    )
-
-    ctx = _merge_context(
-        checkout,
-        branch=branch,
-        target=target,
-        project=project,
-    )
-    # The gate narrates to stdout, which here is the case runner's
-    # machine-readable envelope; its narration belongs with the rest of the
-    # run's human-readable output on stderr.
-    with contextlib.redirect_stdout(sys.stderr):
-        at_risk = _stash_classify_gate(ctx)
-    if at_risk is not None:
-        raise QaCaseExecutionError(
-            f"lane {branch!r} carries uncommitted work that is not "
-            f"Yoke-managed; it is backed up in stash "
-            f"'yoke-pre-rebase-{branch}'. Commit it before running the gate "
-            f"— the gate updates the lane against {target!r} and publishes it, "
-            "so only committed work is verified."
-        )
-    fetched = _git(
-        checkout,
-        "fetch",
-        "--quiet",
-        "--no-tags",
-        "origin",
-        target,
-        timeout=300,
-    )
-    if fetched.returncode != 0:
-        detail = (fetched.stderr or fetched.stdout or "").strip()
-        raise QaCaseExecutionError(
-            f"could not fetch origin/{target} before updating {branch!r}: "
-            f"{detail or 'fetch failed'}"
-        )
-    contains_base = _git(
-        checkout,
-        "merge-base",
-        "--is-ancestor",
-        f"origin/{target}",
-        "HEAD",
-    )
-    if contains_base.returncode == 0:
-        return
-    if contains_base.returncode != 1:
-        detail = (contains_base.stderr or contains_base.stdout or "").strip()
-        raise QaCaseExecutionError(
-            f"could not compare {branch!r} with origin/{target} before "
-            f"updating: {detail or 'merge-base failed'}"
-        )
-    from yoke_core.domain.qa_case_ci_lane_update import update_lane
-
-    update_lane(checkout, branch=branch, target=target, git=_git)
-
-
 def prepare_ci_lane(
     checkout: Path,
     *,
@@ -197,12 +88,15 @@ def prepare_ci_lane(
     if not lane_is_checked_out:
         return base_branch(project, checkout) if queue_routed else None
     target = base_branch(project, checkout)
-    rebase_lane_onto_base(
-        checkout,
-        branch=branch,
-        target=target,
-        project=project,
-    )
+    try:
+        lane_base_update.bring_lane_current(
+            checkout,
+            branch=branch,
+            target=target,
+            project=project,
+        )
+    except lane_base_update.LaneBaseUpdateRefused as exc:
+        raise QaCaseExecutionError(str(exc)) from exc
     if queue_routed:
         authored_file_merge_preflight.enforce_authored_file_limit(
             checkout, target=target
@@ -239,7 +133,7 @@ def open_landing_pull_request(
         ensure_landing_pull_request,
     )
 
-    ctx = _merge_context(
+    ctx = lane_base_update.merge_context(
         checkout,
         branch=branch,
         target=target,
@@ -312,6 +206,5 @@ __all__ = [
     "find_entry_run",
     "open_landing_pull_request",
     "prepare_ci_lane",
-    "rebase_lane_onto_base",
     "routes_through_merge_queue",
 ]

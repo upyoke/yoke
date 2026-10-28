@@ -7,7 +7,7 @@ from unittest.mock import Mock
 
 import pytest
 
-from yoke_core.domain import qa_case_ci_entry_run as entry
+from yoke_core.domain import lane_base_update
 from yoke_core.domain.qa_case_execution import QaCaseExecutionError
 from yoke_core.engines import merge_worktree
 from yoke_core.engines.merge_worktree_context import MergeArgs, MergeContext
@@ -70,16 +70,19 @@ def test_base_update_preserves_resolutions(tmp_path, monkeypatch, driver, shape)
         return git(repo, *args, check=False)
 
     if driver == "qa":
-        monkeypatch.setattr(entry, "_git", lambda checkout, *a, **kw: run(*a))
+        monkeypatch.setattr(lane_base_update, "git", lambda checkout, *a, **kw: run(*a))
         monkeypatch.setattr(
             "yoke_core.engines.merge_worktree_prepare_state._stash_classify_gate",
             lambda ctx: None,
         )
 
         def update():
-            entry.rebase_lane_onto_base(
-                repo, branch="lane", target="main", project="widgets"
-            )
+            try:
+                lane_base_update.bring_lane_current(
+                    repo, branch="lane", target="main", project="widgets"
+                )
+            except lane_base_update.LaneBaseUpdateRefused as exc:
+                raise QaCaseExecutionError(str(exc)) from exc
     else:
         monkeypatch.setattr(merge_worktree, "_run_git", lambda args, **kw: run(*args))
         monkeypatch.setattr(merge_worktree, "_print", Mock())

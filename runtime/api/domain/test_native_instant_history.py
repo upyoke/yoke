@@ -91,7 +91,10 @@ def test_history_freezes_complete_roster_and_serving_floor():
     assert len({table for table, _ in history.COLUMNS}) == 126
     assert set(history.COLUMNS) == set(STORED_INSTANT_COLUMNS) - (
         BORN_NATIVE_AFTER_HISTORY
-    ) | {("epic_tasks", "scope_finalized_at")}  # converted here, dropped by 0084
+    ) | {
+        ("epic_tasks", "scope_finalized_at"),  # converted here, dropped by 0084
+        ("harness_sessions", "last_drift_check_at"),  # converted here, dropped by 0093
+    }
     assert history.MINIMUM_SERVING_VERSION == "next-release"
 
 

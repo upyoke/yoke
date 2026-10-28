@@ -5,9 +5,9 @@ summaries while preserving all other output in the raw capture.
 
 Usage::
 
-    # The change-scoped check. For a project that declares its CI workflow
-    # this pushes the lane commit and runs the selection on CI; the machine
-    # runs sessions, not tests.
+    # The change-scoped check. A lane is first brought current with
+    # origin/<base> (watch_pytest_lane). With a declared CI workflow it then
+    # pushes the lane commit and runs the selection on CI.
     yoke watch pytest --impacted main --bounded
 
     # Small targeted local check expected to finish in about one minute
@@ -54,6 +54,7 @@ from yoke_core.tools import (
     gate_admission,
     pytest_remote_selection,
     pytest_worker_budget,
+    watch_pytest_lane,
     watch_pytest_remote,
 )
 from yoke_core.tools._pytest_parallel import (
@@ -174,6 +175,10 @@ def main(argv: Sequence[str] | None = None, *, prog: str = DEFAULT_PROG) -> int:
         return refuse(_watch_pytest_args.WIDEN_WITHOUT_IMPACTED, 2)
     elif ns.bounded:
         return refuse(_watch_pytest_args.BOUNDED_WITHOUT_IMPACTED, 2)
+    if ns.impacted is not None and not ns.print_streaming_pair:
+        lane_refusal = watch_pytest_lane.bring_lane_current(run_root, progress_path)
+        if lane_refusal is not None:
+            return refuse(lane_refusal, pytest_remote_selection.EXIT_REFUSED)
 
     route = _route(ns, pytest_args, run_root)
     if isinstance(route, pytest_remote_selection.Refusal):

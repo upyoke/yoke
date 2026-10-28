@@ -264,8 +264,13 @@ Per-project extras, groups, and test-root trees are declared on the
 
 Full CI uses the project's declared test roots on the pull request, combined
 merge-group head and merged commit, with exact-tree reuse where proved.
-Iterate through `yoke watch pytest --impacted main --bounded`; committed
-CI-capable lanes execute that selection off-machine. Local checks must be
+Iterate through `yoke watch pytest --impacted main --bounded`. Each run first
+brings the lane current with `origin/<base>` through the same update the
+full-CI gate runs (`yoke_core.domain.lane_base_update`): merge-shaped lanes
+merge the base, linear lanes rebase, and uncommitted work or a conflict
+refuses with a named reason (`lane_uncommitted_work`, `lane_rebase_conflict`,
+`lane_merge_conflict`) and runs no tests. Committed CI-capable lanes then
+execute the selection off-machine. Local checks must be
 small and expected to finish in about one minute. The native QA case is the
 one full execution; rerun after tree changes.
 

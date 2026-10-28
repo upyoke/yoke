@@ -79,7 +79,6 @@ STORED_INSTANT_COLUMNS: tuple[tuple[str, str], ...] = (
     ("harness_sessions", "terminated_at"),
     ("harness_sessions", "current_item_set_at"),
     ("harness_sessions", "recent_item_recorded_at"),
-    ("harness_sessions", "last_drift_check_at"),
     ("harness_sessions", "last_tool_call_at"),
     ("harness_sessions", "episode_started_at"),
     ("harness_sessions", "native_process_gone_at"),

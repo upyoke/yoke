@@ -10,8 +10,9 @@ Model: [verification](../../verification/index.md).
 ## Testing
 
 - Never put literal `PREFIX-N` item ids in tests; use variables or pattern matchers.
-- Iterate with `yoke watch pytest --impacted main --bounded`. With `ci_workflow_file` it runs on
-  CI, so commit first. `--local` is only for a check that ends in about one minute; past that,
+- Iterate with `yoke watch pytest --impacted main --bounded`. In a lane it first brings the lane
+  current with origin; uncommitted work or a conflict refuses with the reason and fix and runs no
+  tests. With `ci_workflow_file` it runs on CI, so commit first. `--local` is only for a check that ends in about one minute; past that,
   interrupt it, keep the capture as incomplete, commit and run on CI.
 - `selection unbounded` means keep testing what you judge relevant; the final gate covers the
   rest. `--local --impacted main --widen` is the CI-outage fallback only.
