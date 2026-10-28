@@ -70,13 +70,8 @@ def materialize_subject(
     snapshots: list[dict],
     commit: bool = True,
     replaced_requirement_ids: frozenset[int] = frozenset(),
-    withdrawn_discharge: bool | None = None,
 ) -> dict[str, Any]:
-    """Materialize one concrete private or shared QA subject.
-
-    ``withdrawn_discharge`` is the stage read's answer, taken before the run
-    lock, to whether this member withdrew every group it still owed.
-    """
+    """Materialize one member's cases, a run subject, or one plan group."""
     from yoke_core.domain.deployment_qa_stage_materialization import (
         QaCasesNotSelectedError,
     )
@@ -112,13 +107,7 @@ def materialize_subject(
             # Recorded emptiness or the own-flow exemption settles no cases;
             # other unanswered members still wait.
             answer = member_post_deploy_answer(conn, subject)
-            from yoke_core.domain.deployment_qa_shared_copy_reads import (
-                withdrawn_member_discharge,
-            )
-
-            if withdrawn_discharge is None:
-                withdrawn_discharge = withdrawn_member_discharge(conn, subject, target)
-            if not answer.discharges_without_cases and not withdrawn_discharge:
+            if not answer.discharges_without_cases:
                 raise QaCasesNotSelectedError(cases_not_selected_refusal())
             if answer.verdict == NOT_REQUIRED:
                 not_required = answer.reasons

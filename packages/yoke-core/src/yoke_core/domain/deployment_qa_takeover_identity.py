@@ -38,58 +38,6 @@ def inherited_target(conn: Any, run_id: str, target: Mapping) -> bool:
     )
 
 
-def inherited_member_target(conn, run_id, stage_name, member):
-    """Recover a member's original destination from the shared groups it owns."""
-    from copy import deepcopy
-    from yoke_core.domain.deployment_qa_shared_plan_reads import attaching_members
-    from yoke_core.domain.qa_execution_environment_target import canonical_target
-    from yoke_core.domain.deployment_qa_presentation_facts import stage_requirement_rows
-
-    def read():
-        rows = stage_requirement_rows(conn, run_id, stage_name)
-        if rows is None:
-            rows = query_rows(
-                conn,
-                "SELECT DISTINCT execution_target_json,deployment_member_item_id FROM qa_requirements "
-                "WHERE deployment_run_id=%s AND deployment_stage=%s "
-                "AND deployment_member_item_id IS NULL AND execution_target_json IS NOT NULL",
-                (run_id, stage_name),
-            )
-        targets = {}
-        attachments = {}
-        for row in rows:
-            if (
-                row["deployment_member_item_id"] is not None
-                or not row["execution_target_json"]
-            ):
-                continue
-            raw = row["execution_target_json"]
-            target = dict(raw) if isinstance(raw, Mapping) else json.loads(str(raw))
-            shared = (target.get("deployment") or {}).get("shared_plan")
-            if not shared or not inherited_target(conn, run_id, target):
-                continue
-            plan = int(shared["plan_id"])
-            if plan not in attachments:
-                attachments[plan] = attaching_members(conn, run_id, plan)
-            for attached in attachments[plan]:
-                private = deepcopy(target)
-                private["deployment"].pop("shared_plan")
-                private["deployment"]["member_item_id"] = attached
-                targets.setdefault(attached, {})[canonical_target(private)] = private
-        return targets
-
-    targets = presentation_read(
-        conn, ("qa_inherited_member_targets", run_id, stage_name), read
-    ).get(int(member), {})
-    if len(targets) > 1:
-        raise ValueError(
-            "qa_inherited_target_ambiguous: this member owns shared QA at multiple "
-            "frozen destinations; inspect the inherited groups and explicitly resolve "
-            "their obligations before materializing another target"
-        )
-    return next(iter(targets.values()), None)
-
-
 def continued_subject(conn: Any, execution: Mapping, target: Mapping) -> dict | None:
     """Resolve moved work without demanding successor deployment acceptance.
 
@@ -100,7 +48,6 @@ def continued_subject(conn: Any, execution: Mapping, target: Mapping) -> dict | 
     if not inherited_target(conn, run_id, target):
         return None
     from yoke_core.domain.deployment_qa_stage_contract import _read_run, _run_stage
-    from yoke_core.domain.deployment_qa_shared_plan_reads import attaching_members
     from yoke_core.domain.qa_execution_environment_target import target_digest
 
     identity = target["deployment"]
@@ -119,9 +66,8 @@ def continued_subject(conn: Any, execution: Mapping, target: Mapping) -> dict | 
             "qa_execution_scope_mismatch: preserved QA does not match its stage or tenant; "
             "inspect the execution's original target before retrying"
         )
-    shared = identity.get("shared_plan")
     member = execution.get("deployment_member_item_id")
-    if member != identity.get("member_item_id") or (shared and member is not None):
+    if member != identity.get("member_item_id"):
         raise ValueError(
             "qa_execution_member_mismatch: preserved QA belongs to another member; "
             "use the execution owned by the intended item"
@@ -140,13 +86,7 @@ def continued_subject(conn: Any, execution: Mapping, target: Mapping) -> dict | 
             "qa_execution_target_unowned: the current release has no obligation for "
             "this exact frozen target; inspect the execution's recorded target"
         )
-    members = (
-        attaching_members(conn, run_id, int(shared["plan_id"]))
-        if shared
-        else [int(member)]
-        if member is not None
-        else []
-    )
+    members = [int(member)] if member is not None else []
     rows = (
         query_rows(
             conn,
@@ -159,7 +99,7 @@ def continued_subject(conn: Any, execution: Mapping, target: Mapping) -> dict | 
     )
     project_id = int((target.get("project") or {}).get("id") or 0)
     rows = [row for row in rows if int(row["project_id"]) == project_id]
-    expected_scope = "item" if member is not None or shared else "run"
+    expected_scope = "item" if member is not None else "run"
     if admitted["stage"].get("scope") != expected_scope or (
         not rows
         if expected_scope == "item"
@@ -181,14 +121,27 @@ def continued_subject(conn: Any, execution: Mapping, target: Mapping) -> dict | 
         "member_project_id": project_id if rows else None,
         "member_snapshot": snapshot if member is not None else None,
     }
-    if shared:
-        subject.update(shared_plan=shared, shared_target=dict(target))
     return subject
 
 
 def read_execution_subject(
     conn: Any, execution: Mapping, target: Mapping, *, require_active: bool
 ) -> dict:
+    run_id = str(execution["deployment_run_id"])
+    stage = str(execution["deployment_stage"])
+    if (target.get("deployment") or {}).get("shared_plan"):
+        # A plan group is found by its own group_id, wherever takeover moved it.
+        from yoke_core.domain.deployment_qa_plan_group_writes import group_subject
+        from yoke_core.domain.deployment_qa_plan_groups import group_for_target
+
+        group = group_for_target(conn, run_id, target)
+        if group is None:
+            raise ValueError(
+                f"plan_group_missing: run {run_id!r} holds no plan group for this "
+                "execution's target; read `yoke deployment-runs get "
+                f"{run_id}` and run the plan's current group"
+            )
+        return group_subject(conn, run_id, stage, group, require_active=require_active)
     continued = continued_subject(conn, execution, target)
     if continued is not None:
         return continued
@@ -196,18 +149,6 @@ def read_execution_subject(
         deployment_qa_stage_subject,
     )
 
-    from yoke_core.domain.deployment_qa_shared_plans import resolve_shared_subject
-
-    shared = (target.get("deployment") or {}).get("shared_plan")
-    if shared:
-        return resolve_shared_subject(
-            conn,
-            run_id=str(execution["deployment_run_id"]),
-            stage_name=str(execution["deployment_stage"]),
-            plan_id=int(shared["plan_id"]),
-            expected_target=target,
-            require_active=require_active,
-        )
     return deployment_qa_stage_subject(
         conn,
         run_id=str(execution["deployment_run_id"]),

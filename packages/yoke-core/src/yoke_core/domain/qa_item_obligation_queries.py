@@ -7,6 +7,14 @@ from yoke_core.domain.qa_obligation_settlement import unretracted_requirement_sq
 from yoke_core.domain.qa_requirement_pass_currency import has_current_passing_run
 
 
+#: A post-deploy plan copy an older build wrote onto an item. Plan groups
+#: answer plans now; these rows stay readable history and count in no gate.
+OLD_PLAN_COPY_SQL = (
+    "(qr.item_id IS NOT NULL AND qr.plan_id IS NOT NULL "
+    "AND qr.qa_phase='post_deploy' AND qr.deployment_run_id IS NULL)"
+)
+
+
 if TYPE_CHECKING:
     from yoke_core.domain.deployment_qa_source_obligation import UnsatisfiedBlocking
 
@@ -38,7 +46,7 @@ def unsatisfied_blocking_many(
         "SELECT qr.* FROM qa_requirements qr "
         f"WHERE (qr.item_id IN ({holes}) OR qr.deployment_member_item_id IN ({holes})) "
         "AND qr.blocking_mode = 'blocking' AND qr.waived_at IS NULL "
-        f"AND {unretracted_requirement_sql(conn, 'qr')}",
+        f"AND {unretracted_requirement_sql(conn, 'qr')} AND NOT {OLD_PLAN_COPY_SQL}",
         (*ids, *ids),
     ).fetchall()
     by_item = {item_id: [] for item_id in ids}
@@ -84,6 +92,9 @@ def _score(conn, fetched, *, item_id: int, target_status: str) -> UnsatisfiedBlo
             if row.get("replacement_graph_error")
             or row_unsatisfied_at_done(conn, row, item_id=int(item_id))
         ]
+        from yoke_core.domain.deployment_qa_plan_credit import plan_credit_misses
+
+        unsatisfied.extend(plan_credit_misses(conn, int(item_id)))
     else:
         unsatisfied = [row for row in scored if not row["passed"]]
     return UnsatisfiedBlocking(

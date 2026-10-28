@@ -12,7 +12,6 @@ from yoke_core.domain.qa_plan_requirement_snapshot import (
     existing_requirement_id,
     insert_requirement,
 )
-from yoke_core.domain.qa_deployment_member_attached_plans import attachments_still_owed
 from yoke_core.domain.qa_plan_attachment_reads import live_item_attachment_sql
 from yoke_core.domain.qa_plan_attachment_validation import (
     refuse_unreachable_plan_attachment,
@@ -168,17 +167,19 @@ def _attached_plans(
     return dict(sorted(attachments.items()))
 
 
-def _owed_attachments(
-    conn: Any, item_id: int, transition_id: str
-) -> tuple[dict[int, dict], bool]:
-    """This transition's attachments, minus any a delivery already answered."""
-    return attachments_still_owed(
-        conn,
-        member_item_id=int(item_id),
-        attachments=_attached_plans(
+def _owed_attachments(conn: Any, item_id: int, transition_id: str) -> dict[int, dict]:
+    """This transition's item-bound attachments.
+
+    A post-deploy plan is never copied onto its item: each release runs it
+    once as a plan group (:mod:`deployment_qa_plan_group_writes`).
+    """
+    return {
+        plan_id: attachment
+        for plan_id, attachment in _attached_plans(
             conn, item_id=int(item_id), transition_id=str(transition_id)
-        ),
-    )
+        ).items()
+        if attachment.get("qa_phase") != "post_deploy"
+    }
 
 
 def has_attached_plans(
@@ -188,8 +189,7 @@ def has_attached_plans(
     transition_id: str,
 ) -> bool:
     """Whether materialization has any effective work for this transition."""
-    owed, _answered = _owed_attachments(conn, item_id, transition_id)
-    return bool(owed)
+    return bool(_owed_attachments(conn, item_id, transition_id))
 
 
 @rollback_workflow_binding_write_errors
@@ -204,10 +204,10 @@ def materialize_for_item(
     """Snapshot each attached plan once for this item and transition."""
     lock_item_workflow_bindings(conn, (int(item_id),))
     transition_id = str(transition_id or "").strip()
-    attachments = _owed_attachments(conn, item_id, transition_id)[0]
+    attachments = _owed_attachments(conn, item_id, transition_id)
     if not attachments:
-        # Nothing live to snapshot — a retracted post-deploy attachment
-        # included. Do not re-ask a verification gate for an empty bind.
+        # Nothing live to snapshot; post-deploy plans run as plan groups.
+        # Do not re-ask a verification gate for an empty bind.
         return _materialized(int(item_id), transition_id, {}, [], [])
     transition_id = validate_attached_item_transition(
         conn,

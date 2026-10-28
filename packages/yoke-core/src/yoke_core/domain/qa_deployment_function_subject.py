@@ -252,11 +252,17 @@ def _resolve_run_qa_subject(
 
                 subject = requirement_subject(conn, int(payload["requirement_id"]))
             else:
-                subject = deployment_qa_stage_subject(
+                from yoke_core.domain.deployment_qa_stage_materialization import (
+                    stage_subject,
+                )
+
+                # With no member, --plan at an item stage names a plan group.
+                subject = stage_subject(
                     conn,
                     run_id=run_id,
                     stage_name=str(stage),
-                    member_item_id=member_id,
+                    member=member_id,
+                    plan=payload.get("plan") if member_id is None else None,
                     require_active=not reviewing_terminal,
                 )
         except (LookupError, ValueError) as exc:

@@ -17,7 +17,6 @@ from typing import Any
 from yoke_core.domain.db_helpers import query_rows
 from yoke_core.domain.deployment_qa_presentation_facts import run_presentation
 from yoke_core.domain.deployment_qa_presentation_reads import presentation_operation
-from yoke_core.domain.deployment_qa_shared_copy_reads import member_owns_shared_copy
 from yoke_core.domain.post_deploy_verification_answer import answer_for_item
 from yoke_core.domain.qa_obligation_settlement import (
     settled_obligation_sql,
@@ -76,7 +75,6 @@ def satisfied_delivery_member(conn: Any, *, item_id: int, run_id: str) -> bool:
         row
         for row in rows
         if row["deployment_member_item_id"] is not None
-        or member_owns_shared_copy(conn, row, int(item_id))
     ]
     if not owned:
         from yoke_core.domain.carried_member_qa_obligation import (

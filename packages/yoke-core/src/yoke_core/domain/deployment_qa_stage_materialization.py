@@ -82,8 +82,6 @@ class _StageRead:
     target: dict
     admitted: list
     snapshots: list
-    # Whether a member owing no case withdrew every group it still owed.
-    withdrawn_discharge: bool | None = None
     selected_admission: dict | None = None
 
 
@@ -160,9 +158,7 @@ def _read_stage(
             admitted_plan_selection,
         )
 
-        selected = admitted_plan_selection(
-            conn, subject, target, projection, agent_plan
-        )
+        selected = admitted_plan_selection(conn, subject, target, agent_plan)
         if selected is not None:
             return _StageRead(
                 projection, subject, target, [], [], selected_admission=selected
@@ -178,14 +174,7 @@ def _read_stage(
         replacement_keys=replacement_keys,
         replacement_scopes=replacement_scopes,
     )
-    read = _StageRead(projection, subject, target, admitted, snapshots)
-    if not snapshots and not any(r.get("method_id") for r in admitted):
-        from yoke_core.domain.deployment_qa_shared_copy_reads import (
-            withdrawn_member_discharge,
-        )
-
-        read.withdrawn_discharge = withdrawn_member_discharge(conn, subject, target)
-    return read
+    return _StageRead(projection, subject, target, admitted, snapshots)
 
 
 @composition_operation

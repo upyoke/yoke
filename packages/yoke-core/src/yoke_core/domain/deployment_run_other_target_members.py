@@ -63,6 +63,7 @@ def owed_requirements(conn: Any, item_id: int) -> tuple[OwedRequirement, ...]:
             or "",
         )
         for row in blockers.rows
+        if row.get("id") is not None  # a plan group miss names no requirement
     )
 
 
@@ -104,6 +105,8 @@ def owes_only_other_targets(conn: Any, *, run_id: str, item_id: int) -> bool:
     deferred = False
     blockers = unsatisfied_blocking(conn, item_id=int(item_id), target_status="done")
     for row in blockers.rows:
+        if row.get("id") is None:
+            return False  # a plan group this release owes, not another target's
         requirement_id = int(row["id"])
         target = targets.get(requirement_id)
         if row.get("qa_phase") == "manual_acceptance":

@@ -1,7 +1,5 @@
 """Select complete frozen admissions without entering materialization writers."""
 
-import json
-
 from yoke_core.domain.db_helpers import query_rows
 from yoke_core.domain.qa_deployment_case_content_refresh import (
     plan_case_content_digest,
@@ -10,7 +8,6 @@ from yoke_core.domain.qa_deployment_case_content_refresh import (
 from yoke_core.domain.deployment_qa_execution_target import (
     deployment_qa_execution_target,
 )
-from yoke_core.domain.deployment_qa_shared_plans import shared_subject
 from yoke_core.domain.deployment_qa_snapshot_selection import require_complete_snapshot
 from yoke_core.domain.deployment_run_project_sources import run_delivered_sha
 from yoke_core.domain.qa_obligation_settlement import unretracted_requirement_sql
@@ -30,8 +27,8 @@ def _incomplete(plan_id, subject):
     )
 
 
-def admitted_plan_selection(conn, subject, target, projection, selector):
-    """Return an ordinary receipt only for this subject's exact frozen plan."""
+def admitted_plan_selection(conn, subject, target, selector):
+    """Return an ordinary receipt only for this stage's exact frozen flow plan."""
     project_id = int(subject.get("member_project_id") or subject["project_id"])
     plans = query_rows(
         conn,
@@ -46,54 +43,19 @@ def admitted_plan_selection(conn, subject, target, projection, selector):
             f"in the requesting subject's project; inspect `yoke qa plan list --project {project_id}`."
         )
     plan_id = int(plans[0]["id"])
-    if subject.get("member_item_id") is not None:
-        from yoke_core.domain.qa_plan_attachment_reads import retracted_item_plan_ids
-
-        if plan_id in retracted_item_plan_ids(conn, int(subject["member_item_id"])):
-            _incomplete(plan_id, subject)
     snapshots = [
         value
         for value in subject["flow_snapshot"].get("selections", [])
         if value.get("stage") == subject["stage"]["name"]
-    ] + list((subject.get("member_snapshot") or {}).get("plans", []))
-    if subject.get("shared_snapshot"):
-        snapshots = [subject["shared_snapshot"]]
-    snapshots = [s for s in snapshots if int(s["plan"]["id"]) == plan_id]
-    if not snapshots and subject.get("member_item_id") is not None:
-        # A shared group freezes its contract on the materializing member;
-        # another attaching member need not carry a private snapshot copy.
-        groups = [
-            group
-            for group in projection.member_groups(
-                subject["stage"]["name"], int(subject["member_item_id"])
-            )
-            if group.plan_id == plan_id
-        ]
-        if not groups:
-            return None
-        if len(groups) != 1:
-            _incomplete(plan_id, subject)
-        source = groups[0].subject["shared_plan"]["source_revision"]
-        for member in projection.members():
-            raw = member["requirement_snapshot"]
-            frozen = raw if isinstance(raw, dict) else json.loads(str(raw or "{}"))
-            for value in frozen.get("plans", []):
-                if (
-                    int(value["plan"]["id"]) == plan_id
-                    and value["plan"].get("source_revision") == source
-                    and int(value["plan"]["project_id"]) == project_id
-                ):
-                    snapshots.append(value)
+        and int(value["plan"]["id"]) == plan_id
+    ]
     if not snapshots:
         return None
     snapshot = snapshots[-1]
     require_complete_snapshot(snapshot)
     cases = [c for c in snapshot["cases"] if case_applies_to_target(c, target)]
     snapshot = {**snapshot, "cases": cases}
-    group = subject
-    if projection.shareable(subject, target, [snapshot]):
-        group = shared_subject(subject, target, snapshot)
-    selected_target = deployment_qa_execution_target(conn, group)
+    selected_target = deployment_qa_execution_target(conn, subject)
     rows = query_rows(
         conn,
         "SELECT id,plan_case_key,host_baseline,method_id,execution_target_json,"
@@ -105,7 +67,7 @@ def admitted_plan_selection(conn, subject, target, projection, selector):
         (
             subject["id"],
             subject["stage"]["name"],
-            group.get("member_item_id") or 0,
+            subject.get("member_item_id") or 0,
             plan_id,
             target_digest(selected_target),
         ),

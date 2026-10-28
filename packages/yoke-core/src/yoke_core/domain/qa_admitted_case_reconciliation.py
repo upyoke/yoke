@@ -152,12 +152,7 @@ def admitted_copies_in_flight(
     copies: list[AdmittedCopy] = []
     for row in rows:
         if row["deployment_member_item_id"] is None:
-            from yoke_core.domain.deployment_qa_shared_copy_reads import (
-                member_owns_shared_copy,
-            )
-
-            if not member_owns_shared_copy(conn, row, int(source["item_id"])):
-                continue
+            continue  # a plan group is no member's admitted copy
         copy_id = int(row["id"])
         verdict = determinate_verdict(conn, copy_id)
         if verdict:

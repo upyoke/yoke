@@ -35,7 +35,6 @@ def _write_subject(conn, stage_read, *, member, replaced_requirement_ids):
         snapshots=stage_read.snapshots,
         commit=False,
         replaced_requirement_ids=replaced_requirement_ids,
-        withdrawn_discharge=stage_read.withdrawn_discharge,
     )
 
 

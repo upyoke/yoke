@@ -207,7 +207,7 @@ def snapshot_member_requirements(
     selection_json: Any,
     admission=None,
 ) -> str:
-    """Freeze explicitly selected member requirements and attached plans."""
+    """Freeze a member's explicitly selected item cases."""
     from yoke_core.domain.deployment_admission_reads import read_snapshot_inputs
 
     selected = _selection(selection_json)
@@ -218,7 +218,6 @@ def snapshot_member_requirements(
             requirement_ids=selected["requirement_ids"],
             plan_ids=selected["plan_ids"],
         )
-    withdrawn_plans = admission.withdrawn_plans(item_id)
     requirements = []
     for requirement_id in selected["requirement_ids"]:
         requirement = _requirement_snapshot(
@@ -228,57 +227,14 @@ def snapshot_member_requirements(
             requirement_id=requirement_id,
             admission=admission,
         )
-        if (
-            requirement is not None
-            and requirement.get("plan_id") not in withdrawn_plans
-        ):
+        # Plans run as plan groups at item QA; a member freezes only its
+        # own item cases (an older build's plan copy is history, not intake).
+        if requirement is not None and requirement.get("plan_id") is None:
             requirements.append(requirement)
-    project_id = admission.project_id(item_id)
-    plans: list[dict[str, Any]] = []
-    plan_ids = set(selected["plan_ids"])
-    plan_ids.update(
-        int(r["plan_id"]) for r in requirements if r.get("plan_id") is not None
-    )
-    plan_ids.update(admission.attached_plans(item_id))
-    for plan_id in sorted(plan_ids):
-        if plan_id in withdrawn_plans:
-            continue
-        attached = admission.attachment(item_id, plan_id, requirements=requirements)
-        if attached is None and plan_id not in selected["plan_ids"]:
-            phases = {
-                r["qa_phase"] for r in requirements if r.get("plan_id") == plan_id
-            }
-            if len(phases) == 1:
-                attached = {"transition_id": "", "qa_phase": phases.pop()}
-        if attached is None:
-            raise ValueError(
-                f"QA plan {plan_id} is not attached to {render_item_ref(conn, item_id)}; attach it "
-                "before selecting it for release admission"
-            )
-        plans.append(
-            {
-                "attachment": {
-                    "transition_id": str(
-                        attached["transition_id"]
-                        if hasattr(attached, "keys")
-                        else attached[0]
-                    ),
-                    "qa_phase": str(
-                        attached["qa_phase"]
-                        if hasattr(attached, "keys")
-                        else attached[1]
-                    ),
-                },
-                **_plan_snapshot(
-                    conn, plan_id, project_id=project_id, admission=admission
-                ),
-            }
-        )
     payload = {
         "schema": SNAPSHOT_SCHEMA,
         "selection": selected,
         "requirements": requirements,
-        "plans": plans,
     }
     return _canonical(payload)
 

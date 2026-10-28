@@ -134,7 +134,9 @@ def _read_members(conn: Any, run_id: str) -> CompletionPreview:
                 ).splitlines()
             )
         targets = [
-            f"requirement #{row['id']} ({row['qa_kind']}, phase={row['qa_phase']}, "
+            f"post-deploy plan {row['plan_slug']} (no closed plan group covers it)"
+            if row.get("id") is None
+            else f"requirement #{row['id']} ({row['qa_kind']}, phase={row['qa_phase']}, "
             f"target={requirement_target_environment(row.get('target_env'), row.get('execution_target_json')) or 'unspecified'})"
             for row in blocking.rows
         ]

@@ -33,9 +33,6 @@ from yoke_core.domain.qa_review_waits import requirement_awaits_human_review
 from yoke_core.domain.qa_simulation_gate import (  # noqa: F401  (re-export)
     check_epic_simulation_gate,
 )
-from yoke_core.domain.deployment_qa_source_obligation import (
-    row_unsatisfied_at_done,
-)
 from yoke_core.domain.qa_requirement_pass_currency import has_current_passing_run
 from yoke_core.domain.qa_done_gate_refusal import done_gate_refusal_errors
 from yoke_core.domain.qa_obligation_settlement import (
@@ -208,43 +205,34 @@ def check_done_gate(target: GateTarget, db_path: str) -> GateResult:
     conn = connect(db_path)
     try:
         name = target.display_name(conn)
-        # (1) Blocking-unsat scan
-        # The original row's own passing run is selected rather than filtered
-        # on, because a post_deploy row filtered out for having passed once is
-        # a row the completion-run reading below never gets to refuse.
-        rows = query_rows(
-            conn,
-            f"""
-            SELECT r.id, r.qa_kind, r.qa_phase, r.deployment_run_id,
-                   r.item_id, r.plan_case_key, r.target_env, r.execution_target_json
-            FROM qa_requirements r
-            WHERE {where}
-              AND r.blocking_mode = 'blocking'
-              AND NOT {settled_obligation_sql(conn, "r")}
-            """,
-            params,
-        )
-        scored = []
-        for row in rows:
-            item = dict(row)
-            item["passed"] = has_current_passing_run(conn, int(row["id"]))
-            scored.append(item)
-        rows = scored
-        if target.item_id is None:
-            # An epic-task target owns no item-bound deployment run, so the
-            # completion-run reading has nothing to resolve against and the
-            # original row's own pass stays the answer for every phase.
-            rows = [
-                row
-                for row in rows
-                if independent_item_obligation(row) and not row["passed"]
-            ]
+        # (1) Blocking-unsat scan: an item answers through the canonical item
+        # scan, which also owes each post-deploy plan a closed plan group.
+        if target.item_id is not None:
+            from yoke_core.domain.qa_item_obligation_queries import (
+                unsatisfied_blocking,
+            )
+
+            rows = list(
+                unsatisfied_blocking(
+                    conn, item_id=int(target.item_id), target_status="done"
+                ).rows
+            )
         else:
+            # An epic-task target owns no deployment run; its rows' own pass
+            # is the answer for every phase.
             rows = [
-                row
-                for row in rows
+                dict(row)
+                for row in query_rows(
+                    conn,
+                    "SELECT r.id, r.qa_kind, r.qa_phase, r.deployment_run_id, "
+                    "r.item_id, r.plan_case_key, r.target_env, "
+                    f"r.execution_target_json FROM qa_requirements r WHERE {where} "
+                    "AND r.blocking_mode = 'blocking' "
+                    f"AND NOT {settled_obligation_sql(conn, 'r')}",
+                    params,
+                )
                 if independent_item_obligation(row)
-                and row_unsatisfied_at_done(conn, row, item_id=int(target.item_id))
+                and not has_current_passing_run(conn, int(row["id"]))
             ]
         if rows:
             return GateResult(

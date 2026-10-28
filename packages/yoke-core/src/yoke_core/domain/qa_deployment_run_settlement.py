@@ -105,16 +105,25 @@ def settle_unsuccessful_run(conn: Any, run_id: str, *, reason: str) -> bool:
 def restore_retry_obligations(conn: Any, run_id: str) -> None:
     """Reinstate only this run's automatic retirements on an authorized retry.
 
-    A member removed since the failure owes the retry nothing, so only shared
-    rows and current members' rows come back.
+    A member removed since the failure owes the retry nothing, so only run
+    rows, current members' rows and plan groups some member still attaches
+    come back.
     """
     if _table_exists(conn, "qa_requirements"):
+        from yoke_core.domain.deployment_qa_plan_groups import (
+            attached_plans,
+            run_groups,
+        )
+
+        plans = attached_plans(conn, run_id)
+        orphaned = [g.digest for g in run_groups(conn, run_id) if not plans.get(g.plan_id)]
         conn.execute(
             "UPDATE qa_requirements SET retracted_at=NULL, "
             "retraction_rationale=NULL, retraction_source=NULL "
             "WHERE deployment_run_id=%s AND retraction_source='deployment_run' "
             f"AND NOT COALESCE(({inherited_qa_sql()}),false) "
+            "AND NOT (COALESCE(execution_target_digest,'')=ANY(%s)) "
             "AND (deployment_member_item_id IS NULL OR deployment_member_item_id IN "
             "(SELECT item_id FROM deployment_run_items WHERE run_id=%s))",
-            (run_id, run_id),
+            (run_id, orphaned, run_id),
         )

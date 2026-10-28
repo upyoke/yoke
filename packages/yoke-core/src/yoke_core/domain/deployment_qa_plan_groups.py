@@ -100,14 +100,15 @@ def run_groups(
                 "target": dict(_json(row["execution_target_json"])),
                 "ids": [],
                 "covered": None,
-                "retracted": True,
+                "retracted": False,
             },
         )
         group["ids"].append(int(row["id"]))
         covered = _json(row["covered_item_ids"])
         if covered is not None:
             group["covered"] = tuple(sorted(int(value) for value in covered))
-        group["retracted"] = group["retracted"] and row["retracted_at"] is not None
+        # Retraction withdraws a whole group; its passed rows stay as evidence.
+        group["retracted"] = group["retracted"] or row["retracted_at"] is not None
     return [
         PlanGroup(
             group_id=value["group_id"],
@@ -235,6 +236,57 @@ def covered_members(conn: Any, run_id: str, plan_id: int) -> set[int]:
     }
 
 
+def unattached_open_groups(conn: Any, run_id: str) -> list[PlanGroup]:
+    """Open groups no current member attaches any more."""
+    plans = attached_plans(conn, run_id)
+    return [g for g in run_groups(conn, run_id) if g.open and not plans.get(g.plan_id)]
+
+
+def retract_unattached_groups(conn: Any, run_id: str, *, reason: str, source: str) -> list[int]:
+    """Retract each open group left with no attacher; never a passed row.
+
+    A retracted group is never reused: a later attacher gets a new group.
+    """
+    from yoke_core.domain.qa_latest_execution import latest_execution_id_sql
+    from yoke_core.domain.qa_plan_attachment_retract import retract_requirements
+
+    ids = [rid for group in unattached_open_groups(conn, run_id) for rid in group.requirement_ids]
+    if not ids:
+        return []
+    rows = query_rows(
+        conn,
+        "SELECT r.id FROM qa_requirements r WHERE r.id=ANY(%s) AND r.retracted_at IS NULL "
+        "AND NOT EXISTS (SELECT 1 FROM qa_runs qr "
+        f"WHERE qr.id=({latest_execution_id_sql('r.id')}) AND qr.verdict='pass')",
+        (ids,),
+    )
+    retired = [int(row["id"]) for row in rows]
+    retract_requirements(conn, retired, reason=reason, source=source)
+    return retired
+
+
+def plan_only_members(conn: Any, run_id: str, item_ids: Any) -> set[int]:
+    """Members whose item QA is only plans: plan groups answer them, no holder runs."""
+    environment_id = run_environment_id(conn, run_id)
+    found = set()
+    for row in query_rows(
+        conn,
+        "SELECT item_id,requirement_snapshot FROM deployment_run_items "
+        "WHERE run_id=%s AND item_id=ANY(%s)",
+        (str(run_id), sorted({int(item) for item in item_ids})),
+    ):
+        member = int(row["item_id"])
+        snapshot = _json(row["requirement_snapshot"]) or {}
+        own = [
+            r for r in snapshot.get("requirements") or ()
+            if isinstance(r, Mapping) and r.get("plan_id") is None
+            and r.get("qa_phase") == "post_deploy"
+        ]
+        if not own and member_plan_ids(conn, member, environment_id):
+            found.add(member)
+    return found
+
+
 def close_group(conn: Any, subject: Mapping) -> None:
     """Record who a passing group answered, once, under the caller's run lock."""
     marker = subject.get("shared_plan") or {}
@@ -267,5 +319,8 @@ __all__ = [
     "lineage_run_ids",
     "member_plan_ids",
     "open_group",
+    "plan_only_members",
+    "retract_unattached_groups",
     "run_groups",
+    "unattached_open_groups",
 ]

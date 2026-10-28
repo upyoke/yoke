@@ -101,8 +101,7 @@ def source_obligation_consumed(
     A newer active member holds the wait; a containment-only release has no
     copies. Scoped runs match source/member identity, including copies of any
     source retired in this one's favor on the run that admitted it. Schema-1 runs
-    answer through their nonempty shared blocking post-deploy set, using the
-    same reader as settlement. Every copy must pass or be settled — waived,
+    answer through their member copies, using the same reader as settlement. Every copy must pass or be settled — waived,
     superseded, retracted, or replaced, the rule stage acceptance applies —
     and stage acceptance grades each replacement on its own evidence; an
     unsettled duplicate or bad replacement still blocks done.
@@ -151,9 +150,9 @@ def source_obligation_consumed(
     if source["item_id"] != int(item_id):
         return False
     identity, identity_params = lineage_identity_clause(conn, source, marker=marker)
+    # Plans are answered by plan groups (:mod:`deployment_qa_plan_credit`);
+    # a source requirement here is an item case, copied onto its member.
     member_scope = f"deployment_member_item_id={marker}"
-    if source["plan_id"] is not None:
-        member_scope = f"({member_scope} OR deployment_member_item_id IS NULL)"
     rows = conn.execute(
         "SELECT id,deployment_stage,deployment_member_item_id,"
         "waived_at,superseded_by_requirement_id,replacement_requirement_id,"
@@ -163,26 +162,6 @@ def source_obligation_consumed(
         "ORDER BY id",
         (run_id, int(source["item_id"]), *identity_params),
     ).fetchall()
-    if source["plan_id"] is not None:
-        from yoke_core.domain.deployment_qa_shared_plans import (
-            member_group_digests,
-            shared_target_identity,
-        )
-
-        digests = {}
-        selected = []
-        for row in rows:
-            if _row_value(row, "deployment_member_item_id", 2) is not None:
-                selected.append(row)
-                continue
-            if not shared_target_identity(_row_value(row, "execution_target_json", 8)):
-                continue
-            stage = str(_row_value(row, "deployment_stage", 1) or "")
-            if stage not in digests:
-                digests[stage] = member_group_digests(conn, run_id, stage, int(item_id))
-            if _row_value(row, "execution_target_digest", 7) in digests[stage]:
-                selected.append(row)
-        rows = selected
     if not rows:
         return False
     row = rows[0]

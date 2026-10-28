@@ -76,8 +76,12 @@ def notify_moved_member_qa(
     from yoke_contracts.public_ref import format_item_ref
     from yoke_core.domain.merge_queue_landing_notice import addressable_items
 
+    from yoke_core.domain.deployment_qa_plan_groups import plan_only_members
+
     stage_name = item_qa_stage_name(stages)
-    rows = _member_rows(conn, item_ids)
+    # A member owing only plans has nothing to run; its plan groups moved whole.
+    plan_only = plan_only_members(conn, new_id, item_ids)
+    rows = [row for row in _member_rows(conn, item_ids) if int(row["id"]) not in plan_only]
     by_project: dict[int, list[dict[str, Any]]] = {}
     for row in rows:
         by_project.setdefault(int(row["project_id"]), []).append(row)
