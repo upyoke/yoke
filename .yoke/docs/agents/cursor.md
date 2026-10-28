@@ -76,9 +76,10 @@ Cursor decides whether an agent command runs unprompted at three layers. Two are
 
 **Recommended posture: zero prompts.** Set Execution mode to **Run Everything**. That matches how Yoke machines already run every other harness, and the rationale is the same: Yoke owns enforcement through its `PreToolUse` hook chain and lint fleet, so a harness approval prompt is redundant friction rather than a safety layer. Hooks keep firing in this mode — a hook deny holds even under `--force`.
 
-Confirm your chosen mode on the first session of a new machine: run one network-touching `yoke` read and check that it completes with no prompt **and** that hook telemetry recorded the call. `yoke doctor` reports the machine-level posture it can see (`HC-harness-unattended-posture`) and names the missing setting. The session check verifies `cursor-cli` only;
-`cursor-desktop` reports `HARNESS_POSTURE_UNVERIFIED` because the CLI file
-does not establish the desktop app’s active allowlist.
+Confirm your chosen mode on the first session of a new machine: run one network-touching `yoke` read and check that it completes with no prompt **and** that hook telemetry recorded the call. `yoke doctor` reports the machine-level posture it can see (`HC-harness-unattended-posture`) and names the missing setting. The session check reads config for `cursor-cli`.
+`cursor-desktop` reports `HARNESS_POSTURE_CONFIRM_REQUIRED` as a WARN:
+Confirm Cursor Settings → Agents → Run Everything is on. Once you confirm,
+onboarding may continue; the CLI file does not prove the desktop app’s mode.
 
 **Do not request full-network permission.** Cursor treats an explicit `required_permissions: full_network` request as an escalation and prompts even for hosts the network policy already allows. Once `.cursor/sandbox.json` allows the control-plane origins, retry inside the sandbox instead — requesting the escalation causes the very per-command prompting these files exist to remove.
 

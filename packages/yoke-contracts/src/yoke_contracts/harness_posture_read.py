@@ -1,4 +1,4 @@
-"""Read the actual unattended modes for each installed harness surface."""
+"""Read the configured unattended modes for each installed harness."""
 
 from pathlib import Path
 from typing import Optional, Tuple
@@ -17,14 +17,11 @@ from yoke_contracts.harness_unattended_posture import (
 )
 
 
-def posture_findings(
-    harness_id: str, surface_id: Optional[str] = None
-) -> Optional[Tuple[str, ...]]:
+def posture_findings(harness_id: str) -> Optional[Tuple[str, ...]]:
     """One harness's verdict, or ``None`` when it is not set up here.
 
-    Claude's modes depend on the surface: ``claude-cli`` reads its settings
-    file, ``claude-desktop`` its app preference, and an unnamed surface both
-    (the preference only once the desktop has created its config). Each surface requires its own unattended mode.
+    Claude requires CLI settings plus the Desktop preference once the app
+    has created its config. These machine settings do not prove session mode.
     """
     if harness_id == CLAUDE_FAMILY:
         desktop_path, settings_path = claude_config_path(), claude_settings_path()
@@ -36,9 +33,7 @@ def posture_findings(
             return (f"{settings_path}: {reason}",)
         app = _sourced(desktop_path, posture_problems(harness_id, desktop or {}))
         cli = _sourced(settings_path, claude_settings_problems(settings or {}))
-        mode = {"claude-cli": cli, "claude-desktop": app}.get(
-            surface_id or "", (app if desktop_path.exists() else ()) + cli
-        )
+        mode = (app if desktop_path.exists() else ()) + cli
     else:
         config, _reason = read_posture_config(harness_id)
         if config is None:

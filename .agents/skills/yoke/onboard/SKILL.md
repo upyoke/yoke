@@ -7,7 +7,8 @@ argument-hint: "[--project P] [--run-id RUN]"
 # /yoke onboard
 
 Unless it just passed, check the session; relay each failure's fix, rerun, and
-continue only when all pass:
+continue when all pass or a session posture WARN has been confirmed by the
+person using the setting named in the warning:
 
 ```text
 yoke doctor run --session

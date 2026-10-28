@@ -167,14 +167,23 @@ that its own harness CLI is signed in and runs `yoke` without approval
 prompts. Other installed harnesses do not block it. Agent setup ends with this
 check and `/yoke onboard` runs it first.
 
-Claude CLI sessions read `~/.claude/settings.json` for
-`permissions.defaultMode`; Claude Desktop sessions read the app preference.
-The registered session surface chooses the check, so CLI readiness does not
-require a Desktop installation. An unknown or unsupported Claude surface
-reports unverified posture instead of borrowing Desktop settings.
-Every verified surface requires its unattended permission mode. A command
-allow entry does not substitute for that mode; setup and repair overwrite
-prompting modes on every installed harness.
+The session posture check reads the active mode for its registered surface:
+
+- Claude CLI, Desktop and VS Code read the latest parent-session hook's
+  `permission_mode`. Only `bypassPermissions` passes. Another mode fails with
+  `HARNESS_POSTURE_RESTRICTED`; no readable record fails with
+  `HARNESS_POSTURE_UNVERIFIED`: send any prompt in this chat, then rerun.
+- Codex CLI and Desktop read the newest native turn's permission metadata;
+  only `never` plus `danger-full-access` passes. Missing or unreadable evidence
+  fails; rerun in a new turn after it is saved.
+- Cursor CLI reads its config. Cursor Desktop and Codex VS Code report
+  `HARNESS_POSTURE_CONFIRM_REQUIRED` as a WARN, naming the setting to confirm.
+  Onboarding may continue once the person confirms it.
+
+An unknown surface fails. Machine-wide doctor and setup still read saved
+configuration; it does not prove a session's active mode. A command allow entry
+cannot substitute for an unattended mode. Setup and repair overwrite prompting
+modes on every installed harness.
 
 The session check also works outside every project: registration and confirmed
 orientation use the selected authority's machine scope. An explicit `--project`

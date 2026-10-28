@@ -24,13 +24,13 @@ from yoke_contracts.harness_unattended_posture import (
 )
 from yoke_core.engines import doctor_install
 from yoke_core.engines import doctor_session as checks
+from yoke_harness.hooks.session_permission_mode import capture_permission_mode
 from yoke_core.engines.doctor_applicability_declarations import local_runtime_slugs
 from yoke_core.engines.doctor_registry import HEALTH_CHECKS
 from yoke_core.engines.doctor_report import DoctorArgs, RecordCollector
 
 UNATTENDED_CODEX = 'approval_policy = "never"\nsandbox_mode = "danger-full-access"\n'
-UNATTENDED_CLAUDE_CLI = '{"permissions":{"defaultMode":"bypassPermissions"}}'
-UNATTENDED_CLAUDE_DESKTOP = '{"preferences":{"bypassPermissionsModeEnabled":true}}'
+SESSION = "11111111-1111-4111-8111-111111111111"
 
 
 def run(fn, **kwargs):
@@ -44,10 +44,10 @@ def registered_as(
     monkeypatch, executor: str | None, surface: str | None = None
 ) -> None:
     monkeypatch.setattr(
-        checks, "build_actor", lambda: SimpleNamespace(session_id="session")
+        checks, "build_actor", lambda: SimpleNamespace(session_id=SESSION)
     )
     identity = {
-        "session_id": "session" if executor else "other",
+        "session_id": SESSION if executor else "other",
         "executor": executor,
         "executor_surface": surface
         or (harness_cli_manifest(executor).surface_id if executor else None),
@@ -133,100 +133,128 @@ def test_an_unregistered_session_never_guesses_its_harness(monkeypatch, fn):
     assert "SESSION_HARNESS_UNKNOWN" in result.detail
 
 
-def test_posture_reads_only_the_session_harness(tmp_path, monkeypatch):
-    registered_as(monkeypatch, "codex")
-    configs(tmp_path, monkeypatch, codex=UNATTENDED_CODEX, cursor="{}")
+def posture_result():
     result = run(checks.hc_session_harness_unattended_posture)
-    assert result.result == "PASS"
-    assert "codex" in result.detail
+    return result.result, result.detail.split(":", 1)[
+        0
+    ] if result.result != "PASS" else None
 
 
-def test_a_session_harness_without_config_fails(tmp_path, monkeypatch):
-    registered_as(monkeypatch, "cursor")
+@pytest.mark.parametrize("surface", ["codex-cli", "codex-desktop"])
+@pytest.mark.parametrize(
+    "approval,expected,code",
+    [
+        ("never", "PASS", None),
+        ("on-request", "FAIL", "HARNESS_POSTURE_RESTRICTED"),
+    ],
+)
+def test_codex_reads_the_newest_rollout(
+    tmp_path, monkeypatch, surface, approval, expected, code
+):
+    registered_as(monkeypatch, "codex", surface)
+    configs(tmp_path, monkeypatch, codex=UNATTENDED_CODEX)
+    target = tmp_path / ".codex" / "sessions" / f"rollout-{SESSION}.jsonl"
+    target.parent.mkdir(exist_ok=True)
+    rows = [
+        {"type": "session_meta", "payload": {"id": SESSION}},
+        {
+            "type": "turn_context",
+            "payload": {
+                "approval_policy": "never",
+                "sandbox_policy": {"type": "danger-full-access"},
+            },
+        },
+        {
+            "type": "turn_context",
+            "payload": {
+                "approval_policy": approval,
+                "sandbox_policy": {"type": "danger-full-access"},
+            },
+        },
+    ]
+    target.write_text("".join(json.dumps(row) + "\n" for row in rows))
+    assert posture_result() == (expected, code)
+
+
+@pytest.mark.parametrize("surface", ["codex-cli", "codex-desktop"])
+def test_codex_missing_record_cannot_borrow_config(tmp_path, monkeypatch, surface):
+    registered_as(monkeypatch, "codex", surface)
+    configs(tmp_path, monkeypatch, codex=UNATTENDED_CODEX)
+    assert posture_result() == ("FAIL", "HARNESS_POSTURE_UNVERIFIED")
+
+
+@pytest.mark.parametrize("surface", ["claude-cli", "claude-desktop", "claude-vscode"])
+@pytest.mark.parametrize(
+    "mode,expected,code",
+    [
+        ("bypassPermissions", "PASS", None),
+        ("default", "FAIL", "HARNESS_POSTURE_RESTRICTED"),
+        ("auto", "FAIL", "HARNESS_POSTURE_RESTRICTED"),
+        (None, "FAIL", "HARNESS_POSTURE_RESTRICTED"),
+    ],
+)
+def test_claude_uses_recorded_mode_despite_desktop_preference(
+    tmp_path, monkeypatch, surface, mode, expected, code
+):
+    registered_as(monkeypatch, "claude-code", surface)
+    configs(
+        tmp_path,
+        monkeypatch,
+        **{
+            "claude-code": '{"preferences":{"bypassPermissionsModeEnabled":true}}',
+        },
+    )
+    capture_permission_mode(
+        {"session_id": SESSION, "permission_mode": mode}, "claude-code"
+    )
+    assert posture_result() == (expected, code)
+
+
+@pytest.mark.parametrize("surface", ["claude-cli", "claude-desktop", "claude-vscode"])
+def test_claude_missing_record_fails(tmp_path, monkeypatch, surface):
+    registered_as(monkeypatch, "claude-code", surface)
     configs(tmp_path, monkeypatch)
-    result = run(checks.hc_session_harness_unattended_posture)
-    assert result.result == "FAIL"
-    assert "HARNESS_POSTURE_UNVERIFIED" in result.detail
+    assert posture_result() == ("FAIL", "HARNESS_POSTURE_UNVERIFIED")
 
 
 @pytest.mark.parametrize(
-    "surface,cli,desktop,expected",
+    "harness,surface", [("codex", "codex-vscode"), ("cursor", "cursor-desktop")]
+)
+def test_confirm_only_surfaces_warn(tmp_path, monkeypatch, harness, surface):
+    registered_as(monkeypatch, harness, surface)
+    configs(tmp_path, monkeypatch)
+    assert posture_result() == ("WARN", "HARNESS_POSTURE_CONFIRM_REQUIRED")
+
+
+@pytest.mark.parametrize("surface", [None, "unknown"])
+def test_unknown_surface_fails(tmp_path, monkeypatch, surface):
+    registered_as(monkeypatch, "claude-code")
+    monkeypatch.setattr(checks, "session_harness", lambda: ("claude-code", surface))
+    configs(tmp_path, monkeypatch)
+    assert posture_result() == ("FAIL", "HARNESS_POSTURE_UNVERIFIED")
+
+
+@pytest.mark.parametrize(
+    "config,expected,code",
     [
-        ("claude-cli", UNATTENDED_CLAUDE_CLI, None, "PASS"),
-        ("claude-cli", UNATTENDED_CLAUDE_CLI, "malformed", "PASS"),
+        (None, "FAIL", "HARNESS_POSTURE_UNVERIFIED"),
+        ("{}", "FAIL", "HARNESS_POSTURE_RESTRICTED"),
         (
-            "claude-cli",
-            '{"permissions":{"defaultMode":"default"}}',
-            UNATTENDED_CLAUDE_DESKTOP,
-            "FAIL",
+            json.dumps(
+                {
+                    "approvalMode": CURSOR_APPROVAL_MODE,
+                    "sandbox": {"mode": CURSOR_SANDBOX_MODE},
+                }
+            ),
+            "PASS",
+            None,
         ),
-        ("claude-cli", None, UNATTENDED_CLAUDE_DESKTOP, "FAIL"),
-        ("claude-desktop", None, UNATTENDED_CLAUDE_DESKTOP, "PASS"),
-        ("claude-desktop", UNATTENDED_CLAUDE_CLI, "{}", "FAIL"),
     ],
 )
-def test_claude_readiness_uses_only_the_registered_surface_config(
-    tmp_path, monkeypatch, surface, cli, desktop, expected
-):
-    registered_as(monkeypatch, "claude-code", surface)
-    payloads = {}
-    if cli is not None:
-        payloads["claude-cli"] = cli
-    if desktop is not None:
-        payloads["claude-code"] = desktop
-    configs(tmp_path, monkeypatch, **payloads)
-    result = run(checks.hc_session_harness_unattended_posture)
-    assert result.result == expected
-    if surface == "claude-cli" and expected == "FAIL":
-        assert "claude_desktop_config" not in result.detail
-
-
-@pytest.mark.parametrize("surface", [None, "claude-vscode"])
-def test_unverified_claude_surface_cannot_borrow_desktop_posture(
-    tmp_path, monkeypatch, surface
-):
-    registered_as(monkeypatch, "claude-code")
-    monkeypatch.setattr(
-        checks,
-        "relay",
-        lambda *a: {
-            "session_id": "session",
-            "executor": "claude-code",
-            "executor_surface": surface,
-        },
-    )
-    configs(tmp_path, monkeypatch, **{"claude-code": UNATTENDED_CLAUDE_DESKTOP})
-    result = run(checks.hc_session_harness_unattended_posture)
-    assert result.result == "FAIL"
-    assert (
-        "SURFACE_UNKNOWN" in result.detail
-        or "no verified posture reader" in result.detail
-    )
-    assert "harness-setup --fix" not in result.detail
-
-
-@pytest.mark.parametrize("harness,surface,expected", [
-    ("codex", "codex-cli", "PASS"),
-    ("codex", "codex-vscode", "FAIL"),
-    ("cursor", "cursor-cli", "PASS"),
-    ("cursor", "cursor-desktop", "FAIL"),
-])
-def test_session_posture_requires_a_verified_surface_reader(
-    tmp_path, monkeypatch, harness, surface, expected
-):
-    registered_as(monkeypatch, harness, surface)
-    configs(
-        tmp_path, monkeypatch, codex=UNATTENDED_CODEX,
-        cursor=json.dumps({"approvalMode": CURSOR_APPROVAL_MODE,
-                           "sandbox": {"mode": CURSOR_SANDBOX_MODE}}),
-    )
-    result = run(checks.hc_session_harness_unattended_posture)
-    assert result.result == expected
-    if expected == "FAIL":
-        assert "HARNESS_POSTURE_UNVERIFIED" in result.detail
-        assert f"{surface} has no verified posture reader" in result.detail
-        assert "Report the surface to Yoke support" in result.detail
-        assert "harness-setup --fix" not in result.detail
+def test_cursor_cli_keeps_config_reader(tmp_path, monkeypatch, config, expected, code):
+    registered_as(monkeypatch, "cursor")
+    configs(tmp_path, monkeypatch, **({"cursor": config} if config else {}))
+    assert posture_result() == (expected, code)
 
 
 def test_unproven_registration_names_only_a_new_session(monkeypatch):
@@ -234,7 +262,9 @@ def test_unproven_registration_names_only_a_new_session(monkeypatch):
     monkeypatch.setattr(
         doctor_install, "build_actor", lambda: SimpleNamespace(session_id="")
     )
-    result = run(doctor_install.hc_session_hook_registration, only="session-hook-registration")
+    result = run(
+        doctor_install.hc_session_hook_registration, only="session-hook-registration"
+    )
     assert result.result == "FAIL"
     assert "Start a new harness session" in result.detail
     assert "approve" not in result.detail
@@ -242,29 +272,43 @@ def test_unproven_registration_names_only_a_new_session(monkeypatch):
 
 
 @pytest.mark.parametrize("quick", [False, True])
-@pytest.mark.parametrize("fn", [
-    doctor_install.hc_session_hook_registration,
-    checks.hc_session_harness_cli_auth,
-    checks.hc_session_harness_unattended_posture,
-])
+@pytest.mark.parametrize(
+    "fn",
+    [
+        doctor_install.hc_session_hook_registration,
+        checks.hc_session_harness_cli_auth,
+        checks.hc_session_harness_unattended_posture,
+    ],
+)
 def test_ordinary_health_without_a_session_is_not_applicable(monkeypatch, fn, quick):
     for module in (doctor_install, checks):
-        monkeypatch.setattr(module, "build_actor", lambda: SimpleNamespace(session_id=None))
-        monkeypatch.setattr(module, "relay", lambda *a: pytest.fail("no session to inspect"))
+        monkeypatch.setattr(
+            module, "build_actor", lambda: SimpleNamespace(session_id=None)
+        )
+        monkeypatch.setattr(
+            module, "relay", lambda *a: pytest.fail("no session to inspect")
+        )
     result = run(fn, quick=quick)
     assert result.result == "N/A"
     assert "session_required" in result.detail
     assert "yoke doctor run --session" in result.detail
 
 
-@pytest.mark.parametrize("fn,reason", [
-    (doctor_install.hc_session_hook_registration, "SESSION_HOOK_UNOBSERVED"),
-    (checks.hc_session_harness_cli_auth, "SESSION_HARNESS_UNKNOWN"),
-    (checks.hc_session_harness_unattended_posture, "SESSION_HARNESS_UNKNOWN"),
-])
-def test_explicit_session_readiness_without_a_session_still_fails(monkeypatch, fn, reason):
+@pytest.mark.parametrize(
+    "fn,reason",
+    [
+        (doctor_install.hc_session_hook_registration, "SESSION_HOOK_UNOBSERVED"),
+        (checks.hc_session_harness_cli_auth, "SESSION_HARNESS_UNKNOWN"),
+        (checks.hc_session_harness_unattended_posture, "SESSION_HARNESS_UNKNOWN"),
+    ],
+)
+def test_explicit_session_readiness_without_a_session_still_fails(
+    monkeypatch, fn, reason
+):
     for module in (doctor_install, checks):
-        monkeypatch.setattr(module, "build_actor", lambda: SimpleNamespace(session_id=None))
+        monkeypatch.setattr(
+            module, "build_actor", lambda: SimpleNamespace(session_id=None)
+        )
     result = run(fn, only=",".join(checks.SESSION_SLUGS))
     assert result.result == "FAIL"
     assert reason in result.detail

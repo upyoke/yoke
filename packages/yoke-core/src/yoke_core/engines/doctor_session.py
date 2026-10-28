@@ -14,17 +14,9 @@ from __future__ import annotations
 
 from yoke_contracts.executor_labels import canonical_harness_id
 from yoke_contracts.harness_cli_manifest import harness_cli_manifest
-from yoke_contracts.harness_unattended_posture import (
-    POSTURE_RECOVERY,
-    codex_posture_problems,
-)
-from yoke_harness.codex_session_posture import read_codex_session_posture
 from yoke_cli.transport.dispatcher import build_actor
 from yoke_core.domain.control_plane_transport import relay
-from yoke_core.engines.doctor_hc_harness_unattended_posture import (
-    VERIFIED_POSTURE_SURFACES,
-    inspect_unattended_posture,
-)
+from yoke_core.engines.doctor_session_posture import session_posture
 from yoke_core.engines.doctor_install import (
     SESSION_REQUIRED_DETAIL,
     harness_auth,
@@ -66,7 +58,9 @@ def session_harness() -> tuple[str, str | None] | None:
 def hc_session_harness_cli_auth(conn, args: DoctorArgs, rec: RecordCollector) -> None:
     if not build_actor().session_id and not args.only:
         rec.record(
-            AUTH_SLUG, AUTH_TITLE, NOT_APPLICABLE,
+            AUTH_SLUG,
+            AUTH_TITLE,
+            NOT_APPLICABLE,
             SESSION_REQUIRED_DETAIL,
         )
         return
@@ -97,7 +91,9 @@ def hc_session_harness_unattended_posture(
 ) -> None:
     if not build_actor().session_id and not args.only:
         rec.record(
-            POSTURE_SLUG, POSTURE_TITLE, NOT_APPLICABLE,
+            POSTURE_SLUG,
+            POSTURE_TITLE,
+            NOT_APPLICABLE,
             SESSION_REQUIRED_DETAIL,
         )
         return
@@ -105,62 +101,8 @@ def hc_session_harness_unattended_posture(
     if harness is None:
         rec.record(POSTURE_SLUG, POSTURE_TITLE, "FAIL", UNKNOWN_HARNESS)
         return
-    harness_id, surface_id = harness
-    if harness_id == "codex" and surface_id == "codex-desktop":
-        facts, reason = read_codex_session_posture(build_actor().session_id)
-        if facts is None:
-            rec.record(
-                POSTURE_SLUG, POSTURE_TITLE, "FAIL",
-                f"HARNESS_POSTURE_UNVERIFIED: {reason}. "
-                "Retry after the current turn is saved; if it persists, "
-                "start a new Desktop chat and rerun `yoke doctor run --session`.",
-            )
-            return
-        problems = codex_posture_problems(facts)
-        if problems:
-            rec.record(
-                POSTURE_SLUG, POSTURE_TITLE, "FAIL",
-                "HARNESS_POSTURE_RESTRICTED: current Desktop turn: "
-                + "; ".join(problems)
-                + ". Select Full Access in this chat's permissions control, "
-                "then rerun `yoke doctor run --session` in a new turn. "
-                "Managed organization restrictions take precedence; if Full "
-                "Access is unavailable, ask your administrator. Automatic "
-                "review does not meet Yoke's unrestricted-permissions requirement.",
-            )
-        else:
-            rec.record(
-                POSTURE_SLUG, POSTURE_TITLE, "PASS",
-                "codex-desktop runs yoke unattended; this turn records "
-                "approval_policy=never and sandbox_mode=danger-full-access.",
-            )
-        return
-    if harness_id == "claude-code" and not surface_id:
-        rec.record(
-            POSTURE_SLUG,
-            POSTURE_TITLE,
-            "FAIL",
-            "SESSION_HARNESS_SURFACE_UNKNOWN: this Claude session's surface "
-            "is not registered. Restore hook registration and rerun "
-            "`yoke doctor run --session`.",
-        )
-        return
-    # The session is running this harness, so a missing config is a failure.
-    verdict, detail = inspect_unattended_posture(harness_id, installed=True, surface_id=surface_id)
-    if surface_id not in VERIFIED_POSTURE_SURFACES[harness_id]:
-        rec.record(POSTURE_SLUG, POSTURE_TITLE, verdict, detail)
-        return
-    if verdict == "PASS":
-        rec.record(
-            POSTURE_SLUG, POSTURE_TITLE, "PASS", f"{harness_id} runs yoke unattended."
-        )
-        return
-    rec.record(
-        POSTURE_SLUG,
-        POSTURE_TITLE,
-        "FAIL",
-        f"{detail}\n  {POSTURE_RECOVERY} Then start a new session.",
-    )
+    verdict, detail = session_posture(*harness, session_id=build_actor().session_id)
+    rec.record(POSTURE_SLUG, POSTURE_TITLE, verdict, detail)
 
 
 SESSION_HEALTH_CHECKS = [
