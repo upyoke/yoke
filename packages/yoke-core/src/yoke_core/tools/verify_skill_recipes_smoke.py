@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import io
 from contextlib import ExitStack, contextmanager
 from typing import Callable, Iterator
 from unittest.mock import patch
@@ -40,6 +41,9 @@ def smoke_cli_patches(dispatch_stub: Callable) -> Iterator[None]:
     exercises the stubbed in-process path instead of relaying real
     requests to the remote dispatcher (which would both leak network
     traffic and report server-side registry state, not this checkout's).
+    ``sys.stdin`` is an empty buffer so a ``--stdin`` recipe reads EOF
+    instead of blocking on the caller's real stdin (an open pipe never
+    returns).
     """
     call_stub = _call_dispatcher_stub(dispatch_stub)
     with ExitStack() as stack:
@@ -68,6 +72,7 @@ def smoke_cli_patches(dispatch_stub: Callable) -> Iterator[None]:
             )
         )
         stack.enter_context(patch("yoke_cli.commands._helpers.ensure_handlers_loaded"))
+        stack.enter_context(patch("sys.stdin", io.StringIO("")))
         yield
 
 
