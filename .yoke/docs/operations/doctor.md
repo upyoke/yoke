@@ -154,7 +154,15 @@ Outside an agent session, ordinary Doctor runs (including `--quick`) report
 session hook registration, harness sign-in and unattended posture as N/A with
 `session_required`. The health receipt shown by `yoke status` retains these
 skips. Explicit `--session` or `--only` selections still require
-the selected session evidence and fail when it is missing.
+registration and posture evidence and fail when that evidence is missing.
+Missing harness CLIs and unverified CLI sign-in report WARN in both the session
+and install rosters; these warnings allow setup readiness and onboarding.
+Before launching workers, follow the warning's install or login step. The
+resolver checks PATH and bundled CLIs, including ChatGPT.app and versioned
+Claude Desktop and VS Code binaries; versioned directories stay out of shell
+PATH blocks. A launch with a missing CLI refuses as `surface_absent`; a relay
+reading of `stale_credential` refuses as `harness_signed_out`, with recovery.
+Other quota-reading failures do not establish that a harness is signed out.
 
 Before onboarding, check only the session you are in:
 

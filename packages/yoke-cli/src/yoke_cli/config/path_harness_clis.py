@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import glob
 import os
+import re
 from pathlib import Path
 import shutil
 from typing import Iterable
@@ -69,6 +71,18 @@ def resolve_native_cli_source(
             candidate = Path(raw).expanduser()
             if candidate.is_file() and os.access(candidate, os.X_OK):
                 return ResolvedNativeCli(str(candidate), "bundled")
+        versioned = []
+        for raw in manifest.bundled_patterns:
+            pattern = str(Path(raw).expanduser())
+            prefix = pattern.split("{version}", 1)[0]
+            for match in glob.glob(pattern.replace("{version}", "[0-9]*")):
+                candidate = Path(match)
+                version = re.match(r"[0-9]+(?:\.[0-9]+)+", match[len(prefix) :])
+                if version and candidate.is_file() and os.access(candidate, os.X_OK):
+                    key = tuple(int(part) for part in version.group().split("."))
+                    versioned.append((key, str(candidate)))
+        if versioned:
+            return ResolvedNativeCli(max(versioned)[1], "bundled_versioned")
     return None
 
 
@@ -101,7 +115,9 @@ def managed_path_directories(
 ) -> tuple[str, ...]:
     candidates = [tool_bin_dir]
     candidates.extend(
-        resolution.directory for resolution in harness_clis if resolution.directory
+        resolution.directory
+        for resolution in harness_clis
+        if resolution.directory and resolution.source != "bundled_versioned"
     )
     return tuple(
         dict.fromkeys(str(Path(candidate).expanduser()) for candidate in candidates)

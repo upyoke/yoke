@@ -11,8 +11,10 @@
       "--version"
     ],
     "bundled_candidates": [
-      "/Applications/ChatGPT.app/Contents/Resources/codex"
+      "/Applications/ChatGPT.app/Contents/Resources/codex-cli/bin/codex"
     ],
+    "bundled_patterns": [],
+    "install_command": "npm install -g @openai/codex",
     "authentication": {
       "status_args": [
         "login",

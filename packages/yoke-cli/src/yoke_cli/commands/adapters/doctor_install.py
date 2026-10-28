@@ -79,7 +79,14 @@ def _setup_readiness(report: dict, kwargs: dict) -> dict:
         expected <= observed
         and bool(rows)
         and not result.get("error")
-        and all(row.get("severity") in {"PASS", "N/A"} for row in rows)
+        and all(
+            row.get("severity") in {"PASS", "N/A"}
+            or (
+                str(row.get("hc") or "").removeprefix("HC-") == "harness-cli-auth"
+                and row.get("severity") == "WARN"
+            )
+            for row in rows
+        )
         and result.get("exit_code", 0) == 0
     )
     result["recovery"] = (

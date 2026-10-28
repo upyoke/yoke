@@ -21,6 +21,15 @@ The installer selects agent mode when run without a terminal. Use
 a terminal. If you prefer to do setup yourself, use the optional
 [Terminal setup](terminal-onboarding.md) path.
 
+Worker launches need a harness CLI and its own sign-in. Desktop apps usually
+ship that CLI: Yoke checks ChatGPT.app's bundled Codex and the newest Claude
+Desktop or Claude VS Code bundle, even when the command is absent from PATH.
+Cursor Desktop ships no agent CLI; install it with
+`curl https://cursor.com/install -fsS | bash`, then run `cursor-agent login`.
+A missing CLI or unverified sign-in is a Doctor WARN that allows onboarding;
+follow its install or login step before launching workers. Launch refusals name
+`surface_absent` or `harness_signed_out` with that harness's recovery step.
+
 Setup always configures every installed harness for unattended Yoke commands.
 Review names the files and permission settings before applying them.
 

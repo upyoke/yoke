@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import shlex
 
 from yoke_contracts.executor_labels import CANONICAL_HARNESS_IDS
 
@@ -18,11 +19,23 @@ class HarnessCliManifest:
     minimum_engine_version: str = "0.0.0"
     version_args: tuple[str, ...] = ("--version",)
     bundled_candidates: tuple[str, ...] = ()
+    bundled_patterns: tuple[str, ...] = ()
+    install_command: str = ""
     auth_args: tuple[str, ...] = ()
     auth_signed_in_key: str = ""
     login_args: tuple[str, ...] = ("login",)
     launch_environment: tuple[tuple[str, str], ...] = ()
     background_time_limit: str = ""
+
+    def missing_cli_recovery(self) -> str:
+        bundles = (*self.bundled_candidates, *self.bundled_patterns)
+        bundled = (
+            f" Check the bundled CLI at {' or '.join(bundles)}." if bundles else ""
+        )
+        return f"{bundled} Install with `{self.install_command}` if needed.".strip()
+
+    def sign_in_recovery(self, executable: str | None = None) -> str:
+        return f"Run `{shlex.join((executable or self.executable, *self.login_args))}`."
 
     def to_json(self) -> dict[str, object]:
         return {
@@ -33,6 +46,8 @@ class HarnessCliManifest:
             "background_time_limit": self.background_time_limit,
             "version_args": list(self.version_args),
             "bundled_candidates": list(self.bundled_candidates),
+            "bundled_patterns": list(self.bundled_patterns),
+            "install_command": self.install_command,
             "authentication": {
                 "status_args": list(self.auth_args),
                 "signed_in_key": self.auth_signed_in_key,
@@ -59,6 +74,11 @@ HARNESS_CLI_MANIFESTS = (
         "claude",
         "anthropic_oauth_usage",
         CLAUDE_AGENTS_MINIMUM_VERSION,
+        bundled_patterns=(
+            "~/Library/Application Support/Claude/claude-code/{version}/*/claude.app/Contents/MacOS/claude",
+            "~/.vscode/extensions/anthropic.claude-code-{version}*/resources/native-binary/claude",
+        ),
+        install_command="curl -fsSL https://claude.ai/install.sh | bash",
         auth_args=("auth", "status", "--json"),
         auth_signed_in_key="loggedIn",
         login_args=("auth", "login"),
@@ -78,7 +98,10 @@ HARNESS_CLI_MANIFESTS = (
         "codex",
         "codex_account_rate_limits",
         "0.161.0",
-        bundled_candidates=("/Applications/ChatGPT.app/Contents/Resources/codex",),
+        bundled_candidates=(
+            "/Applications/ChatGPT.app/Contents/Resources/codex-cli/bin/codex",
+        ),
+        install_command="npm install -g @openai/codex",
         auth_args=("login", "status"),
         background_time_limit=(
             "Designed deferral: no equivalent unattended background time limit "
@@ -94,6 +117,7 @@ HARNESS_CLI_MANIFESTS = (
         "cursor-agent",
         "cursor_dashboard_usage",
         "2026.10.01",
+        install_command="curl https://cursor.com/install -fsS | bash",
         auth_args=("status", "--format", "json"),
         auth_signed_in_key="isAuthenticated",
         background_time_limit=(

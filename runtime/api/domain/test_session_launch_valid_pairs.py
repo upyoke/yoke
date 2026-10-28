@@ -72,7 +72,8 @@ def test_claude_is_eligible_with_quota_and_no_listing_adapter():
     )
 
 
-def test_quota_failure_names_reason_and_recovery_without_exhaustion():
+@pytest.mark.parametrize("reason", ["stale_credential", "http_429"])
+def test_quota_failure_names_reason_and_recovery_without_exhaustion(reason):
     conn = level_connection(CLAUDE_OPUS)
     add_surface(
         conn,
@@ -86,20 +87,26 @@ def test_quota_failure_names_reason_and_recovery_without_exhaustion():
                 "remaining_percent": None,
                 "resets_at": None,
                 "status": "unknown",
-                "reason": "stale_credential",
+                "reason": reason,
             }
         ],
     )
     result = place(conn)
+    if reason == "stale_credential":
+        assert result.chosen is None
+        blocked = result.to_dict()["candidates"][0]["blocked"]
+        assert "harness_signed_out" in blocked
+        assert "claude auth login" in blocked
+        return
     assert result.chosen is not None
     pool = result.to_dict()["chosen"]["pools"][0]
-    assert pool["reason"] == "stale_credential"
-    assert "re-authenticate" in pool["guidance"]
+    assert pool["reason"] == reason
+    assert pool["guidance"]
     assert not pool["exhausted"]
     output = StringIO()
     write_level_candidates(result.to_dict(), output)
-    assert "stale_credential" in output.getvalue()
-    assert "re-authenticate" in output.getvalue()
+    assert reason in output.getvalue()
+    assert pool["guidance"] in output.getvalue()
 
 
 def test_pool_projection_preserves_null_reset_and_opaque_window():

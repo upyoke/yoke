@@ -13,6 +13,8 @@ again.
 | `executable` | string | Command name the vendor installs (for example, `cursor-agent`). |
 | `version_args` | list[string] | Arguments used by the bounded version probe. |
 | `bundled_candidates` | list[string] | Optional absolute executable paths inside a vendor application bundle. Empty when no supported bundled command exists. |
+| `bundled_patterns` | list[string] | Versioned executable patterns. `{version}` matches a dotted numeric release; `*` matches vendor build or architecture text. Expand `~` on the executing machine; choose the highest numeric version across patterns, then path to break ties. PATH and fixed candidates take precedence. |
+| `install_command` | string | Official harness install command shared by Doctor and launch recovery. |
 | `authentication` | object | Bounded status arguments, the optional JSON boolean sign-in key, and the native login arguments. Doctor records only the verdict, never the private native auth document. |
 | `launch_environment` | object[string, string] | Environment values applied by the shared relay environment builder after stripping inherited harness state, before starting the native CLI. Subagents inherit these process values. |
 | `background_time_limit` | string | Documented unattended command lifetime, launch-setting rationale and evidence, or an explicit designed deferral where no equivalent is documented. |
@@ -27,8 +29,9 @@ ambiguous legacy ownership; see `.yoke/docs/agents/harness-discovery.md`.
 
 Installer PATH repair reads this manifest registry, resolves each installed
 command from the ambient installer PATH or a declared bundle candidate, and
-adds the resolved parent directory to both login and non-login/SSH startup
-surfaces. Missing commands remain a reported, re-runnable state; the standard
+adds stable resolved parent directories to login and non-login/SSH startup
+surfaces. Versioned bundled directories are resolved on every lookup and never
+added to shell PATH blocks because application updates replace them. Missing commands remain a reported, re-runnable state; the standard
 Yoke tool directory is still added for later installs.
 
 

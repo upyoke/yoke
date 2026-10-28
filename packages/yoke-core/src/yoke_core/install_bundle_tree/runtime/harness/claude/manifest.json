@@ -13,6 +13,11 @@
       "--version"
     ],
     "bundled_candidates": [],
+    "bundled_patterns": [
+      "~/Library/Application Support/Claude/claude-code/{version}/*/claude.app/Contents/MacOS/claude",
+      "~/.vscode/extensions/anthropic.claude-code-{version}*/resources/native-binary/claude"
+    ],
+    "install_command": "curl -fsSL https://claude.ai/install.sh | bash",
     "authentication": {
       "status_args": [
         "auth",

@@ -107,3 +107,46 @@ def test_setup_relay_and_doctor_share_path_and_bundled_resolution(
         assert resolved.source == source
         assert session_relay_surface_probes.resolve_native_cli("codex") == str(expected)
         assert doctor_install.installed_harness_clis()["codex"] == str(expected)
+
+
+def test_codex_app_bundle_is_resolved_from_the_declared_path(tmp_path):
+    from dataclasses import replace
+
+    manifest = next(m for m in HARNESS_CLI_MANIFESTS if m.harness_id == "codex")
+    assert manifest.bundled_candidates == (
+        "/Applications/ChatGPT.app/Contents/Resources/codex-cli/bin/codex",
+    )
+    bundled = tmp_path / manifest.bundled_candidates[0].lstrip("/")
+    bundled.parent.mkdir(parents=True)
+    bundled.write_text("#!/bin/sh\n")
+    bundled.chmod(0o755)
+    resolution = resolve_harness_clis(
+        "", manifests=(replace(manifest, bundled_candidates=(str(bundled),)),)
+    )[0]
+    assert (resolution.path, resolution.source) == (str(bundled), "bundled")
+
+
+def test_versioned_claude_bundles_choose_the_newest_executable(tmp_path, monkeypatch):
+    from dataclasses import replace
+    from yoke_cli.config.path_harness_clis import managed_path_directories
+
+    manifest = next(m for m in HARNESS_CLI_MANIFESTS if m.harness_id == "claude-code")
+    monkeypatch.setenv("HOME", str(tmp_path))
+    for pattern in manifest.bundled_patterns:
+        selected = None
+        for version in ("2.9.9", "2.10.2", "2.11.0"):
+            bundled = Path(
+                pattern.replace("{version}", version).replace("*", "-darwin-arm64")
+            ).expanduser()
+            bundled.parent.mkdir(parents=True)
+            bundled.write_text("#!/bin/sh\n")
+            bundled.chmod(0o755 if version != "2.11.0" else 0o644)
+            if version == "2.10.2":
+                selected = str(bundled)
+        resolution = resolve_harness_clis(
+            "", manifests=(replace(manifest, bundled_patterns=(pattern,)),)
+        )[0]
+        assert (resolution.path, resolution.source) == (selected, "bundled_versioned")
+        assert managed_path_directories("/tools", (resolution,)) == ("/tools",)
+    resolution = resolve_harness_clis("", manifests=(manifest,))[0]
+    assert "2.10.2" in resolution.path

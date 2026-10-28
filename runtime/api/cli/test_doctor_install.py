@@ -168,3 +168,34 @@ def test_install_github_auth_never_treats_an_old_applicability_skip_as_pass(
     if severity == "N/A" and expected == "FAIL":
         assert "Required serving feature" in result["results"][0]["detail"]
         assert result["fail_count"] == 1
+
+
+@pytest.mark.parametrize(
+    "warning_slug,ready", [("harness-cli-auth", True), ("hook-resident", False)]
+)
+def test_only_cli_auth_warning_allows_setup_readiness(monkeypatch, warning_slug, ready):
+    import json
+
+    def doctor_run(args):
+        print(
+            json.dumps(
+                {
+                    "success": True,
+                    "result": {
+                        "results": [
+                            {
+                                "hc": "HC-" + slug,
+                                "severity": "WARN" if slug == warning_slug else "PASS",
+                            }
+                            for slug in doctor_install.install_slugs()
+                        ]
+                    },
+                }
+            )
+        )
+        return 0
+
+    monkeypatch.setattr(doctor, "doctor_run", doctor_run)
+    assert (
+        doctor_install.setup_readiness({}, {"project_slug": "sample"})["ready"] is ready
+    )

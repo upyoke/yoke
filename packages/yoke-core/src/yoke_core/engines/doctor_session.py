@@ -75,15 +75,13 @@ def hc_session_harness_cli_auth(conn, args: DoctorArgs, rec: RecordCollector) ->
         rec.record(
             AUTH_SLUG,
             AUTH_TITLE,
-            "FAIL",
+            "WARN",
             f"HARNESS_CLI_MISSING: this session runs {harness_id}, but "
-            f"`{manifest.executable}` is not on PATH. Install the "
-            f"{manifest.executable} CLI, sign in, and rerun "
-            "`yoke doctor run --session`.",
+            f"`{manifest.executable}` was not found. {manifest.missing_cli_recovery()}",
         )
         return
     signed_in, detail = harness_auth(manifest, executable)
-    rec.record(AUTH_SLUG, AUTH_TITLE, "PASS" if signed_in else "FAIL", detail)
+    rec.record(AUTH_SLUG, AUTH_TITLE, "PASS" if signed_in else "WARN", detail)
 
 
 def hc_session_harness_unattended_posture(
