@@ -4,15 +4,7 @@
  "status": "observed",
  "form": "Teach",
  "verification": "Shared flow and shell regression tests; deployed delivery remains unproved.",
- "topics": [
-  "repositories/github/repository-permissions",
-  "identity/auth"
- ],
- "sources": [
-  "packages/yoke-cli/src/yoke_cli/config/onboard_wizard_view_helpers.py",
-  "packages/yoke-cli/src/yoke_cli/config/onboard_wizard_flow.py",
-  "packages/yoke-cli/src/yoke_cli/config/onboard_wizard_flow_github.py",
-  "runtime/api/cli/test_setup_prompt_carryover.py"
- ],
+ "topics": ["repositories/github/repository-permissions", "identity/auth"],
+ "sources": ["packages/yoke-cli/src/yoke_cli/config/onboard_wizard_view_helpers.py", "packages/yoke-cli/src/yoke_cli/config/onboard_wizard_flow.py", "packages/yoke-cli/src/yoke_cli/config/onboard_wizard_flow_github.py", "runtime/api/cli/test_setup_prompt_carryover.py"],
  "position": 14
 }
