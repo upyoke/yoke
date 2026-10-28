@@ -73,24 +73,25 @@ export function groupRunChecks(checks, sharing) {
   };
 }
 
-// "shares Installer campaign (28) · Covers: YOK-1, YOK-2 — see Run QA",
-// one line per shared plan.
+// "Shared: Installer campaign — see Run QA": the shared-only tile names
+// every plan; an item with its own checks gets one pointer per plan. Run QA
+// already names the items each plan covers and counts its checks.
+export function sharedOnlyVerdict(plans) {
+  return `Shared: ${plans.map(sharedPlanName).join(", ")} — see Run QA`;
+}
+
 export function appendSharedPlanPointers(documentNode, host, plans) {
   for (const plan of plans) {
     host.appendChild(el(documentNode, "p", "item-qa-shared-pointer",
-      `shares ${sharedPlanName(plan)} (${Number(plan.case_count || 0)}) · ${sharedByLabel(plan)} — see Run QA`));
+      sharedOnlyVerdict([plan])));
   }
 }
 
-// The tile an item keeps when every check it owes is a shared plan's.
-export function sharedOnlyVerdict(plans) {
-  return `0 own checks, shares ${plans.map(sharedPlanName).join(", ")}`;
-}
-
-// Item QA for an item whose every check is a shared plan's: the tile stays,
-// says it owns none, and points at Run QA. The section is a direct child of
-// the member grid, so it takes the same full row as the diagnostic note;
-// otherwise the title column collapses to one letter per line.
+// Item QA for an item whose every check is a shared plan's: one tile that
+// points at Run QA, with no pointer line repeating it. The section is a
+// direct child of the member grid, so it takes the same full row as the
+// diagnostic note; otherwise the title column collapses to one letter per
+// line.
 export function appendSharedOnlyItemQa(documentNode, host, plans) {
   const section = el(
     documentNode, "section",
@@ -100,7 +101,6 @@ export function appendSharedOnlyItemQa(documentNode, host, plans) {
   head.appendChild(el(documentNode, "h4", null, "Item QA"));
   head.appendChild(el(documentNode, "span", "run-verdict", sharedOnlyVerdict(plans)));
   section.appendChild(head);
-  appendSharedPlanPointers(documentNode, section, plans);
   host.appendChild(section);
   return { node: section, requestIds: new Set() };
 }
