@@ -64,15 +64,27 @@ Setup always writes `approval_policy = "never"` and
 `sandbox_mode = "danger-full-access"`, replacing prompting modes.
 Unrelated configuration stays in place.
 
-If a `yoke` command is refused with `Operation not permitted`, that is this
-posture missing, not a broken database: the CLI says so and names the repair.
 `HC-harness-unattended-posture` reports the standing posture for every
-harness on the machine from saved configuration. The session check can verify
-`codex-cli` only; `codex-desktop` and `codex-vscode` report
-`HARNESS_POSTURE_UNVERIFIED` because their active approval posture has no
-verified reader. Saved CLI settings cannot prove an in-session approval mode.
-Repair all setup facets with
+harness on the machine from saved configuration. Repair setup facets with
 `yoke doctor run --only harness-setup --fix`.
+
+The session check reads saved settings for `codex-cli`. For `codex-desktop`,
+it verifies this session's native transcript identity and reads the newest
+turn's `approval_policy` and `sandbox_policy.type`. Only `never` plus
+`danger-full-access` passes. Saved CLI settings and earlier permissive turns
+cannot prove the active Desktop mode. Automatic review retains sandbox limits
+and does not meet Yoke's unrestricted-permissions requirement.
+
+`HARNESS_POSTURE_RESTRICTED` names the active values: select **Full Access**
+in this chat's permissions control and rerun `yoke doctor run --session` in
+a new turn. Managed organization requirements take precedence; ask your
+administrator if the mode is unavailable. See OpenAI's
+[permission documentation](https://learn.chatgpt.com/docs/sandboxing/auto-review).
+`HARNESS_POSTURE_UNVERIFIED` means the current native evidence is missing,
+unreadable, or outside the bounded transcript tail: retry after the turn is
+saved, then start a new chat if necessary. The check never substitutes saved
+settings for missing Desktop evidence. `codex-vscode` still has no verified
+session reader and reports `HARNESS_POSTURE_UNVERIFIED`.
 
 Setup, project install/refresh and lane preparation use the same reconcile.
 The relay runs it when a harness home appears, covering registered checkouts

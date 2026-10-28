@@ -207,7 +207,6 @@ def test_unverified_claude_surface_cannot_borrow_desktop_posture(
 
 @pytest.mark.parametrize("harness,surface,expected", [
     ("codex", "codex-cli", "PASS"),
-    ("codex", "codex-desktop", "FAIL"),
     ("codex", "codex-vscode", "FAIL"),
     ("cursor", "cursor-cli", "PASS"),
     ("cursor", "cursor-desktop", "FAIL"),
