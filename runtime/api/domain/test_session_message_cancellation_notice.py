@@ -8,6 +8,12 @@ from runtime.api.test_sessions import _register
 from runtime.api.domain.test_session_process_liveness_report import _ghost, _apply
 from yoke_contracts.session_control.models import RecipientSelector
 from yoke_core.domain.session_message_service import send_message
+from yoke_core.domain.actor_permissions import (
+    ROLE_OPERATOR,
+    grant_actor_project_role,
+    seed_roles_and_permissions,
+)
+from yoke_contracts.timestamps import utc_now
 from yoke_core.domain.session_message_cancellation_notice import (
     notify_cancelled_message_senders,
 )
@@ -23,11 +29,22 @@ def conn(test_db):
 
 
 def _seed(conn, *, sender="sender", state="pending"):
-    _register(conn, session_id="sender")
+    actor_id = conn.execute(
+        "INSERT INTO actors (kind,name,created_at) VALUES (%s,%s,%s) RETURNING id",
+        ("human", "Message sender", utc_now()),
+    ).fetchone()[0]
+    seed_roles_and_permissions(conn)
+    grant_actor_project_role(
+        conn,
+        actor_id=actor_id,
+        project_id=1,
+        role_name=ROLE_OPERATOR,
+    )
+    _register(conn, session_id="sender", actor_id=actor_id)
     recipient = _ghost(conn)
     message = send_message(
         conn,
-        actor_id=None,
+        actor_id=actor_id,
         sender_session_id=sender,
         selector=RecipientSelector(session_ids=[recipient]),
         body="Please inspect.",
