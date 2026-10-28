@@ -4,7 +4,7 @@
  "status": "draft-copy",
  "related": "qa-evidence/verdicts",
  "page": "approvals",
- "summary": "A resolved QA review tells the current item claim holder its outcome, reviewer note and next action. An unheld item routes to steering; pending session notices remain visible there. Deployment requirements retain run/stage routing.",
- "sources": ["docs/public/verification/requirement-state.md", "packages/yoke-core/src/yoke_core/domain/qa_verdict_notice.py"],
+ "summary": "A resolved QA review tells the current item claim holder its outcome, reviewer note and next action. An unheld item routes to steering; pending session notices remain visible there. Deployment requirements retain run/stage routing. The delivery-flow pipeline labels each QA policy Approval: no human approval required, human approval required, or human approval required if the agent is unsure. Human policies retain their reviewer names; this wording does not change the policy.",
+ "sources": ["docs/public/verification/requirement-state.md", "packages/yoke-core/src/yoke_core/domain/qa_verdict_notice.py", "packages/yoke-core/src/yoke_core/ui/static/universe_delivery_flow_stage_policy.js"],
  "position": 2
 }
