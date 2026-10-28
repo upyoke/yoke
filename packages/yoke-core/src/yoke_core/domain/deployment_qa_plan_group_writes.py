@@ -224,6 +224,9 @@ def group_snapshots(
         if replacement_scopes:
             snapshot["replacement_scopes"] = replacement_scopes
         snapshot["selected_by_agent"] = True
+        # The group corrects from its own plan, so the corrected case takes a
+        # fresh key beside the failed row it replaces.
+        snapshot["corrects_own_plan"] = True
     else:
         snapshot = _pinned_snapshot(
             conn, _creating_run(marker["group_id"]), plan_id, project_id

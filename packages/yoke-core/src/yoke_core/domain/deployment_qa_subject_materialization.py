@@ -149,7 +149,11 @@ def materialize_subject(
                 plan_id=plan_id,
                 execution_target_digest=target_digest(target),
                 cases=[dict(case) for case in snapshot["cases"]],
-                explicitly_replaced=replaced_requirement_ids,
+                explicitly_replaced=(
+                    frozenset()
+                    if snapshot.get("corrects_own_plan")
+                    else replaced_requirement_ids
+                ),
             )
             materialized_keys = {base_case_key(row["plan_case_key"]) for row in rows}
             added = any(
