@@ -249,9 +249,9 @@ def cancel_open_recipients(
 ) -> int:
     """Close a recipient's open envelopes and attempts, naming the absence.
 
-    Termination and verified process death both cancel delivery so senders do
-    not wait for an answer that cannot arrive. Their result_code distinguishes
-    the cause while this single statement pair owns the shared mutation.
+    This only mutates envelopes and attempts; it does not notify senders.
+    Callers own any sender notice after commit. The result_code records the
+    cause on open attempts, not on recipient rows.
     """
     marker = _p(conn)
     stamp = instant_parameter(conn, cancelled_at)
