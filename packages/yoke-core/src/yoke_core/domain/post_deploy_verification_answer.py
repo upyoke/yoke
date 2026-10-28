@@ -200,11 +200,8 @@ def member_post_deploy_answer(
     if member_item_id is None:
         return PostDeployAnswer(UNANSWERED)
     from yoke_core.domain.deployment_qa_member_plans import member_plan_ids
-    from yoke_core.domain.deployment_qa_plan_groups import run_environment_id
 
-    if member_plan_ids(
-        conn, int(member_item_id), run_environment_id(conn, str(subject["id"]))
-    ):
+    if member_plan_ids(conn, int(member_item_id), str(subject["id"])):
         return PostDeployAnswer(
             PLAN_GROUPS, ("its post-deploy plans run once for the release as plan groups",)
         )

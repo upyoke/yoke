@@ -81,7 +81,6 @@ def plan_credit_misses(conn: Any, item_id: int) -> list[dict]:
     from yoke_core.domain.deployment_qa_member_plans import member_plan_ids
     from yoke_core.domain.deployment_qa_plan_groups import (
         lineage_run_ids,
-        run_environment_id,
         run_groups,
     )
     from yoke_core.domain.deployment_qa_takeover_notice import item_qa_stage_name
@@ -91,7 +90,7 @@ def plan_credit_misses(conn: Any, item_id: int) -> list[dict]:
         for target_env in _plan_target_envs(conn, plan_id):
             run = latest_qa_member_run(conn, item_id=int(item_id), target_env=target_env)
             if run is not None and plan_id not in member_plan_ids(
-                conn, int(item_id), run_environment_id(conn, str(run["id"]))
+                conn, int(item_id), str(run["id"])
             ):
                 continue  # bound to another environment: this run owes it none
             credited = run is not None and any(

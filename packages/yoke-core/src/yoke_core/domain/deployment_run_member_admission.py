@@ -76,7 +76,6 @@ class RunItemsAdmission:
     selections: dict[int, str | None]
     refs: dict[int, str]
     requirement_ids: tuple[int, ...]
-    plan_ids: tuple[int, ...]
 
 
 def admit_run_items(
@@ -250,7 +249,6 @@ def prepare_run_items(
         },
         {item_id: ref(item_id) for item_id in ids},
         tuple(sorted(admission.requirements)),
-        tuple(sorted(admission.plans)),
     )
 
 

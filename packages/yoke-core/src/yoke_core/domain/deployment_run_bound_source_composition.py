@@ -180,15 +180,14 @@ class PlannedRecomposition:
     further: CarriedEnrollment | None = None
 
     @property
-    def row_ids(self) -> tuple[tuple[int, ...], tuple[int, ...]]:
-        """The requirement and plan rows this plan read unlocked."""
-        requirements, plans = set(), set()
+    def row_ids(self) -> tuple[int, ...]:
+        """The requirement rows this plan read unlocked."""
+        requirements = set()
         if self.snapshots is not None:
             requirements.update(self.snapshots[2])
         if self.further is not None and self.further.admission is not None:
             requirements.update(self.further.admission.requirement_ids)
-            plans.update(self.further.admission.plan_ids)
-        return tuple(sorted(requirements)), tuple(sorted(plans))
+        return tuple(sorted(requirements))
 
 
 def plan_recomposition(

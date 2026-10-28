@@ -214,26 +214,18 @@ def read_composition_basis(
     )
 
 
-def lock_snapshot_rows(
-    conn: Any, requirement_ids: Iterable[int], plan_ids: Iterable[int] = ()
-) -> None:
-    """Hold the requirement and plan rows an unlocked snapshot read, in id order.
+def lock_snapshot_rows(conn: Any, requirement_ids: Iterable[int]) -> None:
+    """Hold the requirement rows an unlocked snapshot read, in id order.
 
     Taken under the run lock and before the basis re-check, the same order the
     locked snapshot read takes them, so the rows the snapshot froze stay as
     read until the caller's transaction ends.
     """
     requirements = sorted({int(value) for value in requirement_ids})
-    plans = sorted({int(value) for value in plan_ids})
     if requirements:
         conn.execute(
             "SELECT id FROM qa_requirements WHERE id=ANY(%s) ORDER BY id FOR UPDATE",
             (requirements,),
-        )
-    if plans:
-        conn.execute(
-            "SELECT id FROM qa_plans WHERE id=ANY(%s) ORDER BY id FOR UPDATE",
-            (plans,),
         )
 
 

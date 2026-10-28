@@ -77,9 +77,7 @@ class CarriedEnrollment:
         if self.basis is None:
             return None
         if self.admission is not None:
-            lock_snapshot_rows(
-                conn, self.admission.requirement_ids, self.admission.plan_ids
-            )
+            lock_snapshot_rows(conn, self.admission.requirement_ids)
         if member_ids(conn, self.basis.run_id) != self.member_ids:
             return None
         if not self.basis.unchanged(conn):

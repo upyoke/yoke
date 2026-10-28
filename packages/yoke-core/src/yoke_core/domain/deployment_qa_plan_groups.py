@@ -146,17 +146,8 @@ def group_for_target(conn: Any, run_id: str, target: Mapping) -> PlanGroup | Non
     )
 
 
-def run_environment_id(conn: Any, run_id: str) -> int | None:
-    row = conn.execute(
-        "SELECT target_environment_id FROM deployment_runs WHERE id=%s", (run_id,)
-    ).fetchone()
-    value = None if row is None else (row["target_environment_id"] if hasattr(row, "keys") else row[0])
-    return int(value) if value is not None else None
-
-
 def attached_plans(conn: Any, run_id: str) -> dict[int, list[int]]:
     """Each owed post-deploy plan of the run's current members, with its attachers."""
-    environment_id = run_environment_id(conn, run_id)
     rows = query_rows(
         conn,
         "SELECT item_id FROM deployment_run_items WHERE run_id=%s ORDER BY item_id",
@@ -164,7 +155,7 @@ def attached_plans(conn: Any, run_id: str) -> dict[int, list[int]]:
     )
     from yoke_core.domain.deployment_qa_member_plans import members_plan_ids
 
-    owed = members_plan_ids(conn, (int(row["item_id"]) for row in rows), environment_id)
+    owed = members_plan_ids(conn, (int(row["item_id"]) for row in rows), run_id)
     plans: dict[int, list[int]] = {}
     for member in sorted(owed):
         for plan_id in sorted(owed[member]):
@@ -239,9 +230,7 @@ def plan_only_members(conn: Any, run_id: str, item_ids: Any) -> set[int]:
         "WHERE run_id=%s AND item_id=ANY(%s)",
         (str(run_id), sorted({int(item) for item in item_ids})),
     )
-    owed = members_plan_ids(
-        conn, (int(row["item_id"]) for row in rows), run_environment_id(conn, run_id)
-    )
+    owed = members_plan_ids(conn, (int(row["item_id"]) for row in rows), str(run_id))
     found = set()
     for row in rows:
         member = int(row["item_id"])

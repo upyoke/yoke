@@ -94,18 +94,13 @@ def _plan_snapshot(
     project_id: int,
     case_keys: Iterable[str] | None = None,
     lock_plan: bool = True,
-    admission=None,
 ) -> dict[str, Any]:
     from yoke_core.domain.deployment_qa_shared_plan_reads import (
         plan_snapshot_row,
         plan_snapshot_cases,
     )
 
-    raw_plan = (
-        admission.plans.get(plan_id, (None, ()))[0]
-        if admission is not None
-        else plan_snapshot_row(conn, plan_id, lock_plan=lock_plan)
-    )
+    raw_plan = plan_snapshot_row(conn, plan_id, lock_plan=lock_plan)
     if raw_plan is None:
         raise LookupError(f"QA plan {plan_id} not found")
     plan = semantic_row(raw_plan, PLAN_FIELDS)
@@ -118,11 +113,7 @@ def _plan_snapshot(
         raise ValueError(f"QA plan {plan_id} case_keys must be unique non-empty names")
     cases = [
         semantic_row(raw, (*CASE_FIELDS, *CASE_WAKE_FIELDS))
-        for raw in (
-            admission.plans[plan_id][1]
-            if admission is not None
-            else plan_snapshot_cases(conn, plan_id, lock_plan=lock_plan)
-        )
+        for raw in plan_snapshot_cases(conn, plan_id, lock_plan=lock_plan)
     ]
     from yoke_contracts.qa_case_starting_state import (
         StartingStateError,
