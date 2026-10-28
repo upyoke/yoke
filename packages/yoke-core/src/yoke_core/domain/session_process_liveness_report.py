@@ -55,6 +55,10 @@ from yoke_core.domain.session_launch_abandonment import (
 from yoke_core.domain.session_scope_identity import relay_serves_scope
 from yoke_core.domain.session_staleness import activity_liveness
 from yoke_core.domain.session_message_store import cancel_open_recipients
+from yoke_core.domain.session_message_cancellation_notice import (
+    notify_cancelled_message_senders,
+)
+from yoke_core.domain.sessions_render_reclaim import pending_message_senders
 from yoke_core.domain.session_message_types import row_dict
 from yoke_core.domain.session_mode import session_is_parked
 from yoke_core.domain.session_native_process_observation import (
@@ -208,11 +212,16 @@ def _end_claimless(
         return f"refused_{exc.code.lower()}"
     # Nothing will read this session's inbox again, so its senders are told
     # now rather than left waiting on a delivery that cannot happen.
+    pending = pending_message_senders(conn, session_id)
     cancel_open_recipients(
         conn,
         session_id=session_id,
         cancelled_at=now,
         result_code=PROCESS_VERIFIED_DEAD_REASON,
+    )
+    conn.commit()
+    notify_cancelled_message_senders(
+        conn, pending, session_id=session_id, reason=PROCESS_VERIFIED_DEAD_REASON
     )
     return None
 

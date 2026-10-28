@@ -2,9 +2,10 @@
  "id": "ended-recipient-debt",
  "title": "Unresolved mail after a recipient ends",
  "status": "observed",
- "sources": ["packages/yoke-core/src/yoke_core/domain/steering_fleet_report_undelivered.py", "docs/public/sessions/steering-report.md"],
+ "sources": ["packages/yoke-core/src/yoke_core/domain/steering_fleet_report_undelivered.py", "docs/public/sessions/steering-report.md", "packages/yoke-core/src/yoke_core/domain/session_message_cancellation_notice.py", "packages/yoke-core/src/yoke_core/domain/sessions_render_reclaim.py"],
  "commands": ["yoke messages get", "yoke messages cancel"],
  "functions": ["session_control.message.get", "session_control.message.cancel"],
  "page": "messaging",
- "position": 2
+ "position": 2,
+ "summary": "Stale reclaim and verified process death cancel pending recipients and send one notice to each original sender session after commit, naming the message, recipient and reason. Injected and acknowledged receipts produce no notice; mail is never transferred to another session."
 }

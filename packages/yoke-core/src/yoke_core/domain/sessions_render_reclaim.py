@@ -17,6 +17,7 @@ from .sessions_analytics import (
 )
 from .session_launch_abandonment import settle_and_notify
 from .session_message_store import cancel_open_recipients
+from .session_message_cancellation_notice import notify_cancelled_message_senders
 from .sessions_claim_lifecycle_lock import lock_session_rows_for_claim_lifecycle
 from .sessions_lifecycle_registry import _get_claim, _get_session
 from .sessions_queries import _row_to_dict, clear_chain_checkpoint
@@ -39,6 +40,18 @@ from .workflow_item_binding_validation import (
     validate_work_claim_target,
 )
 from yoke_core.domain.work_claim_target_sql import LIVENESS_BOUND_SQL
+
+
+def pending_message_senders(conn: Any, session_id: str) -> list[dict]:
+    """Lock undelivered envelopes until the caller cancels and commits."""
+    rows = conn.execute(
+        "SELECT m.message_id, m.sender_session_id, m.sender_actor_id "
+        "FROM session_messages m JOIN session_message_recipients r "
+        "ON r.message_id=m.message_id "
+        "WHERE r.session_id=%s AND r.state='pending' FOR UPDATE OF r",
+        (session_id,),
+    ).fetchall()
+    return [dict(row) for row in rows]
 
 
 def find_stale_sessions(
@@ -145,10 +158,14 @@ def reclaim_stale_session(
         "UPDATE harness_sessions SET ended_at = %s WHERE session_id = %s",
         (instant_parameter(conn, now), session_id),
     )
+    pending = pending_message_senders(conn, session_id)
     cancel_open_recipients(
         conn, session_id=session_id, cancelled_at=now, result_code="session_reclaimed"
     )
     conn.commit()
+    notify_cancelled_message_senders(
+        conn, pending, session_id=session_id, reason="session_reclaimed"
+    )
 
     for claim_row in released_claim_rows:
         emit_reclaimed_work_claim(session_id, claim_row)
