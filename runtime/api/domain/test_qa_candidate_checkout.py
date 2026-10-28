@@ -240,3 +240,61 @@ def test_symlinked_temp_candidate_root_keeps_nested_project_labels(
     assert seen_root == seen_root.resolve()
     assert report.error == ""
     assert "environment:synced=services/platform-svc" in report.actions
+
+
+@pytest.fixture
+def blobless_checkout(tmp_path: Path) -> tuple[Path, str]:
+    """A partial-clone checkout that knows a later commit but not its new blob."""
+    upstream = tmp_path / "upstream"
+    upstream.mkdir()
+    _git(upstream, "init", "--quiet")
+    _git(upstream, "config", "user.email", "tester@example.test")
+    _git(upstream, "config", "user.name", "Tester")
+    _git(upstream, "config", "uploadpack.allowfilter", "true")
+    _commit(upstream, "cloned")
+    source = tmp_path / "source"
+    subprocess.run(
+        ["git", "clone", "--quiet", "--filter=blob:none",
+         f"file://{upstream}", str(source)],
+        check=True, capture_output=True,
+    )
+    (upstream / "added.txt").write_text("added after the clone", encoding="utf-8")
+    _git(upstream, "add", "added.txt")
+    _git(upstream, "commit", "--quiet", "-m", "add a file")
+    candidate = _git(upstream, "rev-parse", "HEAD")
+    _git(source, "fetch", "--quiet", "origin")
+    missing = _git(source, "rev-list", "--objects", "--missing=print", candidate)
+    assert any(line.startswith("?") for line in missing.splitlines())
+    return source, candidate
+
+
+def test_partial_clone_source_yields_a_complete_candidate(blobless_checkout) -> None:
+    source, candidate = blobless_checkout
+    case = _deployment_case(
+        method_config={"command": 'test "$(cat added.txt)" = "added after the clone"'}
+    )
+    case["execution_target"]["deployment"]["release_lineage"] = candidate
+
+    result, recorded = _run(case, source)
+
+    assert result["verdict"] == "pass"
+    assert not Path(recorded["cwd"]).exists()
+    assert _git(source, "worktree", "list").count("\n") == 0
+
+
+def test_unfetchable_partial_clone_blob_refuses_before_the_command(
+    blobless_checkout, tmp_path
+) -> None:
+    source, candidate = blobless_checkout
+    _git(source, "config", "remote.origin.url", f"file://{tmp_path}/gone")
+    marker = tmp_path / "ran.txt"
+    case = _deployment_case(method_config={"command": f"touch {marker}"})
+    case["execution_target"]["deployment"]["release_lineage"] = candidate
+
+    with pytest.raises(QaCaseExecutionError) as refusal:
+        _run(case, source)
+
+    assert "CANDIDATE CHECKOUT REFUSAL" in str(refusal.value)
+    assert "git worktree add" in str(refusal.value)
+    assert not marker.exists()
+    assert CANDIDATE_CHECKOUT_PREFIX not in _git(source, "worktree", "list")

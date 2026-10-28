@@ -8,11 +8,13 @@ reach is closed: the run driver's own pinned tree belongs to another session,
 and a member whose item already finished cannot claim anything to re-run.
 
 So the runner pins the tree itself. With no explicit ``--checkout-path``, a
-deployment case runs in a disposable checkout of the case's own project
-cloned at the candidate revision, outside every lane and shared tree, and
-removed once the case has recorded its verdict. The clone shares the project
-checkout's object store, so it costs a checkout rather than a download; a
-revision that checkout lacks is fetched from ``origin`` first.
+deployment case runs in a disposable detached worktree of the case's own
+project checkout at the candidate revision, outside every lane and shared
+tree, and removed once the case has recorded its verdict. The worktree uses
+the project checkout's object store and remote settings, so it costs a
+checkout rather than a download, and a partial-clone checkout fetches the
+blobs it lacks; a fetch that fails refuses before the case runs. A revision
+that checkout lacks is fetched from ``origin`` first.
 """
 
 from __future__ import annotations
@@ -104,27 +106,27 @@ def candidate_checkout(case: Mapping[str, Any]) -> Iterator[Path]:
         tempfile.mkdtemp(prefix=f"{CANDIDATE_CHECKOUT_PREFIX}{sha[:12]}-")
     ).resolve()
     try:
-        for step in (
-            [
-                "git",
-                "clone",
-                "--quiet",
-                "--shared",
-                "--no-checkout",
-                str(source),
-                str(root),
-            ],
-            ["git", "-C", str(root), "checkout", "--quiet", "--detach", sha],
-        ):
-            done = _run(step, timeout=GIT_WORKTREE_ADD_TIMEOUT_SECONDS)
-            if done.returncode != 0:
-                raise QaCaseExecutionError(
-                    f"CANDIDATE CHECKOUT REFUSAL: materializing {subject}'s "
-                    f"candidate {sha[:12]} from '{source}' failed at "
-                    f"`{' '.join(step[:3])}`: {captured_process_detail(done)}. "
-                    "Nothing was run or recorded; repair that checkout and "
-                    "re-run the same command."
-                )
+        step = [
+            "git",
+            "-C",
+            str(source),
+            "worktree",
+            "add",
+            "--quiet",
+            "--detach",
+            str(root),
+            sha,
+        ]
+        done = _run(step, timeout=GIT_WORKTREE_ADD_TIMEOUT_SECONDS)
+        if done.returncode != 0:
+            raise QaCaseExecutionError(
+                f"CANDIDATE CHECKOUT REFUSAL: materializing {subject}'s "
+                f"candidate {sha[:12]} from '{source}' failed at "
+                f"`git worktree add`: {captured_process_detail(done)}. "
+                "Nothing was run or recorded; repair that checkout (a partial "
+                "clone needs a reachable origin to fetch missing objects) and "
+                "re-run the same command."
+            )
         provisioned = provision_test_environment(str(root), project=case.get("project"))
         if provisioned.error:
             raise QaCaseExecutionError(
@@ -133,6 +135,10 @@ def candidate_checkout(case: Mapping[str, Any]) -> Iterator[Path]:
             )
         yield root
     finally:
+        _run(
+            ["git", "-C", str(source), "worktree", "remove", "--force", str(root)],
+            timeout=GIT_WORKTREE_ADD_TIMEOUT_SECONDS,
+        )
         shutil.rmtree(root, ignore_errors=True)
 
 
