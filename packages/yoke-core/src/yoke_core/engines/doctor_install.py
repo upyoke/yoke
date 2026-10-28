@@ -114,10 +114,14 @@ def hc_harness_cli_auth(conn, args: DoctorArgs, rec: RecordCollector) -> None:
         )
 
 
+class _DashboardNotRunning(ValueError):
+    """No machine-local dashboard process is running."""
+
+
 def dashboard_identity() -> tuple[str, str]:
     record = universe_ui_daemon_state.read_record()
     if record is None or not universe_ui_daemon_state.process_alive(record.pid):
-        raise ValueError("DASHBOARD_NOT_RUNNING")
+        raise _DashboardNotRunning("DASHBOARD_NOT_RUNNING")
     host = "127.0.0.1" if record.host in {"0.0.0.0", "::"} else record.host
     if ":" in host:
         host = f"[{host}]"
@@ -162,12 +166,21 @@ def hc_dashboard_current_build(conn, args: DoctorArgs, rec: RecordCollector) -> 
             current = bool(installed and installed != "0.1.0") and version == installed
         if not current:
             raise ValueError("DASHBOARD_BUILD_UNVERIFIED")
+    except _DashboardNotRunning:
+        rec.record(
+            "dashboard-current-build",
+            "Dashboard runs the installed build",
+            "N/A",
+            "DASHBOARD_NOT_RUNNING: no local dashboard is running, so none can "
+            "be stale. Run `yoke ui up` to open it.",
+        )
+        return
     except (OSError, ValueError, UnicodeError):
         rec.record(
             "dashboard-current-build",
             "Dashboard runs the installed build",
             "FAIL",
-            "DASHBOARD_BUILD_UNVERIFIED: the dashboard is stopped, stale, or has no matching build identity. Run `yoke ui down`, then `yoke ui up`.",
+            "DASHBOARD_BUILD_UNVERIFIED: the running dashboard is stale, unreachable, or has no matching build identity. Run `yoke ui down`, then `yoke ui up`.",
         )
         return
     rec.record(
