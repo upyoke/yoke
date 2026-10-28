@@ -185,34 +185,89 @@ def _sharing_members(conn, runs):
     )
 
 
+def _pending_plans(conn: Any, plan_ids: set[int]) -> dict[int, dict]:
+    """Plans no copy exists for yet, with their cases, in one read."""
+    if not plan_ids:
+        return {}
+    plans: dict[int, dict] = {}
+    for row in query_rows(
+        conn,
+        "SELECT p.id AS plan_id,p.slug,p.name,p.project_id,c.case_key,"
+        "c.method_id,m.name AS method_name,c.instructions "
+        "FROM qa_plans p JOIN qa_plan_cases c ON c.plan_id=p.id "
+        "LEFT JOIN qa_methods m ON m.id=c.method_id "
+        "WHERE p.id=ANY(%s) ORDER BY p.id,c.position",
+        (sorted(plan_ids),),
+    ):
+        plan = plans.setdefault(
+            int(row["plan_id"]),
+            {
+                "plan_id": int(row["plan_id"]),
+                "plan": row["slug"],
+                "plan_name": row["name"] or row["slug"],
+                "cases": [],
+            },
+        )
+        plan["cases"].append(
+            {
+                "plan_id": plan["plan_id"],
+                "plan": plan["plan"],
+                "project_id": row["project_id"],
+                "case_key": row["case_key"],
+                "method_id": row["method_id"],
+                "method_name": row["method_name"],
+                "instructions": row["instructions"],
+                "qa_phase": "post_deploy",
+                "pending_obligation": True,
+            }
+        )
+    return plans
+
+
 def run_qa_sharing(conn: Any, run_ids: Iterable[str]) -> dict[str, dict]:
-    """Per run: ``shared_plans`` with their sharing members, ``removed_members``."""
+    """Per run: ``shared_plans`` with their sharing members, ``removed_members``.
+
+    An active run whose members attach one plan before any copy exists
+    already shares it: the entry is ``pending`` and carries the plan's cases,
+    so every surface draws it once before item-qa materializes it.
+    """
     runs = tuple(sorted({str(run) for run in run_ids if run}))
     if not runs:
         return {}
     counts = _shared_plan_counts(conn, runs)
     sharing: dict = defaultdict(lambda: defaultdict(list))
-    if counts:
-        live = tuple(sorted(counts))
-        members = _sharing_members(conn, live)
-        attached = _live_attachments(
-            conn,
-            {
-                int(row["item_id"])
-                for row in members
-                if str(row["status"]) not in TERMINAL_RUN_STATUSES
-            },
-        )
-        for row in members:
-            run_id, item = str(row["run_id"]), int(row["item_id"])
-            plans = _snapshot_plan_ids(row["requirement_snapshot"])
-            # An active release answers the member's current attachments,
-            # as its Item QA does; a finished one keeps its frozen selection.
-            if str(row["status"]) not in TERMINAL_RUN_STATUSES:
-                plans |= attached.get(item, set())
-            for plan_id in sorted(plans):
-                if plan_id in counts[run_id]:
-                    sharing[run_id][plan_id].append(item)
+    members = _sharing_members(conn, runs)
+    active = {
+        str(row["run_id"])
+        for row in members
+        if str(row["status"]) not in TERMINAL_RUN_STATUSES
+    }
+    attached = _live_attachments(
+        conn, {int(row["item_id"]) for row in members if str(row["run_id"]) in active}
+    )
+    for row in members:
+        run_id, item = str(row["run_id"]), int(row["item_id"])
+        plans = _snapshot_plan_ids(row["requirement_snapshot"])
+        # An active release answers the member's current attachments,
+        # as its Item QA does; a finished one keeps its frozen selection.
+        if run_id in active:
+            plans |= attached.get(item, set())
+        for plan_id in sorted(plans):
+            if plan_id in counts[run_id] or run_id in active:
+                sharing[run_id][plan_id].append(item)
+    waiting = {
+        (run, plan_id)
+        for run in active
+        for plan_id, items in sharing[run].items()
+        if plan_id not in counts[run] and len(items) > 1
+    }
+    pending = _pending_plans(conn, {plan_id for _, plan_id in waiting})
+    for run, plan_id in waiting:
+        plan = pending.get(plan_id)
+        if plan is not None:
+            counts[run][plan_id] = {
+                **plan, "case_count": len(plan["cases"]), "pending": True,
+            }
     removed = removed_members(conn, runs)
     return {
         run: {

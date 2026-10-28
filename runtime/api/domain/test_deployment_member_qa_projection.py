@@ -240,3 +240,18 @@ def test_unobserved_preview_target_has_a_named_reason_and_recovery(monkeypatch):
     )
     assert not names and pending
     assert "item_qa_target_pending" in error and "execute and observe" in error
+
+
+def test_members_leave_a_pending_shared_plan_to_run_qa(test_db):
+    from runtime.api.domain.test_deployment_member_qa_copies import read
+    from runtime.api.domain.test_deployment_qa_run_sharing import RUN, _seed_three
+
+    plan_id, lone, members = _seed_three(test_db)
+    projected = read(test_db, RUN, members)
+    # The plan only the first member attaches stays its own pending check.
+    assert [row["plan_id"] for row in projected[(RUN, members[0])]["current"]] == [lone]
+    for member_id in members:
+        assert all(
+            row.get("plan_id") != plan_id
+            for row in projected[(RUN, member_id)]["current"]
+        )
