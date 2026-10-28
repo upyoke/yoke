@@ -35,7 +35,7 @@ PUBLISH_ROWS = [
 
 # "Is the repo public or private?" — shown after the clone folder. Public routes
 # to the paste-URL input; private lists repos reachable through connected GitHub
-# authorization so the user picks instead of pasting.
+# authorization, with access settings and URL entry available from the picker.
 CLONE_VISIBILITY_PUBLIC = "public"
 CLONE_VISIBILITY_PRIVATE = "private"
 CLONE_VISIBILITY_ROWS = [
@@ -193,7 +193,12 @@ def repo_picker_prompt(repos: list) -> SetupPrompt:
         step=STEP_PROJECT,
         title="Which private repo?",
         subtitle="Type an owner or repository name to filter, or use Up/Down immediately.",
-        choices=tuple(repo_rows(repos)),
+        choices=tuple([*repo_rows(repos),
+            SelectionRow("manage", "Not listed: grant access",
+                         "choose repositories in the GitHub App, then check again"),
+            SelectionRow("url", "Enter repository URL",
+                         "check a repository using your connected GitHub access"),
+        ]),
     )
 
 

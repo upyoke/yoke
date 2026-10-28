@@ -111,8 +111,11 @@ def test_private_clone_lists_repos_and_sets_remote_from_pick() -> None:
             selection = await wait_for_selection(app, pilot)
             values = [row.value for row in selection.rows]
             # The rows are the private repos' clone URLs.
-            assert values == sorted(r.clone_url for r in _PRIVATE_REPOS)
-            await pilot.press("down")  # pick octocat/secret-lab (sorted second)
+            assert values == [row.value for row in sorted(
+                screens.repo_picker_prompt(_PRIVATE_REPOS).choices,
+                key=lambda row: row.label.casefold(),
+            )]
+            await type_text(pilot, "octocat")  # filter to the intended repository
             await pilot.press("enter")
             await pilot.pause()
             assert app.result.project_remote_url == _PRIVATE_REPOS[0].clone_url
@@ -189,9 +192,9 @@ def test_empty_private_repo_access_has_manage_retry_and_back(
             await pilot.press("down")
             await pilot.press("enter")
             selection = await wait_for_selection(app, pilot)
-            assert [row.value for row in selection.rows] == sorted(
-                repo.clone_url for repo in _PRIVATE_REPOS
-            )
+            assert {row.value for row in selection.rows} == {
+                *(repo.clone_url for repo in _PRIVATE_REPOS), "manage", "url",
+            }
 
     asyncio.run(scenario())
 
@@ -261,9 +264,9 @@ def test_private_reachability_error_never_falls_back_to_url_input(
             ]
             await pilot.press("enter")
             refreshed = await wait_for_selection(app, pilot)
-            assert [row.value for row in refreshed.rows] == sorted(
-                repo.clone_url for repo in _PRIVATE_REPOS
-            )
+            assert {row.value for row in refreshed.rows} == {
+                *(repo.clone_url for repo in _PRIVATE_REPOS), "manage", "url",
+            }
 
     asyncio.run(scenario())
 

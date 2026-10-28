@@ -100,9 +100,15 @@ class CloneFlow(CheckoutInspectionFlow, CloneSourceFlow, CloneOutcomeFlow):
         )
 
     def _on_private_repo_pick(self: _Shell, choice: str) -> None:
-        self._after_remote(choice)
+        if choice == "manage":
+            self._goto_private_repo_empty(has_repos=True)
+            self._on_private_repo_empty("manage")
+        elif choice == "url":
+            self._goto_clone_url_input()
+        else:
+            self._after_remote(choice)
 
-    def _goto_private_repo_empty(self: _Shell) -> None:
+    def _goto_private_repo_empty(self: _Shell, *, has_repos: bool = False) -> None:
         from yoke_cli.config.onboard_wizard_state import _View
 
         try:
@@ -115,8 +121,11 @@ class CloneFlow(CheckoutInspectionFlow, CloneSourceFlow, CloneOutcomeFlow):
                 SetupPrompt(
                     key="project.private_repo_empty",
                     step=STEP_PROJECT,
-                    title="No private repositories are available to Yoke.",
-                    message="The connected GitHub App cannot currently access a private repo.",
+                    title=("Choose repositories Yoke can access." if has_repos else
+                           "No private repositories are available to Yoke."),
+                    message=("Add the missing repository to the connected GitHub App."
+                             if has_repos else
+                             "The connected GitHub App cannot currently access a private repo."),
                     detail_lines=tuple(
                         [
                             setup_browser.status_line(self),
