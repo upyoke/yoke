@@ -20,9 +20,14 @@ from yoke_contracts.session_control.plan_limit_parsers import (
     parse_claude_usage,
     parse_cursor_usage,
 )
+from yoke_contracts.session_control.plan_limit_unreadable_guidance import (
+    CREDENTIAL_EXPIRED_REASON,
+    reason_needs_sign_in,
+)
 from yoke_contracts.session_control.plan_limits import (
     CLI_PLAN_LIMIT_SURFACES,
     PLAN_LIMIT_REFRESH_SECONDS,
+    reading_is_ok,
     sanitize_plan_limits,
     unknown_reading,
 )
@@ -113,6 +118,14 @@ def probe_claude_cli(*, observed_at: str) -> dict[str, Any]:
         return unknown_reading(
             "claude-cli", "stale_credential", observed_at=observed_at
         )
+    # The CLI renews its token only while a session runs, and Yoke must not
+    # rotate it, so an expired token is not sent: idle-hour 401s earn a 429.
+    expires_at = oauth.get("expiresAt")
+    if isinstance(expires_at, (int, float)) and not isinstance(expires_at, bool):
+        if expires_at / 1000 <= parse_instant(observed_at).timestamp():
+            return unknown_reading(
+                "claude-cli", CREDENTIAL_EXPIRED_REASON, observed_at=observed_at
+            )
     # Read on every refresh, so the 4-minute plan-limit cache bounds the cost
     # and an upgraded CLI is identified by its new version on the next probe.
     version = probe_cli_surface("claude-cli", CLI_SURFACE_PROBES["claude-cli"])
@@ -243,6 +256,28 @@ def _probe_one(surface: str, observed_at: str) -> dict[str, Any]:
         )
 
 
+def _carry_forward(
+    previous: Mapping[str, Any] | None, reading: dict[str, Any], current: datetime
+) -> dict[str, Any]:
+    """Keep the last read windows that have not reset while a read fails.
+
+    The kept reading retains its own ``observed_at``, so its age shows. A
+    rejected sign-in is not carried: a signed-out CLI must not attract work.
+    """
+    if previous is None or reading_is_ok(reading):
+        return reading
+    if any(reason_needs_sign_in(w.get("reason")) for w in reading["windows"]):
+        return reading
+    running = [
+        window
+        for window in previous.get("windows") or ()
+        if window.get("status") == "ok"
+        and window.get("resets_at") is not None
+        and parse_instant(window["resets_at"]) > current
+    ]
+    return {**previous, "windows": running} if running else reading
+
+
 def observe_plan_limits(
     surfaces: Sequence[str],
     *,
@@ -274,7 +309,8 @@ def observe_plan_limits(
             for future, surface in futures.items():
                 readings[surface] = future.result()
     merged = dict(cached)
-    merged.update(readings)
+    for surface, reading in readings.items():
+        merged[surface] = _carry_forward(cached.get(surface), reading, current)
     kept = {surface: merged[surface] for surface in wanted if surface in merged}
     _write_cache(
         {
