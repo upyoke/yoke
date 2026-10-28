@@ -124,6 +124,31 @@ def continued_subject(conn: Any, execution: Mapping, target: Mapping) -> dict | 
     return subject
 
 
+def _continued_group_subject(conn, run_id, stage, target, group) -> dict:
+    """A moved group continues under its original stage policy and the current run.
+
+    Like :func:`continued_subject`, the successor need not have reached or
+    accepted the stage for a walk takeover moved to keep running.
+    """
+    from yoke_core.domain.deployment_qa_plan_group_writes import group_subject_from
+    from yoke_core.domain.deployment_qa_stage_contract import _read_run, _run_stage
+
+    admitted = _run_stage(conn, str(target["deployment"]["run_id"]), stage)
+    current = _read_run(conn, run_id)
+    if current is None or current["status"] == "cancelled":
+        raise ValueError(
+            "qa_execution_owner_cancelled: the owning release was cancelled; "
+            "inspect the execution and finish its recorded abort or cleanup"
+        )
+    run = {
+        **current,
+        "stage": admitted["stage"],
+        "stages": admitted["stages"],
+        "flow_snapshot": admitted["flow_snapshot"],
+    }
+    return group_subject_from(run, group)
+
+
 def read_execution_subject(
     conn: Any, execution: Mapping, target: Mapping, *, require_active: bool
 ) -> dict:
@@ -141,6 +166,8 @@ def read_execution_subject(
                 "execution's target; read `yoke deployment-runs get "
                 f"{run_id}` and run the plan's current group"
             )
+        if inherited_target(conn, run_id, target):
+            return _continued_group_subject(conn, run_id, stage, target, group)
         return group_subject(conn, run_id, stage, group, require_active=require_active)
     continued = continued_subject(conn, execution, target)
     if continued is not None:

@@ -45,6 +45,11 @@ def group_subject(
         require_prior_stage_acceptance(
             conn, run_id=str(run_id), stages=run["stages"], start_stage=str(stage_name)
         )
+    return group_subject_from(run, group)
+
+
+def group_subject_from(run: Mapping, group: PlanGroup) -> dict:
+    """A group's subject over an already-read run and stage."""
     marker = dict(group.target["deployment"]["shared_plan"])
     return {
         **run,
@@ -305,5 +310,6 @@ __all__ = [
     "member_group_blockers",
     "group_snapshots",
     "group_subject",
+    "group_subject_from",
     "resolve_group_subject",
 ]

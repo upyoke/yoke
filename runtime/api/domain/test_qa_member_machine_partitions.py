@@ -45,7 +45,6 @@ def _seed(
     tmp_path,
     monkeypatch,
     *,
-    split_plans=False,
     simultaneous=False,
     driver=None,
     inherit=False,
@@ -61,89 +60,66 @@ def _seed(
         settings={**TEST_MACHINE_SETTINGS, "resource_name": MACHINES[1]},
         base_settings=None,
     )
-    plans = []
-    for index in range(2 if split_plans else 1):
-        plan = create_plan(
-            conn,
-            project="yoke",
-            slug=f"host-check-{index}",
-            infer_target_environment=False,
-        )
-        machines = (
-            [driver or MACHINES[0]]
-            if simultaneous
-            else [MACHINES[index]]
-            if split_plans
-            else MACHINES
-        )
-        if trailing:
-            machines = (*machines, "independent")
-        replace_plan_cases(
-            conn,
-            plan_id=int(plan["id"]),
-            cases=[
-                {
-                    "case_key": test_machine,
-                    "position": position,
-                    "method_id": "exploratory-mission"
-                    if mission and position == 2
-                    else "terminal-check",
-                    "instructions": "Run a host-specific check.",
-                    "expected_outcome": "The check passes.",
-                    "method_config": {
-                        **({} if mission and position == 2 else _terminal_recipe()),
-                        "test_machine": MACHINES[0] if inherit else test_machine,
-                        **(
-                            {"executor": "informed_subagent"}
-                            if mission and position == 2
-                            else {}
-                        ),
-                        **(
-                            {"test_machines": list(MACHINES)}
-                            if simultaneous or (inherit and position == 2)
-                            else {}
-                        ),
-                    },
-                    "entry_surface": "printf done",
-                    "required_completion": "complete",
-                    "starting_state": "inherit"
-                    if inherit and position == 2
-                    else "as_is",
-                    "starting_state_reason": (
-                        None
-                        if inherit and position == 2
-                        else "The check reads host identity only and needs no reset."
+    plan = create_plan(
+        conn,
+        project="yoke",
+        slug="host-check-0",
+        infer_target_environment=False,
+    )
+    machines = [driver or MACHINES[0]] if simultaneous else list(MACHINES)
+    if trailing:
+        machines = [*machines, "independent"]
+    replace_plan_cases(
+        conn,
+        plan_id=int(plan["id"]),
+        cases=[
+            {
+                "case_key": test_machine,
+                "position": position,
+                "method_id": "exploratory-mission"
+                if mission and position == 2
+                else "terminal-check",
+                "instructions": "Run a host-specific check.",
+                "expected_outcome": "The check passes.",
+                "method_config": {
+                    **({} if mission and position == 2 else _terminal_recipe()),
+                    "test_machine": MACHINES[0] if inherit else test_machine,
+                    **(
+                        {"executor": "informed_subagent"}
+                        if mission and position == 2
+                        else {}
                     ),
-                }
-                for position, test_machine in enumerate(machines, 1)
-            ],
-        )
-        plans.append(int(plan["id"]))
+                    **(
+                        {"test_machines": list(MACHINES)}
+                        if simultaneous or (inherit and position == 2)
+                        else {}
+                    ),
+                },
+                "entry_surface": "printf done",
+                "required_completion": "complete",
+                "starting_state": "inherit"
+                if inherit and position == 2
+                else "as_is",
+                "starting_state_reason": (
+                    None
+                    if inherit and position == 2
+                    else "The check reads host identity only and needs no reset."
+                ),
+            }
+            for position, test_machine in enumerate(machines, 1)
+        ],
+    )
     from runtime.api.fixtures.backlog_inserts import insert_item
-    from yoke_core.domain.qa_plan_attachments import attach_plan_to_item
 
     insert_item(
         conn, id=MEMBER, project_sequence=MEMBER, workflow_id="issue", status="done"
     )
-    for plan_id in plans:
-        attach_plan_to_item(
-            conn,
-            plan_id=plan_id,
-            item_id=MEMBER,
-            transition_id="release",
-            qa_phase="post_deploy",
-        )
-    stages = _stages(plans[0])
+    # The flow pins the plan's cases to the stage, so each member walks its own
+    # copy; an attached post-deploy plan would run as a memberless plan group.
+    stages = _stages(int(plan["id"]))
+    stages[1]["cases"] = {"plan_id": int(plan["id"]), "case_keys": machines}
     if run_scope:
-        stages[1].update(
-            scope="run",
-            cases={
-                "plan_id": plans[0],
-                "case_keys": [*MACHINES, *(["independent"] if trailing else [])],
-            },
-        )
-    else:
-        stages[1].pop("cases")
+        stages[1]["scope"] = "run"
     _seed_run(
         conn,
         run_id=RUN,
@@ -186,11 +162,10 @@ def _case_begin(execution, ordinal=0):
     )
 
 
-@pytest.mark.parametrize("split_plans", [False, True])
 def test_each_host_has_its_own_execution_and_member_waits_for_both(
-    test_db, tmp_path, monkeypatch, split_plans
+    test_db, tmp_path, monkeypatch
 ):
-    _seed(test_db, tmp_path, monkeypatch, split_plans=split_plans)
+    _seed(test_db, tmp_path, monkeypatch)
     first = _begin(test_db)
     assert first["remaining_requirement_count"] == 1
     assert [case["case_key"] for case in first["roster"]] == [MACHINES[0]]

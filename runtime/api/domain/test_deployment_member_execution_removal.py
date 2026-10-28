@@ -21,6 +21,9 @@ from yoke_contracts.api.function_call import (
     TargetRef,
 )
 from yoke_core.domain.coordination_claims import acquire, active_claim, release
+from yoke_core.domain.deployment_qa_stage_materialization import (
+    materialize_deployment_qa_stage,
+)
 from yoke_core.domain.deployment_run_member_removal import remove_member_on
 from yoke_core.domain.deployment_run_membership_removals import (
     record_membership_removals,
@@ -218,6 +221,14 @@ def test_unrecorded_missing_member_does_not_gain_abort_authority(test_db):
 
 def test_member_admission_serializes_with_removal_and_refuses_after_commit(test_db):
     _ready_run(test_db)
+    # The member's own cases exist, so its begin reaches the run lock.
+    materialize_deployment_qa_stage(
+        test_db,
+        deployment_run_id=RUN,
+        deployment_stage="item-qa",
+        deployment_member_item_id=REMOVED,
+    )
+    test_db.commit()
     lock_item_workflow_bindings(test_db, (REMOVED,))
     lock_run(test_db, RUN)
     remove_member_on(test_db, RUN, REMOVED, reason="concurrent QA admission")
@@ -234,7 +245,8 @@ def test_member_admission_serializes_with_removal_and_refuses_after_commit(test_
             )
         other.rollback()
         test_db.commit()
-        with pytest.raises(ValueError, match="no longer attached"):
+        # The committed removal is visible to the subject read before any lock.
+        with pytest.raises(ValueError, match="not an attached member"):
             begin_plan_execution(
                 other,
                 deployment_run_id=RUN,

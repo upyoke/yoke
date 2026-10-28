@@ -243,7 +243,9 @@ def deployment_qa_stage_subject(
         member = members.get(int(member_item_id))
         if member is None:
             raise ValueError(
-                f"{render_item_ref(conn, member_item_id)} is not an attached member of run {run_id!r}"
+                f"{render_item_ref(conn, member_item_id)} is not an attached member of run "
+                f"{run_id!r}; read `yoke deployment-runs get {run_id} member_items`: an "
+                "item removed from a release runs its QA in its next release"
             )
         member_project_id = int(member["project_id"])
         if member_project_id not in carried_project_ids(conn, str(run_id)):
