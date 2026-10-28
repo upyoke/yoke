@@ -60,7 +60,7 @@ def _headroom_cell(row: Mapping[str, Any]) -> str:
     if headroom is None:
         return "unreadable"
     window = row.get("headroom_window") or "plan limits"
-    return f"{int(round(float(headroom)))}% ({window})"
+    return f"{int(round(float(headroom)))}% of even pace ({window})"
 
 
 #: One table-width word per reason the reading gives in full sentences, so a
@@ -163,7 +163,7 @@ def write_launch_preview(result: Mapping[str, Any], stdout: TextIO) -> None:
         ("MACHINE", lambda row: row.get("machine_id"), None),
         ("HOST", lambda row: row.get("hostname"), 20),
         ("SURFACE", lambda row: row.get("surface"), 20),
-        ("HEADROOM", _headroom_cell, 34),
+        ("HEADROOM", _headroom_cell, 46),
         ("REQUESTED MODEL POOL", _model_pool_cell, 34),
         ("LANES", lambda row: row.get("capacity_summary") or "-", 30),
         ("OWNED", lambda row: "yes" if row.get("owned_by_requester") else "no", 6),

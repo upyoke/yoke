@@ -175,7 +175,7 @@ test("a machine card draws capacity and every launchable surface pool", () => {
   assert.equal(byClass(host, "machine-plan-tier")[0].textContent, "pro");
   assert.match(
     byClass(host, "machine-headroom-track")[0].getAttribute("aria-label"),
-    /100% is the sustainable-use pivot/,
+    /^headroom \d+% of even pace; 100% is the even-pace pivot$/,
   );
   assert.equal(byClass(host, "machine-surface-disabled").length, 1);
   assert.equal(byClass(host, "machine-surface-absent").length, 1);
@@ -216,6 +216,10 @@ test("a surface table carries HEADROOM and QUOTA columns and a pivot per bar", (
   assert.deepEqual(
     columns[0].children.map((node) => node.textContent),
     ["headroom", "quota"],
+  );
+  assert.equal(
+    columns[0].children[0].getAttribute("data-tooltip"),
+    "Headroom: usage left vs. an even pace to the reset.",
   );
   const rows = byClass(host, "machine-limit-row");
   assert.deepEqual(

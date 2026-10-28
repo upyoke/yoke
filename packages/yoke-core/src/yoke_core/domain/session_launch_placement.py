@@ -48,7 +48,7 @@ ACCESS_DENIED_OUTCOME = "machine_access_denied"
 
 
 def _percent(value: float | None) -> str:
-    return "unreadable" if value is None else f"{int(round(value))}%"
+    return "unreadable" if value is None else f"{int(round(value))}% of even pace"
 
 
 def _meters(

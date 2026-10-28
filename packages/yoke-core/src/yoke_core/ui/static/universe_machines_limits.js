@@ -14,6 +14,8 @@
  */
 
 import { attachTooltip } from "./universe_tooltip.js";
+
+const HEADROOM_DEFINITION = "Headroom: usage left vs. an even pace to the reset.";
 import { el } from "./universe_view_support.js";
 import {
   METER_PIVOT,
@@ -75,13 +77,13 @@ function headroomTrack(documentNode, headroom, tone) {
   // means one thing wherever it is read.
   const pivot = el(documentNode, "i", "machine-headroom-pivot");
   pivot.style.left = `${METER_PIVOT}%`;
-  attachTooltip(documentNode, pivot, "100% headroom");
+  attachTooltip(documentNode, pivot, "even pace (100%)");
   track.appendChild(pivot);
   track.setAttribute(
     "aria-label",
     tone === "wall"
       ? "at the wall; no headroom before this window resets"
-      : `${Math.round(headroom)}% headroom; 100% is the sustainable-use pivot`,
+      : `headroom ${Math.round(headroom)}% of even pace; 100% is the even-pace pivot`,
   );
   return track;
 }
@@ -135,9 +137,9 @@ export function planWindowRow(documentNode, window, stale) {
 // name without costing a row of their own.
 export function limitColumns(documentNode) {
   const columns = el(documentNode, "span", "machine-limit-columns");
-  columns.appendChild(el(
-    documentNode, "span", "machine-limit-headroom", "headroom",
-  ));
+  const headroom = el(documentNode, "span", "machine-limit-headroom", "headroom");
+  attachTooltip(documentNode, headroom, HEADROOM_DEFINITION);
+  columns.appendChild(headroom);
   columns.appendChild(el(documentNode, "span", "machine-limit-quota", "quota"));
   return columns;
 }
