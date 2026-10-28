@@ -19,10 +19,13 @@ Read decisions and delivery notices, then address messages to their intended rec
   for this run, its screenshots, its earlier attempts, and its own decisions;
   **Run QA** follows every carried item with the run's own checks and
   decisions, plus each QA plan several carried items share, drawn once and
-  labelled with its sharing items (**Installer campaign · Shared by PREFIX-1,
-  PREFIX-2**). A sharing item's Item QA shows its own checks and a pointer
-  (**shares Installer campaign (28) — see Run QA**), or **0 own checks,
-  shares Installer campaign**. Both are drawn the same way: each current check reads
+  labelled with its sharing items (**Installer campaign · Covers: PREFIX-1,
+  PREFIX-2**) — before item-qa copies the plan too, when its cases read
+  **Not started**. A sharing item's Item QA shows its own checks and a pointer
+  (**shares Installer campaign (28) · Covers: PREFIX-1, PREFIX-2 — see Run
+  QA**), or **0 own checks, shares Installer campaign**. A result a takeover
+  carried from an earlier run links that run and does not count as this run's
+  failure (**Failed in RUN · reruns at item-qa**). Both are drawn the same way: each current check reads
   **<method> · Passed** (or its actual result) with its status mark, linked to
   its QA case, with the screenshots that check captured, each shown once;
   earlier attempts bound to this run sit behind **Earlier checks**. QA from

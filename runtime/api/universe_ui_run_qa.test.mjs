@@ -273,3 +273,18 @@ test("an approval with another review pending still awaits approval", () => {
   assert.equal(verdictOf(qa), "Awaiting approval");
   assert.equal(firstOutcome(qa), "Passed");
 });
+
+test("a failure an earlier run recorded reads as open and links that run", () => {
+  const documentNode = new FakeDocument();
+  const carried = { requirement_id: 30, deployment_run_id: "run-005", verdict_run_id: "run-003",
+    project: "yoke", method_name: "Terminal", outcome: "failed", artifacts: [] };
+  const qa = runQaSection(context(documentNode),
+    { ...row("resolved"), id: "run-005", gates: [] }, [carried], () => {});
+  const [verdict] = byClass(qa, "run-verdict");
+  assert.equal(verdict.classList.contains("is-awaiting"), true);
+  assert.equal(verdict.classList.contains("is-rejected"), false);
+  assert.equal(verdict.textContent, "0 of 1 passed · Failed in run-003 · reruns at item-qa");
+  const [origin] = byClass(qa, "run-qa-check-run");
+  assert.equal(origin.textContent, "Run 003");
+  assert.match(origin.href, /run-003/);
+});

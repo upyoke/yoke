@@ -161,3 +161,51 @@ def test_sharing_reuses_member_snapshot_and_attachment_sets(test_db, status):
     # The next presentation observes changed live attachments and membership.
     _remove(test_db, MEMBERS[1])
     assert read_shared(conn, subjects) == run_qa_sharing(test_db, [RUN])
+
+
+def _seed_three(conn):
+    from runtime.api.domain.test_deployment_qa_shared_plans import _attach
+    from runtime.api.domain.test_deployment_qa_stage_execution import _seed_run, _stages
+
+    members = (*MEMBERS, 9903)
+    plan_id = _plan(conn)
+    lone = _plan(conn, "lone-plan")
+    stages = _stages(plan_id)
+    stages[1].pop("cases")
+    _seed_run(conn, run_id=RUN, stages=stages, members=members)
+    for member in members:
+        _attach(conn, member, plan_id)
+    _attach(conn, members[0], lone)
+    return plan_id, lone, members
+
+
+def test_plan_attached_before_any_copy_is_one_pending_group(test_db):
+    plan_id, _, members = _seed_three(test_db)
+    (entry,) = run_qa_sharing(test_db, [RUN])[RUN]["shared_plans"]
+    assert entry == {
+        "plan_id": plan_id,
+        "plan": "release-smoke",
+        "plan_name": "Release smoke",
+        "case_count": 1,
+        "pending": True,
+        "sharing_item_ids": list(members),
+        "cases": [
+            {
+                "plan_id": plan_id,
+                "plan": "release-smoke",
+                "project_id": 1,
+                "case_key": "command-smoke",
+                "method_id": "command",
+                "method_name": entry["cases"][0]["method_name"],
+                "instructions": "run the frozen smoke command",
+                "qa_phase": "post_deploy",
+                "pending_obligation": True,
+            }
+        ],
+    }
+    # After item-qa materializes it, the copy owns the entry.
+    _materialize(test_db, members[0])
+    (entry,) = run_qa_sharing(test_db, [RUN])[RUN]["shared_plans"]
+    assert "pending" not in entry and "cases" not in entry
+    assert entry["case_count"] == 1
+    assert entry["sharing_item_ids"] == list(members)

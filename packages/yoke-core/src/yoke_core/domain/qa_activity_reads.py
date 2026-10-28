@@ -18,6 +18,7 @@ from yoke_core.domain.qa_execution_proof import (
 )
 from yoke_core.domain.qa_merging_identity import recorded_head_sha
 from yoke_core.domain.qa_run_conclusion import run_conclusion_fields
+from yoke_core.domain.qa_verdict_owner_run import label_verdict_owner_runs
 from yoke_core.domain.db_helpers import instant_parameter, query_rows
 from yoke_core.domain.qa_activity_selection import (
     ACTIVITY_SOURCE,
@@ -225,7 +226,7 @@ def _list_activity(
                 "happened_at": row["happened_at"],
             }
         )
-    return result, selection
+    return label_verdict_owner_runs(conn, result), selection
 
 
 def _activity_summary(
