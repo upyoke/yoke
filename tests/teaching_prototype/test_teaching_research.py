@@ -41,7 +41,7 @@ def test_retired_research_views_are_absent_and_all_nodes_are_reachable(guide):
     assert list(views) == ['yokepedia.html']
     assert not any(key.startswith(('research:', 'research-index:', 'inventory:')) for key in nodes)
     assert {key for key in nodes if key.startswith('view:')} == {
-        'view:index', 'view:docs-map', 'view:getting-started'}
+        'view:index', 'view:docs-map'}
     assert 'source:packs' in nodes and 'source:decisions' in nodes
     for node in nodes.values():
         seen = set()
@@ -74,9 +74,6 @@ def test_map_reads_public_titles_and_topics(guide):
         assert '# ' + node['title'] in source
         assert all('## ' + heading in source for heading in spec['outline'])
         assert all(key in nodes for key in spec['terms'] + spec['commands'] + spec['sources'])
-    intro = page_data(views['yokepedia.html'])['public_intro']
-    assert 'install upyoke.com' in intro
-    assert 'Getting started' in intro
 
 
 def test_build_records_source_snapshot_not_delivery_proof(guide):
@@ -108,3 +105,29 @@ def test_source_snapshot_changes_when_source_changes(monkeypatch, tmp_path):
     second = explorer_inventory.source_snapshot([], pages)
     assert first['input_digest'] != second['input_digest']
     assert first['commit'] == second['commit']
+
+
+def test_public_introduction_is_not_a_tab_or_embedded_preview(guide):
+    _, _, nodes, views = guide
+    data = page_data(views['yokepedia.html'])
+    assert 'view:getting-started' not in nodes
+    assert 'public_intro' not in data
+    assert 'renderGettingStarted' not in views['yokepedia.html']
+    nav = (TOOLS / 'explorer_terms.js').read_text()
+    assert "['Getting started'," not in nav
+
+
+def test_page_shell_does_not_read_public_pages_or_assets(monkeypatch):
+    import model
+    from render_explorer import page_html
+    original = Path.read_text
+    public = TOOLS.parents[2] / 'docs/public'
+
+    def read_text(path, *args, **kwargs):
+        assert not path.is_relative_to(public)
+        return original(path, *args, **kwargs)
+
+    monkeypatch.setattr(Path, 'read_text', read_text)
+    loaded = model.Model()
+    page_html(dict(nodes=[], documents={}, records={}, build={}), loaded)
+    assert not loaded.problems

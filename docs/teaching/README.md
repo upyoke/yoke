@@ -14,7 +14,7 @@ server. Agents and CI run the same build with
 the checkout they mean to build. This registered scanner needs no harness
 session or work claim. It writes only the ignored page; it never rewrites the model.
 Public pages, navigation, and visuals belong to `docs/public`. Yokepedia reads
-that corpus for its map and introduction. Public docs never depend on teaching;
+that corpus for its map. Public docs never depend on teaching;
 removing `docs/teaching` leaves them working. Agents can read model JSON directly.
 Model JSON files retain their identities and remain the editable source of
 research truth.
@@ -280,7 +280,7 @@ The Docs map reads page titles, routes, headings, and related-page links from
 `docs/public`. The public corpus owns the documentation structure and content.
 `model/docs-map/*.json` adds teaching associations: index terms, commands,
 sources, reader needs, and open questions. It does not own a separate page tree.
-The Getting started preview also reads the public page and its visual assets.
+Getting started lives only in public docs; Yokepedia maps it without a preview.
 
 Command groups and source groups expand to their existing descendants.
 Root CLI help is orientation only and never maps every command.

@@ -5,7 +5,6 @@ from pathlib import Path
 from functools import lru_cache
 
 from inventory import live_registries
-from explorer_public_intro import public_intro_html, public_intro_css
 from explorer_types import describe_nodes, describe_scope, describe_sizes, rollup_output_sizes
 from explorer_documents import add_documents, add_sections, connect_document_links, document, expand_prose_topics, describe_message_estimates
 from explorer_sources import order_nodes
@@ -25,7 +24,7 @@ PAGE = 'yokepedia.html'
 HERE = Path(__file__).resolve().parent
 REPO = HERE.parents[2]
 VIEWS = HERE.parent / 'views'
-SCRIPTS = ('explorer_graph.js', 'explorer_records.js', 'explorer_terms.js', 'explorer_docs_coverage.js', 'explorer_docs_map.js', 'explorer_start.js', 'explorer.js')
+SCRIPTS = ('explorer_graph.js', 'explorer_records.js', 'explorer_terms.js', 'explorer_docs_coverage.js', 'explorer_docs_map.js', 'explorer.js')
 
 
 @lru_cache(maxsize=1)
@@ -199,15 +198,11 @@ def build_explorer(views, pages):
     nodes = map_nodes(pages.m)
     add_terms(nodes, pages.m)
     add_docs_map(nodes, pages.m)
-    nodes.append(dict(id='view:getting-started', title='Getting started', parent=None,
-                      summary='', view='getting-started', node_type='page',
-                      type_label='Page preview', guidance_scope='repository'))
     if pages.m.problems:
         return {}
     data = dict(nodes=nodes, documents=embedded_documents(nodes, pages.m),
                 records=embedded_records(nodes, pages.m),
                 build=source_snapshot(nodes, pages))
-    data['public_intro'] = public_intro_html()
     if pages.m.problems:
         return {}
     views[PAGE] = page_html(data, pages.m)
@@ -251,7 +246,6 @@ def page_html(data, model):
     """One self-contained page: inline style, scripts and embedded data."""
     css = '\n'.join(HERE.joinpath(name).read_text(encoding='utf-8')
                     for name in ('explorer.css', 'explorer_outline.css'))
-    css += '\n' + public_intro_css()
     scripts = [HERE.joinpath(name).read_text(encoding='utf-8') for name in SCRIPTS]
     for name, text in [('explorer.css', css), *zip(SCRIPTS, scripts)]:
         for unsafe in ('</style', '</script', '<!--'):
