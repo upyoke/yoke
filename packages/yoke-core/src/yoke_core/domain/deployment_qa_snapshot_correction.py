@@ -1,4 +1,9 @@
-"""Atomic explicit corrections to existing private or shared frozen selections."""
+"""Atomic explicit corrections to a run's frozen flow-declared plan selection.
+
+Flow-declared plans freeze on the run's ``selections``, one per stage and
+plan. A plan group pins its plan in ``plan_groups`` and is never refreshed:
+an edited plan runs on the next release, so it has no owner here.
+"""
 
 import json
 from collections.abc import Mapping
@@ -16,20 +21,11 @@ from yoke_core.domain.deployment_qa_snapshot_selection import (
 )
 
 
-def selected_plan_owners(
-    conn,
-    *,
-    run_id,
-    stage,
-    plan_id,
-    member_item_id=None,
-    shared_target_digest=None,
-    group_digests=None,
-):
-    """Lock existing selection owners for one private or exact shared subject.
+def selected_plan_owners(conn, *, run_id, stage, plan_id):
+    """Lock the run and return its one frozen selection of this plan and stage.
 
-    A shared subject names ``group_digests``: each member's shared group
-    digests, read with the run's other facts before the run lock.
+    Returns ``(payload, index)``: the run's decoded requirement snapshot and
+    the position of the selection in its ``selections``.
     """
     lock_run(conn, str(run_id))
     run = conn.execute(
@@ -38,162 +34,48 @@ def selected_plan_owners(
     ).fetchone()
     if run is None:
         incomplete_snapshot(plan_id, "deployment run is missing")
-    shared_source = None
-    if shared_target_digest:
-        rows = query_rows(
-            conn,
-            "SELECT execution_target_json FROM qa_requirements WHERE deployment_run_id=%s "
-            "AND deployment_stage=%s AND plan_id=%s AND execution_target_digest=%s",
-            (run_id, stage, plan_id, shared_target_digest),
-        )
-        if not rows:
-            incomplete_snapshot(plan_id, "shared execution target is missing")
-        raw = rows[0]["execution_target_json"]
-        target = raw if isinstance(raw, Mapping) else json.loads(str(raw))
-        shared_source = target["deployment"]["shared_plan"]["source_revision"]
+    raw = run["requirement_snapshot"]
+    payload = dict(raw) if isinstance(raw, Mapping) else json.loads(str(raw))
     candidates = []
-    owners = [("deployment_runs", "id=%s", (run_id,), "selections", run)]
-    if member_item_id is not None or shared_target_digest:
-        members = conn.execute(
-            "SELECT item_id,requirement_snapshot FROM deployment_run_items "
-            "WHERE run_id=%s "
-            + ("" if shared_target_digest else "AND item_id=%s ")
-            + "ORDER BY item_id FOR UPDATE",
-            (run_id,) if shared_target_digest else (run_id, member_item_id),
-        ).fetchall()
-        for member in members:
-            if shared_target_digest:
-                if shared_target_digest not in group_digests(int(member["item_id"])):
-                    continue
-            owners.append(
-                (
-                    "deployment_run_items",
-                    "run_id=%s AND item_id=%s",
-                    (run_id, int(member["item_id"])),
-                    "plans",
-                    member,
-                )
-            )
-    for table, where, params, field, row in owners:
-        raw = row["requirement_snapshot"]
-        payload = dict(raw) if isinstance(raw, Mapping) else json.loads(str(raw))
-        for index, value in enumerate(payload.get(field, [])):
-            if (field == "selections" and value.get("stage") != stage) or int(
-                value.get("plan", {}).get("id") or 0
-            ) != int(plan_id):
-                continue
-            require_complete_snapshot(value)
-            if (
-                shared_target_digest
-                and value["plan"]["source_revision"] != shared_source
-            ):
-                continue
-            candidates.append((table, where, params, field, payload, index))
-    if not candidates or (
-        len(candidates) != 1
-        and (
-            not shared_target_digest
-            or any(value[0] == "deployment_runs" for value in candidates)
-        )
-    ):
+    for index, value in enumerate(payload.get("selections", [])):
+        if value.get("stage") != stage:
+            continue
+        if int(value.get("plan", {}).get("id") or 0) != int(plan_id):
+            continue
+        require_complete_snapshot(value)
+        candidates.append(index)
+    if len(candidates) != 1:
         incomplete_snapshot(plan_id, "selected plan owner is missing or ambiguous")
-    if len(candidates) != len({(value[0], value[2]) for value in candidates}):
-        incomplete_snapshot(plan_id, "selected plan owner has duplicate contracts")
-    return candidates
+    return payload, candidates[0]
 
 
-def refresh_selected_cases(
-    conn,
-    *,
-    run_id,
-    stage,
-    plan_id,
-    member_item_id,
-    cases,
-    allow_added=False,
-    shared_target_digest=None,
-    group_digests=None,
-):
-    """Correct only eligible cases, preserving owner and admission provenance.
-
-    A shared group has one owner per attaching member. The plan row and each
-    case's passed check are read once for all of them, and an owner whose
-    selection already matches is not rewritten, so a refresh costs one write
-    per changed owner and no read per owner.
-    """
-    from yoke_core.domain.deployment_requirement_snapshot_format import semantic_row
-    from yoke_core.domain.qa_plan_management import _plan_row
-
-    owners = selected_plan_owners(
-        conn,
-        run_id=run_id,
-        stage=stage,
-        plan_id=plan_id,
-        member_item_id=member_item_id,
-        shared_target_digest=shared_target_digest,
-        group_digests=group_digests,
-    )
-    current_plan = semantic_row(dict(_plan_row(conn, plan_id)), PLAN_FIELDS)
-    passed: dict = {}
-    for owner in owners:
-        _refresh_selected_cases(
-            conn,
-            owner,
-            run_id=run_id,
-            stage=stage,
-            plan_id=plan_id,
-            cases=cases,
-            allow_added=allow_added,
-            shared_target_digest=shared_target_digest,
-            current_plan=current_plan,
-            passed=passed,
-        )
-
-
-def _case_passed(conn, passed, *, run_id, stage, plan_id, key, member, digest):
-    """Whether a copy of this case passed acceptance; read once per case."""
+def _case_passed(conn, *, run_id, stage, plan_id, key):
+    """Whether a run-wide copy of this case passed acceptance."""
     from yoke_core.domain.qa_deployment_case_correction_window import (
         determinate_verdict,
     )
 
-    if (key, member) not in passed:
-        rows = query_rows(
-            conn,
-            "SELECT id FROM qa_requirements WHERE deployment_run_id=%s "
-            "AND deployment_stage=%s AND plan_id=%s AND plan_case_key=%s "
-            "AND deployment_member_item_id IS NOT DISTINCT FROM %s "
-            "AND (CAST(%s AS TEXT) IS NULL OR execution_target_digest=%s)",
-            (run_id, stage, plan_id, key, member, digest, digest),
-        )
-        passed[(key, member)] = any(
-            determinate_verdict(conn, int(row["id"])) == "pass" for row in rows
-        )
-    return passed[(key, member)]
-
-
-def _refresh_selected_cases(
-    conn,
-    owner,
-    *,
-    run_id,
-    stage,
-    plan_id,
-    cases,
-    allow_added,
-    shared_target_digest,
-    current_plan,
-    passed,
-):
-    from yoke_core.domain.deployment_requirement_snapshot_format import semantic_row
-
-    table, where, params, field, payload, index = owner
-    snapshot = payload[field][index]
-    before = _canonical(payload)
-    member = (
-        params[1]
-        if table == "deployment_run_items" and not shared_target_digest
-        else None
+    rows = query_rows(
+        conn,
+        "SELECT id FROM qa_requirements WHERE deployment_run_id=%s "
+        "AND deployment_stage=%s AND plan_id=%s AND plan_case_key=%s "
+        "AND deployment_member_item_id IS NULL",
+        (run_id, stage, plan_id, key),
     )
+    return any(determinate_verdict(conn, int(row["id"])) == "pass" for row in rows)
+
+
+def refresh_selected_cases(conn, *, run_id, stage, plan_id, cases, allow_added=False):
+    """Correct only eligible cases, preserving the selection's admission provenance."""
+    from yoke_core.domain.deployment_requirement_snapshot_format import semantic_row
+    from yoke_core.domain.qa_plan_management import _plan_row
+
+    payload, index = selected_plan_owners(
+        conn, run_id=run_id, stage=stage, plan_id=plan_id
+    )
+    current_plan = semantic_row(dict(_plan_row(conn, plan_id)), PLAN_FIELDS)
+    snapshot = payload["selections"][index]
+    before = _canonical(payload)
     replacements = {
         str(case["case_key"]): semantic_row(case, CASE_FIELDS) for case in cases
     }
@@ -211,16 +93,7 @@ def _refresh_selected_cases(
         key = str(frozen["case_key"])
         if key not in replacements or replacements[key] == frozen:
             continue
-        if _case_passed(
-            conn,
-            passed,
-            run_id=run_id,
-            stage=stage,
-            plan_id=plan_id,
-            key=key,
-            member=member,
-            digest=shared_target_digest,
-        ):
+        if _case_passed(conn, run_id=run_id, stage=stage, plan_id=plan_id, key=key):
             incomplete_snapshot(plan_id, "case already has passed acceptance")
     snapshot["cases"] = [
         replacements.get(str(case["case_key"]), case) for case in snapshot["cases"]
@@ -233,6 +106,6 @@ def _refresh_selected_cases(
     after = _canonical(payload)
     if after != before:
         conn.execute(
-            f"UPDATE {table} SET requirement_snapshot=%s WHERE {where}",
-            (after, *params),
+            "UPDATE deployment_runs SET requirement_snapshot=%s WHERE id=%s",
+            (after, run_id),
         )

@@ -41,17 +41,17 @@ def _positive_ids(values: Iterable[Any], *, field: str) -> list[int]:
     return sorted(normalized)
 
 
-def requirement_selection(
-    *,
-    requirement_ids: Iterable[int] = (),
-    plan_ids: Iterable[int] = (),
-) -> str:
-    """Encode an explicit per-member requirement selection."""
+def requirement_selection(*, requirement_ids: Iterable[int] = ()) -> str:
+    """Encode an explicit per-member requirement selection.
+
+    Post-deploy plans run as plan groups, so a selection names no plans: its
+    ``plan_ids`` is always empty, and a stored one is ignored.
+    """
     return _canonical(
         {
             "schema": SELECTION_SCHEMA,
             "requirement_ids": _positive_ids(requirement_ids, field="requirement_ids"),
-            "plan_ids": _positive_ids(plan_ids, field="plan_ids"),
+            "plan_ids": [],
         }
     )
 
@@ -83,7 +83,7 @@ def _selection(raw: Any) -> dict[str, Any]:
         "requirement_ids": _positive_ids(
             decoded.get("requirement_ids") or [], field="requirement_ids"
         ),
-        "plan_ids": _positive_ids(decoded.get("plan_ids") or [], field="plan_ids"),
+        "plan_ids": [],
     }
 
 
@@ -216,7 +216,6 @@ def snapshot_member_requirements(
             conn,
             item_ids=(item_id,),
             requirement_ids=selected["requirement_ids"],
-            plan_ids=selected["plan_ids"],
         )
     requirements = []
     for requirement_id in selected["requirement_ids"]:
@@ -250,7 +249,6 @@ def snapshot_members_requirements(
         conn,
         item_ids=parsed,
         requirement_ids=[v for s in parsed.values() for v in s["requirement_ids"]],
-        plan_ids=[v for s in parsed.values() for v in s["plan_ids"]],
         lock=lock,
     )
     return {

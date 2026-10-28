@@ -65,7 +65,6 @@ def cmd_add_item(
     *,
     delivery_intent: Optional[str] = None,
     requirement_ids: Iterable[int] = (),
-    plan_ids: Iterable[int] = (),
 ) -> str:
     """Add item to run. Returns confirmation message."""
     conn = connect(db_path)
@@ -89,7 +88,6 @@ def cmd_add_item(
             item_id=int(item_id),
             delivery_intent=delivery_intent,
             requirement_ids=requirement_ids,
-            plan_ids=plan_ids,
         )
         # Attaching reverses an earlier removal; left in place it would keep
         # composition subtracting the member this call just admitted.

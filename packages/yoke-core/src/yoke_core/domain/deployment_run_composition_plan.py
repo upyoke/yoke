@@ -40,7 +40,6 @@ class MemberFreeze:
     selections: dict[int, str]
     snapshots: dict[int, str]
     requirement_ids: tuple[int, ...]
-    plan_ids: tuple[int, ...]
 
 
 @dataclass(frozen=True)
@@ -60,10 +59,6 @@ class CompositionPlan:
     @property
     def requirement_ids(self) -> tuple[int, ...]:
         return self.members.requirement_ids if self.members else ()
-
-    @property
-    def plan_ids(self) -> tuple[int, ...]:
-        return self.members.plan_ids if self.members else ()
 
     def write_members(self, conn: Any, run_id: str) -> None:
         """Raise the members' kept refusal, or write their frozen rows."""
@@ -179,8 +174,7 @@ def _plan_members(conn: Any, run_id: str) -> MemberFreeze:
         {int(m["item_id"]): m["requirement_selection"] for m in members},
         lock=False,
     )
-    requirement_ids, plan_ids = snapshot_row_ids(selections, snapshots)
-    return MemberFreeze(intents, selections, snapshots, requirement_ids, plan_ids)
+    return MemberFreeze(intents, selections, snapshots, snapshot_row_ids(selections))
 
 
 __all__ = ["CompositionPlan", "MemberFreeze", "plan_run_composition"]

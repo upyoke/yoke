@@ -65,17 +65,6 @@ NEXT_ADMISSION_NOTICE = (
     "--rationale '<why the corrected body answers it>'"
 )
 
-#: The plan-copy counterpart: the source is the member's own plan row, which
-#: only the plan and a rematerialize can retire.
-PLAN_COPY_NOTICE = (
-    "requirement {copy_id} was materialized from QA plan {plan_id}, and the "
-    "member's item requirement {source_id} from that plan is untouched by this "
-    "supersession, so the next release admits the plan's case again. Retire "
-    "the source: correct the case in plan {plan_id} (yoke qa plan edit, or "
-    "yoke qa plan-cases sync for a source-bound plan), then run `{refresh}`, "
-    "which supersedes requirement {source_id} by the corrected case's row"
-)
-
 #: Refused when a run the item still belongs to holds a copy of the source
 #: and no copy was answered by a passing run case: that run grades the
 #: corrected requirement through the copy, so the copy must be corrected first.
@@ -260,7 +249,7 @@ def admitted_source_correction(conn: Any, broken: Mapping[str, Any]) -> dict[str
     """
     source_id = admitted_source_requirement_id(broken.get("plan_case_key"))
     if source_id is None:
-        return _plan_copy_source_correction(conn, broken)
+        return {}
     source = query_one(
         conn,
         "SELECT id,method_id,workflow_transition_id,target_env,execution_target_json,waived_at,"
@@ -283,48 +272,8 @@ def admitted_source_correction(conn: Any, broken: Mapping[str, Any]) -> dict[str
     }
 
 
-def _plan_copy_source_correction(
-    conn: Any, broken: Mapping[str, Any]
-) -> dict[str, Any]:
-    """Name the member's outstanding plan row behind a deployment plan copy."""
-    from yoke_core.domain.qa_deployment_case_content_refresh import base_case_key
-    from yoke_core.domain.qa_plan_refresh_safety import plan_refresh_invocation
-
-    member = broken.get("deployment_member_item_id")
-    if not broken.get("deployment_run_id") or None in (member, broken.get("plan_id")):
-        return {}
-    source = query_one(
-        conn,
-        "SELECT id,waived_at,superseded_by_requirement_id,"
-        f"{requirement_retracted_at_select(conn)} FROM qa_requirements "
-        "WHERE item_id=%s AND plan_id=%s AND plan_case_key=%s "
-        "AND deployment_run_id IS NULL AND qa_phase='post_deploy' "
-        "AND COALESCE(target_env,'')=%s AND COALESCE(host_baseline,'')=%s "
-        "ORDER BY id DESC LIMIT 1",
-        (
-            int(member),
-            int(broken["plan_id"]),
-            base_case_key(str(broken.get("plan_case_key") or "")),
-            str(broken.get("target_env") or ""),
-            str(broken.get("host_baseline") or ""),
-        ),
-    )
-    if source is None or obligation_settled(dict(source)):
-        return {}
-    return {
-        "admitted_from_requirement_id": int(source["id"]),
-        "next_admission_notice": PLAN_COPY_NOTICE.format(
-            copy_id=int(broken["id"]),
-            plan_id=int(broken["plan_id"]),
-            source_id=int(source["id"]),
-            refresh=plan_refresh_invocation(conn, int(source["id"])),
-        ),
-    }
-
-
 __all__ = [
     "NEXT_ADMISSION_NOTICE",
-    "PLAN_COPY_NOTICE",
     "PROOF_OWED_NOTICE",
     "SOURCE_RETIREMENT_REFUSAL",
     "admitted_source_correction",

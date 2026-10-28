@@ -37,7 +37,9 @@ from yoke_core.domain.qa_obligation_settlement import (
 from yoke_core.domain.qa_plan_case_definition import case_baselines, plan_cases
 from yoke_core.domain.qa_plan_case_targets import case_applies_to_target
 from yoke_core.domain.qa_plan_management import QaPlanError, _plan_row
-from yoke_core.domain.qa_plan_refresh_safety import carry_into_live_rosters
+from yoke_core.domain.qa_plan_execution_roster_correction import (
+    carry_into_live_rosters,
+)
 from yoke_core.domain.qa_plan_rematerialize import REPLACEMENT_RATIONALE
 from yoke_core.domain.qa_plan_requirement_snapshot import (
     existing_requirement_id,
@@ -50,14 +52,12 @@ _DEPLOYMENT_ATTACHMENT = {"qa_phase": "post_deploy"}
 
 @dataclass
 class SubjectRefresh:
-    """One private subject or exact shared group, read before the run lock."""
+    """One member or run subject's plan cases, read before the run lock."""
 
     label: str
     run_id: str
     stage: str
     member: int | None
-    selection_member: int | None
-    shared_digest: str | None
     target: dict
     rows_by_plan: dict[int, list[dict]]
     plans: dict[int, tuple[Any, list[dict]]]
@@ -70,8 +70,8 @@ def _pinned_target(rows: list[dict[str, Any]], *, subject: str) -> dict[str, Any
     if len(digests) != 1 or not next(iter(digests)):
         raise QaPlanError(
             f"{subject} has ambiguous materialized target history ({len(digests)} "
-            "distinct targets); select an attaching --item or resolve it against "
-            "the active stage receipt before rematerializing"
+            "distinct targets); resolve it against the active stage receipt "
+            "before rematerializing"
         )
     raw = rows[0]["execution_target_json"]
     if isinstance(raw, dict):
@@ -92,8 +92,6 @@ def read_subject_refresh(
     stage: str,
     member: int | None,
     plan: str | int | None,
-    shared_digest: str | None = None,
-    selection_member: int | None = None,
 ) -> SubjectRefresh:
     """Every fact one subject's refresh needs, read without a lock."""
     from yoke_core.domain.qa_plan_source_revision import require_candidate_plan
@@ -115,7 +113,6 @@ def read_subject_refresh(
             "ORDER BY id",
             (run_id, stage, int(member or 0)),
         )
-        if shared_digest is None or row["execution_target_digest"] == shared_digest
     ]
     if not rows:
         raise QaPlanError(
@@ -152,8 +149,6 @@ def read_subject_refresh(
         run_id=run_id,
         stage=stage,
         member=member,
-        selection_member=selection_member or member,
-        shared_digest=shared_digest,
         target=target,
         rows_by_plan=rows_by_plan,
         plans=plans,
@@ -213,17 +208,9 @@ def _insert_case(conn, refresh, *, plan, case, baseline, position) -> int:
     return int(inserted)
 
 
-def write_subject_refresh(
-    conn: Any, refresh: SubjectRefresh, *, group_digests
-) -> dict[str, Any]:
+def write_subject_refresh(conn: Any, refresh: SubjectRefresh) -> dict[str, Any]:
     """Refresh this subject's rows; the caller holds the run lock."""
-    owner_scope = dict(
-        run_id=refresh.run_id,
-        stage=refresh.stage,
-        member_item_id=refresh.selection_member,
-        shared_target_digest=refresh.shared_digest,
-        group_digests=group_digests,
-    )
+    owner_scope = dict(run_id=refresh.run_id, stage=refresh.stage)
     for plan_id in refresh.rows_by_plan:
         selected_plan_owners(conn, plan_id=plan_id, **owner_scope)
     created: list[int] = []

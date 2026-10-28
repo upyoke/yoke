@@ -40,7 +40,6 @@ from typing import Any
 from yoke_core.domain.db_helpers import query_one, query_rows
 from yoke_core.domain.deployment_qa_admission_materialization import (
     admitted_requirement_case_key,
-    admitted_requirement_identity_clause,
 )
 from yoke_core.domain.qa_admitted_case_currency import (
     ANSWERED_COPY_RECOVERY,
@@ -103,56 +102,28 @@ def admitted_copies_in_flight(
     placeholder = marker(conn)
     source = query_one(
         conn,
-        "SELECT id,item_id,plan_id,plan_case_key,host_baseline,target_env,qa_phase "
-        f"FROM qa_requirements WHERE id={placeholder}",
+        f"SELECT id,item_id FROM qa_requirements WHERE id={placeholder}",
         (int(source_requirement_id),),
     )
     if source is None or source["item_id"] is None:
         return []
-    identity = f"q.plan_id IS NULL AND q.plan_case_key={placeholder}"
-    identity_params: tuple[Any, ...] = (
-        admitted_requirement_case_key(int(source_requirement_id)),
-    )
-    if source["plan_id"] is not None and source["qa_phase"] == "post_deploy":
-        plan_identity, plan_params = admitted_requirement_identity_clause(
-            dict(source), marker=placeholder
-        )
-        identity = (
-            f"({identity}) OR ({plan_identity} "
-            f"AND (q.deployment_member_item_id={placeholder} OR q.deployment_member_item_id IS NULL) "
-            f"AND q.host_baseline IS NOT DISTINCT FROM {placeholder} "
-            f"AND (CAST({placeholder} AS TEXT) IS NULL OR q.target_env={placeholder}))"
-        )
-        identity_params += (
-            *plan_params,
-            int(source["item_id"]),
-            source["host_baseline"],
-            source["target_env"],
-            source["target_env"],
-        )
     statuses = ",".join([placeholder] * len(ACTIVE_RUN_STATUSES))
     rows = query_rows(
         conn,
         "SELECT q.id,q.deployment_run_id,q.deployment_stage,"
-        "q.deployment_member_item_id,q.execution_target_json,q.execution_target_digest FROM qa_requirements q "
+        "q.deployment_member_item_id FROM qa_requirements q "
         "JOIN deployment_runs dr ON dr.id=q.deployment_run_id "
-        f"WHERE ({identity}) "
+        f"WHERE q.plan_id IS NULL AND q.plan_case_key={placeholder} "
+        "AND q.deployment_member_item_id IS NOT NULL "
         f"AND NOT {settled_obligation_sql(conn, 'q')} "
-        f"AND dr.status IN ({statuses}) "
-        "AND (q.deployment_member_item_id IS NOT NULL OR EXISTS ("
-        "SELECT 1 FROM deployment_run_items m WHERE m.run_id=q.deployment_run_id "
-        f"AND m.item_id={placeholder})) "
-        "ORDER BY q.id",
+        f"AND dr.status IN ({statuses}) ORDER BY q.id",
         (
-            *identity_params,
+            admitted_requirement_case_key(int(source_requirement_id)),
             *sorted(ACTIVE_RUN_STATUSES),
-            int(source["item_id"]),
         ),
     )
     copies: list[AdmittedCopy] = []
     for row in rows:
-        if row["deployment_member_item_id"] is None:
-            continue  # a plan group is no member's admitted copy
         copy_id = int(row["id"])
         verdict = determinate_verdict(conn, copy_id)
         if verdict:
@@ -169,13 +140,12 @@ def admitted_copies_in_flight(
             recovery = REACHABLE_FIELD_RECOVERY
         else:
             reason, recovery = "", ""
-        member = row["deployment_member_item_id"]
         copies.append(
             AdmittedCopy(
                 requirement_id=copy_id,
                 run_id=str(row["deployment_run_id"]),
                 stage=str(row["deployment_stage"] or ""),
-                member_item_id=int(member) if member is not None else None,
+                member_item_id=int(row["deployment_member_item_id"]),
                 blocked_reason=reason,
                 recovery=recovery,
             )

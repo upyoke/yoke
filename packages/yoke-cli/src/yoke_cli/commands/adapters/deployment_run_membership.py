@@ -18,7 +18,7 @@ from yoke_contracts.api.function_call import TargetRef
 ADD_ITEM_USAGE = (
     "yoke deployment-runs add-item RUN-ID PREFIX-N "
     "[--project P] [--intent progress|final] [--requirement-id N ...] "
-    "[--plan-id N ...] [--session-id S] [--json]"
+    "[--session-id S] [--json]"
 )
 REMOVE_ITEM_USAGE = (
     "yoke deployment-runs remove-item RUN-ID PREFIX-N --reason TEXT "
@@ -92,14 +92,10 @@ def deployment_runs_add_item(args: List[str]) -> int:
         type=int,
         action="append",
         default=[],
-        help="Requirement id to attach to this member; repeatable.",
-    )
-    parser.add_argument(
-        "--plan-id",
-        type=int,
-        action="append",
-        default=[],
-        help="Verification plan id to attach to this member; repeatable.",
+        help=(
+            "Item case requirement id to attach to this member; repeatable. "
+            "Attached post-deploy plans run as plan groups at item QA."
+        ),
     )
     add_session_arg(parser)
     add_json_arg(parser)
@@ -116,8 +112,6 @@ def deployment_runs_add_item(args: List[str]) -> int:
         payload["delivery_intent"] = parsed.intent
     if parsed.requirement_id:
         payload["requirement_ids"] = parsed.requirement_id
-    if parsed.plan_id:
-        payload["plan_ids"] = parsed.plan_id
     return dispatch_and_emit(
         function_id="deployment_runs.add_item",
         target=item_target("item", parsed.item, parsed.project),

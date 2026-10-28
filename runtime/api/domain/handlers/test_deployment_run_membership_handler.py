@@ -121,7 +121,6 @@ class TestDeploymentRunMembership(unittest.TestCase):
                 "run_id": RUN_ID,
                 "delivery_intent": "progress",
                 "requirement_ids": [11, 13],
-                "plan_ids": [7],
             },
         )
         with (
@@ -135,7 +134,6 @@ class TestDeploymentRunMembership(unittest.TestCase):
             47,
             delivery_intent="progress",
             requirement_ids=[11, 13],
-            plan_ids=[7],
         )
 
     def test_add_item_refuses_while_another_session_drives_the_run(self):

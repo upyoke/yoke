@@ -51,19 +51,6 @@ REACHABLE_FIELD_RECOVERY = (
     "stage again."
 )
 
-#: Recovery when the source row was materialized from a QA plan. Refreshing
-#: that row rewrites its whole derivation and carries the same body onto this
-#: copy, so the fields no in-place write can reach are reachable after all --
-#: by the plan, which is where their text actually lives.
-PLAN_SOURCE_REFRESH_RECOVERY = (
-    "{fields} cannot be written on a requirement directly -- the updatable "
-    "fields are {allowed}. This copy's source row was materialized from a QA "
-    "plan, though, so the refresh that reaches both is `{command}`: it "
-    "rewrites the source from the plan and carries that same body onto this "
-    "copy. Correct the plan case first if the plan itself still carries the "
-    "retracted text."
-)
-
 #: Recovery for a copy that CANNOT be corrected, by any path. Telling an
 #: operator to refresh it would teach an action nobody can take: the
 #: requirement update allowlist does not carry these fields, and
@@ -116,9 +103,6 @@ class AdmittedCaseDivergence:
     requirement_id: int
     source_requirement_id: int
     fields: tuple[str, ...]
-    #: The plan refresh that reaches the source AND this copy, when the source
-    #: was materialized from a plan. Empty when no plan stands behind it.
-    source_refresh_invocation: str = ""
 
     def message(self) -> str:
         """The named refusal, with the fields that moved and a real recovery.
@@ -130,13 +114,7 @@ class AdmittedCaseDivergence:
         """
         reachable = reachable_in_place_fields()
         unreachable = tuple(field for field in self.fields if field not in reachable)
-        if unreachable and self.source_refresh_invocation:
-            recovery = PLAN_SOURCE_REFRESH_RECOVERY.format(
-                fields=", ".join(unreachable),
-                allowed=", ".join(sorted(reachable)),
-                command=self.source_refresh_invocation,
-            )
-        elif unreachable:
+        if unreachable:
             recovery = UNREACHABLE_FIELD_RECOVERY.format(
                 fields=", ".join(unreachable),
                 allowed=", ".join(sorted(reachable)),
@@ -227,13 +205,10 @@ def admitted_case_divergence(
     fields = diverging_fields(copy_row, source_row)
     if not fields:
         return None
-    from yoke_core.domain.qa_plan_refresh_safety import plan_refresh_invocation
-
     return AdmittedCaseDivergence(
         requirement_id=int(requirement_id),
         source_requirement_id=source_id,
         fields=fields,
-        source_refresh_invocation=plan_refresh_invocation(conn, source_id),
     )
 
 
@@ -262,7 +237,6 @@ def annotate_admitted_currency(
 
 __all__ = [
     "ANSWERED_COPY_RECOVERY",
-    "PLAN_SOURCE_REFRESH_RECOVERY",
     "AdmittedCaseDivergence",
     "DEFINITION_COLUMNS",
     "REACHABLE_FIELD_RECOVERY",

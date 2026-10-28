@@ -232,14 +232,17 @@ def assert_requirement_execution_snapshot_invariants(conn: Any) -> None:
         if _column_exists(conn, "qa_requirements", "standalone_execution_id")
         else ""
     )
+    # A run holds one subject per stage, member and target: each plan group
+    # of a plan has its own target, so two groups of one plan never collide.
+    subject = (
+        f"{standalone_owner}item_id, deployment_run_id, deployment_stage, "
+        "deployment_member_item_id, execution_target_digest, workflow_transition_id, "
+        "plan_id, case_position, baseline_position"
+    )
     duplicate_positions = int(
         conn.execute(
-            "SELECT COUNT(*) FROM ("
-            f"SELECT {standalone_owner}item_id, deployment_run_id, workflow_transition_id, plan_id, "
-            "case_position, baseline_position "
-            "FROM qa_requirements WHERE plan_id IS NOT NULL "
-            f"GROUP BY {standalone_owner}item_id, deployment_run_id, workflow_transition_id, plan_id, "
-            "case_position, baseline_position HAVING COUNT(*) > 1"
+            f"SELECT COUNT(*) FROM (SELECT {subject} FROM qa_requirements "
+            f"WHERE plan_id IS NOT NULL GROUP BY {subject} HAVING COUNT(*) > 1"
             ") duplicates"
         ).fetchone()[0]
     )

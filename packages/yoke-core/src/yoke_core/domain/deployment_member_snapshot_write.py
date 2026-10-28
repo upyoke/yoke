@@ -29,7 +29,8 @@ def read_member_snapshots(
 
     *stored* maps each member to its stored ``requirement_selection``.
     ``lock=False`` reads before the run lock; the caller then locks the
-    snapshot's rows (:func:`snapshot_row_ids`) and proves them unchanged.
+    snapshot's requirement rows (:func:`snapshot_row_ids`) and proves them
+    unchanged.
     """
     selections = {int(item_id): str(value or "") for item_id, value in stored.items()}
     if not selections:
@@ -45,23 +46,17 @@ def read_member_snapshots(
     return selections, snapshots
 
 
-def snapshot_row_ids(
-    selections: Mapping[int, str], snapshots: Mapping[int, str]
-) -> tuple[tuple[int, ...], tuple[int, ...]]:
-    """The requirement and plan ids a set of snapshots selected and froze."""
-    requirements: set[int] = set()
-    plans: set[int] = set()
-    for item_id, snapshot in snapshots.items():
-        selected = json.loads(selections[item_id] or "{}")
-        requirements.update(
-            int(value) for value in selected.get("requirement_ids") or ()
+def snapshot_row_ids(selections: Mapping[int, str]) -> tuple[int, ...]:
+    """The requirement ids a set of members' selections froze."""
+    return tuple(
+        sorted(
+            {
+                int(value)
+                for selection in selections.values()
+                for value in json.loads(selection or "{}").get("requirement_ids") or ()
+            }
         )
-        plans.update(int(value) for value in selected.get("plan_ids") or ())
-        plans.update(
-            int(entry["plan"]["id"])
-            for entry in json.loads(snapshot).get("plans") or ()
-        )
-    return tuple(sorted(requirements)), tuple(sorted(plans))
+    )
 
 
 def store_member_snapshots(

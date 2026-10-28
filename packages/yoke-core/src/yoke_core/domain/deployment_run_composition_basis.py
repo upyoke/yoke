@@ -215,7 +215,7 @@ def read_composition_basis(
 
 
 def lock_snapshot_rows(
-    conn: Any, requirement_ids: Iterable[int], plan_ids: Iterable[int]
+    conn: Any, requirement_ids: Iterable[int], plan_ids: Iterable[int] = ()
 ) -> None:
     """Hold the requirement and plan rows an unlocked snapshot read, in id order.
 

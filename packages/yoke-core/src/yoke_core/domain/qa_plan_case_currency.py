@@ -27,7 +27,6 @@ from yoke_core.domain.qa_plan_case_definition import (
     plan_cases,
 )
 from yoke_core.domain.qa_plan_execution_store import canonical, marker
-from yoke_core.domain.qa_plan_refresh_safety import refresh_recovery
 from yoke_core.domain.qa_plan_management import QaPlanError, _plan_row
 from yoke_core.domain.qa_requirement_pass_currency import canonical_method_config
 
@@ -62,6 +61,7 @@ UNREADABLE = "unreadable"
 #: Columns identifying which subject a row was materialized for, which is what
 #: decides the refresh command that can reach it.
 _SUBJECT_COLUMNS = (
+    "execution_target_json",
     "item_id",
     "deployment_run_id",
     "deployment_stage",
@@ -148,8 +148,18 @@ def _row(conn: Any, requirement_id: int) -> Any:
 
 
 def _divergence_for_row(conn: Any, row: Any) -> Optional[PlanCaseDivergence]:
-    """Compare one materialized row against its plan case, or return ``None``."""
-    if row["plan_id"] is None:
+    """Compare one materialized row against its plan case, or return ``None``.
+
+    A plan group runs its plan as the release pinned it, and a post-deploy row
+    left on an item is history: an edited plan reaches neither, so neither
+    is behind its plan.
+    """
+    from yoke_core.domain.deployment_qa_plan_groups import group_marker
+    from yoke_core.domain.qa_plan_rematerialize import refresh_recovery
+
+    if row["plan_id"] is None or group_marker(row["execution_target_json"]):
+        return None
+    if row["deployment_run_id"] is None and row["qa_phase"] == "post_deploy":
         return None
     plan_id = int(row["plan_id"])
     case_key = str(row["plan_case_key"] or "")

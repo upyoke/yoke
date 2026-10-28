@@ -2,7 +2,8 @@
 
 A live execution freezes its roster when it begins, and each entry is the
 whole contract its case runs against. A plan refresh or an admitted-copy
-correction rewrites requirement rows; when one of those rows sits in a live
+correction rewrites requirement rows (a refresh that would add a case to a
+live walk refuses instead, :func:`carry_into_live_rosters`); when one of those rows sits in a live
 roster, the walk decides what the correction may do:
 
 * An entry the walk has **not reached** -- after the cursor, with no result
@@ -251,8 +252,80 @@ def correct_live_rosters(conn: Any, requirement_ids: Iterable[int]) -> list[str]
     return corrected
 
 
+LIVE_EXECUTION_CODE = "plan_execution_in_flight"
+
+
+def carry_into_live_rosters(
+    conn: Any,
+    *,
+    subject: str,
+    rewritten: list[int],
+    created: list[int],
+    **live_subject: Any,
+) -> None:
+    """After a plan refresh's writes: correct unreached roster entries, or refuse.
+
+    A created row would add a case the live walk's roster does not carry, so
+    it refuses with the abort; rewritten and retired rows go to
+    :func:`correct_live_rosters`, which reaches only cases not yet walked.
+    """
+    if created:
+        require_no_live_execution(conn, subject=subject, **live_subject)
+    correct_live_rosters(conn, rewritten)
+
+
+def require_no_live_execution(
+    conn: Any,
+    *,
+    subject: str,
+    item_id: int | None = None,
+    transition_id: str | None = None,
+    deployment_run_id: str | None = None,
+    deployment_stage: str | None = None,
+    deployment_member_item_id: int | None = None,
+) -> None:
+    """Refuse a refresh whose rows a live execution has already frozen in."""
+    from yoke_core.domain.qa_plan_execution_store import live_plan_execution_id
+    from yoke_core.domain.qa_plan_management import QaPlanError
+
+    if not _table_exists(conn, "qa_plan_executions"):
+        return
+    if deployment_stage and deployment_member_item_id is None:
+        from yoke_core.domain.qa_stage_execution_holders import live_stage_executions
+
+        # Every session's stage-wide walk froze rows from this subject.
+        live = live_stage_executions(
+            conn,
+            deployment_run_id=str(deployment_run_id),
+            deployment_stage=deployment_stage,
+        )
+        execution_id = str(live[0]["id"]) if live else None
+    else:
+        execution_id = live_plan_execution_id(
+            conn,
+            item_id=item_id,
+            transition_id=transition_id,
+            deployment_run_id=deployment_run_id,
+            deployment_stage=deployment_stage,
+            deployment_member_item_id=deployment_member_item_id,
+        )
+    if execution_id is None:
+        return
+    raise QaPlanError(
+        f"{LIVE_EXECUTION_CODE}: {subject} is being walked by live QA plan "
+        f"execution {execution_id}, whose roster was frozen from these rows. "
+        "Refreshing them now would move the definitions underneath a walk "
+        "already in progress. Abort that execution with `yoke qa plan abort "
+        f'--execution-id {execution_id} --reason "<why>"`, then refresh and '
+        "start the walk again — the abort is what makes the refresh reachable."
+    )
+
+
 __all__ = [
+    "LIVE_EXECUTION_CODE",
     "ROSTER_CASE_REACHED_CODE",
+    "carry_into_live_rosters",
     "correct_live_rosters",
     "reached_by_live_execution",
+    "require_no_live_execution",
 ]

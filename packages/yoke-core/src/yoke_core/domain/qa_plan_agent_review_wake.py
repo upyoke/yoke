@@ -2,8 +2,10 @@
 
 A finished walk wakes its owner through the item-QA route. A walk stopped by
 an abort or error keeps a pending bundle for its completed captures; that
-review wakes the capture session while it is live, and otherwise every
-member the execution answers for, so the review never sits unowned.
+review wakes the capture session while it is live, and otherwise the member
+the execution answers for, so the review never sits unowned. A plan group
+answers no member: its review reaches the run's driver, else the session
+that started the run, else steering.
 """
 
 from __future__ import annotations
@@ -21,33 +23,35 @@ from yoke_core.domain.qa_plan_settled_review import (
 )
 
 
-def _answered_members(conn: Any, execution: Mapping[str, Any]) -> list[int]:
-    """The deployment members this execution's evidence answers for.
+def _group_execution(execution: Mapping[str, Any]) -> bool:
+    """Whether this execution walks an item-qa plan group (memberless rows)."""
+    from yoke_core.domain.deployment_qa_plan_groups import group_marker
 
-    A shared walk whose attaching members all left the run resolves no group;
-    its review then belongs to the member that requested the walk.
-    """
-    member_id = execution.get("deployment_member_item_id")
-    if member_id:
-        return [int(member_id)]
-    if ((execution.get("execution_target") or {}).get("deployment") or {}).get(
-        "shared_plan"
-    ):
-        from yoke_core.domain.deployment_qa_shared_plans import (
-            execution_subject,
-            group_members,
-        )
+    return not execution.get("deployment_member_item_id") and (
+        group_marker(execution.get("execution_target")) is not None
+    )
 
-        try:
-            group = execution_subject(conn, execution, require_active=False)
-            members = group_members(conn, group, execution["execution_target"])
-        except ValueError:
-            members = []
-        requester = execution.get("requesting_member_item_id")
-        if not members and requester:
-            members = [requester]
-        return [int(member) for member in members]
-    return []
+
+def _notify_group_review(
+    conn: Any, execution: Mapping[str, Any], body_for_route, idempotency_key: str
+) -> str:
+    """A plan group answers no member: its review reaches the run's recipient."""
+    from yoke_core.domain.deployment_run_driver_notice import push_run_scoped_notice
+
+    run_id = str(execution["deployment_run_id"])
+    row = conn.execute(
+        f"SELECT project_id FROM deployment_runs WHERE id={marker(conn)}", (run_id,)
+    ).fetchone()
+    if row is None:
+        return ""
+    return push_run_scoped_notice(
+        conn,
+        run_id=run_id,
+        project_id=int(row[0]),
+        body_for_route=body_for_route,
+        idempotency_key=idempotency_key,
+        now=utc_now(),
+    )
 
 
 def notify_scoped_agent_review(conn: Any, execution: Mapping[str, Any]) -> str:
@@ -60,8 +64,9 @@ def notify_scoped_agent_review(conn: Any, execution: Mapping[str, Any]) -> str:
     stage = execution.get("deployment_stage")
     if not run_id or not stage:
         return ""
-    members = _answered_members(conn, execution)
-    member_id = members[0] if members else None
+    if _group_execution(execution):
+        return _notify_finished_group(conn, execution)
+    member_id = execution.get("deployment_member_item_id")
     if not member_id:
         return ""
     p = marker(conn)
@@ -120,6 +125,28 @@ def notify_scoped_agent_review(conn: Any, execution: Mapping[str, Any]) -> str:
     )
 
 
+def _notify_finished_group(conn: Any, execution: Mapping[str, Any]) -> str:
+    execution_id = str(execution["id"])
+    if execution_has_persisted_verdict_batch(conn, execution_id):
+        return ""
+    command = shlex.join(
+        ["yoke", "watch", "qa-plan", "--", "--resume-execution-id", execution_id]
+    )
+    owner = str(execution.get("session_id") or "unrecorded")
+    body = (
+        f"Scoped QA capture for the plan group on deployment run "
+        f"{execution['deployment_run_id']}, stage {execution['deployment_stage']!r}, "
+        f"execution {execution_id} reached {execution['state']}. No QA verdict "
+        f"exists yet. Capture session {owner} (or whoever this reaches when it is "
+        f"gone): re-enter `{command}`, which reprints the pending bundle without "
+        "recapturing; dispatch its typed reviewer contract and submit the "
+        "complete verdict batch."
+    )
+    return _notify_group_review(
+        conn, execution, lambda _route: body, f"{REVIEW_WAKE_PREFIX}{execution_id}"
+    )
+
+
 def _project_id(conn: Any, item_id: int) -> int | None:
     row = conn.execute(
         f"SELECT project_id FROM items WHERE id={marker(conn)}", (int(item_id),)
@@ -174,14 +201,12 @@ def _notify_stopped(
     if execution_has_persisted_verdict_batch(conn, execution_id):
         return []
     run_id = execution.get("deployment_run_id")
-    members = (
-        _answered_members(conn, execution)
-        if run_id
-        else [int(execution["item_id"])]
-        if execution.get("item_id")
-        else []
+    group = bool(run_id) and _group_execution(execution)
+    member = (
+        execution.get("deployment_member_item_id") if run_id else execution.get("item_id")
     )
-    if not members:
+    members = [int(member)] if member else []
+    if not members and not group:
         return []
     owner = str(execution.get("session_id") or "")
     pending = PendingAgentReview(
@@ -204,6 +229,21 @@ def _notify_stopped(
     )
     now = utc_now()
     owner_live = _session_live(conn, owner)
+    if group:
+        body = (
+            f"{stopped} Owning session {owner}: {pending.next_action()}."
+            if owner_live
+            else f"{stopped} Its capture session {owner or 'unrecorded'} has "
+            f"ended, so this reaches the run's recipient: {pending.next_action()}."
+        )
+        return [
+            _notify_group_review(
+                conn,
+                execution,
+                lambda _route: body,
+                f"{REVIEW_WAKE_PREFIX}{execution_id}:group",
+            )
+        ]
     deliveries = []
     for member in members[:1] if owner_live else members:
         project_id = _project_id(conn, member)

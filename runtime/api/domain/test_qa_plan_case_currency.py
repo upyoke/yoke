@@ -7,8 +7,7 @@ the walk failed on the very defect the correction had removed.
 
 Three things have to hold for that to be impossible. An edit has to name the
 rows it did not reach. One operation has to bring such a row current, and
-refuse by name rather than proceed when something has already frozen a copy of
-it. And drift has to be readable without opening two bodies side by side.
+refuse by name rather than proceed when a live walk has already reached it. And drift has to be readable without opening two bodies side by side.
 """
 
 from __future__ import annotations
@@ -16,15 +15,7 @@ from __future__ import annotations
 import pytest
 
 from runtime.api.fixtures.backlog_inserts import insert_item
-from runtime.api.fixtures.backlog_qa_inserts import insert_qa_requirement, insert_qa_run
 from runtime.api.fixtures.pg_testdb import test_database
-from yoke_core.domain.deployment_qa_admission_materialization import (
-    admitted_requirement_case_key,
-)
-from yoke_core.domain.qa_admitted_case_currency import admitted_case_divergence
-from yoke_core.domain.qa_admitted_case_reconciliation import (
-    ADMITTED_COPY_IN_FLIGHT_CODE,
-)
 from yoke_core.domain.qa_plan_attachments import (
     materialize_for_item,
     set_project_default,
@@ -215,114 +206,28 @@ def test_a_row_from_no_plan_is_left_alone_by_the_reader() -> None:
     assert "plan_currency" not in rows[0]
 
 
-def _admitted_copy(conn, *, source_id: int, run_id: str, item_id: int) -> int:
-    """One executing run holding a frozen copy of a materialized row."""
-    conn.execute(
-        "INSERT INTO deployment_flows(id,project_id,name,description,stages,"
-        "created_at,status,definition_schema_version) VALUES "
-        "(%s,1,'Currency flow','','[]','2026-09-20T00:00:00Z','disabled',2)",
-        (f"flow-{run_id}",),
-    )
-    conn.execute(
-        "INSERT INTO deployment_runs(id,project_id,flow,status,created_at) "
-        "VALUES (%s,1,%s,'executing','2026-09-20T00:00:00Z')",
-        (run_id, f"flow-{run_id}"),
-    )
-    conn.commit()
-    source = conn.execute(
-        "SELECT method_id,method_name,runner_id,verdict_path,instructions,"
-        "expected_outcome,method_config FROM qa_requirements WHERE id=%s",
-        (int(source_id),),
-    ).fetchone()
-    copy = insert_qa_requirement(
-        conn,
-        item_id=None,
-        deployment_run_id=run_id,
-        deployment_stage="item-qa",
-        deployment_member_item_id=item_id,
-        qa_kind="release_qa",
-        qa_phase="post_deploy",
-        requirement_source="flow_derived",
-        plan_case_key=admitted_requirement_case_key(int(source_id)),
-        **{key: source[key] for key in source.keys()},
-    )
-    return int(copy["id"])
+@pytest.mark.parametrize("held", ["post-deploy history", "plan group"])
+def test_a_row_no_refresh_reaches_is_not_behind_its_plan(held: str) -> None:
+    """A plan group runs its pinned plan; an old post-deploy item row is history.
 
-
-def test_a_refresh_carries_the_correction_onto_a_reachable_copy() -> None:
-    """Refusing an unreachable copy is only half; a reachable one is reached."""
-    with test_database() as conn:
-        plan_id, requirement_id = _materialized(conn, item_id=8608)
-        copy_id = _admitted_copy(
-            conn, source_id=requirement_id, run_id="run-reachable", item_id=8608
-        )
-        _correct_the_case(conn, plan_id)
-
-        result = rematerialize_for_item(conn, item_id=8608, transition_id=TRANSITION)
-
-        # Both the row and the copy frozen from it now carry the correction,
-        # so the stage walking that copy runs the corrected body rather than
-        # refusing it as superseded.
-        assert _instructions(conn, requirement_id) == CORRECTED_INSTRUCTIONS
-        assert _instructions(conn, copy_id) == CORRECTED_INSTRUCTIONS
-        assert result["corrected_admitted_copy_ids"] == [copy_id]
-
-
-def test_a_refresh_refuses_when_an_admitted_copy_has_already_answered() -> None:
-    """An acceptance record is not a draft, so the refresh never writes."""
-    with test_database() as conn:
-        plan_id, requirement_id = _materialized(conn, item_id=8609)
-        copy_id = _admitted_copy(
-            conn, source_id=requirement_id, run_id="run-answered", item_id=8609
-        )
-        insert_qa_run(conn, qa_requirement_id=copy_id, verdict="fail")
-        conn.commit()
-        _correct_the_case(conn, plan_id)
-
-        with pytest.raises(QaPlanError) as excinfo:
-            rematerialize_for_item(conn, item_id=8609, transition_id=TRANSITION)
-        message = str(excinfo.value)
-
-        assert _instructions(conn, requirement_id) == ORIGINAL_INSTRUCTIONS
-
-    assert ADMITTED_COPY_IN_FLIGHT_CODE in message
-    assert f"admitted case {copy_id}" in message
-    assert "yoke qa requirement supersede" in message
-
-
-def test_a_stale_copy_of_a_plan_row_names_the_refresh_that_reaches_it() -> None:
-    """The remedy names a plan refresh only when a plan really stands behind it.
-
-    The prose fields are on no requirement-update allowlist, so a copy whose
-    instructions moved used to be told refreshing was not available at all.
-    For a plan-materialized source it now is, and the refusal names the exact
-    invocation — which this then runs, because a named remedy that does not
-    work is the failure mode this whole item exists to end.
+    An edited plan reaches neither, so neither is named as behind it: a
+    reader would otherwise be sent to a refresh that refuses.
     """
     with test_database() as conn:
-        plan_id, requirement_id = _materialized(conn, item_id=8610)
-        copy_id = _admitted_copy(
-            conn, source_id=requirement_id, run_id="run-named", item_id=8610
-        )
-        # The source moves ahead of its copy, exactly as a refresh leaves it
-        # when the copy was frozen before the correction.
-        _correct_the_case(conn, plan_id)
-        conn.execute(
-            "UPDATE qa_requirements SET instructions=%s WHERE id=%s",
-            (CORRECTED_INSTRUCTIONS, requirement_id),
-        )
+        plan_id, requirement_id = _materialized(conn, item_id=8608)
+        if held == "plan group":
+            update = (
+                "UPDATE qa_requirements SET execution_target_json=%s WHERE id=%s",
+                ('{"deployment":{"shared_plan":{"group_id":"run-a:1"}}}',),
+            )
+        else:
+            update = (
+                "UPDATE qa_requirements SET qa_phase=%s WHERE id=%s",
+                ("post_deploy",),
+            )
+        conn.execute(update[0], (*update[1], requirement_id))
         conn.commit()
+        _correct_the_case(conn, plan_id)
 
-        divergence = admitted_case_divergence(conn, copy_id)
-        message = divergence.message()
-        assert "instructions" in divergence.fields
-        assert "not an available remedy" not in message
-        expected = (
-            f"yoke qa plan rematerialize --item YOK-8610 --transition {TRANSITION}"
-        )
-        assert expected in message
-
-        rematerialize_for_item(conn, item_id=8610, transition_id=TRANSITION)
-
-        assert admitted_case_divergence(conn, copy_id) is None
-        assert _instructions(conn, copy_id) == CORRECTED_INSTRUCTIONS
+        assert plan_case_divergence(conn, requirement_id) is None
+        assert plan_drift_report(conn, plan_id)["requirements_behind_plan"] == []

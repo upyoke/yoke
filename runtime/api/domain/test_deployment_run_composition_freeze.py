@@ -256,7 +256,7 @@ def test_plan_content_and_candidate_stay_frozen_across_cancel_and_retry(
 
     _run(test_db, "run-plan", "advanced-plan", lineage="c" * 40)
     assert cmd_update("run-plan", "artifact_identity", "artifact-original") is None
-    cmd_add_item("run-plan", 9412, plan_ids=[9411])
+    cmd_add_item("run-plan", 9412)
     assert cmd_update("run-plan", "status", "executing") is None
     frozen = test_db.execute(
         "SELECT requirement_snapshot,artifact_identity,composition_frozen_at FROM deployment_runs "
@@ -278,12 +278,8 @@ def test_plan_content_and_candidate_stay_frozen_across_cancel_and_retry(
     frozen_flow = json.loads(frozen["requirement_snapshot"])
     assert frozen_flow["selections"][0]["plan"]["name"] == "Release plan"
     assert "created_at" not in frozen_flow["selections"][0]["plan"]
-    assert (
-        json.loads(member["requirement_snapshot"])["plans"][0]["cases"][0][
-            "instructions"
-        ]
-        == "run original smoke"
-    )
+    # A member freezes only its own item cases; plans run from the run.
+    assert "plans" not in json.loads(member["requirement_snapshot"])
     assert "frozen composition" in str(
         cmd_update("run-plan", "artifact_identity", "artifact-mutated")
     )
@@ -297,7 +293,7 @@ def test_plan_content_and_candidate_stay_frozen_across_cancel_and_retry(
         cmd_add_item("run-plan", 9412)
 
     _run(test_db, "run-plan-retry", "advanced-plan", lineage="d" * 40)
-    cmd_add_item("run-plan-retry", 9412, plan_ids=[9411])
+    cmd_add_item("run-plan-retry", 9412)
     assert cmd_update("run-plan-retry", "status", "executing") is None
     retry = test_db.execute(
         "SELECT requirement_snapshot FROM deployment_runs WHERE id='run-plan-retry'"

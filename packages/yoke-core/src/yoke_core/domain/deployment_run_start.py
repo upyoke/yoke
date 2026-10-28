@@ -135,9 +135,7 @@ def _current_plan(conn, plan, item_ids):
     if plan is None or plan.item_ids != item_ids:
         return None
     if plan.composition is not None:
-        lock_snapshot_rows(
-            conn, plan.composition.requirement_ids, plan.composition.plan_ids
-        )
+        lock_snapshot_rows(conn, plan.composition.requirement_ids)
     return plan if plan.basis.unchanged(conn) else None
 
 

@@ -107,16 +107,23 @@ def test_add_item_carries_explicit_slice_requirement_selection() -> None:
         "41",
         "--requirement-id",
         "43",
-        "--plan-id",
-        "9",
     )
     assert rc == 0, err
     assert CAPTURED[-1].payload == {
         "run_id": "run-20260909-001",
         "delivery_intent": "progress",
         "requirement_ids": [41, 43],
-        "plan_ids": [9],
     }
+
+
+def test_add_item_selects_no_plans() -> None:
+    """Attached post-deploy plans run as plan groups; a member selects none."""
+    rc, _out, err = _run(
+        "deployment-runs", "add-item", "run-20260909-001", "YOK-41", "--plan-id", "9"
+    )
+
+    assert rc == 2
+    assert "unrecognized arguments: --plan-id 9" in err
 
 
 def test_validate_composition_routes_run_target() -> None:
