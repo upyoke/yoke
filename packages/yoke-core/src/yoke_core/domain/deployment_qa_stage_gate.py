@@ -20,6 +20,7 @@ from yoke_core.domain.deployment_qa_stage_case_failures import (
 )
 from yoke_core.domain.deployment_qa_stage_outcome import (
     OUTCOME_BLOCKED,
+    OUTCOME_DISCHARGED,
     discharged,
     settled,
     waiting,
@@ -169,7 +170,21 @@ def _settle_stage_status(
     from yoke_core.domain.deployment_qa_presentation_reads import uncached_presentation
 
     with uncached_presentation():
+        if isinstance(read, dict) and read.get("outcome") == OUTCOME_DISCHARGED:
+            _close_discharged_group(conn, subject, run_id)
         return _write_status(conn, read)
+
+
+def _close_discharged_group(conn: Any, subject: Mapping[str, Any], run_id: str) -> None:
+    """A plan group discharged by waivers is accepted, so it records who it answered."""
+    if not (subject.get("shared_plan") or {}).get("group_id"):
+        return
+    from yoke_core.domain.deployment_qa_plan_groups import close_group
+    from yoke_core.domain.deployment_runs_lock import lock_run
+
+    lock_run(conn, str(run_id))
+    close_group(conn, subject)
+    conn.commit()
 
 
 @presentation_operation

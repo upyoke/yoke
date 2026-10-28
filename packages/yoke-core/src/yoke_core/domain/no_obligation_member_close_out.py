@@ -3,7 +3,8 @@
 The merge close-out is the one path to done. This module runs that same
 close-out without a session when the member recorded no obligation or a
 waiver-backed declaration, or its completion-flow QA requirements all passed
-or were discharged. Outstanding run-bound obligations still hold it. An
+or were discharged and closed plan groups of the run cover each post-deploy
+plan it owes. Outstanding run-bound obligations still hold it. An
 unanswered member with an empty case set also stays held, except a carried
 cross-project member whose own flow declares no item QA and has no explicit
 obligation. That member closes with the run without authoring an answer.
@@ -52,14 +53,20 @@ def recorded_no_obligation(conn: Any, item_id: int) -> bool:
 def satisfied_delivery_member(conn: Any, *, item_id: int, run_id: str) -> bool:
     """Whether this run settled the member's post-deploy QA obligations.
 
-    Count exact member requirements and shared copies owned by this member,
-    using the same ownership rule as the done gate.
+    Count the member's own run requirements, using the same ownership rule
+    as the done gate. Each post-deploy plan it owes is answered only by a
+    closed plan group of this run that covers it.
     """
     discharges_without_cases = answer_for_item(
         conn, int(item_id)
     ).discharges_without_cases
     if not (_table_exists(conn, "qa_requirements") and _table_exists(conn, "qa_runs")):
         return discharges_without_cases
+    from yoke_core.domain.deployment_qa_plan_credit import run_plan_credit
+
+    plans_credited = run_plan_credit(conn, int(item_id), str(run_id))
+    if plans_credited is False:
+        return False
     rows = query_rows(
         conn,
         "SELECT r.id,r.deployment_member_item_id,r.deployment_run_id,"
@@ -81,7 +88,7 @@ def satisfied_delivery_member(conn: Any, *, item_id: int, run_id: str) -> bool:
             carried_member_no_item_qa_reason,
         )
 
-        return discharges_without_cases or bool(
+        return bool(plans_credited) or discharges_without_cases or bool(
             carried_member_no_item_qa_reason(conn, run_id=run_id, item_id=item_id)
         )
     return all(

@@ -46,7 +46,7 @@ def _summary(conn, item_id: int) -> dict:
 
 def test_unaccepted_copy_leaves_the_capture_unsettled_in_gate_and_summary(test_db):
     item_id, _run_id, source_id = _source_member(
-        test_db, workflow="dash", plan_source=True
+        test_db, workflow="dash", plan_source=False
     )
     capture_id = _capture(test_db, source_id)
 
@@ -70,7 +70,7 @@ def test_unaccepted_copy_leaves_the_capture_unsettled_in_gate_and_summary(test_d
 def test_accepted_copy_settles_the_capture_for_gate_and_summary(test_db, monkeypatch):
     _isolate_status_effects(monkeypatch)
     item_id, run_id, source_id = _source_member(
-        test_db, workflow="dash", plan_source=True
+        test_db, workflow="dash", plan_source=False
     )
     _capture(test_db, source_id)
     _accept_member_qa(test_db, run_id=run_id, item_id=item_id)

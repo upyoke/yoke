@@ -97,7 +97,6 @@ def test_plan_selection_never_attaches_or_creates_review_gate(test_db, commit):
     "phase,transition",
     [
         ("verification", REVIEW),
-        ("post_deploy", "release"),
         ("manual_acceptance", "done"),
     ],
 )
@@ -170,3 +169,61 @@ def test_retraction_at_any_phase_requires_no_recorded_run(
             ).fetchone()[0]
             is not None
         )
+
+
+def test_post_deploy_attachment_writes_no_item_copy_and_retracts_freely(test_db):
+    plan = _plan(test_db, "post-deploy-attachment")
+    item_id = _dash(test_db, item_id=2852, posture={})
+    attach_plan_to_item(
+        test_db,
+        item_id=item_id,
+        plan_id=plan["id"],
+        transition_id="release",
+        qa_phase="post_deploy",
+    )
+    assert (
+        materialize_for_item(test_db, item_id=item_id, transition_id="release")[
+            "created_requirement_ids"
+        ]
+        == []
+    )
+    receipt = retract_plan_from_item(
+        test_db,
+        item_id=item_id,
+        plan_id=plan["id"],
+        transition_id="release",
+        reason="wrong attachment",
+    )
+    assert receipt["retired_requirement_ids"] == []
+
+
+def test_done_answers_a_post_deploy_selection_from_its_plan_group(test_db, monkeypatch):
+    from yoke_core.domain import deployment_qa_plan_credit as credit
+
+    plan = _plan(test_db, "post-deploy-selection")
+    selection = {"kind": "plan", "plan_id": plan["id"]}
+    item_id = _dash(test_db, item_id=2853, posture={"verification": selection})
+    attach_plan_to_item(
+        test_db,
+        item_id=item_id,
+        plan_id=plan["id"],
+        transition_id="release",
+        qa_phase="post_deploy",
+    )
+    miss = credit._miss(
+        item_id, plan["id"], "post-deploy-selection", {"id": "run-x"}, "item-qa"
+    )
+    monkeypatch.setattr(credit, "plan_credit_misses", lambda conn, item: [miss])
+    refused = verification_gate(
+        test_db, item_id=item_id, verification=selection, target_status="done"
+    )
+    assert refused["error_code"] == "GATE_DASH_VERIFICATION_UNSATISFIED"
+    assert "--plan post-deploy-selection" in str(refused)
+
+    monkeypatch.setattr(credit, "plan_credit_misses", lambda conn, item: [])
+    assert (
+        verification_gate(
+            test_db, item_id=item_id, verification=selection, target_status="done"
+        )
+        is None
+    )

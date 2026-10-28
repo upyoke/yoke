@@ -23,6 +23,7 @@ from yoke_contracts.api.function_call import (
 from yoke_core.domain.qa_plan_management import QaPlanError, _plan_row
 from yoke_core.domain.qa_plan_retire import DEPENDENTS_CODE, retire_plan
 
+ACCEPTANCE = "done"
 REASON = "only case is unrunnable; its one requirement was retracted"
 
 
@@ -63,14 +64,15 @@ def _attached_item_requirement(
     )
     conn.commit()
     plan_id = create_smoke_plan(conn, project="yoke", slug=slug)
+    # A manual-acceptance plan is copied onto its item; a post-deploy plan never is.
     attach_plan_to_item(
         conn,
         plan_id=plan_id,
         item_id=item_id,
-        transition_id="release",
-        qa_phase="post_deploy",
+        transition_id=ACCEPTANCE,
+        qa_phase="manual_acceptance",
     )
-    created = materialize_for_item(conn, item_id=item_id, transition_id="release")
+    created = materialize_for_item(conn, item_id=item_id, transition_id=ACCEPTANCE)
     if status != "release":
         conn.execute("UPDATE items SET status=%s WHERE id=%s", (status, item_id))
         conn.commit()
@@ -141,7 +143,7 @@ def test_unsettled_requirement_refuses_with_its_settling_command(test_db) -> Non
     message = str(refused.value)
     assert message.startswith(f"{DEPENDENTS_CODE}:")
     assert f"requirement {requirement_id}" in message
-    assert f"--plan-id {plan_id} --transition release" in message
+    assert f"--plan-id {plan_id} --transition {ACCEPTANCE}" in message
     assert "yoke qa item-plan retract" in message
     retired = test_db.execute(
         "SELECT retired_at FROM qa_plans WHERE id=%s", (plan_id,)
@@ -152,7 +154,7 @@ def test_unsettled_requirement_refuses_with_its_settling_command(test_db) -> Non
         test_db,
         item_id=9861,
         plan_id=plan_id,
-        transition_id="release",
+        transition_id=ACCEPTANCE,
         reason="item is done; the plan is being retired",
         source="operator",
     )

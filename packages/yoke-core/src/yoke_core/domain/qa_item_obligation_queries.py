@@ -40,10 +40,13 @@ def unsatisfied_blocking_many(
     ids = tuple(dict.fromkeys(int(value) for value in item_ids))
     if not ids:
         return {}
+    from yoke_core.domain.qa_simulation_triage import triage_discharge_sql
+
     marker = "%s" if db_backend.connection_is_postgres(conn) else "?"
     holes = ",".join(marker for _ in ids)
     fetched = conn.execute(
-        "SELECT qr.* FROM qa_requirements qr "
+        f"SELECT qr.*, {triage_discharge_sql(conn, 'qr')} AS triage_discharge "
+        "FROM qa_requirements qr "
         f"WHERE (qr.item_id IN ({holes}) OR qr.deployment_member_item_id IN ({holes})) "
         "AND qr.blocking_mode = 'blocking' AND qr.waived_at IS NULL "
         f"AND {unretracted_requirement_sql(conn, 'qr')} AND NOT {OLD_PLAN_COPY_SQL}",

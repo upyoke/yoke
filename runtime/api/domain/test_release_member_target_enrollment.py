@@ -155,9 +155,8 @@ def test_stage_failure_blocks_after_production_passes(test_db, monkeypatch):
     ).primary_success
 
 
-def test_prod_authors_and_materializes_stage_plan_without_dispatching_it(
-    test_db, monkeypatch
-):
+def test_prod_authors_a_stage_plan_that_only_the_stage_run_owes(test_db, monkeypatch):
+    from yoke_core.domain.deployment_qa_member_plans import members_plan_ids
     from yoke_core.domain.qa_plan_management import create_plan, replace_plan_cases
     from yoke_core.domain.qa_plan_attachments import (
         attach_plan_to_item,
@@ -201,19 +200,18 @@ def test_prod_authors_and_materializes_stage_plan_without_dispatching_it(
         qa_phase="post_deploy",
     )
     materialize_for_item(test_db, item_id=item_id, transition_id="release")
-    rows = test_db.execute(
-        "SELECT id,execution_target_json FROM qa_requirements WHERE item_id=%s AND plan_id=%s",
-        (item_id, int(plan["id"])),
-    ).fetchall()
-    import json
-
-    assert rows and all(
-        json.loads(str(row[1]))["environment"]["name"] == "stage" for row in rows
+    # A post-deploy plan writes no item copy; the stage run owes it as a group.
+    assert (
+        test_db.execute(
+            "SELECT COUNT(*) FROM qa_requirements WHERE item_id=%s AND plan_id=%s",
+            (item_id, int(plan["id"])),
+        ).fetchone()[0]
+        == 0
     )
-    admitted, _ = post_deploy_admission_split(
-        test_db, run_id="run-stage", item_id=item_id
-    )
-    assert all(int(row[0]) in admitted for row in rows)
+    assert members_plan_ids(test_db, [item_id], "run-stage") == {
+        item_id: {int(plan["id"])}
+    }
+    assert members_plan_ids(test_db, [item_id], "run-prod") == {item_id: set()}
     # Actual standalone dispatch retains its runtime restriction; deployment
     # QA later supplies the receipt-bound execution target that exempts it.
     with pytest.raises(QaExecutionTargetError, match="cannot execute QA target"):

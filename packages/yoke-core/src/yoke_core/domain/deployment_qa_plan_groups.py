@@ -125,6 +125,18 @@ def run_groups(
     ]
 
 
+def presented_stage_groups(conn: Any, run_id: str, stage: str) -> list[PlanGroup]:
+    """The run's groups at this stage; one read answers every presented run."""
+    from yoke_core.domain.deployment_qa_presentation_facts import presented_run_ids
+    from yoke_core.domain.deployment_qa_presentation_reads import presentation_read
+
+    runs = presented_run_ids(conn, str(run_id))
+    if not runs:
+        return run_groups(conn, run_id, stage)
+    groups = presentation_read(conn, ("plan_groups", runs), lambda: run_groups(conn, runs))
+    return [g for g in groups if g.run_id == str(run_id) and g.stage == str(stage)]
+
+
 def open_group(conn: Any, run_id: str, stage: str, plan_id: int) -> PlanGroup | None:
     """The run's one open group of this plan at this stage, if any."""
     return next(
@@ -287,6 +299,7 @@ __all__ = [
     "lineage_run_ids",
     "open_group",
     "plan_only_members",
+    "presented_stage_groups",
     "retract_unattached_groups",
     "run_groups",
     "unattached_open_groups",

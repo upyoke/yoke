@@ -13,21 +13,16 @@ from runtime.api.domain.test_deployment_qa_stage_execution import (
     _stages,
 )
 from runtime.api.domain.test_deployment_shipping_reads import CountedConnection
-from yoke_core.domain.deployment_qa_stage_materialization import (
-    materialize_deployment_qa_stage,
-)
+from yoke_core.domain.deployment_qa_plan_group_writes import ensure_groups
 from yoke_core.domain.qa_activity_reads import read_activity
 
 SUCCESSOR = "run-shared-plans-successor"
 
 
-def _materialize(conn, run_id, member):
-    return materialize_deployment_qa_stage(
-        conn,
-        deployment_run_id=run_id,
-        deployment_stage="item-qa",
-        deployment_member_item_id=member,
-    )["created_requirement_ids"]
+def _form_groups(conn, run_id):
+    created = ensure_groups(conn, run_id, "item-qa")
+    conn.commit()
+    return created
 
 
 def _take_over(conn, plan_id):
@@ -55,7 +50,7 @@ def _owner(conn, requirement_id):
 
 def test_moved_result_names_its_run_until_the_successor_records_one(test_db):
     plan_id = _seed(test_db)
-    (requirement_id,) = _materialize(test_db, RUN, MEMBERS[0])
+    (requirement_id,) = _form_groups(test_db, RUN)
     _fail(test_db, requirement_id)
     _take_over(test_db, plan_id)
     assert _owner(test_db, requirement_id) == RUN
@@ -88,9 +83,11 @@ def test_activity_read_count_does_not_grow_with_members(test_db):
     plans = [_plan(test_db, "wide-one"), _plan(test_db, "wide-two")]
     _seed_wide(test_db, "run-narrow", (9801, 9802), plans)
     _seed_wide(test_db, "run-wide", tuple(range(9811, 9819)), plans)
-    # Before any copy exists, both plans are pending shared groups.
+    # Before any group forms, both plans are owed plan groups.
     assert _statements(test_db, "run-narrow") == _statements(test_db, "run-wide")
-    for run_id, first in (("run-narrow", 9801), ("run-wide", 9811)):
-        for requirement_id in _materialize(test_db, run_id, first):
+    for run_id in ("run-narrow", "run-wide"):
+        created = _form_groups(test_db, run_id)
+        assert len(created) == 2
+        for requirement_id in created:
             _fail(test_db, requirement_id)
     assert _statements(test_db, "run-narrow") == _statements(test_db, "run-wide")

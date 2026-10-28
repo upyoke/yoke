@@ -17,22 +17,27 @@ from typing import Any, Iterable
 from yoke_core.domain.db_helpers import query_rows
 
 
-def _run_target(conn: Any, run_id: str) -> tuple[int | None, int, str]:
-    """The run's environment id, project id and environment name."""
-    row = query_rows(
+_NO_TARGET: tuple[int | None, int, str] = (None, 0, "")
+
+
+def _run_targets(conn: Any, run_ids: Iterable[str]) -> dict[str, tuple]:
+    """Each run's environment id, project id and environment name."""
+    rows = query_rows(
         conn,
-        "SELECT r.target_environment_id,r.project_id,e.name FROM deployment_runs r "
-        "LEFT JOIN environments e ON e.id=r.target_environment_id WHERE r.id=%s",
-        (str(run_id),),
+        "SELECT r.id,r.target_environment_id,r.project_id,e.name FROM deployment_runs r "
+        "LEFT JOIN environments e ON e.id=r.target_environment_id WHERE r.id=ANY(%s)",
+        (sorted({str(run) for run in run_ids}),),
     )
-    if not row:
-        return None, 0, ""
-    environment_id = row[0]["target_environment_id"]
-    return (
-        int(environment_id) if environment_id is not None else None,
-        int(row[0]["project_id"] or 0),
-        str(row[0]["name"] or ""),
-    )
+    return {
+        str(row["id"]): (
+            int(row["target_environment_id"])
+            if row["target_environment_id"] is not None
+            else None,
+            int(row["project_id"] or 0),
+            str(row["name"] or ""),
+        )
+        for row in rows
+    }
 
 
 def _cases_target(conn: Any, plan_id: int, name: str) -> bool:
@@ -92,36 +97,80 @@ def members_plan_ids(
     conn: Any, item_ids: Iterable[int], run_id: str
 ) -> dict[int, set[int]]:
     """Each item's owed post-deploy plans at the run's environment."""
+    items = sorted({int(item) for item in item_ids})
+    if not items:
+        return {}
+    target = _run_targets(conn, [run_id]).get(str(run_id), _NO_TARGET)
+    return _owed(conn, items, target, _plan_rows(conn, items), {})
+
+
+def _plan_rows(conn: Any, items: list[int]) -> list[tuple[dict, bool]]:
+    rows = [(row, True) for row in _attached_rows(conn, items)]
+    return rows + [(row, False) for row in _default_rows(conn, items)]
+
+
+def _owed(
+    conn: Any, items: list[int], run_target: tuple, rows: list, memo: dict
+) -> dict[int, set[int]]:
+    """Filter plan rows to these items and the run's target.
+
+    ``memo`` keeps one answer per plan and target across the runs of one read.
+    """
     from yoke_core.domain.deployment_qa_snapshot_selection import plan_matches_target
 
-    items = sorted({int(item) for item in item_ids})
     owed: dict[int, set[int]] = {item: set() for item in items}
-    if not items:
-        return owed
-    environment_id, project_id, name = _run_target(conn, run_id)
+    environment_id, project_id, name = run_target
     target = {"project": {"id": project_id}, "environment": {"name": name}}
-    rows = [(row, True) for row in _attached_rows(conn, items)]
-    rows += [(row, False) for row in _default_rows(conn, items)]
-    matches: dict[int, bool] = {}
-    targeted: dict[int, bool] = {}
     for row, attached in rows:
+        if int(row["item_id"]) not in owed:
+            continue
         plan_id = int(row["plan_id"])
-        if plan_id not in matches:
-            matches[plan_id] = plan_matches_target(conn, dict(row), target, environment_id)
-        if not matches[plan_id]:
+        key = (plan_id, run_target)
+        if key not in memo:
+            memo[key] = plan_matches_target(conn, dict(row), target, environment_id)
+        if not memo[key]:
             if not attached:
                 continue
-            if plan_id not in targeted:
-                targeted[plan_id] = _cases_target(conn, plan_id, name)
-            if not targeted[plan_id]:
+            if (plan_id, name) not in memo:
+                memo[(plan_id, name)] = _cases_target(conn, plan_id, name)
+            if not memo[(plan_id, name)]:
                 continue
         owed[int(row["item_id"])].add(plan_id)
     return owed
 
 
+def _runs_owed_plans(conn: Any, runs: tuple[str, ...]) -> dict[str, dict[int, set[int]]]:
+    """Every presented run's members' owed plans, one set read per fact."""
+    members: dict[str, list[int]] = {str(run): [] for run in runs}
+    for row in query_rows(
+        conn,
+        "SELECT run_id,item_id FROM deployment_run_items WHERE run_id=ANY(%s)",
+        (sorted(members),),
+    ):
+        members[str(row["run_id"])].append(int(row["item_id"]))
+    items = sorted({item for found in members.values() for item in found})
+    rows = _plan_rows(conn, items) if items else []
+    targets = _run_targets(conn, members) if items else {}
+    memo: dict = {}
+    return {
+        run: _owed(conn, found, targets.get(run, _NO_TARGET), rows, memo)
+        for run, found in members.items()
+    }
+
+
 def run_owed_plans(conn: Any, run_id: str) -> dict[int, set[int]]:
-    """Every current member's owed plans, read once per presentation."""
+    """Every current member's owed plans, read once per presentation.
+
+    Inside a presentation of several runs, every presented run is read at once.
+    """
+    from yoke_core.domain.deployment_qa_presentation_facts import presented_run_ids
     from yoke_core.domain.deployment_qa_presentation_reads import presentation_read
+
+    runs = presented_run_ids(conn, str(run_id))
+    if runs:
+        return presentation_read(
+            conn, ("runs_owed_plans", runs), lambda: _runs_owed_plans(conn, runs)
+        )[str(run_id)]
 
     def read():
         rows = query_rows(

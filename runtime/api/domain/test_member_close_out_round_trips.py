@@ -12,8 +12,9 @@ from __future__ import annotations
 import pytest
 
 from runtime.api.domain.test_deployment_delivery_close_out_notice import _project
-from runtime.api.domain.test_deployment_qa_shared_plans import _attach
+from runtime.api.domain.test_deployment_qa_plan_groups import _attach
 from runtime.api.domain.test_deployment_qa_stage_execution import (
+    _complete_case,
     _plan,
     _seed_run,
     _stages,
@@ -24,11 +25,15 @@ from runtime.api.domain.test_status_transition_preflight import (
     _isolate_status_effects,
 )
 from runtime.api.fixtures.statement_counter import CountingConnection
-from yoke_core.domain.deployment_qa_stage_materialization import (
-    materialize_deployment_qa_stage,
+from yoke_core.domain.deployment_qa_plan_group_dispatch import settle_group
+from yoke_core.domain.deployment_qa_plan_group_writes import (
+    ensure_groups,
+    group_subject,
 )
+from yoke_core.domain.deployment_qa_plan_groups import run_groups
+from yoke_core.domain.qa_plan_execution_state import begin_plan_execution
 
-#: run id -> (shared requirement count, (measured member, *siblings))
+#: run id -> (plan group count, (measured member, *siblings))
 RUNS = {
     "run-close-out-small": (1, (9911, 9912, 9913)),
     "run-close-out-large": (6, (9914, 9915, 9916, 9917, 9918)),
@@ -36,7 +41,11 @@ RUNS = {
 
 
 def _seed(conn, run_id: str) -> int:
-    """A parked member sharing one plan; its siblings share every plan."""
+    """A parked member attaching one plan; its siblings attach every plan.
+
+    The release runs one plan group per attached plan and each group passes,
+    so every member's plan obligation is credited.
+    """
     count, (measured, *siblings) = RUNS[run_id]
     plans = [_plan(conn, f"{run_id}-{index}") for index in range(count)]
     stages = _stages(plans[0])
@@ -60,26 +69,32 @@ def _seed(conn, run_id: str) -> int:
     for sibling in siblings:
         for plan_id in plans:
             _attach(conn, sibling, plan_id)
-    for member in (measured, *siblings):
-        materialize_deployment_qa_stage(
-            conn,
-            deployment_run_id=run_id,
-            deployment_stage="item-qa",
-            deployment_member_item_id=member,
-        )
-    conn.execute(
-        "UPDATE qa_requirements SET waived_at=NOW(),waiver_rationale='accepted',"
-        "waiver_source='owner' WHERE deployment_run_id=%s",
-        (run_id,),
-    )
+    ensure_groups(conn, run_id, "item-qa")
     conn.commit()
-    shared = conn.execute(
-        "SELECT COUNT(*) FROM qa_requirements WHERE deployment_run_id=%s "
-        "AND deployment_member_item_id IS NULL",
-        (run_id,),
-    ).fetchone()[0]
-    assert shared == count
+    for index in range(count):
+        _pass_group(conn, run_id, f"{run_id}-{index}")
+    groups = run_groups(conn, [run_id], "item-qa")
+    assert len(groups) == count and all(group.closed for group in groups)
     return measured
+
+
+def _pass_group(conn, run_id: str, slug: str) -> None:
+    execution = begin_plan_execution(
+        conn,
+        deployment_run_id=run_id,
+        deployment_stage="item-qa",
+        deployment_member_item_id=None,
+        plan=slug,
+        actor_id="2",
+        session_id=f"group-qa-{slug}",
+    )
+    _complete_case(conn, execution)
+    for group in run_groups(conn, [run_id], "item-qa"):
+        if not group.closed:
+            settle_group(
+                conn, group_subject(conn, run_id, "item-qa", group, require_active=False)
+            )
+    conn.commit()
 
 
 def _satisfied(conn, run_id, member):

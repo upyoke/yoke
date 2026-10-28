@@ -14,7 +14,6 @@ from typing import Any
 from runtime.api.domain.test_deployment_qa_multi_item_scoped_stages import (
     LINEAGE,
     PREVIEW_QA,
-    _attach_plan,
     _bind_plan,
     _environment_id,
     _point_run_at_environment,
@@ -73,12 +72,21 @@ def _preview_stage_rows(conn: Any, *, item_id: int, run_id: str) -> tuple[int, i
     environment_id = _environment_id(conn)
     _point_run_at_environment(conn, run_id, environment_id)
     plan_id = _bind_plan(conn, slug=f"{run_id}-plan", environment_id=environment_id)
-    _attach_plan(conn, item_id=item_id, plan_id=plan_id)
     materialize_deployment_qa_stage(
         conn,
         deployment_run_id=run_id,
         deployment_stage=PREVIEW_QA,
         deployment_member_item_id=item_id,
+    )
+    # Post-deploy plans run as plan groups; a member's correction of its own
+    # admitted case selects the plan for exactly the corrected case key.
+    materialize_deployment_qa_stage(
+        conn,
+        deployment_run_id=run_id,
+        deployment_stage=PREVIEW_QA,
+        deployment_member_item_id=item_id,
+        agent_plan=str(plan_id),
+        replacement_keys={"command-smoke"},
     )
     rows = conn.execute(
         "SELECT id, plan_id FROM qa_requirements WHERE deployment_run_id=%s "

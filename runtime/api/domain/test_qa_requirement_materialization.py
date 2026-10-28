@@ -7,11 +7,11 @@ import pytest
 from runtime.api.domain.test_deployment_qa_admission_execution import (
     _original_requirement,
 )
-from runtime.api.domain.test_deployment_qa_shared_plans import (
+from runtime.api.domain.test_deployment_qa_plan_groups import (
     MEMBERS,
-    _seed,
-    _materialize,
+    RUN,
     _begin,
+    _seed,
 )
 from runtime.api.domain.test_deployment_qa_stage_execution import _plan
 from runtime.api.domain.test_qa_plan_case_currency import (
@@ -100,11 +100,14 @@ def test_methodless_recovery_uses_head_bound_recording(phase):
     assert "qa case run" not in recipe
 
 
-def test_shared_walk_persists_requesting_member_for_resume(test_db):
+def test_group_walk_persists_requesting_member_for_resume(test_db):
+    from yoke_core.domain.deployment_qa_plan_group_writes import ensure_groups
+
     _seed(test_db)
-    _materialize(test_db, MEMBERS[0])
+    ensure_groups(test_db, RUN, "item-qa")
+    test_db.commit()
     execution = _begin(test_db, MEMBERS[0])
-    # A second member resumes the shared authority without replacing its requester.
+    # A second member resumes the group walk without replacing its requester.
     assert _begin(test_db, MEMBERS[1])["id"] == execution["id"]
     stored = select_plan_execution(test_db, execution["id"], lock=False)
     assert stored["deployment_member_item_id"] is None

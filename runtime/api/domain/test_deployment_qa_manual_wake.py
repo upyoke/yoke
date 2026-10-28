@@ -28,6 +28,7 @@ from runtime.api.steering_fleet_test_helpers import (
     compose,
     seed_steering_scope,
 )
+from yoke_core.domain import deployment_qa_dispatch_wait_notice as wait_notice_mod
 from yoke_core.domain import deployment_qa_stage_dispatch as dispatch_mod
 from yoke_core.domain.db_helpers import iso8601_now
 from yoke_core.domain.deployment_qa_manual_wake import (
@@ -90,7 +91,7 @@ def _drive(conn: Any, run_id: str) -> tuple[int, str, mock.Mock, mock.Mock]:
             return_value=_WAITING,
         ),
         mock.patch.object(
-            dispatch_mod, "notify_item_scoped_qa_wait", return_value="delivered"
+            wait_notice_mod, "notify_item_scoped_qa_wait", return_value="delivered"
         ) as notify,
         mock.patch.object(
             dispatch_mod, "wake_manual_requirement_owners", return_value=[]
