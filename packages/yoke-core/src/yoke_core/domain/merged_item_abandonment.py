@@ -1,4 +1,4 @@
-"""Operator authority and durable resolution audit for merged abandonment."""
+"""Durable resolution audit and live-run guard for merged abandonment."""
 
 from __future__ import annotations
 
@@ -7,19 +7,11 @@ from typing import Any
 
 from yoke_contracts.timestamps import iso8601_now
 
-from yoke_core.domain.session_steering_authority import require_operator_seat
-
 
 def abandonment_audit(
     conn: Any, *, item: dict, session_id: str | None, reason: str
 ) -> str:
-    """Require a covering operator seat; keep the audit in the close transaction."""
-    require_operator_seat(
-        conn,
-        caller_session_id=session_id,
-        project_id=int(item["project_id"]),
-        action="Abandoning merged work",
-    )
+    """Keep the resolution audit in the close transaction."""
     from yoke_core.domain.project_identity import placeholder
 
     _require_no_live_membership(conn, item_id=int(item["id"]))

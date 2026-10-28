@@ -74,8 +74,7 @@ def register_project(
             f"project {normalized} is already routed to "
             f"{displaced!r} on connection {connection!r}; registering {root} "
             "would move that connection's checkout routing. To move it deliberately, "
-            f"acquire its steering seat with `yoke --env {shlex.quote(connection)} "
-            f"claims steering acquire --project {normalized}`, then run "
+            "run "
             f"`yoke --env {shlex.quote(connection)} project register --reassign "
             f"--project-id {normalized} {shlex.quote(str(root))}`."
         )

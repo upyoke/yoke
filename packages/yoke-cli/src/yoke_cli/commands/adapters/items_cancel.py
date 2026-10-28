@@ -90,8 +90,8 @@ def _build_parser() -> Any:
             "cancel are different intents; a cancelled item is terminal, so "
             "frozen is cleared as part of this close. There is no --thaw "
             "flag.\n\n"
-            "--abandon-merged lets an operator with a live covering steering "
-            "seat close merged work that cannot finish. It preserves merge "
+            "--abandon-merged lets a caller with project items.write permission "
+            "close merged work that cannot finish. It preserves merge "
             "evidence and records the actor, session, prior status and reason "
             "in resolution_comment in the same transaction. It does not "
             "undo the code merge or mark the item delivered. Live deployment "
@@ -118,7 +118,7 @@ def _build_parser() -> Any:
     add_session_arg(parser)
     parser.add_argument(
         "--abandon-merged", action="store_true",
-        help="Operators only: close merged work that cannot reach done; see above.",
+        help="Close merged work with project items.write permission; see above.",
     )
     add_json_arg(parser)
     return parser

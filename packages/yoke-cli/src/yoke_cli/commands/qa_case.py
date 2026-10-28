@@ -114,9 +114,9 @@ def qa_plan_reconcile(args: List[str]) -> int:
         args,
         QA_PLAN_RECONCILE_USAGE,
         "Operator recovery for an execution whose owner stopped reporting or whose "
-        "recovery receipt is invalid. A session needs a live steering seat "
-        "covering the project (yoke claims steering acquire --project P --reason "
-        "TEXT); other sessions are refused with steering_seat_required. Never "
+        "recovery receipt is invalid. A session needs the execution item's current "
+        "work claim or a live steering seat covering the project; otherwise "
+        "steering_seat_required names both routes. Never "
         "settles an active walk (use yoke qa plan abort) or a parked owner's walk. "
         "A held host lease needs recorded recovery first: the refusal names the "
         "exact reset or release command. A judgeable pending review passes to the "

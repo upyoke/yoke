@@ -64,8 +64,7 @@ def project_register(args: List[str]) -> int:
         action="store_true",
         default=False,
         help=(
-            "Deliberate checkout move; requires this session's live steering "
-            "seat on the project."
+            "Deliberately move the project's checkout routing on this machine."
         ),
     )
     parser.add_argument(

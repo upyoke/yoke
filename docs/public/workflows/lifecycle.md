@@ -181,8 +181,8 @@ when an active skill binding says so.
 | `cancelled` | Item was intentionally abandoned |
 
 Ordinary `yoke items cancel ITEM --reason TEXT` refuses merged work and work
-past review. If a merged item cannot reach `done`, an operator with a live
-steering seat covering its project may use
+past review. If a merged item cannot reach `done`, a caller with
+`items.write` permission on its project may use
 `yoke items cancel ITEM --abandon-merged --reason TEXT`. This records
 `cancelled`, preserves merge evidence, and stores the actor, session, prior
 status, merge timestamp and reason in `resolution_comment` in the same
