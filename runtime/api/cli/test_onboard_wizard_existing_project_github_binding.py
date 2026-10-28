@@ -119,7 +119,7 @@ def test_existing_backlog_project_can_bind_detected_checkout_origin(
             await pilot.press("enter")  # connect GitHub
             await app.workers.wait_for_complete()
             await pilot.press("enter")  # confirm connected identity and App access
-            await pilot.press("enter")  # existing folder
+            await pilot.press("down", "enter")  # existing folder
             await type_text(pilot, str(checkout))
             await pilot.press("enter")
             await app.workers.wait_for_complete()
@@ -209,7 +209,7 @@ def test_new_project_keeps_existing_origin_and_reaches_binding(
             await pilot.press("enter")  # connect GitHub
             await app.workers.wait_for_complete()
             await pilot.press("enter")  # confirm connected identity and App access
-            await pilot.press("enter")  # existing folder
+            await pilot.press("down", "enter")  # existing folder
             await type_text(pilot, str(checkout))
             await pilot.press("enter")
             await app.workers.wait_for_complete()

@@ -239,6 +239,8 @@ def make_app(
     # machine is. Resolving them instantly to their final value keeps the
     # export a function of the wizard's state instead of the runner's speed.
     app.animation_level = "none"
+    # Isolated later screens follow the initial setup disclosure.
+    app._permission_disclosed = True
     return app
 
 

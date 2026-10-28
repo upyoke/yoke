@@ -58,7 +58,7 @@ wait notices go to stderr; stdout carries only the JSON lines.
 ```json
 {"setup": "agent", "version": 1, "state": "question", "step": "project",
  "key": "project.mode", "question": "Set up a project.", "detail": [],
- "answers": [{"value": "machine-only", "label": "Just this machine", "description": "…"}],
+ "answers": [{"value": "machine-only", "label": "Don't set up a project now", "description": "just the machine"}],
  "input": null, "fields": [], "secret": false, "human": null,
  "guidance": "…", "answer_command": "/Users/me/.local/bin/yoke setup --agent --answer project.mode=<value>"}
 ```

@@ -98,7 +98,7 @@ def test_local_checkout_manifest_project_id_skips_project_setup(
             await advance_past_path(pilot)
             await pilot.press("down")  # machine github: Skip for now
             await pilot.press("enter")
-            await pilot.press("enter")  # project: existing folder
+            await pilot.press("down", "enter")  # project: existing folder
             await type_text(pilot, str(checkout))
             await pilot.press("enter")
             await app.workers.wait_for_complete()
@@ -261,7 +261,7 @@ def test_existing_project_with_board_art_skips_art_flow(
             await advance_past_path(pilot)
             await pilot.press("down")  # machine github: Skip for now
             await pilot.press("enter")
-            await pilot.press("enter")  # project: existing folder
+            await pilot.press("down", "enter")  # project: existing folder
             await type_text(pilot, str(checkout))
             await pilot.press("enter")
             await app.workers.wait_for_complete()

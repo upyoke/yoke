@@ -74,6 +74,7 @@ def _lapse_saved_code() -> None:
 
 def test_agent_setup_collects_a_lapsed_code_approved_in_time(drive, answers):
     drive()
+    drive("project.mode=machine-only")
     _only_browser(drive("connect.destination=hosted"))
     _lapse_saved_code()
     answers.append((200, APPROVED))
@@ -87,6 +88,7 @@ def test_agent_setup_collects_a_lapsed_code_approved_in_time(drive, answers):
 
 def test_agent_setup_names_an_approval_collected_too_late(drive, answers):
     drive()
+    drive("project.mode=machine-only")
     _only_browser(drive("connect.destination=hosted"))
     _lapse_saved_code()
     answers.append((410, UNCOLLECTED))
