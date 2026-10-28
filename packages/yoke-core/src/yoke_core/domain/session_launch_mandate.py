@@ -57,6 +57,27 @@ def compose_single_item_mandate(
     return f"{mandate}\n\n{extra}" if extra else mandate
 
 
+def session_has_single_item_mandate(conn: Any, session_id: str, item_id: int) -> bool:
+    """Read the bound launch instruction, scoped to this session and item."""
+    from yoke_core.domain.project_identity import render_item_ref
+
+    public_ref = render_item_ref(conn, item_id, required=True)
+    p = marker(conn)
+    rows = conn.execute(
+        "SELECT m.body FROM session_launches l "
+        "JOIN session_messages m ON m.message_id=l.message_id "
+        "JOIN items i ON i.project_id=l.project_id "
+        f"WHERE l.registered_session_id={p} AND i.id={p}",
+        (session_id, item_id),
+    ).fetchall()
+    prefix = f"Single-item mandate: acquire the {public_ref} work claim "
+    return any(
+        line.startswith(prefix)
+        for row in rows
+        for line in str(value(row, "body", 0)).splitlines()
+    )
+
+
 def item_entrypoint(next_step: str, public_ref: str) -> str | None:
     """Render the launch command for a bound skill; unlaunchable steps return None."""
     skill = SKILLS_BY_ID.get(next_step)

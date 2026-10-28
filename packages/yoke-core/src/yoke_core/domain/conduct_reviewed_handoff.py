@@ -54,7 +54,7 @@ def _release_conduct_claim(
     *,
     session_id: Optional[str] = None,
 ) -> Dict[str, Any]:
-    """Release the Conduct-owned item claim after successful handoff."""
+    """Keep a single-item mandate claim, or release after stage handoff."""
     effective_session_id = _resolve_session_id(session_id)
     if not effective_session_id:
         return {"released": False, "reason": "missing_session_id"}
@@ -63,7 +63,18 @@ def _release_conduct_claim(
         from yoke_core.domain.sessions import release_item_claim_for_execution
         from yoke_core.domain.db_helpers import connect
 
+        from yoke_core.domain.session_launch_mandate import session_has_single_item_mandate
+        from yoke_core.domain.workflow_level_handoff import level_handoff
+
         with connect() as conn:
+            if session_has_single_item_mandate(conn, effective_session_id, epic_id):
+                successor = level_handoff(
+                    conn, item_id=epic_id, session_id=effective_session_id,
+                    stage_id="reviewed-implementation",
+                )
+                if not successor:
+                    print("Claim retained: single-item mandate; run the next bound skill now.")
+                    return {"released": False, "retained": True}
             result = release_item_claim_for_execution(
                 conn, effective_session_id, str(epic_id), "handoff-to-polish"
             )
@@ -232,6 +243,7 @@ def run(epic_id: int, *, session_id: Optional[str] = None) -> int:
     )
     if (
         not release_result.get("released")
+        and not release_result.get("retained")
         and release_reason not in _IDEMPOTENT_RELEASE_MISSES
     ):
         detail = str(release_result.get("error") or release_reason or "unknown")

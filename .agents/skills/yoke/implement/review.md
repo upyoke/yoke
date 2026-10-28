@@ -9,11 +9,11 @@ yoke qa gate-summary --item PREFIX-N --target <handoff-stage>
 yoke lifecycle transition PREFIX-N --from <live-stage> --to <next-stage> --reason "Implementation review"
 ```
 
-4. If a steering seat must act, `yoke say --steering` first. Only after
-   the handoff succeeds:
+4. If a steering seat must act, `yoke say --steering` first. After a
+   successful handoff, reread the item and follow [shared handoff](../shared/stage-handoff.md).
 
-```text
-yoke claims work release --item PREFIX-N --reason implementation-handoff
-```
-
-5. Reread the pin; report `next_skill_id`. That skill takes its own claim.
+If your launch instruction is a single-item mandate for this item, keep the
+claim and run `/yoke {next_skill_id} ITEM` now: read and follow the next
+bound skill in this turn. Otherwise show the next-skill line and release
+the claim. A transition's `level_change` handoff takes precedence: release,
+launch the returned successor, and end; follow `.yoke/docs/agents/levels.md`.

@@ -1,0 +1,9 @@
+{
+ "id": "single-item-continuation",
+ "title": "Continue a single-item launch across skill boundaries",
+ "status": "observed",
+ "form": "Do",
+ "verification": "Source contract and handoff regression tests; no live continuation proof attached.",
+ "topics": ["workflows/bindings/claim-release-and-next-command", "frontier/launch/launch-mandate"],
+ "sources": [".agents/skills/yoke/shared/stage-handoff.md", "packages/yoke-core/src/yoke_core/domain/conduct_reviewed_handoff.py"]
+}
