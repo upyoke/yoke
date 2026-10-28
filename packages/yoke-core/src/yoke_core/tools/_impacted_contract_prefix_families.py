@@ -51,6 +51,7 @@ AGENT_SKILL_CONTRACT_TESTS = (
     "runtime/api/test_skill_doc_regressions_misc.py",
     "runtime/api/test_skill_doc_regressions_onboard.py",
     "runtime/api/test_skill_doc_regressions_refine_release_sequencing.py",
+    "runtime/api/test_skill_doc_regressions_refine_scope_budget.py",
     "runtime/api/test_skill_doc_regressions_strategize.py",
     "runtime/api/test_skill_prose_schema_drift.py",
     "runtime/api/test_skill_workflow_authority.py",
