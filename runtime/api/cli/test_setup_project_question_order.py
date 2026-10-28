@@ -157,3 +157,20 @@ def test_wizard_first_question_and_deferred_existing_folder(monkeypatch, tmp_pat
             assert app.result.project_mode == modes.PROJECT_MODE_LOCAL_CHECKOUT
 
     asyncio.run(scenario())
+
+
+
+def test_choose_another_restored_project_reasks_project_mode():
+    shell_type = type("FlowShell", SETUP_FLOWS, {
+        "_goto": lambda self, view: self.views.append(view),
+    })
+    shell = object.__new__(shell_type)
+    init_setup_state(shell, defaults=WizardDefaults(), apply_report=lambda _: {})
+    shell.views = []
+    shell.result.project_mode = modes.PROJECT_MODE_CLONE_REMOTE
+    shell._project_mode_preset = True
+    shell._restored_projects = [{"id": 1, "slug": "demo"}]
+    shell._goto_project_mode()
+    assert shell.views[-1].prompt.key == "project.restored"
+    shell.views[-1].on_select("other")
+    assert shell.views[-1].prompt.key == "project.mode"

@@ -71,6 +71,7 @@ class WizardFlow(
         ):
             from yoke_cli.config.onboard_wizard_restored_projects import offer
 
+            self._project_preset_attempted = True
             offer(self)
             return
         if self._project_mode_preset and not self._project_preset_attempted:
