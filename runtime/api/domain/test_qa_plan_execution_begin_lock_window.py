@@ -1,4 +1,4 @@
-"""Beginning a member's shared QA walk holds the run row lock only to write.
+"""Beginning a plan group's QA walk holds the run row lock only to write.
 
 Every per-member read happens before ``deployment_runs`` is locked, so the
 statements issued while the lock is held stay the same whether the run has
@@ -11,6 +11,8 @@ from __future__ import annotations
 from collections import Counter
 from typing import Any
 
+import pytest
+
 from runtime.api.domain.test_deployment_qa_stage_execution import (
     _plan,
     _seed_run,
@@ -20,7 +22,9 @@ from runtime.api.fixtures.statement_counter import CountingConnection
 from yoke_core.domain.deployment_qa_stage_materialization import (
     materialize_deployment_qa_stage,
 )
+from yoke_core.domain.deployment_qa_plan_group_writes import ensure_groups
 from yoke_core.domain.qa_plan_execution_state import begin_plan_execution
+from yoke_core.domain.qa_stage_execution_holders import StageRosterHeld
 
 SMALL = ("run-begin-lock-small", tuple(range(9601, 9604)))
 LARGE = ("run-begin-lock-large", tuple(range(9701, 9731)))
@@ -75,23 +79,20 @@ def _seed(conn, run_id, members):
             "'2026-10-14T00:00:00Z')",
             (member, plan_id),
         )
+    ensure_groups(conn, run_id, "item-qa")
     conn.commit()
-    materialize_deployment_qa_stage(
-        conn,
-        deployment_run_id=run_id,
-        deployment_stage="item-qa",
-        deployment_member_item_id=members[0],
-    )
 
 
-def _begin(conn, run_id, member):
+def _begin(conn, run_id, member, session="begin-lock-window"):
+    """Begin the run's plan group; ``member`` only records who asked."""
     return begin_plan_execution(
         conn,
         deployment_run_id=run_id,
         deployment_stage="item-qa",
         deployment_member_item_id=member,
+        plan=f"shared-{run_id}",
         actor_id="2",
-        session_id="begin-lock-window",
+        session_id=session,
     )
 
 
@@ -127,25 +128,20 @@ def test_an_execution_begun_between_read_and_lock_is_honoured(test_db, monkeypat
     def begin_elsewhere_then_admit(*args, **kwargs):
         if not raced:
             raced.append({})
-            raced[0] = begin_plan_execution(
-                other,
-                deployment_run_id=run_id,
-                deployment_stage="item-qa",
-                deployment_member_item_id=members[0],
-                actor_id="3",
-                session_id="other-session",
-            )
+            raced[0] = _begin(other, run_id, members[0], session="other-session")
         return admit(*args, **kwargs)
 
     monkeypatch.setattr(admission, "admit_member", begin_elsewhere_then_admit)
     try:
-        result = _begin(test_db, run_id, members[1])
+        with pytest.raises(StageRosterHeld) as held:
+            _begin(test_db, run_id, members[1])
+        test_db.rollback()
     finally:
         other.close()
     assert raced and raced[0]["session_id"] == "other-session"
-    assert result["state"] == "waiting"
-    assert result["shared_execution_wait"]["execution_id"] == raced[0]["id"]
-    assert result["shared_execution_wait"]["owner_session_id"] == "other-session"
+    assert held.value.execution["id"] == raced[0]["id"]
+    assert held.value.execution["session_id"] == "other-session"
+    assert "park" in str(held.value)
     rows = test_db.execute(
         "SELECT session_id FROM qa_plan_executions WHERE deployment_run_id=%s",
         (run_id,),
@@ -153,16 +149,10 @@ def test_an_execution_begun_between_read_and_lock_is_honoured(test_db, monkeypat
     assert [row[0] for row in rows] == ["other-session"]
 
 
-def test_a_changed_route_is_read_again_with_the_run_lock_released(
+def test_a_group_begin_reads_again_unlocked_then_refuses_by_name(
     test_db, monkeypatch
 ):
     """Each re-read runs unlocked; a run that keeps changing refuses by name."""
-    import psycopg
-    import pytest
-
-    from runtime.api.fixtures.pg_testdb import connect_test_database
-    from yoke_core.domain import deployment_qa_shared_execution as routing
-    from yoke_core.domain import qa_plan_execution_begin_admission as admission
     from yoke_core.domain.deployment_runs_lock import (
         RUN_BUSY_CODE,
         RUN_READ_ATTEMPTS,
@@ -171,36 +161,13 @@ def test_a_changed_route_is_read_again_with_the_run_lock_released(
 
     run_id, members = SMALL
     _seed(test_db, run_id, members)
-    probe = connect_test_database(test_db.info.dbname)
-    admit, read_route = admission.admit_member, routing._read_route
-    reads: list[bool] = []
-
-    def run_row_locked() -> bool:
-        try:
-            probe.execute(
-                "SELECT 1 FROM deployment_runs WHERE id=%s FOR UPDATE NOWAIT",
-                (run_id,),
-            )
-            return False
-        except psycopg.errors.LockNotAvailable:
-            return True
-        finally:
-            probe.rollback()
-
-    def recorded_read(*args, **kwargs):
-        reads.append(run_row_locked())
-        return read_route(*args, **kwargs)
-
-    def always_changed(*args, **kwargs):
-        admit(*args, **kwargs)
-        return False
-
-    monkeypatch.setattr(routing, "_read_route", recorded_read)
-    monkeypatch.setattr(admission, "admit_member", always_changed)
+    probe, reads, locked = _record_roster_reads(
+        test_db, monkeypatch, run_id, [False] * RUN_READ_ATTEMPTS
+    )
     try:
         with pytest.raises(DeploymentRunChanging) as raised:
             _begin(test_db, run_id, members[1])
-        assert not run_row_locked()
+        assert not locked()
     finally:
         probe.close()
     assert reads == [False] * RUN_READ_ATTEMPTS
@@ -279,8 +246,6 @@ def _record_roster_reads(test_db, monkeypatch, run_id, admits):
 def test_a_stage_wide_begin_reads_again_unlocked_then_refuses_by_name(
     test_db, monkeypatch
 ):
-    import pytest
-
     from yoke_core.domain.deployment_runs_lock import (
         RUN_BUSY_CODE,
         RUN_READ_ATTEMPTS,

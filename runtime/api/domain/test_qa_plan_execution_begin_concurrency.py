@@ -17,10 +17,10 @@ from yoke_core.domain.qa_plan_execution_state import begin_plan_execution
 from yoke_core.domain.qa_stage_execution_holders import StageRosterHeld
 
 
-@pytest.mark.parametrize("scope", ["member", "stage", "same-session"])
+@pytest.mark.parametrize("scope", ["plan-group", "stage", "same-session"])
 def test_concurrent_stage_begins_never_duplicate_custody(test_db, monkeypatch, scope):
     run_id, members = "run-begin-concurrent", (9821, 9822)
-    if scope == "member":
+    if scope == "plan-group":
         _seed(test_db, run_id, members)
     else:
         _seed_stage_wide(test_db, run_id, members)
@@ -38,7 +38,8 @@ def test_concurrent_stage_begins_never_duplicate_custody(test_db, monkeypatch, s
                 connections[index],
                 deployment_run_id=run_id,
                 deployment_stage="item-qa",
-                deployment_member_item_id=members[index] if scope == "member" else None,
+                deployment_member_item_id=members[index] if scope == "plan-group" else None,
+                plan=f"shared-{run_id}" if scope == "plan-group" else None,
                 actor_id="2",
                 session_id="same-session" if scope == "same-session" else f"racer-{index}",
             )
@@ -60,12 +61,10 @@ def test_concurrent_stage_begins_never_duplicate_custody(test_db, monkeypatch, s
     assert len(rows) == 1, results
     if scope == "same-session":
         assert {result["id"] for result in results} == {rows[0][0]}
-    elif scope == "member":
-        assert sorted(result["state"] for result in results) == ["active", "waiting"]
-        waiter = next(result for result in results if result["state"] == "waiting")
-        assert waiter["shared_execution_wait"]["execution_id"] == rows[0][0]
     else:
-        assert sum(isinstance(result, StageRosterHeld) for result in results) == 1
+        held = [result for result in results if isinstance(result, StageRosterHeld)]
+        assert len(held) == 1, results
+        assert held[0].execution["id"] == rows[0][0]
 
 
 def test_execution_churn_does_not_repeat_the_roster_read(test_db, monkeypatch):

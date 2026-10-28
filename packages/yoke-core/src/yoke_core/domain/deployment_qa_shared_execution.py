@@ -36,12 +36,37 @@ def _requirement_begin(conn, begin, kwargs):
 
 
 def _group_begin(conn, begin, kwargs):
-    """Begin the named plan's open group; None when the stage runs run QA."""
+    """Begin the named plan's open group; None when the stage runs run QA.
+
+    A begin naming an attaching member is admitted under that member, so a
+    run change between the unlocked read and the run lock comes back here:
+    read again unlocked, at most ``RUN_READ_ATTEMPTS`` times, then refuse as
+    ``run_busy`` (``run_read_changed``).
+    """
+    from yoke_core.domain.deployment_runs_lock import (
+        RUN_READ_ATTEMPTS,
+        DeploymentRunChanging,
+    )
+    from yoke_core.domain.qa_plan_execution_begin_admission import (
+        BeginInputsChanged,
+        begin_inputs,
+    )
+
+    run_id, stage = str(kwargs["deployment_run_id"]), str(kwargs["deployment_stage"])
+    for _attempt in range(RUN_READ_ATTEMPTS):
+        inputs = begin_inputs(conn, run_id, stage)
+        try:
+            return _begin_open_group(conn, begin, kwargs, run_id, stage, inputs)
+        except BeginInputsChanged:
+            conn.rollback()
+    raise DeploymentRunChanging(run_id)
+
+
+def _begin_open_group(conn, begin, kwargs, run_id, stage, inputs):
     from yoke_core.domain.deployment_qa_plan_group_writes import resolve_group_subject
     from yoke_core.domain.deployment_qa_plan_groups import attaching_members
     from yoke_core.domain.project_identity import render_item_ref
 
-    run_id, stage = str(kwargs["deployment_run_id"]), str(kwargs["deployment_stage"])
     group = resolve_group_subject(
         conn, run_id, stage, str(kwargs["plan"]), require_active=True
     )
@@ -65,6 +90,7 @@ def _group_begin(conn, begin, kwargs):
             "deployment_member_item_id": None,
             "_requesting_member_item_id": member,
             "_deployment_subject": group,
+            "_run_inputs": inputs,
         },
     )
 

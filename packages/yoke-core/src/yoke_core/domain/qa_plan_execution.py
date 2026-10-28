@@ -151,8 +151,6 @@ def execute_plan(
             raise
         print(f"yoke qa plan run: {discharged['message']}", file=sys.stderr)
         return discharged
-    if execution.get("shared_execution_wait"):
-        return {**execution, "results": [], "executed_count": 0, "requirement_count": 0}
     if requirement_id is not None and [
         int(r["requirement_id"]) for r in execution.get("requirements", [])
     ] != [requirement_id]:

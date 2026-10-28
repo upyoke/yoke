@@ -1,4 +1,4 @@
-"""A shared stage roster's machine groups run concurrently, one per session."""
+"""Plan groups on test machines: one session per group, groups run side by side."""
 
 from __future__ import annotations
 
@@ -10,22 +10,23 @@ from runtime.api.domain.machine_qa_host_test_support import (
     configure_test_machine,
 )
 from runtime.api.domain.machine_qa_session_seed import seed_qa_session
-from runtime.api.domain.test_deployment_qa_shared_plans import (
-    MEMBERS,
-    RUN,
-    _attach,
-    _materialize,
-)
-from runtime.api.domain.test_deployment_qa_shared_wait import _holders, _notices
+from runtime.api.domain.test_deployment_qa_plan_groups import MEMBERS, RUN, _attach
 from runtime.api.domain.test_deployment_qa_stage_execution import (
     _complete_case,
     _seed_run,
     _stages,
 )
-from runtime.api.domain.test_deployment_qa_stage_wake_delivery import (
-    SESSION_ACTOR_ID,
+from yoke_contracts.api.function_call import (
+    ActorContext,
+    FunctionCallRequest,
+    TargetRef,
 )
-from yoke_core.domain.deployment_qa_stage_gate import deployment_qa_stage_status
+from yoke_core.domain.deployment_qa_plan_group_dispatch import settle_group
+from yoke_core.domain.deployment_qa_plan_group_writes import (
+    ensure_groups,
+    group_subject,
+)
+from yoke_core.domain.deployment_qa_plan_groups import run_groups
 from yoke_core.domain.handlers.machine_qa_plan_case import handle_plan_case_begin
 from yoke_core.domain.machine_qa_capability import replace_test_machine_settings
 from yoke_core.domain.qa_plan_execution_state import (
@@ -35,14 +36,11 @@ from yoke_core.domain.qa_plan_execution_state import (
 from yoke_core.domain.qa_plan_execution_store import select_plan_execution
 from yoke_core.domain.qa_plan_host_leases import execution_host_leases
 from yoke_core.domain.qa_plan_management import create_plan, replace_plan_cases
-from yoke_contracts.api.function_call import (
-    ActorContext,
-    FunctionCallRequest,
-    TargetRef,
-)
+from yoke_core.domain.qa_stage_execution_holders import StageRosterHeld
 
 MAC, STUDIO = "mac-mini-lab", "mac-studio-lab"
 SESSIONS = ("partition-a", "partition-b", "partition-c")
+FIRST, SECOND = "hosts-0", "hosts-1"
 
 
 def _case(key, driver, *, machines=None, inherit=False):
@@ -65,7 +63,8 @@ def _case(key, driver, *, machines=None, inherit=False):
     }
 
 
-def _seed(conn, tmp_path, monkeypatch, cases, *, separate_plans=True):
+def _seed(conn, tmp_path, monkeypatch, *plans):
+    """One plan per case list, attached by every member; dispatch forms the groups."""
     configure_test_machine(conn, tmp_path, monkeypatch)
     replace_test_machine_settings(
         conn,
@@ -75,41 +74,34 @@ def _seed(conn, tmp_path, monkeypatch, cases, *, separate_plans=True):
         base_settings=None,
     )
     seed_qa_session(conn, *SESSIONS)
-    groups = []
-    for case in cases:
-        if not groups or (separate_plans and case["starting_state"] != "inherit"):
-            groups.append([])
-        groups[-1].append(case)
-    plans = []
-    for index, group in enumerate(groups):
+    ids = []
+    for index, cases in enumerate(plans):
         plan = create_plan(
-            conn,
-            project="yoke",
-            slug=f"shared-hosts-{index}",
-            infer_target_environment=False,
+            conn, project="yoke", slug=f"hosts-{index}", infer_target_environment=False
         )
         replace_plan_cases(
             conn,
             plan_id=int(plan["id"]),
-            cases=[{**case, "position": i} for i, case in enumerate(group, 1)],
+            cases=[{**case, "position": i} for i, case in enumerate(cases, 1)],
         )
-        plans.append(int(plan["id"]))
-    stages = _stages(plans[0])
+        ids.append(int(plan["id"]))
+    stages = _stages(ids[0])
     stages[1].pop("cases")
     _seed_run(conn, run_id=RUN, stages=stages, members=MEMBERS)
     for member in MEMBERS:
-        for plan_id in plans:
+        for plan_id in ids:
             _attach(conn, member, plan_id)
-        _materialize(conn, member)
+    ensure_groups(conn, RUN, "item-qa")
+    conn.commit()
 
 
-def _begin(conn, session, member=MEMBERS[0], actor="1"):
+def _begin(conn, session, plan=FIRST):
     return begin_plan_execution(
         conn,
         deployment_run_id=RUN,
         deployment_stage="item-qa",
-        deployment_member_item_id=member,
-        actor_id=actor,
+        plan=plan,
+        actor_id="1",
         session_id=session,
     )
 
@@ -133,15 +125,15 @@ def _case_begin(execution, session):
     )
 
 
-TWO_HOSTS = [_case("on-mac", MAC), _case("on-studio", STUDIO)]
+ON_MAC, ON_STUDIO = [_case("on-mac", MAC)], [_case("on-studio", STUDIO)]
 
 
-def test_two_sessions_walk_disjoint_groups_and_hold_leases_together(
+def test_two_groups_run_in_two_sessions_and_hold_leases_together(
     test_db, tmp_path, monkeypatch
 ):
-    _seed(test_db, tmp_path, monkeypatch, TWO_HOSTS)
+    _seed(test_db, tmp_path, monkeypatch, ON_MAC, ON_STUDIO)
     first = _begin(test_db, SESSIONS[0])
-    second = _begin(test_db, SESSIONS[1], MEMBERS[1])
+    second = _begin(test_db, SESSIONS[1], SECOND)
     assert (_keys(first), _keys(second)) == (["on-mac"], ["on-studio"])
     assert first["state"] == second["state"] == "active"
     leases = []
@@ -155,32 +147,41 @@ def test_two_sessions_walk_disjoint_groups_and_hold_leases_together(
         (leases,),
     ).fetchone()[0]
     assert held == 2
-    # Each session resumes its own row, not the stage's newest one.
+    # Each session resumes its own group's row, not the stage's newest one.
     assert _begin(test_db, SESSIONS[0])["id"] == first["id"]
-    assert _begin(test_db, SESSIONS[1], MEMBERS[1])["id"] == second["id"]
+    assert _begin(test_db, SESSIONS[1], SECOND)["id"] == second["id"]
 
 
-def test_third_session_waits_only_when_every_group_is_held(
-    test_db, tmp_path, monkeypatch
-):
-    _seed(test_db, tmp_path, monkeypatch, TWO_HOSTS)
+def test_a_held_group_refuses_another_session_by_name(test_db, tmp_path, monkeypatch):
+    _seed(test_db, tmp_path, monkeypatch, ON_MAC + ON_STUDIO)
     first = _begin(test_db, SESSIONS[0])
-    second = _begin(test_db, SESSIONS[1], MEMBERS[1])
-    waiting = _begin(test_db, SESSIONS[2])
-    assert waiting["state"] == "waiting"
-    assert waiting["shared_execution_wait"]["execution_id"] in {
-        first["id"],
-        second["id"],
-    }
-    assert "park" in waiting["recovery"]
+    assert _keys(first) == ["on-mac"]
+    # The studio case follows the mac case in plan order, so it is not free.
+    with pytest.raises(StageRosterHeld, match=first["id"]) as refusal:
+        _begin(test_db, SESSIONS[1])
+    assert "park" in str(refusal.value)
+    test_db.rollback()
+    _complete_case(test_db, lock_plan_execution(test_db, first["id"]))
+    assert _keys(_begin(test_db, SESSIONS[1])) == ["on-studio"]
 
 
-def test_abandoned_partition_is_aborted_and_its_group_reoffered(
-    test_db, tmp_path, monkeypatch
-):
-    _seed(test_db, tmp_path, monkeypatch, TWO_HOSTS)
+def test_interleaved_machines_advance_in_plan_order(test_db, tmp_path, monkeypatch):
+    _seed(
+        test_db,
+        tmp_path,
+        monkeypatch,
+        [_case("first", MAC), _case("second", STUDIO), _case("third", MAC)],
+    )
+    for key in ("first", "second", "third"):
+        execution = _begin(test_db, SESSIONS[0])
+        assert _keys(execution) == [key]
+        _complete_case(test_db, lock_plan_execution(test_db, execution["id"]))
+
+
+def test_abandoned_group_walk_is_aborted_and_reoffered(test_db, tmp_path, monkeypatch):
+    _seed(test_db, tmp_path, monkeypatch, ON_MAC, ON_STUDIO)
     first = _begin(test_db, SESSIONS[0])
-    _begin(test_db, SESSIONS[1], MEMBERS[1])
+    _begin(test_db, SESSIONS[1], SECOND)
     test_db.execute(
         "UPDATE qa_plan_executions SET heartbeat_at='2026-01-01T00:00:00Z' WHERE id=%s",
         (first["id"],),
@@ -192,7 +193,7 @@ def test_abandoned_partition_is_aborted_and_its_group_reoffered(
     assert select_plan_execution(test_db, first["id"], lock=False)["state"] == "aborted"
 
 
-def test_inherit_chain_stays_in_one_group(test_db, tmp_path, monkeypatch):
+def test_inherit_chain_stays_in_one_partition(test_db, tmp_path, monkeypatch):
     _seed(
         test_db,
         tmp_path,
@@ -203,10 +204,7 @@ def test_inherit_chain_stays_in_one_group(test_db, tmp_path, monkeypatch):
             _case("on-studio", STUDIO),
         ],
     )
-    first = _begin(test_db, SESSIONS[0])
-    second = _begin(test_db, SESSIONS[1], MEMBERS[1])
-    assert _keys(first) == ["opener", "follower"]
-    assert _keys(second) == ["on-studio"]
+    assert _keys(_begin(test_db, SESSIONS[0])) == ["opener", "follower"]
 
 
 def test_overlapping_host_sets_never_deadlock(test_db, tmp_path, monkeypatch):
@@ -215,14 +213,12 @@ def test_overlapping_host_sets_never_deadlock(test_db, tmp_path, monkeypatch):
         test_db,
         tmp_path,
         monkeypatch,
-        [
-            _case("drives-mac", MAC, machines=both),
-            _case("drives-studio", STUDIO, machines=both),
-        ],
+        [_case("drives-mac", MAC, machines=both)],
+        [_case("drives-studio", STUDIO, machines=both)],
     )
     first = _begin(test_db, SESSIONS[0])
-    second = _begin(test_db, SESSIONS[1], MEMBERS[1])
-    assert {_keys(first)[0], _keys(second)[0]} == {"drives-mac", "drives-studio"}
+    second = _begin(test_db, SESSIONS[1], SECOND)
+    assert (_keys(first), _keys(second)) == (["drives-mac"], ["drives-studio"])
     ready = _case_begin(first, SESSIONS[0])
     assert ready.primary_success, ready.error
     assert ready.result_payload["state"] == "ready"
@@ -238,32 +234,33 @@ def test_overlapping_host_sets_never_deadlock(test_db, tmp_path, monkeypatch):
     test_db.commit()
 
 
-def test_stage_stays_open_until_every_live_partition_settles(
+def test_group_stays_open_until_every_partition_settles(
     test_db, tmp_path, monkeypatch
 ):
-    _seed(test_db, tmp_path, monkeypatch, TWO_HOSTS)
-    _holders(test_db)
-    actor = str(SESSION_ACTOR_ID)
-    first = _begin(test_db, "member-9901", actor=actor)
-    second = _begin(test_db, "member-9902", MEMBERS[1], actor=actor)
+    _seed(test_db, tmp_path, monkeypatch, ON_MAC + ON_STUDIO)
+
+    def settle():
+        (group,) = run_groups(test_db, [RUN], "item-qa")
+        subject = group_subject(test_db, RUN, "item-qa", group, require_active=False)
+        return settle_group(test_db, subject)
+
+    first = _begin(test_db, SESSIONS[0])
     _complete_case(test_db, lock_plan_execution(test_db, first["id"]))
-    for member in MEMBERS:
-        assert not deployment_qa_stage_status(
-            test_db, run_id=RUN, stage_name="item-qa", member_item_id=member
-        )["accepted"]
-    # The other partition is still live, so neither member can act on this wake.
-    assert _notices(test_db, first) == []
+    assert not settle()["accepted"]
+    assert run_groups(test_db, [RUN], "item-qa")[0].open
+
+    second = _begin(test_db, SESSIONS[0])
+    assert _keys(second) == ["on-studio"]
     _complete_case(test_db, lock_plan_execution(test_db, second["id"]))
-    for member in MEMBERS:
-        assert deployment_qa_stage_status(
-            test_db, run_id=RUN, stage_name="item-qa", member_item_id=member
-        )["accepted"]
+    assert settle()["accepted"]
+    (group,) = run_groups(test_db, [RUN], "item-qa")
+    assert sorted(group.covered_item_ids) == sorted(MEMBERS)
 
 
 def test_same_session_insert_race_converges_on_its_own_row(
     test_db, tmp_path, monkeypatch
 ):
-    _seed(test_db, tmp_path, monkeypatch, TWO_HOSTS)
+    _seed(test_db, tmp_path, monkeypatch, ON_MAC, ON_STUDIO)
     first = _begin(test_db, SESSIONS[0])
     # The lookup before the insert misses the row a concurrent begin wrote.
     monkeypatch.setattr(

@@ -14,7 +14,7 @@ from runtime.api.domain.test_deployment_qa_stage_execution import (
     _seed_run,
     _stages,
 )
-from runtime.api.domain.test_deployment_qa_shared_plans import _attach, _fail
+from runtime.api.domain.test_deployment_qa_shared_plans import _fail
 from yoke_core.domain.deployment_qa_run_acceptance import (
     current_item_qa,
     member_qa_standings,
@@ -48,36 +48,35 @@ class CountedConnection:
 
 
 def test_member_presentation_shares_reads_without_reusing_next_request(test_db):
-    plan = _plan(test_db, "shipping-shared-check")
-    stages = _stages(plan)
-    stages[1].pop("cases")
+    stages = _stages(_plan(test_db, "shipping-member-check"))
     subjects = []
-    requirement_ids = []
-    execution_ids = []
+    requirement_ids: list[list[int]] = []
+    execution_ids: list[list[str]] = []
     for index in range(12):
         run_id = f"shipping-run-{index}"
         count = 17 if index < 2 else 16
         members = tuple(20000 + index * 20 + n for n in range(count))
         _seed_run(test_db, run_id=run_id, stages=stages, members=members)
+        requirement_ids.append([])
+        execution_ids.append([])
         for member in members:
-            _attach(test_db, member, plan)
             subjects.append((run_id, member, "item-qa"))
-        materialize_deployment_qa_stage(
-            test_db,
-            deployment_run_id=run_id,
-            deployment_stage="item-qa",
-            deployment_member_item_id=members[0],
-        )
-        execution = begin_plan_execution(
-            test_db,
-            deployment_run_id=run_id,
-            deployment_stage="item-qa",
-            deployment_member_item_id=members[0],
-            actor_id="2",
-            session_id="shipping-read",
-        )
-        requirement_ids.append(_complete_case(test_db, execution))
-        execution_ids.append(execution["id"])
+            materialize_deployment_qa_stage(
+                test_db,
+                deployment_run_id=run_id,
+                deployment_stage="item-qa",
+                deployment_member_item_id=member,
+            )
+            execution = begin_plan_execution(
+                test_db,
+                deployment_run_id=run_id,
+                deployment_stage="item-qa",
+                deployment_member_item_id=member,
+                actor_id="2",
+                session_id="shipping-read",
+            )
+            requirement_ids[-1].append(_complete_case(test_db, execution))
+            execution_ids[-1].append(execution["id"])
         assert deployment_qa_stage_status(
             test_db,
             run_id=run_id,
@@ -85,7 +84,8 @@ def test_member_presentation_shares_reads_without_reusing_next_request(test_db):
             member_item_id=members[0],
         )["accepted"]
     assert len(subjects) == 194
-    _fail(test_db, requirement_ids[-1])
+    for requirement_id in requirement_ids[-1]:
+        _fail(test_db, requirement_id)
     conn = CountedConnection(test_db)
     start = perf_counter()
     answers = member_qa_standings(conn, subjects)
@@ -216,7 +216,7 @@ def test_member_presentation_shares_reads_without_reusing_next_request(test_db):
                 payload={"relevance": "overview"},
             )
         )
-    assert copy_identity.call_count == len(run_ids)
+    assert copy_identity.call_count == sum(len(ids) for ids in requirement_ids)
     assert source_bindings.call_args_list
     assert all(
         isinstance(call.args[0], dict) for call in source_bindings.call_args_list
@@ -267,13 +267,14 @@ def test_member_presentation_shares_reads_without_reusing_next_request(test_db):
     )
     print(f"Shipping member QA dominant_callers={conn.callers.most_common(12)}")
     # A later request must read a changed verdict, rather than reuse a cached pass.
-    _fail(test_db, requirement_ids[0])
+    for requirement_id in requirement_ids[0]:
+        _fail(test_db, requirement_id)
     changed = member_qa_standings(conn, subjects[:17])
     assert all(answer["state"] == "cases unresolved" for answer in changed.values())
     # Selected corrupted rows must still refuse through the scalar validator,
     # including after an earlier request cached the valid execution.
     test_db.execute(
-        "UPDATE qa_plan_executions SET roster_json='[1]' WHERE id=%s",
+        "UPDATE qa_plan_executions SET roster_json='[1]' WHERE id=ANY(%s)",
         (execution_ids[1],),
     )
     invalid = member_qa_standings(conn, subjects[17:34])
