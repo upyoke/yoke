@@ -31,6 +31,7 @@ from pathlib import Path
 from typing import Mapping, Optional
 
 from yoke_core.domain import (
+    lane_base_update,
     qa_case_ci_covering_run,
     qa_case_ci_entry_run,
     qa_case_ci_lane,
@@ -104,7 +105,7 @@ def refuse_conflicting_pull_request(
     from yoke_core.engines.merge_worktree_pr_queue import read_pr_landing_state
 
     target = qa_case_ci_entry_run.base_branch(project, checkout)
-    ctx = qa_case_ci_entry_run._merge_context(
+    ctx = lane_base_update.merge_context(
         checkout,
         branch=branch,
         target=target,
