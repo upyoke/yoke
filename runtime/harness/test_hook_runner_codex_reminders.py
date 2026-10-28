@@ -115,7 +115,7 @@ def lifecycle(monkeypatch, tmp_path, capsys):
     monkeypatch.setattr(local_entry, "run_event", run)
 
     def invoke(event, **extra):
-        payload = {"session_id": "session", "cwd": str(state.root), "transcript_path": "transcript", **extra}
+        payload = {"session_id": "session", "cwd": str(state.root), "transcript_path": str(transcript), **extra}
         rc = client.evaluate_inprocess(
             event, json.dumps(payload), dry_run=False, cursor_invocation=False
         )
