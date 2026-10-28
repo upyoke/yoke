@@ -198,3 +198,29 @@ def test_a_finished_group_walk_wakes_the_run_recipient_not_a_member(test_db, mon
     assert [call["run_id"] for call in sent] == [RUN]
     body = sent[0]["body_for_route"](None)
     assert "plan group" in body and execution["id"] in body
+
+
+def test_a_member_stands_on_its_open_plan_group_until_the_group_passes(test_db):
+    from yoke_core.domain.deployment_qa_run_acceptance import (
+        current_item_qa,
+        item_qa_acceptance_blockers,
+    )
+
+    _seed(test_db, attached=MEMBERS[:1])
+    ensure_groups(test_db, RUN, "item-qa")
+    test_db.commit()
+
+    def standing(member):
+        return current_item_qa(
+            test_db, run_id=RUN, item_id=member, current_stage="item-qa"
+        )
+
+    held = standing(MEMBERS[0])
+    assert not held.accepted
+    assert any(f"plan group {RUN}:1 ({SLUG})" in b for b in held.blockers)
+    assert item_qa_acceptance_blockers(test_db, run_id=RUN, item_id=MEMBERS[0])
+
+    _pass_group(test_db)
+
+    assert standing(MEMBERS[0]).accepted
+    assert item_qa_acceptance_blockers(test_db, run_id=RUN, item_id=MEMBERS[0]) == []
