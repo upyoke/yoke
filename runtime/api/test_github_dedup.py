@@ -58,6 +58,14 @@ class TestSearchExistingIssue:
             ("[TEST-1] Same", "Other body", False),
             ("[TEST-1] Same", "", False),
         ],
+        ids=[
+            "exact-match",
+            "whitespace-normalized-match",
+            "title-suffix",
+            "other-title",
+            "other-body",
+            "empty-body",
+        ],
     )
     def test_requires_full_title_and_body(
         self, candidate_title, candidate_body, matched
