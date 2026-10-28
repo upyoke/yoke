@@ -19,18 +19,19 @@ CREATED = "2026-01-02T00:00:00Z"
 
 
 @pytest.mark.parametrize(
-    "landing,expected",
+    "landing,code",
     [
-        ("2026-01-01T00:00:00Z", False),
-        (CREATED, False),
-        ("2026-01-02T00:00:00.000001Z", True),
-        ("2026-01-01T20:00:00-05:00", True),
-        (datetime(2026, 1, 3, tzinfo=timezone.utc), True),
-        (None, False),
-        ("invalid", False),
+        ("2026-01-01T00:00:00Z", "merge_landing_predates_dependency"),
+        (CREATED, "merge_landing_predates_dependency"),
+        ("2026-01-02T00:00:00.000001Z", None),
+        ("2026-01-01T20:00:00-05:00", None),
+        (datetime(2026, 1, 3, tzinfo=timezone.utc), None),
+        (None, "merge_not_landed"),
+        ("", "merge_not_landed"),
+        ("invalid", "merge_landing_unverified"),
     ],
 )
-def test_merge_fact_requires_a_strictly_later_landing(landing, expected):
+def test_merge_fact_requires_a_strictly_later_landing(landing, code):
     verdict = evaluate_satisfaction(
         "fact:merged",
         "implementing",
@@ -40,9 +41,9 @@ def test_merge_fact_requires_a_strictly_later_landing(landing, expected):
         dependency_created_at=CREATED,
         workflow=builtin_workflow_runtime("dash"),
     )
-    assert verdict.satisfied is expected
-    if not expected:
-        assert "merge_landing_" in verdict.reason
+    assert verdict.satisfied is (code is None)
+    if code is not None:
+        assert verdict.reason.startswith(f"{code}:")
 
 
 def test_missing_edge_clock_cannot_infer_a_landing():
@@ -54,7 +55,7 @@ def test_missing_edge_clock_cannot_infer_a_landing():
         workflow=builtin_workflow_runtime("dash"),
     )
     assert not verdict.satisfied
-    assert "merge_landing_unverified" in verdict.reason
+    assert verdict.reason.startswith("merge_landing_unverified:")
 
 
 @pytest.mark.parametrize("blocker_status", ["release", "done"])

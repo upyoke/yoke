@@ -11,15 +11,18 @@ from yoke_core.domain.workflow_runtime import WorkflowRuntime
 
 def evaluate_recorded_merge(merged_at: Any, created_at: Any) -> GateResult:
     """Only a recorded landing strictly after this edge can clear its wait."""
+    if merged_at is None or merged_at == "":
+        return GateResult(False, "merge_not_landed: waiting for the blocker to merge.")
     try:
         landed = parse_instant(merged_at)
         created = parse_instant(created_at)
     except InvalidInstant:
         return GateResult(
             False,
-            "merge_landing_unverified: landing or dependency creation time is missing "
-            "or invalid; record the blocker's next landing through yoke merge item "
-            "and inspect the edge with yoke items dependency list.",
+            "merge_landing_unverified: the recorded landing time is invalid or the "
+            "dependency creation time is missing; record the blocker's next landing "
+            "through yoke merge item and inspect the edge with yoke items dependency "
+            "list.",
         )
     if landed <= created:
         return GateResult(
