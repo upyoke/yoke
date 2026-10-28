@@ -24,17 +24,22 @@ Member runs have two roles. Matrix:
 - Remove a wrong member with `yoke deployment-runs remove-item RUN-ID PREFIX-N --reason R`. After
   removing a member from a run failed at item QA, resume with
   `yoke watch deploy -- RUN-ID --from-stage item-qa`.
-- Workers who find item QA blocked by another item record it:
+- Pending [plan groups](../../verification/deployment-plan-execution.md#plan-groups) and
+  their failures are run-scoped notices to this seat: run each with
+  `yoke qa plan run --deployment-run-id RUN-ID --stage item-qa --plan PLAN`, and on a
+  failure decide who fixes what.
+- Workers whose own item has a QA finding that another item must fix first record it:
   `yoke items dependency add DEPENDENT BLOCKER operator --gate-point closure
   --satisfaction status:done --rationale R`.
-- The driving seat never runs a member's item QA and never closes a member.
+- The driving seat never runs a member's item cases and never closes a member.
 - Commits outside Yoke ship without an item; `yoke merge-receipt commits attest` is optional.
 
 ## The member owner owns its item
 
-- Run the member's stage QA with
+- Run the member's item cases with
   `yoke qa plan run --item PREFIX-N --stage STAGE`. Dropping `--stage`
-  or another item does not answer that obligation. `yoke qa case run` never
+  or another item does not answer that obligation. Attached post-deploy plans run as
+  plan groups, never by the holder; a plan-only item parks until its groups close. `yoke qa case run` never
   credits a stage.
 - A refused automatic close-out wakes you with its blockers; read
   `yoke qa gate-summary --item PREFIX-N --target implemented`. It retries when they settle.

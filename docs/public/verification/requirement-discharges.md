@@ -114,9 +114,6 @@ proof_owed_notice says the corrected source owes its own next-release proof. Lat
 admissions skip superseded source and admit corrected one; source is never
 rewritten. Control plane may record an authorized target it cannot execute
 (prod recording stage); execution alone checks runtime observation authority.
-For a plan copy the source is the member's own plan row: the notice says to
-correct the plan case, then run the named `yoke qa plan rematerialize`, which
-supersedes that row by the corrected case's row.
 
 A live execution keeps the roster it froze. When its owning session runs the
 plan again after a supersession, replacement or new requirement changed that

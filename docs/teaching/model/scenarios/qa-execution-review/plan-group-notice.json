@@ -1,0 +1,12 @@
+{
+ "id": "plan-group-notice",
+ "title": "A release session runs pending plan groups",
+ "status": "observed",
+ "audience": "agent",
+ "when": "Item QA dispatch finds attached post-deploy plans whose plan groups are still open. No item holder is woken for them.",
+ "need": "The run-scoped notice reaches the live run driver, else the live session that started the run, else steering. It lists each pending group with its items and the command yoke qa plan run --deployment-run-id RUN --stage item-qa --plan P. Run each, then re-drive the run. A group failure arrives as one notice naming the report and items; decide who fixes what, and record a closure dependency only for a finding in an item's own code that another item must land first.",
+ "disclosure": "current cue",
+ "surface": "Run-scoped plan-group notice; plan run result and help",
+ "review": "Source coverage; live delivery remains unverified until release.",
+ "sources": ["docs/public/verification/deployment-plan-execution.md", "packages/yoke-core/src/yoke_core/domain/deployment_qa_plan_group_dispatch.py", "packages/yoke-core/src/yoke_core/domain/deployment_run_driver_notice.py"]
+}

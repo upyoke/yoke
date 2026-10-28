@@ -79,8 +79,8 @@ ships this source without the item: let it finish, then run start-for-item
 again ([commit proof](../verification/success-policy.md#commit-proof)). Flow id ≠ run
 id (`run-YYYYMMDD-NNN`).
 
-Delivered members require exact private-member or attached shared-plan
-binding for post-deploy requirements. Failing
+Delivered members require their item cases and a closed plan group covering
+each attached post-deploy plan. Failing
 or unanswered requirements still block, and superseded requirements hand the
 obligation to their successors. Re-drive a settling run with
 `yoke deployment-runs update RUN status succeeded`.

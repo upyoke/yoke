@@ -25,8 +25,12 @@ Record the failed requirement and verdict, run, stage, member, deployed target
 and candidate, and diagnosis. The execution's owner already receives its own
 result; the failure handoff suppresses a duplicate notice to that session.
 A failure discovered by the driver routes to the member's holder, or its
-project's steering seat when no holder exists. Read named delivery failures;
-absence of a notice does not clear the failed requirement.
+project's steering seat when no holder exists. A failed
+[plan group](deployment-plan-execution.md#plan-groups) wakes no holder: one
+notice names its report and items, sent to the live run driver, else the live
+session that started the run, else steering. That session decides who fixes
+what. Read named delivery failures; absence of a notice does not clear the
+failed requirement.
 
 - **Product defect:** fix current-item failures in that item by default under
   [verification ownership](../agents/rules/verification.md#verification-failure-ownership).
@@ -41,7 +45,7 @@ absence of a notice does not clear the failed requirement.
   A settled roster reprints its verdicts: use the help's `--replaces` recipe
   for a fresh capture of the failed requirement on that same target.
 - **Case defect:** repair the case when the product meets the intended outcome
-  but the probe does not. Use the [correction-only replacement recipe](deployment-plan-execution.md#shared-plan-credit)
+  but the probe does not. Use the [correction-only replacement recipe](deployment-plan-execution.md#plan-groups)
   or `yoke qa plan run --help`; retain the failed attempt and require a passing
   independent verdict on the replacement. Other failed or owed cases stay owed.
 - **Pass proven outside the run:** when another session's read proves the
@@ -63,8 +67,11 @@ yoke lifecycle transition ITEM --from release --to implementing \
 ## Record a separately owned correction
 
 Use a separate correction only when existing ownership/conflict rules or an
-explicit operator decision justify it. Name its owner and item, tell steering
-what must be staffed, and write the dependency before waiting:
+explicit operator decision justify it. Record a closure dependency only when the
+finding is in ITEM itself and another item must land first; a report that
+names other items is not a reason to depend on them. Name the fix's owner and
+item, tell steering what must be staffed, and write the dependency before
+waiting:
 
 ```text
 yoke items dependency add ITEM FIX operator --gate-point closure \
@@ -78,14 +85,14 @@ what the retest actually requires:
 - `closure` says when the dependent must stop: it may work but cannot complete
   before the condition holds. It does not deploy the fix or select a QA target.
 - `fact:merged` requires the fix on trunk. Use it when the fix ships in the
-  same release as ITEM or the same shared QA case proves both: the retest
+  same release as ITEM: the retest
   then sees the fix without waiting for its delivery.
 - `status:done` requires the fix item's completion under its pinned workflow.
   Use it when completion is sufficient; it does not require a named environment.
 - `fact:deployed:ENV` additionally requires durable completion delivery
   attribution to that registered environment, including its run and candidate.
   Use it only when ITEM truly needs the fix live before its own release. A
-  fix that ships in ITEM's release or shared case cannot be delivered first,
+  fix that ships in ITEM's release cannot be delivered first,
   so release composition skips ITEM. Reaching `release`, merging, or merely
   having a successful run is insufficient.
 

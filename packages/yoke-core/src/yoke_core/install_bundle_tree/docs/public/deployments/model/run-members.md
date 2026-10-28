@@ -37,7 +37,7 @@ item_id INTEGER NOT NULL -- backlog item numeric ID
 added_at TEXT NOT NULL -- app-supplied ISO-8601 UTC; see "Timestamp discipline" in Related
 delivery_intent TEXT -- progress | final
 requirement_selection TEXT -- member requirement/plan IDs; null until the freeze resolves a derived one
-requirement_snapshot TEXT -- full selected requirement, plan, case, and attachment content
+requirement_snapshot TEXT -- full selected item-case requirement content; post-deploy plans are never saved
 containment_attestation TEXT -- JSON: a lane checkout's containment verdict, recorded when this host could not answer
 PRIMARY KEY (run_id, item_id)
 ```

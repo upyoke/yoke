@@ -1,0 +1,11 @@
+{
+ "id": "plan-group-credit",
+ "title": "Plan group credit",
+ "status": "observed",
+ "commands": ["yoke qa plan run", "yoke qa run complete"],
+ "functions": ["qa.plan_execution.begin", "qa.run.complete"],
+ "page": "qa-evidence",
+ "summary": "Each attached post-deploy plan runs once per release as one plan group of memberless run rows, at any number of attaching items. A group closes when the existing settlement and acceptance rules accept it and records covered_item_ids once: the members attaching the plan at that moment. An item is done only when each attached post-deploy plan has a closed group covering it in a target-qualified completion run, including a supplemental staging run, or a run that run superseded. A closed group never changes or moves; a later item or attachment gets a new group with its own group_id. A verification pass never counts. --plan P at item-qa names P's open group and refuses plan_group_not_open, listing closed groups, when none is open; no command selects one member's plan cases.",
+ "sources": ["packages/yoke-core/src/yoke_core/domain/deployment_qa_plan_groups.py", "packages/yoke-core/src/yoke_core/domain/deployment_qa_plan_credit.py", "packages/yoke-core/src/yoke_core/domain/deployment_qa_plan_group_writes.py", "docs/public/verification/deployment-plan-execution.md"],
+ "position": 2
+}

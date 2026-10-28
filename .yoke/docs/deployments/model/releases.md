@@ -131,7 +131,7 @@ outstanding item-scoped QA is that member's gate, not this item's.
 An unreadable read raises rather than reporting a clear gate.
 
 Member settlement and the terminal done gate also read blocking `post_deploy` requirements on the run.
-Requirements keep exact private-member or attached shared-plan binding. Failing or unanswered requirements block;
+Item cases keep their member binding; each attached post-deploy plan needs a closed plan group covering the item. Failing or unanswered requirements block;
 supersession transfers the obligation to the successor requirement.
 
 Owners: `yoke_core.engines.done_transition_run_qa_gates` (the guard),

@@ -59,7 +59,7 @@ all-pass policy and evaluation rules; the stored success_policy is JSON.
 | Phase | Obligation |
 |---|---|
 | verification | Blocking requirements gate reviewed-implementation. |
-| post_deploy | Accepted admitted copies on the selected completion run, including settling, must prove its candidate/stage/member/target; source needs no separate CI verdict. |
+| post_deploy | Accepted admitted item cases on the selected completion run, including settling, must prove its candidate/stage/member/target, and each attached plan needs a closed plan group covering the item; source needs no separate CI verdict. |
 | manual_acceptance | Human sign-off gates done. |
 
 `reviewed-implementation` is a status; `verification` is a phase. Use current
@@ -159,17 +159,15 @@ requires every blocking task-verification and parent requirement satisfied.
 ### Deployment Run Requirements
 
 Name the pinned QA stage and member for item scope; stages credit only their
-own private cases and attached plan/source/target groups. Matching attachments
-share one execution and verdict across their members; other plans and targets
-remain separate. Unscoped execution is refused when a stage is pinned:
+own item cases. Each attached post-deploy plan runs once per release as a
+[plan group](deployment-plan-execution.md#plan-groups) with
+`--deployment-run-id RUN --stage item-qa --plan PLAN`. Unscoped execution is refused when a stage is pinned:
 
 ```text
-yoke qa plan run --item PREFIX-N --stage {STAGE} --plan {PLAN} --project {PROJECT}
+yoke qa plan run --item PREFIX-N --stage {STAGE} --project {PROJECT}
 ```
 
-Run-level orchestration uses its run and stage. [Shared cursor waits](deployment-plan-execution.md#shared-plan-credit)
-name the execution and owner; keep the claim and park for settlement credit or
-a wake to retry your own member command.
+Run-level orchestration uses its run and stage.
 A direct case uses qa.requirement.add targeted at
 the run; [case attachment](case-attachment.md) owns authoring and
 refusals. No synthetic item: immutable roster, serial Test Machine lease,

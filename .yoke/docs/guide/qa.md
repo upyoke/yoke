@@ -22,9 +22,9 @@ Deployment run QA checks a deployed candidate at a QA stage of a flow. The requi
 
 The candidate identifies the code being delivered. Members identify the items whose delivery the run owns. Where a release must prove a producer and consumer together, consumer proof verifies that exact configured combination. [Deployment QA](../verification/deployment-plan-execution.md) and [consumer proof](../verification/consumer-proof.md)
 
-### Shared item QA
+### Plan groups
 
-Several items can attach the same reusable plan and share an eligible execution. Sharing is explicit: the execution must match the frozen plan, target, and owning members. Similar case names or an earlier green result do not create shared credit automatically. [QA continuity](../verification/deployment-qa-continuity.md)
+A post-deploy plan attached to several items runs once per release as one plan group, answering every item in the release that attaches it. A pass credits only the items attaching the plan when the group closed; a later item or attachment gets a new group. Similar case names or an earlier green result never create credit. [Plan groups](../verification/deployment-plan-execution.md#plan-groups) [QA continuity](../verification/deployment-qa-continuity.md)
 
 ### Standalone QA
 
