@@ -172,7 +172,7 @@ def test_saved_github_authorization_skips_the_github_question(agent, monkeypatch
 
     code, lines = drive.walk(MACHINE_ONLY_ANSWERS[:4])
 
-    assert (code, lines[-1]["key"]) == (0, "github.connected")
+    assert (code, lines[-1]["key"]) == (0, "review.confirm")
 
 
 def test_saved_yoke_sign_in_is_reused_without_a_browser_step(agent, monkeypatch):

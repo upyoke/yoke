@@ -5,22 +5,9 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any, Mapping, Protocol
 
 from yoke_cli.config.github_machine_report import repository_scope_recommendations
-from yoke_cli.config.onboard_wizard_step_ids import STEP_GITHUB
-from yoke_cli.config.setup_prompt import TONE_OK, SelectionRow, SetupPrompt
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
     from yoke_cli.config.onboard_wizard_state import _View
-
-
-def bounded_summary(values: list[str], *, total: int | None = None) -> str:
-    """Render a terminal-sized sample without hiding the omitted count."""
-    display_limit = 4
-    actual_total = max(len(values), total or 0)
-    if not values:
-        return "none"
-    visible = ", ".join(values[:display_limit])
-    omitted = actual_total - min(len(values), display_limit)
-    return f"{visible}, and {omitted} more" if omitted > 0 else visible
 
 
 def success_message(report: Mapping[str, Any]) -> str:
@@ -34,87 +21,8 @@ def success_message(report: Mapping[str, Any]) -> str:
     )
 
 
-AUTHORIZATION_SCOPE_NOTE = (
-    "The one-button Authorize page is GitHub's user authorization; it never "
-    "changes which repositories the App can see."
-)
-
-
-def installation_scope_lines(access: Mapping[str, Any]) -> list[str]:
-    """Say exactly which repositories each installation exposes, and where to change it.
-
-    An App installed on selected repositories is the usual reason a person
-    sees three of their repositories rather than all of them, so each
-    installation names its own selection and carries the GitHub settings page
-    that widens it.
-    """
-    installations = [
-        item for item in access.get("installations") or [] if isinstance(item, Mapping)
-    ]
-    repositories = [str(item) for item in access.get("repos") or [] if str(item)]
-    total = access.get("repo_count")
-    lines: list[str] = []
-    for item in installations:
-        account = str(item.get("account_login") or "").strip()
-        if not account:
-            continue
-        lines.append(f"{account}: {_installation_scope(item, access)}")
-        settings_url = str(item.get("html_url") or "").strip()
-        recommendations = repository_scope_recommendations(
-            {"access": {"installations": [item]}}
-        )
-        if recommendations:
-            lines.extend(recommendations)
-        elif settings_url:
-            lines.append(f"  Change repository access on GitHub: {settings_url}")
-    if not lines:
-        lines.append("Installed for: none")
-    lines.append(AUTHORIZATION_SCOPE_NOTE)
-    lines.append(
-        f"Repositories available: "
-        f"{total if isinstance(total, int) else len(repositories)} — "
-        f"{bounded_summary(repositories, total=total if isinstance(total, int) else None)}"
-    )
-    return lines
-
-
-def _installation_scope(item: Mapping[str, Any], access: Mapping[str, Any]) -> str:
-    """One installation's reach: suspended, all repositories, or the selected ones."""
-    if item.get("suspended"):
-        return "suspended"
-    if str(item.get("repository_selection") or "selected") == "all":
-        return "all repositories"
-    named = [
-        str(repo.get("full_name") or "")
-        for repo in access.get("repositories") or []
-        if isinstance(repo, Mapping)
-        and repo.get("installation_id") == item.get("installation_id")
-        and repo.get("full_name")
-    ]
-    return f"selected repositories — {bounded_summary(named)}"
-
-
-def success_details(report: Mapping[str, Any]) -> list[str]:
-    """Build detailed verified-connection presentation lines."""
-    details: list[str] = []
-    identity = report.get("identity")
-    if isinstance(identity, Mapping) and identity.get("login"):
-        details.append(f"GitHub username: {identity['login']}")
-    app = report.get("app")
-    if isinstance(app, Mapping) and app.get("slug"):
-        details.append(f"GitHub App: {app['slug']}")
-    access = report.get("access")
-    if isinstance(access, Mapping):
-        details.extend(installation_scope_lines(access))
-    permissions = report.get("permissions")
-    if isinstance(permissions, Mapping) and permissions.get("usable") is True:
-        details.append("Required GitHub App permissions: ready.")
-    details.append("Saved on this machine. Use `yoke github disconnect` to remove it.")
-    return details
-
-
 def success_summary_lines(report: Mapping[str, Any]) -> list[str]:
-    """Compact verified facts; the exhaustive access inventory stays optional."""
+    """Compact verified facts; yoke github status owns the full access inventory."""
     identity = report.get("identity")
     app = report.get("app")
     access = report.get("access")
@@ -141,28 +49,14 @@ def success_summary_lines(report: Mapping[str, Any]) -> list[str]:
     ]
 
 
-def success_prompt(report: Mapping[str, Any], *, show_details: bool) -> SetupPrompt:
-    rows = (
-        SelectionRow("continue", "Continue", "go to project setup"),
-        SelectionRow(
-            "details",
-            "Hide repository access" if show_details else "Review repository access",
-            "return to the summary"
-            if show_details
-            else "exact installations and repositories",
-        ),
-    )
-    return SetupPrompt(
-        key="github.connected",
-        step=STEP_GITHUB,
-        title="GitHub connected.",
-        message=success_message(report),
-        detail_lines=tuple(
-            success_details(report) if show_details else success_summary_lines(report)
-        ),
-        choices=rows,
-        tone=TONE_OK,
-    )
+def success_notice_lines(report: Mapping[str, Any]) -> list[str]:
+    """Carry connection facts and repository advice into the next real question."""
+    return [
+        success_message(report),
+        *success_summary_lines(report),
+        "Review repository access with `yoke github status`.",
+        "Use `yoke github disconnect` to remove the saved connection.",
+    ]
 
 
 class MachineGithubShell(Protocol):  # pragma: no cover - structural typing only
@@ -171,6 +65,7 @@ class MachineGithubShell(Protocol):  # pragma: no cover - structural typing only
     _stored_machine_github_api_url: str | None
     _history: list[Any]
 
+    def _carry_detail_lines(self, lines: list[str]) -> None: ...
     def _goto(self, view: _View) -> None: ...
     def _selection_view(self, key, step, title, subtitle, rows, on_select) -> _View: ...
     def _goto_input(

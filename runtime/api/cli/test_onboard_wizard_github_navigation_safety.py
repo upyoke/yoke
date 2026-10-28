@@ -173,7 +173,8 @@ def test_saved_authorization_retries_live_check_without_new_device_flow(
             await pilot.press("enter")
             await app.workers.wait_for_complete()
             await pilot.pause()
-            assert "GitHub connected." in _body_text(app)
+            assert "Success! Yoke GitHub App connected." in _body_text(app)
+            assert app._history[-1].prompt.key == "project.mode"
 
     asyncio.run(scenario())
 

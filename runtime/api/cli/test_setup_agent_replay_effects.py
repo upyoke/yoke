@@ -112,7 +112,7 @@ def test_an_approval_that_replaced_a_saved_connection_is_not_asked_again(
     assert approvals == ["CODE-1"]
 
 
-def test_github_sign_in_replays_to_the_connected_question(drive, monkeypatch):
+def test_github_sign_in_replays_to_the_next_decision(drive, monkeypatch):
     saved = {"authorized": False}
     device = github_device_flow.DeviceAuthorization(
         device_code="gh-device",
@@ -151,8 +151,8 @@ def test_github_sign_in_replays_to_the_connected_question(drive, monkeypatch):
     assert drive.replayed("github.machine=connect")["state"] == "browser"
     connected = drive.replayed()
 
-    assert connected["key"] == "github.connected"
-    assert drive.replayed(f"github.connected={connected['answers'][0]['value']}")
+    assert connected["key"] == "review.confirm"
+    assert "Review repository access with `yoke github status`." in connected["detail"]
     assert starts == ["x"]
 
 

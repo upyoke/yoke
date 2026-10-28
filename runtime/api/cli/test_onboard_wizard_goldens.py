@@ -42,41 +42,6 @@ from yoke_cli.config.onboard_wizard_app import OnboardWizardApp  # noqa: E402
 from yoke_cli.config.onboard_wizard_state import _View  # noqa: E402
 from yoke_cli.config.setup_prompt import SetupPrompt  # noqa: E402
 
-_GITHUB_CONNECTED = {
-    "ok": True,
-    "ready": True,
-    "app": {"slug": "yoke-product"},
-    "identity": {"ok": True, "login": "octocat"},
-    "access": {
-        "repo_count": 2,
-        "repos": ["octocat/app", "acme/api"],
-        "repositories": [
-            {"full_name": "octocat/app", "installation_id": 1},
-            {"full_name": "acme/api", "installation_id": 2},
-        ],
-        "installations": [
-            {
-                "installation_id": 1,
-                "account_login": "octocat",
-                "repository_selection": "selected",
-                "html_url": "https://github.com/settings/installations/1",
-            },
-            {
-                "installation_id": 2,
-                "account_login": "acme",
-                "repository_selection": "all",
-                "html_url": "https://github.com/organizations/acme/settings/installations/2",
-            },
-        ],
-    },
-    "permissions": {"usable": True},
-}
-
-
-# --------------------------------------------------------------------------- #
-# Install failure recovery
-# --------------------------------------------------------------------------- #
-
 
 def test_install_error() -> None:
     app = make_app()
@@ -212,31 +177,6 @@ def test_github_app_connect_error() -> None:
 
     assert_golden(
         "github_app_connect_error", render(app, drive, title="yoke setup · GitHub")
-    )
-
-
-def test_github_app_connected_summary() -> None:
-    app = make_app()
-
-    async def drive(a: OnboardWizardApp, _pilot: Any) -> None:
-        a._goto_machine_github_success(_GITHUB_CONNECTED)
-
-    assert_golden(
-        "github_app_connected_summary",
-        render(app, drive, title="yoke setup · GitHub"),
-    )
-
-
-def test_github_app_connected_repository_access() -> None:
-    app = make_app()
-
-    async def drive(a: OnboardWizardApp, _pilot: Any) -> None:
-        a._goto_machine_github_success(_GITHUB_CONNECTED)
-        a._on_machine_github_success("details")
-
-    assert_golden(
-        "github_app_connected_repository_access",
-        render(app, drive, title="yoke setup · GitHub"),
     )
 
 
