@@ -10,9 +10,12 @@ mode are presets, saved with the answers so later calls may omit them.
 from __future__ import annotations
 
 import argparse
+import os
 import sys
 from dataclasses import dataclass
 from typing import Any, Callable
+
+from yoke_contracts.machine_config.schema import ENV_OVERRIDE
 
 from yoke_cli.commands.adapters import onboard_apply
 from yoke_cli.commands.adapters import onboard_hosted_authorization as hosted_auth
@@ -217,6 +220,7 @@ def _apply_presets(
     store: answers.AnswerStore,
 ) -> tuple[str, str] | None:
     """Save this run's presets, or keep the stored ones and name the change."""
+    parsed.env_name = parsed.env_name or os.environ.get(ENV_OVERRIDE, "").strip() or None
     given = {
         name: value
         for name, value in vars(parsed).items()
