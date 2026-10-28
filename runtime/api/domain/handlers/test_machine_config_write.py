@@ -75,7 +75,9 @@ def test_cli_reassignment_writes_machine_config_without_a_seat(home, tmp_path, c
 def test_registration_help_teaches_explicit_move_without_seat(capsys):
     from yoke_cli.commands.adapters import config_write_project as cli
 
-    assert cli.project_register(["--help"]) == 0
+    with pytest.raises(SystemExit) as stopped:
+        cli.project_register(["--help"])
+    assert stopped.value.code == 0
     output = capsys.readouterr().out
     assert "--reassign" in output
     assert "steering" not in output
