@@ -111,3 +111,49 @@ def test_unsaved_codex_prompt_never_reaches_registration_transport(
     )
     completed.assert_called_once()
     assert capsys.readouterr() == ("", "")
+
+
+@pytest.mark.parametrize("source", ["startup", "resume", "fork", "clear", "compact"])
+@pytest.mark.parametrize("transcript_path", [None, "", "saved.jsonl"])
+def test_codex_start_gates_before_registration_transport(
+    monkeypatch, source, transcript_path
+):
+    import sqlite3
+    from yoke_cli.commands.adapters import hook_inprocess
+
+    conn = sqlite3.connect(":memory:")
+    conn.execute("CREATE TABLE harness_sessions (session_id TEXT)")
+    monkeypatch.setattr(hook_inprocess, "_touch_detached_resume", lambda: None)
+    monkeypatch.setattr("yoke_harness.hooks.identity.detect_executor", lambda: "codex")
+    monkeypatch.setattr(
+        "yoke_harness.hooks.identity_codex_runtime.codex_transcript_exists",
+        lambda *a: pytest.fail("SessionStart must not scan transcripts"),
+    )
+    monkeypatch.setattr(
+        "yoke_harness.hooks.command_workdir_stamp.stamp_command_workdir",
+        lambda text, _: text,
+    )
+    transport = Mock(return_value=object())
+    monkeypatch.setattr("yoke_cli.transport.https.resolve_https_connection", transport)
+    monkeypatch.setattr(hook_inprocess, "_session_orientation", lambda *a, **k: "")
+
+    def relay(event, connection, *, stdin_data, **kwargs):
+        payload = json.loads(stdin_data)
+        conn.execute("INSERT INTO harness_sessions VALUES (?)", (payload["session_id"],))
+        return 0
+
+    relayed = Mock(side_effect=relay)
+    monkeypatch.setattr("yoke_harness.hooks.relay.relay_hook_event", relayed)
+    completed = Mock()
+    assert hook_inprocess.evaluate_inprocess(
+        "SessionStart",
+        json.dumps({"session_id": "child", "source": source,
+                    "transcript_path": transcript_path}),
+        dry_run=False, cursor_invocation=False, on_complete=completed,
+    ) == 0
+    assert conn.execute("SELECT session_id FROM harness_sessions").fetchall() == (
+        [("child",)] if transcript_path else []
+    )
+    assert relayed.call_count == transport.call_count == bool(transcript_path)
+    completed.assert_called_once()
+    conn.close()

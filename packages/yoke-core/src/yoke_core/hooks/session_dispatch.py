@@ -139,10 +139,6 @@ def _run_codex_session_start(record: HookContext, root: str) -> str:
         )
     _codex.write_runtime_cache(session_id, raw)
     os.environ["YOKE_SESSION_ID"] = session_id
-    if _field(record.payload, "source") == "startup" and not _field(
-        record.payload, "transcript_path"
-    ):
-        return ""
     facts = _codex_model_facts(record.payload, session_id)
     entrypoint = resolve_entrypoint()
     err = _register_codex(root, session_id, facts, entrypoint)

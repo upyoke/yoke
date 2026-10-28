@@ -115,7 +115,7 @@ def lifecycle(monkeypatch, tmp_path, capsys):
     monkeypatch.setattr(local_entry, "run_event", run)
 
     def invoke(event, **extra):
-        payload = {"session_id": "session", "cwd": str(state.root), **extra}
+        payload = {"session_id": "session", "cwd": str(state.root), "transcript_path": "transcript", **extra}
         rc = client.evaluate_inprocess(
             event, json.dumps(payload), dry_run=False, cursor_invocation=False
         )
@@ -166,7 +166,7 @@ def test_missed_startup_recovers_once_on_prompt(lifecycle, miss, projectless):
         lifecycle.root = lifecycle.root.parent / "outside"
         lifecycle.root.mkdir()
     if miss == "suppressed":
-        assert lifecycle.invoke("SessionStart", source="startup") == ""
+        assert lifecycle.invoke("SessionStart", source="startup", transcript_path=None) == ""
     elif miss in ("denied", "interrupted"):
         lifecycle.fault = miss
         if miss == "interrupted":
