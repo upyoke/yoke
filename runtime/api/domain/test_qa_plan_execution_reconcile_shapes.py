@@ -142,6 +142,7 @@ def test_ordinary_session_and_unprivileged_sessionless_caller_are_refused():
         with pytest.raises(SessionError) as refused:
             _require_operator(conn, _request("ordinary-session"), project_id, {})
         assert refused.value.code == "steering_seat_required"
+        assert "current work-claim holder" in refused.value.message
         assert "yoke claims steering acquire --project" in refused.value.message
         with pytest.raises(PermissionDenied):
             _require_operator(conn, _request("", actor_id=None), project_id, {})

@@ -4,7 +4,7 @@ Covers ``items.cancel.run``: it consumes ``execute_close``, takes the
 claim like the flag verbs, cancels a frozen item in one step, and
 refuses a foreign holder without touching that claim. Cancel is an
 administrative close: it ignores the session's model level, and a
-covering steering seat may cancel from a session in another project.
+caller with project write permission may cancel from another project.
 """
 
 from __future__ import annotations
@@ -225,7 +225,6 @@ class TestMergedAbandonment:
             "UPDATE items SET merged_at=CURRENT_TIMESTAMP WHERE id=%s", (item_id,)
         )
         test_db.commit()
-        insert_steering_claim(test_db, SESSION, project_id=1)
         outcome = handle_cancel(_request(
             item_id, reason="Completion cannot be recovered", abandon_merged=True
         ))
@@ -246,18 +245,48 @@ class TestMergedAbandonment:
         assert audit["recorded_at"]
         assert _live_claims(test_db, item_id) == []
 
-    def test_abandonment_requires_operator_seat(self, test_db):
+    @pytest.mark.parametrize("authorized", [True, False])
+    def test_abandonment_dispatch_requires_project_write_permission(
+        self, test_db, authorized
+    ):
+        from runtime.api.domain.test_function_authz_scope_routing import (
+            _new_actor, _project_owner,
+        )
+        from runtime.api.domain.test_qa_plan_retire import _handler_uses
+        from yoke_core.domain.yoke_function_dispatch import dispatch
+
         item_id = 8421
         insert_item(test_db, id=item_id, status="release")
+        actor_id = _project_owner(test_db, 1) if authorized else _new_actor(test_db)
+        if not authorized:
+            from yoke_core.domain.actor_permissions import (
+                ROLE_VIEWER, grant_actor_project_role,
+            )
+
+            grant_actor_project_role(
+                test_db, actor_id=actor_id, project_id=1,
+                role_name=ROLE_VIEWER, granted_by_actor_id=actor_id,
+            )
+        test_db.execute(
+            "UPDATE harness_sessions SET actor_id=%s WHERE session_id=%s",
+            (actor_id, SESSION),
+        )
         test_db.execute(
             "UPDATE items SET merged_at=CURRENT_TIMESTAMP WHERE id=%s", (item_id,)
         )
         test_db.commit()
-        outcome = handle_cancel(_request(item_id, reason="Stuck", abandon_merged=True))
-        assert not outcome.primary_success
-        assert outcome.error.code == "steering_seat_required"
-        assert "yoke claims steering acquire" in outcome.error.message
-        assert _row(test_db, item_id)[0] == "release"
+        request = _request(item_id, reason="Stuck", abandon_merged=True)
+        request.actor.actor_id = str(actor_id)
+        with _handler_uses(test_db):
+            outcome = dispatch(request)
+        assert outcome.success is authorized, outcome.error
+        if authorized:
+            assert _row(test_db, item_id)[0] == "cancelled"
+        else:
+            assert outcome.error.code == "permission_denied"
+            assert "items.write" in outcome.error.message
+            assert _row(test_db, item_id)[0] == "release"
+        assert _live_claims(test_db, item_id) == []
 
     @pytest.mark.parametrize("status,merged", [("release", True), ("done", True), ("idea", False)])
     def test_ordinary_cancel_and_delivered_work_keep_their_guards(self, test_db, status, merged):
@@ -274,3 +303,11 @@ class TestMergedAbandonment:
         ))
         assert not outcome.primary_success
         assert _row(test_db, item_id)[0] == status
+
+
+def test_cancel_help_teaches_project_write_permission(capsys):
+    from yoke_cli.commands.adapters.items_cancel import _build_parser
+
+    output = _build_parser().format_help()
+    assert "items.write" in output
+    assert "steering" not in output

@@ -49,7 +49,7 @@ def reconcile_command(project: str, execution_id: str) -> str:
 
 
 def execution_project(conn: Any, execution: dict[str, Any]) -> tuple[int, str]:
-    """The project id and slug whose steering seat may reconcile this row."""
+    """The project id and slug that own this execution."""
     from yoke_core.domain.function_target_row_project import slug_for_project_id
     from yoke_core.domain.qa_plan_execution_stop import execution_project_id
 
@@ -199,8 +199,8 @@ def reconcile_execution(
         raise QaPlanExecutionStateError(
             f"qa_reconcile_review_needs_session: execution {execution_id} has a "
             "judgeable capture, and handing its review over assigns it to a "
-            "session. Rerun from a session holding a steering seat covering "
-            f"project {project}. Nothing changed."
+            "session. Rerun from the execution item's current work-claim holder "
+            f"session or a steering seat covering project {project}. Nothing changed."
         )
     if not terminal:
         from yoke_core.domain.coordination_claims import release

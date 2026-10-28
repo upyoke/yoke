@@ -60,6 +60,8 @@ def test_handler_requires_owning_item_claim_without_seat(test_db, claim_kind):
     else:
         assert not outcome.primary_success
         assert outcome.error.code == "steering_seat_required"
+        assert "current work-claim holder" in outcome.error.message
+        assert "yoke claims steering acquire --project" in outcome.error.message
         assert (
             lock_plan_execution(test_db, execution["id"])["session_id"]
             == execution["session_id"]

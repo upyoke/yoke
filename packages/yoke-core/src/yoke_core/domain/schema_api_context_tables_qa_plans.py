@@ -67,7 +67,8 @@ QA_PLAN_TABLES = {
         ],
         "notes": (
             "Durable qa.plan_execution.reconcile receipts, committed atomically "
-            "with the settlement. A covering steering seat settles an execution "
+            "with the settlement. The execution item's current work-claim holder "
+            "or a covering steering seat settles an execution "
             "whose owner stopped reporting: released_lease_ids is a JSON list, "
             "outcome is review_handoff (the caller owns the pending review) or "
             "aborted (no verdict)."

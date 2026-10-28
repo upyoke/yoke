@@ -54,8 +54,8 @@ connection has its own checkout. A paired HTTPS connection and its database-admi
 connection share the HTTPS connection's map. An unmapped checkout reports the
 registration command for the selected connection; it never borrows another map.
 Removing a connection keeps checkout records. Moving an occupied project's
-checkout requires `--reassign` from a session holding that project's live
-steering seat on the selected connection; the CLI checks that authority.
+checkout requires `--reassign` to deliberately replace its routing on the
+selected connection in this machine's config.
 
 Reading config never rewrites it. On the first explicit `project register`, an
 older flat `projects` list imports once under the configured `active_env`, even

@@ -227,11 +227,7 @@ def handle_list(request: FunctionCallRequest) -> HandlerOutcome:
 
 
 class VerifyRequest(BaseModel):
-    action: str = Field(
-        "This operation",
-        min_length=1,
-        description="Operator command named in a refusal.",
-    )
+    pass
 
 
 class VerifyResponse(BaseModel):
@@ -243,7 +239,7 @@ class VerifyResponse(BaseModel):
 def handle_verify(request: FunctionCallRequest) -> HandlerOutcome:
     """Answer whether the calling session's live seat covers the project."""
     try:
-        body = VerifyRequest.model_validate(request.payload or {})
+        VerifyRequest.model_validate(request.payload or {})
     except ValidationError as exc:
         return _error("payload_invalid", f"verify payload invalid: {exc}")
     project_id = _authorized_project_id(request)
@@ -264,7 +260,7 @@ def handle_verify(request: FunctionCallRequest) -> HandlerOutcome:
                 conn,
                 caller_session_id=request.actor.session_id,
                 project_id=project_id,
-                action=body.action,
+                action="Steering seat verification",
             )
     except SessionError as exc:
         return _error(exc.code, exc.message, "$.actor.session_id")

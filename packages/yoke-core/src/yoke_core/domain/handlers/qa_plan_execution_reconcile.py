@@ -50,12 +50,32 @@ def _require_operator(conn, request, project_id, execution):
     if request.actor.session_id:
         from yoke_core.domain.session_steering_authority import require_operator_seat
 
-        require_operator_seat(
-            conn,
-            caller_session_id=request.actor.session_id,
-            project_id=project_id,
-            action="QA execution reconciliation",
-        )
+        from yoke_contracts.refusal_recovery import compose_refusal
+        from yoke_core.domain.sessions_analytics_core import SessionError
+
+        try:
+            require_operator_seat(
+                conn,
+                caller_session_id=request.actor.session_id,
+                project_id=project_id,
+                action="QA execution reconciliation",
+            )
+        except SessionError as exc:
+            if exc.code != "steering_seat_required":
+                raise
+            raise SessionError(
+                exc.code,
+                compose_refusal(
+                    "QA execution reconciliation requires the execution item's "
+                    "current work claim or a steering seat covering the project",
+                    recovery=(
+                        "Rerun from the execution item's current work-claim holder "
+                        "session, or acquire a covering steering seat with "
+                        f"`yoke claims steering acquire --project {project_id} "
+                        '--reason "Reconcile stranded QA"` and retry'
+                    ),
+                ),
+            ) from exc
         return
     from yoke_core.domain.actor_permissions import PERM_ORG_ADMIN, PermissionDenied
     from yoke_core.domain.control_plane_authority import (
@@ -110,7 +130,8 @@ def handle_execution_reconcile(request):
             "operator_permission_required",
             "operator_permission_required: a call without a session must come "
             "from the control-plane organization administrator; otherwise run "
-            "it from a session holding a steering seat (yoke claims steering "
+            "it from the execution item's current work-claim holder session or "
+            "a session holding a steering seat (yoke claims steering "
             "acquire --project P --reason TEXT). Nothing changed.",
             "$.actor",
         )

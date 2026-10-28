@@ -3,7 +3,7 @@
  "title": "Abandon merged work",
  "status": "observed",
  "page": "items",
- "summary": "An operator with a covering steering seat may abandon merged work that cannot finish, preserving merge evidence and recording a durable resolution audit. Membership in any non-terminal deployment run refuses merged_item_live_deployment_run. Remove the member through the separately audited deployment-runs remove-item command before retrying; its removal gates still apply. If removal is unavailable, finish or cancel the run first. Terminal memberships remain history; delivered items cannot be abandoned.",
+ "summary": "A caller with items.write permission on the project may abandon merged work that cannot finish, preserving merge evidence and recording a durable resolution audit. Membership in any non-terminal deployment run refuses merged_item_live_deployment_run. Remove the member through the separately audited deployment-runs remove-item command before retrying; its removal gates still apply. If removal is unavailable, finish or cancel the run first. Terminal memberships remain history; delivered items cannot be abandoned.",
  "commands": ["yoke items cancel", "yoke deployment-runs remove-item"],
  "sources": ["packages/yoke-core/src/yoke_core/domain/merged_item_abandonment.py", "runtime/api/domain/test_merged_item_abandonment_membership.py", "docs/public/workflows/lifecycle.md"]
 }

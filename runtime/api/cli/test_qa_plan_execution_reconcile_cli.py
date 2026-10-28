@@ -43,12 +43,15 @@ def test_reconcile_refusal_stays_visible(monkeypatch, capsys):
 
     def call(**_):
         raise QaPlanExecutionError(
-            "steering_seat_required: acquire the covering steering seat"
+            "steering_seat_required: rerun from the current work-claim holder "
+            "session or acquire the covering steering seat"
         )
 
     monkeypatch.setattr(cli, "_call_plan_function", call)
     assert cli.main(ARGS) == 2
-    assert "steering_seat_required" in capsys.readouterr().err
+    error = capsys.readouterr().err
+    assert "steering_seat_required" in error
+    assert "current work-claim holder" in error
 
 
 def test_overlong_reason_refuses_before_dispatch(monkeypatch, capsys):
@@ -57,3 +60,10 @@ def test_overlong_reason_refuses_before_dispatch(monkeypatch, capsys):
     with pytest.raises(SystemExit):
         cli.main([*ARGS[:4], "--reason", "x" * 201])
     assert "reconcile_reason_too_long" in capsys.readouterr().err
+
+
+def test_reconcile_help_names_item_holder_route(capsys):
+    assert qa_plan_reconcile(["--help"]) == 0
+    output = capsys.readouterr().out
+    assert "current work claim or a live steering seat" in output
+    assert "claims steering acquire" not in output
