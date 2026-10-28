@@ -17,6 +17,7 @@ from contextlib import nullcontext
 from pathlib import Path
 
 from yoke_core.domain import (
+    lane_base_update,
     qa_case_ci_covering_run,
     qa_case_ci_entry_run,
     qa_case_ci_lane,
@@ -145,8 +146,8 @@ def wire_ci_case(tmp_path, monkeypatch) -> tuple[Path, Recorder, Path]:
         lambda _p, _c: "main",
     )
     monkeypatch.setattr(
-        qa_case_ci_entry_run,
-        "rebase_lane_onto_base",
+        lane_base_update,
+        "bring_lane_current",
         lambda *a, **k: None,
     )
     monkeypatch.setattr(

@@ -22,6 +22,7 @@ from runtime.api.domain.qa_case_ci_test_helpers import (
 
 from yoke_core.domain import (
     authored_file_merge_preflight as file_line_preflight,
+    lane_base_update,
     qa_case_ci_entry_run as entry_run,
     qa_case_ci_lane,
     qa_case_ci_run,
@@ -77,7 +78,7 @@ def test_the_entry_run_is_the_verdict_and_nothing_is_dispatched(
     monkeypatch,
 ):
     checkout, recorder, _ = wired
-    monkeypatch.setattr(entry_run, "rebase_lane_onto_base", lambda *a, **k: None)
+    monkeypatch.setattr(lane_base_update, "bring_lane_current", lambda *a, **k: None)
     opened = mock.Mock(return_value="213")
     monkeypatch.setattr(entry_run, "open_landing_pull_request", opened)
     monkeypatch.setattr(
@@ -119,7 +120,7 @@ def test_the_lane_is_rebased_before_the_pull_request_opens(wired, monkeypatch):
         order.append(f"open-pr:{lane_head}")
         return "213"
 
-    monkeypatch.setattr(entry_run, "rebase_lane_onto_base", _rebase)
+    monkeypatch.setattr(lane_base_update, "bring_lane_current", _rebase)
     monkeypatch.setattr(
         file_line_preflight,
         "enforce_authored_file_limit",
@@ -152,7 +153,7 @@ def test_file_line_refusal_stops_before_push_or_pull_request(wired, monkeypatch)
     checkout, recorder, _ = wired
     push = mock.Mock()
     opened = mock.Mock()
-    monkeypatch.setattr(entry_run, "rebase_lane_onto_base", lambda *a, **k: None)
+    monkeypatch.setattr(lane_base_update, "bring_lane_current", lambda *a, **k: None)
     monkeypatch.setattr(qa_case_ci_lane, "push_lane", push)
     monkeypatch.setattr(entry_run, "open_landing_pull_request", opened)
     monkeypatch.setattr(
@@ -183,7 +184,7 @@ def test_rebased_gate_force_cancels_and_records_the_superseded_run(
     def _rebase(*_args, **_kwargs):
         head["sha"] = POST_REBASE_HEAD
 
-    monkeypatch.setattr(entry_run, "rebase_lane_onto_base", _rebase)
+    monkeypatch.setattr(lane_base_update, "bring_lane_current", _rebase)
     monkeypatch.setattr(
         entry_run,
         "open_landing_pull_request",
@@ -216,7 +217,7 @@ def test_rebased_gate_force_cancels_and_records_the_superseded_run(
 
 def test_an_entry_run_for_another_sha_falls_back_to_dispatch(wired, monkeypatch):
     checkout, _, _ = wired
-    monkeypatch.setattr(entry_run, "rebase_lane_onto_base", lambda *a, **k: None)
+    monkeypatch.setattr(lane_base_update, "bring_lane_current", lambda *a, **k: None)
     monkeypatch.setattr(
         entry_run,
         "open_landing_pull_request",
@@ -243,7 +244,7 @@ def test_an_entry_run_for_another_sha_falls_back_to_dispatch(wired, monkeypatch)
 def test_a_cancelled_entry_run_falls_back_to_dispatch(wired, monkeypatch):
     """A superseded entry run tested nothing, so it cannot wedge this sha."""
     checkout, _, _ = wired
-    monkeypatch.setattr(entry_run, "rebase_lane_onto_base", lambda *a, **k: None)
+    monkeypatch.setattr(lane_base_update, "bring_lane_current", lambda *a, **k: None)
     monkeypatch.setattr(
         entry_run,
         "open_landing_pull_request",
@@ -270,7 +271,7 @@ def test_a_cancelled_entry_run_falls_back_to_dispatch(wired, monkeypatch):
 
 def test_no_entry_run_at_all_falls_back_to_dispatch(wired, monkeypatch):
     checkout, _, _ = wired
-    monkeypatch.setattr(entry_run, "rebase_lane_onto_base", lambda *a, **k: None)
+    monkeypatch.setattr(lane_base_update, "bring_lane_current", lambda *a, **k: None)
     monkeypatch.setattr(
         entry_run,
         "open_landing_pull_request",
@@ -297,7 +298,7 @@ def test_a_recorded_commit_still_opens_the_landing_pull_request(
     monkeypatch.setattr(qa_case_ci_lane, "checked_out_branch", lambda _c: "main")
     monkeypatch.setattr(qa_case_ci_lane, "ref_sha", lambda _c, _ref: LANE_HEAD)
     rebase = mock.Mock(side_effect=AssertionError("must not rebase"))
-    monkeypatch.setattr(entry_run, "rebase_lane_onto_base", rebase)
+    monkeypatch.setattr(lane_base_update, "bring_lane_current", rebase)
     opened = mock.Mock(return_value="213")
     monkeypatch.setattr(entry_run, "open_landing_pull_request", opened)
     monkeypatch.setattr(
@@ -325,8 +326,8 @@ def test_a_rebase_conflict_stops_the_gate_before_anything_is_published(
 ):
     checkout, recorder, _ = wired
     monkeypatch.setattr(
-        entry_run,
-        "rebase_lane_onto_base",
+        lane_base_update,
+        "bring_lane_current",
         mock.Mock(side_effect=QaCaseExecutionError("conflicts: pkg/a.py")),
     )
     push = mock.Mock()

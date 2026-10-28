@@ -13,6 +13,7 @@ from runtime.api.domain.qa_case_ci_test_helpers import (
 )
 from runtime.api.domain.test_qa_case_ci_source import git
 from yoke_core.domain import (
+    lane_base_update,
     qa_case_ci_covering_run,
     qa_case_ci_entry_run,
     qa_case_ci_lane,
@@ -57,7 +58,7 @@ def test_missing_run_checks_landing_conflict_before_rebase(
         ),
     )
     rebase = Mock()
-    monkeypatch.setattr(qa_case_ci_entry_run, "rebase_lane_onto_base", rebase)
+    monkeypatch.setattr(lane_base_update, "bring_lane_current", rebase)
 
     def prepare():
         return qa_case_ci_resume.prepare_lane_preserving_covering_run(
@@ -120,8 +121,8 @@ def test_clean_rebase_verifies_new_head_and_retains_requested_sha(
         ),
     )
     monkeypatch.setattr(
-        qa_case_ci_entry_run,
-        "rebase_lane_onto_base",
+        lane_base_update,
+        "bring_lane_current",
         lambda c, **k: git(c, "rebase", "main"),
     )
     calls = []

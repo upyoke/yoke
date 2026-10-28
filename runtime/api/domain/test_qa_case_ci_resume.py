@@ -24,6 +24,7 @@ from runtime.api.domain.qa_case_ci_test_helpers import (
 
 from yoke_core.domain import (
     authored_file_merge_preflight as file_line_preflight,
+    lane_base_update,
     qa_case_ci_covering_run as covering_run,
     qa_case_ci_entry_run as entry_run,
     qa_case_ci_lane,
@@ -59,7 +60,7 @@ def _queue_project(monkeypatch, *, routed: bool = True) -> None:
 
 def _rebase_spy(monkeypatch) -> mock.Mock:
     rebase = mock.Mock()
-    monkeypatch.setattr(entry_run, "rebase_lane_onto_base", rebase)
+    monkeypatch.setattr(lane_base_update, "bring_lane_current", rebase)
     return rebase
 
 

@@ -1,20 +1,18 @@
-"""The CI gate's shared rebase and queue-entry path, piece by piece.
+"""The CI gate's queue-entry path, piece by piece.
 
-A merge-queue lane rebases, publishes once, and takes its pull-request entry
-run as the verdict. The assembled path is covered by the queue-gate tests.
+A merge-queue lane is brought current (``test_lane_base_update_steps``),
+publishes once, and takes its pull-request entry run as the verdict. The assembled path is covered by the queue-gate tests.
 """
 
 from __future__ import annotations
 
-import subprocess
 from unittest import mock
 
 import pytest
 
 from runtime.api.domain.qa_case_ci_test_helpers import LANE_HEAD, completed_run
 
-from yoke_contracts.git_hook_markers import HEAD_RECORDING_SKIP_ENV
-from yoke_core.domain import qa_case_ci_covering_run
+from yoke_core.domain import lane_base_update, qa_case_ci_covering_run
 from yoke_core.domain import qa_case_ci_entry_run as entry_run
 from yoke_core.domain import qa_case_ci_lane
 from yoke_core.domain.qa_case_execution import QaCaseExecutionError
@@ -28,7 +26,7 @@ def test_a_project_outside_the_queue_keeps_the_dispatch_path(monkeypatch):
     )
     monkeypatch.setattr(entry_run, "base_branch", lambda _p, _c: "main")
     rebase = mock.Mock()
-    monkeypatch.setattr(entry_run, "rebase_lane_onto_base", rebase)
+    monkeypatch.setattr(lane_base_update, "bring_lane_current", rebase)
 
     assert (
         entry_run.prepare_ci_lane(
@@ -52,7 +50,7 @@ def test_a_recorded_commit_on_a_queue_project_still_takes_the_pr_path(
     )
     monkeypatch.setattr(entry_run, "base_branch", lambda _p, _c: "main")
     rebase = mock.Mock(side_effect=AssertionError("must not rebase"))
-    monkeypatch.setattr(entry_run, "rebase_lane_onto_base", rebase)
+    monkeypatch.setattr(lane_base_update, "bring_lane_current", rebase)
 
     assert (
         entry_run.prepare_ci_lane(
@@ -65,6 +63,25 @@ def test_a_recorded_commit_on_a_queue_project_still_takes_the_pr_path(
     )
 
 
+def test_a_refused_lane_update_stops_the_gate_with_its_named_reason(monkeypatch):
+    monkeypatch.setattr(entry_run, "routes_through_merge_queue", lambda _p: True)
+    monkeypatch.setattr(entry_run, "base_branch", lambda _p, _c: "main")
+    monkeypatch.setattr(
+        lane_base_update,
+        "bring_lane_current",
+        mock.Mock(
+            side_effect=lane_base_update.LaneBaseUpdateRefused(
+                "lane_rebase_conflict: pkg/a.py"
+            )
+        ),
+    )
+
+    with pytest.raises(QaCaseExecutionError, match="lane_rebase_conflict: pkg/a.py"):
+        entry_run.prepare_ci_lane(
+            "/tmp/tree", project="yoke", branch="PRJ-9", lane_is_checked_out=True
+        )
+
+
 def test_an_unreadable_capability_probe_keeps_the_dispatch_path(monkeypatch):
     monkeypatch.setattr(
         "yoke_core.domain.merge_queue_route_selection.project_declares_merge_queue",
@@ -72,24 +89,6 @@ def test_an_unreadable_capability_probe_keeps_the_dispatch_path(monkeypatch):
     )
 
     assert entry_run.routes_through_merge_queue("yoke") is False
-
-
-def _git_results(monkeypatch, results: dict[str, subprocess.CompletedProcess]):
-    calls: list[tuple[str, ...]] = []
-
-    def _fake_git(_checkout, *args, timeout=120):
-        calls.append(args)
-        return results.get(args[0], subprocess.CompletedProcess(list(args), 0, "", ""))
-
-    monkeypatch.setattr(entry_run, "_git", _fake_git)
-    return calls
-
-
-def _clean_worktree(monkeypatch):
-    monkeypatch.setattr(
-        "yoke_core.engines.merge_worktree_prepare_state._stash_classify_gate",
-        lambda _ctx: None,
-    )
 
 
 def test_opening_the_pull_request_binds_this_machines_github_authority(
@@ -128,148 +127,6 @@ def test_opening_the_pull_request_binds_this_machines_github_authority(
 
     assert pr_num == "213"
     assert bound == ["enter", "exit"]
-
-
-def test_a_lane_behind_the_base_is_fetched_then_rebased(monkeypatch):
-    _clean_worktree(monkeypatch)
-    calls = _git_results(
-        monkeypatch,
-        {"merge-base": subprocess.CompletedProcess([], 1, "", "")},
-    )
-
-    entry_run.rebase_lane_onto_base(
-        "/tmp/tree",
-        branch="PRJ-9",
-        target="main",
-        project="yoke",
-    )
-
-    assert calls[0] == ("fetch", "--quiet", "--no-tags", "origin", "main")
-    assert calls[1] == (
-        "merge-base",
-        "--is-ancestor",
-        "origin/main",
-        "HEAD",
-    )
-    assert calls[2] == ("rev-list", "--merges", "origin/main..HEAD")
-    assert calls[3] == ("rebase", "origin/main")
-
-
-def test_gate_rebase_marks_replayed_commits_to_skip_snapshot_sync(monkeypatch):
-    observed = {}
-
-    def run(argv, **kwargs):
-        observed.update(kwargs)
-        return subprocess.CompletedProcess(argv, 0, "", "")
-
-    monkeypatch.setattr(entry_run.process_group_reaping, "run_in_process_group", run)
-
-    entry_run._git("/tmp/tree", "rebase", "origin/main", timeout=600)
-
-    assert observed["env"][HEAD_RECORDING_SKIP_ENV] == "1"
-
-
-def test_a_lane_containing_the_base_keeps_its_merge_topology(monkeypatch):
-    _clean_worktree(monkeypatch)
-    calls = _git_results(monkeypatch, {})
-
-    entry_run.rebase_lane_onto_base(
-        "/tmp/tree",
-        branch="PRJ-9",
-        target="main",
-        project="yoke",
-    )
-
-    assert calls == [
-        ("fetch", "--quiet", "--no-tags", "origin", "main"),
-        ("merge-base", "--is-ancestor", "origin/main", "HEAD"),
-    ]
-
-
-def test_an_unreadable_ancestry_refuses_before_rebase(monkeypatch):
-    _clean_worktree(monkeypatch)
-    calls = _git_results(
-        monkeypatch,
-        {
-            "merge-base": subprocess.CompletedProcess(
-                [], 128, "", "could not read commit"
-            )
-        },
-    )
-
-    with pytest.raises(QaCaseExecutionError, match="could not compare"):
-        entry_run.rebase_lane_onto_base(
-            "/tmp/tree",
-            branch="PRJ-9",
-            target="main",
-            project="yoke",
-        )
-
-    assert ("rebase", "origin/main") not in calls
-
-
-def test_uncommitted_work_stops_the_gate_and_names_its_stash(monkeypatch):
-    monkeypatch.setattr(
-        "yoke_core.engines.merge_worktree_prepare_state._stash_classify_gate",
-        lambda _ctx: (4, "user-authored files at risk"),
-    )
-    rebased = _git_results(monkeypatch, {})
-
-    with pytest.raises(QaCaseExecutionError, match="yoke-pre-rebase-PRJ-9"):
-        entry_run.rebase_lane_onto_base(
-            "/tmp/tree",
-            branch="PRJ-9",
-            target="main",
-            project="yoke",
-        )
-
-    assert rebased == []
-
-
-def test_a_conflicting_rebase_aborts_and_names_the_conflicted_paths(monkeypatch):
-    _clean_worktree(monkeypatch)
-    calls = _git_results(
-        monkeypatch,
-        {
-            "merge-base": subprocess.CompletedProcess([], 1, "", ""),
-            "rebase": subprocess.CompletedProcess([], 1, "", "conflict"),
-            "diff": subprocess.CompletedProcess([], 0, "pkg/a.py\npkg/b.py\n", ""),
-        },
-    )
-
-    with pytest.raises(QaCaseExecutionError, match="pkg/a.py, pkg/b.py"):
-        entry_run.rebase_lane_onto_base(
-            "/tmp/tree",
-            branch="PRJ-9",
-            target="main",
-            project="yoke",
-        )
-
-    assert ("rebase", "--abort") in calls
-
-
-def test_a_timed_out_rebase_aborts_and_returns_a_typed_recovery(monkeypatch):
-    _clean_worktree(monkeypatch)
-    calls = []
-
-    def git(_checkout, *args, timeout=120):
-        calls.append(args)
-        if args[0] == "merge-base":
-            return subprocess.CompletedProcess([], 1, "", "")
-        if args == ("rebase", "origin/main"):
-            raise subprocess.TimeoutExpired(args, timeout)
-        return subprocess.CompletedProcess([], 0, "", "")
-
-    monkeypatch.setattr(entry_run, "_git", git)
-
-    with pytest.raises(QaCaseExecutionError, match="timed out after 600s") as raised:
-        entry_run.rebase_lane_onto_base(
-            "/tmp/tree", branch="PRJ-9", target="main", project="yoke"
-        )
-
-    assert ("rebase", "--abort") in calls
-    assert "lane restored" in str(raised.value)
-    assert isinstance(raised.value.__cause__, subprocess.TimeoutExpired)
 
 
 # Waiting for the entry run to appear

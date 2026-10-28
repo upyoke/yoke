@@ -60,3 +60,18 @@ def _synthetic_selector_roots(request, monkeypatch):
             "resolve_test_roots",
             lambda _checkout: YOKE_SEEDED_TEST_ROOTS,
         )
+
+
+@pytest.fixture(autouse=True)
+def _lane_left_alone(request, monkeypatch):
+    """Never fetch or rebase the checkout running the suite.
+
+    ``watch_pytest.main`` brings the lane current before an impacted
+    selection; a test calling ``main`` would otherwise update the worker's
+    own lane. The lane-update tests exercise the real hook on scratch repos.
+    """
+    if request.module.__name__.rsplit(".", 1)[-1] == "test_watch_pytest_lane":
+        return
+    from yoke_core.tools import watch_pytest_lane
+
+    monkeypatch.setattr(watch_pytest_lane, "bring_lane_current", lambda *a: None)
