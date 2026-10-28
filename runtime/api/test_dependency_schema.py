@@ -55,6 +55,7 @@ CREATE TABLE IF NOT EXISTS items (
   github_issue TEXT,
   deployed_to TEXT,
   merged_at TIMESTAMPTZ,
+  merge_queue_landed_at TIMESTAMPTZ,
   created_at TIMESTAMPTZ NOT NULL,
   updated_at TIMESTAMPTZ NOT NULL,
   source TEXT NOT NULL DEFAULT '2',
