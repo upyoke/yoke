@@ -146,44 +146,6 @@ def group_for_target(conn: Any, run_id: str, target: Mapping) -> PlanGroup | Non
     )
 
 
-def _default_plan_ids(conn: Any, item_id: int) -> dict[int, Any]:
-    from yoke_core.domain.qa_plan_attachments import (
-        workflow_uses_project_testing_defaults,
-    )
-
-    if not workflow_uses_project_testing_defaults(conn, int(item_id)):
-        return {}
-    rows = query_rows(
-        conn,
-        "SELECT d.plan_id,p.target_environment_id FROM qa_plan_project_defaults d "
-        "JOIN items i ON i.project_id=d.project_id AND i.workflow_id=d.workflow_id "
-        "JOIN qa_plans p ON p.id=d.plan_id WHERE i.id=%s AND d.qa_phase='post_deploy' "
-        "AND p.retired_at IS NULL ORDER BY d.plan_id",
-        (int(item_id),),
-    )
-    return {int(row["plan_id"]): row["target_environment_id"] for row in rows}
-
-
-def member_plan_ids(conn: Any, item_id: int, environment_id: int | None) -> set[int]:
-    """Post-deploy plans one item owes at this environment: attached or default."""
-    from yoke_core.domain.qa_deployment_member_attached_plans import (
-        attached_member_plan_ids,
-        plan_matches_stage_environment,
-    )
-
-    ids = set(
-        attached_member_plan_ids(
-            conn, member_item_id=int(item_id), environment_id=environment_id
-        )
-    )
-    ids.update(
-        plan_id
-        for plan_id, bound in _default_plan_ids(conn, item_id).items()
-        if plan_matches_stage_environment(bound, environment_id)
-    )
-    return ids
-
-
 def run_environment_id(conn: Any, run_id: str) -> int | None:
     row = conn.execute(
         "SELECT target_environment_id FROM deployment_runs WHERE id=%s", (run_id,)
@@ -200,10 +162,12 @@ def attached_plans(conn: Any, run_id: str) -> dict[int, list[int]]:
         "SELECT item_id FROM deployment_run_items WHERE run_id=%s ORDER BY item_id",
         (run_id,),
     )
+    from yoke_core.domain.deployment_qa_member_plans import members_plan_ids
+
+    owed = members_plan_ids(conn, (int(row["item_id"]) for row in rows), environment_id)
     plans: dict[int, list[int]] = {}
-    for row in rows:
-        member = int(row["item_id"])
-        for plan_id in sorted(member_plan_ids(conn, member, environment_id)):
+    for member in sorted(owed):
+        for plan_id in sorted(owed[member]):
             plans.setdefault(plan_id, []).append(member)
     return plans
 
@@ -267,14 +231,19 @@ def retract_unattached_groups(conn: Any, run_id: str, *, reason: str, source: st
 
 def plan_only_members(conn: Any, run_id: str, item_ids: Any) -> set[int]:
     """Members whose item QA is only plans: plan groups answer them, no holder runs."""
-    environment_id = run_environment_id(conn, run_id)
-    found = set()
-    for row in query_rows(
+    from yoke_core.domain.deployment_qa_member_plans import members_plan_ids
+
+    rows = query_rows(
         conn,
         "SELECT item_id,requirement_snapshot FROM deployment_run_items "
         "WHERE run_id=%s AND item_id=ANY(%s)",
         (str(run_id), sorted({int(item) for item in item_ids})),
-    ):
+    )
+    owed = members_plan_ids(
+        conn, (int(row["item_id"]) for row in rows), run_environment_id(conn, run_id)
+    )
+    found = set()
+    for row in rows:
         member = int(row["item_id"])
         snapshot = _json(row["requirement_snapshot"]) or {}
         own = [
@@ -282,7 +251,7 @@ def plan_only_members(conn: Any, run_id: str, item_ids: Any) -> set[int]:
             if isinstance(r, Mapping) and r.get("plan_id") is None
             and r.get("qa_phase") == "post_deploy"
         ]
-        if not own and member_plan_ids(conn, member, environment_id):
+        if not own and owed[member]:
             found.add(member)
     return found
 
@@ -317,7 +286,6 @@ __all__ = [
     "group_for_target",
     "group_marker",
     "lineage_run_ids",
-    "member_plan_ids",
     "open_group",
     "plan_only_members",
     "retract_unattached_groups",

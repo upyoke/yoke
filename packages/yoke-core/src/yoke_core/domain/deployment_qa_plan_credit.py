@@ -21,7 +21,7 @@ PLAN_GROUP_QA_KIND = "plan_group"
 
 def _owed_plans(conn: Any, item_id: int) -> dict[int, str]:
     """The item's live post-deploy plans, attached or project default, by slug."""
-    from yoke_core.domain.deployment_qa_plan_groups import _default_plan_ids
+    from yoke_core.domain.deployment_qa_member_plans import default_plan_ids
     from yoke_core.domain.qa_plan_attachment_reads import live_item_attachment_sql
 
     ids = {
@@ -34,7 +34,7 @@ def _owed_plans(conn: Any, item_id: int) -> dict[int, str]:
             (int(item_id),),
         )
     }
-    ids.update(_default_plan_ids(conn, item_id))
+    ids.update(default_plan_ids(conn, item_id))
     if not ids:
         return {}
     rows = query_rows(
@@ -78,9 +78,9 @@ def _miss(item_id: int, plan_id: int, slug: str, run: dict | None, stage: str) -
 def plan_credit_misses(conn: Any, item_id: int) -> list[dict]:
     """One unsatisfied row per owed plan no closed group credits to this item."""
     from yoke_core.domain.deployment_item_completion_runs import latest_qa_member_run
+    from yoke_core.domain.deployment_qa_member_plans import member_plan_ids
     from yoke_core.domain.deployment_qa_plan_groups import (
         lineage_run_ids,
-        member_plan_ids,
         run_environment_id,
         run_groups,
     )
