@@ -26,7 +26,9 @@ class CandidateSource:
         if not self.python:
             return
         try:
-            checked = source_python_environment.resolve(self.root, self.env)
+            checked = source_python_environment.resolve(
+                self.root, self.env, repair=False
+            )
         except source_python_environment.SourceEnvironmentRefusal as exc:
             self.refusal = f"QA-CANDIDATE-ENVIRONMENT REFUSAL: {exc}"
             self.evidence["refusal"] = self.refusal
@@ -69,7 +71,7 @@ def candidate_source(
     incoming = shared_postgres_environment(env)
     incoming.pop(source_python_environment.QA_SOURCE_ENVIRONMENT_ENV, None)
     try:
-        environment = source_python_environment.resolve(root, incoming)
+        environment = source_python_environment.resolve(root, incoming, repair=False)
     except source_python_environment.SourceEnvironmentRefusal as exc:
         reason = f"QA-CANDIDATE-ENVIRONMENT REFUSAL: {exc}"
         yield CandidateSource(root, dict(env), {"refusal": reason}, reason)

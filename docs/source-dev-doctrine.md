@@ -5,7 +5,8 @@ Repository-only rules; linked owners hold the detail.
 ## Run source and tests
 
 - Run lane commands as `yoke dev run -- <command>`. It binds the claimed lane's source and locked
-  `.venv`, runs in a disposable machine home, and refuses partial binding. Owner:
+  `.venv`, syncs a drifted `.venv` to its unchanged lock, runs in a disposable machine home, and
+  refuses partial binding or a stale lock. Owner:
   [source command guide](testing-verification/source-development.md).
 - Plain `yoke` runs the installed release. `YOKE_SOURCE_DEV=1 yoke <command>` is an explicit
   per-command operator opt-in.

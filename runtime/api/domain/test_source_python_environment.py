@@ -9,7 +9,10 @@ from pathlib import Path
 
 import pytest
 
-from runtime.api.source_pythonpath_test_helpers import provision_stub_environment
+from runtime.api.source_pythonpath_test_helpers import (
+    provision_packaged_stub_environment,
+    provision_stub_environment,
+)
 from yoke_core.domain import source_python_environment as environment
 from yoke_core.domain.qa_environment_declaration import TestEnvironmentDeclaration
 from yoke_core.domain import qa_environment_declaration as declarations
@@ -87,14 +90,16 @@ def test_missing_environment_never_runs_ambient_python(lane, missing):
     assert not (lane / missing).exists()
 
 
-def test_stale_lock_is_not_rewritten(lane):
+def test_stale_lock_refuses_without_rewriting_it(lane):
     project = lane / "pyproject.toml"
     project.write_text(
         project.read_text().replace('version="0.0.0"', 'version="0.0.1"')
     )
     before = (lane / "uv.lock").read_bytes()
-    with pytest.raises(environment.SourceEnvironmentRefusal, match="OUT-OF-DATE"):
+    with pytest.raises(environment.SourceEnvironmentRefusal) as refused:
         environment.resolve(lane, os.environ)
+    assert "SOURCE-ENVIRONMENT-LOCK-STALE" in str(refused.value)
+    assert "`uv lock`" in str(refused.value)
     assert (lane / "uv.lock").read_bytes() == before
 
 
@@ -105,15 +110,69 @@ def test_python_requirement_mismatch_refuses_without_downloading(lane):
         environment.resolve(lane, os.environ)
 
 
-def test_environment_with_undeclared_packages_fails_check(lane):
+def _extraneous_package(lane: Path) -> Path:
     site = next((lane / ".venv/lib").glob("python*/site-packages"))
     metadata = site / "main_only-1.0.dist-info"
     metadata.mkdir()
     (metadata / "METADATA").write_text(
         "Metadata-Version: 2.1\nName: main-only\nVersion: 1.0\n"
     )
-    with pytest.raises(environment.SourceEnvironmentRefusal, match="OUT-OF-DATE"):
-        environment.resolve(lane, os.environ)
+    (metadata / "RECORD").write_text(
+        "main_only-1.0.dist-info/METADATA,,\nmain_only-1.0.dist-info/RECORD,,\n"
+    )
+    return metadata
+
+
+def test_drifted_environment_is_synced_to_its_own_lock(lane):
+    metadata = _extraneous_package(lane)
+    before = (lane / "uv.lock").read_bytes()
+    binding = environment.resolve(lane, os.environ)
+    assert not metadata.exists()
+    assert binding.evidence["repaired"][:3] == ["uv", "sync", "--locked"]
+    assert (lane / "uv.lock").read_bytes() == before
+    assert "repaired" not in environment.resolve(lane, os.environ).evidence
+
+
+def test_check_only_resolve_refuses_drift_and_leaves_it(lane):
+    metadata = _extraneous_package(lane)
+    with pytest.raises(environment.SourceEnvironmentRefusal) as refused:
+        environment.resolve(lane, os.environ, repair=False)
+    assert "SOURCE-ENVIRONMENT-OUT-OF-DATE" in str(refused.value)
+    assert "uv sync --locked --offline --no-python-downloads`" in str(refused.value)
+    assert metadata.exists()
+
+
+def test_touched_project_file_is_repaired_once(tmp_path, monkeypatch):
+    provision_packaged_stub_environment(tmp_path)
+    monkeypatch.setattr(
+        environment,
+        "load_declaration",
+        lambda **_kwargs: TestEnvironmentDeclaration(project="fixture"),
+    )
+    lane = tmp_path
+    project = lane / "pyproject.toml"
+    os.utime(project, (project.stat().st_atime, project.stat().st_mtime + 60))
+    assert environment.resolve(lane, os.environ).evidence["repaired"][:3] == [
+        "uv",
+        "sync",
+        "--locked",
+    ]
+    assert "repaired" not in environment.resolve(lane, os.environ).evidence
+
+
+def test_failed_sync_refuses_with_its_reason_and_command(lane):
+    metadata = _extraneous_package(lane)
+    site = metadata.parent
+    site.chmod(0o555)
+    try:
+        with pytest.raises(environment.SourceEnvironmentRefusal) as refused:
+            environment.resolve(lane, os.environ)
+    finally:
+        site.chmod(0o755)
+    message = str(refused.value)
+    assert "SOURCE-ENVIRONMENT-SYNC-FAILED" in message
+    assert "`uv sync --locked --offline --no-python-downloads`" in message
+    assert metadata.exists()
 
 
 def test_declared_groups_are_checked_in_the_same_environment(lane, monkeypatch):

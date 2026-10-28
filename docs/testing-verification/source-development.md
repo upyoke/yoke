@@ -23,13 +23,21 @@ The selected checkout supplies dependencies too. `dev run`, `dev import-check`,
 with the existing test-environment extras/groups and Python requirements.
 The check first uses `uv python find --offline --no-python-downloads` to
 confirm that the declared Python request selects the candidate interpreter,
-then runs `uv sync --check --locked --offline` without installing or
-rewriting the lock, and reports interpreter, Python version, lock digest, and
-environment identity alongside source origins. Missing, stale, incompatible,
-or redirected environments refuse with `SOURCE-ENVIRONMENT-*` and a lane-local
-recovery: run the printed `uv sync --locked` command in the named project
-directory, then retry. Update a stale lock deliberately in that lane first.
-Ambient main dependencies and `PYTHONPATH` cannot supply a missing lane dependency.
+then runs `uv sync --check --locked --offline`, and reports interpreter, Python
+version, lock digest, and environment identity alongside source origins. When
+only the `.venv` has drifted from the checkout's own unchanged lock — for
+example after main fast-forwards past a `pyproject.toml` change — the check runs
+`uv sync --locked --offline` into that checkout's `.venv` (main included) and
+records the command as `repaired` in the environment evidence. A lock that no
+longer matches `pyproject.toml` refuses `SOURCE-ENVIRONMENT-LOCK-STALE`: run
+`uv lock` deliberately in that claimed checkout, then retry. A sync that fails
+refuses `SOURCE-ENVIRONMENT-SYNC-FAILED` with uv's last error line and the exact
+command. Missing, incompatible, or redirected environments refuse with their
+own `SOURCE-ENVIRONMENT-*` reason and the printed lane-local recovery.
+Candidate Command QA only checks: a drifted candidate refuses
+`SOURCE-ENVIRONMENT-OUT-OF-DATE` and is never repaired. `UV_PROJECT_ENVIRONMENT`
+stays pinned to the checkout's own `.venv`, so ambient main dependencies and
+`PYTHONPATH` cannot supply a missing lane dependency.
 
 Candidate Command QA provisions its disposable checkout through the existing
 test-environment setup, binds Python and Yoke to that exact candidate's

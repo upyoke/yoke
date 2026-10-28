@@ -1,7 +1,9 @@
-"""Validate a checkout's locked Python environment without changing it.
+"""Bind a checkout's locked Python environment, syncing drift to its own lock.
 
 Source verification and candidate Command cases share the same declaration
-and uv check. Installed control-plane launchers never call this resolver.
+and uv check. A drifted ``.venv`` is synced to the checkout's unchanged lock
+unless the caller asks for a check only; candidate QA never repairs.
+Installed control-plane launchers never call this resolver.
 """
 
 from __future__ import annotations
@@ -83,8 +85,25 @@ def _declaration(root: Path, env: Mapping[str, str]) -> TestEnvironmentDeclarati
         ) from exc
 
 
-def resolve(root: Path, env: Mapping[str, str]) -> SourcePythonEnvironment:
-    """Check the declared lock, environment, and interpreter; never sync."""
+def _uv(project: Path, env: dict[str, str], argv: list[str], timeout: int):
+    return subprocess.run(
+        argv,
+        cwd=project,
+        env=env,
+        capture_output=True,
+        text=True,
+        timeout=timeout,
+        check=False,
+    )
+
+
+def resolve(
+    root: Path, env: Mapping[str, str], *, repair: bool = True
+) -> SourcePythonEnvironment:
+    """Check the declared lock and interpreter; sync a drifted environment.
+
+    ``repair=False`` only checks, so a drifted environment refuses instead.
+    """
     root = root.resolve()
     try:
         declaration = _declaration(root, env)
@@ -99,16 +118,15 @@ def resolve(root: Path, env: Mapping[str, str]) -> SourcePythonEnvironment:
         ) from exc
     project = (root / (declaration.uv_project or ".")).resolve()
     flags = declaration.selection_flags()
+    sync = ["uv", "sync", "--locked", "--offline", "--no-python-downloads", *flags]
     recovery = (
-        f"In {shlex.quote(str(project))}, run "
-        f"`uv sync --locked {' '.join(map(shlex.quote, flags))}` and retry "
-        "the same source command. If the lock is stale, update it deliberately "
-        "in this claimed checkout first; checks never rewrite it."
+        f"In {shlex.quote(str(project))}, run `{shlex.join(sync)}` and retry "
+        "the same source command."
     )
 
-    def refuse(reason: str, detail: str) -> None:
+    def refuse(reason: str, detail: str, fix: str = recovery) -> None:
         raise SourceEnvironmentRefusal(
-            compose_refusal(f"{reason}: {detail}.", recovery=f"{recovery}")
+            compose_refusal(f"{reason}: {detail}.", recovery=fix)
         )
 
     if not project.is_relative_to(root) or not is_uv_project(project):
@@ -127,8 +145,10 @@ def resolve(root: Path, env: Mapping[str, str]) -> SourcePythonEnvironment:
     clean["PYTHONNOUSERSITE"] = "1"
     clean["VIRTUAL_ENV"] = str(prefix)
     clean["PATH"] = str(python.parent) + os.pathsep + clean.get("PATH", "")
-    # An ambient environment cannot redirect uv to main or disable groups.
+    # An ambient environment cannot redirect uv to main or disable groups,
+    # so a sync only ever writes this checkout's own .venv.
     clean["UV_PROJECT_ENVIRONMENT"] = str(prefix)
+    repaired: list[str] = []
     try:
         # A synchronized package set alone does not prove .python-version.
         # Delegate every supported Python request format to uv, without letting
@@ -151,28 +171,32 @@ def resolve(root: Path, env: Mapping[str, str]) -> SourcePythonEnvironment:
                 "SOURCE-ENVIRONMENT-OUT-OF-DATE",
                 f"declared Python request does not select the interpreter at {python}",
             )
-        checked = subprocess.run(
-            [
-                UV_EXECUTABLE,
-                "sync",
-                "--check",
-                "--locked",
-                "--offline",
-                "--no-python-downloads",
-                *flags,
-            ],
-            cwd=project,
-            env=clean,
-            capture_output=True,
-            text=True,
-            timeout=30,
-            check=False,
-        )
-        if checked.returncode:
-            refuse(
-                "SOURCE-ENVIRONMENT-OUT-OF-DATE",
-                f"uv lock/environment check failed in {project}",
-            )
+        check = [UV_EXECUTABLE, "sync", "--check", *sync[2:]]
+        if _uv(project, clean, check, 30).returncode:
+            if _uv(
+                project, clean, [UV_EXECUTABLE, "lock", "--check", "--offline"], 30
+            ).returncode:
+                refuse(
+                    "SOURCE-ENVIRONMENT-LOCK-STALE",
+                    f"uv.lock in {project} does not match its pyproject.toml",
+                    f"In {shlex.quote(str(project))}, update the lock deliberately "
+                    "in this claimed checkout: `uv lock`, then retry the same "
+                    "source command.",
+                )
+            if not repair:
+                refuse(
+                    "SOURCE-ENVIRONMENT-OUT-OF-DATE",
+                    f"{prefix} does not match the lock in {project}",
+                )
+            synced = _uv(project, clean, [UV_EXECUTABLE, *sync[1:]], 600)
+            if synced.returncode or _uv(project, clean, check, 30).returncode:
+                lines = synced.stderr.strip().splitlines() or ["no stderr"]
+                refuse(
+                    "SOURCE-ENVIRONMENT-SYNC-FAILED",
+                    f"`{shlex.join(sync)}` exited {synced.returncode} and left "
+                    f"{prefix} out of date: {lines[-1]}",
+                )
+            repaired = sync
         identity = subprocess.run(
             [
                 str(python),
@@ -224,5 +248,6 @@ def resolve(root: Path, env: Mapping[str, str]) -> SourcePythonEnvironment:
             "lock_sha256": hashlib.sha256(
                 (project / "uv.lock").read_bytes()
             ).hexdigest(),
+            **({"repaired": repaired} if repaired else {}),
         },
     )
