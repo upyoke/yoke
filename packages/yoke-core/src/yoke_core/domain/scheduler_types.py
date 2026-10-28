@@ -227,8 +227,10 @@ class SchedulerResult:
             across. The all-projects default is resolved upstream into the
             full registered set before reaching the scheduler.
         sml_state: Strategic Markdown Layer state.
-        selected_step: The highest-ranked assignable step, or None.
+        selected_step: The highest-ranked staffable step, or None.
         ranked_steps: All runnable steps sorted by rank.
+        staffable_steps: Ranked steps a new worker could advance, in rank
+            order (:mod:`scheduler_staffable`); ``selected_step`` is the first.
         blocked_steps: Steps blocked by dependencies or exceptional status.
         exceptional_steps: Steps in failed status (visible for escalation).
         wip_cap: WIP cap used in computation.
@@ -247,6 +249,7 @@ class SchedulerResult:
     sml_state: SMLState = field(default_factory=SMLState)
     selected_step: Optional[ScheduledStep] = None
     ranked_steps: List[ScheduledStep] = field(default_factory=list)
+    staffable_steps: List[ScheduledStep] = field(default_factory=list)
     blocked_steps: List[ScheduledStep] = field(default_factory=list)
     exceptional_steps: List[ScheduledStep] = field(default_factory=list)
     wip_cap: int = DEFAULT_WIP_CAP

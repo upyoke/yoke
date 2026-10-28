@@ -19,10 +19,13 @@ def _evaluate_claim_states(
     item_ids: List[int],
     session_id: Optional[str] = None,
     stale_threshold_minutes: int = DEFAULT_STALE_THRESHOLD_MINUTES,
+    target_kind: str = "item",
 ) -> Dict[int, ClaimState]:
     """Evaluate claim state for a list of internal item ids.
 
-    Returns a dict mapping internal ``items.id`` -> ClaimState.
+    Returns a dict mapping internal ``items.id`` -> ClaimState. With
+    ``target_kind="epic_task"`` the ids are epics and the state is that of
+    the claims on their tasks, keyed by the claim scope's ``epic_id``.
     """
     if not item_ids:
         return {}
@@ -30,13 +33,15 @@ def _evaluate_claim_states(
     result: Dict[int, ClaimState] = {iid: ClaimState.UNCLAIMED for iid in item_ids}
 
     claim_rows = None
+    marker = "%s" if db_backend.connection_is_postgres(conn) else "?"
+    scope_key = "epic_id" if target_kind == "epic_task" else "item_id"
     try:
         # Prefer the richer join when the full session schema is available.
-        # Restrict to item-target claims; epic_task and process targets are
-        # not surfaced as item-level scheduler blockers. Liveness comes
+        # One target kind per call: the scheduler's item claim state reads
+        # item targets; task holders are a separate staffing fact. Liveness comes
         # from :func:`latest_activity_by_session` post-fetch (last_tool_call_at +
         # heartbeats) so the SQL no longer reads heartbeat columns directly.
-        item_scope = scope_int_sql(conn, "wc.scope", "item_id")
+        item_scope = scope_int_sql(conn, "wc.scope", scope_key)
         claim_rows = conn.execute(
             f"""SELECT {item_scope} AS item_id, wc.session_id,
                       ases.ended_at AS session_ended_at,
@@ -45,7 +50,8 @@ def _evaluate_claim_states(
                FROM work_claims wc
                LEFT JOIN harness_sessions ases ON ases.session_id = wc.session_id
                WHERE wc.released_at IS NULL
-                 AND wc.target_kind='item'"""
+                 AND wc.target_kind={marker}""",
+            (target_kind,),
         ).fetchall()
     except db_backend.operational_error_types(conn):
         if db_backend.connection_is_postgres(conn):
@@ -56,12 +62,13 @@ def _evaluate_claim_states(
         try:
             # Some test and transitional schemas have a partial work_claims
             # table; still treat non-self live item claims as blocking.
-            item_scope = scope_int_sql(conn, "scope", "item_id")
+            item_scope = scope_int_sql(conn, "scope", scope_key)
             claim_rows = conn.execute(
                 f"""SELECT {item_scope} AS item_id, session_id
                    FROM work_claims
                    WHERE released_at IS NULL
-                     AND target_kind='item'"""
+                     AND target_kind={marker}""",
+                (target_kind,),
             ).fetchall()
         except db_backend.operational_error_types(conn):
             if db_backend.connection_is_postgres(conn):
@@ -96,7 +103,10 @@ def _evaluate_claim_states(
             continue
         item_id = int(resolved_item)
         claim_session = row[1]
-        if item_id not in result:
+        # An epic's tasks carry several claims; a live other holder wins.
+        if result.get(item_id, ClaimState.CLAIMED_BY_OTHER_LIVE) is (
+            ClaimState.CLAIMED_BY_OTHER_LIVE
+        ):
             continue
 
         session_ended = row[2] if len(row) > 2 else None

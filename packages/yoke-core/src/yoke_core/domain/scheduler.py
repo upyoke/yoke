@@ -18,6 +18,7 @@ from .scheduler_claims import _evaluate_claim_states
 from .scheduler_exceptional import project_slug_or_id, query_exceptional_items
 from .scheduler_events import _emit_frontier_step_selected, _logger
 from .scheduler_routing import _compute_next_step, compute_routing_results
+from .scheduler_staffable import staffable_steps
 from .scheduler_types import (
     ClaimState,
     GateEvaluation,
@@ -25,7 +26,6 @@ from .scheduler_types import (
     SMLState,
     ScheduledStep,
     SchedulerResult,
-    is_assignable_claim_state,
 )
 
 
@@ -287,27 +287,24 @@ def compute_schedule(
         if step.item_id in conduct_eligible_ids:
             conduct_eligible.append(step)
 
-    # 10. Select the highest-ranked assignable step.
-    #     Assignability is owned by ``is_assignable_claim_state``
-    #     (scheduler_types). CLAIMED_BY_STALE items are reclaimable — treated
-    #     as assignable so stale sessions never block forward progress.
-    selected: Optional[ScheduledStep] = None
-    for step in ranked_steps:
-        # conduct_eligible_ids gates only definition-selected conduct work.
-        if (
-            step.next_step == NextStep.CONDUCT
-            and step.item_id not in conduct_eligible_ids
-        ):
-            continue
-        if is_assignable_claim_state(step.claim_state):
-            selected = step
-            break
+    # 10. Select the highest-ranked step a new worker could advance: an
+    #     assignable claim state (CLAIMED_BY_STALE is reclaimable), conduct
+    #     inside the WIP cap, and nothing a release or task holder owns.
+    staffable = staffable_steps(
+        conn,
+        ranked_steps,
+        project_scope=project_scope,
+        conduct_eligible_ids=conduct_eligible_ids,
+        session_id=session_id,
+    )
+    selected: Optional[ScheduledStep] = staffable[0] if staffable else None
 
     result = SchedulerResult(
         project_scope=list(project_scope),
         sml_state=sml,
         selected_step=selected,
         ranked_steps=ranked_steps,
+        staffable_steps=staffable,
         blocked_steps=blocked_steps,
         exceptional_steps=exceptional_steps,
         wip_cap=raw.wip_cap,

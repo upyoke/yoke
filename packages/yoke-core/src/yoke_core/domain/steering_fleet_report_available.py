@@ -1,4 +1,4 @@
-"""What the scheduler calls runnable and unclaimed, and since when.
+"""What the scheduler calls staffable and unclaimed, and since when.
 
 The waiting clock is the whole reason this is its own read. "Unstaffed since"
 is not the item's age: a claim released two minutes ago restarts the wait,
@@ -26,7 +26,7 @@ from yoke_core.domain.frontier_landing_wait import landing_wait_reason
 from yoke_core.domain.item_ref_render import render_item_refs
 from yoke_core.domain.scheduler import compute_schedule
 from yoke_core.domain.session_launch_assignment import assignment_ref
-from yoke_core.domain.scheduler_types import ClaimState, NextStep
+from yoke_core.domain.scheduler_types import ClaimState
 from yoke_core.domain.steering_fleet_report_detectors import age_seconds, marker
 from yoke_core.domain.work_claim_targets import scope_int_sql
 
@@ -205,9 +205,14 @@ def scope_work(
     project_id: int,
     session_id: str,
 ) -> ScopeWork:
-    """Runnable, unclaimed, dispatchable steps in one steering scope, and the
-    unclaimed committed work the schedule holds back until its blockers land
-    (:mod:`yoke_core.domain.frontier_landing_wait`).
+    """Unclaimed steps in one steering scope a new worker could advance, and
+    the unclaimed committed work the schedule holds back until its blockers
+    land (:mod:`yoke_core.domain.frontier_landing_wait`).
+
+    Staffable is the scheduler's own answer (:mod:`scheduler_staffable`), the
+    one its selected step comes from: a landed item waiting on its release or
+    close-out, conduct past the WIP cap, and an epic whose task a live session
+    holds are not offered here.
 
     A stale claim is deliberately not a candidate: the work still has a holder
     until the stale-session sweep releases it, and reporting it as available
@@ -224,9 +229,8 @@ def scope_work(
     )
     steps = [
         step
-        for step in schedule.ranked_steps
+        for step in schedule.staffable_steps
         if step.claim_state is ClaimState.UNCLAIMED
-        and step.next_step is not NextStep.WAIT
     ]
     refs = render_item_refs(conn, [step.item_id for step in steps])
     pickable = _pickable_since(conn, [step.item_id for step in steps])
