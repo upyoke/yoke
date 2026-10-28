@@ -224,3 +224,19 @@ def test_a_member_stands_on_its_open_plan_group_until_the_group_passes(test_db):
 
     assert standing(MEMBERS[0]).accepted
     assert item_qa_acceptance_blockers(test_db, run_id=RUN, item_id=MEMBERS[0]) == []
+
+
+def test_plan_groups_never_answer_a_member_s_own_unrun_cases(test_db):
+    from yoke_core.domain.post_deploy_verification_answer import (
+        PLAN_GROUPS,
+        member_post_deploy_answer,
+    )
+
+    _seed(test_db, attached=MEMBERS[:1])
+    subject = {"id": RUN, "member_item_id": MEMBERS[0]}
+    own_case = {"plan_id": None, "qa_phase": "post_deploy", "id": 1}
+
+    assert member_post_deploy_answer(test_db, subject).verdict == PLAN_GROUPS
+    assert member_post_deploy_answer(
+        test_db, {**subject, "member_snapshot": {"requirements": [own_case]}}
+    ).verdict != PLAN_GROUPS

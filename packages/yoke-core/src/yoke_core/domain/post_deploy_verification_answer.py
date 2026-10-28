@@ -31,6 +31,7 @@ replacement that still owes evidence.
 
 from __future__ import annotations
 
+import json
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any
@@ -188,6 +189,17 @@ def answer_for_item(conn: Any, item_id: int) -> PostDeployAnswer:
     return classify(attachments=attachments, requirements=requirements)
 
 
+def _own_snapshot_cases(subject: Mapping[str, Any]) -> bool:
+    raw = subject.get("member_snapshot")
+    snapshot = json.loads(raw) if isinstance(raw, str) and raw else raw or {}
+    return any(
+        isinstance(row, Mapping)
+        and row.get("plan_id") is None
+        and row.get("qa_phase") == "post_deploy"
+        for row in (snapshot.get("requirements") or ())
+    )
+
+
 def member_post_deploy_answer(
     conn: Any, subject: Mapping[str, Any]
 ) -> PostDeployAnswer:
@@ -201,7 +213,11 @@ def member_post_deploy_answer(
         return PostDeployAnswer(UNANSWERED)
     from yoke_core.domain.deployment_qa_member_plans import member_plan_ids
 
-    if member_plan_ids(conn, int(member_item_id), str(subject["id"])):
+    # Plan groups answer only a member with no item cases of its own; a
+    # member with its own cases is answered by walking them.
+    if not _own_snapshot_cases(subject) and member_plan_ids(
+        conn, int(member_item_id), str(subject["id"])
+    ):
         return PostDeployAnswer(
             PLAN_GROUPS, ("its post-deploy plans run once for the release as plan groups",)
         )
