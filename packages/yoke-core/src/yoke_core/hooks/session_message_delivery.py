@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from dataclasses import replace
 from typing import Iterable
 
@@ -26,6 +27,7 @@ from yoke_core.domain.session_message_delivery_probe import (
     PROBE_LEASE_FAILED,
     PROBE_NO_LEASABLE_RECEIPT,
     PROBE_SESSION_NOT_DELIVERABLE,
+    PROBE_SUBAGENT_EXIT,
 )
 from yoke_core.domain.steering_fleet_report_render import REPORT_BEGIN
 from yoke_core.hooks.fleet_watcher_presence import fleet_watcher_alert
@@ -50,6 +52,7 @@ DELIVERY_AUDIT_FIELD = "session_message_delivery"
 MESSAGE_PROBE_AUDIT_FIELD = "session_message_probe"
 DEFAULT_LEASE_LIMIT = 10
 _STDOUT_EVENTS = SESSION_OPENING_STDOUT_EVENTS | frozenset({"Stop"})
+_LOG = logging.getLogger(__name__)
 
 
 def _delivery_port() -> SessionMessageDeliveryPort:
@@ -186,8 +189,8 @@ def _declined(
             reason=reason,
             detail=detail,
         )
-    except Exception:
-        pass
+    except Exception as error:
+        _LOG.warning("delivery probe write failed: %s", type(error).__name__)
     return _noop()
 
 
@@ -199,10 +202,11 @@ def evaluate(context: HookContext) -> HookDecision:
     the renderer to drop this advisory.
 
     Every path that declines to attach a pending envelope records its reason
-    against that envelope first — see :func:`_declined`. The silent exits are
-    the ones with nothing to key a record on, or nothing to explain: a
-    session this process cannot name, and an event the capability table
-    already says the harness cannot inject on.
+    against that envelope first — see :func:`_declined`, including a
+    subagent's event, which leaves the parent's envelope pending. The silent
+    exits are the ones with nothing to key a record on, or nothing to
+    explain: a session this process cannot name, and an event the capability
+    table already says the harness cannot inject on.
     """
     session_id = str(context.session_id or "").strip()
     if (
@@ -212,13 +216,11 @@ def evaluate(context: HookContext) -> HookDecision:
     ):
         return _noop()
     if is_subagent_execution(context.payload, env={}):
-        # A subagent shares its parent's session id, so reading that inbox
-        # here put the parent's envelopes and fleet reports into the context
-        # of agents they were never addressed to — read-only searchers were
-        # handed a deployment run's QA messages. Fleet delivery belongs to
-        # the registered top-level session; the envelope stays pending for
-        # it, so nothing is consumed and nothing needs declining.
-        return _noop()
+        # A subagent shares its parent's session id, but the inbox belongs to
+        # the top-level session: reading it here once handed read-only
+        # searchers a deployment run's QA messages. The envelope stays
+        # pending for the parent, and the record says this event skipped it.
+        return _declined(_delivery_port(), context, session_id, PROBE_SUBAGENT_EXIT)
     port = _delivery_port()
     try:
         lease = port.lease_for_hook(

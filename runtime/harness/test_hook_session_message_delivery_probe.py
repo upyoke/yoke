@@ -8,19 +8,31 @@ which one rather than leaving an operator to infer a mechanism from an
 
 from __future__ import annotations
 
+import logging
+
 import pytest
 
+from yoke_core.domain import session_message_delivery_probe as probe
 from yoke_core.domain.session_message_delivery_probe import (
+    DELIVERY_PROBE_ADAPTER_REVISION,
     PROBE_LEASE_FAILED,
     PROBE_NO_LEASABLE_RECEIPT,
     PROBE_SESSION_NOT_DELIVERABLE,
+    PROBE_SUBAGENT_EXIT,
+    record_undelivered_receipts,
 )
+from yoke_core.domain.session_message_service import send_message
 from yoke_core.hooks import session_message_delivery as delivery
 from yoke_core.hooks.types import Outcome
 from runtime.harness.session_message_delivery_test_helpers import (
     MESSAGE_ID,
     FakePort,
     hook_context,
+)
+from runtime.api.domain.test_session_message_support import (
+    NOW,
+    message_connection,
+    selector,
 )
 
 
@@ -121,6 +133,7 @@ def test_a_lease_that_carried_nothing_is_released_and_then_recorded(
 
 def test_a_failing_probe_never_turns_a_quiet_miss_into_a_failing_hook(
     monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
 ) -> None:
     port = _port(monkeypatch, acknowledged=True)
 
@@ -129,9 +142,12 @@ def test_a_failing_probe_never_turns_a_quiet_miss_into_a_failing_hook(
 
     monkeypatch.setattr(port, "probe_undelivered", refuse)
 
-    assert delivery.evaluate(hook_context("SessionStart", **CURSOR_START)).outcome is (
-        Outcome.NOOP
-    )
+    with caplog.at_level(logging.WARNING, logger=delivery.__name__):
+        decision = delivery.evaluate(hook_context("SessionStart", **CURSOR_START))
+
+    assert decision.outcome is Outcome.NOOP
+    assert "delivery probe write failed: RuntimeError" in caplog.text
+    assert "control plane unreachable" not in caplog.text
 
 
 def test_a_session_this_process_cannot_name_records_nothing(
@@ -159,3 +175,64 @@ def test_an_event_the_surface_cannot_inject_on_records_nothing(
     assert decision.outcome is Outcome.NOOP
     assert port.leased == []
     assert port.probed == []
+
+
+class _DatabaseProbePort(FakePort):
+    """Writes probes through the real recorder into an in-memory inbox."""
+
+    def __init__(self, conn) -> None:
+        super().__init__()
+        self.conn = conn
+
+    def probe_undelivered(self, **kwargs: str) -> int:
+        return record_undelivered_receipts(self.conn, **kwargs)
+
+
+def _subagent_probe_rows(
+    monkeypatch: pytest.MonkeyPatch, *, pending: bool
+) -> list[tuple[str, str]]:
+    monkeypatch.setattr(probe, "utc_now", lambda: NOW)
+    conn = message_connection()
+    if pending:
+        send_message(
+            conn,
+            actor_id=10,
+            sender_session_id="s1",
+            selector=selector(session_ids=["s1"]),
+            body="Persistent instructions.",
+            now=NOW,
+        )
+    port = _DatabaseProbePort(conn)
+    monkeypatch.setattr(delivery, "_delivery_port", lambda: port)
+
+    decision = delivery.evaluate(
+        hook_context(session_id="s1", payload={"agent_type": "explorer"})
+    )
+
+    assert decision.outcome is Outcome.NOOP
+    assert port.leased == []
+    return [
+        (row["result_code"], row["state"])
+        for row in conn.execute(
+            "SELECT a.result_code, r.state FROM session_message_attempts a "
+            "JOIN session_message_recipients r ON r.message_id=a.message_id "
+            "AND r.session_id=a.target_session_id WHERE a.adapter_revision=?",
+            (DELIVERY_PROBE_ADAPTER_REVISION,),
+        ).fetchall()
+    ]
+
+
+def test_a_subagent_event_records_why_the_pending_envelope_stayed_put(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A subagent's tool calls reach the server while the parent's envelope
+    waits; the record names that exit instead of leaving a silent gap."""
+    rows = _subagent_probe_rows(monkeypatch, pending=True)
+
+    assert rows == [(PROBE_SUBAGENT_EXIT, "pending")]
+
+
+def test_a_subagent_event_with_nothing_pending_records_nothing(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    assert _subagent_probe_rows(monkeypatch, pending=False) == []

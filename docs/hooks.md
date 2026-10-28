@@ -336,11 +336,11 @@ and `yoke items get PREFIX-N body`; they avoid embedding the full refusal.
 
 An empty inbox writes nothing. If an exact-session receipt remains pending but
 nothing attaches, `session_message_delivery_probe` records the refusal phase:
-`probe_session_not_deliverable`, `probe_no_leasable_receipt`, or
-`probe_lease_failed` (exception class only, never message). Receipt/session/event/
-reason identity folds repeated declines into the existing attempt row visible in
-`yoke messages get <id>`. Unresolved hook session and non-injectable harness event
-remain silent. Rationale: [undelivered envelope records its reason](archive/decisions/undelivered-envelope-records-its-reason.md).
+`probe_session_not_deliverable`, `probe_no_leasable_receipt`, `probe_lease_failed`
+(exception class only), or `probe_subagent_exit` (envelope left for the parent).
+Receipt/session/event/reason identity folds repeated declines into one attempt row
+in `yoke messages get <id>`; a failed probe write logs its exception class.
+Unresolved hook session and non-injectable harness event remain silent. Rationale: [undelivered envelope records its reason](archive/decisions/undelivered-envelope-records-its-reason.md).
 ## Parity and events
 
 Consult [hook parity](hook-parity-map.md) before assuming equivalent surfaces.
