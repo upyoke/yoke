@@ -1,6 +1,6 @@
 """What a readiness host may believe from a machine it does not control.
 
-The four file-reading checks can run on a machine that holds the item
+The file-reading checks can run on a machine that holds the item
 project's checkout and report back. That machine is not the control
 plane, and its report is caller-supplied data on the way to consequences:
 a reported issue becomes an issue the run blocks on, and the claim
@@ -9,7 +9,7 @@ So nothing here trusts the report's shape or its content.
 
 Admission is a whitelist in both directions.
 
-*Codes* — only what the four checks can emit is accepted. The
+*Codes* — only what the file-reading checks can emit is accepted. The
 claim-coverage codes that drive widen and narrow are decided from the
 path-claim tables and never from reading a file, so they are not on the
 list and an observation asserting one is dropped rather than acted on.
@@ -17,7 +17,8 @@ list and an observation asserting one is dropped rather than acted on.
 *Context* — every admitted issue is re-derived against the spec the
 control plane holds. A sizing code must name a path this item's File
 Budget actually lists, a function-owner code must name a reference the
-spec actually makes, and a rehearsal-command code must name a command
+spec actually makes, a scope-budget code must name a path the spec's
+scope sections list, and a rehearsal-command code must name a command
 the item actually declared. An observing machine can therefore report
 only findings about surfaces the control plane already knows this item
 touches; it cannot introduce a new one by asserting it.
@@ -55,11 +56,26 @@ def _advisory_code() -> str:
     return ADVISORY_CODE
 
 
+def _scope_budget_code() -> str:
+    from yoke_core.domain.idea_readiness_scope_budget import (
+        SCOPED_PATH_NOT_IN_FILE_BUDGET,
+    )
+
+    return SCOPED_PATH_NOT_IN_FILE_BUDGET
+
+
 def observable_issue_codes() -> Set[str]:
     """Every issue code a file read on another machine could have produced."""
     return set(FUNCTION_OWNER_CODES) | set(FILE_BUDGET_SIZING_CODES) | {
         _attestation_code(),
+        _scope_budget_code(),
     }
+
+
+def _scoped_paths(spec_text: str) -> Set[str]:
+    from yoke_core.domain.idea_readiness_scope_budget import scoped_paths
+
+    return set(scoped_paths(spec_text))
 
 
 def _budget_paths(spec_text: str) -> Set[str]:
@@ -88,6 +104,8 @@ def _context_is_grounded(
         return str(context.get("reference") or "") in _spec_references(spec_text)
     if code == _attestation_code():
         return str(context.get("command") or "") in set(rehearsal_commands)
+    if code == _scope_budget_code():
+        return str(context.get("path") or "") in _scoped_paths(spec_text)
     return False
 
 

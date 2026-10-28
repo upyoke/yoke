@@ -5,6 +5,7 @@ handles the small field set that still has direct validation rules:
 ``source``, ``owner``, ``deploy_stage``, and ``architecture_impact``
 (validated + normalized to its canonical enum form so a stored value
 can never carry stray whitespace/case).
+``db_mutation_profile`` is refused with the command that owns it.
 """
 
 from __future__ import annotations
@@ -45,6 +46,15 @@ def _apply_shell_fallback(
             value = validate_value(value)
         except ArchitectureImpactError as exc:
             return {"success": False, "error": str(exc)}
+    elif field == "db_mutation_profile":
+        return {
+            "success": False,
+            "error": (
+                "field 'db_mutation_profile' is the item's database change "
+                "claim; replace it with `yoke db-claim amend PREFIX-N "
+                "--reason R --payload-file F`."
+            ),
+        }
     else:
         return {
             "success": False,

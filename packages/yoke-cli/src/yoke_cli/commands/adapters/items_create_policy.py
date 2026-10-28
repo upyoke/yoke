@@ -97,7 +97,12 @@ def refuse_unscaffolded_create(
     else:
         recovery = (
             "Use /yoke idea to scaffold planned work; it sets session mode idea "
-            "and files with entry_surface=harness_skill."
+            "and files with entry_surface=harness_skill. "
+            "To change an existing item's workflow: re-file with "
+            "`/yoke idea --workflow issue|epic|blitz|task` (or "
+            "`yoke items create --workflow dash`), cancel the old item with "
+            "`yoke items cancel OLD --reason R --ref NEW`, and re-declare any "
+            "db claim with `yoke db-claim amend NEW --reason R --payload-file F`."
         )
     return usage_error(f"{ITEMS_CREATE_SKILL_SCAFFOLDING_REFUSAL}: {context}{recovery}")
 

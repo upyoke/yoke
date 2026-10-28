@@ -4,7 +4,7 @@
  "status": "observed",
  "audience": "agent",
  "when": "Filing an agreed Dash or Task spec from a harness skill.",
- "need": "The skill supplies harness_skill; Task/Dash commands default to cli. Both aliases use one intake guard. Planned intake still requires Idea scaffolding; caller authority, workflow surfaces, spec acceptance and execution-instruction attestation remain enforced.",
+ "need": "The skill supplies harness_skill; Task/Dash commands default to cli. Both aliases use one intake guard. Planned intake still requires Idea scaffolding; caller authority, workflow surfaces, spec acceptance and execution-instruction attestation remain enforced. An item's workflow is fixed at filing; the planned-intake refusal teaches the change: re-file under the new workflow, cancel the old item with --ref NEW, and re-declare its db claim with yoke db-claim amend.",
  "disclosure": "current cue",
  "surface": "Dash and Idea filing skills; shared item-create help and refusal; lifecycle intake recipe",
  "review": "Candidate policy and isolated dispatch fixtures cover direct skill filing and planned-item refusal; live release proof remains pending.",
