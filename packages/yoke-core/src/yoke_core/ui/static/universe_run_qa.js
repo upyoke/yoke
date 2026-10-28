@@ -25,7 +25,9 @@ export function runQaSection(context, row, rawChecks, onAct, options = {}) {
   const drawn = options.drawnRequestIds || new Set();
   const gates = runDecisionGates(row).filter(
     (gate) => !drawn.has(String(gate.request_id)));
-  if (!checks.length && !gates.length) return runFinalizationNote(context.document, row);
+  if (!checks.length && !groups.length && !gates.length) {
+    return runFinalizationNote(context.document, row);
+  }
   const section = qaScopeSection(context, {
     heading: "Run QA",
     headingTag: options.headingTag,

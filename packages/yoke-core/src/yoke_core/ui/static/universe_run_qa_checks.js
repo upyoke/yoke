@@ -112,8 +112,15 @@ export function runHumanDecision(gates) {
     ? decidedOutcome(gate.resolution_action) : "pending")));
 }
 
+// A failure an earlier run recorded and a takeover carried here. It is not
+// this run's failure: item-qa runs the check again.
+function inheritedFailure(check) {
+  return Boolean(check?.verdict_run_id) && outcomeState(check) === "failed";
+}
+
 // A section heading's verdict: a person's open or refused decision when one
-// is owed, otherwise the checks' own tally.
+// is owed, otherwise the checks' own tally. An inherited failure reads as
+// open, naming the run that recorded it.
 export function runQaVerdict(checks, decision) {
   if (decision === "pending") {
     return { text: "Awaiting approval", tone: "is-awaiting" };
@@ -130,9 +137,12 @@ export function runQaVerdict(checks, decision) {
   const queued = checks.filter((check) => !check.pending_obligation
     && outcomeState(check) !== "passed" && outcomeState(check) !== "failed").length;
   if (pending === checks.length) return { text: "Not started", tone: "is-awaiting" };
-  const open = [pending ? `${pending} pending` : "", queued ? `${queued} queued` : ""]
-    .filter(Boolean).join(" · ");
-  const failed = checks.some((check) => outcomeState(check) === "failed");
+  const inherited = [...new Set(checks.filter(inheritedFailure).map(
+    (check) => `Failed in ${check.verdict_run_id} · reruns at item-qa`))];
+  const open = [pending ? `${pending} pending` : "", queued ? `${queued} queued` : "",
+    ...inherited].filter(Boolean).join(" · ");
+  const failed = checks.some((check) => outcomeState(check) === "failed"
+    && !inheritedFailure(check));
   return {
     text: open ? `${passed} of ${checks.length} passed · ${open}` : `${passed} of ${checks.length} passed`,
     tone: open && !failed ? "is-awaiting" : (passed === checks.length ? "is-approved" : "is-rejected"),
@@ -145,10 +155,10 @@ function ownArtifacts(check) {
   }));
 }
 
-// Where an earlier attempt came from, when it is not the run on screen: its
-// own run, linked, or the merge it verified.
+// Where an earlier attempt came from, when it is not the run on screen: the
+// run that recorded its result, linked, or the merge it verified.
 function provenance(documentNode, check, { runId, project }) {
-  const recorded = String(check.deployment_run_id || "");
+  const recorded = String(check.verdict_run_id ?? check.deployment_run_id ?? "");
   if (recorded && recorded !== String(runId || "")) {
     const link = el(documentNode, "a", "run-qa-check-run",
       `Run ${recorded.replace(/^run-/, "")}`);

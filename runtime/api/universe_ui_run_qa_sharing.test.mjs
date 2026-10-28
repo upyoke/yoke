@@ -9,6 +9,7 @@ import {
   loadCarriedItemEvidence,
 } from "../../packages/yoke-core/src/yoke_core/ui/static/universe_carried_item_evidence.js";
 import { runQaSection } from "../../packages/yoke-core/src/yoke_core/ui/static/universe_run_qa.js";
+import { appendSharedPlanPointers } from "../../packages/yoke-core/src/yoke_core/ui/static/run_qa_sharing.js";
 import { appendRemovedMembers } from "../../packages/yoke-core/src/yoke_core/ui/static/universe_run_removed_members.js";
 import {
   fillRunQaReviewChecks,
@@ -73,7 +74,7 @@ test("Run QA draws a shared plan once, labelled, and counts each live check once
   const section = runQaSection({ document: documentNode, projects: () => [] },
     { id: RUN, project_id: 1, gates: [] }, runChecks, null, { sharing });
   const [label] = byClass(section, "run-qa-shared-label");
-  assert.equal(text(label), "Installer campaign · Shared by YOK-3935, YOK-3966");
+  assert.equal(text(label), "Installer campaign · Covers: YOK-3935, YOK-3966");
   const [group] = byClass(section, "run-qa-shared-group");
   assert.equal(byClass(group, "run-qa-check").length, 2);
   assert.equal(text(byClass(section, "run-verdict")[0]), "2 of 3 passed · 1 queued");
@@ -95,8 +96,8 @@ test("items point at the shared plan and keep a tile when shared-only", async ()
   }
   const pointers = byClass(host, "item-qa-shared-pointer").map(text);
   assert.deepEqual(pointers, [
-    "shares Installer campaign (2) — see Run QA",
-    "shares Installer campaign (2) — see Run QA",
+    "shares Installer campaign (2) · Covers: YOK-3935, YOK-3966 — see Run QA",
+    "shares Installer campaign (2) · Covers: YOK-3935, YOK-3966 — see Run QA",
   ]);
   const verdicts = byClass(host, "run-verdict").map(text);
   assert.deepEqual(verdicts, ["0 own checks, shares Installer campaign", "1 of 1 passed"]);
@@ -137,6 +138,30 @@ test("the Inbox run review groups shared checks the same way", () => {
   const card = runQaReviewCard(context, row, {});
   fillRunQaReviewChecks(context, card, row, { rows: runChecks, sharing });
   assert.equal(text(byClass(card, "run-qa-shared-label")[0]),
-    "Installer campaign · Shared by YOK-3935, YOK-3966");
+    "Installer campaign · Covers: YOK-3935, YOK-3966");
   assert.equal(byClass(byClass(card, "run-qa-shared-group")[0], "run-qa-check").length, 2);
+});
+
+test("a plan shared before item-qa copies it draws its cases once", () => {
+  const documentNode = new FakeDocument();
+  const cases = ["first", "second"].map((key) => ({
+    plan_id: 2, plan: "setup-walk", project_id: 1, case_key: key, method_name: "Terminal",
+    qa_phase: "post_deploy", pending_obligation: true }));
+  const pending = { shared_plans: [{ plan_id: 2, plan: "setup-walk", plan_name: "Setup walk",
+    case_count: 2, pending: true, cases, sharing_public_refs: ["YOK-1", "YOK-2"] }],
+  removed_members: [] };
+  const section = runQaSection({ document: documentNode, projects: () => [] },
+    { id: RUN, project_id: 1, gates: [] }, [], null, { sharing: pending });
+  const groups = byClass(section, "run-qa-shared-group");
+  assert.equal(groups.length, 1);
+  assert.equal(byClass(groups[0], "run-qa-check").length, pending.shared_plans[0].case_count);
+  assert.match(text(byClass(section, "run-qa-shared-label")[0]), /Covers: YOK-1, YOK-2/);
+  assert.equal(text(byClass(section, "run-verdict")[0]), "Not started");
+  assert.deepEqual(byClass(section, "run-qa-check-outcome").map(text),
+    ["Not started", "Not started"]);
+  const host = documentNode.createElement("div");
+  appendSharedPlanPointers(documentNode, host, pending.shared_plans);
+  assert.deepEqual(byClass(host, "item-qa-shared-pointer").map(text),
+    ["shares Setup walk (2) · Covers: YOK-1, YOK-2 — see Run QA"]);
+  assert.equal(byClass(host, "run-qa-check").length, 0);
 });

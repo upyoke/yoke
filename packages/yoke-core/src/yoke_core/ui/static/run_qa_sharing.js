@@ -38,7 +38,7 @@ export function sharedPlanName(plan) {
 
 export function sharedByLabel(plan) {
   const sharing = refs(plan);
-  return sharing.length ? `Shared by ${sharing.join(", ")}` : "Shared";
+  return sharing.length ? `Covers: ${sharing.join(", ")}` : "Shared";
 }
 
 export function memberSharedPlans(sharing, itemRef) {
@@ -53,7 +53,8 @@ export function cancelledLabel(count) {
 
 // Run QA's checks split into the release's own and one group per shared
 // plan. A check of a plan this read does not name stays with the release's
-// own, so nothing is dropped when the facts are absent.
+// own, so nothing is dropped when the facts are absent. A pending plan —
+// shared before item-qa copies it — draws its cases as not-started checks.
 export function groupRunChecks(checks, sharing) {
   const plans = new Map((sharing?.shared_plans || []).map(
     (plan) => [String(plan.plan_id), { plan, checks: [] }]));
@@ -65,18 +66,19 @@ export function groupRunChecks(checks, sharing) {
   }
   return {
     own,
-    groups: [...plans.values()].filter((group) => group.checks.length).map(
-      ({ plan, checks: planChecks }) => ({
-        label: `${sharedPlanName(plan)} · ${sharedByLabel(plan)}`, checks: planChecks,
-      })),
+    groups: [...plans.values()].map(({ plan, checks: planChecks }) => ({
+      label: `${sharedPlanName(plan)} · ${sharedByLabel(plan)}`,
+      checks: planChecks.length ? planChecks : (plan.cases || []),
+    })).filter((group) => group.checks.length),
   };
 }
 
-// "shares Installer campaign (28) — see Run QA", one line per shared plan.
+// "shares Installer campaign (28) · Covers: YOK-1, YOK-2 — see Run QA",
+// one line per shared plan.
 export function appendSharedPlanPointers(documentNode, host, plans) {
   for (const plan of plans) {
     host.appendChild(el(documentNode, "p", "item-qa-shared-pointer",
-      `shares ${sharedPlanName(plan)} (${Number(plan.case_count || 0)}) — see Run QA`));
+      `shares ${sharedPlanName(plan)} (${Number(plan.case_count || 0)}) · ${sharedByLabel(plan)} — see Run QA`));
   }
 }
 
