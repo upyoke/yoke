@@ -52,7 +52,10 @@ function planCard(documentNode, item, attachment, workflowId) {
     null,
     `${attachment.source || "attached plan"} · `,
   ));
-  if (workflowId === "epic") {
+  if (attachment.qa_phase === "post_deploy") {
+    subtitle.appendChild(el(documentNode, "span", null,
+      "runs once per release as a plan group — see Run QA"));
+  } else if (workflowId === "epic") {
     const transition = attachment.transition_id || attachment.qa_phase;
     subtitle.replaceChildren(el(
       documentNode,

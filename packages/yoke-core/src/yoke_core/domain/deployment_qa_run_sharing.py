@@ -1,18 +1,24 @@
-"""The QA a release's members share, and what removing a member cancelled.
+"""A release's plan groups and what removing a member cancelled.
 
-Every QA presentation draws a shared plan once, under Run QA, labelled with
-the members whose frozen selection attaches it; a member's own section only
-points at it. A removed member is drawn as removed with the count of checks
-its removal cancelled, never as open QA. This read is the single source of
-both facts for the run page, Shipping and the Inbox.
+Every QA presentation draws a plan group once, under Run QA, labelled with
+the items it answers; an item's own section only points at it. A plan group
+is keyed by its ``group_id``, never by plan id: a run may hold a closed group
+and an open group of one plan. An attached plan with no group yet shows as
+``pending``; a closed group of an earlier run in the ``supersedes_run_id``
+chain that answered a current member shows with that run's id. A removed
+member is drawn as removed with the count of checks its removal cancelled,
+never as open QA. This read is the single source of both facts for the run
+page, Shipping and the Inbox.
 """
 
 from __future__ import annotations
 
+import json
 from collections import defaultdict
 from typing import Any, Iterable
 
 from yoke_core.domain.db_helpers import query_rows
+from yoke_core.domain.deployment_qa_plan_groups import attached_plans, group_marker
 from yoke_core.domain.runs import TERMINAL_RUN_STATUSES
 
 
@@ -20,97 +26,66 @@ def _markers(values) -> str:
     return ",".join("%s" for _ in values)
 
 
-def _snapshot_plan_ids(raw: Any) -> set[int]:
-    from yoke_core.domain.deployment_member_qa_sources import decoded
-
-    try:
-        snapshot = decoded(raw, {})
-    except ValueError:
-        # The canonical subject reader reports a malformed snapshot.
-        return set()
-    if not isinstance(snapshot, dict):
-        return set()
-    ids = set()
-    for entry in snapshot.get("plans") or []:
-        plan = entry.get("plan") if isinstance(entry, dict) else None
-        if isinstance(plan, dict) and plan.get("id") is not None:
-            ids.add(int(plan["id"]))
-    # A plan reaches a member through an admitted plan requirement as well.
-    for requirement in snapshot.get("requirements") or []:
-        if isinstance(requirement, dict) and requirement.get("plan_id") is not None:
-            ids.add(int(requirement["plan_id"]))
-    return ids
-
-
-def _live_attachments(conn: Any, item_ids: set[int]) -> dict[int, set[int]]:
-    from yoke_core.domain.qa_plan_attachment_reads import live_item_attachment_sql
-
-    if not item_ids:
-        return {}
-    from yoke_core.domain.deployment_qa_presentation_facts import (
-        attachment_rows,
-        presented_member_ids,
-    )
-
-    members = presented_member_ids(conn)
-    if members is not None and item_ids <= set(members):
-        return {
-            item: {
-                int(row["plan_id"])
-                for row in attachment_rows(conn, item)
-                if row["live"]
-            }
-            for item in item_ids
-        }
-    items = tuple(sorted(item_ids))
-    attached: dict[int, set[int]] = defaultdict(set)
+def _lineages(conn: Any, runs: tuple[str, ...]) -> dict[str, list[str]]:
+    """Each run's ``supersedes_run_id`` chain, oldest last, in one read."""
+    lineages: dict[str, list[str]] = {run: [] for run in runs}
     for row in query_rows(
         conn,
-        "SELECT a.item_id,a.plan_id FROM qa_plan_item_attachments a "
-        f"WHERE a.item_id IN ({_markers(items)}) AND a.qa_phase='post_deploy' "
-        f"AND {live_item_attachment_sql(conn, 'a')}",
-        items,
+        "WITH RECURSIVE chain(root,id,supersedes_run_id,depth) AS ("
+        "SELECT id,id,supersedes_run_id,0 FROM deployment_runs WHERE id=ANY(%s) "
+        "UNION ALL SELECT c.root,r.id,r.supersedes_run_id,c.depth+1 "
+        "FROM deployment_runs r JOIN chain c ON r.id=c.supersedes_run_id "
+        "WHERE c.depth<64) SELECT root,id FROM chain WHERE depth>0 ORDER BY root,depth",
+        (list(runs),),
     ):
-        attached[int(row["item_id"])].add(int(row["plan_id"]))
-    return attached
+        lineages[str(row["root"])].append(str(row["id"]))
+    return lineages
 
 
-def _shared_plan_counts(conn: Any, run_ids: tuple[str, ...]) -> dict:
-    """Shared plans per run with their live check count.
+def _plan_groups(conn: Any, run_ids: list[str]) -> dict[str, dict]:
+    """Every unretracted plan group of these runs, in one read, by ``group_id``.
 
-    An unretracted copy keeps its plan shared; only checks neither retracted
-    nor superseded are counted, so a corrected case counts once.
+    Only checks neither retracted nor superseded are counted, so a corrected
+    case counts once.
     """
-    from yoke_core.domain.deployment_qa_shared_plans import shared_target_identity
-    from yoke_core.domain.qa_obligation_settlement import unretracted_requirement_sql
-
-    rows = query_rows(
+    groups: dict[str, dict] = {}
+    retracted: set[str] = set()
+    for row in query_rows(
         conn,
-        "SELECT q.deployment_run_id,q.plan_id,q.execution_target_json,"
-        "q.superseded_by_requirement_id,p.slug,p.name "
+        "SELECT q.id,q.deployment_run_id,q.plan_id,q.execution_target_json,"
+        "q.covered_item_ids,q.retracted_at,q.superseded_by_requirement_id,p.slug,p.name "
         "FROM qa_requirements q JOIN qa_plans p ON p.id=q.plan_id "
-        f"WHERE q.deployment_run_id IN ({_markers(run_ids)}) "
-        "AND q.deployment_member_item_id IS NULL AND q.qa_phase='post_deploy' "
-        f"AND {unretracted_requirement_sql(conn, 'q')}",
-        run_ids,
-    )
-    counts: dict = defaultdict(dict)
-    for row in rows:
-        if not shared_target_identity(row["execution_target_json"]):
+        "WHERE q.deployment_run_id=ANY(%s) AND q.deployment_member_item_id IS NULL "
+        "AND q.plan_id IS NOT NULL ORDER BY q.id",
+        (sorted(set(run_ids)),),
+    ):
+        marker = group_marker(row["execution_target_json"])
+        if marker is None:
             continue
-        plan_id = int(row["plan_id"])
-        entry = counts[str(row["deployment_run_id"])].setdefault(
-            plan_id,
+        group_id = str(marker["group_id"])
+        if row["retracted_at"] is not None:
+            # A retraction withdraws the whole group; a later attacher gets a new one.
+            retracted.add(group_id)
+        group = groups.setdefault(
+            group_id,
             {
-                "plan_id": plan_id,
+                "group_id": group_id,
+                "plan_id": int(row["plan_id"]),
                 "plan": row["slug"],
                 "plan_name": row["name"] or row["slug"],
+                "run_id": str(row["deployment_run_id"]),
                 "case_count": 0,
+                "covered_item_ids": None,
             },
         )
-        if row["superseded_by_requirement_id"] is None:
-            entry["case_count"] += 1
-    return counts
+        covered = row["covered_item_ids"]
+        if isinstance(covered, str):
+            covered = json.loads(covered)
+        if covered is not None:
+            group["covered_item_ids"] = sorted(int(item) for item in covered)
+        if row["retracted_at"] is None and row["superseded_by_requirement_id"] is None:
+            group["case_count"] += 1
+    return {key: value for key, value in groups.items() if key not in retracted}
 
 
 def cancelled_check_counts(conn: Any, removed: dict[str, list[int]]) -> dict:
@@ -167,7 +142,7 @@ def removed_members(conn: Any, run_ids: tuple[str, ...]) -> dict:
 
 
 def _sharing_members(conn, runs):
-    """Reuse the presentation's frozen rows and status; scalar reads keep their set."""
+    """Reuse the presentation's member rows and status; scalar reads keep their set."""
     from yoke_core.domain.deployment_qa_presentation_facts import run_member_rows
 
     batches = [run_member_rows(conn, run) for run in runs]
@@ -178,7 +153,7 @@ def _sharing_members(conn, runs):
         )
     return query_rows(
         conn,
-        "SELECT dri.run_id,dri.item_id,dri.requirement_snapshot,dr.status "
+        "SELECT dri.run_id,dri.item_id,dr.status "
         "FROM deployment_run_items dri JOIN deployment_runs dr ON dr.id=dri.run_id "
         f"WHERE dri.run_id IN ({_markers(runs)}) ORDER BY dri.item_id",
         runs,
@@ -186,7 +161,7 @@ def _sharing_members(conn, runs):
 
 
 def _pending_plans(conn: Any, plan_ids: set[int]) -> dict[int, dict]:
-    """Plans no copy exists for yet, with their cases, in one read."""
+    """Owed plans with no plan group yet, with their cases, in one read."""
     if not plan_ids:
         return {}
     plans: dict[int, dict] = {}
@@ -224,75 +199,107 @@ def _pending_plans(conn: Any, plan_ids: set[int]) -> dict[int, dict]:
     return plans
 
 
-def run_qa_sharing(conn: Any, run_ids: Iterable[str]) -> dict[str, dict]:
-    """Per run: ``shared_plans`` with their sharing members, ``removed_members``.
+def _run_entries(
+    run: str,
+    groups: dict[str, dict],
+    earlier: list[str],
+    members: set[int],
+    attached: dict[int, list[int]] | None,
+) -> tuple[list[dict], dict[int, list[int]]]:
+    """One run's plan groups, earlier-run closed groups it answers, and owed plans.
 
-    An active run whose members attach one plan before any copy exists
-    already shares it: the entry is ``pending`` and carries the plan's cases,
-    so every surface draws it once before item-qa materializes it.
+    ``attached`` is None for a finished run: it keeps the groups it held.
+    """
+    entries: list[dict] = []
+    covered: dict[int, set[int]] = defaultdict(set)
+    open_plans: set[int] = set()
+    for group in groups.values():
+        closed = group["covered_item_ids"] is not None
+        if group["run_id"] == run:
+            if closed:
+                sharing = group["covered_item_ids"]
+                covered[group["plan_id"]].update(sharing)
+            else:
+                open_plans.add(group["plan_id"])
+                sharing = (attached or {}).get(group["plan_id"], [])
+            entries.append(
+                {**group, "closed": closed, "earlier_run_id": None,
+                 "sharing_item_ids": list(sharing)}
+            )
+        elif group["run_id"] in earlier and closed:
+            answered = members.intersection(group["covered_item_ids"])
+            if not answered:
+                continue
+            covered[group["plan_id"]].update(answered)
+            entries.append(
+                {**group, "closed": True, "earlier_run_id": group["run_id"],
+                 "sharing_item_ids": list(group["covered_item_ids"])}
+            )
+    owed = {
+        plan_id: [item for item in items if item not in covered[plan_id]]
+        for plan_id, items in (attached or {}).items()
+        if plan_id not in open_plans
+    }
+    return entries, {plan_id: items for plan_id, items in owed.items() if items}
+
+
+def run_qa_sharing(conn: Any, run_ids: Iterable[str]) -> dict[str, dict]:
+    """Per run: ``plan_groups`` with the items each answers, ``removed_members``.
+
+    An active run whose members attach a plan before its group exists shows
+    the plan ``pending`` with its cases, so every surface draws it once
+    before item-qa creates the group. Group rows are read once for every run
+    on the page and the runs they superseded.
     """
     runs = tuple(sorted({str(run) for run in run_ids if run}))
     if not runs:
         return {}
-    counts = _shared_plan_counts(conn, runs)
-    sharing: dict = defaultdict(lambda: defaultdict(list))
     members = _sharing_members(conn, runs)
-    active = {
-        str(row["run_id"])
-        for row in members
-        if str(row["status"]) not in TERMINAL_RUN_STATUSES
-    }
-    attached = _live_attachments(
-        conn, {int(row["item_id"]) for row in members if str(row["run_id"]) in active}
-    )
+    by_run: dict[str, set[int]] = defaultdict(set)
+    active = set()
     for row in members:
-        run_id, item = str(row["run_id"]), int(row["item_id"])
-        plans = _snapshot_plan_ids(row["requirement_snapshot"])
-        # An active release answers the member's current attachments,
-        # as its Item QA does; a finished one keeps its frozen selection.
-        if run_id in active:
-            plans |= attached.get(item, set())
-        for plan_id in sorted(plans):
-            if plan_id in counts[run_id] or run_id in active:
-                sharing[run_id][plan_id].append(item)
-    waiting = {
-        (run, plan_id)
-        for run in active
-        for plan_id, items in sharing[run].items()
-        if plan_id not in counts[run] and len(items) > 1
-    }
-    pending = _pending_plans(conn, {plan_id for _, plan_id in waiting})
-    for run, plan_id in waiting:
-        plan = pending.get(plan_id)
-        if plan is not None:
-            counts[run][plan_id] = {
-                **plan, "case_count": len(plan["cases"]), "pending": True,
-            }
+        by_run[str(row["run_id"])].add(int(row["item_id"]))
+        if str(row["status"]) not in TERMINAL_RUN_STATUSES:
+            active.add(str(row["run_id"]))
+    lineages = _lineages(conn, runs)
+    groups = _plan_groups(
+        conn, [*runs, *(run for chain in lineages.values() for run in chain)]
+    )
+    entries: dict[str, list[dict]] = {}
+    owed: dict[str, dict[int, list[int]]] = {}
+    for run in runs:
+        entries[run], owed[run] = _run_entries(
+            run, groups, lineages[run], by_run[run],
+            attached_plans(conn, run) if run in active else None,
+        )
+    pending = _pending_plans(conn, {plan for plans in owed.values() for plan in plans})
+    for run, plans in owed.items():
+        for plan_id, items in sorted(plans.items()):
+            plan = pending.get(plan_id)
+            if plan is None:
+                continue
+            entries[run].append(
+                {**plan, "group_id": None, "run_id": None, "case_count": len(plan["cases"]),
+                 "covered_item_ids": None, "closed": False, "earlier_run_id": None,
+                 "pending": True, "sharing_item_ids": items}
+            )
     removed = removed_members(conn, runs)
     return {
         run: {
-            "shared_plans": [
-                {**plan, "sharing_item_ids": sharing[run][plan_id]}
-                for plan_id, plan in sorted(counts.get(run, {}).items())
-            ],
+            "plan_groups": sorted(
+                entries[run],
+                # Stable: a plan's groups keep creation order after earlier runs'.
+                key=lambda entry: (entry["plan_id"], entry["earlier_run_id"] is None,
+                                   entry.get("pending", False)),
+            ),
             "removed_members": removed.get(run, []),
         }
         for run in runs
     }
 
 
-def member_shared_plan_ids(sharing: dict, run_id: str, member: int) -> set[int]:
-    """Plans a member shares on one run; their checks never enter its section."""
-    return {
-        int(plan["plan_id"])
-        for plan in (sharing.get(str(run_id)) or {}).get("shared_plans", [])
-        if int(member) in plan["sharing_item_ids"]
-    }
-
-
 __all__ = [
     "cancelled_check_counts",
-    "member_shared_plan_ids",
     "removed_members",
     "run_qa_sharing",
 ]

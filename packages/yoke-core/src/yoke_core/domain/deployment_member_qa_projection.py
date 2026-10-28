@@ -1,4 +1,8 @@
-"""Read a carried member's obligations before deployment cases are created."""
+"""Read a carried member's item cases before deployment cases are created.
+
+A post-deploy plan is no member's obligation here: it runs once per release as
+a plan group, drawn under Run QA by ``deployment_qa_run_sharing``.
+"""
 
 from yoke_core.domain.deployment_overview_timing import overview_phase
 
@@ -15,18 +19,10 @@ from yoke_core.domain.deployment_member_qa_sources import (
 from yoke_core.domain.qa_activity_reads import _list_activity
 from yoke_core.domain.qa_execution_environment_target import target_digest
 from yoke_core.domain.deployment_qa_presentation_reads import presentation_operation
-from yoke_core.domain.deployment_qa_run_sharing import (
-    member_shared_plan_ids,
-    run_qa_sharing,
-)
 
 
 def _copy_matches(conn, row, member, run, *, historical):
-    """A same-title or former-target result cannot answer this release.
-
-    A shared copy has no owner and is drawn once under Run QA, never inside
-    any one member's section.
-    """
+    """A same-title or former-target result cannot answer this release."""
     from yoke_core.domain.deployment_qa_stage_contract import (
         deployment_qa_stage_subject,
     )
@@ -75,9 +71,7 @@ def _member_qa_obligations(conn, runs, members):
             for m in members.get(str(run["id"]), [])
         }
     )
-    sources, plans = current_sources(conn, active_ids)
-    sharing = run_qa_sharing(conn, run_ids)
-    environments = _environments(conn, members)
+    sources = current_sources(conn, active_ids)
     copies = query_rows(
         conn,
         "SELECT q.id,q.deployment_run_id,q.deployment_stage,q.deployment_member_item_id,"
@@ -86,6 +80,7 @@ def _member_qa_obligations(conn, runs, members):
         "q.replacement_requirement_id,q.method_id,q.method_config,q.instructions,"
         "q.expected_outcome FROM qa_requirements q "
         f"WHERE q.deployment_run_id IN ({markers}) "
+        "AND q.deployment_member_item_id IS NOT NULL "
         "AND q.qa_phase='post_deploy' AND q.qa_kind<>'deployment_stage_acceptance' "
         "ORDER BY q.id DESC",
         run_ids,
@@ -112,16 +107,11 @@ def _member_qa_obligations(conn, runs, members):
                 snapshot = decoded(snapshots.get(key), {}) if historical else {}
                 selected = definitions(
                     snapshot.get("requirements", []) if historical else sources[key[1]],
-                    snapshot.get("plans", []) if historical else plans[key[1]],
-                    environments=environments,
                     environment_names=names,
                     dynamic=dynamic,
                 )
-                shared = member_shared_plan_ids(sharing, run_id, key[1])
                 current, history, used = [], [], set()
                 for definition_key, definition in selected.items():
-                    if definition.get("plan_id") in shared:
-                        continue
                     candidates = [
                         row
                         for row in by_run[run_id]
@@ -228,21 +218,6 @@ def member_snapshot_rows(conn, run_ids):
     for row in rows:
         by_run[str(row["run_id"])][int(row["item_id"])] = row
     return by_run
-
-
-def _environments(conn, members):
-    projects = sorted(
-        {int(m["project_id"]) for values in members.values() for m in values}
-    )
-    return {
-        int(row["id"]): str(row["name"])
-        for row in query_rows(
-            conn,
-            "SELECT e.id,e.name FROM environments e JOIN sites s ON s.id=e.site "
-            f"WHERE s.project_id IN ({','.join('%s' for _ in projects)})",
-            tuple(projects),
-        )
-    }
 
 
 def _pending(definition, run_id, member):

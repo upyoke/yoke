@@ -1,211 +1,213 @@
-"""Shared plans count once under Run QA; withdrawn checks leave every count."""
+"""Run QA draws each plan group once, keyed by group id, at any attacher count."""
 
 import json
+from collections import Counter
 
-import pytest
-
-from runtime.api.domain.test_deployment_member_qa_copies import read
-from runtime.api.domain.test_deployment_qa_shared_plans import (
-    MEMBERS,
-    RUN,
-    _materialize,
-    _seed,
-)
-from runtime.api.domain.test_deployment_qa_stage_execution import _plan
+from runtime.api.domain.test_deployment_qa_stage_execution import _plan, _seed_run, _stages
+from runtime.api.fixtures.backlog_qa_inserts import insert_qa_requirement
+from yoke_core.domain.deployment_qa_plan_group_writes import ensure_groups
 from yoke_core.domain.deployment_qa_run_sharing import run_qa_sharing
 from yoke_core.domain.deployment_run_member_presentation import removed_member_items
 from yoke_core.domain.qa_activity_reads import read_activity
 
-
-def _private_plan(conn, member, slug):
-    from runtime.api.domain.test_deployment_qa_shared_plans import _attach
-
-    plan_id = _plan(conn, slug)
-    _attach(conn, member, plan_id)
-    return _materialize(conn, member)["created_requirement_ids"]
+RUN = "run-plan-groups"
+MEMBERS = (9901, 9902, 9903)
 
 
-def _remove(conn, member, reason="rides a later release"):
+def _attach(conn, member, plan_id):
     conn.execute(
-        "UPDATE deployment_runs SET membership_removals=%s WHERE id=%s",
-        (
-            json.dumps(
-                [
-                    {
-                        "item_id": member,
-                        "reason": reason,
-                        "removed_at": "2026-10-17T00:00:00Z",
-                    }
-                ]
-            ),
-            RUN,
-        ),
-    )
-    conn.execute(
-        "UPDATE qa_requirements SET retracted_at='2026-10-17T00:00:00Z',"
-        "retraction_source='operator',retraction_rationale=%s "
-        "WHERE deployment_run_id=%s AND deployment_member_item_id=%s",
-        (reason, RUN, member),
-    )
-    conn.execute(
-        "DELETE FROM deployment_run_items WHERE run_id=%s AND item_id=%s",
-        (RUN, member),
+        "INSERT INTO qa_plan_item_attachments(item_id,plan_id,transition_id,qa_phase,attached_at) "
+        "VALUES (%s,%s,'release','post_deploy','2026-10-14T00:00:00Z')",
+        (member, plan_id),
     )
     conn.commit()
 
 
-def test_plan_attached_by_several_members_is_one_run_group(test_db):
-    plan_id = _seed(test_db)
-    shared = _materialize(test_db, MEMBERS[0])["created_requirement_ids"]
-    _materialize(test_db, MEMBERS[1])
-    own = _private_plan(test_db, MEMBERS[1], "member-own")
-    sharing = run_qa_sharing(test_db, [RUN])[RUN]
-    assert sharing["shared_plans"] == [
-        {
-            "plan_id": plan_id,
-            "plan": "release-smoke",
-            "plan_name": "Release smoke",
-            "case_count": len(shared),
-            "sharing_item_ids": list(MEMBERS),
-        }
-    ]
-    projected = read(test_db, RUN, MEMBERS)
-    assert projected[(RUN, MEMBERS[0])]["current"] == []
-    assert [
-        row["requirement_id"] for row in projected[(RUN, MEMBERS[1])]["current"]
-    ] == own
-    activity = read_activity(test_db, project="yoke", deployment_run_id=RUN)
-    assert activity["run_sharing"] == {RUN: sharing}
-    assert sorted(row["requirement_id"] for row in activity["rows"]) == sorted(
-        shared + own
+def _seed_three(conn, run_id=RUN, *, existing=False):
+    """Three members attach one plan; only the first attaches a second plan."""
+    plan_id = _plan(conn) if not existing else _plan_id(conn, "release-smoke")
+    lone = _plan(conn, "lone-plan") if not existing else _plan_id(conn, "lone-plan")
+    stages = _stages(plan_id)
+    stages[1].pop("cases")
+    if existing:
+        _seed_run(conn, run_id=run_id, stages=stages, members=(), existing_members=MEMBERS)
+        return plan_id, lone
+    _seed_run(conn, run_id=run_id, stages=stages, members=MEMBERS)
+    for member in MEMBERS:
+        _attach(conn, member, plan_id)
+    _attach(conn, MEMBERS[0], lone)
+    return plan_id, lone
+
+
+def _plan_id(conn, slug):
+    return int(conn.execute("SELECT id FROM qa_plans WHERE slug=%s", (slug,)).fetchone()[0])
+
+
+def _form_groups(conn, run_id=RUN):
+    created = ensure_groups(conn, run_id, "item-qa")
+    conn.commit()
+    return created
+
+
+def _close(conn, group_id, covered):
+    conn.execute(
+        "UPDATE qa_requirements SET covered_item_ids=%s "
+        "WHERE execution_target_json::jsonb->'deployment'->'shared_plan'->>'group_id'=%s",
+        (json.dumps(sorted(covered)), group_id),
     )
+    conn.commit()
+
+
+def _summary(sharing):
+    return [
+        (
+            entry["plan_id"], entry["group_id"], entry["closed"], entry["earlier_run_id"],
+            entry["case_count"], entry["sharing_item_ids"], entry.get("pending", False),
+        )
+        for entry in sharing["plan_groups"]
+    ]
+
+
+def test_each_attached_plan_shows_pending_until_its_group_exists(test_db):
+    plan_id, lone = _seed_three(test_db)
+    before = run_qa_sharing(test_db, [RUN])[RUN]
+    assert _summary(before) == [
+        (plan_id, None, False, None, 1, list(MEMBERS), True),
+        (lone, None, False, None, 1, [MEMBERS[0]], True),
+    ]
+    assert before["plan_groups"][0]["cases"][0]["case_key"] == "command-smoke"
+    assert before["plan_groups"][0]["cases"][0]["pending_obligation"] is True
+
+    assert len(_form_groups(test_db)) == 2
+    after = run_qa_sharing(test_db, [RUN])[RUN]
+    # One group per plan, whether three items attach it or one.
+    assert _summary(after) == [
+        (plan_id, f"{RUN}:1", False, None, 1, list(MEMBERS), False),
+        (lone, f"{RUN}:2", False, None, 1, [MEMBERS[0]], False),
+    ]
+    assert all("cases" not in entry for entry in after["plan_groups"])
+    activity = read_activity(test_db, project="yoke", deployment_run_id=RUN)
+    assert activity["run_sharing"] == {RUN: after}
+
+
+def test_closed_and_open_groups_of_one_plan_show_separately(test_db):
+    plan_id, lone = _seed_three(test_db)
+    _form_groups(test_db)
+    _close(test_db, f"{RUN}:1", [MEMBERS[0]])
+    _form_groups(test_db)
+    entries = [
+        entry for entry in run_qa_sharing(test_db, [RUN])[RUN]["plan_groups"]
+        if entry["plan_id"] == plan_id
+    ]
+    assert [(e["group_id"], e["closed"], e["covered_item_ids"]) for e in entries] == [
+        (f"{RUN}:1", True, [MEMBERS[0]]),
+        (f"{RUN}:3", False, None),
+    ]
+    assert entries[0]["sharing_item_ids"] == [MEMBERS[0]]
+
+
+def test_closed_group_of_an_earlier_run_is_labelled_with_that_run(test_db):
+    plan_id, lone = _seed_three(test_db)
+    _form_groups(test_db)
+    _close(test_db, f"{RUN}:1", list(MEMBERS[:2]))
+    successor = "run-plan-groups-next"
+    test_db.execute("UPDATE deployment_runs SET status='failed' WHERE id=%s", (RUN,))
+    _seed_three(test_db, successor, existing=True)
+    test_db.execute(
+        "UPDATE deployment_runs SET supersedes_run_id=%s WHERE id=%s", (RUN, successor)
+    )
+    test_db.commit()
+    sharing = run_qa_sharing(test_db, [successor])[successor]
+    assert _summary(sharing) == [
+        (plan_id, f"{RUN}:1", True, RUN, 1, list(MEMBERS[:2]), False),
+        (plan_id, None, False, None, 1, [MEMBERS[2]], True),
+        (lone, None, False, None, 1, [MEMBERS[0]], True),
+    ]
+    # The earlier run keeps its own groups and owes nothing new.
+    earlier = run_qa_sharing(test_db, [RUN])[RUN]
+    assert [(e["group_id"], e["earlier_run_id"]) for e in earlier["plan_groups"]] == [
+        (f"{RUN}:1", None),
+        (f"{RUN}:2", None),
+    ]
+
+
+def test_superseded_and_retracted_rows_leave_group_counts(test_db):
+    plan_id, lone = _seed_three(test_db)
+    _form_groups(test_db)
+    rows = {
+        str(row[1]): int(row[0])
+        for row in test_db.execute(
+            "SELECT id,plan_id FROM qa_requirements WHERE deployment_run_id=%s "
+            "AND plan_id IS NOT NULL",
+            (RUN,),
+        ).fetchall()
+    }
+    test_db.execute(
+        "UPDATE qa_requirements SET superseded_by_requirement_id=id WHERE id=%s",
+        (rows[str(plan_id)],),
+    )
+    test_db.execute(
+        "UPDATE qa_requirements SET retracted_at='2026-10-17T00:00:00Z' WHERE id=%s",
+        (rows[str(lone)],),
+    )
+    test_db.commit()
+    entries = run_qa_sharing(test_db, [RUN])[RUN]["plan_groups"]
+    # The retracted group is never shown or reused; its plan is owed again.
+    assert [(e["plan_id"], e["group_id"], e["case_count"]) for e in entries] == [
+        (plan_id, f"{RUN}:1", 0),
+        (lone, None, 1),
+    ]
 
 
 def test_removed_member_shows_cancelled_checks_not_open_qa(test_db):
-    _seed(test_db)
-    _materialize(test_db, MEMBERS[0])
-    own = _private_plan(test_db, MEMBERS[1], "removed-own")
-    _remove(test_db, MEMBERS[1])
+    _seed_three(test_db)
+    own = insert_qa_requirement(
+        test_db, item_id=None, deployment_run_id=RUN, deployment_member_item_id=MEMBERS[1],
+        deployment_stage="item-qa", qa_phase="post_deploy", method_id="command",
+    )
+    test_db.execute(
+        "UPDATE deployment_runs SET membership_removals=%s WHERE id=%s",
+        (json.dumps([{"item_id": MEMBERS[1], "reason": "rides a later release",
+                      "removed_at": "2026-10-17T00:00:00Z"}]), RUN),
+    )
+    test_db.execute(
+        "UPDATE qa_requirements SET retracted_at='2026-10-17T00:00:00Z' WHERE id=%s",
+        (own["id"],),
+    )
+    test_db.execute(
+        "DELETE FROM deployment_run_items WHERE run_id=%s AND item_id=%s", (RUN, MEMBERS[1])
+    )
+    test_db.commit()
     sharing = run_qa_sharing(test_db, [RUN])[RUN]
-    assert sharing["removed_members"] == [
-        {"item_id": MEMBERS[1], "cancelled_count": len(own)}
-    ]
+    assert sharing["removed_members"] == [{"item_id": MEMBERS[1], "cancelled_count": 1}]
+    assert all(MEMBERS[1] not in e["sharing_item_ids"] for e in sharing["plan_groups"])
     run = test_db.execute(
-        "SELECT id,created_at,membership_removals FROM deployment_runs WHERE id=%s",
-        (RUN,),
+        "SELECT id,created_at,membership_removals FROM deployment_runs WHERE id=%s", (RUN,)
     ).fetchone()
     (entry,) = removed_member_items(test_db, [dict(run)])[RUN]
-    assert entry["cancelled_check_count"] == len(own)
-    # The remaining member's frozen definitions never come back as pending.
-    projected = read(test_db, RUN, [MEMBERS[0]])[(RUN, MEMBERS[0])]
-    assert all(not row.get("pending_obligation") for row in projected["current"])
+    assert entry["cancelled_check_count"] == 1
 
 
-def test_withdrawn_member_checks_leave_current_without_pending(test_db):
-    _seed(test_db)
-    _materialize(test_db, MEMBERS[0])
-    own = _private_plan(test_db, MEMBERS[0], "superseded-own")
-    test_db.execute(
-        "UPDATE qa_requirements SET superseded_by_requirement_id=id WHERE id=%s",
-        (own[0],),
-    )
-    test_db.commit()
-    projected = read(test_db, RUN, [MEMBERS[0]])[(RUN, MEMBERS[0])]
-    assert "error" not in projected, projected
-    assert [row["requirement_id"] for row in projected["history"]] == own
-    assert projected["current"] == []
+class _Counted:
+    def __init__(self, conn):
+        self.conn, self.queries = conn, Counter()
+
+    def execute(self, sql, params=()):
+        self.queries[sql] += 1
+        return self.conn.execute(sql, params)
+
+    def __getattr__(self, name):
+        return getattr(self.conn, name)
 
 
-def test_superseded_shared_copy_leaves_the_group_count(test_db):
-    _seed(test_db)
-    shared = _materialize(test_db, MEMBERS[0])["created_requirement_ids"]
-    _materialize(test_db, MEMBERS[1])
-    test_db.execute(
-        "UPDATE qa_requirements SET superseded_by_requirement_id=id WHERE id=%s",
-        (shared[0],),
-    )
-    test_db.commit()
-    sharing = run_qa_sharing(test_db, [RUN])[RUN]
-    assert [plan["case_count"] for plan in sharing["shared_plans"]] == [len(shared) - 1]
-    # Still shared, so the superseded copy never falls back into a member.
-    projected = read(test_db, RUN, MEMBERS)
-    assert all(projected[(RUN, member)]["current"] == [] for member in MEMBERS)
-
-
-@pytest.mark.parametrize("status", ["executing", "succeeded"])
-def test_sharing_reuses_member_snapshot_and_attachment_sets(test_db, status):
-    from runtime.api.domain.test_deployment_shipping_reads import CountedConnection
-    from yoke_core.domain.deployment_qa_presentation_facts import member_presentation
-    from yoke_core.domain.deployment_qa_presentation_reads import presentation_operation
-
-    _seed(test_db)
-    _materialize(test_db, MEMBERS[0])
-    _materialize(test_db, MEMBERS[1])
-    test_db.execute("UPDATE deployment_runs SET status=%s WHERE id=%s", (status, RUN))
-    test_db.commit()
-    expected = run_qa_sharing(test_db, [RUN])
-    conn = CountedConnection(test_db)
-
-    @presentation_operation
-    @member_presentation
-    def read_shared(connection, subjects):
-        return run_qa_sharing(connection, [RUN])
-
-    subjects = [(RUN, member, "item-qa") for member in MEMBERS]
-    assert read_shared(conn, subjects) == expected
-    assert (
-        sum(n for sql, n in conn.queries.items() if "requirement_snapshot" in sql) == 1
-    )
-    assert not any("ORDER BY dri.item_id" in sql for sql in conn.queries)
-    assert not any("SELECT a.item_id,a.plan_id FROM" in sql for sql in conn.queries)
-    # The next presentation observes changed live attachments and membership.
-    _remove(test_db, MEMBERS[1])
-    assert read_shared(conn, subjects) == run_qa_sharing(test_db, [RUN])
-
-
-def _seed_three(conn):
-    from runtime.api.domain.test_deployment_qa_shared_plans import _attach
-    from runtime.api.domain.test_deployment_qa_stage_execution import _seed_run, _stages
-
-    members = (*MEMBERS, 9903)
-    plan_id = _plan(conn)
-    lone = _plan(conn, "lone-plan")
-    stages = _stages(plan_id)
-    stages[1].pop("cases")
-    _seed_run(conn, run_id=RUN, stages=stages, members=members)
-    for member in members:
-        _attach(conn, member, plan_id)
-    _attach(conn, members[0], lone)
-    return plan_id, lone, members
-
-
-def test_plan_attached_before_any_copy_is_one_pending_group(test_db):
-    plan_id, _, members = _seed_three(test_db)
-    (entry,) = run_qa_sharing(test_db, [RUN])[RUN]["shared_plans"]
-    assert entry == {
-        "plan_id": plan_id,
-        "plan": "release-smoke",
-        "plan_name": "Release smoke",
-        "case_count": 1,
-        "pending": True,
-        "sharing_item_ids": list(members),
-        "cases": [
-            {
-                "plan_id": plan_id,
-                "plan": "release-smoke",
-                "project_id": 1,
-                "case_key": "command-smoke",
-                "method_id": "command",
-                "method_name": entry["cases"][0]["method_name"],
-                "instructions": "run the frozen smoke command",
-                "qa_phase": "post_deploy",
-                "pending_obligation": True,
-            }
-        ],
-    }
-    # After item-qa materializes it, the copy owns the entry.
-    _materialize(test_db, members[0])
-    (entry,) = run_qa_sharing(test_db, [RUN])[RUN]["shared_plans"]
-    assert "pending" not in entry and "cases" not in entry
-    assert entry["case_count"] == 1
-    assert entry["sharing_item_ids"] == list(members)
+def test_group_rows_are_read_once_for_every_run_on_the_page(test_db):
+    _seed_three(test_db)
+    _form_groups(test_db)
+    other = "run-plan-groups-other"
+    _seed_three(test_db, other, existing=True)
+    expected = run_qa_sharing(test_db, [RUN, other])
+    conn = _Counted(test_db)
+    assert run_qa_sharing(conn, [RUN, other]) == expected
+    group_reads = [sql for sql in conn.queries if "covered_item_ids" in sql]
+    assert len(group_reads) == 1 and conn.queries[group_reads[0]] == 1
+    assert not any("deployment_member_item_id=%s" in sql for sql in conn.queries)

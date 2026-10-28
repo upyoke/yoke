@@ -156,6 +156,13 @@ export function classifyQaRow(row, rows = []) {
       `Earlier attempt, still blocking; corrected case #${row.replacement_requirement_id} discharges it when it passes.`,
     );
   }
+  // An item copy of a plan from before plan groups: history that counts in
+  // no gate. The plan now runs once per release as a plan group.
+  if (row.plan_id != null && row.public_ref != null && !row.deployment_run_id
+    && phaseOf(row) === "post_deploy") {
+    return state(QA_STATE.SUPERSEDED,
+      "Earlier item copy of a plan; the plan runs once per release as a plan group — see Run QA.");
+  }
   const sourceId = admittedSourceId(row);
   if (sourceId != null) {
     return state(
@@ -167,17 +174,6 @@ export function classifyQaRow(row, rows = []) {
   const hasCopy = (rows || []).some(
     (other) => admittedSourceId(other) === id,
   );
-  if (
-    row.public_ref != null
-    && !row.deployment_run_id
-    && phaseOf(row) === "post_deploy"
-    && hasCopy
-  ) {
-    return state(
-      QA_STATE.STANDING_SOURCE,
-      "Stays open so the next release admits the same body. Open is expected.",
-    );
-  }
   if (isPreMergeVerification(row) && passed(row)) {
     return state(QA_STATE.VERIFIED_ITEM);
   }

@@ -142,6 +142,9 @@ def test_failure_notice_is_inline_and_skips_its_verdict_producer(
         assert run_id in body and "item-qa" in body
         assert "yoke qa plan run --help" in body
         assert "\n" not in body
+        # A report naming another item is no reason to depend on its fix.
+        assert "record a closure dependency only when a finding is in this item" in body
+        assert "record its blocker" not in body
         message_id = test_db.execute(
             "SELECT message_id FROM session_messages WHERE idempotency_key=%s", (key,)
         ).fetchone()[0]
@@ -278,3 +281,24 @@ def test_run_recheck_reaches_a_holder_who_arrived_after_failure(test_db: Any) ->
     )
     assert code == -4
     assert _recipients(test_db, key) == [HOLDER_A]
+
+
+def test_failure_text_records_a_dependency_only_for_a_finding_in_its_own_item(capsys):
+    from yoke_core.domain.deployment_qa_failure_handoff import failure_handoff_message
+    from yoke_cli.commands.qa_case import qa_plan_run
+
+    body = failure_handoff_message(
+        run_id="run-x", stage="item-qa", item_ref="YOK-1", requirement_ids=(7,)
+    )
+    assert body.endswith(
+        "Classify the failure and fix a finding in this item; record a closure "
+        "dependency only when a finding is in this item and another item must land first."
+    )
+    assert qa_plan_run(["--help"]) == 0
+    help_text = " ".join(capsys.readouterr().out.split())
+    assert (
+        "Record a closure dependency only when a finding is in this item and "
+        "another item must land first" in help_text
+    )
+    assert "shared case" not in help_text and "frozen admissions" not in help_text
+    assert "runs the run's open plan group of P" in help_text

@@ -18,7 +18,7 @@ import {
 import { el, settledScopedCalls } from "./universe_view_support.js";
 import {
   appendSharedOnlyItemQa, appendSharedPlanPointers,
-  collectRunSharing, memberSharedPlans, sharingFor,
+  collectRunSharing, itemPlanGroups, sharingFor,
 } from "./run_qa_sharing.js";
 
 // How many checks one item may contribute, and how many items share a call.
@@ -251,7 +251,7 @@ export function appendCarriedItemEvidence(context, host, options = {}) {
   const itemId = carriedItemRef(item);
   if (itemId === null) return null;
   const sharing = sharingFor(facts, runId);
-  const sharedPlans = memberSharedPlans(sharing, itemId);
+  const planGroups = itemPlanGroups(sharing, itemId);
   const { checks } = carriedItemEvidence(facts, itemId, runId);
   const projection = item.qa_obligations;
   const projected = projection?.current || [];
@@ -273,8 +273,8 @@ export function appendCarriedItemEvidence(context, host, options = {}) {
 
   const documentNode = context.document;
   // A failed read cannot claim the item owns no checks.
-  if (!hasQa && !gates.length && !readError && sharedPlans.length) {
-    return appendSharedOnlyItemQa(documentNode, host, sharedPlans);
+  if (!hasQa && !gates.length && !readError && planGroups.length) {
+    return appendSharedOnlyItemQa(documentNode, host, planGroups);
   }
   if (!projection && !options.requireProjection && !hasQa && !noObligation
     && !gates.length && !readError) return null;
@@ -319,7 +319,7 @@ export function appendCarriedItemEvidence(context, host, options = {}) {
     head.appendChild(el(documentNode, "span", "run-verdict is-approved", "No obligation"));
     section.appendChild(el(documentNode, "p", "run-qa-check-reason", memberState.detail));
   }
-  appendSharedPlanPointers(documentNode, section, sharedPlans);
+  appendSharedPlanPointers(documentNode, section, planGroups);
   if (facts?.loading) section.appendChild(el(documentNode, "p",
     "carried-item-evidence-note", "Loading earlier item QA and decisions…"));
   if (readError) section.appendChild(el(documentNode, "p", "error", readError));

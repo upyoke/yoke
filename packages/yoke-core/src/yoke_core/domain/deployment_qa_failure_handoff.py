@@ -83,7 +83,9 @@ def failure_handoff_message(
         )
     return (
         f"{head}; recovery: `yoke qa plan run --help`."
-        " Classify the failure and start rework or record its blocker."
+        " Classify the failure and fix a finding in this item; record a closure"
+        " dependency only when a finding is in this item and another item must"
+        " land first."
     )
 
 

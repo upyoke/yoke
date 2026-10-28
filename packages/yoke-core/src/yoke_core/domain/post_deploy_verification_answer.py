@@ -248,15 +248,15 @@ def attach_standing_recipe(public_ref: str, *, project: str, transition: str) ->
 
 
 #: Why the third choice is named everywhere the other two are, even where it
-#: cannot be taken yet. Selecting a plan with ``--plan`` on a running stage
-#: and attaching one to the item are both legitimate and mean different
-#: things, so a prompt that silently defaulted to either would be teaching
-#: one of them as the answer.
+#: cannot be taken yet. Running a plan group with ``--plan`` on a running
+#: stage and attaching a plan to the item are both legitimate and mean
+#: different things, so a prompt that silently defaulted to either would be
+#: teaching one of them as the answer.
 RUN_SCOPED_NOTE = (
-    "A third choice exists and is not this one: `--plan` on a running "
-    "deployment stage binds cases to that single run and writes nothing the "
-    "item keeps. It needs a run, so it cannot be made here, and it never "
-    "answers this question for the next deployment."
+    "A third choice exists and is not this one: `--plan` with `--item` on a "
+    "running item stage only runs a plan group the item attaches, and writes "
+    "nothing the item keeps. It needs a run, so it cannot be made here, and it "
+    "never answers this question for the next deployment."
 )
 
 
@@ -270,14 +270,15 @@ def cases_not_selected_refusal(*, member_ref: str = "") -> str:
     """
     subject = member_ref or "PREFIX-N"
     return (
-        "deployment QA stage has no pinned cases; select a project QA "
-        "plan and retry, naming the same stage (and member, on an "
-        "item-scoped stage) this execution runs under: `yoke qa plan run "
-        "--item PREFIX-N --stage STAGE "
-        "--plan PLAN --project P`. That selection belongs to the admitted QA and moves "
-        "with this run. The durable answers belong to the item and are "
-        "asked for before it merges: attach a standing plan with `yoke qa "
-        "item-plan attach`, or record that no post-deploy obligation exists "
+        "deployment QA stage has no pinned cases. At a run-scoped stage, select "
+        "a project QA plan and retry under the same run and stage: `yoke qa plan "
+        "run --deployment-run-id RUN --stage STAGE --plan PLAN --project P`; that "
+        "selection moves with this run. At an item-scoped stage, `--plan` with "
+        "`--item` only runs a plan group the item attaches. The durable answers "
+        "belong to the item and are asked for before it merges: attaching a "
+        f"post-deploy plan (`yoke qa item-plan attach --item {subject} ... "
+        f"--qa-phase {DEPLOYMENT_ATTACHMENT_PHASE}`) makes the release run it "
+        "as a plan group, or record that no post-deploy obligation exists "
         f"with `{record_no_obligation_recipe(subject)}` (not a waiver)."
     )
 

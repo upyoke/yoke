@@ -213,3 +213,17 @@ test("a failed case waiting on its declared replacement reads as a blocking earl
   assert.equal(discharged.id, QA_STATE.SUPERSEDED);
   assert.match(discharged.detail, /corrected case #2 passed in its place/);
 });
+
+test("an item copy of a post-deploy plan reads as history, not an open source", () => {
+  const copy = {
+    id: 31001, public_ref: "YOK-4740", deployment_run_id: null, plan_id: 13498,
+    qa_kind: "plan_case", qa_phase: "post_deploy", plan_case_key: "mission", outcome: "queued",
+  };
+  const state = classifyQaRow(copy, [copy]);
+  assert.equal(state.id, QA_STATE.SUPERSEDED);
+  assert.match(state.detail, /runs once per release as a plan group — see Run QA/);
+  // An item case written on the item stays a standing source.
+  const own = { ...copy, id: 31002, plan_id: null };
+  assert.equal(classifyQaRow(own, [own]).id, QA_STATE.STANDING_SOURCE);
+  assert.match(classifyQaRow(own, [own]).detail, /Intake source/);
+});

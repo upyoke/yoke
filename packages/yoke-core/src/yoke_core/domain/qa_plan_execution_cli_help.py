@@ -32,8 +32,9 @@ Select an item, deployment run, or manual project plan.
       Missing or unready delivery authority refuses with its recovery.
 
   --deployment-run-id RUN --stage STAGE [--plan PLAN] --project PROJECT
-      Initial run-level orchestration only. The stage must be the run's active
-      pinned QA stage. Item QA uses --item instead.
+      Run QA at a run-scoped stage. At an item-scoped stage, --plan P runs the
+      run's open plan group of P. The stage must be the run's active pinned QA
+      stage. Item cases use --item instead.
 
 Passed cases and stopped executions awaiting review are retained. With nothing
 owed, qa_plan_nothing_owed lists the remaining blockers and recovery commands.
@@ -43,23 +44,18 @@ resolved from stored authority, without selecting a release or member.
 Release-time scope: a stage credits only its own name
 -----------------------------------------------------
 A deployment QA stage is satisfied only by requirements bound to that stage's
-own name. An item-scoped stage reads private member cases and attached shared
-plan/source/target groups; each member waits only on its attached groups.
-Matching attachments share case rows and an ordered execution, with member
-identity omitted from the shared target. A pass credits every attaching member;
-a shared failure blocks them all. Different plans, sources and targets stay
-separate. The member command runs unfinished private cases first with their own
-target, ordering, host prerequisites and reviews. Completing that private roster
-ends this invocation without starting a shared campaign; shared acceptance is
-still required. Once private acceptance is complete, the same command reuses
-completed group evidence and continues its next unfinished shared group.
-Each session walks its own group; when other sessions' walks hold every group
-you owe, it returns state=waiting with shared_execution_wait.execution_id and
-owner_session_id.
-Keep the claim and park with
-yoke sessions touch --mode parked --reason "waiting for shared QA". Passing shared
-evidence credits attaching members; settlement wakes members still owing QA
-to retry their own item/stage command. The owner resumes its walk as usual.
+own name. An item-scoped stage holds each member's item cases (QA written on
+that item) and plan groups. Each attached post-deploy plan runs once per
+release as one plan group: memberless rows with their own group_id, at any
+number of attaching items. Attaching a post-deploy plan (`yoke qa item-plan
+attach ... --qa-phase post_deploy`) makes the release run it as a plan group;
+nothing is copied onto the item. Dispatch wakes no member for a plan group: one
+notice goes to the run's live driver, else the session that started the run,
+else steering, naming `yoke qa plan run --deployment-run-id RUN --stage STAGE
+--plan P`. When a group passes it closes and records the items it covered;
+a closed group never changes, and an item or attachment that arrives later gets
+a new group. A group failure sends one notice; that session decides who fixes
+what. The member command runs only its item cases.
 
 Use --item PREFIX-N --stage STAGE for item QA. Run-level orchestration retains
 its run/stage context. An exact --requirement-id selects the stored case binding;
@@ -67,12 +63,13 @@ an agent_mission starts a one-requirement execution with its retained lease,
 review bundle and main-agent verdict. An inherit mission needs its ordered
 predecessor and must use the plan command.
 
-Use --plan ID_OR_SLUG to run only an already admitted plan's complete frozen
-ordered cases for this run, stage, requesting member or shared subject and target.
-Selection adds no obligations and never refreshes live plan content. Unknown,
-withdrawn, incomplete or wrong-scope admissions refuse before execution.
-When the stage names no concrete cases, --plan can instead admit a new
-project-owned selection. A stage already naming cases refuses an unrelated
+With --deployment-run-id at an item-scoped stage, --plan ID_OR_SLUG selects the
+run's open plan group of that plan; with none open it refuses
+plan_group_not_open, lists the plan's closed group_ids and says nothing is owed.
+With --item at an item-scoped stage, --plan runs only a plan group the item
+attaches. Selection adds no obligations; a group runs the plan as the release
+pinned it, so plan edits wait for the next release. At a run-scoped stage that
+names no concrete cases, --plan can instead admit a new project-owned selection. A stage already naming cases refuses an unrelated
 plan unless --replaces or --replaces-requirement names every corrected case. This
 atomic correction binds each case to the same run, stage, member and target;
 it does not add an unrelated second set of obligations.
@@ -90,7 +87,7 @@ case reads nothing from the checkout.
 For a deployment member whose cases require several Test Machines, the scoped
 command automatically executes one immutable roster per machine. Each roster
 holds its own lease and participates in that host's FIFO. It keeps the same
-run, stage and frozen private-member or shared-plan target.
+run, stage and frozen item-case or plan-group target.
 A waiting host or independent review stops the command. Re-enter the same
 scoped command while review is pending to reprint that bundle without
 recapturing. Once a verdict batch is recorded, the same command reprints

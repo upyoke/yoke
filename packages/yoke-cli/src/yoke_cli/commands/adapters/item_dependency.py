@@ -99,7 +99,8 @@ Any status:<stage-id> must exist in that workflow; authoring refuses an
 unknown stage and lists the stages that workflow version has.
 
 Use fact:merged when the dependent only needs the blocker's code on trunk,
-including a fix that ships in the dependent's release or shared QA case.
+including a fix that ships in the dependent's release. After failed QA, add an edge only when a finding is in the dependent's own
+item and the blocker must land first; a report naming another item is not one.
 A blocker at done always satisfies it. Otherwise, its landing must occur after
 the edge was created; a landing that predates the edge does not count. For an
 already-merged blocker, use coordination_only or no edge when no new landing
