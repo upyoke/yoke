@@ -91,9 +91,19 @@ def _known_carried(item_ids: list[int]) -> dict[str, Any]:
 
 
 def _startable_run(conn: Any, name: str, members: list[int]) -> tuple[str, int]:
-    """A created run whose members each carry an attached QA plan."""
+    """A created run whose item stage declares a plan, which each member attaches."""
     run_id = _created_run(conn, name, members)
     plan = create_smoke_plan(conn, project="yoke", slug=f"smoke-{name}")
+    stages = json.loads(
+        conn.execute(
+            "SELECT stages FROM deployment_flows WHERE id=%s", (f"flow-{name}",)
+        ).fetchone()["stages"]
+    )
+    stages[1]["cases"] = {"plan_id": plan}
+    conn.execute(
+        "UPDATE deployment_flows SET stages=%s WHERE id=%s",
+        (json.dumps(stages), f"flow-{name}"),
+    )
     for item_id in members:
         conn.execute(
             "INSERT INTO qa_plan_item_attachments"
@@ -130,6 +140,14 @@ def _snapshots(conn: Any, run_id: str) -> list[dict[str, Any]]:
     return [json.loads(row["requirement_snapshot"]) for row in rows]
 
 
+def _selections(conn: Any, run_id: str) -> list[dict[str, Any]]:
+    """The run's frozen plan selections; post-deploy plans ride no member."""
+    row = conn.execute(
+        "SELECT requirement_snapshot FROM deployment_runs WHERE id=%s", (run_id,)
+    ).fetchone()
+    return json.loads(row["requirement_snapshot"])["selections"]
+
+
 def test_start_holds_the_run_lock_for_the_same_statements_at_any_size(test_db):
     windows = []
     for name, members in (
@@ -144,9 +162,10 @@ def test_start_holds_the_run_lock_for_the_same_statements_at_any_size(test_db):
         windows.append(locked)
         snapshots = _snapshots(test_db, run_id)
         assert len(snapshots) == len(members)
-        assert {entry["plan"]["id"] for s in snapshots for entry in s["plans"]} == {
+        assert not any("plans" in snapshot for snapshot in snapshots)
+        assert [entry["plan"]["id"] for entry in _selections(test_db, run_id)] == [
             plan
-        }
+        ]
         status = test_db.execute(
             "SELECT status FROM deployment_runs WHERE id=%s", (run_id,)
         ).fetchone()
@@ -177,14 +196,10 @@ def test_start_freezes_the_plan_content_changed_before_its_lock(test_db, monkeyp
     )
     recorder = _start(test_db, run_id)
 
-    # The unlocked snapshot was stale, so the locked freeze derived it again.
-    assert "_freeze_members" in recorder.after_lock()
-    names = {
-        entry["plan"]["name"]
-        for s in _snapshots(test_db, run_id)
-        for entry in s["plans"]
-    }
-    assert names == {"Renamed before the lock"}
+    # The run's plan selection is read under the lock, so it sees the change.
+    assert "freeze_run_composition" in recorder.after_lock()
+    names = [entry["plan"]["name"] for entry in _selections(test_db, run_id)]
+    assert names == ["Renamed before the lock"]
 
 
 def test_start_refuses_a_member_cancelled_before_its_lock(test_db, monkeypatch):
