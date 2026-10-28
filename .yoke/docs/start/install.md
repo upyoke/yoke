@@ -109,10 +109,10 @@ command approval and sandbox restrictions for installed agent tools. Workers
 also bypass command approval; Codex workers bypass sandbox and CLI hook-trust
 checks. These settings are required, with no separate permission question.
 
-Anything the wizard already finds — a checkout carrying Yoke files, a
-repository that already has a project, a checkout already mapped on this
-machine — is announced before you answer anything, and connecting to what
-exists is the default. The mouse scrolls and clicks normally; on any screen
+Setup offers saved checkouts and restored projects before asking you to
+choose another project. If setup finds Yoke files or an existing
+project while inspecting a folder, it explains that match before asking how to proceed;
+connecting to what exists is the default. The mouse scrolls and clicks normally; on any screen
 showing a URL or a one-time code the footer names a copy key (`^y`) and an
 open-in-browser key (`^o`) instead of a native drag-select.
 

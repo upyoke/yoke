@@ -7,8 +7,9 @@ answer onto ``self.result`` and routes to the next view through the shell's
 ``_goto`` / ``_goto_input`` / ``_selection_view`` primitives. It holds no
 Textual plumbing and no report-assembly logic — only the decision graph.
 
-The machine GitHub step runs before the project step so repo binding can use
-the machine's GitHub App authorization once that flow is connected.
+The project-mode question runs before Connect and retains the chosen intent.
+The project path runs after GitHub so repo binding can use the machine's
+GitHub App authorization once that flow is connected.
 """
 
 from __future__ import annotations

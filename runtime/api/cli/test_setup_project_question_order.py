@@ -174,3 +174,25 @@ def test_choose_another_restored_project_reasks_project_mode():
     assert shell.views[-1].prompt.key == "project.restored"
     shell.views[-1].on_select("other")
     assert shell.views[-1].prompt.key == "project.mode"
+
+
+
+def test_reanswering_early_project_question_replays_new_intent():
+    shell_type = type("FlowShell", SETUP_FLOWS, {
+        "_goto": lambda self, view: self.views.append(view),
+        "_start_connect": lambda self: None,
+        "_check_project_git": lambda self, mode: self.selected.append(mode),
+    })
+    shell = object.__new__(shell_type)
+    init_setup_state(shell, defaults=WizardDefaults(), apply_report=lambda _: {})
+    shell.views, shell.selected = [], []
+    shell._project_preset_attempted = True
+    shell.result.project_checkout = "/old/project"
+    shell.result.project_remote_url = "https://github.com/example/old"
+    shell._remember_project_mode(modes.PROJECT_MODE_CREATE_REPO)
+    assert not shell._project_preset_attempted
+    assert shell.result.project_checkout is None
+    assert shell.result.project_remote_url is None
+    shell._goto_project_mode()
+    assert shell.selected == [modes.PROJECT_MODE_CREATE_REPO]
+    assert not shell.views
