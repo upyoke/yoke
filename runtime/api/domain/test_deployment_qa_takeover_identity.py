@@ -142,13 +142,16 @@ def test_takeover_rejects_another_subject_or_origin(
         validate_deployment_execution_target(test_db, execution)
 
 
-def _shared_execution(test_db, monkeypatch):
-    from runtime.api.domain import test_deployment_qa_shared_plans as shared
+def _group_execution(test_db, monkeypatch):
+    """A plan group's walk in flight when a successor run takes the release over."""
+    from runtime.api.domain import test_deployment_qa_plan_groups as shared
+    from yoke_core.domain.deployment_qa_plan_group_writes import ensure_groups
 
     shared._seed(test_db)
-    for member in shared.MEMBERS:
-        shared._materialize(test_db, member)
+    ensure_groups(test_db, shared.RUN, "item-qa")
+    test_db.commit()
     execution = shared._begin(test_db, shared.MEMBERS[0])
+    assert execution["deployment_member_item_id"] is None
     test_db.execute(
         "UPDATE items SET status='release',deployment_flow=%s WHERE id=ANY(%s)",
         (f"flow-{shared.RUN}", list(shared.MEMBERS)),
@@ -174,8 +177,8 @@ def _shared_execution(test_db, monkeypatch):
     return execution
 
 
-def test_shared_execution_keeps_its_exact_group_after_takeover(test_db, monkeypatch):
-    execution = _shared_execution(test_db, monkeypatch)
+def test_group_execution_keeps_its_exact_group_after_takeover(test_db, monkeypatch):
+    execution = _group_execution(test_db, monkeypatch)
     from yoke_core.domain.deployment_run_terminalization import terminalize_run_on
 
     terminalize_run_on(
@@ -212,7 +215,8 @@ def test_shared_execution_keeps_its_exact_group_after_takeover(test_db, monkeypa
     execution["execution_target"]["deployment"]["shared_plan"]["source_revision"] = (
         "changed"
     )
-    with pytest.raises(ValueError, match="qa_execution_target_unowned"):
+    # Another plan source names another group: a different subject.
+    with pytest.raises(ValueError, match="qa_execution_destination_mismatch"):
         validate_deployment_execution_target(test_db, execution)
 
 

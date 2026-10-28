@@ -9,7 +9,6 @@ changed content.
 
 from __future__ import annotations
 
-from unittest.mock import patch
 
 from runtime.api.fixtures.backlog_inserts import insert_item
 from runtime.api.fixtures.deployment_scoped_qa_run_fixture import (
@@ -28,7 +27,6 @@ from yoke_core.domain.qa_plan_attachments import (
     set_project_default,
 )
 from yoke_core.domain.qa_plan_management import create_plan, replace_plan_cases
-from yoke_core.domain.qa_plan_rematerialize import rematerialize_for_item
 from yoke_core.domain.qa_plan_rematerialize_deployment import (
     rematerialize_for_deployment_stage,
 )
@@ -192,32 +190,6 @@ def _item_release_plan(conn, item_id: int, cases: list[dict]) -> int:
         conn, plan_id=plan["id"], workflow_id="issue", transition_id="release"
     )
     return int(plan["id"])
-
-
-def test_item_rematerialize_reaches_a_plan_a_delivery_already_answered() -> None:
-    with test_database() as conn:
-        item = insert_item(conn, id=71, project_sequence=71, workflow_id="issue")
-        plan_id = _item_release_plan(conn, 71, [CATALOG_CASES[0]])
-        (requirement_id,) = materialize_for_item(
-            conn, item_id=int(item["id"]), transition_id="release"
-        )["created_requirement_ids"]
-        amended = {**CATALOG_CASES[0], "instructions": "Run the corrected suite."}
-        replace_plan_cases(conn, plan_id=plan_id, cases=[amended, CATALOG_CASES[1]])
-        conn.commit()
-        with patch(
-            "yoke_core.domain.qa_plan_rematerialize.attachments_still_owed",
-            return_value=({}, True),
-        ):
-            result = rematerialize_for_item(
-                conn, item_id=int(item["id"]), transition_id="release"
-            )
-        instructions = _row(conn, requirement_id)["instructions"]
-
-    assert result["plan_ids"] == [plan_id]
-    assert result["refreshed_requirement_ids"] == [requirement_id]
-    # Answered: the existing row comes current, but no fresh obligation.
-    assert result["created_requirement_ids"] == []
-    assert instructions == "Run the corrected suite."
 
 
 def test_item_case_accepts_a_declared_replacement() -> None:

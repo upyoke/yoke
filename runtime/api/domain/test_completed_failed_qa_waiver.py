@@ -241,35 +241,46 @@ def test_run_scoped_stage_still_blocks_after_member_failure_is_waived(test_db):
     assert not any("item-qa" in reason for reason in blockers)
 
 
-def test_shared_subject_still_requires_every_group_after_failed_waiver(test_db):
-    from runtime.api.domain.test_deployment_qa_shared_plans import (
+def test_waived_group_failure_still_leaves_every_other_plan_group_owed(test_db):
+    from runtime.api.domain.test_deployment_qa_plan_groups import (
         MEMBERS,
         RUN,
-        _seed as seed_shared,
-        _materialize,
-        _begin,
         _attach,
+        _begin,
+        _seed,
     )
     from runtime.api.domain.test_deployment_qa_stage_execution import (
         _complete_case,
         _plan,
     )
+    from runtime.api.fixtures.deployment_scoped_qa_run_fixture import (
+        record_case_verdict,
+    )
+    from yoke_core.domain.deployment_qa_plan_group_dispatch import settle_group
+    from yoke_core.domain.deployment_qa_plan_group_writes import (
+        ensure_groups,
+        group_subject,
+    )
+    from yoke_core.domain.deployment_qa_plan_groups import run_groups
     from yoke_core.domain.deployment_qa_run_acceptance import (
         item_qa_acceptance_blockers,
     )
 
-    seed_shared(test_db)
-    requirement = _materialize(test_db, MEMBERS[0])["created_requirement_ids"][0]
-    _complete_case(test_db, _begin(test_db, MEMBERS[0]))
-    # A completed execution with a later failed case verdict still owes its waiver.
-    from runtime.api.fixtures.deployment_scoped_qa_run_fixture import (
-        record_case_verdict,
-    )
-
+    _seed(test_db)
+    (requirement,) = ensure_groups(test_db, RUN, "item-qa")
+    test_db.commit()
+    _complete_case(test_db, _begin(test_db))
+    # A completed walk with a later failed case verdict still owes its waiver.
     record_case_verdict(test_db, requirement, "fail", evidence=True)
     _waive(test_db, requirement)
+    (group,) = run_groups(test_db, [RUN], "item-qa")
+    settle_group(
+        test_db, group_subject(test_db, RUN, "item-qa", group, require_active=False)
+    )
+    assert run_groups(test_db, [RUN], "item-qa")[0].covered_item_ids == tuple(MEMBERS)
     other = _plan(test_db, "other-shared-gate")
     _attach(test_db, MEMBERS[0], other)
-    _materialize(test_db, MEMBERS[0])
+    ensure_groups(test_db, RUN, "item-qa")
+    test_db.commit()
     assert item_qa_acceptance_blockers(test_db, run_id=RUN, item_id=MEMBERS[0])
     assert not item_qa_acceptance_blockers(test_db, run_id=RUN, item_id=MEMBERS[1])

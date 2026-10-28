@@ -155,7 +155,8 @@ def outstanding_post_deploy_requirement_sets(
     rows = conn.execute(
         f"SELECT r.item_id,r.id,r.target_env,{target_column} FROM qa_requirements r "
         f"WHERE r.item_id IN ({','.join('%s' for _ in item_ids)}) "
-        "AND r.qa_phase='post_deploy' AND r.deployment_run_id IS NULL AND r.waived_at IS NULL"
+        "AND r.qa_phase='post_deploy' AND r.deployment_run_id IS NULL AND r.waived_at IS NULL "
+        "AND r.plan_id IS NULL"
         f"{supersession}{withdrawn} AND {unretracted_requirement_sql(conn, 'r')} ORDER BY r.id",
         tuple(int(value) for value in item_ids),
     ).fetchall()

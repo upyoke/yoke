@@ -2,13 +2,11 @@
 
 from __future__ import annotations
 
-import json
 from collections.abc import Mapping
 from typing import Any
 
-from yoke_contracts.refusal_recovery import compose_refusal
 
-from yoke_core.domain.db_helpers import query_one, query_rows
+from yoke_core.domain.db_helpers import query_one
 from yoke_core.domain.qa_phase_boundary import (
     POST_MERGE_QA_PHASES,
     TERMINAL_DONE,
@@ -151,53 +149,6 @@ def item_delivery_environment_id(conn: Any, item_id: int) -> int | None:
     return int(raw)
 
 
-def refuse_correction_held_on_executing_run(
-    conn: Any, *, item_id: int, plan_id: int
-) -> None:
-    """Refuse attaching a plan this member already holds as a run correction."""
-    marker = _placeholder(conn)
-    rows = query_rows(
-        conn,
-        "SELECT dri.run_id, dri.requirement_snapshot "
-        "FROM deployment_run_items dri "
-        "JOIN deployment_runs dr ON dr.id = dri.run_id "
-        f"WHERE dri.item_id={marker} AND dr.status='executing' "
-        "ORDER BY dri.run_id",
-        (int(item_id),),
-    )
-    for row in rows:
-        raw = row["requirement_snapshot"]
-        try:
-            frozen = raw if isinstance(raw, Mapping) else json.loads(str(raw or "{}"))
-        except (TypeError, ValueError) as exc:
-            raise QaPlanError(
-                compose_refusal(
-                    f"qa_member_snapshot_unreadable: executing run {row['run_id']} member snapshot could not be read.",
-                    recovery=f"inspect `yoke deployment-runs get {row['run_id']}` and repair the snapshot before attaching.",
-                )
-            ) from exc
-        if not isinstance(frozen, Mapping):
-            continue
-        for value in frozen.get("plans") or []:
-            if not isinstance(value, Mapping) or not value.get("replacement_scopes"):
-                continue
-            plan = value.get("plan")
-            if not isinstance(plan, Mapping) or plan.get("id") is None:
-                continue
-            if int(plan["id"]) != int(plan_id):
-                continue
-            run_id = row["run_id"]
-            raise QaPlanError(
-                compose_refusal(
-                    f"qa_correction_already_held: plan {plan_id} is already a correction on executing run {run_id} for this member.",
-                    recovery=(
-                        "do not attach it. The correction answers its replaced group on that run. "
-                        "Attach a different plan only when this member owes a separate obligation."
-                    ),
-                )
-            )
-
-
 def refuse_unreachable_plan_attachment(
     conn: Any,
     *,
@@ -214,9 +165,6 @@ def refuse_unreachable_plan_attachment(
     an attachment that already exists keeps its meaning. Acknowledgement
     is for a caller who knows the target is already reachable.
     """
-    refuse_correction_held_on_executing_run(
-        conn, item_id=int(item_id), plan_id=int(plan["id"])
-    )
     if acknowledge:
         return
     target = plan_persistent_environment(conn, plan)
@@ -253,7 +201,6 @@ __all__ = [
     "UnreachablePlanTargetError",
     "item_delivery_environment_id",
     "plan_persistent_environment",
-    "refuse_correction_held_on_executing_run",
     "refuse_unreachable_plan_attachment",
     "require_plan_cases",
     "validate_attached_item_transition",

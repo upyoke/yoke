@@ -105,7 +105,7 @@ export function runQaReviewCard(context, row, options = {}) {
 
 // Draws a run's checks into its review card: current checks under the
 // person's decision state, replaced attempts folded after them.
-// A shared plan's checks are drawn once under their sharing items' label.
+// A plan group's checks are drawn once under the items it covers.
 export function fillRunQaReviewChecks(context, card, row, read) {
   const host = CHECK_HOSTS.get(card);
   if (!host) return;

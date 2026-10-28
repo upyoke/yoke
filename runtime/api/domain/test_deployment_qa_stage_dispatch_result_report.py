@@ -15,7 +15,7 @@ from unittest import mock
 
 from runtime.api.domain.test_deployment_qa_stage_dispatch_wake import _member, _run
 from yoke_core.domain import deployment_qa_result_notice as result_notice_mod
-from yoke_core.domain import deployment_qa_stage_dispatch as dispatch_mod
+from yoke_core.domain import deployment_qa_dispatch_wait_notice as wait_notice_mod
 from yoke_core.domain.deployment_qa_result_notice import (
     OUTCOME_PASSED,
     OUTCOME_REJECTED,
@@ -51,10 +51,10 @@ def _dispatch(conn, stage, *, run_id, status):
             return_value={},
         ),
         mock.patch.object(
-            dispatch_mod, "notify_item_scoped_qa_wait", return_value="delivered"
+            wait_notice_mod, "notify_item_scoped_qa_wait", return_value="delivered"
         ),
         mock.patch.object(
-            dispatch_mod, "notify_run_scoped_qa_wait", return_value="delivered"
+            wait_notice_mod, "notify_run_scoped_qa_wait", return_value="delivered"
         ),
         mock.patch.object(
             result_notice_mod,

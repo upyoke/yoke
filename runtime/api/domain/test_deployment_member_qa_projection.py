@@ -141,9 +141,8 @@ def test_frozen_history_does_not_read_later_source_definitions(monkeypatch):
     monkeypatch.setattr(
         projection,
         "current_sources",
-        lambda conn, ids: (defaultdict(list), defaultdict(list)) if not ids else 1 / 0,
+        lambda conn, ids: defaultdict(list) if not ids else 1 / 0,
     )
-    monkeypatch.setattr(projection, "run_qa_sharing", lambda conn, runs: {})
     result = projection.member_qa_obligations(
         object(), [run_row(status="succeeded")], {"run-pending": [member()]}
     )
@@ -165,20 +164,6 @@ def test_source_to_copy_identity_does_not_use_titles():
     )
 
 
-def test_attached_plan_is_visible_without_a_materialized_source():
-    plan = {
-        "plan": {"id": 3, "slug": "release", "target_environment_id": 1},
-        "cases": [
-            {"id": 4, "case_key": "probe", "target_envs": [], "host_baselines": []},
-            {"id": 5, "case_key": "stage", "target_envs": ["stage"]},
-        ],
-    }
-    rows = definitions(
-        [], [plan], environments={1: "prod"}, environment_names={"prod"}, dynamic=False
-    )
-    assert list(rows) == [("plan", 3, "probe", None, "prod")]
-
-
 def test_failed_requirement_read_is_explicit(monkeypatch):
     def fail(*args):
         raise RuntimeError("unavailable")
@@ -192,27 +177,11 @@ def test_failed_requirement_read_is_explicit(monkeypatch):
     assert "Reload" in result[("run-pending", 4710)]["error"]
 
 
-def test_plan_case_environment_variants_remain_separate_obligations():
-    plan = {
-        "plan": {"id": 3},
-        "cases": [{"case_key": "probe", "target_envs": ["stage", "prod"]}],
-    }
-    rows = definitions(
-        [], [plan], environments={}, environment_names={"stage", "prod"}, dynamic=False
-    )
+def test_frozen_plan_case_keeps_one_obligation_per_environment():
+    frozen = {"id": 9, "plan_id": 3, "plan_case_key": "probe", "qa_phase": "post_deploy"}
+    rows = definitions([frozen], environment_names={"stage", "prod"}, dynamic=False)
     assert {row["target_env"] for row in rows.values()} == {"stage", "prod"}
     assert len(rows) == 2
-
-
-def test_withdrawn_plan_case_does_not_reappear_from_its_attachment():
-    plan = {
-        "plan": {"id": 3},
-        "cases": [{"case_key": "probe"}],
-        "excluded_identities": {("plan", 3, "probe", None, "prod")},
-    }
-    assert not definitions(
-        [], [plan], environments={}, environment_names={"prod"}, dynamic=False
-    )
 
 
 def test_unobserved_preview_target_has_a_named_reason_and_recovery(monkeypatch):
@@ -242,16 +211,32 @@ def test_unobserved_preview_target_has_a_named_reason_and_recovery(monkeypatch):
     assert "item_qa_target_pending" in error and "execute and observe" in error
 
 
-def test_members_leave_a_pending_shared_plan_to_run_qa(test_db):
+def test_plan_groups_and_old_plan_copies_stay_out_of_item_cases(test_db):
     from runtime.api.domain.test_deployment_member_qa_copies import read
-    from runtime.api.domain.test_deployment_qa_run_sharing import RUN, _seed_three
+    from runtime.api.domain.test_deployment_qa_run_sharing import (
+        MEMBERS,
+        RUN,
+        _form_groups,
+        _seed_three,
+    )
 
-    plan_id, lone, members = _seed_three(test_db)
-    projected = read(test_db, RUN, members)
-    # The plan only the first member attaches stays its own pending check.
-    assert [row["plan_id"] for row in projected[(RUN, members[0])]["current"]] == [lone]
-    for member_id in members:
-        assert all(
-            row.get("plan_id") != plan_id
-            for row in projected[(RUN, member_id)]["current"]
-        )
+    plan_id, lone = _seed_three(test_db)
+    own = insert_qa_requirement(
+        test_db, item_id=MEMBERS[0], qa_phase="post_deploy", method_id="command"
+    )
+    # An item copy of a plan from before plan groups is history only.
+    insert_qa_requirement(
+        test_db, item_id=MEMBERS[0], qa_phase="post_deploy", method_id="command",
+        plan_id=lone, plan_case_key="command-smoke",
+    )
+    test_db.commit()
+    for formed in (False, True):
+        if formed:
+            assert _form_groups(test_db)
+        projected = read(test_db, RUN, MEMBERS)
+        assert [row["source_requirement_id"] for row in projected[(RUN, MEMBERS[0])]["current"]] == [
+            own["id"]
+        ]
+        for member in MEMBERS[1:]:
+            assert projected[(RUN, member)] == {"current": [], "history": []}
+    assert plan_id != lone

@@ -128,7 +128,9 @@ def test_member_project_authorizes_every_plan_leg_and_requirement(
         request.model_copy(
             update={
                 "function": "qa.plan_execution.begin",
-                "payload": {"deployment_stage": STAGE, "plan": "consumer-smoke"},
+                # ``--plan`` at an item stage runs a plan group; the member's
+                # own selected cases begin without it.
+                "payload": {"deployment_stage": STAGE},
             }
         )
     )

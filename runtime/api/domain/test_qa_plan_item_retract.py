@@ -24,6 +24,9 @@ from yoke_core.domain.deployment_qa_stage_materialization import (
     QaCasesNotSelectedError,
     materialize_deployment_qa_stage,
 )
+from yoke_core.domain.deployment_qa_member_plans import member_plan_ids
+from yoke_core.domain.deployment_qa_plan_group_writes import ensure_groups
+from yoke_core.domain.deployment_qa_plan_groups import run_groups
 from yoke_core.domain.handlers import qa_post_deploy_record_no_obligation as record
 from yoke_core.domain.post_deploy_verification_answer import (
     ANSWERED,
@@ -156,14 +159,30 @@ def test_a_retracted_attachment_does_not_answer_the_question() -> None:
     assert retired_case.verdict == UNANSWERED
 
 
-def test_retracting_the_attachment_stops_it_re_materializing(test_db) -> None:
-    item_id = 9851
-    _seed_item(test_db, item_id=item_id)
-    plan_id = _attach_post_deploy(
-        test_db, item_id=item_id, slug="retract-stops-rematerialize"
+def _run_with_group(conn, *, run_id: str, item_id: int, slug: str):
+    """A run the item rides, attaching *slug*, with the plan's open group."""
+    seed_run_standing_on_qa_stage(
+        conn,
+        run_id=run_id,
+        project="yoke",
+        stages=item_qa_stage_definitions(None),
+        members=(item_id,),
+        lineage=LINEAGE,
     )
-    first = _materialize_item(test_db, item_id=item_id)
-    assert first["created_requirement_ids"]
+    plan_id = _attach_post_deploy(conn, item_id=item_id, slug=slug)
+    ensure_groups(conn, run_id, ITEM_QA_STAGE)
+    conn.commit()
+    (group,) = run_groups(conn, run_id, ITEM_QA_STAGE)
+    assert group.plan_id == plan_id and group.open
+    return plan_id, group
+
+
+def test_retracting_the_attachment_stops_it_re_materializing(test_db) -> None:
+    item_id, run_id = 9851, "run-pd-retract-stops"
+    plan_id, group = _run_with_group(
+        test_db, run_id=run_id, item_id=item_id, slug="retract-stops-rematerialize"
+    )
+    assert member_plan_ids(test_db, item_id, run_id) == {plan_id}
 
     result = _retract(test_db, item_id=item_id, plan_id=plan_id)
 
@@ -173,37 +192,29 @@ def test_retracting_the_attachment_stops_it_re_materializing(test_db) -> None:
         "WHERE item_id=%s AND plan_id=%s",
         (item_id, plan_id),
     ).fetchone()
-    again = _materialize_item(test_db, item_id=item_id)
-    member_plans = test_db.execute(
-        "SELECT a.plan_id FROM qa_plan_item_attachments a "
-        "WHERE a.item_id=%s AND a.qa_phase='post_deploy'",
-        (item_id,),
-    ).fetchall()
-
     assert result["retracted"] is True
+    assert sorted(result["retired_requirement_ids"]) == sorted(group.requirement_ids)
     assert row["retracted_at"]
     assert row["retraction_rationale"] == RETRACT_REASON
     assert row["retraction_source"] == "operator"
     assert row["attached_at"]
     assert int(row["plan_id"]) == plan_id
-    assert again["created_requirement_ids"] == []
+    # The plan is no longer owed, so no later group forms for it.
+    assert member_plan_ids(test_db, item_id, run_id) == set()
+    assert ensure_groups(test_db, run_id, ITEM_QA_STAGE) == []
+    (after,) = run_groups(test_db, run_id, ITEM_QA_STAGE)
+    assert after.retracted and not after.open
     assert answer_for_item(test_db, item_id).verdict == UNANSWERED
-    from yoke_core.domain.qa_deployment_member_attached_plans import (
-        attached_member_plan_ids,
-    )
-
-    assert attached_member_plan_ids(test_db, member_item_id=item_id) == []
-    assert member_plans  # the row remains readable
 
 
 def test_retracted_requirements_leave_waiver_and_supersession_listings(
     test_db,
 ) -> None:
-    item_id = 9852
-    _seed_item(test_db, item_id=item_id)
-    plan_id = _attach_post_deploy(test_db, item_id=item_id, slug="retract-not-a-waiver")
-    created = _materialize_item(test_db, item_id=item_id)["created_requirement_ids"]
-    requirement_id = int(created[0])
+    item_id, run_id = 9852, "run-pd-retract-waiver"
+    plan_id, group = _run_with_group(
+        test_db, run_id=run_id, item_id=item_id, slug="retract-not-a-waiver"
+    )
+    requirement_id = int(group.requirement_ids[0])
     test_db.execute(
         "UPDATE qa_requirements SET waived_at=%s, waiver_rationale=%s, "
         "waiver_source='operator' WHERE id=%s",
@@ -221,8 +232,8 @@ def test_retracted_requirements_leave_waiver_and_supersession_listings(
         (requirement_id,),
     ).fetchone()
     waivers = test_db.execute(
-        "SELECT id FROM qa_requirements WHERE item_id=%s AND waived_at IS NOT NULL",
-        (item_id,),
+        "SELECT id FROM qa_requirements WHERE id=ANY(%s) AND waived_at IS NOT NULL",
+        (list(group.requirement_ids),),
     ).fetchall()
 
     assert recorded.primary_success
@@ -311,13 +322,24 @@ def test_a_failing_verification_case_is_not_retirable_this_way(test_db) -> None:
 
 
 def test_a_passing_post_deploy_case_is_not_rewritten(test_db) -> None:
-    item_id = 9855
-    _seed_item(test_db, item_id=item_id)
-    plan_id = _attach_post_deploy(
-        test_db, item_id=item_id, slug="retract-refuses-accepted-pass"
+    item_id, run_id = 9855, "run-pd-retract-pass"
+    plan_id, group = _run_with_group(
+        test_db, run_id=run_id, item_id=item_id, slug="retract-refuses-accepted-pass"
     )
-    created = _materialize_item(test_db, item_id=item_id)["created_requirement_ids"]
-    _record_verdict(test_db, int(created[0]), "pass")
+    (requirement_id,) = group.requirement_ids
+    _record_verdict(test_db, int(requirement_id), "pass")
 
-    with pytest.raises(QaPlanError, match="attachment_has_recorded_run"):
-        _retract(test_db, item_id=item_id, plan_id=plan_id)
+    result = _retract(test_db, item_id=item_id, plan_id=plan_id)
+
+    # The attachment goes; the passed row and its verdict stay as evidence.
+    assert result["retracted"] is True
+    assert result["retired_requirement_ids"] == []
+    row = test_db.execute(
+        "SELECT retracted_at, waived_at FROM qa_requirements WHERE id=%s",
+        (requirement_id,),
+    ).fetchone()
+    assert (row["retracted_at"], row["waived_at"]) == (None, None)
+    assert test_db.execute(
+        "SELECT verdict FROM qa_runs WHERE qa_requirement_id=%s", (requirement_id,)
+    ).fetchone()["verdict"] == "pass"
+    assert not run_groups(test_db, run_id, ITEM_QA_STAGE)[0].retracted

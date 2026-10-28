@@ -4,56 +4,37 @@ This is the one supported way to bring a live item requirement back to its
 plan's current text, and it reaches every executable column — instructions and
 expected_outcome included — because :func:`refresh_requirement` rewrites the
 derivation whole rather than going through the narrow ``qa.requirement.update``
-allowlist. What it will not touch is named by :mod:`qa_plan_refresh_safety`:
-a case a live walk already reached, and an admitted copy that can no longer
-take the change. A case a live walk has not reached takes the correction.
+allowlist. A case a live walk already reached refuses with the abort that
+reopens the walk (:func:`carry_into_live_rosters`); a case it has not reached
+takes the correction.
 
-One call converges the transition on its plans: a case added since the last
-materialization gets its row, an amended case's row is refreshed, and a row
-whose case left the plan is retired. A plan a delivery has already answered
-still has its existing rows refreshed and retired, but gains no new row -- a
-fresh obligation there could only be answered by a run that already finished.
-
-Retiring a ``post_deploy`` row whose case was replaced records the replacement
-rather than waiving it: when exactly one row this call created answers the
-same obligation (same item, transition, phase, environment and baseline), the
-old row is superseded by it. The corrected row is then the obligation, and a
-run that already admitted the old case answers it through those copies
-(:func:`~yoke_core.domain.qa_requirement_source_retirement.admitted_source_lineage`).
-A waiver would claim nobody needs the proof; the supersession says which row
-now carries it. A row with no single successor -- its case was dropped, or
-several new cases could each claim it -- is waived as removed.
+One call converges the transition on its item-bound plans: a case added since
+the last materialization gets its row, an amended case's row is refreshed, and
+a row whose case left the plan is waived as removed. A post-deploy plan is
+never on its item: each release runs it once as a plan group pinned at the
+release's plan revision, so an edited plan runs on the next release.
 """
 
 from __future__ import annotations
 
 from typing import Any
 
-from yoke_core.domain.db_helpers import instant_parameter, utc_now, query_rows
+from yoke_core.domain.db_helpers import instant_parameter, query_one, utc_now, query_rows
 from yoke_core.domain.project_identity import render_item_ref
 from yoke_core.domain.qa_plan_case_targets import case_variants
 from yoke_core.domain.qa_plan_attachment_validation import (
     validate_attached_item_transition,
 )
-from yoke_core.domain.qa_deployment_member_attached_plans import (
-    attachments_still_owed,
-)
 from yoke_core.domain.qa_plan_attachments import _attached_plans
+from yoke_core.domain.qa_plan_execution_roster_correction import (
+    carry_into_live_rosters,
+)
 from yoke_core.domain.qa_plan_execution_target_snapshot import (
     rebind_unresolvable_targets,
 )
-from yoke_core.domain.qa_plan_case_definition import (
-    case_baselines,
-    materialized_definition,
-    plan_cases,
-)
+from yoke_core.domain.qa_plan_case_definition import case_baselines, plan_cases
 from yoke_core.domain.qa_obligation_settlement import obligation_settled
 from yoke_core.domain.qa_plan_management import QaPlanError, _placeholder, _plan_row
-from yoke_core.domain.qa_admitted_copy_correction import (
-    correct_admitted_copies,
-    lock_admitted_copies,
-)
-from yoke_core.domain.qa_plan_refresh_safety import carry_into_live_rosters
 from yoke_core.domain.qa_plan_requirement_snapshot import (
     existing_requirement_id,
     insert_requirement,
@@ -68,9 +49,14 @@ from yoke_core.domain.workflow_item_binding_lock import (
 
 
 REPLACEMENT_RATIONALE = "Removed from the current QA plan definition."
-SUCCESSOR_RATIONALE = (
-    "Replaced in the current QA plan definition by requirement {successor_id}; "
-    "it carries this post_deploy obligation."
+
+POST_DEPLOY_PLAN_GROUP_REFUSAL = (
+    "post_deploy_plan_runs_as_plan_group: {subject} attaches only post-deploy "
+    "plans {plan_ids}, which are never materialized on the item. Each release "
+    "runs each one once as a plan group at item-qa, pinned at the plan revision "
+    "the release started with; an edited plan runs on the next release. Run a "
+    "plan group with `yoke qa plan run --deployment-run-id RUN --stage item-qa "
+    "--plan P`."
 )
 
 
@@ -86,53 +72,49 @@ def rematerialize_for_item(
     lock_item_workflow_bindings(conn, (int(item_id),))
     transition_id = str(transition_id or "").strip()
     attached = _attached_plans(conn, item_id=int(item_id), transition_id=transition_id)
-    if attached:
-        transition_id = validate_attached_item_transition(
-            conn,
-            item_id=int(item_id),
-            transition_id=transition_id,
-            attachments=attached,
-        )
-    marker = _placeholder(conn)
-    rows = query_rows(
-        conn,
-        "SELECT * FROM qa_requirements "
-        f"WHERE item_id={marker} AND workflow_transition_id={marker} "
-        "AND plan_id IS NOT NULL ORDER BY id",
-        (int(item_id), transition_id),
-    )
-    # A plan a delivery already answered owes no fresh row, but the rows it
-    # already has still stand for it and must still come current: skipping
-    # them left a stale row nothing could refresh.
-    owed = attachments_still_owed(
-        conn, member_item_id=int(item_id), attachments=attached
-    )[0]
-    materialized_plan_ids = {int(row["plan_id"]) for row in rows}
     attachments = {
         plan_id: attachment
         for plan_id, attachment in attached.items()
-        if plan_id in owed or plan_id in materialized_plan_ids
+        if attachment.get("qa_phase") != "post_deploy"
     }
+    if attached and not attachments:
+        raise QaPlanError(
+            POST_DEPLOY_PLAN_GROUP_REFUSAL.format(
+                subject=f"{render_item_ref(conn, item_id)} transition {transition_id!r}",
+                plan_ids=sorted(attached),
+            )
+        )
     if not attachments:
-        # Nothing attached, or nothing a delivery has not already answered
-        # and nothing materialized from it: an empty snapshot is the truth.
         return {
             "item_id": int(item_id),
             "transition_id": transition_id,
             "plan_ids": [],
             "created_requirement_ids": [],
             "refreshed_requirement_ids": [],
-            "superseded_requirement_ids": {},
             "waived_requirement_ids": [],
         }
+    transition_id = validate_attached_item_transition(
+        conn,
+        item_id=int(item_id),
+        transition_id=transition_id,
+        attachments=attachments,
+    )
+    marker = _placeholder(conn)
+    # Post-deploy rows left on items by the old copy model are history only.
+    rows = query_rows(
+        conn,
+        "SELECT * FROM qa_requirements "
+        f"WHERE item_id={marker} AND workflow_transition_id={marker} "
+        "AND plan_id IS NOT NULL AND deployment_run_id IS NULL "
+        "AND COALESCE(qa_phase,'')<>'post_deploy' ORDER BY id",
+        (int(item_id), transition_id),
+    )
     subject = f"{render_item_ref(conn, item_id)} transition {transition_id!r}"
-    projections = lock_admitted_copies(conn, [int(row["id"]) for row in rows])
     rows_by_plan: dict[int, list[Any]] = {}
     for row in rows:
         rows_by_plan.setdefault(int(row["plan_id"]), []).append(row)
     created_requirement_ids: list[int] = []
     refreshed_requirement_ids: list[int] = []
-    corrected_admitted_copy_ids: list[int] = []
     retained_requirement_ids: set[int] = set()
     now = utc_now()
     for plan_id, attachment in attachments.items():
@@ -163,8 +145,6 @@ def rematerialize_for_item(
             for baseline_position, baseline in enumerate(case_baselines(case), start=1):
                 key = (str(case["case_key"]), baseline)
                 requirement_id = existing_ids.get(key)
-                if requirement_id is None and plan_id not in owed:
-                    continue
                 if requirement_id is None:
                     requirement_id = insert_requirement(
                         conn,
@@ -181,26 +161,6 @@ def rematerialize_for_item(
                     )
                     if requirement_id is not None:
                         created_requirement_ids.append(requirement_id)
-                        # A run may already hold a copy answering this plan
-                        # case; it needs the body just written, as a
-                        # refreshed row's copies do.
-                        corrected_admitted_copy_ids.extend(
-                            correct_admitted_copies(
-                                conn,
-                                source_requirement_id=requirement_id,
-                                projections=projections,
-                                definition=materialized_definition(
-                                    plan=plan,
-                                    case=case,
-                                    qa_phase=str(attachment["qa_phase"]),
-                                    baseline=baseline,
-                                    baseline_position=baseline_position,
-                                    transition_id=transition_id,
-                                    execution_target=execution_target,
-                                    target_env=target_env,
-                                ),
-                            )
-                        )
                     else:
                         requirement_id = existing_requirement_id(
                             conn,
@@ -220,7 +180,7 @@ def rematerialize_for_item(
                             subject=subject,
                         )
                 else:
-                    definition = refresh_requirement(
+                    refresh_requirement(
                         conn,
                         requirement_id=requirement_id,
                         transition_id=transition_id,
@@ -233,24 +193,12 @@ def rematerialize_for_item(
                         target_env=target_env,
                     )
                     refreshed_requirement_ids.append(requirement_id)
-                    corrected_admitted_copy_ids.extend(
-                        correct_admitted_copies(
-                            conn,
-                            source_requirement_id=requirement_id,
-                            definition=definition,
-                            projections=projections,
-                        )
-                    )
                 retained_requirement_ids.add(requirement_id)
-    retired = [
-        dict(row)
+    waived_requirement_ids = [
+        int(row["id"])
         for row in rows
         if not obligation_settled(row)
         and int(row["id"]) not in retained_requirement_ids
-    ]
-    superseded = _supersede_replaced(conn, retired, created_requirement_ids)
-    waived_requirement_ids = [
-        int(row["id"]) for row in retired if int(row["id"]) not in superseded
     ]
     for requirement_id in waived_requirement_ids:
         conn.execute(
@@ -269,7 +217,7 @@ def rematerialize_for_item(
     carry_into_live_rosters(
         conn,
         subject=subject,
-        rewritten=[*refreshed_requirement_ids, *superseded, *waived_requirement_ids],
+        rewritten=[*refreshed_requirement_ids, *waived_requirement_ids],
         created=created_requirement_ids,
         item_id=int(item_id),
         transition_id=transition_id,
@@ -282,56 +230,93 @@ def rematerialize_for_item(
         "plan_ids": list(attachments),
         "created_requirement_ids": created_requirement_ids,
         "refreshed_requirement_ids": refreshed_requirement_ids,
-        "corrected_admitted_copy_ids": sorted(set(corrected_admitted_copy_ids)),
-        "superseded_requirement_ids": superseded,
         "waived_requirement_ids": waived_requirement_ids,
     }
 
 
-def _supersede_replaced(
-    conn: Any, retired: list[dict[str, Any]], created_ids: list[int]
-) -> dict[int, int]:
-    """Supersede each retired post_deploy row by its one created successor."""
-    from yoke_core.domain.qa_replacement_scope_guard import link_mismatches
 
-    if not created_ids:
-        return {}
-    marker = _placeholder(conn)
-    created = [
-        dict(row)
-        for row in query_rows(
-            conn,
-            "SELECT * FROM qa_requirements WHERE id IN "
-            f"({','.join(marker for _ in created_ids)}) ORDER BY id",
-            tuple(created_ids),
+
+#: Subject columns that decide which refresh invocation reaches a row.
+_REFRESH_SUBJECT_SQL = (
+    "SELECT id,execution_target_json,item_id,deployment_run_id,deployment_stage,"
+    "deployment_member_item_id,plan_id,qa_phase,workflow_transition_id "
+    "FROM qa_requirements WHERE id="
+)
+
+
+def _column(row: Any, key: str) -> Any:
+    return row[key] if key in row.keys() else None
+
+
+def refresh_invocation(conn: Any, row: Any) -> str:
+    """The one refresh command that reaches this row, by its own subject.
+
+    An item row and a deployment row are refreshed by different subjects of
+    the same operation. A plan group runs its plan as the release pinned it,
+    and a post-deploy row left on an item is history, so neither has one.
+    """
+    from yoke_core.domain.deployment_qa_plan_groups import group_marker
+
+    if row["deployment_run_id"]:
+        member = row["deployment_member_item_id"]
+        if member is None and group_marker(_column(row, "execution_target_json")):
+            return ""
+        if (
+            member is not None
+            and query_one(
+                conn,
+                "SELECT 1 FROM deployment_run_items WHERE run_id=%s AND item_id=%s",
+                (row["deployment_run_id"], member),
+            )
+            is None
+        ):
+            return ""
+        subject = (
+            f"--item {render_item_ref(conn, int(member))}"
+            if member
+            else f"--deployment-run-id {row['deployment_run_id']}"
         )
-    ]
-    superseded: dict[int, int] = {}
-    for row in retired:
-        if str(row.get("qa_phase") or "") != "post_deploy":
-            continue
-        successors = [
-            new
-            for new in created
-            if new["plan_id"] == row["plan_id"] and not link_mismatches(row, new)
-        ]
-        if len(successors) != 1:
-            continue
-        successor_id = int(successors[0]["id"])
-        conn.execute(
-            "UPDATE qa_requirements SET superseded_by_requirement_id="
-            f"{marker}, superseded_at={marker}, supersession_rationale={marker}, "
-            f"supersession_source={marker} WHERE id={marker}",
-            (
-                successor_id,
-                instant_parameter(conn, utc_now()),
-                SUCCESSOR_RATIONALE.format(successor_id=successor_id),
-                "system",
-                int(row["id"]),
-            ),
+        plan = f" --plan {row['plan_id']}" if row["plan_id"] is not None else ""
+        return f"yoke qa plan rematerialize {subject} --stage {row['deployment_stage']}{plan}"
+    if row["item_id"] and _column(row, "qa_phase") != "post_deploy":
+        return (
+            "yoke qa plan rematerialize --item "
+            f"{render_item_ref(conn, int(row['item_id']))} "
+            f"--transition {row['workflow_transition_id']}"
         )
-        superseded[int(row["id"])] = successor_id
-    return superseded
+    return ""
 
 
-__all__ = ["REPLACEMENT_RATIONALE", "SUCCESSOR_RATIONALE", "rematerialize_for_item"]
+def refresh_recovery(conn: Any, row: Any) -> str:
+    """The refresh sentence for a reader, or what to do when none reaches it."""
+    invocation = refresh_invocation(conn, row)
+    if invocation:
+        return f"Refresh it from the plan with `{invocation}`."
+    return (
+        "No current refresh subject reaches this row (it may have lost its "
+        "run membership, or it belongs to a plan group, which runs its plan as "
+        "the release pinned it); inspect its subject with "
+        "`yoke qa requirement list`, then supersede it with "
+        "`yoke qa requirement supersede` "
+        "or waive it through the registered waiver surface."
+    )
+
+
+def plan_refresh_invocation(conn: Any, requirement_id: int) -> str:
+    """The refresh that reaches this row from its plan, or ``""`` if none does."""
+    row = query_one(
+        conn, f"{_REFRESH_SUBJECT_SQL}{_placeholder(conn)}", (int(requirement_id),)
+    )
+    if row is None or row["plan_id"] is None:
+        return ""
+    return refresh_invocation(conn, row)
+
+
+__all__ = [
+    "POST_DEPLOY_PLAN_GROUP_REFUSAL",
+    "REPLACEMENT_RATIONALE",
+    "plan_refresh_invocation",
+    "refresh_invocation",
+    "refresh_recovery",
+    "rematerialize_for_item",
+]

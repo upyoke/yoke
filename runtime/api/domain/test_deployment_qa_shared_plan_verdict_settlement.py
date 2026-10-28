@@ -1,57 +1,68 @@
-"""A recorded shared-plan verdict settles its shared group, never the run."""
+"""A recorded plan-group verdict settles its group, never the run."""
 
 from unittest.mock import patch
 
-from runtime.api.domain.test_deployment_qa_shared_plans import (
+from runtime.api.domain.test_deployment_qa_plan_groups import (
     MEMBERS,
     RUN,
     _begin,
-    _materialize,
     _seed,
 )
-from runtime.api.domain.test_deployment_qa_stage_execution import _complete_case
+from runtime.api.domain.test_deployment_qa_plan_group_execution import _fail_case
 from yoke_contracts.api.function_call import (
     ActorContext,
     FunctionCallRequest,
     TargetRef,
 )
 from yoke_core.domain import deployment_qa_stage_settlement
-from yoke_core.domain.deployment_qa_stage_gate import deployment_qa_stage_status
+from yoke_core.domain.deployment_qa_plan_group_writes import ensure_groups
+from yoke_core.domain.deployment_qa_plan_groups import run_groups
+from yoke_core.domain.deployment_qa_run_acceptance import item_qa_acceptance_blockers
 from yoke_core.domain.handlers import qa_browser_writes
 
 
 def _request(function_id: str, requirement_id: int, payload: dict):
     return FunctionCallRequest(
         function=function_id,
-        actor=ActorContext(actor_id="2", session_id="shared-qa"),
+        actor=ActorContext(actor_id="2", session_id="plan-group-qa"),
         target=TargetRef(kind="qa_requirement", qa_requirement_id=requirement_id),
         payload=payload,
     )
 
 
-def test_completing_a_shared_case_records_the_verdict_and_credits_both_members(
-    test_db,
-):
-    _seed(test_db)
-    requirement_id = _materialize(test_db, MEMBERS[0])["created_requirement_ids"][0]
-    assert _materialize(test_db, MEMBERS[1])["existing_requirement_ids"] == [
-        requirement_id
-    ]
-    _complete_case(test_db, _begin(test_db, MEMBERS[0]))
-    test_db.execute(
+def _group_requirement(conn) -> int:
+    _seed(conn)
+    (requirement_id,) = ensure_groups(conn, RUN, "item-qa")
+    conn.commit()
+    return requirement_id
+
+
+def _arrive_at_item_qa(conn):
+    conn.execute(
         "UPDATE deployment_runs SET current_stage='item-qa' WHERE id=%s", (RUN,)
     )
-    test_db.commit()
-    settle_acceptance = deployment_qa_stage_settlement.settle_acceptance
-    credited = []
+    conn.commit()
 
-    def spy(conn, *, run_id, stage, member):
-        credited.append(member)
-        return settle_acceptance(conn, run_id=run_id, stage=stage, member=member)
+
+def test_completing_a_group_case_records_the_verdict_and_credits_every_member(
+    test_db,
+):
+    requirement_id = _group_requirement(test_db)
+    _arrive_at_item_qa(test_db)
+    # The walk finished on a failed case, so its group stays open.
+    _fail_case(test_db, _begin(test_db))
+    test_db.commit()
+    assert not run_groups(test_db, [RUN], "item-qa")[0].closed
+    settle_group = deployment_qa_stage_settlement.settle_plan_group
+    settled = []
+
+    def spy(conn, subject):
+        settled.append(subject["shared_plan"]["group_id"])
+        return settle_group(conn, subject)
 
     with (
         patch("yoke_core.domain.qa_events.emit_qa_run_event"),
-        patch.object(deployment_qa_stage_settlement, "settle_acceptance", spy),
+        patch.object(deployment_qa_stage_settlement, "settle_plan_group", spy),
     ):
         started = qa_browser_writes.handle_qa_run_add(
             _request("qa.run.add", requirement_id, {"performed_by": "worktree_run"})
@@ -60,15 +71,13 @@ def test_completing_a_shared_case_records_the_verdict_and_credits_both_members(
         test_db.execute(
             "INSERT INTO qa_artifacts(qa_run_id,artifact_type,content_type,"
             "artifact_handle,created_at) VALUES (%s,'log','application/json',"
-            "'evidence://shared-case',NOW())",
+            "'evidence://group-case',NOW())",
             (run_id,),
         )
         test_db.commit()
         completed = qa_browser_writes.handle_qa_run_complete(
             _request(
-                "qa.run.complete",
-                requirement_id,
-                {"run_id": run_id, "verdict": "pass"},
+                "qa.run.complete", requirement_id, {"run_id": run_id, "verdict": "pass"}
             )
         )
 
@@ -79,17 +88,16 @@ def test_completing_a_shared_case_records_the_verdict_and_credits_both_members(
         ).fetchone()[0]
         == "pass"
     )
-    assert credited == list(MEMBERS)
+    (group,) = run_groups(test_db, [RUN], "item-qa")
+    assert settled == [group.group_id]
+    assert group.covered_item_ids == tuple(MEMBERS)
     for member in MEMBERS:
-        status = deployment_qa_stage_status(
-            test_db, run_id=RUN, stage_name="item-qa", member_item_id=member
-        )
-        assert status["accepted"], status
+        assert item_qa_acceptance_blockers(test_db, run_id=RUN, item_id=member) == []
 
 
 def test_unsettleable_verdict_is_refused_by_name_and_not_recorded(test_db):
-    _seed(test_db)
-    requirement_id = _materialize(test_db, MEMBERS[0])["created_requirement_ids"][0]
+    requirement_id = _group_requirement(test_db)
+    _arrive_at_item_qa(test_db)
     with patch("yoke_core.domain.qa_events.emit_qa_run_event"):
         started = qa_browser_writes.handle_qa_run_add(
             _request("qa.run.add", requirement_id, {"performed_by": "worktree_run"})
@@ -104,9 +112,7 @@ def test_unsettleable_verdict_is_refused_by_name_and_not_recorded(test_db):
     ):
         refused = qa_browser_writes.handle_qa_run_complete(
             _request(
-                "qa.run.complete",
-                requirement_id,
-                {"run_id": run_id, "verdict": "pass"},
+                "qa.run.complete", requirement_id, {"run_id": run_id, "verdict": "pass"}
             )
         )
 

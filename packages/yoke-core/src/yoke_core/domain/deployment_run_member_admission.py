@@ -57,11 +57,10 @@ class MemberAdmission:
     item_id: int
     delivery_intent: str | None = None
     requirement_ids: tuple[int, ...] = ()
-    plan_ids: tuple[int, ...] = ()
 
     @property
     def derived(self) -> bool:
-        return not self.requirement_ids and not self.plan_ids
+        return not self.requirement_ids
 
 
 #: Turns one member's refusal into the exception its caller raises instead.
@@ -77,7 +76,6 @@ class RunItemsAdmission:
     selections: dict[int, str | None]
     refs: dict[int, str]
     requirement_ids: tuple[int, ...]
-    plan_ids: tuple[int, ...]
 
 
 def admit_run_items(
@@ -155,7 +153,7 @@ def prepare_run_items(
     entries = {int(member.item_id): member for member in members}
     ids = sorted(entries)
     if not ids:
-        return RunItemsAdmission((), {}, {}, {}, (), ())
+        return RunItemsAdmission((), {}, {}, {}, ())
 
     def refuse(item_id: int, exc: Exception) -> None:
         if refused is None:
@@ -218,7 +216,6 @@ def prepare_run_items(
                     if item_id in derived
                     else entries[item_id].requirement_ids
                 ),
-                plan_ids=entries[item_id].plan_ids,
             ),
         )
         for item_id in ids
@@ -226,8 +223,7 @@ def prepare_run_items(
     admission = read_snapshot_inputs(
         conn,
         item_ids=ids,
-        requirement_ids=_selected(entries, derived, "requirement_ids"),
-        plan_ids=_selected(entries, derived, "plan_ids"),
+        requirement_ids=_selected(entries, derived),
         lock=lock_reads,
     )
     for item_id in ids:
@@ -253,7 +249,6 @@ def prepare_run_items(
         },
         {item_id: ref(item_id) for item_id in ids},
         tuple(sorted(admission.requirements)),
-        tuple(sorted(admission.plans)),
     )
 
 
@@ -264,21 +259,15 @@ def admit_run_item(
     item_id: int,
     delivery_intent: str | None = None,
     requirement_ids: Iterable[int] = (),
-    plan_ids: Iterable[int] = (),
 ) -> str:
     """Admit one item; see :func:`admit_run_items`."""
-    member = MemberAdmission(
-        int(item_id), delivery_intent, tuple(requirement_ids), tuple(plan_ids)
-    )
+    member = MemberAdmission(int(item_id), delivery_intent, tuple(requirement_ids))
     return admit_run_items(conn, run_id=run_id, members=(member,))[int(item_id)]
 
 
-def _selected(
-    entries: dict[int, MemberAdmission], derived: dict, field: str
-) -> list[int]:
-    values = [value for entry in entries.values() for value in getattr(entry, field)]
-    if field == "requirement_ids":
-        values.extend(value for admitted, _ in derived.values() for value in admitted)
+def _selected(entries: dict[int, MemberAdmission], derived: dict) -> list[int]:
+    values = [value for entry in entries.values() for value in entry.requirement_ids]
+    values.extend(value for admitted, _ in derived.values() for value in admitted)
     return values
 
 

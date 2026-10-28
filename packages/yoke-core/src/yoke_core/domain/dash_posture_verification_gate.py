@@ -103,6 +103,36 @@ def _requirement_consumed(
     )
 
 
+def _plan_group_answer(conn: Any, item_id: int, plan_id: int) -> Any:
+    """At done, a post-deploy plan is answered by plan groups, never item copies.
+
+    False when the plan is not attached post-deploy; None when a closed group
+    credits the item; else the refusal naming the group to run.
+    """
+    from yoke_core.domain.deployment_qa_plan_credit import plan_credit_misses
+    from yoke_core.domain.qa_plan_attachment_reads import live_item_attachment_sql
+
+    marker = _p(conn)
+    if not conn.execute(
+        "SELECT 1 FROM qa_plan_item_attachments WHERE item_id="
+        f"{marker} AND plan_id={marker} AND qa_phase='post_deploy' "
+        f"AND {live_item_attachment_sql(conn)} LIMIT 1",
+        (item_id, plan_id),
+    ).fetchone():
+        return False
+    miss = next(
+        (m for m in plan_credit_misses(conn, item_id) if m["plan_id"] == plan_id), None
+    )
+    if miss is None:
+        return None
+    return _failure(
+        "GATE_DASH_VERIFICATION_UNSATISFIED",
+        f"Selected post-deploy plan {miss['plan_slug']}: no closed plan group "
+        "of the item's completion run answered it.",
+        miss["recovery"],
+    )
+
+
 def verification_gate(
     conn: Any,
     *,
@@ -204,6 +234,10 @@ def verification_gate(
             ).fetchone()
             if not attached:
                 return None
+            if not pre_merge:
+                answered = _plan_group_answer(conn, int(item_id), int(selector_value))
+                if answered is not False:
+                    return answered
         # A change visible only once deployed selects a post_deploy case bound
         # to the release stage. It binds the posture here and is consumed at
         # done by the completion run's admitted copy, like any post_deploy row.

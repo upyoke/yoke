@@ -99,9 +99,12 @@ def test_materialization_reads_the_phase_the_attachment_was_made_with(
     materialized = materialize_for_item(
         test_db, item_id=item_id, transition_id="release"
     )
-    assert materialized["created_requirement_ids"]
-    # The refresh path validates the same binding and dropped the phase too.
-    rematerialize_for_item(test_db, item_id=item_id, transition_id="release")
+    # The release accepts the binding; the plan runs as its release's plan
+    # group, so no item copy is written.
+    assert materialized["created_requirement_ids"] == []
+    # The refresh path names why there is nothing to refresh on the item.
+    with pytest.raises(QaPlanError, match="post_deploy_plan_runs_as_plan_group"):
+        rematerialize_for_item(test_db, item_id=item_id, transition_id="release")
 
 
 def test_attach_refuses_a_binding_materialization_could_never_accept(

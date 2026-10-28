@@ -1,9 +1,8 @@
 """What a membership removal reads before it takes the run row lock.
 
-The removal guard asks the member's item QA answer, and the QA cleanup asks
-which shared groups the remaining members still attach. Both scale with the
-run, so they are read here, unlocked and as one set per fact; the writer
-locks the run and repeats this read only if the run's fingerprint moved.
+The removal guard asks the member's item QA answer, which scales with the
+run, so it is read here, unlocked and as one set per fact; the writer locks
+the run and repeats this read only if the run's fingerprint moved.
 """
 
 from __future__ import annotations
@@ -26,7 +25,7 @@ from yoke_core.domain.project_identity import render_item_ref
 
 @dataclass
 class RemovalRead:
-    """The run's shared groups and the guard's answer, read before the lock."""
+    """The run's fingerprint and the guard's answer, read before the lock."""
 
     projection: MaterializationProjection
     status: str
@@ -34,27 +33,10 @@ class RemovalRead:
     refusal: ValueError | None = None
 
 
-def shared_group_stages(conn: Any, run_id: str) -> list[str]:
-    """Stages holding memberless shared-group rows, whose owners a removal asks."""
-    from yoke_core.domain.schema_common import _table_exists
-
-    if not _table_exists(conn, "qa_requirements"):
-        return []
-    return [
-        str(row["deployment_stage"])
-        for row in conn.execute(
-            "SELECT DISTINCT deployment_stage FROM qa_requirements "
-            "WHERE deployment_run_id=%s AND deployment_member_item_id IS NULL "
-            "AND plan_id IS NOT NULL AND deployment_stage IS NOT NULL",
-            (run_id,),
-        ).fetchall()
-    ]
-
-
 def read_removal(
     conn: Any, *, run_id: str, item_ids: Iterable[int] = (), guard: bool = True
 ) -> RemovalRead:
-    """Read the guard and shared groups for removing ``item_ids``, unlocked."""
+    """Read the guard and the run fingerprint for removing ``item_ids``, unlocked."""
     projection = MaterializationProjection(conn, run_id)
     row = query_one(conn, "SELECT status FROM deployment_runs WHERE id=%s", (run_id,))
     if row is None:
@@ -66,15 +48,7 @@ def read_removal(
                 _require_removable(conn, run_id, int(item_id), read.status)
         except ValueError as exc:
             read.refusal = exc
-    _read_groups(conn, run_id=run_id, projection=projection)
     return read
-
-
-@presentation_operation
-@run_presentation
-def _read_groups(conn: Any, *, run_id: str, projection: Any) -> None:
-    for stage_name in shared_group_stages(conn, run_id):
-        projection.stage_groups(stage_name)
 
 
 @presentation_operation

@@ -66,10 +66,13 @@ def _project_slug(item: Mapping[str, Any]) -> str:
 
 
 def _owed_requirement_ids(item: Mapping[str, Any]) -> list[int]:
-    """The item's own live post-deploy requirements the stage will admit."""
+    """The item's own live post-deploy item cases the stage will admit.
+
+    An old item copy of a plan counts in no gate: the plan runs as a plan group.
+    """
     owed: list[int] = []
     for row in item.get("qa_requirements") or ():
-        if not isinstance(row, Mapping):
+        if not isinstance(row, Mapping) or row.get("plan_id") is not None:
             continue
         if str(row.get("qa_phase") or "") != DEPLOYMENT_ATTACHMENT_PHASE:
             continue
@@ -80,6 +83,17 @@ def _owed_requirement_ids(item: Mapping[str, Any]) -> list[int]:
         if row.get("id") is not None:
             owed.append(int(row["id"]))
     return owed
+
+
+def _attached_plan_ids(item: Mapping[str, Any]) -> list[int]:
+    """Live post-deploy plans the item attaches; each runs as a plan group."""
+    return sorted({
+        int(row["plan_id"])
+        for row in item.get("qa_plan_attachments") or ()
+        if isinstance(row, Mapping) and row.get("plan_id") is not None
+        and str(row.get("qa_phase") or "") == DEPLOYMENT_ATTACHMENT_PHASE
+        and not row.get("retracted_at")
+    })
 
 
 def delivery_obligation(item: Mapping[str, Any]) -> dict[str, Any]:
@@ -109,6 +123,7 @@ def delivery_obligation(item: Mapping[str, Any]) -> dict[str, Any]:
             "project": _project_slug(item),
             "stages": names,
             "requirement_ids": _owed_requirement_ids(item),
+            "plan_ids": _attached_plan_ids(item),
         }
     except Exception as exc:  # noqa: BLE001 - reporting never fails a merge
         return {"kind": OWES_UNREAD, "detail": str(exc)}
@@ -159,15 +174,28 @@ def stage_recipe(obligation: Mapping[str, Any], public_ref: str) -> str:
     )
 
 
+def plan_only(obligation: Mapping[str, Any]) -> bool:
+    """Plan groups answer every item case this item owes; it has none of its own."""
+    return bool(obligation.get("plan_ids")) and not obligation.get("requirement_ids")
+
+
 def _owes_line(obligation: Mapping[str, Any], public_ref: str) -> str:
     kind = obligation.get("kind")
     if kind == OWES_QA:
         stages = ", ".join(obligation.get("stages") or ())
         ids = ", ".join(str(i) for i in obligation.get("requirement_ids") or ())
+        plans = ", ".join(str(i) for i in obligation.get("plan_ids") or ())
+        groups = (
+            f"attached post-deploy plans {plans} run once per release as plan "
+            "groups; the run's driver or starting session runs its plan groups"
+        )
+        if plan_only(obligation):
+            return f"owes delivery: no item cases at item-scoped QA stage {stages}; {groups}"
         return (
             f"owes delivery: item-scoped QA stage {stages}"
             + (f" (requirements {ids})" if ids else "")
             + f"; the stage credits only {stage_recipe(obligation, public_ref)}"
+            + (f"; {groups}" if plans else "")
         )
     if kind == OWES_NOTHING:
         return (
@@ -230,7 +258,9 @@ def _claim_and_next_lines(
         f"a delivery wake comes only for a close-out delivery could not finish, "
         f"and names its recovery (usually `{merge}`)"
     )
-    if obligation.get("kind") == OWES_QA:
+    if plan_only(obligation):
+        run = "re-entry runs nothing for plan groups: no wake comes to this session for them"
+    elif obligation.get("kind") == OWES_QA:
         run = f"re-entry runs {stage_recipe(obligation, public_ref)}"
     else:
         run = f"re-entry runs the recipe the stage prints, or `{merge}`"
@@ -302,6 +332,7 @@ __all__ = [
     "awaiting_delivery_lines",
     "delivery_obligation",
     "delivery_start_command",
+    "plan_only",
     "session_wake",
     "stage_recipe",
 ]

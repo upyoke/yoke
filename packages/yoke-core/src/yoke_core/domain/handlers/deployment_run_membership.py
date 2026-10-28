@@ -15,7 +15,6 @@ class DeploymentRunAddItemRequest(BaseModel):
     run_id: str
     delivery_intent: Optional[str] = None
     requirement_ids: List[int] = Field(default_factory=list)
-    plan_ids: List[int] = Field(default_factory=list)
 
 
 class DeploymentRunAddItemResponse(BaseModel):
@@ -24,7 +23,6 @@ class DeploymentRunAddItemResponse(BaseModel):
     message: str
     delivery_intent: Optional[str] = None
     requirement_ids: List[int] = Field(default_factory=list)
-    plan_ids: List[int] = Field(default_factory=list)
 
 
 class DeploymentRunRemoveItemRequest(BaseModel):
@@ -74,25 +72,22 @@ def handle_deployment_run_add_item(
             "delivery_intent must be progress or final",
             jsonpath="$.payload.delivery_intent",
         )
-    selections: dict[str, list[int]] = {}
-    for key in ("requirement_ids", "plan_ids"):
-        values = payload.get(key) or []
-        if not isinstance(values, list) or any(
-            isinstance(value, bool) or not isinstance(value, int) or value <= 0
-            for value in values
-        ):
-            return error(
-                "payload_invalid",
-                f"{key} must be an array of positive integer ids",
-                jsonpath=f"$.payload.{key}",
-            )
-        if len(values) != len(set(values)):
-            return error(
-                "payload_invalid",
-                f"{key} must not contain duplicates",
-                jsonpath=f"$.payload.{key}",
-            )
-        selections[key] = values
+    requirement_ids = payload.get("requirement_ids") or []
+    if not isinstance(requirement_ids, list) or any(
+        isinstance(value, bool) or not isinstance(value, int) or value <= 0
+        for value in requirement_ids
+    ):
+        return error(
+            "payload_invalid",
+            "requirement_ids must be an array of positive integer ids",
+            jsonpath="$.payload.requirement_ids",
+        )
+    if len(requirement_ids) != len(set(requirement_ids)):
+        return error(
+            "payload_invalid",
+            "requirement_ids must not contain duplicates",
+            jsonpath="$.payload.requirement_ids",
+        )
     if refusal := require_run_driver(request, resolved_run_id):
         return refusal
 
@@ -102,7 +97,8 @@ def handle_deployment_run_add_item(
         kwargs = (
             {"delivery_intent": delivery_intent} if delivery_intent is not None else {}
         )
-        kwargs.update({key: values for key, values in selections.items() if values})
+        if requirement_ids:
+            kwargs["requirement_ids"] = requirement_ids
         message = cmd_add_item(resolved_run_id, int(request.target.item_id), **kwargs)
     except LookupError as exc:
         return error("not_found", str(exc))
@@ -114,7 +110,7 @@ def handle_deployment_run_add_item(
             "item_id": int(request.target.item_id),
             "message": message,
             "delivery_intent": delivery_intent,
-            **selections,
+            "requirement_ids": requirement_ids,
         },
         primary_success=True,
     )

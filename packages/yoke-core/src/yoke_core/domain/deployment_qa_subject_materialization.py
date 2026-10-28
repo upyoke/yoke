@@ -22,6 +22,7 @@ from yoke_core.domain.deployment_qa_direct_case_target import (
 from yoke_core.domain.post_deploy_verification_answer import (
     cases_not_selected_refusal,
     NOT_REQUIRED,
+    PLAN_GROUPS,
     member_post_deploy_answer,
 )
 from yoke_core.domain.qa_plan_case_definition import snapshot_fan_out
@@ -69,13 +70,8 @@ def materialize_subject(
     snapshots: list[dict],
     commit: bool = True,
     replaced_requirement_ids: frozenset[int] = frozenset(),
-    withdrawn_discharge: bool | None = None,
 ) -> dict[str, Any]:
-    """Materialize one concrete private or shared QA subject.
-
-    ``withdrawn_discharge`` is the stage read's answer, taken before the run
-    lock, to whether this member withdrew every group it still owed.
-    """
+    """Materialize one member's cases, a run subject, or one plan group."""
     from yoke_core.domain.deployment_qa_stage_materialization import (
         QaCasesNotSelectedError,
     )
@@ -111,16 +107,12 @@ def materialize_subject(
             # Recorded emptiness or the own-flow exemption settles no cases;
             # other unanswered members still wait.
             answer = member_post_deploy_answer(conn, subject)
-            from yoke_core.domain.deployment_qa_shared_copy_reads import (
-                withdrawn_member_discharge,
-            )
-
-            if withdrawn_discharge is None:
-                withdrawn_discharge = withdrawn_member_discharge(conn, subject, target)
-            if not answer.discharges_without_cases and not withdrawn_discharge:
+            if not answer.discharges_without_cases:
                 raise QaCasesNotSelectedError(cases_not_selected_refusal())
             if answer.verdict == NOT_REQUIRED:
                 not_required = answer.reasons
+            elif answer.verdict == PLAN_GROUPS:
+                pass
             else:
                 declared_none = answer.reasons
         existing.extend(bound_direct)
@@ -157,7 +149,11 @@ def materialize_subject(
                 plan_id=plan_id,
                 execution_target_digest=target_digest(target),
                 cases=[dict(case) for case in snapshot["cases"]],
-                explicitly_replaced=replaced_requirement_ids,
+                explicitly_replaced=(
+                    frozenset()
+                    if snapshot.get("corrects_own_plan")
+                    else replaced_requirement_ids
+                ),
             )
             materialized_keys = {base_case_key(row["plan_case_key"]) for row in rows}
             added = any(

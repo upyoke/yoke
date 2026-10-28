@@ -171,21 +171,21 @@ def _source_member(
 
 
 @pytest.mark.parametrize("workflow", ("dash", "blitz"))
-@pytest.mark.parametrize("plan_source", (False, True))
 @pytest.mark.parametrize("environment", ("stage", "prod"))
 def test_production_source_closes_member_and_finalizes_run(
     test_db,
     monkeypatch,
     workflow,
-    plan_source,
     environment,
 ):
+    # The source is the item's own case; a post-deploy plan is answered by
+    # its release's plan group, never by a copy on the member.
     _isolate_status_effects(monkeypatch)
     register_session_actor(test_db, DEFAULT_TEST_SESSION_ID)
     item_id, run_id, source_id = _source_member(
         test_db,
         workflow=workflow,
-        plan_source=plan_source,
+        plan_source=False,
         environment=environment,
     )
     _accept_member_qa(test_db, run_id=run_id, item_id=item_id)
@@ -222,7 +222,7 @@ def test_terminal_source_still_blocks_without_current_accepted_proof(test_db, pr
     item_id, run_id, source_id = _source_member(
         test_db,
         workflow="blitz",
-        plan_source=True,
+        plan_source=False,
     )
     if proof in {"wrong-commit", "wrong-environment"}:
         _accept_member_qa(test_db, run_id=run_id, item_id=item_id)

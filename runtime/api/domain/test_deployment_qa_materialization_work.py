@@ -1,51 +1,34 @@
-"""Materialization bounds shared-member selection to one run/stage projection."""
-
-import pytest
+"""Plan-group formation cost does not grow with the run's members."""
 
 from collections import Counter
-from time import perf_counter
 
-from runtime.api.domain.test_deployment_qa_shared_plans import _attach
+from runtime.api.domain.test_deployment_qa_plan_groups import _attach
 from runtime.api.domain.test_deployment_qa_stage_execution import (
     _plan,
     _seed_run,
     _stages,
 )
-from yoke_core.domain import deployment_qa_shared_plans as shared
-from yoke_core.domain import deployment_qa_plan_selection as selection
-from yoke_core.domain import deployment_qa_materialization_projection as projection
+from runtime.api.domain.test_deployment_shipping_reads import CountedConnection
 from yoke_core.domain import schema_common_postgres as schema
-from yoke_core.domain.deployment_qa_stage_materialization import (
-    materialize_deployment_qa_stage,
-)
+from yoke_core.domain.deployment_qa_plan_group_writes import ensure_groups
+from yoke_core.domain.deployment_qa_plan_groups import run_groups
 
 
-def test_shared_44_member_materialization_reuses_projection_and_discards_it(
+def _seed_wide(conn, run_id, members, plans):
+    stages = _stages(plans[0])
+    stages[1].pop("cases")
+    _seed_run(conn, run_id=run_id, stages=stages, members=members)
+    for member in members:
+        for plan in plans:
+            _attach(conn, member, plan)
+
+
+def test_44_member_group_formation_reads_as_much_as_a_4_member_one(
     test_db, monkeypatch
 ):
     plans = [_plan(test_db, f"shared-probe-{n}") for n in range(2)]
-    stages = _stages(plans[0])
-    stages[1].pop("cases")
-    members = tuple(range(11001, 11045))
-    run_id = "run-materialization-work"
-    _seed_run(test_db, run_id=run_id, stages=stages, members=members)
-    for plan in plans:
-        _attach(test_db, members[0], plan)
-    private_copies = materialize_deployment_qa_stage(
-        test_db,
-        deployment_run_id=run_id,
-        deployment_stage="item-qa",
-        deployment_member_item_id=members[0],
-    )["created_requirement_ids"]
-    assert len(private_copies) == 2
-    for member in members[1:]:
-        for plan in plans:
-            _attach(test_db, member, plan)
-
-    counts = Counter()
-    reads = projection.query_rows
-    attached = shared._member_attached_plan_ids
-    selected = selection.selected_plans
+    _seed_wide(test_db, "run-narrow-groups", tuple(range(11001, 11005)), plans)
+    _seed_wide(test_db, "run-wide-groups", tuple(range(11101, 11145)), plans)
     schema_reads = Counter()
     columns = schema._read_columns
     tables = schema._read_table_exists
@@ -58,89 +41,33 @@ def test_shared_44_member_materialization_reuses_projection_and_discards_it(
         schema_reads[("table", table)] += 1
         return tables(conn, table)
 
-    def read(conn, sql, args=()):
-        counts["membership_reads"] += 1
-        return reads(conn, sql, args)
-
-    def inspect(*args, **kwargs):
-        counts["member_plan_inspections"] += 1
-        return attached(*args, **kwargs)
-
-    def select(*args, **kwargs):
-        counts["selected_plans"] += 1
-        return selected(*args, **kwargs)
-
-    monkeypatch.setattr(projection, "query_rows", read)
-    monkeypatch.setattr(shared, "_member_attached_plan_ids", inspect)
-    monkeypatch.setattr(selection, "selected_plans", select)
     monkeypatch.setattr(schema, "_read_columns", read_columns)
     monkeypatch.setattr(schema, "_read_table_exists", read_table)
 
-    def materialize(expected_selections):
-        counts.clear()
+    def form(run_id):
         schema_reads.clear()
-        started = perf_counter()
-        result = materialize_deployment_qa_stage(
-            test_db,
-            deployment_run_id=run_id,
-            deployment_stage="item-qa",
-            deployment_member_item_id=members[0],
-        )
-        print({"elapsed_ms": round((perf_counter() - started) * 1000), **counts})
-        assert counts["membership_reads"] == 1
-        assert counts["member_plan_inspections"] == 44
-        assert counts["selected_plans"] == expected_selections
-        assert schema_reads
-        assert max(schema_reads.values()) == 1
-        return result
+        counted = CountedConnection(test_db)
+        created = ensure_groups(counted, run_id, "item-qa")
+        test_db.commit()
+        assert len(created) == 2  # one row per plan, none per member
+        assert not schema_reads or max(schema_reads.values()) == 1
+        return sum(counted.queries.values())
 
-    fresh = materialize(45)  # caller plus one selection per member, for both groups
-    assert len(fresh["created_requirement_ids"]) == 2
-    existing = materialize(1)  # no private copies remain, so no group resolution
-    assert existing["created_requirement_ids"] == []
-    assert existing["existing_requirement_ids"] == fresh["created_requirement_ids"]
-    assert (
-        test_db.execute(
-            "SELECT count(*) FROM qa_requirements WHERE deployment_run_id=%s", (run_id,)
-        ).fetchone()[0]
-        == 4
-    )  # the two retired private copies remain history
-    from yoke_core.domain.qa_obligation_settlement import unretracted_requirement_sql
-
-    assert (
-        test_db.execute(
-            "SELECT count(*) FROM qa_requirements WHERE deployment_run_id=%s "
-            f"AND {unretracted_requirement_sql(test_db)}",
-            (run_id,),
-        ).fetchone()[0]
-        == 2
-    )
-
-    # Facts do not survive an operation: the next invocation sees a new
-    # attachment and gives only its attaching member a private copy.
-    private = _plan(test_db, "private-materialization-probe")
-    _attach(test_db, members[0], private)
-    changed = materialize(1)
-    assert len(changed["created_requirement_ids"]) == 1
-    row = test_db.execute(
-        "SELECT plan_id,deployment_member_item_id FROM qa_requirements WHERE id=%s",
-        (changed["created_requirement_ids"][0],),
-    ).fetchone()
-    assert tuple(row) == (private, members[0])
+    assert form("run-wide-groups") == form("run-narrow-groups")
+    assert ensure_groups(test_db, "run-wide-groups", "item-qa") == []
+    groups = run_groups(test_db, ["run-wide-groups"], "item-qa")
+    assert sorted(g.plan_id for g in groups) == sorted(plans)
+    assert all(len(g.requirement_ids) == 1 for g in groups)
 
 
-@pytest.mark.parametrize("already_materialized", [False, True])
-def test_methodless_member_obligation_keeps_shared_materialization(
-    test_db, already_materialized
-):
+def test_methodless_member_obligation_keeps_the_plan_group(test_db):
     from runtime.api.domain.test_deployment_qa_admission_execution import (
         _original_requirement,
     )
-    from runtime.api.domain.test_deployment_qa_shared_plans import (
+    from runtime.api.domain.test_deployment_qa_plan_groups import (
         MEMBERS,
         RUN,
         _begin,
-        _materialize,
         _seed,
     )
     from yoke_core.domain.deployment_requirement_snapshots import (
@@ -163,14 +90,10 @@ def test_methodless_member_obligation_keeps_shared_materialization(
         (snapshot, RUN, member),
     )
     test_db.commit()
-    prior = _materialize(test_db, MEMBERS[0]) if already_materialized else None
 
-    result = _materialize(test_db, member)
-    ids = result["created_requirement_ids"] + result["existing_requirement_ids"]
+    ids = ensure_groups(test_db, RUN, "item-qa")
+    test_db.commit()
     assert len(ids) == 1
-    if prior:
-        assert result["created_requirement_ids"] == []
-        assert ids == prior["created_requirement_ids"]
     row = test_db.execute(
         "SELECT plan_id,deployment_member_item_id FROM qa_requirements WHERE id=%s",
         (ids[0],),
@@ -179,7 +102,7 @@ def test_methodless_member_obligation_keeps_shared_materialization(
     assert (
         test_db.execute(
             "SELECT count(*) FROM qa_requirements WHERE deployment_run_id=%s "
-            "AND deployment_member_item_id=%s",
+            "AND plan_id IS NOT NULL AND deployment_member_item_id=%s",
             (RUN, member),
         ).fetchone()[0]
         == 0

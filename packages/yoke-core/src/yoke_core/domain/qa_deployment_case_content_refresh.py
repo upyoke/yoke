@@ -262,7 +262,7 @@ def refreshed_case_keys(
 
 def _behind_plan_refusal(conn: Any, plan_id: int, requirement_ids: list[int]) -> str:
     from yoke_core.domain.qa_plan_case_currency import STALE_PLAN_CASE_CODE
-    from yoke_core.domain.qa_plan_refresh_safety import plan_refresh_invocation
+    from yoke_core.domain.qa_plan_rematerialize import plan_refresh_invocation
 
     ids = ", ".join(str(requirement_id) for requirement_id in requirement_ids)
     return (

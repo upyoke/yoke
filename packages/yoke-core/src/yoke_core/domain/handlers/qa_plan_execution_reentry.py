@@ -44,7 +44,7 @@ def require_resume_inputs(conn, execution, parsed):
     target = execution.get("execution_target") or {}
     shared = (target.get("deployment") or {}).get("shared_plan")
     if shared and member is not None:
-        from yoke_core.domain.deployment_qa_shared_plan_reads import attaching_members
+        from yoke_core.domain.deployment_qa_plan_groups import attaching_members
 
         if member not in attaching_members(
             conn, str(execution["deployment_run_id"]), int(shared["plan_id"])

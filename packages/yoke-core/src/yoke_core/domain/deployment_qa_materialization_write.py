@@ -11,6 +11,7 @@ from yoke_core.domain.db_savepoint import savepoint
 from yoke_core.domain.deployment_qa_transaction_recovery import rollback_after_error
 from yoke_core.domain.deployment_runs_lock import (
     lock_current_read,
+    lock_run,
     run_lock_held,
     run_lock_is_held,
 )
@@ -19,7 +20,6 @@ _MEMBER_WRITE_SAVEPOINT = "yoke_member_qa_write"
 
 
 def _write_subject(conn, stage_read, *, member, replaced_requirement_ids):
-    from yoke_core.domain.deployment_qa_shared_duplicates import retire_member_copies
     from yoke_core.domain.deployment_qa_snapshot_selection import freeze_selected_plans
     from yoke_core.domain.deployment_qa_subject_materialization import (
         materialize_subject,
@@ -27,60 +27,16 @@ def _write_subject(conn, stage_read, *, member, replaced_requirement_ids):
 
     if stage_read.selected_admission is not None:
         return stage_read.selected_admission
-    subject, target = stage_read.subject, stage_read.target
-    freeze_selected_plans(conn, subject, stage_read.snapshots)
-
-    def write(group, group_target, admitted, snapshots):
-        return materialize_subject(
-            conn,
-            subject=group,
-            target=group_target,
-            admitted=admitted,
-            snapshots=snapshots,
-            commit=False,
-            replaced_requirement_ids=replaced_requirement_ids,
-        )
-
-    if not stage_read.shared:
-        return materialize_subject(
-            conn,
-            subject=subject,
-            target=target,
-            admitted=stage_read.admitted,
-            snapshots=stage_read.snapshots,
-            commit=False,
-            replaced_requirement_ids=replaced_requirement_ids,
-            withdrawn_discharge=stage_read.withdrawn_discharge,
-        )
-    results = []
-    for snapshot, group, group_target, members in stage_read.shared:
-        results.append(write(group, group_target, [], [snapshot]))
-        retire_member_copies(
-            conn,
-            group,
-            group_target,
-            [
-                *results[-1]["created_requirement_ids"],
-                *results[-1]["existing_requirement_ids"],
-            ],
-            members=members,
-        )
-    for group, group_target, snapshot in stage_read.corrections:
-        results.append(write(group, group_target, [], [snapshot]))
-    if stage_read.private or stage_read.private_snapshots:
-        results.append(
-            write(subject, target, stage_read.private, stage_read.private_snapshots)
-        )
-    return {
-        **results[0],
-        "deployment_member_item_id": member,
-        "created_requirement_ids": [
-            r for part in results for r in part["created_requirement_ids"]
-        ],
-        "existing_requirement_ids": [
-            r for part in results for r in part["existing_requirement_ids"]
-        ],
-    }
+    freeze_selected_plans(conn, stage_read.subject, stage_read.snapshots)
+    return materialize_subject(
+        conn,
+        subject=stage_read.subject,
+        target=stage_read.target,
+        admitted=stage_read.admitted,
+        snapshots=stage_read.snapshots,
+        commit=False,
+        replaced_requirement_ids=replaced_requirement_ids,
+    )
 
 
 def write_prepared_stage(
@@ -130,14 +86,25 @@ def write_prepared_stage(
         raise
 
 
-def write_prepared_cohort(conn, *, run_id, read, write):
+def write_under_run_lock(conn, run_id, write):
+    """Run one write under the run lock and commit it."""
+    try:
+        lock_run(conn, str(run_id))
+        write()
+        conn.commit()
+    except Exception as exc:
+        rollback_after_error(conn, exc)
+        raise
+
+
+def write_prepared_cohort(conn, *, run_id, read, write, then=None):
     """Write every member ``read()`` prepared under one run lock; return errors.
 
     ``read()`` answers ``(reads, errors)`` for the cohort, unlocked. One
     fingerprint check proves every read current; ``write(member, read)``
     then runs per member with the run's re-locks answered from the held
-    lock. A member whose write refuses rolls back only its own savepoint,
-    and the cohort commits once.
+    lock. A member whose write refuses rolls back only its own savepoint.
+    ``then()`` runs last under the same lock, and the cohort commits once.
     """
     from yoke_core.domain.deployment_qa_stage_materialization import (
         removed_member_refusals,
@@ -145,6 +112,8 @@ def write_prepared_cohort(conn, *, run_id, read, write):
 
     prepared = read()
     if not prepared[0]:
+        if then is not None:
+            write_under_run_lock(conn, run_id, then)
         return dict(prepared[1])
 
     def holds(current):
@@ -165,6 +134,8 @@ def write_prepared_cohort(conn, *, run_id, read, write):
                         write(member, stage_read)
                 except (LookupError, ValueError) as exc:
                     errors[member] = exc
+            if then is not None:
+                then()
         conn.commit()
         return errors
     except Exception as exc:

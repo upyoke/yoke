@@ -16,6 +16,8 @@ import {
 import { runQaSection } from "../../packages/yoke-core/src/yoke_core/ui/static/universe_run_qa.js";
 import {
   appendSharedPlanPointers,
+  groupRunChecks,
+  planGroupId,
   sharedOnlyVerdict,
 } from "../../packages/yoke-core/src/yoke_core/ui/static/run_qa_sharing.js";
 import { appendRemovedMembers } from "../../packages/yoke-core/src/yoke_core/ui/static/universe_run_removed_members.js";
@@ -25,10 +27,12 @@ import {
 } from "../../packages/yoke-core/src/yoke_core/ui/static/inbox_run_review.js";
 
 const RUN = "run-20261017-002";
+const GROUP = `${RUN}:1`;
 const sharing = {
-  shared_plans: [{
-    plan_id: 1, plan: "installer-campaign", plan_name: "Installer campaign",
-    case_count: 2, sharing_public_refs: ["YOK-3935", "YOK-3966"],
+  plan_groups: [{
+    group_id: GROUP, plan_id: 1, plan: "installer-campaign", plan_name: "Installer campaign",
+    case_count: 2, closed: false, earlier_run_id: null,
+    sharing_public_refs: ["YOK-3935", "YOK-3966"],
   }],
   removed_members: [{ public_ref: "YOK-3948", cancelled_count: 13 }],
 };
@@ -43,7 +47,7 @@ function check(id, overrides = {}) {
 
 const shared = (id, overrides) => check(id, {
   plan_id: 1,
-  execution_target_json: { deployment: { shared_plan: { plan_id: 1 } } },
+  execution_target_json: { deployment: { shared_plan: { plan_id: 1, group_id: GROUP } } },
   ...overrides,
 });
 
@@ -77,7 +81,7 @@ function client() {
   };
 }
 
-test("Run QA draws a shared plan once, labelled, and counts each live check once", () => {
+test("Run QA draws a plan group once, labelled, and counts each live check once", () => {
   const documentNode = new FakeDocument();
   const section = runQaSection({ document: documentNode, projects: () => [] },
     { id: RUN, project_id: 1, gates: [] }, runChecks, null, { sharing });
@@ -90,7 +94,7 @@ test("Run QA draws a shared plan once, labelled, and counts each live check once
   assert.match(text(byClass(section, "run-qa-history")[0]), /Earlier checks \(1\)/);
 });
 
-test("a shared-only item shows its shared QA once; an item with own checks points at it", async () => {
+test("a plan-group-only item shows its group once; an item with item cases points at it", async () => {
   const documentNode = new FakeDocument();
   const context = readingContext(documentNode, client());
   const items = ["YOK-3935", "YOK-3966"].map((ref, at) => ({
@@ -105,12 +109,12 @@ test("a shared-only item shows its shared QA once; an item with own checks point
   });
   const naming = allNodes(sharedOnlyHost).filter((node) =>
     ownTextContent(node).includes("Installer campaign")).map(ownTextContent);
-  assert.deepEqual(naming, ["Shared: Installer campaign — see Run QA"]);
+  assert.deepEqual(naming, ["Plan group: Installer campaign — see Run QA"]);
   assert.equal(byClass(sharedOnlyHost, "item-qa-shared-pointer").length, 0);
   assert.deepEqual(byClass(ownHost, "run-verdict").map(text), ["1 of 1 passed"]);
   assert.equal(byClass(ownHost, "run-qa-check").length, 1);
   assert.deepEqual(byClass(ownHost, "item-qa-shared-pointer").map(text),
-    ["Shared: Installer campaign — see Run QA"]);
+    ["Plan group: Installer campaign — see Run QA"]);
   const [sharedOnly] = byClass(sharedOnlyHost, "item-qa-section");
   const css = readFileSync(new URL(
     "../../packages/yoke-core/src/yoke_core/ui/static/universe_carried_item_evidence.css",
@@ -121,17 +125,17 @@ test("a shared-only item shows its shared QA once; an item with own checks point
   assert.match(css, /\.carried-item-qa-diagnostic\s*\{[^}]*overflow-wrap:\s*anywhere/);
 });
 
-test("a shared-only tile joins several plans; pointers stay one per plan", () => {
+test("a plan-group-only tile joins several groups; pointers stay one per group", () => {
   const plans = [{ plan_id: 1, plan_name: "Installer campaign" },
     { plan_id: 2, plan_name: "Setup walk" }];
   assert.equal(sharedOnlyVerdict(plans),
-    "Shared: Installer campaign, Setup walk — see Run QA");
+    "Plan groups: Installer campaign, Setup walk — see Run QA");
   const documentNode = new FakeDocument();
   const host = documentNode.createElement("div");
   appendSharedPlanPointers(documentNode, host, plans);
   assert.deepEqual(byClass(host, "item-qa-shared-pointer").map(text), [
-    "Shared: Installer campaign — see Run QA",
-    "Shared: Setup walk — see Run QA",
+    "Plan group: Installer campaign — see Run QA",
+    "Plan group: Setup walk — see Run QA",
   ]);
 });
 
@@ -152,7 +156,7 @@ test("the Removed block names the checks its removal cancelled", () => {
   assert.match(css, /\.release-removed-note\s*\{[^}]*overflow-wrap:\s*anywhere/);
 });
 
-test("the Inbox run review groups shared checks the same way", () => {
+test("the Inbox run review groups plan group checks the same way", () => {
   const documentNode = new FakeDocument();
   const context = { document: documentNode, projects: () => [] };
   const row = { id: 5, kind: "qa_needs_review", status: "pending", project_id: 1,
@@ -164,26 +168,54 @@ test("the Inbox run review groups shared checks the same way", () => {
   assert.equal(byClass(byClass(card, "run-qa-shared-group")[0], "run-qa-check").length, 2);
 });
 
-test("a plan shared before item-qa copies it draws its cases once", () => {
+test("a plan attached before its group forms draws its cases once", () => {
   const documentNode = new FakeDocument();
   const cases = ["first", "second"].map((key) => ({
     plan_id: 2, plan: "setup-walk", project_id: 1, case_key: key, method_name: "Terminal",
     qa_phase: "post_deploy", pending_obligation: true }));
-  const pending = { shared_plans: [{ plan_id: 2, plan: "setup-walk", plan_name: "Setup walk",
-    case_count: 2, pending: true, cases, sharing_public_refs: ["YOK-1", "YOK-2"] }],
+  const pending = { plan_groups: [{ group_id: null, plan_id: 2, plan: "setup-walk",
+    plan_name: "Setup walk", case_count: 2, pending: true, cases, closed: false,
+    earlier_run_id: null, sharing_public_refs: ["YOK-1", "YOK-2"] }],
   removed_members: [] };
   const section = runQaSection({ document: documentNode, projects: () => [] },
     { id: RUN, project_id: 1, gates: [] }, [], null, { sharing: pending });
   const groups = byClass(section, "run-qa-shared-group");
   assert.equal(groups.length, 1);
-  assert.equal(byClass(groups[0], "run-qa-check").length, pending.shared_plans[0].case_count);
+  assert.equal(byClass(groups[0], "run-qa-check").length, pending.plan_groups[0].case_count);
   assert.match(text(byClass(section, "run-qa-shared-label")[0]), /Covers: YOK-1, YOK-2/);
   assert.equal(text(byClass(section, "run-verdict")[0]), "Not started");
   assert.deepEqual(byClass(section, "run-qa-check-outcome").map(text),
     ["Not started", "Not started"]);
   const host = documentNode.createElement("div");
-  appendSharedPlanPointers(documentNode, host, pending.shared_plans);
+  appendSharedPlanPointers(documentNode, host, pending.plan_groups);
   assert.deepEqual(byClass(host, "item-qa-shared-pointer").map(text),
-    ["Shared: Setup walk — see Run QA"]);
+    ["Plan group: Setup walk — see Run QA"]);
   assert.equal(byClass(host, "run-qa-check").length, 0);
+});
+
+test("one group per plan group id: closed, open and earlier-run groups stay apart", () => {
+  const groups = {
+    plan_groups: [
+      { group_id: "run-old:1", plan_id: 1, plan_name: "Installer campaign", closed: true,
+        earlier_run_id: "run-old", case_count: 1, sharing_public_refs: ["YOK-1"] },
+      { group_id: `${RUN}:1`, plan_id: 1, plan_name: "Installer campaign", closed: true,
+        earlier_run_id: null, case_count: 1, sharing_public_refs: ["YOK-2"] },
+      { group_id: `${RUN}:2`, plan_id: 1, plan_name: "Installer campaign", closed: false,
+        earlier_run_id: null, case_count: 1, sharing_public_refs: ["YOK-2", "YOK-3"] },
+    ],
+    removed_members: [],
+  };
+  const inGroup = (id, group) => check(id, { plan_id: 1,
+    execution_target_json: { deployment: { shared_plan: { plan_id: 1, group_id: group } } } });
+  const { own, groups: drawn } = groupRunChecks(
+    [check(1), inGroup(2, `${RUN}:1`), inGroup(3, `${RUN}:2`)], groups);
+  assert.deepEqual(own.map((row) => row.requirement_id), [1]);
+  assert.deepEqual(drawn.map((group) => [group.label, group.checks.map((c) => c.requirement_id)]), [
+    ["Installer campaign · Passed in run-old · Covers: YOK-1", []],
+    ["Installer campaign · group 1 · Covers: YOK-2", [2]],
+    ["Installer campaign · group 2 · Covers: YOK-2, YOK-3", [3]],
+  ]);
+  // A member's own row never joins a plan group, whatever its target says.
+  assert.equal(planGroupId(inGroup(4, `${RUN}:2`)), `${RUN}:2`);
+  assert.equal(planGroupId({ ...inGroup(5, `${RUN}:2`), deployment_member_public_ref: "YOK-2" }), null);
 });

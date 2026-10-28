@@ -51,7 +51,8 @@ def test_gate_materialization_leaves_every_snapshot_field_unchanged(test_db, cas
 
 
 def test_environment_relabel_cannot_split_a_waived_snapshot_at_a_gate(test_db):
-    item, plan, case = _setup(test_db)
+    # Item gates snapshot verification plans; post-deploy plans run as groups.
+    item, plan, case = _setup(test_db, qa_phase="verification")
     replace_plan_cases(test_db, plan_id=plan["id"], cases=[{
         **case, "target_envs": ["prod"], "stage_reason": None,
     }])

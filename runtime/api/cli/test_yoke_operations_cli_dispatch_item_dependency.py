@@ -180,7 +180,10 @@ class TestItemDependencyWriteDispatch:
         assert "--rationale" in out
         # A fix shipping in the dependent's own release takes fact:merged;
         # fact:deployed would make composition skip the dependent.
-        assert "ships in the dependent's release or shared QA case" in out
+        assert "ships in the dependent's release" in out
+        # Failed QA adds an edge only for a finding in the dependent's own item.
+        assert "a finding is in the dependent's own" in out
+        assert "shared QA case" not in out
         assert "composition skips the dependent" in out
         for source in VALID_SOURCES:
             assert source in out

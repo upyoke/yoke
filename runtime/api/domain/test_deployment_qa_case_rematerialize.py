@@ -126,7 +126,11 @@ def test_rematerialize_refuses_a_case_the_live_walk_has_reached(
 def test_selection_keeps_frozen_body_until_explicit_rematerialization(
     test_db,
 ) -> None:
-    """Selection preserves the contract; explicit refresh replaces its body."""
+    """Selection preserves the contract; explicit refresh replaces its body.
+
+    Agent-selected plans freeze into the run's selections, so the subject is
+    a run-scoped stage; a member stage runs no plan of its own.
+    """
     from runtime.api.domain.test_deployment_qa_stage_execution import (
         _plan,
         _seed_run,
@@ -141,12 +145,9 @@ def test_selection_keeps_frozen_body_until_explicit_rematerialization(
     plan_id = _plan(test_db, "selected-amended-smoke")
     stages = _stages(plan_id)
     del stages[1]["cases"]
+    stages[1].update(name="run-qa", scope="run")
     _seed_run(test_db, run_id=run_id, stages=stages, members=(member,))
-    subject = {
-        "deployment_run_id": run_id,
-        "deployment_stage": "item-qa",
-        "deployment_member_item_id": member,
-    }
+    subject = {"deployment_run_id": run_id, "deployment_stage": "run-qa"}
     materialize_deployment_qa_stage(
         test_db, **subject, agent_plan="selected-amended-smoke"
     )

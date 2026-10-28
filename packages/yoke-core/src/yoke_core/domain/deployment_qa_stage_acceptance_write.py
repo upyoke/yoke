@@ -9,7 +9,7 @@ into its next member.
 from __future__ import annotations
 
 from collections.abc import Mapping
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any
 
 from yoke_core.domain.deployment_runs_lock import lock_run
@@ -40,19 +40,17 @@ class Acceptance:
     execution: Mapping[str, Any]
 
 
-@dataclass
-class SharedParts:
-    """A member answered by its shared groups and own subject, each read alike."""
+def _passed(conn: Any, subject: Mapping[str, Any]) -> dict[str, Any]:
+    """Commit a passed subject; a plan group records who it answered first."""
+    from yoke_core.domain.deployment_qa_plan_groups import close_group
 
-    parts: list = field(default_factory=list)
+    close_group(conn, subject)
+    conn.commit()
+    return passed()
 
 
 def write_status(conn: Any, read: Any) -> dict[str, Any]:
     """Write each passed subject's acceptance under the run lock, then answer."""
-    if isinstance(read, SharedParts):
-        from yoke_core.domain.deployment_qa_shared_acceptance import combine_shared
-
-        return combine_shared([write_status(conn, part) for part in read.parts])
     if not isinstance(read, Acceptance):
         return read
     subject, target, run_id, execution = (
@@ -67,13 +65,11 @@ def write_status(conn: Any, read: Any) -> dict[str, Any]:
     # path below commits, so no caller carries it into later members.
     lock_run(conn, str(run_id))
     requirement_id = _acceptance_requirement(conn, subject=subject, target=target)
-    if acceptance_waived(conn, requirement_id):
-        conn.commit()
-        return passed()
+    if acceptance_waived(conn, requirement_id) or latest_verdict(
+        conn, requirement_id
+    ) == "pass":
+        return _passed(conn, subject)
     latest = latest_verdict(conn, requirement_id)
-    if latest == "pass":
-        conn.commit()
-        return passed()
     if latest == "fail":
         conn.commit()
         return answer(
@@ -91,8 +87,7 @@ def write_status(conn: Any, read: Any) -> dict[str, Any]:
             verdict="pass",
             reason=f"all scoped cases passed under {mode}",
         )
-        conn.commit()
-        return passed()
+        return _passed(conn, subject)
     # The undetermined acceptance and its review request stand or fall
     # together: no review is requested against evidence a reviewer cannot
     # open, and a repaired stage re-evaluates from the same state.
@@ -140,4 +135,4 @@ def write_status(conn: Any, read: Any) -> dict[str, Any]:
     )
 
 
-__all__ = ["Acceptance", "SharedParts", "write_status"]
+__all__ = ["Acceptance", "write_status"]

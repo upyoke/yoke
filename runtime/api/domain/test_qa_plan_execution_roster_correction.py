@@ -2,21 +2,20 @@
 
 import pytest
 
-from runtime.api.domain.test_deployment_qa_stage_execution import _environment
-from runtime.api.fixtures.backlog_inserts import insert_item
 from runtime.api.fixtures.backlog_qa_inserts import insert_qa_run
-from runtime.api.fixtures.completed_delivery import (
-    seed_selected_requirement_run as _seed_selected_requirement_run,
+from runtime.api.fixtures.deployment_scoped_qa_run_fixture import (
+    ITEM_QA_STAGE,
+    item_qa_stage_definitions,
+    seed_run_standing_on_qa_stage,
 )
 from yoke_core.domain.deployment_qa_stage_materialization import (
     materialize_deployment_qa_stage,
 )
-from yoke_core.domain.qa_plan_attachments import (
-    attach_plan_to_item,
-    materialize_for_item,
-)
 from yoke_core.domain.qa_plan_execution_checkin import stop_if_told
 from yoke_core.domain.qa_plan_execution_result_state import QaPlanExecutionError
+from yoke_core.domain.qa_plan_execution_roster_correction import (
+    ROSTER_CASE_REACHED_CODE,
+)
 from yoke_core.domain.qa_plan_execution_state import (
     advance_plan_execution,
     begin_plan_execution,
@@ -28,15 +27,14 @@ from yoke_core.domain.qa_plan_management import (
     create_plan,
     replace_plan_cases,
 )
-from yoke_core.domain.qa_plan_rematerialize import rematerialize_for_item
 from yoke_core.domain.qa_plan_rematerialize_deployment import (
     rematerialize_for_deployment_stage,
 )
 
 MEMBER = 7316
 RUN = "run-roster-correction"
-STAGE = "member-qa"
 WALKER = "roster-walker"
+KEYS = ["prepare", "send", "receive"]
 
 
 def _case(key, position, instructions):
@@ -47,8 +45,6 @@ def _case(key, position, instructions):
         "instructions": instructions,
         "expected_outcome": "The command passes.",
         "method_config": {"command": "true"},
-        "target_envs": ["stage"],
-        "stage_reason": "creates_or_destroys_data",
     }
 
 
@@ -62,31 +58,28 @@ def _cases(prepare="Prepare the host.", receive="Receive on one host."):
 
 def _seed(conn, *, answered=True):
     """A walk that passed ``prepare``, sits on ``send``, has not reached ``receive``."""
-    _environment(conn)
-    item = insert_item(conn, id=MEMBER, workflow_id="issue", status="release")
-    plan = create_plan(conn, project="yoke", slug="roster-fix", name="Roster fix")
-    replace_plan_cases(conn, plan_id=plan["id"], cases=_cases())
-    attach_plan_to_item(
+    plan = create_plan(
         conn,
-        item_id=item["id"],
-        plan_id=plan["id"],
-        transition_id="release",
-        qa_phase="post_deploy",
+        project="yoke",
+        slug="roster-fix",
+        name="Roster fix",
+        infer_target_environment=False,
     )
-    sources = materialize_for_item(conn, item_id=MEMBER, transition_id="release")[
-        "created_requirement_ids"
-    ]
-    _seed_selected_requirement_run(
+    replace_plan_cases(conn, plan_id=plan["id"], cases=_cases())
+    stages = item_qa_stage_definitions(int(plan["id"]))
+    stages[1]["cases"]["case_keys"] = KEYS
+    seed_run_standing_on_qa_stage(
         conn,
         run_id=RUN,
-        item_id=MEMBER,
-        requirement_id=sources[0],
-        also_selected=tuple(sources[1:]),
+        project="yoke",
+        stages=stages,
+        members=(MEMBER,),
+        lineage="b" * 40,
     )
     materialize_deployment_qa_stage(
         conn,
         deployment_run_id=RUN,
-        deployment_stage=STAGE,
+        deployment_stage=ITEM_QA_STAGE,
         deployment_member_item_id=MEMBER,
     )
     execution = _begin(conn)
@@ -109,10 +102,19 @@ def _begin(conn):
     return begin_plan_execution(
         conn,
         deployment_run_id=RUN,
-        deployment_stage=STAGE,
+        deployment_stage=ITEM_QA_STAGE,
         deployment_member_item_id=MEMBER,
         actor_id="2",
         session_id=WALKER,
+    )
+
+
+def _refresh(conn):
+    return rematerialize_for_deployment_stage(
+        conn,
+        deployment_run_id=RUN,
+        deployment_stage=ITEM_QA_STAGE,
+        deployment_member_item_id=MEMBER,
     )
 
 
@@ -122,7 +124,7 @@ def _instructions(conn, requirement_id):
     ).fetchone()["instructions"]
 
 
-def test_correcting_an_unreached_case_updates_the_live_roster(test_db):
+def test_a_stage_refresh_corrects_only_the_unreached_entry(test_db):
     plan, execution_id, prepared, receiving = _seed(test_db)
     before = lock_plan_execution(test_db, execution_id)
     test_db.commit()
@@ -131,10 +133,10 @@ def test_correcting_an_unreached_case_updates_the_live_roster(test_db):
     )
     test_db.commit()
 
-    result = rematerialize_for_item(test_db, item_id=MEMBER, transition_id="release")
+    result = _refresh(test_db)
 
-    assert receiving in result["corrected_admitted_copy_ids"]
-    assert prepared not in result["corrected_admitted_copy_ids"]
+    assert receiving in result["refreshed_requirement_ids"]
+    assert prepared not in result["refreshed_requirement_ids"]
     assert _instructions(test_db, receiving) == "Receive on two hosts."
     after = lock_plan_execution(test_db, execution_id)
     test_db.commit()
@@ -164,36 +166,8 @@ def test_correcting_an_unreached_case_updates_the_live_roster(test_db):
         )
 
 
-def test_a_stage_refresh_corrects_only_the_unreached_entry(test_db):
-    plan, execution_id, prepared, receiving = _seed(test_db)
-    before = lock_plan_execution(test_db, execution_id)
-    test_db.commit()
-    replace_plan_cases(
-        test_db, plan_id=plan, cases=_cases(receive="Receive on two hosts.")
-    )
-    test_db.commit()
-
-    rematerialize_for_deployment_stage(
-        test_db,
-        deployment_run_id=RUN,
-        deployment_stage=STAGE,
-        deployment_member_item_id=MEMBER,
-    )
-
-    after = lock_plan_execution(test_db, execution_id)
-    test_db.commit()
-    assert after["roster"][:2] == before["roster"][:2]
-    assert after["roster"][2]["instructions"] == "Receive on two hosts."
-    assert after["roster_digest"] == roster_digest(after["roster"])
-    assert str(_begin(test_db)["id"]) == execution_id
-
-
-@pytest.mark.parametrize(
-    "answered,recovery",
-    [(True, "yoke qa requirement supersede"), (False, "yoke qa plan abort")],
-)
-def test_correcting_a_case_the_walk_already_ran_refuses(test_db, answered, recovery):
-    plan, execution_id, prepared, _ = _seed(test_db, answered=answered)
+def test_correcting_a_case_the_walk_already_walked_refuses(test_db):
+    plan, execution_id, prepared, _ = _seed(test_db, answered=False)
     before = lock_plan_execution(test_db, execution_id)
     test_db.commit()
     replace_plan_cases(
@@ -201,12 +175,10 @@ def test_correcting_a_case_the_walk_already_ran_refuses(test_db, answered, recov
     )
     test_db.commit()
 
-    with pytest.raises(QaPlanError, match="admitted_copy_in_flight") as refusal:
-        rematerialize_for_item(test_db, item_id=MEMBER, transition_id="release")
+    with pytest.raises(QaPlanError, match=ROSTER_CASE_REACHED_CODE) as refusal:
+        _refresh(test_db)
 
-    # An answered copy is frozen for good; one only walked can be re-walked.
-    assert f"admitted case {prepared}" in str(refusal.value)
-    assert recovery in str(refusal.value)
+    assert f"yoke qa plan abort --execution-id {execution_id}" in str(refusal.value)
     assert _instructions(test_db, prepared) == "Prepare the host."
     after = lock_plan_execution(test_db, execution_id)
     test_db.commit()

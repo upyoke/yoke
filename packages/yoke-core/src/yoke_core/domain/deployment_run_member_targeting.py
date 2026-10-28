@@ -109,58 +109,25 @@ def run_needs_member(conn: Any, *, run_id: str, item_id: int) -> bool:
     return item_id in needed_member_ids(conn, run_id=run_id, item_ids=(item_id,))
 
 
-def _selection_identity(row):
-    """Frozen plan case identities stay fixed; pending plans name their live cases."""
+def _selection_identity(row) -> frozenset[int]:
+    """The requirement ids a member's snapshot froze, else its stored selection.
+
+    Post-deploy plans run as plan groups and are never part of a member's
+    selection; a stored selection's ``plan_ids`` is ignored.
+    """
     if row["requirement_snapshot"]:
         snapshot = json.loads(str(row["requirement_snapshot"]))
-        ids = {int(entry["id"]) for entry in snapshot["requirements"]}
-        plans = {
-            int(entry["plan"]["id"]): {str(case["case_key"]) for case in entry["cases"]}
-            for entry in snapshot.get("plans", ())
-        }
-    else:
-        selection = json.loads(str(row["requirement_selection"] or "{}"))
-        ids = {int(value) for value in selection.get("requirement_ids", ())}
-        plans = {int(value): None for value in selection.get("plan_ids", ())}
-    return ids, plans
+        return frozenset(int(entry["id"]) for entry in snapshot["requirements"])
+    selection = json.loads(str(row["requirement_selection"] or "{}"))
+    return frozenset(int(value) for value in selection.get("requirement_ids", ()))
 
 
-def _selected_sets(conn, rows):
+def _selected_sets(rows):
     """Read recorded selection identities together, without validation or row locks."""
-    identities = {
+    return {
         (str(row["run_id"]), int(row["item_id"])): _selection_identity(row)
         for row in rows
     }
-    pairs = {
-        (key[1], plan_id) for key, (_, plans) in identities.items() for plan_id in plans
-    }
-    plan_requirements = {}
-    if pairs:
-        items, plans = (
-            tuple({pair[0] for pair in pairs}),
-            tuple({pair[1] for pair in pairs}),
-        )
-        requirements = conn.execute(
-            f"SELECT item_id,plan_id,id,plan_case_key FROM qa_requirements WHERE item_id IN ({','.join('%s' for _ in items)}) "
-            f"AND plan_id IN ({','.join('%s' for _ in plans)}) AND deployment_run_id IS NULL",
-            (*items, *plans),
-        ).fetchall()
-        for item_id, plan_id, requirement_id, case_key in requirements:
-            plan_requirements.setdefault((int(item_id), int(plan_id)), []).append(
-                (int(requirement_id), str(case_key))
-            )
-    result = {}
-    for key, (ids, plans) in identities.items():
-        for plan_id, case_keys in plans.items():
-            ids.update(
-                requirement_id
-                for requirement_id, case_key in plan_requirements.get(
-                    (key[1], plan_id), ()
-                )
-                if case_keys is None or case_key in case_keys
-            )
-        result[key] = frozenset(ids)
-    return result
 
 
 def covering_holder_pairs(
@@ -214,7 +181,7 @@ def covering_holder_pairs(
     environments = {str(row[0]): str(row[1] or "") for row in flow_envs}
     run_environment = run_environment_name(conn, run_id)
     current = run_source_facts(conn, run_id) or {}
-    selected = _selected_sets(conn, rows)
+    selected = _selected_sets(rows)
     covered = set()
     for row in rows:
         key = (str(row["run_id"]), int(row["item_id"]))
@@ -260,7 +227,7 @@ def member_selected_requirement_ids(
         f"FROM {run_items()} WHERE run_id=%s AND item_id=%s",
         (run_id, item_id),
     ).fetchall()
-    return _selected_sets(conn, rows).get((run_id, item_id), frozenset())
+    return _selected_sets(rows).get((run_id, item_id), frozenset())
 
 
 def companion_requirement_sets(
@@ -284,7 +251,7 @@ def companion_requirement_sets(
         "AND dr.status IN ('created','executing','succeeded')",
         (*ids, run_id),
     ).fetchall()
-    selected = _selected_sets(conn, rows)
+    selected = _selected_sets(rows)
     grouped = {}
     for row in rows:
         project_id = int(row["item_project_id"])

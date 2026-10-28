@@ -86,9 +86,25 @@ CREATE TABLE qa_requirements (
     requirement_source TEXT NOT NULL DEFAULT 'explicit',
     success_policy TEXT NOT NULL DEFAULT 'blocking', capability_requirements TEXT,
     suite_id TEXT, waived_at TIMESTAMPTZ, waiver_rationale TEXT, created_at TIMESTAMPTZ NOT NULL,
-    plan_case_key TEXT, deployment_member_item_id INTEGER, execution_target_json TEXT,
-    superseded_by_requirement_id INTEGER
+    plan_id INTEGER, plan_case_key TEXT, deployment_member_item_id INTEGER,
+    execution_target_json TEXT, superseded_by_requirement_id INTEGER
 );
+CREATE TABLE qa_plans (
+    id INTEGER PRIMARY KEY, slug TEXT, project_id INTEGER, target_environment_id INTEGER,
+    retired_at TIMESTAMPTZ
+);
+CREATE TABLE qa_plan_item_attachments (
+    item_id INTEGER, plan_id INTEGER, transition_id TEXT, qa_phase TEXT,
+    retracted_at TIMESTAMPTZ
+);
+CREATE TABLE qa_plan_project_defaults (
+    project_id INTEGER, workflow_id TEXT, transition_id TEXT, plan_id INTEGER,
+    qa_phase TEXT
+);
+-- Each fixture project registers a verification command, so a status
+-- transition seeds no no-tests review floor.
+INSERT INTO qa_plans (id, slug, project_id) VALUES
+    (1, 'registered-command-quick', 1), (2, 'registered-command-quick', 2);
 CREATE TABLE qa_runs (
     id INTEGER PRIMARY KEY, qa_requirement_id INTEGER NOT NULL,
     performed_by TEXT, verdict TEXT, verdict_reason TEXT, execution_status TEXT,

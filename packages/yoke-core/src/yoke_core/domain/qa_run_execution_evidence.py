@@ -206,17 +206,11 @@ def _settle_recorded_verdict(conn: Any, run_id: int) -> None:
         )
 
         if shared_target_identity(subject.get("execution_target_json")):
-            from yoke_core.domain.deployment_qa_execution_target import (
-                deployment_qa_execution_target,
-            )
-            from yoke_core.domain.deployment_qa_shared_acceptance import (
-                settle_shared_group,
+            from yoke_core.domain.deployment_qa_stage_settlement import (
+                settle_plan_group,
             )
 
-            group = requirement_subject(conn, int(subject["id"]))
-            settle_shared_group(
-                conn, group, deployment_qa_execution_target(conn, group)
-            )
+            settle_plan_group(conn, requirement_subject(conn, int(subject["id"])))
             return
         from yoke_core.domain.deployment_qa_stage_settlement import settle_subject
 

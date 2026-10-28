@@ -22,6 +22,8 @@ from yoke_core.domain.deployment_qa_stage_contract import deployment_qa_stage_su
 from yoke_core.domain.deployment_qa_execution_target import (
     deployment_qa_execution_target,
 )
+from yoke_core.domain.deployment_qa_plan_group_writes import ensure_groups
+from yoke_core.domain.deployment_qa_plan_groups import run_groups
 from yoke_core.domain.deployment_qa_stage_materialization import (
     materialize_deployment_qa_stage,
 )
@@ -98,35 +100,37 @@ def test_private_unrun_member_answers_match_scalar_authority(test_db):
     for member in members:
         _attach(test_db, member, _plan(test_db, f"private-check-{member}"))
     subjects = [("private-unrun", member, "item-qa") for member in members]
-    unmaterialized = CountedConnection(test_db)
-    before = member_qa_standings(unmaterialized, subjects)
-    assert all(answer["state"] == "not yet run" for answer in before.values())
-    print(
-        f"Shipping unmaterialized: members=20 queries={sum(unmaterialized.queries.values())} "
-        f"callers={unmaterialized.callers.most_common(20)}"
-    )
-    assert sum(unmaterialized.queries.values()) < 30
-    for member in members:
-        materialize_deployment_qa_stage(
-            test_db,
-            deployment_run_id="private-unrun",
-            deployment_stage="item-qa",
-            deployment_member_item_id=member,
+
+    def expected(run, member, stage):
+        answer = current_item_qa(
+            test_db, run_id=run, item_id=member, current_stage=stage
         )
+        return {
+            "state": answer.state,
+            "stage": answer.stage,
+            "reason": answer.reason,
+            "failed_requirement_ids": list(answer.failed_requirement_ids),
+            "no_item_qa_required": False,
+        }
+
+    unformed = CountedConnection(test_db)
+    before = member_qa_standings(unformed, subjects)
+    print(
+        f"Shipping unformed: members=20 queries={sum(unformed.queries.values())} "
+        f"callers={unformed.callers.most_common(20)}"
+    )
+    for run, member, stage in subjects:
+        assert before[(run, member)] == expected(run, member, stage)
+    assert sum(unformed.queries.values()) < 30
+    # Each member's private plan runs as its own plan group.
+    ensure_groups(test_db, "private-unrun", "item-qa")
+    test_db.commit()
+    assert len(run_groups(test_db, "private-unrun", "item-qa")) == len(members)
     conn = CountedConnection(test_db)
     answers = member_qa_standings(conn, subjects)
     assert all(answer["state"] == "not yet run" for answer in answers.values())
     for run, member, stage in subjects:
-        expected = current_item_qa(
-            test_db, run_id=run, item_id=member, current_stage=stage
-        )
-        assert answers[(run, member)] == {
-            "state": expected.state,
-            "stage": expected.stage,
-            "reason": expected.reason,
-            "failed_requirement_ids": list(expected.failed_requirement_ids),
-            "no_item_qa_required": False,
-        }
+        assert answers[(run, member)] == expected(run, member, stage)
     print(
         f"Shipping private/unrun: members=20 queries={sum(conn.queries.values())} "
         f"callers={conn.callers.most_common(20)}"
@@ -156,9 +160,7 @@ def test_pending_independent_review_remains_pending_then_refreshes(test_db):
 def test_case_environment_overrides_share_reads_and_refresh_next_request(test_db):
     import json
     from runtime.api.domain.test_deployment_qa_stage_execution import _environment
-    from yoke_core.domain.qa_deployment_member_attached_plans import (
-        attached_member_plan_ids,
-    )
+    from yoke_core.domain.deployment_qa_member_plans import run_owed_plans
 
     _environment(test_db)
     plan = _plan(test_db, "cross-environment-display", target_envs=["stage"])
@@ -184,22 +186,12 @@ def test_case_environment_overrides_share_reads_and_refresh_next_request(test_db
     @presentation_operation
     @member_presentation
     def read(conn, subjects):
-        return [
-            attached_member_plan_ids(conn, member_item_id=member, environment_id=stage)
-            for _, member, _ in subjects
-        ]
+        owed = run_owed_plans(conn, "cross-environment-read")
+        return [sorted(owed[member]) for _, member, _ in subjects]
 
     subjects = [("cross-environment-read", member, "item-qa") for member in members]
     conn = CountedConnection(test_db)
     assert read(conn, subjects) == [[plan]] * len(members)
-    assert (
-        sum(
-            n
-            for sql, n in conn.queries.items()
-            if "SELECT name FROM environments" in sql
-        )
-        == 1
-    )
     assert (
         sum(n for sql, n in conn.queries.items() if "FROM qa_plan_cases c" in sql) == 1
     )
@@ -214,59 +206,6 @@ def test_case_environment_overrides_share_reads_and_refresh_next_request(test_db
     test_db.execute("UPDATE qa_methods SET runner_id='host_control' WHERE id='command'")
     with pytest.raises(QaPlanError, match="starting state|starting_state"):
         read(conn, subjects)
-
-
-def test_shared_copy_ownership_selects_each_member_once_and_refreshes(test_db):
-    from unittest.mock import patch
-    from yoke_core.domain import deployment_qa_shared_plans as shared
-
-    plan = _plan(test_db, "shared-copy-ownership")
-    stages = _stages(plan)
-    stages[1].pop("cases")
-    run = "shared-copy-read"
-    members = (34001, 34002)
-    _seed_run(test_db, run_id=run, stages=stages, members=members)
-    for member in members:
-        _attach(test_db, member, plan)
-    subjects = [(run, member, "item-qa") for member in members]
-
-    def scalar():
-        return [
-            shared.member_group_digests(test_db, run, stage, member)
-            for run, member, stage in subjects
-        ]
-
-    @presentation_operation
-    @member_presentation
-    def repeated(conn, subjects):
-        answers = []
-        for run, member, stage in subjects:
-            values = [
-                shared.member_group_digests(conn, run, stage, member) for _ in range(28)
-            ]
-            assert all(value == values[0] for value in values)
-            answers.append(values[0].copy())
-            values[0].clear()
-            assert shared.member_group_digests(conn, run, stage, member) == answers[-1]
-        return answers
-
-    expected = scalar()
-    assert all(expected)
-    with patch.object(
-        shared, "member_plan_subjects", wraps=shared.member_plan_subjects
-    ) as select:
-        assert repeated(test_db, subjects) == expected
-        assert select.call_count == len(members)
-    test_db.execute(
-        "UPDATE qa_plan_item_attachments SET retracted_at=%s WHERE item_id=%s",
-        ("2026-09-15T00:00:00Z", members[0]),
-    )
-    assert scalar() == [set(), set()]
-    with patch.object(
-        shared, "member_plan_subjects", wraps=shared.member_plan_subjects
-    ) as select:
-        assert repeated(test_db, subjects) == scalar()
-        assert select.call_count == 2 * len(members)
 
 
 def test_verdict_projection_keeps_full_attempt_detail_independent(test_db):

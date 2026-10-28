@@ -15,6 +15,12 @@ import psycopg
 import pytest
 
 from runtime.api.domain import test_deployment_qa_pinned_release_reads as pinned
+from runtime.api.domain.test_deployment_qa_stage_execution import (
+    _plan,
+    _seed_run,
+    _stages,
+)
+from runtime.api.fixtures.deployment_scoped_qa_run_fixture import seed_member_qa_case
 from runtime.api.domain.test_deployment_qa_materialization_lock_window import (
     STAGE,
     LockWindowRecorder,
@@ -112,38 +118,36 @@ def test_a_run_changed_between_read_and_lock_is_read_again_unlocked(
     run_id = "run-unlocked-reread-moved"
     first, peer = _seed(test_db, run_id, 21001, 2, requirements=1)
     reads: list[tuple[int, bool]] = []
-    real = projection.MaterializationProjection.shareable
+    real = projection.MaterializationProjection.__init__
 
-    def shareable(self, subject, target, snapshots):
-        answer = real(self, subject, target, snapshots)
-        reads.append((len(answer), _run_row_locked(run_id)))
+    def read(self, conn, run):
+        real(self, conn, run)
+        reads.append((len(self.members()), _run_row_locked(run_id)))
         if len(reads) == 1:
+            # Committed after the fingerprint, before the run row lock.
             remove_members_on(test_db, run_id, [peer], reason="moved mid-read")
             test_db.commit()
-        return answer
 
-    monkeypatch.setattr(projection.MaterializationProjection, "shareable", shareable)
+    monkeypatch.setattr(projection.MaterializationProjection, "__init__", read)
     materialize_deployment_qa_stage(
         test_db,
         deployment_run_id=run_id,
         deployment_stage=STAGE,
         deployment_member_item_id=first,
     )
-    # Shared on the stale read, private once re-read, and never under the lock.
-    assert reads == [(2, False), (0, False)]
+    # Both members on the stale read, one once re-read, never under the lock.
+    assert reads == [(2, False), (1, False)]
 
 
 @pytest.mark.parametrize("writer", ["materialize", "rematerialize"])
 def test_a_run_that_keeps_changing_refuses_by_name(test_db, monkeypatch, writer):
     run_id = f"run-unlocked-reread-churn-{writer}"
-    (member,) = _seed(test_db, run_id, 22001 if writer == "materialize" else 22101, 1)
-    if writer == "rematerialize":
-        materialize_deployment_qa_stage(
-            test_db,
-            deployment_run_id=run_id,
-            deployment_stage=STAGE,
-            deployment_member_item_id=member,
-        )
+    if writer == "materialize":
+        (member,) = _seed(test_db, run_id, 22001, 1)
+    else:
+        # Rematerialize refreshes a member's materialized flow-plan cases.
+        member = 22101
+        seed_member_qa_case(test_db, run_id=run_id, member_item_id=member)
     before = test_db.execute(
         "SELECT count(*) FROM qa_requirements WHERE deployment_run_id=%s", (run_id,)
     ).fetchone()[0]
@@ -233,19 +237,27 @@ def test_status_update_refuses_a_held_member_lock_within_the_bound(test_db):
     assert status == "executing"
 
 
+def _seed_flow_plan_members(conn, run_id, first, size):
+    """Members of an item stage whose flow declares a plan each one runs."""
+    members = tuple(range(first, first + size))
+    plan_id = _plan(conn, f"{run_id}-flow")
+    _seed_run(conn, run_id=run_id, stages=_stages(plan_id), members=members)
+    return members
+
+
 def test_materialize_and_refresh_every_member_grow_at_most_linearly(test_db):
     """Forty members cost at most four times ten, so O(n^2) work fails here.
 
-    A shared group's refresh reads its owners as one set and rewrites only
-    owners whose selection changed, so refreshing every member in turn is
-    linear in members, inside the run lock and out.
+    Each member's materialize and refresh reads the run as one set and writes
+    only that member's rows, so doing every member in turn is linear in
+    members, inside the run lock and out.
     """
     measured = {}
     for run_id, first, size in (
         ("run-unlocked-reread-ten", 25001, 10),
         ("run-unlocked-reread-forty", 26001, 40),
     ):
-        members = _seed(test_db, run_id, first, size, requirements=1)
+        members = _seed_flow_plan_members(test_db, run_id, first, size)
         materialized, refreshed = LockWindowRecorder(test_db), LockWindowRecorder(test_db)
         for member in members:
             materialize_deployment_qa_stage(

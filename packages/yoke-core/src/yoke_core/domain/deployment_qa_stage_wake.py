@@ -99,7 +99,6 @@ def stage_wait_message(
     route: str,
     names_cases: bool,
     discharge: str | None = None,
-    shared_plans: tuple[str, ...] = (),
     owes_run: bool = True,
 ) -> str:
     """Name the run, stage, target/revision, item, and who this reaches.
@@ -130,14 +129,6 @@ def stage_wait_message(
             f"{discharge} Check 'yoke deployment-runs get {run_id}' for "
             "the current state."
         )
-    shared = (
-        f" Shared group evidence comes from {', '.join(shared_plans)}; one owning "
-        "session executes each group for all attaching members. A waiting result "
-        "names that execution and owner; keep your claim and park until settlement "
-        "credits you or wakes you to retry your own member command."
-        if shared_plans
-        else ""
-    )
     if not owes_run:
         return (
             f"Deployment run {run_id} is waiting at item-scoped QA stage "
@@ -155,13 +146,24 @@ def stage_wait_message(
         "naming BOTH the stage and the member, which is what this stage "
         f"credits: 'yoke qa plan run --item {item_ref} --stage "
         f"{stage_name}{_plan_selection(names_cases)} "
-        f"--project PROJECT'.{shared} "
+        f"--project PROJECT'. "
         "Omitting them materializes requirements this stage never counts, so "
         "the verdict would discharge nothing. The stage binds the run's own "
         "deployed target, so a plan authored before this release still "
         f"verifies it. {HOST_WAIT_TEACHING} Check 'yoke deployment-runs get "
         f"{run_id}' for the current state."
     )
+
+
+def route_phrase(route: str) -> str:
+    """Who a run-scoped notice reached, in the words its body uses."""
+    from yoke_core.domain.deployment_run_driver_notice import CREATOR
+
+    if route == DRIVER:
+        return "its live driver"
+    if route == CREATOR:
+        return "the session that started it (no driver is attached to the run)"
+    return "the project's steering seat (no driver or starting session is live)"
 
 
 def run_stage_wait_message(
@@ -176,11 +178,7 @@ def run_stage_wait_message(
 ) -> str:
     """The run-scoped counterpart to :func:`stage_wait_message`."""
     context = _execution_context(target_tier=target_tier, revision=revision)
-    addressed = (
-        "its live driver"
-        if route == DRIVER
-        else "the project's steering seat (no driver is attached to the run)"
-    )
+    addressed = route_phrase(route)
     return (
         f"Deployment run {run_id} reached run-scoped QA stage {stage_name!r} "
         f"for {context}. Reaching {addressed}: the deploy driver owns this "
@@ -228,13 +226,6 @@ def notify_item_scoped_qa_wait(
 
     item_ref = render_item_ref(conn, int(item_id))
     discharge = member_discharge_statement(conn, int(item_id))
-    from yoke_core.domain.deployment_qa_shared_wait import shared_plan_names
-
-    shared_plans = (
-        ()
-        if discharge
-        else shared_plan_names(conn, run_id=run_id, stage=stage_name, member=item_id)
-    )
     return push_notice(
         conn,
         item_id=item_id,
@@ -249,7 +240,6 @@ def notify_item_scoped_qa_wait(
             route=route,
             names_cases=names_cases,
             discharge=discharge,
-            shared_plans=shared_plans,
             owes_run=owes_run,
         ),
         idempotency_key=stage_wait_idempotency_key(

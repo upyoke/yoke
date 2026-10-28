@@ -4,6 +4,6 @@
  "status": "observed",
  "page": "deployment-runs",
  "position": 4,
- "summary": "Admission freezes attached post-deploy plans and plans named by admitted requirements. New selections freeze complete plan and case definitions before executable rows. Incomplete historical selections refuse execution with reviewed operator repair recovery; no runtime legacy-plan reconstruction remains.",
- "sources": ["packages/yoke-core/src/yoke_core/domain/deployment_requirement_snapshots.py", "packages/yoke-core/src/yoke_core/domain/deployment_qa_snapshot_selection.py", "docs/public/deployments/model/run-members.md"]
+ "summary": "Admission freezes each member's item cases and the plans its admitted item cases name; it never saves an attached post-deploy plan or writes an item copy of one. Those plans run at item QA as plan groups pinned at the run's first group of each plan. New selections freeze complete plan and case definitions before executable rows. Incomplete historical selections refuse execution with reviewed operator repair recovery; no runtime legacy-plan reconstruction remains.",
+ "sources": ["packages/yoke-core/src/yoke_core/domain/deployment_requirement_snapshots.py", "docs/public/deployments/model/run-members.md", "packages/yoke-core/src/yoke_core/domain/deployment_qa_plan_group_writes.py"]
 }

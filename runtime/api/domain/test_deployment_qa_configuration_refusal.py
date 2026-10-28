@@ -29,6 +29,7 @@ from runtime.api.domain.test_deployment_qa_stage_dispatch_close_order import (
 )
 from yoke_contracts.public_ref import format_item_ref
 from yoke_core.domain import deploy_pipeline as pipeline
+from yoke_core.domain import deployment_qa_dispatch_wait_notice as wait_notice
 from yoke_core.domain import deployment_qa_stage_dispatch as dispatch
 from yoke_core.domain import deployment_qa_stage_gate as gate
 from yoke_core.domain.deploy_pipeline_qa_wait import AWAITING_SCOPED_QA
@@ -111,7 +112,7 @@ def test_configuration_refusal_wakes_each_held_member_once() -> None:
         ),
         patch.object(dispatch, "removed_item_ids", return_value=set()),
         patch.object(
-            dispatch,
+            wait_notice,
             "notify_item_scoped_qa_wait",
             side_effect=lambda conn, **kw: wakes.append(
                 (kw["item_id"], kw["reasons"], kw["names_cases"], kw["target_digest"])

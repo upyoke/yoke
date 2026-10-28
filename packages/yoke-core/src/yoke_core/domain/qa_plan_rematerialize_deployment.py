@@ -1,10 +1,12 @@
 """Refresh pending deployment cases and their existing frozen selection atomically.
 
-A member's refresh covers each shared group it attaches plus its own plan
-cases. Every subject is read first, unlocked and batched across the run's
-members; the run row lock covers only the writes, after the projection's
-fingerprint proves those reads still current. A run that changed in between
-is read again unlocked, never under the lock.
+The subject is read first, unlocked; the run row lock covers only the writes,
+after the projection's fingerprint proves that read still current. A run that
+changed in between is read again unlocked, never under the lock.
+
+A plan group (the memberless plan rows of an item-scoped stage) is never
+refreshed: it runs its plan as the release pinned it, and an edited plan runs
+on the next release.
 """
 
 from __future__ import annotations
@@ -24,64 +26,42 @@ from yoke_core.domain.workflow_item_binding_lock import (
     rollback_workflow_binding_write_errors,
 )
 
+PLAN_GROUP_REFRESH_REFUSAL = (
+    "plan_group_not_rematerialized: deployment run {run_id!r} stage {stage!r} is "
+    "item-scoped, so its run-wide plan rows are plan groups. A plan group runs "
+    "its plan as the release pinned it; an edited plan runs on the next release. "
+    "Correct a failed group case with `yoke qa plan run --deployment-run-id "
+    "{run_id} --stage {stage} --plan P --replaces CASE_KEY=REQUIREMENT_ID`, or "
+    "refresh one member's own plan cases with `yoke qa plan rematerialize "
+    "--item PREFIX-N --stage {stage}`."
+)
+
 
 @presentation_operation
 @run_presentation
 def _read(conn: Any, *, run_id: str, stage: str, member: int | None, plan):
-    """The projection and every subject this refresh writes, before any lock."""
+    """The projection and the subject this refresh writes, before any lock."""
     from yoke_core.domain.deployment_qa_materialization_projection import (
         MaterializationProjection,
     )
     from yoke_core.domain.deployment_qa_stage_contract import (
+        _run_stage,
         deployment_qa_stage_subject,
     )
 
     projection = MaterializationProjection(conn, run_id)
-    own = dict(run_id=run_id, stage=stage, member=member, plan=plan)
     if member is None:
-        return projection, [read_subject_refresh(conn, **own)]
-    # Refuses an inactive stage or a departed member by name before any group.
-    deployment_qa_stage_subject(
-        conn, run_id=run_id, stage_name=stage, member_item_id=member
+        scope = _run_stage(conn, run_id, stage, require_active=False)["stage"]
+        if str(scope.get("scope") or "") == "item":
+            raise QaPlanError(PLAN_GROUP_REFRESH_REFUSAL.format(run_id=run_id, stage=stage))
+    else:
+        # Refuses an inactive stage or a departed member by name.
+        deployment_qa_stage_subject(
+            conn, run_id=run_id, stage_name=stage, member_item_id=member
+        )
+    return projection, read_subject_refresh(
+        conn, run_id=run_id, stage=stage, member=member, plan=plan
     )
-    groups = projection.member_groups(stage, member)
-    if not groups:
-        return projection, [read_subject_refresh(conn, **own)]
-    refreshes = []
-    for group in groups:
-        selected = group.subject["shared_snapshot"]["plan"]
-        if plan is not None and str(plan) not in {
-            str(selected["id"]),
-            str(selected["slug"]),
-        }:
-            continue
-        refreshes.append(
-            read_subject_refresh(
-                conn,
-                run_id=run_id,
-                stage=stage,
-                member=None,
-                plan=selected["id"],
-                shared_digest=group.digest,
-                selection_member=member,
-            )
-        )
-    has_own = conn.execute(
-        "SELECT 1 FROM qa_requirements WHERE deployment_run_id=%s AND deployment_stage=%s "
-        "AND deployment_member_item_id=%s AND plan_id IS NOT NULL LIMIT 1",
-        (run_id, stage, member),
-    ).fetchone()
-    # A named plan no shared group answers is this member's own: its refresh
-    # narrows to that plan and checks only this member's walks.
-    if has_own and (plan is None or not refreshes):
-        refreshes.append(read_subject_refresh(conn, **own))
-    if not refreshes:
-        raise QaPlanError(
-            "shared_plan_refresh_selection: selected plan is neither a shared plan "
-            "this member attaches nor one of its own materialized plans; "
-            "inspect this member's plans"
-        )
-    return projection, refreshes
 
 
 @composition_operation
@@ -107,17 +87,10 @@ def rematerialize_for_deployment_stage(
             plan=plan,
         )
 
-    projection, refreshes = lock_current_read(
+    _projection, refresh = lock_current_read(
         conn, run_id, read, holds=lambda current: current[0].holds(conn)
     )
-    results = [
-        write_subject_refresh(
-            conn,
-            refresh,
-            group_digests=lambda member: projection.digests(stage, member),
-        )
-        for refresh in refreshes
-    ]
+    result = write_subject_refresh(conn, refresh)
     if commit:
         conn.commit()
     return {
@@ -125,7 +98,7 @@ def rematerialize_for_deployment_stage(
         "deployment_stage": stage,
         "deployment_member_item_id": deployment_member_item_id,
         **{
-            key: sorted({value for result in results for value in result[key]})
+            key: sorted(set(result[key]))
             for key in (
                 "plan_ids",
                 "created_requirement_ids",
@@ -136,4 +109,4 @@ def rematerialize_for_deployment_stage(
     }
 
 
-__all__ = ["rematerialize_for_deployment_stage"]
+__all__ = ["PLAN_GROUP_REFRESH_REFUSAL", "rematerialize_for_deployment_stage"]

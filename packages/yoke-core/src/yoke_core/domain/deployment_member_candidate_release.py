@@ -135,7 +135,6 @@ def release_failed_member(conn: Any, *, run_id: str, stage: str, item_id: int) -
         item_id,
         reason=reason,
         removed_by=CORRECTION_RELEASE_REMOVED_BY,
-        projection=read.projection,
     )
     conn.commit()
     print(f"Released {ref} from run {run_id}: {reason}.")
@@ -208,7 +207,6 @@ def release_replaced_members(
             ids,
             reason=reason,
             removed_by=removed_by,
-            projection=read.projection,
         ).values():
             print(f"Released {ref} from run {run_id}: {reason}.")
             released.append(ref)

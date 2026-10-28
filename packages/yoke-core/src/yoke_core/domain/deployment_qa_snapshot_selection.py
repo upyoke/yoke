@@ -1,4 +1,4 @@
-"""Complete frozen plan contracts and their existing run/member owners."""
+"""Complete frozen plan contracts and the run selections that own them."""
 
 import json
 from collections.abc import Mapping
@@ -104,53 +104,31 @@ def plan_matches_target(conn, plan, target, stage_environment_id):
 
 
 def freeze_selected_plans(conn, subject, snapshots):
-    """Persist new selections in the same transaction as their first cases.
+    """Persist a run subject's new selections with their first cases.
 
     The caller holds the run lock. An existing contract changes here only to
     the saved source its stage refreshed it to before first materializing it;
     explicit rematerialization owns changes to a previously materialized plan.
+    A member subject runs the run's flow selections and freezes nothing of its
+    own; a plan group is pinned in ``plan_groups`` when it is created.
     """
-    if not snapshots or subject.get("shared_plan"):
+    if (
+        not snapshots
+        or subject.get("shared_plan")
+        or subject.get("member_item_id") is not None
+    ):
         return
-    member = subject.get("member_item_id")
-    if member is not None:
-        flow_ids = {
-            int(value["plan"]["id"])
-            for value in subject["flow_snapshot"].get("selections", [])
-            if value.get("stage") == subject["stage"]["name"]
-        }
-        snapshots = [
-            value
-            for value in snapshots
-            if int(value["plan"]["id"]) not in flow_ids
-            or value.get("selected_by_agent")
-        ]
-        if not snapshots:
-            return
-    if member is None:
-        table, where, params, field = (
-            "deployment_runs",
-            "id=%s",
-            (subject["id"],),
-            "selections",
-        )
-    else:
-        table, where, params, field = (
-            "deployment_run_items",
-            "run_id=%s AND item_id=%s",
-            (subject["id"], member),
-            "plans",
-        )
     row = conn.execute(
-        f"SELECT requirement_snapshot FROM {table} WHERE {where}", params
+        "SELECT requirement_snapshot FROM deployment_runs WHERE id=%s",
+        (subject["id"],),
     ).fetchone()
     payload = json.loads(str(row["requirement_snapshot"]))
-    values = payload.setdefault(field, [])
+    values = payload.setdefault("selections", [])
     stage = subject["stage"]["name"]
     existing = {
         int(value["plan"]["id"]): index
         for index, value in enumerate(values)
-        if field == "plans" or value.get("stage") == stage
+        if value.get("stage") == stage
     }
     changed = False
     for snapshot in snapshots:
@@ -171,10 +149,7 @@ def freeze_selected_plans(conn, subject, snapshots):
         for key in ("selected_by_agent", "replacement_scopes"):
             if key in snapshot:
                 value[key] = snapshot[key]
-        if member is None:
-            value["stage"] = stage
-        else:
-            value["attachment"] = {"transition_id": "", "qa_phase": "post_deploy"}
+        value["stage"] = stage
         if index is not None:
             if values[index] == value:
                 continue
@@ -185,6 +160,6 @@ def freeze_selected_plans(conn, subject, snapshots):
         changed = True
     if changed:
         conn.execute(
-            f"UPDATE {table} SET requirement_snapshot=%s WHERE {where}",
-            (_canonical(payload), *params),
+            "UPDATE deployment_runs SET requirement_snapshot=%s WHERE id=%s",
+            (_canonical(payload), subject["id"]),
         )

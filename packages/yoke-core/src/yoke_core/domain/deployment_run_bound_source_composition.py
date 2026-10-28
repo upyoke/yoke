@@ -168,28 +168,26 @@ class PlannedRecomposition:
     """A recomposition judged before the run lock, for the record being bound.
 
     ``snapshots`` are the frozen run's new members' rows, as
-    ``(selections, snapshots, requirement_ids, plan_ids)``; ``verdict`` is the
+    ``(selections, snapshots, requirement_ids)``; ``verdict`` is the
     composition judgement ``cmd_validate_composition`` would give after the
     writes. ``further`` is the enrollment that judgement would make of the
     carried items outside the rebound projects; its reads are covered by the
     rebound enrollment's basis, so confirming that one confirms both.
     """
 
-    snapshots: tuple[dict, dict, tuple[int, ...], tuple[int, ...]] | None
+    snapshots: tuple[dict, dict, tuple[int, ...]] | None
     verdict: tuple[bool, str]
     further: CarriedEnrollment | None = None
 
     @property
-    def row_ids(self) -> tuple[tuple[int, ...], tuple[int, ...]]:
-        """The requirement and plan rows this plan read unlocked."""
-        requirements, plans = set(), set()
+    def row_ids(self) -> tuple[int, ...]:
+        """The requirement rows this plan read unlocked."""
+        requirements = set()
         if self.snapshots is not None:
             requirements.update(self.snapshots[2])
-            plans.update(self.snapshots[3])
         if self.further is not None and self.further.admission is not None:
             requirements.update(self.further.admission.requirement_ids)
-            plans.update(self.further.admission.plan_ids)
-        return tuple(sorted(requirements)), tuple(sorted(plans))
+        return tuple(sorted(requirements))
 
 
 def plan_recomposition(
@@ -237,7 +235,7 @@ def plan_recomposition(
             item_id: row["requirement_selection"] for item_id, row in rows.items()
         }
         selections, frozen = read_member_snapshots(conn, run_id, stored, lock=False)
-        snapshots = (selections, frozen, *snapshot_row_ids(selections, frozen))
+        snapshots = (selections, frozen, snapshot_row_ids(selections))
         for item_id in rows:
             rows[item_id] = dict(
                 rows[item_id],

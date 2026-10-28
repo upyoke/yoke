@@ -49,6 +49,17 @@ def done_gate_refusal_errors(conn: Any, rows: Sequence[Any], *, name: str) -> li
         "surface with explicit authorization.",
     ]
     for row in rows:
+        if isinstance(row, dict) and row.get("qa_kind") == "plan_group":
+            # A plan group answers this plan once per release; the item owes
+            # one that closed while it attached the plan.
+            errors.extend(
+                [
+                    f"  - Post-deploy plan {row['plan_slug']}: no closed plan group "
+                    "covers this item on its completion run",
+                    f"    Run: {row['recovery']}",
+                ]
+            )
+            continue
         graph_error = _graph_error(row)
         if graph_error:
             errors.extend(
@@ -78,7 +89,12 @@ def done_gate_refusal_errors(conn: Any, rows: Sequence[Any], *, name: str) -> li
             f"  - Requirement #{row['id']} ({row['qa_kind']}, "
             f"phase={row['qa_phase']}{bound}): {reason}"
         )
-    if any(_phase(row) == POST_DEPLOY_PHASE and not _graph_error(row) for row in rows):
+    if any(
+        _phase(row) == POST_DEPLOY_PHASE
+        and row["id"] is not None
+        and not _graph_error(row)
+        for row in rows
+    ):
         errors.append(f"  {POST_DEPLOY_RECOVERY}")
     return errors
 

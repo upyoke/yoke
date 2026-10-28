@@ -224,6 +224,7 @@ CREATE TABLE IF NOT EXISTS qa_requirements (
     blocking_mode TEXT DEFAULT 'blocking',
     waived_at TIMESTAMPTZ,
     success_policy TEXT DEFAULT 'blocking',
+    plan_id INTEGER,
     plan_case_key TEXT,
     deployment_member_item_id INTEGER
 );

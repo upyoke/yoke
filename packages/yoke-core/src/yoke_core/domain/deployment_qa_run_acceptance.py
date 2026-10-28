@@ -201,10 +201,20 @@ def current_item_qa(
         target=deployment_qa_execution_target(conn, subject),
         acceptance_qa_kind=DEPLOYMENT_STAGE_ACCEPTANCE_QA_KIND,
     )
+    from yoke_core.domain.deployment_qa_plan_group_writes import member_group_blockers
+
+    state, blockers = acceptance.state, tuple(acceptance.blockers)
+    # An open group of a plan this member attaches is still this member's QA.
+    for label, group_state, reasons in member_group_blockers(
+        conn, str(run_id), stage_name, int(item_id)
+    ):
+        if state in (STAGE_ACCEPTED, STAGE_DISCHARGED):
+            state = group_state
+        blockers += tuple(f"{label}: {reason}" for reason in reasons)
     return ItemStageQa(
         stage=stage_name,
-        state=acceptance.state,
-        blockers=acceptance.blockers,
+        state=state,
+        blockers=blockers,
         failed_requirement_ids=acceptance.failed_requirement_ids,
     )
 
@@ -303,6 +313,15 @@ def _stage_blockers(
             blockers.append(f"{label} could not be evaluated: {exc}")
             continue
         blockers.extend(f"{label}: {reason}" for reason in reasons)
+        if item_scoped:
+            from yoke_core.domain.deployment_qa_plan_group_writes import (
+                member_group_blockers,
+            )
+
+            for group, _state, reasons in member_group_blockers(
+                conn, str(run_id), stage_name, int(item_id)
+            ):
+                blockers.extend(f"{label}: {group}: {reason}" for reason in reasons)
     return blockers
 
 

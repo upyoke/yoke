@@ -4,84 +4,93 @@
 [Getting started](../index.md) > [Command and technical reference](../guide/reference/index.md) > [Verification](index.md) > Deployment plan execution
 <!-- /yoke:breadcrumbs -->
 
-Use the item and its pinned stage to start its owed cases:
+Run item cases (QA written on one item, or added by the flow without a plan)
+with the item and its pinned stage:
 
 ```text
 yoke qa plan run --item PREFIX-N --stage STAGE --project P
 ```
 
+A post-deploy plan attached to release members runs once per release as one
+[plan group](#plan-groups):
+
+```text
+yoke qa plan run --deployment-run-id RUN --stage item-qa --plan PLAN --project P
+```
+
 Failure: [item recovery](failed-item-qa.md). Options: `yoke qa plan run --help`.
 Scope and target binding: [Case attachment](case-attachment.md#binding-a-deployment-case-to-its-stage-and-member).
 
-Admission copies executable requirements; others stay on the source item.
+Admission copies executable item cases; others stay on the source item.
+Attaching a post-deploy plan writes no item copy, and admission saves no plan.
 The plan supplies cases; stage targets supply `target_env`, preserving scope
 for corrections without `target_envs`.
 
 [QA continuity](deployment-qa-continuity.md): item authority, release takeover,
 cross-build observations and exact-execution recovery.
 
-`--plan ID_OR_SLUG` runs an admitted frozen chain without new obligations;
-run, stage, subject, and target must match before host access. New plans fill empty
-stages; corrections require replacements. `qa_plan_selector_cursor_conflict`
-retains the private cursor and names owner-resume recovery.
+## Plan groups
 
-## Shared plan credit
+When `item-qa` dispatches, each attached plan (a live attachment or project
+default, unretired, for the run's environment) that a member still owes gets
+one plan group: memberless run rows, one per case and required baseline, at any
+number of attaching items. Its target records
+`deployment.shared_plan = {plan_id, source_revision, group_id}`; `group_id` is
+set once and never changes. The deployed candidate must contain the plan's
+source revision, and cases are filtered to the target. The run pins each plan
+at its first group, so plan edits during a release wait for the next release.
+A run holds at most one open group per plan.
 
-Members share ordered post-deploy case execution when plan id, source revision,
-and observed target match. Stage selection counts as attachment through a live
-or admission-frozen attachment, or an admitted requirement owned by the plan.
-A sole attaching member keeps a private copy and `deployment_member_item_id`;
-a formed group stays shared until its last member leaves.
-The execution retains its original requesting member separately from its
-run-wide subject. Continuation and host-wait commands use its execution ID.
-The shared target omits `deployment.member_item_id` and records
-`deployment.shared_plan`; the run and stage remain explicit. Each member waits
-only for its attached groups. A failing shared case blocks every attaching
-member; a different plan, source revision or target stays separate. Flow-pinned
-plans and directly authored member cases retain their declared scope.
+Dispatch launches nothing and wakes no item holder for a plan group. One
+run-scoped notice lists each pending group with its items and run command, sent
+to the live run driver, else the live session that started the run, else
+steering. Only a new pending group re-sends it. Holders of plan-only items
+park; the stage and the next stage wait while any group is open.
+
+`--plan PLAN` at `item-qa` runs that plan's open group for the whole release;
+no command selects one member's plan cases, so attach the plan instead. With no
+open group it refuses `plan_group_not_open`, listing the plan's closed groups.
+
+A group closes when the existing settlement rules accept it: every case passes
+(a corrected case counts through its replacement) and any required stage
+acceptance is recorded. Closing records `covered_item_ids` once: the run
+members attaching the plan at that moment. A closed group never changes or
+moves. An item is done only when each attached post-deploy plan has a closed
+group covering it, in its target-qualified completion run (including a
+supplemental staging run that recorded the delivered revision) or a run that
+run superseded. An item or attachment that arrives after a group closed is not
+covered: it gets a new group with its own `group_id`. A verification pass never
+counts for post-deploy.
+
+A failing case keeps the group open; a retry reruns only failed cases. One
+notice to the same recipient names the report and the group's items and
+releases no member; that session decides who fixes what.
 
 Recording a case verdict while its stage is executing settles that stage in
-the same write: a shared case settles its group and credits every attaching
-member. When the stage cannot settle, the write refuses as
-`qa_verdict_settlement_refused` with the cause and whether the verdict
-persisted. Record an unpersisted verdict again after repairing the cause; for a
-persisted one, re-drive the run with `yoke watch deploy -- RUN` so its runner
-adopts it.
+the same write; a group case settles its group. When the stage cannot settle,
+the write refuses as `qa_verdict_settlement_refused` with the cause and whether
+the verdict persisted. Record an unpersisted verdict again after repairing the
+cause; for a persisted one, re-drive the run with `yoke watch deploy -- RUN` so
+its runner adopts it.
 
-Use the `--item` / `--stage` command above. It runs unfinished private
-member cases first, retaining their own target, order, host prerequisites and
-reviews. Completing that private roster ends this invocation; it does not
-start an attached shared campaign. Private evidence alone does not accept a
-member that still owes shared evidence. Once private acceptance is complete,
-the same command selects the next unfinished shared group and reuses
-completed group evidence. When other sessions' live executions hold every
-group you still owe, it returns `state=waiting` with
-`shared_execution_wait.execution_id` and `owner_session_id`. Keep the work claim
-and park with `yoke sessions touch --mode parked --reason "waiting for shared QA"`.
-The member stage retains the wait. Passing shared evidence credits every attaching member;
-completion, abort or error wakes members who can retry that execution. Not one
-on another live execution, or a manual-only case. The owner resumes as usual.
-Refresh and declared corrections
-also use an attaching member and keep the failed group's target identity.
-For a correction, name its plan and failed requirement:
+For a correction, name its plan and failed requirement. A group case uses the
+group form above with the same flag:
 
 ```text
 yoke qa plan run --item PREFIX-N --stage STAGE \
     --plan CORRECTED_PLAN --project P --replaces CASE_KEY=FAILED_REQUIREMENT_ID
 ```
 
-Only the correction plan's rows are selected, including shared rows; other
-cases and groups remain owed. Frozen replacement scopes prevent later
-materialization from making private copies. A passing independent verdict
-supersedes the failed requirement.
-Removing one member or withdrawing its attachment preserves shared evidence for
-the members still attached. Removing the last attaching member with
-`yoke deployment-runs remove-item` retracts the group's unsettled rows, so an
-orphaned group never stays a run-wide blocker. Source-case refresh and withdrawal resolve the same
-shared target; a recorded run keeps the existing retraction refusal.
-At materialization, redundant member copies retire as history. A live cursor
-using those copies refuses as `shared_plan_duplicate_execution_live`: its owner
-must finish or abort it before retrying; conversion makes no partial changes.
+Only the correction plan's rows run; other cases remain owed. A passing
+independent verdict supersedes the failed requirement.
+
+Takeover moves an open group, its results and any running execution to the
+successor unchanged; a successor member attaching the plan joins it. Closed
+groups stay in the run where they passed. Removing a member or withdrawing its
+attachment keeps the group for the members still attaching. When none is left,
+`yoke deployment-runs remove-item` retracts the open group and stops its
+execution; passed rows are never retracted. A retracted group is never reused:
+a later attacher gets a new group.
 
 ## Machine partitions
 
@@ -134,7 +143,7 @@ session joins the host's waiting line (`qa_test_machine_waits`), the same
 FIFO line a refused manual `yoke claims coordination-claim acquire --key QA_HOST:<machine>`
 joins. The runner prints `Queued for QA host <machine>, position N of M` with
 the park command; write no host hold of your own. A session keeps its place
-from its first wait and across retries; a rerun of an aborted shared walk
+from its first wait and across retries; a rerun of an aborted walk
 that held the host takes its place. Every release of the host — including
 `yoke claims work release --claim-id N` — reserves it for the oldest live
 waiter and sends that session the exact resume command; stopped owners use the
@@ -202,8 +211,8 @@ A Command case whose command calls `yoke test-machine` must declare
 queue and meet `test_machine_leased`, so authoring refuses it naming that field.
 
 `method_config.test_machine` selects that registered host even when this direct
-requirement has only the generic <!-- qa:test-machine-capability -->`test-machine` capability. Admitted deployment
-copies retain the pin; omitting `--test-machine` does not permit another
+requirement has only the generic <!-- qa:test-machine-capability -->`test-machine` capability. Deployment
+requirements retain the pin; omitting `--test-machine` does not permit another
 host, and a conflicting run pin is refused before a lease is acquired.
 
 Before a plan's first golden reset on each Test Machine, Yoke compares the
@@ -257,10 +266,6 @@ blocks execution. Continuations preserve the existing walk and journal.
 yoke qa plan abort --execution-id EXECUTION_ID \
     --reason 'Stop this host case'
 ```
-
-`shared_qa_wake_unavailable` warns that the follow-up stage-wait read failed;
-a committed abort or shared-stage settlement still succeeds. Inspect
-`yoke deployment-runs get RUN`; ask the control-plane operator to re-drive its QA stage.
 
 `qa_checkin_busy` pauses setup or cases as `blocked_on_precondition`; keep custody
 and resume the same execution after contention clears. Other setup errors fail.

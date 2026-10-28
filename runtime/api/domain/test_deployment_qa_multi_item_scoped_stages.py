@@ -16,6 +16,8 @@ from runtime.api.fixtures.deployment_scoped_qa_run_fixture import (
     create_smoke_plan,
     seed_run_standing_on_qa_stage,
 )
+from yoke_core.domain.deployment_qa_plan_group_writes import ensure_groups
+from yoke_core.domain.deployment_qa_plan_groups import run_groups
 from yoke_core.domain.deployment_qa_stage_materialization import (
     QaCasesNotSelectedError,
     materialize_deployment_qa_stage,
@@ -224,13 +226,10 @@ def test_environment_bound_plan_runs_at_preview_standing_in_for_that_environment
     )
     _attach_plan(test_db, item_id=item_id, plan_id=plan_id)
 
-    result = materialize_deployment_qa_stage(
-        test_db,
-        deployment_run_id=run_id,
-        deployment_stage=PREVIEW_QA,
-        deployment_member_item_id=item_id,
-    )
-    assert result["created_requirement_ids"], result
+    created = ensure_groups(test_db, run_id, PREVIEW_QA)
+    assert created
+    (group,) = run_groups(test_db, [run_id], PREVIEW_QA)
+    assert group.plan_id == plan_id and sorted(group.requirement_ids) == sorted(created)
 
 
 def test_environment_bound_plan_skips_preview_standing_in_for_a_different_environment(
@@ -254,6 +253,7 @@ def test_environment_bound_plan_skips_preview_standing_in_for_a_different_enviro
     plan_id = _bind_plan(test_db, slug="preview-bound-prod", environment_id=prod_id)
     _attach_plan(test_db, item_id=item_id, plan_id=plan_id)
 
+    assert ensure_groups(test_db, run_id, PREVIEW_QA) == []
     with pytest.raises(QaCasesNotSelectedError):
         materialize_deployment_qa_stage(
             test_db,

@@ -147,19 +147,15 @@ def notify_deployment_qa_verdict(
     run_id = subject["run_id"]
     stage_name = subject["stage_name"]
     member_item_id = subject["member_item_id"]
-    from yoke_core.domain.deployment_qa_stage_settlement import settle_subject
-
-    from yoke_core.domain.deployment_qa_shared_plans import requirement_subject
-    from yoke_core.domain.deployment_qa_shared_acceptance import settle_shared_group
-    from yoke_core.domain.deployment_qa_execution_target import (
-        deployment_qa_execution_target,
+    from yoke_core.domain.deployment_qa_stage_settlement import (
+        settle_plan_group,
+        settle_subject,
     )
+    from yoke_core.domain.deployment_qa_shared_plans import requirement_subject
 
     resolved = requirement_subject(conn, requirement_id, require_active=False)
     if resolved.get("shared_plan"):
-        settle_shared_group(
-            conn, resolved, deployment_qa_execution_target(conn, resolved)
-        )
+        settle_plan_group(conn, resolved)
     else:
         settle_subject(conn, run_id=run_id, stage=stage_name, member=member_item_id)
     key = verdict_idempotency_key(requirement_id, action)
@@ -172,7 +168,8 @@ def notify_deployment_qa_verdict(
                 run_id=run_id,
                 stage_name=stage_name,
                 subject=(
-                    f"all attaching members of shared plan {resolved['shared_plan']['plan_id']}"
+                    f"plan group {resolved['shared_plan'].get('group_id')} "
+                    f"(plan {resolved['shared_plan']['plan_id']})"
                     if resolved.get("shared_plan")
                     else "the whole release batch"
                 ),

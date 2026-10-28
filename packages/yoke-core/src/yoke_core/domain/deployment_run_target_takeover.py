@@ -229,7 +229,6 @@ def _take_over(conn, new_run_id, *, session_id, actor_id, apply):
         old_id=old_id,
         new_id=new_run_id,
         moving=set(ids),
-        projection=read.projection,
     )
     conn.execute(
         "DELETE FROM deployment_run_items WHERE run_id=%s AND item_id=ANY(%s)",

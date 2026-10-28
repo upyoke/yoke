@@ -1,4 +1,8 @@
-"""A later standing-plan publication cannot rewrite an older run's contract."""
+"""A later standing-plan publication cannot rewrite an older run's plan group.
+
+The first plan group of a plan in a run pins the plan as the release saw it;
+a definition published afterwards runs on the next release.
+"""
 
 import json
 
@@ -7,41 +11,40 @@ import pytest
 from runtime.api.domain.test_installer_campaign_plan_sync import (
     source_checkout as source_checkout,
 )
+from runtime.api.domain.test_deployment_qa_plan_groups import _attach
 from runtime.api.domain.test_deployment_qa_stage_execution import (
+    _complete_case,
     _plan,
     _seed_run,
     _stages,
-    _complete_case,
 )
-from runtime.api.domain.test_deployment_qa_shared_plans import _attach
 from yoke_core.domain import qa_plan_source_revision as source_binding
-from yoke_core.domain.deployment_run_carried_work_source import LocalCheckoutSource
+from yoke_core.domain.deploy_target_occupancy import open_qa_lines
+from yoke_core.domain.deployment_qa_plan_group_dispatch import settle_group
+from yoke_core.domain.deployment_qa_plan_group_writes import (
+    ensure_groups,
+    group_subject,
+)
+from yoke_core.domain.deployment_qa_plan_groups import PINNED_PLANS, run_groups
 from yoke_core.domain.deployment_qa_stage_materialization import (
     materialize_deployment_qa_stage,
 )
-from yoke_core.domain.deployment_qa_run_acceptance import current_item_qa
-from yoke_core.domain.deployment_requirement_snapshots import (
-    snapshot_member_requirements,
-    requirement_selection,
-)
-from yoke_core.domain.qa_plan_management import replace_plan_cases, QaPlanError
+from yoke_core.domain.deployment_run_carried_work_source import LocalCheckoutSource
 from yoke_core.domain.qa_plan_execution_state import begin_plan_execution
-from yoke_core.domain.deploy_target_occupancy import open_qa_lines
+from yoke_core.domain.qa_plan_management import QaPlanError, replace_plan_cases
 
 RUN = "run-saved-contract"
+SUCCESSOR = "run-successor"
 MEMBERS = (9921, 9922)
+STAGE = "item-qa"
+SLUG = "release-smoke"
 
 
-def _kept(value):
-    return value
-
-
-def _materialize(conn, member=MEMBERS[0]):
-    return materialize_deployment_qa_stage(
-        conn,
-        deployment_run_id=RUN,
-        deployment_stage="item-qa",
-        deployment_member_item_id=member,
+def _group_row(conn, requirement_id):
+    return dict(
+        conn.execute(
+            "SELECT * FROM qa_requirements WHERE id=%s", (requirement_id,)
+        ).fetchone()
     )
 
 
@@ -62,15 +65,9 @@ def published(test_db, source_checkout, monkeypatch):
     _seed_run(test_db, run_id=RUN, stages=stages, members=MEMBERS, release_lineage=old)
     for member in MEMBERS:
         _attach(test_db, member, pid)
-    ids = _materialize(test_db)["created_requirement_ids"]
-    _materialize(test_db, MEMBERS[1])
-    # Preserve the complete selection frozen before its original execution.
-    row = dict(
-        test_db.execute(
-            "SELECT * FROM qa_requirements WHERE id=%s", (ids[0],)
-        ).fetchone()
-    )
+    ids = sorted(ensure_groups(test_db, RUN, STAGE))
     test_db.commit()
+    row = _group_row(test_db, ids[0])
     (root / "cases.json").write_text('["new definitions"]\n')
     assert git(root, "commit", "-am", "Publish new definitions").returncode == 0
     new = git(root, "rev-parse", "HEAD").stdout.strip()
@@ -90,194 +87,114 @@ def published(test_db, source_checkout, monkeypatch):
             for key in ("command-smoke", "added-check")
         ],
     )
+    test_db.commit()
     return pid, ids, old, new, row
 
 
 def test_old_contract_survives_publication_without_writes(test_db, published):
     pid, ids, old, new, before = published
+    assert ensure_groups(test_db, RUN, STAGE) == []
     for member in MEMBERS:
-        result = _materialize(test_db, member)
-        assert result["created_requirement_ids"] == []
-        assert result["existing_requirement_ids"] == ids
-        answer = current_item_qa(
-            test_db, run_id=RUN, item_id=member, current_stage="item-qa"
+        result = materialize_deployment_qa_stage(
+            test_db,
+            deployment_run_id=RUN,
+            deployment_stage=STAGE,
+            deployment_member_item_id=member,
         )
-        assert not answer.accepted
+        assert result["created_requirement_ids"] == []
     assert open_qa_lines(test_db, RUN)
-    after = dict(
-        test_db.execute(
-            "SELECT * FROM qa_requirements WHERE id=%s", (ids[0],)
-        ).fetchone()
-    )
-    assert after == before
+    assert _group_row(test_db, ids[0]) == before
+
     execution = begin_plan_execution(
         test_db,
         deployment_run_id=RUN,
-        deployment_stage="item-qa",
-        deployment_member_item_id=MEMBERS[0],
+        deployment_stage=STAGE,
+        deployment_member_item_id=None,
+        plan=SLUG,
         actor_id="2",
         session_id="saved-contract",
     )
     assert [r["requirement_id"] for r in execution["roster"]] == ids
     _complete_case(test_db, execution)
-    assert all(
-        current_item_qa(
-            test_db, run_id=RUN, item_id=m, current_stage="item-qa"
-        ).accepted
-        for m in MEMBERS
-    )
+    (group,) = run_groups(test_db, RUN, STAGE)
+    if not group.closed:
+        settle_group(test_db, group_subject(test_db, RUN, STAGE, group, require_active=False))
+        (group,) = run_groups(test_db, RUN, STAGE)
+    assert group.covered_item_ids == MEMBERS
 
 
-def test_new_admission_freezes_current_definition(test_db, published):
+def test_a_later_run_pins_the_published_definition(test_db, published):
     pid, ids, old, new, before = published
     stages = _stages(pid)
     stages[1].pop("cases")
     _seed_run(
         test_db,
-        run_id="run-successor",
+        run_id=SUCCESSOR,
         stages=stages,
         members=(),
         existing_members=MEMBERS,
         release_lineage=new,
     )
-    snapshot = json.loads(
-        snapshot_member_requirements(
-            test_db,
-            run_id="run-successor",
-            item_id=MEMBERS[0],
-            selection_json=requirement_selection(),
-        )
-    )
-    (plan,) = snapshot["plans"]
-    assert plan["plan"]["source_revision"] == new
-    assert [c["case_key"] for c in plan["cases"]] == ["command-smoke", "added-check"]
+
+    created = ensure_groups(test_db, SUCCESSOR, STAGE)
+    test_db.commit()
+
+    keys = [
+        row["plan_case_key"]
+        for row in test_db.execute(
+            "SELECT plan_case_key FROM qa_requirements WHERE id=ANY(%s) "
+            "ORDER BY case_position",
+            (created,),
+        ).fetchall()
+    ]
+    assert keys == ["command-smoke", "added-check"]
+    raw = test_db.execute(
+        "SELECT requirement_snapshot FROM deployment_runs WHERE id=%s", (SUCCESSOR,)
+    ).fetchone()[0]
+    pinned = json.loads(str(raw))[PINNED_PLANS][str(pid)]["plan"]
+    assert pinned["source_revision"] == new
     with pytest.raises(QaPlanError, match="qa_plan_source_candidate_mismatch"):
-        source_binding.require_candidate_plan(test_db, plan["plan"], RUN)
-    result = materialize_deployment_qa_stage(
-        test_db,
-        deployment_run_id="run-successor",
-        deployment_stage="item-qa",
-        deployment_member_item_id=MEMBERS[0],
-    )
-    assert len(result["created_requirement_ids"]) == 2
+        source_binding.require_candidate_plan(test_db, pinned, RUN)
+    assert _group_row(test_db, ids[0]) == before
 
 
-def test_takeover_and_manual_removal_read_saved_contract(test_db, published):
+def _release_members(conn):
     from runtime.api.fixtures.deployment_run_driver_fixture import release_seeded_driver
-    from yoke_core.domain.deployment_runs_crud_mutate import cmd_remove_item
+
+    conn.execute("UPDATE items SET status='release' WHERE id=ANY(%s)", (list(MEMBERS),))
+    conn.commit()
+    release_seeded_driver(conn, RUN)
+
+
+def test_takeover_reads_the_pinned_group_without_writes(test_db, published):
     from yoke_core.domain.deployment_run_target_takeover import (
-        _waiting_run,
         _moving_members,
+        _waiting_run,
     )
 
     pid, ids, old, new, before = published
-    test_db.execute(
-        "UPDATE items SET status='release' WHERE id=ANY(%s)", (list(MEMBERS),)
-    )
-    test_db.commit()
-    release_seeded_driver(test_db, RUN)
+    _release_members(test_db)
     new_run = dict(
         test_db.execute("SELECT * FROM deployment_runs WHERE id=%s", (RUN,)).fetchone()
     )
-    new_run["id"] = "run-successor"
+    new_run["id"] = SUCCESSOR
     waiting = _waiting_run(test_db, new_run)
     assert waiting["id"] == RUN
     assert [m["item_id"] for m in _moving_members(test_db, waiting)] == list(MEMBERS)
+    assert _group_row(test_db, ids[0]) == before
+
+
+def test_removing_a_member_owed_an_open_group_keeps_the_pinned_group(
+    test_db, published
+):
+    from yoke_core.domain.deployment_runs_crud_mutate import cmd_remove_item
+
+    pid, ids, old, new, before = published
+    _release_members(test_db)
     message = cmd_remove_item(
         RUN, MEMBERS[1], reason="member rides successor", session_id="s", actor_id=1
     )
-    assert "is not fully accepted" in message
-    assert (
-        dict(
-            test_db.execute(
-                "SELECT * FROM qa_requirements WHERE id=%s", (ids[0],)
-            ).fetchone()
-        )
-        == before
-    )
-
-
-@pytest.mark.parametrize("shape", ["admitted", "materialized"])
-def test_incomplete_historical_selection_refuses_without_writes(
-    test_db, published, shape
-):
-    pid, ids, old, new, before = published
-    for member in MEMBERS:
-        snapshot = {
-            "schema": 1,
-            "plans": [],
-            "requirements": [before] if shape == "admitted" else [],
-        }
-        test_db.execute(
-            "UPDATE deployment_run_items SET requirement_snapshot=%s WHERE run_id=%s AND item_id=%s",
-            (json.dumps(snapshot, default=str), RUN, member),
-        )
-    # Exercise both historical private and shared shapes without reconstructing either.
-    if shape == "materialized":
-        test_db.execute(
-            "UPDATE qa_requirements SET deployment_member_item_id=%s WHERE id=%s",
-            (MEMBERS[0], ids[0]),
-        )
-    test_db.commit()
-    with pytest.raises(QaPlanError, match="qa_frozen_plan_snapshot_incomplete"):
-        _materialize(test_db)
-    after = dict(
-        test_db.execute(
-            "SELECT * FROM qa_requirements WHERE id=%s", (ids[0],)
-        ).fetchone()
-    )
-    if shape == "materialized":
-        before = {**before, "deployment_member_item_id": MEMBERS[0]}
-    assert after == before
-
-
-def test_frozen_hosted_bridge_selects_original_cases_without_repointing(test_db):
-    from runtime.api.domain.test_qa_requirement_target_rebind import _hosted_prod_pair
-    from yoke_core.domain.deployment_qa_frozen_plan_selection import _member_plans
-    from yoke_core.domain.deployment_requirement_snapshots import _plan_snapshot
-
-    hosted, own = _hosted_prod_pair(test_db)
-    pid = _plan(test_db, "bridge-selection")
-    test_db.execute(
-        "UPDATE qa_plans SET target_environment_id=%s WHERE id=%s", (hosted, pid)
-    )
-    snapshot = _plan_snapshot(test_db, pid, project_id=1)
-    snapshot["attachment"] = {"transition_id": "release", "qa_phase": "post_deploy"}
-    snapshot["cases"][0]["id"] = (
-        None  # Unavailable descriptive identity is not an executable key.
-    )
-    subject = {"member_item_id": MEMBERS[0], "member_snapshot": {"plans": [snapshot]}}
-    target = {"project": {"id": 1}, "environment": {"id": own, "name": "prod"}}
-    selected = _member_plans(test_db, subject, target=target, refresh=_kept)
-    assert selected == [snapshot]
-    assert selected[0]["plan"]["target_environment_id"] == hosted
-    assert selected[0]["cases"][0]["target_envs"] == []
-    assert (
-        _member_plans(
-            test_db,
-            subject,
-            target={**target, "environment": {"id": own + 100, "name": "other"}},
-            refresh=_kept,
-        )
-        == []
-    )
-
-
-def test_authorized_withdrawal_excludes_incomplete_selection_before_validation(
-    test_db, monkeypatch
-):
-    from yoke_core.domain import deployment_qa_frozen_plan_selection as selection
-
-    monkeypatch.setattr(selection, "retracted_item_plan_ids", lambda conn, member: {71})
-    subject = {
-        "member_item_id": MEMBERS[0],
-        "member_snapshot": {
-            "plans": [{"attachment": {"qa_phase": "post_deploy"}, "plan": {"id": 71}}]
-        },
-    }
-    assert (
-        selection._member_plans(
-            test_db, subject, target={"environment": {"id": 1}}, refresh=_kept
-        )
-        == []
-    )
+    assert message.startswith("Removed YOK-"), message
+    assert _group_row(test_db, ids[0]) == before
+    (group,) = run_groups(test_db, RUN, STAGE)
+    assert group.open

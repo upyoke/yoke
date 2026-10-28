@@ -121,13 +121,13 @@ def _record(conn, execution, ordinal, verdict, *, created="2026-09-01T00:00:00Z"
     return requirement_id, run_id
 
 
-def _seed_shared_execution(conn, monkeypatch, *, producer=HOLDER_A):
+def _seed_member_execution(conn, monkeypatch, *, producer=HOLDER_A):
+    """Each member walks the two cases its flow pins at the item stage."""
     plan_id = _plan(conn)
     stages = _stages(plan_id)
-    stages[1].pop("cases")
+    stages[1]["cases"]["case_keys"] = ["carried-pass", "retried-fail"]
     shared._seed_run(conn, run_id=shared.RUN, stages=stages, members=shared.MEMBERS)
     for member in shared.MEMBERS:
-        shared._attach(conn, member, plan_id)
         shared._materialize(conn, member)
     conn.execute(
         "UPDATE items SET status='release',deployment_flow=%s WHERE id=ANY(%s)",
@@ -223,7 +223,7 @@ def _rework_body(conn, fail_run) -> str:
 
 
 def test_an_uncontained_merge_keeps_the_rework_handoff(test_db, monkeypatch):
-    execution = _seed_shared_execution(
+    execution = _seed_member_execution(
         test_db,
         monkeypatch,
         producer="separate-qa-session",
@@ -233,14 +233,14 @@ def test_an_uncontained_merge_keeps_the_rework_handoff(test_db, monkeypatch):
     finish_plan_execution(test_db, execution, state="completed", reason="case failed")
     _take_over_and_deploy(test_db, monkeypatch, containment.UNDETERMINED)
     body = _rework_body(test_db, fail_run)
-    assert "Classify the failure and start rework" in body
+    assert "Classify the failure and fix a finding in this item" in body
     assert "retry the case" not in body
 
 
 def test_a_failure_created_after_the_run_keeps_the_rework_handoff(
     test_db, monkeypatch
 ):
-    execution = _seed_shared_execution(
+    execution = _seed_member_execution(
         test_db, monkeypatch, producer="separate-qa-session"
     )
     _record(test_db, execution, 0, "pass")
@@ -250,14 +250,14 @@ def test_a_failure_created_after_the_run_keeps_the_rework_handoff(
     finish_plan_execution(test_db, execution, state="completed", reason="case failed")
     _take_over_and_deploy(test_db)
     body = _rework_body(test_db, fail_run)
-    assert "Classify the failure and start rework" in body
+    assert "Classify the failure and fix a finding in this item" in body
     assert "retry the case" not in body
 
 
 def test_a_failed_case_is_retried_on_the_successor_and_its_owner_told_once(
     test_db, monkeypatch
 ):
-    execution = _seed_shared_execution(test_db, monkeypatch)
+    execution = _seed_member_execution(test_db, monkeypatch)
     passed, pass_run = _record(test_db, execution, 0, "pass")
     failed, fail_run = _record(test_db, execution, 1, "fail")
     finish_plan_execution(test_db, execution, state="completed", reason="case failed")
@@ -315,7 +315,7 @@ def test_a_failed_case_is_retried_on_the_successor_and_its_owner_told_once(
 def test_an_active_execution_continues_through_the_successor_deployment(
     test_db, monkeypatch
 ):
-    execution = _seed_shared_execution(test_db, monkeypatch)
+    execution = _seed_member_execution(test_db, monkeypatch)
     passed, pass_run = _record(test_db, execution, 0, "pass")
     test_db.execute(
         "UPDATE qa_plan_executions SET test_machine_lease_id=4242 WHERE id=%s",

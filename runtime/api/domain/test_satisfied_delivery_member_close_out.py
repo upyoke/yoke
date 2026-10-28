@@ -221,62 +221,72 @@ def test_satisfied_member_close_out_refusal_sends_recovery_notice(
     assert run_status == "succeeded"
 
 
+def _settle_group(conn, run_id):
+    from yoke_core.domain.deployment_qa_plan_group_dispatch import settle_group
+    from yoke_core.domain.deployment_qa_plan_group_writes import group_subject
+    from yoke_core.domain.deployment_qa_plan_groups import run_groups
+
+    for group in run_groups(conn, [run_id], "item-qa"):
+        if group.open:
+            settle_group(
+                conn,
+                group_subject(conn, run_id, "item-qa", group, require_active=False),
+            )
+    conn.commit()
+
+
 @pytest.mark.parametrize("resolution", ["pending", "pass", "fail", "waive"])
-def test_member_with_only_owned_shared_checks_settles_after_resolution(
+def test_member_with_only_plan_group_checks_settles_after_resolution(
     test_db, resolution
 ):
-    from runtime.api.domain.test_deployment_qa_shared_plans import (
+    from runtime.api.domain.test_deployment_qa_plan_group_execution import _fail_case
+    from runtime.api.domain.test_deployment_qa_plan_groups import (
         MEMBERS,
         RUN,
         _begin,
-        _fail,
-        _materialize,
         _seed,
     )
     from runtime.api.domain.test_deployment_qa_stage_execution import _complete_case
+    from yoke_core.domain.deployment_qa_plan_group_writes import ensure_groups
 
     _seed(test_db)
-    requirement_id = _materialize(test_db, MEMBERS[0])["created_requirement_ids"][0]
-    row = test_db.execute(
-        "SELECT deployment_member_item_id FROM qa_requirements WHERE id=%s",
-        (requirement_id,),
-    ).fetchone()
-    assert row[0] is None
-    if resolution in {"pass", "fail"}:
-        _complete_case(test_db, _begin(test_db, MEMBERS[0]))
-        if resolution == "fail":
-            _fail(test_db, requirement_id)
+    (requirement_id,) = ensure_groups(test_db, RUN, "item-qa")
+    test_db.commit()
+    if resolution == "pass":
+        _complete_case(test_db, _begin(test_db))
+    elif resolution == "fail":
+        _fail_case(test_db, _begin(test_db))
     elif resolution == "waive":
-        test_db.execute(
-            "UPDATE qa_requirements SET waived_at=NOW(),waiver_rationale='accepted',"
-            "waiver_source='owner' WHERE id=%s",
-            (requirement_id,),
+        from yoke_core.domain.qa_requirement_ops import waive_requirement
+
+        waive_requirement(
+            test_db, requirement_id, "accepted", source="operator", force=True
         )
+    _settle_group(test_db, RUN)
     for member in MEMBERS:
         assert satisfied_delivery_member(test_db, item_id=member, run_id=RUN) is (
             resolution in {"pass", "waive"}
         )
 
 
-def test_unowned_shared_check_does_not_hold_member_settlement(test_db):
-    from runtime.api.domain.test_deployment_qa_shared_plans import (
+def test_another_plan_s_open_group_does_not_hold_a_member_it_does_not_answer(test_db):
+    from runtime.api.domain.test_deployment_qa_plan_groups import (
         MEMBERS,
         RUN,
         _attach,
-        _begin,
-        _materialize,
+        _pass_group,
         _seed,
     )
-    from runtime.api.domain.test_deployment_qa_stage_execution import (
-        _complete_case,
-        _plan,
-    )
+    from runtime.api.domain.test_deployment_qa_stage_execution import _plan
+    from yoke_core.domain.deployment_qa_plan_group_writes import ensure_groups
 
     _seed(test_db)
-    _materialize(test_db, MEMBERS[0])
-    _complete_case(test_db, _begin(test_db, MEMBERS[0]))
+    ensure_groups(test_db, RUN, "item-qa")
+    test_db.commit()
+    _pass_group(test_db)
     other_plan = _plan(test_db, "other-settlement-plan")
     _attach(test_db, MEMBERS[1], other_plan)
-    _materialize(test_db, MEMBERS[1])
+    ensure_groups(test_db, RUN, "item-qa")
+    test_db.commit()
     assert satisfied_delivery_member(test_db, item_id=MEMBERS[0], run_id=RUN)
     assert not satisfied_delivery_member(test_db, item_id=MEMBERS[1], run_id=RUN)

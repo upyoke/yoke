@@ -2,14 +2,12 @@
 
 from __future__ import annotations
 
-import json
 from collections.abc import Mapping
 from contextlib import contextmanager
 from typing import Any
 
 from yoke_core.domain.db_helpers import query_rows
 from yoke_core.domain.db_savepoint import savepoint
-from yoke_core.domain.qa_execution_environment_target import canonical_target
 
 
 @contextmanager
@@ -49,49 +47,26 @@ def transfer_qa_on(
     old_id: str,
     new_id: str,
     moving: set[int],
-    projection: Any,
 ) -> None:
-    """Transfer private, attached shared, and run QA on the caller's transaction.
+    """Transfer moving members' QA, open plan groups and run QA on the caller's transaction.
 
-    The caller holds both runs and their membership stable. Captures, reviews,
-    leases and queue positions reference the unchanged requirement/execution IDs.
-    Historical dispositions and hashed snapshots are deliberately untouched.
+    The caller holds both runs and their membership stable. An open plan group
+    moves whole, with its results and any running execution; a closed group
+    stays in the run where it passed, which is what its credit names.
+    Captures, reviews, leases and queue positions reference the unchanged
+    requirement/execution IDs. Historical dispositions and hashed snapshots
+    are deliberately untouched.
     """
-    remaining = {int(row["item_id"]) for row in projection.members()} - moving
-    shared_moves: dict[tuple[str, str], bool] = {}
+    from yoke_core.domain.deployment_qa_plan_groups import group_marker, run_groups
+
+    open_groups = {group.group_id for group in run_groups(conn, old_id) if group.open}
 
     def moves(row: Mapping) -> bool:
         member = row["deployment_member_item_id"]
         if member is not None:
             return int(member) in moving
-        raw = row["execution_target_json"]
-        target = dict(raw) if isinstance(raw, Mapping) else json.loads(str(raw or "{}"))
-        shared = (target.get("deployment") or {}).get("shared_plan")
-        if not shared:
-            return True
-        key = (str(row["deployment_stage"]), canonical_target(target))
-        if key not in shared_moves:
-            from yoke_core.domain.deployment_qa_takeover_identity import (
-                inherited_target,
-            )
-            from yoke_core.domain.deployment_qa_shared_plan_reads import (
-                attaching_members,
-            )
-
-            if inherited_target(conn, old_id, target):
-                # This group already survived exact source/target admission in
-                # the earlier takeover. Its current owner may not have deployed
-                # or frozen composition yet; membership still owns the group.
-                shared_moves[key] = bool(
-                    moving.intersection(
-                        attaching_members(conn, old_id, int(shared["plan_id"]))
-                    )
-                )
-            else:
-                shared_moves[key] = projection.attached(
-                    key[0], int(shared["plan_id"]), without=remaining, target=target
-                )
-        return shared_moves[key]
+        marker = group_marker(row["execution_target_json"])
+        return marker is None or str(marker["group_id"]) in open_groups
 
     with savepoint(conn, "transfer_deployment_qa", owns=False):
         # Execution first matches result/review writes, which lock their cursor

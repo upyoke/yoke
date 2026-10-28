@@ -26,7 +26,11 @@ def _requirement(conn, *, item_id: int, slug: str) -> int:
     )
 
     insert_item(
-        conn, id=item_id, project_sequence=item_id, workflow_id="dash", status="release"
+        conn,
+        id=item_id,
+        project_sequence=item_id,
+        workflow_id="issue",
+        status="implementing",
     )
     conn.commit()
     plan_id = create_smoke_plan(conn, project="yoke", slug=slug)
@@ -34,10 +38,12 @@ def _requirement(conn, *, item_id: int, slug: str) -> int:
         conn,
         plan_id=plan_id,
         item_id=item_id,
-        transition_id="release",
-        qa_phase="post_deploy",
+        transition_id="reviewed-implementation",
+        qa_phase="verification",
     )
-    created = materialize_for_item(conn, item_id=item_id, transition_id="release")
+    created = materialize_for_item(
+        conn, item_id=item_id, transition_id="reviewed-implementation"
+    )
     return int(created["created_requirement_ids"][0])
 
 

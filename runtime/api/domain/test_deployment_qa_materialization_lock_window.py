@@ -1,10 +1,11 @@
 """Deployment QA writers read before the run row lock and hold it only to write.
 
-On a 33-member run, one member's materialize and rematerialize once held the
-``deployment_runs`` row lock for minutes while they re-derived every
-member's plan groups one query at a time, and every other writer queued
-behind them. These runs share one shape at two sizes: every statement count
-must be the same at 3 members and at 33, inside and outside the lock.
+On a 33-member run, one member's materialize once held the
+``deployment_runs`` row lock for minutes while it re-derived every member's
+plan groups one query at a time, and every other writer queued behind it.
+These runs share one shape at two sizes: every statement count must be the
+same at 3 members and at 33, inside and outside the lock. A member writes
+only its own item cases; each attached plan runs as one plan group.
 """
 
 from __future__ import annotations
@@ -18,15 +19,16 @@ from runtime.api.domain.test_deployment_qa_stage_execution import (
     _seed_run,
     _stages,
 )
+from yoke_core.domain.deployment_qa_materialization_write import (
+    write_under_run_lock,
+)
+from yoke_core.domain.deployment_qa_plan_group_writes import ensure_groups
 from yoke_core.domain.deployment_qa_stage_materialization import (
     materialize_deployment_qa_stage,
 )
 from yoke_core.domain.deployment_requirement_snapshots import (
     requirement_selection,
     snapshot_member_requirements,
-)
-from yoke_core.domain.qa_plan_rematerialize_deployment import (
-    rematerialize_for_deployment_stage,
 )
 
 STAGE = "item-qa"
@@ -69,7 +71,7 @@ class LockWindowRecorder:
 
 
 def _seed(conn, run_id, first_member, members, requirements=10):
-    """Two plans every member attaches, plus admitted method cases each."""
+    """Two plans every member attaches, plus admitted item cases each."""
     plans = [_plan(conn, f"{run_id}-shared-{n}") for n in range(2)]
     stages = _stages(plans[0])
     stages[1].pop("cases")
@@ -112,7 +114,15 @@ def _materialize(run_id, member):
     )
 
 
+def _form_groups(run_id):
+    """Form the run's plan groups the way a dispatch does: under the run lock."""
+    return lambda conn: write_under_run_lock(
+        conn, run_id, lambda: ensure_groups(conn, run_id, STAGE)
+    )
+
+
 def test_member_writes_cost_the_same_at_any_run_size(test_db):
+    """A member's item cases and the run's plan groups cost the same at any size."""
     measured = {}
     for run_id, first, size in SIZES:
         members = _seed(test_db, run_id, first, size)
@@ -120,50 +130,44 @@ def test_member_writes_cost_the_same_at_any_run_size(test_db):
             "first": _measure(test_db, _materialize(run_id, members[0])),
             "repeat": _measure(test_db, _materialize(run_id, members[0])),
             "peer": _measure(test_db, _materialize(run_id, members[1])),
-            "refresh": _measure(
-                test_db,
-                lambda conn: rematerialize_for_deployment_stage(
-                    conn,
-                    deployment_run_id=run_id,
-                    deployment_stage=STAGE,
-                    deployment_member_item_id=members[0],
-                ),
-            ),
+            "groups": _measure(test_db, _form_groups(run_id)),
+            "groups again": _measure(test_db, _form_groups(run_id)),
         }
     small, large = measured[3], measured[33]
     assert large == small, f"statement counts grew with members: {measured}"
-    for total, locked in large.values():
+    for name in ("first", "repeat", "peer"):
+        total, locked = large[name]
         # Most of the work is the unlocked read; the lock covers the writes.
-        assert locked < total
+        assert locked < total, measured
 
 
 def test_a_membership_change_during_the_read_is_read_again(test_db, monkeypatch):
-    """A peer leaving between the read and the lock un-shares their plans."""
+    """A peer leaving between the read and the lock is read again, unshared."""
     from yoke_core.domain import deployment_qa_materialization_projection as module
+    from yoke_core.domain.deployment_qa_plan_groups import attached_plans
     from yoke_core.domain.deployment_run_member_removal import remove_members_on
 
     run_id = "run-lock-window-moved"
     first, peer = _seed(test_db, run_id, 15001, 2, requirements=1)
     reads = []
-    real = module.MaterializationProjection.shareable
+    real = module.MaterializationProjection.__init__
 
-    def shareable(self, subject, target, snapshots):
-        answer = real(self, subject, target, snapshots)
-        if not reads:
+    def read(self, conn, run):
+        real(self, conn, run)
+        reads.append(len(self.members()))
+        if len(reads) == 1:
             # Committed after the fingerprint, before the run row lock.
             remove_members_on(test_db, run_id, [peer], reason="moved mid-read")
             test_db.commit()
-        reads.append(len(answer))
-        return answer
 
-    monkeypatch.setattr(module.MaterializationProjection, "shareable", shareable)
+    monkeypatch.setattr(module.MaterializationProjection, "__init__", read)
     result = materialize_deployment_qa_stage(
         test_db,
         deployment_run_id=run_id,
         deployment_stage=STAGE,
         deployment_member_item_id=first,
     )
-    assert reads == [2, 0]  # shared on the stale read, private once re-read
+    assert reads == [2, 1]  # both members on the stale read, one once re-read
     owners = {
         row[0]
         for row in test_db.execute(
@@ -171,7 +175,8 @@ def test_a_membership_change_during_the_read_is_read_again(test_db, monkeypatch)
             (result["created_requirement_ids"],),
         ).fetchall()
     }
-    assert owners == {first}
+    assert peer not in owners
+    assert all(members == [first] for members in attached_plans(test_db, run_id).values())
 
 
 def test_member_removal_costs_the_same_at_any_run_size(test_db, monkeypatch):
@@ -186,7 +191,8 @@ def test_member_removal_costs_the_same_at_any_run_size(test_db, monkeypatch):
             deployment_stage=STAGE,
             deployment_member_item_id=members[0],
         )
-        # Still owing its item QA, so the guard lets it leave the run.
+        _form_groups(run_id)(test_db)
+        # Its plan groups are still open, so the guard lets it leave the run.
         test_db.execute("UPDATE items SET status='release' WHERE id=%s", (members[0],))
         test_db.commit()
         recorder = LockWindowRecorder(test_db)
@@ -294,8 +300,9 @@ def test_an_interrupted_lock_wait_holds_the_stage_instead_of_failing_the_run(
 
 
 def test_the_gate_holds_the_run_lock_only_for_each_acceptance(test_db):
-    """A member answered by two passed groups re-reads each under its own lock."""
+    """Members' item walks and two passed groups each re-read under their own lock."""
     from runtime.api.domain.test_deployment_qa_stage_execution import _complete_case
+    from yoke_core.domain.deployment_qa_plan_groups import run_groups
     from yoke_core.domain.deployment_qa_run_acceptance import pinned_stages
     from yoke_core.domain.deployment_qa_stage_dispatch import (
         materialize_and_gate_deployment_qa_stage,
@@ -303,7 +310,7 @@ def test_the_gate_holds_the_run_lock_only_for_each_acceptance(test_db):
     from yoke_core.domain.qa_plan_execution_state import begin_plan_execution
 
     run_id = "run-lock-window-accepted"
-    members = _seed(test_db, run_id, 18001, 2, requirements=0)
+    members = _seed(test_db, run_id, 18001, 2, requirements=1)
     for member in members:
         materialize_deployment_qa_stage(
             test_db,
@@ -311,12 +318,18 @@ def test_the_gate_holds_the_run_lock_only_for_each_acceptance(test_db):
             deployment_stage=STAGE,
             deployment_member_item_id=member,
         )
-    for _group in range(2):
+    _form_groups(run_id)(test_db)
+    groups = run_groups(test_db, [run_id], STAGE)
+    assert len(groups) == 2 and all(group.open for group in groups), groups
+    walks = [(member, None) for member in members]
+    walks += [(None, group.plan_id) for group in groups]
+    for member, plan in walks:
         execution = begin_plan_execution(
             test_db,
             deployment_run_id=run_id,
             deployment_stage=STAGE,
-            deployment_member_item_id=members[0],
+            deployment_member_item_id=member,
+            plan=plan,
             actor_id="2",
             session_id="lock-window-walker",
         )
@@ -325,6 +338,7 @@ def test_the_gate_holds_the_run_lock_only_for_each_acceptance(test_db):
     assert (
         materialize_and_gate_deployment_qa_stage(test_db, stage, run_id=run_id)[0] == 0
     )
+    assert all(group.closed for group in run_groups(test_db, [run_id], STAGE))
     recorder = LockWindowRecorder(test_db)
     assert (
         materialize_and_gate_deployment_qa_stage(recorder, stage, run_id=run_id)[0] == 0

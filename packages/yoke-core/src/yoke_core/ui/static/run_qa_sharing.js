@@ -1,14 +1,15 @@
-// One grouping rule for every QA surface. A plan several carried items
-// attach is checked once for the release, so its checks are drawn once under
-// Run QA, labelled with the items that share it; each sharing item only
-// points at it. A removed member is drawn as removed with the checks its
-// removal cancelled, never as open QA. The facts come from the run-scoped
-// `qa.activity.list` read (`run_sharing`), so the run page, Shipping and the
-// Inbox all draw from the same record.
+// One grouping rule for every QA surface. Each post-deploy plan an item
+// attaches runs once per release as a plan group, so its checks are drawn
+// once under Run QA, labelled with the items it answers; each of those items
+// only points at it. Groups are keyed by `group_id`, never by plan id: a run
+// may hold a closed and an open group of one plan. A removed member is drawn
+// as removed with the checks its removal cancelled, never as open QA. The
+// facts come from the run-scoped `qa.activity.list` read (`run_sharing`), so
+// the run page, Shipping and the Inbox all draw from the same record.
 
 import { el } from "./universe_view_support.js";
 
-const EMPTY = Object.freeze({ shared_plans: [], removed_members: [] });
+const EMPTY = Object.freeze({ plan_groups: [], removed_members: [] });
 
 // The read's `run_sharing` merged into a Map keyed by run id.
 export function collectRunSharing(target, runSharing) {
@@ -22,28 +23,35 @@ export function sharingFor(facts, runId) {
   return facts?.sharing?.get(String(runId || "")) || EMPTY;
 }
 
-// The shared plan a check's copy was materialized for, or null.
-export function sharedPlanId(check) {
-  const plan = check?.execution_target_json?.deployment?.shared_plan;
-  return plan?.plan_id == null ? null : String(plan.plan_id);
+// The plan group a memberless check belongs to, or null for any other check.
+export function planGroupId(check) {
+  if (check?.deployment_member_public_ref != null) return null;
+  const marker = check?.execution_target_json?.deployment?.shared_plan;
+  return marker?.group_id == null ? null : String(marker.group_id);
 }
 
-function refs(plan) {
-  return (plan.sharing_public_refs || []).map(String);
+// A pending plan has no group yet; it is keyed by its plan until one forms.
+function groupKey(group) {
+  return group.group_id == null ? `pending:${group.plan_id}` : String(group.group_id);
 }
 
-export function sharedPlanName(plan) {
-  return String(plan.plan_name || plan.plan || `plan ${plan.plan_id}`);
+function refs(group) {
+  return (group.sharing_public_refs || []).map(String);
 }
 
-export function sharedByLabel(plan) {
-  const sharing = refs(plan);
-  return sharing.length ? `Covers: ${sharing.join(", ")}` : "Shared";
+export function sharedPlanName(group) {
+  return String(group.plan_name || group.plan || `plan ${group.plan_id}`);
 }
 
-export function memberSharedPlans(sharing, itemRef) {
-  return (sharing?.shared_plans || []).filter(
-    (plan) => refs(plan).includes(String(itemRef)));
+export function sharedByLabel(group) {
+  const sharing = refs(group);
+  return sharing.length ? `Covers: ${sharing.join(", ")}` : "Plan group";
+}
+
+// The plan groups that answer one item on this run.
+export function itemPlanGroups(sharing, itemRef) {
+  return (sharing?.plan_groups || []).filter(
+    (group) => refs(group).includes(String(itemRef)));
 }
 
 export function cancelledLabel(count) {
@@ -51,33 +59,52 @@ export function cancelledLabel(count) {
   return `${n} check${n === 1 ? "" : "s"} cancelled`;
 }
 
-// Run QA's checks split into the release's own and one group per shared
-// plan. A check of a plan this read does not name stays with the release's
-// own, so nothing is dropped when the facts are absent. A pending plan —
-// shared before item-qa copies it — draws its cases as not-started checks.
+// Run QA's checks split into the release's own and one entry per plan
+// group, keyed by group id. A check of a group this read does not name stays
+// with the release's own, so nothing is dropped when the facts are absent. A
+// pending plan draws its cases as not-started checks; a closed group of an
+// earlier run is labelled with that run and draws no checks of this run.
 export function groupRunChecks(checks, sharing) {
-  const plans = new Map((sharing?.shared_plans || []).map(
-    (plan) => [String(plan.plan_id), { plan, checks: [] }]));
+  const all = sharing?.plan_groups || [];
+  const groups = new Map(all.map((group) => [groupKey(group), { group, checks: [] }]));
   const own = [];
   for (const check of checks || []) {
-    const group = plans.get(sharedPlanId(check));
-    if (group) group.checks.push(check);
+    const entry = groups.get(planGroupId(check));
+    if (entry) entry.checks.push(check);
     else own.push(check);
   }
   return {
     own,
-    groups: [...plans.values()].map(({ plan, checks: planChecks }) => ({
-      label: `${sharedPlanName(plan)} · ${sharedByLabel(plan)}`,
-      checks: planChecks.length ? planChecks : (plan.cases || []),
-    })).filter((group) => group.checks.length),
+    groups: [...groups.values()].map(({ group, checks: groupChecks }) => ({
+      label: groupLabel(group, all),
+      checks: groupChecks.length ? groupChecks : (group.cases || []),
+      earlier: group.earlier_run_id != null,
+    })).filter((entry) => entry.checks.length || entry.earlier)
+      .map(({ label, checks: groupChecks }) => ({ label, checks: groupChecks })),
   };
 }
 
-// "Shared: Installer campaign — see Run QA": the shared-only tile names
-// every plan; an item with its own checks gets one pointer per plan. Run QA
-// already names the items each plan covers and counts its checks.
-export function sharedOnlyVerdict(plans) {
-  return `Shared: ${plans.map(sharedPlanName).join(", ")} — see Run QA`;
+// "Release smoke · group 2 · Covers: YOK-1, YOK-2". A plan with more than one
+// group in this run names each group's sequence; an earlier run's closed group
+// reads "Passed in run-…" instead.
+export function groupLabel(group, all = []) {
+  const parts = [sharedPlanName(group)];
+  const here = (other) => other.group_id && other.earlier_run_id == null;
+  const siblings = all.filter((other) => other.plan_id === group.plan_id && here(other));
+  if (group.earlier_run_id) parts.push(`Passed in ${group.earlier_run_id}`);
+  else if (siblings.length > 1 && here(group)) {
+    parts.push(`group ${String(group.group_id).split(":").pop()}`);
+  }
+  parts.push(sharedByLabel(group));
+  return parts.join(" · ");
+}
+
+// "Plan group: Installer campaign — see Run QA": the plan-group-only tile
+// names every group; an item with its own item cases gets one pointer per
+// group. Run QA already names the items each group covers and counts its checks.
+export function sharedOnlyVerdict(groups) {
+  const noun = groups.length === 1 ? "Plan group" : "Plan groups";
+  return `${noun}: ${groups.map(sharedPlanName).join(", ")} — see Run QA`;
 }
 
 export function appendSharedPlanPointers(documentNode, host, plans) {
@@ -87,7 +114,7 @@ export function appendSharedPlanPointers(documentNode, host, plans) {
   }
 }
 
-// Item QA for an item whose every check is a shared plan's: one tile that
+// Item QA for an item whose every check is a plan group's: one tile that
 // points at Run QA, with no pointer line repeating it. The section is a
 // direct child of the member grid, so it takes the same full row as the
 // diagnostic note; otherwise the title column collapses to one letter per
@@ -109,12 +136,13 @@ export const runQaSharing = {
   appendSharedPlanPointers,
   cancelledLabel,
   collectRunSharing,
+  groupLabel,
   groupRunChecks,
-  memberSharedPlans,
+  itemPlanGroups,
   appendSharedOnlyItemQa,
   sharedByLabel,
   sharedOnlyVerdict,
-  sharedPlanId,
+  planGroupId,
   sharedPlanName,
   sharingFor,
 };

@@ -31,6 +31,7 @@ replacement that still owes evidence.
 
 from __future__ import annotations
 
+import json
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any
@@ -49,6 +50,9 @@ DECLARED_NONE = "declared_none"
 UNANSWERED = "unanswered"
 #: The carried member's own completion flow asks no item QA. Stage-only fact.
 NOT_REQUIRED = "not_required"
+#: The member owes only post-deploy plans; the run's plan groups answer them
+#: and the done gate credits it from their ``covered_item_ids``. Stage-only.
+PLAN_GROUPS = "plan_groups"
 
 #: ``qa_kind`` a waiver-backed "needs none" declaration carries.
 DECLARATION_QA_KIND = "post_deploy_not_required"
@@ -82,7 +86,7 @@ class PostDeployAnswer:
     @property
     def discharges_without_cases(self) -> bool:
         """Recorded empty answers or an own-flow exemption leave nothing to run."""
-        return self.verdict in {NO_OBLIGATION, DECLARED_NONE, NOT_REQUIRED}
+        return self.verdict in {NO_OBLIGATION, DECLARED_NONE, NOT_REQUIRED, PLAN_GROUPS}
 
 
 def _post_deploy(rows: Iterable[Mapping[str, Any]]) -> list[dict[str, Any]]:
@@ -185,6 +189,17 @@ def answer_for_item(conn: Any, item_id: int) -> PostDeployAnswer:
     return classify(attachments=attachments, requirements=requirements)
 
 
+def _own_snapshot_cases(subject: Mapping[str, Any]) -> bool:
+    raw = subject.get("member_snapshot")
+    snapshot = json.loads(raw) if isinstance(raw, str) and raw else raw or {}
+    return any(
+        isinstance(row, Mapping)
+        and row.get("plan_id") is None
+        and row.get("qa_phase") == "post_deploy"
+        for row in (snapshot.get("requirements") or ())
+    )
+
+
 def member_post_deploy_answer(
     conn: Any, subject: Mapping[str, Any]
 ) -> PostDeployAnswer:
@@ -196,6 +211,16 @@ def member_post_deploy_answer(
     member_item_id = subject.get("member_item_id")
     if member_item_id is None:
         return PostDeployAnswer(UNANSWERED)
+    from yoke_core.domain.deployment_qa_member_plans import member_plan_ids
+
+    # Plan groups answer only a member with no item cases of its own; a
+    # member with its own cases is answered by walking them.
+    if not _own_snapshot_cases(subject) and member_plan_ids(
+        conn, int(member_item_id), str(subject["id"])
+    ):
+        return PostDeployAnswer(
+            PLAN_GROUPS, ("its post-deploy plans run once for the release as plan groups",)
+        )
     answer = answer_for_item(conn, int(member_item_id))
     if answer.unanswered:
         from yoke_core.domain.carried_member_qa_obligation import (
@@ -234,15 +259,15 @@ def attach_standing_recipe(public_ref: str, *, project: str, transition: str) ->
 
 
 #: Why the third choice is named everywhere the other two are, even where it
-#: cannot be taken yet. Selecting a plan with ``--plan`` on a running stage
-#: and attaching one to the item are both legitimate and mean different
-#: things, so a prompt that silently defaulted to either would be teaching
-#: one of them as the answer.
+#: cannot be taken yet. Running a plan group with ``--plan`` on a running
+#: stage and attaching a plan to the item are both legitimate and mean
+#: different things, so a prompt that silently defaulted to either would be
+#: teaching one of them as the answer.
 RUN_SCOPED_NOTE = (
-    "A third choice exists and is not this one: `--plan` on a running "
-    "deployment stage binds cases to that single run and writes nothing the "
-    "item keeps. It needs a run, so it cannot be made here, and it never "
-    "answers this question for the next deployment."
+    "A third choice exists and is not this one: `--plan` with `--item` on a "
+    "running item stage only runs a plan group the item attaches, and writes "
+    "nothing the item keeps. It needs a run, so it cannot be made here, and it "
+    "never answers this question for the next deployment."
 )
 
 
@@ -256,14 +281,15 @@ def cases_not_selected_refusal(*, member_ref: str = "") -> str:
     """
     subject = member_ref or "PREFIX-N"
     return (
-        "deployment QA stage has no pinned cases; select a project QA "
-        "plan and retry, naming the same stage (and member, on an "
-        "item-scoped stage) this execution runs under: `yoke qa plan run "
-        "--item PREFIX-N --stage STAGE "
-        "--plan PLAN --project P`. That selection belongs to the admitted QA and moves "
-        "with this run. The durable answers belong to the item and are "
-        "asked for before it merges: attach a standing plan with `yoke qa "
-        "item-plan attach`, or record that no post-deploy obligation exists "
+        "deployment QA stage has no pinned cases. At a run-scoped stage, select "
+        "a project QA plan and retry under the same run and stage: `yoke qa plan "
+        "run --deployment-run-id RUN --stage STAGE --plan PLAN --project P`; that "
+        "selection moves with this run. At an item-scoped stage, `--plan` with "
+        "`--item` only runs a plan group the item attaches. The durable answers "
+        "belong to the item and are asked for before it merges: attaching a "
+        f"post-deploy plan (`yoke qa item-plan attach --item {subject} ... "
+        f"--qa-phase {DEPLOYMENT_ATTACHMENT_PHASE}`) makes the release run it "
+        "as a plan group, or record that no post-deploy obligation exists "
         f"with `{record_no_obligation_recipe(subject)}` (not a waiver)."
     )
 

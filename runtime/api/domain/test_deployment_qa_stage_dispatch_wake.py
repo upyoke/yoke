@@ -16,7 +16,7 @@ from runtime.api.domain.test_deployment_qa_stage_wake_delivery import (
 )
 from runtime.api.fixtures.backlog_inserts import insert_item
 from yoke_core.domain.project_identity import render_item_ref
-from yoke_core.domain import deployment_qa_stage_dispatch as dispatch_mod
+from yoke_core.domain import deployment_qa_dispatch_wait_notice as wait_notice_mod
 from yoke_core.domain.deployment_qa_stage_dispatch import (
     materialize_and_gate_deployment_qa_stage,
 )
@@ -85,7 +85,7 @@ def test_wakes_the_waiting_members_claim_holder(test_db: Any) -> None:
             return_value={},
         ),
         mock.patch.object(
-            dispatch_mod, "notify_item_scoped_qa_wait", return_value="delivered"
+            wait_notice_mod, "notify_item_scoped_qa_wait", return_value="delivered"
         ) as notify,
     ):
         rc, diag = materialize_and_gate_deployment_qa_stage(
@@ -116,7 +116,7 @@ def test_accepted_member_is_never_woken(test_db: Any) -> None:
             "yoke_core.domain.deployment_qa_dispatch_preparation.prepare_members",
             return_value={},
         ),
-        mock.patch.object(dispatch_mod, "notify_item_scoped_qa_wait") as notify,
+        mock.patch.object(wait_notice_mod, "notify_item_scoped_qa_wait") as notify,
     ):
         rc, _diag = materialize_and_gate_deployment_qa_stage(
             test_db, stage, run_id="run-wake-2"
@@ -141,9 +141,9 @@ def test_run_scoped_waiting_stage_wakes_the_run_driver(test_db: Any) -> None:
             "yoke_core.domain.deployment_qa_dispatch_preparation.prepare_members",
             return_value={},
         ),
-        mock.patch.object(dispatch_mod, "notify_item_scoped_qa_wait") as item_notify,
+        mock.patch.object(wait_notice_mod, "notify_item_scoped_qa_wait") as item_notify,
         mock.patch.object(
-            dispatch_mod, "notify_run_scoped_qa_wait", return_value="delivered"
+            wait_notice_mod, "notify_run_scoped_qa_wait", return_value="delivered"
         ) as run_notify,
     ):
         rc, diag = materialize_and_gate_deployment_qa_stage(
@@ -175,7 +175,7 @@ def test_run_scoped_wait_with_no_recipient_is_reported_visibly(
             "yoke_core.domain.deployment_qa_dispatch_preparation.prepare_members",
             return_value={},
         ),
-        mock.patch.object(dispatch_mod, "notify_run_scoped_qa_wait", return_value=""),
+        mock.patch.object(wait_notice_mod, "notify_run_scoped_qa_wait", return_value=""),
     ):
         rc, diag = materialize_and_gate_deployment_qa_stage(
             test_db, stage, run_id="run-wake-5"
@@ -209,7 +209,7 @@ def test_a_repeat_poll_with_an_unchanged_wait_sends_no_wait_notice(
     )
     stage = {"name": "item-qa", "scope": "item"}
     key = stage_wait_idempotency_key("run-wake-6", "item-qa", item_id)
-    send = dispatch_mod.notify_item_scoped_qa_wait
+    send = wait_notice_mod.notify_item_scoped_qa_wait
 
     def poll(outstanding: str) -> tuple[tuple[int, str], int]:
         status = {"accepted": False, "reasons": [outstanding], "request_id": None}
@@ -223,7 +223,7 @@ def test_a_repeat_poll_with_an_unchanged_wait_sends_no_wait_notice(
                 return_value={},
             ),
             mock.patch.object(
-                dispatch_mod, "notify_item_scoped_qa_wait", wraps=send
+                wait_notice_mod, "notify_item_scoped_qa_wait", wraps=send
             ) as notify,
         ):
             result = materialize_and_gate_deployment_qa_stage(
@@ -264,7 +264,7 @@ def test_a_wake_failure_degrades_without_losing_the_wait_result(
             return_value={},
         ),
         mock.patch.object(
-            dispatch_mod,
+            wait_notice_mod,
             "notify_item_scoped_qa_wait",
             side_effect=RuntimeError("message service unavailable"),
         ),
@@ -299,7 +299,7 @@ def test_a_stage_with_materialized_cases_is_woken_without_a_plan_recipe(
             return_value={},
         ),
         mock.patch.object(
-            dispatch_mod, "notify_item_scoped_qa_wait", return_value="delivered"
+            wait_notice_mod, "notify_item_scoped_qa_wait", return_value="delivered"
         ) as notify,
     ):
         materialize_and_gate_deployment_qa_stage(test_db, stage, run_id="run-wake-5")
@@ -322,13 +322,13 @@ def test_a_stage_that_selected_nothing_is_woken_with_the_plan_recipe(
     with (
         mock.patch(
             "yoke_core.domain.deployment_qa_dispatch_preparation.prepare_members",
-            side_effect=lambda conn, stage, *, run_id, members: {
+            side_effect=lambda conn, stage, *, run_id, members, then=None: {
                 member: QaCasesNotSelectedError("stage has no pinned cases")
                 for member in members
             },
         ),
         mock.patch.object(
-            dispatch_mod, "notify_item_scoped_qa_wait", return_value="delivered"
+            wait_notice_mod, "notify_item_scoped_qa_wait", return_value="delivered"
         ) as notify,
     ):
         rc, _diag = materialize_and_gate_deployment_qa_stage(

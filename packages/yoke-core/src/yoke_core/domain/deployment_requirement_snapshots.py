@@ -41,17 +41,17 @@ def _positive_ids(values: Iterable[Any], *, field: str) -> list[int]:
     return sorted(normalized)
 
 
-def requirement_selection(
-    *,
-    requirement_ids: Iterable[int] = (),
-    plan_ids: Iterable[int] = (),
-) -> str:
-    """Encode an explicit per-member requirement selection."""
+def requirement_selection(*, requirement_ids: Iterable[int] = ()) -> str:
+    """Encode an explicit per-member requirement selection.
+
+    Post-deploy plans run as plan groups, so a selection names no plans: its
+    ``plan_ids`` is always empty, and a stored one is ignored.
+    """
     return _canonical(
         {
             "schema": SELECTION_SCHEMA,
             "requirement_ids": _positive_ids(requirement_ids, field="requirement_ids"),
-            "plan_ids": _positive_ids(plan_ids, field="plan_ids"),
+            "plan_ids": [],
         }
     )
 
@@ -83,7 +83,7 @@ def _selection(raw: Any) -> dict[str, Any]:
         "requirement_ids": _positive_ids(
             decoded.get("requirement_ids") or [], field="requirement_ids"
         ),
-        "plan_ids": _positive_ids(decoded.get("plan_ids") or [], field="plan_ids"),
+        "plan_ids": [],
     }
 
 
@@ -94,18 +94,13 @@ def _plan_snapshot(
     project_id: int,
     case_keys: Iterable[str] | None = None,
     lock_plan: bool = True,
-    admission=None,
 ) -> dict[str, Any]:
     from yoke_core.domain.deployment_qa_shared_plan_reads import (
         plan_snapshot_row,
         plan_snapshot_cases,
     )
 
-    raw_plan = (
-        admission.plans.get(plan_id, (None, ()))[0]
-        if admission is not None
-        else plan_snapshot_row(conn, plan_id, lock_plan=lock_plan)
-    )
+    raw_plan = plan_snapshot_row(conn, plan_id, lock_plan=lock_plan)
     if raw_plan is None:
         raise LookupError(f"QA plan {plan_id} not found")
     plan = semantic_row(raw_plan, PLAN_FIELDS)
@@ -118,11 +113,7 @@ def _plan_snapshot(
         raise ValueError(f"QA plan {plan_id} case_keys must be unique non-empty names")
     cases = [
         semantic_row(raw, (*CASE_FIELDS, *CASE_WAKE_FIELDS))
-        for raw in (
-            admission.plans[plan_id][1]
-            if admission is not None
-            else plan_snapshot_cases(conn, plan_id, lock_plan=lock_plan)
-        )
+        for raw in plan_snapshot_cases(conn, plan_id, lock_plan=lock_plan)
     ]
     from yoke_contracts.qa_case_starting_state import (
         StartingStateError,
@@ -207,7 +198,7 @@ def snapshot_member_requirements(
     selection_json: Any,
     admission=None,
 ) -> str:
-    """Freeze explicitly selected member requirements and attached plans."""
+    """Freeze a member's explicitly selected item cases."""
     from yoke_core.domain.deployment_admission_reads import read_snapshot_inputs
 
     selected = _selection(selection_json)
@@ -216,9 +207,7 @@ def snapshot_member_requirements(
             conn,
             item_ids=(item_id,),
             requirement_ids=selected["requirement_ids"],
-            plan_ids=selected["plan_ids"],
         )
-    withdrawn_plans = admission.withdrawn_plans(item_id)
     requirements = []
     for requirement_id in selected["requirement_ids"]:
         requirement = _requirement_snapshot(
@@ -228,57 +217,14 @@ def snapshot_member_requirements(
             requirement_id=requirement_id,
             admission=admission,
         )
-        if (
-            requirement is not None
-            and requirement.get("plan_id") not in withdrawn_plans
-        ):
+        # Plans run as plan groups at item QA; a member freezes only its
+        # own item cases (an older build's plan copy is history, not intake).
+        if requirement is not None and requirement.get("plan_id") is None:
             requirements.append(requirement)
-    project_id = admission.project_id(item_id)
-    plans: list[dict[str, Any]] = []
-    plan_ids = set(selected["plan_ids"])
-    plan_ids.update(
-        int(r["plan_id"]) for r in requirements if r.get("plan_id") is not None
-    )
-    plan_ids.update(admission.attached_plans(item_id))
-    for plan_id in sorted(plan_ids):
-        if plan_id in withdrawn_plans:
-            continue
-        attached = admission.attachment(item_id, plan_id, requirements=requirements)
-        if attached is None and plan_id not in selected["plan_ids"]:
-            phases = {
-                r["qa_phase"] for r in requirements if r.get("plan_id") == plan_id
-            }
-            if len(phases) == 1:
-                attached = {"transition_id": "", "qa_phase": phases.pop()}
-        if attached is None:
-            raise ValueError(
-                f"QA plan {plan_id} is not attached to {render_item_ref(conn, item_id)}; attach it "
-                "before selecting it for release admission"
-            )
-        plans.append(
-            {
-                "attachment": {
-                    "transition_id": str(
-                        attached["transition_id"]
-                        if hasattr(attached, "keys")
-                        else attached[0]
-                    ),
-                    "qa_phase": str(
-                        attached["qa_phase"]
-                        if hasattr(attached, "keys")
-                        else attached[1]
-                    ),
-                },
-                **_plan_snapshot(
-                    conn, plan_id, project_id=project_id, admission=admission
-                ),
-            }
-        )
     payload = {
         "schema": SNAPSHOT_SCHEMA,
         "selection": selected,
         "requirements": requirements,
-        "plans": plans,
     }
     return _canonical(payload)
 
@@ -294,7 +240,6 @@ def snapshot_members_requirements(
         conn,
         item_ids=parsed,
         requirement_ids=[v for s in parsed.values() for v in s["requirement_ids"]],
-        plan_ids=[v for s in parsed.values() for v in s["plan_ids"]],
         lock=lock,
     )
     return {

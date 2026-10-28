@@ -1,10 +1,10 @@
 """An execution request resolves its QA subject once, and its cost is linear.
 
 Permission, claim verification, the handler's target check and settlement
-all need the run/stage/member subject behind one execution. Each resolution
-walks the run's members to find one that attaches the shared plan, so a
-request that resolved it four times did four times that work. These dispatch
-real check-ins against a shared execution in runs of growing size.
+all need the run/stage subject behind one execution. A plan group's subject
+covers every member that attaches its plan, so a request that resolved it
+four times did four times that work. These dispatch real check-ins against a
+plan group's execution in runs of growing size.
 """
 
 from __future__ import annotations
@@ -29,9 +29,7 @@ from yoke_core.domain import (
     deployment_qa_takeover_identity,
     qa_deployment_function_subject,
 )
-from yoke_core.domain.deployment_qa_stage_materialization import (
-    materialize_deployment_qa_stage,
-)
+from yoke_core.domain.deployment_qa_plan_group_writes import ensure_groups
 from yoke_core.domain.qa_plan_execution_state import (
     advance_plan_execution,
     begin_plan_execution,
@@ -43,7 +41,8 @@ STAGE = "item-qa"
 
 
 def _shared_execution(conn: Any, run_id: str, members: tuple[int, ...]) -> dict:
-    plan_id = _plan(conn, f"shared-{run_id}")
+    slug = f"shared-{run_id}"
+    plan_id = _plan(conn, slug)
     stages = _stages(plan_id)
     stages[1].pop("cases")
     _seed_run(conn, run_id=run_id, stages=stages, members=members)
@@ -55,18 +54,15 @@ def _shared_execution(conn: Any, run_id: str, members: tuple[int, ...]) -> dict:
             (member, plan_id),
         )
     conn.commit()
-    materialize_deployment_qa_stage(
-        conn,
-        deployment_run_id=run_id,
-        deployment_stage=STAGE,
-        deployment_member_item_id=members[-1],
-    )
+    ensure_groups(conn, run_id, STAGE)
+    conn.commit()
     actor_id = register_session_actor(conn, SESSION)
     execution = begin_plan_execution(
         conn,
         deployment_run_id=run_id,
         deployment_stage=STAGE,
-        deployment_member_item_id=members[-1],
+        deployment_member_item_id=None,
+        plan=slug,
         actor_id=str(actor_id),
         session_id=SESSION,
     )

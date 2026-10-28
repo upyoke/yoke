@@ -137,7 +137,7 @@ def test_target_composition_read_count_is_independent_of_member_count(test_db, r
 
 
 @pytest.mark.parametrize("frozen", [False, True])
-def test_plan_selections_read_identity_without_snapshotting_cases(test_db, frozen):
+def test_member_plan_selections_are_ignored_without_row_locks(test_db, frozen):
     from yoke_core.domain.qa_plan_management import create_plan
 
     item_id = 9692
@@ -179,8 +179,9 @@ def test_plan_selections_read_identity_without_snapshotting_cases(test_db, froze
         selected = member_selected_requirement_ids(
             test_db, run_id="run-stage", item_id=item_id
         )
-    expected = {sources["stage"]} if frozen else {sources["stage"], later}
-    assert selected == frozenset(expected)
+    # Post-deploy plans run as plan groups: a member's selection and snapshot
+    # never carry their cases, and a stored plan selection is ignored.
+    assert selected == frozenset()
     assert not any(
         "FOR UPDATE" in str(call.args[0]).upper() for call in reads.call_args_list
     )

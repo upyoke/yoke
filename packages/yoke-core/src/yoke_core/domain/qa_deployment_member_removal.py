@@ -26,13 +26,11 @@ def abort_removed_member_executions(
     *,
     run_id: str,
     item_ids: Iterable[int],
-    projection: Any = None,
-    removed: Iterable[int] = (),
 ) -> tuple[frozenset[int], frozenset[int]]:
     """Abort only these removed members' live executions in the caller's transaction.
 
-    Run after the members' rows are deleted. A shared execution is aborted
-    too when no remaining member attaches its plan target. Cancel every
+    Run after the members' rows are deleted. A plan group's execution is
+    aborted too when no remaining member attaches its plan. Cancel every
     waiting-line entry before releasing any reservation: releasing one host
     must never grant it to another cursor of the same removed members.
     Existing terminal evidence and other members' executions survive.
@@ -42,9 +40,7 @@ def abort_removed_member_executions(
     releases its host only after cleanup proof (`removal_cleanup_request`).
     Returns the removed members whose QA this call stopped, and those whose
     stopped execution still holds its host for cleanup. A shared execution
-    counts for every removed member. Whether a remaining member attaches a
-    shared target comes from ``projection`` (see :func:`_groups`), with
-    ``removed`` naming every member it saw that has left since.
+    counts for every removed member.
     """
     ids = sorted({int(value) for value in item_ids})
     if not ids or not _table_exists(conn, "qa_plan_executions"):
@@ -73,17 +69,17 @@ def abort_removed_member_executions(
         )
     ]
     if shared_executions:
-        stages = sorted({str(e["deployment_stage"]) for e in shared_executions})
-        projection = _groups(conn, run_id, projection, stages)
-    for execution in shared_executions:
-        target = execution["execution_target"]
-        if not projection.attached(
-            str(execution["deployment_stage"]),
-            target["deployment"]["shared_plan"]["plan_id"],
-            without={*ids, *(int(item_id) for item_id in removed)},
-            target=target,
-        ):
-            executions.append(execution)
+        from yoke_core.domain.deployment_qa_plan_groups import (
+            group_marker,
+            unattached_open_groups,
+        )
+
+        orphaned = {group.group_id for group in unattached_open_groups(conn, run_id)}
+        executions.extend(
+            execution
+            for execution in shared_executions
+            if str(group_marker(execution["execution_target"])["group_id"]) in orphaned
+        )
     executions = [
         e for e in executions if e["state"] not in TERMINAL_PLAN_EXECUTION_STATES
     ]
@@ -126,63 +122,14 @@ def removal_cleanup_request(conn: Any, execution: dict) -> dict | None:
     return None if request is None else {**request, "reason": MEMBER_REMOVED_REASON}
 
 
-def _groups(conn: Any, run_id: str, projection: Any, stages: list[str]) -> Any:
-    """The caller's projection, read before its run lock, or one read now.
+def retract_orphaned_shared_copies(conn: Any, *, run_id: str, reason: str) -> list[int]:
+    """Retract each open plan group no remaining member attaches.
 
-    Read now, it answers for the membership that remains after the deletion.
+    Run after the removed members' rows are deleted. Passed rows and closed
+    groups are never touched; a later attacher gets a new group.
     """
-    if projection is not None:
-        return projection
-    from yoke_core.domain.deployment_qa_materialization_projection import (
-        read_run_projection,
-    )
-
-    return read_run_projection(conn, run_id=run_id, stages=stages)
-
-
-def retract_orphaned_shared_copies(
-    conn: Any,
-    *,
-    run_id: str,
-    reason: str,
-    projection: Any = None,
-    removed: Iterable[int] = (),
-) -> list[int]:
-    """Retract unsettled shared-group rows whose plan no remaining member attaches.
-
-    Run after the member rows of ``removed`` are deleted. A group another
-    member still attaches keeps its rows; an orphaned group would otherwise
-    stay a run-wide blocker. Rows the failed run already retired are taken
-    over so a retry cannot restore them.
-    """
-    from yoke_core.domain.deployment_qa_shared_plans import shared_target_identity
-    from yoke_core.domain.qa_obligation_settlement import settled_obligation_sql
-    from yoke_core.domain.qa_plan_attachment_retract import retract_requirements
+    from yoke_core.domain.deployment_qa_plan_groups import retract_unattached_groups
 
     if not _table_exists(conn, "qa_requirements"):
         return []
-    rows = query_rows(
-        conn,
-        "SELECT id,deployment_stage,plan_id,execution_target_json FROM qa_requirements "
-        "WHERE deployment_run_id=%s AND deployment_member_item_id IS NULL "
-        f"AND plan_id IS NOT NULL AND (NOT {settled_obligation_sql(conn)} "
-        "OR retraction_source='deployment_run') ORDER BY id",
-        (run_id,),
-    )
-    groups: dict[tuple[str, int], list[int]] = {}
-    for row in rows:
-        if shared_target_identity(row["execution_target_json"]):
-            key = (str(row["deployment_stage"]), int(row["plan_id"]))
-            groups.setdefault(key, []).append(int(row["id"]))
-    if not groups:
-        return []
-    projection = _groups(conn, run_id, projection, sorted({s for s, _ in groups}))
-    gone = {int(item_id) for item_id in removed}
-    ids = [
-        requirement_id
-        for (stage_name, plan_id), members in groups.items()
-        if not projection.attached(stage_name, plan_id, without=gone)
-        for requirement_id in members
-    ]
-    retract_requirements(conn, ids, reason=reason, source="operator")
-    return ids
+    return retract_unattached_groups(conn, run_id, reason=reason, source="operator")

@@ -55,17 +55,23 @@ def _replacement_for(
     *,
     exact_scope: bool = False,
 ) -> dict[str, Any]:
+    from yoke_core.domain.qa_deployment_case_content_refresh import base_case_key
+
+    # A corrected case may take a refreshed key beside its failed row.
     rows = [row for row in (_row(conn, rid) for rid in candidates) if row]
+    for row in rows:
+        row["base_case_key"] = base_case_key(row["plan_case_key"] or "")
+    case_key = base_case_key(case_key)
     matches = [
         row
         for row in rows
-        if row["plan_case_key"] == case_key
+        if row["base_case_key"] == case_key
         and int(row["id"]) != int(failed["id"])
         and not obligation_settled(row)
         and not row["replacement_requirement_id"]
         and (not exact_scope or not same_scope(failed, row))
     ]
-    if not matches and any(int(row["id"]) == int(failed["id"]) and row["plan_case_key"] == case_key for row in rows):
+    if not matches and any(int(row["id"]) == int(failed["id"]) and row["base_case_key"] == case_key for row in rows):
         raise QaReplacementError(
             f"replacement_case_corrected_in_place: requirement {failed['id']} "
             f"already owns corrected case key {case_key!r}. To test corrected "

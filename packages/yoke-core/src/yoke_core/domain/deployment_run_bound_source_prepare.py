@@ -259,7 +259,7 @@ def _current_reads(conn, basis, enrollment, planned):
     The planned snapshots' rows are locked before the basis is compared.
     """
     if planned is not None:
-        lock_snapshot_rows(conn, *planned.row_ids)
+        lock_snapshot_rows(conn, planned.row_ids)
     if basis is None or not basis.unchanged(conn):
         return None
     if enrollment is None:

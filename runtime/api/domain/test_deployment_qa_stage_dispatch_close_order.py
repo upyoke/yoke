@@ -13,6 +13,7 @@ from unittest.mock import patch
 
 from yoke_contracts.public_ref import format_item_ref
 
+from yoke_core.domain import deployment_qa_dispatch_wait_notice as wait_notice
 from yoke_core.domain import deployment_qa_stage_dispatch as dispatch
 from yoke_core.domain import deployment_qa_stage_gate as gate
 
@@ -91,7 +92,7 @@ def test_every_waiting_member_wakes_before_an_accepted_member_closes() -> None:
         patch.object(gate, "deployment_qa_stage_status", side_effect=_status),
         patch.object(dispatch, "report_stage_result"),
         patch.object(
-            dispatch,
+            wait_notice,
             "notify_item_scoped_qa_wait",
             side_effect=lambda conn, **kw: (
                 events.append(("wake", kw["item_id"])) or "delivered"

@@ -30,10 +30,8 @@ ITEM_PLAN_ATTACH_EPILOG = (
     "Then attach with --transition reviewing-implementation\n"
     "--qa-phase verification, and run yoke qa plan materialize.\n\n"
     "Post-deploy plans attach directly at the pinned release stage with\n"
-    "--qa-phase post_deploy; no choice step is needed.\n\n"
-    "A plan this member already holds as a correction on an executing run\n"
-    "is refused as qa_correction_already_held. Leave that correction on the\n"
-    "run. Attach a different plan only for a separate obligation."
+    "--qa-phase post_deploy; no choice step is needed. Nothing is copied onto\n"
+    "the item: each release runs the plan once as a plan group at item-qa."
 )
 
 #: Read as ``yoke qa plan-cases replace --help``. What an author has to know
@@ -165,23 +163,17 @@ clears only system waivers, creates cases the plan
 has gained, and retires cases it has lost. It reaches every executable column,
 instructions and expected_outcome included -- which `yoke qa requirement
 update` cannot write at all -- because it rewrites the derivation whole rather
-than one allowlisted field. It also carries that body onto every admitted
-deployment-stage copy frozen from a refreshed or newly created row that can
-still be reached, reported as corrected_admitted_copy_ids -- otherwise the copy would keep the
-old body and its stage would refuse the case as superseded.
+than one allowlisted field. The result's plan_ids names every plan the call
+reached; a lost case is waived as removed (waived_requirement_ids).
 
-An item transition whose plan a delivery already answered still has its
-existing rows refreshed and its lost cases retired; it gains no new row there,
-because only a run that already finished could answer one. The result's
-plan_ids names every plan the call reached.
-
-On an item transition, a lost post_deploy case that exactly one created row
-replaces -- same item, transition, phase, environment and host baseline -- is
-superseded by that row, reported as superseded_requirement_ids (old id to
-successor id). The successor carries the obligation: a run that already
-admitted the old case answers it through those copies, and later releases
-admit only the successor. A lost case with no single successor is waived as
-removed (waived_requirement_ids).
+Post-deploy plans are never materialized on an item: each release runs each
+one once as a plan group at item-qa, pinned at the plan revision the release
+started with, so an edited plan runs on the next release. An item transition
+that attaches only post-deploy plans refuses as
+post_deploy_plan_runs_as_plan_group, and so does --deployment-run-id at an
+item-scoped stage (plan_group_not_rematerialized). Correct a failed plan-group
+case with `yoke qa plan run --deployment-run-id RUN --stage item-qa --plan P
+--replaces CASE_KEY=REQUIREMENT_ID`.
 
 A deployment subject converges case by case, so one answered sibling never
 blocks the rest: a row nobody has judged is refreshed in place; a case whose
@@ -200,13 +192,8 @@ its identity labels are stale, is not rematerialize's job:
 live facts and keeps the recorded verdict. A live item requirement
 cannot be superseded.
 
-An item refresh considers shared copies only on runs it still belongs to.
-Removed members leave shared rows and live walks to the remaining members.
-
-With --item and --stage, --plan selects by owner. A shared plan the member attaches
-refreshes that shared group's run-wide rows. The member's own plan refreshes
-only that member's rows, so a live run-wide walk of a shared plan does not
-block it.
+With --item and --stage, the refresh reaches only that member's own plan
+cases, and --plan narrows it to one plan.
 
 Live walks
 ----------
@@ -219,7 +206,7 @@ resume on the corrected roster.
 
 Where it refuses instead
 ------------------------
-It will not move a row something else has already frozen a copy of. A refusal
+It will not move a row a live walk has already reached. A refusal
 rolls the whole refresh back, so every row and roster stays exactly as it was.
 
 qa_roster_case_reached: a changed case sits at or before a live walk's cursor,
@@ -231,16 +218,9 @@ plan_execution_in_flight: the refresh would add a case to a subject a live
 walk is running; its roster cannot carry the new case. Abort with the named
 `yoke qa plan abort` invocation, refresh, then run the plan again.
 
-shared_plan_refresh_selection: --item with a --plan that is neither a
-shared plan the member attaches nor one of its own materialized plans.
-
-admitted_copy_in_flight: the refresh would change an admitted deployment-stage
-copy that has answered or that a live walk has reached, on a run that is still
-executing. A copy the refresh leaves unchanged never refuses. The refusal names
-the copy, its run, and the remedy available for that copy.
-
 Reading drift without two bodies
 --------------------------------
 `yoke qa requirement list` reports plan_currency per materialized row --
-current, stale with plan_diverging_fields, orphaned, or unreadable.
+current, stale with plan_diverging_fields, orphaned, or unreadable. Plan-group
+rows and post-deploy rows left on items carry no plan_currency.
 """

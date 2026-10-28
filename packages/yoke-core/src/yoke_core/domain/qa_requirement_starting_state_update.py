@@ -126,7 +126,9 @@ def prepare_starting_state(
             f"{subject} was materialized from QA plan {row['plan_id']}, which "
             "owns its starting state. Change the case's starting state with "
             "`yoke qa plan edit PLAN_SLUG --project P`, then refresh the row "
-            "with `yoke qa plan rematerialize --item PREFIX-N --transition STAGE`.",
+            "with `yoke qa plan rematerialize --item PREFIX-N --transition STAGE`; "
+            "a post-deploy plan has no item row to refresh: the next release "
+            "runs the edited plan as its plan group.",
         )
     if declared.get("starting_state") == INHERIT:
         return (

@@ -40,8 +40,8 @@ A wrong pre-release binding blocks admission and completion; rebind the
 existing row with `yoke qa requirement update --requirement-id N --field
 workflow_transition_id --value release`. The same creation rules apply.
 
-When item QA needs another item's correction, follow
-[failed item QA recovery](failed-item-qa.md) and record the dependency before waiting.
+Record a closure dependency only when a QA finding is in your own item and
+another item must land first; follow [failed item QA recovery](failed-item-qa.md).
 For a completion-only wait:
 
 ```text
@@ -50,8 +50,7 @@ yoke items dependency add DEPENDENT BLOCKER operator --gate-point closure \
 ```
 
 Read `yoke items dependency add --help` for satisfaction and direction. Use
-`fact:merged` when the blocker ships in the same release or the same shared QA
-case proves both. Use `fact:deployed:<environment-name>` only when QA needs the
+`fact:merged` when the blocker ships in the same release. Use `fact:deployed:<environment-name>` only when QA needs the
 blocker delivered to that registered environment before the dependent's own
 release. Composition skips release items with an open
 blocking edge to an unshipped item and names the blocker in its receipt; the
@@ -63,7 +62,9 @@ Coordination-only and satisfied edges do not delay composition.
 
 Removing a release member aborts its live run/member QA executions, releases
 their host turns and leases, and retracts every unsettled run copy of its QA,
-even one passed before a later failure; history and item plans remain.
+even one passed before a later failure; history and item plans remain. A
+[plan group](deployment-plan-execution.md#plan-groups) stays while another
+member attaches its plan.
 [In-flight host cancellation](deployment-plan-execution.md#stop-host-work-safely)
 refuses as `qa_abort_restore_required`: abort through the plan command, wait
 for the interrupted case's cleanup proof, then retry removal. A declared
@@ -157,8 +158,10 @@ whatever its runner already resolves, with no execution target recorded.
 ## Binding a deployment case to its stage and member
 
 A deployment run's QA stages declare their own scope. Acceptance reads
-`deployment_stage = <name>` for every one of them, and an item-scoped stage
-resolves the member's private cases and attached shared-plan groups. Materializing
+`deployment_stage = <name>` for every one of them. An item-scoped stage
+resolves each member's item cases, and the run's
+[plan groups](deployment-plan-execution.md#plan-groups) answer attached
+post-deploy plans. Materializing
 a plan without a stage writes rows no stage reads: the owner sees a recorded pass and an
 unchanged stage that goes on waiting. A run pinning **any** QA stage, of
 either scope, refuses the run-wide form and names the binding invocation; a
@@ -168,27 +171,22 @@ run whose flow pins no QA stage keeps it:
 yoke qa plan run --item <PREFIX-N> --stage <stage-name> --project <project>
 ```
 
-[Shared cursor waits](deployment-plan-execution.md#shared-plan-credit) name the
-execution and owner. Keep the claim and park; settlement credits shared
-evidence or wakes members still owing QA to retry their own member command.
-
-`--plan <plan-id-or-slug>` selects one complete already admitted frozen plan
-for the exact run, stage, member or shared subject and target. It adds no
-obligations and never refreshes live plan content. A new plan fills an empty
-stage; a named stage refuses unrelated additions without explicit corrections.
+At `item-qa`, `yoke qa plan run --deployment-run-id RUN --stage item-qa --plan
+<plan-id-or-slug>` runs that plan's open group; no command selects one member's
+plan cases. At a run-scoped stage, `--plan` selects the run's frozen flow plan.
+Neither adds obligations or refreshes live plan content. A new plan fills an
+empty stage; a named stage refuses unrelated additions without explicit
+corrections.
 
 `yoke qa plan materialize` takes the same `--item` / `--stage` pair when
 only requirement rows are wanted. Fresh item QA resolves its current delivery
 membership; run-level orchestration retains its internal run/stage context.
 
-Materialize and rematerialize read the whole run's plan groups first, without
+Materialization reads the whole run's plan groups first, without
 holding the run, then hold the `deployment_runs` row only for the writes.
 Members materializing at the same time no longer queue behind each other's
 reads. A membership or QA change committed in between is detected under the
 row lock, and the read repeats there before anything is written.
-
-Matching member attachments share plan/source/target evidence; see
-[deployment plan execution](deployment-plan-execution.md) for credit and recovery.
 
 Stage materialization stamps the run's **own** observed target — resolved
 from the receipt its deploying stage wrote — onto every case it creates. A
@@ -214,7 +212,7 @@ as `deployment_qa_release_pin_missing` (no pin at that commit),
 it), or `deployment_qa_release_unpublished` (absent from the installer origin).
 
 That snapshot is frozen at first materialization for the run, stage, and
-private member or shared plan group **while the producer receipt is unchanged**. Later target resolution
+member or plan group **while the producer receipt is unchanged**. Later target resolution
 reuses it, so a live edit to `environments.url` or environment settings
 cannot move `execution_target_digest` and drop a recorded pass out of
 scope. A newer ready producer attempt is a new identity: the stage
@@ -262,8 +260,8 @@ the same stage/member plan to check the pinned candidate.
 `--allow-tree-mismatch` does not waive this CI refusal.
 
 
-See [deployment plan execution](deployment-plan-execution.md) for shared plan
-credit, machine partitions, host turns and starting-state recovery.
+See [deployment plan execution](deployment-plan-execution.md) for plan
+groups, machine partitions, host turns and starting-state recovery.
 
 ## Command case source
 

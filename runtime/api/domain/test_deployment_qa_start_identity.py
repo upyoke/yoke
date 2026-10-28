@@ -112,13 +112,15 @@ def test_a_different_served_build_proceeds_and_is_reported(
     assert "qa.plan_execution.abort" not in calls
 
 
-def test_a_shared_item_qa_resume_resolves_its_target() -> None:
-    """A shared execution has no member item; its frozen target names the plan."""
+def test_a_plan_group_resume_resolves_its_target() -> None:
+    """A plan group execution has no member item; its frozen target names the group."""
     execution = {
         "deployment_run_id": "run-1",
         "deployment_stage": "item-qa",
         "deployment_member_item_id": None,
-        "execution_target": {"deployment": {"shared_plan": {"plan_id": 7}}},
+        "execution_target": {
+            "deployment": {"shared_plan": {"plan_id": 7, "group_id": "run-1:1"}}
+        },
     }
     conn = mock.Mock()
     conn.execute.return_value.fetchone.return_value = {
@@ -127,7 +129,7 @@ def test_a_shared_item_qa_resume_resolves_its_target() -> None:
     domain = "yoke_core.domain."
     with (
         mock.patch(
-            domain + "deployment_qa_shared_plans.resolve_shared_subject",
+            domain + "deployment_qa_shared_plans.execution_subject",
             return_value={"id": "run-1", "stage": {"name": "item-qa"}},
         ) as shared,
         mock.patch(
@@ -151,7 +153,7 @@ def test_a_shared_item_qa_resume_resolves_its_target() -> None:
         mock.patch(domain + "db_backend.connection_is_postgres", return_value=False),
     ):
         expectation = start_identity_expectation(conn, execution)
-    assert shared.call_args.kwargs["plan_id"] == 7
+    assert shared.call_args.args[1] is execution
     assert expectation is not None
     assert not expectation["target"].get("unresolved")
     assert expectation["target"]["environment"] == "stage"

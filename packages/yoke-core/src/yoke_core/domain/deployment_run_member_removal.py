@@ -75,18 +75,14 @@ def remove_members_on(
     session_id: str | None = None,
     actor_id: int | None = None,
     removed_by: str = "steering",
-    projection: Any = None,
 ) -> dict[int, str]:
     """Apply the audited removals and retract the members' unsettled run copies.
 
-    Shared-group copies no remaining member attaches are retracted with them.
+    Open plan groups no remaining member attaches are retracted with them.
     Every step is one statement for the whole set, so removing many members
     costs what removing one does; only owners owed a notice get one each.
 
-    Caller owns the locks and transaction. ``projection`` holds the run's
-    shared groups read before the caller's run lock (:func:`read_removal`);
-    without it they are read here, as one set per fact, after the deletion.
-    Retracted copies keep their verdict history; standing item plans survive
+    Caller owns the locks and transaction. Retracted copies keep their verdict history; standing item plans survive
     and the next release materializes fresh run-bound copies. Returns each
     removed member's public ref.
     """
@@ -118,24 +114,11 @@ def remove_members_on(
     removed_at = record_membership_removals(
         conn, run_id, ids, reason=reason, session_id=session_id, actor_id=actor_id
     )
-    gone = ids
-    if projection is not None:
-        # Every member the projection saw that no longer belongs, including
-        # an earlier batch removed in this same transaction.
-        remaining = {
-            int(row["item_id"])
-            for row in conn.execute(
-                "SELECT item_id FROM deployment_run_items WHERE run_id=%s", (run_id,)
-            ).fetchall()
-        }
-        gone = sorted({int(row["item_id"]) for row in projection.members()} - remaining)
     _stopped, cleaning = abort_removed_member_executions(
-        conn, run_id=run_id, item_ids=ids, projection=projection, removed=gone
+        conn, run_id=run_id, item_ids=ids
     )
     cancelled = retract_member_copies(conn, run_id, item_ids=ids, reason=reason)
-    retract_orphaned_shared_copies(
-        conn, run_id=run_id, reason=reason, projection=projection, removed=gone
-    )
+    retract_orphaned_shared_copies(conn, run_id=run_id, reason=reason)
     withdraw_deployment_qa_wait_wakes(
         conn, run_id=run_id, item_ids=ids, reason="member_removed"
     )
@@ -163,7 +146,6 @@ def remove_member_on(
     session_id: str | None = None,
     actor_id: int | None = None,
     removed_by: str = "steering",
-    projection: Any = None,
 ) -> str:
     """Remove one member; see :func:`remove_members_on`."""
     return remove_members_on(
@@ -174,7 +156,6 @@ def remove_member_on(
         session_id=session_id,
         actor_id=actor_id,
         removed_by=removed_by,
-        projection=projection,
     )[int(item_id)]
 
 
@@ -219,7 +200,6 @@ def cmd_remove_item(
                 reason=reason,
                 session_id=session_id,
                 actor_id=actor_id,
-                projection=current.projection,
             )
             conn.commit()
         recovery = f"Re-attach while created with `yoke deployment-runs add-item {run_id} {ref}`."

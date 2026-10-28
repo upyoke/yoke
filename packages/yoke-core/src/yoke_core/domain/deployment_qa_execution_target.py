@@ -130,9 +130,8 @@ def deployment_qa_execution_target(conn: Any, subject: Mapping[str, Any]) -> dic
     receipt is a new identity resolved live.
     """
     if subject.get("shared_plan"):
-        from yoke_core.domain.deployment_qa_shared_plans import frozen_shared_target
-
-        return frozen_shared_target(conn, subject)
+        # A plan group's target is fixed at creation; its group_id keeps it apart.
+        return dict(subject["shared_target"])
     project = target_project(conn, subject)
     frozen = first_materialized_execution_target(
         conn,

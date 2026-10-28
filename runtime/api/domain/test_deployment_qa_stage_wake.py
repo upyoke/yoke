@@ -103,7 +103,7 @@ def test_run_message_names_steering_when_the_route_is_steering():
     )
 
     assert "steering seat" in body
-    assert "no driver is attached to the run" in body
+    assert "no driver or starting session is live" in body
 
 
 def test_item_message_names_the_stage_and_member_bound_invocation():

@@ -198,39 +198,72 @@ def test_unanswered_members_still_hold_the_stage(test_db, own_qa, same_project):
     assert outstanding.no_obligation_lines == ()
 
 
-@pytest.mark.parametrize(
-    "obligation", ["attachment", "requirement", "run_case", "flow_cases"]
-)
+def test_an_attached_plan_survives_own_flow_and_holds_until_its_group_passes(test_db):
+    from yoke_core.domain.deployment_qa_plan_group_dispatch import settle_group
+    from yoke_core.domain.deployment_qa_plan_group_writes import (
+        ensure_groups,
+        group_subject,
+    )
+    from yoke_core.domain.deployment_qa_plan_groups import run_groups
+    from yoke_core.domain.deployment_qa_run_acceptance import (
+        item_qa_acceptance_blockers,
+    )
+
+    _ready(test_db)
+    plan = create_plan(
+        test_db,
+        project="carried",
+        slug="member-smoke",
+        name="Member smoke",
+        infer_target_environment=False,
+    )
+    replace_plan_cases(
+        test_db,
+        plan_id=int(plan["id"]),
+        cases=[
+            {
+                "case_key": "member-check",
+                "position": 1,
+                "method_id": "command",
+                "instructions": "Check the carried member",
+                "expected_outcome": "passes",
+                "method_config": {"command": "true"},
+            }
+        ],
+    )
+    test_db.execute(
+        "INSERT INTO qa_plan_item_attachments(plan_id,item_id,transition_id,qa_phase,attached_at) "
+        "VALUES (%s,%s,'release','post_deploy','2026-10-01T00:00:00Z')",
+        (int(plan["id"]), MEMBER),
+    )
+    test_db.commit()
+    assert ensure_groups(test_db, RUN, "item-qa")
+    test_db.commit()
+    blockers = item_qa_acceptance_blockers(test_db, run_id=RUN, item_id=MEMBER)
+    assert any("plan group" in blocker for blocker in blockers)
+    execution = begin_plan_execution(
+        test_db,
+        deployment_run_id=RUN,
+        deployment_stage="item-qa",
+        deployment_member_item_id=None,
+        plan="member-smoke",
+        actor_id="2",
+        session_id="member-qa",
+    )
+    _complete_case(test_db, execution)
+    (group,) = run_groups(test_db, [RUN], "item-qa")
+    if not group.closed:
+        settle_group(
+            test_db, group_subject(test_db, RUN, "item-qa", group, require_active=False)
+        )
+    assert run_groups(test_db, [RUN], "item-qa")[0].covered_item_ids == (MEMBER,)
+    assert item_qa_acceptance_blockers(test_db, run_id=RUN, item_id=MEMBER) == []
+
+
+@pytest.mark.parametrize("obligation", ["requirement", "run_case", "flow_cases"])
 def test_explicit_cases_survive_own_flow_without_item_qa(test_db, obligation):
     _ready(test_db, cases=obligation == "flow_cases")
-    if obligation == "attachment":
-        plan = create_plan(
-            test_db,
-            project="carried",
-            slug="member-smoke",
-            name="Member smoke",
-            infer_target_environment=False,
-        )
-        replace_plan_cases(
-            test_db,
-            plan_id=int(plan["id"]),
-            cases=[
-                {
-                    "case_key": "member-check",
-                    "position": 1,
-                    "method_id": "command",
-                    "instructions": "Check the carried member",
-                    "expected_outcome": "passes",
-                    "method_config": {"command": "true"},
-                }
-            ],
-        )
-        test_db.execute(
-            "INSERT INTO qa_plan_item_attachments(plan_id,item_id,transition_id,qa_phase,attached_at) "
-            "VALUES (%s,%s,'release','post_deploy','2026-10-01T00:00:00Z')",
-            (int(plan["id"]), MEMBER),
-        )
-    elif obligation in {"requirement", "run_case"}:
+    if obligation in {"requirement", "run_case"}:
         kwargs = (
             {"item_id": MEMBER}
             if obligation == "requirement"

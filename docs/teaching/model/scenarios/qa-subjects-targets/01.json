@@ -4,13 +4,13 @@
  "status": "draft-copy",
  "audience": "both",
  "when": "When attaching QA to a workflow transition or composing item-scoped versus run-wide release QA.",
- "need": "A requirement belongs to an item/task or a deployment run, optionally a stage and member. Matching member attachments, including plans that reach a member only through an admitted requirement, share one plan/source/target execution and verdict; each member waits only on its attached groups. A shared failure blocks every attaching member, while other plans and targets remain separate. Unfinished private cases can execute before shared acceptance, with their own custody and target. Completing that private invocation never starts a shared campaign; every attached shared group remains required. Admission copies only requirements with executable methods; method-less standing rows stay on their item. Shared walks persist their requesting member separately from the shared subject, so continuation and host-wait recipes retain the requesting item through --item and --stage after a restart.",
+ "need": "A requirement belongs to an item/task or a deployment run, optionally a stage and member. Item cases bind to their member and run with --item and --stage. Each attached post-deploy plan runs once per release as one plan group of memberless run rows, answering every item that attaches it; a pass credits the items attaching the plan when the group closed. A group failure blocks those items, while other plans and targets remain separate. Admission copies only item cases with executable methods; method-less standing rows stay on their item.",
  "disclosure": "current cue",
  "surface": "Case attachment validation; Shipping Item QA/Run QA; QA subject reads",
  "gap": "Review question: should the first mixed release show a small explanation of item-versus-run QA, with detailed binding rules fetched by the agent?",
  "review": "Pending exact recipe proof.",
  "recipes": ["yoke qa requirement list --help"],
  "plan_notes": ["JOURNEYS row 12", "JOURNEYS row 13"],
- "sources": ["docs/public/verification/case-attachment.md", "docs/public/verification/deployment-plan-execution.md", "docs/public/verification/platform.md", "docs/public/sessions/inbox.md", "runtime/api/domain/test_deployment_qa_shared_plans.py", "runtime/api/domain/test_deployment_qa_shared_admitted_plans.py", "runtime/api/domain/test_deployment_qa_private_before_shared.py"],
+ "sources": ["docs/public/verification/case-attachment.md", "docs/public/verification/deployment-plan-execution.md", "docs/public/verification/platform.md", "docs/public/sessions/inbox.md"],
  "position": 0
 }

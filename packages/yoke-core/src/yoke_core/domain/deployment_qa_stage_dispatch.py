@@ -38,75 +38,13 @@ from yoke_core.domain.deployment_qa_manual_wake import (
     manual_wake_requirements,
     wake_manual_requirement_owners,
 )
-from yoke_core.domain.deployment_qa_stage_wake import (
-    notify_item_scoped_qa_wait,
-    notify_run_scoped_qa_wait,
+from yoke_core.domain.deployment_qa_dispatch_wait_notice import notify_stage_wait
+from yoke_core.domain.deployment_qa_plan_group_dispatch import (
+    gate_plan_groups,
+    plan_group_writer,
 )
 
 DISPATCH_DEPLOYMENT_QA_STAGE_FUNCTION = "deployment_runs.qa_stage.dispatch"
-
-
-def _notify_stage_wait(
-    conn: Any,
-    *,
-    run_id: str,
-    stage_name: str,
-    member: int | None,
-    item_scoped: bool,
-    project_id: int,
-    reasons: str,
-    names_cases: bool,
-    target_tier: str,
-    revision: str,
-    target_digest: str,
-    label: str,
-) -> None:
-    """Wake this waiting subject; notification misses preserve its QA status.
-
-    names_cases selects the recovery recipe for existing versus missing cases.
-    """
-    if item_scoped and member is not None:
-        no_recipient = "no live claim holder and no covering project steering seat"
-        notify = lambda: notify_item_scoped_qa_wait(  # noqa: E731
-            conn,
-            run_id=run_id,
-            stage_name=stage_name,
-            item_id=member,
-            project_id=project_id,
-            reasons=reasons,
-            names_cases=names_cases,
-            target_tier=target_tier,
-            revision=revision,
-            target_digest=target_digest,
-        )
-    else:
-        no_recipient = "no live run driver and no covering project steering seat"
-        notify = lambda: notify_run_scoped_qa_wait(  # noqa: E731
-            conn,
-            run_id=run_id,
-            stage_name=stage_name,
-            project_id=project_id,
-            reasons=reasons,
-            names_cases=names_cases,
-            target_tier=target_tier,
-            revision=revision,
-            target_digest=target_digest,
-        )
-    try:
-        delivery = notify()
-        conn.commit()
-        if not delivery:
-            print(
-                f"Run {run_id!r} stage {stage_name!r} is waiting "
-                f"({label}: {reasons}) with {no_recipient} to wake. Staff it "
-                "manually."
-            )
-    except Exception as exc:  # noqa: BLE001 - degrade, don't abort
-        rollback_after_error(conn, exc)
-        print(
-            f"Warning: could not wake a recipient for run {run_id!r} stage "
-            f"{stage_name!r} ({label}): {exc}"
-        )
 
 
 @composition_operation
@@ -136,10 +74,16 @@ def materialize_and_gate_deployment_qa_stage(
 
     try:
         prepare_release_inputs(conn, stage, run_id=run_id)
+        errors = prepare_members(
+            conn,
+            stage,
+            run_id=run_id,
+            members=members,
+            then=plan_group_writer(conn, stage, run_id=run_id),
+        )
     except (LookupError, ValueError) as exc:
         rollback_after_error(conn, exc)
         return qa_stage_error(exc, run_id=run_id, stage_name=str(stage.get("name")))
-    errors = prepare_members(conn, stage, run_id=run_id, members=members)
     return _gate_members(
         conn,
         stage,
@@ -175,7 +119,7 @@ def _gate_members(
     def wake_held(member: int | None, label: str, reason: str) -> None:
         """Wake a member held before its cases could be gated, once per wait."""
         if project_id is not None and not woken(member, ""):
-            _notify_stage_wait(
+            notify_stage_wait(
                 conn,
                 run_id=run_id,
                 stage_name=str(stage["name"]),
@@ -283,7 +227,7 @@ def _gate_members(
                     ):
                         print(f"Run {run_id} stage {stage['name']!r} {label}: {miss}")
                 elif not woken(member, digest):
-                    _notify_stage_wait(
+                    notify_stage_wait(
                         conn,
                         run_id=run_id,
                         stage_name=str(stage["name"]),
@@ -298,6 +242,14 @@ def _gate_members(
                         label=label,
                     )
             waiting.extend(f"{label}: {reason}" for reason in status["reasons"])
+    if failure is None:
+        try:
+            waiting.extend(gate_plan_groups(
+                conn, stage, run_id=run_id, project_id=project_id, item_refs=item_refs
+            ))
+        except (LookupError, ValueError) as exc:
+            rollback_after_error(conn, exc)
+            failure = qa_stage_error(exc, run_id=run_id, stage_name=str(stage["name"]))
     with uncached_presentation():
         notify_items_qa_accepted(conn, run_id=run_id, item_ids=tuple(accepted))
     if failure:

@@ -93,14 +93,6 @@ def first_materialized_execution_target(
     )
     row = rows.get(int(member_item_id or 0))
     if row is None:
-        if member_item_id is not None:
-            from yoke_core.domain.deployment_qa_takeover_identity import (
-                inherited_member_target,
-            )
-
-            return inherited_member_target(
-                conn, str(run_id), str(stage_name), member_item_id
-            )
         return None
     frozen = _decode_stored_target(row["execution_target_json"])
     if frozen is None:

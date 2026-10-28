@@ -78,9 +78,7 @@ def resolve_execution_request(conn, request, execution=None):
             (execution.get("execution_target") or {}).get("deployment") or {}
         ).get("shared_plan")
         if shared and run_id:
-            from yoke_core.domain.deployment_qa_shared_plan_reads import (
-                attaching_members,
-            )
+            from yoke_core.domain.deployment_qa_plan_groups import attaching_members
 
             allowed.update(attaching_members(conn, str(run_id), int(shared["plan_id"])))
         if item_id is None or int(item_id) not in allowed:

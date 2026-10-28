@@ -51,7 +51,61 @@ def test_an_answered_item_owes_its_item_scoped_stage(monkeypatch):
         "project": "proj",
         "stages": ["item-qa"],
         "requirement_ids": [41],
+        "plan_ids": [],
     }
+
+
+def _attachment(plan_id: int, **extra) -> dict:
+    return {"plan_id": plan_id, "qa_phase": "post_deploy", "transition_id": "release", **extra}
+
+
+def test_attached_plans_are_listed_and_old_plan_copies_owe_nothing(monkeypatch):
+    _stages(monkeypatch, ITEM_QA_STAGES)
+    item = _item(
+        qa_requirements=[_post_deploy(41), _post_deploy(44, plan_id=7)],
+        qa_plan_attachments=[
+            _attachment(9),
+            _attachment(7),
+            _attachment(8, retracted_at="2026-01-01T00:00:00Z"),
+            _attachment(6, qa_phase="verification"),
+        ],
+    )
+
+    obligation = facts.delivery_obligation(item)
+
+    assert obligation["requirement_ids"] == [41]
+    assert obligation["plan_ids"] == [7, 9]
+    owes = facts.awaiting_delivery_lines(
+        {"release_wait": {"obligation": obligation, "wake": {"kind": facts.WAKE_NATIVE}}},
+        "YOK-1",
+    )[0]
+    assert owes == (
+        "owes delivery: item-scoped QA stage item-qa (requirements 41); the stage "
+        f"credits only {facts.stage_recipe(obligation, 'YOK-1')}; attached post-deploy "
+        "plans 7, 9 run once per release as plan groups; the run's driver or "
+        "starting session runs its plan groups"
+    )
+
+
+def test_a_plan_only_item_leaves_its_plan_groups_to_the_run_driver(monkeypatch):
+    _stages(monkeypatch, ITEM_QA_STAGES)
+    obligation = facts.delivery_obligation(_item(qa_plan_attachments=[_attachment(7)]))
+
+    assert facts.plan_only(obligation)
+    lines = facts.awaiting_delivery_lines(
+        {"release_wait": {"obligation": obligation, "wake": {"kind": facts.WAKE_NATIVE}}},
+        "YOK-1",
+    )
+    assert lines[0] == (
+        "owes delivery: no item cases at item-scoped QA stage item-qa; attached "
+        "post-deploy plans 7 run once per release as plan groups; the run's driver "
+        "or starting session runs its plan groups"
+    )
+    assert (
+        "re-entry runs nothing for plan groups: no wake comes to this session for them"
+        in lines
+    )
+    assert not any("yoke watch qa-plan" in line for line in lines)
 
 
 def test_a_recorded_no_obligation_owes_nothing(monkeypatch):

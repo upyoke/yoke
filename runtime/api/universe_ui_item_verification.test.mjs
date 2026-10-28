@@ -306,3 +306,35 @@ test("item detail exposes a unified-read failure without a legacy retry", async 
   ]);
   assert.match(itemText(root), /unified detail unavailable/);
 });
+
+test("a post-deploy plan reads as a plan group run once per release", async () => {
+  const documentNode = new FakeDocument();
+  const root = documentNode.createElement("div");
+  const item = detailItem("issue");
+  item.qa_plan_attachments = [{
+    plan_id: 13498, plan_slug: "install-mission", transition_id: "release",
+    qa_phase: "post_deploy", source: "item attachment", materialized_count: 1,
+    case_count: 1,
+  }];
+  // An item copy from before plan groups is history, never a fresh plan copy.
+  item.qa_requirements = [{
+    id: 31001, public_ref: "ACM-22", plan_id: 13498, plan_slug: "install-mission",
+    workflow_transition_id: "release", qa_kind: "plan_case", qa_phase: "post_deploy",
+    plan_case_key: "mission", method_id: "command", method_name: "Command",
+    outcome: "queued",
+  }];
+  renderItemDetailView(itemContext(documentNode, async () => ({
+    status: 200,
+    envelope: { success: true, result: { item } },
+  })), root, "7", "ACM-22");
+  await settle();
+
+  const subtitles = byClass(root, "item-proof-subtitle").map((node) => node.textContent);
+  assert.equal(subtitles[0],
+    "item attachment · runs once per release as a plan group — see Run QA");
+  assert.ok(!subtitles.some((text) => /materialized/.test(text)));
+  const pills = byClass(root, "item-proof-row").map(
+    (row) => byClass(row, "pill")[0].textContent,
+  );
+  assert.deepEqual(pills, ["superseded"]);
+});

@@ -230,15 +230,16 @@ def _read_prior_stage_refusals(
             if owed := memberless_item_qa_refusal(conn, run_id):
                 refusals.append(f"stage {stage['name']!r}: {owed}")
             continue
-        for member in subjects:
-            from yoke_core.domain.deployment_qa_shared_acceptance import (
-                prior_shared_acceptance,
-            )
+        if stage.get("scope") == "item":
+            from yoke_core.domain.deployment_qa_plan_groups import run_groups
 
-            shared = prior_shared_acceptance(conn, run_id, stage, member)
-            if shared is not None:
-                refusals.extend(shared)
-                continue
+            # A plan group closes only when it is accepted; open means not yet.
+            refusals.extend(
+                f"stage {stage['name']!r} plan group {group.group_id} is not accepted"
+                for group in run_groups(conn, run_id, str(stage["name"]))
+                if group.open
+            )
+        for member in subjects:
             rows = conn.execute(
                 "SELECT id,waived_at,execution_target_json FROM qa_requirements "
                 "WHERE deployment_run_id=%s AND deployment_stage=%s "

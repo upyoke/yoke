@@ -1,10 +1,11 @@
 """Bring source-bound QA plans to the cases the serving build authors.
 
-Item attachment and a release run's start freeze a plan's cases as they stand.
+A release run's start freezes each flow-declared plan's cases as they stand.
 A release usually freezes before its own build boots, so boot convergence
 alone would leave that release on the old cases; before a stage first
 materializes the plan, :mod:`deployment_qa_source_plan_refresh` takes the
-cases converged here when the run's candidate carries their source. Only plans
+cases converged here when the run's candidate carries their source. A run
+pins each post-deploy plan when its first plan group is created. Only plans
 already bound to a source commit move, and
 only forward: :func:`replace_plan_cases` proves the build is merged and
 descends from the plan's recorded source, so an older build never rewrites a
@@ -95,7 +96,7 @@ def converge_source_bound_plans(conn: Any, build_sha: str | None = None) -> list
                     compose_refusal(
                         (
                             "qa_plan_source_convergence_failed: plan %s (%s) kept its cases from "
-                            "source %s, so item QA will materialize those, not build %s. Reason: %s."
+                            "source %s, so QA will materialize those, not build %s. Reason: %s."
                         ),
                         recovery=(
                             "fix the reason and restart the server, or export and sync the cases by "
