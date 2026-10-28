@@ -199,18 +199,28 @@ def test_failed_admitted_case_accepts_only_an_explicit_correction(test_db) -> No
 
 
 def test_an_agent_admission_does_not_leave_the_stage_open_for_unrelated_plans(test_db):
+    """An agent selection freezes into the run, at a run-scoped stage."""
     import json
 
-    item_id = 9726
+    from runtime.api.domain.test_deployment_qa_stage_execution import (
+        _seed_run,
+        _stages,
+    )
+
     run_id = "run-agent-selection-closed"
-    _member(test_db, run_id=run_id, item_id=item_id, sequence=726, method_id=None)
     first = _plan(test_db, "initial-agent-plan")
     other = _plan(test_db, "unadmitted-extra-plan")
-    subject = dict(
-        deployment_run_id=run_id,
-        deployment_stage=STAGE,
-        deployment_member_item_id=item_id,
-    )
+    stages = _stages(first)
+    del stages[1]["cases"]
+    stages[1].update(name="run-qa", scope="run")
+    _seed_run(test_db, run_id=run_id, stages=stages, members=(9726,))
+    subject = dict(deployment_run_id=run_id, deployment_stage="run-qa")
+
+    def frozen():
+        return test_db.execute(
+            "SELECT requirement_snapshot FROM deployment_runs WHERE id=%s", (run_id,)
+        ).fetchone()[0]
+
     admitted = materialize_deployment_qa_stage(
         test_db, **subject, agent_plan=str(first)
     )
@@ -220,11 +230,9 @@ def test_an_agent_admission_does_not_leave_the_stage_open_for_unrelated_plans(te
             "SELECT * FROM qa_requirements ORDER BY id"
         ).fetchall()
     ]
-    frozen = test_db.execute(
-        "SELECT requirement_snapshot FROM deployment_run_items WHERE run_id=%s",
-        (run_id,),
-    ).fetchone()[0]
-    assert json.loads(frozen)["plans"][0]["selected_by_agent"]
+    selections = json.loads(frozen())["selections"]
+    assert [s["plan"]["id"] for s in selections if s.get("selected_by_agent")] == [first]
+    snapshot = frozen()
     with pytest.raises(QaPlanError, match="already names its cases"):
         materialize_deployment_qa_stage(test_db, **subject, agent_plan=str(other))
     assert [
@@ -233,13 +241,7 @@ def test_an_agent_admission_does_not_leave_the_stage_open_for_unrelated_plans(te
             "SELECT * FROM qa_requirements ORDER BY id"
         ).fetchall()
     ] == before
-    assert (
-        test_db.execute(
-            "SELECT requirement_snapshot FROM deployment_run_items WHERE run_id=%s",
-            (run_id,),
-        ).fetchone()[0]
-        == frozen
-    )
+    assert frozen() == snapshot
     selected = materialize_deployment_qa_stage(
         test_db, **subject, agent_plan=str(first)
     )

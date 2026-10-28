@@ -3,6 +3,9 @@
 A plan selector never refreshes an existing admission from live content.
 Explicit rematerialization carries a correction beside failed or discharged
 history, and subsequent selection reuses that canonical frozen identity.
+
+An agent selects a plan at a run-scoped stage, whose selection freezes into
+the run; an item stage runs attached plans as plan groups instead.
 """
 
 from __future__ import annotations
@@ -34,6 +37,14 @@ from yoke_core.domain.qa_plan_rematerialize_deployment import (
 )
 
 MEMBER = 9821
+STAGE = "run-qa"
+
+
+def _run_stage_definitions() -> list[dict[str, Any]]:
+    """A deploy stage followed by a run-scoped QA stage that pins no cases."""
+    stages = item_qa_stage_definitions(None)
+    stages[1].update(name=STAGE, scope="run")
+    return stages
 
 
 def _seed(conn: Any, run_id: str) -> tuple[str, int]:
@@ -49,7 +60,7 @@ def _seed(conn: Any, run_id: str) -> tuple[str, int]:
         conn,
         run_id=run_id,
         project="yoke",
-        stages=item_qa_stage_definitions(None),
+        stages=_run_stage_definitions(),
         members=(MEMBER,),
         lineage="b" * 40,
     )
@@ -61,8 +72,7 @@ def _materialize(conn: Any, run_id: str, *, plan: str) -> dict[str, Any]:
     return materialize_deployment_qa_stage(
         conn,
         deployment_run_id=run_id,
-        deployment_stage=ITEM_QA_STAGE,
-        deployment_member_item_id=MEMBER,
+        deployment_stage=STAGE,
         agent_plan=plan,
     )
 
@@ -83,8 +93,8 @@ def _rows(conn: Any, run_id: str) -> list[dict[str, Any]]:
         for row in conn.execute(
             "SELECT id,plan_case_key,method_config FROM qa_requirements "
             "WHERE deployment_run_id=%s AND deployment_stage=%s "
-            "AND deployment_member_item_id=%s ORDER BY id",
-            (run_id, ITEM_QA_STAGE, MEMBER),
+            "AND deployment_member_item_id IS NULL ORDER BY id",
+            (run_id, STAGE),
         ).fetchall()
     ]
 
@@ -107,8 +117,7 @@ def test_corrected_case_reaches_a_member_whose_row_was_waived(test_db) -> None:
     result = rematerialize_for_deployment_stage(
         test_db,
         deployment_run_id=run_id,
-        deployment_stage=ITEM_QA_STAGE,
-        deployment_member_item_id=MEMBER,
+        deployment_stage=STAGE,
         plan=slug,
     )
     assert len(result["created_requirement_ids"]) == 1, result
@@ -140,8 +149,7 @@ def test_corrected_case_reaches_a_member_whose_row_failed(test_db) -> None:
     result = rematerialize_for_deployment_stage(
         test_db,
         deployment_run_id=run_id,
-        deployment_stage=ITEM_QA_STAGE,
-        deployment_member_item_id=MEMBER,
+        deployment_stage=STAGE,
         plan=slug,
     )
     assert len(result["created_requirement_ids"]) == 1, result
@@ -182,8 +190,7 @@ def test_changed_live_plan_does_not_refresh_unjudged_frozen_selection(test_db) -
     refreshed = rematerialize_for_deployment_stage(
         test_db,
         deployment_run_id=run_id,
-        deployment_stage=ITEM_QA_STAGE,
-        deployment_member_item_id=MEMBER,
+        deployment_stage=STAGE,
         plan=slug,
     )
     assert refreshed["refreshed_requirement_ids"] == [requirement_id]
@@ -220,10 +227,13 @@ def test_content_identity_keeps_different_values_and_json_types_distinct(changed
 def test_stage_picks_up_the_members_attached_plan_without_a_flag(test_db) -> None:
     """The wake needs no --plan choice once the member owns a plan.
 
-    The member attaches its plan the ordinary way, before landing; stage
-    materialization resolves it, so nobody picks a plan under pressure
-    against an already-deployed candidate.
+    The member attaches its plan the ordinary way, before landing; the item
+    stage forms the plan's group, so nobody picks a plan under pressure
+    against an already-deployed candidate. The member's own subject holds no
+    copy of it.
     """
+    from yoke_core.domain.deployment_qa_plan_group_writes import ensure_groups
+
     run_id = "run-attached-plan"
     slug = f"smoke-{run_id}"
     plan_id = create_smoke_plan(test_db, project="yoke", slug=slug)
@@ -243,22 +253,25 @@ def test_stage_picks_up_the_members_attached_plan_without_a_flag(test_db) -> Non
     )
     test_db.commit()
 
-    result = materialize_deployment_qa_stage(
+    member = materialize_deployment_qa_stage(
         test_db,
         deployment_run_id=run_id,
         deployment_stage=ITEM_QA_STAGE,
         deployment_member_item_id=MEMBER,
     )
-    assert len(result["created_requirement_ids"]) == 1, result
-    selected = _materialize(test_db, run_id, plan=slug)
-    assert selected["created_requirement_ids"] == []
-    assert selected["existing_requirement_ids"] == result["created_requirement_ids"]
+    assert member["created_requirement_ids"] == []
+    created = ensure_groups(test_db, run_id, ITEM_QA_STAGE)
+    test_db.commit()
+    assert len(created) == 1, created
+    assert ensure_groups(test_db, run_id, ITEM_QA_STAGE) == []
     row = test_db.execute(
-        "SELECT plan_id,plan_case_key FROM qa_requirements WHERE id=%s",
-        (result["created_requirement_ids"][0],),
+        "SELECT plan_id,plan_case_key,deployment_member_item_id FROM qa_requirements "
+        "WHERE id=%s",
+        (created[0],),
     ).fetchone()
     assert int(row["plan_id"]) == int(plan_id)
     assert str(row["plan_case_key"]) == "command-smoke"
+    assert row["deployment_member_item_id"] is None
 
 
 @pytest.mark.parametrize("verdict", ["pass", None, "fail"])
@@ -272,8 +285,7 @@ def test_external_replacement_controls_automatic_correction(test_db, verdict) ->
         materialize_deployment_qa_stage(
             test_db,
             deployment_run_id=run_id,
-            deployment_stage=ITEM_QA_STAGE,
-            deployment_member_item_id=MEMBER,
+            deployment_stage=STAGE,
             agent_plan=replacement_slug,
             replacement_keys={"command-smoke"},
         )["created_requirement_ids"][0]
@@ -286,8 +298,7 @@ def test_external_replacement_controls_automatic_correction(test_db, verdict) ->
     result = rematerialize_for_deployment_stage(
         test_db,
         deployment_run_id=run_id,
-        deployment_stage=ITEM_QA_STAGE,
-        deployment_member_item_id=MEMBER,
+        deployment_stage=STAGE,
         plan=slug,
     )
     created = result["created_requirement_ids"]

@@ -1,4 +1,9 @@
-"""A release materializes the source-bound cases its own build synced after freeze."""
+"""A release materializes the source-bound cases its own build synced after freeze.
+
+The flow's plan is frozen into the run's selections when the run starts; a
+run-scoped stage materializing it first moves it to the cases its build
+carries.
+"""
 
 import json
 import logging
@@ -13,40 +18,32 @@ from runtime.api.domain.test_deployment_qa_stage_execution import (
     _seed_run,
     _stages,
 )
-from runtime.api.domain.test_deployment_qa_shared_plans import _attach
 from yoke_core.domain import deployment_qa_source_plan_refresh as refresh
 from yoke_core.domain import qa_plan_source_revision as source_binding
 from yoke_core.domain.deployment_run_carried_work_source import LocalCheckoutSource
 from yoke_core.domain.deployment_qa_stage_materialization import (
     materialize_deployment_qa_stage,
 )
-from yoke_core.domain.deployment_requirement_snapshots import (
-    requirement_selection,
-    snapshot_member_requirements,
-)
 from yoke_core.domain.qa_plan_management import replace_plan_cases
 
 RUN = "run-source-refresh"
 MEMBERS = (9931, 9932)
+STAGE = "run-qa"
 NEW_KEYS = ["command-smoke", "added-check"]
 
 
-def _materialize(conn, member=MEMBERS[0]):
+def _materialize(conn):
     return materialize_deployment_qa_stage(
-        conn,
-        deployment_run_id=RUN,
-        deployment_stage="item-qa",
-        deployment_member_item_id=member,
+        conn, deployment_run_id=RUN, deployment_stage=STAGE
     )
 
 
-def _frozen_plan(conn, member=MEMBERS[0]):
+def _frozen_plan(conn):
     row = conn.execute(
-        "SELECT requirement_snapshot FROM deployment_run_items "
-        "WHERE run_id=%s AND item_id=%s",
-        (RUN, member),
+        "SELECT requirement_snapshot FROM deployment_runs WHERE id=%s", (RUN,)
     ).fetchone()
-    (plan,) = json.loads(str(row["requirement_snapshot"]))["plans"]
+    selections = json.loads(str(row["requirement_snapshot"]))["selections"]
+    (plan,) = [value for value in selections if value["stage"] == STAGE]
     return plan
 
 
@@ -62,7 +59,7 @@ def _created_keys(conn, result):
 
 @pytest.fixture
 def synced_after_freeze(test_db, source_checkout, monkeypatch):
-    """Freeze members at the old source, then sync the build's newer cases.
+    """Freeze the run at the old source, then sync the build's newer cases.
 
     Calling with ``carries_build=False`` seeds a candidate older than the sync.
     """
@@ -86,7 +83,7 @@ def synced_after_freeze(test_db, source_checkout, monkeypatch):
             "UPDATE qa_plans SET source_revision=%s WHERE id=%s", (old, pid)
         )
         stages = _stages(pid)
-        stages[1].pop("cases")
+        stages[1].update(name=STAGE, scope="run")
         _seed_run(
             test_db,
             run_id=RUN,
@@ -94,22 +91,6 @@ def synced_after_freeze(test_db, source_checkout, monkeypatch):
             members=MEMBERS,
             release_lineage=new if carries_build else old,
         )
-        for member in MEMBERS:
-            _attach(test_db, member, pid)
-            test_db.execute(
-                "UPDATE deployment_run_items SET requirement_snapshot=%s "
-                "WHERE run_id=%s AND item_id=%s",
-                (
-                    snapshot_member_requirements(
-                        test_db,
-                        run_id=RUN,
-                        item_id=member,
-                        selection_json=requirement_selection(),
-                    ),
-                    RUN,
-                    member,
-                ),
-            )
         test_db.commit()
         frozen_keys = [case["case_key"] for case in _frozen_plan(test_db)["cases"]]
         replace_plan_cases(
@@ -140,7 +121,6 @@ def test_release_materializes_cases_its_own_build_synced(test_db, synced_after_f
     stored = _frozen_plan(test_db)
     assert stored["plan"]["source_revision"] == new
     assert [case["case_key"] for case in stored["cases"]] == NEW_KEYS
-    assert stored["attachment"]["transition_id"] == "release"
     assert "refreshed_contract" not in stored
     # The materialized contract holds; a later sync waits for rematerialize.
     assert _materialize(test_db)["created_requirement_ids"] == []

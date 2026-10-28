@@ -1,52 +1,95 @@
-"""Named correction walks stay on their own rows and frozen selection."""
-
-import json
+"""Named correction walks stay on their own rows and their own plan group."""
 
 import pytest
 
-from runtime.api.domain.test_deployment_qa_shared_plans import (
+from runtime.api.domain.test_deployment_qa_plan_groups import (
     MEMBERS,
     RUN,
+    SLUG,
+    _attach,
     _seed,
-    _materialize,
-    _plan,
-    _fail,
 )
-from runtime.api.domain.test_deployment_qa_stage_execution import _complete_case
+from runtime.api.domain.test_deployment_qa_shared_plans import _fail
+from runtime.api.domain.test_deployment_qa_stage_execution import (
+    _complete_case,
+    _plan,
+)
+from yoke_core.domain.deployment_qa_plan_group_dispatch import settle_group
+from yoke_core.domain.deployment_qa_plan_group_writes import (
+    ensure_groups,
+    group_subject,
+)
+from yoke_core.domain.deployment_qa_plan_groups import run_groups
 from yoke_core.domain.deployment_qa_stage_materialization import (
     materialize_deployment_qa_stage,
 )
-from yoke_core.domain.qa_requirement_correction_selection import (
-    resolve_correction_selection,
-)
-from yoke_core.domain.qa_requirement_replacement import declare_replacements
 from yoke_core.domain.qa_plan_execution_state import (
     begin_plan_execution,
     finish_plan_execution,
 )
 from yoke_core.domain.qa_plan_execution_target import build_plan_execution_target
-from yoke_core.domain.deployment_qa_run_acceptance import item_qa_acceptance_blockers
+from yoke_core.domain.qa_plan_management import replace_plan_cases
+from yoke_core.domain.qa_requirement_correction_selection import (
+    resolve_correction_selection,
+)
+from yoke_core.domain.qa_requirement_replacement import declare_replacements
+
+STAGE = "item-qa"
+OTHER = "other-pending-plan"
+
+
+def _begin(conn, plan, session):
+    return begin_plan_execution(
+        conn,
+        deployment_run_id=RUN,
+        deployment_stage=STAGE,
+        deployment_member_item_id=None,
+        plan=plan,
+        actor_id="2",
+        session_id=session,
+    )
+
+
+def _groups(conn):
+    return {group.plan_id: group for group in run_groups(conn, [RUN], STAGE)}
+
+
+def _two_groups(conn):
+    """Every member attaches both plans, so the run holds two open groups."""
+    smoke = _seed(conn)
+    other = _plan(conn, OTHER)
+    for member in MEMBERS:
+        _attach(conn, member, other)
+    ensure_groups(conn, RUN, STAGE)
+    conn.commit()
+    return smoke, other
 
 
 @pytest.mark.parametrize("explicit_key", [True, False])
 def test_named_correction_excludes_unreviewed_originals_and_other_pending_groups(
     test_db, explicit_key
 ):
-    _seed(test_db)
-    failed_id = _materialize(test_db, MEMBERS[0])["created_requirement_ids"][0]
+    smoke, other = _two_groups(test_db)
     # An aborted original still has unanswered captured evidence, matching a
     # correction attempted before independent review settles that capture.
-    original = begin_plan_execution(
-        test_db,
-        deployment_run_id=RUN,
-        deployment_stage="item-qa",
-        deployment_member_item_id=MEMBERS[0],
-        actor_id="2",
-        session_id="original",
-    )
+    original = _begin(test_db, SLUG, "original")
+    failed_id = int(original["roster"][0]["requirement_id"])
     finish_plan_execution(test_db, original, state="aborted", reason="correct the case")
     _fail(test_db, failed_id)
-    corrected = _plan(test_db, "corrected-selected-probe")
+    replace_plan_cases(
+        test_db,
+        plan_id=smoke,
+        cases=[
+            {
+                "case_key": "command-smoke",
+                "position": 1,
+                "method_id": "command",
+                "instructions": "Run the corrected group probe.",
+                "expected_outcome": "The corrected probe passes.",
+                "method_config": {"command": "echo corrected"},
+            }
+        ],
+    )
     declaration = {"requirement_id": failed_id}
     if explicit_key:
         declaration["case_key"] = "command-smoke"
@@ -55,53 +98,29 @@ def test_named_correction_excludes_unreviewed_originals_and_other_pending_groups
     materialized = materialize_deployment_qa_stage(
         test_db,
         deployment_run_id=RUN,
-        deployment_stage="item-qa",
-        deployment_member_item_id=MEMBERS[1],
-        agent_plan=str(corrected),
+        deployment_stage=STAGE,
+        agent_plan=SLUG,
         replacement_keys={"command-smoke"},
         replacement_scopes=scopes,
         replaced_requirement_ids=frozenset({failed_id}),
         commit=False,
     )
-    declare_replacements(
-        test_db,
-        replacements,
-        materialized_requirement_ids=materialized["created_requirement_ids"],
-    )
+    corrected = materialized["created_requirement_ids"]
+    assert corrected
+    declare_replacements(test_db, replacements, materialized_requirement_ids=corrected)
     test_db.commit()
-    snapshot = json.loads(
-        test_db.execute(
-            "SELECT requirement_snapshot FROM deployment_run_items WHERE run_id=%s AND item_id=%s",
-            (RUN, MEMBERS[1]),
-        ).fetchone()[0]
-    )
-    assert next(p for p in snapshot["plans"] if p["plan"]["id"] == corrected)[
-        "replacement_scopes"
-    ]
-    _materialize(test_db, MEMBERS[1])
-    assert (
-        test_db.execute(
-            "SELECT COUNT(*) FROM qa_requirements WHERE deployment_run_id=%s AND plan_id=%s AND deployment_member_item_id IS NOT NULL",
-            (RUN, corrected),
-        ).fetchone()[0]
-        == 0
-    )
-    execution = begin_plan_execution(
-        test_db,
-        deployment_run_id=RUN,
-        deployment_stage="item-qa",
-        deployment_member_item_id=MEMBERS[1],
-        plan=str(corrected),
-        actor_id="2",
-        session_id="correction",
-    )
-    assert [case["requirement_id"] for case in execution["roster"]] == materialized[
-        "created_requirement_ids"
-    ]
+
+    execution = _begin(test_db, SLUG, "correction")
+    assert [case["requirement_id"] for case in execution["roster"]] == corrected
     _complete_case(test_db, execution)
-    assert all(
-        not item_qa_acceptance_blockers(test_db, run_id=RUN, item_id=m) for m in MEMBERS
-    )
+    groups = _groups(test_db)
+    group = groups[smoke]
+    if not group.closed:
+        settle_group(test_db, group_subject(test_db, RUN, STAGE, group, require_active=False))
+        group = _groups(test_db)[smoke]
+    assert group.covered_item_ids == MEMBERS
+    # The other plan's group stays owed; its cases did not execute.
+    assert _groups(test_db)[other].open
 
 
 def test_deployment_begin_payload_carries_selected_plan():
@@ -118,23 +137,11 @@ def test_deployment_begin_payload_carries_selected_plan():
 
 
 def test_named_plan_routes_to_its_group_instead_of_first_pending_group(test_db):
-    from runtime.api.domain.test_deployment_qa_shared_plans import _attach
+    smoke, other = _two_groups(test_db)
 
-    _seed(test_db)
-    selected = _plan(test_db, "selected-later-group")
-    for member in MEMBERS:
-        _attach(test_db, member, selected)
-        _materialize(test_db, member)
-    execution = begin_plan_execution(
-        test_db,
-        deployment_run_id=RUN,
-        deployment_stage="item-qa",
-        deployment_member_item_id=MEMBERS[0],
-        plan=str(selected),
-        actor_id="2",
-        session_id="selected-group",
-    )
-    assert {case["plan_id"] for case in execution["roster"]} == {selected}
+    execution = _begin(test_db, OTHER, "selected-group")
+
+    assert {case["plan_id"] for case in execution["roster"]} == {other}
     _complete_case(test_db, execution)
     # The first group remains owed; its cases did not execute as a side effect.
-    assert item_qa_acceptance_blockers(test_db, run_id=RUN, item_id=MEMBERS[0])
+    assert _groups(test_db)[smoke].open

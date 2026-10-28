@@ -1,4 +1,8 @@
-"""Enrollment shares fresh locked inputs without weakening snapshot validation."""
+"""Enrollment shares fresh locked inputs without weakening snapshot validation.
+
+A member freezes only its own item cases; its attached post-deploy plans run
+as plan groups and never enter its snapshot.
+"""
 
 import json
 from types import SimpleNamespace
@@ -10,7 +14,7 @@ from runtime.api.domain.test_deployment_qa_stage_execution import (
     _seed_run,
     _stages,
 )
-from runtime.api.domain.test_deployment_qa_shared_plans import _attach
+from runtime.api.domain.test_deployment_qa_plan_groups import _attach
 from runtime.api.domain.test_deployment_shipping_reads import CountedConnection
 from runtime.api.fixtures.backlog_inserts import insert_qa_requirement
 from yoke_core.domain.deployment_admission_reads import read_snapshot_inputs
@@ -78,7 +82,7 @@ def _snapshots(conn, selections, admission=None):
     }
 
 
-def test_enrollment_reads_each_intake_and_plan_once_and_refreshes_after_rollback(
+def test_enrollment_reads_each_intake_once_and_refreshes_after_rollback(
     test_db,
     admission_catalog,
 ):
@@ -93,36 +97,27 @@ def test_enrollment_reads_each_intake_and_plan_once_and_refreshes_after_rollback
         selected, inputs = _admission_inputs(conn)
         assert selected == selections
         assert _snapshots(conn, selected, inputs) == baseline
+        assert all("plans" not in value for value in baseline.values())
         queries = list(conn.queries)
         intake = [sql for sql in queries if "FROM qa_requirements r " in sql]
         requirements_sql = [
             sql for sql in queries if "FROM qa_requirements WHERE id IN" in sql
         ]
-        plans_sql = [sql for sql in queries if "FROM qa_plans WHERE id IN" in sql]
-        cases_sql = [sql for sql in queries if "FROM qa_plan_cases c JOIN" in sql]
-        for group in (intake, requirements_sql, plans_sql, cases_sql):
+        for group in (intake, requirements_sql):
             assert len(group) == 1
             assert conn.queries[group[0]] == 1
         assert requirements_sql[0].endswith("ORDER BY id FOR UPDATE")
-        assert plans_sql[0].endswith("ORDER BY id FOR UPDATE")
         test_db.rollback()
         test_db.execute(
             "UPDATE qa_requirements SET waived_at=NOW() WHERE id=%s",
             (requirements[MEMBERS[0]],),
-        )
-        test_db.execute(
-            "UPDATE qa_plans SET name='New definition' WHERE id=%s", (plan,)
         )
         test_db.commit()
         selected, inputs = _admission_inputs(conn)
         after = _snapshots(conn, selected, inputs)
         assert selected[MEMBERS[0]] == ()
         assert after[MEMBERS[0]]["requirements"] == []
-        assert all(
-            value["plans"][0]["plan"]["name"] == "New definition"
-            for value in after.values()
-        )
-        assert conn.queries[plans_sql[0]] == 2
+        assert conn.queries[intake[0]] == 2
 
 
 @pytest.mark.parametrize(
@@ -131,8 +126,6 @@ def test_enrollment_reads_each_intake_and_plan_once_and_refreshes_after_rollback
         ("waived", "is waived"),
         ("foreign_item", "is not owned"),
         ("foreign_run", "belongs to deployment run"),
-        ("retired_plan", "is retired"),
-        ("empty_plan", "has no runnable cases"),
     ],
 )
 def test_shared_inputs_preserve_canonical_refusals(
@@ -150,56 +143,37 @@ def test_shared_inputs_preserve_canonical_refusals(
             "UPDATE qa_requirements SET item_id=%s WHERE id=%s",
             (MEMBERS[1], requirement),
         )
-    elif defect == "foreign_run":
+    else:
         # The same existing run is foreign to the requested successor below.
         test_db.execute(
             "UPDATE qa_requirements SET item_id=NULL,deployment_run_id=%s WHERE id=%s",
             (RUN, requirement),
         )
-    elif defect == "retired_plan":
-        test_db.execute("UPDATE qa_plans SET retired_at=NOW() WHERE id=%s", (plan,))
-    else:
-        test_db.execute("DELETE FROM qa_plan_cases WHERE plan_id=%s", (plan,))
     inputs = read_snapshot_inputs(
-        test_db,
-        item_ids=MEMBERS,
-        requirement_ids=requirements.values(),
-        plan_ids=(plan,),
+        test_db, item_ids=MEMBERS, requirement_ids=requirements.values()
     )
     with pytest.raises(ValueError, match=expected):
         snapshot_member_requirements(
             test_db,
             run_id="admission-successor",
             item_id=member,
-            selection_json=requirement_selection(
-                requirement_ids=(requirement,), plan_ids=(plan,)
-            ),
+            selection_json=requirement_selection(requirement_ids=(requirement,)),
             admission=inputs,
         )
 
 
-def test_retraction_excludes_requirements_and_withdrawn_plans(
-    test_db, admission_catalog
-):
+def test_retraction_excludes_requirements(test_db, admission_catalog):
     plan, requirements = admission_catalog
     member = MEMBERS[0]
     test_db.execute(
         "UPDATE qa_requirements SET retracted_at=NOW() WHERE id=%s",
         (requirements[member],),
     )
-    test_db.execute(
-        "UPDATE qa_plan_item_attachments SET retracted_at=NOW() WHERE item_id=%s",
-        (member,),
-    )
     inputs = read_snapshot_inputs(
-        test_db,
-        item_ids=MEMBERS,
-        requirement_ids=requirements.values(),
-        plan_ids=(plan,),
+        test_db, item_ids=MEMBERS, requirement_ids=requirements.values()
     )
     result = _snapshots(test_db, {member: (requirements[member],)}, inputs)[member]
     assert result["requirements"] == []
-    assert result["plans"] == []
 
 
 def test_progress_handler_flushes_stderr_and_returns_same_records(capsys):

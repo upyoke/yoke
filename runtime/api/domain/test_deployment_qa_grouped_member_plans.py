@@ -1,7 +1,9 @@
 """Plan-owned release obligations retain grouped baselines and member scope.
 
 Only a machine-run case fans out across host baselines, so the grouped case
-here is a host-control machine-state check.
+here is a host-control machine-state check. An attached plan runs as one
+plan group of the run; each member materializes only its own item cases and
+the flow's plan.
 """
 
 import json
@@ -14,6 +16,7 @@ from runtime.api.domain.test_deployment_qa_admission_execution import (
 )
 from runtime.api.domain.test_deployment_qa_stage_execution import _plan
 from runtime.api.fixtures.backlog_inserts import insert_item
+from yoke_core.domain.deployment_qa_plan_group_writes import ensure_groups
 from yoke_core.domain.deployment_qa_stage_materialization import (
     materialize_deployment_qa_stage,
 )
@@ -25,25 +28,13 @@ from yoke_core.domain.deployment_requirement_snapshots import (
 from yoke_core.domain.qa_plan_management import QaPlanError, replace_plan_cases
 
 STAGE = "member-qa"
+RUN = "run-grouped-member-plans"
 
 
-@pytest.mark.parametrize("selection", ["attached", "frozen", "beside-flow-plan"])
-def test_plan_owned_grouped_requirement_materializes_ordered_plan_once(
-    test_db, selection
-) -> None:
-    item_id, other_item_id = 9820, 9821
-    run_id = "run-grouped-member-plans"
-    for member in (item_id, other_item_id):
-        insert_item(
-            test_db,
-            id=member,
-            project_sequence=member,
-            workflow_id="issue",
-            status="done",
-        )
-    plan_id = _plan(test_db, "grouped-member-plan")
+def _grouped_plan(conn) -> int:
+    plan_id = _plan(conn, "grouped-member-plan")
     replace_plan_cases(
-        test_db,
+        conn,
         plan_id=plan_id,
         cases=[
             {
@@ -65,116 +56,112 @@ def test_plan_owned_grouped_requirement_materializes_ordered_plan_once(
             },
         ],
     )
+    return plan_id
+
+
+def _add_member(conn, item_id: int) -> None:
+    source = _original_requirement(conn, item_id=item_id, method_id="browser-inspection")
+    snapshot = snapshot_member_requirements(
+        conn,
+        run_id=RUN,
+        item_id=item_id,
+        selection_json=requirement_selection(requirement_ids=(source,)),
+    )
+    conn.execute(
+        "INSERT INTO deployment_run_items(run_id,item_id,added_at,requirement_snapshot) "
+        "VALUES (%s,%s,%s,%s)",
+        (RUN, item_id, "2026-09-14T00:00:00Z", snapshot),
+    )
+
+
+def _member_rows(conn, result):
+    return [
+        (row["plan_id"], row["host_baseline"])
+        for row in conn.execute(
+            "SELECT plan_id,host_baseline FROM qa_requirements "
+            "WHERE id=ANY(%s) ORDER BY id",
+            (result["created_requirement_ids"],),
+        ).fetchall()
+    ]
+
+
+@pytest.mark.parametrize("beside_flow_plan", [False, True])
+def test_attached_grouped_plan_materializes_ordered_once_as_a_plan_group(
+    test_db, beside_flow_plan
+) -> None:
+    item_id, other_item_id = 9820, 9821
+    for member in (item_id, other_item_id):
+        insert_item(
+            test_db,
+            id=member,
+            project_sequence=member,
+            workflow_id="issue",
+            status="done",
+        )
+    plan_id = _grouped_plan(test_db)
     test_db.execute(
         "INSERT INTO qa_plan_item_attachments"
         "(item_id,plan_id,transition_id,qa_phase,attached_at) "
         "VALUES (%s,%s,'release','post_deploy',%s)",
         (item_id, plan_id, "2026-09-14T00:00:00Z"),
     )
-    source_id = _original_requirement(
-        test_db, item_id=item_id, method_id="machine-state-check"
-    )
-    test_db.execute(
-        "UPDATE qa_requirements SET qa_kind='plan_case',plan_id=%s,"
-        "plan_case_key='grouped-inspection',case_position=1,baseline_position=1,"
-        "host_baseline='shell-preconfigured',starting_state='baseline' "
-        "WHERE id=%s",
-        (plan_id, source_id),
-    )
+    own = _original_requirement(test_db, item_id=item_id, method_id="browser-inspection")
     _seed_selected_requirement_run(
-        test_db, run_id=run_id, item_id=item_id, requirement_id=source_id
+        test_db, run_id=RUN, item_id=item_id, requirement_id=own
     )
-    if selection == "frozen":
-        snapshot = snapshot_member_requirements(
-            test_db,
-            run_id=run_id,
-            item_id=item_id,
-            selection_json=requirement_selection(
-                requirement_ids=(source_id,),
-                plan_ids=(plan_id,),
-            ),
-        )
-        test_db.execute(
-            "UPDATE deployment_run_items SET requirement_snapshot=%s "
-            "WHERE run_id=%s AND item_id=%s",
-            (snapshot, run_id, item_id),
-        )
     extra_plan_id = None
-    if selection == "beside-flow-plan":
+    if beside_flow_plan:
         extra_plan_id = _plan(test_db, "flow-plan")
         snapshot = {
             "schema": 1,
-            "flow_id": f"flow-{run_id}",
+            "flow_id": f"flow-{RUN}",
             "selections": [
-                {
-                    "stage": STAGE,
-                    **_plan_snapshot(test_db, extra_plan_id, project_id=1),
-                }
+                {"stage": STAGE, **_plan_snapshot(test_db, extra_plan_id, project_id=1)}
             ],
         }
         test_db.execute(
             "UPDATE deployment_runs SET requirement_snapshot=%s WHERE id=%s",
-            (json.dumps(snapshot), run_id),
+            (json.dumps(snapshot), RUN),
         )
-    other_source = _original_requirement(
-        test_db, item_id=other_item_id, method_id="browser-inspection"
-    )
-    other_snapshot = snapshot_member_requirements(
-        test_db,
-        run_id=run_id,
-        item_id=other_item_id,
-        selection_json=requirement_selection(requirement_ids=(other_source,)),
-    )
-    test_db.execute(
-        "INSERT INTO deployment_run_items(run_id,item_id,added_at,requirement_snapshot) "
-        "VALUES (%s,%s,%s,%s)",
-        (run_id, other_item_id, "2026-09-14T00:00:00Z", other_snapshot),
-    )
-    result = materialize_deployment_qa_stage(
-        test_db,
-        deployment_run_id=run_id,
-        deployment_stage=STAGE,
-        deployment_member_item_id=item_id,
-    )
+    _add_member(test_db, other_item_id)
+    test_db.commit()
+
+    created = ensure_groups(test_db, RUN, STAGE)
+    test_db.commit()
+
     rows = test_db.execute(
-        "SELECT plan_id,plan_case_key,host_baseline,case_position,baseline_position "
-        "FROM qa_requirements WHERE deployment_run_id=%s "
-        "AND deployment_member_item_id=%s AND plan_id=%s "
-        "ORDER BY case_position,baseline_position",
-        (run_id, item_id, plan_id),
+        "SELECT id,plan_case_key,host_baseline,case_position,baseline_position,"
+        "deployment_member_item_id FROM qa_requirements WHERE deployment_run_id=%s "
+        "AND plan_id=%s ORDER BY case_position,baseline_position",
+        (RUN, plan_id),
     ).fetchall()
-    assert [tuple(row.values()) for row in rows] == [
-        (plan_id, "grouped-inspection", "shell-preconfigured", 1, 1),
-        (plan_id, "grouped-inspection", "fresh-host", 1, 2),
-        (plan_id, "follow-up", None, 2, 1),
+    assert [tuple(row.values())[1:] for row in rows] == [
+        ("grouped-inspection", "shell-preconfigured", 1, 1, None),
+        ("grouped-inspection", "fresh-host", 1, 2, None),
+        ("follow-up", None, 2, 1, None),
     ]
-    assert len(result["created_requirement_ids"]) == 3 + (extra_plan_id is not None)
-    again = materialize_deployment_qa_stage(
-        test_db,
-        deployment_run_id=run_id,
-        deployment_stage=STAGE,
-        deployment_member_item_id=item_id,
-    )
-    assert again["created_requirement_ids"] == []
-    assert set(again["existing_requirement_ids"]) == set(
-        result["created_requirement_ids"]
-    )
-    other = materialize_deployment_qa_stage(
-        test_db,
-        deployment_run_id=run_id,
-        deployment_stage=STAGE,
-        deployment_member_item_id=other_item_id,
-    )
-    other_rows = test_db.execute(
-        "SELECT plan_id,host_baseline FROM qa_requirements "
-        "WHERE id=ANY(%s) ORDER BY id",
-        (other["created_requirement_ids"],),
-    ).fetchall()
-    assert [(row["plan_id"], row["host_baseline"]) for row in other_rows] == (
-        [(None, None)]
-        if extra_plan_id is None
-        else [(None, None), (extra_plan_id, None)]
-    )
+    assert sorted(created) == sorted(row["id"] for row in rows)
+    assert ensure_groups(test_db, RUN, STAGE) == []
+
+    flow_rows = [] if extra_plan_id is None else [(extra_plan_id, None)]
+    for member in (item_id, other_item_id):
+        result = materialize_deployment_qa_stage(
+            test_db,
+            deployment_run_id=RUN,
+            deployment_stage=STAGE,
+            deployment_member_item_id=member,
+        )
+        assert _member_rows(test_db, result) == [(None, None), *flow_rows]
+        again = materialize_deployment_qa_stage(
+            test_db,
+            deployment_run_id=RUN,
+            deployment_stage=STAGE,
+            deployment_member_item_id=member,
+        )
+        assert again["created_requirement_ids"] == []
+        assert set(again["existing_requirement_ids"]) == set(
+            result["created_requirement_ids"]
+        )
 
 
 def test_planless_grouped_requirement_still_refuses(test_db) -> None:
