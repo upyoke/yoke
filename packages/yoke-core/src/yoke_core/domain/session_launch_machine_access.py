@@ -5,13 +5,10 @@ requesting actor use it, and does the actor own it. Ownership matters because
 spending a colleague's quota before your own is a cost the requester did not
 choose; usability is the hard gate.
 
-Today both answers come from the relay row itself. A relay reaches the
-eligible roster only after its own heartbeat proved its owning actor may
-operate the advertised project, so any project operator may place work on any
-machine already serving that project, and ``session_relays.actor_id`` names
-the owner. When per-machine access settings become registry state, this
-function is the single place that reads them -- callers ask it, never the
-rows behind it.
+The launch access filter enforces registry access settings before ranking.
+This module reads relay ownership to rank the remaining eligible machines;
+``may_use=True`` here means a relay exists, not permission to bypass that
+filter. ``session_relays.actor_id`` names the owner used for ranking.
 """
 
 from __future__ import annotations
@@ -49,7 +46,7 @@ def machine_access(
     actor_id: int,
     machine_ids: Iterable[str],
 ) -> dict[str, MachineAccess]:
-    """Answer usability and ownership for every named machine.
+    """Answer relay availability and ownership for ranking eligible machines.
 
     A machine with no relay row is not usable and says so, rather than being
     silently dropped from placement.

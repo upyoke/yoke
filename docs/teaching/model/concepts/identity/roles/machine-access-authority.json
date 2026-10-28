@@ -1,7 +1,8 @@
 {
  "id": "machine-access-authority",
  "title": "Machine access authority",
- "status": "draft-copy",
+ "status": "observed",
+ "summary": "Launch placement enforces machine use settings for every requester, including administrators. Owners retain use of their own machines; administrators retain authority to change settings.",
  "page": "identity",
  "position": 2
 }
