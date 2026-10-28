@@ -36,19 +36,22 @@ from yoke_core.domain.session_message_types import utc_now
 DELIVERY_PROBE_ADAPTER_REVISION = "session-message-delivery-probe-v1"
 
 # Why an injectable evaluation attached nothing. Each names one declining
-# step, because "no envelope arrived" is the symptom all three produce and
-# the operator needs to know which one to go and fix. All three are facts
-# about the moment — the session row, a lease race, a failing statement —
-# so none of them can be recovered afterwards from configuration.
+# step, because "no envelope arrived" is the symptom all of them produce and
+# the operator needs to know which one to go and fix. Each is a fact about
+# the moment — the session row, a lease race, a failing statement, a
+# subagent's event that may not read its parent's inbox — so none of them
+# can be recovered afterwards from configuration.
 PROBE_SESSION_NOT_DELIVERABLE = "probe_session_not_deliverable"
 PROBE_NO_LEASABLE_RECEIPT = "probe_no_leasable_receipt"
 PROBE_LEASE_FAILED = "probe_lease_failed"
+PROBE_SUBAGENT_EXIT = "probe_subagent_exit"
 
 PROBE_REASONS = frozenset(
     {
         PROBE_SESSION_NOT_DELIVERABLE,
         PROBE_NO_LEASABLE_RECEIPT,
         PROBE_LEASE_FAILED,
+        PROBE_SUBAGENT_EXIT,
     }
 )
 
@@ -169,6 +172,7 @@ __all__ = [
     "PROBE_NO_LEASABLE_RECEIPT",
     "PROBE_REASONS",
     "PROBE_SESSION_NOT_DELIVERABLE",
+    "PROBE_SUBAGENT_EXIT",
     "bounded_detail",
     "probe_attempt_id",
     "record_undelivered_receipts",
