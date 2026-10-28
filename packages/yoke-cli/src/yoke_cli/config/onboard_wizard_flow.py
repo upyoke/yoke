@@ -42,7 +42,7 @@ from yoke_cli.config.onboard_wizard_widgets import STEP_FINISH, STEP_PROJECT
 from yoke_cli.config.project_publish_support import is_existing_project_dir
 from yoke_cli.config.onboard_wizard_flow_support import WizardShell as _Shell
 from yoke_cli.config.onboard_wizard_state import _View
-from yoke_cli.config.setup_prompt import TONE_OK, SetupPrompt
+from yoke_cli.config.setup_prompt import SetupPrompt
 from yoke_cli.config.onboard_wizard_flow_support import (
     fetch_repo_owners as _fetch_repo_owners,
 )
@@ -166,25 +166,12 @@ class WizardFlow(
             and not self._run_facts.names_folder(APPLY_NEW_FOLDER, value)
         ):
             self.result.project_mode = onboard_project.PROJECT_MODE_LOCAL_CHECKOUT
-            self._goto_existing_dir_redirect(value)
-            return
+            self._carry_detail_lines([
+                "That folder already exists.",
+                f"Yoke will set up {value} as an existing project "
+                "instead of creating a new one.",
+            ])
         self._after_local_checkout_source(value)
-
-    def _goto_existing_dir_redirect(self: _Shell, path: str) -> None:
-        self._goto(
-            _View(
-                SetupPrompt(
-                    key="project.folder_exists",
-                    step=STEP_PROJECT,
-                    title="That folder already exists.",
-                    message=f"Yoke will set up {path} as an existing project "
-                    "instead of creating a new one.",
-                    choices=tuple(steps.VERIFY_OK_ROWS),
-                    tone=TONE_OK,
-                ),
-                lambda _choice: self._after_local_checkout_source(path),
-            )
-        )
 
     # ── Branch / prefix / project-GitHub auth (shared tail) ─────────────────
 

@@ -5,8 +5,6 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any, Mapping, Protocol
 
 from yoke_cli.config.github_machine_report import repository_scope_recommendations
-from yoke_cli.config.onboard_wizard_step_ids import STEP_GITHUB
-from yoke_cli.config.setup_prompt import TONE_OK, SelectionRow, SetupPrompt
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
     from yoke_cli.config.onboard_wizard_state import _View
@@ -94,25 +92,6 @@ def _installation_scope(item: Mapping[str, Any], access: Mapping[str, Any]) -> s
     return f"selected repositories — {bounded_summary(named)}"
 
 
-def success_details(report: Mapping[str, Any]) -> list[str]:
-    """Build detailed verified-connection presentation lines."""
-    details: list[str] = []
-    identity = report.get("identity")
-    if isinstance(identity, Mapping) and identity.get("login"):
-        details.append(f"GitHub username: {identity['login']}")
-    app = report.get("app")
-    if isinstance(app, Mapping) and app.get("slug"):
-        details.append(f"GitHub App: {app['slug']}")
-    access = report.get("access")
-    if isinstance(access, Mapping):
-        details.extend(installation_scope_lines(access))
-    permissions = report.get("permissions")
-    if isinstance(permissions, Mapping) and permissions.get("usable") is True:
-        details.append("Required GitHub App permissions: ready.")
-    details.append("Saved on this machine. Use `yoke github disconnect` to remove it.")
-    return details
-
-
 def success_summary_lines(report: Mapping[str, Any]) -> list[str]:
     """Compact verified facts; the exhaustive access inventory stays optional."""
     identity = report.get("identity")
@@ -141,28 +120,14 @@ def success_summary_lines(report: Mapping[str, Any]) -> list[str]:
     ]
 
 
-def success_prompt(report: Mapping[str, Any], *, show_details: bool) -> SetupPrompt:
-    rows = (
-        SelectionRow("continue", "Continue", "go to project setup"),
-        SelectionRow(
-            "details",
-            "Hide repository access" if show_details else "Review repository access",
-            "return to the summary"
-            if show_details
-            else "exact installations and repositories",
-        ),
-    )
-    return SetupPrompt(
-        key="github.connected",
-        step=STEP_GITHUB,
-        title="GitHub connected.",
-        message=success_message(report),
-        detail_lines=tuple(
-            success_details(report) if show_details else success_summary_lines(report)
-        ),
-        choices=rows,
-        tone=TONE_OK,
-    )
+def success_notice_lines(report: Mapping[str, Any]) -> list[str]:
+    """Carry connection facts and repository advice into the next real question."""
+    return [
+        success_message(report),
+        *success_summary_lines(report),
+        "Review repository access with `yoke github status`.",
+        "Use `yoke github disconnect` to remove the saved connection.",
+    ]
 
 
 class MachineGithubShell(Protocol):  # pragma: no cover - structural typing only
@@ -171,6 +136,7 @@ class MachineGithubShell(Protocol):  # pragma: no cover - structural typing only
     _stored_machine_github_api_url: str | None
     _history: list[Any]
 
+    def _carry_detail_lines(self, lines: list[str]) -> None: ...
     def _goto(self, view: _View) -> None: ...
     def _selection_view(self, key, step, title, subtitle, rows, on_select) -> _View: ...
     def _goto_input(

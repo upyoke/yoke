@@ -261,7 +261,7 @@ def test_github_sign_in_ends_the_call_and_resumes(drive, github):
 
     code, lines = drive()
 
-    assert (code, lines[-1]["key"]) == (0, "github.connected"), lines
+    assert (code, lines[-1]["key"]) == (0, "review.confirm"), lines
     assert github.started == ["ABCD-0001"]
     assert _saved()["pending_approval"] is None
     assert "gh-device-1" not in setup_agent_answers.store_path().read_text()

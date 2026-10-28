@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Mapping
+from typing import Any
 
 from yoke_contracts import github_origin
 from yoke_cli.config import github_machine
@@ -19,7 +19,7 @@ from yoke_cli.config.onboard_wizard_state import CopyTarget
 from yoke_cli.config.onboard_wizard_step_ids import STEP_GITHUB
 from yoke_cli.config.onboard_wizard_github_presentation import (
     MachineGithubShell as _Shell,
-    success_prompt as _success_prompt,
+    success_notice_lines,
 )
 from yoke_cli.config.setup_prompt import TONE_ERROR, SetupPrompt
 
@@ -159,32 +159,7 @@ class MachineGithubFlow:
             report.get("api_url") or github_origin.DEFAULT_GITHUB_API_URL
         )
         self.result.machine_github_verification = report
-        self._goto_machine_github_success(report)
-
-    def _goto_machine_github_success(
-        self: _Shell,
-        report: Mapping[str, Any],
-    ) -> None:
-        self._github_success_report = dict(report)
-        self._github_success_details = False
-        self._goto(self._machine_github_success_view())
-
-    def _machine_github_success_view(self: _Shell):
-        from yoke_cli.config.onboard_wizard_state import _View
-
-        return _View(
-            _success_prompt(
-                getattr(self, "_github_success_report", {}),
-                show_details=getattr(self, "_github_success_details", False),
-            ),
-            self._on_machine_github_success,
-        )
-
-    def _on_machine_github_success(self: _Shell, choice: str) -> None:
-        if choice == "details":
-            self._github_success_details = not self._github_success_details
-            self._replace_current(self._machine_github_success_view())
-            return
+        self._carry_detail_lines(success_notice_lines(report))
         self._goto_project_mode()
 
     def _goto_machine_github_pending(self: _Shell, report: dict[str, Any]) -> None:

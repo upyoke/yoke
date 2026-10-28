@@ -21,6 +21,24 @@ class _Shell(Protocol):  # pragma: no cover - structural typing only
 
 
 class ViewHelpers:
+    def _carry_detail_lines(self, lines: list[str]) -> None:
+        self._carried_detail_lines.extend(lines)
+
+    def _attach_carried_details(self, view: _View) -> None:
+        if not self._carried_detail_lines or not view.prompt.answerable:
+            return
+        lines = tuple(self._carried_detail_lines)
+        self._carried_detail_lines.clear()
+        view.prompt = replace(
+            view.prompt, detail_lines=(*lines, *view.prompt.detail_lines)
+        )
+        original_builder = view.builder
+
+        def builder():
+            return [*(Static(line, markup=False) for line in lines), *original_builder()]
+
+        view.builder = builder
+
     def _disclose_permissions(self, view: _View) -> None:
         if getattr(self, "_permission_disclosed", False) or not view.prompt.answerable:
             return

@@ -26,7 +26,7 @@ def test_repository_scope_recommendation_is_visible_in_setup_and_status(selectio
     for rendered in (
         github_machine_report.render_human(report),
         "\n".join(presentation.success_summary_lines(report)),
-        "\n".join(presentation.success_details(report)),
+        "\n".join(presentation.success_notice_lines(report)),
     ):
         assert ('We recommend "All repositories"' in rendered) == (
             selection == "selected"

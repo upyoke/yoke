@@ -88,7 +88,7 @@ def init_setup_state(
     shell._api_url_preset = bool(defaults.api_url)
     shell._stored_project_attempted = False
     shell._connection_status_line = None
-    shell._github_success_details = False
+    shell._carried_detail_lines: list[str] = []
     shell._apply_failure_details = False
     shell._stored_project_checkouts: list[machine_config.ConfiguredProject] = []
     shell._pending_stored_project_checkout = None

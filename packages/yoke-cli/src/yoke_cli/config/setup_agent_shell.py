@@ -54,6 +54,7 @@ class AgentShell(AgentApprovals, AnswerFlow):
     # ── flow control ────────────────────────────────────────
 
     def _goto(self, view: _View) -> None:
+        self._attach_carried_details(view)
         self._disclose_permissions(view)
         self._history.append(view)
         self._render_current()
