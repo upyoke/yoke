@@ -1,0 +1,10 @@
+{
+ "id": "project-flags",
+ "title": "Change project presets without repeating confirmed machine answers.",
+ "status": "observed",
+ "form": "Do",
+ "verification": "Source and focused agent replay tests; released setup proof remains pending.",
+ "topics": ["projects/adoption"],
+ "sources": ["packages/yoke-cli/src/yoke_cli/config/setup_agent_answers.py", "docs/public/start/agent-setup.md"],
+ "text": "Agent setup accepts changed project flags, clears answers tied to the old project path, and carries the confirmed folder and item prefix. Non-project flag changes still refuse before setup and require the saved flags or an explicit discard."
+}

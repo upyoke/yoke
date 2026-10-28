@@ -105,10 +105,13 @@ skipped for now. Or ask the person to finish that step with `yoke setup --tui`.
 
 Setup flags given to the first agent call (for example `--local` or `--yes`)
 are presets, like wizard defaults. Later calls may repeat them or leave them
-out; different flags refuse with `setup_agent_flags_changed` before setup
-runs. This refusal names the saved waiting `key`, leaves the setup file
-unchanged and requests no approval code or link. Rerun without changed flags
-to see the waiting question. `--yes` answers the review question with `apply`.
+out. Changed project flags (such as `--project-mode`, `--checkout` or
+`--remote-url`) keep sign-in answers, the confirmed folder
+and item prefix; other project answers are asked again for the new path.
+Changing any other flag refuses with `setup_agent_flags_changed` before setup
+runs, leaves the setup file unchanged and names the saved waiting `key`.
+Rerun without changed flags to see that question. `--yes` answers the review
+question with `apply`.
 
 Answering `review.confirm` with `apply` writes the setup and returns `done`.
 A failed Apply returns `state` `failed` with `reason` `setup_apply_failed`, the
@@ -134,7 +137,7 @@ collect it.
 | `setup_answer_not_allowed` | use one of `answers[].value` |
 | `setup_answer_invalid` | correct the value; `recovery` says why |
 | `setup_secret_answer_refused` | take the question's non-secret route |
-| `setup_agent_flags_changed` | rerun without flags, or `--discard` |
+| `setup_agent_flags_changed` | non-project flags changed; rerun without changed flags, or `--discard` |
 | `setup_agent_busy` | wait for the other `yoke setup --agent` call |
 | `setup_agent_store_unreadable` | run `yoke setup --agent --discard` |
 | `setup_tui_requires_terminal` | run in a terminal, or use `--agent` |

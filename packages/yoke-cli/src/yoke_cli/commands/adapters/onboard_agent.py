@@ -10,9 +10,12 @@ mode are presets, saved with the answers so later calls may omit them.
 from __future__ import annotations
 
 import argparse
+import os
 import sys
 from dataclasses import dataclass
 from typing import Any, Callable
+
+from yoke_contracts.machine_config.schema import ENV_OVERRIDE
 
 from yoke_cli.commands.adapters import onboard_apply
 from yoke_cli.commands.adapters import onboard_hosted_authorization as hosted_auth
@@ -217,21 +220,13 @@ def _apply_presets(
     store: answers.AnswerStore,
 ) -> tuple[str, str] | None:
     """Save this run's presets, or keep the stored ones and name the change."""
+    parsed.env_name = parsed.env_name or os.environ.get(ENV_OVERRIDE, "").strip() or None
     given = {
         name: value
         for name, value in vars(parsed).items()
         if name not in AGENT_ONLY_OPTIONS and value != getattr(defaults, name, None)
     }
-    refusal = None
-    if not store.existed:
-        store.presets = given
-    elif given and given != store.presets:
-        refusal = (
-            "setup_agent_flags_changed",
-            "these setup flags differ from the ones this setup started with; "
-            "rerun with only --agent and --answer, or run `yoke setup --agent "
-            "--discard` to start over with the new flags",
-        )
+    refusal = store.apply_presets(given)
     for name, value in store.presets.items():
         setattr(parsed, name, value)
     return refusal

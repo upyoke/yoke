@@ -108,6 +108,37 @@ class AnswerStore:
 
     # ── writing ─────────────────────────────────────────────
 
+    def apply_presets(self, given: dict[str, Any]) -> tuple[str, str] | None:
+        """Accept project changes without reusing answers tied to the old path."""
+        if not self.existed:
+            self.presets = given
+            return None
+        if any(
+            not name.startswith("project_") and value != self.presets.get(name)
+            for name, value in given.items()
+        ):
+            return (
+                "setup_agent_flags_changed",
+                "non-project setup flags differ from this setup's saved flags; "
+                "rerun with only --agent and --answer, or run `yoke setup --agent "
+                "--discard` to start over with the new flags",
+            )
+        changed = any(value != self.presets.get(name) for name, value in given.items())
+        if not changed:
+            return None
+        folder = (given.get("project_checkout") or self.value("project.clone_folder")
+                  or self.value("project.folder"))
+        prefix = given.get("project_public_item_prefix") or self.value("project.details.prefix")
+        self.drop("project")
+        if folder is not None:
+            self.stage({"project.folder": folder, "project.clone_folder": folder})
+        if prefix is not None:
+            self.stage({"project.details.prefix": prefix})
+        self.presets.update(given)
+        self.apply_failure = None
+        self.flush()
+        return None
+
     def stage(self, values: dict[str, str]) -> None:
         self._staged.update(values)
 
