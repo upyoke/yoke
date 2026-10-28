@@ -231,9 +231,11 @@ A deployment-run case is not bound to the session's claimed lane: its subject
 is the candidate the run deployed, already built and observed at that
 endpoint, which no member's worktree contributed to. It is bound to that
 candidate instead, and the runner holds it there itself: with no
-`--checkout-path`, each `command` case runs in a disposable clone of its
-project checkout at the candidate revision, outside every lane and shared
-tree, removed once its verdict is recorded. The owner needs no flag and no
+`--checkout-path`, each `command` case runs in a disposable detached
+worktree of its project checkout at the candidate revision, outside every
+lane and shared tree, removed once its verdict is recorded. A partial-clone
+checkout fetches the files it lacks from its own remote; when that fetch
+fails, the case is refused before it runs. The owner needs no flag and no
 claim on another session's tree however far the default branch has moved.
 An explicit `--checkout-path` at a different revision is refused, naming both
 revisions, because a command that reads the repository would otherwise report
