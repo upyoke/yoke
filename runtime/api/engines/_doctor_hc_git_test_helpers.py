@@ -109,9 +109,11 @@ def _make_conn():
         );
     """),
     )
+    from yoke_core.domain.item_refs_schema import ensure_item_refs_view
     from yoke_core.domain.workflow_registry import converge_builtin_workflows
     from yoke_core.domain.workflow_schema import ensure_workflow_schema
 
+    ensure_item_refs_view(conn)
     ensure_workflow_schema(conn)
     converge_builtin_workflows(conn)
     return pg_testdb.drop_database_on_close(conn, name)

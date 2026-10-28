@@ -7,12 +7,10 @@ HC-stale-remote-branches (remote branches matching done/cancelled items).
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Dict, List
+from typing import List
 
 from yoke_core.domain.db_helpers import query_rows
 from yoke_core.domain.project_checkout_locations import checkout_for_project_id
-from yoke_core.domain.project_identity import render_item_ref
-from yoke_core.domain.worktree_naming import candidate_worktree_names
 
 import yoke_core.engines.doctor_report as _base
 
@@ -111,120 +109,114 @@ def hc_stale_remote_branches(conn, args: DoctorArgs, rec: RecordCollector) -> No
     fixed = 0
     preserved = 0
 
-    # Get project repos
-    projects: List[dict] = []
-    if _base._table_exists(conn, "projects"):
-        projects = [
-            {
-                "id": row["id"],
-                "slug": row["slug"],
-                "checkout": checkout_for_project_id(int(row["id"])),
-                "default_branch": str(row["default_branch"] or "main"),
-            }
-            for row in query_rows(
-                conn,
-                "SELECT id, slug, default_branch FROM projects ORDER BY id",
-            )
-        ]
-
-    # Cache each successfully inspected project's branches with the exact
-    # checkout and integration target. A missing project checkout must never
-    # fall back to a different repository merely because both use YOK-N refs.
-    remote_caches: Dict[str, tuple[set[str], str, str]] = {}
-    for proj in projects:
-        pid = proj["slug"]
-        rpath = proj["checkout"]
-        if not rpath or not Path(rpath).is_dir():
-            continue
-        lr = _credentialed_git.run(
-            ["-C", str(rpath), "ls-remote", "--heads", "origin"],
-            timeout=_REMOTE_READ_TIMEOUT,
-        )
-        branches = set()
-        if lr.returncode == 0:
-            for line in lr.stdout.strip().splitlines():
-                parts = line.split()
-                if len(parts) >= 2:
-                    ref = parts[1]
-                    if ref.startswith("refs/heads/"):
-                        branches.add(ref[len("refs/heads/") :])
-            remote_caches[pid] = (
-                branches,
-                str(rpath),
-                proj["default_branch"],
-            )
-
-    # Check done/cancelled items
-    done_rows = query_rows(
+    projects = query_rows(
         conn,
-        "SELECT i.id, COALESCE(p.slug, '') as project FROM items i "
-        "LEFT JOIN projects p ON p.id = i.project_id "
-        "WHERE i.status IN ('done', 'cancelled')",
+        "SELECT id, slug, default_branch FROM projects "
+        "WHERE (%s = '' OR slug = %s OR CAST(id AS TEXT) = %s) ORDER BY id",
+        (str(args.project or ""),) * 3,
     )
-    for row in done_rows:
-        did = row["id"]
-        proj = row["project"]
-        public_ref = render_item_ref(conn, int(did))
-
-        # Resolve only the owning project's inspected checkout. Never use the
-        # current/default repository for a different project's item.
-        project_slug = proj if proj and proj != "null" else ""
-        context = remote_caches.get(project_slug)
-        if context is None:
+    inspected = 0
+    for project in projects:
+        repo = checkout_for_project_id(int(project["id"]))
+        if not repo or not Path(repo).is_dir():
             continue
-        cache, target_repo, target_branch = context
+        inspected += 1
+        target = str(project["default_branch"] or "main")
 
-        # Inspect the public ref and recorded branches that are still present.
-        present = sorted(
-            name for name in candidate_worktree_names(conn, int(did)) if name in cache
+        def run_git(command):
+            return _credentialed_git.run(
+                ["-C", str(repo), *command], timeout=_REMOTE_READ_TIMEOUT
+            )
+
+        listed = run_git(["ls-remote", "--heads", "origin"])
+        if listed.returncode != 0:
+            preserved += 1
+            issues.append(
+                f"- remote_branch_read_failed [{project['slug']}]: "
+                f"{_reason(listed)}; restore origin access and rerun this check"
+            )
+            continue
+        branches = {}
+        for line in listed.stdout.splitlines():
+            fields = line.split()
+            if len(fields) == 2 and fields[1].startswith("refs/heads/"):
+                branches[fields[1][len("refs/heads/") :]] = fields[0]
+        if not branches:
+            continue
+        rows = query_rows(
+            conn,
+            "WITH matches AS ("
+            "SELECT item_id, public_ref AS branch FROM item_refs "
+            "WHERE public_ref = ANY(%s) "
+            "UNION SELECT item_id, branch FROM item_worktrees "
+            "WHERE branch = ANY(%s)) "
+            "SELECT i.id, i.status, r.public_ref, m.branch, "
+            "EXISTS (SELECT 1 FROM item_worktrees w WHERE w.item_id = i.id "
+            "AND w.state = 'active') AS has_worktree "
+            "FROM matches m JOIN items i ON i.id = m.item_id "
+            "JOIN item_refs r ON r.item_id = i.id "
+            "WHERE i.project_id = %s ORDER BY i.id, m.branch",
+            (list(branches), list(branches), project["id"]),
         )
-        if not present:
-            continue
-
-        proj_label = f" [{proj}]" if proj and proj != "null" else ""
-
-        for pattern in present:
-            if args.fix:
-                if item_cleanup_authority_blocks_prune(conn, int(did)):
-                    preserved += 1
-                    issues.append(
-                        f"- PRESERVED stale remote branch {pattern}{proj_label}: "
-                        "cleanup authority is active or could not be proven idle"
-                    )
-                    continue
-
-                result = delete_remote_branch_if_merged(
-                    run_git=lambda command: _credentialed_git.run(
-                        ["-C", str(target_repo), *command],
-                        timeout=_REMOTE_READ_TIMEOUT,
-                    ),
-                    branch=pattern,
-                    target_branch=target_branch,
-                )
-                if result.cleanup_complete:
-                    fixed += 1
-                    if result.status == "deleted":
-                        issues.append(
-                            f"- Fixed: deleted stale remote branch "
-                            f"{pattern}{proj_label} -- {public_ref} is done/cancelled"
-                        )
-                    else:
-                        issues.append(
-                            f"- Fixed: stale remote branch {pattern}{proj_label} "
-                            "was already absent"
-                        )
-                else:
-                    preserved += 1
-                    issues.append(
-                        f"- PRESERVED stale remote branch {pattern}{proj_label}: "
-                        f"{result.reason}"
-                    )
-            else:
+        fetched = False
+        for row in rows:
+            if row["status"] not in {"done", "cancelled"}:
+                continue
+            branch = row["branch"]
+            label = f"{branch} [{project['slug']}]"
+            if row["has_worktree"]:
+                preserved += 1
+                issues.append(f"- PRESERVED {label}: lane sweep owns it")
+                continue
+            if not args.fix:
                 issues.append(
-                    f"- Stale remote branch: {pattern}{proj_label} "
-                    f"-- {public_ref} is done/cancelled "
-                    "(rerun this check with --fix for proof-gated cleanup)"
+                    f"- Stale remote branch: {label} -- {row['public_ref']} "
+                    "is done/cancelled (rerun this check with --fix "
+                    "for proof-gated cleanup)"
                 )
+                continue
+            if item_cleanup_authority_blocks_prune(conn, int(row["id"])):
+                preserved += 1
+                issues.append(
+                    f"- PRESERVED stale remote branch {label}: "
+                    "cleanup authority is active or could not be proven idle"
+                )
+                continue
+            if not fetched:
+                fetch = run_git(
+                    ["fetch", "origin", "+refs/heads/*:refs/remotes/origin/*"]
+                )
+                if fetch.returncode != 0:
+                    preserved += 1
+                    issues.append(
+                        f"- remote_branch_fetch_failed [{project['slug']}]: "
+                        f"{_reason(fetch)}; restore origin access and rerun with --fix"
+                    )
+                    break
+                fetched = True
+            result = delete_remote_branch_if_merged(
+                run_git=run_git,
+                branch=branch,
+                target_branch=target,
+                refreshed_branches=branches,
+            )
+            if result.cleanup_complete:
+                fixed += 1
+                issues.append(f"- Fixed: {label}: {result.reason}")
+            else:
+                preserved += 1
+                issues.append(
+                    f"- PRESERVED stale remote branch {label}: {result.reason}"
+                )
+
+    if not inspected:
+        rec.record(
+            "HC-stale-remote-branches",
+            "Stale remote branches",
+            "N/A",
+            "this runner has no checkout for it",
+        )
+        return
 
     if issues:
         if args.fix:

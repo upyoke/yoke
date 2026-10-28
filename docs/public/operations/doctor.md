@@ -100,6 +100,16 @@ checkout used, and recovery instructions instead of silently switching trees.
 Composition preserves every named incomplete or internal error; distinct check
 failures never replace one another merely because they share a reserved HC id.
 
+The `stale-remote-branches` check inspects only the selected project's remote
+branches. Without its checkout it reports N/A; HTTPS retries on the client,
+where missing direct database authority also remains N/A. It matches branch
+names to item references and recorded lanes in one query. Under `--fix`, it
+fetches once per project and deletes only branches of done or cancelled items
+without active registered worktrees, after proving idle cleanup authority and
+merged content. A leased delete preserves concurrent remote changes. Branches
+with registered worktrees report “lane sweep owns it”; the relay retires their
+remote branch, worktree and local branch together.
+
 The claim-boundary audit inspects the full audit history, retaining its explicit
 configured event-id cutoff. Historical event-outcome drift also inspects every
 candidate. Both compute totals and correlation in SQL and return only bounded
