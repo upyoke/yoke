@@ -19,6 +19,10 @@ reads `~/.claude/.credentials.json` (`claudeAiOauth.accessToken`); Cursor reads
 `~/.config/cursor/auth.json`. Cursor Agent's vendor file store owns this
 format; sign in with `cursor-agent login` to create it. Missing or malformed
 credentials report `stale_credential`; sign in again on that machine.
+Claude's token past its `claudeAiOauth.expiresAt` reports `credential_expired`
+and sends nothing; the CLI renews it on its next use. Until then, and after
+any other failed read except a rejected sign-in, the relay keeps the last read
+windows (with their original observation time) until each one resets.
 Tokens are used only for vendor requests and are excluded from readings.
 Claude's usage check identifies itself as the installed Claude Code
 (`claude --version`, read on each refresh); when that version is unreadable

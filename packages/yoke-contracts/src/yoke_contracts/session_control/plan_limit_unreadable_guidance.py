@@ -26,6 +26,10 @@ CREDENTIAL_GUIDANCE = (
     "the CLI's stored sign-in is missing or was rejected by the vendor; "
     "re-authenticate the CLI on that machine"
 )
+EXPIRED_GUIDANCE = (
+    "the CLI's sign-in token expired while the CLI was idle; it renews on "
+    "next Claude CLI use, and the last reading counts until its window resets"
+)
 THROTTLED_GUIDANCE = (
     "the vendor throttled the limits check; the surface is not known to be "
     "signed out; it retries on the next refresh"
@@ -35,13 +39,28 @@ RELAY_UPDATE_GUIDANCE = (
 )
 READ_FAILED_GUIDANCE = "the limits read failed; it retries on the next refresh"
 
+# A Claude token past its expiresAt: the CLI is still signed in.
+CREDENTIAL_EXPIRED_REASON = "credential_expired"
 _CREDENTIAL_REASON = "stale_credential"
 _CREDENTIAL_REASON_PREFIX = "codex_auth_"
 _THROTTLED_REASON = "http_429"
 
 
+def _parts(reason: str | None) -> list[str]:
+    return [
+        part.split(",", 1)[0].strip()
+        for part in str(reason or "").split(REASON_SEPARATOR)
+        if part
+    ]
+
+
 def _is_credential(part: str) -> bool:
     return part == _CREDENTIAL_REASON or part.startswith(_CREDENTIAL_REASON_PREFIX)
+
+
+def reason_needs_sign_in(reason: str | None) -> bool:
+    """True when the vendor rejected the sign-in or none is stored."""
+    return any(_is_credential(part) for part in _parts(reason))
 
 
 def unreadable_guidance(reason: str | None) -> str:
@@ -51,13 +70,11 @@ def unreadable_guidance(reason: str | None) -> str:
     wins: a credential problem on either source needs a sign-in whatever
     the other source said, and a throttle outranks a plain failed read.
     """
-    parts = [
-        part.split(",", 1)[0].strip()
-        for part in str(reason or "").split(REASON_SEPARATOR)
-        if part
-    ]
+    parts = _parts(reason)
     if any(_is_credential(part) for part in parts):
         return CREDENTIAL_GUIDANCE
+    if CREDENTIAL_EXPIRED_REASON in parts:
+        return EXPIRED_GUIDANCE
     if _THROTTLED_REASON in parts:
         return THROTTLED_GUIDANCE
     if RELAY_PREDATES_WINDOWS_REASON in parts:
@@ -87,11 +104,14 @@ def with_unreadable_guidance(
 
 
 __all__ = [
+    "CREDENTIAL_EXPIRED_REASON",
     "CREDENTIAL_GUIDANCE",
+    "EXPIRED_GUIDANCE",
     "READ_FAILED_GUIDANCE",
     "REASON_SEPARATOR",
     "RELAY_UPDATE_GUIDANCE",
     "THROTTLED_GUIDANCE",
+    "reason_needs_sign_in",
     "unreadable_guidance",
     "unreadable_note",
     "with_unreadable_guidance",

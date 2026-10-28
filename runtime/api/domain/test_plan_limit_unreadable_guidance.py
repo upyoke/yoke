@@ -10,6 +10,7 @@ from runtime.api.domain.test_session_message_support import message_connection
 from runtime.api.steering_fleet_test_helpers import plan_limit_row
 from yoke_contracts.session_control.plan_limit_unreadable_guidance import (
     CREDENTIAL_GUIDANCE,
+    EXPIRED_GUIDANCE,
     READ_FAILED_GUIDANCE,
     RELAY_UPDATE_GUIDANCE,
     THROTTLED_GUIDANCE,
@@ -34,6 +35,8 @@ _REASON_CLASSES = (
     ("stale_credential", CREDENTIAL_GUIDANCE),
     ("codex_auth_missing_tokens", CREDENTIAL_GUIDANCE),
     ("app_server_timeout+stale_credential", CREDENTIAL_GUIDANCE),
+    ("credential_expired", EXPIRED_GUIDANCE),
+    ("credential_expired+stale_credential", CREDENTIAL_GUIDANCE),
     ("http_429", THROTTLED_GUIDANCE),
     ("app_server_timeout+http_429", THROTTLED_GUIDANCE),
     ("http_503", READ_FAILED_GUIDANCE),
@@ -54,7 +57,12 @@ def test_each_reason_class_earns_its_own_guidance(reason, guidance) -> None:
 
 def test_only_a_credential_reason_says_to_sign_in_again() -> None:
     assert "re-authenticate" in CREDENTIAL_GUIDANCE
-    for guidance in (THROTTLED_GUIDANCE, READ_FAILED_GUIDANCE, RELAY_UPDATE_GUIDANCE):
+    for guidance in (
+        EXPIRED_GUIDANCE,
+        THROTTLED_GUIDANCE,
+        READ_FAILED_GUIDANCE,
+        RELAY_UPDATE_GUIDANCE,
+    ):
         assert "re-authenticate" not in guidance
     # A throttled read establishes nothing about the sign-in, and says so.
     assert "not known to be signed out" in THROTTLED_GUIDANCE
