@@ -238,7 +238,7 @@ def run(args: List[str]) -> int:
             "yoke qa plan rematerialize --item PREFIX-N --transition T --project P; "
             "then yoke qa plan materialize --item PREFIX-N --transition T --project P "
             "--replaces CORRECTED_KEY=FAILED_ID. Refresh updates rows, adds eligible cases "
-            "and retires removed cases (post-deploy may auto-link a successor). "
+            "and retires removed cases. "
             "For corrected code under the same case, retry without --replaces."
         )
 

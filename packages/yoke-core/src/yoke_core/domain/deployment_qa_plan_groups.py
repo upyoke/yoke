@@ -195,12 +195,16 @@ def unattached_open_groups(conn: Any, run_id: str) -> list[PlanGroup]:
 def retract_unattached_groups(conn: Any, run_id: str, *, reason: str, source: str) -> list[int]:
     """Retract each open group left with no attacher; never a passed row.
 
-    A retracted group is never reused: a later attacher gets a new group.
+    A retracted group is never reused: a later attacher gets a new group. A
+    group whose every row already passed (still awaiting stage acceptance)
+    has nothing to retract, so it closes covering nobody: no reader waits on
+    it and no later attacher is credited by passes that predate it.
     """
     from yoke_core.domain.qa_latest_execution import latest_execution_id_sql
     from yoke_core.domain.qa_plan_attachment_retract import retract_requirements
 
-    ids = [rid for group in unattached_open_groups(conn, run_id) for rid in group.requirement_ids]
+    groups = unattached_open_groups(conn, run_id)
+    ids = [rid for group in groups for rid in group.requirement_ids]
     if not ids:
         return []
     rows = query_rows(
@@ -212,6 +216,17 @@ def retract_unattached_groups(conn: Any, run_id: str, *, reason: str, source: st
     )
     retired = [int(row["id"]) for row in rows]
     retract_requirements(conn, retired, reason=reason, source=source)
+    spent = [
+        rid for group in groups
+        if not set(group.requirement_ids) & set(retired)
+        for rid in group.requirement_ids
+    ]
+    if spent:
+        conn.execute(
+            "UPDATE qa_requirements SET covered_item_ids='[]' WHERE id=ANY(%s) "
+            "AND covered_item_ids IS NULL",
+            (spent,),
+        )
     return retired
 
 

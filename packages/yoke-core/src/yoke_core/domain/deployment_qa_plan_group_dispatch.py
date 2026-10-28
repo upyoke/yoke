@@ -22,6 +22,8 @@ from yoke_core.domain.deployment_qa_plan_groups import (
 
 PLAN_GROUPS_WAIT_PREFIX = "deployment-qa-stage-wait:"
 PLAN_GROUP_FAILURE_PREFIX = "deployment-qa-plan-group-failure:"
+#: A group that failed or whose acceptance was rejected: its failure notice.
+FAILED_OUTCOMES = frozenset({"blocked", "rejected"})
 
 
 def plan_group_writer(conn: Any, stage: Mapping, *, run_id: str):
@@ -85,7 +87,7 @@ def gate_plan_groups(
         waiting.extend(f"{label}: {reason}" for reason in reasons)
         if project_id is None:
             continue
-        if status.get("outcome") == "blocked":
+        if status.get("outcome") in FAILED_OUTCOMES:
             notify_plan_group_failure(
                 conn, run_id=run_id, stage_name=stage_name, group=group,
                 project_id=project_id, reasons=reasons, item_refs=item_refs,

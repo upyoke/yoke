@@ -96,6 +96,7 @@ SETTLED_OUTCOMES = frozenset({"passed", "discharged", "rejected", "blocked"})
 def settle_plan_group(conn: Any, subject: Mapping[str, Any]) -> dict[str, Any]:
     """Settle one plan group; a failure tells the run's session, never a member."""
     from yoke_core.domain.deployment_qa_plan_group_dispatch import (
+        FAILED_OUTCOMES,
         notify_plan_group_failure,
         settle_group,
     )
@@ -104,7 +105,7 @@ def settle_plan_group(conn: Any, subject: Mapping[str, Any]) -> dict[str, Any]:
     run_id, stage = str(subject["id"]), str(subject["stage"]["name"])
     status = settle_group(conn, subject)
     outcome = str(status.get("outcome") or "")
-    if outcome == "blocked":
+    if outcome in FAILED_OUTCOMES:
         group = group_for_target(conn, run_id, subject["shared_target"])
         if group is not None:
             notify_plan_group_failure(

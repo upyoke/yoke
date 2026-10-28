@@ -240,3 +240,24 @@ def test_plan_groups_never_answer_a_member_s_own_unrun_cases(test_db):
     assert member_post_deploy_answer(
         test_db, {**subject, "member_snapshot": {"requirements": [own_case]}}
     ).verdict != PLAN_GROUPS
+
+
+def test_an_unattached_group_whose_rows_passed_closes_covering_nobody(test_db):
+    plan_id = _seed(test_db)
+    created = ensure_groups(test_db, RUN, "item-qa")
+    for requirement_id in created:  # passed, but the stage was never accepted
+        test_db.execute(
+            "INSERT INTO qa_runs(qa_requirement_id,performed_by,qa_kind,verdict,"
+            "started_at,completed_at,created_at) VALUES (%s,'worktree_run','plan_case',"
+            "'pass','2026-10-28T00:00:00Z','2026-10-28T00:00:01Z','2026-10-28T00:00:01Z')",
+            (requirement_id,),
+        )
+    test_db.execute("DELETE FROM qa_plan_item_attachments WHERE plan_id=%s", (plan_id,))
+    test_db.commit()
+
+    assert retract_unattached_groups(test_db, RUN, reason="detached", source="test") == []
+    (group,) = run_groups(test_db, [RUN], "item-qa")
+    assert group.closed and group.covered_item_ids == () and not group.retracted
+    _attach(test_db, MEMBERS[0], plan_id)
+    ensure_groups(test_db, RUN, "item-qa")
+    assert run_groups(test_db, [RUN], "item-qa")[-1].group_id == f"{RUN}:2"

@@ -5,8 +5,8 @@ and admitted those copies into each release. Plan groups replace them: a
 release runs each attached plan once, and the done gate credits items from
 ``qa_requirements.covered_item_ids`` (boot adds the column). A copy that any
 run, execution result, review verdict or correction link references stays as
-history; the rest are deleted. A copy whose item is still in an unfinished
-release also stays until that release finishes.
+history; the rest are deleted. No release reads a copy once apply has proved
+no unfinished release was composed with them, so the invariant holds for good.
 
 The release carrying plan groups must not adopt an unfinished release that
 older builds composed: its member snapshots and shared rows follow the old
@@ -36,11 +36,6 @@ UNREFERENCED = (
     "AND NOT EXISTS (SELECT 1 FROM qa_requirements o WHERE o.superseded_by_requirement_id=q.id "
     "OR o.replacement_requirement_id=q.id) "
     "AND q.superseded_by_requirement_id IS NULL AND q.replacement_requirement_id IS NULL"
-)
-
-IN_UNFINISHED_RUN = (
-    "EXISTS (SELECT 1 FROM deployment_run_items m JOIN deployment_runs d ON d.id=m.run_id "
-    f"WHERE m.item_id=q.item_id AND d.status IN {UNFINISHED})"
 )
 
 OLD_MODEL_RUNS = (
@@ -80,20 +75,16 @@ def apply(conn: Any) -> None:
             "build that started it (`yoke deployment-runs get RUN`, then drive it "
             "to done or cancel it), then rerun preflight for this release."
         )
-    conn.execute(
-        f"DELETE FROM qa_requirements q WHERE {COPY} AND {UNREFERENCED} "
-        f"AND NOT {IN_UNFINISHED_RUN}"
-    )
+    conn.execute(f"DELETE FROM qa_requirements q WHERE {COPY} AND {UNREFERENCED}")
 
 
 def invariants(conn: Any) -> None:
     if not all(_table_exists(conn, table) for table in TABLES):
         return
     row = conn.execute(
-        f"SELECT COUNT(*) FROM qa_requirements q WHERE {COPY} AND {UNREFERENCED} "
-        f"AND NOT {IN_UNFINISHED_RUN}"
+        f"SELECT COUNT(*) FROM qa_requirements q WHERE {COPY} AND {UNREFERENCED}"
     ).fetchone()
     assert int(row[0]) == 0, (
         f"post_deploy_item_qa_copies_remain: {row[0]} unreferenced post-deploy plan "
-        "copies outside unfinished releases; boot must apply migration 0094"
+        "copies; boot must apply migration 0094"
     )

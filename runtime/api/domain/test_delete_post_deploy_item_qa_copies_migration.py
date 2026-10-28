@@ -51,7 +51,7 @@ def _ids(conn) -> set[int]:
     return {int(row[0]) for row in conn.execute("SELECT id FROM qa_requirements")}
 
 
-def test_deletes_only_unreferenced_copies_outside_unfinished_runs(test_db) -> None:
+def test_deletes_only_unreferenced_copies(test_db) -> None:
     for item_id in (1, 2, 3):
         insert_item(test_db, id=item_id, status="implemented")
     plan_id = _plan(test_db)
@@ -79,8 +79,9 @@ def test_deletes_only_unreferenced_copies_outside_unfinished_runs(test_db) -> No
     MIGRATION.invariants(test_db)
 
     remaining = _ids(test_db)
-    assert unused not in remaining
-    assert {with_run, successor, superseded, in_live_run, item_case, run_row} <= remaining
+    # A live run composed without plan copies never reads them.
+    assert unused not in remaining and in_live_run not in remaining
+    assert {with_run, successor, superseded, item_case, run_row} <= remaining
     assert MIGRATION.MINIMUM_SERVING_VERSION == NEXT_RELEASE
 
 
@@ -139,3 +140,16 @@ def test_plan_group_rows_with_a_group_id_do_not_block(test_db) -> None:
 
 def test_the_expected_schema_declares_covered_item_ids() -> None:
     assert "covered_item_ids" in parse_expected_schema()["qa_requirements"]
+
+
+def test_the_invariant_still_holds_after_a_live_run_finishes(test_db) -> None:
+    insert_item(test_db, id=1, status="implemented")
+    plan_id = _plan(test_db)
+    insert_deployment_run(test_db, id="run-live", status="executing")
+    _member(test_db, "run-live", 1)
+    _copy(test_db, 1, plan_id)
+    test_db.commit()
+    MIGRATION.apply(test_db)
+    test_db.execute("UPDATE deployment_runs SET status='succeeded' WHERE id='run-live'")
+    test_db.commit()
+    MIGRATION.invariants(test_db)
