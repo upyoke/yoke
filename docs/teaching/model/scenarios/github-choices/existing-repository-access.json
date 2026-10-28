@@ -4,10 +4,10 @@
  "status": "observed",
  "audience": "both",
  "when": "Use connected repo in setup",
- "need": "Always check GitHub live. If absent, add owner/repo using the exact installation settings link and check again. Failed checks mean unknown access; no browser failure is claimed without an attempt.",
+ "need": "Always check GitHub live. If absent, add owner/repo using the exact installation settings link and check again. Failed checks mean unknown access; no browser failure is claimed without an attempt. A nonempty private-repository picker also offers grant access and URL entry; check again refreshes the list after access changes. URL entry uses the connected credential and existing clone refusal recovery.",
  "disclosure": "current cue",
  "surface": "Interactive setup repository access",
  "review": "Scripted stale-cache, settings identity and failed-check cases; live deployment proof pending.",
- "sources": ["runtime/api/cli/test_onboard_existing_repository_access.py", "packages/yoke-cli/src/yoke_cli/config/onboard_wizard_project_github.py"],
+ "sources": ["runtime/api/cli/test_onboard_existing_repository_access.py", "packages/yoke-cli/src/yoke_cli/config/onboard_wizard_project_github.py", "packages/yoke-cli/src/yoke_cli/config/onboard_wizard_project_screens.py", "runtime/api/cli/test_private_repository_picker.py"],
  "position": 4
 }

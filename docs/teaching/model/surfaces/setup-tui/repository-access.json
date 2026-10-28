@@ -1,10 +1,10 @@
 {
  "id": "repository-access",
- "title": "Check existing repository access live; add the exact owner/repo at its App installation settings and check again.",
+ "title": "Check existing repository access live; add the exact owner/repo at its App installation settings and check again. The private-repository picker offers grant access and URL entry even when repositories are listed.",
  "status": "observed",
  "form": "Do",
  "verification": "Source and scripted repository-access tests; deployed delivery remains unproved.",
  "topics": ["repositories/github/repository-permissions"],
- "sources": ["packages/yoke-cli/src/yoke_cli/config/onboard_wizard_project_github.py", "runtime/api/cli/test_onboard_existing_repository_access.py"],
+ "sources": ["packages/yoke-cli/src/yoke_cli/config/onboard_wizard_project_github.py", "runtime/api/cli/test_onboard_existing_repository_access.py", "packages/yoke-cli/src/yoke_cli/config/onboard_wizard_project_screens.py", "runtime/api/cli/test_private_repository_picker.py"],
  "position": 11
 }
