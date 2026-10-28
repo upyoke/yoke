@@ -117,7 +117,10 @@ def delete_remote_branch_if_merged(
     if refreshed_branches is not None:
         advertised_sha = refreshed_branches.get(branch)
         if not advertised_sha or not refreshed_branches.get(target_branch):
-            return _preserved("refreshed remote snapshot is incomplete")
+            return _preserved(
+                "remote_cleanup_snapshot_incomplete: refreshed remote snapshot "
+                "is incomplete; rerun this check with --fix"
+            )
     else:
         listed = run_git(["ls-remote", "--heads", "origin", exact_ref])
         if listed.returncode != 0:
@@ -159,7 +162,10 @@ def delete_remote_branch_if_merged(
         refreshed_branches is not None
         and target_sha != refreshed_branches[target_branch]
     ):
-        return _preserved("target branch changed while cleanup was proving it")
+        return _preserved(
+            "remote_cleanup_target_changed: target branch changed while cleanup "
+            "was proving it; rerun this check with --fix"
+        )
 
     landed = assess_branch_landed(run_git, branch=resolved_sha, base=target_sha)
     if not landed.landed and refreshed_branches is None:
