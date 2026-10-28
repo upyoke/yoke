@@ -132,20 +132,13 @@ Refresh preserves operator waivers and clears only waivers with source
 `system`. It reports all plan_ids reached, including already-answered plans
 (refresh without new rows). Run-scoped copies and takeover keep their own
 snapshot behavior.
-A delivery answers a plan only when each current case variant has a run copy
-for the member that passed or was waived; a retracted copy (withdrawn from its
-run, as when the member left it) or a superseded one answers nothing, so a
-plan whose only copies were retracted stays owed and materializes again.
-Item refresh skips shared copies on runs the item no longer belongs to;
-remaining members retain their shared rows and live executions. `--plan`
-filters deployment refresh only; remove it when using `--item`. A lookup
-failure refuses `qa_refresh_subject_unavailable`: inspect the item attachments
-or run membership, correct the selected subject, then retry. Recovery for
-a stale removed-member row names no unreachable refresh command.
-On an item, a removed post_deploy case replaced by exactly one created row
-(same item/transition/phase/environment/baseline) is superseded by it
-(superseded_requirement_ids), so the corrected case's run copies close the
-item; a removed case with no single successor is waived.
+A post-deploy plan is never copied onto its item: each release runs it once
+as a plan group pinned at the revision the release started with, so item
+refresh refuses `post_deploy_plan_runs_as_plan_group` for a transition that
+attaches only post-deploy plans, and an edited plan runs on the next release.
+`--plan` filters deployment refresh only; remove it when using `--item`. A
+lookup failure refuses `qa_refresh_subject_unavailable`: inspect the item
+attachments or run membership, correct the selected subject, then retry.
 Deployment convergence is per case: unjudged refreshes, changed failed gets
 one declared corrected replacement, passed stands. An explicit --replaces
 case gets no second automatic correction while its external replacement is

@@ -39,13 +39,17 @@ yoke qa plan rematerialize --item PREFIX-N --stage STAGE
 ```
 
 The operation refreshes matching live rows in place, preserves QA run history,
-creates added cases and retires removed ones. On an item, a removed
-post_deploy case replaced by exactly one created row of the same
-item/transition/phase/environment/baseline is superseded by it
-(`superseded_requirement_ids`); any other removed case is waived. It reaches all executable columns,
+creates added cases and retires removed ones. It reaches all executable columns,
 including `instructions` / `expected_outcome`, which individual requirement
-update cannot write. It also corrects reachable unjudged admitted deployment
-copies and reports `corrected_admitted_copy_ids`.
+update cannot write.
+
+A post-deploy plan has no item rows to refresh: each release runs it once as a
+plan group, pinned at the revision the release started with, so an edited plan
+runs on the next release. A transition that attaches only post-deploy plans
+refuses with `post_deploy_plan_runs_as_plan_group`, and a run-wide refresh at an
+item-scoped stage refuses with `plan_group_not_rematerialized`. Correct a failed
+group case with `yoke qa plan run --deployment-run-id RUN --stage STAGE --plan P
+--replaces CASE_KEY=REQUIREMENT_ID`.
 
 Item rows use item/transition; stage rows use run/stage/member. These subjects
 are not interchangeable. Follow each receipt's exact recovery.
