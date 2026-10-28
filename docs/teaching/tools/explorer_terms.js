@@ -7,7 +7,6 @@ function renderViewNav() {
     ['Sources', null, view === 'sources'],
     ['Index', byId.get('view:index'), view === 'index'],
     ['Docs map', byId.get('view:docs-map'), view === 'docs-map'],
-    ['Getting started', byId.get('view:getting-started'), view === 'getting-started'],
   ]) {
     const button = text('button', label, active ? 'active' : '');
     button.onclick = () => choose(target);
