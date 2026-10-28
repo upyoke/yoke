@@ -8,11 +8,6 @@
  "disclosure": "current cue",
  "surface": "Interactive setup repository access",
  "review": "Scripted stale-cache, settings identity and failed-check cases; live deployment proof pending.",
- "sources": [
-  "runtime/api/cli/test_onboard_existing_repository_access.py",
-  "packages/yoke-cli/src/yoke_cli/config/onboard_wizard_project_github.py",
-  "packages/yoke-cli/src/yoke_cli/config/onboard_wizard_project_screens.py",
-  "runtime/api/cli/test_private_repository_picker.py"
- ],
+ "sources": ["runtime/api/cli/test_onboard_existing_repository_access.py", "packages/yoke-cli/src/yoke_cli/config/onboard_wizard_project_github.py", "packages/yoke-cli/src/yoke_cli/config/onboard_wizard_project_screens.py", "runtime/api/cli/test_private_repository_picker.py"],
  "position": 4
 }
