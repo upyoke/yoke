@@ -12,6 +12,7 @@ from contextlib import redirect_stderr, redirect_stdout
 from dataclasses import asdict
 from pathlib import Path
 from typing import Any, Dict, List, Tuple
+from unittest.mock import patch
 
 
 _TEACHING_GLOBS = (
@@ -142,13 +143,21 @@ def collect_operation_tracker() -> Dict[str, Any]:
 
 
 def _capture_cli_help(argv: List[str]) -> Tuple[str, int, str]:
-    """Invoke the in-process yoke CLI with ``argv`` and capture output."""
+    """Invoke the in-process yoke CLI with ``argv`` and capture output.
+
+    ``sys.stdin`` is an empty buffer so no command blocks on the caller's
+    real stdin.
+    """
     from yoke_cli.main import main as cli_main
 
     buf_out, buf_err = io.StringIO(), io.StringIO()
     rc: int
     try:
-        with redirect_stdout(buf_out), redirect_stderr(buf_err):
+        with (
+            patch("sys.stdin", io.StringIO("")),
+            redirect_stdout(buf_out),
+            redirect_stderr(buf_err),
+        ):
             rc = cli_main(argv)
     except SystemExit as exc:
         rc = int(exc.code) if isinstance(exc.code, int) else 1
