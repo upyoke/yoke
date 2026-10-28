@@ -174,14 +174,14 @@ test("QA stages say scope, where they run, cases and who decides in plain words"
     Scope: "runs once per admitted item",
     "Runs on": "the preview preview-deploy built",
     Cases: "plan 7 · preview-url-compare",
-    Verdict: "a person decides — project owner",
+    Approval: "human approval required — project owner",
     Notify: "each item's owner",
   });
   assert.equal(byClass(root, "delivery-flow-stage")[1].classList.contains("is-person"), true);
   const release = stageFacts(root, 2);
   assert.equal(release.Scope, "runs once for the whole release");
   assert.equal(release["Runs on"], "stage environment, as stage-deploy left it");
-  assert.equal(release.Verdict, "the agent decides");
+  assert.equal(release.Approval, "no human approval required");
   assert.equal(byClass(root, "delivery-flow-stage")[2].classList.contains("is-qa"), true);
   assert.deepEqual(stageText(root, "delivery-flow-stage-kind"), ["Preview deploy", "QA", "QA"]);
   mounted.unmount();

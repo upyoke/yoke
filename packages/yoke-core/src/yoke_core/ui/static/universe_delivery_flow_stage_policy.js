@@ -20,9 +20,9 @@ const RUNNER_LABELS = {
 };
 
 const VERDICT_PHRASES = {
-  agent_only: "the agent decides",
-  human_if_unsure: "a person decides when the agent is unsure",
-  required_human: "a person decides",
+  agent_only: "no human approval required",
+  human_if_unsure: "human approval required if the agent is unsure",
+  required_human: "human approval required",
 };
 
 const SCOPE_PHRASES = {
@@ -130,7 +130,7 @@ export function stageFacts(stage, actorNames = {}) {
     ["Scope", SCOPE_PHRASES[stage.scope] || ""],
     ["Runs on", targetPhrase(stage.target)],
     ["Cases", casesPhrase(stage.cases)],
-    ["Verdict", verdictPhrase(stage.verdict, actorNames)],
+    ["Approval", verdictPhrase(stage.verdict, actorNames)],
     ["Approvers", stage.approvals ? peoplePhrase(stage.approvals, actorNames) : ""],
     ["Notify", notificationPhrase(stage.notification, actorNames)],
   ].filter(([, value]) => value);
