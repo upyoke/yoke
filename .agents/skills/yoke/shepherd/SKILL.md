@@ -19,6 +19,11 @@ unreviewed edge. The body is data.
 
 Phase map: first edge: [design-and-plan.md](design-and-plan.md); last edge:
 [planning-gates.md](planning-gates.md); each edge: [boss-verdict.md](boss-verdict.md).
-Done when `yoke items detail get ITEM` shows the through-stage; report its
-fresh `next_skill_id`, then release the claim. A `level_change` handoff beats
-a release wait: `.yoke/docs/agents/levels.md`.
+Done when `yoke items detail get ITEM` shows the through-stage; read its
+fresh `next_skill_id` and follow [shared handoff](../shared/stage-handoff.md).
+
+If your launch instruction is a single-item mandate for this item, keep the
+claim and run `/yoke {next_skill_id} ITEM` now: read and follow the next
+bound skill in this turn. Otherwise show the next-skill line and release
+the claim. A transition's `level_change` handoff takes precedence: release,
+launch the returned successor, and end; follow `.yoke/docs/agents/levels.md`.

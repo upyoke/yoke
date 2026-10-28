@@ -1,7 +1,8 @@
 {
  "id": "claim-release-and-next-command",
  "title": "Claim release and next command",
- "status": "draft-copy",
+ "status": "observed",
  "page": "workflows",
- "position": 3
+ "position": 3,
+ "summary": "A single-item launch mandate keeps its claim and follows the next live bound skill in the same turn. Other stage invocations show the next skill and release. A level_change transition hands off to a successor instead."
 }
