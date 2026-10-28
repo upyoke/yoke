@@ -1,5 +1,7 @@
 """A release runs each attached post-deploy plan once, as one plan group."""
 
+import json
+
 import pytest
 
 from runtime.api.domain.test_deployment_qa_stage_execution import (
@@ -261,3 +263,43 @@ def test_an_unattached_group_whose_rows_passed_closes_covering_nobody(test_db):
     _attach(test_db, MEMBERS[0], plan_id)
     ensure_groups(test_db, RUN, "item-qa")
     assert run_groups(test_db, [RUN], "item-qa")[-1].group_id == f"{RUN}:2"
+
+
+def test_old_admission_forms_a_group_for_a_hosted_environment_plan(test_db):
+    from runtime.api.domain.test_delete_post_deploy_item_qa_copies_migration import MIGRATION
+    from runtime.api.domain.test_qa_requirement_target_rebind import _hosted_prod_pair
+    from yoke_core.domain.deployment_requirement_snapshots import _plan_snapshot
+    from yoke_core.domain.deployment_qa_stage_materialization import (
+        materialize_deployment_qa_stage,
+    )
+
+    plan_id = _seed(test_db, attached=MEMBERS[:1])
+    hosted_id, _ = _hosted_prod_pair(test_db)
+    test_db.execute("UPDATE environments SET name='stage' WHERE id=%s", (hosted_id,))
+    test_db.execute(
+        "UPDATE qa_plans SET target_environment_id=%s WHERE id=%s", (hosted_id, plan_id)
+    )
+    snapshot = _plan_snapshot(test_db, plan_id, project_id=1)
+    test_db.execute(
+        "UPDATE deployment_run_items SET requirement_snapshot=%s "
+        "WHERE run_id=%s AND item_id=%s",
+        (json.dumps({"schema": 1, "requirements": [], "plans": [snapshot]}), RUN, MEMBERS[0]),
+    )
+    test_db.commit()
+    run_environment = test_db.execute(
+        "SELECT target_environment_id FROM deployment_runs WHERE id=%s", (RUN,)
+    ).fetchone()[0]
+    assert run_environment != hosted_id
+    assert _plan_rows(test_db) == []
+
+    MIGRATION.apply(test_db)
+    materialize_deployment_qa_stage(
+        test_db, deployment_run_id=RUN, deployment_stage="item-qa",
+        deployment_member_item_id=MEMBERS[0],
+    )
+    test_db.commit()
+
+    (group,) = run_groups(test_db, [RUN], "item-qa")
+    assert group.plan_id == plan_id and group.open
+    assert group.requirement_ids
+    assert all(row[0] is None and row[1] is None for row in _plan_rows(test_db))

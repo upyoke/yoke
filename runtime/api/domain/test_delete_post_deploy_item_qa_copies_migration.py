@@ -93,12 +93,16 @@ def test_refuses_while_an_unfinished_run_holds_old_model_plan_rows(test_db) -> N
         test_db, "run-old", 1, {"schema": 1, "requirements": [], "plans": [{"plan": {"id": plan_id}}]}
     )
     unused = _copy(test_db, 1, plan_id)
+    run_row = _copy(
+        test_db, None, plan_id, deployment_run_id="run-old",
+        deployment_member_item_id=1,
+    )
     test_db.commit()
 
     with pytest.raises(RuntimeError, match="old_model_plan_runs_unfinished: .*run-old"):
         MIGRATION.apply(test_db)
     test_db.rollback()
-    assert unused in _ids(test_db)
+    assert {unused, run_row} <= _ids(test_db)
 
     test_db.execute("UPDATE deployment_runs SET status='succeeded' WHERE id='run-old'")
     test_db.commit()
@@ -153,3 +157,29 @@ def test_the_invariant_still_holds_after_a_live_run_finishes(test_db) -> None:
     test_db.execute("UPDATE deployment_runs SET status='succeeded' WHERE id='run-live'")
     test_db.commit()
     MIGRATION.invariants(test_db)
+
+
+@pytest.mark.parametrize("stage_plan", [False, True])
+def test_snapshot_plans_without_matching_member_copies_allow_apply(test_db, stage_plan):
+    insert_item(test_db, id=1, status="implemented")
+    plan_id = _plan(test_db)
+    insert_deployment_run(test_db, id="run-admitted", status="executing")
+    _member(
+        test_db, "run-admitted", 1,
+        {"schema": 1, "requirements": [], "plans": [{"plan": {"id": plan_id}}]},
+    )
+    unused = _copy(test_db, 1, plan_id)
+    stage_row = None
+    if stage_plan:
+        stage_row = _copy(
+            test_db, None, _plan(test_db, "flow-plan"),
+            deployment_run_id="run-admitted", deployment_member_item_id=1,
+        )
+    test_db.commit()
+
+    MIGRATION.apply(test_db)
+    MIGRATION.invariants(test_db)
+
+    assert unused not in _ids(test_db)
+    if stage_row is not None:
+        assert stage_row in _ids(test_db)
