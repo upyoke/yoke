@@ -191,7 +191,7 @@ def test_verify_answers_the_callers_covering_seat(session, project, code):
         function="claims.steering.verify",
         actor={"session_id": session},
         target={"kind": "global"},
-        payload={"action": "Moving a checkout"},
+        payload={},
         options={"authorized_project_id": 1},
     )
     with patch("yoke_core.domain.db_helpers.connect", return_value=nullcontext(conn)):
@@ -201,4 +201,4 @@ def test_verify_answers_the_callers_covering_seat(session, project, code):
         assert outcome.result_payload["session_id"] == "s1"
     else:
         assert outcome.error.code == code
-        assert outcome.error.message.startswith("Moving a checkout requires")
+        assert outcome.error.message.startswith("Steering seat verification requires")

@@ -258,6 +258,15 @@ class TestMergedAbandonment:
         item_id = 8421
         insert_item(test_db, id=item_id, status="release")
         actor_id = _project_owner(test_db, 1) if authorized else _new_actor(test_db)
+        if not authorized:
+            from yoke_core.domain.actor_permissions import (
+                ROLE_VIEWER, grant_actor_project_role,
+            )
+
+            grant_actor_project_role(
+                test_db, actor_id=actor_id, project_id=1,
+                role_name=ROLE_VIEWER, granted_by_actor_id=actor_id,
+            )
         test_db.execute(
             "UPDATE harness_sessions SET actor_id=%s WHERE session_id=%s",
             (actor_id, SESSION),
