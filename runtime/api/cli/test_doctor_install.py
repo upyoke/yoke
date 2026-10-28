@@ -199,3 +199,56 @@ def test_only_cli_auth_warning_allows_setup_readiness(monkeypatch, warning_slug,
     assert (
         doctor_install.setup_readiness({}, {"project_slug": "sample"})["ready"] is ready
     )
+
+
+@pytest.mark.parametrize("location", ["outside", "inside", "nested"])
+@pytest.mark.parametrize("failed_install", [False, True])
+@pytest.mark.parametrize("auth_warning", [False, True])
+def test_setup_session_verification_depends_on_project_folder(
+    monkeypatch, tmp_path, location, failed_install, auth_warning
+):
+    import json
+
+    checkout = tmp_path / "project"
+    checkout.mkdir()
+    nested = checkout / "src"
+    nested.mkdir()
+    monkeypatch.chdir({"outside": tmp_path, "inside": checkout, "nested": nested}[location])
+    rows = [
+        {"hc": "HC-" + slug, "severity": "PASS"}
+        for slug in doctor_install.install_slugs()
+    ]
+    if auth_warning:
+        next(row for row in rows if row["hc"] == "HC-harness-cli-auth")["severity"] = "WARN"
+    session_row = next(row for row in rows if row["hc"] == "HC-session-hook-registration")
+    session_row.update(severity="FAIL", detail="Session belongs to another project.")
+    if failed_install:
+        next(row for row in rows if row["hc"] == "HC-project-gh-auth")["severity"] = "FAIL"
+
+    def doctor_run(args):
+        print(json.dumps({"success": True, "result": {"results": rows}}))
+        return 1
+
+    monkeypatch.setattr(doctor, "doctor_run", doctor_run)
+    result = doctor_install.setup_readiness(
+        {}, {"project_slug": "sample", "project_checkout": str(checkout)}
+    )
+    assert result["ready"] == (location == "outside" and not failed_install)
+    if location == "outside":
+        assert result["pending"] == [{
+            "detail": "new project session verification pending",
+            "checks": ["session-hook-registration"],
+            "next_action": f"Open a new chat in {checkout} and run `yoke doctor run --session`.",
+        }]
+        assert session_row not in result["results"]
+        assert result["fail_count"] == int(failed_install)
+        rendered = render_human({
+            "mode": "hosted", "config_path": "config", "applied": True,
+            "plan": {"steps": []}, "identity": {}, "next_steps": [],
+            "install_health": result,
+        })
+        assert "new project session verification pending: session-hook-registration" in rendered
+        assert "yoke doctor run --session" in rendered
+    else:
+        assert "pending" not in result
+        assert session_row in result["results"]

@@ -45,6 +45,12 @@ sandbox restrictions in installed agent tools across the machine, and that
 workers bypass approval (Codex workers also bypass sandbox and CLI hook trust).
 These changes are required; there is no separate permission question.
 
+When setup runs outside the project folder, `install_health.ready` covers install
+checks and reports “new project session verification pending” separately. Open a
+new chat in the project folder and run `yoke doctor run --session` to verify its
+session hooks; that pending step does not make installation fail. Setup run inside
+the project folder includes session hook registration in install readiness.
+
 Answers are saved by question key, so every call resumes where setup stopped.
 Steps that change the machine record what they did in the same setup file:
 the Project step's clone, a saved connection, a backup restore, an opened git
