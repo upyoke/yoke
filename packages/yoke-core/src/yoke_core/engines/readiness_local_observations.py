@@ -4,7 +4,7 @@ The other end of
 :mod:`yoke_core.domain.idea_readiness_local_inputs`. Given that module's
 request — which carries the spec, the planned-claim carve-outs and the
 declared rehearsal commands, all resolved by the control plane — this
-runs the four checkout-dependent checks against this machine's registered
+runs the checkout-dependent checks against this machine's registered
 checkout and returns what they found.
 
 Nothing here reads or writes control-plane state: it takes no connection,
@@ -86,7 +86,10 @@ def collect(request: Dict[str, Any], repo_root: Path) -> Dict[str, Any]:
         verify_file_budget_line_counts,
         verify_function_owners,
     )
-    from yoke_core.domain.idea_readiness_results import ReadinessOutcome
+    from yoke_core.domain.idea_readiness_results import Issue, ReadinessOutcome
+    from yoke_core.domain.idea_readiness_scope_budget import (
+        verify_scoped_paths_in_file_budget,
+    )
     from yoke_core.domain.idea_readiness_symlink_advisory import (
         collect_symlink_advisories,
     )
@@ -101,6 +104,9 @@ def collect(request: Dict[str, Any], repo_root: Path) -> Dict[str, Any]:
                 suppressed_refs=set(request.get("suppressed_refs") or ()),
             ),
             *verify_file_budget_line_counts(spec_text, repo_root=repo_root),
+            *verify_scoped_paths_in_file_budget(
+                spec_text, repo_root=repo_root, issue_type=Issue,
+            ),
         ]
     ).issue_payloads()
     issues.extend(

@@ -1,7 +1,7 @@
 """What a readiness host asks for when it cannot read the item's files.
 
-Four readiness checks read the item project's working tree. The hosted
-API never has one, and it never will, so those checks came back
+The file-reading readiness checks read the item project's working
+tree. The hosted API never has one, and it never will, so those checks came back
 ``unavailable`` for every relayed run even when the caller's own machine
 had the project checked out the whole time.
 
@@ -96,7 +96,7 @@ def checkout_absent_findings(
 
     With an answer from a machine that has the checkout, that machine's
     findings — once the binding holds and every finding is one the checks
-    could have produced. Without one, four unperformed checks.
+    could have produced. Without one, every file-reading check unperformed.
     """
     from yoke_core.domain.attestation_rehearsal_dryrun import (
         rehearsal_command_inputs,

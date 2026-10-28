@@ -74,3 +74,22 @@ def test_unknown_field_still_rejected(monkeypatch):
 
     assert result["success"] is False
     assert "not supported" in result["error"]
+
+
+def test_db_mutation_profile_names_db_claim_amend(monkeypatch):
+    calls = {"n": 0}
+    monkeypatch.setattr(
+        bridge, "_update_item_field",
+        lambda *a, **k: calls.__setitem__("n", calls["n"] + 1),
+    )
+
+    result = bridge._apply_shell_fallback(
+        None, 7, "db_mutation_profile", "{}", io.StringIO(),
+    )
+
+    assert result["success"] is False
+    assert (
+        "yoke db-claim amend PREFIX-N --reason R --payload-file F"
+        in result["error"]
+    )
+    assert calls["n"] == 0

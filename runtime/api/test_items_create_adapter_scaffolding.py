@@ -106,6 +106,8 @@ def test_adapter_refuses_non_idea_session_and_names_correct_paths(
     assert f"workflow={workflow!r}" in err
     assert "session mode 'steer'" in err
     assert "entry_surface='harness_skill'" in err
+    assert "yoke items cancel OLD --reason R --ref NEW" in err
+    assert "yoke db-claim amend NEW --reason R --payload-file F" in err
 
 
 def test_adapter_dispatches_when_session_mode_is_idea(monkeypatch) -> None:

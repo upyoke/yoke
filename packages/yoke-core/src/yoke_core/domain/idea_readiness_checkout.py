@@ -30,6 +30,7 @@ CHECKOUT_UNAVAILABLE_REASON = "project_checkout_unavailable"
 CHECKOUT_DEPENDENT_CHECKS = (
     "verify_function_owners",
     "verify_file_budget_line_counts",
+    "verify_scoped_paths_in_file_budget",
     "verify_attestation_rehearsal_commands",
     "collect_symlink_advisories",
 )

@@ -47,6 +47,9 @@ from yoke_core.domain.idea_readiness_results import (
     UnavailableValidation,
     VERDICT_PASS,
 )
+from yoke_core.domain.idea_readiness_scope_budget import (
+    verify_scoped_paths_in_file_budget,
+)
 from yoke_core.domain.idea_readiness_symlink_advisory import collect_symlink_advisories
 
 _extract_file_budget_paths = extract_file_budget_paths_set
@@ -234,6 +237,9 @@ def run_all_checks(
             )
         )
         issues.extend(verify_file_budget_line_counts(spec_text, repo_root=checkout))
+        issues.extend(verify_scoped_paths_in_file_budget(
+            spec_text, repo_root=checkout, issue_type=Issue,
+        ))
         issues.extend(
             verify_attestation_rehearsal_commands(
                 conn,
