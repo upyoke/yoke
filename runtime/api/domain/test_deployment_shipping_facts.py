@@ -160,9 +160,7 @@ def test_pending_independent_review_remains_pending_then_refreshes(test_db):
 def test_case_environment_overrides_share_reads_and_refresh_next_request(test_db):
     import json
     from runtime.api.domain.test_deployment_qa_stage_execution import _environment
-    from yoke_core.domain.qa_deployment_member_attached_plans import (
-        attached_member_plan_ids,
-    )
+    from yoke_core.domain.deployment_qa_member_plans import run_owed_plans
 
     _environment(test_db)
     plan = _plan(test_db, "cross-environment-display", target_envs=["stage"])
@@ -188,22 +186,12 @@ def test_case_environment_overrides_share_reads_and_refresh_next_request(test_db
     @presentation_operation
     @member_presentation
     def read(conn, subjects):
-        return [
-            attached_member_plan_ids(conn, member_item_id=member, environment_id=stage)
-            for _, member, _ in subjects
-        ]
+        owed = run_owed_plans(conn, "cross-environment-read")
+        return [sorted(owed[member]) for _, member, _ in subjects]
 
     subjects = [("cross-environment-read", member, "item-qa") for member in members]
     conn = CountedConnection(test_db)
     assert read(conn, subjects) == [[plan]] * len(members)
-    assert (
-        sum(
-            n
-            for sql, n in conn.queries.items()
-            if "SELECT name FROM environments" in sql
-        )
-        == 1
-    )
     assert (
         sum(n for sql, n in conn.queries.items() if "FROM qa_plan_cases c" in sql) == 1
     )

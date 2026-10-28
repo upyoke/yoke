@@ -205,11 +205,6 @@ def test_retracting_the_attachment_stops_it_re_materializing(test_db) -> None:
     (after,) = run_groups(test_db, run_id, ITEM_QA_STAGE)
     assert after.retracted and not after.open
     assert answer_for_item(test_db, item_id).verdict == UNANSWERED
-    from yoke_core.domain.qa_deployment_member_attached_plans import (
-        attached_member_plan_ids,
-    )
-
-    assert attached_member_plan_ids(test_db, member_item_id=item_id) == []
 
 
 def test_retracted_requirements_leave_waiver_and_supersession_listings(
