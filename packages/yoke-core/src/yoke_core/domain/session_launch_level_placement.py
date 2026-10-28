@@ -158,7 +158,6 @@ def _candidates(
             ),
             actor_id=auth.actor_id,
             project_id=project_id,
-            is_admin=auth.can_administer_project,
         )
         relays = {relay.machine_id: relay for relay in reversed(snapshot.relays)}
         for index, entry in enumerate(level.options):

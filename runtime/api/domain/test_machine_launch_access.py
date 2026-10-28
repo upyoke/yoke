@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import pytest
+
 from yoke_contracts.machine_config import machine_access
 from yoke_core.domain.machine_launch_access import (
     ACCESS_DENIED_REJECTION,
@@ -107,9 +109,26 @@ def test_an_unregistered_machine_is_never_launchable():
     assert "yoke machine register" in launch_refusal_message(conn, preview)
 
 
-def test_an_administrator_may_launch_on_a_machine_they_do_not_own():
+@pytest.mark.parametrize("machine_id", [None, "machine-1"])
+def test_an_administrator_cannot_launch_on_another_owners_private_machine(machine_id):
     conn = relay_connection()
     add_relay(conn, machine_id="machine-1", actor_id=1)
+    preview = preview_launch(
+        conn,
+        auth=authorization(actor_id=2, admin=True),
+        project_id=10,
+        surface="codex-cli",
+        machine_id=machine_id,
+        now=NOW,
+    )
+    assert preview.launchable is False
+    assert ACCESS_DENIED_REJECTION in preview.rejection_codes
+
+
+def test_automatic_placement_uses_the_administrators_own_machine():
+    conn = relay_connection()
+    add_relay(conn, machine_id="machine-1", actor_id=1)
+    add_relay(conn, relay_id="relay-2", machine_id="machine-2", actor_id=2)
     preview = preview_launch(
         conn,
         auth=authorization(actor_id=2, admin=True),
@@ -118,3 +137,20 @@ def test_an_administrator_may_launch_on_a_machine_they_do_not_own():
         now=NOW,
     )
     assert preview.launchable is True
+    assert preview.selected_relay.machine_id == "machine-2"
+    assert {relay.machine_id for relay in preview.eligible_relays} == {"machine-2"}
+
+
+def test_the_owner_can_explicitly_launch_on_their_private_machine():
+    conn = relay_connection()
+    add_relay(conn, machine_id="machine-1", actor_id=1)
+    preview = preview_launch(
+        conn,
+        auth=authorization(actor_id=1),
+        project_id=10,
+        surface="codex-cli",
+        machine_id="machine-1",
+        now=NOW,
+    )
+    assert preview.launchable is True
+    assert preview.selected_relay.machine_id == "machine-1"

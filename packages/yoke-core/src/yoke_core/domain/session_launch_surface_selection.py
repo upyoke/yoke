@@ -141,7 +141,6 @@ def preview_launch(
         ),
         actor_id=auth.actor_id,
         project_id=project_id,
-        is_admin=auth.can_administer_project,
     )
     exact_preview = place_launch(
         conn,
@@ -177,7 +176,6 @@ def preview_launch(
         ),
         actor_id=auth.actor_id,
         project_id=project_id,
-        is_admin=auth.can_administer_project,
     )
     if not fallback.relays:
         return exact_preview

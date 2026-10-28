@@ -23,12 +23,12 @@ def filter_by_machine_access(
     *,
     actor_id: int,
     project_id: int,
-    is_admin: bool = False,
 ) -> tuple[EligibilitySnapshot, dict[str, str]]:
     """Drop relays on machines this actor may not use.
 
     Returns the narrowed snapshot plus the per-machine reason for each drop,
     so the caller can name the setting rather than reporting a bare code.
+    Administrative settings authority never grants launch use.
     """
     kept = []
     reasons: dict[str, str] = {}
@@ -38,7 +38,7 @@ def filter_by_machine_access(
             machine_id=relay.machine_id,
             actor_id=int(actor_id),
             project_id=int(project_id),
-            is_admin=bool(is_admin),
+            is_admin=False,
         )
         if decision.allowed:
             kept.append(relay)
