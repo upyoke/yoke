@@ -138,32 +138,32 @@ def test_member_writes_cost_the_same_at_any_run_size(test_db):
 
 
 def test_a_membership_change_during_the_read_is_read_again(test_db, monkeypatch):
-    """A peer leaving between the read and the lock un-shares their plans."""
+    """A peer leaving between the read and the lock is read again, unshared."""
     from yoke_core.domain import deployment_qa_materialization_projection as module
+    from yoke_core.domain.deployment_qa_plan_groups import attached_plans
     from yoke_core.domain.deployment_run_member_removal import remove_members_on
 
     run_id = "run-lock-window-moved"
     first, peer = _seed(test_db, run_id, 15001, 2, requirements=1)
     reads = []
-    real = module.MaterializationProjection.shareable
+    real = module.MaterializationProjection.__init__
 
-    def shareable(self, subject, target, snapshots):
-        answer = real(self, subject, target, snapshots)
-        if not reads:
+    def read(self, conn, run):
+        real(self, conn, run)
+        reads.append(len(self.members()))
+        if len(reads) == 1:
             # Committed after the fingerprint, before the run row lock.
             remove_members_on(test_db, run_id, [peer], reason="moved mid-read")
             test_db.commit()
-        reads.append(len(answer))
-        return answer
 
-    monkeypatch.setattr(module.MaterializationProjection, "shareable", shareable)
+    monkeypatch.setattr(module.MaterializationProjection, "__init__", read)
     result = materialize_deployment_qa_stage(
         test_db,
         deployment_run_id=run_id,
         deployment_stage=STAGE,
         deployment_member_item_id=first,
     )
-    assert reads == [2, 0]  # shared on the stale read, private once re-read
+    assert reads == [2, 1]  # both members on the stale read, one once re-read
     owners = {
         row[0]
         for row in test_db.execute(
@@ -171,7 +171,8 @@ def test_a_membership_change_during_the_read_is_read_again(test_db, monkeypatch)
             (result["created_requirement_ids"],),
         ).fetchall()
     }
-    assert owners == {first}
+    assert peer not in owners
+    assert all(members == [first] for members in attached_plans(test_db, run_id).values())
 
 
 def test_member_removal_costs_the_same_at_any_run_size(test_db, monkeypatch):
