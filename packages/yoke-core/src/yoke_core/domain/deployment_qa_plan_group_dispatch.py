@@ -24,23 +24,16 @@ PLAN_GROUPS_WAIT_PREFIX = "deployment-qa-stage-wait:"
 PLAN_GROUP_FAILURE_PREFIX = "deployment-qa-plan-group-failure:"
 
 
-def prepare_plan_groups(conn: Any, stage: Mapping, *, run_id: str) -> None:
-    """Create each owed group under the run lock; a refusal propagates by name."""
-    if stage.get("scope") != "item":
-        return
-    from yoke_core.domain.deployment_qa_plan_group_writes import ensure_groups
-    from yoke_core.domain.deployment_qa_transaction_recovery import (
-        rollback_after_error,
-    )
-    from yoke_core.domain.deployment_runs_lock import lock_run
+def plan_group_writer(conn: Any, stage: Mapping, *, run_id: str):
+    """The write that creates each owed group, for the cohort's run lock.
 
-    try:
-        lock_run(conn, str(run_id))
-        ensure_groups(conn, str(run_id), str(stage["name"]))
-        conn.commit()
-    except Exception as exc:
-        rollback_after_error(conn, exc)
-        raise
+    None at a run-scoped stage. A refusal propagates by name.
+    """
+    if stage.get("scope") != "item":
+        return None
+    from yoke_core.domain.deployment_qa_plan_group_writes import ensure_groups
+
+    return lambda: ensure_groups(conn, str(run_id), str(stage["name"]))
 
 
 def settle_group(conn: Any, subject: Mapping) -> dict:
@@ -192,6 +185,6 @@ __all__ = [
     "notify_plan_group_failure",
     "notify_plan_groups_wait",
     "plan_groups_wait_key",
-    "prepare_plan_groups",
+    "plan_group_writer",
     "settle_group",
 ]

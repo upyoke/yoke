@@ -119,8 +119,24 @@ def members_plan_ids(
     return owed
 
 
+def run_owed_plans(conn: Any, run_id: str) -> dict[int, set[int]]:
+    """Every current member's owed plans, read once per presentation."""
+    from yoke_core.domain.deployment_qa_presentation_reads import presentation_read
+
+    def read():
+        rows = query_rows(
+            conn, "SELECT item_id FROM deployment_run_items WHERE run_id=%s", (str(run_id),)
+        )
+        return members_plan_ids(conn, (int(row["item_id"]) for row in rows), run_id)
+
+    return presentation_read(conn, ("run_owed_plans", str(run_id)), read)
+
+
 def member_plan_ids(conn: Any, item_id: int, run_id: str) -> set[int]:
+    owed = run_owed_plans(conn, run_id)
+    if int(item_id) in owed:
+        return owed[int(item_id)]
     return members_plan_ids(conn, [item_id], run_id)[int(item_id)]
 
 
-__all__ = ["default_plan_ids", "member_plan_ids", "members_plan_ids"]
+__all__ = ["default_plan_ids", "member_plan_ids", "members_plan_ids", "run_owed_plans"]

@@ -148,14 +148,9 @@ def group_for_target(conn: Any, run_id: str, target: Mapping) -> PlanGroup | Non
 
 def attached_plans(conn: Any, run_id: str) -> dict[int, list[int]]:
     """Each owed post-deploy plan of the run's current members, with its attachers."""
-    rows = query_rows(
-        conn,
-        "SELECT item_id FROM deployment_run_items WHERE run_id=%s ORDER BY item_id",
-        (run_id,),
-    )
-    from yoke_core.domain.deployment_qa_member_plans import members_plan_ids
+    from yoke_core.domain.deployment_qa_member_plans import run_owed_plans
 
-    owed = members_plan_ids(conn, (int(row["item_id"]) for row in rows), run_id)
+    owed = run_owed_plans(conn, str(run_id))
     plans: dict[int, list[int]] = {}
     for member in sorted(owed):
         for plan_id in sorted(owed[member]):

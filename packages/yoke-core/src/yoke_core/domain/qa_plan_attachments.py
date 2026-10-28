@@ -118,6 +118,15 @@ def attach_plan_to_item(
                 actor_id,
             ),
         )
+        if qa_phase == "post_deploy":
+            # The plan's group is real post-deploy work for this item.
+            from yoke_core.domain.qa_post_deploy_no_obligation_retirement import (
+                retract_no_obligation_for_requirement,
+            )
+
+            retract_no_obligation_for_requirement(
+                conn, item_id=int(item_id), requirement={"qa_phase": "post_deploy"}
+            )
         if commit:
             conn.commit()
     except Exception:

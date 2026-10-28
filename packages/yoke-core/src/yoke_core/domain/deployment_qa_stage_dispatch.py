@@ -41,7 +41,7 @@ from yoke_core.domain.deployment_qa_manual_wake import (
 from yoke_core.domain.deployment_qa_dispatch_wait_notice import notify_stage_wait
 from yoke_core.domain.deployment_qa_plan_group_dispatch import (
     gate_plan_groups,
-    prepare_plan_groups,
+    plan_group_writer,
 )
 
 DISPATCH_DEPLOYMENT_QA_STAGE_FUNCTION = "deployment_runs.qa_stage.dispatch"
@@ -74,11 +74,16 @@ def materialize_and_gate_deployment_qa_stage(
 
     try:
         prepare_release_inputs(conn, stage, run_id=run_id)
-        prepare_plan_groups(conn, stage, run_id=run_id)
+        errors = prepare_members(
+            conn,
+            stage,
+            run_id=run_id,
+            members=members,
+            then=plan_group_writer(conn, stage, run_id=run_id),
+        )
     except (LookupError, ValueError) as exc:
         rollback_after_error(conn, exc)
         return qa_stage_error(exc, run_id=run_id, stage_name=str(stage.get("name")))
-    errors = prepare_members(conn, stage, run_id=run_id, members=members)
     return _gate_members(
         conn,
         stage,

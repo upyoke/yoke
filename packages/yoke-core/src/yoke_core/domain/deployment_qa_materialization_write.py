@@ -11,6 +11,7 @@ from yoke_core.domain.db_savepoint import savepoint
 from yoke_core.domain.deployment_qa_transaction_recovery import rollback_after_error
 from yoke_core.domain.deployment_runs_lock import (
     lock_current_read,
+    lock_run,
     run_lock_held,
     run_lock_is_held,
 )
@@ -85,14 +86,25 @@ def write_prepared_stage(
         raise
 
 
-def write_prepared_cohort(conn, *, run_id, read, write):
+def write_under_run_lock(conn, run_id, write):
+    """Run one write under the run lock and commit it."""
+    try:
+        lock_run(conn, str(run_id))
+        write()
+        conn.commit()
+    except Exception as exc:
+        rollback_after_error(conn, exc)
+        raise
+
+
+def write_prepared_cohort(conn, *, run_id, read, write, then=None):
     """Write every member ``read()`` prepared under one run lock; return errors.
 
     ``read()`` answers ``(reads, errors)`` for the cohort, unlocked. One
     fingerprint check proves every read current; ``write(member, read)``
     then runs per member with the run's re-locks answered from the held
-    lock. A member whose write refuses rolls back only its own savepoint,
-    and the cohort commits once.
+    lock. A member whose write refuses rolls back only its own savepoint.
+    ``then()`` runs last under the same lock, and the cohort commits once.
     """
     from yoke_core.domain.deployment_qa_stage_materialization import (
         removed_member_refusals,
@@ -100,6 +112,8 @@ def write_prepared_cohort(conn, *, run_id, read, write):
 
     prepared = read()
     if not prepared[0]:
+        if then is not None:
+            write_under_run_lock(conn, run_id, then)
         return dict(prepared[1])
 
     def holds(current):
@@ -120,6 +134,8 @@ def write_prepared_cohort(conn, *, run_id, read, write):
                         write(member, stage_read)
                 except (LookupError, ValueError) as exc:
                     errors[member] = exc
+            if then is not None:
+                then()
         conn.commit()
         return errors
     except Exception as exc:

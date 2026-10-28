@@ -105,15 +105,14 @@ def test_requirement_creation_retracts_only_for_blocking_post_deploy_work(
         assert "already has post-deploy verification" in repeated.error.message
 
 
-def test_materializing_post_deploy_plan_retracts_prior_no_obligation(test_db):
+def test_attaching_a_post_deploy_plan_retracts_prior_no_obligation(test_db):
     _seed_item(test_db, item_id=ITEM, sequence=901)
     declaration_id = _no_obligation_row(test_db, ITEM, "docs only")
     _attach_post_deploy(test_db, item_id=ITEM, slug="post-deploy-real-work")
-    materialized = _materialize_item(test_db, item_id=ITEM)
-    assert materialized["created_requirement_ids"]
     first = dict(_declaration(test_db, declaration_id))
     assert first["retracted_at"]
-    _materialize_item(test_db, item_id=ITEM)
+    # The plan runs as its release's plan group; the item gets no copy.
+    assert _materialize_item(test_db, item_id=ITEM)["created_requirement_ids"] == []
     assert dict(_declaration(test_db, declaration_id)) == first
 
 

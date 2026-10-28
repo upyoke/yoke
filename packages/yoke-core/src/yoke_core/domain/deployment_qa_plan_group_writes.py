@@ -15,6 +15,7 @@ from collections.abc import Mapping
 from copy import deepcopy
 from typing import Any
 
+from yoke_core.domain.db_helpers import query_rows
 from yoke_core.domain.deployment_qa_plan_groups import (
     PINNED_PLANS,
     PlanGroup,
@@ -71,7 +72,11 @@ def _pinned_snapshot(conn: Any, run_id: str, plan_id: int, project_id: int) -> d
     pinned = payload.setdefault(PINNED_PLANS, {})
     snapshot = pinned.get(str(plan_id))
     if snapshot is None:
-        snapshot = _plan_snapshot(conn, int(plan_id), project_id=int(project_id))
+        # The run lock serializes pins; the candidate check below proves the
+        # read revision, so the plan row is not held.
+        snapshot = _plan_snapshot(
+            conn, int(plan_id), project_id=int(project_id), lock_plan=False
+        )
         pinned[str(plan_id)] = {"plan": dict(snapshot["plan"]), "cases": snapshot["cases"]}
         conn.execute(
             "UPDATE deployment_runs SET requirement_snapshot=%s WHERE id=%s",
@@ -194,6 +199,13 @@ def resolve_group_subject(
     )
 
 
+def _plan_slugs(conn: Any, plan_ids: set[int]) -> dict[int, str]:
+    if not plan_ids:
+        return {}
+    rows = query_rows(conn, "SELECT id,slug FROM qa_plans WHERE id=ANY(%s)", (sorted(plan_ids),))
+    return {int(row["id"]): str(row["slug"]) for row in rows}
+
+
 def _plan_slug(conn: Any, plan_id: int) -> str:
     row = conn.execute("SELECT slug FROM qa_plans WHERE id=%s", (int(plan_id),)).fetchone()
     return "" if row is None else str(row["slug"] if hasattr(row, "keys") else row[0])
@@ -238,10 +250,10 @@ def group_snapshots(
 def _open_group_standings(conn: Any, run_id: str, stage_name: str) -> list[tuple]:
     from yoke_core.domain.deployment_qa_stage_acceptance import stage_acceptance
 
+    groups = [group for group in run_groups(conn, run_id, stage_name) if group.open]
+    slugs = _plan_slugs(conn, {group.plan_id for group in groups})
     found = []
-    for group in run_groups(conn, run_id, stage_name):
-        if not group.open:
-            continue
+    for group in groups:
         subject = group_subject(conn, run_id, stage_name, group, require_active=False)
         answer = stage_acceptance(
             conn,
@@ -251,7 +263,7 @@ def _open_group_standings(conn: Any, run_id: str, stage_name: str) -> list[tuple
         )
         if answer.accepted:
             continue
-        label = f"plan group {group.group_id} ({_plan_slug(conn, group.plan_id) or group.plan_id})"
+        label = f"plan group {group.group_id} ({slugs.get(group.plan_id) or group.plan_id})"
         found.append((group.plan_id, label, answer.state, list(answer.blockers) or ["not run yet"]))
     return found
 

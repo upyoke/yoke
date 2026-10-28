@@ -322,7 +322,7 @@ def test_a_stage_that_selected_nothing_is_woken_with_the_plan_recipe(
     with (
         mock.patch(
             "yoke_core.domain.deployment_qa_dispatch_preparation.prepare_members",
-            side_effect=lambda conn, stage, *, run_id, members: {
+            side_effect=lambda conn, stage, *, run_id, members, then=None: {
                 member: QaCasesNotSelectedError("stage has no pinned cases")
                 for member in members
             },

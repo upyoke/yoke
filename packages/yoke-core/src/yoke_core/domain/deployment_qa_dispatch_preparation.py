@@ -30,14 +30,16 @@ def _read_missing(conn, stage, *, run_id, members):
     return reads, errors
 
 
-def prepare_members(conn, stage, *, run_id, members):
+def prepare_members(conn, stage, *, run_id, members, then=None):
     """Materialize every member still owing cases; return per-member errors.
 
-    The cohort is read as one set, unlocked, then written under one run lock.
+    The cohort is read as one set, unlocked, then written under one run lock,
+    which ``then()`` (the stage's plan groups) shares.
     """
     from yoke_core.domain import deployment_qa_stage_materialization as materialization
     from yoke_core.domain.deployment_qa_materialization_write import (
         write_prepared_cohort,
+        write_under_run_lock,
     )
 
     rows = conn.execute(
@@ -51,6 +53,8 @@ def prepare_members(conn, stage, *, run_id, members):
     }
     missing = [member for member in members if member not in existing]
     if not missing:
+        if then is not None:
+            write_under_run_lock(conn, run_id, then)
         return {}
 
     def write(member, read):
@@ -68,4 +72,5 @@ def prepare_members(conn, stage, *, run_id, members):
         run_id=run_id,
         read=lambda: _read_missing(conn, stage, run_id=run_id, members=missing),
         write=write,
+        then=then,
     )
