@@ -89,7 +89,7 @@ def test_unlink_continues_setup_without_the_old_project(tmp_path, monkeypatch):
             await advance_past_path(pilot)
             await pilot.press("down")  # machine github: Skip for now
             await pilot.press("enter")
-            await pilot.press("enter")  # project: existing folder
+            await pilot.press("down", "enter")  # project: existing folder
             await type_text(pilot, str(checkout))
             await pilot.press("enter")
             await app.workers.wait_for_complete()

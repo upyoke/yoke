@@ -10,7 +10,9 @@ from yoke_cli.config import onboard_plan_labels as labels
 from yoke_cli.config import onboard_post_checkout_plan as checkout_plan
 from yoke_cli.config import onboard_project, onboard_wizard_plan_review as review
 from yoke_cli.config import onboard_wizard_review_steps as steps
-from yoke_cli.config.onboard_permission_review import permission_summary
+from yoke_cli.config.onboard_permission_review import (
+    permission_summary, SETUP_PERMISSION_DISCLOSURE,
+)
 from yoke_contracts import harness_unattended_posture as posture
 from yoke_contracts.claude_posture_install import (
     configure_claude_app_bypass_permissions,
@@ -107,8 +109,9 @@ def test_absent_codex_does_not_promise_machine_trust_writes(machine):
 
 def test_worker_disclosure_matches_native_declarations():
     compact = permission_summary(expanded=False)
-    assert len(compact) == 1
-    assert "sandbox" in compact[0] and "hook-trust" in compact[0]
+    assert compact == []
+    assert "sandbox" in SETUP_PERMISSION_DISCLOSURE[1]
+    assert "hook-trust" in SETUP_PERMISSION_DISCLOSURE[1]
     expanded = "\n".join(permission_summary(expanded=True))
     for harness in ("claude-code", "codex", "cursor"):
         for argument in bypass.cli_bypass_arguments(harness):

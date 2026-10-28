@@ -49,7 +49,7 @@ PROJECT_GITHUB_SETUP_HELP = (
 )
 
 CLONE_FROM_GITHUB_LABEL = "Clone a project from GitHub"
-CLONE_FROM_GITHUB_DESC = "GitHub URL only — not GitLab or Bitbucket"
+CLONE_FROM_GITHUB_DESC = "GitLab, Bitbucket, etc. coming soon"
 CLONE_FROM_GITHUB_TITLE = "Clone a project from GitHub."
 CLONE_FROM_GITHUB_SUBTITLE = (
     "Paste a GitHub repo URL. GitLab and Bitbucket are not clone sources."

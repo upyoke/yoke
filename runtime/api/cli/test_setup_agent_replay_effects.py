@@ -82,12 +82,12 @@ def approvals(monkeypatch) -> list[str]:
 def _through_approval(drive: AgentDriver, answer: str) -> None:
     assert drive.replayed(answer)["state"] == "browser"
     assert drive.replayed()["key"] == "github.machine"
-    for step in ("github.machine=skip", "project.mode=machine-only"):
+    for step in ("github.machine=skip",):
         drive.replayed(step)
 
 
 def test_a_fresh_approval_is_reused_on_every_later_call(drive, approvals):
-    assert drive.replayed()["key"] == "connect.destination"
+    assert drive.replayed("project.mode=machine-only")["key"] == "connect.destination"
 
     _through_approval(drive, "connect.destination=hosted")
 
@@ -105,7 +105,7 @@ def test_an_approval_that_replaced_a_saved_connection_is_not_asked_again(
         activate=True,
         path=str(machine_config.config_path(None)),
     )
-    assert drive.replayed()["key"] == "connect.saved_destination"
+    assert drive.replayed("project.mode=machine-only")["key"] == "connect.saved_destination"
 
     _through_approval(drive, "connect.saved_destination=hosted")
 
@@ -145,7 +145,7 @@ def test_github_sign_in_replays_to_the_connected_question(drive, monkeypatch):
         "status",
         lambda **_k: {"ok": True, "ready": True, "configured": True},
     )
-    drive.replay_each(("connect.destination=local", "connect.local_universe=fresh"))
+    drive.replay_each(("project.mode=machine-only", "connect.destination=local", "connect.local_universe=fresh"))
     drive.replayed("connect.admin_name=Test Person")
 
     assert drive.replayed("github.machine=connect")["state"] == "browser"
@@ -172,9 +172,8 @@ def test_the_git_installer_opens_once(drive, monkeypatch):
         "install_git",
         lambda **_k: installs.append("open") or handoff_advice,
     )
-    drive.replay_each(("connect.destination=local", "connect.local_universe=fresh"))
-    drive.replay_each(TO_PROJECT)
-    assert drive.replayed("project.mode=local-checkout")["key"] == (
+    drive.replay_each(("project.mode=local-checkout", "connect.destination=local", "connect.local_universe=fresh"))
+    assert drive.replay_each(TO_PROJECT)["key"] == (
         "project.project_git_missing"
     )
 
@@ -217,6 +216,7 @@ def test_a_local_backup_restores_once(drive, monkeypatch, tmp_path: Path):
 
     line = drive.replay_each(
         (
+            "project.mode=machine-only",
             "connect.destination=local",
             "connect.local_universe=backup",
             f"connect.backup_path={archive}",
@@ -255,6 +255,7 @@ def test_a_self_host_server_starts_once(drive, monkeypatch, tmp_path: Path):
 
     complete = drive.replay_each(
         (
+            "project.mode=machine-only",
             "connect.destination=self-host-server",
             "connect.self_host_server=start",
             "connect.server_start=fresh",

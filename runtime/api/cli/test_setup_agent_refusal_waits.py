@@ -40,7 +40,7 @@ def server(monkeypatch) -> Server:
 
 
 def test_the_answer_a_refusal_prints_is_accepted_next(drive, monkeypatch):
-    drive.walk(MACHINE_ONLY_ANSWERS[:3])
+    drive.walk(MACHINE_ONLY_ANSWERS[:4])
     monkeypatch.setattr(
         local_universe_setup,
         "inspect_local_state",
@@ -61,7 +61,7 @@ def test_the_answer_a_refusal_prints_is_accepted_next(drive, monkeypatch):
 
 
 def test_a_retry_answer_starts_one_approval_and_returns_it(drive, server):
-    drive()
+    drive("project.mode=machine-only")
     drive("connect.destination=hosted")
     server.polls = [RuntimeError("authorization_expired: the code expired")]
     code, lines = drive()
@@ -76,10 +76,10 @@ def test_a_retry_answer_starts_one_approval_and_returns_it(drive, server):
 
 
 def test_back_from_the_approval_error_starts_nothing(drive, server):
-    drive()
+    drive("project.mode=machine-only")
     drive("connect.destination=hosted")
     server.polls = [RuntimeError("authorization_expired: the code expired")]
-    drive()
+    drive("project.mode=machine-only")
 
     code, lines = drive("connect.hosted_machine_error=back")
 

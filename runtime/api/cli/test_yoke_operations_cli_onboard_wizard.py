@@ -146,9 +146,7 @@ def test_local_checkout_collects_project_fields() -> None:
             await advance_past_path(pilot)
             await pilot.press("down")  # machine github: Skip for now
             await pilot.press("enter")
-            await pilot.press(
-                "enter"
-            )  # project: existing folder (default, local-checkout)
+            await pilot.press("down", "enter")  # project: existing folder
             await type_text(pilot, "/home/code/widget")  # checkout path
             await pilot.press("enter")
             await pilot.press("enter")  # project ID -> widget

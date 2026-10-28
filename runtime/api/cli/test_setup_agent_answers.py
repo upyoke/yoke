@@ -44,13 +44,14 @@ def _refused(result, reason: str, key: str) -> dict:
 def test_store_is_private_and_keyed_by_question(agent):
     drive, _ = agent
 
-    drive.walk(MACHINE_ONLY_ANSWERS[:3])
+    drive.walk(MACHINE_ONLY_ANSWERS[:4])
 
     path = setup_agent_answers.store_path()
     assert stat.S_IMODE(path.stat().st_mode) == 0o600
     record = json.loads(path.read_text(encoding="utf-8"))
     assert record["waiting_key"] == "github.machine"
     assert record["answers"] == {
+        "project.mode": "machine-only",
         "connect.destination": "local",
         "connect.local_universe": "fresh",
         "connect.admin_name": "Test Person",
@@ -59,7 +60,7 @@ def test_store_is_private_and_keyed_by_question(agent):
 
 def test_an_answer_for_another_question_is_not_current(agent):
     drive, _ = agent
-    drive.walk(MACHINE_ONLY_ANSWERS[:3])
+    drive.walk(MACHINE_ONLY_ANSWERS[:4])
     before = _store_bytes()
 
     _refused(
@@ -71,7 +72,7 @@ def test_an_answer_for_another_question_is_not_current(agent):
 
 def test_a_value_outside_the_choices_is_not_allowed(agent):
     drive, _ = agent
-    drive.walk(MACHINE_ONLY_ANSWERS[:3])
+    drive.walk(MACHINE_ONLY_ANSWERS[:4])
     before = _store_bytes()
 
     line = _refused(
@@ -84,7 +85,7 @@ def test_a_value_outside_the_choices_is_not_allowed(agent):
 
 def test_an_input_runs_the_screens_own_validation(agent, tmp_path: Path):
     drive, _ = agent
-    drive.walk((*MACHINE_ONLY_ANSWERS[:4], "project.mode=local-checkout"))
+    drive.walk(("project.mode=local-checkout", *MACHINE_ONLY_ANSWERS[1:]))
     plain_file = tmp_path / "notes.txt"
     plain_file.write_text("not a folder", encoding="utf-8")
     before = _store_bytes()
@@ -104,8 +105,8 @@ def test_an_invalid_form_field_names_the_field(agent, tmp_path: Path):
     checkout = git_checkout(tmp_path / "demo")
     drive.walk(
         (
-            *MACHINE_ONLY_ANSWERS[:4],
             "project.mode=local-checkout",
+            *MACHINE_ONLY_ANSWERS[1:],
             f"project.folder={checkout}",
         )
     )
@@ -122,6 +123,7 @@ def test_an_invalid_form_field_names_the_field(agent, tmp_path: Path):
 
 
 SERVER_FORM_ROUTE = (
+    "project.mode=machine-only",
     "connect.destination=server",
     "connect.team_server_url=https://yoke.example.invalid",
     "connect.yoke_verify_error=token",
@@ -192,7 +194,7 @@ def _last_key(result) -> str:
 
 def test_changed_presets_refuse_and_keep_the_stored_ones(agent):
     drive, _ = agent
-    drive.walk(MACHINE_ONLY_ANSWERS[:2])
+    drive.walk(MACHINE_ONLY_ANSWERS[:3])
     before = _store_bytes()
 
     code, lines = drive(flags=("--yes",))
@@ -244,7 +246,7 @@ def test_repeating_the_stored_presets_is_allowed(agent):
 
     code, lines = drive(MACHINE_ONLY_ANSWERS[0], flags=("--yes",))
 
-    assert (code, lines[-1]["key"]) == (0, "connect.local_universe")
+    assert (code, lines[-1]["key"]) == (0, "connect.destination")
 
 
 def test_a_second_invocation_refuses_while_one_runs(agent):
@@ -276,7 +278,7 @@ def test_a_store_with_loose_permissions_is_refused(agent):
 
 def test_a_stored_answer_the_screen_now_rejects_is_asked_again(agent):
     drive, _ = agent
-    drive.walk(MACHINE_ONLY_ANSWERS[:3])
+    drive.walk(MACHINE_ONLY_ANSWERS[:4])
     path = setup_agent_answers.store_path()
     record = json.loads(path.read_text(encoding="utf-8"))
     record["answers"]["connect.local_universe"] = "retired-choice"
@@ -297,7 +299,7 @@ def test_a_run_fact_is_saved_at_once_and_survives_a_refusal(agent):
     finally:
         store.release()
 
-    code, lines = drive("project.mode=machine-only")
+    code, lines = drive("github.machine=skip")
 
     assert lines[-1]["reason"] == "setup_answer_not_current"
     record = json.loads(setup_agent_answers.store_path().read_text(encoding="utf-8"))

@@ -7,8 +7,9 @@ answer onto ``self.result`` and routes to the next view through the shell's
 ``_goto`` / ``_goto_input`` / ``_selection_view`` primitives. It holds no
 Textual plumbing and no report-assembly logic — only the decision graph.
 
-The machine GitHub step runs before the project step so repo binding can use
-the machine's GitHub App authorization once that flow is connected.
+The project-mode question runs before Connect and retains the chosen intent.
+The project path runs after GitHub so repo binding can use the machine's
+GitHub App authorization once that flow is connected.
 """
 
 from __future__ import annotations
@@ -65,12 +66,13 @@ class WizardFlow(
 ):
     # ── Project step ────────────────────────────────────────
 
-    def _goto_project_mode(self: _Shell) -> None:
+    def _goto_project_mode(self: _Shell, *, on_selected=None) -> None:
         if getattr(self, "_restored_projects", None) and not getattr(
             self, "_restored_projects_offered", False
         ):
             from yoke_cli.config.onboard_wizard_restored_projects import offer
 
+            self._project_preset_attempted = True
             offer(self)
             return
         if self._project_mode_preset and not self._project_preset_attempted:
@@ -89,7 +91,7 @@ class WizardFlow(
                 "Set up a project.",
                 "Where's the code? You can change this later.",
                 steps.MODE_ROWS,
-                self._on_project_mode,
+                on_selected or self._on_project_mode,
                 guidance=onboard_github_copy.PROJECT_MODE_AGENT_GUIDANCE,
             )
         )

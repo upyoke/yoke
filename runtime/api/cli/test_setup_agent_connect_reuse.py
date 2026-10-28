@@ -77,8 +77,7 @@ def _states(lines: list[dict]) -> list[str]:
 
 def _answer_to_review(drive: AgentDriver) -> None:
     for answer, next_key in (
-        ("github.machine=skip", "project.mode"),
-        ("project.mode=machine-only", "review.confirm"),
+        ("github.machine=skip", "review.confirm"),
     ):
         code, lines = drive(answer)
         assert (code, _states(lines), lines[-1]["key"]) == (
@@ -89,7 +88,7 @@ def _answer_to_review(drive: AgentDriver) -> None:
 
 
 def test_first_connect_prints_one_approval_and_later_answers_reuse_it(agent, approvals):
-    code, lines = agent(flags=CONNECT)
+    code, lines = agent("project.mode=machine-only", flags=CONNECT)
 
     assert (code, _states(lines)) == (0, ["browser"]), lines
     assert lines[0]["human"]["user_code"] == "CODE-1"
@@ -114,7 +113,7 @@ def test_stored_connection_answers_advance_without_a_new_approval(agent, approva
         path=str(machine_config.config_path(None)),
     )
 
-    code, lines = agent(flags=CONNECT)
+    code, lines = agent("project.mode=machine-only", flags=CONNECT)
 
     assert (code, _states(lines), lines[-1]["key"]) == (
         0,

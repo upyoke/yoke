@@ -83,6 +83,7 @@ def test_retry_preserves_shell_changes_and_finish_summary(monkeypatch):
     from yoke_cli.config.onboard_wizard_finish_flow import FinishBodyFlow
 
     class Flow(PathFlow):
+        _project_mode_preset = True
         result = SimpleNamespace(path_repair={"changed_files": ["/example/.profile"]})
         connected = False
         _run_facts = RunFacts()

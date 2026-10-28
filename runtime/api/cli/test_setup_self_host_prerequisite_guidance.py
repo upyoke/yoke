@@ -75,6 +75,7 @@ def test_agent_receives_preparation_and_actionable_retry_before_any_bundle_write
     isolate_agent_setup(tmp_path, monkeypatch)
     drive = AgentDriver(capsys)
     runtime_state["failure"] = failure
+    drive("project.mode=machine-only")
     code, lines = drive("connect.destination=self-host-server")
     assert (code, lines[-1]["key"]) == (0, "connect.self_host_server")
     _guidance(json.dumps(lines[-1]))

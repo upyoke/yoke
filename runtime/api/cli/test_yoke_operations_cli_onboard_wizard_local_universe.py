@@ -91,7 +91,7 @@ def test_local_destination_manifest_project_id_uses_local_universe(
             await enter_admin_name(pilot)
             await pilot.press("down")  # machine github: Skip for now
             await pilot.press("enter")
-            await pilot.press("enter")  # project: existing folder
+            await pilot.press("down", "enter")  # project: existing folder
             await type_text(pilot, str(checkout))
             await pilot.press("enter")
             await app.workers.wait_for_complete()

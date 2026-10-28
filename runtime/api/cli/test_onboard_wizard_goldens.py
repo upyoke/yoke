@@ -83,6 +83,7 @@ def test_install_error() -> None:
 
     async def drive(a: OnboardWizardApp, _pilot: Any) -> None:
         a.result.path_repair = {"changed_files": ["~/.zprofile"]}
+        a._permission_disclosed = False
         a._goto_path_apply_error(
             "install_required_tool_missing: uvx is missing. Run the installer "
             "again, then open a new terminal and retry Install."

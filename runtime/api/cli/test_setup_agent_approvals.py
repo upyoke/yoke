@@ -110,7 +110,7 @@ def _only_browser(result) -> dict:
 
 
 def test_browser_step_ends_the_call_and_the_next_call_continues(drive, server):
-    drive()
+    drive("project.mode=machine-only")
 
     browser = _only_browser(drive("connect.destination=hosted"))
 
@@ -141,7 +141,7 @@ def test_browser_step_ends_the_call_and_the_next_call_continues(drive, server):
 
 
 def test_a_denial_mints_one_fresh_code_then_asks(drive, server):
-    drive()
+    drive("project.mode=machine-only")
     _only_browser(drive("connect.destination=hosted"))
     server.polls = [HostedMachineAuthorizationDenied("authorization_denied: denied")]
 
@@ -242,7 +242,7 @@ def github(monkeypatch) -> GitHub:
 
 
 def _to_github(drive: AgentDriver) -> None:
-    drive.walk(MACHINE_ONLY_ANSWERS[:3])
+    drive.walk(MACHINE_ONLY_ANSWERS[:4])
 
 
 def test_github_sign_in_ends_the_call_and_resumes(drive, github):
@@ -273,7 +273,7 @@ def test_github_sign_in_left_for_later_forgets_its_code(drive, github):
 
     code, lines = drive("github.machine=skip")
 
-    assert (code, lines[-1]["key"]) == (0, "project.mode"), lines
+    assert (code, lines[-1]["key"]) == (0, "review.confirm"), lines
     assert _saved()["pending_approval"] is None
 
 
@@ -321,7 +321,7 @@ def test_new_approval_survives_a_later_refusal(drive, server, github, monkeypatc
     if kind == "github":
         _to_github(drive)
     else:
-        drive()
+        drive("project.mode=machine-only")
     before = _saved()["answers"]
 
     def refuse(_self, prompt):

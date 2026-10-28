@@ -12,6 +12,7 @@ from yoke_cli.config.onboard_wizard_path_screens import (
 )
 from yoke_cli.config.onboard_wizard_widgets import STEP_INSTALL
 from yoke_cli.config.setup_run_facts import PATH_CHANGED_FILES
+from yoke_cli.config.onboard_wizard_project_fields import reset_project_fields
 
 
 class PathFlow:
@@ -48,7 +49,21 @@ class PathFlow:
         if error:
             self._goto_path_apply_error(error)
         else:
-            self._start_connect()
+            if (
+                not self._project_mode_preset
+                and not self._stored_project_checkouts
+                and not getattr(self, "_restored_projects", None)
+            ):
+                self._goto_project_mode(on_selected=self._remember_project_mode)
+            else:
+                self._start_connect()
+
+    def _remember_project_mode(self, mode: str) -> None:
+        reset_project_fields(self.result)
+        self._project_preset_attempted = False
+        self.result.project_mode = mode
+        self._project_mode_preset = True
+        self._start_connect()
 
     def _check_install(self) -> tuple[dict[str, Any], str]:
         plan: dict[str, Any] = {}

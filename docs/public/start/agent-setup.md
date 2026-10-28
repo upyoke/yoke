@@ -35,6 +35,16 @@ person and answers it with a command.
 5. Repeat until `state` is `done`, then show the person `detail`,
    `install_health` in full and the `next` steps in order.
 
+Setup first asks `project.mode` (where the code lives), before sign-in and
+GitHub connection, and saves that answer. The chosen create, existing-folder
+or clone path runs after connection; private-clone screens still need GitHub.
+A CLI project preset or saved checkout skips this early question; choosing
+another project in a saved or restored project picker asks it again.
+The first question also explains that setup disables command approval and
+sandbox restrictions in installed agent tools across the machine, and that
+workers bypass approval (Codex workers also bypass sandbox and CLI hook trust).
+These changes are required; there is no separate permission question.
+
 Answers are saved by question key, so every call resumes where setup stopped.
 Steps that change the machine record what they did in the same setup file:
 the Project step's clone, a saved connection, a backup restore, an opened git
@@ -48,7 +58,7 @@ wait notices go to stderr; stdout carries only the JSON lines.
 ```json
 {"setup": "agent", "version": 1, "state": "question", "step": "project",
  "key": "project.mode", "question": "Set up a project.", "detail": [],
- "answers": [{"value": "machine-only", "label": "Just this machine", "description": "…"}],
+ "answers": [{"value": "machine-only", "label": "Don't set up a project now", "description": "just the machine"}],
  "input": null, "fields": [], "secret": false, "human": null,
  "guidance": "…", "answer_command": "/Users/me/.local/bin/yoke setup --agent --answer project.mode=<value>"}
 ```

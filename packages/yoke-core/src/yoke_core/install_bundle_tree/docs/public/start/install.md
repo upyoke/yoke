@@ -88,7 +88,10 @@ For the recommended agent path, see [Agent setup](agent-setup.md).
 The wizard has these steps:
 
 1. **Install / PATH** — checks required tools and repairs PATH automatically,
-   then opens Account. Install appears only when a check fails or a required
+   then asks where the code lives before Account and GitHub. A project preset
+   or saved checkout skips that early question. The chosen project path runs
+   after GitHub; choosing another saved or restored project asks again.
+   Install appears only when a check fails or a required
    tool is missing; fix the named cause and choose **Retry Install**. Review
    and the final summary list any shell files changed by uv.
 2. **Account** — where Yoke lives (this machine / team server / upyoke.com)
@@ -99,15 +102,17 @@ The wizard has these steps:
 5. **Review** — check compact change counts, then Apply. **Show all changes**
    lists applicable configuration and hook-trust writes; **Show summary** returns
    to the counts. Shell PATH files changed during Install are already applied
-   and stay changed if you cancel. Worker launches bypass command approval;
-   Codex workers also bypass the sandbox and CLI hook-trust checks. Expanded
-   Review names the actual launch arguments. Unrelated operator settings stay
-   in place; permission modes are always set for unattended use.
+   and stay changed if you cancel. Expanded Review names worker launch arguments.
 
-Anything the wizard already finds — a checkout carrying Yoke files, a
-repository that already has a project, a checkout already mapped on this
-machine — is announced before you answer anything, and connecting to what
-exists is the default. The mouse scrolls and clicks normally; on any screen
+The first question explains the machine-wide permission changes: setup disables
+command approval and sandbox restrictions for installed agent tools. Workers
+also bypass command approval; Codex workers bypass sandbox and CLI hook-trust
+checks. These settings are required, with no separate permission question.
+
+Setup offers saved checkouts and restored projects before asking you to
+choose another project. If setup finds Yoke files or an existing
+project while inspecting a folder, it explains that match before asking how to proceed;
+connecting to what exists is the default. The mouse scrolls and clicks normally; on any screen
 showing a URL or a one-time code the footer names a copy key (`^y`) and an
 open-in-browser key (`^o`) instead of a native drag-select.
 

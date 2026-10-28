@@ -290,6 +290,9 @@ def make_app(defaults: WizardDefaults | None = None) -> tuple[OnboardWizardApp, 
         ),
         apply_report=spy,
     )
+    # These offline suites exercise connection and downstream project screens.
+    # Cold-start Install and early project intent have their own flow tests.
+    app._start_front = app._start_connect
     return app, spy
 
 

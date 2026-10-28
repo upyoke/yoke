@@ -65,19 +65,19 @@ def _github_skip_row(value: str) -> SelectionRow:
 
 MODE_ROWS = [
     SelectionRow(
+        onboard_project.PROJECT_MODE_CREATE_REPO,
+        "Create a new project",
+        "new folder, optionally also created on GitHub",
+    ),
+    SelectionRow(
         onboard_project.PROJECT_MODE_LOCAL_CHECKOUT,
-        "Existing folder on my machine",
+        "Use existing folder on my machine",
         "git repo or not",
     ),
     SelectionRow(
         onboard_project.PROJECT_MODE_CLONE_REMOTE,
         onboard_github_copy.CLONE_FROM_GITHUB_LABEL,
         onboard_github_copy.CLONE_FROM_GITHUB_DESC,
-    ),
-    SelectionRow(
-        onboard_project.PROJECT_MODE_CREATE_REPO,
-        "Create a new project",
-        "new folder, optionally also created on GitHub",
     ),
     SelectionRow(
         onboard_project.PROJECT_MODE_EDIT_YOKE_SOURCE,

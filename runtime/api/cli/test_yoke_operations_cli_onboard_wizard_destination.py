@@ -312,13 +312,13 @@ def test_wizard_local_apply_lands_config_like_yoke_init_local(
         async with app.run_test() as pilot:
             await pilot.pause()
             await advance_past_path(pilot)
+            for _ in range(4):  # early project intent: machine-only
+                await pilot.press("down")
+            await pilot.press("enter")
             await pilot.press("enter")
             await pilot.press("enter")  # universe summary: Continue
             await enter_admin_name(pilot)
             await pilot.press("down")  # github: Skip for now
-            await pilot.press("enter")
-            for _ in range(4):  # project: machine-only
-                await pilot.press("down")
             await pilot.press("enter")
             await _wait_for_body_text(app, pilot, "Review what")
             await pilot.press("enter")  # review: Apply

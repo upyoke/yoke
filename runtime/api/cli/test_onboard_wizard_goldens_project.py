@@ -49,15 +49,14 @@ def _stub_source_branch(monkeypatch):
     )
 
 
-# --------------------------------------------------------------------------- #
-# Project step (batch 3 + 4)
-# --------------------------------------------------------------------------- #
+# Project screens
 
 
 def test_project_source_select() -> None:
     app = make_app()
 
     async def drive(a: OnboardWizardApp, _pilot: Any) -> None:
+        a._permission_disclosed = False
         a._goto_project_mode()
 
     assert_golden(
