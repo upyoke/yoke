@@ -72,15 +72,19 @@ def evaluate_inprocess(
     from yoke_harness.hooks.command_workdir_stamp import stamp_command_workdir
     from yoke_harness.hooks.identity import detect_executor
 
-    if event_name == "UserPromptSubmit" and detect_executor() == "codex":
+    if event_name in {"SessionStart", "UserPromptSubmit"} and detect_executor() == "codex":
         from yoke_harness.hooks.relay_identity_guard import parse_hook_payload
         from yoke_harness.hooks.identity_codex_runtime import codex_transcript_exists
 
         payload = parse_hook_payload(stdin_data)
         session_id = str(payload.get("session_id") or payload.get("thread_id") or "")
-        if session_id and not codex_transcript_exists(
-            session_id, str(payload.get("transcript_path") or "")
-        ):
+        transcript_path = str(payload.get("transcript_path") or "")
+        unsaved = (
+            not transcript_path
+            if event_name == "SessionStart"
+            else session_id and not codex_transcript_exists(session_id, transcript_path)
+        )
+        if unsaved:
             if on_complete is not None:
                 on_complete()
             return 0

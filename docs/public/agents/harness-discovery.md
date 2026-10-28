@@ -145,7 +145,8 @@ Inspect hook configuration with `yoke hook --help`.
 
 Startup orientation uses one client composer, harness JSON envelope and combined
 context budget. Codex delivers early on `SessionStart` when its startup payload
-is ready (a `startup` without a transcript is suppressed); Claude delivers on
+names a transcript (every start source without a path is suppressed before
+relay and registration); Claude delivers on
 `UserPromptSubmit`, and Cursor on `SessionStart`. A later Codex or Claude prompt,
 or Cursor tool result, retries missing or unconfirmed orientation. A session's
 project scope is fixed by its first registration. Claude Code reads hooks
