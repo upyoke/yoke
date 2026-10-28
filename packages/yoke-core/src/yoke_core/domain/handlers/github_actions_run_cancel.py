@@ -97,6 +97,7 @@ REGISTRATIONS: List[Dict[str, Any]] = [
         "guardrails": ["project_auth_required"],
         "adapter_status": "live",
         "claim_required_kind": None,
+        "ambient_session_required": False,
         "minimum_serving_version": "next-release",
     },
 ]
