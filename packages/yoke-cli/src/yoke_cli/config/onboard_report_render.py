@@ -80,6 +80,9 @@ def render_human(report: Dict[str, Any]) -> str:
             lines.append(
                 f"  {row.get('severity')}: {row.get('hc')} — {row.get('detail')}"
             )
+        for step in health.get("pending", []):
+            lines.append(f"  {step['detail']}: {', '.join(step['checks'])}")
+            lines.append(f"  Next: {step['next_action']}")
         if health.get("error"):
             lines.append(f"  {health['error'].get('code')}: {health['recovery']}")
     lines.extend(["", "Next steps:"])
