@@ -24,13 +24,16 @@ it. The paired contract test fails on the registry, not on the
 stranger's machine.
 
 Read-only functions never need declaring: the dispatcher's session
-requirement applies only to mutating calls, so this set holds the
+requirement applies only to mutating calls, so the contract judges the
 mutating ones alone.
 """
 
 from __future__ import annotations
 
 from typing import Any, Iterable, Optional, Tuple
+
+from yoke_core.domain.function_authz_scope_release_ci import RELEASE_CI_AUTHZ_BY_ID
+from yoke_core.domain.yoke_function_actor_identity import is_read_only
 
 #: What ``yoke setup``'s Apply stages and the project install they drive
 #: write. Every one of these runs in the wizard's own process, which is a
@@ -86,11 +89,19 @@ TERMINAL_RECIPES: frozenset[str] = frozenset(
     }
 )
 
-TERMINAL_REACHABLE_FUNCTION_IDS: frozenset[str] = ONBOARDING_APPLY | TERMINAL_RECIPES
+#: What a release or CI token may call. GitHub Actions authenticates with
+#: that token alone and never registers a harness session, so every
+#: function the release-CI authorization grants is reached session-less.
+RELEASE_CI_IDENTITY: frozenset[str] = frozenset(RELEASE_CI_AUTHZ_BY_ID)
+
+TERMINAL_REACHABLE_FUNCTION_IDS: frozenset[str] = (
+    ONBOARDING_APPLY | TERMINAL_RECIPES | RELEASE_CI_IDENTITY
+)
 
 _SURFACES: Tuple[Tuple[str, frozenset[str]], ...] = (
     ("onboarding Apply", ONBOARDING_APPLY),
     ("plain-terminal CLI recipe", TERMINAL_RECIPES),
+    ("release CI identity", RELEASE_CI_IDENTITY),
 )
 
 
@@ -121,7 +132,7 @@ def undeclared_terminal_reachable(
                 )
             )
             continue
-        if entry.ambient_session_required:
+        if entry.ambient_session_required and not is_read_only(entry):
             findings.append(
                 (
                     function_id,
@@ -135,6 +146,7 @@ def undeclared_terminal_reachable(
 
 __all__ = [
     "ONBOARDING_APPLY",
+    "RELEASE_CI_IDENTITY",
     "TERMINAL_REACHABLE_FUNCTION_IDS",
     "TERMINAL_RECIPES",
     "surface_for",

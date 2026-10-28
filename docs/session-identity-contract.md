@@ -199,7 +199,10 @@ before any harness session exists: direct-work filing through `items.create`
 onboarding, and the project-config writes they drive — create/update,
 capability and environment settings, github binding, project-structure patches
 (the wizard's hosting-posture stage), the install's harness machine report, and
-a new project's first deployment flows. A session is still bound and audited
+a new project's first deployment flows. Release CI joins them: GitHub Actions
+calls the release-CI functions (`function_authz_scope_release_ci`) with a
+project-scoped release token and no session, so each mutating one opts out too;
+its narrow release permission still gates it. A session is still bound and audited
 when one is present; otherwise the call carries the https bearer actor or this
 universe's operating actor, the permission gate refuses a side-effecting call
 with no numeric actor as `actor_required`, and it is recorded via
@@ -211,8 +214,9 @@ outside the bootstrap path, including flow-definition edits
 registry knows which functions a person without a session actually reaches — an
 onboarding Apply once stopped at its final stage because one write never carried
 the flag, and told the operator to file a field-note about their own first
-command. `terminal_reachable_functions` enumerates what the wizard's Apply stages
-and the plain-terminal recipes reach; its contract test fails on the registry.
+command. `terminal_reachable_functions` enumerates what the wizard's Apply stages, the
+plain-terminal recipes and the release-CI identity reach; its contract test fails
+on the registry.
 
 **Session-less is not author-less.** A session-optional mutating call that
 resolves no session binds this universe's operating actor — the machine owner
