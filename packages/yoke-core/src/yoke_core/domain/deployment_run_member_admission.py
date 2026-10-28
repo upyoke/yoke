@@ -153,7 +153,7 @@ def prepare_run_items(
     entries = {int(member.item_id): member for member in members}
     ids = sorted(entries)
     if not ids:
-        return RunItemsAdmission((), {}, {}, {}, (), ())
+        return RunItemsAdmission((), {}, {}, {}, ())
 
     def refuse(item_id: int, exc: Exception) -> None:
         if refused is None:
