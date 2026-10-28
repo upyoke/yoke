@@ -6,6 +6,8 @@ import subprocess
 from pathlib import Path
 from unittest import mock
 
+import pytest
+
 from yoke_core.engines.remote_branch_cleanup import (
     delete_remote_branch_if_merged,
 )
@@ -160,32 +162,35 @@ def test_ancestry_miss_is_rechecked_once_against_a_refreshed_target():
     result, commands = _cleanup_with(
         [
             *_up_to_first_ancestry(1),
-            _completed(),                          # refetch the target
-            _completed(stdout="target-sha-2\n"),   # its newer tip
-            _completed(),                          # ancestry, now containing
-            _completed(),                          # leased delete
+            _completed(),  # refetch the target
+            _completed(stdout="target-sha-2\n"),  # its newer tip
+            _completed(),  # ancestry, now containing
+            _completed(),  # leased delete
         ],
         slept=slept,
     )
 
     assert result.status == "deleted"
     assert slept and slept[0] > 0
-    assert commands.count(
-        ["fetch", "origin", "+refs/heads/main:refs/remotes/origin/main"]
-    ) == 2
+    assert (
+        commands.count(["fetch", "origin", "+refs/heads/main:refs/remotes/origin/main"])
+        == 2
+    )
     assert ["merge-base", "--is-ancestor", "branch-sha", "target-sha-2"] in commands
     assert commands[-1][0] == "push"
 
 
 def test_branch_still_unmerged_after_the_recheck_is_preserved():
     """One retry closes the visibility window; it does not force a delete."""
-    result, commands = _cleanup_with([
-        *_up_to_first_ancestry(1),
-        _completed(),
-        _completed(stdout="target-sha-2\n"),
-        _completed(returncode=1),
-        *_unique_after_ancestry_miss(),
-    ])
+    result, commands = _cleanup_with(
+        [
+            *_up_to_first_ancestry(1),
+            _completed(),
+            _completed(stdout="target-sha-2\n"),
+            _completed(returncode=1),
+            *_unique_after_ancestry_miss(),
+        ]
+    )
 
     assert result.status == "preserved"
     assert result.reason == (
@@ -196,10 +201,12 @@ def test_branch_still_unmerged_after_the_recheck_is_preserved():
 
 
 def test_unresolvable_refreshed_target_is_named_rather_than_assumed():
-    result, _commands = _cleanup_with([
-        *_up_to_first_ancestry(1),
-        _completed(returncode=1),
-    ])
+    result, _commands = _cleanup_with(
+        [
+            *_up_to_first_ancestry(1),
+            _completed(returncode=1),
+        ]
+    )
 
     assert result.status == "preserved"
     assert result.reason == "refreshed target branch could not be resolved"
@@ -214,7 +221,8 @@ def _git(path: Path, *args: str, check: bool = True):
     )
 
 
-def test_concurrent_remote_update_survives_leased_delete(tmp_path: Path):
+@pytest.mark.parametrize("snapshot", [False, True])
+def test_concurrent_remote_update_survives_leased_delete(tmp_path: Path, snapshot):
     origin = tmp_path / "origin.git"
     repo = tmp_path / "repo"
     subprocess.run(
@@ -263,13 +271,62 @@ def test_concurrent_remote_update_survives_leased_delete(tmp_path: Path):
             )
         return _git(repo, *command, check=False)
 
+    refreshed = None
+    if snapshot:
+        advertised = _git(repo, "ls-remote", "--heads", "origin").stdout
+        refreshed = {
+            line.split()[1].removeprefix("refs/heads/"): line.split()[0]
+            for line in advertised.splitlines()
+        }
+        _git(repo, "fetch", "origin", "+refs/heads/*:refs/remotes/origin/*")
     result = delete_remote_branch_if_merged(
         run_git=run_git,
         branch=TEST_ITEM_REF,
         target_branch="main",
+        refreshed_branches=refreshed,
     )
 
     assert result.status == "preserved"
     assert "refused" in result.reason
     advertised = _git(repo, "ls-remote", "origin", f"refs/heads/{TEST_ITEM_REF}")
     assert advertised.stdout.split()[0] == concurrent_sha
+
+
+@pytest.mark.parametrize(
+    "branch_tip,target_tip,landed,expected",
+    [
+        ("branch-sha", "target-sha", True, "deleted"),
+        ("changed-sha", "target-sha", True, "preserved"),
+        ("branch-sha", "changed-sha", True, "preserved"),
+        ("branch-sha", "target-sha", False, "preserved"),
+    ],
+)
+def test_snapshot_retains_merge_and_identity_proofs(
+    branch_tip, target_tip, landed, expected
+):
+    from yoke_core.engines import remote_branch_cleanup as cleanup
+
+    commands = []
+
+    def run(command):
+        commands.append(command)
+        if command[0] == "rev-parse":
+            return _completed(
+                stdout=branch_tip if TEST_ITEM_REF in command[-1] else target_tip
+            )
+        return _completed()
+
+    with mock.patch.object(
+        cleanup,
+        "assess_branch_landed",
+        return_value=mock.Mock(landed=landed, reason="carries unique work"),
+    ):
+        result = delete_remote_branch_if_merged(
+            run_git=run,
+            branch=TEST_ITEM_REF,
+            target_branch="main",
+            refreshed_branches={TEST_ITEM_REF: "branch-sha", "main": "target-sha"},
+        )
+    assert result.status == expected
+    assert not any(command[0] in {"fetch", "ls-remote"} for command in commands)
+    assert any(command[0] == "push" for command in commands) == (expected == "deleted")

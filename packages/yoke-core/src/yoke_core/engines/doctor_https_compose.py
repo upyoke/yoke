@@ -63,9 +63,7 @@ def machine_has_checkout_for(project: str) -> bool:
 def false_na_source_slugs(results: Sequence[Dict[str, Any]]) -> List[str]:
     """Slugs reported N/A solely because the relayed runner lacked a checkout.
 
-    Prefer declared source-checkout slugs, but also heal older control-plane
-    builds that still stamp the checkout N/A detail on checks this client
-    no longer classifies as source-only.
+    Only declared source-checkout slugs may run through this local route.
     """
     wanted = source_checkout_slugs()
     out: List[str] = []
@@ -77,7 +75,7 @@ def false_na_source_slugs(results: Sequence[Dict[str, Any]]) -> List[str]:
             continue
         if _NO_CHECKOUT_DETAIL not in str(row.get("detail") or ""):
             continue
-        if slug not in wanted and not slug:
+        if slug not in wanted:
             continue
         if slug in seen:
             continue

@@ -310,3 +310,13 @@ class TestProjectHealth:
         shape = applicability_for("project-health")
         assert shape.project_scope == PROJECT_SCOPE_EXTERNAL
         assert shape.required_capabilities == ("health-endpoint",)
+
+
+def test_remote_cleanup_needs_source_without_changing_worktree_scope():
+    from yoke_core.engines.doctor_applicability import PROJECT_SCOPE_EXTERNAL
+    from yoke_core.engines.doctor_applicability_declarations import applicability_for
+
+    assert applicability_for("stale-remote-branches").requires_source_checkout
+    worktrees = applicability_for("project-worktrees")
+    assert worktrees.requires_source_checkout
+    assert worktrees.project_scope == PROJECT_SCOPE_EXTERNAL

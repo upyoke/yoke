@@ -1,127 +1,92 @@
-"""Doctor coverage for proof-gated stale remote branch cleanup."""
+"""Doctor coverage for project-scoped, proof-gated remote cleanup."""
 
-from __future__ import annotations
+from unittest.mock import Mock, patch
 
-from unittest.mock import patch
+import pytest
 
 from runtime.api.engines.test_doctor_git_worktrees import (
     _make_completed,
     _make_conn,
     _run_hc,
 )
-from yoke_core.engines import doctor_hc_worktrees_branches
-from yoke_core.engines._project_identity_test_helpers import (
-    _insert_item,
-    _seed_project,
-)
-from yoke_core.engines.doctor import hc_stale_remote_branches
-from yoke_core.engines.remote_branch_cleanup import RemoteBranchDeleteResult
+from yoke_core.domain.item_refs_schema import ensure_item_refs_view
 from yoke_core.domain.work_claim_targets import make_item_target
-
+from yoke_core.engines import doctor_hc_worktrees_branches as checks
+from yoke_core.engines._project_identity_test_helpers import _insert_item, _seed_project
+from yoke_core.engines.remote_branch_cleanup import RemoteBranchDeleteResult
 
 TEST_ITEM_ID = 42
 TEST_ITEM_REF = f"YOK-{TEST_ITEM_ID}"
 
 
-class TestHcStaleRemoteBranches:
-    """Stale remote branches are deleted only after positive safety proof."""
+@pytest.fixture
+def conn():
+    database = _make_conn()
+    ensure_item_refs_view(database)
+    yield database
+    database.close()
 
-    @patch("yoke_cli.config.credentialed_git.run")
-    @patch(
-        "yoke_core.engines.doctor_report._resolve_repo_root", return_value="/fake/repo"
+
+@pytest.fixture
+def remote(monkeypatch, tmp_path):
+    monkeypatch.setattr(checks, "checkout_for_project_id", lambda _: str(tmp_path))
+    remote = Mock(return_value=_make_completed())
+    monkeypatch.setattr(checks._credentialed_git, "run", remote)
+    return remote
+
+
+def test_no_checkout_is_not_applicable(conn, monkeypatch, remote):
+    monkeypatch.setattr(checks, "checkout_for_project_id", lambda _: None)
+    result = _run_hc(checks.hc_stale_remote_branches, conn, fix=True).results[0]
+    assert result.result == "N/A"
+    assert result.detail == "this runner has no checkout for it"
+    remote.assert_not_called()
+
+
+def test_inspected_empty_remote_passes(conn, remote):
+    result = _run_hc(checks.hc_stale_remote_branches, conn).results[0]
+    assert result.result == "PASS"
+    assert remote.call_count == 1
+
+
+@pytest.mark.parametrize("project", ["yoke", "1"])
+def test_only_selected_project_is_read(conn, remote, monkeypatch, tmp_path, project):
+    _seed_project(conn, "externalwebapp")
+    resolved = []
+
+    def checkout(project_id):
+        resolved.append(project_id)
+        return str(tmp_path)
+
+    monkeypatch.setattr(checks, "checkout_for_project_id", checkout)
+    _run_hc(checks.hc_stale_remote_branches, conn, project=project)
+    assert resolved == [1]
+    assert remote.call_count == 1
+    assert remote.call_args.args[0] == [
+        "-C",
+        str(tmp_path),
+        "ls-remote",
+        "--heads",
+        "origin",
+    ]
+
+
+def test_stale_branch_warns_without_mutation(conn, remote):
+    _insert_item(conn, TEST_ITEM_ID, status="done")
+    remote.return_value = _make_completed(
+        stdout=f"branch-sha\trefs/heads/{TEST_ITEM_REF}\n"
     )
-    @patch("yoke_core.engines.doctor_report._run")
-    def test_no_stale_branches_passes(self, mock_run, mock_root, mock_remote):
-        conn = _make_conn()
-        _seed_project(conn, "yoke")
-        mock_remote.side_effect = [
-            _make_completed(stdout=""),
-            _make_completed(stdout=""),
-        ]
-        rec = _run_hc(hc_stale_remote_branches, conn)
-        assert rec.results[0].result == "PASS"
+    result = _run_hc(checks.hc_stale_remote_branches, conn).results[0]
+    assert result.result == "WARN"
+    assert TEST_ITEM_REF in result.detail
+    assert "--fix" in result.detail
+    assert remote.call_count == 1
 
-    @patch("yoke_cli.config.credentialed_git.run")
-    @patch(
-        "yoke_core.engines.doctor_report._resolve_repo_root", return_value="/fake/repo"
-    )
-    @patch("yoke_core.engines.doctor_report._run")
-    def test_stale_branch_warns(
-        self, mock_run, mock_root, mock_remote, monkeypatch, tmp_path
-    ):
-        conn = _make_conn()
-        _seed_project(conn, "yoke")
-        monkeypatch.setattr(
-            doctor_hc_worktrees_branches,
-            "checkout_for_project_id",
-            lambda project_id: str(tmp_path),
-        )
-        _insert_item(
-            conn, TEST_ITEM_ID, "Done item", workflow_id="issue", status="done"
-        )
-        mock_remote.side_effect = [
-            _make_completed(stdout=f"abc123\trefs/heads/{TEST_ITEM_REF}\n"),
-            _make_completed(stdout=f"abc123\trefs/heads/{TEST_ITEM_REF}\n"),
-        ]
-        rec = _run_hc(hc_stale_remote_branches, conn)
-        assert rec.results[0].result == "WARN"
-        assert TEST_ITEM_REF in rec.results[0].detail
 
-    @patch("yoke_cli.config.credentialed_git.run")
-    @patch(
-        "yoke_core.engines.doctor_report._resolve_repo_root", return_value="/fake/repo"
-    )
-    @patch("yoke_core.engines.doctor_report._run")
-    def test_fix_uses_proof_gated_remote_cleanup(
-        self, mock_run, mock_root, mock_remote, monkeypatch, tmp_path
-    ):
-        conn = _make_conn()
-        _seed_project(conn, "yoke")
-        _insert_item(
-            conn, TEST_ITEM_ID, "Done item", workflow_id="issue", status="done"
-        )
-        mock_remote.side_effect = [
-            _make_completed(stdout=f"abc123\trefs/heads/{TEST_ITEM_REF}\n"),
-        ]
-        monkeypatch.setattr(
-            doctor_hc_worktrees_branches,
-            "checkout_for_project_id",
-            lambda project_id: str(tmp_path),
-        )
-        calls = []
-
-        def safe_delete(**kwargs):
-            calls.append(kwargs)
-            return RemoteBranchDeleteResult("deleted", "remote branch was deleted")
-
-        monkeypatch.setattr(
-            doctor_hc_worktrees_branches,
-            "delete_remote_branch_if_merged",
-            safe_delete,
-        )
-
-        rec = _run_hc(hc_stale_remote_branches, conn, fix=True)
-
-        assert rec.results[0].result == "PASS"
-        assert len(calls) == 1
-        assert calls[0]["branch"] == TEST_ITEM_REF
-        assert calls[0]["target_branch"] == "main"
-        commands = [call.args[0] for call in mock_remote.call_args_list]
-        assert not any("--delete" in command for command in commands)
-
-    @patch("yoke_cli.config.credentialed_git.run")
-    @patch(
-        "yoke_core.engines.doctor_report._resolve_repo_root", return_value="/fake/repo"
-    )
-    @patch("yoke_core.engines.doctor_report._run")
-    def test_fix_preserves_branch_with_active_authority(
-        self, mock_run, mock_root, mock_remote, monkeypatch, tmp_path
-    ):
-        conn = _make_conn()
-        _seed_project(conn, "yoke")
-        _insert_item(
-            conn, TEST_ITEM_ID, "Done item", workflow_id="issue", status="done"
-        )
+@pytest.mark.parametrize("authority", ["claim", "unavailable"])
+def test_fix_preserves_active_or_unproven_authority(conn, remote, authority):
+    _insert_item(conn, TEST_ITEM_ID, status="done")
+    if authority == "claim":
         target = make_item_target(TEST_ITEM_ID)
         conn.execute(
             "INSERT INTO work_claims "
@@ -129,86 +94,86 @@ class TestHcStaleRemoteBranches:
             "VALUES (1, 'active', %s, %s, NULL)",
             (target.kind, target.scope_json()),
         )
-        mock_remote.side_effect = [
-            _make_completed(stdout=f"abc123\trefs/heads/{TEST_ITEM_REF}\n"),
-        ]
-        monkeypatch.setattr(
-            doctor_hc_worktrees_branches,
-            "checkout_for_project_id",
-            lambda project_id: str(tmp_path),
-        )
-
-        rec = _run_hc(hc_stale_remote_branches, conn, fix=True)
-
-        assert rec.results[0].result == "WARN"
-        assert "PRESERVED" in rec.results[0].detail
-        assert "active or could not be proven idle" in rec.results[0].detail
-        assert mock_remote.call_count == 1
-
-    @patch("yoke_cli.config.credentialed_git.run")
-    @patch(
-        "yoke_core.engines.doctor_report._resolve_repo_root", return_value="/fake/repo"
-    )
-    @patch("yoke_core.engines.doctor_report._run")
-    def test_fix_preserves_branch_when_authority_proof_is_unavailable(
-        self, mock_run, mock_root, mock_remote, monkeypatch, tmp_path
-    ):
-        conn = _make_conn()
-        _seed_project(conn, "yoke")
-        _insert_item(
-            conn, TEST_ITEM_ID, "Done item", workflow_id="issue", status="done"
-        )
+    else:
         conn.execute("DROP TABLE path_claims")
-        mock_remote.side_effect = [
-            _make_completed(stdout=f"abc123\trefs/heads/{TEST_ITEM_REF}\n"),
-        ]
-        monkeypatch.setattr(
-            doctor_hc_worktrees_branches,
-            "checkout_for_project_id",
-            lambda project_id: str(tmp_path),
-        )
-
-        rec = _run_hc(hc_stale_remote_branches, conn, fix=True)
-
-        assert rec.results[0].result == "WARN"
-        assert "PRESERVED" in rec.results[0].detail
-        assert mock_remote.call_count == 1
-
-    @patch("yoke_cli.config.credentialed_git.run")
-    @patch(
-        "yoke_core.engines.doctor_report._resolve_repo_root", return_value="/fake/repo"
+    remote.return_value = _make_completed(
+        stdout=f"branch-sha\trefs/heads/{TEST_ITEM_REF}\n"
     )
-    @patch("yoke_core.engines.doctor_report._run")
-    def test_fix_never_uses_default_repo_for_an_unavailable_project_checkout(
-        self, mock_run, mock_root, mock_remote, monkeypatch
+    result = _run_hc(checks.hc_stale_remote_branches, conn, fix=True).results[0]
+    assert result.result == "WARN"
+    assert "cleanup authority is active or could not be proven idle" in result.detail
+    assert remote.call_count == 1
+
+
+def test_remote_candidates_use_one_set_query_and_fetch(conn, remote, monkeypatch):
+    # Thousands of terminal items must not produce thousands of item reads.
+    conn.execute(
+        "INSERT INTO items (id, title, status, project_id, project_sequence) "
+        "SELECT n, 'done', 'done', 1, n FROM generate_series(100, 5100) n"
+    )
+    for item_id, status in (
+        (42, "done"),
+        (43, "done"),
+        (44, "implementing"),
+        (45, "cancelled"),
     ):
-        conn = _make_conn()
-        _seed_project(conn, "externalwebapp")
-        _insert_item(
-            conn,
-            TEST_ITEM_ID,
-            "Done ExternalWebapp item",
-            project="externalwebapp",
-            workflow_id="issue",
-            status="done",
+        _insert_item(conn, item_id, status=status)
+    conn.execute(
+        "INSERT INTO item_worktrees "
+        "(id, item_id, branch, lane_role, state, created_at, updated_at) "
+        "VALUES (1, 43, 'recorded-lane', 'implementation', 'active', now(), now()), "
+        "(2, 45, 'retired-lane', 'implementation', 'released', now(), now())"
+    )
+    branches = {
+        "main": "base",
+        TEST_ITEM_REF: "done",
+        "recorded-lane": "lane",
+        "YOK-44": "open",
+        "retired-lane": "cancelled",
+    }
+    remote.return_value = _make_completed(
+        stdout="".join(
+            f"{sha}\trefs/heads/{branch}\n" for branch, sha in branches.items()
         )
-        monkeypatch.setattr(
-            doctor_hc_worktrees_branches,
-            "checkout_for_project_id",
-            lambda project_id: None,
-        )
-        mock_run.return_value = _make_completed(
-            stdout=f"abc123\trefs/heads/{TEST_ITEM_REF}\n"
-        )
-        safe_delete = patch.object(
-            doctor_hc_worktrees_branches,
-            "delete_remote_branch_if_merged",
-        )
+    )
+    delete = Mock(
+        return_value=RemoteBranchDeleteResult("deleted", "remote branch was deleted")
+    )
+    monkeypatch.setattr(checks, "delete_remote_branch_if_merged", delete)
+    with patch.object(checks, "query_rows", wraps=checks.query_rows) as queries:
+        result = _run_hc(checks.hc_stale_remote_branches, conn, fix=True).results[0]
+    assert queries.call_count == 2  # projects plus one branch-matching set query
+    assert "ANY(%s)" in queries.call_args.args[1]
+    assert queries.call_args.args[2] == (list(branches), list(branches), 1)
+    assert result.result == "WARN"
+    assert "recorded-lane [yoke]: lane sweep owns it" in result.detail
+    assert "deleted 2" in result.detail
+    assert {call.kwargs["branch"] for call in delete.call_args_list} == {
+        TEST_ITEM_REF,
+        "retired-lane",
+    }
+    assert all(
+        call.kwargs["refreshed_branches"] == branches for call in delete.call_args_list
+    )
+    commands = [call.args[0][2:] for call in remote.call_args_list]
+    assert commands == [
+        ["ls-remote", "--heads", "origin"],
+        ["fetch", "origin", "+refs/heads/*:refs/remotes/origin/*"],
+    ]
 
-        with safe_delete as delete:
-            rec = _run_hc(hc_stale_remote_branches, conn, fix=True)
 
-        assert rec.results[0].result == "PASS"
-        delete.assert_not_called()
-        # No project maps a checkout, so no remote is read at all.
-        assert mock_remote.call_count == 0
+@pytest.mark.parametrize("failure", ["list", "fetch"])
+def test_remote_failure_warns_and_teaches_recovery(conn, remote, monkeypatch, failure):
+    _insert_item(conn, TEST_ITEM_ID, status="done")
+    failed = _make_completed(returncode=1, stderr="origin unavailable")
+    remote.side_effect = (
+        [failed]
+        if failure == "list"
+        else [_make_completed(stdout=f"sha\trefs/heads/{TEST_ITEM_REF}\n"), failed]
+    )
+    delete = Mock()
+    monkeypatch.setattr(checks, "delete_remote_branch_if_merged", delete)
+    result = _run_hc(checks.hc_stale_remote_branches, conn, fix=True).results[0]
+    assert result.result == "WARN"
+    assert "restore origin access and rerun" in result.detail
+    delete.assert_not_called()

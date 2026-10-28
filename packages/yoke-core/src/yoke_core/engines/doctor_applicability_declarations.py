@@ -168,7 +168,6 @@ _SHAPES = (
             "smoke-failure-stale",
             "stale-body",
             "stale-reclaim-collision",
-            "stale-remote-branches",
             "stale-runs",
             "stale-session-reclaimer-alive",
             "stale-sessions",
@@ -252,6 +251,7 @@ _SHAPES = (
             "project-repo-exists",
         ),
     ),
+    (_SRC, ("stale-remote-branches",)),
     (_EXT_SRC, ("project-worktrees",)),
     (
         _MIGRATION,

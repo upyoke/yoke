@@ -3,5 +3,6 @@
  "title": "Project-local checks",
  "status": "draft-copy",
  "page": "observability",
- "position": 3
+ "position": 3,
+ "summary": "Stale remote branch checks require the selected project checkout and database authority; unavailable evidence is N/A. Doctor cleans terminal-item remote branches without active registered worktrees using one query and fetch; the lane sweep owns registered lanes."
 }

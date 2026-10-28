@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import time
 from dataclasses import dataclass
-from typing import Any, Callable, Literal
+from typing import Any, Callable, Literal, Mapping
 
 from yoke_core.engines.branch_landed_evidence import assess_branch_landed
 from yoke_core.engines.git_worktree_registry import detached_head
@@ -72,6 +72,7 @@ def delete_remote_branch_if_merged(
     branch: str,
     target_branch: str,
     sleep: Callable[[float], None] = time.sleep,
+    refreshed_branches: Mapping[str, str] | None = None,
 ) -> RemoteBranchDeleteResult:
     """Delete one exact remote branch after refreshed, leased proof.
 
@@ -85,6 +86,10 @@ def delete_remote_branch_if_merged(
     equivalence a rebased or squashed lane leaves behind, so a remote branch
     whose changes the target already holds retires with its local lane
     instead of outliving it.
+
+    A caller may supply an advertisement fetched together in one project-wide
+    fetch. That snapshot still requires matching local tips and a leased delete;
+    a failed landing proof preserves it without another network refresh.
 
     A miss is re-read once after a short pause before it is believed,
     because a merge pushed moments earlier is not yet advertised to this
@@ -107,31 +112,38 @@ def delete_remote_branch_if_merged(
 
     exact_ref = f"refs/heads/{branch}"
     target_ref = f"refs/heads/{target_branch}"
-    listed = run_git(["ls-remote", "--heads", "origin", exact_ref])
-    if listed.returncode != 0:
-        return _preserved("remote branch could not be inspected")
-
-    advertised: list[tuple[str, str]] = []
-    for line in (listed.stdout or "").splitlines():
-        fields = line.split()
-        if len(fields) != 2 or fields[1] != exact_ref:
-            return _preserved("remote branch advertisement was ambiguous")
-        advertised.append((fields[0], fields[1]))
-    if not advertised:
-        return RemoteBranchDeleteResult("absent", "remote branch is absent")
-    if len(advertised) != 1:
-        return _preserved("remote branch advertisement was ambiguous")
-    advertised_sha = advertised[0][0]
-
     remote_target = f"refs/remotes/origin/{target_branch}"
-    target_fetch = run_git(["fetch", "origin", f"+{target_ref}:{remote_target}"])
-    if target_fetch.returncode != 0:
-        return _preserved("target branch could not be refreshed")
-
     remote_branch = f"refs/remotes/origin/{branch}"
-    branch_fetch = run_git(["fetch", "origin", f"+{exact_ref}:{remote_branch}"])
-    if branch_fetch.returncode != 0:
-        return _preserved("remote branch could not be refreshed")
+    if refreshed_branches is not None:
+        advertised_sha = refreshed_branches.get(branch)
+        if not advertised_sha or not refreshed_branches.get(target_branch):
+            return _preserved("refreshed remote snapshot is incomplete")
+    else:
+        listed = run_git(["ls-remote", "--heads", "origin", exact_ref])
+        if listed.returncode != 0:
+            return _preserved("remote branch could not be inspected")
+
+        advertised: list[tuple[str, str]] = []
+        for line in (listed.stdout or "").splitlines():
+            fields = line.split()
+            if len(fields) != 2 or fields[1] != exact_ref:
+                return _preserved("remote branch advertisement was ambiguous")
+            advertised.append((fields[0], fields[1]))
+        if not advertised:
+            return RemoteBranchDeleteResult("absent", "remote branch is absent")
+        if len(advertised) != 1:
+            return _preserved("remote branch advertisement was ambiguous")
+        advertised_sha = advertised[0][0]
+
+        remote_target = f"refs/remotes/origin/{target_branch}"
+        target_fetch = run_git(["fetch", "origin", f"+{target_ref}:{remote_target}"])
+        if target_fetch.returncode != 0:
+            return _preserved("target branch could not be refreshed")
+
+        remote_branch = f"refs/remotes/origin/{branch}"
+        branch_fetch = run_git(["fetch", "origin", f"+{exact_ref}:{remote_branch}"])
+        if branch_fetch.returncode != 0:
+            return _preserved("remote branch could not be refreshed")
 
     branch_tip = run_git(["rev-parse", "--verify", f"{remote_branch}^{{commit}}"])
     resolved_sha = (branch_tip.stdout or "").strip()
@@ -143,8 +155,14 @@ def delete_remote_branch_if_merged(
     if target_tip.returncode != 0 or not target_sha:
         return _preserved("refreshed target branch could not be resolved")
 
+    if (
+        refreshed_branches is not None
+        and target_sha != refreshed_branches[target_branch]
+    ):
+        return _preserved("target branch changed while cleanup was proving it")
+
     landed = assess_branch_landed(run_git, branch=resolved_sha, base=target_sha)
-    if not landed.landed:
+    if not landed.landed and refreshed_branches is None:
         sleep(ANCESTRY_RECHECK_DELAY_SECONDS)
         target_sha = _refreshed_target_tip(
             run_git, target_ref=target_ref, remote_target=remote_target

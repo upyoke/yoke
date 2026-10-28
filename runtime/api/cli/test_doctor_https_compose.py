@@ -52,8 +52,6 @@ def test_false_na_source_slugs_filters_checkout_gaps() -> None:
             "detail": "something else",
         },
         {
-            # Older server builds still N/A snapshot HCs with the checkout
-            # detail even after this client reclassified them as DB-only.
             "hc": "HC-architecture-unclassified-path",
             "severity": "N/A",
             "detail": "reads the 1 source tree; this runner has no checkout for it (hosted runtime)",
@@ -61,7 +59,6 @@ def test_false_na_source_slugs_filters_checkout_gaps() -> None:
     ]
     assert false_na_source_slugs(rows) == [
         "file-line-limit",
-        "architecture-unclassified-path",
     ]
 
 
@@ -182,3 +179,32 @@ def test_unrelated_internal_error_remains_a_failure():
     note_missing_control_plane([record], "example", check)
     assert record.check_id == "HC-internal-error"
     assert record.result == "FAIL"
+
+
+def test_stale_remote_checkout_gap_runs_locally_without_database(monkeypatch, tmp_path):
+    from yoke_core.engines import doctor_https_compose as compose
+
+    relayed = [
+        {
+            "hc": "HC-stale-remote-branches",
+            "severity": "N/A",
+            "detail": "this runner has no checkout for it",
+        }
+    ]
+    slugs = false_na_source_slugs(relayed)
+    assert slugs == ["stale-remote-branches"]
+    monkeypatch.setattr(compose, "checkout_root_for_project", lambda _: tmp_path)
+    monkeypatch.setattr(compose, "local_connection_or_none", lambda _: None)
+    local = compose.run_local_source_checks(
+        project="example",
+        quick=False,
+        full=False,
+        fix=True,
+        only="stale-remote-branches",
+        slugs=slugs,
+    )
+    assert len(local) == 1
+    assert local[0]["hc"] == "HC-stale-remote-branches"
+    assert local[0]["severity"] == "N/A"
+    assert "no local-postgres authority" in local[0]["detail"]
+    assert merge_relayed_with_local(relayed, local) == local
