@@ -42,6 +42,12 @@ def _seed(conn, *, sender="sender", state="pending"):
     )
     _register(conn, session_id="sender", actor_id=actor_id)
     recipient = _ghost(conn)
+    conn.execute(
+        "UPDATE harness_sessions SET executor_surface='claude-cli', "
+        "executor_version='2.1.281' WHERE session_id IN (%s,%s)",
+        ("sender", recipient),
+    )
+    conn.commit()
     message = send_message(
         conn,
         actor_id=actor_id,
