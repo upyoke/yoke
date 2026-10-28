@@ -175,3 +175,26 @@ def test_the_done_refusal_names_the_plan_group_command_only(test_db):
     assert f"Post-deploy plan {SLUG}: no closed plan group" in text
     assert f"yoke qa plan run --deployment-run-id {RUN} --stage item-qa --plan {SLUG}" in text
     assert POST_DEPLOY_RECOVERY not in text
+
+
+def test_a_finished_group_walk_wakes_the_run_recipient_not_a_member(test_db, monkeypatch):
+    from yoke_core.domain import deployment_run_driver_notice as notice
+    from yoke_core.domain.qa_plan_agent_review_wake import notify_scoped_agent_review
+
+    _seed(test_db)
+    ensure_groups(test_db, RUN, "item-qa")
+    test_db.commit()
+    execution = _begin(test_db)
+    sent = []
+    monkeypatch.setattr(
+        notice,
+        "push_run_scoped_notice",
+        lambda conn, **kwargs: sent.append(kwargs) or "delivered",
+    )
+
+    result = notify_scoped_agent_review(test_db, {**execution, "state": "completed"})
+
+    assert result == "delivered"
+    assert [call["run_id"] for call in sent] == [RUN]
+    body = sent[0]["body_for_route"](None)
+    assert "plan group" in body and execution["id"] in body
