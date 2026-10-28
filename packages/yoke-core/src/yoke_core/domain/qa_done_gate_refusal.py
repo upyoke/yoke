@@ -89,7 +89,12 @@ def done_gate_refusal_errors(conn: Any, rows: Sequence[Any], *, name: str) -> li
             f"  - Requirement #{row['id']} ({row['qa_kind']}, "
             f"phase={row['qa_phase']}{bound}): {reason}"
         )
-    if any(_phase(row) == POST_DEPLOY_PHASE and not _graph_error(row) for row in rows):
+    if any(
+        _phase(row) == POST_DEPLOY_PHASE
+        and row["id"] is not None
+        and not _graph_error(row)
+        for row in rows
+    ):
         errors.append(f"  {POST_DEPLOY_RECOVERY}")
     return errors
 

@@ -37,6 +37,7 @@ CREATE TABLE qa_requirements (
     deployment_run_id TEXT,
     deployment_stage TEXT,
     deployment_member_item_id INTEGER,
+    plan_id INTEGER,
     plan_case_key TEXT,
     qa_kind TEXT NOT NULL,
     qa_phase TEXT NOT NULL,
@@ -90,6 +91,15 @@ CREATE TABLE qa_plan_review_verdicts (
     capture_run_id INTEGER NOT NULL,
     review_run_id INTEGER NOT NULL,
     verdict TEXT NOT NULL
+);
+CREATE TABLE qa_plans (
+    id INTEGER PRIMARY KEY, slug TEXT, target_environment_id INTEGER, retired_at TEXT
+);
+CREATE TABLE qa_plan_item_attachments (
+    item_id INTEGER, plan_id INTEGER, transition_id TEXT, qa_phase TEXT, retracted_at TEXT
+);
+CREATE TABLE qa_plan_project_defaults (
+    project_id INTEGER, workflow_id TEXT, plan_id INTEGER, qa_phase TEXT
 );
 """
 
