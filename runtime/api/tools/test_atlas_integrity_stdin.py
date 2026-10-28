@@ -15,7 +15,7 @@ from pathlib import Path
 
 from yoke_core.tools import atlas_integrity_audit as aia
 
-_TIMEOUT_SECONDS = 120
+_TIMEOUT_SECONDS = 60
 
 
 def _repo_root() -> Path:
