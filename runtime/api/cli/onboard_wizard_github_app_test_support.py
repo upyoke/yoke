@@ -104,13 +104,12 @@ def stub_github_app_access(
 
 
 async def connect_github_app(app: Any, pilot: Any) -> None:
-    """Complete the stubbed browser flow, confirm it, and reach project mode."""
+    """Complete the stubbed browser flow and reach the project question."""
     await advance_past_path(pilot)
     await pilot.press("enter")
     await app.workers.wait_for_complete()
     await pilot.pause()
-    await pilot.press("enter")
-    await pilot.pause()
+    assert app._history[-1].prompt.key == "project.mode"
 
 
 async def select_connected_repository(app: Any, pilot: Any) -> None:

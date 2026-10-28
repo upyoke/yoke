@@ -40,7 +40,7 @@ def test_existing_folder_reaches_project_details_without_a_stop(shell, tmp_path)
     assert "That folder already exists." in prompt.detail_lines
     assert f"Yoke will set up {checkout} as an existing project instead of creating a new one." in prompt.detail_lines
     assert "project.folder_exists" not in [view.prompt.key for view in shell._history]
-    assert "That folder already exists." in [str(widget.content) for widget in shell._history[-1].builder() if isinstance(widget, Static)]
+    assert "That folder already exists." in setup_agent_response.question_fields(prompt)["detail"]
 
 
 def test_github_connection_reaches_next_question_with_repository_advice(shell):

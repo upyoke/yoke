@@ -11,7 +11,6 @@ pytest.importorskip("textual")
 
 from yoke_cli.config.onboard_wizard import WizardDefaults  # noqa: E402
 from yoke_cli.config.onboard_wizard_widgets import (  # noqa: E402
-    STEP_GITHUB,
     STEP_PROJECT,
     Stepper,
 )
@@ -61,28 +60,24 @@ def test_machine_github_connect_uses_browser_app_flow() -> None:
             await app.workers.wait_for_complete()
             await pilot.pause()
             text = _body_text(app)
-            assert "GitHub connected." in text
+            assert "Success! Yoke GitHub App connected for machine-user." in text
             assert "GitHub user: machine-user · App: yoke-product" in text
             assert "Access: 2 installations · 2 repositories" in text
             assert "Required permissions: ready" in text
             assert 'We recommend "All repositories"' in text
             assert "https://github.com/settings/installations/1" in text
             assert "machine-user/private-tool" not in text
-            await pilot.press("down", "enter")
-            await pilot.pause()
-            details = _body_text(app)
-            assert "machine-user/private-tool" in details
-            assert "Change repository access on GitHub" in details
-            assert app.query_one(Stepper).active == STEP_GITHUB
+            assert "Review repository access with `yoke github status`." in text
+            assert app._history[-1].prompt.key == "project.mode"
+            assert app.query_one(Stepper).active == STEP_PROJECT
+            assert "github.connected" not in [view.prompt.key for view in app._history]
             await pilot.press("escape")
             await pilot.pause()
             assert "Connect GitHub" in _body_text(app)
             await pilot.press("enter")
             await app.workers.wait_for_complete()
             await pilot.pause()
-            assert "GitHub connected." in _body_text(app)
-            await pilot.press("enter")
-            await pilot.pause()
+            assert app._history[-1].prompt.key == "project.mode"
             assert app.query_one(Stepper).active == STEP_PROJECT
             assert app.result.machine_github_choice == "connect"
             assert app.result.machine_github_verification["ok"] is True
@@ -129,10 +124,8 @@ def test_stored_github_app_authorization_is_rechecked(tmp_path) -> None:
             await advance_past_path(pilot)
             await app.workers.wait_for_complete()
             await pilot.pause()
-            assert "GitHub connected." in _body_text(app)
-            assert app.query_one(Stepper).active == STEP_GITHUB
-            await pilot.press("enter")
-            await pilot.pause()
+            assert "Success! Yoke GitHub App connected for machine-user." in _body_text(app)
+            assert app._history[-1].prompt.key == "project.mode"
             assert app.query_one(Stepper).active == STEP_PROJECT
             assert app.result.machine_github_verification["ok"] is True
             assert not hasattr(app.result, "machine_github_token_file")

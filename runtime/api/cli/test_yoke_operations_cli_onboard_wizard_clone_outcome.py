@@ -66,7 +66,7 @@ async def _connect_machine_github_auth(app, pilot) -> None:
     await pilot.press("enter")  # machine github: connect account default
     await app.workers.wait_for_complete()
     await pilot.pause()
-    await pilot.press("enter")  # confirm connected identity and App access
+    await pilot.pause()
     await pilot.pause()
 
 
