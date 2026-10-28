@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-import shlex
 import os
 import urllib.request
 from contextlib import nullcontext
@@ -77,10 +76,9 @@ def harness_auth(manifest, executable: str) -> tuple[bool, str]:
     # Native auth documents contain private account data. Keep only the verdict.
     if signed_in:
         return True, f"{manifest.executable} is signed in."
-    login = shlex.join((manifest.executable, *manifest.login_args))
     return False, (
         f"HARNESS_AUTH_UNVERIFIED: {manifest.executable} sign-in could not be "
-        f"verified. Run `{login}`."
+        f"verified. {manifest.sign_in_recovery(executable)}"
     )
 
 
@@ -103,15 +101,16 @@ def hc_harness_cli_auth(conn, args: DoctorArgs, rec: RecordCollector) -> None:
         rec.record(
             "harness-cli-auth",
             "Harness CLI sign-in",
-            "PASS" if signed_in else "FAIL",
+            "PASS" if signed_in else "WARN",
             detail,
         )
     if not available:
         rec.record(
             "harness-cli-auth",
             "Harness CLI sign-in",
-            "FAIL",
-            "HARNESS_CLI_MISSING: no supported harness CLI is installed. Install a harness CLI, sign in, and rerun Doctor.",
+            "WARN",
+            "HARNESS_CLI_MISSING: no supported harness CLI was found. "
+            + " ".join(m.missing_cli_recovery() for m in HARNESS_CLI_MANIFESTS),
         )
 
 

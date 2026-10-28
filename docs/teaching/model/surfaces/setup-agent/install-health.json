@@ -4,6 +4,6 @@
  "status": "observed",
  "form": "Do",
  "topics": ["installation/entry"],
- "verification": "Source composes the install Doctor roster and includes the result in the durable apply report and human/JSON output; live delivery awaits the released campaign.",
- "sources": ["packages/yoke-cli/src/yoke_cli/commands/adapters/onboard_apply.py", "packages/yoke-cli/src/yoke_cli/commands/adapters/doctor_install.py", "docs/public/start/install.md"]
+ "verification": "Source reports missing harness CLIs and unverified sign-in as WARN for install and session checks, allowing setup readiness and onboarding. Worker launch eligibility refuses missing surfaces and reported stale credentials with per-surface recovery. Shared resolution checks fixed and versioned desktop or IDE bundles without adding versioned directories to shell PATH; released delivery remains unproven.",
+ "sources": ["packages/yoke-cli/src/yoke_cli/commands/adapters/onboard_apply.py", "packages/yoke-cli/src/yoke_cli/commands/adapters/doctor_install.py", "docs/public/start/install.md", "packages/yoke-core/src/yoke_core/engines/doctor_session.py", ".agents/skills/yoke/onboard/SKILL.md", "packages/yoke-core/src/yoke_core/domain/session_launch_eligibility.py"]
 }

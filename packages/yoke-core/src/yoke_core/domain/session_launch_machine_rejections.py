@@ -14,6 +14,7 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import Any, Iterable, Sequence
 
+from yoke_contracts.harness_cli_manifest import HARNESS_CLI_MANIFESTS
 from yoke_contracts.timestamps import as_utc, parse_instant
 
 #: A machine silent for longer than this is reported as offline, not by rule.
@@ -31,6 +32,7 @@ class MachineRejection:
     last_seen_at: datetime | None
     #: Silent past ``OFFLINE_AFTER`` when eligibility judged it.
     offline: bool = False
+    recovery: tuple[str, ...] = ()
 
     @property
     def name(self) -> str:
@@ -43,6 +45,7 @@ class MachineRejection:
             "codes": list(self.codes),
             "last_seen_at": _instant(self.last_seen_at),
             "offline": self.offline,
+            "recovery": list(self.recovery),
         }
 
 
@@ -59,12 +62,23 @@ def rejection_from_row(
     codes: Iterable[str],
     last_seen_at: Any,
     now: datetime,
+    surface: str | None = None,
 ) -> MachineRejection:
+    codes = tuple(sorted(set(codes)))
+    recovery = []
+    for manifest in HARNESS_CLI_MANIFESTS:
+        if manifest.surface_id != surface:
+            continue
+        if "surface_absent" in codes:
+            recovery.append(manifest.missing_cli_recovery())
+        if "harness_signed_out" in codes:
+            recovery.append(manifest.sign_in_recovery())
     seen = parse_instant(last_seen_at) if last_seen_at else None
     return MachineRejection(
         machine_id=machine_id,
         hostname=hostname,
-        codes=tuple(sorted(set(codes))),
+        codes=codes,
+        recovery=tuple(recovery),
         last_seen_at=seen,
         offline=seen is not None and as_utc(now) - seen > OFFLINE_AFTER,
     )
@@ -97,6 +111,7 @@ def merge_machine_rejections(
                 codes=tuple(sorted(set(prior.codes) | set(entry.codes))),
                 last_seen_at=max(seen) if seen else None,
                 offline=prior.offline and entry.offline,
+                recovery=tuple(dict.fromkeys((*prior.recovery, *entry.recovery))),
             )
     return tuple(merged[machine] for machine in sorted(merged))
 
@@ -105,7 +120,7 @@ def _machine_clause(entry: MachineRejection) -> str:
     text = f"{entry.name}: {', '.join(entry.codes)}"
     if LIVENESS_EXPIRED in entry.codes and entry.last_seen_at is not None:
         text += f" (last seen {_instant(entry.last_seen_at)})"
-    return text
+    return text + (" " + " ".join(entry.recovery) if entry.recovery else "")
 
 
 def describe_machine_rejections(rejections: Sequence[MachineRejection]) -> list[str]:

@@ -108,16 +108,16 @@ def test_a_signed_out_session_harness_names_its_login(monkeypatch):
         lambda argv, **k: subprocess.CompletedProcess(argv, 1, "", "not logged in"),
     )
     result = run(checks.hc_session_harness_cli_auth)
-    assert result.result == "FAIL"
+    assert result.result == "WARN"
     assert "HARNESS_AUTH_UNVERIFIED" in result.detail
     assert "`codex login`" in result.detail
 
 
-def test_a_missing_session_harness_cli_fails_with_its_install_step(monkeypatch):
+def test_a_missing_session_harness_cli_warns_with_its_install_step(monkeypatch):
     registered_as(monkeypatch, "cursor")
     clis(monkeypatch, "claude-code")
     result = run(checks.hc_session_harness_cli_auth)
-    assert result.result == "FAIL"
+    assert result.result == "WARN"
     assert "HARNESS_CLI_MISSING" in result.detail
     assert "cursor-agent" in result.detail
 

@@ -57,7 +57,7 @@ with TemporaryDirectory(prefix="install-health-") as directory:
         ]),
     }
     recovery_tokens = dict([
-        ("harness-auth-missing", "Install a harness CLI"),
+        ("harness-auth-missing", "npm install -g @openai/codex"),
         ("dashboard-stale", "yoke ui down"),
         ("session-hook-unobserved", "Start a new harness session"),
         ("foreign-install-binding", "yoke setup"),
@@ -72,7 +72,8 @@ with TemporaryDirectory(prefix="install-health-") as directory:
             stack.enter_context(patch.object(owner, name, value))
         records = RecordCollector()
         fn(None, DoctorArgs(project="42", only=",".join(checks.INSTALL_SLUGS)), records)
-    if not records.results or any(row.result != "FAIL" or reason not in row.detail or recovery_tokens[scenario] not in row.detail for row in records.results):
+    expected = "WARN" if scenario == "harness-auth-missing" else "FAIL"
+    if not records.results or any(row.result != expected or reason not in row.detail or recovery_tokens[scenario] not in row.detail for row in records.results):
         sys.exit("install_health_refusal_missing: inspect the candidate readiness check before rerunning")
     print(scenario + ": " + reason + "; diagnosed recovery verified")
 """
@@ -106,7 +107,7 @@ def install_health_cases(command_case):
                 "Run the installed candidate's readiness refusal with isolated injected evidence; preserve real sign-in, hook and machine configuration."
             ),
             outcome=(
-                "Missing, unknown, stale or foreign evidence produces its named FAIL and recovery; configuration alone never proves observed delivery."
+                "Missing CLI evidence produces WARN; other unknown, stale or foreign evidence produces FAIL, each with named recovery; configuration alone never proves observed delivery."
             ),
         )
         for position, key in enumerate(_FAILURE_KEYS, 17)

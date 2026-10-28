@@ -11,6 +11,8 @@
       "--version"
     ],
     "bundled_candidates": [],
+    "bundled_patterns": [],
+    "install_command": "curl https://cursor.com/install -fsS | bash",
     "authentication": {
       "status_args": [
         "status",

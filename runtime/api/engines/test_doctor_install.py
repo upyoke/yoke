@@ -49,9 +49,9 @@ def test_install_roster_stays_machine_local_without_relaying_new_check_names(
     "payload,code,expected",
     [
         ('{"loggedIn":true,"email":"private@example.invalid"}', 0, "PASS"),
-        ('{"loggedIn":false,"token":"private-token"}', 0, "FAIL"),
-        ("not-json private-token", 0, "FAIL"),
-        ('{"loggedIn":true}', 124, "FAIL"),
+        ('{"loggedIn":false,"token":"private-token"}', 0, "WARN"),
+        ("not-json private-token", 0, "WARN"),
+        ('{"loggedIn":true}', 124, "WARN"),
     ],
 )
 def test_native_auth_is_verified_without_printing_private_document(
@@ -70,13 +70,13 @@ def test_native_auth_is_verified_without_printing_private_document(
     result = run(checks.hc_harness_cli_auth)[0]
     assert result.result == expected
     assert "private" not in result.detail
-    if expected == "FAIL":
+    if expected == "WARN":
         assert "claude auth login" in result.detail
 
 
-def test_absent_harness_is_failed_evidence(monkeypatch):
+def test_absent_harness_is_warning_evidence(monkeypatch):
     monkeypatch.setattr(checks, "resolve_harness_clis", lambda path: [])
-    assert run(checks.hc_harness_cli_auth)[0].result == "FAIL"
+    assert run(checks.hc_harness_cli_auth)[0].result == "WARN"
 
 
 @pytest.mark.parametrize(

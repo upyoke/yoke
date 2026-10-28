@@ -92,7 +92,7 @@ def load_relay_eligibility_rows(
         conn.execute(
             "SELECT relay_id, machine_id, surface_versions, project_checkouts, "
             "last_seen_at, state, connected_until, machine_capacity, hostname, "
-            "actor_id "
+            "actor_id, surface_plan_limits "
             "FROM session_relays"
             f"{machine_clause} ORDER BY last_seen_at DESC, relay_id ASC",
             tuple(params),
@@ -153,6 +153,14 @@ def derive_launch_eligibility(
             codes.append("surface_absent")
         elif not _allowed_version(surface, offered):
             codes.append("version_below_floor")
+        limits = _json(_value(row, "surface_plan_limits", 10), {})
+        reading = limits.get(surface, {}) if isinstance(limits, dict) else {}
+        windows = reading.get("windows", []) if isinstance(reading, dict) else []
+        if isinstance(windows, list) and any(
+            isinstance(window, dict) and window.get("reason") == "stale_credential"
+            for window in windows
+        ):
+            codes.append("harness_signed_out")
         if live_mark(conn, relay_machine, surface) is not None:
             codes.append(SURFACE_DISABLED_REJECTION)
         if not codes and relay_machine not in selected_by_machine:
@@ -173,6 +181,7 @@ def derive_launch_eligibility(
                 codes=codes,
                 last_seen_at=_value(row, "last_seen_at", 4),
                 now=current,
+                surface=surface,
             )
             prior = machine_rejections.get(relay_machine)
             if prior is None or _fresher(entry, prior):
