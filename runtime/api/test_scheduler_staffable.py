@@ -1,3 +1,5 @@
+# The imported fixture must keep its public name so pytest can inject it.
+# ruff: noqa: F811
 """The scheduler never selects a step a new worker could not advance.
 
 Every workflow binds a skill to its release stage, so a landed item waiting

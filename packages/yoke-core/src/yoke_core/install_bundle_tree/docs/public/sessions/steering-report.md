@@ -33,9 +33,13 @@ members. Other-document work with no live seat appears as unattended linked
 work with owning project/acquire command. Machines, delivery and unbound
 launches remain project-wide/shared facts.
 
-Available work leads: scheduler-runnable unheld rows, ranked, `new` or `stopped`
-by prior claim release, `!` after staffing threshold; committed work waiting
-only to land prints under `waiting to land` instead. Idle holders still own
+Available work leads: unheld rows a new worker could advance, ranked, `new` or
+`stopped` by prior claim release, `!` after staffing threshold. It is the
+scheduler's own staffable answer, the one its selected step comes from: a
+landed item is listed only while it owes a re-landing or is a waiting or red
+member of a live run; conduct past the WIP cap and an epic whose task a live
+session holds are omitted. Committed work waiting only to land prints under
+`waiting to land` instead. Idle holders still own
 their items. Release/completion/cancellation/authorized termination changes
 custody; freeze/block hold deliberately; age infers no hold or staffing.
 
