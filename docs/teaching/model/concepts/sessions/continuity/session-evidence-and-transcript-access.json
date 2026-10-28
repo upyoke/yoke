@@ -3,5 +3,6 @@
  "title": "Session evidence and transcript access",
  "status": "draft-copy",
  "page": "sessions",
- "position": 4
+ "position": 4,
+ "summary": "Claude transcript lookup uses the session checkout's absolute path: replace every non-ASCII-alphanumeric UTF-16 code unit with a hyphen; over 200 units, truncate and append the base-36 absolute signed 32-bit path hash. The harness manifest teaches the same rule for onboarding; stopped-session wake uses it to find the exact session transcript."
 }

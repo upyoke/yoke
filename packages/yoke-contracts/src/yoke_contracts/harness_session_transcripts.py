@@ -39,8 +39,11 @@ HARNESS_SESSION_TRANSCRIPTS: dict[str, HarnessSessionTranscripts] = {
         store="local_jsonl",
         location="~/.claude/projects/<checkout-key>/<session_id>.jsonl",
         project_match=(
-            "<checkout-key> is the absolute checkout path with every '/' "
-            "replaced by '-'; one directory per checkout"
+            "<checkout-key> is the absolute checkout path with each non-ASCII-"
+            "alphanumeric UTF-16 code unit replaced by '-'; keys over 200 units "
+            "use the first 200 plus '-' and the base-36 absolute signed 32-bit "
+            "hash of the original path (h = 31*h + charCode); one directory "
+            "per checkout"
         ),
         evidence=(
             "yoke_harness.session_relay_claude_transcript derives the same "
