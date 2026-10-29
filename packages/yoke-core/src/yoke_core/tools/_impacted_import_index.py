@@ -35,6 +35,7 @@ from yoke_core.tools._impacted_dispatch_edges import DispatchMap, load_dispatch_
 from yoke_core.tools._impacted_fixture_graph import FixtureGraph, FixtureGraphBuilder
 from yoke_core.tools._impacted_path_references import (
     named_path_references,
+    pytest_module_name,
     resolve_named_path,
 )
 from yoke_core.tools._impacted_selection import is_effectively_full
@@ -47,9 +48,7 @@ from yoke_core.tools._impacted_symbol_exports import (
 )
 
 _PACKAGE_SOURCE_MARKER = "/src/"
-#: Project-local checks live here and import under
-#: :data:`PROJECT_CHECKS_PACKAGE`; both facts belong to the engine that
-#: loads them, so they are read from it rather than restated.
+#: Project-local checks use the loading engine's directory and namespace.
 _PROJECT_CHECKS_PREFIX = f"{PROJECT_CHECKS_DIR.as_posix()}/"
 _SKIP_DIRECTORIES = frozenset(
     {".git", ".venv", "node_modules", "__pycache__", ".worktrees", "build"}
@@ -282,12 +281,7 @@ def bounded_importer_tests(
 def build_import_index(repo_root: Path) -> ImportIndex:
     importers: dict[str, set[str]] = {}
     module_of: dict[str, str] = {}
-    # Path literals resolve to modules only once every file is known, so
-    # they are collected here and folded in after the scan.
     path_references: list[tuple[str, set[str]]] = []
-    # A name is followed to its defining module only once every module's
-    # own symbol table is known, so both sides are collected here and the
-    # edges folded in after the scan.
     symbols: dict[str, ModuleSymbols] = {}
     symbol_references: dict[str, set[tuple[str, str]]] = {}
     fixtures = FixtureGraphBuilder()
@@ -313,6 +307,11 @@ def build_import_index(repo_root: Path) -> ImportIndex:
         named_symbols = imported_symbol_references(tree, package)
         if named_symbols:
             symbol_references[rel] = named_symbols
+    for rel, full in module_of.items():
+        if _PACKAGE_SOURCE_MARKER in rel or rel.startswith(_PROJECT_CHECKS_PREFIX):
+            continue
+        bare = pytest_module_name(rel, module_of)
+        importers.setdefault(full, set()).update(importers.get(bare, ()))
     by_file_name: dict[str, set[str]] = {}
     for rel in module_of:
         by_file_name.setdefault(rel.rsplit("/", 1)[-1], set()).add(rel)

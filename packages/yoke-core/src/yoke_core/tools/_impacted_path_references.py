@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import ast
 import re
+from pathlib import PurePosixPath
 
 #: A path to a Python file is a dependency reference. A bare file name
 #: counts too, resolved only when it is unambiguous, so a lone
@@ -133,3 +134,20 @@ def _path_shaped(value: str) -> "str | None":
 
 
 __all__ = ["named_path_references", "resolve_named_path"]
+
+
+def pytest_module_name(rel: str, module_of: dict[str, str]) -> str:
+    """Name under pytest prepend mode, using only indexed package markers.
+
+    The first parent without an __init__.py is the import root. Duplicate
+    names conservatively share importers when folded into the full keys.
+    """
+    path = PurePosixPath(rel)
+    parts = [] if path.stem == "__init__" else [path.stem]
+    parent = path.parent
+    while parent != PurePosixPath("."):
+        if (parent / "__init__.py").as_posix() not in module_of:
+            break
+        parts.insert(0, parent.name)
+        parent = parent.parent
+    return ".".join(parts)
