@@ -39,7 +39,7 @@ def test_single_entry_review_dispatches_global_target() -> None:
     request = _CAPTURED_REQUESTS[-1]
     assert request.function == "ouroboros.entry.mark_reviewed"
     assert request.target.kind == "global"
-    assert request.payload == {"entry_id": 31555, "project": "yoke"}
+    assert request.payload == {"entry_id": 31555}
 
 
 def test_single_entry_review_without_checkout_project_still_dispatches() -> None:
@@ -112,7 +112,7 @@ def test_review_rejects_ambiguous_or_incomplete_selectors(
     assert not _CAPTURED_REQUESTS
 
 
-def test_single_entry_archive_dispatches_entry_and_project() -> None:
+def test_single_entry_archive_uses_entry_authority() -> None:
     rc = _run("feedback", "archive", "31555")
 
     assert rc == 0
@@ -121,7 +121,6 @@ def test_single_entry_archive_dispatches_entry_and_project() -> None:
     assert request.payload == {
         "all_reviewed": False,
         "entry_id": 31555,
-        "project": "yoke",
     }
 
 
@@ -153,3 +152,9 @@ def test_single_entry_archive_rejects_the_unattributed_opt_in() -> None:
 
     assert rc == 2
     assert not _CAPTURED_REQUESTS
+
+
+@pytest.mark.parametrize("action", ["review", "archive"])
+def test_single_entry_preserves_explicit_project_confirmation(action):
+    assert _run("feedback", action, "31555", "--project", "externalwebapp") == 0
+    assert _CAPTURED_REQUESTS[-1].payload["project"] == "externalwebapp"

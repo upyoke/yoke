@@ -70,3 +70,26 @@ def test_scope_respects_admin_and_project_visibility(test_db, shape):
     assert read(admin, scope="unscoped", **options) == {unscoped}
     assert read(member, **options) == {scoped}
     assert read(member, scope="unscoped", **options) == set()
+
+
+@pytest.mark.parametrize("function,column", [("ouroboros.entry.mark_reviewed", "reviewed_at"), ("ouroboros.entry.mark_archived", "archived_at")])
+def test_only_admin_can_curate_unscoped_note_without_a_project_hint(test_db, function, column):
+    from runtime.api.domain.test_yoke_function_permissions import _entry
+    from yoke_core.domain.yoke_function_permissions import check_dispatch_permission
+    from yoke_core.domain.handlers import ouroboros_writes
+    from yoke_core.domain.actor_permissions import PERM_EVENTS_WRITE
+    member = _project_owner(test_db, "yoke")
+    admin = _project_owner(test_db, "yoke")
+    org = test_db.execute("SELECT org_id FROM projects WHERE slug='yoke'").fetchone()[0]
+    grant_actor_org_role(test_db, actor_id=admin, org_id=org, role_name="admin")
+    entry_id = insert(test_db)
+    request = FunctionCallRequest(function=function, actor=ActorContext(actor_id=str(member), session_id="fixture"), target=TargetRef(kind="global"), payload={"entry_id": entry_id, "project": "yoke"})
+    assert check_dispatch_permission(test_db, _entry(function), request).error is not None
+    request.actor.actor_id = str(admin)
+    request.payload.pop("project")
+    permission = check_dispatch_permission(test_db, _entry(function), request)
+    assert permission.error is None
+    assert permission.permission_key == PERM_EVENTS_WRITE
+    handler = ouroboros_writes.handle_ouroboros_entry_mark_reviewed if column == "reviewed_at" else ouroboros_writes.handle_ouroboros_entry_mark_archived
+    assert handler(request).primary_success
+    assert test_db.execute(f"SELECT {column} FROM ouroboros_entries WHERE id=%s", (entry_id,)).fetchone()[0] is not None

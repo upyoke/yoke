@@ -106,10 +106,9 @@ def feedback_review(args: List[str]) -> int:
             payload["limit"] = parsed.limit
     if parsed.include_unattributed:
         payload["include_unattributed"] = True
-    # The entry row is the write authority; this project only confirms it,
-    # and supplies authority for an entry that belongs to no project. A bulk
-    # selector has no row to read, so it must be named.
-    project = client_project_context(parsed.project)
+    # The entry row supplies project authority; an explicit project confirms it.
+    # Bulk selectors have no row to read, so their project must be named.
+    project = parsed.project if parsed.entry_id is not None else client_project_context(parsed.project)
     if project:
         payload["project"] = project
     elif parsed.entry_id is None:
@@ -168,10 +167,9 @@ def feedback_archive(args: List[str]) -> int:
         payload["entry_id"] = parsed.entry_id
     if parsed.include_unattributed:
         payload["include_unattributed"] = True
-    # The entry row is the write authority; this project only confirms it,
-    # and supplies authority for an entry that belongs to no project. A bulk
-    # selector has no row to read, so it must be named.
-    project = client_project_context(parsed.project)
+    # The entry row supplies project authority; an explicit project confirms it.
+    # Bulk selectors have no row to read, so their project must be named.
+    project = parsed.project if parsed.entry_id is not None else client_project_context(parsed.project)
     if project:
         payload["project"] = project
     elif parsed.all_reviewed:

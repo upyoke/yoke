@@ -1,6 +1,6 @@
 {
  "id": "notes",
- "title": "Field-notes",
+ "title": "Feedback notes",
  "status": "observed",
  "surface_refs": ["execution-instructions"],
  "commands": ["yoke feedback", "yoke feedback get", "yoke feedback list"],

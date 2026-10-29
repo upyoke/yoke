@@ -6,8 +6,8 @@ One rule, applied by every entry write:
   by the ENTRY row's own ``project_id``. A project named by the caller —
   ``--project``, ``YOKE_PROJECT``, or the checkout map — is a confinement
   filter, never a redirect: it must agree with an attributed row, and it
-  supplies authority only for an *unattributed* row, which belongs to no
-  project. Naming the single id is itself the opt-in for that row.
+  never grants authority to an *unattributed* row. The dispatcher requires
+  org-admin authority for notes without a project.
 * A **bulk** selector (a date cutoff, or every reviewed entry) always
   requires a named project, so no call can sweep the whole universe. It
   covers only that project's rows unless the caller explicitly opts into
@@ -83,9 +83,8 @@ def require_entry_writable_by_project(
 
     Raises ``LookupError`` when the entry does not exist and
     ``CrossProjectEntryWrite`` when it belongs to a project other than the
-    one the caller named. An unattributed entry is writable by the named
-    project: no other project's row is at risk, and refusing it would strand
-    every entry filed before or outside project attribution.
+    one the caller named. An unattributed entry has no project confinement;
+    the dispatcher independently requires org-admin authority for it.
     """
     p = _p(conn)
     row = query_one(
