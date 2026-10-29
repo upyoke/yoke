@@ -97,8 +97,10 @@ def case_inputs(case: Mapping[str, Any], *, project: str) -> dict[str, str]:
         _refuse_queue_routed(project, inputs)
     from yoke_core.domain.qa_case_ci_product_publication import (
         require_published_product,
+        resolve_product_ref,
     )
 
+    resolve_product_ref(case, inputs)
     require_published_product(case, inputs)
     return inputs
 
@@ -165,8 +167,10 @@ def item_inputs(*, item_id: int, workflow: str) -> dict[str, str]:
         declared, source_requirement = inputs, int(row.get("id") or 0)
     from yoke_core.domain.qa_case_ci_product_publication import (
         require_published_product,
+        resolve_product_ref,
     )
 
+    resolve_product_ref({"public_ref": item_id}, declared)
     require_published_product({"public_ref": item_id}, declared)
     return declared
 
