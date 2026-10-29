@@ -80,10 +80,8 @@ selects only cases that name its environment; done waits for every target's
 accepted proof. Rematerialize compares the environment as part of case identity,
 so a retained Stage obligation cannot disappear when Production passes.
 
-Verify on production by default. A case naming an environment that does not
-declare role.production true (stage) must set `stage_reason` to
-creates_or_destroys_data or changes_infrastructure, else stage_reason_required
-refuses it; a read-only check targets production instead.
+`stage_reason` is optional descriptive metadata: creates_or_destroys_data or
+changes_infrastructure. It does not restrict target_envs.
 
 Manual wake
 -----------

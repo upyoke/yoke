@@ -141,11 +141,9 @@ def split_runs_by_target_environment(
 ) -> tuple[list[str], list[list[str]]]:
     """Separate one-run-per-environment from genuine duplicates.
 
-    A release deploys stage and production in parallel from one verified
-    revision, so an item advancing two prepared runs is the ordinary shape
-    when those runs target DIFFERENT environments — refusing it would strand
-    half of every pair. Two prepared runs aimed at the SAME environment are
-    the real ambiguity, because only one of them can be the release.
+    Runs targeting different environments have independent delivery scopes.
+    Two prepared runs aimed at the same environment are ambiguous because
+    only one can be the release for that target.
 
     The distinction reads ``deployment_runs.target_environment_id``, which
     every run already carries; nothing new records it.

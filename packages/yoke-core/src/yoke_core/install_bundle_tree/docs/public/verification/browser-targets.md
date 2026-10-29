@@ -85,7 +85,7 @@ Every surface that authors a Browser case chooses its phase here:
 
 | Where the change becomes visible | The case to author |
 |---|---|
-| A deployed environment | A `post_deploy` case with `--target-env ENV`, bound to the release stage. Target production; a plan case names stage only with a `stage_reason` ([case environment obligations](standalone-plans.md#case-environment-obligations)). The deployed server's own `/served-build` proves the commit. |
+| A deployed environment | A `post_deploy` case with `--target-env ENV`, bound to the release stage. A plan case selects registered environments with `target_envs` ([case environment obligations](standalone-plans.md#case-environment-obligations)). The deployed server's own `/served-build` proves the commit. |
 | Also a server the project runs from its unmerged candidate, reporting that commit at `/served-build` | A pre-merge `verification` case against that server is also available, bound to the review stage. |
 | Nowhere — a prototype, design document, or other change no server serves | No Browser case. Select the `approval_on_done` posture (`--approval-on-done` at file time, or `yoke workflows item-posture amend PREFIX-N --key approval_on_done --value true --reason "..."`) so the operator signs off before the item closes. |
 

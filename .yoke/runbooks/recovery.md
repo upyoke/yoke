@@ -6,8 +6,7 @@ humans and agents. Keep Stage and Production recovery strictly separate.
 ## State surfaces
 
 - The hosted control plane uses environment-scoped PostgreSQL databases owned
-  and operated by Platform. Production data is durable; Stage is disposable
-  and is never a Production backup.
+  and operated by Platform.
 - Platform owns the environment Pulumi state, server custody, database backup
   policy, and deployed Yoke wheel/image pins. Its project runbook is the
   infrastructure recovery authority.
@@ -35,9 +34,8 @@ humans and agents. Keep Stage and Production recovery strictly separate.
 5. Require schema convergence, `yoke status`, the hosted organization UI, the
    package index, and the deployment-run receipt before reopening writes.
 
-Stage may be rebuilt instead of restored. A Production data rollback must
-account for writes accepted after the recovery point; never discard them
-implicitly.
+A database rollback must account for writes accepted after the recovery point;
+never discard them implicitly.
 
 ## Break-glass access
 
