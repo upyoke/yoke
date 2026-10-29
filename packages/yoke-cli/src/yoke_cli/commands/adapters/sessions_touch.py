@@ -40,10 +40,10 @@ def sessions_touch(args: List[str]) -> int:
         "--mode",
         choices=sorted(SESSION_MODES),
         metavar="MODE",
-        help=f"Mode to set: {', '.join(sorted(SESSION_MODES))}.",
+        help="parked (with --reason) parks the session; wait unparks it.",
     )
     parser.add_argument(
-        "--reason", metavar="TEXT", help="Why the session is in this mode."
+        "--reason", metavar="TEXT", help="Why the session is parked."
     )
     add_session_arg(parser)
     add_json_arg(parser)

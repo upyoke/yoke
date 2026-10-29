@@ -81,7 +81,8 @@ def test_parked_worker_receives_mail_before_new_launches(
     assert len(outcome.jobs) == 1 + len(launches)
     wake = outcome.jobs[0]
     assert wake.job_kind == "wake" and wake.target_session_id == "target"
-    assert wake.target_parked and wake.wake_mode is WakeMode.WAITING
+    assert wake.wake_mode is WakeMode.WAITING
+    assert "target_parked" not in wake.to_dict()
     assert [job.job_kind for job in outcome.jobs[1:]] == ["launch"] * len(launches)
     assert {job.job_id for job in outcome.jobs[1:]} == set(launches)
     assert conn.execute("SELECT COUNT(*) FROM session_launch_attempts").fetchone()[

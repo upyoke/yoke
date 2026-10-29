@@ -129,7 +129,7 @@ def test_a_quiet_holder_reports_as_idle(steering_scope):
     set_session_mode(
         steering_scope,
         WORKER_SESSION,
-        "dash",
+        "wait",
         reason="waiting on merge queue",
     )
     report = _compose(steering_scope)

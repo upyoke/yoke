@@ -72,3 +72,25 @@ def test_reclaimable_matches_what_the_reclaim_sweep_would_act_on(test_db):
     # Every claim holder is protected from the sweep, parked or not.
     assert reclaimable == {"s-parked-claimless", "s-quiet-claimless"}
     assert reclaimable == swept
+
+
+def test_a_retired_skill_mode_reads_exactly_like_wait(test_db):
+    """Rows from older builds may hold a skill name; it is not a pause."""
+    quiet = instant_ago(_LONG_AGO_MINUTES)
+    for mode in ("wait", "dash"):
+        _insert_session(test_db, f"s-{mode}-holder", last_heartbeat=quiet, mode=mode)
+        _insert_session(test_db, f"s-{mode}-claimless", last_heartbeat=quiet, mode=mode)
+    for item_id in (91, 92):
+        insert_item(test_db, id=item_id, title=f"held item {item_id}")
+    test_db.commit()
+    insert_item_claim(test_db, "s-wait-holder", 91)
+    insert_item_claim(test_db, "s-dash-holder", 92)
+
+    by_id = {row["session_id"]: row for row in list_sessions()}
+
+    for kind in ("holder", "claimless"):
+        old, current = by_id[f"s-dash-{kind}"], by_id[f"s-wait-{kind}"]
+        assert (old["liveness"], old["reclaimable"]) == (
+            current["liveness"],
+            current["reclaimable"],
+        )

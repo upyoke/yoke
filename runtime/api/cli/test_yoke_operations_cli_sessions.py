@@ -52,11 +52,17 @@ def _run(*argv: str, session_id: str = "test-session") -> int:
 
 
 def test_sessions_touch_dispatches() -> None:
-    assert _run("sessions", "touch", "--mode", "charge") == 0
+    assert _run("sessions", "touch", "--mode", "wait") == 0
     req = _CAPTURED_REQUESTS[-1]
     assert req.function == "sessions.touch"
     assert req.target.kind == "global"
-    assert req.payload == {"mode": "charge"}
+    assert req.payload == {"mode": "wait"}
+
+
+def test_sessions_touch_refuses_a_retired_skill_mode() -> None:
+    sent = len(_CAPTURED_REQUESTS)
+    assert _run("sessions", "touch", "--mode", "dash") == 2
+    assert len(_CAPTURED_REQUESTS) == sent
 
 
 def test_sessions_touch_dispatches_reason_without_a_mode() -> None:

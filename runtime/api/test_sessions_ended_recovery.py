@@ -119,7 +119,7 @@ class TestRefusalsNameTheirRecovery:
     def test_session_mode_refusal(self, conn):
         session_id = self._ended_session(conn)
         with pytest.raises(SessionError) as exc_info:
-            set_session_mode(conn, session_id, "dash")
+            set_session_mode(conn, session_id, "wait")
         self._assert_teaches_recovery(exc_info, session_id)
 
     def test_work_claim_acquisition_refusal(self, conn):

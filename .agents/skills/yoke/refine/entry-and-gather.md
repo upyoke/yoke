@@ -1,7 +1,6 @@
 # Refine — Claim, Enter, Gather
 
 ```bash
-yoke sessions touch --mode refine
 yoke claims work acquire --item "$ITEM_REF" --reason refine_run
 ```
 At the source stage with `item_artifact` scope, classify readiness first

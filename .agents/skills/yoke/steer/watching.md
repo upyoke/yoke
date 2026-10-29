@@ -29,4 +29,4 @@ Handle `fleet ALARM` this turn ([fleet-findings.md](fleet-findings.md)).
 Run the command in `FLEET WATCHER ALERT`.
 
 **Stop looping**: park (`operator paused steering`); stop the watcher.
-On operator resume only: `yoke sessions touch --mode steer` and re-arm.
+On operator resume only: `yoke sessions touch --mode wait` and re-arm.

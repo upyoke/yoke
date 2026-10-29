@@ -64,7 +64,6 @@ class RegisterSessionRequest(BaseModel):
     workspace: str
     project_id: int | None = None
     machine_scope: bool = False
-    mode: str = "wait"
     offer_envelope: Optional[Dict[str, Any]] = None
 
 
@@ -98,7 +97,6 @@ def api_register_session(req: RegisterSessionRequest) -> JSONResponse:
             workspace=req.workspace,
             project_id=req.project_id,
             machine_scope=req.machine_scope,
-            mode=req.mode,
             offer_envelope=req.offer_envelope,
         )
         return JSONResponse(status_code=201, content=temporal_wire(result))

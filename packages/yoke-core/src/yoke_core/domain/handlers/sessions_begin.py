@@ -38,7 +38,6 @@ class BeginRequest(BaseModel):
     workspace: str
     project_id: int | None = None
     machine_scope: bool = False
-    mode: str = "wait"
     entrypoint: Optional[str] = None
     executor_version: Optional[str] = None
     machine_id: Optional[str] = None
@@ -110,7 +109,6 @@ def handle_begin(request: FunctionCallRequest) -> HandlerOutcome:
                 workspace=body.workspace,
                 project_id=body.project_id,
                 machine_scope=body.machine_scope,
-                mode=body.mode,
                 entrypoint=body.entrypoint,
                 executor_version=body.executor_version,
                 machine_id=body.machine_id,

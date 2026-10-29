@@ -1,4 +1,4 @@
-"""The session card strip reads the live claim, not the item status alone."""
+"""The session card strip paints the stage the item's status names."""
 
 from __future__ import annotations
 
@@ -7,7 +7,6 @@ import sqlite3
 
 import pytest
 
-from yoke_core.domain.session_mode import set_session_mode
 from yoke_core.domain.session_item_stage_states import (
     active_stage_id,
     item_stage_states,
@@ -21,68 +20,38 @@ def _states(stages: list[dict[str, object]]) -> list[object]:
     return [stage["state"] for stage in stages]
 
 
-def test_claimed_dash_at_idea_paints_idea_done_and_implementing_active() -> None:
-    runtime = builtin_workflow_runtime("dash")
-
-    stages = item_stage_states(runtime, "idea", holder_mode="dash")
-
-    assert active_stage_id(runtime, "idea", holder_mode="dash") == "implementing"
-    assert _states(stages) == ["complete", "active", "pending", "pending", "pending"]
-
-
-@pytest.mark.parametrize("holder_mode", (None, "wait", "idea"))
-def test_dash_at_idea_without_a_working_claim_keeps_idea_active(
-    holder_mode: str | None,
-) -> None:
-    """Unclaimed, or claimed by a session not yet working the Dash skill."""
-    runtime = builtin_workflow_runtime("dash")
-
-    stages = item_stage_states(runtime, "idea", holder_mode=holder_mode)
-
-    assert _states(stages) == ["active", "pending", "pending", "pending", "pending"]
+def _status_states(runtime, status: str) -> list[object]:
+    index = runtime.stage_index(status)
+    return [
+        "complete" if position < index else "active" if position == index else "pending"
+        for position in range(len(runtime.stage_ids))
+    ]
 
 
-def test_issue_mid_implementation_keeps_the_status_derived_stage() -> None:
-    runtime = builtin_workflow_runtime("issue")
+@pytest.mark.parametrize(
+    ("workflow_id", "status"),
+    (
+        ("dash", "idea"),
+        ("issue", "idea"),
+        ("issue", "implementing"),
+        ("issue", "reviewed-implementation"),
+        ("task", "implementing"),
+    ),
+)
+def test_strip_paints_the_status_stage_active(workflow_id: str, status: str) -> None:
+    runtime = builtin_workflow_runtime(workflow_id)
 
-    stages = item_stage_states(runtime, "implementing", holder_mode="busy")
-
-    assert stages[runtime.stage_index("implementing")]["state"] == "active"
-    assert _states(stages)[: runtime.stage_index("implementing")] == [
-        "complete"
-    ] * runtime.stage_index("implementing")
-
-
-def test_handoff_stage_completes_once_the_bound_skill_is_working() -> None:
-    """A binding's first stage is the previous skill's handoff."""
-    runtime = builtin_workflow_runtime("issue")
-
-    assert active_stage_id(runtime, "idea", holder_mode="refine") == "refining-idea"
-    # Polish's handoff stage is reviewed-implementation; its working stage
-    # follows it.
-    assert (
-        active_stage_id(runtime, "reviewed-implementation", holder_mode="polish")
-        == "polishing-implementation"
-    )
-    # A skill working past its handoff keeps the status-derived stage.
-    assert active_stage_id(runtime, "refining-idea", holder_mode="refine") == (
-        "refining-idea"
+    assert active_stage_id(runtime, status) == status
+    assert _states(item_stage_states(runtime, status)) == _status_states(
+        runtime, status
     )
 
 
-def test_single_stage_binding_has_no_working_stage_to_advance_to() -> None:
-    runtime = builtin_workflow_runtime("task")
-
-    assert active_stage_id(runtime, "implementing", holder_mode="dash") == (
-        "implementing"
-    )
-
-
-def test_landed_open_item_outranks_the_live_claim() -> None:
+def test_landed_open_item_paints_the_verification_close() -> None:
     runtime = builtin_workflow_runtime("dash")
 
     assert (
-        active_stage_id(runtime, "idea", landed_open=True, holder_mode="dash")
+        active_stage_id(runtime, "idea", landed_open=True)
         == "reviewing-implementation"
     )
 
@@ -145,35 +114,22 @@ def _connection(
     return conn
 
 
-def test_projection_reads_the_claim_holder_mode() -> None:
-    working = _connection(status="idea", holder_mode="dash")
-    waiting = _connection(status="idea", holder_mode="wait")
+@pytest.mark.parametrize("holder_mode", ("wait", "parked", "dash"))
+def test_held_item_strip_equals_its_status_stage(holder_mode: str) -> None:
+    """A holder's stored mode, even an old skill mode, never moves the strip."""
+    runtime = builtin_workflow_runtime("dash")
+    conn = _connection(status="idea", holder_mode=holder_mode)
 
-    assert _states(
-        primary_item_stages_by_session(working, [{"session_id": "s1"}])["s1"]
-    ) == [
-        "complete",
-        "active",
-        "pending",
-        "pending",
-        "pending",
-    ]
-    assert _states(
-        primary_item_stages_by_session(waiting, [{"session_id": "s1"}])["s1"]
-    ) == [
-        "active",
-        "pending",
-        "pending",
-        "pending",
-        "pending",
-    ]
+    stages = primary_item_stages_by_session(conn, [{"session_id": "s1"}])["s1"]
+
+    assert _states(stages) == _status_states(runtime, "idea")
 
 
 @pytest.mark.parametrize("landing_field", ("merged_at", "merge_queue_landed_at"))
 def test_held_session_card_trusts_post_merge_return_to_implementing(
     landing_field: str,
 ) -> None:
-    conn = _connection(status="implementing", holder_mode="dash")
+    conn = _connection(status="implementing", holder_mode="wait")
     conn.execute(
         f"UPDATE items SET {landing_field}=? WHERE id=7",
         ("2026-09-01T12:02:00Z",),
@@ -185,13 +141,7 @@ def test_held_session_card_trusts_post_merge_return_to_implementing(
 
     stages = primary_item_stages_by_session(conn, [{"session_id": "s1"}])["s1"]
 
-    assert _states(stages) == [
-        "complete",
-        "active",
-        "pending",
-        "pending",
-        "pending",
-    ]
+    assert _states(stages) == ["complete", "active", "pending", "pending", "pending"]
     assert stages[1] == {"name": "implementing", "state": "active", "failure": None}
 
 
@@ -199,7 +149,7 @@ def test_held_session_card_trusts_post_merge_return_to_implementing(
 def test_held_session_card_keeps_closeout_for_stale_merge_status(
     history: str,
 ) -> None:
-    conn = _connection(status="implementing", holder_mode="dash")
+    conn = _connection(status="implementing", holder_mode="wait")
     conn.execute("UPDATE items SET merged_at='2026-09-01T12:02:00Z' WHERE id=7")
     if history != "before_merge":
         conn.execute(
@@ -222,19 +172,13 @@ def test_held_session_card_keeps_closeout_for_stale_merge_status(
     assert stages[1]["state"] == "complete"
 
 
-def test_projection_reads_the_holder_mode_for_a_lane_session() -> None:
+def test_lane_session_on_a_claimed_item_sees_the_status_stage() -> None:
     """A lane row on another session's claimed Dash sees the same strip."""
-    conn = _connection(status="idea", holder_mode="dash")
+    conn = _connection(status="implementing", holder_mode="wait")
 
     stages = primary_item_stages_by_session(
         conn,
-        [
-            {
-                "session_id": "lane",
-                "work_role": "implementation",
-                "current_item": "YOK-20",
-            }
-        ],
+        [{"session_id": "lane", "work_role": "implementation", "current_item": "YOK-20"}],
     )
 
     assert _states(stages["lane"]) == [
@@ -246,8 +190,7 @@ def test_projection_reads_the_holder_mode_for_a_lane_session() -> None:
     ]
 
 
-def test_projection_ignores_launch_failure_once_item_has_live_holder() -> None:
-    conn = _connection(status="idea", holder_mode="dash")
+def _failed_launch(conn: sqlite3.Connection) -> None:
     conn.executescript(
         """
         CREATE TABLE session_launches (
@@ -259,68 +202,23 @@ def test_projection_ignores_launch_failure_once_item_has_live_holder() -> None:
         """
     )
 
+
+def test_projection_ignores_launch_failure_once_item_has_live_holder() -> None:
+    conn = _connection(status="idea", holder_mode="wait")
+    _failed_launch(conn)
+
     stages = primary_item_stages_by_session(conn, [{"session_id": "s1"}])["s1"]
 
-    assert stages[1] == {
-        "name": "implementing",
-        "state": "active",
-        "failure": None,
-    }
-    assert stages[0]["state"] == "complete"
+    assert stages[0] == {"name": "idea", "state": "active", "failure": None}
 
 
 def test_projection_keeps_launch_failure_without_live_holder() -> None:
     conn = _connection(status="idea", holder_mode=None)
-    conn.executescript(
-        """
-        CREATE TABLE session_launches (
-            launch_id TEXT PRIMARY KEY, project_id INTEGER, session_name TEXT,
-            state TEXT, created_at TEXT
-        );
-        INSERT INTO session_launches VALUES
-            ('launch-1',1,'YOK-20: worker','failed','2026-09-01T12:01:00Z');
-        """
-    )
+    _failed_launch(conn)
 
     stages = primary_item_stages_by_session(
         conn,
-        [
-            {
-                "session_id": "lane",
-                "work_role": "implementation",
-                "current_item": "YOK-20",
-            }
-        ],
+        [{"session_id": "lane", "work_role": "implementation", "current_item": "YOK-20"}],
     )["lane"]
 
-    assert stages[0] == {
-        "name": "idea",
-        "state": "failed",
-        "failure": "launch failed",
-    }
-
-
-@pytest.mark.parametrize(
-    ("workflow_id", "mode", "handoff", "working_stage"),
-    (
-        ("issue", "implement", "refined-idea", "implementing"),
-        ("epic", "conduct", "planned", "implementing"),
-        ("blitz", "blitz", "refined-idea", "implementing"),
-    ),
-)
-def test_entry_mode_paints_the_claimed_bindings_first_working_stage(
-    workflow_id: str, mode: str, handoff: str, working_stage: str
-) -> None:
-    runtime = builtin_workflow_runtime(workflow_id)
-    conn = _connection(status=handoff, holder_mode="wait", workflow_id=workflow_id)
-    handoff_index = runtime.stage_index(handoff)
-    working_index = runtime.stage_index(working_stage)
-    before = primary_item_stages_by_session(conn, [{"session_id": "s1"}])["s1"]
-    assert before[handoff_index]["state"] == "active"
-
-    stamped = set_session_mode(conn, "s1", mode)
-    assert stamped["mode"] == mode
-    after = primary_item_stages_by_session(conn, [{"session_id": "s1"}])["s1"]
-    assert after[handoff_index]["state"] == "complete"
-    assert after[working_index]["state"] == "active"
-    assert [stage["state"] for stage in after].count("active") == 1
+    assert stages[0] == {"name": "idea", "state": "failed", "failure": "launch failed"}

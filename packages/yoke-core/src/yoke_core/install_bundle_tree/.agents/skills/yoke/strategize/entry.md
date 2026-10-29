@@ -1,7 +1,6 @@
 # Strategize — entry
 
 ```text
-yoke sessions touch --mode strategize
 yoke claims work acquire --process STRATEGIZE --project <project>
 ```
 

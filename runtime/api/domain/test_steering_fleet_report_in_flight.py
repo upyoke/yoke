@@ -103,7 +103,7 @@ def test_the_in_flight_row_names_the_command_and_when_it_opened(fleet):
     from yoke_core.domain.steering_fleet_report_render import report_body
     from yoke_core.domain.steering_fleet_report_projection import report_dict
 
-    set_session_mode(fleet, WORKER_SESSION, "dash", reason="waiting on merge queue")
+    set_session_mode(fleet, WORKER_SESSION, "wait", reason="waiting on merge queue")
     _open_call(fleet, MERGE_WAIT)
 
     report = _compose(fleet)

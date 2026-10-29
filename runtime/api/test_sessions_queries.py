@@ -119,13 +119,17 @@ class TestQuerySurface:
 
     def test_set_session_mode_updates_session(self, conn):
         _register(conn)
-        result = set_session_mode(conn, "sess-1", "charge")
-        assert result["mode"] == "charge"
+        result = set_session_mode(conn, "sess-1", "parked", reason="R")
+        assert result["mode"] == "parked"
 
         row = conn.execute(
-            "SELECT mode FROM harness_sessions WHERE session_id='sess-1'"
+            "SELECT mode, quiet_reason FROM harness_sessions WHERE session_id='sess-1'"
         ).fetchone()
-        assert row["mode"] == "charge"
+        assert row["mode"] == "parked"
+        assert row["quiet_reason"] == "R"
+
+        result = set_session_mode(conn, "sess-1", "wait")
+        assert result["mode"] == "wait"
 
 
 # ---------------------------------------------------------------------------

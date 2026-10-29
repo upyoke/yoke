@@ -12,10 +12,7 @@ from yoke_cli.commands._helpers import (
     usage_error,
 )
 from yoke_cli.commands.adapters.items_create_dispatch import dispatch_create
-from yoke_cli.commands.adapters.items_create_policy import (
-    refuse_unscaffolded_create,
-    _unsupported_posture,
-)
+from yoke_cli.commands.adapters.items_create_policy import _unsupported_posture
 from yoke_cli.commands.adapters.items_create_text import (
     add_create_text_args,
     resolve_create_text,
@@ -155,13 +152,6 @@ def items_create(args: list[str], *, shortcut: str | None = None) -> int:
         title, workflow, spec = resolve_create_text(parsed, shortcut, command)
     except ValueError as exc:
         return usage_error(str(exc))
-    refused = refuse_unscaffolded_create(
-        dry_run=parsed.dry_run,
-        workflow=workflow,
-        entry_surface=parsed.entry_surface,
-    )
-    if refused is not None:
-        return refused
     if workflow == "task":
         refusal = _unsupported_posture(parsed)
         if refusal:

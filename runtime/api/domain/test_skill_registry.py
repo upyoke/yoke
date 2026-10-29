@@ -4,7 +4,6 @@ from pathlib import Path
 
 import pytest
 
-from yoke_contracts.session_queue_posture import SESSION_MODES
 from yoke_contracts.skill_registry import SKILLS, STAGE_SKILL_IDS
 from yoke_core.domain.frontier_types import AdapterCategory
 from yoke_core.domain.harness_capability_registry import (
@@ -37,7 +36,30 @@ def test_registry_covers_each_installed_skill_exactly_once():
     assert router not in INVENTORY
     assert BEGIN_MARKER not in (ROOT / router).read_text()
     assert not paths & set(INVENTORY)
-    assert {skill.session_mode for skill in SKILLS} <= SESSION_MODES
+
+
+def test_skills_stamp_no_session_mode():
+    """Only a park or an unpark writes mode; entering a skill writes nothing."""
+    stamps = [
+        line.strip()
+        for path in (ROOT / ".agents/skills/yoke").rglob("*.md")
+        for line in path.read_text().splitlines()
+        if "sessions touch --mode" in line
+    ]
+    assert stamps
+    assert all(
+        "sessions touch --mode parked" in line or "sessions touch --mode wait" in line
+        for line in stamps
+    ), stamps
+
+
+def test_rendered_registry_has_no_mode_column():
+    for path in (
+        ".agents/skills/yoke/help/SKILL.md",
+        "docs/public/agents/commands.md",
+        "docs/harness-bootstrap.md",
+    ):
+        assert "Session mode" not in (ROOT / path).read_text(), path
 
 
 def test_stage_skills_route_and_launch_on_every_harness():

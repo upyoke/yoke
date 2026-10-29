@@ -30,7 +30,7 @@ def response(function, result):
 def test_touch_one_line_and_json_preserves_session(monkeypatch, capsys, reason):
     row = {
         "session_id": "session-example",
-        "mode": "dash",
+        "mode": "wait",
         "last_heartbeat": "2026-10-26T12:00:00Z",
         "quiet_reason": reason,
         "workspace": "/example",
@@ -44,10 +44,10 @@ def test_touch_one_line_and_json_preserves_session(monkeypatch, capsys, reason):
         )
 
     monkeypatch.setattr(sessions, "dispatch_and_emit", dispatch)
-    assert sessions.sessions_touch(["--mode", "dash"]) == 0
+    assert sessions.sessions_touch(["--mode", "wait"]) == 0
     captured = capsys.readouterr()
     assert len(captured.out.splitlines()) == 1
-    assert "session-example" in captured.out and "dash" in captured.out
+    assert "session-example" in captured.out and "wait" in captured.out
     assert row["last_heartbeat"] in captured.out
     assert ("reason:" in captured.out) is bool(reason)
     assert "other_state" not in captured.out

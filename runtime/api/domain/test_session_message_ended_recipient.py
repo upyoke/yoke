@@ -101,8 +101,11 @@ def test_a_parked_ended_session_still_wakes() -> None:
     _stop(conn)
 
     eligible = wake_eligible_recipients(conn, now=NOW + timedelta(minutes=11))
-    assert len(eligible) == 1
-    assert eligible[0]["parked"] is True
+    assert [row["session_id"] for row in eligible] == [NATIVE_WAKE_SESSION_ID]
+    assert conn.execute(
+        "SELECT mode FROM harness_sessions WHERE session_id=?",
+        (NATIVE_WAKE_SESSION_ID,),
+    ).fetchone()[0] == "parked"
 
 
 def test_a_quiet_live_session_still_wakes() -> None:

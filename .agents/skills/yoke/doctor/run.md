@@ -1,7 +1,6 @@
 # Doctor — Claim, Run and Release
 
 ```text
-yoke sessions touch --mode doctor
 yoke claims work acquire --process DOCTOR --project {project} --reason doctor_run --json
 yoke watch doctor -- --full --project {project}
 yoke claims work release --claim-id {claim_id} --reason doctor_complete --json

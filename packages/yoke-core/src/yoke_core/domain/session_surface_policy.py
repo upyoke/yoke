@@ -247,8 +247,8 @@ _CREATE_NONE_REASONS = {
 
 _MANUAL_START_RECOVERY = (
     "verify the machine with `yoke relay status`. If relay launch "
-    "delivery is unavailable, start a normal harness session by hand, run "
-    "`yoke sessions touch --mode MODE`, then acquire the item with "
+    "delivery is unavailable, start a normal harness session by hand, then "
+    "acquire the item with "
     "`yoke claims work acquire --item PREFIX-N --reason REASON`; no launch "
     "record is expected for that session."
 )

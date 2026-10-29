@@ -67,18 +67,18 @@ def _connect_relay(conn) -> None:
     conn.commit()
 
 
-def test_a_parked_candidate_tells_the_relay_the_session_has_parked() -> None:
+def test_a_parked_session_is_woken_without_a_parked_job_field() -> None:
     conn = message_connection()
     _send(conn)
     park_session(conn)
     stamp_activity(conn, when=NOW + timedelta(seconds=1))
     candidate = wake_eligible_recipients(conn, now=NOW + timedelta(seconds=1))[0]
-    assert candidate["parked"] is True
+    assert "parked" not in candidate
 
     _connect_relay(conn)
     job = claim_wake_job(conn, _heartbeat(), now="2026-08-22T16:00:01Z")
     assert job is not None
-    assert job.target_parked is True
+    assert "target_parked" not in job.to_dict()
     assert job.target_workspace == ALPHA_WORKSPACE
 
 
@@ -101,7 +101,10 @@ def test_a_parked_session_spent_by_native_hold_is_still_wakeable() -> None:
     stamp_activity(conn, when=NOW + timedelta(seconds=1))
     eligible = wake_eligible_recipients(conn, now=NOW + timedelta(seconds=1))
     assert [row["session_id"] for row in eligible] == [NATIVE_WAKE_SESSION_ID]
-    assert eligible[0]["parked"] is True
+    assert conn.execute(
+        "SELECT mode FROM harness_sessions WHERE session_id=?",
+        (NATIVE_WAKE_SESSION_ID,),
+    ).fetchone()[0] == "parked"
 
 
 def test_an_unparked_session_spent_by_native_hold_stays_at_the_limit() -> None:

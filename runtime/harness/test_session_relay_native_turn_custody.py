@@ -210,7 +210,7 @@ def test_the_runner_defers_when_a_parked_session_is_still_running(
     _resume_record()
 
     result = session_relay_runtime.run_registered_job(
-        {**_wake_job(workspace=tmp_path), "target_parked": True, "surface": surface}
+        {**_wake_job(workspace=tmp_path), "surface": surface}
     )
 
     assert result.result_code == NATIVE_TURN_RUNNING_RESULT
@@ -280,9 +280,7 @@ def test_a_second_request_sees_the_first_native(
     session_relay_runtime.reset_relay_adapters_for_tests()
 
 
-@pytest.mark.parametrize("parked", [False, True])
 def test_a_wake_after_the_native_exits_is_allowed(
-    parked: bool,
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -300,9 +298,7 @@ def test_a_wake_after_the_native_exits_is_allowed(
         _start_time_of({}),
     )
 
-    result = session_relay_runtime.run_registered_job(
-        {**_wake_job(workspace=tmp_path), "target_parked": parked}
-    )
+    result = session_relay_runtime.run_registered_job(_wake_job(workspace=tmp_path))
 
     assert result.result_code == "resumed_running"
     assert resumed == [SESSION]
@@ -318,9 +314,7 @@ def test_a_parked_session_is_held_by_a_live_native(
 ) -> None:
     """A wait declaration is not evidence that the native process exited."""
     _resume_record(tmp_path)
-    context = session_relay_runtime.execution_context(
-        {**_wake_job(workspace=tmp_path), "target_parked": True}
-    )
+    context = session_relay_runtime.execution_context(_wake_job(workspace=tmp_path))
     result = deferral_for_running_native(
         context,
         custody_state_dir=tmp_path,

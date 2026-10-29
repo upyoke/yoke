@@ -76,8 +76,8 @@ def content_for_path(path: str) -> str:
     else:
         lines.extend(
             [
-                "| Skill | Kind | Session mode | Autonomy | Purpose |",
-                "|---|---|---|---|---|",
+                "| Skill | Kind | Autonomy | Purpose |",
+                "|---|---|---|---|",
             ]
         )
         for skill in public:
@@ -87,7 +87,7 @@ def content_for_path(path: str) -> str:
                 else "follow skill decision gates"
             )
             lines.append(
-                f"| `{skill.display.replace(chr(124), chr(92) + chr(124))}` | {skill.kind} | `{skill.session_mode}` | {autonomy} | {skill.description} |"
+                f"| `{skill.display.replace(chr(124), chr(92) + chr(124))}` | {skill.kind} | {autonomy} | {skill.description} |"
             )
     return "\n".join(lines) + "\n"
 

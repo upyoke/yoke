@@ -3,6 +3,7 @@
 from typing import Any
 
 from yoke_contracts.session_model_facts import SessionModelFacts
+from yoke_contracts.session_queue_posture import SESSION_MODE_DEFAULT
 from yoke_core.domain.session_model_columns import MODEL_COLUMNS, facts_values
 from yoke_core.domain.session_scope_identity import SessionScope
 
@@ -20,7 +21,6 @@ def insert_registration(
     model_facts: SessionModelFacts,
     execution_level: str,
     workspace: str,
-    mode: str,
     now: Any,
     envelope_json: str | None,
     actor_id: int,
@@ -29,7 +29,10 @@ def insert_registration(
     has_native_thread: bool,
     has_episode: bool,
 ) -> None:
-    """Write the exclusive scope only when the session is first created."""
+    """Write the exclusive scope only when the session is first created.
+
+    A session always starts unparked.
+    """
     columns = (
         "session_id, executor, executor_surface, executor_version, machine_id, "
         "provider, " + ", ".join(MODEL_COLUMNS) + ", execution_level, workspace, "
@@ -46,7 +49,7 @@ def insert_registration(
         *facts_values(model_facts),
         execution_level,
         workspace,
-        mode,
+        SESSION_MODE_DEFAULT,
         now,
         now,
         None,
@@ -77,7 +80,6 @@ def reactivate_registration(
     model_facts: SessionModelFacts,
     execution_level: str,
     workspace: str,
-    mode: str,
     envelope_json: str | None,
     executor_version: str | None,
     machine_id: str | None,
@@ -88,7 +90,7 @@ def reactivate_registration(
     has_native_thread: bool,
     has_episode: bool,
 ) -> Any:
-    """Refresh an ended session without assigning either scope column."""
+    """Refresh an ended session unparked, without assigning either scope column."""
     p = placeholder
     actor_clause = (
         f", actor_id = {p}"
@@ -107,7 +109,7 @@ def reactivate_registration(
         *facts_values(model_facts),
         execution_level,
         workspace,
-        mode,
+        SESSION_MODE_DEFAULT,
         now,
         envelope_json,
         executor_version,

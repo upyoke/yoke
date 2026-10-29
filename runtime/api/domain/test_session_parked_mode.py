@@ -54,12 +54,30 @@ def test_set_session_mode_stamps_parked_with_reason(conn):
     assert row["quiet_reason"] == "waiting on a blocking claim"
 
 
-def test_reason_on_a_working_mode_is_persisted(conn):
+def test_reason_on_wait_is_persisted(conn):
     _register(conn)
-    result = set_session_mode(conn, "sess-1", "dash", reason="waiting on CI")
+    result = set_session_mode(conn, "sess-1", SESSION_MODE_DEFAULT, reason="CI")
 
-    assert result["mode"] == "dash"
-    assert result["quiet_reason"] == "waiting on CI"
+    assert result["mode"] == SESSION_MODE_DEFAULT
+    assert result["quiet_reason"] == "CI"
+
+
+def test_only_wait_and_parked_are_session_modes():
+    assert SESSION_MODES == {SESSION_MODE_DEFAULT, SESSION_MODE_PARKED}
+
+
+def test_a_retired_skill_mode_is_refused_and_the_row_is_unchanged(conn):
+    _register(conn)
+    try:
+        set_session_mode(conn, "sess-1", "dash")
+    except SessionError as exc:
+        assert exc.code == "UNKNOWN_MODE"
+    else:
+        raise AssertionError("expected UNKNOWN_MODE")
+    row = conn.execute(
+        "SELECT mode FROM harness_sessions WHERE session_id = 'sess-1'"
+    ).fetchone()
+    assert row["mode"] == SESSION_MODE_DEFAULT
 
 
 def test_parked_without_reason_is_refused(conn):
@@ -106,14 +124,14 @@ def test_a_tool_call_does_not_clear_parked(conn):
     assert row["quiet_reason"] == "waiting"
 
 
-def test_stamping_a_working_mode_clears_parked(conn):
+def test_stamping_wait_clears_parked(conn):
     _register(conn)
     set_session_mode(conn, "sess-1", SESSION_MODE_PARKED, reason="waiting")
-    set_session_mode(conn, "sess-1", "dash")
+    set_session_mode(conn, "sess-1", SESSION_MODE_DEFAULT)
     row = conn.execute(
         "SELECT mode, quiet_reason FROM harness_sessions WHERE session_id = 'sess-1'"
     ).fetchone()
-    assert row["mode"] == "dash"
+    assert row["mode"] == SESSION_MODE_DEFAULT
     assert row["quiet_reason"] is None
 
 

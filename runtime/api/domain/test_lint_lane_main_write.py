@@ -165,7 +165,7 @@ class TestRegisteredAdapters:
                 "session_id": "sid-lane",
                 "tool_name": "Bash",
                 "cwd": str(repo),
-                "tool_input": {"command": "yoke sessions touch --mode usher"},
+                "tool_input": {"command": "yoke sessions touch --mode wait"},
             }
         )
         assert verdict.allow is True
