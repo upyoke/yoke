@@ -54,7 +54,7 @@ def test_oversized_body_refuses_before_any_side_effect(section_store, content):
     assert result.error == (
         "progress_log_entry_too_large: entry body is 4097 UTF-8 bytes; maximum is 4096. "
         "Progress Log entries are current-state checkpoints: write only what changed "
-        "and the next step; move evidence to artifacts or field-notes."
+        "and the next step; move evidence to artifacts or feedback."
     )
     assert store["Progress Log"] == "Existing entries stay unchanged.\n"
     for effect in effects:
