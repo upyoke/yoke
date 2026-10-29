@@ -11,6 +11,7 @@ at item-scoped deployment stages.
 
 from __future__ import annotations
 
+import json
 from typing import Any
 
 from yoke_core.domain.db_helpers import query_rows

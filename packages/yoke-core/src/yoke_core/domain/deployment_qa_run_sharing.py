@@ -53,7 +53,8 @@ def _plan_groups(conn: Any, run_ids: list[str]) -> dict[str, dict]:
     for row in query_rows(
         conn,
         "SELECT q.id,q.deployment_run_id,q.plan_id,q.execution_target_json,"
-        "q.covered_item_ids,q.retracted_at,q.superseded_by_requirement_id,p.slug,p.name "
+        "q.covered_item_ids,q.retracted_at,q.superseded_by_requirement_id,p.slug,p.name,"
+        "q.plan_case_key,q.method_id,q.instructions "
         "FROM qa_requirements q JOIN qa_plans p ON p.id=q.plan_id "
         "WHERE q.deployment_run_id=ANY(%s) AND q.deployment_member_item_id IS NULL "
         "AND q.plan_id IS NOT NULL ORDER BY q.id",
@@ -75,6 +76,7 @@ def _plan_groups(conn: Any, run_ids: list[str]) -> dict[str, dict]:
                 "plan_name": row["name"] or row["slug"],
                 "run_id": str(row["deployment_run_id"]),
                 "case_count": 0,
+                "cases": [],
                 "covered_item_ids": None,
             },
         )
@@ -85,6 +87,10 @@ def _plan_groups(conn: Any, run_ids: list[str]) -> dict[str, dict]:
             group["covered_item_ids"] = sorted(int(item) for item in covered)
         if row["retracted_at"] is None and row["superseded_by_requirement_id"] is None:
             group["case_count"] += 1
+            if row["method_id"] is not None:
+                group["cases"].append({"case_key": row["plan_case_key"],
+                    "method_id": row["method_id"], "instructions": row["instructions"],
+                    "plan_id": int(row["plan_id"]), "qa_phase": "post_deploy"})
     return {key: value for key, value in groups.items() if key not in retracted}
 
 
@@ -160,7 +166,7 @@ def _sharing_members(conn, runs):
     )
 
 
-def _pending_plans(conn: Any, plan_ids: set[int], run_id: str) -> dict[int, dict]:
+def _pending_plans(conn: Any, plan_ids: set[int], groups: dict, runs: list[str]) -> dict[int, dict]:
     """Owed plans with no plan group yet, with their cases, in one read."""
     if not plan_ids:
         return {}
@@ -196,18 +202,9 @@ def _pending_plans(conn: Any, plan_ids: set[int], run_id: str) -> dict[int, dict
                 "pending_obligation": True,
             }
         )
-    from yoke_core.domain.deployment_qa_plan_groups import lineage_run_ids, run_groups
-
-    for group in reversed(run_groups(conn, lineage_run_ids(conn, run_id))):
-        if group.plan_id not in plans:
-            continue
-        rows = query_rows(conn,
-            "SELECT plan_case_key AS case_key,method_id,instructions FROM qa_requirements "
-            "WHERE id=ANY(%s) AND method_id IS NOT NULL ORDER BY id",
-            (list(group.requirement_ids),))
-        plans[group.plan_id]["cases"] = [
-            {**dict(row), "plan_id": group.plan_id, "qa_phase": "post_deploy",
-             "pending_obligation": True} for row in rows]
+    for group in groups.values():
+        if group["plan_id"] in plans and group["run_id"] in runs:
+            plans[group["plan_id"]]["cases"] = group["cases"]
     return plans
 
 
@@ -285,7 +282,7 @@ def run_qa_sharing(conn: Any, run_ids: Iterable[str]) -> dict[str, dict]:
             attached_plans(conn, run) if run in active else None,
         )
     for run, plans in owed.items():
-        pending = _pending_plans(conn, set(plans), run)
+        pending = _pending_plans(conn, set(plans), groups, [run, *lineages[run]])
         for plan_id, items in sorted(plans.items()):
             plan = pending.get(plan_id)
             if plan is None:
