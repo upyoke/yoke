@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -34,12 +35,36 @@ def test_yoke_shaped_tree_uses_its_locked_interpreter(
 
 
 def _non_uv_checkout(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setattr(sys, "prefix", str(tmp_path.parent / "release-venv"))
+    monkeypatch.setattr(sys, "base_prefix", str(tmp_path.parent / "base-python"))
     (tmp_path / "pyproject.toml").write_text("[project]\n", encoding="utf-8")
     monkeypatch.setattr(
         helper,
         "load_declaration",
         lambda **_k: TestEnvironmentDeclaration(project="other"),
     )
+
+
+@pytest.mark.parametrize("in_venv, root_venv", [(True, True), (True, False), (False, True)])
+def test_non_uv_tree_reuses_only_an_active_checkout_environment(
+    tmp_path: Path, monkeypatch, in_venv: bool, root_venv: bool
+) -> None:
+    _non_uv_checkout(tmp_path, monkeypatch)
+    prefix = str(tmp_path / "services" / "service" / ".venv")
+    python = str(venv_python(Path(prefix)))
+    monkeypatch.setattr(sys, "prefix", prefix)
+    monkeypatch.setattr(sys, "executable", python)
+    if not in_venv:
+        monkeypatch.setattr(sys, "base_prefix", prefix)
+    root_python = venv_python(tmp_path / ".venv")
+    if root_venv:
+        root_python.parent.mkdir(parents=True)
+        root_python.write_text("", encoding="utf-8")
+
+    argv = helper.pytest_argv(["tests/service"], cwd=tmp_path)
+
+    expected = python if in_venv else str(root_python)
+    assert argv == [expected, "-m", "pytest", "tests/service"]
 
 
 def test_non_uv_tree_runs_on_its_own_venv(tmp_path: Path, monkeypatch) -> None:
