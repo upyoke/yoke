@@ -11,7 +11,6 @@ from __future__ import annotations
 
 from typing import Any
 
-from yoke_core.domain.project_identity import render_item_ref
 from yoke_core.domain.db_helpers import query_rows
 from yoke_core.domain.deployment_qa_case_failure_kinds import (
     CaseFailure,
@@ -153,6 +152,8 @@ def case_failures(
     which never moves, so it has no recorded-elsewhere fallback: another
     digest of the same plan is another group.
     """
+    from yoke_core.domain.deployment_qa_stage_outstanding import member_ref_lookup
+
     rows = scoped_cases(
         conn,
         run_id=run_id,
@@ -196,7 +197,7 @@ def case_failures(
             ]
         if recorded:
             if member_item_id is not None:
-                owner = f"member {render_item_ref(conn, member_item_id)}"
+                owner = f"member {member_ref_lookup(conn, [member_item_id])(member_item_id)}"
             else:
                 owner = "run-level subject"
             named = ", ".join(
@@ -218,7 +219,7 @@ def case_failures(
                 )
             ]
         command = (
-            f"yoke qa plan run --item {render_item_ref(conn, member_item_id)} --stage {stage_name}"
+            f"yoke qa plan run --item {member_ref_lookup(conn, [member_item_id])(member_item_id)} --stage {stage_name}"
             if member_item_id is not None else
             f"yoke qa plan run --deployment-run-id {run_id} --stage {stage_name}"
         )
