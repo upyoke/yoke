@@ -61,7 +61,8 @@ def recorded_discharge(
     rows = query_rows(
         conn,
         "SELECT id,qa_kind,qa_phase,waived_at FROM qa_requirements "
-        "WHERE item_id=%s AND deployment_run_id IS NULL",
+        "WHERE item_id=%s AND deployment_run_id IS NULL "
+        "AND (qa_phase<>'post_deploy' OR plan_id IS NULL)",
         (int(item_id),),
     )
     mapped = [_row(row) for row in rows]

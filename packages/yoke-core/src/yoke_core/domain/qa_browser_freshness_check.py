@@ -19,6 +19,7 @@ from typing import Any, List, Optional, Tuple
 from yoke_contracts.timestamps import format_instant
 
 from yoke_core.domain import db_backend
+from yoke_core.domain.qa_item_obligation_queries import old_plan_copy_sql
 from yoke_core.domain.qa_latest_execution import latest_executions
 from yoke_core.domain.qa_requirement_pass_currency import has_current_passing_run
 from yoke_core.domain.qa_obligation_settlement import unretracted_requirement_sql
@@ -206,6 +207,7 @@ def _collect_stale_browser_requirements(
         WHERE {where}
           {phase_sql}
           AND r.blocking_mode = 'blocking'
+          AND NOT {old_plan_copy_sql('r')}
           AND r.waived_at IS NULL AND {unretracted_requirement_sql(conn, "r")}
           AND {browser_requirement_predicate("r")}
           AND EXISTS (

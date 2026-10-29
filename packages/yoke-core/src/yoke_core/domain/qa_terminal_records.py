@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 from typing import Any
 
+from yoke_core.domain.qa_item_obligation_queries import old_plan_copy_sql
 from yoke_core.domain.db_helpers import query_rows
 from yoke_core.domain.qa_latest_execution import latest_executions
 from yoke_core.domain.qa_obligation_settlement import (
@@ -107,7 +108,7 @@ def _blocking_requirement_rows(conn: Any, item_id: int) -> list[dict[str, Any]]:
         f"SELECT q.*, {runner}, "
         f"{requirement_retracted_at_select(conn, 'q')} "
         f"FROM qa_requirements q {join} "
-        f"WHERE q.item_id={placeholder} ORDER BY q.id",
+        f"WHERE q.item_id={placeholder} AND NOT {old_plan_copy_sql('q')} ORDER BY q.id",
         (int(item_id),),
     )
     columns = [str(column[0]) for column in cursor.description]
