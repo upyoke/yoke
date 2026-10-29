@@ -178,8 +178,8 @@ def test_relayed_gate_passes_and_reports_checkout_dependent_scan_skip(
 
     assert outcome.passed, outcome.errors
     assert outcome.warnings == [
-        "mechanical DDL scan skipped: project 'yoke' has no machine-local "
-        "checkout on this execution host"
+        "mechanical DDL scan: the server has no checkout for project 'yoke'; "
+        "this check is skipped"
     ]
 
 
@@ -297,8 +297,8 @@ def test_http_status_adapters_surface_the_relayed_scan_warning(
             "code": "db_mutation_check_skipped",
             "step": "mechanical_ddl_scan",
             "detail": (
-                "mechanical DDL scan skipped: project 'yoke' has no "
-                "machine-local checkout on this execution host"
+                "mechanical DDL scan: the server has no checkout for project 'yoke'; "
+                "this check is skipped"
             ),
             "recovery_function": None,
         }

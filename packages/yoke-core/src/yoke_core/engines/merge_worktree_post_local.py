@@ -68,10 +68,10 @@ def _ensure_snapshot_for_project(ctx: MergeContext) -> None:
             detail = (
                 resp.error.message if resp.error else "snapshot ensure relay failed"
             )
-            _parent()._print(f"  Note: ensure_snapshot_at advisory: {detail}")
+            _parent()._print(f"  Note: ensure_snapshot_at advisory: pre-warm skipped; {detail}")
     except Exception as exc:  # noqa: BLE001
         try:
-            _parent()._print(f"  Note: ensure_snapshot_at advisory: {exc}")
+            _parent()._print(f"  Note: ensure_snapshot_at advisory: pre-warm skipped; {exc}")
         except Exception:  # noqa: BLE001
             pass
 

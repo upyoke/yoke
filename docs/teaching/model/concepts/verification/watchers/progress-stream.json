@@ -1,7 +1,9 @@
 {
  "id": "progress-stream",
  "title": "Progress stream",
- "status": "draft-copy",
+ "status": "observed",
+ "summary": "Printed watcher and progress-tail commands preserve yoke dev run when emitted from source development, including the selected connection. Subagents use the foreground invocation in their current turn.",
+ "sources": ["packages/yoke-core/src/yoke_core/tools/_watch_streaming_pair.py", "docs/public/agents/rules/claude-long-commands.md"],
  "page": "verification",
  "position": 0
 }

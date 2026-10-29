@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from typing import Any, Dict
 
+from yoke_core.domain.qa_gate_requirement_teaching import QA_REQUIREMENTS_EMPTY
+
 
 def _format_text(summary: Dict[str, Any]) -> str:
     lines = [f"QA Gate Summary - {summary['target']} -> {summary['transition']}"]
@@ -11,7 +13,12 @@ def _format_text(summary: Dict[str, Any]) -> str:
         lines.append("  GATE_QA_SCHEMA_MISSING: qa_requirements table not present.")
         return "\n".join(lines)
     if summary["no_requirements"]:
-        lines.append("  GATE_QA_REQUIREMENTS_EMPTY: No QA requirements registered.")
+        lines.append(f"  {QA_REQUIREMENTS_EMPTY}: No QA requirements registered.")
+        lines.append(
+            "  Attach a QA plan with `yoke qa item-plan attach` or add a requirement "
+            "with `yoke qa requirement add` for this target and transition. "
+            "Read the command's --help for its required fields."
+        )
         return "\n".join(lines)
     status = "SATISFIED" if summary["satisfied"] else "UNSATISFIED"
     lines.append(f"  Status: {status}")

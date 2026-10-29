@@ -29,7 +29,7 @@ from yoke_cli.commands.adapters.lane_tree import (
 
 DASH_SURVEY_USAGE = (
     "yoke direct-workflow dash survey ITEM "
-    "(--path PATH [--path PATH ...] | --no-changes) "
+    "(--path PATH (repeat per path) | --no-changes) "
     "[--integration-target BRANCH] [--project P] [--session-id S] [--json]"
 )
 DASH_EVIDENCE_USAGE = (

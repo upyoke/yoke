@@ -123,8 +123,8 @@ class TestSteerSkillContract:
         assert "`--skip-deploy`" in batches
         assert "--item PREFIX-N --stage STAGE" in batches
         assert (
-            "## Live status — steering snapshot (refresh or replace on "
-            "next steering handoff)"
+            'yoke strategy coordination append {SLUG} --section "Live Status" '
+            '--entry "{current status and next steps}"'
         ) in loop
 
 

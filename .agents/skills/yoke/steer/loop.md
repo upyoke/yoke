@@ -90,7 +90,7 @@ retained-owner waits and retesting.
 After a change, refresh one section:
 
 ```text
-## Live status — steering snapshot (refresh or replace on next steering handoff)
+yoke strategy coordination append {SLUG} --section "Live Status" --entry "{current status and next steps}"
 ```
 
 Carry current seats, owners, blockers, next steps and operator actions.

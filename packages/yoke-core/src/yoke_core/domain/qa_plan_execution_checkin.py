@@ -149,7 +149,7 @@ def deliver_plan_function(*, function_id, target, payload, actor):
             continue
         if code != "https_transport_failed":
             raise QaPlanExecutionError(
-                f"{function_id} failed ({code}): {message}. {recovery or ''}"
+                f"{function_id} failed ({code}): {message.rstrip('.')}. {recovery or ''}"
             )
         attempts.append({"outcome": code, "message": message})
         attempt += 1

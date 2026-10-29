@@ -28,6 +28,7 @@ from yoke_core.domain.qa_gate_summary_rows import (
     unsettled_record_rows,
 )
 from yoke_core.domain.qa_gate_summary_text import _format_text
+from yoke_core.domain.qa_gate_requirement_teaching import QA_REQUIREMENTS_EMPTY
 from yoke_core.domain.qa_obligation_settlement import (
     requirement_retracted_at_select,
     settled_obligation_sql,
@@ -129,6 +130,8 @@ def render_gate_summary(
         req_rows = query_rows(conn, sql, params)
         if not req_rows:
             summary["no_requirements"] = True
+            summary["reason_code"] = QA_REQUIREMENTS_EMPTY
+            summary["message"] = _format_text(summary)
             return summary
 
         current = latest_executions(conn, [int(row["id"]) for row in req_rows])

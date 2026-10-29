@@ -61,9 +61,9 @@ def ensure_snapshot_for_item(public_ref: str) -> None:
         )
         if not resp.success:
             message = resp.error.message if resp.error else "unknown error"
-            print(f"  Note: ensure_snapshot_at advisory: {message}")
+            print(f"  Note: ensure_snapshot_at advisory: pre-warm skipped; {message}")
     except Exception as exc:  # noqa: BLE001
-        print(f"  Note: ensure_snapshot_at advisory: {exc}")
+        print(f"  Note: ensure_snapshot_at advisory: pre-warm skipped; {exc}")
 
 
 __all__ = ["ensure_snapshot_for_item"]

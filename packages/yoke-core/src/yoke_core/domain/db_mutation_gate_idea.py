@@ -212,8 +212,8 @@ def check_idea_to_refining_idea_gate(
             and repo_path is None
         ):
             warnings.append(
-                f"mechanical DDL scan skipped: project '{project}' has no "
-                "machine-local checkout on this execution host"
+                f"mechanical DDL scan: the server has no checkout for project '{project}'; "
+                "this check is skipped"
             )
 
         # Step (b): mechanical scanner — runs after module-file resolution

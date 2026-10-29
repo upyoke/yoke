@@ -117,7 +117,7 @@ def _refusal(
     held = ", ".join(roles) if roles else "no role"
     return compose_refusal(
         f"actor {actor_id} holds {held} on project id {project_id} and may not {action} a session there: the action needs {permission_key!r}.",
-        recovery=f"ask a project owner or org admin to grant the role that carries it (`python3 -m yoke_core.domain.actor_grants_cli grant-project --actor {actor_id} --project {project_id} --role owner`), or have an actor who already holds it act instead.",
+        recovery="ask a project owner or org admin to grant the role that carries it, or have an actor who already holds it act instead.",
     )
 
 
