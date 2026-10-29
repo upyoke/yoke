@@ -36,7 +36,7 @@ def test_prior_bundle_with_fewer_files_keeps_hash_verification(
         (selected / launcher.BUNDLE_ORIGIN_NAME).write_text("tampered")
     command = credentials.helper_command(config_path=config, helper_path=helper)
     _git(repo, "config", "--local", credentials.GITHUB_CREDENTIAL_HELPER_KEY, command)
-    monkeypatch.setattr(credentials, "_helper_site_dir", lambda: tmp_path / "new-site")
+    monkeypatch.setattr(credentials, "_helper_dir", lambda: tmp_path / "new-site")
     assert credentials._is_yoke_helper(command, config_path=config) is (not tampered)
     assert reconnect._classify_helper_reference(repo, config_path=config) == (
         "ambiguous" if tampered else "match"

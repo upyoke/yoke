@@ -80,7 +80,9 @@ def update(args: List[str]) -> int:
     if result.get("project_refresh", {}).get("status") == "refreshed":
         print("Refreshed the current checkout’s installed Yoke operating layer.")
     if result["credential_helper_repaired"]:
-        print("Rebuilt the git credential helper bundle a reinstall had wiped.")
+        print("Rebuilt the git credential helper bundle for this release.")
+    for root in result.get("credential_helper_rewritten") or []:
+        print(f"Pointed {root} at the current git credential helper.")
     if credential_error:
         print(f"warning: git credential helper repair failed: {credential_error}")
     return 1 if credential_error else 0

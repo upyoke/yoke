@@ -163,6 +163,7 @@ def _result(
         "base_url": target.base_url,
         "credential_helper_configured": repair.get("configured"),
         "credential_helper_repaired": repair.get("repaired"),
+        "credential_helper_rewritten": repair.get("rewritten"),
         "credential_helper_error": repair.get("error"),
     }
 

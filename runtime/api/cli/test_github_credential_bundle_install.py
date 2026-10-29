@@ -160,7 +160,7 @@ def test_refresh_installed_helper_upgrades_legacy_store_bundle(
     (site / github_git_credentials.STABLE_HELPER_FILE_NAME).write_text(
         "legacy helper\n", encoding="utf-8"
     )
-    monkeypatch.setattr(github_git_credentials, "_helper_site_dir", lambda: site)
+    monkeypatch.setattr(github_git_credentials, "_helper_dir", lambda: site)
     assert github_git_credentials.refresh_installed_helper() is True
     bundle = github_git_credential_launcher.selected_bundle(site)
     store = (bundle / github_git_credentials.STABLE_STORE_FILE_NAME).read_text(

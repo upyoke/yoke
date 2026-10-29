@@ -4,12 +4,13 @@ from __future__ import annotations
 
 import shlex
 import sys
-import sysconfig
 from pathlib import Path
 from typing import Any, Mapping
 
 from yoke_cli.config import github_git_credential_bundle
 from yoke_cli.config.github_prior_runtime_verification import (
+    current_release_path,
+    orphaned_release_helper,
     verified_prior_runtime_helper,
 )
 from yoke_contracts import github_origin
@@ -49,7 +50,7 @@ def configure_repo_helper(
     credential_ref = str(authorization.get("refresh_credential_ref") or "").strip()
     if not credential_ref:
         return {"configured": False, "reason": "machine-github-credential-ref-missing"}
-    helper_path = _helper_site_dir() / STABLE_HELPER_FILE_NAME
+    helper_path = _helper_dir() / STABLE_HELPER_FILE_NAME
     helper = helper_command(config_path=config_path, helper_path=helper_path)
     helper_key = credential_helper_key(str(github.get("web_url") or ""))
     # Reset only this URL's helper chain. Global helpers remain available for
@@ -190,7 +191,7 @@ def _is_yoke_helper(
         return False
     expected = (
         Path(sys.executable).expanduser().resolve(strict=False),
-        (_helper_site_dir() / STABLE_HELPER_FILE_NAME).resolve(strict=False),
+        (_helper_dir() / STABLE_HELPER_FILE_NAME).resolve(strict=False),
         machine_config.config_path(config_path).resolve(strict=False),
     )
     actual = (
@@ -203,10 +204,13 @@ def _is_yoke_helper(
     return (
         actual[2] == expected[2]
         and actual[1].name == STABLE_HELPER_FILE_NAME
-        and verified_prior_runtime_helper(
-            actual[0],
-            actual[1],
-            current_python=expected[0],
+        and (
+            verified_prior_runtime_helper(
+                actual[0], actual[1], current_python=expected[0]
+            )
+            or orphaned_release_helper(
+                command[0], command[1], current_python=Path(sys.executable)
+            )
         )
     )
 
@@ -215,15 +219,15 @@ def _looks_like_yoke_helper(value: str) -> bool:
     return value.startswith("!") and STABLE_HELPER_FILE_NAME in value
 
 
-def install_stable_helper(site_dir: str | Path | None = None) -> Path:
-    """Install the helper under the selected Python runtime."""
-    target_dir = Path(site_dir) if site_dir is not None else _helper_site_dir()
+def install_stable_helper(target_dir: str | Path | None = None) -> Path:
+    """Install the helper bundle in the running CLI's environment."""
+    target_dir = Path(target_dir) if target_dir is not None else _helper_dir()
     return github_git_credential_bundle.install(target_dir)
 
 
 def refresh_installed_helper() -> bool:
     """Republish the current bundle only when a prior helper is installed."""
-    target_dir = _helper_site_dir()
+    target_dir = _helper_dir()
     if not (target_dir / STABLE_HELPER_FILE_NAME).is_file():
         return False
     install_stable_helper(target_dir)
@@ -240,8 +244,8 @@ def helper_command(
         Path(helper_path) if helper_path is not None else install_stable_helper()
     )
     command = [
-        shlex.quote(str(_current_release_path(Path(sys.executable)))),
-        shlex.quote(str(_current_release_path(selected_helper))),
+        shlex.quote(str(current_release_path(Path(sys.executable)))),
+        shlex.quote(str(current_release_path(selected_helper))),
     ]
     command.extend(
         [
@@ -252,16 +256,10 @@ def helper_command(
     return "!" + " ".join(command)
 
 
-def _current_release_path(path: Path) -> Path:
-    for generation in path.parents:
-        releases = generation.parent
-        if releases.name == "releases" and releases.parent.name == "yoke-cli-releases":
-            return releases.parent / "current" / path.relative_to(generation)
-    return path
-
-
-def _helper_site_dir() -> Path:
-    return Path(sysconfig.get_paths()["purelib"])
+def _helper_dir() -> Path:
+    # The environment root, not lib/python3.X/site-packages, so the saved
+    # path survives a release that changes the Python minor version.
+    return Path(sys.prefix) / "github-credential-helper"
 
 
 def credential_helper_key(web_url: str) -> str:

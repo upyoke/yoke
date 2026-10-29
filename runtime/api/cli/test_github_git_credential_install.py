@@ -79,7 +79,7 @@ def test_configure_helper_preserves_global_helpers_for_other_hosts(
     monkeypatch.setenv("GIT_CONFIG_NOSYSTEM", "1")
     monkeypatch.setattr(
         github_git_credentials,
-        "_helper_site_dir",
+        "_helper_dir",
         lambda: tmp_path / "site",
     )
 
@@ -144,7 +144,7 @@ def test_disconnect_removes_url_reset_and_restores_ambient_helper(
     monkeypatch.setenv("GIT_CONFIG_NOSYSTEM", "1")
     monkeypatch.setattr(
         github_git_credentials,
-        "_helper_site_dir",
+        "_helper_dir",
         lambda: tmp_path / "site",
     )
     configured = github_git_credentials.configure_repo_helper(
@@ -235,7 +235,7 @@ def test_disconnect_removes_helpers_from_all_registered_checkouts(
     config.write_text(json.dumps(payload), encoding="utf-8")
     monkeypatch.setattr(
         github_git_credentials,
-        "_helper_site_dir",
+        "_helper_dir",
         lambda: tmp_path / "site",
     )
     configured = [

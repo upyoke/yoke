@@ -73,29 +73,27 @@ def reattach(config_path: str | Path | None) -> dict[str, int]:
 
 
 def restore_missing_bundle(config_path: str | Path | None) -> dict[str, object]:
-    """Rebuild the helper bundle a reinstall wiped from site-packages.
+    """Rebuild the helper bundle, then point stale checkouts at it.
 
     Detection reads only registered checkouts' git config, matching each
-    configured helper value against the *currently expected* helper path by
-    shape (:func:`github_git_credentials._is_yoke_helper`) rather than by
-    checking whether the underlying file exists — the file is exactly what a
-    ``uv tool install --reinstall`` just deleted, while the git config that
-    names it survives untouched. Absent any matching reference this is a
-    legitimate no-op: it never installs a helper for a machine that never
-    configured one, and it requires no GitHub App configuration to detect a
-    reference already sitting in git config.
+    configured helper value by shape
+    (:func:`github_git_credentials._is_yoke_helper`) rather than by whether
+    the file it names exists: a reinstall or a release switch can delete
+    that file while the git config naming it survives. A release whose
+    Python minor version changed leaves a saved ``lib/python3.X`` helper
+    path under the releases root that no longer exists; that shape is still
+    Yoke's, so it matches and the checkout is rewritten to the current
+    :func:`github_git_credentials.helper_command`. Absent any matching
+    reference this is a legitimate no-op: it never installs a helper for a
+    machine that never configured one.
 
-    A value can also *look* Yoke-shaped (the stable helper filename, the
-    right argument count) without being verifiable: verification reads the
-    prior helper file's content markers, and a reinstall that also changed
-    the Python runtime path deletes that file along with the bundle, leaving
-    nothing left to read. Reporting that as "unconfigured" would hide a real
-    broken reference; reporting it as a silent success would risk rewriting
-    an unrelated program's config over an unverified guess. It is reported
-    as inconclusive (``configured: None``) instead, naming the checkout and
-    key so an operator can inspect and reconnect deliberately. A git-config
-    or machine-config read failure is reported the same way, distinct from
-    a genuinely clean machine that never configured a helper at all.
+    A value can also *look* Yoke-shaped (the stable helper file name)
+    without being verifiable, for example a path outside the releases root.
+    Rewriting it could clobber an unrelated program's config, so it is
+    reported as inconclusive (``configured: None``), naming the checkout so
+    an operator can inspect and reconnect deliberately. A git-config or
+    machine-config read failure is reported the same way, distinct from a
+    genuinely clean machine that never configured a helper at all.
     """
     try:
         checkouts = machine_config.all_registered_checkouts(
@@ -112,13 +110,13 @@ def restore_missing_bundle(config_path: str | Path | None) -> dict[str, object]:
     # earlier in the list must not short-circuit past an unresolved
     # reference later in it, or that unresolved checkout is silently
     # dropped from a result that reads as clean.
-    matched = False
+    matched: list[Path] = []
     ambiguous: str | None = None
     unreadable: list[Path] = []
     for root in checkouts:
         outcome = _classify_helper_reference(root, config_path=config_path)
         if outcome == "match":
-            matched = True
+            matched.append(root)
         elif outcome == "ambiguous" and ambiguous is None:
             ambiguous = str(root)
         elif outcome == "unreadable":
@@ -131,15 +129,60 @@ def restore_missing_bundle(config_path: str | Path | None) -> dict[str, object]:
         return {"configured": False, "repaired": False}
 
     try:
-        github_git_credentials.install_stable_helper()
+        helper = github_git_credentials.install_stable_helper()
     except (OSError, github_git_credentials.GitHubCredentialBundleError) as exc:
         error = str(exc)
         if unresolved is not None:
             error = f"{error}; also unresolved: {unresolved}"
         return {"configured": True, "repaired": False, "error": error}
-    if unresolved is not None:
-        return {"configured": True, "repaired": True, "error": unresolved}
-    return {"configured": True, "repaired": True}
+    rewritten, rewrite_error = _rewrite_stale_references(
+        matched, helper=helper, config_path=config_path
+    )
+    errors = [error for error in (rewrite_error, unresolved) if error]
+    result: dict[str, object] = {
+        "configured": True,
+        "repaired": True,
+        "rewritten": rewritten,
+    }
+    if errors:
+        result["error"] = "; ".join(errors)
+    return result
+
+
+def _rewrite_stale_references(
+    roots: list[Path],
+    *,
+    helper: Path,
+    config_path: str | Path | None,
+) -> tuple[list[str], str | None]:
+    """Rewrite each checkout whose saved helper differs from the current one."""
+    expected = github_git_credentials.helper_command(
+        config_path=config_path, helper_path=helper
+    )
+    rewritten: list[str] = []
+    failed: list[str] = []
+    for root in roots:
+        try:
+            keys = github_repo_config.helper_keys(root)
+            if any(expected in github_repo_config.values(root, key) for key in keys):
+                continue
+            result = github_git_credentials.configure_repo_helper(
+                root, config_path=config_path
+            )
+        except (OSError, RuntimeError, github_repo_config.GitHubRepoConfigError) as exc:
+            failed.append(f"{root} ({exc})")
+            continue
+        if result.get("configured") is True:
+            rewritten.append(str(root))
+        else:
+            failed.append(f"{root} ({result.get('reason')})")
+    if not failed:
+        return rewritten, None
+    return rewritten, (
+        "could not point these checkouts at the current git credential "
+        f"helper: {', '.join(failed)}; run yoke github connect, then "
+        "yoke github credential-helper refresh"
+    )
 
 
 def _unresolved_reference_error(
@@ -149,9 +192,9 @@ def _unresolved_reference_error(
     if ambiguous is not None:
         return (
             f"{ambiguous} names a git credential helper that looks like "
-            "Yoke's but its prior runtime path is gone, so it cannot be "
-            "verified; reconnect GitHub (yoke github connect) or repair "
-            "that checkout's git config manually"
+            "Yoke's but cannot be verified as Yoke's; reconnect GitHub "
+            "(yoke github connect) or repair that checkout's git config "
+            "manually"
         )
     if unreadable:
         names = ", ".join(str(path) for path in unreadable)

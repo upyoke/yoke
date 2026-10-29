@@ -75,7 +75,7 @@ def _configured_repo_with_wiped_bundle(
     monkeypatch.setenv("YOKE_MACHINE_CONFIG_FILE", str(config))
     distribution.save(origin=DISTRIBUTION_PROD_URL, channel="stable", path=config)
     site = tmp_path / "site"
-    monkeypatch.setattr(github_git_credentials, "_helper_site_dir", lambda: site)
+    monkeypatch.setattr(github_git_credentials, "_helper_dir", lambda: site)
     github_git_credentials.configure_repo_helper(repo, config_path=config)
     helper_path = site / github_git_credentials.STABLE_HELPER_FILE_NAME
     assert helper_path.is_file()

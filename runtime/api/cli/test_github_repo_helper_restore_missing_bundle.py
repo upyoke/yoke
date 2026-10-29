@@ -26,7 +26,7 @@ def test_restore_missing_bundle_rebuilds_a_wiped_bundle(
     repo, config, _credential = _configured_repo(tmp_path, monkeypatch)
     _register_checkout(config, repo, tmp_path)
     site = tmp_path / "site"
-    monkeypatch.setattr(github_git_credentials, "_helper_site_dir", lambda: site)
+    monkeypatch.setattr(github_git_credentials, "_helper_dir", lambda: site)
     configured = github_git_credentials.configure_repo_helper(
         repo,
         config_path=config,
@@ -86,7 +86,7 @@ def test_restore_missing_bundle_is_a_legitimate_no_op_when_unconfigured(
         encoding="utf-8",
     )
     site = tmp_path / "never-created-site"
-    monkeypatch.setattr(github_git_credentials, "_helper_site_dir", lambda: site)
+    monkeypatch.setattr(github_git_credentials, "_helper_dir", lambda: site)
 
     result = github_repo_helper_reconnect.restore_missing_bundle(config)
 
@@ -101,7 +101,7 @@ def test_restore_missing_bundle_surfaces_a_genuine_repair_failure(
     repo, config, _credential = _configured_repo(tmp_path, monkeypatch)
     _register_checkout(config, repo, tmp_path)
     site = tmp_path / "site"
-    monkeypatch.setattr(github_git_credentials, "_helper_site_dir", lambda: site)
+    monkeypatch.setattr(github_git_credentials, "_helper_dir", lambda: site)
     github_git_credentials.configure_repo_helper(repo, config_path=config)
     shutil.rmtree(site)
 
@@ -151,7 +151,7 @@ def test_restore_missing_bundle_refuses_an_unverifiable_moved_runtime_reference(
     )
     monkeypatch.setattr(
         github_git_credentials,
-        "_helper_site_dir",
+        "_helper_dir",
         lambda: tmp_path / "current-site",
     )
     gone_python = tmp_path / "gone-runtime" / "bin" / "python3.11"
@@ -295,7 +295,7 @@ def _assert_mixed_checkout_repair(
     _register_checkouts(config, ordered, tmp_path)
 
     site = tmp_path / "site"
-    monkeypatch.setattr(github_git_credentials, "_helper_site_dir", lambda: site)
+    monkeypatch.setattr(github_git_credentials, "_helper_dir", lambda: site)
     github_git_credentials.configure_repo_helper(repo_match, config_path=config)
     shutil.rmtree(site)
     _write_ambiguous_reference(repo_ambiguous, config, tmp_path)

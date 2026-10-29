@@ -37,7 +37,7 @@ def test_checkout_helper_survives_release_switch_and_prune(tmp_path, monkeypatch
     current = root / "current"
     current.symlink_to(old, target_is_directory=True)
     monkeypatch.setattr(credentials.sys, "executable", str(old_python))
-    monkeypatch.setattr(credentials, "_helper_site_dir", lambda: old_site)
+    monkeypatch.setattr(credentials, "_helper_dir", lambda: old_site)
     report = credentials.configure_repo_helper(repo, config_path=config)
     command = run_git(repo, "config", "--get", report["key"]).strip()
     argv = shlex.split(command[1:])
@@ -53,7 +53,7 @@ def test_checkout_helper_survives_release_switch_and_prune(tmp_path, monkeypatch
     current.symlink_to(new, target_is_directory=True)
     shutil.rmtree(old)
     monkeypatch.setattr(credentials.sys, "executable", str(new_python))
-    monkeypatch.setattr(credentials, "_helper_site_dir", lambda: new_site)
+    monkeypatch.setattr(credentials, "_helper_dir", lambda: new_site)
     hooks = tmp_path / "python-hooks"
     _write_refresh_sitecustomize(hooks, "release-test-token")
     monkeypatch.setenv("PYTHONPATH", str(hooks))

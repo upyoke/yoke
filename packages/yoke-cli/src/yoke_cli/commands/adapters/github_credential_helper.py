@@ -1,13 +1,15 @@
-"""``yoke github credential-helper refresh`` — repair the local helper bundle.
+"""``yoke github credential-helper refresh`` — repair the local helper.
 
 Client-local command (no dispatcher function id), registered in
 :mod:`yoke_cli.commands.installer_local`. Rebuilds the content-addressed git
-credential-helper bundle whenever a registered checkout's git config still
-names it, whether or not the underlying file currently exists — the exact
-repair a packaged reinstall (``uv tool install --reinstall``) needs, since
-that reinstall replaces the tool virtualenv's site-packages wholesale and
-orphans any files a *previous* run wrote there at runtime, while the git
-config that still names that path survives untouched. See
+credential-helper bundle in the running CLI environment whenever a
+registered checkout's git config still names a Yoke helper, whether or not
+the underlying file currently exists, then rewrites each checkout whose
+saved helper command differs from the current one. A packaged reinstall or
+a release switch publishes a fresh environment without the files a
+*previous* run wrote at runtime, and a release that changes the Python
+minor version also leaves older ``lib/python3.X`` helper paths behind;
+the git config naming them survives untouched. See
 :func:`yoke_cli.config.github_repo_helper_reconnect.restore_missing_bundle`.
 A no-op when no registered checkout references a Yoke helper, so it is safe
 to call unconditionally after any reinstall. The public installer
@@ -61,7 +63,9 @@ def github_credential_helper_refresh(args: List[str]) -> int:
         )
     else:
         if result["repaired"]:
-            print("Rebuilt the git credential helper bundle a reinstall had wiped.")
+            print("Rebuilt the git credential helper bundle for this release.")
+        for root in result.get("rewritten") or []:
+            print(f"Pointed {root} at the current git credential helper.")
         if error:
             print(f"credential helper repair failed: {error}")
     return 1 if error else 0
