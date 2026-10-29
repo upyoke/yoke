@@ -232,3 +232,12 @@ def test_an_unmergeable_queue_entry_is_refused_even_while_armed():
 
     assert "was not taken by the merge queue" in refusal
     assert "mergeQueueEntry=UNMERGEABLE" in refusal
+
+
+def test_two_red_check_urls_appear_once_in_the_refusal():
+    second = LandingCheck(name="tests", status="completed", conclusion="failure", required=True,
+                          url="https://github.com/o/r/actions/runs/3/job/4")
+    refusal = _verify(membership=_scripted((NOT_QUEUED, None)),
+                      state=ARMED_AWAITING_CHECKS, checks=(FAILED_REQUIRED, second))
+    for check in (FAILED_REQUIRED, second):
+        assert refusal.count(check.url) == 1

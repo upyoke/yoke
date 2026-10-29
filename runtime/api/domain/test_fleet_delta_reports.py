@@ -170,7 +170,16 @@ def test_a_report_the_session_already_received_is_not_printed_again():
     text = output.getvalue()
     assert text.count("first") == 1
     assert "second" not in text
-    assert text.count("no longer listed:") == 1
+    from yoke_core.tools._fleet_report_changes import changed_lines, row_identity
+
+    lines = text.splitlines()
+    removal = next(line for line in lines if "no longer listed —" in line)
+    heading = lines.index("no longer listed:")
+    assert removal in lines[heading + 1:]
+    seen = {row_identity(line) for line in lines if line != removal}
+    delta = changed_lines(lines, seen)
+    assert delta == ["no longer listed:", removal]
+    assert not any("changes only" in line for line in delta)
 
 
 def test_empty_digest_does_not_fall_back_to_full_body():

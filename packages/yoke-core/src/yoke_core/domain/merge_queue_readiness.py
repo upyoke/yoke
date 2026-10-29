@@ -120,9 +120,9 @@ class MergeQueueReadiness:
         """Render the facts without treating a consumed arming as cleared."""
         recovery = ""
         if self.failed_checks:
-            from yoke_core.domain.merge_queue_entry_checks import regate_instruction
+            from yoke_core.domain.merge_queue_entry_checks import red_checks_recovery
 
-            recovery = "; " + regate_instruction(self.failed_checks)
+            recovery = "; " + red_checks_recovery(self.failed_checks)
         elif self.landing_state == CHECKS_PENDING:
             recovery = "; waiting on required checks"
         elif self.landing_state == NOT_IN_FLIGHT:
