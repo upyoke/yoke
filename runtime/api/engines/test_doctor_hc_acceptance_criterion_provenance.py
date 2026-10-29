@@ -202,7 +202,7 @@ class TestExemptionFamilies(unittest.TestCase):
             root = Path(td)
             _write(
                 root,
-                "runtime/api/domain/test_normalize_ac_labels.py",
+                "runtime/api/domain/test_lint_item_ref_construction.py",
                 f'self.assertNotIn("{_LABEL}", normalized)\n',
             )
             result = _only_result(_run_hc(root))

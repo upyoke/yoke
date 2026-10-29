@@ -60,11 +60,6 @@ class TokenRule:
 
 _TOKEN_RULES: Tuple[TokenRule, ...] = (
     TokenRule(
-        label="normalize_ac_labels --item",
-        pattern=re.compile(r"normalize_ac_labels[^\n`]*--item\b"),
-        canonical="normalize_ac_labels reads from stdin or `--file FILE`",
-    ),
-    TokenRule(
         label="section-upsert --heading",
         pattern=re.compile(r"sections?\s+upsert[^\n`]*--heading\b"),
         canonical="`sections upsert <item-id> <section-name> --content-file ...`",

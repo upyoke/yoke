@@ -25,7 +25,6 @@ WRAPPED_ROWS: Tuple[_Row, ...] = (
     _w("yoke strategy carry mark", "strategy.carry"),
     _w("yoke strategy checkpoint record", "strategy.checkpoint"),
     _w("yoke strategy checkpoint latest", "strategy.checkpoint"),
-    _w("yoke strategy master-plan-check", "strategy"),
 )
 
 

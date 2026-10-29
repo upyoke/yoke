@@ -36,7 +36,6 @@ def test_representative_product_client_rows_are_separate_from_source_dev():
         "yoke aws exec",
         "yoke dev setup",
         "yoke dev db-admin setup",
-        "yoke dev path-snapshot-prewarm",
     ):
         assert rows[command].disposition == inventory.SOURCE_DEV_ADMIN
     assert rows["yoke dev setup"].transport_branch == "edit-yoke-source-local"

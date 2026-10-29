@@ -44,15 +44,6 @@ def test_dynamic_import_classification_is_loaded_from_boundary_facts():
         "yoke_core.domain.project_install_source_link",
         "source_dev_admin",
     ) in {(edge.target, edge.classification) for edge in helper.import_edges}
-    prewarm = rows["yoke dev path-snapshot-prewarm"]
-    assert {(edge.target, edge.classification) for edge in prewarm.import_edges} >= {
-        ("yoke_core.domain.db_helpers", "source_dev_admin"),
-        ("yoke_core.domain.path_snapshots", "source_dev_admin"),
-        (
-            "yoke_core.domain.path_snapshots_integration_warm",
-            "source_dev_admin",
-        ),
-    }
     source_authority = rows["yoke source-authority quiesce"]
     assert (
         "yoke_core.domain.source_authority_cutover",

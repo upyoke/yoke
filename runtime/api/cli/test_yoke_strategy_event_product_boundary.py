@@ -65,12 +65,6 @@ def _fake_function_server(
 def _result_for(function_id: str) -> dict:
     if function_id == "events.emit":
         return {"emitted": True, "event_id": "evt-test", "reason": ""}
-    if function_id == "strategy.master_plan_check.run":
-        return {
-            "report": {"contradictions": [], "advisories": []},
-            "markdown_report": "No contradictions found.\n",
-            "contradiction_count": 0,
-        }
     return {"ok": True}
 
 
@@ -98,10 +92,6 @@ def test_strategy_event_ouroboros_help_stays_product_safe(
 ) -> None:
     commands = (
         (("events", "emit", "--help"), "usage: yoke events emit"),
-        (
-            ("strategy", "master-plan-check", "--help"),
-            "usage: yoke strategy master-plan-check",
-        ),
         (
             ("feedback", "--help"),
             "Usage: yoke feedback",
@@ -153,33 +143,4 @@ def test_events_emit_invocation_stays_product_safe(tmp_path: Path) -> None:
         "detail": {"mode": "direct"},
         "error": {"error_category": "validation"},
     }
-    assert json.loads(run.stdout)["success"] is True
-
-
-def test_master_plan_check_invocation_stays_product_safe(
-    tmp_path: Path,
-) -> None:
-    plan_path = tmp_path / "MASTER-PLAN.md"
-    plan_text = "## 5. Backlog By Generation\n\n#### Remaining frontier\n"
-    plan_path.write_text(plan_text, encoding="utf-8")
-
-    with _fake_function_server() as (api_url, requests):
-        run = _run_product_cli(
-            tmp_path,
-            [
-                "strategy",
-                "master-plan-check",
-                "--plan-path",
-                str(plan_path),
-                "--json",
-            ],
-            config_payload=_https_config(tmp_path, api_url),
-        )
-
-    assert run.returncode == 0
-    _assert_clean_client_boundary(run)
-    assert len(requests) == 1
-    request = requests[0]
-    assert request["function"] == "strategy.master_plan_check.run"
-    assert request["payload"] == {"markdown": plan_text}
     assert json.loads(run.stdout)["success"] is True

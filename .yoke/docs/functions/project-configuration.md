@@ -96,7 +96,6 @@ Read [envelope and authority](index.md) first. `none` means no dispatcher work-c
 | `strategy.execution.get` | `none` |
 | `strategy.execution.link` | `none` |
 | `strategy.ingest.run` | `none` |
-| `strategy.master_plan_check.run` | `none` |
 | `strategy.parent.set` | `none` |
 | `strategy.render.run` | `none` |
 | `strategy.revision.diff` | `none` |

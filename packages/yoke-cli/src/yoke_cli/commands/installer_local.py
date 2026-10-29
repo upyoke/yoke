@@ -47,7 +47,6 @@ from yoke_cli.commands.git_hook import AdapterFn
 from yoke_cli.commands.flag_adapters import (
     dev_db_admin_exec,
     dev_db_admin_setup,
-    dev_path_snapshot_prewarm,
     dev_setup,
     github_connect,
     github_disconnect,
@@ -80,7 +79,6 @@ TOOL_SHAPED_SUBCOMMANDS: Dict[Tuple[str, ...], AdapterFn] = {
     ("dev", "yokepedia"): yokepedia,
     ("dev", "db-admin", "setup"): dev_db_admin_setup,
     ("dev", "db-admin", "exec"): dev_db_admin_exec,
-    ("dev", "path-snapshot-prewarm"): dev_path_snapshot_prewarm,
     ("setup",): onboard,
     ("onboard", "project"): onboard_project,
     ("path",): path_group,
@@ -121,7 +119,6 @@ TOOL_SHAPED_USAGE: Dict[str, str] = {
     "yoke dev db-admin exec": (
         "yoke dev db-admin exec ADMIN_ENV --dsn-var NAME -- <command>"
     ),
-    "yoke dev path-snapshot-prewarm": "yoke dev path-snapshot-prewarm",
     "yoke setup": "yoke setup [--project-mode machine-only|local-checkout] [--yes]",
     "yoke onboard project": "yoke onboard project CHECKOUT --slug SLUG --name NAME [--org ORG] [--yes|--dry-run]",
     "yoke path check": "yoke path check [--json]",

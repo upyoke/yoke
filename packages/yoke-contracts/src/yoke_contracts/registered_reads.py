@@ -83,7 +83,7 @@ READ_FUNCTION_IDS = frozenset(
         "steering.report.get strategy.carry.candidate_set strategy.carry.summary "
         "strategy.checkpoint.latest strategy.doc.get strategy.doc.list "
         "strategy.doc_claim.list strategy.execution.get "
-        "strategy.master_plan_check.run strategy.render.run "
+        "strategy.render.run "
         "strategy.revision.diff strategy.surface.get strategy.surface.list "
         "teammate_invites.list test_machine.case_execute "
         "test_machine.desktop_access test_machine.get test_machine.list "

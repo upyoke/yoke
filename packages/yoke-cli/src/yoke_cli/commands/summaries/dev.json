@@ -4,7 +4,6 @@
   "dev db-admin exec": "Run a command with an admin database address set.",
   "dev db-admin setup": "Plan or save a local admin database profile.",
   "dev import-check": "Check that Python modules import in a source lane.",
-  "dev path-snapshot-prewarm": "Build a project's file path snapshots ahead of time.",
   "dev ruff-changed": "Lint the Python files changed since a base commit.",
   "dev run": "Run a command in a source lane's locked environment.",
   "dev setup": "Set up this machine to develop Yoke from source.",

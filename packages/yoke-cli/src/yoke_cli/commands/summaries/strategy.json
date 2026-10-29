@@ -34,7 +34,6 @@
   "strategy execution get": "Read any item’s linked document and Blitz execution details.",
   "strategy execution link": "Link an item to a strategy document.",
   "strategy ingest": "Save edited local strategy files back to the server.",
-  "strategy master-plan-check": "Check the master plan for contradictions.",
   "strategy parent": "Set or clear a strategy document's parent.",
   "strategy parent set": "Set or clear a strategy document's parent.",
   "strategy render": "Write strategy documents from the server into files.",

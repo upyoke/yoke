@@ -57,10 +57,6 @@ def test_product_local_help_commands_do_not_import_source_authority(
         (("project", "install", "--help"), "usage: yoke project install"),
         (("dev", "setup", "--help"), "usage: yoke dev setup"),
         (
-            ("dev", "path-snapshot-prewarm", "--help"),
-            "usage: yoke dev path-snapshot-prewarm",
-        ),
-        (
             ("readiness", "prd-validate", "--help"),
             "usage: yoke readiness prd-validate",
         ),

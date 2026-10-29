@@ -36,7 +36,6 @@ from yoke_cli.commands.adapters.config import (
     STATUS_USAGE,
 )
 from yoke_cli.commands.adapters.dev import (
-    DEV_PATH_SNAPSHOT_PREWARM_USAGE,
     DEV_SETUP_USAGE,
 )
 from yoke_cli.commands.adapters.onboard import ONBOARD_USAGE
@@ -318,7 +317,6 @@ ADAPTER_USAGE: Dict[str, str] = {
     "config.status.run": CONFIG_STATUS_USAGE,
     "status.run": STATUS_USAGE,
     "dev.setup.run": DEV_SETUP_USAGE,
-    "dev.path_snapshot_prewarm.run": DEV_PATH_SNAPSHOT_PREWARM_USAGE,
     "onboard.run": ONBOARD_USAGE,
     "onboard.project.run": ONBOARD_PROJECT_USAGE,
     "onboard.checklist.run": ONBOARD_CHECKLIST_USAGE,

@@ -144,17 +144,6 @@ class TestSmokeDispatch:
         assert function_id == "items.get.run"
         assert error is None
 
-    def test_strategy_ops_adapter_uses_stubbed_dispatch(
-        self, tmp_path: Path,
-    ) -> None:
-        plan_path = tmp_path / "MASTER-PLAN.md"
-        plan_path.write_text("# MASTER PLAN\n", encoding="utf-8")
-        ok, function_id, error = vsr.smoke_dispatch(
-            f"yoke strategy master-plan-check --plan-path {plan_path}"
-        )
-        assert ok is True
-        assert function_id == "strategy.master_plan_check.run"
-        assert error is None
 
     def test_top_level_version_passes_without_dispatch_capture(self) -> None:
         ok, function_id, error = vsr.smoke_dispatch("yoke --version")

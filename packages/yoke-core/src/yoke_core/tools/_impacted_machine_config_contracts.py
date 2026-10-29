@@ -34,7 +34,6 @@ MACHINE_CONFIG_CONTRACTS = (
             "runtime/api/domain/test_path_claim_active_claim_lookup.py",
             "runtime/api/domain/test_project_install_checkout_identity.py",
             "runtime/api/domain/test_runtime_settings.py",
-            "runtime/api/domain/test_timing_helper.py",
             "runtime/api/domain/test_yoke_connected_env_secrets.py",
             "runtime/api/engines/test_resync_local_mode.py",
             "runtime/api/test_advance_path_claim_activation.py",
