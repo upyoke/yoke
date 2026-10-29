@@ -175,8 +175,11 @@ def _describe(notice: tuple[str, datetime | None, str, str]) -> str:
 
 def stalled_qa_notice(conn: Any, run_id: str, stage_name: str) -> bool:
     """No live driver owns the wait; an unreceived or unanswered notice still needs action."""
-    notices = _notice_rows(conn, run_id=run_id, stage_name=stage_name)
-    return not notices or any(str(_get(row, "state", 4)) != "acknowledged" for row in notices)
+    latest = {}
+    for row in _notice_rows(conn, run_id=run_id, stage_name=stage_name):
+        latest.setdefault(str(_get(row, "idempotency_key", 1)), str(_get(row, "state", 4)))
+    active = [state for state in latest.values() if state != "cancelled"]
+    return not active or any(state != "acknowledged" for state in active)
 
 
 def _addressable(conn: Any, members: list[int], *, project_id: int) -> set[int]:

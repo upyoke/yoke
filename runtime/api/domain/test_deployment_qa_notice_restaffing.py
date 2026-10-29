@@ -30,6 +30,12 @@ def test_group_dispatch_replaces_notice_to_ended_driver(test_db):
     assert len(rows) == 2
     assert rows[0][0] == "old-driver" and rows[0][1] is not None
     assert rows[1][0] == "run-starter" and rows[1][1] is None
+    from yoke_core.domain.deployment_qa_stage_wake_state import stalled_qa_notice
+
+    test_db.execute("UPDATE session_message_recipients SET state='acknowledged',"
+                    "acknowledged_at=now() WHERE session_id='run-starter'")
+    test_db.commit()
+    assert not stalled_qa_notice(test_db, RUN, "item-qa")
 
 
 def test_unanswered_group_with_no_driver_needs_steering_action(test_db):
