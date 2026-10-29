@@ -21,7 +21,8 @@ AUTHORITY_DATABASE = (
     (
         "yoke_cli.config.capability_secrets:read_machine_capability_secret",
         "yoke_contracts.machine_config.directories:create_private_directory",
-        "yoke_contracts.machine_config.schema_connections:selected_env",
+        "yoke_contracts.machine_config.selection:connection_selection",
+        "yoke_contracts.machine_config.selection:checkout_connection",
         _C + "cloud_db_secret_dsn:env_binding_selected",
         _C + "cloud_db_secret_dsn:resolve_dsn_from_env",
         _C + "cloud_db_secret_dsn:resolve_previous_dsn_from_env",
