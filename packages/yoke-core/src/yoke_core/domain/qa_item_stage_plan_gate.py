@@ -66,7 +66,7 @@ from yoke_core.domain.post_deploy_verification_answer import (
 DEFAULT_ATTACHMENT_TRANSITION = "done"
 
 
-def _stages(raw: Any) -> list[Mapping[str, Any]]:
+def stages(raw: Any) -> list[Mapping[str, Any]]:
     if isinstance(raw, list):
         decoded: Any = raw
     else:
@@ -88,7 +88,7 @@ def item_scoped_qa_stage_names(raw: Any) -> tuple[str, ...]:
     """
     return tuple(
         str(stage.get("name") or "")
-        for stage in _stages(raw)
+        for stage in stages(raw)
         if str(stage.get("stage_kind") or "") == "qa"
         and str(stage.get("scope") or "") == "item"
     )
@@ -258,5 +258,6 @@ __all__ = [
     "has_attached_member_plan",
     "item_scoped_qa_stage_names",
     "missing_item_qa_plan_refusal",
+    "stages",
     "stages_declare_item_scoped_qa",
 ]

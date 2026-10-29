@@ -266,7 +266,7 @@ def test_existing_corrected_case_replaces_failed_capture_with_sibling_pending(
 
 @pytest.mark.parametrize("verdict", [None, "pass", "undetermined"])
 @pytest.mark.parametrize("declaration", ["existing", "materialized"])
-def test_deployment_replacement_requires_fail_or_error_verdict(
+def test_deployment_replacement_admits_unpassed_cases(
     test_db, verdict, declaration
 ) -> None:
     run_id = "run-replacement-verdict-refusal"
@@ -287,21 +287,25 @@ def test_deployment_replacement_requires_fail_or_error_verdict(
         )
         test_db.commit()
     corrected_id = corrected_case(test_db, failed_id=failed_id, case_key="smoke-fixed")
-    reason = (
-        "already passed"
-        if verdict == "pass" and declaration == "materialized"
-        else "no fail or error verdict"
-    )
-
-    with pytest.raises(QaReplacementError, match=reason):
+    def replace():
         if declaration == "existing":
-            declare_existing_replacement(
+            return declare_existing_replacement(
                 test_db, failed_id=failed_id, replacement_id=corrected_id
             )
-        else:
-            declare(test_db, failed_id, "smoke-fixed", [corrected_id])
-    test_db.rollback()
+        return declare(test_db, failed_id, "smoke-fixed", [corrected_id])
+
+    if verdict == "pass":
+        with pytest.raises(QaReplacementError, match="already passed"):
+            replace()
+        test_db.rollback()
+        assert requirement_row(test_db, failed_id)["replacement_requirement_id"] is None
+        assert set(_roster(test_db, run_id)) == {failed_id, corrected_id}
+        return
+
+    replace()
     row = requirement_row(test_db, failed_id)
-    assert row["replacement_requirement_id"] is None
+    assert row["replacement_requirement_id"] == corrected_id
     assert row["superseded_by_requirement_id"] is None
-    assert set(_roster(test_db, run_id)) == {failed_id, corrected_id}
+    assert _roster(test_db, run_id) == [corrected_id]
+    record_case_verdict(test_db, corrected_id, "pass", evidence=True)
+    assert requirement_row(test_db, failed_id)["superseded_by_requirement_id"] == corrected_id

@@ -129,7 +129,8 @@ apply edits, add cases or retire removed cases. Deployment-run materialization
 keeps its run-scoped behavior.
 
 --replaces CASE_KEY=FAILED_REQUIREMENT_ID declares the corrected case the
-replacement of a failed one. For an item, retain the failed case in the plan
+replacement of a case that still owes proof, including one not yet run. A
+passed case refuses. For an item, retain the original case in the plan
 and add a distinct corrected key. If that key is absent from the stable
 snapshot, first run:
   yoke qa plan rematerialize --item PREFIX-N --transition T --project P

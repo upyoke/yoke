@@ -146,7 +146,7 @@ def commit_settled_verdict(conn: Any, run_id: int) -> None:
         )
         state = (
             "The verdict is recorded; re-drive its deployment run with "
-            f"`yoke watch deploy -- {recorded['deployment_run_id']}` so the "
+            f"`yoke --env CONTROL-PLANE watch deploy -- {recorded['deployment_run_id']}` so the "
             "runner adopts it."
             if recorded and recorded["verdict"] is not None
             else "The verdict was not recorded; repair the named cause, then "

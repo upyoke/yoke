@@ -9,6 +9,8 @@ the session row the park's touch returns.
 
 from __future__ import annotations
 
+import json
+
 from yoke_core.domain import release_wait_facts as facts
 
 ITEM_QA_STAGES = [
@@ -185,3 +187,17 @@ def test_a_surface_with_no_stopped_route_cannot_be_woken():
 def test_no_session_row_leaves_wakeability_unread():
     assert facts.session_wake(None) == {"kind": facts.WAKE_UNREAD, "surface": ""}
     assert facts.session_wake({}) == {"kind": facts.WAKE_UNREAD, "surface": ""}
+
+
+def test_json_string_flow_stages_preserve_targeted_plan_obligations(monkeypatch):
+    _stages(monkeypatch, json.dumps([
+        *ITEM_QA_STAGES[:1],
+        {**ITEM_QA_STAGES[1], "target": {"environment": "prod"}},
+    ]))
+    obligation = facts.delivery_obligation(_item(qa_plan_attachments=[
+        _attachment(7, target_env="prod"), _attachment(8, target_env="stage"),
+    ]))
+    assert obligation == {
+        "kind": facts.OWES_QA, "flow": "flow-a", "project": "proj",
+        "stages": ["item-qa"], "requirement_ids": [], "plan_ids": [7],
+    }

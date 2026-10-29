@@ -22,8 +22,6 @@ from yoke_core.domain.qa_requirement_supersession import (
 from yoke_core.domain.schema_common import _column_exists
 from yoke_core.domain.qa_requirement_scope import lock_requirement_scope
 
-_REPLACEABLE_DEPLOYMENT_VERDICTS = {"fail", "error"}
-
 DISCHARGE_RATIONALE = (
     "declared replacement requirement {replacement_id} recorded a passing "
     "independent verdict"
@@ -177,11 +175,10 @@ def declare_existing_replacement(
             f"requirement {failed_id} is settled or already replaced; "
             "inspect its current replacement before retrying"
         )
-    if latest_verdict(conn, failed_id) not in _REPLACEABLE_DEPLOYMENT_VERDICTS:
+    if latest_verdict(conn, failed_id) == "pass":
         raise QaReplacementError(
-            f"requirement {failed_id} has no fail or error verdict; "
-            "run the case before correction and replace only a case that "
-            "failed or could not be judged."
+            f"requirement {failed_id} already passed; "
+            "declare a replacement only for a case that still owes proof."
         )
     if latest_verdict(conn, replacement_id):
         raise QaReplacementError(
@@ -267,15 +264,7 @@ def declare_replacements(
         if latest_verdict(conn, failed_id) == "pass":
             raise QaReplacementError(
                 f"requirement {failed_id} already passed; declare a replacement "
-                "only for a case that failed or could not be judged."
-            )
-        if (
-            failed.get("deployment_run_id")
-            and latest_verdict(conn, failed_id) not in _REPLACEABLE_DEPLOYMENT_VERDICTS
-        ):
-            raise QaReplacementError(
-                f"deployment requirement {failed_id} has no fail or error verdict; "
-                "run its admitted case before declaring a correction."
+                "only for a case that still owes proof."
             )
         if failed.get("replacement_requirement_id"):
             raise QaReplacementError(
