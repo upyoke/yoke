@@ -45,22 +45,13 @@ adding its replacement is how one changes. Read the live set with
 `-no-ci-gate` and `-warm-gated` definitions are disabled history that a
 recipe can still name long after nothing may select them.
 
-Item-bound delivery normally runs through `/yoke usher YOK-N`. For an attended
-environment release, push the intended commit to `main`, merge that exact
-content to `stage`, create one recorded zero-member run for each target, and
-execute both independently through the Production control-plane admin
-environment. Each flow sends a unique `yoke_dispatch_id` and disables
-head-SHA reuse, so every run receives its own GitHub Actions receipt.
-
-Stage and Production are independent trains, so ordinary releases do not
-serialize them without a declared verification gate. When the release contract
-requires Stage or physical QA to gate Production, finish that evidence before
-creating the Production run. Bind both runs to the same full source commit;
-the release bridge then resolves the existing immutable tag and artifacts for
-that commit instead of creating a different product identity. This ordering is
-a release-policy choice, not evidence that the targets share state. A run that
-must not execute is marked `cancelled`; deployment history is never deleted or
-rewritten.
+Item-bound delivery runs through `/yoke usher YOK-N`. An environment release
+creates a recorded run for the selected target flow and executes it through
+its control-plane connection. Each flow sends a unique `yoke_dispatch_id` and
+disables head-SHA reuse, so every run receives its own GitHub Actions receipt.
+For a source commit with an existing immutable release tag, the bridge reuses
+that tag and its artifacts. A run that must not execute is marked `cancelled`;
+deployment history is never deleted or rewritten.
 
 ## Releasing a change that breaks its consumer
 
