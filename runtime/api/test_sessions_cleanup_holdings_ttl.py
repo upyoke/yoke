@@ -116,7 +116,7 @@ def test_non_item_holding_selects_the_long_ttl(conn, holding_kind):
 
     assert result["total_reclaimed"] == 0
     assert result["zero_reclaim_reason"] == "within_retention_bound"
-    assert "terminate" in result["escalation"]
+    assert "yoke claims work release --claim-id" in result["escalation"]
     row = conn.execute(
         "SELECT ended_at FROM harness_sessions WHERE session_id=%s",
         (session_id,),

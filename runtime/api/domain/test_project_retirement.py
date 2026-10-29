@@ -11,7 +11,6 @@ import pytest
 
 from runtime.api.fixtures.file_test_db import init_test_db, apply_test_schema
 from runtime.api.fixtures.backlog import insert_item
-from yoke_core.domain.claim_recovery import terminate_holder_command
 from yoke_core.domain.db_helpers import connect
 from yoke_core.domain.project_identity import render_item_ref
 from yoke_core.domain.handlers.projects_get import (
@@ -179,24 +178,22 @@ def test_live_claims_refuse_even_on_terminal_items(conn, kind, scope):
     )
     with pytest.raises(ProjectRetirementError, match=f"held {kind} claim") as error:
         retire(conn)
+    claim_id = conn.execute("SELECT id FROM work_claims").fetchone()[0]
     assert "(holder session owner)" in str(error.value)
-    assert terminate_holder_command("owner") in str(error.value)
+    assert f"yoke claims work release --claim-id {claim_id} " in str(error.value)
+    assert "terminate" not in str(error.value)
     conn.execute("UPDATE work_claims SET released_at='2026-01-02'")
     assert retire(conn)["retired_at"]
 
 
-def test_named_terminate_recovery_frees_an_ended_holder(conn, monkeypatch):
+def test_named_release_recovery_frees_an_ended_holder(conn):
     from runtime.api.domain.machine_qa_session_seed import seed_qa_session
-    from yoke_core.domain.session_termination import terminate_session
+    from yoke_core.domain.sessions_lifecycle_claim import release_claim
     from yoke_core.domain.work_claim_targets import (
         make_item_target,
         make_steering_target,
     )
 
-    monkeypatch.setattr(
-        "yoke_core.domain.session_termination.emit_session_terminated",
-        lambda *a, **k: None,
-    )
     insert_item(conn, id=300, workflow_id="dash", project="fixture", status="done")
     for sid in ("owner", "steerer"):
         seed_qa_session(conn, sid)
@@ -216,15 +213,16 @@ def test_named_terminate_recovery_frees_an_ended_holder(conn, monkeypatch):
         )
     with pytest.raises(ProjectRetirementError) as error:
         retire(conn)
-    assert terminate_holder_command("owner") in str(error.value)
-    terminate_session(
-        conn,
-        target_session_id="owner",
-        actor_id=1,
-        caller_session_id="steerer",
-        reason="claims abandoned by an ended session",
-    )
+    claim_id = conn.execute(
+        "SELECT id FROM work_claims WHERE session_id='owner'"
+    ).fetchone()[0]
+    assert f"yoke claims work release --claim-id {claim_id} " in str(error.value)
+    release_claim(conn, claim_id, reason="claims abandoned by an ended session")
     assert retire(conn)["retired_at"]
+    holder = conn.execute(
+        "SELECT terminated_at FROM harness_sessions WHERE session_id='owner'"
+    ).fetchone()[0]
+    assert holder is None
 
 
 def test_preconvergence_lists_preserve_inventory_and_writer_refuses(conn):

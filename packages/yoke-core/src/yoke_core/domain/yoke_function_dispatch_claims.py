@@ -9,7 +9,7 @@ maps to one verification predicate:
   match the active claim row. ``STEERING_ITEM_WRITES`` (path-claim and level
   posture amendments) also accept a covering live steering seat.
 - ``"self_only"`` — read ``work_claims`` by id; require the actor to own
-  the claim row.
+  the claim row or hold a live steering seat on any project.
 - ``"steering"`` — require a live steering seat covering the target scope.
 - ``"qa_subject"`` — delegate to
   :func:`yoke_core.domain.yoke_function_dispatch_qa_claims.qa_subject_claim_verdict`,
@@ -34,8 +34,8 @@ from yoke_core.domain.yoke_function_dispatch_qa_claims import (
 )
 from yoke_core.domain.claim_recovery import (
     canonical_item_ref as _claim_recovery_item_ref,
-    terminate_holder_command,
 )
+from yoke_core.domain.session_steering_authority import foreign_claim_release_refusal
 from yoke_core.domain.yoke_function_dispatch_claim_evidence import (
     ClaimVerificationEvidence,
     WORK_CLAIM_AUTHORITY,
@@ -287,18 +287,16 @@ def verify_claim(
             )
         row = _claim_row_for_id(int(claim_id))
         owner = str((row or {}).get("session_id") or "")
-        if owner != actor_session:
-            message = (
-                f"claim {claim_id} is held by session {owner}, not {actor_session}; "
-                "the holder releases it, or a steering-seat holder frees it with "
-                f"`{terminate_holder_command(owner)}`"
-                if owner
-                else f"claim {claim_id} is not an active claim; nothing to release"
-            )
-            return _claim_error(request, fid, ver, "claim_required", message)
+        refusal = (
+            None
+            if owner == actor_session
+            else foreign_claim_release_refusal(fid, int(claim_id), owner, actor_session)
+        )
+        if refusal:
+            return _claim_error(request, fid, ver, "claim_required", refusal)
         allow_claim_verification(
             evidence,
-            authority=WORK_CLAIM_AUTHORITY,
+            authority=WORK_CLAIM_AUTHORITY if owner == actor_session else "steering",
             claim_id=row.get("id"),
             holder_session_id=owner,
         )

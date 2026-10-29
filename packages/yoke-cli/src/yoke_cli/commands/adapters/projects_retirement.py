@@ -29,9 +29,9 @@ def _run(args, *, retired):
         prog=f"yoke projects {verb}",
         description="Hide or restore a project without deleting history. Retirement "
         "refuses open items, created/executing runs, and held claims; finish those "
-        "obligations before retrying. The refusal names each claim's holder "
-        "session; a holder that ended keeps its claims until a steering-seat "
-        "holder runs yoke sessions terminate HOLDER --reason TEXT. "
+        "obligations before retrying. The refusal names each held claim; a "
+        "holder that ended keeps its claims until a steering-seat holder runs "
+        "yoke claims work release --claim-id N --reason TEXT. "
         "Lists omit retired projects unless "
         "--include-retired is selected; direct project reads retain history.",
     )

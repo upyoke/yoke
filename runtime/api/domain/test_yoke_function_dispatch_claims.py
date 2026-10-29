@@ -302,7 +302,8 @@ class TestClaimRequiredPaths(_ClaimMatrixSuite):
         self.assertFalse(resp.success)
         assert resp.error is not None
         self.assertEqual(resp.error.code, "claim_required")
-        self.assertIn("yoke sessions terminate OTHER", resp.error.message)
+        self.assertIn("yoke claims work release --claim-id 99", resp.error.message)
+        self.assertNotIn("terminate", resp.error.message)
         self.assertNotIn("service_client", resp.error.message)
 
     def test_operator_override_passes_for_operator(self):

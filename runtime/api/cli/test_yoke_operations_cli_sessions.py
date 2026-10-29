@@ -255,14 +255,14 @@ def test_sessions_list_dispatches_filters_and_prints_summary_rows() -> None:
     }
 
 
-def test_reclaim_stale_help_distinguishes_a_zero_and_names_terminate() -> None:
+def test_reclaim_stale_help_distinguishes_a_zero_and_names_release() -> None:
     from yoke_cli.commands.adapters.sessions_maintenance import (
         SESSIONS_RECLAIM_STALE_DESCRIPTION,
     )
 
     assert "nothing was stale" in SESSIONS_RECLAIM_STALE_DESCRIPTION
     assert "holdings bound" in SESSIONS_RECLAIM_STALE_DESCRIPTION
-    assert "yoke sessions terminate" in SESSIONS_RECLAIM_STALE_DESCRIPTION
+    assert "yoke claims work release --claim-id" in SESSIONS_RECLAIM_STALE_DESCRIPTION
 
 
 @pytest.mark.parametrize("selector", [None, _FIXTURE_ITEM_REF, "42"])

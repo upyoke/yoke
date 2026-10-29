@@ -6,6 +6,8 @@ from datetime import datetime
 import json
 from typing import Any
 
+from yoke_contracts.refusal_recovery import compose_refusal
+from yoke_contracts.session_control.capabilities import native_wake_supported
 from yoke_contracts.timestamps import format_instant
 
 from yoke_core.domain import db_backend
@@ -30,6 +32,38 @@ RESUME_IN_FLIGHT_CODE = "TERMINATION_RESUME_IN_FLIGHT"
 
 #: The CLI flag that terminates through an in-flight resume on purpose.
 RESUME_OVERRIDE_FLAG = "--allow-resume-in-flight"
+
+#: Termination refused because the target is a chat its operator drives.
+OPERATOR_SURFACE_CODE = "TERMINATION_OPERATOR_SURFACE"
+
+
+def _refuse_operator_surface(conn: Any, target: dict[str, Any]) -> None:
+    """Refuse to end a desktop chat Yoke never launched and cannot stop.
+
+    Ending it would only lock the chat out of Yoke and cancel its messages;
+    no relay holds its process. Steering frees its claims by release instead.
+    """
+    surface = str(target.get("executor_surface") or "")
+    if native_wake_supported(surface):
+        return
+    rows = conn.execute(
+        f"SELECT id FROM work_claims WHERE session_id={_p(conn)} "
+        "AND released_at IS NULL ORDER BY id",
+        (str(target["session_id"]),),
+    ).fetchall()
+    claims = ", ".join(str(row[0]) for row in rows) or "none"
+    raise SessionError(
+        OPERATOR_SURFACE_CODE,
+        compose_refusal(
+            f"session {target['session_id']} runs on {surface}, an operator-driven "
+            "surface; Yoke never ends it. Its active claim ids: "
+            f"{claims}.",
+            recovery=(
+                'free each claim with yoke claims work release --claim-id N --reason "<why>", '
+                "and ask its operator to close the chat."
+            ),
+        ),
+    )
 
 
 def _refuse_resuming_session(conn: Any, target: dict[str, Any]) -> None:
@@ -165,6 +199,7 @@ def terminate_session(
         action="Session termination",
         error_code="TERMINATION_AUTHORITY_REQUIRED",
     )
+    _refuse_operator_surface(conn, target)
     return _terminate(
         conn,
         target=target,

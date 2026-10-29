@@ -105,6 +105,46 @@ def require_any_steering_seat(
     return seat
 
 
+def foreign_claim_release_refusal(
+    function_id: str, claim_id: int, holder_session_id: str, caller_session_id: str
+) -> str | None:
+    """Refuse releasing another session's claim unless the caller steers.
+
+    A live steering seat on any project frees any session's claim, the same
+    org-wide authority termination uses, and leaves the holder session intact.
+    """
+    if not holder_session_id:
+        return f"claim {claim_id} is not an active claim; nothing to release"
+    from yoke_core.domain import db_helpers
+
+    with db_helpers.connect() as conn:
+        try:
+            require_any_steering_seat(
+                conn,
+                caller_session_id=caller_session_id,
+                action="Releasing another session's claim",
+                error_code="claim_required",
+            )
+        except SessionError:
+            pass
+        else:
+            return None
+    command = (
+        f"yoke claims steering release {claim_id}"
+        if function_id == "claims.steering.release"
+        else f"yoke claims work release --claim-id {claim_id}"
+    )
+    return compose_refusal(
+        f"claim {claim_id} is held by session {holder_session_id}, "
+        f"not {caller_session_id}; only the holder or a steering-seat holder "
+        "releases it.",
+        recovery=(
+            f'the holder or a steering-seat holder runs `{command} --reason "<why>"`; '
+            'acquire a seat with yoke claims steering acquire --project PROJECT --reason "<intent>".'
+        ),
+    )
+
+
 def require_operator_seat(
     conn: Any, *, caller_session_id: str | None, project_id: int, action: str
 ) -> dict[str, Any]:
@@ -124,6 +164,7 @@ def require_operator_seat(
 
 __all__ = [
     "covering_session_seat",
+    "foreign_claim_release_refusal",
     "require_any_steering_seat",
     "require_operator_seat",
     "require_steering_authority",

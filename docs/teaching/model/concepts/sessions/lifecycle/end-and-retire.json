@@ -1,7 +1,9 @@
 {
  "id": "end-and-retire",
  "title": "End and retire",
- "status": "draft-copy",
+ "status": "observed",
  "page": "sessions",
- "position": 4
+ "position": 4,
+ "summary": "yoke sessions terminate SESSION-ID --reason R permanently ends a session from any live steering seat, releasing its claims, cancelling its queued messages and asking its relay to stop the process. It refuses an operator-driven desktop chat (codex-desktop, claude-desktop, cursor-desktop) as TERMINATION_OPERATOR_SURFACE and writes nothing: Yoke never launched that chat and cannot stop it. The refusal lists the chat's active claim ids; a steering-seat holder frees each with yoke claims work release --claim-id N --reason R, which leaves the session intact, and its operator closes the chat.",
+ "sources": ["docs/public/sessions/model/sessions.md", "packages/yoke-core/src/yoke_core/domain/session_termination.py", "packages/yoke-core/src/yoke_core/domain/session_steering_authority.py"]
 }
