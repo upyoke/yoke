@@ -8,6 +8,7 @@ from yoke_core.tools import impacted_tests
 from dataclasses import replace
 from pathlib import Path
 import subprocess
+import sys
 from typing import Sequence
 
 from yoke_contracts.refusal_recovery import compose_refusal
@@ -41,9 +42,12 @@ def pytest_argv(
     declaration = load_declaration(checkout=here)
     trailing = ["-m", "pytest", *list(args)]
     argv = declaration.run_python_argv(trailing, cwd=here)
-    # An undeclared selection outside a uv project runs on the checkout's own
-    # .venv; Yoke's interpreter does not carry the project's test packages.
+    # Reuse an active checkout environment before looking for its root .venv.
     if argv == uv_run_argv(trailing) and not is_uv_project(here):
+        if sys.prefix != sys.base_prefix and Path(sys.prefix).resolve().is_relative_to(
+            root.resolve()
+        ):
+            return [sys.executable, *trailing]
         return [str(_checkout_venv_python(root)), *trailing]
     return argv
 
