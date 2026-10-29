@@ -197,7 +197,7 @@ class TestExemptionFamilies(unittest.TestCase):
 
         self.assertEqual(result.result, "PASS", result.detail)
 
-    def test_format_under_test_surface_is_exempt(self) -> None:
+    def test_format_surface_is_exempt(self) -> None:
         with tempfile.TemporaryDirectory() as td:
             root = Path(td)
             _write(

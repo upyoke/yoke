@@ -33143,7 +33143,7 @@
   "runtime/api/engines/test_doctor_hc_acceptance_criterion_provenance.py::TestCheckboxFormatNeverFlagged::test_prose_label_beside_a_checkbox_still_fails": 0.002851,
   "runtime/api/engines/test_doctor_hc_acceptance_criterion_provenance.py::TestExemptionFamilies::test_archive_root_is_exempt": 0.002851,
   "runtime/api/engines/test_doctor_hc_acceptance_criterion_provenance.py::TestExemptionFamilies::test_canonical_agent_bodies_are_exempt": 0.002376,
-  "runtime/api/engines/test_doctor_hc_acceptance_criterion_provenance.py::TestExemptionFamilies::test_format_under_test_surface_is_exempt": 0.002851,
+  "runtime/api/engines/test_doctor_hc_acceptance_criterion_provenance.py::TestExemptionFamilies::test_format_surface_is_exempt": 0.002851,
   "runtime/api/engines/test_doctor_hc_acceptance_criterion_provenance.py::TestExemptionFamilies::test_generated_mirror_tree_is_exempt": 0.002851,
   "runtime/api/engines/test_doctor_hc_acceptance_criterion_provenance.py::TestExemptionFamilies::test_label_format_emitter_is_exempt": 0.002851,
   "runtime/api/engines/test_doctor_hc_acceptance_criterion_provenance.py::TestFreshProvenanceFails::test_clean_tree_passes": 0.004277,
