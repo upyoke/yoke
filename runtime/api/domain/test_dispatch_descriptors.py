@@ -4,6 +4,19 @@ from __future__ import annotations
 
 import pytest
 
+from yoke_core.domain.dispatch_descriptors import (
+    DISPATCH_KIND_SUBAGENT,
+    ROLE_RESULT_SCHEMA,
+    ROLES,
+    SUBMISSION_CHECKS_BLOCK,
+    VERDICT_PASS_FAIL,
+    VERDICT_READY_NOT_READY_CAVEATS,
+    VERDICT_SIMULATION,
+    WALK_STATUS,
+    DispatchDescriptor,
+    render_for_harness,
+)
+
 from yoke_core.domain.harness_capability_registry import HARNESS_UNIVERSE
 
 
