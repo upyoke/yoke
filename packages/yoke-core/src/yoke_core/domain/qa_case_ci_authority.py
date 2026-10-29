@@ -4,7 +4,6 @@ GitHub App private keys live on control-plane hosts, never on the machine
 running a gate, so every Actions call a gate makes is relayed. Live
 delivery and verification both read GitHub through the project's own
 control plane — the https sibling of an owner-only database connection.
-Stage is a test environment for that live plane, not a topology peer.
 """
 
 from __future__ import annotations

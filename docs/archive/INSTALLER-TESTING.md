@@ -143,7 +143,7 @@ should usually run alone because they may intentionally leave partial state.
 | `INSTALL-SMOKE-001` | `bare-no-uv` | Interactive installer, accept uv, auto-launch onboard | Welcome renders; uv consent default is Yes; `Starting Yoke setup` appears; wizard opens directly at PATH readiness with installed-version status |
 | `INSTALL-SMOKE-002` | `bare-no-uv` | Installer `--yes` | No TUI launch; prints `Run yoke setup`; `yoke --version` works |
 | `INSTALL-SMOKE-003` | `prepared-yoke` | Launch `yoke setup` directly | PATH readiness appears without a congratulations click-through; no crash |
-| `INSTALL-SMOKE-004` | `prepared-yoke` | Machine-only stage onboarding through explicit test preset | Stage is absent from the ordinary picker; test-only/disposable/no-live-operations warning is inline; Apply succeeds and `yoke status` reaches stage |
+| `INSTALL-SMOKE-004` | `prepared-yoke` | Machine-only stage onboarding through explicit test preset | Stage is absent from the ordinary picker; Apply succeeds and `yoke status` reaches stage |
 | `INSTALL-SMOKE-005` | `prepared-yoke` | Machine-only prod onboarding | Apply succeeds against prod with prod token; active env is prod |
 
 ### Wave 2: Installer Branches
@@ -186,7 +186,7 @@ form for URL, paste-versus-file selection, and the corresponding credential.
 
 | ID | Profile | Flow | Assertions |
 | --- | --- | --- | --- |
-| `AUTH-001` | `prepared-yoke` | Explicit test-only stage preset, token file | Disposable/no-live-operations warning renders; token verification auto-advances; token-file placeholder reflects selected env; no token leak |
+| `AUTH-001` | `prepared-yoke` | Explicit test-only stage preset, token file | Token verification auto-advances; token-file placeholder reflects selected env; no token leak |
 | `AUTH-002` | `prepared-yoke` | Prod env, token file | Prod API verified; no token-connected click-through; compact actor/org/project status reaches GitHub; active env prod after Apply |
 | `AUTH-003` | `prepared-yoke` | Team-server form with pasted token | Complete URL validates; token source is explicit; masked token verification uses that URL |
 | `AUTH-004` | `prepared-yoke` | Token paste | Password field masks value; no capture leak |

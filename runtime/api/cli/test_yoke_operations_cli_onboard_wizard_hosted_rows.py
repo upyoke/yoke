@@ -117,9 +117,6 @@ def test_explicit_stage_connect_preset_keeps_stage_authority(monkeypatch) -> Non
             assert app.result.env_name == "stage"
             assert started == ["https://app.stage.upyoke.com"]
             assert "https://app.stage.upyoke.com/connect" in _body_text(app)
-            assert "test-only" in _body_text(app).lower()
-            assert "disposable" in _body_text(app).lower()
-            assert "live operations" in _body_text(app).lower()
 
     asyncio.run(scenario())
 

@@ -4,8 +4,7 @@ Live delivery reads GitHub through the project's own control plane — the
 command's ordinary selected HTTPS connection, or, for an owner-only
 ``*-db-admin`` connection, its own https sibling (the plane that holds
 the project's App binding) — never through an independently deployed
-peer. Stage is a test environment for the live plane, not part of live
-topology.
+peer.
 
 A same-plane restart is survived by the poll loop's transport retries;
 GitHub itself remains the independent failure surface. Check the Actions

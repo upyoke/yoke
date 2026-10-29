@@ -41,8 +41,8 @@ Model: [delivery](../../deployments/index.md); occupancy, takeover and drivers:
 
 ## QA across release targets
 
-Verify on production. A stage case needs a `stage_reason` (`creates_or_destroys_data` or
-`changes_infrastructure`). A case that needs real traffic sets `wake_path: manual` with
+A case selects its registered environments with `target_envs`. A case that needs
+real traffic sets `wake_path: manual` with
 `wake_evidence`
 ([real traffic](../../verification/standalone-plans.md#cases-that-wait-for-real-traffic)).
 Records stay on this control plane.

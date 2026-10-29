@@ -93,36 +93,20 @@ document, `target_envs` and `stage_reason` included; a save that leaves out a
 field of an existing case and would reset its stored value is refused as
 `qa_plan_edit_unedited_field_changed`, naming each case and field.
 
-Verify on production by default. A case may name an environment that does not
-declare `role.production: true` (stage) only when the check cannot safely run
-on production, and must say why in `stage_reason`:
-
-| `stage_reason` | When |
-|---|---|
-| `creates_or_destroys_data` | The check creates or destroys real data, such as founding a tenant or approving a fresh-install machine |
-| `changes_infrastructure` | The check changes infrastructure, such as renewing a TLS certificate |
-
-```json
-{"case_key": "new-founder-tenant", "target_envs": ["stage"], "stage_reason": "creates_or_destroys_data"}
-```
-
-A stage target without a reason refuses as `stage_reason_required`; retarget a
-read-only check to production. An unknown value refuses as
-`stage_reason_invalid`, and a reason on a case with no stage target refuses as
-`stage_reason_without_stage_target`. Declare the production environment with
-`yoke projects environment-settings merge --project P --environment prod --set role.production=true`.
+`stage_reason` is optional descriptive metadata. It accepts
+`creates_or_destroys_data` or `changes_infrastructure`; an unknown value
+refuses as `stage_reason_invalid`. Target resolution uses `target_envs`
+independently of this metadata.
 
 When the plan's project declares `qa.restrict_execution_to_self: true` on the
 environment the control plane runs as, that control plane runs only QA that
 targets its own environment; Yoke's hosted Stage and Production declare it. There,
 a standalone `yoke qa plan run` whose case targets another environment refuses
 with `cannot execute QA target`. Run the plan from the target environment's own
-control plane (select its connection with `yoke --env NAME`), or prove the case
+control plane (`yoke --env NAME qa plan run --plan PLAN --project P`), or prove the case
 through a deployment QA stage that targets that environment. Without the
 setting, a control plane may run a plan against any registered environment.
-`stage_reason` governs a case's `target_envs` only: a plan created with
-`--environment stage` needs none, but still runs only where that environment's
-QA may execute.
+
 
 Item materialization creates one requirement per environment and host baseline,
 with `target_env` and an immutable execution target on each row. Rematerializing

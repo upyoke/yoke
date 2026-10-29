@@ -64,7 +64,7 @@ against the supported deployment context.
 
 - Render captures against a universe you name: `YOKE_ENV=<local-env> yoke ui up`. Seed through
   that env. Keep admission tokens out of output; add a `delay` step before a screenshot.
-- Formal Browser QA runs post-deploy on production. A local preview is a self-check only.
+- Formal Browser QA runs against its declared post-deploy target. A local preview is a self-check only.
 
 ## Verification failure ownership
 

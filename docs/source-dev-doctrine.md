@@ -32,8 +32,7 @@ Repository-only rules; linked owners hold the detail.
 
 - HTTPS `prod` owns registered operations. Paired `prod-db-admin` runs handlers locally over
   a tunnel; any call outside `yoke_contracts.direct_database_access` refuses
-  `use_https_env`. Every real record stays on prod, including stage receipts. Stage is
-  disposable. Connections: `yoke env list`.
+  `use_https_env`. Stage receipts are recorded on the prod control plane. Connections: `yoke env list`.
 - Platform's database (`yoke_platform`) is read-only here:
   `yoke --env platform-prod-registry-db-admin db read "SELECT ..."` (stage:
   `platform-stage-registry-db-admin`).
@@ -60,9 +59,9 @@ Repository-only rules; linked owners hold the detail.
 
 ## Release Yoke
 
-- Steering drives a release: two concurrent runs on one lineage, both created over HTTPS
-  `prod`. LINEAGE is production's `release_lineage`. Production drives on `prod-db-admin` (it
-  replaces its own API; try `prod` first); stage on `prod`. Resume with the same run and key:
+- Create runs over HTTPS `prod`. LINEAGE is the selected source `release_lineage`.
+  Production drives on `prod-db-admin` (it replaces its own API; try `prod` first);
+  stage on `prod`. Resume with the same run and key:
 
   ```text
   yoke --env prod deployment-runs create yoke FLOW --environment prod --idempotency-key KEY
@@ -70,11 +69,6 @@ Repository-only rules; linked owners hold the detail.
   yoke --env prod-db-admin watch deploy -- PROD_RUN
   yoke --env prod watch deploy -- STAGE_RUN
   ```
-- Done needs production delivery and every owed stage proof. This concurrency holds only because
-  stage here tests the live control plane.
-- A correction merged during a stage run needs a new stage/production pair on the corrected
-  commit; the old stage receipt does not prove it.
-- Author item QA against production. A case targets stage only with a declared `stage_reason`.
 - Hosted routes: `yoke-hosted-stage-release-qa`, `yoke-hosted-production-release-qa`,
   `yoke-hosted-production-hotfix-release`. Never hand-create release tags, hand-edit
   `yoke-release-pin.txt` or dispatch component deploy workflows. Pin owner:

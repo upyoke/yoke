@@ -2,7 +2,7 @@
  "id": "stage-and-member-binding",
  "title": "Stage and member binding",
  "status": "observed",
- "summary": "Sessions walk shared QA groups concurrently; a member whose owed groups are all held retains its claim and parks. Failed QA recovery rereads remaining blockers and run/stage/member/target evidence. A cleared dependency cannot change the old frozen target; a correction outside that lineage requires a qualifying later deployed candidate.",
+ "summary": "Sessions walk shared QA groups concurrently; a member whose owed groups are all held retains its claim and parks. Failed QA recovery rereads remaining blockers and run/stage/member/target evidence. A cleared dependency cannot change the old frozen target; a correction outside that lineage requires a qualifying later deployed candidate. Case target_envs selects registered environments independently of optional stage_reason metadata; every target retains its own immutable obligation and acceptance evidence.",
  "page": "qa-plans",
  "position": 4,
  "sources": ["docs/public/verification/failed-item-qa.md", "docs/public/verification/case-attachment.md"]

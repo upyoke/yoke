@@ -85,45 +85,15 @@ def resolve_case_targets(
 
 
 def validate_case_targets(conn: Any, *, plan: Any, case: Mapping[str, Any]) -> None:
-    """Refuse a non-production target that does not say why production cannot prove it.
-
-    Production is the default verification target. A case may also name an
-    environment that does not declare ``role.production: true`` (stage) only
-    when the check creates or destroys real data or changes infrastructure.
-    """
-    from yoke_core.domain.environment_declared_facts import target_is_production
-
+    """Validate target resolution and optional reason metadata."""
     key = str(case["case_key"])
     reason = case.get("stage_reason")
     if reason is not None and reason not in STAGE_REASONS:
         raise QaPlanError(
             f"case {key!r}: stage_reason_invalid: {reason!r} is not a stage reason. "
-            f"Use one of {', '.join(STAGE_REASONS)}, or remove stage_reason and "
-            "target production."
+            f"Use one of {', '.join(STAGE_REASONS)}, or remove stage_reason."
         )
-    stage = [
-        name
-        for name, target in resolve_case_targets(
-            conn, plan=plan, case=case, resolve_default=False
-        )
-        if not target_is_production(target)
-    ]
-    if stage and reason is None:
-        raise QaPlanError(
-            f"case {key!r}: stage_reason_required: target_envs names "
-            f"{', '.join(map(repr, stage))} without role.production true. "
-            "Verify on production by default: replace "
-            "target_envs with the production environment. Target stage only when "
-            "the check cannot run on production, and declare stage_reason as "
-            f"{' or '.join(STAGE_REASONS)}."
-        )
-    if reason is not None and not stage:
-        raise QaPlanError(
-            f"case {key!r}: stage_reason_without_stage_target: stage_reason "
-            f"{reason!r} is set but target_envs names no non-production "
-            "environment. Remove stage_reason, or add the stage environment "
-            "this check must run on."
-        )
+    resolve_case_targets(conn, plan=plan, case=case, resolve_default=False)
 
 
 def case_variants(conn: Any, *, plan: Any, cases: list[Any]):

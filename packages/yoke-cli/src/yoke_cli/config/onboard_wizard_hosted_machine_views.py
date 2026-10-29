@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from typing import Any
 
-from yoke_contracts.api_urls import HOSTED_STAGE_PLATFORM_URL
 from yoke_contracts.machine_authorization import (
     MATCH_CODE_LABEL,
     retired_identity_notice,
@@ -39,21 +38,12 @@ class HostedMachineApprovalViews:
     """What every step of a browser approval shows and hands to an agent."""
 
     def _approval_detail_lines(self, pending: Pending, browser_line: str) -> list[str]:
-        stage_warning = (
-            [
-                "Stage is test-only and disposable.",
-                "Do not use it for live operations or durable control-plane state.",
-            ]
-            if pending.platform_url == HOSTED_STAGE_PLATFORM_URL
-            else []
-        )
         retired = (
             [retired_identity_notice(pending.retired_machine_id)]
             if pending.retired_machine_id
             else []
         )
         return [
-            *stage_warning,
             *retired,
             f"{MATCH_CODE_LABEL} {pending.user_code}",
             approval_hint(pending.user_code),

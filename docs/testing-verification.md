@@ -55,8 +55,7 @@ then the machine-config checkout mapping. It reads only the named plan; a
 retired plan refuses as `plan_retired` before any editor opens. It opens a
 clean JSON authoring document in `$VISUAL`, `$EDITOR`, or `vi` and compare-and-swap saves plan
 metadata plus the complete ordered case set. The document carries every case
-field, including `target_envs` and `stage_reason` (required when a case targets
-an environment without `role.production: true`; see
+field, including `target_envs` and optional `stage_reason` (see
 [case environment obligations](public/verification/standalone-plans.md#case-environment-obligations)),
 and `wake_path`/`wake_evidence` (`manual` for a case whose owner checks real-traffic
 evidence before running it; see

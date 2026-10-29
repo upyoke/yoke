@@ -10,13 +10,13 @@ Member runs have two roles. Matrix:
 
 ## The seat driving delivery owns the run
 
-- Pin one source commit. Create the stage and production runs from it and start each with
+- Each run pins a source commit and a flow. Start it with
   `yoke --env CONTROL-PLANE watch deploy -- RUN-ID`.
 - On CI-gated flows, omit `--source-ref` to bind the gate branch tip: reuse the passed/running
   run on exactly that commit from any branch, dispatch only when it has none,
   or refuse failed/cancelled CI (`release_source_ci_failed`; fix the branch
-  or rerun that commit's CI). Give stage that `release_lineage` via `--source-ref`.
-- Before paired runs, check member flows. Use their flow or reconcile explicitly; never
+  or rerun that commit's CI). `--source-ref` selects an explicit `release_lineage`.
+- Before creating a run, check member flows. Use their flow or reconcile explicitly; never
   change an item's flow silently.
 - Creation enrolls carried ready items. `release_member_not_in_source`: merge the item
   and compose a new run. `add-item` attaches an item the candidate does not carry;

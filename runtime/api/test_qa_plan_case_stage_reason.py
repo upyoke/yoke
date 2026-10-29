@@ -1,4 +1,4 @@
-"""A QA case targets stage only with a declared reason production cannot prove it."""
+"""QA case targets resolve independently of optional reason metadata."""
 
 import json
 
@@ -43,18 +43,18 @@ def _plan(conn):
     )
 
 
-def test_stage_target_without_reason_refuses_with_recovery(test_db):
+@pytest.mark.parametrize("environment", ["stage", "preview"])
+def test_nonproduction_target_without_reason_saves_and_reads_back(test_db, environment):
     plan = _plan(test_db)
-    with pytest.raises(QaPlanError) as refused:
-        replace_plan_cases(
-            test_db,
-            plan_id=plan["id"],
-            cases=[{**CASE, "target_envs": ["stage", "prod"]}],
-        )
-    message = str(refused.value)
-    assert "stage_reason_required" in message
-    assert "'stage'" in message and "'prod'" not in message
-    assert "creates_or_destroys_data or changes_infrastructure" in message
+    _environment(test_db, environment, production=None)
+    replace_plan_cases(
+        test_db,
+        plan_id=plan["id"],
+        cases=[{**CASE, "target_envs": [environment, "prod"]}],
+    )
+    case = get_plan(test_db, plan_id=plan["id"])["cases"][0]
+    assert case["target_envs"] == [environment, "prod"]
+    assert case["stage_reason"] is None
 
 
 @pytest.mark.parametrize(
@@ -87,30 +87,34 @@ def test_production_and_default_targets_need_no_reason(test_db):
     ]
 
 
-def test_undeclared_environment_counts_as_stage(test_db):
+@pytest.mark.parametrize("target_envs", [["stage"], ["prod"], []])
+def test_optional_reason_does_not_restrict_environment(test_db, target_envs):
     plan = _plan(test_db)
-    _environment(test_db, "preview", production=None)
-    with pytest.raises(QaPlanError, match="stage_reason_required"):
+    replace_plan_cases(
+        test_db,
+        plan_id=plan["id"],
+        cases=[{**CASE, "target_envs": target_envs, "stage_reason": "changes_infrastructure"}],
+    )
+    case = get_plan(test_db, plan_id=plan["id"])["cases"][0]
+    assert case["target_envs"] == target_envs
+    assert case["stage_reason"] == "changes_infrastructure"
+
+
+def test_unknown_reason_refuses(test_db):
+    plan = _plan(test_db)
+    with pytest.raises(QaPlanError, match="stage_reason_invalid"):
         replace_plan_cases(
             test_db,
             plan_id=plan["id"],
-            cases=[{**CASE, "target_envs": ["preview"]}],
+            cases=[{**CASE, "target_envs": ["stage"], "stage_reason": "read_only_smoke"}],
         )
 
 
-@pytest.mark.parametrize(
-    ("target_envs", "reason", "code"),
-    [
-        (["stage"], "read_only_smoke", "stage_reason_invalid"),
-        (["prod"], "changes_infrastructure", "stage_reason_without_stage_target"),
-        ([], "creates_or_destroys_data", "stage_reason_without_stage_target"),
-    ],
-)
-def test_invalid_or_unneeded_reason_refuses(test_db, target_envs, reason, code):
+def test_unregistered_target_still_refuses(test_db):
     plan = _plan(test_db)
-    with pytest.raises(QaPlanError, match=code):
+    with pytest.raises(QaPlanError, match="target_env_unavailable"):
         replace_plan_cases(
             test_db,
             plan_id=plan["id"],
-            cases=[{**CASE, "target_envs": target_envs, "stage_reason": reason}],
+            cases=[{**CASE, "target_envs": ["missing"]}],
         )
