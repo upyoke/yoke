@@ -1,0 +1,10 @@
+{
+ "id": "project-python",
+ "title": "Project test interpreter",
+ "status": "observed",
+ "commands": ["yoke watch pytest", "yoke qa case run"],
+ "page": "verification",
+ "position": 5,
+ "summary": "Tests run on the project's own Python, never Yoke's. yoke watch pytest uses the locked source environment in a Yoke checkout, uv run for a uv project (pyproject.toml beside uv.lock) or a declared test_environment, and otherwise the repo root's .venv. With no .venv it refuses with PROJECT-ENVIRONMENT-MISSING and names the setup_command capability that creates it. A Command case in another project's checkout puts that checkout's .venv first on PATH and sets VIRTUAL_ENV, so python -m pytest runs the project's tests; YOKE_PYTHON always names Yoke's interpreter.",
+ "sources": ["packages/yoke-core/src/yoke_core/tools/watch_pytest_project_python.py", "packages/yoke-core/src/yoke_core/domain/qa_case_command_stream.py", "runtime/api/tools/test_watch_pytest_project_python.py", "runtime/api/domain/test_qa_case_worktree_command_env.py"]
+}

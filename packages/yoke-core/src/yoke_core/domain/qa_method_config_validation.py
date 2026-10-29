@@ -16,9 +16,10 @@ class QaMethodConfigError(ValueError):
 #: Command cases run ``/bin/sh -c``, so a Python body is not a command.
 COMMAND_SHELL_CONTRACT = (
     "method_config.command is a /bin/sh -c command line, not a Python "
-    "module body. Wrap it as `python3 -c '...'` (the runner binds python3 "
-    "to the product interpreter) or invoke a file in the checkout. A leading "
-    "`import` is ImageMagick's import(1), not Python."
+    "module body. Wrap it as `python3 -c '...'` (python3 is the checkout's "
+    ".venv interpreter when it has one, else the product interpreter; "
+    "$YOKE_PYTHON is always the product) or invoke a file in the checkout. "
+    "A leading `import` is ImageMagick's import(1), not Python."
 )
 
 #: A Command that reaches a Test Machine must take that host's queue turn.
