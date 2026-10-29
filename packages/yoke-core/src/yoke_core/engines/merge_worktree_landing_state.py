@@ -23,6 +23,7 @@ class PrLandingState:
     merge_commit_sha: str = ""
     head_branch: str = ""
     target_branch: str = ""
+    queue_entry_state: str = "absent"
 
     def __post_init__(self) -> None:
         if self.merged_at is not None:

@@ -44,7 +44,7 @@ def _error(code: str, message: str, jsonpath: str) -> HandlerOutcome:
 
 
 def handle_readiness(request: FunctionCallRequest) -> HandlerOutcome:
-    """Read GitHub's PR and target-branch queue facts without mutating either."""
+    """Read GitHub's coherent PR landing facts without mutating them."""
     if request.target.kind != "item" or request.target.item_id is None:
         return _error(
             "target_invalid",

@@ -56,6 +56,7 @@ query($owner: String!, $name: String!, $number: Int!) {
       closed
       state
       autoMergeRequest { enabledAt }
+      mergeQueueEntry { state }
       mergeStateStatus
       headRefOid
       mergedAt
@@ -238,10 +239,16 @@ def _parse_landing_state(pull_request: dict[str, Any]) -> PrLandingState:
     if isinstance(merge_commit, dict):
         merge_oid = str(merge_commit.get("oid") or "").strip()
     state = str(pull_request.get("state") or "").strip().upper()
+    entry = pull_request.get("mergeQueueEntry")
+    entry_state = (
+        str(entry.get("state") or "present").strip().upper()
+        if isinstance(entry, dict) else "absent"
+    )
     return PrLandingState(
         merged=bool(pull_request.get("merged")),
         closed=bool(pull_request.get("closed")) or state in _CLOSED_PR_STATES,
         auto_merge_active=pull_request.get("autoMergeRequest") is not None,
+        queue_entry_state=entry_state,
         merge_state_status=str(pull_request.get("mergeStateStatus") or "")
         .strip()
         .lower(),

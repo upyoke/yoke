@@ -16,7 +16,7 @@ from yoke_core.engines.merge_worktree_pr_check_runs import (
     LandingCheck,
     PrLandingProjection,
 )
-from yoke_core.engines.merge_worktree_pr_queue import PrLandingState, QueueMember
+from yoke_core.engines.merge_worktree_pr_queue import PrLandingState
 
 
 def _request() -> FunctionCallRequest:
@@ -41,10 +41,8 @@ def _wire(
     monkeypatch,
     *,
     state: PrLandingState,
-    members,
     checks: tuple[LandingCheck, ...] = (),
-) -> tuple[list[str], list[str]]:
-    targets: list[str] = []
+) -> list[str]:
     projections: list[str] = []
     monkeypatch.setattr(
         "yoke_core.domain.item_detail_read.get_item_detail",
@@ -59,19 +57,14 @@ def _wire(
         reads_mod, "read_pr_landing_and_required_checks", read_projection
     )
 
-    def read_members(_ctx, *, base_branch="main"):
-        targets.append(base_branch)
-        return list(members), None
-
-    monkeypatch.setattr(reads_mod, "read_queue_members", read_members)
-    return targets, projections
+    return projections
 
 
 def test_enqueued_consumed_arming_is_reported_in_flight(monkeypatch) -> None:
-    targets, _checks_calls = _wire(
+    projections = _wire(
         monkeypatch,
-        state=PrLandingState(False, False, False, merge_state_status="blocked"),
-        members=(QueueMember("42", "YOK-2842", state="AWAITING_CHECKS"),),
+        state=PrLandingState(False, False, False, merge_state_status="blocked",
+                             queue_entry_state="AWAITING_CHECKS"),
     )
 
     outcome = handler.handle_readiness(_request())
@@ -83,15 +76,13 @@ def test_enqueued_consumed_arming_is_reported_in_flight(monkeypatch) -> None:
     assert result.queue_holding == "enqueued"
     assert result.queue_entry_state == "AWAITING_CHECKS"
     assert result.merge_when_ready == "consumed"
-    assert "merge-when-ready=cleared" not in result.narrative
-    assert targets == ["main"]
+    assert projections == ["42"]
 
 
 def test_truly_unarmed_pull_request_is_reported_not_in_flight(monkeypatch) -> None:
     _wire(
         monkeypatch,
         state=PrLandingState(False, False, False, merge_state_status="clean"),
-        members=(),
     )
 
     outcome = handler.handle_readiness(_request())
@@ -114,10 +105,9 @@ def test_a_red_required_check_stops_an_armed_not_enqueued_landing(monkeypatch) -
     failed = LandingCheck(
         name="repo-contracts", status="completed", conclusion="failure", required=True
     )
-    _, projections = _wire(
+    projections = _wire(
         monkeypatch,
         state=PrLandingState(False, False, True, merge_state_status="blocked"),
-        members=(),
         checks=(failed,),
     )
 
@@ -148,7 +138,6 @@ def test_a_pending_required_check_stays_a_healthy_in_flight_wait(monkeypatch) ->
     _wire(
         monkeypatch,
         state=PrLandingState(False, False, True, merge_state_status="blocked"),
-        members=(),
         checks=(running,),
     )
 
@@ -168,7 +157,6 @@ def test_an_optional_check_failure_does_not_stop_the_landing(monkeypatch) -> Non
     _wire(
         monkeypatch,
         state=PrLandingState(False, False, True, merge_state_status="blocked"),
-        members=(),
         checks=(advisory,),
     )
 
@@ -186,8 +174,8 @@ def test_a_real_queue_entry_outranks_a_stale_check_read(monkeypatch) -> None:
     )
     _wire(
         monkeypatch,
-        state=PrLandingState(False, False, True, merge_state_status="blocked"),
-        members=(QueueMember("42", "YOK-2842", state="AWAITING_CHECKS"),),
+        state=PrLandingState(False, False, True, merge_state_status="blocked",
+                             queue_entry_state="AWAITING_CHECKS"),
         checks=(failed,),
     )
 
@@ -200,10 +188,9 @@ def test_a_real_queue_entry_outranks_a_stale_check_read(monkeypatch) -> None:
 
 def test_a_merged_pull_request_uses_one_combined_github_read(monkeypatch) -> None:
     """A merge that already happened is still one GraphQL document, not two."""
-    _, projections = _wire(
+    projections = _wire(
         monkeypatch,
         state=PrLandingState(True, False, False, merge_state_status="clean"),
-        members=(),
     )
 
     outcome = handler.handle_readiness(_request())
@@ -225,8 +212,7 @@ def test_every_github_queue_state_is_preserved(entry_state: str) -> None:
     result = readiness_mod.classify_readiness(
         pr_number="42",
         target="main",
-        state=PrLandingState(False, False, False),
-        members=(QueueMember("42", "YOK-2842", state=entry_state),),
+        state=PrLandingState(False, False, False, queue_entry_state=entry_state),
     )
 
     assert result.queue_entry_state == entry_state
@@ -239,7 +225,6 @@ def _open_unarmed(*checks: LandingCheck, status: str = "blocked"):
         pr_number="42",
         target="main",
         state=PrLandingState(False, False, False, merge_state_status=status),
-        members=(),
         required_checks=checks,
     )
 
@@ -305,3 +290,29 @@ def test_two_red_check_urls_appear_once_in_the_readback() -> None:
     for check in checks:
         assert text.count(check.url) == 1
     assert "re-run the verification gate" in text
+
+
+def test_failed_pr_read_has_unreadable_queue_entry(monkeypatch) -> None:
+    monkeypatch.setattr(reads_mod, "read_pr_landing_and_required_checks",
+                        lambda *_a: PrLandingProjection(state_error="read failed"))
+    from yoke_core.engines.merge_worktree_prepare import MergeArgs, MergeContext
+    result = readiness_mod.read_merge_queue_readiness(
+        MergeContext(args=MergeArgs(branch=""), project="prj"),
+        pr_number="42", target="main",
+    )
+    assert result.queue_entry_state == "unreadable"
+    assert result.queue_holding == "unreadable"
+    assert result.landing_state == "unreadable"
+
+
+@pytest.mark.parametrize("entry,expected", [
+    ({"state": "AWAITING_CHECKS"}, "AWAITING_CHECKS"),
+    ({}, "PRESENT"), (None, "absent"),
+])
+def test_pr_projection_parses_queue_entry_with_consumed_arming(entry, expected):
+    from yoke_core.engines.merge_worktree_pr_check_runs import _parse_landing_state
+    state = _parse_landing_state({"autoMergeRequest": None, "mergeQueueEntry": entry})
+    result = readiness_mod.classify_readiness(pr_number="42", target="main", state=state)
+    assert result.queue_entry_state == expected
+    assert result.queue_holding == ("neither" if entry is None else "enqueued")
+    assert result.landing_state == ("not_in_flight" if entry is None else "in_flight")

@@ -249,7 +249,7 @@ def test_landing_models_format_only_report_clock_owners(clock):
     )
     expected = MOMENT if clock is not None else None
     readiness = classify_readiness(
-        pr_number="42", target="main", state=state, members=[]
+        pr_number="42", target="main", state=state
     )
     hold = _landed(readiness, outcome="landed", actions=(), before=readiness)
     assert state.merged_at == readiness.merged_at == hold.merged_at == expected
