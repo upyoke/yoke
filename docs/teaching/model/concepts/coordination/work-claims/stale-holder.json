@@ -4,5 +4,5 @@
  "status": "draft-copy",
  "page": "coordination",
  "position": 3,
- "summary": "Migration territory owned by a terminal item is released when another rehearsal enters, then acquired for the new item; an old heartbeat alone never releases an active owner. Ending a session never releases its claims, and the stale-session sweep skips a session that still holds one, so a claim from an ended session stays until it is freed. A release by any other session refuses with claim_required, naming the holder session and the recovery: the holder releases it, or a steering-seat holder runs yoke sessions terminate HOLDER --reason TEXT, which ends the holder and releases every claim it keeps."
+ "summary": "Migration territory owned by a terminal item is released when another rehearsal enters, then acquired for the new item; an old heartbeat alone never releases an active owner. Ending a session never releases its claims, and the stale-session sweep skips a session that still holds one, so a claim from an ended session stays until it is freed. A release by any other session without a steering seat refuses with claim_required, naming the holder session and the recovery: the holder releases it, or a holder of a live steering seat on any project runs yoke claims work release --claim-id N --reason TEXT, which frees that claim and leaves the holder session intact."
 }

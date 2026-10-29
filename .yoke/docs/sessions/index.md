@@ -36,8 +36,8 @@ protected claims. Cleanup reloads the roster so reclaimed rows leave Active.
 
 On the **Frontier**, every claimed item's card carries its holding session's
 chip — surface, park state, and quiet reason — whichever band it lands in.
-**Owner unavailable**, with its advice to release the claim or terminate the
-session, appears for a holder without a declared pause whose process is gone
+**Owner unavailable**, with its advice that a steering-seat holder frees the
+item with `yoke claims work release --claim-id N`, appears for a holder without a declared pause whose process is gone
 and whose surface cannot resume it from its transcript.
 
 Every session card offers **Message**, including ended sessions. An idle or

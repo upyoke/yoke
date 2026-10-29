@@ -4,9 +4,9 @@ from __future__ import annotations
 
 from typing import Any, Dict, List
 
-TERMINATE_ESCALATION = (
-    "yoke sessions terminate SESSION-ID --reason R "
-    "(releases that session's held work claims)"
+RELEASE_ESCALATION = (
+    'yoke claims work release --claim-id N --reason "<why>" '
+    "(a steering-seat holder frees one held claim; the session stays)"
 )
 
 
@@ -35,5 +35,5 @@ def sweep_receipt(
         "total_reclaimed": total_reclaimed,
         "scratch_cleanup": scratch_cleanup,
         "zero_reclaim_reason": zero_reason,
-        "escalation": TERMINATE_ESCALATION,
+        "escalation": RELEASE_ESCALATION,
     }

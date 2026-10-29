@@ -4,5 +4,5 @@
  "status": "draft-copy",
  "page": "projects",
  "position": 3,
- "summary": "yoke projects retire hides a project without deleting history. It refuses with project_retirement_blocked while open items, created or executing deployment runs or held claims remain, naming each claim with its holder session and the yoke sessions terminate HOLDER --reason TEXT command a steering-seat holder runs to free a holder that ended. Settle the named blockers, then retry; yoke projects unretire restores the project."
+ "summary": "yoke projects retire hides a project without deleting history. It refuses with project_retirement_blocked while open items, created or executing deployment runs or held claims remain, naming each claim with its holder session and the yoke claims work release --claim-id N --reason TEXT command a steering-seat holder runs to free a claim whose holder ended. Settle the named blockers, then retry; yoke projects unretire restores the project."
 }

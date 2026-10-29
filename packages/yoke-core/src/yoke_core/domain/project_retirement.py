@@ -12,7 +12,6 @@ from typing import Any
 from yoke_contracts.timestamps import format_instant, parse_instant
 from yoke_core.domain.project_identity import render_item_ref
 from yoke_core.domain import db_backend
-from yoke_core.domain.claim_recovery import terminate_holder_command
 from yoke_core.domain.db_helpers import instant_parameter, utc_now, query_rows
 from yoke_core.domain.item_terminal_resources import item_is_terminal
 from yoke_core.domain.project_identity import resolve_project
@@ -49,8 +48,8 @@ def project_fields_sql(conn: Any, fields) -> str:
     )
 
 
-def retirement_blockers(conn: Any, project_id: int) -> tuple[list[str], list[str]]:
-    """Name all active obligations and the sessions holding their claims."""
+def retirement_blockers(conn: Any, project_id: int) -> tuple[list[str], list[int]]:
+    """Name all active obligations and the ids of the claims still held."""
     marker = "%s" if db_backend.connection_is_postgres(conn) else "?"
     items = query_rows(
         conn, f"SELECT id, status FROM items WHERE project_id={marker}", (project_id,)
@@ -71,7 +70,7 @@ def retirement_blockers(conn: Any, project_id: int) -> tuple[list[str], list[str
         else []
     )
     blockers.extend(f"deployment run {row['id']} ({row['status']})" for row in runs)
-    holders: dict[str, None] = {}
+    claim_ids: list[int] = []
     for row in query_rows(
         conn,
         "SELECT id, session_id, target_kind, scope FROM work_claims "
@@ -84,18 +83,21 @@ def retirement_blockers(conn: Any, project_id: int) -> tuple[list[str], list[str
                 f"held {row['target_kind']} claim {row['id']} "
                 f"(holder session {row['session_id']})"
             )
-            holders.setdefault(str(row["session_id"]), None)
-    return blockers, list(holders)
+            claim_ids.append(int(row["id"]))
+    return blockers, claim_ids
 
 
-def _claim_recovery(holders: list[str]) -> str:
-    """Name the steering command that frees each holder's claims."""
-    if not holders:
+def _claim_recovery(claim_ids: list[int]) -> str:
+    """Name the release that frees each held claim without ending its holder."""
+    if not claim_ids:
         return ""
     return (
         " A live holder releases its own claim; for a holder that ended or "
         "cannot release, a steering-seat holder runs "
-        + "; ".join(f"`{terminate_holder_command(h)}`" for h in holders)
+        + "; ".join(
+            f'`yoke claims work release --claim-id {claim_id} --reason "<why>"`'
+            for claim_id in claim_ids
+        )
         + "."
     )
 
@@ -118,14 +120,14 @@ def set_retirement(
         (identity.id,),
     ).fetchone()
     if retired:
-        blockers, holders = retirement_blockers(conn, identity.id)
+        blockers, claim_ids = retirement_blockers(conn, identity.id)
         if blockers:
             raise ProjectRetirementError(
                 "project_retirement_blocked",
                 f"Cannot retire {identity.slug}: "
                 + "; ".join(blockers)
                 + ". Complete or cancel open work and runs, then retry."
-                + _claim_recovery(holders),
+                + _claim_recovery(claim_ids),
             )
     previous = None if row[RETIRED_AT] is None else parse_instant(row[RETIRED_AT])
     value = (utc_now() if previous is None else previous) if retired else None

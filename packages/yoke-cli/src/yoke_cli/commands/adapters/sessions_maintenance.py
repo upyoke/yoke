@@ -30,7 +30,8 @@ SESSIONS_RECLAIM_STALE_DESCRIPTION = (
     "probe's short TTL; other holdings keep the holdings TTL. "
     "total_reclaimed=0 names whether nothing was stale or everything stale "
     "is still inside that holdings bound, and the escalation "
-    "(yoke sessions terminate SESSION-ID --reason R) that frees a holder now."
+    "(yoke claims work release --claim-id N --reason R, run from a steering "
+    "seat) that frees a held claim now."
 )
 
 

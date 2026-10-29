@@ -30,6 +30,11 @@ A session that a wake is resuming is refused with TERMINATION_RESUME_IN_FLIGHT.
 A headless worker's process exits between turns and a message resumes it,
 so send it a message instead.
 
+A desktop chat (codex-desktop, claude-desktop, cursor-desktop) is refused with
+TERMINATION_OPERATOR_SURFACE and nothing changes: Yoke never launched it and
+cannot stop it. Free its claims with `yoke claims work release --claim-id N
+--reason TEXT` (the refusal lists them) and ask its operator to close the chat.
+
 The session ends at once in the record. The relay then sends TERM, waits up
 to 2 seconds, sends KILL, and checks for up to 2 seconds that the process
 exited. If a signal fails, the relay does not hold the process, or the exit

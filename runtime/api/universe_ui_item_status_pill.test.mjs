@@ -48,8 +48,8 @@ test("an unavailable owner's pill names the owner condition and retains its reas
   assert.equal(byClass(detail, "item-status-detail-label")[0].textContent, "Owner unavailable");
   assert.equal(byClass(detail, "item-status-detail-copy")[0].textContent,
     "Held by a work claim whose session is abandoned: not parked, its "
-      + "process gone, and quiet past its activity window. Release the claim "
-      + "or terminate the session to free this item.");
+      + "process gone, and quiet past its activity window. A steering-seat "
+      + "holder frees this item with yoke claims work release --claim-id.");
 });
 
 for (const [rows, label] of [
