@@ -40,7 +40,26 @@ def test_target_environment_placeholder_resolves_to_the_registered_name() -> Non
     assert resolved == {"target_environment": "prod", "release_mode": "hotfix"}
 
 
-def test_prod_flow_dispatches_the_registered_environment_name() -> None:
+@pytest.mark.parametrize("owner,target", [("stage", "prod"), ("prod", "stage")])
+def test_flow_dispatches_owner_endpoint_and_target_name(
+    monkeypatch, owner, target
+) -> None:
+    from yoke_core.domain import deploy_pipeline_hosted_bridge as bridge
+
+    monkeypatch.setenv("YOKE_ENV", owner + "-db-admin")
+    monkeypatch.setattr(
+        bridge.machine_config,
+        "load_config",
+        lambda: {
+            "connections": {
+                owner: {
+                    "transport": "https",
+                    "api_url": f"https://{owner}.example/api/orgs/work",
+                },
+                owner + "-db-admin": {"transport": "local-postgres"},
+            },
+        },
+    )
     gh_calls = []
 
     def _fake_gh(*args, **_kwargs):
@@ -110,7 +129,7 @@ def test_prod_flow_dispatches_the_registered_environment_name() -> None:
             first_item="",
             timeout_min=30,
             fresh=False,
-            environment_name="prod",
+            environment_name=target,
             gate_branch="main",
             release_lineage="a" * 40,
             sd="/tmp/sd",
@@ -118,7 +137,8 @@ def test_prod_flow_dispatches_the_registered_environment_name() -> None:
 
     assert (rc, diag) == (0, "")
     trigger = next(call for call in gh_calls if call and call[0] == "trigger")
-    assert "target_environment=prod" in trigger
+    assert f"target_environment={target}" in trigger
+    assert f"control_plane_api_url=https://{owner}.example/api/orgs/work" in trigger
     assert "deployment_run_id=run-test" in trigger
 
 

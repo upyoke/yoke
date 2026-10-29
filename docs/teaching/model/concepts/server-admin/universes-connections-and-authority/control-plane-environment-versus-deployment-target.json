@@ -5,5 +5,5 @@
  "audience": "Administrators",
  "page": "server-admin",
  "position": 3,
- "summary": "Release creation and receipts use the connection owning the project, selected by --env or checkout routing. A self-replacing run uses that connection’s paired database-admin driver, including Stage self-releases."
+ "summary": "Release creation and receipts use the connection owning the project, selected by --env or checkout routing. A self-replacing run uses that connection’s paired database-admin driver, including Stage self-releases. Hosted bridge dispatch seals control_plane_api_url from the owning connection or its paired HTTPS sibling; scoped consumer proof uses that endpoint, independently of the deployment target."
 }

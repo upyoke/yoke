@@ -95,6 +95,13 @@ through `decision_request_subject_effect` in `yoke_core.domain`.
 
 **`github-actions-workflow` step runner:** Triggers a GitHub Actions workflow and polls for completion. Stage fields: `workflow` (workflow filename, e.g., `deploy.yml`), `watch_for` (state to wait for, e.g., `"completed"`), `on_failure` (`"halt"`). Used by external projects where GitHub Actions owns the pipeline. Python owners: `yoke_core.domain.github_actions` + `yoke_core.domain.deploy_pipeline`.
 
+The hosted `platform-release-bridge.yml` dispatch also carries
+`control_plane_api_url`, sealed from the connection owning the run. A
+self-replacing driver uses its paired HTTPS connection's `api_url`; the
+deployment target does not select release authority. The bridge and its scoped
+consumer proof bootstrap use this endpoint. Missing or unsafe endpoints refuse
+with `release_control_endpoint_unavailable` before dispatch.
+
 A workflow stage normally dispatches its `ref` branch (default `main`), whose
 workflow source may differ from `{head_sha}` checkout inputs after the branch
 moves. For builds requiring workflow/ref/checkout to be one attested commit,

@@ -33,6 +33,10 @@ on:
         description: "Yoke deployment run that owns this promotion"
         required: true
         type: string
+      control_plane_api_url:
+        description: "HTTPS API endpoint of the connection owning the deployment run"
+        required: true
+        type: string
       consumer_sha:
         description: "Hosted consumer commit bound by the deploy pipeline's own driver before dispatch"
         required: true
@@ -62,7 +66,7 @@ jobs:
     name: dispatch and await Platform release
     runs-on: ubuntu-24.04
     env:
-      YOKE_API_BASE: "https://app.upyoke.com/api/orgs/upyoke"
+      YOKE_API_BASE: ${{ inputs.control_plane_api_url }}
       YOKE_RELEASE_API_TOKEN: ${{ secrets.YOKE_RELEASE_API_TOKEN }}
       YOKE_PLATFORM_RELEASE_API_TOKEN: ${{ secrets.YOKE_PLATFORM_RELEASE_API_TOKEN }}
     steps:

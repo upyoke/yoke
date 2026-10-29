@@ -91,3 +91,19 @@ def test_only_the_release_bridge_automatically_dispatches_consumer_proof() -> No
         assert set(workflow["on"]) == {"workflow_dispatch"}, path.name
         callers.append(path.name)
     assert callers == [RELEASE_BRIDGE.name]
+
+
+def test_bridge_receives_owner_endpoint_as_a_required_input() -> None:
+    from yaml import BaseLoader, load
+
+    workflow = load(RELEASE_BRIDGE.read_text(), Loader=BaseLoader)
+    assert (
+        workflow["on"]["workflow_dispatch"]["inputs"]["control_plane_api_url"][
+            "required"
+        ]
+        == "true"
+    )
+    assert (
+        workflow["jobs"]["dispatch-platform-release"]["env"]["YOKE_API_BASE"]
+        == "${{ inputs.control_plane_api_url }}"
+    )
