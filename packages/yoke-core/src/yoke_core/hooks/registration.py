@@ -230,6 +230,12 @@ def _record_process_anchor(
         return
 
 
+def _is_codex(executor_hint: str) -> bool:
+    from yoke_core.hooks.helpers_identity import detect_executor, is_codex
+
+    return is_codex(executor_hint or detect_executor())
+
+
 def ensure_registered_from_hook(
     conn: Any,
     payload_json: str,
@@ -255,12 +261,12 @@ def ensure_registered_from_hook(
     ``ended_at``, stamps a new ``episode_started_at``, and conditionally
     reacquires the claims the end released.
 
-    Tool-call payloads (PreToolUse/PostToolUse) lack the model/source
-    fields SessionStart carries; ``_register_from_hook`` already tolerates
-    that via the detect_* fallbacks (the UserPromptSubmit path exercises
-    the same shape). Concurrent callers are race-safe — the underlying
-    ``register_session`` treats an existing row as SESSION_EXISTS and
-    upgrades placeholders in place.
+    Tool-call payloads lack SessionStart's model/source fields; the
+    detect_* fallbacks tolerate that. Concurrent callers are race-safe:
+    ``register_session`` treats an existing row as SESSION_EXISTS.
+
+    A Codex hook with no saved transcript (a Codex Desktop helper thread)
+    never creates or revives a row; its tool calls still evaluate.
 
     ``actor_id`` (server side) is the verified bearer-token actor bound
     to the registered row — relayed registration mirrors the machine
@@ -271,12 +277,17 @@ def ensure_registered_from_hook(
     if not session_id or session_id == "unknown" or conn is None:
         return False
     try:
+        unsaved_codex = not transcript_path and _is_codex(executor_hint)
+        if force_reregister and unsaved_codex:
+            return False
         if not force_reregister:
             from yoke_core.domain.sessions_ended_recovery import (
                 session_registration_state,
             )
 
             found, stored_actor_id, ended = session_registration_state(conn, session_id)
+            if unsaved_codex and (found is False or ended):
+                return False
             # Transient ends still revive: this hook is proof of life.
             # Leftover Cursor terminal Reads after an empty closeout are not.
             if ended and skip_ended_session_revival(

@@ -16,8 +16,10 @@ The `## Simplify — three-axis doctrine` section in `AGENTS.md` defines the sha
 
 Native `AGENTS.md` and the opening hook provide shared startup orientation.
 The start hook runs for every source, including forks, clear and compact.
-Saved forks register under their own session id; prompt fallback registration
-requires a transcript file, so unsaved Desktop side threads stay unregistered.
+Saved forks register under their own session id. Every registration path,
+including the lazy one a tool-call hook drives, needs a saved transcript: a
+Codex hook without one never creates or revives a session row, so unsaved
+Desktop helper threads stay unregistered while their tool calls still run.
 Transcript and usage credential reads honor `CODEX_HOME` (default `~/.codex`).
 The generated `main_agent` packet contains decisions and executable recipes
 needed by that role; it is not a copied full schema/topic roster. Explicit

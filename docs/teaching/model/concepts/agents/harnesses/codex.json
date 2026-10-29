@@ -4,6 +4,6 @@
  "status": "observed",
  "page": "agents",
  "position": 1,
- "current": "All SessionStart sources run the hook, but the client skips any start without a transcript path before relay and registration. Saved forks retain their own session identity and start cache; prompt fallback requires a saved transcript. Transcript and usage credentials honor CODEX_HOME. Project refresh renews changed hook trust.",
- "sources": ["docs/public/agents/codex.md", "packages/yoke-core/src/yoke_core/hooks/session_dispatch.py", "packages/yoke-harness/src/yoke_harness/hooks/identity_codex_runtime.py", "packages/yoke-harness/src/yoke_harness/session_relay_codex_plan_limit.py"]
+ "current": "All SessionStart sources run the hook, but the client skips any start without a transcript path before relay and registration. Saved forks retain their own session identity and start cache. Every registration path needs a saved transcript: the server never creates or revives a session row from a Codex hook without a transcript path, including lazy registration from tool-call hooks, so unsaved Desktop helper threads stay unregistered while their tool calls are still evaluated. Transcript and usage credentials honor CODEX_HOME. Project refresh renews changed hook trust.",
+ "sources": ["docs/public/agents/codex.md", "packages/yoke-core/src/yoke_core/hooks/session_dispatch.py", "packages/yoke-core/src/yoke_core/hooks/registration.py", "packages/yoke-harness/src/yoke_harness/hooks/identity_codex_runtime.py", "packages/yoke-harness/src/yoke_harness/session_relay_codex_plan_limit.py"]
 }
