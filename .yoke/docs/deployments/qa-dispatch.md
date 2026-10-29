@@ -32,6 +32,9 @@ interrupt it. Each member's route is read fresh immediately before acting, so
 an earlier close-out cannot leave later routes stale. A refused close-out
 wakes its owner with the refusal and recovery, and the next member is still
 tried. The refused member retries by itself when its blocking record settles.
+While a member still has a live deployment-stage plan execution, verdict
+callbacks defer close-out and send no acceptance or failure notice; stage
+settlement closes the member after the delivering execution ends.
 A member the budget skipped closes on a later dispatch or at settlement; the
 skip never holds the stage.
 

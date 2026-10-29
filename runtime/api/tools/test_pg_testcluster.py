@@ -172,3 +172,21 @@ def test_env_block_exports_pinned_binaries_for_disposable_homes(monkeypatch):
     )
     exports = [shlex.split(line)[1] for line in pg_testcluster.env_block().splitlines()]
     assert f"YOKE_PG_BIN_DIR={binaries}" in exports
+
+
+@pytest.mark.parametrize("pinned", [False, True])
+def test_missing_initdb_refuses_before_cluster_work(
+    monkeypatch, tmp_path, capsys, pinned
+):
+    candidate = tmp_path / "missing-bin" if pinned else None
+    monkeypatch.setattr(
+        pg_testcluster.postgres_binaries, "pinned_bin_dir", lambda: candidate
+    )
+    monkeypatch.setattr(pg_testcluster.shutil, "which", lambda name: None)
+
+    def unexpected(*args):
+        pytest.fail("cluster work began without initdb")
+
+    monkeypatch.setattr(postgres_cluster, "initdb_if_needed", unexpected)
+    assert pg_testcluster.ensure_started() == 1
+    assert capsys.readouterr().err.split(":", 1)[0] == "postgres_binaries_unavailable"

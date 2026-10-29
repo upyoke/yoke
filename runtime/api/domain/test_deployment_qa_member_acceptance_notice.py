@@ -211,3 +211,72 @@ def test_a_failed_send_does_not_undo_the_recorded_acceptance(
         )
         == []
     )
+
+
+def test_delivering_execution_defers_both_verdict_close_out_paths(test_db, monkeypatch):
+    from runtime.api.domain import test_deployment_qa_stage_execution as support
+    from runtime.api.domain.test_independent_member_delivery_close_out import (
+        MEMBER_A,
+        _seed_final_run,
+        _status,
+    )
+    from runtime.api.domain.test_status_transition_preflight import (
+        _isolate_status_effects,
+    )
+    from yoke_core.domain.deployment_member_close_out_retry import (
+        after_verdict_recorded,
+    )
+    from yoke_core.domain.deployment_qa_stage_materialization import (
+        materialize_deployment_qa_stage,
+    )
+    from yoke_core.domain.deployment_qa_verdict_notice import (
+        notify_deployment_qa_verdict,
+    )
+    from yoke_core.domain.qa_plan_execution_state import (
+        begin_plan_execution,
+        finish_plan_execution,
+    )
+
+    _isolate_status_effects(monkeypatch)
+    run_id = "run-delivering-execution"
+    _seed_final_run(test_db, run_id, shared_qa=False)
+    materialize_deployment_qa_stage(
+        test_db,
+        deployment_run_id=run_id,
+        deployment_stage="item-qa",
+        deployment_member_item_id=MEMBER_A,
+    )
+    execution = begin_plan_execution(
+        test_db,
+        deployment_run_id=run_id,
+        deployment_stage="item-qa",
+        deployment_member_item_id=MEMBER_A,
+        actor_id="2",
+        session_id="member-qa",
+    )
+    assert execution["item_id"] is None
+    assert execution["deployment_member_item_id"] == MEMBER_A
+    with monkeypatch.context() as patch:
+        patch.setattr(support, "finish_plan_execution", lambda *a, **kw: None)
+        requirement_id = support._complete_case(test_db, execution)
+    qa_run_id = test_db.execute(
+        "SELECT id FROM qa_runs WHERE qa_requirement_id=%s",
+        (requirement_id,),
+    ).fetchone()[0]
+    after_verdict_recorded(test_db, qa_run_id)
+    notify_deployment_qa_verdict(
+        test_db,
+        requirement_id=requirement_id,
+        action="approve",
+    )
+    assert _status(test_db, MEMBER_A) == "release"
+    assert (
+        test_db.execute(
+            "SELECT count(*) FROM session_messages WHERE idempotency_key LIKE %s",
+            (item_qa_accepted_idempotency_key(MEMBER_A, run_id) + "%",),
+        ).fetchone()[0]
+        == 0
+    )
+
+    finish_plan_execution(test_db, execution, state="completed", reason="case-complete")
+    assert _status(test_db, MEMBER_A) == "done"

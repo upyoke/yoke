@@ -121,13 +121,11 @@ def execute_machine_case_contract(
 ) -> LocalHostControlSubmission:
     """Run one case under its server-owned lease, inside its chain.
 
-    The case resets to its declared baseline first when it opens a chain;
-    a reset that does not prove the baseline leaves the case unstarted. The
-    chain's starting state is restored after the case when it ends its chain
-    or its capture failed, including when local execution raises. Successful
-    captures awaiting independent review preserve intermediate chain state.
-    A plan case whose host SSH cannot reach is reported unstarted so the
-    authority marks the host unhealthy and queues the plan on its line.
+    An owed reset can supply the chain's starting baseline proof. Failed proof
+    leaves the case unstarted. Restore after chain end, capture failure or error.
+    Captures awaiting review preserve intermediate chain state. Unreachable SSH
+    leaves plan cases unstarted; authority marks the host unhealthy and queues
+    the plan on its line.
     """
     contract = HostControlExecutionContract.model_validate(raw_contract)
     if contract.operation not in {"case", "plan_case"}:
@@ -172,7 +170,9 @@ def execute_machine_case_contract(
                 detail="The owed host reset failed; no case was started",
                 recovery_hint=owed_reset["recovery"],
             )
-        if contract.baselines:
+        if owed_reset and contract.baselines[:1] == [contract.reset_owed_baseline]:
+            reset = owed_reset
+        elif contract.baselines:
             with heartbeat_during("starting_state_reset", progress_callback):
                 reset = baseline_receipt(
                     contract.baselines[0],

@@ -283,3 +283,30 @@ def test_command_is_first_class_local_cli_surface():
     assert [(edge.target, edge.classification) for edge in row.import_edges] == [
         ("yoke_core.tools.source_dev_run", "source_dev_admin"),
     ]
+
+
+@pytest.mark.parametrize(
+    "child_code, expected", [(-15, 143), (-9, 137), (7, 7), (0, 0)]
+)
+def test_bound_child_exit_status(monkeypatch, tmp_path, child_code, expected, capsys):
+    from types import SimpleNamespace
+
+    binding = SimpleNamespace(env={}, python=tmp_path / "python", evidence={})
+    monkeypatch.setattr(
+        source_dev_run.source_python_environment, "resolve", lambda *a: binding
+    )
+    monkeypatch.setattr(
+        _source_pythonpath, "import_origins", lambda *a, **kw: ({}, None)
+    )
+    monkeypatch.setattr(
+        _source_pythonpath, "bound_child_command", lambda args, **kw: args
+    )
+    monkeypatch.setattr(
+        source_dev_run.subprocess,
+        "run",
+        lambda *a, **kw: SimpleNamespace(returncode=child_code),
+    )
+
+    assert source_dev_run._run_bound(["child"], tmp_path, None, None, {}) == expected
+    codes = [line.split(":", 1)[0] for line in capsys.readouterr().err.splitlines()]
+    assert ("source_child_signalled" in codes) is (child_code < 0)

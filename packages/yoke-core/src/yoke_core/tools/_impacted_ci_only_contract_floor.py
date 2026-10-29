@@ -22,6 +22,8 @@ read, so the module that breaks it is one it never imports.
 The refusal-recovery source member scans every file ``git ls-files``
 lists under ``packages`` and ``runtime`` for hand-written recovery labels.
 
+The deployment-run lock member scans every module for unbounded run-row locks.
+
 Lanes run impacted selection, so this family must execute on every local
 impacted run. Keep the set fast (roughly 30 seconds) — the budget member is
 the focused packet-budget file, not the broad schema-context suite that also
@@ -32,6 +34,7 @@ suite that builds anything.
 CI_ONLY_CONTRACT_FLOOR_TESTS = (
     "runtime/api/cli/test_yoke_operation_inventory.py",
     "runtime/api/domain/test_github_operation_permission_scopes.py",
+    "runtime/api/domain/test_deployment_run_lock_contract.py",
     "runtime/api/domain/test_lint_item_ref_construction.py",
     "runtime/api/domain/test_refusal_recovery_source.py",
     "runtime/api/domain/test_schema_api_context_packet_budget.py",

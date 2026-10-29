@@ -44,6 +44,7 @@ from yoke_core.domain.deployment_member_independent_close_out import (
 )
 from yoke_core.domain.merge_queue_landing_notice import HOLDER
 from yoke_core.domain.release_wait_ownership import item_at_release_wait
+from yoke_core.domain.qa_plan_execution_schema import LIVE_PLAN_EXECUTION_SQL
 from yoke_core.domain.schema_common import _table_exists
 from yoke_core.domain.schema_read_scope import composition_operation
 from yoke_contracts.public_ref import format_item_ref
@@ -152,6 +153,18 @@ def _member_close_out_route(
     # stage's accepted members) skips the run-wide acceptance read.
     member = _release_wait_member(conn, int(item_id))
     if member is None:
+        return None
+    # A verdict arrives before its delivering execution ends; settlement retries.
+    if (
+        _table_exists(conn, "qa_plan_executions")
+        and conn.execute(
+            "SELECT 1 FROM qa_plan_executions WHERE deployment_member_item_id=%s "
+            f"AND deployment_stage IS NOT NULL AND state IN ({LIVE_PLAN_EXECUTION_SQL}) "
+            "LIMIT 1",
+            (int(item_id),),
+        ).fetchone()
+        is not None
+    ):
         return None
     if not _item_qa_cleared(conn, run_id=run_id, item_id=item_id):
         return None

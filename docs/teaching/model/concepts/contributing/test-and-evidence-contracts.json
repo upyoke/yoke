@@ -3,7 +3,19 @@
  "title": "Test and evidence contracts",
  "status": "draft-copy",
  "audience": "Maintainers",
- "sources": ["docs/testing-verification.md", "docs/testing-verification/source-development.md", "docs/testing-verification/full-suite-authority.md", "docs/testing-verification/concurrent-local-runs.md", "docs/testing-verification/machine-shared-resources.md", "docs/testing-verification/evidence-portability.md", "docs/testing-verification/installer-campaign.md", "docs/testing-verification/product-smoke.md", "docs/testing-verification/real-harness.md", "docs/testing-verification/test-machine-golden-baseline.md"],
+ "sources": [
+  "docs/testing-verification.md",
+  "docs/testing-verification/source-development.md",
+  "docs/testing-verification/full-suite-authority.md",
+  "docs/testing-verification/concurrent-local-runs.md",
+  "docs/testing-verification/machine-shared-resources.md",
+  "docs/testing-verification/evidence-portability.md",
+  "docs/testing-verification/installer-campaign.md",
+  "docs/testing-verification/product-smoke.md",
+  "docs/testing-verification/real-harness.md",
+  "docs/testing-verification/test-machine-golden-baseline.md"
+ ],
  "page": "test-and-evidence-contracts",
- "position": 7
+ "position": 7,
+ "summary": "Source commands stopped by a signal name that signal and return 128 plus its number. Disposable PostgreSQL setup refuses postgres_binaries_unavailable when initdb is absent from PATH or the pinned bin directory. The always-run contract floor includes the source-wide bounded deployment-run lock scan without the database contention tests."
 }

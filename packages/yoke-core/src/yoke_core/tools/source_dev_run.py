@@ -10,6 +10,7 @@ import argparse
 import json
 import os
 import shlex
+import signal
 import subprocess
 import sys
 from pathlib import Path
@@ -276,7 +277,18 @@ def _run_bound(args, root, fallback_project_id, authority_signature, env) -> int
     )
     args = _source_pythonpath.bound_child_command(args, python=binding.python)
     try:
-        return subprocess.run(args, cwd=str(root), env=env, check=False).returncode
+        returncode = subprocess.run(
+            args, cwd=str(root), env=env, check=False
+        ).returncode
+        if returncode < 0:
+            stopped_by = signal.Signals(-returncode)
+            print(
+                f"source_child_signalled: child stopped by {stopped_by.name} "
+                f"({stopped_by.value}); inspect the child command and retry",
+                file=sys.stderr,
+            )
+            return 128 - returncode
+        return returncode
     except OSError as exc:
         print(f"error: could not run {args[0]!r}: {exc}", file=sys.stderr)
         return 1
