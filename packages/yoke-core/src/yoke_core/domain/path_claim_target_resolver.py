@@ -65,20 +65,19 @@ def widen_template(
 def _make_repo_relative(target_path: str, cwd: str) -> str:
     """Return ``target_path`` as a forward-slash repo-relative string.
 
-    Absolute paths inside ``cwd`` are made relative to ``cwd``, both
-    resolved so a symlinked root still matches. Relative paths are
-    returned with leading ``./`` stripped. Outside-cwd absolute paths
-    are returned as-is so the caller can decide.
+    Absolute paths inside ``cwd`` are made relative to ``cwd``. Relative
+    paths are returned with leading ``./`` stripped. Outside-cwd
+    absolute paths are returned as-is so the caller can decide.
     """
     if not target_path:
         return ""
     cleaned = target_path.strip()
     if cleaned.startswith("./"):
         cleaned = cleaned[2:]
-    if not os.path.isabs(cleaned) or not cwd:
+    if not os.path.isabs(cleaned):
         return cleaned.replace(os.sep, "/")
     try:
-        rel = os.path.relpath(Path(cleaned).resolve(), Path(cwd).resolve())
+        rel = os.path.relpath(cleaned, cwd)
     except ValueError:
         return cleaned.replace(os.sep, "/")
     if rel.startswith(".."):
