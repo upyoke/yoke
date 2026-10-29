@@ -9,8 +9,8 @@ history; the rest are deleted. No release reads a copy once apply has proved
 no unfinished release was composed with them, so the invariant holds for good.
 
 The release carrying plan groups must not adopt an unfinished release that
-older builds composed: its member snapshots and shared rows follow the old
-model. Apply refuses by name while one exists, so preflight refuses the
+older builds already materialized with plan copies or old shared rows.
+Snapshot plans alone are harmless: item QA forms groups from live attachments. Apply refuses by name while one exists, so preflight refuses the
 release instead of a run breaking mid-stage. The serving floor drains older
 builds, whose done gate would pass an item whose copies are gone.
 """
@@ -42,7 +42,11 @@ OLD_MODEL_RUNS = (
     "SELECT DISTINCT d.id FROM deployment_runs d WHERE d.status IN "
     f"{UNFINISHED} AND (EXISTS (SELECT 1 FROM deployment_run_items m WHERE m.run_id=d.id "
     "AND jsonb_array_length(COALESCE(NULLIF(m.requirement_snapshot,'')::jsonb->'plans',"
-    "'[]'::jsonb))>0) OR EXISTS (SELECT 1 FROM qa_requirements s WHERE "
+    "'[]'::jsonb))>0 AND EXISTS (SELECT 1 FROM qa_requirements q WHERE "
+    "q.deployment_run_id=d.id AND q.deployment_member_item_id=m.item_id "
+    "AND q.plan_id IN (SELECT (p->'plan'->>'id')::bigint FROM jsonb_array_elements("
+    "NULLIF(m.requirement_snapshot,'')::jsonb->'plans') p))) "
+    "OR EXISTS (SELECT 1 FROM qa_requirements s WHERE "
     "s.deployment_run_id=d.id AND s.deployment_member_item_id IS NULL AND s.plan_id IS NOT NULL "
     "AND jsonb_typeof(NULLIF(s.execution_target_json,'')::jsonb->'deployment'->'shared_plan')"
     "='object' AND NOT jsonb_exists(NULLIF(s.execution_target_json,'')::jsonb->'deployment'"
