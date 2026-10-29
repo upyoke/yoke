@@ -243,6 +243,11 @@ def route_command(argv: List[str]) -> int:
         _print_leaf_summary(route_tokens, remaining)
 
     old_env = os.environ.get(ENV_OVERRIDE)
+    from yoke_cli.config.connection_selection import command_connection
+    from yoke_contracts.machine_config.schema_connections import (
+        MachineConfigContractError,
+    )
+
     try:
         if global_env:
             os.environ[ENV_OVERRIDE] = global_env
@@ -251,6 +256,7 @@ def route_command(argv: List[str]) -> int:
         # the adapter runs locally — worktree preflight, merge, resync,
         # GitHub sync — not the relay call itself.
         with (
+            command_connection(argv, global_env),
             control_plane_locality(global_env),
             propagated_session_identity(argv),
             read_output_scope(
@@ -265,6 +271,9 @@ def route_command(argv: List[str]) -> int:
                 return exc.code if isinstance(exc.code, int) else 1
             except KeyboardInterrupt:
                 return _emit_interrupted()
+    except MachineConfigContractError as exc:
+        print(f"yoke: {exc}", file=sys.stderr)
+        return 1
     finally:
         if global_env:
             if old_env is None:

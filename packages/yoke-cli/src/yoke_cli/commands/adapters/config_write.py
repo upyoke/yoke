@@ -68,7 +68,10 @@ def env_use(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         formatter_class=argparse.RawDescriptionHelpFormatter,
         prog="yoke env use",
-        description=CONFIG_SELECTION_HELP,
+        description=(
+            "Set active_env, the fallback outside registered checkouts. "
+            "--env and YOKE_ENV override checkout routing. " + CONFIG_SELECTION_HELP
+        ),
     )
     parser.add_argument("env", help="Connection name to make active.")
     _add_config_arg(parser)

@@ -83,8 +83,8 @@ yoke status
 control-plane schema, ensures the org identity card and the one human
 actor, then records a `local` connection in `~/.yoke/config.json` and
 sets it as the machine default. Create and repair open the owned cluster
-even while a hosted HTTPS connection is active; ordinary commands still
-use that active connection. Re-run reports; a conflicting `local` needs `--force`.
+even while hosted HTTPS is active; ordinary commands use the registered
+checkout's connection. Re-run reports; a conflicting `local` needs `--force`.
 
 GitHub sync needs no server in any mode: sync executes wherever the
 engine dispatches. In local mode the engine dispatches in-process and
@@ -138,11 +138,11 @@ deployment-destination picker answers "This machine" (or with `--local` /
 `YOKE_ONBOARD_DESTINATION=local` non-interactively), so either entry point
 lands the identical `local` connection. Connected setups (hosted or
 self-hosted env with a token) pick a sign-in destination in the same wizard;
-all destinations can coexist on one machine as separate `connections`
-entries selected via `yoke env use` or `--env`.
+All destinations coexist as separate connections: register each checkout on its
+connection with `--env`; later commands there route automatically. `yoke env use`
+sets the outside-checkout fallback; `--env` and `YOKE_ENV` always override routing.
 
 ### 3. Onboard the Machine
-
 `yoke setup` is a full-screen wizard. A fixed Install, Account, GitHub,
 Project, Hosting, Review stepper stays on screen while the body changes; use the
 arrow keys, wheel/trackpad, or the

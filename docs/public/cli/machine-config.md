@@ -48,14 +48,28 @@ worker never uses a steering machine's config-file override implicitly.
 ```
 
 Register with `yoke --env hosted project register /work/hosted-project --project-id 7`.
-Checkout lookup follows `--env`, then `YOKE_ENV`, then `active_env`.
+Connection selection follows `--env`, then `YOKE_ENV`, then the deepest
+registered checkout containing the current directory (including its Git lanes).
+Without a checkout match, a `--project P` or `PREFIX-N` item reference selects
+its connection when registered on exactly one connection; otherwise `active_env`
+remains the fallback. Slugs and prefixes use the existing project inventory on
+registered connections; an unavailable inventory names the connection and asks
+for `--env ENV`. Machine commands without a project reference use the fallback.
+`yoke env use ENV` changes that fallback, without changing checkout routing.
+`yoke projects checkout-context` reports `connection` and `connection_source`
+after the project identity; `--field` retains its single-value output.
+If equally deep checkouts match unrelated connections, selection refuses with
+`checkout_connection_ambiguous`. Pass `--env ENV`, or register the checkout with
+`yoke --env ENV project register CHECKOUT --project-id N --reassign` to remove
+the same checkout from the other connections.
 Numeric project IDs belong to that connection's universe; the same ID on another
 connection has its own checkout. A paired HTTPS connection and its database-admin
 connection share the HTTPS connection's map. An unmapped checkout reports the
 registration command for the selected connection; it never borrows another map.
 Removing a connection keeps checkout records. Moving an occupied project's
 checkout requires `--reassign` to deliberately replace its routing on the
-selected connection in this machine's config.
+selected connection in this machine's config; `--reassign` also removes the same
+checkout from other connection maps.
 
 Reading config never rewrites it. On the first explicit `project register`, an
 older flat `projects` list imports once under the configured `active_env`, even

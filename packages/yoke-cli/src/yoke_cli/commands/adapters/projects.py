@@ -1,14 +1,5 @@
 """``yoke projects ...`` read adapters + ``yoke project-structure patch apply``.
 
-Function ids handled here:
-
-* ``projects.get`` — read one project field (or the full row).
-* ``projects.list`` — list project inventory rows visible to the actor.
-* ``projects.resolve_by_github_repo`` — resolve a repo to a visible project.
-* ``projects.capability.has`` — boolean capability presence check.
-* ``projects.checkout_context.run`` — which project this checkout is in.
-* ``project_structure.patch.apply`` — apply a JSON-shaped patch op list.
-
 The write pair (``projects.create`` / ``projects.update``) lives in the
 sibling :mod:`yoke_cli.commands.adapters.projects_write`.
 """
@@ -61,7 +52,9 @@ def projects_get(args: List[str]) -> int:
         prog="yoke projects get",
         usage=PROJECTS_GET_USAGE,
     )
-    parser.add_argument("--project", required=True, metavar="NAME", help="Project name.")
+    parser.add_argument(
+        "--project", required=True, metavar="NAME", help="Project name."
+    )
     parser.add_argument(
         "--field", default=None, help="Print only this one field's value."
     )
@@ -182,6 +175,8 @@ PROJECTS_CHECKOUT_CONTEXT_USAGE = (
 
 
 def projects_checkout_context(args: List[str]) -> int:
+    from yoke_cli.config.connection_selection import enrich_checkout_context
+
     parser = argparse.ArgumentParser(
         prog="yoke projects checkout-context",
         usage=PROJECTS_CHECKOUT_CONTEXT_USAGE,
@@ -192,7 +187,7 @@ def projects_checkout_context(args: List[str]) -> int:
             "The project comes from --project, then $YOKE_PROJECT, then the\n"
             "checkout-to-project map in machine config (written by\n"
             "`yoke project register`). If none of those name a project, the\n"
-            "server uses your session's project."
+            "server refuses missing project context. Connection and its source follow."
         ),
         epilog=(
             "Example (the strategize/feed preamble):\n"
@@ -230,10 +225,14 @@ def projects_checkout_context(args: List[str]) -> int:
             ),
             file=stdout,
         )
+        from yoke_cli.config.connection_selection import write_connection_selection
+
+        write_connection_selection(stdout)
         return None
 
     return dispatch_and_emit(
         function_id="projects.checkout_context.run",
+        response_recovery=enrich_checkout_context,
         target=TargetRef(
             kind="global",
             project_id=client_project_context(parsed.project),

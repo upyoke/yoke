@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import os
 from typing import Any, Mapping
 
 from yoke_contracts.machine_config.schema_transport import (
@@ -27,14 +26,10 @@ def configured_active_env(payload: Mapping[str, Any]) -> str:
 
 
 def selected_env(payload: Mapping[str, Any], explicit_env: str | None = None) -> str:
-    """Resolve env precedence: explicit, ``YOKE_ENV``, then ``active_env``."""
-    requested = (explicit_env or "").strip() or os.environ.get(ENV_OVERRIDE, "").strip()
-    selected = requested or configured_active_env(payload)
-    if not selected:
-        raise MachineConfigContractError(
-            "active env is not configured; run `yoke env use <env>` or pass --env"
-        )
-    return selected
+    """Resolve explicit overrides, checkout, project reference, then fallback."""
+    from yoke_contracts.machine_config.selection import connection_selection
+
+    return connection_selection(payload, explicit_env=explicit_env)[0]
 
 
 def connection_is_prod(connection: Mapping[str, Any]) -> bool:
