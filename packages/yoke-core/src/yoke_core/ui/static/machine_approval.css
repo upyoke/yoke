@@ -2,9 +2,15 @@
 .universe-app-root .machine-pending { margin-block: 16px; }
 .universe-app-root .machine-pending-card:not(:empty) { margin-top: 18px; }
 .universe-app-root .machine-pending-status:empty { display: none; }
-.universe-app-root .machine-pending .machine-approval-quiet { display: block; }
+.universe-app-root .machine-pending .machine-approval-quiet { display: block; line-height: 17px; }
 .universe-app-root .machine-pending tr[aria-selected="true"] { background: var(--yoke-accent-weak); }
-.universe-app-root .machine-pending td { overflow-wrap: anywhere; }
+/* A selected row changes its background inside a clipping panel, so every
+   row edge stays on a whole pixel: px line-heights, and separate borders,
+   because a collapsed border splits its pixel between two rows. */
+.universe-app-root .machine-pending table.items { border-collapse: separate; border-spacing: 0; }
+.universe-app-root .machine-pending td { overflow-wrap: anywhere; line-height: 19px; }
+.universe-app-root .machine-pending td::before { line-height: 14px; }
+.universe-app-root .machine-pending .pill { line-height: 16px; }
 .universe-app-root .machine-approval-card {
   display: grid;
   gap: 14px;

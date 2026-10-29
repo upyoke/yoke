@@ -138,12 +138,14 @@
 }
 .universe-app-root .header-search-label {
   font-size: 12.5px;
+  line-height: 18px;
   font-weight: 600;
 }
 .universe-app-root .header-search-meta,
 .universe-app-root .header-search-status {
   color: var(--yoke-muted);
   font-size: 11px;
+  line-height: 16px;
 }
 .universe-app-root .header-search-status {
   margin: 0;

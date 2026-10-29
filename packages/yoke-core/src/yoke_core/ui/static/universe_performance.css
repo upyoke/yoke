@@ -5,7 +5,7 @@
 .performance-toolbar { gap: 14px; justify-content: flex-start; }
 .performance-dates label { display: flex; gap: 6px; align-items: center; color: var(--yoke-muted); font-size: 12px; }
 .performance-dates input { font: inherit; padding: 6px; min-width: 0; color: inherit; background: var(--yoke-bg, transparent); border: 1px solid var(--yoke-border, #dfe3eb); border-radius: 5px; }
-.performance-panel button, .performance-inspector button { font: inherit; font-size: 12px; color: inherit; background: transparent; border: 1px solid var(--yoke-border, #dfe3eb); border-radius: 5px; padding: 6px 9px; cursor: pointer; }
+.performance-panel button, .performance-inspector button { font: inherit; font-size: 12px; line-height: 17px; color: inherit; background: transparent; border: 1px solid var(--yoke-border, #dfe3eb); border-radius: 5px; padding: 6px 9px; cursor: pointer; }
 .performance-windows button[aria-pressed="true"] { color: #5368df; border-color: #8795e8; background: #5368df12; }
 .performance-status, .performance-coverage { font-size: 12px; color: var(--yoke-muted); line-height: 1.6; }
 .performance-chart { position: relative; width: 100%; min-width: 0; }

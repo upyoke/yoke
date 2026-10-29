@@ -86,12 +86,14 @@
 }
 .universe-app-root .workflow-stage-label {
   font-size: 12px;
+  line-height: 17px;
   font-weight: 600;
 }
 .universe-app-root .workflow-stage-count,
 .universe-app-root .workflow-stage-detail-count {
   color: var(--yoke-muted);
   font-size: 10.5px;
+  line-height: 15px;
 }
 .universe-app-root .workflow-stage-arrow {
   align-self: center;
