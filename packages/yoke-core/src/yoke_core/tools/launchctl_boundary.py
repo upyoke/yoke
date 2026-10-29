@@ -25,13 +25,13 @@ from typing import Any, Callable
 from yoke_cli.config.machine_config import default_yoke_home
 from yoke_cli.config.session_relay_instance import (
     LAUNCHD_USER_DOMAIN,
-    PROD_RELAY_LABEL,
+    RELAY_BASE_LABEL,
 )
 from yoke_contracts.designed_wait import announce_designed_wait
 
 
-CANONICAL_RELAY_LABEL = PROD_RELAY_LABEL
-CANONICAL_RELAY_PLIST_NAME = f"{PROD_RELAY_LABEL}.plist"
+CANONICAL_RELAY_LABEL = RELAY_BASE_LABEL
+CANONICAL_RELAY_PLIST_NAME = f"{RELAY_BASE_LABEL}.plist"
 LAUNCH_AGENTS_DIR_NAME = "LaunchAgents"
 JOURNAL_NAME = "launchctl-journal.jsonl"
 UNLOAD_WAIT_SECONDS = 30.0

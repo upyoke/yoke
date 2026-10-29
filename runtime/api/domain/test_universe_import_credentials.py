@@ -30,7 +30,6 @@ def test_credential_handoff_rolls_back_as_one_transaction():
         )
 
 
-
 def test_import_finalizer_requires_exactly_one_organization():
     with _canonical_universe() as (conn, _dsn):
         conn.execute(
@@ -42,7 +41,6 @@ def test_import_finalizer_requires_exactly_one_organization():
             credentials.UniverseImportCredentialError, match="exactly one"
         ):
             credentials.replace_imported_credentials(conn)
-
 
 
 def test_recovery_revokes_every_prior_import_recovery_token():
@@ -65,7 +63,6 @@ def test_recovery_revokes_every_prior_import_recovery_token():
         assert recovered_again["revoked_token_count"] == 1
 
 
-
 @pytest.mark.parametrize("slug", ("unsafe\nsummary", "a" * 129))
 def test_credential_handoff_rejects_unsafe_org_slug_before_rotation(slug):
     with _canonical_universe() as (conn, _dsn):
@@ -83,3 +80,26 @@ def test_credential_handoff_rejects_unsafe_org_slug_before_rotation(slug):
             (hash_token(original.raw_token),),
         ).fetchone() == ("active",)
 
+
+def test_revoke_only_mints_nothing_and_leaves_commit_with_importer():
+    from yoke_core.domain.web_sessions import mint_web_session
+
+    with _canonical_universe() as (conn, _dsn):
+        original = bootstrap_admin_token(conn)
+        mint_web_session(conn, actor_id=original.actor_id)
+        conn.commit()
+        before = conn.execute("SELECT COUNT(*) FROM api_tokens").fetchone()[0]
+        result = credentials.revoke_imported_credentials(conn)
+        assert result == {"revoked_token_count": 1, "revoked_web_session_count": 1}
+        assert conn.execute("SELECT COUNT(*) FROM api_tokens").fetchone()[0] == before
+        assert conn.execute(
+            "SELECT COUNT(*) FROM api_tokens WHERE status='active'"
+        ).fetchone() == (0,)
+        assert conn.execute(
+            "SELECT COUNT(*) FROM web_sessions WHERE revoked_at IS NULL"
+        ).fetchone() == (0,)
+        conn.rollback()
+        assert conn.execute(
+            "SELECT status FROM api_tokens WHERE token_hash=%s",
+            (hash_token(original.raw_token),),
+        ).fetchone() == ("active",)

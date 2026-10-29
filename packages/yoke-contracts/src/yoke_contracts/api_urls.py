@@ -10,6 +10,8 @@ immutable artifact channel for a writable Yoke control plane.
 
 from __future__ import annotations
 
+from urllib.parse import urlsplit
+
 DISTRIBUTION_PROD_URL = "https://api.upyoke.com"
 DISTRIBUTION_STAGE_URL = "https://api.stage.upyoke.com"
 AWS_BOOTSTRAP_TEMPLATE_PROD_URL = (
@@ -39,6 +41,30 @@ HEALTH_PATH = f"{API_VERSION_PREFIX}/health"
 UNIVERSE_EXPORT_PATH = f"{API_VERSION_PREFIX}/universe/export"
 
 
+def validate_control_api_url(value: str) -> str:
+    """Return a credential-free HTTPS endpoint or refuse without echoing it."""
+    value = str(value or "").strip()
+    try:
+        parsed = urlsplit(value)
+        valid = (
+            parsed.scheme == "https"
+            and parsed.hostname
+            and parsed.port != 0
+            and parsed.username is None
+            and parsed.password is None
+            and not parsed.query
+            and not parsed.fragment
+            and not any(character.isspace() for character in value)
+        )
+    except ValueError:
+        valid = False
+    if not valid:
+        raise ValueError(
+            "release_control_endpoint_invalid: use a credential-free HTTPS API URL"
+        )
+    return value.rstrip("/")
+
+
 def join_api_url(api_url: str, path: str) -> str:
     """Join a service root or versioned base URL to a versioned API path."""
     base = str(api_url or "").rstrip("/")
@@ -65,4 +91,5 @@ __all__ = [
     "HOSTED_PLATFORM_URL",
     "HOSTED_STAGE_PLATFORM_URL",
     "join_api_url",
+    "validate_control_api_url",
 ]

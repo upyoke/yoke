@@ -15,7 +15,7 @@
 - Code and tests use model validation (`model.runner.connection_env_var`,
   default `YOKE_DB`); control-plane commands use `CANONICAL_YOKE_DB`. Client code relays to the
   control plane and never connects; code that truly owns a local database declares
-  `local_authority_exempt()` at the call site. Converge and apply refuse on a prod-flagged
+  `local_authority_exempt()` at the call site. Converge and apply refuse on a protected
   connection unless the serving build declares `serving_build_authority()` at the call site.
 
 ## Governed DB mutation

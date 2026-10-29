@@ -57,7 +57,7 @@ def _translate_database_errors(operation: Callable[..., dict[str, Any]]):
 
 def resolve_prod_admin_dsn() -> str:
     """Resolve the configured ``*-db-admin`` authority without exposing it."""
-    from yoke_contracts.machine_config.schema import connection_is_prod
+    from yoke_contracts.machine_config.schema import connection_is_protected
     from yoke_core.domain import yoke_connected_env
 
     env = yoke_connected_env.load_active()
@@ -66,7 +66,7 @@ def resolve_prod_admin_dsn() -> str:
     if (
         env.backend != "postgres"
         or not env.environment.endswith(DB_ADMIN_ENV_SUFFIX)
-        or not connection_is_prod(env.config)
+        or not connection_is_protected(env.config)
     ):
         raise SourceAuthorityCutoverError(
             "source cutover requires an explicitly selected prod-db-admin "

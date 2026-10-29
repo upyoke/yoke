@@ -47,7 +47,7 @@ recipe can still name long after nothing may select them.
 
 Item-bound delivery runs through `/yoke usher YOK-N`. An environment release
 creates a recorded run for the selected target flow and executes it through
-its control-plane connection. Each flow sends a unique `yoke_dispatch_id` and
+the HTTPS connection owning the project (`--env CONTROL_PLANE`, or checkout routing). Each flow sends a unique `yoke_dispatch_id` and
 disables head-SHA reuse, so every run receives its own GitHub Actions receipt.
 For a source commit with an existing immutable release tag, the bridge reuses
 that tag and its artifacts. A run that must not execute is marked `cancelled`;
@@ -70,7 +70,7 @@ Record the obligation before either side merges, and the merges carry it:
 2. Prepare the run:
 
    ```bash
-   yoke --env prod deployment-runs start-for-item YOK-N --prepare
+   yoke --env CONTROL_PLANE deployment-runs start-for-item YOK-N --prepare
    ```
 
    The run is durable at `created`, names no lineage — the merge commit does
@@ -83,11 +83,12 @@ Record the obligation before either side merges, and the merges carry it:
 4. Execute the run you were handed. Nothing deploys until you do:
 
    ```bash
-   yoke --env prod watch deploy -- RUN-ID
+   yoke --env CONTROL_PLANE watch deploy -- RUN-ID
    ```
 
-   A Production run replaces the API serving its own run, so `prod` refuses
-   it and names `prod-db-admin`, its only driver connection; rerun it there.
+   A self-replacing run uses its project-owning connection's paired
+   `*-db-admin` driver: Stage ownership uses `stage-db-admin`, and Production
+   ownership uses `prod-db-admin`. Other runs use the owning HTTPS connection.
 
 Re-running `yoke merge item YOK-N` after any interruption is safe and is the
 recovery: continuation re-reads the run row and the dependency edges every

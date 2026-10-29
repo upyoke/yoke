@@ -13,7 +13,7 @@ that report them rather than any particular machine's answers.
 
 from __future__ import annotations
 
-#: Lists registered connections with transport and prod flag, and prints no
+#: Lists registered connections with transport and protected flag, and prints no
 #: credential -- the safe answer to "which connection do I rehearse under?".
 CONNECTION_READER = "yoke env list"
 
@@ -48,10 +48,10 @@ preflight -- rehearsal needs three bindings, in this order:
 
 1. Authority. Rehearsal executes project-local code, so it is never relayed
    over HTTPS. `{CONNECTION_READER}` names every registered connection with
-   its transport and prod flag, and prints no credentials; pick the direct
+   its transport and protected flag, and prints no credentials; pick the direct
    local-postgres authority that owns the item and its durable
    lease/audit receipts, then rerun as
-   `yoke --env <name> migration rehearse ITEM`. A prod flag is valid for that
+   `yoke --env <name> migration rehearse ITEM`. A protected flag is valid for that
    metadata authority: migration code still runs only against the distinct
    validation database verified in step 3.
 

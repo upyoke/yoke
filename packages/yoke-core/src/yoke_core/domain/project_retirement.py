@@ -39,6 +39,25 @@ def active_projects_where(
     return f" WHERE {alias + '.' if alias else ''}{RETIRED_AT} IS NULL"
 
 
+def project_is_retired(conn: Any, project_id: int) -> bool:
+    """Read retirement without requiring the new column during convergence."""
+    if not _column_exists(conn, "projects", RETIRED_AT):
+        return False
+    marker = "%s" if db_backend.connection_is_postgres(conn) else "?"
+    row = conn.execute(
+        f"SELECT retired_at FROM projects WHERE id={marker}", (project_id,)
+    ).fetchone()
+    return row is not None and row[0] is not None
+
+
+def retired_project_recovery(project_id: int) -> str:
+    return (
+        f"Project {project_id} is retired; restore it with "
+        f"`yoke projects unretire --project {project_id}` "
+        "before creating or changing work."
+    )
+
+
 def project_fields_sql(conn: Any, fields) -> str:
     """Expose retirement state without breaking pre-convergence reads."""
     missing = RETIRED_AT in fields and not _column_exists(conn, "projects", RETIRED_AT)

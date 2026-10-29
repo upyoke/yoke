@@ -4,7 +4,7 @@
  "status": "observed",
  "audience": "both",
  "when": "Before ending a turn while CI continues.",
- "need": "In local, self-hosted and hosted modes, run yoke relay status on the session machine and repair its named refusal. Keep that machine awake and connected; on Linux stay logged in with linger disabled.",
+ "need": "In local, self-hosted and hosted modes, run yoke --env CONNECTION relay status on the session machine and repair its named refusal. Each connection has its own service and state regardless of protection. Close live workers before the installer retires an exactly owned former shared service. Keep that machine awake and connected; on Linux stay logged in with linger disabled.",
  "disclosure": "current cue",
  "surface": "Public GitHub CI wake-up guidance linked from verification and Linux relay docs.",
  "review": "Relay observer and machine routing inspected; Linux no-linger contract checked in source. No cross-mode live wake proof claimed.",

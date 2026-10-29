@@ -142,7 +142,7 @@ def test_failed_install_names_the_recovery(tmp_path, monkeypatch, capsys) -> Non
 
 
 def _https_config(tmp_path: Path, *, active_env: str) -> Path:
-    """The connections an ordinary setup writes: https with no prod marker."""
+    """The connections an ordinary setup writes: https with no protected marker."""
     path = tmp_path / ".yoke" / "config.json"
     path.parent.mkdir(parents=True, exist_ok=True)
     connections = {
@@ -173,7 +173,7 @@ def test_only_the_active_connections_relay_is_machine_active(tmp_path) -> None:
         )
         for env in ("prod", "stage")
     }
-    assert not resolved["prod"].prod
+    assert not resolved["prod"].protected
     assert resolved["prod"].machine_active
     assert not resolved["stage"].machine_active
 

@@ -299,7 +299,7 @@ def test_install_refuses_prod_marked_local_postgres_before_repo_writes(
                 "connections": {
                     "prod-db-admin": {
                         "transport": contract.DEFAULT_TRANSPORT,
-                        "prod": True,
+                        "protected": True,
                         "credential_source": {
                             "kind": contract.CREDENTIAL_KIND_DSN_FILE,
                             "path": str(dsn),
@@ -332,7 +332,9 @@ def test_install_refuses_prod_marked_local_postgres_before_repo_writes(
     assert not (repo / ".claude").exists()
 
 
-def test_uninstall_without_registration_or_manifest_exits_nonzero(cfg, repo, capsys) -> None:
+def test_uninstall_without_registration_or_manifest_exits_nonzero(
+    cfg, repo, capsys
+) -> None:
     rc = yoke_operations_cli.main(
         [
             "project",

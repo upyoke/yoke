@@ -200,9 +200,8 @@ def endpoint_declaration_state(settings: Mapping[str, Any] | None) -> str:
     present = [path for path in ENDPOINT_PATHS if declared_text(settings, path)]
     if not present:
         return "unstated"
-    if (
-        len(present) == len(ENDPOINT_PATHS)
-        and not malformed_url_endpoint_paths(settings)
+    if len(present) == len(ENDPOINT_PATHS) and not malformed_url_endpoint_paths(
+        settings
     ):
         return "complete"
     return "incomplete"

@@ -6,7 +6,7 @@ import pytest
 from yoke_core.domain import db_backend, machine_config, yoke_connected_env
 
 
-def _binding(root: Path, dsn_file: Path, *, prod: bool | None = None) -> Path:
+def _binding(root: Path, dsn_file: Path, *, protected: bool | None = None) -> Path:
     path = root / ".yoke" / "config.json"
     path.parent.mkdir(parents=True, exist_ok=True)
     connection = {
@@ -24,8 +24,8 @@ def _binding(root: Path, dsn_file: Path, *, prod: bool | None = None) -> Path:
             "path": str(dsn_file),
         },
     }
-    if prod is not None:
-        connection["prod"] = prod
+    if protected is not None:
+        connection["prod"] = protected
     path.write_text(
         json.dumps(
             {

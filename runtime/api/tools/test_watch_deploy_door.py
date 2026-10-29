@@ -26,7 +26,7 @@ ADMIN_ENV = "prod-db-admin"
 SERVED_ENV = "prod"
 PAIRED = {
     "connections": {
-        ADMIN_ENV: {"transport": "local-postgres", "prod": True},
+        ADMIN_ENV: {"transport": "local-postgres", "protected": True},
         SERVED_ENV: {"transport": "https", "api_url": "https://control.example/v1"},
     }
 }
@@ -163,7 +163,9 @@ def test_engine_refuses_a_run_it_does_not_self_deploy(monkeypatch, on_the_door):
     )
     ran: list[str] = []
 
-    assert deploy_pipeline_cli.main(["run-1"], runner=lambda *a, **k: ran.append("x")) == 2
+    assert (
+        deploy_pipeline_cli.main(["run-1"], runner=lambda *a, **k: ran.append("x")) == 2
+    )
     assert ran == [] and on_the_door == []
 
 

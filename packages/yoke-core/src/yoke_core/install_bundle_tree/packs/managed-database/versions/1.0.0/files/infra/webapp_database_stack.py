@@ -241,9 +241,9 @@ class WebappDatabaseStack(pulumi.ComponentResource):
             args.environment,
             "aurora-subnets",
         )
-        is_prod = args.environment == "prod"
+        is_protected = args.environment == "prod"
         final_snapshot_identifier = None
-        if is_prod:
+        if is_protected:
             final_snapshot_identifier = _aws_identifier(
                 args.deploy_namespace,
                 args.environment,
@@ -298,8 +298,8 @@ class WebappDatabaseStack(pulumi.ComponentResource):
             vpc_security_group_ids=[self.security_group.id],
             backup_retention_period=args.backup_retention_days,
             copy_tags_to_snapshot=True,
-            deletion_protection=is_prod,
-            skip_final_snapshot=not is_prod,
+            deletion_protection=is_protected,
+            skip_final_snapshot=not is_protected,
             final_snapshot_identifier=final_snapshot_identifier,
             storage_encrypted=True,
             serverlessv2_scaling_configuration=scaling_configuration,

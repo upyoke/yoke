@@ -16,7 +16,10 @@ from yoke_contracts.hook_evaluator_protocol import (
     HOOK_CLIENT_WALL_BATCH_FIELD,
     HOOK_CLIENT_WALL_PATH,
 )
-from yoke_contracts.machine_config.schema import POSTGRES_TRANSPORTS, connection_is_prod
+from yoke_contracts.machine_config.schema import (
+    POSTGRES_TRANSPORTS,
+    connection_is_protected,
+)
 
 
 _IMPORT_MONOTONIC = time.monotonic()
@@ -124,9 +127,9 @@ def record_client_wall(event_id: str, client_wall_ms: int) -> None:
         connection = resolve_https_connection()
         if connection is None:
             local = machine_config.product_connection()
-            if local.get("transport") not in POSTGRES_TRANSPORTS or connection_is_prod(
-                local
-            ):
+            if local.get(
+                "transport"
+            ) not in POSTGRES_TRANSPORTS or connection_is_protected(local):
                 return
             module = importlib.import_module("yoke_core.domain.hook_client_wall")
             module.record_client_wall_reports([(event_id, client_wall_ms)])

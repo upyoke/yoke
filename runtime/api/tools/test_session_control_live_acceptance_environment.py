@@ -34,7 +34,7 @@ def test_full_runner_refuses_non_prod_before_loading_or_constructing_cli(
     monkeypatch.setattr(
         acceptance.machine_config,
         "active_connection",
-        lambda *, explicit_env: {"transport": "https", "prod": False},
+        lambda *, explicit_env: {"transport": "https", "protected": False},
     )
     monkeypatch.setattr(
         acceptance,
@@ -77,7 +77,7 @@ def test_full_runner_pins_prod_after_active_env_switch(monkeypatch, capsys) -> N
     def _connection(*, explicit_env=None):
         assert explicit_env == "prod"
         state["active_env"] = "stage"
-        return {"transport": "https", "prod": True}
+        return {"transport": "https", "protected": True}
 
     def _client(*, explicit_env=None):
         assert state["active_env"] == "stage"

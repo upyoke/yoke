@@ -18,14 +18,16 @@ def test_canonical_example_is_valid_machine_config() -> None:
     assert str(uuid.UUID(payload["machine_id"])) == payload["machine_id"]
     assert payload["active_env"] == "prod"
     assert payload["connections"]["prod"]["transport"] == "https"
-    assert payload["connections"]["prod"][contract.PROD_FLAG_KEY] is True
+    assert payload["connections"]["prod"][contract.PROTECTED_FLAG_KEY] is True
     assert payload["connections"]["source-dev-admin"]["transport"] == "local-postgres"
-    assert payload["connections"]["source-dev-admin"][contract.PROD_FLAG_KEY] is False
+    assert (
+        payload["connections"]["source-dev-admin"][contract.PROTECTED_FLAG_KEY] is False
+    )
     authority = payload["connections"]["source-dev-admin"]["authority"]
     assert authority["location"]["stack"] == "app-prod"
     assert authority["location"]["database_name"] == "app_prod"
     assert payload["connections"]["stage"]["transport"] == "https"
-    assert payload["connections"]["stage"][contract.PROD_FLAG_KEY] is False
+    assert payload["connections"]["stage"][contract.PROTECTED_FLAG_KEY] is False
     entry = payload["connection_projects"]["prod"][0]
     assert entry["checkout"] and set(entry) == {"checkout", "project_id"}
     assert "board" not in entry
@@ -99,13 +101,13 @@ def test_validate_flags_unknown_active_and_requested_env() -> None:
     assert "env_unknown" in codes
 
 
-def test_validate_rejects_non_boolean_prod_flag() -> None:
+def test_validate_rejects_non_boolean_protected_flag() -> None:
     payload = contract.canonical_example_payload()
-    payload["connections"]["stage"][contract.PROD_FLAG_KEY] = "false"
+    payload["connections"]["stage"][contract.PROTECTED_FLAG_KEY] = "false"
 
     issues = contract.validate_payload(payload)
 
-    assert any(issue.code == "prod_flag_invalid" for issue in issues)
+    assert any(issue.code == "protected_flag_invalid" for issue in issues)
 
 
 def test_validate_requires_connections_and_active_env() -> None:
@@ -139,12 +141,12 @@ def test_local_postgres_envs_lists_only_local_transports() -> None:
     payload = contract.canonical_example_payload()
     payload["connections"]["cloud-beta"] = {
         "transport": "local-postgres",
-        contract.PROD_FLAG_KEY: False,
+        contract.PROTECTED_FLAG_KEY: False,
         "credential_source": {"kind": "env", "name": "X"},
     }
     payload["connections"]["prod-db-admin"] = {
         "transport": "local-postgres",
-        contract.PROD_FLAG_KEY: True,
+        contract.PROTECTED_FLAG_KEY: True,
         "credential_source": {"kind": "env", "name": "Y"},
     }
 
@@ -152,7 +154,7 @@ def test_local_postgres_envs_lists_only_local_transports() -> None:
         "cloud-beta",
         "source-dev-admin",
     ]
-    assert contract.local_postgres_envs(payload, include_prod=True) == [
+    assert contract.local_postgres_envs(payload, include_protected=True) == [
         "cloud-beta",
         "prod-db-admin",
         "source-dev-admin",
@@ -165,7 +167,7 @@ def test_env_override_teaching_names_why_envs_and_recipe() -> None:
     payload = contract.canonical_example_payload()
     payload["connections"]["prod-db-admin"] = {
         "transport": "local-postgres",
-        contract.PROD_FLAG_KEY: True,
+        contract.PROTECTED_FLAG_KEY: True,
         "credential_source": {"kind": "env", "name": "YOKE_PROD_DSN"},
     }
     payload["active_env"] = "stage"
@@ -192,7 +194,7 @@ def test_env_override_teaching_without_local_env_teaches_config() -> None:
     del payload["connections"]["source-dev-admin"]
     payload["connections"]["prod-db-admin"] = {
         "transport": "local-postgres",
-        contract.PROD_FLAG_KEY: True,
+        contract.PROTECTED_FLAG_KEY: True,
         "credential_source": {"kind": "env", "name": "YOKE_PROD_DSN"},
     }
 
@@ -259,7 +261,7 @@ def test_env_override_teaching_prefers_the_selected_universe_admin_sibling() -> 
     payload = contract.canonical_example_payload()
     payload["connections"]["prod-db-admin"] = {
         "transport": "local-postgres",
-        contract.PROD_FLAG_KEY: True,
+        contract.PROTECTED_FLAG_KEY: True,
         "credential_source": {"kind": "env", "name": "YOKE_PROD_DSN"},
     }
     payload["active_env"] = "prod"
@@ -274,7 +276,7 @@ def test_env_override_teaching_prefers_the_selected_universe_admin_sibling() -> 
     assert f"{contract.ENV_OVERRIDE}=prod-db-admin yoke merge item X" in text
     assert "administers the same universe as 'prod'" in text
     assert "configured local-postgres envs: prod-db-admin, source-dev-admin" in text
-    # The alphabetically-first non-prod local env must not win over the pair.
+    # The alphabetically-first unprotected local env must not win over the pair.
     assert f"{contract.ENV_OVERRIDE}=source-dev-admin" not in text
 
 
@@ -296,3 +298,14 @@ def test_same_universe_env_pairing_is_symmetric_and_conservative() -> None:
     # never mistaken for one.
     assert contract.same_universe_db_admin_env(payload, "prod-db-admin") == ""
     assert contract.same_universe_https_env(payload, "prod") == ""
+
+
+@pytest.mark.parametrize("stored", [{"protected": True}, {"prod": True}])
+def test_real_data_check_reads_new_and_legacy_marker(stored):
+    assert contract.connection_is_protected(stored)
+    payload = contract.normalize_payload({"connections": {"stage": stored}})
+    assert payload["connections"]["stage"] == {"protected": True}
+
+
+def test_explicit_protected_value_supersedes_legacy_marker():
+    assert not contract.connection_is_protected({"protected": False, "prod": True})

@@ -16,7 +16,7 @@ from yoke_cli.config import machine_config
 from yoke_contracts.direct_database_access import USE_HTTPS_ENV
 from yoke_cli.config.session_relay_instance import (
     door_relay_refusal,
-    PROD_RELAY_LABEL,
+    RELAY_BASE_LABEL,
     RelayInstance,
     resolve_relay_instance,
 )
@@ -33,7 +33,7 @@ from yoke_core.tools.session_relay_executable import relay_executable_search_pat
 from yoke_core.tools import session_relay_release_install as relay_install
 
 
-RELAY_LAUNCHD_LABEL = PROD_RELAY_LABEL
+RELAY_LAUNCHD_LABEL = RELAY_BASE_LABEL
 # launchd restarts a crash; exit 0 is the daemon's own stop (rejected credential).
 RELAY_KEEP_ALIVE = {"SuccessfulExit": False}
 
@@ -247,6 +247,9 @@ def install_relay_launchd(
         relay_install.converge_relay_launcher(selected, pin_release=pin_release)
     except relay_release.RelayReleaseError as exc:
         raise RelayInstallError(str(exc), code=exc.code) from exc
+    from yoke_core.tools.session_relay_shared_retirement import retire_shared_launchd
+
+    retire_shared_launchd(selected, home=home, runner=runner, uid=uid)
     create_private_directory(paths.state_dir)
     target = launchd_target(paths.label, uid)
 
@@ -303,6 +306,9 @@ def uninstall_relay_launchd(
         environment=environment,
         yoke_home=yoke_home,
     )
+    from yoke_core.tools.session_relay_shared_retirement import retire_shared_launchd
+
+    retire_shared_launchd(selected, home=home, runner=runner, uid=uid)
     paths = relay_launchd_paths(home=home, instance=selected)
     target = launchd_target(paths.label, uid)
 

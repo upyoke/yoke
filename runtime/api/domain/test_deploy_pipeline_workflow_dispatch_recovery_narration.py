@@ -26,7 +26,7 @@ def _result(returncode: int, stdout: str = "", stderr: str = ""):
 
 def _hosted_release_config() -> dict[str, object]:
     return {
-        "workflow": "platform-release-bridge.yml",
+        "workflow": "consumer-release.yml",
         "dispatch_correlation_input": "yoke_dispatch_id",
         "inputs": {"product_sha": "{head_sha}"},
         "ref": "main",
@@ -39,15 +39,29 @@ def _dispatch(config: dict[str, object], tmp_path, *, github_actions):
     checkout = tmp_path / "repo"
     (checkout / ".git").mkdir(parents=True, exist_ok=True)
     captured = io.StringIO()
-    with mock.patch.object(
-        workflow, "_check_ci_gate", return_value=(True, ""),
-    ), mock.patch.object(
-        workflow, "_run_cmd", return_value=_result(0, "abc123\n"),
-    ), mock.patch.object(
-        workflow, "_github_actions", side_effect=github_actions,
-    ), mock.patch.object(
-        workflow, "_poll_github_actions", return_value=(0, "success"),
-    ), redirect_stdout(captured):
+    with (
+        mock.patch.object(
+            workflow,
+            "_check_ci_gate",
+            return_value=(True, ""),
+        ),
+        mock.patch.object(
+            workflow,
+            "_run_cmd",
+            return_value=_result(0, "abc123\n"),
+        ),
+        mock.patch.object(
+            workflow,
+            "_github_actions",
+            side_effect=github_actions,
+        ),
+        mock.patch.object(
+            workflow,
+            "_poll_github_actions",
+            return_value=(0, "success"),
+        ),
+        redirect_stdout(captured),
+    ):
         rc, diag = workflow._dispatch_github_actions_workflow(
             config,
             name="hosted-release",
@@ -66,12 +80,20 @@ def _dispatch(config: dict[str, object], tmp_path, *, github_actions):
 
 
 def test_decode_trigger_result_names_recovered_vs_dispatched() -> None:
-    recovered = decode_trigger_result(_result(
-        0, "32434951903\n", stderr=f"{WORKFLOW_DISPATCH_RECOVERED_MARKER}\n",
-    ))
-    dispatched = decode_trigger_result(_result(
-        0, "99\n", stderr=f"{WORKFLOW_DISPATCH_DISPATCHED_MARKER}\n",
-    ))
+    recovered = decode_trigger_result(
+        _result(
+            0,
+            "32434951903\n",
+            stderr=f"{WORKFLOW_DISPATCH_RECOVERED_MARKER}\n",
+        )
+    )
+    dispatched = decode_trigger_result(
+        _result(
+            0,
+            "99\n",
+            stderr=f"{WORKFLOW_DISPATCH_DISPATCHED_MARKER}\n",
+        )
+    )
     unknown = decode_trigger_result(_result(0, "99\n"))
     assert recovered == ("32434951903", False)
     assert dispatched == ("99", True)
@@ -89,7 +111,9 @@ def test_recovered_correlation_does_not_claim_a_fresh_dispatch(tmp_path) -> None
         return _result(0)
 
     rc, diag, out = _dispatch(
-        _hosted_release_config(), tmp_path, github_actions=github_actions,
+        _hosted_release_config(),
+        tmp_path,
+        github_actions=github_actions,
     )
 
     assert (rc, diag) == (0, "")
@@ -113,7 +137,9 @@ def test_fresh_correlated_dispatch_names_a_new_run(tmp_path) -> None:
         return _result(0)
 
     rc, diag, out = _dispatch(
-        _hosted_release_config(), tmp_path, github_actions=github_actions,
+        _hosted_release_config(),
+        tmp_path,
+        github_actions=github_actions,
     )
 
     assert (rc, diag) == (0, "")
@@ -130,7 +156,9 @@ def test_uncorrelated_miss_still_names_a_fresh_dispatch(tmp_path) -> None:
         return _result(0)
 
     with mock.patch.object(
-        workflow, "_find_existing_workflow_run", return_value=("", False, ""),
+        workflow,
+        "_find_existing_workflow_run",
+        return_value=("", False, ""),
     ):
         rc, diag, out = _dispatch(
             {"workflow": "externalwebapp-deploy.yml"},

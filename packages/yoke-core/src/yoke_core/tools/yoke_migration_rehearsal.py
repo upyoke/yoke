@@ -50,7 +50,7 @@ def converge(conn: Any, backup_target_dsn: str) -> None:
     The preflight converges a throwaway copy it made of each live database,
     never a live one, so it holds the same authority a serving build does over
     what it is changing — even though it is normally run from a workstation
-    against a prod-flagged connection, which is precisely the shape the
+    against a protected connection, which is precisely the shape the
     convergence guard refuses by default.
     """
     from yoke_contracts.schema_authority import serving_build_authority

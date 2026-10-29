@@ -22,7 +22,7 @@ def instance(tmp_path):
         environment="lab",
         config_path=tmp_path / "config.json",
         yoke_home=tmp_path / ".yoke",
-        prod=False,
+        protected=False,
         label="com.upyoke.relay.test",
         state_dir=tmp_path / ".yoke/relay",
         follows_served_release=False,

@@ -66,14 +66,14 @@ def test_explicit_env_and_fixture_db_override_connected_env(
     assert db_backend.is_postgres()
 
 
-def test_resolve_postgres_dsn_allows_explicit_prod_flag(
+def test_resolve_postgres_dsn_allows_explicit_protected_flag(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     _clean_env(monkeypatch)
     dsn_file = tmp_path / "prod.dsn"
     dsn_file.write_text("host=prod dbname=yoke_prod\n", encoding="utf-8")
     repo = tmp_path / "repo"
-    binding = _binding(repo, dsn_file, prod=True)
+    binding = _binding(repo, dsn_file, protected=True)
     select_machine_config_file(monkeypatch, str(binding))
     monkeypatch.chdir(repo)
 
@@ -86,12 +86,12 @@ def test_resolve_postgres_dsn_allows_explicit_prod_flag(
     assert resolved.process_env == {db_backend.PG_DSN_FILE_ENV: str(dsn_file)}
 
 
-def test_explicit_pg_dsn_env_bypasses_prod_flagged_machine_config(
+def test_explicit_pg_dsn_env_bypasses_protected_flagged_machine_config(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     _clean_env(monkeypatch)
     repo = tmp_path / "repo"
-    binding = _binding(repo, tmp_path / "missing.dsn", prod=True)
+    binding = _binding(repo, tmp_path / "missing.dsn", protected=True)
     explicit = "host=operator dbname=yoke_prod"
     select_machine_config_file(monkeypatch, str(binding))
     monkeypatch.setenv(db_backend.PG_DSN_ENV, explicit)
@@ -105,7 +105,7 @@ def test_raw_query_surfaces_missing_prod_admin_credential(
 ) -> None:
     _clean_env(monkeypatch)
     repo = tmp_path / "repo"
-    binding = _binding(repo, tmp_path / "missing.dsn", prod=True)
+    binding = _binding(repo, tmp_path / "missing.dsn", protected=True)
     select_machine_config_file(monkeypatch, str(binding))
     monkeypatch.chdir(repo)
 
@@ -113,7 +113,7 @@ def test_raw_query_surfaces_missing_prod_admin_credential(
 
     assert raw_query.execute_query("SELECT 1", err=err) == 1
     assert "missing" in err.getvalue()
-    assert "prod-flagged" not in err.getvalue()
+    assert "protected" not in err.getvalue()
 
 
 def test_retired_canonical_yoke_db_does_not_override_connected_env(

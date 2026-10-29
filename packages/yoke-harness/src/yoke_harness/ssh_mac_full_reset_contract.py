@@ -24,8 +24,8 @@ from yoke_cli.config.path_doctor import (
 )
 from yoke_cli.config.session_relay_instance import (
     LAUNCHD_USER_DOMAIN,
-    NON_PROD_RELAY_LABEL_PREFIX,
-    PROD_RELAY_LABEL,
+    RELAY_LABEL_PREFIX,
+    RELAY_BASE_LABEL,
 )
 from yoke_cli.self_host.bundle import default_bundle_dir
 
@@ -139,8 +139,8 @@ RESET_SELF_HOST_IMAGES_PREFIX = "YOKE_RESET_SELF_HOST_IMAGES_REMOVED_"
 # just recreated. The labels come from the relay's own naming authority rather
 # than from an observed instance, because the suffix is a digest of the machine
 # config the job was installed for and differs on every host.
-RELAY_SERVICE_LABEL = PROD_RELAY_LABEL
-RELAY_SERVICE_LABEL_PREFIX = NON_PROD_RELAY_LABEL_PREFIX
+RELAY_SERVICE_LABEL = RELAY_BASE_LABEL
+RELAY_SERVICE_LABEL_PREFIX = RELAY_LABEL_PREFIX
 RELAY_SERVICE_DOMAIN = LAUNCHD_USER_DOMAIN
 # Absolute path, like every other primitive the program calls: it runs with a
 # deliberately clean PATH, and a launchctl it cannot see is a service it would

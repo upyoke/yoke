@@ -65,7 +65,7 @@ def _configured_repo_with_wiped_bundle(
     payload = json.loads(config.read_text(encoding="utf-8"))
     payload["connections"]["local"] = {
         "transport": "local-postgres",
-        "prod": False,
+        "protected": False,
         "credential_source": {"kind": "dsn_file", "path": str(home / "fixture.dsn")},
     }
     payload["connection_projects"] = {

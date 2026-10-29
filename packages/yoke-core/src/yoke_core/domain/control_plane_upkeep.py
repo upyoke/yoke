@@ -38,7 +38,11 @@ def observe_pending_github_work(
 ) -> dict[str, Any]:
     """Run both GitHub observers over every project; one failing spares the other."""
     current = utc_now() if now is None else now
-    rows = conn.execute("SELECT id FROM projects ORDER BY id").fetchall()
+    from yoke_core.domain.project_retirement import active_projects_where
+
+    rows = conn.execute(
+        "SELECT id FROM projects" + active_projects_where(conn) + " ORDER BY id"
+    ).fetchall()
     conn.commit()
     projects = [int(row_value(row, "id", 0)) for row in rows]
     result: dict[str, Any] = {"projects": len(projects)}

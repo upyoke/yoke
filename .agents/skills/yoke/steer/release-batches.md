@@ -1,6 +1,6 @@
 # Steer — batch delivery
 
-Workers merge; steering creates runs on prod.
+Workers merge; steering creates runs through the connection owning the project.
 
 ```text
 yoke --env CONTROL_PLANE deployment-runs create {_project} {PROD_FLOW} --environment prod --idempotency-key PROD_KEY
@@ -11,8 +11,10 @@ yoke --env CONTROL_PLANE watch deploy -- {RUN_ID}
 
 Cut while member QA runs; keep the execution ID (`.yoke/docs/deployments/model/run-members.md`).
 
-CONTROL_PLANE is HTTPS; DB env refuses `use_https_env`. Stage uses prod
-`release_lineage`. Retry lost creates with the same key; re-drive with
+CONTROL_PLANE is the project-owning HTTPS connection (`--env`, or checkout routing);
+DB env refuses run creation with `use_https_env`. Both targets use the selected
+source `release_lineage`. A self-replacing run uses the paired `*-db-admin`
+driver: `stage-db-admin` for Stage ownership, `prod-db-admin` for Production. Retry lost creates with the same key; re-drive with
 `watch deploy`. Migrations: `databases.md`.
 
 ## Member QA

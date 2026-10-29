@@ -147,7 +147,7 @@ def test_install_bootstraps_and_uninstall_boots_out_then_deletes(
     assert installed.loaded and installed.plist_current
     with installed.plist_path.open("rb") as handle:
         document = plistlib.load(handle)
-    assert document["Label"] == RELAY_LAUNCHD_LABEL
+    assert document["Label"] == installed.label
     assert "ProcessType" not in document
     assert [call[1] for call in calls[:4]] == ["bootout", "print", "bootstrap", "print"]
 
@@ -183,7 +183,7 @@ def test_prod_and_stage_have_isolated_labels_paths_and_pinned_commands(
     prod_paths = relay_launchd_paths(home=tmp_path, instance=prod)
     stage_paths = relay_launchd_paths(home=tmp_path, instance=stage)
 
-    assert prod.label == RELAY_LAUNCHD_LABEL
+    assert prod.label.startswith(f"{RELAY_LAUNCHD_LABEL}.")
     assert stage.label.startswith(f"{RELAY_LAUNCHD_LABEL}.")
     assert stage.label != prod.label
     assert stage_paths.plist != prod_paths.plist
@@ -248,7 +248,7 @@ def test_stage_install_never_boots_out_prod_and_status_is_env_exact(
 
     assert installed.loaded and installed.plist_current
     assert calls[0] == ["launchctl", "bootout", f"gui/501/{stage.label}"]
-    assert calls[0][-1] != f"gui/501/{RELAY_LAUNCHD_LABEL}"
+    assert calls[0][-1] != f"gui/501/{prod.label}"
     assert prod_paths.plist.is_file()
     prod_status = relay_launchd_status(
         home=tmp_path,
@@ -262,7 +262,7 @@ def test_stage_install_never_boots_out_prod_and_status_is_env_exact(
     assert prod_status.plist_present
     assert prod_status.plist_current
     assert not prod_status.loaded
-    assert prod_status.label == RELAY_LAUNCHD_LABEL
+    assert prod_status.label == prod.label
 
 
 def test_invalid_connection_is_rejected_before_any_lifecycle_write(

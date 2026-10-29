@@ -78,6 +78,7 @@ class ProjectGithubBindingLifecycleRequest(BaseModel):
 
 
 class ProjectGithubBindingStatusResponse(BaseModel):
+    skipped: Optional[str] = None
     project: str
     github_repo: str
     default_branch: str

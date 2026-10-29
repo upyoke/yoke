@@ -30,7 +30,7 @@ def write_relay_config(tmp_path: Path, api_url: str = DEFAULT_API_URL) -> Path:
                 "connections": {
                     "prod": {
                         "transport": "https",
-                        "prod": True,
+                        "protected": True,
                         "api_url": api_url,
                         "credential_source": {
                             "kind": "token_file",

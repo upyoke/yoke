@@ -4,7 +4,7 @@ The operator-facing ``yoke ui`` commands gate on this before starting a
 daemon, so the refusal arrives in the terminal that asked. It is a
 preflight, not the enforcement: the view server refuses the same
 connection itself, which is what covers a launch agent brought back at
-login against a binding that became hosted or prod-flagged since it was
+login against a binding that became hosted or protected since it was
 registered, and any caller that reaches the server without this command.
 Both read one contract rule so they cannot disagree.
 
@@ -25,6 +25,7 @@ from yoke_contracts.machine_config.schema import MachineConfigContractError
 from yoke_contracts.machine_config.served_view_connection import (
     view_serving_refusal,
 )
+
 
 class UniverseUiError(RuntimeError):
     """The UI server could not be started for the active connection."""

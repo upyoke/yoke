@@ -107,7 +107,10 @@ def build_db_admin_setup_parser() -> argparse.ArgumentParser:
         "env_name", metavar="ENV", help="Deploy environment to reach, such as prod."
     )
     parser.add_argument(
-        "--project", default=None, metavar="P", help="Project that owns the environment."
+        "--project",
+        default=None,
+        metavar="P",
+        help="Project that owns the environment.",
     )
     parser.add_argument(
         "--config",
@@ -160,18 +163,18 @@ def build_db_admin_setup_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Allow an environment that is still render-only.",
     )
-    production = parser.add_mutually_exclusive_group()
-    production.add_argument(
-        "--prod",
-        dest="prod",
+    protection = parser.add_mutually_exclusive_group()
+    protection.add_argument(
+        "--protected",
+        dest="protected",
         action="store_true",
-        help="Mark the profile as a production connection.",
+        help="Mark the profile as holding real data.",
     )
-    production.add_argument(
-        "--non-prod",
-        dest="prod",
+    protection.add_argument(
+        "--unprotected",
+        dest="protected",
         action="store_false",
-        help="Mark the profile as non-production (the default).",
+        help="Mark the profile as not holding real data (the default).",
     )
     mode = parser.add_mutually_exclusive_group()
     mode.add_argument("--yes", dest="apply", action="store_true", help=_YES_HELP)
@@ -181,7 +184,7 @@ def build_db_admin_setup_parser() -> argparse.ArgumentParser:
         action="store_true",
         help=_DRY_RUN_HELP,
     )
-    parser.set_defaults(apply=False, dry_run=False, prod=False)
+    parser.set_defaults(apply=False, dry_run=False, protected=False)
     add_json_arg(parser)
     return parser
 

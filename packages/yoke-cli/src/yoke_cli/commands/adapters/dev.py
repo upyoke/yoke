@@ -41,7 +41,7 @@ DEV_DB_ADMIN_SETUP_USAGE = (
     "yoke dev db-admin setup ENV [--project P] [--config PATH] [--database MODEL] "
     "[--admin-env NAME] [--control-plane-env CONNECTION] "
     "[--local-port PORT] [--secret-name NAME] [--set-active-env] "
-    "[--allow-render-only] [--prod | --non-prod] "
+    "[--allow-render-only] [--protected | --unprotected] "
     "[--yes | --dry-run] [--json]"
 )
 DEV_DB_ADMIN_EXEC_USAGE = (
@@ -116,7 +116,7 @@ def dev_db_admin_setup(args: List[str]) -> int:
             apply=parsed.apply,
             set_active_env=parsed.set_active_env,
             allow_render_only=parsed.allow_render_only,
-            prod=parsed.prod,
+            protected=parsed.protected,
             database=parsed.database,
         )
     except db_admin_setup_config.DbAdminSetupError as exc:

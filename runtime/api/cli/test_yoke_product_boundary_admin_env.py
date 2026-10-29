@@ -22,7 +22,7 @@ def test_status_local_postgres_reports_missing_core_without_loading_it(
             "connections": {
                 "prod-db-admin": {
                     "transport": "local-postgres",
-                    "prod": True,
+                    "protected": True,
                 },
             },
         },

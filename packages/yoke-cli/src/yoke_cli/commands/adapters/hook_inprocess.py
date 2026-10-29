@@ -72,7 +72,10 @@ def evaluate_inprocess(
     from yoke_harness.hooks.command_workdir_stamp import stamp_command_workdir
     from yoke_harness.hooks.identity import detect_executor
 
-    if event_name in {"SessionStart", "UserPromptSubmit"} and detect_executor() == "codex":
+    if (
+        event_name in {"SessionStart", "UserPromptSubmit"}
+        and detect_executor() == "codex"
+    ):
         from yoke_harness.hooks.relay_identity_guard import parse_hook_payload
         from yoke_harness.hooks.identity_codex_runtime import codex_transcript_exists
 
@@ -229,14 +232,14 @@ def _active_local_universe() -> bool:
         from yoke_cli.config import machine_config
         from yoke_contracts.machine_config.schema import (
             POSTGRES_TRANSPORTS,
-            connection_is_prod,
+            connection_is_protected,
         )
 
         connection = machine_config.active_connection()
     except Exception:
         return False
     transport = str(connection.get("transport") or "").strip()
-    return transport in POSTGRES_TRANSPORTS and not connection_is_prod(connection)
+    return transport in POSTGRES_TRANSPORTS and not connection_is_protected(connection)
 
 
 def _evaluate_local_universe_hook(

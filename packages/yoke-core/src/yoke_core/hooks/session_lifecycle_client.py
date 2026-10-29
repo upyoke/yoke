@@ -115,12 +115,14 @@ def _local_authority_active() -> bool:
         from yoke_core.domain.machine_config import active_connection
         from yoke_contracts.machine_config.schema import (
             POSTGRES_TRANSPORTS,
-            connection_is_prod,
+            connection_is_protected,
         )
 
         connection = active_connection()
         transport = str(connection.get("transport") or "")
-        return transport in POSTGRES_TRANSPORTS and not connection_is_prod(connection)
+        return transport in POSTGRES_TRANSPORTS and not connection_is_protected(
+            connection
+        )
     except Exception:
         return False
 

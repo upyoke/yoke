@@ -62,7 +62,7 @@ def _base_config(path: Path) -> None:
                 "connections": {
                     "local": {
                         "transport": "local-postgres",
-                        "prod": False,
+                        "protected": False,
                         "credential_source": {
                             "kind": "dsn_file",
                             "path": str(path.parent / "local.dsn"),

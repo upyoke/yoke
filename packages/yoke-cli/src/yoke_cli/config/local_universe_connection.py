@@ -31,13 +31,13 @@ def ensure_local_connection(
         existing_dsn = stored_dsn(entry)
         if (
             transport == contract.DEFAULT_TRANSPORT
-            and not contract.connection_is_prod(entry)
+            and not contract.connection_is_protected(entry)
             and existing_dsn == dsn
         ):
             return {"env": LOCAL_ENV, "connection": dict(entry), "written": False}
         same_cluster_relocation = (
             transport == contract.DEFAULT_TRANSPORT
-            and not contract.connection_is_prod(entry)
+            and not contract.connection_is_protected(entry)
             and existing_dsn in equivalent_dsns
         )
         source = entry.get("credential_source") or {}
@@ -48,7 +48,7 @@ def ensure_local_connection(
         )
         repairable = (
             transport == contract.DEFAULT_TRANSPORT
-            and not contract.connection_is_prod(entry)
+            and not contract.connection_is_protected(entry)
             and (missing_secret or actor_universe_mismatch)
         )
         if not force and not same_cluster_relocation and not repairable:
@@ -65,7 +65,7 @@ def ensure_local_connection(
             LOCAL_ENV,
             transport=contract.DEFAULT_TRANSPORT,
             dsn=dsn,
-            prod=False,
+            protected=False,
             replace=True,
             path=config_path,
         )

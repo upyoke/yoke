@@ -162,7 +162,7 @@ Sign-in links go straight to the browser and never appear in text or JSON.
 Agents, headless callers and `--no-browser` get a named browser reason: run
 `yoke ui up` from your own terminal on a machine with a display to sign in.
 
-The view serves a database this machine holds — a non-prod local-postgres
+The view serves a database this machine holds — an unprotected local-postgres
 connection — and names the environment that answered in the page footer.
 Point it at a particular one by naming that env on the command:
 

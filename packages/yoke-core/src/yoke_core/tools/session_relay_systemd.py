@@ -246,6 +246,9 @@ def install_relay_systemd(
         relay_install.converge_relay_launcher(selected, pin_release=pin_release)
     except RelayReleaseError as exc:
         raise RelayInstallError(str(exc), code=exc.code) from exc
+    from yoke_core.tools.session_relay_shared_retirement import retire_shared_systemd
+
+    retire_shared_systemd(selected, home=home, runner=runner, pid1_path=pid1_path)
     create_private_directory(selected.state_dir)
     path = relay_unit_path(selected, home=home)
     create_private_directory(path.parent)
@@ -285,6 +288,9 @@ def uninstall_relay_systemd(
     reason = systemd_unavailable_reason(runner=runner, pid1_path=pid1_path)
     if reason:
         raise RelayInstallError(reason, code=reason.split(":", 1)[0])
+    from yoke_core.tools.session_relay_shared_retirement import retire_shared_systemd
+
+    retire_shared_systemd(selected, home=home, runner=runner, pid1_path=pid1_path)
     path = relay_unit_path(selected, home=home)
     if path.exists():
         _checked(["systemctl", "--user", "disable", "--now", path.name], runner)

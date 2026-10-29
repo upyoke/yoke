@@ -130,14 +130,12 @@ def call_dispatcher(
 ) -> FunctionCallResponse:
     """Build a request envelope and route it via the active transport.
 
-    Routing is connection-keyed: an https connection relays the envelope to
-    the server; any other connection dispatches in-process through the
-    engine, which for a non-prod local-postgres universe IS the product path.
+    HTTPS relays to the server; other connections dispatch in-process.
     *relay_env* names a different connection to relay through; a named env
     with no https connection is refused, not dispatched here. A ``*-db-admin``
     door refuses routine functions, except that a self-deploy driver sends
     each call to the paired https env first and keeps the door as fallback
-    (see :mod:`yoke_contracts.direct_database_access`). Prod-flagged postgres
+    (see :mod:`yoke_contracts.direct_database_access`). Protected postgres
     connections are operator-only: the client-side handler pre-load declines
     them (see :func:`yoke_cli.commands._helpers.ensure_handlers_loaded`).
     """
@@ -190,7 +188,9 @@ def call_dispatcher(
     if self_deploy_env:
         # One https attempt: the door, not a retry ladder, answers a down API.
         answer = self_deploy_relay.relay_or_door(
-            request, self_deploy_env, lambda https: relay(https, 1),
+            request,
+            self_deploy_env,
+            lambda https: relay(https, 1),
             lambda: _call_local(request, _local_dispatch),
         )
         return _settle_response(answer, sensitive_values)

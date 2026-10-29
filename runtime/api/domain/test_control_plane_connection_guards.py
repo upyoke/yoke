@@ -2,7 +2,7 @@
 
 A client that hibernates mid-transaction cannot release anything: it is gone.
 So the bound belongs on the connection, enforced by the server, and it has to
-be there on connections the boot converge never touches -- the prod-flagged
+be there on connections the boot converge never touches -- the protected
 ones a production deploy drives, which the converge refuses by design.
 
 The last test is the incident in miniature: a transaction holding a
@@ -67,8 +67,7 @@ def test_values_the_caller_declared_are_kept() -> None:
     """A caller naming its own bound owns it; the guard only fills gaps."""
     declared = conninfo_to_dict(
         guarded_conninfo(
-            "host=h keepalives_idle=99 "
-            f"options='-c {IDLE_IN_TRANSACTION_SETTING}=9min'"
+            f"host=h keepalives_idle=99 options='-c {IDLE_IN_TRANSACTION_SETTING}=9min'"
         )
     )
 

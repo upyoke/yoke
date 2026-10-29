@@ -38,12 +38,16 @@ class _Binding:
     code under test, never from a fixture that hardcodes both sides.
     """
 
-    def __init__(self, *, environment: str, transport: str, prod: bool = False):
+    def __init__(self, *, environment: str, transport: str, protected: bool = False):
         self.environment = environment
         self.backend = (
             db_backend.POSTGRES if transport in POSTGRES_TRANSPORTS else transport
         )
-        self.config = {"env": environment, "transport": transport, "prod": prod}
+        self.config = {
+            "env": environment,
+            "transport": transport,
+            "protected": protected,
+        }
         self.binding_path = None
 
 
@@ -79,7 +83,7 @@ HOSTED = _Binding(environment="prod", transport=TRANSPORT_HTTPS)
 PROD_POSTGRES = _Binding(
     environment="prod-db-admin",
     transport=DEFAULT_TRANSPORT,
-    prod=True,
+    protected=True,
 )
 
 
@@ -97,13 +101,13 @@ class TestTheServerRefusesAUniverseItWouldOnlyRelayTo:
         # the hand-assembly one step later.
         assert "`yoke --env local-dev ui up`" in message
 
-    def test_a_prod_flagged_postgres_binding_refuses(self, bind):
+    def test_a_protected_flagged_postgres_binding_refuses(self, bind):
         bind(PROD_POSTGRES)
 
         with pytest.raises(ui_server.UiServerError) as refusal:
             ui_server.create_ui_app(_TOKEN)
 
-        assert "prod-flagged" in str(refusal.value)
+        assert "protected" in str(refusal.value)
 
     def test_an_unrecognized_transport_fails_closed(self, bind):
         bind(_Binding(environment="future", transport="quantum-relay"))

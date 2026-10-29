@@ -30,7 +30,7 @@ ADMIN_ENV = "prod-db-admin"
 SERVED_ENV = "prod"
 PAIRED = {
     "connections": {
-        ADMIN_ENV: {"transport": "local-postgres", "prod": True},
+        ADMIN_ENV: {"transport": "local-postgres", "protected": True},
         SERVED_ENV: {"transport": "https", "api_url": "https://control.example/v1"},
     }
 }
@@ -60,7 +60,9 @@ class Planes:
         return self.connection if explicit_env == SERVED_ENV else None
 
     def relay(self, request: Any, https: Any, **kwargs: Any) -> FunctionCallResponse:
-        self.https.append((request.function, request.request_id, kwargs["max_attempts"]))
+        self.https.append(
+            (request.function, request.request_id, kwargs["max_attempts"])
+        )
         if self.https_error is not None:
             return _answer(request, success=False, error=self.https_error)
         return _answer(request, success=True, result={"code": 0, "driver": "x"})
@@ -80,7 +82,9 @@ def planes(monkeypatch) -> Planes:
     transport = dispatcher.https_transport
     monkeypatch.setattr(transport, "resolve_https_connection", recorded.resolve)
     monkeypatch.setattr(transport, "relay_https", recorded.relay)
-    monkeypatch.setattr(dispatcher, "warn_if_behind_active_connection", lambda **kw: None)
+    monkeypatch.setattr(
+        dispatcher, "warn_if_behind_active_connection", lambda **kw: None
+    )
     monkeypatch.setattr(
         dispatcher.local_github_dispatch,
         "call_with_machine_github_authorization",
@@ -136,9 +140,7 @@ def test_calls_https_cannot_serve_fall_back_to_the_door(planes, capsys, unserved
     assert [call[1] for call in planes.https] == [call[1] for call in planes.door][
         : len(planes.https)
     ]
-    notes = [
-        line for line in capsys.readouterr().err.splitlines() if "door" in line
-    ]
+    notes = [line for line in capsys.readouterr().err.splitlines() if "door" in line]
     assert len(notes) == 2
     assert notes[0].startswith(f"note: {SERVED_ENV!r} could not serve ")
     assert notes[0].endswith("sending it through the self-deploy database door")
@@ -184,7 +186,9 @@ def test_without_the_declaration_the_door_still_refuses_routine_calls(
 
 
 @pytest.mark.parametrize("recovery_attempt", [1, 3, None])
-def test_timed_out_dispatch_waits_over_https_without_a_door(planes, monkeypatch, capsys, recovery_attempt):
+def test_timed_out_dispatch_waits_over_https_without_a_door(
+    planes, monkeypatch, capsys, recovery_attempt
+):
     recovered = recovery_attempt is not None
     transport = dispatcher.https_transport
     sends = []
@@ -192,14 +196,24 @@ def test_timed_out_dispatch_waits_over_https_without_a_door(planes, monkeypatch,
     def attempt(request, connection, **kwargs):
         sends.append((request.model_dump(), kwargs["timeout_s"]))
         if len(sends) == 1:
-            return _answer(request, success=False, error=FunctionError(
-                code=TRANSPORT_FAILED_CODE, message=RESPONSE_TIMEOUT_DETAIL,
-            )), 1
+            return _answer(
+                request,
+                success=False,
+                error=FunctionError(
+                    code=TRANSPORT_FAILED_CODE,
+                    message=RESPONSE_TIMEOUT_DETAIL,
+                ),
+            ), 1
         if recovered and len(sends) == 1 + recovery_attempt:
             return _answer(request, success=True, result={"code": 0}), 1
-        return _answer(request, success=False, error=FunctionError(
-            code=TRANSPORT_FAILED_CODE, message="unreachable",
-        )), 1
+        return _answer(
+            request,
+            success=False,
+            error=FunctionError(
+                code=TRANSPORT_FAILED_CODE,
+                message="unreachable",
+            ),
+        ), 1
 
     monkeypatch.setattr(transport, "relay_https", real_relay_https)
     monkeypatch.setattr(transport, "_relay_attempts", attempt)

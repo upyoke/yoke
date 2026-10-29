@@ -215,7 +215,7 @@ be reached or verified.
 Run a direct command against the current session's claimed lane with
 `yoke dev run -- <command>`. It reports every checkout-owned import origin and
 preserves the caller's connected-environment selection: source location changes,
-control-plane selection does not. Prod-flagged schema guards still apply.
+control-plane selection does not. Protected schema guards still apply.
 Pytest runners isolate their test environment; Ruff and changed-test fallback
 recipes live in [source-development.md](testing-verification/source-development.md).
 Schema-callable reuse and per-test setup are covered in
@@ -298,7 +298,7 @@ Local runs also share one machine-wide pytest-xdist worker budget, since the
 admission slot deliberately lets file-scoped runs past it and their sum is
 what saturates a workstation; that doc covers it too.
 
-Doctor checks every prod-flagged local-Postgres connection this machine knows
+Doctor checks every protected local-Postgres connection this machine knows
 for leftover `yoke_test_run*` databases. A finding stays manual: its report
 prints a dry-run review command and the explicit removal command for that
 connection; Doctor never drops a database itself.

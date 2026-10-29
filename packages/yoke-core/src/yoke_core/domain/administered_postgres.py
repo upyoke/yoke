@@ -3,7 +3,7 @@
 The selected connection is provenance, not target identity. A caller can name
 the same cluster through ``YOKE_PG_DSN``, a DSN file, a context binding, or a
 live connection after selection has changed. Safety decisions therefore
-compare the target's normalized host/port endpoint with every prod-flagged
+compare the target's normalized host/port endpoint with every protected
 local-Postgres connection registered on the machine.
 
 Endpoint identity is deliberately database-agnostic: ``postgres``, the Yoke
@@ -26,7 +26,7 @@ from yoke_contracts.machine_config.schema import (
     CREDENTIAL_KIND_DSN_FILE,
     CREDENTIAL_KIND_ENV,
     POSTGRES_TRANSPORTS,
-    connection_is_prod,
+    connection_is_protected,
 )
 
 DEFAULT_POSTGRES_PORT = "5432"
@@ -45,7 +45,7 @@ class AdministeredPostgresTarget:
 
 
 def configured_administered_targets() -> tuple[AdministeredPostgresTarget, ...]:
-    """Return every prod-flagged local-Postgres target this machine knows."""
+    """Return every protected local-Postgres target this machine knows."""
 
     targets = {
         target.env: target
@@ -65,7 +65,7 @@ def configured_administered_targets() -> tuple[AdministeredPostgresTarget, ...]:
         if not isinstance(raw_connection, Mapping):
             continue
         transport = str(raw_connection.get("transport") or "").strip()
-        if transport not in POSTGRES_TRANSPORTS or not connection_is_prod(
+        if transport not in POSTGRES_TRANSPORTS or not connection_is_protected(
             raw_connection
         ):
             continue
@@ -142,7 +142,7 @@ def administering_target(
 
 
 def selected_administering_env() -> str:
-    """Return the selected prod local-Postgres env when it names the target."""
+    """Return the selected protected local-Postgres env when it names the target."""
 
     try:
         env = machine_config_runtime.active_env()
@@ -150,7 +150,7 @@ def selected_administering_env() -> str:
     except Exception:  # noqa: BLE001 - config problems surface at their owner
         return ""
     transport = str(connection.get("transport") or "").strip()
-    if transport not in POSTGRES_TRANSPORTS or not connection_is_prod(connection):
+    if transport not in POSTGRES_TRANSPORTS or not connection_is_protected(connection):
         return ""
     return env
 

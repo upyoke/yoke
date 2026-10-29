@@ -27,7 +27,7 @@ from yoke_contracts.session_control.private_route_qualification import (
     QUALIFICATION_TTL_SECONDS,
 )
 from yoke_cli.config import machine_config
-from yoke_contracts.machine_config.schema import connection_is_prod
+from yoke_contracts.machine_config.schema import connection_is_protected
 from yoke_contracts.session_identity import (
     ANCHORS_DIR_NAME,
     CURSOR_SESSION_MAP_DIR_NAME,
@@ -112,7 +112,7 @@ def _require_stage_qualification_environment() -> str:
         connection = machine_config.active_connection(explicit_env=environment)
     except Exception as exc:
         raise AcceptanceContractError("qualification_environment_unresolved") from exc
-    if environment != "stage" or connection_is_prod(connection):
+    if environment != "stage" or connection_is_protected(connection):
         raise AcceptanceContractError("qualification_stage_required")
     return environment
 
@@ -123,7 +123,7 @@ def _require_final_acceptance_environment() -> str:
         connection = machine_config.active_connection(explicit_env=environment)
     except Exception as exc:
         raise AcceptanceContractError("final_environment_unresolved") from exc
-    if environment != "prod" or not connection_is_prod(connection):
+    if environment != "prod" or not connection_is_protected(connection):
         raise AcceptanceContractError("final_acceptance_prod_required")
     return environment
 

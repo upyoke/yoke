@@ -97,7 +97,7 @@ failure refuses as `source_machine_home_unavailable`; repair the named config's
 JSON/read permissions or temporary storage, then retry. This is environment
 isolation for cooperative source commands, not an operating-system sandbox.
 
-Prod-flagged schema and administered-cluster guards still judge that selected
+Protected schema and administered-cluster guards still judge that selected
 connection inside the child. Pytest is different: `yoke watch pytest` and the
 generic test runner isolate fixture-owned databases from any administering
 selection, so use those runners for tests instead of relying on `dev run` to

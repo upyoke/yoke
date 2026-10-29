@@ -32,7 +32,7 @@ def _select_administering_connection(
                     SERVED_ENV: {"transport": "https"},
                     ADMIN_ENV: {
                         "transport": "local-postgres",
-                        "prod": True,
+                        "protected": True,
                         "postgres": {"host": "127.0.0.1", "port": 6547},
                     },
                 },
@@ -78,7 +78,7 @@ def test_source_command_child_keeps_explicit_connection_selection(
     assert captured.out.strip() == ADMIN_ENV
 
 
-def test_prod_flagged_schema_refusal_still_fires_through_source_command(
+def test_protected_flagged_schema_refusal_still_fires_through_source_command(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
     capfd: pytest.CaptureFixture[str],

@@ -308,7 +308,7 @@ def test_candidate_runner_keeps_stage_pinned_after_active_env_switch(
 
     def _connection(*, explicit_env=None):
         assert explicit_env == "stage"
-        return {"transport": "https", "prod": False}
+        return {"transport": "https", "protected": False}
 
     monkeypatch.setattr(acceptance.machine_config, "active_connection", _connection)
     monkeypatch.setattr(acceptance, "load_candidate_matrix", lambda _path: matrix)

@@ -64,12 +64,14 @@ def running_report(port: int = STUB_PORT) -> Dict[str, Any]:
     }
 
 
-def write_local_connection(env: str = "local", *, prod: bool = False) -> None:
+def write_local_connection(env: str = "local", *, protected: bool = False) -> None:
     from yoke_cli.config import writer
 
     writer.set_connection(
-        env, transport="local-postgres",
-        dsn="host=/sock user=yoke dbname=yoke", prod=prod,
+        env,
+        transport="local-postgres",
+        dsn="host=/sock user=yoke dbname=yoke",
+        protected=protected,
     )
     writer.set_active_env(env)
 

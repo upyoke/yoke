@@ -224,7 +224,7 @@ green before commit.
    package-data `.txt`).
 5. PreToolUse lints are **16, not 7**.
 6. `codex_db_resolution` is client (harness), not core.
-7. The prod-flag predicate AC-16 requires is **net-new** — no `is_prod` field
+7. The prod-flag predicate AC-16 requires is **net-new** — no `is_protected` field
    exists on the connection contract today. Designable from the spec (env
    classification, not DSN sniffing); see `net-new.md`.
 

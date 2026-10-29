@@ -1,7 +1,7 @@
 """Active-connection sanction contract for ``resolve_export_dsn``.
 
-Export authority is DSN possession: a non-prod local-postgres
-connection exports; https and prod-flagged Postgres refuse with
+Export authority is DSN possession: an unprotected local-postgres
+connection exports; https and protected Postgres refuse with
 mode-specific guidance. Driven through a temp machine config.
 """
 
@@ -66,7 +66,7 @@ def test_resolve_export_dsn_refuses_https_connection_in_mode_language(
     assert "yoke init --local" in message
 
 
-def test_resolve_export_dsn_refuses_prod_flagged_postgres(tmp_path):
+def test_resolve_export_dsn_refuses_protected_flagged_postgres(tmp_path):
     dsn_file = tmp_path / "prod.dsn"
     dsn_file.write_text("host=/prod-sock user=yoke dbname=yoke\n", encoding="utf-8")
     _write_machine_config(
@@ -77,7 +77,7 @@ def test_resolve_export_dsn_refuses_prod_flagged_postgres(tmp_path):
             "connections": {
                 "prod-db-admin": {
                     "transport": "local-postgres",
-                    "prod": True,
+                    "protected": True,
                     "credential_source": {
                         "kind": "dsn_file",
                         "path": str(dsn_file),
@@ -91,7 +91,7 @@ def test_resolve_export_dsn_refuses_prod_flagged_postgres(tmp_path):
         ux.resolve_export_dsn()
 
     message = str(excinfo.value)
-    assert "prod-flagged" in message
+    assert "protected" in message
     assert "operator-only" in message
 
 
@@ -106,7 +106,7 @@ def test_resolve_export_dsn_returns_nonprod_local_postgres_dsn(tmp_path):
             "connections": {
                 "local": {
                     "transport": "local-postgres",
-                    "prod": False,
+                    "protected": False,
                     "credential_source": {
                         "kind": "dsn_file",
                         "path": str(dsn_file),

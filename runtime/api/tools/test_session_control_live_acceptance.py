@@ -243,7 +243,7 @@ def test_candidate_mode_refuses_prod_before_loading_or_constructing_cli(
 
     def _prod_connection(*, explicit_env=None):
         assert explicit_env == "prod"
-        return {"transport": "https", "prod": True}
+        return {"transport": "https", "protected": True}
 
     monkeypatch.setattr(
         acceptance.machine_config,

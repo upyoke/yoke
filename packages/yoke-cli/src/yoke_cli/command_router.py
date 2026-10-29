@@ -7,7 +7,7 @@ active connection: https connections POST the ``FunctionCallRequest``
 to ``{api_url}/v1/functions/call``; local-postgres connections dispatch
 in-process through
 :func:`yoke_core.domain.yoke_function_dispatch.dispatch` — the product
-path for a non-prod local universe. Same envelope, same payload, same
+path for an unprotected local universe. Same envelope, same payload, same
 auth, same handler across both branches.
 
 Importing this module loads the whole command catalog, so the ``yoke``

@@ -174,7 +174,7 @@ def run_server(mode: str) -> int:
                 transport="https",
                 api_url=api_url(mode),
                 token_file=str(token_path),
-                prod=False,
+                protected=False,
                 activate=True,
             )
         except writer.MachineConfigWriteError as exc:

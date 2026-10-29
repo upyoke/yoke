@@ -242,7 +242,7 @@ def _call_local_function(
     from yoke_contracts.machine_config.schema import (
         MachineConfigContractError,
         POSTGRES_TRANSPORTS,
-        connection_is_prod,
+        connection_is_protected,
     )
 
     try:
@@ -260,10 +260,10 @@ def _call_local_function(
         raise ExistingProjectLookupError(
             f"env {LOCAL_ENV!r} is {transport or 'unconfigured'}, not local-postgres"
         )
-    if connection_is_prod(connection):
+    if connection_is_protected(connection):
         raise ExistingProjectLookupError(
-            f"env {LOCAL_ENV!r} is marked prod; local onboarding will not read "
-            "projects through a prod local-postgres authority"
+            f"env {LOCAL_ENV!r} is marked protected; local onboarding will not read "
+            "projects through a protected local-postgres authority"
         )
     try:
         # Dynamic import keeps yoke-cli's static engine-import boundary intact

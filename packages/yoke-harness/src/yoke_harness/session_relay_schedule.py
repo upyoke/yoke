@@ -11,13 +11,13 @@ import time
 from typing import Iterator
 
 from yoke_cli.config.session_relay_instance import (
-    PROD_RELAY_STATE_DIR_NAME,
+    SHARED_RELAY_STATE_DIR_NAME,
     resolve_relay_instance,
 )
 from yoke_contracts import platform_file_lock
 
 
-RELAY_STATE_DIR_NAME = PROD_RELAY_STATE_DIR_NAME
+RELAY_STATE_DIR_NAME = SHARED_RELAY_STATE_DIR_NAME
 RELAY_LOCK_FILE_NAME = "serve-once.lock"
 RELAY_NEXT_POLL_FILE_NAME = "next-poll-at"
 

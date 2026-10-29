@@ -10,7 +10,6 @@ from types import SimpleNamespace
 import pytest
 
 from yoke_cli.config.session_relay_instance import (
-    RelayInstanceError,
     resolve_relay_instance,
 )
 from yoke_core.tools import install_session_relay
@@ -37,15 +36,15 @@ def _write_config(tmp_path: Path) -> Path:
     connections = {
         name: {
             "transport": "https",
-            "prod": prod,
+            "protected": protected,
             "api_url": f"https://{name}.example.test",
             "credential_source": token(name),
         }
-        for name, prod in (("prod", True), ("stage", False))
+        for name, protected in (("prod", True), ("stage", False))
     }
     connections["prod-db-admin"] = {
         "transport": "local-postgres",
-        "prod": True,
+        "protected": True,
         "credential_source": {
             "kind": "dsn_file",
             "path": "~/.yoke/secrets/prod-db-admin.dsn",
@@ -78,7 +77,7 @@ def test_prod_db_admin_cannot_resolve_a_relay_instance(tmp_path: Path) -> None:
     https connection; a second relay here would poll one universe twice.
     """
     calls: list[list[str]] = []
-    with pytest.raises(RelayInstanceError, match="refuses a prod local-postgres"):
+    with pytest.raises(RelayInstallError, match="use_https_env"):
         install_relay_launchd(
             home=tmp_path,
             config_path=_write_config(tmp_path),
@@ -115,23 +114,18 @@ def test_release_fetch_failure_never_stops_the_loaded_relay(tmp_path: Path) -> N
     assert calls == []
 
 
-def test_multiple_prod_https_connections_refuse_the_legacy_identity(
-    tmp_path: Path,
-) -> None:
+def test_protection_does_not_change_or_merge_relay_identities(tmp_path: Path) -> None:
     config_path = _write_config(tmp_path)
-    payload = json.loads(config_path.read_text(encoding="utf-8"))
-    payload["connections"]["prod-alias"] = {
-        **payload["connections"]["prod"],
-        "api_url": "https://prod-alias.example.test",
-    }
-    config_path.write_text(json.dumps(payload), encoding="utf-8")
-
-    with pytest.raises(RelayInstanceError, match="exactly one prod https"):
-        resolve_relay_instance(
-            config_path=config_path,
-            environment="prod",
-            yoke_home=tmp_path / ".yoke",
-        )
+    before = resolve_relay_instance(config_path=config_path, environment="prod")
+    payload = json.loads(config_path.read_text())
+    payload["connections"]["stage"]["protected"] = True
+    config_path.write_text(json.dumps(payload))
+    stage = resolve_relay_instance(config_path=config_path, environment="stage")
+    after = resolve_relay_instance(config_path=config_path, environment="prod")
+    assert before.label == after.label
+    assert before.state_dir == after.state_dir
+    assert before.label != stage.label
+    assert before.state_dir != stage.state_dir
 
 
 def test_install_waits_for_unload_and_retries_transient_bootstrap(

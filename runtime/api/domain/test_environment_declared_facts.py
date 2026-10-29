@@ -212,11 +212,7 @@ def test_generic_endpoints_refuse_scheme_less_hosts() -> None:
 def test_settings_write_refuses_scheme_less_host_assignment() -> None:
     with pytest.raises(ValueError, match="hosts.api must be an http\\(s\\) URL"):
         refuse_invalid_endpoint_url_assignments({"hosts.api": "api.upyoke.com"})
-    refuse_invalid_endpoint_url_assignments(
-        {"hosts.api": "https://api.upyoke.com"}
-    )
-    refuse_invalid_endpoint_urls(
-        {"hosts": {"api": "https://api.upyoke.com"}}
-    )
+    refuse_invalid_endpoint_url_assignments({"hosts.api": "https://api.upyoke.com"})
+    refuse_invalid_endpoint_urls({"hosts": {"api": "https://api.upyoke.com"}})
     with pytest.raises(ValueError, match="hosts.api must be an http\\(s\\) URL"):
         refuse_invalid_endpoint_urls({"hosts": {"api": "api.upyoke.com"}})

@@ -1,10 +1,5 @@
 """Refuse to publish a release the hosted consumer has not been built against.
 
-Pass full --candidate-sha and --consumer-sha commits. An immutable consumer
-tag binds workflow source, so release retries, explicit diagnostics and
-simultaneous stage/prod releases of one exact pair join one consumer run.
-A pending join retries that same request id for about two minutes.
-
 On success it writes ``proven_consumer_sha`` to ``$GITHUB_OUTPUT``.
 Exits 0 when proven, 1 when refused or unattributable, 2 when unavailable.
 """
@@ -25,7 +20,7 @@ from runtime.api.tools.platform_consumer_dispatch_ref import (
     consumer_dispatch_tag,
 )
 from runtime.api.tools.platform_consumer_run_wait import wait_run
-from yoke_contracts.api_urls import HOSTED_PROD_API_URL
+from yoke_contracts.api_urls import validate_control_api_url
 from yoke_contracts.github_workflow_dispatch import (
     WORKFLOW_DISPATCH_CORRELATION_INPUT,
 )
@@ -100,6 +95,10 @@ def bind_consumer_authority() -> str:
             "the release train provides it. Local verification uses "
             "`yoke github-actions trigger` on the authenticated project route."
         )
+    try:
+        endpoint = validate_control_api_url(os.environ.get("YOKE_API_BASE", ""))
+    except ValueError:
+        return "release_control_endpoint_unavailable: set YOKE_API_BASE to the run owner HTTPS API URL"
     code, stdout, stderr = _yoke(
         [
             "connection",
@@ -107,9 +106,9 @@ def bind_consumer_authority() -> str:
             CONSUMER_CONNECTION,
             "--transport",
             "https",
-            "--prod",
+            "--protected",
             "--api-url",
-            HOSTED_PROD_API_URL,
+            endpoint,
             "--token-stdin",
         ],
         timeout=_COMMAND_TIMEOUT_SECONDS,

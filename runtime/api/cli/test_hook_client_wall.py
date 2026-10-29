@@ -15,7 +15,7 @@ import pytest
 from yoke_cli import hook_client_wall
 from yoke_cli.hook_client_wall import HookClientWall, _process_age
 from yoke_cli.hook_resident_client import ResidentPaths, _round_trip
-from yoke_contracts.machine_config.schema import PROD_FLAG_KEY
+from yoke_contracts.machine_config.schema import PROTECTED_FLAG_KEY
 from yoke_contracts.hook_evaluator_protocol import (
     HookClientWallReport,
     HookEvaluatorRequest,
@@ -86,15 +86,22 @@ def test_timer_origin_is_not_later_than_entry() -> None:
     assert timer.elapsed_ms() >= max(0, int(process_age * 1000) - 10)
 
 
-@pytest.mark.parametrize("connection", [{}, {"transport": "local-postgres", PROD_FLAG_KEY: True}])
-def test_client_wall_without_local_authority_does_not_import_engine(monkeypatch, connection) -> None:
+@pytest.mark.parametrize(
+    "connection", [{}, {"transport": "local-postgres", PROTECTED_FLAG_KEY: True}]
+)
+def test_client_wall_without_local_authority_does_not_import_engine(
+    monkeypatch, connection
+) -> None:
     from yoke_cli.transport import https
 
     imports = []
     monkeypatch.setattr(https, "resolve_https_connection", lambda: None)
-    monkeypatch.setattr(hook_client_wall.machine_config, "product_connection", lambda: connection)
     monkeypatch.setattr(
-        hook_client_wall, "importlib",
+        hook_client_wall.machine_config, "product_connection", lambda: connection
+    )
+    monkeypatch.setattr(
+        hook_client_wall,
+        "importlib",
         SimpleNamespace(import_module=lambda name: imports.append(name)),
     )
 
@@ -116,11 +123,14 @@ def test_configured_local_client_wall_records_through_engine(monkeypatch) -> Non
 
     monkeypatch.setattr(https, "resolve_https_connection", lambda: None)
     monkeypatch.setattr(
-        hook_client_wall.machine_config, "product_connection",
+        hook_client_wall.machine_config,
+        "product_connection",
         lambda: {"transport": "local-postgres"},
     )
     monkeypatch.setattr(
-        hook_client_wall, "importlib", SimpleNamespace(import_module=load_engine),
+        hook_client_wall,
+        "importlib",
+        SimpleNamespace(import_module=load_engine),
     )
 
     hook_client_wall.record_client_wall("timing-local", 10)

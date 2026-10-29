@@ -1,7 +1,8 @@
 {
  "id": "machine-config-and-connections",
  "title": "Machine config and connections",
- "status": "draft-copy",
+ "status": "observed",
  "page": "installation",
- "position": 1
+ "position": 1,
+ "summary": "The protected connection marker means real data. CLI flags are --protected and --unprotected; legacy stored prod keys normalize on config writes."
 }

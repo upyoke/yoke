@@ -263,7 +263,7 @@ def test_registered_verification_converges_a_schema_under_an_administering_env(
                 "active_env": "prod",
                 "connections": {
                     "prod": {"transport": "https"},
-                    "prod-db-admin": {"transport": "local-postgres", "prod": True},
+                    "prod-db-admin": {"transport": "local-postgres", "protected": True},
                 },
             }
         )

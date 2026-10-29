@@ -1,0 +1,6 @@
+{
+ "id": "per-environment-supervision",
+ "title": "Relay identity follows the connection",
+ "status": "observed",
+ "summary": "Every relay service and state directory is keyed by canonical config path and environment. The protected real-data flag never changes identity or limits the number of HTTPS relays. Installation retires an exactly owned former shared service only after preparing the new runtime, preserving old state and refusing live or unknown worker custody."
+}

@@ -27,7 +27,7 @@ from yoke_cli.config import writer
 ENV_USE_USAGE = "yoke env use ENV [--config PATH]"
 CONNECTION_SET_USAGE = (
     "yoke connection set ENV [--transport {local-postgres,https}] "
-    "[--prod | --non-prod] [--api-url URL] "
+    "[--protected | --unprotected] [--api-url URL] "
     "[CREDENTIAL | --token-file PATH | --token-stdin | --dsn DSN | "
     "--dsn-file PATH | --dsn-stdin] [--config PATH]"
 )
@@ -101,14 +101,16 @@ def connection_set(args: List[str]) -> int:
         default=None,
         help="How to reach Yoke; default: inferred from the credential given.",
     )
-    prod_group = parser.add_mutually_exclusive_group()
-    prod_group.add_argument(
-        "--prod", action="store_true", help="Mark this connection as production."
-    )
-    prod_group.add_argument(
-        "--non-prod",
+    protected_group = parser.add_mutually_exclusive_group()
+    protected_group.add_argument(
+        "--protected",
         action="store_true",
-        help="Mark this connection as not production.",
+        help="Mark this connection as holding real data.",
+    )
+    protected_group.add_argument(
+        "--unprotected",
+        action="store_true",
+        help="Mark this connection as not holding real data.",
     )
     parser.add_argument("--api-url", default=None, help="Yoke API URL for https.")
     _add_credential_args(parser)
@@ -224,7 +226,7 @@ def _connection_set(writer_module, parsed: argparse.Namespace) -> dict:
         dsn=parsed.dsn or credential["dsn"],
         dsn_file=parsed.dsn_file,
         dsn_stdin=parsed.dsn_stdin,
-        prod=_prod_flag(parsed),
+        protected=_protected_flag(parsed),
         path=parsed.config_path,
     )
 
@@ -291,10 +293,10 @@ def _looks_like_postgres_dsn(value: str) -> bool:
     )
 
 
-def _prod_flag(parsed: argparse.Namespace) -> bool | None:
-    if parsed.prod:
+def _protected_flag(parsed: argparse.Namespace) -> bool | None:
+    if parsed.protected:
         return True
-    if parsed.non_prod:
+    if parsed.unprotected:
         return False
     return None
 

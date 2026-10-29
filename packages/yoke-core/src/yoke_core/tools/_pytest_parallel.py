@@ -197,7 +197,7 @@ def isolate_from_administering_machine_config(env: dict[str, str]) -> dict[str, 
 
     ``environment_without_administering_selection`` swaps a ``*-db-admin``
     selection for its served sibling. When that sibling — or the original
-    selection — is itself prod-flagged (hosted HTTPS ``prod``), the child
+    selection — is itself protected (hosted HTTPS ``prod``), the child
     would still refuse fixture-owned schema work. An empty machine home drops
     that ambient authority without pointing the suite at another universe;
     an endpoint-only inventory still lets concrete target guards recognize an

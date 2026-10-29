@@ -47,7 +47,7 @@ def _save(machine_home, env: str, api_url: str) -> str:
         transport="https",
         api_url=api_url,
         token_file=str(token),
-        prod=False,
+        protected=False,
         activate=True,
     )
     return str(machine_home / "config.json")

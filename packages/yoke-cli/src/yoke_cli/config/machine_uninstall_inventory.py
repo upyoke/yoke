@@ -67,7 +67,7 @@ def inspect() -> Inventory:
             entry.get("transport") == schema.TRANSPORT_HTTPS
             or (
                 entry.get("transport") in schema.POSTGRES_TRANSPORTS
-                and not schema.connection_is_prod(entry)
+                and not schema.connection_is_protected(entry)
             )
         )
     )
@@ -81,7 +81,7 @@ def inspect() -> Inventory:
                 name
                 for name, entry in connections.items()
                 if isinstance(entry, dict)
-                and not schema.connection_is_prod(entry)
+                and not schema.connection_is_protected(entry)
                 and entry.get("transport") in schema.POSTGRES_TRANSPORTS
                 and stored_dsn(entry) == expected
             ),

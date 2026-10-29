@@ -88,7 +88,7 @@ def test_db_read_dispatch_fails_closed_at_existing_local_boundary(
     assert run.boundary["caught"] is None
 
 
-def test_db_read_prod_flagged_local_postgres_requires_core_import(
+def test_db_read_protected_flagged_local_postgres_requires_core_import(
     tmp_path: Path,
 ) -> None:
     run = _run_product_cli(
@@ -100,7 +100,7 @@ def test_db_read_prod_flagged_local_postgres_requires_core_import(
             "connections": {
                 "prod-db-admin": {
                     "transport": "local-postgres",
-                    "prod": True,
+                    "protected": True,
                 },
             },
         },

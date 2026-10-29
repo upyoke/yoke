@@ -25,7 +25,7 @@ def canonical_example_payload() -> dict[str, Any]:
             "connections": {
                 "prod": {
                     "transport": _contract().TRANSPORT_HTTPS,
-                    _contract().PROD_FLAG_KEY: True,
+                    _contract().PROTECTED_FLAG_KEY: True,
                     "api_url": HOSTED_PROD_API_URL,
                     "credential_source": {
                         "kind": "token_file",
@@ -34,7 +34,7 @@ def canonical_example_payload() -> dict[str, Any]:
                 },
                 "source-dev-admin": {
                     "transport": _contract().DEFAULT_TRANSPORT,
-                    _contract().PROD_FLAG_KEY: False,
+                    _contract().PROTECTED_FLAG_KEY: False,
                     "credential_source": {
                         "kind": "dsn_file",
                         "path": "~/.yoke/secrets/source-dev-admin.dsn",
@@ -62,7 +62,7 @@ def canonical_example_payload() -> dict[str, Any]:
                 },
                 "stage": {
                     "transport": _contract().TRANSPORT_HTTPS,
-                    _contract().PROD_FLAG_KEY: False,
+                    _contract().PROTECTED_FLAG_KEY: False,
                     "api_url": HOSTED_STAGE_API_URL,
                     "credential_source": {
                         "kind": "token_file",

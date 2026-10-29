@@ -80,7 +80,7 @@ def test_dev_setup_apply_imports_dsn_into_machine_secret(
         "kind": "dsn_file",
         "path": str(machine_home / "secrets" / "source-dev-admin.dsn"),
     }
-    assert payload["admin_connection"]["connection"]["prod"] is False
+    assert payload["admin_connection"]["connection"]["protected"] is False
     assert dsn not in captured.out
     assert dsn not in captured.err
 
@@ -91,7 +91,7 @@ def test_dev_setup_apply_imports_dsn_into_machine_secret(
     assert config_payload["connections"]["source-dev-admin"]["transport"] == (
         "local-postgres"
     )
-    assert config_payload["connections"]["source-dev-admin"]["prod"] is False
+    assert config_payload["connections"]["source-dev-admin"]["protected"] is False
 
 
 def test_dev_setup_apply_accepts_positional_dsn(
@@ -248,11 +248,11 @@ def test_dev_setup_reused_local_postgres_marks_non_prod(
 
     assert rc == 0
     payload = json.loads(capsys.readouterr().out)
-    assert payload["admin_connection"]["connection"]["prod"] is False
+    assert payload["admin_connection"]["connection"]["protected"] is False
     entry = json.loads(config.read_text(encoding="utf-8"))["connections"][
         "source-dev-admin"
     ]
-    assert entry["prod"] is False
+    assert entry["protected"] is False
 
 
 def _source_checkout(tmp_path: Path) -> Path:

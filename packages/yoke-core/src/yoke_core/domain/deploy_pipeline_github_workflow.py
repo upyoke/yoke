@@ -9,6 +9,7 @@ from typing import Any, Dict, List, Mapping, Optional
 
 from yoke_core.domain import deploy_pipeline_dispatch_readiness as readiness
 from yoke_core.domain.deploy_pipeline_gates import _check_ci_gate
+from yoke_core.domain.deploy_pipeline_hosted_bridge import hosted_bridge_inputs
 from yoke_core.domain.deploy_pipeline_github_workflow_lineage import (
     resolve_publish_sha as _lineage_resolve_publish_sha,
     resolve_release_lineage_sha as _lineage_resolve_release_lineage_sha,
@@ -43,7 +44,6 @@ from yoke_core.domain.deploy_pipeline_reporting import (
     _run_cmd,
 )
 
-
 CORRELATED_WORKFLOW_TIMEOUT_MIN = 120
 
 
@@ -68,7 +68,6 @@ def _dispatch_github_actions_workflow(
     before_dispatch: Optional[readiness.Preparation] = None,
     sd: Optional[str] = None,
 ) -> tuple[int, str]:
-    """Dispatch once CI and ``before_dispatch`` pass; return exit code and evidence."""
     sd = sd or _resolve_script_dir()
     workflow = str(config.get("workflow", "") or "")
     if not workflow:
@@ -90,7 +89,11 @@ def _dispatch_github_actions_workflow(
         return 1, diagnostic
     if not correlation_input:
         narrate_uncorrelated_dispatch()
-    raw_workflow_inputs = _workflow_inputs(config)
+    raw_workflow_inputs, diagnostic = hosted_bridge_inputs(
+        workflow, _workflow_inputs(config)
+    )
+    if diagnostic:
+        return 1, diagnostic
     default_timeout_min = (
         max(timeout_min, CORRELATED_WORKFLOW_TIMEOUT_MIN)
         if correlation_input
@@ -155,7 +158,7 @@ def _dispatch_github_actions_workflow(
         before_dispatch=before_dispatch,
     )
     workflow_ref = ""
-    if not diagnostic:  # Where in the DEPLOY repo the workflow file runs from.
+    if not diagnostic:
         workflow_ref, diagnostic = dispatch_ref(
             config,
             name=name,
@@ -178,7 +181,6 @@ def _dispatch_github_actions_workflow(
         preview_slug=preview_slug,
         bound=resolved_bindings,
     )
-
     ga_run_id = ""
     already_complete = False
     retrigger_scope = ""
@@ -292,8 +294,7 @@ def _resolve_release_lineage_sha(
     project_repo_path: str,
     gate_branch: str,
 ) -> tuple[str, str]:
-    """Thin wrapper passing this module's own patchable `_run_cmd` through
-    to `deploy_pipeline_github_workflow_lineage`, which owns the resolution."""
+    """Resolve lineage through this module’s patchable command runner."""
     return _lineage_resolve_release_lineage_sha(
         release_lineage,
         project_repo_path,

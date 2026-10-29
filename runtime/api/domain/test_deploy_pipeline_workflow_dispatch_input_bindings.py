@@ -18,7 +18,7 @@ from yoke_core.domain import (
 
 CONSUMER_B = "b" * 40
 STAGE_CONFIG = {
-    "workflow": "platform-release-bridge.yml",
+    "workflow": "consumer-release.yml",
     "dispatch_correlation_input": "yoke_dispatch_id",
     "ref": "main",
     "reconcile_by_head_sha": False,

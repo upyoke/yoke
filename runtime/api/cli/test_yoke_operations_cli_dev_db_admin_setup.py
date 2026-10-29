@@ -180,7 +180,7 @@ def test_dev_db_admin_setup_apply_uses_managed_secret_and_removes_snapshot(
     config_payload = json.loads(config_path.read_text(encoding="utf-8"))
     entry = config_payload["connections"]["stage-db-admin"]
     assert entry["transport"] == "local-postgres"
-    assert entry["prod"] is False
+    assert entry["protected"] is False
     assert entry["credential_source"] == {
         "kind": "aws_secrets_manager",
         "secret_arn": (
@@ -252,7 +252,7 @@ def test_dev_db_admin_setup_can_mark_production_admin_authority(
             "db-admin",
             "setup",
             "prod",
-            "--prod",
+            "--protected",
             "--config",
             str(config_path),
             "--yes",
@@ -263,7 +263,7 @@ def test_dev_db_admin_setup_can_mark_production_admin_authority(
     assert rc == 0
     capsys.readouterr()
     payload = json.loads(config_path.read_text(encoding="utf-8"))
-    assert payload["connections"]["prod-db-admin"]["prod"] is True
+    assert payload["connections"]["prod-db-admin"]["protected"] is True
 
 
 def test_dev_db_admin_setup_refuses_render_only(monkeypatch, capsys) -> None:

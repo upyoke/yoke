@@ -19,7 +19,7 @@ def _write_connection(
     config_path: str | Path | None,
     postgres: Mapping[str, Any],
     authority: Mapping[str, Any],
-    prod: bool,
+    protected: bool,
     set_active_env: bool,
 ) -> dict[str, Any]:
     cfg_path = machine_config.config_path(config_path)
@@ -35,7 +35,7 @@ def _write_connection(
                 )
             entry = {
                 "transport": "local-postgres",
-                contract.PROD_FLAG_KEY: bool(prod),
+                contract.PROTECTED_FLAG_KEY: bool(protected),
                 "credential_source": dict(credential_source),
                 "postgres": dict(postgres),
                 "authority": dict(authority),

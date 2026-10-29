@@ -32,12 +32,12 @@ def _configure(monkeypatch, tmp_path, *, selected: str = "local") -> None:
                 "connections": {
                     "local": {
                         "transport": "local-postgres",
-                        "prod": False,
+                        "protected": False,
                     },
-                    "prod": {"transport": "https", "prod": True},
+                    "prod": {"transport": "https", "protected": True},
                     ADMIN_ENV: {
                         "transport": "local-postgres",
-                        "prod": True,
+                        "protected": True,
                         "credential_source": {
                             "kind": "dsn_file",
                             "path": str(dsn_file),
@@ -75,7 +75,7 @@ def test_target_is_compared_with_every_administered_connection(
     payload = json.loads(config.read_text())
     payload["connections"]["analytics-db-admin"] = {
         "transport": "local-postgres",
-        "prod": True,
+        "protected": True,
         "credential_source": {"kind": "env", "name": "ANALYTICS_ADMIN_DSN"},
     }
     config.write_text(json.dumps(payload))

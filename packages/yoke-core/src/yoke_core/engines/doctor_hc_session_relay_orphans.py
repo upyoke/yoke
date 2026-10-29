@@ -21,8 +21,8 @@ from typing import Any
 
 from yoke_cli.config import machine_config
 from yoke_cli.config.session_relay_instance import (
-    NON_PROD_RELAY_LABEL_PREFIX,
-    PROD_RELAY_LABEL,
+    RELAY_LABEL_PREFIX,
+    RELAY_BASE_LABEL,
 )
 from yoke_core.engines.doctor_applicability import NOT_APPLICABLE
 from yoke_core.engines.doctor_report import DoctorArgs, RecordCollector
@@ -55,7 +55,7 @@ def scan_relay_login_items(
     unreadable: list[Path] = []
     if not launch_agents.is_dir():
         return orphans, unreadable
-    for path in sorted(launch_agents.glob(f"{NON_PROD_RELAY_LABEL_PREFIX}*.plist")):
+    for path in sorted(launch_agents.glob(f"{RELAY_LABEL_PREFIX}*.plist")):
         try:
             with path.open("rb") as handle:
                 document = plistlib.load(handle)
@@ -63,9 +63,7 @@ def scan_relay_login_items(
             unreadable.append(path)
             continue
         label = str(document.get("Label") or "")
-        if label == PROD_RELAY_LABEL or not label.startswith(
-            NON_PROD_RELAY_LABEL_PREFIX
-        ):
+        if label == RELAY_BASE_LABEL or not label.startswith(RELAY_LABEL_PREFIX):
             continue
         environment = document.get("EnvironmentVariables")
         config_path = ""
@@ -128,7 +126,7 @@ def hc_session_relay_orphans(
             f"config that no longer exists: {_summarize([o.label for o in orphans])}. "
             "Repair: `yoke doctor run --quick --fix`, which unloads and deletes "
             "exactly those jobs and never touches "
-            f"{PROD_RELAY_LABEL}. macOS Login Items rows may linger until "
+            f"{RELAY_BASE_LABEL}. macOS Login Items rows may linger until "
             "reboot or an operator-run `sudo sfltool resetbtm`."
             + ("; " + "; ".join(notes) if notes else ""),
         )

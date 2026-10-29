@@ -23,10 +23,10 @@ from yoke_core.domain.connected_env_readiness_connector import (
 from runtime.api.fixtures.machine_config_test import select_machine_config_file
 
 
-def _postgres_connection(dsn_file: Path, *, port: int, prod: bool) -> dict:
+def _postgres_connection(dsn_file: Path, *, port: int, protected: bool) -> dict:
     return {
         "transport": "local-postgres",
-        "prod": prod,
+        "protected": protected,
         "credential_source": {"kind": "dsn_file", "path": str(dsn_file)},
         "postgres": {
             "host": "127.0.0.1",
@@ -61,8 +61,10 @@ def selected_connections(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dic
                 "schema_version": 1,
                 "active_env": "stage",
                 "connections": {
-                    "stage": _postgres_connection(stage_dsn, port=6547, prod=False),
-                    "prod": _postgres_connection(prod_dsn, port=6548, prod=True),
+                    "stage": _postgres_connection(
+                        stage_dsn, port=6547, protected=False
+                    ),
+                    "prod": _postgres_connection(prod_dsn, port=6548, protected=True),
                     "hosted": {
                         "transport": "https",
                         "api_url": "https://api.example.test",

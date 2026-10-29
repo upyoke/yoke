@@ -22,7 +22,7 @@ def _payload_with_prod_admin() -> dict:
     payload = contract.canonical_example_payload()
     payload["connections"]["prod-db-admin"] = {
         "transport": "local-postgres",
-        contract.PROD_FLAG_KEY: True,
+        contract.PROTECTED_FLAG_KEY: True,
         "credential_source": {"kind": "env", "name": "YOKE_PROD_DSN"},
     }
     payload["active_env"] = "prod"

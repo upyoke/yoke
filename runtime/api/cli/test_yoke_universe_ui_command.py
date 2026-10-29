@@ -5,7 +5,7 @@ The engine half is stubbed at the dynamic-import seam
 covered by ``runtime/api/test_universe_ui_server.py``, the daemon's by
 ``test_yoke_universe_ui_daemon.py``, and the start/stop commands by
 ``test_yoke_universe_ui_up_down_commands.py``. These tests pin the
-allowlist — only non-prod local-postgres serves; https, prod-postgres,
+allowlist — only unprotected local-postgres serves; https, prod-postgres,
 and unrecognized modes refuse in mode language; missing vs malformed
 machine config get distinct guidance — plus the fact that bare
 ``yoke ui`` reads status instead of serving.
@@ -91,11 +91,11 @@ class TestConnectionModeGate:
         machine_home,
         capsys,
     ):
-        write_local_connection("prod-pg", prod=True)
+        write_local_connection("prod-pg", protected=True)
 
         assert commands.ui_up(["--no-browser"]) == 1
         err = capsys.readouterr().err
-        assert "prod-flagged" in err
+        assert "protected" in err
         assert "operator-only" in err
 
     def test_invalid_json_config_names_the_config_problem(
@@ -144,7 +144,7 @@ class TestConnectionModeGate:
         machine_home,
         capsys,
     ):
-        # The allowlist admits only non-prod local-postgres; a transport
+        # The allowlist admits only unprotected local-postgres; a transport
         # this adapter has never heard of must refuse, not serve.
         monkeypatch.setattr(
             connection.machine_config,
@@ -154,7 +154,7 @@ class TestConnectionModeGate:
 
         assert commands.ui_up(["--no-browser"]) == 1
         err = capsys.readouterr().err
-        assert "non-prod local-postgres" in err
+        assert "unprotected local-postgres" in err
         assert "quantum-relay" in err
 
     def test_the_serving_child_re_checks_the_connection(

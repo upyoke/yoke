@@ -26,7 +26,7 @@ in-process dispatch leg imports core only when selected:
 - The in-process `dispatch` itself stays core (`yoke_core.domain.yoke_function_dispatch`).
 
 **Fail-closed rules attach here (AC-16):** when the active connection is
-`local-postgres` AND the env is **prod-flagged** → typed `prod is API-only` error
+`local-postgres` AND the env is **protected** → typed `prod is API-only` error
 (not a `dispatch` call). When `local-postgres` selected AND `yoke_core` absent →
 typed `local-postgres requires source-dev core`.
 `yoke_cli.transport.https.resolve_https_connection` enforces

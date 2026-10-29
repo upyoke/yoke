@@ -141,11 +141,11 @@ def universe_export(args: List[str]) -> int:
             "portable archive: a tar carrying the pg_dump payload and the "
             "freeze receipt that binds it, so the importer verifies the "
             "file by itself — the leave/graduate half of moving a universe "
-            "between deployment modes. A non-prod local connection uses its "
+            "between deployment modes. A unprotected local connection uses its "
             "machine-held DSN; a self-host HTTPS connection streams from the "
             "authenticated server export endpoint. Hosted org admins use "
             "Platform's coordinated dashboard download. "
-            "Prod-flagged Postgres connections stay operator-only."
+            "Protected Postgres connections stay operator-only."
         ),
     )
     parser.add_argument(

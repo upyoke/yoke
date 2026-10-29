@@ -13,6 +13,23 @@ how unattended launches use harness permissions.
 environment is active, API URLs, local paths. Secrets for capabilities live
 under `~/.yoke/secrets/` (not in the repo).
 
+A connection's `protected` boolean means it holds real data, regardless of its
+name or deployment target. Set it with `yoke connection set ENV --protected`;
+clear it with `--unprotected`. `yoke dev db-admin setup` accepts the same flags.
+Direct export/import and disposable database recipes honor this marker.
+Stored connections using the previous `prod` key still read as protected;
+the next config write normalizes that key. The old CLI flags are removed.
+
+Relay service labels and state directories depend only on the canonical config
+path and connection name. Changing protection cannot move a relay; several
+protected HTTPS connections can each run their own relay. Installation retires
+the former shared service only when its document proves the same config, machine
+home and connection. It preserves the former state directory. Live or unknown
+worker custody refuses as `relay_shared_service_retirement_blocked`; close those
+worker sessions and retry installation. A malformed service document requires
+ownership repair before retry. A database-admin door still uses its paired
+HTTPS relay; protection alone does not identify that pairing.
+
 For an isolated machine config, select its home before running a writer:
 
 ```bash

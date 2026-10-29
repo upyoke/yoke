@@ -30,9 +30,10 @@ Repository-only rules; linked owners hold the detail.
 
 ## Database authority
 
-- HTTPS `prod` owns registered operations. Paired `prod-db-admin` runs handlers locally over
+- The HTTPS connection owning the project owns registered operations. Its paired
+  `*-db-admin` connection runs handlers locally over
   a tunnel; any call outside `yoke_contracts.direct_database_access` refuses
-  `use_https_env`. Stage receipts are recorded on the prod control plane. Connections: `yoke env list`.
+  `use_https_env`. Release receipts stay on the connection owning the project. Connections: `yoke env list`.
 - Platform's database (`yoke_platform`) is read-only here:
   `yoke --env platform-prod-registry-db-admin db read "SELECT ..."` (stage:
   `platform-stage-registry-db-admin`).
@@ -49,7 +50,7 @@ Repository-only rules; linked owners hold the detail.
   yoke dev db-admin exec P-stage-MODEL-db-admin --dsn-var APP_DSN -- <command>
   ```
 - Rehearse migrations from the claimed lane:
-  `yoke dev run -- yoke --env prod-db-admin migration rehearse PREFIX-N`. With several lanes add
+  `yoke dev run -- yoke --env CONTROL_PLANE-db-admin migration rehearse PREFIX-N`. With several lanes add
   `--lane <registered-worker-path>` after `dev run`. Keep the fleet-preflight receipt and the
   `LIVE_DB_MIGRATION:<model>` hold; the merge releases it.
 - Tenant-fleet content-identity adoption is an attested operator step: read
@@ -59,15 +60,17 @@ Repository-only rules; linked owners hold the detail.
 
 ## Release Yoke
 
-- Create runs over HTTPS `prod`. LINEAGE is the selected source `release_lineage`.
-  Production drives on `prod-db-admin` (it replaces its own API; try `prod` first);
-  stage on `prod`. Resume with the same run and key:
+- Create runs through the HTTPS connection owning the project (`--env CONTROL_PLANE`,
+  or checkout routing). LINEAGE is the selected source `release_lineage`.
+  A self-replacing run uses that connection's paired `*-db-admin` driver:
+  `stage-db-admin` for Stage ownership, `prod-db-admin` for Production ownership.
+  Other runs use HTTPS. Resume with the same run and key:
 
   ```text
-  yoke --env prod deployment-runs create yoke FLOW --environment prod --idempotency-key KEY
-  yoke --env prod deployment-runs create yoke STAGE_FLOW --environment stage --project-repo-path CHECKOUT --source-ref LINEAGE --idempotency-key STAGE_KEY
-  yoke --env prod-db-admin watch deploy -- PROD_RUN
-  yoke --env prod watch deploy -- STAGE_RUN
+  yoke --env CONTROL_PLANE deployment-runs create yoke FLOW --environment prod --idempotency-key KEY
+  yoke --env CONTROL_PLANE deployment-runs create yoke STAGE_FLOW --environment stage --project-repo-path CHECKOUT --source-ref LINEAGE --idempotency-key STAGE_KEY
+  yoke --env CONTROL_PLANE-db-admin watch deploy -- SELF_REPLACING_RUN
+  yoke --env CONTROL_PLANE watch deploy -- OTHER_RUN
   ```
 - Hosted routes: `yoke-hosted-stage-release-qa`, `yoke-hosted-production-release-qa`,
   `yoke-hosted-production-hotfix-release`. Never hand-create release tags, hand-edit
@@ -98,7 +101,7 @@ on retries. Workers report the need to steering; they do not run it.
 c=/absolute/source/checkout
 env YOKE_SOURCE_DEV=1 YOKE_HOME="$c" "$c/.venv/bin/python3" \
   "$c/packages/yoke-core/src/yoke_core/tools/yoke_launcher.py" \
-  --env prod-db-admin deployment-runs create yoke FLOW --environment prod \
+  --env CONTROL_PLANE-db-admin deployment-runs create yoke FLOW --environment prod \
   --project-repo-path "$c" --source-ref FULL_SHA --idempotency-key KEY
 ```
 

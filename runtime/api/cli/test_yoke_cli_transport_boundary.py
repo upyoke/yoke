@@ -104,7 +104,7 @@ def test_builtin_dispatch_selects_only_explicit_client_local_entrypoint(
     assert calls == ["control-plane", "client-local"]
 
 
-def test_local_dispatch_allows_explicit_prod_flag_when_local_core_is_available(
+def test_local_dispatch_allows_explicit_protected_flag_when_local_core_is_available(
     tmp_path: Path,
 ) -> None:
     config_path = tmp_path / "config.json"
@@ -116,7 +116,7 @@ def test_local_dispatch_allows_explicit_prod_flag_when_local_core_is_available(
                 "connections": {
                     "prod-db-admin": {
                         "transport": "local-postgres",
-                        "prod": True,
+                        "protected": True,
                     },
                 },
             }

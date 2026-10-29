@@ -99,7 +99,7 @@ def _context(tmp_path, *, grant=None, version: str = "2.1.241"):
 def _stage_runtime(
     monkeypatch,
     *,
-    prod: bool = False,
+    protected: bool = False,
     active_environment: str = "stage",
 ):
     monkeypatch.setattr(
@@ -108,7 +108,7 @@ def _stage_runtime(
     monkeypatch.setattr(
         qualification.machine_config,
         "active_connection",
-        lambda: {"transport": "https", "prod": prod},
+        lambda: {"transport": "https", "protected": protected},
     )
 
 
@@ -184,18 +184,18 @@ def test_installed_wheel_inside_clean_repo_is_not_source_authority(
 
 
 @pytest.mark.parametrize(
-    ("active_environment", "prod"),
+    ("active_environment", "protected"),
     [("prod", False), ("stage", True)],
 )
 def test_prod_active_environment_or_connection_is_refused(
     monkeypatch,
     tmp_path,
     active_environment: str,
-    prod: bool,
+    protected: bool,
 ) -> None:
     _stage_runtime(
         monkeypatch,
-        prod=prod,
+        protected=protected,
         active_environment=active_environment,
     )
     monkeypatch.setattr(qualification.subprocess, "run", _git_result())
@@ -213,7 +213,7 @@ def test_launchd_projection_authorizes_connection_derived_stage(
         environment="stage",
         config_path=yoke_home / "config.json",
         yoke_home=yoke_home,
-        prod=False,
+        protected=False,
         label="com.upyoke.relay.stage-test",
         state_dir=yoke_home / "relay-instances" / "stage-test",
     )

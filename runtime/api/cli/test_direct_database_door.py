@@ -24,7 +24,7 @@ ADMIN_ENV = "prod-db-admin"
 SERVED_ENV = "prod"
 PAIRED = {
     "connections": {
-        ADMIN_ENV: {"transport": "local-postgres", "prod": True},
+        ADMIN_ENV: {"transport": "local-postgres", "protected": True},
         SERVED_ENV: {"transport": "https", "api_url": "https://control.example/v1"},
     }
 }
@@ -69,9 +69,7 @@ def _call(function_id: str, seen: list[str]):
     )
 
 
-def test_routine_function_on_the_door_refuses_naming_the_https_env(
-    select, local_calls
-):
+def test_routine_function_on_the_door_refuses_naming_the_https_env(select, local_calls):
     select(ADMIN_ENV, PAIRED)
 
     response = _call("deployment_runs.create", local_calls)
@@ -297,7 +295,9 @@ def test_relay_install_refuses_a_door_whose_https_env_serves_it(tmp_path):
         mock.patch.object(
             session_relay_instance, "resolve_relay_instance", return_value=door_relay
         ),
-        pytest.raises(session_relay_instance.RelayInstanceError, match="relay uninstall"),
+        pytest.raises(
+            session_relay_instance.RelayInstanceError, match="relay uninstall"
+        ),
     ):
         session_control_relay_release.serve_release_daemon()
 
@@ -312,7 +312,9 @@ def test_explicit_admin_merge_holds_the_door(select, monkeypatch):
         "active_connection",
         lambda: PAIRED["connections"][ADMIN_ENV],
     )
-    monkeypatch.setattr(local_runtime, "_confirm_selected_control_plane", lambda _e: None)
+    monkeypatch.setattr(
+        local_runtime, "_confirm_selected_control_plane", lambda _e: None
+    )
 
     with local_runtime.same_universe_control_plane_authority() as selection:
         assert selection == (ADMIN_ENV, ADMIN_ENV)

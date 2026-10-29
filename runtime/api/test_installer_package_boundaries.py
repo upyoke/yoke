@@ -1,8 +1,8 @@
 """Guard engine import boundaries for the client packages.
 
 The engine ships beside the clients, but the active connection decides whether
-it runs: HTTPS relays to the server, non-prod local Postgres dispatches in
-process, and prod-flagged Postgres stays operator-only. Client packages cannot
+it runs: HTTPS relays to the server, unprotected local Postgres dispatches in
+process, and protected Postgres stays operator-only. Client packages cannot
 take static authority over engine/runtime/database modules before that transport
 decision. Dynamic imports remain limited to the classified lanes in
 :mod:`runtime.api.dynamic_authority_import_allowlist`.

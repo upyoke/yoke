@@ -98,7 +98,7 @@ def _local_postgres_rerun_hint(*, cli_invocation: str) -> str:
             for env in local_postgres_envs(config)
             if not same_universe_https_env(config, env)
         ]
-        inventory_envs = local_postgres_envs(config, include_prod=True)
+        inventory_envs = local_postgres_envs(config, include_protected=True)
     except Exception:
         return ""
     if not retry_envs:
