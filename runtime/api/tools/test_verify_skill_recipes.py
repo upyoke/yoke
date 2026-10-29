@@ -144,7 +144,6 @@ class TestSmokeDispatch:
         assert function_id == "items.get.run"
         assert error is None
 
-
     def test_top_level_version_passes_without_dispatch_capture(self) -> None:
         ok, function_id, error = vsr.smoke_dispatch("yoke --version")
         assert ok is True
