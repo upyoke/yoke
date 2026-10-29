@@ -154,7 +154,7 @@ BUILTIN_QA_METHODS = (
     {
         "id": "exploratory-mission",
         "name": "Exploratory mission",
-        "description": "Agent-chosen exploration across declared substrates; an "
+        "description": "Agent-chosen exploration across declared substrates; "
         "missions without a declared host explore on the controller. Do not use it for "
         "deterministic checks: Command methods are faster, cheaper, "
         "and repeatable.",

@@ -165,3 +165,15 @@ test("a lease-waiting case explains contention without offering actions", async 
   );
   assert.match(text(host), /1 waiting — the release transition waits/);
 });
+
+
+test("QA mount and cleanup produce no collector setup warning", async (t) => {
+  const { mountAt } = await import("./universe_ui_qa_view_test_support.mjs");
+  const warnings = [];
+  t.mock.method(console, "warn", (...args) => warnings.push(args.join(" ")));
+  const { documentNode } = await mountAt(t, "/qa-methods?project=1");
+  assert.equal(typeof documentNode.defaultView.fetch, "function");
+  t.after(() => {
+    assert.equal(warnings.some((warning) => warning.includes("collector_setup_failed")), false);
+  });
+});

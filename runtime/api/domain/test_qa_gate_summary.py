@@ -71,6 +71,10 @@ def test_no_requirements_for_scope(qa_db):
     )
     assert summary["qa_tables_present"] is True
     assert summary["no_requirements"] is True
+    assert summary["reason_code"] == "GATE_QA_REQUIREMENTS_EMPTY"
+    assert "GATE_QA_REQUIREMENTS_EMPTY" in summary["message"]
+    assert "yoke qa item-plan attach" in summary["message"]
+    assert "yoke qa requirement add" in summary["message"]
     assert summary["satisfied"] is False
     assert summary["blocking_unsatisfied_count"] == 0
 

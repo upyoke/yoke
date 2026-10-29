@@ -21,9 +21,10 @@ Pick exactly one branch; a failed managed step never falls back to no-host.
 
 - **Managed:** register site and environments (never overwrite an existing one), validate the flow
   (`execution_supported=false` creates it disabled, no default), create it.
-- **Merge-only:** a flow with two `auto` stages, `merged` and `complete`, each
-  `stage_kind: execution`, and no tier or environment;
-  `yoke deployment-flows get FLOW target_tier` must read `none`.
+- **Merge-only:** a flow with no tier or environment and these full stage objects:
+  `[{"name":"merged","step_runner":"auto","stage_kind":"execution"},
+  {"name":"complete","step_runner":"auto","stage_kind":"execution"}]`.
+  `yoke deployment-flows get FLOW target_tier` must read empty.
 - **No default:** remove the project `deploy_defaults`; the read must print nothing.
 
 Set the default for dash, issue, epic and blitz; never `--apply-to-all`.

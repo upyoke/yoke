@@ -74,9 +74,15 @@ def _start_tree() -> subprocess.Popen[bytes]:
         start_new_session=True,
     )
     deadline = time.monotonic() + 10
-    while len(_group(leader.pid)) < 2 and time.monotonic() < deadline:
+    while True:
+        found = subprocess.run(
+            ["/usr/bin/pgrep", "-g", str(leader.pid), "-x", "sleep"],
+            capture_output=True, text=True,
+        ).stdout.split()
+        if len(found) == 2 or time.monotonic() >= deadline:
+            break
         time.sleep(0.05)
-    assert len(_group(leader.pid)) == 2
+    assert len(found) == 2
     return leader
 
 

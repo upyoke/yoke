@@ -152,6 +152,9 @@ env YOKE_SOURCE_DEV=1 YOKE_HOME="$c" "$c/.venv/bin/python3" \
 
 ## Review, teaching and cleanup
 
+- Create the render-proof connection for local UI review: check
+  `yoke dev setup <checkout> --admin-env render-proof --with-test-postgres --dry-run`,
+  then rerun with `--yes` in place of `--dry-run`.
 - Serve a lane's UI: `yoke dev run -- python3 -m runtime.api.tools.serve_workbench_for_review`.
   Commit first; a dirty tree fails the served-commit match. With `env YOKE_ENV=render-proof`,
   add `--prepare-only` to prepare a render universe. Self-hosted sign-in review uses

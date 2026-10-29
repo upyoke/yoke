@@ -41,7 +41,8 @@ EXIT_FULL_CI = 3
 #: Where the full suite runs instead, phrased for any project.
 FULL_CI_RECOVERY = (
     "run the item's full QA case instead: `yoke qa requirement list --item "
-    "PREFIX-N`, then `yoke qa case run --requirement-id <id>`"
+    "PREFIX-N`, then `yoke qa case run --requirement-id <id>`; "
+    "with no case, merge-queue CI runs the full suite"
 )
 
 

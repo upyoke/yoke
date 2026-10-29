@@ -278,6 +278,8 @@ class QaGateSummaryResponse(BaseModel):
     transition: str
     qa_tables_present: bool
     no_requirements: bool
+    reason_code: Optional[str] = None
+    message: Optional[str] = None
     satisfied: bool
     blocking_unsatisfied_count: int
     browser_unsatisfied_count: int

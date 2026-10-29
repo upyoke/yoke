@@ -41,7 +41,7 @@ def item_worktrees_create(args: List[str]) -> int:
         "--lane-role",
         choices=ADDITIONAL_ITEM_WORKTREE_LANE_ROLES,
         help=(
-            "Explicit additional lane role; omit with --branch to ensure the "
+            "Explicit additional lane role; omit both --lane-role and --branch to ensure the "
             "sole policy-required default lane."
         ),
     )

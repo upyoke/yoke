@@ -102,3 +102,5 @@ def test_cli_returns_zero_for_unsatisfied_diagnostic(qa_db, capsys):
     assert rc == 0
     out = capsys.readouterr().out
     assert "No QA requirements" in out
+    assert "GATE_QA_REQUIREMENTS_EMPTY" in out
+    assert "yoke qa requirement add" in out

@@ -201,10 +201,18 @@ export async function mountAt(t, hash) {
   t.after(() => { globalThis.fetch = originalFetch; });
   globalThis.fetch = () => response(200, {});
   const documentNode = new FakeDocument();
+  // Keep collector setup pending: this DOM fixture has no browser telemetry globals.
+  // Unmount ends the request before any collector configuration is applied.
+  let finishCollector;
+  documentNode.defaultView.fetch = () => new Promise((resolve) => { finishCollector = resolve; });
   documentNode.defaultView.location.href = hash || "/";
   const root = documentNode.createElement("div");
   const client = qaClient();
   const mounted = mountUniverseApp(root, { client });
+  t.after(() => {
+    mounted.unmount();
+    finishCollector?.({ ...response(200, {}), ok: true });
+  });
   await settle();
   return { documentNode, root, client, mounted };
 }

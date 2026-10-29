@@ -22,6 +22,7 @@ import sys
 from pathlib import Path
 from typing import Optional, Sequence, TextIO
 
+from yoke_contracts.install_binding import SOURCE_DEV_RUN_ROOT_ENV
 from yoke_contracts.machine_config.schema import ENV_OVERRIDE
 from yoke_contracts.harness_wake_capability import wake_capability_for_mechanism
 from yoke_contracts.uv_project import uv_project_root
@@ -75,12 +76,13 @@ def _with_connection_env(invocation: str) -> str:
     wrappers have no global flag, so they inherit ``YOKE_ENV=NAME``.
     """
     env = os.environ.get(ENV_OVERRIDE, "").strip()
-    if not env:
-        return invocation
-    quoted = shlex.quote(env)
     if invocation.startswith("yoke "):
-        return f"yoke --env {quoted} {invocation.removeprefix('yoke ')}"
-    return f"{ENV_OVERRIDE}={quoted} {invocation}"
+        if env:
+            invocation = f"yoke --env {shlex.quote(env)} {invocation.removeprefix('yoke ')}"
+        if os.environ.get(SOURCE_DEV_RUN_ROOT_ENV):
+            invocation = f"yoke dev run -- {invocation}"
+        return invocation
+    return f"{ENV_OVERRIDE}={shlex.quote(env)} {invocation}" if env else invocation
 
 
 def _bound_wrapper_command(
@@ -282,6 +284,7 @@ def print_wait_mode_invocation(
     selected = wait_mode or resolve_wait_mode()
     stream.write(f"# watch_{kind} wait_mode={selected.name}\n")
     stream.write(f"# watch_{kind} wait_reason={selected.reason}\n")
+    stream.write("# Subagents use the in-turn foreground form; never background Bash or Monitor.\n")
     stream.write(
         f"# watch_{kind} printed only — nothing has run; run the command "
         "below to start it.\n"

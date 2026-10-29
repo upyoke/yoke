@@ -15,6 +15,7 @@ from pathlib import Path
 
 import pytest
 
+from yoke_contracts.install_binding import SOURCE_DEV_RUN_ROOT_ENV
 from yoke_contracts.machine_config.schema import ENV_OVERRIDE
 from yoke_contracts.uv_project import uv_project_root
 from yoke_core.tools import _watch_runner
@@ -23,6 +24,7 @@ from yoke_core.tools import _watch_runner
 @pytest.fixture(autouse=True)
 def _isolate_connection_env(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv(ENV_OVERRIDE, raising=False)
+    monkeypatch.delenv(SOURCE_DEV_RUN_ROOT_ENV, raising=False)
 
 
 def _pair_text(
@@ -171,3 +173,26 @@ def test_omits_connection_env_when_unset():
     assert "--env " not in text
     assert f"{ENV_OVERRIDE}=" not in text
     assert "yoke watch pytest" in text
+
+
+@pytest.mark.parametrize("source_bound", [False, True])
+@pytest.mark.parametrize("connection", ["", "prod-db-admin"])
+def test_commands_preserve_source_binding(monkeypatch, source_bound, connection):
+    if source_bound:
+        monkeypatch.setenv(SOURCE_DEV_RUN_ROOT_ENV, str(Path.cwd()))
+    if connection:
+        monkeypatch.setenv(ENV_OVERRIDE, connection)
+    commands = [line.split(" && ", 1)[1] for line in _command_lines(_pair_text([]))]
+    assert len(commands) == 2
+    for command in commands:
+        assert command.startswith("yoke dev run -- ") is source_bound
+        invocation = command.removeprefix("yoke dev run -- ")
+        expected = f"yoke --env {connection} watch " if connection else "yoke watch "
+        assert invocation.startswith(expected)
+
+
+def test_source_binding_leaves_module_wrapper_unchanged(monkeypatch):
+    monkeypatch.setenv(SOURCE_DEV_RUN_ROOT_ENV, str(Path.cwd()))
+    commands = _command_lines(_pair_text([], "yoke_core.tools.watch_advance"))
+    assert " && uv run --frozen python3 -m " in commands[0]
+    assert "yoke dev run -- yoke watch tail" in commands[1]
