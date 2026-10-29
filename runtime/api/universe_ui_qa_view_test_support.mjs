@@ -211,7 +211,7 @@ export async function mountAt(t, hash) {
   const mounted = mountUniverseApp(root, { client });
   t.after(() => {
     mounted.unmount();
-    finishCollector?.({ ...response(200, {}), ok: true });
+    finishCollector?.({ ok: true, json: async () => ({}) });
   });
   await settle();
   return { documentNode, root, client, mounted };
