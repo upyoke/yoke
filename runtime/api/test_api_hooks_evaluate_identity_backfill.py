@@ -56,6 +56,8 @@ def test_second_hook_backfills_codex_surface_and_version(
             "cwd": "/client/repo",
             "session_id": session_id,
             "project_id": 1,
+            # A Codex hook registers only from a saved transcript.
+            "transcript_path": "/client/codex/rollout.jsonl",
         }
     )
 

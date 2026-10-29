@@ -178,6 +178,8 @@ def test_lifecycle_uses_wire_project_without_server_checkout(
     monkeypatch.setattr(project_defaults, "default_project_for_directory", lambda _: "")
     monkeypatch.setenv("YOKE_SCRATCH_ROOT", str(tmp_path))
     session_id = f"explicit-project-{executor}-{event_name}"
+    # A Codex hook registers only from a saved transcript.
+    transcript = {"transcript_path": str(tmp_path / "rollout.jsonl")}
     # Register through a tool hook before testing terminal events, which
     # observe existing sessions and intentionally cannot register one.
     assert (
@@ -191,6 +193,7 @@ def test_lifecycle_uses_wire_project_without_server_checkout(
                         "cwd": "/client/repo",
                         "tool_name": "Read",
                         "tool_input": {},
+                        **transcript,
                     }
                 ),
             ),
@@ -202,7 +205,9 @@ def test_lifecycle_uses_wire_project_without_server_checkout(
         json=_request_body(
             event_name=event_name,
             executor=executor,
-            stdin=json.dumps({"session_id": session_id, "cwd": "/client/repo"}),
+            stdin=json.dumps(
+                {"session_id": session_id, "cwd": "/client/repo", **transcript}
+            ),
         ),
     )
     assert response.status_code == 200

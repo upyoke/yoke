@@ -98,6 +98,7 @@ class TestEnsureRegisteredFromHook:
             object(),
             "{}",
             "s-r",
+            transcript_path="/saved/codex.jsonl",
             record_anchor=False,
             executor_hint="codex",
             register_in_process=True,

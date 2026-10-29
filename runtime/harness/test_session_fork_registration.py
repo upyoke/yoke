@@ -157,3 +157,114 @@ def test_codex_start_gates_before_registration_transport(
     assert relayed.call_count == transport.call_count == bool(transcript_path)
     completed.assert_called_once()
     conn.close()
+
+
+def _ensure(monkeypatch, *, found, ended=False, stored_actor_id=None, **kwargs):
+    from yoke_core.hooks import registration
+
+    monkeypatch.setattr(
+        "yoke_core.domain.sessions_ended_recovery.session_registration_state",
+        lambda _conn, _sid: (found, stored_actor_id, ended),
+    )
+    monkeypatch.setattr(registration, "placeholder_identity_can_upgrade", lambda *a: False)
+    registered = []
+    monkeypatch.setattr(
+        registration,
+        "_register_from_hook",
+        lambda payload, sid, **kw: registered.append((sid, kw.get("actor_id"))),
+    )
+    drove = registration.ensure_registered_from_hook(
+        object(), "{}", "helper", register_in_process=True, **kwargs
+    )
+    return drove, registered
+
+
+@pytest.mark.parametrize(
+    "found,ended,force",
+    [(False, False, False), (True, True, False), (True, False, True)],
+    ids=["missing", "ended", "force_reregister"],
+)
+def test_unsaved_codex_hook_never_creates_or_revives_a_row(
+    monkeypatch, found, ended, force
+):
+    assert _ensure(
+        monkeypatch, found=found, ended=ended,
+        executor_hint="codex-desktop", force_reregister=force,
+    ) == (False, [])
+
+
+@pytest.mark.parametrize(
+    "executor,transcript_path",
+    [("codex-desktop", "/saved/helper.jsonl"), ("claude-desktop", "")],
+)
+def test_saved_codex_and_claude_without_a_path_still_register(
+    monkeypatch, executor, transcript_path
+):
+    assert _ensure(
+        monkeypatch, found=False,
+        executor_hint=executor, transcript_path=transcript_path,
+    ) == (True, [("helper", None)])
+
+
+def test_live_unsaved_codex_row_still_gets_its_actor_backfilled(monkeypatch):
+    assert _ensure(
+        monkeypatch, found=True, executor_hint="codex-desktop", actor_id=7,
+    ) == (True, [("helper", 7)])
+
+
+def test_unsaved_codex_helper_tool_call_is_allowed_unregistered(monkeypatch):
+    from yoke_contracts.hook_runner import guard_scope, project_scope
+    from yoke_core.hooks import registration, run_tail, runner
+    from yoke_core.hooks.adapter_capability import AdapterCapability
+    from yoke_core.hooks.decision_render import render_codex_decision
+    from yoke_core.hooks.types import HookDecision, Outcome
+
+    monkeypatch.setenv("YOKE_EXECUTOR", "codex-desktop")
+    monkeypatch.setattr(
+        project_scope, "resolve_hook_project_scope",
+        lambda payload: type("Scope", (), {"require_project_id": lambda self: 1})(),
+    )
+    monkeypatch.setattr(guard_scope, "applicable_chain", lambda chain, project: chain)
+    monkeypatch.setattr(runner, "record_guard_decision", lambda *a, **kw: None)
+    monkeypatch.setattr(runner._mode_gate, "apply_mode", lambda d, *a, **kw: d)
+    monkeypatch.setattr(
+        runner, "invoke_module",
+        lambda module, **kw: (HookDecision(outcome=Outcome.NOOP), "", None, (module, {})),
+    )
+    monkeypatch.setattr(
+        "yoke_core.domain.sessions_ended_recovery.session_registration_state",
+        lambda _conn, _sid: (False, None, False),
+    )
+    monkeypatch.setattr(
+        registration, "_register_from_hook",
+        lambda *a, **k: pytest.fail("unsaved Codex helper registered"),
+    )
+    driven = []
+
+    def tail(**kw):
+        request = run_tail._ensure_session_request(
+            event_name=kw["event_name"], context=kw["context"],
+            payload=kw["payload"], stdin_data=kw["stdin_data"],
+            controls=kw["controls"], preflight_complete=False,
+        )
+        session_id, payload_json, transcript, anchor, hint, *_ = request
+        driven.append(registration.ensure_registered_from_hook(
+            object(), payload_json, session_id, transcript_path=transcript,
+            record_anchor=anchor, executor_hint=hint, register_in_process=True,
+        ))
+
+    monkeypatch.setattr(run_tail, "flush_run_tail", tail)
+    payload = {"session_id": "helper", "tool_name": "Bash",
+               "tool_input": {"command": "ls"}}
+    capability = AdapterCapability(
+        family="codex", payload_parser=json.loads,
+        decision_renderer=render_codex_decision,
+    )
+
+    text, code = runner.run_event(
+        "PreToolUse", capability=capability, stdin_data=json.dumps(payload)
+    )
+
+    assert code == 0
+    assert "BLOCKED" not in text
+    assert driven == [False]

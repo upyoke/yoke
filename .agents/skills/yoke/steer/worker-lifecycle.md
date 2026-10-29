@@ -18,6 +18,7 @@ Parked or release-wait quiet is not failure; the holder keeps its
 claim through delivery QA. A merged item that owes nothing has no holder;
 its release closes it. Message a quiet worker first. Terminate only an
 unresponsive worker, a restaff or cleanup. One fresh session per item.
+Before terminating a worker for silence, re-read the steering report. If you were also quiet over the same window, the host likely slept: message the worker first.
 
 ## Survey a neighbour before an ordered edit
 

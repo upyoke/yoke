@@ -82,6 +82,9 @@ fleet idle-holder lines; an older server without that field reports unknown.
 --allow-resume-in-flight. sessions.list native_process exposes resuming with
 resume_started_at, or gone with resumable_from_transcript. Ended/terminated
 sessions are excluded from holder alarms; a live unparked idle holder, or a parked holder with waiting dependents, re-alarms hourly.
+Before terminating a worker for silence, re-read the steering report. If you
+were also quiet over the same window, the host likely slept: message the worker
+first.
 
 ## Undelivered messages
 
@@ -191,9 +194,13 @@ machine · surface:` line per surface, and JSON rows carry `extra_usage` and
 
 Unregistered launches report immediately for failed correlation or exact
 active harness session lacking binding; otherwise after deadline_at. Deadline
-starts at pickup, not queued time. State that mandate was not delivered;
-reconcile before retry. Live native: bind it; exited native: reconcile/retry,
-with exit/last line and session evidence read. Exclude unrelated closed history.
+starts at pickup, not queued time. State that mandate was not delivered.
+Only `outcome_unknown` and `failed` launches show the reconcile recipe, the
+states reconcile accepts: live native, bind it; exited native, reconcile then
+retry, with exit/last line and session evidence read. Any other state says no
+command binds it; relaunch once the native exits and the cause is fixed. A
+launch reconcile already settled as never created shows only the relaunch line.
+"Registered session" appears only when a session actually registered. Exclude unrelated closed history.
 Abandoned launch: delivered mandate but no claim/outbound message/completed
 call, native gone; show session/closed age/exit/last line, restaff unstarted work.
 Rows expire after six hours.

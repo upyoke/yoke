@@ -26,19 +26,33 @@ def _unregistered(**overrides) -> UnregisteredLaunch:
 
 
 def test_a_live_unbound_native_is_told_to_be_bound() -> None:
-    line = unregistered_launch_lines((_unregistered(observed_session_id="session-1"),))[
-        0
-    ]
+    line = unregistered_launch_lines(
+        (_unregistered(state="outcome_unknown", observed_session_id="session-1"),)
+    )[0]
 
+    assert "registered session session-1 exists" in line
     assert "native is live — bind it" in line
     assert "launch reconcile launch-1 --observed-native-id session-1" in line
     assert "native is dead" not in line
+
+
+def test_an_awaiting_registration_launch_offers_no_reconcile() -> None:
+    line = unregistered_launch_lines((_unregistered(native_session_id="native-1"),))[0]
+
+    assert "native session native-1 started; no session registered" in line
+    assert "registered session" not in line
+    assert "reconcile" not in line
+    assert (
+        "no command binds it in this state; relaunch once the native exits "
+        "and the cause is fixed"
+    ) in line
 
 
 def test_a_dead_native_is_told_to_reconcile_then_retry_and_quotes_it() -> None:
     line = unregistered_launch_lines(
         (
             _unregistered(
+                state="failed",
                 observed_session_id="session-1",
                 native_stderr_tail=REFUSAL,
                 exit_code=1,
@@ -47,16 +61,28 @@ def test_a_dead_native_is_told_to_reconcile_then_retry_and_quotes_it() -> None:
     )[0]
 
     assert "native is dead — reconcile, then retry" in line
+    assert "launch reconcile launch-1 --observed-native-id session-1" in line
     assert f"exit 1, last output: {REFUSAL}" in line
 
 
 def test_a_correlation_failure_without_output_still_names_the_recovery() -> None:
     line = unregistered_launch_lines(
-        (_unregistered(result_code="identity_listing_lagged"),)
+        (_unregistered(state="outcome_unknown", result_code="identity_listing_lagged"),)
     )[0]
 
     assert "identity listing lagged" in line
-    assert "reconcile, then retry" in line
+    assert "reconcile, then retry: find the native session ID" in line
+
+
+def test_a_failed_launch_reconciled_as_never_created_only_relaunches() -> None:
+    line = unregistered_launch_lines(
+        (_unregistered(state="failed", result_code="reconciled_not_created"),)
+    )[0]
+
+    assert "reconciled as never created" in line
+    assert "relaunch once the cause is fixed" in line
+    assert "reconcile launch-1" not in line
+    assert "--observed-native-id" not in line
 
 
 def test_an_abandoned_launch_names_the_session_the_reason_and_the_action() -> None:

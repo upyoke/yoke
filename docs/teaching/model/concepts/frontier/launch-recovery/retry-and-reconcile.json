@@ -1,7 +1,9 @@
 {
  "id": "retry-and-reconcile",
  "title": "Retry and reconcile",
- "status": "draft-copy",
+ "status": "observed",
  "page": "frontier",
- "position": 2
+ "position": 2,
+ "current": "Reconcile accepts only outcome_unknown and failed launches, so the steering report shows its bind recipe only in those states; any other state says no command binds it and to relaunch once the native exits and the cause is fixed. A launch reconcile already settled as never created shows only relaunch. A retry keeps the launch id but carries a new attestation, and the worker's replay marker names that attestation, so an earlier delivered attempt never blocks the retry from registering.",
+ "sources": ["docs/public/sessions/steering-report.md", "packages/yoke-core/src/yoke_core/domain/session_launch_reconciliation.py", "packages/yoke-harness/src/yoke_harness/session_launch_handoff.py"]
 }
