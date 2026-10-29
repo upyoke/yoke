@@ -3,5 +3,6 @@
  "title": "Impacted tests",
  "status": "draft-copy",
  "page": "verification",
- "position": 0
+ "position": 0,
+ "summary": "Impacted selection follows ordinary imports, including helper names resolved from indexed package markers under pytest prepend mode. Bare-name collisions conservatively add tests; existing full module edges remain. Single-word dynamic import strings are not dependency evidence."
 }
