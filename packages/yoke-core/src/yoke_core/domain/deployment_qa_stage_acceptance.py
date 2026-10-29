@@ -79,6 +79,27 @@ def unsettled_acceptance_blocker(*, execution_id: object, digest: str) -> str:
     )
 
 
+def member_cases_passed(
+    conn: Any, run_id: str, stage: str, member: int, digest: str
+) -> bool:
+    """Every concrete run-bound case has a current pass for this member."""
+    from yoke_core.domain.deployment_qa_stage_case_failures import scoped_cases
+    from yoke_core.domain.qa_requirement_pass_currency import (
+        current_passing_requirements,
+    )
+    from yoke_core.domain.qa_obligation_settlement import obligation_settled
+
+    rows = scoped_cases(
+        conn,
+        run_id=run_id,
+        stage_name=stage,
+        member_item_id=member,
+        execution_target_digest=digest,
+    )
+    ids = {int(row["id"]) for row in rows if not obligation_settled(row)}
+    return bool(rows) and ids <= current_passing_requirements(conn, ids)
+
+
 def missing_execution_blocker(
     conn: Any,
     run_id: str,
@@ -171,12 +192,16 @@ def stage_acceptance(
     if execution is None:
         if member_post_deploy_answer(conn, subject).discharges_without_cases:
             return StageAcceptance(STAGE_DISCHARGED, ())
-        execution = None if failures else stopped_case_execution(
-            conn,
-            run_id=run_id,
-            stage_name=stage_name,
-            member_item_id=member_item_id,
-            execution_target_digest=digest,
+        execution = (
+            None
+            if failures
+            else stopped_case_execution(
+                conn,
+                run_id=run_id,
+                stage_name=stage_name,
+                member_item_id=member_item_id,
+                execution_target_digest=digest,
+            )
         )
     pending = missing_execution_blocker(
         conn, run_id, stage_name, member_item_id, digest
@@ -184,7 +209,12 @@ def stage_acceptance(
     if pending:
         state, reason = pending
         return StageAcceptance(state, (reason, *failures), red_ids)
-    if not failures and execution is None and member_item_id is not None:
+    if (
+        not failures
+        and execution is None
+        and member_item_id is not None
+        and member_cases_passed(conn, run_id, stage_name, member_item_id, digest)
+    ):
         from yoke_core.domain.deployment_run_member_approvals import run_qa_blockers
 
         blockers = run_qa_blockers(conn, run_id, member_item_id, subject)

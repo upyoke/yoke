@@ -11,6 +11,7 @@ from yoke_core.domain.deployment_qa_stage_acceptance import (
     existing_acceptance_requirement,
     completed_execution,
     missing_execution_blocker,
+    member_cases_passed,
 )
 from yoke_core.domain.deployment_qa_acceptance_reads import stopped_case_execution
 from yoke_core.domain.deployment_qa_case_failure_kinds import failure_reasons
@@ -243,19 +244,30 @@ def _settle_reads(
                 result["reasons"] = list(member_answer.reasons)
             return result
         # Every case passed across stopped walks: settle on the newest one.
-        execution = None if reasons else stopped_case_execution(
-            conn,
-            run_id=run_id,
-            stage_name=stage_name,
-            member_item_id=member_item_id,
-            execution_target_digest=current_target_digest,
+        execution = (
+            None
+            if reasons
+            else stopped_case_execution(
+                conn,
+                run_id=run_id,
+                stage_name=stage_name,
+                member_item_id=member_item_id,
+                execution_target_digest=current_target_digest,
+            )
         )
     pending = missing_execution_blocker(
         conn, run_id, stage_name, member_item_id, current_target_digest
     )
     if pending:
         reasons.insert(0, pending[1])
-    if not reasons and execution is None and member_item_id is not None:
+    if (
+        not reasons
+        and execution is None
+        and member_item_id is not None
+        and member_cases_passed(
+            conn, run_id, stage_name, member_item_id, current_target_digest
+        )
+    ):
         blockers = run_qa_blockers(conn, run_id, member_item_id, subject)
         return waiting(blockers) if blockers else discharged()
     if reasons:
