@@ -72,8 +72,8 @@ Recording a case verdict while its stage is executing settles that stage in
 the same write; a group case settles its group. When the stage cannot settle,
 the write refuses as `qa_verdict_settlement_refused` with the cause and whether
 the verdict persisted. Record an unpersisted verdict again after repairing the
-cause; for a persisted one, re-drive the run with `yoke watch deploy -- RUN` so
-its runner adopts it.
+cause. For a persisted verdict, let the runner adopt it with
+`yoke --env CONTROL-PLANE watch deploy -- RUN-ID`.
 
 For a correction, name its plan and failed requirement. A group case uses the
 group form above with the same flag:
