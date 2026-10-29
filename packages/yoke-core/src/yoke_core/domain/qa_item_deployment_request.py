@@ -60,7 +60,8 @@ def resolve_item_deployment_request(conn, request):
             ),
             "payload": {
                 **payload,
-                "deployment_member": render_item_ref(conn, int(item_id)),
+                **({"deployment_member": render_item_ref(conn, int(item_id))}
+                   if not payload.get("plan") else {}),
             },
         }
     )

@@ -53,7 +53,9 @@ def settle_unsuccessful_run(conn: Any, run_id: str, *, reason: str) -> bool:
     A cursor already settling through a recorded abort is left to that abort.
     """
     preserve = preserves_inherited_qa(conn, run_id)
+    group_sql = "COALESCE(NULLIF(execution_target_json,''),'{}')::jsonb #>> '{deployment,shared_plan,group_id}' IS NOT NULL"
     ordinary = f"AND NOT COALESCE(({inherited_qa_sql()}),false) " if preserve else ""
+    ordinary += f"AND NOT ({group_sql}) "
     executions = [
         lock_plan_execution(conn, str(row["id"]))
         for row in (
@@ -92,6 +94,8 @@ def settle_unsuccessful_run(conn: Any, run_id: str, *, reason: str) -> bool:
         "SELECT r.id FROM qa_requirements r WHERE r.deployment_run_id=%s "
         + (f"AND NOT COALESCE(({inherited_qa_sql('r')}),false) " if preserve else "")
         + f"AND NOT {settled_obligation_sql(conn, 'r')} "
+        "AND NOT (COALESCE(NULLIF(r.execution_target_json,''),'{}')::jsonb "
+        "#>> '{deployment,shared_plan,group_id}' IS NOT NULL) "
         "AND NOT EXISTS (SELECT 1 FROM qa_runs qr "
         f"WHERE qr.id=({latest_execution_id_sql('r.id')}) AND qr.verdict='pass')",
         (run_id,),

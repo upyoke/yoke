@@ -244,9 +244,10 @@ def qa_plan_attachments(
         rows = _dict_rows(
             conn.execute(
                 "SELECT d.plan_id, d.transition_id, d.qa_phase, d.attached_at, "
-                "p.slug AS plan_slug, p.name AS plan_name "
+                "p.slug AS plan_slug, p.name AS plan_name, e.name AS target_env "
                 "FROM qa_plan_project_defaults d "
                 "JOIN qa_plans p ON p.id = d.plan_id "
+                "LEFT JOIN environments e ON e.id=p.target_environment_id "
                 f"WHERE d.project_id = {marker} AND d.workflow_id = {marker} "
                 "ORDER BY d.transition_id, d.plan_id",
                 (project_id, workflow_id),
@@ -263,9 +264,10 @@ def qa_plan_attachments(
             conn.execute(
                 "SELECT a.plan_id, a.transition_id, a.qa_phase, a.attached_at"
                 f"{retract_cols}, "
-                "p.slug AS plan_slug, p.name AS plan_name "
+                "p.slug AS plan_slug, p.name AS plan_name, e.name AS target_env "
                 "FROM qa_plan_item_attachments a "
                 "JOIN qa_plans p ON p.id = a.plan_id "
+                "LEFT JOIN environments e ON e.id=p.target_environment_id "
                 f"WHERE a.item_id = {marker} "
                 "ORDER BY a.transition_id, a.plan_id",
                 (item_id,),

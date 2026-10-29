@@ -255,7 +255,7 @@ def _resolve_run_qa_subject(
                     run_id=run_id,
                     stage_name=str(stage),
                     member=member_id,
-                    plan=payload.get("plan") if member_id is None else None,
+                    plan=payload.get("plan"),
                     require_active=not reviewing_terminal,
                 )
         except (LookupError, ValueError) as exc:

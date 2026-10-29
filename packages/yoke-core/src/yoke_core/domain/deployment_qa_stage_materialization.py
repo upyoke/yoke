@@ -91,7 +91,7 @@ def stage_subject(conn, *, run_id, stage_name, member, plan, require_active=True
         deployment_qa_stage_subject,
     )
 
-    if member is None and plan is not None:
+    if plan is not None:
         from yoke_core.domain.deployment_qa_plan_group_writes import (
             resolve_group_subject,
         )

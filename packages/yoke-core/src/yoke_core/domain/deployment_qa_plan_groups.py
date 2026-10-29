@@ -198,6 +198,21 @@ def covered_members(conn: Any, run_id: str, plan_id: int) -> set[int]:
     }
 
 
+def owing_members(conn: Any, run_id: str, plan_id: int) -> list[int]:
+    """Current attachers not already answered by a closed lineage group."""
+    covered = covered_members(conn, run_id, plan_id)
+    return [item for item in attaching_members(conn, run_id, plan_id) if item not in covered]
+
+
+def execution_members(conn: Any, run_id: str, target: Mapping) -> tuple[int, ...]:
+    """A closed group's immutable coverage, or its still-owing open cohort."""
+    group = group_for_target(conn, run_id, target)
+    if group is None:
+        return ()
+    return (group.covered_item_ids if group.closed else
+            tuple(owing_members(conn, run_id, group.plan_id)))
+
+
 def unattached_open_groups(conn: Any, run_id: str) -> list[PlanGroup]:
     """Open groups no current member attaches any more."""
     plans = attached_plans(conn, run_id)
@@ -274,7 +289,7 @@ def close_group(conn: Any, subject: Mapping) -> None:
         return
     from yoke_core.domain.qa_execution_environment_target import target_digest
 
-    members = attaching_members(conn, str(subject["id"]), int(marker["plan_id"]))
+    members = owing_members(conn, str(subject["id"]), int(marker["plan_id"]))
     conn.execute(
         "UPDATE qa_requirements SET covered_item_ids=%s WHERE deployment_run_id=%s "
         "AND deployment_member_item_id IS NULL AND execution_target_digest=%s "

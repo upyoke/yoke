@@ -128,6 +128,10 @@ def _owed(
         key = (plan_id, run_target)
         if key not in memo:
             memo[key] = plan_matches_target(conn, dict(row), target, environment_id)
+            if not memo[key] and int(row["project_id"]) != project_id:
+                env = conn.execute("SELECT name FROM environments WHERE id=%s",
+                                   (row["target_environment_id"],)).fetchone()
+                memo[key] = env is not None and str(env[0]) == name
         if not memo[key]:
             if not attached:
                 continue

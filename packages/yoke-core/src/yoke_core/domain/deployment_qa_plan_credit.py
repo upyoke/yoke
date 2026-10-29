@@ -11,7 +11,6 @@ at item-scoped deployment stages.
 
 from __future__ import annotations
 
-import json
 from typing import Any
 
 from yoke_core.domain.db_helpers import query_rows
@@ -44,17 +43,14 @@ def _owed_plans(conn: Any, item_id: int) -> dict[int, str]:
 
 
 def _plan_target_envs(conn: Any, plan_id: int) -> list[str]:
-    envs: set[str] = set()
-    for row in query_rows(
-        conn, "SELECT target_envs FROM qa_plan_cases WHERE plan_id=%s", (int(plan_id),)
-    ):
-        raw = row["target_envs"]
-        values = json.loads(raw) if isinstance(raw, str) and raw else raw or []
-        envs.update(str(value) for value in values)
-    return sorted(envs) or [""]
+    row = conn.execute(
+        "SELECT e.name FROM qa_plans p LEFT JOIN environments e "
+        "ON e.id=p.target_environment_id WHERE p.id=%s", (int(plan_id),)
+    ).fetchone()
+    return [str(row[0] or "")] if row else [""]
 
 
-def _miss(item_id: int, plan_id: int, slug: str, run: dict | None, stage: str) -> dict:
+def _miss(item_id: int, plan_id: int, slug: str, run: dict | None, stage: str, target_env: str) -> dict:
     run_id = str(run["id"]) if run else ""
     command = (
         f"yoke qa plan run --deployment-run-id {run_id} --stage {stage} --plan {slug}"
@@ -70,7 +66,7 @@ def _miss(item_id: int, plan_id: int, slug: str, run: dict | None, stage: str) -
         "plan_id": int(plan_id),
         "plan_slug": slug,
         "plan_case_key": None,
-        "target_env": None,
+        "target_env": target_env or None,
         "recovery": command,
     }
 
@@ -101,7 +97,7 @@ def plan_credit_misses(conn: Any, item_id: int) -> list[dict]:
             )
             if not credited:
                 stage = item_qa_stage_name(_stages(conn, run)) if run else "item-qa"
-                misses.append(_miss(item_id, plan_id, slug, run, stage))
+                misses.append(_miss(item_id, plan_id, slug, run, stage, target_env))
                 break
     return misses
 

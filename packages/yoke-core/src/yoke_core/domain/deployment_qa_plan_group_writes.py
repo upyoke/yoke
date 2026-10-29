@@ -195,12 +195,20 @@ def resolve_group_subject(
     stage = _run_stage(conn, str(run_id), str(stage_name), require_active=False)["stage"]
     if str(stage.get("scope") or "") != "item":
         return None
-    groups = [
-        group
-        for group in run_groups(conn, run_id, stage_name)
-        if str(plan) in {str(group.plan_id), _plan_slug(conn, group.plan_id)}
-    ]
-    live = [group for group in groups if group.open]
+    from yoke_core.domain.deployment_qa_plan_groups import lineage_run_ids
+
+    groups = run_groups(conn, lineage_run_ids(conn, run_id), stage_name)
+    candidates = {g.plan_id for g in groups} | set(attached_plans(conn, run_id))
+    matches = {pid for pid in candidates if str(plan) in {str(pid), _plan_slug(conn, pid)}}
+    if len(matches) > 1:
+        refusal = PlanGroupError(
+            f"plan_group_ambiguous: {plan!r} matches plans {sorted(matches)} in run "
+            f"{run_id}; select an exact plan id with --plan ID"
+        )
+        refusal.code = "plan_group_ambiguous"
+        raise refusal
+    groups = [g for g in groups if g.plan_id in matches]
+    live = [g for g in groups if g.run_id == run_id and g.open]
     if live:
         return group_subject(conn, run_id, stage_name, live[0], require_active=require_active)
     closed = [group.group_id for group in groups if group.closed]
@@ -312,6 +320,7 @@ def member_group_blockers(
     )
     return [
         entry[1:] for entry in standings if int(item_id) in plans.get(entry[0], ())
+        and int(item_id) not in covered_members(conn, run_id, entry[0])
     ]
 
 

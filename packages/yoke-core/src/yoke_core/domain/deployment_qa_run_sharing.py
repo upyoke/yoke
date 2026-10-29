@@ -160,7 +160,7 @@ def _sharing_members(conn, runs):
     )
 
 
-def _pending_plans(conn: Any, plan_ids: set[int]) -> dict[int, dict]:
+def _pending_plans(conn: Any, plan_ids: set[int], run_id: str) -> dict[int, dict]:
     """Owed plans with no plan group yet, with their cases, in one read."""
     if not plan_ids:
         return {}
@@ -196,6 +196,18 @@ def _pending_plans(conn: Any, plan_ids: set[int]) -> dict[int, dict]:
                 "pending_obligation": True,
             }
         )
+    from yoke_core.domain.deployment_qa_plan_groups import lineage_run_ids, run_groups
+
+    for group in reversed(run_groups(conn, lineage_run_ids(conn, run_id))):
+        if group.plan_id not in plans:
+            continue
+        rows = query_rows(conn,
+            "SELECT plan_case_key AS case_key,method_id,instructions FROM qa_requirements "
+            "WHERE id=ANY(%s) AND method_id IS NOT NULL ORDER BY id",
+            (list(group.requirement_ids),))
+        plans[group.plan_id]["cases"] = [
+            {**dict(row), "plan_id": group.plan_id, "qa_phase": "post_deploy",
+             "pending_obligation": True} for row in rows]
     return plans
 
 
@@ -272,8 +284,8 @@ def run_qa_sharing(conn: Any, run_ids: Iterable[str]) -> dict[str, dict]:
             run, groups, lineages[run], by_run[run],
             attached_plans(conn, run) if run in active else None,
         )
-    pending = _pending_plans(conn, {plan for plans in owed.values() for plan in plans})
     for run, plans in owed.items():
+        pending = _pending_plans(conn, set(plans), run)
         for plan_id, items in sorted(plans.items()):
             plan = pending.get(plan_id)
             if plan is None:

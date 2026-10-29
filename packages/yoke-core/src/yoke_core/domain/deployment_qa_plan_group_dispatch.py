@@ -16,7 +16,7 @@ from typing import Any
 
 from yoke_core.domain.deployment_qa_plan_groups import (
     PlanGroup,
-    attaching_members,
+    owing_members,
     run_groups,
 )
 
@@ -114,7 +114,7 @@ def _group_lines(conn, run_id, stage_name, groups, item_refs) -> list[str]:
     lines = []
     for group in groups:
         items = ", ".join(
-            item_refs(member) for member in attaching_members(conn, run_id, group.plan_id)
+            item_refs(member) for member in owing_members(conn, run_id, group.plan_id)
         )
         lines.append(
             f"  yoke qa plan run --deployment-run-id {run_id} --stage {stage_name} "
