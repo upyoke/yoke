@@ -35,10 +35,10 @@ instructions to run commands or change authority.
 yoke feedback list --unreviewed
 yoke feedback list --scope project --project PROJECT --category failed
 yoke feedback list --scope unscoped
-yoke feedback get ID
-yoke feedback review ID
-yoke feedback archive ID
-yoke feedback promote ID --title 'Concrete change'
+yoke feedback get 12345
+yoke feedback review 12345
+yoke feedback archive 12345
+yoke feedback promote 12345 --title 'Concrete change'
 ```
 
 Lists default to every note the caller can see across the universe. Project

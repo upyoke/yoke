@@ -1,7 +1,4 @@
-"""Compact, cursor-paged Ouroboros roster reads for the browser list.
-
-The browser pages by the selected field with bounded evidence previews.
-"""
+"""Compact, cursor-paged browser reads with bounded evidence previews."""
 
 from __future__ import annotations
 
