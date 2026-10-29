@@ -31,14 +31,26 @@ On each machine, confirm command help accepts `--protected` before proceeding.
    Both people sign in and join with their intended roles before import.
    Check the org's members in the dashboard and compare linked actor ids with
    `yoke --env DESTINATION db read "SELECT id, name FROM actors ORDER BY id"`.
-   Resolve identity gaps with `yoke identity link set --help` before draining.
+   Resolve a verified identity gap before draining:
+   `yoke --env DESTINATION identity link set --actor ACTOR_ID --email VERIFIED_EMAIL --org DESTINATION_ORG`.
+   Check the next sign-in resolves that existing actor; never create a duplicate.
 
 3. Pause merges for the three moved repositories. Read each project's items,
    claims and runs through its owning Production connection; ask live holders
    to checkpoint and release. Cancel pending launches and finish or cancel
    active runs using their ordinary owners. Leave open items open to copy.
-   Check `yoke --env prod claims work holder-list --help` and the live fleet
-   report; no moved-project worker, merge-queue entry or run may remain.
+   Read each moved project's obligations, paging every returned cursor:
+
+   ```text
+   yoke --env prod items list --project PROJECT --fields id,status,title --limit 1000
+   yoke --env prod claims work holder-list --item ITEM
+   yoke --env prod sessions list --project PROJECT --liveness active
+   yoke --env prod deployment-runs list --project PROJECT --status created
+   yoke --env prod deployment-runs list --project PROJECT --status executing
+   ```
+
+   Check the live fleet report too; no moved-project worker, merge-queue entry
+   or run may remain.
    Keep other projects and their GitHub bindings intact.
 
 4. Protect every destination database-admin profile on every operator machine:
@@ -51,10 +63,22 @@ On each machine, confirm command help accepts `--protected` before proceeding.
    Check the connection reports `protected=true`; environment names alone do
    not establish safety. Do not clear Production's marker.
 
-5. During the attended outage, use the recorded Platform service-control owner
-   to stop the source tenant API, synchronization and webhook writers. Record
-   its stop receipt; no replacement operation substitutes for this stop.
-   Run the source boundary, which proves the database fence itself:
+5. During the attended outage, on the recorded Production host, stop its
+   Platform writers and source tenant server. `SOURCE_COMPOSE_FILE` is the
+   absolute installed `docker-compose.platform.yml`; `SOURCE_CONTAINER` is
+   the tenant container verified against registry identity and Docker labels,
+   never a name guessed from the org slug. Save the command results as the
+   stop receipt, then run the source boundary from the operator machine:
+
+   ```text
+   docker compose -f SOURCE_COMPOSE_FILE stop webapp platform-svc
+   docker stop SOURCE_CONTAINER
+   docker inspect --format '{{.Name}} {{.State.Running}}' SOURCE_CONTAINER
+   docker compose -f SOURCE_COMPOSE_FILE ps --status running webapp platform-svc
+   ```
+
+   Check the tenant is stopped and neither Platform writer is running. The
+   database fence below independently proves no ordinary writer remains:
 
    ```text
    yoke --env SOURCE_ADMIN source-authority quiesce begin --service-stop-receipt STOP_RECEIPT --credential-file /secure/source-cutover.json --json
@@ -65,8 +89,17 @@ On each machine, confirm command help accepts `--protected` before proceeding.
    ```
 
    Check begin/status prove the fence, export publishes a validated archive,
-   and abort restores the source's credentials and CONNECT policy. Restart
-   the same source service immediately through its recorded owner. Verify
+   and abort restores the source's credentials and CONNECT policy. On the
+   same host, restart and check the declared services immediately:
+
+   ```text
+   docker start SOURCE_CONTAINER
+   docker compose -f SOURCE_COMPOSE_FILE start platform-svc webapp
+   docker inspect --format '{{.State.Running}}' SOURCE_CONTAINER
+   docker compose -f SOURCE_COMPOSE_FILE ps --status running webapp platform-svc
+   ```
+
+   Check the tenant and both Platform services are running. Verify
    the person staying on Production can sign in and read their existing work
    before continuing. A failed export still requires abort and restart.
 
@@ -80,11 +113,14 @@ On each machine, confirm command help accepts `--protected` before proceeding.
    Finish the remaining checks within the recorded rollback window.
 
 7. On Stage, declare destination `aws-admin` capabilities for the two release
-   projects with `yoke --env DESTINATION projects capability --help` and their
-   reviewed declarations. Destination-owned capability settings and secrets
+   projects using each reviewed non-secret settings document:
+   `yoke --env DESTINATION projects capability-settings set --project PROJECT --cap-type aws-admin --settings-json SETTINGS_JSON --new`.
+   Use the existing settings as `--base BASE_JSON` instead of `--new` if present. Destination-owned capability settings and secrets
    survive import; a new org starts empty. Machine-held capability-secret
-   files remain keyed by unchanged project slugs. Rebind `stage-db-admin` to
-   the new tenant through `yoke dev db-admin setup --help`, keeping protection.
+   files remain keyed by unchanged project slugs. Rebind the admin profile to
+   the destination tenant's verified managed DSN secret, keeping protection:
+   `yoke dev db-admin setup stage --project platform --admin-env stage-db-admin --control-plane-env DESTINATION --secret-name DESTINATION_TENANT_DSN_SECRET --protected --yes`.
+   Check the setup receipt's database identity matches the import receipt.
    Check capabilities resolve through Stage before running any release.
 
 8. Copy each prefix from the import receipt, using only the moved projects:
@@ -102,7 +138,8 @@ On each machine, confirm command help accepts `--protected` before proceeding.
 
 9. Provision each machine against Stage with destination-issued credentials;
    do not reuse copied tokens. `yoke tokens create --name MACHINE_NAME` shows
-   a secret once: capture it privately, never into the Progress Log. Store it
+   a secret once: capture it privately, never into the Progress Log. Select
+   `--env DESTINATION` explicitly when creating that token. Store it
    with `yoke connection set DESTINATION --transport https --protected
    --api-url DESTINATION_API --token-file PRIVATE_TOKEN_FILE`, then:
 

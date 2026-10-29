@@ -17,13 +17,12 @@ from types import SimpleNamespace
 import pytest
 
 from yoke_cli.config.session_relay_instance import (
-    NON_PROD_RELAY_LABEL_PREFIX,
+    RELAY_LABEL_PREFIX,
     resolve_relay_instance,
 )
 from yoke_core.tools import install_session_relay
 from yoke_core.tools import session_relay_local_install as local_install
 from yoke_core.tools.session_relay_plist import (
-    RELAY_LAUNCHD_LABEL,
     RelayInstallError,
     install_relay_launchd,
     relay_launchd_paths,
@@ -111,7 +110,7 @@ def test_local_universe_owns_a_relay_that_runs_the_installed_yoke(
 
     assert not instance.follows_served_release
     assert not instance.protected
-    assert instance.label.startswith(NON_PROD_RELAY_LABEL_PREFIX)
+    assert instance.label.startswith(RELAY_LABEL_PREFIX)
 
     document = relay_plist_document(
         paths=relay_launchd_paths(home=tmp_path, instance=instance),
@@ -200,7 +199,7 @@ def test_local_install_never_boots_out_a_healthy_prod_relay(
     assert not installed.follows_served_release
     assert prod_paths.plist.is_file()
     assert not any(
-        call[-1] == f"gui/501/{RELAY_LAUNCHD_LABEL}"
+        call[-1] == f"gui/501/{prod.label}"
         for call in calls
         if call[:2] == ["launchctl", "bootout"]
     )

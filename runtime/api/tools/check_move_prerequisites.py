@@ -3,6 +3,7 @@
 import argparse
 import json
 import subprocess
+import sys
 
 from yoke_contracts.machine_config.schema import connection_is_protected
 from yoke_core.domain.universe_import_artifacts import rewrite_imported_artifacts
@@ -19,7 +20,32 @@ def _projects(environment, *, include_retired=False):
         raise ValueError(
             "project_inventory_unavailable: restore the selected connection and retry"
         )
-    return envelope["result"]["rows"]
+    rows = envelope["result"]["rows"]
+    for row in rows:
+        detail = subprocess.run(
+            [
+                "yoke",
+                "--env",
+                environment,
+                "projects",
+                "get",
+                "--project",
+                str(row["id"]),
+                "--field",
+                "retired_at",
+                "--json",
+            ],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        result = json.loads(detail.stdout)
+        if not result.get("success"):
+            raise ValueError(
+                "retirement_field_unavailable: restore project read access and retry"
+            )
+        row["retired_at"] = result["result"]["value"]
+    return rows
 
 
 def main():
@@ -65,4 +91,13 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except (ValueError, subprocess.CalledProcessError) as exc:
+        message = (
+            str(exc)
+            if isinstance(exc, ValueError)
+            else "prerequisite_read_failed: restore CLI access to the selected connection and retry"
+        )
+        print(message, file=sys.stderr)
+        raise SystemExit(1) from None

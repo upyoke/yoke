@@ -52,6 +52,18 @@ from yoke_core.domain.session_launch_types import (
 )
 
 
+def _require_active_project(conn, project_id):
+    from yoke_core.domain.project_retirement import (
+        project_is_retired,
+        retired_project_recovery,
+    )
+
+    if project_is_retired(conn, project_id):
+        raise SessionLaunchError(
+            "project_retired", retired_project_recovery(project_id)
+        )
+
+
 def create_launch(
     conn: Any,
     *,
@@ -68,6 +80,7 @@ def create_launch(
     current = utc_now() if now is None else parse_instant(now)
     begin_mutation(conn)
     try:
+        _require_active_project(conn, request.project_id)
         if request.item:
             from yoke_core.domain.session_launch_assignment import lock_assigned_item
 
@@ -194,6 +207,7 @@ def retry_launch(
     begin_mutation(conn)
     try:
         launch = get_launch(conn, launch_id, for_update=True)
+        _require_active_project(conn, launch.project_id)
         pending = native_progress.retain_pending_native(conn, launch, now=current)
         if pending:
             conn.commit()

@@ -46,8 +46,7 @@ Failed npm or Chromium installs report labeled tails of both stdout and stderr
 error. Repair the reported network or permissions cause and retry the same command.
 
 The unit lives under `~/.config/systemd/user/`. Its filename is
-`com.upyoke.relay.service` for a prod HTTPS connection; other connections use
-`com.upyoke.relay.<instance-id>.service`, where the instance id comes from the
+`com.upyoke.relay.<instance-id>.service` for every connection. The instance id comes from the
 canonical config path and environment. Setup shows the concrete filename;
 `yoke relay status` reports the installed unit path.
 It starts at login, restarts on failure, and stops after the last login session

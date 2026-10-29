@@ -6,12 +6,10 @@ from pathlib import Path
 import sys
 from typing import Mapping
 
-from yoke_cli.config import machine_config
 from yoke_cli.config.session_relay_instance import (
     RELAY_LOGOUT_BEHAVIOR,
     relay_instance_label,
 )
-from yoke_contracts.machine_config import schema
 
 UNIT_INSTALL_ACTION = "install-session-relay-unit"
 UNIT_ENABLE_ACTION = "enable-session-relay-user-service"
@@ -20,15 +18,9 @@ UNIT_ENABLE_ACTION = "enable-session-relay-user-service"
 def lifecycle_steps(
     *, config_path: str | Path, environment: str
 ) -> tuple[tuple[str, str], ...]:
-    # Setup may not have written this connection yet. The writer preserves an
-    # existing protected marker and a new connection has no protected marker.
-    config_path = machine_config.config_path(config_path)
-    payload = machine_config.load_config(config_path)
-    connection = payload.get("connections", {}).get(environment, {})
     label = relay_instance_label(
         config_path=config_path,
         environment=environment,
-        protected=schema.connection_is_protected(connection),
     )
     if sys.platform == "linux":
         return (

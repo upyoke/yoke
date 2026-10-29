@@ -4,7 +4,10 @@ from dataclasses import replace
 
 from yoke_core.domain.function_target_resolution import resolve_project_context
 from yoke_core.domain.function_unresolved_project import permission_error_response
-from yoke_core.domain.project_retirement import project_is_retired
+from yoke_core.domain.project_retirement import (
+    project_is_retired,
+    retired_project_recovery,
+)
 
 
 def check_retirement(conn, entry, request, permission):
@@ -23,9 +26,7 @@ def check_retirement(conn, entry, request, permission):
             request,
             entry,
             "project_retired",
-            f"Project {project_id} is retired; restore it with "
-            f"`yoke projects unretire --project {project_id}` "
-            "before creating or changing work.",
+            retired_project_recovery(project_id),
         ),
     )
 

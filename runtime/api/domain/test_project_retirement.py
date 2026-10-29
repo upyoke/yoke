@@ -255,7 +255,9 @@ def test_retired_project_write_admission_names_recovery(conn, function_id):
         function_id=function_id, version="v1", side_effects=("write",)
     )
     request = FunctionCallRequest(
-        function=function_id, target={"kind": "project", "project_id": "30"}
+        function=function_id,
+        actor={"session_id": "test-session"},
+        target={"kind": "global", "project_id": "30"},
     )
     denied = check_retirement(
         conn, entry, request, DispatchPermission(None, 30, "fixture")

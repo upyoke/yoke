@@ -184,7 +184,7 @@ def test_installed_wheel_inside_clean_repo_is_not_source_authority(
 
 
 @pytest.mark.parametrize(
-    ("active_environment", "prod"),
+    ("active_environment", "protected"),
     [("prod", False), ("stage", True)],
 )
 def test_prod_active_environment_or_connection_is_refused(

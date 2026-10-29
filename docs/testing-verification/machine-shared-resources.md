@@ -55,7 +55,7 @@ variable (`YOKE_LAUNCHD_TEST_SANDBOX`, exported by the conftest) because
 the leak this replaced arrived through a spawned child, which no
 monkeypatch can reach. A test with no sandbox is refused by name.
 
-The machine's canonical relay (`com.upyoke.relay`) is never installable,
+The former shared relay (`com.upyoke.relay`) is never installable,
 loadable, or bootable-out from a test — not even with the integration opt-in.
 A test that genuinely must load a real agent is marked
 `@pytest.mark.launchd_integration` and requests the `real_launchd_agent`

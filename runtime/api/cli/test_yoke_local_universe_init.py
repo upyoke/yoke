@@ -250,7 +250,7 @@ def test_init_force_replaces_https_shaped_local_entry_without_stray_keys(
     assert entry["protected"] is False
     assert entry["credential_source"]["kind"] == "dsn_file"
     # True replace: nothing from the https-shaped entry survives.
-    assert set(entry) == {"transport", "prod", "credential_source"}
+    assert set(entry) == {"transport", "protected", "credential_source"}
 
 
 def test_init_requires_explicit_local_mode(capsys):
