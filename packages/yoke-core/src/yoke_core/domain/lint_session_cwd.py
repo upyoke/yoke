@@ -10,8 +10,8 @@ from dataclasses import dataclass
 from typing import Any, Mapping, Optional, Sequence
 
 from yoke_contracts.hook_runner.denial_identity import attach_check_id
-from yoke_contracts.hook_runner.shell_expansion_scan import has_substitution
 from yoke_contracts.hook_runner.shell_parse import ShellParse, parse_shell
+from yoke_core.domain.path_claim_bash_substitution import executable_substitutions
 from yoke_core.domain.lint_lane_main_write_classify import is_write_operation
 from yoke_core.domain.lint_session_cwd_control_plane import (
     SCOPE_MISMATCH_TEMPLATE as SCOPE_MISMATCH_TEMPLATE,
@@ -78,7 +78,9 @@ def _yoke_call_signature(parsed: ShellParse) -> Optional[str]:
     if not any(segment.argv[:1] == ("yoke",) for segment in segments):
         return None
     for segment in segments:
-        is_yoke = segment.argv[:1] == ("yoke",) and not has_substitution(segment.text)
+        is_yoke = segment.argv[:1] == ("yoke",) and not executable_substitutions(
+            segment.text
+        )[1]
         if not (is_yoke or _match_simple(segment)):
             return None
     return "yoke-adapter"

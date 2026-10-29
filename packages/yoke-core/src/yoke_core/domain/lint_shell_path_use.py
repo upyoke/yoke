@@ -12,7 +12,7 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Mapping, Sequence
 
-from yoke_contracts.hook_runner.shell_parse import ShellParse, parse_shell
+from yoke_contracts.hook_runner.shell_parse import ShellParse, ShellSegment, parse_shell
 from yoke_core.domain.lint_shell_target_tokens import (
     resolve_path_operands,
     shell_variable_bindings,
@@ -143,6 +143,16 @@ def _capacity_operands(tokens: list[str], segment: str, bindings: Mapping[str, s
     return None if unresolved else paths
 
 
+def _command_text(segment: ShellSegment) -> str:
+    """Drop parsed prefixes while preserving the command's original quoting."""
+    lexer = shlex.shlex(segment.text, posix=True)
+    lexer.whitespace_split = True
+    lexer.commenters = ""
+    for _ in range(len(segment.tokens) - len(segment.argv)):
+        lexer.get_token()
+    return segment.text[lexer.instream.tell():]
+
+
 def _state_move(tokens: list[str], command: str) -> bool:
     from yoke_core.domain.lint_session_cwd_foreign_lane import (
         is_read_only_git_inspection,
@@ -229,18 +239,19 @@ def analyze_shell_path_use(
             any(mark in path for mark in "*?{[") for path in capacity
         )
         capacity_segments.append(capacity_settled)
+        command_text = _command_text(segment)
         state_move = (
             _git_state_move(tokens)
             if base == "git"
-            else _state_move(tokens, shlex.join(tokens))
+            else _state_move(tokens, command_text)
         )
         if state_move:
             writes.extend(targets)
-        lane_move = state_move or _state_move(tokens, shlex.join(tokens))
+        lane_move = state_move or _state_move(tokens, command_text)
         mutation = mutation or lane_move
         direct_write = direct_write or state_move
         role = (
-            PathRole.READ if _match_simple(shlex.join(tokens)) else PathRole.UNKNOWN
+            PathRole.READ if _match_simple(command_text) else PathRole.UNKNOWN
         )
         if base == "cd" and len(tokens) == 2 and not tokens[1].startswith("-"):
             role = PathRole.READ

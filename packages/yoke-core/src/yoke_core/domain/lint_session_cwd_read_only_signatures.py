@@ -11,8 +11,8 @@ import re
 import shlex
 from typing import List, Mapping, Optional, Tuple
 
-from yoke_contracts.hook_runner.shell_expansion_scan import has_substitution
 from yoke_contracts.hook_runner.shell_parse import ShellParse, ShellSegment, parse_shell
+from yoke_core.domain.path_claim_bash_substitution import executable_substitutions
 from yoke_core.domain.lint_session_cwd_git_read_forms import (
     GIT_MUTATING_SUBS,
     classify_git,
@@ -242,7 +242,7 @@ def _match_simple(segment: str | ShellSegment) -> Optional[str]:
     """Signature label for one simple command; a module-resolution
     override (``PYTHONPATH``, ``PYTHONHOME``) refuses classification."""
     parsed = _single_segment(segment)
-    if parsed is None or not parsed.argv or has_substitution(parsed.text):
+    if parsed is None or not parsed.argv or executable_substitutions(parsed.text)[1]:
         return None
     if any(
         parsed.assignment(name) is not None for name in _MODULE_RESOLUTION_ENV_PREFIXES
