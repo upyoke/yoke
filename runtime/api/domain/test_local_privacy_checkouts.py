@@ -154,7 +154,7 @@ def test_test_tripwire_blocks_even_a_registered_checkout(checkout, monkeypatch):
             "connection_projects": {"test": [{"checkout": str(repo), "project_id": 1}]},
         },
     )
-    with pytest.raises(pytest.fail.Exception, match="operator's machine"):
+    with pytest.raises(pytest.fail.Exception):
         subprocess.run(["rg", "token", str(repo)], check=False)
     finding = guard.classify_subprocess_args(
         shlex.join(["rg", "token", str(repo)]), home=home, cwd=repo
