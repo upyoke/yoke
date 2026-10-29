@@ -20,8 +20,12 @@ from yoke_contracts.api.function_call import (
 
 
 @pytest.fixture(autouse=True)
-def _reset_captured() -> None:
+def _reset_captured(monkeypatch) -> None:
     _CAPTURED_REQUESTS.clear()
+    monkeypatch.setattr(
+        "yoke_cli.config.machine_config.load_config",
+        lambda *args, **kwargs: {"active_env": "test"},
+    )
 
 
 class TestProjectsCheckoutContext:
@@ -117,7 +121,10 @@ class TestProjectsCheckoutContext:
             "externalwebapp",
         )
         assert rc == 0
-        assert out == "2|externalwebapp|ExternalWebapp|EXT\n"
+        assert out == (
+            "2|externalwebapp|ExternalWebapp|EXT\n"
+            "connection: test\nconnection_source: active_env\n"
+        )
 
     def test_unknown_field_returns_two(self) -> None:
         rc = _run(
