@@ -2,6 +2,7 @@
 
 import io
 import json
+from urllib.error import HTTPError
 from pathlib import Path
 from unittest.mock import patch
 
@@ -44,6 +45,14 @@ class TestFeedbackPublic(_ApiSuite):
                 assert self.post({**VALID, field: value}).status_code == 400
                 assert self.rows() == []
         assert self.post(VALID, {"User-Agent": "browser"}).status_code == 400
+        assert self.rows() == []
+
+    def test_missing_or_replaced_cli_user_agent_has_its_own_refusal(self):
+        for headers in [{"User-Agent": ""}, {"User-Agent": "node"}]:
+            response = self.post(VALID, headers)
+            assert response.status_code == 400
+            assert response.json()["error"] == "feedback_user_agent_invalid"
+            assert "preserve" in response.json()["recovery"]
         assert self.rows() == []
 
     def test_cli_posts_directly_without_storing_a_sender_copy(self):
@@ -91,3 +100,13 @@ def test_delivery_failure_preserves_full_evidence(capsys):
     with patch("yoke_cli.feedback_delivery.open_no_redirect", side_effect=OSError("offline")):
         assert send_feedback(category="failed", evidence=evidence, metadata={}, agent="tester") == 1
     assert evidence in capsys.readouterr().err
+
+
+def test_delivery_failure_reports_receiver_error_code(capsys):
+    error = HTTPError("https://feedback.example", 400, "Bad Request", {},
+                      io.BytesIO(b'{"error":"feedback_user_agent_invalid"}'))
+    with patch("yoke_cli.feedback_delivery.open_no_redirect", side_effect=error):
+        assert send_feedback(category="failed", evidence="Relay changed the header", metadata={}, agent="tester") == 1
+    diagnostic = capsys.readouterr().err
+    assert "HTTP 400: feedback_user_agent_invalid" in diagnostic
+    assert "Relay changed the header" in diagnostic
