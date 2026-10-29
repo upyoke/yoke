@@ -1,13 +1,14 @@
 """Named sign-in profiles are validated without refusing anonymous cases."""
 
 import json
+from contextlib import ExitStack
 from unittest.mock import patch
 
 import pytest
 
 from runtime.api.domain.browser_qa_test_helpers import (
     _browser_check_steps,
-    _run_scenario,
+    _patch_external_deps,
     _seed_item,
     _seed_requirement,
 )
@@ -17,6 +18,7 @@ from yoke_contracts.browser_identity import (
     case_browser_identity,
     parse_identity_declarations,
 )
+from yoke_core.domain import browser_qa
 from yoke_core.domain.browser_qa_sign_in_evidence import resolve_case_identities
 
 
@@ -80,22 +82,33 @@ def test_identity_validation_precedes_browser_start_and_public_cases_execute(
                 "authenticated": False,
             }
             opened = []
-            result = _run_scenario(
-                db_path,
-                item_id,
-                requirement_id=requirement_id,
-                identities=_declared(),
-                opened_pages=opened,
-                execute_step_responses=[{"success": True, "signInPage": False}],
-            )
+            with ExitStack() as stack:
+                for external in _patch_external_deps(
+                    db_path,
+                    identities=_declared(),
+                    opened_pages=opened,
+                    execute_step_responses=[{"success": True, "signInPage": False}],
+                ):
+                    stack.enter_context(external)
+                daemon = stack.enter_context(
+                    patch.object(browser_qa, "_ensure_daemon_running", return_value=None)
+                )
+                result = browser_qa.execute_scenario(
+                    item_id=item_id,
+                    project="testproj",
+                    requirement_id=requirement_id,
+                    base_url="http://localhost:9999",
+                )
         if identity == "missing":
             assert result.note == "browser_identity_undeclared"
             assert result.verdict == "error"
             assert not result.runs
             assert not opened
+            daemon.assert_not_called()
             describe.assert_not_called()
         else:
             assert result.verdict == "pass"
             assert len(opened) == 1
+            assert daemon.call_args.kwargs["identity"] == (identity or "default")
             assert result.runs[0].sign_in["authenticated"] is False
             assert describe.call_args.args[1] == (identity or "default")
