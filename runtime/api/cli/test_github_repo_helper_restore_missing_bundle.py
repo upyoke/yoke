@@ -48,7 +48,7 @@ def test_restore_missing_bundle_rebuilds_a_wiped_bundle(
 
     result = github_repo_helper_reconnect.restore_missing_bundle(config)
 
-    assert result == {"configured": True, "repaired": True}
+    assert result == {"configured": True, "repaired": True, "rewritten": []}
     assert helper_path.is_file()
     assert (
         _git(
