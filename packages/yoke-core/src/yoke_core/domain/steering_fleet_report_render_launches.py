@@ -12,6 +12,9 @@ from __future__ import annotations
 from yoke_contracts.session_control.launch_registration import (
     NATIVE_EXITED_UNREGISTERED_CODE,
 )
+from yoke_core.domain.session_launch_reconciliation import (
+    RECONCILABLE_LAUNCH_STATES,
+)
 from yoke_core.domain.session_launch_visibility import CORRELATION_FAILURE_CODES
 from yoke_core.domain.steering_fleet_report_abandoned import AbandonedLaunch
 from yoke_core.domain.steering_fleet_report_detectors import UnregisteredLaunch
@@ -32,6 +35,30 @@ def _said(tail: str, exit_code: int | None) -> str:
     return ""
 
 
+_RELAUNCH = "relaunch once the cause is fixed"
+_UNBINDABLE = (
+    "no command binds it in this state; relaunch once the native exits "
+    "and the cause is fixed"
+)
+
+
+def _bind_recovery(
+    entry: UnregisteredLaunch, native: str | None, died: bool
+) -> str:
+    # Reconcile refuses every other state, so offering it there only fails.
+    if entry.state not in RECONCILABLE_LAUNCH_STATES:
+        return _UNBINDABLE
+    command = (
+        f"`yoke session-control launch reconcile {entry.launch_id} "
+        f"--observed-native-id {native or 'ID'}`"
+    )
+    if native is None:
+        command = f"find the native session ID, then {command}"
+    if died:
+        return f"native is dead — reconcile, then retry: {command}"
+    return f"native is live — bind it: {command}"
+
+
 def _unregistered_line(entry: UnregisteredLaunch) -> str:
     native = entry.observed_session_id or entry.native_session_id
     died = bool(entry.native_stderr_tail or entry.exit_code)
@@ -39,27 +66,23 @@ def _unregistered_line(entry: UnregisteredLaunch) -> str:
         # The machine that started this native watched it go, so the launch
         # is already closed: there is no binding left to reconcile.
         problem = "native exited before any session registered"
-        recovery = "relaunch once the cause is fixed"
-    elif native and not died:
-        # The native is up and answering; only the binding is missing.
-        problem = f"registered session {native} exists; launch binding is absent"
-        recovery = (
-            "native is live — bind it: `yoke session-control launch reconcile "
-            f"{entry.launch_id} --observed-native-id {native}`"
-        )
+        recovery = _RELAUNCH
+    elif entry.result_code == "reconciled_not_created" and not native:
+        # Reconcile already settled that no native exists; another pass
+        # changes nothing.
+        problem = "reconciled as never created"
+        recovery = _RELAUNCH
     elif native:
-        problem = f"native for session {native} exited before binding"
-        recovery = (
-            "native is dead — reconcile, then retry: `yoke session-control launch "
-            f"reconcile {entry.launch_id} --observed-native-id {native}`"
-        )
+        if died:
+            problem = f"native for session {native} exited before binding"
+        elif entry.observed_session_id:
+            problem = f"registered session {native} exists; launch binding is absent"
+        else:
+            problem = f"native session {native} started; no session registered"
+        recovery = _bind_recovery(entry, native, died)
     elif entry.result_code in CORRELATION_FAILURE_CODES:
         problem = entry.result_code.replace("_", " ")
-        recovery = (
-            "native is dead — reconcile, then retry: find the native session ID, "
-            f"then `yoke session-control launch reconcile {entry.launch_id} "
-            "--observed-native-id ID`"
-        )
+        recovery = _bind_recovery(entry, None, True)
     elif entry.result_code == "model_combo_unsupported":
         problem = entry.detail or "native CLI rejected the requested combination"
         recovery = "choose a supported model, effort, and context combination"

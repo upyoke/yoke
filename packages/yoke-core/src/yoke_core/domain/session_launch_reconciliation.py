@@ -39,6 +39,10 @@ from yoke_core.domain.session_relay_storage import (
 )
 
 
+#: The only launch states reconcile accepts; from either, an observed native id
+#: moves the launch to awaiting registration and then binds it.
+RECONCILABLE_LAUNCH_STATES = frozenset({"outcome_unknown", "failed"})
+
 def _lock(conn: Any) -> str:
     return " FOR UPDATE" if db_backend.connection_is_postgres(conn) else ""
 
@@ -152,7 +156,7 @@ def reconcile_launch(
                 )
             conn.commit()
             return launch
-        if launch.state not in {"outcome_unknown", "failed"}:
+        if launch.state not in RECONCILABLE_LAUNCH_STATES:
             raise SessionLaunchError(
                 "invalid_state",
                 f"launch in state {launch.state!r} is not reconcilable",
@@ -214,4 +218,4 @@ def reconcile_launch(
         raise
 
 
-__all__ = ["reconcile_launch"]
+__all__ = ["RECONCILABLE_LAUNCH_STATES", "reconcile_launch"]
