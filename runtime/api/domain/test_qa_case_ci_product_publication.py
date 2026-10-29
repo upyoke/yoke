@@ -168,3 +168,60 @@ def test_standalone_case_inputs_require_publication(monkeypatch, remote):
     case["standalone_execution_id"] = 1
     with pytest.raises(QaCaseExecutionError, match="product_ref_unpublished"):
         inputs.case_inputs(case, project="consumer")
+
+
+@pytest.mark.parametrize("declared", ["main", SHA])
+def test_case_inputs_freeze_main_and_preserve_exact_commits(monkeypatch, remote, declared):
+    monkeypatch.setattr(
+        "yoke_core.domain.qa_case_ci_entry_run.routes_through_merge_queue",
+        lambda project: False,
+    )
+    case = candidate_case()
+    case["method_config"]["ci_workflow_inputs"]["product_ref"] = declared
+    assert inputs.case_inputs(case, project="consumer") == {
+        "product_ref": SHA, "product_repo": REPO,
+    }
+    assert case["method_config"]["ci_workflow_inputs"]["product_ref"] == declared
+    assert remote.call_args_list[-1].args == (f"/repos/{REPO}/git/commits/{SHA}",)
+    if declared == "main":
+        assert remote.call_args_list[0].args == (f"/repos/{REPO}/commits/main",)
+        assert remote.call_count == 2
+    else:
+        assert remote.call_count == 1
+
+
+@pytest.mark.parametrize("commit", [None, {}, {"sha": "short"}])
+def test_unresolvable_main_refuses_before_dispatch(remote, commit):
+    remote.return_value = commit
+    case = candidate_case()
+    case["standalone_execution_id"] = 1
+    case["method_config"]["ci_workflow_inputs"]["product_ref"] = "main"
+    with pytest.raises(QaCaseExecutionError, match="product_ref_unverified"):
+        inputs.case_inputs(case, project="consumer")
+    remote.assert_called_once_with(f"/repos/{REPO}/commits/main", token="test-token")
+
+
+def test_main_transport_failure_uses_publication_refusal(remote):
+    from yoke_core.domain.gh_rest_transport_errors import RestTransportError
+
+    remote.side_effect = RestTransportError("network unavailable")
+    with pytest.raises(QaCaseExecutionError, match="product_ref_unverified"):
+        publication.resolve_product_ref({}, {"product_ref": "main", "product_repo": REPO})
+
+
+def test_merge_inputs_also_freeze_main(monkeypatch, remote):
+    from yoke_core.api import service_client_structured_api_adapter as adapter
+
+    response = Mock(success=True, result={"rows": [{
+        "id": 1,
+        "method_config": {"ci_workflow": "ci.yml", "ci_workflow_inputs": {
+            "product_ref": "main", "product_repo": REPO,
+        }},
+    }]})
+    monkeypatch.setattr(adapter, "call_dispatcher", lambda **kwargs: response)
+    consumer_ref = f"APP-{42}"
+    assert inputs.item_inputs(item_id=consumer_ref, workflow="ci.yml") == {
+        "product_ref": SHA, "product_repo": REPO,
+    }
+    assert remote.call_args_list[0].args == (f"/repos/{REPO}/commits/main",)
+    assert remote.call_args_list[1].args == (f"/repos/{REPO}/git/commits/{SHA}",)

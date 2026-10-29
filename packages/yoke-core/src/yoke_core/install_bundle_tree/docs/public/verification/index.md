@@ -115,9 +115,7 @@ verification-only companion; consumer code changes still need their companion.
 When an explicitly requested consumer case uses a producer candidate, hand it
 the full commit the producer gate actually pushed after any rebase.
 
-A CI run normally proves one fact: the commit it checked out. Verifying a
-pushed producer candidate before release needs a second one, and it rides
-the case's own `method_config.ci_workflow_inputs`:
+Declare a producer candidate in the case's `method_config.ci_workflow_inputs`:
 
 ```bash
 yoke qa requirement add --item PREFIX-N --method-id command-ci \
@@ -128,7 +126,8 @@ yoke qa requirement add --item PREFIX-N --method-id command-ci \
 ```
 
 When inputs carry `product_ref`, QA checks the full 40-hex commit on the
-producer remote before preparing a dispatch. The workflow's existing
+producer remote before dispatch. `product_ref: "main"` resolves to its current
+main SHA per execution, or refuses `product_ref_unverified`. The existing
 `product_repo` input takes precedence; otherwise the consumer item must have
 one upstream cross-project companion project with a GitHub repository binding.
 Missing or ambiguous repositories refuse by name. `product_ref_unpublished`
