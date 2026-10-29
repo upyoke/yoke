@@ -32,8 +32,8 @@ records no pass.
 ## Discharges: waiver, supersession, and retraction
 
 Discharge is recorded and satisfies gates, while staying distinguishable from
-pass. Failed/error admitted cases on a named stage can be corrected (never a
-passed/no-verdict case): author only the corrected case and execute:
+pass. An admitted case that still owes proof can be corrected, including one
+not yet run; a passed case refuses. Author the corrected case and execute:
 
 ```text
 yoke watch qa-plan -- --item PREFIX-N --stage {STAGE} --plan {CORRECTED_PLAN} --project {PROJECT} --replaces {CASE_KEY}={FAILED_REQUIREMENT_ID}

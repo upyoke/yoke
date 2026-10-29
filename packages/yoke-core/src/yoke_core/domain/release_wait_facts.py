@@ -38,6 +38,7 @@ from yoke_core.domain.qa_item_stage_plan_gate import (
     completion_flow,
     flow_stages,
     item_scoped_qa_stage_names,
+    stages as normalized_stages,
 )
 from yoke_core.domain.session_message_routing import messageability
 
@@ -104,6 +105,7 @@ def delivery_obligation(item: Mapping[str, Any]) -> dict[str, Any]:
         stages, notice = flow_stages(flow)
         if notice:
             return {"kind": OWES_UNREAD, "detail": notice}
+        stages = normalized_stages(stages)
         names = [name for name in item_scoped_qa_stage_names(stages) if name]
         if not names:
             return {

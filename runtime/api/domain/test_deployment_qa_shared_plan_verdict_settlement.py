@@ -125,3 +125,22 @@ def test_unsettleable_verdict_is_refused_by_name_and_not_recorded(test_db):
         ).fetchone()[0]
         is None
     )
+
+
+def test_persisted_verdict_refusal_names_environment_and_run():
+    from unittest.mock import Mock
+    import pytest
+    from yoke_core.domain.qa_run_execution_evidence import (
+        VerdictSettlementRefused, commit_settled_verdict,
+    )
+
+    with (
+        patch("yoke_core.domain.qa_run_execution_evidence._settle_recorded_verdict",
+              side_effect=ValueError("stage interrupted")),
+        patch("yoke_core.domain.qa_run_execution_evidence.query_one",
+              return_value={"verdict": "pass", "deployment_run_id": RUN}),
+        pytest.raises(VerdictSettlementRefused) as refused,
+    ):
+        commit_settled_verdict(Mock(), 42)
+    assert f"yoke --env CONTROL-PLANE watch deploy -- {RUN}" in str(refused.value)
+    assert "The verdict is recorded" in str(refused.value)
