@@ -51,3 +51,35 @@ def test_unanswered_group_with_no_driver_needs_steering_action(test_db):
     text = " ".join((*progress.unresolved, *progress.member_lines))
     assert all(str(rid) in text for rid in group.requirement_ids)
     assert "yoke qa plan run --deployment-run-id" in text
+
+
+def test_member_dispatch_replaces_notice_to_ended_holder(test_db):
+    from runtime.api.fixtures.deployment_scoped_qa_run_fixture import seed_member_qa_case
+    from runtime.api.domain.test_deployment_qa_stage_wake_delivery import _claim
+    from yoke_core.domain.work_claim_targets import make_item_target
+    from yoke_core.domain.deployment_qa_stage_dispatch import materialize_and_gate_deployment_qa_stage
+
+    run_id, member = "run-member-restaffed", 9983
+    seed_member_qa_case(test_db, run_id=run_id, member_item_id=member)
+    _project(test_db)
+    for session in ("old-holder", "new-holder"):
+        seed_session(test_db, session)
+    _claim(test_db, session_id="old-holder", target_kind="item",
+           scope_json=make_item_target(member).scope_json())
+    stage = {"name": "item-qa", "scope": "item"}
+    materialize_and_gate_deployment_qa_stage(test_db, stage, run_id=run_id)
+    test_db.execute("UPDATE harness_sessions SET ended_at=now() WHERE session_id='old-holder'")
+    test_db.execute("UPDATE work_claims SET released_at=now() WHERE session_id='old-holder'")
+    test_db.commit()
+    _claim(test_db, session_id="new-holder", target_kind="item",
+           scope_json=make_item_target(member).scope_json())
+    materialize_and_gate_deployment_qa_stage(test_db, stage, run_id=run_id)
+    rows = test_db.execute(
+        "SELECT r.session_id,m.cancelled_at FROM session_messages m "
+        "JOIN session_message_recipients r ON r.message_id=m.message_id "
+        "WHERE m.idempotency_key LIKE %s ORDER BY m.created_at",
+        (f"deployment-qa-stage-wait:{run_id}:item-qa:{member}:%",)
+    ).fetchall()
+    assert len(rows) == 2
+    assert rows[0][0] == "old-holder" and rows[0][1] is not None
+    assert rows[1][0] == "new-holder" and rows[1][1] is None

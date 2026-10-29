@@ -60,7 +60,7 @@ def test_retry_refuses_old_model_release(test_db):
 
 
 def test_failed_group_takeover_reuses_passes(test_db):
-    from runtime.api.domain.test_deployment_qa_plan_groups import RUN, SLUG, MEMBERS, _seed, _begin
+    from runtime.api.domain.test_deployment_qa_plan_groups import RUN, SLUG, _seed, _begin
     from runtime.api.domain.test_deployment_qa_plan_group_takeover import _take_over, NEW
     from runtime.api.domain.test_qa_plan_run_target_partition import _pass
     from yoke_core.domain.deployment_qa_plan_group_writes import ensure_groups
