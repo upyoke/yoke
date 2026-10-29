@@ -49,7 +49,7 @@ def _children(prefix: tuple[str, ...], routes) -> set[tuple[str, ...]]:
 
 
 def immediate_children(prefix: tuple[str, ...]) -> list[tuple[str, ...]]:
-    """Children of ``prefix``; a spaced child yields to its hyphenated sibling."""
+    """Children of ``prefix``; executable routes remain visible beside siblings."""
     routes = discovery_routes()
     children = _children(prefix, routes)
     spaced_only = children - _children(prefix, routes - set(SPACED_GROUP_ROUTE_REGISTRY))
@@ -57,7 +57,8 @@ def immediate_children(prefix: tuple[str, ...]) -> list[tuple[str, ...]]:
     return sorted(
         child
         for child in children
-        if child not in spaced_only
+        if child in routes
+        or child not in spaced_only
         or not any(name.startswith(child[-1] + "-") for name in names)
     )
 

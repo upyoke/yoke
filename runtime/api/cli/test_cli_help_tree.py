@@ -108,3 +108,8 @@ def test_spaced_group_with_hyphenated_leaf_resolves(capsys):
     assert main(["github", "actions", "--help"]) == 0
     assert "  yoke github actions check-ci " in capsys.readouterr().out
     assert main(["github", "actions", "check-ci", "--help"]) == 0
+
+
+def test_correlated_dispatch_is_visible_beside_one_shot_dispatch():
+    children = immediate_children(("github", "actions", "workflow"))
+    assert ("github", "actions", "workflow", "dispatch") in children

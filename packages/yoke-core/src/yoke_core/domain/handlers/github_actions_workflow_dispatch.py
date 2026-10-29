@@ -60,7 +60,9 @@ class WorkflowDispatchOnceRequest(BaseModel):
         if WORKFLOW_DISPATCH_CORRELATION_INPUT in self.inputs:
             raise ValueError(
                 f"inputs must not set reserved key "
-                f"{WORKFLOW_DISPATCH_CORRELATION_INPUT!r}"
+                f"{WORKFLOW_DISPATCH_CORRELATION_INPUT!r}; use "
+                "yoke github-actions workflow dispatch <repo> <workflow> "
+                "--request-id ID --correlation-input yoke_dispatch_id --project P"
             )
         return self
 

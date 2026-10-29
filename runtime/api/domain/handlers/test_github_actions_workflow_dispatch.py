@@ -327,3 +327,14 @@ def test_one_shot_dispatch_response_loss_is_ambiguous_and_never_retried(
     assert outcome.error.code == "workflow_dispatch_ambiguous"
     assert "no retry" in outcome.error.message
     post.assert_called_once()
+
+
+def test_one_shot_reserved_input_teaches_correlated_dispatch(monkeypatch) -> None:
+    _patch_auth(monkeypatch)
+    payload = dict(_request().payload)
+    payload.pop("correlation_input")
+    payload["inputs"] = {"yoke_dispatch_id": "reserved"}
+    outcome = handle_workflow_dispatch_once(_request(payload=payload))
+    assert outcome.primary_success is False
+    assert outcome.error.code == "invalid_payload"
+    assert "github-actions workflow dispatch" in outcome.error.message
