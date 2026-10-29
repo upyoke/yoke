@@ -28,6 +28,7 @@ _GENERIC_ERRORS = (
     "deployment did not complete",
     "promotion did not complete",
 )
+_EXCEPTION = re.compile(r"^(?:[A-Za-z_]\w*\.)*[A-Za-z_]\w*: \S")
 _CODED_ERROR = re.compile(r"\berror \([^)]+\):")
 
 
@@ -147,6 +148,8 @@ def _error_score(text: str) -> tuple[int, int]:
         return 95, len(text)
     if "unauthorized: authentication required" in folded:
         return 100, len(text)
+    if _EXCEPTION.match(text):
+        return 92, len(text)
     if "assertionerror:" in folded:
         return 90, len(text)
     if "must be the same commit" in folded:
@@ -170,8 +173,14 @@ def _last_useful_line(log: str) -> str:
 
 def terminal_error(log: str) -> str | None:
     """Select the most diagnostic non-relay error line from one job log."""
+    lines = _clean_lines(log)
+    headers = [i for i, line in enumerate(lines) if line == "Traceback (most recent call last):"]
+    if headers:
+        exceptions = [line for line in lines[headers[-1] + 1:] if _EXCEPTION.match(line)]
+        if exceptions:
+            return exceptions[-1]
     candidates: list[tuple[tuple[int, int], str]] = []
-    for line in _clean_lines(log):
+    for line in lines:
         annotated = "##[error]" in line
         text = line.split("##[error]", 1)[-1].strip() if annotated else line
         folded = text.casefold()
@@ -187,11 +196,7 @@ def terminal_error(log: str) -> str | None:
     return max(candidates, key=lambda item: item[0])[1]
 
 
-def _chain_entry(
-    ref: RunRef,
-    job: str = "",
-    job_url: str = "",
-) -> dict[str, str]:
+def _chain_entry(ref: RunRef, job: str = "", job_url: str = "") -> dict[str, str]:
     return {
         "repo": ref.repo,
         "run_id": ref.run_id,
@@ -201,11 +206,7 @@ def _chain_entry(
     }
 
 
-def _stopped(
-    chain: list[dict[str, str]],
-    reason: str,
-    recovery: str,
-) -> dict[str, Any]:
+def _stopped(chain: list[dict[str, str]], reason: str, recovery: str) -> dict[str, Any]:
     return {
         "complete": False,
         "chain": chain,
