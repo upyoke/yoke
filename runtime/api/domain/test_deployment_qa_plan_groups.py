@@ -171,7 +171,7 @@ def test_the_done_refusal_names_the_plan_group_command_only(test_db):
     from yoke_core.domain.deployment_qa_source_obligation import POST_DEPLOY_RECOVERY
     from yoke_core.domain.qa_done_gate_refusal import done_gate_refusal_errors
 
-    miss = _miss(MEMBERS[0], 7, SLUG, {"id": RUN}, "item-qa")
+    miss = _miss(MEMBERS[0], 7, SLUG, {"id": RUN}, "item-qa", "stage")
     text = "\n".join(done_gate_refusal_errors(test_db, [miss], name="YOK-1"))
 
     assert f"Post-deploy plan {SLUG}: no closed plan group" in text

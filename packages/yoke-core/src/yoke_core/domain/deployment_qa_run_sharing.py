@@ -232,7 +232,7 @@ def _run_entries(
                 open_plans.add(group["plan_id"])
                 sharing = (attached or {}).get(group["plan_id"], [])
             entries.append(
-                {**group, "closed": closed, "earlier_run_id": None,
+                {**{k: v for k, v in group.items() if k != "cases"}, "closed": closed, "earlier_run_id": None,
                  "sharing_item_ids": list(sharing)}
             )
         elif group["run_id"] in earlier and closed:
@@ -241,7 +241,7 @@ def _run_entries(
                 continue
             covered[group["plan_id"]].update(answered)
             entries.append(
-                {**group, "closed": True, "earlier_run_id": group["run_id"],
+                {**{k: v for k, v in group.items() if k != "cases"}, "closed": True, "earlier_run_id": group["run_id"],
                  "sharing_item_ids": list(group["covered_item_ids"])}
             )
     owed = {

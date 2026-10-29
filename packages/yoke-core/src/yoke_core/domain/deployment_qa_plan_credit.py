@@ -43,12 +43,29 @@ def _owed_plans(conn: Any, item_id: int) -> dict[int, str]:
     return {int(row["id"]): str(row["slug"]) for row in rows}
 
 
-def _plan_target_envs(conn: Any, plan_id: int) -> list[str]:
+def _plan_target_envs(conn: Any, plan_id: int, item_id: int) -> list[str]:
+    """A formed group's frozen target owns its cases and environment."""
+    rows = query_rows(conn,
+        "SELECT DISTINCT q.execution_target_json FROM qa_requirements q "
+        "WHERE q.plan_id=%s AND q.deployment_run_id IS NOT NULL "
+        "AND q.deployment_member_item_id IS NULL AND ("
+        "q.deployment_run_id IN (SELECT run_id FROM deployment_run_items WHERE item_id=%s) "
+        "OR COALESCE(q.covered_item_ids,'[]')::jsonb @> %s::jsonb)",
+        (plan_id, item_id, json.dumps([item_id])))
+    if rows:
+        return sorted({(json.loads(row["execution_target_json"])["environment"]
+                        .get("name") or "") for row in rows})
     row = conn.execute(
         "SELECT e.name FROM qa_plans p LEFT JOIN environments e "
-        "ON e.id=p.target_environment_id WHERE p.id=%s", (int(plan_id),)
+        "ON e.id=p.target_environment_id WHERE p.id=%s", (plan_id,)
     ).fetchone()
-    return [str(row[0] or "")] if row else [""]
+    if row and row[0]:
+        return [str(row[0])]
+    envs = set()
+    for case in query_rows(conn, "SELECT target_envs FROM qa_plan_cases WHERE plan_id=%s", (plan_id,)):
+        raw = case["target_envs"]
+        envs.update(json.loads(raw) if isinstance(raw, str) and raw else raw or [])
+    return sorted(envs) or [""]
 
 
 def _miss(item_id: int, plan_id: int, slug: str, run: dict | None, stage: str, target_env: str) -> dict:
@@ -84,7 +101,7 @@ def plan_credit_misses(conn: Any, item_id: int) -> list[dict]:
 
     misses = []
     for plan_id, slug in sorted(_owed_plans(conn, item_id).items()):
-        for target_env in _plan_target_envs(conn, plan_id):
+        for target_env in _plan_target_envs(conn, plan_id, item_id):
             run = latest_qa_member_run(conn, item_id=int(item_id), target_env=target_env)
             if run is not None and plan_id not in member_plan_ids(
                 conn, int(item_id), str(run["id"])
