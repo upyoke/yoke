@@ -85,20 +85,6 @@ def producer_repository(case: Mapping, inputs: Mapping[str, str]) -> str:
     return repo
 
 
-def resolve_product_ref(case: Mapping, inputs: dict[str, str]) -> None:
-    """Freeze a declared main branch before publication checks and dispatch."""
-    if inputs.get("product_ref") != "main":
-        return
-    repo, commit = _producer_commit(case, inputs, "main", branch=True)
-    sha = commit.get("sha") if isinstance(commit, dict) else None
-    if not isinstance(sha, str) or not re.fullmatch(r"[0-9a-fA-F]{40}", sha):
-        raise QaCaseExecutionError(
-            f"product_ref_unverified: main on {repo} did not resolve to a full "
-            "commit; restore the producer main branch and retry consumer CI"
-        )
-    inputs["product_ref"] = sha
-
-
 def require_published_product(case: Mapping, inputs: Mapping[str, str]) -> None:
     """Read the remote commit before any consumer run can be dispatched."""
     sha = inputs.get("product_ref")
@@ -109,18 +95,6 @@ def require_published_product(case: Mapping, inputs: Mapping[str, str]) -> None:
             f"product_ref_invalid: {sha!r} is not a full commit; run the producer "
             "gate, then send its exact pushed 40-hex commit"
         )
-    repo, commit = _producer_commit(case, inputs, sha)
-    if not isinstance(commit, dict) or commit.get("sha", "").lower() != sha.lower():
-        raise QaCaseExecutionError(
-            f"product_ref_unpublished: {sha} is not on {repo}; the producer "
-            "publishes it through its gate, then sends the exact pushed commit "
-            "after any rebase; update the consumer case and rerun"
-        )
-
-
-def _producer_commit(case: Mapping, inputs: Mapping[str, str], ref: str, *, branch=False):
-    """Read producer identity through the existing machine GitHub authority."""
-    endpoint = "commits" if branch else "git/commits"
     from yoke_core.domain.qa_case_ci_authority import machine_github_user_authority
     from yoke_core.domain.project_github_auth import (
         bound_local_github_user_token_provider,
@@ -138,7 +112,7 @@ def _producer_commit(case: Mapping, inputs: Mapping[str, str], ref: str, *, bran
                     "restore this machine's GitHub connection and retry consumer CI"
                 )
             commit = rest_get(
-                f"{repository_api_path(repo)}/{endpoint}/{ref}", token=provider()
+                f"{repository_api_path(repo)}/git/commits/{sha}", token=provider()
             )
     except QaCaseExecutionError:
         raise
@@ -147,4 +121,9 @@ def _producer_commit(case: Mapping, inputs: Mapping[str, str], ref: str, *, bran
             f"product_ref_unverified: producer publication could not be read: "
             f"{exc}; restore GitHub repository read access and retry consumer CI"
         ) from exc
-    return repo, commit
+    if not isinstance(commit, dict) or commit.get("sha", "").lower() != sha.lower():
+        raise QaCaseExecutionError(
+            f"product_ref_unpublished: {sha} is not on {repo}; the producer "
+            "publishes it through its gate, then sends the exact pushed commit "
+            "after any rebase; update the consumer case and rerun"
+        )
