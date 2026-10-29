@@ -234,7 +234,7 @@ def test_prior_runtime_helper_requires_valid_adjacent_bundle(
     current_site = tmp_path / "current-site"
     monkeypatch.setattr(
         github_git_credentials,
-        "_helper_site_dir",
+        "_helper_dir",
         lambda: current_site,
     )
 
@@ -261,7 +261,7 @@ def test_active_group_writable_runtime_recognizes_prior_helper_bundle(
     )
     monkeypatch.setattr(
         github_git_credentials,
-        "_helper_site_dir",
+        "_helper_dir",
         lambda: tmp_path / "current-site",
     )
 
@@ -291,7 +291,7 @@ def test_group_writable_prior_runtime_is_not_recognized(
     )
     monkeypatch.setattr(
         github_git_credentials,
-        "_helper_site_dir",
+        "_helper_dir",
         lambda: tmp_path / "current-site",
     )
 
@@ -313,7 +313,7 @@ def test_marker_shaped_helper_without_bundle_is_preserved(
     helper.chmod(0o644)
     monkeypatch.setattr(
         github_git_credentials,
-        "_helper_site_dir",
+        "_helper_dir",
         lambda: tmp_path / "current-site",
     )
 

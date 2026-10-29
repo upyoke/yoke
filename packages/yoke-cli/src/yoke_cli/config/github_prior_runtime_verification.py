@@ -8,6 +8,50 @@ from pathlib import Path
 
 from yoke_cli.config import github_git_credential_launcher
 
+RELEASES_ROOT_NAME = "yoke-cli-releases"
+
+
+def current_release_path(path: Path) -> Path:
+    """Map a path inside a release generation onto the ``current`` alias."""
+    generation = _release_generation(path)
+    if generation is None:
+        return path
+    return generation.parent.parent / "current" / path.relative_to(generation)
+
+
+def orphaned_release_helper(
+    python: str,
+    helper: str,
+    *,
+    current_python: Path,
+) -> bool:
+    """Recognize a release helper a Python minor-version change left behind.
+
+    A release switch that changes the Python minor version moves the old
+    ``lib/python3.X/site-packages`` helper out from under the saved command.
+    The command is still Yoke's when both paths name this machine's releases
+    root on their literal text and the helper file is gone. Editable and
+    source installs have no releases root, so they never match.
+    """
+    generation = _release_generation(current_python)
+    if generation is None:
+        return False
+    root = generation.parent.parent
+    paths = (Path(python), Path(helper))
+    return (
+        not any(".." in path.parts for path in paths)
+        and all(path.is_relative_to(root) for path in paths)
+        and not paths[1].exists()
+    )
+
+
+def _release_generation(path: Path) -> Path | None:
+    for generation in path.parents:
+        releases = generation.parent
+        if releases.name == "releases" and releases.parent.name == RELEASES_ROOT_NAME:
+            return generation
+    return None
+
 
 def verified_prior_runtime_helper(
     python: Path,

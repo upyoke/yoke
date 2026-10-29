@@ -23,7 +23,7 @@ def test_checkout_converges_to_https_and_verified_helper(tmp_path, monkeypatch, 
     _git(repo, "remote", "add", "origin", origin)
     _git(repo, "config", "remote.origin.pushurl", origin)
     monkeypatch.setattr(
-        github_git_credentials, "_helper_site_dir", lambda: tmp_path / "site"
+        github_git_credentials, "_helper_dir", lambda: tmp_path / "site"
     )
     report = github_project_setup.converge(repo, config_path=config)
     assert report["configured"] is True
@@ -66,7 +66,7 @@ def test_read_only_checkout_converges_helper_without_enabling_push(
         _git(repo, "config", "--add", "remote.origin.pushurl", extra_push_url)
         expected_push_urls = [extra_push_url]
     monkeypatch.setattr(
-        github_git_credentials, "_helper_site_dir", lambda: tmp_path / "site"
+        github_git_credentials, "_helper_dir", lambda: tmp_path / "site"
     )
 
     report = github_project_setup.converge(repo, config_path=config)
@@ -133,7 +133,7 @@ def test_install_and_refresh_converge_before_upstream_and_publication(
         seed_project(repo, config)
         _git(repo, "config", "remote.origin.pushurl", LEGACY_READ_ONLY_PUSH_URL)
     monkeypatch.setattr(
-        github_git_credentials, "_helper_site_dir", lambda: tmp_path / "site"
+        github_git_credentials, "_helper_dir", lambda: tmp_path / "site"
     )
     monkeypatch.setattr(runner, "_resolve_project_id", lambda *args: (7, False))
     monkeypatch.setattr(
@@ -224,7 +224,7 @@ def test_source_activation_uses_selected_config_and_teaches_refusal(
     if refuse:
         _git(repo, "config", "remote.origin.pushurl", "git@github.com:octo/other.git")
     monkeypatch.setattr(
-        github_git_credentials, "_helper_site_dir", lambda: tmp_path / "site"
+        github_git_credentials, "_helper_dir", lambda: tmp_path / "site"
     )
     monkeypatch.setattr(
         source_link,

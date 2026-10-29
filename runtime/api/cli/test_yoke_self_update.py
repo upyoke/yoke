@@ -89,7 +89,7 @@ def test_already_current_skips_reinstall_but_repairs_helper_in_process(monkeypat
     monkeypatch.setattr(
         self_update.github_repo_helper_reconnect,
         "restore_missing_bundle",
-        lambda _config_path: {"configured": True, "repaired": True},
+        lambda _config_path: {"configured": True, "repaired": True, "rewritten": []},
     )
 
     result = self_update.run_update()
@@ -102,6 +102,7 @@ def test_already_current_skips_reinstall_but_repairs_helper_in_process(monkeypat
         "base_url": "https://distribution.example",
         "credential_helper_configured": True,
         "credential_helper_repaired": True,
+        "credential_helper_rewritten": [],
         "credential_helper_error": None,
         "project_refresh": {"status": "not_installed"},
     }

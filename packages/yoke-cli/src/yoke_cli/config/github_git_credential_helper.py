@@ -1,7 +1,7 @@
 """Git credential entrypoint backed by a GitHub App user authorization.
 
-Source-dev onboarding copies this file and its credential-store siblings into
-site-packages. The fallback import keeps HTTPS clones working while an editable
+Yoke copies this file and its credential-store siblings into the CLI
+environment's ``github-credential-helper`` directory. The fallback import keeps HTTPS clones working while an editable
 install is being moved to the checkout that Git is currently cloning.
 """
 

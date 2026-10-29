@@ -61,7 +61,7 @@ def test_disconnect_then_reconnect_restores_registered_checkout_helper(
     monkeypatch.setenv("GIT_CONFIG_NOSYSTEM", "1")
     monkeypatch.setattr(
         github_git_credentials,
-        "_helper_site_dir",
+        "_helper_dir",
         lambda: tmp_path / "site",
     )
     configured = github_git_credentials.configure_repo_helper(
@@ -136,7 +136,7 @@ def test_failed_profile_replacement_keeps_existing_helper_unchanged(
     _register_checkout(config, repo, tmp_path)
     monkeypatch.setattr(
         github_git_credentials,
-        "_helper_site_dir",
+        "_helper_dir",
         lambda: tmp_path / "site",
     )
     configured = github_git_credentials.configure_repo_helper(
