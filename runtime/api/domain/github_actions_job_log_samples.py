@@ -96,6 +96,26 @@ def pytest_job_log(
     return _stamp(body)
 
 
+def vitest_job_log(*, section: str = "Tests") -> str:
+    """A Vitest failure followed by a separate failure annotation step."""
+    return _stamp(
+        [
+            *_checkout(),
+            "##[group]Run npm test",
+            "##[endgroup]",
+            f"\x1b[31m⎯⎯⎯⎯⎯⎯⎯ Failed {section} 5 ⎯⎯⎯⎯⎯⎯⎯\x1b[0m",
+            "FAIL hosted-qa-frozen-cases.test.ts > admit",
+            "QaCasesNotSelectedError: select frozen QA cases before admission",
+            *(f"    frame {index}" for index in range(180)),
+            "Test Files  1 failed (1)",
+            "Tests  5 failed (5)",
+            "##[group]Run report route consumer failure",
+            "##[error]route-consumer-failure",
+            *_upload_and_cleanup(40),
+        ]
+    )
+
+
 def build_job_log(*, build_lines: int = 300, upload_lines: int = 40) -> str:
     """A compile step that failed with no pytest output."""
     return _stamp(
@@ -121,4 +141,5 @@ __all__ = [
     "TYPE_ERROR",
     "build_job_log",
     "pytest_job_log",
+    "vitest_job_log",
 ]

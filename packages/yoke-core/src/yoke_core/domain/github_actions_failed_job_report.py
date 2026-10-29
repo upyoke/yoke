@@ -26,7 +26,7 @@ from yoke_core.domain.github_actions_failed_jobs import (
 from yoke_core.domain.github_actions_failure_region import (
     REGION_ERROR_STEP,
     REGION_LOG,
-    REGION_PYTEST,
+    REGION_TEST_FAILURES,
     FailureRegion,
     failure_region,
 )
@@ -153,7 +153,7 @@ def build_failed_job_report(
 
 
 _REGION_LABELS = {
-    REGION_PYTEST: "pytest failures section",
+    REGION_TEST_FAILURES: "test failures section",
     REGION_ERROR_STEP: "failing step",
     REGION_LOG: "end of log",
 }

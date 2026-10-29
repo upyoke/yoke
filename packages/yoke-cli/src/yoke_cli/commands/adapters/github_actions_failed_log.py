@@ -67,8 +67,9 @@ def github_actions_failed_log(args: List[str]) -> int:
             "jobs are still running. Each failed job — every shard of a "
             "matrix included — gets its own labelled block carrying the job "
             "name, job id, conclusion, GitHub job URL, and its failure "
-            "region: pytest's FAILURES section through the short test "
-            "summary, else the step that raised the last ##[error], else "
+            "region: pytest FAILURES / ERRORS or Vitest Failed Tests / "
+            "Failed Suites through the short test summary, else the step "
+            "that raised the last ##[error], else "
             "the end of the log before teardown. Each region is bounded by "
             "--lines and an equal share of the report size, and every trim "
             "is named in place. --full also writes each failed job's "
@@ -111,7 +112,8 @@ def github_actions_failed_log(args: List[str]) -> int:
         help=(
             "Most failure-region lines to show PER failed job (default: "
             "the server's bound, named in the report header whenever it "
-            "trims). A pytest region keeps its first failure and its "
+            "trims). A pytest or Vitest region keeps its first failure "
+            "and its "
             "short test summary; other regions keep their end."
         ),
     )
