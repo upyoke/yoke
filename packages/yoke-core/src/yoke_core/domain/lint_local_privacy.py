@@ -17,6 +17,9 @@ from pathlib import Path
 import sys
 from typing import Optional, Tuple
 
+from yoke_contracts.machine_config import runtime as machine_config
+from yoke_contracts.machine_config.schema_projects import mapped_checkouts
+from yoke_contracts.machine_config.schema_connections import MachineConfigContractError
 from yoke_contracts.hook_runner.local_privacy_guard import classify_shell_command
 from yoke_contracts.hook_runner.local_privacy_messages import (
     LIVE_ADVISORY,
@@ -35,9 +38,21 @@ def evaluate_payload(record: HookContext) -> Optional[Tuple[str, str]]:
     payload = record.payload if isinstance(record.payload, dict) else {}
     if not record.shell.segments:
         return None
+    try:
+        checkout_roots = tuple(
+            path for path, _ in mapped_checkouts(machine_config.load_config())
+        )
+    except (
+        OSError,
+        ValueError,
+        machine_config.MachineConfigError,
+        MachineConfigContractError,
+    ):
+        checkout_roots = ()
     finding = classify_shell_command(
         record.shell,
         home=Path.home(),
+        checkout_roots=checkout_roots,
         cwd=(payload.get("cwd") if isinstance(payload.get("cwd"), str) else Path.cwd()),
     )
     if finding is None:

@@ -4,7 +4,7 @@
  "status": "draft-copy",
  "audience": "both",
  "when": "A privacy guard result appears",
- "need": "System privacy database reads are refused by Yoke; broad home discovery is advisory. Personal-folder reads and GUI automation remain subject to harness permissions and OS controls. Automated-test isolation is stricter than live policy.",
+ "need": "System privacy database reads are refused by Yoke; broad home discovery is advisory. Live reads inside registered machine checkouts are exempt after symlink containment checks; missing or unreadable config grants no exemption. Personal-folder reads and GUI automation remain subject to harness permissions and OS controls. Automated-test isolation is stricter than live policy.",
  "disclosure": "current cue",
  "surface": "Local privacy guard diagnosis names authority and a recovery step.",
  "gap": "The refusal teaching is concrete; proactive human help entry and end-to-end delivery outside project context were not traced.",

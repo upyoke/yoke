@@ -12,6 +12,9 @@ from yoke_contracts.hook_runner import (
     destructive_git_rules,
     recursive_rm_guard,
 )
+from yoke_contracts.machine_config import runtime as machine_config
+from yoke_contracts.machine_config.schema_projects import mapped_checkouts
+from yoke_contracts.machine_config.schema_connections import MachineConfigContractError
 from yoke_contracts.hook_runner.local_privacy_guard import classify_shell_command
 from yoke_contracts.hook_runner.main_commit import git_invocations
 from yoke_contracts.hook_runner.shell_expansion_scan import double_quoted_spans
@@ -71,9 +74,7 @@ def lint_destructive_git(payload: dict, shell: ShellParse) -> PolicyResult:
             continue
         return PolicyResult(
             DENY,
-            destructive_git_messages.format_reason(
-                shape, threatened, suppression_seen
-            ),
+            destructive_git_messages.format_reason(shape, threatened, suppression_seen),
         )
     return PolicyResult(NOOP)
 
@@ -96,7 +97,9 @@ def lint_shell_backtick_search(payload: dict, shell: ShellParse) -> PolicyResult
     for segment in shell.segments:
         if segment.program not in _SEARCH_PROGRAMS:
             continue
-        if any(_has_unescaped_backtick(span) for span in double_quoted_spans(segment.text)):
+        if any(
+            _has_unescaped_backtick(span) for span in double_quoted_spans(segment.text)
+        ):
             return PolicyResult(
                 DENY,
                 "BLOCKED: grep/rg search text contains a backtick inside "
@@ -112,9 +115,21 @@ def lint_local_privacy(payload: dict, shell: ShellParse) -> PolicyResult:
     Personal-folder reads and GUI automation are the harness prompt's and the
     operating system's call, so they classify but produce nothing here.
     """
+    try:
+        checkout_roots = tuple(
+            path for path, _ in mapped_checkouts(machine_config.load_config())
+        )
+    except (
+        OSError,
+        ValueError,
+        machine_config.MachineConfigError,
+        MachineConfigContractError,
+    ):
+        checkout_roots = ()
     finding = classify_shell_command(
         shell,
         home=Path.home(),
+        checkout_roots=checkout_roots,
         cwd=payload.get("cwd") if isinstance(payload.get("cwd"), str) else Path.cwd(),
     )
     if finding is None:

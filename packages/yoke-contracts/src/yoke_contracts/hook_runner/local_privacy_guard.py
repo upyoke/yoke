@@ -15,6 +15,7 @@ product-local HTTPS fallback enforce one contract.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from functools import partial
 import os
 import shlex
 from pathlib import Path
@@ -108,13 +109,7 @@ def _expanded_path(
 def _stronger(
     current: LocalPrivacyFinding | None, candidate: LocalPrivacyFinding | None
 ) -> LocalPrivacyFinding | None:
-    """Return whichever finding a live caller must answer to.
-
-    A command names several things, and the first one it names is not
-    necessarily the one that matters: a personal-folder read the harness
-    already authorized must never stand in for a privacy-database read later
-    in the same command.
-    """
+    """Keep the strongest finding, so earlier allowed reads cannot mask denials."""
     if candidate is None:
         return current
     if current is None:
@@ -150,14 +145,11 @@ def _path_finding(
     cwd: str | os.PathLike[str] | None = None,
     *,
     discovery: bool = False,
+    checkout_roots: tuple[str, ...] = (),
 ) -> LocalPrivacyFinding | None:
-    """Classify one path operand.
+    """Classify a path; ``discovery`` distinguishes tree scans from named reads.
 
-    ``discovery`` says the operand came from an enumeration tool (``find``,
-    ``rg``, ``ls`` …) rather than a reader naming one file. That is the whole
-    difference between "open the document the operator asked for" and "walk
-    their folders looking for something", and the two get different answers
-    live.
+    Registered checkouts exempt live reads only while symlinks stay inside.
     """
     expanded = _expanded_path(token, home, cwd)
     if expanded is None:
@@ -178,6 +170,18 @@ def _path_finding(
     protected = _protected_root(parts)
     if protected is None:
         return None
+    for checkout in checkout_roots:
+        root = _expanded_path(checkout, home)
+        if root and (expanded == root or expanded.startswith(root + os.sep)):
+            try:
+                resolved_root = os.path.realpath(root)
+                if (
+                    os.path.commonpath((os.path.realpath(expanded), resolved_root))
+                    == resolved_root
+                ):
+                    return None
+            except (OSError, ValueError):
+                pass
     scope = "/".join(protected)
     globbed = any(char in part for part in parts for char in _GLOB_CHARS)
     if globbed or (discovery and not _names_one_file(parts)):
@@ -186,11 +190,13 @@ def _path_finding(
 
 
 def _implicit_scan(
-    cwd: str | os.PathLike[str] | None, home: Path
+    cwd: str | os.PathLike[str] | None, home: Path, checkout_roots: tuple[str, ...]
 ) -> LocalPrivacyFinding | None:
     if cwd is None:
         return None
-    return _path_finding(os.fspath(cwd), home, discovery=True)
+    return _path_finding(
+        os.fspath(cwd), home, discovery=True, checkout_roots=checkout_roots
+    )
 
 
 def _strongest_path_finding(
@@ -199,18 +205,29 @@ def _strongest_path_finding(
     cwd: str | os.PathLike[str] | None,
     *,
     discovery: bool = False,
+    checkout_roots: tuple[str, ...] = (),
 ) -> LocalPrivacyFinding | None:
     strongest: LocalPrivacyFinding | None = None
     for target in paths:
         strongest = _stronger(
-            strongest, _path_finding(target, home, cwd, discovery=discovery)
+            strongest,
+            _path_finding(
+                target, home, cwd, discovery=discovery, checkout_roots=checkout_roots
+            ),
         )
     return strongest
 
 
 def _scan_segment(
-    tokens: Sequence[str], *, home: Path, cwd: str | os.PathLike[str] | None
+    tokens: Sequence[str],
+    *,
+    home: Path,
+    cwd: str | os.PathLike[str] | None,
+    checkout_roots: tuple[str, ...],
 ) -> LocalPrivacyFinding | None:
+    paths_finding = partial(
+        _strongest_path_finding, home=home, cwd=cwd, checkout_roots=checkout_roots
+    )
     executable, args = unwrap(tokens)
     if not executable:
         return None
@@ -221,7 +238,9 @@ def _scan_segment(
     if executable in _SHELLS:
         for index, token in enumerate(args[:-1]):
             if "c" in token.lstrip("-") and token.startswith("-"):
-                return classify_shell_command(args[index + 1], home=home, cwd=cwd)
+                return classify_shell_command(
+                    args[index + 1], home=home, cwd=cwd, checkout_roots=checkout_roots
+                )
         return None
 
     if executable == "find":
@@ -232,39 +251,37 @@ def _scan_segment(
             if token.startswith("-") or token in {"!", "(", ")"}:
                 break
             roots.append(token)
-        return _strongest_path_finding(roots, home, cwd, discovery=True) or (
-            _implicit_scan(cwd, home) if not roots else None
+        return paths_finding(roots, discovery=True) or (
+            _implicit_scan(cwd, home, checkout_roots) if not roots else None
         )
     if executable in {"ls", "du", "tree"}:
-        return _strongest_path_finding(
+        return paths_finding(
             (token for token in args if not token.startswith("-")),
-            home,
-            cwd,
             discovery=True,
         )
     if executable in {"fd", "fdfind"}:
         positionals = [token for token in args if not token.startswith("-")]
         paths = positionals[1:]
-        return _strongest_path_finding(paths, home, cwd, discovery=True) or (
-            _implicit_scan(cwd, home) if not paths else None
+        return paths_finding(paths, discovery=True) or (
+            _implicit_scan(cwd, home, checkout_roots) if not paths else None
         )
     if executable in {"rg", "ripgrep"}:
         positionals, expression_supplied = option_positionals(args, RG_VALUE_OPTIONS)
         files_mode = "--files" in args
         paths = positionals if files_mode or expression_supplied else positionals[1:]
-        return _strongest_path_finding(paths, home, cwd, discovery=True) or (
-            _implicit_scan(cwd, home) if not paths else None
+        return paths_finding(paths, discovery=True) or (
+            _implicit_scan(cwd, home, checkout_roots) if not paths else None
         )
     if executable in {"grep", "egrep", "fgrep"} and any(
         flag in args for flag in ("-r", "-R", "--recursive")
     ):
         positionals, expression_supplied = option_positionals(args, GREP_VALUE_OPTIONS)
         paths = positionals if expression_supplied else positionals[1:]
-        return _strongest_path_finding(paths, home, cwd, discovery=True) or (
-            _implicit_scan(cwd, home) if not paths else None
+        return paths_finding(paths, discovery=True) or (
+            _implicit_scan(cwd, home, checkout_roots) if not paths else None
         )
     if executable in _DIRECT_READERS:
-        return _strongest_path_finding(args, home, cwd)
+        return paths_finding(args)
     return None
 
 
@@ -273,11 +290,13 @@ def classify_shell_command(
     *,
     home: Path,
     cwd: str | os.PathLike[str] | None = None,
+    checkout_roots: tuple[str, ...] = (),
 ) -> LocalPrivacyFinding | None:
     """Return the strongest operator-machine privacy finding in ``command``.
 
     Each segment's relative paths resolve against the directory it runs in,
     after every earlier ``cd``; an unreadable ``cd`` leaves them unresolved.
+    Live callers supply registered checkouts; test isolation supplies none.
     """
     parsed = command if isinstance(command, ShellParse) else parse_shell(command)
     base = os.fspath(cwd) if cwd is not None else ""
@@ -285,7 +304,12 @@ def classify_shell_command(
     for segment, segment_cwd in zip(
         parsed.segments, parsed.segment_cwds(base, home=str(home))
     ):
-        finding = _scan_segment(segment.argv, home=home, cwd=segment_cwd or None)
+        finding = _scan_segment(
+            segment.argv,
+            home=home,
+            cwd=segment_cwd or None,
+            checkout_roots=checkout_roots,
+        )
         strongest = _stronger(strongest, finding)
     return strongest
 
