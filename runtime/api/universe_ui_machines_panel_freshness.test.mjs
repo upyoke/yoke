@@ -76,7 +76,7 @@ test("a confirmed removal reads absent and drops its stale version, never masked
   );
 });
 
-test("a stale plan-limit reading omits its tier, headroom, and quota alike", () => {
+test("stale quota survives until reset with its read time and no headroom", () => {
   const staleAt = new Date(Date.now() - 6 * 24 * 60 * 60 * 1000).toISOString();
   const host = renderOneCard({
     machine_id: "machine-5",
@@ -94,14 +94,28 @@ test("a stale plan-limit reading omits its tier, headroom, and quota alike", () 
         windows: [windowReading({
           remaining_percent: 23.652,
           resets_at: new Date(Date.now() - 60 * 1000).toISOString(),
+        }), windowReading({
+          remaining_percent: 71.4,
+          resets_at: new Date(Date.now() + 60 * 60 * 1000).toISOString(),
+        }), windowReading({
+          status: "unknown", remaining_percent: null,
+          resets_at: new Date(Date.now() + 60 * 60 * 1000).toISOString(),
         })],
       },
     },
   });
 
   assert.equal(byClass(host, "machine-plan-tier").length, 0);
-  assert.deepEqual(textOf(host, "machine-limit-headroom").slice(1), ["—"]);
-  assert.deepEqual(textOf(host, "machine-limit-quota").slice(1), ["—"]);
+  const asOf = new Date(staleAt).toLocaleTimeString([], {
+    hour: "2-digit", minute: "2-digit", hour12: false,
+  });
+  assert.deepEqual(textOf(host, "machine-limit-name"), [
+    "no reading", "rolling 5h · all", "no reading",
+  ]);
+  assert.deepEqual(textOf(host, "machine-limit-headroom").slice(1), ["—", "—", "—"]);
+  assert.deepEqual(textOf(host, "machine-limit-quota").slice(1), [
+    "—", `71% as of ${asOf}`, "—",
+  ]);
 });
 
 test("a fresh quota still shows when its window cannot compute headroom", () => {

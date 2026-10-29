@@ -130,11 +130,6 @@ def probe_claude_cli(*, observed_at: str) -> dict[str, Any]:
     # and an upgraded CLI is identified by its new version on the next probe.
     version = probe_cli_surface("claude-cli", CLI_SURFACE_PROBES["claude-cli"])
     if version.verdict != "ok" or not version.version:
-        _failures.failed(
-            "claude-cli plan-limit probe",
-            f"claude --version {version.verdict}: {version.error}; "
-            "reinstall or repair Claude Code so `claude --version` prints its version",
-        )
         return unknown_reading(
             "claude-cli",
             f"claude_version_unreadable_{version.verdict}",
@@ -241,19 +236,25 @@ def _probe_one(surface: str, observed_at: str) -> dict[str, Any]:
         None,
     )
     probe = _PROBES.get(source)
-    if probe is None:
-        return unknown_reading(
-            surface, "quota_source_unsupported", observed_at=observed_at
-        )
     try:
-        return probe(observed_at=observed_at)
+        reading = (
+            probe(observed_at=observed_at) if probe else
+            unknown_reading(surface, "quota_source_unsupported", observed_at=observed_at)
+        )
     except Exception as exc:
-        # Collapsing every exception into one reason is how a surface that
-        # is merely misconfigured reads the same as one that is broken.
-        _failures.failed(f"{surface} plan-limit probe", f"{type(exc).__name__}: {exc}")
-        return unknown_reading(
+        reading = unknown_reading(
             surface, f"probe_raised_{type(exc).__name__}", observed_at=observed_at
         )
+    operation = f"{surface} plan-limit probe"
+    if reading_is_ok(reading):
+        _failures.recovered(operation)
+    else:
+        reasons = dict.fromkeys(
+            window.get("reason") or "usage_unreadable"
+            for window in reading.get("windows", ()) if window.get("status") != "ok"
+        )
+        _failures.failed(operation, "; ".join(reasons) or "usage_unreadable")
+    return reading
 
 
 def _carry_forward(

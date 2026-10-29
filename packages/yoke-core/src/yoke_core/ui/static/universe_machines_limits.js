@@ -13,6 +13,7 @@
  * than inventing a second.
  */
 
+import { instantFromDate, instantMicros } from "./timestamps.js";
 import { attachTooltip } from "./universe_tooltip.js";
 
 const HEADROOM_DEFINITION = "Headroom: usage left vs. an even pace to the reset.";
@@ -92,10 +93,22 @@ function headroomTrack(documentNode, headroom, tone) {
 // the same fact so they cannot disagree; quota left rides behind as the
 // supporting one, because the level alone never says whether a pool can run
 // out before it resets.
-export function planWindowRow(documentNode, window, stale) {
-  // A stale reading's headroom is not recomputed from a possibly long-passed
-  // `resets_at` — it reads exactly like a window nobody could read, reusing
-  // the same "no reading" presentation rather than a second one.
+export function planWindowRow(documentNode, window, stale, observedAt) {
+  let retained = false;
+  let asOf = "";
+  if (stale && window.status === "ok") {
+    try {
+      retained = instantMicros(window.resets_at)
+        > instantMicros(instantFromDate(new Date()));
+      const date = new Date(Number(instantMicros(observedAt) / 1000n));
+      asOf = date.toLocaleTimeString([], {
+        hour: "2-digit", minute: "2-digit", hour12: false,
+      });
+    } catch {
+      retained = false;
+    }
+  }
+  // Historical quota stays useful until reset; headroom requires a live read.
   const headroom = stale ? null : planWindowHeadroom(window);
   const tone = stale ? "unread" : headroomTone(headroom);
   const row = el(documentNode, "div", "machine-limit-row");
@@ -105,7 +118,7 @@ export function planWindowRow(documentNode, window, stale) {
     documentNode,
     "span",
     "machine-limit-name",
-    unread ? "no reading" : windowLabel(window),
+    unread && !retained ? "no reading" : windowLabel(window),
   );
   // Deliberately the browser's own title rather than the shared tooltip: the
   // column caps its width, so this reveals the characters the ellipsis ate
@@ -124,10 +137,8 @@ export function planWindowRow(documentNode, window, stale) {
     documentNode,
     "span",
     "machine-limit-quota",
-    // A stale reading omits its quota outright rather than presenting a
-    // number that may be days old as current; a fresh reading still shows
-    // its percent even when headroom itself could not be computed above.
-    stale || quota === null ? "—" : `${Math.round(quota)}%`,
+    quota === null || (stale && !retained) ? "—"
+      : `${Math.round(quota)}%${stale ? ` as of ${asOf}` : ""}`,
   ));
   return row;
 }
@@ -186,8 +197,7 @@ function surfaceHead(documentNode, relay, surface, state, reading, stale) {
   // is stored under and the identity every launch and policy call carries.
   const family = harnessFamilyIdentity(surface);
   head.appendChild(el(documentNode, "span", "machine-surface-name", family));
-  // A stale tier is omitted with the quota it came from, rather than shown
-  // as a badge the reading can no longer back up.
+  // A stale tier is omitted rather than presented as a current plan badge.
   if (reading?.plan_tier && !stale) head.appendChild(el(
     documentNode, "span", "machine-plan-tier", reading.plan_tier,
   ));
@@ -208,8 +218,7 @@ export function surfaceRow(documentNode, relay, surface) {
     documentNode, "section", `machine-surface machine-surface-${state}`,
   );
   const reading = (relay.plan_limits || {})[surface];
-  // One freshness verdict for the whole reading, applied consistently to its
-  // tier, its headroom, and its quota below — never three separate guesses.
+  // Stale readings hide live headroom; unreset quotas retain their read time.
   const stale = reading ? readingIsStale(reading.observed_at) : false;
   row.appendChild(surfaceHead(documentNode, relay, surface, state, reading, stale));
   if (reason) row.appendChild(el(
@@ -223,7 +232,7 @@ export function surfaceRow(documentNode, relay, surface) {
     // by measured headroom instead would move rows around as the readings
     // moved and split a pool's own two windows apart.
     for (const window of sortPlanWindows(reading.windows)) {
-      limits.appendChild(planWindowRow(documentNode, window, stale));
+      limits.appendChild(planWindowRow(documentNode, window, stale, reading.observed_at));
       if (window.status !== "ok" && window.reason) {
         limits.appendChild(
           limitNote(documentNode, window.reason, window.guidance),
