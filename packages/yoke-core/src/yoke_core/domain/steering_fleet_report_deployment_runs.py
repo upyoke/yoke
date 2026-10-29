@@ -149,10 +149,10 @@ class DeploymentRunProgress:
         if self.pin_qa.unpassable:
             return self.pin_qa.supersede_recovery(self.run_id)
         if self.status == RunStatus.CREATED and self.outstanding == 0:
-            return f"Nothing is outstanding; re-drive {self.run_id} to start it."
+            return f"Nothing is outstanding; re-drive {self.run_id} with `yoke watch deploy -- {self.run_id}` to start it."
         if self.answered_decision is not None:
             return (
-                f"Answer recorded; re-drive {self.run_id} so the runner acts on it: "
+                f"Answer recorded; re-drive {self.run_id} with `yoke watch deploy -- {self.run_id}` so the runner acts on it: "
                 "an approve proceeds, a reject fails the stage."
             )
         return redrive_recovery(self.run_id, unresolved=self.outstanding)

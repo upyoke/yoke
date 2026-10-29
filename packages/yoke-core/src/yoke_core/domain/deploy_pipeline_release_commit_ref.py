@@ -49,7 +49,7 @@ def dispatch_ref(
         return "", (
             f"{prefix}run {run_id} resolved no full release commit to run it "
             f"from (got {head_sha!r}); repair the run's release lineage, then "
-            f"re-drive {run_id}"
+            f"re-drive {run_id} with `yoke watch deploy -- {run_id}`"
         )
     tag = dispatch_tag_name(run_id)
     result = github_actions(
@@ -61,7 +61,7 @@ def dispatch_ref(
         return "", (
             f"{prefix}could not tag {head_sha} as {tag} in {github_repo} "
             f"({DISPATCH_TAG_FUNCTION_ID}: {detail}); resolve the named "
-            f"refusal, then re-drive {run_id}"
+            f"refusal, then re-drive {run_id} with `yoke watch deploy -- {run_id}`"
         )
     print(f"  Dispatch ref: tag {tag} on release commit {head_sha}")
     return tag, ""

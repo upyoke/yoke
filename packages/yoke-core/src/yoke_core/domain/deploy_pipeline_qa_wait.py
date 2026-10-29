@@ -139,7 +139,7 @@ def dispatch_until_qa_resolves(
     return AWAITING_SCOPED_QA, (
         f"{detail}; timed out after {timeout:g}s awaiting scoped QA"
         f"{unanswered}. Settle or waive the outstanding member obligations, "
-        "then re-drive this deployment run from the QA stage."
+        "then re-drive this deployment run with `yoke watch deploy -- RUN` from the QA stage."
     )
 
 

@@ -157,7 +157,7 @@ def member_close_evidence_refusal(
         return ""
     return (
         f"landing evidence is missing {', '.join(missing)}. Record it with "
-        "`yoke merge item` `--result` and `--verification`, then re-drive the run"
+        "`yoke merge item` `--result` and `--verification`, then re-drive the run with `yoke watch deploy -- RUN`"
     )
 
 

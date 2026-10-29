@@ -45,7 +45,7 @@ class RunFinalizationPending(RuntimeError):
         recovery = (
             ""
             if code in {SETTLEMENT_BLOCKED_CODE, RUN_SUPERSEDED_CODE}
-            else f"; re-drive {run_id} to finalize"
+            else f"; re-drive {run_id} with `yoke watch deploy -- {run_id}` to finalize"
         )
         super().__init__(
             f"{FINALIZATION_PENDING_PREFIX} — "

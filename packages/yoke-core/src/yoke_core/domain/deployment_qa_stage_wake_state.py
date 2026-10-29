@@ -219,7 +219,7 @@ def member_wake_states(
     reachable = _addressable(conn, unsent, project_id=project_id)
     for member in unsent:
         states[member] = (
-            f"not woken: driver gone or stale; re-drive {run_id} to send it"
+            f"not woken: driver gone or stale; re-drive {run_id} with `yoke watch deploy -- {run_id}` to send it"
             if member in reachable
             else "not woken: no addressable holder (no live claim holder and no "
             "covering steering seat); staff the item"

@@ -51,7 +51,7 @@ def bound_commits(
             return {}, (
                 f"release fleet rehearsal refused: bound input {key!r} of project "
                 f"{project!r} has no recorded source commit, so the commit this "
-                "dispatch ships is unknown; re-drive the run so preparation "
+                "dispatch ships is unknown; re-drive the run with `yoke watch deploy -- RUN` so preparation "
                 "records it, or compose a new run"
             )
         if commits.setdefault(project, sha) != sha:

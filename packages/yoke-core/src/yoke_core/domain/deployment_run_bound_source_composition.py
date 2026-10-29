@@ -69,7 +69,7 @@ def revalidate_bound_source_composition(
             raise CandidateContainmentRefusal(
                 "candidate_containment_attestation_stale",
                 f"candidate attribution changed while preparing {run_id}",
-                f"re-drive {run_id} to prepare the current landing facts",
+                f"re-drive {run_id} with `yoke watch deploy -- {run_id}` to prepare the current landing facts",
             )
     if current:
         return preview
@@ -87,7 +87,7 @@ def _read_composition(conn, run_id, record, project_ids):
         if not (project.get("derivation") or {}).get("contents_known"):
             derivation = project.get("derivation") or {}
             raise ValueError(
-                f"bound_source_composition_unverified: {derivation.get('reason')}; {derivation.get('recovery')}; re-drive {run_id}"
+                f"bound_source_composition_unverified: {derivation.get('reason')}; {derivation.get('recovery')}; re-drive {run_id} with `yoke watch deploy -- {run_id}`"
             )
     custody = CustodyResolution(
         conn,
@@ -141,7 +141,7 @@ def _preview_containment(
                 verdict = walk.contains(key[3])
                 if verdict.state not in {CONTAINED, NOT_CONTAINED}:
                     raise ValueError(
-                        f"bound_source_containment_unverified: {item['public_ref']}: {verdict.reason}; {verdict.recovery}; re-drive {run_id}"
+                        f"bound_source_containment_unverified: {item['public_ref']}: {verdict.reason}; {verdict.recovery}; re-drive {run_id} with `yoke watch deploy -- {run_id}`"
                     )
                 answer = dict(
                     project_id=pid,
@@ -157,7 +157,7 @@ def _preview_containment(
                 and answer["state"] != CONTAINED
             ):
                 raise ValueError(
-                    f"bound_source_excludes_member: {item['public_ref']} is outside {lineage}; restore consumer main to a containing revision, then re-drive {run_id}"
+                    f"bound_source_excludes_member: {item['public_ref']} is outside {lineage}; restore consumer main to a containing revision, then re-drive {run_id} with `yoke watch deploy -- {run_id}`"
                 )
             answers.append(answer)
     return {"basis_digest": basis["basis_digest"], "answers": answers}
@@ -336,7 +336,7 @@ def recompose_bound_sources(
         )
     if not valid:
         raise ValueError(
-            f"bound_source_composition_invalid: {reason}; repair the named obligation, then re-drive {run_id}"
+            f"bound_source_composition_invalid: {reason}; repair the named obligation, then re-drive {run_id} with `yoke watch deploy -- {run_id}`"
         )
     if preview.containment is not None:
         conn.execute(

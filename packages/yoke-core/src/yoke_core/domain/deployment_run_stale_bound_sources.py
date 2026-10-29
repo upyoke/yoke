@@ -82,7 +82,7 @@ def _release_output_on_frozen(
         return False, (
             f"head {current} is release output of {producer['run_id']}, but its "
             "parent commit did not resolve; make the project's source readable "
-            "here, then re-drive the run"
+            "here, then re-drive the run with `yoke watch deploy -- RUN`"
         )
     return parent.lower() == frozen.lower(), ""
 
@@ -187,7 +187,7 @@ def _recovery_for_consumption(conn, run_id, entries, stale, unverified):
         if not consumed:
             change["reason"] = (
                 f"bound source {change['project']} {change['frozen_sha']} is stale "
-                f"(current {change['current_sha']}) and unused; re-drive {run_id}: "
+                f"(current {change['current_sha']}) and unused; re-drive {run_id} with `yoke watch deploy -- {run_id}`: "
                 "a driver carrying bound source preparation re-binds it before first consumption. "
                 "If this run pins an older driver, create a new run on the updated candidate"
             )

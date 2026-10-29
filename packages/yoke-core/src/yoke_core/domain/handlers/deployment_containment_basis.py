@@ -35,7 +35,7 @@ def handle(request):
     except (CandidateContainmentRefusal, LookupError, ValueError) as exc:
         return error(
             "containment_basis_invalid",
-            str(exc) + "; repair the named source, then re-drive the run",
+            str(exc) + "; repair the named source, then re-drive the run with `yoke watch deploy -- RUN`",
         )
     return HandlerOutcome(
         result_payload={"candidate_containment_basis": basis}, primary_success=True

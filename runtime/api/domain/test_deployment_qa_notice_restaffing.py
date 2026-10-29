@@ -30,3 +30,24 @@ def test_group_dispatch_replaces_notice_to_ended_driver(test_db):
     assert len(rows) == 2
     assert rows[0][0] == "old-driver" and rows[0][1] is not None
     assert rows[1][0] == "run-starter" and rows[1][1] is None
+
+
+def test_unanswered_group_with_no_driver_needs_steering_action(test_db):
+    from yoke_core.domain.steering_fleet_report_run_progress import run_progress
+    from yoke_contracts.timestamps import utc_now
+    from yoke_core.domain.deployment_qa_plan_groups import run_groups
+
+    _seed(test_db)
+    _project(test_db)
+    seed_session(test_db, "run-starter")
+    release_seeded_driver(test_db, RUN)
+    test_db.execute("UPDATE deployment_runs SET created_by_session_id='run-starter' WHERE id=%s", (RUN,))
+    test_db.commit()
+    _form(test_db)
+    _dispatch(test_db)
+    (progress,) = run_progress(test_db, project_id=1, now=utc_now())
+    assert progress.needs_action and not progress.driver_phase
+    (group,) = run_groups(test_db, RUN)
+    text = " ".join((*progress.unresolved, *progress.member_lines))
+    assert all(str(rid) in text for rid in group.requirement_ids)
+    assert "yoke qa plan run --deployment-run-id" in text

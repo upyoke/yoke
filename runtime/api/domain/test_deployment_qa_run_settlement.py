@@ -53,12 +53,15 @@ def test_closure_preserves_execution_that_completes_before_its_lock(monkeypatch)
         "lock_plan_execution",
         lambda *args: {"id": "review-finished", "state": "completed"},
     )
+    conn.execute.return_value.fetchone.return_value = ("failed",)
     finish = Mock()
     monkeypatch.setattr(settlement, "finish_plan_execution", finish)
     monkeypatch.setattr(settlement, "retract_requirements", Mock())
     settlement.settle_unsuccessful_run(conn, "run-failed", reason="runner failed")
     finish.assert_not_called()
-    conn.execute.assert_not_called()
+    conn.execute.assert_called_once_with(
+        "SELECT status FROM deployment_runs WHERE id=%s", ("run-failed",)
+    )
 
 
 def test_failed_run_qa_cleanup_rolls_back_with_the_run(test_db, monkeypatch):

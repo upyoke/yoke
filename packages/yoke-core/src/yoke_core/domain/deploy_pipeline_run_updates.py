@@ -40,7 +40,7 @@ def _write_failure(run_id: str, write: str, code: str, detail: str) -> str:
     if code == TRANSPORT_FAILED_CODE:
         return (
             f"{head} got no answer ({code}): {detail}; restore the selected "
-            f"control-plane connection, then re-drive {run_id}"
+            f"control-plane connection, then re-drive {run_id} with `yoke watch deploy -- {run_id}`"
         )
     if code in {SETTLEMENT_BLOCKED_CODE, RUN_SUPERSEDED_CODE}:
         # The refusal names its own recovery: each blocking member, or the
@@ -48,7 +48,7 @@ def _write_failure(run_id: str, write: str, code: str, detail: str) -> str:
         return f"{head} refused ({code}): {detail}"
     return (
         f"{head} refused ({code or 'no error code'}): {detail}; repair the "
-        f"named cause, then re-drive {run_id}"
+        f"named cause, then re-drive {run_id} with `yoke watch deploy -- {run_id}`"
     )
 
 
