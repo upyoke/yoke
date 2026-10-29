@@ -126,7 +126,7 @@ def test_an_agent_admission_does_not_leave_the_stage_open_for_unrelated_plans(te
     selections = json.loads(frozen())["selections"]
     assert [s["plan"]["id"] for s in selections if s.get("selected_by_agent")] == [first]
     snapshot = frozen()
-    with pytest.raises(QaPlanError, match="plan_group_not_open"):
+    with pytest.raises(QaPlanError, match="stage already names its cases"):
         materialize_deployment_qa_stage(test_db, **subject, agent_plan=str(other))
     assert [
         tuple(row)

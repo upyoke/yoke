@@ -1,5 +1,7 @@
 """Supersession and operator reconciliation preserve a coherent correction chain."""
 
+from datetime import datetime, timezone
+
 import pytest
 
 from runtime.api.fixtures.deployment_scoped_qa_run_fixture import (
@@ -111,11 +113,9 @@ def test_registered_repair_preserves_history(test_db, monkeypatch):
     assert "original correction history" in row["supersession_rationale"]
     assert "actor=2 session=repair-operator" in row["supersession_rationale"]
     assert requirement_row(test_db, middle) == prior
-    assert str(
-        test_db.execute(
-            "SELECT superseded_at FROM qa_requirements WHERE id=%s", (old,)
-        ).fetchone()[0]
-    ).startswith("2026-01-01")
+    assert test_db.execute(
+        "SELECT superseded_at FROM qa_requirements WHERE id=%s", (old,)
+    ).fetchone()[0] == datetime(2026, 1, 1, tzinfo=timezone.utc)
 
 
 @pytest.mark.parametrize("repair", [False, True])

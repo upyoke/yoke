@@ -100,7 +100,7 @@ def _mixed_run(conn, tmp_path, monkeypatch):
     record_bound_sources(conn, RUN)
     enroll_carried_members(conn, RUN)
     insert_qa_requirement(conn, item_id=CONSUMER_ITEM_ID, qa_phase="post_deploy",
-        target_env="stage", method_id="command", runner_id="worktree_run",
+        target_env="stage", method_id="command", method_name="Command", runner_id="worktree_run",
         verdict_path="automatic", method_config=json.dumps({"command": "true"}),
         instructions="Run the consumer smoke command.", expected_outcome="It passes.")
     conn.commit()

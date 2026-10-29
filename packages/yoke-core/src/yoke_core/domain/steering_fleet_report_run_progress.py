@@ -219,7 +219,8 @@ def _run_row(
         completion=completion_preview(conn, run_id, run=run),
         manual_wakes=manual,
         qa_notice_stalled=bool(qa is not None and outstanding and not driver_phase
-                              and stalled_qa_notice(conn, run_id, stage)),
+                              and (stalled_qa_notice(conn, run_id, stage)
+                                   or any(state.startswith("not woken:") for state in wakes.values()))),
     )
 
 

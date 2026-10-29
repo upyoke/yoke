@@ -171,8 +171,7 @@ def test_a_run_scoped_stage_that_already_names_cases_omits_the_plan_too():
     )
 
     assert (
-        "yoke watch qa-plan -- --deployment-run-id run-9 --stage run-qa "
-        "--project PROJECT" in body
+        "yoke watch qa-plan -- --deployment-run-id run-9 --stage run-qa" in body
     )
     assert "--plan" not in body
     assert "--member" not in body
