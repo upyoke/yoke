@@ -90,13 +90,13 @@ QA_TABLES: dict[str, dict] = {
             ("created_at", "TIMESTAMPTZ"),
         ],
         "notes": (
-            "Partial release-surface fixtures need qa_requirements.execution_target_json "
-            "for failed_qa_owner_sql; assuming deployment_run_id alone describes "
-            "inherited ownership causes an undefined-column failure. "
-            "A partial fixture adding item_sections must also supply "
-            "qa_requirements.qa_kind/item_id and qa_runs.case_outcome/raw_result: "
-            "assuming the receipt table alone is enough makes "
-            "qa_simulation_triage.triage_discharge_sql reference missing columns. "
+            "Wrong fixture assumption: create_core_tables supplies a complete QA schema; "
+            "its initial qa_requirements lacks retracted_at and superseded_by_requirement_id. "
+            "Tests needing only history use item_status_transitions.ensure_schema instead. "
+            "failed_qa_owner_sql needs qa_requirements.execution_target_json; "
+            "deployment_run_id alone cannot describe inherited ownership. "
+            "Adding item_sections also needs qa_requirements.qa_kind/item_id and "
+            "qa_runs.case_outcome/raw_result for qa_simulation_triage.triage_discharge_sql. "
             "Deployment QA test fixtures use "
             "runtime.api.fixtures.completed_delivery.seed_selected_requirement_run; "
             "the stage environment fixture is runtime.api.domain.test_deployment_qa_stage_execution._environment, "
