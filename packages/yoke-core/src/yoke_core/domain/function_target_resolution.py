@@ -83,9 +83,9 @@ def resolve_project_context(
         return _resolve_named_project_context(
             conn, request, visible_project_ids=visible_project_ids
         )
-    if entry.function_id.startswith("ouroboros.") and request.payload.get(
-        "entry_id"
-    ):
+    if entry.function_id in (
+        "ouroboros.entry.mark_reviewed", "ouroboros.entry.mark_archived"
+    ) and request.payload.get("entry_id"):
         return resolve_ouroboros_entry_context(
             conn,
             request,

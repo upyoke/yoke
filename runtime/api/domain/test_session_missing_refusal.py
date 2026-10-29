@@ -44,7 +44,7 @@ def test_harness_text_keeps_the_infrastructure_gap_framing():
         harness_family="claude",
     )
     assert "infrastructure gap" in text
-    assert "field-note" in text
+    assert "yoke feedback" in text
     assert TERMINAL_SUPPORTED_PATH not in text
 
 

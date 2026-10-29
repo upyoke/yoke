@@ -83,7 +83,7 @@ def test_detects_item_scoped_ouroboros(seeded_repo):
         timestamp="2026-03-10T10:00:00Z",
         agent="engineer",
         context="YOK-9999/task-1",
-        category="problem",
+        category="failed",
         body="One",
     )
     _insert_ouroboros(

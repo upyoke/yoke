@@ -65,8 +65,8 @@ def feedback_list(args: List[str]) -> int:
             "$YOKE_PROJECT, then this checkout's project)."
         ),
     )
-    parser.add_argument("--scope", choices=("universe", "project", "unscoped"), default="universe")
-    parser.add_argument("--category", choices=KIND_VALUES)
+    parser.add_argument("--scope", choices=("universe", "project", "unscoped"), default="universe", help="Visible notes across the universe, one project, or no project.")
+    parser.add_argument("--category", choices=KIND_VALUES, help="Only notes in this category.")
     add_page_args(parser, limit=None, offset=None, page_size=50)
     parser.add_argument(
         "--count",
@@ -161,7 +161,7 @@ def feedback_append(args: List[str]) -> int:
         choices=KIND_VALUES,
         help="What kind of problem this is; the kinds are described above.",
     )
-    parser.add_argument("--to", choices=("yoke", "universe"), required=True)
+    parser.add_argument("--to", choices=("yoke", "universe"), required=True, help="Send Yoke issues to Yoke or project findings to your universe.")
     evidence_group = parser.add_mutually_exclusive_group(required=True)
     add_text_file_pair(
         evidence_group,

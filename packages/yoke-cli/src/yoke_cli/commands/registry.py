@@ -318,6 +318,9 @@ def resolve(argv_head: List[str]) -> Tuple[Tuple[str, ...], str, AdapterFn, List
 
 def function_id_to_cli(function_id: str) -> Tuple[str, ...]:
     """Drop synthetic terminals and translate dots/underscores to CLI tokens."""
+    for tokens, (registered, _) in SUBCOMMAND_REGISTRY.items():
+        if tokens[0] == "feedback" and registered == function_id:
+            return tokens
     parts = function_id.split(".")
     if parts and parts[-1] in ("run", "execute"):
         parts = parts[:-1]
@@ -326,6 +329,8 @@ def function_id_to_cli(function_id: str) -> Tuple[str, ...]:
 
 def cli_to_function_id_stem(tokens: Tuple[str, ...]) -> str:
     """Translate CLI tokens to a function-id stem without its terminal."""
+    if tokens and tokens[0] == "feedback" and tokens in SUBCOMMAND_REGISTRY:
+        return SUBCOMMAND_REGISTRY[tokens][0]
     return ".".join(t.replace("-", "_") for t in tokens)
 
 

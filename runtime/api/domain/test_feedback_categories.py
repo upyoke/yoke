@@ -41,6 +41,7 @@ def test_invalid_category_writes_nothing(test_db):
 
 def test_migration_maps_existing_notes_without_row_loss(test_db):
     migration = importlib.import_module("yoke_core.domain.migrations.0095_feedback_categories")
+    test_db.execute("ALTER TABLE ouroboros_entries DROP CONSTRAINT IF EXISTS feedback_category_valid")
     prefix = "field" + "-note-"
     old = [prefix + "failed", prefix + "new", prefix + "unclear", prefix + "observation", "friction", "problem", "game-changing-idea", "critique", "pattern", "metric", "freeform", "unknown", "**"]
     expected = ["failed", "new", "unclear", "observation", "failed", "failed", "idea", *["observation"] * 6]

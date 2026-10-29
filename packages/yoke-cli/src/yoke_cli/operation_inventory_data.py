@@ -262,8 +262,6 @@ WRAPPED_ROWS: Tuple[_Row, ...] = (
     _w("yoke claims path required-gate", "claims.path"),
     _w("yoke claims path activation-run", "claims.path"),
     _w("yoke claims path boundary-prove", "claims.path"),
-    _w("yoke feedback list", "ouroboros"),
-    _w("yoke feedback get", "ouroboros"),
     _w("yoke items list", "items.read"),
     _w("yoke items search", "items.read"),
     _w("yoke items dependency list", "items.dependency"),

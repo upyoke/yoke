@@ -243,7 +243,7 @@ def test_mark_archived_authorizes_from_entry_row_without_flag(conn):
             timestamp="2026-08-12T13:00:00Z",
             agent="test",
             context=None,
-            category="friction",
+            category="failed",
             body="archive me by row project",
             project="yoke",
         )

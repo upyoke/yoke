@@ -104,7 +104,7 @@ def test_strategy_event_ouroboros_help_stays_product_safe(
         ),
         (
             ("feedback", "--help"),
-            "usage: yoke feedback --to universe",
+            "Usage: yoke feedback",
         ),
     )
 
@@ -125,7 +125,7 @@ def test_events_emit_invocation_stays_product_safe(tmp_path: Path) -> None:
                 "emit",
                 "--name",
                 "FeedCompleted",
-                "--category",
+                "--kind",
                 "lifecycle",
                 "--type",
                 "feed",

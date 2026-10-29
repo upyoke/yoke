@@ -141,13 +141,10 @@ Read [envelope and authority](index.md). `none` skips only the claim check.
 | `organizations.settings.get` | `none` |
 | `organizations.settings.merge` | `none` |
 | `ouroboros.field_note.get` | `none` |
-| `ouroboros.entry.insert` | `none` |
 | `ouroboros.field_note.list` | `none` |
 | `ouroboros.entry.mark_archived` | `none` |
 | `ouroboros.entry.mark_reviewed` | `none` |
 | `ouroboros.field_note.append` | `none` |
-| `ouroboros.field_note.get` | `none` |
-| `ouroboros.field_note.list` | `none` |
 | `ouroboros.field_note.promote` | `none` |
 | `overview.activation.get` | `none` |
 | `overview.module.dismiss` | `none` |

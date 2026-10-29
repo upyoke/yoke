@@ -149,7 +149,7 @@ print("__FIELD_NOTE_REQUESTS__" + json.dumps(requests, sort_keys=True))
         "ouroboros.field_note.list",
         "ouroboros.field_note.get",
     ]
-    assert [request["target"]["category"] for request in requests] == [
+    assert [request["target"]["kind"] for request in requests] == [
         "global",
         "global",
     ]
