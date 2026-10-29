@@ -281,10 +281,13 @@ def _run_bound(args, root, fallback_project_id, authority_signature, env) -> int
             args, cwd=str(root), env=env, check=False
         ).returncode
         if returncode < 0:
-            stopped_by = signal.Signals(-returncode)
+            try:
+                stopped_by = signal.Signals(-returncode).name
+            except ValueError:
+                stopped_by = f"signal {-returncode}"
             print(
-                f"source_child_signalled: child stopped by {stopped_by.name} "
-                f"({stopped_by.value}); inspect the child command and retry",
+                f"source_child_signalled: child stopped by {stopped_by} "
+                f"({-returncode}); inspect the child command and retry",
                 file=sys.stderr,
             )
             return 128 - returncode

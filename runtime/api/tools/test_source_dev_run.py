@@ -286,7 +286,7 @@ def test_command_is_first_class_local_cli_surface():
 
 
 @pytest.mark.parametrize(
-    "child_code, expected", [(-15, 143), (-9, 137), (7, 7), (0, 0)]
+    "child_code, expected", [(-15, 143), (-9, 137), (-35, 163), (7, 7), (0, 0)]
 )
 def test_bound_child_exit_status(monkeypatch, tmp_path, child_code, expected, capsys):
     from types import SimpleNamespace
