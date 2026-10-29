@@ -25,7 +25,7 @@ def _setup(conn, *, manual=True):
     if manual:
         _manual_plan(conn, plan_id)
     _project(conn)
-    for session in (HOLDER_A, HOLDER_B, "group-steering"):
+    for session in (HOLDER_A, HOLDER_B, "group-steering", DRIVER_SESSION):
         seed_session(conn, session)
     for member, session in zip(MEMBERS[:2], (HOLDER_A, HOLDER_B)):
         _claim(conn, session_id=session, target_kind="item",
