@@ -95,7 +95,7 @@ def test_refuses_while_an_unfinished_run_holds_old_model_plan_rows(test_db) -> N
     unused = _copy(test_db, 1, plan_id)
     run_row = _copy(
         test_db, None, plan_id, deployment_run_id="run-old",
-        deployment_member_item_id=1,
+        deployment_member_item_id=1, deployment_stage="item-qa",
     )
     test_db.commit()
 
@@ -173,7 +173,7 @@ def test_snapshot_plans_without_matching_member_copies_allow_apply(test_db, stag
     if stage_plan:
         stage_row = _copy(
             test_db, None, _plan(test_db, "flow-plan"),
-            deployment_run_id="run-admitted", deployment_member_item_id=1,
+            deployment_run_id="run-admitted", deployment_member_item_id=1, deployment_stage="item-qa",
         )
     test_db.commit()
 

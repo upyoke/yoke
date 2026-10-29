@@ -269,9 +269,7 @@ def test_old_admission_forms_a_group_for_a_hosted_environment_plan(test_db):
     from runtime.api.domain.test_delete_post_deploy_item_qa_copies_migration import MIGRATION
     from runtime.api.domain.test_qa_requirement_target_rebind import _hosted_prod_pair
     from yoke_core.domain.deployment_requirement_snapshots import _plan_snapshot
-    from yoke_core.domain.deployment_qa_stage_materialization import (
-        materialize_deployment_qa_stage,
-    )
+    from yoke_core.domain.deployment_qa_member_plans import member_plan_ids
 
     plan_id = _seed(test_db, attached=MEMBERS[:1])
     hosted_id, _ = _hosted_prod_pair(test_db)
@@ -293,13 +291,11 @@ def test_old_admission_forms_a_group_for_a_hosted_environment_plan(test_db):
     assert _plan_rows(test_db) == []
 
     MIGRATION.apply(test_db)
-    materialize_deployment_qa_stage(
-        test_db, deployment_run_id=RUN, deployment_stage="item-qa",
-        deployment_member_item_id=MEMBERS[0],
-    )
+    assert member_plan_ids(test_db, MEMBERS[0], RUN) == {plan_id}
+    created = ensure_groups(test_db, RUN, "item-qa")
     test_db.commit()
 
     (group,) = run_groups(test_db, [RUN], "item-qa")
     assert group.plan_id == plan_id and group.open
-    assert group.requirement_ids
+    assert set(group.requirement_ids) == set(created) and created
     assert all(row[0] is None and row[1] is None for row in _plan_rows(test_db))
