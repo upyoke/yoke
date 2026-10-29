@@ -7,7 +7,7 @@ import pytest
 from yoke_core.domain import merge_queue_push_safety as safety
 from yoke_core.engines import merge_worktree_pr_discovery as discovery
 from yoke_core.domain.merge_queue_readiness import classify_readiness
-from yoke_core.engines.merge_worktree_pr_queue import PrLandingState, QueueMember
+from yoke_core.engines.merge_worktree_pr_queue import PrLandingState
 
 PR = "42"
 BRANCH = "PRJ-9"
@@ -29,16 +29,15 @@ def _readiness(
         merged=merged,
         closed=merged,
         auto_merge_active=armed,
+        queue_entry_state="AWAITING_CHECKS" if entry else "absent",
         head_sha=head,
         merge_commit_sha="b" * 40 if merged else "",
     )
-    members = [QueueMember(pr_num=PR, head_ref=BRANCH, state="AWAITING_CHECKS")]
     return classify_readiness(
         pr_number=PR,
         target=TARGET,
-        state=state,
-        members=(members if entry else []) if queue_readable else None,
-        queue_error="" if queue_readable else "queue read failed",
+        state=state if queue_readable else None,
+        state_error="" if queue_readable else "queue read failed",
     )
 
 

@@ -230,6 +230,7 @@ def test_one_document_asks_for_landing_fields_and_the_rollup(monkeypatch) -> Non
     assert "mergeStateStatus" in query
     assert "statusCheckRollup" in query
     assert "autoMergeRequest" in query
+    assert "mergeQueueEntry { state }" in query
     assert calls[0]["variables"] == {
         "owner": "upyoke",
         "name": "yoke",

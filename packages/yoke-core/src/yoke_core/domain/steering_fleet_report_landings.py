@@ -86,9 +86,8 @@ def landing_readbacks(
     """Read admitted handoffs and inline waits in the seat's item scope.
 
     ``reads`` is the request this readback belongs to: the project's open
-    landing rows are read once for it, and every landing asks GitHub
-    through the same memo, so one repository's queue answers one question
-    per request however many landings are open in it.
+    landing rows are read once for it, and every distinct PR's landing,
+    queue entry and checks share one memoized GitHub projection.
     """
     request = reads if reads is not None else FleetReportReads()
     result: list[FleetLandingReadback] = []

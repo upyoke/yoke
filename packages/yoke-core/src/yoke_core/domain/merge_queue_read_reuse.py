@@ -1,22 +1,4 @@
-"""One request's GitHub landing reads, each distinct fact read once.
-
-A reader that asks about several landings on the same base branch asks
-GitHub the same question about that branch once per landing: the queue
-read is per repository and base branch, not per pull request. A pull
-request's landing status and required checks are one GraphQL document,
-memoized together, so the report does not follow a REST status read with
-a second GraphQL rollup for the same number.
-
-The combined steering report is the caller that made the sharing obvious
-— every open landing in a project reads the same ``main`` queue — but any
-caller looping landings pays it. Scope is one request, deliberately. The
-object is created by the caller composing that request and discarded with
-it, so nothing is remembered between requests and every report still
-reads live GitHub state. Failures are memoized exactly as they were
-returned, so a queue the request could not read stays unreadable for that
-request rather than being retried per landing and reported inconsistently
-within one report.
-"""
+"""Memoize one coherent PR landing and required-check read per request."""
 
 from __future__ import annotations
 
@@ -30,8 +12,6 @@ from yoke_core.engines.merge_worktree_pr_check_runs import (
 )
 from yoke_core.engines.merge_worktree_pr_queue import (
     PrLandingState,
-    QueueMember,
-    read_queue_members,
 )
 from yoke_core.engines.merge_worktree_prepare import MergeContext
 
@@ -70,17 +50,6 @@ class MergeQueueReads:
         """Merged/closed/arming facts for one pull request."""
         projection = self._projection(ctx, pr_number)
         return projection.state, projection.state_error
-
-    def queue_members(
-        self, ctx: MergeContext, *, base_branch: str
-    ) -> tuple[Optional[list[QueueMember]], Optional[str]]:
-        """Current merge-queue entries for one repository's base branch."""
-        return self._read(
-            ("queue_members", str(ctx.project), str(base_branch)),
-            lambda: read_queue_members(
-                ctx, base_branch=base_branch, **self._request_kwargs()
-            ),
-        )
 
     def required_checks(
         self, ctx: MergeContext, pr_number: str
