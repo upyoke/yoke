@@ -5,12 +5,12 @@ from __future__ import annotations
 from yoke_core.domain import verification_tree_binding
 from yoke_core.tools import impacted_tests
 
-import sys
 from dataclasses import replace
 from pathlib import Path
 import subprocess
 from typing import Sequence
 
+from yoke_contracts.refusal_recovery import compose_refusal
 from yoke_contracts.uv_project import is_uv_project, uv_run_argv
 from yoke_core.domain.qa_environment_declaration import load_declaration
 from yoke_core.domain import source_python_environment
@@ -41,11 +41,36 @@ def pytest_argv(
     declaration = load_declaration(checkout=here)
     trailing = ["-m", "pytest", *list(args)]
     argv = declaration.run_python_argv(trailing, cwd=here)
-    # An undeclared selection outside a uv project has no environment to bind,
-    # so the console script's own interpreter is the only one that can run.
+    # An undeclared selection outside a uv project runs on the checkout's own
+    # .venv; Yoke's interpreter does not carry the project's test packages.
     if argv == uv_run_argv(trailing) and not is_uv_project(here):
-        return [sys.executable, "-m", "pytest", *list(args)]
+        return [str(_checkout_venv_python(root)), *trailing]
     return argv
+
+
+def _checkout_venv_python(root: Path) -> Path:
+    """The repo root's own .venv interpreter, or a refusal naming its setup."""
+    prefix = root / ".venv"
+    python = source_python_environment.venv_python(prefix)
+    if python.is_file():
+        return python
+    raise source_python_environment.SourceEnvironmentRefusal(
+        compose_refusal(
+            f"PROJECT-ENVIRONMENT-MISSING: no project environment at {prefix}; "
+            "this checkout is not a uv project and declares no test environment, "
+            "and Yoke's own interpreter does not carry the project's test packages.",
+            recovery=(
+                "Set the project's setup_command capability to a command that "
+                "creates .venv with pytest and the project's test dependencies, "
+                "for example `yoke projects capability settings merge "
+                "--project PROJECT --cap-type setup_command --set "
+                "'command=python3 -m venv .venv && .venv/bin/pip install -e . "
+                "pytest'`; run that command in "
+                f"{root}, then retry. A uv project (pyproject.toml beside "
+                "uv.lock) declares the test_environment capability instead"
+            ),
+        )
+    )
 
 
 def _git_common_dir(checkout: Path) -> str:

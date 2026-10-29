@@ -25,6 +25,7 @@ from yoke_core.tools._impacted_selection import Selection
 import pytest
 
 from runtime.api.fixtures.machine_config_test import select_machine_config_file
+from runtime.api.source_pythonpath_test_helpers import provision_project_venv
 
 pytestmark = pytest.mark.usefixtures("bound_project_context")
 
@@ -61,6 +62,7 @@ def test_run_tests_swaps_administering_selection_into_child_env(
         return _LaunchedPytest()
 
     monkeypatch.setattr(run_tests, "_repo_root", lambda: tmp_path)
+    provision_project_venv(tmp_path)
     monkeypatch.setattr(
         run_tests.process_group_reaping, "popen_in_process_group", launch
     )

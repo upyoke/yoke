@@ -17,6 +17,7 @@ from yoke_contracts.qa_case_environment import (
 from yoke_core.domain.qa_case_command_stream import product_command_environment
 from yoke_core.domain.qa_case_execution import QaCaseExecutionError
 from yoke_core.domain.qa_case_worktree_run import execute_worktree_case
+from yoke_core.domain.source_python_environment import venv_python
 from yoke_core.domain.qa_method_config_validation import (
     COMMAND_SHELL_CONTRACT,
     QaMethodConfigError,
@@ -98,6 +99,45 @@ def test_product_command_environment_keeps_venv_bin_when_python_is_symlink(
     assert bound["PATH"].split(os.pathsep)[0] == str(venv_bin)
     assert bound["YOKE_PYTHON"] == str(venv_python)
     assert Path(sys.executable).resolve().parent == base_bin
+
+
+def test_product_command_environment_puts_checkout_venv_first(tmp_path: Path) -> None:
+    python = venv_python(tmp_path / ".venv")
+    python.parent.mkdir(parents=True)
+    python.write_text("", encoding="utf-8")
+    bound = product_command_environment({"PATH": "/usr/bin"}, tmp_path)
+    assert bound["PATH"].split(os.pathsep) == [
+        str(python.parent),
+        str(Path(sys.executable).parent),
+        "/usr/bin",
+    ]
+    assert bound["VIRTUAL_ENV"] == str(tmp_path / ".venv")
+    assert bound["YOKE_PYTHON"] == sys.executable
+
+
+def test_product_command_environment_without_checkout_venv_is_unchanged(
+    tmp_path: Path,
+) -> None:
+    bound = product_command_environment({"PATH": "/usr/bin"}, tmp_path)
+    assert bound == product_command_environment({"PATH": "/usr/bin"})
+    assert bound["PATH"].split(os.pathsep) == [
+        str(Path(sys.executable).parent),
+        "/usr/bin",
+    ]
+    assert "VIRTUAL_ENV" not in bound
+    assert bound["YOKE_PYTHON"] == sys.executable
+
+
+def test_product_command_environment_keeps_yoke_checkout_on_runner(
+    tmp_path: Path,
+) -> None:
+    (tmp_path / "packages" / "yoke-core" / "src" / "yoke_core").mkdir(parents=True)
+    python = venv_python(tmp_path / ".venv")
+    python.parent.mkdir(parents=True)
+    python.write_text("", encoding="utf-8")
+    bound = product_command_environment({"PATH": "/usr/bin"}, tmp_path)
+    assert bound["PATH"].split(os.pathsep)[0] == str(Path(sys.executable).parent)
+    assert "VIRTUAL_ENV" not in bound
 
 
 def test_run_attached_command_exports_passed_base_url_without_requires_flag(

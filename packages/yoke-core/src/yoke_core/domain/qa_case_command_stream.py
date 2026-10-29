@@ -24,29 +24,42 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Mapping, Optional, TextIO
 
+from yoke_core.domain.source_python_environment import venv_python
+from yoke_core.tools import _source_pythonpath
+
 #: Capture-file and banner label. Names the surface an agent is reading,
 #: matching the ``watch_<kind>`` banners the wrappers already emit.
 CAPTURE_KIND = "qa_case"
 
 
-def product_command_environment(env: Mapping[str, str]) -> dict[str, str]:
-    """Bind a Command case onto the interpreter running this runner.
+def product_command_environment(
+    env: Mapping[str, str], cwd: str | Path | None = None
+) -> dict[str, str]:
+    """Bind a Command case onto the checkout's .venv, else this runner.
 
     ``/bin/sh -c`` otherwise resolves ``python3`` from the process PATH —
-    typically the system interpreter, which does not import ``yoke_cli``.
-    The installed ``yoke`` launcher's directory has no sibling interpreter,
-    and ``yoke dev run`` is source-dev only. Prepend this process's
-    ``sys.executable`` directory so ``python3``, ``python``, and the product
-    ``yoke`` console script are that same environment. ``YOKE_PYTHON`` names
-    the interpreter for scripts that want it explicitly.
+    typically the system interpreter, which imports neither the project's
+    test packages nor ``yoke_cli``. When the case's checkout *cwd* is
+    another project with its own ``.venv``, that interpreter's folder goes
+    first on PATH and ``VIRTUAL_ENV`` names it, so ``python -m pytest`` runs
+    the project's own tests. Yoke's interpreter folder follows, so the product ``yoke``
+    console script still resolves. Without a ``.venv``, ``python3`` and
+    ``python`` are this process's ``sys.executable``. ``YOKE_PYTHON`` always
+    names Yoke's interpreter for scripts that need it explicitly.
 
     Do not ``Path.resolve()`` the executable: a venv ``python`` is often a
     symlink onto the base interpreter, and that base has no product packages.
     """
     out = dict(env)
-    python_bin = str(Path(sys.executable).parent)
+    folders = [str(Path(sys.executable).parent)]
+    if cwd is not None and not _source_pythonpath.is_yoke_shaped_tree(Path(cwd)):
+        prefix = Path(cwd) / ".venv"
+        project_python = venv_python(prefix)
+        if project_python.is_file():
+            folders.insert(0, str(project_python.parent))
+            out["VIRTUAL_ENV"] = str(prefix)
     existing = out.get("PATH", "")
-    out["PATH"] = python_bin + ((os.pathsep + existing) if existing else "")
+    out["PATH"] = os.pathsep.join(folders + ([existing] if existing else []))
     out["YOKE_PYTHON"] = sys.executable
     return out
 
@@ -106,7 +119,7 @@ def stream_command(
         CAPTURE_KIND, project=env.get("YOKE_PROJECT")
     )
     destination = sys.stderr if stream is None else stream
-    product_env = product_command_environment(env)
+    product_env = product_command_environment(env, cwd)
     evidence = None
     with candidate_source(candidate_root, product_env) as binding:
         if binding and binding.refusal:

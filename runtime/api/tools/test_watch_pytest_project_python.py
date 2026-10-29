@@ -4,10 +4,15 @@ from __future__ import annotations
 
 import os
 import subprocess
-import sys
 from pathlib import Path
 
+import pytest
+
 from yoke_core.domain.qa_environment_declaration import TestEnvironmentDeclaration
+from yoke_core.domain.source_python_environment import (
+    SourceEnvironmentRefusal,
+    venv_python,
+)
 from yoke_core.domain.verification_tree_binding import ClaimLookup
 from yoke_core.tools import _source_pythonpath, watch_pytest_project_python as helper
 from runtime.api.source_pythonpath_test_helpers import provision_stub_environment
@@ -28,15 +33,37 @@ def test_yoke_shaped_tree_uses_its_locked_interpreter(
     assert argv[:3] == [str(python), "-m", "pytest"]
 
 
-def test_non_uv_tree_keeps_the_current_interpreter(tmp_path: Path, monkeypatch) -> None:
+def _non_uv_checkout(tmp_path: Path, monkeypatch) -> None:
     (tmp_path / "pyproject.toml").write_text("[project]\n", encoding="utf-8")
     monkeypatch.setattr(
         helper,
         "load_declaration",
         lambda **_k: TestEnvironmentDeclaration(project="other"),
     )
-    argv = helper.pytest_argv(["pkgx"], cwd=tmp_path)
-    assert argv[:3] == [sys.executable, "-m", "pytest"]
+
+
+def test_non_uv_tree_runs_on_its_own_venv(tmp_path: Path, monkeypatch) -> None:
+    _non_uv_checkout(tmp_path, monkeypatch)
+    python = venv_python(tmp_path / ".venv")
+    python.parent.mkdir(parents=True)
+    python.write_text("", encoding="utf-8")
+    (tmp_path / "tests").mkdir()
+    argv = helper.pytest_argv(["pkgx"], cwd=tmp_path / "tests")
+    assert argv == [str(python.resolve()), "-m", "pytest", "pkgx"]
+
+
+def test_non_uv_tree_without_venv_refuses_with_setup_command(
+    tmp_path: Path, monkeypatch
+) -> None:
+    _non_uv_checkout(tmp_path, monkeypatch)
+    with pytest.raises(SourceEnvironmentRefusal) as refused:
+        helper.pytest_argv(["pkgx"], cwd=tmp_path)
+    message = str(refused.value)
+    assert message.startswith("PROJECT-ENVIRONMENT-MISSING: ")
+    assert str((tmp_path / ".venv").resolve()) in message
+    assert "Recovery: Set the project's setup_command capability" in message
+    assert "--cap-type setup_command" in message
+    assert "test_environment capability" in message
 
 
 def test_declared_extras_on_a_uv_project_use_uv_run(

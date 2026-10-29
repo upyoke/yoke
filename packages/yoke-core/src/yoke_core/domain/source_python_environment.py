@@ -33,6 +33,11 @@ class SourceEnvironmentRefusal(ValueError):
     """The selected checkout cannot supply truthful source verification."""
 
 
+def venv_python(prefix: Path) -> Path:
+    """The interpreter path inside the virtual environment at *prefix*."""
+    return prefix / ("Scripts/python.exe" if os.name == "nt" else "bin/python3")
+
+
 @dataclass(frozen=True)
 class SourcePythonEnvironment:
     python: str
@@ -134,7 +139,7 @@ def resolve(
             "SOURCE-ENVIRONMENT-LOCK-MISSING", f"no declared locked project in {root}"
         )
     prefix = project / ".venv"
-    python = prefix / ("Scripts/python.exe" if os.name == "nt" else "bin/python3")
+    python = venv_python(prefix)
     if not python.is_file() or prefix.resolve().parent != project:
         refuse(
             "SOURCE-ENVIRONMENT-MISSING",

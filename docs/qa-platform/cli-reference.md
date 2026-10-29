@@ -104,9 +104,11 @@ omits `requires_base_url`, including a direct run-attached row that
 never went through a plan execution target. `method_config.command` is a
 `/bin/sh -c` command line, not a Python module body: wrap the script as
 `python3 -c '...'` or invoke a file in the checkout (a leading `import` is
-ImageMagick `import(1)`, not Python). `python3`, `python`, and
-`yoke` in the command resolve to the product interpreter that is
-running the case runner (`YOKE_PYTHON`); cwd alone does not bind their imports
+ImageMagick `import(1)`, not Python). When the case's checkout has its own
+`.venv`, `python3` and `python` resolve to that interpreter (`VIRTUAL_ENV`
+names it), so `python -m pytest` runs the project's tests; otherwise they
+resolve to the product interpreter running the case runner. `yoke` and
+`YOKE_PYTHON` always name the product; cwd alone does not bind their imports
 to candidate source. For post-deploy source tests, run
 `yoke watch pytest -- <test paths>` directly: it binds its own cwd to source.
 Candidate-bound cases export `YOKE_QA_CANDIDATE_TREE` as JSON with `root` and
