@@ -53,6 +53,7 @@ def test_spec_uses_disposable_cluster_settings(monkeypatch):
 
 
 def test_ensure_started_recreates_on_stale_settings(monkeypatch, tmp_path):
+    monkeypatch.setattr(pg_testcluster.shutil, "which", lambda name: f"/pg/bin/{name}")
     monkeypatch.setenv("YOKE_PG_CLUSTER_ROOT", str(tmp_path / "cluster"))
     calls = []
 
@@ -132,6 +133,7 @@ def test_spec_shortens_overlong_cluster_root(monkeypatch, tmp_path):
 
 
 def test_long_root_starts_cluster_on_short_socket(monkeypatch):
+    monkeypatch.setattr(pg_testcluster.shutil, "which", lambda name: f"/pg/bin/{name}")
     socket_name = f".s.PGSQL.{postgres_cluster.SOCKET_PORT}"
     root = Path("/tmp") / ("yoke-long-root-" + ("n" * 80))
     assert len(os.fsencode(root / "sock" / socket_name)) > (
