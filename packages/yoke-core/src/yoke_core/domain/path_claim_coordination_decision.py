@@ -6,8 +6,8 @@ claims. Does NOT make the decision — semantic independence analysis is the
 agent's job. The packet carries both specs, the conflicting claim's state,
 shared-path metadata, and three ready-to-paste command lines (one per
 decision option). The session holding the candidate's work claim records
-the decision with its own skill as ``source``. When no live holder exists,
-the pre-filled source is ``refine``.
+the decision with the skill bound at the item's status as ``source``. When
+no live holder exists, the pre-filled source is ``refine``.
 """
 
 from __future__ import annotations
@@ -43,11 +43,13 @@ class HolderAttestation:
 
 
 def resolve_holder_attestation(conn: Any, item_id: int) -> HolderAttestation:
-    """Return the live work-claim holder's dependency source.
+    """Return the dependency source for the live work-claim holder.
 
     ``holder_present`` is false when no exclusive claim is visible, including
-    when the claim tables are absent. A holder whose session mode is not a
-    dependency source leaves ``source`` empty and names the mode in ``detail``.
+    when the claim tables are absent. The source is the skill the item's
+    pinned workflow binds at its current status: that skill is what the
+    holder is running. A status bound to no dependency-source skill leaves
+    ``source`` empty and names the stage in ``detail``.
     """
     from yoke_core.domain.schema_common import _table_exists
 
@@ -58,36 +60,44 @@ def resolve_holder_attestation(conn: Any, item_id: int) -> HolderAttestation:
     from yoke_core.domain.work_claim_holder import holder_session_for_item
 
     holder = holder_session_for_item(conn, int(item_id))
-    session_id = holder.get("holder_session_id")
-    if not session_id:
+    if not holder.get("holder_session_id"):
         return HolderAttestation(False, None, "")
+    route = (
+        "Route the holder, shared paths and evidence via yoke say --steering."
+    )
+    try:
+        skill_id, status = _bound_skill_at_status(conn, int(item_id))
+    except Exception as exc:  # noqa: BLE001 - denial composition must not raise.
+        return HolderAttestation(
+            True, None, f"Item workflow could not be read ({exc}). {route}"
+        )
+    if skill_id not in VALID_SOURCES:
+        return HolderAttestation(
+            True,
+            None,
+            f"Item stage {status!r} is bound to no dependency-source skill. "
+            + route,
+        )
+    return HolderAttestation(True, skill_id, "")
+
+
+def _bound_skill_at_status(conn: Any, item_id: int) -> tuple[str, str]:
+    from yoke_core.domain.workflow_runtime import load_item_workflow_runtime
+
     row = conn.execute(
-        f"SELECT mode FROM harness_sessions WHERE session_id = {_p(conn)}",
-        (str(session_id),),
+        f"SELECT status FROM items WHERE id = {_p(conn)}", (item_id,)
     ).fetchone()
-    mode = str(row[0]).strip() if row and row[0] else ""
-    if not mode:
-        return HolderAttestation(
-            True,
-            None,
-            "Work-claim holder session has no mode. Route the holder, "
-            "shared paths and evidence via yoke say --steering.",
-        )
-    if mode not in VALID_SOURCES:
-        return HolderAttestation(
-            True,
-            None,
-            f"Work-claim holder session mode {mode!r} is not a dependency "
-            "source. Route the holder, shared paths and evidence via "
-            "yoke say --steering.",
-        )
-    return HolderAttestation(True, mode, "")
+    status = str(row[0] or "") if row else ""
+    binding = load_item_workflow_runtime(conn, item_id).skill_binding_for_stage(
+        status
+    )
+    return (str(binding["skill_id"]) if binding else ""), status
 
 
 def dependency_source_for_commands(conn: Any, item_id: int) -> str:
     """Source token pasted into ``yoke items dependency add``.
 
-    The live holder's skill when one exists, ``refine`` when nobody holds
+    The skill bound at the held item's status, ``refine`` when nobody holds
     the work claim, and ``<source>`` when the holder cannot be named.
     """
     attestation = resolve_holder_attestation(conn, item_id)

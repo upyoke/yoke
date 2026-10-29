@@ -9,7 +9,6 @@ argument-hint: "{PREFIX-N}"
 ```text
 yoke workflows item get ITEM --json
 yoke workflows version get {workflow_id} {workflow_version} --json
-yoke sessions touch --mode shepherd
 yoke claims work acquire --item ITEM --reason "Execute pinned Shepherd segment"
 ```
 Need one `shepherd` binding and `epic_tasks` children. Each edge in

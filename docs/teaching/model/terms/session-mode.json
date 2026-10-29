@@ -1,7 +1,7 @@
 {
  "id": "session-mode",
  "term": "Session mode",
- "definition": "The work a session declares it is doing, such as steering, execution or waiting.",
+ "definition": "Whether a session is parked or not parked: wait (the default every session starts in) or parked with a reason. Skills do not stamp a mode.",
  "status": "draft",
- "sources": ["docs/public/sessions/index.md"]
+ "sources": ["docs/public/sessions/model/sessions.md"]
 }

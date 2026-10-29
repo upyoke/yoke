@@ -1,7 +1,6 @@
 # Feed — Enter
 
 ```text
-yoke sessions touch --mode feed
 yoke claims work acquire --process FEED --project <project> --reason feed_run
 yoke events emit --name FeedStarted --kind lifecycle --type feed --source-type skill --severity STATUS --outcome started --project <project>
 ```

@@ -7,7 +7,6 @@ argument-hint: "[--dry-run] [--item PREFIX-N] [--project P] [--wip-cap N]"
 # /yoke charge
 
 ```sh
-yoke sessions touch --mode charge
 yoke charge schedule --json
 ```
 Pass given flags. Rank assignable steps; never offer
