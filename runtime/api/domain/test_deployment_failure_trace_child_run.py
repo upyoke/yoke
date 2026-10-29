@@ -139,3 +139,33 @@ def test_unreadable_child_conclusion_names_the_recovery() -> None:
     assert "Actions logs are not visible" in result["stop_reason"]
     assert "restore Actions read permission" in result["recovery"]
     assert result["chain"][0]["run_id"] == "38619127911"
+
+
+def test_chained_traceback_reports_the_exception_actually_raised() -> None:
+    exception = "http.client.IncompleteRead: IncompleteRead(0 bytes read, 512 more expected)"
+    log = "\n".join(
+        [
+            "Traceback (most recent call last):",
+            '  File "http/client.py", line 573, in _get_chunk_left',
+            "    chunk_left = self._read_next_chunk_size()",
+            "ValueError: invalid literal for int() with base 16: b''",
+            "",
+            "During handling of the above exception, another exception occurred:",
+            "",
+            "Traceback (most recent call last):",
+            '  File "public_health_gate.py", line 82, in read_body',
+            "    response.read()",
+            exception,
+            "##[error]Process completed with exit code 1.",
+        ]
+    )
+    log = "\n".join(f"2026-10-29T01:02:03.000Z {line}" for line in log.splitlines())
+    result = walk_failure_chain(
+        PARENT,
+        inspect_run=lambda ref: _job(ref, "1", "public health", log, JOB_URL),
+        resolve_job=lambda _repo, _job: CHILD,
+    )
+
+    assert terminal_error(log) == exception
+    assert result["complete"] is True
+    assert result["terminal_error"] == exception
