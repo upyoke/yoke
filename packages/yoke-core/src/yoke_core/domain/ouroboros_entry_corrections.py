@@ -1,4 +1,4 @@
-"""Supersede links between a corrected feedback and its correction.
+"""Supersede links between corrected feedback and its correction.
 
 A correction filed as a fresh, unlinked note only sits next to the note
 it corrects: both stay in the unreviewed queue and a reader has no way to

@@ -1,4 +1,4 @@
-"""Validate a feedback's explicit correlation with its root."""
+"""Validate feedback's explicit correlation with its root."""
 
 from yoke_contracts.field_note_text import KIND_VALUES
 from yoke_core.domain import db_backend
