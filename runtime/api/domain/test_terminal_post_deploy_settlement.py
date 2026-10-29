@@ -234,6 +234,15 @@ def test_terminal_source_still_blocks_without_current_accepted_proof(test_db, pr
         )
         if proof == "wrong-commit":
             target["deployment"]["release_lineage"] = "d" * 40
+            # Individual case passes now settle without a walk; corrupt their
+            # target proof too, so no current admitted pass remains.
+            test_db.execute(
+                "UPDATE qa_runs SET raw_result=(raw_result::jsonb || "
+                "jsonb_build_object('execution_target_digest',%s::text))::text "
+                "WHERE qa_requirement_id IN (SELECT id FROM qa_requirements "
+                "WHERE deployment_run_id=%s AND method_id IS NOT NULL)",
+                (target_digest(target), run_id),
+            )
         else:
             test_db.execute(
                 "UPDATE qa_requirements SET target_env='stage' WHERE id=%s",
