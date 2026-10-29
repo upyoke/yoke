@@ -89,7 +89,7 @@ def administering_scratch_cluster(target_dsn: str | None = None) -> str:
     The caller may provide the exact DSN it will write through. Otherwise the
     canonical backend resolver covers a context binding, ``YOKE_PG_DSN``, its
     file form, and the selected connection in their normal precedence order.
-    If no concrete target can be resolved, the selected prod local-Postgres
+    If no concrete target can be resolved, the selected protected local-Postgres
     connection remains the fail-closed backstop; an HTTPS connection never
     names a cluster.
     """

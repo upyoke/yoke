@@ -142,7 +142,7 @@ def administering_target(
 
 
 def selected_administering_env() -> str:
-    """Return the selected prod local-Postgres env when it names the target."""
+    """Return the selected protected local-Postgres env when it names the target."""
 
     try:
         env = machine_config_runtime.active_env()

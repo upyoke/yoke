@@ -21,7 +21,7 @@ def lifecycle_steps(
     *, config_path: str | Path, environment: str
 ) -> tuple[tuple[str, str], ...]:
     # Setup may not have written this connection yet. The writer preserves an
-    # existing prod marker and a new connection has no prod marker.
+    # existing protected marker and a new connection has no protected marker.
     config_path = machine_config.config_path(config_path)
     payload = machine_config.load_config(config_path)
     connection = payload.get("connections", {}).get(environment, {})

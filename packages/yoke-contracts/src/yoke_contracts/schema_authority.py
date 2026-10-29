@@ -97,12 +97,12 @@ def serving_build_authority_declared() -> bool:
     return _serving_build.get()
 
 
-def prod_flagged_connection(explicit_env: Optional[str] = None) -> str:
+def protected_connection(explicit_env: Optional[str] = None) -> str:
     """Return the selected env's label when it is protected, else ``""``.
 
-    Reads the explicit marker only. Inferring prod-ness from a label or a DSN
+    Reads the explicit marker only. Inferring protection from a label or a DSN
     would be guessing about the most consequential database an operator has,
-    and any config problem answers "not prod" so this guard never becomes the
+    and any config problem answers "unprotected" so this guard never becomes the
     reason an unrelated misconfiguration is reported.
     """
     try:
@@ -130,12 +130,12 @@ def refuse_without_serving_build_authority(
     # A core caller that already resolved the concrete database target passes
     # its answer, including the empty safe answer. Callers that have no target
     # yet retain the selected-connection backstop.
-    env = prod_flagged_connection() if administering_env is None else administering_env
+    env = protected_connection() if administering_env is None else administering_env
     if not env:
         return
     raise SchemaAuthorityRefused(
         f"{operation} refused on connection {env!r}: that connection is flagged "
-        "prod, and this process is not the build that serves the database it "
+        "protected, and this process is not the build that serves the database it "
         "names. Convergence belongs to the container running the release — "
         "deploy the build carrying this change and let its boot apply it. "
         "Rehearse against the model's validation surface instead. A tool that "
@@ -163,7 +163,7 @@ def environment_without_administering_selection() -> dict[str, str]:
     connection is worse than the refusal it would avoid.
     """
     env = dict(os.environ)
-    administering = prod_flagged_connection()
+    administering = protected_connection()
     if not administering:
         return env
     try:
@@ -179,7 +179,7 @@ def environment_without_administering_selection() -> dict[str, str]:
 __all__ = [
     "SchemaAuthorityRefused",
     "environment_without_administering_selection",
-    "prod_flagged_connection",
+    "protected_connection",
     "refuse_without_serving_build_authority",
     "serving_build_authority",
     "serving_build_authority_declared",

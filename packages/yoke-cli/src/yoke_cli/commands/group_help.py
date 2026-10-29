@@ -59,7 +59,7 @@ GROUP_TEACHING: dict[tuple[str, ...], str] = {
     ),
     ("connection",): (
         "Discovery: `yoke env list` prints every configured connection "
-        "(name, active, transport, prod flag, api url). There is no "
+        "(name, active, transport, protected flag, api url). There is no "
         "`connection list`."
     ),
     ("project",): (

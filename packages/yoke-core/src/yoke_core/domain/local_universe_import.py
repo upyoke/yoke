@@ -58,7 +58,7 @@ def resolve_local_import_dsn() -> str:
         )
     if connection_is_protected(env.config):
         raise LocalUniverseImportError(
-            "the active local connection is marked production; direct import is refused"
+            "the active local connection is protected; direct import is refused"
         )
     try:
         resolved = yoke_connected_env.resolve_postgres_dsn(

@@ -59,10 +59,10 @@ def local_connection(monkeypatch: pytest.MonkeyPatch) -> None:
 
 class TestConnectionDecidesAuthority:
     def test_protected_flagged_connection_is_named(self, prod_connection: None) -> None:
-        assert schema_authority.prod_flagged_connection() == PROD_ENV
+        assert schema_authority.protected_connection() == PROD_ENV
 
     def test_local_connection_carries_no_refusal(self, local_connection: None) -> None:
-        assert schema_authority.prod_flagged_connection() == ""
+        assert schema_authority.protected_connection() == ""
         schema_authority.refuse_without_serving_build_authority("converging")
 
     def test_unreadable_machine_config_does_not_manufacture_a_refusal(
@@ -74,7 +74,7 @@ class TestConnectionDecidesAuthority:
         monkeypatch.setattr(
             schema_authority.machine_config_runtime, "active_env", explode
         )
-        assert schema_authority.prod_flagged_connection() == ""
+        assert schema_authority.protected_connection() == ""
 
     def test_refusal_names_the_connection_and_the_way_out(
         self, prod_connection: None
@@ -205,7 +205,7 @@ class TestChildCommandsDoNotInheritAdministeringAuthority:
             active_env=SERVED_ENV,
             override=PROD_ENV,
         )
-        assert schema_authority.prod_flagged_connection() == PROD_ENV
+        assert schema_authority.protected_connection() == PROD_ENV
 
         env = schema_authority.environment_without_administering_selection()
 

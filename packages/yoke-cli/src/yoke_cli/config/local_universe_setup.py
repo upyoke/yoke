@@ -215,7 +215,7 @@ def inspect_local_state(config_path: Optional[str] = None) -> Dict[str, Any]:
             "state": LOCAL_UNIVERSE_UNAVAILABLE,
             "connection": True,
             "active": active,
-            "reason": f"connections.{LOCAL_ENV} is marked prod",
+            "reason": f"connections.{LOCAL_ENV} is marked protected",
         }
     source = entry.get("credential_source") or {}
     if stored_dsn(entry) or (

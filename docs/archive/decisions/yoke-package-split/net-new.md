@@ -37,7 +37,7 @@ tree (Agent D).
   function-call dispatcher AND the raw `db_router query`/`db read` path.
 - **Env classification, NOT DSN host inspection.** The SSH tunnel makes Aurora
   appear as `127.0.0.1`, so host-sniffing cannot distinguish local from tunneled
-  prod. Authority is the **prod flag on the connected-env binding**.
+  prod. Authority is the **protected flag on the connected-env binding**.
 - **NET-NEW predicate:** no `is_protected`/`prod_flag` field exists on the connection
   contract today. Add an explicit `protected: bool` flag to the connected-env binding
   (`machine_config.schema` + `yoke_connected_env.load_active` at L89), default
