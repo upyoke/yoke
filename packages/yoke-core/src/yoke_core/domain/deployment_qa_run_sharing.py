@@ -54,7 +54,7 @@ def _plan_groups(conn: Any, run_ids: list[str]) -> dict[str, dict]:
         conn,
         "SELECT q.id,q.deployment_run_id,q.plan_id,q.execution_target_json,"
         "q.covered_item_ids,q.retracted_at,q.superseded_by_requirement_id,p.slug,p.name,"
-        "q.plan_case_key,q.method_id,q.instructions "
+        "q.plan_case_key,q.method_id,q.method_name,q.instructions,p.project_id "
         "FROM qa_requirements q JOIN qa_plans p ON p.id=q.plan_id "
         "WHERE q.deployment_run_id=ANY(%s) AND q.deployment_member_item_id IS NULL "
         "AND q.plan_id IS NOT NULL ORDER BY q.id",
@@ -90,6 +90,8 @@ def _plan_groups(conn: Any, run_ids: list[str]) -> dict[str, dict]:
             if row["method_id"] is not None:
                 group["cases"].append({"case_key": row["plan_case_key"],
                     "method_id": row["method_id"], "instructions": row["instructions"],
+                    "method_name": row["method_name"], "project_id": row["project_id"],
+                    "plan": row["slug"], "pending_obligation": True,
                     "plan_id": int(row["plan_id"]), "qa_phase": "post_deploy"})
     return {key: value for key, value in groups.items() if key not in retracted}
 
@@ -171,6 +173,13 @@ def _pending_plans(conn: Any, plan_ids: set[int], groups: dict, runs: list[str])
     if not plan_ids:
         return {}
     plans: dict[int, dict] = {}
+    for group in groups.values():
+        if group["plan_id"] in plan_ids and group["run_id"] in runs:
+            plans[group["plan_id"]] = {key: group[key] for key in
+                ("plan_id", "plan", "plan_name", "cases")}
+    unpinned = plan_ids - plans.keys()
+    if not unpinned:
+        return plans
     for row in query_rows(
         conn,
         "SELECT p.id AS plan_id,p.slug,p.name,p.project_id,c.case_key,"
@@ -178,7 +187,7 @@ def _pending_plans(conn: Any, plan_ids: set[int], groups: dict, runs: list[str])
         "FROM qa_plans p JOIN qa_plan_cases c ON c.plan_id=p.id "
         "LEFT JOIN qa_methods m ON m.id=c.method_id "
         "WHERE p.id=ANY(%s) ORDER BY p.id,c.position",
-        (sorted(plan_ids),),
+        (sorted(unpinned),),
     ):
         plan = plans.setdefault(
             int(row["plan_id"]),
@@ -202,9 +211,6 @@ def _pending_plans(conn: Any, plan_ids: set[int], groups: dict, runs: list[str])
                 "pending_obligation": True,
             }
         )
-    for group in groups.values():
-        if group["plan_id"] in plans and group["run_id"] in runs:
-            plans[group["plan_id"]]["cases"] = group["cases"]
     return plans
 
 

@@ -292,6 +292,15 @@ def qa_plan_attachments(
         )
         case_counts = {int(row["plan_id"]): int(row["total"]) for row in rows}
 
+    pinned = {}
+    if _column_exists(conn, "qa_requirements", "covered_item_ids"):
+        from yoke_core.domain.deployment_item_completion_runs import latest_qa_member_run
+        from yoke_core.domain.deployment_qa_plan_groups import lineage_run_ids, run_groups
+
+        run = latest_qa_member_run(conn, item_id=item_id)
+        if run:
+            for group in run_groups(conn, lineage_run_ids(conn, str(run["id"]))):
+                pinned[group.plan_id] = group
     for (plan_id, transition_id), attachment in attachments.items():
         materialized = [
             row
@@ -303,6 +312,10 @@ def qa_plan_attachments(
             )
         ]
         attachment["case_count"] = case_counts.get(plan_id, 0)
+        if attachment["qa_phase"] == "post_deploy" and plan_id in pinned:
+            group = pinned[plan_id]
+            attachment["target_env"] = (group.target.get("environment") or {}).get("name")
+            attachment["case_count"] = len(group.requirement_ids)
         attachment["materialized_count"] = len(materialized)
         attachment["materialized_at"] = next(
             (row.get("created_at") for row in materialized if row.get("created_at")),
