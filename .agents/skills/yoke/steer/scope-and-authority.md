@@ -4,7 +4,6 @@ The slug is the operator's, else `CURRENT-PLAN`; never ask. Repeat per project.
 
 ```text
 yoke projects checkout-context --field slug
-yoke sessions touch --mode steer
 yoke strategy doc get {SLUG} --project {_project}
 yoke claims steering acquire --project {_project} --plan-doc {SLUG} --reason "steer {SLUG}"
 ```

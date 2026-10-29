@@ -10,7 +10,6 @@ from typing import Any, Mapping
 
 from yoke_contracts.session_control.capabilities import native_wake_supported
 from yoke_contracts.session_control.wake import EXPLICIT_WAKE_ROUTING_FLAG
-from yoke_core.domain.session_mode import session_is_parked
 from yoke_core.domain.session_explicit_wake import explicit_stopped_wake_requested
 from yoke_core.domain.session_message_ended_recipient import skip_ended_recipient
 from yoke_core.domain.session_activity_state import (
@@ -313,7 +312,6 @@ def wake_eligible_recipients(
                     "project_id": row["project_id"],
                     "org_id": row["org_id"],
                     "actor_id": row["actor_id"],
-                    "parked": session_is_parked(row.get("mode")),
                     "session_workspace": str(row["session_workspace"] or ""),
                     "machine_id": row["machine_id"],
                     "executor_surface": row["executor_surface"],

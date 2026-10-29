@@ -66,7 +66,6 @@ def main() -> int:
         )
         return 1
     fixture = None
-    original_mode = envelope("sessions", "identity")["mode"]
     try:
         run(
             "workflow",
@@ -78,7 +77,6 @@ def main() -> int:
             project,
             "--full",
         )
-        run("sessions", "touch", "--mode", "idea")
         args = (
             "items",
             "create",
@@ -104,7 +102,6 @@ def main() -> int:
             "--reason",
             f"{member} authorized production receipt proof",
         )
-        run("sessions", "touch", "--mode", original_mode)
         body = f"SIMULATION: CLEAN\nEPIC: {fixture}\nProduction receipt proof for {member}."
         command = (
             "workflow-item",
@@ -165,7 +162,6 @@ def main() -> int:
         print(f"simulation_proof_failed: {exc}", file=sys.stderr)
         return 1
     finally:
-        run("sessions", "touch", "--mode", original_mode)
         if fixture:
             envelope(
                 "items",

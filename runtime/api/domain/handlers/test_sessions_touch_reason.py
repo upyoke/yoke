@@ -28,17 +28,42 @@ def _touch(conn, monkeypatch, payload: dict) -> dict:
     return outcome.result_payload["session"]
 
 
-def test_reason_is_accepted_with_a_working_mode(conn, monkeypatch):
+def test_reason_is_accepted_with_wait(conn, monkeypatch):
     _register(conn)
 
     session = _touch(
         conn,
         monkeypatch,
-        {"mode": "dash", "reason": "waiting on CI"},
+        {"mode": "wait", "reason": "waiting on CI"},
     )
 
-    assert session["mode"] == "dash"
+    assert session["mode"] == "wait"
     assert session["quiet_reason"] == "waiting on CI"
+
+
+def test_parked_with_reason_parks_and_wait_unparks(conn, monkeypatch):
+    _register(conn)
+
+    parked = _touch(conn, monkeypatch, {"mode": "parked", "reason": "R"})
+    assert (parked["mode"], parked["quiet_reason"]) == ("parked", "R")
+
+    unparked = _touch(conn, monkeypatch, {"mode": "wait"})
+    assert unparked["mode"] == "wait"
+
+
+def test_a_retired_skill_mode_is_refused_and_the_row_is_unchanged(
+    conn, monkeypatch
+):
+    _register(conn)
+    monkeypatch.setattr(sessions_orchestration, "_connect_rw", lambda: conn)
+
+    outcome = sessions_orchestration.handle_touch(_request({"mode": "dash"}))
+
+    assert outcome.primary_success is False
+    row = conn.execute(
+        "SELECT mode FROM harness_sessions WHERE session_id=%s", ("sess-1",)
+    ).fetchone()
+    assert row["mode"] == "wait"
 
 
 def test_reason_is_accepted_without_changing_mode(conn, monkeypatch):

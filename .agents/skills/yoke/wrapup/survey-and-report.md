@@ -1,7 +1,6 @@
 # Wrapup — Survey and Report
 
 ```text
-yoke sessions touch --mode wrapup
 yoke items overview list --json
 yoke events anomalies --since "4 hours ago"
 ```

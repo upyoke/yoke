@@ -77,7 +77,7 @@ def test_each_message_resumes_stored_native_identity_and_is_injected(monkeypatch
         )["message_id"]
         job = claim_wake_job(conn, heartbeat, now=timestamp(sent_at))
         assert job is not None and job.target_session_id == NATIVE_WAKE_SESSION_ID
-        assert job.target_parked and job.target_liveness == "active"
+        assert job.target_liveness == "active"
         monkeypatch.setattr(delivery, "utc_now", lambda: sent_at + timedelta(seconds=1))
 
         def spawn(context, invocation):

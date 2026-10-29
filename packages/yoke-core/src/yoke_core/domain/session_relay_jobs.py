@@ -139,7 +139,6 @@ def claim_wake_job(
         presentation=presentation,
         wake_mode=WakeMode(str(selected["wake_mode"])),
         target_liveness=str(selected["liveness"]),
-        target_parked=bool(selected.get("parked")),
         wake_route="direct",
         private_route_qualification=qualification,
     )

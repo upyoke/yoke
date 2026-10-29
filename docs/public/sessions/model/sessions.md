@@ -35,7 +35,7 @@ capabilities TEXT DEFAULT '[]' -- JSON array of capability tags
 project_id INTEGER REFERENCES projects(id) -- registered project; NULL outside any project
 org_id INTEGER REFERENCES organizations(id) -- authority org; set only outside any project
 workspace TEXT NOT NULL -- absolute path to working directory
-mode TEXT DEFAULT 'wait' -- session mode (charge, feed, strategize, wait); scheduling posture only, never authority
+mode TEXT DEFAULT 'wait' -- wait (not parked) or parked; scheduling posture only, never authority
 offered_at TEXT NOT NULL -- ISO 8601 when session was registered
 last_heartbeat TEXT NOT NULL -- ISO 8601 of last heartbeat
 native_process_gone_at TEXT -- when the death was first seen, not when last reported

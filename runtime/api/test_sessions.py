@@ -38,6 +38,7 @@ from yoke_core.domain.local_operating_actor import ensure_local_operating_actor
 from runtime.api.fixtures.backlog import insert_item, seed_fixture_operating_actor
 from runtime.api.fixtures.operating_actor import seed_fixture_universe_identity
 from runtime.api.fixtures.file_test_db import connect_test_db, init_test_db
+from runtime.api.fixtures.session_mode_seed import seed_session_mode
 from runtime.api.sessions_api_stale_test_helpers import apply_ddl_statements
 from yoke_core.domain.sessions import (
     DEFAULT_STALE_THRESHOLD_MINUTES,
@@ -172,8 +173,8 @@ def conn(tmp_path):
             c.close()
 
 
-def _register(conn, session_id="sess-1", **kwargs):
-    """Helper to register a session with defaults."""
+def _register(conn, session_id="sess-1", mode=None, **kwargs):
+    """Register a session; ``mode`` seeds a stored, possibly retired, mode."""
     defaults = dict(
         executor="claude-code",
         provider="anthropic",
@@ -183,10 +184,10 @@ def _register(conn, session_id="sess-1", **kwargs):
         workspace="/tmp/work",
         project_id=1,
         execution_level="primary",
-        mode="wait",
     )
     defaults.update(kwargs)
-    return register_session(conn, session_id=session_id, **defaults)
+    row = register_session(conn, session_id=session_id, **defaults)
+    return row if mode is None else seed_session_mode(conn, session_id, mode, row)
 
 
 def _insert_claimable_item(conn, item_id: int) -> None:

@@ -54,10 +54,10 @@ class TestBeginSessionIntegration:
             assert second.get("already_registered") is True
 
             row = conn.execute(
-                "SELECT session_id FROM harness_sessions WHERE session_id = %s",
+                "SELECT mode FROM harness_sessions WHERE session_id = %s",
                 ("sid-local",),
             ).fetchone()
-            assert row is not None
+            assert row["mode"] == "wait"
         finally:
             conn.close()
 

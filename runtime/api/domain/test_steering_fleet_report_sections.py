@@ -56,7 +56,7 @@ def _rows_naming(body: str, session_id: str) -> list[str]:
 
 
 def test_an_idle_holder_is_named_once_rather_than_twice(fleet):
-    set_session_mode(fleet, WORKER_SESSION, "dash", reason="waiting on CI")
+    set_session_mode(fleet, WORKER_SESSION, "wait", reason="waiting on CI")
     body = report_body(_compose(fleet))
 
     assert len(_rows_naming(body, WORKER_SESSION)) == 1

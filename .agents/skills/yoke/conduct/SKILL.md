@@ -8,10 +8,6 @@ argument-hint: "PREFIX-N [--max-attempts N] [--no-chain]"
 
 Obey Workflow Execution Instructions and every AC.
 
-```text
-yoke sessions touch --mode conduct
-```
-
 ## Phase map
 
 Do NOT read all files upfront.

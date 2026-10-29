@@ -20,6 +20,6 @@ def test_no_eligible_relay_names_manual_registration_and_claim_recovery() -> Non
 
     assert "yoke relay status" in message
     assert "start a normal harness session by hand" in message
-    assert "yoke sessions touch --mode MODE" in message
+    assert "sessions touch" not in message
     assert "yoke claims work acquire --item PREFIX-N" in message
     assert "no launch record is expected" in message

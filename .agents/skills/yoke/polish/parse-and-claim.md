@@ -3,7 +3,6 @@
 Claim before any other read:
 
 ```text
-yoke sessions touch --mode polish
 yoke claims work acquire --item PREFIX-N --reason polish_run
 yoke workflows item get PREFIX-N --json
 yoke item-worktrees list PREFIX-N --json
