@@ -1,4 +1,4 @@
-"""`yoke qa case run` refuses an item-scoped stage binding before executing."""
+"""Direct member case runs execute and can settle their deployment stage."""
 
 from __future__ import annotations
 
@@ -28,7 +28,7 @@ ORDINARY_CASE = {
 }
 
 
-def test_case_run_refuses_item_scoped_binding_and_does_not_execute(capsys) -> None:
+def test_case_run_executes_item_scoped_binding(capsys) -> None:
     with (
         mock.patch.object(
             qa_case_execution,
@@ -47,10 +47,9 @@ def test_case_run_refuses_item_scoped_binding_and_does_not_execute(capsys) -> No
 
     captured = capsys.readouterr()
     output = captured.out + captured.err
-    assert code == 2
-    assert "STAGE CREDIT REFUSAL" in output
-    assert PLAN_RUN in output
-    execute.assert_not_called()
+    assert code == 0
+    assert "STAGE CREDIT REFUSAL" not in output
+    execute.assert_called_once()
 
 
 def test_ordinary_case_run_still_executes_and_exits_zero(capsys) -> None:

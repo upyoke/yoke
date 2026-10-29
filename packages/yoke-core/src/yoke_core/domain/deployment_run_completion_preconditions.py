@@ -105,7 +105,7 @@ def redrive_recovery(run_id: str, *, unresolved: int) -> str:
     return (
         "Nothing is outstanding; automatic completion should finish this run. "
         f"If it stays executing, read `yoke deployment-runs get {run_id}` "
-        f"and re-drive {run_id}."
+        f"and re-drive {run_id} with `yoke watch deploy -- {run_id}`."
     )
 
 

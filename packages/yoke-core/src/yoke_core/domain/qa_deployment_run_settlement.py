@@ -53,7 +53,11 @@ def settle_unsuccessful_run(conn: Any, run_id: str, *, reason: str) -> bool:
     A cursor already settling through a recorded abort is left to that abort.
     """
     preserve = preserves_inherited_qa(conn, run_id)
+    failed = conn.execute("SELECT status FROM deployment_runs WHERE id=%s", (run_id,)).fetchone()
+    failed = failed is not None and str(failed[0]) == "failed"
+    group_sql = "COALESCE(NULLIF(execution_target_json,''),'{}')::jsonb #>> '{deployment,shared_plan,group_id}' IS NOT NULL"
     ordinary = f"AND NOT COALESCE(({inherited_qa_sql()}),false) " if preserve else ""
+    ordinary += f"AND NOT ({group_sql}) " if failed else ""
     executions = [
         lock_plan_execution(conn, str(row["id"]))
         for row in (
@@ -92,7 +96,8 @@ def settle_unsuccessful_run(conn: Any, run_id: str, *, reason: str) -> bool:
         "SELECT r.id FROM qa_requirements r WHERE r.deployment_run_id=%s "
         + (f"AND NOT COALESCE(({inherited_qa_sql('r')}),false) " if preserve else "")
         + f"AND NOT {settled_obligation_sql(conn, 'r')} "
-        "AND NOT EXISTS (SELECT 1 FROM qa_runs qr "
+        + (f"AND NOT ({group_sql.replace('execution_target_json', 'r.execution_target_json')}) " if failed else "")
+        + "AND NOT EXISTS (SELECT 1 FROM qa_runs qr "
         f"WHERE qr.id=({latest_execution_id_sql('r.id')}) AND qr.verdict='pass')",
         (run_id,),
     )
@@ -109,6 +114,16 @@ def restore_retry_obligations(conn: Any, run_id: str) -> None:
     rows, current members' rows and plan groups some member still attaches
     come back.
     """
+    from importlib import import_module
+
+    migration = import_module("yoke_core.domain.migrations.0094_delete_post_deploy_item_qa_copies")
+    predicate = migration.OLD_MODEL_RUNS.replace(migration.UNFINISHED, "('failed')")
+    if str(run_id) in {str(row[0]) for row in conn.execute(predicate).fetchall()}:
+        raise ValueError(
+            f"old_model_plan_run_retry_refused: run {run_id} used obsolete plan copies; "
+            "create a new release run with `yoke deployment-runs create --help` "
+            "instead of retrying this run"
+        )
     if _table_exists(conn, "qa_requirements"):
         from yoke_core.domain.deployment_qa_plan_groups import (
             attached_plans,

@@ -26,5 +26,5 @@ def write_run_summary(result: Mapping[str, Any], stdout: TextIO) -> None:
     summary["attestation_warning_count"] = len(result.get("attestation_warnings") or [])
     write_human({"run_id": run_id, "run": summary}, stdout)
     print(f"Members: yoke deployment-runs get {run_id} member_items membership_removals", file=stdout)
-    print(f"Blockers: yoke deployment-runs get {run_id} --include-member-closure", file=stdout)
+    print(f"Blockers: yoke deployment-runs get {run_id} --include-member-closure --json", file=stdout)
     print(f"Details: yoke deployment-runs get {run_id} FIELD ... or --full", file=stdout)

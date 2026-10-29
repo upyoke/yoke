@@ -227,8 +227,6 @@ def run(args: List[str]) -> int:
         parser.error("--deployment-run-id requires --plan")
     if parsed.deployment_run_id and parsed.transition:
         parser.error("--deployment-run-id does not accept --transition")
-    if parsed.deployment_run_id and not parsed.project:
-        parser.error("--deployment-run-id requires --project")
     if standalone and (parsed.stage or parsed.transition or parsed.replaces):
         parser.error("standalone run does not accept transition, stage or replacements")
     if parsed.replaces and not (parsed.deployment_run_id or parsed.stage):

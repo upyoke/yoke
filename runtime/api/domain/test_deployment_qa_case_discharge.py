@@ -20,7 +20,7 @@ from runtime.api.fixtures.deployment_scoped_qa_run_fixture import (
 from yoke_core.domain.deployment_qa_stage_acceptance import (
     STAGE_ACCEPTED,
     STAGE_DISCHARGED,
-    STAGE_NOT_RUN,
+    STAGE_CASES_UNRESOLVED,
     stage_acceptance,
 )
 from yoke_core.domain.deployment_qa_stage_contract import (
@@ -155,8 +155,8 @@ def test_unanswered_case_still_blocks_its_stage(test_db) -> None:
     _seed(test_db, run_id)
     status = _status(test_db, run_id)
     assert not status["accepted"]
-    assert any("no completed" in reason for reason in status["reasons"])
-    assert _acceptance(test_db, run_id).state == STAGE_NOT_RUN
+    assert any("yoke qa case run --requirement-id" in reason for reason in status["reasons"])
+    assert _acceptance(test_db, run_id).state == STAGE_CASES_UNRESOLVED
 
 
 def test_waiving_every_case_discharges_the_member_without_an_execution(
@@ -308,3 +308,5 @@ def test_corrected_case_latest_attempt_needs_its_own_evidence(test_db) -> None:
     status = _status(test_db, run_id)
     assert not status["accepted"]
     assert any("no attached evidence" in reason for reason in status["reasons"])
+    assert any(f"yoke qa artifact add --requirement-id {corrected_id} --run-id "
+               in reason for reason in status["reasons"])

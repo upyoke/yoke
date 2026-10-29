@@ -16,7 +16,7 @@ from typing import Any
 
 from yoke_core.domain.deployment_qa_plan_groups import (
     PlanGroup,
-    attaching_members,
+    owing_members,
     run_groups,
 )
 
@@ -114,7 +114,7 @@ def _group_lines(conn, run_id, stage_name, groups, item_refs) -> list[str]:
     lines = []
     for group in groups:
         items = ", ".join(
-            item_refs(member) for member in attaching_members(conn, run_id, group.plan_id)
+            item_refs(member) for member in owing_members(conn, run_id, group.plan_id)
         )
         lines.append(
             f"  yoke qa plan run --deployment-run-id {run_id} --stage {stage_name} "
@@ -152,7 +152,7 @@ def notify_plan_groups_wait(
         "group(s). Each runs once for the whole release and answers every item that "
         "attaches its plan; no item holder runs it. Run each:\n"
         + "\n".join(lines)
-        + f"\nThen re-drive the run. Check 'yoke deployment-runs get {run_id}'."
+        + f"\nThen re-drive the run with `yoke watch deploy -- {run_id}`. Check 'yoke deployment-runs get {run_id}'."
     )
     _deliver(
         conn, run_id=run_id, project_id=project_id, body=body,

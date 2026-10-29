@@ -18,7 +18,7 @@ from yoke_core.domain.qa_execution_request_identity import EXECUTION_FUNCTIONS
 
 
 class QaSubjectProjectError(ValueError):
-    """A QA write does not name the project of its verified subject."""
+    code = "permission_denied"
 
 
 SCOPED_RUN_FUNCTIONS = (
@@ -53,7 +53,6 @@ def _execution_subject(
 
 
 def _checkin_project(conn, execution_id, member_id):
-    """Resolve permission scope from durable identity; the handler validates liveness."""
     from yoke_core.domain.qa_plan_execution_target_snapshot import (
         decode_execution_target,
     )
@@ -178,8 +177,6 @@ def _resolve_run_qa_subject(
     if execution_id:
         from yoke_core.domain.qa_plan_execution_store import select_plan_execution
 
-        # A removed member's execution still cleaning its held host keeps
-        # its runner's calls; the handlers still check ownership and state.
         removed = select_plan_execution(conn, execution_id, lock=False)
         removed_cleanup = member_removal_pending(removed) or (
             cleanup_request(request) and cleanup_execution(conn, removed)
@@ -187,9 +184,6 @@ def _resolve_run_qa_subject(
     if removed_cleanup:
         project_id, slug = _checkin_project(conn, execution_id, member_id)
     elif removed_abort:
-        # The persisted cursor and audited removal retain the subject after
-        # membership ends. Claim verification still requires this item's
-        # holder, and the handler still checks execution ownership.
         marker = "%s" if db_backend.connection_is_postgres(conn) else "?"
         row = conn.execute(
             f"SELECT project_id FROM items WHERE id={marker}", (member_id,)
@@ -256,16 +250,19 @@ def _resolve_run_qa_subject(
                     stage_subject,
                 )
 
-                # With no member, --plan at an item stage names a plan group.
                 subject = stage_subject(
                     conn,
                     run_id=run_id,
                     stage_name=str(stage),
                     member=member_id,
-                    plan=payload.get("plan") if member_id is None else None,
+                    plan=payload.get("plan"),
                     require_active=not reviewing_terminal,
                 )
         except (LookupError, ValueError) as exc:
+            if getattr(exc, "code", None):
+                refusal = QaSubjectProjectError(str(exc))
+                refusal.code = exc.code
+                raise refusal from exc
             raise QaSubjectProjectError(
                 f"deployment QA subject is unavailable: {exc}; use the active "
                 "run stage and an attached member, then retry"

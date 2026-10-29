@@ -43,18 +43,42 @@ def _owed_plans(conn: Any, item_id: int) -> dict[int, str]:
     return {int(row["id"]): str(row["slug"]) for row in rows}
 
 
-def _plan_target_envs(conn: Any, plan_id: int) -> list[str]:
-    envs: set[str] = set()
-    for row in query_rows(
-        conn, "SELECT target_envs FROM qa_plan_cases WHERE plan_id=%s", (int(plan_id),)
-    ):
-        raw = row["target_envs"]
+def _plan_target_envs(conn: Any, plan_id: int, item_id: int) -> list[str]:
+    """A formed group's frozen plan owns every environment it still owes."""
+    rows = query_rows(conn,
+        "SELECT DISTINCT q.execution_target_json,r.requirement_snapshot FROM qa_requirements q "
+        "JOIN deployment_runs r ON r.id=(NULLIF(q.execution_target_json,'')::jsonb #>> '{deployment,run_id}') "
+        "WHERE q.plan_id=%s AND q.deployment_run_id IS NOT NULL "
+        "AND q.deployment_member_item_id IS NULL "
+        "AND COALESCE(NULLIF(q.execution_target_json,''),'{}')::jsonb "
+        "#>> '{deployment,shared_plan,group_id}' IS NOT NULL AND ("
+        "q.deployment_run_id IN (SELECT run_id FROM deployment_run_items WHERE item_id=%s) "
+        "OR COALESCE(q.covered_item_ids,'[]')::jsonb @> %s::jsonb)",
+        (plan_id, item_id, json.dumps([item_id])))
+    envs = set()
+    if rows:
+        for row in rows:
+            target = json.loads(row["execution_target_json"])
+            snapshot = json.loads(row["requirement_snapshot"] or "{}")
+            pinned = (snapshot.get("plan_groups") or {}).get(str(plan_id), {})
+            for case in pinned.get("cases") or [{}]:
+                raw = case.get("target_envs") or []
+                values = json.loads(raw) if isinstance(raw, str) else raw
+                envs.update(values or [target["environment"].get("name") or ""])
+        return sorted(envs)
+    row = conn.execute(
+        "SELECT e.name FROM qa_plans p LEFT JOIN environments e "
+        "ON e.id=p.target_environment_id WHERE p.id=%s", (plan_id,)
+    ).fetchone()
+    default = str(row[0] or "") if row else ""
+    for case in query_rows(conn, "SELECT target_envs FROM qa_plan_cases WHERE plan_id=%s", (plan_id,)):
+        raw = case["target_envs"]
         values = json.loads(raw) if isinstance(raw, str) and raw else raw or []
-        envs.update(str(value) for value in values)
-    return sorted(envs) or [""]
+        envs.update(values or [default])
+    return sorted(envs) or [default]
 
 
-def _miss(item_id: int, plan_id: int, slug: str, run: dict | None, stage: str) -> dict:
+def _miss(item_id: int, plan_id: int, slug: str, run: dict | None, stage: str, target_env: str) -> dict:
     run_id = str(run["id"]) if run else ""
     command = (
         f"yoke qa plan run --deployment-run-id {run_id} --stage {stage} --plan {slug}"
@@ -70,7 +94,7 @@ def _miss(item_id: int, plan_id: int, slug: str, run: dict | None, stage: str) -
         "plan_id": int(plan_id),
         "plan_slug": slug,
         "plan_case_key": None,
-        "target_env": None,
+        "target_env": target_env or None,
         "recovery": command,
     }
 
@@ -87,7 +111,7 @@ def plan_credit_misses(conn: Any, item_id: int) -> list[dict]:
 
     misses = []
     for plan_id, slug in sorted(_owed_plans(conn, item_id).items()):
-        for target_env in _plan_target_envs(conn, plan_id):
+        for target_env in _plan_target_envs(conn, plan_id, item_id):
             run = latest_qa_member_run(conn, item_id=int(item_id), target_env=target_env)
             if run is not None and plan_id not in member_plan_ids(
                 conn, int(item_id), str(run["id"])
@@ -101,7 +125,7 @@ def plan_credit_misses(conn: Any, item_id: int) -> list[dict]:
             )
             if not credited:
                 stage = item_qa_stage_name(_stages(conn, run)) if run else "item-qa"
-                misses.append(_miss(item_id, plan_id, slug, run, stage))
+                misses.append(_miss(item_id, plan_id, slug, run, stage, target_env))
                 break
     return misses
 

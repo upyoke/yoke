@@ -44,11 +44,9 @@ def require_resume_inputs(conn, execution, parsed):
     target = execution.get("execution_target") or {}
     shared = (target.get("deployment") or {}).get("shared_plan")
     if shared and member is not None:
-        from yoke_core.domain.deployment_qa_plan_groups import attaching_members
+        from yoke_core.domain.deployment_qa_plan_groups import execution_members
 
-        if member not in attaching_members(
-            conn, str(execution["deployment_run_id"]), int(shared["plan_id"])
-        ):
+        if member not in execution_members(conn, str(execution["deployment_run_id"]), target):
             raise ValueError(
                 "qa_resume_subject_mismatch: use a member attached to this execution's shared plan"
             )

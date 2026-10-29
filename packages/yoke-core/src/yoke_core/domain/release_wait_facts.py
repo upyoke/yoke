@@ -66,10 +66,7 @@ def _project_slug(item: Mapping[str, Any]) -> str:
 
 
 def _owed_requirement_ids(item: Mapping[str, Any]) -> list[int]:
-    """The item's own live post-deploy item cases the stage will admit.
-
-    An old item copy of a plan counts in no gate: the plan runs as a plan group.
-    """
+    """Live item cases; plan copies count in no gate."""
     owed: list[int] = []
     for row in item.get("qa_requirements") or ():
         if not isinstance(row, Mapping) or row.get("plan_id") is not None:
@@ -85,14 +82,16 @@ def _owed_requirement_ids(item: Mapping[str, Any]) -> list[int]:
     return owed
 
 
-def _attached_plan_ids(item: Mapping[str, Any]) -> list[int]:
-    """Live post-deploy plans the item attaches; each runs as a plan group."""
+def _attached_plan_ids(item: Mapping[str, Any], stages: list) -> list[int]:
+    """Attached and default plans targeting this flow's item QA environment."""
+    envs = {s.get("target", {}).get("environment") for s in stages if s.get("scope") == "item"}
     return sorted({
         int(row["plan_id"])
         for row in item.get("qa_plan_attachments") or ()
         if isinstance(row, Mapping) and row.get("plan_id") is not None
         and str(row.get("qa_phase") or "") == DEPLOYMENT_ATTACHMENT_PHASE
         and not row.get("retracted_at")
+        and (not row.get("target_env") or row["target_env"] in envs)
     })
 
 
@@ -123,7 +122,7 @@ def delivery_obligation(item: Mapping[str, Any]) -> dict[str, Any]:
             "project": _project_slug(item),
             "stages": names,
             "requirement_ids": _owed_requirement_ids(item),
-            "plan_ids": _attached_plan_ids(item),
+            "plan_ids": _attached_plan_ids(item, stages),
         }
     except Exception as exc:  # noqa: BLE001 - reporting never fails a merge
         return {"kind": OWES_UNREAD, "detail": str(exc)}

@@ -75,7 +75,9 @@ def live_deployment_runs(conn: Any, *, project_id: int) -> list[dict[str, Any]]:
     rows = conn.execute(
         f"""SELECT id, flow, status, COALESCE(current_stage, '') AS current_stage,
                    current_stage_entered_at, driver_attachment,
-                   settling_at
+                   settling_at, NOT EXISTS (SELECT 1 FROM harness_sessions h
+                     WHERE h.session_id=COALESCE(NULLIF(driver_attachment,''),'{{}}')::jsonb->>'session_id'
+                     AND h.ended_at IS NOT NULL) AS driver_session_live
               FROM deployment_runs
              WHERE project_id = {p}
                AND status NOT IN ({holes})

@@ -85,7 +85,8 @@ def _session_actor(conn: Any, session_id: str) -> Optional[int]:
 
     marker = "%s" if db_backend.connection_is_postgres(conn) else "?"
     row = conn.execute(
-        f"SELECT actor_id FROM harness_sessions WHERE session_id={marker}",
+        f"SELECT actor_id FROM harness_sessions WHERE session_id={marker} "
+        "AND ended_at IS NULL AND terminated_at IS NULL",
         (session_id,),
     ).fetchone()
     if row is None:

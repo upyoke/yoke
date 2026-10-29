@@ -11,6 +11,7 @@ from yoke_core.domain.deployment_qa_stage_acceptance import (
     existing_acceptance_requirement,
     completed_execution,
     missing_execution_blocker,
+    member_cases_passed,
 )
 from yoke_core.domain.deployment_qa_acceptance_reads import stopped_case_execution
 from yoke_core.domain.deployment_qa_case_failure_kinds import failure_reasons
@@ -243,24 +244,39 @@ def _settle_reads(
                 result["reasons"] = list(member_answer.reasons)
             return result
         # Every case passed across stopped walks: settle on the newest one.
-        execution = None if reasons else stopped_case_execution(
-            conn,
-            run_id=run_id,
-            stage_name=stage_name,
-            member_item_id=member_item_id,
-            execution_target_digest=current_target_digest,
+        execution = (
+            None
+            if reasons
+            else stopped_case_execution(
+                conn,
+                run_id=run_id,
+                stage_name=stage_name,
+                member_item_id=member_item_id,
+                execution_target_digest=current_target_digest,
+            )
         )
-    if execution is None:
-        _state, missing = missing_execution_blocker(
+    pending = missing_execution_blocker(
+        conn, run_id, stage_name, member_item_id, current_target_digest
+    )
+    if pending:
+        reasons.insert(0, pending[1])
+    if (
+        not reasons
+        and execution is None
+        and member_item_id is not None
+        and member_cases_passed(
             conn, run_id, stage_name, member_item_id, current_target_digest
         )
-        reasons.insert(0, missing)
+    ):
+        blockers = run_qa_blockers(conn, run_id, member_item_id, subject)
+        return waiting(blockers) if blockers else discharged()
     if reasons:
         # A missing execution alongside red cases still reads as blocked: the
         # red verdicts are the reason no acceptable execution can exist, and
         # calling that "waiting" is the collapse this split undoes.
         return _with_pin_diagnosis(conn, run_id, settled(reasons, failures))
-    assert execution is not None
+    if execution is None:
+        return waiting([f"Run `yoke watch deploy -- {run_id}`"])
     obligation_failures = fulfill_admitted_obligations(
         conn,
         run_id=run_id,

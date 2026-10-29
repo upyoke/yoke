@@ -65,7 +65,7 @@ def verdict_message(
         "reject": "address the rejection on this stage's target and record fresh evidence",
         "waive": "the obligation is discharged; no further evidence is needed",
     }.get(action, "read the decision and continue")
-    if action == "reject" and subject != "the whole release batch":
+    if action == "reject" and subject != "the whole release batch" and not subject.startswith("plan group "):
         next_step = (
             "read the rejected stage acceptance requirement and its evidence; "
             "if the environment failed, keep the member in release and retry "

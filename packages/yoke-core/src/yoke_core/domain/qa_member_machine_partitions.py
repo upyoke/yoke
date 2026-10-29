@@ -176,11 +176,8 @@ def member_machine_partition(
         return [], 0, select_plan_execution(conn, execution_id, lock=False)
     from yoke_core.domain.qa_plan_nothing_owed import (
         nothing_owed,
-        scoped_execution_recorded,
     )
 
-    if not pending and not scoped_execution_recorded(conn, roster, **scope):
-        pending = roster
     if not pending:
         raise nothing_owed(
             conn,

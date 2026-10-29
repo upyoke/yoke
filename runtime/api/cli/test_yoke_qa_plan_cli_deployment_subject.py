@@ -84,7 +84,9 @@ def test_plan_engine_cli_forwards_checkout_path(capsys) -> None:
     assert execute.call_args.kwargs["deployment_run_id"] == deployment_run_id
 
 
-def test_failure_notice_help_reaches_installed_recovery_without_execution(capsys) -> None:
+def test_failure_notice_help_reaches_installed_recovery_without_execution(
+    capsys,
+) -> None:
     from pathlib import Path
 
     from yoke_cli.commands import qa_case
@@ -104,3 +106,26 @@ def test_failure_notice_help_reaches_installed_recovery_without_execution(capsys
     assert (root / "docs/public/verification/failed-item-qa.md").is_file()
     bundle = root / "packages/yoke-core/src/yoke_core/install_bundle_tree"
     assert (bundle / "docs/public/verification/failed-item-qa.md").is_file()
+
+
+def test_run_recipe_without_project_parses(capsys):
+    with mock.patch.object(
+        qa_plan_execution_cli,
+        "execute_plan",
+        return_value={"state": "passed", "results": []},
+    ) as execute:
+        assert (
+            qa_plan_execution_cli.run(
+                [
+                    "--deployment-run-id",
+                    "run-recipe",
+                    "--stage",
+                    "item-qa",
+                    "--plan",
+                    "smoke",
+                ]
+            )
+            == 0
+        )
+    assert execute.call_args.kwargs["project"] is None
+    assert execute.call_args.kwargs["deployment_run_id"] == "run-recipe"

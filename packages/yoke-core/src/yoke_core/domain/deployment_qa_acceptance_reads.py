@@ -34,7 +34,7 @@ def presented_item_answer_rows(conn, item_id):
             "SELECT item_id,qa_phase,qa_kind,waived_at,waiver_rationale,instructions,"
             f"{requirement_retracted_at_select(conn)} FROM qa_requirements "
             f"WHERE item_id IN ({markers}) AND deployment_run_id IS NULL "
-            "AND qa_phase='post_deploy'",
+            "AND qa_phase='post_deploy' AND plan_id IS NULL",
             members,
         )
         by_item = {}

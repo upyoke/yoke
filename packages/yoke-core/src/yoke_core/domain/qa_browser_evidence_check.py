@@ -25,6 +25,7 @@ import sys
 from pathlib import Path
 from typing import Optional
 
+from yoke_core.domain.qa_item_obligation_queries import old_plan_copy_sql
 from yoke_core.domain.qa_obligation_settlement import settled_obligation_sql
 from yoke_core.domain.qa_latest_execution import latest_execution_id_sql
 from yoke_core.domain.db_helpers import query_rows, query_scalar
@@ -134,6 +135,7 @@ def check_browser_evidence_present(
         WHERE {where}
           AND r.qa_phase = 'verification'
           AND r.blocking_mode = 'blocking'
+          AND NOT {old_plan_copy_sql('r')}
           AND NOT {settled_obligation_sql(conn, "r")}
           AND {browser_where}
           AND NOT {proof_exists}
@@ -162,6 +164,7 @@ def check_browser_evidence_present(
         WHERE {where}
           AND r.qa_phase = 'verification'
           AND r.blocking_mode = 'blocking'
+          AND NOT {old_plan_copy_sql('r')}
           AND NOT {settled_obligation_sql(conn, "r")}
           AND {browser_where}
           AND NOT {proof_exists}
@@ -208,6 +211,7 @@ def check_browser_artifact_disk(
             SELECT DISTINCT r.id, r.method_id FROM qa_requirements r
             WHERE {where}{phase_and}
               AND r.blocking_mode = 'blocking'
+          AND NOT {old_plan_copy_sql('r')}
               AND NOT {settled_obligation_sql(conn, "r")}
               AND {browser_where}
               AND EXISTS (
@@ -247,6 +251,7 @@ def check_browser_artifact_disk(
         JOIN qa_runs qr ON qa.qa_run_id = qr.id
         JOIN qa_requirements r ON qr.qa_requirement_id = r.id
         WHERE r.blocking_mode = 'blocking'{phase_and}
+          AND NOT {old_plan_copy_sql('r')}
           AND NOT {settled_obligation_sql(conn, "r")}
           AND {browser_where}
           AND {qualifying}

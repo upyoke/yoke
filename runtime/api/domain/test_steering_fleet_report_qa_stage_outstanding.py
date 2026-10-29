@@ -115,7 +115,7 @@ def test_a_qa_stage_reports_the_gate_not_the_settled_requirement_count(test_db) 
     assert run.stage == ITEM_QA_STAGE
     assert run.outstanding == 3
     assert run.total_blocking == 3
-    assert run.needs_action is False
+    assert run.needs_action is True
     assert f"{RUN_ID}" in body
     assert "3 of 3 outstanding" in body
     assert f"Nothing is outstanding; re-drive {RUN_ID}" not in body
@@ -124,12 +124,12 @@ def test_a_qa_stage_reports_the_gate_not_the_settled_requirement_count(test_db) 
     assert cases_not_selected_refusal() not in body
     assert "no completed scoped QA execution exists" not in body
     assert (
-        f"member {render_item_ref(test_db, GATE_MEMBER)}: 2 blockers — woken 11:58Z, acknowledged"
+        f"member {render_item_ref(test_db, GATE_MEMBER)}: 1 blocker — woken 11:58Z, acknowledged"
     ) in body
     for member in NO_CASES_MEMBERS:
         assert (
             f"member {render_item_ref(test_db, member)}: 1 blocker — not woken: driver gone or stale; "
-            f"re-drive {RUN_ID} to send it"
+            f"re-drive {RUN_ID} with `yoke watch deploy -- {RUN_ID}` to send it"
         ) in body
     assert len(run.member_lines) == len(MEMBERS)
     assert run.unresolved == ()

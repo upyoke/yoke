@@ -111,7 +111,7 @@ def _prepare_bound_sources(conn: Any, run_id: str, stage_name: str) -> dict[str,
     )
     if unverified:
         raise ValueError(
-            f"bound_source_unverified: {unverified}; repair source access, then re-drive {run_id}"
+            f"bound_source_unverified: {unverified}; repair source access, then re-drive {run_id} with `yoke watch deploy -- {run_id}`"
         )
     changes = {e["project"]: e for e in stale}
     for entry in selected:
@@ -201,7 +201,7 @@ def _prepare_bound_sources(conn: Any, run_id: str, stage_name: str) -> dict[str,
             or tuple(latest)[1:] != (stages_text, current_stage, flow, lineage)
         ):
             raise ValueError(
-                f"bound_source_preparation_changed: {run_id} changed during preparation; re-drive the same run"
+                f"bound_source_preparation_changed: {run_id} changed during preparation; re-drive the same run with `yoke watch deploy -- {run_id}`"
             )
         if changes:
             # Before any write: whether the unlocked reads are still current.
@@ -219,7 +219,7 @@ def _prepare_bound_sources(conn: Any, run_id: str, stage_name: str) -> dict[str,
             )
             if set(fresh.lock_item_ids) - set(preview.lock_item_ids):
                 raise ValueError(
-                    f"bound_source_preparation_changed: {run_id} gained members; re-drive the same run"
+                    f"bound_source_preparation_changed: {run_id} gained members; re-drive the same run with `yoke watch deploy -- {run_id}`"
                 )
             conn.execute(
                 "UPDATE deployment_runs SET bound_sources=%s WHERE id=%s",

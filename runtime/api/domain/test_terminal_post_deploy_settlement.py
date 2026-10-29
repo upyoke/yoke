@@ -234,6 +234,21 @@ def test_terminal_source_still_blocks_without_current_accepted_proof(test_db, pr
         )
         if proof == "wrong-commit":
             target["deployment"]["release_lineage"] = "d" * 40
+            # Individual passes settle without a walk; the latest actual
+            # attempt must also prove the wrong target for this refusal.
+            for case in test_db.execute(
+                "SELECT id,method_config FROM qa_requirements WHERE deployment_run_id=%s "
+                "AND method_id IS NOT NULL", (run_id,)
+            ).fetchall():
+                from yoke_core.domain.qa_requirement_pass_currency import stamp_executed_method_config
+
+                attempt = insert_qa_run(test_db, qa_requirement_id=case["id"],
+                    verdict="pass", raw_result=stamp_executed_method_config(
+                        "{}", case["method_config"], execution_target_digest=target_digest(target)))
+                test_db.execute(
+                    "INSERT INTO qa_artifacts(qa_run_id,artifact_type,artifact_handle,created_at) "
+                    "VALUES (%s,'log','evidence://wrong-target',now())", (attempt["id"],))
+
         else:
             test_db.execute(
                 "UPDATE qa_requirements SET target_env='stage' WHERE id=%s",

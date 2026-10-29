@@ -244,7 +244,7 @@ def wake_manual_requirement_owners(
         if not delivery:
             misses.append(
                 f"{subject} has no live claim holder and no covering project "
-                "steering seat to wake. Staff the item, then re-drive the run."
+                f"steering seat to wake. Staff the item, then re-drive the run with `yoke watch deploy -- {entry.run_id}`."
             )
     return misses
 

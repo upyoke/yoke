@@ -159,8 +159,8 @@ def _connection() -> sqlite3.Connection:
         CREATE TABLE qa_plans (
           id INTEGER PRIMARY KEY,
           slug TEXT,
-          name TEXT
-        );
+          name TEXT, target_environment_id INTEGER
+        ); CREATE TABLE environments (id INTEGER PRIMARY KEY, name TEXT);
         CREATE TABLE qa_plan_cases (
           id INTEGER PRIMARY KEY,
           plan_id INTEGER,
@@ -306,7 +306,7 @@ def _connection() -> sqlite3.Connection:
         """
     )
     conn.execute(
-        "INSERT INTO qa_plans VALUES (12, 'browser-close', 'Browser closeout')"
+        "INSERT INTO qa_plans(id,slug,name) VALUES (12, 'browser-close', 'Browser closeout')"
     )
     conn.execute("INSERT INTO qa_plan_cases VALUES (31, 12, 'responsive-footer')")
     conn.execute(

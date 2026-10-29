@@ -40,7 +40,7 @@ def discharged_without_cases_statement(
     return (
         f"This member's stage is already satisfied: requirement "
         f"#{int(requirement_id)} records {qa_kind}, which discharges the "
-        "stage without cases. Steering re-drives the run and the stage "
+        "stage without cases. Steering re-drives the run with `yoke watch deploy -- RUN` and the stage "
         "gate reads that discharge. Do not run anything else; there is "
         "nothing for this member to run."
     )
@@ -61,7 +61,8 @@ def recorded_discharge(
     rows = query_rows(
         conn,
         "SELECT id,qa_kind,qa_phase,waived_at FROM qa_requirements "
-        "WHERE item_id=%s AND deployment_run_id IS NULL",
+        "WHERE item_id=%s AND deployment_run_id IS NULL "
+        "AND (qa_phase<>'post_deploy' OR plan_id IS NULL)",
         (int(item_id),),
     )
     mapped = [_row(row) for row in rows]
@@ -100,7 +101,7 @@ def member_discharge_statement(conn: Any, item_id: int) -> str | None:
         return (
             "This member's stage is already satisfied: a recorded "
             f"{answer.verdict} answer discharges the stage without cases. "
-            "Steering re-drives the run and the stage gate reads that "
+            "Steering re-drives the run with `yoke watch deploy -- RUN` and the stage gate reads that "
             "discharge. Do not run anything else; there is nothing for "
             "this member to run."
         )

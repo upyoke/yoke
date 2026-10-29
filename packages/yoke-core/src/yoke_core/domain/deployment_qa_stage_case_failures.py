@@ -11,7 +11,6 @@ from __future__ import annotations
 
 from typing import Any
 
-from yoke_core.domain.project_identity import render_item_ref
 from yoke_core.domain.db_helpers import query_rows
 from yoke_core.domain.deployment_qa_case_failure_kinds import (
     CaseFailure,
@@ -153,6 +152,8 @@ def case_failures(
     which never moves, so it has no recorded-elsewhere fallback: another
     digest of the same plan is another group.
     """
+    from yoke_core.domain.deployment_qa_stage_outstanding import member_ref_lookup
+
     rows = scoped_cases(
         conn,
         run_id=run_id,
@@ -196,7 +197,7 @@ def case_failures(
             ]
         if recorded:
             if member_item_id is not None:
-                owner = f"member {render_item_ref(conn, member_item_id)}"
+                owner = f"member {member_ref_lookup(conn, [member_item_id])(member_item_id)}"
             else:
                 owner = "run-level subject"
             named = ", ".join(
@@ -212,11 +213,18 @@ def case_failures(
                         "is out of scope under the current execution target "
                         f"{execution_target_digest}; its execution remains bound "
                         "to the target it was materialized against. Reuse that "
-                        "requirement — do not rematerialize a second copy."
+                        "requirement — do not rematerialize a second copy; inspect it with "
+                        f"`yoke qa requirement get --requirement-id {recorded[0]['id']}`."
                     ),
                 )
             ]
-        return [NO_CASES_FAILURE]
+        command = (
+            f"yoke qa plan run --item {member_ref_lookup(conn, [member_item_id])(member_item_id)} --stage {stage_name}"
+            if member_item_id is not None else
+            f"yoke qa plan run --deployment-run-id {run_id} --stage {stage_name}"
+        )
+        return [CaseFailure(0, "", FAILURE_UNRUN,
+                            f"{NO_CASES_FAILURE.detail}; run `{command}`")]
     # The accepted verdict, the execution results behind it, and which runs
     # carry artifacts are all questions about a requirement, and the subject's
     # requirements are already in hand — so each is asked once for the whole
@@ -248,7 +256,7 @@ def case_failures(
     reviewing = pending_review_requirements(
         conn,
         [rid for rid in graded if (verdicts.get(rid) or (0, ""))[1] != "pass"],
-        stopped_only=True,
+        stopped_only=False,
     )
     failures: list[CaseFailure] = []
     for row in rows:
@@ -269,6 +277,11 @@ def case_failures(
                     detail=(
                         f"requirement #{row['id']} ({row['plan_case_key']}) latest "
                         f"verdict is {verdict or 'missing'}{replacement_note(row)}"
+                        + ("" if int(row["id"]) in reviewing else
+                           f"; run `yoke qa plan run --deployment-run-id {run_id} "
+                           f"--stage {stage_name} --plan {shared_plan_id}`"
+                           if shared_plan_id else
+                           f"; run `yoke qa case run --requirement-id {row['id']}`")
                         + (
                             "; its capture awaits independent review: "
                             + reviewing[int(row["id"])].next_action()
@@ -292,7 +305,9 @@ def case_failures(
                         f"passing result has no attached evidence: no qa_artifacts "
                         f"on inspected qa_runs {looked} — attach evidence to "
                         f"qa_run #{accepted_run_id}, the run whose verdict was "
-                        "accepted"
+                        "accepted; run "
+                        f"`yoke qa artifact add --requirement-id {row['id']} "
+                        f"--run-id {accepted_run_id} --artifact-type evidence --content-file PATH`"
                     ),
                 )
             )

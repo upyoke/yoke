@@ -144,7 +144,7 @@ def test_a_created_run_with_nothing_outstanding_is_advised_to_be_driven(
     assert run.needs_action is True
     assert report.runs_needing_action() == (run,)
     assert f"! {RUN_ID}  created  flow prod-release" in body
-    assert f"Nothing is outstanding; re-drive {RUN_ID} to start it." in body
+    assert f"Nothing is outstanding; re-drive {RUN_ID} with `yoke watch deploy -- {RUN_ID}` to start it." in body
 
 
 def test_a_created_run_with_a_live_driver_is_not_advised_to_be_driven(
@@ -283,7 +283,7 @@ def test_an_answered_decision_the_run_never_acted_on_is_named(fleet) -> None:
     assert report.runs_needing_action() == (report.deployment_runs[0],)
     assert "decision #8385 approved 4h00m ago" in body
     assert "the run is still waiting at this stage" in body
-    assert f"re-drive {RUN_ID} so the runner acts on it" in body
+    assert f"re-drive {RUN_ID} with `yoke watch deploy -- {RUN_ID}` so the runner acts on it" in body
 
 
 def test_an_answered_reject_still_sitting_in_flight_is_named(fleet) -> None:

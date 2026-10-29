@@ -176,7 +176,7 @@ def lock_run_with_stable_membership(
         if _BOUNDED_WRITE.get():
             raise ValueError(
                 f"deployment_membership_changed: run {run_id!r} changed while locking; "
-                "the transaction was rolled back; re-drive the same run after its writer settles"
+                f"the transaction was rolled back; re-drive the same run with `yoke watch deploy -- {run_id}` after its writer settles"
             )
     raise RuntimeError(
         f"deployment run '{run_id}' membership changed repeatedly while locking"
@@ -302,7 +302,7 @@ def bounded_run_write(conn, run_id: str):
             f"deployment_start_lock_busy: run {run_id!r} could not acquire an item, run, "
             f"or target lock within {RUN_ROW_LOCK_TIMEOUT_MS}ms; this transaction was rolled back. "
             f"Read `yoke deployment-runs get {run_id}` and the live driver's capture, "
-            "then re-drive the same run after its current writer settles."
+            f"then re-drive the same run with `yoke watch deploy -- {run_id}` after its current writer settles."
         ) from None
     finally:
         _BOUNDED_WRITE.reset(token)

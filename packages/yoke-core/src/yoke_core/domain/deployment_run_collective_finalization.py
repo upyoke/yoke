@@ -174,7 +174,7 @@ def _end_savepoint(conn: Any, public_ref: str, *, keep: bool) -> None:
             f"{public_ref}'s status write ended the settlement transaction "
             f"({exc}); members written before it may have committed on their "
             "own. A caller-owned status write must never commit or roll back "
-            "its connection: fix the step that did, then re-drive the run"
+            "its connection: fix the step that did, then re-drive the run with `yoke watch deploy -- RUN`"
         ) from exc
 
 

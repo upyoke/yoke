@@ -26,12 +26,12 @@ Select an item, deployment run, or manual project plan.
       run passed at the lane's recorded head are skipped; the rest run one
       execution target at a time, each after the previous one passed.
 
-  --item PREFIX-N --stage STAGE [--plan PLAN] --project PROJECT
+  --item PREFIX-N --stage STAGE [--plan PLAN] [--project PROJECT]
       Fresh item QA uses its current completion authority, including a carrier
       release from another project. A selected plan names its target environment.
       Missing or unready delivery authority refuses with its recovery.
 
-  --deployment-run-id RUN --stage STAGE [--plan PLAN] --project PROJECT
+  --deployment-run-id RUN --stage STAGE [--plan PLAN] [--project PROJECT]
       Run QA at a run-scoped stage. At an item-scoped stage, --plan P runs the
       run's open plan group of P. The stage must be the run's active pinned QA
       stage. Item cases use --item instead.

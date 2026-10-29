@@ -100,7 +100,7 @@ def attest_candidate_containment(
                 "candidate_containment_checkout_missing",
                 f"no local checkout is registered for project {slug or project_id}",
                 "Register that project's checkout on the deploy driver, fetch the "
-                "candidate and merge commits, then re-drive the run.",
+                "candidate and merge commits, then re-drive the run with `yoke watch deploy -- RUN`.",
             )
         walk = CandidateContainment(
             None,
@@ -118,7 +118,7 @@ def attest_candidate_containment(
                     f"project {slug or project_id} item {item.get('public_ref') or render_item_ref(None, item_id)}: {verdict.reason}",
                     verdict.recovery
                     or "Fetch both commits into the registered checkout, then "
-                    "re-drive the run.",
+                    "re-drive the run with `yoke watch deploy -- RUN`.",
                 )
             answer = {
                 "id": item_id,
@@ -175,7 +175,7 @@ def record_attested_candidate_containment(
         raise CandidateContainmentRefusal(
             "candidate_containment_attestation_stale",
             "the attestation does not match the run's current candidate basis",
-            f"Read a fresh execution context and re-drive {run_id}.",
+            f"Read a fresh execution context and re-drive {run_id} with `yoke watch deploy -- {run_id}`.",
         )
     answers = list(attestation.get("answers") or ())
     actual = {
@@ -196,7 +196,7 @@ def record_attested_candidate_containment(
         raise CandidateContainmentRefusal(
             "candidate_containment_attestation_invalid",
             "the attestation does not answer every current containment question",
-            f"Read a fresh execution context and re-drive {run_id}.",
+            f"Read a fresh execution context and re-drive {run_id} with `yoke watch deploy -- {run_id}`.",
         )
     snapshot = {
         "schema": CANDIDATE_CONTAINMENT_SCHEMA,

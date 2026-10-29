@@ -1,5 +1,7 @@
 """Supersession and operator reconciliation preserve a coherent correction chain."""
 
+from datetime import datetime, timezone
+
 import pytest
 
 from runtime.api.fixtures.deployment_scoped_qa_run_fixture import (
@@ -47,9 +49,7 @@ def test_superseding_chain_moves_both_links_to_terminal_and_settles_gate(test_db
         == final
     )
     assert requirement_row(test_db, middle)["replacement_requirement_id"] == final
-    from runtime.api.domain.test_qa_declared_replacement import _pass
-
-    _pass(test_db, "run-successor-chain")
+    assert test_db.execute("SELECT COUNT(*) FROM qa_plan_executions").fetchone()[0] == 0
     status = deployment_qa_stage_status(
         test_db, run_id="run-successor-chain", stage_name="item-qa", member_item_id=9811
     )
@@ -113,11 +113,9 @@ def test_registered_repair_preserves_history(test_db, monkeypatch):
     assert "original correction history" in row["supersession_rationale"]
     assert "actor=2 session=repair-operator" in row["supersession_rationale"]
     assert requirement_row(test_db, middle) == prior
-    assert str(
-        test_db.execute(
-            "SELECT superseded_at FROM qa_requirements WHERE id=%s", (old,)
-        ).fetchone()[0]
-    ).startswith("2026-01-01")
+    assert test_db.execute(
+        "SELECT superseded_at FROM qa_requirements WHERE id=%s", (old,)
+    ).fetchone()[0] == datetime(2026, 1, 1, tzinfo=timezone.utc)
 
 
 @pytest.mark.parametrize("repair", [False, True])

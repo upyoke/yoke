@@ -106,7 +106,10 @@ def owes_only_other_targets(conn: Any, *, run_id: str, item_id: int) -> bool:
     blockers = unsatisfied_blocking(conn, item_id=int(item_id), target_status="done")
     for row in blockers.rows:
         if row.get("id") is None:
-            return False  # a plan group this release owes, not another target's
+            if row.get("target_env") and row["target_env"] != environment:
+                deferred = True
+                continue
+            return False
         requirement_id = int(row["id"])
         target = targets.get(requirement_id)
         if row.get("qa_phase") == "manual_acceptance":

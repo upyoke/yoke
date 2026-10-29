@@ -96,10 +96,12 @@ def _notice_rows(conn: Any, *, run_id: str, stage_name: str) -> list[Any]:
             "SELECT m.message_id AS message_id, m.idempotency_key AS idempotency_key, "
             "m.created_at AS sent_at, COALESCE(r.session_id, '') AS session_id, "
             "CASE WHEN m.cancelled_at IS NOT NULL THEN 'cancelled' "
+            "WHEN h.ended_at IS NOT NULL THEN 'ended' "
             "ELSE COALESCE(r.state, '') END AS state, "
             "COALESCE(r.wake_escalation, '') AS escalation "
             "FROM session_messages m "
             "LEFT JOIN session_message_recipients r ON r.message_id = m.message_id "
+            "LEFT JOIN harness_sessions h ON h.session_id=r.session_id "
             f"WHERE ({' OR '.join(f'm.idempotency_key LIKE {marker}' for _ in patterns)}) "
             "ORDER BY m.created_at DESC, (m.cancelled_at IS NULL) DESC, m.message_id",
             patterns,
@@ -160,6 +162,8 @@ def _describe(notice: tuple[str, datetime | None, str, str]) -> str:
         return f"woken {sent}{by}, acknowledged"
     if state == "injected":
         return f"woken {sent}{by}, not acknowledged"
+    if state == "ended":
+        return f"not woken: recipient session ended after the {kind} sent {sent}"
     if state == "expired":
         return f"not woken: the {kind} sent {sent} expired undelivered"
     if state == "cancelled":
@@ -167,6 +171,15 @@ def _describe(notice: tuple[str, datetime | None, str, str]) -> str:
     if escalation:
         return f"not woken: the {kind} sent {sent} failed ({escalation})"
     return f"woken {sent}{by}, not yet delivered"
+
+
+def stalled_qa_notice(conn: Any, run_id: str, stage_name: str) -> bool:
+    """No live driver owns the wait; an unreceived or unanswered notice still needs action."""
+    latest = {}
+    for row in _notice_rows(conn, run_id=run_id, stage_name=stage_name):
+        latest.setdefault(str(_get(row, "idempotency_key", 1)), str(_get(row, "state", 4)))
+    active = [state for state in latest.values() if state != "cancelled"]
+    return not active or any(state != "acknowledged" for state in active)
 
 
 def _addressable(conn: Any, members: list[int], *, project_id: int) -> set[int]:
@@ -209,7 +222,7 @@ def member_wake_states(
     reachable = _addressable(conn, unsent, project_id=project_id)
     for member in unsent:
         states[member] = (
-            f"not woken: driver gone or stale; re-drive {run_id} to send it"
+            f"not woken: driver gone or stale; re-drive {run_id} with `yoke watch deploy -- {run_id}` to send it"
             if member in reachable
             else "not woken: no addressable holder (no live claim holder and no "
             "covering steering seat); staff the item"

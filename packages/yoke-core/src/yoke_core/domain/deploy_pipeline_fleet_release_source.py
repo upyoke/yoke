@@ -82,7 +82,7 @@ def ensure_commit(repository: str, sha: str) -> str:
     return (
         f"commit {sha} is not in {root} and fetching it from origin failed: "
         f"{(fetched.stderr or fetched.stdout).strip()}. Run `git -C {root} "
-        f"fetch origin {sha}`, then re-drive the run"
+        f"fetch origin {sha}`, then re-drive the run with `yoke watch deploy -- RUN`"
     )
 
 

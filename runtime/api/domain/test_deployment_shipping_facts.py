@@ -128,7 +128,7 @@ def test_private_unrun_member_answers_match_scalar_authority(test_db):
     assert len(run_groups(test_db, "private-unrun", "item-qa")) == len(members)
     conn = CountedConnection(test_db)
     answers = member_qa_standings(conn, subjects)
-    assert all(answer["state"] == "not yet run" for answer in answers.values())
+    assert all(answer["state"] == "cases unresolved" for answer in answers.values())
     for run, member, stage in subjects:
         assert answers[(run, member)] == expected(run, member, stage)
     print(

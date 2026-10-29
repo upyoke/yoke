@@ -8,6 +8,7 @@ from typing import Optional
 
 from yoke_contracts.refusal_recovery import compose_refusal
 
+from yoke_core.domain.qa_item_obligation_queries import old_plan_copy_sql
 from yoke_core.domain.db_helpers import connect, query_scalar
 from yoke_core.domain.qa_gate_definitions import GateResult, GateTarget
 from yoke_core.domain.schema_common import _table_exists
@@ -107,7 +108,8 @@ def requirement_set_result(
     phase_sql = " AND qa_phase = 'verification'" if qa_phase else ""
     count = query_scalar(
         conn,
-        f"SELECT COUNT(*) FROM qa_requirements WHERE {where}{phase_sql}",
+        f"SELECT COUNT(*) FROM qa_requirements WHERE {where}{phase_sql} "
+        f"AND NOT {old_plan_copy_sql()}",
         params,
     )
     if count:

@@ -92,7 +92,7 @@ def _ensure_commit(repo: str, revision: str) -> str:
     raise DeployPinnedSourceError(
         f"pinned release_lineage {revision!r} is not a commit in {repo}: "
         f"{detail}. Fetch that revision into the machine-config checkout "
-        "and re-drive the run."
+        "and re-drive the run with `yoke watch deploy -- RUN`."
     )
 
 
@@ -145,7 +145,7 @@ def ensure_pinned_worktree(checkout: str, run_id: str, revision: str) -> Path:
             f"self-deploy driver worktree {path} is at {existing or 'unknown'} "
             f"but run {run_id} pins {sha}; refuse rather than reset it. "
             "Remove that worktree only after confirming nothing is using it, "
-            "then re-drive the run."
+            f"then re-drive the run with `yoke watch deploy -- {run_id}`."
         )
     path.parent.mkdir(parents=True, exist_ok=True)
     added = _run(
@@ -171,7 +171,7 @@ def self_release_checkout(project: str) -> Path | None:
     if project_id is None:
         raise DeployPinnedSourceError(
             f"project {project!r} could not be resolved through projects.get; "
-            "confirm the selected connection serves it and re-drive the run"
+            "confirm the selected connection serves it and re-drive the run with `yoke watch deploy -- RUN`"
         )
     try:
         from yoke_contracts.machine_config.schema_connections import (
@@ -188,7 +188,7 @@ def self_release_checkout(project: str) -> Path | None:
     except (machine_config.MachineConfigError, MachineConfigContractError) as exc:
         raise DeployPinnedSourceError(
             f"machine config is unreadable ({exc}); repair ~/.yoke/config.json "
-            "and re-drive the run"
+            "and re-drive the run with `yoke watch deploy -- RUN`"
         ) from exc
     mapped = [
         Path(str(entry["checkout"])).expanduser().resolve()
@@ -203,7 +203,7 @@ def self_release_checkout(project: str) -> Path | None:
             f"No machine-config checkout for project {project!r} (project_id "
             f"{project_id}); the installed engine drives this run. A Yoke "
             "self-release needs its checkout: register it with `yoke project "
-            "register` from that checkout, then re-drive the run.",
+            "register` from that checkout, then re-drive the run with `yoke watch deploy -- RUN`.",
             file=sys.stderr,
         )
         return None

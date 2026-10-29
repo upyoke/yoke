@@ -215,7 +215,7 @@ def check_dispatch_permission(
             code = (
                 "ambiguous_project"
                 if isinstance(exc, AmbiguousProjectRefError)
-                else "permission_denied"
+                else getattr(exc, "code", "permission_denied")
             )
             return DispatchPermission(
                 spec.permission_key,

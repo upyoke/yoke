@@ -190,12 +190,33 @@ def lineage_run_ids(conn: Any, run_id: str) -> list[str]:
 
 def covered_members(conn: Any, run_id: str, plan_id: int) -> set[int]:
     """Members a closed group of this plan answered in this run or its predecessors."""
-    return {
-        member
-        for group in run_groups(conn, lineage_run_ids(conn, run_id), plan_id=plan_id)
-        if group.closed
-        for member in group.covered_item_ids or ()
-    }
+    from yoke_core.domain.deployment_qa_presentation_reads import presentation_read
+
+    def read():
+        groups = run_groups(conn, lineage_run_ids(conn, run_id))
+        coverage: dict[int, set[int]] = {}
+        for group in groups:
+            if group.closed:
+                coverage.setdefault(group.plan_id, set()).update(group.covered_item_ids or ())
+        return coverage
+
+    return presentation_read(conn, ("closed_group_coverage", str(run_id)), read).get(plan_id, set())
+
+
+
+def owing_members(conn: Any, run_id: str, plan_id: int) -> list[int]:
+    """Current attachers not already answered by a closed lineage group."""
+    covered = covered_members(conn, run_id, plan_id)
+    return [item for item in attaching_members(conn, run_id, plan_id) if item not in covered]
+
+
+def execution_members(conn: Any, run_id: str, target: Mapping) -> tuple[int, ...]:
+    """A closed group's immutable coverage, or its still-owing open cohort."""
+    group = group_for_target(conn, run_id, target)
+    if group is None:
+        return ()
+    return (group.covered_item_ids if group.closed else
+            tuple(owing_members(conn, run_id, group.plan_id)))
 
 
 def unattached_open_groups(conn: Any, run_id: str) -> list[PlanGroup]:
@@ -274,7 +295,10 @@ def close_group(conn: Any, subject: Mapping) -> None:
         return
     from yoke_core.domain.qa_execution_environment_target import target_digest
 
-    members = attaching_members(conn, str(subject["id"]), int(marker["plan_id"]))
+    from yoke_core.domain.deployment_qa_stage_wake_withdraw import withdraw_plan_group_wait_wakes
+
+    withdraw_plan_group_wait_wakes(conn, str(subject["id"]), str(subject["stage"]["name"]))
+    members = owing_members(conn, str(subject["id"]), int(marker["plan_id"]))
     conn.execute(
         "UPDATE qa_requirements SET covered_item_ids=%s WHERE deployment_run_id=%s "
         "AND deployment_member_item_id IS NULL AND execution_target_digest=%s "

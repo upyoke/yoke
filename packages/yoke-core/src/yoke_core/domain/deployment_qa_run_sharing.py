@@ -53,7 +53,8 @@ def _plan_groups(conn: Any, run_ids: list[str]) -> dict[str, dict]:
     for row in query_rows(
         conn,
         "SELECT q.id,q.deployment_run_id,q.plan_id,q.execution_target_json,"
-        "q.covered_item_ids,q.retracted_at,q.superseded_by_requirement_id,p.slug,p.name "
+        "q.covered_item_ids,q.retracted_at,q.superseded_by_requirement_id,p.slug,p.name,"
+        "q.plan_case_key,q.method_id,q.method_name,q.instructions,p.project_id "
         "FROM qa_requirements q JOIN qa_plans p ON p.id=q.plan_id "
         "WHERE q.deployment_run_id=ANY(%s) AND q.deployment_member_item_id IS NULL "
         "AND q.plan_id IS NOT NULL ORDER BY q.id",
@@ -75,6 +76,7 @@ def _plan_groups(conn: Any, run_ids: list[str]) -> dict[str, dict]:
                 "plan_name": row["name"] or row["slug"],
                 "run_id": str(row["deployment_run_id"]),
                 "case_count": 0,
+                "cases": [],
                 "covered_item_ids": None,
             },
         )
@@ -85,6 +87,12 @@ def _plan_groups(conn: Any, run_ids: list[str]) -> dict[str, dict]:
             group["covered_item_ids"] = sorted(int(item) for item in covered)
         if row["retracted_at"] is None and row["superseded_by_requirement_id"] is None:
             group["case_count"] += 1
+            if row["method_id"] is not None:
+                group["cases"].append({"case_key": row["plan_case_key"],
+                    "method_id": row["method_id"], "instructions": row["instructions"],
+                    "method_name": row["method_name"], "project_id": row["project_id"],
+                    "plan": row["slug"], "pending_obligation": True,
+                    "plan_id": int(row["plan_id"]), "qa_phase": "post_deploy"})
     return {key: value for key, value in groups.items() if key not in retracted}
 
 
@@ -160,11 +168,18 @@ def _sharing_members(conn, runs):
     )
 
 
-def _pending_plans(conn: Any, plan_ids: set[int]) -> dict[int, dict]:
+def _pending_plans(conn: Any, plan_ids: set[int], groups: dict, runs: list[str]) -> dict[int, dict]:
     """Owed plans with no plan group yet, with their cases, in one read."""
     if not plan_ids:
         return {}
     plans: dict[int, dict] = {}
+    for group in groups.values():
+        if group["plan_id"] in plan_ids and group["run_id"] in runs:
+            plans[group["plan_id"]] = {key: group[key] for key in
+                ("plan_id", "plan", "plan_name", "cases")}
+    unpinned = plan_ids - plans.keys()
+    if not unpinned:
+        return plans
     for row in query_rows(
         conn,
         "SELECT p.id AS plan_id,p.slug,p.name,p.project_id,c.case_key,"
@@ -172,7 +187,7 @@ def _pending_plans(conn: Any, plan_ids: set[int]) -> dict[int, dict]:
         "FROM qa_plans p JOIN qa_plan_cases c ON c.plan_id=p.id "
         "LEFT JOIN qa_methods m ON m.id=c.method_id "
         "WHERE p.id=ANY(%s) ORDER BY p.id,c.position",
-        (sorted(plan_ids),),
+        (sorted(unpinned),),
     ):
         plan = plans.setdefault(
             int(row["plan_id"]),
@@ -223,7 +238,7 @@ def _run_entries(
                 open_plans.add(group["plan_id"])
                 sharing = (attached or {}).get(group["plan_id"], [])
             entries.append(
-                {**group, "closed": closed, "earlier_run_id": None,
+                {**{k: v for k, v in group.items() if k != "cases"}, "closed": closed, "earlier_run_id": None,
                  "sharing_item_ids": list(sharing)}
             )
         elif group["run_id"] in earlier and closed:
@@ -232,7 +247,7 @@ def _run_entries(
                 continue
             covered[group["plan_id"]].update(answered)
             entries.append(
-                {**group, "closed": True, "earlier_run_id": group["run_id"],
+                {**{k: v for k, v in group.items() if k != "cases"}, "closed": True, "earlier_run_id": group["run_id"],
                  "sharing_item_ids": list(group["covered_item_ids"])}
             )
     owed = {
@@ -272,8 +287,8 @@ def run_qa_sharing(conn: Any, run_ids: Iterable[str]) -> dict[str, dict]:
             run, groups, lineages[run], by_run[run],
             attached_plans(conn, run) if run in active else None,
         )
-    pending = _pending_plans(conn, {plan for plans in owed.values() for plan in plans})
     for run, plans in owed.items():
+        pending = _pending_plans(conn, set(plans), groups, [run, *lineages[run]])
         for plan_id, items in sorted(plans.items()):
             plan = pending.get(plan_id)
             if plan is None:

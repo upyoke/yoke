@@ -5,18 +5,12 @@ from __future__ import annotations
 import json
 from typing import Any
 
-import pytest
 
-from runtime.api.domain.test_deployment_qa_stage_execution import (
-    _complete_case,
-    _plan,
-)
 from runtime.api.fixtures.completed_delivery import (
     _stage as _stage,
     seed_selected_requirement_run as _seed_selected_requirement_run,
 )
 from runtime.api.fixtures.backlog_inserts import insert_item
-from yoke_core.domain.deployment_qa_stage_gate import deployment_qa_stage_status
 from yoke_core.domain.deployment_qa_stage_materialization import (
     materialize_deployment_qa_stage,
 )
@@ -24,8 +18,6 @@ from yoke_core.domain.deployment_qa_admission_materialization import (
     admitted_requirement_case_key,
 )
 from yoke_core.domain.qa_plan_execution_roster import ordered_plan_requirements
-from yoke_core.domain.qa_plan_execution_state import begin_plan_execution
-from yoke_core.domain.qa_plan_management import QaPlanError
 
 
 def _original_requirement(conn: Any, *, item_id: int, method_id: str | None) -> int:
@@ -140,52 +132,3 @@ def test_explicit_screenshot_obligation_materializes_before_execution(test_db) -
     )
 
 
-def test_agent_selected_plan_stays_distinct_from_admitted_obligation(test_db) -> None:
-    item_id = 9711
-    insert_item(
-        test_db, id=item_id, project_sequence=711, workflow_id="issue", status="done"
-    )
-    original_id = _original_requirement(test_db, item_id=item_id, method_id=None)
-    plan_id = _plan(test_db, "agent-selected-release")
-    _seed_selected_requirement_run(
-        test_db,
-        run_id="run-agent-selection",
-        item_id=item_id,
-        requirement_id=original_id,
-    )
-    with pytest.raises(QaPlanError, match="select a project QA plan"):
-        materialize_deployment_qa_stage(
-            test_db,
-            deployment_run_id="run-agent-selection",
-            deployment_stage="member-qa",
-            deployment_member_item_id=item_id,
-        )
-    result = materialize_deployment_qa_stage(
-        test_db,
-        deployment_run_id="run-agent-selection",
-        deployment_stage="member-qa",
-        deployment_member_item_id=item_id,
-        agent_plan=str(plan_id),
-    )
-    assert len(result["created_requirement_ids"]) == 1
-    execution = begin_plan_execution(
-        test_db,
-        deployment_run_id="run-agent-selection",
-        deployment_stage="member-qa",
-        deployment_member_item_id=item_id,
-        actor_id="2",
-        session_id="agent-selection",
-    )
-    assert [case["plan_id"] for case in execution["roster"]] == [plan_id]
-    _complete_case(test_db, execution)
-    assert deployment_qa_stage_status(
-        test_db,
-        run_id="run-agent-selection",
-        stage_name="member-qa",
-        member_item_id=item_id,
-    )["accepted"]
-    assert not test_db.execute(
-        "SELECT id FROM qa_requirements WHERE deployment_run_id=%s "
-        "AND plan_case_key=%s",
-        ("run-agent-selection", admitted_requirement_case_key(original_id)),
-    ).fetchall()

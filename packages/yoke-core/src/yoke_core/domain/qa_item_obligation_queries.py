@@ -9,10 +9,11 @@ from yoke_core.domain.qa_requirement_pass_currency import has_current_passing_ru
 
 #: A post-deploy plan copy an older build wrote onto an item. Plan groups
 #: answer plans now; these rows stay readable history and count in no gate.
-OLD_PLAN_COPY_SQL = (
-    "(qr.item_id IS NOT NULL AND qr.plan_id IS NOT NULL "
-    "AND qr.qa_phase='post_deploy' AND qr.deployment_run_id IS NULL)"
-)
+def old_plan_copy_sql(alias: str = "") -> str:
+    prefix = f"{alias}." if alias else ""
+    return (f"({prefix}item_id IS NOT NULL AND {prefix}plan_id IS NOT NULL "
+            f"AND {prefix}qa_phase='post_deploy' AND {prefix}deployment_run_id IS NULL)")
+
 
 
 if TYPE_CHECKING:
@@ -49,7 +50,7 @@ def unsatisfied_blocking_many(
         "FROM qa_requirements qr "
         f"WHERE (qr.item_id IN ({holes}) OR qr.deployment_member_item_id IN ({holes})) "
         "AND qr.blocking_mode = 'blocking' AND qr.waived_at IS NULL "
-        f"AND {unretracted_requirement_sql(conn, 'qr')} AND NOT {OLD_PLAN_COPY_SQL}",
+        f"AND {unretracted_requirement_sql(conn, 'qr')} AND NOT {old_plan_copy_sql('qr')}",
         (*ids, *ids),
     ).fetchall()
     by_item = {item_id: [] for item_id in ids}

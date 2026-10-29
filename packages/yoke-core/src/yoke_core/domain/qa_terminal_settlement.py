@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from yoke_core.domain import db_backend
+from yoke_core.domain.qa_item_obligation_queries import old_plan_copy_sql
 from yoke_core.domain.qa_latest_execution import latest_executions
 from yoke_core.domain.qa_requirement_issues import BlockingRequirementIssue, issue_for_requirement
 from yoke_core.domain.qa_obligation_settlement import (
@@ -115,7 +116,8 @@ def find_unsettled_records(conn: Any, *, item_id: int) -> list[UnsettledQaRecord
     placeholder = _placeholder(conn)
     requirements = conn.execute(
         "SELECT q.id,q.qa_phase,q.deployment_run_id FROM qa_requirements q "
-        f"WHERE q.item_id={placeholder} AND NOT {settled_obligation_sql(conn, 'q')}",
+        f"WHERE q.item_id={placeholder} AND NOT {settled_obligation_sql(conn, 'q')} "
+        f"AND NOT {old_plan_copy_sql('q')}",
         (int(item_id),),
     ).fetchall()
     attempts = latest_executions(conn, [int(row[0]) for row in requirements])

@@ -9,6 +9,7 @@ from __future__ import annotations
 from yoke_core.domain.steering_fleet_report_detectors import parse_stamp
 
 from datetime import datetime
+import re
 
 from typing import Any, Optional
 
@@ -21,7 +22,7 @@ from yoke_core.domain.deployment_qa_stage_outstanding import (
     QaStageOutstanding,
     qa_stage_outstanding,
 )
-from yoke_core.domain.deployment_qa_stage_wake_state import member_wake_states
+from yoke_core.domain.deployment_qa_stage_wake_state import member_wake_states, stalled_qa_notice
 from yoke_core.domain.deployment_run_driver_attachment import (
     is_live,
     parse_attachment,
@@ -82,7 +83,15 @@ def _stage_lines(
         )
         if wake := wakes.get(member):
             line += f" — {wake}"
-        member_lines.append(line)
+        details = []
+        for reason in chunk:
+            ids = re.findall(r"requirement #(\d+)", reason)
+            if ids:
+                commands = re.findall(r"`(yoke [^`]+)`", reason)
+                commands = commands or [f"yoke qa case run --requirement-id {rid}" for rid in ids]
+                details.append("requirements " + ", ".join(f"#{rid}" for rid in ids)
+                               + ": " + ", ".join(f"`{cmd}`" for cmd in commands))
+        member_lines.append(line + ((": " + "; ".join(details)) if details else ""))
     run_lines.extend(qa.lines[offset:])
     return tuple(run_lines), tuple(member_lines)
 
@@ -163,7 +172,7 @@ def _run_row(
         total_blocking = qa.subjects
     attached = parse_attachment(run_id, run.get("driver_attachment"))
     driver_phase = (
-        attached.phase if attached is not None and is_live(attached, now=now) else ""
+        attached.phase if attached is not None and is_live(attached, now=now) and run.get("driver_session_live", True) else ""
     )
     waiting = [
         member
@@ -209,6 +218,9 @@ def _run_row(
         member_lines=member_lines,
         completion=completion_preview(conn, run_id, run=run),
         manual_wakes=manual,
+        qa_notice_stalled=bool(qa is not None and outstanding and not driver_phase
+                              and (stalled_qa_notice(conn, run_id, stage)
+                                   or any(state.startswith("not woken:") for state in wakes.values()))),
     )
 
 

@@ -114,6 +114,8 @@ class DeploymentRunProgress:
     #: woke each owner to check the named evidence before running the case.
     manual_wakes: tuple[ManualWakeRequirement, ...] = ()
 
+    qa_notice_stalled: bool = False
+
     @property
     def needs_action(self) -> bool:
         """True when nothing the run is waiting for can arrive by itself.
@@ -132,7 +134,8 @@ class DeploymentRunProgress:
             and not self.driver_phase
         )
         return (
-            self.completion.blocked
+            self.qa_notice_stalled
+            or self.completion.blocked
             or bool(self.red)
             or self.answered_decision is not None
             or waiting_to_be_driven
@@ -146,10 +149,10 @@ class DeploymentRunProgress:
         if self.pin_qa.unpassable:
             return self.pin_qa.supersede_recovery(self.run_id)
         if self.status == RunStatus.CREATED and self.outstanding == 0:
-            return f"Nothing is outstanding; re-drive {self.run_id} to start it."
+            return f"Nothing is outstanding; re-drive {self.run_id} with `yoke watch deploy -- {self.run_id}` to start it."
         if self.answered_decision is not None:
             return (
-                f"Answer recorded; re-drive {self.run_id} so the runner acts on it: "
+                f"Answer recorded; re-drive {self.run_id} with `yoke watch deploy -- {self.run_id}` so the runner acts on it: "
                 "an approve proceeds, a reject fails the stage."
             )
         return redrive_recovery(self.run_id, unresolved=self.outstanding)

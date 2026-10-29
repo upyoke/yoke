@@ -128,7 +128,7 @@ def classify(
     reaches here and a run cannot answer the question on the owner's behalf.
     """
     attached = [row for row in _post_deploy(attachments) if not _is_retracted(row)]
-    rows = [row for row in _post_deploy(requirements) if not _is_retracted(row)]
+    rows = [row for row in _post_deploy(requirements) if not _is_retracted(row) and row.get("plan_id") is None]
     live = [
         row for row in rows if not _is_no_obligation(row) and not row.get("waived_at")
     ]
@@ -183,7 +183,8 @@ def answer_for_item(conn: Any, item_id: int) -> PostDeployAnswer:
     requirements = query_rows(
         conn,
         f"SELECT {requirement_cols} "
-        "FROM qa_requirements WHERE item_id=%s AND deployment_run_id IS NULL",
+        "FROM qa_requirements WHERE item_id=%s AND deployment_run_id IS NULL "
+        "AND plan_id IS NULL",
         (int(item_id),),
     )
     return classify(attachments=attachments, requirements=requirements)

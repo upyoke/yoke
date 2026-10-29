@@ -32,6 +32,11 @@ def test_stage_only_requirement_is_not_applied_to_production(test_db) -> None:
         environment="prod",
     )
 
+    from runtime.api.domain.test_deployment_qa_plan_groups import _attach
+    from yoke_core.domain.deployment_qa_plan_group_writes import ensure_groups
+    _attach(test_db, item_id, plan_id)
+    ensure_groups(test_db, "run-production-selection", "member-qa")
+    test_db.commit()
     result = materialize_deployment_qa_stage(
         test_db,
         deployment_run_id="run-production-selection",
@@ -40,7 +45,7 @@ def test_stage_only_requirement_is_not_applied_to_production(test_db) -> None:
         agent_plan=str(plan_id),
     )
 
-    assert len(result["created_requirement_ids"]) == 1
+    assert len(result["existing_requirement_ids"]) == 1
     scoped = test_db.execute(
         "SELECT plan_id,plan_case_key FROM qa_requirements "
         "WHERE deployment_run_id='run-production-selection'"

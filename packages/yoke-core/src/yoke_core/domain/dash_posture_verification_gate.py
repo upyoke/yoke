@@ -11,6 +11,7 @@ from __future__ import annotations
 
 from typing import Any, Mapping, Optional
 
+from yoke_core.domain.qa_item_obligation_queries import old_plan_copy_sql
 from yoke_core.domain.dash_posture_read import failure as _failure, marker as _p
 from yoke_core.domain.deployment_qa_source_obligation import (
     POST_DEPLOY_RECOVERY,
@@ -181,15 +182,13 @@ def verification_gate(
         selector_value,
         ITEM_POSTURE_VERIFICATION_TRANSITION,
     )
-    # Waived rows stay in this read. A waiver DISCHARGES a case; it does not
-    # unbind it, and filtering it out here made the posture look unbound —
-    # so an item whose only selected case was waived was refused for having
-    # no case at all, which no rerun or authoring could fix.
+    # Waived rows stay bound; obsolete plan copies never count.
     cursor = conn.execute(
         "SELECT r.* "
         "FROM qa_requirements r "
         f"WHERE r.item_id = {marker} AND {selector} "
         "AND r.blocking_mode = 'blocking' "
+        f"AND NOT {old_plan_copy_sql('r')} "
         f"{transition_sql}"
         f"{phase_sql}"
         "ORDER BY r.id",
@@ -248,6 +247,7 @@ def verification_gate(
                 "SELECT 1 FROM qa_requirements r "
                 f"WHERE r.item_id = {marker} AND {selector} "
                 "AND r.blocking_mode = 'blocking' "
+        f"AND NOT {old_plan_copy_sql('r')} "
                 f"AND ((r.workflow_transition_id = {marker} "
                 "AND r.qa_phase <> 'verification') "
                 "OR r.qa_phase = 'post_deploy') LIMIT 1",

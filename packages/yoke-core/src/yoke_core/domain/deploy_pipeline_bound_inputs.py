@@ -82,7 +82,7 @@ def bound_inputs_for_dispatch(
         return resolved, (
             f"{prefix}{BOUND_SOURCES_PREPARE_FUNCTION_ID} refused: {reason}; ask the control-plane "
             "operator to repair the named authority (for a self-deploy, use the "
-            f"candidate's paired source-dev authority), then re-drive {run_id}"
+            f"candidate's paired source-dev authority), then re-drive {run_id} with `yoke watch deploy -- {run_id}`"
         )
     result = response.result or {}
     record = result.get("bound_sources")
@@ -91,7 +91,7 @@ def bound_inputs_for_dispatch(
         return resolved, (
             f"{prefix}bound_source_preparation_receipt_missing: the serving build "
             "must carry bound source preparation; ask the control-plane operator "
-            f"to use the candidate's paired source-dev authority, then re-drive {run_id}"
+            f"to use the candidate's paired source-dev authority, then re-drive {run_id} with `yoke watch deploy -- {run_id}`"
         )
     resolved = bound_input_values(record)
     missing = sorted(set(declared) - set(resolved))
@@ -99,7 +99,7 @@ def bound_inputs_for_dispatch(
         return resolved, (
             f"{prefix}bound_source_preparation_receipt_incomplete: run {run_id} "
             f"lacks source commits for {missing or sorted(declared)}; ask the "
-            "control-plane operator to repair preparation, then re-drive the run"
+            f"control-plane operator to repair preparation, then re-drive the run with `yoke watch deploy -- {run_id}`"
         )
     if any(not isinstance(m, dict) or not m.get("public_ref") for m in members):
         return (

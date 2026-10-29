@@ -41,7 +41,7 @@ class RematerializeRequest(BaseModel):
 
 def _subject_unavailable(exc: BaseException) -> HandlerOutcome:
     return _error(
-        "qa_subject_unavailable",
+        getattr(exc, "code", "qa_subject_unavailable"),
         "deployment QA subject is unavailable: "
         f"{exc}; use the active run stage and an attached member, then retry",
         "$.target",
@@ -241,7 +241,7 @@ def handle_materialize(request: FunctionCallRequest) -> HandlerOutcome:
                     f"release: {recipe}"
                 )
     except QaPlanError as exc:
-        return _error("incompatible", str(exc), "$.payload")
+        return _error(getattr(exc, "code", "incompatible"), str(exc), "$.payload")
     except QaReplacementError as exc:
         return _error("replacement_refused", str(exc), "$.payload.replacements")
     return HandlerOutcome(result_payload={"result": result}, primary_success=True)
@@ -327,7 +327,7 @@ def handle_rematerialize(request: FunctionCallRequest) -> HandlerOutcome:
                     plan=payload.plan,
                 )
     except QaPlanError as exc:
-        return _error("incompatible", str(exc), "$.payload")
+        return _error(getattr(exc, "code", "incompatible"), str(exc), "$.payload")
     except (ValueError, LookupError) as exc:
         return _error(
             "qa_refresh_subject_unavailable",

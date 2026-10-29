@@ -25,12 +25,38 @@ from yoke_core.domain.deployment_qa_stage_wake import (
 )
 
 
+def live_recipient_sql(alias: str = "m") -> str:
+    return ("EXISTS (SELECT 1 FROM session_message_recipients r "
+            "JOIN harness_sessions h ON h.session_id=r.session_id "
+            f"WHERE r.message_id={alias}.message_id AND h.ended_at IS NULL "
+            "AND r.state NOT IN ('cancelled','expired'))")
+
+
+def reusable_qa_notice(conn: Any, details: dict | None) -> dict | None:
+    """Retire a QA intent whose audience ended, so its next route can receive it."""
+    if not details or not str(details.get("idempotency_key") or "").startswith((DEPLOYMENT_QA_STAGE_WAIT_PREFIX, "deployment-qa-plan-group-failure:", "deployment-qa-member-failure:")):
+        return details
+    live = conn.execute(
+        f"SELECT 1 FROM session_messages m WHERE m.message_id=%s AND {live_recipient_sql()}",
+        (details["message_id"],)).fetchone()
+    if live:
+        return details
+    from yoke_core.domain.session_message_store import cancel_messages
+    from yoke_core.domain.db_helpers import utc_now
+
+    cancel_messages(conn, message_ids=[details["message_id"]], actor_id=None,
+                    reason="QA notice recipient session ended or delivery expired",
+                    cancelled_at=utc_now())
+    return None
+
+
 def _sent_keys(conn: Any, prefix: str) -> frozenset[str]:
     literal = "".join(f"\\{ch}" if ch in "\\%_" else ch for ch in prefix)
     rows = query_rows(
         conn,
-        "SELECT idempotency_key FROM session_messages "
-        "WHERE idempotency_key LIKE %s AND cancelled_at IS NULL",
+        "SELECT m.idempotency_key FROM session_messages m "
+        "WHERE m.idempotency_key LIKE %s AND m.cancelled_at IS NULL "
+        + (f"AND {live_recipient_sql()}" if prefix.startswith(DEPLOYMENT_QA_STAGE_WAIT_PREFIX) else ""),
         (literal + "%",),
     )
     return frozenset(str(row[0]) for row in rows)

@@ -285,7 +285,7 @@ def _coverage(
             f"could not read fleet rehearsal receipts of {project}/{environment} "
             f"model {model}: {unreadable}. Each shipped project needs an "
             f"environment named {environment!r} the release control plane can "
-            "read; register it or grant the read, then re-drive the run"
+            "read; register it or grant the read, then re-drive the run with `yoke watch deploy -- RUN`"
         )
     return values, ""
 

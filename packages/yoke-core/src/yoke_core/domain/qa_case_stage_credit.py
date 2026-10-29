@@ -1,14 +1,4 @@
-"""Refuse a case run that cannot credit an item-scoped deployment stage.
-
-A QA stage credits only requirements bound to its own stage name — and an
-item-scoped stage, the member too. `yoke qa case run` executes one
-requirement by id. Missions create a one-requirement plan execution; other
-runners record a direct verdict rather than the scoped execution a stage reads. Exiting zero with a genuine pass
-is how a caller reports the gate satisfied while the stage stays empty.
-
-This module does not change what a stage credits. It detects the mismatch
-at the case-run entry and names the plan-run invocation that would.
-"""
+"""Direct item-case passes settle members; plan groups retain ordered walks."""
 
 from __future__ import annotations
 
@@ -20,29 +10,21 @@ from yoke_contracts.api.function_call import ActorContext
 
 
 def item_scoped_stage_plan_run_command(case: Mapping[str, Any]) -> str | None:
-    """Return the plan-run invocation that would credit this case's stage.
+    """The ordered plan-group command, when this case belongs to a group.
 
-    None means the case contract does not name an item-scoped stage with
-    every field the command needs, including an older contract that omits
-    them: the case run then proceeds as it always has.
+    Direct member cases settle from their own current passes.
     """
     run_id = str(case.get("deployment_run_id") or "").strip()
     stage = str(case.get("deployment_stage") or "").strip()
     shared = ((case.get("execution_target") or {}).get("deployment") or {}).get(
         "shared_plan"
     )
-    member_ref = str(case.get("deployment_member_ref") or "").strip()
-    project = str(case.get("project") or "").strip()
-    if not run_id or not stage or not project:
+    if not run_id or not stage or not shared:
         return None
-    if shared:
-        return (
-            f"yoke qa plan run --deployment-run-id {run_id} --stage {stage} "
-            f"--plan {shared['plan_id']} --project {project}"
-        )
-    if not member_ref or case.get("deployment_member_item_id") is None:
-        return None
-    return f"yoke qa plan run --item {member_ref} --stage {stage} --project {project}"
+    return (
+        f"yoke qa plan run --deployment-run-id {run_id} --stage {stage} "
+        f"--plan {shared['plan_id']}"
+    )
 
 
 def item_scoped_stage_credit_refusal(case: Mapping[str, Any]) -> str | None:
@@ -51,7 +33,6 @@ def item_scoped_stage_credit_refusal(case: Mapping[str, Any]) -> str | None:
     if command is None:
         return None
     stage = str(case["deployment_stage"]).strip()
-    member_ref = str(case.get("deployment_member_ref") or "").strip()
     run_id = str(case["deployment_run_id"]).strip()
     shared = ((case.get("execution_target") or {}).get("deployment") or {}).get(
         "shared_plan"
@@ -63,12 +44,8 @@ def item_scoped_stage_credit_refusal(case: Mapping[str, Any]) -> str | None:
             "does not complete the group's ordered execution. Run the group "
             f"instead:\n  {command}"
         )
-    return (
-        f"STAGE CREDIT REFUSAL: this requirement is bound to item-scoped "
-        f"stage {stage!r} for member {member_ref} on {run_id}. A passing "
-        "case run does not credit that stage. Run this instead:\n"
-        f"  {command}"
-    )
+    return None
+
 
 
 def execute_authorized_case(
@@ -82,7 +59,7 @@ def execute_authorized_case(
     allow_tree_mismatch: bool = False,
     actor: Optional[ActorContext] = None,
 ) -> dict:
-    """Authorize a case, refuse an uncredited item-scoped stage, then run it."""
+    """Authorize a case, preserving a plan group's ordered execution."""
     from yoke_core.domain import qa_case_execution as cases
 
     selection = {}
@@ -91,17 +68,6 @@ def execute_authorized_case(
     if expected_branch:
         selection["expected_branch"] = expected_branch
     case = cases.fetch_case_execution_context(requirement_id, actor=actor, **selection)
-    if case.get("runner_id") == "agent_mission":
-        return cases.execute_case_context(
-            case,
-            base_url=base_url,
-            expected_branch=expected_branch,
-            expected_sha=expected_sha,
-            timeout_seconds=timeout_seconds,
-            checkout_path=checkout_path,
-            allow_tree_mismatch=allow_tree_mismatch,
-            actor=actor,
-        )
     refusal = item_scoped_stage_credit_refusal(case)
     if refusal:
         raise cases.QaCaseExecutionError(refusal)

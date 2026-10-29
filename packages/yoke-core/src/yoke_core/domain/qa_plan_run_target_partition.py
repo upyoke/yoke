@@ -11,12 +11,8 @@ pass the stage still grades unresolved (no evidence) stays owed. A passed case
 stays while a later case of its chain still owes a verdict, so the chain
 still runs from its opener.
 
-A live execution keeps its own immutable roster. When every case already
-passed and a scoped execution on the target recorded it, nothing is owed:
-the run refuses with ``qa_plan_nothing_owed`` and names the stage's real
-blockers instead of replaying the roster, because stage acceptance anchors
-on the newest stopped execution once every case passed. Passes recorded
-outside every execution still owe that one walk.
+A live execution keeps its immutable roster. When every case passed,
+nothing is owed, even when individual case runs recorded the passes.
 """
 
 from __future__ import annotations
@@ -106,11 +102,8 @@ def run_target_partition(
     if not open_rows:
         from yoke_core.domain.qa_plan_nothing_owed import (
             nothing_owed,
-            scoped_execution_recorded,
         )
 
-        if not scoped_execution_recorded(conn, roster, **scope):
-            return roster
         raise nothing_owed(
             conn,
             roster_size=len(roster),
