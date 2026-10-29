@@ -50,7 +50,7 @@ def ci_adapter_failure_message(
     if code == GitHubUnavailable.code:
         return compose_refusal(
             f"\nBLOCKED: Cannot deploy — CI could not be verified; the GitHub Actions adapter returned {failure}.\n\nGitHub itself is failing; the App credentials are not the cause and this is not a failing test conclusion.",
-            recovery="re-drive the deployment once GitHub recovers.\n",
+            recovery="re-drive the deployment with `yoke watch deploy -- RUN` once GitHub recovers.\n",
         )
     if code in _AUTH_ADAPTER_CODES:
         kind = "an authorization failure"

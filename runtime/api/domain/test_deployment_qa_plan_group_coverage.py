@@ -44,3 +44,23 @@ def test_item_selector_materializes_group_without_member_copy(test_db):
         "SELECT COUNT(*) FROM qa_requirements WHERE plan_id IS NOT NULL "
         "AND deployment_member_item_id IS NOT NULL"
     ).fetchone()[0] == 0
+
+
+def test_later_plan_edit_does_not_change_credit_or_pending_pinned_cases(test_db):
+    from runtime.api.domain.test_deployment_qa_plan_group_scenarios import _pin_flow
+    from yoke_core.domain.deployment_qa_plan_credit import plan_credit_misses
+    from yoke_core.domain.deployment_qa_run_sharing import run_qa_sharing
+    from yoke_core.domain.qa_plan_management import replace_plan_cases
+
+    plan = _seed(test_db, attached=MEMBERS[:2])
+    _pin_flow(test_db)
+    ensure_groups(test_db, RUN, "item-qa")
+    test_db.commit()
+    _pass_group(test_db)
+    replace_plan_cases(test_db, plan_id=plan, cases=[])
+    test_db.commit()
+    assert plan_credit_misses(test_db, MEMBERS[0]) == []
+    _attach(test_db, MEMBERS[2], plan)
+    pending = [g for g in run_qa_sharing(test_db, [RUN])[RUN]["plan_groups"] if g.get("pending")]
+    assert len(pending) == 1
+    assert [c["case_key"] for c in pending[0]["cases"]] == ["command-smoke"]

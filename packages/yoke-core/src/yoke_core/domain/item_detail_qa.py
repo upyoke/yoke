@@ -297,7 +297,7 @@ def qa_plan_attachments(
         from yoke_core.domain.deployment_item_completion_runs import latest_qa_member_run
         from yoke_core.domain.deployment_qa_plan_groups import lineage_run_ids, run_groups
 
-        run = latest_qa_member_run(conn, item_id=item_id)
+        run = latest_qa_member_run(conn, item_id=item_id, target_env="")
         if run:
             for group in run_groups(conn, lineage_run_ids(conn, str(run["id"]))):
                 pinned[group.plan_id] = group
