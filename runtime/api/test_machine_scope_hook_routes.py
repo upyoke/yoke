@@ -35,6 +35,7 @@ def _request(session, machine, workspace, executor="codex", event="PreToolUse"):
         tool_name="Read",
         tool_input={"file_path": str(workspace / "note")},
         tool_use_id=str(uuid4()),
+        transcript_path=str(workspace / "rollout.jsonl"),
     )
     body["stdin"] = json.dumps(payload)
     return body

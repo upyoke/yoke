@@ -81,6 +81,12 @@ def test_machine_hook_registers_real_authenticated_row(
                 "project_id": 1,
                 "tool_name": "Read",
                 "tool_input": {"file_path": str(tmp_path / "note")},
+                # A Codex hook registers only from a saved transcript.
+                **(
+                    {"transcript_path": str(tmp_path / "rollout.jsonl")}
+                    if executor == "codex"
+                    else {}
+                ),
             }
         ),
     )
