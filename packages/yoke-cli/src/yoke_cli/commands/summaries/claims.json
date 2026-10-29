@@ -34,16 +34,16 @@
   "claims work claim acquire": "Claim an item, epic task or process for this session.",
   "claims work claim get": "Show who holds the work claim on an item or path.",
   "claims work claim list": "List work claims for an item or a session.",
-  "claims work claim release": "Release a work claim this session holds, or any claim when you hold a steering seat.",
+  "claims work claim release": "Release your work claim, or any claim from a steering seat.",
   "claims work current": "Show who holds the work claim on an item.",
   "claims work holder-get": "Show who holds the work claim on an item or path.",
   "claims work holder-list": "List work claims for an item or a session.",
   "claims work list": "List work claims for an item or a session.",
-  "claims work release": "Release a work claim this session holds, or any claim when you hold a steering seat.",
+  "claims work release": "Release your work claim, or any claim from a steering seat.",
   "claims work status": "Show who holds the work claim on an item.",
   "claims work-claim": "Take, read and release claims on work items.",
   "claims work-claim acquire": "Claim an item, epic task or process for this session.",
   "claims work-claim get": "Show who holds the work claim on an item or path.",
   "claims work-claim list": "List work claims for an item or a session.",
-  "claims work-claim release": "Release a work claim this session holds, or any claim when you hold a steering seat."
+  "claims work-claim release": "Release your work claim, or any claim from a steering seat."
 }
