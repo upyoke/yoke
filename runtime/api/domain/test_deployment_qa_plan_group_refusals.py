@@ -8,13 +8,16 @@ from yoke_core.domain.yoke_function_dispatch import dispatch
 
 
 def test_closed_group_refusal_survives_permissions(test_db):
+    from runtime.api.fixtures.dispatch_actor import register_session_actor
+
+    actor_id = register_session_actor(test_db, "plan-group-qa")
     _seed(test_db)
     ensure_groups(test_db, RUN, "item-qa")
     test_db.commit()
     _pass_group(test_db)
     response = dispatch({
         "function": "qa.plan.materialize", "request_id": str(uuid4()),
-        "actor": {"actor_id": "2", "session_id": "plan-group-qa"},
+        "actor": {"actor_id": str(actor_id), "session_id": "plan-group-qa"},
         "target": {"kind": "deployment_run", "deployment_run_id": RUN},
         "payload": {"deployment_stage": "item-qa", "plan": SLUG},
     })
