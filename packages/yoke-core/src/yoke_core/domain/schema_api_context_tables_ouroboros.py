@@ -25,6 +25,8 @@ OUROBOROS_TABLES: dict[str, dict] = {
             ("universe_fingerprint", "TEXT"),
         ],
         "notes": (
+            "Feedback rows store `category` and `body`; "
+            "there are NO `kind` or `evidence` columns on this table. "
             "Field-note correlation_id stores the root note id; session_id "
             "stores the filing session. Minimal capture fixtures also need both "
             "columns: wrong guess that only event telemetry or field-note inserts "
@@ -35,9 +37,6 @@ OUROBOROS_TABLES: dict[str, dict] = {
             "creation follows project_id additive convergence. "
             "Unreviewed counts exclude correlated "
             "repeats; reads attach repeat_count and bounded repeats to roots. "
-            "Learning-log / field-note rows. The kind-like discriminator "
-            "is `category` and the evidence/content text is `body`; "
-            "there are NO `kind` or `evidence` columns on this table. "
             "Two project columns, both numeric; join projects for the "
             "human slug. `project_id` is where the note was OBSERVED "
             "(resolved automatically from the calling checkout). "
