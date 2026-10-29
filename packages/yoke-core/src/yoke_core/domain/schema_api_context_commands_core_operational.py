@@ -7,6 +7,8 @@ and lane-source checks. Registered function ids use the strict
 
 from __future__ import annotations
 
+from yoke_contracts.field_note_text import FOOTER, HELP_BODY, BASIC_RECIPE
+
 from yoke_contracts.session_control.teaching import (
     FLEET_BODY_TRUST_GUIDANCE,
     FLEET_ENVELOPE_TRUST_GUIDANCE,
@@ -108,12 +110,7 @@ OPERATIONAL_COMMANDS: list[dict] = [
             "when set. The receipt prints after the command has run, so --json is "
             "for an invocation that needs the whole envelope, never a reason to "
             "repeat a write you already made. "
-            "File a field note each time a recipe, help text or refusal is "
-            "wrong or missing, or you spot a bug outside your task — before "
-            "moving on. If you already filed the same problem, add "
-            "`--correlation-id <that note's id>`: "
-            "`yoke ouroboros field-note append --kind "
-            "<failed|new|unclear|observation> --evidence '...'`. "
+            f"{FOOTER} "
             "Do not start the "
             "function-call HTTP "
             "server or call the dispatcher from an ad-hoc Python "
@@ -186,27 +183,9 @@ OPERATIONAL_COMMANDS: list[dict] = [
     {
         "startup_roles": (),
         "topic": "core",
-        "purpose": (
-            "Field-note channel: log a failed/new/unclear recipe or observation"
-        ),
-        "recipe": (
-            "yoke ouroboros field-note append --kind failed "
-            "--evidence "
-            "'R-CL-03 path-claim-narrow recipe used --remove; "
-            "actual flag is --drop-paths' "
-            "--correlation-id ROOT_NOTE_ID"
-        ),
-        "notes": (
-            "File a field note each time a recipe, help text or refusal is "
-            "wrong or missing, or you spot a bug outside your task — before "
-            "moving on. Link a repeat with `--correlation-id <first note's "
-            "id>`. Kinds: failed — a recipe, help text or refusal gave a "
-            "wrong result; new — no recipe or help covered what you needed; "
-            "unclear — two surfaces disagree, or the guidance is ambiguous; "
-            "observation — a bug or oddity outside your current task. "
-            "Surfaces in "
-            "/yoke curate via OuroborosFieldNoteAppended events."
-        ),
+        "purpose": "Report Yoke problems or your own project findings",
+        "recipe": BASIC_RECIPE,
+        "notes": HELP_BODY,
     },
     {
         "startup_roles": ("main_agent", "engineer_agent"),

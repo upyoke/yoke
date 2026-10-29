@@ -295,12 +295,10 @@ class TestEveryTierOneFamilyDispatches:
             "reason": "expansion in flight",
         }
 
-    def test_ouroboros_field_note_append_dispatches(self) -> None:
+    def test_feedback_append_dispatches(self) -> None:
         rc = _run_with_dispatch(
             _stub_dispatch_ok,
-            "ouroboros",
-            "field-note",
-            "append",
+            "feedback", "--to", "universe",
             "--kind",
             "failed",
             "--evidence",
@@ -318,9 +316,7 @@ class TestEveryTierOneFamilyDispatches:
     def test_field_note_accepts_observation_kind(self) -> None:
         rc = _run_with_dispatch(
             _stub_dispatch_ok,
-            "ouroboros",
-            "field-note",
-            "append",
+            "feedback", "--to", "universe",
             "--kind",
             "observation",
             "--evidence",

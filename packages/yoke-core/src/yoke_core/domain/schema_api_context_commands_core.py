@@ -20,16 +20,19 @@ Recipe shape doctrine (current):
     Remaining source-dev/admin or break-glass tools (``db_router query``,
     ``atlas_render_docs``, and ``backlog-cli`` families) are labelled
     explicitly as operator-debug surfaces inside a Yoke checkout.
-    The operational sibling owns the ``yoke ouroboros field-note append``
+    The operational sibling owns the ``yoke feedback --to yoke``
     recovery recipe.
 
-Pure data only — no I/O, no DB connections, no imports beyond stdlib.
+Pure recipe data: no I/O or database connections.
 """
 
 from __future__ import annotations
 
+from yoke_contracts.field_note_text import BASIC_RECIPE
+
 
 CORE_COMMANDS: list[dict] = [
+    {"startup_roles": (), "topic": "core", "purpose": "Feedback destinations", "recipe": BASIC_RECIPE},
     {
         "startup_roles": ("main_agent",),
         "topic": "core",

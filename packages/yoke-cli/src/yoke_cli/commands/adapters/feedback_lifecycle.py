@@ -15,18 +15,12 @@ from yoke_cli.commands._helpers import (
     parse_or_usage_error,
     usage_error,
 )
-from yoke_cli.commands.text_file import add_text_file_pair, resolve_text_file
 from yoke_contracts.api.function_call import TargetRef
 
 
-OUROBOROS_ENTRY_INSERT_USAGE = (
-    "yoke ouroboros entry insert --agent A --category C "
-    "(--observation TEXT | --observation-file PATH | --stdin) "
-    "[--context TEXT] [--timestamp TS] [--project P] [--session-id S] [--json]"
-)
 OUROBOROS_ENTRY_MARK_REVIEWED_USAGE = (
     "yoke ouroboros entry mark-reviewed "
-    "(ENTRY_ID | --before YYYY-MM-DD | --field-notes-before YYYY-MM-DD) "
+    "(ENTRY_ID | --before YYYY-MM-DD) "
     "[--limit N] [--include-unattributed] "
     "[--project P] [--session-id S] [--json]"
 )
@@ -45,86 +39,14 @@ _INCLUDE_UNATTRIBUTED_HELP = (
     "default so one project's run never sweeps the universe-wide backlog."
 )
 __all__ = [
-    "ouroboros_entry_insert",
-    "ouroboros_entry_mark_reviewed",
-    "ouroboros_entry_mark_archived",
-    "OUROBOROS_ENTRY_INSERT_USAGE",
+    "feedback_review",
+    "feedback_archive",
     "OUROBOROS_ENTRY_MARK_REVIEWED_USAGE",
     "OUROBOROS_ENTRY_MARK_ARCHIVED_USAGE",
 ]
 
 
-def ouroboros_entry_insert(args: List[str]) -> int:
-    parser = argparse.ArgumentParser(
-        prog="yoke ouroboros entry insert",
-        usage=OUROBOROS_ENTRY_INSERT_USAGE,
-    )
-    parser.add_argument(
-        "--agent",
-        required=True,
-        help="Agent that made the observation.",
-    )
-    parser.add_argument(
-        "--category",
-        required=True,
-        help="Category the entry is filed under.",
-    )
-    parser.add_argument("--context", help="Extra context for the observation.")
-    parser.add_argument(
-        "--timestamp", help="When it was observed, as an ISO timestamp."
-    )
-    parser.add_argument("--project", help="Project the entry belongs to.")
-    group = parser.add_mutually_exclusive_group(required=True)
-    add_text_file_pair(
-        group,
-        "--observation",
-        "--observation-file",
-        dest="observation",
-        help_text="Observation body. Use --observation-file to read a path.",
-    )
-    group.add_argument("--stdin", action="store_true", help="Read body from stdin.")
-    add_session_arg(parser)
-    add_json_arg(parser)
-    parsed = parse_or_usage_error(parser, args, OUROBOROS_ENTRY_INSERT_USAGE)
-    if parsed is None:
-        return 2
-    if parsed.stdin:
-        import sys
-
-        observation = sys.stdin.read()
-    else:
-        try:
-            observation = resolve_text_file(
-                parsed.observation,
-                parsed.observation_file,
-                "--observation-file",
-            )
-        except ValueError as exc:
-            return usage_error(str(exc))
-    payload: Dict[str, Any] = {
-        "agent": parsed.agent,
-        "category": parsed.category,
-        "observation": observation,
-    }
-    for key in ("context", "timestamp", "project"):
-        value = getattr(parsed, key)
-        if value:
-            payload[key] = value
-
-    def _human_writer(response, stdout, stderr) -> None:
-        write_human(response.result, stdout)
-
-    return dispatch_and_emit(
-        function_id="ouroboros.entry.insert",
-        target=TargetRef(kind="global"),
-        payload=payload,
-        session_id=parsed.session_id,
-        json_mode=parsed.json_mode,
-        human_writer=_human_writer,
-    )
-
-
-def ouroboros_entry_mark_reviewed(args: List[str]) -> int:
+def feedback_review(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke ouroboros entry mark-reviewed",
         usage=OUROBOROS_ENTRY_MARK_REVIEWED_USAGE,
@@ -141,10 +63,6 @@ def ouroboros_entry_mark_reviewed(args: List[str]) -> int:
             "Review this project's unreviewed entries in any category "
             "created before this ISO date."
         ),
-    )
-    parser.add_argument(
-        "--field-notes-before",
-        help="Review this project's unreviewed field-notes created before this date.",
     )
     parser.add_argument(
         "--limit",
@@ -166,16 +84,16 @@ def ouroboros_entry_mark_reviewed(args: List[str]) -> int:
     )
     if parsed is None:
         return 2
-    selectors = (parsed.entry_id, parsed.before, parsed.field_notes_before)
+    selectors = (parsed.entry_id, parsed.before)
     if sum(selector is not None for selector in selectors) != 1:
         return usage_error(
-            "pass exactly one of ENTRY_ID, --before, or --field-notes-before"
+            "pass exactly one of ENTRY_ID, --before,"
         )
     if parsed.entry_id is not None and parsed.limit is not None:
-        return usage_error("--limit requires --before or --field-notes-before")
+        return usage_error("--limit requires --before")
     if parsed.entry_id is not None and parsed.include_unattributed:
         return usage_error(
-            "--include-unattributed requires --before or --field-notes-before; "
+            "--include-unattributed requires --before; "
             "an entry id already names the one entry to review"
         )
 
@@ -184,10 +102,6 @@ def ouroboros_entry_mark_reviewed(args: List[str]) -> int:
         payload["entry_id"] = parsed.entry_id
     elif parsed.before is not None:
         payload["before"] = parsed.before
-        if parsed.limit is not None:
-            payload["limit"] = parsed.limit
-    else:
-        payload["field_notes_before"] = parsed.field_notes_before
         if parsed.limit is not None:
             payload["limit"] = parsed.limit
     if parsed.include_unattributed:
@@ -214,7 +128,7 @@ def ouroboros_entry_mark_reviewed(args: List[str]) -> int:
     )
 
 
-def ouroboros_entry_mark_archived(args: List[str]) -> int:
+def feedback_archive(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke ouroboros entry mark-archived",
         usage=OUROBOROS_ENTRY_MARK_ARCHIVED_USAGE,

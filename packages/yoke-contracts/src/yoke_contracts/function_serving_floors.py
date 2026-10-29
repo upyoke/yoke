@@ -14,6 +14,9 @@ from typing import Any, Mapping
 
 #: function_id -> minimum serving version. Do not copy already-served ids here.
 FUNCTION_MINIMUM_SERVING_VERSIONS: dict[str, str] = {
+    "ouroboros.field_note.append": "next-release",
+    "ouroboros.field_note.list": "next-release",
+    "ouroboros.field_note.get": "next-release",
     "merge_queue.flake_retry.claim": "next-release",
     "claims.coordination_claim.acquire_if_free": "next-release",
     "sessions.watcher_activity": "next-release",

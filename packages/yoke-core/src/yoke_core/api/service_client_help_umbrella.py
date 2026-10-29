@@ -100,7 +100,7 @@ _FAMILY_GROUPS: Tuple[Tuple[str, Tuple[str, ...]], ...] = (
     ),
     ("Project Structure", ("project-structure-",)),
     ("Actors / DB claim", ("actors-get", "actors-list", "db-claim-amend")),
-    ("Ouroboros", ("field-note-log",)),
+    ("Ouroboros", ("feedback-log",)),
 )
 
 

@@ -38,7 +38,7 @@ from runtime.api.fixtures.file_test_db import init_test_db
 from runtime.api.fixtures.backlog import seed_fixture_operating_actor
 
 
-SESSION_ID = "session-field-note-event-project"
+SESSION_ID = "session-feedback-event-project"
 UNKNOWN_SESSION_ID = "session-never-registered"
 SESSION_EXECUTOR = "claude-code"
 SESSION_PROJECT = "yoke"
@@ -92,7 +92,7 @@ def _seed_session(db_path: str) -> None:
 
 def _append(session_id: str = SESSION_ID, **payload_extra):
     payload = {
-        "kind": "observation",
+        "category": "observation",
         "evidence": "a recipe named a flag that does not exist",
         **payload_extra,
     }

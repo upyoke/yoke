@@ -13,7 +13,7 @@ WRAPPED_ROWS: tuple[_Row, ...] = (
         "yoke direct-workflow conflict-survey status",
         "direct_workflow.conflict_survey",
     ),
-    _w("yoke ouroboros field-note promote", "ouroboros"),
+    _w("yoke feedback promote", "ouroboros"),
 )
 
 PERMANENT_ROWS: tuple[_Row, ...] = (

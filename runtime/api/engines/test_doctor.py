@@ -255,7 +255,7 @@ class _ReportCarriesNoFieldNoteDirectiveTests(unittest.TestCase):
     """The Markdown report states each HC's own remediation and nothing
     generic. Repeating the field-note directive once per FAIL / WARN turned
     a long report into mostly boilerplate; the directive reaches a session
-    through the startup rules and `yoke ouroboros field-note append --help`."""
+    through the startup rules and `yoke feedback --to yoke --help`."""
 
     def _render(self, health_check):
         with patch("yoke_core.engines.doctor.HEALTH_CHECKS", [health_check]):

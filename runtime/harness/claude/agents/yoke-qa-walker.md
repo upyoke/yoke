@@ -272,5 +272,6 @@ Then report in order:
 
 Never write `pass`, `fail`, or final QA verdict. Main aggregates and submits batch.
 
-File a field note each time a recipe, help text or refusal is wrong or missing, or you spot a bug outside your task — before moving on. If you already filed the same problem, add `--correlation-id <that note's id>`:
-yoke ouroboros field-note append --kind <failed|new|unclear|observation> --evidence '...'
+Report problems with Yoke to Yoke, and problems with your projects to your own universe, before moving on. Link repeat evidence with `--correlation-id <first note id>`.
+yoke feedback --to yoke --category failed --evidence 'Yoke recipe failed: ...'
+yoke feedback --to universe --category observation --evidence 'Project finding: ...'

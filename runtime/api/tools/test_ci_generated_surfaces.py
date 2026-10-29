@@ -16,8 +16,8 @@ def test_generated_block_drift_is_rejected_without_writing(tmp_path):
     target = tmp_path / field_notes.INVENTORY[0]
     target.parent.mkdir(parents=True, exist_ok=True)
     original = (
-        "<!-- BEGIN GENERATED: field-note-directive -->\nstale\n"
-        "<!-- END GENERATED: field-note-directive -->\n"
+        "<!-- BEGIN GENERATED: feedback-directive -->\nstale\n"
+        "<!-- END GENERATED: feedback-directive -->\n"
     )
     target.write_text(original)
     with patch.object(blocks, "FAMILY_MODULES", (field_notes.__name__,)):

@@ -7,23 +7,22 @@ export const OUROBOROS_PAGE_SIZE = 50;
 export function createOuroborosLoader({ context, scope, onChange }) {
   const preferences = context.screenPreferences;
   const active = () => !context.signal?.aborted && context.isMounted();
-  const criteria = { reviewState: "all", categoryPrefix: "", sort: normalizeOuroborosSort(preferences?.sortFor("ouroboros")) };
+  const criteria = { reviewState: "all", category: "", sort: normalizeOuroborosSort(preferences?.sortFor("ouroboros")) };
   let sequence = 0, rows = [], cursor = null, matchingCount = null;
   let failure = null, loading = false, sortNotice = "", refresh = null, started = false;
   const state = () => ({ criteria: { ...criteria }, rows, matchingCount, loadedCount: rows.length, failure, loading, hasMore: Boolean(cursor), sortNotice });
   const publish = () => { if (active()) onChange(state()); };
   const request = async ({ append = false } = {}) => {
     const token = ++sequence;
-    // The shared shell resolves a single project, including old All URLs.
-    const project = scope == null ? null : String(scope);
+    const projects = Array.isArray(scope) ? scope.map(String) : scope && scope !== "all" ? [String(scope)] : null;
     if (!append) { rows = []; cursor = null; matchingCount = null; }
     loading = true; failure = null; publish();
     let reply;
     try {
-      reply = await callFunction(context.client, "ouroboros.entry.list", {
-        project, shape: "roster", review_state: criteria.reviewState,
+      reply = await callFunction(context.client, "ouroboros.field_note.list", {
+        scope: projects ? "project" : "universe", ...(projects ? { projects } : {}), shape: "roster", review_state: criteria.reviewState,
         limit: OUROBOROS_PAGE_SIZE, sort: criteria.sort,
-        ...(criteria.categoryPrefix ? { category_prefix: criteria.categoryPrefix } : {}),
+        ...(criteria.category ? { category: criteria.category } : {}),
         ...(append && cursor ? { cursor } : {}),
       });
     } catch (error) {
@@ -67,7 +66,7 @@ export function createOuroborosLoader({ context, scope, onChange }) {
     start: async () => { await refreshSort(); if (active()) { started = true; return request(); } },
     loadMore: () => cursor ? request({ append: true }) : Promise.resolve(),
     setReviewState: value => { criteria.reviewState = value; return request(); },
-    setCategoryPrefix: value => { criteria.categoryPrefix = value; return request(); },
+    setCategory: value => { criteria.category = value; return request(); },
     setSort: column => {
       const direction = criteria.sort.column === column && criteria.sort.direction === "asc" ? "desc" : "asc";
       const chosen = normalizeOuroborosSort({ column, direction });

@@ -34,7 +34,7 @@ DIRECT_WORKFLOW_SUBCOMMAND_REGISTRY = {
         "direct_workflow.conflict_survey.status",
         conflict_survey_status,
     ),
-    ("ouroboros", "field-note", "promote"): (
+    ("feedback", "promote"): (
         "ouroboros.field_note.promote",
         field_note_promote,
     ),

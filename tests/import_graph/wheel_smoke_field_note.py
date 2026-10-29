@@ -72,7 +72,7 @@ def smoke(
     assert import_check.stdout == ""
 
     help_result = _run(
-        [str(yoke), "ouroboros", "field-note", "append", "--help"],
+        [str(yoke), "feedback", "--to", "universe", "--help"],
         cwd=external_project,
         env=env,
     )
@@ -81,10 +81,8 @@ def smoke(
     invalid_kind = _run(
         [
             str(yoke),
-            "ouroboros",
-            "field-note",
-            "append",
-            "--kind",
+            "feedback", "--to", "universe",
+            "--category",
             "unsupported",
             "--evidence",
             "boundary check",
@@ -114,9 +112,9 @@ def fake_call_dispatcher(**kwargs):
         "payload": kwargs["payload"],
     })
     result = (
-        {"entries": [{"id": 73, "category": "field-note-observation"}]}
+        {"entries": [{"id": 73, "category": "observation"}]}
         if kwargs["function_id"].endswith(".list")
-        else {"entry": {"id": 73, "category": "field-note-observation"}}
+        else {"entry": {"id": 73, "category": "observation"}}
     )
     return FunctionCallResponse(
         success=True,
@@ -129,10 +127,10 @@ def fake_call_dispatcher(**kwargs):
 _helpers.ensure_handlers_loaded = lambda: None
 _helpers.call_dispatcher = fake_call_dispatcher
 assert main([
-    "ouroboros", "field-note", "list", "--limit", "1", "--json",
+    "feedback", "list", "--limit", "1", "--json",
 ]) == 0
 assert main([
-    "ouroboros", "field-note", "get", "73", "--json",
+    "feedback", "get", "73", "--json",
 ]) == 0
 print("__FIELD_NOTE_REQUESTS__" + json.dumps(requests, sort_keys=True))
 """
@@ -151,7 +149,7 @@ print("__FIELD_NOTE_REQUESTS__" + json.dumps(requests, sort_keys=True))
         "ouroboros.field_note.list",
         "ouroboros.field_note.get",
     ]
-    assert [request["target"]["kind"] for request in requests] == [
+    assert [request["target"]["category"] for request in requests] == [
         "global",
         "global",
     ]

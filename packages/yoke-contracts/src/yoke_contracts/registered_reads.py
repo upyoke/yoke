@@ -53,7 +53,7 @@ READ_FUNCTION_IDS = frozenset(
         "models.get.run models.level_proposal.run models.lookup.run "
         "models.revisions.run models.validate.run onboard.checklist.get "
         "organizations.get organizations.settings.catalog "
-        "organizations.settings.get ouroboros.entry.get ouroboros.entry.list "
+        "organizations.settings.get ouroboros.field_note.get ouroboros.field_note.list "
         "ouroboros.field_note.get ouroboros.field_note.list overview.vitals.get "
         "packets.budget.get packets.check.run packets.render.run "
         "packets.startup_delivery.get packs.bundle.get packs.bundle.render "

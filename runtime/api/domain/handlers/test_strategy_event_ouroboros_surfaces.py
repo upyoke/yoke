@@ -97,7 +97,7 @@ def test_events_emit_handler_delegates_to_native_emitter(monkeypatch) -> None:
             "events.emit",
             {
                 "name": "FeedCompleted",
-                "kind": "lifecycle",
+                "category": "lifecycle",
                 "type": "feed",
                 "source_type": "skill",
                 "severity": "STATUS",
@@ -161,7 +161,7 @@ def test_single_entry_review_preserves_existing_close_out(tmp_db: str) -> None:
             "ouroboros.entry.insert",
             {
                 "agent": "tester",
-                "category": "field-note-failed",
+                "category": "failed",
                 "observation": "single review target",
             },
         )
@@ -186,11 +186,11 @@ def test_single_entry_review_preserves_existing_close_out(tmp_db: str) -> None:
 
 def test_review_batches_support_all_categories_and_field_note_scope(tmp_db: str) -> None:
     seeds = (
-        ("field-note-failed", "2026-07-28T00:00:00Z"),
-        ("field-note-observation", "2026-07-29T00:00:00Z"),
+        ("failed", "2026-07-28T00:00:00Z"),
+        ("observation", "2026-07-29T00:00:00Z"),
         ("observation", "2026-07-30T00:00:00Z"),
         ("friction", "2026-07-31T00:00:00Z"),
-        ("field-note-new", "2026-08-01T00:00:00Z"),
+        ("new", "2026-08-01T00:00:00Z"),
     )
     entry_ids: list[int] = []
     with connect(tmp_db) as conn:
@@ -277,7 +277,7 @@ def test_strategy_checkpoint_record_and_latest(tmp_db: str) -> None:
     recorded = strategy_operations.handle_strategy_checkpoint_record(
         _request(
             "strategy.checkpoint.record",
-            {"project": "yoke", "kind": "strategize"},
+            {"project": "yoke", "category": "strategize"},
         )
     )
     assert recorded.primary_success is True
@@ -285,7 +285,7 @@ def test_strategy_checkpoint_record_and_latest(tmp_db: str) -> None:
     latest = strategy_operations.handle_strategy_checkpoint_latest(
         _request(
             "strategy.checkpoint.latest",
-            {"project": "yoke", "kind": "strategize"},
+            {"project": "yoke", "category": "strategize"},
         )
     )
     assert latest.primary_success is True

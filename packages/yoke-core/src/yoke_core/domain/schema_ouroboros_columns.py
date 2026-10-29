@@ -35,6 +35,10 @@ def apply_ouroboros_columns(conn: Any) -> None:
     for name, declaration in (
         ("correlation_id", "INTEGER DEFAULT NULL"),
         ("session_id", "TEXT DEFAULT NULL"),
+        ("actor_id", "INTEGER DEFAULT NULL"),
+        ("reporter_email", "TEXT DEFAULT NULL"),
+        ("yoke_version", "TEXT DEFAULT NULL"),
+        ("universe_fingerprint", "TEXT DEFAULT NULL"),
     ):
         _add_column_if_not_exists(conn, "ouroboros_entries", name, declaration)
     conn.execute(

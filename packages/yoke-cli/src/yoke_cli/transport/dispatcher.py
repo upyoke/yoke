@@ -293,8 +293,8 @@ def _call_local(
             f"function call {request.function!r} raised {type(exc).__name__}: {exc}",
             recovery_hint=(
                 "The in-process engine failed outside its typed answers. Rerun "
-                "the command; if it repeats, record it with `yoke ouroboros "
-                "field-note append --kind failed --evidence '<this message>'`."
+                "the command; if it repeats, record it with `yoke feedback "
+                "field-note append --category failed --evidence '<this message>'`."
             ),
         )
 

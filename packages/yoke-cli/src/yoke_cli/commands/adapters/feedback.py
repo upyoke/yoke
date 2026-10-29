@@ -1,12 +1,4 @@
-"""``yoke ouroboros field-note …`` adapters.
-
-The field-note channel's own CLI surface: one writer
-(``ouroboros.field_note.append``) and two readers
-(``ouroboros.field_note.list`` / ``.get``) that scope the shared ouroboros
-entry table to the ``field-note-`` category prefix. Curate-loop entry
-readers and ``scratch dispatch-inputs`` live in
-:mod:`yoke_cli.commands.adapters.misc`.
-"""
+"""Feedback filing and reading adapters."""
 
 from __future__ import annotations
 
@@ -29,7 +21,6 @@ from yoke_cli.commands.text_file import (
     resolve_one_text_source,
 )
 from yoke_contracts.field_note_text import (
-    CATEGORY_PREFIX,
     CORRELATION_ID_HELP,
     EVIDENCE_MAX_CHARS,
     HELP_BODY,
@@ -40,27 +31,24 @@ from yoke_contracts.api.function_call import TargetRef
 
 
 __all__ = [
-    "ouroboros_field_note_append",
-    "ouroboros_field_note_list",
-    "ouroboros_field_note_get",
+    "feedback_append",
+    "feedback_list",
+    "feedback_get",
     "OUROBOROS_USAGE",
     "OUROBOROS_FIELD_NOTE_LIST_USAGE",
     "OUROBOROS_FIELD_NOTE_GET_USAGE",
 ]
 
-# ---------------------------------------------------------------------------
-# ouroboros.field_note.list / ouroboros.field_note.get
-# ---------------------------------------------------------------------------
 
 OUROBOROS_FIELD_NOTE_LIST_USAGE = (
-    "yoke ouroboros field-note list [--unreviewed] [--project P] "
-    "[--limit N] [--offset N] [--count] [--full] [--session-id S] [--json]"
+    "yoke feedback list [--unreviewed] [--project P] "
+    "[--scope universe|project|unscoped] [--category C] [--limit N] [--offset N] [--count] [--full] [--session-id S] [--json]"
 )
 
 
-def ouroboros_field_note_list(args: List[str]) -> int:
+def feedback_list(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
-        prog="yoke ouroboros field-note list",
+        prog="yoke feedback list",
         usage=OUROBOROS_FIELD_NOTE_LIST_USAGE,
     )
     parser.add_argument(
@@ -77,6 +65,8 @@ def ouroboros_field_note_list(args: List[str]) -> int:
             "$YOKE_PROJECT, then this checkout's project)."
         ),
     )
+    parser.add_argument("--scope", choices=("universe", "project", "unscoped"), default="universe")
+    parser.add_argument("--category", choices=KIND_VALUES)
     add_page_args(parser, limit=None, offset=None, page_size=50)
     parser.add_argument(
         "--count",
@@ -88,7 +78,9 @@ def ouroboros_field_note_list(args: List[str]) -> int:
     parsed = parse_or_usage_error(parser, args, OUROBOROS_FIELD_NOTE_LIST_USAGE)
     if parsed is None:
         return 2
-    payload: Dict[str, Any] = {"category_prefix": CATEGORY_PREFIX}
+    payload: Dict[str, Any] = {"scope": parsed.scope}
+    if parsed.category:
+        payload["category"] = parsed.category
     if parsed.unreviewed:
         payload["unreviewed"] = True
     # Same client ladder as append: --project, then YOKE_PROJECT, then the
@@ -113,13 +105,13 @@ def ouroboros_field_note_list(args: List[str]) -> int:
 
 
 OUROBOROS_FIELD_NOTE_GET_USAGE = (
-    "yoke ouroboros field-note get ENTRY_ID [--full] [--session-id S] [--json]"
+    "yoke feedback get ENTRY_ID [--full] [--session-id S] [--json]"
 )
 
 
-def ouroboros_field_note_get(args: List[str]) -> int:
+def feedback_get(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
-        prog="yoke ouroboros field-note get",
+        prog="yoke feedback get",
         usage=OUROBOROS_FIELD_NOTE_GET_USAGE,
     )
     parser.add_argument(
@@ -139,40 +131,37 @@ def ouroboros_field_note_get(args: List[str]) -> int:
         target=TargetRef(kind="global"),
         payload={
             "entry_id": entry_id,
-            "category_prefix": CATEGORY_PREFIX,
         },
         session_id=parsed.session_id,
         json_mode=parsed.json_mode,
     )
 
 
-# ---------------------------------------------------------------------------
-# ouroboros.field_note.append
-# ---------------------------------------------------------------------------
 
 OUROBOROS_USAGE = (
-    "yoke ouroboros field-note append "
-    "--kind failed|new|unclear|observation "
+    "yoke feedback "
+    "--to universe --category failed|new|unclear|observation|idea "
     "(--evidence TEXT | --evidence-file PATH | --stdin) [--corrects ENTRY_ID] "
     "[--target-project P] [--correlation-id ID] [--session-id S] [--json]"
 )
 
 
-def ouroboros_field_note_append(args: List[str]) -> int:
+def feedback_append(args: List[str]) -> int:
     # --help body is yoke_contracts.field_note_text.HELP_BODY.
     # RawDescriptionHelpFormatter preserves that multi-line layout.
     parser = argparse.ArgumentParser(
-        prog="yoke ouroboros field-note append",
+        prog="yoke feedback",
         usage=OUROBOROS_USAGE,
         description=HELP_BODY,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument(
-        "--kind",
+        "--category",
         required=True,
         choices=KIND_VALUES,
         help="What kind of problem this is; the kinds are described above.",
     )
+    parser.add_argument("--to", choices=("universe",), required=True)
     evidence_group = parser.add_mutually_exclusive_group(required=True)
     add_text_file_pair(
         evidence_group,
@@ -238,7 +227,9 @@ def ouroboros_field_note_append(args: List[str]) -> int:
     if not evidence or not evidence.strip():
         return usage_error("--evidence must be non-empty")
 
-    payload: Dict[str, Any] = {"kind": parsed.kind, "evidence": evidence}
+    from yoke_cli.feedback_reporter import reporter_context
+    metadata = reporter_context(parsed.session_id)
+    payload: Dict[str, Any] = {"category": parsed.category, "evidence": evidence, "reporter_email": metadata.get("reporter_email")}
     if parsed.correlation_id:
         payload["correlation_id"] = parsed.correlation_id
     if parsed.corrects is not None:

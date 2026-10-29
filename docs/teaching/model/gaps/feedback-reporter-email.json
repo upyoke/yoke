@@ -1,0 +1,6 @@
+{
+ "id": "feedback-reporter-email",
+ "title": "Portable Cursor login email lookup",
+ "status": "observed",
+ "text": "Feedback prefers the authenticated actor email, then an available harness login, then the checkout Git email. Claude oauthAccount.emailAddress and Codex ID-token email are read without exposing credentials. No portable Cursor login-email file has been verified; Cursor uses the actor or Git fallback. The source owner is packages/yoke-cli/src/yoke_cli/feedback_reporter.py; a supported Cursor login metadata contract remains unverified."
+}

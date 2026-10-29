@@ -274,7 +274,7 @@ def test_direct_workflow_registry_and_inventory_are_complete():
         ("direct-workflow", "dash", "evidence"),
         ("direct-workflow", "dash", "escalate"),
         ("direct-workflow", "conflict-survey", "status"),
-        ("ouroboros", "field-note", "promote"),
+        ("feedback", "promote"),
     }
     assert set(DIRECT_WORKFLOW_SUBCOMMAND_ALIAS_REGISTRY) == {("dash",), ("task",)}
     assert len(WRAPPED_ROWS) == 8

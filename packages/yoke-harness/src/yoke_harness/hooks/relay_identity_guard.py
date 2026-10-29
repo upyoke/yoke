@@ -37,7 +37,7 @@ RELAY_REFUSAL_UNSTAMPED = (
     "Yoke hook relay refused: payload has no stamped, non-conversation "
     "session id. Repair: record the conversation-to-session map on the "
     "client (first hook or remount), then retry. "
-    "yoke ouroboros field-note append --kind failed --evidence "
+    "yoke feedback --to yoke --category failed --evidence "
     "'hook relay refused: unstamped session id'"
 )
 RELAY_REFUSAL_CONVERSATION = (

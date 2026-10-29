@@ -13,7 +13,7 @@ def test_group_commands_routes_known_names_into_declared_families():
         "item-get", "claim-work", "release-work-claim",
         "path-claim-register", "path-claim-widen",
         "coordination-claim-acquire", "session-begin",
-        "field-note-log",
+        "feedback-log",
     ]
     grouped = dict(group_commands(commands))
     assert "item-get" in grouped["Items / Backlog reads"]
@@ -24,7 +24,7 @@ def test_group_commands_routes_known_names_into_declared_families():
     assert "path-claim-widen" in grouped["Claims — path"]
     assert "coordination-claim-acquire" in grouped["Coordination claims"]
     assert "session-begin" in grouped["Sessions"]
-    assert "field-note-log" in grouped["Ouroboros"]
+    assert "feedback-log" in grouped["Ouroboros"]
 
 
 def test_group_commands_other_bucket_collects_unknown_names():

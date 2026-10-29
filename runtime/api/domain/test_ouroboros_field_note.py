@@ -57,7 +57,7 @@ def _build_request(
     session_id: str = "session-test-1",
     actor_id: str | None = None,
 ) -> FunctionCallRequest:
-    payload: dict = {"kind": kind, "evidence": evidence}
+    payload: dict = {"category": kind, "evidence": evidence}
     if correlation_id is not None:
         payload["correlation_id"] = correlation_id
     actor_kwargs: dict = {"session_id": session_id}
@@ -91,7 +91,7 @@ class TestHappyPath:
         entry_id = outcome.result_payload["entry_id"]
         assert isinstance(entry_id, str) and entry_id
         assert outcome.result_payload["event_id"] == "evt-test-1"
-        assert outcome.result_payload["kind"] == "observation"
+        assert outcome.result_payload["category"] == "observation"
         assert outcome.result_payload["evidence_preview"].startswith(
             "observation:"
         )
@@ -106,7 +106,7 @@ class TestHappyPath:
                 (int(entry_id),),
             ).fetchone()
         assert row is not None
-        assert row["category"] == "field-note-observation"
+        assert row["category"] == "observation"
         assert row["body"] == "observation: stale doc reference noticed"
 
 
@@ -140,7 +140,7 @@ class TestFourKinds:
                 f"SELECT category, body FROM ouroboros_entries WHERE id={p}",
                 (int(entry_id),),
             ).fetchone()
-        assert row["category"] == f"field-note-{kind}"
+        assert row["category"] == kind
         assert row["body"] == evidence
 
 
@@ -150,7 +150,7 @@ class TestValidationFailures:
             function="ouroboros.field_note.append",
             actor=ActorContext(session_id="s"),
             target=TargetRef(kind="global"),
-            payload={"kind": "compat-broken", "evidence": "x"},
+            payload={"category": "compat-broken", "evidence": "x"},
         )
         outcome = _ofn.handle_append(request)
         assert outcome.primary_success is False
@@ -162,7 +162,7 @@ class TestValidationFailures:
             function="ouroboros.field_note.append",
             actor=ActorContext(session_id="s"),
             target=TargetRef(kind="global"),
-            payload={"kind": "observation", "evidence": ""},
+            payload={"category": "observation", "evidence": ""},
         )
         outcome = _ofn.handle_append(request)
         assert outcome.primary_success is False
@@ -207,7 +207,7 @@ class TestDurableAndEventWrite:
         assert outcome.primary_success is True
         assert len(emit_calls) == 1
         assert emit_calls[0]["event_name"] == "OuroborosFieldNoteAppended"
-        assert emit_calls[0]["context"]["kind"] == "observation"
+        assert emit_calls[0]["context"]["category"] == "observation"
         assert "entry_id" in emit_calls[0]["context"]
 
         with connect(tmp_db) as conn:
@@ -322,5 +322,5 @@ class TestRegistrationContract:
         assert response.success is True
         assert response.function == "ouroboros.field_note.append"
         assert response.result["event_id"] == "e-rt"
-        assert response.result["kind"] == "new"
+        assert response.result["category"] == "new"
         assert response.result["entry_id"]

@@ -60,6 +60,7 @@ ENTRY_LIST_COLUMNS = (
     "body",
     "reviewed_at",
     "project",
+    "actor_id", "reporter_email", "yoke_version", "universe_fingerprint",
 )
 
 
@@ -72,7 +73,8 @@ def _entry_list_filters(
     *,
     unreviewed: bool,
     project: Optional[str],
-    category_prefix: Optional[str],
+    category: Optional[str],
+    project_ids=None, include_unscoped=False,
 ) -> tuple[str, list[object]]:
     """Shared WHERE clause + params for list and count projections."""
     p = _p(conn)
@@ -83,12 +85,17 @@ def _entry_list_filters(
         conditions.append(
             "o.reviewed_at IS NULL AND o.archived_at IS NULL AND o.correlation_id IS NULL"
         )
-    if project:
+    if project_ids is not None:
+        from yoke_core.domain.handlers.ouroboros_roster_scope import scope_predicate
+        clause, ids = scope_predicate(conn, project_ids, include_unscoped)
+        conditions.append(clause)
+        params.extend(ids)
+    elif project:
         conditions.append(f"o.project_id={p}")
         params.append(resolve_project_id(conn, project))
-    if category_prefix:
-        conditions.append(f"o.category LIKE {p}")
-        params.append(f"{category_prefix}%")
+    if category:
+        conditions.append(f"o.category= {p}")
+        params.append(category)
     where = f"WHERE {' AND '.join(conditions)}" if conditions else ""
     return where, params
 
@@ -113,11 +120,12 @@ def list_entry_rows(
     conn,
     unreviewed: bool = False,
     project: Optional[str] = None,
-    category_prefix: Optional[str] = None,
+    category: Optional[str] = None,
     limit: Optional[int] = None,
     offset: int = 0,
+    project_ids=None, include_unscoped=False,
 ) -> list[dict]:
-    """Typed entry rows; shared by the CLI renderer and ouroboros.entry.list.
+    """Typed entry rows; shared by the CLI renderer and ouroboros.field_note.list.
 
     Always newest-first and bounded (default
     :data:`DEFAULT_ENTRY_LIST_LIMIT`) so the https relay cannot exceed its
@@ -128,7 +136,8 @@ def list_entry_rows(
         conn,
         unreviewed=unreviewed,
         project=project,
-        category_prefix=category_prefix,
+        category=category,
+        project_ids=project_ids, include_unscoped=include_unscoped,
     )
     bound = _bounded_limit(limit)
     skip = _bounded_offset(offset)
@@ -137,7 +146,7 @@ def list_entry_rows(
         conn,
         "SELECT o.id, o.timestamp, o.agent, COALESCE(o.context,''), "
         "o.category, o.body, o.reviewed_at, "
-        "COALESCE(p.slug,'') "
+        "COALESCE(p.slug,''), o.actor_id, o.reporter_email, o.yoke_version, o.universe_fingerprint "
         "FROM ouroboros_entries o "
         "LEFT JOIN projects p ON p.id = o.project_id "
         f"{where} ORDER BY o.id DESC LIMIT {p} OFFSET {p}",
@@ -169,14 +178,16 @@ def count_entry_rows(
     conn,
     unreviewed: bool = False,
     project: Optional[str] = None,
-    category_prefix: Optional[str] = None,
+    category: Optional[str] = None,
+    project_ids=None, include_unscoped=False,
 ) -> int:
     """Matching row count for the same filters as :func:`list_entry_rows`."""
     where, params = _entry_list_filters(
         conn,
         unreviewed=unreviewed,
         project=project,
-        category_prefix=category_prefix,
+        category=category,
+        project_ids=project_ids, include_unscoped=include_unscoped,
     )
     total = query_scalar(
         conn,
@@ -190,7 +201,7 @@ def cmd_list_entries(
     conn,
     unreviewed: bool = False,
     project: Optional[str] = None,
-    category_prefix: Optional[str] = None,
+    category: Optional[str] = None,
     limit: Optional[int] = None,
     offset: int = 0,
 ) -> str:
@@ -200,7 +211,7 @@ def cmd_list_entries(
             conn,
             unreviewed,
             project,
-            category_prefix,
+            category,
             limit,
             offset,
         )
@@ -214,7 +225,7 @@ def get_entry_row(conn, entry_id: int) -> Optional[dict]:
         conn,
         "SELECT o.id, o.timestamp, o.agent, COALESCE(o.context,''), "
         "o.category, o.body, o.reviewed_at, "
-        "COALESCE(p.slug,''), o.archived_at "
+        "COALESCE(p.slug,''), o.actor_id, o.reporter_email, o.yoke_version, o.universe_fingerprint, o.archived_at "
         "FROM ouroboros_entries o "
         "LEFT JOIN projects p ON p.id = o.project_id "
         f"WHERE o.id={p}",

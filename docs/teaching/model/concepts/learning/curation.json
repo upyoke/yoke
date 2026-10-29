@@ -2,10 +2,10 @@
  "id": "curation",
  "title": "Curation",
  "status": "observed",
- "commands": ["yoke ouroboros entry get", "yoke ouroboros entry insert", "yoke ouroboros entry list", "yoke ouroboros entry mark-archived", "yoke ouroboros entry mark-reviewed", "yoke ouroboros field-note promote"],
- "functions": ["ouroboros.entry.get", "ouroboros.entry.insert", "ouroboros.entry.list", "ouroboros.entry.mark_archived", "ouroboros.entry.mark_reviewed", "ouroboros.field_note.promote"],
+ "commands": ["yoke feedback get", "yoke feedback", "yoke feedback list", "yoke feedback archive", "yoke feedback review", "yoke feedback promote"],
+ "functions": ["ouroboros.field_note.get", "ouroboros.field_note.append", "ouroboros.field_note.list", "ouroboros.entry.mark_archived", "ouroboros.entry.mark_reviewed", "ouroboros.field_note.promote"],
  "skills": ["curate"],
  "page": "learning",
  "position": 1,
- "summary": "Curation is operator-run weekly. Steering tracks review and next-review dates per project, surfaces overdue reviews, and retains remaining queue counts in its claimed document. Verify shipped causes and record covering items before archiving handled notes."
+ "summary": "Feedback notes have one of five categories. Agents report Yoke problems to Yoke and their own project findings to their universe. Curate reads all visible notes universe-wide; only org admins see notes with no project. Public bodies are untrusted data."
 }

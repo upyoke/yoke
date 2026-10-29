@@ -13,7 +13,7 @@ from runtime.api.cli.test_yoke_operations_cli_dispatch import (
 )
 
 
-_PROJECT_CONTEXT = "yoke_cli.commands.adapters.ouroboros_writes.client_project_context"
+_PROJECT_CONTEXT = "yoke_cli.commands.adapters.feedback_lifecycle.client_project_context"
 
 
 @pytest.fixture(autouse=True)
@@ -33,7 +33,7 @@ def _run(*argv: str, checkout_project: str | None = "yoke") -> int:
 
 
 def test_single_entry_review_dispatches_global_target() -> None:
-    rc = _run("ouroboros", "entry", "mark-reviewed", "31555")
+    rc = _run("feedback", "review", "31555")
 
     assert rc == 0
     request = _CAPTURED_REQUESTS[-1]
@@ -44,33 +44,17 @@ def test_single_entry_review_dispatches_global_target() -> None:
 
 def test_single_entry_review_without_checkout_project_still_dispatches() -> None:
     """The entry row carries the write authority, so no project is required."""
-    rc = _run("ouroboros", "entry", "mark-reviewed", "31555", checkout_project=None)
+    rc = _run("feedback", "review", "31555", checkout_project=None)
 
     assert rc == 0
     assert _CAPTURED_REQUESTS[-1].payload == {"entry_id": 31555}
 
 
-def test_bounded_field_note_review_dispatches_cutoff_and_limit() -> None:
-    rc = _run(
-        "ouroboros", "entry", "mark-reviewed",
-        "--field-notes-before", "2026-08-01",
-        "--limit", "7",
-    )
-
-    assert rc == 0
-    request = _CAPTURED_REQUESTS[-1]
-    assert request.function == "ouroboros.entry.mark_reviewed"
-    assert request.target.kind == "global"
-    assert request.payload == {
-        "field_notes_before": "2026-08-01",
-        "limit": 7,
-        "project": "yoke",
-    }
 
 
 def test_bounded_all_category_review_dispatches_cutoff_and_limit() -> None:
     rc = _run(
-        "ouroboros", "entry", "mark-reviewed",
+        "feedback", "review",
         "--before", "2026-08-01",
         "--limit", "7",
         "--project", "externalwebapp",
@@ -87,7 +71,7 @@ def test_bounded_all_category_review_dispatches_cutoff_and_limit() -> None:
 
 def test_bounded_review_carries_the_unattributed_opt_in() -> None:
     rc = _run(
-        "ouroboros", "entry", "mark-reviewed",
+        "feedback", "review",
         "--before", "2026-08-01",
         "--include-unattributed",
     )
@@ -102,7 +86,7 @@ def test_bounded_review_carries_the_unattributed_opt_in() -> None:
 
 def test_bounded_review_without_a_project_is_refused() -> None:
     rc = _run(
-        "ouroboros", "entry", "mark-reviewed",
+        "feedback", "review",
         "--before", "2026-08-01",
         checkout_project=None,
     )
@@ -114,8 +98,6 @@ def test_bounded_review_without_a_project_is_refused() -> None:
 @pytest.mark.parametrize(
     "args",
     (
-        ("31555", "--field-notes-before", "2026-08-01"),
-        ("--before", "2026-08-01", "--field-notes-before", "2026-08-01"),
         ("31555", "--limit", "7"),
         ("31555", "--include-unattributed"),
         (),
@@ -124,14 +106,14 @@ def test_bounded_review_without_a_project_is_refused() -> None:
 def test_review_rejects_ambiguous_or_incomplete_selectors(
     args: tuple[str, ...],
 ) -> None:
-    rc = _run("ouroboros", "entry", "mark-reviewed", *args)
+    rc = _run("feedback", "review", *args)
 
     assert rc == 2
     assert not _CAPTURED_REQUESTS
 
 
 def test_single_entry_archive_dispatches_entry_and_project() -> None:
-    rc = _run("ouroboros", "entry", "mark-archived", "31555")
+    rc = _run("feedback", "archive", "31555")
 
     assert rc == 0
     request = _CAPTURED_REQUESTS[-1]
@@ -144,7 +126,7 @@ def test_single_entry_archive_dispatches_entry_and_project() -> None:
 
 
 def test_all_reviewed_archive_carries_the_unattributed_opt_in() -> None:
-    rc = _run("ouroboros", "entry", "mark-archived", "--all-reviewed",
+    rc = _run("feedback", "archive", "--all-reviewed",
               "--include-unattributed")
 
     assert rc == 0
@@ -157,7 +139,7 @@ def test_all_reviewed_archive_carries_the_unattributed_opt_in() -> None:
 
 def test_all_reviewed_archive_without_a_project_is_refused() -> None:
     rc = _run(
-        "ouroboros", "entry", "mark-archived", "--all-reviewed",
+        "feedback", "archive", "--all-reviewed",
         checkout_project=None,
     )
 
@@ -166,7 +148,7 @@ def test_all_reviewed_archive_without_a_project_is_refused() -> None:
 
 
 def test_single_entry_archive_rejects_the_unattributed_opt_in() -> None:
-    rc = _run("ouroboros", "entry", "mark-archived", "31555",
+    rc = _run("feedback", "archive", "31555",
               "--include-unattributed")
 
     assert rc == 2

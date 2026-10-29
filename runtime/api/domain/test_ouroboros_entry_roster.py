@@ -1,4 +1,4 @@
-"""Roster shape of ouroboros.entry.list: compact rows, keyset, filters."""
+"""Roster shape of ouroboros.field_note.list: compact rows, keyset, filters."""
 
 from __future__ import annotations
 
@@ -18,7 +18,7 @@ from yoke_contracts.api.function_call import (
 
 def _request(payload) -> FunctionCallRequest:
     return FunctionCallRequest(
-        function="ouroboros.entry.list",
+        function="ouroboros.field_note.list",
         actor=ActorContext(actor_id="op", session_id="s-1"),
         target=TargetRef(kind="global"),
         payload=payload,

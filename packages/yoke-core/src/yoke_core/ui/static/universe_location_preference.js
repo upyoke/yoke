@@ -77,7 +77,7 @@ export async function locationResolves(client, href, projects, sections = {}, ba
           kind: "qa_requirement", qa_requirement_id: Number(detail),
         }))?.requirement);
       case "ouroboros":
-        return Boolean((await read("ouroboros.entry.get", {
+        return Boolean((await read("ouroboros.field_note.get", {
           entry_id: Number(detail), project,
         }))?.entry);
       case "capabilities":

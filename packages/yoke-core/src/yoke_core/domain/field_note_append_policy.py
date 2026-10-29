@@ -1,5 +1,6 @@
 """Validate a field note's explicit correlation with its root."""
 
+from yoke_contracts.field_note_text import KIND_VALUES
 from yoke_core.domain import db_backend
 from yoke_core.domain.db_helpers import query_one
 
@@ -31,10 +32,10 @@ def validate_correlation(conn, *, project_id, correlation_id):
         if (
             row is None
             or row[1] != project_id
-            or not str(row[3]).startswith("field-note-")
+            or str(row[3]) not in KIND_VALUES
         ):
             raise FieldNoteCorrelationError(
-                "Correlation must name a field-note id in this project. Find the root with yoke ouroboros field-note list, then pass --correlation-id ROOT_ID.",
+                "Correlation must name a field-note id in this project. Find the root with yoke feedback list, then pass --correlation-id ROOT_ID.",
             )
         root = int(row[2] or row[0])
     return root

@@ -66,7 +66,7 @@ test("the actor chip renders avatar, name, and authoritative actor id", async (t
 // scope so the server can sort and paginate across the authorized projects.
 for (const [view, functionId] of [
   ["events", "events.query.run"],
-  ["ouroboros", "ouroboros.entry.list"],
+  ["ouroboros", "ouroboros.field_note.list"],
 ]) {
   test(`${view} at "all" names the explicit project scope`, async (t) => {
     const originalFetch = globalThis.fetch;
@@ -163,7 +163,7 @@ test("Ouroboros reads observations and keeps review state visible", async (t) =>
       if (request.function === "projects.list") {
         return { status: 200, envelope: { success: true, result: { rows: [{ id: 1, name: "Yoke" }] } } };
       }
-      if (request.function === "ouroboros.entry.list") {
+      if (request.function === "ouroboros.field_note.list") {
         return {
           status: 200,
           envelope: {
@@ -175,7 +175,7 @@ test("Ouroboros reads observations and keeps review state visible", async (t) =>
                 {
                   id: 22,
                   timestamp: "now",
-                  category: "field-note-observation",
+                  category: "observation",
                   agent: "tester",
                   context: "open",
                   preview: "Retries preserve typed input",
@@ -200,9 +200,9 @@ test("Ouroboros reads observations and keeps review state visible", async (t) =>
   await settle();
 
   assert.deepEqual(
-    requests.find((request) => request.function === "ouroboros.entry.list"),
+    requests.find((request) => request.function === "ouroboros.field_note.list"),
     {
-      function: "ouroboros.entry.list",
+      function: "ouroboros.field_note.list",
       payload: {
         project: "1",
         shape: "roster",
@@ -216,7 +216,7 @@ test("Ouroboros reads observations and keeps review state visible", async (t) =>
     .filter((node) => node.tagName === "TD")
     .map(cellText);
   assert.deepEqual(cells, [
-    "Retries preserve typed input", "now", "field-note-observation", "open", "", "YOK-90",
+    "Retries preserve typed input", "now", "observation", "open", "", "YOK-90",
     "closed", "then", "failed", "closed", "later", "",
   ]);
   assert.equal(
@@ -256,7 +256,7 @@ test("Ouroboros field-note drill-in keeps its promoted Dash reachable", async (t
           },
         };
       }
-      if (request.function === "ouroboros.entry.get") {
+      if (request.function === "ouroboros.field_note.get") {
         return {
           status: 200,
           envelope: {
@@ -264,7 +264,7 @@ test("Ouroboros field-note drill-in keeps its promoted Dash reachable", async (t
             result: {
               entry: {
                 id: 22,
-                category: "field-note-observation",
+                category: "observation",
                 agent: "tester",
                 context: "curate",
                 body: "Turn this observation into focused work.",
@@ -286,9 +286,9 @@ test("Ouroboros field-note drill-in keeps its promoted Dash reachable", async (t
   await settle();
 
   assert.deepEqual(
-    requests.find((request) => request.function === "ouroboros.entry.get"),
+    requests.find((request) => request.function === "ouroboros.field_note.get"),
     {
-      function: "ouroboros.entry.get",
+      function: "ouroboros.field_note.get",
       payload: { entry_id: 22, project: "1" },
     },
   );

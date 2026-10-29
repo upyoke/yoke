@@ -1,4 +1,4 @@
-"""Handler coverage for ouroboros.entry.list / ouroboros.entry.get."""
+"""Handler coverage for ouroboros.field_note.list / ouroboros.field_note.get."""
 
 from __future__ import annotations
 
@@ -43,7 +43,7 @@ class TestOuroborosEntryList:
         _seed_entry(test_db, timestamp="2026-01-01T00:00:00Z", body="first")
         _seed_entry(test_db, timestamp="2026-01-02T00:00:00Z", body="second")
         outcome = ouroboros_reads.handle_ouroboros_entry_list(
-            _request("ouroboros.entry.list")
+            _request("ouroboros.field_note.list")
         )
         assert outcome.primary_success
         entries = outcome.result_payload["entries"]
@@ -64,7 +64,7 @@ class TestOuroborosEntryList:
         test_db.commit()
         _seed_entry(test_db, timestamp="2026-01-02T00:00:00Z", body="open")
         outcome = ouroboros_reads.handle_ouroboros_entry_list(
-            _request("ouroboros.entry.list", {"unreviewed": True})
+            _request("ouroboros.field_note.list", {"unreviewed": True})
         )
         assert outcome.primary_success
         assert [e["body"] for e in outcome.result_payload["entries"]] == ["open"]
@@ -73,7 +73,7 @@ class TestOuroborosEntryList:
         _seed_entry(test_db, timestamp="2026-01-01T00:00:00Z", body="a")
         _seed_entry(test_db, timestamp="2026-01-02T00:00:00Z", body="b")
         outcome = ouroboros_reads.handle_ouroboros_entry_list(
-            _request("ouroboros.entry.list", {"count": True})
+            _request("ouroboros.field_note.list", {"count": True})
         )
         assert outcome.primary_success
         assert outcome.result_payload["count"] == 2
@@ -87,10 +87,10 @@ class TestOuroborosEntryList:
                 body=body,
             )
         first = ouroboros_reads.handle_ouroboros_entry_list(
-            _request("ouroboros.entry.list", {"limit": 2})
+            _request("ouroboros.field_note.list", {"limit": 2})
         )
         second = ouroboros_reads.handle_ouroboros_entry_list(
-            _request("ouroboros.entry.list", {"limit": 2, "offset": 2})
+            _request("ouroboros.field_note.list", {"limit": 2, "offset": 2})
         )
         assert [e["body"] for e in first.result_payload["entries"]] == ["c", "b"]
         assert [e["body"] for e in second.result_payload["entries"]] == ["a"]
@@ -99,14 +99,14 @@ class TestOuroborosEntryList:
 
     def test_rejects_limit_above_cap(self, test_db):
         outcome = ouroboros_reads.handle_ouroboros_entry_list(
-            _request("ouroboros.entry.list", {"limit": 10_000})
+            _request("ouroboros.field_note.list", {"limit": 10_000})
         )
         assert not outcome.primary_success
         assert outcome.error.code == "payload_invalid"
 
     def test_unknown_project_is_payload_invalid(self, test_db):
         outcome = ouroboros_reads.handle_ouroboros_entry_list(
-            _request("ouroboros.entry.list", {"project": "definitely-missing"})
+            _request("ouroboros.field_note.list", {"project": "definitely-missing"})
         )
         assert not outcome.primary_success
         assert outcome.error.code == "payload_invalid"
@@ -138,7 +138,7 @@ class TestOuroborosEntryList:
         test_db.commit()
 
         outcome = ouroboros_reads.handle_ouroboros_entry_list(
-            _request("ouroboros.entry.list", {"project": "yoke"})
+            _request("ouroboros.field_note.list", {"project": "yoke"})
         )
 
         promoted = next(
@@ -151,7 +151,7 @@ class TestOuroborosEntryList:
         assert promoted["project_id"] == 1
         assert promoted["title"] == "Follow up on the observation"
         detail = ouroboros_reads.handle_ouroboros_entry_get(
-            _request("ouroboros.entry.get", {"entry_id": entry_id})
+            _request("ouroboros.field_note.get", {"entry_id": entry_id})
         )
         assert detail.primary_success
         assert detail.result_payload["entry"]["promoted_dash"] == promoted
@@ -165,7 +165,7 @@ class TestOuroborosEntryGet:
             body="line one\nline two",
         )
         outcome = ouroboros_reads.handle_ouroboros_entry_get(
-            _request("ouroboros.entry.get", {"entry_id": entry_id})
+            _request("ouroboros.field_note.get", {"entry_id": entry_id})
         )
         assert outcome.primary_success
         entry = outcome.result_payload["entry"]
@@ -178,14 +178,14 @@ class TestOuroborosEntryGet:
 
     def test_not_found(self, test_db):
         outcome = ouroboros_reads.handle_ouroboros_entry_get(
-            _request("ouroboros.entry.get", {"entry_id": 999999})
+            _request("ouroboros.field_note.get", {"entry_id": 999999})
         )
         assert not outcome.primary_success
         assert outcome.error.code == "not_found"
 
     def test_rejects_non_integer_id(self):
         outcome = ouroboros_reads.handle_ouroboros_entry_get(
-            _request("ouroboros.entry.get", {"entry_id": "abc"})
+            _request("ouroboros.field_note.get", {"entry_id": "abc"})
         )
         assert not outcome.primary_success
         assert outcome.error.code == "payload_invalid"

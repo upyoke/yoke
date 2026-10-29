@@ -222,20 +222,17 @@ from yoke_cli.commands.adapters.shepherd_writes import (
     shepherd_caveat_disposition,
     shepherd_verdict,
 )
-from yoke_cli.commands.adapters.misc import (
-    ouroboros_entry_get,
-    ouroboros_entry_list,
+from yoke_cli.commands.adapters.scratch import (
     scratch_dispatch_inputs,
 )
-from yoke_cli.commands.adapters.ouroboros_field_note import (
-    ouroboros_field_note_append,
-    ouroboros_field_note_get,
-    ouroboros_field_note_list,
+from yoke_cli.commands.adapters.feedback import (
+    feedback_append,
+    feedback_get,
+    feedback_list,
 )
-from yoke_cli.commands.adapters.ouroboros_writes import (
-    ouroboros_entry_insert,
-    ouroboros_entry_mark_archived,
-    ouroboros_entry_mark_reviewed,
+from yoke_cli.commands.adapters.feedback_lifecycle import (
+    feedback_archive,
+    feedback_review,
 )
 from yoke_cli.commands.adapters.config import (
     config_example,

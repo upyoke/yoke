@@ -41,11 +41,11 @@ def _payload(command: str, **extra: object) -> dict:
         "grep -R -n pytest runtime/api | head -30",
         "find . -name '*.py' | head -20",
         (
-            "yoke ouroboros field-note append --kind observation "
+            "yoke feedback --to yoke --category observation "
             "--evidence 'blocked pytest runtime/api/ -q | head -30'"
         ),
         (
-            "yoke ouroboros field-note append --kind observation "
+            "yoke feedback --to yoke --category observation "
             '--evidence "python3 -m yoke_core.tools.watch_pytest -- x | tail -8"'
         ),
     ],

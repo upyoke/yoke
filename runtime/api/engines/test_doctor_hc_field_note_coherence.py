@@ -1,4 +1,4 @@
-"""Tests for ``HC-field-note-coherence``.
+"""Tests for ``HC-feedback-coherence``.
 
 Verifies positive (clean tree → PASS), drift fixture (stale marker file →
 FAIL), and consumer-violation fixture (synthetic copy of directive text
@@ -84,7 +84,7 @@ def test_consumer_violation_fixture_detected(tmp_path: Path) -> None:
     # this is the exact drift class the HC catches.
     fake_path.write_text(
         '"""Synthetic test-fixture lint that bypasses the helper."""\n'
-        "DENY = 'use `yoke ouroboros field-note append --kind ...`'\n"
+        "DENY = 'use `yoke feedback --to yoke --category ...`'\n"
     )
     missing = scan_importing_consumers(tmp_path, consumers=(fake_rel,))
     assert missing == [fake_rel]

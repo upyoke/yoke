@@ -258,8 +258,8 @@ def collect_taught_commands(target_root: Path) -> Dict[str, Any]:
 
 
 _FIELD_NOTE_FOOTER_HINTS = (
-    "yoke ouroboros field-note append",
-    "yoke-ouroboros-field-note-append",
+    "yoke feedback --to yoke",
+    "yoke-ouroboros-feedback-append",
 )
 
 
@@ -306,7 +306,7 @@ def collect_field_notes() -> Dict[str, Any]:
             function_id="ouroboros.field_note.list",
             target=TargetRef(kind="global"),
             payload={
-                "category_prefix": "field-note-",
+                "scope": "project",
                 "limit": 50,
             },
             actor=ActorContext(session_id="atlas-integrity-audit"),

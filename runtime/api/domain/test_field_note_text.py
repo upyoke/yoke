@@ -24,8 +24,8 @@ def test_directive_canonical_text() -> None:
 
 def test_basic_recipe_canonical_text() -> None:
     assert fnt.BASIC_RECIPE == (
-        "yoke ouroboros field-note append "
-        "--kind <failed|new|unclear|observation> --evidence '...'"
+        "yoke feedback --to yoke "
+        "--category <failed|new|unclear|observation> --evidence '...'"
     )
 
 
@@ -37,7 +37,7 @@ def test_footer_is_directive_and_recipe() -> None:
 def test_denial_footer_canonical_text() -> None:
     assert fnt.DENIAL_FOOTER == (
         "If this fix is wrong, file a field note: "
-        "yoke ouroboros field-note append --kind failed --evidence '...'"
+        "yoke feedback --to yoke --category failed --evidence '...'"
     )
 
 
@@ -62,7 +62,7 @@ def test_help_body_canonical_text() -> None:
 def test_correlation_id_help_canonical_text() -> None:
     assert fnt.CORRELATION_ID_HELP == (
         "Integer id of the first field note for this problem in this project. "
-        "Find it with yoke ouroboros field-note list. Run labels are not root ids."
+        "Find it with yoke feedback list. Run labels are not root ids."
     )
 
 

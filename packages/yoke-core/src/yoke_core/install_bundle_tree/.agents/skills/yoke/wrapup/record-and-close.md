@@ -1,10 +1,10 @@
 # Wrapup — Record and Close
 
-1. One entry per observation (problem, friction, idea, cross-critique,
-   metric, pattern):
+1. One feedback note per observation; use failed, new, unclear, observation or idea:
 
    ```text
-   yoke ouroboros entry insert --stdin --timestamp "{UTC ISO 8601}" --agent conduct --context wrapup --category "{category}"
+   yoke feedback --to universe --category "{category}" --evidence "{project observation}"
+   yoke feedback --to yoke --category failed --evidence "{Yoke problem}"
    ```
 
 2. Ask before filing each follow-up through `/yoke idea`.

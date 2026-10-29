@@ -243,7 +243,7 @@ Use the installed CLI surface for event writes. Event names and their current me
 ```sh
 yoke events emit \
  --name "TaskStatusChanged" \
- --kind lifecycle \
+ --category lifecycle \
  --type task_status_change \
  --source-type system \
  --severity STATUS \

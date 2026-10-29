@@ -7,7 +7,7 @@ from io import StringIO
 import pytest
 
 from yoke_cli.commands.adapters import dash_file, items_create, qa, qa_crud, task
-from yoke_cli.commands.adapters import ouroboros_field_note as field_note
+from yoke_cli.commands.adapters import feedback as field_note
 
 
 def _capture(monkeypatch, module):
@@ -205,7 +205,7 @@ def test_field_note_append_reads_evidence_from_stdin(monkeypatch):
     )
 
     assert (
-        field_note.ouroboros_field_note_append(
+        field_note.feedback_append(
             [
                 "--kind",
                 "observation",

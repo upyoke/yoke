@@ -84,7 +84,7 @@ def test_field_note_promotion_falls_back_to_note_project_without_flag(conn):
             timestamp="2026-08-10T18:03:05Z",
             agent="test",
             context=None,
-            category="field-note-observation",
+            category="observation",
             body="note carries project",
             project="yoke",
         )

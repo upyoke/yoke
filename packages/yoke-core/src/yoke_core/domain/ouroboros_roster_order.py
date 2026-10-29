@@ -40,7 +40,7 @@ def continuation(cursor, sort, project_ids, *, conn):
         payload = loads_text(
             base64.urlsafe_b64decode(cursor + "=" * (-len(cursor) % 4)).decode()
         )
-        if payload["sort"] != sort or payload["projects"] != sorted(project_ids):
+        if payload["sort"] != sort or payload["projects"] != sorted(project_ids, key=str):
             raise ValueError
         entry_id = int(payload["id"])
         value = payload["value"]
@@ -80,7 +80,7 @@ def encode_continuation(row, sort, project_ids):
             "id": row["id"],
             "value": value,
             "sort": sort,
-            "projects": sorted(project_ids),
+            "projects": sorted(project_ids, key=str),
         }
     )
     return base64.urlsafe_b64encode(raw.encode()).decode().rstrip("=")

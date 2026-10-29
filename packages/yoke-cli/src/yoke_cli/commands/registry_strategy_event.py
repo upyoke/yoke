@@ -25,17 +25,13 @@ STRATEGY_EVENT_SUBCOMMAND_REGISTRY: Dict[Tuple[str, ...], Tuple[str, AdapterFn]]
         performance_detail,
     ),
     ("events", "emit"): ("events.emit", _adapters.events_emit),
-    ("ouroboros", "entry", "insert"): (
-        "ouroboros.entry.insert",
-        _adapters.ouroboros_entry_insert,
-    ),
-    ("ouroboros", "entry", "mark-reviewed"): (
+    ("feedback", "review"): (
         "ouroboros.entry.mark_reviewed",
-        _adapters.ouroboros_entry_mark_reviewed,
+        _adapters.feedback_review,
     ),
-    ("ouroboros", "entry", "mark-archived"): (
+    ("feedback", "archive"): (
         "ouroboros.entry.mark_archived",
-        _adapters.ouroboros_entry_mark_archived,
+        _adapters.feedback_archive,
     ),
     ("strategy", "carry", "register-new"): (
         "strategy.carry.register_new",
