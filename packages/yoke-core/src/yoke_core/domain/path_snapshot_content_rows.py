@@ -76,8 +76,42 @@ def discard_contentless_snapshot(conn: Any, project_id: int, commit_sha: str) ->
     )
 
 
+class ContentlessSnapshotConflict(RuntimeError):
+    """A concurrent writer committed a snapshot row for the commit with no files."""
+
+
+def insert_snapshot_row(
+    conn: Any, project_id: int, commit_sha: str, built_at: Any
+) -> tuple[int, bool]:
+    """Insert the commit's snapshot row inside the caller's write transaction.
+
+    Returns ``(snapshot_id, True)`` for a new row. When a concurrent sync of
+    the same commit committed its row first, returns ``(that_id, False)``;
+    the commit's files are fixed, so the caller rolls back and reuses it.
+    """
+    p = _p(conn)
+    row = conn.execute(
+        "INSERT INTO path_snapshots (project_id, commit_sha, built_at) "
+        f"VALUES ({p}, {p}, {p}) "
+        "ON CONFLICT (project_id, commit_sha) DO NOTHING RETURNING id",
+        (project_id, commit_sha, built_at),
+    ).fetchone()
+    if row is not None:
+        return int(row[0]), True
+    existing = find_content_snapshot_id(conn, project_id, commit_sha)
+    if existing is None:
+        raise ContentlessSnapshotConflict(
+            f"path snapshot for project {project_id} commit {commit_sha} was "
+            "committed by a concurrent writer without files; rerun "
+            f"`yoke project snapshot sync --project {project_id}` to rebuild it"
+        )
+    return existing, False
+
+
 __all__ = [
+    "ContentlessSnapshotConflict",
     "discard_contentless_snapshot",
     "find_content_snapshot_id",
+    "insert_snapshot_row",
     "newest_content_snapshot_id",
 ]

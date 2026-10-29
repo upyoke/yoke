@@ -18,6 +18,7 @@ from yoke_core.domain import db_backend
 from yoke_core.domain.path_snapshot_content_rows import (
     discard_contentless_snapshot,
     find_content_snapshot_id,
+    insert_snapshot_row,
 )
 from yoke_core.domain.path_snapshot_context_cache import (
     build_snapshot_context_cache,
@@ -78,7 +79,6 @@ def materialize_snapshot_payload(
     targets = all_paths_with_kinds(entry.path for entry in payload.files)
     files = {entry.path: entry for entry in payload.files}
     observed_at = utc_now()
-    p = _p(conn)
     try:
         conn.execute("BEGIN")
         existing = find_content_snapshot_id(
@@ -103,17 +103,22 @@ def materialize_snapshot_payload(
             targets=targets,
             observed_at=observed_at,
         )
-        cur = conn.execute(
-            "INSERT INTO path_snapshots "
-            f"(project_id, commit_sha, built_at) VALUES ({p}, {p}, {p}) "
-            "RETURNING id",
-            (
-                resolved_project_id,
-                payload.commit_sha,
-                instant_parameter(conn, observed_at),
-            ),
+        snapshot_id, created = insert_snapshot_row(
+            conn,
+            resolved_project_id,
+            payload.commit_sha,
+            instant_parameter(conn, observed_at),
         )
-        snapshot_id = int(cur.fetchone()[0])
+        if not created:
+            conn.execute("ROLLBACK")
+            return PayloadMaterializeResult(
+                status="reused",
+                snapshot_id=snapshot_id,
+                ref=payload.ref,
+                commit_sha=payload.commit_sha,
+                entry_count=0,
+                symlink_count=0,
+            )
         _write_entries(
             conn,
             snapshot_id=snapshot_id,

@@ -28,6 +28,7 @@ from yoke_core.domain.path_registry import (
 from yoke_core.domain.path_snapshot_content_rows import (
     discard_contentless_snapshot,
     find_content_snapshot_id,
+    insert_snapshot_row,
 )
 from yoke_core.domain.path_snapshot_enrichment import compute_entries, write_entries
 from yoke_core.domain.path_snapshot_context_cache import read_snapshot_context_values
@@ -110,7 +111,6 @@ def _materialize_snapshot(
     """
     targets = _all_paths_with_kinds(files)
     observed_at = utc_now()
-    p = _p(conn)
 
     try:
         context_values = read_snapshot_context_values(
@@ -142,12 +142,12 @@ def _materialize_snapshot(
             observed_at=observed_at,
         )
 
-        cur = conn.execute(
-            "INSERT INTO path_snapshots "
-            f"(project_id, commit_sha, built_at) VALUES ({p}, {p}, {p}) RETURNING id",
-            (project_id, commit_sha, instant_parameter(conn, observed_at)),
+        snapshot_id, created = insert_snapshot_row(
+            conn, project_id, commit_sha, instant_parameter(conn, observed_at)
         )
-        snapshot_id = int(cur.fetchone()[0])
+        if not created:
+            conn.execute("ROLLBACK")
+            return snapshot_id
         write_entries(
             conn,
             snapshot_id=snapshot_id,

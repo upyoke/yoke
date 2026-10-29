@@ -8,12 +8,15 @@ import os
 import subprocess
 from pathlib import Path
 
+import pytest
+
 from yoke_cli.project_snapshot.scanner import scan_ref
 from yoke_core.domain import (
     db_backend,
     path_snapshot_payload_materializer as materializer,
 )
 from runtime.api.domain._path_snapshots_test_helpers import path_snapshot_db
+from yoke_core.domain.path_snapshot_content_rows import ContentlessSnapshotConflict
 from yoke_core.domain.path_snapshot_payload_materializer import (
     materialize_snapshot_payload,
 )
@@ -244,3 +247,53 @@ def test_a_newer_contentless_snapshot_does_not_mark_paths_disappeared(
             "SELECT MAX(generation) FROM path_targets"
         ).fetchone()[0]
         assert generations == 1
+
+
+def _force_insert_past_recheck(monkeypatch) -> None:
+    """Model a concurrent sync whose committed row the recheck could not see."""
+    monkeypatch.setattr(materializer, "find_content_snapshot_id", lambda *a: None)
+    monkeypatch.setattr(materializer, "discard_contentless_snapshot", lambda *a: None)
+
+
+def test_duplicate_commit_insert_reuses_committed_snapshot(
+    tmp_path: Path, monkeypatch
+) -> None:
+    repo = _make_repo(tmp_path)
+    payload = scan_ref(repo, "HEAD")
+    with path_snapshot_db(tmp_path, repo) as conn:
+        first = materialize_snapshot_payload(conn, project_id="demo", payload=payload)
+        p = _p(conn)
+        entries_sql = (
+            f"SELECT COUNT(*) FROM path_snapshot_entries WHERE snapshot_id = {p}"
+        )
+        entries = conn.execute(entries_sql, (first.snapshot_id,)).fetchone()[0]
+        _force_insert_past_recheck(monkeypatch)
+        second = materialize_snapshot_payload(conn, project_id="demo", payload=payload)
+        assert (second.status, second.snapshot_id) == ("reused", first.snapshot_id)
+        rows = conn.execute(
+            "SELECT COUNT(*) FROM path_snapshots s JOIN projects pr "
+            f"ON pr.id = s.project_id WHERE pr.slug = {p} AND s.commit_sha = {p}",
+            ("demo", payload.commit_sha),
+        ).fetchone()[0]
+        assert rows == 1
+        assert conn.execute(entries_sql, (first.snapshot_id,)).fetchone()[0] == entries
+
+
+def test_duplicate_commit_insert_refuses_contentless_winner(
+    tmp_path: Path, monkeypatch
+) -> None:
+    repo = _make_repo(tmp_path)
+    payload = scan_ref(repo, "HEAD")
+    with path_snapshot_db(tmp_path, repo) as conn:
+        p = _p(conn)
+        conn.execute(
+            "INSERT INTO path_snapshots (project_id, commit_sha, built_at) "
+            f"SELECT id, {p}, created_at FROM projects WHERE slug = {p}",
+            (payload.commit_sha, "demo"),
+        )
+        conn.commit()
+        _force_insert_past_recheck(monkeypatch)
+        with pytest.raises(ContentlessSnapshotConflict, match="snapshot sync"):
+            materialize_snapshot_payload(conn, project_id="demo", payload=payload)
+        count = conn.execute("SELECT COUNT(*) FROM path_snapshots").fetchone()[0]
+        assert count == 1

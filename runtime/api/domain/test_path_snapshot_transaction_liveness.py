@@ -11,6 +11,8 @@ from psycopg.pq import TransactionStatus
 from runtime.api.domain._path_snapshots_test_helpers import path_snapshot_db
 from runtime.api.domain.test_path_snapshot_enrichment import _seed_repo
 from yoke_core.domain import path_snapshot_enrichment as enrichment
+from yoke_core.domain import path_snapshots
+from yoke_core.domain.path_snapshot_content_rows import ContentlessSnapshotConflict
 from yoke_core.domain.path_snapshots import build_head_snapshot, build_snapshot_at_sha
 from yoke_core.domain import path_context
 from runtime.api.path_context_test_helpers import emit_event
@@ -139,3 +141,52 @@ def test_preloaded_context_inherits_to_new_file_identities(tmp_path):
             (snapshot_id,),
         ).fetchall()
         assert [tuple(row) for row in rows] == [("backend", 1), ("backend", 1)]
+
+
+def _force_insert_past_recheck(monkeypatch):
+    """Model a concurrent sync whose committed row the recheck could not see."""
+    monkeypatch.setattr(path_snapshots, "find_content_snapshot_id", lambda *a: None)
+    monkeypatch.setattr(path_snapshots, "discard_contentless_snapshot", lambda *a: None)
+
+
+def _snapshot_counts(conn, snapshot_id):
+    rows = conn.execute(
+        "SELECT COUNT(*) FROM path_snapshots s JOIN path_snapshots w "
+        "ON w.project_id = s.project_id AND w.commit_sha = s.commit_sha "
+        "WHERE w.id = %s",
+        (snapshot_id,),
+    ).fetchone()[0]
+    entries = conn.execute(
+        "SELECT COUNT(*) FROM path_snapshot_entries WHERE snapshot_id = %s",
+        (snapshot_id,),
+    ).fetchone()[0]
+    return rows, entries
+
+
+def test_duplicate_commit_insert_reuses_committed_snapshot(tmp_path, monkeypatch):
+    repo = _seed_repo(tmp_path, {"src/a.py": "VALUE = 1\n"})
+    with path_snapshot_db(tmp_path, repo) as conn:
+        existing = build_head_snapshot(conn, "demo")
+        before = _snapshot_counts(conn, existing)
+        _force_insert_past_recheck(monkeypatch)
+        assert build_head_snapshot(conn, "demo") == existing
+        assert _snapshot_counts(conn, existing) == before
+        assert before[0] == 1
+
+
+def test_duplicate_commit_insert_refuses_contentless_winner(tmp_path, monkeypatch):
+    repo = _seed_repo(tmp_path, {"src/a.py": "VALUE = 1\n"})
+    with path_snapshot_db(tmp_path, repo) as conn:
+        sha = subprocess.check_output(
+            ["git", "-C", str(repo), "rev-parse", "HEAD"], text=True
+        ).strip()
+        conn.execute(
+            "INSERT INTO path_snapshots (project_id, commit_sha, built_at) "
+            "SELECT id, %s, now() FROM projects WHERE slug = 'demo'",
+            (sha,),
+        )
+        conn.commit()
+        _force_insert_past_recheck(monkeypatch)
+        with pytest.raises(ContentlessSnapshotConflict, match="snapshot sync"):
+            build_head_snapshot(conn, "demo")
+        assert conn.execute("SELECT COUNT(*) FROM path_snapshots").fetchone()[0] == 1
