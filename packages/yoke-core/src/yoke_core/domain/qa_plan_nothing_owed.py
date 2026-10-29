@@ -1,13 +1,8 @@
 """Refuse a deployment plan run that owes no case, naming what still blocks.
 
-A plan run used to replay the whole roster when every case had already
-passed on its target, because stage acceptance wanted a completed scoped
-execution. Acceptance now anchors on the newest stopped execution when every
-case passed, so once any scoped execution on the target recorded the passes
-a replay proves nothing new and cannot clear a pending review.
-``yoke qa plan run`` refuses instead, and lists the stage's real blockers
-with the next command each one names. Passes recorded outside every plan
-execution still owe the one walk acceptance settles on.
+Every case with a current pass already proves its target, regardless of
+which command recorded it. A replay cannot clear a pending review.
+Refuse instead and name each stage blocker's next command.
 """
 
 from __future__ import annotations
@@ -25,35 +20,6 @@ NOTHING_OWED_CODE = "qa_plan_nothing_owed"
 
 class QaPlanNothingOwed(QaPlanExecutionStateError):
     """Every roster case passed on this target or waits on a pending review."""
-
-
-def scoped_execution_recorded(
-    conn: Any,
-    roster: list[dict[str, Any]],
-    *,
-    deployment_run_id: str | None,
-    deployment_stage: str | None,
-    deployment_member_item_id: int | None,
-) -> bool:
-    """Whether a settled execution on this roster's target already exists.
-
-    Passes recorded outside any plan execution leave the stage without the
-    scoped execution its acceptance settles on, so that one walk is still
-    owed; once one exists, re-running the roster proves nothing new.
-    """
-    row = conn.execute(
-        "SELECT 1 FROM qa_plan_executions WHERE deployment_run_id=%s "
-        "AND deployment_stage=%s AND COALESCE(deployment_member_item_id,0)=%s "
-        "AND execution_target_digest=%s "
-        "AND state IN ('completed','aborted','error') LIMIT 1",
-        (
-            deployment_run_id,
-            deployment_stage,
-            deployment_member_item_id or 0,
-            str(roster[0].get("execution_target_digest") or ""),
-        ),
-    ).fetchone()
-    return row is not None
 
 
 def _review_blockers(held: Mapping[int, PendingAgentReview]) -> list[str]:
@@ -133,5 +99,4 @@ __all__ = [
     "NOTHING_OWED_CODE",
     "QaPlanNothingOwed",
     "nothing_owed",
-    "scoped_execution_recorded",
 ]

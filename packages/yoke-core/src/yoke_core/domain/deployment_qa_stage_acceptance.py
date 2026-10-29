@@ -85,8 +85,8 @@ def missing_execution_blocker(
     stage_name: str,
     member_item_id: int | None,
     execution_target_digest: str,
-) -> tuple[str, str]:
-    """Why a subject has no completed execution: review pending, or never run."""
+) -> tuple[str, str] | None:
+    """A pending review still needs its independent verdict."""
     pending = pending_review_for_stage(
         conn,
         run_id=run_id,
@@ -96,7 +96,7 @@ def missing_execution_blocker(
     )
     if pending is not None:
         return STAGE_AWAITING_REVIEW, stage_review_pending_blocker(pending)
-    return STAGE_NOT_RUN, "no completed scoped QA execution exists"
+    return None
 
 
 @dataclass(frozen=True)
@@ -178,13 +178,23 @@ def stage_acceptance(
             member_item_id=member_item_id,
             execution_target_digest=digest,
         )
-    if execution is None:
-        state, reason = missing_execution_blocker(
-            conn, run_id, stage_name, member_item_id, digest
-        )
+    pending = missing_execution_blocker(
+        conn, run_id, stage_name, member_item_id, digest
+    )
+    if pending:
+        state, reason = pending
         return StageAcceptance(state, (reason, *failures), red_ids)
+    if not failures and execution is None and member_item_id is not None:
+        from yoke_core.domain.deployment_run_member_approvals import run_qa_blockers
+
+        blockers = run_qa_blockers(conn, run_id, member_item_id, subject)
+        return StageAcceptance(
+            STAGE_INCOMPLETE if blockers else STAGE_DISCHARGED, tuple(blockers)
+        )
     if failures:
         return StageAcceptance(STAGE_CASES_UNRESOLVED, tuple(failures), red_ids)
+    if execution is None:
+        return StageAcceptance(STAGE_NOT_RUN, (f"Run `yoke watch deploy -- {run_id}`",))
     obligation_failures = fulfill_admitted_obligations(
         conn,
         run_id=run_id,

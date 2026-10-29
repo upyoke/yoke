@@ -250,17 +250,21 @@ def _settle_reads(
             member_item_id=member_item_id,
             execution_target_digest=current_target_digest,
         )
-    if execution is None:
-        _state, missing = missing_execution_blocker(
-            conn, run_id, stage_name, member_item_id, current_target_digest
-        )
-        reasons.insert(0, missing)
+    pending = missing_execution_blocker(
+        conn, run_id, stage_name, member_item_id, current_target_digest
+    )
+    if pending:
+        reasons.insert(0, pending[1])
+    if not reasons and execution is None and member_item_id is not None:
+        blockers = run_qa_blockers(conn, run_id, member_item_id, subject)
+        return waiting(blockers) if blockers else discharged()
     if reasons:
         # A missing execution alongside red cases still reads as blocked: the
         # red verdicts are the reason no acceptable execution can exist, and
         # calling that "waiting" is the collapse this split undoes.
         return _with_pin_diagnosis(conn, run_id, settled(reasons, failures))
-    assert execution is not None
+    if execution is None:
+        return waiting([f"Run `yoke watch deploy -- {run_id}`"])
     obligation_failures = fulfill_admitted_obligations(
         conn,
         run_id=run_id,
