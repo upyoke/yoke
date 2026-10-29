@@ -20,6 +20,7 @@ from yoke_core.domain import verification_tree_binding
 from yoke_core.domain.verification_tree_binding import TreeBindingVerdict
 from yoke_core.tools import run_tests, watch_pytest
 from yoke_core.tools._impacted_selection import Selection
+from runtime.api.source_pythonpath_test_helpers import provision_project_venv
 
 pytestmark = pytest.mark.usefixtures("bound_project_context")
 
@@ -292,6 +293,7 @@ class TestRunTestsBinding:
         # admission gate, which only throttles directory sweeps.
         target = tmp_path / "test_sample.py"
         target.write_text("def test_ok():\n    assert True\n", encoding="utf-8")
+        provision_project_venv(tmp_path)
         rc = run_tests.run(
             [str(target)],
             repo_root=tmp_path,

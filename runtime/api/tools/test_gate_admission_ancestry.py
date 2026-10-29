@@ -234,7 +234,10 @@ def test_nested_runner_rides_parent_slot_without_cap_opt_out(monkeypatch, tmp_pa
     """
     import subprocess
 
-    from runtime.api.source_pythonpath_test_helpers import SOURCE_PYTHONPATH
+    from runtime.api.source_pythonpath_test_helpers import (
+        SOURCE_PYTHONPATH,
+        provision_project_venv,
+    )
 
     dsn = gate_admission._maintenance_dsn()
     assert dsn is not None
@@ -251,6 +254,7 @@ def test_nested_runner_rides_parent_slot_without_cap_opt_out(monkeypatch, tmp_pa
     )
     (pkg / "__init__.py").write_text("")
     (pkg / "test_ok.py").write_text("def test_one():\n    assert True\n")
+    provision_project_venv(mini)
 
     env = os.environ.copy()
     env["PYTHONPATH"] = (

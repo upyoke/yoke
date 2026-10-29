@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import shlex
 import subprocess
 import sys
 import venv
@@ -23,6 +24,15 @@ SOURCE_PYTHONPATH = os.pathsep.join(
         *(PACKAGE_ROOT / package_name / "src" for package_name in PACKAGE_NAMES),
     )
 )
+
+
+def provision_project_venv(root: Path) -> Path:
+    """A non-uv project's own .venv whose python3 runs this test interpreter."""
+    python = root / ".venv" / "bin" / "python3"
+    python.parent.mkdir(parents=True)
+    python.write_text(f'#!/bin/sh\nexec {shlex.quote(sys.executable)} "$@"\n')
+    python.chmod(0o755)
+    return python
 
 
 def provision_stub_environment(root: Path) -> Path:

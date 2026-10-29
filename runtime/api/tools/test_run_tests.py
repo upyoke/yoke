@@ -13,7 +13,10 @@ from pathlib import Path
 
 import pytest
 
-from runtime.api.source_pythonpath_test_helpers import SOURCE_PYTHONPATH
+from runtime.api.source_pythonpath_test_helpers import (
+    SOURCE_PYTHONPATH,
+    provision_project_venv,
+)
 from yoke_core.tools import _run_tests_args, gate_admission, run_tests
 
 pytestmark = pytest.mark.usefixtures("bound_project_context")
@@ -148,6 +151,7 @@ def mini_repo(tmp_path: Path) -> Path:
     (pkg / "test_ok.py").write_text(
         "def test_one():\n    assert 1 + 1 == 2\ndef test_two():\n    assert True\n"
     )
+    provision_project_venv(root)
     return root
 
 

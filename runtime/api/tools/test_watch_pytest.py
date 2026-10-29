@@ -19,7 +19,7 @@ from pathlib import Path
 
 import pytest
 
-from runtime.api.source_pythonpath_test_helpers import SOURCE_PYTHONPATH
+from runtime.api import source_pythonpath_test_helpers as source_helpers
 from yoke_core.tools import _watch_pytest_args, watch_pytest
 from yoke_core.tools._watch_runner import filter_match
 
@@ -289,8 +289,7 @@ class TestNestedPytestRejection:
 
 class TestLiveWrapperSmoke:
     def test_runs_against_passing_test_and_splits_capture(self, tmp_path: Path) -> None:
-        # Build a tiny self-contained repo with one passing pytest test.
-        mini = tmp_path / "mini"
+        mini = tmp_path / "mini"  # a tiny repo with one passing test
         pkg = mini / "pkgx"
         pkg.mkdir(parents=True)
         (mini / "pyproject.toml").write_text(
@@ -302,14 +301,13 @@ class TestLiveWrapperSmoke:
         (pkg / "test_one.py").write_text(
             "def test_pass():\n    assert True\n", encoding="utf-8"
         )
+        source_helpers.provision_project_venv(mini)
 
-        raw = tmp_path / "raw.log"
-        progress = tmp_path / "progress.log"
+        raw, progress = tmp_path / "raw.log", tmp_path / "progress.log"
 
         env = os.environ.copy()
-        env["PYTHONPATH"] = (
-            f"{SOURCE_PYTHONPATH}{os.pathsep}{mini}"
-            f"{os.pathsep}{env.get('PYTHONPATH', '')}"
+        env["PYTHONPATH"] = os.pathsep.join(
+            (source_helpers.SOURCE_PYTHONPATH, str(mini), env.get("PYTHONPATH", ""))
         )
         # Disable color/TTY so progress markers are emitted in non-TTY form.
         env["NO_COLOR"] = "1"
