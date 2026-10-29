@@ -98,7 +98,7 @@ def test_an_unchanged_parent_stays_out_without_a_changed_child() -> None:
     later = [*body[:4], "    detail b changed"]
 
     assert changed_lines(later, seen) == [
-        "deployment runs:",
+        "deployment runs (changes only):",
         "  run b",
         "    detail b changed",
     ]
@@ -119,3 +119,32 @@ def test_the_raw_capture_keeps_every_report_whole(tmp_path: Path) -> None:
     progress = (tmp_path / "progress.log").read_text(encoding="utf-8")
     assert progress.count(REPORT_BEGIN) == 1
     assert "item-qa for 1h34m" not in progress
+
+
+def test_partial_available_heading_and_unsuffixed_seen_rows() -> None:
+    heading = "available — runnable and unclaimed"
+    first = [heading, "  item one", "  item two"]
+    seen = {row_identity(line) for line in first}
+    later = [heading, "  item one changed", "  item two"]
+    assert changed_lines(later, seen) == [
+        "available (changes only) — runnable and unclaimed", "  item one changed"
+    ]
+    assert heading in seen
+    assert not any("changes only" in line for line in seen)
+    classify = watch_fleet.make_fleet_classifier()
+    _feed(classify, _report(*first))
+    assert "changes only" in _feed(classify, _report(*later))
+    assert _feed(classify, _report(*later)) is None
+
+
+def test_whole_new_section_keeps_its_heading() -> None:
+    body = ["available:", "  item one", "  item two"]
+    assert changed_lines(body, set()) == body
+
+
+def test_partial_run_headings_use_the_same_suffix_rules() -> None:
+    body = ["runs:", "  run one", "    old detail", "    new detail"]
+    seen = {row_identity(line) for line in body[:-1]}
+    assert changed_lines(body, seen) == [
+        "runs (changes only):", "  run one (changes only)", "    new detail"
+    ]

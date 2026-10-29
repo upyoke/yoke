@@ -293,3 +293,15 @@ def test_an_idle_open_pull_request_keeps_the_rerun_advice(checks) -> None:
     assert result.landing_state == "not_in_flight"
     assert result.needs_action is True
     assert "re-run `yoke merge item`" in result.describe()
+
+
+def test_two_red_check_urls_appear_once_in_the_readback() -> None:
+    checks = tuple(
+        LandingCheck(name=name, conclusion="failure", required=True, url=url)
+        for name, url in (("contracts", "https://example.com/1"),
+                          ("tests", "https://example.com/2"))
+    )
+    text = _open_unarmed(*checks).describe()
+    for check in checks:
+        assert text.count(check.url) == 1
+    assert "re-run the verification gate" in text

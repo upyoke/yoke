@@ -90,8 +90,7 @@ def test_an_armed_pull_request_with_a_red_required_check_is_an_ejection():
     )
 
     assert observation.kind == EJECTED
-    assert "repo-contracts=failure" in observation.recovery
-    assert RUN_URL in observation.recovery
+    assert RUN_URL not in observation.recovery
     assert "re-run the verification gate" in observation.recovery
     assert "failed-required-checks=repo-contracts=failure" in observation.observed
 
@@ -163,3 +162,15 @@ def test_an_unmergeable_entry_waits_until_github_decides_mergeability():
     assert observation.kind == EJECTED
     assert "mergeQueueEntry=UNMERGEABLE" in observation.observed
     assert "isInMergeQueue=true" in observation.observed
+
+
+def test_two_red_check_urls_appear_once_in_the_holder_message():
+    from yoke_core.domain.merge_queue_landing_observation import ejection_message
+    from yoke_core.domain.merge_queue_landing_notice import HOLDER
+
+    second = LandingCheck(name="tests", conclusion="failure", required=True,
+                          url="https://github.com/o/r/actions/runs/3/job/4")
+    observation = _classify(_state(), NOT_QUEUED, checks=(FAILED_REQUIRED, second))
+    text = ejection_message("ALP-1", "42", observation, HOLDER, "")
+    for check in (FAILED_REQUIRED, second):
+        assert text.count(check.url) == 1

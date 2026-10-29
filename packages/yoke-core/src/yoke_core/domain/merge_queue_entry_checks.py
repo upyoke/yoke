@@ -102,7 +102,7 @@ def describe_failed_checks(failed: Sequence[LandingCheck]) -> str:
     return ", ".join(check.describe() for check in failed) or "none"
 
 
-def _recovery(failed: Sequence[LandingCheck]) -> str:
+def red_checks_recovery(failed: Sequence[LandingCheck]) -> str:
     if only_no_verdict(failed):
         return (
             "they were cancelled or never started, which is no verdict about "
@@ -123,7 +123,7 @@ def regate_instruction(failed: Sequence[LandingCheck]) -> str:
     return (
         f"its required checks already concluded red "
         f"({describe_failed_checks(failed)}), so GitHub will not enqueue "
-        f"it — {_recovery(failed)}"
+        f"it — {red_checks_recovery(failed)}"
     )
 
 
@@ -163,7 +163,7 @@ def entry_checks_refusal(
     observed = narrative.strip() or f"pull request {pr_num}"
     return compose_refusal(
         f"entry-checks-failed: pull request {pr_num} head {sha} has required checks that already concluded red ({describe_failed_checks(failed)}). GitHub will not enqueue it. Observed {observed}.",
-        recovery=f"{_recovery(failed)}. {disarm_note}",
+        recovery=f"{red_checks_recovery(failed)}. {disarm_note}",
     )
 
 
@@ -179,4 +179,5 @@ __all__ = [
     "no_verdict_checks",
     "only_no_verdict",
     "regate_instruction",
+    "red_checks_recovery",
 ]

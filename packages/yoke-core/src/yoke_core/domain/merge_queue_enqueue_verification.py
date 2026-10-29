@@ -19,6 +19,7 @@ from yoke_core.domain.merge_queue_entry_checks import (
     describe_failed_checks,
     failed_required_checks,
     only_no_verdict,
+    red_checks_recovery,
     regate_instruction,
 )
 from yoke_core.domain.merge_queue_readback_outcomes import (
@@ -106,8 +107,7 @@ class LandingReadback:
     def admitted(self) -> bool:
         """True when GitHub is holding this landing.
 
-        A queue entry settles it unless its state is UNMERGEABLE.
-        GitHub can retain unmergeable entries, but cannot land them.
+        A retained UNMERGEABLE queue entry cannot land the pull request.
         Without an entry the landing must be armed, eligible, and not already
         refused by its own required checks — which together are the
         ordinary armed-and-waiting state before those checks pass.
@@ -177,7 +177,7 @@ class LandingReadback:
             return "it is closed — reopen or recreate it and re-run `yoke merge item`"
         failed = self.failed_required
         if failed:
-            return regate_instruction(failed)
+            return red_checks_recovery(failed)
         from yoke_core.domain.merge_queue_ejection_recovery import recovery_instruction
 
         instruction = recovery_instruction(self, target=target)

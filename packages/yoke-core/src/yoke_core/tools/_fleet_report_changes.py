@@ -30,9 +30,9 @@ def _indent(line: str) -> int:
 
 def changed_lines(body: list[str], seen: set[str]) -> list[str]:
     """Lines of ``body`` new since ``seen``, each with the lines it sits under."""
-    kept: list[str] = []
-    above: list[tuple[int, str, bool]] = []
-    for line in body:
+    kept: set[int] = set()
+    above: list[tuple[int, int]] = []
+    for index, line in enumerate(body):
         if not line.strip():
             continue
         depth = _indent(line)
@@ -40,13 +40,34 @@ def changed_lines(body: list[str], seen: set[str]) -> list[str]:
             above.pop()
         changed = row_identity(line) not in seen
         if changed:
-            for index, (level, parent, shown) in enumerate(above):
-                if not shown:
-                    kept.append(parent)
-                    above[index] = (level, parent, True)
-            kept.append(line)
-        above.append((depth, line, changed))
-    return kept
+            kept.update(parent for _, parent in above)
+            kept.add(index)
+        above.append((depth, index))
+    partial: set[int] = set()
+    above = []
+    for index, line in enumerate(body):
+        if not line.strip():
+            continue
+        depth = _indent(line)
+        while above and above[-1][0] >= depth:
+            above.pop()
+        if index not in kept:
+            partial.update(parent for _, parent in above if parent in kept)
+        above.append((depth, index))
+    return [
+        _partial_heading(line) if index in partial else line
+        for index, line in enumerate(body) if index in kept
+    ]
+
+
+def _partial_heading(line: str) -> str:
+    suffix = " (changes only)"
+    if " — " in line:
+        heading, rest = line.split(" — ", 1)
+        return f"{heading}{suffix} — {rest}"
+    if line.endswith(":"):
+        return f"{line[:-1]}{suffix}:"
+    return line + suffix
 
 
 __all__ = ["changed_lines", "row_identity"]

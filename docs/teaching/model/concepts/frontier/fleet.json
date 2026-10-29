@@ -6,5 +6,6 @@
  "functions": ["claims.steering.acquire", "claims.steering.list", "claims.steering.release", "sessions.steering_groups.list", "steering.report.get"],
  "skills": ["steer"],
  "page": "frontier",
- "position": 4
+ "position": 4,
+ "description": "Watcher updates mark a heading (changes only) when any descendant row is omitted. Whole sections keep their headings; no longer listed is the only removal signal. Seen rows use unsuffixed headings."
 }
