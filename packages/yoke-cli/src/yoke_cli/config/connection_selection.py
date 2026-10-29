@@ -53,12 +53,14 @@ def referenced_connection(payload: dict, args: list[str]) -> str:
 
 
 def _project_rows(env: str) -> list[dict]:
+    from yoke_cli.commands.local_dispatch_preload import ensure_handlers_loaded
     from yoke_cli.transport.dispatcher import call_dispatcher
     from yoke_contracts.api.function_call import ActorContext, TargetRef
 
     previous = os.environ.get("YOKE_ENV")
     try:
         os.environ["YOKE_ENV"] = env
+        ensure_handlers_loaded()
         response = call_dispatcher(
             function_id="projects.list",
             target=TargetRef(kind="global"),

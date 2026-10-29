@@ -35,6 +35,8 @@ def connection_groups(payload: Mapping[str, Any]) -> dict[str, list[dict]]:
                 env = base
             else:
                 continue  # Admin doors are selected only by explicit override.
+        if env not in connections:
+            continue  # Retired connections retain registrations, not routing authority.
         result.setdefault(env, []).extend(normalize_projects(entries))
     return result
 

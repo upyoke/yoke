@@ -1,6 +1,7 @@
 """Connection selection precedence and CLI inference without explicit overrides."""
 
 import json
+import subprocess
 from types import SimpleNamespace
 
 import pytest
@@ -90,6 +91,12 @@ def test_missing_fallback_still_allows_checkout(config, monkeypatch):
     assert selected_env(config) == "one"
 
 
+def test_retired_connection_registration_does_not_route(config, monkeypatch):
+    monkeypatch.chdir(config["connection_projects"]["one"][0]["checkout"])
+    del config["connections"]["one"]
+    assert selected_env(config) == "fallback"
+
+
 @pytest.mark.parametrize(
     "args,expected",
     [
@@ -159,6 +166,9 @@ def test_checkout_and_explicit_env_skip_reference_reads(config, monkeypatch):
 
 def test_unavailable_reference_read_refuses_with_code(monkeypatch):
     from yoke_cli.transport import dispatcher
+    from yoke_cli.commands import local_dispatch_preload
+
+    monkeypatch.setattr(local_dispatch_preload, "ensure_handlers_loaded", lambda: None)
 
     monkeypatch.setattr(
         dispatcher,
@@ -201,6 +211,13 @@ def test_loader_scans_inactive_connection(tmp_path):
 def test_reassign_removes_only_the_same_checkout(config, tmp_path, monkeypatch):
     from runtime.api.fixtures.machine_config_test import select_machine_config_file
     from yoke_cli.config import writer
+    from yoke_contracts.machine_config.schema import canonical_example_payload
+
+    example = canonical_example_payload()
+    config["schema_version"] = example["schema_version"]
+    config["connections"] = {
+        label: example["connections"]["prod"] for label in ("one", "two", "fallback")
+    }
 
     config["connection_projects"]["two"].append(
         {
@@ -216,3 +233,72 @@ def test_reassign_removes_only_the_same_checkout(config, tmp_path, monkeypatch):
     entries = json.loads(config_path.read_text())["connection_projects"]
     assert entries["two"] == [{"checkout": str(tmp_path / "two"), "project_id": 2}]
     assert entries["one"] == [{"checkout": str(tmp_path / "one"), "project_id": 1}]
+
+
+def test_linked_git_lane_routes_to_registered_primary(config, tmp_path, monkeypatch):
+    root = tmp_path / "one"
+    lane = tmp_path / "linked-lane"
+    for args in (
+        ["init", str(root)],
+        [
+            "-C",
+            str(root),
+            "-c",
+            "user.name=Test",
+            "-c",
+            "user.email=test@example.test",
+            "commit",
+            "--allow-empty",
+            "-m",
+            "Initial",
+        ],
+        ["-C", str(root), "worktree", "add", "-b", "worker", str(lane)],
+    ):
+        subprocess.run(["git", *args], check=True, capture_output=True)
+    monkeypatch.chdir(lane)
+    assert connection_selection(config) == ("one", "checkout")
+
+
+def test_router_scopes_reference_selection_to_adapter(config, monkeypatch):
+    from yoke_cli import command_router
+
+    monkeypatch.setattr(cli.machine_config, "load_config", lambda: config)
+    monkeypatch.setattr(
+        cli,
+        "_project_rows",
+        lambda env: (
+            [{"id": 1, "slug": "alpha", "public_item_prefix": "ALPHA"}]
+            if env == "one"
+            else []
+        ),
+    )
+    results = []
+
+    def adapter(args):
+        results.append(connection_selection(config))
+        return 0
+
+    monkeypatch.setattr(
+        command_router,
+        "resolve",
+        lambda argv: (("items", "get"), "items.detail.get", adapter, argv[2:]),
+    )
+    assert command_router.route_command(["items", "get", "ALPHA-3"]) == 0
+    assert results == [("one", "project_reference")]
+    assert selected_env(config) == "fallback"
+
+
+def test_checkout_diagnostic_enriches_structured_reply(config, monkeypatch):
+    from yoke_contracts.api.function_call import FunctionCallResponse
+
+    monkeypatch.setattr(cli.machine_config, "load_config", lambda: config)
+    monkeypatch.chdir(config["connection_projects"]["one"][0]["checkout"])
+    reply = FunctionCallResponse(
+        success=True,
+        function="projects.checkout_context.run",
+        version="v1",
+        request_id="test",
+        result={"id": 1},
+    )
+    result = cli.enrich_checkout_context(reply, None).result
+    assert result == {"id": 1, "connection": "one", "connection_source": "checkout"}
