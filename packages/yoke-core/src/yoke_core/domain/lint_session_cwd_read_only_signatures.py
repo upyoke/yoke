@@ -103,7 +103,9 @@ def git_write_targets(
     return resolve_operand_targets(parsed.text, bindings=bindings)
 
 
-_SINGLE_ARG_READ_ONLY = frozenset({"wc", "ls", "cat", "head", "tail", "file", "stat"})
+_SINGLE_ARG_READ_ONLY = frozenset(
+    {"wc", "ls", "cat", "head", "tail", "file", "stat", "nl", "test", "["}
+)
 
 
 def _tokens_have_file_redirect(tokens: List[str]) -> bool:
