@@ -48,6 +48,9 @@ GROUP_TEACHING: dict[tuple[str, ...], str] = {
         "Execution and recovery: yoke watch deploy --help."
     ),
     ("env",): (
+        "Selection: --env, YOKE_ENV, deepest registered checkout, unique "
+        "--project or item-prefix reference, then active_env fallback. "
+        "`yoke env use ENV` changes that fallback. "
         "Retirement is a `connection` command: `yoke connection remove ENV` "
         "deletes the entry and its Yoke-owned credential, taking "
         "`--activate ENV` when the entry being removed is the active "

@@ -4,6 +4,6 @@
  "status": "observed",
  "page": "universes",
  "position": 0,
- "summary": "Init preserves the selected connection even when repairing or force-replacing local; it selects local only if none is active or --activate is explicit.",
+ "summary": "active_env is the fallback outside registered checkouts when no unique project reference selects a connection. env use changes the fallback; explicit --env and YOKE_ENV win everywhere. Init preserves the selected connection unless activation is explicit.",
  "sources": ["docs/public/verification/local-connection-repair.md", "packages/yoke-cli/src/yoke_cli/config/local_universe_setup.py"]
 }

@@ -1,7 +1,9 @@
 {
  "id": "selecting-an-environment",
  "title": "Selecting an environment",
- "status": "draft-copy",
+ "status": "observed",
  "page": "universes",
- "position": 3
+ "position": 3,
+ "summary": "Connection selection uses explicit --env, YOKE_ENV, deepest registered checkout, unique --project or item-prefix reference, then active_env. checkout-context prints the selected connection and connection_source; --field still prints one project value.",
+ "sources": ["docs/public/cli/machine-config.md", "packages/yoke-contracts/src/yoke_contracts/machine_config/selection.py"]
 }

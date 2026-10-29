@@ -83,6 +83,14 @@ def register_project(
         checkout=str(root),
         project_id=normalized,
     )
+    if reassign:
+        for label, entries in payload["connection_projects"].items():
+            if label != connection:
+                payload["connection_projects"][label] = [
+                    entry
+                    for entry in entries
+                    if Path(entry["checkout"]).expanduser().resolve() != root
+                ]
     _write_payload(payload, cfg_path)
     written = next(
         (
@@ -119,8 +127,11 @@ def set_publication_read_only(
     connection = contract.project_connection(payload)
     normalized = contract.projects_for_connection(payload)
     projects = payload["connection_projects"][connection]
-    selected = [index for index, project in enumerate(normalized)
-                if project["project_id"] == entry["project_id"]]
+    selected = [
+        index
+        for index, project in enumerate(normalized)
+        if project["project_id"] == entry["project_id"]
+    ]
     if len(selected) != 1:
         raise MachineConfigWriteError(
             "project_publication_ambiguous: repair the duplicate checkout mapping"

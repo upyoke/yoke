@@ -85,18 +85,15 @@ def _root_from_config(config_path: Path, environ):
         return None
     if not isinstance(data, dict):
         return None
-    env = environ.get("YOKE_ENV") or data.get("active_env")
-    connections = data.get("connections") or {}
-    if isinstance(env, str) and env.endswith("-db-admin"):
-        base = env[: -len("-db-admin")]
-        if connections.get(base, {}).get("transport") == "https":
-            env = base
     groups = data.get("connection_projects") or {}
     if not isinstance(groups, dict):
         return None
-    projects = groups.get(env)
-    if not isinstance(projects, list):
-        return None
+    projects = [
+        entry
+        for entries in groups.values()
+        if isinstance(entries, list)
+        for entry in entries
+    ]
     checkouts = [e.get("checkout") for e in projects if isinstance(e, dict)]
     # Sorted for deterministic selection when more than one checkout qualifies.
     for key in sorted(c for c in checkouts if isinstance(c, str) and c.strip()):
