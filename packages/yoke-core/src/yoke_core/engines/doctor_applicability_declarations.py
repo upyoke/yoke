@@ -152,8 +152,6 @@ _SHAPES = (
             "projects-without-flows",
             "qa-plan-machine-starting-state",
             "qa-runs-mutated",
-            "reflection-capture-persist-failed",
-            "reflection-capture-unhandled",
             "reviewed-implementation-epics-no-sim",
             "routed-ownership-live-frame-no-defense",
             "routed-ownership-non-terminal-release-still-schedulable",

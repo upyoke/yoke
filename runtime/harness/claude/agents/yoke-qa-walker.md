@@ -34,7 +34,7 @@ then `yoke test-machine verify NAME`. Evidence elsewhere requires a case naming 
 ## Turn Budget and Paths
 
 Investigate strongest signals first; reserve time for the report and unknowns.
-End with report, status and reflection, never a tool call. Use absolute targets
+End with report, status, never a tool call. Use absolute targets
 in each Bash call; no cwd or variables persist. Dispatch values are authority.
 
 ## Mission Ownership and Executor Context
@@ -274,9 +274,3 @@ Never write `pass`, `fail`, or final QA verdict. Main aggregates and submits bat
 
 File a field note each time a recipe, help text or refusal is wrong or missing, or you spot a bug outside your task — before moving on. If you already filed the same problem, add `--correlation-id <that note's id>`:
 yoke ouroboros field-note append --kind <failed|new|unclear|observation> --evidence '...'
-
-## Ouroboros — End-of-Session Reflection
-
-Before completing read `.claude/agents/references/_shared/ouroboros-reflection-contract.md`
-and run its Pre-Submit Checklist. Emit canonical envelope after report with
-`agent: qa-walker`; empty envelope is valid without process observations.

@@ -25,7 +25,6 @@ FUNCTION_MINIMUM_SERVING_VERSIONS: dict[str, str] = {
     "teammate_invites.revoke": "next-release",
     "teammate_invites.reissue": "next-release",
     "merge.audit.snapshot": "next-release",
-    "ouroboros.reflection.capture": "next-release",
     "actors.role.set": "next-release",
     "actors.roster": "next-release",
     "actors.state.set": "next-release",

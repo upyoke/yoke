@@ -86,7 +86,7 @@ CI/watcher handles to exit; never interrupt CI or start beside a live command.
 
 ## Pre-Submit Verification Checklist
 
-All checks must pass before final structured output/reflection:
+All checks must pass before final structured output:
 
 1. `test_plan`: cite commands passed after last relevant change; rerun only
    affected checks. SKIP only if task genuinely has no Test Plan; note absence.
@@ -98,7 +98,7 @@ All checks must pass before final structured output/reflection:
 4. `clean_worktree`: mandatory final `git -C {worktree-path} status --porcelain`.
    Commit all related modified/untracked/staged files, write progress note,
    recheck empty. Noncommittable generated/ignored files require explicit
-   justification. Never emit reflection with unexplained dirty task files.
+   justification. Never submit with unexplained dirty task files.
 
 ## Progress notes
 

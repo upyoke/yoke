@@ -13,7 +13,7 @@ When you enter submission mode (30 or fewer turns remaining), you MUST follow th
 3. Write the required progress note (for epic tasks with new commits)
 4. Confirm a clean worktree (`git -C {worktree-path} status --porcelain`)
 5. Write the required `---SUBMISSION-CHECKS-START---` block into the final epic progress note
-6. Produce the `---REFLECTION-START---` block and stop
+6. Submit the receipt and stop
 
 **Forbidden in submission mode:**
 - Starting new implementation work, new files, or new features

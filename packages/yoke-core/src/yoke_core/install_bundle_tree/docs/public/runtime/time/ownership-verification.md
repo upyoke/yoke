@@ -17,13 +17,12 @@ mini-DDL follows this native
 contract; episode clocks parse before SQL and capability fixtures bind aware
 clocks. Browser, Doctor control-plane, done-transition, resync and merge-audit fixtures retain native clocks; retired SQLite probe subjects retain their declared schema.
 
-Reflection fallback clocks remain native in parsed records; YAML update clocks, command event envelopes,
-adoption evidence and fleet-rehearsal receipts use fixed-six UTC. Database
+ Database
 read diagnostics format native datetimes while calendar dates retain date ISO.
 Board item classification keeps nullable native update facts and sorts done
 items by those instants without an empty-string SQL fallback.
 
-Board session ages consume native starts and ends with explicit null absence; malformed clocks refuse rather than inventing UTC. Daily velocity fallback queries compare native transition instants with native cutoffs, while calendar rollups retain day strings. Strategy revision windows retain all native history before projecting UTC days and applying the day bound. Reflection persistence fixtures mirror native timestamp ownership, with exact microsecond dedup across qualified offsets.
+Board session ages consume native starts and ends with explicit null absence; malformed clocks refuse rather than inventing UTC. Daily velocity fallback queries compare native transition instants with native cutoffs, while calendar rollups retain day strings. Strategy revision windows retain all native history before projecting UTC days and applying the day bound.
 
 Board pricing binds native offered instants; session durations parse owned start/end facts with explicit null absence. New typed board datetime values use fixed-six UTC, and archived typed query parameters normalize only in the replay lookup without modifying the supplied payload or its durable bytes. Calendar date tags remain calendar values.
 
@@ -35,7 +34,7 @@ QA CLI/batch/browser run writes generate native start/completion facts for the e
 
 Rehearsal freshness compares native aware instants at the exact microsecond boundary. Missing or invalid rehearsal evidence remains expired; invalid explicit current clocks refuse, and only None generates a current fact. PostgreSQL fingerprint catalog queries move unchanged to their own reader, preserving schema/digest computation. Epic heartbeat validation consumes native database values with shared strict ingress, without accepting PostgreSQL display text or inventing UTC for naive values.
 
-Doctor session/reclaim, checkpoint, reflection, coordination, QA and lane checks compare native cutoff/window instants with microsecond precision; checkpoint diagnostics project fixed-six UTC clocks. Sweep and heartbeat age readers use shared strict ingress; malformed clocks produce a refusal finding rather than guessed UTC or a green result. Project-local reflection coverage adapts its shared native cutoff at SQL ownership. Reclaim and coordination message clocks explicitly format as UTC wire instants; filesystem modification ages remain numeric file metadata.
+ Sweep and heartbeat age readers use shared strict ingress; malformed clocks produce a refusal finding rather than guessed UTC or a green result. Reclaim and coordination message clocks explicitly format as UTC wire instants; filesystem modification ages remain numeric file metadata.
 
 Machine verification, operation and mission preparation receipts generate native SQL facts. Capability and receipt readers retain aware clocks, with nullable verification absence preserved. New verification history entries format only their declared clock; earlier receipt entries, submission identities and check evidence remain opaque and unchanged. Replay parses only the declared clock and operation response JSON explicitly formats it as fixed-six UTC or null. SQLite storage is an explicit canonical wire boundary.
 
@@ -108,8 +107,7 @@ arrival/bucket ties; temporal order preserves the producer clock exactly.
 Machine evidence adapts filesystem nanoseconds once into native UTC instants,
 sorts natively, and formats six fractional digits only in its JSON listing.
 
-Reflection records parse supplied instants at their ingress and retain native
-UTC clocks through persistence. Missing parser clocks generate aware instants
+ Missing parser clocks generate aware instants
 without intermediate text; malformed provided clocks refuse, and explicit
 clocks do not evaluate an unused default. Captured body and context stay opaque.
 

@@ -162,14 +162,3 @@ Never use direct database clients, modify state, create commits, or write files.
 
 <!-- YOKE:FIELD-NOTE -->
 
-## Ouroboros — End-of-Session Reflection
-
-Before completing the final response, read
-`runtime/agents/_shared/ouroboros-reflection-contract.md` and run its
-Pre-Submit Checklist. After verdict/log, emit its canonical reflection
-envelope with `agent: boss` and the reviewed item in `context:`.
-Consider artifact problems (`problem`), review process improvements
-(`process-improvement`), transformative features (`game-changing-idea`),
-and concrete upstream improvements (`cross-agent-critique`). Use those exact
-categories. One entry per question is typical; use an empty
-`---REFLECTION-START---` / `---REFLECTION-END---` envelope when nothing surfaced.

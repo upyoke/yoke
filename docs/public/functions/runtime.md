@@ -149,7 +149,6 @@ Read [envelope and authority](index.md). `none` skips only the claim check.
 | `ouroboros.field_note.get` | `none` |
 | `ouroboros.field_note.list` | `none` |
 | `ouroboros.field_note.promote` | `none` |
-| `ouroboros.reflection.capture` | `none` |
 | `overview.activation.get` | `none` |
 | `overview.module.dismiss` | `none` |
 | `overview.module.restore` | `none` |

@@ -1,6 +1,6 @@
 # Conduct — Tester closeout
 
-Capture [reflections](dispatch-context-artifacts.md), stop this dispatch's
+Stop this dispatch's
 [preview env](dispatch-context-ephemeral.md) if one exists, then:
 
 ```text

@@ -110,7 +110,6 @@ def test_execution_instruction_resolve_is_an_authenticated_read() -> None:
 
 
 @pytest.mark.parametrize(
-    "function", ["ouroboros.reflection.capture", "merge.audit.snapshot"]
 )
 def test_agent_capture_and_merge_snapshot_enforce_target_project(conn, function):
     from yoke_contracts.api.function_call import TargetRef

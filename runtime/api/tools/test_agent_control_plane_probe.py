@@ -88,16 +88,7 @@ def test_probe_uses_runner_project_without_reading_full_item(monkeypatch):
         calls.append(args)
         if args[0] == "advance":
             return {"blockers": []}
-        assert args[:3] == ("ouroboros", "reflection", "capture")
-        return dict.fromkeys(
-            [
-                "entries_parsed",
-                "entries_persisted",
-                "entries_persist_failed",
-                "entries_duplicate_skipped",
-            ],
-            0,
-        ) | {"errors": [], "blocks_seen": 1}
+        raise AssertionError(args)
 
     monkeypatch.setattr(probe, "call", call)
     monkeypatch.setattr(
@@ -108,4 +99,4 @@ def test_probe_uses_runner_project_without_reading_full_item(monkeypatch):
         ),
     )
     assert probe.main() == 0
-    assert calls[1][calls[1].index("--project") + 1] == project
+    assert calls == [("advance", "preflight", "hard-blocks", member, "--gate-point", "activation")]

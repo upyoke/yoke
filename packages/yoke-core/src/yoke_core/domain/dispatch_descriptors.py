@@ -13,7 +13,7 @@ emits the harness-shaped invocation. Skills consume the rendered string verbatim
 and never name harness-specific symbols themselves.
 
 Result-ingestion shape is also descriptor-owned: each role declares a
-`result_schema` (VERDICT line, SUBMISSION-CHECKS block, REFLECTION block) so the
+`result_schema` (VERDICT line, SUBMISSION-CHECKS block) so the
 parent skill knows how to parse the return regardless of harness.
 """
 
@@ -41,7 +41,6 @@ ROLES: Final[tuple[str, ...]] = (
 
 # Result-parsing markers. Each role's adapter emits some subset of these in its
 # final response. Parent skills pick fields from this schema by role.
-REFLECTION_BLOCK: Final[str] = "---REFLECTION-START---"
 SUBMISSION_CHECKS_BLOCK: Final[str] = "---SUBMISSION-CHECKS-START---"
 VERDICT_PASS_FAIL: Final[str] = "VERDICT: PASS|FAIL"
 VERDICT_READY_NOT_READY_CAVEATS: Final[str] = "VERDICT: READY|NOT_READY|CAVEATS"
@@ -52,14 +51,14 @@ WALK_STATUS: Final[str] = "WALK_STATUS: COMPLETE|HUMAN_GATE|UNDETERMINED"
 # Per-role parseable-result schema. Both harnesses' renderings reference the
 # same schema entry so the parent skill parses identically regardless of harness.
 ROLE_RESULT_SCHEMA: Final[dict[str, tuple[str, ...]]] = {
-    "engineer": (SUBMISSION_CHECKS_BLOCK, REFLECTION_BLOCK),
-    "tester": (VERDICT_PASS_FAIL, REFLECTION_BLOCK),
-    "architect": (REFLECTION_BLOCK,),
-    "simulator": (VERDICT_SIMULATION, REFLECTION_BLOCK),
-    "boss": (VERDICT_READY_NOT_READY_CAVEATS, REFLECTION_BLOCK),
-    "product-manager": (REFLECTION_BLOCK,),
-    "product-designer": (REFLECTION_BLOCK,),
-    "qa-walker": (WALK_STATUS, REFLECTION_BLOCK),
+    "engineer": (SUBMISSION_CHECKS_BLOCK),
+    "tester": (VERDICT_PASS_FAIL),
+    "architect": (),
+    "simulator": (VERDICT_SIMULATION),
+    "boss": (VERDICT_READY_NOT_READY_CAVEATS),
+    "product-manager": (),
+    "product-designer": (),
+    "qa-walker": (WALK_STATUS),
 }
 
 

@@ -4,12 +4,10 @@ from __future__ import annotations
 
 from yoke_core.domain.handlers import ouroboros_reads as _our
 from yoke_core.domain.handlers import ouroboros_writes as _writes
-from yoke_core.domain.handlers import reflection_capture
 
 
 def register(registry) -> None:
     """Register the ouroboros entry readers via the given registry module."""
-    reflection_capture.register(registry)
     for entry in _writes.REGISTRATIONS:
         registry.register(**entry)
     registry.register(

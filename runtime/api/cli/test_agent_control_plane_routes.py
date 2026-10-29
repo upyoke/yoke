@@ -6,7 +6,6 @@ import json
 import pytest
 
 from yoke_cli.commands.adapters.hard_blocks import hard_blocks
-from yoke_cli.commands.adapters.reflection_capture import reflection_capture
 from yoke_cli.transport import dispatcher, https
 
 
@@ -68,32 +67,6 @@ def test_blocker_route_preserves_subject_filter_and_exit_status(relayed, capsys,
     assert line in capsys.readouterr().out
 
 
-def test_reflection_route_sends_complete_text_and_project(relayed, tmp_path):
-    requests, _ = relayed
-    source = tmp_path / "response.txt"
-    source.write_text("whole response\n---REFLECTION-START---\nbody\n")
-    assert (
-        reflection_capture(
-            [
-                "--text-file",
-                str(source),
-                "--project",
-                "external",
-                "--default-agent",
-                "engineer",
-                "--json",
-            ]
-        )
-        == 0
-    )
-    request = requests[-1]
-    assert request["function"] == "ouroboros.reflection.capture"
-    assert request["target"]["project_id"] == "external"
-    assert request["payload"] == {
-        "text": source.read_text(),
-        "default_agent": "engineer",
-    }
-    assert request["actor"]["session_id"] == "capturing-session"
 
 
 def test_invalid_gate_filter_never_dispatches(relayed):

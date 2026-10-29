@@ -301,7 +301,7 @@ so a session loads the phase it is in rather than the whole manual.
 
 Every subagent answers three questions at session end: What went wrong? What process improvements? What game-changing ideas? Observations log to `ouroboros_entries`. A health scanner (`/yoke doctor`) runs 40+ checks. A system simulator (`/yoke simulate --system`) traces coherence gaps. A curator (`/yoke curate`) clusters learnings into work items.
 
-The flywheel: agents work → reflections capture learnings → curator creates work items → work items fix structural issues → faster delivery each cycle.
+The flywheel: agents work → agents file feedback → curator creates work items → work items fix structural issues → faster delivery each cycle.
 
 ---
 

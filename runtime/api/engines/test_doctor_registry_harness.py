@@ -71,14 +71,6 @@ _PROJECT_LEDGER_AUDIT_SLUGS = (
     "executor-canonicalization",
 )
 
-# Reflection-capture audit checks. The two event-count audits read rows any
-# project's control plane has; the coverage check compares this repo's own
-# rendered hook chains against the captures they produced.
-_ENGINE_REFLECTION_SLUGS = (
-    "reflection-capture-unhandled",
-    "reflection-capture-persist-failed",
-)
-_PROJECT_REFLECTION_SLUGS = ("reflection-capture-hook-coverage",)
 
 
 def _project_checks():
@@ -110,14 +102,13 @@ def test_bundle_slugs_are_unique():
 
 
 def test_bundle_holds_session_then_audit_checks_in_order():
-    """Session checks precede the ledger audit, then the reflection audits."""
+    """Session checks precede the ledger audit."""
     slugs = [hc.slug for hc in HARNESS_HEALTH_CHECKS]
     assert slugs == (
         ["windows-mount-checkout", "wsl-systemd"]
         + list(_ENGINE_SESSION_SLUGS)
         + list(_ENGINE_CONFIG_SLUGS)
         + list(_ENGINE_LEDGER_AUDIT_SLUGS)
-        + list(_ENGINE_REFLECTION_SLUGS)
         + [
             "connections",
             "harness-cli-auth",
@@ -137,7 +128,7 @@ def test_self_scoped_harness_slugs_registered_as_project_checks():
     slugs = [hc.slug for hc in _project_checks()]
     engine_slugs = {hc.slug for hc in HARNESS_HEALTH_CHECKS}
     self_scoped = (
-        _PROJECT_SESSION_SLUGS + _PROJECT_LEDGER_AUDIT_SLUGS + _PROJECT_REFLECTION_SLUGS
+        _PROJECT_SESSION_SLUGS + _PROJECT_LEDGER_AUDIT_SLUGS
     )
     for slug in self_scoped:
         assert slugs.count(slug) == 1, (

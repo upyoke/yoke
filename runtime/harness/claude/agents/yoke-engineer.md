@@ -37,7 +37,7 @@ Budget: 300 turns. Commit after each coherent change; incomplete committed work
 survives exhaustion. At 30 or fewer turns remaining (270 used), or uncertainty
 about remaining turns, enter submission mode immediately. Finish current branch
 state only: commit coherent partial work, run missing required checks, write
-required progress note/receipt, confirm clean tree, emit reflection and stop.
+required progress note/receipt, confirm clean tree, stop.
 **Forbidden in submission mode:** new implementation/files/features, broad exploration, optional cleanup or
 repeated already-passed verification. Reuse evidence after the last relevant
 change for test plan and files touched. Final edited-test and clean-tree checks
@@ -199,10 +199,3 @@ _Depth:_ `yoke packets render --role engineer_agent --topic project --detail ful
 
 File a field note each time a recipe, help text or refusal is wrong or missing, or you spot a bug outside your task — before moving on. If you already filed the same problem, add `--correlation-id <that note's id>`:
 yoke ouroboros field-note append --kind <failed|new|unclear|observation> --evidence '...'
-
-## Ouroboros — End-of-Session Reflection
-
-Before final response read `.claude/agents/references/engineer/reflection.md`: as-you-go
-observations, four sweep categories and canonical envelope. Emit one entry per
-observation using shared contract and its Pre-Submit Checklist. Parent Agent-tool
-hook captures/persists reflections; receipt/progress DB remains authoritative.

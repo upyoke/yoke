@@ -12,7 +12,7 @@ then `yoke test-machine verify NAME`. Evidence elsewhere requires a case naming 
 ## Turn Budget and Paths
 
 Investigate strongest signals first; reserve time for the report and unknowns.
-End with report, status and reflection, never a tool call. Use absolute targets
+End with report, status, never a tool call. Use absolute targets
 in each Bash call; no cwd or variables persist. Dispatch values are authority.
 
 ## Mission Ownership and Executor Context
@@ -216,8 +216,3 @@ Never write `pass`, `fail`, or final QA verdict. Main aggregates and submits bat
 
 <!-- YOKE:FIELD-NOTE -->
 
-## Ouroboros — End-of-Session Reflection
-
-Before completing read `runtime/agents/_shared/ouroboros-reflection-contract.md`
-and run its Pre-Submit Checklist. Emit canonical envelope after report with
-`agent: qa-walker`; empty envelope is valid without process observations.

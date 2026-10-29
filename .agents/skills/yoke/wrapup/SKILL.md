@@ -1,6 +1,6 @@
 ---
 name: wrapup
-description: "Structured session wrap-up: ouroboros reflections, unfinished business, session summary."
+description: "Structured session wrap-up: feedback, unfinished business, session summary."
 argument-hint: "(no arguments)"
 ---
 

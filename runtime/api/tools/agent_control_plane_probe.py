@@ -93,31 +93,6 @@ def main() -> int:
             raise RuntimeError(
                 "agent_route_gate_shape: blockers must be a list; repair the served response"
             )
-        capture = call(
-            "ouroboros",
-            "reflection",
-            "capture",
-            "--stdin",
-            "--project",
-            project,
-            "--default-agent",
-            "engineer",
-            stdin="---REFLECTION-START---\n---REFLECTION-END---\n",
-        )
-        for field in (
-            "entries_parsed",
-            "entries_persisted",
-            "entries_persist_failed",
-            "entries_duplicate_skipped",
-        ):
-            if capture[field] != 0:
-                raise RuntimeError(
-                    f"agent_route_empty_capture: {field} was nonzero; inspect parser and rerun"
-                )
-        if capture["errors"] or capture["blocks_seen"] != 1:
-            raise RuntimeError(
-                "agent_route_capture_diagnostics: empty envelope was not recognized; repair parser"
-            )
         audit = subprocess.run(
             ["yoke", "merge", "audit", member, "--project", project],
             capture_output=True,
@@ -144,7 +119,7 @@ def main() -> int:
         print(str(exc), file=sys.stderr)
         return 1
     print(
-        "public agent routes passed: dependency gate, empty reflection receipt, local merge audit; no learning rows created"
+        "public agent routes passed: dependency gate, local merge audit; no learning rows created"
     )
     return 0
 

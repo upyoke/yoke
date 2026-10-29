@@ -10,19 +10,16 @@ module importing a database helper is evidence to trace, not a defect alone.
 | Reachable site | Previous database reach | Current owner and evidence |
 | --- | --- | --- |
 | Conduct entry gates | `check_hard_blocks.main` parsed the item and opened a local connection before a lane existed | `yoke advance preflight hard-blocks` calls existing `advance.preflight.hard_blocks`; unchanged `evaluate_blockers` owns every satisfaction and gate filter. |
-| Conduct manual reflection capture | `reflection_capture` CLI called its DB writer locally | `ouroboros.reflection.capture` runs the complete parser, persistence and marker pipeline on the server. The client sends the full response file or stdin with explicit project and ambient session. |
 | Claude role hook frontmatter, including PM/Designer sidecars | PostToolUse/Failure called `observe.main`; PM/Designer also called `observe_pre.main`. Both connect directly through `observe_db` | Every role uses the shared hook composer and `yoke hook evaluate`; registry chains retain role attribution and run DB policies on the server. Tool grants remain role-owned. |
 | Usher optional merge audit | `merge_audit_report.generate_report` queried items, tasks, lanes and simulations on the client; string item parsing also queried locally | `merge.audit.snapshot` returns project-scoped facts through registered dispatch. Local report composition retains branch, dirty-state and conflict checks. Public refs resolve server-side. |
 | Guard refusal recoveries | Shell-transform, runtime-import, direct-HTTP and DB-rule denials taught direct dispatcher/HTTP calls or database module mutations | Their shared messages now teach registered scoped reads, additive transforms, lifecycle transitions and Progress Log adapters; missing adapters route to the control-plane operator. Detection and authorization rules stay unchanged. |
 
-The obsolete blocker and reflection module front doors refuse before opening
-a database and teach their public command. They are not aliases. New capture
+ They are not aliases. New capture
 and merge-snapshot functions declare `minimum_serving_version=next-release`;
 an older server requires the control-plane operator to serve their carrying
 release. Do not switch to a database profile to work around that floor.
 
-Reflection receipts preserve block classifications, parsed/persisted/duplicate
-counts and errors. A partial parse, invalid marker or failed persistence is
+ A partial parse, invalid marker or failed persistence is
 an incomplete result with recovery, never success. Recognized marker requests
 carry the capturing session, project, role and deterministic request identity.
 Repeating the same entry does not mint a different field-note request.
@@ -48,7 +45,6 @@ Archives describe history and are not live command instructions.
 | Advance, merge, Usher reconciliation and Resync | Advance preflight relays gates; merge preparation resolves item context via registered reads. `usher_reconcile_github.py` relays durable state. Resync detection/prefetch and epic-task repair helpers use `call_dispatcher`; their imported `connect` re-export is not a live client call. |
 | Watchers and QA | Watchers launch the transport-aware command; the candidate source/environment owner stays local. QA runtime SQL belongs to server handlers or deliberately bound test/rehearsal databases. Epic-task domain QA and sessions lookup module recipes are explicitly operator/debug surfaces. |
 | Hook runners across harnesses | `yoke_cli` hook adapter selects HTTPS or local entry. `yoke_contracts.hook_runner.policy_home` gives each chain policy one home; `yoke_harness.hooks.local_subset` runs the client-home policies and `yoke_harness.hooks.client_facts` collects the client facts server-run policies read. Claude, Codex and Cursor use these shared handlers. |
-| Automatic Agent reflection hook | The registered PostToolUse Agent chain already evaluates on the server; it calls the same capture pipeline with the original hook session. Manual capture serves returns lacking that matcher; no evidence establishes lost automatic reflections. |
 | Local settings and source helpers | `runtime_settings.py` reads machine config; `classify_dirty_files.py` reads Git and machine checkout mapping; `persist_system_simulation.py` writes a local report; `step_runners.py` uses transport-aware GitHub state/auth. They do not need new control-plane functions. |
 | Retained engine/debug front doors | `db_router`, `service_client`, `sessions_cli`, `context_routing`, token minting and schema/retention helpers remain server or explicit operator/debug internals. Product teaching uses registered commands; these internals do not grant an agent direct DB authority. |
 | Admin and diagnostic authority | Diagnostic `yoke db read`, governed migration/rehearsal, boot convergence, attended row repair and paired db-admin self-release remain deliberate authority. No credential construction, guard bypass or deployment-run creation belongs in this correction. |

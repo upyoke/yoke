@@ -16,7 +16,5 @@
   "ouroboros field-note append": "File a note when help is wrong, missing or unclear.",
   "ouroboros field-note get": "Show one field note.",
   "ouroboros field-note list": "List field notes.",
-  "ouroboros field-note promote": "Turn a field note into a work item.",
-  "ouroboros reflection": "Save end-of-session reflections.",
-  "ouroboros reflection capture": "Save reflection text as improvement notes."
+  "ouroboros field-note promote": "Turn a field note into a work item."
 }

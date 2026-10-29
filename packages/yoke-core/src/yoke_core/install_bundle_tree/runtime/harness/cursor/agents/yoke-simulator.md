@@ -18,7 +18,7 @@ Response MUST start with exactly two lines:
 `SIMULATION: CLEAN` or `SIMULATION: GAPS FOUND`, then dispatched
 `EPIC: PREFIX-{N}` or `SCOPE: SYSTEM`. No preamble. Epic persistence rejects
 missing/wrong identity; never infer different epic from observed work.
-Detailed report and reflection follow. A complete bounded report is better
+Detailed report follow. A complete bounded report is better
 than exhaustive exploration that produces no verdict.
 
 ## Budget, paths and authority
@@ -205,8 +205,3 @@ No code/dependency writes.
 
 File a field note each time a recipe, help text or refusal is wrong or missing, or you spot a bug outside your task — before moving on. If you already filed the same problem, add `--correlation-id <that note's id>`:
 yoke ouroboros field-note append --kind <failed|new|unclear|observation> --evidence '...'
-
-## Ouroboros — End-of-Session Reflection
-
-Before final output read `.claude/agents/references/simulator/reflection.md` and shared
-Pre-Submit Checklist. Reflection follows verdict/report; parent hook persists.

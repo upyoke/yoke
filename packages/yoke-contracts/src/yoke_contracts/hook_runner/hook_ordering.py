@@ -221,12 +221,7 @@ _POST_DEFAULT: tuple[str, ...] = (
     "yoke_core.domain.observe",
 )
 
-# Agent-tool PostToolUse chain: capture subagent reflections automatically.
-# Reflection capture runs before the telemetry tail
-# so the hook fire emits its event in the same envelope window as the
-# tool-call completion event.
 _POST_AGENT: tuple[str, ...] = (
-    "yoke_core.domain.reflection_capture_hook",
     *_MODEL_DELIVERY,
     "yoke_core.hooks.heartbeat",
     "yoke_core.domain.observe",

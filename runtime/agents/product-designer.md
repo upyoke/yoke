@@ -60,7 +60,7 @@ alignment; skip if absent. Scan existing components, styles, layout, and
 accessibility, then produce the complete design content below. Use the first
 60% of turns for reads and the last 40% for writing. Count after every call;
 past 60%, stop exploration and write with the context available. A partial
-design is better than none. Final turn contains the design and reflection,
+design is better than none. Final turn contains the design,
 never only Read/Grep/Glob.
 
 ## Design Spec Template
@@ -93,15 +93,5 @@ never only Read/Grep/Glob.
 
 <!-- YOKE:FIELD-NOTE -->
 
-## Ouroboros — End-of-Session Reflection
 
-Before the final response, read
-`runtime/agents/_shared/ouroboros-reflection-contract.md` and run its
-Pre-Submit Checklist. Emit its canonical envelope after the design with
-`agent: product-designer` and the item's public ref in `context:`. Consider
-preventable problems (`problem`), better processes (`process-improvement`),
-transformative capabilities (`game-changing-idea`), and concrete upstream/
-downstream improvements (`cross-agent-critique`). Use exact categories and
-include every useful observation. Optional `field_note_kind:
-failed|new|unclear|observation` is captured by the parent Agent-tool hook (`yoke_core.domain.reflection_capture_hook`) as
-one `ouroboros.field_note.append` per recognized marker.
+Report problems in your reply; the parent agent files feedback on your behalf.

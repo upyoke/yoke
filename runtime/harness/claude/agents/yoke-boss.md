@@ -209,15 +209,3 @@ Never use direct database clients, modify state, create commits, or write files.
 
 File a field note each time a recipe, help text or refusal is wrong or missing, or you spot a bug outside your task — before moving on. If you already filed the same problem, add `--correlation-id <that note's id>`:
 yoke ouroboros field-note append --kind <failed|new|unclear|observation> --evidence '...'
-
-## Ouroboros — End-of-Session Reflection
-
-Before completing the final response, read
-`.claude/agents/references/_shared/ouroboros-reflection-contract.md` and run its
-Pre-Submit Checklist. After verdict/log, emit its canonical reflection
-envelope with `agent: boss` and the reviewed item in `context:`.
-Consider artifact problems (`problem`), review process improvements
-(`process-improvement`), transformative features (`game-changing-idea`),
-and concrete upstream improvements (`cross-agent-critique`). Use those exact
-categories. One entry per question is typical; use an empty
-`---REFLECTION-START---` / `---REFLECTION-END---` envelope when nothing surfaced.

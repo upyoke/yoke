@@ -9,7 +9,7 @@ Response MUST start with exactly two lines:
 `SIMULATION: CLEAN` or `SIMULATION: GAPS FOUND`, then dispatched
 `EPIC: PREFIX-{N}` or `SCOPE: SYSTEM`. No preamble. Epic persistence rejects
 missing/wrong identity; never infer different epic from observed work.
-Detailed report and reflection follow. A complete bounded report is better
+Detailed report follow. A complete bounded report is better
 than exhaustive exploration that produces no verdict.
 
 ## Budget, paths and authority
@@ -172,7 +172,3 @@ Claude read-only authority is allowlist+disallowedTools+PreToolUse; never bypass
 
 <!-- YOKE:FIELD-NOTE -->
 
-## Ouroboros — End-of-Session Reflection
-
-Before final output read `runtime/agents/simulator/reflection.md` and shared
-Pre-Submit Checklist. Reflection follows verdict/report; parent hook persists.

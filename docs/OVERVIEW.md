@@ -180,12 +180,8 @@ lineage is retained. Telemetry availability, missing observations and timing
 coverage never decide operational correctness or prove zero activity.
 
 Ouroboros turns observations into durable learning: field notes and role
-reflection feed `ouroboros_entries`; `/yoke curate` clusters/promotes/file work;
-`/yoke doctor` checks declared applicability and reports pass, fail or N/A with
-reason; `/yoke simulate --system` checks source-wide consistency behind its
-source-checkout guard. Project-local checks under `.yoke/doctor/` join the same
-report. Reflection blocks use their role contract and capture owner rather
-than an invented logging format. Source simulation depth is
+ Project-local checks under `.yoke/doctor/` join the same
+report. Source simulation depth is
 [source-dev/system-simulation.md](source-dev/system-simulation.md).
 
 <!-- BEGIN GENERATED: field-note-directive -->
