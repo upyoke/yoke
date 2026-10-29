@@ -1,14 +1,15 @@
 """Redispatch reaches a live recipient when a prior QA audience ended."""
 
 from runtime.api.domain.test_deployment_qa_plan_groups import RUN, _seed
-from runtime.api.domain.test_deployment_qa_plan_group_scenarios import _dispatch, _form
+from runtime.api.domain.test_deployment_qa_plan_group_scenarios import _dispatch, _form, _manual_plan
 from runtime.api.domain.test_deployment_qa_stage_wake_delivery import _project, seed_session
 from runtime.api.fixtures.deployment_run_driver_fixture import release_seeded_driver
 from yoke_core.domain.deployment_run_driver_attachment import attach_driver, PHASE_EXECUTING
 
 
 def test_group_dispatch_replaces_notice_to_ended_driver(test_db):
-    _seed(test_db)
+    plan_id = _seed(test_db)
+    _manual_plan(test_db, plan_id)
     _project(test_db)
     for session in ("old-driver", "run-starter"):
         seed_session(test_db, session)
@@ -43,7 +44,8 @@ def test_unanswered_group_with_no_driver_needs_steering_action(test_db):
     from yoke_contracts.timestamps import utc_now
     from yoke_core.domain.deployment_qa_plan_groups import run_groups
 
-    _seed(test_db)
+    plan_id = _seed(test_db)
+    _manual_plan(test_db, plan_id)
     _project(test_db)
     seed_session(test_db, "run-starter")
     release_seeded_driver(test_db, RUN)
@@ -66,7 +68,13 @@ def test_member_dispatch_replaces_notice_to_ended_holder(test_db):
     from yoke_core.domain.deployment_qa_stage_dispatch import materialize_and_gate_deployment_qa_stage
 
     run_id, member = "run-member-restaffed", 9983
-    seed_member_qa_case(test_db, run_id=run_id, member_item_id=member)
+    requirement_id = seed_member_qa_case(test_db, run_id=run_id, member_item_id=member)
+    test_db.execute(
+        "UPDATE qa_requirements SET wake_path='manual', "
+        "wake_evidence='a production traffic sample is recorded for this release' WHERE id=%s",
+        (requirement_id,),
+    )
+    test_db.commit()
     _project(test_db)
     for session in ("old-holder", "new-holder"):
         seed_session(test_db, session)

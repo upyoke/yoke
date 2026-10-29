@@ -105,7 +105,7 @@ def assert_standalone_subjects(conn: Any) -> None:
     """Prove exclusive ownership and retain the deployment index guarantees."""
     from yoke_core.domain.qa_deployment_scope_schema import (
         _assert_indexes,
-        _EXECUTION_INDEX_SPECS,
+        EXECUTION_INDEX_SPECS,
         _REQUIREMENT_INDEX_SPECS,
     )
 
@@ -129,7 +129,7 @@ def assert_standalone_subjects(conn: Any) -> None:
         assert row is not None and canonical_boolean_expression(str(row[0])) == (
             canonical_boolean_expression(f"CHECK ({expression})")
         ), f"{name} does not enforce standalone ownership"
-    _assert_indexes(conn, "qa_plan_executions", _EXECUTION_INDEX_SPECS)
+    _assert_indexes(conn, "qa_plan_executions", EXECUTION_INDEX_SPECS)
     _assert_indexes(conn, "qa_requirements", _REQUIREMENT_INDEX_SPECS)
     _assert_indexes(
         conn,

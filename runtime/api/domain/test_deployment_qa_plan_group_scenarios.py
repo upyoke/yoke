@@ -198,6 +198,16 @@ def _wait_messages(conn):
     ).fetchall()
 
 
+def _manual_plan(conn, plan_id):
+    conn.execute(
+        "UPDATE qa_plan_cases SET wake_path='manual', "
+        "wake_evidence='a production traffic sample is recorded for this release' "
+        "WHERE plan_id=%s",
+        (plan_id,),
+    )
+    conn.commit()
+
+
 def _dispatch(conn):
     stage = {"name": "item-qa", "scope": "item"}
     return gate_plan_groups(conn, stage, run_id=RUN, project_id=1, item_refs=str)
@@ -215,7 +225,8 @@ def test_an_unchanged_dispatch_sends_no_second_notice_and_a_new_group_re_sends(t
         attach_driver,
     )
 
-    _seed(test_db)
+    plan_id = _seed(test_db)
+    _manual_plan(test_db, plan_id)
     _project(test_db)
     seed_session(test_db, "sess-plan-driver")
     release_seeded_driver(test_db, RUN)
@@ -229,6 +240,7 @@ def test_an_unchanged_dispatch_sends_no_second_notice_and_a_new_group_re_sends(t
     assert f"--plan {SLUG}" in first[1]
 
     other = _plan(test_db, "other-plan")
+    _manual_plan(test_db, other)
     _attach(test_db, MEMBERS[0], other)
     _form(test_db)
     _dispatch(test_db)

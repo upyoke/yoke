@@ -127,35 +127,23 @@ def _case(conn, plan_id: int) -> dict:
     }
 
 
-def test_a_project_can_declare_a_deployed_scope_reachable_from_ci() -> None:
-    """The project, not the scope table, decides whether CI can reach a site."""
+def test_post_deploy_scope_refuses_ci_before_any_plan_write() -> None:
     with test_database() as conn:
-        _declare(
-            conn,
-            {
-                "workflow_file": "ci.yml",
-                "scope_workflows": {"smoke": "post-deploy.yml"},
-            },
-        )
-        result = ensure_registered_command_plan(
-            conn,
-            project_id=1,
-            project="yoke",
-            scope="smoke",
-            command="npx playwright test",
-            target_environment="development",
-        )
-        case = _case(conn, result["plan_id"])
-
-    assert result["ci_workflow"] == "post-deploy.yml"
-    assert case["method_id"] == CI_COMMAND_METHOD_ID
+        _declare(conn, {"workflow_file": "ci.yml", "scope_workflows": {"smoke": "post-deploy.yml"}})
+        before = conn.execute("SELECT COUNT(*) FROM qa_plans").fetchone()[0]
+        with pytest.raises(ValueError, match="deployment_ci_case_unsupported"):
+            ensure_registered_command_plan(
+                conn, project_id=1, project="yoke", scope="smoke",
+                command="npx playwright test", target_environment="development",
+            )
+        assert conn.execute("SELECT COUNT(*) FROM qa_plans").fetchone()[0] == before
 
 
 def test_ci_deployed_scope_requires_an_environment_before_plan_writes() -> None:
     with test_database() as conn:
         _declare(
             conn,
-            {"scope_workflows": {"smoke": "post-deploy.yml"}},
+            {"scope_workflows": {"e2e": "post-deploy.yml"}},
         )
         before = conn.execute("SELECT COUNT(*) FROM qa_plans").fetchone()[0]
 
@@ -164,7 +152,7 @@ def test_ci_deployed_scope_requires_an_environment_before_plan_writes() -> None:
                 conn,
                 project_id=1,
                 project="yoke",
-                scope="smoke",
+                scope="e2e",
                 command="npx playwright test",
             )
         with pytest.raises(ValueError, match="cannot use --requires-base-url"):
@@ -172,7 +160,7 @@ def test_ci_deployed_scope_requires_an_environment_before_plan_writes() -> None:
                 conn,
                 project_id=1,
                 project="yoke",
-                scope="smoke",
+                scope="e2e",
                 command="npx playwright test",
                 requires_base_url=True,
             )
@@ -189,14 +177,14 @@ def test_a_declared_scope_dispatches_its_own_workflow_not_the_default() -> None:
             conn,
             {
                 "workflow_file": "ci.yml",
-                "scope_workflows": {"smoke": "post-deploy.yml"},
+                "scope_workflows": {"e2e": "post-deploy.yml"},
             },
         )
         smoke = ensure_registered_command_plan(
             conn,
             project_id=1,
             project="yoke",
-            scope="smoke",
+            scope="e2e",
             command="npx playwright test",
             target_environment="development",
         )
@@ -222,7 +210,7 @@ def test_an_undeclared_deployed_scope_keeps_the_local_runner() -> None:
             conn,
             project_id=1,
             project="yoke",
-            scope="smoke",
+            scope="e2e",
             command="npx playwright test",
             requires_base_url=True,
         )
@@ -241,14 +229,14 @@ def test_converge_leaves_a_declared_deployed_scope_alone() -> None:
             conn,
             {
                 "workflow_file": "ci.yml",
-                "scope_workflows": {"smoke": "post-deploy.yml"},
+                "scope_workflows": {"e2e": "post-deploy.yml"},
             },
         )
         ensure_registered_command_plan(
             conn,
             project_id=1,
             project="yoke",
-            scope="smoke",
+            scope="e2e",
             command="npx playwright test",
             target_environment="development",
         )
@@ -270,7 +258,7 @@ def test_converge_no_longer_reverts_a_declared_deployed_scope() -> None:
             conn,
             project_id=1,
             project="yoke",
-            scope="smoke",
+            scope="e2e",
             command="npx playwright test",
             target_environment="development",
         )
@@ -278,7 +266,7 @@ def test_converge_no_longer_reverts_a_declared_deployed_scope() -> None:
             conn,
             {
                 "workflow_file": "ci.yml",
-                "scope_workflows": {"smoke": "post-deploy.yml"},
+                "scope_workflows": {"e2e": "post-deploy.yml"},
             },
         )
 
@@ -289,7 +277,7 @@ def test_converge_no_longer_reverts_a_declared_deployed_scope() -> None:
     assert first == [
         {
             "project": "yoke",
-            "scope": "smoke",
+            "scope": "e2e",
             "method_id": CI_COMMAND_METHOD_ID,
             "ci_workflow": "post-deploy.yml",
         }
@@ -305,7 +293,7 @@ def test_converge_still_corrects_a_binding_that_disagrees() -> None:
             conn,
             project_id=1,
             project="yoke",
-            scope="smoke",
+            scope="e2e",
             command="npx playwright test",
             target_environment="development",
         )
@@ -313,7 +301,7 @@ def test_converge_still_corrects_a_binding_that_disagrees() -> None:
             conn,
             {
                 "workflow_file": "ci.yml",
-                "scope_workflows": {"smoke": "post-deploy.yml"},
+                "scope_workflows": {"e2e": "post-deploy.yml"},
             },
         )
         converge_registered_command_plans(conn)
@@ -329,7 +317,7 @@ def test_converge_still_corrects_a_binding_that_disagrees() -> None:
     assert converged == [
         {
             "project": "yoke",
-            "scope": "smoke",
+            "scope": "e2e",
             "method_id": LOCAL_COMMAND_METHOD_ID,
             "ci_workflow": "",
         }

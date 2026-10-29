@@ -121,7 +121,7 @@ def test_create_refuses_when_an_unreleased_item_strands_its_dependents(
         tmp_path,
         monkeypatch,
         {
-            UNRELEASED_ID: "reviewing-implementation",
+            UNRELEASED_ID: "implementing",
             DEPENDENT_ID: "release",
             TRANSITIVE_ID: "release",
             UNRELATED_ID: "release",
@@ -136,7 +136,7 @@ def test_create_refuses_when_an_unreleased_item_strands_its_dependents(
     message = str(refused.value)
     assert "release_stranding_unreleased_blocker" in message
     assert (
-        f"{refs[UNRELEASED_ID]} (status=reviewing-implementation) strands "
+        f"{refs[UNRELEASED_ID]} (status=implementing) strands "
         f"{refs[DEPENDENT_ID]}, {refs[TRANSITIVE_ID]}"
     ) in message
     assert f"strands {refs[DEPENDENT_ID]}, {refs[TRANSITIVE_ID]}." in message
@@ -153,7 +153,7 @@ def test_create_warns_when_no_carried_item_depends_on_the_unreleased_item(
         test_db,
         tmp_path,
         monkeypatch,
-        {UNRELEASED_ID: "reviewing-implementation", UNRELATED_ID: "release"},
+        {UNRELEASED_ID: "implementing", UNRELATED_ID: "release"},
     )
 
     created = create_run("yoke", RELEASE_FLOW, release_lineage=tip)
@@ -161,7 +161,7 @@ def test_create_warns_when_no_carried_item_depends_on_the_unreleased_item(
     assert created.run_id in _run_ids(test_db)
     notice = _composition_notice(created.run_id)
     assert "WARNING: merged into this candidate but not at release yet" in notice
-    assert f"{refs[UNRELEASED_ID]} (status=reviewing-implementation)" in notice
+    assert f"{refs[UNRELEASED_ID]} (status=implementing)" in notice
     assert "release_stranding_unreleased_blocker" not in notice
 
 
@@ -172,7 +172,7 @@ def test_validating_an_existing_run_keeps_the_notice_instead_of_refusing(
         test_db,
         tmp_path,
         monkeypatch,
-        {UNRELEASED_ID: "reviewing-implementation", DEPENDENT_ID: "release"},
+        {UNRELEASED_ID: "implementing", DEPENDENT_ID: "release"},
     )
     _depend(test_db, DEPENDENT_ID, UNRELEASED_ID)
     insert_run(

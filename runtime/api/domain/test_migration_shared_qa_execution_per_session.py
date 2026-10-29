@@ -14,7 +14,7 @@ INDEX = "idx_qa_plan_executions_deployment_stage_active"
 
 
 def _install_run_and_stage_key(conn) -> None:
-    conn.execute(f'DROP INDEX "{INDEX}"')
+    conn.execute(f'DROP INDEX IF EXISTS "{INDEX}"')
     conn.execute(
         f"CREATE UNIQUE INDEX {INDEX} "
         "ON qa_plan_executions(deployment_run_id,deployment_stage) "

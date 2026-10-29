@@ -1,22 +1,9 @@
-"""Where each class of verification runs, as the project declares it.
+"""Project-declared CI routing for verification scopes.
 
-Two of the registered verification scopes are the repository's own test suite,
-which a CI workflow already runs on every pull request. The other two assert
-against a deployed site behind a base URL — and whether CI can reach that site
-is a fact about the project, not about the scope. A publicly reachable site can
-be checked from CI; one behind a private network cannot. Asserting either
-answer for every project is what left a project unable to run its own
-post-deploy suite anywhere: the credentials that suite needs existed only as CI
-secrets, so the machine was the one place it could not work.
-
-So the scope table keeps a default, and a project may override it by naming the
-workflow that runs a scope. Naming a workflow *is* the declaration that the
-scope is routable there — the routing decision was already "did a workflow
-name resolve?", so one mechanism answers both questions and no second
-redundant flag can drift out of agreement with it.
-
-A project that declares nothing keeps the default, which is why adding this
-costs existing projects no edit.
+Quick and full default to the declared CI workflow. E2e may name its own
+workflow for a reachable environment. Post-deploy smoke runs the admitted
+candidate locally; registration refuses an explicit CI mapping for it.
+A workflow name declares routing, so no second flag can disagree with it.
 """
 
 from __future__ import annotations

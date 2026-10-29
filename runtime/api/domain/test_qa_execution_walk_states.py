@@ -111,6 +111,8 @@ def test_migration_classifies_old_rows_and_preserves_custody(test_db):
         (ordinary["id"],),
     )
     _restore(test_db, restored_run)
+    # Reconstruct the pre-cutover index retired by the later target migration.
+    EARLIER_MIGRATIONS[1].apply(test_db)
     _old_contract(test_db)
     before = dict(test_db.execute(
         "SELECT id,execution_target_digest FROM qa_plan_executions"
@@ -121,6 +123,12 @@ def test_migration_classifies_old_rows_and_preserves_custody(test_db):
     MIGRATION.invariants(test_db)
     for earlier in EARLIER_MIGRATIONS:
         earlier.invariants(test_db)
+    target_migration = importlib.import_module(
+        "yoke_core.domain.migrations.0096_qa_execution_target_scope"
+    )
+    target_migration.apply(test_db)
+    target_migration.invariants(test_db)
+    MIGRATION.invariants(test_db)
     assert MIGRATION.MINIMUM_SERVING_VERSION == NEXT_RELEASE
     rows = dict(test_db.execute("SELECT id,state FROM qa_plan_executions").fetchall())
     assert rows[walking["id"]] == "walking"

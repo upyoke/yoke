@@ -4,8 +4,6 @@
 [Getting started](../index.md) > [Command and technical reference](../guide/reference/index.md) > Verification
 <!-- /yoke:breadcrumbs -->
 
-Define cases and inspect evidence for workflow and deployment gates.
-
 Workbench **QA** tabs:
 
 | Tab | Meaning |
@@ -63,11 +61,12 @@ Deployed scopes use one explicit target contract:
 |---|---|
 | Local, declared environment | add `--environment SITE/NAME` (or an environment ID) |
 | Local, runtime URL | add `--requires-base-url`; the case run must supply HTTP(S) `--base-url` |
-| CI via `scope_workflows` | add `--environment SITE/NAME`; runtime URL mode is refused |
+| CI via `scope_workflows` (`e2e` only) | add `--environment SITE/NAME`; runtime URL mode is refused |
 
-Exactly one local deployed target is required. Invalid combinations and bad
-environment references are refused before plan writes. Generic `yoke qa plan
-create` remains environment-bound and still requires `--environment`.
+Post-deploy `smoke` uses a Command case on the release candidate. A CI mapping
+for it refuses `deployment_ci_case_unsupported`; remove that mapping.
+Local deployed scopes require one target. Invalid targets refuse before writes.
+Generic `yoke qa plan create` still requires `--environment`.
 
 Test roots are independent Project Structure entries. Record each monorepo
 tree with a keyed `test_roots` `put`; the quick command may intentionally cover

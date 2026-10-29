@@ -18,13 +18,10 @@ A post-deploy plan attached to release members runs once per release as one
 yoke qa plan run --deployment-run-id RUN --stage item-qa --plan PLAN --project P
 ```
 
-Failure: [item recovery](failed-item-qa.md). Options: `yoke qa plan run --help`.
-Scope and target binding: [Case attachment](case-attachment.md#binding-a-deployment-case-to-its-stage-and-member).
+See [item recovery](failed-item-qa.md), [target binding](case-attachment.md#binding-a-deployment-case-to-its-stage-and-member) and `yoke qa plan run --help`.
 
-Admission copies executable item cases; others stay on the source item.
-Attaching a post-deploy plan writes no item copy, and admission saves no plan.
-The plan supplies cases; stage targets supply `target_env`, preserving scope
-for corrections without `target_envs`.
+Admission copies executable item cases, retaining others on the item. Attached
+plans supply cases without copies; stage targets supply `target_env` for corrections.
 
 [QA continuity](deployment-qa-continuity.md): item authority, release takeover,
 cross-build observations and exact-execution recovery.
@@ -41,19 +38,16 @@ source revision, and cases are filtered to the target. The run pins each plan
 at its first group, so plan edits during a release wait for the next release.
 A run holds at most one open group per plan.
 
-The release driver runs each pending plan group and each run-scoped QA plan
-itself. A long case runs outside the bounded stage-dispatch thread. One group
-awaiting agent review does not stop other groups. Manual-evidence cases stay
-with their owners; review and manual waits reach the live driver, else the
-starting session, else steering. Holders of plan-only items park while the
-stage waits for all groups. Recovery commands retain the selected `--env`.
+The driver runs pending groups and run-scoped QA plans outside bounded stage
+dispatch. Review in one group does not stop another. Review and manual-evidence
+waits reach the driver, else the starting session, else steering. Plan-only
+item holders park; the stage waits for every group. Recipes retain `--env`.
 
-Plan commands have no `DEPLOYMENT_MEMBER_REF`; authoring refuses it as
+Plan commands have no member: `DEPLOYMENT_MEMBER_REF` refuses as
 `qa_plan_member_reference_unsupported`. Read `YOKE_QA_CANDIDATE_TREE` (JSON with
-`root` and `head_sha`) or the candidate's detached HEAD for source identity.
-`yoke watch pytest -- <paths>` runs locally inside that bound candidate.
-A `command-ci` case proves an item branch and cannot attach post-deploy:
-`deployment_ci_case_unsupported` names a Command case as the replacement.
+`root`, `head_sha`) or detached HEAD. `yoke watch pytest -- <paths>` runs locally
+in that candidate. Post-deploy `command-ci` refuses as
+`deployment_ci_case_unsupported`; use a Command case against the candidate.
 
 `--plan PLAN` at `item-qa` runs that plan's open group for the whole release;
 no command selects one member's plan cases, so attach the plan instead. With no
@@ -327,10 +321,7 @@ listing the stage's blockers and next commands; once every case passed, stage
 acceptance settles on the newest stopped execution. A live execution keeps its
 own roster: abort it first to drop cases passed elsewhere.
 
-## Recover communication on the frozen execution
-
-Use the [exact execution recovery](deployment-qa-continuity.md#recover-communication-on-the-frozen-execution)
-recipe; preserve its saved receipts and host state.
+Recover communication through [exact execution recovery](deployment-qa-continuity.md#recover-communication-on-the-frozen-execution), preserving saved receipts and host state.
 
 ## Related
 
