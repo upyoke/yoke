@@ -4,15 +4,16 @@ The end of a job log is teardown — artifact uploads, cache saves, job
 cleanup — so a plain tail shows everything except the failure. This
 module finds the failure region instead:
 
-1. pytest's ``FAILURES`` / ``ERRORS`` section through the end of its
-   step, which carries every assertion and the short test summary;
+1. pytest's ``FAILURES`` / ``ERRORS`` or Vitest's ``Failed Tests`` /
+   ``Failed Suites`` section through the end of its step, which carries
+   every assertion and the short test summary;
 2. otherwise the step holding the last ``##[error]`` annotation, which
    ends at the error that failed it (an earlier error may come from a
    step that recovered on retry);
 3. otherwise the log itself, with post-job teardown removed.
 
-The region is bounded by lines and bytes. A pytest region keeps its head
-(the first failure's traceback) and its tail (the short test summary);
+The region is bounded by lines and bytes. A test failure region keeps its head
+(the first failure) and its tail (the short test summary);
 the other regions keep their tail, where a step's failure lands. Trimmed
 lines are named in the region, never dropped silently.
 """
@@ -30,13 +31,15 @@ DEFAULT_REGION_LINES = 200
 # spend a job's whole byte share.
 MAX_LINE_CHARS = 2_000
 
-REGION_PYTEST = "pytest_failures"
+REGION_TEST_FAILURES = "test_failures"
 REGION_ERROR_STEP = "failing_step"
 REGION_LOG = "log_end"
 
 _TIMESTAMP = re.compile(r"^﻿?\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z ?")
 _ANSI = re.compile(r"\x1b\[[0-9;]*[A-Za-z]")
-_PYTEST_SECTION = re.compile(r"^=+ (?:FAILURES|ERRORS) =+$")
+_TEST_FAILURE_SECTION = re.compile(
+    r"^(?:=+ (?:FAILURES|ERRORS) =+|⎯+ Failed (?:Tests|Suites) \d+ ⎯+)$"
+)
 _STEP_START = "##[group]Run "
 _ERROR_ANNOTATION = "##[error]"
 _POST_JOB_MARKERS = ("##[group]Post ", "Post job cleanup.")
@@ -62,7 +65,7 @@ def failure_region(text: str, *, max_lines: int, max_bytes: int) -> FailureRegio
         region,
         max_lines=max_lines,
         max_bytes=max_bytes,
-        keep_head=kind == REGION_PYTEST,
+        keep_head=kind == REGION_TEST_FAILURES,
     )
     return FailureRegion(
         kind=kind,
@@ -90,8 +93,8 @@ def _clean_lines(text: str) -> List[str]:
 
 def _locate(lines: Sequence[str]) -> Tuple[str, int, int]:
     for index, line in enumerate(lines):
-        if _PYTEST_SECTION.match(line.strip()):
-            return REGION_PYTEST, index, _step_end(lines, index)
+        if _TEST_FAILURE_SECTION.match(line.strip()):
+            return REGION_TEST_FAILURES, index, _step_end(lines, index)
     for index in range(len(lines) - 1, -1, -1):
         if lines[index].startswith(_ERROR_ANNOTATION):
             return REGION_ERROR_STEP, _step_start(lines, index), _step_end(lines, index)
@@ -154,6 +157,6 @@ __all__ = [
     "FailureRegion",
     "REGION_ERROR_STEP",
     "REGION_LOG",
-    "REGION_PYTEST",
+    "REGION_TEST_FAILURES",
     "failure_region",
 ]

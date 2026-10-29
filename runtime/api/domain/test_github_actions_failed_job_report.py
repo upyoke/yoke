@@ -72,8 +72,8 @@ class TestBuildFailedJobReport:
         assert SUMMARY_LINE in report.output
         assert "Uploaded bytes" not in report.output
         assert "Post job cleanup" not in report.output
-        assert report.jobs[0]["region"] == "pytest_failures"
-        assert "--- pytest failures section:" in report.output
+        assert report.jobs[0]["region"] == "test_failures"
+        assert "--- test failures section:" in report.output
 
     def test_distinct_failures_survive_the_bound_on_every_shard(self):
         jobs = [

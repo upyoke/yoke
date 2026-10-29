@@ -2,17 +2,20 @@
 
 from __future__ import annotations
 
+import pytest
+
 from runtime.api.domain.github_actions_job_log_samples import (
     FIRST_ASSERTION,
     SUMMARY_LINE,
     TYPE_ERROR,
     build_job_log,
     pytest_job_log,
+    vitest_job_log,
 )
 from yoke_core.domain.github_actions_failure_region import (
     REGION_ERROR_STEP,
     REGION_LOG,
-    REGION_PYTEST,
+    REGION_TEST_FAILURES,
     failure_region,
 )
 
@@ -23,11 +26,24 @@ class TestLocate:
     def test_pytest_region_runs_from_failures_through_the_error(self):
         region = failure_region(pytest_job_log(), max_lines=500, max_bytes=UNBOUNDED)
 
-        assert region.kind == REGION_PYTEST
+        assert region.kind == REGION_TEST_FAILURES
         assert region.lines[0].startswith("=") and "FAILURES" in region.lines[0]
         assert FIRST_ASSERTION in region.lines
         assert SUMMARY_LINE in region.lines
         assert region.lines[-1] == "##[error]Process completed with exit code 1."
+        assert region.trimmed_line_count == 0
+
+    @pytest.mark.parametrize("section", ["Tests", "Suites"])
+    def test_vitest_section_precedes_trailing_annotation(self, section):
+        region = failure_region(
+            vitest_job_log(section=section), max_lines=200, max_bytes=UNBOUNDED
+        )
+
+        assert region.kind == "test_failures"
+        assert region.lines[0] == f"⎯⎯⎯⎯⎯⎯⎯ Failed {section} 5 ⎯⎯⎯⎯⎯⎯⎯"
+        assert "QaCasesNotSelectedError:" in region.lines[2]
+        assert region.lines[-1] == "Tests  5 failed (5)"
+        assert not any("route-consumer-failure" in line for line in region.lines)
         assert region.trimmed_line_count == 0
 
     def test_teardown_and_upload_steps_never_appear(self):
