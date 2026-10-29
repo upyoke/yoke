@@ -152,7 +152,7 @@ class TestSteerContinuity:
         for harness in ("claude", "codex", "cursor"):
             rendered = apply_conditional_blocks(watching, harness)
             assert "yoke watch fleet --print-streaming-pair" in rendered
-            assert "--mode steer" in rendered
+            assert "sessions touch --mode wait" in rendered
             assert ("`exec_command`" in rendered) == (harness == "codex")
             assert ("`Monitor`" in rendered) == (harness == "claude")
             assert ("`notify_on_output`" in rendered) == (harness == "cursor")
