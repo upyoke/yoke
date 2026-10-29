@@ -122,7 +122,7 @@
 | OperatorLeaseRelease | system | lease_lifecycle | api | WARN | Operator manually released a stranded coordination lease via human-only override |
 | OperatorMergedAtCorrection | system | item_lifecycle | yoke_core.domain.item_merge_provenance_operator | WARN | Operator set a terminal item's unset merged_at via items.merge_provenance.operator_correct. Emitted before the write; context carries the new merged_at and operator_reason. |
 | OrganizationDomainChanged | lifecycle | org_settings | yoke_core.domain.external_identities | STATUS | Operator set or cleared the org identity domain; context carries previous and new values |
-| OuroborosFieldNoteAppended | domain | ouroboros_feedback | yoke_core.domain.handlers.ouroboros_field_note | INFO | An agent-authored field note was durably appended with its classification, evidence preview, provenance, project, and optional correction relationship. |
+| OuroborosFieldNoteAppended | domain | ouroboros_feedback | yoke_core.domain.handlers.ouroboros_field_note | INFO | An agent-authored feedback was durably appended with its classification, evidence preview, provenance, project, and optional correction relationship. |
 | PageViewed | analytics | page_view | yoke_core.ui | INFO | The Yoke web UI rendered a page. Carries the sanitized page URL, path, title, referrer and attribution. |
 | PathClaimActivated | lifecycle | path_claim | yoke_core.domain.path_claims_events | INFO | Path claim activated — door lock acquired against pinned base snapshot |
 | PathClaimActivationBlocked | lifecycle | path_claim | yoke_core.domain.path_claims_events | WARN | Path-claim activation rejected (overlap raced ahead, upstream not released) |

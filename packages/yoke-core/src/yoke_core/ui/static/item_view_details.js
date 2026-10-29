@@ -149,7 +149,7 @@ function sourceFieldNotePanel(documentNode, item) {
   if (!note) return null;
   const { panel, body } = workflowPanel(
     documentNode,
-    "Promoted from field note",
+    "Promoted from feedback",
   );
   body.appendChild(el(
     documentNode,
@@ -159,7 +159,7 @@ function sourceFieldNotePanel(documentNode, item) {
   ));
   body.appendChild(actionLink(
     documentNode,
-    `Open field note #${note.entry_id}`,
+    `Open feedback #${note.entry_id}`,
     buildUniverseRoute(
       "ouroboros",
       note.project_id || item.project.id,

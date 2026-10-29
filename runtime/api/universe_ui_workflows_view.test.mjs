@@ -113,7 +113,7 @@ test("Dash entry surfaces use the prototype filing copy", async (t) => {
       "Enter a Dash on the web",
       "CLI",
       "Harness",
-      "Promote from field note",
+      "Promote from feedback",
     ],
   );
   assert.deepEqual(classText(root, "workflow-entry-command"), [

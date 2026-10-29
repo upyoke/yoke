@@ -176,7 +176,7 @@ def items_progress_log_append(args: List[str]) -> int:
         "--content",
         "--content-file",
         dest="content",
-        help_text="Current-state checkpoint, at most 4,096 UTF-8 bytes. Write only what changed and the next step; move evidence to artifacts or field-notes. Use --content-file to read from a path.",
+        help_text="Current-state checkpoint, at most 4,096 UTF-8 bytes. Write only what changed and the next step; move evidence to artifacts or feedback. Use --content-file to read from a path.",
     )
     add_stdin_flag(content_group, help_text="Read the entry body from stdin.")
     parser.add_argument(

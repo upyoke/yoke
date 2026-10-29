@@ -46,6 +46,25 @@ OUROBOROS_FIELD_NOTE_LIST_USAGE = (
 )
 
 
+def _write_feedback_list(response, stdout, stderr) -> None:
+    result = response.result or {}
+    if result.get("count") is not None:
+        print(f"Matching feedback: {result['count']}", file=stdout)
+        return
+    entries = result.get("entries", [])
+    print(f"Feedback ({len(entries)} rows)", file=stdout)
+    print("ID | CATEGORY | CREATED | EVIDENCE PREVIEW", file=stdout)
+    for entry in entries:
+        preview = " ".join(str(entry.get("body") or "").split())
+        if len(preview) > 100:
+            preview = preview[:97] + "..."
+        print(
+            f"{entry['id']} | {entry.get('category', '')} | "
+            f"{entry.get('timestamp', '')} | {preview}", file=stdout,
+        )
+    print("Full evidence: yoke feedback get ID", file=stdout)
+
+
 def feedback_list(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke feedback list",
@@ -96,6 +115,7 @@ def feedback_list(args: List[str]) -> int:
         payload["count"] = True
     return dispatch_list(
         parsed=parsed,
+        human_writer=_write_feedback_list,
         function_id="ouroboros.field_note.list",
         target=TargetRef(kind="global"),
         payload=payload,
@@ -115,7 +135,7 @@ def feedback_get(args: List[str]) -> int:
         usage=OUROBOROS_FIELD_NOTE_GET_USAGE,
     )
     parser.add_argument(
-        "entry_id", metavar="ENTRY_ID", help="Field note id (a number)."
+        "entry_id", metavar="ENTRY_ID", help="Feedback id (a number)."
     )
     add_session_arg(parser)
     add_json_arg(parser)

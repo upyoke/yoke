@@ -25,7 +25,7 @@ yoke lifecycle transition ITEM --from LIVE_STAGE --to REWORK_STAGE --reason "req
 
 Approval-on-done: wait for the owner's decision, then resume.
 
-Report this session's guardrail denials (file field notes for any unrecorded):
+Report this session's guardrail denials (file feedback for any unrecorded):
 
 ```text
 yoke events query --session SESSION_ID --event-name HarnessToolCallDenied --json

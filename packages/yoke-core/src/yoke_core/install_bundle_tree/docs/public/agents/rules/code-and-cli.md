@@ -26,7 +26,7 @@ Function ids: [function families](../../functions/index.md).
 
 Name paths, symbols, tests and prose for their current purpose, for repository readers.
 No item refs (`PREFIX-1234`),
-plan, milestone, phase, stage, tier, slice, track, wave, batch or field-note provenance, and
+plan, milestone, phase, stage, tier, slice, track, wave, batch or feedback provenance, and
 no criterion, requirement or spec ids (`AC-7`, `FR-3`, §7), except
 runtime data and fixtures (`HC-acceptance-criterion-provenance`). Directory names explain purpose.
 

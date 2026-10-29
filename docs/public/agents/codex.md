@@ -38,7 +38,7 @@ Codex decides whether to stop and ask before running a command from
 machine file is the only place the answer can live. Its defaults ask — and
 its default sandbox denies every outbound socket, which is what a local
 Postgres control plane listens on, so an unconfigured machine cannot reach
-Yoke at all and cannot run the field-note command it is told to fall back to.
+Yoke at all and cannot run the feedback command it is told to fall back to.
 
 The shared harness reconcile writes what Codex needs into that file:
 `approval_policy` and `sandbox_mode` from the same declaration the launch

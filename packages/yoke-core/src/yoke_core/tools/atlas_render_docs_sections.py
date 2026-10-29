@@ -1,4 +1,4 @@
-"""Atlas doc section renderers — teaching/field-notes/contradictions/next/curl.
+"""Atlas doc section renderers — teaching/feedback/contradictions/next/curl.
 
 Sibling of :mod:`atlas_render_docs` (split under the authored-file cap);
 the front door imports these section functions and owns assembly order.
@@ -23,7 +23,7 @@ def _render_teaching(report: Dict[str, Any]) -> List[str]:
     lints = report["lints"]
     out.append(
         f"Lint modules inventoried: **{lints['count']}** "
-        f"({lints['with_field_note_reference']} reference the field-note "
+        f"({lints['with_field_note_reference']} reference the feedback "
         f"footer; {lints['with_denial_text']} carry denial text)."
     )
     out.append("")
@@ -31,14 +31,14 @@ def _render_teaching(report: Dict[str, Any]) -> List[str]:
 
 
 def _render_field_notes(report: Dict[str, Any]) -> List[str]:
-    out = ["## 7. Field-note hotspots", ""]
+    out = ["## 7. Feedback hotspots", ""]
     fn = report["field_notes"]
     if fn.get("error"):
-        out.append(f"_Field-note read failed: {fn['error']}_")
+        out.append(f"_Feedback read failed: {fn['error']}_")
         out.append("")
         return out
     out.append(
-        f"Recent field-notes inspected: **{fn['count']}** "
+        f"Recent feedback inspected: **{fn['count']}** "
         f"(read surface: `{fn['read_surface_status']}`)."
     )
     out.append("")

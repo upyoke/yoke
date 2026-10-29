@@ -1,0 +1,9 @@
+{
+ "id": "feedback-list",
+ "title": "Feedback lists show compact rows and point to full evidence.",
+ "status": "observed",
+ "page": "command-feedback-cases",
+ "form": "State",
+ "verification": "yoke feedback list prints id, category, created time and a single-line evidence preview for each row. Follow yoke feedback get ID for full evidence; --json preserves the complete page. The Yoke source repository routes its own product problems to --to universe, as its AGENTS.md states.",
+ "topics": ["context/disclosure", "reference/commands", "documentation/disclosure/reactive-help"]
+}

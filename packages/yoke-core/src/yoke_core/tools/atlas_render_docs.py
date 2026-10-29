@@ -32,13 +32,13 @@ _TIMESTAMP_LINE_RE = re.compile(
     r"^_Audit generated_at: .*_$", re.MULTILINE
 )
 _TIMESTAMP_PLACEHOLDER = "_Audit generated_at: <stripped for diff>_"
-# Live DB sections (field-notes + next-slice derived from them) churn;
+# Live DB sections (feedback + next-slice derived from them) churn;
 # strip them so tree-only CI matches a laptop-rendered atlas.md.
 _FIELD_NOTE_SECTION_RE = re.compile(
-    r"^## 7\. Field-note hotspots\n.*?(?=^## )",
+    r"^## 7\. Feedback hotspots\n.*?(?=^## )",
     re.MULTILINE | re.DOTALL,
 )
-_FIELD_NOTE_PLACEHOLDER = "## 7. Field-note hotspots\n\n_<live DB section, stripped for diff>_\n\n"
+_FIELD_NOTE_PLACEHOLDER = "## 7. Feedback hotspots\n\n_<live DB section, stripped for diff>_\n\n"
 _NEXT_SLICE_SECTION_RE = re.compile(
     r"^## 9\. Next-slice recommendation\n.*?(?=^## |\Z)",
     re.MULTILINE | re.DOTALL,
@@ -48,11 +48,11 @@ _NEXT_SLICE_PLACEHOLDER = (
     "_<live DB section, stripped for diff>_\n\n"
 )
 _FIELD_NOTE_SUMMARY_RE = re.compile(
-    r"^- Recent field-notes inspected: \d+$",
+    r"^- Recent feedback inspected: \d+$",
     re.MULTILINE,
 )
 _FIELD_NOTE_SUMMARY_PLACEHOLDER = (
-    "- Recent field-notes inspected: <live DB count>"
+    "- Recent feedback inspected: <live DB count>"
 )
 
 
@@ -87,7 +87,7 @@ def _render_summary(report: Dict[str, Any]) -> List[str]:
         f"({s['recipes']['template_skipped']} template-skipped, "
         f"{s['recipes']['failed']} failing)"
     )
-    out.append(f"- Recent field-notes inspected: {s['field_notes_recent']}")
+    out.append(f"- Recent feedback inspected: {s['field_notes_recent']}")
     out.append(
         f"- Contradictions: **{s['contradictions']['open']} open** "
         f"(of {s['contradictions']['total']} tracked)"

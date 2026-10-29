@@ -289,7 +289,7 @@ test("legacy item facts use central effective policies when raw File Budget is a
   );
 });
 
-test("promoted Dash detail links back to its source field note", async () => {
+test("promoted Dash detail links back to its source feedback", async () => {
   const documentNode = new FakeDocument();
   const root = documentNode.createElement("div");
   const dash = detailItem("dash");
@@ -308,11 +308,11 @@ test("promoted Dash detail links back to its source field note", async () => {
   })), root, "7", "ACM-22");
   await settle();
 
-  assert.match(itemText(root), /Promoted from field note/);
-  assert.match(itemText(root), /Open field note #22890/);
+  assert.match(itemText(root), /Promoted from feedback/);
+  assert.match(itemText(root), /Open feedback #22890/);
   assert.equal(
     byClass(root, "item-action").find(
-      (node) => node.textContent === "Open field note #22890",
+      (node) => node.textContent === "Open feedback #22890",
     ).href,
     "/ouroboros/22890?project=7",
   );

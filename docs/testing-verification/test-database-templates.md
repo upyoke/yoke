@@ -95,7 +95,7 @@ Audit transitive schema consumers too: a helper may be called from another
 module's cached strategy. Shared session connection helpers bind the actor
 after connecting; schema builders seed only database rows. Regression checks
 reuse the exact same callback with several fresh machine homes in shuffled
-order, including session, stale-session, driver-stamp, field-note and concurrent
+order, including session, stale-session, driver-stamp, feedback and concurrent
 claim fixtures. Check imports and aliases when tracing shared schema builders;
 consumer filenames need not contain the schema's domain name.
 

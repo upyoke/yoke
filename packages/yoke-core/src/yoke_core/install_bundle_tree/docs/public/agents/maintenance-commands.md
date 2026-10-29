@@ -62,7 +62,7 @@ Use `--fix` only within its authorized repair scope and verify retained linkage.
 
 Cluster unreviewed Ouroboros observations, verify code and duplicates, route
 actionable work to Dash or a scoped work item and archive handled entries.
-Keep actual evidence and reasons; a field-note is not a discovered-work bypass.
+Keep actual evidence and reasons; feedback is not a discovered-work bypass.
 
 ### wrapup
 

@@ -1,6 +1,6 @@
 """``core`` topic operational recipes: how an agent reaches Yoke.
 
-Lifecycle, Progress Log, rules homes, field notes, Fleet messaging, scripts
+Lifecycle, Progress Log, rules homes, feedback, Fleet messaging, scripts
 and lane-source checks. Registered function ids use the strict
 ``yoke <subcommand>`` grammar. Pure data only — no I/O or DB connections.
 """
@@ -75,7 +75,7 @@ OPERATIONAL_COMMANDS: list[dict] = [
             "items.progress_log.append, which read-merge-writes the "
             "Progress Log section atomically and stamps the timestamp. Entry bodies "
             "are limited to 4,096 UTF-8 bytes: write only what changed and the "
-            "next step; move evidence to artifacts or field-notes."
+            "next step; move evidence to artifacts or feedback."
         ),
     },
     {

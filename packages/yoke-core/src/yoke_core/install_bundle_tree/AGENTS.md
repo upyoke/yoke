@@ -40,7 +40,7 @@ Each message to the user is one or two sentences unless they ask for more. Write
 - Never discard changes, stashes or files without user authority.
 - Write items only through typed `yoke` item commands. Never hand-edit generated views.
 - A failure the system should have handled is a system gap: before any manual recovery,
-  root-cause it (a subagent if nontrivial) and file a field note or `/yoke idea`.
+  root-cause it (a subagent if nontrivial) and file feedback or `/yoke idea`.
 - On a watcher wake, tell the user in one sentence what changed (item, PR, failing test), or
   nothing. Fleet mail is only for blockers, conflicts, red gates, decisions, results.
 - After compaction, reload the current-phase skill. Answer a user message before you continue. Never
