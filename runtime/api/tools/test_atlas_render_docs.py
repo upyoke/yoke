@@ -159,7 +159,7 @@ class TestRender:
             "## 4. Permanent command-shaped boundary roster",
             "## 5. Pending handler-registration roster",
             "## 6. Teaching coverage",
-            "## 7. Field-note hotspots",
+            "## 7. Feedback hotspots",
             "## 8. Contradictions",
             "## 9. Next-slice recommendation",
         ]
