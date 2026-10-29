@@ -1,10 +1,11 @@
-"""Owner-only launch attestation handoff into the first native hook."""
+"""Launch attestation projection into the first native hook, with replay markers."""
 
 from __future__ import annotations
 
 from yoke_contracts.machine_config.directories import create_private_directory
 
 from dataclasses import dataclass
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -34,6 +35,7 @@ _MAX_HANDOFF_BYTES = 4096
 class LaunchProjection:
     launch_id: str
     binding_id: str | None = None
+    attestation_digest: str | None = None
 
 
 def _identifier(value: object) -> str | None:
@@ -51,12 +53,23 @@ def _directory(state_dir: Path | None = None) -> Path:
     return directory
 
 
-def _handoff_path(binding_id: str, state_dir: Path | None = None) -> Path:
-    return _directory(state_dir) / f"{binding_id}.json"
+def _attestation_digest(attestation: str) -> str:
+    return hashlib.sha256(attestation.encode("utf-8")).hexdigest()
 
 
-def _delivered_path(launch_id: str, state_dir: Path | None = None) -> Path:
-    return _directory(state_dir) / f"{launch_id}.delivered"
+def _delivered_path(digest: str, state_dir: Path | None = None) -> Path:
+    # A retry keeps the launch id but carries a new attestation, so the marker
+    # names the attestation: an earlier attempt's delivery cannot block it.
+    return _directory(state_dir) / f"{digest}.delivered"
+
+
+def _prune_expired(directory: Path, *, now: float) -> None:
+    for entry in directory.iterdir():
+        try:
+            if entry.is_file() and now - entry.stat().st_mtime > HANDOFF_TTL_SECONDS:
+                entry.unlink(missing_ok=True)
+        except OSError:
+            pass
 
 
 def _write_owner_only(path: Path, payload: Mapping[str, object]) -> bool:
@@ -118,30 +131,6 @@ def _read_owner_only(path: Path, *, now: float) -> dict[str, object] | None:
         os.close(descriptor)
 
 
-def stage_launch_attestation(
-    launch_id: str,
-    attestation: str,
-    *,
-    binding_id: str | None = None,
-    state_dir: Path | None = None,
-) -> bool:
-    """Persist one attestation without placing it in native argv or output."""
-    launch = _identifier(launch_id)
-    binding = _identifier(binding_id or launch_id)
-    token = str(attestation or "").strip()
-    if launch is None or binding is None or not token or len(token) > 1024:
-        return False
-    return _write_owner_only(
-        _handoff_path(binding, state_dir),
-        {
-            "launch_id": launch,
-            "binding_id": binding,
-            "attestation": token,
-            "staged_at": int(time.time()),
-        },
-    )
-
-
 def _environment_context(environ: Mapping[str, str]) -> dict[str, object] | None:
     try:
         payload = json.loads(environ.get(LAUNCH_CONTEXT_ENV, ""))
@@ -157,32 +146,29 @@ def project_launch_attestation(
     state_dir: Path | None = None,
     now: float | None = None,
 ) -> LaunchProjection | None:
-    """Project only a local authenticated side channel into ``yoke_launch``."""
+    """Project the launch environment's attestation into ``yoke_launch``."""
     payload.pop("yoke_launch", None)
     current = time.time() if now is None else now
     raw = _environment_context(environ)
-    # The binding is the session the native turned out to be, whichever channel
-    # carried the attestation: it is what the launch's durable process handle is
-    # written against, so termination and liveness can still reach this native.
-    binding = _identifier(payload.get("session_id"))
-    if raw is None:
-        if binding is None:
-            return None
-        raw = _read_owner_only(_handoff_path(binding, state_dir), now=current)
     if raw is None:
         return None
+    # The binding is the session the native turned out to be: it is what the
+    # launch's durable process handle is written against, so termination and
+    # liveness can still reach this native.
+    binding = _identifier(payload.get("session_id"))
     launch = _identifier(raw.get("launch_id"))
     token = raw.get("attestation")
     if launch is None or not isinstance(token, str) or not token.strip():
         return None
-    delivered = _read_owner_only(_delivered_path(launch, state_dir), now=current)
+    digest = _attestation_digest(token.strip())
+    delivered = _read_owner_only(_delivered_path(digest, state_dir), now=current)
     if delivered is not None:
         return None
     payload["yoke_launch"] = {
         "launch_id": launch,
         "attestation": token.strip(),
     }
-    return LaunchProjection(launch, binding)
+    return LaunchProjection(launch, binding, digest)
 
 
 def release_launch_containment(
@@ -235,18 +221,17 @@ def mark_launch_attestation_delivered(
     state_dir: Path | None = None,
 ) -> None:
     """Suppress replay only after hook output proves instruction delivery."""
-    _write_owner_only(
-        _delivered_path(projection.launch_id, state_dir),
-        {"launch_id": projection.launch_id, "delivered_at": int(time.time())},
-    )
+    if projection.attestation_digest:
+        current = time.time()
+        marker = _delivered_path(projection.attestation_digest, state_dir)
+        _prune_expired(marker.parent, now=current)
+        _write_owner_only(
+            marker,
+            {"launch_id": projection.launch_id, "delivered_at": int(current)},
+        )
     # Delivery happens inside a registered session's own hook, so it proves
     # registration too -- but it is no longer the only thing that does.
     release_launch_containment(projection, state_dir=state_dir)
-    if projection.binding_id:
-        try:
-            _handoff_path(projection.binding_id, state_dir).unlink(missing_ok=True)
-        except OSError:
-            pass
 
 
 def launch_delivery_rendered(text: str, projection: LaunchProjection) -> bool:
@@ -262,5 +247,4 @@ __all__ = [
     "mark_launch_attestation_delivered",
     "project_launch_attestation",
     "release_launch_containment",
-    "stage_launch_attestation",
 ]

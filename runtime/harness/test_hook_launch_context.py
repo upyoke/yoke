@@ -97,7 +97,7 @@ def test_claude_session_start_delivery_writes_replay_marker(
     marker = (
         tmp_path
         / session_launch_handoff.HANDOFF_DIRECTORY_NAME
-        / f"{LAUNCH_ID}.delivered"
+        / f"{projection.attestation_digest}.delivered"
     )
     assert marker.is_file()
     assert (
