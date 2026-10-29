@@ -93,7 +93,14 @@ def gate_plan_groups(
                 project_id=project_id, reasons=reasons, item_refs=item_refs,
             )
         else:
-            pending.append(group)
+            held = conn.execute(
+                "SELECT 1 FROM qa_requirements WHERE id=ANY(%s) AND wake_path='manual' "
+                "UNION ALL SELECT 1 FROM qa_plan_executions WHERE deployment_run_id=%s "
+                "AND execution_target_digest=%s AND state='awaiting_walk_review' LIMIT 1",
+                (list(group.requirement_ids), run_id, group.digest),
+            ).fetchone()
+            if held:
+                pending.append(group)
     if pending and project_id is not None:
         notify_plan_groups_wait(
             conn, run_id=run_id, stage_name=stage_name, groups=pending,
@@ -111,13 +118,15 @@ def plan_groups_wait_key(run_id: str, stage_name: str, groups: list[PlanGroup]) 
 
 
 def _group_lines(conn, run_id, stage_name, groups, item_refs) -> list[str]:
+    from yoke_core.domain.deployment_run_recovery_command import yoke_command
+
     lines = []
     for group in groups:
         items = ", ".join(
             item_refs(member) for member in owing_members(conn, run_id, group.plan_id)
         )
         lines.append(
-            f"  yoke qa plan run --deployment-run-id {run_id} --stage {stage_name} "
+            f"  {yoke_command()} qa plan run --deployment-run-id {run_id} --stage {stage_name} "
             f"--plan {_plan_label(conn, group.plan_id)}   # group {group.group_id}; items {items or 'none'}"
         )
     return lines
@@ -128,6 +137,9 @@ def _deliver(conn, *, run_id, project_id, body, key, label) -> None:
 
     from yoke_core.domain.deployment_qa_stage_wake import route_phrase
 
+    from yoke_core.domain.deployment_run_recovery_command import qualify_commands
+
+    body = qualify_commands(body)
     delivery = push_run_scoped_notice(
         conn,
         run_id=run_id,
@@ -146,13 +158,16 @@ def _deliver(conn, *, run_id, project_id, body, key, label) -> None:
 def notify_plan_groups_wait(
     conn, *, run_id, stage_name, groups, project_id, item_refs
 ) -> None:
+    from yoke_core.domain.deployment_run_recovery_command import deploy_command, yoke_command
+
     lines = _group_lines(conn, run_id, stage_name, groups, item_refs)
     body = (
         f"Deployment run {run_id} stage {stage_name!r} has {len(groups)} pending plan "
         "group(s). Each runs once for the whole release and answers every item that "
-        "attaches its plan; no item holder runs it. Run each:\n"
+        "attaches its plan. The driver runs automatic cases; review or manual "
+        "evidence is pending. Inspect each:\n"
         + "\n".join(lines)
-        + f"\nThen re-drive the run with `yoke watch deploy -- {run_id}`. Check 'yoke deployment-runs get {run_id}'."
+        + f"\nThen re-drive the run with `{deploy_command(run_id)}`. Check '{yoke_command()} deployment-runs get {run_id}'."
     )
     _deliver(
         conn, run_id=run_id, project_id=project_id, body=body,

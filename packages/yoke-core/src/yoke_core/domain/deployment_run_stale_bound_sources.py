@@ -6,6 +6,7 @@ runner before dispatch; a consumed stale source requires a new release run.
 
 from __future__ import annotations
 
+from yoke_core.domain.deployment_run_recovery_command import deploy_command
 import json
 from typing import Any
 
@@ -82,7 +83,7 @@ def _release_output_on_frozen(
         return False, (
             f"head {current} is release output of {producer['run_id']}, but its "
             "parent commit did not resolve; make the project's source readable "
-            "here, then re-drive the run with `yoke watch deploy -- RUN`"
+            f"here, then re-drive the run with `{deploy_command()}`"
         )
     return parent.lower() == frozen.lower(), ""
 

@@ -206,3 +206,25 @@ __all__ = [
     "validate_attached_item_transition",
     "validate_item_transition",
 ]
+
+
+def refuse_deployment_ci_cases(cases) -> None:
+    """CI proves an item branch; a deployment requires its admitted candidate."""
+    if any(str(case["method_id"]) == "command-ci" for case in cases):
+        raise QaPlanError(
+            "deployment_ci_case_unsupported: command-ci verifies an item branch and "
+            "cannot run in a deployment plan. Use a command case against the "
+            "bound QA candidate checkout instead."
+        )
+
+
+def deployment_plan_is_attached(conn: Any, plan_id: int) -> bool:
+    marker = _placeholder(conn)
+    return query_one(
+        conn,
+        "SELECT 1 FROM qa_plan_item_attachments WHERE plan_id=" + marker +
+        " AND qa_phase='post_deploy' AND retracted_at IS NULL "
+        "UNION ALL SELECT 1 FROM qa_plan_project_defaults WHERE plan_id=" + marker +
+        " AND qa_phase='post_deploy' LIMIT 1",
+        (plan_id, plan_id),
+    ) is not None

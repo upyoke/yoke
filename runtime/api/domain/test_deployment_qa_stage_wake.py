@@ -125,7 +125,7 @@ def test_item_message_names_the_stage_and_member_bound_invocation():
     assert "never counts" in body
 
 
-def test_run_message_names_the_stage_bound_invocation_without_a_member():
+def test_run_message_names_driver_execution_and_review_recovery():
     body = run_stage_wait_message(
         run_id="run-9",
         stage_name="run-qa",
@@ -136,10 +136,9 @@ def test_run_message_names_the_stage_bound_invocation_without_a_member():
         names_cases=False,
     )
 
-    assert (
-        "yoke watch qa-plan -- --deployment-run-id run-9 --stage run-qa "
-        "--plan PLAN" in body
-    )
+    assert "the driver runs automatic cases" in body
+    assert "Review or manual evidence remains pending (awaiting agent verdict)" in body
+    assert "yoke --env ENV watch deploy -- run-9" in body
     assert "--member" not in body
 
 
@@ -170,9 +169,9 @@ def test_a_run_scoped_stage_that_already_names_cases_omits_the_plan_too():
         names_cases=True,
     )
 
-    assert (
-        "yoke watch qa-plan -- --deployment-run-id run-9 --stage run-qa" in body
-    )
+    assert "the driver runs automatic cases" in body
+    assert "yoke --env ENV watch deploy -- run-9" in body
+    assert "watch qa-plan" not in body
     assert "--plan" not in body
     assert "--member" not in body
 

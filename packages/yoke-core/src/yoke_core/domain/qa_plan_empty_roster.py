@@ -10,6 +10,7 @@ tells the owner the recorded answer already did.
 
 from __future__ import annotations
 
+from yoke_core.domain.deployment_run_recovery_command import deploy_command
 from typing import Any, Mapping, NoReturn
 
 from yoke_core.domain.qa_plan_execution_result_state import QaPlanExecutionError
@@ -40,7 +41,7 @@ def discharged_without_cases_statement(
     return (
         f"This member's stage is already satisfied: requirement "
         f"#{int(requirement_id)} records {qa_kind}, which discharges the "
-        "stage without cases. Steering re-drives the run with `yoke watch deploy -- RUN` and the stage "
+        f"stage without cases. Steering re-drives the run with `{deploy_command()}` and the stage "
         "gate reads that discharge. Do not run anything else; there is "
         "nothing for this member to run."
     )
@@ -101,7 +102,7 @@ def member_discharge_statement(conn: Any, item_id: int) -> str | None:
         return (
             "This member's stage is already satisfied: a recorded "
             f"{answer.verdict} answer discharges the stage without cases. "
-            "Steering re-drives the run with `yoke watch deploy -- RUN` and the stage gate reads that "
+            f"Steering re-drives the run with `{deploy_command()}` and the stage gate reads that "
             "discharge. Do not run anything else; there is nothing for "
             "this member to run."
         )

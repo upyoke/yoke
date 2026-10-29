@@ -93,7 +93,10 @@ def run_target_partition(
         deployment_member_item_id=deployment_member_item_id,
     )
     passed = target_passed_requirements(conn, roster, **scope)
-    live_id = live_plan_execution_id(conn, **scope, session_id=session_id)
+    live_id = live_plan_execution_id(
+            conn, **scope, session_id=session_id,
+            execution_target_digest=str(roster[0].get("execution_target_digest") or ""),
+        )
     if live_id is not None:
         live = select_plan_execution(conn, live_id, lock=False)
         passed -= {int(row["requirement_id"]) for row in live["roster"]}

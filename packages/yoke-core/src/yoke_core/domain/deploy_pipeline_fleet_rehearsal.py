@@ -30,6 +30,7 @@ and are not rehearsed again.
 
 from __future__ import annotations
 
+from yoke_core.domain.deployment_run_recovery_command import deploy_command
 from pathlib import Path
 from typing import Any, List, Mapping, Optional, Sequence, Tuple
 
@@ -285,7 +286,7 @@ def _coverage(
             f"could not read fleet rehearsal receipts of {project}/{environment} "
             f"model {model}: {unreadable}. Each shipped project needs an "
             f"environment named {environment!r} the release control plane can "
-            "read; register it or grant the read, then re-drive the run with `yoke watch deploy -- RUN`"
+            f"read; register it or grant the read, then re-drive the run with `{deploy_command()}`"
         )
     return values, ""
 

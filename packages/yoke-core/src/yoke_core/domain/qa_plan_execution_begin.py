@@ -191,12 +191,16 @@ def begin_plan_execution(
         deployment_member_item_id=deployment_member_item_id,
         session_id=session_id,
     )
-    existing_id = live_plan_execution_id(conn, **subject_key)
+    existing_id = live_plan_execution_id(
+        conn, **subject_key, execution_target_digest=prepared.execution_target_digest
+    )
 
     def continuation_source():
         return resolve_continuation_source(
             conn,
-            live_execution_id=live_plan_execution_id(conn, **subject_key),
+            live_execution_id=live_plan_execution_id(
+                conn, **subject_key, execution_target_digest=prepared.execution_target_digest
+            ),
             expected_execution_id=continuation_execution_id,
             **subject_key,
         )
@@ -334,6 +338,7 @@ def begin_plan_execution(
             session_id=session_id,
             digest=digest,
             cause=exc,
+            execution_target_digest=execution_target_digest,
         )
         return {**execution, "remaining_requirement_count": remaining}
     conn.commit()

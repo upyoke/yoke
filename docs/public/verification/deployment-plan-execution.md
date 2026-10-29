@@ -41,11 +41,19 @@ source revision, and cases are filtered to the target. The run pins each plan
 at its first group, so plan edits during a release wait for the next release.
 A run holds at most one open group per plan.
 
-Dispatch launches nothing and wakes no item holder for a plan group. One
-run-scoped notice lists each pending group with its items and run command, sent
-to the live run driver, else the live session that started the run, else
-steering. Only a new pending group re-sends it. Holders of plan-only items
-park; the stage and the next stage wait while any group is open.
+The release driver runs each pending plan group and each run-scoped QA plan
+itself. A long case runs outside the bounded stage-dispatch thread. One group
+awaiting agent review does not stop other groups. Manual-evidence cases stay
+with their owners; review and manual waits reach the live driver, else the
+starting session, else steering. Holders of plan-only items park while the
+stage waits for all groups. Recovery commands retain the selected `--env`.
+
+Plan commands have no `DEPLOYMENT_MEMBER_REF`; authoring refuses it as
+`qa_plan_member_reference_unsupported`. Read `YOKE_QA_CANDIDATE_TREE` (JSON with
+`root` and `head_sha`) or the candidate's detached HEAD for source identity.
+`yoke watch pytest -- <paths>` runs locally inside that bound candidate.
+A `command-ci` case proves an item branch and cannot attach post-deploy:
+`deployment_ci_case_unsupported` names a Command case as the replacement.
 
 `--plan PLAN` at `item-qa` runs that plan's open group for the whole release;
 no command selects one member's plan cases, so attach the plan instead. With no
@@ -97,7 +105,7 @@ a later attacher gets a new group.
 When a deployment member's cases require several Test Machines, the scoped
 command executes one immutable roster per machine group, each with its own
 lease in that host's FIFO and the same run, stage and frozen target. Sessions
-walk separate plans concurrently, one live execution each. Begin skips held
+walk separate plans concurrently, one live execution per session and target. Begin skips held
 groups and aborts abandoned holders. Plan order holds across machine groups.
 A waiting host or independent review stops the command. Re-enter the same
 scoped command while review is pending to reprint that bundle without

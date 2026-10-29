@@ -226,6 +226,8 @@ def _gate_members(
                         conn, manual, project_id=project_id
                     ):
                         print(f"Run {run_id} stage {stage['name']!r} {label}: {miss}")
+                elif member is None and _driver_has_plans(conn, stage, run_id):
+                    pass
                 elif not woken(member, digest):
                     notify_stage_wait(
                         conn,
@@ -289,10 +291,19 @@ def dispatch_deployment_qa_stage(
             f"dispatched: {message}"
         )
     result = dict(response.result or {})
-    code, message = int(result.get("code", 1)), str(result.get("message") or "")
+    from yoke_core.domain.deployment_run_recovery_command import qualify_commands
+
+    code = int(result.get("code", 1))
+    message = qualify_commands(str(result.get("message") or ""))
     if code == 0 and message:
         print(f"  Stage {stage.get('name')!r}: {message}")
-    return code, message
+    from yoke_core.domain.deployment_qa_pending_plans import QaDispatchResult
+
+    if code == -4 and "pending_plans" not in result:
+        from yoke_core.domain.deployment_run_recovery_command import yoke_command
+
+        print(f"Serving build does not select driver QA plans; inspect the stage notice and {yoke_command()} watch deploy -- {run_id}")
+    return QaDispatchResult(code, message, list(result.get("pending_plans") or []))
 
 
 __all__ = [
@@ -300,3 +311,9 @@ __all__ = [
     "dispatch_deployment_qa_stage",
     "materialize_and_gate_deployment_qa_stage",
 ]
+
+
+def _driver_has_plans(conn, stage, run_id):
+    from yoke_core.domain.deployment_qa_pending_plans import pending_stage_plans
+
+    return bool(pending_stage_plans(conn, stage, run_id))

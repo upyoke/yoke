@@ -25,6 +25,11 @@ def set_project_default(
     """Attach one of a transition's project-default plans."""
     plan = _plan_row(conn, plan_id)
     require_plan_cases(conn, plan_id)
+    if qa_phase == "post_deploy":
+        from yoke_core.domain.qa_plan_case_definition import plan_cases
+        from yoke_core.domain.qa_plan_attachment_validation import refuse_deployment_ci_cases
+
+        refuse_deployment_ci_cases(plan_cases(conn, plan_id))
     marker = _placeholder(conn)
     if (
         query_one(

@@ -124,6 +124,7 @@ class DeploymentQaStageDispatchResponse(BaseModel):
     run_id: str
     code: int
     message: str
+    pending_plans: list[dict] = []
 
 
 class DeploymentQaStageResumeRefusalsRequest(BaseModel):
@@ -165,10 +166,15 @@ def handle_deployment_qa_stage_dispatch(
                 "not_found",
                 f"deployment run {resolved!r} has no stage named {stage_name!r}",
             )
+        pending_plans = []
         try:
             code, message = materialize_and_gate_deployment_qa_stage(
                 conn, stage, run_id=resolved
             )
+            if code == AWAITING_SCOPED_QA:
+                from yoke_core.domain.deployment_qa_pending_plans import pending_stage_plans
+
+                pending_plans = pending_stage_plans(conn, stage, resolved)
         except LOCK_WAIT_INTERRUPTIONS as exc:
             rollback_after_error(conn, exc)
             code, message = (
@@ -180,7 +186,8 @@ def handle_deployment_qa_stage_dispatch(
     finally:
         conn.close()
     return HandlerOutcome(
-        result_payload={"run_id": resolved, "code": code, "message": message},
+        result_payload={"run_id": resolved, "code": code, "message": message,
+                        "pending_plans": pending_plans},
         primary_success=True,
     )
 

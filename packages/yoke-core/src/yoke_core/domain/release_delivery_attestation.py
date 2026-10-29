@@ -22,7 +22,7 @@ CHECKOUT_NOT_REFRESHED = "checkout_not_refreshed"
 ATTESTATION_CHANGING_REASONS = frozenset({CHECKOUT_NOT_REFRESHED})
 ATTESTATION_WARNINGS_FIELD = "attestation_warnings"
 _DEFAULT_ATTESTATION_RECOVERY = (
-    "Refresh the checkout that derived carried work and re-drive the run with `yoke watch deploy -- RUN` "
+    "Refresh the checkout that derived carried work and re-drive the run with `yoke --env ENV watch deploy -- RUN-ID` "
     "so it records an honest payload, then retry."
 )
 

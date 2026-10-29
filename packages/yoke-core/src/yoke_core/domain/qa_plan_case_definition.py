@@ -72,6 +72,11 @@ def require_runnable_case(
             conn=conn,
             project_id=project_id,
         )
+        if "DEPLOYMENT_MEMBER_REF" in str(config.get("command") or ""):
+            raise ValueError(
+                "qa_plan_member_reference_unsupported: plan cases run for the whole "
+                "release. Use YOKE_QA_CANDIDATE_TREE and the candidate's detached HEAD."
+            )
         from yoke_contracts.qa_continuity_fingerprint import require_continuity_state
 
         require_continuity_state({**dict(case), "method_config": config})

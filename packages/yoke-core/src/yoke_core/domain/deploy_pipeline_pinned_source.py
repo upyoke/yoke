@@ -19,6 +19,7 @@ terminalize the run, so re-drive by correlation token still recovers it.
 
 from __future__ import annotations
 
+from yoke_core.domain.deployment_run_recovery_command import deploy_command
 import os
 import sys
 
@@ -92,7 +93,7 @@ def _ensure_commit(repo: str, revision: str) -> str:
     raise DeployPinnedSourceError(
         f"pinned release_lineage {revision!r} is not a commit in {repo}: "
         f"{detail}. Fetch that revision into the machine-config checkout "
-        "and re-drive the run with `yoke watch deploy -- RUN`."
+        f"and re-drive the run with `{deploy_command()}`."
     )
 
 
@@ -171,7 +172,7 @@ def self_release_checkout(project: str) -> Path | None:
     if project_id is None:
         raise DeployPinnedSourceError(
             f"project {project!r} could not be resolved through projects.get; "
-            "confirm the selected connection serves it and re-drive the run with `yoke watch deploy -- RUN`"
+            f"confirm the selected connection serves it and re-drive the run with `{deploy_command()}`"
         )
     try:
         from yoke_contracts.machine_config.schema_connections import (
@@ -188,7 +189,7 @@ def self_release_checkout(project: str) -> Path | None:
     except (machine_config.MachineConfigError, MachineConfigContractError) as exc:
         raise DeployPinnedSourceError(
             f"machine config is unreadable ({exc}); repair ~/.yoke/config.json "
-            "and re-drive the run with `yoke watch deploy -- RUN`"
+            f"and re-drive the run with `{deploy_command()}`"
         ) from exc
     mapped = [
         Path(str(entry["checkout"])).expanduser().resolve()
@@ -203,7 +204,7 @@ def self_release_checkout(project: str) -> Path | None:
             f"No machine-config checkout for project {project!r} (project_id "
             f"{project_id}); the installed engine drives this run. A Yoke "
             "self-release needs its checkout: register it with `yoke project "
-            "register` from that checkout, then re-drive the run with `yoke watch deploy -- RUN`.",
+            f"register` from that checkout, then re-drive the run with `{deploy_command()}`.",
             file=sys.stderr,
         )
         return None

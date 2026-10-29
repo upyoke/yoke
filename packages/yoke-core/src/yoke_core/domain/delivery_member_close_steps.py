@@ -20,6 +20,7 @@ network work; the run's one post-loop sweep retires member lanes.
 
 from __future__ import annotations
 
+from yoke_core.domain.deployment_run_recovery_command import deploy_command
 import io
 from dataclasses import dataclass
 from typing import Any
@@ -157,7 +158,7 @@ def member_close_evidence_refusal(
         return ""
     return (
         f"landing evidence is missing {', '.join(missing)}. Record it with "
-        "`yoke merge item` `--result` and `--verification`, then re-drive the run with `yoke watch deploy -- RUN`"
+        f"`yoke merge item` `--result` and `--verification`, then re-drive the run with `{deploy_command()}`"
     )
 
 

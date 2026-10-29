@@ -79,7 +79,9 @@ def _validate_member_state(
         )
     if allow_completed and status == COMPLETED_ITEM_STAGE_ID:
         return
-    if not delivery_ready_for_stage(runtime, status):
+    from yoke_core.domain.deployment_run_landed_closeout import landed_closeout_members
+
+    if not delivery_ready_for_stage(runtime, status) and item_id not in landed_closeout_members(conn, (item_id,)):
         raise WorkflowItemBindingError(
             f"{render_item_ref(conn, item_id)} workflow {runtime.workflow_id}@{runtime.version} "
             f"is not delivery-ready at stage {status!r}"

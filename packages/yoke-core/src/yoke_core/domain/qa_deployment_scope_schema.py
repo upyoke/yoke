@@ -96,6 +96,13 @@ _EXECUTION_INDEX_SPECS = (
     ),
 )
 
+# Applied history imports the old specs; boot converges only the current keys.
+EXECUTION_INDEX_SPECS = tuple(
+    ("idx_qa_plan_executions_deployment_stage_target_active", keys + ("execution_target_digest",), scope)
+    if name == "idx_qa_plan_executions_deployment_stage_active" else (name, keys, scope)
+    for name, keys, scope in _EXECUTION_INDEX_SPECS
+)
+
 _REQUIREMENT_INDEX_SPECS = tuple(
     (
         requirement_name,
@@ -132,9 +139,9 @@ def _index_sql(table: str, specs: tuple[tuple[str, tuple[str, ...], str], ...]) 
     return ";\n".join(statements) + ";"
 
 
-EXECUTION_SCOPE_INDEX_SQL = _index_sql("qa_plan_executions", _EXECUTION_INDEX_SPECS)
+EXECUTION_SCOPE_INDEX_SQL = _index_sql("qa_plan_executions", EXECUTION_INDEX_SPECS)
 REQUIREMENT_SCOPE_INDEX_SQL = _index_sql("qa_requirements", _REQUIREMENT_INDEX_SPECS)
-EXECUTION_SCOPE_INDEX_NAMES = tuple(spec[0] for spec in _EXECUTION_INDEX_SPECS)
+EXECUTION_SCOPE_INDEX_NAMES = tuple(spec[0] for spec in EXECUTION_INDEX_SPECS)
 REQUIREMENT_SCOPE_INDEX_NAMES = tuple(spec[0] for spec in _REQUIREMENT_INDEX_SPECS)
 
 
@@ -313,7 +320,7 @@ def assert_deployment_scope_contract(conn: Any) -> None:
             raise AssertionError(
                 f"{constraint} does not match the scoped subject contract"
             )
-    _assert_indexes(conn, "qa_plan_executions", _EXECUTION_INDEX_SPECS)
+    _assert_indexes(conn, "qa_plan_executions", EXECUTION_INDEX_SPECS)
     _assert_indexes(conn, "qa_requirements", _REQUIREMENT_INDEX_SPECS)
     for obsolete in (
         "idx_qa_plan_executions_deployment_active",
@@ -327,17 +334,12 @@ def assert_deployment_scope_contract(conn: Any) -> None:
 
 
 __all__ = [
-    "DEPLOYMENT_MEMBER_COLUMN",
-    "DEPLOYMENT_SCOPE_COLUMNS",
-    "DEPLOYMENT_STAGE_COLUMN",
     "EXECUTION_SCOPE_INDEX_NAMES",
     "EXECUTION_SCOPE_INDEX_SQL",
     "EXECUTION_SUBJECT_CONSTRAINT",
     "EXECUTION_SUBJECT_EXPRESSION",
     "LIVE_EXECUTION_STATES",
     "LIVE_EXECUTION_STATE_SQL",
-    "LEGACY_EXECUTION_SUBJECT_EXPRESSION",
-    "LEGACY_REQUIREMENT_SUBJECT_EXPRESSION",
     "REQUIREMENT_SCOPE_INDEX_NAMES",
     "REQUIREMENT_SCOPE_INDEX_SQL",
     "REQUIREMENT_SUBJECT_CONSTRAINT",

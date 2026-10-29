@@ -5,7 +5,6 @@ from yoke_cli.commands.adapters.workflows_item_posture import (
 )
 from yoke_contracts.qa_case_environment import (
     COMMAND_CASE_BASE_URL_ENV,
-    COMMAND_CASE_DEPLOYMENT_MEMBER_ENV,
     COMMAND_CASE_DEPLOYMENT_RUN_ENV,
 )
 
@@ -100,13 +99,11 @@ What a Command case's shell is handed
 -------------------------------------
 {COMMAND_CASE_BASE_URL_ENV}: the target the case runs against.
 {COMMAND_CASE_DEPLOYMENT_RUN_ENV}: the deployment run this case answers for.
-{COMMAND_CASE_DEPLOYMENT_MEMBER_ENV}: the member that run is proving, as PREFIX-N.
+YOKE_QA_CANDIDATE_TREE: JSON with root and head_sha for the candidate checkout.
 
-The last two are set only for a case bound to a deployment run and member,
-and they are how such a case names its own subject. A command that writes a
-run id or a member ref as a literal is correct for exactly one run and then
-reports on the wrong one; read these instead, and the same plan keeps working
-on every release.
+Plans run once for the whole release, without a member reference. Read the
+candidate's detached HEAD to identify its revision. DEPLOYMENT_MEMBER_REF
+is refused in plan commands; it exists only in member-bound cases.
 
 What this does NOT reach
 ------------------------

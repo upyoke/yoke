@@ -11,6 +11,7 @@ recovery that moves the release to a tested commit.
 
 from __future__ import annotations
 
+from yoke_core.domain.deployment_run_recovery_command import deploy_command
 from typing import Any
 
 from yoke_contracts.refusal_recovery import compose_refusal
@@ -50,7 +51,7 @@ def ci_adapter_failure_message(
     if code == GitHubUnavailable.code:
         return compose_refusal(
             f"\nBLOCKED: Cannot deploy — CI could not be verified; the GitHub Actions adapter returned {failure}.\n\nGitHub itself is failing; the App credentials are not the cause and this is not a failing test conclusion.",
-            recovery="re-drive the deployment with `yoke watch deploy -- RUN` once GitHub recovers.\n",
+            recovery=f"re-drive the deployment with `{deploy_command()}` once GitHub recovers.\n",
         )
     if code in _AUTH_ADAPTER_CODES:
         kind = "an authorization failure"

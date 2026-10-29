@@ -84,8 +84,40 @@ def dispatch_until_qa_resolves(
     call ends the wait with its timeout and recovery rather than silence.
     A zero timeout preserves a deliberate single-probe caller.
     """
+    from yoke_core.domain.deployment_run_recovery_command import deploy_command
+    from yoke_core.domain.qa_plan_execution import execute_plan, QaPlanExecutionError
+
+    attempted: set[tuple[str, str]] = set()
+
+    def run_pending(answer):
+        pending_plans = getattr(answer, "pending_plans", ())
+        # A review-held plan disappears until it owes its next host partition.
+        attempted.intersection_update(
+            (p["plan"], p.get("target_digest", "")) for p in pending_plans
+        )
+        for pending in pending_plans:
+            key = (pending["plan"], pending.get("target_digest", ""))
+            if key in attempted:
+                continue
+            try:
+                execution = execute_plan(
+                    deployment_run_id=kwargs.get("run_id"),
+                    deployment_stage=str(args[0]["name"]),
+                    plan=pending["plan"], project=pending["project"],
+                )
+                state = execution.get("state")
+                if state != "waiting":
+                    attempted.add(key)
+                write(f"Release QA plan {pending['plan']}: {state}; "
+                      f"{execution.get('recovery') or ''}")
+            except QaPlanExecutionError as exc:
+                attempted.add(key)
+                write(f"release_qa_plan_refused: {pending['plan']}: {exc}. "
+                      f"Resolve the named refusal, then {deploy_command(kwargs.get('run_id') or 'RUN-ID')}.")
+        return answer
+
     observed = fingerprint()
-    result = dispatch(*args, **kwargs)
+    result = run_pending(dispatch(*args, **kwargs))
     if result[0] != AWAITING_SCOPED_QA:
         return result
 
@@ -119,11 +151,13 @@ def dispatch_until_qa_resolves(
 
         # At the deadline attempt dispatch directly, without another read.
         check = (lambda: dispatch(*args, **kwargs)) if monotonic() >= deadline else poll
-        answer = _dispatch_within(deadline - monotonic(), check, (), {})
+        answer = _dispatch_within(
+            interval if monotonic() >= deadline else deadline - monotonic(), check, (), {}
+        )
         if answer is None:
             unanswered = "; the last QA dispatch or fingerprint read had no answer when the deadline passed"
             break
-        result = answer
+        result = run_pending(answer)
         if result[0] != AWAITING_SCOPED_QA:
             return result
         polls += 1
@@ -139,7 +173,7 @@ def dispatch_until_qa_resolves(
     return AWAITING_SCOPED_QA, (
         f"{detail}; timed out after {timeout:g}s awaiting scoped QA"
         f"{unanswered}. Settle or waive the outstanding member obligations, "
-        "then re-drive this deployment run with `yoke watch deploy -- RUN` from the QA stage."
+        f"then re-drive this deployment run with `{deploy_command(kwargs.get('run_id') or 'RUN-ID')}` from the QA stage."
     )
 
 
