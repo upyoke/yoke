@@ -20,8 +20,6 @@ from yoke_core.domain.deployment_qa_stage_materialization import (
     materialize_deployment_qa_stage,
 )
 from yoke_core.domain.qa_plan_management import QaPlanError
-from yoke_core.domain.qa_requirement_replacement import declare_replacements
-from runtime.api.fixtures.deployment_scoped_qa_run_fixture import record_case_verdict
 
 STAGE = "member-qa"
 

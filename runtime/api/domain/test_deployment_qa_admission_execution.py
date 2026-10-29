@@ -5,18 +5,12 @@ from __future__ import annotations
 import json
 from typing import Any
 
-import pytest
 
-from runtime.api.domain.test_deployment_qa_stage_execution import (
-    _complete_case,
-    _plan,
-)
 from runtime.api.fixtures.completed_delivery import (
     _stage as _stage,
     seed_selected_requirement_run as _seed_selected_requirement_run,
 )
 from runtime.api.fixtures.backlog_inserts import insert_item
-from yoke_core.domain.deployment_qa_stage_gate import deployment_qa_stage_status
 from yoke_core.domain.deployment_qa_stage_materialization import (
     materialize_deployment_qa_stage,
 )
@@ -24,8 +18,6 @@ from yoke_core.domain.deployment_qa_admission_materialization import (
     admitted_requirement_case_key,
 )
 from yoke_core.domain.qa_plan_execution_roster import ordered_plan_requirements
-from yoke_core.domain.qa_plan_execution_state import begin_plan_execution
-from yoke_core.domain.qa_plan_management import QaPlanError
 
 
 def _original_requirement(conn: Any, *, item_id: int, method_id: str | None) -> int:
