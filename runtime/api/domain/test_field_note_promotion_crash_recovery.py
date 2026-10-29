@@ -43,7 +43,7 @@ def _seed_note(conn) -> None:
         "INSERT INTO ouroboros_entries "
         "(id, timestamp, agent, category, body, created_at, project_id) "
         "VALUES (%s, '2026-08-20T00:00:00Z', 'codex', "
-        "'field-note-observation', 'Promotion must survive a crash.', "
+        "'observation', 'Promotion must survive a crash.', "
         "'2026-08-20T00:00:00Z', 1)",
         (ENTRY_ID,),
     )

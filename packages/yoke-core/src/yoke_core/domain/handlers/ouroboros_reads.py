@@ -1,12 +1,4 @@
-"""Ouroboros entry read handlers.
-
-Wrap the typed row functions in
-:mod:`yoke_core.domain.ouroboros_entries` — the same projection the
-``db_router ouroboros list-entries`` operator-debug CLI renders (get is
-net-new: the operator CLI never grew a per-entry reader). Field-note read
-ids reuse these handlers with a category-prefix filter. These ids carry
-``claim_required_kind=None`` (reads).
-"""
+"""Actor-visible feedback readers for full rows and the browser roster."""
 
 from __future__ import annotations
 
@@ -27,18 +19,19 @@ from yoke_core.domain.ouroboros_entry_roster import (
     RosterCursorError,
     RosterFilterError,
     list_roster_page,
-    parse_category_prefix,
+    parse_category,
     parse_review_state,
     parse_roster_shape,
 )
 
 
 class OuroborosEntryListRequest(BaseModel):
+    scope: str = "universe"
     unreviewed: bool = False
     project: Optional[str] = None
     projects: Optional[List[str]] = None
     sort: Optional[Dict[str, str]] = None
-    category_prefix: Optional[str] = None
+    category: Optional[str] = None
     review_state: Optional[str] = None
     shape: Optional[str] = None
     cursor: Optional[str] = None
@@ -59,7 +52,6 @@ class OuroborosEntryListResponse(BaseModel):
 
 class OuroborosEntryGetRequest(BaseModel):
     entry_id: int
-    category_prefix: Optional[str] = None
 
 
 class OuroborosEntryGetResponse(BaseModel):
@@ -168,7 +160,7 @@ def _handle_roster_list(
             payload.get("review_state"),
             unreviewed=bool(payload.get("unreviewed", False)),
         )
-        category_prefix = parse_category_prefix(payload.get("category_prefix"))
+        category = parse_category(payload.get("category"))
         cursor = payload.get("cursor")
         if cursor is not None and cursor != "" and not isinstance(cursor, str):
             return _payload_error(
@@ -182,13 +174,14 @@ def _handle_roster_list(
 
         conn = connect()
         try:
-            ids = roster_project_ids(conn, request)
+            ids, include_unscoped = roster_project_ids(conn, request)
             page = list_roster_page(
                 conn,
                 project_ids=ids,
+                include_unscoped=include_unscoped,
                 sort=payload.get("sort"),
                 review_state=review_state,
-                category_prefix=category_prefix,
+                category=category,
                 limit=limit,
                 cursor=str(cursor) if cursor else None,
             )
@@ -236,9 +229,9 @@ def handle_ouroboros_entry_list(request: FunctionCallRequest) -> HandlerOutcome:
     filters = dict(
         unreviewed=bool(payload.get("unreviewed", False)),
         project=(str(project) if project else None),
-        category_prefix=(
-            str(payload.get("category_prefix"))
-            if payload.get("category_prefix")
+        category=(
+            str(payload.get("category"))
+            if payload.get("category")
             else None
         ),
     )
@@ -246,6 +239,9 @@ def handle_ouroboros_entry_list(request: FunctionCallRequest) -> HandlerOutcome:
     conn = connect()
     try:
         try:
+            from yoke_core.domain.handlers.ouroboros_roster_scope import roster_project_ids
+            ids, include_unscoped = roster_project_ids(conn, request)
+            filters.update(project_ids=ids, include_unscoped=include_unscoped)
             if count_only:
                 total = count_entry_rows(conn, **filters)
                 return HandlerOutcome(
@@ -258,6 +254,8 @@ def handle_ouroboros_entry_list(request: FunctionCallRequest) -> HandlerOutcome:
                 limit=limit,
                 offset=offset,
             )
+        except RosterFilterError as exc:
+            return _payload_error(str(exc), exc.jsonpath)
         except LookupError as exc:
             # resolve_project_id raises LookupError for unknown projects.
             return _payload_error(str(exc), "$.payload.project")
@@ -296,21 +294,12 @@ def handle_ouroboros_entry_get(request: FunctionCallRequest) -> HandlerOutcome:
     conn = connect()
     try:
         entry = get_entry_row(conn, entry_id)
+        from yoke_core.domain.handlers.ouroboros_roster_scope import entry_visible
+        if entry is not None and not entry_visible(conn, request, entry):
+            entry = None
     finally:
         conn.close()
     if entry is None:
-        return HandlerOutcome(
-            primary_success=False,
-            error=FunctionError(
-                code="not_found",
-                message=f"ouroboros entry {entry_id} not found",
-                jsonpath="$.payload.entry_id",
-            ),
-        )
-    category_prefix = payload.get("category_prefix")
-    if category_prefix and not str(entry.get("category", "")).startswith(
-        str(category_prefix)
-    ):
         return HandlerOutcome(
             primary_success=False,
             error=FunctionError(

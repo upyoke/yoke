@@ -114,7 +114,7 @@ class TestUnidentifiedCaller:
             "cwd": str(repo),
             "tool_input": {
                 "command": (
-                    "yoke ouroboros field-note append --kind failed "
+                    "yoke feedback --to yoke --category failed "
                     "--evidence 'identity diagnostics'"
                 ),
             },

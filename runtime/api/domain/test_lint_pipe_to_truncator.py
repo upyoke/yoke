@@ -159,19 +159,19 @@ class TestNonMatches(unittest.TestCase):
         # must not be classified as a live pipe — only unquoted | joins stages.
         self.assertIsNone(
             _eval(
-                "yoke ouroboros field-note append --kind observation "
+                "yoke feedback --to yoke --category observation "
                 "--evidence 'blocked pytest runtime/api/ -q | head -30'"
             )
         )
         self.assertIsNone(
             _eval(
-                "yoke ouroboros field-note append --kind observation "
+                "yoke feedback --to yoke --category observation "
                 '--evidence "python3 -m yoke_core.tools.watch_pytest -- x | tail -8"'
             )
         )
         self.assertIsNone(
             _eval(
-                "yoke ouroboros field-note append --kind observation "
+                "yoke feedback --to yoke --category observation "
                 "--evidence 'saw | pytest runtime/api/ -q | head -30'"
             )
         )

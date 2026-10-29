@@ -35,15 +35,16 @@ function ouroborosFilters(documentNode, loader) {
     review.appendChild(option);
   }
   review.addEventListener("change", () => loader.setReviewState(review.value));
-  const prefix = el(documentNode, "input", "item-filter-control");
-  prefix.type = "text";
-  prefix.placeholder = "Category prefix";
-  prefix.setAttribute("aria-label", "Category prefix");
-  prefix.addEventListener("change", () => {
-    loader.setCategoryPrefix(prefix.value.trim());
-  });
+  const category = el(documentNode, "select", "item-filter-control");
+  category.setAttribute("aria-label", "Category");
+  for (const value of ["", "failed", "new", "unclear", "observation", "idea"]) {
+    const option = el(documentNode, "option", null, value || "All categories");
+    option.value = value;
+    category.appendChild(option);
+  }
+  category.addEventListener("change", () => loader.setCategory(category.value));
   host.appendChild(review);
-  host.appendChild(prefix);
+  host.appendChild(category);
   return host;
 }
 
@@ -77,7 +78,7 @@ export function renderOuroborosView(context, main, scope) {
         return;
       }
       renderTable(body, state.rows, [
-        { label: "Observation", value: (row) => row.preview || row.context || `Field note #${row.id}` },
+        { label: "Observation", value: (row) => row.preview || row.context || `Feedback note #${row.id}` },
         { label: "Filed at", value: (row) => row.timestamp },
         { label: "Category", value: (row) => row.category, pill: true },
         { label: "Context", value: (row) => row.context },
@@ -103,7 +104,7 @@ export function renderOuroborosView(context, main, scope) {
       })), "nothing noticed yet", (row) => (
         buildUniverseRoute(
           "ouroboros",
-          row.project || (Array.isArray(scope) ? scope[0] : scope),
+          null,
           String(row.id),
         )
       ), { stack: true, sortable: true, className: "ouroboros-roster" });
@@ -142,17 +143,17 @@ export function renderOuroborosEntryDetailView(
   navigation = {},
 ) {
   const documentNode = context.document;
-  const panel = section(documentNode, `Field note #${entryId}`);
+  const panel = section(documentNode, `Feedback note #${entryId}`);
   main.replaceChildren(panel);
   loadSection(
     context,
     panel,
-    "ouroboros.entry.get",
-    { entry_id: Number(entryId), project: String(projectId) },
+    "ouroboros.field_note.get",
+    { entry_id: Number(entryId) },
     (body, callResult) => {
       const entry = (callResult.envelope.result || {}).entry || {};
       if (typeof navigation.setDetailLabel === "function") {
-        navigation.setDetailLabel(`Field note #${entry.id || entryId}`);
+        navigation.setDetailLabel(`Feedback note #${entry.id || entryId}`);
       }
       const contextLine = [
         entry.category,
@@ -169,20 +170,20 @@ export function renderOuroborosEntryDetailView(
       }));
       if (entry.correlation_id) {
         body.appendChild(actionLink(documentNode, `Root note #${entry.correlation_id}`,
-          buildUniverseRoute("ouroboros", projectId, entry.correlation_id)));
+          buildUniverseRoute("ouroboros", null, entry.correlation_id)));
       }
       if (entry.repeat_count) {
         body.appendChild(el(documentNode, "h3", "", `Repeated evidence (${entry.repeat_count})`));
         for (const repeat of entry.repeats || []) {
           const row = el(documentNode, "p", "item-muted");
           row.appendChild(actionLink(documentNode, `Note #${repeat.id}`,
-            buildUniverseRoute("ouroboros", projectId, repeat.id)));
+            buildUniverseRoute("ouroboros", null, repeat.id)));
           row.appendChild(documentNode.createTextNode(` · ${repeat.preview}`));
           body.appendChild(row);
         }
         if (entry.repeat_count > (entry.repeats || []).length) {
           body.appendChild(el(documentNode, "p", "item-muted",
-            "Showing the latest 20 repeats; use the field-note list to page through all evidence."));
+            "Showing the latest 20 repeats; use the feedback list to page through all evidence."));
         }
       }
       if (entry.promoted_dash) {

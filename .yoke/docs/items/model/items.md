@@ -196,8 +196,13 @@ id INTEGER PRIMARY KEY
 timestamp TIMESTAMPTZ NOT NULL
 agent TEXT NOT NULL
 context TEXT
-category TEXT NOT NULL
-body TEXT NOT NULL
+category TEXT NOT NULL -- failed | new | unclear | observation | idea
+body TEXT NOT NULL -- evidence, 1–4000 characters
+project_id INTEGER -- nullable observing project
+actor_id INTEGER -- authenticated request actor; receiving service for public notes
+reporter_email TEXT -- nullable contact email
+yoke_version TEXT -- nullable sender version
+universe_fingerprint TEXT -- nullable slug@timestamp; public input is untrusted
 reviewed_at TIMESTAMPTZ
 archived_at TIMESTAMPTZ
 created_at TIMESTAMPTZ NOT NULL -- app-supplied ISO-8601 UTC; see timestamp discipline in the introduction

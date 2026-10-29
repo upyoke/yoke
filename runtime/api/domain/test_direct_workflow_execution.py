@@ -180,7 +180,7 @@ def test_field_note_promotion_is_idempotent(test_db, monkeypatch):
         "INSERT INTO ouroboros_entries "
         "(id, timestamp, agent, category, body, created_at, project_id) "
         "VALUES (22890, '2026-07-26T00:00:00Z', 'codex', "
-        "'field-note-observation', 'Tighten this focused behavior.', "
+        "'observation', 'Tighten this focused behavior.', "
         "'2026-07-26T00:00:00Z', 1)",
     )
     test_db.commit()

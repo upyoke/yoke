@@ -50,9 +50,7 @@ SIMULATION: CLEAN or SIMULATION: GAPS FOUND
 SCOPE: SYSTEM
 ```
 
-The PostToolUse Agent-tool hook `yoke_core.domain.reflection_capture_hook`
-captures the delimited reflection envelope. Do not insert it again; an absent
-reflection block does not block the report.
+
 
 ## Persist and report
 

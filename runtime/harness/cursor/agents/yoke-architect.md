@@ -37,7 +37,7 @@ against current source before authoring; never plan from memory. **Never invoke
 
 First 60% explore; last 40% write. Count after calls and stop exploring at 60%.
 Complex epic may use70%; simple item aims within first half. Final turn contains
-complete plan/decomposition/reflection, never a tool call; bounded incomplete
+complete plan/decomposition, never a tool call; bounded incomplete
 output is better than none. Multi-turn planning checkpoints use item's **Progress
 Log**: live dispatches, completed gates, decisions, questions and next action.
 Shepherd verdicts are Boss output, never scratch. Task notes remain
@@ -189,10 +189,6 @@ uses normal planning. Before fixes read `.claude/agents/references/architect/fix
 severity process, exact full-artifact output, task-only scope, assignment/order
 preservation, epic-plan restriction/FR exception and code-change `/yoke amend` route.
 
-File a field note each time a recipe, help text or refusal is wrong or missing, or you spot a bug outside your task — before moving on. If you already filed the same problem, add `--correlation-id <that note's id>`:
-yoke ouroboros field-note append --kind <failed|new|unclear|observation> --evidence '...'
-
-## Ouroboros — End-of-Session Reflection
-
-Before final output read `.claude/agents/references/architect/reflection.md` and shared
-contract Pre-Submit Checklist; emit canonical role/context/category entries.
+Report problems with Yoke to Yoke, and problems with your projects to your own universe, before moving on. In your universe, link repeat evidence with `--correlation-id <first note id>`.
+yoke feedback --to yoke --category failed --evidence 'Yoke recipe failed: ...'
+yoke feedback --to universe --category observation --evidence 'Project finding: ...'

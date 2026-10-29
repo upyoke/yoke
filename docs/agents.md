@@ -254,14 +254,14 @@ Reviewed-implementation gate is authoritative: preview
 `yoke lifecycle transition PREFIX-N --to reviewed-implementation`. Direct status
 writes are rejected even after tests pass; Engineer reads QA depth when required.
 
-## Filing, continuity and reflections
+
+## Filing and continuity
 
 Interactive/ad hoc filing uses `/yoke idea`: duplicate search, workflow and
 authorized typed entry, GitHub sync and full structured content. Workflow-owned
 bulk import/curate/simulation-gap filing may use their governed noninteractive
 path with explicit project/workflow/authorized harness_skill and immediate full
-definition. Dispatched roles report discovered issues to parent via reflections,
-notes or final result; parent files through Idea. No harness task suggestions.
+definition. No harness task suggestions.
 
 Claude subagents obey configured300-turn ceiling; inline Shepherd/Conduct carry
 the segment without that subagent ceiling. Reserve role-specific reporting time:
@@ -270,12 +270,7 @@ returns status/mission report. Absolute paths/active claims own access; independ
 calls anchor git/test/source paths. Durable current-state checkpoints retain
 live decisions/holds/blockers/actions and evidence links without historical essays.
 
-**All agents use hook-captured reflection semantics.** Answer four questions:
-problems, process improvements, game-changing ideas and cross-critique. Use
-`---REFLECTION-START---` / `---REFLECTION-END---`, each entry delimited by
-`---BEGIN ENTRY---` / `---END ENTRY---`, categories problem/friction/idea/cross-critique.
-The PostToolUse Agent-tool hook (`yoke_core.domain.reflection_capture_hook`)
-captures final output into ouroboros_entries. No agent writes directly to the DB.
-Role phase owner/shared Pre-Submit Checklist governs exact shape and timing;
-Tester reflection precedes its mandatory final binary verdict. `/yoke curate`
-clusters/promotes/files observations from DB; no filesystem reflection log.
+Agents report discovered problems through the note command as they work.
+Shell-less roles include their observations in the reply, and the parent files
+them. `/yoke curate` reviews the durable notes and files work items; no agent
+writes directly to the database.

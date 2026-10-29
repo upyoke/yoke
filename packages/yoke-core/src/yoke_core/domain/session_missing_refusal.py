@@ -22,6 +22,8 @@ command.
 
 from __future__ import annotations
 
+from yoke_contracts.field_note_text import DENIAL_FOOTER
+
 from typing import Any
 
 
@@ -52,7 +54,7 @@ def format_session_missing(
         )
     return opening + (
         "Yoke infrastructure gap: registration or process-anchor resolution "
-        "failed. File a field-note, or report it to the operator if unavailable. "
+        f"failed. {DENIAL_FOOTER} Report it to the operator if unavailable. "
         "Operator-debug --session-id is the only ambient-resolution override."
     )
 

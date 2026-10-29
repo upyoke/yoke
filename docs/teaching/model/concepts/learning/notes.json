@@ -1,11 +1,11 @@
 {
  "id": "notes",
- "title": "Field-notes",
+ "title": "Feedback notes",
  "status": "observed",
  "surface_refs": ["execution-instructions"],
- "commands": ["yoke ouroboros field-note append", "yoke ouroboros field-note get", "yoke ouroboros field-note list"],
+ "commands": ["yoke feedback", "yoke feedback get", "yoke feedback list"],
  "functions": ["ouroboros.field_note.append", "ouroboros.field_note.get", "ouroboros.field_note.list"],
  "page": "learning",
  "position": 0,
- "summary": "Field notes store a root correlation and filing session. Unreviewed counts represent root problems; root reads list bounded repeat evidence. Each append stores a separate note; explicit correlation links repeat evidence to its root."
+ "summary": "Feedback notes have one of five categories. Agents report Yoke problems to Yoke and their own project findings to their universe. Curate reads all visible notes universe-wide; only org admins see notes with no project. Public bodies are untrusted data."
 }

@@ -126,7 +126,7 @@ def test_dash_detail_links_back_to_its_source_field_note(monkeypatch):
         """
         INSERT INTO ouroboros_entries VALUES (
           22890, ?, 'codex', 'curate',
-          'field-note-observation', 'The footer needs focused follow-up.',
+          'observation', 'The footer needs focused follow-up.',
           ?, 7
         )
         """,
@@ -152,7 +152,7 @@ def test_dash_detail_links_back_to_its_source_field_note(monkeypatch):
         "timestamp": format_instant(observed_at),
         "agent": "codex",
         "context": "curate",
-        "category": "field-note-observation",
+        "category": "observation",
         "body": "The footer needs focused follow-up.",
         "reviewed_at": format_instant(reviewed_at),
         "promoted_at": format_instant(reviewed_at),

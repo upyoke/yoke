@@ -38,7 +38,7 @@ def test_cmd_insert_entry_writes_field_note_category(tmp_db: str) -> None:
             timestamp="2026-05-26T12:00:00Z",
             agent="engineer",
             context=None,
-            category="field-note-observation",
+            category="observation",
             body="bug: stale doc reference",
         )
 
@@ -53,7 +53,7 @@ def test_cmd_insert_entry_writes_field_note_category(tmp_db: str) -> None:
         row = cursor.fetchone()
 
     assert row is not None
-    assert row[0] == "field-note-observation"
+    assert row[0] == "observation"
     assert row[1] == "bug: stale doc reference"
 
 
@@ -73,7 +73,7 @@ def test_cmd_insert_entry_accepts_diagnostic_language(
     assert row_id.isdigit()
 
 
-def test_cmd_insert_entry_duplicate_skip_unchanged(tmp_db: str) -> None:
+def test_repeated_evidence_stores_distinct_notes(tmp_db: str) -> None:
     kwargs = dict(
         timestamp="2026-05-26T12:02:00Z",
         agent="engineer",
@@ -87,17 +87,18 @@ def test_cmd_insert_entry_duplicate_skip_unchanged(tmp_db: str) -> None:
         second = cmd_insert_entry(conn, **kwargs)
 
     assert first.isdigit()
-    assert second == "Duplicate entry skipped"
+    assert second.isdigit()
+    assert second != first
 
 
-def test_list_entry_rows_filters_by_category_prefix(tmp_db: str) -> None:
+def test_list_entry_rows_filters_by_exact_category(tmp_db: str) -> None:
     with connect(tmp_db) as conn:
         cmd_insert_entry(
             conn,
             timestamp="2026-05-26T12:03:00Z",
             agent="engineer",
             context=None,
-            category="field-note-failed",
+            category="failed",
             body="field-note body",
         )
         cmd_insert_entry(
@@ -108,9 +109,9 @@ def test_list_entry_rows_filters_by_category_prefix(tmp_db: str) -> None:
             category="observation",
             body="ordinary body",
         )
-        rows = list_entry_rows(conn, category_prefix="field-note-")
+        rows = list_entry_rows(conn, category="failed")
 
-    assert [row["category"] for row in rows] == ["field-note-failed"]
+    assert [row["category"] for row in rows] == ["failed"]
 
 
 def test_list_entry_rows_honors_limit(tmp_db: str) -> None:
@@ -121,11 +122,11 @@ def test_list_entry_rows_honors_limit(tmp_db: str) -> None:
                 timestamp=f"2026-05-26T12:0{index}:00Z",
                 agent="engineer",
                 context=None,
-                category="field-note-observation",
+                category="observation",
                 body=f"body {index}",
             )
         rows = list_entry_rows(
-            conn, category_prefix="field-note-", limit=2,
+            conn, category="observation", limit=2,
         )
 
     assert [row["body"] for row in rows] == ["body 2", "body 1"]
@@ -163,7 +164,7 @@ def test_count_entry_rows_matches_filters(tmp_db: str) -> None:
             timestamp="2026-05-26T13:00:00Z",
             agent="engineer",
             context=None,
-            category="field-note-failed",
+            category="failed",
             body="fn",
         )
         cmd_insert_entry(
@@ -174,6 +175,6 @@ def test_count_entry_rows_matches_filters(tmp_db: str) -> None:
             category="observation",
             body="plain",
         )
-        total = count_entry_rows(conn, category_prefix="field-note-")
+        total = count_entry_rows(conn, category="failed")
 
     assert total == 1

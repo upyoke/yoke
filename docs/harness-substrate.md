@@ -39,8 +39,8 @@ defines maintainer contracts.
 Skills author a `DispatchDescriptor`: role identity, task prompt, file routing,
 claim context and result-ingestion contract. Claude maps it to its Agent tool;
 Codex/Cursor consume their supported native adapters. Structured verdicts,
-reflections, progress and QA land in the same durable owners regardless of
-harness. The capability registry's `HARNESS_UNIVERSE` identifies registered
+progress and QA land in the same durable owners regardless of harness.
+The capability registry's `HARNESS_UNIVERSE` identifies registered
 shapes; branch only where a real supported primitive differs.
 
 Inline Shepherd/Conduct/Usher are skills, not new personas. Their immutable

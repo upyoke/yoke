@@ -4,45 +4,18 @@ from __future__ import annotations
 
 from yoke_core.domain.handlers import ouroboros_reads as _our
 from yoke_core.domain.handlers import ouroboros_writes as _writes
-from yoke_core.domain.handlers import reflection_capture
 
 
 def register(registry) -> None:
     """Register the ouroboros entry readers via the given registry module."""
-    reflection_capture.register(registry)
     for entry in _writes.REGISTRATIONS:
         registry.register(**entry)
-    registry.register(
-        "ouroboros.entry.list",
-        _our.handle_ouroboros_entry_list,
-        _our.OuroborosEntryListRequest,
-        _our.OuroborosEntryListResponse,
-        stability="stable",
-        owner_module="yoke_core.domain.handlers.ouroboros_reads",
-        target_kinds=["global"],
-        side_effects=[],
-        guardrails=[],
-        adapter_status="live",
-        claim_required_kind=None,
-    )
-    registry.register(
-        "ouroboros.entry.get",
-        _our.handle_ouroboros_entry_get,
-        _our.OuroborosEntryGetRequest,
-        _our.OuroborosEntryGetResponse,
-        stability="stable",
-        owner_module="yoke_core.domain.handlers.ouroboros_reads",
-        target_kinds=["global"],
-        side_effects=[],
-        guardrails=[],
-        adapter_status="live",
-        claim_required_kind=None,
-    )
     registry.register(
         "ouroboros.field_note.list",
         _our.handle_ouroboros_entry_list,
         _our.OuroborosEntryListRequest,
         _our.OuroborosEntryListResponse,
+        minimum_serving_version="next-release",
         stability="stable",
         owner_module="yoke_core.domain.handlers.ouroboros_reads",
         target_kinds=["global"],
@@ -56,6 +29,7 @@ def register(registry) -> None:
         _our.handle_ouroboros_entry_get,
         _our.OuroborosEntryGetRequest,
         _our.OuroborosEntryGetResponse,
+        minimum_serving_version="next-release",
         stability="stable",
         owner_module="yoke_core.domain.handlers.ouroboros_reads",
         target_kinds=["global"],

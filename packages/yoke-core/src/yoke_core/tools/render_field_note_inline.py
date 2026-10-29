@@ -6,14 +6,14 @@ surface (skill bodies, operator docs, the long-form
 ``runtime/agents/_shared/ouroboros-field-note.md``). Drift is
 structurally impossible: the :data:`INVENTORY` tuple is the contract, and
 ``--check`` mode runs in CI and the
-``HC-field-note-coherence`` doctor HC. The marker mechanics themselves
+``HC-feedback-coherence`` doctor HC. The marker mechanics themselves
 live in :mod:`yoke_core.tools.generated_block_render`, shared with the
 harness wake-capability family.
 
 Markers — content between is REPLACED on every run:
 
-    <!-- BEGIN GENERATED: field-note-directive -->
-    <!-- END GENERATED: field-note-directive -->
+    <!-- BEGIN GENERATED: feedback-directive -->
+    <!-- END GENERATED: feedback-directive -->
 
 CLI: ``python3 -m yoke_core.tools.render_field_note_inline
                 [--check] [--target-root PATH]``
@@ -47,7 +47,7 @@ __all__ = (
     "format_drift_summary_for_family",
 )
 
-SLUG: str = "field-note-directive"
+SLUG: str = "feedback-directive"
 BEGIN_MARKER: str = begin_marker(SLUG)
 END_MARKER: str = end_marker(SLUG)
 REPAIR_COMMAND: str = "python3 -m yoke_core.tools.render_field_note_inline"
@@ -62,11 +62,11 @@ INVENTORY: tuple[str, ...] = (
     "README.md",
     "AGENTS.md",
     "docs/OVERVIEW.md",
-    ".yoke/docs/agents/commands.md",
+    "docs/public/agents/commands.md",
     "docs/prompt-philosophy.md",
-    ".yoke/docs/workflows/lifecycle.md",
+    "docs/public/workflows/lifecycle.md",
     "docs/local-setup.md",
-    ".yoke/strategy/FUTURE-NOTES.md",
+    "docs/source-dev-worktree-cleanup.md",
     _SHARED_LONG_FORM_PATH,
 )
 

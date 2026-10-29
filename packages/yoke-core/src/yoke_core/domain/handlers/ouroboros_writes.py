@@ -12,28 +12,13 @@ from yoke_contracts.api.function_call import (
     FunctionError,
     HandlerOutcome,
 )
-from yoke_contracts.field_note_text import CATEGORY_PREFIX
 from yoke_core.domain.ouroboros_entry_review import MAX_ENTRY_REVIEW_BATCH
 from yoke_core.domain.ouroboros_entry_write_scope import CrossProjectEntryWrite
-
-
-class OuroborosEntryInsertRequest(BaseModel):
-    agent: str
-    category: str
-    observation: str
-    context: Optional[str] = None
-    timestamp: Optional[str] = None
-    project: Optional[str] = None
-
-
-class OuroborosEntryInsertResponse(BaseModel):
-    entry_id: str
 
 
 class OuroborosEntryReviewRequest(BaseModel):
     entry_id: Optional[int] = None
     before: Optional[str] = None
-    field_notes_before: Optional[str] = None
     limit: int = Field(
         default=MAX_ENTRY_REVIEW_BATCH,
         ge=1,
@@ -84,42 +69,6 @@ def _cross_project_denied(exc: CrossProjectEntryWrite) -> HandlerOutcome:
     )
 
 
-def handle_ouroboros_entry_insert(
-    request: FunctionCallRequest,
-) -> HandlerOutcome:
-    try:
-        payload = OuroborosEntryInsertRequest.model_validate(request.payload or {})
-    except Exception as exc:
-        return _bad_request(f"payload invalid: {exc}")
-    if not payload.agent.strip():
-        return _bad_request("agent must be non-empty", jsonpath="$.payload.agent")
-    if not payload.category.strip():
-        return _bad_request("category must be non-empty", jsonpath="$.payload.category")
-    if not payload.observation.strip():
-        return _bad_request(
-            "observation must be non-empty", jsonpath="$.payload.observation"
-        )
-    from yoke_core.domain.db_helpers import connect, utc_now
-    from yoke_core.domain.ouroboros_entries import cmd_insert_entry
-
-    with connect() as conn:
-        entry_id = cmd_insert_entry(
-            conn,
-            utc_now() if payload.timestamp is None else payload.timestamp,
-            payload.agent,
-            payload.context,
-            payload.category,
-            payload.observation,
-            payload.project,
-        )
-    return HandlerOutcome(
-        result_payload=OuroborosEntryInsertResponse(
-            entry_id=entry_id,
-        ).model_dump(),
-        primary_success=True,
-    )
-
-
 def handle_ouroboros_entry_mark_reviewed(
     request: FunctionCallRequest,
 ) -> HandlerOutcome:
@@ -127,10 +76,10 @@ def handle_ouroboros_entry_mark_reviewed(
         payload = OuroborosEntryReviewRequest.model_validate(request.payload or {})
     except Exception as exc:
         return _bad_request(f"payload invalid: {exc}")
-    selectors = (payload.entry_id, payload.before, payload.field_notes_before)
+    selectors = (payload.entry_id, payload.before)
     if sum(selector is not None for selector in selectors) != 1:
         return _bad_request(
-            "pass exactly one of entry_id, before, or field_notes_before"
+            "pass exactly one of entry_id or before"
         )
     from yoke_core.domain.db_helpers import connect
     from yoke_core.domain.ouroboros_entries import cmd_mark_reviewed
@@ -151,17 +100,15 @@ def handle_ouroboros_entry_mark_reviewed(
                     reviewed_count=1,
                 )
             else:
-                cutoff = payload.before or payload.field_notes_before or ""
-                field_notes_only = payload.field_notes_before is not None
+                cutoff = payload.before or ""
                 batch = mark_entries_reviewed_before(
                     conn,
                     before=cutoff,
                     project=payload.project,
-                    category_prefix=CATEGORY_PREFIX if field_notes_only else None,
                     limit=payload.limit,
                     include_unattributed=payload.include_unattributed,
                 )
-                subject = "field-notes" if field_notes_only else "entries"
+                subject = "feedback notes"
                 message = (
                     f"Marked {batch.reviewed_count} {subject} created before "
                     f"{cutoff} as reviewed"
@@ -229,13 +176,6 @@ def handle_ouroboros_entry_mark_archived(
 
 REGISTRATIONS: List[Dict[str, Any]] = [
     {
-        "function_id": "ouroboros.entry.insert",
-        "handler": handle_ouroboros_entry_insert,
-        "request_model": OuroborosEntryInsertRequest,
-        "response_model": OuroborosEntryInsertResponse,
-        "side_effects": ["db_write"],
-    },
-    {
         "function_id": "ouroboros.entry.mark_reviewed",
         "handler": handle_ouroboros_entry_mark_reviewed,
         "request_model": OuroborosEntryReviewRequest,
@@ -267,7 +207,6 @@ for entry in REGISTRATIONS:
 
 __all__ = [
     "REGISTRATIONS",
-    "handle_ouroboros_entry_insert",
     "handle_ouroboros_entry_mark_reviewed",
     "handle_ouroboros_entry_mark_archived",
 ]

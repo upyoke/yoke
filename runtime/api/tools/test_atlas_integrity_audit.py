@@ -135,6 +135,7 @@ class TestTopLevelShape:
 
 class TestFieldNoteCollection:
     def test_uses_field_note_cli_transport_surface(self, monkeypatch) -> None:
+        monkeypatch.setattr("yoke_cli.commands._helpers.client_project_context", lambda: "1")
         seen = {}
 
         def fake_call_dispatcher(**kwargs):
@@ -158,7 +159,8 @@ class TestFieldNoteCollection:
         assert seen["target"].kind == "global"
         assert seen["target"].project_id is None
         assert seen["payload"] == {
-            "category_prefix": "field-note-",
+            "scope": "project",
+            "project": "1",
             "limit": 50,
         }
         assert seen["actor"].session_id == "atlas-integrity-audit"
@@ -245,7 +247,7 @@ class TestFollowupCandidates:
             field_notes={"read_surface_status": "internal_db_direct"},
             recipes={"verdicts": []},
         )
-        assert any(c["id"] == "field-note-read-surface-gap" for c in candidates)
+        assert any(c["id"] == "feedback-read-surface-gap" for c in candidates)
 
     def test_failing_recipes_produce_candidate(self) -> None:
         candidates = aia._build_followup_candidates(

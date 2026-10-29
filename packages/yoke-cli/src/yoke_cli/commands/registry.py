@@ -161,25 +161,17 @@ SUBCOMMAND_REGISTRY: Dict[Tuple[str, ...], Tuple[str, AdapterFn]] = {
         "lifecycle.skip.record_recoverable_substrate",
         _adapters.lifecycle_skip_record_recoverable_substrate,
     ),
-    ("ouroboros", "field-note", "append"): (
+    ("feedback",): (
         "ouroboros.field_note.append",
-        _adapters.ouroboros_field_note_append,
+        _adapters.feedback_append,
     ),
-    ("ouroboros", "field-note", "list"): (
+    ("feedback", "list"): (
         "ouroboros.field_note.list",
-        _adapters.ouroboros_field_note_list,
+        _adapters.feedback_list,
     ),
-    ("ouroboros", "field-note", "get"): (
+    ("feedback", "get"): (
         "ouroboros.field_note.get",
-        _adapters.ouroboros_field_note_get,
-    ),
-    ("ouroboros", "entry", "list"): (
-        "ouroboros.entry.list",
-        _adapters.ouroboros_entry_list,
-    ),
-    ("ouroboros", "entry", "get"): (
-        "ouroboros.entry.get",
-        _adapters.ouroboros_entry_get,
+        _adapters.feedback_get,
     ),
     ("strategy", "doc", "list"): ("strategy.doc.list", _adapters.strategy_doc_list),
     ("strategy", "doc", "get"): ("strategy.doc.get", _adapters.strategy_doc_get),
@@ -326,6 +318,9 @@ def resolve(argv_head: List[str]) -> Tuple[Tuple[str, ...], str, AdapterFn, List
 
 def function_id_to_cli(function_id: str) -> Tuple[str, ...]:
     """Drop synthetic terminals and translate dots/underscores to CLI tokens."""
+    for tokens, (registered, _) in SUBCOMMAND_REGISTRY.items():
+        if tokens[0] == "feedback" and registered == function_id:
+            return tokens
     parts = function_id.split(".")
     if parts and parts[-1] in ("run", "execute"):
         parts = parts[:-1]
@@ -334,6 +329,8 @@ def function_id_to_cli(function_id: str) -> Tuple[str, ...]:
 
 def cli_to_function_id_stem(tokens: Tuple[str, ...]) -> str:
     """Translate CLI tokens to a function-id stem without its terminal."""
+    if tokens and tokens[0] == "feedback" and tokens in SUBCOMMAND_REGISTRY:
+        return SUBCOMMAND_REGISTRY[tokens][0]
     return ".".join(t.replace("-", "_") for t in tokens)
 
 

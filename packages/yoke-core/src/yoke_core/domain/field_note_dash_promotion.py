@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from yoke_contracts.field_note_text import KIND_VALUES
+
 import io
 from dataclasses import dataclass
 from typing import Any, Mapping, Optional
@@ -121,7 +123,7 @@ def _field_note(conn: Any, entry_id: int) -> dict[str, Any]:
     )
     if row is None:
         raise FieldNotePromotionError(f"field note {entry_id} does not exist")
-    if not str(row["category"]).startswith("field-note-"):
+    if str(row["category"]) not in KIND_VALUES:
         raise FieldNotePromotionError(f"ouroboros entry {entry_id} is not a field note")
     return row
 

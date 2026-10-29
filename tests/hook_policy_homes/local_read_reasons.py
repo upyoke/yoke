@@ -138,8 +138,6 @@ EVALUATING_PROCESS_TELEMETRY = (
         _C + "events:emit_event",
         _C + "events_isolation:isolation_gate_blocks",
         _C + "function_unresolved_project:control_plevel_label",
-        _C + "reflection_capture:_emit_persist_failed",
-        _C + "reflection_capture:capture_reflections",
         _C + "yok_n_parser:item_argument_project",
     ),
 )

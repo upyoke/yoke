@@ -36,14 +36,14 @@ class TestIsActualGitCommit(unittest.TestCase):
         # The text "git commit" appears inside an --evidence argument as
         # field-note payload -- not a real commit attempt.
         cmd = (
-            'yoke ouroboros field-note append --kind failed '
+            'yoke feedback --to yoke --category failed '
             '--evidence "git commit was blocked by lint-main-commit"'
         )
         self.assertFalse(is_actual_git_commit(cmd))
 
     def test_commit_inside_single_quoted_argument(self) -> None:
         cmd = (
-            "yoke ouroboros field-note append --kind unclear "
+            "yoke feedback --to yoke --category unclear "
             "--evidence 'previous attempt: git commit refused'"
         )
         self.assertFalse(is_actual_git_commit(cmd))

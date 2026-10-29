@@ -195,6 +195,10 @@ def check_dispatch_permission(
             )
         return DispatchPermission(spec.permission_key, None, None)
     else:  # PROJECT
+        from yoke_core.domain.feedback_write_permissions import feedback_lifecycle_permission
+        feedback_permission = feedback_lifecycle_permission(conn, entry, request, spec.permission_key)
+        if feedback_permission is not None:
+            return feedback_permission
         visible_ids = actor_project_ids_with_permission(
             conn,
             actor_id,

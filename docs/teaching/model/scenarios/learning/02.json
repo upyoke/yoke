@@ -8,7 +8,7 @@
  "disclosure": "current cue",
  "surface": "Help/native skill catalog -> Curate; public Ouroboros section -> /yoke curate.",
  "review": "Pending exact recipe proof.",
- "recipes": ["yoke ouroboros field-note list --unreviewed", "yoke ouroboros field-note get --help"],
+ "recipes": ["yoke feedback list --unreviewed", "yoke feedback get --help"],
  "plan_notes": ["outside both"],
  "sources": [".agents/skills/yoke/curate/SKILL.md", ".agents/skills/yoke/curate/cluster-and-work-item.md", "docs/public/operations/ouroboros.md"],
  "position": 1

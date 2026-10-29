@@ -1,0 +1,8 @@
+{
+  "feedback": "Yoke issues go to Yoke; project issues go to your universe.",
+  "feedback get": "Read one feedback note.",
+  "feedback list": "List visible feedback across your universe.",
+  "feedback review": "Mark feedback as reviewed.",
+  "feedback archive": "Archive reviewed feedback.",
+  "feedback promote": "Turn feedback into a work item."
+}

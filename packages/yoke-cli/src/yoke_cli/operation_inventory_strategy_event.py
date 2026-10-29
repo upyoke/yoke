@@ -13,14 +13,12 @@ from yoke_cli.operation_inventory_model import (
 
 
 WRAPPED_ROWS: Tuple[_Row, ...] = (
-    _w("yoke ouroboros reflection capture", "ouroboros"),
     _w("yoke advance preflight hard-blocks", "advance.preflight"),
     _w("yoke events emit", "events"),
     _w("yoke events performance aggregate", "events.performance"),
     _w("yoke events performance detail", "events.performance"),
-    _w("yoke ouroboros entry insert", "ouroboros"),
-    _w("yoke ouroboros entry mark-reviewed", "ouroboros"),
-    _w("yoke ouroboros entry mark-archived", "ouroboros"),
+    _w("yoke feedback review", "ouroboros"),
+    _w("yoke feedback archive", "ouroboros"),
     _w("yoke strategy carry register-new", "strategy.carry"),
     _w("yoke strategy carry candidate-set", "strategy.carry"),
     _w("yoke strategy carry summary", "strategy.carry"),

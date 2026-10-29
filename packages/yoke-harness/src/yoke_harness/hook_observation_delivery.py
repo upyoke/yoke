@@ -17,6 +17,8 @@ name and drop the rest.
 
 from __future__ import annotations
 
+from yoke_contracts.field_note_text import DENIAL_FOOTER
+
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Callable
@@ -53,7 +55,7 @@ _RECOVERY_BY_CODE = {
     ),
     "HOOK_OBSERVATION_NOT_READ_ONLY": (
         "only read-only tool chains are batchable; this is a client defect "
-        "worth a field note"
+        f"worth reporting. {DENIAL_FOOTER}"
     ),
     "UNSUPPORTED_HOOK_OBSERVATION_SCHEMA": (
         "client and control plane speak different batch schemas; update the older side"
@@ -64,7 +66,7 @@ _RECOVERY_BY_CODE = {
 }
 _DEFAULT_PERMANENT_RECOVERY = (
     "the control plane refuses this batch as sent; update the older of the "
-    "client or server revision, then file a field note if it persists"
+    f"client or server revision, then report it if it persists. {DENIAL_FOOTER}"
 )
 _DEFAULT_TRANSIENT_RECOVERY = "retrying; no action needed unless it persists"
 

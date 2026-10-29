@@ -161,4 +161,4 @@ def test_local_transport_types_an_uncaught_engine_exception():
     assert not response.success
     assert response.error.code == "handler_exception"
     assert "'test.read' raised KeyError" in response.error.message
-    assert "field-note append" in response.error.recovery_hint
+    assert "yoke feedback --to yoke" in response.error.recovery_hint

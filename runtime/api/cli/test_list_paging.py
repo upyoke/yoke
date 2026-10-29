@@ -165,7 +165,7 @@ def test_empty_and_past_end_pages_have_no_continuation():
     "argv,key",
     [
         (["sessions", "list", "--project", "example"], "rows"),
-        (["ouroboros", "field-note", "list", "--project", "example"], "entries"),
+        (["feedback", "list", "--project", "example"], "entries"),
         (
             [
                 "events",

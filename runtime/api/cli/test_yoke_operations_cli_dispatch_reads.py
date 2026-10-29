@@ -206,9 +206,7 @@ class TestOuroborosEntryDispatch:
     def test_entry_list_dispatches(self) -> None:
         rc = _run_with_dispatch(
             _stub_dispatch_ok,
-            "ouroboros",
-            "entry",
-            "list",
+            "feedback", "list",
             "--unreviewed",
             "--project",
             "yoke",
@@ -217,8 +215,9 @@ class TestOuroborosEntryDispatch:
         )
         assert rc == 0
         req = _CAPTURED_REQUESTS[-1]
-        assert req.function == "ouroboros.entry.list"
+        assert req.function == "ouroboros.field_note.list"
         assert req.payload == {
+            "scope": "universe",
             "unreviewed": True,
             "project": "yoke",
             "limit": 3,
@@ -227,14 +226,12 @@ class TestOuroborosEntryDispatch:
     def test_entry_get_dispatches(self) -> None:
         rc = _run_with_dispatch(
             _stub_dispatch_ok,
-            "ouroboros",
-            "entry",
-            "get",
+            "feedback", "get",
             "13009",
         )
         assert rc == 0
         req = _CAPTURED_REQUESTS[-1]
-        assert req.function == "ouroboros.entry.get"
+        assert req.function == "ouroboros.field_note.get"
         assert req.payload == {"entry_id": 13009}
 
 
@@ -242,9 +239,7 @@ class TestOuroborosFieldNoteReadDispatch:
     def test_field_note_list_dispatches_with_field_note_filter(self) -> None:
         rc = _run_with_dispatch(
             _stub_dispatch_ok,
-            "ouroboros",
-            "field-note",
-            "list",
+            "feedback", "list",
             "--unreviewed",
             "--project",
             "yoke",
@@ -255,7 +250,7 @@ class TestOuroborosFieldNoteReadDispatch:
         req = _CAPTURED_REQUESTS[-1]
         assert req.function == "ouroboros.field_note.list"
         assert req.payload == {
-            "category_prefix": "field-note-",
+            "scope": "universe",
             "unreviewed": True,
             "project": "yoke",
             "limit": 40,
@@ -264,9 +259,7 @@ class TestOuroborosFieldNoteReadDispatch:
     def test_field_note_get_dispatches_with_field_note_filter(self) -> None:
         rc = _run_with_dispatch(
             _stub_dispatch_ok,
-            "ouroboros",
-            "field-note",
-            "get",
+            "feedback", "get",
             "13270",
         )
         assert rc == 0
@@ -274,5 +267,4 @@ class TestOuroborosFieldNoteReadDispatch:
         assert req.function == "ouroboros.field_note.get"
         assert req.payload == {
             "entry_id": 13270,
-            "category_prefix": "field-note-",
         }

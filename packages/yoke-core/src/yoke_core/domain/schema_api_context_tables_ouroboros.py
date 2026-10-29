@@ -19,19 +19,24 @@ OUROBOROS_TABLES: dict[str, dict] = {
             ("target_project_id", "INTEGER"),
             ("correlation_id", "INTEGER"),
             ("session_id", "TEXT"),
+            ("actor_id", "INTEGER"),
+            ("reporter_email", "TEXT"),
+            ("yoke_version", "TEXT"),
+            ("universe_fingerprint", "TEXT"),
         ],
         "notes": (
+            "Feedback rows store `category` and `body`; "
+            "there are NO `kind` or `evidence` columns on this table. "
             "Field-note correlation_id stores the root note id; session_id "
             "stores the filing session. Minimal capture fixtures also need both "
             "columns: wrong guess that only event telemetry or field-note inserts "
             "use them; plain learning-log inserts share the same row writer. "
-            "Core table creation includes them too; existing-universe index "
+            "Wrong guess: attribution exists only after additive convergence; "
+            "core table creation also includes actor_id and reporter metadata. "
+            "Existing-universe index "
             "creation follows project_id additive convergence. "
             "Unreviewed counts exclude correlated "
             "repeats; reads attach repeat_count and bounded repeats to roots. "
-            "Learning-log / field-note rows. The kind-like discriminator "
-            "is `category` and the evidence/content text is `body`; "
-            "there are NO `kind` or `evidence` columns on this table. "
             "Two project columns, both numeric; join projects for the "
             "human slug. `project_id` is where the note was OBSERVED "
             "(resolved automatically from the calling checkout). "
@@ -42,14 +47,18 @@ OUROBOROS_TABLES: dict[str, dict] = {
             "`project_id`. "
             "`agent` holds the author label the write path resolved "
             "(subagent role, else the session's executor) — it is NOT an "
-            "actor id, and there is no `author` or `actor_id` column. "
+            "actor id. `actor_id` is stamped from the authenticated request, or "
+            "the receiving feedback service for public notes. There is no `author` column. "
+            "Nullable reporter_email, yoke_version and universe_fingerprint "
+            "carry reporter metadata; a fingerprint marks untrusted public input. "
+            "Category is exactly failed, new, unclear, observation or idea. "
             "Supersede links live in `ouroboros_entry_corrections`, not "
             "in a column here. "
-            "Use `created_at` for canonical ordering; `timestamp` is "
-            "legacy compatibility. "
-            "Browser roster reads use `ouroboros.entry.list` with "
-            "`shape=roster` (id-desc keyset cursor, matching_count, no "
-            "`body`); `ouroboros.entry.get` is the only fetch for the "
+            "Full reads order by id. Browser reads order by their selected field, "
+            "defaulting to timestamp descending, with id as the tie-breaker. "
+            "Browser roster reads use `ouroboros.field_note.list` with "
+            "`shape=roster` (selected-field keyset cursor, matching_count, no "
+            "`body`); `ouroboros.field_note.get` is the only fetch for the "
             "evidence body. Operator list/count keep offset paging and "
             "full rows — wrong guess: that the roster shape replaced "
             "that operator list or that list always carries `body`."

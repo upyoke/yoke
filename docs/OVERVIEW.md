@@ -179,19 +179,18 @@ explicit test authority prevents live-ledger contamination; legitimate smoke
 lineage is retained. Telemetry availability, missing observations and timing
 coverage never decide operational correctness or prove zero activity.
 
-Ouroboros turns observations into durable learning: field notes and role
-reflection feed `ouroboros_entries`; `/yoke curate` clusters/promotes/file work;
+Ouroboros turns observations into durable learning: agents file notes in
+`ouroboros_entries`; `/yoke curate` clusters observations and files work.
 `/yoke doctor` checks declared applicability and reports pass, fail or N/A with
-reason; `/yoke simulate --system` checks source-wide consistency behind its
-source-checkout guard. Project-local checks under `.yoke/doctor/` join the same
-report. Reflection blocks use their role contract and capture owner rather
-than an invented logging format. Source simulation depth is
-[source-dev/system-simulation.md](source-dev/system-simulation.md).
+a reason. Project-local checks under `.yoke/doctor/` join the same report.
+`/yoke simulate --system` checks source-wide consistency behind its
+source-checkout guard; see [source simulation](source-dev/system-simulation.md).
 
-<!-- BEGIN GENERATED: field-note-directive -->
-File a field note each time a recipe, help text or refusal is wrong or missing, or you spot a bug outside your task — before moving on. If you already filed the same problem, add `--correlation-id <that note's id>`:
-yoke ouroboros field-note append --kind <failed|new|unclear|observation> --evidence '...'
-<!-- END GENERATED: field-note-directive -->
+<!-- BEGIN GENERATED: feedback-directive -->
+Report problems with Yoke to Yoke, and problems with your projects to your own universe, before moving on. In your universe, link repeat evidence with `--correlation-id <first note id>`.
+yoke feedback --to yoke --category failed --evidence 'Yoke recipe failed: ...'
+yoke feedback --to universe --category observation --evidence 'Project finding: ...'
+<!-- END GENERATED: feedback-directive -->
 
 ## Repository boundaries
 

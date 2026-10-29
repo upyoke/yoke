@@ -1,9 +1,4 @@
-"""Compact, cursor-paged Ouroboros roster reads for the browser list.
-
-The operator ``ouroboros.entry.list`` surface still returns full rows with
-offset paging. The browser roster opts into ``shape=roster`` so it can page
-by the selected field with a bounded evidence preview instead of full evidence bodies.
-"""
+"""Compact, cursor-paged browser reads with bounded evidence previews."""
 
 from __future__ import annotations
 
@@ -101,21 +96,23 @@ def _roster_filters(
     project: str,
     project_ids: Optional[list[int]],
     review_state: str,
-    category_prefix: Optional[str],
+    category: Optional[str],
     after_id: Optional[int],
+    include_unscoped: bool = False,
 ) -> tuple[str, list[object]]:
     p = _p(conn)
     ids = (
         project_ids if project_ids is not None else [resolve_project_id(conn, project)]
     )
-    conditions = [f"o.project_id IN ({','.join([p] * len(ids))})" if ids else "1=0"]
-    params: list[object] = list(ids)
+    from yoke_core.domain.handlers.ouroboros_roster_scope import scope_predicate
+    clause, params = scope_predicate(conn, ids, include_unscoped)
+    conditions = [clause]
     review_sql = _review_clause(review_state)
     if review_sql:
         conditions.append(review_sql)
-    if category_prefix:
-        conditions.append(f"o.category LIKE {p}")
-        params.append(f"{category_prefix}%")
+    if category:
+        conditions.append(f"o.category= {p}")
+        params.append(category)
     if after_id is not None:
         conditions.append(f"o.id < {p}")
         params.append(after_id)
@@ -150,13 +147,14 @@ def parse_review_state(raw: object, *, unreviewed: bool) -> str:
     return state
 
 
-def parse_category_prefix(raw: object) -> Optional[str]:
+def parse_category(raw: object) -> Optional[str]:
     if raw is None or raw == "":
         return None
-    if not isinstance(raw, str):
+    from yoke_contracts.field_note_text import KIND_VALUES
+    if raw not in KIND_VALUES:
         raise RosterFilterError(
-            "category_prefix must be a string. " + RELOAD_FIRST_PAGE,
-            "$.payload.category_prefix",
+            "feedback_category_invalid: use failed, new, unclear, observation or idea. " + RELOAD_FIRST_PAGE,
+            "$.payload.category",
         )
     return raw
 
@@ -218,15 +216,13 @@ def list_roster_page(
     project_ids: Optional[list[int]] = None,
     sort: Optional[dict] = None,
     review_state: str = "all",
-    category_prefix: Optional[str] = None,
+    category: Optional[str] = None,
     limit: Optional[int] = None,
     cursor: Optional[str] = None,
+    include_unscoped: bool = False,
 ) -> dict[str, Any]:
     """Newest-first keyset page plus the matching count behind it.
 
-    A project or explicit project-id set is required: missing scope never falls
-    back to an unscoped query. The count ignores the cursor so it names
-    every row the criteria match, not the page already loaded.
     """
     if not project and project_ids is None:
         raise RosterFilterError(
@@ -247,8 +243,9 @@ def list_roster_page(
     ids = (
         project_ids if project_ids is not None else [resolve_project_id(conn, project)]
     )
+    cursor_scope = [*ids, "unscoped"] if include_unscoped else ids
     try:
-        cursor_where, cursor_params = continuation(cursor, ordering, ids, conn=conn)
+        cursor_where, cursor_params = continuation(cursor, ordering, cursor_scope, conn=conn)
     except ValueError as exc:
         raise RosterCursorError(str(exc)) from exc
     bound = _bounded_limit(limit)
@@ -258,8 +255,9 @@ def list_roster_page(
         project=project,
         project_ids=ids,
         review_state=review_state,
-        category_prefix=category_prefix,
+        category=category,
         after_id=None,
+        include_unscoped=include_unscoped,
     )
     matching_count = int(
         query_scalar(
@@ -274,8 +272,9 @@ def list_roster_page(
         project=project,
         project_ids=ids,
         review_state=review_state,
-        category_prefix=category_prefix,
+        category=category,
         after_id=None,
+        include_unscoped=include_unscoped,
     )
     if cursor_where:
         page_where += " AND " + cursor_where.format(p=p)
@@ -298,7 +297,7 @@ def list_roster_page(
     next_cursor = None
     if len(entries) == bound:
         last = {**entries[-1], "_sort_value": tuple(rows[-1])[-1]}
-        next_cursor = encode_continuation(last, ordering, ids)
+        next_cursor = encode_continuation(last, ordering, cursor_scope)
     return {
         "entries": entries,
         "matching_count": matching_count,
@@ -316,7 +315,7 @@ __all__ = [
     "decode_cursor",
     "encode_cursor",
     "list_roster_page",
-    "parse_category_prefix",
+    "parse_category",
     "parse_review_state",
     "parse_roster_shape",
 ]

@@ -289,7 +289,7 @@ All harnesses use the same applicability declarations.
 `yoke hook evaluate PreToolUse --dry-run` shows the registered chain inventory;
 it does not execute guards or prove a workspace is registered. A
 `hook_guard_scope_missing` diagnostic names the undeclared guard; report it
-with `yoke ouroboros field-note append --kind failed --evidence '<diagnostic>'`.
+with `yoke feedback --to yoke --category failed --evidence '<diagnostic>'`.
 A `hook_scope_unavailable` diagnostic names the mapping or scope repair needed
 before retrying. Required project messages and lifecycle delivery retain their
 own handlers; guard scope does not redefine session lifecycle.

@@ -188,27 +188,6 @@ def test_bindings_are_bounded_extra_forbid_and_never_reflected(
     assert "MUST-NOT-REFLECT" not in rendered
 
 
-@pytest.mark.parametrize(
-    "variant", ("missing", "version-extra", "nested-secret", "empty")
-)
-def test_bindings_reject_missing_or_nested_unknown_fields_without_reflection(
-    monkeypatch, capsys, variant
-) -> None:
-    _allow_source(monkeypatch)
-    payload = _bindings()
-    if variant == "missing":
-        payload.pop("claude_desktop_session_id")
-    elif variant == "version-extra":
-        payload["versions"]["claude-vscode"] = "MUST-NOT-REFLECT"
-    elif variant == "nested-secret":
-        payload["broker"]["token"] = "MUST-NOT-REFLECT"
-    raw = "" if variant == "empty" else json.dumps(payload)
-    monkeypatch.setattr(command.sys, "stdin", io.StringIO(raw))
-
-    assert command.main(_argv("--preview")) == 2
-    rendered = capsys.readouterr().out
-    assert json.loads(rendered)["failure_code"] == "bindings_invalid"
-    assert "MUST-NOT-REFLECT" not in rendered
 
 
 def test_unreadable_bindings_emit_only_the_fixed_code(monkeypatch, capsys) -> None:

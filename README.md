@@ -10,10 +10,11 @@ Longer term, Yoke becomes a central clearinghouse for company operations — rec
 
 ---
 
-<!-- BEGIN GENERATED: field-note-directive -->
-File a field note each time a recipe, help text or refusal is wrong or missing, or you spot a bug outside your task — before moving on. If you already filed the same problem, add `--correlation-id <that note's id>`:
-yoke ouroboros field-note append --kind <failed|new|unclear|observation> --evidence '...'
-<!-- END GENERATED: field-note-directive -->
+<!-- BEGIN GENERATED: feedback-directive -->
+Report problems with Yoke to Yoke, and problems with your projects to your own universe, before moving on. In your universe, link repeat evidence with `--correlation-id <first note id>`.
+yoke feedback --to yoke --category failed --evidence 'Yoke recipe failed: ...'
+yoke feedback --to universe --category observation --evidence 'Project finding: ...'
+<!-- END GENERATED: feedback-directive -->
 
 ## Master Flowchart
 
@@ -301,7 +302,7 @@ so a session loads the phase it is in rather than the whole manual.
 
 Every subagent answers three questions at session end: What went wrong? What process improvements? What game-changing ideas? Observations log to `ouroboros_entries`. A health scanner (`/yoke doctor`) runs 40+ checks. A system simulator (`/yoke simulate --system`) traces coherence gaps. A curator (`/yoke curate`) clusters learnings into work items.
 
-The flywheel: agents work → reflections capture learnings → curator creates work items → work items fix structural issues → faster delivery each cycle.
+The flywheel: agents work → agents file feedback → curator creates work items → work items fix structural issues → faster delivery each cycle.
 
 ---
 

@@ -33,7 +33,7 @@ INSTALLED_REFERENCE_DIR = Path(".claude") / "agents" / "references"
 # A genuinely unconditional reference belongs here; a conditional one belongs
 # in the parent's prose as a named read at the moment it applies.
 INLINE_REFERENCE_PATHS: frozenset = frozenset()
-_SHARED_REFERENCE_PATHS = (Path("_shared") / "ouroboros-reflection-contract.md",)
+_SHARED_REFERENCE_PATHS = ()
 _CANONICAL_REFERENCE_RE = re.compile(
     r"runtime/agents/(?P<relative>[A-Za-z0-9_-]+(?:/[A-Za-z0-9_-]+)*\.md)"
 )

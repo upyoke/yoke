@@ -91,7 +91,8 @@ def create_core_tables(conn: Any) -> None:
           timestamp TIMESTAMPTZ NOT NULL,
           agent TEXT NOT NULL,
           context TEXT,
-          category TEXT NOT NULL,
+          category TEXT NOT NULL CONSTRAINT feedback_category_valid
+            CHECK (category IN ('failed','new','unclear','observation','idea')),
           body TEXT NOT NULL,
           reviewed_at TIMESTAMPTZ,
           archived_at TIMESTAMPTZ,
@@ -99,7 +100,11 @@ def create_core_tables(conn: Any) -> None:
           project_id INTEGER DEFAULT NULL REFERENCES projects(id),
           target_project_id INTEGER DEFAULT NULL REFERENCES projects(id),
           correlation_id INTEGER DEFAULT NULL,
-          session_id TEXT DEFAULT NULL
+          session_id TEXT DEFAULT NULL,
+          actor_id INTEGER DEFAULT NULL,
+          reporter_email TEXT DEFAULT NULL,
+          yoke_version TEXT DEFAULT NULL,
+          universe_fingerprint TEXT DEFAULT NULL
         );
         -- durable bounded carry-forward for Strategize landed-work review:
         -- one row per (project_id, item_id) ever seen as landed. `state`

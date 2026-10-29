@@ -295,7 +295,7 @@ test("promoted Dash detail links back to its source field note", async () => {
   const dash = detailItem("dash");
   dash.source_field_note = {
     entry_id: 22890,
-    category: "field-note-observation",
+    category: "observation",
     context: "curate",
     project_id: 7,
   };

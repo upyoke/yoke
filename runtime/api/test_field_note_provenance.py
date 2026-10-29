@@ -38,7 +38,7 @@ from yoke_contracts.api.function_call import (
 from yoke_core.domain.yoke_function_registry import reset_registry_for_tests
 
 
-SESSION_ID = "session-field-note-provenance"
+SESSION_ID = "session-feedback-provenance"
 UNKNOWN_SESSION_ID = "session-never-registered"
 SESSION_EXECUTOR = "claude-code"
 SESSION_PROJECT = "yoke"
@@ -99,7 +99,7 @@ def _append(
     evidence: str = "a recipe named a flag that does not exist",
     **payload_extra,
 ):
-    payload = {"kind": kind, "evidence": evidence, **payload_extra}
+    payload = {"category": kind, "evidence": evidence, **payload_extra}
     return dispatch(
         FunctionCallRequest(
             function="ouroboros.field_note.append",

@@ -26,6 +26,12 @@ class Allowance:
 
 ALLOWANCES: Tuple[Allowance, ...] = (
     Allowance(
+        "packages/yoke-core/src/yoke_core/api/routes/feedback.py",
+        "RECEIVING_PROJECT",
+        "public feedback is delivered to the fixed Yoke support project; "
+        "the sender project never controls its destination",
+    ),
+    Allowance(
         "packages/yoke-contracts/src/yoke_contracts/playwright_cache.py",
         "YOKE_BROWSER_CACHE_PROJECT",
         "machine-wide Browser QA cache namespace, not a registered project",

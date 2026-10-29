@@ -20,8 +20,6 @@ Project harness config:
 Ledger audit:
   ``claim-boundary-audit``.
 
-Reflection capture:
-  ``reflection-capture-unhandled``, ``reflection-capture-persist-failed``.
 
 Checks that compare a project's *own* rendered adapters, hook wiring, or
 packaged bundles against their sources are not engine checks — they belong to
@@ -53,12 +51,6 @@ from yoke_core.engines.doctor_hc_harness_unattended_posture import (
 )
 from yoke_core.engines.doctor_hc_claim_boundary_audit import (
     hc_claim_boundary_audit,
-)
-from yoke_core.engines.doctor_hc_reflection_capture_hook_coverage import (
-    hc_reflection_capture_unhandled,
-)
-from yoke_core.engines.doctor_hc_reflection_capture_persist_failed import (
-    hc_reflection_capture_persist_failed,
 )
 from yoke_core.engines.doctor_hc_project_hook_config import (
     hc_project_hook_config_validity,
@@ -176,16 +168,6 @@ HARNESS_HEALTH_CHECKS: List[HealthCheck] = [
         "claim-boundary-audit",
         "Cross-session mutation evidence in the ledger",
         hc_claim_boundary_audit,
-    ),
-    HealthCheck(
-        "reflection-capture-unhandled",
-        "ReflectionCaptureHookUnhandled events in 24h need parser extension",
-        hc_reflection_capture_unhandled,
-    ),
-    HealthCheck(
-        "reflection-capture-persist-failed",
-        "ReflectionCapturePersistFailed events in 24h (silent persist drops)",
-        hc_reflection_capture_persist_failed,
     ),
 ]
 

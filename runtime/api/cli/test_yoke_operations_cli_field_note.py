@@ -1,12 +1,4 @@
-"""``yoke ouroboros field-note append`` subcommand surface tests.
-
-Covers:
-
-* ``--help`` prints the canonical ``HELP_BODY``.
-* Argparse rejects an unknown ``--kind``.
-* The retired subcommand is gone (not aliased).
-* Standing guidance appears only on root and field-note append help.
-"""
+"""Feedback CLI dispatch and durable write coverage."""
 
 from __future__ import annotations
 
@@ -79,10 +71,8 @@ def _run_capture(
 
 def test_field_note_append_allows_direct_terminal_without_session() -> None:
     rc, _out, err = _run_capture(
-        "ouroboros",
-        "field-note",
-        "append",
-        "--kind",
+        "feedback", "--to", "universe",
+        "--category",
         "observation",
         "--evidence",
         "terminal field-note without harness session",
@@ -97,14 +87,12 @@ def test_field_note_append_allows_direct_terminal_without_session() -> None:
 def test_field_note_append_carries_external_checkout_project() -> None:
     """Registered external checkout → project hint on the append payload."""
     with patch(
-        "yoke_cli.commands.adapters.ouroboros_field_note.client_project_context",
+        "yoke_cli.commands.adapters.feedback.client_project_context",
         return_value="42",
     ):
         rc, _out, err = _run_capture(
-            "ouroboros",
-            "field-note",
-            "append",
-            "--kind",
+            "feedback", "--to", "universe",
+            "--category",
             "failed",
             "--evidence",
             "platform recipe failed from its checkout",
@@ -113,20 +101,18 @@ def test_field_note_append_carries_external_checkout_project() -> None:
     req = _CAPTURED_REQUESTS[-1]
     assert req.function == "ouroboros.field_note.append"
     assert req.payload["project"] == "42"
-    assert req.payload["kind"] == "failed"
+    assert req.payload["category"] == "failed"
 
 
 def test_field_note_append_carries_an_author_declared_target_project() -> None:
     """The fix's project is authored; the observing one stays automatic."""
     with patch(
-        "yoke_cli.commands.adapters.ouroboros_field_note.client_project_context",
+        "yoke_cli.commands.adapters.feedback.client_project_context",
         return_value="yoke",
     ):
         rc, _out, err = _run_capture(
-            "ouroboros",
-            "field-note",
-            "append",
-            "--kind",
+            "feedback", "--to", "universe",
+            "--category",
             "failed",
             "--evidence",
             "a platform recipe failed, noticed from yoke",
@@ -142,14 +128,12 @@ def test_field_note_append_carries_an_author_declared_target_project() -> None:
 def test_field_note_append_omits_target_project_when_not_declared() -> None:
     """Fast capture stays fast — the flag is never required or inferred."""
     with patch(
-        "yoke_cli.commands.adapters.ouroboros_field_note.client_project_context",
+        "yoke_cli.commands.adapters.feedback.client_project_context",
         return_value="yoke",
     ):
         rc, _out, err = _run_capture(
-            "ouroboros",
-            "field-note",
-            "append",
-            "--kind",
+            "feedback", "--to", "universe",
+            "--category",
             "observation",
             "--evidence",
             "an author who cannot tell which repo owns the fix",
@@ -161,14 +145,12 @@ def test_field_note_append_omits_target_project_when_not_declared() -> None:
 def test_field_note_append_omits_project_from_unmapped_directory() -> None:
     """Unmapped cwd keeps global/no-checkout behavior — no project hint."""
     with patch(
-        "yoke_cli.commands.adapters.ouroboros_field_note.client_project_context",
+        "yoke_cli.commands.adapters.feedback.client_project_context",
         return_value=None,
     ):
         rc, _out, err = _run_capture(
-            "ouroboros",
-            "field-note",
-            "append",
-            "--kind",
+            "feedback", "--to", "universe",
+            "--category",
             "observation",
             "--evidence",
             "note from an unmapped scratch directory",
@@ -185,7 +167,7 @@ def test_field_note_subcommand_registered() -> None:
     buf = io.StringIO()
     err = io.StringIO()
     with redirect_stdout(buf), redirect_stderr(err):
-        rc = cli_main(["ouroboros", "field-note", "append", "--help"])
+        rc = cli_main(["feedback", "--to", "universe", "--help"])
     assert rc == 0
     out = buf.getvalue()
     from yoke_contracts.field_note_text import HELP_BODY
@@ -193,45 +175,14 @@ def test_field_note_subcommand_registered() -> None:
     assert HELP_BODY in out
 
 
-def test_field_note_help_prints_kind_list_and_correlation_help() -> None:
-    from yoke_contracts.field_note_text import CORRELATION_ID_HELP, HELP_BODY
-
-    buf = io.StringIO()
-    err = io.StringIO()
-    with redirect_stdout(buf), redirect_stderr(err):
-        rc = cli_main(["ouroboros", "field-note", "append", "--help"])
-    assert rc == 0
-    out = buf.getvalue()
-    collapsed = " ".join(out.split())
-    assert HELP_BODY in out
-    assert CORRELATION_ID_HELP in collapsed
-    assert "--kind" in out
-    assert "--evidence" in out
 
 
-def test_field_note_group_help_lists_subcommands() -> None:
-    from yoke_contracts.field_note_text import BASIC_RECIPE
-
-    buf = io.StringIO()
-    err = io.StringIO()
-    with redirect_stdout(buf), redirect_stderr(err):
-        rc = cli_main(["ouroboros", "field-note", "--help"])
-
-    out = buf.getvalue()
-    assert rc == 0
-    assert err.getvalue() == ""
-    assert "yoke ouroboros field-note append" in out
-    assert "yoke ouroboros field-note list" in out
-    assert "yoke ouroboros field-note get" in out
-    assert BASIC_RECIPE not in out
 
 
 def test_field_note_rejects_unknown_kind() -> None:
     rc, _out, err = _run_capture(
-        "ouroboros",
-        "field-note",
-        "append",
-        "--kind",
+        "feedback", "--to", "universe",
+        "--category",
         "compat-broken",
         "--evidence",
         "test",
@@ -266,7 +217,7 @@ def test_field_note_append_dispatches_against_project_id_schema(
         # would otherwise send a project hint the bare test schema lacks.
         with (
             patch(
-                "yoke_cli.commands.adapters.ouroboros_field_note."
+                "yoke_cli.commands.adapters.feedback."
                 "client_project_context",
                 return_value=None,
             ),
@@ -275,7 +226,7 @@ def test_field_note_append_dispatches_against_project_id_schema(
                 "emit_event",
                 return_value=EmitResult(
                     ok=True,
-                    event_id="evt-field-note-cli",
+                    event_id="evt-feedback-cli",
                     reason="",
                     envelope=None,
                 ),
@@ -286,10 +237,8 @@ def test_field_note_append_dispatches_against_project_id_schema(
             with redirect_stdout(buf), redirect_stderr(err):
                 rc = cli_main(
                     [
-                        "ouroboros",
-                        "field-note",
-                        "append",
-                        "--kind",
+                        "feedback", "--to", "universe",
+                        "--category",
                         "observation",
                         "--evidence",
                         evidence,
@@ -306,28 +255,9 @@ def test_field_note_append_dispatches_against_project_id_schema(
                 (evidence,),
             ).fetchone()
         assert row is not None
-        assert row["category"] == "field-note-observation"
+        assert row["category"] == "observation"
         assert row["project_id"] is None
 
 
-def test_old_subcommand_gone() -> None:
-    # Old subcommand removed (not aliased). Token list assembled
-    # dynamically to keep the literal out of grep paths.
-    old_subcommand_token = "-".join(("recipe", "event"))
-    rc, _out, _err = _run_capture(
-        "ouroboros",
-        old_subcommand_token,
-        "append",
-        "--help",
-    )
-    assert rc != 0
 
 
-def test_command_help_does_not_repeat_standing_guidance() -> None:
-    from yoke_contracts.field_note_text import FOOTER
-
-    buf = io.StringIO()
-    with redirect_stdout(buf):
-        rc = cli_main(["items", "get", "--help"])
-    assert rc == 0
-    assert FOOTER not in buf.getvalue()

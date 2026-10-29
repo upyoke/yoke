@@ -266,16 +266,14 @@ export function mountUniverseApp(rootNode, options = {}) {
       main.replaceChildren(createPageHead(documentNode, entry), emptyHost);
       return;
     }
-    const detailProject = route.detail === "new" && entry.id === "items" ? (knownProjectId(projects, route.project) || "all") : detailRenderer ? (route.project !== null
+    const detailProject = entry.projectOptional ? null : route.detail === "new" && entry.id === "items" ? (knownProjectId(projects, route.project) || "all") : detailRenderer ? (route.project !== null
       ? knownProjectId(projects, route.project) : drillInProject(scope, projects)) : null;
-    if (detailRenderer && route.project !== null && detailProject === null) {
+    if (detailRenderer && route.project !== null && detailProject === null && !entry.projectOptional) {
       main.replaceChildren(el(documentNode, "p", "error-banner",
         "Project unavailable. Choose an accessible project or return to the list."));
       return;
     }
-    if (detailRenderer && detailProject !== null) {
-      // The detail keeps its resource project while the top picker changes
-      // remembered selection. Its host section belongs to the list view.
+    if (detailRenderer && (detailProject !== null || entry.projectOptional)) {
       const detailHost = el(documentNode, "div", "view-host");
       const breadcrumb = createBreadcrumb(
         documentNode, entry, selectionParam(scopeSelections.selectionFor(entry.id)), route.detail,

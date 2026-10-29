@@ -295,13 +295,11 @@ class TestEveryTierOneFamilyDispatches:
             "reason": "expansion in flight",
         }
 
-    def test_ouroboros_field_note_append_dispatches(self) -> None:
+    def test_feedback_append_dispatches(self) -> None:
         rc = _run_with_dispatch(
             _stub_dispatch_ok,
-            "ouroboros",
-            "field-note",
-            "append",
-            "--kind",
+            "feedback", "--to", "universe",
+            "--category",
             "failed",
             "--evidence",
             "recipe X did not work",
@@ -311,17 +309,16 @@ class TestEveryTierOneFamilyDispatches:
         assert req.function == "ouroboros.field_note.append"
         assert req.target.kind == "global"
         assert req.payload == {
-            "kind": "failed",
+            "category": "failed",
+            "reporter_email": None,
             "evidence": "recipe X did not work",
         }
 
     def test_field_note_accepts_observation_kind(self) -> None:
         rc = _run_with_dispatch(
             _stub_dispatch_ok,
-            "ouroboros",
-            "field-note",
-            "append",
-            "--kind",
+            "feedback", "--to", "universe",
+            "--category",
             "observation",
             "--evidence",
             "test",
@@ -329,4 +326,4 @@ class TestEveryTierOneFamilyDispatches:
         assert rc == 0
         req = _CAPTURED_REQUESTS[-1]
         assert req.function == "ouroboros.field_note.append"
-        assert req.payload["kind"] == "observation"
+        assert req.payload["category"] == "observation"

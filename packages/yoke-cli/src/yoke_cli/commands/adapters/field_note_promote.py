@@ -20,7 +20,7 @@ from yoke_cli.commands._helpers import (
 from yoke_contracts.api.function_call import TargetRef
 
 FIELD_NOTE_PROMOTE_USAGE = (
-    "yoke ouroboros field-note promote ENTRY --title TITLE "
+    "yoke feedback promote ENTRY --title TITLE "
     "[--instruction TEXT] [--project P] [--priority P] "
     "[--session-id S] [--json]"
 )
@@ -28,7 +28,7 @@ FIELD_NOTE_PROMOTE_USAGE = (
 
 def field_note_promote(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
-        prog="yoke ouroboros field-note promote",
+        prog="yoke feedback promote",
         usage=FIELD_NOTE_PROMOTE_USAGE,
     )
     parser.add_argument("entry", type=int, help="Field note entry id to promote.")

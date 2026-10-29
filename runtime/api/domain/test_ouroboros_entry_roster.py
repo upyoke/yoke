@@ -1,4 +1,4 @@
-"""Roster shape of ouroboros.entry.list: compact rows, keyset, filters."""
+"""Roster shape of ouroboros.field_note.list: compact rows, keyset, filters."""
 
 from __future__ import annotations
 
@@ -18,10 +18,10 @@ from yoke_contracts.api.function_call import (
 
 def _request(payload) -> FunctionCallRequest:
     return FunctionCallRequest(
-        function="ouroboros.entry.list",
+        function="ouroboros.field_note.list",
         actor=ActorContext(actor_id="op", session_id="s-1"),
         target=TargetRef(kind="global"),
-        payload=payload,
+        payload={**({"scope": "project"} if "project" in payload or "projects" in payload else {}), **payload},
     )
 
 
@@ -175,7 +175,7 @@ class TestOuroborosEntryRosterList:
         assert outcome.error.code == "payload_invalid"
         assert "Reload the Ouroboros page" in outcome.error.message
 
-    def test_roster_refuses_unknown_and_omitted_project(self, test_db):
+    def test_roster_refuses_unknown_project_and_defaults_to_universe(self, test_db):
         unknown = ouroboros_reads.handle_ouroboros_entry_list(
             _request({"project": "definitely-missing", "shape": "roster"})
         )
@@ -183,7 +183,8 @@ class TestOuroborosEntryRosterList:
             _request({"shape": "roster"})
         )
         assert unknown.error.code == "payload_invalid"
-        assert omitted.error.code == "payload_invalid"
+        assert omitted.primary_success
+        assert omitted.result_payload["entries"] == []
 
 
 def test_filed_timestamp_orders_before_paging_and_not_by_insert_id(test_db):
@@ -278,4 +279,7 @@ def test_focused_roster_authorizes_before_reading_only_its_project(test_db):
     assert outcome.result_payload["matching_count"] == 1
     assert outcome.result_payload["entries"][0]["preview"] == "allowed"
     request.payload["project"] = "externalwebapp"
-    assert check_dispatch_permission(test_db, _entry(request.function), request).error
+    assert check_dispatch_permission(test_db, _entry(request.function), request).error is None
+    denied = ouroboros_reads.handle_ouroboros_entry_list(request)
+    assert not denied.primary_success
+    assert not denied.result_payload.get("entries")

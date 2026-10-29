@@ -140,7 +140,7 @@ def test_repeat_projection_is_bounded_and_retains_total(test_db):
             utc_now(),
             "tester",
             None,
-            "field-note-observation",
+            "observation",
             f"repeat context {number}",
             "yoke",
             correlation_id=root,

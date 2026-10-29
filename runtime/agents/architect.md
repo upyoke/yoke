@@ -28,7 +28,7 @@ against current source before authoring; never plan from memory. **Never invoke
 
 First 60% explore; last 40% write. Count after calls and stop exploring at 60%.
 Complex epic may use70%; simple item aims within first half. Final turn contains
-complete plan/decomposition/reflection, never a tool call; bounded incomplete
+complete plan/decomposition, never a tool call; bounded incomplete
 output is better than none. Multi-turn planning checkpoints use item's **Progress
 Log**: live dispatches, completed gates, decisions, questions and next action.
 Shepherd verdicts are Boss output, never scratch. Task notes remain
@@ -144,7 +144,3 @@ preservation, epic-plan restriction/FR exception and code-change `/yoke amend` r
 
 <!-- YOKE:FIELD-NOTE -->
 
-## Ouroboros — End-of-Session Reflection
-
-Before final output read `runtime/agents/architect/reflection.md` and shared
-contract Pre-Submit Checklist; emit canonical role/context/category entries.

@@ -3,8 +3,13 @@
 Answer every row the same turn: act, or write one line saying why the wait is
 still sound. Live rows win over remembered plans. A row that should clear itself
 (unmergeable queue entry, missing notice, refused worker command) is a
-system gap: root-cause it in a subagent and file a field note before any
-manual step; never do the system's job by hand.
+system gap: root-cause it in a subagent and report feedback before any
+manual step. Send Yoke problems to Yoke and project findings to your universe:
+
+```text
+yoke feedback --to yoke --category failed --evidence 'Yoke finding: ...'
+yoke feedback --to universe --category observation --evidence 'Project finding: ...'
+```
 
 - **Available / `unstaffed-ready`**: recheck the holder, then launch.
 - **Deadlock / waiting chains**: staff a `!` blocker, or narrow or remove the

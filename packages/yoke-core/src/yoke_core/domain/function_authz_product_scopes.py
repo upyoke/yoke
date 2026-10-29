@@ -87,7 +87,6 @@ PRODUCT_AUTHZ_BY_ID = {
     "session_ci_wait.resolve": AuthzSpec(ACTOR_SESSION, None),
     # Promotion materializes a Dash in the note's project (payload.project overrides).
     "ouroboros.field_note.promote": AuthzSpec(PROJECT, PERM_ITEMS_WRITE),
-    "ouroboros.reflection.capture": AuthzSpec(PROJECT, PERM_ITEMS_WRITE),
     "merge.audit.snapshot": AuthzSpec(PROJECT, PERM_ITEMS_READ),
     # Merge / done-transition engine-internal writes. Each mutates one
     # project's tenant data (path snapshot, item deployed_to/merged_at,

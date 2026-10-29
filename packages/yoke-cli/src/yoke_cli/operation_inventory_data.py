@@ -71,9 +71,9 @@ WRAPPED_ROWS: Tuple[_Row, ...] = (
     _w("yoke lifecycle transition", "lifecycle"),
     _w("yoke lifecycle repair-status", "lifecycle"),
     _w("yoke lifecycle skip record-recoverable-substrate", "lifecycle"),
-    _w("yoke ouroboros field-note append", "ouroboros"),
-    _w("yoke ouroboros field-note list", "ouroboros"),
-    _w("yoke ouroboros field-note get", "ouroboros"),
+    _w("yoke feedback", "ouroboros"),
+    _w("yoke feedback list", "ouroboros"),
+    _w("yoke feedback get", "ouroboros"),
     # items_scalar.
     _w("yoke items scalar update", "items.scalar"),
     # items_flags: the coordination-flag verbs, claim-free by contract.
@@ -262,8 +262,6 @@ WRAPPED_ROWS: Tuple[_Row, ...] = (
     _w("yoke claims path required-gate", "claims.path"),
     _w("yoke claims path activation-run", "claims.path"),
     _w("yoke claims path boundary-prove", "claims.path"),
-    _w("yoke ouroboros entry list", "ouroboros"),
-    _w("yoke ouroboros entry get", "ouroboros"),
     _w("yoke items list", "items.read"),
     _w("yoke items search", "items.read"),
     _w("yoke items dependency list", "items.dependency"),

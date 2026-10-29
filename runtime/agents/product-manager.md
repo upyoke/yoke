@@ -76,7 +76,7 @@ what evidence supports, and flag remaining ambiguity. First 60% of turns:
 explore; last 40%: write. Count after each call and stop exploring at 60% to
 write with available context. For epic dispatch, exploration may reach 70%;
 for a simple issue, aim to deliver within the first half. Final turn contains
-the complete spec and reflection, never just a tool call. Partial output is
+the complete spec, never just a tool call. Partial output is
 better than no spec.
 
 ## Spec Template
@@ -127,14 +127,5 @@ Draft | Approved | Planned | In Progress | Completed
 
 <!-- YOKE:FIELD-NOTE -->
 
-## Ouroboros — End-of-Session Reflection
 
-Before finalizing, read `runtime/agents/_shared/ouroboros-reflection-contract.md`
-and run its Pre-Submit Checklist. After the spec, emit its canonical envelope
-with `agent: product-manager` and the item's public ref in `context:`.
-Consider preventable problems (`problem`), process improvements
-(`process-improvement`), transformative capabilities (`game-changing-idea`),
-and concrete input/output improvements (`cross-agent-critique`). Use these
-exact categories and include all useful observations. Optional
-`field_note_kind: failed|new|unclear|observation` is captured by the parent
-Agent-tool hook (`yoke_core.domain.reflection_capture_hook`) as one `ouroboros.field_note.append` per recognized marker.
+Report problems in your reply; the parent agent files feedback on your behalf.

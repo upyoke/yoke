@@ -44,6 +44,7 @@ from yoke_core.domain import events as _events
 from yoke_contracts.timestamps import utc_now
 from yoke_core.domain.db_helpers import connect
 from yoke_core.domain.ouroboros_entries import cmd_insert_entry
+from yoke_core.domain.feedback_attribution import actor_email
 from yoke_core.domain.field_note_append_policy import (
     validate_correlation,
     FieldNoteCorrelationError,
@@ -59,7 +60,6 @@ from yoke_contracts.api.function_call import (
     HandlerOutcome,
 )
 from yoke_contracts.field_note_text import (
-    CATEGORY_PREFIX,
     EVIDENCE_MAX_CHARS,
     KIND_VALUES,
 )
@@ -71,8 +71,9 @@ EVIDENCE_PREVIEW_CHARS = 120
 
 
 class FieldNoteAppendRequest(BaseModel):
-    kind: Literal["failed", "new", "unclear", "observation"]
+    category: Literal["failed", "new", "unclear", "observation", "idea"]
     evidence: str = Field(..., min_length=1, max_length=EVIDENCE_MAX_CHARS)
+    reporter_email: Optional[str] = None
     correlation_id: Optional[str] = None
     # Dispatched subagent role, when the caller runs as one. Attribution
     # falls back to the session's executor.
@@ -93,7 +94,7 @@ class FieldNoteAppendRequest(BaseModel):
 class FieldNoteAppendResponse(BaseModel):
     event_id: Optional[str]
     entry_id: Optional[str]
-    kind: str
+    category: str
     evidence_preview: str
     correlation_id: Optional[str]
     author: str
@@ -134,7 +135,7 @@ def handle_append(request: FunctionCallRequest) -> HandlerOutcome:
 
     evidence_preview = payload.evidence[:EVIDENCE_PREVIEW_CHARS]
     timestamp = utc_now()
-    category = f"{CATEGORY_PREFIX}{payload.kind}"
+    category = payload.category
     session_id = request.actor.session_id
 
     # Durable write FIRST. If it raises, surface emit_failed and skip the event.
@@ -165,6 +166,8 @@ def handle_append(request: FunctionCallRequest) -> HandlerOutcome:
                 target_project=provenance.target_project,
                 correlation_id=root_id,
                 session_id=session_id,
+                actor_id=int(request.actor.actor_id) if str(request.actor.actor_id or "").isdigit() else None,
+                reporter_email=actor_email(conn, request.actor.actor_id) or payload.reporter_email,
             )
             if payload.corrects is not None and entry_id.isdigit():
                 record_correction(
@@ -192,7 +195,7 @@ def handle_append(request: FunctionCallRequest) -> HandlerOutcome:
     )
 
     context: Dict[str, Any] = {
-        "kind": payload.kind,
+        "category": payload.category,
         "evidence": payload.evidence,
         "entry_id": entry_id,
         "author": provenance.author,
@@ -226,7 +229,7 @@ def handle_append(request: FunctionCallRequest) -> HandlerOutcome:
     response = FieldNoteAppendResponse(
         event_id=result.event_id if result.ok else None,
         entry_id=entry_id,
-        kind=payload.kind,
+        category=payload.category,
         evidence_preview=evidence_preview,
         correlation_id=str(root_id) if root_id is not None else None,
         author=provenance.author,
@@ -249,6 +252,7 @@ REGISTRATIONS: List[Dict[str, Any]] = [
         "handler": handle_append,
         "request_model": FieldNoteAppendRequest,
         "response_model": FieldNoteAppendResponse,
+        "minimum_serving_version": "next-release",
         "stability": "stable",
         "owner_module": "yoke_core.domain.handlers.ouroboros_field_note",
         "target_kinds": ["global"],

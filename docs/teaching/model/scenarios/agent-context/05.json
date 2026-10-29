@@ -11,6 +11,6 @@
  "review": "Pending exact recipe proof.",
  "plan_notes": ["FIRST-USER accepted guidance-access amendment"],
  "surface_notes": ["Task-specific dispatch prompt: Carries the actual item/artifacts, registered lane, resolved policies, relevant project/QA facts and role assignment. It is separate from native startup loading."],
- "sources": ["runtime/agents/engineer.md", "runtime/harness/claude/agents/yoke-engineer.md", "runtime/harness/codex/agents/yoke-engineer.toml", "runtime/harness/claude/agents/references/engineer/reflection.md", ".agents/skills/yoke/conduct/dispatch-context-prompts.md"],
+ "sources": ["runtime/agents/engineer.md", "runtime/harness/claude/agents/yoke-engineer.md", "runtime/harness/codex/agents/yoke-engineer.toml", ".agents/skills/yoke/conduct/dispatch-context-prompts.md"],
  "position": 4
 }

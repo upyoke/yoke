@@ -146,7 +146,7 @@ def _build_followup_candidates(
     if field_notes.get("read_surface_status") != "agent_facing":
         candidates.append(
             {
-                "id": "field-note-read-surface-gap",
+                "id": "feedback-read-surface-gap",
                 "category": "teaching_drift",
                 "title": "Field-note hotspot read through the agent-facing surface is unhealthy",
                 "evidence": [field_notes.get("read_surface_status", "unknown")],

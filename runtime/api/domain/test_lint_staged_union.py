@@ -24,7 +24,7 @@ class TestPassThrough:
 
     def test_quoted_add_text_is_not_an_add_segment(self):
         result = _effective(
-            'yoke ouroboros field-note append --evidence "git add foo bombed"',
+            'yoke feedback --to yoke --evidence "git add foo bombed"',
             ["a.py"],
         )
         assert result is not None

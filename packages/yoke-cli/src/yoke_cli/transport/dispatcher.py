@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from yoke_contracts.field_note_text import DENIAL_FOOTER
 from yoke_cli.transport.settled_response import settle_response as _settle_response
 
 import importlib
@@ -293,8 +294,7 @@ def _call_local(
             f"function call {request.function!r} raised {type(exc).__name__}: {exc}",
             recovery_hint=(
                 "The in-process engine failed outside its typed answers. Rerun "
-                "the command; if it repeats, record it with `yoke ouroboros "
-                "field-note append --kind failed --evidence '<this message>'`."
+                f"the command; if it repeats, report it. {DENIAL_FOOTER}"
             ),
         )
 

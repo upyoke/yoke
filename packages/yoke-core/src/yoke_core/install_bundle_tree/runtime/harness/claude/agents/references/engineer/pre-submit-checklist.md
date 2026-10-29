@@ -5,7 +5,7 @@ reviewer will otherwise find for you, at the cost of a round trip.
 
 ## Pre-Submit Verification Checklist
 
-**This checklist is MANDATORY before every task submission.** Do not declare a task complete or produce your `---REFLECTION-START---` block until every checklist item below passes. Skipping any check is a submission failure.
+**This checklist is MANDATORY before every task submission.** Do not declare a task complete or submit your work until every checklist item below passes. Skipping any check is a submission failure.
 
 ### Check 1: Verify Test Plan (evidence-based)
 
@@ -40,7 +40,7 @@ If an edited test file fails, fix the issue before submission. If you edited no 
 2. Write a progress note for the commit.
 3. Re-run `git -C {worktree-path} status --porcelain` to confirm the worktree is clean.
 
-**You MUST NOT produce your `---REFLECTION-START---` block with a dirty worktree.** Nothing commits for you when you stop: uncommitted work stays in the lane, and the next worker starts without your progress note.
+**You MUST NOT submit your work with a dirty worktree.** Nothing commits for you when you stop: uncommitted work stays in the lane, and the next worker starts without your progress note.
 
 If you cannot commit certain files (e.g., generated artifacts that should be gitignored), explicitly note them in your structured output with justification for why they were left uncommitted.
 

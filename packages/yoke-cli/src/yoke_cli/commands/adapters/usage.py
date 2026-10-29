@@ -122,12 +122,10 @@ from yoke_cli.commands.adapters.item_dependency import (
     ITEMS_DEPENDENCY_REMOVE_USAGE,
     ITEMS_DEPENDENCY_UPDATE_USAGE,
 )
-from yoke_cli.commands.adapters.misc import (
-    OUROBOROS_ENTRY_GET_USAGE,
-    OUROBOROS_ENTRY_LIST_USAGE,
+from yoke_cli.commands.adapters.scratch import (
     SCRATCH_DISPATCH_INPUTS_USAGE,
 )
-from yoke_cli.commands.adapters.ouroboros_field_note import (
+from yoke_cli.commands.adapters.feedback import (
     OUROBOROS_FIELD_NOTE_GET_USAGE,
     OUROBOROS_FIELD_NOTE_LIST_USAGE,
     OUROBOROS_USAGE,
@@ -309,8 +307,6 @@ ADAPTER_USAGE: Dict[str, str] = {
     "ouroboros.field_note.append": OUROBOROS_USAGE,
     "ouroboros.field_note.list": OUROBOROS_FIELD_NOTE_LIST_USAGE,
     "ouroboros.field_note.get": OUROBOROS_FIELD_NOTE_GET_USAGE,
-    "ouroboros.entry.list": OUROBOROS_ENTRY_LIST_USAGE,
-    "ouroboros.entry.get": OUROBOROS_ENTRY_GET_USAGE,
     **STRATEGY_USAGE,
     "github.connect.run": GITHUB_CONNECT_USAGE,
     "github.disconnect.run": GITHUB_DISCONNECT_USAGE,

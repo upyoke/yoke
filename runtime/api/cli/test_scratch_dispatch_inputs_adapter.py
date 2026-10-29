@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from yoke_cli.commands.adapters.misc import scratch_dispatch_inputs
+from yoke_cli.commands.adapters.scratch import scratch_dispatch_inputs
 from yoke_core.domain import project_scratch_dir as scratch
 
 pytestmark = pytest.mark.usefixtures("bound_project_context")

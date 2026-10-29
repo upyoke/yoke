@@ -84,7 +84,7 @@ def test_field_note_promotion_falls_back_to_note_project_without_flag(conn):
             timestamp="2026-08-10T18:03:05Z",
             agent="test",
             context=None,
-            category="field-note-observation",
+            category="observation",
             body="note carries project",
             project="yoke",
         )
@@ -109,9 +109,7 @@ def test_execution_instruction_resolve_is_an_authenticated_read() -> None:
     assert spec.permission_key is None
 
 
-@pytest.mark.parametrize(
-    "function", ["ouroboros.reflection.capture", "merge.audit.snapshot"]
-)
+@pytest.mark.parametrize("function", ["merge.audit.snapshot"])
 def test_agent_capture_and_merge_snapshot_enforce_target_project(conn, function):
     from yoke_contracts.api.function_call import TargetRef
 

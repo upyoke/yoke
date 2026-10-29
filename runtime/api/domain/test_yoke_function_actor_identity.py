@@ -202,7 +202,7 @@ class TestMutatingBindings(unittest.TestCase):
         assert result.error is not None
         message = result.error.error.message
         self.assertIn("infrastructure gap", message)
-        self.assertIn("field-note", message)
+        self.assertIn("yoke feedback", message)
         self.assertIn("--session-id", message)
         self.assertIn("Operator-debug", message)
         for env_name in AMBIENT_ENV_VARS:

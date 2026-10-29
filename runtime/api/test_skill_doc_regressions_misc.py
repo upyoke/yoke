@@ -1,21 +1,10 @@
-"""Misc doc regressions: reflection categories, cross-tree links, retired events."""
+"""Misc doc regressions: cross-tree links and retired events."""
 
 from __future__ import annotations
 
 import pytest
 
 from runtime.api.skill_doc_regressions_test_helpers import REPO, _read
-
-
-def test_reflection_help_teaches_only_canonical_categories():
-    from yoke_core.domain.reflection_capture import CANONICAL_ENTRY_TEMPLATE
-    from yoke_core.domain.reflection_capture_shape_parsers import (
-        CANONICAL_REFLECTION_CATEGORIES,
-    )
-
-    expected = "category: " + " | ".join(CANONICAL_REFLECTION_CATEGORIES)
-    assert expected in CANONICAL_ENTRY_TEMPLATE
-    assert "dispatch-context" not in CANONICAL_ENTRY_TEMPLATE
 
 
 @pytest.mark.parametrize(

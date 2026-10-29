@@ -136,7 +136,7 @@ _FIELD_NOTE_PROSE = (
 
 def test_recorded_quoted_heredoc_denial_now_allows():
     command = (
-        "yoke ouroboros field-note append --kind new --stdin <<'EOF'\n"
+        "yoke feedback --to yoke --category new --stdin <<'EOF'\n"
         f"{_FIELD_NOTE_PROSE}\n"
         "EOF"
     )
@@ -145,14 +145,14 @@ def test_recorded_quoted_heredoc_denial_now_allows():
 
 def test_recorded_single_quoted_argument_denial_now_allows():
     command = (
-        f"yoke ouroboros field-note append --kind new --evidence '{_FIELD_NOTE_PROSE}'"
+        f"yoke feedback --to yoke --category new --evidence '{_FIELD_NOTE_PROSE}'"
     )
     assert _eval(command) is None
 
 
 def test_unquoted_heredoc_delimiter_denies_and_names_quoting_it():
     command = (
-        "yoke ouroboros field-note append --kind new --stdin <<EOF\n"
+        "yoke feedback --to yoke --category new --stdin <<EOF\n"
         "the shell substitutes `whoami` here before yoke runs\n"
         "EOF"
     )
@@ -168,7 +168,7 @@ def test_unquoted_heredoc_delimiter_denies_and_names_quoting_it():
 
 def test_quoted_heredoc_body_is_literal_for_any_delimiter():
     command = (
-        "yoke ouroboros field-note append --kind new --stdin <<'NOTE'\n"
+        "yoke feedback --to yoke --category new --stdin <<'NOTE'\n"
         "a `command` and $(whoami) stay literal inside a quoted delimiter\n"
         "NOTE"
     )
@@ -180,7 +180,7 @@ def test_heredoc_body_does_not_leak_into_a_later_command():
         "cat > /tmp/note.txt <<'EOF'\n"
         f"{_FIELD_NOTE_PROSE}\n"
         "EOF\n"
-        "yoke ouroboros field-note append --kind new --stdin < /tmp/note.txt"
+        "yoke feedback --to yoke --category new --stdin < /tmp/note.txt"
     )
     assert _eval(command) is None
 

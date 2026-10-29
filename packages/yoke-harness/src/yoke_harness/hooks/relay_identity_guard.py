@@ -7,6 +7,8 @@ in one place.
 
 from __future__ import annotations
 
+from yoke_contracts.field_note_text import DENIAL_FOOTER
+
 import json
 import sys
 
@@ -37,8 +39,7 @@ RELAY_REFUSAL_UNSTAMPED = (
     "Yoke hook relay refused: payload has no stamped, non-conversation "
     "session id. Repair: record the conversation-to-session map on the "
     "client (first hook or remount), then retry. "
-    "yoke ouroboros field-note append --kind failed --evidence "
-    "'hook relay refused: unstamped session id'"
+    f"{DENIAL_FOOTER}"
 )
 RELAY_REFUSAL_CONVERSATION = (
     "Yoke hook relay refused: session id is still conversation-shaped. "

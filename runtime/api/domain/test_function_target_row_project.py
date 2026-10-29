@@ -138,7 +138,7 @@ def test_resolve_ouroboros_entry_project_from_note_row(conn):
             timestamp="2026-08-10T18:03:05Z",
             agent="test",
             context=None,
-            category="field-note-observation",
+            category="observation",
             body="note body",
             project="yoke",
         )
@@ -187,7 +187,7 @@ def test_field_note_promote_authorizes_from_note_project_without_flag(conn):
             timestamp="2026-08-10T18:03:05Z",
             agent="test",
             context=None,
-            category="field-note-observation",
+            category="observation",
             body="promote me",
             project="yoke",
         )
@@ -213,7 +213,7 @@ def test_explicit_project_still_overrides_note_row(conn):
             timestamp="2026-08-10T18:04:05Z",
             agent="test",
             context=None,
-            category="field-note-observation",
+            category="observation",
             body="note on yoke",
             project="yoke",
         )
@@ -243,7 +243,7 @@ def test_mark_archived_authorizes_from_entry_row_without_flag(conn):
             timestamp="2026-08-12T13:00:00Z",
             agent="test",
             context=None,
-            category="friction",
+            category="failed",
             body="archive me by row project",
             project="yoke",
         )

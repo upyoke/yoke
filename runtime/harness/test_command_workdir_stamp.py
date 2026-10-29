@@ -22,8 +22,8 @@ MAIN = "/Users/operator/yoke"
 CALL_ID = "call_QUKruklZWk5Uh3G7iSNR7iBA"
 # A recorded Codex ``exec`` body: two invocations, different workdirs.
 EXEC_INPUT = (
-    'text(await tools.exec_command({cmd:"yoke ouroboros field-note append '
-    "--kind observation --evidence 'it\\'s noted'\",workdir:\"" + MAIN + '",'
+    'text(await tools.exec_command({cmd:"yoke feedback --to yoke '
+    "--category observation --evidence 'it\\'s noted'\",workdir:\"" + MAIN + '",'
     "max_output_tokens:1200}));\n"
     "text(await tools.exec_command({cmd:\"python3 - <<'PY'\\nfrom pathlib "
     'import Path\\np=Path(\'a.py\'); p.write_text(\\"x\\")\\nPY",workdir:"'

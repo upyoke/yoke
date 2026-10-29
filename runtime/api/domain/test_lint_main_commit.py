@@ -324,7 +324,7 @@ class TestQuotedGitCommitEvidence(unittest.TestCase):
         # commit invocation. The items lookup must not even run -- the
         # classifier short-circuits earlier.
         cmd = (
-            "yoke ouroboros field-note append --kind failed "
+            "yoke feedback --to yoke --category failed "
             '--evidence "previous attempt: git commit was blocked"'
         )
         payload = _payload(cmd, git_facts("main", ["runtime/api/domain/foo.py"]))

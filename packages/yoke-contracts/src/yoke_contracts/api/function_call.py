@@ -135,7 +135,7 @@ class FunctionError(BaseModel):
     nothing when the message already states it. Nothing generic is appended
     here: a hint that repeats on every error stops being read, and the
     field-note directive reaches every session through the startup rules and
-    ``yoke ouroboros field-note append --help``.
+    ``yoke feedback --to yoke --help``.
     """
 
     code: str

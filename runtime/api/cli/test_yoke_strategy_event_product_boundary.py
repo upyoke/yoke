@@ -103,8 +103,8 @@ def test_strategy_event_ouroboros_help_stays_product_safe(
             "usage: yoke strategy master-plan-check",
         ),
         (
-            ("ouroboros", "entry", "insert", "--help"),
-            "usage: yoke ouroboros entry insert",
+            ("feedback", "--help"),
+            "Usage: yoke feedback",
         ),
     )
 

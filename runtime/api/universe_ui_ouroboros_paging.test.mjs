@@ -17,17 +17,17 @@ import {
 import { navEntry, scopeForEntry, createScopePicker } from "../../packages/yoke-core/src/yoke_core/ui/static/universe_navigation.js";
 import { createProjectSelection } from "../../packages/yoke-core/src/yoke_core/ui/static/universe_project_selection.js";
 
-test("Ouroboros restores a single focus from old All URLs and offers no All focus", () => {
+test("Ouroboros defaults to all visible projects and offers an All selection", () => {
   const projects = [{ id: 1 }, { id: 2 }];
   const selections = createProjectSelection(async () => {});
   const entry = navEntry("ouroboros");
-  assert.equal(scopeForEntry(entry, "all", projects, selections), "1");
+  assert.equal(scopeForEntry(entry, "all", projects, selections), "all");
   selections.setFocusFor("ouroboros", "2");
-  assert.equal(scopeForEntry(entry, "all", projects, selections), "2");
-  assert.equal(scopeForEntry(entry, "1,2", projects, selections), "2");
+  assert.equal(scopeForEntry(entry, "all", projects, selections), "all");
+  assert.equal(scopeForEntry(entry, "1,2", projects, selections), "all");
   const bar = createScopePicker({ documentNode: new FakeDocument(), entry,
-    scope: "2", projects, onSelect() {} });
-  assert.deepEqual(byClass(bar, "scope-chip").map(node => node.textContent), ["1", "2"]);
+    scope: "all", projects, onSelect() {} });
+  assert.deepEqual(byClass(bar, "scope-chip").map(node => node.textContent), ["All", "1", "2"]);
 });
 
 function ouroborosContext(documentNode, call, projects) {
@@ -91,7 +91,7 @@ test("the first read asks for a compact roster page and reports matching vs load
   assert.ok(loadMoreButton(root), "a remaining cursor offers Load more");
   const link = byClass(root, "row-link")[0];
   assert.equal(link.textContent, "A useful observation");
-  assert.equal(link.href, "/ouroboros/9?project=1");
+  assert.equal(link.href, "/ouroboros/9");
 });
 
 test("Load more appends the next page without duplicating ids", async () => {
@@ -120,7 +120,7 @@ test("Load more appends the next page without duplicating ids", async () => {
   const ids = byClass(root, "row-link")
     .filter((node) => node.href && node.href.includes("/ouroboros/"))
     .map((node) => node.href);
-  assert.deepEqual(ids, ["/ouroboros/12?project=1", "/ouroboros/8?project=1"]);
+  assert.deepEqual(ids, ["/ouroboros/12", "/ouroboros/8"]);
   assert.equal(loadMoreButton(root), null);
 });
 
@@ -242,12 +242,12 @@ test("focused project asks for one ordered page with an explicit authorization t
   }, projects), root, "1");
   await settle();
   assert.equal(requests.length, 1);
-  assert.equal(requests[0].payload.project, "1");
-  assert.equal("projects" in requests[0].payload, false);
+  assert.equal(requests[0].payload.scope, "project");
+  assert.deepEqual(requests[0].payload.projects, ["1"]);
   assert.deepEqual(requests[0].payload.sort, { column: "timestamp", direction: "desc" });
   const links = byClass(root, "row-link").filter(node => node.href?.includes("/ouroboros/"));
   assert.deepEqual(links.map(node => node.textContent), ["first", "second"]);
-  assert.deepEqual(links.map(node => node.href), ["/ouroboros/4?project=alpha", "/ouroboros/10?project=alpha"]);
+  assert.deepEqual(links.map(node => node.href), ["/ouroboros/4", "/ouroboros/10"]);
   assert.match(visibleText(root, " "), /Filed at/);
   assert.ok(byClass(root, "table-stacks-narrow").length);
 });
@@ -306,7 +306,7 @@ test("note details link repeat evidence and its root", async () => {
   renderOuroborosEntryDetailView(context, root, "alpha", "12");
   await settle();
   const links = allNodes(root).filter(node => node.href);
-  assert(links.some(node => node.href === "/ouroboros/9?project=alpha"));
-  assert(links.some(node => node.href === "/ouroboros/15?project=alpha"));
+  assert(links.some(node => node.href === "/ouroboros/9"));
+  assert(links.some(node => node.href === "/ouroboros/15"));
   assert.match(visibleText(root), /Another context/);
 });

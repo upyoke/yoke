@@ -47,7 +47,7 @@ def promote(test_db, monkeypatch):
             "(id, timestamp, agent, category, body, created_at, "
             "project_id, target_project_id) "
             "VALUES (%s, '2026-08-19T00:00:00Z', 'codex', "
-            "'field-note-failed', 'A recipe failed.', "
+            "'failed', 'A recipe failed.', "
             "'2026-08-19T00:00:00Z', %s, %s)",
             (ENTRY_ID, OBSERVING_PROJECT[0], target_project_id),
         )

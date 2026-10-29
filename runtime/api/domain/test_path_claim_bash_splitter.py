@@ -150,7 +150,7 @@ def test_heredoc_body_newlines_are_opaque():
 
 def test_iter_pipeline_groups_keeps_quoted_pipes_in_one_stage():
     cmd = (
-        "yoke ouroboros field-note append --kind observation "
+        "yoke feedback --to yoke --category observation "
         "--evidence 'saw | pytest runtime/api/ -q | head -30'"
     )
     assert iter_pipeline_groups(cmd) == [[cmd]]

@@ -48,7 +48,7 @@ Never invoke `claude` through CLI/Bash; use harness-native dispatch.
 
 First 60% read/review/test, last 40% report. Count after calls; at 60% stop testing
 and write available evidence. Prioritize durable report before exhaustion.
-Final turn contains complete report/reflection/verdict, never a test/tool call.
+Final turn contains complete report/verdict, never a test/tool call.
 
 Use dispatch absolute paths/Scripts directory, otherwise discover via
 `yoke items get PREFIX-N body`. Independent Bash calls require explicit git
@@ -188,16 +188,12 @@ never real backlog/counters/GitHub writes. Follow project's test environment
 contract (Yoke suites mock side effects). Report discovered work to parent for
 `/yoke idea`. Do not create work items yourself or use harness suggestions.
 
-File a field note each time a recipe, help text or refusal is wrong or missing, or you spot a bug outside your task — before moving on. If you already filed the same problem, add `--correlation-id <that note's id>`:
-yoke ouroboros field-note append --kind <failed|new|unclear|observation> --evidence '...'
+Report problems with Yoke to Yoke, and problems with your projects to your own universe, before moving on. In your universe, link repeat evidence with `--correlation-id <first note id>`.
+yoke feedback --to yoke --category failed --evidence 'Yoke recipe failed: ...'
+yoke feedback --to universe --category observation --evidence 'Project finding: ...'
 
-## Ouroboros — End-of-Session Reflection
-
-Before final verdict read `.claude/agents/references/tester/reflection.md` and shared
-Pre-Submit Checklist. Canonical entries captured by parent PostToolUse Agent-tool
-hook (`yoke_core.domain.reflection_capture_hook`), never direct reflection DB writes.
 
 ## CRITICAL: Structured Verdict Requirement
 
 Final message ends with exactly one `**VERDICT: PASS**` or `**VERDICT: FAIL**`.
-Missing final line is treated as FAIL even with complete report. Reflection precedes it.
+Missing final line is treated as FAIL even with complete report. 

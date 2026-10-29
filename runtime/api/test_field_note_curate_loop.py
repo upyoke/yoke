@@ -1,23 +1,4 @@
-"""End-to-end producer→consumer test for the field-note channel.
-
-Exercises the full loop: agent dispatches four ``ouroboros.field_note.append``
-calls (one per kind: ``failed``, ``new``, ``unclear``, ``observation``)
-through the canonical function-call surface; the ``/yoke curate`` consumer
-surface — the ``ouroboros list-entries --unreviewed`` query the skill body
-runs — surfaces all four rows from ``ouroboros_entries`` where
-``category LIKE 'field-note-%'``.
-
-Per FR-4 of YOK-1872, curate now reads from the ``ouroboros_entries`` table
-(filter: ``category LIKE 'field-note-%'``), not from the events stream. The
-``ouroboros_entries`` row is the AUTHORITATIVE store; the
-``OuroborosFieldNoteAppended`` event is best-effort telemetry. This test
-never reads the events table.
-
-The curate skill is prompt-driven (LLM-as-clusterer); its consumer surface
-is :func:`yoke_core.domain.ouroboros_entries.cmd_list_entries`, which the
-``python3 -m yoke_core.cli.db_router ouroboros list-entries --unreviewed``
-shell entry wraps.
-"""
+"""Every feedback category reaches curation with its full evidence."""
 
 from __future__ import annotations
 
@@ -43,7 +24,7 @@ from yoke_contracts.api.function_call import (
 from yoke_core.domain.yoke_function_registry import reset_registry_for_tests
 
 
-SESSION_ID = "session-field-note-loop"
+SESSION_ID = "session-feedback-loop"
 
 # Distinctive evidence text — each carries a unique substring so we can
 # assert per-kind round-trip without ambiguity. One row per kind in
@@ -53,6 +34,7 @@ SEEDS: Tuple[Tuple[str, str], ...] = (
     ("new", "missing recipe for harness session resume after laptop sleep cycle"),
     ("unclear", "purpose unclear for R-OP-04 — does the paste preserve PYTHONPATH or not?"),
     ("observation", "minor inconsistency in event-catalog row ordering noticed during read"),
+    ("idea", "Improve the project review queue"),
 )
 
 
@@ -89,7 +71,7 @@ def _build_request(kind: str, evidence: str) -> FunctionCallRequest:
         function="ouroboros.field_note.append",
         actor=ActorContext(session_id=SESSION_ID),
         target=TargetRef(kind="global"),
-        payload={"kind": kind, "evidence": evidence},
+        payload={"category": kind, "evidence": evidence},
     )
 
 
@@ -119,13 +101,13 @@ def _query_curate_consumer_rows(db_path: str) -> str:
 
 
 def _query_field_note_rows(db_path: str) -> list[tuple[str, str, str]]:
-    """Direct table read filtered on ``category LIKE 'field-note-%'`` —
+    """Direct table read filtered on ``category LIKE 'feedback-%'`` —
     this is the canonical filter the curate skill applies. Returns
     ``(category, body, agent)`` tuples for assertion against SEEDS."""
     with connect(db_path) as conn:
         rows = conn.execute(
             "SELECT category, body, agent FROM ouroboros_entries "
-            "WHERE category LIKE 'field-note-%' ORDER BY id ASC"
+            "ORDER BY id ASC"
         ).fetchall()
     return [(row[0], row[1], row[2]) for row in rows]
 
@@ -133,28 +115,28 @@ def _query_field_note_rows(db_path: str) -> list[tuple[str, str, str]]:
 class TestFieldNoteCurateLoop:
     """Producer (function-call dispatch) → consumer (curate table read)."""
 
-    def test_four_kinds_round_trip_through_curate_list_entries(
+    def test_all_categories_round_trip_through_curate_list_entries(
         self,
         isolated_db: str,
         registered_dispatcher: None,
     ) -> None:
         entry_ids = _seed_via_dispatch()
-        assert len(entry_ids) == 4
-        assert len(set(entry_ids)) == 4, "each dispatch produced a unique entry_id"
+        assert len(entry_ids) == len(SEEDS)
+        assert len(set(entry_ids)) == len(SEEDS), "each dispatch produced a unique entry_id"
 
         rows_text = _query_curate_consumer_rows(isolated_db)
         assert rows_text, "curate-side list-entries returned no rows"
         row_lines = rows_text.split("\n")
-        assert len(row_lines) == 4, (
+        assert len(row_lines) == len(SEEDS), (
             "curate query should surface 4 field-note rows; "
             f"got {len(row_lines)}"
         )
         # The format includes the category column; every surfaced row
-        # must carry a field-note-* category so the curate filter
-        # (``category LIKE 'field-note-%'``) matches.
+        # must carry a feedback-* category so the curate filter
+        # (``category LIKE 'feedback-%'``) matches.
         for line in row_lines:
-            assert "|field-note-" in line, (
-                f"row missing field-note-* category marker: {line!r}"
+            assert any(f"|{category}|" in line for category in _ofn.FIELD_NOTE_KIND_VALUES), (
+                f"row missing feedback-* category marker: {line!r}"
             )
 
     def test_evidence_text_survives_round_trip_per_kind(
@@ -164,34 +146,34 @@ class TestFieldNoteCurateLoop:
     ) -> None:
         _seed_via_dispatch()
         rows = _query_field_note_rows(isolated_db)
-        assert len(rows) == 4, (
+        assert len(rows) == len(SEEDS), (
             f"table read should return one ouroboros_entries row per "
             f"seeded entry; got {len(rows)}"
         )
         recovered = {category: body for category, body, _agent in rows}
-        expected = {f"field-note-{kind}": evidence for kind, evidence in SEEDS}
+        expected = {kind: evidence for kind, evidence in SEEDS}
         assert recovered == expected, (
             "evidence text or category drifted on round trip; "
             f"expected={expected!r} recovered={recovered!r}"
         )
 
-    def test_category_filter_matches_field_note_prefix(
+    def test_curate_reads_every_category(
         self,
         isolated_db: str,
         registered_dispatcher: None,
     ) -> None:
-        """Curate's filter is ``category LIKE 'field-note-%'``. Verify the
+        """Curate's filter is ``category LIKE 'feedback-%'``. Verify the
         handler writes categories with that prefix for every kind in the
         canonical vocabulary."""
         _seed_via_dispatch()
         rows = _query_field_note_rows(isolated_db)
         categories = {row[0] for row in rows}
         expected_categories = {
-            f"field-note-{kind}" for kind in _ofn.FIELD_NOTE_KIND_VALUES
+            kind for kind in _ofn.FIELD_NOTE_KIND_VALUES
         }
         assert categories == expected_categories, (
             "handler-written categories do not match canonical "
-            "field-note-<kind> vocabulary; "
+            "feedback-<kind> vocabulary; "
             f"expected={expected_categories!r} got={categories!r}"
         )
 
@@ -200,7 +182,7 @@ class TestFieldNoteCurateLoop:
         isolated_db: str,
     ) -> None:
         """Minimal seed-then-read path: insert one ``ouroboros_entries``
-        row with ``category='field-note-observation'`` directly (bypassing
+        row with ``category='observation'`` directly (bypassing
         the dispatcher) and assert ``cmd_list_entries`` surfaces it.
         Proves the curate consumer surface reads field-note rows from the
         table, independent of the function-call producer path."""
@@ -210,14 +192,14 @@ class TestFieldNoteCurateLoop:
                 iso8601_now(),
                 "engineer",
                 None,
-                "field-note-observation",
+                "observation",
                 "neutral observation: doc cross-reference noticed during read",
             )
         assert entry_id and entry_id != "Duplicate entry skipped"
 
         rows_text = _query_curate_consumer_rows(isolated_db)
         assert rows_text, "curate consumer surface returned no rows"
-        assert "|field-note-observation|" in rows_text, (
-            "seeded field-note-observation row not surfaced by "
+        assert "|observation|" in rows_text, (
+            "seeded observation row not surfaced by "
             f"cmd_list_entries; rows_text={rows_text!r}"
         )

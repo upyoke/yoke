@@ -1,6 +1,6 @@
 """Doctor HC: field-note channel coherence.
 
-``HC-field-note-coherence`` bundles two checks so drift is
+``HC-feedback-coherence`` bundles two checks so drift is
 impossible across either axis:
 
 * **Drift check** — invokes
@@ -31,14 +31,14 @@ from yoke_core.api.repo_root import find_repo_root
 from yoke_core.engines.doctor_report import DoctorArgs, RecordCollector
 
 
-HC_NAME = "HC-field-note-coherence"
+HC_NAME = "HC-feedback-coherence"
 HC_DESC = (
     "Field-note channel coherence: renderer --check + "
     "named consumers import from field_note_text"
 )
 
 CANONICAL_MODULE = "yoke_contracts.field_note_text"
-CANONICAL_COMMAND = "ouroboros field-note append"
+CANONICAL_COMMAND = "yoke feedback"
 _CORE_DOMAIN_SOURCE_ROOT = "packages/yoke-core/src/yoke_core/domain"
 
 # Code consumers that MUST import a canonical name from
@@ -46,7 +46,7 @@ _CORE_DOMAIN_SOURCE_ROOT = "packages/yoke-core/src/yoke_core/domain"
 # renderers that stamp the directive into the startup rules every session
 # already receives.
 IMPORTING_CONSUMERS: Tuple[str, ...] = (
-    "packages/yoke-cli/src/yoke_cli/commands/adapters/ouroboros_field_note.py",
+    "packages/yoke-cli/src/yoke_cli/commands/adapters/feedback.py",
     f"{_CORE_DOMAIN_SOURCE_ROOT}/agents_render_field_note.py",
     "packages/yoke-core/src/yoke_core/tools/render_field_note_inline.py",
 )
@@ -100,7 +100,7 @@ def scan_packet_seeds(
             text = candidate.read_text(encoding="utf-8")
         except OSError:
             continue
-        if CANONICAL_COMMAND not in text:
+        if CANONICAL_MODULE not in text:
             missing.append(relpath)
     return missing
 
@@ -193,7 +193,7 @@ from yoke_project_checks._declare import (  # noqa: E402
 
 PROJECT_HEALTH_CHECKS = self_project_checks(
     (
-        "field-note-coherence",
+        "feedback-coherence",
         "Field-note channel coherence: renderer --check + named consumers import from field_note_text",
         hc_field_note_coherence,
     ),

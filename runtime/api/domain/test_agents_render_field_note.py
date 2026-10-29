@@ -113,58 +113,8 @@ def test_every_expected_agent_body_carries_exactly_one_marker(
         )
 
 
-def test_marker_insertion_target_for_ouroboros_bodies(repo_root: Path) -> None:
-    # Eight of the nine bodies anchor the marker before the Ouroboros
-    # reflection section; tester-browser anchors before Important Notes.
-    for agent in EXPECTED_MARKERED_AGENTS:
-        body = (repo_root / CANONICAL_DIR / f"{agent}.md").read_text(encoding="utf-8")
-        marker_idx = body.find(MARKER)
-        assert marker_idx >= 0, f"{agent}.md missing the marker"
-        tail = body[marker_idx:]
-        if agent == "tester-browser":
-            expected_heading = "## Important Notes"
-        else:
-            expected_heading = "## Ouroboros — End-of-Session Reflection"
-        next_h2 = tail.find("\n## ")
-        # The marker may precede a referenced bridge sentence (PM/PD); the
-        # subsequent ``## `` heading is the documented insertion target.
-        assert next_h2 >= 0, f"{agent}.md has no following ## heading"
-        heading_line = tail[next_h2 + 1 :].split("\n", 1)[0]
-        assert heading_line == expected_heading, (
-            f"{agent}.md insertion target heading mismatch — "
-            f"expected {expected_heading!r}, got {heading_line!r}"
-        )
 
-
-def test_pmpd_bodies_carry_reflection_bridge_sentence(repo_root: Path) -> None:
-    # PM and PD do not have Bash and do not fire field-notes directly;
-    # the canonical body anchors the bridge sentence next to the marker
-    # so the renderer surfaces the reflection-capture path. The bridge
-    # sentence names the PostToolUse Agent-tool hook (the new
-    # authoritative capture surface) rather than the operator/debug CLI.
-    for agent in ("product-manager", "product-designer"):
-        body = (repo_root / CANONICAL_DIR / f"{agent}.md").read_text(encoding="utf-8")
-        assert "yoke_core.domain.reflection_capture_hook" in body, (
-            f"{agent}.md must cite the reflection capture hook module near the marker"
-        )
-        assert "field_note_kind" in body, (
-            f"{agent}.md must name field_note_kind in the bridge sentence"
-        )
-
-
-# ---------------------------------------------------------------------------
-# Rendered-adapter behaviour
-# ---------------------------------------------------------------------------
-
-
-# tester-browser is served to the running agent via a committed symlink
-# (``runtime/harness/claude/agents/references/yoke-tester-browser.md``),
-# not via the AGENTS-list render pipeline; the rendered-adapter assertions
-# below cover the eight AGENTS-list bodies whose adapters are generated.
-_RENDERED_AGENTS: tuple[str, ...] = tuple(
-    a for a in EXPECTED_MARKERED_AGENTS if a != "tester-browser"
-)
-
+_RENDERED_AGENTS = tuple(a for a in EXPECTED_MARKERED_AGENTS if a != "tester-browser")
 
 def test_rendered_claude_adapter_carries_footer_and_no_marker(
     repo_root: Path,
