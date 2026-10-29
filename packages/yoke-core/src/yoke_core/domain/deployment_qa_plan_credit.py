@@ -48,7 +48,9 @@ def _plan_target_envs(conn: Any, plan_id: int, item_id: int) -> list[str]:
     rows = query_rows(conn,
         "SELECT DISTINCT q.execution_target_json FROM qa_requirements q "
         "WHERE q.plan_id=%s AND q.deployment_run_id IS NOT NULL "
-        "AND q.deployment_member_item_id IS NULL AND ("
+        "AND q.deployment_member_item_id IS NULL "
+        "AND COALESCE(NULLIF(q.execution_target_json,''),'{}')::jsonb "
+        "#>> '{deployment,shared_plan,group_id}' IS NOT NULL AND ("
         "q.deployment_run_id IN (SELECT run_id FROM deployment_run_items WHERE item_id=%s) "
         "OR COALESCE(q.covered_item_ids,'[]')::jsonb @> %s::jsonb)",
         (plan_id, item_id, json.dumps([item_id])))
