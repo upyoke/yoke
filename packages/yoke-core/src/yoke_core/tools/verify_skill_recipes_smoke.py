@@ -54,7 +54,6 @@ def smoke_cli_patches(dispatch_stub: Callable) -> Iterator[None]:
             "yoke_cli.commands.adapters.github_actions_workflow.call_dispatcher",
             "yoke_cli.commands.adapters.strategy_create.call_dispatcher",
             "yoke_cli.commands.adapters.strategy_doc_write.call_dispatcher",
-            "yoke_cli.commands.adapters.strategy_ops.call_dispatcher",
             "yoke_cli.commands.adapters.strategy_render.call_dispatcher",
         ):
             stack.enter_context(patch(target, side_effect=call_stub))

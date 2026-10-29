@@ -26,7 +26,6 @@ from yoke_cli.commands.adapters.strategy_ops import (
     strategy_carry_summary,
     strategy_checkpoint_latest,
     strategy_checkpoint_record,
-    strategy_master_plan_check,
 )
 
 __all__ = [
@@ -46,5 +45,4 @@ __all__ = [
     "strategy_carry_mark",
     "strategy_checkpoint_record",
     "strategy_checkpoint_latest",
-    "strategy_master_plan_check",
 ]

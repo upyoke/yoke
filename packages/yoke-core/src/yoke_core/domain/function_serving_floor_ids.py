@@ -116,7 +116,7 @@ ALREADY_SERVED_FUNCTION_IDS: frozenset[str] = frozenset((
     'strategy.claim.release', 'strategy.coordination.append', 'strategy.doc.archive', 'strategy.doc.create',
     'strategy.doc.get', 'strategy.doc.list', 'strategy.doc.replace', 'strategy.doc.unarchive',
     'strategy.doc_claim.acquire', 'strategy.doc_claim.list', 'strategy.doc_claim.release', 'strategy.execution.get',
-    'strategy.execution.link', 'strategy.ingest.run', 'strategy.master_plan_check.run', 'strategy.parent.set',
+    'strategy.execution.link', 'strategy.ingest.run', 'strategy.parent.set',
     'strategy.render.run', 'strategy.revision.diff', 'strategy.revision.restore', 'strategy.seed_defaults.run',
     'strategy.surface.get', 'strategy.surface.list', 'test_machine.baseline_group.abort', 'test_machine.baseline_group.begin',
     'test_machine.baseline_group.submit', 'test_machine.baseline_group_execute', 'test_machine.bridge_diagnose', 'test_machine.case.abort',

@@ -128,10 +128,6 @@ def test_done_transition_missing_context_has_no_side_effect(
 
 
 def _invoke_missing_context_boundary(name: str, monkeypatch) -> str:
-    if name == "ac-presence":
-        from yoke_core.domain import check_ac_presence
-
-        return str(check_ac_presence.main(["2318"]))
     if name == "hard-blocks":
         from yoke_cli.commands.adapters.hard_blocks import hard_blocks
 
@@ -186,12 +182,6 @@ def _invoke_missing_context_boundary(name: str, monkeypatch) -> str:
         with pytest.raises(ValueError) as raised:
             resolve_item_worktree("2318")
         return str(raised.value)
-    if name == "validate-epic":
-        from yoke_core.domain.validate_epic_context import _resolve_epic
-
-        with pytest.raises(ValueError) as raised:
-            _resolve_epic(Mock(), "2318")
-        return str(raised.value)
     if name == "session-focus":
         from yoke_core.hooks.sessions_claims import cmd_who_claims
 
@@ -210,7 +200,6 @@ def _invoke_missing_context_boundary(name: str, monkeypatch) -> str:
 @pytest.mark.parametrize(
     "boundary",
     [
-        "ac-presence",
         "hard-blocks",
         "conduct-handoff",
         "shepherd-gate",
@@ -224,7 +213,6 @@ def _invoke_missing_context_boundary(name: str, monkeypatch) -> str:
         "overlap-repair",
         "usher-reconcile",
         "worktree-resolve",
-        "validate-epic",
         "session-focus",
         "github-ownership",
     ],

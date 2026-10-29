@@ -3,13 +3,10 @@
 from __future__ import annotations
 
 import argparse
-import importlib
-import json
 import sys
 from typing import List
 
 from yoke_cli.commands._helpers import (
-    add_json_arg,
     parse_or_usage_error,
 )
 from yoke_cli.config import db_admin_dsn_exec
@@ -18,7 +15,6 @@ from yoke_cli.config import dev_setup as dev_setup_config
 from yoke_cli.config.writer import MachineConfigWriteError
 from yoke_cli.project_install.files import ProjectInstallError
 
-from yoke_cli.config.project_selection import required_project_context
 from yoke_cli.commands.adapters.dev_parser import (
     build_db_admin_setup_parser,
     build_setup_parser,
@@ -41,7 +37,6 @@ DEV_SETUP_USAGE = (
     "--authority-region REGION --authority-database-name NAME] "
     "[--yes | --dry-run] [--json]"
 )
-DEV_PATH_SNAPSHOT_PREWARM_USAGE = "yoke dev path-snapshot-prewarm [PROJECT_ID] [--json]"
 DEV_DB_ADMIN_SETUP_USAGE = (
     "yoke dev db-admin setup ENV [--project P] [--config PATH] [--database MODEL] "
     "[--admin-env NAME] [--control-plane-env CONNECTION] "
@@ -52,7 +47,6 @@ DEV_DB_ADMIN_SETUP_USAGE = (
 DEV_DB_ADMIN_EXEC_USAGE = (
     "yoke dev db-admin exec ADMIN_ENV --dsn-var NAME -- <command> [args...]"
 )
-PROJECT_ID_ENV = "YOKE_PROJECT_ID"
 
 
 def dev_setup(args: List[str]) -> int:
@@ -101,61 +95,6 @@ def dev_setup(args: List[str]) -> int:
         print(dev_setup_config.dumps_json(report), end="")
     else:
         print(dev_setup_config.render_human(report), end="")
-    return 0
-
-
-def dev_path_snapshot_prewarm(args: List[str]) -> int:
-    parser = argparse.ArgumentParser(
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-        prog="yoke dev path-snapshot-prewarm",
-        usage=DEV_PATH_SNAPSHOT_PREWARM_USAGE,
-        description=(
-            "For Yoke source development: build the path snapshots for HEAD "
-            "and for the integration target now, through the local Yoke "
-            "database. Git hooks never run this on their own."
-        ),
-    )
-    parser.add_argument(
-        "project_id",
-        nargs="?",
-        default=None,
-        metavar="PROJECT_ID",
-        help="Project id (explicit value, YOKE_PROJECT, or the checkout binding).",
-    )
-    add_json_arg(parser)
-    parsed = parse_or_usage_error(
-        parser,
-        args,
-        DEV_PATH_SNAPSHOT_PREWARM_USAGE,
-    )
-    if parsed is None:
-        return 2
-
-    try:
-        project_id = required_project_context(parsed.project_id)
-        head_snapshot_id, integration_snapshot_id = _run_path_snapshot_prewarm(
-            project_id,
-        )
-    except Exception as exc:
-        print(
-            f"error: source-dev/admin path-snapshot prewarm failed: {exc}",
-            file=sys.stderr,
-        )
-        return 1
-    payload = {
-        "operation": "dev.path_snapshot_prewarm",
-        "project_id": project_id,
-        "head_snapshot_id": head_snapshot_id,
-        "integration_snapshot_id": integration_snapshot_id,
-    }
-    if parsed.json_mode:
-        print(json.dumps(payload, indent=2))
-    else:
-        print(
-            "path-snapshot prewarm complete: "
-            f"project={project_id} head={head_snapshot_id} "
-            f"integration={integration_snapshot_id}"
-        )
     return 0
 
 
@@ -223,32 +162,11 @@ def dev_db_admin_exec(args: List[str]) -> int:
         return exc.exit_code
 
 
-def _run_path_snapshot_prewarm(project_id: str) -> tuple[int, int | None]:
-    db_helpers = importlib.import_module("yoke_core.domain.db_helpers")
-    path_snapshots = importlib.import_module("yoke_core.domain.path_snapshots")
-    warm = importlib.import_module("yoke_core.domain.path_snapshots_integration_warm")
-    conn = db_helpers.connect()
-    try:
-        head_snapshot_id = path_snapshots.build_head_snapshot(conn, project_id)
-        integration_snapshot_id = warm.ensure_integration_target_snapshot(
-            conn,
-            project_id,
-        )
-    finally:
-        conn.close()
-    return int(head_snapshot_id), (
-        None if integration_snapshot_id is None else int(integration_snapshot_id)
-    )
-
-
 __all__ = [
     "DEV_DB_ADMIN_EXEC_USAGE",
     "DEV_DB_ADMIN_SETUP_USAGE",
-    "DEV_PATH_SNAPSHOT_PREWARM_USAGE",
     "DEV_SETUP_USAGE",
-    "PROJECT_ID_ENV",
     "dev_db_admin_exec",
     "dev_db_admin_setup",
-    "dev_path_snapshot_prewarm",
     "dev_setup",
 ]

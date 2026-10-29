@@ -117,8 +117,6 @@ LABEL_FORMAT_UNDER_TEST: tuple[str, ...] = (
     # Feeds synthetic source to the item-ref scanner to prove a criterion label
     # is not mistaken for a work-item reference.
     "runtime/api/domain/test_lint_item_ref_construction.py",
-    # Exercises the label normalizer; asserts exactly one label was minted.
-    "runtime/api/domain/test_normalize_ac_labels.py",
     # Seeds an acceptance-criteria section the file-budget parser must skip.
     "runtime/api/test_idea_readiness_check_claim_consistency.py",
 )

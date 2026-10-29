@@ -84,7 +84,6 @@ These are operator CLI helpers, distinct from lifecycle slash commands:
 | `yoke project snapshot sync [CHECKOUT]` | Sync committed path inventory |
 | `yoke git pre-commit` | Installed commit gate hook |
 | `yoke git post-commit` / `post-merge` / `post-rewrite` / `post-checkout` | Installed hooks that record the lane head after every HEAD move |
-| `yoke dev path-snapshot-prewarm` | Source-dev/admin inventory prewarm |
 
 Read each operation's `--help` for payload and authority before acting.
 

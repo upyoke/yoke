@@ -1,12 +1,10 @@
-"""``yoke strategy carry|checkpoint|master-plan-check`` adapters."""
+"""``yoke strategy carry|checkpoint`` adapters."""
 
 from __future__ import annotations
 
 import argparse
 import json
 from yoke_cli.transport.human_values import write_human
-import os
-from pathlib import Path
 from typing import Any, Dict, List
 
 from yoke_cli.commands._helpers import (
@@ -14,9 +12,7 @@ from yoke_cli.commands._helpers import (
     add_session_arg,
     dispatch_and_emit,
     parse_or_usage_error,
-    usage_error,
 )
-from yoke_cli.transport.dispatcher import build_actor, call_dispatcher, emit_response
 from yoke_contracts.api.function_call import TargetRef
 
 
@@ -45,20 +41,15 @@ STRATEGY_CHECKPOINT_LATEST_USAGE = (
     "yoke strategy checkpoint latest --project P "
     "[--kind strategize|drift_review] [--full] [--session-id S] [--json]"
 )
-STRATEGY_MASTER_PLAN_CHECK_USAGE = (
-    "yoke strategy master-plan-check [--plan-path PATH] "
-    "[--exit-nonzero-on-drift] [--full] [--session-id S] [--json]"
-)
 
 
 __all__ = [
     "strategy_carry_register_new", "strategy_carry_candidate_set",
     "strategy_carry_summary", "strategy_carry_mark", "strategy_checkpoint_record",
-    "strategy_checkpoint_latest", "strategy_master_plan_check",
+    "strategy_checkpoint_latest",
     "STRATEGY_CARRY_REGISTER_NEW_USAGE", "STRATEGY_CARRY_CANDIDATE_SET_USAGE",
     "STRATEGY_CARRY_SUMMARY_USAGE", "STRATEGY_CARRY_MARK_USAGE",
     "STRATEGY_CHECKPOINT_RECORD_USAGE", "STRATEGY_CHECKPOINT_LATEST_USAGE",
-    "STRATEGY_MASTER_PLAN_CHECK_USAGE",
 ]
 
 
@@ -291,59 +282,3 @@ def strategy_checkpoint_latest(args: List[str]) -> int:
         json_mode=parsed.json_mode,
         human_writer=_human_writer,
     )
-
-
-def _default_master_plan_path() -> Path:
-    workspace = Path(os.environ.get("YOKE_REPO_ROOT") or os.getcwd())
-    return (workspace / ".yoke" / "strategy" / "MASTER-PLAN.md").resolve()
-
-
-def strategy_master_plan_check(args: List[str]) -> int:
-    parser = argparse.ArgumentParser(
-        prog="yoke strategy master-plan-check",
-        usage=STRATEGY_MASTER_PLAN_CHECK_USAGE,
-    )
-    parser.add_argument(
-        "--plan-path",
-        metavar="PATH",
-        help="Master plan file (default: .yoke/strategy/MASTER-PLAN.md in this checkout).",
-    )
-    parser.add_argument(
-        "--exit-nonzero-on-drift",
-        action="store_true",
-        help="Exit 1 when the plan contradicts recorded state.",
-    )
-    add_session_arg(parser)
-    add_json_arg(parser)
-    parsed = parse_or_usage_error(parser, args, STRATEGY_MASTER_PLAN_CHECK_USAGE)
-    if parsed is None:
-        return 2
-    plan_path = (
-        Path(parsed.plan_path).resolve()
-        if parsed.plan_path
-        else _default_master_plan_path()
-    )
-    if not plan_path.exists():
-        return usage_error(f"MASTER-PLAN.md not found at {plan_path}")
-    markdown = plan_path.read_text(encoding="utf-8")
-    from yoke_cli.commands import _helpers as _helpers
-
-    _helpers.ensure_handlers_loaded()
-    response = call_dispatcher(
-        function_id="strategy.master_plan_check.run",
-        target=TargetRef(kind="global"),
-        payload={"markdown": markdown},
-        actor=build_actor(session_id=parsed.session_id),
-    )
-
-    def _human_writer(human_response, stdout, stderr) -> None:
-        stdout.write(str((human_response.result or {}).get("markdown_report", "")))
-
-    rc = emit_response(response, json_mode=parsed.json_mode, human_writer=_human_writer)
-    if (
-        rc == 0
-        and parsed.exit_nonzero_on_drift
-        and int((response.result or {}).get("contradiction_count", 0)) > 0
-    ):
-        return 1
-    return rc

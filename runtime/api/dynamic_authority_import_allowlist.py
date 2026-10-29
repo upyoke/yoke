@@ -267,18 +267,6 @@ ALLOWED_DYNAMIC_AUTHORITY_IMPORTS = {
         "yoke_core.domain.deploy_remote",
     ): ("source_dev_admin", "explicit db-admin setup AWS command helper"),
     (
-        "packages/yoke-cli/src/yoke_cli/commands/adapters/dev.py",
-        "yoke_core.domain.db_helpers",
-    ): ("source_dev_admin", "explicit path-snapshot prewarm DB helper"),
-    (
-        "packages/yoke-cli/src/yoke_cli/commands/adapters/dev.py",
-        "yoke_core.domain.path_snapshots",
-    ): ("source_dev_admin", "explicit path-snapshot prewarm builder"),
-    (
-        "packages/yoke-cli/src/yoke_cli/commands/adapters/dev.py",
-        "yoke_core.domain.path_snapshots_integration_warm",
-    ): ("source_dev_admin", "explicit integration-target prewarm builder"),
-    (
         "packages/yoke-cli/src/yoke_cli/commands/adapters/aws.py",
         "yoke_core.domain.deploy_remote",
     ): ("source_dev_admin", "explicit aws-admin capability subprocess helper"),

@@ -14,7 +14,6 @@ from __future__ import annotations
 
 from yoke_core.domain.handlers import (
     strategy_operations,
-    strategy_master_plan_check,
     strategy_docs,
     strategy_docs_archive,
     strategy_docs_create,
@@ -27,7 +26,6 @@ def register(registry) -> None:
     """Register the strategy family handlers via the given registry."""
     for entry in (
         *strategy_operations.REGISTRATIONS,
-        *strategy_master_plan_check.REGISTRATIONS,
         *strategy_docs.REGISTRATIONS,
         *strategy_docs_archive.REGISTRATIONS,
         *strategy_docs_create.REGISTRATIONS,

@@ -21,7 +21,6 @@ from yoke_cli.commands.adapters.strategy_ops import (
     STRATEGY_CARRY_SUMMARY_USAGE,
     STRATEGY_CHECKPOINT_LATEST_USAGE,
     STRATEGY_CHECKPOINT_RECORD_USAGE,
-    STRATEGY_MASTER_PLAN_CHECK_USAGE,
 )
 
 
@@ -37,7 +36,6 @@ USAGE_BY_FUNCTION_ID: Dict[str, str] = {
     "strategy.carry.mark": STRATEGY_CARRY_MARK_USAGE,
     "strategy.checkpoint.record": STRATEGY_CHECKPOINT_RECORD_USAGE,
     "strategy.checkpoint.latest": STRATEGY_CHECKPOINT_LATEST_USAGE,
-    "strategy.master_plan_check.run": STRATEGY_MASTER_PLAN_CHECK_USAGE,
 }
 
 

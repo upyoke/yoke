@@ -4,7 +4,7 @@
  "status": "draft-copy",
  "audience": "Maintainers",
  "summary": "Source commands use the claimed lane. In a candidate-bound Command case, dev run selects the bound candidate without a claim or machine mapping; an explicit different --lane refuses. A drifted .venv syncs to its checkout's unchanged lock and records the repair; a stale lock or failed sync refuses with its named reason, and candidate QA only checks. Import-origin checks still run.",
- "commands": ["yoke dev db-admin exec", "yoke dev db-admin setup", "yoke dev import-check", "yoke dev path-snapshot-prewarm", "yoke dev run", "yoke dev setup", "yoke dev yokepedia", "yoke scratch dispatch-inputs", "yoke source-authority export", "yoke source-authority quiesce"],
+ "commands": ["yoke dev db-admin exec", "yoke dev db-admin setup", "yoke dev import-check", "yoke dev run", "yoke dev setup", "yoke dev yokepedia", "yoke scratch dispatch-inputs", "yoke source-authority export", "yoke source-authority quiesce"],
  "functions": ["scratch.dispatch_inputs"],
  "page": "contributing",
  "position": 0

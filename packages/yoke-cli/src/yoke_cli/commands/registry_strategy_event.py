@@ -57,10 +57,6 @@ STRATEGY_EVENT_SUBCOMMAND_REGISTRY: Dict[Tuple[str, ...], Tuple[str, AdapterFn]]
         "strategy.checkpoint.latest",
         _adapters.strategy_checkpoint_latest,
     ),
-    ("strategy", "master-plan-check"): (
-        "strategy.master_plan_check.run",
-        _adapters.strategy_master_plan_check,
-    ),
 }
 
 
