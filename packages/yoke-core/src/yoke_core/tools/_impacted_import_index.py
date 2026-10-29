@@ -48,8 +48,7 @@ from yoke_core.tools._impacted_symbol_exports import (
 )
 
 _PACKAGE_SOURCE_MARKER = "/src/"
-#: Project-local checks import under
-#: :data:`PROJECT_CHECKS_PACKAGE`; both facts belong to the engine that
+#: Project-local checks use the loading engine's directory and namespace.
 _PROJECT_CHECKS_PREFIX = f"{PROJECT_CHECKS_DIR.as_posix()}/"
 _SKIP_DIRECTORIES = frozenset(
     {".git", ".venv", "node_modules", "__pycache__", ".worktrees", "build"}
