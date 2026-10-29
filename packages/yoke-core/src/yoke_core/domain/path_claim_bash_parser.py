@@ -10,7 +10,6 @@ from __future__ import annotations
 
 from yoke_contracts.hook_runner.shell_statements import (
     has_unquoted_heredoc as _has_unquoted_heredoc,
-    split_pipeline as _split_pipeline,
 )
 
 import os
@@ -18,9 +17,8 @@ import shlex
 from dataclasses import dataclass
 from typing import List
 
-from yoke_core.domain.path_claim_bash_substitution import (
-    classify_substitution_bodies,
-)
+from yoke_core.domain.path_claim_bash_segment_cwd import rebase_targets, stages_with_cwd
+from yoke_core.domain.path_claim_bash_substitution import classify_substitution_bodies
 from yoke_core.domain.path_claim_bash_temp_vars import (
     is_temp_file_var_ref,
     temp_file_vars,
@@ -59,9 +57,8 @@ _FAIL_CLOSED_PREFIXES = ("eval ", "eval\t", "exec ", "exec\t")
 # as ambiguous so a ``grep ... | sh -c 'rm $1'`` shape cannot smuggle a
 # mutation past the parser.
 _FAIL_CLOSED_C_RES = ("bash -c", "sh -c")
-# Heredoc detection lives in :func:`_has_unquoted_heredoc` so quoted
-# search literals like ``grep -n "python3 - <<" file`` no longer
-# misclassify as heredoc syntax.
+# :func:`_has_unquoted_heredoc` keeps quoted ``"python3 - <<"`` literals
+# from reading as heredoc syntax.
 
 
 # Tokens that look like flag args; everything else is a candidate path.
@@ -74,12 +71,9 @@ def _is_tmp_path(path: str) -> bool:
 
 
 def _strip_redirect_targets(tokens: List[str]) -> List[str]:
-    """Remove ``>``/``>>`` and consume redirect-target tokens.
+    """Return ``tokens`` without ``>``/``>>`` and their targets.
 
-    Returns ``tokens`` with redirect tokens stripped. Captured target
-    paths are not returned here — the caller (``extract_mutations``)
-    walks the original token stream to record them as ``redirect``
-    verbs.
+    :func:`_extract_redirect_paths` records those targets separately.
     """
     out: List[str] = []
     skip = False
@@ -96,10 +90,14 @@ def _strip_redirect_targets(tokens: List[str]) -> List[str]:
 
 @dataclass(frozen=True)
 class Mutation:
-    """One file-mutation extracted from a Bash command."""
+    """One file-mutation extracted from a Bash command.
+
+    ``cwd_unresolved`` marks a target after a ``cd`` the parser cannot read.
+    """
 
     verb: str
     target_path: str
+    cwd_unresolved: bool = False
 
 
 def _extract_redirect_paths(segment: str) -> List[Mutation]:
@@ -319,11 +317,12 @@ def _safe_tokenize(segment: str) -> List[str]:
         return []
 
 
-def extract_mutations(command: str, cwd: str = "") -> List[Mutation]:
+def extract_mutations(command: str, cwd: str = "", home: str = "") -> List[Mutation]:
     """Extract ``(verb, target_path)`` tuples from a Bash command.
 
-    ``cwd`` is the command's execution directory; ``git -C`` targets
-    resolve against it. Returns a (possibly empty) list. ``ambiguous`` entries indicate the
+    ``cwd`` is the execution directory after leading ``cd`` statements; a
+    later ``cd`` moves the targets after it (``home`` expands its ``~``).
+    Returns a (possibly empty) list. ``ambiguous`` entries indicate the
     parser fell closed on a chunk — the consuming guard MUST treat them
     as deny. ``suppressed`` entries indicate the operator added the
     ``# lint:no-worktree-path-check`` token; the guard records audit
@@ -338,8 +337,9 @@ def extract_mutations(command: str, cwd: str = "") -> List[Mutation]:
 
     tmp_vars = temp_file_vars(command)
     out: List[Mutation] = []
-    for segment in _split_pipeline(command, shell_comments=True):
-        out.extend(_classify_segment(segment, cwd))
+    for segment, folder, unresolved in stages_with_cwd(command, cwd, home=home):
+        muts = _classify_segment(segment, folder)
+        out.extend(rebase_targets(muts, folder, cwd, unresolved))
     return [mut for mut in out if not is_temp_file_var_ref(mut.target_path, tmp_vars)]
 
 

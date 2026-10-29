@@ -29,6 +29,7 @@ from yoke_core.domain.path_claim_target_domain import (
     domain_root_for_absolute_target,
     is_free_path_basename_redirect,
     outside_claim_domain,
+    path_is_under,
 )
 
 
@@ -162,6 +163,13 @@ def evaluate_target(
     ):
         return None
 
+    # Inside the lane, a relative target lands under the folder the command
+    # runs in (``cd sub && rm x.py`` writes ``sub/x.py``), so coverage and
+    # the recovery path both use that lane-relative path.
+    in_lane = bool(cwd) and path_is_under(Path(cwd).resolve(), effective_wt)
+    if in_lane and not os.path.isabs(target_path):
+        target_path = os.path.join(cwd, target_path)
+
     if outside_claim_domain(
         target_path=target_path, cwd=cwd, ctx=ctx, effective_worktree=effective_wt
     ):
@@ -203,10 +211,7 @@ def evaluate_target(
     if not effective_wt:
         return None  # claim is not worktree-bound; in-coverage suffices
 
-    if os.path.isabs(target_path):
-        resolved = Path(target_path).resolve()
-    else:
-        resolved = (Path(cwd) / target_path).resolve()
+    resolved = (Path(cwd) / target_path).resolve()
 
     expected_root = Path(effective_wt).resolve()
     expected_str = str(expected_root)
