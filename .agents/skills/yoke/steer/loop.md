@@ -90,7 +90,7 @@ retained-owner waits and retesting.
 After a change, refresh one section:
 
 ```text
-yoke strategy coordination append --section "Live Status"
+yoke strategy coordination append {SLUG} --section "Live Status" --entry "{current status and next steps}"
 ```
 
 Carry current seats, owners, blockers, next steps and operator actions.

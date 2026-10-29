@@ -19,11 +19,10 @@ def _command(skill: str) -> str:
     return "\n".join(p.read_text(encoding="utf-8") for p in (entry, *phases))
 
 
-def test_steer_live_status_heading():
-    # `yoke strategy doc section replace` addresses this section by heading.
+def test_steer_live_status_uses_coordination_append():
     assert (
-        "## Live status — steering snapshot "
-        "(refresh or replace on next steering handoff)"
+        'yoke strategy coordination append {SLUG} --section "Live Status" '
+        '--entry "{current status and next steps}"'
     ) in _read(".agents/skills/yoke/steer/loop.md")
 
 
