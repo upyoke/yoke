@@ -68,9 +68,12 @@ def store_feedback(note):
 
 @router.post("/feedback")
 async def receive_feedback(request: Request):
+    if not request.headers.get("user-agent", "").startswith("yoke-cli/"):
+        return JSONResponse(status_code=400, content={
+            "error": "feedback_user_agent_invalid",
+            "recovery": "Use yoke feedback --to yoke and ensure relays preserve its yoke-cli/ User-Agent.",
+        })
     try:
-        if not request.headers.get("user-agent", "").startswith("yoke-cli/"):
-            raise ValueError("User-Agent must start with yoke-cli/")
         note = PublicFeedback.model_validate(await request.json())
     except Exception:
         return JSONResponse(status_code=400, content={"error": "feedback_shape_invalid"})

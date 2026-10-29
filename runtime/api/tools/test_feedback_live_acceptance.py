@@ -1,6 +1,16 @@
 """Live feedback acceptance never leaves a successful cleanup failure."""
 
 from runtime.api.tools import feedback_live_acceptance as probe
+import subprocess
+import pytest
+
+
+def test_failed_inner_command_keeps_its_stderr(monkeypatch):
+    diagnostic = "feedback_delivery_failed: HTTP 400: feedback_user_agent_invalid"
+    monkeypatch.setattr(probe.subprocess, "run", lambda *args, **kwargs:
+                        subprocess.CompletedProcess(args[0], 1, "", diagnostic))
+    with pytest.raises(RuntimeError, match=diagnostic):
+        probe.call("feedback", "--to", "yoke")
 
 
 def test_success_reads_then_archives_only_the_received_note(monkeypatch):

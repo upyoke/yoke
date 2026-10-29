@@ -45,5 +45,11 @@ Lists default to every note the caller can see across the universe. Project
 notes follow actor visibility; only org admins see notes without a project.
 `/yoke curate` reviews this same queue and groups notes by root cause.
 
+Public delivery failures include the receiver's error code and retain the full
+evidence for retry. `feedback_user_agent_invalid` means the request lacks the
+CLI's `yoke-cli/` User-Agent; update the CLI or repair a relay that replaces it.
+Other malformed fields return `feedback_shape_invalid`. The release probe
+keeps the inner command's stderr so its named refusal and recovery stay visible.
+
 Release QA may set `YOKE_FEEDBACK_URL` to the declared stage feedback endpoint;
 normal clients use the production URL by default.

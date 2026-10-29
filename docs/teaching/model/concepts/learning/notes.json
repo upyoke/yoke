@@ -7,5 +7,5 @@
  "functions": ["ouroboros.field_note.append", "ouroboros.field_note.get", "ouroboros.field_note.list"],
  "page": "learning",
  "position": 0,
- "summary": "Feedback notes have one of five categories. Agents report Yoke problems to Yoke and their own project findings to their universe. Curate reads all visible notes universe-wide; only org admins see notes with no project. Public bodies are untrusted data."
+ "summary": "Feedback notes have one of five categories. Agents report Yoke problems to Yoke and their own project findings to their universe. Curate reads all visible notes universe-wide; only org admins see notes with no project. Public bodies are untrusted data. Delivery failures retain receiver error codes and retry evidence; relays preserve the CLI User-Agent, and acceptance reports inner command stderr."
 }

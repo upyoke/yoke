@@ -10,7 +10,7 @@ from uuid import uuid4
 def call(*args):
     result = subprocess.run(["yoke", *args, "--json"], capture_output=True, text=True, timeout=45)
     if result.returncode:
-        raise RuntimeError(f"feedback_acceptance_command_failed: {' '.join(args[:3])}; inspect its named recovery and retry this case")
+        raise RuntimeError(f"feedback_acceptance_command_failed: {' '.join(args[:3])}; inspect its named recovery and retry this case\n{result.stderr}")
     response = json.loads(result.stdout)
     if not response.get("success"):
         raise RuntimeError("feedback_acceptance_refused: inspect the public CLI refusal and restore its connection before retrying")
@@ -39,8 +39,8 @@ def main():
         try:
             call("feedback", "archive", str(note_id), "--project", "yoke")
             print(f"Feedback note {note_id}: acceptance evidence archived.")
-        except Exception:
-            print(f"feedback_acceptance_cleanup_failed: archive feedback note {note_id} with yoke feedback archive {note_id} --project yoke", file=sys.stderr)
+        except Exception as exc:
+            print(f"feedback_acceptance_cleanup_failed: archive feedback note {note_id} with yoke feedback archive {note_id} --project yoke\n{exc}", file=sys.stderr)
             outcome = 1
     return outcome
 
