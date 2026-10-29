@@ -36,6 +36,8 @@ def test_hooks_evaluate_registers_relayed_session_in_process(client, hooks_db) -
                 "cwd": "/client/repo",
                 "session_id": session_id,
                 "project_id": 1,
+                # A Codex hook registers only from a saved transcript.
+                "transcript_path": "/client/codex/rollout.jsonl",
             }
         ),
     )
