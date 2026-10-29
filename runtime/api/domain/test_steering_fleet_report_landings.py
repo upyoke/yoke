@@ -18,7 +18,7 @@ from yoke_core.engines.merge_worktree_pr_check_runs import (
     LandingCheck,
     PrLandingProjection,
 )
-from yoke_core.engines.merge_worktree_pr_queue import PrLandingState, QueueMember
+from yoke_core.engines.merge_worktree_pr_queue import PrLandingState
 
 
 @pytest.fixture
@@ -32,16 +32,11 @@ def fleet(test_db):
     return conn
 
 
-def _wire(monkeypatch, *, state: PrLandingState, members, checks=()) -> None:
+def _wire(monkeypatch, *, state: PrLandingState, checks=()) -> None:
     monkeypatch.setattr(
         reads_mod,
         "read_pr_landing_and_required_checks",
         lambda _ctx, _pr, **_kwargs: PrLandingProjection(state=state, required_checks=checks),
-    )
-    monkeypatch.setattr(
-        reads_mod,
-        "read_queue_members",
-        lambda _ctx, base_branch="main", **_kwargs: (list(members), None),
     )
 
 
@@ -50,8 +45,8 @@ def test_fleet_names_the_entry_state_when_arming_was_consumed(
 ) -> None:
     _wire(
         monkeypatch,
-        state=PrLandingState(False, False, False, merge_state_status="blocked"),
-        members=(QueueMember("42", "YOK-1", state="AWAITING_CHECKS"),),
+        state=PrLandingState(False, False, False, merge_state_status="blocked",
+                             queue_entry_state="AWAITING_CHECKS"),
     )
 
     report = compose(fleet)
@@ -69,7 +64,6 @@ def test_fleet_marks_a_real_unarmed_landing_for_action(fleet, monkeypatch) -> No
     _wire(
         monkeypatch,
         state=PrLandingState(False, False, False, merge_state_status="clean"),
-        members=(),
     )
 
     report = compose(fleet)
@@ -99,10 +93,8 @@ def test_idle_holder_waiting_on_healthy_landing_is_not_idle(fleet, monkeypatch, 
     claim_work(fleet, session_id=WORKER_SESSION, target=make_item_target(1))
     _wire(
         monkeypatch,
-        state=PrLandingState(False, False, not queued),
-        members=(QueueMember("42", "candidate", state="AWAITING_CHECKS"),)
-        if queued
-        else (),
+        state=PrLandingState(False, False, not queued,
+            queue_entry_state="AWAITING_CHECKS" if queued else "absent"),
     )
 
     report = compose(fleet)
@@ -118,10 +110,8 @@ def test_failed_required_check_retains_idle_holder(fleet, monkeypatch, queued):
     claim_work(fleet, session_id=WORKER_SESSION, target=make_item_target(1))
     _wire(
         monkeypatch,
-        state=PrLandingState(False, False, True),
-        members=(QueueMember("42", "candidate", state="AWAITING_CHECKS"),)
-        if queued
-        else (),
+        state=PrLandingState(False, False, True,
+            queue_entry_state="AWAITING_CHECKS" if queued else "absent"),
         checks=(LandingCheck("tests", "completed", "failure", required=True),),
     )
 
@@ -130,7 +120,7 @@ def test_failed_required_check_retains_idle_holder(fleet, monkeypatch, queued):
 
 def test_dead_landing_retains_idle_holder(fleet, monkeypatch):
     claim_work(fleet, session_id=WORKER_SESSION, target=make_item_target(1))
-    _wire(monkeypatch, state=PrLandingState(False, False, False), members=())
+    _wire(monkeypatch, state=PrLandingState(False, False, False))
 
     report = compose(fleet)
 
@@ -142,7 +132,7 @@ def test_merged_landing_excuses_the_holder_until_it_acts_after_the_notice(
     fleet, monkeypatch
 ):
     claim_work(fleet, session_id=WORKER_SESSION, target=make_item_target(1))
-    _wire(monkeypatch, state=PrLandingState(True, True, False), members=())
+    _wire(monkeypatch, state=PrLandingState(True, True, False))
     fleet.execute(
         "UPDATE items SET merge_queue_landed_at=%s WHERE id=1",
         ("2026-08-26T11:00:00.000000Z",),
