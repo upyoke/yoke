@@ -44,6 +44,7 @@ Keep the shared cluster running between invocations. Use an explicit private
 from __future__ import annotations
 
 import os
+import shutil
 import shlex
 import sys
 from pathlib import Path
@@ -144,9 +145,16 @@ def ensure_started() -> int:
     """
     spec = _spec()
     candidate = spec.bin_dir
-    if candidate is not None and not (candidate / "initdb").is_file():
+    missing = (
+        f"YOKE_PG_BIN_DIR={candidate} has no initdb"
+        if candidate is not None and not (candidate / "initdb").is_file()
+        else "initdb is unavailable on PATH"
+        if candidate is None and shutil.which("initdb") is None
+        else None
+    )
+    if missing:
         sys.stderr.write(
-            f"postgres_binaries_unavailable: YOKE_PG_BIN_DIR={candidate} has no initdb; "
+            f"postgres_binaries_unavailable: {missing}; "
             "install embedded binaries with YOKE_PG_CLUSTER_ROOT and YOKE_PG_BIN_DIR "
             "unset using yoke local-postgres start, then retry with their bin directory\n"
         )

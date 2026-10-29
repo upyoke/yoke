@@ -53,6 +53,7 @@ def test_spec_uses_disposable_cluster_settings(monkeypatch):
 
 
 def test_ensure_started_recreates_on_stale_settings(monkeypatch, tmp_path):
+    monkeypatch.setattr(pg_testcluster.shutil, "which", lambda name: f"/pg/bin/{name}")
     monkeypatch.setenv("YOKE_PG_CLUSTER_ROOT", str(tmp_path / "cluster"))
     calls = []
 
@@ -132,6 +133,7 @@ def test_spec_shortens_overlong_cluster_root(monkeypatch, tmp_path):
 
 
 def test_long_root_starts_cluster_on_short_socket(monkeypatch):
+    monkeypatch.setattr(pg_testcluster.shutil, "which", lambda name: f"/pg/bin/{name}")
     socket_name = f".s.PGSQL.{postgres_cluster.SOCKET_PORT}"
     root = Path("/tmp") / ("yoke-long-root-" + ("n" * 80))
     assert len(os.fsencode(root / "sock" / socket_name)) > (
@@ -172,3 +174,21 @@ def test_env_block_exports_pinned_binaries_for_disposable_homes(monkeypatch):
     )
     exports = [shlex.split(line)[1] for line in pg_testcluster.env_block().splitlines()]
     assert f"YOKE_PG_BIN_DIR={binaries}" in exports
+
+
+@pytest.mark.parametrize("pinned", [False, True])
+def test_missing_initdb_refuses_before_cluster_work(
+    monkeypatch, tmp_path, capsys, pinned
+):
+    candidate = tmp_path / "missing-bin" if pinned else None
+    monkeypatch.setattr(
+        pg_testcluster.postgres_binaries, "pinned_bin_dir", lambda: candidate
+    )
+    monkeypatch.setattr(pg_testcluster.shutil, "which", lambda name: None)
+
+    def unexpected(*args):
+        pytest.fail("cluster work began without initdb")
+
+    monkeypatch.setattr(postgres_cluster, "initdb_if_needed", unexpected)
+    assert pg_testcluster.ensure_started() == 1
+    assert capsys.readouterr().err.split(":", 1)[0] == "postgres_binaries_unavailable"

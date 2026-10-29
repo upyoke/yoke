@@ -214,3 +214,10 @@ git diff --name-only --diff-filter=ACMR <base>...HEAD \
 Review the newline-delimited output, then pass the exact existing paths to
 `yoke watch pytest`. Do not pipe NUL-delimited Git output through `rg -z`, and never
 feed a filter diagnostic to pytest as a filename.
+
+A source child stopped by a signal reports `source_child_signalled`, names the
+signal, and exits with 128 plus its number; inspect the child command before
+retrying. Disposable PostgreSQL setup reports `postgres_binaries_unavailable`
+when `initdb` is missing from either the pinned directory or `PATH`; install
+embedded binaries with `YOKE_PG_CLUSTER_ROOT` and `YOKE_PG_BIN_DIR` unset using
+`yoke local-postgres start`, then retry with their bin directory.
