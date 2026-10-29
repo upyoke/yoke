@@ -278,6 +278,10 @@ def _starved_minutes(row: EnvelopeRow, current: FleetSnapshot) -> int | None:
         # pending forever; reporting it every pass as a live starved
         # worker is the false alarm this exclusion exists to stop.
         return None
+    if recipient.claimed_items and not any(
+        ref in current.items for ref in recipient.claimed_items
+    ):
+        return None
     if (
         recipient.last_tool_call_at is not None
         and row.created_at is not None
