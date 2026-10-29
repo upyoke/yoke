@@ -161,7 +161,7 @@ def test_each_identity_has_its_own_profile_and_default_keeps_the_original_path()
 
 
 def test_browser_cases_and_missions_name_their_identities():
-    assert case_browser_identity({}) == DEFAULT_IDENTITY
+    assert case_browser_identity({}) is None
     assert case_browser_identity({"browser_identity": "admin"}) == "admin"
     assert mission_browser_identities({"browser_identities": ["member", "admin"]}) == [
         "member",

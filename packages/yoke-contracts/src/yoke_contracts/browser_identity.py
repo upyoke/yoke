@@ -219,10 +219,10 @@ def parse_identity_declarations(
     return identities
 
 
-def case_browser_identity(method_config: Mapping[str, object] | None) -> str:
-    """The identity a Browser case runs as: ``browser_identity`` or ``default``."""
+def case_browser_identity(method_config: Mapping[str, object] | None) -> str | None:
+    """The case's declared sign-in identity, or None for anonymous browsing."""
     raw = (method_config or {}).get("browser_identity")
-    return DEFAULT_IDENTITY if raw is None else validate_identity_name(raw)
+    return None if raw is None else validate_identity_name(raw)
 
 
 def mission_browser_identities(config: Mapping[str, object] | None) -> list[str]:

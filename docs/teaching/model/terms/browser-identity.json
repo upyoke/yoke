@@ -1,7 +1,7 @@
 {
  "id": "browser-identity",
  "term": "Browser identity",
- "definition": "A configured identity used to sign in during browser QA.",
+ "definition": "A configured account and browser profile named by browser QA cases that need sign-in. Public cases may omit the identity and run without a sign-in requirement.",
  "status": "draft",
  "sources": ["docs/public/verification/browser-identities.md"]
 }
