@@ -35,12 +35,12 @@ def _dispatch(request: Any) -> FunctionCallResponse:
 
     entry = lookup(typed_request.function)
     if entry is None:
+        from yoke_core.domain.retired_protocol_surfaces import unregistered_function_error
         return _error_response(
             typed_request,
             typed_request.function,
             typed_request.version,
-            "function_not_registered",
-            f"function id {typed_request.function!r} is not registered",
+            *unregistered_function_error(typed_request.function),
         )
     if not is_explicit_client_local(entry.function_id):
         return _dispatch_impl(typed_request)

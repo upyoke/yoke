@@ -2,7 +2,7 @@
 <!-- BEGIN YOKE MANAGED BLOCK -->
 <!-- Managed by `yoke project install`. Everything between the BEGIN and END markers is overwritten on refresh — do not edit it here. Your own content outside the markers is always preserved. -->
 <!-- BEGIN GENERATED: feedback-directive -->
-Report problems with Yoke to Yoke, and problems with your projects to your own universe, before moving on. Link repeat evidence with `--correlation-id <first note id>`.
+Report problems with Yoke to Yoke, and problems with your projects to your own universe, before moving on. In your universe, link repeat evidence with `--correlation-id <first note id>`.
 yoke feedback --to yoke --category failed --evidence 'Yoke recipe failed: ...'
 yoke feedback --to universe --category observation --evidence 'Project finding: ...'
 <!-- END GENERATED: feedback-directive -->

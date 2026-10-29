@@ -25,6 +25,7 @@ import argparse
 import json
 import sys
 
+from yoke_contracts.field_note_text import HELP_BODY
 from yoke_core.domain.cli_text_file import add_text_file_pair, resolve_text_file
 from yoke_core.domain.handlers.ouroboros_field_note import (
     EVIDENCE_MAX_CHARS,
@@ -33,7 +34,7 @@ from yoke_core.domain.handlers.ouroboros_field_note import (
 
 
 _USAGE = (
-    "feedback-log --category {failed|new|unclear|observation} "
+    "feedback-log --category {failed|new|unclear|observation|idea} "
     "(--evidence TEXT | --evidence-file PATH) "
     "[--correlation-id ID] [--session-id S] [--json]"
 )
@@ -49,12 +50,12 @@ def cmd_field_note_log(args: list[str]) -> int:
 
     Exit codes: 0 on success, 1 on dispatch failure, 2 on CLI usage error.
     """
-    parser = argparse.ArgumentParser(prog="feedback-log", add_help=False)
+    parser = argparse.ArgumentParser(prog="feedback-log", description=HELP_BODY, add_help=False)
     parser.add_argument(
         "--category",
         required=True,
         choices=FIELD_NOTE_KIND_VALUES,
-        help="Field-note signal — failed, new, unclear, or observation.",
+        help="Feedback category: failed, new, unclear, observation or idea.",
     )
     evidence_group = parser.add_mutually_exclusive_group(required=True)
     add_text_file_pair(

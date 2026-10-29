@@ -67,6 +67,10 @@ def post_hooks_evaluate(
     background_tasks: BackgroundTasks,
 ) -> JSONResponse:
     """Evaluate one hook event server-side and relay the rendered decision."""
+    from yoke_core.domain.retired_protocol_surfaces import retired_surface_reason
+    retired = retired_surface_reason("hook", request.entrypoint or "")
+    if retired:
+        return JSONResponse(status_code=400, content={"error": {"code": "hook_protocol_removed", "message": retired}})
     stamped = _refuse_conversation_shaped(request)
     if stamped is not None:
         return stamped

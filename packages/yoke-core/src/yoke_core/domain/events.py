@@ -222,6 +222,10 @@ def emit_event(
             "omit transactional=True for an emitter-owned transaction"
         )
     try:
+        from yoke_core.domain.retired_protocol_surfaces import retired_surface_reason
+        retired = retired_surface_reason("event", event_name)
+        if retired:
+            return EmitResult(ok=False, reason=retired)
         resolved_item_id = resolve_item_id_for_event(conn, db_path, item_id)
         envelope = build_envelope(
             event_name,

@@ -20,7 +20,7 @@ def _request(function_id: str, payload=None) -> FunctionCallRequest:
         function=function_id,
         actor=ActorContext(actor_id="op", session_id="s-1"),
         target=TargetRef(kind="global"),
-        payload=payload or {},
+        payload={**({"scope": "project"} if payload and ("project" in payload or "projects" in payload) else {}), **(payload or {})},
     )
 
 

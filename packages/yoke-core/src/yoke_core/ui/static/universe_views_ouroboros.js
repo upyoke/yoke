@@ -104,7 +104,7 @@ export function renderOuroborosView(context, main, scope) {
       })), "nothing noticed yet", (row) => (
         buildUniverseRoute(
           "ouroboros",
-          row.project || (Array.isArray(scope) ? scope[0] : scope),
+          null,
           String(row.id),
         )
       ), { stack: true, sortable: true, className: "ouroboros-roster" });
@@ -149,7 +149,7 @@ export function renderOuroborosEntryDetailView(
     context,
     panel,
     "ouroboros.field_note.get",
-    { entry_id: Number(entryId), project: String(projectId) },
+    { entry_id: Number(entryId) },
     (body, callResult) => {
       const entry = (callResult.envelope.result || {}).entry || {};
       if (typeof navigation.setDetailLabel === "function") {
@@ -170,14 +170,14 @@ export function renderOuroborosEntryDetailView(
       }));
       if (entry.correlation_id) {
         body.appendChild(actionLink(documentNode, `Root note #${entry.correlation_id}`,
-          buildUniverseRoute("ouroboros", projectId, entry.correlation_id)));
+          buildUniverseRoute("ouroboros", null, entry.correlation_id)));
       }
       if (entry.repeat_count) {
         body.appendChild(el(documentNode, "h3", "", `Repeated evidence (${entry.repeat_count})`));
         for (const repeat of entry.repeats || []) {
           const row = el(documentNode, "p", "item-muted");
           row.appendChild(actionLink(documentNode, `Note #${repeat.id}`,
-            buildUniverseRoute("ouroboros", projectId, repeat.id)));
+            buildUniverseRoute("ouroboros", null, repeat.id)));
           row.appendChild(documentNode.createTextNode(` · ${repeat.preview}`));
           body.appendChild(row);
         }

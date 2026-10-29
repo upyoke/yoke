@@ -49,6 +49,7 @@ SIGN_OUT_PATH = "/v1/auth/sign-out"
 PUBLIC_PATHS = frozenset(
     {
         "/v1/health",
+        "/v1/feedback",
         OIDC_START_PATH,
         OIDC_CALLBACK_PATH,
         SIGN_OUT_PATH,

@@ -99,7 +99,7 @@ for (const [view, functionId] of [
         if (request.function === functionId) {
           // The engine denies a project-scoped read that names no project;
           // answering rows here would hide the very shape under test.
-          if (!request.payload.project) {
+          if (!request.payload.project && view !== "ouroboros") {
             return {
               status: 403,
               envelope: {
@@ -134,7 +134,8 @@ for (const [view, functionId] of [
     const reads = requests.filter((request) => request.function === functionId);
     if (view === "ouroboros") {
       assert.equal(reads.length, 1);
-      assert.equal(reads[0].payload.project, "1");
+      assert.equal(reads[0].payload.scope, "universe");
+      assert.equal("project" in reads[0].payload, false);
       assert.equal("projects" in reads[0].payload, false);
       assert.deepEqual(reads[0].payload.sort, { column: "timestamp", direction: "desc" });
     } else {
@@ -204,7 +205,8 @@ test("Ouroboros reads observations and keeps review state visible", async (t) =>
     {
       function: "ouroboros.field_note.list",
       payload: {
-        project: "1",
+        scope: "project",
+        projects: ["1"],
         shape: "roster",
         review_state: "all",
         limit: 50,
@@ -221,7 +223,7 @@ test("Ouroboros reads observations and keeps review state visible", async (t) =>
   ]);
   assert.equal(
     byClass(root, "row-link").find((node) => node.textContent === "Retries preserve typed input").href,
-    "/ouroboros/22?project=1",
+    "/ouroboros/22",
   );
   assert.equal(
     byClass(root, "row-link").find((node) => node.textContent === "YOK-90").href,
@@ -235,7 +237,7 @@ test("Ouroboros field-note drill-in keeps its promoted Dash reachable", async (t
   t.after(() => { globalThis.fetch = originalFetch; });
   globalThis.fetch = () => response(200, {});
   const documentNode = new FakeDocument();
-  documentNode.defaultView.location.href = "/ouroboros/22?project=1";
+  documentNode.defaultView.location.href = "/ouroboros/22";
   const root = documentNode.createElement("div");
   const requests = [];
   const client = {
@@ -289,7 +291,7 @@ test("Ouroboros field-note drill-in keeps its promoted Dash reachable", async (t
     requests.find((request) => request.function === "ouroboros.field_note.get"),
     {
       function: "ouroboros.field_note.get",
-      payload: { entry_id: 22, project: "1" },
+      payload: { entry_id: 22 },
     },
   );
   assert.match(

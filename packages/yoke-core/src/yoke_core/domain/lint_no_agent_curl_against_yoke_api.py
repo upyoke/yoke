@@ -90,7 +90,7 @@ def _format_reason(suppression_seen: bool) -> str:
         "     items.get / items.progress-log append / items.structured-field\n"
         "     replace / lifecycle.transition / events.query /\n"
         "     claims.work.{acquire,release} / claims.path.{register,widen} /\n"
-        "     ouroboros.field-note append). Run `yoke --help` for the\n"
+        "     feedback). Run `yoke --help` for the\n"
         "     grouped catalog.\n"
         "  2. Missing adapter — ask the control-plane operator to provide it.\n"
         "     Retain the request and selected connection; direct runtime,\n"

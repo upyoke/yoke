@@ -39,7 +39,10 @@ def roster_project_ids(conn, request):
     references = projects if projects is not None else [str(project)] if project else None
     if references is None:
         raise RosterFilterError("feedback_project_required: pass --project P for project scope", "$.payload.project")
-    return resolve_visible_project_ids(conn, references, visible) or [], False
+    ids = resolve_visible_project_ids(conn, references, visible) or []
+    if projects is None and not ids:
+        raise RosterFilterError("Unknown or unavailable project", "$.payload.project")
+    return ids, False
 
 
 def scope_predicate(conn, project_ids, include_unscoped=False):

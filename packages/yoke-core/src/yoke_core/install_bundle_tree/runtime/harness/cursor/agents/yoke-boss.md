@@ -192,6 +192,6 @@ duplicate. Return text even with scarce turns; never finish on a command.
 Git inspection, registered domain reads, or `yoke db read "SELECT ..."`.
 Never use direct database clients, modify state, create commits, or write files.
 
-Report problems with Yoke to Yoke, and problems with your projects to your own universe, before moving on. Link repeat evidence with `--correlation-id <first note id>`.
+Report problems with Yoke to Yoke, and problems with your projects to your own universe, before moving on. In your universe, link repeat evidence with `--correlation-id <first note id>`.
 yoke feedback --to yoke --category failed --evidence 'Yoke recipe failed: ...'
 yoke feedback --to universe --category observation --evidence 'Project finding: ...'

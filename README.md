@@ -11,7 +11,7 @@ Longer term, Yoke becomes a central clearinghouse for company operations — rec
 ---
 
 <!-- BEGIN GENERATED: feedback-directive -->
-Report problems with Yoke to Yoke, and problems with your projects to your own universe, before moving on. Link repeat evidence with `--correlation-id <first note id>`.
+Report problems with Yoke to Yoke, and problems with your projects to your own universe, before moving on. In your universe, link repeat evidence with `--correlation-id <first note id>`.
 yoke feedback --to yoke --category failed --evidence 'Yoke recipe failed: ...'
 yoke feedback --to universe --category observation --evidence 'Project finding: ...'
 <!-- END GENERATED: feedback-directive -->

@@ -52,7 +52,6 @@ def mark_entries_reviewed_before(
     *,
     before: str,
     project: Optional[str],
-    category_prefix: str | None = None,
     limit: int = MAX_ENTRY_REVIEW_BATCH,
     include_unattributed: bool = False,
 ) -> EntryReviewBatch:
@@ -74,16 +73,11 @@ def mark_entries_reviewed_before(
     )
 
     p = "%s" if db_backend.connection_is_postgres(conn) else "?"
-    category_predicate = f"category LIKE {p} AND " if category_prefix else ""
     predicate = (
-        f"{category_predicate}{project_sql} AND created_at < {p} "
+        f"{project_sql} AND created_at < {p} "
         "AND reviewed_at IS NULL AND archived_at IS NULL"
     )
-    filter_params = (
-        (f"{category_prefix}%", *project_params, cutoff)
-        if category_prefix
-        else (*project_params, cutoff)
-    )
+    filter_params = (*project_params, cutoff)
     rows = query_rows(
         conn,
         "SELECT id FROM ouroboros_entries "

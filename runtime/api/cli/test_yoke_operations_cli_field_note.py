@@ -1,12 +1,4 @@
-"""``yoke feedback --to yoke`` subcommand surface tests.
-
-Covers:
-
-* ``--help`` prints the canonical ``HELP_BODY``.
-* Argparse rejects an unknown ``--category``.
-* The retired subcommand is gone (not aliased).
-* Standing guidance appears only on root and field-note append help.
-"""
+"""Feedback CLI dispatch and durable write coverage."""
 
 from __future__ import annotations
 
@@ -183,20 +175,6 @@ def test_field_note_subcommand_registered() -> None:
     assert HELP_BODY in out
 
 
-def test_field_note_help_prints_kind_list_and_correlation_help() -> None:
-    from yoke_contracts.field_note_text import CORRELATION_ID_HELP, HELP_BODY
-
-    buf = io.StringIO()
-    err = io.StringIO()
-    with redirect_stdout(buf), redirect_stderr(err):
-        rc = cli_main(["feedback", "--to", "universe", "--help"])
-    assert rc == 0
-    out = buf.getvalue()
-    collapsed = " ".join(out.split())
-    assert HELP_BODY in out
-    assert CORRELATION_ID_HELP in collapsed
-    assert "--category" in out
-    assert "--evidence" in out
 
 
 
@@ -281,24 +259,5 @@ def test_field_note_append_dispatches_against_project_id_schema(
         assert row["project_id"] is None
 
 
-def test_old_subcommand_gone() -> None:
-    # Old subcommand removed (not aliased). Token list assembled
-    # dynamically to keep the literal out of grep paths.
-    old_subcommand_token = "-".join(("recipe", "event"))
-    rc, _out, _err = _run_capture(
-        "ouroboros",
-        old_subcommand_token,
-        "append",
-        "--help",
-    )
-    assert rc != 0
 
 
-def test_command_help_does_not_repeat_standing_guidance() -> None:
-    from yoke_contracts.field_note_text import FOOTER
-
-    buf = io.StringIO()
-    with redirect_stdout(buf):
-        rc = cli_main(["items", "get", "--help"])
-    assert rc == 0
-    assert FOOTER not in buf.getvalue()

@@ -135,6 +135,7 @@ class TestTopLevelShape:
 
 class TestFieldNoteCollection:
     def test_uses_field_note_cli_transport_surface(self, monkeypatch) -> None:
+        monkeypatch.setattr("yoke_cli.commands._helpers.client_project_context", lambda: "1")
         seen = {}
 
         def fake_call_dispatcher(**kwargs):
@@ -158,7 +159,8 @@ class TestFieldNoteCollection:
         assert seen["target"].kind == "global"
         assert seen["target"].project_id is None
         assert seen["payload"] == {
-            "category_prefix": "feedback-",
+            "scope": "project",
+            "project": "1",
             "limit": 50,
         }
         assert seen["actor"].session_id == "atlas-integrity-audit"

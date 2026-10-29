@@ -291,6 +291,7 @@ def _include_routes(application: FastAPI) -> FastAPI:
     v1_router = APIRouter(prefix="/v1", dependencies=admission)
 
     # Import route modules and include their routers
+    from yoke_core.api.routes.feedback import router as feedback_router
     from yoke_core.api.routes.items import router as items_router
     from yoke_core.api.routes.auth_identity import router as auth_identity_router
     from yoke_core.api.routes.sessions import router as sessions_router
@@ -316,6 +317,7 @@ def _include_routes(application: FastAPI) -> FastAPI:
         router as machine_authorization_router,
     )
 
+    v1_router.include_router(feedback_router)
     v1_router.include_router(items_router)
     v1_router.include_router(auth_identity_router)
     v1_router.include_router(sessions_router)

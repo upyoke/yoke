@@ -71,7 +71,7 @@ WRAPPED_ROWS: Tuple[_Row, ...] = (
     _w("yoke lifecycle transition", "lifecycle"),
     _w("yoke lifecycle repair-status", "lifecycle"),
     _w("yoke lifecycle skip record-recoverable-substrate", "lifecycle"),
-    _w("yoke feedback --to yoke", "ouroboros"),
+    _w("yoke feedback", "ouroboros"),
     _w("yoke feedback list", "ouroboros"),
     _w("yoke feedback get", "ouroboros"),
     # items_scalar.

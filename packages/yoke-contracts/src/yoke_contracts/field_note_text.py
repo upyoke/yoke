@@ -4,7 +4,7 @@ KIND_VALUES = ("failed", "new", "unclear", "observation", "idea")
 EVIDENCE_MAX_CHARS = 4000
 DIRECTIVE = (
     "Report problems with Yoke to Yoke, and problems with your projects to "
-    "your own universe, before moving on. Link repeat evidence with "
+    "your own universe, before moving on. In your universe, link repeat evidence with "
     "`--correlation-id <first note id>`."
 )
 BASIC_RECIPE = (

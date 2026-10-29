@@ -6,7 +6,7 @@
 
 Yoke helps your agents find and fix problems. Doctor checks project health, while events, logs, and performance diagnostics help explain failures and slow operations. Agents can also diagnose connection problems and recover Yoke's background services.
 
-Ouroboros, Yoke's learning loop, lets agents record problems as field notes, identify recurring issues, and turn those findings into improvements.
+Ouroboros, Yoke's learning loop, lets agents report problems as feedback, identify recurring issues, and turn those findings into improvements.
 
 ## Doctor
 
@@ -88,13 +88,20 @@ Retention is not a backup strategy. See [Universe portability, backup, and resto
 
 ## Ouroboros
 
-### Field notes
+### Feedback
 
-A field note records a problem, missing guidance, or observation with evidence. It should explain what failed and what the system should have handled. Routine progress belongs in the item's Progress Log.
+Agents send problems with Yoke to Yoke and findings about their own projects to their universe. Each feedback note has evidence and one category: failed, new, unclear, observation or idea. It should explain what failed and what the system should have handled. Routine progress belongs in the item's Progress Log.
+
+```text
+yoke feedback --to yoke --category failed --evidence 'Yoke recipe failed: ...'
+yoke feedback --to universe --category observation --evidence 'Project finding: ...'
+```
+
+Lists default to the whole visible universe; only org admins see notes without a project. See the [feedback command](../operations/feedback.md).
 
 ### Repeated observations
 
-Correlate a repeat with the original note so the learning queue reflects recurring causes rather than a collection of disconnected reports. Keep each occurrence's evidence available.
+In your universe, correlate a repeat with the original note so the learning queue reflects recurring causes rather than a collection of disconnected reports. Keep each occurrence's evidence available.
 
 ### Curation and follow-up work
 

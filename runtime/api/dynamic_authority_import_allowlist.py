@@ -96,7 +96,7 @@ ALLOWED_DYNAMIC_AUTHORITY_IMPORTS = {
         "one read schedule for this wait and the engine's own wait loops",
     ),
     (
-        "packages/yoke-cli/src/yoke_cli/commands/adapters/misc.py",
+        "packages/yoke-cli/src/yoke_cli/commands/adapters/scratch.py",
         "yoke_core.domain.project_scratch_dir",
     ): ("source_dev_admin", "local scratch resolver helper"),
     (

@@ -217,6 +217,7 @@ class TestOuroborosEntryDispatch:
         req = _CAPTURED_REQUESTS[-1]
         assert req.function == "ouroboros.field_note.list"
         assert req.payload == {
+            "scope": "universe",
             "unreviewed": True,
             "project": "yoke",
             "limit": 3,
@@ -249,7 +250,7 @@ class TestOuroborosFieldNoteReadDispatch:
         req = _CAPTURED_REQUESTS[-1]
         assert req.function == "ouroboros.field_note.list"
         assert req.payload == {
-            "category_prefix": "feedback-",
+            "scope": "universe",
             "unreviewed": True,
             "project": "yoke",
             "limit": 40,
@@ -266,5 +267,4 @@ class TestOuroborosFieldNoteReadDispatch:
         assert req.function == "ouroboros.field_note.get"
         assert req.payload == {
             "entry_id": 13270,
-            "category_prefix": "feedback-",
         }

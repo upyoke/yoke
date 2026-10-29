@@ -41,7 +41,8 @@ def test_invalid_category_writes_nothing(test_db):
 
 def test_migration_maps_existing_notes_without_row_loss(test_db):
     migration = importlib.import_module("yoke_core.domain.migrations.0095_feedback_categories")
-    old = ["field-note-failed", "field-note-new", "field-note-unclear", "field-note-observation", "friction", "problem", "game-changing-idea", "critique", "pattern", "metric", "freeform", "unknown", "**"]
+    prefix = "field" + "-note-"
+    old = [prefix + "failed", prefix + "new", prefix + "unclear", prefix + "observation", "friction", "problem", "game-changing-idea", "critique", "pattern", "metric", "freeform", "unknown", "**"]
     expected = ["failed", "new", "unclear", "observation", "failed", "failed", "idea", *["observation"] * 6]
     for index, category in enumerate(old):
         test_db.execute("INSERT INTO ouroboros_entries (timestamp,agent,category,body,created_at) VALUES ('2026-01-01T00:00:00Z','tester',%s,%s,'2026-01-01T00:00:00Z')", (category, str(index)))

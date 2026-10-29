@@ -21,6 +21,7 @@ from yoke_core.domain.handlers import (
     __init_register__ as init_register,
     events_emit,
     ouroboros_writes,
+    ouroboros_field_note,
     strategy_operations,
 )
 from yoke_core.domain.events import EmitResult
@@ -48,7 +49,7 @@ def test_cli_registry_exposes_strategy_event_ouroboros_surfaces() -> None:
         ("strategy", "carry", "mark"): "strategy.carry.mark",
         ("strategy", "checkpoint", "record"): "strategy.checkpoint.record",
         ("strategy", "master-plan-check"): "strategy.master_plan_check.run",
-        ("ouroboros", "entry", "insert"): "ouroboros.entry.insert",
+        ("feedback",): "ouroboros.field_note.append",
     }
     for tokens, function_id in expected.items():
         assert SUBCOMMAND_REGISTRY[tokens][0] == function_id
@@ -75,7 +76,7 @@ def test_register_all_handlers_includes_new_function_ids() -> None:
             "strategy.carry.mark",
             "strategy.checkpoint.record",
             "strategy.master_plan_check.run",
-            "ouroboros.entry.insert",
+            "ouroboros.field_note.append",
         ):
             assert yoke_function_registry.lookup(function_id) is not None
     finally:
@@ -97,7 +98,7 @@ def test_events_emit_handler_delegates_to_native_emitter(monkeypatch) -> None:
             "events.emit",
             {
                 "name": "FeedCompleted",
-                "category": "lifecycle",
+                "kind": "lifecycle",
                 "type": "feed",
                 "source_type": "skill",
                 "severity": "STATUS",
@@ -124,16 +125,14 @@ def test_events_emit_schema_omits_platform_user_identity() -> None:
     assert "user_id" not in properties
 
 
-def test_ouroboros_entry_insert_handler_writes_row(tmp_db: str) -> None:
-    outcome = ouroboros_writes.handle_ouroboros_entry_insert(
+def test_feedback_append_handler_writes_row(tmp_db: str) -> None:
+    outcome = ouroboros_field_note.handle_append(
         _request(
-            "ouroboros.entry.insert",
+            "ouroboros.field_note.append",
             {
-                "agent": "tester",
+                "actor_role": "tester",
                 "category": "observation",
-                "context": "wrapper-test",
-                "observation": "registered ouroboros insertion works",
-                "timestamp": "2026-06-16T00:00:00Z",
+                "evidence": "registered ouroboros insertion works",
             },
         )
     )
@@ -149,20 +148,20 @@ def test_ouroboros_entry_insert_handler_writes_row(tmp_db: str) -> None:
         ).fetchone()
     assert tuple(row) == (
         "tester",
-        "wrapper-test",
+        None,
         "observation",
         "registered ouroboros insertion works",
     )
 
 
 def test_single_entry_review_preserves_existing_close_out(tmp_db: str) -> None:
-    inserted = ouroboros_writes.handle_ouroboros_entry_insert(
+    inserted = ouroboros_field_note.handle_append(
         _request(
-            "ouroboros.entry.insert",
+            "ouroboros.field_note.append",
             {
-                "agent": "tester",
+                "actor_role": "tester",
                 "category": "failed",
-                "observation": "single review target",
+                "evidence": "single review target",
             },
         )
     )
@@ -184,12 +183,12 @@ def test_single_entry_review_preserves_existing_close_out(tmp_db: str) -> None:
     assert row[0] is not None
 
 
-def test_review_batches_support_all_categories_and_field_note_scope(tmp_db: str) -> None:
+def test_review_batches_cover_all_feedback_categories(tmp_db: str) -> None:
     seeds = (
         ("failed", "2026-07-28T00:00:00Z"),
         ("observation", "2026-07-29T00:00:00Z"),
         ("observation", "2026-07-30T00:00:00Z"),
-        ("friction", "2026-07-31T00:00:00Z"),
+        ("failed", "2026-07-31T00:00:00Z"),
         ("new", "2026-08-01T00:00:00Z"),
     )
     entry_ids: list[int] = []
@@ -207,7 +206,7 @@ def test_review_batches_support_all_categories_and_field_note_scope(tmp_db: str)
 
     # Seeded rows carry no project, so each batch names one and opts in.
     scope = {"project": "yoke", "include_unattributed": True}
-    payload = {"field_notes_before": "2026-08-01", "limit": 1, **scope}
+    payload = {"before": "2026-08-01", "limit": 1, **scope}
     first = ouroboros_writes.handle_ouroboros_entry_mark_reviewed(
         _request("ouroboros.entry.mark_reviewed", payload)
     )
@@ -217,9 +216,9 @@ def test_review_batches_support_all_categories_and_field_note_scope(tmp_db: str)
 
     assert first.primary_success is True
     assert first.result_payload["reviewed_count"] == 1
-    assert first.result_payload["remaining_count"] == 1
+    assert first.result_payload["remaining_count"] == 3
     assert second.result_payload["reviewed_count"] == 1
-    assert second.result_payload["remaining_count"] == 0
+    assert second.result_payload["remaining_count"] == 2
     with connect(tmp_db) as conn:
         p = "%s" if db_backend.connection_is_postgres(conn) else "?"
         rows = conn.execute(
@@ -254,7 +253,7 @@ def test_field_note_review_batch_requires_iso_date(tmp_db: str) -> None:
     outcome = ouroboros_writes.handle_ouroboros_entry_mark_reviewed(
         _request(
             "ouroboros.entry.mark_reviewed",
-            {"field_notes_before": "August 1, 2026"},
+            {"before": "August 1, 2026"},
         )
     )
 

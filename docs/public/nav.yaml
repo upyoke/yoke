@@ -224,6 +224,7 @@ root:
       - {title: "Universe retention", summary: "Preview and prune disposable records with protected state and bounded recovery.", path: "universe-retention.md"}
       - {title: "Events", summary: "Read telemetry admission, attribution and visitor links.", path: "operations/events.md"}
       - {title: "Doctor", summary: "Run applicable health checks and recover incomplete evidence.", path: "operations/doctor.md"}
+      - {title: "Feedback", summary: "Report Yoke problems to Yoke and project findings to your universe.", path: "operations/feedback.md"}
       - {title: "Ouroboros", summary: "Record observations and improve delivery through the learning loop.", path: "operations/ouroboros.md"}
       - {title: "Event model", summary: "Read the event log, severity configuration and registry.", path: "operations/model/events.md"}
       - {title: "Performance diagnostics", summary: "Inspect exact timing observations and their unknowns.", path: "operations/performance-diagnostics.md"}

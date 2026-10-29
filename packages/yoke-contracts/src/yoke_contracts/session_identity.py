@@ -27,6 +27,8 @@ silently omit the ancestry walk.
 
 from __future__ import annotations
 
+from yoke_contracts.field_note_text import DENIAL_FOOTER
+
 import json
 import os
 from pathlib import Path
@@ -64,8 +66,8 @@ from yoke_contracts.session_anchor_contention import (
 AMBIENT_RESOLUTION_FAILED = (
     "ambient session identity could not be resolved (env chain, then the "
     "hook-written process-anchor registry, then cursor-session-map) — this "
-    "is a Yoke infrastructure gap, not something to work around; file a "
-    "field-note if you can, otherwise report it to the operator. "
+    f"is a Yoke infrastructure gap. {DENIAL_FOOTER} "
+    "Report it to the operator if feedback is unavailable. "
     "Operator-debug override: --session-id."
 )
 

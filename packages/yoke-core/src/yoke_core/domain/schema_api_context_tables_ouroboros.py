@@ -19,6 +19,10 @@ OUROBOROS_TABLES: dict[str, dict] = {
             ("target_project_id", "INTEGER"),
             ("correlation_id", "INTEGER"),
             ("session_id", "TEXT"),
+            ("actor_id", "INTEGER"),
+            ("reporter_email", "TEXT"),
+            ("yoke_version", "TEXT"),
+            ("universe_fingerprint", "TEXT"),
         ],
         "notes": (
             "Field-note correlation_id stores the root note id; session_id "
@@ -42,13 +46,17 @@ OUROBOROS_TABLES: dict[str, dict] = {
             "`project_id`. "
             "`agent` holds the author label the write path resolved "
             "(subagent role, else the session's executor) — it is NOT an "
-            "actor id, and there is no `author` or `actor_id` column. "
+            "actor id. `actor_id` is stamped from the authenticated request, or "
+            "the receiving feedback service for public notes. There is no `author` column. "
+            "Nullable reporter_email, yoke_version and universe_fingerprint "
+            "carry reporter metadata; a fingerprint marks untrusted public input. "
+            "Category is exactly failed, new, unclear, observation or idea. "
             "Supersede links live in `ouroboros_entry_corrections`, not "
             "in a column here. "
-            "Use `created_at` for canonical ordering; `timestamp` is "
-            "legacy compatibility. "
+            "Full reads order by id. Browser reads order by their selected field, "
+            "defaulting to timestamp descending, with id as the tie-breaker. "
             "Browser roster reads use `ouroboros.field_note.list` with "
-            "`shape=roster` (id-desc keyset cursor, matching_count, no "
+            "`shape=roster` (selected-field keyset cursor, matching_count, no "
             "`body`); `ouroboros.field_note.get` is the only fetch for the "
             "evidence body. Operator list/count keep offset paging and "
             "full rows — wrong guess: that the roster shape replaced "

@@ -1,4 +1,4 @@
-"""``yoke ouroboros`` write/lifecycle adapters."""
+"""Feedback review and archive adapters."""
 
 from __future__ import annotations
 
@@ -19,13 +19,13 @@ from yoke_contracts.api.function_call import TargetRef
 
 
 OUROBOROS_ENTRY_MARK_REVIEWED_USAGE = (
-    "yoke ouroboros entry mark-reviewed "
+    "yoke feedback review "
     "(ENTRY_ID | --before YYYY-MM-DD) "
     "[--limit N] [--include-unattributed] "
     "[--project P] [--session-id S] [--json]"
 )
 OUROBOROS_ENTRY_MARK_ARCHIVED_USAGE = (
-    "yoke ouroboros entry mark-archived (--all-reviewed | ENTRY_ID) "
+    "yoke feedback archive (--all-reviewed | ENTRY_ID) "
     "[--include-unattributed] [--project P] [--session-id S] [--json]"
 )
 # A cutoff or all-reviewed selector always runs against one named project;
@@ -48,7 +48,7 @@ __all__ = [
 
 def feedback_review(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
-        prog="yoke ouroboros entry mark-reviewed",
+        prog="yoke feedback review",
         usage=OUROBOROS_ENTRY_MARK_REVIEWED_USAGE,
     )
     parser.add_argument(
@@ -130,7 +130,7 @@ def feedback_review(args: List[str]) -> int:
 
 def feedback_archive(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
-        prog="yoke ouroboros entry mark-archived",
+        prog="yoke feedback archive",
         usage=OUROBOROS_ENTRY_MARK_ARCHIVED_USAGE,
     )
     parser.add_argument("entry_id", nargs="?", type=int, help="Entry id to archive.")

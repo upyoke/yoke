@@ -259,7 +259,7 @@ def collect_taught_commands(target_root: Path) -> Dict[str, Any]:
 
 _FIELD_NOTE_FOOTER_HINTS = (
     "yoke feedback --to yoke",
-    "yoke-ouroboros-feedback-append",
+    "yoke_contracts.field_note_text",
 )
 
 
@@ -300,6 +300,7 @@ def collect_field_notes() -> Dict[str, Any]:
     surface_status = "agent_facing"
     try:
         from yoke_cli.transport.dispatcher import call_dispatcher
+        from yoke_cli.commands._helpers import client_project_context
         from yoke_contracts.api.function_call import ActorContext, TargetRef
 
         response = call_dispatcher(
@@ -307,6 +308,7 @@ def collect_field_notes() -> Dict[str, Any]:
             target=TargetRef(kind="global"),
             payload={
                 "scope": "project",
+                "project": client_project_context(),
                 "limit": 50,
             },
             actor=ActorContext(session_id="atlas-integrity-audit"),

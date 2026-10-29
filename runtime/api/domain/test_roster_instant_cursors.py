@@ -54,7 +54,7 @@ def test_native_pages_preserve_exact_ties_and_nullable_review_order(
                 clock,
                 "tester",
                 "opaque 1969-12-31",
-                "native-cursor",
+                "idea",
                 str(index),
                 "yoke",
             )
@@ -114,7 +114,7 @@ def test_native_pages_preserve_exact_ties_and_nullable_review_order(
                 test_db,
                 project="yoke",
                 limit=1,
-                category_prefix="native-cursor",
+                category="idea",
                 sort={"column": column, "direction": direction},
                 cursor=cursor,
             )

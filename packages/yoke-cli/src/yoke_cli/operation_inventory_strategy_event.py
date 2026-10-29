@@ -17,7 +17,6 @@ WRAPPED_ROWS: Tuple[_Row, ...] = (
     _w("yoke events emit", "events"),
     _w("yoke events performance aggregate", "events.performance"),
     _w("yoke events performance detail", "events.performance"),
-    _w("yoke feedback --to universe", "ouroboros"),
     _w("yoke feedback review", "ouroboros"),
     _w("yoke feedback archive", "ouroboros"),
     _w("yoke strategy carry register-new", "strategy.carry"),

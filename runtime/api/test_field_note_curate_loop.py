@@ -1,23 +1,4 @@
-"""End-to-end producer→consumer test for the field-note channel.
-
-Exercises the full loop: agent dispatches four ``ouroboros.field_note.append``
-calls (one per kind: ``failed``, ``new``, ``unclear``, ``observation``)
-through the canonical function-call surface; the ``/yoke curate`` consumer
-surface — the ``ouroboros list-entries --unreviewed`` query the skill body
-runs — surfaces all four rows from ``ouroboros_entries`` where
-``category LIKE 'feedback-%'``.
-
-Per FR-4 of YOK-1872, curate now reads from the ``ouroboros_entries`` table
-(filter: ``category LIKE 'feedback-%'``), not from the events stream. The
-``ouroboros_entries`` row is the AUTHORITATIVE store; the
-``OuroborosFieldNoteAppended`` event is best-effort telemetry. This test
-never reads the events table.
-
-The curate skill is prompt-driven (LLM-as-clusterer); its consumer surface
-is :func:`yoke_core.domain.ouroboros_entries.cmd_list_entries`, which the
-``python3 -m yoke_core.cli.db_router ouroboros list-entries --unreviewed``
-shell entry wraps.
-"""
+"""Every feedback category reaches curation with its full evidence."""
 
 from __future__ import annotations
 
@@ -53,6 +34,7 @@ SEEDS: Tuple[Tuple[str, str], ...] = (
     ("new", "missing recipe for harness session resume after laptop sleep cycle"),
     ("unclear", "purpose unclear for R-OP-04 — does the paste preserve PYTHONPATH or not?"),
     ("observation", "minor inconsistency in event-catalog row ordering noticed during read"),
+    ("idea", "Improve the project review queue"),
 )
 
 
@@ -125,7 +107,7 @@ def _query_field_note_rows(db_path: str) -> list[tuple[str, str, str]]:
     with connect(db_path) as conn:
         rows = conn.execute(
             "SELECT category, body, agent FROM ouroboros_entries "
-            "WHERE category LIKE 'feedback-%' ORDER BY id ASC"
+            "ORDER BY id ASC"
         ).fetchall()
     return [(row[0], row[1], row[2]) for row in rows]
 
@@ -133,19 +115,19 @@ def _query_field_note_rows(db_path: str) -> list[tuple[str, str, str]]:
 class TestFieldNoteCurateLoop:
     """Producer (function-call dispatch) → consumer (curate table read)."""
 
-    def test_four_kinds_round_trip_through_curate_list_entries(
+    def test_all_categories_round_trip_through_curate_list_entries(
         self,
         isolated_db: str,
         registered_dispatcher: None,
     ) -> None:
         entry_ids = _seed_via_dispatch()
-        assert len(entry_ids) == 4
-        assert len(set(entry_ids)) == 4, "each dispatch produced a unique entry_id"
+        assert len(entry_ids) == len(SEEDS)
+        assert len(set(entry_ids)) == len(SEEDS), "each dispatch produced a unique entry_id"
 
         rows_text = _query_curate_consumer_rows(isolated_db)
         assert rows_text, "curate-side list-entries returned no rows"
         row_lines = rows_text.split("\n")
-        assert len(row_lines) == 4, (
+        assert len(row_lines) == len(SEEDS), (
             "curate query should surface 4 field-note rows; "
             f"got {len(row_lines)}"
         )
@@ -153,7 +135,7 @@ class TestFieldNoteCurateLoop:
         # must carry a feedback-* category so the curate filter
         # (``category LIKE 'feedback-%'``) matches.
         for line in row_lines:
-            assert "|feedback-" in line, (
+            assert any(f"|{category}|" in line for category in _ofn.FIELD_NOTE_KIND_VALUES), (
                 f"row missing feedback-* category marker: {line!r}"
             )
 
@@ -164,7 +146,7 @@ class TestFieldNoteCurateLoop:
     ) -> None:
         _seed_via_dispatch()
         rows = _query_field_note_rows(isolated_db)
-        assert len(rows) == 4, (
+        assert len(rows) == len(SEEDS), (
             f"table read should return one ouroboros_entries row per "
             f"seeded entry; got {len(rows)}"
         )
@@ -175,7 +157,7 @@ class TestFieldNoteCurateLoop:
             f"expected={expected!r} recovered={recovered!r}"
         )
 
-    def test_category_filter_matches_field_note_prefix(
+    def test_curate_reads_every_category(
         self,
         isolated_db: str,
         registered_dispatcher: None,

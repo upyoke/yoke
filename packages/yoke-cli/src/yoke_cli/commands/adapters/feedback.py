@@ -140,7 +140,7 @@ def feedback_get(args: List[str]) -> int:
 
 OUROBOROS_USAGE = (
     "yoke feedback "
-    "--to universe --category failed|new|unclear|observation|idea "
+    "--to yoke|universe --category failed|new|unclear|observation|idea "
     "(--evidence TEXT | --evidence-file PATH | --stdin) [--corrects ENTRY_ID] "
     "[--target-project P] [--correlation-id ID] [--session-id S] [--json]"
 )
@@ -161,7 +161,7 @@ def feedback_append(args: List[str]) -> int:
         choices=KIND_VALUES,
         help="What kind of problem this is; the kinds are described above.",
     )
-    parser.add_argument("--to", choices=("universe",), required=True)
+    parser.add_argument("--to", choices=("yoke", "universe"), required=True)
     evidence_group = parser.add_mutually_exclusive_group(required=True)
     add_text_file_pair(
         evidence_group,
@@ -230,6 +230,12 @@ def feedback_append(args: List[str]) -> int:
     from yoke_cli.feedback_reporter import reporter_context
     metadata = reporter_context(parsed.session_id)
     payload: Dict[str, Any] = {"category": parsed.category, "evidence": evidence, "reporter_email": metadata.get("reporter_email")}
+    if parsed.to == "yoke":
+        if parsed.correlation_id or parsed.corrects is not None or parsed.target_project:
+            return usage_error("feedback_public_options_invalid: public feedback accepts evidence and category; put references to prior public notes in the evidence. Project routing and correction links apply to --to universe.")
+        from yoke_cli.feedback_delivery import send_feedback
+        return send_feedback(category=parsed.category, evidence=evidence,
+                             metadata=metadata, agent=resolve_actor_role() or metadata.get("agent"), json_mode=parsed.json_mode)
     if parsed.correlation_id:
         payload["correlation_id"] = parsed.correlation_id
     if parsed.corrects is not None:

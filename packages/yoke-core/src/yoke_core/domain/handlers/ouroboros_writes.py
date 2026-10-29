@@ -105,7 +105,6 @@ def handle_ouroboros_entry_mark_reviewed(
                     conn,
                     before=cutoff,
                     project=payload.project,
-                    category_prefix=None,
                     limit=payload.limit,
                     include_unattributed=payload.include_unattributed,
                 )

@@ -78,7 +78,7 @@ export async function locationResolves(client, href, projects, sections = {}, ba
         }))?.requirement);
       case "ouroboros":
         return Boolean((await read("ouroboros.field_note.get", {
-          entry_id: Number(detail), project,
+          entry_id: Number(detail),
         }))?.entry);
       case "capabilities":
         return detail === "test-machine" && Boolean(await read("test_machine.list", { project }));

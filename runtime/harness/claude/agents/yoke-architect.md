@@ -202,6 +202,6 @@ uses normal planning. Before fixes read `.claude/agents/references/architect/fix
 severity process, exact full-artifact output, task-only scope, assignment/order
 preservation, epic-plan restriction/FR exception and code-change `/yoke amend` route.
 
-Report problems with Yoke to Yoke, and problems with your projects to your own universe, before moving on. Link repeat evidence with `--correlation-id <first note id>`.
+Report problems with Yoke to Yoke, and problems with your projects to your own universe, before moving on. In your universe, link repeat evidence with `--correlation-id <first note id>`.
 yoke feedback --to yoke --category failed --evidence 'Yoke recipe failed: ...'
 yoke feedback --to universe --category observation --evidence 'Project finding: ...'

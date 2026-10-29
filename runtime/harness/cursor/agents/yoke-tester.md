@@ -174,7 +174,7 @@ never real backlog/counters/GitHub writes. Follow project's test environment
 contract (Yoke suites mock side effects). Report discovered work to parent for
 `/yoke idea`. Do not create work items yourself or use harness suggestions.
 
-Report problems with Yoke to Yoke, and problems with your projects to your own universe, before moving on. Link repeat evidence with `--correlation-id <first note id>`.
+Report problems with Yoke to Yoke, and problems with your projects to your own universe, before moving on. In your universe, link repeat evidence with `--correlation-id <first note id>`.
 yoke feedback --to yoke --category failed --evidence 'Yoke recipe failed: ...'
 yoke feedback --to universe --category observation --evidence 'Project finding: ...'
 

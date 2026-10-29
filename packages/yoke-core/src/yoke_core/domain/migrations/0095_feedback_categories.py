@@ -30,3 +30,14 @@ def invariants(conn):
         after = conn.execute("SELECT COUNT(*) FROM ouroboros_entries").fetchone()[0]
         assert before == after, "feedback_row_count_changed: retain all original notes"
         conn.execute("DROP TABLE feedback_row_count")
+
+# Retired protocol history: these names are never registered or executed.
+RETIRED_FUNCTION_FAMILIES = {
+    "ouroboros.entry": ("insert", "list", "get"),
+    "ouroboros.reflection": ("capture",),
+}
+RETIRED_HOOKS = ("yoke_core.domain.reflection_capture_hook",)
+RETIRED_EVENTS = (
+    "ReflectionCaptureHookFired", "ReflectionCaptureHookUnhandled",
+    "ReflectionCapturePersistFailed", "ReflectionMarkerParseFailed",
+)

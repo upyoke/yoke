@@ -207,7 +207,7 @@ def test_field_note_append_reads_evidence_from_stdin(monkeypatch):
     assert (
         field_note.feedback_append(
             [
-                "--kind",
+                "--to", "universe", "--category",
                 "observation",
                 "--stdin",
             ]
