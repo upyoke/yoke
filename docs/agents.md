@@ -255,6 +255,7 @@ Reviewed-implementation gate is authoritative: preview
 writes are rejected even after tests pass; Engineer reads QA depth when required.
 
 
+## Filing and continuity
 
 Interactive/ad hoc filing uses `/yoke idea`: duplicate search, workflow and
 authorized typed entry, GitHub sync and full structured content. Workflow-owned
@@ -269,10 +270,7 @@ returns status/mission report. Absolute paths/active claims own access; independ
 calls anchor git/test/source paths. Durable current-state checkpoints retain
 live decisions/holds/blockers/actions and evidence links without historical essays.
 
-** Answer four questions:
-problems, process improvements, game-changing ideas and cross-critique. Use
-
-The PostToolUse Agent-tool hook (`yoke_core.domain. No agent writes directly to the DB.
-Role phase owner/shared Pre-Submit Checklist governs exact shape and timing;
- `/yoke curate`
-
+Agents report discovered problems through the note command as they work.
+Shell-less roles include their observations in the reply, and the parent files
+them. `/yoke curate` reviews the durable notes and files work items; no agent
+writes directly to the database.

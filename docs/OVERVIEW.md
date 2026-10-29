@@ -179,10 +179,12 @@ explicit test authority prevents live-ledger contamination; legitimate smoke
 lineage is retained. Telemetry availability, missing observations and timing
 coverage never decide operational correctness or prove zero activity.
 
-Ouroboros turns observations into durable learning: field notes and role
- Project-local checks under `.yoke/doctor/` join the same
-report. Source simulation depth is
-[source-dev/system-simulation.md](source-dev/system-simulation.md).
+Ouroboros turns observations into durable learning: agents file notes in
+`ouroboros_entries`; `/yoke curate` clusters observations and files work.
+`/yoke doctor` checks declared applicability and reports pass, fail or N/A with
+a reason. Project-local checks under `.yoke/doctor/` join the same report.
+`/yoke simulate --system` checks source-wide consistency behind its
+source-checkout guard; see [source simulation](source-dev/system-simulation.md).
 
 <!-- BEGIN GENERATED: field-note-directive -->
 File a field note each time a recipe, help text or refusal is wrong or missing, or you spot a bug outside your task — before moving on. If you already filed the same problem, add `--correlation-id <that note's id>`:

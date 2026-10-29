@@ -51,14 +51,14 @@ WALK_STATUS: Final[str] = "WALK_STATUS: COMPLETE|HUMAN_GATE|UNDETERMINED"
 # Per-role parseable-result schema. Both harnesses' renderings reference the
 # same schema entry so the parent skill parses identically regardless of harness.
 ROLE_RESULT_SCHEMA: Final[dict[str, tuple[str, ...]]] = {
-    "engineer": (SUBMISSION_CHECKS_BLOCK),
-    "tester": (VERDICT_PASS_FAIL),
+    "engineer": (SUBMISSION_CHECKS_BLOCK,),
+    "tester": (VERDICT_PASS_FAIL,),
     "architect": (),
-    "simulator": (VERDICT_SIMULATION),
-    "boss": (VERDICT_READY_NOT_READY_CAVEATS),
+    "simulator": (VERDICT_SIMULATION,),
+    "boss": (VERDICT_READY_NOT_READY_CAVEATS,),
     "product-manager": (),
     "product-designer": (),
-    "qa-walker": (WALK_STATUS),
+    "qa-walker": (WALK_STATUS,),
 }
 
 

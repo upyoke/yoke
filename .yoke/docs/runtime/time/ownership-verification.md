@@ -17,8 +17,8 @@ mini-DDL follows this native
 contract; episode clocks parse before SQL and capability fixtures bind aware
 clocks. Browser, Doctor control-plane, done-transition, resync and merge-audit fixtures retain native clocks; retired SQLite probe subjects retain their declared schema.
 
- Database
-read diagnostics format native datetimes while calendar dates retain date ISO.
+YAML update clocks, command event envelopes, adoption evidence and
+fleet-rehearsal receipts use fixed-six UTC. Database read diagnostics format native datetimes while calendar dates retain date ISO.
 Board item classification keeps nullable native update facts and sorts done
 items by those instants without an empty-string SQL fallback.
 
@@ -34,7 +34,8 @@ QA CLI/batch/browser run writes generate native start/completion facts for the e
 
 Rehearsal freshness compares native aware instants at the exact microsecond boundary. Missing or invalid rehearsal evidence remains expired; invalid explicit current clocks refuse, and only None generates a current fact. PostgreSQL fingerprint catalog queries move unchanged to their own reader, preserving schema/digest computation. Epic heartbeat validation consumes native database values with shared strict ingress, without accepting PostgreSQL display text or inventing UTC for naive values.
 
- Sweep and heartbeat age readers use shared strict ingress; malformed clocks produce a refusal finding rather than guessed UTC or a green result. Reclaim and coordination message clocks explicitly format as UTC wire instants; filesystem modification ages remain numeric file metadata.
+Doctor session/reclaim, checkpoint, coordination, QA and lane checks compare
+native cutoff/window instants with microsecond precision. Sweep and heartbeat age readers use shared strict ingress; malformed clocks produce a refusal finding rather than guessed UTC or a green result. Reclaim and coordination message clocks explicitly format as UTC wire instants; filesystem modification ages remain numeric file metadata.
 
 Machine verification, operation and mission preparation receipts generate native SQL facts. Capability and receipt readers retain aware clocks, with nullable verification absence preserved. New verification history entries format only their declared clock; earlier receipt entries, submission identities and check evidence remain opaque and unchanged. Replay parses only the declared clock and operation response JSON explicitly formats it as fixed-six UTC or null. SQLite storage is an explicit canonical wire boundary.
 
@@ -107,9 +108,6 @@ arrival/bucket ties; temporal order preserves the producer clock exactly.
 Machine evidence adapts filesystem nanoseconds once into native UTC instants,
 sorts natively, and formats six fractional digits only in its JSON listing.
 
- Missing parser clocks generate aware instants
-without intermediate text; malformed provided clocks refuse, and explicit
-clocks do not evaluate an unused default. Captured body and context stay opaque.
 
 ## Related
 

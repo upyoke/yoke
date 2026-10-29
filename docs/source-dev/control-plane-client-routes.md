@@ -14,16 +14,11 @@ module importing a database helper is evidence to trace, not a defect alone.
 | Usher optional merge audit | `merge_audit_report.generate_report` queried items, tasks, lanes and simulations on the client; string item parsing also queried locally | `merge.audit.snapshot` returns project-scoped facts through registered dispatch. Local report composition retains branch, dirty-state and conflict checks. Public refs resolve server-side. |
 | Guard refusal recoveries | Shell-transform, runtime-import, direct-HTTP and DB-rule denials taught direct dispatcher/HTTP calls or database module mutations | Their shared messages now teach registered scoped reads, additive transforms, lifecycle transitions and Progress Log adapters; missing adapters route to the control-plane operator. Detection and authorization rules stay unchanged. |
 
- They are not aliases. New capture
-and merge-snapshot functions declare `minimum_serving_version=next-release`;
-an older server requires the control-plane operator to serve their carrying
-release. Do not switch to a database profile to work around that floor.
-
- A partial parse, invalid marker or failed persistence is
-an incomplete result with recovery, never success. Recognized marker requests
-carry the capturing session, project, role and deterministic request identity.
-Repeating the same entry does not mint a different field-note request.
-Telemetry remains best-effort; the returned receipt does not depend on events.
+The obsolete blocker module front door refuses before opening a database and
+teaches its public command. The merge-snapshot function declares
+`minimum_serving_version=next-release`; an older server requires the
+control-plane operator to serve the carrying release. Do not switch to a
+database profile to work around that floor.
 
 ## Inspected boundaries and exclusions
 

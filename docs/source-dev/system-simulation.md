@@ -50,7 +50,6 @@ SIMULATION: CLEAN or SIMULATION: GAPS FOUND
 SCOPE: SYSTEM
 ```
 
-The PostToolUse Agent-tool hook `yoke_core.domain. Do not insert it again; an absent
 
 
 ## Persist and report

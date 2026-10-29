@@ -9,17 +9,8 @@
  "surface": "Role renderer + harness-native adapter + task-specific dispatch context",
  "gap": "Shared conditional references currently use Claude rendering; the accepted harness-correct access repair still needs proof. This example does not certify every role/harness combination. The operation-home read is a required instruction with no read-receipt guard, so a worker that skips it is not refused.",
  "review": "Pending exact recipe proof.",
- "plan_notes": [
-  "FIRST-USER accepted guidance-access amendment"
- ],
- "surface_notes": [
-  "Task-specific dispatch prompt: Carries the actual item/artifacts, registered lane, resolved policies, relevant project/QA facts and role assignment. It is separate from native startup loading."
- ],
- "sources": [
-  "runtime/agents/engineer.md",
-  "runtime/harness/claude/agents/yoke-engineer.md",
-  "runtime/harness/codex/agents/yoke-engineer.toml",
-  ".agents/skills/yoke/conduct/dispatch-context-prompts.md"
- ],
+ "plan_notes": ["FIRST-USER accepted guidance-access amendment"],
+ "surface_notes": ["Task-specific dispatch prompt: Carries the actual item/artifacts, registered lane, resolved policies, relevant project/QA facts and role assignment. It is separate from native startup loading."],
+ "sources": ["runtime/agents/engineer.md", "runtime/harness/claude/agents/yoke-engineer.md", "runtime/harness/codex/agents/yoke-engineer.toml", ".agents/skills/yoke/conduct/dispatch-context-prompts.md"],
  "position": 4
 }
