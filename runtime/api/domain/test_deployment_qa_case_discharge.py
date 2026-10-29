@@ -308,3 +308,5 @@ def test_corrected_case_latest_attempt_needs_its_own_evidence(test_db) -> None:
     status = _status(test_db, run_id)
     assert not status["accepted"]
     assert any("no attached evidence" in reason for reason in status["reasons"])
+    assert any(f"yoke qa artifact add --requirement-id {corrected_id} --run-id "
+               in reason for reason in status["reasons"])

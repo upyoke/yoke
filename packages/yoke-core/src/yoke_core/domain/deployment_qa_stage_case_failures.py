@@ -212,11 +212,18 @@ def case_failures(
                         "is out of scope under the current execution target "
                         f"{execution_target_digest}; its execution remains bound "
                         "to the target it was materialized against. Reuse that "
-                        "requirement — do not rematerialize a second copy."
+                        "requirement — do not rematerialize a second copy; inspect it with "
+                        f"`yoke qa requirement get --requirement-id {recorded[0]['id']}`."
                     ),
                 )
             ]
-        return [NO_CASES_FAILURE]
+        command = (
+            f"yoke qa plan run --item {render_item_ref(conn, member_item_id)} --stage {stage_name}"
+            if member_item_id is not None else
+            f"yoke qa plan run --deployment-run-id {run_id} --stage {stage_name}"
+        )
+        return [CaseFailure(0, "", FAILURE_UNRUN,
+                            f"{NO_CASES_FAILURE.detail}; run `{command}`")]
     # The accepted verdict, the execution results behind it, and which runs
     # carry artifacts are all questions about a requirement, and the subject's
     # requirements are already in hand — so each is asked once for the whole
@@ -297,7 +304,9 @@ def case_failures(
                         f"passing result has no attached evidence: no qa_artifacts "
                         f"on inspected qa_runs {looked} — attach evidence to "
                         f"qa_run #{accepted_run_id}, the run whose verdict was "
-                        "accepted"
+                        "accepted; run "
+                        f"`yoke qa artifact add --requirement-id {row['id']} "
+                        f"--run-id {accepted_run_id} --artifact-type evidence --content-file PATH`"
                     ),
                 )
             )
