@@ -122,5 +122,5 @@ Full rule: `.yoke/docs/agents/rules/claude-long-commands.md` `## Subagents`.
 <!-- YOKE:DB-PACKET role=engineer_agent topic=project start -->
 <!-- YOKE:DB-PACKET end -->
 
-<!-- YOKE:Feedback -->
+<!-- YOKE:FIELD-NOTE -->
 
