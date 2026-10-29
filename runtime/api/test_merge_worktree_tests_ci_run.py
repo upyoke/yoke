@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 from types import SimpleNamespace
+from unittest.mock import Mock
 
 import pytest
 
@@ -156,24 +157,33 @@ def test_a_concluded_run_on_the_candidate_is_adopted_without_a_second_suite(
     assert payload["ci_conclusion"] == "success"
 
 
-def test_an_adopted_red_run_reports_its_own_conclusion_not_an_error(
-    monkeypatch: pytest.MonkeyPatch, tmp_path,
+@pytest.mark.parametrize("conclusion", ["failure", "cancelled", "timed_out"])
+def test_an_unsuccessful_run_dispatches_again_and_records_the_new_verdict(
+    monkeypatch: pytest.MonkeyPatch, tmp_path, conclusion,
 ) -> None:
-    """A polled failure is parsed out of poll text; an adopted one is known."""
+    """A fresh failed run remains a test failure rather than a lookup error."""
     head = "2" * 40
+    dispatch = Mock(return_value="89")
+    awaited = Mock(return_value=(1, "failed:failure"))
     bind_candidate_tree(monkeypatch, tmp_path, head)
     stub_lane(
         monkeypatch,
-        dispatch=never("must not dispatch over a concluded run"),
-        await_result=never("must not poll a concluded run"),
-        covering=existing_run(head, conclusion="failure"),
+        dispatch=dispatch,
+        await_result=awaited,
+        covering=existing_run(head, conclusion=conclusion),
     )
     recorded = record_ci_runs(monkeypatch)
 
     assert run_verification(tmp_path) == (1, "tests failed")
 
     assert recorded[0]["verdict"] == "fail"
-    assert json.loads(recorded[0]["raw_result"])["ci_conclusion"] == "failure"
+    payload = json.loads(recorded[0]["raw_result"])
+    assert payload["ci_conclusion"] == "failure"
+    assert payload["ci_run_source"] == covering_run.DISPATCHED
+    assert payload["ci_run_id"] == "89"
+    dispatch.assert_called_once()
+    assert dispatch.call_args.kwargs["request_id"].endswith(f":{head}:after:88")
+    assert awaited.call_args.kwargs["run_id"] == "89"
 
 
 def test_a_run_still_in_flight_on_the_candidate_is_attached_to(

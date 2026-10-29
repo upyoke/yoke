@@ -231,7 +231,7 @@ def execute_ci_case(
                     workflow=workflow,
                     branch=branch,
                     request_id=qa_case_ci_covering_run.dispatch_request_id(
-                        requirement_id, head_sha, covering_run
+                        f"qa-case:{requirement_id}:{head_sha}", head_sha, covering_run
                     ),
                     timeout_seconds=budget,
                     inputs=workflow_inputs,

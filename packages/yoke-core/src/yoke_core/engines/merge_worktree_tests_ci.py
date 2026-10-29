@@ -3,8 +3,8 @@
 When the candidate tree differs from covering QA evidence and the project
 declares a ``ci_workflow_file`` capability, the merge gate pushes the
 integrated candidate to the item lane, adopts or attaches to a run of that
-workflow already on the exact candidate commit and dispatches only when
-there is none, records a durable wait so a worker whose turn ends mid-poll
+workflow already on the exact candidate commit if it succeeded or is running,
+and otherwise dispatches a fresh run, records a durable wait so a worker whose turn ends mid-poll
 is still woken with the verdict, waits for the conclusion, asserts the
 CI-reported head matches the candidate tree, and records a ``qa_runs`` row
 so a later same-tree attempt can skip.
@@ -176,10 +176,8 @@ def run_ci_verification(
         # authority, and one of them resolving credentials on its own is how
         # the gate broke on a machine whose control plane is remote.
         with qa_case_ci_lane.github_actions_authority():
-            # A run already on this exact commit answers for this candidate
-            # however it was triggered — a re-entered merge, or the QA gate
-            # that verified the same tree minutes ago. Dispatching a second
-            # one buys the same verdict for another full suite.
+            # Reuse a successful or running proof on this exact commit.
+            # A completed unsuccessful run needs a fresh dispatch.
             existing = qa_case_ci_covering_run.find_run_for_tree(
                 project=project,
                 repo=repo,
@@ -198,7 +196,9 @@ def run_ci_verification(
                     repo=repo,
                     workflow=workflow,
                     branch=branch,
-                    request_id=f"merge-gate:{ctx.item_id}:{tree.head_sha}",
+                    request_id=qa_case_ci_covering_run.dispatch_request_id(
+                        f"merge-gate:{ctx.item_id}:{tree.head_sha}", tree.head_sha, existing
+                    ),
                     timeout_seconds=DEFAULT_MERGE_CI_TIMEOUT_SECONDS,
                     inputs=workflow_inputs,
                 )

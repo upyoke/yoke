@@ -151,9 +151,8 @@ def classify(
     return ATTACHED
 
 
-def dispatch_request_id(requirement_id: int, head_sha: str, run: Optional[WorkflowRun]) -> str:
+def dispatch_request_id(request_id: str, head_sha: str, run: Optional[WorkflowRun]) -> str:
     """Give a retry its own identity after a completed unsuccessful run."""
-    request_id = f"qa-case:{requirement_id}:{head_sha}"
     if (
         run and run.head_sha == head_sha
         and run.status == "completed" and run.conclusion != "success"
