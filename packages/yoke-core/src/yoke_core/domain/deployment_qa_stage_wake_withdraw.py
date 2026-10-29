@@ -47,7 +47,7 @@ def parse_deployment_qa_wait_key(
     run_id, stage_name, member = parts[0], parts[1], parts[2]
     if not run_id or not stage_name:
         return None
-    if member == RUN_SCOPED_WAIT_TOKEN:
+    if member in {RUN_SCOPED_WAIT_TOKEN, "plan-groups"}:
         return run_id, stage_name, None
     try:
         return run_id, stage_name, int(member)
@@ -123,6 +123,13 @@ def withdraw_member_qa_wait_wakes(
         reason=reason,
         now=stamp,
     )
+
+
+def withdraw_plan_group_wait_wakes(conn: Any, run_id: str, stage_name: str) -> int:
+    """A changed group roster withdraws its old consolidated notice."""
+    return _cancel_matching(conn,
+        pattern=f"{DEPLOYMENT_QA_STAGE_WAIT_PREFIX}{run_id}:{stage_name}:plan-groups:%",
+        keep=lambda _parsed: True, reason="Plan group closed", now=utc_now())
 
 
 def _cancel_matching(

@@ -47,7 +47,7 @@ def begin_message_mutation(conn: Any) -> None:
 def idempotent_message(
     conn: Any, *, sender_actor_id: int | None, idempotency_key: str
 ) -> dict[str, Any] | None:
-    """Read the uncancelled message reserving this sender intent key."""
+    from yoke_core.domain.deployment_qa_reported_results import reusable_qa_notice
     marker = _p(conn)
     engine = sender_actor_id is None
     row = conn.execute(
@@ -56,7 +56,7 @@ def idempotent_message(
         + f" AND idempotency_key={marker} AND cancelled_at IS NULL",
         (idempotency_key,) if engine else (sender_actor_id, idempotency_key),
     ).fetchone()
-    return message_details(conn, str(row[0])) if row else None
+    return reusable_qa_notice(conn, message_details(conn, str(row[0])) if row else None)
 
 
 def _same_intent(

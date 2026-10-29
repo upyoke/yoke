@@ -215,7 +215,7 @@ def notify_item_scoped_qa_wait(
     not yet reached, ``"delivered"`` means it reached the recipient —
     matching :func:`push_notice`'s own contract. The idempotency key is
     stable per (run, stage, item, target_digest). Pipeline retries deduplicate
-    an uncancelled notice; a cancelled notice is sent again on the next
+    an uncancelled notice; a cancelled notice or recipient session ended is sent again on the next
     check. A new deploy attempt (a new ``run_id``) or a distinct pinned target within
     the stage's own existing retry/requirement contract (a new
     ``target_digest``) is always a fresh key.

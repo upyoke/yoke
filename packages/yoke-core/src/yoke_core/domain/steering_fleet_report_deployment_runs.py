@@ -114,6 +114,8 @@ class DeploymentRunProgress:
     #: woke each owner to check the named evidence before running the case.
     manual_wakes: tuple[ManualWakeRequirement, ...] = ()
 
+    qa_notice_stalled: bool = False
+
     @property
     def needs_action(self) -> bool:
         """True when nothing the run is waiting for can arrive by itself.
@@ -132,7 +134,8 @@ class DeploymentRunProgress:
             and not self.driver_phase
         )
         return (
-            self.completion.blocked
+            self.qa_notice_stalled
+            or self.completion.blocked
             or bool(self.red)
             or self.answered_decision is not None
             or waiting_to_be_driven

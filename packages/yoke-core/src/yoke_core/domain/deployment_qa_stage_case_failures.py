@@ -269,6 +269,10 @@ def case_failures(
                     detail=(
                         f"requirement #{row['id']} ({row['plan_case_key']}) latest "
                         f"verdict is {verdict or 'missing'}{replacement_note(row)}"
+                        + (f"; run `yoke qa plan run --deployment-run-id {run_id} "
+                           f"--stage {stage_name} --plan {shared_plan_id}`"
+                           if shared_plan_id else
+                           f"; run `yoke qa case run --requirement-id {row['id']}`")
                         + (
                             "; its capture awaits independent review: "
                             + reviewing[int(row["id"])].next_action()

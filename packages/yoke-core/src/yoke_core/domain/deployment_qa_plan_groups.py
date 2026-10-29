@@ -289,6 +289,9 @@ def close_group(conn: Any, subject: Mapping) -> None:
         return
     from yoke_core.domain.qa_execution_environment_target import target_digest
 
+    from yoke_core.domain.deployment_qa_stage_wake_withdraw import withdraw_plan_group_wait_wakes
+
+    withdraw_plan_group_wait_wakes(conn, str(subject["id"]), str(subject["stage"]["name"]))
     members = owing_members(conn, str(subject["id"]), int(marker["plan_id"]))
     conn.execute(
         "UPDATE qa_requirements SET covered_item_ids=%s WHERE deployment_run_id=%s "

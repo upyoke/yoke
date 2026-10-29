@@ -288,7 +288,9 @@ def _open_group_standings(conn: Any, run_id: str, stage_name: str) -> list[tuple
         if answer.accepted:
             continue
         label = f"plan group {group.group_id} ({slugs.get(group.plan_id) or group.plan_id})"
-        found.append((group.plan_id, label, answer.state, list(answer.blockers) or ["not run yet"]))
+        command = f"yoke qa plan run --deployment-run-id {run_id} --stage {stage_name} --plan {group.plan_id}"
+        recovery = f"requirements {list(group.requirement_ids)}: `{command}`"
+        found.append((group.plan_id, label, answer.state, [*answer.blockers, recovery]))
     return found
 
 
