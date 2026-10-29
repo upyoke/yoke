@@ -144,6 +144,9 @@ class TestSingleArgReadSignatures:
             ("ls", "ls-read"),
             ("ls /tmp", "ls-read"),
             ("cat /tmp/foo", "cat-read"),
+            ("nl -ba /tmp/foo", "nl-read"),
+            ("test -x /tmp/foo", "test-read"),
+            ("[ -f /tmp/foo ]", "[-read"),
             ("head -50 /tmp/foo", "head-read"),
             ("tail -80 /tmp/foo", "tail-read"),
         ],
@@ -154,8 +157,17 @@ class TestSingleArgReadSignatures:
     def test_multi_arg_cat_is_still_a_read(self):
         assert match_read_only_signature("cat /tmp/a /tmp/b") == "cat-read"
 
-    def test_cat_redirect_does_not_classify(self):
-        assert match_read_only_signature("cat /tmp/a > /tmp/b") is None
+    @pytest.mark.parametrize(
+        "command",
+        [
+            "cat /tmp/a > /tmp/b",
+            "nl -ba /tmp/a > /tmp/b",
+            "test -x /tmp/a > /tmp/b",
+            "[ -f /tmp/a ] > /tmp/b",
+        ],
+    )
+    def test_reader_redirect_does_not_classify(self, command):
+        assert match_read_only_signature(command) is None
 
 
 class TestSedReadSignatures:

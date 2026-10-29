@@ -4,6 +4,6 @@
  "status": "observed",
  "page": "coordination-lanes",
  "position": 5,
- "summary": "Lane inspection permits chained read-only Git calls, simple file reads and directory changes. Every segment is checked; mixed writes, redirects and command substitutions retain ordinary lane authority. Inline sed/awk programs are data, while input and script files remain path operands. Git calls with environment assignment prefixes or global -c, --config-env or --exec-path options do not qualify as reads; ordinary status and calls using -C or --git-dir still qualify. Configuration options remain parsed for write-target detection.",
+ "summary": "Lane inspection permits chained read-only Git calls, simple file reads and directory changes. File reads include nl; test and [ predicates also qualify as reads. Every segment is checked; mixed writes, redirects and command substitutions retain ordinary lane authority. Inline sed/awk programs are data, while input and script files remain path operands. Git calls with environment assignment prefixes or global -c, --config-env or --exec-path options do not qualify as reads; ordinary status and calls using -C or --git-dir still qualify. Configuration options remain parsed for write-target detection.",
  "sources": ["docs/public/agents/rules/shell-and-cli.md", "packages/yoke-core/src/yoke_core/domain/lint_session_cwd_foreign_lane.py", "packages/yoke-core/src/yoke_core/domain/lint_session_cwd_git_read_forms.py", "packages/yoke-core/src/yoke_core/domain/lint_session_cwd_read_only_signatures.py"]
 }
