@@ -1,3 +1,5 @@
+# ruff: noqa: F811
+
 """A steering seat releases another session's claim without ending it."""
 
 from __future__ import annotations
@@ -14,7 +16,7 @@ from runtime.api.domain.test_session_termination import (  # noqa: F401
     _add_target_claim,
     _register_operator_and_target,
 )
-from runtime.api.test_sessions import _register
+from runtime.api.test_sessions import _register, conn  # noqa: F401
 from yoke_contracts.api.function_call import (
     ActorContext,
     FunctionCallRequest,
@@ -27,8 +29,6 @@ from yoke_core.domain.schema_init_path_tables import create_path_registry_tables
 from yoke_core.domain.yoke_function_dispatch_claims import verify_claim
 from yoke_core.domain.yoke_function_registry import lookup, reset_registry_for_tests
 
-
-pytest_plugins = ("runtime.api.test_sessions",)
 
 
 @pytest.fixture(autouse=True)

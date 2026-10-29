@@ -1,3 +1,5 @@
+# ruff: noqa: F811
+
 """Termination refuses an operator-driven desktop chat and changes nothing."""
 
 import pytest
@@ -9,10 +11,10 @@ from runtime.api.domain.test_session_termination import (
     _register_operator_and_target,
     _terminate,
 )
+from runtime.api.test_sessions import conn  # noqa: F401
 from yoke_core.domain.sessions import SessionError
 from yoke_core.domain.session_termination import OPERATOR_SURFACE_CODE
 
-pytest_plugins = ("runtime.api.test_sessions",)
 termination_events = termination_support._termination_schema_and_events
 
 
