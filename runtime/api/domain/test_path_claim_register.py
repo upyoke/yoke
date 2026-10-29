@@ -7,7 +7,6 @@ holder item and workflow-owned recovery.
 
 from __future__ import annotations
 
-import pytest
 
 from yoke_contracts.public_ref import unresolved_item_ref
 from yoke_core.domain.path_claim_register import compose_overlap_denial

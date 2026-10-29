@@ -78,13 +78,13 @@ class TestSessionTouchCommand:
         assert r.returncode == 0
 
         r2 = _run_client(
-            ["session-touch", "--session-id", sid, "--mode", "shepherd"],
+            ["session-touch", "--session-id", sid, "--mode", "wait"],
             db_path=db,
         )
         assert r2.returncode == 0, f"stderr: {r2.stderr}"
         data = json.loads(r2.stdout)
         assert data["success"] is True
-        assert data["session"]["mode"] == "shepherd"
+        assert data["session"]["mode"] == "wait"
 
         # Verify in DB
         conn = connect_test_db(db)
@@ -93,7 +93,7 @@ class TestSessionTouchCommand:
             (sid,),
         ).fetchone()
         conn.close()
-        assert row[0] == "shepherd"
+        assert row[0] == "wait"
 
     def test_session_touch_nonexistent_returns_exit_1(self, session_test_db):
         """Session-touch on non-existent session returns exit 1."""

@@ -41,7 +41,7 @@ def _insert_session(
     *,
     claim_item: int | None = None,
     chain_checkpoint: dict | None = None,
-    mode: str = "charge",
+    mode: str = "wait",
 ) -> None:
     conn = connect_test_db(db_path)
     try:
@@ -126,7 +126,6 @@ class TestStopSemanticsBranches:
             db,
             "sess-waiting",
             session_test_db["tmp_dir"],
-            mode="wait",
         )
         conn = connect_test_db(db)
         try:
@@ -220,7 +219,6 @@ class TestReactivationAfterStop:
                 execution_level="primary",
                 workspace=workspace,
                 project_id=1,
-                mode="wait",
             )
         finally:
             conn.close()
@@ -256,7 +254,6 @@ class TestReactivationAfterStop:
                 execution_level="primary",
                 workspace=workspace,
                 project_id=1,
-                mode="wait",
             )
         finally:
             conn.close()

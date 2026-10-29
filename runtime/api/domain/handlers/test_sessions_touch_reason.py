@@ -22,6 +22,7 @@ def _request(payload: dict) -> FunctionCallRequest:
 
 
 def _touch(conn, monkeypatch, payload: dict) -> dict:
+    monkeypatch.setattr(conn, "close", lambda: None)
     monkeypatch.setattr(sessions_orchestration, "_connect_rw", lambda: conn)
     outcome = sessions_orchestration.handle_touch(_request(payload))
     assert outcome.primary_success is True
@@ -55,6 +56,7 @@ def test_a_retired_skill_mode_is_refused_and_the_row_is_unchanged(
     conn, monkeypatch
 ):
     _register(conn)
+    monkeypatch.setattr(conn, "close", lambda: None)
     monkeypatch.setattr(sessions_orchestration, "_connect_rw", lambda: conn)
 
     outcome = sessions_orchestration.handle_touch(_request({"mode": "dash"}))
