@@ -44,9 +44,10 @@ def _owed_plans(conn: Any, item_id: int) -> dict[int, str]:
 
 
 def _plan_target_envs(conn: Any, plan_id: int, item_id: int) -> list[str]:
-    """A formed group's frozen target owns its cases and environment."""
+    """A formed group's frozen plan owns every environment it still owes."""
     rows = query_rows(conn,
-        "SELECT DISTINCT q.execution_target_json FROM qa_requirements q "
+        "SELECT DISTINCT q.execution_target_json,r.requirement_snapshot FROM qa_requirements q "
+        "JOIN deployment_runs r ON r.id=(NULLIF(q.execution_target_json,'')::jsonb #>> '{deployment,run_id}') "
         "WHERE q.plan_id=%s AND q.deployment_run_id IS NOT NULL "
         "AND q.deployment_member_item_id IS NULL "
         "AND COALESCE(NULLIF(q.execution_target_json,''),'{}')::jsonb "
@@ -54,20 +55,27 @@ def _plan_target_envs(conn: Any, plan_id: int, item_id: int) -> list[str]:
         "q.deployment_run_id IN (SELECT run_id FROM deployment_run_items WHERE item_id=%s) "
         "OR COALESCE(q.covered_item_ids,'[]')::jsonb @> %s::jsonb)",
         (plan_id, item_id, json.dumps([item_id])))
+    envs = set()
     if rows:
-        return sorted({(json.loads(row["execution_target_json"])["environment"]
-                        .get("name") or "") for row in rows})
+        for row in rows:
+            target = json.loads(row["execution_target_json"])
+            snapshot = json.loads(row["requirement_snapshot"] or "{}")
+            pinned = (snapshot.get("plan_groups") or {}).get(str(plan_id), {})
+            for case in pinned.get("cases") or [{}]:
+                raw = case.get("target_envs") or []
+                values = json.loads(raw) if isinstance(raw, str) else raw
+                envs.update(values or [target["environment"].get("name") or ""])
+        return sorted(envs)
     row = conn.execute(
         "SELECT e.name FROM qa_plans p LEFT JOIN environments e "
         "ON e.id=p.target_environment_id WHERE p.id=%s", (plan_id,)
     ).fetchone()
-    if row and row[0]:
-        return [str(row[0])]
-    envs = set()
+    default = str(row[0] or "") if row else ""
     for case in query_rows(conn, "SELECT target_envs FROM qa_plan_cases WHERE plan_id=%s", (plan_id,)):
         raw = case["target_envs"]
-        envs.update(json.loads(raw) if isinstance(raw, str) and raw else raw or [])
-    return sorted(envs) or [""]
+        values = json.loads(raw) if isinstance(raw, str) and raw else raw or []
+        envs.update(values or [default])
+    return sorted(envs) or [default]
 
 
 def _miss(item_id: int, plan_id: int, slug: str, run: dict | None, stage: str, target_env: str) -> dict:

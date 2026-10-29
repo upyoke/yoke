@@ -68,6 +68,12 @@ def test_methodless_standing_requirement_is_not_copied(test_db):
         item_id=9715,
         requirement_id=source_id,
     )
+    from runtime.api.domain.test_deployment_qa_plan_groups import _attach
+    from yoke_core.domain.deployment_qa_plan_group_writes import ensure_groups
+
+    _attach(test_db, 9715, plan_id)
+    ensure_groups(test_db, "run-executable-selection", "member-qa")
+    test_db.commit()
     result = materialize_deployment_qa_stage(
         test_db,
         deployment_run_id="run-executable-selection",
@@ -75,7 +81,7 @@ def test_methodless_standing_requirement_is_not_copied(test_db):
         deployment_member_item_id=9715,
         agent_plan=str(plan_id),
     )
-    assert len(result["created_requirement_ids"]) == 1
+    assert len(result["existing_requirement_ids"]) == 1
     assert not test_db.execute(
         "SELECT id FROM qa_requirements WHERE deployment_run_id=%s AND method_id IS NULL",
         ("run-executable-selection",),

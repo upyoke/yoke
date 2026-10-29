@@ -229,7 +229,7 @@ def test_pending_review_reads_as_review_pending_not_never_run(test_db, scope) ->
     # that no verdict exists yet, never that the case passed or failed.
     blocker, case_line = acceptance.blockers
     assert PENDING_TEXT in blocker
-    assert case_line.endswith("latest verdict is missing")
+    assert "latest verdict is missing" in case_line
     assert str(execution["id"]) in blocker and bundle["bundle_id"] in blocker
     assert "yoke qa plan review-submit" in blocker
 

@@ -3,10 +3,13 @@
 from __future__ import annotations
 
 from types import SimpleNamespace
+import json
+from runtime.api.fixtures.backlog_qa_inserts import insert_qa_requirement
 
 from runtime.api.fixtures.backlog_insert_support import ensure_project_id
 from runtime.api.fixtures.bound_source_release import (
     CONSUMER_PROJECT,
+    CONSUMER_ITEM_ID,
     SEEDED_AT,
     stages_with_item_qa,
     two_project_release,
@@ -59,7 +62,6 @@ def _request(
         )
     )
     if function == "qa.plan.materialize":
-        payload["plan"] = "consumer-smoke"
         payload["project"] = project
     return FunctionCallRequest(
         function=function,
@@ -97,6 +99,11 @@ def _mixed_run(conn, tmp_path, monkeypatch):
     )
     record_bound_sources(conn, RUN)
     enroll_carried_members(conn, RUN)
+    insert_qa_requirement(conn, item_id=CONSUMER_ITEM_ID, qa_phase="post_deploy",
+        target_env="stage", method_id="command", runner_id="worktree_run",
+        verdict_path="automatic", method_config=json.dumps({"command": "true"}),
+        instructions="Run the consumer smoke command.", expected_outcome="It passes.")
+    conn.commit()
     freeze_run_composition(conn, RUN)
     conn.execute(
         "UPDATE deployment_runs SET status='executing', current_stage='hosted-release' "

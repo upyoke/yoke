@@ -169,19 +169,20 @@ def test_exact_requirement_correction_materializes_only_its_host_baseline(
     )
     replace_plan_cases(test_db, plan_id=original["id"], cases=[case])
     run_id = "run-exact-baseline-correction"
+    stages = item_qa_stage_definitions(original["id"])
+    stages[1]["scope"] = "run"
     seed_run_standing_on_qa_stage(
         test_db,
         run_id=run_id,
         project="yoke",
-        stages=item_qa_stage_definitions(original["id"]),
-        members=(MEMBER,),
+        stages=stages,
+        members=(),
         lineage="b" * 40,
     )
     materialize_deployment_qa_stage(
         test_db,
         deployment_run_id=run_id,
         deployment_stage=ITEM_QA_STAGE,
-        deployment_member_item_id=MEMBER,
     )
     rows = test_db.execute(
         "SELECT id,host_baseline FROM qa_requirements WHERE deployment_run_id=%s ORDER BY id",
@@ -204,7 +205,6 @@ def test_exact_requirement_correction_materializes_only_its_host_baseline(
         target=TargetRef(kind="deployment_run", deployment_run_id=run_id),
         payload={
             "deployment_stage": ITEM_QA_STAGE,
-            "deployment_member": f"YOK-{MEMBER}",
             "plan": "exact-correction",
             "replacements": [{"requirement_id": failed}],
         },
@@ -232,6 +232,5 @@ def test_exact_requirement_correction_materializes_only_its_host_baseline(
         test_db,
         deployment_run_id=run_id,
         deployment_stage=ITEM_QA_STAGE,
-        deployment_member_item_id=MEMBER,
     )
     assert {row["requirement_id"] for row in roster} == {sibling, corrected[0]["id"]}

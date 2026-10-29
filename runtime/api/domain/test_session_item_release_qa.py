@@ -119,8 +119,8 @@ def test_one_member_failing_leaves_its_sibling_accepted(test_db) -> None:
 
     assert _standing(test_db, "run-siblings", 9904).accepted
     outstanding = _standing(test_db, "run-siblings", 9905)
-    assert outstanding.state == "not yet run"
-    assert "no completed scoped QA execution exists" in outstanding.reason
+    assert outstanding.state == "cases unresolved"
+    assert "yoke qa case run --requirement-id" in outstanding.reason
 
 
 def test_explicit_no_obligation_reads_as_discharged_on_session_card(test_db) -> None:

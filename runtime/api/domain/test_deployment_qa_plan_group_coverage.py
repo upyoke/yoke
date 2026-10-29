@@ -57,7 +57,11 @@ def test_later_plan_edit_does_not_change_credit_or_pending_pinned_cases(test_db)
     ensure_groups(test_db, RUN, "item-qa")
     test_db.commit()
     _pass_group(test_db)
-    replace_plan_cases(test_db, plan_id=plan, cases=[])
+    replace_plan_cases(test_db, plan_id=plan, cases=[{
+        "case_key": "edited-smoke", "method_id": "command",
+        "instructions": "Run the edited smoke command.", "expected_outcome": "It passes.",
+        "method_config": {"command": "echo changed"},
+    }])
     test_db.commit()
     assert plan_credit_misses(test_db, MEMBERS[0]) == []
     _attach(test_db, MEMBERS[2], plan)

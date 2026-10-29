@@ -84,7 +84,7 @@ def test_exhausted_status_retries_are_finalization_pending(monkeypatch):
     assert pending.value.run_id == "run-1"
     assert "deploy succeeded, finalization pending" in str(pending.value)
     assert "write unavailable" in str(pending.value)
-    assert "re-drive run-1 to finalize" in str(pending.value)
+    assert "re-drive run-1 with `yoke watch deploy -- run-1` to finalize" in str(pending.value)
 
 
 def test_complete_run_finalization_returns_pending_exit(monkeypatch, capsys):
@@ -109,7 +109,7 @@ def test_complete_run_finalization_returns_pending_exit(monkeypatch, capsys):
     assert rc != deploy_pipeline.EXIT_STAGE_FAILED
     assert update.call_count == 3
     output = capsys.readouterr()
-    assert "re-drive run-9 to finalize" in output.err
+    assert "re-drive run-9 with `yoke watch deploy -- run-9` to finalize" in output.err
     assert "status=succeeded written" not in output.out
 
 

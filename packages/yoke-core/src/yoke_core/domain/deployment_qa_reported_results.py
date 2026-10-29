@@ -34,7 +34,7 @@ def live_recipient_sql(alias: str = "m") -> str:
 
 def reusable_qa_notice(conn: Any, details: dict | None) -> dict | None:
     """Retire a QA intent whose audience ended, so its next route can receive it."""
-    if not details or not str(details.get("idempotency_key") or "").startswith("deployment-qa-"):
+    if not details or not str(details.get("idempotency_key") or "").startswith((DEPLOYMENT_QA_STAGE_WAIT_PREFIX, "deployment-qa-plan-group-failure:", "deployment-qa-member-failure:")):
         return details
     live = conn.execute(
         f"SELECT 1 FROM session_messages m WHERE m.message_id=%s AND {live_recipient_sql()}",
@@ -56,7 +56,7 @@ def _sent_keys(conn: Any, prefix: str) -> frozenset[str]:
         conn,
         "SELECT m.idempotency_key FROM session_messages m "
         "WHERE m.idempotency_key LIKE %s AND m.cancelled_at IS NULL "
-        f"AND {live_recipient_sql()}",
+        + (f"AND {live_recipient_sql()}" if prefix.startswith(DEPLOYMENT_QA_STAGE_WAIT_PREFIX) else ""),
         (literal + "%",),
     )
     return frozenset(str(row[0]) for row in rows)

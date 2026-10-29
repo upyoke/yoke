@@ -123,7 +123,7 @@ def test_a_settlement_refusal_is_not_retried(monkeypatch) -> None:
     assert f"refused ({SETTLEMENT_BLOCKED_CODE})" in message
     assert "blocked run-1" in message
     assert "control-plane connection" not in message
-    assert "re-drive run-1 to finalize" not in message
+    assert "re-drive run-1 with `yoke watch deploy -- run-1` to finalize" not in message
 
 
 def test_a_write_that_got_no_answer_is_retried(monkeypatch) -> None:
@@ -142,7 +142,7 @@ def test_a_write_that_got_no_answer_is_retried(monkeypatch) -> None:
 
     assert len(calls) == 3
     assert "restore the selected control-plane connection" in str(pending.value)
-    assert "re-drive run-1 to finalize" in str(pending.value)
+    assert "re-drive run-1 with `yoke watch deploy -- run-1` to finalize" in str(pending.value)
 
 
 def test_a_re_drive_does_not_stamp_members_already_delivered(monkeypatch) -> None:

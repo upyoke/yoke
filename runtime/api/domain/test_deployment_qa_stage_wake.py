@@ -120,7 +120,7 @@ def test_item_message_names_the_stage_and_member_bound_invocation():
 
     assert (
         "yoke qa plan run --item EXT-541 --stage item-qa "
-        "--plan PLAN --project PROJECT" in body
+        "--plan PLAN" in body
     )
     assert "never counts" in body
 
@@ -138,7 +138,7 @@ def test_run_message_names_the_stage_bound_invocation_without_a_member():
 
     assert (
         "yoke watch qa-plan -- --deployment-run-id run-9 --stage run-qa "
-        "--plan PLAN --project PROJECT" in body
+        "--plan PLAN" in body
     )
     assert "--member" not in body
 

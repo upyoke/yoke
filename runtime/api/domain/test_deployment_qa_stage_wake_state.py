@@ -101,7 +101,7 @@ def test_no_notice_under_a_live_driver_is_pending(scoped) -> None:
 
 def test_no_notice_without_a_driver_names_the_redrive(scoped) -> None:
     assert _state(scoped) == (
-        f"not woken: driver gone or stale; re-drive {RUN_ID} to send it"
+        f"not woken: driver gone or stale; re-drive {RUN_ID} with `yoke watch deploy -- {RUN_ID}` to send it"
     )
 
 
@@ -165,7 +165,7 @@ def test_one_batched_read_answers_every_member(scoped) -> None:
 
     assert states == {
         MEMBER: "woken 11:58Z, acknowledged",
-        OTHER_MEMBER: f"not woken: driver gone or stale; re-drive {RUN_ID} to send it",
+        OTHER_MEMBER: f"not woken: driver gone or stale; re-drive {RUN_ID} with `yoke watch deploy -- {RUN_ID}` to send it",
     }
 
 

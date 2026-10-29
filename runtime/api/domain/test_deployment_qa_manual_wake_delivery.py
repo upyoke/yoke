@@ -155,5 +155,5 @@ def test_unaddressable_manual_wake_names_the_staffing_step(
 
     out = capsys.readouterr().out
     assert "manual-wake requirement #97131 has no live claim holder" in out
-    assert "Staff the item, then re-drive the run." in out
+    assert "Staff the item, then re-drive the run with `yoke watch deploy -- run-manual-wd-3`." in out
     assert _wait_keys(test_db, "run-manual-wd-3") == []

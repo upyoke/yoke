@@ -60,7 +60,6 @@ def test_detached_member_requirement_keeps_its_project(
         deployment_run_id=RUN,
         deployment_stage=STAGE,
         deployment_member_item_id=CONSUMER_ITEM_ID,
-        agent_plan="consumer-smoke",
     )
     requirement_id = int(result["created_requirement_ids"][0])
     test_db.execute("DELETE FROM deployment_run_items WHERE run_id=%s", (RUN,))

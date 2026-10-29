@@ -248,7 +248,7 @@ def case_failures(
     reviewing = pending_review_requirements(
         conn,
         [rid for rid in graded if (verdicts.get(rid) or (0, ""))[1] != "pass"],
-        stopped_only=True,
+        stopped_only=False,
     )
     failures: list[CaseFailure] = []
     for row in rows:
@@ -269,7 +269,8 @@ def case_failures(
                     detail=(
                         f"requirement #{row['id']} ({row['plan_case_key']}) latest "
                         f"verdict is {verdict or 'missing'}{replacement_note(row)}"
-                        + (f"; run `yoke qa plan run --deployment-run-id {run_id} "
+                        + ("" if int(row["id"]) in reviewing else
+                           f"; run `yoke qa plan run --deployment-run-id {run_id} "
                            f"--stage {stage_name} --plan {shared_plan_id}`"
                            if shared_plan_id else
                            f"; run `yoke qa case run --requirement-id {row['id']}`")

@@ -80,7 +80,6 @@ def test_member_project_authorizes_every_plan_leg_and_requirement(
         deployment_run_id=RUN,
         deployment_stage=STAGE,
         deployment_member_item_id=CONSUMER_ITEM_ID,
-        agent_plan="consumer-smoke",
     )
     requirement_id = materialized["created_requirement_ids"][0]
     context = get_case_execution_context(conn, requirement_id=requirement_id)
@@ -260,7 +259,7 @@ def test_member_scope_refuses_wrong_project_sibling_and_run_qa(
     create_smoke_plan(conn, project="yoke", slug="carrier-smoke")
     from yoke_core.domain.qa_plan_management import QaPlanError
 
-    with pytest.raises(QaPlanError, match="not active in this project"):
+    with pytest.raises(QaPlanError, match="plan_group_not_open"):
         materialize_deployment_qa_stage(
             conn,
             deployment_run_id=RUN,

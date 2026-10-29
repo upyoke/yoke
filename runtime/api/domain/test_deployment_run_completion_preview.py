@@ -134,7 +134,7 @@ def test_driver_recovery_does_not_invite_a_second_dispatch(test_db):
     assert "Live driver freezing_source owns this run" in live.recovery()
     assert "re-drive" not in live.recovery()
     stopped = replace(live, driver_phase="")
-    assert f"re-drive {RUN} to start" in stopped.recovery()
+    assert f"re-drive {RUN} with `yoke watch deploy -- {RUN}` to start" in stopped.recovery()
     test_db.execute("UPDATE deployment_runs SET settling_at=NULL WHERE id=%s", (RUN,))
     test_db.commit()
     assert completion_preview(test_db, RUN).members == ()

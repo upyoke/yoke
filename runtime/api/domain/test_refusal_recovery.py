@@ -36,7 +36,7 @@ def test_compose_refusal_reports_evaluated_state_and_recovery() -> None:
 
 def test_unsettled_acceptance_names_matched_execution_and_re_drive() -> None:
     text = unsettled_acceptance_blocker(
-        execution_id="exec-1", digest="abc123"
+        execution_id="exec-1", digest="abc123", run_id="run-1"
     )
     assert "never settled against this deployment target" in text
     assert "settling scoped execution exec-1 matches digest abc123" in text

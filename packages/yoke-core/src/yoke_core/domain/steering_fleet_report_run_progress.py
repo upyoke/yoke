@@ -9,6 +9,7 @@ from __future__ import annotations
 from yoke_core.domain.steering_fleet_report_detectors import parse_stamp
 
 from datetime import datetime
+import re
 
 from typing import Any, Optional
 
@@ -82,7 +83,15 @@ def _stage_lines(
         )
         if wake := wakes.get(member):
             line += f" — {wake}"
-        member_lines.append(line + ": " + "; ".join(chunk))
+        details = []
+        for reason in chunk:
+            ids = re.findall(r"requirement #(\d+)", reason)
+            if ids:
+                commands = re.findall(r"`(yoke [^`]+)`", reason)
+                commands = commands or [f"yoke qa case run --requirement-id {rid}" for rid in ids]
+                details.append("requirements " + ", ".join(f"#{rid}" for rid in ids)
+                               + ": " + ", ".join(f"`{cmd}`" for cmd in commands))
+        member_lines.append(line + ((": " + "; ".join(details)) if details else ""))
     run_lines.extend(qa.lines[offset:])
     return tuple(run_lines), tuple(member_lines)
 
