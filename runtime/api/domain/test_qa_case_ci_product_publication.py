@@ -219,7 +219,8 @@ def test_merge_inputs_also_freeze_main(monkeypatch, remote):
         }},
     }]})
     monkeypatch.setattr(adapter, "call_dispatcher", lambda **kwargs: response)
-    assert inputs.item_inputs(item_id=42, workflow="ci.yml") == {
+    consumer_ref = f"APP-{42}"
+    assert inputs.item_inputs(item_id=consumer_ref, workflow="ci.yml") == {
         "product_ref": SHA, "product_repo": REPO,
     }
     assert remote.call_args_list[0].args == (f"/repos/{REPO}/commits/main",)
