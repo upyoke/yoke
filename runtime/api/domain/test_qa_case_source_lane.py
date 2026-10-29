@@ -127,3 +127,13 @@ def test_task_claim_selects_only_its_own_lane(test_db, lanes):
             session_id="qa-caller",
             checkout_path=str(paths["surfaces-worker"]),
         )
+
+
+def test_post_deploy_case_ignores_an_unavailable_source_lane(test_db, lanes):
+    from yoke_core.domain.qa_case_source_lane import resolve_source_lane
+
+    requirement, _paths = lanes
+    assert resolve_source_lane(
+        test_db, item_id=801, session_id="another-machine",
+        case={"qa_phase": "post_deploy", "runner_id": "worktree_run"},
+    ) == {}

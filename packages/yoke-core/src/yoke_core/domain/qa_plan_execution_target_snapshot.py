@@ -81,7 +81,7 @@ def execution_target_for_roster(
             "--transition T) runs one target at a time, so rerun it until "
             "nothing remains; for a deployment run, execute each matching "
             "deployment QA stage with yoke qa plan run --deployment-run-id RUN "
-            "--item ITEM --stage STAGE, or each requirement with yoke qa "
+            "--stage STAGE --plan PLAN, or each requirement with yoke qa "
             "case run."
         )
     target = dict(targets[0])

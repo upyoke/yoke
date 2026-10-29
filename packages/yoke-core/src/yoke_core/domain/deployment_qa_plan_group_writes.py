@@ -25,6 +25,15 @@ from yoke_core.domain.deployment_qa_plan_groups import (
 )
 
 
+from yoke_core.domain.qa_plan_management import QaPlanError
+
+
+class PlanGroupError(QaPlanError):
+    """A plan-group refusal whose code survives subject resolution."""
+
+    code = "plan_group_not_open"
+
+
 def group_subject(
     conn: Any, run_id: str, stage_name: str, group: PlanGroup, *, require_active: bool
 ) -> dict:
@@ -195,7 +204,7 @@ def resolve_group_subject(
     if live:
         return group_subject(conn, run_id, stage_name, live[0], require_active=require_active)
     closed = [group.group_id for group in groups if group.closed]
-    raise ValueError(
+    raise PlanGroupError(
         f"plan_group_not_open: plan {plan!r} has no open plan group in run {run_id!r} "
         f"stage {stage_name!r}"
         + (f"; closed groups {closed} already answered their items, so nothing is owed" if closed else "")

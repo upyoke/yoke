@@ -27,6 +27,7 @@ def resolve_source_lane(
 ) -> dict:
     if case and (
         case.get("deployment_run_id")
+        or case.get("qa_phase") == "post_deploy"
         or case.get("runner_id") not in {"ci_run", "worktree_run"}
     ):
         return {}

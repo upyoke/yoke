@@ -188,8 +188,8 @@ def run_stage_wait_message(
         "the stage, which is what this stage credits: 'yoke watch qa-plan -- "
         f"--deployment-run-id {run_id} --stage {stage_name}"
         f"{_plan_selection(names_cases)} "
-        f"--project PROJECT'. {HOST_WAIT_TEACHING} Then re-drive the same "
-        "run. Check "
+        f"'. {HOST_WAIT_TEACHING} Then re-drive the same "
+        f"run with `yoke watch deploy -- {run_id}`. Check "
         f"'yoke deployment-runs get {run_id}' for the current state."
     )
 

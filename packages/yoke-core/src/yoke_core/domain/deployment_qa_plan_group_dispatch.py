@@ -152,7 +152,7 @@ def notify_plan_groups_wait(
         "group(s). Each runs once for the whole release and answers every item that "
         "attaches its plan; no item holder runs it. Run each:\n"
         + "\n".join(lines)
-        + f"\nThen re-drive the run. Check 'yoke deployment-runs get {run_id}'."
+        + f"\nThen re-drive the run with `yoke watch deploy -- {run_id}`. Check 'yoke deployment-runs get {run_id}'."
     )
     _deliver(
         conn, run_id=run_id, project_id=project_id, body=body,

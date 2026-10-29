@@ -73,7 +73,7 @@ def nothing_owed(
                 "a fully passed roster",
                 evaluated=f"{evaluated}; the stage reports no QA blocker",
                 recovery=(
-                    "re-drive the deployment run so the stage settles from the "
+                    f"re-drive the deployment run with `yoke watch deploy -- {deployment_run_id}` so the stage settles from the "
                     f"recorded passes; read `yoke deployment-runs get "
                     f"{deployment_run_id}` for its current state"
                     if deployment_run_id

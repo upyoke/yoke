@@ -64,7 +64,9 @@ STAGE_REJECTED = "rejected"
 STAGE_AWAITING_REVIEW = "awaiting review"
 
 
-def unsettled_acceptance_blocker(*, execution_id: object, digest: str) -> str:
+def unsettled_acceptance_blocker(
+    *, execution_id: object, digest: str, run_id: str
+) -> str:
     """Whole-state recovery for an unmatched completed execution."""
     return compose_refusal(
         "stage acceptance was never settled against this deployment target",
@@ -73,7 +75,7 @@ def unsettled_acceptance_blocker(*, execution_id: object, digest: str) -> str:
             f"{digest}; no case failed"
         ),
         recovery=(
-            "re-drive the deployment run; steering owns the run and there "
+            f"re-drive the deployment run with `yoke watch deploy -- {run_id}`; steering owns the run and there "
             "is no member or worker action"
         ),
     )
@@ -247,7 +249,7 @@ def stage_acceptance(
             STAGE_UNSETTLED,
             (
                 unsettled_acceptance_blocker(
-                    execution_id=execution["id"], digest=digest
+                    execution_id=execution["id"], digest=digest, run_id=run_id
                 ),
             ),
         )
