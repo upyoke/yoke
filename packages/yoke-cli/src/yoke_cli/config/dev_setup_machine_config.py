@@ -38,7 +38,7 @@ def merge_connection_metadata(
                 env_name,
                 {},
             )
-            entry[contract.PROD_FLAG_KEY] = False
+            entry[contract.PROTECTED_FLAG_KEY] = False
             if postgres:
                 entry["postgres"] = dict(postgres)
             if authority:

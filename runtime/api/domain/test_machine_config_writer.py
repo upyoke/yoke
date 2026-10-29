@@ -106,16 +106,16 @@ class TestSetConnection:
         )
 
         entry = _config(home)["connections"]["prod"]
-        assert entry[contract.PROD_FLAG_KEY] is False
+        assert entry[contract.PROTECTED_FLAG_KEY] is False
 
-    def test_prod_flag_can_be_set_and_cleared(self, home, tmp_path):
+    def test_protected_flag_can_be_set_and_cleared(self, home, tmp_path):
         _seed_https(home, tmp_path)
 
-        writer.set_connection("stage", prod=True)
-        writer.set_connection("stage", prod=False)
+        writer.set_connection("stage", protected=True)
+        writer.set_connection("stage", protected=False)
 
         entry = _config(home)["connections"]["stage"]
-        assert entry[contract.PROD_FLAG_KEY] is False
+        assert entry[contract.PROTECTED_FLAG_KEY] is False
         assert entry["api_url"] == "https://api.example"
 
 

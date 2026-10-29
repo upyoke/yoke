@@ -96,7 +96,7 @@ def test_dev_setup_apply_writes_tunnel_and_authority_metadata(
     entry = json.loads(config.read_text(encoding="utf-8"))["connections"][
         "source-dev-admin"
     ]
-    assert entry["prod"] is False
+    assert entry["protected"] is False
     assert entry["postgres"] == {
         "host": "127.0.0.1",
         "port": 6547,

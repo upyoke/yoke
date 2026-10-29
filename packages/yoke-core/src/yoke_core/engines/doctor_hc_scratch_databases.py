@@ -45,7 +45,7 @@ def hc_administered_scratch_databases(
             SLUG,
             TITLE,
             "N/A",
-            "this machine has no prod-flagged local-Postgres connection",
+            "this machine has no protected local-Postgres connection",
         )
         return
 

@@ -20,7 +20,7 @@ from typing import Optional
 
 import psycopg
 
-from yoke_contracts.machine_config.schema import connection_is_prod
+from yoke_contracts.machine_config.schema import connection_is_protected
 from yoke_core.domain import (
     actors,
     db_backend,
@@ -56,7 +56,7 @@ def resolve_local_import_dsn() -> str:
             "universe; name it for this invocation with "
             "`yoke --env local universe import ARCHIVE`"
         )
-    if connection_is_prod(env.config):
+    if connection_is_protected(env.config):
         raise LocalUniverseImportError(
             "the active local connection is marked production; direct import is refused"
         )

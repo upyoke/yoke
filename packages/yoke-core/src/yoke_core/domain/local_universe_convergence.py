@@ -20,7 +20,7 @@ implement.
 
 Two facts are separated on purpose. :func:`serves_own_universe` answers whether
 a DSN names the embedded cluster this machine owns, which is what entitles a
-workstation to converge it; a non-prod Postgres connection pointed at somebody
+workstation to converge it; an unprotected Postgres connection pointed at somebody
 else's cluster (a shared rehearsal database, a teammate's server) is not this
 machine's to converge and answers ``False``. Machine-local bookkeeping — which
 build last converged which universe, and what to tell the operator afterwards —

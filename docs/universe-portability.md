@@ -60,12 +60,12 @@ self-host import addresses an explicitly selected Compose bundle.
 
 ## Attended production source cutover
 
-Ordinary `yoke universe export` continues to refuse a prod-flagged connection.
+Ordinary `yoke universe export` continues to refuse a protected connection.
 The source-dev/admin cutover boundary is explicit and recoverable:
 
 ```text
 yoke --env prod-db-admin dev db-admin setup prod --project platform \
-  --prod --yes --json
+  --protected --yes --json
 yoke --env prod-db-admin source-authority quiesce begin \
   --service-stop-receipt SERVICE_STOP_ID \
   --credential-file /secure/source-cutover.json --json
@@ -80,7 +80,7 @@ yoke source-authority quiesce retire \
   --retirement-receipt RETIREMENT_GATE_ID --json
 ```
 
-The explicit `--prod` marker is mandatory. It records production authority in
+The explicit `--protected` marker is mandatory. It records that the connection holds real data in
 the machine connection without inferring safety policy from an environment
 name, database name, or DSN; the source-authority boundary refuses profiles
 that omit it. `--project platform` selects the project that owns Yoke's
@@ -178,3 +178,23 @@ The compact intent's `database` object identifies the frozen **source**
 database (name, OID, and org). It is evidence about what was exported, not a
 target compare-and-swap token; a replacement service supplies and verifies its
 current target database identity separately.
+
+
+## Hosted import into a different tenant
+
+Platform owns hosted tenant replacement. Before minting destination credentials,
+its import calls `universe_import_credentials.revoke_imported_credentials(conn)`:
+all copied API tokens and browser sessions become revoked, and no token is minted.
+The caller owns commit and supplies fresh destination authority separately.
+
+For a different tenant, call
+`universe_import_artifacts.rewrite_imported_artifacts(conn, source_bucket=...,
+source_tenant_id=..., destination_bucket=..., destination_tenant_id=...)`.
+It rewrites every stored S3 artifact handle while preserving its object suffix
+and metadata, and returns a source-to-destination S3 prefix map for both
+`qa-artifacts` and `shared-files`. Shared files have no per-file database row,
+so their copy prefix is returned even when no QA artifacts exist. Copy bytes
+with that map before serving the destination. A handle outside the supplied
+source namespace refuses as `import_artifact_namespace_invalid`; rehome that
+evidence on the source and export again. Both helpers keep the importer's
+transaction open and isolate their writes with savepoints.

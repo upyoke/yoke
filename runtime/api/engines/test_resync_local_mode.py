@@ -150,10 +150,10 @@ def local_universe(tmp_path, monkeypatch):
             monkeypatch.setenv(db_backend.PG_DSN_ENV, dsn)
             conn = db_backend.connect()
             try:
-                # A local universe holds only the user's own projects; blank
-                # the second seeded project's repo so the multi-project fetch
-                # loop skips it.
-                conn.execute("UPDATE projects SET github_repo = '' WHERE slug <> 'yoke'")
+                # Omit the other seeded project from this user's local fetch.
+                conn.execute(
+                    "UPDATE projects SET github_repo = '' WHERE slug <> 'yoke'"
+                )
                 seed_project_github_binding(conn, UNIVERSE_ONLY_TOKEN)
                 conn.commit()
             finally:
@@ -171,7 +171,7 @@ def local_universe(tmp_path, monkeypatch):
                 LOCAL_ENV,
                 transport=machine_contract.DEFAULT_TRANSPORT,
                 dsn=dsn,
-                prod=False,
+                protected=False,
                 replace=True,
             )
 
@@ -188,7 +188,9 @@ def local_universe(tmp_path, monkeypatch):
             (state_root / "backlog").mkdir(parents=True)
             monkeypatch.setenv("YOKE_ROOT", str(state_root))
 
-            config = json.loads(machine_runtime.config_path().read_text(encoding="utf-8"))
+            config = json.loads(
+                machine_runtime.config_path().read_text(encoding="utf-8")
+            )
             yield SimpleNamespace(
                 db_name=db_name,
                 dsn=dsn,
@@ -233,7 +235,7 @@ class TestLocalConnectionShape:
         assert config["active_env"] == LOCAL_ENV
         entry = config["connections"][LOCAL_ENV]
         assert entry["transport"] == machine_contract.DEFAULT_TRANSPORT
-        assert entry[machine_contract.PROD_FLAG_KEY] is False
+        assert entry[machine_contract.PROTECTED_FLAG_KEY] is False
         source = entry["credential_source"]
         assert source["kind"] == machine_contract.CREDENTIAL_KIND_DSN_FILE
         assert "api_url" not in entry

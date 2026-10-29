@@ -127,7 +127,7 @@ def test_prod_db_admin_delegates_to_validation_runner(monkeypatch) -> None:
     monkeypatch.setattr(
         subject.machine_config,
         "active_connection",
-        lambda **_kwargs: {"transport": "local-postgres", "prod": True},
+        lambda **_kwargs: {"transport": "local-postgres", "protected": True},
     )
     calls: list[list[str]] = []
     module = SimpleNamespace(main=lambda argv: calls.append(argv) or 0)

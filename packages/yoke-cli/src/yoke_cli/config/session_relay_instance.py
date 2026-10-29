@@ -57,7 +57,7 @@ class RelayInstance:
     environment: str
     config_path: Path
     yoke_home: Path
-    prod: bool
+    protected: bool
     label: str
     state_dir: Path
     #: Whether this relay tracks the build its control plane serves. An https
@@ -136,16 +136,16 @@ def _digest(config_path: Path, environment: str) -> str:
 
 
 def relay_instance_label(
-    *, config_path: str | Path, environment: str, prod: bool
+    *, config_path: str | Path, environment: str, protected: bool
 ) -> str:
     """The service name shared by setup preview and the validated installer."""
-    if prod:
+    if protected:
         return PROD_RELAY_LABEL
     return f"{NON_PROD_RELAY_LABEL_PREFIX}{_digest(_canonical(Path(config_path)), environment)}"
 
 
-def prod_https_environments(payload: Mapping[str, object]) -> tuple[str, ...]:
-    """Return the sole connection class eligible for the legacy prod relay."""
+def protected_https_environments(payload: Mapping[str, object]) -> tuple[str, ...]:
+    """Return the sole connection class eligible for the protected relay."""
     connections = payload.get("connections")
     if not isinstance(connections, Mapping):
         return ()
@@ -154,7 +154,7 @@ def prod_https_environments(payload: Mapping[str, object]) -> tuple[str, ...]:
             str(environment)
             for environment, connection in connections.items()
             if isinstance(connection, Mapping)
-            and machine_schema.connection_is_prod(connection)
+            and machine_schema.connection_is_protected(connection)
             and str(connection.get("transport") or "").strip()
             == machine_schema.TRANSPORT_HTTPS
         )
@@ -217,7 +217,7 @@ def resolve_relay_instance(
         raise RelayInstanceError(str(exc)) from exc
 
     transport = str(connection.get("transport") or "").strip()
-    is_prod = machine_schema.connection_is_prod(connection)
+    is_protected = machine_schema.connection_is_protected(connection)
     follows_served_release = transport == machine_schema.TRANSPORT_HTTPS
     if not follows_served_release:
         if transport not in machine_schema.POSTGRES_TRANSPORTS:
@@ -225,24 +225,24 @@ def resolve_relay_instance(
                 "machine relay requires an https or local-postgres control-plane "
                 f"connection; env {selected_environment!r} uses {transport!r}"
             )
-        if is_prod:
-            # A prod-flagged local-postgres connection is direct database
+        if is_protected:
+            # A protected local-postgres connection is direct database
             # authority into a universe an https connection already serves, so
             # its relay belongs to that connection. Standing one up here would
             # poll one universe from two relays on one machine.
             raise RelayInstanceError(
-                "machine relay refuses a prod local-postgres connection; env "
+                "machine relay refuses a protected local-postgres connection; env "
                 f"{selected_environment!r} is direct database authority for a "
                 "hosted universe, whose relay runs on its https connection"
             )
 
     selected_home = _canonical(yoke_home or machine_config.yoke_home())
-    if is_prod:
-        prod_environments = prod_https_environments(payload)
-        if prod_environments != (selected_environment,):
+    if is_protected:
+        protected_environments = protected_https_environments(payload)
+        if protected_environments != (selected_environment,):
             raise RelayInstanceError(
-                "machine relay requires exactly one prod https connection; "
-                f"configured prod https envs: {list(prod_environments)}"
+                "machine relay requires exactly one protected https connection; "
+                f"configured protected https envs: {list(protected_environments)}"
             )
         state_dir = selected_home / PROD_RELAY_STATE_DIR_NAME
     else:
@@ -252,9 +252,11 @@ def resolve_relay_instance(
         environment=selected_environment,
         config_path=selected_config,
         yoke_home=selected_home,
-        prod=is_prod,
+        protected=is_protected,
         label=relay_instance_label(
-            config_path=selected_config, environment=selected_environment, prod=is_prod
+            config_path=selected_config,
+            environment=selected_environment,
+            protected=is_protected,
         ),
         state_dir=state_dir,
         follows_served_release=follows_served_release,
@@ -275,7 +277,7 @@ __all__ = [
     "RelayInstance",
     "door_relay_refusal",
     "RelayInstanceError",
-    "prod_https_environments",
+    "protected_https_environments",
     "resolve_relay_instance",
     "relay_instance_label",
     "strip_relay_owned_python_state",

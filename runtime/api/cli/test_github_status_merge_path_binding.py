@@ -56,9 +56,10 @@ def _admin_sibling_machine(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> P
     payload = json.loads(config.read_text(encoding="utf-8"))
     payload["connections"][ADMIN_ENV] = {
         "transport": "local-postgres",
-        "prod": True,
+        "protected": True,
         "credential_source": {
-            "kind": "dsn_file", "path": str(config.parent / "prod.dsn"),
+            "kind": "dsn_file",
+            "path": str(config.parent / "prod.dsn"),
         },
     }
     config.write_text(json.dumps(payload), encoding="utf-8")
@@ -77,7 +78,8 @@ def _status(config: Path, **kwargs: Any) -> dict[str, Any]:
 
 
 def test_status_command_pins_the_connection_a_merge_authorizes_through(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     config = _connected_machine(tmp_path, monkeypatch)
     seen: dict[str, Any] = {}
@@ -94,7 +96,8 @@ def test_status_command_pins_the_connection_a_merge_authorizes_through(
 
 
 def test_merge_reads_the_user_token_through_the_selection_status_pins(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     config = _connected_machine(tmp_path, monkeypatch)
     reads: list[dict[str, Any]] = []
@@ -114,13 +117,18 @@ def test_merge_reads_the_user_token_through_the_selection_status_pins(
 
 
 def test_a_refused_token_read_reports_the_merge_binding_broken(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     config = _connected_machine(tmp_path, monkeypatch)
 
     def refused(request, timeout):
         raise urllib.error.HTTPError(
-            request.full_url, 400, "Bad Request", hdrs=None, fp=None,
+            request.full_url,
+            400,
+            "Bad Request",
+            hdrs=None,
+            fp=None,
         )
 
     report = _status(config, profile_opener=_profile_opener, token_opener=refused)
@@ -133,13 +141,18 @@ def test_a_refused_token_read_reports_the_merge_binding_broken(
 
 
 def test_a_contended_token_read_reports_the_merge_binding_busy(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     config = _connected_machine(tmp_path, monkeypatch)
 
     def unavailable(request, timeout):
         raise urllib.error.HTTPError(
-            request.full_url, 503, "Unavailable", hdrs=None, fp=None,
+            request.full_url,
+            503,
+            "Unavailable",
+            hdrs=None,
+            fp=None,
         )
 
     report = _status(config, profile_opener=_profile_opener, token_opener=unavailable)
@@ -152,7 +165,8 @@ def test_a_contended_token_read_reports_the_merge_binding_busy(
 
 
 def test_offline_status_reports_an_unproven_merge_path_and_is_not_ready(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     config = _connected_machine(tmp_path, monkeypatch)
 
@@ -171,7 +185,8 @@ def test_offline_status_reports_an_unproven_merge_path_and_is_not_ready(
 
 
 def test_a_proven_machine_reports_both_bindings_ok_and_ready(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     config = _connected_machine(tmp_path, monkeypatch)
 
@@ -196,7 +211,8 @@ def test_a_proven_machine_reports_both_bindings_ok_and_ready(
 
 
 def test_status_under_the_admin_connection_proves_the_plane_it_administers(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     config = _admin_sibling_machine(tmp_path, monkeypatch)
     monkeypatch.setenv("YOKE_ENV", ADMIN_ENV)

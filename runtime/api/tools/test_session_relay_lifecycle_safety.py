@@ -37,15 +37,15 @@ def _write_config(tmp_path: Path) -> Path:
     connections = {
         name: {
             "transport": "https",
-            "prod": prod,
+            "protected": protected,
             "api_url": f"https://{name}.example.test",
             "credential_source": token(name),
         }
-        for name, prod in (("prod", True), ("stage", False))
+        for name, protected in (("prod", True), ("stage", False))
     }
     connections["prod-db-admin"] = {
         "transport": "local-postgres",
-        "prod": True,
+        "protected": True,
         "credential_source": {
             "kind": "dsn_file",
             "path": "~/.yoke/secrets/prod-db-admin.dsn",
@@ -78,7 +78,7 @@ def test_prod_db_admin_cannot_resolve_a_relay_instance(tmp_path: Path) -> None:
     https connection; a second relay here would poll one universe twice.
     """
     calls: list[list[str]] = []
-    with pytest.raises(RelayInstanceError, match="refuses a prod local-postgres"):
+    with pytest.raises(RelayInstanceError, match="refuses a protected local-postgres"):
         install_relay_launchd(
             home=tmp_path,
             config_path=_write_config(tmp_path),
@@ -126,7 +126,7 @@ def test_multiple_prod_https_connections_refuse_the_legacy_identity(
     }
     config_path.write_text(json.dumps(payload), encoding="utf-8")
 
-    with pytest.raises(RelayInstanceError, match="exactly one prod https"):
+    with pytest.raises(RelayInstanceError, match="exactly one protected https"):
         resolve_relay_instance(
             config_path=config_path,
             environment="prod",

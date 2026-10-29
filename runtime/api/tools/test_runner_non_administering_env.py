@@ -1,7 +1,7 @@
 """Runners bind a non-administering env so pytest owns its validation DB.
 
 The schema-authority guard reads the ambient connection, not the target
-database. A prod-flagged parent selection therefore refuses collection
+database. A protected parent selection therefore refuses collection
 while ``runtime/api/conftest.py`` converges the fixture-owned validation
 database. Both runner entrypoints must apply
 ``environment_without_administering_selection`` so the taught
@@ -33,7 +33,7 @@ ADMIN_ENV = "prod-db-admin"
 SERVED_ENV = "prod"
 PAIRED_UNIVERSE = {
     SERVED_ENV: {"transport": "https"},
-    ADMIN_ENV: {"transport": "local-postgres", "prod": True},
+    ADMIN_ENV: {"transport": "local-postgres", "protected": True},
 }
 
 
@@ -75,7 +75,7 @@ def test_run_tests_swaps_administering_selection_into_child_env(
     assert machine_config_runtime.CONFIG_FILE_ENV not in env
 
 
-def test_impacted_selection_collects_under_prod_flagged_ambient_env(
+def test_impacted_selection_collects_under_protected_flagged_ambient_env(
     tmp_path: Path, monkeypatch
 ) -> None:
     """The taught impacted command collects against the fixture-owned DB."""
@@ -85,8 +85,8 @@ def test_impacted_selection_collects_under_prod_flagged_ambient_env(
             {
                 "active_env": SERVED_ENV,
                 "connections": {
-                    SERVED_ENV: {"transport": "https", "prod": True},
-                    ADMIN_ENV: {"transport": "local-postgres", "prod": True},
+                    SERVED_ENV: {"transport": "https", "protected": True},
+                    ADMIN_ENV: {"transport": "local-postgres", "protected": True},
                 },
             }
         )

@@ -49,7 +49,8 @@ def resolve_session_project_scope(
         except db_backend.operational_error_types(conn) as exc:
             _refuse_unavailable_roster(conn, exc)
         assert ident is not None
-        resolved.append(int(ident.id))
+        if int(ident.id) in registered:
+            resolved.append(int(ident.id))
     return resolved
 
 

@@ -16,7 +16,7 @@ rather than which *database* it was pointed at — and the same connection was
 still selected minutes later for a note-taking command that had no business
 carrying migration authority.
 
-So the refusal lives on the connection. A prod-flagged connection names a
+So the refusal lives on the connection. A protected connection names a
 database this machine administers but does not serve, and nothing run against
 it may converge or apply. The process that legitimately converges says so with
 :func:`serving_build_authority`, and so does a tool that deliberately converges
@@ -25,7 +25,7 @@ copy. The declaration is the exemption, at the call site, rather than an
 allowlist of module paths that rots as files move.
 
 Local and self-hosted universes are untouched: their connections are not
-prod-flagged, so they converge their own database exactly as they always have.
+protected, so they converge their own database exactly as they always have.
 A machine with no config at all — a container, which resolves its DSN from its
 own environment — is likewise unaffected.
 
@@ -45,7 +45,7 @@ from typing import Iterator, Optional
 from yoke_contracts.machine_config import runtime as machine_config_runtime
 from yoke_contracts.machine_config.schema import (
     ENV_OVERRIDE,
-    connection_is_prod,
+    connection_is_protected,
     same_universe_https_env,
 )
 
@@ -98,7 +98,7 @@ def serving_build_authority_declared() -> bool:
 
 
 def prod_flagged_connection(explicit_env: Optional[str] = None) -> str:
-    """Return the selected env's label when it is prod-flagged, else ``""``.
+    """Return the selected env's label when it is protected, else ``""``.
 
     Reads the explicit marker only. Inferring prod-ness from a label or a DSN
     would be guessing about the most consequential database an operator has,
@@ -110,7 +110,7 @@ def prod_flagged_connection(explicit_env: Optional[str] = None) -> str:
         connection = machine_config_runtime.active_connection(explicit_env=explicit_env)
     except Exception:  # noqa: BLE001 - config problems surface where they are
         return ""
-    return env if connection_is_prod(connection) else ""
+    return env if connection_is_protected(connection) else ""
 
 
 def refuse_without_serving_build_authority(
@@ -145,9 +145,9 @@ def refuse_without_serving_build_authority(
 
 
 def environment_without_administering_selection() -> dict[str, str]:
-    """Return this environment with a prod-flagged selection swapped for served.
+    """Return this environment with a protected selection swapped for served.
 
-    A prod-flagged connection is administering authority over a database this
+    A protected connection is administering authority over a database this
     machine does not serve, and a process that selects one means to hold it.
     A command it shells out to inherits that selection by accident. When the
     command is a project's own test suite, it converges disposable databases it
@@ -157,7 +157,7 @@ def environment_without_administering_selection() -> dict[str, str]:
 
     The same-universe served connection is the only safe substitute: it reaches
     the rows the child would have read outside the boundary. Where the
-    selection is not prod-flagged — every local universe, every self-hosted
+    selection is not protected — every local universe, every self-hosted
     one, every container — or no served sibling is configured, the environment
     passes through untouched, because pointing a child at some other universe's
     connection is worse than the refusal it would avoid.

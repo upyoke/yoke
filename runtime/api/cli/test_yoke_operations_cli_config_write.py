@@ -115,7 +115,7 @@ def test_connection_set_https_direct_token_infers_transport(cfg, capsys) -> None
     assert _payload(cfg)["connections"]["prod"]["transport"] == "https"
 
 
-def test_connection_set_prod_flags_round_trip(cfg, capsys) -> None:
+def test_connection_set_protected_flags_round_trip(cfg, capsys) -> None:
     secret = "yoke_v1_prod_secret"
 
     rc = yoke_operations_cli.main(
@@ -124,7 +124,7 @@ def test_connection_set_prod_flags_round_trip(cfg, capsys) -> None:
             "set",
             "prod",
             secret,
-            "--prod",
+            "--protected",
             "--api-url",
             "https://api.example",
             "--config",
@@ -133,14 +133,14 @@ def test_connection_set_prod_flags_round_trip(cfg, capsys) -> None:
     )
     assert rc == 0
     capsys.readouterr()
-    assert _payload(cfg)["connections"]["prod"]["prod"] is True
+    assert _payload(cfg)["connections"]["prod"]["protected"] is True
 
     rc = yoke_operations_cli.main(
         [
             "connection",
             "set",
             "prod",
-            "--non-prod",
+            "--unprotected",
             "--config",
             str(cfg),
         ]
@@ -148,10 +148,10 @@ def test_connection_set_prod_flags_round_trip(cfg, capsys) -> None:
 
     assert rc == 0
     capsys.readouterr()
-    assert _payload(cfg)["connections"]["prod"]["prod"] is False
+    assert _payload(cfg)["connections"]["prod"]["protected"] is False
 
 
-def test_connection_set_prod_flags_are_mutually_exclusive(cfg, capsys) -> None:
+def test_connection_set_protected_flags_are_mutually_exclusive(cfg, capsys) -> None:
     rc = yoke_operations_cli.main(
         [
             "connection",
@@ -159,8 +159,8 @@ def test_connection_set_prod_flags_are_mutually_exclusive(cfg, capsys) -> None:
             "prod",
             "--transport",
             "https",
-            "--prod",
-            "--non-prod",
+            "--protected",
+            "--unprotected",
             "--config",
             str(cfg),
         ]
@@ -168,8 +168,8 @@ def test_connection_set_prod_flags_are_mutually_exclusive(cfg, capsys) -> None:
 
     assert rc == 2
     err = capsys.readouterr().err
-    assert "--prod" in err
-    assert "--non-prod" in err
+    assert "--protected" in err
+    assert "--unprotected" in err
 
 
 def test_connection_set_positional_dsn_infers_local_postgres_transport(
@@ -192,7 +192,7 @@ def test_connection_set_positional_dsn_infers_local_postgres_transport(
     assert rc == 0
     _assert_dsn_imported(cfg, "local", dsn, captured)
     assert _payload(cfg)["connections"]["local"]["transport"] == "local-postgres"
-    assert _payload(cfg)["connections"]["local"]["prod"] is False
+    assert _payload(cfg)["connections"]["local"]["protected"] is False
 
 
 def test_env_use_unknown_env_exits_nonzero(cfg, tmp_path, capsys) -> None:
@@ -251,17 +251,17 @@ def test_writer_set_connection_replace_drops_stale_transport_keys(
         "local",
         transport="local-postgres",
         dsn="postgresql://replaced@localhost/yoke",
-        prod=False,
+        protected=False,
         replace=True,
         path=str(cfg),
     )
 
     entry = _payload(cfg)["connections"]["local"]
     assert entry["transport"] == "local-postgres"
-    assert entry["prod"] is False
+    assert entry["protected"] is False
     assert entry["credential_source"]["kind"] == "dsn_file"
     # True replace: the https entry's api_url and token ref are gone.
-    assert set(entry) == {"transport", "prod", "credential_source"}
+    assert set(entry) == {"transport", "protected", "credential_source"}
     assert result["connection"] == entry
 
 

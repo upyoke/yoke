@@ -43,7 +43,7 @@ def status_config(tmp_path: Path, repo: Path) -> Path:
                 "connections": {
                     "prod": {
                         "transport": "https",
-                        "prod": True,
+                        "protected": True,
                         "api_url": "https://app.upyoke.com/api/orgs/acme",
                         "credential_source": {
                             "kind": "token_file",

@@ -29,12 +29,12 @@ _PLATFORM_LOGIN = "platform-prod-registry-db-admin"
 
 
 def _machine_with_a_second_prod_login(tmp_path: Path, monkeypatch) -> None:
-    """A machine holding a prod-flagged database login that is not Yoke's."""
+    """A machine holding a protected database login that is not Yoke's."""
     config = {
         "connections": {
             "prod": {"transport": "https"},
-            "prod-db-admin": {"transport": "local-postgres", "prod": True},
-            _PLATFORM_LOGIN: {"transport": "local-postgres", "prod": True},
+            "prod-db-admin": {"transport": "local-postgres", "protected": True},
+            _PLATFORM_LOGIN: {"transport": "local-postgres", "protected": True},
         }
     }
     path = tmp_path / "config.json"

@@ -195,8 +195,13 @@ def check_dispatch_permission(
             )
         return DispatchPermission(spec.permission_key, None, None)
     else:  # PROJECT
-        from yoke_core.domain.feedback_write_permissions import feedback_lifecycle_permission
-        feedback_permission = feedback_lifecycle_permission(conn, entry, request, spec.permission_key)
+        from yoke_core.domain.feedback_write_permissions import (
+            feedback_lifecycle_permission,
+        )
+
+        feedback_permission = feedback_lifecycle_permission(
+            conn, entry, request, spec.permission_key
+        )
         if feedback_permission is not None:
             return feedback_permission
         visible_ids = actor_project_ids_with_permission(
@@ -299,7 +304,10 @@ def dispatch_permission_for_request(
         from yoke_core.domain import db_helpers
 
         with db_helpers.connect() as conn:
-            return check_dispatch_permission(conn, entry, request)
+            from yoke_core.domain.project_write_retirement import check_retirement
+
+            permission = check_dispatch_permission(conn, entry, request)
+            return check_retirement(conn, entry, request, permission)
     except db_backend.database_error_types() as exc:
         return DispatchPermission(
             spec.permission_key,

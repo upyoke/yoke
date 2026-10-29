@@ -4,7 +4,7 @@ A scratch database is disposable by construction: a suite creates it, fills
 it with fixture rows, and drops it. That is safe on a cluster the run owns,
 and exactly wrong on one it does not. The cluster is rarely chosen — with no
 DSN of its own a run inherits whichever connection happens to be selected,
-and a prod-flagged connection names a database this machine administers but
+and a protected connection names a database this machine administers but
 does not own.
 
 That inheritance leaked twice in one day. A session legitimately holding the
@@ -17,7 +17,7 @@ refused.
 
 So the refusal rides the concrete target. The resolved DSN or live connection
 is reduced to its host/port cluster endpoint and compared with every
-prod-flagged local-Postgres connection registered on this machine. An explicit
+protected local-Postgres connection registered on this machine. An explicit
 DSN is not an exemption: a raw DSN aimed at an administered SSH forward is the
 same target as selecting that connection. The migration-history birth guard
 reads the same predicate, so fixture naming and schema stamping cannot disagree.

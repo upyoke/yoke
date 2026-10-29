@@ -70,7 +70,7 @@ def configured_credential(
                 "schema_version": 1,
                 "active_env": "local",
                 "connections": {
-                    "local": {"transport": "local-postgres", "prod": False},
+                    "local": {"transport": "local-postgres", "protected": False},
                 },
                 "github": {
                     "api_url": contract.DEFAULT_GITHUB_API_URL,

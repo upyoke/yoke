@@ -67,7 +67,7 @@ def build_report(
     apply: bool,
     set_active_env: bool,
     allow_render_only: bool,
-    prod: bool = False,
+    protected: bool = False,
     database: str | None = None,
     emit: Callable[[str], None] | None = None,
 ) -> dict[str, Any]:
@@ -186,7 +186,7 @@ def build_report(
         config_path=config_path,
         postgres=postgres,
         authority=authority,
-        prod=prod,
+        protected=protected,
         set_active_env=set_active_env,
     )
     report.update(

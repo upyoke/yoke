@@ -27,7 +27,7 @@ def test_rehearsal_command_replaces_admin_selection_and_keeps_validation_binding
                     "prod": {"transport": "https"},
                     "prod-db-admin": {
                         "transport": "local-postgres",
-                        "prod": True,
+                        "protected": True,
                     },
                 },
             }

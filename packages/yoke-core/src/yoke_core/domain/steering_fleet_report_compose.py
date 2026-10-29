@@ -128,10 +128,12 @@ class CombinedFleetReport:
         """JSON map of age-blind content hashes for each digest scope."""
         reports = [section.report for section in self.sections]
         material = {
-            f"scope:{section.descriptor}": digest({
-                "seat": seat_payload(section.report),
-                "project": project_payload(rows),
-            })
+            f"scope:{section.descriptor}": digest(
+                {
+                    "seat": seat_payload(section.report),
+                    "project": project_payload(rows),
+                }
+            )
             for section, rows in zip(self.sections, rows_per_section(reports))
         }
         material["unattended"] = digest([row.item_id for row in self.unattended])
@@ -169,6 +171,10 @@ def compose_held_reports(
         if raw is None:
             continue
         held_project = int(raw)
+        from yoke_core.domain.project_retirement import project_is_retired
+
+        if project_is_retired(conn, held_project):
+            continue
         if project_id is not None and held_project != int(project_id):
             continue
         staffing_minutes, idle_minutes = reads.cached(
@@ -220,8 +226,11 @@ def compose_held_reports(
         composed_at=now,
         sections=tuple(sections),
         unattended=unattended_linked_items(conn, project_ids),
-        slow_paths=(read_slow_paths(conn, project_ids=sorted(set(project_ids)), now=now)
-                    if include_inventory else ()),
+        slow_paths=(
+            read_slow_paths(conn, project_ids=sorted(set(project_ids)), now=now)
+            if include_inventory
+            else ()
+        ),
     )
 
 

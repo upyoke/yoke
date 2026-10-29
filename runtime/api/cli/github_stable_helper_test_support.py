@@ -42,7 +42,7 @@ def write_github_app_config(config: Path, credential: Path, token: str) -> None:
                 "schema_version": 1,
                 "active_env": "local",
                 "connections": {
-                    "local": {"transport": "local-postgres", "prod": False}
+                    "local": {"transport": "local-postgres", "protected": False}
                 },
                 "github": {
                     "api_url": "https://api.github.com",

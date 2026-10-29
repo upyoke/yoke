@@ -60,7 +60,7 @@ def converge_for_serving(
     """Converge this machine's own universe before the engine serves it.
 
     Returns a report naming the outcome. A universe this machine does not own
-    is reported and left alone: a non-prod Postgres connection may perfectly
+    is reported and left alone: an unprotected Postgres connection may perfectly
     well name a cluster somebody else's build is serving, and converging that
     one would move the schema out from under it.
     """

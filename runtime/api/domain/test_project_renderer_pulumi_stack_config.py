@@ -24,7 +24,7 @@ from runtime.api.tools.test_pulumi_exec_support import (
 
 
 def _environment(name: str) -> RendererEnvironmentSettings:
-    is_prod = name == "prod"
+    is_protected = name == "prod"
     return RendererEnvironmentSettings(
         id=f"acme-{name}",
         name=name,
@@ -42,8 +42,8 @@ def _environment(name: str) -> RendererEnvironmentSettings:
             },
             "capabilities": ["api", "database"],
             "servers": {
-                "instance_type": "t4g.small" if is_prod else "t4g.micro",
-                "root_volume_gb": 40 if is_prod else 20,
+                "instance_type": "t4g.small" if is_protected else "t4g.micro",
+                "root_volume_gb": 40 if is_protected else 20,
                 "aws_key_pair_name": f"acme-{name}",
                 "iam_instance_profile_name": f"acme-{name}-host",
             },
@@ -68,10 +68,12 @@ def _settings() -> ProjectRendererSettings:
         display_name="Acme",
         site_id="acme-site",
         site_settings={
-            "domains": [{
-                "domain_name": "acme.test",
-                "hosted_zone_id": "ZACME",
-            }]
+            "domains": [
+                {
+                    "domain_name": "acme.test",
+                    "hosted_zone_id": "ZACME",
+                }
+            ]
         },
         primary_environment=prod,
         environments=(prod, stage),
@@ -171,10 +173,12 @@ def test_variable_stack_projects_hosted_repository_provider_intent(monkeypatch):
     seen = {}
 
     def provider_intent(selected_settings, *, expected_repo):
-        seen.update({
-            "settings": selected_settings,
-            "expected_repo": expected_repo,
-        })
+        seen.update(
+            {
+                "settings": selected_settings,
+                "expected_repo": expected_repo,
+            }
+        )
         return "digest-bound-provider-intent"
 
     monkeypatch.setattr(
@@ -225,9 +229,9 @@ def test_stack_config_projects_component_type_aliases(monkeypatch):
 
     payload = build_pulumi_stack_config(object(), "acme", "acme-stage-vps")
 
-    assert json.loads(
-        payload["render_values"]["component_type_aliases_json"]
-    ) == aliases
+    assert (
+        json.loads(payload["render_values"]["component_type_aliases_json"]) == aliases
+    )
 
 
 @pytest.mark.parametrize(
@@ -321,14 +325,8 @@ def test_stack_config_separates_environment_operator_state(monkeypatch):
     monkeypatch.setattr(
         module, "_load_project_renderer_settings", lambda conn, project: settings
     )
-    monkeypatch.setattr(
-        module, "_github_binding_for_repo", lambda *args: ("", {})
-    )
+    monkeypatch.setattr(module, "_github_binding_for_repo", lambda *args: ("", {}))
     stage_payload = build_pulumi_stack_config(object(), "acme", "acme-stage")
-    prod_payload = build_pulumi_stack_config(
-        object(), "acme", "acme-prod"
-    )
+    prod_payload = build_pulumi_stack_config(object(), "acme", "acme-prod")
     assert stage_payload["operator_state"]["encrypted_key"] == "encrypted-stage"
-    assert prod_payload["operator_state"]["encrypted_key"] == (
-        "encrypted-prod"
-    )
+    assert prod_payload["operator_state"]["encrypted_key"] == ("encrypted-prod")

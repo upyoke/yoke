@@ -33,7 +33,7 @@ The browser and the launchd login domain are the machine's other shared resource
 - A run does not get to borrow an administered cluster under any spelling.
   The resolved target — explicit `YOKE_PG_DSN`, DSN file, context binding, or
   selected connection — is reduced to its host/port endpoint and compared
-  with every prod-flagged local-Postgres connection this machine knows. A raw
+  with every protected local-Postgres connection this machine knows. A raw
   DSN aimed at the production SSH forward is therefore refused exactly like
   `YOKE_ENV=prod-db-admin`, before a database is created. `yoke watch pytest`
   and the generic test runner strip the ambient administering selection from

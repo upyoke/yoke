@@ -37,7 +37,7 @@ def test_no_administered_cluster_is_not_applicable(monkeypatch) -> None:
     result = _run(monkeypatch, ())
 
     assert result.result == "N/A"
-    assert "no prod-flagged local-Postgres" in result.detail
+    assert "no protected local-Postgres" in result.detail
 
 
 def test_clean_administered_cluster_passes(monkeypatch) -> None:

@@ -37,7 +37,7 @@ def test_env_list_reports_sanitized_connection_inventory(
                     "local": {"transport": "postgres", "dsn": "secret-dsn"},
                     "prod": {
                         "transport": "https",
-                        "prod": True,
+                        "protected": True,
                         "api_url": "https://example.test",
                         "token": "secret-token",
                     },
@@ -72,7 +72,7 @@ def test_env_list_human_output_names_what_each_transport_unlocks(
                 "connections": {
                     "prod": {
                         "transport": "https",
-                        "prod": True,
+                        "protected": True,
                         "api_url": "https://example.test",
                     },
                     "prod-db-admin": {"transport": "local-postgres"},
@@ -122,7 +122,7 @@ def test_status_json_validates_machine_and_project_config(
     assert report["config"]["exists"] is True
     assert report["config"]["owner_only"] is True
     assert report["connection"]["transport"] == "https"
-    assert report["connection"]["prod"] is True
+    assert report["connection"]["protected"] is True
     assert report["connection"]["envs"] == ["prod"]
     project = report["project"]
     assert project["project_id"] == 1

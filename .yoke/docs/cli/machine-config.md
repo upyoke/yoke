@@ -13,6 +13,13 @@ how unattended launches use harness permissions.
 environment is active, API URLs, local paths. Secrets for capabilities live
 under `~/.yoke/secrets/` (not in the repo).
 
+A connection's `protected` boolean means it holds real data, regardless of its
+name or deployment target. Set it with `yoke connection set ENV --protected`;
+clear it with `--unprotected`. `yoke dev db-admin setup` accepts the same flags.
+Direct export/import and disposable database recipes honor this marker.
+Stored connections using the previous `prod` key still read as protected;
+the next config write normalizes that key. The old CLI flags are removed.
+
 For an isolated machine config, select its home before running a writer:
 
 ```bash

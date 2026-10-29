@@ -1,7 +1,8 @@
 {
  "id": "export-and-import",
  "title": "Export and import",
- "status": "draft-copy",
+ "status": "observed",
  "page": "modes",
- "position": 0
+ "position": 0,
+ "summary": "Hosted import revokes copied API tokens and browser sessions without issuing authority. Different-tenant imports rewrite S3 evidence handles and return the same QA and shared-file prefixes used to copy bytes."
 }

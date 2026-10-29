@@ -62,7 +62,7 @@ def test_init_local_writes_connection_secret_and_active_env(
     config = _config(machine_home)
     entry = config["connections"]["local"]
     assert entry["transport"] == "local-postgres"
-    assert entry["prod"] is False
+    assert entry["protected"] is False
     assert config["active_env"] == "local"
     source = entry["credential_source"]
     assert source["kind"] == "dsn_file"
@@ -200,7 +200,7 @@ def test_init_socket_relocation_does_not_clear_prod_marker_without_force(
         "local",
         transport="local-postgres",
         dsn=old_dsn,
-        prod=True,
+        protected=True,
     )
     monkeypatch.setattr(
         setup,
@@ -247,7 +247,7 @@ def test_init_force_replaces_https_shaped_local_entry_without_stray_keys(
 
     entry = _config(machine_home)["connections"]["local"]
     assert entry["transport"] == "local-postgres"
-    assert entry["prod"] is False
+    assert entry["protected"] is False
     assert entry["credential_source"]["kind"] == "dsn_file"
     # True replace: nothing from the https-shaped entry survives.
     assert set(entry) == {"transport", "prod", "credential_source"}

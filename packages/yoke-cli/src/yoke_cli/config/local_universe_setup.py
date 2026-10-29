@@ -210,7 +210,7 @@ def inspect_local_state(config_path: Optional[str] = None) -> Dict[str, Any]:
                 f"{transport or 'unset'}, not {contract.DEFAULT_TRANSPORT}"
             ),
         }
-    if contract.connection_is_prod(entry):
+    if contract.connection_is_protected(entry):
         return {
             "state": LOCAL_UNIVERSE_UNAVAILABLE,
             "connection": True,

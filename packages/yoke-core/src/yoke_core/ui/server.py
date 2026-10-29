@@ -12,7 +12,7 @@ Security model:
 * Binds ``127.0.0.1`` only; nothing is reachable off-machine.
 * Serves only a connection this machine reads directly
   (:mod:`yoke_core.ui.served_universe_connection`); an https or
-  prod-flagged binding refuses at startup rather than answering from a
+  protected binding refuses at startup rather than answering from a
   universe the page does not name.
 * One random session token per run, minted and compared by
   :mod:`yoke_core.ui.session_gate`. ``/served-build`` is public so a

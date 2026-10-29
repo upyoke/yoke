@@ -28,7 +28,7 @@ def lifecycle_steps(
     label = relay_instance_label(
         config_path=config_path,
         environment=environment,
-        prod=schema.connection_is_prod(connection),
+        protected=schema.connection_is_protected(connection),
     )
     if sys.platform == "linux":
         return (

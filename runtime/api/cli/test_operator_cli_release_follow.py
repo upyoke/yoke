@@ -173,7 +173,7 @@ def test_only_the_active_connections_relay_is_machine_active(tmp_path) -> None:
         )
         for env in ("prod", "stage")
     }
-    assert not resolved["prod"].prod
+    assert not resolved["prod"].protected
     assert resolved["prod"].machine_active
     assert not resolved["stage"].machine_active
 

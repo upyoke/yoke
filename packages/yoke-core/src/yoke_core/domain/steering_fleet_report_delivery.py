@@ -112,7 +112,10 @@ def _held_project_ids(conn: Any, session_id: str) -> tuple[int, ...]:
         raw = dict(claim.get("scope") or {}).get("project_id")
         if raw is None:
             continue
-        ids.append(int(raw))
+        from yoke_core.domain.project_retirement import project_is_retired
+
+        if not project_is_retired(conn, int(raw)):
+            ids.append(int(raw))
     return tuple(ids)
 
 

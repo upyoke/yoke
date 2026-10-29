@@ -43,11 +43,11 @@ def _no_named_target(monkeypatch: pytest.MonkeyPatch) -> None:
 
 @pytest.fixture
 def administering_connection(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Select the prod-flagged Postgres connection the leak came through."""
+    """Select the protected Postgres connection the leak came through."""
     _select(
         monkeypatch,
         ADMIN_ENV,
-        {"transport": "local-postgres", "prod": True},
+        {"transport": "local-postgres", "protected": True},
     )
 
 
@@ -56,7 +56,7 @@ def local_connection(monkeypatch: pytest.MonkeyPatch) -> None:
     _select(
         monkeypatch,
         LOCAL_ENV,
-        {"transport": "local-postgres", "prod": False},
+        {"transport": "local-postgres", "protected": False},
     )
 
 
@@ -74,10 +74,10 @@ class TestWhereTheDatabaseWouldLand:
     def test_relayed_prod_connection_hands_out_no_cluster(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        # An https connection is prod-flagged and still cannot receive a
+        # An https connection is protected and still cannot receive a
         # database: it relays. Refusing here would stop every ordinary run of
         # a machine whose selected connection is the hosted product plane.
-        _select(monkeypatch, "prod", {"transport": "https", "prod": True})
+        _select(monkeypatch, "prod", {"transport": "https", "protected": True})
 
         assert authority.administering_scratch_cluster() == ""
 

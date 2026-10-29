@@ -65,7 +65,7 @@ def test_prod_marked_local_connection_still_requires_force(
         "local",
         transport="local-postgres",
         dsn="host=/sock user=yoke dbname=yoke",
-        prod=True,
+        protected=True,
     )
     if missing_secret:
         Path(

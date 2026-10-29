@@ -62,9 +62,7 @@ def installer_campaign_cases_for_target(
         primary_machine=primary_machine, joining_machine=joining_machine
     )
     cases = _fill_template(
-        list(INSTALLER_CAMPAIGN_CASES)
-        + list(recovery)
-        + list(MACHINE_ADMISSION_CASES),
+        list(INSTALLER_CAMPAIGN_CASES) + list(recovery) + list(MACHINE_ADMISSION_CASES),
         fields,
     )
     # Admission journeys serve their own disposable server on the host they run on.

@@ -50,7 +50,7 @@ def engine(tmp_path: Path, monkeypatch):
                     },
                     PROFILE: {
                         "transport": "local-postgres",
-                        "prod": False,
+                        "protected": False,
                         "credential_source": {
                             "kind": "aws_secrets_manager",
                             "secret_arn": "arn:aws:secretsmanager:us-east-1:1:secret:r",

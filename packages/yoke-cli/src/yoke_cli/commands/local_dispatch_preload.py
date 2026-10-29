@@ -24,7 +24,7 @@ def ensure_handlers_loaded() -> None:
 
     The gate is transport-keyed on the active connection: an https
     connection relays to the server, so no local handlers load; a
-    prod-flagged postgres connection is operator-only by doctrine, so
+    protected postgres connection is operator-only by doctrine, so
     this pre-load declines it; any other local-postgres connection is
     a local universe whose in-process dispatch is the product path, so
     the engine's handler registry loads. A machine without the engine
@@ -38,7 +38,7 @@ def ensure_handlers_loaded() -> None:
             return
     except Exception:
         return
-    if _active_connection_is_prod_postgres():
+    if _active_connection_is_protected_postgres():
         return
     try:
         register = importlib.import_module(
@@ -50,8 +50,8 @@ def ensure_handlers_loaded() -> None:
     _converge_local_universe()
 
 
-def _active_connection_is_prod_postgres() -> bool:
-    """True when the active connection is prod-flagged local postgres.
+def _active_connection_is_protected_postgres() -> bool:
+    """True when the active connection is protected local postgres.
 
     Prod postgres stays operator-only: the sanctioned admin surfaces
     drive it explicitly, so this client-side pre-load declines to
@@ -60,7 +60,7 @@ def _active_connection_is_prod_postgres() -> bool:
     try:
         from yoke_cli.config import machine_config
         from yoke_contracts.machine_config.schema import (
-            connection_is_prod,
+            connection_is_protected,
             POSTGRES_TRANSPORTS,
         )
 
@@ -68,7 +68,7 @@ def _active_connection_is_prod_postgres() -> bool:
     except Exception:
         return False
     transport = str(connection.get("transport") or "").strip()
-    return transport in POSTGRES_TRANSPORTS and connection_is_prod(connection)
+    return transport in POSTGRES_TRANSPORTS and connection_is_protected(connection)
 
 
 def _converge_local_universe() -> None:

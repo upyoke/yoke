@@ -6,7 +6,7 @@ import subprocess
 from pathlib import Path
 
 from yoke_cli.config import machine_config
-from yoke_contracts.machine_config.schema import connection_is_prod
+from yoke_contracts.machine_config.schema import connection_is_protected
 from yoke_harness.session_relay_runtime import RelayExecutionContext
 
 
@@ -66,7 +66,7 @@ def private_route_qualification_allows(
         connection = machine_config.active_connection()
     except Exception:
         return False
-    if environment != "stage" or connection_is_prod(connection):
+    if environment != "stage" or connection_is_protected(connection):
         return False
     if (
         grant.project_id != context.project_id

@@ -8,7 +8,7 @@ from yoke_contracts.machine_config.credential_sources import (
     TOKEN_CREDENTIAL_KINDS,
     validate_credential_source,
 )
-from yoke_contracts.machine_config.schema_connections import PROD_FLAG_KEY
+from yoke_contracts.machine_config.schema_connections import PROTECTED_FLAG_KEY
 from yoke_contracts.machine_config.schema_projects import (
     ValidationIssue,
     _error,
@@ -51,14 +51,14 @@ def validate_connection(
         )
     else:
         issues.extend(validate_credential_source(source, prefix=prefix))
-    if PROD_FLAG_KEY in connection and not isinstance(
-        connection.get(PROD_FLAG_KEY), bool
+    if PROTECTED_FLAG_KEY in connection and not isinstance(
+        connection.get(PROTECTED_FLAG_KEY), bool
     ):
         issues.append(
             _error(
-                "prod_flag_invalid",
-                f"{prefix}.{PROD_FLAG_KEY} must be a boolean when present",
-                path=f"{prefix}.{PROD_FLAG_KEY}",
+                "protected_flag_invalid",
+                f"{prefix}.{PROTECTED_FLAG_KEY} must be a boolean when present",
+                path=f"{prefix}.{PROTECTED_FLAG_KEY}",
             )
         )
     if str(transport) in POSTGRES_TRANSPORTS:

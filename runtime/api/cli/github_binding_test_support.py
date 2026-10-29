@@ -20,7 +20,7 @@ def _two_service_config(tmp_path: Path) -> Path:
     def connection(name: str) -> dict[str, object]:
         return {
             "transport": "https",
-            "prod": False,
+            "protected": False,
             "api_url": f"https://{name}.yoke.example/v1",
             "credential_source": {
                 "kind": "token_file",

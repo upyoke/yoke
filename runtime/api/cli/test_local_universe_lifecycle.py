@@ -40,7 +40,7 @@ def test_local_demo_seed_uses_non_prod_local_connection(
                 "connections": {
                     "local": {
                         "transport": "local-postgres",
-                        "prod": False,
+                        "protected": False,
                         "credential_source": {
                             "kind": "dsn_file",
                             "path": str(dsn),
@@ -104,7 +104,7 @@ def test_local_demo_seed_refuses_prod_local_connection(
                 "connections": {
                     "prod-db-admin": {
                         "transport": "local-postgres",
-                        "prod": True,
+                        "protected": True,
                         "credential_source": {
                             "kind": "dsn_file",
                             "path": str(dsn),

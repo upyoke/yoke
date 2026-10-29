@@ -277,7 +277,7 @@ def _configure_admin_connection(
             env_name,
             transport="local-postgres",
             dsn=dsn,
-            prod=False,
+            protected=False,
             path=config_path,
         )
         should_merge_metadata = bool(postgres) or bool(authority)

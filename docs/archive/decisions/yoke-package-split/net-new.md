@@ -38,12 +38,12 @@ tree (Agent D).
 - **Env classification, NOT DSN host inspection.** The SSH tunnel makes Aurora
   appear as `127.0.0.1`, so host-sniffing cannot distinguish local from tunneled
   prod. Authority is the **prod flag on the connected-env binding**.
-- **NET-NEW predicate:** no `is_prod`/`prod_flag` field exists on the connection
-  contract today. Add an explicit `prod: bool` flag to the connected-env binding
+- **NET-NEW predicate:** no `is_protected`/`prod_flag` field exists on the connection
+  contract today. Add an explicit `protected: bool` flag to the connected-env binding
   (`machine_config.schema` + `yoke_connected_env.load_active` at L89), default
   `false`, true for the `prod`/`cloud-prod` envs. `connect()` consults it: a
   `local-postgres`-transport connection (`POSTGRES_TRANSPORTS={"local-postgres"}`)
-  bound to a prod-flagged env raises typed `prod is API-only`; a `local-postgres`
+  bound to a protected env raises typed `prod is API-only`; a `local-postgres`
   connection when `yoke_core` is absent raises `local-postgres requires source-dev
   core`. No operator input needed — the spec mandates this classification; the only
   net-new design choice (which attribute marks prod) is settled as an explicit flag.

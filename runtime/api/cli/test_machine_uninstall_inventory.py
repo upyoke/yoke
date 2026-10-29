@@ -66,7 +66,7 @@ def test_only_registered_installed_checkouts_are_listed(machine, tmp_path):
                 },
                 "connections": {
                     "one": {"transport": "https"},
-                    "admin": {"transport": "local-postgres", "prod": True},
+                    "admin": {"transport": "local-postgres", "protected": True},
                 },
             }
         )

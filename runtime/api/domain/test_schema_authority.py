@@ -1,7 +1,7 @@
 """A process that does not serve a database must not change its schema.
 
 The failure being covered is not hypothetical: an ordinary command run from a
-workstation against a prod-flagged connection applied the ordered history to a
+workstation against a protected connection applied the ordered history to a
 production control plane, moving it ahead of every build reading it. The guard
 therefore keys on the connection rather than on which command reached it, and
 these tests exercise the kernels themselves — a refusal that fires before the
@@ -30,7 +30,7 @@ SERVED_ENV = "prod"
 
 @pytest.fixture
 def prod_connection(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Select a prod-flagged connection for the duration of one test."""
+    """Select a protected connection for the duration of one test."""
     monkeypatch.setattr(
         schema_authority.machine_config_runtime,
         "active_env",
@@ -39,7 +39,7 @@ def prod_connection(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(
         schema_authority.machine_config_runtime,
         "active_connection",
-        lambda **_kwargs: {"transport": "local-postgres", "prod": True},
+        lambda **_kwargs: {"transport": "local-postgres", "protected": True},
     )
 
 
@@ -53,12 +53,12 @@ def local_connection(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(
         schema_authority.machine_config_runtime,
         "active_connection",
-        lambda **_kwargs: {"transport": "local-postgres", "prod": False},
+        lambda **_kwargs: {"transport": "local-postgres", "protected": False},
     )
 
 
 class TestConnectionDecidesAuthority:
-    def test_prod_flagged_connection_is_named(self, prod_connection: None) -> None:
+    def test_protected_flagged_connection_is_named(self, prod_connection: None) -> None:
         assert schema_authority.prod_flagged_connection() == PROD_ENV
 
     def test_local_connection_carries_no_refusal(self, local_connection: None) -> None:
@@ -181,8 +181,8 @@ def _select(
 
 PAIRED_UNIVERSE: dict[str, dict[str, object]] = {
     SERVED_ENV: {"transport": "https"},
-    PROD_ENV: {"transport": "local-postgres", "prod": True},
-    "local": {"transport": "local-postgres", "prod": False},
+    PROD_ENV: {"transport": "local-postgres", "protected": True},
+    "local": {"transport": "local-postgres", "protected": False},
 }
 
 
@@ -267,8 +267,8 @@ class TestChildCommandsDoNotInheritAdministeringAuthority:
             monkeypatch,
             tmp_path,
             connections={
-                "solo": {"transport": "local-postgres", "prod": True},
-                "local": {"transport": "local-postgres", "prod": False},
+                "solo": {"transport": "local-postgres", "protected": True},
+                "local": {"transport": "local-postgres", "protected": False},
             },
             active_env="solo",
             override="solo",

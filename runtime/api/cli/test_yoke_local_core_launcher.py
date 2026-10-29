@@ -161,7 +161,7 @@ def test_start_builds_from_checkout_and_writes_config_without_leaking_token(
     connection = config_payload["connections"]["local-core"]
     assert connection["transport"] == "https"
     assert connection["api_url"] == "http://127.0.0.1:19001"
-    assert connection["prod"] is False
+    assert connection["protected"] is False
     secret_path = Path(connection["credential_source"]["path"])
     assert secret_path == machine_home / "secrets" / "local-core.token"
     assert secret_path.read_text(encoding="utf-8") == TOKEN + "\n"

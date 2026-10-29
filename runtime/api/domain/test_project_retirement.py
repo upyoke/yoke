@@ -83,7 +83,7 @@ def test_active_inventory_hides_retired_but_direct_read_remains(conn):
     direct = handle_projects_get(project_request({"project": "fixture"}))
     assert direct.primary_success and direct.result_payload["row"]["id"] == 30
     assert 30 not in resolve_session_project_scope(conn)
-    assert resolve_session_project_scope(conn, override=["fixture"]) == [30]
+    assert resolve_session_project_scope(conn, override=["fixture"]) == []
 
 
 def test_retirement_leaves_transaction_commit_with_the_caller(conn):
@@ -231,3 +231,75 @@ def test_preconvergence_lists_preserve_inventory_and_writer_refuses(conn):
     with pytest.raises(ProjectRetirementError, match="boot convergence") as error:
         retire(conn)
     assert error.value.code == "project_retirement_schema_unavailable"
+
+
+@pytest.mark.parametrize(
+    "function_id",
+    [
+        "items.create",
+        "items.update",
+        "items.structured_field.replace",
+        "claims.work.acquire",
+        "session_control.launch.create",
+        "deployment_runs.create",
+    ],
+)
+def test_retired_project_write_admission_names_recovery(conn, function_id):
+    from types import SimpleNamespace
+    from yoke_contracts.api.function_call import FunctionCallRequest
+    from yoke_core.domain.project_write_retirement import check_retirement
+    from yoke_core.domain.yoke_function_permission_types import DispatchPermission
+
+    retire(conn)
+    entry = SimpleNamespace(
+        function_id=function_id, version="v1", side_effects=("write",)
+    )
+    request = FunctionCallRequest(
+        function=function_id, target={"kind": "project", "project_id": "30"}
+    )
+    denied = check_retirement(
+        conn, entry, request, DispatchPermission(None, 30, "fixture")
+    )
+    assert denied.error.error.code == "project_retired"
+    assert "yoke projects unretire --project 30" in denied.error.error.message
+    set_retirement(conn, "fixture", retired=False, reason="resume work")
+    assert (
+        check_retirement(
+            conn, entry, request, DispatchPermission(None, 30, "fixture")
+        ).error
+        is None
+    )
+
+
+def test_upkeep_and_explicit_watcher_scope_skip_retired_project(conn, monkeypatch):
+    from yoke_core.domain import control_plane_upkeep
+
+    retire(conn)
+    seen = []
+
+    def observe(_conn, projects, **kwargs):
+        seen.extend(projects)
+        return {}
+
+    monkeypatch.setattr(control_plane_upkeep, "observe_pending_landings", observe)
+    monkeypatch.setattr(control_plane_upkeep, "observe_pending_ci_runs", observe)
+    control_plane_upkeep.observe_pending_github_work(conn)
+    assert 30 not in seen
+    assert resolve_session_project_scope(conn, override=["fixture"]) == []
+
+
+def test_retired_project_webhook_does_not_touch_binding(conn):
+    from yoke_core.domain.project_github_binding_lifecycle import (
+        cmd_apply_project_github_binding_lifecycle,
+    )
+
+    retire(conn)
+    result = cmd_apply_project_github_binding_lifecycle(
+        "fixture",
+        installation_id="1",
+        repository_id="2",
+        installation_status="active",
+        repository_available=True,
+        conn=conn,
+    )
+    assert result == {"project_id": 30, "skipped": "project_retired"}

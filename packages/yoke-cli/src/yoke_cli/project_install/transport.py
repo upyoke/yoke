@@ -29,7 +29,7 @@ from yoke_contracts.machine_config.schema import (
     CREDENTIAL_KIND_ENV,
     MachineConfigContractError,
     POSTGRES_TRANSPORTS,
-    connection_is_prod,
+    connection_is_protected,
 )
 
 _FETCH_TIMEOUT_S = DEFAULT_JSON_REQUEST_TIMEOUT_SECONDS
@@ -79,7 +79,7 @@ def _fetch_bundle_local_postgres(
     config_path: str | Path | None,
 ) -> Dict[str, Any]:
     env_name = str(connection.get("env") or "<env>")
-    if connection_is_prod(connection):
+    if connection_is_protected(connection):
         raise ProjectInstallError(
             f"env {env_name!r} is a prod-marked local-postgres connection; "
             "`yoke project install` only builds local bundles from non-prod "

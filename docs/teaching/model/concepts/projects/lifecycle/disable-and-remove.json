@@ -1,8 +1,8 @@
 {
  "id": "disable-and-remove",
  "title": "Disable and remove",
- "status": "draft-copy",
+ "status": "observed",
  "page": "projects",
  "position": 3,
- "summary": "yoke projects retire hides a project without deleting history. It refuses with project_retirement_blocked while open items, created or executing deployment runs or held claims remain, naming each claim with its holder session and the yoke claims work release --claim-id N --reason TEXT command a steering-seat holder runs to free a claim whose holder ended. Settle the named blockers, then retry; yoke projects unretire restores the project."
+ "summary": "Retirement preserves readable history but refuses item writes, claims, launches and deployment creation with project_retired. Upkeep, fleet reports and hosted GitHub lifecycle delivery skip retired projects; unretire restores admission. Open items, active runs and held claims block retirement."
 }

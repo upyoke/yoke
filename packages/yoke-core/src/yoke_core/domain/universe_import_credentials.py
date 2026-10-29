@@ -249,6 +249,37 @@ def replace_imported_credentials(
     )
 
 
+def revoke_imported_credentials(conn: psycopg.Connection) -> dict[str, int]:
+    """Revoke copied authority without choosing an admin or issuing a token.
+
+    The hosted importer owns the transaction and provisions destination
+    authority separately. Audit each token against its existing actor.
+    """
+    from yoke_core.domain.db_savepoint import savepoint
+
+    now = instant_parameter(conn, _now())
+    with savepoint(conn, "imported_credentials", owns=False):
+        tokens = conn.execute(
+            "WITH revoked AS (UPDATE api_tokens SET status='revoked', "
+            "revoked_at=%s WHERE status <> 'revoked' RETURNING id, actor_id), "
+            "audited AS (INSERT INTO api_token_audit "
+            "(api_token_id, actor_id, project_id, event_type, outcome, "
+            "permission_key, diagnostic_metadata, created_at) "
+            "SELECT id, actor_id, NULL, 'revoked', 'success', NULL, %s, %s "
+            "FROM revoked RETURNING 1) SELECT COUNT(*) FROM audited",
+            (now, json_helper.dumps_compact({"reason": "tenant_import"}), now),
+        ).fetchone()[0]
+        sessions = conn.execute(
+            "WITH revoked AS (UPDATE web_sessions SET revoked_at=%s "
+            "WHERE revoked_at IS NULL RETURNING 1) SELECT COUNT(*) FROM revoked",
+            (now,),
+        ).fetchone()[0]
+    return {
+        "revoked_token_count": int(tokens),
+        "revoked_web_session_count": int(sessions),
+    }
+
+
 def recover_import_credential(conn: psycopg.Connection) -> ImportedCredential:
     """Rotate only prior import/recovery tokens after one-time output loss."""
     return _rotate(
@@ -266,5 +297,6 @@ __all__ = [
     "ImportedCredential",
     "UniverseImportCredentialError",
     "recover_import_credential",
+    "revoke_imported_credentials",
     "replace_imported_credentials",
 ]

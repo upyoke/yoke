@@ -7,7 +7,7 @@ therefore renders a universe nobody pointed it at, and neither the page
 nor a screenshot of it says so — the server is real, the page is real,
 only the provenance is wrong.
 
-So this is an allowlist, not a denylist: only a non-prod local-postgres
+So this is an allowlist, not a denylist: only an unprotected local-postgres
 connection may be served, and every other mode refuses by name. An
 unrecognized transport fails closed until it is deliberately admitted.
 
@@ -22,7 +22,7 @@ from typing import Any, Mapping, Optional
 from urllib.parse import urlsplit
 
 from yoke_contracts.machine_config.schema_connections import (
-    connection_is_prod,
+    connection_is_protected,
     local_postgres_envs,
 )
 from yoke_contracts.machine_config.schema_transport import (
@@ -50,7 +50,7 @@ def view_serving_refusal(
     """
     env_label = str(connection.get("env") or "<env>")
     transport = str(connection.get("transport") or "").strip()
-    if transport in POSTGRES_TRANSPORTS and not connection_is_prod(connection):
+    if transport in POSTGRES_TRANSPORTS and not connection_is_protected(connection):
         return None
     if transport == TRANSPORT_HTTPS:
         return (
@@ -65,14 +65,14 @@ def view_serving_refusal(
         )
     if transport in POSTGRES_TRANSPORTS:
         return (
-            f"the connection {env_label!r} is a prod-flagged Postgres "
+            f"the connection {env_label!r} is a protected Postgres "
             "connection: direct prod authority is operator-only, so it is "
             f"not served as a view. {_switch_recipe(payload)}"
         )
     return (
         f"the connection {env_label!r} (transport "
         f"{transport or '<unset>'!r}) is not a mode a view can be served "
-        "over: only a non-prod local-postgres connection is served, because "
+        "over: only an unprotected local-postgres connection is served, because "
         "it is the only one this process reads directly. "
         f"{_switch_recipe(payload)}"
     )

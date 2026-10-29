@@ -10,7 +10,7 @@ from yoke_contracts.machine_config.schema_transport import (
 )
 
 ENV_OVERRIDE = "YOKE_ENV"
-PROD_FLAG_KEY = "prod"
+PROTECTED_FLAG_KEY = "protected"
 #: Label suffix pairing a direct-Postgres admin connection with the https
 #: connection serving the same universe (``prod`` <-> ``prod-db-admin``).
 DB_ADMIN_ENV_SUFFIX = "-db-admin"
@@ -32,21 +32,21 @@ def selected_env(payload: Mapping[str, Any], explicit_env: str | None = None) ->
     return connection_selection(payload, explicit_env=explicit_env)[0]
 
 
-def connection_is_prod(connection: Mapping[str, Any]) -> bool:
-    """Return the explicit prod marker without inferring from names or DSNs."""
-    return connection.get(PROD_FLAG_KEY) is True
+def connection_is_protected(connection: Mapping[str, Any]) -> bool:
+    """Return the real-data marker, including stored pre-rename configs."""
+    return connection.get(PROTECTED_FLAG_KEY, connection.get("prod")) is True
 
 
 def local_postgres_envs(
     payload: Mapping[str, Any] | None,
     *,
-    include_prod: bool = False,
+    include_protected: bool = False,
 ) -> list[str]:
     """Env labels whose connection declares local-postgres.
 
-    Recipe *selection* still defaults to non-prod local Postgres entries.
+    Recipe *selection* still defaults to unprotected local Postgres entries.
     Refusal inventory that must agree with ``yoke env list`` passes
-    ``include_prod=True`` so a prod-flagged admin sibling the recipe just
+    ``include_protected=True`` so a protected admin sibling the recipe just
     named is not omitted from the list.
     """
     if not isinstance(payload, Mapping):
@@ -59,7 +59,7 @@ def local_postgres_envs(
         for env, entry in connections.items()
         if isinstance(entry, Mapping)
         and str(entry.get("transport") or "").strip() in POSTGRES_TRANSPORTS
-        and (include_prod or not connection_is_prod(entry))
+        and (include_protected or not connection_is_protected(entry))
     )
 
 
@@ -130,12 +130,12 @@ def env_override_teaching(
     one-line override recipe.
 
     Recipe *selection* still prefers the selected env's admin sibling, then a
-    non-prod local-postgres fallback — never a random prod database. The
+    unprotected local-postgres fallback — never a random protected database. The
     parenthetical inventory is the full local-postgres set ``yoke env list``
-    would show, including prod-flagged admin connections the recipe just named.
+    would show, including protected admin connections the recipe just named.
     """
     retry_envs = local_postgres_envs(payload)
-    inventory_envs = local_postgres_envs(payload, include_prod=True)
+    inventory_envs = local_postgres_envs(payload, include_protected=True)
     # The sibling that administers the SELECTED env's own universe outranks
     # the configured inventory: a recipe naming another machine-local
     # database sends the operator somewhere their rows do not exist.
@@ -228,9 +228,9 @@ __all__ = [
     "DB_ADMIN_ENV_SUFFIX",
     "ENV_OVERRIDE",
     "MachineConfigContractError",
-    "PROD_FLAG_KEY",
+    "PROTECTED_FLAG_KEY",
     "configured_active_env",
-    "connection_is_prod",
+    "connection_is_protected",
     "env_override_teaching",
     "local_postgres_envs",
     "same_universe_db_admin_env",

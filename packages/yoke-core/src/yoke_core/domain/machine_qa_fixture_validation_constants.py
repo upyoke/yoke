@@ -132,14 +132,14 @@ REMOTE_FIXTURES = {
 EXPECTED_CONNECTIONS = {
     "stage": {
         "transport": "https",
-        "prod": False,
+        "protected": False,
         "api_url": HOSTED_STAGE_API_URL,
         "token_path": "~/.yoke/secrets/stage.token",
         "token_state": "synthetic",
     },
     "prod": {
         "transport": "https",
-        "prod": True,
+        "protected": True,
         "api_url": HOSTED_PROD_API_URL,
         "token_path": "~/.yoke/secrets/prod.token",
         "token_state": "synthetic",

@@ -195,7 +195,7 @@ def test_a_child_process_installing_a_relay_lands_in_the_sandbox(
                 "connections": {
                     "stage": {
                         "transport": "https",
-                        "prod": False,
+                        "protected": False,
                         "api_url": "https://stage.example.test",
                         "credential_source": {
                             "kind": "token_file",

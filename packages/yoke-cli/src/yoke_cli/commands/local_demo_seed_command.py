@@ -1,8 +1,8 @@
-"""``yoke local demo seed``: a few demo backlog items in a non-prod local universe.
+"""``yoke local demo seed``: a few demo backlog items in an unprotected local universe.
 
 The engine half is :mod:`yoke_core.domain.local_demo_seed`, imported
 dynamically like every client-side engine seam; this module parses the
-command and refuses any connection that is not a non-prod local-postgres one.
+command and refuses any connection that is not an unprotected local-postgres one.
 """
 
 from __future__ import annotations
@@ -25,7 +25,7 @@ def local_demo_seed(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke local demo seed",
         description=(
-            "Seed a non-prod local universe with a few demo backlog items "
+            "Seed an unprotected local universe with a few demo backlog items "
             "for installer smoke tests."
         ),
     )
@@ -98,7 +98,7 @@ def _seed_demo_items(
         raise setup.LocalUniverseSetupError(
             f"env {env_name!r} is {transport or 'unconfigured'}, not local-postgres"
         )
-    if contract.connection_is_prod(connection):
+    if contract.connection_is_protected(connection):
         raise setup.LocalUniverseSetupError(
             f"env {env_name!r} is prod-marked; demo seeding is local-only"
         )

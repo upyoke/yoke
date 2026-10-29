@@ -32,7 +32,7 @@ from yoke_core.engines import (
 _PAIRED_CONFIG = {
     "connections": {
         "prod": {"transport": "https"},
-        "prod-db-admin": {"transport": "local-postgres", "prod": True},
+        "prod-db-admin": {"transport": "local-postgres", "protected": True},
         "local": {"transport": "local-postgres"},
     }
 }
@@ -40,7 +40,10 @@ _PAIRED_CONFIG = {
 
 def _ok(payload: dict) -> FunctionCallResponse:
     return FunctionCallResponse(
-        success=True, function="f", version="v1", result=payload,
+        success=True,
+        function="f",
+        version="v1",
+        result=payload,
     )
 
 
@@ -59,7 +62,8 @@ def _bind_connection(monkeypatch, *, active: str, config=None) -> None:
         lambda *a, **k: config if config is not None else _PAIRED_CONFIG,
     )
     monkeypatch.setattr(
-        "yoke_cli.config.machine_config.active_env", lambda *a, **k: active,
+        "yoke_cli.config.machine_config.active_env",
+        lambda *a, **k: active,
     )
 
 
@@ -71,7 +75,8 @@ class TestRegistrySkewDegradation:
     """A client ahead of its server still has to be able to merge."""
 
     def test_retries_in_process_against_the_paired_admin_connection(
-        self, monkeypatch,
+        self,
+        monkeypatch,
     ) -> None:
         _bind_connection(monkeypatch, active="prod")
         monkeypatch.delenv(ENV_OVERRIDE, raising=False)
@@ -120,7 +125,8 @@ class TestRegistrySkewDegradation:
         assert os.environ[ENV_OVERRIDE] == "prod"
 
     def test_without_a_paired_connection_the_server_answer_stands(
-        self, monkeypatch,
+        self,
+        monkeypatch,
     ) -> None:
         """No same-universe database means nothing honest to degrade to."""
         _bind_connection(
@@ -135,8 +141,10 @@ class TestRegistrySkewDegradation:
             function_id="f",
             target=_target(),
             announce=announced.append,
-            dispatch=lambda **kwargs: calls.append(kwargs)
-            or _err("function_version_skew", "unserved", hint="wait for deploy"),
+            dispatch=lambda **kwargs: (
+                calls.append(kwargs)
+                or _err("function_version_skew", "unserved", hint="wait for deploy")
+            ),
         )
 
         assert not result.success
@@ -146,7 +154,8 @@ class TestRegistrySkewDegradation:
         assert announced == []
 
     def test_an_ordinary_failure_is_never_retried_locally(
-        self, monkeypatch,
+        self,
+        monkeypatch,
     ) -> None:
         _bind_connection(monkeypatch, active="prod")
         calls: list[dict] = []
@@ -155,8 +164,9 @@ class TestRegistrySkewDegradation:
             function_id="f",
             target=_target(),
             announce=lambda _m: None,
-            dispatch=lambda **kwargs: calls.append(kwargs)
-            or _err("claim_required", "acquire a work claim"),
+            dispatch=lambda **kwargs: (
+                calls.append(kwargs) or _err("claim_required", "acquire a work claim")
+            ),
         )
 
         assert not result.success
@@ -173,13 +183,17 @@ class TestVerificationResolution:
             epic_id=None,
             worktree_path=str(tmp_path),
             args=SimpleNamespace(
-                branch="PRJ-7", standalone=True, item_id=7,
+                branch="PRJ-7",
+                standalone=True,
+                item_id=7,
                 local_verification=False,
             ),
         )
 
     def test_an_unserved_function_reports_its_recovery_not_just_a_code(
-        self, monkeypatch, tmp_path,
+        self,
+        monkeypatch,
+        tmp_path,
     ) -> None:
         """A merge blocked by skew must say what would unblock it."""
         monkeypatch.setattr(
@@ -198,16 +212,16 @@ class TestVerificationResolution:
         )
 
         with pytest.raises(RuntimeError) as excinfo:
-            merge_worktree_tests._registered_verification_command(
-                self._ctx(tmp_path)
-            )
+            merge_worktree_tests._registered_verification_command(self._ctx(tmp_path))
 
         message = str(excinfo.value)
         assert "function_version_skew" in message
         assert "prod-db-admin" in message
 
     def test_covering_qa_evidence_skips_ci_dispatch_entirely(
-        self, monkeypatch, tmp_path,
+        self,
+        monkeypatch,
+        tmp_path,
     ) -> None:
         """A verdict on this exact tree is the verification; nothing runs."""
         printed: list[str] = []
@@ -232,7 +246,9 @@ class TestVerificationResolution:
         monkeypatch.setattr(merge_worktree_tests_ci, "_should_route_ci", _never)
         monkeypatch.setattr(merge_worktree_tests_ci, "run_ci_verification", _never)
         monkeypatch.setattr(
-            merge_worktree_tests, "_run_streaming", _never,
+            merge_worktree_tests,
+            "_run_streaming",
+            _never,
         )
 
         assert merge_worktree_tests.run_tests(self._ctx(tmp_path)) is None
@@ -251,7 +267,9 @@ class TestCandidateHeadBinding:
         )
 
     def test_a_plane_without_the_field_binds_to_the_published_candidate(
-        self, monkeypatch, tmp_path,
+        self,
+        monkeypatch,
+        tmp_path,
     ) -> None:
         """An older control plane degrades by name, not by refusing."""
         printed: list[str] = []
@@ -277,7 +295,9 @@ class TestCandidateHeadBinding:
         assert any("no head sha" in line for line in printed)
 
     def test_the_head_read_never_resolves_credentials_on_this_machine(
-        self, monkeypatch, tmp_path,
+        self,
+        monkeypatch,
+        tmp_path,
     ) -> None:
         """App private keys live server-side; a client mint fails there."""
 
@@ -304,10 +324,13 @@ class TestCandidateHeadBinding:
             lambda _worktree, _rev: "same-tree",
         )
 
-        assert merge_worktree_tests_ci._covered_head_sha(
-            project="yoke",
-            repo="acme/widgets",
-            ci_run_id="55",
-            candidate_sha="b" * 40,
-            worktree=tmp_path,
-        ) == "c" * 40
+        assert (
+            merge_worktree_tests_ci._covered_head_sha(
+                project="yoke",
+                repo="acme/widgets",
+                ci_run_id="55",
+                candidate_sha="b" * 40,
+                worktree=tmp_path,
+            )
+            == "c" * 40
+        )

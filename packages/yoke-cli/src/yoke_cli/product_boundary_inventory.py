@@ -2,8 +2,8 @@
 
 The engine (yoke-core) is on every machine; the active connection decides
 whether it runs. Https connections relay every call to the server and keep
-the engine inert; a non-prod local-postgres connection is a local universe
-whose in-process dispatch is the product path; prod-flagged postgres
+the engine inert; an unprotected local-postgres connection is a local universe
+whose in-process dispatch is the product path; protected postgres
 connections stay operator-only. Each row states the expected behavior of a
 command/helper in a product install where the client packages hold no
 static import authority over the engine and dispatch is connection-gated.
@@ -205,7 +205,7 @@ def _disposition(
     if classes & {"source_dev_admin", "unclassified_dynamic_authority_import"}:
         return SOURCE_DEV_ADMIN
     # local_universe_dispatch edges are product-path (in-process dispatch on
-    # a non-prod local universe); rows carrying them keep their command or
+    # an unprotected local universe); rows carrying them keep their command or
     # helper disposition instead of demoting to source-dev/admin.
     if "client_local_harness_adapter" in classes:
         return HOOK_LOCAL_SUBSET
@@ -287,7 +287,7 @@ def _capability(command: str, disposition: str) -> str:
 def _product_install(disposition: str) -> str:
     return {
         PRODUCT_CLIENT: "supported in a product install; engine stays inert",
-        HTTPS_RELAY: "supported via HTTPS relay or in-process on a non-prod local universe",
+        HTTPS_RELAY: "supported via HTTPS relay or in-process on an unprotected local universe",
         CLIENT_LOCAL_HELPER: "supported when local helper dependencies are present",
         HOOK_LOCAL_SUBSET: "supported for installed hook relay/local subset",
         SOURCE_DEV_ADMIN: "outside normal product lane; requires source-dev/admin setup",

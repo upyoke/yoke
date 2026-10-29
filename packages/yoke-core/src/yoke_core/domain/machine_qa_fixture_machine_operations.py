@@ -98,7 +98,7 @@ class MachineQaFixtureMachineOperations:
             connections={
                 parameters["active_env"]: {
                     "transport": parameters["transport"],
-                    "prod": False,
+                    "protected": False,
                     "api_url": parameters["api_url"],
                     "credential_source": {
                         "kind": "token_file",
@@ -129,7 +129,7 @@ class MachineQaFixtureMachineOperations:
                 parameters["api_url"],
                 "--token-file",
                 token_path,
-                "--non-prod",
+                "--unprotected",
                 "--config",
                 config_path,
             ),

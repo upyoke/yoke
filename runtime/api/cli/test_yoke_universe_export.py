@@ -62,7 +62,9 @@ def test_export_json_reports_artifact(monkeypatch, machine_home, tmp_path, capsy
 
 
 def test_export_human_summary_names_artifact_org_and_format(
-    monkeypatch, machine_home, capsys,
+    monkeypatch,
+    machine_home,
+    capsys,
 ):
     monkeypatch.setattr(setup, "_export_engine", _stub_export_engine)
 
@@ -75,19 +77,22 @@ def test_export_human_summary_names_artifact_org_and_format(
 
 
 def test_export_engine_refusal_is_reported_cleanly(
-    monkeypatch, machine_home, capsys,
+    monkeypatch,
+    machine_home,
+    capsys,
 ):
     monkeypatch.setattr(
-        setup, "_export_engine",
+        setup,
+        "_export_engine",
         lambda: _stub_export_engine(
-            error="the active connection 'prod' is prod-flagged",
+            error="the active connection 'prod' is protected",
         ),
     )
 
     assert commands.universe_export([]) == 1
     err = capsys.readouterr().err
     assert "error: " in err
-    assert "prod-flagged" in err
+    assert "protected" in err
 
 
 def test_tool_shaped_resolution_covers_universe_export():
@@ -109,12 +114,15 @@ def test_export_uses_self_host_https_download(monkeypatch, capsys, tmp_path):
     monkeypatch.setattr(
         commands,
         "download_universe",
-        lambda selected, *, out: calls.append((selected, out)) or {
-            "artifact": str(tmp_path / "acme.tar"),
-            "bytes": 12,
-            "format": "universe-tar",
-            "org": "acme",
-        },
+        lambda selected, *, out: (
+            calls.append((selected, out))
+            or {
+                "artifact": str(tmp_path / "acme.tar"),
+                "bytes": 12,
+                "format": "universe-tar",
+                "org": "acme",
+            }
+        ),
     )
 
     assert commands.universe_export(["--out", str(tmp_path), "--json"]) == 0

@@ -155,6 +155,10 @@ Universe-wide settings live under **Universe settings**.
 
 Retired projects are hidden from active listings and pickers. Their historical
 records remain readable under the same project permissions as active projects.
+New item writes, work claims, launches and deployment runs refuse
+`project_retired`; run `yoke projects unretire --project PROJECT` to resume work.
+Upkeep, fleet reports and hosted GitHub lifecycle deliveries skip retired projects.
+Retirement itself refuses while open items, active runs or held claims remain.
 
 ## Checkout GitHub sign-in
 

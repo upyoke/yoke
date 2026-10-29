@@ -121,9 +121,9 @@ Validate archives before moving or uploading them; bounded and disposable
 round-trip recipes are in [Universe portability](universe-portability.md). The
 artifact is one tar carrying the pg_dump custom-format payload and the freeze
 receipt that binds it, so the importer verifies the file by itself. Export
-uses direct DSN authority for the non-prod local universe and the authenticated
+uses direct DSN authority for the unprotected local universe and the authenticated
 server export endpoint for a self-host HTTPS connection. Hosted connections use
-Platform's coordinated dashboard download; prod-flagged Postgres connections
+Platform's coordinated dashboard download; protected Postgres connections
 stay operator-only.
 Local import replaces the active `local` universe after one explicit consent,
 revokes imported remote credentials, and grants the machine owner local admin

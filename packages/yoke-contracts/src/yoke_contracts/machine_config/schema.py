@@ -62,9 +62,9 @@ from yoke_contracts.machine_config.schema_connections import (
     DB_ADMIN_ENV_SUFFIX as DB_ADMIN_ENV_SUFFIX,
     ENV_OVERRIDE as ENV_OVERRIDE,
     MachineConfigContractError as MachineConfigContractError,
-    PROD_FLAG_KEY as PROD_FLAG_KEY,
+    PROTECTED_FLAG_KEY as PROTECTED_FLAG_KEY,
     configured_active_env as configured_active_env,
-    connection_is_prod as connection_is_prod,
+    connection_is_protected as connection_is_protected,
     env_override_teaching as env_override_teaching,
     local_postgres_envs as local_postgres_envs,
     same_universe_db_admin_env as same_universe_db_admin_env,
@@ -113,9 +113,17 @@ def normalize_payload(payload: Mapping[str, Any] | None) -> dict[str, Any]:
     normalize_github_payload(raw, normalized)
     if isinstance(connections, Mapping):
         normalized["connections"] = {
-            str(env): dict(entry) if isinstance(entry, Mapping) else entry
-            for env, entry in connections.items()
+            str(env): _normalize_connection(entry) for env, entry in connections.items()
         }
+    return normalized
+
+
+def _normalize_connection(entry: Any) -> Any:
+    if not isinstance(entry, Mapping):
+        return entry
+    normalized = dict(entry)
+    if "prod" in normalized:
+        normalized.setdefault(PROTECTED_FLAG_KEY, normalized.pop("prod"))
     return normalized
 
 

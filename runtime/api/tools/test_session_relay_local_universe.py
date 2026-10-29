@@ -38,7 +38,7 @@ def _config(tmp_path: Path) -> Path:
     connections = {
         "prod": {
             "transport": "https",
-            "prod": True,
+            "protected": True,
             "api_url": "https://prod.example.test",
             "credential_source": {
                 "kind": "token_file",
@@ -47,7 +47,7 @@ def _config(tmp_path: Path) -> Path:
         },
         "local": {
             "transport": "local-postgres",
-            "prod": False,
+            "protected": False,
             "credential_source": {
                 "kind": "dsn_file",
                 "path": "~/.yoke/secrets/local.dsn",
@@ -110,7 +110,7 @@ def test_local_universe_owns_a_relay_that_runs_the_installed_yoke(
     )
 
     assert not instance.follows_served_release
-    assert not instance.prod
+    assert not instance.protected
     assert instance.label.startswith(NON_PROD_RELAY_LABEL_PREFIX)
 
     document = relay_plist_document(

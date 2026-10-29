@@ -14,11 +14,11 @@ ONLY`` view the dump exports, and the export refuses if the universe's
 authority receipt changed while the dump ran.
 
 Authority for this direct engine is DSN possession. Export is sanctioned when
-the active machine-config connection is a non-prod Postgres connection whose
+the active machine-config connection is an unprotected Postgres connection whose
 DSN this machine holds (the local universe's shape). The product CLI routes an
 authenticated self-host HTTPS connection through the server-held authority and
 routes hosted org admins to the dashboard's ``Move universe`` action. This
-direct engine still refuses HTTPS connections and prod-flagged Postgres
+direct engine still refuses HTTPS connections and protected Postgres
 connections. ``pg_dump`` resolves from the embedded engine's installed
 binaries first, then ``PATH`` — the same rule the cluster lifecycle uses for
 ``initdb``/``pg_ctl``.
@@ -55,12 +55,12 @@ DEFAULT_EXPORT_TIMEOUT_S = 600
 def resolve_export_dsn() -> str:
     """The active connection's DSN when export is sanctioned, else raise.
 
-    Sanction rule: a non-prod Postgres connection whose credentials this
+    Sanction rule: an unprotected Postgres connection whose credentials this
     machine holds. HTTPS refuses because its server-side routing belongs to
-    the product CLI, outside this direct-DSN engine. Prod-flagged Postgres
+    the product CLI, outside this direct-DSN engine. Protected Postgres
     refuses (operator-only).
     """
-    from yoke_contracts.machine_config.schema import connection_is_prod
+    from yoke_contracts.machine_config.schema import connection_is_protected
     from yoke_core.domain import db_backend, yoke_connected_env
 
     try:
@@ -86,9 +86,9 @@ def resolve_export_dsn() -> str:
             "(`yoke --env local universe export`) or create one "
             "(`yoke init --local`)."
         )
-    if connection_is_prod(env.config):
+    if connection_is_protected(env.config):
         raise UniverseExportError(
-            f"the active connection {env.environment!r} is a prod-flagged "
+            f"the active connection {env.environment!r} is a protected "
             "Postgres connection: direct prod database authority is "
             "operator-only, so `yoke universe export` refuses it. Drive "
             "prod data through the sanctioned operator/admin surfaces."

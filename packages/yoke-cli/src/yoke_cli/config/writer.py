@@ -64,7 +64,7 @@ def set_connection(
     dsn: Optional[str] = None,
     dsn_file: Optional[str] = None,
     dsn_stdin: bool = False,
-    prod: Optional[bool] = None,
+    protected: Optional[bool] = None,
     activate: bool = False,
     replace: bool = False,
     path: str | Path | None = None,
@@ -102,12 +102,12 @@ def set_connection(
         entry["transport"] = transport
     if api_url:
         entry["api_url"] = api_url
-    if prod is not None:
-        entry[contract.PROD_FLAG_KEY] = prod
-    elif (is_new or contract.PROD_FLAG_KEY not in entry) and str(
+    if protected is not None:
+        entry[contract.PROTECTED_FLAG_KEY] = protected
+    elif (is_new or contract.PROTECTED_FLAG_KEY not in entry) and str(
         entry.get("transport") or ""
     ).strip() in contract.POSTGRES_TRANSPORTS:
-        entry[contract.PROD_FLAG_KEY] = False
+        entry[contract.PROTECTED_FLAG_KEY] = False
     try:
         source = credential_from_inputs(
             env,

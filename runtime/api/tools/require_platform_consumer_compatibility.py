@@ -107,7 +107,7 @@ def bind_consumer_authority() -> str:
             CONSUMER_CONNECTION,
             "--transport",
             "https",
-            "--prod",
+            "--protected",
             "--api-url",
             HOSTED_PROD_API_URL,
             "--token-stdin",

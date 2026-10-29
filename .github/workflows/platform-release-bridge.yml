@@ -93,7 +93,7 @@ jobs:
           echo "YOKE_ENV=prod" >> "$GITHUB_ENV"
           printf '%s' "$YOKE_RELEASE_API_TOKEN" | yoke connection set prod \
             --transport https \
-            --prod \
+            --protected \
             --api-url "$YOKE_API_BASE" \
             --token-stdin >/dev/null
 
@@ -224,7 +224,7 @@ jobs:
         run: |
           printf '%s' "$YOKE_PLATFORM_RELEASE_API_TOKEN" | yoke connection set prod \
             --transport https \
-            --prod \
+            --protected \
             --api-url "$YOKE_API_BASE" \
             --token-stdin >/dev/null
 
@@ -278,7 +278,7 @@ jobs:
         run: |
           printf '%s' "$YOKE_RELEASE_API_TOKEN" | yoke connection set prod \
             --transport https \
-            --prod \
+            --protected \
             --api-url "$YOKE_API_BASE" \
             --token-stdin >/dev/null
 
@@ -324,7 +324,7 @@ jobs:
           fi
           printf '%s' "$YOKE_PLATFORM_RELEASE_API_TOKEN" | yoke connection set prod \
             --transport https \
-            --prod \
+            --protected \
             --api-url "$YOKE_API_BASE" \
             --token-stdin >/dev/null
           status=0
