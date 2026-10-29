@@ -3,28 +3,9 @@
  "title": "Member closure",
  "status": "observed",
  "text": "Run-bound QA counts and item closure debt are separate populations. Settlement diagnostics reuse current canonical membership and completion checks, name requirement, phase and target, distinguish independent blockers from atomic siblings and other-target deferrals, and never execute close-out during a read. Zero run-bound QA cannot establish that member closure or finalization effects have finished. A run that settles on its own target sets aside a member owing another environment's acceptance: it stamps deployed_to, then sends the member's claim holder (or the project's steering seat) one notice naming each owed requirement, its environment and how to run it. The fleet report row reads `delivered to ENV; owes #N on ENV` once that run succeeded, never `delivering in RUN`. Mid-run close-out and the implemented gate summary read the done write's own terminal-settlement check, so the summary cannot read satisfied while done refuses; accepted run copies of a post-deploy source settle the item's own verdictless capture on it. The item QA walk wakes every waiting member first, including a member held by qa_configuration_refused, then closes accepted members in order and stops starting work after five seconds, so a slow close-out never delays another member's wake. A refused close-out never stops the members after it. Each member route is read fresh immediately before its close-out; a member the budget skipped closes on a later dispatch or at settlement and never holds the stage. A member its owner closed before close-out reached it counts as closed and sends no notice. A refused close-out wakes the owner with the refusal headline and each blocking record line, and retries by itself when that record settles (verdict, waiver, supersession, plan withdrawal, plan execution end); a new refusal reason wakes the owner again. Verdict callbacks defer close-out without an acceptance or failure notice while the member has a live deployment-stage plan execution, including the delivering execution; stage settlement closes the member after it ends.",
- "commands": [
-  "yoke deployment-runs get"
- ],
- "functions": [
-  "deployment_runs.get"
- ],
- "sources": [
-  "docs/public/deployments/qa-dispatch.md",
-  "packages/yoke-core/src/yoke_core/domain/deployment_run_completion_preview.py",
-  "packages/yoke-core/src/yoke_core/domain/deployment_qa_stage_dispatch.py",
-  "runtime/api/domain/test_deployment_qa_stage_dispatch_close_order.py",
-  "runtime/api/domain/test_deployment_run_completion_preview.py",
-  "docs/public/sessions/steering-report.md",
-  "packages/yoke-core/src/yoke_core/domain/deployment_run_other_target_members.py",
-  "packages/yoke-core/src/yoke_core/domain/steering_fleet_report_landed_phrases.py",
-  "runtime/api/domain/test_run_settles_on_own_target.py",
-  "packages/yoke-core/src/yoke_core/domain/deployment_member_close_out_retry.py",
-  "packages/yoke-core/src/yoke_core/domain/deployment_close_out_failure_summary.py",
-  "packages/yoke-core/src/yoke_core/domain/qa_gate_summary_rows.py",
-  "runtime/api/domain/test_member_close_out_retry.py",
-  "runtime/api/domain/test_source_capture_answered_by_run_copy.py"
- ],
+ "commands": ["yoke deployment-runs get"],
+ "functions": ["deployment_runs.get"],
+ "sources": ["docs/public/deployments/qa-dispatch.md", "packages/yoke-core/src/yoke_core/domain/deployment_run_completion_preview.py", "packages/yoke-core/src/yoke_core/domain/deployment_qa_stage_dispatch.py", "runtime/api/domain/test_deployment_qa_stage_dispatch_close_order.py", "runtime/api/domain/test_deployment_run_completion_preview.py", "docs/public/sessions/steering-report.md", "packages/yoke-core/src/yoke_core/domain/deployment_run_other_target_members.py", "packages/yoke-core/src/yoke_core/domain/steering_fleet_report_landed_phrases.py", "runtime/api/domain/test_run_settles_on_own_target.py", "packages/yoke-core/src/yoke_core/domain/deployment_member_close_out_retry.py", "packages/yoke-core/src/yoke_core/domain/deployment_close_out_failure_summary.py", "packages/yoke-core/src/yoke_core/domain/qa_gate_summary_rows.py", "runtime/api/domain/test_member_close_out_retry.py", "runtime/api/domain/test_source_capture_answered_by_run_copy.py"],
  "page": "delivery-outcomes",
  "position": 5
 }
