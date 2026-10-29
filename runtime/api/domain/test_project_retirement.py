@@ -304,4 +304,10 @@ def test_retired_project_webhook_does_not_touch_binding(conn):
         repository_available=True,
         conn=conn,
     )
-    assert result == {"project_id": 30, "skipped": "project_retired"}
+    from yoke_core.domain.handlers.project_github_binding import (
+        ProjectGithubBindingStatusResponse,
+    )
+
+    assert result["skipped"] == "project_retired"
+    assert result["project"] == "fixture"
+    assert not ProjectGithubBindingStatusResponse.model_validate(result).bound

@@ -64,7 +64,14 @@ def cmd_apply_project_github_binding_lifecycle(
         from yoke_core.domain.project_retirement import project_is_retired
 
         if project_is_retired(conn, ident.id):
-            return {"project_id": ident.id, "skipped": "project_retired"}
+            from yoke_core.domain.project_github_binding import (
+                cmd_project_github_binding_status,
+            )
+
+            return {
+                **cmd_project_github_binding_status(project, conn=conn),
+                "skipped": "project_retired",
+            }
         installation = query_one(
             conn,
             "SELECT permissions, status FROM github_app_installations "

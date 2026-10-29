@@ -83,6 +83,8 @@ def retire_shared_launchd(instance, *, home, runner, uid):
         return
     try:
         document = plistlib.loads(_read(path))
+        if document.get("Label") != RELAY_BASE_LABEL:
+            raise _refuse("the shared launchd label differs from its owned path")
         owned = _owned(
             instance,
             document.get("EnvironmentVariables", {}),

@@ -112,3 +112,13 @@ def test_unreadable_document_is_preserved(instance, tmp_path, platform):
     with pytest.raises(launchd.RelayInstallError, match="retirement_blocked"):
         _retire(instance, tmp_path, platform)
     assert path.read_text() == "invalid"
+
+
+def test_mismatched_launchd_label_preserves_service_document(instance, tmp_path):
+    path = _document(instance, tmp_path, "launchd")
+    document = plistlib.loads(path.read_bytes())
+    document["Label"] = "another.service"
+    path.write_bytes(plistlib.dumps(document))
+    with pytest.raises(launchd.RelayInstallError, match="label differs"):
+        _retire(instance, tmp_path, "launchd")
+    assert plistlib.loads(path.read_bytes())["Label"] == "another.service"
