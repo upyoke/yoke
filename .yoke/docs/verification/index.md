@@ -125,8 +125,7 @@ yoke qa requirement add --item PREFIX-N --method-id command-ci \
 ```
 
 When inputs carry `product_ref`, QA checks the full 40-hex commit on the
-producer remote before dispatch. `product_ref: "main"` resolves to its current
-main SHA per execution, or refuses `product_ref_unverified`. The existing
+producer remote before preparing a dispatch. The workflow's existing
 `product_repo` input takes precedence; otherwise the consumer item must have
 one upstream cross-project companion project with a GitHub repository binding.
 Missing or ambiguous repositories refuse by name. `product_ref_unpublished`
@@ -161,7 +160,9 @@ evidence. Adoption and attachment are therefore skipped, and the gate
 dispatches the only run whose inputs are known. A `pull_request` run carries
 no dispatch inputs at all, so a project verifying through its merge queue
 refuses the declaration by name instead of recording a proof it cannot make.
-Cases declaring no inputs adopt and attach exactly as before.
+Cases declaring no inputs adopt completed successful runs and attach to
+in-progress runs. Failed, cancelled and timed-out runs request a fresh dispatch
+on the same commit; the rejected run identifies that retry.
 
 ## When the project has no suite
 

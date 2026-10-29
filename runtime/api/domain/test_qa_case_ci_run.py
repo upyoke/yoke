@@ -73,16 +73,11 @@ def test_no_pull_request_run_dispatches_and_records_the_result(wired):
     assert recorder.payload("qa.run.complete")["verdict"] == "pass"
 
 
-@pytest.mark.parametrize(
-    ("conclusion", "verdict"), [("success", "pass"), ("failure", "fail")],
-)
-def test_completed_exact_pull_request_run_is_reused_without_dispatch(
-    wired, conclusion, verdict,
-):
-    """Both verdicts bind: a red run is an answer, not a run to retry."""
+def test_completed_successful_run_is_reused_without_dispatch(wired):
+    """A successful proof on this exact commit needs no new dispatch."""
     checkout, recorder, _ = wired
     covering = qa_case_ci_lane.WorkflowRun(
-        "77", "completed", conclusion,
+        "77", "completed", "success",
         "https://github.test/actions/runs/77", "a" * 40,
     )
     dispatch = mock.Mock(side_effect=AssertionError("must not dispatch"))
@@ -96,7 +91,7 @@ def test_completed_exact_pull_request_run_is_reused_without_dispatch(
             checkout, dispatch=dispatch, await_result=await_result,
         )
 
-    assert result["verdict"] == verdict
+    assert result["verdict"] == "pass"
     assert result["run_url"] == covering.html_url
     assert result["ci_run_source"] == "adopted"
     evidence = json.loads(recorder.payload("qa.run.add")["raw_result"])
@@ -106,9 +101,9 @@ def test_completed_exact_pull_request_run_is_reused_without_dispatch(
 
 
 @pytest.mark.parametrize(
-    "conclusion", ["cancelled", "timed_out", "startup_failure"],
+    "conclusion", ["failure", "cancelled", "timed_out", "startup_failure"],
 )
-def test_a_run_that_reached_no_verdict_is_not_reused_as_evidence(
+def test_an_unsuccessful_run_is_not_reused_as_evidence(
     wired, conclusion,
 ):
     """The gate reaches green at the same commit, without a new commit."""

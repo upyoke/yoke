@@ -3,9 +3,9 @@
 A gate run is 13-14 minutes of shared CI capacity, and GitHub already
 holds a durable record of every run keyed by workflow and commit. So
 before the gate dispatches anything it asks that record what has already
-happened to the tree in front of it: a concluded run on the exact commit
+happened to the tree in front of it: a successful run on the exact commit
 is *adopted* as the verdict, a run still in flight there is *attached* to
-and polled, and only an unexamined tree is *dispatched*.
+and polled, and a failed or unexamined tree is *dispatched*.
 
 Exactness is the whole safety argument. The lookup filters on the head
 SHA server-side and this module checks it again, because a run on any
@@ -14,9 +14,9 @@ one.
 
 Adoption is also the recovery when a gate invocation dies mid-poll: the
 local process is gone but its run is not, so the next invocation finds
-the concluded run and records its verdict instead of paying for the same
-answer twice. Attachment is the same insight one step earlier — a second
-invocation while the first run is still going joins it rather than
+a successful run and records its verdict instead of paying for the same
+answer twice. Failed, cancelled and timed-out runs require a fresh dispatch.
+Attachment is the same insight one step earlier — a second invocation while the first run is still going joins it rather than
 racing a duplicate.
 """
 
@@ -25,14 +25,13 @@ from __future__ import annotations
 import json
 from typing import Mapping, Optional
 
-from yoke_core.domain.qa_case_ci_conclusion import BINDING_CONCLUSIONS
 from yoke_core.domain.qa_case_execution import QaCaseExecutionError
 from yoke_core.domain.qa_case_ci_lane import WorkflowRun
 
 #: This invocation dispatched the run and polled it to a conclusion.
 DISPATCHED = "dispatched"
-#: The run had already concluded when this invocation looked, so no CI
-#: work happened here at all — the verdict is that run's conclusion.
+#: The run had already succeeded when this invocation looked, so no CI
+#: work happened here at all — the verdict is that run's success.
 ADOPTED = "adopted"
 #: The run was already in flight; this invocation polled that run to its
 #: conclusion rather than dispatching a second one on the same commit.
@@ -128,11 +127,10 @@ def classify(
     """Name what *run* lets this invocation do about *head_sha*.
 
     A run on any other commit, or none at all, means this tree is
-    unexamined and has to be dispatched. A completed run that reached a
-    verdict about the tree is adopted; one that stopped without reaching
-    one is not, because adopting it would wedge the gate at this commit —
-    every retry would find the same cancelled run and no green would be
-    reachable short of a new commit. Anything still running is attached
+    unexamined and has to be dispatched. Only a completed successful run
+    is adopted. A failed, cancelled, timed-out or otherwise unsuccessful
+    run needs a fresh dispatch so a retry can reach a new verdict on the
+    same commit. Anything still running is attached
     to, which is the same evidence a moment earlier.
 
     ``required_inputs`` are the candidate inputs the case declares
@@ -149,8 +147,18 @@ def classify(
     if run is None or not run.head_sha or run.head_sha != head_sha:
         return DISPATCHED
     if run.status == "completed":
-        return ADOPTED if run.conclusion in BINDING_CONCLUSIONS else DISPATCHED
+        return ADOPTED if run.conclusion == "success" else DISPATCHED
     return ATTACHED
+
+
+def dispatch_request_id(request_id: str, head_sha: str, run: Optional[WorkflowRun]) -> str:
+    """Give a retry its own identity after a completed unsuccessful run."""
+    if (
+        run and run.head_sha == head_sha
+        and run.status == "completed" and run.conclusion != "success"
+    ):
+        return f"{request_id}:after:{run.run_id}"
+    return request_id
 
 
 __all__ = [
@@ -161,4 +169,5 @@ __all__ = [
     "SOURCES",
     "classify",
     "find_run_for_tree",
+    "dispatch_request_id",
 ]

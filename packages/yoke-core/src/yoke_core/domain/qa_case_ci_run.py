@@ -128,9 +128,7 @@ def execute_ci_case(
     )
     entry_run_base = lane.queue_target
     tree = verification_tree_binding.resolve_tree_identity(checkout)
-    tree = qa_case_ci_source.source_tree(
-        case, checkout, branch, checked_out_branch, tree
-    )
+    tree = qa_case_ci_source.source_tree(case, checkout, branch, checked_out_branch, tree)
     head_sha = tree.head_sha
     target = entry_run_base or qa_case_ci_entry_run.base_branch(project, checkout)
     empty = qa_case_ci_empty_diff.record_pass_if_empty(
@@ -232,7 +230,9 @@ def execute_ci_case(
                     repo=repo,
                     workflow=workflow,
                     branch=branch,
-                    request_id=f"qa-case:{requirement_id}:{head_sha}",
+                    request_id=qa_case_ci_covering_run.dispatch_request_id(
+                        f"qa-case:{requirement_id}:{head_sha}", head_sha, covering_run
+                    ),
                     timeout_seconds=budget,
                     inputs=workflow_inputs,
                 )

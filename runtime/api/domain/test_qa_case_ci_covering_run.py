@@ -131,7 +131,7 @@ def test_a_failed_lookup_refuses_rather_than_reporting_no_run(monkeypatch):
     [
         (None, covering.DISPATCHED),
         (completed_run(LANE_HEAD), covering.ADOPTED),
-        (completed_run(LANE_HEAD, "failure"), covering.ADOPTED),
+        (completed_run(LANE_HEAD, "failure"), covering.DISPATCHED),
         (completed_run(LANE_HEAD, "cancelled"), covering.DISPATCHED),
         (completed_run(LANE_HEAD, "timed_out"), covering.DISPATCHED),
         (completed_run("b" * 40), covering.DISPATCHED),
@@ -156,17 +156,14 @@ def test_a_run_with_no_reported_sha_is_never_adopted():
 # The runner's three paths
 
 
-@pytest.mark.parametrize(
-    ("conclusion", "verdict"), [("success", "pass"), ("failure", "fail")],
-)
-def test_a_concluded_run_is_adopted_without_dispatching_or_polling(
-    wired, monkeypatch, conclusion, verdict,
+def test_a_successful_run_is_adopted_without_dispatching_or_polling(
+    wired, monkeypatch,
 ):
     """The killed-watcher recovery: the verdict costs one lookup, not a suite."""
     checkout, recorder, _ = wired
     monkeypatch.setattr(
         covering, "find_run_for_tree",
-        lambda **k: completed_run(LANE_HEAD, conclusion),
+        lambda **k: completed_run(LANE_HEAD),
     )
     dispatch = mock.Mock(side_effect=AssertionError("must not dispatch"))
     await_run = mock.Mock(side_effect=AssertionError("must not poll"))
@@ -175,7 +172,7 @@ def test_a_concluded_run_is_adopted_without_dispatching_or_polling(
 
     result = qa_case_ci_run.execute_ci_case(ci_case(), checkout_path=checkout)
 
-    assert result["verdict"] == verdict
+    assert result["verdict"] == "pass"
     assert result["ci_run_source"] == "adopted"
     assert result["ci_run_id"] == "77"
     assert result["run_url"] == "https://github.test/actions/runs/77"
@@ -260,3 +257,25 @@ def test_a_lookup_failure_records_a_run_before_refusing(wired, monkeypatch):
     evidence = json.loads(recorder.payload("qa.run.complete")["raw_result"])
     assert evidence["ci_run_source"] == "dispatched"
     assert evidence["ci_run_id"] is None
+
+
+@pytest.mark.parametrize("conclusion", ["failure", "cancelled", "timed_out"])
+def test_an_unsuccessful_run_requests_a_fresh_dispatch(wired, monkeypatch, conclusion):
+    checkout, recorder, _ = wired
+    prior = completed_run(LANE_HEAD, conclusion)
+    monkeypatch.setattr(covering, "find_run_for_tree", lambda **kwargs: prior)
+    dispatch = mock.Mock(return_value="9182736")
+    monkeypatch.setattr(qa_case_ci_lane, "dispatch_workflow", dispatch)
+    monkeypatch.setattr(qa_case_ci_lane, "await_workflow", lambda **kwargs: (0, "success"))
+
+    result = qa_case_ci_run.execute_ci_case(ci_case(), checkout_path=checkout)
+
+    assert result["ci_run_source"] == covering.DISPATCHED
+    assert result["ci_run_id"] == "9182736"
+    assert result["ci_run_id"] != prior.run_id
+    assert result["verdict"] == "pass"
+    dispatch.assert_called_once()
+    assert dispatch.call_args.kwargs["request_id"] == f"qa-case:41:{LANE_HEAD}:after:77"
+    evidence = json.loads(recorder.payload("qa.run.add")["raw_result"])
+    assert evidence["ci_run_source"] == covering.DISPATCHED
+    assert evidence["ci_run_id"] == "9182736"
