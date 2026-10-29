@@ -12,6 +12,7 @@ and the schema-shape digest — before it may rehearse on the release's behalf.
 
 from __future__ import annotations
 
+from yoke_core.domain.deployment_run_recovery_command import deploy_command
 import hashlib
 import subprocess
 import tempfile
@@ -82,7 +83,7 @@ def ensure_commit(repository: str, sha: str) -> str:
     return (
         f"commit {sha} is not in {root} and fetching it from origin failed: "
         f"{(fetched.stderr or fetched.stdout).strip()}. Run `git -C {root} "
-        f"fetch origin {sha}`, then re-drive the run with `yoke watch deploy -- RUN`"
+        f"fetch origin {sha}`, then re-drive the run with `{deploy_command()}`"
     )
 
 

@@ -78,7 +78,7 @@ def test_timeout_returns_the_wait_code_with_recovery() -> None:
 
     assert result[0] == AWAITING_SCOPED_QA
     assert "timed out after 31s" in result[1]
-    assert "re-drive this deployment run with `yoke watch deploy -- RUN` from the QA stage" in result[1]
+    assert "re-drive this deployment run with `yoke --env ENV watch deploy -- RUN-ID` from the QA stage" in result[1]
     assert clock.sleeps == [15, 15, 1]
     assert calls == 4
 
@@ -134,7 +134,7 @@ def test_a_dispatch_blocked_past_the_deadline_ends_the_wait_named() -> None:
     assert "member 42 has no passing run" in result[1]
     assert "timed out after 0.3s awaiting scoped QA" in result[1]
     assert "had no answer when the deadline passed" in result[1]
-    assert "re-drive this deployment run with `yoke watch deploy -- RUN` from the QA stage" in result[1]
+    assert "re-drive this deployment run with `yoke --env ENV watch deploy -- RUN-ID` from the QA stage" in result[1]
 
 
 def test_a_dispatch_failure_inside_the_wait_reaches_the_driver() -> None:

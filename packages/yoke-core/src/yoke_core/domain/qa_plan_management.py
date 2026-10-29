@@ -265,6 +265,12 @@ def _validated_plan_cases(
 ) -> list[dict]:
     """Validate case content and method availability for one plan project."""
     cases = _validated_cases(cases)
+    from yoke_core.domain.qa_plan_attachment_validation import (
+        deployment_plan_is_attached, refuse_deployment_ci_cases,
+    )
+
+    if deployment_plan_is_attached(conn, int(plan["id"])):
+        refuse_deployment_ci_cases(cases)
     marker = _placeholder(conn)
     method_ids = list(dict.fromkeys(case["method_id"] for case in cases))
     cursor = conn.execute(

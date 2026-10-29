@@ -1,5 +1,6 @@
 """Containment-only read for a stale start attestation."""
 
+from yoke_core.domain.deployment_run_recovery_command import deploy_command
 from pydantic import BaseModel
 from yoke_contracts.api.function_call import HandlerOutcome
 from yoke_core.domain.handlers.deployment_common import error, run_id
@@ -35,7 +36,7 @@ def handle(request):
     except (CandidateContainmentRefusal, LookupError, ValueError) as exc:
         return error(
             "containment_basis_invalid",
-            str(exc) + "; repair the named source, then re-drive the run with `yoke watch deploy -- RUN`",
+            str(exc) + f"; repair the named source, then re-drive the run with `{deploy_command(resolved)}`",
         )
     return HandlerOutcome(
         result_payload={"candidate_containment_basis": basis}, primary_success=True

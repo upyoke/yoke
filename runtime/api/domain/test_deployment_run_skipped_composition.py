@@ -121,7 +121,7 @@ def test_an_issue_rolled_back_to_implemented_stays_release_ready(
     }
 
 
-@pytest.mark.parametrize("status", ["implementing", "reviewing-implementation"])
+@pytest.mark.parametrize("status", ["implementing"])
 def test_a_carried_dash_before_release_is_skipped_and_warned(
     test_db: Any, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, status: str
 ) -> None:
@@ -137,10 +137,11 @@ def test_a_carried_dash_before_release_is_skipped_and_warned(
     assert f"{ref} (status={status})" in message
 
 
-def test_a_carried_dash_at_its_release_stage_is_enrolled(
-    test_db: Any, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+@pytest.mark.parametrize("status", ["reviewing-implementation", "release"])
+def test_a_carried_dash_with_a_current_landing_is_enrolled(
+    test_db: Any, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, status: str
 ) -> None:
-    _carried_dash_landing(test_db, tmp_path, monkeypatch, status="release")
+    _carried_dash_landing(test_db, tmp_path, monkeypatch, status=status)
 
     ok, message = cmd_validate_composition("run-candidate")
 

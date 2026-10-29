@@ -10,6 +10,8 @@ decision is confirmed with a constant re-check, or made again there.
 
 from __future__ import annotations
 
+from yoke_core.domain.deployment_run_landed_closeout import carried_release_members
+
 from dataclasses import dataclass, replace
 from typing import Any
 
@@ -18,7 +20,6 @@ from yoke_core.domain.deployment_run_composition_basis import (
     lock_snapshot_rows,
 )
 from yoke_core.domain.deployment_run_composition_freeze import (
-    items_requiring_release_membership,
     member_ids,
 )
 from yoke_core.domain.deployment_run_dependency_readiness import (
@@ -121,7 +122,7 @@ def decide_carried_enrollment(
         carried = sorted(
             int(row[0]) for row in rows if int(row[1]) in rebound_project_ids
         )
-    required = items_requiring_release_membership(conn, carried)
+    required = carried_release_members(conn, carried)
     candidates = [
         item_id
         for item_id in carried

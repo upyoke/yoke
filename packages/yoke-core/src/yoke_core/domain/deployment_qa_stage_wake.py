@@ -177,20 +177,16 @@ def run_stage_wait_message(
     names_cases: bool,
 ) -> str:
     """The run-scoped counterpart to :func:`stage_wait_message`."""
+    from yoke_core.domain.deployment_run_recovery_command import qualify_commands, deploy_command
+
     context = _execution_context(target_tier=target_tier, revision=revision)
     addressed = route_phrase(route)
-    return (
+    return qualify_commands(
         f"Deployment run {run_id} reached run-scoped QA stage {stage_name!r} "
-        f"for {context}. Reaching {addressed}: the deploy driver owns this "
-        "run-scoped inspection. Inspect the live target as an agent or "
-        "assign a capable QA agent through Yoke, then record evidence and "
-        f"verdict for this run and stage ({reasons}). Run its cases naming "
-        "the stage, which is what this stage credits: 'yoke watch qa-plan -- "
-        f"--deployment-run-id {run_id} --stage {stage_name}"
-        f"{_plan_selection(names_cases)} "
-        f"'. {HOST_WAIT_TEACHING} Then re-drive the same "
-        f"run with `yoke watch deploy -- {run_id}`. Check "
-        f"'yoke deployment-runs get {run_id}' for the current state."
+        f"for {context}. Reaching {addressed}: the driver runs automatic cases. "
+        f"Review or manual evidence remains pending ({reasons}). Resolve the "
+        "named review or evidence requirement, then re-drive the same run with "
+        f"`{deploy_command(run_id)}`. Check 'yoke deployment-runs get {run_id}'."
     )
 
 

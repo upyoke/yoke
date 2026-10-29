@@ -254,11 +254,11 @@ def test_scoped_subjects_reject_blank_stage_names(test_db) -> None:
 
 
 def test_invariant_rejects_live_index_without_human_review_state(test_db) -> None:
-    index = "idx_qa_plan_executions_deployment_stage_active"
+    index = "idx_qa_plan_executions_deployment_stage_target_active"
     test_db.execute(f'DROP INDEX "{index}"')
     test_db.execute(
         f"CREATE UNIQUE INDEX {index} "
-        "ON qa_plan_executions(deployment_run_id,deployment_stage,session_id) "
+        "ON qa_plan_executions(deployment_run_id,deployment_stage,session_id,execution_target_digest) "
         "WHERE deployment_run_id IS NOT NULL "
         "AND deployment_stage IS NOT NULL "
         "AND deployment_member_item_id IS NULL "
@@ -269,11 +269,11 @@ def test_invariant_rejects_live_index_without_human_review_state(test_db) -> Non
 
 
 def test_invariant_rejects_same_name_non_unique_index(test_db) -> None:
-    index = "idx_qa_plan_executions_deployment_stage_active"
+    index = "idx_qa_plan_executions_deployment_stage_target_active"
     test_db.execute(f'DROP INDEX "{index}"')
     test_db.execute(
         f"CREATE INDEX {index} "
-        "ON qa_plan_executions(deployment_run_id,deployment_stage,session_id) "
+        "ON qa_plan_executions(deployment_run_id,deployment_stage,session_id,execution_target_digest) "
         "WHERE deployment_run_id IS NOT NULL "
         "AND deployment_stage IS NOT NULL "
         "AND deployment_member_item_id IS NULL "
@@ -284,11 +284,11 @@ def test_invariant_rejects_same_name_non_unique_index(test_db) -> None:
 
 
 def test_invariant_rejects_wider_index_predicate(test_db) -> None:
-    index = "idx_qa_plan_executions_deployment_stage_active"
+    index = "idx_qa_plan_executions_deployment_stage_target_active"
     test_db.execute(f'DROP INDEX "{index}"')
     test_db.execute(
         f"CREATE UNIQUE INDEX {index} "
-        "ON qa_plan_executions(deployment_run_id,deployment_stage,session_id) "
+        "ON qa_plan_executions(deployment_run_id,deployment_stage,session_id,execution_target_digest) "
         "WHERE (deployment_run_id IS NOT NULL "
         "AND deployment_stage IS NOT NULL "
         "AND deployment_member_item_id IS NULL "

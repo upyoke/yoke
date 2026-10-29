@@ -87,8 +87,6 @@ def qa_plan_materialize_for_item(args: List[str]) -> int:
         return usage_error("--deployment-run-id requires --plan")
     if parsed.deployment_run_id and parsed.transition:
         return usage_error("--deployment-run-id does not accept --transition")
-    if parsed.deployment_run_id and not parsed.project:
-        return usage_error("--deployment-run-id requires --project")
     target = (
         item_target("item", parsed.item, parsed.project)
         if parsed.item

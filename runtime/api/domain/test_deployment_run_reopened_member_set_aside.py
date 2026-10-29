@@ -79,7 +79,13 @@ def _frozen_run_with_reopened_member(
         "composition_frozen_at='2026-10-16T20:00:00Z' WHERE id=%s",
         (frozen, RUN),
     )
+    from yoke_core.domain.item_status_transitions import record_item_transition
+
     conn.execute("UPDATE items SET status=%s WHERE id=%s", (REWORK_STAGE, REOPENED))
+    assert record_item_transition(
+        conn, item_id=REOPENED, from_status="release",
+        to_status=REWORK_STAGE, source="reopen for rework",
+    )
     conn.commit()
 
 

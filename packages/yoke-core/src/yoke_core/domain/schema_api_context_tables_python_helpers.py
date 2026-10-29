@@ -23,6 +23,14 @@ from __future__ import annotations
 
 
 PYTHON_HELPERS_TABLES: dict[str, dict] = {
+    "yoke_core.tools.pytest_remote_selection": {
+        "columns": [("resolve_route", "callable")],
+        "notes": (
+            "resolve_route(root, *, pytest_args, impacted_base, env=None) selects local "
+            "execution for a bound QA candidate. Wrong guess: positional pytest args "
+            "or environ=; its keyword is env=."
+        ),
+    },
     "yoke_cli.transport.response_evidence": {
         "columns": [("wrapped_lines", "callable"), ("save_response", "callable")],
         "notes": (

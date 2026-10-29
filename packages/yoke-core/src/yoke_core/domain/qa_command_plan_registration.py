@@ -34,13 +34,8 @@ from yoke_core.domain.qa_project_execution_target import (
 from yoke_core.domain.workflow_registry import list_current_workflows
 
 
-#: ``ci_routable`` is the DEFAULT for each scope, not a verdict. The
-#: repository's own test suite is what a CI workflow already runs on every
-#: pull request, so those scopes default to CI. The deployed-environment
-#: scopes default to the local runner because a site behind a base URL is
-#: often unreachable from CI — but whether it actually is belongs to the
-#: project, which overrides this by naming the workflow that runs the scope
-#: (see :mod:`yoke_core.domain.qa_command_scope_routing`).
+#: CI can prove pre-delivery scopes on a branch. Post-deploy smoke uses
+#: the admitted candidate checkout; an explicit CI mapping there refuses.
 COMMAND_SCOPE_POLICIES = {
     "quick": {
         "preferred_transition": "reviewing-implementation",
@@ -227,9 +222,6 @@ def ensure_registered_command_plan(
 ) -> dict:
     """Converge one registered scope onto its plan and workflow defaults.
 
-    ``refuse_unreachable_ci=False`` is for the boot-time convergence, which
-    has no operator to fix a declared workflow the gate cannot reach and must
-    not refuse to boot over one; it binds the local runner and reports why.
     """
     if scope not in COMMAND_SCOPE_POLICIES:
         raise ValueError(f"unsupported registered command scope {scope!r}")
@@ -255,6 +247,10 @@ def ensure_registered_command_plan(
         scope=scope,
         default_routable=bool(policy["ci_routable"]),
     )
+    if ci_workflow and policy["qa_phase"] == "post_deploy":
+        from yoke_core.domain.qa_plan_attachment_validation import refuse_deployment_ci_cases
+
+        refuse_deployment_ci_cases([{"method_id": CI_COMMAND_METHOD_ID}])
     workflow_check = None
     if ci_workflow:
         ci_workflow, workflow_check = ci_binding_for_scope(

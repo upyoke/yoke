@@ -97,9 +97,7 @@ def _row_dict(cursor: Any, row: Any) -> dict[str, Any] | None:
         return None
     if hasattr(row, "keys"):
         return {str(key): row[key] for key in row.keys()}
-    columns = [
-        str(getattr(column, "name", None) or column[0]) for column in cursor.description
-    ]
+    columns = [str(getattr(c, "name", None) or c[0]) for c in cursor.description]
     return dict(zip(columns, row))
 
 
@@ -118,8 +116,9 @@ def live_plan_execution_id(
     deployment_stage: str | None = None,
     deployment_member_item_id: int | None = None,
     session_id: str | None = None,
+    execution_target_digest: str | None = None,
 ) -> str | None:
-    """Return the live execution id; a stage-wide subject resolves per session."""
+    """Return the live execution for this subject, session and target."""
     placeholder = marker(conn)
     if (item_id is None) == (deployment_run_id is None):
         raise QaPlanExecutionStateError(
@@ -143,7 +142,8 @@ def live_plan_execution_id(
             if not session_id:
                 raise QaPlanExecutionStateError("stage-wide lookup needs a session")
             where += f" AND session_id={placeholder}"
-            params += (str(session_id),)
+            where += f" AND COALESCE(execution_target_digest,'')={placeholder}"
+            params += (str(session_id), execution_target_digest or "")
     cursor = conn.execute(
         "SELECT id FROM qa_plan_executions "
         f"WHERE {where} "
@@ -182,7 +182,6 @@ def select_plan_execution(
 
 
 def lock_plan_execution(conn: Any, execution_id: str) -> dict[str, Any]:
-    """Lock and return a durable execution authority row."""
     return select_plan_execution(conn, execution_id, lock=True)
 
 
@@ -246,6 +245,7 @@ def converge_plan_execution_insert_race(
     session_id: str,
     digest: str,
     cause: BaseException,
+    execution_target_digest: str | None = None,
 ) -> dict[str, Any]:
     """Translate a lost live-row insert race into the domain ownership result."""
     conn.rollback()
@@ -257,6 +257,7 @@ def converge_plan_execution_insert_race(
         deployment_stage=deployment_stage,
         deployment_member_item_id=deployment_member_item_id,
         session_id=session_id,
+        execution_target_digest=execution_target_digest,
     )
     if concurrent_id is None:
         conn.rollback()
@@ -277,7 +278,6 @@ def converge_plan_execution_insert_race(
 
 
 def result_rows(conn: Any, execution_id: str) -> list[dict[str, Any]]:
-
     placeholder = marker(conn)
     cursor = conn.execute(
         "SELECT ordinal,requirement_id,result_json,completed_at "

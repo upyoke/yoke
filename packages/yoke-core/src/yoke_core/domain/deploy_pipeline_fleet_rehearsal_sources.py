@@ -15,6 +15,7 @@ the coverage read, never silently skipped.
 
 from __future__ import annotations
 
+from yoke_core.domain.deployment_run_recovery_command import deploy_command
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, List, Mapping, Optional, Tuple
@@ -51,7 +52,7 @@ def bound_commits(
             return {}, (
                 f"release fleet rehearsal refused: bound input {key!r} of project "
                 f"{project!r} has no recorded source commit, so the commit this "
-                "dispatch ships is unknown; re-drive the run with `yoke watch deploy -- RUN` so preparation "
+                f"dispatch ships is unknown; re-drive the run with `{deploy_command()}` so preparation "
                 "records it, or compose a new run"
             )
         if commits.setdefault(project, sha) != sha:

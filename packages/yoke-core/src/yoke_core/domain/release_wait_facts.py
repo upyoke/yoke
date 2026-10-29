@@ -84,7 +84,7 @@ def _owed_requirement_ids(item: Mapping[str, Any]) -> list[int]:
 
 def _attached_plan_ids(item: Mapping[str, Any], stages: list) -> list[int]:
     """Attached and default plans targeting this flow's item QA environment."""
-    envs = {s.get("target", {}).get("environment") for s in stages if s.get("scope") == "item"}
+    envs = {s["target"].get("environment") for s in stages if s.get("scope") == "item" and isinstance(s.get("target"), Mapping)}
     return sorted({
         int(row["plan_id"])
         for row in item.get("qa_plan_attachments") or ()

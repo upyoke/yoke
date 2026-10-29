@@ -178,7 +178,7 @@ def test_ci_gate_names_github_unavailable_as_transient():
     )
 
     assert "GitHub itself is failing" in message
-    assert "yoke watch deploy -- RUN" in message
+    assert "yoke --env ENV watch deploy -- RUN-ID" in message
     assert "once GitHub recovers" in message
     assert "authorization failure" not in message
 

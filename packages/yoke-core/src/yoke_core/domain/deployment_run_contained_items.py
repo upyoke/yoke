@@ -10,6 +10,7 @@ it never becomes a confident empty snapshot.
 
 from __future__ import annotations
 
+from yoke_core.domain.deployment_run_recovery_command import deploy_command
 from typing import Any, Callable, Mapping
 
 from yoke_contracts.refusal_recovery import compose_refusal
@@ -100,7 +101,7 @@ def attest_candidate_containment(
                 "candidate_containment_checkout_missing",
                 f"no local checkout is registered for project {slug or project_id}",
                 "Register that project's checkout on the deploy driver, fetch the "
-                "candidate and merge commits, then re-drive the run with `yoke watch deploy -- RUN`.",
+                f"candidate and merge commits, then re-drive the run with `{deploy_command()}`.",
             )
         walk = CandidateContainment(
             None,
@@ -118,7 +119,7 @@ def attest_candidate_containment(
                     f"project {slug or project_id} item {item.get('public_ref') or render_item_ref(None, item_id)}: {verdict.reason}",
                     verdict.recovery
                     or "Fetch both commits into the registered checkout, then "
-                    "re-drive the run with `yoke watch deploy -- RUN`.",
+                    f"re-drive the run with `{deploy_command()}`.",
                 )
             answer = {
                 "id": item_id,

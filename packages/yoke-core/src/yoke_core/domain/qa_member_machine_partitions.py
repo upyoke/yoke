@@ -66,7 +66,10 @@ def member_machine_partition(
         deployment_member_item_id=deployment_member_item_id,
     )
     live_id = (
-        live_plan_execution_id(conn, **scope, session_id=session_id)
+        live_plan_execution_id(
+            conn, **scope, session_id=session_id,
+            execution_target_digest=str(roster[0].get("execution_target_digest") or ""),
+        )
         if deployment_stage
         else None
     )

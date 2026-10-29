@@ -230,6 +230,8 @@ def resolve_route(
         return LocalRoute(f"{LOCAL_FLAG} was passed")
     if environ.get(LOCAL_ENV):
         return LocalRoute(f"{LOCAL_ENV} is set")
+    if environ.get("YOKE_QA_CANDIDATE_TREE"):
+        return LocalRoute("running in the bound QA candidate checkout")
     if environ.get("CI"):
         return LocalRoute("already running on CI")
     try:

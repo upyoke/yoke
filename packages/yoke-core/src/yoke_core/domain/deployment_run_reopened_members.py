@@ -51,6 +51,9 @@ def unready_item_ids(
     pinned = (
         read_pinned_items(conn, (row[0] for row in rows)) if has_workflow_pins else {}
     )
+    from yoke_core.domain.deployment_run_landed_closeout import landed_closeout_members
+
+    closing = landed_closeout_members(conn, (row[0] for row in rows)) if has_workflow_pins else frozenset()
     unready: list[int] = []
     for item_id, status in rows:
         status_text = str(status)
@@ -68,7 +71,7 @@ def unready_item_ids(
                     and status_text in runtime.terminal_stage_ids
                 )
             else:
-                ready = delivery_ready_for_stage(runtime, status_text)
+                ready = delivery_ready_for_stage(runtime, status_text) or int(item_id) in closing
         else:
             ready = status_text in _LEGACY_DELIVERY_READY_STAGES
         if not ready:

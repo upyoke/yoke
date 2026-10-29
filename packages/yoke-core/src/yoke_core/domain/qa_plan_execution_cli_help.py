@@ -49,10 +49,10 @@ that item) and plan groups. Each attached post-deploy plan runs once per
 release as one plan group: memberless rows with their own group_id, at any
 number of attaching items. Attaching a post-deploy plan (`yoke qa item-plan
 attach ... --qa-phase post_deploy`) makes the release run it as a plan group;
-nothing is copied onto the item. Dispatch wakes no member for a plan group: one
-notice goes to the run's live driver, else the session that started the run,
-else steering, naming `yoke qa plan run --deployment-run-id RUN --stage STAGE
---plan P`. When a group passes it closes and records the items it covered;
+nothing is copied onto the item. The release driver runs pending plan groups
+and run-scoped QA plans itself. Agent review and manual-evidence waits reach
+the live driver, else the starting session, else steering. One group awaiting
+review does not stop another. When a group passes it closes and records the items it covered;
 a closed group never changes, and an item or attachment that arrives later gets
 a new group. A group failure sends one notice; that session decides who fixes
 what. The member command runs only its item cases.

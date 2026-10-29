@@ -4,6 +4,6 @@
  "status": "observed",
  "audience": "human and agent",
  "topics": ["runtime/delivery-execution-and-evidence/stage-dispatch-and-settlement", "qa-evidence/runs/plan-execution"],
- "summary": "The driver polls a cheap QA fingerprint, dispatches on changed facts and once at the deadline, and preserves its last blocker result while unchanged. A closed database connection or failed actor database lookup pauses resumably. Restore connectivity, inspect the same run and capture, then re-drive it. Mission executions name walking until all mission walk-end receipts are recorded, then awaiting_walk_review; both preserve the pending bundle and no verdict is implied.",
+ "summary": "The driver executes server-selected pending plans outside bounded dispatch threads, preserving its acting session and candidate checkout. Target digests isolate live groups in one session. It polls QA facts, dispatches on change, and gives the final deadline dispatch a normal poll interval. Review and manual evidence stay waiting while other groups run. Recovery commands name the selected connection and run. Older serving replies without pending plans retain notice-based recovery.",
  "sources": ["docs/public/deployments/start-diagnostics.md", "packages/yoke-core/src/yoke_core/domain/deploy_pipeline_qa_wait.py", "packages/yoke-core/src/yoke_core/domain/deployment_driver_identity.py", "docs/qa-platform/execution-states.md"]
 }

@@ -171,20 +171,21 @@ def test_item_verdict_requests_same_run_driver_once_per_outcome(monkeypatch):
     assert "watch deploy -- run-frozen" in calls[0]["body_for_route"]("driver")
 
 
-def test_run_visual_wait_assigns_inspection_to_driver():
+def test_run_visual_wait_names_pending_review_and_same_run_recovery():
     message = run_stage_wait_message(
         run_id="run-visual",
         stage_name="visual-qa",
         target_tier="persistent",
         revision="a" * 40,
-        reasons="cases not selected",
+        reasons="awaiting visual review",
         route="driver",
         names_cases=False,
     )
-    assert "deploy driver owns this run-scoped inspection" in message
-    assert "assign a capable QA agent through Yoke" in message
-    assert "yoke watch qa-plan -- --deployment-run-id run-visual" in message
-    assert "--plan PLAN" in message
+    assert "driver runs automatic cases" in message
+    assert "Review or manual evidence remains pending (awaiting visual review)" in message
+    assert "Resolve the named review or evidence requirement" in message
+    assert "watch deploy -- run-visual" in message
+    assert "deployment-runs get run-visual" in message
     assert "--member" not in message
 
 

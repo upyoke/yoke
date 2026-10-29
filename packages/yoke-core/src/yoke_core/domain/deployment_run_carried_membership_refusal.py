@@ -11,6 +11,8 @@ question costs no second source walk.
 
 from __future__ import annotations
 
+from yoke_core.domain.deployment_run_landed_closeout import carried_release_members
+
 from collections.abc import Mapping
 from typing import Any
 
@@ -29,7 +31,6 @@ from yoke_core.domain.deployment_run_enrollment_error import (
 )
 from yoke_core.domain.deployment_run_composition_freeze import (
     is_frozen_retry,
-    items_requiring_release_membership,
     member_ids,
     requires_release_admission,
 )
@@ -127,7 +128,7 @@ def carried_membership_refusal(
         for entry in project_set.get("items") or []
     }
     eligible = sorted(
-        (carried & items_requiring_release_membership(conn, carried))
+        (carried & carried_release_members(conn, carried))
         - held_candidate_ids(conn, run_id, custody=custody)
         - removed_item_ids(conn, run_id)
     )
