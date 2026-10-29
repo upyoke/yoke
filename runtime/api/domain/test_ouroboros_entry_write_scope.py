@@ -39,7 +39,7 @@ def _entry(conn, body: str, project: str | None = None) -> int:
             "2026-07-01T00:00:00Z",
             "tester",
             None,
-            "friction",
+            "failed",
             body,
             project,
         )
