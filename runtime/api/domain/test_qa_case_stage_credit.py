@@ -1,10 +1,4 @@
-"""Case-run must name the plan-run that would credit an item-scoped stage.
-
-A passing `yoke qa case run` verdict does not satisfy a deployment stage.
-The defect is silence: the command exits zero, so a worker reports the gate
-done. These tests lock the opposite — the output names the exact plan-run
-invocation, and an ordinary unbound case still produces no such message.
-"""
+"""Direct member cases execute; group cases still name their ordered plan run."""
 
 from __future__ import annotations
 
@@ -19,7 +13,7 @@ MEMBER_ID = 3454
 MEMBER_REF = "YOK-42"
 PROJECT = "yoke"
 
-PLAN_RUN = f"yoke qa plan run --item {MEMBER_REF} --stage {STAGE} --project {PROJECT}"
+PLAN_RUN = f"yoke qa plan run --deployment-run-id {RUN_ID} --stage {STAGE} --plan 7"
 
 
 def _item_scoped_case(**overrides):
@@ -36,16 +30,13 @@ def _item_scoped_case(**overrides):
 
 
 def test_plan_run_command_names_run_stage_member_and_project() -> None:
-    assert item_scoped_stage_plan_run_command(_item_scoped_case()) == PLAN_RUN
+    assert item_scoped_stage_plan_run_command(_item_scoped_case(
+        execution_target={"deployment": {"shared_plan": {"plan_id": 7}}}
+    )) == PLAN_RUN
 
 
-def test_item_scoped_binding_names_the_plan_run_that_would_credit_the_stage() -> None:
-    message = item_scoped_stage_credit_refusal(_item_scoped_case())
-    assert message is not None
-    assert "STAGE CREDIT REFUSAL" in message
-    assert STAGE in message
-    assert MEMBER_REF in message
-    assert PLAN_RUN in message
+def test_direct_item_case_can_credit_the_stage() -> None:
+    assert item_scoped_stage_credit_refusal(_item_scoped_case()) is None
 
 
 def test_ordinary_item_case_is_silent() -> None:

@@ -50,6 +50,6 @@ def test_printed_release_recipes_parse(test_db):
     assert len(recipes) == 7
     for recipe in recipes:
         tokens = shlex.split(recipe, comments=True)
-        args = tokens[4:] if tokens[:3] == ["yoke", "watch", "qa-plan"] else tokens[4:]
+        args = tokens[4:]
         with patch.object(qa_plan_execution_cli, "execute_plan", return_value={"state": "passed", "results": []}):
             assert qa_plan_execution_cli.run(args) == 0, recipe
