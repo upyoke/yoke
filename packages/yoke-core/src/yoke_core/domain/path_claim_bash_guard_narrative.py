@@ -73,6 +73,21 @@ def target_under_active_worktree(
     return target == wt or wt in target.parents
 
 
+UNREADABLE_CD_NOTE = (
+    "A `cd` in this command has a destination the guard cannot read "
+    "(`cd $DIR`, `cd -`), so this target was located from the last "
+    "folder it could read. Rewrite the command with an absolute path "
+    "or `git -C <lane>`, and widen with the lane-relative path."
+)
+
+
+def _widen_path(mut: Mutation, failure: Failure) -> str:
+    """Return the ``--add-paths`` value, never a path guessed past a ``cd``."""
+    if mut.cwd_unresolved:
+        return "<lane-relative path>"
+    return failure.repo_path or mut.target_path
+
+
 def format_narrative(
     *,
     mut: Mutation,
@@ -80,6 +95,11 @@ def format_narrative(
     ctx: ClaimContext,
 ) -> str:
     """Render the deny narrative for a concrete-target failure."""
+    body = _format_body(mut=mut, failure=failure, ctx=ctx)
+    return f"{body}\n\n{UNREADABLE_CD_NOTE}" if mut.cwd_unresolved else body
+
+
+def _format_body(*, mut: Mutation, failure: Failure, ctx: ClaimContext) -> str:
     from yoke_core.domain.path_claims_rework_guard import (
         REWORK_COVERAGE_REQUIRED,
         recovery,
@@ -96,7 +116,7 @@ def format_narrative(
     if failure.mode == WRONG_CWD:
         return _wrong_cwd_narrative(mut=mut, failure=failure, ctx=ctx)
     if target_under_active_worktree(
-        mut.target_path,
+        failure.target_path,
         ctx,
         effective_worktree_path=failure.effective_worktree_path,
     ):
@@ -163,7 +183,7 @@ def _wrong_cwd_narrative(
     template = widen_template(
         claim_id=ctx.claim_id,
         item_id=ctx.item_id,
-        target_path=failure.repo_path or mut.target_path,
+        target_path=_widen_path(mut, failure),
         public_ref=ctx.public_ref,
     )
     expected_wt = failure.effective_worktree_path or ctx.worktree_path
@@ -200,7 +220,7 @@ def _current_item_worktree_narrative(
     template = widen_template(
         claim_id=ctx.claim_id,
         item_id=ctx.item_id,
-        target_path=failure.repo_path or mut.target_path,
+        target_path=_widen_path(mut, failure),
         public_ref=ctx.public_ref,
     )
     preflight = worktree_preflight_template(int(ctx.item_id or 0), ctx.public_ref)
@@ -230,7 +250,7 @@ def _out_of_claim_narrative(
     template = widen_template(
         claim_id=ctx.claim_id,
         item_id=ctx.item_id,
-        target_path=failure.repo_path or mut.target_path,
+        target_path=_widen_path(mut, failure),
         public_ref=ctx.public_ref,
     )
     covered_preview = ", ".join(ctx.covered_paths[:3]) or "(no coverage)"

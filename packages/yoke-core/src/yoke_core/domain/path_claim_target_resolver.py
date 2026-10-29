@@ -29,6 +29,7 @@ from yoke_core.domain.path_claim_target_domain import (
     domain_root_for_absolute_target,
     is_free_path_basename_redirect,
     outside_claim_domain,
+    path_is_under,
 )
 
 
@@ -64,19 +65,20 @@ def widen_template(
 def _make_repo_relative(target_path: str, cwd: str) -> str:
     """Return ``target_path`` as a forward-slash repo-relative string.
 
-    Absolute paths inside ``cwd`` are made relative to ``cwd``. Relative
-    paths are returned with leading ``./`` stripped. Outside-cwd
-    absolute paths are returned as-is so the caller can decide.
+    Absolute paths inside ``cwd`` are made relative to ``cwd``, both
+    resolved so a symlinked root still matches. Relative paths are
+    returned with leading ``./`` stripped. Outside-cwd absolute paths
+    are returned as-is so the caller can decide.
     """
     if not target_path:
         return ""
     cleaned = target_path.strip()
     if cleaned.startswith("./"):
         cleaned = cleaned[2:]
-    if not os.path.isabs(cleaned):
+    if not os.path.isabs(cleaned) or not cwd:
         return cleaned.replace(os.sep, "/")
     try:
-        rel = os.path.relpath(cleaned, cwd)
+        rel = os.path.relpath(Path(cleaned).resolve(), Path(cwd).resolve())
     except ValueError:
         return cleaned.replace(os.sep, "/")
     if rel.startswith(".."):
@@ -162,6 +164,13 @@ def evaluate_target(
     ):
         return None
 
+    # Inside the lane, a relative target lands under the folder the command
+    # runs in (``cd sub && rm x.py`` writes ``sub/x.py``), so coverage and
+    # the recovery path both use that lane-relative path.
+    in_lane = bool(cwd) and path_is_under(Path(cwd).resolve(), effective_wt)
+    if in_lane and not os.path.isabs(target_path):
+        target_path = os.path.join(cwd, target_path)
+
     if outside_claim_domain(
         target_path=target_path, cwd=cwd, ctx=ctx, effective_worktree=effective_wt
     ):
@@ -203,10 +212,7 @@ def evaluate_target(
     if not effective_wt:
         return None  # claim is not worktree-bound; in-coverage suffices
 
-    if os.path.isabs(target_path):
-        resolved = Path(target_path).resolve()
-    else:
-        resolved = (Path(cwd) / target_path).resolve()
+    resolved = (Path(cwd) / target_path).resolve()
 
     expected_root = Path(effective_wt).resolve()
     expected_str = str(expected_root)

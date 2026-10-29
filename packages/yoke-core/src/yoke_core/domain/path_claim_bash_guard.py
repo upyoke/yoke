@@ -98,7 +98,8 @@ def evaluate_payload(
     if not command.strip():
         return BashGuardVerdict(outcome="allow")
 
-    mutations: List[Mutation] = extract_mutations(command, _resolve_cwd(record))
+    home = client_machine_home(payload) if isinstance(payload, dict) else ""
+    mutations: List[Mutation] = extract_mutations(command, _resolve_cwd(record), home)
     if not mutations:
         return BashGuardVerdict(outcome="allow")
 

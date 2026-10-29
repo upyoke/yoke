@@ -190,9 +190,12 @@ protects edits at two tool boundaries:
 1. Native Edit/Write/apply_patch PreToolUse validates target coverage.
 2. Bash guard parses redirect/copy/move/remove/in-place mutations. Plain reads
    need no widening; patterns are not targets. A read with redirect still guards
-   its output. Relative targets resolve where the command runs: the declared
-   workdir or session cwd, moved by leading `cd`, then any `git -C DIR`.
-   Refusals print the repo-relative widen path. An in-lane unexpected coverage failure names worktree preflight
+   its output. Relative targets resolve where each statement runs: the
+   declared workdir or session cwd, moved by every earlier `cd` outside a
+   pipeline, then any `git -C DIR`; inside the lane, `cd sub && rm x.py`
+   checks `sub/x.py`. Refusals print the lane-relative widen path. After a
+   `cd` the guard cannot read (`cd $DIR`, `cd -`), the decision uses the
+   last readable folder and the refusal asks for an absolute path or `git -C`. An in-lane unexpected coverage failure names worktree preflight
    re-entry; designed new scope uses `yoke claims path widen --claim-id ID
    --add-paths PATH --reason R --item PREFIX-N`. Narrative owners are
    `path_claim_bash_guard_narrative` and `worktree_preflight`.

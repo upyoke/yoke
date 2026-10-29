@@ -199,3 +199,82 @@ class TestWidenRecipePath:
         )
         assert verdict.outcome == "deny"
         assert "--add-paths docs/oof.md --reason" in verdict.narrative
+
+
+class TestRelativeTargetAfterCd:
+    """Relative targets resolve against the folder a ``cd`` reached."""
+
+    @pytest.fixture
+    def lane(self, lane_root):
+        worktree = lane_root / "main" / ".worktrees" / "YOK-1577"
+        for sub in ("runtime/api/domain", "docs"):
+            (worktree / sub).mkdir(parents=True)
+        return worktree, _claim_dict(worktree_path=str(worktree))
+
+    def _bash(self, command, cwd, claim):
+        return evaluate_payload(_payload(command=command, cwd=str(cwd)), claim=claim)
+
+    def test_append_to_claimed_file_from_sub_folder_is_allowed(self, lane):
+        worktree, claim = lane
+        command = f"cd {worktree}/runtime/api/domain && cat >> claimed.py"
+        assert self._bash(command, worktree, claim).outcome == "allow"
+
+    def test_unclaimed_file_in_sub_folder_widens_lane_relative_path(self, lane):
+        worktree, claim = lane
+        verdict = self._bash(f"cd {worktree}/docs && rm unclaimed.py", worktree, claim)
+        assert verdict.outcome == "deny"
+        assert verdict.failure_mode == "out-of-claim"
+        assert "--add-paths docs/unclaimed.py --reason" in verdict.narrative
+
+    def test_repo_shaped_path_resolves_under_sub_folder(self, lane):
+        worktree, claim = lane
+        command = f"cd {worktree}/docs && rm runtime/api/domain/claimed.py"
+        verdict = self._bash(command, worktree, claim)
+        assert verdict.outcome == "deny"
+        assert verdict.failure_mode == "out-of-claim"
+        assert "--add-paths docs/runtime/api/domain/claimed.py --reason" in (
+            verdict.narrative
+        )
+
+    def test_unreadable_cd_keeps_decision_and_asks_for_absolute_path(self, lane):
+        worktree, claim = lane
+        allowed = self._bash("cd $DIR && rm runtime/api/domain/x.py", worktree, claim)
+        assert allowed.outcome == "allow"
+        verdict = self._bash("cd $DIR && rm x.py", worktree, claim)
+        assert verdict.outcome == "deny"
+        assert verdict.failure_mode == "out-of-claim"
+        assert "--add-paths <lane-relative path> --reason" in verdict.narrative
+        assert "--add-paths x.py" not in verdict.narrative
+        assert "absolute path or `git -C <lane>`" in verdict.narrative
+
+    def test_basename_redirect_from_free_folder_is_allowed(self, lane, lane_root):
+        _worktree, claim = lane
+        scratch = lane_root / "scratchpad"
+        scratch.mkdir()
+        verdict = self._bash("yoke items get YOK-1 spec > spec.md", scratch, claim)
+        assert verdict.outcome == "allow"
+
+    def test_relative_edit_target_resolves_against_cwd(self, lane):
+        worktree, claim = lane
+        allowed = path_claim_pre_edit_guard.evaluate_payload(
+            _record(changed_paths=("claimed.py",), cwd=str(worktree / "runtime/api/domain")),
+            claim=claim,
+        )
+        assert allowed.outcome == "allow"
+        verdict = path_claim_pre_edit_guard.evaluate_payload(
+            _record(changed_paths=("unclaimed.md",), cwd=str(worktree / "docs")),
+            claim=claim,
+        )
+        assert verdict.outcome == "deny"
+        assert verdict.failure_mode == "out-of-claim"
+        assert "--add-paths docs/unclaimed.md --reason" in verdict.narrative
+
+    def test_cd_mid_command_moves_only_later_targets(self, lane):
+        worktree, claim = lane
+        command = "rm runtime/api/domain/a.py; cd docs && rm b.py"
+        targets = [m.target_path for m in extract_mutations(command, str(worktree))]
+        assert targets == ["runtime/api/domain/a.py", f"{worktree}/docs/b.py"]
+        verdict = self._bash(command, worktree, claim)
+        assert verdict.outcome == "deny"
+        assert verdict.failure_mode == "out-of-claim"
+        assert "--add-paths docs/b.py --reason" in verdict.narrative
