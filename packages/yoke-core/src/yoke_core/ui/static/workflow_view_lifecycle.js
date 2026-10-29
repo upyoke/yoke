@@ -27,7 +27,7 @@ const ENTRY_SURFACE_COPY = {
       noteBreak: true,
     },
     promotion: {
-      title: "Promote from field note",
+      title: "Promote from feedback",
       description: [
         "In ",
         { kind: "code", text: "/yoke curate" },

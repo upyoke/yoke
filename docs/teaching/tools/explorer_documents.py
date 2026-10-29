@@ -64,7 +64,7 @@ def rule_topics(add, path, start, end, scope):
                 if start <= i < end and re.match(r'^#{1,2} ', line)
                 and line != '# Yoke — Project Rules']
     if not headings or headings[0][0] > start:
-        headings.insert(0, (start, 'Rule loading and field notes'))
+        headings.insert(0, (start, 'Rule loading and feedback'))
     for index, (first, title) in enumerate(headings):
         last = headings[index + 1][0] if index + 1 < len(headings) else end
         content = re.sub(r'<!--.*?-->', '', '\n'.join(lines[first:last]), flags=re.S).strip()

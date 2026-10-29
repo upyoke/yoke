@@ -99,7 +99,7 @@ field/section and line counts. Request JSON on the original mutation.
 Progress Log append stamps the timestamp, preserves entries and upserts at
 ordering 200. Entry bodies are limited to 4,096 UTF-8 bytes; larger appends
 refuse with `progress_log_entry_too_large`. Write only what changed and the
-next step; move evidence to artifacts or field-notes. Entries are current-state checkpoints; task-graph planning fields
+next step; move evidence to artifacts or feedback. Entries are current-state checkpoints; task-graph planning fields
 remain reserved for generated-task workflows. Scalars validate their own fields.
 Lifecycle transitions enforce the exact pin, source stage and target gates;
 terminal status is pipeline-owned, never a scalar shortcut.

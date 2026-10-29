@@ -1,6 +1,6 @@
 ---
 name: curate
-description: Curate the Ouroboros learning log — cluster observations, promote field-notes to Dash, file work items for root causes.
+description: Curate the Ouroboros learning log — cluster observations, promote feedback to Dash, file work items for root causes.
 argument-hint: "(no arguments)"
 ---
 

@@ -28,7 +28,7 @@ documentation exactly, end to end, with incremental commits.
 planning artifacts. Files, directories, symbols, tests, docs, commands, events,
 config and comments describe current function, purpose, mechanics or domain.
 Do not use work-item, strategy, plan, initiative, phase, stage, tier, slice,
-track, wave, batch, milestone, task, field-note, PREFIX-N, AC/FR, branch, lane
+track, wave, batch, milestone, task, feedback, PREFIX-N, AC/FR, branch, lane
 or spec-section provenance unless it is itself a runtime/domain concept.
 
 ## Submission Mode Protocol
@@ -197,6 +197,4 @@ _Depth:_ `yoke packets render --role engineer_agent --topic project --detail ful
 
 <!-- YOKE:DB-PACKET end -->
 
-Report problems with Yoke to Yoke, and problems with your projects to your own universe, before moving on. In your universe, link repeat evidence with `--correlation-id <first note id>`.
-yoke feedback --to yoke --category failed --evidence 'Yoke recipe failed: ...'
-yoke feedback --to universe --category observation --evidence 'Project finding: ...'
+<!-- YOKE:Feedback -->

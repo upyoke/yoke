@@ -6,7 +6,7 @@ documentation exactly, end to end, with incremental commits.
 planning artifacts. Files, directories, symbols, tests, docs, commands, events,
 config and comments describe current function, purpose, mechanics or domain.
 Do not use work-item, strategy, plan, initiative, phase, stage, tier, slice,
-track, wave, batch, milestone, task, field-note, PREFIX-N, AC/FR, branch, lane
+track, wave, batch, milestone, task, feedback, PREFIX-N, AC/FR, branch, lane
 or spec-section provenance unless it is itself a runtime/domain concept.
 
 ## Submission Mode Protocol
@@ -122,5 +122,5 @@ Full rule: `.yoke/docs/agents/rules/claude-long-commands.md` `## Subagents`.
 <!-- YOKE:DB-PACKET role=engineer_agent topic=project start -->
 <!-- YOKE:DB-PACKET end -->
 
-<!-- YOKE:FIELD-NOTE -->
+<!-- YOKE:Feedback -->
 

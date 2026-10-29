@@ -184,7 +184,7 @@ def test_rules_combine_shared_topics_and_only_local_additions(explorer):
     assert len([n for n in topics if n['title'] == 'Standing authority']) == 1
     assert {n['title'] for n in topics if n['guidance_scope'] == 'repository'} == {
         'Yoke repository'}
-    assert any(n['title'] == 'Rule loading and field notes' and
+    assert any(n['title'] == 'Rule loading and feedback' and
                n['guidance_scope'] == 'shared' for n in topics)
     local = (TOOLS.parents[2] / 'AGENTS.md').read_text().splitlines()
     end = local.index('<!-- END YOKE MANAGED BLOCK -->')

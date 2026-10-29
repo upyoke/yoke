@@ -1,4 +1,4 @@
-"""Idempotent field-note promotion into the Dash workflow."""
+"""Idempotent feedback promotion into the Dash workflow."""
 
 from __future__ import annotations
 
@@ -27,11 +27,11 @@ from yoke_core.domain.schema_init_apply import execute_schema_script
 
 
 class FieldNotePromotionError(RuntimeError):
-    """A field note cannot be promoted with the supplied inputs."""
+    """A feedback cannot be promoted with the supplied inputs."""
 
 
 class FieldNotePromotionInProgress(FieldNotePromotionError):
-    """Another caller already reserved this field note."""
+    """Another caller already reserved this feedback."""
 
 
 @dataclass(frozen=True)
@@ -122,9 +122,9 @@ def _field_note(conn: Any, entry_id: int) -> dict[str, Any]:
         )
     )
     if row is None:
-        raise FieldNotePromotionError(f"field note {entry_id} does not exist")
+        raise FieldNotePromotionError(f"feedback {entry_id} does not exist")
     if str(row["category"]) not in KIND_VALUES:
-        raise FieldNotePromotionError(f"ouroboros entry {entry_id} is not a field note")
+        raise FieldNotePromotionError(f"ouroboros entry {entry_id} is not feedback")
     return row
 
 
@@ -210,7 +210,7 @@ def _mark_failed(conn: Any, entry_id: int, reason: str) -> None:
 
 def _in_progress(entry_id: int) -> FieldNotePromotionInProgress:
     return FieldNotePromotionInProgress(
-        f"field note {entry_id} promotion is already in progress"
+        f"feedback {entry_id} promotion is already in progress"
     )
 
 
@@ -263,7 +263,7 @@ def promote_field_note_to_dash(
     selected_project = override or declared_target or observing_project
     if selected_project is None:
         raise FieldNotePromotionError(
-            "field note has no project; pass the target project explicitly"
+            "feedback has no project; pass the target project explicitly"
         )
     too_long = title_length_error(
         clean_title,

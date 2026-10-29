@@ -101,7 +101,7 @@ def section_append(
                 f"entry body is {body_bytes} UTF-8 bytes; "
                 f"maximum is {PROGRESS_LOG_ENTRY_BODY_MAX_BYTES}. "
                 "Progress Log entries are current-state checkpoints: write only "
-                "what changed and the next step; move evidence to artifacts or field-notes."
+                "what changed and the next step; move evidence to artifacts or feedback."
             ),
         )
 

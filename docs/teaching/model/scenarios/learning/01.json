@@ -6,7 +6,7 @@
  "when": "A recipe, help text or refusal is wrong or missing, or a bug sits outside the task",
  "need": "File each wrong or missing recipe or outside-scope defect. Link repeats to the first note id; durable correlation keeps their separate evidence under one root.",
  "disclosure": "current cue",
- "surface": "Generated AGENTS/skill directive -> field-note append help; public Ouroboros page.",
+ "surface": "Generated AGENTS/skill directive -> feedback append help; public Ouroboros page.",
  "review": "Pending exact recipe proof.",
  "recipes": ["yoke feedback --to yoke --help", "yoke feedback list --unreviewed"],
  "plan_notes": ["outside both"],

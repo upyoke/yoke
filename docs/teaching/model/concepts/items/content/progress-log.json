@@ -4,5 +4,5 @@
  "status": "observed",
  "page": "items",
  "position": 7,
- "description": "Checkpoint unfinished work while its claim is held, before a wait, handoff or release. Read live status after automatic completion; terminal items already record results and evidence, so skip the final append and do not reacquire a claim solely for a checkpoint. Keep each entry body at or below 4,096 UTF-8 bytes; write only what changed and the next step, and move evidence to artifacts or field-notes."
+ "description": "Checkpoint unfinished work while its claim is held, before a wait, handoff or release. Read live status after automatic completion; terminal items already record results and evidence, so skip the final append and do not reacquire a claim solely for a checkpoint. Keep each entry body at or below 4,096 UTF-8 bytes; write only what changed and the next step, and move evidence to artifacts or feedback."
 }

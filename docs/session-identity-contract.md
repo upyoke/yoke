@@ -213,7 +213,7 @@ outside the bootstrap path, including flow-definition edits
 **Membership is a declaration, so something checks it.** Nothing in the
 registry knows which functions a person without a session actually reaches — an
 onboarding Apply once stopped at its final stage because one write never carried
-the flag, and told the operator to file a field-note about their own first
+the flag, and told the operator to file a feedback about their own first
 command. `terminal_reachable_functions` enumerates what the wizard's Apply stages, the
 plain-terminal recipes and the release-CI identity reach; its contract test fails
 on the registry.

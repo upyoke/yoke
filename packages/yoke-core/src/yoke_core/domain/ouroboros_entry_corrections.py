@@ -1,4 +1,4 @@
-"""Supersede links between a corrected field note and its correction.
+"""Supersede links between a corrected feedback and its correction.
 
 A correction filed as a fresh, unlinked note only sits next to the note
 it corrects: both stay in the unreviewed queue and a reader has no way to
@@ -66,7 +66,7 @@ def record_correction(
     correction_id = int(correction_entry_id)
     corrected_id = int(corrected_entry_id)
     if correction_id == corrected_id:
-        raise CorrectionTargetError(f"field note {corrected_id} cannot correct itself")
+        raise CorrectionTargetError(f"feedback {corrected_id} cannot correct itself")
 
     ensure_ouroboros_entry_corrections_schema(conn)
     p = _p(conn)

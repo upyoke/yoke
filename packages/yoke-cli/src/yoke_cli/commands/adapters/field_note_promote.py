@@ -1,6 +1,6 @@
 """Adapter for ``ouroboros.field_note.promote``.
 
-Promotion turns a recorded field-note into a backlog item. It is reached
+Promotion turns recorded feedback into a backlog item. It is reached
 through the same direct-workflow registry as the Dash adapters and shares
 their envelope shape, but it acts on an Ouroboros entry rather than on a
 Dash, so it keeps its own module.
@@ -31,7 +31,7 @@ def field_note_promote(args: List[str]) -> int:
         prog="yoke feedback promote",
         usage=FIELD_NOTE_PROMOTE_USAGE,
     )
-    parser.add_argument("entry", type=int, help="Field note entry id to promote.")
+    parser.add_argument("entry", type=int, help="Feedback entry id to promote.")
     parser.add_argument("--title", required=True, help="Title for the new dash item.")
     parser.add_argument(
         "--instruction", help="Instruction for the dash; default: the note's body."

@@ -13,7 +13,7 @@ Route a required override with `yoke say --steering`; read
   planning artifacts. Files/directories/symbols/tests/docs/commands/events/config/
   comments describe current function, purpose, mechanics or domain. No work-item,
   strategy/plan/initiative/phase/stage/tier/slice/track/wave/batch/milestone/task/
-  field-note/PREFIX-N/AC/FR/branch/lane/spec-section provenance
+  feedback/PREFIX-N/AC/FR/branch/lane/spec-section provenance
   unless it is itself a runtime/domain concept.
 
 - Complete all reasonable requirements within the task: wire feature surfaces,

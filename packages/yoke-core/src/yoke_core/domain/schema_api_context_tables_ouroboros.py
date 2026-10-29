@@ -27,9 +27,9 @@ OUROBOROS_TABLES: dict[str, dict] = {
         "notes": (
             "Feedback rows store `category` and `body`; "
             "there are NO `kind` or `evidence` columns on this table. "
-            "Field-note correlation_id stores the root note id; session_id "
+            "Feedback correlation_id stores the root note id; session_id "
             "stores the filing session. Minimal capture fixtures also need both "
-            "columns: wrong guess that only event telemetry or field-note inserts "
+            "columns: wrong guess that only event telemetry or feedback inserts "
             "use them; plain learning-log inserts share the same row writer. "
             "Wrong guess: attribution exists only after additive convergence; "
             "core table creation also includes actor_id and reporter metadata. "
@@ -71,7 +71,7 @@ OUROBOROS_TABLES: dict[str, dict] = {
             ("created_at", "TIMESTAMPTZ"),
         ],
         "notes": (
-            "One row per superseding field note: `correction_entry_id` is "
+            "One row per superseding feedback: `correction_entry_id` is "
             "the newer note, `corrected_entry_id` the one it replaces "
             "(both `ouroboros_entries.id`). Recording a link also stamps "
             "`reviewed_at` on the corrected note so it leaves the "

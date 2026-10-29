@@ -1,4 +1,4 @@
-"""Service-client command for the ouroboros field-note channel.
+"""Service-client command for the ouroboros feedback channel.
 
 Wires ``feedback-log`` to :func:`ouroboros_field_note.handle_append`
 via :func:`yoke_core.domain.yoke_function_dispatch.dispatch`. The
@@ -41,7 +41,7 @@ _USAGE = (
 
 
 def cmd_field_note_log(args: list[str]) -> int:
-    """Record one agent-authored field-note signal.
+    """Record one agent-authored feedback signal.
 
     Builds an ``ouroboros.field_note.append`` function call envelope
     and dispatches it through the typed registry. Prints a JSON summary
@@ -153,7 +153,7 @@ def cmd_field_note_log(args: list[str]) -> int:
         json.dumps({
             "success": False,
             "code": (err.code if err is not None else "VALIDATION").upper(),
-            "message": err.message if err is not None else "field note emit failed",
+            "message": err.message if err is not None else "feedback emit failed",
         }),
         file=sys.stderr,
     )

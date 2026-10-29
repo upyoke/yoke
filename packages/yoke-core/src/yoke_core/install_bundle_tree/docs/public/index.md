@@ -203,7 +203,7 @@ During `/yoke onboard`, your agent can register your project’s database and mi
 
 Yoke helps your agents find and fix problems. Doctor checks project health, while events, logs, and performance diagnostics help explain failures and slow operations. Agents can also diagnose connection problems and recover Yoke’s background services.
 
-Ouroboros, Yoke’s learning loop, lets agents record problems as field notes, identify recurring issues, and turn those findings into improvements.
+Ouroboros, Yoke’s learning loop, lets agents record problems as feedback, identify recurring issues, and turn those findings into improvements.
 
 [More on Operations and troubleshooting](guide/operations.md)
 
