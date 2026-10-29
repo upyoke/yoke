@@ -126,10 +126,16 @@ def withdraw_member_qa_wait_wakes(
 
 
 def withdraw_plan_group_wait_wakes(conn: Any, run_id: str, stage_name: str) -> int:
-    """A changed group roster withdraws its old consolidated notice."""
-    return _cancel_matching(conn,
+    """A changed group roster withdraws consolidated and per-member notices."""
+    consolidated = _cancel_matching(conn,
         pattern=f"{DEPLOYMENT_QA_STAGE_WAIT_PREFIX}{run_id}:{stage_name}:plan-groups:%",
-        keep=lambda _parsed: True, reason="Plan group closed", now=utc_now())
+        keep=lambda parsed: parsed[:2] == (str(run_id), str(stage_name)),
+        reason="Plan group closed", now=utc_now())
+    return consolidated + _cancel_matching(conn,
+        pattern=f"{DEPLOYMENT_QA_STAGE_WAIT_PREFIX}{run_id}:{stage_name}:%:plan-group-%",
+        keep=lambda parsed: parsed[:2] == (str(run_id), str(stage_name))
+        and parsed[2] is not None,
+        reason="Plan group closed", now=utc_now())
 
 
 def _cancel_matching(
