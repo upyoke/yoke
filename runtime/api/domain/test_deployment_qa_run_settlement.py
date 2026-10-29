@@ -15,7 +15,7 @@ from runtime.api.domain.test_deployment_qa_stage_execution import (
 from runtime.api.domain.test_deployment_qa_admission_execution import (
     _original_requirement,
 )
-from runtime.api.fixtures.backlog_inserts import insert_item
+from runtime.api.fixtures.backlog_inserts import insert_item, insert_qa_requirement
 from runtime.api.fixtures.completed_delivery import seed_selected_requirement_run
 from runtime.api.fixtures.deployment_run_driver_fixture import release_seeded_driver
 from yoke_contracts.api.function_call import (
@@ -215,16 +215,21 @@ def test_late_recorded_verdict_links_actual_evidence_and_accepts_stage(test_db):
         status="done",
     )
     original = _original_requirement(test_db, item_id=item_id, method_id=None)
-    plan_id = _plan(test_db, "late-verdict-smoke")
     seed_selected_requirement_run(
         test_db, run_id=run_id, item_id=item_id, requirement_id=original
     )
+    insert_qa_requirement(test_db, item_id=None, deployment_run_id=run_id,
+        deployment_stage="member-qa", deployment_member_item_id=item_id,
+        qa_phase="post_deploy", method_id="command", runner_id="worktree_run",
+        verdict_path="automatic", method_config=json.dumps({"command": "true"}),
+        target_env="stage", instructions="Run the member smoke command.",
+        expected_outcome="The command passes.")
+    test_db.commit()
     materialize_deployment_qa_stage(
         test_db,
         deployment_run_id=run_id,
         deployment_stage="member-qa",
         deployment_member_item_id=item_id,
-        agent_plan=str(plan_id),
     )
     execution = begin_plan_execution(
         test_db,
