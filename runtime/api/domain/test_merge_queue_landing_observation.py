@@ -168,7 +168,7 @@ def test_two_red_check_urls_appear_once_in_the_holder_message():
     from yoke_core.domain.merge_queue_landing_observation import ejection_message
     from yoke_core.domain.merge_queue_landing_notice import HOLDER
 
-    second = LandingCheck(name="tests", conclusion="failure", required=True,
+    second = LandingCheck(name="tests", status="completed", conclusion="failure", required=True,
                           url="https://github.com/o/r/actions/runs/3/job/4")
     observation = _classify(_state(), NOT_QUEUED, checks=(FAILED_REQUIRED, second))
     text = ejection_message("ALP-1", "42", observation, HOLDER, "")

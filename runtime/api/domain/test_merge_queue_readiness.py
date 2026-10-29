@@ -297,7 +297,7 @@ def test_an_idle_open_pull_request_keeps_the_rerun_advice(checks) -> None:
 
 def test_two_red_check_urls_appear_once_in_the_readback() -> None:
     checks = tuple(
-        LandingCheck(name=name, conclusion="failure", required=True, url=url)
+        LandingCheck(name=name, status="completed", conclusion="failure", required=True, url=url)
         for name, url in (("contracts", "https://example.com/1"),
                           ("tests", "https://example.com/2"))
     )
