@@ -101,7 +101,9 @@ def test_materialize_help_teaches_conditional_item_snapshot_refresh(capsys):
         qa_plan_materialize_for_item(["--help"])
     assert stopped.value.code == 0
     text = capsys.readouterr().out
-    assert "retain the failed case" in text
+    assert "retain the original case" in text
+    assert "including one not yet run" in text
+    assert "passed case refuses" in text
     assert "If that key is absent from the stable" in text
     assert text.index("yoke qa plan rematerialize --item") < text.index(
         "yoke qa plan materialize --item"
