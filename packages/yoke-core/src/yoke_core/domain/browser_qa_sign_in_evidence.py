@@ -84,13 +84,18 @@ def load_project_browser_identities(project: str) -> dict[str, BrowserIdentity]:
 def resolve_case_identities(
     declared: Mapping[str, BrowserIdentity], rows: list
 ) -> list[str]:
-    """Select each case identity, defaulting omitted identities to default."""
+    """Validate named sign-in identities; anonymous cases use the default daemon.
+
+    Case omission declares no sign-in need. Unlike authorize/verify, it must
+    not ask select_identity to infer a signed-in identity from declarations.
+    """
     from yoke_core.domain.browser_qa_case_config import parse_case_config
 
     return [
         select_identity(
             declared,
-            case_browser_identity(parse_case_config(row["method_config"])),
+            case_browser_identity(parse_case_config(row["method_config"]))
+            or DEFAULT_IDENTITY,
         ).name
         for row in rows
     ]

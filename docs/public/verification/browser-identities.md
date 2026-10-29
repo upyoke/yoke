@@ -114,9 +114,15 @@ for a registered Test Machine, authorize from the connected workstation with
 `--test-machine NAME`. For hosts without a remote route, run locally there with
 `--declarations-json`, using the browser-control settings document read where
 the project is reachable. `--test-machine` and `--declarations-json` are exclusive. A
-Browser case names its identity with `method_config.browser_identity`. Omitting
-that field always uses `default`, including anonymous browsing when it has no
-sites. Set a named identity for cases that need its signed-in profile.
+Browser case that needs sign-in names its identity with
+`method_config.browser_identity`. Choose the identity whose account can access
+the case's routes and data; an account signed into a different organization
+cannot prove a case about your organization. The runner validates named identities
+before starting any browser daemon. Public cases omit the field and continue
+on the `default` daemon without requiring a sign-in identity, even when the
+project declares named identities. No automatic sign-in step precedes every
+case; the runner selects a recorded account only if navigation reaches its
+account chooser.
 `authorize` and `verify` still refuse a missing `--identity` when `default`
 has no sites and another identity does. A run whose cases name several identities starts
 one daemon per identity. An
