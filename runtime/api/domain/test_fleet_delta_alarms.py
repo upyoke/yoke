@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
 
+import pytest
+
 from yoke_core.domain.fleet_delta_alarms import (
     DeltaState,
     IDLE_HOLDER_MINUTES,
@@ -161,6 +163,28 @@ def test_starved_envelope_excludes_recipients_whose_session_ended() -> None:
     assert starved_envelope_alarms(snapshot, DeltaState()) == []
 
 
+@pytest.mark.parametrize(
+    ("claimed_items", "alarms"),
+    [
+        (("OTHER-1",), False),
+        (("YOK-1",), True),
+        ((), True),
+        (("OTHER-1", "YOK-1"), True),
+    ],
+)
+def test_starved_envelope_respects_watched_items(claimed_items, alarms) -> None:
+    row = _envelope()
+    snapshot = _snapshot(
+        sessions={"a": _session("a", claimed_items=claimed_items)},
+        items={"YOK-1": _item("YOK-1")},
+        envelopes={row.key: row},
+    )
+    state = DeltaState()
+    starved_envelope_alarms(snapshot, state)
+    expected = {"starved-envelope:message=msg-1111 recipient=a"} if alarms else set()
+    assert state.active_alarms == expected
+
+
 def test_starved_envelope_excludes_a_recipient_that_acted_since_the_send() -> None:
     row = _envelope()
     snapshot = _snapshot(
@@ -305,6 +329,7 @@ def test_a_starved_envelope_carries_whole_ids_and_the_reach() -> None:
     )
     snapshot = _snapshot(
         sessions={SESSION_ID: _session(SESSION_ID, activity_at=sent - timedelta(1))},
+        items={"YOK-1": _item("YOK-1")},
         envelopes={envelope.key: envelope},
     )
     line = starved_envelope_alarms(snapshot, DeltaState())[0]

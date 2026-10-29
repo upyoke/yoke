@@ -1,0 +1,10 @@
+{
+ "id": "starved-envelope-alarm",
+ "title": "Starved message alarm",
+ "status": "observed",
+ "current": "The fleet watcher alarms for a pending message with no injections after ten minutes when its live recipient has made no tool call since the send. The recipient must be in the watched roster. If it holds item claims, at least one claimed item must be in the watched frontier; claims entirely outside that frontier do not alarm. Recipients with no item claims remain eligible. Watching all projects includes their combined frontier. Each alarm fires once and clears when its condition stops.",
+ "commands": ["yoke watch fleet"],
+ "sources": ["packages/yoke-core/src/yoke_core/domain/fleet_delta_alarms.py", "runtime/api/domain/test_fleet_delta_alarms.py"],
+ "page": "strategy",
+ "position": 7
+}
