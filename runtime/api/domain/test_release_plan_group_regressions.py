@@ -36,6 +36,13 @@ def test_merged_dash_is_enrolled_before_closeout_finishes(
     )
     repo, baseline, tip = release_repository(tmp_path, "closeout")
     record_landing_receipt(test_db, item_id, branch="closeout", tip=tip)
+    # Task review after the landing must not look like an item reopening.
+    test_db.execute(
+        "INSERT INTO item_status_transitions "
+        "(item_id,task_num,from_status,to_status,created_at) "
+        "VALUES(%s,1,'implementing','reviewing-implementation',clock_timestamp())",
+        (item_id,),
+    )
     serve_repository(monkeypatch, repo)
     insert_run(
         test_db,

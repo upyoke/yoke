@@ -23,6 +23,7 @@ from runtime.api.api_workflow_test_helpers import (
 )
 from runtime.api.fixtures.file_test_db import connect_test_db, init_test_db
 from runtime.api.fixtures.schema_ddl import apply_fixture_ddl
+from yoke_core.domain.schema_init_tables import create_core_tables
 
 _SCHEMA_DDL = """
     CREATE TABLE IF NOT EXISTS projects (
@@ -131,6 +132,8 @@ def _apply_schema() -> None:
     try:
         apply_fixture_ddl(conn, _SCHEMA_DDL)
         install_workflow_registry_and_pin_items(conn)
+        create_core_tables(conn)
+        conn.commit()
     finally:
         conn.close()
     dr.cmd_init()

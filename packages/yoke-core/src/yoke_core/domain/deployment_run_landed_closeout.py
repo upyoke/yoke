@@ -22,7 +22,7 @@ def landed_closeout_members(conn: Any, item_ids) -> frozenset[int]:
         entries = read_entries(conn, item_id).values()
         entered = conn.execute(
             "SELECT created_at FROM item_status_transitions WHERE item_id=%s "
-            "AND to_status=%s ORDER BY created_at DESC LIMIT 1",
+            "AND task_num IS NULL AND to_status=%s ORDER BY created_at DESC LIMIT 1",
             (item_id, status),
         ).fetchone()
         if any(
