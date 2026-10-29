@@ -11,6 +11,7 @@ from __future__ import annotations
 from typing import Any, Dict, Optional
 
 from yoke_contracts.session_model_facts import SessionModelFacts
+from yoke_contracts.session_queue_posture import SESSION_MODE_DEFAULT
 
 
 def session_started_context(
@@ -24,7 +25,6 @@ def session_started_context(
     model_facts: SessionModelFacts,
     execution_level: str,
     workspace: str,
-    mode: str,
     executor_version: Optional[str],
     machine_id: Optional[str],
     project_id: int | None,
@@ -44,7 +44,7 @@ def session_started_context(
         "requested_model": model_facts.requested_model,
         "execution_level": execution_level,
         "workspace": workspace,
-        "mode": mode,
+        "mode": SESSION_MODE_DEFAULT,
     }
     surface = stored["executor_surface"] if stored is not None else fallback_surface
     if surface:

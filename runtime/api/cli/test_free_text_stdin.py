@@ -124,7 +124,6 @@ def test_direct_work_refuses_blank_spec_before_dispatch(
 
 def test_items_create_reads_spec_from_stdin(monkeypatch):
     captured = _capture(monkeypatch, items_create)
-    monkeypatch.setattr(items_create, "refuse_unscaffolded_create", lambda **_: None)
     monkeypatch.setattr(
         "yoke_cli.commands.text_file.sys.stdin",
         StringIO("Title with `ticks`\n"),

@@ -13,7 +13,6 @@ from typing import Literal
 class Skill:
     id: str
     kind: Literal["stage", "orchestrator", "utility", "internal"]
-    session_mode: str
     autonomous: bool
     description: str
     arguments: str = ""
@@ -40,7 +39,6 @@ SKILLS: tuple[Skill, ...] = (
     Skill(
         "amend",
         "internal",
-        "shepherd",
         False,
         "amend a synced task graph",
         "{epic-ref}",
@@ -48,7 +46,6 @@ SKILLS: tuple[Skill, ...] = (
     Skill(
         "approve",
         "internal",
-        "wait",
         False,
         "record a deployment approval",
         'RUN-ID [--note "..."]',
@@ -56,7 +53,6 @@ SKILLS: tuple[Skill, ...] = (
     Skill(
         "blitz",
         "stage",
-        "blitz",
         True,
         "execute document-led work",
         "{PREFIX-N}",
@@ -66,7 +62,6 @@ SKILLS: tuple[Skill, ...] = (
     Skill(
         "charge",
         "orchestrator",
-        "charge",
         True,
         "select runnable frontier work",
         "[--dry-run] [--item PREFIX-N] [--project P] [--wip-cap N]",
@@ -74,7 +69,6 @@ SKILLS: tuple[Skill, ...] = (
     Skill(
         "conduct",
         "stage",
-        "conduct",
         True,
         "execute generated task lanes",
         "PREFIX-N [--max-attempts N] [--no-chain]",
@@ -84,7 +78,6 @@ SKILLS: tuple[Skill, ...] = (
     Skill(
         "curate",
         "utility",
-        "curate",
         False,
         "curate the Ouroboros learning log",
         "(no arguments)",
@@ -92,7 +85,6 @@ SKILLS: tuple[Skill, ...] = (
     Skill(
         "dash",
         "stage",
-        "dash",
         True,
         "execute spec-led work",
         '"spec" | {PREFIX-N}',
@@ -102,7 +94,6 @@ SKILLS: tuple[Skill, ...] = (
     Skill(
         "doctor",
         "utility",
-        "doctor",
         False,
         "run health checks",
         "[project] [--fix] [--file path]",
@@ -110,16 +101,14 @@ SKILLS: tuple[Skill, ...] = (
     Skill(
         "feed",
         "orchestrator",
-        "feed",
         False,
         "refresh frontier work",
         "[--no-new-items] [PREFIX-N ...] [--model MODEL]",
     ),
-    Skill("help", "utility", "wait", False, "show command reference", ""),
+    Skill("help", "utility", False, "show command reference", ""),
     Skill(
         "idea",
         "utility",
-        "idea",
         False,
         "file a backlog item",
         "[--dry-run] [--workflow issue|epic|blitz|task] {title}",
@@ -129,7 +118,6 @@ SKILLS: tuple[Skill, ...] = (
     Skill(
         "implement",
         "stage",
-        "implement",
         True,
         "implement and review an item",
         "{PREFIX-N} [--no-worktree] [--force] [--qa-bypass]",
@@ -140,7 +128,6 @@ SKILLS: tuple[Skill, ...] = (
     Skill(
         "implementing",
         "internal",
-        "implement",
         True,
         "kick off implementation",
         "",
@@ -149,7 +136,6 @@ SKILLS: tuple[Skill, ...] = (
     Skill(
         "models",
         "utility",
-        "wait",
         False,
         "publish model catalog revisions and propose level changes",
         "lookup MODEL_ID | get | validate | diff | publish | revisions | restore"
@@ -158,7 +144,6 @@ SKILLS: tuple[Skill, ...] = (
     Skill(
         "onboard",
         "orchestrator",
-        "wait",
         False,
         "adopt existing work and reach the first item done",
         "[--project P] [--run-id RUN]",
@@ -166,7 +151,6 @@ SKILLS: tuple[Skill, ...] = (
     Skill(
         "polish",
         "stage",
-        "polish",
         True,
         "review and finish implementation",
         "{PREFIX-N}",
@@ -176,7 +160,6 @@ SKILLS: tuple[Skill, ...] = (
     Skill(
         "refine",
         "stage",
-        "refine",
         False,
         "critique and improve item artifacts",
         "{PREFIX-N}",
@@ -186,7 +169,6 @@ SKILLS: tuple[Skill, ...] = (
     Skill(
         "resync",
         "utility",
-        "wait",
         False,
         "detect and repair GitHub drift",
         "[--fix]",
@@ -194,7 +176,6 @@ SKILLS: tuple[Skill, ...] = (
     Skill(
         "shepherd",
         "stage",
-        "shepherd",
         True,
         "execute the pinned planning interval",
         "{PREFIX-N}",
@@ -203,7 +184,6 @@ SKILLS: tuple[Skill, ...] = (
     Skill(
         "simulate",
         "utility",
-        "simulate",
         False,
         "trace integration paths; no terminal `yoke simulate` adapter",
         "{epic-ref} [--auto-fix] | --system",
@@ -211,7 +191,6 @@ SKILLS: tuple[Skill, ...] = (
     Skill(
         "steer",
         "orchestrator",
-        "steer",
         True,
         "staff work from a strategy document; omitted slug defaults to `CURRENT-PLAN`",
         "[STRATEGY-DOC-SLUG] [--project P ...]",
@@ -219,7 +198,6 @@ SKILLS: tuple[Skill, ...] = (
     Skill(
         "strategize",
         "orchestrator",
-        "strategize",
         False,
         "review project strategy",
         "[--model MODEL]",
@@ -227,7 +205,6 @@ SKILLS: tuple[Skill, ...] = (
     Skill(
         "usher",
         "stage",
-        "usher",
         True,
         "merge and deliver an item",
         "PREFIX-N [PREFIX-N ...] [--dry-run] [--merge-only] [--deploy-only] [--resume PREFIX-N]",
@@ -235,7 +212,7 @@ SKILLS: tuple[Skill, ...] = (
         startup_order=4,
     ),
     Skill(
-        "wrapup", "utility", "wrapup", False, "wrap up the session", "(no arguments)"
+        "wrapup", "utility", False, "wrap up the session", "(no arguments)"
     ),
 )
 SKILLS_BY_ID = {skill.id: skill for skill in SKILLS}
@@ -246,4 +223,3 @@ IMPLEMENTATION_SKILL_IDS = frozenset(
 TASK_PRODUCING_SKILL_IDS = frozenset(
     skill.id for skill in SKILLS if skill.produces_tasks
 )
-SKILL_SESSION_MODES = frozenset(skill.session_mode for skill in SKILLS)

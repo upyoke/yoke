@@ -55,7 +55,6 @@ def begin_session(
     workspace: str,
     project_id: int | None,
     machine_scope: bool = False,
-    mode: str = "wait",
     entrypoint: str | None = None,
     executor_version: str | None = None,
     machine_id: str | None = None,
@@ -112,7 +111,6 @@ def begin_session(
             workspace=workspace,
             project_id=project_id,
             machine_scope=machine_scope,
-            mode=mode,
             execution_level=resolved_level,
             entrypoint=entrypoint,
             executor_version=executor_version,
@@ -136,7 +134,7 @@ def cmd_session_begin(args: list[str]) -> int:
     """Begin (or idempotently refresh) a session in harness_sessions.
 
     Usage: session-begin --session-id S --executor E --provider P
-                         --workspace W [--requested-model M] [--mode MODE]
+                         --workspace W [--requested-model M]
 
     Idempotent: if the session already exists and is active, returns success
     without error. This allows hooks to call session-begin on every prompt
@@ -157,7 +155,6 @@ def cmd_session_begin(args: list[str]) -> int:
     for field in MODEL_FACT_FIELDS:
         parser.add_argument(fact_flag(field), dest=field, default=None)
     parser.add_argument("--project-id", default=None)
-    parser.add_argument("--mode", default="wait")
     parser.add_argument("--entrypoint", default=None)
     parser.add_argument("--executor-version", default=None)
     parser.add_argument("--machine-id", default=None)
@@ -170,7 +167,7 @@ def cmd_session_begin(args: list[str]) -> int:
         print(
             "Usage: session-begin [--session-id S] --executor E "
             "--provider P --workspace W [--requested-model M] "
-            "[--model SERVED] [--mode MODE]",
+            "[--model SERVED]",
             file=sys.stderr,
         )
         return 2
@@ -199,7 +196,6 @@ def cmd_session_begin(args: list[str]) -> int:
                 workspace=parsed.workspace,
                 project_id=resolved_project_id,
                 machine_scope=resolved_project_id is None,
-                mode=parsed.mode,
                 entrypoint=parsed.entrypoint,
                 executor_version=parsed.executor_version,
                 machine_id=parsed.machine_id,

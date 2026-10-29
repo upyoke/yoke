@@ -47,7 +47,6 @@ def cmd_begin(
     model: str,
     workspace: str,
     level: str = "primary",
-    mode: str = "wait",
     executor_version: Optional[str] = None,
     machine_id: Optional[str] = None,
     *,
@@ -77,7 +76,6 @@ def cmd_begin(
         model_facts=SessionModelFacts(model=model, reasoning_effort=effort),
         execution_level=level,
         workspace=workspace,
-        mode=mode,
         now=now,
         envelope_json=None,
         actor_id=actor_id,
@@ -108,7 +106,7 @@ def cmd_begin(
     return f"Began session: {session_id}"
 
 
-def cmd_touch(conn, session_id: str, mode: Optional[str] = None) -> str:
+def cmd_touch(conn, session_id: str) -> str:
     now = instant_parameter(conn, utc_now())
     p = _placeholder(conn)
     _require_active_session(conn, session_id)
@@ -121,11 +119,6 @@ def cmd_touch(conn, session_id: str, mode: Optional[str] = None) -> str:
         f"WHERE session_id={p} AND released_at IS NULL",
         (now, session_id),
     )
-    if mode:
-        conn.execute(
-            f"UPDATE harness_sessions SET mode={p} WHERE session_id={p}",
-            (mode, session_id),
-        )
     conn.commit()
     return f"Heartbeat updated: {session_id}"
 

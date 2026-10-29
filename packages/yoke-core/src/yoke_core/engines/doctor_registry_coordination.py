@@ -74,7 +74,7 @@ COORDINATION_HEALTH_CHECKS: List[HealthCheck] = [
     ),
     HealthCheck(
         "work-claim-status-mismatch",
-        "Item work-claims held on a status whose role mismatches the holder",
+        "Item work-claims on release or idea items held by a session that is not fresh",
         hc_work_claim_status_mismatch,
     ),
 ]

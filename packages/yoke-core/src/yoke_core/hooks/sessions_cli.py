@@ -59,8 +59,8 @@ _USAGE = """\
 Usage: harness-sessions <subcmd> [args...]
 
 Subcommands:
-  begin <session-id> <executor> <provider> <model> <workspace> [level] [mode] [--reasoning-effort E]
-  touch <session-id> [--mode M]
+  begin <session-id> <executor> <provider> <model> <workspace> [level] [--reasoning-effort E]
+  touch <session-id>
   end <session-id> [--force]
   claim <session-id> --target-kind {item|epic_task|process}
         --item-id PREFIX-N | --epic-id PREFIX-N --task-num K |
@@ -154,10 +154,9 @@ def main(argv: Optional[List[str]] = None) -> None:
             if len(rest) < 5:
                 _cli_usage_error(
                     "Usage: harness-sessions begin <sid> <executor> <provider> "
-                    "<model> <workspace> [level] [mode]"
+                    "<model> <workspace> [level]"
                 )
             level = rest[5] if len(rest) > 5 else "primary"
-            mode = rest[6] if len(rest) > 6 else "wait"
             from yoke_contracts.project_defaults import default_project_for_directory
             from yoke_core.domain.project_identity import resolve_project_id
 
@@ -171,7 +170,6 @@ def main(argv: Optional[List[str]] = None) -> None:
                     rest[3],
                     rest[4],
                     level,
-                    mode,
                     project_id=(resolve_project_id(conn, project) if project else None),
                     reasoning_effort=effort,
                 )
@@ -180,15 +178,9 @@ def main(argv: Optional[List[str]] = None) -> None:
         elif subcmd == "touch":
             if not rest:
                 _cli_usage_error(
-                    "Usage: harness-sessions touch <session-id> [--mode M]"
+                    "Usage: harness-sessions touch <session-id>"
                 )
-            mode = None
-            if len(rest) > 1:
-                if rest[1] == "--mode" and len(rest) > 2:
-                    mode = rest[2]
-                elif rest[1] != "--mode":
-                    mode = rest[1]
-            print(cmd_touch(conn, rest[0], mode))
+            print(cmd_touch(conn, rest[0]))
 
         elif subcmd == "end":
             if not rest:

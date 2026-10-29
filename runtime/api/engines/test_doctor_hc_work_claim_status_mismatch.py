@@ -74,7 +74,7 @@ def _seed(
     conn,
     *,
     session_id="s",
-    mode="usher",
+    mode="wait",
     minutes_ago=1.0,
     ended=False,
     item_id=100,
@@ -150,61 +150,55 @@ def test_passes_on_missing_or_minimal_schema(ddl):
     "kwargs",
     [
         None,
-        {"session_id": "s-usher", "mode": "usher", "status": "release"},
-        {"session_id": "s-idea", "mode": "idea", "status": "idea"},
-        {"session_id": "s-refine", "mode": "refine", "status": "idea"},
-        {"session_id": "s-eng", "mode": "implement", "status": "implementing"},
-        {
-            "session_id": "s-polish",
-            "mode": "polish",
-            "status": "polishing-implementation",
-        },
+        {"session_id": "s-release", "status": "release"},
+        {"session_id": "s-idea", "status": "idea"},
+        # An old skill mode on a fresh holder is no finding: freshness decides.
+        {"session_id": "s-polish", "mode": "polish", "status": "release"},
+        {"session_id": "s-conduct", "mode": "conduct", "status": "idea"},
+        {"session_id": "s-eng", "status": "implementing", "minutes_ago": 999},
         {
             "session_id": "s-old",
-            "mode": "polish",
             "status": "release",
+            "minutes_ago": 999,
             "released_at": _iso_ago(2),
         },
         {
             "session_id": "s-task",
-            "mode": "implement",
             "status": "release",
+            "minutes_ago": 999,
             "target_kind": "epic_task",
             "epic_id": 700,
             "task_num": 1,
         },
         {
             "session_id": "s-proc",
-            "mode": "implement",
             "status": "release",
+            "minutes_ago": 999,
             "target_kind": "process",
             "process_key": "DOCTOR_PIPELINE",
         },
     ],
 )
-def test_passes_for_valid_or_out_of_scope_claims(conn, kwargs):
+def test_passes_for_fresh_or_out_of_scope_claims(conn, kwargs):
     if kwargs:
         _seed(conn, **kwargs)
     assert _result(conn).result == "PASS"
 
 
 @pytest.mark.parametrize(
-    "session_id, mode, status, minutes_ago, ended, item_id, expected",
+    "session_id, status, minutes_ago, ended, item_id, expected",
     [
-        ("s-polish", "polish", "release", 1, False, 500, "usher YOK-500"),
-        ("s-stale", "usher", "release", 999, False, 501, "YOK-501"),
-        ("s-ended", "usher", "release", 1, True, 502, " ended"),
-        ("s-wander", "conduct", "idea", 1, False, 600, "stale draft claim"),
-        ("s-stale-idea", "idea", "idea", 999, False, 601, "YOK-601"),
+        ("s-stale", "release", 999, False, 501, "usher YOK-501"),
+        ("s-ended", "release", 1, True, 502, " ended"),
+        ("s-stale-idea", "idea", 999, False, 601, "stale draft claim"),
     ],
 )
-def test_warns_for_mismatched_claims(
-    conn, session_id, mode, status, minutes_ago, ended, item_id, expected
+def test_warns_for_claims_without_a_fresh_holder(
+    conn, session_id, status, minutes_ago, ended, item_id, expected
 ):
     _seed(
         conn,
         session_id=session_id,
-        mode=mode,
         status=status,
         minutes_ago=minutes_ago,
         ended=ended,
@@ -213,6 +207,7 @@ def test_warns_for_mismatched_claims(
     result = _result(conn)
     assert result.result == "WARN"
     assert expected in result.detail
+    assert "mode=" not in result.detail
     assert "yoke claims work release --item YOK-N" in result.detail
     assert "service_client" not in result.detail
 

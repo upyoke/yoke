@@ -21,7 +21,6 @@ from yoke_cli.commands.session_begin_corroboration import (
     uncorroborated_reason,
 )
 from yoke_contracts.api.function_call import TargetRef
-from yoke_contracts.session_queue_posture import SESSION_MODES
 
 
 SESSIONS_IDENTITY_USAGE = "yoke sessions identity [--full] [--session-id S] [--json]"
@@ -36,7 +35,7 @@ SESSIONS_CHECKPOINT_READ_USAGE = (
 )
 SESSIONS_BEGIN_USAGE = (
     "yoke sessions begin --executor E --provider P --requested-model M --workspace W "
-    "[--project ID] [--mode MODE] [--entrypoint E] [--session-id S] [--json]"
+    "[--project ID] [--entrypoint E] [--session-id S] [--json]"
 )
 CHARGE_SCHEDULE_USAGE = (
     "yoke charge schedule [--project P] [--item PREFIX-N] "
@@ -224,14 +223,6 @@ def sessions_begin(args: List[str]) -> int:
         default=None,
         help="Numeric project id; default: the project mapped to the workspace.",
     )
-    modes = sorted(SESSION_MODES)
-    parser.add_argument(
-        "--mode",
-        default="wait",
-        choices=modes,
-        metavar="MODE",
-        help=f"Start mode; default: wait. One of: {', '.join(modes)}.",
-    )
     parser.add_argument(
         "--entrypoint", metavar="E", help="App that launched it, such as codex-desktop."
     )
@@ -252,7 +243,6 @@ def sessions_begin(args: List[str]) -> int:
         "requested_model": parsed.requested_model,
         "workspace": parsed.workspace,
         "project_id": project_id,
-        "mode": parsed.mode,
     }
     if project_id is None:
         payload["machine_scope"] = True

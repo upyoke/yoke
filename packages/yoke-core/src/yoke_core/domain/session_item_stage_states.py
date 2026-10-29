@@ -1,14 +1,9 @@
 """Pinned-workflow stage states for the primary item on a session card.
 
 The strip paints one segment per stage of the item's pinned workflow
-version. Which segment is active comes from the item status and the live
-work claim together: a skill binding's ``from_stage_id`` is the handoff the
-previous skill completed, so once the session holding the item's claim is
-working in that binding's own skill mode, the handoff stage is done and the
-binding's first working stage is the active one. A Dash at status ``idea``
-under a claim held in ``dash`` mode therefore shows ``idea`` complete and
-``implementing`` active; the same Dash unclaimed, or claimed by a session
-still waiting, shows ``idea`` active.
+version. The item's status alone decides which segment is active; the
+session holding the claim adds nothing. A landed but still open item paints
+its verification close active, and recorded failures mark their stages.
 """
 
 from __future__ import annotations
@@ -151,28 +146,6 @@ def _item_rows(conn: Any, item_ids: Sequence[int]) -> dict[int, dict[str, Any]]:
     return result
 
 
-def _holder_modes(conn: Any, item_ids: Sequence[int]) -> dict[int, str]:
-    """Queue posture of the session holding each item's live work claim."""
-    required = ("work_claims", "harness_sessions")
-    if not item_ids or not all(_table_exists(conn, name) for name in required):
-        return {}
-    marker = _p(conn)
-    item_id = scope_int_sql(conn, "c.scope", "item_id")
-    records = conn.execute(
-        f"SELECT {item_id} AS item_id,s.mode FROM work_claims c "
-        "JOIN harness_sessions s ON s.session_id=c.session_id "
-        "WHERE c.released_at IS NULL AND c.target_kind='item' "
-        f"AND {item_id} IN ("
-        + ",".join(marker for _ in item_ids)
-        + ") ORDER BY c.claimed_at DESC,c.id DESC",
-        tuple(item_ids),
-    ).fetchall()
-    modes: dict[int, str] = {}
-    for record in records:
-        modes.setdefault(int(record["item_id"]), str(record["mode"] or ""))
-    return modes
-
-
 def _closeout_stage(runtime: WorkflowRuntime) -> str:
     # The pinned release wait is post-merge, so a landed-but-not-yet-closed
     # item still stalled before that write belongs at the verification
@@ -191,16 +164,8 @@ def active_stage_id(
     status: str,
     *,
     landed_open: bool = False,
-    holder_mode: str | None = None,
 ) -> str:
-    """The stage the strip paints active, from the pin and the live claim.
-
-    ``holder_mode`` is the queue posture of the session holding the item's
-    live work claim; ``None`` means no live claim. When that posture is the
-    skill bound at the item's status and the status is that binding's
-    handoff stage, the skill has taken the handoff and its first working
-    stage is active. A binding with no working stage after its handoff, and
-    every other posture, leave the status-derived stage active.
+    """The stage the strip paints active, from the pin and the item status.
 
     ``landed_open`` assumes a stale pre-merge status when it has no better
     evidence, painting the verification close active rather than an
@@ -219,18 +184,7 @@ def active_stage_id(
         ):
             return status
         return closeout
-    binding = runtime.skill_binding_for_stage(status)
-    if (
-        binding is None
-        or not holder_mode
-        or str(binding["skill_id"]) != holder_mode
-        or str(binding["from_stage_id"]) != status
-    ):
-        return status
-    working = runtime.next_stage_id(status)
-    if working is None or working == str(binding["through_stage_id"]):
-        return status
-    return working
+    return status
 
 
 def item_stage_states(
@@ -239,12 +193,9 @@ def item_stage_states(
     *,
     landed_open: bool = False,
     failures: Mapping[str, str] | None = None,
-    holder_mode: str | None = None,
 ) -> list[dict[str, Any]]:
     """Classify every pinned stage from ordered workflow and live item facts."""
-    active_stage = active_stage_id(
-        runtime, status, landed_open=landed_open, holder_mode=holder_mode
-    )
+    active_stage = active_stage_id(runtime, status, landed_open=landed_open)
     active_index = runtime.stage_index(active_stage)
     if active_index is None:
         active_index = 0
@@ -290,7 +241,6 @@ def primary_item_stages_by_session(
         item_id for held in connected_claims.values() for item_id, _ in held
     )
     launch = launch_failures(conn, items, active_item_ids=connected_item_ids)
-    holder_modes = _holder_modes(conn, item_ids)
     returned_after_landing = items_returned_after_landing(conn, items)
     projected: dict[str, list[dict[str, Any]]] = {}
     for session_id, item_id in selected.items():
@@ -304,10 +254,7 @@ def primary_item_stages_by_session(
             and (item.get("merged_at") or item.get("merge_queue_landed_at"))
             and item_id not in returned_after_landing
         )
-        holder_mode = holder_modes.get(item_id)
-        active_stage = active_stage_id(
-            runtime, status, landed_open=landed_open, holder_mode=holder_mode
-        )
+        active_stage = active_stage_id(runtime, status, landed_open=landed_open)
         failures: dict[str, str] = {}
         if item_id in launch:
             failures[active_stage] = launch[item_id]
@@ -323,7 +270,6 @@ def primary_item_stages_by_session(
             status,
             landed_open=landed_open,
             failures=failures,
-            holder_mode=holder_mode,
         )
     return projected
 

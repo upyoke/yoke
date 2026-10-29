@@ -13,7 +13,6 @@ def calls(monkeypatch):
     monkeypatch.setattr(
         items_create, "dispatch_create", lambda **kw: requests.append(kw) or 0
     )
-    monkeypatch.setattr(items_create, "refuse_unscaffolded_create", lambda **kw: None)
     return requests
 
 

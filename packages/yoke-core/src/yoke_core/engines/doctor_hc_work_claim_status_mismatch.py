@@ -1,4 +1,4 @@
-"""HC-work-claim-status-mismatch: suspicious active item claims."""
+"""HC-work-claim-status-mismatch: stale item claims on release or idea items."""
 
 from __future__ import annotations
 
@@ -15,10 +15,9 @@ from yoke_core.engines.doctor_report import DoctorArgs, RecordCollector
 
 
 _HC_NAME = "HC-work-claim-status-mismatch"
-_HC_DESC = "Active item work-claims held on a role-mismatched status"
+_HC_DESC = "Active item work-claims on release or idea items whose holder is not fresh"
 _REQUIRED_TABLES = ("work_claims", "items", "harness_sessions")
 _DEFAULT_STALE_TTL_MINUTES = 20
-_IDEA_DRAFT_MODES = ("idea", "refine")
 _LIST_PREVIEW = 20
 
 
@@ -30,7 +29,6 @@ def _scan_sql(conn: Any) -> str:
         {item_id}          AS item_id,
         wc.session_id      AS session_id,
         i.status           AS item_status,
-        hs.mode            AS session_mode,
         hs.ended_at        AS session_ended_at,
         hs.last_heartbeat  AS session_last_heartbeat
     FROM work_claims wc
@@ -56,7 +54,7 @@ def hc_work_claim_status_mismatch(
     args: DoctorArgs,
     rec: RecordCollector,
 ) -> None:
-    """Report leaked item claims that disagree with the item's status role."""
+    """Report release or idea item claims whose holder session is not fresh."""
     for table in _REQUIRED_TABLES:
         if not _base._table_exists(conn, table):
             rec.record(_HC_NAME, _HC_DESC, "PASS", f"{table} table missing — skipping")
@@ -76,7 +74,6 @@ def hc_work_claim_status_mismatch(
     findings: list[str] = []
     for row in rows:
         status = row["item_status"]
-        mode = row["session_mode"]
         try:
             age = _heartbeat_age_minutes(row["session_last_heartbeat"], now)
             clock_error = ""
@@ -87,9 +84,7 @@ def hc_work_claim_status_mismatch(
         fresh = row["session_ended_at"] is None and age is not None
         fresh = fresh and age <= ttl_minutes
 
-        if status == "release" and (fresh and mode == "usher"):
-            continue
-        if status == "idea" and fresh and mode in _IDEA_DRAFT_MODES:
+        if fresh:
             continue
 
         age_text = f"{age:.1f}m" if age is not None else "unknown"
@@ -102,7 +97,7 @@ def hc_work_claim_status_mismatch(
         )
         findings.append(
             f"  - {public_ref} status={status} "
-            f"holder={row['session_id']} mode={mode or '<none>'}{ended_clause} "
+            f"holder={row['session_id']}{ended_clause} "
             f"heartbeat_age={age_text}{clock_error} claim_id={int(row['claim_id'])} "
             f"recovery: {recovery}"
         )
@@ -112,8 +107,8 @@ def hc_work_claim_status_mismatch(
         return
 
     summary = (
-        f"- {len(findings)} active item work-claim(s) held on a status whose "
-        f"canonical role does not match the holder session. Ask the holder "
+        f"- {len(findings)} active item work-claim(s) on a release or idea item "
+        f"held by an ended or silent session. Ask the holder "
         f"to run `yoke claims work release --item YOK-N --reason "
         f"<terminal-intent>` (use an `usher-halt-*` reason for release "
         f"items). Foreign stranded claims require the Atlas-named operator "
