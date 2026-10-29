@@ -38,10 +38,10 @@ source revision, and cases are filtered to the target. The run pins each plan
 at its first group, so plan edits during a release wait for the next release.
 A run holds at most one open group per plan.
 
-The driver runs pending groups and run-scoped QA plans outside bounded stage
-dispatch. Review in one group does not stop another. Review and manual-evidence
-waits reach the driver, else the starting session, else steering. Plan-only
-item holders park; the stage waits for every group. Recipes retain `--env`.
+The driver runs groups outside dispatch; review never stops other groups.
+Manual/review waits also notify owing item holders (else project steering),
+naming cases and recovery; closure withdraws them. Driver notices fall back
+to starter, then steering. Plan-only holders park. Recipes retain `--env`.
 
 Plan commands have no member: `DEPLOYMENT_MEMBER_REF` refuses as
 `qa_plan_member_reference_unsupported`. Read `YOKE_QA_CANDIDATE_TREE` (JSON with

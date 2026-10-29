@@ -1,9 +1,10 @@
-"""Dispatch item-qa plan groups: create, gate once, and tell one session.
+"""Dispatch item-qa plan groups: create, gate once, and notify their owners.
 
 A plan group is run QA in shape: memberless rows on the run, settled as a
-run-scoped subject. Dispatch launches nothing and wakes no member holder for
-it. Pending groups reach the run's live driver, else the session that started
-the run, else the steering seat, in one notice per set of pending groups; a
+run-scoped subject. Dispatch launches nothing. Held groups also notify every
+owing item's holder, falling back to project steering. Pending groups reach
+the run's live driver, else its starting session, else the steering seat,
+in one notice per set of pending groups; a
 failed group sends one notice naming its report and its items, and that
 session decides who fixes what.
 """
@@ -117,13 +118,16 @@ def plan_groups_wait_key(run_id: str, stage_name: str, groups: list[PlanGroup]) 
     return f"{PLAN_GROUPS_WAIT_PREFIX}{run_id}:{stage_name}:plan-groups:{digest}"
 
 
-def _group_lines(conn, run_id, stage_name, groups, item_refs) -> list[str]:
+def _group_lines(conn, run_id, stage_name, groups, item_refs, members=None) -> list[str]:
     from yoke_core.domain.deployment_run_recovery_command import yoke_command
 
     lines = []
     for group in groups:
         items = ", ".join(
-            item_refs(member) for member in owing_members(conn, run_id, group.plan_id)
+            item_refs(member) for member in (
+                members[group.group_id] if members is not None
+                else owing_members(conn, run_id, group.plan_id)
+            )
         )
         lines.append(
             f"  {yoke_command()} qa plan run --deployment-run-id {run_id} --stage {stage_name} "
@@ -160,7 +164,16 @@ def notify_plan_groups_wait(
 ) -> None:
     from yoke_core.domain.deployment_run_recovery_command import deploy_command, yoke_command
 
-    lines = _group_lines(conn, run_id, stage_name, groups, item_refs)
+    members = {
+        group.group_id: owing_members(conn, run_id, group.plan_id) for group in groups
+    }
+    lines = _group_lines(conn, run_id, stage_name, groups, item_refs, members)
+    for group, line in zip(groups, lines):
+        _notify_group_holders(
+            conn, run_id=run_id, stage_name=stage_name, group=group,
+            members=members[group.group_id], project_id=project_id,
+            item_refs=item_refs, recovery=line.strip(),
+        )
     body = (
         f"Deployment run {run_id} stage {stage_name!r} has {len(groups)} pending plan "
         "group(s). Each runs once for the whole release and answers every item that "
@@ -174,6 +187,52 @@ def notify_plan_groups_wait(
         key=plan_groups_wait_key(run_id, stage_name, groups),
         label=f"stage {stage_name!r} plan groups",
     )
+
+
+def _notify_group_holders(
+    conn, *, run_id, stage_name, group, members, project_id, item_refs, recovery
+) -> None:
+    from yoke_contracts.timestamps import parse_instant, utc_now
+    from yoke_core.domain.deployment_run_recovery_command import qualify_commands
+    from yoke_core.domain.deployment_qa_stage_wake import stage_wait_idempotency_key
+    from yoke_core.domain.merge_queue_landing_notice import HOLDER, push_notice
+
+    cases = conn.execute(
+        "SELECT id, plan_case_key FROM qa_requirements WHERE id=ANY(%s) ORDER BY id",
+        (list(group.requirement_ids),),
+    ).fetchall()
+    case_labels = ", ".join(f"requirement #{row[0]} (case {row[1]})" for row in cases)
+    plan = _plan_label(conn, group.plan_id)
+    now = parse_instant(utc_now())
+    for member in members:
+        ref = item_refs(member)
+        body = qualify_commands(
+            f"Deployment run {run_id} stage {stage_name!r} is waiting on plan "
+            f"{plan} (group {group.group_id}) owed by "
+            f"{ref}: {case_labels}. Review or manual evidence is pending. "
+            f"Inspect and complete the plan's pending cases: `{recovery}`. "
+            "If evidence cannot be produced, ask the operator through "
+            "`yoke say --steering` to waive or remove the case, naming the run "
+            "and requirement."
+        )
+        delivery = push_notice(
+            conn, item_id=member, project_id=project_id,
+            body_for_route=lambda route: (
+                f"Reaching {ref}'s "
+                + ("claim holder. " if route == HOLDER else
+                   "project steering seat (its claim holder is gone). ") + body
+            ),
+            idempotency_key=stage_wait_idempotency_key(
+                run_id, stage_name, member, f"plan-group-{group.group_id}"
+            ),
+            now=now,
+        )
+        if not delivery:
+            print(
+                f"Plan group {group.group_id} could not reach {ref}: no live "
+                "claim holder or covering project steering seat. Staff the item, "
+                f"then re-drive the run with `yoke watch deploy -- {run_id}`."
+            )
 
 
 def notify_plan_group_failure(
