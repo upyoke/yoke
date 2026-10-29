@@ -122,7 +122,11 @@ def test_render_accepts_every_harness_in_universe() -> None:
 def test_result_schema_present_for_every_role(role: str) -> None:
     descriptor = DispatchDescriptor(role=role)
     schema = descriptor.result_schema
-    assert schema, f"role {role!r} has empty result schema"
+    assert isinstance(schema, tuple)
+    if role in {"architect", "product-manager", "product-designer"}:
+        assert schema == ()
+    else:
+        assert schema, f"role {role!r} must declare its structured result"
 
 
 def test_result_schema_invariant_across_harnesses() -> None:
