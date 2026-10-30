@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from runtime.api.cli.github_user_token_test_support import seed_yoke_connection
+
 from io import BytesIO
 import json
 from pathlib import Path
@@ -26,6 +28,7 @@ def test_connect_retries_fresh_user_token_until_github_accepts_it(
     home = tmp_path / "home"
     monkeypatch.setenv("YOKE_MACHINE_HOME", str(home))
     config = home / "config.json"
+    seed_yoke_connection(config)
     healthy = _api_opener(installed=True)
     user_attempts = 0
     sleep_calls: list[float] = []
@@ -74,6 +77,7 @@ def test_connect_bounds_persistent_unauthorized_checks_without_secret_leak(
     home = tmp_path / "home"
     monkeypatch.setenv("YOKE_MACHINE_HOME", str(home))
     config = home / "config.json"
+    seed_yoke_connection(config)
     user_attempts = 0
     sleep_calls: list[float] = []
 
@@ -111,7 +115,7 @@ def test_connect_bounds_persistent_unauthorized_checks_without_secret_leak(
     assert "message=Bad credentials for <redacted>" in report["issues"][0]["message"]
     assert "access-secret" not in rendered
     stored = json.loads(config.read_text(encoding="utf-8"))
-    assert stored["github"]["authorization"]["status"] == "authorized"
+    assert stored["connection_github"]["local"]["authorization"]["status"] == "authorized"
 
 
 def test_status_retries_transient_unauthorized_without_revoking(
@@ -146,7 +150,7 @@ def test_status_retries_transient_unauthorized_without_revoking(
     assert user_attempts == 2
     assert sleep_calls == [1.0]
     stored = json.loads(config.read_text(encoding="utf-8"))
-    assert stored["github"]["authorization"]["status"] == "authorized"
+    assert stored["connection_github"]["local"]["authorization"]["status"] == "authorized"
 
 
 def test_status_marks_revoked_only_after_unauthorized_retries_exhaust(

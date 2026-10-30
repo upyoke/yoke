@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import NamedTuple
+from typing import NamedTuple, Mapping, Any
 
 if __package__:
     from yoke_contracts.github_origin import DEFAULT_GITHUB_WEB_URL
@@ -60,16 +60,68 @@ def local_product_profile_values() -> dict[str, str | int] | None:
 
 
 GITHUB_PROFILE_IDENTITY_FIELDS = (
-    "client_id", "app_slug", "app_id", "api_url", "web_url",
-    "profile_source", "profile_service_api_url",
+    "client_id",
+    "app_slug",
+    "app_id",
+    "api_url",
+    "web_url",
+    "profile_source",
+    "profile_service_api_url",
 )
 YOKE_ENV_OVERRIDE_NAME = "YOKE_ENV"
+GITHUB_CONNECTIONS_KEY = "connection_github"
+
+
+def github_connection_label(config: Mapping[str, Any], env: str) -> str:
+    """Use the HTTPS sibling for a database-admin connection."""
+    label = str(env or "").strip()
+    connections = config.get("connections") or {}
+    base = label.removesuffix("-db-admin")
+    sibling = connections.get(base) if isinstance(connections, Mapping) else None
+    if (
+        base != label
+        and isinstance(sibling, Mapping)
+        and sibling.get("transport") == "https"
+    ):
+        return base
+    return label
+
+
+def connection_github(config: Mapping[str, Any], env: str) -> dict[str, Any]:
+    """Read only the selected slot, or the unmigrated legacy record."""
+    if GITHUB_CONNECTIONS_KEY not in config:
+        raw = config.get("github")
+    else:
+        slots = config.get(GITHUB_CONNECTIONS_KEY)
+        raw = (
+            slots.get(github_connection_label(config, env))
+            if isinstance(slots, Mapping)
+            else None
+        )
+    return dict(raw) if isinstance(raw, Mapping) else {}
+
+
+def github_configurations(config: Mapping[str, Any]) -> dict[str, Any]:
+    """Enumerate stored records for validation, cleanup and presence facts."""
+    legacy = connection_github(
+        {k: v for k, v in config.items() if k != GITHUB_CONNECTIONS_KEY}, ""
+    )
+    entries = {"github": legacy} if legacy else {}
+    slots = config.get(GITHUB_CONNECTIONS_KEY)
+    if isinstance(slots, Mapping):
+        entries.update(
+            {
+                f"{GITHUB_CONNECTIONS_KEY}.{label}": value
+                for label, value in slots.items()
+            }
+        )
+    return entries
+
+
 GITHUB_APP_USER_AGENT = "yoke-github-app"
 GITHUB_JSON_ACCEPT = "application/json"
 GITHUB_OAUTH_DEVICE_CODE_PATH = "/login/device/code"
-GITHUB_OAUTH_DEVICE_GRANT_TYPE = (
-    "urn:ietf:params:oauth:grant-type:device_code"
-)
+GITHUB_OAUTH_DEVICE_GRANT_TYPE = "urn:ietf:params:oauth:grant-type:device_code"
 GITHUB_OAUTH_ACCESS_TOKEN_PATH = "/login/oauth/access_token"
 GITHUB_OAUTH_REFRESH_GRANT_TYPE = "refresh_token"
 GITHUB_OAUTH_SLOW_DOWN_SECONDS = 5
@@ -91,6 +143,10 @@ GITHUB_APP_USER_AUTH_CONFIGURATION_HINT = (
 )
 
 __all__ = [
+    "GITHUB_CONNECTIONS_KEY",
+    "github_connection_label",
+    "connection_github",
+    "github_configurations",
     "DEFAULT_GITHUB_WEB_BASE",
     "GITHUB_API_VERSION",
     "GITHUB_APP_ACCEPT",

@@ -70,7 +70,12 @@ def prove(
             )
     except GitHubServiceProfileProofError:
         raise
-    except (urllib.error.URLError, urllib.error.HTTPError, TimeoutError, OSError) as exc:
+    except (
+        urllib.error.URLError,
+        urllib.error.HTTPError,
+        TimeoutError,
+        OSError,
+    ) as exc:
         raise GitHubServiceProfileProofError(
             "selected Yoke service could not prove its GitHub App identity"
         ) from exc
@@ -85,7 +90,10 @@ def prove(
             "selected Yoke service App identity proof is invalid"
         ) from exc
     advertisement = payload.get("github_app") if isinstance(payload, Mapping) else None
-    if not isinstance(advertisement, Mapping) or set(advertisement) != _ADVERTISEMENT_KEYS:
+    if (
+        not isinstance(advertisement, Mapping)
+        or set(advertisement) != _ADVERTISEMENT_KEYS
+    ):
         raise GitHubServiceProfileProofError(
             "selected Yoke service App identity proof is incomplete"
         )
@@ -121,6 +129,7 @@ def selected_service_api_url(
     *,
     expected_service_api_url: str | None = None,
     expected_local_connection: bool = False,
+    connection_env: str | None = None,
 ) -> str | None:
     """Validate saved profile provenance against the selected connection."""
 
@@ -150,17 +159,18 @@ def selected_service_api_url(
         ):
             return selected
         raise GitHubServiceProfileProofError(
-            "saved GitHub App profile does not match the requested Yoke "
-            "service; reconnect GitHub"
+            missing_authorization(config, connection_env or "")
         )
-    active_env = (
+    active_env = connection_env or (
         os.environ.get(github_app_tokens.YOKE_ENV_OVERRIDE_NAME, "").strip()
         or str(config.get("active_env") or "").strip()
     )
+    active_env = github_app_tokens.github_connection_label(config, active_env)
     connections = config.get("connections")
     connection = (
         connections.get(active_env)
-        if isinstance(connections, Mapping) and active_env else None
+        if isinstance(connections, Mapping) and active_env
+        else None
     )
     if not isinstance(connection, Mapping):
         raise GitHubServiceProfileProofError(
@@ -175,16 +185,34 @@ def selected_service_api_url(
             and saved == selected
         ):
             return selected
-    elif not connection.get("api_url") and github.get(
-        "profile_service_api_url"
-    ) in (None, "") and source in {
-        github_app_tokens.GITHUB_PROFILE_SOURCE_LOCAL_EXPLICIT,
-        github_app_tokens.GITHUB_PROFILE_SOURCE_LOCAL_PRODUCT,
-    }:
+    elif (
+        not connection.get("api_url")
+        and github.get("profile_service_api_url") in (None, "")
+        and source
+        in {
+            github_app_tokens.GITHUB_PROFILE_SOURCE_LOCAL_EXPLICIT,
+            github_app_tokens.GITHUB_PROFILE_SOURCE_LOCAL_PRODUCT,
+        }
+    ):
         return None
-    raise GitHubServiceProfileProofError(
-        "saved GitHub App profile does not match the active Yoke connection; "
-        "reconnect GitHub"
+    raise GitHubServiceProfileProofError(missing_authorization(config, connection_env or ""))
+
+
+
+def selected_github(config: Mapping[str, Any], env: str | None = None) -> dict[str, Any]:
+    return github_app_tokens.connection_github(
+        config, env or os.environ.get("YOKE_ENV") or str(config.get("active_env") or "")
+    )
+
+
+def missing_authorization(config: Mapping[str, Any], label: str = "") -> str:
+    label = github_app_tokens.github_connection_label(
+        config,
+        label or os.environ.get("YOKE_ENV") or str(config.get("active_env") or ""),
+    )
+    return (
+        f"no GitHub authorization for connection '{label}'; "
+        f"run yoke --env {label} github connect"
     )
 
 
@@ -202,7 +230,8 @@ def _normalized_profile(values: Mapping[str, Any]) -> dict[str, Any]:
         raise GitHubServiceProfileProofError("GitHub App identity is incomplete")
     try:
         pair = github_origin.validate_github_endpoint_pair(
-            str(values.get("api_url") or ""), str(values.get("web_url") or ""),
+            str(values.get("api_url") or ""),
+            str(values.get("web_url") or ""),
         )
         pair.app_install_url(app_slug)
     except github_origin.GitHubApiOriginError as exc:
@@ -220,9 +249,12 @@ def _service_root(value: str) -> str:
     selected = str(value or "").strip().rstrip("/")
     parsed = urllib.parse.urlsplit(selected)
     if (
-        parsed.scheme != "https" or not parsed.hostname
-        or parsed.username is not None or parsed.password is not None
-        or parsed.query or parsed.fragment
+        parsed.scheme != "https"
+        or not parsed.hostname
+        or parsed.username is not None
+        or parsed.password is not None
+        or parsed.query
+        or parsed.fragment
     ):
         raise GitHubServiceProfileProofError(
             "selected Yoke service URL is not a credential-free HTTPS URL"

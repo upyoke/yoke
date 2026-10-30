@@ -33,7 +33,7 @@ def access_token_for_git_request(
     """
 
     config = credential_store.load_config(config_path)
-    github = config.get("github")
+    github = credential_store.github_service_profile_proof.selected_github(config)
     if not isinstance(github, Mapping) or fields.get("protocol") != "https":
         return None
     expected = urllib.parse.urlsplit(
@@ -43,11 +43,58 @@ def access_token_for_git_request(
     ).netloc
     if fields.get("host", "").casefold() != expected.casefold():
         return None
+    _assert_checkout_connection(config)
     return credential_store.access_token_from_config(
         config,
         config_path=config_path,
         opener=opener,
     )
+
+
+def _assert_checkout_connection(config):
+    """Never answer Git using another connection's checkout registration."""
+    cwd = Path.cwd().resolve()
+    primary = cwd
+    try:
+        for parent in (cwd, *cwd.parents):
+            gitfile = parent / ".git"
+            if not gitfile.is_file():
+                continue
+            text = gitfile.read_text().strip()
+            if text.startswith("gitdir: "):
+                gitdir = (parent / text.removeprefix("gitdir: ")).resolve()
+                common = gitdir / "commondir"
+                if common.is_file():
+                    primary = (gitdir / common.read_text().strip()).resolve().parent
+            break
+    except OSError as exc:
+        raise credential_store.GitHubCredentialStoreError(
+            "checkout connection could not be checked; repair Git metadata and retry"
+        ) from exc
+    groups = config.get("connection_projects") or {}
+    selected = credential_store.token_contract.github_connection_label(
+        config,
+        credential_store.github_service_profile_proof.os.environ.get("YOKE_ENV")
+        or config.get("active_env", ""),
+    )
+    if not isinstance(groups, Mapping):
+        return
+    matches = []
+    for label, entries in groups.items():
+        for entry in entries if isinstance(entries, list) else []:
+            if not isinstance(entry, Mapping) or not entry.get("checkout"):
+                continue
+            root = Path(entry["checkout"]).expanduser().resolve()
+            if cwd.is_relative_to(root) or primary == root:
+                matches.append((len(root.parts), label))
+    if matches:
+        depth = max(size for size, _ in matches)
+        labels = {label for size, label in matches if size == depth}
+        if selected not in labels:
+            label = sorted(labels)[0]
+            raise credential_store.GitHubCredentialStoreError(
+                credential_store.github_service_profile_proof.missing_authorization(config, label)
+            )
 
 
 def main(
@@ -79,7 +126,10 @@ def main(
         credential = access_token_for_git_request(parsed.config_path, fields)
         if credential is None:
             return 0
-    except credential_store.GitHubCredentialStoreError:
+    except credential_store.GitHubCredentialStoreError as exc:
+        if str(exc).startswith("no GitHub authorization for connection "):
+            print(str(exc), file=sys.stderr)
+            return 1
         # The store's own message can name the credential path, and this
         # stderr goes to whoever ran git, so the text here is fixed rather
         # than interpolated. It also never advises reconnecting: a reconnect

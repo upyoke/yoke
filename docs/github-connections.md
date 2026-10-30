@@ -3,11 +3,11 @@
 Yoke's GitHub connection is three separate things. They work together, but
 removing one does not silently remove the others.
 
-## 1. Machine authorization
+## 1. Machine authorization per connection
 
 This answers: **which GitHub user may this copy of the Yoke CLI act as?**
 
-`yoke github connect` opens GitHub's device-authorization flow. After GitHub
+`yoke github connect` opens GitHub's device-authorization flow for the selected Yoke connection (`--env`). After GitHub
 approves it, Yoke records public App and user metadata in the selected machine
 config, normally `~/.yoke/config.json`. The rotating refresh credential lives
 in an owner-only file under `~/.yoke/secrets/` named like
@@ -47,6 +47,21 @@ merge child pins before it switches its engine to the admin connection, and
 the one `yoke github status` reports. A process that has bound that authority
 keeps it across every in-process dispatch it makes; nothing inside the process
 re-derives a weaker one from the ambient connection.
+
+Each machine stores one GitHub App authorization per Yoke connection in
+`connection_github.<label>`. Run `yoke --env stage github connect` to add
+Stage without changing Production, then switch with `--env`; both
+`yoke --env stage github status` and `yoke --env prod github status` keep
+their own authorization. A database-admin connection uses its HTTPS sibling's
+slot. `--replace` and `github disconnect` affect only the selected slot.
+
+An existing top-level `github` record stays readable until the next GitHub
+config write moves it to the connection matching its saved provenance. If no
+connection matches, the write refuses as `github_legacy_connection_unmatched`;
+run `yoke github disconnect` to clear that legacy authorization, then connect.
+Each slot owns a separate credential file. A Git helper refuses a checkout
+registered only to another connection; select that connection with `YOKE_ENV`.
+
 
 ## 2. GitHub App installation
 
@@ -97,7 +112,7 @@ is active and verified.
 | Revoke the GitHub user authorization everywhere | Revoke the App authorization in GitHub Settings | The local Yoke config becomes unusable and should also be disconnected; App installations remain unless separately removed |
 | Remove or narrow App access for an account/org | Change or uninstall **Yoke by upyoke.com** in GitHub Settings | Machine config may remain, but removed repositories make affected bindings unavailable |
 
-`yoke github disconnect` removes the selected config's GitHub authorization,
+`yoke github disconnect` removes the selected connection's GitHub authorization,
 deletes its owned refresh credential when no other supported config owns it,
 and removes only Yoke-owned URL-scoped Git credential helpers from registered
 checkouts. It preserves ambient or user-managed Git helpers. Those helpers

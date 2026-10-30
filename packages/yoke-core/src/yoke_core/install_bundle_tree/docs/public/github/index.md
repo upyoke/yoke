@@ -51,6 +51,16 @@ Local product App identity is checked against the installed bundle on every read
 A credential lock wait is announced after about two seconds. If it times out,
 retry the command; run `yoke github status` if access keeps failing.
 
+Yoke saves one GitHub App authorization per connection. Use
+`yoke --env stage github connect` and `yoke --env prod github connect`
+once for each connection, then switch with `--env` without signing in again.
+`github status`, `github disconnect` and `github connect --replace`
+affect the selected connection. A database-admin connection shares its HTTPS
+sibling's slot. Existing machine authorization moves into its matching slot
+on the next GitHub config write; an unmatched legacy record requires
+`yoke github disconnect` before connecting again.
+
+
 ## Merge connectivity and issue mirroring
 
 A project's active GitHub App repository binding determines whether a

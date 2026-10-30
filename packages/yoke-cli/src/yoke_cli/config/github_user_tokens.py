@@ -9,6 +9,8 @@ from typing import Any, Callable, Mapping
 
 from yoke_cli.config import github_git_credential_store as credential_store
 from yoke_contracts.timestamps import parse_instant
+from yoke_cli.config import machine_config
+from yoke_contracts.machine_config import schema as machine_contract
 
 
 class GitHubUserTokenError(RuntimeError):
@@ -46,8 +48,11 @@ def access_token_from_machine_config(
 ) -> LocalUserAccessToken:
     """Reuse stored access or serialize a credential refresh."""
     try:
+        config = machine_config.load_config(config_path)
+        env = machine_contract.selected_env(config) if "connection_github" in config else None
         payload = credential_store.access_token_from_machine_config(
             _resolved_config_path(config_path),
+            connection_env=env,
             client_secret=client_secret,
             opener=opener,
             now=now,
@@ -57,7 +62,8 @@ def access_token_from_machine_config(
             expected_service_api_url=_expected_service_api_url,
             expected_local_connection=_expected_local_connection,
         )
-    except credential_store.GitHubCredentialStoreError as exc:
+    except (credential_store.GitHubCredentialStoreError,
+            machine_config.MachineConfigError, machine_contract.MachineConfigContractError) as exc:
         raise GitHubUserTokenError(str(exc)) from exc
     return _local_token(payload)
 

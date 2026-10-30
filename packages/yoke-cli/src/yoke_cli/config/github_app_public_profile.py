@@ -9,7 +9,7 @@ from typing import Any, Callable, Mapping
 
 from yoke_cli.config import github_app_public_profile_discovery as discovery
 from yoke_cli.config import github_app_public_profile_values as profile_values
-from yoke_cli.config import machine_config
+from yoke_cli.config import machine_config, github_service_profile_proof
 from yoke_cli.config.github_app_public_profile_discovery import (
     GitHubAppPublicProfileError,
 )
@@ -123,13 +123,19 @@ def selected_https_service_api_url(
         transport = str(connection.get("transport") or "")
         if transport == machine_contract.DEFAULT_TRANSPORT:
             env = str(connection.get("env") or "")
-            https_env = machine_contract.same_universe_https_env(
-                machine_config.load_config(config_path), env,
-            ) if env else ""
+            https_env = (
+                machine_contract.same_universe_https_env(
+                    machine_config.load_config(config_path),
+                    env,
+                )
+                if env
+                else ""
+            )
             if not https_env:
                 return None
             connection = machine_config.active_connection(
-                config_path, explicit_env=https_env,
+                config_path,
+                explicit_env=https_env,
             )
             transport = str(connection.get("transport") or "")
     except (
@@ -266,19 +272,20 @@ def assert_selected_provenance(
         return None
     if str(service_api_url or "").strip():
         selected = _validated_service_root(str(service_api_url))
-        _assert_service_provenance(github, selected)
+        _assert_service_provenance(github, selected, config_path)
         return selected
     selected = selected_https_service_api_url(config_path)
     if selected is None:
         _assert_local_provenance(github)
         return None
-    _assert_service_provenance(github, selected)
+    _assert_service_provenance(github, selected, config_path)
     return selected
 
 
 def _assert_service_provenance(
     github: Mapping[str, Any],
     service_api_url: str,
+    config_path: str | Path | None = None,
 ) -> None:
     source = github.get("profile_source")
     saved_service = str(github.get("profile_service_api_url") or "")
@@ -289,8 +296,9 @@ def _assert_service_provenance(
     ):
         return
     raise GitHubAppPublicProfileError(
-        "the saved GitHub App profile is not bound to the selected Yoke "
-        "service; reconnect GitHub against this exact service"
+        github_service_profile_proof.missing_authorization(
+            machine_config.load_config(config_path)
+        )
     )
 
 

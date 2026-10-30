@@ -32,6 +32,8 @@ the very per-command prompting the allow list exists to remove.
 
 from __future__ import annotations
 
+from yoke_contracts.github_app_tokens import github_configurations
+
 from dataclasses import dataclass
 from typing import Any, Dict, List, Mapping, Optional, Tuple
 from urllib.parse import urlsplit
@@ -165,12 +167,12 @@ def control_plane_origins(
             host = _host(entry.get("api_url"))
             if host:
                 origins.add(host)
-    github = config.get("github")
-    if isinstance(github, Mapping):
-        for key in ("api_url", "web_url"):
-            host = _host(github.get(key))
-            if host:
-                origins.add(host)
+    for github in github_configurations(config).values():
+        if isinstance(github, Mapping):
+            for key in ("api_url", "web_url"):
+                host = _host(github.get(key))
+                if host:
+                    origins.add(host)
     return sorted(origins)
 
 

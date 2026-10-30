@@ -71,6 +71,11 @@ def _configured_machine(
     config.parent.mkdir(parents=True, exist_ok=True)
     config.write_text(json.dumps({
         "schema_version": 1,
+        "active_env": "local",
+        "connections": {"local": {
+            "transport": "https", "api_url": "https://api.upyoke.com",
+            "credential_source": {"kind": "token_file", "path": str(home / "token")},
+        }},
         "github": {
             "api_url": contract.DEFAULT_GITHUB_API_URL,
             "web_url": contract.DEFAULT_GITHUB_WEB_URL,

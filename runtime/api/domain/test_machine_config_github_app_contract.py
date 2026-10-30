@@ -60,7 +60,7 @@ def test_github_app_config_rejects_unsafe_endpoints(
     code: str,
 ) -> None:
     payload = contract.canonical_example_payload()
-    payload["github"][key] = value
+    payload["connection_github"]["prod"][key] = value
 
     codes = {issue.code for issue in contract.validate_payload(payload)}
 
@@ -135,7 +135,7 @@ def test_github_app_config_rejects_boolean_ids(
 
 def test_github_app_config_rejects_unsafe_app_slug() -> None:
     payload = contract.canonical_example_payload()
-    payload["github"]["app_slug"] = "../../install?next=evil"
+    payload["connection_github"]["prod"]["app_slug"] = "../../install?next=evil"
 
     codes = {issue.code for issue in contract.validate_payload(payload)}
 

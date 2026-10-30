@@ -6,6 +6,7 @@ from pathlib import Path
 import sys
 from typing import Any, Mapping
 
+from yoke_contracts.github_app_tokens import github_configurations
 from yoke_contracts.machine_config.schema_projects import ValidationIssue, _warn
 
 _ROOT_KEYS = frozenset(
@@ -20,6 +21,7 @@ _ROOT_KEYS = frozenset(
         "connection_projects",
         "settings",
         "github",
+        "connection_github",
     }
 )
 _WARNED: set[tuple[str, str]] = set()
@@ -58,29 +60,33 @@ def unknown_key_issues(payload: Mapping[str, Any]) -> list[ValidationIssue]:
     def check_projects(projects, prefix):
         if isinstance(projects, list):
             for index, entry in enumerate(projects):
-                check(entry, {"checkout", "project_id", "publication_read_only"}, f"{prefix}[{index}]")
+                check(
+                    entry,
+                    {"checkout", "project_id", "publication_read_only"},
+                    f"{prefix}[{index}]",
+                )
 
     check_projects(payload.get("projects"), "projects")
     groups = payload.get("connection_projects")
     if isinstance(groups, Mapping):
         for connection, projects in groups.items():
             check_projects(projects, f"connection_projects.{connection}")
-    github = payload.get("github")
-    check(github, GITHUB_ALLOWED_KEYS, "github")
-    if isinstance(github, Mapping):
-        check(
-            github.get("authorization"),
-            GITHUB_AUTH_ALLOWED_KEYS,
-            "github.authorization",
-        )
-        for field, allowed in (
-            ("installations", GITHUB_INSTALLATION_ALLOWED_KEYS),
-            ("repositories", GITHUB_REPOSITORY_ALLOWED_KEYS),
-        ):
-            entries = github.get(field)
-            if isinstance(entries, list):
-                for index, entry in enumerate(entries):
-                    check(entry, allowed, f"github.{field}.{index}")
+    for prefix, github in github_configurations(payload).items():
+        check(github, GITHUB_ALLOWED_KEYS, prefix)
+        if isinstance(github, Mapping):
+            check(
+                github.get("authorization"),
+                GITHUB_AUTH_ALLOWED_KEYS,
+                f"{prefix}.authorization",
+            )
+            for field, allowed in (
+                ("installations", GITHUB_INSTALLATION_ALLOWED_KEYS),
+                ("repositories", GITHUB_REPOSITORY_ALLOWED_KEYS),
+            ):
+                entries = github.get(field)
+                if isinstance(entries, list):
+                    for index, entry in enumerate(entries):
+                        check(entry, allowed, f"{prefix}.{field}.{index}")
     return issues
 
 
