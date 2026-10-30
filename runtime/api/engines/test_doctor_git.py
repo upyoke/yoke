@@ -11,7 +11,6 @@ Tests use mock subprocess to avoid real git calls.
 from __future__ import annotations
 
 import textwrap
-from pathlib import Path
 from unittest.mock import patch
 
 from runtime.api.fixtures import pg_testdb
