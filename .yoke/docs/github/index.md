@@ -175,6 +175,11 @@ machine's relay delivers the supported wake. A session still watching the run
 receives its result through that watcher. Wake support depends on the harness
 and surface; keep following a live watcher's continuation handle until it exits.
 
+The observer uses the active binding for the run's repository to select its
+GitHub credentials, even when the waiting session belongs to another project.
+Without an active repository binding, it settles the wait as `repo_unbound`
+without sending a verdict. CI reads do not update the binding's sync receipt.
+
 On Linux, stay logged in: the systemd user relay stops after the last logout.
 Yoke requires linger to be disabled. If setup reports `relay_linger_enabled`,
 follow the [Linux relay recovery](../sessions/linux-relay.md) before retrying.
