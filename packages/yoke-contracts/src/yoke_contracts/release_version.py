@@ -42,3 +42,14 @@ def version_order(value: str) -> tuple[tuple[int, ...], int, int]:
     assert match is not None
     base, date, time = match.groups()
     return tuple(map(int, base.split("."))), int(date), int(time)
+
+
+def reporting_version_shape(value: str) -> str:
+    """Validate a release or an exact source-checkout reporting identity."""
+    if not isinstance(value, str):
+        raise ValueError("feedback_version_invalid: provide a Yoke reporting version")
+    release, separator, source = value.partition("+")
+    release_version(release)
+    if separator and not re.fullmatch(r"[0-9a-f]{12}(\.dirty)?", source):
+        raise ValueError("feedback_version_invalid: use release+sha12[.dirty]")
+    return value

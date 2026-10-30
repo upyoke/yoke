@@ -71,7 +71,7 @@ def _build_request(kind: str, evidence: str) -> FunctionCallRequest:
         function="ouroboros.field_note.append",
         actor=ActorContext(session_id=SESSION_ID),
         target=TargetRef(kind="global"),
-        payload={"category": kind, "evidence": evidence},
+        payload={"yoke_version": "0.2.0.202610290013", "agent": "terminal", "category": kind, "evidence": evidence},
     )
 
 
@@ -191,10 +191,9 @@ class TestFieldNoteCurateLoop:
                 conn,
                 iso8601_now(),
                 "engineer",
-                None,
                 "observation",
                 "neutral observation: doc cross-reference noticed during read",
-            )
+            yoke_version="0.2.0.202610290013", universe_fingerprint="fixture@2026-01-01T00:00:00Z")
         assert entry_id and entry_id != "Duplicate entry skipped"
 
         rows_text = _query_curate_consumer_rows(isolated_db)

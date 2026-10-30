@@ -8,10 +8,10 @@ reads the durable rows.
 """
 from __future__ import annotations
 
-from yoke_core.domain.handlers import ouroboros_field_note
+from yoke_core.domain.handlers import ouroboros_field_note, feedback_provenance
 
 
 def register(registry) -> None:
     """Register field-note handlers via the given registry module."""
-    for entry in ouroboros_field_note.REGISTRATIONS:
+    for entry in [*ouroboros_field_note.REGISTRATIONS, *feedback_provenance.REGISTRATIONS]:
         registry.register(**entry)

@@ -12,16 +12,15 @@ LATER = CLOCK + timedelta(microseconds=1)
 
 class TestOuroboros:
     def test_insert_and_list(self, test_db):
-        from yoke_core.domain.ouroboros import cmd_insert_entry, cmd_list_entries
+        from yoke_core.domain.ouroboros_entries import cmd_insert_entry, cmd_list_entries
 
         rid = cmd_insert_entry(
             test_db,
             "2024-01-01T00:00:00Z",
             "agent",
-            "ctx",
             "failed",
             "Something broke",
-        )
+        yoke_version="0.2.0.202610290013", universe_fingerprint="fixture@2026-01-01T00:00:00Z")
         assert rid.isdigit()
 
         result = cmd_list_entries(test_db)
@@ -29,69 +28,68 @@ class TestOuroboros:
         assert "Something broke" in result.replace("\n", " ")
 
     def test_identical_reports_remain_distinct(self, test_db):
-        from yoke_core.domain.ouroboros import cmd_insert_entry
+        from yoke_core.domain.ouroboros_entries import cmd_insert_entry
 
-        first = cmd_insert_entry(test_db, CLOCK, "a", "c", "observation", "body")
-        second = cmd_insert_entry(test_db, CLOCK, "a", "c", "observation", "body")
+        first = cmd_insert_entry(test_db, CLOCK, "a", "observation", "body", yoke_version="0.2.0.202610290013", universe_fingerprint="fixture@2026-01-01T00:00:00Z")
+        second = cmd_insert_entry(test_db, CLOCK, "a", "observation", "body", yoke_version="0.2.0.202610290013", universe_fingerprint="fixture@2026-01-01T00:00:00Z")
         assert first != second
         assert test_db.execute("SELECT COUNT(*) FROM ouroboros_entries WHERE body=%s", ("body",)).fetchone()[0] == 2
 
     def test_mark_reviewed(self, test_db):
-        from yoke_core.domain.ouroboros import cmd_insert_entry, cmd_mark_reviewed
+        from yoke_core.domain.ouroboros_entries import cmd_insert_entry, cmd_mark_reviewed
 
-        rid = cmd_insert_entry(test_db, CLOCK, "a", None, "observation", "body")
+        rid = cmd_insert_entry(test_db, CLOCK, "a", "observation", "body", yoke_version="0.2.0.202610290013", universe_fingerprint="fixture@2026-01-01T00:00:00Z")
         result = cmd_mark_reviewed(test_db, int(rid))
         assert "reviewed" in result
 
     def test_mark_archived_single(self, test_db):
-        from yoke_core.domain.ouroboros import (
+        from yoke_core.domain.ouroboros_entries import (
             cmd_insert_entry,
             cmd_mark_archived,
             cmd_mark_reviewed,
         )
 
-        rid = cmd_insert_entry(test_db, CLOCK, "a", None, "observation", "body")
+        rid = cmd_insert_entry(test_db, CLOCK, "a", "observation", "body", yoke_version="0.2.0.202610290013", universe_fingerprint="fixture@2026-01-01T00:00:00Z")
         cmd_mark_reviewed(test_db, int(rid))
         result = cmd_mark_archived(test_db, entry_id=int(rid))
         assert result == "1"
 
     def test_mark_archived_all_reviewed(self, test_db):
-        from yoke_core.domain.ouroboros import (
+        from yoke_core.domain.ouroboros_entries import (
             cmd_insert_entry,
             cmd_mark_archived,
             cmd_mark_reviewed,
         )
 
         r1 = cmd_insert_entry(
-            test_db, CLOCK, "a", None, "observation", "body-one", project="yoke"
-        )
+            test_db, CLOCK, "a", "observation", "body-one", project="yoke"
+        , yoke_version="0.2.0.202610290013", universe_fingerprint="fixture@2026-01-01T00:00:00Z")
         r2 = cmd_insert_entry(
-            test_db, LATER, "a", None, "observation", "body-two", project="yoke"
-        )
+            test_db, LATER, "a", "observation", "body-two", project="yoke"
+        , yoke_version="0.2.0.202610290013", universe_fingerprint="fixture@2026-01-01T00:00:00Z")
         cmd_mark_reviewed(test_db, int(r1))
         cmd_mark_reviewed(test_db, int(r2))
         result = cmd_mark_archived(test_db, all_reviewed=True, project="yoke")
         assert result == "2"
 
     def test_mark_archived_all_reviewed_scopes_to_project(self, test_db):
-        from yoke_core.domain.ouroboros import (
+        from yoke_core.domain.ouroboros_entries import (
             cmd_insert_entry,
             cmd_mark_archived,
             cmd_mark_reviewed,
         )
 
         yoke = cmd_insert_entry(
-            test_db, CLOCK, "a", None, "observation", "yoke-body", project="yoke"
-        )
+            test_db, CLOCK, "a", "observation", "yoke-body", project="yoke"
+        , yoke_version="0.2.0.202610290013", universe_fingerprint="fixture@2026-01-01T00:00:00Z")
         other = cmd_insert_entry(
             test_db,
             LATER,
             "a",
-            None,
             "observation",
             "other-body",
             project="externalwebapp",
-        )
+        yoke_version="0.2.0.202610290013", universe_fingerprint="fixture@2026-01-01T00:00:00Z")
         cmd_mark_reviewed(test_db, int(yoke))
         cmd_mark_reviewed(test_db, int(other))
         result = cmd_mark_archived(test_db, all_reviewed=True, project="yoke")
@@ -102,14 +100,14 @@ class TestOuroboros:
         assert leftover == "1"
 
     def test_list_entries_unreviewed(self, test_db):
-        from yoke_core.domain.ouroboros import (
+        from yoke_core.domain.ouroboros_entries import (
             cmd_insert_entry,
             cmd_list_entries,
             cmd_mark_reviewed,
         )
 
-        cmd_insert_entry(test_db, CLOCK, "a", None, "observation", "unrev")
-        r2 = cmd_insert_entry(test_db, LATER, "a", None, "observation", "rev")
+        cmd_insert_entry(test_db, CLOCK, "a", "observation", "unrev", yoke_version="0.2.0.202610290013", universe_fingerprint="fixture@2026-01-01T00:00:00Z")
+        r2 = cmd_insert_entry(test_db, LATER, "a", "observation", "rev", yoke_version="0.2.0.202610290013", universe_fingerprint="fixture@2026-01-01T00:00:00Z")
         cmd_mark_reviewed(test_db, int(r2))
         result = cmd_list_entries(test_db, unreviewed=True)
         assert "unrev" in result

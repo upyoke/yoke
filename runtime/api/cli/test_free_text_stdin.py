@@ -216,3 +216,12 @@ def test_field_note_append_reads_evidence_from_stdin(monkeypatch):
     )
 
     assert captured["payload"]["evidence"] == ("command `yoke dash` substituted\n")
+
+
+@pytest.fixture(autouse=True)
+def _feedback_identity(monkeypatch):
+    monkeypatch.setattr("yoke_cli.feedback_reporter.feedback_provenance", lambda *_: {
+        "yoke_version": "0.2.0.202610290013",
+        "universe_fingerprint": "fixture@2026-01-01T00:00:00Z",
+        "agent": "terminal", "reporter_email": None,
+    })

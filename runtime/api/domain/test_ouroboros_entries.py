@@ -37,10 +37,10 @@ def test_cmd_insert_entry_writes_field_note_category(tmp_db: str) -> None:
             conn,
             timestamp="2026-05-26T12:00:00Z",
             agent="engineer",
-            context=None,
+            
             category="observation",
             body="bug: stale doc reference",
-        )
+        yoke_version="0.2.0.202610290013", universe_fingerprint="fixture@2026-01-01T00:00:00Z")
 
     assert row_id.isdigit(), f"expected numeric row id, got {row_id!r}"
 
@@ -65,10 +65,10 @@ def test_cmd_insert_entry_accepts_diagnostic_language(
             conn,
             timestamp="2026-05-26T12:01:00Z",
             agent="operator",
-            context=None,
+            
             category="observation",
             body="bug: this is broken",
-        )
+        yoke_version="0.2.0.202610290013", universe_fingerprint="fixture@2026-01-01T00:00:00Z")
 
     assert row_id.isdigit()
 
@@ -77,7 +77,7 @@ def test_repeated_evidence_stores_distinct_notes(tmp_db: str) -> None:
     kwargs = dict(
         timestamp="2026-05-26T12:02:00Z",
         agent="engineer",
-        context=None,
+        yoke_version="0.2.0.202610290013", universe_fingerprint="fixture@2026-01-01T00:00:00Z",
         category="observation",
         body="duplicate body content",
     )
@@ -97,18 +97,18 @@ def test_list_entry_rows_filters_by_exact_category(tmp_db: str) -> None:
             conn,
             timestamp="2026-05-26T12:03:00Z",
             agent="engineer",
-            context=None,
+            
             category="failed",
             body="field-note body",
-        )
+        yoke_version="0.2.0.202610290013", universe_fingerprint="fixture@2026-01-01T00:00:00Z")
         cmd_insert_entry(
             conn,
             timestamp="2026-05-26T12:04:00Z",
             agent="engineer",
-            context=None,
+            
             category="observation",
             body="ordinary body",
-        )
+        yoke_version="0.2.0.202610290013", universe_fingerprint="fixture@2026-01-01T00:00:00Z")
         rows = list_entry_rows(conn, category="failed")
 
     assert [row["category"] for row in rows] == ["failed"]
@@ -121,10 +121,10 @@ def test_list_entry_rows_honors_limit(tmp_db: str) -> None:
                 conn,
                 timestamp=f"2026-05-26T12:0{index}:00Z",
                 agent="engineer",
-                context=None,
+                
                 category="observation",
                 body=f"body {index}",
-            )
+            yoke_version="0.2.0.202610290013", universe_fingerprint="fixture@2026-01-01T00:00:00Z")
         rows = list_entry_rows(
             conn, category="observation", limit=2,
         )
@@ -141,10 +141,10 @@ def test_list_entry_rows_defaults_to_newest_bound(tmp_db: str) -> None:
                 conn,
                 timestamp=f"2026-05-26T12:{index:02d}:00Z",
                 agent="engineer",
-                context=None,
+                
                 category="observation",
                 body=f"body {index}",
-            )
+            yoke_version="0.2.0.202610290013", universe_fingerprint="fixture@2026-01-01T00:00:00Z")
         rows = list_entry_rows(conn)
         page = list_entry_rows(conn, offset=DEFAULT_ENTRY_LIST_LIMIT)
 
@@ -163,18 +163,18 @@ def test_count_entry_rows_matches_filters(tmp_db: str) -> None:
             conn,
             timestamp="2026-05-26T13:00:00Z",
             agent="engineer",
-            context=None,
+            
             category="failed",
             body="fn",
-        )
+        yoke_version="0.2.0.202610290013", universe_fingerprint="fixture@2026-01-01T00:00:00Z")
         cmd_insert_entry(
             conn,
             timestamp="2026-05-26T13:01:00Z",
             agent="engineer",
-            context=None,
+            
             category="observation",
             body="plain",
-        )
+        yoke_version="0.2.0.202610290013", universe_fingerprint="fixture@2026-01-01T00:00:00Z")
         total = count_entry_rows(conn, category="failed")
 
     assert total == 1

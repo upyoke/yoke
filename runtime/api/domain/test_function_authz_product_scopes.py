@@ -83,11 +83,11 @@ def test_field_note_promotion_falls_back_to_note_project_without_flag(conn):
             conn,
             timestamp="2026-08-10T18:03:05Z",
             agent="test",
-            context=None,
+            
             category="observation",
             body="note carries project",
             project="yoke",
-        )
+        yoke_version="0.2.0.202610290013", universe_fingerprint="fixture@2026-01-01T00:00:00Z")
     )
     allowed = check_dispatch_permission(
         conn,

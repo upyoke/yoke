@@ -60,9 +60,6 @@ class IdentityResponse(BaseModel):
     #: caller that would otherwise block on a long wait hands the work to a
     #: durable record and stops instead.
     relay_launched: bool = False
-    reporter_email: Optional[str] = None
-    yoke_version: Optional[str] = None
-    universe_fingerprint: Optional[str] = None
 
 
 def _project_slug(conn: Any, project_id: Optional[int]) -> Optional[str]:
@@ -118,10 +115,7 @@ def handle_identity(request: FunctionCallRequest) -> HandlerOutcome:
         if identity.ended_at is not None:
             return _err("session_ended", session_ended_message(conn, sid))
 
-        from yoke_core.domain.feedback_attribution import feedback_context
-
         payload: Dict[str, Any] = {
-            **feedback_context(conn, identity.actor_id),
             "session_id": identity.session_id,
             "executor": identity.executor,
             "executor_surface": identity.executor_surface,

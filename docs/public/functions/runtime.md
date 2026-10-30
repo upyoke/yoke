@@ -197,6 +197,7 @@ Read [envelope and authority](index.md). `none` skips only the claim check.
 | `sessions.end_if_empty` | `none` |
 | `sessions.hook_overhead` | `none` |
 | `sessions.identity` | `none` |
+| `feedback.provenance.get` | `none` |
 | `sessions.list` | `none` |
 | `sessions.reclaim_stale` | `none` |
 | `sessions.steering_groups.list` | `none` |

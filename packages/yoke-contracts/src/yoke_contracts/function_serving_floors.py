@@ -14,6 +14,7 @@ from typing import Any, Mapping
 
 #: function_id -> minimum serving version. Do not copy already-served ids here.
 FUNCTION_MINIMUM_SERVING_VERSIONS: dict[str, str] = {
+    "feedback.provenance.get": "next-release",
     "ouroboros.field_note.append": "next-release",
     "ouroboros.field_note.list": "next-release",
     "ouroboros.field_note.get": "next-release",
@@ -187,6 +188,10 @@ _TEST_MACHINE_FLOOR = ArgumentFloor(
 #: ignore them. Payload refusals name this floor; adapters whose writes can be
 #: ignored must also verify the success receipt echoes the requested argument.
 FUNCTION_ARGUMENT_MINIMUM_SERVING_VERSIONS: dict[str, dict[str, ArgumentFloor]] = {
+    "ouroboros.field_note.append": {
+        name: ArgumentFloor("next-release", "upgrade the serving Yoke release before filing feedback")
+        for name in ("yoke_version", "agent")
+    },
     "sessions.begin": {
         "machine_scope": ArgumentFloor(
             "next-release", "start the agent inside a registered project folder"

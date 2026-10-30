@@ -139,12 +139,11 @@ def test_repeat_projection_is_bounded_and_retains_total(test_db):
             test_db,
             utc_now(),
             "tester",
-            None,
             "observation",
             f"repeat context {number}",
             "yoke",
             correlation_id=root,
-        )
+        yoke_version="0.2.0.202610290013", universe_fingerprint="fixture@2026-01-01T00:00:00Z")
     row = get_entry_row(test_db, root)
     assert row["repeat_count"] == 23
     assert len(row["repeats"]) == 20

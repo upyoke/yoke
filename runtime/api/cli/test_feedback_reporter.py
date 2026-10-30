@@ -5,16 +5,16 @@ import json
 from types import SimpleNamespace
 from unittest.mock import patch
 
-from yoke_cli.feedback_reporter import git_email, harness_email, reporter_context
+from yoke_cli.feedback_reporter import git_email, harness_email, feedback_provenance
 
 
 def test_authenticated_email_wins_without_reading_machine_login():
-    response = SimpleNamespace(success=True, result={"reporter_email": "actor@example.test", "executor": "codex"})
+    response = SimpleNamespace(success=True, result={"actor_email": "actor@example.test", "universe_fingerprint": "fixture@2026-01-01T00:00:00Z"})
     with (patch("yoke_cli.feedback_reporter.ensure_handlers_loaded"),
           patch("yoke_cli.feedback_reporter.call_dispatcher", return_value=response),
           patch("yoke_cli.feedback_reporter.harness_email", side_effect=AssertionError("unneeded")),
           patch("yoke_cli.feedback_reporter.git_email", side_effect=AssertionError("unneeded"))):
-        assert reporter_context()["reporter_email"] == "actor@example.test"
+        assert feedback_provenance()["reporter_email"] == "actor@example.test"
 
 
 def test_only_active_harness_login_is_used(tmp_path, monkeypatch):

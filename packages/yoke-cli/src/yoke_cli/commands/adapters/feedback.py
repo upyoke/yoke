@@ -26,7 +26,6 @@ from yoke_contracts.field_note_text import (
     HELP_BODY,
     KIND_VALUES,
 )
-from yoke_contracts.session_identity import resolve_actor_role
 from yoke_contracts.api.function_call import TargetRef
 
 
@@ -247,26 +246,31 @@ def feedback_append(args: List[str]) -> int:
     if not evidence or not evidence.strip():
         return usage_error("--evidence must be non-empty")
 
-    from yoke_cli.feedback_reporter import reporter_context
-    metadata = reporter_context(parsed.session_id)
-    payload: Dict[str, Any] = {"category": parsed.category, "evidence": evidence, "reporter_email": metadata.get("reporter_email")}
+    from yoke_cli.feedback_reporter import feedback_provenance
+    try:
+        metadata = feedback_provenance(parsed.session_id)
+    except ValueError as exc:
+        import sys
+        print(str(exc), file=sys.stderr)
+        print("Evidence retained for retry:\n" + evidence, file=sys.stderr)
+        return 1
+    if parsed.to == "universe" and metadata.get("server_error"):
+        error = metadata["server_error"]
+        return usage_error(f"{error.code}: {error.message} {error.recovery_hint}\nEvidence retained for retry:\n{evidence}")
+    payload: Dict[str, Any] = {"category": parsed.category, "evidence": evidence,
+                             **{k: metadata[k] for k in ("reporter_email", "yoke_version", "agent")}}
     if parsed.to == "yoke":
         if parsed.correlation_id or parsed.corrects is not None or parsed.target_project:
             return usage_error("feedback_public_options_invalid: public feedback accepts evidence and category; put references to prior public notes in the evidence. Project routing and correction links apply to --to universe.")
         from yoke_cli.feedback_delivery import send_feedback
         return send_feedback(category=parsed.category, evidence=evidence,
-                             metadata=metadata, agent=resolve_actor_role() or metadata.get("agent"), json_mode=parsed.json_mode)
+                             metadata=metadata, agent=metadata["agent"], json_mode=parsed.json_mode)
     if parsed.correlation_id:
         payload["correlation_id"] = parsed.correlation_id
     if parsed.corrects is not None:
         payload["corrects"] = parsed.corrects
     if parsed.target_project:
         payload["target_project"] = parsed.target_project
-    # The dispatched-subagent role is only observable here, in the calling
-    # process; the write handler runs server-side and cannot see it.
-    actor_role = resolve_actor_role()
-    if actor_role:
-        payload["actor_role"] = actor_role
     # Same client ladder as listing/create: YOKE_PROJECT, then the
     # machine-config checkout→project map. The server never sees cwd, so
     # the checkout project must ride on the payload. Unmapped directories
@@ -274,10 +278,12 @@ def feedback_append(args: List[str]) -> int:
     checkout_project = client_project_context()
     if checkout_project:
         payload["project"] = checkout_project
+    from yoke_cli.feedback_delivery import universe_receipt
     return dispatch_and_emit(
         function_id="ouroboros.field_note.append",
         target=TargetRef(kind="global"),
         payload=payload,
         session_id=parsed.session_id,
         json_mode=parsed.json_mode,
+        response_recovery=universe_receipt(metadata),
     )

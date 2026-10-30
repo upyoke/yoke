@@ -25,7 +25,6 @@ from runtime.api.fixtures.file_test_db import init_test_db
 from runtime.api.fixtures.backlog import seed_fixture_operating_actor
 from yoke_core.domain.handlers.__init_register__ import register_all_handlers
 from yoke_core.domain.ouroboros_entries import get_entry_row, list_entry_rows
-from yoke_core.domain.ouroboros_field_note_provenance import DEFAULT_AUTHOR
 from yoke_core.domain.project_seed_test_helpers import (
     SEED_PROJECT_IDS,
 )
@@ -99,7 +98,7 @@ def _append(
     evidence: str = "a recipe named a flag that does not exist",
     **payload_extra,
 ):
-    payload = {"category": kind, "evidence": evidence, **payload_extra}
+    payload = {"yoke_version": "0.2.0.202610290013", "agent": "terminal", "category": kind, "evidence": evidence, **payload_extra}
     return dispatch(
         FunctionCallRequest(
             function="ouroboros.field_note.append",
@@ -119,7 +118,7 @@ def _entry(db_path: str, entry_id) -> dict:
 
 
 class TestFieldNoteAuthorAndProject:
-    def test_author_and_project_come_from_the_calling_session(
+    def test_author_comes_from_cli_and_project_from_session(
         self,
         isolated_db: str,
         registered_dispatcher,
@@ -129,9 +128,9 @@ class TestFieldNoteAuthorAndProject:
         assert response.success is True, response.error
 
         entry = _entry(isolated_db, response.result["entry_id"])
-        assert entry["agent"] == SESSION_EXECUTOR
+        assert entry["agent"] == "terminal"
         assert entry["project"] == SESSION_PROJECT
-        assert response.result["author"] == SESSION_EXECUTOR
+        assert response.result["author"] == "terminal"
         assert response.result["project"] == SESSION_PROJECT
 
     def test_dispatched_subagent_role_names_the_author(
@@ -140,16 +139,16 @@ class TestFieldNoteAuthorAndProject:
         registered_dispatcher,
     ) -> None:
         """The role is more specific than the executor, so it wins — and the
-        harness-prefixed adapter name normalizes to the bare role."""
+        CLI supplies its resolved role."""
         _seed_session(isolated_db)
-        response = _append(actor_role="yoke-engineer")
+        response = _append(agent="engineer")
         assert response.success is True, response.error
 
         entry = _entry(isolated_db, response.result["entry_id"])
         assert entry["agent"] == "engineer"
         assert entry["project"] == SESSION_PROJECT
 
-    def test_unresolvable_session_falls_back_to_the_default_author(
+    def test_unresolvable_session_keeps_cli_author(
         self,
         isolated_db: str,
         registered_dispatcher,
@@ -160,7 +159,7 @@ class TestFieldNoteAuthorAndProject:
         assert response.success is True, response.error
 
         entry = _entry(isolated_db, response.result["entry_id"])
-        assert entry["agent"] == DEFAULT_AUTHOR
+        assert entry["agent"] == "terminal"
         assert entry["project"] == ""
 
     def test_checkout_project_wins_over_session_project(
@@ -169,15 +168,15 @@ class TestFieldNoteAuthorAndProject:
         registered_dispatcher,
     ) -> None:
         """A note filed from an external registered checkout attributes to
-        that project while the author still comes from the session."""
+        that project while the author still comes from the CLI."""
         _seed_session(isolated_db)
         response = _append(project=EXTERNAL_PROJECT)
         assert response.success is True, response.error
 
         entry = _entry(isolated_db, response.result["entry_id"])
-        assert entry["agent"] == SESSION_EXECUTOR
+        assert entry["agent"] == "terminal"
         assert entry["project"] == EXTERNAL_PROJECT
-        assert response.result["author"] == SESSION_EXECUTOR
+        assert response.result["author"] == "terminal"
         assert response.result["project"] == EXTERNAL_PROJECT
 
     def test_checkout_project_numeric_id_resolves_to_slug(
@@ -193,7 +192,7 @@ class TestFieldNoteAuthorAndProject:
 
         entry = _entry(isolated_db, response.result["entry_id"])
         assert entry["project"] == EXTERNAL_PROJECT
-        assert entry["agent"] == SESSION_EXECUTOR
+        assert entry["agent"] == "terminal"
 
     def test_unknown_checkout_project_is_rejected(
         self,

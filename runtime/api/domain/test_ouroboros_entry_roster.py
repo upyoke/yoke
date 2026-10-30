@@ -30,11 +30,10 @@ def _seed(conn, *, timestamp: str, body: str, project="yoke") -> int:
         conn,
         timestamp,
         "tester",
-        "ctx",
         "observation",
         body,
         project,
-    )
+    yoke_version="0.2.0.202610290013", universe_fingerprint="fixture@2026-01-01T00:00:00Z")
     conn.commit()
     return int(entry_id)
 

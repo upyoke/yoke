@@ -11,9 +11,8 @@ from yoke_core.domain.actor_permissions import grant_actor_org_role
 
 
 def insert(conn, category="observation", project=None):
-    return int(cmd_insert_entry(conn, "2026-01-01T00:00:00Z", "engineer", None,
-                                category, "Concrete evidence", project,
-                                reporter_email="reporter@example.test"))
+    return int(cmd_insert_entry(conn, "2026-01-01T00:00:00Z", "engineer", category, "Concrete evidence", project,
+                                reporter_email="reporter@example.test", yoke_version="0.2.0.202610290013", universe_fingerprint="fixture@2026-01-01T00:00:00Z"))
 
 
 def read(actor, **payload):

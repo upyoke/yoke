@@ -33,7 +33,9 @@ def _stub_dispatch_ok(request: FunctionCallRequest) -> FunctionCallResponse:
         function=request.function,
         version=request.version,
         request_id=request.request_id,
-        result={"echo": True},
+        result={"echo": True, **({"yoke_version": request.payload.get("yoke_version"),
+                "author": request.payload.get("agent"), "universe_fingerprint": "fixture@2026-01-01T00:00:00Z"}
+                if request.function == "ouroboros.field_note.append" else {})},
     )
 
 
@@ -312,6 +314,7 @@ class TestEveryTierOneFamilyDispatches:
             "category": "failed",
             "reporter_email": None,
             "evidence": "recipe X did not work",
+            "agent": "terminal", "yoke_version": "0.2.0.202610290013",
         }
 
     def test_field_note_accepts_observation_kind(self) -> None:
@@ -327,3 +330,12 @@ class TestEveryTierOneFamilyDispatches:
         req = _CAPTURED_REQUESTS[-1]
         assert req.function == "ouroboros.field_note.append"
         assert req.payload["category"] == "observation"
+
+
+@pytest.fixture(autouse=True)
+def _feedback_identity(monkeypatch):
+    monkeypatch.setattr("yoke_cli.feedback_reporter.feedback_provenance", lambda *_: {
+        "yoke_version": "0.2.0.202610290013",
+        "universe_fingerprint": "fixture@2026-01-01T00:00:00Z",
+        "agent": "terminal", "reporter_email": None,
+    })

@@ -12,21 +12,17 @@ Exit codes: 0 success, 1 error/not-found, 2 usage error.
 
 from __future__ import annotations
 
-import select as select_mod
 import sys
 from typing import List, Optional
 
-from yoke_contracts.timestamps import parse_instant, utc_now
 from yoke_core.domain.db_helpers import connect
 from yoke_core.domain.ouroboros_entries import (
-    cmd_insert_entry,
     cmd_list_entries,
     cmd_mark_archived,
     cmd_mark_reviewed,
 )
 
 __all__ = [
-    "cmd_insert_entry",
     "cmd_list_entries",
     "cmd_mark_archived",
     "cmd_mark_reviewed",
@@ -37,9 +33,6 @@ _USAGE = """\
 Usage: ouroboros <subcmd> [args...]
 
 Subcommands:
-  insert-entry <timestamp> <agent> <context> <category> <body>
-  insert-entry --body-stdin <timestamp> <agent> <context> <category>
-  insert-entry --agent <a> --category <c> [--context <x>] [--timestamp <t>] [--project <p>] --observation <o>
   list-entries [--unreviewed] [--project <p>]
   mark-reviewed <id> [--project <p>]
   mark-archived [--all-reviewed | <id>] [--project <p>] [--include-unattributed]
@@ -75,119 +68,6 @@ def _cli_usage_error(msg: str) -> None:
     sys.exit(2)
 
 
-def _read_stdin_safe() -> str:
-    if sys.stdin.isatty():
-        return ""
-    if hasattr(select_mod, "select"):
-        readable, _, _ = select_mod.select([sys.stdin], [], [], 0.5)
-        if not readable:
-            return ""
-    return sys.stdin.read()
-
-
-def _insert_entry_named(conn, rest: list[str]) -> None:
-    agent = context = category = observation = timestamp = project = None
-    body_stdin = "--body-stdin" in rest
-    i = 0
-    while i < len(rest):
-        if rest[i] == "--body-stdin":
-            i += 1
-        elif rest[i] == "--agent" and i + 1 < len(rest):
-            agent = rest[i + 1]
-            i += 2
-        elif rest[i] == "--context" and i + 1 < len(rest):
-            context = rest[i + 1]
-            i += 2
-        elif rest[i] == "--category" and i + 1 < len(rest):
-            category = rest[i + 1]
-            i += 2
-        elif rest[i] == "--observation" and i + 1 < len(rest):
-            observation = rest[i + 1]
-            i += 2
-        elif rest[i] == "--timestamp" and i + 1 < len(rest):
-            timestamp = rest[i + 1]
-            i += 2
-        elif rest[i] == "--project" and i + 1 < len(rest):
-            project = rest[i + 1]
-            i += 2
-        else:
-            _cli_error(f"Error: unrecognized flag '{rest[i]}'", 2)
-
-    if not agent:
-        _cli_error("Error: --agent is required", 2)
-    if not category:
-        _cli_error("Error: --category is required", 2)
-    timestamp = utc_now() if timestamp is None else parse_instant(timestamp)
-
-    if body_stdin:
-        if observation:
-            _cli_error(
-                "Error: --body-stdin and --observation are mutually exclusive", 2
-            )
-        body = _read_stdin_safe() or sys.stdin.read()
-    else:
-        if not observation:
-            _cli_error("Error: either --observation or --body-stdin is required", 2)
-        body = observation
-
-    print(cmd_insert_entry(conn, timestamp, agent, context, category, body, project))
-
-
-def _insert_entry_positional(conn, rest: list[str]) -> None:
-    body_stdin = "--body-stdin" in rest
-    positionals = [arg for arg in rest if arg != "--body-stdin"]
-    if body_stdin:
-        if len(positionals) < 4:
-            _cli_usage_error(
-                "Usage: ouroboros insert-entry --body-stdin "
-                "<timestamp> <agent> <context> <category>"
-            )
-        body = _read_stdin_safe() or sys.stdin.read()
-        print(
-            cmd_insert_entry(
-                conn,
-                positionals[0],
-                positionals[1],
-                positionals[2] or None,
-                positionals[3],
-                body,
-            )
-        )
-        return
-
-    if len(positionals) < 5:
-        _cli_usage_error(_USAGE)
-    print(
-        cmd_insert_entry(
-            conn,
-            positionals[0],
-            positionals[1],
-            positionals[2] or None,
-            positionals[3],
-            positionals[4],
-        )
-    )
-
-
-def _handle_insert_entry(conn, rest: list[str]) -> None:
-    named_mode = any(
-        arg
-        in (
-            "--agent",
-            "--context",
-            "--category",
-            "--observation",
-            "--timestamp",
-            "--project",
-        )
-        for arg in rest
-    )
-    if named_mode:
-        _insert_entry_named(conn, rest)
-    else:
-        _insert_entry_positional(conn, rest)
-
-
 def main(argv: Optional[List[str]] = None) -> None:
     args = argv if argv is not None else sys.argv[1:]
 
@@ -199,10 +79,7 @@ def main(argv: Optional[List[str]] = None) -> None:
     conn = connect()
 
     try:
-        if subcmd == "insert-entry":
-            _handle_insert_entry(conn, rest)
-
-        elif subcmd == "list-entries":
+        if subcmd == "list-entries":
             positional, project, _ = _split_scope_flags(rest)
             result = cmd_list_entries(conn, "--unreviewed" in positional, project)
             if result:

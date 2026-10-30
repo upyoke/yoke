@@ -11,39 +11,9 @@ from yoke_core.domain.migration_audit_schema import ensure_migration_audit_table
 
 MOMENT = parse_instant("2026-10-09T15:56:12.345678+05:45")
 ZONES = ["UTC", "America/New_York", "Asia/Kathmandu"]
-ARGS = [
-    "--agent",
-    "clock-reader",
-    "--category",
-    "observation",
-    "--observation",
-    "Opaque 2026-10-09 10:11:12+00:00",
-]
-
-
-@pytest.mark.parametrize("supplied", [None, "2026-10-09T15:56:12.345678+05:45"])
-def test_named_entry_forwards_native_clock_and_opaque_evidence(monkeypatch, supplied):
-    seen = []
-    monkeypatch.setattr(entries, "utc_now", lambda: MOMENT)
-    monkeypatch.setattr(
-        entries, "cmd_insert_entry", lambda *args: seen.append(args) or 1
-    )
-    args = ARGS + ([] if supplied is None else ["--timestamp", supplied])
-    entries._insert_entry_named(object(), args)
-    assert seen[0][1] == MOMENT
-    assert isinstance(seen[0][1], datetime)
-    assert seen[0][5] == ARGS[-1]
-
-
-@pytest.mark.parametrize(
-    "value", ["", "2026-10-09", "2026-02-30T10:11:12Z", "2026-10-09T10:11:12"]
-)
-def test_named_entry_invalid_supplied_clock_refuses_before_writer(monkeypatch, value):
-    monkeypatch.setattr(
-        entries, "cmd_insert_entry", lambda *_args: pytest.fail("entry write")
-    )
-    with pytest.raises(ValueError):
-        entries._insert_entry_named(object(), ARGS + ["--timestamp", value])
+def test_legacy_entry_writer_is_unavailable():
+    assert not hasattr(entries, "cmd_insert_entry")
+    assert not hasattr(entries, "_insert_entry_named")
 
 
 class BorrowedConnection:

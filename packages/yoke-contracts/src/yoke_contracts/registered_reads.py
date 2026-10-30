@@ -32,7 +32,7 @@ READ_FUNCTION_IDS = frozenset(
         "done_transition.run_stage_qa_acceptance env.list.run ephemeral_env.get "
         "epic_tasks.list.run events.anomalies.run events.count.run "
         "events.performance.aggregate events.performance.detail events.query.run "
-        "events.tail.run frontier.list github.branch.head "
+        "events.tail.run feedback.provenance.get frontier.list github.branch.head "
         "github.merge_queue.readiness github.open_work.list "
         "github_actions.check_ci github_actions.commit_runs.list "
         "github_actions.dispatch_receipt.get github_actions.failed_log "

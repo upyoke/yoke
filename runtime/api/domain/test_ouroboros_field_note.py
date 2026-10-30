@@ -57,7 +57,7 @@ def _build_request(
     session_id: str = "session-test-1",
     actor_id: str | None = None,
 ) -> FunctionCallRequest:
-    payload: dict = {"category": kind, "evidence": evidence}
+    payload: dict = {"yoke_version": "0.2.0.202610290013", "agent": "terminal", "category": kind, "evidence": evidence}
     if correlation_id is not None:
         payload["correlation_id"] = correlation_id
     actor_kwargs: dict = {"session_id": session_id}
@@ -150,7 +150,7 @@ class TestValidationFailures:
             function="ouroboros.field_note.append",
             actor=ActorContext(session_id="s"),
             target=TargetRef(kind="global"),
-            payload={"category": "compat-broken", "evidence": "x"},
+            payload={"yoke_version": "0.2.0.202610290013", "agent": "terminal", "category": "compat-broken", "evidence": "x"},
         )
         outcome = _ofn.handle_append(request)
         assert outcome.primary_success is False
@@ -162,7 +162,7 @@ class TestValidationFailures:
             function="ouroboros.field_note.append",
             actor=ActorContext(session_id="s"),
             target=TargetRef(kind="global"),
-            payload={"category": "observation", "evidence": ""},
+            payload={"yoke_version": "0.2.0.202610290013", "agent": "terminal", "category": "observation", "evidence": ""},
         )
         outcome = _ofn.handle_append(request)
         assert outcome.primary_success is False
