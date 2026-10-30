@@ -32,7 +32,7 @@ def project_stores(conn: Any) -> dict[str, dict]:
         stores[str(slug)] = {
             "bucket": configured[1] if configured else None,
             "prefix": configured[2] if configured else None,
-            "region": _aws_region(conn, int(project_id)) if configured else None,
+            "region": _aws_region(conn, int(project_id)),
             "environment": configured[0] if configured else None,
         }
     return stores
@@ -150,7 +150,13 @@ def write_file(
         if key.startswith("shared-files/")
         else "artifacts/" + key.removeprefix("qa-artifacts/")
     )
-    _write_local(target, path.read_bytes())
+    try:
+        _write_local(target, path.read_bytes())
+    except OSError as exc:
+        raise UniverseArchiveError(
+            "archive_artifact_write_failed: destination disk is unavailable; "
+            "repair its permissions or free disk space and retry the import"
+        ) from exc
     return local_handle(str(target.resolve()), content_type)
 
 

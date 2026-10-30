@@ -107,8 +107,6 @@ def import_from_stream(
                 receipt.get("freeze_intent", {}).get("database", {}).get("org") or ""
             )
 
-            stores = capture_destination(resolved_dsn)
-
             def finalize(conn: psycopg.Connection) -> None:
                 nonlocal credential
                 artifact_result.update(restore_artifacts(conn, dump, stores))
@@ -126,6 +124,7 @@ def import_from_stream(
                     )
 
             with universe_startup_lock.exclusive_import_guard(resolved_dsn):
+                stores = capture_destination(resolved_dsn)
                 inspection = universe_portability.restore_universe(
                     dump,
                     resolved_dsn,

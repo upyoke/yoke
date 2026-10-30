@@ -72,12 +72,12 @@ def download_self_host_universe(
             raise universe_export.UniverseExportError(
                 "the server export did not produce its bounded artifact"
             )
-    except universe_export.UniverseExportError:
+    except universe_export.UniverseExportError as exc:
         shutil.rmtree(directory, ignore_errors=True)
         return _error(
             409,
             "universe_export_refused",
-            "the self-host universe could not be exported safely",
+            str(exc),
         )
     except (OSError, KeyError, RuntimeError, TypeError, ValueError):
         shutil.rmtree(directory, ignore_errors=True)

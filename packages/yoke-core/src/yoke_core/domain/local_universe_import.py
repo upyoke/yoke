@@ -98,8 +98,6 @@ def import_universe(
                 receipt.get("freeze_intent", {}).get("database", {}).get("org") or ""
             )
 
-            stores = capture_destination(resolved_dsn)
-
             def finalize(conn: psycopg.Connection) -> None:
                 artifact_result.update(restore_artifacts(conn, dump, stores))
                 owner.update(_prepare_local_owner(conn))
@@ -111,6 +109,7 @@ def import_universe(
                     )
 
             with universe_startup_lock.exclusive_import_guard(resolved_dsn):
+                stores = capture_destination(resolved_dsn)
                 inspection = universe_portability.restore_universe(
                     dump,
                     resolved_dsn,

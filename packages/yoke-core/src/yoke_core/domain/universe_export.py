@@ -156,7 +156,12 @@ def export_universe(
                 snapshot=snapshot_id,
             )
             if not exclude_artifacts:
-                manifest, files = collect_artifacts(conn, Path(artifact_workspace.name))
+                try:
+                    manifest, files = collect_artifacts(
+                        conn, Path(artifact_workspace.name)
+                    )
+                except universe_archive.UniverseArchiveError as exc:
+                    raise UniverseExportError(str(exc)) from exc
             after = authority_receipt(conn)
         finally:
             conn.close()
