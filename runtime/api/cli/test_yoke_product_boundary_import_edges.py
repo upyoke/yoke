@@ -15,8 +15,7 @@ def test_hook_and_operator_boundaries_keep_their_own_dispositions():
     assert implementation.disposition == inventory.HOOK_LOCAL_SUBSET
     assert implementation.transport_branch == "hook-local-or-https-relay"
     assert {
-        (edge.target, edge.classification)
-        for edge in implementation.import_edges
+        (edge.target, edge.classification) for edge in implementation.import_edges
     } == {
         (
             "yoke_core.hooks.local_entry",
@@ -24,9 +23,7 @@ def test_hook_and_operator_boundaries_keep_their_own_dispositions():
         ),
         ("yoke_core.domain.session_orientation", "client_local_diagnostics"),
     }
-    claim = rows[
-        "python3 -m yoke_core.api.service_client coordination-claim-acquire"
-    ]
+    claim = rows["python3 -m yoke_core.api.service_client coordination-claim-acquire"]
     assert claim.disposition == inventory.OPERATOR_DEBUG_PERMANENT
     assert claim.transport_branch == "operator-debug-command"
     assert claim.owner == "claims.coordination_claim"
@@ -44,11 +41,6 @@ def test_dynamic_import_classification_is_loaded_from_boundary_facts():
         "yoke_core.domain.project_install_source_link",
         "source_dev_admin",
     ) in {(edge.target, edge.classification) for edge in helper.import_edges}
-    source_authority = rows["yoke source-authority quiesce"]
-    assert (
-        "yoke_core.domain.source_authority_cutover",
-        "source_dev_admin",
-    ) in {(edge.target, edge.classification) for edge in source_authority.import_edges}
 
 
 def test_local_machine_edges_stay_on_the_client_helper_path():

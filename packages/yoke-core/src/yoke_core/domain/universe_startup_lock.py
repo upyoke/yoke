@@ -9,11 +9,12 @@ from typing import Iterator
 
 import psycopg
 
-from yoke_core.domain import db_backend
+from yoke_core.domain import db_backend, universe_source_pause
 
 
 # Stable signed-bigint advisory-lock namespace for the one-universe database.
 UNIVERSE_STARTUP_LOCK_ID = 0x596F6B65496D7074
+STARTUP_LOCK_APPLICATION = "yoke-universe-startup-lock"
 
 # Existing hosted-container env contract (compose injects the DSN path
 # and bind). The environment name is not part of the proof.
@@ -42,15 +43,50 @@ def _connection(dsn: str) -> psycopg.Connection:
     return db_backend.connect_psycopg(dsn, autocommit=True)
 
 
+def application_sessions(conn):
+    """Client backends except the exact read-only startup coordination lock."""
+    return conn.execute(
+        "SELECT a.pid FROM pg_stat_activity a WHERE a.datname=current_database() "
+        "AND a.pid<>pg_backend_pid() AND a.backend_type='client backend' "
+        "AND NOT (a.application_name=%s AND EXISTS (SELECT 1 FROM pg_locks l "
+        "WHERE l.pid=a.pid AND l.locktype='advisory' AND l.granted "
+        "AND l.mode='ShareLock' AND l.objsubid=1 "
+        "AND l.database=(SELECT oid FROM pg_database WHERE datname=current_database()) "
+        "AND l.classid=%s::bigint::oid AND l.objid=%s::bigint::oid))",
+        (
+            STARTUP_LOCK_APPLICATION,
+            (UNIVERSE_STARTUP_LOCK_ID >> 32) & 0xFFFFFFFF,
+            UNIVERSE_STARTUP_LOCK_ID & 0xFFFFFFFF,
+        ),
+    ).fetchall()
+
+
+def _server_connection(dsn: str):
+    from psycopg.conninfo import conninfo_to_dict, make_conninfo
+
+    options = conninfo_to_dict(dsn).get("options", "")
+    readonly = make_conninfo(
+        dsn,
+        application_name=STARTUP_LOCK_APPLICATION,
+        options=f"{options} -c default_transaction_read_only=on",
+    )
+    with universe_source_pause.pause_owner():
+        return _connection(readonly)
+
+
 @contextmanager
 def server_startup_guard(dsn: str) -> Iterator[None]:
     """Hold a shared lock while a server inspects and prepares its universe."""
-    conn = _connection(dsn)
+    with universe_source_pause.startup_access(dsn):
+        conn = _server_connection(dsn)
+        try:
+            conn.execute(
+                "SELECT pg_advisory_lock_shared(%s)", (UNIVERSE_STARTUP_LOCK_ID,)
+            )
+        except BaseException:
+            conn.close()
+            raise
     try:
-        conn.execute(
-            "SELECT pg_advisory_lock_shared(%s)",
-            (UNIVERSE_STARTUP_LOCK_ID,),
-        )
         try:
             yield
         finally:

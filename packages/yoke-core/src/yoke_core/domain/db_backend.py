@@ -16,7 +16,7 @@ from typing import Optional
 
 from yoke_contracts import control_plane_locality
 from yoke_contracts.control_plane_locality import PG_DSN_ENV, PG_DSN_FILE_ENV
-from yoke_core.domain import postgres_connection_reuse
+from yoke_core.domain import postgres_connection_reuse, universe_source_pause
 from yoke_core.domain.db_row import PostgresRow, postgres_row_factory
 from yoke_core.domain.postgres_control_plane_connection import (
     bind_read_deadline,
@@ -65,12 +65,7 @@ def is_postgres() -> bool:
 def connection_is_postgres(conn) -> bool:
     """Return the dialect of an *existing* connection by type, not env.
 
-    A real :class:`sqlite3.Connection` is always SQLite; anything else is the
-    Postgres connection family. Thin test wrappers around a real SQLite
-    connection are also SQLite. Helpers that RECEIVE a connection (schema
-    introspection, etc.) must branch on this because a caller can still hold a
-    genuine SQLite connection (e.g. a migration-model SQLite validation
-    file opened explicitly).
+    Existing SQLite fixtures remain SQLite; all other connections are Postgres.
     """
     for attr in ("_inner", "_conn"):
         inner = getattr(conn, attr, None)
@@ -124,6 +119,7 @@ def resolve_pg_dsn(dbname: Optional[str] = None) -> str:
 
 def _open_native_postgres(dsn: str, *, autocommit: bool = False):
     """Open a native psycopg connection to *dsn* that closes on ``close()``."""
+    universe_source_pause.require_running(dsn)
     return postgres_connection_reuse.track_test_connection(
         open_guarded_postgres(
             dsn, autocommit=autocommit, row_factory=postgres_row_factory
@@ -135,12 +131,14 @@ def _lease_ambient_postgres(
     dsn: str, *, autocommit: bool = False, row_factory=postgres_row_factory
 ):
     """Lease a reused guarded authority connection; ``close()`` returns it."""
+    universe_source_pause.require_running(dsn)
     conn = postgres_connection_reuse.lease(
         dsn,
         autocommit=autocommit,
         row_factory=row_factory,
         connect=connect_guarded_socket,
     )
+    universe_source_pause.check_connection(conn, dsn)
     return postgres_connection_reuse.track_test_connection(bind_read_deadline(conn))
 
 
@@ -251,6 +249,7 @@ def connect_psycopg(dsn: Optional[str] = None, *, autocommit: bool = False):
 
     def _open():
         if dsn is not None or pg_dsn_is_bound():
+            universe_source_pause.require_running(dsn or resolve_pg_dsn())
             return postgres_connection_reuse.track_test_connection(
                 open_guarded_postgres(dsn or resolve_pg_dsn(), autocommit=autocommit)
             )

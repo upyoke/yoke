@@ -171,6 +171,10 @@ def _startup_table_exists(conn, table_name: str) -> bool:
 def _ensure_db_initialized() -> None:
     """Validate the API DB substrate before serving requests."""
     conn = get_db_readonly()
+    import psycopg
+
+    if isinstance(conn, psycopg.Connection):
+        conn.read_only = True
     try:
         missing = [
             table

@@ -140,7 +140,9 @@ def test_hosted_export_stays_on_platform_guidance(monkeypatch, capsys):
     monkeypatch.setattr(
         setup,
         "_export_engine",
-        lambda: _stub_export_engine(error="hosted org admins use the dashboard"),
+        lambda: (_ for _ in ()).throw(
+            AssertionError("hosted export must refuse before engine access")
+        ),
     )
     monkeypatch.setattr(
         commands,
@@ -151,7 +153,9 @@ def test_hosted_export_stays_on_platform_guidance(monkeypatch, capsys):
     )
 
     assert commands.universe_export([]) == 1
-    assert "dashboard" in capsys.readouterr().err
+    error = capsys.readouterr().err
+    assert "Download" in error
+    assert "Move universe" in error
 
 
 @pytest.mark.parametrize("remote", [False, True])
@@ -200,3 +204,30 @@ def test_local_estimate_uses_the_export_engine(monkeypatch):
     monkeypatch.setattr(setup, "_export_engine", lambda: engine)
     assert setup.universe_export(estimate=True, exclude_artifacts=True) == result
     assert calls == [{"exclude_artifacts": True}]
+
+
+def test_resume_preserves_named_local_recovery(monkeypatch, capsys):
+    from yoke_cli.commands import universe_transfer
+
+    monkeypatch.setattr(universe_transfer, "resolve_https_connection", lambda: None)
+
+    def busy():
+        raise setup.LocalUniverseSetupError(
+            "universe_source_busy: wait for export to finish, then retry"
+        )
+
+    monkeypatch.setattr(setup, "universe_resume", busy)
+    assert universe_transfer.universe_resume([]) == 1
+    assert "universe_source_busy" in capsys.readouterr().err
+
+
+def test_hosted_resume_names_dashboard_control(monkeypatch, capsys):
+    from yoke_cli.commands import universe_transfer
+
+    monkeypatch.setattr(
+        universe_transfer,
+        "resolve_https_connection",
+        lambda: HttpsConnection("https://app.stage.upyoke.com/api/orgs/acme", "token"),
+    )
+    assert universe_transfer.universe_resume([]) == 1
+    assert "Resume source" in capsys.readouterr().err

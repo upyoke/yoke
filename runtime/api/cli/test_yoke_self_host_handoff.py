@@ -140,7 +140,12 @@ def test_storage_failure_never_acknowledges_success(target, monkeypatch):
 
 def test_existing_init_command_owns_start_option(target, monkeypatch, capsys):
     calls = []
-    monkeypatch.setattr(runtime, "start_bundle", lambda **kwargs: calls.append(kwargs))
+
+    def start(**kwargs):
+        calls.append(kwargs)
+        return {"healthy": True}
+
+    monkeypatch.setattr(runtime, "start_bundle", start)
     assert (
         self_host.self_host_init(
             ["--dir", str(target), "--protect-existing", "--start", "--json"]
@@ -196,3 +201,46 @@ def test_import_receipt_requires_successful_container_exit(
 
 
 pytestmark = pytest.mark.usefixtures("installed_self_host_prerequisites")
+
+
+def test_paused_restart_receipt_preserves_token_and_readiness(target, monkeypatch):
+    path = first_boot_token.token_drop_path(target)
+    path.write_text(TOKEN + "\n")
+    path.chmod(0o600)
+    _child(
+        monkeypatch,
+        'import sys; sys.stdin.buffer.readline(); print(\'{"healthy":false,"paused":true}\',flush=True)',
+    )
+    assert runtime._receive_token(target, "docker", b"{}\n") == {
+        "healthy": False,
+        "paused": True,
+    }
+    assert path.read_text().strip() == TOKEN
+
+
+def test_paused_start_skips_only_core_health_wait(target, monkeypatch):
+    waits = []
+    monkeypatch.setattr(runtime, "bootstrap_inputs", lambda *_a: (b"password", b"{}\n"))
+    monkeypatch.setattr(runtime, "start_database", lambda *_a: waits.append("db"))
+    monkeypatch.setattr(runtime, "compose", lambda *_a: b"")
+    monkeypatch.setattr(
+        runtime, "_receive_token", lambda *_a: {"healthy": False, "paused": True}
+    )
+    monkeypatch.setattr(runtime, "wait_healthy", lambda *_a: waits.append("core"))
+    report = runtime.start_bundle(directory=target)
+    assert report["healthy"] is False
+    assert report["paused"] is True
+    assert waits == ["db"]
+
+
+def test_paused_existing_init_teaches_resume_before_return(target, monkeypatch, capsys):
+    monkeypatch.setattr(
+        runtime, "start_bundle", lambda **_k: {"healthy": False, "paused": True}
+    )
+    assert (
+        self_host.self_host_init(
+            ["--dir", str(target), "--protect-existing", "--start"]
+        )
+        == 0
+    )
+    assert "yoke universe resume" in capsys.readouterr().out

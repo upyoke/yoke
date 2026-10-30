@@ -38,6 +38,8 @@ AUTHORITY_DATABASE = (
         _C + "connected_env_tunnel_lifecycle:_start_tunnel",
         _C + "db_backend:_managed_secret_is_active_authority",
         _C + "db_backend:resolve_pg_dsn",
+        # The evaluating authority checks its own database's durable source pause.
+        _C + "universe_source_pause:is_paused",
         _C + "deploy_remote:_materialize_aws_env",
         _C + "deploy_remote:aws_machine_capability_env",
         _C + "lint_db_cmd:evaluate",

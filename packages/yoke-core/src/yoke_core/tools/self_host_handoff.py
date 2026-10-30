@@ -15,6 +15,7 @@ import sys
 import time
 import threading
 import urllib.request
+import urllib.error
 
 from yoke_contracts.self_host_handoff import (
     HANDOFF_ACK,
@@ -71,14 +72,26 @@ def receive_bootstrap_handoff(
             pass
 
 
-def _health_ready() -> bool:
+def _health_status() -> dict | None:
     try:
         with urllib.request.urlopen(
             "http://127.0.0.1:8765/v1/health", timeout=1
         ) as reply:
-            return reply.status == 200
+            return {"healthy": True} if reply.status == 200 else None
+    except urllib.error.HTTPError as exc:
+        try:
+            raw = exc.read(4097)
+            payload = loads_text(raw.decode()) if len(raw) <= 4096 else {}
+            if (
+                exc.code == 503
+                and payload.get("error", {}).get("code") == "universe_source_paused"
+            ):
+                return {"healthy": False, "paused": True}
+        except (OSError, ValueError, UnicodeError, AttributeError):
+            pass
+        return None
     except OSError:
-        return False
+        return None
 
 
 def _stream_import(connection: socket.socket) -> int:
@@ -137,8 +150,9 @@ def main() -> int:
                         )
                     connection.sendall(HANDOFF_ACK)
                     return 0
-                if _health_ready():
-                    print(dumps_compact({"healthy": True}), flush=True)
+                state = _health_status()
+                if state is not None:
+                    print(dumps_compact(state), flush=True)
                     return 0
             raise TimeoutError("bootstrap did not become healthy")
     except (OSError, ValueError, UnicodeError):

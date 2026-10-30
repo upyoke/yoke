@@ -59,20 +59,19 @@ _startup_logger = logging.getLogger("yoke.api.startup")
 
 
 def create_app() -> FastAPI:
-    """Create and configure the FastAPI application.
-
-    Registers all route modules under a ``/v1`` prefix and wires up the
-    lifespan context manager for DB initialization.
-    """
+    """Create the API routes, admission middleware and startup lifespan."""
 
     @asynccontextmanager
     async def lifespan(_: FastAPI):
         """Initialize the backing DB and register all function handlers."""
-        # Imported here so the reusable app factory does not depend on the
-        # canonical module that imports this factory to publish ``app``.
+        # Resolve the canonical entry point only during startup.
         from yoke_core.api.main import _ensure_db_initialized
 
-        _ensure_db_initialized()
+        from yoke_core.domain import db_backend, universe_source_pause
+
+        dsn = db_backend.resolve_pg_dsn()
+        with universe_source_pause.startup_access(dsn), db_backend.bound_pg_dsn(dsn):
+            _ensure_db_initialized()
         from yoke_core.domain.handlers.__init_register__ import (
             register_all_handlers,
         )
@@ -160,6 +159,9 @@ def create_app() -> FastAPI:
             )
 
     _include_routes(application)
+    from yoke_core.api.universe_pause_admission import install
+
+    install(application)
     from yoke_core.api.routes import items_health
 
     items_health.initialize_health_metadata()

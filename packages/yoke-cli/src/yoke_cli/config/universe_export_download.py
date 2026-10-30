@@ -44,12 +44,13 @@ def download_universe(
     out: str | None = None,
     exclude_artifacts: bool = False,
     estimate: bool = False,
+    pause_source: bool = False,
 ) -> dict[str, object]:
     """Download one self-host archive and atomically publish it locally."""
     timeout_s, max_bytes = _engine_limits()
     deadline = deadline_after(timeout_s)
     url = join_api_url(connection.api_url, UNIVERSE_EXPORT_PATH)
-    query = {}
+    query = {"pause_source": "true"} if pause_source else {}
     if exclude_artifacts:
         query["exclude_artifacts"] = "true"
     if estimate:
@@ -93,6 +94,15 @@ def download_universe(
             if content_type.split(";", 1)[0].strip() != "application/x-tar":
                 raise UniverseExportDownloadError(
                     "the self-host export response was not a universe tar archive"
+                )
+            if (
+                pause_source
+                and response.headers.get("x-yoke-universe-writers-stopped") != "true"
+            ):
+                raise UniverseExportDownloadError(
+                    "universe_pause_unavailable: the server did not confirm stopped writers; "
+                    "upgrade the self-host server and refresh its persistent machine-home "
+                    "configuration, then retry `yoke universe export --pause-source`"
                 )
             declared = _content_length(response.headers.get("content-length"))
             if declared is not None and declared > max_bytes:

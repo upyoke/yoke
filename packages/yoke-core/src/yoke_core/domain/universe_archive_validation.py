@@ -16,7 +16,7 @@ from yoke_contracts.timestamps import format_instant
 from yoke_core.domain import db_backend, universe_archive, universe_portability
 from yoke_core.domain.schema_fingerprint import fingerprint_portable_postgres_schema
 from yoke_core.domain.schema_readiness import missing_readiness_tables
-from yoke_core.domain.source_authority_cutover import authority_receipt
+from yoke_core.domain.source_authority_receipts import authority_receipt
 
 
 class ArchiveValidationError(RuntimeError):

@@ -1,20 +1,18 @@
 # Move the operator projects into Stage
 
-This is an attended operation, not a deploy recipe. Run it only after the
-Yoke engine and Platform hosted-import companion are released. It copies a
-whole tenant; retire unwanted project copies afterward. Step 6 is a planned
-off-hours Production outage; restore service immediately after export for the
-people and projects staying there. Do not run `quiesce retire`.
+This attended operation moves a whole universe through the product export and
+Import path. Run it after Yoke and Platform releases expose those controls.
+Prune first, export with artifacts, import, verify, then resume or retire the source.
+Do not continue independent work against both copies.
 
 ## Bind the operation
 
 Record in the move item's Progress Log: source and destination orgs and tenant
-ids; source and destination artifact buckets; three moved project ids/slugs;
-checkout paths; source service-stop/start authority; outage window; rollback
+ids; three moved project ids/slugs;
+checkout paths; source pause/resume authority; outage window; rollback
 window; and owner for each step. Substitute these recorded values below.
-`SOURCE_ADMIN` is the protected source database-admin connection;
-`DESTINATION` is the new Stage org's HTTPS connection. Keep the archive and
-cutover credential bundle in an owner-only directory outside Git.
+`DESTINATION` is the new Stage org's HTTPS connection. Keep any archive in an owner-only directory outside Git; never record signed
+links, tokens or credentials in the Progress Log.
 
 Before the outage, prove both releases contain the import helpers; read the
 live versions with `yoke --env prod status` and `yoke --env stage status`.
@@ -73,57 +71,42 @@ On each machine, confirm command help accepts `--protected` before proceeding.
    Check the connection reports `protected=true`; environment names alone do
    not establish safety. Do not clear Production's marker.
 
-6. During the attended outage, on the recorded Production host, stop its
-   Platform writers and source tenant server. `SOURCE_COMPOSE_FILE` is the
-   absolute installed `docker-compose.platform.yml`; `SOURCE_CONTAINER` is
-   the tenant container verified against registry identity and Docker labels,
-   never a name guessed from the org slug. Save the command results as the
-   stop receipt, then run the source boundary from the operator machine:
+6. Estimate and prune before pausing the source. Hosted sources use
+   **Download** on the dashboard's **Move universe** page; its size preflight
+   enforces a 10 GiB cap before pausing, and its signed link lasts one hour.
+   Local and self-host sources use the active source connection:
 
    ```text
-   docker compose -f SOURCE_COMPOSE_FILE stop webapp platform-svc
-   docker stop SOURCE_CONTAINER
-   docker inspect --format '{{.Name}} {{.State.Running}}' SOURCE_CONTAINER
-   docker compose -f SOURCE_COMPOSE_FILE ps --status running webapp platform-svc
-   ```
-
-   Check the tenant is stopped and neither Platform writer is running. The
-   database fence below independently proves no ordinary writer remains:
-
-   ```text
-   yoke --env SOURCE_ADMIN source-authority quiesce begin --service-stop-receipt STOP_RECEIPT --credential-file /secure/source-cutover.json --json
-   yoke source-authority quiesce status --credential-file /secure/source-cutover.json --json
-   yoke source-authority export --out /secure/source.tar --credential-file /secure/source-cutover.json --json
+   yoke universe export --estimate --json
+   yoke universe export --pause-source --out /secure/source.tar
    yoke universe validate /secure/source.tar
-   yoke source-authority quiesce abort --credential-file /secure/source-cutover.json --json
    ```
 
-   Check begin/status prove the fence, export publishes a validated archive,
-   and abort restores the source's credentials and CONNECT policy. On the
-   same host, restart and check the declared services immediately:
+   The pause stops source writers and drains database client sessions before
+   the snapshot. It stays in effect after either success or failure until Resume.
+   A backup export without the flag cannot be used for hosted replacement.
+   Hosted CLI export refuses and names dashboard Download; protected direct
+   database connections do not bypass the dashboard.
+
+7. On the destination dashboard's **Move universe** page, paste the hosted
+   source's signed link into **Import**. For a local or self-host archive:
 
    ```text
-   docker start SOURCE_CONTAINER
-   docker compose -f SOURCE_COMPOSE_FILE start platform-svc webapp
-   docker inspect --format '{{.State.Running}}' SOURCE_CONTAINER
-   docker compose -f SOURCE_COMPOSE_FILE ps --status running webapp platform-svc
+   yoke --env DESTINATION universe upload /secure/source.tar --org DESTINATION_ORG
    ```
 
-   Check the tenant and both Platform services are running. Verify
-   the person staying on Production can sign in and read their existing work
-   before continuing. A failed export still requires abort and restart.
-
-7. In `https://app.stage.upyoke.com/orgs/DESTINATION_ORG/tenant-replacement`,
-   fill the source artifact bucket and source tenant fields, upload the
-   archive and execute the hosted replacement's attended checks.
-   The console owns import and latest-replacement recovery; there is no Yoke
-   CLI import route for a hosted tenant. Save its receipt and rollback deadline.
-   Check the receipt records copied-token/session revocation before destination
-   credential issuance and records `artifact_prefix_map`. Compare source and
-   destination project, item, actor and dependency counts before retirement.
-   Verify identity links on Stage. Finish steps 7–10 within the recorded
-   24-hour rollback window. A rollback also requires rebinding the repositories
-   on Production before resuming merges.
+   Follow the printed dashboard path to finish Import. The archive streams
+   directly to signed multipart storage targets. There is no browser upload
+   or separate source-bucket copy: import fetches from configured source
+   buckets and restores artifacts before the destination serves.
+   Save the receipt and rollback deadline. Compare project, item, actor and
+   dependency counts and verify identity links and sample artifact reads.
+   Finish steps 7–10 within the recorded rollback window. Rollback also
+   requires rebinding repositories on Production before resuming merges.
+   Resume the hosted source through **Resume source**, or run
+   `yoke universe resume` against a local/self-host source. Verify people
+   staying there can sign in and read their work. A failed export also needs
+   explicit Resume before normal work can continue.
 
 8. On Stage, declare destination `aws-admin` capabilities for the two release
    projects using each reviewed non-secret settings document:
@@ -141,18 +124,10 @@ On each machine, confirm command help accepts `--protected` before proceeding.
    Check the setup receipt's database identity matches the import receipt.
    Check capabilities resolve through Stage before running any release.
 
-9. Copy each prefix from the import receipt, using only the moved projects:
-
-   ```text
-   aws s3 sync SOURCE_PREFIX/PROJECT/ DESTINATION_PREFIX/PROJECT/ --dryrun
-   aws s3 sync SOURCE_PREFIX/PROJECT/ DESTINATION_PREFIX/PROJECT/
-   aws s3 ls DESTINATION_PREFIX/PROJECT/ --recursive --summarize
-   ```
-
-   Repeat for `qa-artifacts` and `shared-files` for all three project slugs.
-   Use the receipt's exact bucket and tenant prefixes; never infer them from
-   an environment label. Record object counts and read sample QA evidence
-   and shared files through Stage. Do not delete source objects yet.
+9. Read sample QA evidence and shared files through the destination.
+   Compare artifact checksums and missing-file reports with the archive
+   manifest. Repair missing source files and export again if needed; do not
+   infer successful restoration from database counts alone.
 
 10. Provision each machine against Stage with destination-issued credentials;
     do not reuse copied tokens. `yoke tokens create --name MACHINE_NAME` shows
@@ -214,20 +189,10 @@ On each machine, confirm command help accepts `--protected` before proceeding.
     Record the final text and returned instruction in the Progress Log. Until
     this step, the operator's attended run overrides the old release policy.
 
-16. After the rollback window has passed and step 9 artifact reads are
-    verified, record before counts and delete only each moved project's two
-    source prefixes:
-
-    ```text
-    aws s3 ls SOURCE_PREFIX/PROJECT/ --recursive --summarize
-    aws s3 rm SOURCE_PREFIX/PROJECT/ --recursive --dryrun
-    aws s3 rm SOURCE_PREFIX/PROJECT/ --recursive
-    aws s3 ls SOURCE_PREFIX/PROJECT/ --recursive --summarize
-    ```
-
-    Review dry-run paths against the three-project allowlist; never remove a
-    whole tenant prefix. Record after counts and unchanged remaining-project
-    prefixes. Keep the import receipt and archive private as recovery evidence.
+16. After the rollback window and artifact checks pass, retire the old
+    source only if nobody still uses it. In a shared source universe, retire
+    only the moved project copies through their product commands. Preserve
+    the receipt and archive according to the operator's recovery policy.
 
 17. Inventory project-creating tests and QA routes before reopening work:
     `rg -n 'projects create|insert_project|INSERT INTO projects' runtime tests`.
@@ -237,11 +202,9 @@ On each machine, confirm command help accepts `--protected` before proceeding.
 
 ## Recovery
 
-Before import, abort the fence and restart Production even if export fails.
-After import, use the destination console's latest replacement and exact typed
-rollback confirmation within its recorded window; rollback discards writes
-made after replacement. Stop destination work first and preserve receipts.
-Rebind the three repositories on Production through Platform's cutover runbook before
-resuming merges after rollback.
-After source artifact deletion, recovery also needs the verified Stage copy.
-Never disable Production's administrator with `quiesce retire` during this move.
+Before import, use Resume source on a hosted source, or `yoke universe resume`
+on a local/self-host source, even after an export failure. After import, use
+the destination's latest replacement and its exact typed rollback confirmation
+within the recorded window; rollback discards later destination writes.
+Stop destination work first and preserve receipts. Rebind repositories on
+Production through Platform's cutover runbook before resuming merges after rollback.

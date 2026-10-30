@@ -20,6 +20,7 @@ import urllib.request
 from typing import Any, Dict, Mapping, Optional
 
 from yoke_contracts.private_network_http import allows_http_host
+from yoke_contracts.refusal_recovery import compose_refusal
 
 from yoke_cli.config import writer
 from yoke_cli.transport import server_reach_failure
@@ -47,6 +48,10 @@ _DEFAULT_TIMEOUT_S = 15.0
 class ServerConnectError(RuntimeError):
     """Verification or persistence failed; nothing was persisted on
     verification failure."""
+
+
+class SourcePausedError(ServerConnectError):
+    """A reachable source requires explicit Resume before attachment."""
 
 
 class ServerIdentityError(RuntimeError):
@@ -227,6 +232,19 @@ def _http_get_json(url: str, *, headers: Mapping[str, str], timeout_s: float) ->
         if failure is not None:
             raise _HttpFailure(failure, named=True) from None
         if isinstance(exc, BoundedJsonHttpStatusError):
+            payload = exc.payload
+            if (
+                exc.status == 503
+                and isinstance(payload, Mapping)
+                and isinstance(payload.get("error"), Mapping)
+                and payload["error"].get("code") == "universe_source_paused"
+            ):
+                raise SourcePausedError(
+                    compose_refusal(
+                        "universe_source_paused: this server is reachable but its source writers remain paused",
+                        recovery="use an existing source connection and run `yoke --env SOURCE universe resume`; if none exists, first record it with `yoke connection set SOURCE --transport https --api-url SOURCE_URL --token-file ADMIN_TOKEN_FILE`, then retry connection setup",
+                    )
+                ) from None
             raise _HttpFailure(f"HTTP {exc.status}") from None
         raise _HttpFailure(str(exc)) from None
     return response.payload

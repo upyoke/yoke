@@ -8,7 +8,9 @@
   "universe level-capacity": "Read what each universe level can launch.",
   "universe level-capacity get": "Show what each universe level can launch now, and why.",
   "universe prune": "Preview or delete old disposable records.",
+  "universe resume": "Allow a paused source to accept writers again.",
   "universe retention": "Read how long old records are kept.",
   "universe retention get": "Show how long old records are kept, and the cutoff.",
-  "universe validate": "Check a universe archive before moving it."
+  "universe validate": "Check a universe archive before moving it.",
+  "universe upload": "Upload an archive and print the hosted Import link."
 }

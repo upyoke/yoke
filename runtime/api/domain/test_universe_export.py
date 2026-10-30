@@ -23,6 +23,7 @@ from yoke_contracts.machine_config import runtime as machine_runtime
 from yoke_contracts.timestamps import parse_instant, format_instant
 from yoke_core.domain import universe_archive
 from yoke_core.domain import universe_export as ux
+from yoke_core.domain import universe_snapshot_archive as snapshots
 from yoke_core.domain.source_freeze_intent import file_sha256
 
 
@@ -240,7 +241,7 @@ def test_export_binds_dump_and_receipt_to_one_exported_snapshot(
     that snapshot; the receipt is computed on the same frozen view."""
     observed: dict[str, object] = {}
     moment = parse_instant("2026-10-09T15:00:00.123456Z")
-    monkeypatch.setattr(ux, "utc_now", lambda: moment)
+    monkeypatch.setattr(snapshots, "utc_now", lambda: moment)
     compose = universe_archive.build_freeze_receipt
 
     def receipt_owner(**kwargs):
@@ -269,7 +270,7 @@ def test_export_binds_dump_and_receipt_to_one_exported_snapshot(
             path=Path(destination),
         )
 
-    monkeypatch.setattr(ux.universe_portability, "dump_universe", fake_dump)
+    monkeypatch.setattr(snapshots.universe_portability, "dump_universe", fake_dump)
     dest = tmp_path / "snapshot-bound.tar"
     with _schema_loaded_universe() as (_conn, dsn):
         report = ux.export_universe(dsn=dsn, out=dest)
@@ -330,7 +331,7 @@ def test_export_refuses_when_universe_changes_mid_dump(monkeypatch, tmp_path):
         with psycopg.connect(os.environ[db_backend.PG_DSN_ENV]) as fresh:
             return original_receipt(fresh, **kwargs)
 
-    monkeypatch.setattr(ux.universe_portability, "dump_universe", mutating_dump)
+    monkeypatch.setattr(snapshots.universe_portability, "dump_universe", mutating_dump)
     monkeypatch.setattr(
         source_authority_receipts,
         "authority_receipt",

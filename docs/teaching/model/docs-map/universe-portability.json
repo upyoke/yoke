@@ -9,7 +9,7 @@
  "purpose": "Explain moving and protecting a universe across installations and hosting modes.",
  "outline": ["What moves with a universe", "Export a universe", "Validate and retain backups", "Import and restore", "Move between local, self-hosted, and hosted modes", "Reconnect machines and verify the destination"],
  "terms": ["universe", "portability", "universe-portability", "universe-export", "universe-import", "backup", "restore", "connection"],
- "commands": ["command:yoke universe export", "command:yoke universe import", "command:yoke universe validate"],
+ "commands": ["command:yoke universe export", "command:yoke universe import", "command:yoke universe validate", "command:yoke universe resume", "command:yoke universe upload"],
  "sources": ["doc:docs/public/start/modes.md", "doc:docs/public/start/concepts.md"],
  "deeper_pages": ["setup.hosting", "self-hosting", "operations"],
  "open_questions": [],

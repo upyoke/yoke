@@ -184,7 +184,9 @@ def test_startup_failure_releases_guard_without_serving(monkeypatch):
 
     monkeypatch.setattr(server_entrypoint, "ensure_core_schema", _boom)
     monkeypatch.setattr(
-        server_entrypoint, "ensure_permission_catalog", lambda: order.append("permissions")
+        server_entrypoint,
+        "ensure_permission_catalog",
+        lambda: order.append("permissions"),
     )
     fake_uvicorn = types.ModuleType("uvicorn")
     fake_uvicorn.run = lambda *a, **k: order.append("serve")  # type: ignore[attr-defined]
@@ -193,3 +195,88 @@ def test_startup_failure_releases_guard_without_serving(monkeypatch):
     with pytest.raises(RuntimeError, match="schema-failed"):
         server_entrypoint.main(argv=[])
     assert order == ["lock-enter", "schema", "lock-exit"]
+
+
+def test_pause_preserves_readonly_server_import_exclusion(monkeypatch, tmp_path):
+    import psycopg
+    from yoke_core.domain import universe_source_pause
+
+    monkeypatch.setenv("YOKE_SERVER_MODE", "self-host")
+    monkeypatch.setenv("YOKE_MACHINE_HOME", str(tmp_path / "machine"))
+    with pg_testdb.test_database():
+        dsn = db_backend.resolve_pg_dsn()
+        with universe_startup_lock.server_startup_guard(dsn):
+            universe_source_pause.pause(dsn)
+            try:
+                with universe_source_pause.pause_owner():
+                    with pytest.raises(universe_startup_lock.UniverseStartupBusy):
+                        with universe_startup_lock.exclusive_import_guard(dsn):
+                            pass
+                # Another server worker can recover its read-only coordination
+                # session while normal application acquisition stays refused.
+                with universe_startup_lock.server_startup_guard(dsn):
+                    with pytest.raises(universe_source_pause.UniversePausedError):
+                        db_backend.connect_psycopg(dsn)
+                    with universe_startup_lock._server_connection(dsn) as coordination:
+                        with pytest.raises(psycopg.errors.ReadOnlySqlTransaction):
+                            coordination.execute(
+                                "CREATE TABLE forbidden_write(id integer)"
+                            )
+            finally:
+                universe_source_pause.resume(dsn)
+            with pytest.raises(universe_startup_lock.UniverseStartupBusy):
+                with universe_startup_lock.exclusive_import_guard(dsn):
+                    pass
+        with universe_startup_lock.exclusive_import_guard(dsn):
+            pass
+
+
+def test_paused_restart_defers_schema_but_serves_resume(monkeypatch, tmp_path):
+    from yoke_core.domain import universe_source_pause
+
+    monkeypatch.setenv("YOKE_MACHINE_HOME", str(tmp_path / "machine"))
+    dsn = "postgresql://startup-lock-test"
+    marker = universe_source_pause._marker(dsn)
+    marker.parent.mkdir(parents=True)
+    marker.write_text("{}")
+    order = _run_main(monkeypatch, env={"YOKE_SERVER_MODE": "self-host"})
+    assert order == ["lock-enter", "serve", "lock-exit"]
+    assert marker.exists()
+    with pytest.raises(universe_source_pause.UniversePausedError):
+        universe_source_pause.require_running(dsn)
+
+
+def test_paused_worker_validation_closes_its_readonly_session(monkeypatch, tmp_path):
+    from yoke_core.api import main
+    from yoke_core.domain import universe_source_pause
+
+    monkeypatch.setenv("YOKE_SERVER_MODE", "self-host")
+    monkeypatch.setenv("YOKE_MACHINE_HOME", str(tmp_path / "machine"))
+    observed = []
+    original = main.invalid_item_workflow_stages
+
+    def inspect(conn):
+        observed.append(conn.execute("SHOW transaction_read_only").fetchone()[0])
+        return original(conn)
+
+    monkeypatch.setattr(main, "invalid_item_workflow_stages", inspect)
+    with pg_testdb.test_database() as source:
+        source.commit()
+        dsn = db_backend.resolve_pg_dsn()
+        universe_source_pause.pause(dsn)
+        try:
+            with (
+                universe_source_pause.startup_access(dsn),
+                db_backend.bound_pg_dsn(dsn),
+            ):
+                main._ensure_db_initialized()
+            assert observed == ["on"]
+            with (
+                universe_source_pause.pause_owner(),
+                db_backend.connect_psycopg(dsn) as probe,
+            ):
+                assert universe_startup_lock.application_sessions(probe) == []
+            with pytest.raises(universe_source_pause.UniversePausedError):
+                db_backend.connect_psycopg(dsn)
+        finally:
+            universe_source_pause.resume(dsn)

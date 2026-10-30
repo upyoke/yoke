@@ -14,7 +14,7 @@ carrying the following required members at its root:
 - `freeze-receipt.json` — the freeze receipt whose `freeze_intent.archive`
   block binds that exact payload by SHA-256 and byte count.
 
-Local and self-host exports also include `artifacts-manifest.json` and an
+Archives with artifact bytes also include `artifacts-manifest.json` and an
 `artifacts/` tree. Each manifest entry names its original handle, a store-neutral
 `qa-artifacts/...` or `shared-files/...` key, status, and (when included) its
 SHA-256 and byte count. The freeze receipt binds the manifest's SHA-256 as
@@ -39,8 +39,7 @@ destination without configured storage uses its own permanent application-data
 tree. Missing source files remain reported in the import result; included bytes
 are verified before any restore. Self-host imports run inside the core container,
 so local files live on the server's persistent application-data volume.
-Hosted artifact import still uses the separate namespace-copy procedure below
-until the hosted portability consumer adopts the manifest.
+Hosted import restores included artifacts to destination storage before the org serves; no separate source-bucket copy is needed.
 
 The receipt travels inside the artifact, so every importer — local CLI,
 self-host bundle, hosted platform — derives checksum verification from the
@@ -91,84 +90,83 @@ universe; replacing the current universe is the operator's call, which is why
 the consent stays. Local import addresses only the active `local` connection;
 self-host import addresses an explicitly selected Compose bundle.
 
-## Attended production source cutover
+## Export a move or a backup
 
-Ordinary `yoke universe export` continues to refuse a protected connection.
-The source-dev/admin cutover boundary is explicit and recoverable:
+Prune unwanted records and artifacts, then estimate before pausing a source.
+Hosted sources use **Download** on the dashboard's **Move universe** page.
+Hosted size preflight enforces the 10 GiB cap before pausing; the signed link
+expires after one hour. **Prepare archive** shows polled named phases with
+elapsed seconds and bytes; the result offers **Download archive**, **Copy link**,
+and an absolute expiry. **Resume source** restores writers explicitly. Import
+shows fetching, verification, destination checks and replacement before receipt
+status; refusals and recovery remain in the active dialog. Import pulls an allowlisted signed link server-to-server,
+so archive bytes do not pass through a browser upload.
+
+Local and self-host sources use:
 
 ```text
-yoke --env prod-db-admin dev db-admin setup prod --project platform \
-  --protected --yes --json
-yoke --env prod-db-admin source-authority quiesce begin \
-  --service-stop-receipt SERVICE_STOP_ID \
-  --credential-file /secure/source-cutover.json --json
-yoke source-authority quiesce status \
-  --credential-file /secure/source-cutover.json --json
-yoke source-authority export --out /secure/source.tar \
-  --credential-file /secure/source-cutover.json --json
-yoke source-authority quiesce abort \
-  --credential-file /secure/source-cutover.json --json
-yoke source-authority quiesce retire \
-  --credential-file /secure/source-cutover.json \
-  --retirement-receipt RETIREMENT_GATE_ID --json
+yoke universe export --estimate --json
+yoke universe export --pause-source --out /secure/source.tar
+yoke universe validate /secure/source.tar
 ```
 
-The explicit `--protected` marker is mandatory. It records that the connection holds real data in
-the machine connection without inferring safety policy from an environment
-name, database name, or DSN; the source-authority boundary refuses profiles
-that omit it. `--project platform` selects the project that owns Yoke's
-deployment environments and infrastructure, while `prod` selects that
-project's Production environment.
+The pause stops the selected local source's installed relay, blocks new Yoke
+database writers, terminates other database client sessions,
+and waits for zero writable application sessions before exporting. The server's
+separate read-only advisory-lock session remains to prevent concurrent import;
+it cannot change data. It remains in effect after success or failure.
+The self-host bundle persists its machine home, pause marker and local artifacts
+on the corestate volume across container replacement. An older bundle without
+an explicit persistent machine home refuses paused export and names its refresh
+command. Clients also refuse a paused export when the server cannot confirm
+stopped writers. Self-host request admission
+refuses work while paused; restarted servers keep that pause and defer schema
+preparation until explicit Resume. Self-host start and upgrade report that the
+source remains paused and name Resume; they do not claim it is ready for work.
+Local database acquisition
+refuses connections to that source. Run `yoke universe resume` against that same
+source when it may write again. A pause-marker or drain failure refuses the move
+with recovery; repair the named cause and retry, or explicitly resume the source.
+Database authority must permit terminating its client sessions. Resume restarts
+a relay that the pause stopped; unrelated connections and their services stay
+independent. Run a source export from a standalone terminal if it is itself
+running under that source relay.
 
-Stop the old API/sync/webhook service first and pass its attended stop receipt.
-`begin` transactionally replaces every ordinary login's database `CONNECT`
-grant with an owner-only fence, commits that durable ACL before draining every
-other client session (including older sessions of the owner role), and refuses
-success unless none remains. The known `rdsadmin` provider-superuser retains a
-PostgreSQL-level `CONNECT` bypass that the owner ACL cannot revoke. Success
-therefore proves its live sessions are **observed absent** in
-`pg_stat_activity`; the fence does not enforce denial for that provider role.
-Any live provider-superuser session is an explicit attended-drain blocker.
-The owner must have the effective privileges of `pg_signal_backend` and
-`pg_read_all_stats`; `NOINHERIT` membership alone is insufficient. Unexpected
-superusers or inherited owner membership also block the operation.
+Export without `--pause-source` is a backup with
+`zero_writable_app_sessions=False`; local import accepts it, hosted replacement
+requires `True`. The shared `universe_snapshot_archive.snapshot_archive` function
+binds the dump, artifact manifest, and receipt to one exported PostgreSQL
+`REPEATABLE READ` snapshot. Its caller supplies the stopped-writer evidence.
+Platform adopts this shared function through its own release-gated update.
+Protected direct Postgres connections remain refused. The CLI refuses hosted
+HTTPS sources before engine access and points to dashboard Download.
 
-The owner-only credential bundle binds the old database OID, administrator,
-fence receipt, original credential, and rotated cutover credential. Rotation
-proves the original credential connected before the committed `ALTER ROLE`,
-the generated cutover secret is distinct, and a fresh cutover-secret connection
-succeeds afterward. PostgreSQL stores one password verifier per role, so this
-proves supersession without reading provider-restricted password catalogs;
-connection-error text is not cutoff evidence.
-After canonical machine authority switches to hosted production, `status`, `export`,
-`abort`, and `retire` continue to address the old source exclusively through
-that bundle; they do not re-resolve the canonical production connection.
+## Upload and finish hosted import
 
-`export` opens one read-only `REPEATABLE READ` transaction, exports its
-PostgreSQL snapshot, and binds the compact receipt, detailed receipt, and
-`pg_dump --snapshot` archive to that same view. It then proves the durable
-fence again and requires an exact fresh full-authority receipt from a new
-connection; a committed writer that appeared and exited during the dump still
-invalidates publication. `abort` transactionally replays the saved,
-`acldefault`-expanded effective `CONNECT` policy and removes the owner-only
-control schema. The receipt preserves whether the original physical ACL was
-`NULL`; PostgreSQL's supported grant/revoke DDL restores the exact effective
-NULL-default semantics, though it need not reproduce the internal NULL storage
-sentinel. After every recorded retirement gate passes, `retire` preserves the
-control-state evidence, sets the source administrator to `NOLOGIN`, clears its
-password, proves that state through the still-live administrator session, and
-removes the local credential bundle. A persisted transaction marker plus an
-exact single-host `NOLOGIN` response supports crash recovery; generic password,
-network, TLS, timeout, and multi-host text never counts as cutoff evidence.
+For a local or self-host archive, use `yoke universe upload ARCHIVE --org SLUG`
+with a destination hosted connection. Upload streams directly to signed multipart
+storage targets, renewing URLs during slow transfers. The selected connection must
+belong to --org; choose it with `yoke --env DESTINATION universe upload ARCHIVE
+--org SLUG`. Upload prints a fresh signed source link and its expiry; paste it into
+Import on the printed dashboard page. Failed uploads leave the source paused
+until explicit Resume. Hosted-to-hosted
+moves paste the source's signed link into Import. An expired link requires a fresh
+export or upload; the destination accepts only configured source buckets.
+
+Import replaces the destination universe, restores artifact bytes before serving,
+and reports its receipt. Verify project, item and actor counts and sample artifact
+reads. Reconnect machines using destination-issued credentials. Resume the source
+if it must continue serving other people; otherwise retire it only after checking
+the destination and preserving recovery evidence. Avoid writes to both copies.
+
+## Receipt contract
 
 The export writes exactly one artifact: the tar described at the top of this
 page. Its `freeze-receipt.json` member carries the compact
 `yoke.source-freeze/v2` intent (under `freeze_intent`), the detailed authority
 audit receipt (under `source_authority`), and the archive data catalog (under
 `catalog`); a replacement service reads all of them from inside the archive.
-None contains a DSN, token, or secret. Compact begin/status receipts use
-bounded count/max/schema/catalog/sequence/strategy queries. The export and
-disposable round-trip each perform one streaming, fixed-batch content-digest
+None contains a DSN, token, or secret. The export and disposable round-trip each perform one streaming, fixed-batch content-digest
 pass, so no table is ever loaded or sorted in client memory.
 
 The dump payload is staged under an owner-only hidden sibling name, the tar is
@@ -220,14 +218,7 @@ its import calls `universe_import_credentials.revoke_imported_credentials(conn)`
 all copied API tokens and browser sessions become revoked, and no token is minted.
 The caller owns commit and supplies fresh destination authority separately.
 
-For a different tenant, call
-`universe_import_artifacts.rewrite_imported_artifacts(conn, source_bucket=...,
-source_tenant_id=..., destination_bucket=..., destination_tenant_id=...)`.
-It rewrites every stored S3 artifact handle while preserving its object suffix
-and metadata, and returns a source-to-destination S3 prefix map for both
-`qa-artifacts` and `shared-files`. Shared files have no per-file database row,
-so their copy prefix is returned even when no QA artifacts exist. Copy bytes
-with that map before serving the destination. A handle outside the supplied
-source namespace refuses as `import_artifact_namespace_invalid`; rehome that
-evidence on the source and export again. Both helpers keep the importer's
-transaction open and isolate their writes with savepoints.
+Artifact import restores manifest-bound bytes into destination storage and rewrites
+handles using captured destination routing. Source bucket settings never choose
+the write destination. Copied API tokens and browser sessions are revoked before
+fresh destination authority is issued; archives do not copy working machine access.

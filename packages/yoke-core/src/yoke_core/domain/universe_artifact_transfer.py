@@ -190,8 +190,8 @@ def estimate_universe(
     from yoke_core.domain.universe_export import (
         resolve_export_dsn,
         _start_own_universe,
-        _snapshot_connection,
     )
+    from yoke_core.domain.universe_snapshot_archive import _snapshot_connection
 
     resolved_dsn = dsn or resolve_export_dsn()
     _start_own_universe(resolved_dsn, lambda _line: None)

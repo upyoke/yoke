@@ -64,6 +64,7 @@ services:
         condition: service_healthy
     environment:
       YOKE_SERVER_MODE: self-host
+      YOKE_MACHINE_HOME: /var/lib/yoke/.yoke
       YOKE_PG_DSN_FILE: /dev/shm/yoke-runtime-secrets/yoke-db-dsn
       YOKE_SELF_HOST_HANDOFF: required
       YOKE_FIRST_BOOT_TOKEN_HOST_PATH: ./secrets/first-boot-admin-token
@@ -91,8 +92,11 @@ services:
       YOKE_GITHUB_APP_CLIENT_ID: ${YOKE_GITHUB_APP_CLIENT_ID:-}
       YOKE_GITHUB_APP_SLUG: ${YOKE_GITHUB_APP_SLUG:-}
       YOKE_GITHUB_APP_PRIVATE_KEY_FILE: ${YOKE_GITHUB_APP_PRIVATE_KEY_FILE:-}
+    volumes:
+      - corestate:/var/lib/yoke/.yoke
     ports:
       - "${YOKE_API_PUBLISH:-127.0.0.1:8765}:8765"
 
 volumes:
   pgdata:
+  corestate:

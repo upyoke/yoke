@@ -88,7 +88,7 @@ def test_startup_wires_proxy_trust_in_every_serving_mode(monkeypatch, hosted):
         guard["held"] = False
 
     monkeypatch.setattr(universe_startup_lock, "server_startup_guard", startup_guard)
-    monkeypatch.setattr(db_backend, "resolve_pg_dsn", lambda: "unused")
+    monkeypatch.setattr(db_backend, "resolve_pg_dsn", lambda: "dbname=unused")
     for name in ("universe_is_born", "admin_credential_exists"):
         monkeypatch.setattr(server_entrypoint, name, lambda: True)
     for name in ("ensure_core_schema", "ensure_permission_catalog"):
