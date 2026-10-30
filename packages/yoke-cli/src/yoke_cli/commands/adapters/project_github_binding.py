@@ -203,7 +203,10 @@ def _dispatch(
                 binding = result.get("binding") or {}
                 print(str(binding.get("github_repo") or ""), file=stdout)
             else:
-                write_human(result, stdout)
+                write_human({
+                    key: value for key, value in result.items()
+                    if key != "sync_mode_notice" or value
+                }, stdout)
         return None
 
     return dispatch_and_emit(

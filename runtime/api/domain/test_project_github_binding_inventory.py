@@ -107,7 +107,8 @@ def test_unbind_reports_previous_mode_and_shared_notice(inventory, previous):
     assert result["previous_sync_mode"] == previous
     assert result["sync_mode"] == result["github_sync_mode"] == "disabled"
     assert result["bound"] is False
-    assert result["sync_mode_notice"] == (
+    expected_notice = (
         "Issue sync was turned off. To turn it back on, bind a repository again, "
         "then run yoke projects update --slug yoke --name Yoke --github-sync-mode enabled."
     )
+    assert result["sync_mode_notice"] == (expected_notice if previous == "enabled" else None)

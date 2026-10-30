@@ -4,6 +4,6 @@
  "status": "observed",
  "page": "repositories",
  "position": 1,
- "description": "Explicit project updates enable mirroring after verified App binding and permission checks; public repositories also require explicit permission to sync publicly. Setup only connects the repository. Each successful issue creation returns a concise notice and link.",
+ "description": "Explicit project updates enable mirroring after verified App binding and permission checks; public repositories also require explicit permission to sync publicly. Setup only connects the repository. Bind and unbind report sync-mode changes with the enable command; unbind requires rebinding first, and public repositories require --allow-public-github-sync. Each successful issue creation returns a concise notice and link.",
  "sources": ["docs/public/github/sync.md", "docs/public/start/agent-setup.md", "runtime/api/domain/test_projects_github_sync_mode_invariant.py"]
 }
