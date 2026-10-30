@@ -148,13 +148,6 @@ ALLOWED_DYNAMIC_AUTHORITY_IMPORTS = {
         "yoke_core.tools.watch_entrypoints",
     ): ("client_local_diagnostics", "wrappers behind the yoke watch commands"),
     (
-        "packages/yoke-cli/src/yoke_cli/commands/source_authority.py",
-        "yoke_core.domain.source_authority_cutover",
-    ): (
-        "source_dev_admin",
-        "attended source-authority credential cutoff and export boundary",
-    ),
-    (
         "packages/yoke-cli/src/yoke_cli/commands/universe_validate.py",
         "yoke_core.domain.universe_archive_validation",
     ): ("client_local_validation", "validate a local archive before upload"),

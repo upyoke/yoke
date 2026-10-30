@@ -44,9 +44,7 @@ def build_freeze_receipt(
 ) -> dict[str, Any]:
     """Compose the freeze receipt binding one inspected dump payload.
 
-    The single receipt-assembly point for every exporter — local CLI,
-    attended production cutover, and the hosted platform's server-side
-    export all pass their mode's ``database`` identity, freeze moment,
+    Every exporter passes its source ``database`` identity, freeze moment,
     authority receipt, and the
     :class:`yoke_core.domain.universe_portability.ArchiveInspection` of
     the dump they produced; the result is the exact
@@ -80,6 +78,7 @@ def pack_universe_archive(
     *,
     artifact_manifest: dict | None = None,
     artifact_files: dict[str, Path] | None = None,
+    max_bytes: int | None = None,
 ) -> int:
     """Write the manifest-bound tar atomically; return its final byte size.
 
@@ -113,6 +112,10 @@ def pack_universe_archive(
                     artifacts.pack_files(
                         archive, receipt, artifact_manifest, artifact_files or {}
                     )
+        if max_bytes is not None and output.temporary.stat().st_size > max_bytes:
+            raise UniverseArchiveError(
+                "universe_export_size_limit: packed archive exceeds the byte cap; prune source data and retry"
+            )
         output.commit()
         return destination.stat().st_size
     except UniverseArchiveError:

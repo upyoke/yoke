@@ -173,7 +173,10 @@ def test_upgrade_moves_cli_pin_pull_and_restart_as_one_ordered_pair(
     monkeypatch.setattr(
         upgrade.runtime,
         "start_bundle",
-        lambda **kwargs: calls.append((("private-handoff",), kwargs["directory"])),
+        lambda **kwargs: (
+            calls.append((("private-handoff",), kwargs["directory"])),
+            {"healthy": True},
+        )[1],
     )
     report = upgrade.execute_upgrade(_plan(initialized_bundle, selected_release))
 

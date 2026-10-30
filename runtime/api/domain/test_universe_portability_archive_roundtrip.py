@@ -51,19 +51,9 @@ def test_dump_rejects_snapshot_option_injection_before_subprocess(tmp_path):
 
 def test_real_dump_uses_one_exported_repeatable_read_snapshot(tmp_path):
     from runtime.api.fixtures import pg_testdb
-    from yoke_core.domain import source_authority_connect_policy as fence_policy
 
     with _canonical_test_universe() as (source, source_dsn):
-        admin_role = str(source.execute("SELECT current_user").fetchone()[0])
-        fence_policy.create_fence_state(
-            source,
-            original={
-                "schema": fence_policy.FENCE_POLICY_SCHEMA,
-                "admin_role": admin_role,
-            },
-            frozen_at="2026-07-14T00:00:00Z",
-            service_stop_receipt="service-stopped",
-        )
+        source.execute("CREATE SCHEMA yoke_source_authority")
         source.execute(
             "INSERT INTO projects "
             "(id, slug, name, public_item_prefix, created_at) "
@@ -85,7 +75,7 @@ def test_real_dump_uses_one_exported_repeatable_read_snapshot(tmp_path):
             executable=portability._postgres_executable("pg_restore"),
             timeout_s=portability.DEFAULT_ARCHIVE_TIMEOUT_S,
         )
-        assert fence_policy.FENCE_STATE_SCHEMA not in catalog
+        assert "yoke_source_authority" not in catalog
         source.rollback()
 
         target_db = pg_testdb.create_test_database()

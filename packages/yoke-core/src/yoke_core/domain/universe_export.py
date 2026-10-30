@@ -26,16 +26,10 @@ binaries first, then ``PATH`` — the same rule the cluster lifecycle uses for
 
 from __future__ import annotations
 
-import os
-import tempfile
-from yoke_contracts.timestamps import utc_now
 from pathlib import Path
 from typing import Any, Callable, Dict, Optional, Union
 
-from yoke_core.domain import postgres_binaries
-from yoke_core.domain import runtime_settings
 from yoke_core.domain import universe_archive
-from yoke_core.domain import universe_portability
 from yoke_core.domain.universe_export_destination import (
     UniverseExportError,
     default_artifact_name,
@@ -76,15 +70,9 @@ def resolve_export_dsn() -> str:
         )
     if env.backend != "postgres":
         raise UniverseExportError(
-            f"the active connection {env.environment!r} is "
-            f"{env.backend}-transport (hosted/self-host mode): this machine "
-            "does not hold the universe database's DSN, and export requires "
-            "DSN possession. A hosted org admin downloads from the "
-            "dashboard's `Move universe` action; a self-host connection uses "
-            "the authenticated server export endpoint. To export a machine-local "
-            "universe, name its env for this invocation "
-            "(`yoke --env local universe export`) or create one "
-            "(`yoke init --local`)."
+            "universe_export_dashboard_required: hosted sources use Download "
+            "on the dashboard's Move universe page; self-host sources use "
+            "the authenticated server export endpoint"
         )
     if connection_is_protected(env.config):
         raise UniverseExportError(
@@ -110,6 +98,7 @@ def export_universe(
     out: Optional[Union[str, Path]] = None,
     dsn: Optional[str] = None,
     exclude_artifacts: bool = False,
+    pause_source: bool = False,
     emit: Callable[[str], None] = lambda _line: None,
 ) -> Dict[str, Any]:
     """Export the active universe to one self-contained tar artifact.
@@ -125,123 +114,33 @@ def export_universe(
     path, size, org slug, archive format, and the dump payload's SHA-256
     (also recorded inside the artifact's freeze receipt).
     """
-    from yoke_core.domain.source_authority_receipts import authority_receipt
+    from yoke_core.domain.universe_snapshot_archive import snapshot_archive
 
     resolved_dsn = dsn if dsn is not None else resolve_export_dsn()
     _start_own_universe(resolved_dsn, emit)
-    timeout = runtime_settings.get_seconds(
-        EXPORT_TIMEOUT_SETTING,
-        DEFAULT_EXPORT_TIMEOUT_S,
+    from yoke_core.domain import universe_source_pause
+
+    if pause_source:
+        with (
+            universe_source_pause.operation(resolved_dsn),
+            universe_source_pause.pause_owner(),
+        ):
+            universe_source_pause.pause(resolved_dsn)
+            emit("Source paused; run `yoke universe resume` when it may write again.")
+            return snapshot_archive(
+                dsn=resolved_dsn,
+                out=out,
+                writers_stopped=True,
+                include_artifacts=not exclude_artifacts,
+                emit=emit,
+            )
+    return snapshot_archive(
+        dsn=resolved_dsn,
+        out=out,
+        writers_stopped=False,
+        include_artifacts=not exclude_artifacts,
+        emit=emit,
     )
-    from yoke_core.domain.universe_artifact_transfer import collect_artifacts
-
-    artifact_workspace = tempfile.TemporaryDirectory(prefix="yoke-export-files-")
-    manifest, files = None, {}
-    staged_dump: Optional[Path] = None
-    try:
-        conn = _snapshot_connection(resolved_dsn)
-        try:
-            identity = _universe_identity(conn)
-            selected_org = str(identity["org"])
-            dest = resolve_export_destination(out, selected_org)
-            emit(f"  [universe-export] dumping org {selected_org!r} universe -> {dest}")
-            frozen_at = utc_now()
-            snapshot_id = str(conn.execute("SELECT pg_export_snapshot()").fetchone()[0])
-            before = authority_receipt(conn)
-            staged_dump = _staged_dump_path(dest)
-            inspection = _dump_payload(
-                resolved_dsn,
-                staged_dump,
-                timeout_s=timeout,
-                snapshot=snapshot_id,
-            )
-            if not exclude_artifacts:
-                try:
-                    manifest, files = collect_artifacts(
-                        conn, Path(artifact_workspace.name)
-                    )
-                except universe_archive.UniverseArchiveError as exc:
-                    raise UniverseExportError(str(exc)) from exc
-            after = authority_receipt(conn)
-        finally:
-            conn.close()
-        if before["receipt_digest"] != after["receipt_digest"]:
-            raise UniverseExportError(
-                "the universe changed while it was being exported; retry once"
-                " concurrent writers settle"
-            )
-        receipt = universe_archive.build_freeze_receipt(
-            database=identity,
-            frozen_at=frozen_at,
-            authority=after,
-            inspection=inspection,
-            zero_writable_app_sessions=False,
-        )
-        if manifest is not None:
-            from yoke_core.domain.universe_archive_artifacts import bind_manifest
-
-            receipt = bind_manifest(receipt, manifest)
-        try:
-            artifact_bytes = universe_archive.pack_universe_archive(
-                staged_dump,
-                receipt,
-                dest,
-                artifact_manifest=manifest,
-                artifact_files=files,
-            )
-        except universe_archive.UniverseArchiveError as exc:
-            raise UniverseExportError(str(exc)) from exc
-    finally:
-        artifact_workspace.cleanup()
-        _unlink_quietly(staged_dump)
-    emit(
-        f"  [universe-export] wrote {artifact_bytes} bytes"
-        f" ({ARTIFACT_FORMAT}: {universe_archive.ARCHIVE_MEMBER_DUMP}"
-        f" + {universe_archive.ARCHIVE_MEMBER_RECEIPT})"
-    )
-    return {
-        "artifact": str(dest),
-        "bytes": artifact_bytes,
-        "format": ARTIFACT_FORMAT,
-        "org": selected_org,
-        "sha256": inspection.archive_sha256,
-        "artifacts": {
-            "included": len(files),
-            "missing": sum(
-                e["status"] == "missing" for e in (manifest or {}).get("entries", [])
-            ),
-        },
-        "receipt_id": str(receipt["freeze_intent"]["receipt_id"]),
-    }
-
-
-def _dump_payload(
-    dsn: str,
-    destination: Path,
-    *,
-    timeout_s: int,
-    snapshot: str,
-) -> universe_portability.ArchiveInspection:
-    """Run the snapshot-bound dump with operator-actionable errors."""
-    try:
-        return universe_portability.dump_universe(
-            dsn,
-            destination,
-            timeout_s=timeout_s,
-            snapshot=snapshot,
-        )
-    except universe_portability.UniversePortabilityError as exc:
-        if isinstance(exc.__cause__, FileNotFoundError):
-            raise UniverseExportError(
-                "pg_dump is missing: expected the embedded engine binaries at "
-                f"{postgres_binaries.version_dir() / 'bin'} and found no "
-                "pg_dump on PATH. Run `yoke local-postgres start` "
-                "(or `yoke init --local`) to refetch the embedded engine."
-            ) from exc
-        raise UniverseExportError(
-            f"universe export refused or failed safely: {exc}. If the embedded "
-            "Postgres is stopped, `yoke local-postgres start` brings it up."
-        ) from exc
 
 
 def _start_own_universe(dsn: str, emit: Callable[[str], None]) -> None:
@@ -257,68 +156,10 @@ def _start_own_universe(dsn: str, emit: Callable[[str], None]) -> None:
         raise UniverseExportError(str(exc)) from exc
 
 
-def _snapshot_connection(dsn: str):
-    """One ``REPEATABLE READ READ ONLY`` view for receipts and the dump."""
-    import psycopg
+def resume_universe() -> dict:
+    from yoke_core.domain import universe_source_pause
 
-    from yoke_core.domain import db_backend
-
-    try:
-        conn = db_backend.connect_psycopg(dsn)
-    except psycopg.OperationalError as exc:
-        raise UniverseExportError(
-            f"could not connect to the universe database: {exc}. If the "
-            "embedded Postgres is stopped, `yoke local-postgres start` "
-            "brings it up."
-        ) from exc
-    conn.isolation_level = psycopg.IsolationLevel.REPEATABLE_READ
-    conn.read_only = True
-    return conn
-
-
-def _universe_identity(conn) -> Dict[str, Any]:
-    """The universe's database + org identity (also proves DB liveness)."""
-    import psycopg
-
-    row = conn.execute(
-        "SELECT current_database(), oid FROM pg_database "
-        "WHERE datname = current_database()"
-    ).fetchone()
-    try:
-        org = conn.execute(
-            "SELECT slug FROM organizations ORDER BY id LIMIT 1"
-        ).fetchone()
-    except psycopg.errors.UndefinedTable:
-        org = None
-    if org is None or not str(org[0] or "").strip():
-        raise UniverseExportError(
-            "the connected database carries no organization identity card, "
-            "so it does not look like a bootstrapped Yoke universe "
-            "(`yoke init --local` births one)"
-        )
-    return {
-        "database": str(row[0]),
-        "database_oid": int(row[1]),
-        "org": str(org[0]).strip(),
-    }
-
-
-def _staged_dump_path(destination: Path) -> Path:
-    """A private sibling file for the dump payload before it is packed."""
-    descriptor, raw_path = tempfile.mkstemp(
-        prefix=f".{destination.name}.",
-        suffix=".dump",
-        dir=destination.parent,
-    )
-    os.close(descriptor)
-    staged = Path(raw_path)
-    staged.chmod(0o600)
-    return staged
-
-
-def _unlink_quietly(staged: Optional[Path]) -> None:
-    if staged is not None:
-        staged.unlink(missing_ok=True)
+    return universe_source_pause.resume(resolve_export_dsn())
 
 
 def estimate_universe(*, exclude_artifacts: bool = False) -> dict:

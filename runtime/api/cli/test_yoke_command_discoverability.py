@@ -16,7 +16,6 @@ from yoke_contracts.session_control.launch_bootstrap import (
         (["doctor"], "yoke doctor run"),
         (["deployments"], "yoke deployment-flows list"),
         (["worktrees"], "yoke item-worktrees list"),
-        (["source"], "yoke source-authority export"),
         (["environment"], "yoke projects environment create"),
         (["environments"], "yoke projects environment-settings get"),
         (["qa", "review"], "yoke qa plan review-submit"),

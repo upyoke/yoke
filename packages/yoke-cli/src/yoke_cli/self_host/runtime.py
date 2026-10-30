@@ -166,12 +166,13 @@ def start_bundle(*, directory: str | Path, executable: str = "docker") -> dict:
     password, header = bootstrap_inputs(target, executable)
     start_database(target, executable, password)
     compose(target, executable, ("up", "--no-deps", "-d", "--force-recreate", "core"))
-    _receive_token(target, executable, header)
-    wait_healthy(target, executable, "core")
-    return {"ok": True, "directory": str(target), "healthy": True}
+    state = _receive_token(target, executable, header)
+    if not state.get("paused"):
+        wait_healthy(target, executable, "core")
+    return {"ok": True, "directory": str(target), **state}
 
 
-def _receive_token(directory: Path, executable: str, header: bytes) -> None:
+def _receive_token(directory: Path, executable: str, header: bytes) -> dict:
     command = (
         executable,
         "compose",
@@ -208,11 +209,16 @@ def _receive_token(directory: Path, executable: str, header: bytes) -> None:
             protection.atomic_replace_bytes(target, (token + "\n").encode(), mode=0o600)
             process.stdin.write(HANDOFF_ACK)
             process.stdin.flush()
-        elif result.get("healthy") is not True:
+        elif result not in ({"healthy": False, "paused": True}, {"healthy": True}):
             raise _refuse("self_host_handoff_receipt_invalid", directory)
         process.communicate(timeout=HANDOFF_TIMEOUT_SECONDS)
         if process.returncode:
             raise _refuse("self_host_handoff_failed", directory)
+        return (
+            {"healthy": False, "paused": True}
+            if result.get("paused") is True
+            else {"healthy": True}
+        )
     except (
         OSError,
         ValueError,

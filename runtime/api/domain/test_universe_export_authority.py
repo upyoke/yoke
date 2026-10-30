@@ -59,11 +59,11 @@ def test_resolve_export_dsn_refuses_https_connection_in_mode_language(
         ux.resolve_export_dsn()
 
     message = str(excinfo.value)
-    assert "DSN possession" in message
+    assert "universe_export_dashboard_required" in message
+    assert "Download" in message
     assert "hosted" in message
     assert "Move universe" in message
     assert "self-host" in message
-    assert "yoke init --local" in message
 
 
 def test_resolve_export_dsn_refuses_protected_flagged_postgres(tmp_path):

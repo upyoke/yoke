@@ -111,9 +111,10 @@ def test_invalid_notice_and_session_clock_refuses_before_action(
 
 @pytest.mark.parametrize("clock", BAD_CLOCKS)
 def test_invalid_clock_refuses_before_connect_sign_or_export_name(monkeypatch, clock):
-    from yoke_core.domain import item_execution_status, s3_presign, universe_export
+    from yoke_core.domain import item_execution_status, s3_presign
+    from yoke_core.domain import universe_export_destination
 
-    for owner in (item_execution_status, s3_presign, universe_export):
+    for owner in (item_execution_status, s3_presign, universe_export_destination):
         monkeypatch.setattr(owner, "utc_now", unused_clock)
     monkeypatch.setattr(item_execution_status, "connect", unused_clock)
     with pytest.raises(InvalidInstant):
@@ -128,7 +129,7 @@ def test_invalid_clock_refuses_before_connect_sign_or_export_name(monkeypatch, c
             now=clock,
         )
     with pytest.raises(InvalidInstant):
-        universe_export.default_artifact_name("sample", now=clock)
+        universe_export_destination.default_artifact_name("sample", now=clock)
 
 
 @pytest.mark.parametrize("member", (False, True))

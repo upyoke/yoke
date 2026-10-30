@@ -33,9 +33,8 @@ def freeze_intent(
     """Build the exact compact raw-JSON freeze-receipt intent contract.
 
     ``zero_writable_app_sessions`` is an evidence claim: only a caller
-    that proved a write fence (the attended production cutover) may pass
-    ``True``; a machine-local export cannot prove session absence and
-    passes ``False``.
+    that stopped source writers and drained client sessions may pass
+    ``True``. Backup exports without a source pause pass ``False``.
     """
     frozen_at = format_instant(frozen_at)
     updated_values = [

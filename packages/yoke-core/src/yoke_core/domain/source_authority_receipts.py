@@ -1,4 +1,4 @@
-"""Deterministic, secret-free source-authority comparison receipts.
+"""Deterministic, secret-free source authority comparison receipts.
 
 The receipt answers one question: is this universe's AUTHORITY the same
 as that one's? Disposable telemetry is deliberately outside that answer —

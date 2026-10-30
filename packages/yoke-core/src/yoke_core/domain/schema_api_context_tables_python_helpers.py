@@ -1,28 +1,24 @@
-"""Python helper surface entries for the schema cheat sheet.
+"""Canonical Python helper surfaces and diagnosed wrong imports.
 
-Sibling of :mod:`schema_api_context_tables` (which combines per-topic
-dicts into the canonical ``CANONICAL_TABLES``). Teaches the canonical
-Python helper surface — the surfaces agents reach for inside a
-``python3 -c "..."`` snippet — and explicitly names the wrong guesses
-agents have made in the live denial / failure log.
-
-These entries are not SQL tables — they live in the same per-topic
-table map only because the renderer iterates ``TOPIC_TABLES`` for its
-schema cheat sheet, and the same `name -> {columns, notes}` shape
-works for "module surface" rows just as well. ``columns`` here lists
-the public symbol surface (callable names or subcommand names) so the
-renderer prints `module — sym1, sym2, ...` instead of an empty
-backtick pair. ``_try_live_schema`` returns None for these "tables"
-(no PRAGMA hit for a Python module name) so the seed entries pass
-through to the renderer without drift triggering.
-
-Pure data only — no I/O, no DB connections, no imports beyond stdlib.
+Pure data for schema_api_context_tables; columns name symbols, not SQL fields.
 """
 
 from __future__ import annotations
 
 
 PYTHON_HELPERS_TABLES: dict[str, dict] = {
+    "yoke_core.domain.universe_snapshot_archive": {
+        "columns": [
+            ("snapshot_archive", "callable"),
+            ("_snapshot_connection", "internal"),
+        ],
+        "notes": (
+            "snapshot_archive owns the shared snapshot export; estimate_universe uses "
+            "its internal snapshot connector. Wrong guess: importing _snapshot_connection "
+            "from universe_export after the extraction. Archive names and their clock "
+            "are owned by universe_export_destination.default_artifact_name."
+        ),
+    },
     "yoke_core.tools.pytest_remote_selection": {
         "columns": [("resolve_route", "callable")],
         "notes": (

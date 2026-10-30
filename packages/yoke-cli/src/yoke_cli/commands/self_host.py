@@ -179,8 +179,10 @@ def self_host_init(args: List[str]) -> int:
             )
         _warn_network_publish(env_file.read_publish_spec(str(report["directory"])))
         if parsed.start:
-            runtime.start_bundle(directory=str(report["directory"]))
-            report["healthy"] = True
+            state = runtime.start_bundle(directory=str(report["directory"]))
+            report["healthy"] = state["healthy"]
+            if state.get("paused"):
+                report["paused"] = True
     except (bundle.SelfHostBundleError, runtime.SelfHostRuntimeError) as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 1
@@ -288,6 +290,10 @@ def _print_upgrade_summary(report: Dict[str, object]) -> None:
     print(f"bundle: {report.get('directory')}")
     print(f"server image: {report.get('image')}")
     print("CLI, image pin, pull, and Compose restart all completed")
+    if report.get("paused"):
+        print(
+            "Source remains paused; run `yoke universe resume` against its connection to restore writers."
+        )
 
 
 def _print_upgrade_error(error: upgrade.SelfHostUpgradeError) -> None:

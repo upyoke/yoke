@@ -91,7 +91,7 @@ def execute_upgrade(plan: UpgradePlan) -> dict[str, Any]:
     _run_compose_step(plan, ("pull", "core"), code="compose-pull")
     try:
         bundle.protect_existing_bundle(directory=str(plan.directory))
-        runtime.start_bundle(
+        runtime_state = runtime.start_bundle(
             directory=plan.directory, executable=plan.docker_executable
         )
     except (runtime.SelfHostRuntimeError, bundle.SelfHostBundleError) as exc:
@@ -105,6 +105,8 @@ def execute_upgrade(plan: UpgradePlan) -> dict[str, Any]:
         "previous_image": plan.previous_image,
         "image": plan.target.image,
         "steps": list(plan.steps),
+        "healthy": runtime_state["healthy"],
+        **({"paused": True} if runtime_state.get("paused") else {}),
     }
 
 

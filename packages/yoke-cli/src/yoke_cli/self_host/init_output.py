@@ -9,6 +9,10 @@ from yoke_contracts.self_host_bootstrap_output import connect_url_from_publish_s
 
 def print_summary(report: Dict[str, object]) -> None:
     directory = report.get("directory")
+    if report.get("paused"):
+        print(
+            "Source remains paused; run `yoke universe resume` against its connection to restore writers."
+        )
     if report.get("mode") == "protect-existing":
         print(f"self-host bundle protected: {directory}")
         state = "updated" if report.get("gitignore_changed") else "already current"

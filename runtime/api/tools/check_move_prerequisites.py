@@ -6,7 +6,6 @@ import subprocess
 import sys
 
 from yoke_contracts.machine_config.schema import connection_is_protected
-from yoke_core.domain.universe_import_artifacts import rewrite_imported_artifacts
 from yoke_core.domain.universe_import_credentials import revoke_imported_credentials
 
 
@@ -65,9 +64,7 @@ def main():
         )
     assert connection_is_protected({"protected": True})
     assert connection_is_protected({"prod": True})
-    assert callable(rewrite_imported_artifacts) and callable(
-        revoke_imported_credentials
-    )
+    assert callable(revoke_imported_credentials)
     help_text = subprocess.run(
         ["yoke", "connection", "set", "--help"],
         check=True,

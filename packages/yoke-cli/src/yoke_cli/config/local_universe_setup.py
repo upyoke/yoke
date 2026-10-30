@@ -289,24 +289,26 @@ def universe_export(
     out: Optional[str] = None,
     exclude_artifacts: bool = False,
     estimate: bool = False,
+    pause_source: bool = False,
     emit: Callable[[str], None] = lambda _line: None,
 ) -> Dict[str, Any]:
-    """Export the active universe to one portable archive via the engine.
-
-    The engine owns the whole operation: the DSN-possession authority
-    check on the active connection, the directory-vs-file routing of
-    ``out`` (a trailing path separator means a directory, so the raw
-    string passes through untouched), the org-slug/timestamp default
-    filename, the snapshot-bound ``pg_dump`` invocation, and packing the
-    dump plus its freeze receipt into one tar artifact.
-    """
+    """Export or estimate using machine-held source authority."""
     engine = _export_engine()
     try:
         if estimate:
             return dict(engine.estimate_universe(exclude_artifacts=exclude_artifacts))
         options = {"exclude_artifacts": True} if exclude_artifacts else {}
+        if pause_source:
+            options["pause_source"] = True
         return dict(engine.export_universe(out=out or None, emit=emit, **options))
     except RuntimeError as exc:  # authority refusal, dead server, dump failure
+        raise LocalUniverseSetupError(str(exc)) from exc
+
+
+def universe_resume() -> Dict[str, Any]:
+    try:
+        return dict(_export_engine().resume_universe())
+    except (RuntimeError, OSError) as exc:
         raise LocalUniverseSetupError(str(exc)) from exc
 
 

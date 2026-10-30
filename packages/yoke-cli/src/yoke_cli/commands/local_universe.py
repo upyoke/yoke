@@ -44,9 +44,7 @@ INIT_USAGE = (
     "[--config PATH] [--json]"
 )
 
-EXPORT_USAGE = (
-    "yoke universe export [--out PATH] [--exclude-artifacts] [--estimate] [--json]"
-)
+EXPORT_USAGE = "yoke universe export [--out PATH] [--exclude-artifacts] [--estimate] [--pause-source] [--json]"
 
 TOOL_SHAPED_USAGE: Dict[str, str] = {
     "yoke init": INIT_USAGE,
@@ -173,23 +171,38 @@ def universe_export(args: List[str]) -> int:
         action="store_true",
         help="Estimate dump and artifact bytes without exporting.",
     )
+    parser.add_argument(
+        "--pause-source",
+        action="store_true",
+        help="Stop source writers until `yoke universe resume`.",
+    )
     parsed = parse_or_usage_error(parser, args, EXPORT_USAGE)
     if parsed is None:
         return 2
+    if parsed.estimate and parsed.pause_source:
+        parser.error("--pause-source cannot be combined with --estimate")
     emit = _emit_for(parsed.json_mode)
     try:
         connection = resolve_https_connection()
+        if connection is not None and onboard_destinations.is_hosted_url(
+            connection.api_url
+        ):
+            print(
+                "error: universe_export_dashboard_required: use Download on the dashboard's Move universe page",
+                file=sys.stderr,
+            )
+            return 1
         if connection is not None and not onboard_destinations.is_hosted_url(
             connection.api_url
         ):
-            options = {}
+            options = {"pause_source": True} if parsed.pause_source else {}
             if parsed.exclude_artifacts:
                 options["exclude_artifacts"] = True
             if parsed.estimate:
                 options["estimate"] = True
             report = download_universe(connection, out=parsed.out, **options)
         else:
-            options = {}
+            options = {"pause_source": True} if parsed.pause_source else {}
             if parsed.exclude_artifacts:
                 options["exclude_artifacts"] = True
             if parsed.estimate:
