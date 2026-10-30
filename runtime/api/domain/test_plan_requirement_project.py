@@ -15,6 +15,7 @@ from yoke_core.domain.deployment_qa_plan_group_writes import ensure_groups
 from yoke_core.domain.function_target_row_project import resolve_qa_requirement_project
 from yoke_core.domain.qa_case_execution_context import get_case_execution_context
 from yoke_core.domain.qa_case_execution import _browser_result
+from yoke_core.domain.qa_execution_environment_target import target_digest
 from yoke_core.domain.browser_qa_deployment_identity import resolve_run_pinned_source
 from yoke_core.domain.handlers import qa_artifact_read, qa_reads
 from yoke_core.domain.qa_activity_selection import ACTIVITY_SOURCE
@@ -42,10 +43,14 @@ def test_plan_project_drives_case_and_all_evidence_reads(test_db, monkeypatch, a
     plan = _seed(test_db)
     [rid] = ensure_groups(test_db, RUN, "item-qa")
     test_db.execute("UPDATE qa_plans SET project_id=2 WHERE id=%s", (plan,))
-    # Remove the old frozen project to exercise project resolution itself.
+    target = json.loads(test_db.execute(
+        "SELECT execution_target_json FROM qa_requirements WHERE id=%s", (rid,),
+    ).fetchone()[0])
+    target["project"] = {"id": 2, "slug": "externalwebapp", "name": "ExternalWebapp"}
     test_db.execute(
-        "UPDATE qa_requirements SET execution_target_json=NULL,execution_target_digest=NULL,"
-        "item_id=%s WHERE id=%s", (MEMBERS[0] if attached else None, rid),
+        "UPDATE qa_requirements SET execution_target_json=%s,execution_target_digest=%s,"
+        "item_id=%s WHERE id=%s",
+        (json.dumps(target), target_digest(target), MEMBERS[0] if attached else None, rid),
     )
     run = test_db.execute(
         "INSERT INTO qa_runs(qa_requirement_id,performed_by,qa_kind,verdict,created_at) "
@@ -63,6 +68,10 @@ def test_plan_project_drives_case_and_all_evidence_reads(test_db, monkeypatch, a
     assert (case["project_id"], case["project"]) == (2, "externalwebapp")
     assert resolve_qa_requirement_project(test_db, rid) == (2, "externalwebapp")
     assert test_db.execute("SELECT pr.id " + ACTIVITY_SOURCE + " WHERE q.id=%s", (rid,)).fetchone()[0] == 2
+    # The source resolver also serves historical rows without a frozen target.
+    test_db.execute(
+        "UPDATE qa_requirements SET execution_target_json=NULL,execution_target_digest=NULL WHERE id=%s", (rid,),
+    )
     assert resolve_run_pinned_source(test_db, RUN, requirement_id=rid)["project"] == "externalwebapp"
     calls = []
     monkeypatch.setattr("yoke_core.domain.browser_qa.execute_scenario", lambda **kw: (
