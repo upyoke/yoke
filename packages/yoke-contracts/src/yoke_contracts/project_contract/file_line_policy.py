@@ -117,7 +117,7 @@ def read_project_config(
 ) -> tuple[dict[str, str], tuple[str, ...]]:
     """Return the scalar keys and the repeated ``file_line_exception`` globs.
 
-    ``file_line_exception`` repeats, so it is not a scalar; every other key
+    The exception and grow-allowed keys repeat, so neither is a scalar; every other key
     keeps its last value.
     """
     scalars: dict[str, str] = {}
@@ -126,7 +126,7 @@ def read_project_config(
         if key == FILE_LINE_EXCEPTION_KEY:
             if value:
                 exceptions.append(value)
-        else:
+        elif key != FILE_LINE_GROW_ALLOWED_KEY:
             scalars[key] = value
     return scalars, tuple(exceptions)
 

@@ -109,3 +109,14 @@ def test_refresh_migrates_managed_authored_exceptions_only(tmp_path) -> None:
     policy = resolve_file_line_policy(tmp_path)
     assert policy.grow_allowed_globs == ("AGENTS.md",)
     assert policy.exception_globs == ("src/big.py",)
+
+
+def test_refresh_migrates_commented_entry_without_final_newline(tmp_path):
+    config = _config(tmp_path)
+    config.parent.mkdir(parents=True)
+    config.write_text("file_line_exception=AGENTS.md # managed")
+    report = ensure_managed_file_line_exceptions(tmp_path, ["AGENTS.md"])
+    assert report["status"] == "ok"
+    assert report["migrated"] == ["AGENTS.md"]
+    assert config.read_text() == "file_line_grow_allowed=AGENTS.md # managed"
+    assert resolve_file_line_policy(tmp_path).grow_allowed_globs == ("AGENTS.md",)
