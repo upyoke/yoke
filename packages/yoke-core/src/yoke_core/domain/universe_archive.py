@@ -80,6 +80,7 @@ def pack_universe_archive(
     *,
     artifact_manifest: dict | None = None,
     artifact_files: dict[str, Path] | None = None,
+    max_bytes: int | None = None,
 ) -> int:
     """Write the manifest-bound tar atomically; return its final byte size.
 
@@ -113,6 +114,10 @@ def pack_universe_archive(
                     artifacts.pack_files(
                         archive, receipt, artifact_manifest, artifact_files or {}
                     )
+        if max_bytes is not None and output.temporary.stat().st_size > max_bytes:
+            raise UniverseArchiveError(
+                "universe_export_size_limit: packed archive exceeds the byte cap; prune source data and retry"
+            )
         output.commit()
         return destination.stat().st_size
     except UniverseArchiveError:
