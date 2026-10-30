@@ -1,4 +1,4 @@
-"""Best-effort reporter metadata without exposing login credentials."""
+"""Required feedback identity and best-effort reporter email."""
 
 import base64
 import json
@@ -11,6 +11,7 @@ from yoke_cli.transport.dispatcher import call_dispatcher
 from yoke_contracts.api.function_call import TargetRef
 from yoke_contracts.harness_sandbox_recovery import running_harness_family
 from yoke_contracts.refusal_recovery import compose_refusal
+from yoke_cli.transport.json_error_safety import safe_diagnostic_text
 
 
 def harness_email(harness=None, home=None):
@@ -74,8 +75,9 @@ def feedback_provenance(session_id=None):
     harness = running_harness_family()
     try:
         version = reporting_version()
-    except Exception:
+    except Exception as exc:
         raise ValueError(compose_refusal("feedback_provenance_unavailable: yoke_version",
+                                         evaluated=safe_diagnostic_text(str(exc)),
                                          recovery="Reinstall Yoke, then retry.")) from None
     try:
         ensure_handlers_loaded()

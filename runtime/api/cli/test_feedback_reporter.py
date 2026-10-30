@@ -38,3 +38,16 @@ def test_git_placeholder_is_not_a_reporter(tmp_path):
         assert git_email(tmp_path) is None
     with patch("yoke_cli.feedback_reporter.subprocess.run", return_value=SimpleNamespace(returncode=0, stdout="git@example.test\n")):
         assert git_email(tmp_path) == "git@example.test"
+
+
+def test_unreadable_version_retains_the_rejected_value():
+    import pytest
+    from yoke_contracts import runtime_identity
+    from yoke_contracts.release_version import reporting_version_shape
+    def invalid():
+        return reporting_version_shape("source")
+    with patch.object(runtime_identity, "reporting_version", invalid):
+        with pytest.raises(ValueError) as error:
+            feedback_provenance()
+    assert "feedback_provenance_unavailable: yoke_version" in str(error.value)
+    assert "'source'" in str(error.value)
