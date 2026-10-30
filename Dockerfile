@@ -86,7 +86,7 @@ RUN apt-get update \
 
 RUN addgroup --system yoke \
     && adduser --system --ingroup yoke --home /var/lib/yoke yoke \
-    && mkdir -p /var/lib/yoke \
+    && mkdir -p /var/lib/yoke/.yoke \
     && chown -R yoke:yoke /var/lib/yoke
 
 COPY --chown=yoke:yoke --from=builder /var/lib/yoke/postgres /var/lib/yoke/postgres

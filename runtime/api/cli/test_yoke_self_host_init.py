@@ -118,6 +118,8 @@ def test_init_writes_bundle_file_set_with_owner_only_secrets(target, capsys):
     assert "pg_isready" in compose
     assert "YOKE_PG_DSN_FILE" in compose
     assert "YOKE_SERVER_MODE: self-host" in compose
+    assert "YOKE_MACHINE_HOME: /var/lib/yoke/.yoke" in compose
+    assert "corestate:/var/lib/yoke/.yoke" in compose
     assert "POSTGRES_PASSWORD_FILE" in compose
 
     env_text = (target / ".env").read_text(encoding="utf-8")

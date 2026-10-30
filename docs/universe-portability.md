@@ -104,7 +104,9 @@ yoke universe validate /secure/source.tar
 The pause stops the selected local source's installed relay, blocks new Yoke
 database writers, terminates other database client sessions,
 and waits for zero before exporting. It remains in effect after success or failure.
-Self-host request admission refuses work while paused; local database acquisition
+The self-host bundle persists its machine home, pause marker and local artifacts
+on the corestate volume across container replacement. Self-host request admission
+refuses work while paused; local database acquisition
 refuses connections to that source. Run `yoke universe resume` against that same
 source when it may write again. A pause-marker or drain failure refuses the move
 with recovery; repair the named cause and retry, or explicitly resume the source.
