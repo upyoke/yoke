@@ -4,12 +4,23 @@
  "status": "draft-copy",
  "audience": "both",
  "when": "Before moving or deleting the universe containing strategy and work",
- "need": "Export is a self-contained universe archive. Local, self-host HTTPS and hosted coordinated download have distinct authority paths. Use the active mode; do not obtain a remote DSN as a shortcut.",
+ "need": "Export is a self-contained universe archive. Local, self-host HTTPS and hosted coordinated download have distinct authority paths. Use the active mode; do not obtain a remote DSN as a shortcut. Hosted Download archive starts a fenced export that pauses only the source tenant and produces the dump and receipt from one snapshot. A failed or interrupted export automatically restarts the source; a completed export stays paused across restarts until an organization admin explicitly resumes it. No dashboard Resume control exists yet. Export completion does not establish destination acceptance or a storage transfer.",
  "disclosure": "current cue",
  "surface": "Universe settings documentation; uninstall backup choice; universe export help routes by mode.",
  "review": "Pending exact recipe proof.",
- "recipes": ["yoke universe export --help", "yoke status"],
- "plan_notes": ["FIRST-USER item 9", "FIRST-USER P6"],
- "sources": ["docs/public/projects/actors-members-billing.md", "docs/public/start/install.md", "packages/yoke-cli/src/yoke_cli/commands/local_universe.py", "packages/yoke-core/src/yoke_core/domain/universe_export.py"],
+ "recipes": [
+  "yoke universe export --help",
+  "yoke status"
+ ],
+ "plan_notes": [
+  "FIRST-USER item 9",
+  "FIRST-USER P6"
+ ],
+ "sources": [
+  "docs/public/projects/actors-members-billing.md",
+  "docs/public/start/install.md",
+  "packages/yoke-cli/src/yoke_cli/commands/local_universe.py",
+  "packages/yoke-core/src/yoke_core/domain/universe_export.py"
+ ],
  "position": 0
 }
