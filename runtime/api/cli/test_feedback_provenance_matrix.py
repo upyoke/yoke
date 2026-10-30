@@ -62,8 +62,10 @@ def test_stored_identity_matrix(monkeypatch, tmp_path, storage, install, destina
 
     def provenance(**kwargs):
         assert kwargs["function_id"] == "feedback.provenance.get"
+        assert kwargs["actor"].session_id == (session or "")
         return SimpleNamespace(success=True, result={"universe_fingerprint": FINGERPRINT, "actor_email": "actor@example.test"})
 
+    monkeypatch.setattr(reporter, "build_actor", lambda session_id=None: ActorContext(session_id=session_id or ""))
     monkeypatch.setattr(reporter, "call_dispatcher", provenance)
     monkeypatch.setattr("yoke_cli.commands.adapters.feedback.client_project_context", lambda: None)
     recorded = []
@@ -176,3 +178,30 @@ def test_reporting_version_uses_loaded_module_not_cwd(monkeypatch, tmp_path):
         return SimpleNamespace(stdout=COMMIT + "\n" + CLOCK if args[3] == "show" else "")
     monkeypatch.setattr("subprocess.run", git)
     assert runtime_identity.reporting_version() == VERSION + "+" + COMMIT[:12]
+
+
+def test_sessionless_provenance_reads_universe_and_actor(storage, monkeypatch):
+    from contextlib import nullcontext
+    from yoke_core.domain.handlers import feedback_provenance as handler
+    from yoke_core.domain.function_authz_scope import classify
+    from yoke_core.domain.function_authz_types import ACTOR_SESSION
+    from yoke_core.domain.universe_identity import universe_fingerprint
+    from yoke_core.domain import db_backend
+    monkeypatch.setattr(handler, "connect", lambda: nullcontext(storage))
+    if not db_backend.connection_is_postgres(storage):
+        storage.execute("CREATE TABLE organizations (id INTEGER PRIMARY KEY, slug TEXT, created_at TEXT)")
+        storage.execute("INSERT INTO organizations VALUES (1, 'fixture', '2026-01-01T00:00:00Z')")
+    request = FunctionCallRequest(function="feedback.provenance.get", actor=ActorContext(), target=TargetRef(kind="global"))
+    answer = handler.handle_get(request)
+    assert answer.result_payload["universe_fingerprint"] == universe_fingerprint(storage)
+    assert answer.result_payload["actor_email"] is None
+    assert classify(request.function, side_effects=False, project_permission=None).scope == ACTOR_SESSION
+
+
+def test_old_success_receipt_cannot_hide_dropped_identity():
+    from yoke_cli.feedback_delivery import universe_receipt
+    response = FunctionCallResponse(success=True, function="ouroboros.field_note.append", version="v1",
+                                    request_id="fixture", result={"entry_id": "1", "author": "agent"})
+    answer = universe_receipt({"yoke_version": VERSION, "agent": "terminal"})(response, None)
+    assert not answer.success
+    assert answer.error.code == "function_version_skew"
