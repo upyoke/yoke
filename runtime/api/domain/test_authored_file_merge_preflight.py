@@ -67,3 +67,30 @@ def test_rebased_lane_within_limit_passes(tmp_path: Path) -> None:
     _rebased_lane(tmp_path, base_lines=344, lane_lines=349)
 
     preflight.enforce_authored_file_limit(tmp_path, target="main")
+
+
+@pytest.mark.parametrize("local_merge", [True, False])
+def test_non_queue_landing_refuses_exception_growth(tmp_path, monkeypatch, local_merge):
+    from yoke_core.engines import merge_worktree as mw
+    from yoke_core.engines.merge_worktree_context import MergeArgs, MergeContext
+    from yoke_core.engines.merge_worktree_rebase import do_rebase_or_merge
+
+    _rebased_lane(tmp_path, base_lines=400, lane_lines=401)
+    config = tmp_path / ".yoke" / "project.config"
+    config.parent.mkdir()
+    config.write_text("file_line_exception=shared.py\n")
+    _git(tmp_path, "add", ".yoke/project.config")
+    _git(tmp_path, "commit", "-q", "-m", "policy")
+    _git(tmp_path, "update-ref", "-d", "refs/remotes/origin/main")
+    monkeypatch.setattr("yoke_core.domain.project_settings.get_project_int", lambda *a: 2)
+    messages = []
+    monkeypatch.setattr(mw, "_print", lambda message, **kw: messages.append(message))
+    ctx = MergeContext(
+        args=MergeArgs(branch="item", target="main", source_sha=_git(tmp_path, "rev-parse", "HEAD"), local_merge=local_merge),
+        repo_root=tmp_path, worktree_path=tmp_path,
+    )
+    result = do_rebase_or_merge(ctx)
+    assert result[0] == 1
+    assert "shared.py: 401 authored lines, limit 350" in result[1]
+    assert any("before publication or CI" in message for message in messages)
+    assert _git(tmp_path, "show", "main:shared.py").count("x") == 400

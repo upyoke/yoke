@@ -10,9 +10,9 @@ fails on files it does not own and cannot split.
 
 The exemption is written into the project's own ``.yoke/project.config``
 rather than baked into the shipped policy, so the reason is visible where a
-project owner looks for it and stays theirs to edit. Writes are additive and
-idempotent: an entry already present is left alone, and nothing else in the
-file is touched.
+project owner looks for it. Refresh migrates installer-owned authored
+exceptions to the generated/data class and adds missing paths idempotently;
+other project settings stay untouched.
 
 Scope is exactly the paths the bundle declares as managed-markdown targets.
 The skills, agent adapters, and shipped reference docs the installer also
@@ -26,7 +26,7 @@ from pathlib import Path
 from typing import Any, Dict, Iterable, List
 
 from yoke_contracts.project_contract.file_line_policy import (
-    FILE_LINE_EXCEPTION_KEY,
+    FILE_LINE_GROW_ALLOWED_KEY,
     PROJECT_CONFIG_REL,
 )
 
@@ -57,8 +57,8 @@ def _declared_entries(text: str) -> set[str]:
         if not line or line.startswith("#"):
             continue
         key, _, value = line.partition("=")
-        if key.strip() == FILE_LINE_EXCEPTION_KEY:
-            entries.add(value.strip())
+        if key.strip() == FILE_LINE_GROW_ALLOWED_KEY:
+            entries.add(value.split("#", 1)[0].strip())
     return entries
 
 
@@ -73,19 +73,35 @@ def ensure_managed_file_line_exceptions(
     """
     root = Path(repo_root)
     config = root / PROJECT_CONFIG_REL
-    existing = _existing_text(config)
+    original = _existing_text(config)
+    managed_paths = tuple(managed_paths)
+    migrated = []
+    lines = []
+    for line in original.splitlines(keepends=True):
+        key, separator, value = line.partition("=")
+        rel = value.split("#", 1)[0].strip()
+        if key.strip() == "file_line_exception" and separator and rel in managed_paths:
+            line = f"{FILE_LINE_GROW_ALLOWED_KEY}={value}"
+            migrated.append(rel)
+        lines.append(line)
+    existing = "".join(lines)
     declared = _declared_entries(existing)
 
     added: List[str] = [
         rel for rel in dict.fromkeys(managed_paths) if rel and rel not in declared
     ]
     if not added:
-        return {"attempted": True, "status": "unchanged", "added": []}
+        if migrated:
+            config.write_text(existing, encoding="utf-8", newline="")
+        return {
+            "attempted": True, "status": "ok" if migrated else "unchanged",
+            "added": [], "migrated": migrated,
+        }
 
     text = existing
     if text and not text.endswith("\n"):
         text += "\n"
-    entries = "".join(f"{FILE_LINE_EXCEPTION_KEY}={rel}\n" for rel in added)
+    entries = "".join(f"{FILE_LINE_GROW_ALLOWED_KEY}={rel}\n" for rel in added)
     config.parent.mkdir(parents=True, exist_ok=True)
     config.write_text(
         f"{text}\n{_EXEMPTION_COMMENT}{entries}", encoding="utf-8", newline=""
@@ -94,6 +110,7 @@ def ensure_managed_file_line_exceptions(
         "attempted": True,
         "status": "ok",
         "added": added,
+        "migrated": migrated,
         "path": str(config),
     }
 

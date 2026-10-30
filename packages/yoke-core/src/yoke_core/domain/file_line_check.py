@@ -8,8 +8,8 @@ hard-fails in the changed-files check when:
     2. An existing authored file that is already over-limit grows further.
     3. An existing authored file crosses the limit upward (under to over).
 
-Temporary-exception files are explicitly exempted from both warnings and
-hard-fails. The product-safe checker in ``yoke_harness`` is the canonical
+Authored exceptions obey the same growth restrictions; generated and data
+exceptions may grow. The product-safe checker in ``yoke_harness`` is the canonical
 enforcement surface for installed projects; this source-dev checker mirrors
 the same repo-local policy reader for manual scans.
 
@@ -140,6 +140,7 @@ def _classify_path_with_policy(
         path,
         repo_root=repo_root,
         temporary_exceptions=policy.exception_globs,
+        grow_allowed_globs=policy.grow_allowed_globs,
         archive_exceptions=ARCHIVE_EXCEPTIONS,
     )
 

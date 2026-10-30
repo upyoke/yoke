@@ -1,4 +1,4 @@
-"""Local authored-file contract before a merge-queue lane is published."""
+"""Local authored-file contract before any governed lane lands."""
 
 from __future__ import annotations
 
@@ -12,8 +12,12 @@ from yoke_harness.git_hooks import file_line_check
 from yoke_core.domain.qa_case_execution import QaCaseExecutionError
 
 
-def _base_ref(target: str) -> str:
-    return target if target.startswith("origin/") else f"origin/{target}"
+def _base_ref(checkout: Path, target: str) -> str:
+    remote = target if target.startswith("origin/") else f"origin/{target}"
+    found = file_line_check.run_git(
+        ["rev-parse", "--verify", remote], repo_root=checkout,
+    )
+    return remote if found.returncode == 0 else target
 
 
 def _movement_detail(
@@ -57,8 +61,8 @@ def _movement_detail(
 
 
 def enforce_authored_file_limit(checkout: Path, *, target: str) -> None:
-    """Refuse a rebased queue lane that violates the authored-file limit."""
-    base_ref = _base_ref(target)
+    """Refuse an integrated lane that violates the authored-file limit."""
+    base_ref = _base_ref(checkout, target)
     verdict = file_line_check.changed_files_check(
         repo_root=checkout,
         base=base_ref,
@@ -105,8 +109,8 @@ def enforce_authored_file_limit(checkout: Path, *, target: str) -> None:
     lines.extend(
         [
             f"Run `{inspect_command}` to re-inspect.",
-            "Split the offending file(s), commit the result, and rerun the "
-            "QA case; the lane was not pushed and no landing pull request "
+            "Split the offending file(s), commit the result, and retry "
+            "landing; the lane was not pushed and no landing pull request "
             "was opened or armed.",
         ]
     )

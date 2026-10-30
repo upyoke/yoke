@@ -42,6 +42,10 @@ def hc_file_line_limit(conn, args: DoctorArgs, rec: RecordCollector) -> None:
         and e.line_count > policy.limit
     ]
     excluded_counts = {
+        "grow_allowed": sum(
+            e.classification == file_line_check.Classification.GROW_ALLOWED
+            for e in entries
+        ),
         "generated": sum(
             1
             for e in entries
@@ -80,12 +84,13 @@ def hc_file_line_limit(conn, args: DoctorArgs, rec: RecordCollector) -> None:
             detail_lines.append(f"  ... and {len(authored_violations) - 25} more")
     if exception_violations:
         detail_lines.append(
-            f"Temporary exceptions over {policy.limit} (warn-only): "
+            f"Temporary exceptions over {policy.limit} (shrink-only): "
             f"{len(exception_violations)}"
         )
     detail_lines.append(
         "Excluded: "
         f"generated={excluded_counts['generated']}, "
+        f"grow_allowed={excluded_counts['grow_allowed']}, "
         f"archive={excluded_counts['archive']}, "
         f"lockfile={excluded_counts['lockfile']}, "
         f"vendored={excluded_counts['vendored']}, "
