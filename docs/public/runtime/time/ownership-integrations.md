@@ -26,7 +26,7 @@ render headers and staleness checks compare instants. Board calendar buckets
 project native instants to UTC dates; age windows use aware timestamps.
 
 Local and self-host universe import authority/credential writes bind native
-clocks. New archive freeze and source-authority receipts format fixed-six UTC;
+clocks. New archive freeze and source authority receipts format fixed-six UTC;
 archive contents and existing receipt bytes retain their custody. Resume notices,
 path override envelopes and capacity/performance report clocks use the shared
 formatter at their owned JSON boundary. Opaque identifiers remain unchanged.
