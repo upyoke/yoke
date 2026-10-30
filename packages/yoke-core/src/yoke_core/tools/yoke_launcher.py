@@ -18,7 +18,7 @@ from pathlib import Path
 
 
 DEFAULT_YOKE_HOME = None
-RELEASE_RECOVERY = "install the released CLI with `curl -fsSL https://upyoke.com/install | sh`, then retry"
+RELEASE_RECOVERY = None
 
 
 def _run_release() -> int:
@@ -35,7 +35,11 @@ def _run_release() -> int:
             raise FileNotFoundError(f"immutable CLI launcher missing: {launcher}")
         os.execv(str(launcher), [str(launcher), *sys.argv[1:]])
     except (OSError, ValueError, subprocess.SubprocessError) as exc:
-        print(f"released_cli_unavailable: {exc}; {RELEASE_RECOVERY}", file=sys.stderr)
+        recovery = (
+            RELEASE_RECOVERY
+            or "restore the recorded distribution and rerun its installer, then retry"
+        )
+        print(f"released_cli_unavailable: {exc}; {recovery}", file=sys.stderr)
         return 2
     return 0  # exec replaces this process
 

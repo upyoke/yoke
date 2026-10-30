@@ -8,6 +8,8 @@ stays intact.
 
 from __future__ import annotations
 
+from yoke_cli.config.install_advice import install_command
+
 import os
 import subprocess
 import sys
@@ -203,7 +205,7 @@ def repair_canonical_launcher(
         raise InstallError(
             f"cannot repair canonical launcher {target}: "
             "released_cli_unavailable: no candidate interpreter passed the released CLI "
-            "probe; install with `curl -fsSL https://upyoke.com/install | sh`, "
+            f"probe; install with `{install_command()}`, "
             "then retry --repair."
         )
 

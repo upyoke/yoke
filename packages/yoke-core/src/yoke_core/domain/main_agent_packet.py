@@ -6,6 +6,8 @@ Project rules own command discovery and connection guidance.
 
 from __future__ import annotations
 
+from yoke_cli.config.install_advice import install_command
+
 import shutil
 
 from yoke_contracts.session_control.teaching import (
@@ -24,7 +26,6 @@ MAIN_AGENT_ROLE = "main_agent"
 # pointer at a Yoke source-repo doc would name a file that is not there.
 # Renders empty when ``yoke`` is on PATH so installed sessions see no noise.
 INSTALL_ADVISORY_HEADING = "Yoke CLI not on PATH — install with one command:"
-INSTALL_ADVISORY_COMMAND = "    curl -fsSL https://upyoke.com/install | sh"
 INSTALL_ADVISORY_POINTER = (
     "(open a new terminal afterward; source checks use yoke dev run)"
 )
@@ -32,6 +33,7 @@ INSTALL_ADVISORY_POINTER = (
 # Stable heading. Both the compact and full variants share it so operators
 # see one name regardless of where the block appears.
 _MAIN_AGENT_HEADING = "Main-session startup block (main_agent)"
+
 
 def render_install_advisory_block() -> str:
     """Return the 3-line install advisory, or ``""`` when yoke is on PATH.
@@ -46,7 +48,7 @@ def render_install_advisory_block() -> str:
     return "\n".join(
         (
             INSTALL_ADVISORY_HEADING,
-            INSTALL_ADVISORY_COMMAND,
+            "    " + install_command(),
             INSTALL_ADVISORY_POINTER,
         )
     )

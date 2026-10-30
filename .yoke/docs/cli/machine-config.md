@@ -108,6 +108,14 @@ Relays connected to a private API host also require this record and install
 from `origin/simple/`; they do not infer an index from the API host. See
 [Maintaining a private fork](../projects/private-forks.md) for artifacts and recovery.
 
+Install and repair commands follow the connected hosted environment. Local and
+self-hosted connections use `settings.distribution.origin`; serving processes
+may declare their origin with `YOKE_INSTALL_BASE_URL`. Missing origin or channel
+reports `install_origin_unavailable` and names `yoke settings set distribution`
+instead of choosing Production. Browser onboarding receives its installation
+command from the engine; an older engine without that field asks its operator
+to update and restore the distribution origin.
+
 Launch model choice does not live in machine config. An item launch takes the
 item's workflow stage level and Yoke places it on one of that level's options —
 see [launching by level](../agents/level-launches.md#launching-by-level). A

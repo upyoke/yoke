@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from yoke_cli.config.install_advice import install_command
+
 from pathlib import Path
 
 import pytest
@@ -9,7 +11,6 @@ import pytest
 from yoke_core.tools import python_interpreter_probe
 from yoke_core.hooks.bootstrap import load_spec, render_compact, render_full
 from yoke_core.domain.main_agent_packet import (
-    INSTALL_ADVISORY_COMMAND,
     INSTALL_ADVISORY_HEADING,
     INSTALL_ADVISORY_POINTER,
     MAIN_AGENT_ROLE,
@@ -50,10 +51,6 @@ def test_main_agent_role_constant_matches_seed() -> None:
     assert MAIN_AGENT_ROLE in seed.ROLE_TOPICS
 
 
-
-
-
-
 def test_startup_block_fits_the_smallest_inline_channel() -> None:
     """Measured, not assumed: the block fits every harness inline ceiling."""
 
@@ -92,8 +89,6 @@ def test_render_full_injects_main_agent_block(repo_root: Path, spec: dict) -> No
     for line in render_main_agent_block_full().splitlines():
         if line.strip():
             assert line in rendered, f"full orientation missing block line: {line!r}"
-
-
 
 
 def test_append_helpers_always_contribute_the_block() -> None:
@@ -141,12 +136,10 @@ def test_render_install_advisory_block_three_lines_when_missing(
     lines = block.splitlines()
     assert lines == [
         INSTALL_ADVISORY_HEADING,
-        INSTALL_ADVISORY_COMMAND,
+        "    " + install_command(),
         INSTALL_ADVISORY_POINTER,
     ]
-    assert (
-        INSTALL_ADVISORY_COMMAND.strip() == "curl -fsSL https://upyoke.com/install | sh"
-    )
+    assert lines[1] == "    " + install_command()
 
 
 def test_main_agent_block_prepends_advisory_when_yoke_missing(
@@ -162,7 +155,7 @@ def test_main_agent_block_prepends_advisory_when_yoke_missing(
     assert block.startswith(INSTALL_ADVISORY_HEADING), (
         "advisory must appear at the very top of the compact block"
     )
-    assert INSTALL_ADVISORY_COMMAND in block
+    assert install_command() in block
     assert INSTALL_ADVISORY_POINTER in block
 
 
@@ -178,7 +171,7 @@ def test_main_agent_block_omits_advisory_when_yoke_on_path(
     monkeypatch.setattr(bp.shutil, "which", lambda _name: "/usr/local/bin/yoke")
     block = render_main_agent_block()
     assert INSTALL_ADVISORY_HEADING not in block
-    assert INSTALL_ADVISORY_COMMAND not in block
+    assert install_command() not in block
     # Packet body still rendered.
     assert "main_agent" in block
 
@@ -194,13 +187,9 @@ def test_main_agent_block_full_prepends_advisory_when_yoke_missing(
     monkeypatch.setattr(bp.shutil, "which", lambda _name: None)
     block = render_main_agent_block_full()
     assert block.startswith(INSTALL_ADVISORY_HEADING)
-    assert INSTALL_ADVISORY_COMMAND in block
+    assert install_command() in block
     # The packet heading still follows the advisory.
     assert "=== " in block
-
-
-
-
 
 
 # Interpreter-advisory coverage. Probe behavior is
@@ -233,7 +222,7 @@ def test_install_advisory_preserved_when_interpreter_fires(monkeypatch) -> None:
     monkeypatch.setattr(bp.shutil, "which", lambda _name: None)
     block = render_main_agent_block()
     assert INSTALL_ADVISORY_HEADING in block
-    assert INSTALL_ADVISORY_COMMAND in block
+    assert install_command() in block
     assert INSTALL_ADVISORY_POINTER in block
     interp_idx = block.find(_HEADING)
     install_idx = block.find(INSTALL_ADVISORY_HEADING)

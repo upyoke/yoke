@@ -23,6 +23,8 @@ HTTPS env already serves. No server function is involved.
 
 from __future__ import annotations
 
+from yoke_cli.config.install_advice import install_command
+
 from typing import Any
 
 from yoke_cli import manifest
@@ -84,8 +86,7 @@ def run_check(*, channel: str | None = None) -> dict[str, Any]:
     if not cli_version:
         raise self_update.SelfUpdateError(
             "could not determine the installed Yoke version; repair with "
-            "the public installer (curl -fsSL https://upyoke.com/install | "
-            "sh) before running `yoke update --check`"
+            f"the public installer ({install_command()}) before running `yoke update --check`"
         )
     target = self_update.resolve_target(channel=channel)
     try:

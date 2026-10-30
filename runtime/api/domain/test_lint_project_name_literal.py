@@ -159,3 +159,22 @@ def test_classify_separates_violations_pending_and_stale_allowances() -> None:
 
 def test_text_gate_skips_files_that_cannot_hold_a_hit() -> None:
     assert not may_contain_hit("def f(x):\n    return x + 1\n", _NAMES)
+
+
+@pytest.mark.parametrize(
+    "suffix,source",
+    [
+        (".py", 'INSTALL = "https://api.upyoke.com/install"'),
+        (".js", 'const install = "https://app.stage.upyoke.com";'),
+    ],
+)
+def test_runtime_host_literal_is_flagged(suffix, source):
+    assert may_contain_hit(source)
+    hits = scan_source("packages/example/module" + suffix, source)
+    assert len(hits) == 1
+    assert hits[0].subject == "runtime_host"
+
+
+def test_docs_hosts_and_comments_are_not_service_authority():
+    assert scan_source(_REL, 'DOCS = "https://upyoke.com/docs; command help"') == []
+    assert scan_source(_REL, "# https://app.upyoke.com") == []

@@ -42,6 +42,7 @@ from yoke_cli.project_install.managed_git_hooks import (
     assert_pre_commit_runtime_available,
     git_hook_specs_from_bundle,
     is_managed_git_hook,
+    render_git_hook,
     managed_git_hook_specs,
     validate_git_hook_specs,
 )
@@ -133,7 +134,7 @@ def install_pre_commit_hook(target_root: Path, result: BootstrapResult) -> None:
         target_root,
         "pre-commit",
         PRE_COMMIT_MARKER,
-        PRE_COMMIT_SHIM,
+        render_git_hook(PRE_COMMIT_SHIM),
         result,
     )
 
@@ -144,7 +145,7 @@ def install_post_commit_hook(target_root: Path, result: BootstrapResult) -> None
         target_root,
         "post-commit",
         POST_COMMIT_MARKER,
-        POST_COMMIT_SHIM,
+        render_git_hook(POST_COMMIT_SHIM),
         result,
     )
 

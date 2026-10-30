@@ -75,7 +75,7 @@ def _local_build_payload() -> dict[str, Any]:
         "release_error": (
             None if ready else local_install.local_launcher_missing_message(launcher)
         ),
-        "release_recovery": None if ready else local_install.LOCAL_LAUNCHER_RECOVERY,
+        "release_recovery": None if ready else local_install.local_launcher_recovery(),
     }
 
 
@@ -116,6 +116,7 @@ def serve_release_daemon(*, cycle_maintenance: Callable[[], None] | None = None)
         if cycle_maintenance is not None:
             cycle_maintenance()
         lane_sweep()
+
     if not instance.follows_served_release:
         # Nothing to follow: this machine serves the plane it polls, so the
         # running process is already the build the universe has. With no API

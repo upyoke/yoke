@@ -43,7 +43,8 @@ export const RUN_ONBOARD_TITLE_HINT =
   "Run this in your harness — the web never invokes a skill";
 export const DISMISS_HINT =
   "Hide — bring it back from Profile";
-export const INSTALL_COMMAND = "curl -fsSL https://upyoke.com/install | sh";
+export const installCommand = (result) => result.install_command ||
+  "install_origin_unavailable: ask the server operator to update Yoke and restore its distribution origin";
 
 // A harness whose sessions carry no hook-written telemetry is registered but
 // not actually running Yoke's hooks. The engine names the harness's own trust
