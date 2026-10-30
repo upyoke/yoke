@@ -22,7 +22,7 @@ import {
 } from "./universe_view_support.js";
 import {
   DISMISS_HINT,
-  INSTALL_COMMAND,
+  installCommand,
   MODULE_COPY,
   MODULE_TITLES,
   RUN_ONBOARD_TITLE_HINT,
@@ -114,7 +114,7 @@ function wizardChecklist(documentNode, module, mode) {
 
 // Module 1's two in-flight copy states: the viewer's machine connected reads
 // return-to-terminal; hosted with the viewer's machine pending reads web-first.
-function wizardBody(documentNode, module, mode, body) {
+function wizardBody(documentNode, module, mode, body, result) {
   const machine = (module.submodules || []).find(
     (submodule) => submodule.key === "machine_universe",
   );
@@ -134,7 +134,7 @@ function wizardBody(documentNode, module, mode, body) {
     ));
     webFirst.appendChild(documentNode.createElement("span")).textContent =
       " — ";
-    webFirst.appendChild(el(documentNode, "code", null, INSTALL_COMMAND));
+    webFirst.appendChild(el(documentNode, "code", null, installCommand(result)));
     webFirst.appendChild(documentNode.createElement("span")).textContent =
       " — the wizard connects this machine, then GitHub · Hosting " +
       "fold in here.";
@@ -178,7 +178,7 @@ function renderModule(context, module, position, result, draw, viewState) {
   card.appendChild(head);
   const body = el(documentNode, "div", "activation-body");
   if (module.key === "finish_installation_wizard") {
-    wizardBody(documentNode, module, viewState.mode, body);
+    wizardBody(documentNode, module, viewState.mode, body, result);
   } else if (module.key === "connect_harness") {
     harnessBody(documentNode, module, body);
   } else if (module.key === "run_onboard") {

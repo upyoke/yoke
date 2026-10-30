@@ -30,6 +30,8 @@ sentinels (``all``, ``global``, ``null``, ...) are not project names.
 from __future__ import annotations
 
 import ast
+
+from yoke_core.domain.lint_runtime_hosts import HOST_RE, host_literals
 import re
 from dataclasses import dataclass
 from pathlib import Path
@@ -85,6 +87,8 @@ _MAY_COMPARE_RE = re.compile(
 _MAY_SQL_RE = re.compile(r"slug\s*(?:=|<>|!=)\s*'|'\s+as\s+\w*proj", re.IGNORECASE)
 
 RECOVERY = (
+    "For a fixed hosted authority, use yoke_contracts.api_urls or "
+    "yoke_cli.config.install_advice.install_command; docs links are exempt. "
     "Replace the literal with the declared fact it stands in for: a project "
     "capability or environment setting, the installation's self project "
     "(yoke_core.engines.doctor_context.resolve_self_project), the checkout's "
@@ -108,6 +112,8 @@ class ProjectLiteralHit:
 
 def is_exempt_relpath(relpath: str) -> bool:
     """Whether *relpath* is test scaffolding or a generated copy."""
+    if relpath.endswith((".test.mjs", ".test.js")) or "/docs/" in "/" + relpath:
+        return True
     rel = "/" + relpath
     if any(segment in rel for segment in _EXEMPT_SEGMENTS):
         return True
@@ -246,12 +252,13 @@ def scan_source(
     relpath: str, text: str, project_names: Collection[str] = ()
 ) -> List[ProjectLiteralHit]:
     """Every project-name branch in one Python source text."""
+    hosts = [ProjectLiteralHit(relpath, *hit) for hit in host_literals(relpath, text)]
     try:
         tree = ast.parse(text)
     except SyntaxError:
-        return []
+        return hosts
     names = frozenset(project_names) - _SCOPE_SENTINELS
-    hits: List[ProjectLiteralHit] = []
+    hits: List[ProjectLiteralHit] = hosts
     for node in ast.walk(tree):
         line = getattr(node, "lineno", 0)
         if isinstance(node, ast.Compare):
@@ -284,7 +291,7 @@ def scan_source(
 
 def may_contain_hit(text: str, project_names: Collection[str] = ()) -> bool:
     """Whether *text* can hold a hit; ``False`` means parsing it is wasted."""
-    if _MAY_COMPARE_RE.search(text) or _MAY_SQL_RE.search(text):
+    if HOST_RE.search(text) or _MAY_COMPARE_RE.search(text) or _MAY_SQL_RE.search(text):
         return True
     return any(f'"{name}"' in text or f"'{name}'" in text for name in project_names)
 
@@ -292,7 +299,9 @@ def may_contain_hit(text: str, project_names: Collection[str] = ()) -> bool:
 def source_paths(repo_root: Path) -> Iterable[Path]:
     """Shippable Python files under :data:`SCAN_ROOTS`."""
     for name in SCAN_ROOTS:
-        for path in sorted((repo_root / name).rglob("*.py")):
+        for path in sorted((repo_root / name).rglob("*")):
+            if path.suffix not in {".py", ".js", ".mjs"}:
+                continue
             relpath = path.relative_to(repo_root).as_posix()
             if not is_exempt_relpath(relpath):
                 yield path

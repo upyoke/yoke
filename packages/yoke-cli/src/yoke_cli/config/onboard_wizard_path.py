@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from yoke_cli.config.install_advice import install_command
+
 import asyncio
 from typing import Any
 
@@ -83,7 +85,7 @@ class PathFlow:
                 raise RuntimeError(
                     "install_required_tool_missing: a fresh login shell cannot find "
                     + ", ".join(missing)
-                    + ". Run the installer again: curl -fsSL https://upyoke.com/install | sh; "
+                    + f". Run the installer again: {install_command()}; "
                     "then open a new terminal and retry Install."
                 )
             if not plan.get("login_verified"):
@@ -91,7 +93,8 @@ class PathFlow:
                     f"{row['shell']} {row['context']}: {row['reason']}; "
                     f"yoke -> {row['resolved'].get('yoke') or 'not found'}; "
                     f"{row['recovery']}"
-                    for row in plan.get("contexts", []) if row["needs_fix"]
+                    for row in plan.get("contexts", [])
+                    if row["needs_fix"]
                 )
                 raise RuntimeError(
                     "fresh_login_path_unresolved: shell repair did not verify Yoke. "

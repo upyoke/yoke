@@ -19,6 +19,8 @@ boundary.
 
 from __future__ import annotations
 
+from yoke_cli.config.install_advice import install_command
+
 import os
 import sys
 from pathlib import Path
@@ -33,11 +35,10 @@ from yoke_core.tools.install_yoke_launcher_core import (
 #: Refusal code for a local relay whose machine has no installed launcher.
 LOCAL_LAUNCHER_MISSING = "relay_local_launcher_missing"
 
+
 #: The one recovery for that refusal, named wherever the refusal is rendered.
-LOCAL_LAUNCHER_RECOVERY = (
-    "install the released CLI with `curl -fsSL https://upyoke.com/install | sh`,  "
-    "then retry the relay install"
-)
+def local_launcher_recovery() -> str:
+    return f"install the released CLI with `{install_command()}`, then retry the relay install"
 
 
 def local_launcher_candidates() -> tuple[Path, ...]:
@@ -81,13 +82,13 @@ def local_launcher_missing_message(launcher: Path) -> str:
     """Name what the local relay needs and how to supply it."""
     return compose_refusal(
         f"the local universe relay runs this machine's installed Yoke, and no launcher is installed at {launcher}.",
-        recovery=f"{LOCAL_LAUNCHER_RECOVERY}.",
+        recovery=f"{local_launcher_recovery()}.",
     )
 
 
 __all__ = [
     "LOCAL_LAUNCHER_MISSING",
-    "LOCAL_LAUNCHER_RECOVERY",
+    "local_launcher_recovery",
     "local_launcher_candidates",
     "local_launcher_missing_message",
     "local_launcher_path",

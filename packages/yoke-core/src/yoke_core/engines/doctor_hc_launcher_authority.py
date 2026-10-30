@@ -8,6 +8,8 @@ shim and quarantine shadows, never delete).
 
 from __future__ import annotations
 
+from yoke_cli.config.install_advice import install_command
+
 import json
 import os
 import shutil
@@ -211,7 +213,7 @@ def hc_launcher_authority(conn, args: DoctorArgs, rec: RecordCollector) -> None:
             "FAIL",
             "Machine launcher is not canonical.\n  "
             + "\n  ".join(problems)
-            + "\n  Install the release: curl -fsSL https://upyoke.com/install | sh."
+            + f"\n  Install the release: {install_command()}."
             + " Then repair: python3 -m yoke_core.tools.install_yoke_launcher --repair"
             + "  (or `yoke doctor run --quick --fix`). Shadows are quarantined, never deleted.",
         )

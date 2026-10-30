@@ -105,6 +105,9 @@ def handle_overview_activation_get(
         result = compute_activation(conn, machine_connected, _actor_id(request))
     finally:
         conn.close()
+    from yoke_cli.config.install_advice import install_command
+
+    result["install_command"] = install_command()
     return HandlerOutcome(result_payload=result, primary_success=True)
 
 

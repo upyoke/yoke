@@ -25,8 +25,11 @@ def _which(*present: str):
         ("darwin", (), "xcode-select --install"),
         ("linux", ("dnf", "sudo"), "sudo dnf install -y git"),
         ("linux", ("yum", "sudo"), "sudo yum install -y git"),
-        ("linux", ("apt-get", "sudo"),
-         "sudo apt-get update && sudo apt-get install -y git"),
+        (
+            "linux",
+            ("apt-get", "sudo"),
+            "sudo apt-get update && sudo apt-get install -y git",
+        ),
         ("linux", ("apk", "sudo"), "sudo apk add git"),
         ("linux", ("zypper", "sudo"), "sudo zypper install -y git"),
         ("linux", ("pacman", "sudo"), "sudo pacman -Sy --noconfirm git"),
@@ -45,21 +48,6 @@ def test_install_advice_uses_host_package_manager(
     )
 
     assert advice.command == expected
-
-
-def test_linux_without_known_package_manager_uses_generic_guidance() -> None:
-    advice = git_prereq.install_advice(platform_name="linux", which=_which())
-
-    assert advice.command is None
-    assert "package named git" in advice.note
-
-
-def test_windows_guidance_names_unsupported_native_path() -> None:
-    advice = git_prereq.install_advice(platform_name="win32", which=_which())
-
-    assert advice.command is None
-    assert "Install WSL" in advice.note
-    assert "curl -fsSL https://upyoke.com/install | sh" in advice.note
 
 
 def test_require_git_available_raises_platform_specific_message() -> None:

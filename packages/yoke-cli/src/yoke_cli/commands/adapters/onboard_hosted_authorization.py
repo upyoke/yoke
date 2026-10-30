@@ -6,6 +6,7 @@ import argparse
 from pathlib import Path
 
 from yoke_cli.config import onboard_destinations, machine_config
+from yoke_cli.config.install_advice import hosted_connect_url
 
 
 def add_token_arguments(parser: argparse.ArgumentParser) -> None:
@@ -70,22 +71,26 @@ def usage_error(
     explicit_token_source: bool,
     resuming: bool,
     should_prompt: bool,
+    *,
+    api_url: object = None,
+    env_name: object = None,
 ) -> str | None:
     """Reject fresh Cloud paths that cannot complete browser approval."""
     if destination != onboard_destinations.DESTINATION_HOSTED:
         return None
+    connect_url = hosted_connect_url(api_url, env_name)
     if explicit_token_source:
         return (
             "Yoke Cloud uses browser approval; remove TOKEN, --token-file, or "
             "--token-stdin. From an agent, run `yoke setup --agent --connect "
-            "https://app.upyoke.com` and show the person its browser step."
+            f"{connect_url}` and show the person its browser step."
         )
     if not resuming and not should_prompt:
         return (
             "browser_approval_required: Yoke Cloud onboarding requires browser approval; "
-            "from an agent, run `yoke setup --agent --connect https://app.upyoke.com` "
+            f"from an agent, run `yoke setup --agent --connect {connect_url}` "
             "and show the person its browser step. In a terminal, run "
-            "`yoke setup --connect https://app.upyoke.com`."
+            f"`yoke setup --connect {connect_url}`."
         )
     return None
 

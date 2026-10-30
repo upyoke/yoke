@@ -160,7 +160,7 @@ test("hosted with the machine pending reads the web-first copy", async (t) => {
   const strong = allNodes(webFirst).find((node) => node.tagName === "STRONG");
   assert.equal(strong.textContent, "Install Yoke on your machine");
   const code = allNodes(webFirst).find((node) => node.tagName === "CODE");
-  assert.equal(code.textContent, "curl -fsSL https://upyoke.com/install | sh");
+  assert.match(code.textContent, /install_origin_unavailable/);
   assert.ok(textOf(webFirst).includes(
     " — the wizard connects this machine, then GitHub · Hosting " +
     "fold in here.",

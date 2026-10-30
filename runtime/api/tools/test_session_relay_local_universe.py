@@ -146,7 +146,7 @@ def test_local_relay_install_refuses_by_name_without_an_installed_launcher(
 
     assert raised.value.code == local_install.LOCAL_LAUNCHER_MISSING
     assert str(missing) in str(raised.value)
-    assert local_install.LOCAL_LAUNCHER_RECOVERY in str(raised.value)
+    assert local_install.local_launcher_recovery() in str(raised.value)
     # The refusal lands before launchd is touched, so a loaded relay survives.
     assert calls == []
 

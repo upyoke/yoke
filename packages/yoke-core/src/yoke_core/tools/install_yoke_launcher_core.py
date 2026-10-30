@@ -259,6 +259,10 @@ def write_launcher(
             "DEFAULT_YOKE_HOME = None",
             f"DEFAULT_YOKE_HOME = {str(default_home)!r}",
         )
+    from yoke_cli.config.install_advice import install_command
+
+    recovery = f"install the released CLI with `{install_command()}`, then retry"
+    text = text.replace("RELEASE_RECOVERY = None", f"RELEASE_RECOVERY = {recovery!r}")
     pinned_shebang = f"#!{python or sys.executable}"
     if text.startswith("#!") and "\n" in text:
         first_newline = text.index("\n")

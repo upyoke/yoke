@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from yoke_contracts.api_urls import DISTRIBUTION_PROD_URL
+
 from collections.abc import Mapping
 from typing import Any
 
@@ -46,7 +48,7 @@ REGISTERED_POST_STATE_ASSERTION_IDS = frozenset(
 )
 REGISTERED_STAGE_URLS = frozenset(
     {
-        "https://api.upyoke.com/install",
+        DISTRIBUTION_PROD_URL + "/install",
     }
 )
 _MAX_ACTIONS = 100

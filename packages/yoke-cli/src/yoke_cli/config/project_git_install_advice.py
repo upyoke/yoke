@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from yoke_cli.config.install_advice import install_command
+
 import os
 import shutil
 import sys
@@ -108,59 +110,105 @@ def install_advice(
             "Windows",
             None,
             "Native Windows onboarding is not supported. Install WSL, open "
-            "Ubuntu, then rerun curl -fsSL https://upyoke.com/install | sh. "
+            f"Ubuntu, then rerun {install_command()}. "
             "Inside WSL, install git with that distro's package manager.",
         )
 
     if "linux" in name:
         dnf = _sudo_plan(
-            "dnf", "install", "-y", "git",
-            which=lookup, is_root=root_check,
+            "dnf",
+            "install",
+            "-y",
+            "git",
+            which=lookup,
+            is_root=root_check,
         )
         yum = _sudo_plan(
-            "yum", "install", "-y", "git",
-            which=lookup, is_root=root_check,
+            "yum",
+            "install",
+            "-y",
+            "git",
+            which=lookup,
+            is_root=root_check,
         )
         apt_update = _sudo_plan(
-            "apt-get", "update",
-            which=lookup, is_root=root_check,
+            "apt-get",
+            "update",
+            which=lookup,
+            is_root=root_check,
         )
         apt_install = _sudo_plan(
-            "apt-get", "install", "-y", "git",
-            which=lookup, is_root=root_check,
+            "apt-get",
+            "install",
+            "-y",
+            "git",
+            which=lookup,
+            is_root=root_check,
         )
         apk = _sudo_plan("apk", "add", "git", which=lookup, is_root=root_check)
         zypper = _sudo_plan(
-            "zypper", "install", "-y", "git",
-            which=lookup, is_root=root_check,
+            "zypper",
+            "install",
+            "-y",
+            "git",
+            which=lookup,
+            is_root=root_check,
         )
         pacman = _sudo_plan(
-            "pacman", "-Sy", "--noconfirm", "git",
-            which=lookup, is_root=root_check,
+            "pacman",
+            "-Sy",
+            "--noconfirm",
+            "git",
+            which=lookup,
+            is_root=root_check,
         )
         managers = (
-            ("dnf", dnf.command, dnf.run_steps,
-             _note_with_privilege(
-                 "Amazon Linux, Fedora, RHEL, and compatible distributions.",
-                 dnf,
-             )),
-            ("yum", yum.command, yum.run_steps,
-             _note_with_privilege(
-                 "Older Amazon Linux, RHEL, CentOS, and compatible distributions.",
-                 yum,
-             )),
-            ("apt-get", f"{apt_update.command} && {apt_install.command}",
-             apt_update.run_steps + apt_install.run_steps,
-             _note_with_privilege(
-                 "Debian, Ubuntu, and compatible distributions.",
-                 apt_update, apt_install,
-             )),
-            ("apk", apk.command, apk.run_steps,
-             _note_with_privilege("Alpine Linux.", apk)),
-            ("zypper", zypper.command, zypper.run_steps,
-             _note_with_privilege("openSUSE and SLES.", zypper)),
-            ("pacman", pacman.command, pacman.run_steps,
-             _note_with_privilege("Arch Linux.", pacman)),
+            (
+                "dnf",
+                dnf.command,
+                dnf.run_steps,
+                _note_with_privilege(
+                    "Amazon Linux, Fedora, RHEL, and compatible distributions.",
+                    dnf,
+                ),
+            ),
+            (
+                "yum",
+                yum.command,
+                yum.run_steps,
+                _note_with_privilege(
+                    "Older Amazon Linux, RHEL, CentOS, and compatible distributions.",
+                    yum,
+                ),
+            ),
+            (
+                "apt-get",
+                f"{apt_update.command} && {apt_install.command}",
+                apt_update.run_steps + apt_install.run_steps,
+                _note_with_privilege(
+                    "Debian, Ubuntu, and compatible distributions.",
+                    apt_update,
+                    apt_install,
+                ),
+            ),
+            (
+                "apk",
+                apk.command,
+                apk.run_steps,
+                _note_with_privilege("Alpine Linux.", apk),
+            ),
+            (
+                "zypper",
+                zypper.command,
+                zypper.run_steps,
+                _note_with_privilege("openSUSE and SLES.", zypper),
+            ),
+            (
+                "pacman",
+                pacman.command,
+                pacman.run_steps,
+                _note_with_privilege("Arch Linux.", pacman),
+            ),
         )
         for binary, command, run_steps, note in managers:
             if lookup(binary):
@@ -174,8 +222,12 @@ def install_advice(
 
     if "freebsd" in name:
         pkg = _sudo_plan(
-            "pkg", "install", "-y", "git",
-            which=lookup, is_root=root_check,
+            "pkg",
+            "install",
+            "-y",
+            "git",
+            which=lookup,
+            is_root=root_check,
         )
         return GitInstallAdvice(
             "FreeBSD",

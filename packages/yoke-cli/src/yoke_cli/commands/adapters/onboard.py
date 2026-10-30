@@ -166,6 +166,8 @@ def _run_flags_or_wizard(parsed: argparse.Namespace, *, force_wizard: bool) -> i
         explicit_token_source,
         bool(parsed.resume_run_id) or reused_connection,
         should_prompt,
+        api_url=parsed.api_url,
+        env_name=env_name,
     )
     if hosted_usage_error:
         print(f"error: {hosted_usage_error}", file=sys.stderr)

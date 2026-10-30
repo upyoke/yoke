@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from yoke_cli.config.install_advice import install_command
+
 import argparse
 import os
 import subprocess
@@ -156,7 +158,7 @@ def _build_parser() -> argparse.ArgumentParser:
         prog="install_yoke_launcher",
         description=(
             "Install a launcher for uv's released yoke-cli. Install the release "
-            "with `curl -fsSL https://upyoke.com/install | sh` first. "
+            f"with `{install_command()}` first. "
             "YOKE_SOURCE_DEV=1 explicitly opts into YOKE_HOME source code."
         ),
     )

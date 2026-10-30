@@ -26,6 +26,8 @@ Transport honesty:
 
 from __future__ import annotations
 
+from yoke_cli.config.install_advice import install_command
+
 import os
 import pathlib
 import subprocess
@@ -170,7 +172,7 @@ def git_pre_commit(args: List[str]) -> int:
             "yoke (pre-commit): ERROR: requires yoke-harness; "
             f"install/repair the product hook package ({exc}).\n"
             "Repair the machine CLI with the public installer: "
-            "curl -fsSL https://api.upyoke.com/install | bash\n"
+            f"{install_command()}\n"
         )
         return 1
     return int(run())

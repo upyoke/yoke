@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from yoke_cli.config.install_advice import install_command
+
 from typing import Any, List
 
 # The three marker strings are single-sourced in yoke-contracts so yoke-core's
@@ -15,6 +17,16 @@ from yoke_contracts.git_hook_markers import (
     PRE_COMMIT_MARKER,
     PRE_MERGE_COMMIT_MARKER,
 )
+
+
+def _escaped_install_command() -> str:
+    command = install_command()
+    for character in ("\\", '"', "$", "`"):
+        command = command.replace(character, "\\" + character)
+    return command
+
+
+_INITIAL_INSTALL_COMMAND = _escaped_install_command()
 
 GIT_HOOK_NAMES = (
     "pre-commit",
@@ -38,7 +50,7 @@ def _launcher_lookup(hook_name: str) -> str:
         'if [ ! -x "$yoke_bin" ]; then\n'
         f'    echo "yoke ({hook_name}): Yoke is not installed on this computer ($(uname -n));'
         " Yoke checks skipped. Install:"
-        ' \\`curl -fsSL https://upyoke.com/install | sh\\`" >&2\n'
+        f' \\`{_INITIAL_INSTALL_COMMAND}\\`" >&2\n'
         "    exit 0\n"
         "fi\n"
     )
@@ -129,12 +141,17 @@ _SHIM_BY_HOOK = {
 }
 
 
+def render_git_hook(template: str) -> str:
+    """Resolve the machine authority when the payload is requested."""
+    return template.replace(_INITIAL_INSTALL_COMMAND, _escaped_install_command())
+
+
 def is_managed_git_hook(content: str, hook_name: str) -> bool:
     """Recognize only the exact current managed hook payload."""
     expected = _SHIM_BY_HOOK.get(hook_name)
     if expected is None:
         return False
-    return content == expected
+    return content == render_git_hook(expected)
 
 
 def managed_git_hook_specs() -> List[dict[str, str]]:
@@ -143,7 +160,7 @@ def managed_git_hook_specs() -> List[dict[str, str]]:
         {
             "name": name,
             "marker": _MARKER_BY_HOOK[name],
-            "content": _SHIM_BY_HOOK[name],
+            "content": render_git_hook(_SHIM_BY_HOOK[name]),
         }
         for name in GIT_HOOK_NAMES
     ]

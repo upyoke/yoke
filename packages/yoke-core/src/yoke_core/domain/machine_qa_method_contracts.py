@@ -4,11 +4,11 @@ from __future__ import annotations
 
 from typing import Any, Mapping
 
+from yoke_contracts.api_urls import HOSTED_PLATFORM_URL
 from yoke_contracts.machine_qa_execution import (
     GUI_SESSION_CONTEXT,
     REQUIRED_SESSION_CONTEXT_FIELD,
 )
-
 from yoke_core.domain.host_baseline_operations import HOST_BASELINE_OPERATIONS
 from yoke_core.domain.machine_qa_recipe_contracts import (
     MachineQaRecipeError,
@@ -267,7 +267,7 @@ def _require_terminal_case_fields(
         raise MachineQaExecutionError(
             f"terminal_case_fields_missing: missing={missing}. Set entry_surface "
             "to the command the Terminal runs first (for example `{yoke_bin} "
-            "setup --connect https://app.upyoke.com --project-mode machine-only`) "
+            f"setup --connect {HOSTED_PLATFORM_URL} --project-mode machine-only`) "
             "and required_completion to the step that proves completion. Save the "
             "case with `yoke qa plan edit PLAN_SLUG`, then `yoke qa plan "
             "rematerialize` the affected requirements."

@@ -26,6 +26,26 @@ class Allowance:
 
 ALLOWANCES: Tuple[Allowance, ...] = (
     Allowance(
+        "packages/yoke-contracts/src/yoke_contracts/api_urls.py",
+        "runtime_host",
+        "central environment authority table",
+    ),
+    Allowance(
+        "packages/yoke-cli/src/yoke_cli/feedback_delivery.py",
+        "runtime_host",
+        "overridable public feedback destination, independent of project connection",
+    ),
+    Allowance(
+        "packages/yoke-core/src/yoke_core/hooks/observation_batch.py",
+        "runtime_host",
+        "inert observation URI namespace; never fetched",
+    ),
+    Allowance(
+        "packages/yoke-harness/src/yoke_harness/session_relay_codex_app_server.py",
+        "runtime_host",
+        "inert message URI namespace; never fetched",
+    ),
+    Allowance(
         "packages/yoke-core/src/yoke_core/api/routes/feedback.py",
         "RECEIVING_PROJECT",
         "public feedback is delivered to the fixed Yoke support project; "
