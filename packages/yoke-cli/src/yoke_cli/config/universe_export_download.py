@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import importlib
+import json
+import urllib.parse
 import os
 import re
 import secrets
@@ -40,11 +42,20 @@ def download_universe(
     connection: HttpsConnection,
     *,
     out: str | None = None,
+    exclude_artifacts: bool = False,
+    estimate: bool = False,
 ) -> dict[str, object]:
     """Download one self-host archive and atomically publish it locally."""
     timeout_s, max_bytes = _engine_limits()
     deadline = deadline_after(timeout_s)
     url = join_api_url(connection.api_url, UNIVERSE_EXPORT_PATH)
+    query = {}
+    if exclude_artifacts:
+        query["exclude_artifacts"] = "true"
+    if estimate:
+        query["estimate"] = "true"
+    if query:
+        url += "?" + urllib.parse.urlencode(query)
     request = urllib.request.Request(
         url,
         method="GET",
@@ -60,6 +71,18 @@ def download_universe(
         )
         with response:
             require_requested_final_url(request, response)
+            if estimate:
+                raw = response.read(65537)
+                if len(raw) > 65536:
+                    raise UniverseExportDownloadError(
+                        "universe estimate exceeds read limit"
+                    )
+                payload = json.loads(raw)
+                if not isinstance(payload, dict) or payload.get("estimate") is not True:
+                    raise UniverseExportDownloadError(
+                        "server returned no universe estimate"
+                    )
+                return payload
             content_type = str(response.headers.get("content-type") or "")
             if content_type.split(";", 1)[0].strip() != "application/x-tar":
                 raise UniverseExportDownloadError(
@@ -102,6 +125,7 @@ def download_universe(
         urllib.error.URLError,
         TimeoutError,
         OSError,
+        ValueError,
     ) as exc:
         raise UniverseExportDownloadError(
             f"the self-host universe export could not complete safely: {exc}"

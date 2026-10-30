@@ -8,13 +8,15 @@ A portable Universe archive lets you preserve your Yoke records or move them to 
 
 ## What moves with a Universe
 
-The archive contains the Universe database and a receipt binding that database dump to its exact contents. It preserves records such as projects, strategy documents, and work history.
+The archive contains the Universe database and a receipt binding that database dump to its exact contents. It preserves records such as projects, strategy documents, and work history. Local and self-host exports also include readable QA artifacts and shared files, with a manifest recording each file's checksum or why it is missing.
 
-Repository folders, application databases, running agents, and external services are not part of the Universe database. Shared file and QA evidence bytes may live in external storage, so retain that storage separately. Credentials require destination-specific handling and reconnection; do not treat an archive as a way to copy working machine access unchanged.
+Repository folders, application databases, running agents, and external services are not part of the Universe database. Unreadable source files remain listed as missing; recover them at the source and export again if you need them. Hosted portability still requires its separate object-copy procedure. Credentials require destination-specific handling and reconnection; do not treat an archive as a way to copy working machine access unchanged.
 
 ## Export a Universe
 
 Use `yoke universe export` for the supported local export path, or the dashboard portability controls for the hosting mode you use. The normal CLI export directory is your machine's Yoke exports folder; choose an explicit output location when you need a backup elsewhere.
+
+`yoke universe export --estimate --json` estimates database and artifact bytes before export. Use `--exclude-artifacts` when you only want the database and receipt.
 
 The result is one `.tar` file. Keep the archive together: its database dump and receipt are both needed for validation and import. Store backups outside any machine home or server volume you intend to remove.
 
@@ -22,7 +24,7 @@ Production administrative cutovers have a separate attended procedure. Do not su
 
 ## Validate and retain backups
 
-`yoke universe validate` checks a portable archive before it is used. Validation checks the archive and receipt; it does not prove that an application, repository, or external service was also backed up.
+`yoke universe validate` checks a portable archive before it is used. Validation checks the archive, receipt, manifest and every included file; it does not prove that an application, repository, or external service was also backed up.
 
 For deeper recovery verification, the supported round-trip validation restores into an explicitly disposable PostgreSQL database. That replaces the validation target, so an operator must prepare and identify the scratch database first.
 
@@ -34,7 +36,7 @@ For a new installation, setup offers **Start from a backup** when creating a loc
 
 For an existing destination, import asks for the archive and consent to replace the destination Universe. Local import targets the active local connection; self-host import targets the selected server bundle. Hosted import uses the dashboard portability flow.
 
-Check the destination before approving replacement. Preserve its current data if you may need it later. Import is replacement, not a merge of two backlogs.
+Check the destination before approving replacement. Preserve its current data if you may need it later. Import is replacement, not a merge of two backlogs. Local and self-host imports place included files in the destination's storage and rewrite their handles; a destination with no configured artifact bucket uses its own permanent local storage. Review the import's missing-file count before resuming work.
 
 ## Move between hosting modes
 

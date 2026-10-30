@@ -287,6 +287,8 @@ def postgres_status() -> Dict[str, Any]:
 def universe_export(
     *,
     out: Optional[str] = None,
+    exclude_artifacts: bool = False,
+    estimate: bool = False,
     emit: Callable[[str], None] = lambda _line: None,
 ) -> Dict[str, Any]:
     """Export the active universe to one portable archive via the engine.
@@ -300,7 +302,13 @@ def universe_export(
     """
     engine = _export_engine()
     try:
-        return dict(engine.export_universe(out=out or None, emit=emit))
+        if estimate:
+            transfer = importlib.import_module(
+                "yoke_core.domain.universe_artifact_transfer"
+            )
+            return dict(transfer.estimate_universe(exclude_artifacts=exclude_artifacts))
+        options = {"exclude_artifacts": True} if exclude_artifacts else {}
+        return dict(engine.export_universe(out=out or None, emit=emit, **options))
     except RuntimeError as exc:  # authority refusal, dead server, dump failure
         raise LocalUniverseSetupError(str(exc)) from exc
 

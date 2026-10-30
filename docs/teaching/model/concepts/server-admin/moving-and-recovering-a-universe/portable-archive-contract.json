@@ -1,8 +1,10 @@
 {
  "id": "portable-archive-contract",
  "title": "Portable archive contract",
- "status": "draft-copy",
+ "status": "observed",
  "audience": "Administrators",
  "page": "server-admin",
- "position": 0
+ "position": 0,
+ "summary": "Local and self-host archives carry manifest-bound QA and shared-file bytes; validation checks every digest, import uses destination storage, and missing files are reported. Legacy two-member archives remain valid.",
+ "sources": ["docs/public/guide/universe-portability.md", "docs/universe-portability.md"]
 }

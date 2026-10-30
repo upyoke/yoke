@@ -44,7 +44,9 @@ INIT_USAGE = (
     "[--config PATH] [--json]"
 )
 
-EXPORT_USAGE = "yoke universe export [--out PATH] [--json]"
+EXPORT_USAGE = (
+    "yoke universe export [--out PATH] [--exclude-artifacts] [--estimate] [--json]"
+)
 
 TOOL_SHAPED_USAGE: Dict[str, str] = {
     "yoke init": INIT_USAGE,
@@ -161,6 +163,16 @@ def universe_export(args: List[str]) -> int:
     parser.add_argument(
         "--json", dest="json_mode", action="store_true", help="Print JSON."
     )
+    parser.add_argument(
+        "--exclude-artifacts",
+        action="store_true",
+        help="Export only the database and receipt.",
+    )
+    parser.add_argument(
+        "--estimate",
+        action="store_true",
+        help="Estimate dump and artifact bytes without exporting.",
+    )
     parsed = parse_or_usage_error(parser, args, EXPORT_USAGE)
     if parsed is None:
         return 2
@@ -170,9 +182,19 @@ def universe_export(args: List[str]) -> int:
         if connection is not None and not onboard_destinations.is_hosted_url(
             connection.api_url
         ):
-            report = download_universe(connection, out=parsed.out)
+            options = {}
+            if parsed.exclude_artifacts:
+                options["exclude_artifacts"] = True
+            if parsed.estimate:
+                options["estimate"] = True
+            report = download_universe(connection, out=parsed.out, **options)
         else:
-            report = setup.universe_export(out=parsed.out, emit=emit)
+            options = {}
+            if parsed.exclude_artifacts:
+                options["exclude_artifacts"] = True
+            if parsed.estimate:
+                options["estimate"] = True
+            report = setup.universe_export(out=parsed.out, emit=emit, **options)
     except (
         setup.LocalUniverseSetupError,
         TransportError,
@@ -182,6 +204,10 @@ def universe_export(args: List[str]) -> int:
         return 1
     if parsed.json_mode:
         print(json.dumps(report, indent=2, sort_keys=True))
+    elif parsed.estimate:
+        print(f"estimated bytes: {report.get('estimated_bytes')}")
+        print(f"artifact bytes: {report.get('artifact_bytes')}")
+        print(f"missing artifacts: {report.get('missing_artifacts')}")
     else:
         print(f"universe export: {report.get('artifact')}")
         print(f"org: {report.get('org')}")

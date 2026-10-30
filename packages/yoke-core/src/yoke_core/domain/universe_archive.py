@@ -1,22 +1,4 @@
-"""One-file portable universe archive: dump payload + freeze receipt.
-
-A universe travels between deployment modes (local, self-host, hosted) as
-ONE tar file named ``<org-slug>-universe-<utc-timestamp>.tar`` whose root
-holds exactly two members:
-
-* ``universe.dump`` — the ``pg_dump`` custom-format payload
-  (:data:`yoke_core.domain.universe_portability.ARCHIVE_FORMAT`).
-* ``freeze-receipt.json`` — the freeze receipt whose
-  ``freeze_intent.archive`` block binds that exact payload by content
-  hash and size.
-
-The receipt travels inside the artifact so every importer derives its
-verification from the file itself: humans move one file and are never
-asked for a checksum or receipt text. Consumers verify with
-:func:`verify_receipt_binds_dump`; the payload SHA-256 binds the dump
-bit-for-bit, so every derived receipt figure (catalog digest, byte
-count) is covered by that one comparison.
-"""
+"""Portable database dump, freeze receipt and optional manifest-bound files."""
 
 from __future__ import annotations
 
@@ -32,6 +14,7 @@ from pathlib import Path
 from typing import Any, Iterator
 
 from yoke_core.domain import json_helper, universe_archive_output
+from yoke_core.domain import universe_archive_artifacts as artifacts
 from yoke_core.domain.source_freeze_intent import file_sha256, freeze_intent
 
 #: Exact member names at the archive root — the cross-repo interchange
@@ -94,14 +77,19 @@ def pack_universe_archive(
     dump: Path,
     receipt: dict[str, Any],
     destination: Path,
+    *,
+    artifact_manifest: dict | None = None,
+    artifact_files: dict[str, Path] | None = None,
 ) -> int:
-    """Write the two-member tar atomically; return its final byte size.
+    """Write the manifest-bound tar atomically; return its final byte size.
 
     The receipt member is written first so streaming readers can verify
     intent before consuming the (much larger) dump payload. The tar is
     staged as a private sibling file and committed with ``os.replace``,
     so no partial artifact ever exists under the destination name.
     """
+    if artifact_manifest is not None:
+        receipt = artifacts.bind_manifest(receipt, artifact_manifest)
     receipt_bytes = (json_helper.dumps_pretty(receipt) + "\n").encode("utf-8")
     try:
         output = universe_archive_output.prepare_private_archive_output(destination)
@@ -120,6 +108,10 @@ def pack_universe_archive(
                     archive.addfile(
                         _member(ARCHIVE_MEMBER_DUMP, dump.stat().st_size),
                         payload,
+                    )
+                if artifact_manifest is not None:
+                    artifacts.pack_files(
+                        archive, receipt, artifact_manifest, artifact_files or {}
                     )
         output.commit()
         return destination.stat().st_size
@@ -141,13 +133,7 @@ def unpack_universe_archive(
     *,
     max_dump_bytes: int,
 ) -> tuple[Path, dict[str, Any]]:
-    """Extract exactly the dump payload and parsed receipt, fail-closed.
-
-    Member names are never used as filesystem paths: the dump payload is
-    streamed into a caller-owned private file, so a hostile archive can
-    neither traverse paths nor plant unexpected content. Any member
-    beyond the two expected regular files is a refusal.
-    """
+    """Extract the dump and optional files after checking their manifest."""
     if not archive.is_file():
         raise UniverseArchiveError(
             "the portable universe artifact is not a regular file"
@@ -161,13 +147,9 @@ def unpack_universe_archive(
                     raise UniverseArchiveError(
                         f"the universe archive repeats a member: {member.name}"
                     )
-                if (
-                    member.name
-                    not in (
-                        ARCHIVE_MEMBER_DUMP,
-                        ARCHIVE_MEMBER_RECEIPT,
-                    )
-                    or not member.isreg()
+                if not member.isreg() or (
+                    member.name not in (ARCHIVE_MEMBER_DUMP, ARCHIVE_MEMBER_RECEIPT)
+                    and not artifacts.allowed_member(member)
                 ):
                     raise UniverseArchiveError(
                         "the universe archive holds an unexpected member; "
@@ -190,6 +172,9 @@ def unpack_universe_archive(
                 members[ARCHIVE_MEMBER_DUMP],
                 work_dir,
                 max_dump_bytes=max_dump_bytes,
+            )
+            artifacts.unpack_files(
+                reader, members, receipt, work_dir, max_bytes=max_dump_bytes
             )
             return dump, receipt
     except tarfile.TarError as exc:

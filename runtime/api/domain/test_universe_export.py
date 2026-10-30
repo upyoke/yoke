@@ -97,6 +97,7 @@ def test_export_produces_one_receipt_carrying_tar_artifact(tmp_path):
         assert [member.name for member in reader.getmembers()] == [
             universe_archive.ARCHIVE_MEMBER_RECEIPT,
             universe_archive.ARCHIVE_MEMBER_DUMP,
+            "artifacts-manifest.json",
         ]
 
     dump, receipt = _unpack(artifact, tmp_path / "unpacked")
@@ -144,9 +145,7 @@ def test_export_honors_explicit_out_file_path(tmp_path):
 
 
 def test_export_trailing_separator_creates_directory(tmp_path):
-    """``--out ~/backups/`` with the directory absent means directory mode:
-    the directory is created and the artifact lands inside it — never a
-    suffixless file named after the directory."""
+    """A trailing separator creates a directory rather than a suffixless file."""
     with _schema_loaded_universe() as (_conn, dsn):
         report = ux.export_universe(dsn=dsn, out=f"{tmp_path / 'backups'}/")
 
@@ -194,6 +193,7 @@ def test_export_refuses_database_without_org_card(tmp_path):
 
 def test_export_raises_typed_error_when_pg_dump_missing(monkeypatch, tmp_path):
     with _schema_loaded_universe() as (_conn, dsn):
+        monkeypatch.delenv("YOKE_PG_BIN_DIR", raising=False)
         # Isolated machine home has no embedded binaries; an empty PATH dir
         # removes the fallback, mirroring the local-universe resolver tests.
         monkeypatch.setenv("PATH", str(tmp_path / "no-binaries-here"))
@@ -206,12 +206,12 @@ def test_export_raises_typed_error_when_pg_dump_missing(monkeypatch, tmp_path):
 
 def test_export_prefers_embedded_pg_dump_and_cleans_failed_staging(
     tmp_path,
+    monkeypatch,
 ):
-    """A fake embedded pg_dump proves installed-binaries-first resolution;
-    its failure exit proves the stderr surfacing plus staged-payload and
-    artifact cleanup contract."""
+    """Prefer the fake embedded binary and clean staging after it fails."""
     from yoke_core.domain import postgres_binaries
 
+    monkeypatch.delenv(postgres_binaries.BIN_DIR_ENV, raising=False)
     bin_dir = postgres_binaries.version_dir() / "bin"
     bin_dir.mkdir(parents=True)
     (bin_dir / "initdb").write_text("#!/bin/sh\n", encoding="utf-8")
@@ -282,7 +282,11 @@ def test_export_binds_dump_and_receipt_to_one_exported_snapshot(
     assert receipt["freeze_intent"]["archive"]["sha256"] == report["sha256"]
     assert receipt["freeze_intent"]["frozen_at"] == format_instant(moment)
     wire_inputs = {**observed["receipt_inputs"], "frozen_at": format_instant(moment)}
-    assert compose(**wire_inputs) == receipt
+    from yoke_core.domain.universe_archive_artifacts import bind_manifest
+
+    assert (
+        bind_manifest(compose(**wire_inputs), {"version": 1, "entries": []}) == receipt
+    )
 
 
 def test_export_refuses_when_universe_changes_mid_dump(monkeypatch, tmp_path):

@@ -109,9 +109,7 @@ def test_import_replaces_whatever_universe_the_destination_holds(tmp_path):
             with psycopg.connect(target_dsn) as restored:
                 slugs = {
                     str(row[0])
-                    for row in restored.execute(
-                        "SELECT slug FROM projects"
-                    ).fetchall()
+                    for row in restored.execute("SELECT slug FROM projects").fetchall()
                 }
                 assert "incoming" in slugs
                 assert "previous" not in slugs
@@ -127,7 +125,20 @@ def test_import_refuses_mismatched_receipt_before_touching_destination(tmp_path)
     ) as (dump, receipt):
         receipt["freeze_intent"]["archive"]["sha256"] = "0" * 64
         forged = tmp_path / "forged.tar"
-        universe_archive.pack_universe_archive(dump, receipt, forged)
+        import json
+
+        manifest = json.loads((dump.parent / "artifacts-manifest.json").read_bytes())
+        universe_archive.pack_universe_archive(
+            dump,
+            receipt,
+            forged,
+            artifact_manifest=manifest,
+            artifact_files={
+                entry["key"]: dump.parent / "artifacts" / entry["key"]
+                for entry in manifest["entries"]
+                if entry["status"] == "included"
+            },
+        )
 
     target_name = pg_testdb.create_test_database()
     target_dsn = pg_testdb.dsn_for_test_database(target_name)

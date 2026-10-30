@@ -88,8 +88,14 @@ def import_from_stream(
 ) -> dict[str, object]:
     """Restore one stdin archive and return the one-time credential payload."""
     archive = _stage_archive(stream, max_bytes=max_bytes)
+    from yoke_core.domain.universe_artifact_transfer import (
+        capture_destination,
+        restore_artifacts,
+    )
+
     credential: universe_import_credentials.ImportedCredential | None = None
 
+    artifact_result = {}
     resolved_dsn = dsn or db_backend.resolve_pg_dsn()
     try:
         with universe_archive.unpacked_universe_archive(
@@ -98,18 +104,16 @@ def import_from_stream(
         ) as (dump, receipt):
             binding = universe_archive.verify_receipt_binds_dump(receipt, dump)
             receipt_org = str(
-                receipt.get("freeze_intent", {})
-                .get("database", {})
-                .get("org")
-                or ""
+                receipt.get("freeze_intent", {}).get("database", {}).get("org") or ""
             )
+
+            stores = capture_destination(resolved_dsn)
 
             def finalize(conn: psycopg.Connection) -> None:
                 nonlocal credential
-                credential = (
-                    universe_import_credentials.replace_imported_credentials(
-                        conn
-                    )
+                artifact_result.update(restore_artifacts(conn, dump, stores))
+                credential = universe_import_credentials.replace_imported_credentials(
+                    conn
                 )
                 # Inside the restore transaction: a receipt whose intent
                 # names a different org than the restored data rolls the
@@ -142,6 +146,7 @@ def import_from_stream(
         "raw_token": credential.raw_token,
         "revoked_token_count": credential.revoked_token_count,
         "revoked_web_session_count": credential.revoked_web_session_count,
+        "artifacts": artifact_result,
         "archive": {
             "bytes": inspection.size_bytes,
             "sha256": binding["sha256"],

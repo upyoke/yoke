@@ -24,7 +24,9 @@ _ROUTE_PATH = UNIVERSE_EXPORT_PATH.removeprefix("/v1")
 
 
 @router.get(_ROUTE_PATH)
-def download_self_host_universe(request: Request):
+def download_self_host_universe(
+    request: Request, exclude_artifacts: bool = False, estimate: bool = False
+):
     """Stream one self-host universe archive to an authenticated org admin."""
     if os.environ.get(SERVER_MODE_ENV, "").strip() != SERVER_MODE_SELF_HOST:
         return _error(404, "not_found", "universe export is not available here")
@@ -39,12 +41,31 @@ def download_self_host_universe(request: Request):
         except PermissionDenied as exc:
             return _error(403, "permission_denied", str(exc))
 
+    if estimate:
+        from yoke_core.domain.universe_artifact_transfer import estimate_universe
+
+        try:
+            return JSONResponse(
+                estimate_universe(
+                    dsn=db_backend.resolve_pg_dsn(),
+                    exclude_artifacts=exclude_artifacts,
+                ),
+                headers={"Cache-Control": "no-store"},
+            )
+        except (RuntimeError, OSError, ValueError):
+            return _error(
+                409,
+                "universe_estimate_failed",
+                "repair source storage access and retry the estimate",
+            )
     directory = Path(tempfile.mkdtemp(prefix="yoke-self-host-export-"))
     directory.chmod(0o700)
     try:
+        options = {"exclude_artifacts": True} if exclude_artifacts else {}
         report = universe_export.export_universe(
             dsn=db_backend.resolve_pg_dsn(),
             out=str(directory) + os.sep,
+            **options,
         )
         artifact = Path(str(report["artifact"]))
         if artifact.parent != directory or not artifact.is_file():

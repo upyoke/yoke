@@ -81,7 +81,13 @@ def import_universe(
     """Replace the local universe with ``archive`` and return a safe receipt."""
     selected = _validated_archive_path(archive)
     resolved_dsn = dsn or resolve_local_import_dsn()
+    from yoke_core.domain.universe_artifact_transfer import (
+        capture_destination,
+        restore_artifacts,
+    )
+
     owner: dict[str, object] = {}
+    artifact_result = {}
     try:
         with universe_archive.unpacked_universe_archive(
             selected,
@@ -92,7 +98,10 @@ def import_universe(
                 receipt.get("freeze_intent", {}).get("database", {}).get("org") or ""
             )
 
+            stores = capture_destination(resolved_dsn)
+
             def finalize(conn: psycopg.Connection) -> None:
+                artifact_result.update(restore_artifacts(conn, dump, stores))
                 owner.update(_prepare_local_owner(conn))
                 if receipt_org and receipt_org != owner["org"]:
                     raise LocalUniverseImportError(
@@ -129,6 +138,7 @@ def import_universe(
     return {
         "ok": True,
         **owner,
+        "artifacts": artifact_result,
         "archive": {
             "path": str(selected.expanduser().resolve()),
             "bytes": inspection.size_bytes,
