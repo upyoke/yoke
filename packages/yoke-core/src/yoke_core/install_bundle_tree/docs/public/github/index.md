@@ -155,6 +155,10 @@ in scope (`yoke projects github-binding check --project <slug>` does the same
 for one project). A refused check names its reason and recovery.
 Installation counts include all visible projects even when one project is selected;
 Detach stays disabled while any of those projects uses the installation.
+In hosted Yoke, each GitHub account installation serves exactly one Yoke org;
+to move it within the same environment, unbind its projects and then **Detach**
+from the old org before connecting it to the new org, without uninstalling
+the App from GitHub.
 Each bound mapping has **Unbind**, followed by **Confirm unbind** or **Cancel**.
 Unbinding removes the mapping, GitHub capability and secrets, and turns issue sync
 off. To restore sync, bind a repository again and use
