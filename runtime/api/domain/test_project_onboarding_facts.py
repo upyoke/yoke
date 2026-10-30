@@ -154,20 +154,70 @@ def test_missing_required_rows_cannot_fabricate_readiness(rows):
     assert "yoke-connection" in readiness["unmet_rows"]
 
 
-def test_incomplete_saved_checklist_refuses_and_init_restores_only_missing_rows():
+def test_legacy_checklist_fills_defaults_without_writing_saved_rows():
+    from yoke_contracts.onboard_checklist import ROW_IDS, SETUP_HANDOFF_ROW_ID
+    from yoke_core.domain.project_onboarding_run_records import default_status
+
     with _conn() as conn:
         first = runs.init_run(
-            conn=conn, project_id=7, row_status={"hosting-setup": "deferred"}
+            conn=conn,
+            project_id=7,
+            row_status={"hosting-setup": "deferred"},
+            evidence={"hosting-setup": {"choice": "later"}},
+            note={"hosting-setup": "keep choice"},
+            blocker={"hosting-setup": "waiting"},
         )
-        conn.execute(
-            "DELETE FROM project_onboarding_checklist_rows WHERE run_id = %s AND row_id = %s",
-            (first["run_id"], "project-identity"),
-        )
+        missing = ("project-identity", SETUP_HANDOFF_ROW_ID)
+        for row_id in missing:
+            conn.execute(
+                "DELETE FROM project_onboarding_checklist_rows WHERE run_id = %s AND row_id = %s",
+                (first["run_id"], row_id),
+            )
         conn.commit()
-        with pytest.raises(
-            runs.ProjectOnboardingRunError, match="setup_checklist_incomplete"
-        ):
-            runs.get_run(first["run_id"], conn=conn)
+        read = runs.get_run(first["run_id"], conn=conn)
+        assert tuple(row["row_id"] for row in read["rows"]) == ROW_IDS
+        rows = _rows(read)
+        for row_id in missing:
+            assert rows[row_id]["saved_status"] == default_status(
+                row_id, first["branch"]
+            )
+        for field in ("saved_status", "saved_evidence", "note", "blocker"):
+            assert rows["hosting-setup"][field] == _rows(first)["hosting-setup"][field]
+        assert read["branch"] == first["branch"]
+        assert read["updated_at"] == first["updated_at"]
+        assert read["setup_readiness"]["ready"] is False
+        assert conn.execute(
+            "SELECT COUNT(*) FROM project_onboarding_checklist_rows WHERE run_id = %s",
+            (first["run_id"],),
+        ).fetchone()[0] == len(ROW_IDS) - len(missing)
         resumed = runs.init_run(conn=conn, project_id=7, run_id=first["run_id"])
         assert _rows(resumed)["hosting-setup"]["saved_status"] == "deferred"
-        assert resumed["setup_readiness"]["ready"] is False
+        assert conn.execute(
+            "SELECT COUNT(*) FROM project_onboarding_checklist_rows WHERE run_id = %s",
+            (first["run_id"],),
+        ).fetchone()[0] == len(ROW_IDS)
+
+
+def test_machine_only_legacy_run_fills_project_rows_as_deferred(monkeypatch):
+    from yoke_contracts.onboard_checklist import BRANCH_MACHINE_ONLY, PROJECT_ROW_IDS
+
+    projected_rows = runs.project_rows
+    defaults = {}
+
+    def capture_defaults(rows, *args, **kwargs):
+        defaults.update({row["row_id"]: row["status"] for row in rows})
+        return projected_rows(rows, *args, **kwargs)
+
+    with _conn() as conn:
+        first = runs.init_run(conn=conn, branch=BRANCH_MACHINE_ONLY)
+        for row_id in PROJECT_ROW_IDS:
+            conn.execute(
+                "DELETE FROM project_onboarding_checklist_rows WHERE run_id = %s AND row_id = %s",
+                (first["run_id"], row_id),
+            )
+        conn.commit()
+        monkeypatch.setattr(runs, "project_rows", capture_defaults)
+        read = runs.get_run(first["run_id"], conn=conn)
+        assert all(defaults[row_id] == "deferred" for row_id in PROJECT_ROW_IDS)
+        assert _rows(read) == _rows(first)
+        assert read["setup_readiness"]["ready"] is False

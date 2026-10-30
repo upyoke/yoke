@@ -9,6 +9,7 @@ from yoke_core.domain.db_helpers import instant_parameter
 
 from yoke_contracts.onboard_checklist import (
     BRANCHES,
+    ChecklistRowSpec,
     BRANCH_MACHINE_ONLY,
     BRANCH_SOURCE_DEV_ADMIN,
     CHECKLIST_STATUSES,
@@ -33,6 +34,22 @@ class ProjectOnboardingRunError(RuntimeError):
     """A project onboarding run cannot be read or mutated."""
 
 
+def default_row(spec: ChecklistRowSpec, branch: str) -> dict[str, Any]:
+    """The saved row defaults shared by seeding and legacy reads."""
+    return {
+        "row_id": spec.row_id,
+        "step": spec.step,
+        "title": spec.title,
+        "layer": spec.layer,
+        "owner": spec.owner,
+        "status": default_status(spec.row_id, branch),
+        "hint": spec.hint,
+        "evidence_json": "{}",
+        "blocker": "",
+        "note": "",
+    }
+
+
 def upsert_default_rows(
     conn: Any, p: str, run_id: str, branch: str, now: datetime
 ) -> None:
@@ -45,10 +62,7 @@ def upsert_default_rows(
     }
     for spec in ROW_SPECS:
         current = existing.get(spec.row_id)
-        status = current["status"] if current else default_status(spec.row_id, branch)
-        evidence = current["evidence_json"] if current else "{}"
-        blocker = current["blocker"] if current else ""
-        note = current["note"] if current else ""
+        row = current if current is not None else default_row(spec, branch)
         conn.execute(
             "INSERT INTO project_onboarding_checklist_rows "
             "(run_id, row_id, step, title, layer, owner, status, hint, "
@@ -63,11 +77,11 @@ def upsert_default_rows(
                 spec.title,
                 spec.layer,
                 spec.owner,
-                status,
+                row["status"],
                 spec.hint,
-                evidence,
-                blocker,
-                note,
+                row["evidence_json"],
+                row["blocker"],
+                row["note"],
                 instant_parameter(conn, now),
             ),
         )
@@ -274,6 +288,7 @@ __all__ = [
     "apply_row_updates",
     "base_metadata",
     "doctor_payload",
+    "default_row",
     "json_dumps",
     "project_payload",
     "row_payload",

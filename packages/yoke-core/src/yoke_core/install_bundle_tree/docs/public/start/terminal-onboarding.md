@@ -213,3 +213,11 @@ The same selectable view appears if local clipboard commands cannot copy.
 Terminals supporting OSC 52 may also copy automatically; selection depends
 on the terminal and remote desktop client. Nothing is printed above the
 wizard until you request it with a key.
+
+Checklist reads fill missing legacy rows in memory with the same defaults used
+when saving a run. They preserve saved choices and the run branch, and write no
+rows; the next normal update saves missing rows. These defaults never prove
+current setup readiness. Recorded delivery still marks a run as historical
+completion. If saved evidence cannot be read, Overview returns the typed error
+only in its onboarding module and keeps the other modules available. Follow the
+reported recovery; initializing the checklist can change its branch.

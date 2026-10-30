@@ -20,7 +20,10 @@ from yoke_core.domain.project_onboarding_run_supersede import (
     superseded_by,
 )
 from yoke_core.domain.schema_common import _table_exists
-from yoke_core.domain.project_onboarding_runs import get_run
+from yoke_core.domain.project_onboarding_runs import (
+    ProjectOnboardingRunError,
+    get_run,
+)
 
 RUNS_TABLE = "project_onboarding_runs"
 ROWS_TABLE = "project_onboarding_checklist_rows"
@@ -57,7 +60,10 @@ def read_onboard_progress(conn: Any) -> Optional[Dict[str, Any]]:
     ).fetchone()
     if run is None:
         return None
-    current = get_run(str(run[0]), conn=conn)
+    try:
+        current = get_run(str(run[0]), conn=conn)
+    except ProjectOnboardingRunError as exc:
+        return {"error": {"code": str(exc).partition(":")[0], "message": str(exc)}}
     rows = current["rows"]
     open_rows = [row for row in rows if row["status"] not in TERMINAL_STATUSES]
     blocked = [row for row in rows if row["status"] == STATUS_BLOCKED]
@@ -101,7 +107,7 @@ def run_is_complete(progress: Optional[Mapping[str, Any]]) -> bool:
     Finished means nothing left open, or a run its project's deployments
     superseded.
     """
-    return bool(progress) and progress["run_status"] in FINISHED_RUN_STATUSES
+    return bool(progress) and progress.get("run_status") in FINISHED_RUN_STATUSES
 
 
 def _run_status(

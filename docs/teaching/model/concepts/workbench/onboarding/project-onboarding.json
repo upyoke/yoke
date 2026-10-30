@@ -4,6 +4,6 @@
  "status": "observed",
  "page": "workbench",
  "position": 2,
- "text": "The Run /yoke onboard module completes when the project's first item is done; no separate first-deploy module.",
- "sources": ["packages/yoke-core/src/yoke_core/domain/overview_activation_read.py", "packages/yoke-core/src/yoke_core/ui/static/universe_onboarding_copy.js"]
+ "text": "The Run /yoke onboard module completes when the project's first item is done; no separate first-deploy module. Checklist reads fill missing legacy rows in memory from seeding defaults without changing saved choices, branch or database rows; missing rows do not prove current readiness. Recorded delivery remains historical completion. Unreadable saved evidence returns a typed error only in Overview's onboarding module; other modules remain available.",
+ "sources": ["packages/yoke-core/src/yoke_core/domain/overview_activation_read.py", "packages/yoke-core/src/yoke_core/ui/static/universe_onboarding_copy.js", "packages/yoke-core/src/yoke_core/domain/overview_onboard_progress.py", "packages/yoke-core/src/yoke_core/domain/handlers/overview_activation.py", "packages/yoke-core/src/yoke_core/domain/project_onboarding_runs.py", "packages/yoke-core/src/yoke_core/domain/project_onboarding_run_records.py"]
 }
