@@ -84,7 +84,7 @@ def test_plan_project_drives_case_and_all_evidence_reads(test_db, monkeypatch, a
     _browser_result(case, base_url="https://example.test", expected_branch=None, expected_sha=None)
     assert calls[0]["project"] == "externalwebapp"
     response = qa_reads.handle_qa_run_get(FunctionCallRequest(
-        function="qa.run.get", actor=ActorContext(actor_id="2"),
+        function="qa.run.get", actor=ActorContext(actor_id="2", session_id="project-read"),
         target=TargetRef(kind="global", project_id="externalwebapp"), payload={"run_id": run},
     ))
     assert response.primary_success, response.error
