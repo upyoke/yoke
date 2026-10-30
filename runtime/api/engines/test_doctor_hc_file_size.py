@@ -145,7 +145,7 @@ def test_hc_file_line_limit_warns_on_exception_only(
 
     assert rec.results[0].result == "WARN"
     detail = rec.results[0].detail
-    assert "Temporary exceptions over 350 (warn-only): 1" in detail
+    assert "Temporary exceptions over 350 (shrink-only): 1" in detail
 
 
 def test_hc_file_line_limit_lists_violations_in_detail(
