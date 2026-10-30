@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 from yoke_core.domain import db_backend
 from yoke_core.domain import universe_artifact_store as storage
@@ -14,7 +14,12 @@ from yoke_core.domain.universe_archive import UniverseArchiveError
 from yoke_core.domain.universe_archive_artifacts import MANIFEST, safe_key
 
 
-def artifact_sources(conn: Any, stores: dict) -> list[dict]:
+def artifact_sources(
+    conn: Any,
+    stores: dict,
+    *,
+    client_factory: Callable[[str, dict], Any] | None = None,
+) -> list[dict]:
     sources = []
     rows = conn.execute(
         "SELECT a.id, a.artifact_handle, r.qa_requirement_id, a.qa_run_id "
@@ -60,7 +65,9 @@ def artifact_sources(conn: Any, stores: dict) -> list[dict]:
             )
         sources.append(entry)
     try:
-        sources.extend(storage.shared_sources(conn, stores))
+        sources.extend(
+            storage.shared_sources(conn, stores, client_factory=client_factory)
+        )
     except Exception as exc:
         raise UniverseArchiveError(
             "archive_shared_files_unlisted: cannot list the source store; "
@@ -69,10 +76,18 @@ def artifact_sources(conn: Any, stores: dict) -> list[dict]:
     return sources
 
 
-def collect_artifacts(conn: Any, work_dir: Path) -> tuple[dict, dict[str, Path]]:
-    stores = storage.project_stores(conn)
+def collect_artifacts(
+    conn: Any,
+    work_dir: Path,
+    *,
+    stores: dict | None = None,
+    client_factory: Callable[[str, dict], Any] | None = None,
+) -> tuple[dict, dict[str, Path]]:
+    """Collect with caller routing and clients, or machine defaults when omitted."""
+    if stores is None:
+        stores = storage.project_stores(conn)
     entries, files = [], {}
-    for source in artifact_sources(conn, stores):
+    for source in artifact_sources(conn, stores, client_factory=client_factory):
         entry = {k: v for k, v in source.items() if k not in {"repo_root", "bytes"}}
         key = safe_key(entry["key"])
         if entry.get("status") != "missing":
@@ -83,6 +98,7 @@ def collect_artifacts(conn: Any, work_dir: Path) -> tuple[dict, dict[str, Path]]
                     project=entry["project"],
                     store=stores.get(entry["project"], {}),
                     repo_root=source.get("repo_root"),
+                    client_factory=client_factory,
                 ) as stream:
                     digest, size = storage.copy_bounded(stream, target)
                 entry.update(status="included", sha256=digest, bytes=size)
@@ -108,7 +124,13 @@ def capture_destination(dsn: str) -> dict:
         conn.close()
 
 
-def restore_artifacts(conn: Any, dump: Path, stores: dict) -> dict:
+def restore_artifacts(
+    conn: Any,
+    dump: Path,
+    stores: dict,
+    *,
+    client_factory: Callable[[str, dict], Any] | None = None,
+) -> dict:
     """Run inside the restore transaction; never commit the caller's writes."""
     manifest_path = dump.parent / MANIFEST
     if not manifest_path.is_file():
@@ -146,6 +168,7 @@ def restore_artifacts(conn: Any, dump: Path, stores: dict) -> dict:
                 project=project,
                 store=stores.get(project, {}),
                 content_type=original.get("content_type"),
+                client_factory=client_factory,
             )
             if key.startswith("qa-artifacts/"):
                 conn.execute(
@@ -157,7 +180,11 @@ def restore_artifacts(conn: Any, dump: Path, stores: dict) -> dict:
 
 
 def estimate_universe(
-    *, dsn: str | None = None, exclude_artifacts: bool = False
+    *,
+    dsn: str | None = None,
+    exclude_artifacts: bool = False,
+    stores: dict | None = None,
+    client_factory: Callable[[str, dict], Any] | None = None,
 ) -> dict:
     """Estimate before dumping; missing files remain explicitly counted."""
     from yoke_core.domain.universe_export import (
@@ -175,8 +202,9 @@ def estimate_universe(
         )
         total = missing = count = 0
         if not exclude_artifacts:
-            stores = storage.project_stores(conn)
-            for source in artifact_sources(conn, stores):
+            if stores is None:
+                stores = storage.project_stores(conn)
+            for source in artifact_sources(conn, stores, client_factory=client_factory):
                 count += 1
                 if source.get("status") == "missing":
                     missing += 1
@@ -190,6 +218,7 @@ def estimate_universe(
                             project=source["project"],
                             store=stores.get(source["project"], {}),
                             repo_root=source.get("repo_root"),
+                            client_factory=client_factory,
                         )
                 except Exception:
                     missing += 1

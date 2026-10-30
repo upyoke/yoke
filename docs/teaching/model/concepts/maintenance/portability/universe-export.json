@@ -4,8 +4,8 @@
  "status": "observed",
  "page": "maintenance",
  "position": 0,
- "note": "Candidate exports default to the machine Yoke home exports folder; an explicit output path chooses elsewhere and an unavailable destination names the repair. Serving proof is pending. A hosted fenced export pauses only the source tenant; its dump and receipt come from one snapshot. A failed or interrupted export automatically restarts the source. A completed export stays paused across restarts until an organization admin explicitly resumes it. Export completion is not destination acceptance or a storage transfer.",
- "sources": ["docs/public/start/modes.md", "packages/yoke-core/src/yoke_core/domain/universe_export_destination.py", "runtime/api/cli/test_projectless_operation_boundaries.py"],
+ "note": "Candidate exports default to the machine Yoke home exports folder; an explicit output path chooses elsewhere and an unavailable destination names the repair. Serving proof is pending. A hosted fenced export pauses only the source tenant; its dump and receipt come from one snapshot. A failed or interrupted export automatically restarts the source. A completed export stays paused across restarts until an organization admin explicitly resumes it. Export completion is not destination acceptance or a storage transfer. Artifact transfer helpers accept caller-owned store routing and an S3 client factory, allowing hosted IAM credentials without machine aws-admin settings; omitted arguments retain machine routing and region checks. This library seam does not itself enable hosted export/import.",
+ "sources": ["docs/public/start/modes.md", "packages/yoke-core/src/yoke_core/domain/universe_export_destination.py", "runtime/api/cli/test_projectless_operation_boundaries.py", "packages/yoke-core/src/yoke_core/domain/universe_artifact_transfer.py", "packages/yoke-core/src/yoke_core/domain/universe_artifact_store.py"],
  "verification": "Hosted export implementation observed; deployment proof pending. The existing Download archive control starts the hosted export. No dashboard Resume control exists yet.",
  "work_items": ["PLAT-286"]
 }

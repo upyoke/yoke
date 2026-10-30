@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from contextlib import closing, contextmanager
 from pathlib import Path
-from typing import Any, Iterator
+from typing import Any, Callable, Iterator
 
 from yoke_contracts.qa_artifact_limits import MAX_ARTIFACT_BYTES
 from yoke_core.domain import json_helper, machine_config
@@ -49,9 +49,14 @@ def _client(project: str, store: dict):
 
 @contextmanager
 def read_handle(
-    handle: dict, *, project: str, store: dict, repo_root: str | None = None
+    handle: dict,
+    *,
+    project: str,
+    store: dict,
+    repo_root: str | None = None,
+    client_factory: Callable[[str, dict], Any] | None = None,
 ) -> Iterator[Any]:
-    """Open exactly the store named by the original handle; never guess a store."""
+    """Read the original handle; injected clients own credentials and region."""
     if handle["backend"] == "local":
         path = Path(handle["path"])
         if not path.is_absolute():
@@ -61,7 +66,7 @@ def read_handle(
         with path.open("rb") as stream:
             yield stream
     else:
-        response = _client(project, store).get_object(
+        response = (client_factory or _client)(project, store).get_object(
             Bucket=handle["bucket"], Key=handle["key"]
         )
         with closing(response["Body"]) as stream:
@@ -85,7 +90,12 @@ def copy_bounded(source: Any, destination: Path) -> tuple[str, int]:
     return digest.hexdigest(), total
 
 
-def shared_sources(conn: Any, stores: dict) -> Iterator[dict]:
+def shared_sources(
+    conn: Any,
+    stores: dict,
+    *,
+    client_factory: Callable[[str, dict], Any] | None = None,
+) -> Iterator[dict]:
     """List shared-file objects, which have no database rows."""
     from yoke_core.domain.shared_file_storage import local_shared_file_root
 
@@ -94,7 +104,7 @@ def shared_sources(conn: Any, stores: dict) -> Iterator[dict]:
         if store.get("bucket"):
             prefix = (store.get("prefix") or "").strip("/")
             prefix = f"{prefix}/{root_key}" if prefix else root_key
-            client = _client(project, store)
+            client = (client_factory or _client)(project, store)
             for page in client.get_paginator("list_objects_v2").paginate(
                 Bucket=store["bucket"], Prefix=prefix
             ):
@@ -121,7 +131,13 @@ def shared_sources(conn: Any, stores: dict) -> Iterator[dict]:
 
 
 def write_file(
-    path: Path, key: str, *, project: str, store: dict, content_type: str | None = None
+    path: Path,
+    key: str,
+    *,
+    project: str,
+    store: dict,
+    content_type: str | None = None,
+    client_factory: Callable[[str, dict], Any] | None = None,
 ) -> dict:
     """Write through captured destination routing, ignoring imported settings."""
     if store.get("bucket"):
@@ -129,7 +145,7 @@ def write_file(
         destination = f"{prefix}/{key}" if prefix else key
         try:
             with path.open("rb") as stream:
-                _client(project, store).put_object(
+                (client_factory or _client)(project, store).put_object(
                     Bucket=store["bucket"],
                     Key=destination,
                     Body=stream,
@@ -182,11 +198,16 @@ def apply_destination_settings(conn: Any, stores: dict) -> None:
 
 
 def handle_size(
-    handle: dict, *, project: str, store: dict, repo_root: str | None = None
+    handle: dict,
+    *,
+    project: str,
+    store: dict,
+    repo_root: str | None = None,
+    client_factory: Callable[[str, dict], Any] | None = None,
 ) -> int:
     if handle["backend"] == "s3":
         return int(
-            _client(project, store).head_object(
+            (client_factory or _client)(project, store).head_object(
                 Bucket=handle["bucket"], Key=handle["key"]
             )["ContentLength"]
         )
