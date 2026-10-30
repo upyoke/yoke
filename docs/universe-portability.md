@@ -1,6 +1,11 @@
 # Universe portability
 
 A universe archive carries the database and its portable artifact files.
+The dump selects only the `public` schema and excludes capability-secret data.
+Environment-owned instrumentation schemas, extensions, and source-authority
+fence state stay on the source; import keeps its strict public-only catalog checks.
+This database boundary applies to local, self-hosted, and hosted exports.
+
 The portable artifact is ONE tar file, `<org-slug>-universe-<utc-timestamp>.tar`,
 carrying the following required members at its root:
 

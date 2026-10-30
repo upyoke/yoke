@@ -151,6 +151,23 @@ def test_catalog_allowlist_omits_executable_schema_and_refuses_unknown(tmp_path)
         portability._validate_catalog(secret_sequence)
 
 
+@pytest.mark.parametrize(
+    ("entry", "reason"),
+    [
+        ("SCHEMA - instrumentation owner", "outside public"),
+        ("TABLE instrumentation samples owner", "outside public"),
+        ("EXTENSION - pg_stat_statements", "EXTENSION"),
+        ("TABLE DATA public capability_secrets owner", "secret data"),
+        ("SEQUENCE SET public capability_secrets_id_seq owner", "secret sequence"),
+        ("TABLE DATA yoke_source_authority fence_state owner", "outside public"),
+    ],
+)
+def test_catalog_rejects_nonportable_entries(entry, reason):
+    catalog = f"1; 1259 1 TABLE public organizations owner\n2; 0 2 {entry}\n"
+    with pytest.raises(portability.ArchiveInvalidError, match=reason):
+        portability._validate_catalog(catalog)
+
+
 def test_catalog_reader_has_a_hard_memory_ceiling(monkeypatch):
     monkeypatch.setattr(portability, "_CATALOG_BYTES", 5)
     sink = bytearray()

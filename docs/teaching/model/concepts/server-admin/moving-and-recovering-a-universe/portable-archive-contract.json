@@ -5,6 +5,9 @@
  "audience": "Administrators",
  "page": "server-admin",
  "position": 0,
- "summary": "Local and self-host archives carry manifest-bound QA and shared-file bytes; validation checks every digest, import uses destination storage, and missing files are reported. Legacy two-member archives remain valid.",
- "sources": ["docs/public/guide/universe-portability.md", "docs/universe-portability.md"]
+ "summary": "Local and self-host archives carry manifest-bound QA and shared-file bytes; validation checks every digest, import uses destination storage, and missing files are reported. Legacy two-member archives remain valid. Every mode exports only public database objects, excluding capability-secret data, environment instrumentation, extensions and source-authority fence state; import rejects nonportable catalog entries.",
+ "sources": [
+  "docs/public/guide/universe-portability.md",
+  "docs/universe-portability.md"
+ ]
 }
