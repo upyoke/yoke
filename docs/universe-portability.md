@@ -140,7 +140,11 @@ HTTPS sources before engine access and points to dashboard Download.
 
 For a local or self-host archive, use `yoke universe upload ARCHIVE --org SLUG`
 with a destination hosted connection. Upload streams directly to signed multipart
-storage targets; finish the import on the printed dashboard page. Hosted-to-hosted
+storage targets, renewing URLs during slow transfers. The selected connection must
+belong to --org; choose it with `yoke --env DESTINATION universe upload ARCHIVE
+--org SLUG`. Upload prints a fresh signed source link and its expiry; paste it into
+Import on the printed dashboard page. Failed uploads leave the source paused
+until explicit Resume. Hosted-to-hosted
 moves paste the source's signed link into Import. An expired link requires a fresh
 export or upload; the destination accepts only configured source buckets.
 

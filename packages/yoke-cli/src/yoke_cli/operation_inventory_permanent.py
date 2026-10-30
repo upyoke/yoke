@@ -161,6 +161,7 @@ PERMANENT_ROWS: Tuple[_Row, ...] = (
     _p("yoke universe export", "universe.export", REASON_TOOL_SHAPED),
     _p("yoke universe import", "universe.import", REASON_TOOL_SHAPED),
     _p("yoke universe resume", "universe.resume", REASON_TOOL_SHAPED),
+    _p("yoke universe upload", "universe.upload.create", REASON_TOOL_SHAPED),
     _p("yoke universe validate", "local_universe.validate", REASON_TOOL_SHAPED),
     # Self-host mode: bundle materialization writes compose files on the
     # caller's machine; connect verifies a server then writes machine

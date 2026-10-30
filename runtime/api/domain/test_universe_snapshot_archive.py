@@ -102,7 +102,7 @@ def test_archive_receipt_matches_hosted_admission_fixture(
             assert_hosted_receipt(intent)
 
 
-def test_manifest_receipt_exposes_current_hosted_consumer_gap(monkeypatch, tmp_path):
+def test_manifest_receipt_passes_hosted_admission(monkeypatch, tmp_path):
     from types import SimpleNamespace
     from runtime.api.fixtures.hosted_freeze_receipt import assert_hosted_receipt
 
@@ -118,11 +118,10 @@ def test_manifest_receipt_exposes_current_hosted_consumer_gap(monkeypatch, tmp_p
     )
     assert receipt["freeze_intent"]["zero_writable_app_sessions"] is True
     assert receipt["freeze_intent"]["archive"]["artifacts_manifest_sha256"]
-    with pytest.raises(ValueError, match="source freeze intent is invalid"):
-        assert_hosted_receipt(
-            SimpleNamespace(
-                source_freeze_receipt=receipt["freeze_intent"],
-                archive_sha256=report["sha256"],
-                environment_capability_types={"aws-admin", "github"},
-            )
+    assert_hosted_receipt(
+        SimpleNamespace(
+            source_freeze_receipt=receipt["freeze_intent"],
+            archive_sha256=report["sha256"],
+            environment_capability_types={"aws-admin", "github"},
         )
+    )

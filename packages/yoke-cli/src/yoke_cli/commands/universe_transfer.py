@@ -10,6 +10,7 @@ from yoke_cli.config import local_universe_setup as setup, onboard_destinations
 from yoke_cli.api_urls import join_api_url
 from yoke_cli.transport.https import TransportError, resolve_https_connection
 from yoke_cli.transport.https_urlopen import open_no_redirect
+from yoke_cli.commands.universe_upload import UPLOAD_USAGE, universe_upload
 
 RESUME_USAGE = "yoke universe resume [--json]"
 
@@ -63,5 +64,11 @@ def universe_resume(args):
     return 0
 
 
-TOOL_SHAPED_SUBCOMMANDS = {("universe", "resume"): universe_resume}
-TOOL_SHAPED_USAGE = {"yoke universe resume": RESUME_USAGE}
+TOOL_SHAPED_SUBCOMMANDS = {
+    ("universe", "resume"): universe_resume,
+    ("universe", "upload"): universe_upload,
+}
+TOOL_SHAPED_USAGE = {
+    "yoke universe resume": RESUME_USAGE,
+    "yoke universe upload": UPLOAD_USAGE,
+}

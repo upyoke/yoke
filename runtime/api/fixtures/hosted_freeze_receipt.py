@@ -1,7 +1,6 @@
 """Hosted source-freeze receipt admission fixture copied from Platform.
 
 Keep the consumer's data checks explicit, including its archive-key boundary.
-The artifact manifest contract is checked separately until the consumer lands it.
 """
 
 import hashlib
@@ -69,7 +68,12 @@ def assert_hosted_receipt(intent):
         # Cross-authority migrations legitimately map those separate identities.
         or not str(database.get("org", "")).strip()
         or not isinstance(archive, dict)
-        or set(archive) != {"sha256", "bytes", "catalog_digest"}
+        or set(archive) - {"artifacts_manifest_sha256"}
+        != {"sha256", "bytes", "catalog_digest"}
+        or (
+            "artifacts_manifest_sha256" in archive
+            and not _SHA256.fullmatch(str(archive["artifacts_manifest_sha256"]))
+        )
         or archive.get("sha256") != intent.archive_sha256
         or archive_bytes <= 0
         or not _SHA256.fullmatch(str(archive.get("catalog_digest", "")))
