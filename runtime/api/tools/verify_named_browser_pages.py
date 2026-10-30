@@ -106,7 +106,10 @@ def main() -> None:
                     ),
                     flush=True,
                 )
-                if not json.loads(output).get("success"):
+                response = json.loads(output)
+                if not response.get("success") or not response.get("data", {}).get(
+                    "success"
+                ):
                     raise RuntimeError(
                         "named_page_state_lost: inspect the recorded step JSON, "
                         "repair page selection or retention, and rerun."
