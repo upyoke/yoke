@@ -136,6 +136,18 @@ def test_paused_server_refuses_mutation_and_allows_explicit_resume(
         assert refused.json()["error"]["code"] == "universe_source_paused"
         assert "universe resume" in refused.json()["error"]["message"]
         assert writes == []
+        from concurrent.futures import ThreadPoolExecutor
+
+        with (
+            universe_source_pause.operation(dsn),
+            ThreadPoolExecutor(max_workers=1) as competing,
+        ):
+            busy = competing.submit(client.post, "/v1/universe/resume").result(
+                timeout=5
+            )
+            assert busy.status_code == 409
+            assert busy.json()["error"]["code"] == "universe_source_busy"
+            assert marker.exists()
         assert client.post("/v1/universe/resume").json() == {"resumed": True}
         assert client.post("/v1/items").json() == {"ok": True}
         assert writes == ["mutated"]
