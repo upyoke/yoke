@@ -46,6 +46,23 @@ test("a real org-scoped card labels its scope instead of omitting it", () => {
   assert.equal(byClass(card, "session-scope")[0]?.textContent, "Outside any project");
 });
 
+test("search blur preserves the rendered link after its input already filtered", async () => {
+  const { context, main } = setup(() => ok({ rows: [projectRow] }));
+  renderSessionsView(context, main, "all");
+  await settle();
+  const search = byClass(main, "session-filter-control")[0];
+  search.value = projectRow.session_id;
+  search.dispatchEvent(new Event("input"));
+  const link = byClass(main, "session-executor")[0];
+  assert.equal(link.tagName, "A");
+  assert.deepEqual(cardIds(main), [projectRow.session_id]);
+  search.dispatchEvent(new Event("change"));
+  assert.equal(byClass(main, "session-executor")[0], link,
+    "blur must keep the clicked anchor mounted through mouseup");
+  change(search, "another-session");
+  assert.deepEqual(cardIds(main), []);
+});
+
 test("the project facet offers outside-project sessions separately", () => {
   const filters = sessionRosterFilters(new FakeDocument(), () => {});
   filters.setFacets({ projects: [{ id: 1, slug: "yoke" }] });
