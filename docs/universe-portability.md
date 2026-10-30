@@ -90,7 +90,11 @@ self-host import addresses an explicitly selected Compose bundle.
 Prune unwanted records and artifacts, then estimate before pausing a source.
 Hosted sources use **Download** on the dashboard's **Move universe** page.
 Hosted size preflight enforces the 10 GiB cap before pausing; the signed link
-expires after one hour. Import pulls an allowlisted signed link server-to-server,
+expires after one hour. **Prepare archive** shows polled named phases with
+elapsed seconds and bytes; the result offers **Download archive**, **Copy link**,
+and an absolute expiry. **Resume source** restores writers explicitly. Import
+shows fetching, verification, destination checks and replacement before receipt
+status; refusals and recovery remain in the active dialog. Import pulls an allowlisted signed link server-to-server,
 so archive bytes do not pass through a browser upload.
 
 Local and self-host sources use:

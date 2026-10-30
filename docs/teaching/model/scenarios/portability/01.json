@@ -1,15 +1,15 @@
 {
  "id": "01",
  "title": "Choose the mode-specific export route",
- "status": "draft-copy",
+ "status": "observed",
  "audience": "both",
  "when": "Before moving or deleting the universe containing strategy and work",
- "need": "Export is a self-contained universe archive. Local, self-host HTTPS and hosted coordinated download have distinct authority paths. Use the active mode; do not obtain a remote DSN as a shortcut. Hosted Download archive starts a fenced export that pauses only the source tenant and produces the dump and receipt from one snapshot. A failed or interrupted export automatically restarts the source; a completed export stays paused across restarts until an organization admin explicitly resumes it. No dashboard Resume control exists yet. Export completion does not establish destination acceptance or a storage transfer.",
+ "need": "Use the source mode: local and self-host sources export with --pause-source and stay paused until universe resume; ordinary backups are not hosted move receipts. Hosted Prepare archive pauses its source and binds the dump and receipt to one snapshot. Polled named phases show access checks, source pause, drain, database export, packing, upload, then ready and paused, with elapsed seconds and bytes. Download archive and Copy link share the signed result with an absolute expiry; Resume source is available while paused. Hosted Import fetches and verifies the signed source, checks the destination, replaces its universe, then shows receipt status. Refusals and recovery stay in the active dialog; an interrupted import response recovers its durable operation rather than inviting a duplicate submit. No remote database credentials are needed as a shortcut.",
  "disclosure": "current cue",
- "surface": "Universe settings documentation; uninstall backup choice; universe export help routes by mode.",
- "review": "Pending exact recipe proof.",
- "recipes": ["yoke universe export --help", "yoke status"],
+ "surface": "Move universe export and Import dialogs; universe export and resume help; portability reference.",
+ "review": "Observed in merged Platform revision fafa745170b5f0838f19e886d13655fd3ebfbce0; source behavior is covered by focused CI, with live move acceptance still owed.",
+ "recipes": ["yoke universe export --help", "yoke universe resume --help", "yoke status"],
  "plan_notes": ["FIRST-USER item 9", "FIRST-USER P6"],
- "sources": ["docs/public/projects/actors-members-billing.md", "docs/public/start/install.md", "packages/yoke-cli/src/yoke_cli/commands/local_universe.py", "packages/yoke-core/src/yoke_core/domain/universe_export.py"],
+ "sources": ["docs/public/projects/actors-members-billing.md", "docs/public/start/install.md", "packages/yoke-cli/src/yoke_cli/commands/local_universe.py", "packages/yoke-core/src/yoke_core/domain/universe_export.py", "docs/universe-portability.md"],
  "position": 0
 }
