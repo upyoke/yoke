@@ -151,3 +151,16 @@ def test_resume_requires_org_admin(monkeypatch):
     monkeypatch.setattr(route, "require_control_plane_permission", deny)
     response = route.resume_self_host_universe(_request())
     assert response.status_code == 403
+
+
+def test_paused_export_refuses_ephemeral_server_state(monkeypatch):
+    monkeypatch.setenv(SERVER_MODE_ENV, SERVER_MODE_SELF_HOST)
+    monkeypatch.delenv("YOKE_MACHINE_HOME", raising=False)
+    monkeypatch.setattr(route.db_helpers, "connect", _Connection)
+    monkeypatch.setattr(
+        route, "require_control_plane_permission", lambda *_a, **_k: None
+    )
+    response = route.download_self_host_universe(_request(), pause_source=True)
+    assert response.status_code == 409
+    assert b"universe_pause_storage_unavailable" in response.body
+    assert b"protect-existing" in response.body

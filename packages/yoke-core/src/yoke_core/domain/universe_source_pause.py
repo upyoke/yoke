@@ -168,11 +168,21 @@ def resume(dsn: str) -> dict:
     )
 
     with operation(dsn):
-        with pause_owner(), db_backend.connect_psycopg(dsn) as conn:
-            conn.execute("SELECT 1")
-        marker = _marker(dsn)
-        services = json.loads(marker.read_text()) if marker.exists() else {}
-        universe_source_services.start(services)
-        marker.unlink(missing_ok=True)
-        postgres_connection_reuse.close_idle_connections()
-        return {"resumed": True}
+        try:
+            with pause_owner(), db_backend.connect_psycopg(dsn) as conn:
+                conn.execute("SELECT 1")
+            marker = _marker(dsn)
+            services = json.loads(marker.read_text()) if marker.exists() else {}
+            universe_source_services.start(services)
+            marker.unlink(missing_ok=True)
+            postgres_connection_reuse.close_idle_connections()
+            return {"resumed": True}
+        except UniversePausedError:
+            raise
+        except Exception as exc:
+            raise UniversePausedError(
+                compose_refusal(
+                    "universe_resume_failed: the source could not resume; its pause remains in effect",
+                    recovery="check database availability, the source relay and pause-marker permissions, then retry `yoke universe resume`",
+                )
+            ) from exc

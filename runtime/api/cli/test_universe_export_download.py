@@ -132,3 +132,34 @@ def test_estimate_from_older_server_teaches_upgrade(tmp_path, monkeypatch):
             connection, estimate=True, out=str(tmp_path / "archive.tar")
         )
     assert list(tmp_path.iterdir()) == []
+
+
+def test_paused_download_requires_server_confirmation(tmp_path, monkeypatch):
+    import pytest
+
+    connection = HttpsConnection("https://yoke.example.test", "token")
+    url = connection.api_url + "/v1/universe/export?pause_source=true"
+    monkeypatch.setattr(download, "_engine_limits", lambda: (30.0, 1024))
+    for confirmation in (None, "false", "true"):
+        headers = {"content-type": "application/x-tar", "content-length": "7"}
+        if confirmation is not None:
+            headers["x-yoke-universe-writers-stopped"] = confirmation
+        response = _Response(b"archive", url, headers)
+        monkeypatch.setattr(
+            download, "open_bounded_request", lambda *_a, **_k: response
+        )
+        destination = tmp_path / "archive.tar"
+        if confirmation == "true":
+            result = download.download_universe(
+                connection, pause_source=True, out=str(destination)
+            )
+            assert Path(result["artifact"]).read_bytes() == b"archive"
+        else:
+            with pytest.raises(
+                download.UniverseExportDownloadError,
+                match="universe_pause_unavailable.*upgrade",
+            ):
+                download.download_universe(
+                    connection, pause_source=True, out=str(destination)
+                )
+            assert not destination.exists()

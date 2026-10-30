@@ -120,6 +120,7 @@ def snapshot_archive(
             ),
         },
         "receipt_id": str(receipt["freeze_intent"]["receipt_id"]),
+        "writers_stopped": writers_stopped,
     }
 
 

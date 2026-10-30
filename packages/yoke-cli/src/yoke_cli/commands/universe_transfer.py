@@ -28,9 +28,11 @@ def universe_resume(args):
         if connection is None:
             report = setup.universe_resume()
         elif onboard_destinations.is_hosted_url(connection.api_url):
-            raise RuntimeError(
-                "universe_resume_dashboard_required: use Resume source on the dashboard's Move universe page"
+            print(
+                "error: universe_resume_dashboard_required: use Resume source on the dashboard's Move universe page",
+                file=sys.stderr,
             )
+            return 1
         else:
             request = urllib.request.Request(
                 join_api_url(connection.api_url, "/v1/universe/resume"),
@@ -44,6 +46,9 @@ def universe_resume(args):
                 raise RuntimeError(
                     "universe_resume_unconfirmed: check source health and retry `yoke universe resume`"
                 )
+    except setup.LocalUniverseSetupError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
     except (RuntimeError, TransportError, OSError, ValueError):
         print(
             "error: universe_resume_failed: check source connection, org admin permission and pause-marker permissions, then retry `yoke universe resume`",

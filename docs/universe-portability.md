@@ -105,7 +105,10 @@ The pause stops the selected local source's installed relay, blocks new Yoke
 database writers, terminates other database client sessions,
 and waits for zero before exporting. It remains in effect after success or failure.
 The self-host bundle persists its machine home, pause marker and local artifacts
-on the corestate volume across container replacement. Self-host request admission
+on the corestate volume across container replacement. An older bundle without
+an explicit persistent machine home refuses paused export and names its refresh
+command. Clients also refuse a paused export when the server cannot confirm
+stopped writers. Self-host request admission
 refuses work while paused; local database acquisition
 refuses connections to that source. Run `yoke universe resume` against that same
 source when it may write again. A pause-marker or drain failure refuses the move

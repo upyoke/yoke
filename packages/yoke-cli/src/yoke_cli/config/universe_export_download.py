@@ -95,6 +95,15 @@ def download_universe(
                 raise UniverseExportDownloadError(
                     "the self-host export response was not a universe tar archive"
                 )
+            if (
+                pause_source
+                and response.headers.get("x-yoke-universe-writers-stopped") != "true"
+            ):
+                raise UniverseExportDownloadError(
+                    "universe_pause_unavailable: the server did not confirm stopped writers; "
+                    "upgrade the self-host server and refresh its persistent machine-home "
+                    "configuration, then retry `yoke universe export --pause-source`"
+                )
             declared = _content_length(response.headers.get("content-length"))
             if declared is not None and declared > max_bytes:
                 raise UniverseExportDownloadError(

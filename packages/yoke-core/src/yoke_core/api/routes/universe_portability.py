@@ -49,6 +49,12 @@ def download_self_host_universe(
         except PermissionDenied as exc:
             return _error(403, "permission_denied", str(exc))
 
+    if pause_source and not os.environ.get("YOKE_MACHINE_HOME", "").strip():
+        return _error(
+            409,
+            "universe_pause_storage_unavailable",
+            "Configure a persistent YOKE_MACHINE_HOME on the server; for the self-host bundle, update the CLI and run `yoke self-host init --protect-existing --start` before retrying.",
+        )
     if estimate and pause_source:
         return _error(
             400,
@@ -115,6 +121,9 @@ def download_self_host_universe(
             "X-Content-Type-Options": "nosniff",
             "X-Yoke-Universe-Format": str(report.get("format") or "universe-tar"),
             "X-Yoke-Universe-Org": str(report.get("org") or ""),
+            "X-Yoke-Universe-Writers-Stopped": str(
+                report.get("writers_stopped") is True
+            ).lower(),
             "X-Yoke-Universe-SHA256": str(report.get("sha256") or ""),
         },
         background=BackgroundTask(shutil.rmtree, directory, ignore_errors=True),

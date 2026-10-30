@@ -46,6 +46,8 @@ See [Operations and troubleshooting](operations.md) for Doctor, logs, and connec
 
 ## Backup and recovery
 
+The bundle keeps database data in its `pgdata` volume and server machine state, pause markers, and locally stored artifacts in `corestate`. Preserve both volumes across container replacement. After updating an older bundle, run `yoke self-host init --protect-existing --start` with the updated CLI before exporting a paused move.
+
 Keep portable Universe backups outside the server's own storage and validate them before relying on them. Import replaces the selected destination, so verify the target and preserve any data you need first.
 
 A Universe backup does not replace backups of repositories, application databases, or external artifact storage. See [Universe portability, backup, and restore](universe-portability.md).
