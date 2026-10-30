@@ -70,7 +70,7 @@ export const NAV = [
     group: GROUP_FOCUS,
   },
   {
-    id: "sessions", label: "Sessions", scope: SCOPE_MULTI,
+    id: "sessions", label: "Sessions", scope: SCOPE_MULTI, projectOptional: true,
     group: GROUP_FOCUS,
   },
   {

@@ -9,12 +9,22 @@ import {
   restoreHoldingsDisclosureFocus,
 } from "./universe_sessions_holdings_disclosure.js";
 import { sessionCard } from "./universe_views_sessions.js";
+import { buildUniverseRoute } from "./universe_navigation.js";
 import {
   el,
   mergedRows,
   scopeBuckets,
   settledScopedCalls,
 } from "./universe_view_support.js";
+
+export function sessionCardLink(documentNode, row, label) {
+  const link = el(documentNode, "a", "session-executor row-link", label);
+  link.href = buildUniverseRoute(
+    "sessions", row.project_id == null ? null : String(row.project_id),
+    String(row.session_id),
+  );
+  return link;
+}
 
 export function sessionScopeLabel(row) {
   if (row.project_id == null && (row.org_id != null || row.scope_kind === "org")) {
@@ -41,7 +51,8 @@ export function renderRegisteredSessionDetail(
   main.replaceChildren(view);
 
   const load = async () => {
-    const calls = scopeBuckets(scope, context.projects(), false).map((project) => ({
+    const buckets = scope === null ? [null] : scopeBuckets(scope, context.projects(), false);
+    const calls = buckets.map((project) => ({
       functionId: "sessions.list",
       payload: {
         session_id: sessionId, detail: "full",
