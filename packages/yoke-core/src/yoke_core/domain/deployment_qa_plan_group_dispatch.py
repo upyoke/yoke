@@ -5,8 +5,7 @@ run-scoped subject. Dispatch launches nothing. Held groups also notify every
 owing item's holder, falling back to project steering. Pending groups reach
 the run's live driver, else its starting session, else the steering seat,
 in one notice per set of pending groups; a
-failed group sends one notice naming its report and its items, and that
-session decides who fixes what.
+failed group notifies each owing holder and reports that routing to the driver.
 """
 
 from __future__ import annotations
@@ -15,6 +14,7 @@ import hashlib
 from collections.abc import Mapping
 from typing import Any
 
+from yoke_core.domain.deployment_qa_plan_group_failure import group_failed
 from yoke_core.domain.deployment_qa_plan_groups import (
     PlanGroup,
     owing_members,
@@ -23,8 +23,6 @@ from yoke_core.domain.deployment_qa_plan_groups import (
 
 PLAN_GROUPS_WAIT_PREFIX = "deployment-qa-stage-wait:"
 PLAN_GROUP_FAILURE_PREFIX = "deployment-qa-plan-group-failure:"
-#: A group that failed or whose acceptance was rejected: its failure notice.
-FAILED_OUTCOMES = frozenset({"blocked", "rejected"})
 
 
 def plan_group_writer(conn: Any, stage: Mapping, *, run_id: str):
@@ -88,7 +86,7 @@ def gate_plan_groups(
         waiting.extend(f"{label}: {reason}" for reason in reasons)
         if project_id is None:
             continue
-        if status.get("outcome") in FAILED_OUTCOMES:
+        if group_failed(conn, group, status):
             notify_plan_group_failure(
                 conn, run_id=run_id, stage_name=stage_name, group=group,
                 project_id=project_id, reasons=reasons, item_refs=item_refs,
@@ -190,7 +188,8 @@ def notify_plan_groups_wait(
 
 
 def _notify_group_holders(
-    conn, *, run_id, stage_name, group, members, project_id, item_refs, recovery
+    conn, *, run_id, stage_name, group, members, project_id, item_refs, recovery,
+    failure_report="", report_digest=""
 ) -> None:
     from yoke_contracts.timestamps import parse_instant, utc_now
     from yoke_core.domain.deployment_run_recovery_command import qualify_commands
@@ -204,26 +203,33 @@ def _notify_group_holders(
     case_labels = ", ".join(f"requirement #{row[0]} (case {row[1]})" for row in cases)
     plan = _plan_label(conn, group.plan_id)
     now = parse_instant(utc_now())
+    projects = dict(conn.execute(
+        "SELECT id,project_id FROM items WHERE id=ANY(%s)", (list(members),)
+    ).fetchall())
     for member in members:
         ref = item_refs(member)
-        body = qualify_commands(
-            f"Deployment run {run_id} stage {stage_name!r} is waiting on plan "
-            f"{plan} (group {group.group_id}) owed by "
-            f"{ref}: {case_labels}. Review or manual evidence is pending. "
+        detail = (
+            f"Failed: {failure_report}. Retry the failed cases: `{recovery}`. "
+            if failure_report else
+            "Review or manual evidence is pending. "
             f"Inspect and complete the plan's pending cases: `{recovery}`. "
             "If evidence cannot be produced, ask the operator through "
             "`yoke say --steering` to waive or remove the case, naming the run "
             "and requirement."
         )
+        body = qualify_commands(
+            f"Deployment run {run_id} stage {stage_name!r} is waiting on plan "
+            f"{plan} (group {group.group_id}) owed by {ref}: {case_labels}. {detail}"
+        )
         delivery = push_notice(
-            conn, item_id=member, project_id=project_id,
+            conn, item_id=member, project_id=int(projects[member]),
             body_for_route=lambda route: (
                 f"Reaching {ref}'s "
                 + ("claim holder. " if route == HOLDER else
                    "project steering seat (its claim holder is gone). ") + body
             ),
             idempotency_key=stage_wait_idempotency_key(
-                run_id, stage_name, member, f"plan-group-{group.group_id}"
+                run_id, stage_name, member, f"plan-group-{group.group_id}" + (f"-failure-{report_digest}" if report_digest else "")
             ),
             now=now,
         )
@@ -239,13 +245,20 @@ def notify_plan_group_failure(
     conn, *, run_id, stage_name, group, project_id, reasons, item_refs
 ) -> None:
     """One notice per failed verdict set of a group; never a member release."""
-    lines = _group_lines(conn, run_id, stage_name, [group], item_refs)
-    report = "; ".join(reasons) or "see the stage report"
+    members = owing_members(conn, run_id, group.plan_id)
+    lines = _group_lines(conn, run_id, stage_name, [group], item_refs,
+                         {group.group_id: members})
+    report = "; ".join(reasons) or "aborted attempt recorded no case result"
     digest = hashlib.sha256(report.encode()).hexdigest()[:16]
+    _notify_group_holders(
+        conn, run_id=run_id, stage_name=stage_name, group=group, members=members,
+        project_id=project_id, item_refs=item_refs, recovery=lines[0].strip(),
+        failure_report=report, report_digest=digest,
+    )
+    routed = ", ".join(f"routed to {item_refs(member)} holder" for member in members)
     body = (
         f"Plan group {group.group_id} failed in deployment run {run_id} stage "
-        f"{stage_name!r}: {report}. Its items are listed below. Decide who fixes "
-        "what; a finding in one item is that item's to fix. A retry reruns only "
+        f"{stage_name!r}: {report}; {routed}. A retry reruns only "
         "the failed cases:\n" + "\n".join(lines)
     )
     _deliver(

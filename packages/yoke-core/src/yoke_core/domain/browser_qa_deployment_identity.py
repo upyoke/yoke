@@ -28,6 +28,8 @@ deployment is serving is only ever a present-tense reading.
 
 from __future__ import annotations
 
+from yoke_core.domain.qa_activity_selection import project_of_requirement
+
 from dataclasses import dataclass
 from typing import Any, Callable, Mapping, Optional
 
@@ -169,12 +171,14 @@ def resolve_run_pinned_source(
 
     marker = _p(conn)
     row = conn.execute(
-        "SELECT COALESCE(i.project_id, dr.project_id) AS project_id, "
+        f"SELECT {project_of_requirement(member='m', plan='qp', item='i', run='dr')} AS project_id, "
         "r.execution_target_json,r.execution_target_digest "
         "FROM deployment_runs dr "
         "LEFT JOIN qa_requirements r "
         f"ON r.deployment_run_id = dr.id AND r.id = {marker} "
-        "LEFT JOIN items i ON i.id = r.deployment_member_item_id "
+        "LEFT JOIN items m ON m.id=r.deployment_member_item_id "
+        "LEFT JOIN items i ON i.id=COALESCE(r.item_id,r.epic_id) "
+        "LEFT JOIN qa_plans qp ON qp.id=r.plan_id "
         f"WHERE dr.id = {marker}",
         (int(requirement_id), str(run_id)),
     ).fetchone()

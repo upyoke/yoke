@@ -212,16 +212,18 @@ def member_post_deploy_answer(
     member_item_id = subject.get("member_item_id")
     if member_item_id is None:
         return PostDeployAnswer(UNANSWERED)
-    from yoke_core.domain.deployment_qa_member_plans import member_plan_ids
+    from yoke_core.domain.deployment_qa_member_plans import member_plan_disposition
 
-    # Plan groups answer only a member with no item cases of its own; a
-    # member with its own cases is answered by walking them.
-    if not _own_snapshot_cases(subject) and member_plan_ids(
-        conn, int(member_item_id), str(subject["id"])
-    ):
-        return PostDeployAnswer(
-            PLAN_GROUPS, ("its post-deploy plans run once for the release as plan groups",)
-        )
+    if not _own_snapshot_cases(subject):
+        owed, attached = member_plan_disposition(conn, int(member_item_id), str(subject["id"]))
+        if owed:
+            return PostDeployAnswer(
+                PLAN_GROUPS, ("its post-deploy plans run once for the release as plan groups",)
+            )
+        if attached:
+            return PostDeployAnswer(
+                NOT_REQUIRED, ("its post-deploy plans target another environment",)
+            )
     answer = answer_for_item(conn, int(member_item_id))
     if answer.unanswered:
         from yoke_core.domain.carried_member_qa_obligation import (

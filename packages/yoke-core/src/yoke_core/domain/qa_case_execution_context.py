@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import json
+from yoke_core.domain.qa_activity_selection import project_of_requirement
+
 from typing import Any
 
 from yoke_contracts.qa_case_starting_state import needs_test_machine
@@ -25,7 +27,6 @@ from yoke_contracts.machine_config.capability_secrets import (
 from yoke_contracts.machine_config.test_machine import (
     is_test_machine_capability_type,
 )
-
 
 class QaCaseExecutionError(ValueError):
     """A requirement cannot be executed through the shared case runner."""
@@ -99,12 +100,12 @@ def get_case_execution_context(
         "mp.public_item_prefix AS member_prefix, "
         "m.project_sequence AS member_sequence "
         "FROM qa_requirements q "
-        "LEFT JOIN items i ON i.id=q.item_id "
+        "LEFT JOIN items i ON i.id=COALESCE(q.item_id,q.epic_id) "
         "LEFT JOIN deployment_runs dr ON dr.id=q.deployment_run_id "
         "LEFT JOIN qa_plans qp ON qp.id=q.plan_id "
         "LEFT JOIN items m ON m.id=q.deployment_member_item_id "
         "LEFT JOIN projects mp ON mp.id=m.project_id "
-        "JOIN projects p ON p.id=COALESCE(m.project_id,i.project_id,dr.project_id,qp.project_id) "
+        f"JOIN projects p ON p.id={project_of_requirement(member='m', plan='qp', item='i', run='dr')} "
         f"WHERE q.id={marker}" + ("" if include_waived else " AND q.waived_at IS NULL"),
         (int(requirement_id),),
     )

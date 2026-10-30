@@ -143,7 +143,15 @@ def _owed(
     return owed
 
 
-def _runs_owed_plans(conn: Any, runs: tuple[str, ...]) -> dict[str, dict[int, set[int]]]:
+def _plan_facts(conn, items, target, rows, memo):
+    attached = {item: set() for item in items}
+    for row, _ in rows:
+        if int(row["item_id"]) in attached:
+            attached[int(row["item_id"])].add(int(row["plan_id"]))
+    return {"owed": _owed(conn, items, target, rows, memo), "attached": attached}
+
+
+def _runs_plan_facts(conn: Any, runs: tuple[str, ...]) -> dict:
     """Every presented run's members' owed plans, one set read per fact."""
     members: dict[str, list[int]] = {str(run): [] for run in runs}
     for row in query_rows(
@@ -157,12 +165,12 @@ def _runs_owed_plans(conn: Any, runs: tuple[str, ...]) -> dict[str, dict[int, se
     targets = _run_targets(conn, members) if items else {}
     memo: dict = {}
     return {
-        run: _owed(conn, found, targets.get(run, _NO_TARGET), rows, memo)
+        run: _plan_facts(conn, found, targets.get(run, _NO_TARGET), rows, memo)
         for run, found in members.items()
     }
 
 
-def run_owed_plans(conn: Any, run_id: str) -> dict[int, set[int]]:
+def _run_plan_facts(conn: Any, run_id: str) -> dict:
     """Every current member's owed plans, read once per presentation.
 
     Inside a presentation of several runs, every presented run is read at once.
@@ -173,16 +181,34 @@ def run_owed_plans(conn: Any, run_id: str) -> dict[int, set[int]]:
     runs = presented_run_ids(conn, str(run_id))
     if runs:
         return presentation_read(
-            conn, ("runs_owed_plans", runs), lambda: _runs_owed_plans(conn, runs)
+            conn, ("runs_plan_facts", runs), lambda: _runs_plan_facts(conn, runs)
         )[str(run_id)]
 
     def read():
         rows = query_rows(
             conn, "SELECT item_id FROM deployment_run_items WHERE run_id=%s", (str(run_id),)
         )
-        return members_plan_ids(conn, (int(row["item_id"]) for row in rows), run_id)
+        items = [int(row["item_id"]) for row in rows]
+        return _plan_facts(conn, items, _run_targets(conn, [run_id]).get(str(run_id), _NO_TARGET),
+                           _plan_rows(conn, items) if items else [], {})
 
-    return presentation_read(conn, ("run_owed_plans", str(run_id)), read)
+    return presentation_read(conn, ("run_plan_facts", str(run_id)), read)
+
+
+def run_owed_plans(conn: Any, run_id: str) -> dict[int, set[int]]:
+    """Each member's owed plans, sharing the same read as all-environment facts."""
+    return _run_plan_facts(conn, run_id)["owed"]
+
+
+def member_plan_disposition(conn: Any, item_id: int, run_id: str) -> tuple[set[int], bool]:
+    """Plans owed here and whether any live attached/default plan exists anywhere."""
+    facts = _run_plan_facts(conn, run_id)
+    if int(item_id) not in facts["owed"]:
+        facts = _plan_facts(
+            conn, [int(item_id)], _run_targets(conn, [run_id]).get(str(run_id), _NO_TARGET),
+            _plan_rows(conn, [int(item_id)]), {},
+        )
+    return facts["owed"][int(item_id)], bool(facts["attached"][int(item_id)])
 
 
 def member_plan_ids(conn: Any, item_id: int, run_id: str) -> set[int]:
