@@ -108,9 +108,12 @@ EXECUTABLE_REQUIREMENT = (
 #: inherits its plan's project, and a planless row takes its item or run.
 #: projects join stays inner, so a row whose project cannot be resolved this
 #: way is readable by nobody rather than by every tenant.
-PROJECT_OF_REQUIREMENT = (
-    "COALESCE(mi.project_id, p.project_id, si.project_id, dr.project_id)"
-)
+def project_of_requirement(*, member="mi", plan="p", item="si", run="dr") -> str:
+    """SQL project precedence shared by requirement execution and evidence reads."""
+    return f"COALESCE({member}.project_id,{plan}.project_id,{item}.project_id,{run}.project_id)"
+
+
+PROJECT_OF_REQUIREMENT = project_of_requirement()
 
 #: What a project-scoped read filters on. It is the resolved project above,
 #: read off the joined row, so plan-backed and planless rows are scoped by

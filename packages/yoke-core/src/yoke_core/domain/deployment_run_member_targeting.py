@@ -99,9 +99,13 @@ def targeted_requirement_ids(conn: Any, *, run_id: str, item_id: int) -> frozens
 
 def needed_member_ids(conn: Any, *, run_id: str, item_ids) -> frozenset[int]:
     ids = tuple(dict.fromkeys(int(value) for value in item_ids))
+    from yoke_core.domain.deployment_qa_member_plans import members_plan_ids
+
     supplemental, targeted = run_member_targets(conn, run_id=run_id, item_ids=ids)
+    plans = members_plan_ids(conn, ids, run_id) if supplemental else {}
     return frozenset(
-        item_id for item_id in ids if item_id not in supplemental or targeted[item_id]
+        item_id for item_id in ids
+        if item_id not in supplemental or targeted[item_id] or plans.get(item_id)
     )
 
 

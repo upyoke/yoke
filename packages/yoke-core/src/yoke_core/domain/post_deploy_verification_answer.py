@@ -222,6 +222,13 @@ def member_post_deploy_answer(
         return PostDeployAnswer(
             PLAN_GROUPS, ("its post-deploy plans run once for the release as plan groups",)
         )
+    if not _own_snapshot_cases(subject):
+        from yoke_core.domain.deployment_qa_plan_credit import _owed_plans
+
+        if _owed_plans(conn, int(member_item_id)):
+            return PostDeployAnswer(
+                NOT_REQUIRED, ("its post-deploy plans target another environment",)
+            )
     answer = answer_for_item(conn, int(member_item_id))
     if answer.unanswered:
         from yoke_core.domain.carried_member_qa_obligation import (

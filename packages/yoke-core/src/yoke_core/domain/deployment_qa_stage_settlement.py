@@ -94,9 +94,9 @@ SETTLED_OUTCOMES = frozenset({"passed", "discharged", "rejected", "blocked"})
 
 
 def settle_plan_group(conn: Any, subject: Mapping[str, Any]) -> dict[str, Any]:
-    """Settle one plan group; a failure tells the run's session, never a member."""
+    """Settle one group; route failures to its owing holders and run driver."""
     from yoke_core.domain.deployment_qa_plan_group_dispatch import (
-        FAILED_OUTCOMES,
+        group_failed,
         notify_plan_group_failure,
         settle_group,
     )
@@ -105,15 +105,14 @@ def settle_plan_group(conn: Any, subject: Mapping[str, Any]) -> dict[str, Any]:
     run_id, stage = str(subject["id"]), str(subject["stage"]["name"])
     status = settle_group(conn, subject)
     outcome = str(status.get("outcome") or "")
-    if outcome in FAILED_OUTCOMES:
-        group = group_for_target(conn, run_id, subject["shared_target"])
-        if group is not None:
-            notify_plan_group_failure(
-                conn, run_id=run_id, stage_name=stage, group=group,
-                project_id=int(status_project_id(conn, run_id)),
-                reasons=list(status.get("reasons") or ()),
-                item_refs=lambda member: render_item_ref(conn, member),
-            )
+    group = group_for_target(conn, run_id, subject["shared_target"])
+    if group is not None and group_failed(conn, group, status):
+        notify_plan_group_failure(
+            conn, run_id=run_id, stage_name=stage, group=group,
+            project_id=int(status_project_id(conn, run_id)),
+            reasons=list(status.get("reasons") or ()),
+            item_refs=lambda member: render_item_ref(conn, member),
+        )
         return status
     if outcome not in SETTLED_OUTCOMES:
         return status

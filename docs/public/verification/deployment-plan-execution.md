@@ -28,45 +28,40 @@ cross-build observations and exact-execution recovery.
 
 ## Plan groups
 
-When `item-qa` dispatches, each attached plan (a live attachment or project
-default, unretired, for the run's environment) that a member still owes gets
-one plan group: memberless run rows, one per case and required baseline, at any
-number of attaching items. Its target records
-`deployment.shared_plan = {plan_id, source_revision, group_id}`; `group_id` is
-set once and never changes. The deployed candidate must contain the plan's
-source revision, and cases are filtered to the target. The run pins each plan
-at its first group, so plan edits during a release wait for the next release.
-A run holds at most one open group per plan.
+At `item-qa`, each unretired attached or default plan owed at this environment
+gets one plan group: memberless run rows per case and baseline, shared by all
+attaching items. Its immutable target records
+`deployment.shared_plan = {plan_id, source_revision, group_id}`. The candidate
+must contain the plan's source revision. Cases filter to the target, and the
+first group pins the plan; edits wait for the next release. Only one group per
+plan can stay open. Supplemental runs enroll members owing plans there even without item cases.
+With neither own cases nor plans owed there, a completion run answers not
+required; done still needs the other environment's group credit. Cases use
+the plan's project unless a deployment member owns them.
 
 The driver runs groups outside dispatch; review never stops other groups.
-Manual/review waits also notify owing item holders (else project steering),
-naming cases and recovery; closure withdraws them. Driver notices fall back
-to starter, then steering. Plan-only holders park. Recipes retain `--env`.
+Manual/review waits notify owing holders (else member project steering), naming
+cases and recovery; closure withdraws them. Driver notices fall back to starter,
+then steering. Plan-only holders park. Recipes retain `--env`.
 
 Plan commands have no member: `DEPLOYMENT_MEMBER_REF` refuses as
-`qa_plan_member_reference_unsupported`. Read `YOKE_QA_CANDIDATE_TREE` (JSON with
-`root`, `head_sha`) or detached HEAD. `yoke watch pytest -- <paths>` runs locally
-in that candidate. Post-deploy `command-ci` refuses as
-`deployment_ci_case_unsupported`; use a Command case against the candidate.
+`qa_plan_member_reference_unsupported`. Read `YOKE_QA_CANDIDATE_TREE` (`root`,
+`head_sha`) or detached HEAD. `yoke watch pytest -- <paths>` runs in that candidate.
+Post-deploy `command-ci` refuses as `deployment_ci_case_unsupported`; use Command.
 
-`--plan PLAN` at `item-qa` runs that plan's open group for the whole release;
-no command selects one member's plan cases, so attach the plan instead. With no
-open group it refuses `plan_group_not_open`, listing the plan's closed groups.
-
-A group closes when the existing settlement rules accept it: every case passes
-(a corrected case counts through its replacement) and any required stage
-acceptance is recorded. Closing records `covered_item_ids` once: the run
-members attaching the plan at that moment. A closed group never changes or
-moves. An item is done only when each attached post-deploy plan has a closed
-group covering it, in its target-qualified completion run (including a
-supplemental staging run that recorded the delivered revision) or a run that
-run superseded. An item or attachment that arrives after a group closed is not
-covered: it gets a new group with its own `group_id`. A verification pass never
-counts for post-deploy.
+`--plan PLAN` at `item-qa` runs the plan's open group for the whole release;
+without one it refuses `plan_group_not_open` and lists closed groups.
+A group closes after all cases pass and required stage acceptance is recorded.
+Its immutable `covered_item_ids` names attachers at closure. Done needs a closed
+group for each attached plan in its target-qualified completion run (including
+supplemental runs that recorded the delivered revision) or superseded lineage.
+Later attachers need a new group; verification passes never count post-deploy.
 
 A failing case keeps the group open; a retry reruns only failed cases. One
-notice to the same recipient names the report and the group's items and
-releases no member; that session decides who fixes what.
+notice per owing item reaches its holder, else its project steering, naming
+requirements and retry; the driver receives the routed refs. An aborted attempt
+with no case result also notifies holders unless a retry is live. No member is
+released. A changed failure report sends a new notice, separate from wait notices.
 
 Recording a case verdict while its stage is executing settles that stage in
 the same write; a group case settles its group. When the stage cannot settle,

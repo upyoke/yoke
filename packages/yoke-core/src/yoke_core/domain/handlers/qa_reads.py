@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from yoke_core.domain.qa_activity_selection import project_of_requirement
+
 from yoke_contracts.list_paging import ListPageRequest, ListPageResponse, page_result
 
 from typing import Any, Dict, List, Optional
@@ -18,7 +20,6 @@ from yoke_contracts.api.function_call import (
     FunctionCallRequest,
     HandlerOutcome,
 )
-
 
 def _rows_to_dicts(rows: Any, columns: tuple) -> List[Dict[str, Any]]:
     return [{col: row[col] for col in columns} for row in rows]
@@ -108,8 +109,7 @@ def handle_qa_requirement_get(request: FunctionCallRequest) -> HandlerOutcome:
             f"FROM qa_requirements WHERE id = {_p(conn)}",
             (int(req_id),),
         )
-        # What this check was pointed at, read from the target it froze
-        # rather than from the project's environments today.
+        # Read the frozen target, not today's project environments.
         facts = frozen_target_facts(conn, row["execution_target_json"]) if row else {}
     finally:
         conn.close()
@@ -241,7 +241,7 @@ def handle_qa_run_get(request: FunctionCallRequest) -> HandlerOutcome:
                 "LEFT JOIN items m ON m.id = q.deployment_member_item_id "
                 "LEFT JOIN deployment_runs dr ON dr.id = q.deployment_run_id "
                 "LEFT JOIN qa_plans qp ON qp.id=q.plan_id "
-                f"WHERE r.id = {p} AND COALESCE(m.project_id,i.project_id,dr.project_id,qp.project_id) = {p}",
+                f"WHERE r.id = {p} AND {project_of_requirement(member='m', plan='qp', item='i', run='dr')} = {p}",
                 (int(run_id), int(project_id)),
             )
             if (

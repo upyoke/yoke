@@ -9,6 +9,8 @@ the named row already knows its project.
 
 from __future__ import annotations
 
+from yoke_core.domain.qa_activity_selection import project_of_requirement
+
 from typing import Any, Collection
 
 from yoke_core.domain import db_backend
@@ -187,23 +189,14 @@ def resolve_qa_requirement_project(
 ) -> tuple[int, str] | None:
     p = _p(conn)
     try:
-        subject_row = conn.execute(
-            f"SELECT deployment_member_item_id FROM qa_requirements WHERE id = {p}",
-            (qa_requirement_id,),
-        ).fetchone()
-        if subject_row is None:
-            return None
-        if subject_row[0] is not None:
-            # Evidence outlives run membership. Execution admission validates
-            # the active stage separately; tenancy belongs to the stored member.
-            return resolve_item_project(conn, int(subject_row[0]))
         row = conn.execute(
             "SELECT p.id, p.slug "
             "FROM qa_requirements q "
             "LEFT JOIN items i ON i.id = COALESCE(q.item_id, q.epic_id) "
             "LEFT JOIN deployment_runs dr ON dr.id = q.deployment_run_id "
             "LEFT JOIN qa_plans qp ON qp.id = q.plan_id "
-            "JOIN projects p ON p.id = COALESCE(i.project_id, dr.project_id, qp.project_id) "
+            "LEFT JOIN items m ON m.id=q.deployment_member_item_id "
+            f"JOIN projects p ON p.id = {project_of_requirement(member='m', plan='qp', item='i', run='dr')} "
             f"WHERE q.id = {p}",
             (qa_requirement_id,),
         ).fetchone()

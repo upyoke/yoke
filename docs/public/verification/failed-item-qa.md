@@ -26,10 +26,11 @@ and candidate, and diagnosis. The execution's owner already receives its own
 result; the failure handoff suppresses a duplicate notice to that session.
 A failure discovered by the driver routes to the member's holder, or its
 project's steering seat when no holder exists. A failed
-[plan group](deployment-plan-execution.md#plan-groups) wakes no holder: one
-notice names its report and items, sent to the live run driver, else the live
-session that started the run, else steering. That session decides who fixes
-what. A plan group held on review or manual evidence also notifies every
+[plan group](deployment-plan-execution.md#plan-groups) notifies every owing
+item's holder, falling back to that item's project steering seat. This includes
+an aborted attempt that saved no case result and has no live retry. The notice
+names requirement ids and the retry command; the run driver receives the routed
+item refs, falling back to its starting session, then steering. A plan group held on review or manual evidence also notifies every
 owing item's live claim holder, falling back to that item's project steering
 seat. The notice names the run, stage, plan and cases with the recovery command;
 closing the group withdraws its pending notices. Read named delivery failures; absence of a notice does not clear the
