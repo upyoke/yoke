@@ -174,3 +174,62 @@ def test_older_failed_delivery_does_not_supersede_the_current_run(test_db):
     assert module["state"] != "activated"
     assert module["onboard"]["run_status"] == "open"
     assert module["onboard"]["superseded_by"] is None
+
+
+def test_superseded_old_checklist_needs_no_current_rows(test_db):
+    _seed_run(
+        test_db, "historical-checklist", row_status={HOSTING_ROW_ID: STATUS_BLOCKED}
+    )
+    test_db.execute(
+        "DELETE FROM project_onboarding_checklist_rows WHERE run_id=%s AND row_id=%s",
+        ("historical-checklist", SCAFFOLD_ROW_ID),
+    )
+    test_db.commit()
+    _seed_deployment(
+        test_db,
+        "run-20260101-001",
+        status="succeeded",
+        at="2026-01-01T00:00:00Z",
+    )
+    module = _onboard()
+    progress = module["onboard"]
+    assert module["state"] == "activated"
+    assert progress["run_status"] == "superseded"
+    assert progress["steps_total"] == len(ROW_IDS) - 1
+    assert progress["setup_readiness"]["ready"] is False
+    assert progress["next"] is None
+    assert progress["blocker"] is None
+    assert progress["scaffold_installed"] is False
+    assert progress["superseded_by"]["deployment_run_id"] == "run-20260101-001"
+    assert (
+        test_db.execute(
+            "SELECT COUNT(*) FROM project_onboarding_checklist_rows WHERE run_id=%s",
+            ("historical-checklist",),
+        ).fetchone()[0]
+        == len(ROW_IDS) - 1
+    )
+
+
+def test_active_incomplete_checklist_has_typed_project_recovery(test_db):
+    _seed_run(test_db, "incomplete-checklist")
+    test_db.execute("UPDATE projects SET slug='example-project' WHERE id=1")
+    test_db.execute(
+        "DELETE FROM project_onboarding_checklist_rows WHERE run_id=%s AND row_id=%s",
+        ("incomplete-checklist", SCAFFOLD_ROW_ID),
+    )
+    test_db.commit()
+    outcome = handle_overview_activation_get(
+        FunctionCallRequest(
+            function="overview.activation.get",
+            actor=ActorContext(session_id=""),
+            target=TargetRef(kind="global"),
+            payload={},
+        )
+    )
+    assert outcome.primary_success is False
+    assert outcome.error.code == "setup_checklist_incomplete"
+    assert "project example-project" in outcome.error.message
+    assert (
+        "yoke onboard checklist init --project example-project --checkout"
+        in outcome.error.message
+    )

@@ -99,10 +99,13 @@ def handle_overview_activation_get(
 
     from yoke_core.domain import db_helpers
     from yoke_core.domain.overview_activation_read import compute_activation
+    from yoke_core.domain.project_onboarding_runs import ProjectOnboardingRunError
 
     conn = db_helpers.connect()
     try:
         result = compute_activation(conn, machine_connected, _actor_id(request))
+    except ProjectOnboardingRunError as exc:
+        return _error(str(exc).partition(":")[0], str(exc))
     finally:
         conn.close()
     from yoke_cli.config.install_advice import install_command

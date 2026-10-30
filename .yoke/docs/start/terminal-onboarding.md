@@ -213,3 +213,10 @@ The same selectable view appears if local clipboard commands cannot copy.
 Terminals supporting OSC 52 may also copy automatically; selection depends
 on the terminal and remote desktop client. Nothing is printed above the
 wizard until you request it with a key.
+
+The Overview treats an onboarding run superseded by recorded delivery as history.
+It does not require that historical checklist to contain today's setup rows, and
+it does not claim that the machine is currently ready. An active checklist
+missing rows refuses as `setup_checklist_incomplete`, names its project, and
+provides `yoke onboard checklist init --project P --checkout PATH` to restore
+rows before rereading current facts.

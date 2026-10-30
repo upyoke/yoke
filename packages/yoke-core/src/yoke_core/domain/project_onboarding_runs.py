@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import shlex
 from typing import Any, Mapping
 from yoke_contracts.timestamps import parse_instant
 
@@ -180,9 +181,21 @@ def get_run(
             (run_id,),
         ).fetchall()
         if set(ROW_IDS) - {row["row_id"] for row in rows}:
+            project = (
+                selected.execute(
+                    f"SELECT slug FROM projects WHERE id = {p}", (run["project_id"],)
+                ).fetchone()
+                if run["project_id"] is not None
+                else None
+            )
+            project_flag = (
+                f" --project {shlex.quote(str(project[0]))}" if project else ""
+            )
+            owner = f"project {project[0]}" if project else f"unbound run {run_id}"
             raise ProjectOnboardingRunError(
-                "setup_checklist_incomplete: restore missing rows with yoke onboard "
-                "checklist init --project <project slug>, then reread current facts."
+                f"setup_checklist_incomplete: {owner} has missing checklist rows; "
+                f"restore them with yoke onboard checklist init{project_flag} "
+                "--checkout <absolute-project-checkout>, then reread current facts."
             )
         try:
             row_payloads = [row_payload(row) for row in rows]
