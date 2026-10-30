@@ -1,8 +1,10 @@
 {
  "id": "import-and-replacement",
  "title": "Import and replacement",
- "status": "draft-copy",
+ "status": "observed",
  "audience": "Administrators",
  "page": "server-admin",
- "position": 1
+ "position": 1,
+ "summary": "Hosted Import fetches an allowlisted signed link server-to-server, verifies the archive and restores artifacts before serving. Local and self-host move exports pause writers and drain client sessions to stamp zero_writable_app_sessions=True. Ordinary backups stamp False and cannot enter hosted replacement. Resume restores the source explicitly; archive credentials do not copy working machine access.",
+ "sources": ["docs/universe-portability.md", "docs/public/guide/universe-portability.md"]
 }

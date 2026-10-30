@@ -100,8 +100,13 @@ def connect_guarded_socket(dsn: str, *, connection_class=None, **connect_kwargs:
         connect_kwargs["connect_timeout"] = max(
             1, int(remaining_seconds(FUNCTION_RESPONSE_TIMEOUT_SECONDS))
         )
+    from yoke_core.domain import universe_source_pause
+
+    universe_source_pause.require_running(dsn)
     opener = connection_class.connect if connection_class else psycopg.connect
-    return opener(guarded_conninfo(dsn), **connect_kwargs)
+    return universe_source_pause.check_connection(
+        opener(guarded_conninfo(dsn), **connect_kwargs), dsn
+    )
 
 
 def bind_read_deadline(conn):

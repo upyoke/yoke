@@ -140,7 +140,9 @@ def test_hosted_export_stays_on_platform_guidance(monkeypatch, capsys):
     monkeypatch.setattr(
         setup,
         "_export_engine",
-        lambda: _stub_export_engine(error="hosted org admins use the dashboard"),
+        lambda: (_ for _ in ()).throw(
+            AssertionError("hosted export must refuse before engine access")
+        ),
     )
     monkeypatch.setattr(
         commands,
@@ -151,7 +153,9 @@ def test_hosted_export_stays_on_platform_guidance(monkeypatch, capsys):
     )
 
     assert commands.universe_export([]) == 1
-    assert "dashboard" in capsys.readouterr().err
+    error = capsys.readouterr().err
+    assert "Download" in error
+    assert "Move universe" in error
 
 
 @pytest.mark.parametrize("remote", [False, True])

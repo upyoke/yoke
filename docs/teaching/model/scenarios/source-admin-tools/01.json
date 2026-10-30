@@ -6,7 +6,7 @@
  "when": "When a command is source-dev/admin, a source checkout is being maintained or an internal contract needs inspection.",
  "need": "Identify the contributor/operator audience and exact source-development authority before rendering, direct execution, schema operations or release maintenance.",
  "disclosure": "audit needed",
- "surface": "Source doctrine; generated agents/packets; dev/schema/scratch/source-authority and runner-fleet helpers",
+ "surface": "Source doctrine; generated agents/packets; dev/schema/scratch and runner-fleet helpers",
  "gap": "These command families must be accounted for without presenting them as normal first-user prerequisites. Review question: which public stubs should route to the final contributor homes after reorganization?",
  "review": "Pending exact recipe proof.",
  "plan_notes": ["outside both"],

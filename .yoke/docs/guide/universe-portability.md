@@ -8,19 +8,19 @@ A portable Universe archive lets you preserve your Yoke records or move them to 
 
 ## What moves with a Universe
 
-The archive contains the Universe database and a receipt binding that database dump to its exact contents. It preserves records such as projects, strategy documents, and work history. Local and self-host exports also include readable QA artifacts and shared files, with a manifest recording each file's checksum or why it is missing.
+The archive contains the Universe database and a receipt binding that database dump to its exact contents. It preserves records such as projects, strategy documents, and work history. Exports include readable QA artifacts and shared files, with a manifest recording each file's checksum or why it is missing.
 
-Repository folders, application databases, running agents, and external services are not part of the Universe database. Unreadable source files remain listed as missing; recover them at the source and export again if you need them. Hosted portability still requires its separate object-copy procedure. Credentials require destination-specific handling and reconnection; do not treat an archive as a way to copy working machine access unchanged.
+Repository folders, application databases, running agents, and external services are not part of the Universe database. Unreadable source files remain listed as missing; recover them at the source and export again if you need them. Credentials require destination-specific handling and reconnection; do not treat an archive as a way to copy working machine access unchanged.
 
 ## Export a Universe
 
-Use `yoke universe export` for the supported local export path, or the dashboard portability controls for the hosting mode you use. The normal CLI export directory is your machine's Yoke exports folder; choose an explicit output location when you need a backup elsewhere.
+For a local or self-host move, use `yoke universe export --pause-source`. Hosted sources use Download on the dashboard’s Move universe page. The normal CLI export directory is your machine's Yoke exports folder; choose an explicit output location when you need a backup elsewhere.
 
 `yoke universe export --estimate --json` estimates database and artifact bytes before export. Use `--exclude-artifacts` when you only want the database and receipt.
 
 The result is one `.tar` file. Keep the archive together: its database dump and receipt are both needed for validation and import. Store backups outside any machine home or server volume you intend to remove.
 
-Production administrative cutovers have a separate attended procedure. Do not substitute a raw database dump for a portable archive or use the ordinary export path to bypass its production restrictions.
+A move export stops source writers and drains client sessions. The source stays paused until `yoke universe resume`, including after a failed export. Export without `--pause-source` creates a backup that hosted import refuses; local import accepts it. Protected direct database connections remain refused.
 
 ## Validate and retain backups
 
@@ -34,9 +34,9 @@ Keep a backup history appropriate to your recovery needs. Universe retention pol
 
 For a new installation, setup offers **Start from a backup** when creating a local or self-hosted Universe. It validates the archive before Apply, restores the Universe, and then offers its projects so you can identify their checkouts on the new machine.
 
-For an existing destination, import asks for the archive and consent to replace the destination Universe. Local import targets the active local connection; self-host import targets the selected server bundle. Hosted import uses the dashboard portability flow.
+For an existing destination, import asks for the archive and consent to replace the destination Universe. Local import targets the active local connection; self-host import targets the selected server bundle. Hosted import pulls a signed archive link server-to-server from configured source buckets. For a local or self-host archive, run `yoke universe upload ARCHIVE --org SLUG`, then finish on the printed dashboard page. Hosted Download enforces a 10 GiB preflight cap and gives a link valid for one hour.
 
-Check the destination before approving replacement. Preserve its current data if you may need it later. Import is replacement, not a merge of two backlogs. Local and self-host imports place included files in the destination's storage and rewrite their handles; a destination with no configured artifact bucket uses its own permanent local storage. Review the import's missing-file count before resuming work.
+Check the destination before approving replacement. Preserve its current data if you may need it later. Import is replacement, not a merge of two backlogs. Imports place included files in the destination's storage and rewrite their handles; a destination with no configured artifact bucket uses its own permanent local storage. Review the import's missing-file count before resuming work.
 
 ## Move between hosting modes
 
@@ -52,4 +52,4 @@ Imported credentials are revoked or rebound as required by the import path. Sign
 
 Check that expected projects, strategy documents, and work records are present, then verify the services and credentials those projects use. A successful database import does not establish that every external capability is ready.
 
-The [portability reference](https://github.com/upyoke/yoke/blob/main/docs/universe-portability.md) describes archive validation, import boundaries, and attended production cutovers.
+The [portability reference](https://github.com/upyoke/yoke/blob/main/docs/universe-portability.md) describes archive validation, import boundaries, and source pause recovery.

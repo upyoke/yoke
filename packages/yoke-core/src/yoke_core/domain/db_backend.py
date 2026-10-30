@@ -138,6 +138,7 @@ def _lease_ambient_postgres(
         row_factory=row_factory,
         connect=connect_guarded_socket,
     )
+    universe_source_pause.check_connection(conn, dsn)
     return postgres_connection_reuse.track_test_connection(bind_read_deadline(conn))
 
 

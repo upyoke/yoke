@@ -70,3 +70,59 @@ def test_archive_cap_refuses_before_replacing_destination(monkeypatch, tmp_path)
                 max_bytes=1,
             )
     assert destination.read_bytes() == b"previous archive"
+
+
+@pytest.mark.parametrize("writers_stopped", [False, True])
+def test_archive_receipt_matches_hosted_admission_fixture(
+    monkeypatch, tmp_path, writers_stopped
+):
+    from types import SimpleNamespace
+    from runtime.api.fixtures.hosted_freeze_receipt import assert_hosted_receipt
+
+    monkeypatch.setenv("YOKE_MACHINE_HOME", str(tmp_path / "machine"))
+    with pg_testdb.test_database():
+        report = engine.snapshot_archive(
+            dsn=os.environ[db_backend.PG_DSN_ENV],
+            out=tmp_path / "move.tar",
+            writers_stopped=writers_stopped,
+            include_artifacts=False,
+        )
+    _, receipt = universe_archive.unpack_universe_archive(
+        Path(report["artifact"]), tmp_path / "hosted", max_dump_bytes=1 << 30
+    )
+    intent = SimpleNamespace(
+        source_freeze_receipt=receipt["freeze_intent"],
+        archive_sha256=report["sha256"],
+        environment_capability_types={"aws-admin", "github"},
+    )
+    if writers_stopped:
+        assert_hosted_receipt(intent)
+    else:
+        with pytest.raises(ValueError, match="source freeze intent is invalid"):
+            assert_hosted_receipt(intent)
+
+
+def test_manifest_receipt_exposes_current_hosted_consumer_gap(monkeypatch, tmp_path):
+    from types import SimpleNamespace
+    from runtime.api.fixtures.hosted_freeze_receipt import assert_hosted_receipt
+
+    monkeypatch.setenv("YOKE_MACHINE_HOME", str(tmp_path / "machine"))
+    with pg_testdb.test_database():
+        report = engine.snapshot_archive(
+            dsn=os.environ[db_backend.PG_DSN_ENV],
+            out=tmp_path / "with-files.tar",
+            writers_stopped=True,
+        )
+    _, receipt = universe_archive.unpack_universe_archive(
+        Path(report["artifact"]), tmp_path / "hosted", max_dump_bytes=1 << 30
+    )
+    assert receipt["freeze_intent"]["zero_writable_app_sessions"] is True
+    assert receipt["freeze_intent"]["archive"]["artifacts_manifest_sha256"]
+    with pytest.raises(ValueError, match="source freeze intent is invalid"):
+        assert_hosted_receipt(
+            SimpleNamespace(
+                source_freeze_receipt=receipt["freeze_intent"],
+                archive_sha256=report["sha256"],
+                environment_capability_types={"aws-admin", "github"},
+            )
+        )

@@ -37,6 +37,43 @@ def _marker(dsn: str) -> Path:
     return yoke_home() / "universe-pauses" / (digest + ".paused")
 
 
+@contextmanager
+def operation(dsn: str):
+    """Serialize export and resume across every source process."""
+    from yoke_contracts import platform_file_lock
+
+    target = _marker(dsn).with_suffix(".lock")
+    target.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+    descriptor = os.open(target, os.O_RDWR | os.O_CREAT, 0o600)
+    acquired = False
+    try:
+        try:
+            platform_file_lock.acquire_exclusive_nonblocking(descriptor)
+            acquired = True
+        except (BlockingIOError, OSError) as exc:
+            raise UniversePausedError(
+                compose_refusal(
+                    "universe_source_busy: another export or resume owns the source",
+                    recovery="wait for that operation to finish, then retry",
+                )
+            ) from exc
+        yield
+    finally:
+        if acquired:
+            platform_file_lock.release_exclusive(descriptor)
+        os.close(descriptor)
+
+
+def check_connection(conn, dsn: str):
+    """Close a socket that raced with the durable pause marker."""
+    try:
+        require_running(dsn)
+    except UniversePausedError:
+        conn.close()
+        raise
+    return conn
+
+
 def is_paused(dsn: str) -> bool:
     return _marker(dsn).exists()
 
@@ -106,9 +143,10 @@ def resume(dsn: str) -> dict:
     """Remove the pause only after proving that the source can be reached."""
     from yoke_core.domain import db_backend, postgres_connection_reuse
 
-    with pause_owner(), db_backend.connect_psycopg(dsn) as conn:
-        conn.execute("SELECT 1")
-    marker = _marker(dsn)
-    marker.unlink(missing_ok=True)
-    postgres_connection_reuse.close_idle_connections()
-    return {"resumed": True}
+    with operation(dsn):
+        with pause_owner(), db_backend.connect_psycopg(dsn) as conn:
+            conn.execute("SELECT 1")
+        marker = _marker(dsn)
+        marker.unlink(missing_ok=True)
+        postgres_connection_reuse.close_idle_connections()
+        return {"resumed": True}

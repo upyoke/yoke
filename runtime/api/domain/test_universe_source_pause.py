@@ -68,3 +68,11 @@ def test_failed_export_leaves_source_paused(monkeypatch, tmp_path):
             assert not (tmp_path / "failed.tar").exists()
         finally:
             pause.resume(dsn)
+
+
+def test_resume_cannot_race_export(monkeypatch, tmp_path):
+    monkeypatch.setenv("YOKE_MACHINE_HOME", str(tmp_path / "machine"))
+    dsn = "host=localhost dbname=isolated"
+    with pause.operation(dsn):
+        with pytest.raises(pause.UniversePausedError, match="universe_source_busy"):
+            pause.resume(dsn)

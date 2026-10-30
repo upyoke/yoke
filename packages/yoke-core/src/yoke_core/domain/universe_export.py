@@ -121,9 +121,12 @@ def export_universe(
     from yoke_core.domain import universe_source_pause
 
     if pause_source:
-        universe_source_pause.pause(resolved_dsn)
-        emit("Source paused; run `yoke universe resume` when it may write again.")
-        with universe_source_pause.pause_owner():
+        with (
+            universe_source_pause.operation(resolved_dsn),
+            universe_source_pause.pause_owner(),
+        ):
+            universe_source_pause.pause(resolved_dsn)
+            emit("Source paused; run `yoke universe resume` when it may write again.")
             return snapshot_archive(
                 dsn=resolved_dsn,
                 out=out,
