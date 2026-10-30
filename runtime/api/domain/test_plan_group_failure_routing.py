@@ -19,8 +19,8 @@ def _notices(conn):
     return conn.execute(
         "SELECT r.session_id,m.body FROM session_messages m "
         "JOIN session_message_recipients r ON r.message_id=m.message_id "
-        "WHERE m.idempotency_key LIKE %s ORDER BY r.session_id",
-        (f"%{RUN}%failure%",),
+        "WHERE m.idempotency_key LIKE %s OR m.idempotency_key LIKE %s ORDER BY r.session_id",
+        (f"deployment-qa-plan-group-failure:{RUN}:%", f"%{RUN}%failure-%"),
     ).fetchall()
 
 
@@ -67,3 +67,20 @@ def test_aborted_attempt_with_a_live_retry_sends_nothing(test_db):
     gate_plan_groups(test_db, {"scope": "item", "name": "item-qa"}, run_id=RUN,
                      project_id=1, item_refs=str)
     assert _notices(test_db) == []
+
+
+def test_dispatch_and_settlement_route_resultless_abort(test_db):
+    from yoke_core.domain.deployment_qa_plan_group_writes import group_subject
+    from yoke_core.domain.deployment_qa_stage_settlement import settle_plan_group
+
+    group = _setup(test_db, manual=False)
+    execution = _begin(test_db)
+    test_db.execute("UPDATE qa_plan_executions SET state='aborted' WHERE id=%s", (execution["id"],))
+    test_db.commit()
+    gate_plan_groups(test_db, {"scope": "item", "name": "item-qa"}, run_id=RUN,
+                     project_id=1, item_refs=str)
+    assert len(_notices(test_db)) == len(MEMBERS) + 1
+    before = list(_notices(test_db))
+    subject = group_subject(test_db, RUN, "item-qa", group, require_active=True)
+    settle_plan_group(test_db, subject)
+    assert len(_notices(test_db)) == len(before)

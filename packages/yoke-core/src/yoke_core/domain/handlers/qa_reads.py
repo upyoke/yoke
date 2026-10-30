@@ -266,8 +266,6 @@ def handle_qa_run_get(request: FunctionCallRequest) -> HandlerOutcome:
     )
 
 
-# qa.gate_summary.run
-
 
 class QaGateSummaryRequest(BaseModel):
     transition: str

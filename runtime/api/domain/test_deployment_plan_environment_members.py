@@ -63,3 +63,50 @@ def test_a_plan_with_a_case_for_the_completion_environment_owes_a_group(test_db)
     test_db.commit()
     answer = member_post_deploy_answer(test_db, {"id": "run-prod", "member_item_id": MEMBERS[0]})
     assert answer.verdict == PLAN_GROUPS
+
+
+def test_plan_only_supplemental_member_survives_carried_enrollment(test_db):
+    from types import SimpleNamespace
+    from yoke_core.domain.deployment_run_carried_membership import enroll_carried_members
+    from yoke_core.domain.deployment_run_unheld_candidates import CandidateCustody
+
+    plan = _stage_and_prod(test_db)
+    _target_plan(test_db, plan)
+    test_db.execute("UPDATE items SET status='release' WHERE id=ANY(%s)", (list(MEMBERS),))
+    test_db.execute("DELETE FROM deployment_run_items WHERE run_id=%s", (RUN,))
+    test_db.execute(
+        "UPDATE deployment_runs SET status='created',composition_frozen_at=NULL WHERE id=%s", (RUN,),
+    )
+    test_db.commit()
+    custody = SimpleNamespace(require=lambda: CandidateCustody(enrollable=MEMBERS, held=()))
+    enrolled = enroll_carried_members(
+        test_db, RUN,
+        carried_work={"derivation": {"contents_known": True},
+                      "items": [{"item_id": member} for member in MEMBERS]},
+        custody=custody,
+    )
+    assert len(enrolled) == len(MEMBERS)
+    assert {row[0] for row in test_db.execute(
+        "SELECT item_id FROM deployment_run_items WHERE run_id=%s", (RUN,),
+    ).fetchall()} == set(MEMBERS)
+
+
+def test_unheld_candidate_filter_keeps_plan_only_supplemental_member(test_db, monkeypatch):
+    from types import SimpleNamespace
+    from yoke_core.domain import deployment_run_unheld_candidates as candidates
+    from yoke_core.domain.deployment_run_candidate_containment import CONTAINED, ContainmentVerdict
+
+    plan = _stage_and_prod(test_db)
+    _target_plan(test_db, plan)
+    monkeypatch.setattr(candidates, "merged_open_items", lambda *_: [{"id": m} for m in MEMBERS])
+    monkeypatch.setattr(candidates, "items_requiring_release_membership", lambda *_: frozenset(MEMBERS))
+    monkeypatch.setattr(candidates, "candidate_range_commits", lambda *a, **k: frozenset())
+    monkeypatch.setattr(candidates, "_previous_release_lineage", lambda *_: "")
+    monkeypatch.setattr(candidates.CandidateContainment, "contains", lambda *_: ContainmentVerdict(CONTAINED))
+    monkeypatch.setattr(candidates, "landing_custody", lambda *a, **k: {
+        m: SimpleNamespace(state="unheld", landing_sha="a" * 40, held=False, enrollable=True)
+        for m in MEMBERS
+    })
+    found, held = candidates._project_custody(test_db, RUN, project_id=1, lineage="a" * 40)
+    assert found == set(MEMBERS)
+    assert held == []

@@ -11,7 +11,7 @@ def group_failed(conn, group, status) -> bool:
         "SELECT e.state FROM qa_plan_executions e "
         "WHERE e.deployment_run_id=%s AND e.execution_target_digest=%s "
         "AND e.deployment_stage=%s AND e.deployment_member_item_id IS NULL "
-        "ORDER BY e.created_at DESC,e.id DESC LIMIT 1",
+        "ORDER BY e.execution_order DESC LIMIT 1",
         (group.run_id, group.digest, group.stage),
     ).fetchone()
     if row is None or row[0] != "aborted":
