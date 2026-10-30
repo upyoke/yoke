@@ -208,6 +208,7 @@ UI_MUTATION_FUNCTION_ALLOWLIST = frozenset(
         "session_control.surface_policy.disable",
         "session_control.surface_policy.enable",
         "projects.github_binding.check",
+        "projects.github_binding.unbind",
         "machine.retire",
         "machine.access.set",
         "strategy.revision.restore",

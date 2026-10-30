@@ -153,6 +153,15 @@ mark installation facts **live**. Local and self-hosted pages show when each
 installation was last checked; **Check now** re-verifies every bound project
 in scope (`yoke projects github-binding check --project <slug>` does the same
 for one project). A refused check names its reason and recovery.
+Installation counts include all visible projects even when one project is selected;
+Detach stays disabled while any of those projects uses the installation.
+Each bound mapping has **Unbind**, followed by **Confirm unbind** or **Cancel**.
+Unbinding removes the mapping, GitHub capability and secrets, and turns issue sync
+off. To restore sync, bind a repository again and use
+`yoke projects update --slug <slug> --name <Name> --github-sync-mode enabled`.
+The hosted service reads its org's non-secret bindings through
+`projects.github_binding.list`, optionally filtered by `installation_id`;
+member and admin tokens cannot call that service-only inventory.
 
 ## CI verdicts and session wake-ups
 

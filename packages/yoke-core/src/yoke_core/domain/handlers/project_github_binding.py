@@ -86,6 +86,9 @@ class ProjectGithubBindingStatusResponse(BaseModel):
     bound: bool
     binding: Optional[Dict[str, Any]] = None
     installation: Optional[Dict[str, Any]] = None
+    previous_sync_mode: Optional[str] = None
+    sync_mode: Optional[str] = None
+    sync_mode_notice: Optional[str] = None
     permission_status: Dict[str, Any]
     automation: Dict[str, Any]
 

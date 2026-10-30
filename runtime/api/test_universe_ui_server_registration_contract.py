@@ -68,6 +68,7 @@ class TestRegistrationShape:
             "organizations.settings.merge",
             "projects.capability_settings.merge",
             "projects.github_binding.check",
+            "projects.github_binding.unbind",
             "session_control.message.send",
             "session_control.message.acknowledge",
             "session_control.message.cancel",

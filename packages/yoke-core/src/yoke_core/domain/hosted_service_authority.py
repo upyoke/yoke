@@ -29,6 +29,7 @@ HOSTED_SERVICE_MINT_COMMAND = (
 HOSTED_SERVICE_FUNCTIONS = frozenset(
     {
         "projects.github_binding.lifecycle",
+        "projects.github_binding.list",
         "machine_authorization.handoff",
         "machine_authorization.handoff_poll",
     }

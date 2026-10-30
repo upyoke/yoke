@@ -153,6 +153,7 @@ _BY_ID: dict[str, AuthzSpec] = {
         ORG,
         PERM_HOSTED_SERVICE_DELIVER,
     ),
+    "projects.github_binding.list": AuthzSpec(ORG, PERM_HOSTED_SERVICE_DELIVER),
     "projects.github_binding.unbind": AuthzSpec(PROJECT, PERM_PROJECT_ADMIN),
     # Repository binding status contains project identity and non-secret App
     # metadata needed by both human viewers and infrastructure renderers.  The
