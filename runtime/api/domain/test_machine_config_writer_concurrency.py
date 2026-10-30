@@ -100,6 +100,11 @@ def test_github_replace_rejects_stale_credential_and_returns_actual_ref(
     tmp_path: Path,
 ) -> None:
     config = tmp_path / "machine-home" / "config.json"
+    writer.set_connection(
+        "local", transport="local-postgres", dsn_file=str(tmp_path / "local.dsn"),
+        activate=True, path=config,
+    )
+    connections = json.loads(config.read_text())["connections"]
     first_ref = str(tmp_path / "first.json")
     second_ref = str(tmp_path / "second.json")
     writer.set_github(
@@ -119,7 +124,7 @@ def test_github_replace_rejects_stale_credential_and_returns_actual_ref(
         )
 
     payload = json.loads(config.read_text(encoding="utf-8"))
-    assert payload["github"]["app_slug"] == "yoke"
+    assert payload["connection_github"]["local"]["app_slug"] == "yoke"
     result = writer.set_github(
         _github(second_ref, slug="replacement"),
         expected_credential_ref=first_ref,
@@ -128,7 +133,9 @@ def test_github_replace_rejects_stale_credential_and_returns_actual_ref(
     assert result["replaced_credential_ref"] == first_ref
     removed = writer.clear_github(path=config)
     assert removed["removed_credential_ref"] == second_ref
-    assert not config.exists()
+    saved = json.loads(config.read_text())
+    assert "connection_github" not in saved and "github" not in saved
+    assert saved["connections"] == connections
     assert config.with_name(config.name + ".lock").is_file()
 
 

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+import json
 
 import pytest
 
@@ -21,6 +22,7 @@ def test_disconnect_sanitizes_outside_secrets_credential_path(
         credential_ref=outside,
     )
 
+    connections = json.loads(config.read_text())["connections"]
     report = github_machine.disconnect(config_path=config)
     rendered = github_machine.dumps_json(report)
 
@@ -28,7 +30,9 @@ def test_disconnect_sanitizes_outside_secrets_credential_path(
     assert report["issues"][0]["code"] == "github_external_credential_left_untouched"
     assert str(outside) not in rendered
     assert outside.parent.exists() is False
-    assert not config.exists()
+    saved = json.loads(config.read_text())
+    assert "github" not in saved and "connection_github" not in saved
+    assert saved["connections"] == connections
 
 
 def test_disconnect_sanitizes_unlink_failure_path(
