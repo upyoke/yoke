@@ -54,7 +54,7 @@ test("the status pill leads the second header row, beside the model", () => {
   assert.equal(byClass(top, "session-status-pill").length, 0);
   assert.deepEqual(
     top.children.map((node) => node.className),
-    ["session-harness h-other", "session-executor", "session-level has-tooltip"],
+    ["session-harness h-other", "session-executor row-link", "session-level has-tooltip"],
   );
 });
 

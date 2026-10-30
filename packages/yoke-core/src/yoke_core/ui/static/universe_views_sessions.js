@@ -1,5 +1,5 @@
 import { exactSessionAudience, openSessionMessageCompose } from "./session_message_compose_dialog.js";
-import { sessionScopeLabel } from "./universe_session_detail.js";
+import { sessionCardLink, sessionScopeLabel } from "./universe_session_detail.js";
 import {
   presentSessionControlFailure,
   renderSessionControlFailure,
@@ -121,7 +121,7 @@ export function sessionCard(
     `session-harness ${harness.className}`,
     harness.mark,
   ));
-  top.appendChild(el(documentNode, "span", "session-executor", harness.label));
+  top.appendChild(sessionCardLink(documentNode, row, harness.label));
   top.appendChild(levelChip(documentNode, row));
   const operator = operatorLabel(documentNode, row);
   if (operator) top.appendChild(operator);

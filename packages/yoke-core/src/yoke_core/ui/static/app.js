@@ -266,7 +266,7 @@ export function mountUniverseApp(rootNode, options = {}) {
       main.replaceChildren(createPageHead(documentNode, entry), emptyHost);
       return;
     }
-    const detailProject = entry.projectOptional ? null : route.detail === "new" && entry.id === "items" ? (knownProjectId(projects, route.project) || "all") : detailRenderer ? (route.project !== null
+    const detailProject = entry.projectOptional && route.project === null ? null : route.detail === "new" && entry.id === "items" ? (knownProjectId(projects, route.project) || "all") : detailRenderer ? (route.project !== null
       ? knownProjectId(projects, route.project) : drillInProject(scope, projects)) : null;
     if (detailRenderer && route.project !== null && detailProject === null && !entry.projectOptional) {
       main.replaceChildren(el(documentNode, "p", "error-banner",
