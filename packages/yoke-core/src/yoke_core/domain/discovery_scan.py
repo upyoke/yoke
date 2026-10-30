@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Any, Callable, Iterable, Optional
 
 from yoke_core.domain import db_backend, db_helpers
-from yoke_core.domain.ouroboros_entries import ENTRY_LIST_COLUMNS
+
 from yoke_core.domain.ouroboros_entry_presentation import entry_wire_value
 
 
@@ -34,7 +34,7 @@ def _item_context_matcher(public_ref: str) -> Callable[[str], bool]:
 def _format_ouroboros_row(row: Any) -> str:
     return "|".join(
         "" if cell is None else str(cell)
-        for name, value in zip(ENTRY_LIST_COLUMNS, tuple(row))
+        for name, value in zip(("id", "timestamp", "agent", "context", "category", "body", "reviewed_at", "project"), tuple(row))
         for cell in [entry_wire_value(name, value)]
     )
 

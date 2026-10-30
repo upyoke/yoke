@@ -30,6 +30,6 @@ REGISTRATIONS = [{
     "minimum_serving_version": "next-release", "stability": "stable",
     "owner_module": "yoke_core.domain.handlers.feedback_provenance",
     "target_kinds": ["global"], "side_effects": [], "emitted_event_names": [],
-    "guardrails": [], "adapter_status": "live", "claim_required_kind": None,
+    "guardrails": [], "adapter_status": "internal", "claim_required_kind": None,
     "ambient_session_required": False,
 }]

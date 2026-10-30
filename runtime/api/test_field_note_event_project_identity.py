@@ -91,7 +91,7 @@ def _seed_session(db_path: str) -> None:
 
 
 def _append(session_id: str = SESSION_ID, **payload_extra):
-    payload = {
+    payload = {"yoke_version": "0.2.0.202610290013", "agent": "terminal", 
         "category": "observation",
         "evidence": "a recipe named a flag that does not exist",
         **payload_extra,

@@ -97,7 +97,7 @@ def feedback_provenance(session_id=None):
         validate_feedback_identity(**{k: metadata[k] for k in ("yoke_version", "universe_fingerprint", "agent")})
     except FeedbackIdentityError as exc:
         field = {"version": "yoke_version", "fingerprint": "universe_fingerprint", "agent": "agent"}[exc.code.split("_")[1]]
-        recovery = "reinstall Yoke" if field == "yoke_version" else "run yoke env use <env> or yoke login"
+        recovery = "reinstall Yoke" if field == "yoke_version" else "run yoke env use <env> or yoke connect"
         raise ValueError(compose_refusal(f"feedback_provenance_unavailable: {field}",
                                          recovery=f"{recovery}, then retry.")) from None
     if server_error is not None:

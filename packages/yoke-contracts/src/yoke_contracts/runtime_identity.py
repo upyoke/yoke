@@ -191,10 +191,13 @@ def reporting_version() -> str:
     """Version of the loaded CLI, including its exact source checkout."""
     import subprocess
     from datetime import datetime
-    import yoke_cli
+    import sys
     from yoke_contracts.release_version import commit_version, reporting_version_shape
 
-    root = source_checkout_root(Path(yoke_cli.__file__).resolve())
+    cli = sys.modules.get("yoke_cli")
+    if cli is None or not getattr(cli, "__file__", None):
+        raise ValueError("feedback_version_unavailable: CLI module is not loaded")
+    root = source_checkout_root(Path(cli.__file__).resolve())
     if root is None:
         return reporting_version_shape(local_handshake_version())
 
