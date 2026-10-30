@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import shlex
 from typing import Any, Mapping
 from yoke_contracts.timestamps import parse_instant
 
@@ -13,6 +12,7 @@ from yoke_contracts.onboard_checklist import (
     SCHEMA_NAME,
     SCHEMA_VERSION,
     ROW_IDS,
+    ROW_SPECS,
     SETUP_HANDOFF_ROW_ID,
 )
 from yoke_core.domain.project_onboarding_schema import (
@@ -26,6 +26,7 @@ from yoke_core.domain.db_helpers import connect
 from yoke_core.domain.project_onboarding_run_records import (
     ProjectOnboardingRunError,
     doctor_payload,
+    default_row,
     project_payload,
     row_payload,
     summary,
@@ -180,23 +181,15 @@ def get_run(
             f"WHERE run_id = {p} ORDER BY step",
             (run_id,),
         ).fetchall()
-        if set(ROW_IDS) - {row["row_id"] for row in rows}:
-            project = (
-                selected.execute(
-                    f"SELECT slug FROM projects WHERE id = {p}", (run["project_id"],)
-                ).fetchone()
-                if run["project_id"] is not None
-                else None
-            )
-            project_flag = (
-                f" --project {shlex.quote(str(project[0]))}" if project else ""
-            )
-            owner = f"project {project[0]}" if project else f"unbound run {run_id}"
-            raise ProjectOnboardingRunError(
-                f"setup_checklist_incomplete: {owner} has missing checklist rows; "
-                f"restore them with yoke onboard checklist init{project_flag} "
-                "--checkout <absolute-project-checkout>, then reread current facts."
-            )
+        saved_ids = {row["row_id"] for row in rows}
+        rows = [
+            *rows,
+            *(
+                default_row(spec, run["branch"])
+                for spec in ROW_SPECS
+                if spec.row_id not in saved_ids
+            ),
+        ]
         try:
             row_payloads = [row_payload(row) for row in rows]
         except (ValueError, TypeError) as exc:

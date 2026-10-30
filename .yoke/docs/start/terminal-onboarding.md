@@ -214,9 +214,10 @@ Terminals supporting OSC 52 may also copy automatically; selection depends
 on the terminal and remote desktop client. Nothing is printed above the
 wizard until you request it with a key.
 
-The Overview treats an onboarding run superseded by recorded delivery as history.
-It does not require that historical checklist to contain today's setup rows, and
-it does not claim that the machine is currently ready. An active checklist
-missing rows refuses as `setup_checklist_incomplete`, names its project, and
-provides `yoke onboard checklist init --project P --checkout PATH` to restore
-rows before rereading current facts.
+Checklist reads fill missing legacy rows in memory with the same defaults used
+when saving a run. They preserve saved choices and the run branch, and write no
+rows; the next normal update saves missing rows. These defaults never prove
+current setup readiness. Recorded delivery still marks a run as historical
+completion. If saved evidence cannot be read, Overview returns the typed error
+only in its onboarding module and keeps the other modules available. Follow the
+reported recovery; initializing the checklist can change its branch.

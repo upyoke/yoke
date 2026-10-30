@@ -195,7 +195,7 @@ def test_superseded_old_checklist_needs_no_current_rows(test_db):
     progress = module["onboard"]
     assert module["state"] == "activated"
     assert progress["run_status"] == "superseded"
-    assert progress["steps_total"] == len(ROW_IDS) - 1
+    assert progress["steps_total"] == len(ROW_IDS)
     assert progress["setup_readiness"]["ready"] is False
     assert progress["next"] is None
     assert progress["blocker"] is None
@@ -210,12 +210,21 @@ def test_superseded_old_checklist_needs_no_current_rows(test_db):
     )
 
 
-def test_active_incomplete_checklist_has_typed_project_recovery(test_db):
+def test_active_legacy_checklist_reads_with_current_rows(test_db):
     _seed_run(test_db, "incomplete-checklist")
-    test_db.execute("UPDATE projects SET slug='example-project' WHERE id=1")
     test_db.execute(
         "DELETE FROM project_onboarding_checklist_rows WHERE run_id=%s AND row_id=%s",
         ("incomplete-checklist", SCAFFOLD_ROW_ID),
+    )
+    test_db.commit()
+    assert _onboard()["onboard"]["steps_total"] == len(ROW_IDS)
+
+
+def test_unreadable_checklist_degrades_only_onboarding_module(test_db):
+    _seed_run(test_db, "unreadable-checklist")
+    test_db.execute(
+        "UPDATE project_onboarding_checklist_rows SET evidence_json=%s WHERE run_id=%s AND row_id=%s",
+        ("invalid-json", "unreadable-checklist", HOSTING_ROW_ID),
     )
     test_db.commit()
     outcome = handle_overview_activation_get(
@@ -226,10 +235,12 @@ def test_active_incomplete_checklist_has_typed_project_recovery(test_db):
             payload={},
         )
     )
-    assert outcome.primary_success is False
-    assert outcome.error.code == "setup_checklist_incomplete"
-    assert "project example-project" in outcome.error.message
-    assert (
-        "yoke onboard checklist init --project example-project --checkout"
-        in outcome.error.message
-    )
+    assert outcome.primary_success is True
+    modules = {module["key"]: module for module in outcome.result_payload["modules"]}
+    from yoke_core.domain.overview_activation_read import MODULE_KEYS
+
+    assert set(modules) == set(MODULE_KEYS)
+    onboard = modules["run_onboard"]
+    assert onboard["state"] != "activated"
+    assert onboard["onboard"]["error"]["code"] == "setup_saved_evidence_unreadable"
+    assert "control-plane operator" in onboard["onboard"]["error"]["message"]

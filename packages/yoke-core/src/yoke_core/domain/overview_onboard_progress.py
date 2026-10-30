@@ -20,8 +20,10 @@ from yoke_core.domain.project_onboarding_run_supersede import (
     superseded_by,
 )
 from yoke_core.domain.schema_common import _table_exists
-from yoke_core.domain.project_onboarding_runs import get_run
-from yoke_core.domain.project_onboarding_schema import _p
+from yoke_core.domain.project_onboarding_runs import (
+    ProjectOnboardingRunError,
+    get_run,
+)
 
 RUNS_TABLE = "project_onboarding_runs"
 ROWS_TABLE = "project_onboarding_checklist_rows"
@@ -58,20 +60,26 @@ def read_onboard_progress(conn: Any) -> Optional[Dict[str, Any]]:
     ).fetchone()
     if run is None:
         return None
-    superseded = superseded_by(run[2]) if str(run[1]) == RUN_STATUS_SUPERSEDED else None
-    if superseded:
-        return _historical_progress(conn, str(run[0]), superseded)
-    current = get_run(str(run[0]), conn=conn)
+    try:
+        current = get_run(str(run[0]), conn=conn)
+    except ProjectOnboardingRunError as exc:
+        return {"error": {"code": str(exc).partition(":")[0], "message": str(exc)}}
     rows = current["rows"]
     open_rows = [row for row in rows if row["status"] not in TERMINAL_STATUSES]
     blocked = [row for row in rows if row["status"] == STATUS_BLOCKED]
+    superseded = superseded_by(run[2]) if str(run[1]) == RUN_STATUS_SUPERSEDED else None
     action = current["next_action"]
     return {
-        "run_status": _run_status(rows, open_rows, blocked),
-        "superseded_by": None,
+        "run_status": (
+            RUN_STATUS_SUPERSEDED
+            if superseded
+            else _run_status(rows, open_rows, blocked)
+        ),
+        "superseded_by": superseded,
         "setup_readiness": current["setup_readiness"],
         "steps_done": len(rows) - len(open_rows),
         "steps_total": len(rows),
+        # A superseded run has nothing next: its project moved on to delivery.
         "next": (
             {
                 "step": next(
@@ -79,36 +87,13 @@ def read_onboard_progress(conn: Any) -> Optional[Dict[str, Any]]:
                 ),
                 "title": action["title"],
             }
-            if action
+            if action and not superseded
             else None
         ),
-        "blocker": _blocker(blocked[0]) if blocked else None,
+        "blocker": _blocker(blocked[0]) if blocked and not superseded else None,
         "scaffold_installed": any(
             row["row_id"] == SCAFFOLD_ROW_ID
             and row["status"] in SCAFFOLD_INSTALLED_STATUSES
-            for row in rows
-        ),
-        "strategy_docs": _strategy_docs_exist(conn),
-        "environments": _environment_names(conn),
-    }
-
-
-def _historical_progress(conn: Any, run_id: str, superseded: Mapping[str, Any]) -> dict:
-    """Delivery history does not require today's setup checklist contract."""
-    rows = conn.execute(
-        f"SELECT row_id, status FROM {ROWS_TABLE} WHERE run_id = {_p(conn)}",
-        (run_id,),
-    ).fetchall()
-    return {
-        "run_status": RUN_STATUS_SUPERSEDED,
-        "superseded_by": superseded,
-        "setup_readiness": {"ready": False, "unmet_rows": []},
-        "steps_done": sum(row[1] in TERMINAL_STATUSES for row in rows),
-        "steps_total": len(rows),
-        "next": None,
-        "blocker": None,
-        "scaffold_installed": any(
-            row[0] == SCAFFOLD_ROW_ID and row[1] in SCAFFOLD_INSTALLED_STATUSES
             for row in rows
         ),
         "strategy_docs": _strategy_docs_exist(conn),
@@ -122,7 +107,7 @@ def run_is_complete(progress: Optional[Mapping[str, Any]]) -> bool:
     Finished means nothing left open, or a run its project's deployments
     superseded.
     """
-    return bool(progress) and progress["run_status"] in FINISHED_RUN_STATUSES
+    return bool(progress) and progress.get("run_status") in FINISHED_RUN_STATUSES
 
 
 def _run_status(
