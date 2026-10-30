@@ -128,7 +128,7 @@ def test_native_pages_preserve_exact_ties_and_nullable_review_order(
         assert [row["id"] for row in rows] == (
             entries if direction == "asc" else entries[::-1]
         )
-        assert all(row["body"] == "opaque 1969-12-31" for row in rows)
+        assert all(row["preview"] == "opaque 1969-12-31" for row in rows)
     entry = get_entry_row(test_db, entries[0])
     assert entry["timestamp"] == format_instant(clocks[0])
     assert entry["reviewed_at"] is None
