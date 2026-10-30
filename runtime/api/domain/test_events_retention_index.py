@@ -95,7 +95,7 @@ def test_each_name_override_reads_its_composite_range(test_db):
         assert "created_at <" in plan, plan
     # Name-only callers retain an index path after the obsolete index is gone.
     plan = "\n".join(row[0] for row in test_db.execute(
-        "EXPLAIN SELECT id FROM events WHERE event_name='YokeFunctionCalled'"
+        "EXPLAIN SELECT id FROM events WHERE event_name='OrdinaryEvent'"
     ).fetchall())
     assert NAME_RETENTION_INDEX_NAME in plan, plan
     test_db.rollback()
