@@ -20,6 +20,9 @@ from yoke_contracts.machine_config.paths import yoke_home
 from yoke_contracts.refusal_recovery import compose_refusal
 
 _ALLOWED: ContextVar[bool] = ContextVar("universe_pause_owner", default=False)
+_OPERATION: ContextVar[str | None] = ContextVar(
+    "universe_pause_operation", default=None
+)
 
 
 class UniversePausedError(RuntimeError):
@@ -44,6 +47,9 @@ def operation(dsn: str, *, wait: bool = False):
     from yoke_contracts import platform_file_lock
 
     target = _marker(dsn).with_suffix(".lock")
+    if _OPERATION.get() == str(target):
+        yield
+        return
     target.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
     descriptor = os.open(target, os.O_RDWR | os.O_CREAT, 0o600)
     acquired = False
@@ -60,7 +66,20 @@ def operation(dsn: str, *, wait: bool = False):
                     "source export or resume to finish before startup",
                     max_wait_seconds=600,
                 )
-                platform_file_lock.acquire_exclusive(descriptor)
+                deadline = time.monotonic() + 600
+                while True:
+                    try:
+                        platform_file_lock.acquire_exclusive_nonblocking(descriptor)
+                        break
+                    except BlockingIOError:
+                        if time.monotonic() >= deadline:
+                            raise UniversePausedError(
+                                compose_refusal(
+                                    "universe_startup_wait_timeout: startup waited for an active source operation",
+                                    recovery="finish or recover the source export, then restart the server; the source pause remains unchanged",
+                                )
+                            ) from None
+                        time.sleep(0.05)
             acquired = True
         except (BlockingIOError, OSError) as exc:
             raise UniversePausedError(
@@ -69,7 +88,11 @@ def operation(dsn: str, *, wait: bool = False):
                     recovery="wait for that operation to finish, then retry",
                 )
             ) from exc
-        yield
+        token = _OPERATION.set(str(target))
+        try:
+            yield
+        finally:
+            _OPERATION.reset(token)
     finally:
         if acquired:
             platform_file_lock.release_exclusive(descriptor)

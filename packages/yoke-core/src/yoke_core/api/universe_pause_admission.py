@@ -1,7 +1,5 @@
 """Pause admission before authentication can write token-use rows."""
 
-from contextlib import nullcontext
-
 from fastapi.responses import JSONResponse
 
 from yoke_contracts.api_urls import UNIVERSE_EXPORT_PATH
@@ -23,7 +21,8 @@ def install(application):
             and request.method == "GET"
             and request.query_params.get("pause_source") == "true"
         )
-        paused = universe_source_pause.is_paused(db_backend.resolve_pg_dsn())
+        dsn = db_backend.resolve_pg_dsn()
+        paused = universe_source_pause.is_paused(dsn)
         if paused and not (resume or export):
             return JSONResponse(
                 status_code=503,
@@ -35,5 +34,22 @@ def install(application):
                     },
                 },
             )
-        with universe_source_pause.pause_owner() if resume or export else nullcontext():
-            return await call_next(request)
+        if resume or export:
+            try:
+                with (
+                    universe_source_pause.operation(dsn),
+                    universe_source_pause.pause_owner(),
+                ):
+                    return await call_next(request)
+            except universe_source_pause.UniversePausedError as exc:
+                return JSONResponse(
+                    status_code=409,
+                    content={
+                        "success": False,
+                        "error": {
+                            "code": "universe_source_busy",
+                            "message": str(exc),
+                        },
+                    },
+                )
+        return await call_next(request)

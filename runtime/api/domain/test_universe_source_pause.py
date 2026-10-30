@@ -73,9 +73,12 @@ def test_failed_export_leaves_source_paused(monkeypatch, tmp_path):
 def test_resume_cannot_race_export(monkeypatch, tmp_path):
     monkeypatch.setenv("YOKE_MACHINE_HOME", str(tmp_path / "machine"))
     dsn = "host=localhost dbname=isolated"
-    with pause.operation(dsn):
+    from concurrent.futures import ThreadPoolExecutor
+
+    with pause.operation(dsn), ThreadPoolExecutor(max_workers=1) as competing:
+        result = competing.submit(pause.resume, dsn)
         with pytest.raises(pause.UniversePausedError, match="universe_source_busy"):
-            pause.resume(dsn)
+            result.result()
 
 
 def test_pause_persists_service_recovery_before_stopping(monkeypatch, tmp_path):
@@ -104,3 +107,45 @@ def test_pause_persists_service_recovery_before_stopping(monkeypatch, tmp_path):
         pause.pause(dsn)
         pause.resume(dsn)
     assert events == ["stopped", "started"]
+
+
+def test_failed_resume_preparation_keeps_source_paused(monkeypatch, tmp_path):
+    monkeypatch.setenv("YOKE_MACHINE_HOME", str(tmp_path / "machine"))
+    with pg_testdb.test_database() as source:
+        source.commit()
+        dsn = os.environ[db_backend.PG_DSN_ENV]
+        pause.pause(dsn)
+        try:
+            with pytest.raises(
+                pause.UniversePausedError, match="universe_resume_failed"
+            ):
+                with pause.resuming_source(dsn):
+                    raise RuntimeError("schema preparation failed")
+            with pytest.raises(pause.UniversePausedError):
+                db_backend.connect_psycopg(dsn)
+        finally:
+            pause.resume(dsn)
+
+
+def test_startup_waits_until_export_releases_source(monkeypatch, tmp_path):
+    from concurrent.futures import ThreadPoolExecutor
+    from threading import Event
+
+    monkeypatch.setenv("YOKE_SERVER_MODE", "self-host")
+    monkeypatch.setenv("YOKE_MACHINE_HOME", str(tmp_path / "machine"))
+    dsn = "host=localhost dbname=serialized-startup"
+    attempted = Event()
+    order = []
+
+    def start():
+        attempted.set()
+        with pause.startup_access(dsn):
+            order.append("startup admitted")
+
+    with ThreadPoolExecutor(max_workers=1) as worker:
+        with pause.operation(dsn):
+            future = worker.submit(start)
+            assert attempted.wait(5)
+            order.append("export finished")
+        future.result(timeout=5)
+    assert order == ["export finished", "startup admitted"]
