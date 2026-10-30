@@ -95,7 +95,12 @@ export function sessionRosterFilters(documentNode, onChange) {
     || String(controls.machine.value || "").trim()
     || String(controls.project.value || "").trim()
     || controls.state.value !== DEFAULT_STATE;
+  const filterValues = () => Object.values(controls).map((control) => control.value);
+  let previousValues = filterValues();
   const changed = (key = "unknown") => {
+    const values = filterValues();
+    if (values.every((value, index) => value === previousValues[index])) return;
+    previousValues = values;
     clear.disabled = !hasChanges();
     onChange(key);
   };
