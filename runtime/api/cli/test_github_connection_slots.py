@@ -307,3 +307,20 @@ def test_cli_user_token_uses_checkout_connection(configured, tmp_path, monkeypat
         config_path=config, _expected_service_api_url="https://stage.example.test"
     )
     assert token.access_token == "access-stage"
+
+
+
+def test_migrated_legacy_cas_does_not_delete_other_slots_credential(configured, monkeypatch):
+    config, payload, a, b, a_path, _ = configured
+    payload["github"] = a
+    save(config, payload)
+    store.claim_config_owner(a_path, config)
+    monkeypatch.setenv("YOKE_ENV", "stage")
+    result = writer.set_github(
+        b, expected_credential_ref=str(a_path),
+        expected_profile_identity={k: a.get(k) for k in github_app_tokens.GITHUB_PROFILE_IDENTITY_FIELDS},
+        path=config,
+    )
+    assert json.loads(config.read_text())["connection_github"] == {"prod": a, "stage": b}
+    assert a_path.is_file()
+    assert result["replaced_credential_ref"] == ""

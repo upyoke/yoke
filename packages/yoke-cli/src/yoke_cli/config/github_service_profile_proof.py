@@ -159,8 +159,7 @@ def selected_service_api_url(
         ):
             return selected
         raise GitHubServiceProfileProofError(
-            "saved GitHub App profile does not match the requested Yoke "
-            "service; reconnect GitHub"
+            missing_authorization(config, connection_env or "")
         )
     active_env = connection_env or (
         os.environ.get(github_app_tokens.YOKE_ENV_OVERRIDE_NAME, "").strip()

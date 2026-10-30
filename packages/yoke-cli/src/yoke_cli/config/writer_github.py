@@ -33,16 +33,18 @@ def set_github(
     """Replace GitHub metadata iff its authorization is still expected."""
 
     payload, cfg_path = load_payload(path)
+    legacy = payload.get("github")
     label = _prepare_slots(payload)
     current = github_app_tokens.connection_github(payload, label)
     replaced_ref = _github_credential_ref(current)
-    if replaced_ref != expected_credential_ref:
+    comparison = current or (legacy if expected_credential_ref else {}) or {}
+    if _github_credential_ref(comparison) != expected_credential_ref:
         raise MachineConfigWriteError(
             "machine GitHub App authorization changed during this operation; "
             "retry against the current connection"
         )
     if expected_profile_identity is not None and _github_profile_identity(
-        current
+        comparison
     ) != dict(expected_profile_identity):
         raise MachineConfigWriteError(
             "machine GitHub App profile changed during this operation; retry "
