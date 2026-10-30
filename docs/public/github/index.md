@@ -155,6 +155,8 @@ in scope (`yoke projects github-binding check --project <slug>` does the same
 for one project). A refused check names its reason and recovery.
 Installation counts include all visible projects even when one project is selected;
 Detach stays disabled while any of those projects uses the installation.
+Bound installations absent from the hosted installation list still appear with
+their bound-project count and a note explaining the missing hosted entry.
 In hosted Yoke, each GitHub account installation serves exactly one Yoke org;
 to move it within the same environment, unbind its projects and then **Detach**
 from the old org before connecting it to the new org, without uninstalling
