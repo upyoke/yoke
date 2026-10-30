@@ -15,7 +15,12 @@ from starlette.background import BackgroundTask
 from yoke_contracts.api_urls import UNIVERSE_EXPORT_PATH
 from yoke_contracts.server_mode import SERVER_MODE_ENV, SERVER_MODE_SELF_HOST
 from yoke_core.api.http_auth import require_auth_context
-from yoke_core.domain import db_backend, db_helpers, universe_export
+from yoke_core.domain import (
+    db_backend,
+    db_helpers,
+    universe_export,
+    universe_source_pause,
+)
 from yoke_core.domain.actor_permissions import PERM_ORG_ADMIN, PermissionDenied
 from yoke_core.domain.control_plane_authority import require_control_plane_permission
 
@@ -83,7 +88,10 @@ def download_self_host_universe(
             raise universe_export.UniverseExportError(
                 "the server export did not produce its bounded artifact"
             )
-    except universe_export.UniverseExportError as exc:
+    except (
+        universe_export.UniverseExportError,
+        universe_source_pause.UniversePausedError,
+    ) as exc:
         shutil.rmtree(directory, ignore_errors=True)
         return _error(
             409,
@@ -95,7 +103,7 @@ def download_self_host_universe(
         return _error(
             500,
             "universe_export_failed",
-            "the self-host universe export failed",
+            "The self-host export failed; check server logs and source storage, retry export, or run `yoke universe resume` to restore source writers.",
         )
 
     return FileResponse(
@@ -115,8 +123,6 @@ def download_self_host_universe(
 
 @router.post("/universe/resume")
 def resume_self_host_universe(request: Request):
-    from yoke_core.domain import universe_source_pause
-
     if os.environ.get(SERVER_MODE_ENV, "").strip() != SERVER_MODE_SELF_HOST:
         return _error(404, "not_found", "universe resume is not available here")
     auth = require_auth_context(request)

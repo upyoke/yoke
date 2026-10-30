@@ -76,3 +76,31 @@ def test_resume_cannot_race_export(monkeypatch, tmp_path):
     with pause.operation(dsn):
         with pytest.raises(pause.UniversePausedError, match="universe_source_busy"):
             pause.resume(dsn)
+
+
+def test_pause_persists_service_recovery_before_stopping(monkeypatch, tmp_path):
+    import json
+    from yoke_core.domain import universe_source_services as services
+
+    monkeypatch.setenv("YOKE_MACHINE_HOME", str(tmp_path / "machine"))
+    record = {"relay_environment": "isolated"}
+    events = []
+    monkeypatch.setattr(services, "plan", lambda _dsn: record)
+    with pg_testdb.test_database() as source:
+        source.commit()
+        dsn = os.environ[db_backend.PG_DSN_ENV]
+
+        def stop(value):
+            assert value == json.loads(pause._marker(dsn).read_text()) == record
+            events.append("stopped")
+
+        def start(value):
+            assert pause.is_paused(dsn)
+            assert value == record
+            events.append("started")
+
+        monkeypatch.setattr(services, "stop", stop)
+        monkeypatch.setattr(services, "start", start)
+        pause.pause(dsn)
+        pause.resume(dsn)
+    assert events == ["stopped", "started"]

@@ -101,13 +101,17 @@ yoke universe export --pause-source --out /secure/source.tar
 yoke universe validate /secure/source.tar
 ```
 
-The pause stops Yoke database writers, terminates other database client sessions,
+The pause stops the selected local source's installed relay, blocks new Yoke
+database writers, terminates other database client sessions,
 and waits for zero before exporting. It remains in effect after success or failure.
 Self-host request admission refuses work while paused; local database acquisition
 refuses connections to that source. Run `yoke universe resume` against that same
 source when it may write again. A pause-marker or drain failure refuses the move
 with recovery; repair the named cause and retry, or explicitly resume the source.
-Database authority must permit terminating its client sessions.
+Database authority must permit terminating its client sessions. Resume restarts
+a relay that the pause stopped; unrelated connections and their services stay
+independent. Run a source export from a standalone terminal if it is itself
+running under that source relay.
 
 Export without `--pause-source` is a backup with
 `zero_writable_app_sessions=False`; local import accepts it, hosted replacement

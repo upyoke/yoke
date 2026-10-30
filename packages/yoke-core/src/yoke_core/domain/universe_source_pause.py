@@ -10,6 +10,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import tempfile
 import time
 from contextlib import contextmanager
 from contextvars import ContextVar
@@ -100,21 +101,38 @@ def pause_owner():
 
 def pause(dsn: str, *, timeout_s: float = 30) -> None:
     """Persist refusal before terminating all other database client sessions."""
-    from yoke_core.domain import db_backend, postgres_connection_reuse
+    from yoke_core.domain import (
+        db_backend,
+        postgres_connection_reuse,
+        universe_source_services,
+    )
 
     marker = _marker(dsn)
     try:
         marker.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
-        descriptor = os.open(marker, os.O_WRONLY | os.O_CREAT, 0o600)
-        try:
-            os.fsync(descriptor)
-        finally:
-            os.close(descriptor)
+        services = (
+            json.loads(marker.read_text())
+            if marker.exists()
+            else universe_source_services.plan(dsn)
+        )
+        if not marker.exists():
+            descriptor, temporary = tempfile.mkstemp(
+                dir=marker.parent, prefix=".pause-"
+            )
+            try:
+                with os.fdopen(descriptor, "w") as handle:
+                    json.dump(services, handle)
+                    handle.flush()
+                    os.fsync(handle.fileno())
+                os.replace(temporary, marker)
+            finally:
+                Path(temporary).unlink(missing_ok=True)
         directory = os.open(marker.parent, os.O_RDONLY)
         try:
             os.fsync(directory)
         finally:
             os.close(directory)
+        universe_source_services.stop(services)
         postgres_connection_reuse.close_idle_connections()
         with pause_owner(), db_backend.connect_psycopg(dsn, autocommit=True) as conn:
             deadline = time.monotonic() + timeout_s
@@ -130,6 +148,8 @@ def pause(dsn: str, *, timeout_s: float = 30) -> None:
                 if time.monotonic() >= deadline:
                     raise RuntimeError("client sessions did not drain")
                 time.sleep(0.05)
+    except universe_source_services.SourceServiceError as exc:
+        raise UniversePausedError(str(exc)) from exc
     except Exception as exc:
         raise UniversePausedError(
             compose_refusal(
@@ -141,12 +161,18 @@ def pause(dsn: str, *, timeout_s: float = 30) -> None:
 
 def resume(dsn: str) -> dict:
     """Remove the pause only after proving that the source can be reached."""
-    from yoke_core.domain import db_backend, postgres_connection_reuse
+    from yoke_core.domain import (
+        db_backend,
+        postgres_connection_reuse,
+        universe_source_services,
+    )
 
     with operation(dsn):
         with pause_owner(), db_backend.connect_psycopg(dsn) as conn:
             conn.execute("SELECT 1")
         marker = _marker(dsn)
+        services = json.loads(marker.read_text()) if marker.exists() else {}
+        universe_source_services.start(services)
         marker.unlink(missing_ok=True)
         postgres_connection_reuse.close_idle_connections()
         return {"resumed": True}

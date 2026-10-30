@@ -26,12 +26,14 @@ class _Connection:
 
 
 def _request() -> Request:
-    request = Request({
-        "type": "http",
-        "method": "GET",
-        "path": "/v1/universe/export",
-        "headers": [],
-    })
+    request = Request(
+        {
+            "type": "http",
+            "method": "GET",
+            "path": "/v1/universe/export",
+            "headers": [],
+        }
+    )
     setattr(
         request.state,
         AUTH_STATE_ATTR,
@@ -61,8 +63,13 @@ def test_route_requires_org_admin(monkeypatch):
 def test_route_exports_server_authority_and_cleans_up(tmp_path, monkeypatch):
     monkeypatch.setenv(SERVER_MODE_ENV, SERVER_MODE_SELF_HOST)
     monkeypatch.setattr(route.db_helpers, "connect", _Connection)
-    monkeypatch.setattr(route, "require_control_plane_permission", lambda *_a, **_k: None)
-    monkeypatch.setattr(route.db_backend, "resolve_pg_dsn", lambda: "postgresql://private")
+    monkeypatch.setattr(
+        route, "require_control_plane_permission", lambda *_a, **_k: None
+    )
+    monkeypatch.setattr(
+        route.db_backend, "resolve_pg_dsn", lambda: "postgresql://private"
+    )
+
     def make_temp(**_kwargs):
         directory = tmp_path / "export"
         directory.mkdir()
@@ -91,3 +98,56 @@ def test_route_exports_server_authority_and_cleans_up(tmp_path, monkeypatch):
     assert Path(response.path).read_bytes() == b"archive"
     asyncio.run(response.background())
     assert not (tmp_path / "export").exists()
+
+
+def test_paused_server_refuses_mutation_and_allows_explicit_resume(
+    monkeypatch, tmp_path
+):
+    from fastapi import FastAPI
+    from fastapi.testclient import TestClient
+    from yoke_core.api.universe_pause_admission import install
+    from yoke_core.domain import universe_source_pause
+
+    monkeypatch.setenv(SERVER_MODE_ENV, SERVER_MODE_SELF_HOST)
+    monkeypatch.setenv("YOKE_MACHINE_HOME", str(tmp_path / "machine"))
+    dsn = "host=localhost dbname=paused-source"
+    monkeypatch.setattr(route.db_backend, "resolve_pg_dsn", lambda: dsn)
+    marker = universe_source_pause._marker(dsn)
+    marker.parent.mkdir(parents=True)
+    marker.write_text("{}")
+    app = FastAPI()
+    writes = []
+
+    @app.post("/v1/items")
+    def mutate():
+        writes.append("mutated")
+        return {"ok": True}
+
+    @app.post("/v1/universe/resume")
+    def resume():
+        universe_source_pause.require_running(dsn)
+        marker.unlink()
+        return {"resumed": True}
+
+    install(app)
+    with TestClient(app) as client:
+        refused = client.post("/v1/items")
+        assert refused.status_code == 503
+        assert refused.json()["error"]["code"] == "universe_source_paused"
+        assert "universe resume" in refused.json()["error"]["message"]
+        assert writes == []
+        assert client.post("/v1/universe/resume").json() == {"resumed": True}
+        assert client.post("/v1/items").json() == {"ok": True}
+        assert writes == ["mutated"]
+
+
+def test_resume_requires_org_admin(monkeypatch):
+    monkeypatch.setenv(SERVER_MODE_ENV, SERVER_MODE_SELF_HOST)
+    monkeypatch.setattr(route.db_helpers, "connect", _Connection)
+
+    def deny(*_args, **_kwargs):
+        raise PermissionDenied("org admin required")
+
+    monkeypatch.setattr(route, "require_control_plane_permission", deny)
+    response = route.resume_self_host_universe(_request())
+    assert response.status_code == 403
