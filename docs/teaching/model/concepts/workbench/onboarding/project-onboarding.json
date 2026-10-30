@@ -5,10 +5,5 @@
  "page": "workbench",
  "position": 2,
  "text": "The Run /yoke onboard module completes when the project's first item is done; no separate first-deploy module. A run superseded by recorded delivery remains historical completion even when its saved checklist predates current rows; it does not prove current setup readiness. An active run missing checklist rows refuses with setup_checklist_incomplete, the owning project, and its checklist init recovery.",
- "sources": [
-  "packages/yoke-core/src/yoke_core/domain/overview_activation_read.py",
-  "packages/yoke-core/src/yoke_core/ui/static/universe_onboarding_copy.js",
-  "packages/yoke-core/src/yoke_core/domain/overview_onboard_progress.py",
-  "packages/yoke-core/src/yoke_core/domain/handlers/overview_activation.py"
- ]
+ "sources": ["packages/yoke-core/src/yoke_core/domain/overview_activation_read.py", "packages/yoke-core/src/yoke_core/ui/static/universe_onboarding_copy.js", "packages/yoke-core/src/yoke_core/domain/overview_onboard_progress.py", "packages/yoke-core/src/yoke_core/domain/handlers/overview_activation.py"]
 }
