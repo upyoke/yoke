@@ -292,7 +292,11 @@ def birth_universe() -> None:
 
 def main(argv: Optional[Sequence[str]] = None) -> int:
     settings = resolve_settings(argv)
-    from yoke_core.domain import db_backend, universe_startup_lock
+    from yoke_core.domain import (
+        db_backend,
+        universe_startup_lock,
+        universe_source_pause,
+    )
 
     hosted = universe_startup_lock.hosted_tenant_container_process()
 
@@ -308,25 +312,28 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         run_server(settings, **kwargs)
 
     with universe_startup_lock.server_startup_guard(db_backend.resolve_pg_dsn()):
-        if not universe_is_born():
-            _log.info("empty database detected: bootstrapping a fresh universe")
-            birth_universe()
-        elif not admin_credential_exists():
-            # A prior birth died after the born-ness sentinel committed but
-            # before the end-of-birth token mint. Serving now would strand a
-            # permanently credential-less universe; re-enter the idempotent
-            # birth so the one-time admin token still gets minted and printed.
-            _log.warning(
-                "born universe carries no API credential: "
-                "completing an interrupted birth before serving"
-            )
-            birth_universe()
-        else:
-            ensure_core_schema()
-            # Reseed the permission catalog before serving so a deploy of new
-            # code that adds permissions propagates to the DB without a manual
-            # seed step.
-            ensure_permission_catalog()
+        with universe_source_pause.startup_access(db_backend.resolve_pg_dsn()):
+            if universe_source_pause.is_paused(db_backend.resolve_pg_dsn()):
+                _log.info(
+                    "source remains paused; schema preparation waits for explicit Resume"
+                )
+            else:
+                if not universe_is_born():
+                    _log.info("empty database detected: bootstrapping a fresh universe")
+                    birth_universe()
+                elif not admin_credential_exists():
+                    # Complete interrupted birth before serving without a credential.
+                    _log.warning(
+                        "born universe carries no API credential: "
+                        "completing an interrupted birth before serving"
+                    )
+                    birth_universe()
+                else:
+                    ensure_core_schema()
+                    # Reseed the permission catalog before serving so a deploy of new
+                    # code that adds permissions propagates to the DB without a manual
+                    # seed step.
+                    ensure_permission_catalog()
         # Local and self-host keep the lock through serve so import cannot
         # overlap a live server. Hosted tenant containers matching the
         # existing env contract release after init so the DSN is idle.

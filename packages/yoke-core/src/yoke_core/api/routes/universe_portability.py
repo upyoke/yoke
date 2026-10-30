@@ -144,7 +144,12 @@ def resume_self_host_universe(request: Request):
             except PermissionDenied as exc:
                 return _error(403, "permission_denied", str(exc))
         try:
-            return universe_source_pause.resume(db_backend.resolve_pg_dsn())
+            from yoke_core.api import server_entrypoint
+
+            with universe_source_pause.resuming_source(db_backend.resolve_pg_dsn()):
+                server_entrypoint.ensure_core_schema()
+                server_entrypoint.ensure_permission_catalog(fail_soft=False)
+            return {"resumed": True}
         except (RuntimeError, OSError):
             return _error(
                 409,

@@ -39,7 +39,7 @@ def _marker(dsn: str) -> Path:
 
 
 @contextmanager
-def operation(dsn: str):
+def operation(dsn: str, *, wait: bool = False):
     """Serialize export and resume across every source process."""
     from yoke_contracts import platform_file_lock
 
@@ -49,7 +49,18 @@ def operation(dsn: str):
     acquired = False
     try:
         try:
-            platform_file_lock.acquire_exclusive_nonblocking(descriptor)
+            try:
+                platform_file_lock.acquire_exclusive_nonblocking(descriptor)
+            except BlockingIOError:
+                if not wait:
+                    raise
+                from yoke_contracts.designed_wait import announce_designed_wait
+
+                announce_designed_wait(
+                    "source export or resume to finish before startup",
+                    max_wait_seconds=600,
+                )
+                platform_file_lock.acquire_exclusive(descriptor)
             acquired = True
         except (BlockingIOError, OSError) as exc:
             raise UniversePausedError(
@@ -63,6 +74,18 @@ def operation(dsn: str):
         if acquired:
             platform_file_lock.release_exclusive(descriptor)
         os.close(descriptor)
+
+
+@contextmanager
+def startup_access(dsn: str):
+    """Serialize internal startup reads without reopening application admission."""
+    from yoke_contracts.server_mode import SERVER_MODE_ENV, SERVER_MODE_SELF_HOST
+
+    if os.environ.get(SERVER_MODE_ENV) != SERVER_MODE_SELF_HOST:
+        yield
+        return
+    with operation(dsn, wait=True), pause_owner():
+        yield
 
 
 def check_connection(conn, dsn: str):
@@ -107,6 +130,8 @@ def pause(dsn: str, *, timeout_s: float = 30) -> None:
         universe_source_services,
     )
 
+    from yoke_core.domain.universe_startup_lock import application_sessions
+
     marker = _marker(dsn)
     try:
         marker.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
@@ -137,10 +162,7 @@ def pause(dsn: str, *, timeout_s: float = 30) -> None:
         with pause_owner(), db_backend.connect_psycopg(dsn, autocommit=True) as conn:
             deadline = time.monotonic() + timeout_s
             while True:
-                sessions = conn.execute(
-                    "SELECT pid FROM pg_stat_activity WHERE datname=current_database() "
-                    "AND pid<>pg_backend_pid() AND backend_type='client backend'"
-                ).fetchall()
+                sessions = application_sessions(conn)
                 if not sessions:
                     return
                 for row in sessions:
@@ -159,7 +181,8 @@ def pause(dsn: str, *, timeout_s: float = 30) -> None:
         ) from exc
 
 
-def resume(dsn: str) -> dict:
+@contextmanager
+def resuming_source(dsn: str):
     """Remove the pause only after proving that the source can be reached."""
     from yoke_core.domain import (
         db_backend,
@@ -171,12 +194,13 @@ def resume(dsn: str) -> dict:
         try:
             with pause_owner(), db_backend.connect_psycopg(dsn) as conn:
                 conn.execute("SELECT 1")
+            with pause_owner():
+                yield
             marker = _marker(dsn)
             services = json.loads(marker.read_text()) if marker.exists() else {}
             universe_source_services.start(services)
             marker.unlink(missing_ok=True)
             postgres_connection_reuse.close_idle_connections()
-            return {"resumed": True}
         except UniversePausedError:
             raise
         except Exception as exc:
@@ -186,3 +210,9 @@ def resume(dsn: str) -> dict:
                     recovery="check database availability, the source relay and pause-marker permissions, then retry `yoke universe resume`",
                 )
             ) from exc
+
+
+def resume(dsn: str) -> dict:
+    with resuming_source(dsn):
+        pass
+    return {"resumed": True}
