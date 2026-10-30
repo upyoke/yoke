@@ -115,9 +115,9 @@ def test_windows_guidance_names_unsupported_native_path(monkeypatch) -> None:
 def test_linux_without_known_package_manager_uses_generic_guidance() -> None:
     from yoke_cli.config import project_git_prerequisite
 
-    advice = project_git_prerequisite.install_advice(platform_name="linux", which=lambda name: None)
+    advice = project_git_prerequisite.install_advice(
+        platform_name="linux", which=lambda name: None
+    )
 
     assert advice.command is None
     assert "package named git" in advice.note
-
-
