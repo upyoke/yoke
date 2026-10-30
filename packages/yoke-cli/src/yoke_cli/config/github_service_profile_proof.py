@@ -129,6 +129,7 @@ def selected_service_api_url(
     *,
     expected_service_api_url: str | None = None,
     expected_local_connection: bool = False,
+    connection_env: str | None = None,
 ) -> str | None:
     """Validate saved profile provenance against the selected connection."""
 
@@ -161,7 +162,7 @@ def selected_service_api_url(
             "saved GitHub App profile does not match the requested Yoke "
             "service; reconnect GitHub"
         )
-    active_env = (
+    active_env = connection_env or (
         os.environ.get(github_app_tokens.YOKE_ENV_OVERRIDE_NAME, "").strip()
         or str(config.get("active_env") or "").strip()
     )
@@ -195,13 +196,13 @@ def selected_service_api_url(
         }
     ):
         return None
-    raise GitHubServiceProfileProofError(missing_authorization(config))
+    raise GitHubServiceProfileProofError(missing_authorization(config, connection_env or ""))
 
 
 
-def selected_github(config: Mapping[str, Any]) -> dict[str, Any]:
+def selected_github(config: Mapping[str, Any], env: str | None = None) -> dict[str, Any]:
     return github_app_tokens.connection_github(
-        config, os.environ.get("YOKE_ENV") or str(config.get("active_env") or "")
+        config, env or os.environ.get("YOKE_ENV") or str(config.get("active_env") or "")
     )
 
 

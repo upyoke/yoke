@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from runtime.api.cli.github_user_token_test_support import seed_yoke_connection
+
 import json
 from pathlib import Path
 import urllib.error
@@ -21,6 +23,7 @@ def test_reconnect_discovery_failure_preserves_cached_access_snapshot(
     home = tmp_path / "home"
     monkeypatch.setenv("YOKE_MACHINE_HOME", str(home))
     config = home / "config.json"
+    seed_yoke_connection(config)
     github_machine.connect(
         config_path=config,
         **_explicit_profile(),
@@ -30,7 +33,7 @@ def test_reconnect_discovery_failure_preserves_cached_access_snapshot(
         sleep=lambda seconds: None,
         monotonic=lambda: 0,
     )
-    original = json.loads(config.read_text(encoding="utf-8"))["github"]
+    original = json.loads(config.read_text(encoding="utf-8"))["connection_github"]["local"]
 
     def unavailable(request, timeout):
         raise urllib.error.HTTPError(
@@ -56,7 +59,7 @@ def test_reconnect_discovery_failure_preserves_cached_access_snapshot(
             monotonic=lambda: 0,
         )
 
-    stored = json.loads(config.read_text(encoding="utf-8"))["github"]
+    stored = json.loads(config.read_text(encoding="utf-8"))["connection_github"]["local"]
     assert stored["installations"] == original["installations"]
     assert stored["repositories"] == original["repositories"]
     assert stored == original

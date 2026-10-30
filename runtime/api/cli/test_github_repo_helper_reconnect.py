@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from runtime.api.cli.github_user_token_test_support import seed_yoke_connection
+
 import json
 from pathlib import Path
 import urllib.error
@@ -42,6 +44,10 @@ def _register_checkout(config: Path, repo: Path, tmp_path: Path) -> None:
             },
         }
     )
+    slots = payload.get("connection_github", {})
+    if "local" in slots:
+        slots["stage"] = slots.pop("local")
+        slots["stage"].update(profile_source="service", profile_service_api_url="https://stage.yoke.example")
     config.write_text(json.dumps(payload), encoding="utf-8")
     _git(repo, "remote", "add", "origin", "https://github.com/octo/repo.git")
 
@@ -121,6 +127,7 @@ def test_failed_profile_replacement_keeps_existing_helper_unchanged(
     home = tmp_path / "home"
     monkeypatch.setenv("YOKE_MACHINE_HOME", str(home))
     config = home / "config.json"
+    seed_yoke_connection(config)
     github_machine.connect(
         config_path=config,
         **_explicit_profile(),

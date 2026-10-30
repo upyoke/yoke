@@ -291,3 +291,19 @@ def test_helper_checks_external_worktrees_primary_registration(configured, tmp_p
     monkeypatch.chdir(external)
     with pytest.raises(store.GitHubCredentialStoreError, match="connection 'stage'"):
         helper.access_token_for_git_request(config, {"protocol": "https", "host": "github.com"})
+
+
+
+def test_cli_user_token_uses_checkout_connection(configured, tmp_path, monkeypatch):
+    from yoke_cli.config import github_user_tokens
+    config, payload, a, b, *_ = configured
+    checkout = tmp_path / "checkout"
+    checkout.mkdir()
+    payload["connection_github"] = {"prod": a, "stage": b}
+    payload["connection_projects"] = {"stage": [{"checkout": str(checkout), "project_id": 1}]}
+    save(config, payload)
+    monkeypatch.chdir(checkout)
+    token = github_user_tokens.access_token_from_machine_config(
+        config_path=config, _expected_service_api_url="https://stage.example.test"
+    )
+    assert token.access_token == "access-stage"

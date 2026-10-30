@@ -53,6 +53,7 @@ def access_token_from_machine_config(
     client_secret: str | None = None,
     profile_opener: Callable[..., Any] | None = None,
     profile_proven: bool = False,
+    connection_env: str | None = None,
     expected_service_api_url: str | None = None,
     expected_local_connection: bool = False,
 ) -> dict[str, Any]:
@@ -65,6 +66,7 @@ def access_token_from_machine_config(
         client_secret=client_secret,
         profile_opener=profile_opener,
         profile_proven=profile_proven,
+        connection_env=connection_env,
         expected_service_api_url=expected_service_api_url,
         expected_local_connection=expected_local_connection,
     )
@@ -80,13 +82,14 @@ def access_token_from_config(
     client_secret: str | None = None,
     profile_opener: Callable[..., Any] | None = None,
     profile_proven: bool = False,
+    connection_env: str | None = None,
     expected_service_api_url: str | None = None,
     expected_local_connection: bool = False,
 ) -> dict[str, Any]:
-    github = github_service_profile_proof.selected_github(config)
+    github = github_service_profile_proof.selected_github(config, connection_env)
     if not github:
         raise GitHubCredentialStoreError(
-            github_service_profile_proof.missing_authorization(config)
+            github_service_profile_proof.missing_authorization(config, connection_env or "")
         )
     authorization = github.get("authorization")
     if not isinstance(authorization, Mapping):
@@ -115,6 +118,7 @@ def access_token_from_config(
             github,
             expected_service_api_url=expected_service_api_url,
             expected_local_connection=expected_local_connection,
+            connection_env=connection_env,
         )
     except github_service_profile_proof.GitHubServiceProfileProofError as exc:
         raise GitHubCredentialStoreError(str(exc)) from exc
@@ -158,7 +162,7 @@ def access_token_from_config(
         except github_service_profile_proof.GitHubServiceProfileProofError as exc:
             raise GitHubCredentialStoreError(str(exc)) from exc
     with machine_operation_lock(config_path), _locked(path):
-        if github_service_profile_proof.selected_github(load_config(config_path)) != github:
+        if github_service_profile_proof.selected_github(load_config(config_path), connection_env) != github:
             raise GitHubCredentialStoreError(
                 "machine GitHub App profile changed before refresh; retry "
                 "against the current connection"

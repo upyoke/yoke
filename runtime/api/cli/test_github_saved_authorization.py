@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from runtime.api.cli.github_user_token_test_support import seed_yoke_connection
+
 import pytest
 
 from yoke_cli.config import github_saved_authorization as saved
@@ -65,6 +67,7 @@ def test_second_connect_checks_saved_auth_without_device_flow(
 ):
     home = tmp_path / "home"
     monkeypatch.setenv("YOKE_MACHINE_HOME", str(home))
+    seed_yoke_connection(home / "config.json", service_api_url="https://api.upyoke.com")
     common = dict(
         config_path=home / "config.json",
         service_api_url="https://api.upyoke.com",

@@ -143,6 +143,10 @@ GITHUB_APP_USER_AUTH_CONFIGURATION_HINT = (
 )
 
 __all__ = [
+    "GITHUB_CONNECTIONS_KEY",
+    "github_connection_label",
+    "connection_github",
+    "github_configurations",
     "DEFAULT_GITHUB_WEB_BASE",
     "GITHUB_API_VERSION",
     "GITHUB_APP_ACCEPT",

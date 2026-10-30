@@ -139,10 +139,9 @@ def _selected_label(payload: Mapping[str, Any]) -> str:
 
 
 def _prepare_slots(payload: dict[str, Any]) -> str:
-    label = _selected_label(payload)
     legacy = payload.get("github")
     if legacy is None:
-        return label
+        return _selected_label(payload)
     connections = payload.get("connections") or {}
     active = str(payload.get("active_env") or "")
     labels = list(dict.fromkeys([active, *sorted(connections)]))
@@ -171,7 +170,7 @@ def _prepare_slots(payload: dict[str, Any]) -> str:
             if owner in slots:
                 break
             slots[owner] = payload.pop("github")
-            return label
+            return _selected_label(payload)
     raise MachineConfigWriteError(
         "github_legacy_connection_unmatched: saved GitHub authorization has no "
         "matching connection; run yoke github disconnect, then connect again"

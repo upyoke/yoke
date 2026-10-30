@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from runtime.api.cli.github_user_token_test_support import seed_yoke_connection
+
 import json
 from pathlib import Path
 import stat
@@ -142,6 +144,7 @@ def test_connect_persists_auth_but_stays_pending_without_installation(
     home = tmp_path / "home"
     monkeypatch.setenv("YOKE_MACHINE_HOME", str(home))
     config = home / "config.json"
+    seed_yoke_connection(config)
     opened: list[str] = []
     notices: list[dict[str, Any]] = []
 
@@ -169,7 +172,7 @@ def test_connect_persists_auth_but_stays_pending_without_installation(
     assert notices[0]["user_code"] == "ABCD-EFGH"
     assert notices[-1]["install_url"] == report["install_url"]
     payload = json.loads(config.read_text(encoding="utf-8"))
-    authorization = payload["github"]["authorization"]
+    authorization = payload["connection_github"]["local"]["authorization"]
     credential = Path(authorization["refresh_credential_ref"])
     assert credential.is_file()
     assert stat.S_IMODE(credential.stat().st_mode) == 0o600
@@ -192,6 +195,7 @@ def test_connect_discovers_installation_repositories_and_permissions(
     home = tmp_path / "home"
     monkeypatch.setenv("YOKE_MACHINE_HOME", str(home))
     config = home / "config.json"
+    seed_yoke_connection(config)
 
     opened: list[str] = []
     report = github_machine.connect(
@@ -234,6 +238,7 @@ def test_status_uses_cached_access_and_disconnect_removes_only_local_auth(
     home = tmp_path / "home"
     monkeypatch.setenv("YOKE_MACHINE_HOME", str(home))
     config = home / "config.json"
+    seed_yoke_connection(config)
     github_machine.connect(
         config_path=config,
         service_api_url="https://api.upyoke.com",
@@ -256,8 +261,8 @@ def test_status_uses_cached_access_and_disconnect_removes_only_local_auth(
     )
     assert status["ok"] is True
     credential = Path(json.loads(config.read_text(encoding="utf-8"))[
-        "github"
-    ]["authorization"]["refresh_credential_ref"])
+        "connection_github"
+    ]["local"]["authorization"]["refresh_credential_ref"])
     lock_path = credential.with_name(credential.name + ".lock")
 
     disconnected = github_machine.disconnect(config_path=config)
@@ -275,7 +280,7 @@ def test_status_uses_cached_access_and_disconnect_removes_only_local_auth(
     }
     assert not credential.exists()
     assert lock_path.is_file()
-    assert not config.exists()
+    assert "connection_github" not in json.loads(config.read_text())
 
 
 def test_connect_rejects_mismatched_web_and_api_before_oauth(
