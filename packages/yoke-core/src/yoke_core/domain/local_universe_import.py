@@ -99,7 +99,6 @@ def import_universe(
             )
 
             def finalize(conn: psycopg.Connection) -> None:
-                artifact_result.update(restore_artifacts(conn, dump, stores))
                 owner.update(_prepare_local_owner(conn))
                 if receipt_org and receipt_org != owner["org"]:
                     raise LocalUniverseImportError(
@@ -107,6 +106,7 @@ def import_universe(
                         f"{receipt_org!r} but the enclosed universe is org "
                         f"{owner['org']!r}"
                     )
+                artifact_result.update(restore_artifacts(conn, dump, stores))
 
             with universe_startup_lock.exclusive_import_guard(resolved_dsn):
                 stores = capture_destination(resolved_dsn)

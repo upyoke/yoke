@@ -46,20 +46,12 @@ def artifact_sources(conn: Any, stores: dict) -> list[dict]:
                 ),
             )
             if handle["backend"] == "local":
-                from yoke_contracts.machine_config.schema_projects import (
-                    mapped_checkouts,
+                from yoke_core.domain.project_checkout_locations import (
+                    checkout_for_project_id,
                 )
 
-                entry["repo_root"] = next(
-                    (
-                        path
-                        for path, project_id in mapped_checkouts(
-                            storage.machine_config.load_config()
-                        )
-                        if project_id == owner["project_id"]
-                    ),
-                    None,
-                )
+                checkout = checkout_for_project_id(int(owner["project_id"]))
+                entry["repo_root"] = str(checkout) if checkout is not None else None
         except (TypeError, ValueError, LookupError):
             entry.update(
                 original_handle=raw,
@@ -138,13 +130,6 @@ def restore_artifacts(conn: Any, dump: Path, stores: dict) -> dict:
                     "archive_artifact_owner_missing: file has no project; export again"
                 )
             original = parse_handle(entry["original_handle"])
-            handle = storage.write_file(
-                dump.parent / "artifacts" / key,
-                key,
-                project=project,
-                store=stores.get(project, {}),
-                content_type=original.get("content_type"),
-            )
             if key.startswith("qa-artifacts/"):
                 row = conn.execute(
                     "SELECT artifact_handle FROM qa_artifacts WHERE id=%s",
@@ -155,6 +140,14 @@ def restore_artifacts(conn: Any, dump: Path, stores: dict) -> dict:
                         "archive_artifact_handle_mismatch: manifest differs from the "
                         "dump; export the source again"
                     )
+            handle = storage.write_file(
+                dump.parent / "artifacts" / key,
+                key,
+                project=project,
+                store=stores.get(project, {}),
+                content_type=original.get("content_type"),
+            )
+            if key.startswith("qa-artifacts/"):
                 conn.execute(
                     "UPDATE qa_artifacts SET artifact_handle=%s WHERE id=%s",
                     (serialize_handle(handle), entry["artifact_id"]),
@@ -167,9 +160,15 @@ def estimate_universe(
     *, dsn: str | None = None, exclude_artifacts: bool = False
 ) -> dict:
     """Estimate before dumping; missing files remain explicitly counted."""
-    from yoke_core.domain.universe_export import resolve_export_dsn
+    from yoke_core.domain.universe_export import (
+        resolve_export_dsn,
+        _start_own_universe,
+        _snapshot_connection,
+    )
 
-    conn = db_backend.connect_psycopg(dsn or resolve_export_dsn())
+    resolved_dsn = dsn or resolve_export_dsn()
+    _start_own_universe(resolved_dsn, lambda _line: None)
+    conn = _snapshot_connection(resolved_dsn)
     try:
         dump_bytes = int(
             conn.execute("SELECT pg_database_size(current_database())").fetchone()[0]

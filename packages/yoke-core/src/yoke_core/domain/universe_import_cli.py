@@ -109,7 +109,6 @@ def import_from_stream(
 
             def finalize(conn: psycopg.Connection) -> None:
                 nonlocal credential
-                artifact_result.update(restore_artifacts(conn, dump, stores))
                 credential = universe_import_credentials.replace_imported_credentials(
                     conn
                 )
@@ -122,6 +121,7 @@ def import_from_stream(
                         f"{receipt_org!r} but the enclosed universe is org "
                         f"{credential.org_slug!r}"
                     )
+                artifact_result.update(restore_artifacts(conn, dump, stores))
 
             with universe_startup_lock.exclusive_import_guard(resolved_dsn):
                 stores = capture_destination(resolved_dsn)
