@@ -127,3 +127,9 @@ def test_generated_data_exception_may_grow(tmp_path, gate):
     assert gate.classify_change(
         old=800, new=900, limit=350, classification=classification,
     ) == (False, False, "")
+
+
+@pytest.mark.parametrize("gate", [core_gate, harness_gate])
+def test_known_generated_paths_override_old_source_exception(tmp_path, gate):
+    _config(tmp_path, "file_line_exception=.yoke/docs/**\n")
+    assert gate.classify_path(".yoke/docs/reference.md", repo_root=tmp_path) == gate.Classification.GENERATED

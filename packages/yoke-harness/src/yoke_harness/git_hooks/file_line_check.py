@@ -167,6 +167,10 @@ def _classify_path_with_policy(
         return Classification.GENERATED
     if any(fnmatch.fnmatchcase(posix_path, p) for p in policy.grow_allowed_globs):
         return Classification.GROW_ALLOWED
+    if posix_path in GENERATED_SENTINELS:
+        return Classification.GENERATED
+    if any(fnmatch.fnmatchcase(posix_path, p) for p in GENERATED_PATH_PATTERNS):
+        return Classification.GENERATED
     for pattern in policy.exception_globs:
         if fnmatch.fnmatchcase(posix_path, pattern):
             return Classification.TEMPORARY_EXCEPTION
@@ -176,10 +180,6 @@ def _classify_path_with_policy(
     basename = posix_path.rsplit("/", 1)[-1]
     if basename in LOCKFILE_BASENAMES or fnmatch.fnmatchcase(basename, "*.lock"):
         return Classification.LOCKFILE
-    if posix_path in GENERATED_SENTINELS:
-        return Classification.GENERATED
-    if any(fnmatch.fnmatchcase(posix_path, p) for p in GENERATED_PATH_PATTERNS):
-        return Classification.GENERATED
     if posix_path in DATA_ASSET_PATHS:
         return Classification.DATA_ASSET
     if any(posix_path.startswith(prefix) for prefix in VENDORED_PREFIXES):
