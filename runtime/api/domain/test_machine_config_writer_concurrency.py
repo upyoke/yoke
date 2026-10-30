@@ -101,7 +101,7 @@ def test_github_replace_rejects_stale_credential_and_returns_actual_ref(
 ) -> None:
     config = tmp_path / "machine-home" / "config.json"
     writer.set_connection(
-        "local", transport="local-postgres", dsn_file=str(tmp_path / "local.dsn"),
+        "local", transport="local-postgres", dsn="postgresql://localhost/test",
         activate=True, path=config,
     )
     connections = json.loads(config.read_text())["connections"]
