@@ -234,9 +234,24 @@ def universe_upload(args):
             "Select the destination org's hosted connection with yoke --env DESTINATION."
         ),
     )
-    parser.add_argument("archive", metavar="ARCHIVE", type=Path)
-    parser.add_argument("--org", metavar="SLUG", required=True)
-    parser.add_argument("--json", action="store_true", dest="json_mode")
+    parser.add_argument(
+        "archive",
+        metavar="ARCHIVE",
+        type=Path,
+        help="Portable universe archive to upload.",
+    )
+    parser.add_argument(
+        "--org",
+        metavar="SLUG",
+        required=True,
+        help="Destination org matching the selected hosted connection.",
+    )
+    parser.add_argument(
+        "--json",
+        action="store_true",
+        dest="json_mode",
+        help="Print the signed link, expiry and dashboard URL as JSON.",
+    )
     parsed = parse_or_usage_error(parser, args, UPLOAD_USAGE)
     if parsed is None:
         return 2

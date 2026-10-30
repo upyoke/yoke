@@ -63,6 +63,9 @@ _SANCTIONED_SCHEMA_HELPER_CALLS: frozenset[str] = frozenset(
         # machine-local universe converges once per process before dispatch.
         "api/server_entrypoint.py::ensure_permission_catalog",
         "api/server_entrypoint.py::main",
+        # Explicit Resume runs the boot work deferred by a paused restart,
+        # before reopening writers; this POST is an authenticated write.
+        "api/routes/universe_portability.py::resume_self_host_universe",
         # Boot's creation phase, also run by a release driver before its
         # run starts (release_start_schema) — a converge, never a read.
         "domain/schema_creation.py::_create_in_dependency_order",

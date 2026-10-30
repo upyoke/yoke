@@ -140,34 +140,36 @@ class TestHcMainCheckout:
         "yoke_core.engines.doctor_report._resolve_main_root", return_value="/fake/repo"
     )
     @patch("yoke_core.engines.doctor_report._run")
-    def test_main_branch_passes(self, mock_run, mock_root):
-        # Make .git dir exist
-        with patch.object(Path, "exists", return_value=True):
-            mock_run.return_value = _make_completed(stdout="main\n")
-            rec = _run_hc(hc_main_checkout)
-            assert rec.results[0].result == "PASS"
+    def test_main_branch_passes(self, mock_run, mock_root, tmp_path):
+        (tmp_path / ".git").mkdir()
+        mock_root.return_value = str(tmp_path)
+        mock_run.return_value = _make_completed(stdout="main\n")
+        rec = _run_hc(hc_main_checkout)
+        assert rec.results[0].result == "PASS"
 
     @patch(
         "yoke_core.engines.doctor_report._resolve_main_root", return_value="/fake/repo"
     )
     @patch("yoke_core.engines.doctor_report._run")
-    def test_detached_head_warns(self, mock_run, mock_root):
-        with patch.object(Path, "exists", return_value=True):
-            mock_run.return_value = _make_completed(stdout="HEAD\n")
-            rec = _run_hc(hc_main_checkout)
-            assert rec.results[0].result == "WARN"
-            assert "detached HEAD" in rec.results[0].detail
+    def test_detached_head_warns(self, mock_run, mock_root, tmp_path):
+        (tmp_path / ".git").mkdir()
+        mock_root.return_value = str(tmp_path)
+        mock_run.return_value = _make_completed(stdout="HEAD\n")
+        rec = _run_hc(hc_main_checkout)
+        assert rec.results[0].result == "WARN"
+        assert "detached HEAD" in rec.results[0].detail
 
     @patch(
         "yoke_core.engines.doctor_report._resolve_main_root", return_value="/fake/repo"
     )
     @patch("yoke_core.engines.doctor_report._run")
-    def test_wrong_branch_warns(self, mock_run, mock_root):
-        with patch.object(Path, "exists", return_value=True):
-            mock_run.return_value = _make_completed(stdout="feature-branch\n")
-            rec = _run_hc(hc_main_checkout)
-            assert rec.results[0].result == "WARN"
-            assert "feature-branch" in rec.results[0].detail
+    def test_wrong_branch_warns(self, mock_run, mock_root, tmp_path):
+        (tmp_path / ".git").mkdir()
+        mock_root.return_value = str(tmp_path)
+        mock_run.return_value = _make_completed(stdout="feature-branch\n")
+        rec = _run_hc(hc_main_checkout)
+        assert rec.results[0].result == "WARN"
+        assert "feature-branch" in rec.results[0].detail
 
 
 class TestHcBranchDivergence:

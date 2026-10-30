@@ -20,7 +20,12 @@ def universe_resume(args):
         prog="yoke universe resume",
         description="Allow source writers after a move or failed export.",
     )
-    parser.add_argument("--json", action="store_true", dest="json_mode")
+    parser.add_argument(
+        "--json",
+        action="store_true",
+        dest="json_mode",
+        help="Print the resume receipt as JSON.",
+    )
     parsed = parse_or_usage_error(parser, args, RESUME_USAGE)
     if parsed is None:
         return 2
