@@ -3,13 +3,7 @@
 Every field-note row records who logged it and which project it belongs
 to. Attribution is resolved at write time:
 
-- **author** — the dispatched subagent role when the caller supplies one
-  (``actor_role``, the same vocabulary tool-call telemetry uses for
-  ``engineer`` / ``tester`` / ``architect`` / ...), otherwise the
-  session's executor id, otherwise :data:`DEFAULT_AUTHOR`. This matches
-  the role names the learning log has always carried in
-  ``ouroboros_entries.agent``. Session provenance for the author is
-  always retained even when the project comes from the checkout.
+- **author** — the validated agent label stamped by the CLI.
 - **project** — where the note was observed. Prefer a client-supplied
   registered checkout project (the CLI resolves ``$YOKE_PROJECT`` / the
   machine-config checkout→project map and carries the hint on the
@@ -42,14 +36,6 @@ from yoke_core.domain.project_identity import (
 )
 
 
-# Used when the caller has no resolvable session and names no role.
-DEFAULT_AUTHOR = "agent"
-
-# Harness adapters name a dispatched subagent `yoke-engineer`; the
-# learning log keys the bare role.
-_ROLE_PREFIX = "yoke-"
-
-
 @dataclass(frozen=True)
 class FieldNoteProvenance:
     """Resolved author label and project identity for one field-note write."""
@@ -62,16 +48,6 @@ class FieldNoteProvenance:
 
 def _placeholder(conn: Any) -> str:
     return "%s" if db_backend.connection_is_postgres(conn) else "?"
-
-
-def normalize_actor_role(actor_role: Optional[str]) -> Optional[str]:
-    """Bare role name for a dispatched subagent, or ``None``."""
-    role = str(actor_role or "").strip().lower()
-    if not role:
-        return None
-    if role.startswith(_ROLE_PREFIX):
-        role = role[len(_ROLE_PREFIX) :]
-    return role or None
 
 
 def _project_from_hint(
@@ -124,14 +100,13 @@ def _session_identity(
 def resolve_provenance(
     conn: Any,
     *,
-    actor_role: Optional[str] = None,
+    agent: str,
     session_id: Optional[str] = None,
     project: Optional[Union[str, int]] = None,
     target_project: Optional[Union[str, int]] = None,
 ) -> FieldNoteProvenance:
     """Resolve the author label and project identity for a field-note write."""
-    role = normalize_actor_role(actor_role)
-    executor, session_project, session_project_id = (
+    _executor, session_project, session_project_id = (
         _session_identity(conn, session_id) if session_id else (None, None, None)
     )
 
@@ -141,7 +116,7 @@ def resolve_provenance(
     declared_target = _project_from_hint(conn, target_project)
 
     return FieldNoteProvenance(
-        author=role or executor or DEFAULT_AUTHOR,
+        author=agent,
         project=observed_slug,
         project_id=observed_id,
         target_project=(
@@ -151,8 +126,6 @@ def resolve_provenance(
 
 
 __all__ = [
-    "DEFAULT_AUTHOR",
     "FieldNoteProvenance",
-    "normalize_actor_role",
     "resolve_provenance",
 ]

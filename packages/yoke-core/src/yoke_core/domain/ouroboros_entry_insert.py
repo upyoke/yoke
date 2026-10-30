@@ -3,6 +3,7 @@
 from datetime import datetime
 from typing import Optional
 from yoke_contracts.field_note_text import KIND_VALUES
+from yoke_contracts.feedback_provenance import validate_feedback_identity
 from yoke_contracts.timestamps import parse_instant, utc_now
 from yoke_core.domain import db_backend
 from yoke_core.domain.db_helpers import instant_parameter
@@ -17,7 +18,6 @@ def cmd_insert_entry(
     conn,
     timestamp: datetime | str,
     agent: str,
-    context: Optional[str],
     category: str,
     body: str,
     project: Optional[str] = None,
@@ -29,6 +29,8 @@ def cmd_insert_entry(
     yoke_version: Optional[str] = None,
     universe_fingerprint: Optional[str] = None,
 ) -> str:
+    validate_feedback_identity(yoke_version=yoke_version,
+                               universe_fingerprint=universe_fingerprint, agent=agent)
     timestamp = instant_parameter(conn, parse_instant(timestamp))
     p = _p(conn)
     project_id = resolve_project_id(conn, project) if project else None
@@ -44,13 +46,12 @@ def cmd_insert_entry(
     # intervening sequence touches. RETURNING is the unambiguous form.
     row = conn.execute(
         "INSERT INTO ouroboros_entries "
-        "(timestamp, agent, context, category, body, project_id, "
+        "(timestamp, agent, category, body, project_id, "
         "target_project_id, created_at, correlation_id, session_id, actor_id, reporter_email, yoke_version, universe_fingerprint) "
-        f"VALUES ({p}, {p}, {p}, {p}, {p}, {p}, {p}, {p}, {p}, {p}, {p}, {p}, {p}, {p}) RETURNING id",
+        f"VALUES ({p}, {p}, {p}, {p}, {p}, {p}, {p}, {p}, {p}, {p}, {p}, {p}, {p}) RETURNING id",
         (
             timestamp,
             agent,
-            context,
             category,
             body,
             project_id,

@@ -185,3 +185,29 @@ __all__ = [
     "mount_fields",
     "with_runtime_identity",
 ]
+
+
+def reporting_version() -> str:
+    """Version of the loaded CLI, including its exact source checkout."""
+    import subprocess
+    from datetime import datetime
+    import yoke_cli
+    from yoke_contracts.release_version import commit_version, reporting_version_shape
+
+    root = source_checkout_root(Path(yoke_cli.__file__).resolve())
+    if root is None:
+        return reporting_version_shape(local_handshake_version())
+
+    def git(*args):
+        result = subprocess.run(
+            ["git", "-C", str(root), *args], check=True, text=True,
+            capture_output=True, timeout=5,
+        )
+        return result.stdout.strip()
+
+    commit, clock = git("show", "-s", "--format=%H%n%cI", "HEAD").splitlines()
+    dirty = bool(git("status", "--porcelain"))
+    return reporting_version_shape(
+        commit_version(datetime.fromisoformat(clock)) + "+" + commit[:12]
+        + (".dirty" if dirty else "")
+    )

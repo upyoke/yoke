@@ -61,11 +61,10 @@ def _seed_entry(conn, body: str, project: str | None) -> int:
             conn,
             "2026-07-01T00:00:00Z",
             "tester",
-            None,
             "failed",
             body,
             project,
-        )
+        yoke_version="0.2.0.202610290013", universe_fingerprint="fixture@2026-01-01T00:00:00Z")
     )
     conn.commit()
     return entry_id

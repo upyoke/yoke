@@ -137,11 +137,11 @@ def test_resolve_ouroboros_entry_project_from_note_row(conn):
             conn,
             timestamp="2026-08-10T18:03:05Z",
             agent="test",
-            context=None,
+            
             category="observation",
             body="note body",
             project="yoke",
-        )
+        yoke_version="0.2.0.202610290013", universe_fingerprint="fixture@2026-01-01T00:00:00Z")
     )
     assert resolve_ouroboros_entry_project(conn, entry_id) == (yoke, "yoke")
 
@@ -186,11 +186,11 @@ def test_field_note_promote_authorizes_from_note_project_without_flag(conn):
             conn,
             timestamp="2026-08-10T18:03:05Z",
             agent="test",
-            context=None,
+            
             category="observation",
             body="promote me",
             project="yoke",
-        )
+        yoke_version="0.2.0.202610290013", universe_fingerprint="fixture@2026-01-01T00:00:00Z")
     )
     entry = _entry("ouroboros.field_note.promote", side_effects=True)
     request = FunctionCallRequest(
@@ -212,11 +212,11 @@ def test_explicit_project_still_overrides_note_row(conn):
             conn,
             timestamp="2026-08-10T18:04:05Z",
             agent="test",
-            context=None,
+            
             category="observation",
             body="note on yoke",
             project="yoke",
-        )
+        yoke_version="0.2.0.202610290013", universe_fingerprint="fixture@2026-01-01T00:00:00Z")
     )
     entry = _entry("ouroboros.field_note.promote", side_effects=True)
     request = FunctionCallRequest(
@@ -242,11 +242,11 @@ def test_mark_archived_authorizes_from_entry_row_without_flag(conn):
             conn,
             timestamp="2026-08-12T13:00:00Z",
             agent="test",
-            context=None,
+            
             category="failed",
             body="archive me by row project",
             project="yoke",
-        )
+        yoke_version="0.2.0.202610290013", universe_fingerprint="fixture@2026-01-01T00:00:00Z")
     )
     entry = _entry("ouroboros.entry.mark_archived", side_effects=True)
     request = FunctionCallRequest(

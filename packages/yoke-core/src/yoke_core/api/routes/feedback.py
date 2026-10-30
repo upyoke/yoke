@@ -1,7 +1,6 @@
 """Tokenless, shape-checked public feedback intake."""
 
 import logging
-import re
 from typing import Literal
 
 from fastapi import APIRouter, Request
@@ -9,8 +8,11 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field, field_validator
 from starlette.concurrency import run_in_threadpool
 
-from yoke_contracts.release_version import release_version
-from yoke_contracts.timestamps import parse_instant, utc_now
+from yoke_contracts.feedback_provenance import (
+    validate_feedback_identity, FeedbackIdentityError, UPGRADE_RECOVERY,
+)
+from yoke_contracts.release_version import reporting_version_shape
+from yoke_contracts.timestamps import utc_now
 from yoke_core.domain.ouroboros_entry_insert import cmd_insert_entry
 from yoke_core.domain.actors import seed_system_actor
 from yoke_core.api.main_db import get_db_readwrite
@@ -24,33 +26,16 @@ SERVICE_COMPONENT = "feedback"
 class PublicFeedback(BaseModel):
     category: Literal["failed", "new", "unclear", "observation", "idea"]
     evidence: str = Field(min_length=1, max_length=4000)
-    yoke_version: str | None = None
-    universe_fingerprint: str | None = None
+    yoke_version: str
+    universe_fingerprint: str
     reporter_email: str | None = None
-    agent: str = "unknown"
+    agent: str
 
     @field_validator("evidence")
     @classmethod
     def evidence_present(cls, value):
         if not value.strip():
             raise ValueError("evidence must not be blank")
-        return value
-
-    @field_validator("yoke_version")
-    @classmethod
-    def version_shape(cls, value):
-        if value:
-            release_version(value)
-        return value
-
-    @field_validator("universe_fingerprint")
-    @classmethod
-    def fingerprint_shape(cls, value):
-        if value:
-            slug, separator, timestamp = value.partition("@")
-            if not separator or not re.fullmatch(r"[a-z0-9]+(?:-[a-z0-9]+)*", slug):
-                raise ValueError("fingerprint must be slug@timestamp")
-            parse_instant(timestamp)
         return value
 
 
@@ -60,7 +45,7 @@ def store_feedback(note):
         from yoke_core.domain.project_identity import resolve_project_id
         resolve_project_id(conn, RECEIVING_PROJECT)
         actor = seed_system_actor(conn, SERVICE_COMPONENT)
-        return cmd_insert_entry(conn, utc_now(), note.agent, None, note.category,
+        return cmd_insert_entry(conn, utc_now(), note.agent, note.category,
             note.evidence, project=RECEIVING_PROJECT, actor_id=actor, session_id="",
             reporter_email=note.reporter_email, yoke_version=note.yoke_version,
             universe_fingerprint=note.universe_fingerprint)
@@ -68,15 +53,33 @@ def store_feedback(note):
 
 @router.post("/feedback")
 async def receive_feedback(request: Request):
-    if not request.headers.get("user-agent", "").startswith("yoke-cli/"):
-        return JSONResponse(status_code=400, content={
-            "error": "feedback_user_agent_invalid",
-            "recovery": "Use yoke feedback --to yoke and ensure relays preserve its yoke-cli/ User-Agent.",
-        })
     try:
-        note = PublicFeedback.model_validate(await request.json())
+        body = await request.json()
+        if not isinstance(body, dict):
+            raise ValueError("expected object")
+        validate_feedback_identity(yoke_version=body.get("yoke_version"),
+                                   universe_fingerprint=body.get("universe_fingerprint"),
+                                   agent=body.get("agent"))
+    except FeedbackIdentityError as exc:
+        return JSONResponse(status_code=400, content={"error": exc.code, "recovery": exc.recovery})
     except Exception:
-        return JSONResponse(status_code=400, content={"error": "feedback_shape_invalid"})
+        return JSONResponse(status_code=400, content={"error": "feedback_shape_invalid",
+            "recovery": "Provide a feedback category and 1 to 4000 characters of evidence."})
+    user_agent = request.headers.get("user-agent", "")
+    try:
+        if not user_agent.startswith("yoke-cli/"):
+            raise ValueError("missing CLI identity")
+        version = reporting_version_shape(user_agent[len("yoke-cli/"):])
+        if version != body["yoke_version"]:
+            raise ValueError("CLI identity differs from payload")
+    except ValueError:
+        return JSONResponse(status_code=400, content={"error": "feedback_user_agent_invalid",
+            "recovery": UPGRADE_RECOVERY})
+    try:
+        note = PublicFeedback.model_validate(body)
+    except Exception:
+        return JSONResponse(status_code=400, content={"error": "feedback_shape_invalid",
+            "recovery": "Provide a feedback category and 1 to 4000 characters of evidence."})
     try:
         entry = await run_in_threadpool(store_feedback, note)
     except Exception as exc:

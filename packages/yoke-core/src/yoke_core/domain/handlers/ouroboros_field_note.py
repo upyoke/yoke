@@ -45,6 +45,8 @@ from yoke_contracts.timestamps import utc_now
 from yoke_core.domain.db_helpers import connect
 from yoke_core.domain.ouroboros_entries import cmd_insert_entry
 from yoke_core.domain.feedback_attribution import actor_email
+from yoke_core.domain.universe_identity import universe_fingerprint
+from yoke_contracts.feedback_provenance import validate_feedback_identity, FeedbackIdentityError
 from yoke_core.domain.field_note_append_policy import (
     validate_correlation,
     FieldNoteCorrelationError,
@@ -73,11 +75,10 @@ EVIDENCE_PREVIEW_CHARS = 120
 class FieldNoteAppendRequest(BaseModel):
     category: Literal["failed", "new", "unclear", "observation", "idea"]
     evidence: str = Field(..., min_length=1, max_length=EVIDENCE_MAX_CHARS)
+    yoke_version: str
+    agent: str
     reporter_email: Optional[str] = None
     correlation_id: Optional[str] = None
-    # Dispatched subagent role, when the caller runs as one. Attribution
-    # falls back to the session's executor.
-    actor_role: Optional[str] = None
     # Client-resolved registered checkout project (slug or numeric id).
     # Wins over the session's project scope when present; omitted when the
     # caller has no checkout mapping (global/no-checkout fallback).
@@ -92,6 +93,8 @@ class FieldNoteAppendRequest(BaseModel):
 
 
 class FieldNoteAppendResponse(BaseModel):
+    yoke_version: str
+    universe_fingerprint: str
     event_id: Optional[str]
     entry_id: Optional[str]
     category: str
@@ -143,9 +146,12 @@ def handle_append(request: FunctionCallRequest) -> HandlerOutcome:
     # correction is never recorded against a note that failed to write.
     try:
         with connect() as conn:
+            fingerprint = universe_fingerprint(conn)
+            validate_feedback_identity(yoke_version=payload.yoke_version,
+                                       universe_fingerprint=fingerprint, agent=payload.agent)
             provenance = resolve_provenance(
                 conn,
-                actor_role=payload.actor_role,
+                agent=payload.agent,
                 session_id=session_id,
                 project=payload.project,
                 target_project=payload.target_project,
@@ -159,7 +165,6 @@ def handle_append(request: FunctionCallRequest) -> HandlerOutcome:
                 conn,
                 timestamp,
                 provenance.author,
-                None,  # context — reserved, unused by field-note channel
                 category,
                 payload.evidence,
                 project=provenance.project,
@@ -168,6 +173,8 @@ def handle_append(request: FunctionCallRequest) -> HandlerOutcome:
                 session_id=session_id,
                 actor_id=int(request.actor.actor_id) if str(request.actor.actor_id or "").isdigit() else None,
                 reporter_email=actor_email(conn, request.actor.actor_id) or payload.reporter_email,
+                yoke_version=payload.yoke_version,
+                universe_fingerprint=fingerprint,
             )
             if payload.corrects is not None and entry_id.isdigit():
                 record_correction(
@@ -175,6 +182,9 @@ def handle_append(request: FunctionCallRequest) -> HandlerOutcome:
                     correction_entry_id=int(entry_id),
                     corrected_entry_id=payload.corrects,
                 )
+    except FeedbackIdentityError as exc:
+        return HandlerOutcome(primary_success=False, error=FunctionError(
+            code=exc.code, message=str(exc), recovery_hint=exc.recovery))
     except FieldNoteCorrelationError as exc:
         return HandlerOutcome(
             primary_success=False, error=FunctionError(code=exc.code, message=str(exc))
@@ -227,6 +237,8 @@ def handle_append(request: FunctionCallRequest) -> HandlerOutcome:
     )
 
     response = FieldNoteAppendResponse(
+        yoke_version=payload.yoke_version,
+        universe_fingerprint=fingerprint,
         event_id=result.event_id if result.ok else None,
         entry_id=entry_id,
         category=payload.category,

@@ -10,6 +10,7 @@ from yoke_cli.commands._helpers import build_actor, ensure_handlers_loaded
 from yoke_cli.transport.dispatcher import call_dispatcher
 from yoke_contracts.api.function_call import TargetRef
 from yoke_contracts.harness_sandbox_recovery import running_harness_family
+from yoke_contracts.refusal_recovery import compose_refusal
 
 
 def harness_email(harness=None, home=None):
@@ -53,20 +54,47 @@ def git_email(checkout=None):
         return None
 
 
-def reporter_context(session_id=None):
+def _bound_fingerprint():
+    from yoke_cli.config import machine_config
+    from yoke_contracts.machine_config.schema_connections import operating_actor_binding
+    try:
+        return operating_actor_binding(machine_config.load_config(), machine_config.active_env())[1]
+    except Exception:
+        return ""
+
+
+def feedback_provenance(session_id=None):
+    """Stamp both destinations once, independently of a registered session."""
+    from yoke_contracts.runtime_identity import reporting_version
+    from yoke_contracts.session_identity import resolve_actor_role
+    from yoke_contracts.feedback_provenance import validate_feedback_identity, FeedbackIdentityError
+
     context = {}
     harness = running_harness_family()
     try:
+        version = reporting_version()
+    except Exception:
+        raise ValueError(compose_refusal("feedback_provenance_unavailable: yoke_version",
+                                         recovery="Reinstall Yoke, then retry.")) from None
+    try:
         ensure_handlers_loaded()
-        response = call_dispatcher(function_id="sessions.identity", target=TargetRef(kind="global"),
+        response = call_dispatcher(function_id="feedback.provenance.get", target=TargetRef(kind="global"),
                                    payload={}, actor=build_actor(session_id=session_id), timeout_s=5, max_attempts=1)
         if response.success:
-            harness = harness or response.result.get("executor")
-            context = {key: response.result.get(key) for key in
-                       ("reporter_email", "yoke_version", "universe_fingerprint")}
+            context = response.result or {}
     except Exception:
-        # Feedback still works when the sender's control plane cannot be reached.
         pass
-    context["reporter_email"] = context.get("reporter_email") or harness_email(harness) or git_email()
-    context["agent"] = harness
-    return context
+    metadata = {
+        "yoke_version": version,
+        "universe_fingerprint": context.get("universe_fingerprint") or _bound_fingerprint(),
+        "agent": resolve_actor_role() or harness or "terminal",
+        "reporter_email": context.get("actor_email") or harness_email(harness) or git_email(),
+    }
+    try:
+        validate_feedback_identity(**{k: metadata[k] for k in ("yoke_version", "universe_fingerprint", "agent")})
+    except FeedbackIdentityError as exc:
+        field = {"version": "yoke_version", "fingerprint": "universe_fingerprint", "agent": "agent"}[exc.code.split("_")[1]]
+        recovery = "reinstall Yoke" if field == "yoke_version" else "run yoke env use <env> or yoke login"
+        raise ValueError(compose_refusal(f"feedback_provenance_unavailable: {field}",
+                                         recovery=f"{recovery}, then retry.")) from None
+    return metadata

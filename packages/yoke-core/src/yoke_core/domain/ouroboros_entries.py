@@ -55,7 +55,6 @@ ENTRY_LIST_COLUMNS = (
     "id",
     "timestamp",
     "agent",
-    "context",
     "category",
     "body",
     "reviewed_at",
@@ -144,7 +143,7 @@ def list_entry_rows(
     params.extend([bound, skip])
     rows = query_rows(
         conn,
-        "SELECT o.id, o.timestamp, o.agent, COALESCE(o.context,''), "
+        "SELECT o.id, o.timestamp, o.agent, "
         "o.category, o.body, o.reviewed_at, "
         "COALESCE(p.slug,''), o.actor_id, o.reporter_email, o.yoke_version, o.universe_fingerprint "
         "FROM ouroboros_entries o "
@@ -223,7 +222,7 @@ def get_entry_row(conn, entry_id: int) -> Optional[dict]:
     p = _p(conn)
     row = query_one(
         conn,
-        "SELECT o.id, o.timestamp, o.agent, COALESCE(o.context,''), "
+        "SELECT o.id, o.timestamp, o.agent, "
         "o.category, o.body, o.reviewed_at, "
         "COALESCE(p.slug,''), o.actor_id, o.reporter_email, o.yoke_version, o.universe_fingerprint, o.archived_at "
         "FROM ouroboros_entries o "

@@ -9,7 +9,6 @@ from unittest.mock import patch
 from runtime.api.test_api_yoke_functions import _ApiSuite
 from runtime.api.fixtures.file_test_db import connect_test_db, init_test_db
 from yoke_cli.feedback_delivery import send_feedback
-from yoke_cli.feedback_reporter import reporter_context
 from yoke_core.api.routes import feedback
 
 VALID = {"category": "failed", "evidence": "The documented recipe failed.",
@@ -52,7 +51,7 @@ class TestFeedbackPublic(_ApiSuite):
             response = self.post(VALID, headers)
             assert response.status_code == 400
             assert response.json()["error"] == "feedback_user_agent_invalid"
-            assert "preserve" in response.json()["recovery"]
+            assert "Upgrade Yoke" in response.json()["recovery"]
         assert self.rows() == []
 
     def test_cli_posts_directly_without_storing_a_sender_copy(self):
@@ -75,30 +74,36 @@ class TestFeedbackPublic(_ApiSuite):
                 assert conn.execute("SELECT COUNT(*) FROM ouroboros_entries").fetchone()[0] == before
         assert len(self.rows()) == 1
 
-    def test_unreachable_sender_still_posts_with_empty_universe_metadata(self):
-        with (patch("yoke_cli.feedback_reporter.ensure_handlers_loaded"),
-              patch("yoke_cli.feedback_reporter.call_dispatcher", side_effect=OSError("offline")),
-              patch("yoke_cli.feedback_reporter.harness_email", return_value=None),
-              patch("yoke_cli.feedback_reporter.git_email", return_value=None)):
-            metadata = reporter_context()
-        assert not metadata.get("yoke_version")
-        assert not metadata.get("universe_fingerprint")
-        def post(request, timeout):
-            result = self.post(json.loads(request.data))
-            stream = io.BytesIO(result.content)
-            stream.status = result.status_code
-            return stream
-        with patch("yoke_cli.feedback_delivery.open_no_redirect", side_effect=post):
-            assert send_feedback(category="failed", evidence=VALID["evidence"],
-                                 metadata=metadata, agent=None) == 0
-        row = self.rows()[0]
-        assert row[4:6] == ("", "")
+    def test_required_identity_fields_have_typed_refusals(self):
+        for field, name in (("yoke_version", "version"),
+                            ("universe_fingerprint", "fingerprint"), ("agent", "agent")):
+            for value, suffix in ((None, "missing"), ("", "missing"), ("invalid value", "invalid")):
+                payload = {**VALID, field: value}
+                response = self.post(payload)
+                assert response.status_code == 400
+                assert response.json()["error"] == f"feedback_{name}_{suffix}"
+                assert "Upgrade Yoke" in response.json()["recovery"]
+                assert self.rows() == []
+            payload = {k: v for k, v in VALID.items() if k != field}
+            assert self.post(payload).json()["error"] == f"feedback_{name}_missing"
+        assert self.post({"category": "failed", "evidence": "old CLI"}).json()["error"] == "feedback_version_missing"
+
+    def test_source_reporting_version_and_matching_user_agent_are_accepted(self):
+        version = VALID["yoke_version"] + "+abcdef012345.dirty"
+        assert self.post({**VALID, "yoke_version": version},
+                         {"User-Agent": "yoke-cli/" + version}).status_code == 201
+        assert self.rows()[0][4] == version
+
+    def test_bad_cli_version_and_mismatched_identity_are_refused(self):
+        for value in ("unknown", "fixture", VALID["yoke_version"] + "+bad", "0.2.0.202610280001"):
+            assert self.post(VALID, {"User-Agent": "yoke-cli/" + value}).json()["error"] == "feedback_user_agent_invalid"
+        assert self.rows() == []
 
 
 def test_delivery_failure_preserves_full_evidence(capsys):
     evidence = "Full evidence " + "x" * 3900
     with patch("yoke_cli.feedback_delivery.open_no_redirect", side_effect=OSError("offline")):
-        assert send_feedback(category="failed", evidence=evidence, metadata={}, agent="tester") == 1
+        assert send_feedback(category="failed", evidence=evidence, metadata=VALID, agent="tester") == 1
     assert evidence in capsys.readouterr().err
 
 
@@ -106,7 +111,7 @@ def test_delivery_failure_reports_receiver_error_code(capsys):
     error = HTTPError("https://feedback.example", 400, "Bad Request", {},
                       io.BytesIO(b'{"error":"feedback_user_agent_invalid"}'))
     with patch("yoke_cli.feedback_delivery.open_no_redirect", side_effect=error):
-        assert send_feedback(category="failed", evidence="Relay changed the header", metadata={}, agent="tester") == 1
+        assert send_feedback(category="failed", evidence="Relay changed the header", metadata=VALID, agent="tester") == 1
     diagnostic = capsys.readouterr().err
     assert "HTTP 400: feedback_user_agent_invalid" in diagnostic
     assert "Relay changed the header" in diagnostic

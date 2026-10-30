@@ -53,11 +53,10 @@ def test_native_pages_preserve_exact_ties_and_nullable_review_order(
                 test_db,
                 clock,
                 "tester",
-                "opaque 1969-12-31",
                 "idea",
                 str(index),
                 "yoke",
-            )
+            yoke_version="0.2.0.202610290013", universe_fingerprint="fixture@2026-01-01T00:00:00Z")
         )
         reviewed = None if index < 2 else clock
         test_db.execute(
