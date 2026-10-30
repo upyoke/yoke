@@ -254,6 +254,9 @@ def feedback_append(args: List[str]) -> int:
         print(str(exc), file=sys.stderr)
         print("Evidence retained for retry:\n" + evidence, file=sys.stderr)
         return 1
+    if parsed.to == "universe" and metadata.get("server_error"):
+        error = metadata["server_error"]
+        return usage_error(f"{error.code}: {error.message} {error.recovery_hint}\nEvidence retained for retry:\n{evidence}")
     payload: Dict[str, Any] = {"category": parsed.category, "evidence": evidence,
                              **{k: metadata[k] for k in ("reporter_email", "yoke_version", "agent")}}
     if parsed.to == "yoke":

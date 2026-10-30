@@ -205,7 +205,7 @@ def cmd_list_entries(
     offset: int = 0,
 ) -> str:
     return "\n".join(
-        _format_row([row[name] for name in ENTRY_LIST_COLUMNS[:8]])
+        _format_row([row[name] for name in ENTRY_LIST_COLUMNS[:7]])
         for row in list_entry_rows(
             conn,
             unreviewed,

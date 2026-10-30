@@ -70,6 +70,7 @@ def feedback_provenance(session_id=None):
     from yoke_contracts.feedback_provenance import validate_feedback_identity, FeedbackIdentityError
 
     context = {}
+    server_error = None
     harness = running_harness_family()
     try:
         version = reporting_version()
@@ -82,6 +83,8 @@ def feedback_provenance(session_id=None):
                                    payload={}, actor=build_actor(session_id=session_id), timeout_s=5, max_attempts=1)
         if response.success:
             context = response.result or {}
+        elif response.error and response.error.code == "function_version_skew":
+            server_error = response.error
     except Exception:
         pass
     metadata = {
@@ -97,4 +100,6 @@ def feedback_provenance(session_id=None):
         recovery = "reinstall Yoke" if field == "yoke_version" else "run yoke env use <env> or yoke login"
         raise ValueError(compose_refusal(f"feedback_provenance_unavailable: {field}",
                                          recovery=f"{recovery}, then retry.")) from None
+    if server_error is not None:
+        metadata["server_error"] = server_error
     return metadata

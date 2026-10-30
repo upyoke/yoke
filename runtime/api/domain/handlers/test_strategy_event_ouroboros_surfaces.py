@@ -127,8 +127,8 @@ def test_feedback_append_handler_writes_row(tmp_db: str) -> None:
     outcome = ouroboros_field_note.handle_append(
         _request(
             "ouroboros.field_note.append",
-            {"yoke_version": "0.2.0.202610290013", "agent": "terminal", 
-                "actor_role": "tester",
+            {"yoke_version": "0.2.0.202610290013", 
+                "agent": "tester",
                 "category": "observation",
                 "evidence": "registered ouroboros insertion works",
             },
@@ -156,8 +156,8 @@ def test_single_entry_review_preserves_existing_close_out(tmp_db: str) -> None:
     inserted = ouroboros_field_note.handle_append(
         _request(
             "ouroboros.field_note.append",
-            {"yoke_version": "0.2.0.202610290013", "agent": "terminal", 
-                "actor_role": "tester",
+            {"yoke_version": "0.2.0.202610290013", 
+                "agent": "tester",
                 "category": "failed",
                 "evidence": "single review target",
             },

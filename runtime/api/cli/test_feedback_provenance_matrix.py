@@ -104,7 +104,7 @@ def test_stored_identity_matrix(monkeypatch, tmp_path, storage, install, destina
 @pytest.mark.parametrize("field", ["yoke_version", "universe_fingerprint"])
 def test_unreadable_identity_refuses_before_delivery(monkeypatch, capsys, destination, field):
     monkeypatch.setattr(reporter, "ensure_handlers_loaded", lambda: None)
-    monkeypatch.setattr(reporter, "call_dispatcher", lambda **_: SimpleNamespace(success=False))
+    monkeypatch.setattr(reporter, "call_dispatcher", lambda **_: SimpleNamespace(success=False, error=None))
     monkeypatch.setattr(reporter, "_bound_fingerprint", lambda: "")
     if field == "yoke_version":
         def broken():
@@ -124,7 +124,7 @@ def test_unreadable_identity_refuses_before_delivery(monkeypatch, capsys, destin
 def test_saved_identity_and_role_survive_an_unreachable_server(monkeypatch):
     monkeypatch.setattr(runtime_identity, "reporting_version", lambda: VERSION)
     monkeypatch.setattr(reporter, "ensure_handlers_loaded", lambda: None)
-    monkeypatch.setattr(reporter, "call_dispatcher", lambda **_: SimpleNamespace(success=False))
+    monkeypatch.setattr(reporter, "call_dispatcher", lambda **_: SimpleNamespace(success=False, error=None))
     monkeypatch.setattr(reporter, "_bound_fingerprint", lambda: FINGERPRINT)
     monkeypatch.setattr("yoke_contracts.session_identity.resolve_actor_role", lambda: "engineer")
     assert reporter.feedback_provenance()["agent"] == "engineer"
@@ -149,3 +149,30 @@ def test_pre_floor_server_refuses_new_provenance_function():
     answer = retype_skew(response, request, server_version=VERSION, env_name="tenant")
     assert answer.error.code == "function_version_skew"
     assert "minimum serving version next-release" in answer.error.message
+
+
+def test_universe_skew_refuses_before_the_old_writer(monkeypatch, capsys):
+    error = FunctionError(code="function_version_skew", message="minimum serving version next-release",
+                          recovery_hint="Escalate to the control-plane operator.")
+    monkeypatch.setattr(runtime_identity, "reporting_version", lambda: VERSION)
+    monkeypatch.setattr(reporter, "ensure_handlers_loaded", lambda: None)
+    monkeypatch.setattr(reporter, "call_dispatcher", lambda **_: SimpleNamespace(success=False, error=error))
+    monkeypatch.setattr(reporter, "_bound_fingerprint", lambda: FINGERPRINT)
+    monkeypatch.setattr("yoke_cli.commands.adapters.feedback.dispatch_and_emit", lambda **_: pytest.fail("old writer"))
+    assert feedback_append(["--to", "universe", "--category", "failed", "--evidence", "skew probe"]) != 0
+    assert "function_version_skew" in capsys.readouterr().err
+
+
+def test_reporting_version_uses_loaded_module_not_cwd(monkeypatch, tmp_path):
+    import yoke_cli
+    root = tmp_path / "loaded"
+    (root / "runtime/harness").mkdir(parents=True)
+    (root / "pyproject.toml").write_text('name = "yoke"')
+    module = root / "packages/yoke-cli/src/yoke_cli/__init__.py"
+    monkeypatch.setattr(yoke_cli, "__file__", str(module))
+    monkeypatch.chdir(tmp_path)
+    def git(args, **_):
+        assert args[:3] == ["git", "-C", str(root)]
+        return SimpleNamespace(stdout=COMMIT + "\n" + CLOCK if args[3] == "show" else "")
+    monkeypatch.setattr("subprocess.run", git)
+    assert runtime_identity.reporting_version() == VERSION + "+" + COMMIT[:12]
