@@ -75,7 +75,7 @@ def _walker_dispatch(
     )
     browser_step_command = (
         f"{host_command_base} -- yoke qa browser step --base-url BASE_URL "
-        "--step-json STEP_JSON [--identity NAME] [--output-dir PATH]"
+        "--step-json STEP_JSON [--identity NAME] [--page NAME] [--output-dir PATH]"
     )
     identities, browser_verify_commands, identity_clause = walker_identity_dispatch(
         case,
@@ -203,7 +203,7 @@ def _controller_dispatch(case, browser_settings, execution_target) -> dict[str, 
         execution_target=execution_target,
     )
     setup = "yoke qa browser setup --project PROJECT [--identity NAME]"
-    step = "yoke qa browser step --base-url BASE_URL --step-json STEP_JSON [--identity NAME]"
+    step = "yoke qa browser step --base-url BASE_URL --step-json STEP_JSON [--identity NAME] [--page NAME]"
     artifact_command = (
         f"yoke qa artifact add --requirement-id {int(case['requirement_id'])} "
         f"--run-id {int(case['capture_run_id'])} --artifact-type TYPE "

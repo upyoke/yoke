@@ -142,6 +142,25 @@ async function testANamedPageComesBackAsItStands() {
   await manager.closeOwnedPage('exploratory');
 }
 
+async function testNamedPagesKeepIndependentFormState() {
+  console.log('\n## Test: switching named pages preserves route and form state');
+  const viewport = { width: 1440, height: 900 };
+  await manager.openOwnedPage(viewport, 'a');
+  const a = manager.ownedPage('a');
+  await a.goto(fixtureUrl(), { waitUntil: 'domcontentloaded' });
+  await a.setContent('<input id="name">');
+  await a.locator('#name').fill('kept-value');
+  const originalUrl = a.url();
+  await manager.openOwnedPage(viewport, 'b');
+  await manager.ownedPage('b').goto(fixtureUrl(), { waitUntil: 'domcontentloaded' });
+  const reopened = await manager.openOwnedPage(viewport, 'a');
+  assertEqual(reopened.opened, false, 'returning to a does not reopen it');
+  assertEqual(a.url(), originalUrl, 'a retains its URL while b navigates');
+  assertEqual(await a.locator('#name').inputValue(), 'kept-value', 'a retains its input');
+  await manager.closeOwnedPage('a');
+  await manager.closeOwnedPage('b');
+}
+
 async function testInteractivePageIsNeverAStrayOne() {
   console.log('\n## Test: the interactive page is never a stray one');
   const stray = await manager.openOwnedPage({ width: 320, height: 480 });
@@ -187,6 +206,7 @@ async function main() {
     await testOneRunsWidthNeverReachesAnother();
     await testAnUnknownPageRefusesByName();
     await testANamedPageComesBackAsItStands();
+    await testNamedPagesKeepIndependentFormState();
     await testInteractivePageIsNeverAStrayOne();
     await testStepReportsWhatThePageWas();
   } finally {

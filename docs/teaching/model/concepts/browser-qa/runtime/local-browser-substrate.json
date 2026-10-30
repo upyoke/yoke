@@ -1,7 +1,9 @@
 {
  "id": "local-browser-substrate",
  "title": "Local browser substrate",
- "status": "draft-copy",
+ "status": "observed",
  "page": "browser-qa",
- "position": 0
+ "position": 0,
+ "summary": "Managed browser steps select --page NAME within one identity. A named page retains its route, DOM and form state between calls until the daemon stops after 10 idle minutes; the default page is exploratory. Blank names refuse before daemon startup.",
+ "sources": ["packages/yoke-cli/src/yoke_cli/commands/qa_browser.py", "docs/public/verification/exploration-evidence.md", "runtime/agents/qa-walker.md"]
 }

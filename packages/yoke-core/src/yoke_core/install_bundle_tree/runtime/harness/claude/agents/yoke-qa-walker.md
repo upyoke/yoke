@@ -154,6 +154,7 @@ justify broken-credential/privacy-permission findings.
 Use declared browser control for navigation, inspection, interaction and proof.
 When dispatch names browser identities, use its managed browser setup/verify/step
 commands with `--identity NAME`, including hosted missions that install nothing.
+Use `--page NAME` to keep several pages open for one identity, such as a stale already-open form.
 Without named identities, use managed setup/steps if this mission installed Yoke;
 otherwise drive the host browser (macOS Safari, elsewhere desktop default)
 using screenshot/keystroke host commands
