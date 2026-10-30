@@ -6,6 +6,7 @@ import pytest
 
 
 def test_failed_inner_command_keeps_its_stderr(monkeypatch):
+    monkeypatch.setattr(probe.shutil, "which", lambda *_a, **_k: "/fixture/yoke")
     diagnostic = "feedback_delivery_failed: HTTP 400: feedback_user_agent_invalid"
     monkeypatch.setattr(probe.subprocess, "run", lambda *args, **kwargs:
                         subprocess.CompletedProcess(args[0], 1, "", diagnostic))
