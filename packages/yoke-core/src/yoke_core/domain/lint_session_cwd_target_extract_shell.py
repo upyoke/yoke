@@ -7,7 +7,10 @@ import re
 from typing import List, Mapping, Optional, Sequence, Tuple
 
 from yoke_contracts.hook_runner.shell_parse import ShellParse, parse_shell
-from yoke_core.domain.lint_shell_script_arguments import non_path_argument_indexes
+from yoke_core.domain.lint_shell_script_arguments import (
+    gh_api_argument_roles,
+    non_path_argument_indexes,
+)
 
 from yoke_core.domain.lint_session_cwd_gh_repo_selector import (
     extract_gh_repo_selector_targets,
@@ -200,6 +203,7 @@ def _extract_segment_targets(
     )
     skip_arg_targets = is_search or command_base in STDOUT_REPORTERS
     non_path_indexes = non_path_argument_indexes(command_base, tokens)
+    _, file_arguments = gh_api_argument_roles(command_base, tokens)
 
     out: List[str] = []
     unresolved = False
@@ -222,6 +226,12 @@ def _extract_segment_targets(
                 if target is not None:
                     out.append(target)
             i += 2
+            continue
+        if i in file_arguments:
+            values, file_unresolved = resolve_path_operands([file_arguments[i]], bindings)
+            out.extend(values)
+            unresolved = unresolved or file_unresolved
+            i += 1
             continue
         if i in remote_resource_indexes or i in non_path_indexes:
             i += 1

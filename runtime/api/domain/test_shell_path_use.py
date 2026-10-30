@@ -111,3 +111,44 @@ def test_state_moves_are_mutations_for_every_authority_consumer(command):
     assert analyze_shell_path_use(command).mutation
     assert is_lane_mutation("Bash", command)
     assert is_write_operation("Bash", {"tool_input": {"command": command}})
+
+
+@pytest.mark.parametrize(
+    ("command", "targets"),
+    [
+        ("gh api /orgs/x/installations --jq .", []),
+        ("gh api -X POST /repos/x/y --input /etc/passwd", ["/etc/passwd"]),
+        ("gh api /x -F body=@/tmp/f", ["/tmp/f"]),
+        ("gh api --field body=@relative.txt /x", ["relative.txt"]),
+        ("gh api --field=body=@/tmp/f /x", ["/tmp/f"]),
+        ("gh api -Fbody=@/tmp/f /x", ["/tmp/f"]),
+        ("gh api --input=relative.json /x", ["relative.json"]),
+        ("gh api /x --raw-field body=@/tmp/literal", []),
+        ("gh api /x --input - --field body=@-", []),
+        ("gh api /x > /tmp/out", ["/tmp/out"]),
+        ("gh api > /tmp/out /x", ["/tmp/out"]),
+        ("gh repo clone /tmp/repo", ["/tmp/repo"]),
+    ],
+)
+def test_github_api_routes_and_local_file_operands(command, targets):
+    result = analyze_shell_path_use(command)
+    assert list(result.local_targets) == targets
+    payload = {"tool_name": "Bash", "cwd": "/", "tool_input": {"command": command}}
+    assert {use.path for use in extract_payload_path_uses(payload)} == {
+        str(Path("/", target)) for target in targets
+    }
+
+
+@pytest.mark.parametrize(
+    "flag",
+    [
+        "-X", "--method", "-H", "--header", "-f", "--raw-field",
+        "-F", "--field", "-q", "--jq", "-t", "--template",
+        "-p", "--preview", "--hostname", "--cache",
+    ],
+)
+@pytest.mark.parametrize("equals", [False, True])
+def test_github_api_option_values_before_routes_are_data(flag, equals):
+    option = flag + ("=" if equals else " ") + "/value"
+    result = analyze_shell_path_use(f"gh api {option} /route --input /tmp/input")
+    assert list(result.local_targets) == ["/tmp/input"]
