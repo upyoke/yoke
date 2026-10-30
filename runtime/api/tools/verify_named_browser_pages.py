@@ -135,4 +135,12 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except (RuntimeError, OSError, ValueError, subprocess.TimeoutExpired) as exc:
+        print(
+            f"named_page_proof_failed: {exc}; inspect the step JSON and browser "
+            "diagnostic, repair the named problem, and rerun this controller check.",
+            file=sys.stderr,
+        )
+        raise SystemExit(1) from None
