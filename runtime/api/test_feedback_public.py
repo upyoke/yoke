@@ -99,6 +99,22 @@ class TestFeedbackPublic(_ApiSuite):
             assert self.post(VALID, {"User-Agent": "yoke-cli/" + value}).json()["error"] == "feedback_user_agent_invalid"
         assert self.rows() == []
 
+    def test_bound_source_cli_reporting_version_passes_intake(self):
+        from runtime.api.tools.feedback_live_acceptance import expected_version
+        version = expected_version()
+        assert "+" in version
+        def post(request, timeout):
+            assert request.get_header("User-agent") == "yoke-cli/" + version
+            result = self.post(json.loads(request.data), {"User-Agent": request.get_header("User-agent")})
+            assert result.status_code == 201, result.text
+            stream = io.BytesIO(result.content)
+            stream.status = result.status_code
+            return stream
+        with patch("yoke_cli.feedback_delivery.open_no_redirect", side_effect=post):
+            assert send_feedback(category="observation", evidence="Bound candidate source probe",
+                                 metadata={**VALID, "yoke_version": version}, agent="codex") == 0
+        assert self.rows()[0][4] == version
+
 
 def test_delivery_failure_preserves_full_evidence(capsys):
     evidence = "Full evidence " + "x" * 3900

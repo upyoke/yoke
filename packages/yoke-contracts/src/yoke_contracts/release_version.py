@@ -46,10 +46,16 @@ def version_order(value: str) -> tuple[tuple[int, ...], int, int]:
 
 def reporting_version_shape(value: str) -> str:
     """Validate a release or an exact source-checkout reporting identity."""
-    if not isinstance(value, str):
-        raise ValueError("feedback_version_invalid: provide a Yoke reporting version")
-    release, separator, source = value.partition("+")
-    release_version(release)
-    if separator and not re.fullmatch(r"[0-9a-f]{12}(\.dirty)?", source):
-        raise ValueError("feedback_version_invalid: use release+sha12[.dirty]")
+    try:
+        if not isinstance(value, str):
+            raise ValueError("expected text")
+        release, separator, source = value.partition("+")
+        release_version(release)
+        if separator and not re.fullmatch(r"[0-9a-f]{12}(\.dirty)?", source):
+            raise ValueError("expected source commit")
+    except ValueError:
+        raise ValueError(
+            f"feedback_version_invalid: received {value!r}; "
+            "use BASE.YYYYMMDDHHMM[+sha12[.dirty]] from the loaded CLI"
+        ) from None
     return value

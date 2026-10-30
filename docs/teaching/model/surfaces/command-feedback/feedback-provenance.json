@@ -4,6 +4,6 @@
  "status": "observed",
  "page": "command-feedback-cases",
  "form": "State",
- "verification": "Both destinations stamp the loaded CLI version, unchanged universe fingerprint and role, harness or terminal agent. Missing provenance refuses before delivery and prints evidence for retry. Public intake requires the same reporting version in User-Agent and returns typed identity refusals with upgrade recovery.",
+ "verification": "Both destinations stamp the loaded CLI version, unchanged universe fingerprint and role, harness or terminal agent. Missing provenance refuses before delivery and prints evidence for retry. Public intake requires the same reporting version in User-Agent and returns typed identity refusals with upgrade recovery. Acceptance uses the bound candidate CLI and its canonical reporting version; the source display label is not a version. Invalid version diagnostics include the rejected value.",
  "topics": ["context/disclosure", "reference/commands", "documentation/disclosure/reactive-help"]
 }
