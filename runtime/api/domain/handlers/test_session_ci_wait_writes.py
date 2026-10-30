@@ -156,6 +156,10 @@ def test_record_new_candidate_drops_only_its_superseded_pending_waits(
     from yoke_core.domain.session_ci_wait_observer import observe_pending_ci_runs
 
     conn = waiting_connection
+    if old_repo != "acme/widgets":
+        conn.execute(
+            "INSERT INTO project_github_repo_bindings VALUES (1,?, 'active')", (old_repo,)
+        )
     conn.execute(
         "UPDATE session_ci_run_waits SET session_id=?, repo=?, kind=?, "
         "head_sha=?, notified_at=? WHERE run_id=?",

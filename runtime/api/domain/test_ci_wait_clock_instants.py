@@ -20,6 +20,18 @@ def _seed(conn):
     seed_session(conn, "wait-clock")
     ensure_session_ci_wait_schema(conn)
     conn.execute(
+        "INSERT INTO github_app_installations "
+        "(installation_id, account_id, account_login, account_type, created_at, updated_at) "
+        "VALUES ('clock-install','clock-account','acme','Organization',%s,%s)",
+        (MOMENT, MOMENT),
+    )
+    conn.execute(
+        "INSERT INTO project_github_repo_bindings "
+        "(project_id, installation_id, repository_id, github_repo, created_at, updated_at) "
+        "VALUES (1,'clock-install','clock-repo','acme/widgets',%s,%s)",
+        (MOMENT, MOMENT),
+    )
+    conn.execute(
         "UPDATE harness_sessions SET turn_posture='waiting' WHERE session_id='wait-clock'"
     )
     body = writes.RecordCiWaitRequest(
