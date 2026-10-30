@@ -175,7 +175,6 @@ def ensure_event_schema(conn: Any) -> None:
         "DROP INDEX IF EXISTS idx_events_harness_session_id",
         "CREATE INDEX IF NOT EXISTS idx_events_source_type ON events(source_type)",
         "CREATE INDEX IF NOT EXISTS idx_events_session_id ON events(session_id)",
-        "CREATE INDEX IF NOT EXISTS idx_events_event_name ON events(event_name)",
         "CREATE INDEX IF NOT EXISTS idx_events_created_at ON events(created_at)",
         *_actor_id_index_sql(conn),
         "CREATE INDEX IF NOT EXISTS idx_events_trace_id ON events(trace_id)",
@@ -216,7 +215,6 @@ def ensure_event_schema(conn: Any) -> None:
             DROP INDEX IF EXISTS idx_events_harness_session_id;
             CREATE INDEX IF NOT EXISTS idx_events_source_type ON events(source_type);
             CREATE INDEX IF NOT EXISTS idx_events_session_id ON events(session_id);
-            CREATE INDEX IF NOT EXISTS idx_events_event_name ON events(event_name);
             CREATE INDEX IF NOT EXISTS idx_events_created_at ON events(created_at);
 """
         + actor_id_index_sqlite
@@ -230,7 +228,7 @@ def ensure_event_schema(conn: Any) -> None:
             -- Session-scoped composite for tool-call telemetry lookups
             -- (audit/correlation queries on session_id + event_name +
             -- tool_use_id). Without it those queries pick
-            -- ``idx_events_event_name`` and scan every historical
+            -- the global event-name index and scan every historical
             -- tool-call row on a busy DB; with it the seek is bounded by
             -- ``session_id`` first.
             CREATE INDEX IF NOT EXISTS """
