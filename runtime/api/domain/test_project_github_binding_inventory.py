@@ -23,6 +23,7 @@ FUNCTION = "projects.github_binding.list"
 def inventory(test_db):
     seed_project_identities(test_db)
     seed_roles_and_permissions(test_db)
+    admin = bootstrap_admin_token(test_db)
     service = bootstrap_hosted_service_token(test_db)
     other_org = test_db.execute(
         "INSERT INTO organizations (slug, name, created_at) "
@@ -45,7 +46,7 @@ def inventory(test_db):
     reset_registry_for_tests()
     register_all_handlers()
     try:
-        yield test_db, service.actor_id, other_org
+        yield test_db, service.actor_id, other_org, admin.actor_id
     finally:
         reset_registry_for_tests()
 
@@ -59,7 +60,7 @@ def read(actor, payload=None):
 
 
 def test_inventory_returns_only_own_org_and_installation_filter(inventory):
-    conn, actor, _ = inventory
+    conn, actor, _, _ = inventory
     expected = [{
         "project_id": resolve_project_id(conn, "yoke"), "project": "yoke",
         "installation_id": "77", "repository_id": "88",
@@ -75,7 +76,7 @@ def test_inventory_returns_only_own_org_and_installation_filter(inventory):
 
 
 def test_inventory_refuses_foreign_org(inventory):
-    _, actor, other_org = inventory
+    _, actor, other_org, _ = inventory
     result = read(actor, {"org_id": other_org})
     assert not result.success
     assert result.error.code == "permission_denied"
@@ -83,9 +84,8 @@ def test_inventory_refuses_foreign_org(inventory):
 
 
 def test_inventory_rejects_admin_and_requires_service_token(inventory):
-    conn, _, _ = inventory
-    admin = bootstrap_admin_token(conn)
-    result = read(admin.actor_id)
+    conn, _, _, admin_actor = inventory
+    result = read(admin_actor)
     assert not result.success
     assert result.error.code == "permission_denied"
     entry = lookup(FUNCTION)
@@ -93,6 +93,6 @@ def test_inventory_rejects_admin_and_requires_service_token(inventory):
     assert entry.adapter_status == "internal"
     denial = _service_token_guard_response(
         {"function": FUNCTION}, entry,
-        HttpAuthContext(token_id=1, actor_id=admin.actor_id, token_name="admin"), conn=conn,
+        HttpAuthContext(token_id=1, actor_id=admin_actor, token_name="admin"), conn=conn,
     )
     assert denial.error.code == "permission_denied"

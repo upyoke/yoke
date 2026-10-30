@@ -57,6 +57,7 @@ Read [envelope and authority](index.md) first. `none` means no dispatcher work-c
 | `projects.github_binding.bind` | `none` |
 | `projects.github_binding.check` | `none` |
 | `projects.github_binding.lifecycle` | `none` |
+| `projects.github_binding.list` | `none` |
 | `projects.github_binding.status` | `none` |
 | `projects.github_binding.unbind` | `none` |
 | `projects.github_state.read` | `none` |

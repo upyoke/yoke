@@ -106,6 +106,7 @@ ASSET_CONTENT_TYPES: Dict[str, str] = {
     "universe_events_history_loader.js": "text/javascript; charset=utf-8",
     "universe_views_github.js": "text/javascript; charset=utf-8",
     "universe_views_github_access.js": "text/javascript; charset=utf-8",
+    "universe_views_github_mappings.js": "text/javascript; charset=utf-8",
     "universe_views_items.js": "text/javascript; charset=utf-8",
     "universe_items_roster_loader.js": "text/javascript; charset=utf-8",
     "universe_views_inbox.js": "text/javascript; charset=utf-8",
