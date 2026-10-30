@@ -12,5 +12,5 @@
   "universe retention": "Read how long old records are kept.",
   "universe retention get": "Show how long old records are kept, and the cutoff.",
   "universe validate": "Check a universe archive before moving it.",
-  "universe upload": "Upload an archive to hosted storage and print the Import link."
+  "universe upload": "Upload an archive and print the hosted Import link."
 }
