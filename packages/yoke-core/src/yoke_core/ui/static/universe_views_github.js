@@ -1,7 +1,7 @@
 // The GitHub screen is one page in every mode. Installations come from the
-// project binding-status fan-out, or from the hosted shell's organization
+// project binding-status fan-out and the hosted shell's organization
 // list when it passes one (an organization can hold installations no
-// project is bound to yet). Hosted universes apply GitHub webhooks as they
+// project is bound to yet). Bound installations remain visible in both lists. Hosted universes apply GitHub webhooks as they
 // arrive, so their installation facts are live; local and self-hosted ones
 // have no webhook delivery, so each row says when it was last checked and
 // Check now re-verifies every bound project in scope. Personal
@@ -70,7 +70,7 @@ function boundInstallationRows(callResults) {
 }
 
 function hostInstallationRows(installations, boundRows) {
-  return installations.map((row) => ({
+  const rows = installations.map((row) => ({
     installationId: String(row.installationId || ""),
     accountLogin: String(row.accountLogin || ""),
     accountType: String(row.accountType || ""),
@@ -84,9 +84,18 @@ function hostInstallationRows(installations, boundRows) {
       String(row.installationId))?.boundProjects || 0,
     dangling: false,
   }));
+  const listed = new Set(rows.map((row) => row.installationId));
+  return [
+    ...rows,
+    ...boundRows.filter((row) => !listed.has(row.installationId))
+      .map((row) => ({ ...row, hostMissing: true })),
+  ];
 }
 
 function installationStatusDetail(row) {
+  if (row.hostMissing) {
+    return "bound in this universe, but absent from the hosted installation list";
+  }
   if (row.dangling) {
     return `the binding names installation ${row.installationId}, ` +
       "but no installation record backs it";
