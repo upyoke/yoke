@@ -9,10 +9,27 @@ from yoke_core.domain.handlers import (
     project_github_state_ops as _project_github_state,
 )
 
+from yoke_core.domain.handlers import project_github_binding_list as _binding_list
+
 _STATE_MODULE = "yoke_core.domain.handlers.project_github_state_ops"
 
 
 def register(registry) -> None:
+    registry.register(
+        "projects.github_binding.list",
+        _binding_list.handle_project_github_binding_list,
+        _binding_list.ProjectGithubBindingListRequest,
+        _binding_list.ProjectGithubBindingListResponse,
+        stability="stable",
+        owner_module="yoke_core.domain.handlers.project_github_binding_list",
+        target_kinds=["global"],
+        side_effects=[],
+        guardrails=["service_token_required"],
+        adapter_status="internal",
+        claim_required_kind=None,
+        ambient_session_required=False,
+        minimum_serving_version="next-release",
+    )
     registry.register(
         "projects.github_binding.bind",
         _project_github_binding.handle_project_github_binding_bind,

@@ -27,14 +27,11 @@ import {
   statusLine,
 } from "./universe_views_github_access.js";
 
+import { projectLabel, renderMappings } from "./universe_views_github_mappings.js";
+
 const TITLE_INSTALLATIONS = "GitHub App installations";
 const TITLE_MAPPINGS = "Project mappings with issue-sync";
 const CHECK_FUNCTION = "projects.github_binding.check";
-
-function projectLabel(projects, projectId) {
-  const row = projects.find((item) => String(item.id) === String(projectId));
-  return (row && (row.name || row.slug)) || String(projectId);
-}
 
 function statusResult(callResult) {
   return callResult.envelope.result || {};
@@ -48,7 +45,7 @@ function boundInstallationRows(callResults) {
     const installation = result.installation;
     const id = String((installation && installation.installation_id)
       || binding.installation_id || "");
-    if (!id) continue;
+    if (!result.bound || !id) continue;
     const existing = rows.get(id);
     if (existing) {
       existing.boundProjects += 1;
@@ -72,7 +69,7 @@ function boundInstallationRows(callResults) {
   return [...rows.values()];
 }
 
-function hostInstallationRows(installations) {
+function hostInstallationRows(installations, boundRows) {
   return installations.map((row) => ({
     installationId: String(row.installationId || ""),
     accountLogin: String(row.accountLogin || ""),
@@ -83,7 +80,8 @@ function hostInstallationRows(installations) {
     settingsUrl: String(row.settingsUrl || ""),
     missingPermissions: Array.isArray(row.missingPermissions)
       ? row.missingPermissions.map(String) : [],
-    boundProjects: Number(row.boundProjects) || 0,
+    boundProjects: boundRows.find((bound) => bound.installationId ===
+      String(row.installationId))?.boundProjects || 0,
     dangling: false,
   }));
 }
@@ -154,60 +152,10 @@ function renderInstallations(body, rows, options) {
       sub: installationStatusDetail,
     },
     { label: "repositories", value: (row) => row.repositorySelection },
+    { label: "bound projects", value: (row) => String(row.boundProjects) },
     freshnessColumn(options.hosted),
     accessColumn(body.ownerDocument, options.host, options.status),
   ], "no GitHub App installation backs a project in this scope");
-}
-
-function mappingRows(callResults, projects, buckets) {
-  return callResults.map((callResult, index) => {
-    const result = statusResult(callResult);
-    const binding = result.binding || {};
-    const permission = result.permission_status || {};
-    const automation = result.automation || {};
-    const missing = Array.isArray(permission.missing)
-      ? permission.missing.join(", ") : "";
-    return {
-      project: projectLabel(projects, buckets[index]),
-      repo: binding.github_repo || result.github_repo || "",
-      status: binding.status || "",
-      permissions: permission.status || "",
-      missing,
-      automation: Object.hasOwn(automation, "available")
-        ? (automation.available ? "available" : "blocked") : "",
-      reason: automation.reason || "",
-      sync_mode: result.github_sync_mode || "",
-      last_sync: binding.last_sync_at || "",
-      last_sync_outcome: binding.last_sync_outcome || "",
-    };
-  });
-}
-
-function renderMappings(body, callResults, projects, buckets) {
-  renderTable(body, mappingRows(callResults, projects, buckets), [
-    { label: "project", value: (row) => row.project },
-    { label: "repository", value: (row) => row.repo, code: true },
-    { label: "binding", value: (row) => row.status, pill: true },
-    {
-      label: "permissions",
-      value: (row) => row.permissions,
-      pill: true,
-      sub: (row) => row.missing,
-    },
-    {
-      label: "automation",
-      value: (row) => row.automation,
-      pill: true,
-      sub: (row) => row.reason,
-    },
-    {
-      label: "issue sync",
-      value: (row) => row.sync_mode,
-      pill: true,
-      sub: (row) => (row.last_sync
-        ? `${row.last_sync_outcome} · ${row.last_sync}` : ""),
-    },
-  ], "no projects in this scope");
 }
 
 function bindingCalls(buckets) {
@@ -282,6 +230,7 @@ export function renderGithubView(context, main, scope) {
   const host = githubHost(context.capabilities);
   const projects = context.projects();
   const buckets = scopeBuckets(scope, projects, true);
+  const allBuckets = scopeBuckets("all", projects, true);
   const installations = section(documentNode, TITLE_INSTALLATIONS);
   const mappings = section(documentNode, TITLE_MAPPINGS);
   const personal = personalPanel(documentNode, context.capabilities, hosted);
@@ -291,19 +240,22 @@ export function renderGithubView(context, main, scope) {
   let latest = [];
   const state = {
     status: statusLine(documentNode),
+    mappingStatus: statusLine(documentNode),
     projects,
     button: null,
     boundProjects: () => latest
-      .map((callResult, index) => [buckets[index], statusResult(callResult)])
-      .filter(([, result]) => result.bound)
+      .map((callResult, index) => [allBuckets[index], statusResult(callResult)])
+      .filter(([project, result]) => buckets.includes(project) && result.bound)
       .map(([project]) => project),
   };
-  const hostRows = hosted && Array.isArray(host.installations)
-    ? hostInstallationRows(host.installations) : null;
+  mappings.insertBefore(state.mappingStatus, mappings.children[1]);
   state.load = () => loadScopedPanels(context, [
     [installations, (body, callResults) => {
       latest = callResults;
-      renderInstallations(body, hostRows || boundInstallationRows(callResults), {
+      const boundRows = boundInstallationRows(callResults);
+      const rows = hosted && Array.isArray(host.installations)
+        ? hostInstallationRows(host.installations, boundRows) : boundRows;
+      renderInstallations(body, rows, {
         hosted, host, status: state.status,
       });
       if (state.button) {
@@ -314,9 +266,11 @@ export function renderGithubView(context, main, scope) {
       }
     }],
     [mappings, (body, callResults) => renderMappings(
-      body, callResults, projects, buckets,
+      context, body, callResults.filter((_, index) =>
+        buckets.includes(allBuckets[index])), projects,
+      allBuckets.filter((project) => buckets.includes(project)), state,
     )],
-  ], bindingCalls(buckets));
+  ], bindingCalls(allBuckets));
   if (hosted) installations.insertBefore(state.status, installations.children[1]);
   else attachCheckNow(context, installations, state);
   state.load();

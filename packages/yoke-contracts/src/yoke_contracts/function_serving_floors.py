@@ -77,6 +77,7 @@ FUNCTION_MINIMUM_SERVING_VERSIONS: dict[str, str] = {
     "packs.bundle.render": "next-release",
     "projects.environment.list": "next-release",
     "projects.github_binding.check": "next-release",
+    "projects.github_binding.list": "next-release",
     "projects.level_summary.get": "next-release",
     "projects.retire": "next-release",
     "projects.unretire": "next-release",
