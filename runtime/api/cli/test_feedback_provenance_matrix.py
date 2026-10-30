@@ -11,7 +11,7 @@ from yoke_cli import feedback_reporter as reporter
 from yoke_cli.commands.adapters.feedback import feedback_append
 from yoke_contracts import runtime_identity
 from yoke_contracts.feedback_provenance import FeedbackIdentityError
-from yoke_contracts.api.function_call import FunctionCallRequest, FunctionCallResponse, FunctionError, TargetRef
+from yoke_contracts.api.function_call import ActorContext, FunctionCallRequest, FunctionCallResponse, FunctionError, TargetRef
 from yoke_core.domain.ouroboros_entry_insert import cmd_insert_entry
 
 VERSION = "0.2.0.202610290013"
@@ -142,7 +142,7 @@ def test_writer_rejects_incomplete_identity(storage, field):
 
 def test_pre_floor_server_refuses_new_provenance_function():
     from yoke_cli.transport.function_version_skew import retype_skew
-    request = FunctionCallRequest(function="feedback.provenance.get", target=TargetRef(kind="global"))
+    request = FunctionCallRequest(function="feedback.provenance.get", actor=ActorContext(), target=TargetRef(kind="global"))
     response = FunctionCallResponse(success=False, function=request.function, version=request.version,
                                     request_id=request.request_id,
                                     error=FunctionError(code="function_not_registered", message="old registry"))

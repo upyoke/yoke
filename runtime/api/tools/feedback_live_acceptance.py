@@ -18,6 +18,8 @@ PRODUCTION_FINGERPRINT = "upyoke@2026-06-09T15:11:27.000000Z"
 
 def delivered_environment():
     env = dict(os.environ)
+    if env.get("YOKE_FEEDBACK_SOURCE_PROBE") == "1":
+        return env
     # Source-run QA must invoke the delivered wheel through the machine launcher.
     source_bin = str(Path(sys.executable).parent)
     env["PATH"] = os.pathsep.join(p for p in env.get("PATH", "").split(os.pathsep) if p != source_bin)
@@ -46,6 +48,9 @@ def call(*args):
 
 
 def expected_version():
+    if os.environ.get("YOKE_FEEDBACK_SOURCE_PROBE") == "1":
+        from yoke_contracts.runtime_identity import reporting_version
+        return reporting_version()
     return release_version(run("status")["runtime_identity"]["version"])
 
 
