@@ -144,7 +144,7 @@ def test_writer_rejects_incomplete_identity(storage, field):
 
 def test_pre_floor_server_refuses_new_provenance_function():
     from yoke_cli.transport.function_version_skew import retype_skew
-    request = FunctionCallRequest(function="feedback.provenance.get", actor=ActorContext(), target=TargetRef(kind="global"))
+    request = FunctionCallRequest(function="feedback.provenance.get", actor=ActorContext(session_id=""), target=TargetRef(kind="global"))
     response = FunctionCallResponse(success=False, function=request.function, version=request.version,
                                     request_id=request.request_id,
                                     error=FunctionError(code="function_not_registered", message="old registry"))
@@ -191,7 +191,7 @@ def test_sessionless_provenance_reads_universe_and_actor(storage, monkeypatch):
     if not db_backend.connection_is_postgres(storage):
         storage.execute("CREATE TABLE organizations (id INTEGER PRIMARY KEY, slug TEXT, created_at TEXT)")
         storage.execute("INSERT INTO organizations VALUES (1, 'fixture', '2026-01-01T00:00:00Z')")
-    request = FunctionCallRequest(function="feedback.provenance.get", actor=ActorContext(), target=TargetRef(kind="global"))
+    request = FunctionCallRequest(function="feedback.provenance.get", actor=ActorContext(session_id=""), target=TargetRef(kind="global"))
     answer = handler.handle_get(request)
     assert answer.result_payload["universe_fingerprint"] == universe_fingerprint(storage)
     assert answer.result_payload["actor_email"] is None

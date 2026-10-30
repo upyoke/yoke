@@ -313,6 +313,7 @@ class TestEveryTierOneFamilyDispatches:
             "category": "failed",
             "reporter_email": None,
             "evidence": "recipe X did not work",
+            "agent": "terminal", "yoke_version": "0.2.0.202610290013",
         }
 
     def test_field_note_accepts_observation_kind(self) -> None:
