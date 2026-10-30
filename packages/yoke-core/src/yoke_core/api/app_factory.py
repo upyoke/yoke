@@ -64,13 +64,13 @@ def create_app() -> FastAPI:
     @asynccontextmanager
     async def lifespan(_: FastAPI):
         """Initialize the backing DB and register all function handlers."""
-        # Imported here so the reusable app factory does not depend on the
-        # canonical module that imports this factory to publish ``app``.
+        # Resolve the canonical entry point only during startup.
         from yoke_core.api.main import _ensure_db_initialized
 
         from yoke_core.domain import db_backend, universe_source_pause
 
-        with universe_source_pause.startup_access(db_backend.resolve_pg_dsn()):
+        dsn = db_backend.resolve_pg_dsn()
+        with universe_source_pause.startup_access(dsn), db_backend.bound_pg_dsn(dsn):
             _ensure_db_initialized()
         from yoke_core.domain.handlers.__init_register__ import (
             register_all_handlers,

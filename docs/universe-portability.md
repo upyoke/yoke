@@ -116,7 +116,9 @@ an explicit persistent machine home refuses paused export and names its refresh
 command. Clients also refuse a paused export when the server cannot confirm
 stopped writers. Self-host request admission
 refuses work while paused; restarted servers keep that pause and defer schema
-preparation until explicit Resume. Local database acquisition
+preparation until explicit Resume. Self-host start and upgrade report that the
+source remains paused and name Resume; they do not claim it is ready for work.
+Local database acquisition
 refuses connections to that source. Run `yoke universe resume` against that same
 source when it may write again. A pause-marker or drain failure refuses the move
 with recovery; repair the named cause and retry, or explicitly resume the source.

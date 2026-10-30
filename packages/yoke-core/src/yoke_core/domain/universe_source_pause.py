@@ -102,9 +102,9 @@ def operation(dsn: str, *, wait: bool = False):
 @contextmanager
 def startup_access(dsn: str):
     """Serialize internal startup reads without reopening application admission."""
-    from yoke_contracts.server_mode import SERVER_MODE_ENV, SERVER_MODE_SELF_HOST
+    from yoke_core.domain.universe_startup_lock import hosted_tenant_container_process
 
-    if os.environ.get(SERVER_MODE_ENV) != SERVER_MODE_SELF_HOST:
+    if hosted_tenant_container_process():
         yield
         return
     with operation(dsn, wait=True), pause_owner():

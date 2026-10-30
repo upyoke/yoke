@@ -252,11 +252,7 @@ def _wait_for_first_boot_token(setup: SelfHostSetup, *, timeout_s: float) -> str
 
 
 def _wait_for_server_health(setup: SelfHostSetup, *, timeout_s: float) -> None:
-    """Poll loopback health until the just-started server answers.
-
-    ``yoke connect`` still fails fast on a refused loopback port; this wait
-    is only for the wizard, which knows it just started the container.
-    """
+    """Wait for ordinary readiness after the wizard starts its server."""
     if timeout_s <= 0:
         return
     deadline = _MONOTONIC() + timeout_s
@@ -270,6 +266,10 @@ def _wait_for_server_health(setup: SelfHostSetup, *, timeout_s: float) -> None:
         try:
             server_connect.verify_server_health(setup.url, timeout_s=probe_timeout)
             return
+        except server_connect.SourcePausedError as exc:
+            raise SelfHostSetupError(
+                "universe_source_paused", str(exc), recovery_commands(setup)
+            ) from None
         except server_connect.ServerConnectError as exc:
             last_error = redact_api_tokens(str(exc))
         remaining = deadline - _MONOTONIC()

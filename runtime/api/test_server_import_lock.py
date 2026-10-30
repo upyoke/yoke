@@ -244,3 +244,39 @@ def test_paused_restart_defers_schema_but_serves_resume(monkeypatch, tmp_path):
     assert marker.exists()
     with pytest.raises(universe_source_pause.UniversePausedError):
         universe_source_pause.require_running(dsn)
+
+
+def test_paused_worker_validation_closes_its_readonly_session(monkeypatch, tmp_path):
+    from yoke_core.api import main
+    from yoke_core.domain import universe_source_pause
+
+    monkeypatch.setenv("YOKE_SERVER_MODE", "self-host")
+    monkeypatch.setenv("YOKE_MACHINE_HOME", str(tmp_path / "machine"))
+    observed = []
+    original = main.invalid_item_workflow_stages
+
+    def inspect(conn):
+        observed.append(conn.execute("SHOW transaction_read_only").fetchone()[0])
+        return original(conn)
+
+    monkeypatch.setattr(main, "invalid_item_workflow_stages", inspect)
+    with pg_testdb.test_database() as source:
+        source.commit()
+        dsn = db_backend.resolve_pg_dsn()
+        universe_source_pause.pause(dsn)
+        try:
+            with (
+                universe_source_pause.startup_access(dsn),
+                db_backend.bound_pg_dsn(dsn),
+            ):
+                main._ensure_db_initialized()
+            assert observed == ["on"]
+            with (
+                universe_source_pause.pause_owner(),
+                db_backend.connect_psycopg(dsn) as probe,
+            ):
+                assert universe_startup_lock.application_sessions(probe) == []
+            with pytest.raises(universe_source_pause.UniversePausedError):
+                db_backend.connect_psycopg(dsn)
+        finally:
+            universe_source_pause.resume(dsn)

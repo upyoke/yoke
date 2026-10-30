@@ -71,7 +71,9 @@ def test_init_warns_once_for_network_publish(
     assert capsys.readouterr().err == ""
     env_path = target / ".env"
     env_path.write_text(env_path.read_text().replace("127.0.0.1:8765", publish))
-    monkeypatch.setattr(commands.runtime, "start_bundle", lambda **kwargs: None)
+    monkeypatch.setattr(
+        commands.runtime, "start_bundle", lambda **kwargs: {"healthy": True}
+    )
     args = ["--dir", str(target), "--protect-existing"]
     if start:
         args.append("--start")
