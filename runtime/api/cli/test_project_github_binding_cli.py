@@ -3,6 +3,9 @@
 from __future__ import annotations
 
 from contextlib import nullcontext
+from io import StringIO
+
+import pytest
 from types import SimpleNamespace
 
 from yoke_cli.commands.adapters import project_github_binding
@@ -118,3 +121,38 @@ def test_status_can_select_verified_repository_field(monkeypatch) -> None:
         "payload": {"project": "externalwebapp"},
         "field": "github_repo",
     }
+
+
+@pytest.mark.parametrize("function", [
+    "projects.github_binding.bind", "projects.github_binding.unbind",
+])
+@pytest.mark.parametrize("notice", [None, "Issue sync was turned off. Rebind, then enable sync."])
+def test_binding_human_output_shows_only_changed_sync_notice(monkeypatch, function, notice):
+    output = StringIO()
+    result = {
+        "previous_sync_mode": "enabled" if notice else "disabled",
+        "sync_mode": "disabled", "sync_mode_notice": notice,
+    }
+
+    def emit(**kwargs):
+        assert kwargs["json_mode"] is False
+        kwargs["human_writer"](SimpleNamespace(success=True, result=result), output, StringIO())
+        return 0
+
+    monkeypatch.setattr(project_github_binding, "dispatch_and_emit", emit)
+    assert project_github_binding._dispatch(function, {}, None, False) == 0
+    if notice:
+        assert output.getvalue().count(notice) == 1
+    else:
+        assert "sync mode notice" not in output.getvalue()
+
+
+def test_binding_json_keeps_sync_receipt(monkeypatch):
+    def emit(**kwargs):
+        assert kwargs["json_mode"] is True
+        return 0
+
+    monkeypatch.setattr(project_github_binding, "dispatch_and_emit", emit)
+    assert project_github_binding._dispatch(
+        "projects.github_binding.unbind", {}, None, True,
+    ) == 0

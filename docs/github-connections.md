@@ -112,7 +112,12 @@ retired project GitHub credential residue; clears the display projection; and
 puts the project in `disabled` mode. It leaves the GitHub installation
 record intact so another project or a later rebind can use it. Rebinding
 requires selecting and live-verifying the exact repository; GitHub sync can be
-enabled only after that binding is active.
+enabled only after that binding is active. Bind and unbind return
+`previous_sync_mode`, `sync_mode`, and `sync_mode_notice`; the CLI and page show
+the notice when sync changes. Unbind tells you to rebind before enabling sync.
+Binding a public repository also disables enabled sync and reports the command
+to restore it with `--allow-public-github-sync`. Already-disabled sync produces
+no notice.
 
 On Cloud, installation suspension, deletion, and repository-access changes
 reach a bound project as hosted lifecycle deliveries, made by the hosted

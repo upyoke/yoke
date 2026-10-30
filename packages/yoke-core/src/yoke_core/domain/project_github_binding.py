@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import shlex
-
 from typing import Any, Callable, Optional
 
 from yoke_contracts.github_origin import (
@@ -55,6 +53,7 @@ from yoke_core.domain.project_github_binding_state import (
     binding_persistence_state,
     refresh_attached_project_bindings,
 )
+from yoke_core.domain.project_github_sync_notice import sync_mode_result
 from yoke_core.domain.project_identity import resolve_project
 
 
@@ -184,7 +183,7 @@ def _store_verified_project_repo_binding(
             verified_at=now,
         )
         try:
-            persist_project_binding(
+            sync_changed = persist_project_binding(
                 conn,
                 placeholder=p,
                 project_id=ident.id,
@@ -229,7 +228,14 @@ def _store_verified_project_repo_binding(
         )
         if owns_conn:
             conn.commit()
-        return cmd_project_github_binding_status(project, conn=conn)
+        result = cmd_project_github_binding_status(project, conn=conn)
+        current = result["github_sync_mode"]
+        result.update(sync_mode_result(
+            previous="enabled" if sync_changed else current, current=current,
+            slug=ident.slug, name=ident.name,
+            public_repository=not metadata.repository_is_private,
+        ))
+        return result
     finally:
         if owns_conn and conn is not None:
             conn.close()
@@ -255,6 +261,10 @@ def cmd_unbind_project_repo(
             f"SELECT github_sync_mode FROM projects WHERE id={p}" + lock,
             (ident.id,),
         ).fetchone()["github_sync_mode"]
+        binding = conn.execute(
+            f"SELECT repository_is_private FROM project_github_repo_bindings WHERE project_id={p}",
+            (ident.id,),
+        ).fetchone()
         conn.execute(
             f"DELETE FROM project_github_repo_bindings WHERE project_id={p}",
             (ident.id,),
@@ -271,16 +281,11 @@ def cmd_unbind_project_repo(
         if owns_conn:
             conn.commit()
         result = cmd_project_github_binding_status(project, conn=conn)
-        result.update(
-            previous_sync_mode=previous,
-            sync_mode=GITHUB_SYNC_DISABLED,
-            sync_mode_notice=(
-                "Issue sync was turned off. To turn it back on, bind a repository "
-                "again, then run yoke projects update "
-                f"--slug {shlex.quote(ident.slug)} --name {shlex.quote(ident.name)} "
-                "--github-sync-mode enabled."
-            ),
-        )
+        result.update(sync_mode_result(
+            previous=previous, current=GITHUB_SYNC_DISABLED,
+            slug=ident.slug, name=ident.name, unbound=True,
+            public_repository=binding is not None and not binding["repository_is_private"],
+        ))
         return result
     finally:
         if owns_conn and conn is not None:

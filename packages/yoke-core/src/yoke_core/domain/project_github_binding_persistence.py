@@ -105,8 +105,8 @@ def persist_project_binding(
     permissions: str,
     verified_at: datetime,
     last_error: Optional[str],
-) -> None:
-    """Upsert one project's repository binding with unique ownership."""
+) -> bool:
+    """Upsert one project's repository binding with unique ownership; return whether sync changed."""
     try:
         conn.execute(
             "INSERT INTO project_github_repo_bindings "
@@ -149,11 +149,13 @@ def persist_project_binding(
     except db_backend.integrity_error_types(conn) as exc:
         raise RepositoryBindingConflict from exc
     if not repository_is_private:
-        conn.execute(
+        changed = conn.execute(
             f"UPDATE projects SET github_sync_mode={placeholder} "
             f"WHERE id={placeholder} AND github_sync_mode={placeholder}",
             (GITHUB_SYNC_DISABLED, project_id, GITHUB_SYNC_ENABLED),
         )
+        return changed.rowcount > 0
+    return False
 
 
 def clean_required(value: Any, label: str) -> str:
