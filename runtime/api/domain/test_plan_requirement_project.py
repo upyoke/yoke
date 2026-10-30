@@ -49,8 +49,9 @@ def test_plan_project_drives_case_and_all_evidence_reads(test_db, monkeypatch, a
     target["project"] = {"id": 2, "slug": "externalwebapp", "name": "ExternalWebapp"}
     test_db.execute(
         "UPDATE qa_requirements SET execution_target_json=%s,execution_target_digest=%s,"
-        "item_id=%s WHERE id=%s",
-        (json.dumps(target), target_digest(target), MEMBERS[0] if attached else None, rid),
+        "item_id=%s,deployment_run_id=%s,deployment_stage=%s WHERE id=%s",
+        (json.dumps(target), target_digest(target), MEMBERS[0] if attached else None,
+         None if attached else RUN, None if attached else "item-qa", rid),
     )
     run = test_db.execute(
         "INSERT INTO qa_runs(qa_requirement_id,performed_by,qa_kind,verdict,created_at) "
@@ -72,7 +73,10 @@ def test_plan_project_drives_case_and_all_evidence_reads(test_db, monkeypatch, a
     test_db.execute(
         "UPDATE qa_requirements SET execution_target_json=NULL,execution_target_digest=NULL WHERE id=%s", (rid,),
     )
+    test_db.execute("UPDATE qa_requirements SET item_id=NULL,deployment_run_id=%s WHERE id=%s", (RUN, rid))
     assert resolve_run_pinned_source(test_db, RUN, requirement_id=rid)["project"] == "externalwebapp"
+    if attached:
+        test_db.execute("UPDATE qa_requirements SET item_id=%s,deployment_run_id=NULL WHERE id=%s", (MEMBERS[0], rid))
     calls = []
     monkeypatch.setattr("yoke_core.domain.browser_qa.execute_scenario", lambda **kw: (
         calls.append(kw) or SimpleNamespace(to_json=lambda: '{}')

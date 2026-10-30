@@ -19,7 +19,6 @@ from runtime.api.fixtures.deployment_scoped_qa_run_fixture import (
 from yoke_core.domain.deployment_qa_plan_group_writes import ensure_groups
 from yoke_core.domain.deployment_qa_plan_groups import run_groups
 from yoke_core.domain.deployment_qa_stage_materialization import (
-    QaCasesNotSelectedError,
     materialize_deployment_qa_stage,
 )
 from yoke_core.domain.deployment_qa_stage_prerequisites import (
@@ -254,10 +253,13 @@ def test_environment_bound_plan_skips_preview_standing_in_for_a_different_enviro
     _attach_plan(test_db, item_id=item_id, plan_id=plan_id)
 
     assert ensure_groups(test_db, run_id, PREVIEW_QA) == []
-    with pytest.raises(QaCasesNotSelectedError):
-        materialize_deployment_qa_stage(
-            test_db,
-            deployment_run_id=run_id,
-            deployment_stage=PREVIEW_QA,
-            deployment_member_item_id=item_id,
-        )
+    result = materialize_deployment_qa_stage(
+        test_db,
+        deployment_run_id=run_id,
+        deployment_stage=PREVIEW_QA,
+        deployment_member_item_id=item_id,
+    )
+    assert result["created_requirement_ids"] == []
+    from yoke_core.domain.post_deploy_verification_answer import member_post_deploy_answer, NOT_REQUIRED
+
+    assert member_post_deploy_answer(test_db, {"id": run_id, "member_item_id": item_id}).verdict == NOT_REQUIRED
