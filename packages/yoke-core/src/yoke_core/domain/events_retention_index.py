@@ -1,4 +1,4 @@
-"""Nonblocking boot convergence of the event retention index.
+"""Nonblocking boot convergence of the event retention indexes.
 
 Universe prune reads each severity's expired events as one index range
 (``severity = S AND created_at < cutoff ORDER BY created_at``). Without this
@@ -6,8 +6,8 @@ index a nearly clean, large events table is scanned whole for its last rows.
 
 The build follows ``events_function_index``: concurrent DDL on a separate
 autocommit connection, serialized by an advisory lock, so event writers keep
-inserting. The governed entry 0080_events_retention_index records it in the
-migration ledger; the catalog check is its proof, so no audit receipt is kept.
+inserting. Governed migrations record these builds in the ledger; catalog checks prove
+their definitions, so no audit receipt is kept.
 """
 
 from __future__ import annotations
@@ -22,9 +22,14 @@ from yoke_core.domain import administered_postgres, db_backend
 
 RETENTION_INDEX_NAME = "idx_events_severity_created"
 RETENTION_INDEX_COLUMNS = ("severity", "created_at")
+NAME_RETENTION_INDEX_NAME = "idx_events_name_created"
+RETENTION_INDEX_SPECS = (
+    (RETENTION_INDEX_NAME, RETENTION_INDEX_COLUMNS),
+    (NAME_RETENTION_INDEX_NAME, ("event_name", "created_at")),
+)
 
 
-def _index_state(conn: Any):
+def _index_state(conn: Any, name: str):
     return conn.execute(
         """
         SELECT i.indisvalid, i.indisready, t.relname, i.indpred IS NULL,
@@ -35,19 +40,19 @@ def _index_state(conn: Any):
         JOIN pg_namespace ns ON ns.oid=idx.relnamespace
         WHERE idx.relname=%s AND ns.nspname=current_schema()
         """,
-        (RETENTION_INDEX_NAME,),
+        (name,),
     ).fetchone()
 
 
-def _verify_definition(state) -> None:
+def _verify_definition(state, name, columns) -> None:
     if (
         state[2] != "events"
         or not state[3]
-        or tuple(state[4]) != RETENTION_INDEX_COLUMNS
+        or tuple(state[4]) != columns
     ):
         raise RuntimeError(
             compose_refusal(
-                f"events_retention_index_definition_mismatch: {RETENTION_INDEX_NAME} must index events({', '.join(RETENTION_INDEX_COLUMNS)}).",
+                f"events_retention_index_definition_mismatch: {name} must index events({', '.join(columns)}).",
                 recovery="drop the differently defined index and restart the server so boot rebuilds it.",
             )
         )
@@ -55,19 +60,20 @@ def _verify_definition(state) -> None:
 
 def verify_retention_index(conn: Any) -> None:
     """Fail closed on a missing, interrupted, or differently defined index."""
-    state = _index_state(conn)
-    if state is None or not state[0] or not state[1]:
-        raise RuntimeError(
-            compose_refusal(
-                f"events_retention_index_not_ready: {RETENTION_INDEX_NAME} is missing or its concurrent build did not finish.",
-                recovery="restart the server; boot rebuilds it concurrently.",
+    for name, columns in RETENTION_INDEX_SPECS:
+        state = _index_state(conn, name)
+        if state is None or not state[0] or not state[1]:
+            raise RuntimeError(
+                compose_refusal(
+                    f"events_retention_index_not_ready: {name} is missing or its concurrent build did not finish.",
+                    recovery="restart the server; boot rebuilds it concurrently.",
+                )
             )
-        )
-    _verify_definition(state)
+        _verify_definition(state, name, columns)
 
 
-def ensure_retention_index(conn: Any) -> None:
-    """Build only this additive index, without committing the caller's work.
+def ensure_retention_index(conn: Any, *, remove_obsolete: bool = False) -> None:
+    """Build retention indexes, without committing the caller's work.
 
     Concurrent DDL cannot run inside the caller's transaction, so a separate
     autocommit connection targets the caller's exact database. Event writers
@@ -76,32 +82,32 @@ def ensure_retention_index(conn: Any) -> None:
     if not db_backend.connection_is_postgres(conn):
         return
     refuse_without_serving_build_authority(
-        "building the events retention index",
+        "building the events retention indexes",
         administering_env=administered_postgres.administering_target(connection=conn),
     )
     # psycopg redacts info.dsn; reopening needs the private password too.
     dsn = make_conninfo(conn.info.dsn, password=conn.info.password)
     with db_backend.connect_psycopg(dsn, autocommit=True) as index_conn:
-        # Serialize competing boots without locking event writers.
-        index_conn.execute(
-            "SELECT pg_advisory_lock(hashtext(%s))", (RETENTION_INDEX_NAME,)
-        )
-        try:
-            state = _index_state(index_conn)
-            if state is not None:
-                _verify_definition(state)
-            if state is not None and not state[0]:
-                # A cancelled concurrent build leaves an invalid index; only
-                # this named, catalog-confirmed index is dropped for retry.
-                index_conn.execute(f"DROP INDEX CONCURRENTLY {RETENTION_INDEX_NAME}")
-                state = None
-            if state is None:
-                index_conn.execute(
-                    f"CREATE INDEX CONCURRENTLY {RETENTION_INDEX_NAME} ON events "
-                    f"({', '.join(RETENTION_INDEX_COLUMNS)})"
-                )
-            verify_retention_index(index_conn)
-        finally:
-            index_conn.execute(
-                "SELECT pg_advisory_unlock(hashtext(%s))", (RETENTION_INDEX_NAME,)
-            )
+        for name, columns in RETENTION_INDEX_SPECS:
+            # Serialize competing boots without locking event writers.
+            index_conn.execute("SELECT pg_advisory_lock(hashtext(%s))", (name,))
+            try:
+                state = _index_state(index_conn, name)
+                if state is not None:
+                    _verify_definition(state, name, columns)
+                if state is not None and (not state[0] or not state[1]):
+                    # Retry only this catalog-confirmed, interrupted build.
+                    index_conn.execute(f"DROP INDEX CONCURRENTLY {name}")
+                    state = None
+                if state is None:
+                    index_conn.execute(
+                        f"CREATE INDEX CONCURRENTLY {name} ON events "
+                        f"({', '.join(columns)})"
+                    )
+            finally:
+                index_conn.execute("SELECT pg_advisory_unlock(hashtext(%s))", (name,))
+        verify_retention_index(index_conn)
+        if remove_obsolete:
+            # The composite's leading column serves every former name lookup.
+            # Only the governed migration requests this destructive operation.
+            index_conn.execute("DROP INDEX CONCURRENTLY IF EXISTS idx_events_event_name")

@@ -60,7 +60,7 @@ def policies(policy, cutoff):
             tuple(value for _, params in branches for value in params),
             reason="unknown severity and durable event references are protected",
             # idx_events_severity_created serves each severity slice and
-            # idx_events_created_at each name override.
+            # idx_events_name_created each name override.
             branches=tuple((where + guard, params) for where, params in branches),
             branch_order="t.created_at",
         )

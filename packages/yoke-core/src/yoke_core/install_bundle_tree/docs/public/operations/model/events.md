@@ -40,7 +40,7 @@ envelope TEXT -- → JSONB on Postgres; full JSON envelope for lossless storage
 created_at TEXT NOT NULL -- app-supplied ISO-8601 UTC; see timestamp discipline in the introduction
 ```
 
-**Indexes:** `source_type`, `session_id`, `event_name`, `created_at`, `actor_id`, `trace_id`, `project_id`, `tool_name`, `(event_kind, event_type)`, plus the partial dedup index `(tool_use_id, event_name) WHERE tool_use_id IS NOT NULL` and the partial correlation index `(client_timing_id) WHERE client_timing_id IS NOT NULL` on DBs with the full correlation surface. Correlate through an indexed column; matching a substring of `envelope` with LIKE has no index to use and reads every row the other predicates admit.
+**Indexes:** `source_type`, `session_id`, `(event_name, created_at)`, `(severity, created_at)`, `created_at`, `actor_id`, `trace_id`, `project_id`, `tool_name`, `(event_kind, event_type)`, plus the partial dedup index `(tool_use_id, event_name) WHERE tool_use_id IS NOT NULL` and the partial correlation index `(client_timing_id) WHERE client_timing_id IS NOT NULL` on DBs with the full correlation surface. Correlate through an indexed column; matching a substring of `envelope` with LIKE has no index to use and reads every row the other predicates admit.
 
 Event reads project nested envelope item identities and item history `target_id` to complete public refs; storage keeps owned join keys. Other record IDs retain their domain meaning.
 

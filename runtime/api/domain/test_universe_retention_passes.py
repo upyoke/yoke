@@ -137,3 +137,48 @@ def test_event_cohort_reads_bounded_index_slices():
     assert rule.table == "events" and "FOR UPDATE" not in sql
     assert sql.count("ORDER BY t.created_at LIMIT %s") == len(rule.branches)
     assert sql.count("%s") == len(params) and params[-1] == 6
+
+
+def test_one_apply_clears_mixed_event_windows_and_keeps_protected_rows(
+    test_db, monkeypatch, capsys
+):
+    from yoke_contracts.retention_defaults import DEFAULT_EVENT_DAYS, DEFAULT_SEVERITY_DAYS
+
+    _policy(test_db, batch_rows=3)
+    now = utc_now()
+    expired = set()
+    kept = set()
+    windows = [("OrdinaryEvent", severity, days)
+               for severity, days in DEFAULT_SEVERITY_DAYS.items()]
+    windows += [(name, "ERROR", days) for name, days in DEFAULT_EVENT_DAYS.items()]
+    for name, severity, days in windows:
+        for index in range(11):
+            event_id = f"expired-{name}-{severity}-{index}"
+            expired.add(event_id)
+            insert_event(test_db, event_id=event_id, event_name=name,
+                         severity=severity, created_at=now-timedelta(days=days+1))
+        event_id = f"recent-{name}-{severity}"
+        kept.add(event_id)
+        insert_event(test_db, event_id=event_id, event_name=name,
+                     severity=severity, created_at=now-timedelta(hours=1))
+    # Protect an expired override with a durable path reference.
+    insert_event(test_db, event_id="pinned", event_name="YokeFunctionCalled",
+                 severity="INFO", created_at=now-timedelta(days=500))
+    target = test_db.execute(
+        "INSERT INTO path_targets (project_id,kind,path_string,generation,created_at) "
+        "VALUES (1,'file','protected.py',1,%s) RETURNING id", (now,)
+    ).fetchone()[0]
+    test_db.execute(
+        "INSERT INTO path_moves (before_target_id,after_target_id,recorded_event_id,recorded_at) "
+        "VALUES (%s,%s,'pinned',%s)", (target, target, now)
+    )
+    insert_event(test_db, event_id="unknown", event_name="YokeFunctionCalled",
+                 severity="CUSTOM", created_at=now-timedelta(days=500))
+    kept.update({"pinned", "unknown"})
+    test_db.commit()
+    cli_on(test_db, monkeypatch)
+    assert cli.universe_prune(["--apply"]) == 0
+    out = capsys.readouterr().out
+    assert f"Deleted {len(expired)} rows" in out
+    assert "Not finished" not in out
+    assert {row[0] for row in test_db.execute("SELECT event_id FROM events")} == kept
