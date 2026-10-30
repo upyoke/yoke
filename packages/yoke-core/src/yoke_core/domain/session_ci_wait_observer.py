@@ -29,6 +29,7 @@ from yoke_contracts.timestamps import parse_instant
 from yoke_core.domain.db_helpers import instant_parameter
 from yoke_core.domain import db_backend
 from yoke_core.domain.github_poll_schedule import MINIMUM_POLL_INTERVAL_SECONDS
+from yoke_core.domain.project_github_sync_receipt import suppress_installation_token_receipts
 from yoke_core.domain.session_ci_wait_notice import (
     ci_run_message,
     notice_idempotency_key,
@@ -64,8 +65,9 @@ def read_run_conclusion(project: str, repo: str, run_id: str) -> tuple[str, str,
             project,
             required_permissions=GITHUB_ACTIONS_READ_PERMISSION_LEVELS,
         )
-        data = rest_get(f"/repos/{repo}/actions/runs/{run_id}", token=auth.token)
-        data = with_effective_conclusion(repo, data, token=auth.token)
+        with suppress_installation_token_receipts():
+            data = rest_get(f"/repos/{repo}/actions/runs/{run_id}", token=auth.token)
+            data = with_effective_conclusion(repo, data, token=auth.token)
     except RestTransportError as exc:
         return "", "", f"github run read failure: {exc}"
     except Exception as exc:  # noqa: BLE001 - auth refusals are evidence too
@@ -139,10 +141,12 @@ def _pending_rows(
     rows = conn.execute(
         "SELECT w.id, w.session_id, w.project_id, w.repo, w.run_id, w.head_sha, "
         "w.kind, w.continue_command, w.conclusion, hs.actor_id, hs.turn_posture, "
-        "p.slug "
+        "(SELECT p.slug FROM project_github_repo_bindings b "
+        "JOIN projects p ON p.id=b.project_id "
+        "WHERE lower(b.github_repo)=lower(w.repo) AND b.status='active' "
+        "ORDER BY b.project_id LIMIT 1) AS slug "
         "FROM session_ci_run_waits w "
         "JOIN harness_sessions hs ON hs.session_id=w.session_id "
-        "JOIN projects p ON p.id=w.project_id "
         f"WHERE w.project_id IN ({slots}) AND w.notified_at IS NULL "
         "AND hs.terminated_at IS NULL AND hs.actor_id IS NOT NULL "
         f"AND (w.conclusion<>'' OR w.read_at IS NULL OR w.read_at<={marker}) "
@@ -190,6 +194,16 @@ def observe_pending_ci_runs(
             continue
         conclusion = str(row.get("conclusion") or "")
         try:
+            if not row.get("slug"):
+                # No repository authority remains; a verdict notice would lie.
+                conn.execute(
+                    f"UPDATE session_ci_run_waits SET conclusion={marker}, "
+                    f"notified_at={marker} WHERE id={marker} AND notified_at IS NULL",
+                    ("repo_unbound", stamped, wait_id),
+                )
+                conn.commit()
+                result["concluded"] += 1
+                continue
             if not conclusion:
                 status, conclusion, error = read_run(
                     str(row["slug"]), str(row["repo"]), str(row["run_id"])

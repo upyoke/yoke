@@ -34,6 +34,11 @@ def waiting_connection():
     """One session owed one pending CI verdict."""
     conn = message_connection()
     ensure_session_ci_wait_schema(conn)
+    conn.executescript(
+        "CREATE TABLE project_github_repo_bindings "
+        "(project_id INTEGER, github_repo TEXT, status TEXT);"
+        "INSERT INTO project_github_repo_bindings VALUES (1,'acme/widgets','active');"
+    )
     conn.execute(
         "INSERT INTO session_ci_run_waits "
         "(session_id,project_id,repo,run_id,head_sha,kind,continue_command,"

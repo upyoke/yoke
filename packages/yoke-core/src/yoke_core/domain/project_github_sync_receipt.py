@@ -4,9 +4,11 @@ from __future__ import annotations
 
 import hashlib
 from collections import OrderedDict
+from contextlib import contextmanager
+from contextvars import ContextVar
 from functools import wraps
 from threading import Lock
-from typing import Any, Callable, Optional
+from typing import Any, Callable, Iterator, Optional
 
 from yoke_core.domain import control_plane_transport, db_backend
 from yoke_core.domain.db_helpers import connect, instant_parameter, utc_now
@@ -14,6 +16,19 @@ from yoke_core.domain.project_identity import resolve_project
 
 
 RECORD_FUNCTION_ID = "projects.github_sync_receipt.record"
+
+_receipt_suppressed: ContextVar[bool] = ContextVar("github_sync_receipt_suppressed", default=False)
+
+
+@contextmanager
+def suppress_installation_token_receipts() -> Iterator[None]:
+    """Keep non-sync GitHub reads out of the project sync receipt."""
+    previous = _receipt_suppressed.set(True)
+    try:
+        yield
+    finally:
+        _receipt_suppressed.reset(previous)
+
 
 _MAX_TRACKED_TOKENS = 256
 _token_projects: OrderedDict[str, tuple[str, Optional[str]]] = OrderedDict()
@@ -44,6 +59,8 @@ def record_installation_token_result(
     error: str = "",
 ) -> bool:
     """Persist a terminal GitHub REST result when the token is project-bound."""
+    if _receipt_suppressed.get():
+        return False
     if outcome not in {"success", "failed"}:
         raise ValueError("GitHub sync outcome must be success or failed")
     digest = _token_digest(token)
@@ -142,4 +159,5 @@ __all__ = [
     "record_over_connection",
     "register_installation_token",
     "with_installation_token_receipt",
+    "suppress_installation_token_receipts",
 ]

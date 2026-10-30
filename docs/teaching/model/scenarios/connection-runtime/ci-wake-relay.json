@@ -7,7 +7,7 @@
  "need": "In local, self-hosted and hosted modes, run yoke --env CONNECTION relay status on the session machine and repair its named refusal. Each connection has its own service and state regardless of protection. Close live workers before the installer retires an exactly owned former shared service. Keep that machine awake and connected; on Linux stay logged in with linger disabled.",
  "disclosure": "current cue",
  "surface": "Public GitHub CI wake-up guidance linked from verification and Linux relay docs.",
- "review": "Relay observer and machine routing inspected; Linux no-linger contract checked in source. No cross-mode live wake proof claimed.",
- "sources": ["docs/public/github/index.md", "docs/public/sessions/linux-relay.md", "docs/public/agents/rules/verification.md", "packages/yoke-core/src/yoke_core/domain/session_ci_wait_observer.py", "packages/yoke-core/src/yoke_core/domain/session_relay_wake_claim.py"],
+ "review": "Relay observer and machine routing inspected; Linux no-linger contract checked in source. No cross-mode live wake proof claimed. CI observation selects credentials from the active repository binding rather than the waiting session project; unbound repositories settle silently as repo_unbound. CI reads leave sync receipts unchanged; source regression tests cover these outcomes, with deployed proof pending.",
+ "sources": ["docs/public/github/index.md", "docs/public/sessions/linux-relay.md", "docs/public/agents/rules/verification.md", "packages/yoke-core/src/yoke_core/domain/session_ci_wait_observer.py", "packages/yoke-core/src/yoke_core/domain/session_relay_wake_claim.py", "runtime/api/domain/test_session_ci_wait_observer_repo_binding.py"],
  "position": 2
 }
