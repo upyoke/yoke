@@ -242,7 +242,7 @@ def _http_get_json(url: str, *, headers: Mapping[str, str], timeout_s: float) ->
                 raise SourcePausedError(
                     compose_refusal(
                         "universe_source_paused: this server is reachable but its source writers remain paused",
-                        recovery="run `yoke universe resume` against the source connection, then retry connection setup",
+                        recovery="use an existing source connection and run `yoke --env SOURCE universe resume`; if none exists, first record it with `yoke connection set SOURCE --transport https --api-url SOURCE_URL --token-file ADMIN_TOKEN_FILE`, then retry connection setup",
                     )
                 ) from None
             raise _HttpFailure(f"HTTP {exc.status}") from None
