@@ -151,7 +151,9 @@ even when it installs nothing. When no identities are named, use it only if the
 walk installed Yoke. The dispatch's
 lease-routed `yoke qa browser setup` materializes the packaged runtime and
 `yoke qa browser step --base-url URL --step-json JSON` drives it one chosen
-step at a time. Without identities or a Yoke install, use the host browser
+step at a time. Use `--page NAME` to keep several pages open per identity;
+each keeps its state until the daemon stops after 10 idle minutes.
+Omit it to use the default `exploratory` page. Without identities or a Yoke install, use the host browser
 (Safari on macOS; desktop default elsewhere) through screenshots and keystrokes.
 Never install Yoke on a Test Machine to get a browser.
 Agents do every step an agent physically can, including permission prompts and

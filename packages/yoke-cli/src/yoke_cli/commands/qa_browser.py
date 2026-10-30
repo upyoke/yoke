@@ -26,7 +26,7 @@ QA_BROWSER_SCREENSHOT_USAGE = (
 )
 QA_BROWSER_STEP_USAGE = (
     "yoke qa browser step --base-url URL --step-json JSON "
-    "[--output-dir PATH] [--project P] [--identity NAME]"
+    "[--output-dir PATH] [--project P] [--identity NAME] [--page NAME]"
 )
 
 _PROJECT_FLAG_HELP = (
@@ -145,8 +145,21 @@ def qa_browser_step(args: List[str]) -> int:
     )
     parser.add_argument("--project", metavar="P", help=_PROJECT_FLAG_HELP)
     parser.add_argument("--identity", metavar="NAME", help=_IDENTITY_FLAG_HELP)
+    parser.add_argument(
+        "--page",
+        metavar="NAME",
+        help="Named page keeps its state between calls until the daemon stops "
+        "(after 10 idle minutes); default: exploratory.",
+    )
     parsed = parse_or_usage_error(parser, args, QA_BROWSER_STEP_USAGE)
     if parsed is None:
+        return 2
+    if parsed.page is not None and not parsed.page.strip():
+        print(
+            "yoke qa browser step: page_name_blank: pass --page NAME "
+            "with a nonblank name, or omit --page for exploratory.",
+            file=sys.stderr,
+        )
         return 2
     try:
         step = json.loads(parsed.step_json)
@@ -179,10 +192,9 @@ def qa_browser_step(args: List[str]) -> int:
         return 2
     with project_scope(parsed.project, parsed.identity):
         try:
-            # One exploratory agent, one page: the steps it submits across
-            # separate commands land on the same screen, and an authored QA case
-            # running beside it never sees that screen.
-            page_id = browser_client.ensure_page()
+            page_id = browser_client.ensure_page(
+                parsed.page or browser_client.EXPLORATORY_PAGE_ID
+            )
             result = browser_client.execute_step(
                 step,
                 parsed.base_url,
@@ -207,9 +219,7 @@ QA_BROWSER_USAGE = {
     "yoke qa browser screenshot": (
         "Take one screenshot of a web page with this machine's browser."
     ),
-    "yoke qa browser step": (
-        "Run one JSON browser step with this machine's browser."
-    ),
+    "yoke qa browser step": ("Run one JSON browser step with this machine's browser."),
 }
 
 

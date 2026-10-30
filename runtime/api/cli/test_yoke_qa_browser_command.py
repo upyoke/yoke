@@ -197,7 +197,8 @@ class TestStepAdapter:
         assert [call[0] for call in calls] == ["/api/exec/page", "/api/exec/step"]
         assert calls[1][2]["timeout"] == expected
 
-    def test_step_passes_agent_selected_payload_and_prints_json(self):
+    @pytest.mark.parametrize("page", [None, "review"])
+    def test_step_passes_agent_selected_payload_and_prints_json(self, page):
         captured = {}
 
         def fake_execute(step, base_url, *, output_dir, page_id):
@@ -216,8 +217,8 @@ class TestStepAdapter:
             ),
             patch(
                 "yoke_harness.browser_client.ensure_page",
-                return_value="exploratory",
-            ),
+                return_value=page or "exploratory",
+            ) as ensure_page,
             patch(
                 "yoke_harness.browser_client.execute_step",
                 side_effect=fake_execute,
@@ -230,17 +231,62 @@ class TestStepAdapter:
                 '{"action":"click","selector":"#continue"}',
                 "--output-dir",
                 "/tmp/browser-proof",
+                *(["--page", page] if page is not None else []),
             )
+        ensure_page.assert_called_once_with(page or "exploratory")
         assert rc == 0
         assert captured == {
             "step": {"action": "click", "selector": "#continue"},
             "base_url": "https://x.example",
             "output_dir": "/tmp/browser-proof",
-            # The walker submits one step per command, so every one of them
-            # lands on the page it has been working on.
-            "page_id": "exploratory",
+            "page_id": page or "exploratory",
         }
         assert json.loads(out) == {"ok": True, "url": "https://x.example"}
+
+    @pytest.mark.parametrize("page", ["", "   "])
+    def test_blank_page_refuses_before_daemon_start(self, page):
+        with patch("yoke_harness.browser_qa_daemon.ensure_daemon_running") as start:
+            rc, _out, err = self._run(
+                "--base-url",
+                "https://x.example",
+                "--step-json",
+                "{}",
+                "--page",
+                page,
+            )
+        assert rc == 2
+        assert "page_name_blank" in err
+        start.assert_not_called()
+
+    def test_named_pages_reach_page_and_step_requests(self):
+        calls = []
+
+        def request(path, body, **kwargs):
+            calls.append((path, body))
+            return {"data": {"pageId": body["pageId"]}, "success": True}
+
+        with (
+            patch(
+                "yoke_harness.browser_qa_daemon.ensure_daemon_running",
+                return_value=None,
+            ),
+            patch("yoke_harness.browser_client.daemon_request", side_effect=request),
+        ):
+            for page in ("a", "b"):
+                rc, _out, _err = self._run(
+                    "--base-url",
+                    "https://x.example",
+                    "--step-json",
+                    '{"action":"navigate","route":"/"}',
+                    "--page",
+                    page,
+                )
+                assert rc == 0
+        for endpoint in ("/api/exec/page", "/api/exec/step"):
+            assert [body["pageId"] for path, body in calls if path == endpoint] == [
+                "a",
+                "b",
+            ]
 
 
 class TestOperationInventory:

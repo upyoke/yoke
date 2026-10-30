@@ -225,7 +225,7 @@ def test_mission_parks_resumes_and_persists_the_main_report(
     assert walker["dispatch_kind"] == "subagent"
     assert walker["subagent_type"] == "yoke-qa-walker"
     assert "yoke qa browser setup" in walker["browser_setup_command"]
-    assert "yoke qa browser step" in walker["browser_step_command"]
+    assert "[--page NAME]" in walker["browser_step_command"]
     assert (
         f"--run-id {ready.result_payload['result']['run_id']}"
         in (walker["artifact_add_command"])
