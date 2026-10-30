@@ -95,3 +95,29 @@ def test_served_distribution_is_explicit(configure, monkeypatch):
     configure(DISTRIBUTION_PROD_URL)
     monkeypatch.setenv("YOKE_INSTALL_BASE_URL", DISTRIBUTION_STAGE_URL)
     assert DISTRIBUTION_STAGE_URL in install_advice.install_command()
+
+
+def test_windows_guidance_names_unsupported_native_path(monkeypatch) -> None:
+    from yoke_contracts.api_urls import DISTRIBUTION_STAGE_URL
+
+    monkeypatch.setenv("YOKE_INSTALL_BASE_URL", DISTRIBUTION_STAGE_URL)
+    from yoke_cli.config import project_git_prerequisite
+
+    advice = project_git_prerequisite.install_advice(
+        platform_name="win32", which=lambda name: None
+    )
+
+    assert advice.command is None
+    assert "Install WSL" in advice.note
+    assert f"curl -fsSL {DISTRIBUTION_STAGE_URL}/install | sh" in advice.note
+
+
+def test_linux_without_known_package_manager_uses_generic_guidance() -> None:
+    from yoke_cli.config import project_git_prerequisite
+
+    advice = project_git_prerequisite.install_advice(platform_name="linux", which=lambda name: None)
+
+    assert advice.command is None
+    assert "package named git" in advice.note
+
+

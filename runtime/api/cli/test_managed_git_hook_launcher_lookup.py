@@ -12,7 +12,10 @@ from pathlib import Path
 
 import pytest
 
+from yoke_contracts.api_urls import DISTRIBUTION_STAGE_URL
+
 from yoke_cli.project_install.managed_git_hooks import (
+    render_git_hook,
     POST_CHECKOUT_SHIM,
     POST_COMMIT_SHIM,
     POST_MERGE_SHIM,
@@ -32,6 +35,11 @@ SHIMS = {
 SYSTEM_PATH = "/usr/bin:/bin"
 
 
+@pytest.fixture(autouse=True)
+def stage_distribution(monkeypatch):
+    monkeypatch.setenv("YOKE_INSTALL_BASE_URL", DISTRIBUTION_STAGE_URL)
+
+
 def _fake_launcher(directory: Path) -> Path:
     directory.mkdir(parents=True, exist_ok=True)
     launcher = directory / "yoke"
@@ -42,7 +50,7 @@ def _fake_launcher(directory: Path) -> Path:
 
 def _run(tmp_path: Path, shim: str, env: dict[str, str]):
     hook = tmp_path / "hook"
-    hook.write_text(shim)
+    hook.write_text(render_git_hook(shim))
     return subprocess.run(
         ["sh", str(hook), "extra"],
         env=env,
@@ -120,7 +128,7 @@ class TestLauncherLookup:
         assert proc.stderr == (
             f"yoke ({hook_name}): Yoke is not installed on this computer "
             f"({platform.node()}); Yoke checks skipped. Install: "
-            "`curl -fsSL https://upyoke.com/install | sh`\n"
+            f"`curl -fsSL {DISTRIBUTION_STAGE_URL}/install | sh`\n"
         )
 
 

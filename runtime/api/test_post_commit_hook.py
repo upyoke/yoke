@@ -127,13 +127,19 @@ class TestHookShape:
         # concern.
         assert "runtime.harness" not in POST_COMMIT_SHIM
 
-    def test_shim_guards_missing_launcher_without_blocking(self):
+    def test_shim_guards_missing_launcher_without_blocking(self, monkeypatch):
+        from yoke_cli.project_install.managed_git_hooks import render_git_hook
+        from yoke_contracts.api_urls import DISTRIBUTION_STAGE_URL
+
+        monkeypatch.setenv("YOKE_INSTALL_BASE_URL", DISTRIBUTION_STAGE_URL)
         # Launcher absent: teach the machine install on stderr but exit
         # 0. (Project resolution lives in the `yoke git post-commit`
         # adapter.)
         assert "command -v yoke" in POST_COMMIT_SHIM
         assert "exit 0" in POST_COMMIT_SHIM
-        assert "https://upyoke.com/install | sh" in POST_COMMIT_SHIM
+        assert f"{DISTRIBUTION_STAGE_URL}/install | sh" in render_git_hook(
+            POST_COMMIT_SHIM
+        )
         assert "install_yoke_launcher" not in POST_COMMIT_SHIM
 
 
