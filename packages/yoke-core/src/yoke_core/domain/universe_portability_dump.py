@@ -68,7 +68,7 @@ def dump_universe(
             "--no-comments",
             "--no-security-labels",
             "--exclude-table=public.capability_secrets",
-            "--exclude-schema=yoke_source_authority",
+            "--schema=public",
         ]
         if snapshot is not None:
             argv.append(f"--snapshot={snapshot}")

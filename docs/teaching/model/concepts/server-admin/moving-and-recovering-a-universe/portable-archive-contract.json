@@ -5,6 +5,6 @@
  "audience": "Administrators",
  "page": "server-admin",
  "position": 0,
- "summary": "Portable archives carry manifest-bound QA and shared-file bytes across local, self-host and hosted moves. Validation checks digests, import uses destination storage, and missing files are reported. Two-member backup archives remain valid. Hosted Download checks size before pausing, caps archives at 10 GiB, and issues a signed link valid for one hour; Import fetches from configured buckets and restores artifacts before serving.",
+ "summary": "Portable archives carry manifest-bound QA and shared-file bytes across local, self-host and hosted moves. Validation checks digests, import uses destination storage, and missing files are reported. Two-member backup archives remain valid. Hosted Download checks size before pausing, caps archives at 10 GiB, and issues a signed link valid for one hour; Import fetches from configured buckets and restores artifacts before serving. Every mode exports only public database objects, excluding capability-secret data, environment instrumentation, extensions and source-authority fence state; import rejects nonportable catalog entries.",
  "sources": ["docs/public/guide/universe-portability.md", "docs/universe-portability.md"]
 }

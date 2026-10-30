@@ -49,6 +49,39 @@ def test_dump_rejects_snapshot_option_injection_before_subprocess(tmp_path):
         )
 
 
+def test_real_dump_excludes_environment_instrumentation(tmp_path):
+    with _canonical_test_universe() as (source, source_dsn):
+        source.execute("CREATE SCHEMA statement_statistics")
+        source.execute(
+            "CREATE EXTENSION pg_stat_statements SCHEMA statement_statistics"
+        )
+        source.execute(
+            "CREATE FUNCTION statement_statistics.current_database_statements_read()"
+            " RETURNS integer LANGUAGE sql AS 'SELECT 1'"
+        )
+        source.execute(
+            "CREATE VIEW statement_statistics.current_database_statements AS"
+            " SELECT statement_statistics.current_database_statements_read() AS calls"
+        )
+        source.commit()
+        archive = tmp_path / "instrumented.dump"
+        inspection = portability.dump_universe(source_dsn, archive)
+        catalog = portability._archive_catalog(
+            archive,
+            executable=portability._postgres_executable("pg_restore"),
+            timeout_s=portability.DEFAULT_ARCHIVE_TIMEOUT_S,
+        )
+        assert inspection.table_entries > 0
+        assert "TABLE DATA public organizations " in catalog
+        assert "statement_statistics" not in catalog
+        assert "EXTENSION" not in catalog
+        assert "TABLE DATA public capability_secrets " not in catalog
+        reinspected = portability.inspect_archive(archive)
+        assert reinspected.archive_sha256 == inspection.archive_sha256
+        assert reinspected.catalog_digest == inspection.catalog_digest
+        assert reinspected.table_entries == inspection.table_entries
+
+
 def test_real_dump_uses_one_exported_repeatable_read_snapshot(tmp_path):
     from runtime.api.fixtures import pg_testdb
 
