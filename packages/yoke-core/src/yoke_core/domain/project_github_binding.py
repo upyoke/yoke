@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import shlex
+
 from typing import Any, Callable, Optional
 
 from yoke_contracts.github_origin import (
@@ -248,6 +250,11 @@ def cmd_unbind_project_repo(
         ident = resolve_project(conn, project, required=True)
         assert ident is not None
         p = _p(conn)
+        lock = " FOR UPDATE" if db_backend.connection_is_postgres(conn) else ""
+        previous = conn.execute(
+            f"SELECT github_sync_mode FROM projects WHERE id={p}" + lock,
+            (ident.id,),
+        ).fetchone()["github_sync_mode"]
         conn.execute(
             f"DELETE FROM project_github_repo_bindings WHERE project_id={p}",
             (ident.id,),
@@ -263,7 +270,18 @@ def cmd_unbind_project_repo(
         )
         if owns_conn:
             conn.commit()
-        return cmd_project_github_binding_status(project, conn=conn)
+        result = cmd_project_github_binding_status(project, conn=conn)
+        result.update(
+            previous_sync_mode=previous,
+            sync_mode=GITHUB_SYNC_DISABLED,
+            sync_mode_notice=(
+                "Issue sync was turned off. To turn it back on, bind a repository "
+                "again, then run yoke projects update "
+                f"--slug {shlex.quote(ident.slug)} --name {shlex.quote(ident.name)} "
+                "--github-sync-mode enabled."
+            ),
+        )
+        return result
     finally:
         if owns_conn and conn is not None:
             conn.close()

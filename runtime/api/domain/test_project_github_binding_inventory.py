@@ -96,3 +96,18 @@ def test_inventory_rejects_admin_and_requires_service_token(inventory):
         HttpAuthContext(token_id=1, actor_id=admin_actor, token_name="admin"), conn=conn,
     )
     assert denial.error.code == "permission_denied"
+
+
+@pytest.mark.parametrize("previous", ["enabled", "disabled"])
+def test_unbind_reports_previous_mode_and_shared_notice(inventory, previous):
+    conn, _, _, _ = inventory
+    conn.execute("UPDATE projects SET github_sync_mode=%s WHERE slug='yoke'", (previous,))
+    conn.commit()
+    result = cmd_unbind_project_repo("yoke")
+    assert result["previous_sync_mode"] == previous
+    assert result["sync_mode"] == result["github_sync_mode"] == "disabled"
+    assert result["bound"] is False
+    assert result["sync_mode_notice"] == (
+        "Issue sync was turned off. To turn it back on, bind a repository again, "
+        "then run yoke projects update --slug yoke --name Yoke --github-sync-mode enabled."
+    )

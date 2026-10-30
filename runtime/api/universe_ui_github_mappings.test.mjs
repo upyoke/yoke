@@ -21,7 +21,10 @@ function mappingClient() {
     if (request.function === "projects.github_binding.unbind") {
       client.requests.push(request);
       bound = false;
-      return okEnvelope({ ...UNBOUND_STATUS, github_repo: "" });
+      return okEnvelope({ ...UNBOUND_STATUS, github_repo: "",
+        sync_mode_notice: "Issue sync was turned off. To turn it back on, bind a repository again, " +
+          "then run yoke projects update --slug first --name First --github-sync-mode enabled.",
+      });
     }
     return originalCall(request);
   };
@@ -54,7 +57,10 @@ test("Unbind confirms, removes the mapping, updates counts and teaches sync reco
     if (request.function === "projects.github_binding.unbind") {
       client.requests.push(request);
       bound = false;
-      return okEnvelope({ ...UNBOUND_STATUS, github_repo: "" });
+      return okEnvelope({ ...UNBOUND_STATUS, github_repo: "",
+        sync_mode_notice: "Issue sync was turned off. To turn it back on, bind a repository again, " +
+          "then run yoke projects update --slug first --name First --github-sync-mode enabled.",
+      });
     }
     return originalCall(request);
   };
@@ -78,7 +84,7 @@ test("Unbind confirms, removes the mapping, updates counts and teaches sync reco
   assert.doesNotMatch(viewText(root), /example-org\/example-repo/);
   assert.match(viewText(root), /Issue sync was turned off/);
   assert.match(viewText(root), /bind a repository again/);
-  assert.match(viewText(root), /--github-sync-mode enabled/);
+  assert.match(viewText(root), /--slug first --name First --github-sync-mode enabled/);
   assert.equal(buttons(root, "Detach")[0].disabled, false);
   mounted.unmount();
 });

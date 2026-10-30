@@ -34,9 +34,9 @@ function confirmUnbind(context, cell, row, state) {
           .filter(Boolean).join(": "));
       }
       status.setAttribute("role", "status");
-      status.textContent = `${row.project} unbound. Issue sync was turned off. ` +
-        "To turn it back on, bind a repository again, then run " +
-        "yoke projects update --slug <slug> --name <Name> --github-sync-mode enabled.";
+      status.textContent = [
+        `${row.project} unbound.`, response.envelope.result?.sync_mode_notice,
+      ].filter(Boolean).join(" ");
       await state.load();
     } catch (error) {
       if (!context.isMounted()) return;
