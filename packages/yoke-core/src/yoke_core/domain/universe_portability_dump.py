@@ -12,7 +12,6 @@ from typing import Callable, Optional
 
 from yoke_core.domain import universe_archive_output
 from yoke_core.domain.postgres_client_runtime import postgres_executable
-from yoke_core.domain.source_authority_connect_policy import FENCE_STATE_SCHEMA
 from yoke_core.domain.universe_portability_common import (
     DEFAULT_ARCHIVE_TIMEOUT_S,
     DEFAULT_MAX_ARCHIVE_BYTES,
@@ -69,7 +68,7 @@ def dump_universe(
             "--no-comments",
             "--no-security-labels",
             "--exclude-table=public.capability_secrets",
-            f"--exclude-schema={FENCE_STATE_SCHEMA}",
+            "--exclude-schema=yoke_source_authority",
         ]
         if snapshot is not None:
             argv.append(f"--snapshot={snapshot}")

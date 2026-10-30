@@ -44,9 +44,7 @@ def build_freeze_receipt(
 ) -> dict[str, Any]:
     """Compose the freeze receipt binding one inspected dump payload.
 
-    The single receipt-assembly point for every exporter — local CLI,
-    attended production cutover, and the hosted platform's server-side
-    export all pass their mode's ``database`` identity, freeze moment,
+    Every exporter passes its source ``database`` identity, freeze moment,
     authority receipt, and the
     :class:`yoke_core.domain.universe_portability.ArchiveInspection` of
     the dump they produced; the result is the exact

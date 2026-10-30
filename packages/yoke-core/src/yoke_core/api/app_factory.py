@@ -160,6 +160,9 @@ def create_app() -> FastAPI:
             )
 
     _include_routes(application)
+    from yoke_core.api.universe_pause_admission import install
+
+    install(application)
     from yoke_core.api.routes import items_health
 
     items_health.initialize_health_metadata()

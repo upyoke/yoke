@@ -13,7 +13,6 @@ from yoke_contracts.connection_authority_teaching import DB_GROUP_TEACHING
 GROUP_ROUTES: dict[tuple[str, ...], tuple[tuple[str, ...], ...]] = {
     ("deployments",): (("deployment-flows",), ("deployment-runs",)),
     ("worktrees",): (("item-worktrees",),),
-    ("source",): (("source-authority",),),
     ("environment",): (
         ("projects", "environment"),
         ("projects", "environment-settings"),

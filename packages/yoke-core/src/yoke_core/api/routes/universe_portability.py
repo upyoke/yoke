@@ -25,7 +25,10 @@ _ROUTE_PATH = UNIVERSE_EXPORT_PATH.removeprefix("/v1")
 
 @router.get(_ROUTE_PATH)
 def download_self_host_universe(
-    request: Request, exclude_artifacts: bool = False, estimate: bool = False
+    request: Request,
+    exclude_artifacts: bool = False,
+    estimate: bool = False,
+    pause_source: bool = False,
 ):
     """Stream one self-host universe archive to an authenticated org admin."""
     if os.environ.get(SERVER_MODE_ENV, "").strip() != SERVER_MODE_SELF_HOST:
@@ -41,6 +44,12 @@ def download_self_host_universe(
         except PermissionDenied as exc:
             return _error(403, "permission_denied", str(exc))
 
+    if estimate and pause_source:
+        return _error(
+            400,
+            "universe_export_options_invalid",
+            "Use --estimate before --pause-source.",
+        )
     if estimate:
         from yoke_core.domain.universe_artifact_transfer import estimate_universe
 
@@ -62,6 +71,8 @@ def download_self_host_universe(
     directory.chmod(0o700)
     try:
         options = {"exclude_artifacts": True} if exclude_artifacts else {}
+        if pause_source:
+            options["pause_source"] = True
         report = universe_export.export_universe(
             dsn=db_backend.resolve_pg_dsn(),
             out=str(directory) + os.sep,
@@ -100,6 +111,31 @@ def download_self_host_universe(
         },
         background=BackgroundTask(shutil.rmtree, directory, ignore_errors=True),
     )
+
+
+@router.post("/universe/resume")
+def resume_self_host_universe(request: Request):
+    from yoke_core.domain import universe_source_pause
+
+    if os.environ.get(SERVER_MODE_ENV, "").strip() != SERVER_MODE_SELF_HOST:
+        return _error(404, "not_found", "universe resume is not available here")
+    auth = require_auth_context(request)
+    with universe_source_pause.pause_owner():
+        with db_helpers.connect() as conn:
+            try:
+                require_control_plane_permission(
+                    conn, actor_id=auth.actor_id, permission_key=PERM_ORG_ADMIN
+                )
+            except PermissionDenied as exc:
+                return _error(403, "permission_denied", str(exc))
+        try:
+            return universe_source_pause.resume(db_backend.resolve_pg_dsn())
+        except (RuntimeError, OSError):
+            return _error(
+                409,
+                "universe_resume_failed",
+                "Check database availability and pause-marker permissions, then retry `yoke universe resume`.",
+            )
 
 
 def _error(status: int, code: str, message: str) -> JSONResponse:

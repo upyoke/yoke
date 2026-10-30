@@ -21,7 +21,6 @@ historically intuitive group; they do not dispatch a guessed mutation.
 | `yoke sessions end-if-empty` | Registered self-scoped, claim-aware session closeout. |
 | `yoke claims path amend` | Registered `claims.path.amend` mutation. |
 | `yoke github actions wait` | Space-separated namespace route to the registered GitHub Actions wait adapter. |
-| `yoke source` | Navigation to the `source-authority` group. |
 | `yoke doctor` | Bare-group help for the registered doctor commands. |
 | `yoke github actions get` | Navigation to the registered GitHub Actions reads so the caller selects the intended subject. |
 | `yoke sessions reclaim-stale --confirm` | Registered guarded stale-session reclamation for claimless sessions; active work claim holders remain owned until explicit release or authorized termination. |

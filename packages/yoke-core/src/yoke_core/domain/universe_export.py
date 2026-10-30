@@ -70,15 +70,9 @@ def resolve_export_dsn() -> str:
         )
     if env.backend != "postgres":
         raise UniverseExportError(
-            f"the active connection {env.environment!r} is "
-            f"{env.backend}-transport (hosted/self-host mode): this machine "
-            "does not hold the universe database's DSN, and export requires "
-            "DSN possession. A hosted org admin downloads from the "
-            "dashboard's `Move universe` action; a self-host connection uses "
-            "the authenticated server export endpoint. To export a machine-local "
-            "universe, name its env for this invocation "
-            "(`yoke --env local universe export`) or create one "
-            "(`yoke init --local`)."
+            "universe_export_dashboard_required: hosted sources use Download "
+            "on the dashboard's Move universe page; self-host sources use "
+            "the authenticated server export endpoint"
         )
     if connection_is_protected(env.config):
         raise UniverseExportError(
@@ -104,6 +98,7 @@ def export_universe(
     out: Optional[Union[str, Path]] = None,
     dsn: Optional[str] = None,
     exclude_artifacts: bool = False,
+    pause_source: bool = False,
     emit: Callable[[str], None] = lambda _line: None,
 ) -> Dict[str, Any]:
     """Export the active universe to one self-contained tar artifact.
@@ -123,9 +118,25 @@ def export_universe(
 
     resolved_dsn = dsn if dsn is not None else resolve_export_dsn()
     _start_own_universe(resolved_dsn, emit)
+    from yoke_core.domain import universe_source_pause
+
+    if pause_source:
+        universe_source_pause.pause(resolved_dsn)
+        emit("Source paused; run `yoke universe resume` when it may write again.")
+        with universe_source_pause.pause_owner():
+            return snapshot_archive(
+                dsn=resolved_dsn,
+                out=out,
+                writers_stopped=True,
+                include_artifacts=not exclude_artifacts,
+                emit=emit,
+            )
     return snapshot_archive(
-        dsn=resolved_dsn, out=out, writers_stopped=False,
-        include_artifacts=not exclude_artifacts, emit=emit,
+        dsn=resolved_dsn,
+        out=out,
+        writers_stopped=False,
+        include_artifacts=not exclude_artifacts,
+        emit=emit,
     )
 
 
@@ -140,6 +151,12 @@ def _start_own_universe(dsn: str, emit: Callable[[str], None]) -> None:
         local_universe_autostart.ensure_running(emit=emit)
     except local_universe.LocalUniverseError as exc:
         raise UniverseExportError(str(exc)) from exc
+
+
+def resume_universe() -> dict:
+    from yoke_core.domain import universe_source_pause
+
+    return universe_source_pause.resume(resolve_export_dsn())
 
 
 def estimate_universe(*, exclude_artifacts: bool = False) -> dict:

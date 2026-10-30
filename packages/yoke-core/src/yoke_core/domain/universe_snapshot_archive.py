@@ -1,4 +1,5 @@
 """One snapshot-bound archive engine for every deployment mode."""
+
 from __future__ import annotations
 
 import os
@@ -6,8 +7,16 @@ import tempfile
 from pathlib import Path
 from typing import Any, Callable, Dict, Optional, Union
 from yoke_contracts.timestamps import utc_now
-from yoke_core.domain import postgres_binaries, runtime_settings, universe_archive, universe_portability
-from yoke_core.domain.universe_export_destination import UniverseExportError, resolve_export_destination
+from yoke_core.domain import (
+    postgres_binaries,
+    runtime_settings,
+    universe_archive,
+    universe_portability,
+)
+from yoke_core.domain.universe_export_destination import (
+    UniverseExportError,
+    resolve_export_destination,
+)
 
 ARTIFACT_FORMAT = "universe-tar"
 EXPORT_TIMEOUT_SETTING = "universe_export_timeout_seconds"
@@ -15,8 +24,11 @@ DEFAULT_EXPORT_TIMEOUT_S = 600
 
 
 def snapshot_archive(
-    *, dsn: str, out: Optional[Union[str, Path]] = None,
-    writers_stopped: bool, max_bytes: int | None = None,
+    *,
+    dsn: str,
+    out: Optional[Union[str, Path]] = None,
+    writers_stopped: bool,
+    max_bytes: int | None = None,
     include_artifacts: bool = True,
     emit: Callable[[str], None] = lambda _line: None,
 ) -> Dict[str, Any]:
@@ -110,6 +122,7 @@ def snapshot_archive(
         "receipt_id": str(receipt["freeze_intent"]["receipt_id"]),
     }
 
+
 def _dump_payload(
     dsn: str,
     destination: Path,
@@ -201,4 +214,3 @@ def _staged_dump_path(destination: Path) -> Path:
 def _unlink_quietly(staged: Optional[Path]) -> None:
     if staged is not None:
         staged.unlink(missing_ok=True)
-

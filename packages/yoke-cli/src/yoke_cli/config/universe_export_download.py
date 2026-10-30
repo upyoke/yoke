@@ -44,12 +44,13 @@ def download_universe(
     out: str | None = None,
     exclude_artifacts: bool = False,
     estimate: bool = False,
+    pause_source: bool = False,
 ) -> dict[str, object]:
     """Download one self-host archive and atomically publish it locally."""
     timeout_s, max_bytes = _engine_limits()
     deadline = deadline_after(timeout_s)
     url = join_api_url(connection.api_url, UNIVERSE_EXPORT_PATH)
-    query = {}
+    query = {"pause_source": "true"} if pause_source else {}
     if exclude_artifacts:
         query["exclude_artifacts"] = "true"
     if estimate:
