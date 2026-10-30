@@ -1,13 +1,41 @@
 # Universe portability
 
-A universe IS a database: export is a dump, import is a restore-and-switch.
+A universe archive carries the database and its portable artifact files.
 The portable artifact is ONE tar file, `<org-slug>-universe-<utc-timestamp>.tar`,
-carrying exactly two members at its root:
+carrying the following required members at its root:
 
 - `universe.dump` — the `pg_dump` custom-format payload
   (compressed, `pg_restore --list`-able).
 - `freeze-receipt.json` — the freeze receipt whose `freeze_intent.archive`
   block binds that exact payload by SHA-256 and byte count.
+
+Local and self-host exports also include `artifacts-manifest.json` and an
+`artifacts/` tree. Each manifest entry names its original handle, a store-neutral
+`qa-artifacts/...` or `shared-files/...` key, status, and (when included) its
+SHA-256 and byte count. The freeze receipt binds the manifest's SHA-256 as
+`freeze_intent.archive.artifacts_manifest_sha256`. Validation verifies every
+included file and refuses extra, unsafe, missing or tampered members.
+Two-member archives remain valid and restore their database as before.
+
+Export reads each QA handle from its named local or S3 store and lists shared
+files from each project's store. Unreadable files appear as `missing` entries
+with a reason; retain the archive to inspect those entries and recover the
+source files before a later export. A store that cannot list shared files
+refuses rather than silently omitting unknown files. `--exclude-artifacts`
+exports only the database and receipt. `yoke universe export --estimate --json`
+reports a database-size estimate plus artifact bytes, file and missing counts
+without making a dump; the database-size estimate is not a compressed dump size.
+Both options also work through the authenticated self-host export endpoint.
+
+Local and self-host imports capture destination storage routing before replacing
+the database, write files to that store, and rewrite QA handles. Imported source
+bucket settings never select the write destination. A new local or self-host
+destination without configured storage uses its own permanent application-data
+tree. Missing source files remain reported in the import result; included bytes
+are verified before any restore. Self-host imports run inside the core container,
+so local files live on the server's persistent application-data volume.
+Hosted artifact import still uses the separate namespace-copy procedure below
+until the hosted portability consumer adopts the manifest.
 
 The receipt travels inside the artifact, so every importer — local CLI,
 self-host bundle, hosted platform — derives checksum verification from the

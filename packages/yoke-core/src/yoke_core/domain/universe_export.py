@@ -109,6 +109,7 @@ def export_universe(
     *,
     out: Optional[Union[str, Path]] = None,
     dsn: Optional[str] = None,
+    exclude_artifacts: bool = False,
     emit: Callable[[str], None] = lambda _line: None,
 ) -> Dict[str, Any]:
     """Export the active universe to one self-contained tar artifact.
@@ -132,6 +133,10 @@ def export_universe(
         EXPORT_TIMEOUT_SETTING,
         DEFAULT_EXPORT_TIMEOUT_S,
     )
+    from yoke_core.domain.universe_artifact_transfer import collect_artifacts
+
+    artifact_workspace = tempfile.TemporaryDirectory(prefix="yoke-export-files-")
+    manifest, files = None, {}
     staged_dump: Optional[Path] = None
     try:
         conn = _snapshot_connection(resolved_dsn)
@@ -150,6 +155,13 @@ def export_universe(
                 timeout_s=timeout,
                 snapshot=snapshot_id,
             )
+            if not exclude_artifacts:
+                try:
+                    manifest, files = collect_artifacts(
+                        conn, Path(artifact_workspace.name)
+                    )
+                except universe_archive.UniverseArchiveError as exc:
+                    raise UniverseExportError(str(exc)) from exc
             after = authority_receipt(conn)
         finally:
             conn.close()
@@ -165,15 +177,22 @@ def export_universe(
             inspection=inspection,
             zero_writable_app_sessions=False,
         )
+        if manifest is not None:
+            from yoke_core.domain.universe_archive_artifacts import bind_manifest
+
+            receipt = bind_manifest(receipt, manifest)
         try:
             artifact_bytes = universe_archive.pack_universe_archive(
                 staged_dump,
                 receipt,
                 dest,
+                artifact_manifest=manifest,
+                artifact_files=files,
             )
         except universe_archive.UniverseArchiveError as exc:
             raise UniverseExportError(str(exc)) from exc
     finally:
+        artifact_workspace.cleanup()
         _unlink_quietly(staged_dump)
     emit(
         f"  [universe-export] wrote {artifact_bytes} bytes"
@@ -186,6 +205,12 @@ def export_universe(
         "format": ARTIFACT_FORMAT,
         "org": selected_org,
         "sha256": inspection.archive_sha256,
+        "artifacts": {
+            "included": len(files),
+            "missing": sum(
+                e["status"] == "missing" for e in (manifest or {}).get("entries", [])
+            ),
+        },
         "receipt_id": str(receipt["freeze_intent"]["receipt_id"]),
     }
 
@@ -296,6 +321,15 @@ def _unlink_quietly(staged: Optional[Path]) -> None:
         staged.unlink(missing_ok=True)
 
 
+def estimate_universe(*, exclude_artifacts: bool = False) -> dict:
+    """Estimate the active local export through the same authority boundary."""
+    from yoke_core.domain.universe_artifact_transfer import (
+        estimate_universe as estimate,
+    )
+
+    return estimate(exclude_artifacts=exclude_artifacts)
+
+
 __all__ = [
     "ARTIFACT_FORMAT",
     "ARTIFACT_SUFFIX",
@@ -304,6 +338,7 @@ __all__ = [
     "UniverseExportError",
     "default_artifact_name",
     "export_universe",
+    "estimate_universe",
     "resolve_export_destination",
     "resolve_export_dsn",
 ]

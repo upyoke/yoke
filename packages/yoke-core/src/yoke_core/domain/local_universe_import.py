@@ -81,7 +81,13 @@ def import_universe(
     """Replace the local universe with ``archive`` and return a safe receipt."""
     selected = _validated_archive_path(archive)
     resolved_dsn = dsn or resolve_local_import_dsn()
+    from yoke_core.domain.universe_artifact_transfer import (
+        capture_destination,
+        restore_artifacts,
+    )
+
     owner: dict[str, object] = {}
+    artifact_result = {}
     try:
         with universe_archive.unpacked_universe_archive(
             selected,
@@ -100,8 +106,10 @@ def import_universe(
                         f"{receipt_org!r} but the enclosed universe is org "
                         f"{owner['org']!r}"
                     )
+                artifact_result.update(restore_artifacts(conn, dump, stores))
 
             with universe_startup_lock.exclusive_import_guard(resolved_dsn):
+                stores = capture_destination(resolved_dsn)
                 inspection = universe_portability.restore_universe(
                     dump,
                     resolved_dsn,
@@ -129,6 +137,7 @@ def import_universe(
     return {
         "ok": True,
         **owner,
+        "artifacts": artifact_result,
         "archive": {
             "path": str(selected.expanduser().resolve()),
             "bytes": inspection.size_bytes,

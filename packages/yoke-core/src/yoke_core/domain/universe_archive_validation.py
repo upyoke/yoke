@@ -32,7 +32,12 @@ def inspect_archive(archive: Path | str) -> dict[str, object]:
     ) as (dump, receipt):
         universe_archive.verify_receipt_binds_dump(receipt, dump)
         inspection = universe_portability.inspect_archive(dump)
-        return _archive_receipt(selected, inspection, receipt)
+        from yoke_core.domain.universe_archive_artifacts import summary
+
+        return {
+            **_archive_receipt(selected, inspection, receipt),
+            "artifacts": summary(dump),
+        }
 
 
 def validate_archive_roundtrip(

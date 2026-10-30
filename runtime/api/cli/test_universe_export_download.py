@@ -35,14 +35,18 @@ def test_download_streams_to_owner_only_atomic_file(tmp_path: Path, monkeypatch)
     )
     url = "https://yoke.example.test/v1/universe/export"
     body = b"portable universe"
-    response = _Response(body, url, {
-        "content-type": "application/x-tar",
-        "content-length": str(len(body)),
-        "content-disposition": 'attachment; filename="acme-universe.tar"',
-        "x-yoke-universe-format": "universe-tar",
-        "x-yoke-universe-org": "acme",
-        "x-yoke-universe-sha256": "a" * 64,
-    })
+    response = _Response(
+        body,
+        url,
+        {
+            "content-type": "application/x-tar",
+            "content-length": str(len(body)),
+            "content-disposition": 'attachment; filename="acme-universe.tar"',
+            "x-yoke-universe-format": "universe-tar",
+            "x-yoke-universe-org": "acme",
+            "x-yoke-universe-sha256": "a" * 64,
+        },
+    )
     captured = {}
 
     def open_request(request, **_kwargs):
@@ -65,11 +69,15 @@ def test_download_streams_to_owner_only_atomic_file(tmp_path: Path, monkeypatch)
 
 def test_download_rejects_oversized_content_before_writing(tmp_path, monkeypatch):
     connection = HttpsConnection("https://yoke.example.test", "token")
-    response = _Response(b"12345", connection.api_url + "/v1/universe/export", {
-        "content-type": "application/x-tar",
-        "content-length": "5",
-        "content-disposition": 'attachment; filename="safe.tar"',
-    })
+    response = _Response(
+        b"12345",
+        connection.api_url + "/v1/universe/export",
+        {
+            "content-type": "application/x-tar",
+            "content-length": "5",
+            "content-disposition": 'attachment; filename="safe.tar"',
+        },
+    )
     monkeypatch.setattr(download, "open_bounded_request", lambda *_a, **_k: response)
     monkeypatch.setattr(download, "_engine_limits", lambda: (30.0, 4))
     try:
@@ -85,11 +93,15 @@ def test_truncated_download_preserves_existing_backup(tmp_path, monkeypatch):
     connection = HttpsConnection("https://yoke.example.test", "token")
     target = tmp_path / "backup.tar"
     target.write_bytes(b"previous")
-    response = _Response(b"short", connection.api_url + "/v1/universe/export", {
-        "content-type": "application/x-tar",
-        "content-length": "12",
-        "content-disposition": 'attachment; filename="ignored.tar"',
-    })
+    response = _Response(
+        b"short",
+        connection.api_url + "/v1/universe/export",
+        {
+            "content-type": "application/x-tar",
+            "content-length": "12",
+            "content-disposition": 'attachment; filename="ignored.tar"',
+        },
+    )
     monkeypatch.setattr(download, "open_bounded_request", lambda *_a, **_k: response)
     monkeypatch.setattr(download, "_engine_limits", lambda: (30.0, 1024))
     try:
@@ -100,3 +112,23 @@ def test_truncated_download_preserves_existing_backup(tmp_path, monkeypatch):
         raise AssertionError("truncated response should be refused")
     assert target.read_bytes() == b"previous"
     assert not list(tmp_path.glob(".*.tmp-*"))
+
+
+def test_estimate_from_older_server_teaches_upgrade(tmp_path, monkeypatch):
+    import pytest
+
+    connection = HttpsConnection("https://yoke.example.test", "token")
+    url = connection.api_url + "/v1/universe/export?estimate=true"
+    response = _Response(
+        b"portable archive", url, {"content-type": "application/x-tar"}
+    )
+    monkeypatch.setattr(download, "open_bounded_request", lambda *_a, **_k: response)
+    monkeypatch.setattr(download, "_engine_limits", lambda: (30.0, 1024))
+    with pytest.raises(
+        download.UniverseExportDownloadError,
+        match="universe_estimate_unavailable.*upgrade",
+    ):
+        download.download_universe(
+            connection, estimate=True, out=str(tmp_path / "archive.tar")
+        )
+    assert list(tmp_path.iterdir()) == []

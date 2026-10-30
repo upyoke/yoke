@@ -152,3 +152,51 @@ def test_hosted_export_stays_on_platform_guidance(monkeypatch, capsys):
 
     assert commands.universe_export([]) == 1
     assert "dashboard" in capsys.readouterr().err
+
+
+@pytest.mark.parametrize("remote", [False, True])
+def test_export_estimate_and_exclusion_reach_selected_authority(
+    monkeypatch, capsys, remote
+):
+    calls = []
+    connection = HttpsConnection(
+        api_url="https://yoke.example.test", token="test", env="self-host"
+    )
+    monkeypatch.setattr(
+        commands, "resolve_https_connection", lambda: connection if remote else None
+    )
+    result = {
+        "estimate": True,
+        "estimated_bytes": 42,
+        "artifact_bytes": 0,
+        "missing_artifacts": 0,
+    }
+
+    def download(selected, **options):
+        calls.append((selected, options))
+        return result
+
+    def local(**options):
+        calls.append((None, options))
+        return result
+
+    monkeypatch.setattr(commands, "download_universe", download)
+    monkeypatch.setattr(setup, "universe_export", local)
+    assert (
+        commands.universe_export(["--estimate", "--exclude-artifacts", "--json"]) == 0
+    )
+    assert json.loads(capsys.readouterr().out) == result
+    assert calls[0][0] == (connection if remote else None)
+    assert calls[0][1]["estimate"] is True
+    assert calls[0][1]["exclude_artifacts"] is True
+
+
+def test_local_estimate_uses_the_export_engine(monkeypatch):
+    calls = []
+    result = {"estimate": True, "estimated_bytes": 42}
+    engine = SimpleNamespace(
+        estimate_universe=lambda **options: calls.append(options) or result
+    )
+    monkeypatch.setattr(setup, "_export_engine", lambda: engine)
+    assert setup.universe_export(estimate=True, exclude_artifacts=True) == result
+    assert calls == [{"exclude_artifacts": True}]
