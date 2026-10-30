@@ -8,6 +8,8 @@ and every approval-posture and folder-trust setting
 
 from __future__ import annotations
 
+from yoke_contracts.github_app_tokens import github_configurations
+
 from collections.abc import Callable
 import json
 import shutil
@@ -163,12 +165,16 @@ def remove(
         skipped("projects", "no installed registered checkouts")
     github_skip = _github_skip_reason(inventory.config)
     if github_skip is None:
-        attempt(
-            "GitHub",
-            lambda: command(
-                ["github", "disconnect", "--config", str(inventory.config)]
-            ),
-        )
+        payload = machine_config.load_config(inventory.config)
+        for prefix in github_configurations(payload):
+            env = prefix.removeprefix("connection_github.")
+            args = ["--env", env] if prefix != "github" else []
+            attempt(
+                f"GitHub {env}",
+                lambda args=args: command(
+                    [*args, "github", "disconnect", "--config", str(inventory.config)]
+                ),
+            )
     else:
         skipped("GitHub", github_skip)
     attempt("machine-wide hooks", lambda: _remove_machine_hooks(emit))
@@ -269,7 +275,7 @@ def _revert_harness_settings(emit: Callable[[str], None]) -> None:
 def _github_skip_reason(config: Path) -> str | None:
     if not config.is_file():
         return "no machine config"
-    if not machine_config.github_config(config):
+    if not github_configurations(machine_config.load_config(config)):
         return "no GitHub connection"
     payload = machine_config.load_config(config)
     connections = payload.get("connections") or {}

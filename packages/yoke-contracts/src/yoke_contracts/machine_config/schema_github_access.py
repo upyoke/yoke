@@ -272,3 +272,33 @@ def _positive_int(value: Any) -> bool:
 
 
 __all__ = ["validate_installations", "validate_repositories"]
+
+
+def validate_connection_github(payload, validator):
+    """Validate every slot with the existing GitHub record contract."""
+    from dataclasses import replace
+    from yoke_contracts.github_app_tokens import GITHUB_CONNECTIONS_KEY
+
+    slots = payload[GITHUB_CONNECTIONS_KEY]
+    if not isinstance(slots, Mapping):
+        return [
+            _error(
+                "github_invalid",
+                "connection_github must be an object",
+                path=GITHUB_CONNECTIONS_KEY,
+            )
+        ]
+    issues = validator(
+        {k: v for k, v in payload.items() if k != GITHUB_CONNECTIONS_KEY}
+    )
+    for label, entry in slots.items():
+        prefix = f"{GITHUB_CONNECTIONS_KEY}.{label}"
+        for issue in validator({"github": entry}):
+            issues.append(
+                replace(
+                    issue,
+                    path=issue.path.replace("github", prefix, 1),
+                    message=issue.message.replace("github", prefix, 1),
+                )
+            )
+    return issues

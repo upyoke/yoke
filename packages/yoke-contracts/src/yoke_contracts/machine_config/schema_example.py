@@ -72,21 +72,25 @@ def canonical_example_payload() -> dict[str, Any]:
             },
             "temp_root": _contract().DEFAULT_TEMP_ROOT,
             "cache_dir": _contract().DEFAULT_CACHE_ROOT,
-            "github": {
-                "api_url": _contract().DEFAULT_GITHUB_API_URL,
-                "web_url": _contract().DEFAULT_GITHUB_WEB_URL,
-                "app_slug": "yoke",
-                "app_id": 12345,
-                "client_id": "Iv1.example",
-                "profile_source": _contract().GITHUB_PROFILE_SOURCE_SERVICE,
-                "profile_service_api_url": HOSTED_PROD_API_URL,
-                "authorization": {
-                    "kind": _contract().GITHUB_AUTH_KIND_USER_AUTHORIZATION,
-                    "refresh_credential_ref": ("~/.yoke/secrets/github.user-refresh"),
-                    "github_user_id": 1001,
-                    "login": "example-user",
-                    "status": "authorized",
-                },
+            "connection_github": {
+                "prod": {
+                    "api_url": _contract().DEFAULT_GITHUB_API_URL,
+                    "web_url": _contract().DEFAULT_GITHUB_WEB_URL,
+                    "app_slug": "yoke",
+                    "app_id": 12345,
+                    "client_id": "Iv1.example",
+                    "profile_source": _contract().GITHUB_PROFILE_SOURCE_SERVICE,
+                    "profile_service_api_url": HOSTED_PROD_API_URL,
+                    "authorization": {
+                        "kind": _contract().GITHUB_AUTH_KIND_USER_AUTHORIZATION,
+                        "refresh_credential_ref": (
+                            "~/.yoke/secrets/github.user-refresh"
+                        ),
+                        "github_user_id": 1001,
+                        "login": "example-user",
+                        "status": "authorized",
+                    },
+                }
             },
             "connection_projects": {
                 "prod": [

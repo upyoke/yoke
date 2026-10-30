@@ -8,6 +8,8 @@ import urllib.error
 
 import pytest
 
+from runtime.api.cli.github_user_token_test_support import seed_yoke_connection
+
 from runtime.api.cli.test_github_app_machine_connection import (
     _alternate_profile_opener,
     _api_opener,
@@ -23,6 +25,7 @@ def test_reconnect_config_failure_keeps_old_credential_and_cleans_new_one(
     home = tmp_path / "home"
     monkeypatch.setenv("YOKE_MACHINE_HOME", str(home))
     config = home / "config.json"
+    seed_yoke_connection(config)
     github_machine.connect(
         config_path=config, **_explicit_profile(),
         device_opener=_device_opener(), api_opener=_api_opener(installed=True),
@@ -31,7 +34,7 @@ def test_reconnect_config_failure_keeps_old_credential_and_cleans_new_one(
     )
     original = json.loads(config.read_text(encoding="utf-8"))
     old_credential = Path(
-        original["github"]["authorization"]["refresh_credential_ref"]
+        original["connection_github"]["local"]["authorization"]["refresh_credential_ref"]
     )
     before = set(old_credential.parent.glob("github-app-user-*.json"))
 
@@ -64,6 +67,7 @@ def test_reconnect_keyboard_interrupt_keeps_old_config_and_cleans_new_credential
     home = tmp_path / "home"
     monkeypatch.setenv("YOKE_MACHINE_HOME", str(home))
     config = home / "config.json"
+    seed_yoke_connection(config)
     github_machine.connect(
         config_path=config,
         **_explicit_profile(),
@@ -75,7 +79,7 @@ def test_reconnect_keyboard_interrupt_keeps_old_config_and_cleans_new_credential
     )
     before = config.read_bytes()
     old_credential = Path(
-        json.loads(before)["github"]["authorization"]["refresh_credential_ref"]
+        json.loads(before)["connection_github"]["local"]["authorization"]["refresh_credential_ref"]
     )
 
     monkeypatch.setattr(
@@ -107,6 +111,7 @@ def test_reconnect_discovery_failure_preserves_last_known_good_connection(
     home = tmp_path / "home"
     monkeypatch.setenv("YOKE_MACHINE_HOME", str(home))
     config = home / "config.json"
+    seed_yoke_connection(config)
     github_machine.connect(
         config_path=config,
         **_explicit_profile(),
@@ -118,7 +123,7 @@ def test_reconnect_discovery_failure_preserves_last_known_good_connection(
     )
     before = config.read_bytes()
     old_credential = Path(
-        json.loads(before)["github"]["authorization"][
+        json.loads(before)["connection_github"]["local"]["authorization"][
             "refresh_credential_ref"
         ]
     )
@@ -158,6 +163,7 @@ def test_explicit_reconnect_can_replace_a_different_verified_app_profile(
     home = tmp_path / "home"
     monkeypatch.setenv("YOKE_MACHINE_HOME", str(home))
     config = home / "config.json"
+    seed_yoke_connection(config)
     github_machine.connect(
         config_path=config,
         **_explicit_profile(),
@@ -167,7 +173,7 @@ def test_explicit_reconnect_can_replace_a_different_verified_app_profile(
         sleep=lambda seconds: None,
         monotonic=lambda: 0,
     )
-    original = json.loads(config.read_text(encoding="utf-8"))["github"]
+    original = json.loads(config.read_text(encoding="utf-8"))["connection_github"]["local"]
     old_credential = Path(
         original["authorization"]["refresh_credential_ref"]
     )
@@ -186,7 +192,7 @@ def test_explicit_reconnect_can_replace_a_different_verified_app_profile(
         monotonic=lambda: 0,
     )
 
-    stored = json.loads(config.read_text(encoding="utf-8"))["github"]
+    stored = json.loads(config.read_text(encoding="utf-8"))["connection_github"]["local"]
     new_credential = Path(
         stored["authorization"]["refresh_credential_ref"]
     )
@@ -205,6 +211,7 @@ def test_passive_connect_rejects_profile_change_before_device_authorization(
     home = tmp_path / "home"
     monkeypatch.setenv("YOKE_MACHINE_HOME", str(home))
     config = home / "config.json"
+    seed_yoke_connection(config)
     github_machine.connect(
         config_path=config,
         **_explicit_profile(),

@@ -140,6 +140,8 @@ def _install_seed(
     *,
     service_api_url: str | None = None,
 ) -> tuple[dict[str, Any], Path]:
+    from runtime.api.cli.github_user_token_test_support import seed_yoke_connection
+    seed_yoke_connection(config, service_api_url=service_api_url)
     github, credential = _seed_connection(
         config, label, service_api_url=service_api_url,
     )

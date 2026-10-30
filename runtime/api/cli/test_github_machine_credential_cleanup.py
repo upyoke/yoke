@@ -193,7 +193,7 @@ def test_interruption_after_config_commit_leaves_recoverable_old_credential(
                 path=config,
             )
 
-    assert json.loads(config.read_text(encoding="utf-8"))["github"]["authorization"][
+    assert json.loads(config.read_text(encoding="utf-8"))["connection_github"]["local"]["authorization"][
         "refresh_credential_ref"
     ] == str(new)
     assert old.is_file() and new.is_file()

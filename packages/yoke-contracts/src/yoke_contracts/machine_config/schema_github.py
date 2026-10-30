@@ -5,7 +5,7 @@ from __future__ import annotations
 import urllib.parse
 from typing import Any, Mapping
 
-from yoke_contracts import github_app_snapshot
+from yoke_contracts import github_app_snapshot, github_app_tokens
 
 from yoke_contracts.github_origin import (
     DEFAULT_GITHUB_API_URL as DEFAULT_GITHUB_API_URL,
@@ -27,6 +27,7 @@ from yoke_contracts.machine_config.schema_projects import (
     _is_nonempty_str,
 )
 from yoke_contracts.machine_config.schema_github_access import (
+    validate_connection_github,
     validate_installations,
     validate_repositories,
 )
@@ -65,28 +66,29 @@ GITHUB_AUTH_ALLOWED_KEYS = frozenset(
 )
 
 
-def github_config(payload: Mapping[str, Any] | None) -> dict[str, Any]:
+def github_config(payload: Mapping[str, Any] | None, env: str = "") -> dict[str, Any]:
     """Return a defensive copy of the configured GitHub block."""
-    raw = (payload or {}).get(GITHUB_CONFIG_KEY)
-    return dict(raw) if isinstance(raw, Mapping) else {}
+    return github_app_tokens.connection_github(payload or {}, env)
 
 
 def normalize_github_payload(
     raw: Mapping[str, Any],
     normalized: dict[str, Any],
 ) -> None:
-    entry = raw.get(GITHUB_CONFIG_KEY)
-    if isinstance(entry, Mapping):
-        normalized[GITHUB_CONFIG_KEY] = dict(entry)
+    for key in (GITHUB_CONFIG_KEY, github_app_tokens.GITHUB_CONNECTIONS_KEY):
+        if isinstance(raw.get(key), Mapping):
+            normalized[key] = dict(raw[key])
 
 
 def has_github_config(payload: Mapping[str, Any] | None) -> bool:
     """Whether the payload carries a GitHub machine capability block."""
-    return bool(github_config(payload))
+    return bool(github_app_tokens.github_configurations(payload or {}))
 
 
 def validate_github_config(payload: Mapping[str, Any]) -> list[ValidationIssue]:
     """Validate the optional ``github`` machine capability block."""
+    if github_app_tokens.GITHUB_CONNECTIONS_KEY in payload:
+        return validate_connection_github(payload, validate_github_config)
     if GITHUB_CONFIG_KEY not in payload:
         return []
     entry = payload.get(GITHUB_CONFIG_KEY)

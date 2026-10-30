@@ -76,7 +76,10 @@ def product_connection(
 
 
 def github_config(path: str | Path | None = None) -> dict[str, Any]:
-    return contract.github_config(load_config(path))
+    payload = load_config(path)
+    if "connection_github" not in payload:
+        return contract.github_config(payload)
+    return contract.github_config(payload, contract.selected_env(payload))
 
 
 def active_env(

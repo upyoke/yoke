@@ -5,6 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any, Mapping
 
+from yoke_contracts.machine_config import schema as contract
 from yoke_cli.config import aws_admin_capability
 from yoke_cli.config import machine_config
 from yoke_cli.config import local_universe_setup
@@ -57,6 +58,7 @@ def detect(
         "machine_github": _machine_github_matches(
             payload,
             machine_github,
+            env_name=env_name,
             service_api_url=api_url or None,
             local_connection_selected=(
                 env_name == local_universe_setup.LOCAL_ENV and not api_url
@@ -132,10 +134,11 @@ def _machine_github_matches(
     *,
     service_api_url: str | None,
     local_connection_selected: bool,
+    env_name: str = "",
 ) -> bool:
     if str(machine_github.get("choice") or "") != onboard_machine_github.CHOICE_CONNECT:
         return False
-    github = payload.get("github")
+    github = contract.github_config(payload, env_name)
     if not isinstance(github, Mapping):
         return False
     authorization_source = machine_github.get("authorization_source")

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from yoke_contracts.github_app_tokens import github_configurations
+
 from pathlib import Path
 from typing import Any, Mapping
 
@@ -46,13 +48,13 @@ def observe_credential_presence(
     secret_root: Path,
 ) -> dict[str, Any]:
     """Publish booleans only; never read or transmit credential material."""
-    github = config.get("github")
-    authorization = github.get("authorization") if isinstance(github, Mapping) else None
     return {
-        "github": bool(
-            isinstance(authorization, Mapping)
+        "github": any(
+            isinstance(github, Mapping)
+            and isinstance(authorization := github.get("authorization"), Mapping)
             and authorization.get("status") == "authorized"
             and authorization.get("refresh_credential_ref")
+            for github in github_configurations(config).values()
         ),
         "aws": _aws_present(secret_root),
         "harnesses": _harness_presence(versions, plan_limits),

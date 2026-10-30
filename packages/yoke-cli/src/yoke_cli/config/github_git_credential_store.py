@@ -83,10 +83,10 @@ def access_token_from_config(
     expected_service_api_url: str | None = None,
     expected_local_connection: bool = False,
 ) -> dict[str, Any]:
-    github = config.get("github")
-    if not isinstance(github, Mapping):
+    github = github_service_profile_proof.selected_github(config)
+    if not github:
         raise GitHubCredentialStoreError(
-            "machine GitHub App authorization is not configured"
+            github_service_profile_proof.missing_authorization(config)
         )
     authorization = github.get("authorization")
     if not isinstance(authorization, Mapping):
@@ -158,7 +158,7 @@ def access_token_from_config(
         except github_service_profile_proof.GitHubServiceProfileProofError as exc:
             raise GitHubCredentialStoreError(str(exc)) from exc
     with machine_operation_lock(config_path), _locked(path):
-        if load_config(config_path).get("github") != github:
+        if github_service_profile_proof.selected_github(load_config(config_path)) != github:
             raise GitHubCredentialStoreError(
                 "machine GitHub App profile changed before refresh; retry "
                 "against the current connection"

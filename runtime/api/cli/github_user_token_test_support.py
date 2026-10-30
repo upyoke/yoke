@@ -95,3 +95,19 @@ def configured_credential(
 
 
 __all__ = ["NOW", "FakeResponse", "RawResponse", "configured_credential"]
+
+
+
+def seed_yoke_connection(config, *, service_api_url=None):
+    """Give mutation tests a real selected connection."""
+    if config.exists():
+        return
+    from runtime.api.cli.test_github_machine_credential_cleanup import _base_config
+    _base_config(config)
+    if service_api_url:
+        payload = json.loads(config.read_text())
+        payload["connections"]["local"].update(
+            transport="https", api_url=service_api_url,
+            credential_source={"kind": "token_file", "path": str(config.parent / "token")},
+        )
+        config.write_text(json.dumps(payload))

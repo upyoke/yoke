@@ -33,14 +33,16 @@ def set_github(
     """Replace GitHub metadata iff its authorization is still expected."""
 
     payload, cfg_path = load_payload(path)
-    replaced_ref = _github_credential_ref(payload.get("github"))
+    label = _prepare_slots(payload)
+    current = github_app_tokens.connection_github(payload, label)
+    replaced_ref = _github_credential_ref(current)
     if replaced_ref != expected_credential_ref:
         raise MachineConfigWriteError(
             "machine GitHub App authorization changed during this operation; "
             "retry against the current connection"
         )
     if expected_profile_identity is not None and _github_profile_identity(
-        payload.get("github")
+        current
     ) != dict(expected_profile_identity):
         raise MachineConfigWriteError(
             "machine GitHub App profile changed during this operation; retry "
@@ -48,11 +50,21 @@ def set_github(
         )
     entry = dict(github)
     selected_ref = _github_credential_ref(entry)
+    slots = payload.setdefault(github_app_tokens.GITHUB_CONNECTIONS_KEY, {})
+    if selected_ref and any(
+        _github_credential_ref(value) == selected_ref
+        for key, value in slots.items()
+        if key != label
+    ):
+        raise MachineConfigWriteError(
+            "github_credential_shared: each connection needs its own authorization; "
+            f"run yoke --env {label} github connect"
+        )
     claim_added = _claim_owned_credential(
         selected_ref,
         cfg_path,
     )
-    payload["github"] = entry
+    slots[label] = entry
     try:
         write_payload(payload, cfg_path)
     except BaseException:
@@ -82,13 +94,26 @@ def clear_github(
     """Remove GitHub iff its authorization is still expected."""
 
     payload, cfg_path = load_payload(path)
-    current_ref = _github_credential_ref(payload.get("github"))
+    legacy = payload.get("github")
+    if legacy is not None:
+        # Disconnect is the explicit recovery for unmatched legacy provenance.
+        current = legacy
+    else:
+        label = _selected_label(payload)
+        current = github_app_tokens.connection_github(payload, label)
+    current_ref = _github_credential_ref(current)
     if expected_credential_ref is not None and current_ref != expected_credential_ref:
         raise MachineConfigWriteError(
             "machine GitHub App authorization changed during disconnect; "
             "retry against the current connection"
         )
-    removed = payload.pop("github", None)
+    if legacy is not None:
+        removed = payload.pop("github")
+    else:
+        slots = payload.get(github_app_tokens.GITHUB_CONNECTIONS_KEY, {})
+        removed = slots.pop(label, None)
+        if not slots:
+            payload.pop(github_app_tokens.GITHUB_CONNECTIONS_KEY, None)
     configured = removed is not None
     removed_ref = _github_credential_ref(removed)
     strip_retired_keys(payload)
@@ -103,6 +128,54 @@ def clear_github(
         "removed_credential_ref": removed_ref,
         "credential_cleanup": cleanup,
     }
+
+
+
+def _selected_label(payload: Mapping[str, Any]) -> str:
+    try:
+        return github_app_tokens.github_connection_label(payload, contract.selected_env(payload))
+    except contract.MachineConfigContractError as exc:
+        raise MachineConfigWriteError(str(exc)) from exc
+
+
+def _prepare_slots(payload: dict[str, Any]) -> str:
+    label = _selected_label(payload)
+    legacy = payload.get("github")
+    if legacy is None:
+        return label
+    connections = payload.get("connections") or {}
+    active = str(payload.get("active_env") or "")
+    labels = list(dict.fromkeys([active, *sorted(connections)]))
+    for candidate in labels:
+        connection = connections.get(candidate)
+        if not isinstance(connection, Mapping):
+            continue
+        source = legacy.get("profile_source")
+        service = str(legacy.get("profile_service_api_url") or "").rstrip("/")
+        matches = (
+            source == github_app_tokens.GITHUB_PROFILE_SOURCE_SERVICE
+            and connection.get("transport") == "https"
+            and service == str(connection.get("api_url") or "").rstrip("/")
+        ) or (
+            source
+            in {
+                github_app_tokens.GITHUB_PROFILE_SOURCE_LOCAL_PRODUCT,
+                github_app_tokens.GITHUB_PROFILE_SOURCE_LOCAL_EXPLICIT,
+            }
+            and connection.get("transport") != "https"
+            and not service
+        )
+        if matches:
+            owner = github_app_tokens.github_connection_label(payload, candidate)
+            slots = payload.setdefault(github_app_tokens.GITHUB_CONNECTIONS_KEY, {})
+            if owner in slots:
+                break
+            slots[owner] = payload.pop("github")
+            return label
+    raise MachineConfigWriteError(
+        "github_legacy_connection_unmatched: saved GitHub authorization has no "
+        "matching connection; run yoke github disconnect, then connect again"
+    )
 
 
 def _github_credential_ref(value: Any) -> str:

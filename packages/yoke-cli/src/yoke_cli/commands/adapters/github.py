@@ -69,7 +69,7 @@ def github_connect(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke github connect",
         description=(
-            "Start the machine-level Yoke GitHub App authorization flow. "
+            "Start the for the selected Yoke connection (--env) Yoke GitHub App authorization flow. "
             "An HTTPS Yoke service advertises its App identity; the local Yoke "
             "product offers an optional bundled upyoke-owned profile. Installing "
             "that App grants its owner access within the repositories selected "
