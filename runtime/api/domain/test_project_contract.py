@@ -171,7 +171,7 @@ def test_project_config_seed_declares_line_policy() -> None:
     body = _entries()[".yoke/project.config"]["content"]
     assert "file_line_limit=350" in body
     assert "file_line_exception=" in body
-    assert "# file_line_exception=docs/generated-reference/**" in body
+    assert "# file_line_grow_allowed=docs/generated-reference/**" in body
 
 
 def test_runbooks_are_fill_me_in_scaffolds() -> None:

@@ -61,6 +61,7 @@ DATA_ASSET_PATHS = frozenset(
 class Classification(str, Enum):
     AUTHORED = "authored"
     TEMPORARY_EXCEPTION = "temporary_exception"
+    GROW_ALLOWED = "grow_allowed"
     GENERATED = "generated"
     ARCHIVE = "archive"
     LOCKFILE = "lockfile"
@@ -125,6 +126,7 @@ def do_classify_path(
     repo_root: pathlib.Path,
     temporary_exceptions: tuple[str, ...],
     archive_exceptions: tuple[str, ...],
+    grow_allowed_globs: tuple[str, ...] = (),
 ) -> Classification:
     abs_path = repo_root / path
     try:
@@ -140,6 +142,8 @@ def do_classify_path(
         return Classification.GENERATED
     if posix_path in GENERATED_SENTINELS:
         return Classification.GENERATED
+    if any(fnmatch.fnmatchcase(posix_path, p) for p in grow_allowed_globs):
+        return Classification.GROW_ALLOWED
     for pattern in temporary_exceptions:
         if fnmatch.fnmatchcase(posix_path, pattern):
             return Classification.TEMPORARY_EXCEPTION
@@ -207,14 +211,11 @@ def classify_change(
 ) -> tuple[bool, bool, str]:
     """Return ``(is_hard_fail, is_warning, rule_label)``.
 
-    Hard-fail rules only apply to AUTHORED. TEMPORARY_EXCEPTION is explicitly
-    allowlisted. Everything else (archive, lockfile, vendored, data_asset,
-    binary, symlink, generated) is always a PASS.
+    Authored exceptions obey the same shrink-only rule as authored source.
+    Generated and data exceptions may grow.
     """
     delta = new - old
-    if classification == Classification.TEMPORARY_EXCEPTION:
-        return (False, False, "")
-    if classification != Classification.AUTHORED:
+    if classification not in {Classification.AUTHORED, Classification.TEMPORARY_EXCEPTION}:
         return (False, False, "")
     if new <= limit:
         return (False, False, "")
@@ -298,7 +299,7 @@ def print_verdict(verdict: CheckVerdict, *, as_json: bool) -> None:
 
 def _cli_description(limit: int) -> str:
     return compose_refusal(
-        f"Enforce the {limit}-line authored-file limit.\n\nSubcommands:\n  report   Print per-file inventory (all tracked files).\n  check    Diff-based hard-fail check (branch-vs-base OR staged).\n\nHard-fail rules (apply to authored files only):\n  1. New authored file > {limit} lines.\n  2. Existing oversized authored file grows.\n  3. Authored file crosses the {limit}-line limit upward.\nTemporary exceptions are fully exempt.",
+        f"Enforce the {limit}-line authored-file limit.\n\nSubcommands:\n  report   Print per-file inventory (all tracked files).\n  check    Diff-based hard-fail check (branch-vs-base OR staged).\n\nHard-fail rules (apply to authored files only):\n  1. New authored file > {limit} lines.\n  2. Existing oversized authored file grows.\n  3. Authored file crosses the {limit}-line limit upward.\nAuthored exceptions are shrink-only above the limit; generated/data exceptions may grow.",
         recovery="split an oversized file by responsibility, or shorten it.",
     )
 

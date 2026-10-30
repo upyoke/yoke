@@ -26,10 +26,10 @@ def render_project_config(display_name: str) -> str:
 # `yoke check file-line`. Unset means 350.
 # file_line_limit=350
 #
-# Files exempt from that limit: intentionally unsplittable artifacts or
-# non-authored data. Repeat the key, one repo-relative glob per line, and
-# use forward slashes. Do not use this to avoid splitting normal source.
-# file_line_exception=docs/generated-reference/**
+# Authored exceptions remain shrink-only above the limit.
+# file_line_exception=src/oversized.py
+# Generated or data files may grow. Repeat one repo-relative glob per line.
+# file_line_grow_allowed=docs/generated-reference/**
 """
 
 

@@ -191,4 +191,12 @@ def do_rebase_or_merge(ctx: MergeContext) -> Optional[Tuple[int, str]]:
             _print("Regenerating package-lock.json...")
             subprocess.run(["npm", "install"], cwd=cwd, capture_output=True)
 
+    from yoke_core.domain.authored_file_merge_preflight import enforce_authored_file_limit
+    from yoke_core.domain.qa_case_execution import QaCaseExecutionError
+
+    try:
+        enforce_authored_file_limit(Path(cwd), target=ctx.args.target)
+    except QaCaseExecutionError as exc:
+        _print(str(exc), err=True)
+        return (1, str(exc))
     return None

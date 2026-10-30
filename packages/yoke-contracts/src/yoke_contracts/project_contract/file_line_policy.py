@@ -9,7 +9,8 @@ Everything lives in the checked-in ``.yoke/project.config`` contract file
 that the project install seeds into every repo::
 
     file_line_limit=350
-    file_line_exception=docs/generated-reference/**
+    file_line_exception=src/oversized.py
+    file_line_grow_allowed=docs/generated-reference/**
 
 The policy rides the repo and needs no database or network, which is what
 lets the pre-commit hook enforce it offline, in a fresh clone, before any
@@ -24,6 +25,7 @@ from pathlib import Path
 DEFAULT_LIMIT = 350
 FILE_LINE_LIMIT_KEY = "file_line_limit"
 FILE_LINE_EXCEPTION_KEY = "file_line_exception"
+FILE_LINE_GROW_ALLOWED_KEY = "file_line_grow_allowed"
 PROJECT_CONFIG_REL = ".yoke/project.config"
 ITEM_BASE_CONFIG_SUFFIX = "yokeItemBase"
 TRACKED_GENERATED_VIEWS: tuple[str, ...] = (
@@ -67,6 +69,7 @@ DEFAULT_EXCEPTION_GLOBS: tuple[str, ...] = ()
 class FileLinePolicy:
     limit: int
     exception_globs: tuple[str, ...]
+    grow_allowed_globs: tuple[str, ...] = ()
 
 
 def default_exception_globs() -> tuple[str, ...]:
@@ -152,6 +155,10 @@ def resolve_file_line_policy(repo_root: Path | str) -> FileLinePolicy:
     return FileLinePolicy(
         limit=project_limit(root),
         exception_globs=default_exception_globs() + project_exception_globs(root),
+        grow_allowed_globs=tuple(
+            value for key, value in _project_config_entries(root)
+            if key == FILE_LINE_GROW_ALLOWED_KEY and value
+        ),
     )
 
 
@@ -159,6 +166,7 @@ __all__ = (
     "DEFAULT_EXCEPTION_GLOBS",
     "DEFAULT_LIMIT",
     "FILE_LINE_EXCEPTION_KEY",
+    "FILE_LINE_GROW_ALLOWED_KEY",
     "FILE_LINE_LIMIT_KEY",
     "FileLinePolicy",
     "GENERATED_PATH_GLOBS",

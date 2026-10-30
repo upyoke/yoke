@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import pathlib
 
+import pytest
+
 from yoke_core.domain import file_line_check as core_gate
 from yoke_harness.git_hooks import file_line_check as harness_gate
 
@@ -103,3 +105,25 @@ def test_unusable_limit_falls_back_to_default(tmp_path: pathlib.Path) -> None:
         _config(tmp_path, f"file_line_limit={raw}\n")
         assert core_gate.resolved_policy(tmp_path).limit == core_gate.LIMIT
         assert harness_gate.resolved_policy(tmp_path).limit == harness_gate.LIMIT
+
+
+@pytest.mark.parametrize("gate", [core_gate, harness_gate])
+@pytest.mark.parametrize("new, refused", [(801, True), (799, False), (800, False), (300, False)])
+def test_authored_exception_cannot_grow(tmp_path, gate, new, refused):
+    _config(tmp_path, "file_line_exception=src/big.py\n")
+    classification = gate.classify_path("src/big.py", repo_root=tmp_path)
+    assert classification == gate.Classification.TEMPORARY_EXCEPTION
+    hard, _, _ = gate.classify_change(
+        old=800, new=new, limit=350, classification=classification,
+    )
+    assert hard is refused
+
+
+@pytest.mark.parametrize("gate", [core_gate, harness_gate])
+def test_generated_data_exception_may_grow(tmp_path, gate):
+    _config(tmp_path, "file_line_grow_allowed=data/big.txt\n")
+    classification = gate.classify_path("data/big.txt", repo_root=tmp_path)
+    assert classification == gate.Classification.GROW_ALLOWED
+    assert gate.classify_change(
+        old=800, new=900, limit=350, classification=classification,
+    ) == (False, False, "")

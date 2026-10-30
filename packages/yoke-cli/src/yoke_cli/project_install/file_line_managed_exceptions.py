@@ -26,7 +26,7 @@ from pathlib import Path
 from typing import Any, Dict, Iterable, List
 
 from yoke_contracts.project_contract.file_line_policy import (
-    FILE_LINE_EXCEPTION_KEY,
+    FILE_LINE_GROW_ALLOWED_KEY,
     PROJECT_CONFIG_REL,
 )
 
@@ -57,7 +57,7 @@ def _declared_entries(text: str) -> set[str]:
         if not line or line.startswith("#"):
             continue
         key, _, value = line.partition("=")
-        if key.strip() == FILE_LINE_EXCEPTION_KEY:
+        if key.strip() == FILE_LINE_GROW_ALLOWED_KEY:
             entries.add(value.strip())
     return entries
 
@@ -74,18 +74,26 @@ def ensure_managed_file_line_exceptions(
     root = Path(repo_root)
     config = root / PROJECT_CONFIG_REL
     existing = _existing_text(config)
+    # Move installer-owned exceptions to the generated/data class on refresh.
+    managed_paths = tuple(managed_paths)
+    for rel in managed_paths:
+        existing = existing.replace(
+            f"file_line_exception={rel}\n", f"{FILE_LINE_GROW_ALLOWED_KEY}={rel}\n"
+        )
     declared = _declared_entries(existing)
 
     added: List[str] = [
         rel for rel in dict.fromkeys(managed_paths) if rel and rel not in declared
     ]
     if not added:
+        if existing != _existing_text(config):
+            config.write_text(existing, encoding="utf-8", newline="")
         return {"attempted": True, "status": "unchanged", "added": []}
 
     text = existing
     if text and not text.endswith("\n"):
         text += "\n"
-    entries = "".join(f"{FILE_LINE_EXCEPTION_KEY}={rel}\n" for rel in added)
+    entries = "".join(f"{FILE_LINE_GROW_ALLOWED_KEY}={rel}\n" for rel in added)
     config.parent.mkdir(parents=True, exist_ok=True)
     config.write_text(
         f"{text}\n{_EXEMPTION_COMMENT}{entries}", encoding="utf-8", newline=""

@@ -67,6 +67,7 @@ DATA_ASSET_PATHS = frozenset({".yoke/board-art"})
 class Classification(str, Enum):
     AUTHORED = "authored"
     TEMPORARY_EXCEPTION = "temporary_exception"
+    GROW_ALLOWED = "grow_allowed"
     GENERATED = "generated"
     ARCHIVE = "archive"
     LOCKFILE = "lockfile"
@@ -164,6 +165,8 @@ def _classify_path_with_policy(
     # --no-verify) on rendered agent adapters like .claude/agents/yoke-*.md.
     if is_install_bundle_generated_path(posix_path, repo_root):
         return Classification.GENERATED
+    if any(fnmatch.fnmatchcase(posix_path, p) for p in policy.grow_allowed_globs):
+        return Classification.GROW_ALLOWED
     for pattern in policy.exception_globs:
         if fnmatch.fnmatchcase(posix_path, pattern):
             return Classification.TEMPORARY_EXCEPTION
@@ -216,7 +219,7 @@ def classify_change(
     *, old: int, new: int, limit: int, classification: Classification
 ) -> tuple[bool, bool, str]:
     delta = new - old
-    if classification != Classification.AUTHORED or new <= limit:
+    if classification not in {Classification.AUTHORED, Classification.TEMPORARY_EXCEPTION} or new <= limit:
         return (False, False, "")
     if old == 0:
         return (True, False, "rule 1: new authored file over limit")
