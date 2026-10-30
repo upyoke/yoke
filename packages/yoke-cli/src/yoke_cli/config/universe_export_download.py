@@ -72,6 +72,12 @@ def download_universe(
         with response:
             require_requested_final_url(request, response)
             if estimate:
+                if response.headers.get_content_type() != "application/json":
+                    raise UniverseExportDownloadError(
+                        "universe_estimate_unavailable: server lacks archive size estimates; "
+                        "upgrade the server to a release supporting universe export "
+                        "--estimate, or export without --estimate"
+                    )
                 raw = response.read(65537)
                 if len(raw) > 65536:
                     raise UniverseExportDownloadError(

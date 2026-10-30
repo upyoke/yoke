@@ -321,6 +321,15 @@ def _unlink_quietly(staged: Optional[Path]) -> None:
         staged.unlink(missing_ok=True)
 
 
+def estimate_universe(*, exclude_artifacts: bool = False) -> dict:
+    """Estimate the active local export through the same authority boundary."""
+    from yoke_core.domain.universe_artifact_transfer import (
+        estimate_universe as estimate,
+    )
+
+    return estimate(exclude_artifacts=exclude_artifacts)
+
+
 __all__ = [
     "ARTIFACT_FORMAT",
     "ARTIFACT_SUFFIX",
@@ -329,6 +338,7 @@ __all__ = [
     "UniverseExportError",
     "default_artifact_name",
     "export_universe",
+    "estimate_universe",
     "resolve_export_destination",
     "resolve_export_dsn",
 ]

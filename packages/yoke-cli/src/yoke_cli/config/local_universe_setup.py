@@ -303,10 +303,7 @@ def universe_export(
     engine = _export_engine()
     try:
         if estimate:
-            transfer = importlib.import_module(
-                "yoke_core.domain.universe_artifact_transfer"
-            )
-            return dict(transfer.estimate_universe(exclude_artifacts=exclude_artifacts))
+            return dict(engine.estimate_universe(exclude_artifacts=exclude_artifacts))
         options = {"exclude_artifacts": True} if exclude_artifacts else {}
         return dict(engine.export_universe(out=out or None, emit=emit, **options))
     except RuntimeError as exc:  # authority refusal, dead server, dump failure
