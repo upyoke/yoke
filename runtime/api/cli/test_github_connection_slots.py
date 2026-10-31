@@ -228,7 +228,7 @@ def test_git_helper_reads_selected_credential(configured, monkeypatch, env, expe
     assert paths == [b_path if expected == "stage" else a_path]
 
 
-def test_helper_declines_other_connections_checkout(configured, tmp_path, monkeypatch):
+def test_helper_selects_registered_checkout(configured, tmp_path, monkeypatch):
     config, payload, a, b, *_ = configured
     checkout = tmp_path / "checkout"
     checkout.mkdir()
@@ -238,10 +238,10 @@ def test_helper_declines_other_connections_checkout(configured, tmp_path, monkey
     }
     save(config, payload)
     monkeypatch.chdir(checkout)
-    with pytest.raises(store.GitHubCredentialStoreError, match="connection 'stage'"):
-        helper.access_token_for_git_request(
-            config, {"protocol": "https", "host": "github.com"}
-        )
+    result = helper.access_token_for_git_request(
+        config, {"protocol": "https", "host": "github.com"}
+    )
+    assert result["access_token"] == "access-stage"
 
 
 def test_validation_and_unknown_key_paths_are_slot_scoped(configured):
@@ -276,7 +276,10 @@ def test_network_permissions_include_every_slot_and_legacy(configured):
 
 
 
-def test_helper_checks_external_worktrees_primary_registration(configured, tmp_path, monkeypatch):
+@pytest.mark.parametrize("override", [None, "prod"])
+def test_helper_checks_external_worktrees_primary_registration(
+    configured, tmp_path, monkeypatch, override
+):
     config, payload, a, b, *_ = configured
     primary = tmp_path / "primary"
     gitdir = primary / ".git" / "worktrees" / "external"
@@ -289,8 +292,16 @@ def test_helper_checks_external_worktrees_primary_registration(configured, tmp_p
     payload["connection_projects"] = {"stage": [{"checkout": str(primary), "project_id": 1}]}
     save(config, payload)
     monkeypatch.chdir(external)
-    with pytest.raises(store.GitHubCredentialStoreError, match="connection 'stage'"):
-        helper.access_token_for_git_request(config, {"protocol": "https", "host": "github.com"})
+    fields = {"protocol": "https", "host": "github.com"}
+    if override:
+        monkeypatch.setenv("YOKE_ENV", override)
+        with pytest.raises(
+            store.GitHubCredentialStoreError,
+            match="checkout connection mismatch:.*connection 'stage'",
+        ):
+            helper.access_token_for_git_request(config, fields)
+    else:
+        assert helper.access_token_for_git_request(config, fields)["access_token"] == "access-stage"
 
 
 

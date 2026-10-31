@@ -79,6 +79,15 @@ If equally deep checkouts match unrelated connections, selection refuses with
 `checkout_connection_ambiguous`. Pass `--env ENV`, or register the checkout with
 `yoke --env ENV project register CHECKOUT --project-id N --reassign` to remove
 the same checkout from the other connections.
+Git's credential helper selects `YOKE_ENV`, then the deepest registered checkout
+(including Git lanes), then `active_env`; paired admin registrations use the
+ordinary GitHub connection. If `YOKE_ENV` conflicts with the checkout, it refuses
+with `checkout connection mismatch` before reading credentials. Unset `YOKE_ENV`,
+set it to the registered connection, or move the checkout with the printed
+`project register --reassign` command. Duplicate deepest connections refuse with
+`checkout connection ambiguous`; set `YOKE_ENV` or move the duplicate registration.
+These routing refusals do not require reconnecting GitHub.
+
 Numeric project IDs belong to that connection's universe; the same ID on another
 connection has its own checkout. A paired HTTPS connection and its database-admin
 connection share the HTTPS connection's map. An unmapped checkout reports the
