@@ -27,8 +27,8 @@ def _target_plan(conn, plan):
 
 
 @pytest.mark.parametrize("alternate_names", [False, True])
-def test_supplemental_plan_membership_and_completion_credit(test_db, alternate_names):
-    plan = _stage_and_prod(test_db)
+def test_supplemental_plan_membership_and_completion_credit(test_db, alternate_names, tmp_path, monkeypatch):
+    plan = _stage_and_prod(test_db, tmp_path, monkeypatch)
     _target_plan(test_db, plan)
     if alternate_names:
         test_db.execute(
@@ -53,8 +53,8 @@ def test_supplemental_plan_membership_and_completion_credit(test_db, alternate_n
     assert _misses(test_db, MEMBERS[0]) == []
 
 
-def test_a_plan_with_a_case_for_the_completion_environment_owes_a_group(test_db):
-    plan = _stage_and_prod(test_db)
+def test_a_plan_with_a_case_for_the_completion_environment_owes_a_group(test_db, tmp_path, monkeypatch):
+    plan = _stage_and_prod(test_db, tmp_path, monkeypatch)
     _target_plan(test_db, plan)
     test_db.execute(
         "UPDATE qa_plan_cases SET target_envs=%s WHERE plan_id=%s",
@@ -65,12 +65,12 @@ def test_a_plan_with_a_case_for_the_completion_environment_owes_a_group(test_db)
     assert answer.verdict == PLAN_GROUPS
 
 
-def test_plan_only_supplemental_member_survives_carried_enrollment(test_db):
+def test_plan_only_supplemental_member_survives_carried_enrollment(test_db, tmp_path, monkeypatch):
     from types import SimpleNamespace
     from yoke_core.domain.deployment_run_carried_membership import enroll_carried_members
     from yoke_core.domain.deployment_run_unheld_candidates import CandidateCustody
 
-    plan = _stage_and_prod(test_db)
+    plan = _stage_and_prod(test_db, tmp_path, monkeypatch)
     _target_plan(test_db, plan)
     test_db.execute("UPDATE items SET status='release' WHERE id=ANY(%s)", (list(MEMBERS),))
     test_db.execute("DELETE FROM deployment_run_items WHERE run_id=%s", (RUN,))
@@ -91,12 +91,12 @@ def test_plan_only_supplemental_member_survives_carried_enrollment(test_db):
     ).fetchall()} == set(MEMBERS)
 
 
-def test_unheld_candidate_filter_keeps_plan_only_supplemental_member(test_db, monkeypatch):
+def test_unheld_candidate_filter_keeps_plan_only_supplemental_member(test_db, monkeypatch, tmp_path):
     from types import SimpleNamespace
     from yoke_core.domain import deployment_run_unheld_candidates as candidates
     from yoke_core.domain.deployment_run_candidate_containment import CONTAINED, ContainmentVerdict
 
-    plan = _stage_and_prod(test_db)
+    plan = _stage_and_prod(test_db, tmp_path, monkeypatch)
     _target_plan(test_db, plan)
     monkeypatch.setattr(candidates, "merged_open_items", lambda *_: [{"id": m} for m in MEMBERS])
     monkeypatch.setattr(candidates, "items_requiring_release_membership", lambda *_: frozenset(MEMBERS))

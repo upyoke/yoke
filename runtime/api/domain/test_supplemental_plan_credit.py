@@ -16,6 +16,7 @@ from yoke_core.domain.deployment_qa_plan_credit import plan_credit_misses
 from yoke_core.domain.deployment_qa_source_obligation import unsatisfied_blocking
 from yoke_core.domain.deployment_run_completion_preview import completion_preview
 from yoke_core.domain.deployment_run_unheld_candidates import candidate_custody
+from yoke_core.domain.deployment_run_carried_membership import enroll_carried_members
 from yoke_core.domain.deployment_runs_crud_mutate import cmd_update
 from yoke_core.domain.no_obligation_member_close_out import satisfied_delivery_member
 
@@ -34,6 +35,8 @@ def test_existing_stage_only_plan_credit_settles_production(
     clone_run(test_db, "run-stage-2", "run-stage", commits["stage2"])
     custody = candidate_custody(test_db, "run-stage-2")
     assert ITEM in custody.held_ids and ITEM not in custody.enrollable
+    enroll_carried_members(test_db, "run-stage-2",
+        carried_work={"derivation": {"contents_known": True}, "items": []})
     assert (
         test_db.execute(
             "SELECT COUNT(*) FROM deployment_run_items WHERE run_id='run-stage-2'"
@@ -121,12 +124,12 @@ def test_failed_stage_proof_enrolls_again_but_production_does_not(
     clone_run(test_db, "run-prod-2", "run-prod", commits["stage2"])
     custody = candidate_custody(test_db, "run-prod-2")
     assert ITEM in custody.held_ids and ITEM not in custody.enrollable
-    assert (
-        test_db.execute(
-            "SELECT COUNT(*) FROM deployment_run_items WHERE run_id IN ('run-stage-2','run-prod-2')"
-        ).fetchone()[0]
-        == 0
-    )
+    for run_id in ("run-stage-2", "run-prod-2"):
+        enroll_carried_members(test_db, run_id,
+            carried_work={"derivation": {"contents_known": True}, "items": []})
+    assert [(row[0], row[1]) for row in test_db.execute(
+        "SELECT run_id,item_id FROM deployment_run_items WHERE run_id IN ('run-stage-2','run-prod-2')"
+    ).fetchall()] == [("run-stage-2", ITEM)]
 
 
 def test_remerge_withdraws_stage_credit(test_db, tmp_path, monkeypatch):
@@ -164,4 +167,7 @@ def test_unreadable_containment_names_recovery(test_db, tmp_path, monkeypatch):
     assert len(misses) == 1
     assert verdict.reason in misses[0]["recovery"]
     assert verdict.recovery in misses[0]["recovery"]
+    from yoke_core.domain.deployment_item_completion_runs import uncredited_supplemental_notice
+    notice = uncredited_supplemental_notice(test_db, run_id="run-stage", item_id=ITEM)
+    assert verdict.reason in notice and verdict.recovery in notice
     assert latest_qa_member_run(test_db, item_id=ITEM, target_env="stage") is None

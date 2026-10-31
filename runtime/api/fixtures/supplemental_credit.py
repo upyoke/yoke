@@ -121,7 +121,7 @@ def clone_run(conn, run_id, source, sha, *, member=False):
     conn.commit()
 
 
-def close_group(conn, run_id):
+def open_group(conn, run_id):
     from yoke_core.domain.deployment_stage_receipts import (
         allocate_deployment_stage_receipt,
         complete_deployment_stage_receipt,
@@ -163,6 +163,10 @@ def close_group(conn, run_id):
     _freeze_members(conn, run_id)
     ensure_groups(conn, run_id, "member-qa")
     conn.commit()
+
+
+def close_group(conn, run_id):
+    open_group(conn, run_id)
     execution = begin_plan_execution(
         conn,
         deployment_run_id=run_id,
@@ -229,6 +233,8 @@ def plan_pair(conn, tmp_path, monkeypatch, *, proof=True):
         close_group(conn, "run-stage")
         clone_run(conn, "run-stage-old", "run-stage", commits["stage"], member=True)
         close_group(conn, "run-stage-old")
+    else:
+        open_group(conn, "run-stage")
     conn.execute(
         "UPDATE deployment_runs SET status='succeeded',created_at='2026-10-01T00:00:00Z' "
         "WHERE id LIKE 'run-stage%'"
