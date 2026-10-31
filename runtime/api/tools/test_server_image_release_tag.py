@@ -140,6 +140,8 @@ def test_native_probe_exports_digest_only_after_verification(
         elif "-c" in command:
             output = json.dumps({"pglast": dependency_version})
         elif command[1] == "run":
+            if dependency_version == "7.22":
+                pytest.fail("dependency drift reached boot imports before its diagnosis")
             output = "noise\n" + metadata.format_metadata_line(
                 metadata.ServerImageMetadata(version, build)
             )
