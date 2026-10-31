@@ -117,16 +117,17 @@ def test_tag_must_peel_to_exact_workflow_commit(
 
 
 @pytest.mark.parametrize(
-    "arch,version,build,reason",
+    "arch,version,build,dependency_version,reason",
     [
-        ("arm64", "1.2.3", "source", None),
-        ("amd64", "1.2.3", "source", "architecture mismatch"),
-        ("arm64", "wrong", "source", "metadata mismatch"),
-        ("arm64", "1.2.3", "wrong", "metadata mismatch"),
+        ("arm64", "1.2.3", "source", "7.20", None),
+        ("amd64", "1.2.3", "source", "7.20", "architecture mismatch"),
+        ("arm64", "wrong", "source", "7.20", "metadata mismatch"),
+        ("arm64", "1.2.3", "wrong", "7.20", "metadata mismatch"),
+        ("arm64", "1.2.3", "source", "7.22", "pglast: installed=7.22 locked=7.20"),
     ],
 )
 def test_native_probe_exports_digest_only_after_verification(
-    monkeypatch, tmp_path, arch, version, build, reason
+    monkeypatch, tmp_path, arch, version, build, dependency_version, reason
 ):
     commands = []
 
@@ -136,6 +137,8 @@ def test_native_probe_exports_digest_only_after_verification(
         output = ""
         if command[1:3] == ["image", "inspect"]:
             output = arch + "\n"
+        elif "-c" in command:
+            output = json.dumps({"pglast": dependency_version})
         elif command[1] == "run":
             output = "noise\n" + metadata.format_metadata_line(
                 metadata.ServerImageMetadata(version, build)

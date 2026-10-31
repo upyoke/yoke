@@ -23,6 +23,7 @@ from yoke_core.tools import (
     product_wheel_validation,
     product_release_version,
     wheel_sibling_pins,
+    locked_dependencies,
 )
 from yoke_core.tools.release_artifacts import (
     AWS_BOOTSTRAP_ASSET_DIR,
@@ -117,7 +118,8 @@ def build_product_wheelhouse(
         repo_root=repo_root, wheelhouse=wheelhouse, uv_executable=uv_executable
     )
     return complete_product_wheelhouse(
-        repo_root=repo_root, wheelhouse=wheelhouse, python_executable=python_executable
+        repo_root=repo_root, wheelhouse=wheelhouse, python_executable=python_executable,
+        uv_executable=uv_executable,
     )
 
 
@@ -157,7 +159,8 @@ def build_product_wheels(*, repo_root: Path, wheelhouse: Path,
 
 
 def complete_product_wheelhouse(*, repo_root: Path, wheelhouse: Path,
-                               python_executable: str | None = None) -> Path:
+                               python_executable: str | None = None,
+                               uv_executable: str | None = None) -> Path:
     """Resolve native dependency wheels and prove a clean core installation."""
     repo_root, wheelhouse = repo_root.resolve(), wheelhouse.resolve()
     requirements = [
@@ -165,13 +168,18 @@ def complete_product_wheelhouse(*, repo_root: Path, wheelhouse: Path,
         for record in package_index.read_wheel_records(wheelhouse)
         if record.canonical_name in PRODUCT_PACKAGE_NAMES
     ]
-    with _pip_python(python_executable) as python:
+    with (
+        locked_dependencies.exported_constraints(repo_root, _uv_executable(uv_executable), _run) as constraints,
+        _pip_python(python_executable) as python,
+    ):
         _run(
             [
                 str(python),
                 "-m",
                 "pip",
                 "wheel",
+                "--constraint",
+                str(constraints),
                 "--wheel-dir",
                 str(wheelhouse),
                 "--find-links",
@@ -182,6 +190,7 @@ def complete_product_wheelhouse(*, repo_root: Path, wheelhouse: Path,
             cwd=repo_root,
         )
     package_index.validate_records(package_index.read_wheel_records(wheelhouse))
+    locked_dependencies.assert_locked_wheelhouse(repo_root, wheelhouse)
     product_wheel_validation.verify_product_wheel_boot(
         wheelhouse,
         create_venv=create_seeded_pip_venv,
