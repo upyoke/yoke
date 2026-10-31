@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Callable, Iterator
 
 from yoke_core.tools import package_index
+from yoke_core.tools.release_artifacts import ReleaseBuildError
 from yoke_core.tools.server_image_metadata import version_mismatches
 
 
@@ -18,7 +19,7 @@ def assert_locked_wheelhouse(repo_root: Path, wheelhouse: Path) -> None:
         repo_root / "uv.lock", {record.name: record.version for record in records}
     )
     if mismatches:
-        raise ValueError(
+        raise ReleaseBuildError(
             "wheelhouse_lock_mismatch:\n" + "\n".join(mismatches)
             + "\nRebuild the wheelhouse from uv.lock before publishing."
         )
