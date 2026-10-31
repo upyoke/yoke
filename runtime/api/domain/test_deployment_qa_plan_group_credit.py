@@ -115,11 +115,11 @@ def test_a_member_removed_after_the_pass_keeps_the_rows_but_loses_credit(test_db
     assert [slug for slug, _ in _misses(test_db, MEMBERS[1])] == [SLUG]
 
 
-def _stage_and_prod(conn):
-    """A stage QA run beside a production final run of the same source.
+def _stage_and_prod(conn, tmp_path, monkeypatch):
+    """A stage QA run beside a production final run containing real landings.
 
     The members' completion flow targets production; the seeded stage run is
-    supplemental and recorded the commit the production run pins.
+    supplemental and carries every recorded landing.
     """
     from yoke_core.domain.deployment_flow_versioning import cmd_create
 
@@ -170,13 +170,24 @@ def _stage_and_prod(conn):
         )
     conn.commit()
     _pin(conn, "flow-prod")
+    from runtime.api.fixtures.carried_release_candidate import (
+        release_repository, serve_repository, record_landing_receipt,
+    )
+    from runtime.api.fixtures.supplemental_credit import pin
+
+    repo, _, landing = release_repository(tmp_path, "shared-plan-release")
+    serve_repository(monkeypatch, repo)
+    for member in MEMBERS:
+        record_landing_receipt(conn, member, branch="feature", tip=landing)
+    pin(conn, RUN, landing)
+    pin(conn, "run-prod", landing)
     return plan_id
 
 
-def test_a_supplemental_stage_run_that_recorded_the_delivered_source_credits(test_db):
+def test_a_supplemental_stage_run_carrying_the_landing_credits(test_db, tmp_path, monkeypatch):
     from yoke_core.domain.deployment_run_member_targeting import supplemental_qa_run
 
-    _stage_and_prod(test_db)
+    _stage_and_prod(test_db, tmp_path, monkeypatch)
     assert supplemental_qa_run(test_db, run_id=RUN, item_id=MEMBERS[0])
     assert latest_qa_member_run(test_db, item_id=MEMBERS[0], target_env="stage")["id"] == RUN
     ensure_groups(test_db, RUN, "item-qa")

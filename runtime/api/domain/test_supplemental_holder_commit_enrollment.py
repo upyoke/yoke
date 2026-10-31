@@ -1,4 +1,4 @@
-"""Supplemental custody and enrollment require the exact item-project commit."""
+"""Pending supplemental proof enrolls again when the candidate changes."""
 
 import json
 
@@ -40,8 +40,7 @@ def test_stage_holder_only_prevents_enrollment_on_same_commit(
         "UPDATE deployment_runs SET release_lineage=%s,status=%s WHERE id='run-stage'",
         (candidate if same_commit else landing, holder_status),
     )
-    # The final-target sibling must name the new candidate too: supplemental
-    # proof on another commit cannot discharge its standing stage obligation.
+    # Production carries the new candidate but cannot answer its Stage proof.
     test_db.execute(
         "UPDATE deployment_runs SET release_lineage=%s WHERE id='run-prod'",
         (candidate,),

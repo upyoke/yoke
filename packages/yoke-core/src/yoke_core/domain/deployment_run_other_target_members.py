@@ -45,9 +45,15 @@ SET_ASIDE_KEY_PREFIX = "other-target-set-aside:"
 class OwedRequirement:
     """One open done blocker and the environment it must pass on."""
 
-    requirement_id: int
+    requirement_id: int | None
     phase: str
     target: str
+    plan_slug: str = ""
+    recovery: str = ""
+
+    def label(self) -> str:
+        return (f"requirement {self.requirement_id}" if self.requirement_id is not None
+                else f"post-deploy plan {self.plan_slug}")
 
 
 def owed_requirements(conn: Any, item_id: int) -> tuple[OwedRequirement, ...]:
@@ -55,16 +61,22 @@ def owed_requirements(conn: Any, item_id: int) -> tuple[OwedRequirement, ...]:
     blockers = unsatisfied_blocking(conn, item_id=int(item_id), target_status="done")
     return tuple(
         OwedRequirement(
-            requirement_id=int(row["id"]),
+            requirement_id=int(row["id"]) if row.get("id") is not None else None,
             phase=str(row.get("qa_phase") or "undeclared"),
             target=requirement_target_environment(
                 row.get("target_env"), row.get("execution_target_json")
             )
             or "",
+            plan_slug=str(row.get("plan_slug") or ""),
+            recovery=str(row.get("recovery") or ""),
         )
         for row in blockers.rows
-        if row.get("id") is not None  # a plan group miss names no requirement
     )
+
+
+def owes_on_target(conn: Any, item_id: int, environment: str) -> bool:
+    """Whether any open requirement or plan group still owes this environment."""
+    return any(row.target == environment for row in owed_requirements(conn, item_id))
 
 
 def owed_on_other_targets(
@@ -141,10 +153,10 @@ def split_other_target_members(
     return required, deferred
 
 
-def record_other_target_deliveries(
+def record_member_deliveries(
     conn: Any, run_id: str, members: list[dict[str, Any]]
 ) -> None:
-    """Stamp ``deployed_to`` on deferred members, inside the caller's commit."""
+    """Stamp this delivery's target on closing and deferred members in the caller's commit."""
     from yoke_core.domain.backlog_item_db_writes import _update_item_multi
 
     environment = run_environment_name(conn, run_id)
@@ -185,6 +197,9 @@ def set_aside_message(
     ]
     for entry in owed:
         target = entry.target or "unspecified"
+        if entry.requirement_id is None:
+            lines.append(f"- post-deploy plan {entry.plan_slug} on {target}: {entry.recovery}")
+            continue
         lines.append(
             f"- requirement {entry.requirement_id} ({entry.phase}) on {target}: run it "
             f"on that environment's deployment run with `yoke qa plan run "
@@ -283,9 +298,10 @@ __all__ = [
     "SET_ASIDE_KEY_PREFIX",
     "owed_on_other_targets",
     "owed_requirements",
+    "owes_on_target",
     "notify_set_aside_members",
     "owes_only_other_targets",
-    "record_other_target_deliveries",
+    "record_member_deliveries",
     "set_aside_message",
     "split_other_target_members",
 ]
@@ -297,7 +313,7 @@ def member_completion_blocker(conn: Any, *, run_id: str, item_id: int) -> str:
 
     public_ref = render_item_ref(conn, item_id)
     details = [
-        f"requirement {entry.requirement_id} phase {entry.phase} "
+        f"{entry.label()} phase {entry.phase} "
         f"target {entry.target or 'unspecified'}"
         for entry in owed_requirements(conn, item_id)
     ]

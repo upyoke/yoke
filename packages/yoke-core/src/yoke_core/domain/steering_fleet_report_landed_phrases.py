@@ -191,8 +191,8 @@ def custody_phrase(entry: LandedItem) -> str:
     """
     if entry.custody_state == HELD and entry.delivered_to:
         owed = ", ".join(
-            f"#{requirement_id} on {target or 'unspecified target'}"
-            for requirement_id, target in entry.owed_elsewhere
+            f"{label} on {target or 'unspecified target'}"
+            for label, target in entry.owed_elsewhere
         )
         delivered = f"delivered to {entry.delivered_to}"
         return f"{delivered}; owes {owed}" if owed else delivered

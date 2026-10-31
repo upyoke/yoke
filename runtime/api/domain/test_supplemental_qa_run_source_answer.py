@@ -32,9 +32,14 @@ def _executing(conn, run_id):
     conn.commit()
 
 
-def test_executing_stage_run_answers_stage_source_beside_executing_prod(test_db):
+def test_executing_stage_run_answers_stage_source_beside_executing_prod(test_db, tmp_path, monkeypatch):
     item_id = 9691
     sources = _pair(test_db, item_id=item_id)
+    from runtime.api.fixtures.supplemental_credit import topology, pin
+
+    commits = topology(test_db, tmp_path, monkeypatch, item_id)
+    for run_id in ("run-prod", "run-stage"):
+        pin(test_db, run_id, commits["landing"])
     _final_members(test_db, item_id=item_id)
     assert supplemental_qa_run(test_db, run_id="run-stage", item_id=item_id)
     _accept_member_qa(test_db, run_id="run-stage", item_id=item_id)

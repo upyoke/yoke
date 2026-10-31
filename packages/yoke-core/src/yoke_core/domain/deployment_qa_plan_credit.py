@@ -2,7 +2,7 @@
 
 Item X is credited for plan P when the run chosen to answer X's target
 (:func:`latest_qa_member_run`, which admits supplemental staging runs that
-recorded the delivered source), or a run that run superseded, holds a closed
+contain the current landing), or a run that run superseded, holds a closed
 group of P whose ``covered_item_ids`` contains X. A pass never reaches an item
 or attachment that arrived after it: such an item is absent from the list
 and is owed a new group. A verification pass never counts; groups exist only
@@ -78,13 +78,32 @@ def _plan_target_envs(conn: Any, plan_id: int, item_id: int) -> list[str]:
     return sorted(envs) or [default]
 
 
-def _miss(item_id: int, plan_id: int, slug: str, run: dict | None, stage: str, target_env: str) -> dict:
+def _miss(item_id: int, plan_id: int, slug: str, run: dict | None, stage: str, target_env: str, *, conn: Any) -> dict:
     run_id = str(run["id"]) if run else ""
     command = (
         f"yoke qa plan run --deployment-run-id {run_id} --stage {stage} --plan {slug}"
         if run_id
-        else "deploy the item; its release runs the plan as a plan group"
+        else (f"the next {target_env or 'target'} deployment run whose commit contains "
+              f"this item's landing enrolls it and runs plan {slug} as a plan group")
     )
+    if not run:
+        from yoke_core.domain.deployment_item_completion_runs import (
+            completion_runs, supplemental_run_carries_landing,
+        )
+        from yoke_core.domain.deployment_run_candidate_containment import UNDETERMINED
+        from yoke_core.domain.deployment_run_member_targeting import (
+            run_environment_name, supplemental_qa_run,
+        )
+
+        for candidate in completion_runs(conn, item_id, include_qa=True):
+            if (candidate["status"] in {"failed", "cancelled"}
+                or run_environment_name(conn, candidate["id"]) != target_env
+                or not supplemental_qa_run(conn, run_id=candidate["id"], item_id=item_id)):
+                continue
+            verdict = supplemental_run_carries_landing(conn, candidate, item_id)
+            if verdict is not None and verdict.state == UNDETERMINED:
+                command = f"{verdict.reason}: {verdict.recovery}"
+            break
     return {
         "id": None,
         "qa_kind": PLAN_GROUP_QA_KIND,
@@ -125,7 +144,7 @@ def plan_credit_misses(conn: Any, item_id: int) -> list[dict]:
             )
             if not credited:
                 stage = item_qa_stage_name(_stages(conn, run)) if run else "item-qa"
-                misses.append(_miss(item_id, plan_id, slug, run, stage, target_env))
+                misses.append(_miss(item_id, plan_id, slug, run, stage, target_env, conn=conn))
                 break
     return misses
 

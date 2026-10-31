@@ -24,7 +24,7 @@ def test_printed_release_recipes_parse(test_db):
     test_db.commit()
     (group,) = run_groups(test_db, RUN)
     recipes = _group_lines(test_db, RUN, "item-qa", [group], str)
-    recipes += [_miss(MEMBERS[0], plan, SLUG, {"id": RUN}, "item-qa", "stage")["recovery"]]
+    recipes += [_miss(MEMBERS[0], plan, SLUG, {"id": RUN}, "item-qa", "stage", conn=test_db)["recovery"]]
     recipes += [retry_command_for_stage(test_db, run_id=RUN, stage="item-qa",
         member_ref=None, member_id=None, project=None)]
     with pytest.raises(ValueError) as unattached:

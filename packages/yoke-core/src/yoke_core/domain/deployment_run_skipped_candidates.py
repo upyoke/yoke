@@ -7,8 +7,8 @@ histories by hand:
 
 * **held** -- another live or succeeded release already holds that landing,
   so delivering it is that run's job (:mod:`deployment_run_unheld_candidates`).
-  A holder on another environment holds only when it pinned a different
-  commit, and the notice names that commit;
+  Supplemental custody holds only on the same environment when the holder
+  covers the selection and commit or no proof remains owed there;
 * **in rework** -- the item landed, then went back before its workflow's
   release stage (failed QA sent it to ``implementing``, say). Its code still
   ships, but it is not ready to be delivered, so enrollment skips it and a
@@ -48,7 +48,6 @@ from yoke_core.domain.deployment_run_membership_removals import (
     membership_removals,
 )
 from yoke_core.domain.dependency_types import GateResult
-from yoke_core.domain.deployment_run_project_sources import recorded_source_sha
 from yoke_core.domain.deployment_run_unheld_candidates import (
     CustodyResolution,
     HeldCandidate,
@@ -113,45 +112,8 @@ def _describe_blocked(
 def _held_descriptions(
     conn: Any, run_id: str, held: tuple[HeldCandidate, ...]
 ) -> list[str]:
-    """Read all holder environments and per-project source pins together."""
-    if not held:
-        return []
-    run_ids = sorted({run_id, *(record.run_id for record in held)})
-    runs = {
-        str(row["id"]): dict(row)
-        for row in conn.execute(
-            "SELECT dr.id,dr.project_id,dr.release_lineage,dr.bound_sources,e.name "
-            "FROM deployment_runs dr JOIN deployment_flows df ON df.id=dr.flow "
-            "LEFT JOIN environments e ON "
-            "e.id=COALESCE(dr.target_environment_id,df.target_environment_id) "
-            f"WHERE dr.id IN ({','.join('%s' for _ in run_ids)})",
-            tuple(run_ids),
-        ).fetchall()
-    }
-    item_ids = sorted({record.item_id for record in held})
-    projects = {
-        int(row[0]): int(row[1])
-        for row in conn.execute(
-            f"SELECT id,project_id FROM items WHERE id IN ({','.join('%s' for _ in item_ids)})",
-            tuple(item_ids),
-        ).fetchall()
-    }
-    environment = str(runs.get(run_id, {}).get("name") or "")
-    lines = []
-    for record in held:
-        line = f"{record.item_ref} held by {record.run_id} ({record.run_status})"
-        holder = runs.get(record.run_id, {})
-        if str(holder.get("name") or "") != environment:
-            lineage = (
-                recorded_source_sha(holder, projects[record.item_id]) or "(unrecorded)"
-            )
-            line += (
-                f" on commit {lineage}, which this run does not ship; its "
-                f"{environment or 'supplemental'} proof credits only against that "
-                "commit, so compose a run on it to prove the item"
-            )
-        lines.append(line)
-    return lines
+    """Name the recorded holder without inventing commit restrictions."""
+    return [f"{r.item_ref} held by {r.run_id} ({r.run_status})" for r in held]
 
 
 class SkippedCandidates(NamedTuple):

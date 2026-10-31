@@ -29,6 +29,12 @@ def _format_text(summary: Dict[str, Any]) -> str:
     lines.append(f"  Blocking unsatisfied: {summary['blocking_unsatisfied_count']}")
     lines.append(f"  Browser unsatisfied:  {summary['browser_unsatisfied_count']}")
     lines.append(f"  E2E unsatisfied:      {summary['e2e_unsatisfied_count']}")
+    misses = summary.get("plan_group_misses") or []
+    lines.append(f"  Post-deploy plans not credited: {len(misses)}")
+    lines.extend(
+        f"    - {row['plan_slug']} on {row['target_env'] or 'unspecified target'}: {row['recovery']}"
+        for row in misses
+    )
     records = summary.get("unsettled_records") or []
     if records:
         lines.append(

@@ -107,4 +107,4 @@ def test_held_candidate_notice_reads_do_not_grow_with_items(test_db):
         assert len(lines) == count
         assert all(f"held by {run_id} (executing)" in line for line in lines)
         counts.append(sum(counted.counts.values()))
-    assert counts[0] == counts[1] == 2
+    assert counts[0] == counts[1] == 0

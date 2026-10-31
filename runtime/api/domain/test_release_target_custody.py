@@ -210,15 +210,10 @@ def _pin(conn, run_id, *, project_id, sha):
 
 @pytest.mark.parametrize("project_id", [1, 2])
 @pytest.mark.parametrize("same_commit", [True, False])
-def test_production_holder_keeps_stage_owing_item_only_off_another_commit(
+def test_production_holder_never_covers_stage_owing_item(
     test_db, project_id, same_commit
 ):
-    """Production custody yields to the stage run on its own commit only.
-
-    Close-out credits stage proof against the commit production ships, so the
-    stage half of a release pair enrolls a stage-owing member the production
-    half already holds, while a stage run on any other commit leaves it alone.
-    """
+    """Production custody never prevents needed Stage enrollment."""
     item_id = 9693 + project_id + (10 if same_commit else 0)
     _pair(test_db, item_id=item_id)
     test_db.execute("UPDATE items SET project_id=%s WHERE id=%s", (project_id, item_id))
@@ -237,11 +232,11 @@ def test_production_holder_keeps_stage_owing_item_only_off_another_commit(
         holder_covers_run(
             test_db, holder_id="run-prod", run_id="run-stage", item_id=item_id
         )
-        is not same_commit
+        is False
     )
 
 
-def test_skip_notice_names_the_commit_a_production_holder_pinned(test_db):
+def test_skip_notice_names_the_recorded_holder(test_db):
     from yoke_core.domain.deployment_run_skipped_candidates import _held_descriptions
     from yoke_core.domain.deployment_run_unheld_candidates import HeldCandidate
 
@@ -253,8 +248,7 @@ def test_skip_notice_names_the_commit_a_production_holder_pinned(test_db):
         item_id=item_id, item_ref="YOK-1", run_id="run-prod", run_status="executing"
     )
     line = _held_descriptions(test_db, "run-stage", (record,))[0]
-    assert line.startswith("YOK-1 held by run-prod (executing) on commit " + "a" * 40)
-    assert "stage proof credits only against that commit" in line
+    assert line == "YOK-1 held by run-prod (executing)"
     assert _held_descriptions(test_db, "run-prod", (record,))[0] == (
         "YOK-1 held by run-prod (executing)"
     )

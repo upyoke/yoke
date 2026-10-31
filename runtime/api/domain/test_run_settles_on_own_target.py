@@ -181,10 +181,15 @@ def test_own_target_red_still_blocks_settlement(test_db):
     assert _item(test_db, item_id)["status"] == "release"
 
 
-def test_member_closes_when_its_stage_obligation_passes(test_db, monkeypatch):
+def test_member_closes_when_its_stage_obligation_passes(test_db, monkeypatch, tmp_path):
     _isolate_status_effects(monkeypatch)
     item_id = 9754
     _production_delivered(test_db, item_id)
+    from runtime.api.fixtures.supplemental_credit import topology, pin
+
+    commits = topology(test_db, tmp_path, monkeypatch, item_id)
+    for run_id in ("run-prod", "run-stage"):
+        pin(test_db, run_id, commits["landing"])
     mark_settling(test_db, "run-prod")
     assert settle_members(test_db, "run-prod") is None
     test_db.execute("UPDATE deployment_runs SET status='succeeded' WHERE id='run-prod'")

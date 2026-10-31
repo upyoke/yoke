@@ -105,7 +105,7 @@ class LandedItem:
     #: Where a succeeded holder run delivered this landing, ``""`` otherwise,
     #: and each requirement it still owes elsewhere as (id, environment).
     delivered_to: str = ""
-    owed_elsewhere: tuple[tuple[int, str], ...] = ()
+    owed_elsewhere: tuple[tuple[str, str], ...] = ()
     #: The item's current status was entered after this landing.
     returned_after_landing: bool = False
     #: What the item's own done gate still waits on, from its gate facts.
@@ -229,7 +229,7 @@ def landed_without_closeout(
                 ),
                 holder_resumable=bool(holder and holder.resumable_from_transcript),
                 delivered_to=delivered_to,
-                owed_elsewhere=tuple((o.requirement_id, o.target) for o in owed),
+                owed_elsewhere=tuple((o.label(), o.target) for o in owed),
                 returned_after_landing=item_id in returned,
                 delivery_gate=landed_gate(load_item_facts(conn, item_id)),
             )

@@ -51,3 +51,23 @@ def unsettled_record_rows(conn: Any, item_id: int) -> List[Dict[str, str]]:
         {"kind": record.kind, "record_id": record.record_id, "detail": record.detail}
         for record in find_unsettled_records(conn, item_id=int(item_id))
     ]
+
+
+def plan_group_miss_rows(conn: Any, item_id: int) -> list[dict]:
+    """The done gate's uncredited post-deploy plans, including target recovery."""
+    from yoke_core.domain.deployment_qa_plan_credit import plan_credit_misses
+    from yoke_core.domain.schema_common import _table_exists
+
+    if not _table_exists(conn, "qa_plan_item_attachments"):
+        return []
+
+    return [{key: row[key] for key in ("plan_id", "plan_slug", "target_env", "recovery")}
+            for row in plan_credit_misses(conn, item_id)]
+
+
+def has_post_deploy_plans(conn: Any, item_id: int) -> bool:
+    """A credited plan remains a QA contract even without item-case copies."""
+    from yoke_core.domain.deployment_qa_plan_credit import _owed_plans
+    from yoke_core.domain.schema_common import _table_exists
+
+    return _table_exists(conn, "qa_plan_item_attachments") and bool(_owed_plans(conn, item_id))

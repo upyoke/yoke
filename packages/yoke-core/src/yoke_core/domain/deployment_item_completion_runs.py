@@ -27,6 +27,10 @@ from __future__ import annotations
 
 from typing import Any
 
+from yoke_core.domain.deployment_run_candidate_containment import (
+    CONTAINED, UNDETERMINED, ContainmentVerdict, candidate_contains_commit,
+)
+
 from yoke_core.domain.deployment_run_member_targeting import supplemental_qa_run
 from yoke_core.domain import db_backend
 from yoke_core.domain.deployment_item_flow_resolution import (
@@ -36,7 +40,6 @@ from yoke_core.domain.deployment_item_flow_resolution import (
 from yoke_core.domain.deployment_run_bound_sources import BOUND_SOURCES_FIELD
 from yoke_core.domain.deployment_run_project_sources import (
     recorded_source_sha,
-    run_recorded_and_delivered_shas,
 )
 
 
@@ -123,55 +126,50 @@ def succeeded_completion_runs(conn: Any, item_id: int) -> list[dict[str, Any]]:
     ]
 
 
-def current_final_run(finals: list[dict[str, Any]]) -> dict[str, Any] | None:
-    """The newest final membership that a failed or cancelled run cannot be."""
-    return next(
-        (run for run in finals if run["status"] not in {"failed", "cancelled"}), None
+def supplemental_run_carries_landing(conn: Any, run: dict, item_id: int) -> ContainmentVerdict | None:
+    """Whether this run's recorded item-project commit contains its current landing."""
+    from yoke_core.domain.delivery_evidence_ladder import item_merge_identity
+
+    landing = item_merge_identity(conn, item_id)
+    if not landing or not run.get("release_lineage"):
+        return None
+    return candidate_contains_commit(
+        conn, int(run["project_id"]),
+        candidate_lineage=run["release_lineage"], commit_sha=landing,
     )
 
 
 def uncredited_supplemental_notice(conn: Any, *, run_id: str, item_id: int) -> str:
-    """Name a supplemental membership whose proof close-out will not read, or ``''``.
-
-    Close-out credits supplemental QA only on the current final run's pinned
-    or delivered item-project commit. Said at the attach, the last moment the
-    caller can pick a run on a commit the final delivery answers for.
-    """
+    """Warn when the supplemental run cannot prove it carries the current landing."""
     if not supplemental_qa_run(conn, run_id=run_id, item_id=item_id):
         return ""
-    final = current_final_run(completion_runs(conn, item_id))
-    if final is None:
-        return ""
-    member = next(
-        (
-            run
-            for run in completion_runs(conn, item_id, include_qa=True)
-            if run["id"] == str(run_id)
-        ),
-        None,
-    )
+    member = next((run for run in completion_runs(conn, item_id, include_qa=True)
+                   if run["id"] == str(run_id)), None)
     if member is None:
         return ""
-    credited = run_recorded_and_delivered_shas(conn, final["id"], final["project_id"])
-    if member["release_lineage"] in credited:
+    verdict = supplemental_run_carries_landing(conn, member, item_id)
+    if verdict is not None and verdict.state == CONTAINED:
         return ""
+    from yoke_core.domain.delivery_evidence_ladder import item_merge_identity
     from yoke_core.domain.project_identity import render_item_ref
 
     ref = render_item_ref(conn, item_id)
+    detail = (
+        f"{verdict.reason}: {verdict.recovery}"
+        if verdict is not None and verdict.state == UNDETERMINED
+        else "does not contain the current landing; prove QA on a run whose commit contains it"
+    )
     return (
         f"Warning (supplemental_proof_not_credited): run {run_id} recorded "
-        f"commit {member['release_lineage'] or '(none)'} for {ref}'s project, "
-        f"but its final run {final['id']} pinned or delivered "
-        f"{', '.join(sorted(credited)) or '(none)'}, so close-out will not "
-        f"credit QA this run proves for {ref}. Remove it with `yoke "
-        f"deployment-runs remove-item {run_id} {ref} --reason TEXT` and prove "
-        "it on a run that records one of those commits."
+        f"commit {member['release_lineage'] or '(none)'} for {ref}'s project; "
+        f"landing {item_merge_identity(conn, item_id) or '(none)'}: {detail}. "
+        f"Close-out cannot credit this run's QA for {ref}."
     )
 
 
 __all__ = [
     "completion_runs",
-    "current_final_run",
+    "supplemental_run_carries_landing",
     "succeeded_completion_runs",
     "uncredited_supplemental_notice",
 ]
@@ -182,8 +180,8 @@ def latest_qa_member_run(
 ) -> dict[str, Any] | None:
     """Newest live or delivered member capable of answering this source target.
 
-    An explicit target can be answered by a supplemental member that recorded
-    the current final run's pinned or delivered item-project commit. Untargeted
+    An explicit target can be answered by a supplemental member whose recorded
+    item-project commit contains the current landing. Untargeted
     intake remains with final delivery; neither a differently targeted sibling
     nor a cancelled attempt can shadow the member that owes this proof.
     """
@@ -192,19 +190,11 @@ def latest_qa_member_run(
         stage_target_admits,
     )
 
-    finals = completion_runs(conn, item_id)
-    current_final = current_final_run(finals)
-    credited = (
-        frozenset()
-        if current_final is None
-        else run_recorded_and_delivered_shas(
-            conn, current_final["id"], current_final["project_id"]
-        )
-    )
     for run in completion_runs(conn, item_id, include_qa=bool(target_env)):
         if (
             supplemental_qa_run(conn, run_id=run["id"], item_id=item_id)
-            and run["release_lineage"] not in credited
+            and ((verdict := supplemental_run_carries_landing(conn, run, item_id)) is None
+                 or verdict.state != CONTAINED)
         ):
             continue
         if run["status"] in {"failed", "cancelled"}:

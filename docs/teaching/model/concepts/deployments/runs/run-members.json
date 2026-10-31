@@ -4,6 +4,6 @@
  "status": "observed",
  "page": "deployment-runs",
  "position": 1,
- "summary": "Supplemental target custody covers an item only on the same recorded item-project commit, including holders with no frozen selection. Older stage proof enrolls again for a new candidate; a live same-commit holder prevents duplicate enrollment. Final delivery credits stage proof only on the commit it pinned or delivered (a hosted promotion delivers its receipt's commit); add-item warns supplemental_proof_not_credited otherwise.",
- "sources": ["packages/yoke-core/src/yoke_core/domain/deployment_item_completion_runs.py", "runtime/api/domain/test_supplemental_holder_commit_enrollment.py", "runtime/api/domain/test_supplemental_proof_delivered_commit.py", "docs/public/agents/rules/delivery.md"]
+ "summary": "Supplemental proof credits when its recorded item-project commit contains the current landing; re-merging withdraws proof lacking the new landing. Final-target custody never blocks needed supplemental enrollment. A same-environment holder covers the same commit and selection, or an item owing no more QA there; failed proof enrolls again on a later run. Unreadable containment fails closed with its reason and recovery. Stage and Production may differ in surrounding code, fixes or reverts; Production-target obligations still guard Production and other items carry their own QA.",
+ "sources": ["packages/yoke-core/src/yoke_core/domain/deployment_item_completion_runs.py", "runtime/api/domain/test_supplemental_holder_commit_enrollment.py", "runtime/api/domain/test_supplemental_credit_contains_landing.py", "docs/public/agents/rules/delivery.md"]
 }
