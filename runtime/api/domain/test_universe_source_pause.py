@@ -7,7 +7,9 @@ import psycopg
 import pytest
 
 from runtime.api.fixtures import pg_testdb
-from yoke_core.domain import db_backend, universe_archive, universe_export
+from yoke_core.domain import (
+    db_backend, universe_archive, universe_database_pause, universe_export,
+)
 from yoke_core.domain import universe_source_pause as pause
 
 
@@ -24,13 +26,13 @@ def test_pause_drains_clients_and_resume_reopens_source(monkeypatch, tmp_path):
         output = []
         with psycopg.connect(dsn) as other:
             other.execute("SELECT 1")
-            report = universe_export.export_universe(
-                dsn=dsn,
-                out=tmp_path / "move.tar",
-                pause_source=True,
-                emit=output.append,
-            )
             try:
+                report = universe_export.export_universe(
+                    dsn=dsn,
+                    out=tmp_path / "move.tar",
+                    pause_source=True,
+                    emit=output.append,
+                )
                 assert pause.is_paused(dsn)
                 with pytest.raises(psycopg.OperationalError):
                     psycopg.connect(dsn)
@@ -187,3 +189,77 @@ def test_startup_waits_until_export_releases_source(monkeypatch, tmp_path):
             order.append("export finished")
         future.result(timeout=5)
     assert order == ["export finished", "startup admitted"]
+
+
+@pytest.mark.parametrize("arrival", ["before_drain", "after_copy"])
+def test_paused_export_ignores_autovacuum(monkeypatch, tmp_path, arrival):
+    from psycopg import sql
+
+    monkeypatch.setenv("YOKE_MACHINE_HOME", str(tmp_path / "machine"))
+    real_connect = universe_database_pause.connect
+    real_freeze = universe_database_pause.freeze
+    inject = arrival == "before_drain"
+    terminated = []
+
+    class MaintenanceConnection:
+        def __init__(self, conn):
+            self.conn = conn
+
+        def __enter__(self):
+            self.conn.__enter__()
+            return self
+
+        def __exit__(self, *args):
+            return self.conn.__exit__(*args)
+
+        def execute(self, query, params=None):
+            if isinstance(query, str) and "pg_terminate_backend" in query:
+                terminated.append(params[0])
+            return self.conn.execute(query, params)
+
+    with pg_testdb.test_database() as source:
+        source.commit()
+        dsn = os.environ[db_backend.PG_DSN_ENV]
+        source_name = source.info.dbname
+
+        def connect(value):
+            conn = real_connect(value)
+            if inject:
+                conn.execute(
+                    sql.SQL(
+                        "CREATE TEMP VIEW pg_stat_activity AS "
+                        "SELECT pid, datname, backend_type "
+                        "FROM pg_catalog.pg_stat_activity UNION ALL "
+                        "SELECT 0, {}, 'autovacuum worker'"
+                    ).format(sql.Literal(source_name))
+                )
+            return MaintenanceConnection(conn)
+
+        def freeze(value, state, **kwargs):
+            nonlocal inject
+            real_freeze(value, state, timeout_s=0.2)
+            inject = True
+
+        monkeypatch.setattr(universe_database_pause, "connect", connect)
+        monkeypatch.setattr(universe_database_pause, "freeze", freeze)
+        try:
+            report = universe_export.export_universe(
+                dsn=dsn, out=tmp_path / "move.tar", pause_source=True
+            )
+            assert Path(report["artifact"]).is_file()
+            assert 0 not in terminated
+        finally:
+            pause.resume(dsn)
+
+
+def test_client_drain_cleanup_preserves_export_error(monkeypatch, tmp_path):
+    from yoke_core.domain import universe_snapshot_archive
+
+    def fail(**_kwargs):
+        raise universe_export.UniverseExportError("forced export failure")
+
+    monkeypatch.setattr(universe_snapshot_archive, "snapshot_archive", fail)
+    with pytest.raises(
+        universe_export.UniverseExportError, match="forced export failure"
+    ):
+        test_pause_drains_clients_and_resume_reopens_source(monkeypatch, tmp_path)

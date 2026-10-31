@@ -86,6 +86,8 @@ def snapshot_archive(
             frozen_at=frozen_at,
             authority=after,
             inspection=inspection,
+            # Exclusive TEMPLATE copy plus source datallowconn=false proves
+            # admission stayed fenced; later autovacuum does not add writers.
             zero_writable_app_sessions=writers_stopped,
         )
         if manifest is not None:
