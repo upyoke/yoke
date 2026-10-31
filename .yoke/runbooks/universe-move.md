@@ -82,7 +82,8 @@ On each machine, confirm command help accepts `--protected` before proceeding.
    yoke universe validate /secure/source.tar
    ```
 
-   The pause stops source writers and drains database client sessions before
+   The pause disables source database connections, drains all client sessions and
+   creates a frozen copy before
    the snapshot. It stays in effect after either success or failure until Resume.
    A backup export without the flag cannot be used for hosted replacement.
    Hosted CLI export refuses and names dashboard Download; protected direct

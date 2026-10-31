@@ -122,6 +122,11 @@ def authenticate_request(request: Request) -> HttpAuthContext | JSONResponse:
                 conn,
                 token.strip(),
                 diagnostic_metadata=_request_metadata(request),
+                **(
+                    {"observe": False}
+                    if getattr(request.state, "universe_paused_read", False)
+                    else {}
+                ),
             )
             service_outside_scope = _hosted_service_outside_scope(
                 conn, request, verified.actor_id
@@ -266,6 +271,8 @@ def _context_from_verified(verified: VerifiedToken) -> HttpAuthContext:
 
 
 def _record_failed_verify(request: Request, outcome: str) -> None:
+    if getattr(request.state, "universe_paused_read", False):
+        return
     try:
         with db_helpers.connect() as conn:
             record_token_audit(

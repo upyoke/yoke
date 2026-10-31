@@ -30,6 +30,7 @@ def snapshot_archive(
     writers_stopped: bool,
     max_bytes: int | None = None,
     include_artifacts: bool = True,
+    source_identity: dict | None = None,
     emit: Callable[[str], None] = lambda _line: None,
 ) -> Dict[str, Any]:
     """Pack a database snapshot and the receipt of its writer state."""
@@ -49,6 +50,8 @@ def snapshot_archive(
         conn = _snapshot_connection(resolved_dsn)
         try:
             identity = _universe_identity(conn)
+            if source_identity is not None:
+                identity.update(source_identity)
             selected_org = str(identity["org"])
             dest = resolve_export_destination(out, selected_org)
             emit(f"  [universe-export] dumping org {selected_org!r} universe -> {dest}")
@@ -105,7 +108,12 @@ def snapshot_archive(
     emit(
         f"  [universe-export] wrote {artifact_bytes} bytes"
         f" ({ARTIFACT_FORMAT}: {universe_archive.ARCHIVE_MEMBER_DUMP}"
-        f" + {universe_archive.ARCHIVE_MEMBER_RECEIPT})"
+        f" + {universe_archive.ARCHIVE_MEMBER_RECEIPT}"
+        + (
+            " + artifacts-manifest.json + artifacts/qa-artifacts + artifacts/shared-files)"
+            if manifest is not None
+            else ")"
+        )
     )
     return {
         "artifact": str(dest),

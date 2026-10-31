@@ -110,11 +110,26 @@ yoke universe export --pause-source --out /secure/source.tar
 yoke universe validate /secure/source.tar
 ```
 
-The pause stops the selected local source's installed relay, blocks new Yoke
-database writers, terminates other database client sessions,
-and waits for zero writable application sessions before exporting. The server's
-separate read-only advisory-lock session remains to prevent concurrent import;
-it cannot change data. It remains in effect after success or failure.
+The pause stops the selected source's installed relay, sets PostgreSQL's
+`ALLOW_CONNECTIONS=false` on the source database and terminates its existing
+sessions. Older engines and raw PostgreSQL clients cannot reconnect, even as the
+cluster superuser. Export uses a frozen copy of that closed database and preserves
+the original source name and OID in its receipt. A private pause record binds that
+copy to the source; it remains until successful Resume. This needs space for an
+additional database copy, maintenance-database access, database creation authority
+and permission to terminate source sessions. Failure keeps the source closed and
+names recovery; retry paused export or explicitly Resume it.
+
+Server startup and import coordinate through a read-only advisory-lock connection
+to the maintenance database, scoped to this source. That lock survives the source
+pause. A restarted paused server reads token and permission state from the frozen
+copy, preserving authentication checks without writing token telemetry. Explicit
+Resume reopens the original for schema preparation, restores its stopped relay,
+and removes the copy and pause record. If preparation fails, it closes and drains
+the source again and refreshes the frozen copy; writes accepted during that
+explicit Resume attempt remain in the source. A failed fence or copy recovery is
+reported and requires database administration access before retrying.
+
 The self-host bundle persists its machine home, pause marker and local artifacts
 on the corestate volume across container replacement. An older bundle without
 an explicit persistent machine home refuses paused export and names its refresh
@@ -127,9 +142,7 @@ Local database acquisition
 refuses connections to that source. Run `yoke universe resume` against that same
 source when it may write again. A pause-marker or drain failure refuses the move
 with recovery; repair the named cause and retry, or explicitly resume the source.
-Database authority must permit terminating its client sessions. Resume restarts
-a relay that the pause stopped; unrelated connections and their services stay
-independent. Run a source export from a standalone terminal if it is itself
+Unrelated databases and their services stay independent. Run a source export from a standalone terminal if it is itself
 running under that source relay.
 
 Export without `--pause-source` is a backup with

@@ -119,16 +119,34 @@ def mint_token(
     p = _p(conn)
     require_actor_active(conn, actor_id, lock=True)
     replay_sql = f"SELECT 1 FROM api_tokens WHERE creation_request_id = {p}"
-    if creation_request_id is not None and conn.execute(
-        replay_sql, (creation_request_id,),
-    ).fetchone():
+    if (
+        creation_request_id is not None
+        and conn.execute(
+            replay_sql,
+            (creation_request_id,),
+        ).fetchone()
+    ):
         raise TokenCreationReplayed("Token creation result is no longer available")
     columns = "token_hash, actor_id, name, status, created_at, expires_at, diagnostic_metadata"
-    params = (token_hash, actor_id, name, TOKEN_STATUS_ACTIVE, instant_parameter(conn, _now()),
-              instant_parameter(conn, expiry), _metadata_json(diagnostic_metadata))
-    if creation_request_id is not None:  # only request-bound creation stores a replay key
-        columns, params = f"{columns}, creation_request_id", (*params, creation_request_id)
-    insert_sql = f"INSERT INTO api_tokens ({columns}) VALUES ({', '.join([p] * len(params))})"
+    params = (
+        token_hash,
+        actor_id,
+        name,
+        TOKEN_STATUS_ACTIVE,
+        instant_parameter(conn, _now()),
+        instant_parameter(conn, expiry),
+        _metadata_json(diagnostic_metadata),
+    )
+    if (
+        creation_request_id is not None
+    ):  # only request-bound creation stores a replay key
+        columns, params = (
+            f"{columns}, creation_request_id",
+            (*params, creation_request_id),
+        )
+    insert_sql = (
+        f"INSERT INTO api_tokens ({columns}) VALUES ({', '.join([p] * len(params))})"
+    )
     try:
         row = conn.execute(f"{insert_sql} RETURNING id", params).fetchone()
     except db_backend.integrity_error_types(conn):
@@ -136,7 +154,9 @@ def mint_token(
             raise
         conn.rollback()
         if conn.execute(replay_sql, (creation_request_id,)).fetchone():
-            raise TokenCreationReplayed("Token creation result is no longer available") from None
+            raise TokenCreationReplayed(
+                "Token creation result is no longer available"
+            ) from None
         raise
     conn.commit()
     token_id = int(row[0])
@@ -157,13 +177,23 @@ def verify_token(
     project_id: int | None = None,
     permission_key: str | None = None,
     diagnostic_metadata: dict[str, Any] | None = None,
+    observe: bool = True,
 ) -> VerifiedToken:
-    """Verify a raw token and return its actor.
+    """Verify every credential check; observe=False performs no telemetry writes."""
 
-    A success writes ``last_used_at`` only when that instant is missing or
-    older than one minute, and it writes no audit row. A refusal still
-    appends an audit row.
-    """
+    def audit(outcome, token_id=None, actor_id=None):
+        if observe:
+            record_token_audit(
+                conn,
+                api_token_id=token_id,
+                actor_id=actor_id,
+                project_id=project_id,
+                event_type="verify",
+                outcome=outcome,
+                permission_key=permission_key,
+                diagnostic_metadata=diagnostic_metadata,
+            )
+
     token_hash = hash_token(raw_token)
     p = _p(conn)
     row = conn.execute(
@@ -172,16 +202,7 @@ def verify_token(
         (token_hash,),
     ).fetchone()
     if row is None:
-        record_token_audit(
-            conn,
-            api_token_id=None,
-            actor_id=None,
-            project_id=project_id,
-            event_type="verify",
-            outcome="not_found",
-            permission_key=permission_key,
-            diagnostic_metadata=diagnostic_metadata,
-        )
+        audit("not_found", None, None)
         raise TokenNotFound("API token not found")
     token_id, actor_id, name, status, expires_at, machine_id = row
     token_id = int(token_id)
@@ -198,16 +219,7 @@ def verify_token(
             (bound_machine,),
         ).fetchone()
         if retired is not None and retired[0] is not None:
-            record_token_audit(
-                conn,
-                api_token_id=token_id,
-                actor_id=actor_id,
-                project_id=project_id,
-                event_type="verify",
-                outcome="machine_retired",
-                permission_key=permission_key,
-                diagnostic_metadata=diagnostic_metadata,
-            )
+            audit("machine_retired", token_id, actor_id)
             raise TokenMachineRetired(
                 compose_refusal(
                     "Machine credential belongs to a retired machine.",
@@ -215,42 +227,25 @@ def verify_token(
                 )
             )
     if status != TOKEN_STATUS_ACTIVE:
-        record_token_audit(
-            conn,
-            api_token_id=token_id,
-            actor_id=actor_id,
-            project_id=project_id,
-            event_type="verify",
-            outcome="revoked",
-            permission_key=permission_key,
-            diagnostic_metadata=diagnostic_metadata,
-        )
+        audit("revoked", token_id, actor_id)
         raise TokenRevoked("API token is revoked")
     now = _now()
     if expires_at is not None and parse_instant(expires_at) <= now:
-        record_token_audit(
-            conn,
-            api_token_id=token_id,
-            actor_id=actor_id,
-            project_id=project_id,
-            event_type="verify",
-            outcome="expired",
-            permission_key=permission_key,
-            diagnostic_metadata=diagnostic_metadata,
-        )
+        audit("expired", token_id, actor_id)
         raise TokenExpired("API token is expired")
-    wrote_last_used = conn.execute(
-        f"UPDATE api_tokens SET last_used_at = {p} "
-        f"WHERE id = {p} AND (last_used_at IS NULL OR last_used_at < {p}) "
-        "RETURNING id",
-        (
-            instant_parameter(conn, now),
-            token_id,
-            instant_parameter(conn, now - _LAST_USED_WINDOW),
-        ),
-    ).fetchone()
-    if wrote_last_used is not None:
-        conn.commit()
+    if observe:
+        wrote_last_used = conn.execute(
+            f"UPDATE api_tokens SET last_used_at = {p} "
+            f"WHERE id = {p} AND (last_used_at IS NULL OR last_used_at < {p}) "
+            "RETURNING id",
+            (
+                instant_parameter(conn, now),
+                token_id,
+                instant_parameter(conn, now - _LAST_USED_WINDOW),
+            ),
+        ).fetchone()
+        if wrote_last_used is not None:
+            conn.commit()
     return VerifiedToken(
         token_id=token_id,
         actor_id=actor_id,

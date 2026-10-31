@@ -126,9 +126,11 @@ def export_universe(
             universe_source_pause.pause_owner(),
         ):
             universe_source_pause.pause(resolved_dsn)
+            export_dsn, identity = universe_source_pause.export_source(resolved_dsn)
             emit("Source paused; run `yoke universe resume` when it may write again.")
             return snapshot_archive(
-                dsn=resolved_dsn,
+                dsn=export_dsn,
+                source_identity=identity,
                 out=out,
                 writers_stopped=True,
                 include_artifacts=not exclude_artifacts,

@@ -35,6 +35,7 @@ def install(application):
                 },
             )
         if resume or export:
+            request.state.universe_paused_read = paused
             try:
                 with (
                     universe_source_pause.operation(dsn),
