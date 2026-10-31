@@ -76,7 +76,8 @@ def test_owner_write_and_read_return_identical_evidence(subject, tmp_path, monke
                 expected_subject = "deployment-run-run-owner-proof"
                 if subject == "member":
                     conn.execute(
-                        "UPDATE qa_requirements SET deployment_member_item_id=42 WHERE id=10"
+                        "UPDATE qa_requirements SET deployment_member_item_id=42, "
+                        "deployment_stage='item-qa' WHERE id=10"
                     )
                     expected_project = "yoke"
             elif subject == "epic":

@@ -34,6 +34,14 @@ CREATE TABLE projects (
     public_item_prefix TEXT NOT NULL DEFAULT 'YOK'
 );
 INSERT INTO projects (id, slug, name) VALUES (1, 'yoke', 'yoke');
+CREATE TABLE qa_plans (
+    id INTEGER PRIMARY KEY,
+    project_id INTEGER NOT NULL
+);
+CREATE TABLE deployment_runs (
+    id TEXT PRIMARY KEY,
+    project_id INTEGER NOT NULL
+);
 CREATE TABLE items (
     id INTEGER PRIMARY KEY,
     title TEXT NOT NULL DEFAULT '',

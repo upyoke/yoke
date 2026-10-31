@@ -292,10 +292,7 @@ class TestPresignDenials(unittest.TestCase):
         self.assertFalse(outcome.primary_success)
         self.assertEqual(outcome.error.code, "target_invalid")
 
-    def test_epic_task_owner_is_refused_by_name_not_as_item_only(self):
-        # The third owner kind durable storage has no key layout for. The
-        # Refusal names the owner it saw rather than reporting the requirement
-        # as merely "not item-backed".
+    def test_epic_task_owner_mints_the_epic_item_key(self):
         with test_database() as conn:
             _seed(conn, env_buckets={"prod": "b"}, with_run=False)
             insert_qa_requirement(
@@ -318,11 +315,13 @@ class TestPresignDenials(unittest.TestCase):
             conn.commit()
             request = _request({"run_id": 100, "filename": "home.png"})
             request.target.qa_requirement_id = 13
-            outcome = qa_artifact_presign.handle_qa_artifact_presign(request)
-        self.assertFalse(outcome.primary_success)
-        self.assertEqual(outcome.error.code, "target_invalid")
-        self.assertIn("epic_id=42", outcome.error.message)
-        self.assertIn("durable evidence", outcome.error.message)
+            with patch.object(
+                qa_artifact_presign, "_capability_credentials", return_value=_CREDS
+            ):
+                outcome = qa_artifact_presign.handle_qa_artifact_presign(request)
+        self.assertTrue(outcome.primary_success, outcome.error)
+        handle = outcome.result_payload["artifact_handle"]
+        self.assertEqual(handle["key"], "qa-artifacts/yoke/42/100/home.png")
 
     def test_unsafe_filename_is_payload_invalid(self):
         with test_database() as conn:

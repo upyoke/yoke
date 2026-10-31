@@ -33,6 +33,14 @@ _QA_SUPPORT_SCHEMA = """
     INSERT INTO projects (id, slug, name)
     VALUES (2, 'externalwebapp', 'externalwebapp');
 
+CREATE TABLE qa_plans (
+    id INTEGER PRIMARY KEY,
+    project_id INTEGER NOT NULL
+);
+CREATE TABLE deployment_runs (
+    id TEXT PRIMARY KEY,
+    project_id INTEGER NOT NULL
+);
     CREATE TABLE IF NOT EXISTS items (
         id INTEGER PRIMARY KEY,
         title TEXT NOT NULL DEFAULT '',
