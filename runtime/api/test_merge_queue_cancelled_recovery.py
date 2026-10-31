@@ -183,7 +183,9 @@ def test_armed_route_preserves_authoritative_run_protections(
             elif "/actions/workflows/" in request.path and condition == "superseded":
                 body["workflow_runs"][0]["id"] += 1
             elif request.path.endswith("/jobs") and condition == "job_failed":
-                body["jobs"][0]["conclusion"] = "failure"
+                body["jobs"][0].update(
+                    conclusion="failure", steps=[{"conclusion": "failure"}]
+                )
             elif "workflow_id" in body:
                 if condition == "active":
                     body["status"] = "in_progress"

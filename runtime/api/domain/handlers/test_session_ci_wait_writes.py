@@ -69,7 +69,7 @@ def test_resolve_requires_a_session() -> None:
 
 def test_resolve_rejects_a_non_binding_conclusion() -> None:
     outcome = writes.handle_resolve_ci_wait(
-        _request(payload={"run_id": RUN_ID, "conclusion": "timed_out"})
+        _request(payload={"run_id": RUN_ID, "conclusion": "cancelled"})
     )
 
     assert outcome.primary_success is False
@@ -77,18 +77,22 @@ def test_resolve_rejects_a_non_binding_conclusion() -> None:
     assert outcome.error.code == "payload_invalid"
 
 
+@pytest.mark.parametrize("conclusion", ["success", "failure", "timed_out"])
 def test_resolve_marks_the_calling_session_wait_notified(
+    conclusion,
     waiting_connection,  # noqa: F811 - pytest fixture reuse of imported name
     monkeypatch,
 ) -> None:
     monkeypatch.setattr(writes, "_connect_rw", lambda: _ConnCM(waiting_connection))
 
-    outcome = writes.handle_resolve_ci_wait(_request())
+    outcome = writes.handle_resolve_ci_wait(
+        _request(payload={"run_id": RUN_ID, "conclusion": conclusion})
+    )
 
     assert outcome.primary_success is True
     assert outcome.result_payload["resolved"] is True
     row = _wait_row(waiting_connection)
-    assert row["conclusion"] == "success"
+    assert row["conclusion"] == conclusion
     assert row["notified_at"]
 
 
@@ -158,7 +162,8 @@ def test_record_new_candidate_drops_only_its_superseded_pending_waits(
     conn = waiting_connection
     if old_repo != "acme/widgets":
         conn.execute(
-            "INSERT INTO project_github_repo_bindings VALUES (1,?, 'active')", (old_repo,)
+            "INSERT INTO project_github_repo_bindings VALUES (1,?, 'active')",
+            (old_repo,),
         )
     conn.execute(
         "UPDATE session_ci_run_waits SET session_id=?, repo=?, kind=?, "

@@ -14,7 +14,7 @@
   "github-actions run": "Act on one workflow run.",
   "github-actions run cancel": "Cancel one workflow run.",
   "github-actions run jobs-count": "Count the jobs in a workflow run.",
-  "github-actions run rerun-failed": "Recover CI that reached no verdict on an item's pull request.",
+  "github-actions run rerun-failed": "Recover cancelled or never-started CI on an item.",
   "github-actions runners": "Read self-hosted runner state.",
   "github-actions runners status": "Show self-hosted runners and their routing.",
   "github-actions secret": "Set or delete repository Actions secrets.",

@@ -110,7 +110,9 @@ def _complete_owned_intent() -> None:
     )
 
 
-def test_owner_replays_failed_run_without_a_new_attempt(
+@pytest.mark.parametrize("conclusion", ["failure", "timed_out"])
+def test_owner_replays_red_run_without_a_new_attempt(
+    conclusion: str,
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -118,7 +120,7 @@ def test_owner_replays_failed_run_without_a_new_attempt(
         _complete_owned_intent()
 
         def fake_rest_get(path: str, *, query: Any = None, token: str) -> Any:
-            return {"id": "999", "status": "completed", "conclusion": "failure"}
+            return {"id": "999", "status": "completed", "conclusion": conclusion}
 
         monkeypatch.setattr(github_actions_rest, "rest_get", fake_rest_get)
         monkeypatch.setattr(github_actions_rest, "rest_post", refusing_rest_post)
@@ -135,7 +137,7 @@ def test_owner_replays_failed_run_without_a_new_attempt(
     assert attempt == 1
 
 
-@pytest.mark.parametrize("conclusion", ["cancelled", "startup_failure", "timed_out"])
+@pytest.mark.parametrize("conclusion", ["cancelled", "startup_failure"])
 def test_owner_retriggers_a_run_with_no_verdict(
     conclusion: str,
     tmp_path: Path,

@@ -81,7 +81,7 @@ def test_bridge_creates_or_recovers_one_annotated_release_tag() -> None:
     assert ".head_branch ==" in text and "$RELEASE_TAG" in text
 
 
-def test_bridge_restarts_one_already_failed_factory_attempt() -> None:
+def test_bridge_stops_on_failed_factory_without_rerunning() -> None:
     await_step = (
         _text()
         .split("- name: Await the wheel and server-image release factories", 1)[1]
@@ -89,11 +89,14 @@ def test_bridge_restarts_one_already_failed_factory_attempt() -> None:
     )
 
     assert "GH_TOKEN: ${{ github.token }}" in await_step
-    assert 'gh run rerun "$run_id"' in await_step
-    assert "--failed" in await_step
-    assert '"$factory_attempt" -gt 1' in await_step
-    assert "factory_failed_job_rerun_exhausted" in await_step
-    assert "Another bridge already restarted" in await_step
+    assert "gh run rerun" not in await_step
+    assert "factory_failed:" in await_step
+    assert (
+        "inspect it, fix the cause on main, and start a new deployment run"
+        in await_step
+    )
+    assert "exit 1" in await_step
+    assert "yoke github-actions wait-run" in await_step
 
 
 def test_bridge_uses_scoped_yoke_api_token_not_cross_repo_github_token() -> None:
