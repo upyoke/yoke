@@ -8,12 +8,11 @@ import os
 import re
 import subprocess
 import sys
+import tomllib
 from dataclasses import dataclass
 from importlib.metadata import version
 from pathlib import Path
-from typing import Sequence
-
-from yoke_core.tools.locked_dependencies import version_mismatches
+from typing import Mapping, Sequence
 
 METADATA_MARKER = "YOKE_SERVER_IMAGE_METADATA="
 _METADATA_FIELDS = frozenset({"build", "version"})
@@ -106,6 +105,32 @@ def _parser() -> argparse.ArgumentParser:
     native.add_argument("--expected-build", required=True)
     native.add_argument("--digest-dir", type=Path, required=True)
     return parser
+
+
+def canonicalize_name(name: str) -> str:
+    return re.sub(r"[-_.]+", "-", name).lower()
+
+
+def version_mismatches(lock_path: Path, installed: Mapping[str, str]) -> list[str]:
+    """Report every unlocked or changed distribution, excluding workspace products."""
+    lock = tomllib.loads(lock_path.read_text())
+    products = {canonicalize_name(name) for name in lock["manifest"]["members"]}
+    versions: dict[str, set[str]] = {}
+    for package in lock["package"]:
+        if "registry" in package["source"]:
+            versions.setdefault(canonicalize_name(package["name"]), set()).add(
+                package["version"]
+            )
+    mismatches = []
+    for name, actual in sorted(installed.items()):
+        name = canonicalize_name(name)
+        if name in products:
+            continue
+        expected = versions.get(name, set())
+        if actual not in expected:
+            wanted = ",".join(str(value) for value in sorted(expected)) or "absent from uv.lock"
+            mismatches.append(f"{name}: installed={actual} locked={wanted}")
+    return mismatches
 
 
 def verify_native_image(args: argparse.Namespace) -> str:

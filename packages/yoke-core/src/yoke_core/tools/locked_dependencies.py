@@ -3,37 +3,12 @@
 from __future__ import annotations
 
 import tempfile
-import tomllib
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Callable, Iterator, Mapping
-
-from packaging.utils import canonicalize_name
-from packaging.version import Version
+from typing import Callable, Iterator
 
 from yoke_core.tools import package_index
-
-
-def version_mismatches(lock_path: Path, installed: Mapping[str, str]) -> list[str]:
-    """Report every unlocked or changed distribution, excluding workspace products."""
-    lock = tomllib.loads(lock_path.read_text())
-    products = {canonicalize_name(name) for name in lock["manifest"]["members"]}
-    versions: dict[str, set[Version]] = {}
-    for package in lock["package"]:
-        if "registry" in package["source"]:
-            versions.setdefault(canonicalize_name(package["name"]), set()).add(
-                Version(package["version"])
-            )
-    mismatches = []
-    for name, actual in sorted(installed.items()):
-        name = canonicalize_name(name)
-        if name in products:
-            continue
-        expected = versions.get(name, set())
-        if Version(actual) not in expected:
-            wanted = ",".join(str(value) for value in sorted(expected)) or "absent from uv.lock"
-            mismatches.append(f"{name}: installed={actual} locked={wanted}")
-    return mismatches
+from yoke_core.tools.server_image_metadata import version_mismatches
 
 
 def assert_locked_wheelhouse(repo_root: Path, wheelhouse: Path) -> None:
