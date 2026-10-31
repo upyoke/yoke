@@ -182,7 +182,6 @@ from yoke_cli.commands.adapters.project_github_binding import (
 from yoke_cli.commands.adapters.github import (
     github_connect,
     github_disconnect,
-    github_pr_create,
     github_status,
 )
 from yoke_cli.commands.adapters.github_release import (

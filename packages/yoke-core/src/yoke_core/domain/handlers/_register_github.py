@@ -1,10 +1,4 @@
-"""Handler registrations for the repo-level ``github.*`` family.
-
-Distinct from ``_register_github_actions``: PRs are repo-level GitHub
-surfaces, not Actions surfaces. Carries ``github.pr.create`` so agents
-open pull requests through the bearer-token REST transport with no host
-GitHub CLI binary.
-"""
+"""Register repository GitHub operations, including installer proposals."""
 
 from __future__ import annotations
 

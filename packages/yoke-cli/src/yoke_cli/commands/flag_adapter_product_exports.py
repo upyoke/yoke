@@ -191,7 +191,6 @@ FLAG_ADAPTER_EXPORT_NAMES = [
     *_strategy.__all__,
     "github_connect",
     "github_disconnect",
-    "github_pr_create",
     "github_release_create_commit_tag",
     "github_status",
     "hook_evaluate",

@@ -143,7 +143,9 @@ def test_unopened_pull_request_still_leaves_the_branch_and_the_recipe(
     assert publication["status"] == publication_outcome.PENDING
     assert publication["commit"] == report["commit"]["sha"]
     assert publication["proposal_branch"] in world.remote_branches()
-    assert "yoke github pr create" in publication["recovery"]
+    assert publication["proposal_branch"] in publication["recovery"]
+    assert "into main on GitHub" in publication["recovery"]
+    assert "yoke github pr create" not in publication["recovery"]
 
 
 def test_refused_push_reports_pending_with_commit_and_recovery(

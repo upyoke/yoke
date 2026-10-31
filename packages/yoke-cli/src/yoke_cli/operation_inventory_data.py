@@ -233,9 +233,6 @@ WRAPPED_ROWS: Tuple[_Row, ...] = (
     _w("yoke strategy render", "strategy"),
     _w("yoke strategy ingest", "strategy"),
     _w("yoke strategy seed-defaults", "strategy"),
-    # PR-create was the last bearer-token GitHub admin surface without a wrapper
-    # (repo-level github family, not github_actions).
-    _w("yoke github pr create", "github"),
     _w("yoke github merge-queue apply", "github"),
     _w("yoke github merge-queue hold", "github"),
     _w("yoke github merge-queue readiness", "github"),

@@ -79,7 +79,6 @@ from yoke_cli.commands.adapters.events import (
 from yoke_cli.commands.adapters.github import (
     GITHUB_CONNECT_USAGE,
     GITHUB_DISCONNECT_USAGE,
-    GITHUB_PR_CREATE_USAGE,
     GITHUB_STATUS_USAGE,
 )
 from yoke_cli.commands.adapters.github_release import (
@@ -309,7 +308,6 @@ ADAPTER_USAGE: Dict[str, str] = {
     **STRATEGY_USAGE,
     "github.connect.run": GITHUB_CONNECT_USAGE,
     "github.disconnect.run": GITHUB_DISCONNECT_USAGE,
-    "github.pr.create": GITHUB_PR_CREATE_USAGE,
     "github.status.run": GITHUB_STATUS_USAGE,
     "hook.evaluate.run": HOOK_EVALUATE_USAGE,
     "scratch.dispatch_inputs": SCRATCH_DISPATCH_INPUTS_USAGE,

@@ -44,7 +44,7 @@ class TestGroupHelpWhereAGroupExists:
         assert cli_main(["github", "--help"]) == 0
         out = capsys.readouterr().out
         assert "yoke github actions" in out
-        assert "yoke github pr" in out
+        assert "yoke github pr" not in out
         assert "yoke github pr create" not in out
 
     def test_group_listing_never_repeats_one_command(self, capsys):

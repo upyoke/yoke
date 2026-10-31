@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from typing import Callable, Dict, List, Tuple
 
-from yoke_cli.commands.adapters.github import github_pr_create
 from yoke_cli.commands.adapters.github_branch import github_branch_head
 from yoke_cli.commands.adapters.github_open_work import github_open_work_list
 from yoke_cli.commands.adapters.github_merge_queue import (
@@ -25,7 +24,6 @@ GITHUB_SUBCOMMAND_REGISTRY: Dict[Tuple[str, ...], Tuple[str, AdapterFn]] = {
         "github.release.create_commit_tag",
         github_release_create_commit_tag,
     ),
-    ("github", "pr", "create"): ("github.pr.create", github_pr_create),
     ("github", "branch", "head"): ("github.branch.head", github_branch_head),
     ("github", "open-work", "list"): (
         "github.open_work.list",

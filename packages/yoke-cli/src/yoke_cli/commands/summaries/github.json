@@ -46,8 +46,6 @@
   "github open work list": "List the repository's open issues and pull requests.",
   "github open-work": "Read open issues and pull requests.",
   "github open-work list": "List the repository's open issues and pull requests.",
-  "github pr": "Open pull requests on the bound repository.",
-  "github pr create": "Open a pull request on the project's repository.",
   "github release": "Create release tags on GitHub.",
   "github release create-commit-tag": "Create the dated release tag for a release commit.",
   "github status": "Show whether this machine's GitHub access works."
