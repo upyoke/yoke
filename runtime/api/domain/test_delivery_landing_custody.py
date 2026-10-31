@@ -282,6 +282,7 @@ def test_diverged_holder_allows_enrollment_without_proving_delivery(
     monkeypatch.setattr(
         unheld, "candidate_range_commits", lambda *args, **kw: frozenset()
     )
+    insert_run(test_db, "new-run", lineage=COMMIT, status="created", flow=FLOW)
     enrollable, held = unheld._project_custody(
         test_db,
         "new-run",
