@@ -1,6 +1,6 @@
 """Native SQL clock windows preserve instants across database session zones."""
 
-from datetime import timedelta
+from datetime import timedelta, timezone
 
 import pytest
 
@@ -38,4 +38,5 @@ def test_native_clock_offsets_preserve_elapsed_seconds(test_db, zone, kwargs, se
         f"SELECT now(), {fragment}, pg_typeof({fragment})::text", params * 2
     ).fetchone()
     assert row[2] == "timestamp with time zone"
-    assert row[1] - row[0] == timedelta(seconds=seconds)
+    elapsed = row[1].astimezone(timezone.utc) - row[0].astimezone(timezone.utc)
+    assert elapsed == timedelta(seconds=seconds)
