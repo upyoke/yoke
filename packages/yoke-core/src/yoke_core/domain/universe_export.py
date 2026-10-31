@@ -117,6 +117,8 @@ def export_universe(
     from yoke_core.domain.universe_snapshot_archive import snapshot_archive
 
     resolved_dsn = dsn if dsn is not None else resolve_export_dsn()
+    # Prove destination access before stopping writers; the snapshot names the org.
+    resolve_export_destination(out, "universe")
     _start_own_universe(resolved_dsn, emit)
     from yoke_core.domain import universe_source_pause
 

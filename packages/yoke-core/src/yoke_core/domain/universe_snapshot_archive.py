@@ -15,6 +15,7 @@ from yoke_core.domain import (
 )
 from yoke_core.domain.universe_export_destination import (
     UniverseExportError,
+    destination_unavailable,
     resolve_export_destination,
 )
 
@@ -102,18 +103,23 @@ def snapshot_archive(
             )
         except universe_archive.UniverseArchiveError as exc:
             raise UniverseExportError(str(exc)) from exc
+    except OSError as exc:
+        raise destination_unavailable(exc) from exc
     finally:
         artifact_workspace.cleanup()
         _unlink_quietly(staged_dump)
+    members = [
+        universe_archive.ARCHIVE_MEMBER_DUMP,
+        universe_archive.ARCHIVE_MEMBER_RECEIPT,
+    ]
+    if manifest is not None:
+        from yoke_core.domain.universe_archive_artifacts import MANIFEST
+
+        members.append(MANIFEST)
+        members.extend(sorted({"artifacts/" + key.split("/", 1)[0] for key in files}))
     emit(
         f"  [universe-export] wrote {artifact_bytes} bytes"
-        f" ({ARTIFACT_FORMAT}: {universe_archive.ARCHIVE_MEMBER_DUMP}"
-        f" + {universe_archive.ARCHIVE_MEMBER_RECEIPT}"
-        + (
-            " + artifacts-manifest.json + artifacts/qa-artifacts + artifacts/shared-files)"
-            if manifest is not None
-            else ")"
-        )
+        f" ({ARTIFACT_FORMAT}: {' + '.join(members)})"
     )
     return {
         "artifact": str(dest),
