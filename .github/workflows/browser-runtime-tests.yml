@@ -111,7 +111,7 @@ jobs:
         if: steps.change_scope.outputs.should_run == 'true'
         run: |
           python3 -m pip install uv
-          uv sync --all-packages --all-groups --locked
+          uv sync --all-packages --locked
 
       - name: Run registered Browser case integration
         if: steps.change_scope.outputs.should_run == 'true'

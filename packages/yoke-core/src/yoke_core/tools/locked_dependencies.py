@@ -16,7 +16,7 @@ def assert_locked_wheelhouse(repo_root: Path, wheelhouse: Path) -> None:
     """Apply the lock check to every dependency wheel in the offline closure."""
     records = package_index.read_wheel_records(wheelhouse)
     mismatches = version_mismatches(
-        repo_root / "uv.lock", {record.name: record.version for record in records}
+        repo_root / "uv.lock", ((record.name, record.version) for record in records)
     )
     if mismatches:
         raise ReleaseBuildError(

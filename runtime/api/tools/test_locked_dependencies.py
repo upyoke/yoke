@@ -23,17 +23,18 @@ def lock(tmp_path):
 def test_reports_all_changed_and_unlocked_distributions(lock):
     assert locked.version_mismatches(lock, {
         "pglast": "7.22", "unknown_dependency": "1", "yoke-core": "1",
-    }) == [
+    }.items()) == [
         "pglast: installed=7.22 locked=7.20",
         "unknown-dependency: installed=1 locked=absent from uv.lock",
     ]
-    assert locked.version_mismatches(lock, {"pglast": "7.20"}) == []
+    assert locked.version_mismatches(lock, [("pglast", "7.20")]) == []
 
 
 def test_rejects_unlocked_wheel_bytes(lock):
     wheelhouse = lock.parent / "wheels"
     wheelhouse.mkdir()
     _write_wheel(wheelhouse, name="pglast", version="7.22")
+    _write_wheel(wheelhouse, name="pglast", version="7.20")
     with pytest.raises(locked.ReleaseBuildError, match="wheelhouse_lock_mismatch.*"):
         locked.assert_locked_wheelhouse(lock.parent, wheelhouse)
 
