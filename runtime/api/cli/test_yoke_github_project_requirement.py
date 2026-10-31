@@ -22,7 +22,6 @@ from yoke_cli.main import main as cli_main
             "github-actions", "variable", "set", "o/r", "NAME",
             "--value", "value",
         ),
-        ("github", "pr", "create", "--title", "T", "--head", "branch"),
     ],
 )
 def test_github_adapter_rejects_missing_project(argv: tuple[str, ...]) -> None:

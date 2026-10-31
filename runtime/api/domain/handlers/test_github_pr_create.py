@@ -182,4 +182,4 @@ class TestRegistration:
         for entry in github_pr_create.REGISTRATIONS:
             assert entry["target_kinds"] == ["global"]
             assert entry["claim_required_kind"] is None
-            assert entry["adapter_status"] == "live"
+            assert entry["adapter_status"] == "internal"

@@ -128,7 +128,7 @@ REGISTRATIONS: List[Dict[str, Any]] = [
         "side_effects": ["github_pr_create"],
         "emitted_event_names": [],
         "guardrails": ["project_auth_required"],
-        "adapter_status": "live",
+        "adapter_status": "internal",
         "claim_required_kind": None,
     },
 ]
