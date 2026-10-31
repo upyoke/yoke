@@ -24,6 +24,8 @@ from yoke_core.domain.qa_gate_definitions import GateTarget
 from yoke_core.domain.qa_gate_helpers import _qa_tables_exist
 from yoke_core.domain.qa_gate_summary_rows import (
     format_run,
+    has_post_deploy_plans,
+    plan_group_miss_rows,
     post_deploy_answered,
     unsettled_record_rows,
 )
@@ -96,6 +98,7 @@ def render_gate_summary(
         "tree_freshness_checked": False,
         "requirements": [],
         "unsettled_records": [],
+        "plan_group_misses": [],
     }
 
     # The target's reference comes from the database this gate reads, so it
@@ -128,7 +131,10 @@ def render_gate_summary(
         sql += " ORDER BY id ASC"
 
         req_rows = query_rows(conn, sql, params)
-        if not req_rows:
+        if transition_name == "implemented" and target.item_id is not None:
+            summary["plan_group_misses"] = plan_group_miss_rows(conn, target.item_id)
+        if not req_rows and not (transition_name == "implemented" and target.item_id is not None
+                                 and has_post_deploy_plans(conn, target.item_id)):
             summary["no_requirements"] = True
             summary["reason_code"] = QA_REQUIREMENTS_EMPTY
             summary["message"] = _format_text(summary)
@@ -217,6 +223,7 @@ def render_gate_summary(
 
     summary["satisfied"] = (
         summary["blocking_unsatisfied_count"] == 0 and not summary["unsettled_records"]
+        and not summary["plan_group_misses"]
     )
     return summary
 

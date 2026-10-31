@@ -121,14 +121,17 @@ production release — is delivered by this run, stamped `deployed_to`, and
 stays at its release wait without holding the run. It closes against that
 delivery once a run on the other environment accepts its obligation. A
 member still red or unanswered on the run's own target keeps holding it.
-Holding is per target environment too: a run holds an item only for the
-environment it delivers, so a stage run enrolls an item a production run
-on the same commit holds whenever the item still owes stage QA — whichever
-of the pair was created first, for an own-project or a bound-project item.
-A production run that pinned a different commit for the item's project
-still holds it away from the stage run, and the skip notice names that
-commit: stage proof credits only against the commit production ships, so
-proof on any other commit would never close the item. A carried cross-project member whose own
+Holding is per target environment: a production holder never keeps an item
+out of a stage run that still owes it stage QA. Supplemental proof credits
+when the run's recorded item-project commit contains the item's current
+landing, including a bound-project commit. A same-environment holder keeps
+custody on the same commit with covering selection, or once no QA remains
+owed there; failed proof allows a later stage run to enroll it again.
+Re-merging replaces the landing and withdraws proof that lacks that landing.
+Unreadable containment credits nothing and names the reason and recovery.
+This permits Stage and Production commits to differ in surrounding code,
+including later fixes or reverts; Production-target obligations still guard
+Production, and other items carry their own QA. A carried cross-project member whose own
 completion flow declares no item QA and which has no explicit plan or
 post-deploy requirement owes no answer: stage and fleet reports name its
 own flow as the reason, and it closes with the release. Same-project members

@@ -261,10 +261,10 @@ def _commit_phase(conn: Any, run_id: str) -> tuple[list[Any], Optional[str]]:
         return [], _blocked(conn, run_id, required, refusals, held, cleared)
     from yoke_core.domain.deployment_run_other_target_members import (
         notify_set_aside_members,
-        record_other_target_deliveries,
+        record_member_deliveries,
     )
 
-    record_other_target_deliveries(conn, run_id, deferred)
+    record_member_deliveries(conn, run_id, required + deferred)
     conn.commit()
     notify_set_aside_members(conn, run_id, deferred)
     return staged, None

@@ -139,19 +139,14 @@ def covering_holder_pairs(
 ) -> frozenset[tuple[str, int]]:
     """Which holders already deliver what this run would deliver for each item.
 
-    Holding is per target environment. A holder on the item's final target
-    keeps final-target custody. For a supplemental run, only a holder on the
-    same environment and item-project commit can answer its targeted obligations,
-    so a production run that pinned or delivered this run's commit never holds
-    an item away from the stage run that owes it stage QA. A final-target
-    holder that neither pinned nor delivered this run's item-project commit
-    does hold it: close-out credits supplemental proof only on the final run's
-    pinned or delivered commit, so enrolling would compose proof nothing reads.
+    Final-target custody holds against final-target runs only. Supplemental
+    runs are held only by a same-environment holder, either on the same
+    commit with covering selection, or when the item owes that environment
+    nothing more. Failed proof permits enrollment in the next run.
     """
     from yoke_core.domain.deployment_item_flow_resolution import item_completion_flows
     from yoke_core.domain.deployment_run_project_sources import (
         recorded_source_sha,
-        run_recorded_and_delivered_shas,
         run_source_facts,
     )
 
@@ -186,6 +181,9 @@ def covering_holder_pairs(
     run_environment = run_environment_name(conn, run_id)
     current = run_source_facts(conn, run_id) or {}
     selected = _selected_sets(rows)
+    from yoke_core.domain.deployment_run_other_target_members import owes_on_target
+
+    owed: dict[int, bool] = {}
     covered = set()
     for row in rows:
         key = (str(row["run_id"]), int(row["item_id"]))
@@ -198,20 +196,17 @@ def covering_holder_pairs(
         )
         if item_id not in supplemental:
             keep = not holder_supplemental
-        elif str(row["run_environment"] or "") != run_environment:
-            project_id = int(row["item_project_id"])
-            keep = not holder_supplemental and recorded_source_sha(
-                current, project_id
-            ) not in run_recorded_and_delivered_shas(conn, key[0], project_id)
         else:
             project_id = int(row["item_project_id"])
-            same_commit = recorded_source_sha(
-                dict(row), project_id
-            ) == recorded_source_sha(current, project_id)
-            keep = same_commit and (
-                (not row["requirement_snapshot"] and not row["requirement_selection"])
-                or wanted[item_id] <= selected[key]
+            same_env = str(row["run_environment"] or "") == run_environment
+            same_selection = (
+                recorded_source_sha(dict(row), project_id) == recorded_source_sha(current, project_id)
+                and ((not row["requirement_snapshot"] and not row["requirement_selection"])
+                     or wanted[item_id] <= selected[key])
             )
+            if same_env and not same_selection and item_id not in owed:
+                owed[item_id] = owes_on_target(conn, item_id, run_environment)
+            keep = same_env and (same_selection or not owed[item_id])
         if keep:
             covered.add(key)
     return frozenset(covered)

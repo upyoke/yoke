@@ -165,28 +165,6 @@ def run_delivered_sha(conn: Any, run_id: str, project_id: int) -> str:
     return delivered_source_sha(run, int(project_id)) if run is not None else ""
 
 
-def run_recorded_and_delivered_shas(
-    conn: Any, run_id: str, project_id: int
-) -> frozenset[str]:
-    """Every commit this run answers for a project: its pin and its delivery.
-
-    Supplemental proof of a final run's members stands on either. A hosted
-    promotion that has not produced its receipt yet has delivered nothing,
-    so until then only the pin is known.
-    """
-    from yoke_core.domain.hosted_promotion_receipt import PromotionReceiptRefused
-
-    run = run_source_facts(conn, run_id)
-    if run is None:
-        return frozenset()
-    shas = {recorded_source_sha(run, int(project_id))}
-    try:
-        shas.add(delivered_source_sha(run, int(project_id)))
-    except PromotionReceiptRefused:
-        pass
-    return frozenset(shas)
-
-
 def carried_project_ids(conn: Any, run_id: str) -> tuple[int, ...]:
     """Every project this run ships code for: its own, then each bound one."""
     run = run_source_facts(conn, run_id)
@@ -286,6 +264,5 @@ __all__ = [
     "proposed_run_source_facts",
     "recorded_source_sha",
     "run_delivered_sha",
-    "run_recorded_and_delivered_shas",
     "run_source_sha",
 ]

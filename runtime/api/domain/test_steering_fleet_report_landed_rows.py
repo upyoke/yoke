@@ -297,8 +297,9 @@ def test_a_quiet_holder_gets_a_wake_only_after_the_landing_idle_threshold(fleet)
         assert old.landed_seconds == age
 
 
+@pytest.mark.parametrize("plan", [False, True])
 def test_a_succeeded_run_row_names_its_delivery_and_what_it_still_owes(
-    fleet, monkeypatch
+    fleet, monkeypatch, plan
 ):
     """A finished run is not delivering; the row names the acceptance owed."""
     from yoke_core.domain import steering_fleet_report_landed_open as landed_open
@@ -308,11 +309,13 @@ def test_a_succeeded_run_row_names_its_delivery_and_what_it_still_owes(
     held = LandingCustody(1, "a" * 40, HELD, run_id="run-1", run_status="succeeded")
     monkeypatch.setattr(landed_open, "landing_custody", lambda *a, **k: {1: held})
     monkeypatch.setattr(landed_open, "run_environment_name", lambda *a: "prod")
-    owed = (OwedRequirement(43248, "manual_acceptance", "stage"),)
+    owed = (OwedRequirement(None, "post_deploy", "stage", plan_slug="release-proof") if plan
+            else OwedRequirement(43248, "manual_acceptance", "stage"),)
     monkeypatch.setattr(landed_open, "owed_on_other_targets", lambda *a: owed)
 
     assert (
-        custody_phrase(_landed(fleet)[0]) == "delivered to prod; owes #43248 on stage"
+        custody_phrase(_landed(fleet)[0]) == "delivered to prod; owes "
+        + ("post-deploy plan release-proof" if plan else "requirement 43248") + " on stage"
     )
 
 

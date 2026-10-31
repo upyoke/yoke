@@ -94,10 +94,15 @@ def test_no_stage_obligation_keeps_member_off_supplemental_run(test_db):
 
 
 @pytest.mark.parametrize("first", ["stage", "prod"])
-def test_done_requires_both_targets_to_pass(test_db, monkeypatch, first):
+def test_done_requires_both_targets_to_pass(test_db, monkeypatch, tmp_path, first):
     item_id = 9682
     sources = _pair(test_db, item_id=item_id)
     _record_evidence(test_db, item_id=item_id)
+    from runtime.api.fixtures.supplemental_credit import topology, pin
+
+    commits = topology(test_db, tmp_path, monkeypatch, item_id)
+    for run_id in ("run-prod", "run-stage"):
+        pin(test_db, run_id, commits["landing"])
     _accept_member_qa(test_db, run_id=f"run-{first}", item_id=item_id)
     assert source_obligation_consumed(
         test_db, item_id=item_id, source_requirement_id=sources[first]
@@ -281,15 +286,15 @@ def test_unadmitted_notice_only_names_targets_no_composed_sibling_admits(test_db
     assert f"#{source}" in notice and "target_env=uncovered" in notice
 
 
-def test_stage_proof_for_another_candidate_cannot_close_current_delivery(test_db):
+def test_stage_proof_without_current_landing_cannot_close_delivery(test_db, tmp_path, monkeypatch):
     item_id = 9688
     sources = _pair(test_db, item_id=item_id)
     _accept_member_qa(test_db, run_id="run-stage", item_id=item_id)
-    test_db.execute(
-        "UPDATE deployment_runs SET release_lineage=%s WHERE id=%s",
-        ("d" * 40, "run-prod"),
-    )
-    test_db.commit()
+    from runtime.api.fixtures.supplemental_credit import topology, pin
+
+    commits = topology(test_db, tmp_path, monkeypatch, item_id)
+    pin(test_db, "run-prod", commits["prod"])
+    pin(test_db, "run-stage", commits["unrelated"])
     assert not source_obligation_consumed(
         test_db, item_id=item_id, source_requirement_id=sources["stage"]
     )
