@@ -82,7 +82,8 @@ On each machine, confirm command help accepts `--protected` before proceeding.
    yoke universe validate /secure/source.tar
    ```
 
-   The pause disables source database connections, drains all client sessions and
+   Export checks output-folder write access before pausing and refuses an
+   unavailable path without stopping writers. The pause disables source database connections, drains all client sessions and
    creates a frozen copy before
    the snapshot. It stays in effect after either success or failure until Resume.
    A backup export without the flag cannot be used for hosted replacement.
@@ -106,7 +107,7 @@ On each machine, confirm command help accepts `--protected` before proceeding.
    requires rebinding repositories on Production before resuming merges.
    Resume the hosted source through **Resume source**, or run
    `yoke universe resume` against a local/self-host source. Verify people
-   staying there can sign in and read their work. A failed export also needs
+   staying there can sign in and read their work. An export that fails after pausing also needs
    explicit Resume before normal work can continue.
 
 8. On Stage, declare destination `aws-admin` capabilities for the two release

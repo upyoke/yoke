@@ -1,7 +1,9 @@
 """Snapshot isolation and the portable source-pause receipt contract."""
 
 import os
+import hashlib
 import subprocess
+import tarfile
 from pathlib import Path
 
 import psycopg
@@ -125,3 +127,73 @@ def test_manifest_receipt_passes_hosted_admission(monkeypatch, tmp_path):
             environment_capability_types={"aws-admin", "github"},
         )
     )
+
+
+@pytest.mark.parametrize(
+    "kinds", [[], ["qa-artifacts"], ["shared-files"], ["qa-artifacts", "shared-files"]]
+)
+def test_summary_names_only_included_artifact_paths(monkeypatch, tmp_path, kinds):
+    from yoke_core.domain import universe_artifact_transfer
+
+    monkeypatch.setenv("YOKE_MACHINE_HOME", str(tmp_path / "machine"))
+    content = tmp_path / "content"
+    content.write_bytes(b"portable file")
+    files = {kind + "/project/proof.txt": content for kind in kinds}
+    manifest = {
+        "version": 1,
+        "entries": [
+            {
+                "key": "qa-artifacts/project/missing",
+                "status": "missing",
+                "reason": "source_unavailable",
+            },
+            *(
+                {
+                    "key": key,
+                    "status": "included",
+                    "bytes": content.stat().st_size,
+                    "sha256": hashlib.sha256(content.read_bytes()).hexdigest(),
+                }
+                for key in files
+            ),
+        ],
+    }
+    monkeypatch.setattr(
+        universe_artifact_transfer, "collect_artifacts", lambda *_: (manifest, files)
+    )
+    output = []
+    with pg_testdb.test_database():
+        report = engine.snapshot_archive(
+            dsn=os.environ[db_backend.PG_DSN_ENV],
+            out=tmp_path / "summary.tar",
+            writers_stopped=False,
+            emit=output.append,
+        )
+    with tarfile.open(report["artifact"]) as archive:
+        members = archive.getnames()
+    summary = output[-1]
+    assert "universe.dump" in summary
+    assert "freeze-receipt.json" in summary
+    assert "artifacts-manifest.json" in summary
+    for kind in ("qa-artifacts", "shared-files"):
+        prefix = "artifacts/" + kind
+        assert (prefix in summary) == any(m.startswith(prefix + "/") for m in members)
+
+
+def test_staging_access_failure_is_a_named_refusal(monkeypatch, tmp_path):
+    monkeypatch.setenv("YOKE_MACHINE_HOME", str(tmp_path / "machine"))
+
+    def denied(_destination):
+        raise PermissionError("destination permission changed")
+
+    monkeypatch.setattr(engine, "_staged_dump_path", denied)
+    with pg_testdb.test_database():
+        with pytest.raises(
+            engine.UniverseExportError, match="universe_export_destination_unavailable"
+        ):
+            engine.snapshot_archive(
+                dsn=os.environ[db_backend.PG_DSN_ENV],
+                out=tmp_path / "blocked.tar",
+                writers_stopped=False,
+            )
+    assert not (tmp_path / "blocked.tar").exists()

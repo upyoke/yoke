@@ -52,11 +52,7 @@ def test_pause_drains_clients_and_resume_reopens_source(monkeypatch, tmp_path):
                 assert receipt["freeze_intent"]["zero_writable_app_sessions"] is True
                 assert receipt["freeze_intent"]["database"]["name"] == source_name
                 assert receipt["freeze_intent"]["database"]["oid"] == source_oid
-                assert any(
-                    "artifacts-manifest.json" in line
-                    and "artifacts/shared-files" in line
-                    for line in output
-                )
+                assert any("artifacts-manifest.json" in line for line in output)
             finally:
                 pause.resume(dsn)
         with db_backend.connect_psycopg(dsn) as restored:
@@ -86,6 +82,29 @@ def test_failed_export_leaves_source_paused(monkeypatch, tmp_path):
             assert not (tmp_path / "failed.tar").exists()
         finally:
             pause.resume(dsn)
+
+
+def test_unwritable_destination_refuses_before_pausing(monkeypatch, tmp_path):
+    monkeypatch.setenv("YOKE_MACHINE_HOME", str(tmp_path / "machine"))
+    destination = tmp_path / "read-only"
+    destination.mkdir(mode=0o500)
+    with pg_testdb.test_database() as source:
+        source.commit()
+        dsn = os.environ[db_backend.PG_DSN_ENV]
+        try:
+            with pytest.raises(
+                universe_export.UniverseExportError,
+                match="universe_export_destination_unavailable",
+            ):
+                universe_export.export_universe(
+                    dsn=dsn, out=destination / "move.tar", pause_source=True
+                )
+            assert not pause.is_paused(dsn)
+            assert source.execute("SELECT 42").fetchone()[0] == 42
+            with psycopg.connect(dsn) as other:
+                assert other.execute("SELECT 42").fetchone()[0] == 42
+        finally:
+            destination.chmod(0o700)
 
 
 def test_resume_cannot_race_export(monkeypatch, tmp_path):

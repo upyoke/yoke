@@ -110,6 +110,9 @@ yoke universe export --pause-source --out /secure/source.tar
 yoke universe validate /secure/source.tar
 ```
 
+Export checks output-folder write access before pausing; an unavailable path
+refuses with `universe_export_destination_unavailable` and leaves a running
+source running. The completion summary names only included artifact paths.
 The pause stops the selected source's installed relay, sets PostgreSQL's
 `ALLOW_CONNECTIONS=false` on the source database and terminates its existing
 sessions. Older engines and raw PostgreSQL clients cannot reconnect, even as the
@@ -117,7 +120,7 @@ cluster superuser. Export uses a frozen copy of that closed database and preserv
 the original source name and OID in its receipt. A private pause record binds that
 copy to the source; it remains until successful Resume. This needs space for an
 additional database copy, maintenance-database access, database creation authority
-and permission to terminate source sessions. Failure keeps the source closed and
+and permission to terminate source sessions. Failure after pausing keeps the source closed and
 names recovery; retry paused export or explicitly Resume it.
 
 Server startup and import coordinate through a read-only advisory-lock connection

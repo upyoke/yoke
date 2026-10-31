@@ -4,11 +4,13 @@ from __future__ import annotations
 
 import os
 import re
+import tempfile
 from datetime import datetime
 from pathlib import Path
 from typing import Optional, Union
 
 from yoke_contracts.timestamps import utc_now, parse_instant
+from yoke_contracts.refusal_recovery import compose_refusal
 from yoke_core.domain.universe_archive import ARTIFACT_SUFFIX
 
 _FILENAME_SAFE_RE = re.compile(r"[^A-Za-z0-9._-]+")
@@ -16,6 +18,15 @@ _FILENAME_SAFE_RE = re.compile(r"[^A-Za-z0-9._-]+")
 
 class UniverseExportError(RuntimeError):
     """The universe could not be exported safely."""
+
+
+def destination_unavailable(error: OSError) -> UniverseExportError:
+    return UniverseExportError(
+        compose_refusal(
+            f"universe_export_destination_unavailable: {error}",
+            recovery="repair the destination folder or pass --out with a writable archive path",
+        )
+    )
 
 
 def default_artifact_name(
@@ -40,12 +51,12 @@ def resolve_export_destination(
     ``--out ~/backups/`` would silently become a file named ``backups``.
     """
     try:
-        return _resolve_destination(out, org_slug)
+        destination = _resolve_destination(out, org_slug)
+        with tempfile.TemporaryFile(dir=destination.parent):
+            pass
+        return destination
     except OSError as exc:
-        raise UniverseExportError(
-            f"universe_export_destination_unavailable: {exc}; "
-            "repair the destination folder or pass --out with a writable archive path."
-        ) from exc
+        raise destination_unavailable(exc) from exc
 
 
 def _resolve_destination(out: Optional[Union[str, Path]], org_slug: str) -> Path:
