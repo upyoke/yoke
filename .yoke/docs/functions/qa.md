@@ -73,6 +73,7 @@ Read [envelope and authority](index.md) first. `none` means no dispatcher work-c
 | `test_machine.case_execute` | `qa_subject` |
 | `test_machine.desktop_access` | `none` |
 | `test_machine.get` | `none` |
+| `test_machine.host_rebind` | Record a cloud instance public IPv4 under the calling session’s host lease; CAS preserves verification and moves a matching desktop host. |
 | `test_machine.golden_capture` | `none` |
 | `test_machine.list` | `none` |
 | `test_machine.mission.access` | `qa_subject` |

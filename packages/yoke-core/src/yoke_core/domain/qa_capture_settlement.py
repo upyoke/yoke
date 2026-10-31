@@ -168,14 +168,14 @@ def record_inflight_case_failure(
     """
     from yoke_core.domain.qa_plan_execution_abort_reason import (
         CASE_EXECUTION_ERROR_REASON,
-        CONTINUATION_PRE_HOST_ERROR_REASON,
+        PRE_HOST_ERROR_REASON,
         abort_reason_code,
         abort_reason_error_code,
     )
 
     if abort_reason_code(reason) not in {
         CASE_EXECUTION_ERROR_REASON,
-        CONTINUATION_PRE_HOST_ERROR_REASON,
+        PRE_HOST_ERROR_REASON,
     }:
         return
     if not _table_exists(conn, "qa_runs"):

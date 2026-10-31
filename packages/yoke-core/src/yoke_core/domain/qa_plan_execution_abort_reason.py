@@ -19,9 +19,8 @@ ABORT_REASON_MAX_LENGTH = 200
 
 #: A case raised while executing or recording, with a host contact possible.
 CASE_EXECUTION_ERROR_REASON = "case-execution-or-recording-error"
-#: A continuation raised before it could reach the host it inherited, so the
-#: walk state that continuation exists to preserve is still intact.
-CONTINUATION_PRE_HOST_ERROR_REASON = "continuation-pre-host-error"
+#: Execution failed before host contact; the stored code also covers older continuations.
+PRE_HOST_ERROR_REASON = "continuation-pre-host-error"
 #: A begun execution whose own begin response this client cannot run.
 UNUSABLE_BEGIN_REASON = "plan-execution-begin-unusable"
 #: Every independent chain ran and at least one case failed or errored.
@@ -107,7 +106,7 @@ __all__ = [
     "ABORT_REASON_MAX_LENGTH",
     "CASE_EXECUTION_ERROR_REASON",
     "CASE_FAILED_REASON",
-    "CONTINUATION_PRE_HOST_ERROR_REASON",
+    "PRE_HOST_ERROR_REASON",
     "MEMBER_REMOVED_REASON",
     "REASON_DETAIL_SEPARATOR",
     "UNUSABLE_BEGIN_REASON",

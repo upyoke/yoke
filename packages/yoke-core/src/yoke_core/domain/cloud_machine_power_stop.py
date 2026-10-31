@@ -17,7 +17,6 @@ from yoke_contracts.refusal_recovery import compose_refusal
 from yoke_core.domain.deploy_remote import CommandRunner
 from yoke_core.domain.ec2_instance_power import (
     Ec2InstancePowerError,
-    has_elastic_ip,
     instance_state,
     stop_instance,
 )
@@ -38,18 +37,6 @@ def _stop_if_running(
     instance_id = settings["cloud_instance_id"]
     try:
         if instance_state(runner, instance_id, aws_env) not in ("pending", "running"):
-            return
-        if not has_elastic_ip(runner, instance_id, aws_env):
-            emit(
-                compose_refusal(
-                    f"test_machine_power_stop_skipped: idle Test Machine {name} "
-                    f"({instance_id}) has no Elastic IP, so a stop would change "
-                    f"the public address its registered host {settings['host']} "
-                    "names; it stays running",
-                    recovery="declare an Elastic IP for the instance in the "
-                    "project's infrastructure; its next lease release stops it",
-                )
-            )
             return
         emit(f"  Test Machine {name} has no lease")
         stop_instance(runner, instance_id, aws_env, emit)
@@ -108,7 +95,9 @@ def stop_released(
     token = _stopping.set(True)
     try:
         for machine in machines:
-            _stop_one(str(machine["project"]), str(machine["test_machine"]), runner, emit)
+            _stop_one(
+                str(machine["project"]), str(machine["test_machine"]), runner, emit
+            )
     finally:
         _stopping.reset(token)
 
@@ -129,7 +118,11 @@ def _stop_one(
             )["settings"]
             if settings.get("cloud_instance_id"):
                 _stop_if_running(
-                    runner or CommandRunner(), project, settings, power._aws_env(project), emit
+                    runner or CommandRunner(),
+                    project,
+                    settings,
+                    power._aws_env(project),
+                    emit,
                 )
         finally:
             power._dispatch(

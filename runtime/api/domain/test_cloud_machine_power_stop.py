@@ -58,11 +58,10 @@ def control_plane(monkeypatch):
 
 
 def test_last_release_stops_the_host_under_its_own_hold(control_plane):
-    runner = FakeRunner([_json(["running"]), _json(["54.0.0.1"]), OK])
+    runner = FakeRunner([_json(["running"]), OK])
     stop_released(RELEASED, runner=runner, emit=lambda _l: None)
     assert _ec2_actions(runner) == [
         "describe-instances",
-        "describe-addresses",
         "stop-instances",
     ]
     assert control_plane.calls == [
@@ -81,9 +80,7 @@ def test_a_lease_taken_before_the_hold_keeps_the_host_running(control_plane):
 
 
 def test_the_hold_is_released_even_when_the_stop_fails(control_plane):
-    runner = FakeRunner(
-        [_json(["running"]), _json(["54.0.0.1"]), CommandResult(1, "", "Denied")]
-    )
+    runner = FakeRunner([_json(["running"]), CommandResult(1, "", "Denied")])
     lines: list[str] = []
     stop_released(RELEASED, runner=runner, emit=lines.append)
     assert lines[-1].startswith("test_machine_power_stop_failed:")
@@ -98,14 +95,6 @@ def test_a_host_without_instance_id_is_held_then_left_alone(control_plane):
     assert control_plane.calls[-1] == "claims.coordination_claim.release"
 
 
-def test_a_host_without_elastic_ip_stays_running_with_a_named_reason(control_plane):
-    runner = FakeRunner([_json(["running"]), _json([])])
-    lines: list[str] = []
-    stop_released(RELEASED, runner=runner, emit=lines.append)
-    assert "stop-instances" not in _ec2_actions(runner)
-    assert lines[0].startswith("test_machine_power_stop_skipped:")
-
-
 def test_releasing_the_hold_does_not_re_enter_the_stop(control_plane, monkeypatch):
     original = cloud_machine_power._dispatch
     nested = []
@@ -118,7 +107,9 @@ def test_releasing_the_hold_does_not_re_enter_the_stop(control_plane, monkeypatc
         return response
 
     monkeypatch.setattr(cloud_machine_power, "_dispatch", dispatch)
-    stop_released(RELEASED, runner=FakeRunner([_json(["stopped"])]), emit=lambda _l: None)
+    stop_released(
+        RELEASED, runner=FakeRunner([_json(["stopped"])]), emit=lambda _l: None
+    )
     assert nested == [None]
     assert control_plane.calls.count("claims.coordination_claim.acquire_if_free") == 1
 

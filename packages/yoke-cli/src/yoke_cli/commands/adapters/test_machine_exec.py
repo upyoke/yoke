@@ -142,6 +142,7 @@ def test_machine_exec(args: List[str]) -> int:
             command = [windows_wsl_command(" ".join(command))]
         completed = run_remote_command(
             host=str(settings["host"]),
+            cloud_instance_id=settings.get("cloud_instance_id"),
             user=str(settings["user"]),
             command=command,
             yoke_home=machine_config.yoke_home(),

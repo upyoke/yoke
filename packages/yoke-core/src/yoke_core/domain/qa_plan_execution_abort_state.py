@@ -42,6 +42,17 @@ def owed_host_abort(conn, execution, *, reason):
     roster = execution.get("roster") or []
     cursor = int(execution["cursor_ordinal"])
     request = abort_request(execution)
+    from yoke_core.domain.qa_plan_execution_abort_reason import (
+        PRE_HOST_ERROR_REASON,
+        abort_reason_code,
+    )
+
+    if (
+        not request
+        and abort_reason_code(reason) == PRE_HOST_ERROR_REASON
+        and not _any_case_started(conn, execution)
+    ):
+        return None
     prior = str(execution.get("release_reason") or "")
     if not request and not prior.startswith(PAUSE_REASON):
         return None  # Admission alone never starts credential-local host work.
@@ -143,7 +154,7 @@ _MISSION_WALK_END = (
 SERVER_FIXTURE_CLEANUP = (
     "Server cleanup needs no lease and is never handed to steering: retire "
     "each project the walk created with `yoke --env ENV projects retire "
-    "--project SLUG --reason \"QA fixture cleanup\"`, retire each Machine its "
+    '--project SLUG --reason "QA fixture cleanup"`, retire each Machine its '
     "connect registered with `yoke --env ENV machine retire MACHINE_ID "
     "--confirm`, and delete its fixture repositories. The walker report in "
     "the item's Progress Log lists what the walk created."
@@ -186,13 +197,30 @@ def _ended_owner_recovery(conn, execution):
     )
 
 
+HOST_RESTORE_RECOVERY = (
+    "qa_abort_restore_pending: cancellation is recorded; host custody is retained "
+    "until the runner stops and records starting_state_restore cleanup proof. "
+    "A declared baseline requires restored=true; an as_is case or a case "
+    "without a baseline records that no restoration is required. Keep the "
+    "runner connected and retry only after that proof is recorded. If the "
+    "runner is gone or cleanup fails, stop that runner, then have the lease "
+    "holder or a covering steering seat run `yoke test-machine reset --project P "
+    "--test-machine TEST_MACHINE --baseline BASELINE` with the interrupted case's declared "
+    "baseline, and retry this abort. The reset must succeed after cancellation "
+    "was recorded; it retains the lease until abort settles. Without a declared "
+    "baseline, recover the runner's no-restore cleanup receipt instead."
+)
+
+
 def require_host_restored(conn, execution, *, reason, commit):
     """Persist cancellation before refusing an unproven host release."""
     request = owed_host_abort(conn, execution, reason=reason)
     if request is None:
         return
     ordinal = int(request["ordinal"])
-    if execution["roster"][ordinal].get("runner_id") == "agent_mission" and needs_test_machine(execution["roster"][ordinal]):
+    if execution["roster"][ordinal].get(
+        "runner_id"
+    ) == "agent_mission" and needs_test_machine(execution["roster"][ordinal]):
         raise QaPlanExecutionStateError(
             _MISSION_WALK_END + _ended_owner_recovery(conn, execution)
         )
@@ -209,19 +237,7 @@ def require_host_restored(conn, execution, *, reason, commit):
         )
     record_abort_request(conn, execution, request)
     conn.commit()
-    raise QaPlanExecutionStateError(
-        "qa_abort_restore_pending: cancellation is recorded; host custody is retained "
-        "until the runner stops and records starting_state_restore cleanup proof. "
-        "A declared baseline requires restored=true; an as_is case or a case "
-        "without a baseline records that no restoration is required. Keep the "
-        "runner connected and retry only after that proof is recorded. If the "
-        "runner is gone or cleanup fails, stop that runner, then have the lease "
-        "holder or a covering steering seat run `yoke test-machine reset --project P "
-        "--test-machine TEST_MACHINE --baseline BASELINE` with the interrupted case's declared "
-        "baseline, and retry this abort. The reset must succeed after cancellation "
-        "was recorded; it retains the lease until abort settles. Without a declared "
-        "baseline, recover the runner's no-restore cleanup receipt instead."
-    )
+    raise QaPlanExecutionStateError(HOST_RESTORE_RECOVERY)
 
 
 def restore_cleanup_proven(restore, baseline):
@@ -267,3 +283,21 @@ def settle_host_abort(conn, execution):
         finish_plan_execution(
             conn, execution, state="aborted", reason=request["reason"], commit=False
         )
+
+
+def _any_case_started(conn, execution):
+    """Any recorded started case defeats a later pre-host abort waiver."""
+    for row in result_rows(conn, str(execution["id"])):
+        result = row["result"]
+        if (result.get("evidence") or {}).get("case_started") is True:
+            return True
+        run = conn.execute(
+            f"SELECT raw_result FROM qa_runs WHERE id={marker(conn)} AND qa_requirement_id={marker(conn)}",
+            (result.get("run_id"), row["requirement_id"]),
+        ).fetchone()
+        if run is not None:
+            raw = run["raw_result"] if hasattr(run, "keys") else run[0]
+            raw = json.loads(raw) if isinstance(raw, str) else raw
+            if ((raw or {}).get("evidence") or {}).get("case_started") is True:
+                return True
+    return False

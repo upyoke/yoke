@@ -10,7 +10,7 @@ from yoke_core.domain.deploy_remote import CommandResult
 from yoke_core.domain.ec2_instance_power import (
     Ec2InstancePowerError,
     ensure_instance_running,
-    has_elastic_ip,
+    instance_public_address,
     stop_instance,
 )
 from runtime.api.domain.test_deploy_remote import FakeRunner
@@ -97,11 +97,19 @@ def test_missing_aws_cli_names_install_and_preflight():
     assert "yoke aws preflight" in str(exc.value)
 
 
-def test_elastic_ip_reads_addresses_for_the_instance():
-    runner = FakeRunner([_json(["54.0.0.1"]), _json([])])
-    assert has_elastic_ip(runner, "i-1", {}) is True
-    assert has_elastic_ip(runner, "i-1", {}) is False
-    assert "Name=instance-id,Values=i-1" in _argvs(runner)[0]
+@pytest.mark.parametrize("address", ["54.0.0.1", None])
+def test_public_address_reads_the_instance(address):
+    runner = FakeRunner([_json([address])])
+    assert instance_public_address(runner, "i-1", {}) == address
+    assert "i-1" in _argvs(runner)[0]
+
+
+@pytest.mark.parametrize(
+    "answer", [_json([]), _json(["a", "b"]), CommandResult(0, "bad", "")]
+)
+def test_public_address_refuses_ambiguous_or_non_json_response(answer):
+    with pytest.raises(Ec2InstancePowerError):
+        instance_public_address(FakeRunner([answer]), "i-1", {})
 
 
 def test_stop_requests_stop_without_waiting():

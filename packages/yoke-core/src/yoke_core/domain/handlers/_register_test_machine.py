@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from yoke_core.domain.handlers import machine_qa_host_rebind as _rebind
 from yoke_core.domain.handlers import machine_qa as _handlers
 from yoke_core.domain.handlers import machine_qa_list as _list
 from yoke_core.domain.handlers import machine_qa_case as _case
@@ -14,6 +15,26 @@ from yoke_core.domain import agent_mission_recording as _agent_mission
 
 def register(registry) -> None:
     _agent_mission.register(registry)
+    registry.register(
+        "test_machine.host_rebind",
+        _rebind.handle_host_rebind,
+        _rebind.HostRebindRequest,
+        _rebind.HostRebindResponse,
+        stability="stable",
+        minimum_serving_version="next-release",
+        owner_module=__name__,
+        target_kinds=["global"],
+        side_effects=["project_capability_write"],
+        emitted_event_names=["test_machine.host_rebound"],
+        guardrails=[
+            "session_owned_host_lease",
+            "cas_settings",
+            "cloud_instance_required",
+        ],
+        adapter_status="internal",
+        claim_required_kind=None,
+        ambient_session_required=True,
+    )
     registry.register(
         "test_machine.plan_case.begin",
         _plan_case.handle_plan_case_begin,

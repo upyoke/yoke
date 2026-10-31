@@ -123,29 +123,37 @@ def ensure_instance_running(
     return state
 
 
-def has_elastic_ip(runner: CommandRunner, instance_id: str, aws_env: dict) -> bool:
-    """Whether an Elastic IP keeps the instance's public address across a stop."""
+def instance_public_address(
+    runner: CommandRunner, instance_id: str, aws_env: dict
+) -> str | None:
+    """Read the instance's current public IPv4; a private-only instance has none."""
     described = _run(
         runner,
         [
-            "describe-addresses",
-            "--filters",
-            f"Name=instance-id,Values={instance_id}",
+            "describe-instances",
+            "--instance-ids",
+            instance_id,
             "--query",
-            "Addresses[].PublicIp",
+            "Reservations[].Instances[].PublicIpAddress",
             "--output",
             "json",
         ],
         aws_env,
         60,
     )
-    _require_ok(described, instance_id, "describe-addresses")
+    _require_ok(described, instance_id, "describe-instances")
     try:
-        return bool(json.loads(described.stdout or "[]"))
+        addresses = json.loads(described.stdout or "[]")
     except ValueError as exc:
         raise Ec2InstancePowerError(
-            f"instance {instance_id}: describe-addresses returned non-JSON: {exc}"
+            f"instance {instance_id}: describe-instances returned non-JSON: {exc}"
         ) from exc
+    if not isinstance(addresses, list) or len(addresses) != 1:
+        raise Ec2InstancePowerError(
+            f"instance {instance_id}: describe-instances must match one instance; "
+            "check the recorded instance id"
+        )
+    return str(addresses[0]) if addresses[0] is not None else None
 
 
 def stop_instance(
@@ -165,7 +173,7 @@ def stop_instance(
 __all__ = [
     "Ec2InstancePowerError",
     "ensure_instance_running",
-    "has_elastic_ip",
+    "instance_public_address",
     "instance_state",
     "stop_instance",
 ]

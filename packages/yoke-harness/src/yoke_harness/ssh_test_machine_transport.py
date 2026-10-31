@@ -19,6 +19,7 @@ from yoke_contracts.machine_config.capability_secrets import (
     TEST_MACHINE_SECRET_KEYS,
 )
 from yoke_contracts.machine_qa_execution import HostControlExecutionContract
+from yoke_harness.test_machine_remote_exec import host_key_options
 from yoke_contracts.machine_config.scratch_roots import scratch_root_candidates
 from yoke_cli.config.path_doctor import PathStateContract, resolve_path_state_contract
 from yoke_contracts.machine_qa_failures import bounded_machine_qa_diagnostic
@@ -60,11 +61,14 @@ def _control_socket(host: str, user: str, key_path: Path) -> Path:
     try:
         # Reuse Yoke's scratch resolution, choosing a root that can hold a
         # Unix socket plus OpenSSH's temporary suffix on macOS and Linux.
-        socket = next((
-            root / f"ssh-{os.getuid()}" / name
-            for root in scratch_root_candidates()
-            if len(os.fsencode(root / f"ssh-{os.getuid()}" / name)) <= 85
-        ), None)
+        socket = next(
+            (
+                root / f"ssh-{os.getuid()}" / name
+                for root in scratch_root_candidates()
+                if len(os.fsencode(root / f"ssh-{os.getuid()}" / name)) <= 85
+            ),
+            None,
+        )
         if socket is None:
             raise OSError("scratch paths are too long for an SSH control socket")
         directory = socket.parent
@@ -76,7 +80,8 @@ def _control_socket(host: str, user: str, key_path: Path) -> Path:
         return socket
     except OSError as exc:
         raise RuntimeError(
-            "host_control_ssh_socket_unavailable: " + str(exc)
+            "host_control_ssh_socket_unavailable: "
+            + str(exc)
             + "; configure a short writable Yoke temp_root and retry the host command"
         ) from exc
 
@@ -102,6 +107,7 @@ class SshTestMachineTransport:
         self._key_path = Path(key_path)
         self.os = str(settings["os"])
         self._host = str(settings["host"])
+        self._host_key_options = host_key_options(settings)
         self._user = str(settings["user"])
         self.golden_baseline_path = (
             str(settings.get("golden_baseline_path") or "") or None
@@ -122,6 +128,7 @@ class SshTestMachineTransport:
             "-i",
             str(self._key_path),
             *[part for option in SSH_OPTIONS for part in ("-o", option)],
+            *getattr(self, "_host_key_options", []),
             "-o",
             f"ControlPath={self._control_path}",
             f"{self._user}@{self._host}",
@@ -149,8 +156,10 @@ class SshTestMachineTransport:
                 try:
                     probe = subprocess.run(
                         argv[:1] + ["-O", "check"] + argv[1:-1],
-                        capture_output=True, encoding="utf-8",
-                        errors="backslashreplace", timeout=min(5, timeout / 2),
+                        capture_output=True,
+                        encoding="utf-8",
+                        errors="backslashreplace",
+                        timeout=min(5, timeout / 2),
                         check=False,
                     )
                     warned = probe.returncode != 0
@@ -159,8 +168,11 @@ class SshTestMachineTransport:
                 if warned:
                     print(SSH_REUSE_WARNING, file=sys.stderr)
             result = subprocess.run(
-                argv, input=input_text, encoding="utf-8",
-                errors="backslashreplace", capture_output=True,
+                argv,
+                input=input_text,
+                encoding="utf-8",
+                errors="backslashreplace",
+                capture_output=True,
                 timeout=max(0.001, timeout - (time.monotonic() - started)),
                 check=False,
             )

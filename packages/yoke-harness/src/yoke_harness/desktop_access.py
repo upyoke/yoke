@@ -21,7 +21,7 @@ from yoke_contracts.machine_config.desktop_access import (
     validate_desktop_settings,
 )
 from yoke_contracts.machine_config.test_machine import test_machine_capability_type
-from yoke_harness.test_machine_remote_exec import known_hosts_path
+from yoke_harness.test_machine_remote_exec import host_key_options, known_hosts_path
 
 
 class DesktopAccessError(RuntimeError):
@@ -39,6 +39,7 @@ def _ssh_args(
         "/dev/null",
         "-i",
         str(key_path),
+        *host_key_options(settings),
         "-S",
         control_path,
         "-o",

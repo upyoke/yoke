@@ -58,19 +58,26 @@ def test_stopped_machine_starts_then_waits_for_an_ssh_login(monkeypatch, aws):
             (project, settings["resource_name"])
         ),
     )
-    runner = FakeRunner([_json(["stopped"]), OK, OK])
+    runner = FakeRunner([_json(["stopped"]), OK, OK, _json([CLOUD["host"]])])
     power_on("yoke", CLOUD, runner=runner, emit=lambda _l: None)
-    assert _ec2_actions(runner) == ["describe-instances", "start-instances", "wait"]
+    assert _ec2_actions(runner) == [
+        "describe-instances",
+        "start-instances",
+        "wait",
+        "describe-instances",
+    ]
     assert waited == [("yoke", "windows-lab")]
 
 
 def test_running_machine_skips_the_ssh_wait(monkeypatch, aws):
     monkeypatch.setattr(
-        cloud_machine_power, "wait_for_ssh_login", lambda *a, **k: pytest.fail("no wait")
+        cloud_machine_power,
+        "wait_for_ssh_login",
+        lambda *a, **k: pytest.fail("no wait"),
     )
-    runner = FakeRunner([_json(["running"])])
+    runner = FakeRunner([_json(["running"]), _json([CLOUD["host"]])])
     power_on("yoke", CLOUD, runner=runner, emit=lambda _l: None)
-    assert _ec2_actions(runner) == ["describe-instances"]
+    assert _ec2_actions(runner) == ["describe-instances", "describe-instances"]
 
 
 def test_start_failure_refuses_with_named_code_and_recovery(aws):
@@ -145,7 +152,7 @@ def test_ssh_wait_timeout_refuses_with_the_last_error(ssh_key):
             sleeper=lambda _s: None,
             clock=lambda: next(clock),
         )
-    assert exc.value.code == "test_machine_power_ssh_unreachable"
+    assert exc.value.code == "ssh_unavailable"
     assert "No route to host" in str(exc.value)
 
 
@@ -160,3 +167,83 @@ def test_ssh_wait_without_the_machine_key_leaves_the_refusal_to_host_control(
     runner = _LoginRunner([])
     wait_for_ssh_login("yoke", CLOUD, lambda _l: None, runner=runner)
     assert runner.calls == []
+
+
+@pytest.mark.parametrize("stored_host", [CLOUD["host"], "184.195.162.151"])
+def test_start_rebinds_before_ssh_and_preserves_other_settings(
+    monkeypatch, aws, ssh_key, stored_host
+):
+    from yoke_contracts.api.function_call import FunctionCallResponse
+
+    address = "184.195.162.151"
+    calls = []
+
+    def dispatch(function_id, payload):
+        calls.append((function_id, payload))
+        result = {"settings": {**CLOUD, "host": stored_host}, "settings_token": "token"}
+        return FunctionCallResponse(
+            success=True, function=function_id, version="v1", result=result
+        )
+
+    monkeypatch.setattr(cloud_machine_power, "_dispatch", dispatch)
+    runner = FakeRunner([_json(["stopped"]), OK, OK, _json([address]), OK])
+    returned = power_on("yoke", CLOUD, runner=runner, emit=lambda _: None)
+    writes = [payload for fn, payload in calls if fn == "test_machine.host_rebind"]
+    assert writes == (
+        [
+            {
+                "project": "yoke",
+                "test_machine": CLOUD["resource_name"],
+                "host": address,
+                "base_settings": "token",
+            }
+        ]
+        if stored_host != address
+        else []
+    )
+    assert returned == {**CLOUD, "host": address}
+    assert runner.calls[-1]["argv"][-2] == f"Administrator@{address}"
+
+
+def test_no_public_address_never_rebinds_or_probes(monkeypatch, aws):
+    monkeypatch.setattr(
+        cloud_machine_power, "_dispatch", lambda *a: pytest.fail("no dispatch")
+    )
+    runner = FakeRunner([_json(["running"]), _json([None])])
+    with pytest.raises(HostControlLocalError) as refused:
+        power_on("yoke", CLOUD, runner=runner, emit=lambda _: None)
+    assert refused.value.code == "test_machine_power_no_public_address"
+    assert refused.value.phase == "power"
+    assert all(call["argv"][0] == "aws" for call in runner.calls)
+
+
+def test_rebind_refusal_keeps_server_diagnosis(monkeypatch, aws):
+    from yoke_contracts.api.function_call import FunctionCallResponse, FunctionError
+
+    monkeypatch.setattr(
+        cloud_machine_power,
+        "_call",
+        lambda *a: {"settings": CLOUD, "settings_token": "old"},
+    )
+    monkeypatch.setattr(
+        cloud_machine_power,
+        "_dispatch",
+        lambda *a: FunctionCallResponse(
+            success=False,
+            function="f",
+            version="v1",
+            error=FunctionError(
+                code="function_version_skew",
+                message="minimum serving version next-release",
+            ),
+        ),
+    )
+    with pytest.raises(HostControlLocalError) as refused:
+        power_on(
+            "yoke",
+            CLOUD,
+            runner=FakeRunner([_json(["running"]), _json(["184.195.162.151"])]),
+        )
+    assert refused.value.code == "test_machine_host_rebind_refused"
+    assert "function_version_skew" in str(refused.value)
+    assert "next-release" in str(refused.value)

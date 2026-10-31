@@ -36,7 +36,9 @@ REFRESH_RECOVERY_SUFFIX = (
 _checked: set[tuple[str, str]] = set()
 
 
-def _refused(code: str, detail: str, recovery: str) -> Exception:
+def _refused(
+    code: str, detail: str, recovery: str, *, host_contact_possible: bool = True
+) -> Exception:
     from yoke_core.domain.machine_qa_plan_case_execution import (
         MachinePlanCaseDispatchError,
     )
@@ -44,6 +46,7 @@ def _refused(code: str, detail: str, recovery: str) -> Exception:
     return MachinePlanCaseDispatchError(
         f"golden refresh stopped: {detail}",
         error_code=code,
+        host_contact_possible=host_contact_possible,
         recovery_hint=recovery + REFRESH_RECOVERY_SUFFIX,
     )
 
@@ -57,6 +60,7 @@ def latest_harness_cli_versions(fetch: Callable[[str], str]) -> dict[str, str]:
             "golden_refresh_latest_unavailable",
             str(error),
             "Restore this workstation's HTTPS access to the release channel.",
+            host_contact_possible=False,
         ) from error
 
 
@@ -120,12 +124,15 @@ def refreshed_case_contract(
                     ),
                 )
     except (HostControlLocalError, RuntimeError, ValueError, OSError) as error:
-        if getattr(error, "error_code", None):
+        if isinstance(error, HostControlLocalError) or getattr(
+            error, "error_code", None
+        ):
             raise
         raise _refused(
             "golden_refresh_host_failed",
             f"{step} on {machine} raised {type(error).__name__}: {error}",
             f"Restore SSH access and /usr/bin/python3 on {machine}.",
+            host_contact_possible=step != "record read",
         ) from error
     for detail in held_back:
         print(f"# qa plan run: {detail}", file=sys.stderr, flush=True)

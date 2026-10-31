@@ -272,3 +272,47 @@ def test_exec_help_teaches_keychain_harnesses_use_the_gui_bridge(capsys) -> None
     help_text = capsys.readouterr().out
     assert "claude, cursor-agent" in help_text
     assert "--gui-session" in help_text
+
+
+@pytest.mark.parametrize("instance", [None, "i-0123456789abcdef0"])
+def test_cloud_key_alias_is_shared_by_all_ssh_routes(instance, tmp_path):
+    from yoke_harness.test_machine_remote_exec import remote_exec_argv
+    from yoke_harness.desktop_access import _ssh_args
+    from yoke_harness.ssh_test_machine_transport import SshTestMachineTransport
+    from yoke_harness.test_machine_gui_command import _GuiSshControl
+    from unittest.mock import patch
+    import subprocess
+
+    settings = {"host": "192.0.2.1", "user": "qa", "os": "linux"}
+    if instance:
+        settings["cloud_instance_id"] = instance
+    transport = object.__new__(SshTestMachineTransport)
+    transport._key_path, transport._host, transport._user, transport._control_path = (
+        tmp_path / "key",
+        settings["host"],
+        "qa",
+        tmp_path / "socket",
+    )
+    from yoke_harness.test_machine_remote_exec import host_key_options
+
+    transport._host_key_options = host_key_options(settings)
+    argvs = [
+        remote_exec_argv(
+            host=settings["host"],
+            user="qa",
+            known_hosts=tmp_path / "hosts",
+            command=["true"],
+            cloud_instance_id=instance,
+        ),
+        _ssh_args(settings, tmp_path / "key", "none"),
+        transport._ssh_argv("true"),
+    ]
+    with patch(
+        "yoke_harness.test_machine_gui_command.subprocess.run",
+        return_value=subprocess.CompletedProcess([], 0, "", ""),
+    ) as run:
+        _GuiSshControl(settings, tmp_path, None)._run("true")
+        argvs.append(run.call_args.args[0])
+    for argv in argvs:
+        assert (f"HostKeyAlias={instance}" in argv) is bool(instance)
+        assert not any(option.startswith("HostKeyAlias=192.") for option in argv)

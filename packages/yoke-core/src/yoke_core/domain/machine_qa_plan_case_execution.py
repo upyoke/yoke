@@ -6,10 +6,15 @@ import sys
 from typing import Any, Mapping
 
 from yoke_contracts.api.function_call import ActorContext, TargetRef
-from yoke_contracts.machine_qa_failures import host_control_failure
+from yoke_contracts.machine_qa_failures import (
+    SSH_UNAVAILABLE,
+    HostControlLocalError,
+    host_control_failure,
+)
 from yoke_contracts.refusal_recovery import compose_refusal
 
 from yoke_core.domain.golden_harness_refresh import refreshed_case_contract
+from yoke_core.domain.machine_qa_plan_case_wait import waiting_case as _waiting_case
 from yoke_core.domain.public_item_target import public_item_target
 
 
@@ -45,36 +50,12 @@ def _case_failure(exc: Exception, *, phase: str) -> MachinePlanCaseDispatchError
         f"{message}; {notes}" if notes else message,
         error_code=code,
         recovery_hint=recovery,
-    )
-
-
-def _waiting_case(
-    begun: Mapping[str, Any], requirement_id: int, *, runner_id: str
-) -> dict[str, Any]:
-    """A queued case: its place in the host's line and the park instruction."""
-    wait = begun.get("host_wait") or {}
-    test_machine = wait.get("test_machine") or "its Test Machine"
-    place = (
-        f", position {wait['position']} of {wait['line_length']}"
-        if wait.get("position")
-        else ""
-    )
-    because = f" ({wait['rationale']})" if wait.get("rationale") else ""
-    return {
-        "requirement_id": requirement_id,
-        "runner_id": runner_id,
-        "verdict": "waiting",
-        "case_outcome": "waiting",
-        "lease_context": begun.get("lease_context"),
-        "host_wait": begun.get("host_wait"),
-        "recovery": (
-            f"Queued for QA host {test_machine}{place}{because}. Park now: "
-            f'`yoke sessions touch --mode parked --reason "queued for QA host '
-            f'{test_machine}"`. When it is your turn, a host-turn message wakes this '
-            "session with the command that takes it. Write no hold of your own; "
-            "re-running this plan keeps your place."
+        host_contact_possible=getattr(
+            exc,
+            "host_contact_possible",
+            not (isinstance(exc, HostControlLocalError) and exc.phase == "power"),
         ),
-    }
+    )
 
 
 def _report_selection(begun: Mapping[str, Any], execution: Mapping[str, Any]) -> None:
@@ -164,12 +145,6 @@ def execute_plan_machine_case(
             "test_machine.plan_case.begin returned no execution contract"
         )
     _report_selection(begun, execution)
-    execution = refreshed_case_contract(
-        execution,
-        plan_execution_id=execution_id,
-        actor=actor,
-        begin=lambda: _begin(target, actor, request),
-    )
     submission = None
     uncertain = False
     try:
@@ -180,16 +155,35 @@ def execute_plan_machine_case(
             execute_machine_case_contract,
         )
 
-        register_test_machine_host_control()
-        submission = execute_machine_case_contract(
-            execution,
-            progress_callback=lambda: _dispatch(
-                "qa.plan_execution.heartbeat",
-                target=target,
+        try:
+            execution = refreshed_case_contract(
+                execution,
+                plan_execution_id=execution_id,
                 actor=actor,
-                payload={"execution_id": execution_id},
-            ),
-        )
+                begin=lambda: _begin(target, actor, request),
+            )
+        except HostControlLocalError as exc:
+            if exc.code != SSH_UNAVAILABLE:
+                raise
+            from yoke_contracts.machine_qa_execution import HostControlExecutionContract
+            from yoke_core.domain.machine_qa_host_unreachable import (
+                unreachable_submission,
+            )
+
+            submission = unreachable_submission(
+                HostControlExecutionContract.model_validate(execution), exc
+            )
+        register_test_machine_host_control()
+        if submission is None:
+            submission = execute_machine_case_contract(
+                execution,
+                progress_callback=lambda: _dispatch(
+                    "qa.plan_execution.heartbeat",
+                    target=target,
+                    actor=actor,
+                    payload={"execution_id": execution_id},
+                ),
+            )
         submitted = _dispatch(
             "test_machine.plan_case.submit",
             target=target,

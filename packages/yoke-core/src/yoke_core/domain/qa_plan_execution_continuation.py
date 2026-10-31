@@ -11,7 +11,7 @@ from typing import Any, Mapping
 
 from yoke_core.domain.qa_plan_execution_abort_reason import (
     CASE_EXECUTION_ERROR_REASON,
-    CONTINUATION_PRE_HOST_ERROR_REASON,
+    PRE_HOST_ERROR_REASON,
     REASON_DETAIL_SEPARATOR,
     abort_reason_code,
     error_abort_reason,
@@ -57,10 +57,8 @@ def continuation_abort_reason(
     has to repair it -- the person the refusal sends to inspect that
     evidence -- has nothing to inspect.
     """
-    if skips_host_baseline(execution) and not getattr(
-        error, "host_contact_possible", True
-    ):
-        code = CONTINUATION_PRE_HOST_ERROR_REASON
+    if not getattr(error, "host_contact_possible", True):
+        code = PRE_HOST_ERROR_REASON
     else:
         code = CASE_EXECUTION_ERROR_REASON
     return error_abort_reason(code, error)
@@ -71,7 +69,7 @@ def _failed_before_host(conn: Any, execution: Mapping[str, Any]) -> bool:
     if not execution.get("continues_execution_id"):
         return False
     reason = abort_reason_code(execution.get("release_reason"))
-    if reason == CONTINUATION_PRE_HOST_ERROR_REASON:
+    if reason == PRE_HOST_ERROR_REASON:
         return True
     if reason != CASE_EXECUTION_ERROR_REASON or int(execution["cursor_ordinal"]):
         return False
@@ -305,7 +303,7 @@ __all__ = [
     "REASON_DETAIL_SEPARATOR",
     "abort_reason_code",
     "CONTINUATION_FLAG",
-    "CONTINUATION_PRE_HOST_ERROR_REASON",
+    "PRE_HOST_ERROR_REASON",
     "contract_baselines",
     "continuation_abort_reason",
     "continuation_recipe",

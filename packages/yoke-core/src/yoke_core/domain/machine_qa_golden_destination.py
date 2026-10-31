@@ -9,7 +9,6 @@ the settings record it only once the capture has succeeded.
 
 from __future__ import annotations
 
-import json
 from datetime import datetime, timezone
 from pathlib import PurePosixPath
 from typing import Any, Mapping
@@ -17,7 +16,6 @@ from typing import Any, Mapping
 from yoke_contracts.machine_config.test_machine import (
     TestMachineCapabilityError,
     validate_golden_baseline_path,
-    validate_test_machine_settings,
 )
 from yoke_contracts.machine_qa_host_control import (
     GOLDEN_CAPTURE_OPERATION,
@@ -27,7 +25,6 @@ from yoke_contracts.machine_qa_host_control import (
     VERIFY_OPERATION,
 )
 
-from yoke_core.domain import db_backend
 from yoke_core.domain.machine_qa_capability_rows import (
     TestMachineCapabilityRow,
     select_test_machine_row,
@@ -106,23 +103,12 @@ def record_captured_golden_baseline(
     """
     if row.settings.get(GOLDEN_BASELINE_PATH_KEY) == destination:
         return False
-    document = validate_test_machine_settings(
-        {**row.settings, GOLDEN_BASELINE_PATH_KEY: destination}
+    from yoke_core.domain.machine_qa_proven_settings import replace_proven_settings
+
+    changed = replace_proven_settings(
+        conn, row, {GOLDEN_BASELINE_PATH_KEY: destination}
     )
-    marker = "%s" if db_backend.connection_is_postgres(conn) else "?"
-    updated = conn.execute(
-        f"UPDATE project_capabilities SET settings={marker} "
-        f"WHERE project_id={marker} AND type={marker} AND "
-        f"COALESCE(settings,'{{}}')={marker}",
-        (
-            json.dumps(document, separators=(",", ":"), sort_keys=True),
-            row.project_id,
-            row.capability_type,
-            row.settings_token,
-        ),
-    )
-    changed = getattr(updated, "rowcount", 1)
-    if changed is not None and int(changed) < 1:
+    if not changed:
         raise TestMachineCapabilityError(
             f"test machine {row.test_machine!r} settings changed while its golden "
             "baseline was being captured; re-read the machine and record "
@@ -169,9 +155,7 @@ def kept_golden_fields(
     return {KEPT_GOLDEN_PATHS_KEY: sorted(kept)}
 
 
-def registered_golden_fields(
-    conn: Any, settings: Mapping[str, str]
-) -> dict[str, Any]:
+def registered_golden_fields(conn: Any, settings: Mapping[str, str]) -> dict[str, Any]:
     """Name every golden registered for this host and user, for verify to find."""
     return {
         REGISTERED_GOLDENS_KEY: [

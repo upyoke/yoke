@@ -52,12 +52,19 @@ def known_hosts_path(yoke_home: Path) -> Path:
     return yoke_home / KNOWN_HOSTS_DIR_NAME / KNOWN_HOSTS_FILE_NAME
 
 
+def host_key_options(settings: Mapping[str, str]) -> list[str]:
+    """Pin cloud identity to its instance rather than a recyclable address."""
+    alias = settings.get("cloud_instance_id")
+    return ["-o", f"HostKeyAlias={alias}"] if alias else []
+
+
 def remote_exec_argv(
     *,
     host: str,
     user: str,
     known_hosts: Path,
     command: Sequence[str],
+    cloud_instance_id: str | None = None,
 ) -> list[str]:
     """Build the ssh argv; the command words reach the login shell as ssh sends them."""
     return [
@@ -67,6 +74,7 @@ def remote_exec_argv(
         "-o",
         f"UserKnownHostsFile={known_hosts}",
         *[part for option in SSH_OPTIONS for part in ("-o", option)],
+        *host_key_options({"cloud_instance_id": cloud_instance_id}),
         "--",
         f"{user}@{host}",
         *command,
@@ -82,6 +90,7 @@ def run_remote_command(
     environ: Mapping[str, str] = os.environ,
     popen: Callable[..., subprocess.Popen] = subprocess.Popen,
     administrator_password: str | None = None,
+    cloud_instance_id: str | None = None,
 ) -> subprocess.CompletedProcess[str]:
     """Tee output live with inherited stdin; return bounded diagnostic tails.
 
@@ -116,6 +125,7 @@ def run_remote_command(
         user=user,
         known_hosts=known_hosts,
         command=command,
+        cloud_instance_id=cloud_instance_id,
     )
     try:
         input_options = (
@@ -141,7 +151,7 @@ def run_remote_command(
             "Check the host is reachable from this machine and that the "
             "ssh-agent holds a key it authorizes. If the host was rebuilt its "
             "host key changed: remove the pinned entry with "
-            f"`ssh-keygen -R {host} -f {known_hosts}` and retry.",
+            f"`ssh-keygen -R {cloud_instance_id or host} -f {known_hosts}` and retry.",
         )
     return completed
 
