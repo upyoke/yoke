@@ -76,6 +76,9 @@ dev = [
     "uv==0.12.1",
     "jsonschema>=4.26,<5",
 ]
+release = [
+    "pip>=23.1",
+]
 
 [project.scripts]
 # Launcher (yoke_core.tools.yoke_launcher) is the preferred path; this console_script remains valid for venv-developer installs.

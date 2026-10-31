@@ -83,12 +83,9 @@ jobs:
           python-version: "3.13"
       - name: Install the checked-out Yoke packages
         run: |
-          python3 -m pip install \
-            -e packages/yoke-contracts \
-            -e packages/yoke-cli \
-            -e packages/yoke-harness \
-            -e packages/yoke-core \
-            -e .
+          python3 -m pip install uv==0.12.1
+          uv sync --locked --no-default-groups --no-editable
+          echo "$GITHUB_WORKSPACE/.venv/bin" >> "$GITHUB_PATH"
 
       - name: Configure scoped Yoke release authority
         run: |

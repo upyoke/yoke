@@ -8,11 +8,11 @@ import os
 import re
 import subprocess
 import sys
+import tomllib
 from dataclasses import dataclass
 from importlib.metadata import version
 from pathlib import Path
-from typing import Sequence
-
+from typing import Iterable, Sequence
 
 METADATA_MARKER = "YOKE_SERVER_IMAGE_METADATA="
 _METADATA_FIELDS = frozenset({"build", "version"})
@@ -107,6 +107,32 @@ def _parser() -> argparse.ArgumentParser:
     return parser
 
 
+def canonicalize_name(name: str) -> str:
+    return re.sub(r"[-_.]+", "-", name).lower()
+
+
+def version_mismatches(lock_path: Path, installed: Iterable[tuple[str, str]]) -> list[str]:
+    """Report every unlocked or changed distribution, excluding workspace products."""
+    lock = tomllib.loads(lock_path.read_text())
+    products = {canonicalize_name(name) for name in lock["manifest"]["members"]}
+    versions: dict[str, set[str]] = {}
+    for package in lock["package"]:
+        if "registry" in package["source"]:
+            versions.setdefault(canonicalize_name(package["name"]), set()).add(
+                package["version"]
+            )
+    mismatches = []
+    for name, actual in sorted(installed):
+        name = canonicalize_name(name)
+        if name in products:
+            continue
+        expected = versions.get(name, set())
+        if actual not in expected:
+            wanted = ",".join(str(value) for value in sorted(expected)) or "absent from uv.lock"
+            mismatches.append(f"{name}: installed={actual} locked={wanted}")
+    return mismatches
+
+
 def verify_native_image(args: argparse.Namespace) -> str:
     """Validate the native image before exporting its content-addressed identity."""
     digest = args.image_ref.rsplit("@", 1)[-1]
@@ -132,6 +158,17 @@ def verify_native_image(args: argparse.Namespace) -> str:
         raise ServerImageMetadataError(
             f"native image architecture mismatch: actual={arch} expected={args.expected_arch}"
         )
+    distributions = json.loads(docker(
+        "run", "--rm", "--entrypoint", "python3", args.image_ref, "-c",
+        "import json; from importlib.metadata import distributions; "
+        "print(json.dumps({d.metadata['Name']: d.version for d in distributions()}))",
+    ))
+    mismatches = version_mismatches(Path("uv.lock"), distributions.items())
+    if mismatches:
+        raise ServerImageMetadataError(
+            "native_image_lock_mismatch:\n" + "\n".join(mismatches)
+            + "\nRebuild the native image from uv.lock before publishing."
+        )
     output = docker(
         "run",
         "--rm",
@@ -152,7 +189,8 @@ def verify_native_image(args: argparse.Namespace) -> str:
     (args.digest_dir / digest.removeprefix("sha256:")).touch()
     return (
         f"native image verified: arch={arch} "
-        f"version={actual.version} build={actual.build}"
+        f"version={actual.version} build={actual.build} "
+        f"locked distributions={json.dumps(distributions, sort_keys=True)}"
     )
 
 
