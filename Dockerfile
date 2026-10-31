@@ -14,9 +14,10 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /build
 
-RUN python -m pip install --upgrade pip build wheel
+RUN python -m pip install uv==0.12.1
 
 COPY pyproject.toml ./
+COPY uv.lock ./
 COPY .git_archival.txt ./
 COPY runtime ./runtime
 COPY packages ./packages
@@ -38,11 +39,8 @@ RUN PYTHONPATH=/build/packages/yoke-contracts/src:/build/packages/yoke-cli/src:/
 
 ARG YOKE_ENGINE_VERSION=""
 
-# Build the root `yoke` wheel (the runtime* tree) plus the four split packages
-# under packages/yoke-*/src. The split package names may also exist on public
-# indexes, so the wheelhouse first receives dependency-free local wheels, then
-# pins those exact local wheel URLs while resolving external dependencies. That keeps a
-# public same-name package from replacing the in-repo wheel.
+# Keep the same absolute virtualenv path in both stages: console scripts embed it.
+ENV UV_PROJECT_ENVIRONMENT=/opt/yoke-venv
 RUN if [ -n "$YOKE_ENGINE_VERSION" ]; then \
         export SETUPTOOLS_SCM_PRETEND_VERSION_FOR_YOKE="$YOKE_ENGINE_VERSION"; \
         export SETUPTOOLS_SCM_PRETEND_VERSION_FOR_YOKE_CONTRACTS="$YOKE_ENGINE_VERSION"; \
@@ -50,18 +48,11 @@ RUN if [ -n "$YOKE_ENGINE_VERSION" ]; then \
         export SETUPTOOLS_SCM_PRETEND_VERSION_FOR_YOKE_HARNESS="$YOKE_ENGINE_VERSION"; \
         export SETUPTOOLS_SCM_PRETEND_VERSION_FOR_YOKE_CORE="$YOKE_ENGINE_VERSION"; \
     fi; \
-    python -m pip wheel --no-deps --wheel-dir /wheels ./packages/yoke-contracts \
-    && python -m pip wheel --no-deps --wheel-dir /wheels ./packages/yoke-cli \
-    && python -m pip wheel --no-deps --wheel-dir /wheels ./packages/yoke-harness \
-    && python -m pip wheel --no-deps --wheel-dir /wheels ./packages/yoke-core \
+    uv sync --locked --no-default-groups --no-editable \
+    && uv build --wheel --package yoke-core --out-dir /wheels \
     && python packages/yoke-core/src/yoke_core/tools/wheel_module_completeness.py \
         --package-root packages/yoke-core/src/yoke_core \
-        --wheel /wheels/yoke_core-*.whl \
-    && python packages/yoke-core/src/yoke_core/tools/local_wheel_constraints.py \
-        /wheels yoke-contracts yoke-cli yoke-harness yoke-core \
-        > /tmp/yoke-local-constraints.txt \
-    && python -m pip wheel --wheel-dir /wheels --find-links /wheels \
-        --constraint /tmp/yoke-local-constraints.txt .
+        --wheel /wheels/yoke_core-*.whl
 
 FROM ${PYTHON_IMAGE} AS runtime
 
@@ -76,6 +67,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     YOKE_API_HOST=0.0.0.0 \
     YOKE_API_PORT=8765 \
     YOKE_MACHINE_HOME=/var/lib/yoke \
+    PATH=/opt/yoke-venv/bin:$PATH \
     YOKE_BUILD_SHA=${YOKE_BUILD_SHA}
 
 WORKDIR /app
@@ -91,11 +83,7 @@ RUN addgroup --system yoke \
 
 COPY --chown=yoke:yoke --from=builder /var/lib/yoke/postgres /var/lib/yoke/postgres
 
-COPY --from=builder /wheels /wheels
-
-RUN python -m pip install --no-cache-dir --no-index --find-links=/wheels \
-        yoke yoke-contracts yoke-cli yoke-harness yoke-core \
-    && rm -rf /wheels
+COPY --from=builder /opt/yoke-venv /opt/yoke-venv
 
 # Import every installed core module with the source checkout absent.
 # This deliberately runs after source and wheels have left the runtime stage.

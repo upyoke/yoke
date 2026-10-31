@@ -3,12 +3,17 @@
 from __future__ import annotations
 
 import json
-import zipfile
+import tomllib
+
+import pytest
+from packaging.markers import Marker, default_environment
+from packaging.tags import compatible_tags, cpython_tags
+from packaging.utils import parse_wheel_filename
+from urllib.parse import urlparse
 from pathlib import Path
 from unittest import mock
 
 from yoke_core.api import container_healthcheck, server_entrypoint
-from yoke_core.tools.local_wheel_constraints import constraints_for_wheelhouse
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -179,13 +184,12 @@ def test_dockerfile_uses_wheel_runtime_and_healthcheck() -> None:
     assert "YOKE_EXPECTED_ENGINE_VERSION" in dockerfile
     assert "UNRESOLVED_SCM_FALLBACK_VERSION as fallback" in dockerfile
     assert "installed yoke-core version" in dockerfile
-    assert (
-        "python -m pip wheel --no-deps --wheel-dir /wheels "
-        "./packages/yoke-harness" in dockerfile
-    )
-    assert "local_wheel_constraints.py" in dockerfile
+    assert "COPY uv.lock ./" in dockerfile
+    assert "uv sync --locked --no-default-groups --no-editable" in dockerfile
+    assert "COPY --from=builder /opt/yoke-venv /opt/yoke-venv" in dockerfile
+    assert "pip install --no-cache-dir" not in dockerfile
+    assert "uv build --wheel --package yoke-core" in dockerfile
     assert "wheel_module_completeness.py" in dockerfile
-    assert "--package-root packages/yoke-core/src/yoke_core" in dockerfile
     assert "postgres_binaries.py" in dockerfile
     assert "['ensure_binaries']()" in dockerfile
     assert "libgssapi-krb5-2" in dockerfile
@@ -194,10 +198,6 @@ def test_dockerfile_uses_wheel_runtime_and_healthcheck() -> None:
         "COPY --chown=yoke:yoke --from=builder /var/lib/yoke/postgres "
         "/var/lib/yoke/postgres"
     ) in dockerfile
-    assert "--constraint /tmp/yoke-local-constraints.txt ." in dockerfile
-    assert dockerfile.index("local_wheel_constraints.py") < dockerfile.index(
-        "--constraint /tmp/yoke-local-constraints.txt ."
-    )
     assert 'CMD ["python", "-m", "yoke_core.api.server_entrypoint"]' in dockerfile
     assert "RUN python -m yoke_core.tools.product_wheel_validation" in dockerfile
     assert 'CMD ["python", "-m", "yoke_core.api.container_healthcheck"]' in dockerfile
@@ -207,33 +207,48 @@ def test_dockerfile_uses_wheel_runtime_and_healthcheck() -> None:
     assert "wget" not in dockerfile
 
 
-def test_local_wheel_constraints_emit_exact_split_package_versions(
-    tmp_path: Path,
-) -> None:
-    _write_wheel_metadata(
-        tmp_path / "yoke_harness-0.2.0.dev1-py3-none-any.whl",
-        name="yoke-harness",
-        version="0.2.0.dev1",
-    )
-    _write_wheel_metadata(
-        tmp_path / "yoke_cli-0.2.0.dev1-py3-none-any.whl",
-        name="yoke-cli",
-        version="0.2.0.dev1",
-    )
-
-    assert constraints_for_wheelhouse(tmp_path, ["yoke-cli", "yoke-harness"]) == [
-        f"yoke-cli @ {(tmp_path / 'yoke_cli-0.2.0.dev1-py3-none-any.whl').as_uri()}",
-        f"yoke-harness @ {(tmp_path / 'yoke_harness-0.2.0.dev1-py3-none-any.whl').as_uri()}",
-    ]
-
-
-def _write_wheel_metadata(path: Path, *, name: str, version: str) -> None:
-    dist_info = path.name.split("-py3-", 1)[0] + ".dist-info"
-    with zipfile.ZipFile(path, "w") as archive:
-        archive.writestr(
-            f"{dist_info}/METADATA",
-            f"Metadata-Version: 2.4\nName: {name}\nVersion: {version}\n",
-        )
+@pytest.mark.parametrize("arch", ["x86_64", "aarch64"])
+def test_locked_runtime_packages_have_cp313_manylinux_wheels(arch: str) -> None:
+    lock = tomllib.loads((REPO_ROOT / "uv.lock").read_text())
+    packages = {p["name"]: p for p in lock["package"]}
+    environment = default_environment() | {
+        "sys_platform": "linux", "platform_system": "Linux", "os_name": "posix",
+        "platform_machine": arch, "python_version": "3.13",
+        "python_full_version": "3.13.0", "implementation_name": "cpython",
+        "platform_python_implementation": "CPython",
+    }
+    pending = [("yoke", ())]
+    seen = set()
+    runtime = set()
+    while pending:
+        name, extras = pending.pop()
+        if (name, extras) in seen:
+            continue
+        seen.add((name, extras))
+        package = packages[name]
+        runtime.add(name)
+        dependencies = list(package.get("dependencies", []))
+        for extra in extras:
+            dependencies.extend(package.get("optional-dependencies", {}).get(extra, []))
+        for dependency in dependencies:
+            if Marker(dependency.get("marker", "python_version >= '3'")).evaluate(environment):
+                pending.append((dependency["name"], tuple(dependency.get("extra", []))))
+    platforms = [f"manylinux_2_{minor}_{arch}" for minor in range(5, 42)]
+    platforms += [f"manylinux2014_{arch}"]
+    if arch == "x86_64":
+        platforms += ["manylinux1_x86_64", "manylinux2010_x86_64"]
+    tags = set(cpython_tags((3, 13), platforms=platforms))
+    tags.update(compatible_tags((3, 13), interpreter="cp313", platforms=platforms))
+    missing = []
+    for name in sorted(runtime):
+        package = packages[name]
+        if "registry" not in package["source"]:
+            continue
+        wheels = [parse_wheel_filename(Path(urlparse(w["url"]).path).name)[3]
+                  for w in package.get("wheels", [])]
+        if not any(tags & wheel_tags for wheel_tags in wheels):
+            missing.append(f"{name}=={package['version']}")
+    assert not missing, f"cp313 {arch} wheels missing in uv.lock: {missing}"
 
 
 def test_git_archive_metadata_is_exported_for_image_wheel_versions() -> None:

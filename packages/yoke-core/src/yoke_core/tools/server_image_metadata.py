@@ -13,6 +13,7 @@ from importlib.metadata import version
 from pathlib import Path
 from typing import Sequence
 
+from yoke_core.tools.locked_dependencies import version_mismatches
 
 METADATA_MARKER = "YOKE_SERVER_IMAGE_METADATA="
 _METADATA_FIELDS = frozenset({"build", "version"})
@@ -148,11 +149,23 @@ def verify_native_image(args: argparse.Namespace) -> str:
             f"pushed image metadata mismatch: version={actual.version} build={actual.build} "
             f"expected version={args.expected_version} build={args.expected_build}"
         )
+    distributions = json.loads(docker(
+        "run", "--rm", "--entrypoint", "python3", args.image_ref, "-c",
+        "import json; from importlib.metadata import distributions; "
+        "print(json.dumps({d.metadata['Name']: d.version for d in distributions()}))",
+    ))
+    mismatches = version_mismatches(Path("uv.lock"), distributions)
+    if mismatches:
+        raise ServerImageMetadataError(
+            "native_image_lock_mismatch:\n" + "\n".join(mismatches)
+            + "\nRebuild the native image from uv.lock before publishing."
+        )
     args.digest_dir.mkdir(parents=True, exist_ok=True)
     (args.digest_dir / digest.removeprefix("sha256:")).touch()
     return (
         f"native image verified: arch={arch} "
-        f"version={actual.version} build={actual.build}"
+        f"version={actual.version} build={actual.build} "
+        f"locked distributions={json.dumps(distributions, sort_keys=True)}"
     )
 
 

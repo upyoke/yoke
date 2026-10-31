@@ -194,6 +194,10 @@ def test_build_product_wheelhouse_includes_bootstrap_pip(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     wheelhouse = tmp_path / "wheelhouse"
+    (tmp_path / "uv.lock").write_text(
+        '[manifest]\nmembers=["yoke-contracts", "yoke-cli", "yoke-harness", "yoke-core"]\n'
+        '[[package]]\nname="pip"\nversion="25.3"\nsource={registry="https://pypi.org/simple"}\n'
+    )
     commands: list[list[str]] = []
 
     def fake_run(command: list[str], **_: object) -> None:
@@ -218,6 +222,10 @@ def test_build_product_wheelhouse_includes_bootstrap_pip(
     roots = [arg for arg in commands[-1] if arg.endswith(".whl")]
     assert len(roots) == 4 and all(Path(arg).parent == wheelhouse for arg in roots)
     assert build_release.BOOTSTRAP_REQUIREMENTS[0] in commands[-1]
+    export = next(command for command in commands if "export" in command)
+    assert "--locked" in export and "--no-emit-workspace" in export
+    assert "--no-default-groups" in export and "--no-hashes" in export
+    assert commands[-1][commands[-1].index("--constraint") + 1] == export[-1]
     assert (wheelhouse / "pip-25.3-py3-none-any.whl").is_file()
 
 

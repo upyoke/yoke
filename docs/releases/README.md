@@ -40,6 +40,18 @@ local wheel paths. Numeric version spelling alone does not establish origin;
 installers and relay installs select product bytes from the declared distribution.
 Public indexes supply third-party dependencies.
 
+The server image, offline release wheelhouse and hosted bridge install from
+`uv.lock`. Upstream upgrades arrive through `uv lock --upgrade` in an ordinary
+reviewed PR, with CI proving the changed versions before publication. Builds
+use `--locked` to refuse stale dependency declarations; regenerate and commit
+the lock with the declarations before retrying. The release dependency group
+locks the offline wheelhouse's bootstrap pip without adding it to the server.
+Native image verification compares every installed third-party distribution
+with the lock and lists all mismatches before exporting a digest. The container
+data test requires compatible CPython 3.13 manylinux or pure Python wheels for
+every Linux runtime dependency on x86_64 and aarch64. Review the published
+image's distribution diff against the lock when changing this build contract.
+
 The image factory builds and verifies native linux/amd64 and linux/arm64 images
 on `main`, assembles their manifest and signs its digest in a no-checkout job.
 The tag job downloads that successful exact-main record and verifies its OCI
