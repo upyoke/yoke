@@ -35,8 +35,9 @@ attaching items. Its immutable target records
 must contain the plan's source revision. Cases filter to the target, and the
 first group pins the plan; edits wait for the next release. Only one group per
 plan can stay open. Supplemental runs enroll members owing plans there even without item cases.
-With neither own cases nor plans owed there, a completion run answers not
-required; done still needs the other environment's group credit. Cases use
+With no own cases and plans owed only elsewhere, the QA gate and settlement
+agree: this run may succeed while the member stays open for that target's group
+credit. Own cases and plans owed here still block until satisfied. Cases use
 the plan's project unless a deployment member owns them.
 
 The driver runs groups outside dispatch; review never stops other groups.
