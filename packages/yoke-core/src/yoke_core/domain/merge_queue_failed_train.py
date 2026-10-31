@@ -132,7 +132,10 @@ def unchanged_failed_train_refusal(
     observed = train
     if observed is None:
         observed, _note = read_train_run(ctx, pr_num)
-    if observed is None or str(observed.conclusion or "") != "failure":
+    if observed is None or str(observed.conclusion or "") not in {
+        "failure",
+        "timed_out",
+    }:
         return None
     train_sha = str(observed.head_sha or "").strip()
     if not train_sha:
