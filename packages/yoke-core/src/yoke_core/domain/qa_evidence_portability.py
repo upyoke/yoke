@@ -73,8 +73,8 @@ def _hosted_serving_build() -> bool:
 def unservable_artifacts(artifacts: Iterable[dict[str, Any]]) -> list[dict[str, Any]]:
     """Artifacts a hosted reviewer could not open.
 
-    Object-store handles are servable by construction: they are recorded only
-    after the serving plane minted and received the upload. A local handle
+    Object-store handles record a serving-plane upload; reads still validate
+    their bucket and requirement-owner key before serving the bytes. A local handle
     names one machine's disk, which is the serving build's own disk only in
     a local or self-hosted universe. Behind a hosted build — or seen through
     a database door into one — it is a placeholder.
@@ -88,7 +88,7 @@ def unservable_artifacts(artifacts: Iterable[dict[str, Any]]) -> list[dict[str, 
 
 
 def rehome_command(requirement_id: int, artifact_ids: Iterable[int]) -> str:
-    """The recovery that moves recorded local bytes into the hosted store."""
+    """Move recorded local bytes into the hosted store; never repair object keys."""
     flags = " ".join(f"--artifact-id {int(a)}" for a in artifact_ids)
     return f"yoke qa artifact rehome --requirement-id {int(requirement_id)} {flags}"
 

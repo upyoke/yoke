@@ -316,7 +316,7 @@ def _no_bytes_message(parsed, result: dict) -> str:
     named = (result.get("detail"), recorded_test_machine(result))
     parts = [str(part) for part in named if part]
     detail = f"; {'; '.join(parts)}" if parts else ""
-    if disposition == "evidence_missing":
+    if disposition in {"evidence_missing", "evidence_key_mismatch"}:
         recovery = "Re-run the QA case to capture the evidence again."
     else:
         recovery = (
