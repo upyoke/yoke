@@ -23,7 +23,7 @@ SIMULATION_TRIAGE_SECTION = "Simulation Triage"
 def section_write_refusal(section: str) -> str | None:
     """Reserve the discharge namespace for the authenticated PROCEED owner."""
     normalized = section.strip().lstrip("#").strip()
-    if normalized in {"Merge train retries", "Queue re-entry receipts"}:
+    if normalized == "Queue re-entry receipts":
         return (
             "section_authority_reserved: queue retry receipts belong to the merge "
             "boundary and observer; use yoke merge item for recovery."

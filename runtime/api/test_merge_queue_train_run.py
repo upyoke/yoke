@@ -83,9 +83,7 @@ def test_read_train_run_asks_the_declared_workflows_own_runs_collection(monkeypa
     train_run_mod.read_train_run(_ctx(), "42")
     assert requests
     for request in requests:
-        assert request.path == (
-            "/repos/upyoke/yoke/actions/workflows/yoke-ci.yml/runs"
-        )
+        assert request.path == ("/repos/upyoke/yoke/actions/workflows/yoke-ci.yml/runs")
         assert request.query["event"] == "merge_group"
 
 
@@ -108,7 +106,9 @@ def test_read_train_run_anchors_a_known_combined_head_by_head_sha(monkeypatch):
         requests=requests,
     )
     run, note = train_run_mod.read_train_run(
-        _ctx(), "42", covering_sha=combined,
+        _ctx(),
+        "42",
+        covering_sha=combined,
     )
     assert note is None
     assert run.head_sha == combined
@@ -154,7 +154,9 @@ def test_read_train_run_matches_sibling_by_combined_head_sha(monkeypatch):
         ],
     )
     run, note = train_run_mod.read_train_run(
-        _ctx(), "42", covering_sha=combined,
+        _ctx(),
+        "42",
+        covering_sha=combined,
     )
     assert note is None
     assert run.head_sha == combined
@@ -176,7 +178,9 @@ def test_read_train_run_covering_sha_does_not_adopt_a_different_head(monkeypatch
         ],
     )
     run, note = train_run_mod.read_train_run(
-        _ctx(), "42", covering_sha="b" * 40,
+        _ctx(),
+        "42",
+        covering_sha="b" * 40,
     )
     assert run is None
     assert "no merge_group workflow run identified" in note.reason
@@ -224,31 +228,43 @@ def test_a_provider_read_that_failed_is_retryable(monkeypatch):
     assert "502 upstream" in note.reason
 
 
-def test_missing_run_web_url_still_supports_a_recorded_flake_retry(monkeypatch):
+def test_missing_run_web_url_is_derived_in_failed_train_refusal(monkeypatch):
     from yoke_core.domain.merge_queue_failed_train import unchanged_failed_train_refusal
 
     combined, head, base = "c" * 40, "a" * 40, "b" * 40
-    _wire_runs(monkeypatch, [{
-        "id": 123, "path": ".github/workflows/yoke-ci.yml",
-        "head_branch": "gh-readonly-queue/main/pr-42-abc",
-        "conclusion": "failure", "head_sha": combined,
-    }])
+    _wire_runs(
+        monkeypatch,
+        [
+            {
+                "id": 123,
+                "path": ".github/workflows/yoke-ci.yml",
+                "head_branch": "gh-readonly-queue/main/pr-42-abc",
+                "conclusion": "failure",
+                "head_sha": combined,
+            }
+        ],
+    )
     run, note = train_run_mod.read_train_run(_ctx(), "42", covering_sha=combined)
     assert note is None
-    claims = []
-    def dispatch(**kwargs):
-        claims.append(kwargs["payload"])
-        return SimpleNamespace(success=True, result={"claimed": True})
-    assert unchanged_failed_train_refusal(
-        _ctx(), "42", lane_head=head, base_branch="main", base_sha=base,
-        parents=[base, head], train=run, public_ref=f"ITEM-{42}",
-        retry_flake="test_clock: unrelated timing", dispatch=dispatch,
-    ) is None
-    assert claims[0]["run_url"] == "https://github.com/upyoke/yoke/actions/runs/123"
+    refusal = unchanged_failed_train_refusal(
+        _ctx(),
+        "42",
+        lane_head=head,
+        base_branch="main",
+        base_sha=base,
+        parents=[base, head],
+        train=run,
+    )
+    assert "failed-train-unchanged" in refusal
+    assert "https://github.com/upyoke/yoke/actions/runs/123" in refusal
 
 
 def test_missing_run_url_uses_the_provider_repository_web_origin():
-    run = train_run_mod._as_train_run({
-        "id": 123, "repository": {"html_url": "https://git.example/org/repo"},
-    }, "org/repo")
+    run = train_run_mod._as_train_run(
+        {
+            "id": 123,
+            "repository": {"html_url": "https://git.example/org/repo"},
+        },
+        "org/repo",
+    )
     assert run.url == "https://git.example/org/repo/actions/runs/123"

@@ -107,3 +107,15 @@ def test_bridge_receives_owner_endpoint_as_a_required_input() -> None:
         workflow["jobs"]["dispatch-platform-release"]["env"]["YOKE_API_BASE"]
         == "${{ inputs.control_plane_api_url }}"
     )
+
+
+def test_failed_factory_stops_without_rerunning_failed_jobs() -> None:
+    steps = _bridge_steps()
+    factory = next(
+        step for step in steps if "factory_state=" in str(step.get("run", ""))
+    )
+    command = factory["run"]
+    assert "gh run rerun" not in command
+    assert "factory_failed:" in command
+    assert "fix the cause on main" in command
+    assert "yoke github-actions wait-run" in command

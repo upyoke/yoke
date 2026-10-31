@@ -7,7 +7,7 @@ therefore dispatch a fresh run; equivalent input ordering keeps the identity.
 A second invocation of the same dispatch rejoins the run the first one
 started instead of paying for a duplicate. That is right while the run is
 in flight or has reached a verdict. It is wrong once that run concluded
-without one — its jobs never started, or it was cancelled or timed out:
+without one — its jobs never started, or it was cancelled:
 every re-run would rejoin the same dead run, and no verdict would be
 reachable short of a new commit.
 
@@ -27,7 +27,7 @@ from typing import Mapping, Optional
 REPLAY_CHAIN_LIMIT = 20
 
 #: Effective conclusions that are a verdict about the tree.
-VERDICT_CONCLUSIONS = frozenset({"success", "failure"})
+VERDICT_CONCLUSIONS = frozenset({"success", "failure", "timed_out"})
 
 
 class RedispatchChainExhausted(RuntimeError):

@@ -107,7 +107,6 @@ def shard_number(value: str, *, default: int = 1) -> int:
     return int(text)
 
 
-
 def pytest_command(group: int) -> list[str]:
     """The exact suite invocation for one shard."""
     return [
@@ -148,9 +147,9 @@ def _run_shard(group: int) -> int:
         elapsed = measurements["python_loop_seconds"]
         if elapsed > MAX_PYTHON_LOOP_SECONDS:
             reason = (
-                f"ci_runner_slow: slow runner, retry; python_loop_seconds={elapsed:.6f} "
+                f"ci_runner_slow: runner refused before pytest; python_loop_seconds={elapsed:.6f} "
                 f"exceeds {MAX_PYTHON_LOOP_SECONDS:.2f}s. "
-                "Re-run the failed GitHub Actions job."
+                "Restore runner capacity; no test verdict was produced."
             )
             print(reason, flush=True)
             log.write(reason + "\n")

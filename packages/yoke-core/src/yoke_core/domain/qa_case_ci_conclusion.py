@@ -32,14 +32,9 @@ KNOWN_CONCLUSIONS = frozenset(
 )
 
 #: Conclusions that make a completed run binding evidence for its tree.
-#: A cancelled, timed-out, or never-started run checked the tree out and
-#: then stopped, so adopting one as evidence wedges the gate at that
-#: commit: every retry finds the same completed run at the same head sha,
-#: and no green is reachable short of a new commit. Those send the runner
-#: back to dispatching a fresh run instead. ``failure`` stays binding —
-#: red is a real answer about this tree, and retrying past it would be
-#: retrying past a broken branch.
-BINDING_CONCLUSIONS = frozenset({"success", "failure"})
+#: Cancelled and never-started runs reached no verdict and can be recovered.
+#: Failures and test timeouts stay red until the cause is fixed.
+BINDING_CONCLUSIONS = frozenset({"success", "failure", "timed_out"})
 
 _CONCLUSION_PATTERN = re.compile(r"failed:\s*(?P<conclusion>[a-z_]+)")
 
@@ -55,17 +50,17 @@ def conclusion_from_poll(exit_code: int, output: str) -> str:
     if CI_RUN_NEVER_STARTED_REASON in output:
         return CI_JOB_NOT_STARTED
     if "timed out" in output.casefold():
-        return "timed_out"
+        return "error"
     return "error"
 
 
 def failure_verdict(conclusion: str) -> tuple[str, str]:
     """Return the ``(verdict, failure_class)`` a non-success run records.
 
-    Only ``failure`` is a red verdict. A run whose jobs never started
+    A failure or test timeout is a red verdict. A run whose jobs never started
     records the named no-verdict class, whose recovery is a re-dispatch.
     """
-    if conclusion == "failure":
+    if conclusion in {"failure", "timed_out"}:
         return "fail", "test_failure"
     if conclusion in (CI_JOB_NOT_STARTED, "startup_failure"):
         return "error", CI_JOB_NOT_STARTED

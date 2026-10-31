@@ -3,7 +3,7 @@
 from yoke_contracts.api.function_call import FunctionError, HandlerOutcome
 from yoke_core.domain.github_actions_rest import rest_get
 from yoke_core.domain.github_actions_failed_jobs import list_run_jobs
-from yoke_core.domain.ci_job_outcome import job_started, job_never_started
+from yoke_core.domain.ci_job_outcome import job_started
 
 MAX_NO_VERDICT_ATTEMPTS = 3
 
@@ -23,7 +23,6 @@ def checked_run(
     token: str,
     *,
     expected_head: str = "",
-    allow_failure: bool = True,
     get=rest_get,
 ):
     pr = get(f"{root}/pulls/{pr_number}", token=token)
@@ -95,27 +94,23 @@ def checked_run(
         str(run.get("id")) != run_id
         or run.get("status") != "completed"
         or run.get("conclusion")
-        not in (
-            {"failure", "timed_out", "cancelled", "startup_failure", "stale"}
-            if allow_failure
-            else {"cancelled", "startup_failure", "stale", "failure"}
-        )
+        not in {"cancelled", "startup_failure", "stale", "failure"}
     ):
         return _refused(
             "ci_rerun_not_failed",
-            "Only a completed failed, timed-out, cancelled or never-started run can be recovered; wait for active CI or inspect the current run.",
+            "Only a completed cancelled or never-started run can be recovered; wait for active CI or inspect the current run.",
         )
     jobs = list_run_jobs(root.removeprefix("/repos/"), run_id, token=token)
     real_failure = any(
-        job_started(job) and job.get("conclusion") in {"failure", "timed_out"}
+        job_started(job)
+        and job.get("conclusion") in {"failure", "timed_out"}
+        and any(
+            step.get("conclusion") in {"failure", "timed_out"}
+            for step in job.get("steps") or []
+        )
         for job in jobs
     )
-    no_verdict = not real_failure and (
-        run.get("conclusion") in {"cancelled", "startup_failure", "stale"}
-        or not jobs
-        or any(job_never_started(job) for job in jobs)
-    )
-    if not allow_failure and not no_verdict:
+    if real_failure:
         return _refused(
             "ci_rerun_verdict",
             "Started jobs failed; fix the cause on the lane, commit and rerun verification. No rerun was sent.",
@@ -126,7 +121,7 @@ def checked_run(
             "ci_rerun_identity_unavailable",
             "Run attempt is unavailable; restore GitHub run reads before retrying.",
         )
-    if no_verdict and attempt >= MAX_NO_VERDICT_ATTEMPTS:
+    if attempt >= MAX_NO_VERDICT_ATTEMPTS:
         return _refused(
             "ci_rerun_limit",
             f"Run {run_id} reached {attempt} attempts without a verdict; inspect its job annotations and repair runner capacity, labels or workflow limits before starting a fresh declared workflow attempt. Verify its exact head and required-check replacement before retrying merge.",

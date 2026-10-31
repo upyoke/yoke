@@ -135,7 +135,9 @@ def test_the_fan_out_prints_when_no_output_file_is_named(capsys, monkeypatch) ->
     assert capsys.readouterr().out.strip() == "\n".join(ci_shards.fan_out_lines())
 
 
-def test_capacity_probe_uses_the_median_of_three_local_measurements(monkeypatch) -> None:
+def test_capacity_probe_uses_the_median_of_three_local_measurements(
+    monkeypatch,
+) -> None:
     times = iter((0, 0.09, 1, 1.01, 2, 2.02))
     monkeypatch.setattr(ci_shards.time, "perf_counter", lambda: next(times))
 
@@ -157,8 +159,8 @@ def test_slow_runner_refuses_before_pytest_and_retains_recovery(
     assert ci_shards.main(["run", "--group", "1"]) == 1
 
     output = capsys.readouterr().out
-    assert "ci_runner_slow: slow runner, retry" in output
-    assert "Re-run the failed GitHub Actions job." in output
+    assert "ci_runner_slow: runner refused before pytest" in output
+    assert "Restore runner capacity; no test verdict was produced." in output
     assert f"python_loop_seconds={seconds:.6f}" in output
     assert (tmp_path / ci_shards.OUTPUT_LOG).read_text() == output
 

@@ -34,12 +34,24 @@ Model: [verification](../../verification/index.md).
   BRANCH --expected-sha FULL_SHA`. Follow refusal recovery for `qa_source_lane_unresolved`,
   `qa_ci_source_mismatch` and `qa_published_head_unproven`.
 
-## Unexplained test failure
+## Failing or flaky tests
 
-The item holder may retry once if the change cannot explain the failed test. First message
-`yoke say --steering` with the test and CI run URL. A second failure of the same check on
-the same inputs belongs to this item. Failed trains use the recorded
-[`--retry-flake` path](../../github/merge-queue-landings.md#failed-merge-trains).
+A failing or flaky test is a defect. Never re-run unchanged inputs to get a pass; Yoke
+refuses it.
+
+- Caused by this item, or in a file this item touches: fix it here, commit, and re-run the
+  gate. This includes a test that passes and fails on the same commit.
+- Not caused by this item: run `yoke feedback --to universe --category failed --evidence
+  'Flaky test: TEST, CI run URL, observed outcomes'` (add `--correlation-id` for repeat
+  evidence), then `yoke feedback promote ENTRY --title 'Fix flaky TEST'`. Then wait on
+  the fix item with the existing recipe in
+  [delivery.md#wait-on-another-items-merge-or-delivery](delivery.md#wait-on-another-items-merge-or-delivery)
+  (`yoke items dependency add THIS-ITEM FIX-ITEM dash --gate-point integration
+  --satisfaction fact:merged --rationale '...'`, then `yoke sessions touch --mode parked`).
+  The gate stays red; the fix item's landing wakes you. If the fix is small and the work
+  claim allows its files, fix it in this item instead.
+- Cancelled or never-started jobs are not a verdict; recover them with
+  [failed CI job recovery](../../github/index.md#failed-ci-job-recovery).
 
 ## QA results
 
@@ -76,8 +88,7 @@ against the supported deployment context.
   override is last resort and requires a live steering seat covering the project.
   Route it through `yoke say --steering` and read `yoke claims path override --help`.
 - Update a test this item's change made stale; never weaken a behavior assertion to pass.
-  Route a failure the change cannot explain to steering (`yoke say --steering`)
-  or the responsible item.
+  Follow [failing or flaky tests](#failing-or-flaky-tests) for an unrelated cause.
 - Record the failure, the claim action and the rerun evidence; never report green by pointing at
   future work.
 

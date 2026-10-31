@@ -220,7 +220,7 @@ raw DB rows.
 ## Failed CI job recovery
 
 Inspect the failed jobs with `yoke github-actions failed-log <owner/repo> <run-id> --project <project>`.
-For a transient infrastructure failure, the worker holding the item claim runs
+For a run that reached no verdict, the worker holding the item claim runs
 `yoke github-actions run rerun-failed ITEM RUN-ID`, then resumes the same CI/QA
 wait. The registered `github_actions.run.rerun_failed` mutation derives the
 repository and landing PR from the item, requires the run to match the PR's
@@ -237,10 +237,10 @@ unadmitted PR without arming it twice. Active, successful and superseded runs
 are protected. Acceptance is not a passing check: resume the exact-head wait.
 A fresh `workflow_dispatch` is a new attempt; verify its head and that GitHub
 replaced the required checks before treating it as recovery.
-For a test failure the change cannot explain, the worker may retry once after messaging
-steering with the test and CI run URL. A second failure on the same inputs belongs to the
-item; fix and commit before further verification. Failed merge trains use the recorded
-[`--retry-flake` recovery](merge-queue-landings.md#failed-merge-trains).
+A started job with a failed or timed-out step is a red verdict and refuses recovery.
+Runner loss without a failed step remains recoverable. A run concluded `timed_out` is red.
+Fix failing or flaky tests through the
+[verification policy](../agents/rules/verification.md#failing-or-flaky-tests).
 A lost POST response reports `ci_rerun_ambiguous`: inspect the run's attempt
 and status before retrying. If GitHub accepted the rerun but receipt recording
 failed, restore item writes and append the returned receipt; resume the wait

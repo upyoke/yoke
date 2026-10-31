@@ -58,10 +58,11 @@ Each shard log records CPU model, core count, and a short Python-loop timing
 before starting pytest. The probe takes the median of three local loops;
 `ci_shards.MAX_PYTHON_LOOP_SECONDS` admits values up to 0.05 seconds. Above
 that limit the shard exits non-zero before pytest with
-`ci_runner_slow: slow runner, retry` and the measured value and limit, in both
-the job log and uploaded `pytest-output.txt`. Re-run the failed GitHub Actions
-job to get another runner. This is an admission check, with no automatic retry
-or change to test selection. Missing CPU-model telemetry does not block tests.
+`ci_runner_slow: runner refused before pytest` and the measured value and limit,
+in both the job log and uploaded `pytest-output.txt`. Restore runner capacity;
+no test verdict was produced. Recover a no-verdict run through the item-owned
+[CI recovery](../public/github/index.md#failed-ci-job-recovery) after inspecting its steps.
+This admission check does not change test selection. Missing CPU-model telemetry does not block tests.
 The **Run pytest** step sets `PYTHONUNBUFFERED=1` so progress reaches the
 streaming log without Python output buffering.
 

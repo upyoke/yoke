@@ -43,7 +43,6 @@ def merge_item_resume_command(public_ref: str, args: Any) -> str:
         ("--target", "target"),
         ("--result", "result"),
         ("--verification", "verification"),
-        ("--retry-flake", "retry_flake"),
     ):
         value = str(getattr(args, attr, "") or "")
         if value:

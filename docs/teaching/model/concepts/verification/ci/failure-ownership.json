@@ -4,6 +4,6 @@
  "status": "draft-copy",
  "page": "verification-ci",
  "position": 4,
- "summary": "Current-item verification failures belong to the current item; a future item or planned path claim is not a waiver. Update a test this item's change made stale; never weaken a behavior assertion to pass. Route a failure the change cannot explain to steering or the responsible item.",
+ "summary": "A failing or flaky test is a defect. Fix failures caused by this item or in files it touches here, commit and re-run the gate. For an unrelated cause, file feedback, promote a fix item, record a dependency and park; the gate stays red until the fix lands. Never weaken a behavior assertion or re-run unchanged inputs to get a pass. Cancelled or never-started jobs are no verdict and remain recoverable.",
  "sources": ["AGENTS.md", "docs/public/agents/rules/verification.md"]
 }

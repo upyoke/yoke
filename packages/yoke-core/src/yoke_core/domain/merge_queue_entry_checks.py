@@ -112,9 +112,11 @@ def red_checks_recovery(failed: Sequence[LandingCheck]) -> str:
         )
     return (
         "fix it on the lane, commit, re-run the verification gate, and "
-        "re-run `yoke merge item`; for an unrelated flaky failure, run "
-        "`yoke github-actions run rerun-failed ITEM RUN-ID` using the run id "
-        "from the check URL"
+        "re-run `yoke merge item`. If this item's change did not cause it, "
+        "file it with `yoke feedback --to universe --category failed --evidence "
+        "'Flaky test: TEST, CI run URL, observed outcomes'`, then `yoke feedback "
+        "promote ENTRY --title 'Fix flaky TEST'`, record the dependency, and park; "
+        "the gate stays red until the fix lands"
     )
 
 

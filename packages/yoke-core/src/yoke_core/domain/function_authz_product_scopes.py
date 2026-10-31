@@ -108,7 +108,6 @@ PRODUCT_AUTHZ_BY_ID = {
     "merge_receipt.commits.attest": AuthzSpec(PROJECT, PERM_ITEMS_WRITE),
     "merge_queue.landing.observe": AuthzSpec(PROJECT, PERM_ITEMS_WRITE),
     "merge_queue.landing_pull_request.record": AuthzSpec(PROJECT, PERM_ITEMS_WRITE),
-    "merge_queue.flake_retry.claim": AuthzSpec(PROJECT, PERM_ITEMS_WRITE),
     "merge_queue.landing_pending.mark": AuthzSpec(PROJECT, PERM_ITEMS_WRITE),
     "merge_queue.landing_pending.clear": AuthzSpec(PROJECT, PERM_ITEMS_WRITE),
     # Pipeline member-item stamps (deploy_stage / deployed_to). Claim-free
@@ -203,9 +202,7 @@ PRODUCT_AUTHZ_BY_ID = {
     "deployment_runs.execution.containment_basis": AuthzSpec(
         PROJECT, PERM_PROJECT_ADMIN
     ),
-    "deployment_runs.execution.delivery_reuse": AuthzSpec(
-        PROJECT, PERM_PROJECT_ADMIN
-    ),
+    "deployment_runs.execution.delivery_reuse": AuthzSpec(PROJECT, PERM_PROJECT_ADMIN),
     "deployment_runs.execution.context": AuthzSpec(PROJECT, PERM_PROJECT_ADMIN),
     "deployment_runs.execution.update": AuthzSpec(PROJECT, PERM_PROJECT_ADMIN),
     "deployment_runs.execution.attach_driver": AuthzSpec(PROJECT, PERM_PROJECT_ADMIN),

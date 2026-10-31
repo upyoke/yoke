@@ -46,11 +46,11 @@ def test_unchanged_head_and_base_after_a_failed_train_is_refused():
     assert LANE_SHA in error
     assert BASE_SHA in error
     assert "Inspect that identified failed run first" in error
-    assert "correct the actual cause" in error
-    assert "--retry-flake" in error
-    assert "yoke say --steering" in error
-    assert "test and CI run URL" in error
-    print(error)
+    assert "fix it on the lane" in error
+    assert "yoke feedback" in error
+    assert "--retry-flake" not in error
+    assert "retry once" not in error
+    assert "one recorded retry" not in error
 
 
 def test_a_new_head_may_re_enter():
@@ -142,3 +142,16 @@ def test_uncertain_train_or_ancestry_still_allows_reentry(monkeypatch):
     assert _refuse(base_sha="") is None
     monkeypatch.setattr(failed_train, "_base_covers_train", lambda *_a: False)
     assert _refuse(parents=[LANE_SHA]) is None
+
+
+def test_removed_retry_argument_is_rejected():
+    import pytest
+
+    with pytest.raises(TypeError):
+        unchanged_failed_train_refusal(
+            ctx(),
+            "42",
+            lane_head=LANE_SHA,
+            base_branch="main",
+            retry_flake="reason",
+        )

@@ -176,8 +176,8 @@ def run_ci_verification(
         # authority, and one of them resolving credentials on its own is how
         # the gate broke on a machine whose control plane is remote.
         with qa_case_ci_lane.github_actions_authority():
-            # Reuse a successful or running proof on this exact commit.
-            # A completed unsuccessful run needs a fresh dispatch.
+            # Reuse running proof or a binding verdict on this exact commit.
+            # Failed tests stay red until the inputs change.
             existing = qa_case_ci_covering_run.find_run_for_tree(
                 project=project,
                 repo=repo,
@@ -197,7 +197,9 @@ def run_ci_verification(
                     workflow=workflow,
                     branch=branch,
                     request_id=qa_case_ci_covering_run.dispatch_request_id(
-                        f"merge-gate:{ctx.item_id}:{tree.head_sha}", tree.head_sha, existing
+                        f"merge-gate:{ctx.item_id}:{tree.head_sha}",
+                        tree.head_sha,
+                        existing,
                     ),
                     timeout_seconds=DEFAULT_MERGE_CI_TIMEOUT_SECONDS,
                     inputs=workflow_inputs,

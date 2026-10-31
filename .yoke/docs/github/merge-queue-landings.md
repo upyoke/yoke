@@ -93,22 +93,10 @@ same stop notice; a new governed arming starts a new episode.
 
 ## Failed merge trains
 
-After inspecting the failed run, a worker may claim one retry when the change cannot
-explain the test failure. First message `yoke say --steering` with the test and CI run URL,
-then re-run the same complete `yoke merge item` command with
-`--retry-flake 'TEST: why the change cannot explain the failure'`.
-The item records its pull request, head/base, run URL, reason and session before arming.
-A second claim on that input pair refuses with `merge_train_flake_retry_exhausted`;
-a second failure belongs to the item and requires a fix. The observer never claims a
-flake automatically. A rejected queue-entry request releases that attempt's reservation;
-an accepted or uncertain request keeps it spent. A failed release names its reservation
-and repair; inspect **Merge train retries** before recovery. If the provider omits the
-run's web URL, the reader derives it from the identified Actions run id and repository.
-See the
-[verification policy](../agents/rules/verification.md#unexplained-test-failure).
-An older serving build refuses this reservation with its serving floor; ask the
-control-plane operator for a serving release that carries the function. Ordinary merges
-remain available without this optional retry.
+A failed train refuses re-entry on the same head and base.
+Fix the cause, commit, re-run verification, and re-enter through `yoke merge item`.
+An unrelated cause follows the
+[verification policy](../agents/rules/verification.md#failing-or-flaky-tests).
 
 Automatic conflict re-entry requests Contents: write and Pull requests: write on its
 installation token. If GitHub refuses access, restore those App permissions and token

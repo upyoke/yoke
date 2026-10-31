@@ -128,13 +128,6 @@ def build_parser() -> argparse.ArgumentParser:
         "item; do not substitute `yoke lifecycle transition --to done`.",
     )
     parser.add_argument("--verification-status", **status_argument_kwargs())
-    parser.add_argument(
-        "--retry-flake", default="", metavar="TEST_AND_REASON",
-        help="Claim one retry of a failed merge train on unchanged inputs. "
-        "Name the test and why the change cannot explain it; first message "
-        "steering with `yoke say --steering`, naming the test and CI run URL. "
-        "A second failure on the same inputs belongs to this item.",
-    )
     boolean_options = (
         (
             "--no-changes",

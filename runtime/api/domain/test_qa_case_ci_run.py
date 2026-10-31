@@ -37,7 +37,9 @@ def _run(checkout, *, dispatch, await_result, case=None, **kwargs):
     with mock.patch.object(qa_case_ci_lane, "dispatch_workflow", dispatch):
         with mock.patch.object(qa_case_ci_lane, "await_workflow", await_result):
             return qa_case_ci_run.execute_ci_case(
-                case or _case(), checkout_path=checkout, **kwargs,
+                case or _case(),
+                checkout_path=checkout,
+                **kwargs,
             )
 
 
@@ -54,9 +56,7 @@ def test_no_pull_request_run_dispatches_and_records_the_result(wired):
     assert result["case_outcome"] == "passed"
     assert result["runner_id"] == "ci_run"
     assert result["ci_run_id"] == "9182736"
-    assert result["run_url"] == (
-        "https://github.com/acme/widgets/actions/runs/9182736"
-    )
+    assert result["run_url"] == ("https://github.com/acme/widgets/actions/runs/9182736")
     assert result["verification_tree"]["head_sha"] == "a" * 40
 
     added = recorder.payload("qa.run.add")
@@ -77,18 +77,24 @@ def test_completed_successful_run_is_reused_without_dispatch(wired):
     """A successful proof on this exact commit needs no new dispatch."""
     checkout, recorder, _ = wired
     covering = qa_case_ci_lane.WorkflowRun(
-        "77", "completed", "success",
-        "https://github.test/actions/runs/77", "a" * 40,
+        "77",
+        "completed",
+        "success",
+        "https://github.test/actions/runs/77",
+        "a" * 40,
     )
     dispatch = mock.Mock(side_effect=AssertionError("must not dispatch"))
     await_result = mock.Mock(side_effect=AssertionError("must not await"))
 
     with mock.patch.object(
-        qa_case_ci_covering_run, "find_run_for_tree",
+        qa_case_ci_covering_run,
+        "find_run_for_tree",
         return_value=covering,
     ):
         result = _run(
-            checkout, dispatch=dispatch, await_result=await_result,
+            checkout,
+            dispatch=dispatch,
+            await_result=await_result,
         )
 
     assert result["verdict"] == "pass"
@@ -101,24 +107,32 @@ def test_completed_successful_run_is_reused_without_dispatch(wired):
 
 
 @pytest.mark.parametrize(
-    "conclusion", ["failure", "cancelled", "timed_out", "startup_failure"],
+    "conclusion",
+    ["cancelled", "startup_failure"],
 )
 def test_an_unsuccessful_run_is_not_reused_as_evidence(
-    wired, conclusion,
+    wired,
+    conclusion,
 ):
-    """The gate reaches green at the same commit, without a new commit."""
+    """No-verdict recovery can check the same commit."""
     checkout, _, _ = wired
     stopped = qa_case_ci_lane.WorkflowRun(
-        "77", "completed", conclusion,
-        "https://github.test/actions/runs/77", "a" * 40,
+        "77",
+        "completed",
+        conclusion,
+        "https://github.test/actions/runs/77",
+        "a" * 40,
     )
     dispatch = mock.Mock(return_value="42")
 
     with mock.patch.object(
-        qa_case_ci_covering_run, "find_run_for_tree", return_value=stopped,
+        qa_case_ci_covering_run,
+        "find_run_for_tree",
+        return_value=stopped,
     ):
         result = _run(
-            checkout, dispatch=dispatch,
+            checkout,
+            dispatch=dispatch,
             await_result=lambda **kwargs: (0, "success"),
         )
 
@@ -132,16 +146,21 @@ def test_an_unsuccessful_run_is_not_reused_as_evidence(
 def test_pull_request_run_for_a_different_sha_dispatches(wired):
     checkout, _, _ = wired
     covering = qa_case_ci_lane.WorkflowRun(
-        "77", "completed", "success",
-        "https://github.test/actions/runs/77", "b" * 40,
+        "77",
+        "completed",
+        "success",
+        "https://github.test/actions/runs/77",
+        "b" * 40,
     )
     dispatch = mock.Mock(return_value="42")
     with mock.patch.object(
-        qa_case_ci_covering_run, "find_run_for_tree",
+        qa_case_ci_covering_run,
+        "find_run_for_tree",
         return_value=covering,
     ):
         result = _run(
-            checkout, dispatch=dispatch,
+            checkout,
+            dispatch=dispatch,
             await_result=lambda **kwargs: (0, "success"),
         )
 
@@ -194,9 +213,7 @@ def test_the_ci_budget_is_the_default_not_the_local_command_timeout(wired):
         await_result=lambda **kwargs: (0, "success"),
     )
 
-    assert seen["timeout_seconds"] == (
-        qa_case_ci_run.DEFAULT_CI_RUN_TIMEOUT_SECONDS
-    )
+    assert seen["timeout_seconds"] == (qa_case_ci_run.DEFAULT_CI_RUN_TIMEOUT_SECONDS)
 
 
 def test_a_quick_scope_case_gets_the_ci_runner_budget_not_the_local_one(wired):
@@ -213,9 +230,7 @@ def test_a_quick_scope_case_gets_the_ci_runner_budget_not_the_local_one(wired):
         case=case,
     )
 
-    assert seen["timeout_seconds"] == (
-        qa_case_ci_run.DEFAULT_CI_RUN_TIMEOUT_SECONDS
-    )
+    assert seen["timeout_seconds"] == (qa_case_ci_run.DEFAULT_CI_RUN_TIMEOUT_SECONDS)
 
 
 def test_a_configured_timeout_wins_over_the_default(wired):
@@ -251,9 +266,7 @@ def test_ci_runner_ignores_local_tree_binding(wired, monkeypatch):
     checkout, recorder, artifact = wired
     monkeypatch.setattr(
         "yoke_core.domain.verification_tree_binding.evaluate_run",
-        lambda **kwargs: TreeBindingVerdict(
-            refusal="TREE-BINDING REFUSAL: wrong tree"
-        ),
+        lambda **kwargs: TreeBindingVerdict(refusal="TREE-BINDING REFUSAL: wrong tree"),
     )
 
     result = _run(
@@ -291,7 +304,8 @@ def test_poll_error_records_a_run_before_refusing(wired):
 
 
 def test_released_lane_uses_the_recorded_commit_without_tree_binding(
-    wired, monkeypatch,
+    wired,
+    monkeypatch,
 ):
     checkout, _, _ = wired
     case = _case(lane_commit_sha="b" * 40)
@@ -299,11 +313,13 @@ def test_released_lane_uses_the_recorded_commit_without_tree_binding(
     monkeypatch.setattr(qa_case_ci_lane, "ref_sha", lambda _c, ref: ref)
     pushed: dict = {}
     monkeypatch.setattr(
-        qa_case_ci_lane, "push_lane",
+        qa_case_ci_lane,
+        "push_lane",
         lambda checkout, branch, **kwargs: pushed.update(kwargs),
     )
     result = _run(
-        checkout, case=case,
+        checkout,
+        case=case,
         dispatch=lambda **kwargs: "42",
         await_result=lambda **kwargs: (0, "success"),
     )
@@ -313,10 +329,13 @@ def test_released_lane_uses_the_recorded_commit_without_tree_binding(
 
 def test_shared_case_execution_routes_ci_run_to_this_runner():
     with mock.patch.object(
-        qa_case_ci_run, "execute_ci_case", return_value={"verdict": "pass"},
+        qa_case_ci_run,
+        "execute_ci_case",
+        return_value={"verdict": "pass"},
     ) as runner:
         result = qa_case_execution.execute_case_context(
-            _case(), checkout_path="/tmp/tree",
+            _case(),
+            checkout_path="/tmp/tree",
         )
 
     assert result == {"verdict": "pass"}

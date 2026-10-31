@@ -22,11 +22,12 @@ GITHUB_ACTIONS_RERUN_FAILED_USAGE = (
 def github_actions_rerun_failed(args: list[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke github-actions run rerun-failed",
-        description="Recover failed or cancelled CI on the claimed item's recorded PR, only at its current head and newest workflow run. Records intent and outcome in its Progress Log. Never-started jobs use a full rerun; started jobs use failed-job recovery. Cancellation stops at three total attempts: fix runner or workflow limits, then verify a fresh declared attempt. Resume the exact-head CI/QA wait; acceptance is not a pass.",
+        description="Recover CI that reached no verdict (cancelled or never-started jobs) on the claimed item's recorded PR, only at its current head and newest workflow run. Records intent and outcome in its Progress Log. Never-started jobs use a full rerun; started jobs use failed-job recovery. Cancellation stops at three total attempts: fix runner or workflow limits, then verify a fresh declared attempt. Resume the exact-head CI/QA wait; acceptance is not a pass.",
     )
     parser.add_argument("item", help="Claimed work item, e.g. PREFIX-N.")
     parser.add_argument(
-        "run_id", help="Completed failed, timed-out or cancelled GitHub Actions run id."
+        "run_id",
+        help="Completed cancelled or never-started GitHub Actions run id. A run whose started jobs failed is refused: fix the cause.",
     )
     add_session_arg(parser)
     add_json_arg(parser)
