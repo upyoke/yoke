@@ -158,6 +158,17 @@ def verify_native_image(args: argparse.Namespace) -> str:
         raise ServerImageMetadataError(
             f"native image architecture mismatch: actual={arch} expected={args.expected_arch}"
         )
+    distributions = json.loads(docker(
+        "run", "--rm", "--entrypoint", "python3", args.image_ref, "-c",
+        "import json; from importlib.metadata import distributions; "
+        "print(json.dumps({d.metadata['Name']: d.version for d in distributions()}))",
+    ))
+    mismatches = version_mismatches(Path("uv.lock"), distributions)
+    if mismatches:
+        raise ServerImageMetadataError(
+            "native_image_lock_mismatch:\n" + "\n".join(mismatches)
+            + "\nRebuild the native image from uv.lock before publishing."
+        )
     output = docker(
         "run",
         "--rm",
@@ -173,17 +184,6 @@ def verify_native_image(args: argparse.Namespace) -> str:
         raise ServerImageMetadataError(
             f"pushed image metadata mismatch: version={actual.version} build={actual.build} "
             f"expected version={args.expected_version} build={args.expected_build}"
-        )
-    distributions = json.loads(docker(
-        "run", "--rm", "--entrypoint", "python3", args.image_ref, "-c",
-        "import json; from importlib.metadata import distributions; "
-        "print(json.dumps({d.metadata['Name']: d.version for d in distributions()}))",
-    ))
-    mismatches = version_mismatches(Path("uv.lock"), distributions)
-    if mismatches:
-        raise ServerImageMetadataError(
-            "native_image_lock_mismatch:\n" + "\n".join(mismatches)
-            + "\nRebuild the native image from uv.lock before publishing."
         )
     args.digest_dir.mkdir(parents=True, exist_ok=True)
     (args.digest_dir / digest.removeprefix("sha256:")).touch()
