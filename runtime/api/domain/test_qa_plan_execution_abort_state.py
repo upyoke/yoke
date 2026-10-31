@@ -158,3 +158,86 @@ def test_remove_member_with_as_is_cleanup_releases_host(test_db, tmp_path, monke
         ).fetchone()[0]
         for lease in leases
     )
+
+
+@pytest.mark.parametrize(
+    "started,pre_host,already_requested",
+    [
+        (False, True, False),
+        (False, False, False),
+        (True, True, False),
+        (False, True, True),
+    ],
+)
+def test_pre_host_abort_waives_only_untouched_unrequested_host(
+    test_db, tmp_path, monkeypatch, started, pre_host, already_requested
+):
+    from runtime.api.domain.test_machine_qa_host_unreachable import _plan, _begin
+    from yoke_core.domain.qa_plan_execution_store import (
+        lock_plan_execution,
+        QaPlanExecutionStateError,
+    )
+    from yoke_core.domain.qa_plan_execution_state import (
+        heartbeat_plan_execution,
+        finish_plan_execution,
+    )
+    from yoke_core.domain.qa_plan_execution_abort_reason import (
+        PRE_HOST_ERROR_REASON,
+        CASE_EXECUTION_ERROR_REASON,
+    )
+    from yoke_core.domain.qa_run_verdict_record import insert_qa_run
+    from yoke_contracts.timestamps import utc_now
+
+    execution, case = _plan(test_db, tmp_path, monkeypatch)
+    assert _begin(execution, case)["state"] == "ready"
+    execution = lock_plan_execution(test_db, execution["id"])
+    lease_id = execution["test_machine_lease_id"]
+    heartbeat_plan_execution(test_db, execution)
+    if started:
+        now = utc_now()
+        run_id = insert_qa_run(
+            test_db,
+            qa_requirement_id=case["requirement_id"],
+            performed_by="host_control",
+            qa_kind="plan_case",
+            verdict="fail",
+            raw_result=json.dumps({"evidence": {"case_started": True}}),
+            started_at=now,
+            completed_at=now,
+            created_at=now,
+        ).run_id
+        monkeypatch.setattr(
+            abort,
+            "result_rows",
+            lambda *_: [
+                {
+                    "ordinal": 0,
+                    "requirement_id": case["requirement_id"],
+                    "result": {"run_id": run_id},
+                }
+            ],
+        )
+    if already_requested:
+        abort.record_abort_request(test_db, execution, {"ordinal": 0, "reason": "stop"})
+        test_db.commit()
+    reason = PRE_HOST_ERROR_REASON if pre_host else CASE_EXECUTION_ERROR_REASON
+    if started or not pre_host or already_requested:
+        with pytest.raises(QaPlanExecutionStateError, match="qa_abort_restore_pending"):
+            finish_plan_execution(test_db, execution, state="aborted", reason=reason)
+        assert (
+            test_db.execute(
+                "SELECT released_at FROM work_claims WHERE id=%s", (lease_id,)
+            ).fetchone()[0]
+            is None
+        )
+    else:
+        finish_plan_execution(test_db, execution, state="aborted", reason=reason)
+        stored = lock_plan_execution(test_db, execution["id"])
+        assert stored["state"] == "aborted"
+        assert abort.abort_request(stored) is None
+        assert (
+            test_db.execute(
+                "SELECT released_at FROM work_claims WHERE id=%s", (lease_id,)
+            ).fetchone()[0]
+            is not None
+        )

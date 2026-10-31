@@ -1,13 +1,37 @@
 """QA plan provenance and retirement for the canonical schema packet."""
 
 QA_PLAN_TABLES = {
+    "qa_test_machine_waits": {
+        "columns": [
+            ("id", "TEXT"),
+            ("test_machine", "TEXT"),
+            ("session_id", "TEXT"),
+            ("actor_id", "INTEGER"),
+            ("qa_plan_execution_id", "TEXT"),
+            ("state", "TEXT"),
+            ("queued_at", "TIMESTAMPTZ"),
+            ("resume_command", "TEXT"),
+            ("rationale", "TEXT"),
+        ],
+        "notes": (
+            "Host-turn waits join qa_plan_executions.id through "
+            "qa_plan_execution_id; execution_id is not a column here. "
+            "An unreachable-host submission leaves a waiting row and releases "
+            "the execution's host lease until verification heals the host."
+        ),
+    },
     "test_machine_operation_receipts": {
         "columns": [
-            ("project_id", "INTEGER"), ("capability_type", "TEXT"),
-            ("operation", "TEXT"), ("status", "TEXT"),
-            ("performed_at", "TIMESTAMPTZ"), ("receipt_json", "TEXT"),
-            ("error_code", "TEXT"), ("lease_id", "INTEGER"),
-            ("contract_digest", "TEXT"), ("updated_at", "TIMESTAMPTZ"),
+            ("project_id", "INTEGER"),
+            ("capability_type", "TEXT"),
+            ("operation", "TEXT"),
+            ("status", "TEXT"),
+            ("performed_at", "TIMESTAMPTZ"),
+            ("receipt_json", "TEXT"),
+            ("error_code", "TEXT"),
+            ("lease_id", "INTEGER"),
+            ("contract_digest", "TEXT"),
+            ("updated_at", "TIMESTAMPTZ"),
         ],
         "notes": (
             "There is no id column. Machine reset-debt evidence reads the "

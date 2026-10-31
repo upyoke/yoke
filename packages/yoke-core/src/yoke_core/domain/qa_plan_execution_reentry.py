@@ -118,7 +118,12 @@ def pause_execution(
 
 
 def resume_execution(conn: Any, execution: dict) -> dict:
-    if execution["state"] not in {"active", "waiting", "walking", "awaiting_walk_review"}:
+    if execution["state"] not in {
+        "active",
+        "waiting",
+        "walking",
+        "awaiting_walk_review",
+    }:
         raise QaPlanExecutionStateError(
             "qa_resume_terminal: preserve terminal history; this execution cannot resume"
         )
@@ -151,10 +156,19 @@ def resume_execution(conn: Any, execution: dict) -> dict:
                 evidence.get("checkin_cursor"),
             )
         ):
-            raise QaPlanExecutionStateError(
-                "qa_pause_unconfirmed: an active check-in has no confirmed safe pause; "
+            from yoke_core.domain.qa_plan_execution_abort_state import (
+                HOST_RESTORE_RECOVERY,
+            )
+
+            recovery = (
                 "use the saved pre-case check-in --recovery-file to confirm its pause, "
                 "or reconcile its saved action/recording outcome without replay"
+                if evidence.get("attempts") or evidence.get("first_failure")
+                else HOST_RESTORE_RECOVERY
+            )
+            raise QaPlanExecutionStateError(
+                "qa_pause_unconfirmed: an active check-in has no confirmed safe pause; "
+                + recovery
             )
         if execution["state"] == "active" and cursor < len(execution["roster"]):
             requirement_id = int(execution["roster"][cursor]["requirement_id"])
@@ -162,7 +176,10 @@ def resume_execution(conn: Any, execution: dict) -> dict:
                 "SELECT 1 FROM qa_runs WHERE qa_requirement_id=%s AND created_at >= %s LIMIT 1",
                 (requirement_id, execution["created_at"]),
             ).fetchone()
-            if execution.get("test_machine_lease_id") is not None or captured is not None:
+            if (
+                execution.get("test_machine_lease_id") is not None
+                or captured is not None
+            ):
                 raise QaPlanExecutionStateError(
                     "qa_action_outcome_unknown: active custody or a capture exists without "
                     "a confirmed safe pause; inspect and record the saved case outcome "

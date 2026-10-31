@@ -80,6 +80,7 @@ class _GuiSshControl:
             user=self.settings["user"],
             known_hosts=self.known_hosts,
             command=[command],
+            cloud_instance_id=self.settings.get("cloud_instance_id"),
         )
         try:
             if self.stream_output and timeout >= 1920 and input_text is None:
@@ -130,7 +131,7 @@ class _GuiSshControl:
                 "Check host reachability and the ssh-agent key. If the host was "
                 "rebuilt, repair its pinned entry in "
                 + str(self.known_hosts)
-                + " before retrying.",
+                + f" with `ssh-keygen -R {self.settings.get('cloud_instance_id') or self.settings['host']} -f {self.known_hosts}` before retrying.",
             )
         return result
 

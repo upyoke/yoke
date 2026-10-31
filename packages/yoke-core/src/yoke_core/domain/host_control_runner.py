@@ -300,20 +300,10 @@ def resolve_contract_host_control(
     material = materialize_test_machine_contract(contract)
     from yoke_core.domain.cloud_machine_power import power_on
 
-    power_on(material.project, material.settings)
+    from dataclasses import replace
+
+    material = replace(material, settings=power_on(material.project, material.settings))
     return _factory(material), material
-
-
-def resolve_host_control(
-    conn: Any,
-    *,
-    project: str,
-    test_machine: str | None = None,
-) -> tuple[HostControl, TestMachineMaterial]:
-    """Materialize the configured adapter or fail closed."""
-    return resolve_contract_host_control(
-        load_test_machine_contract(conn, project=project, test_machine=test_machine),
-    )
 
 
 __all__ = [
@@ -329,5 +319,4 @@ __all__ = [
     "materialize_test_machine_contract",
     "register_host_control_factory",
     "resolve_contract_host_control",
-    "resolve_host_control",
 ]

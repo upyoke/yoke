@@ -108,8 +108,8 @@ Register `test-machine:<name>` through `yoke test-machine settings-replace
 use the as-read settings token. Settings include `resource_name`, `os=linux`,
 `host`, `user` and the absolute home golden path outside the home. A cloud
 host's `cloud_instance_id` and operating notes belong to this record, not Yoke
-source; with the id, a lease starts the host and its last release stops it
-when an Elastic IP keeps `host` stable.
+source; with the id, a lease starts the host and its last release stops it.
+Each lease start re-reads the instance public IPv4 and updates `host` before SSH.
 A capacity machine is independent; ordinary agent work must use another home.
 
 On each QA workstation, store shared SSH and per-host desktop secrets:
@@ -271,3 +271,13 @@ Continue with [Linux baseline capture and recovery](linux-baseline-recovery.md).
 Complete its standard probes, save/reset roundtrip and final clean signed-in
 baseline before reporting the host ready. Its recovery table preserves the
 named refusal and sealed-state repair for a failed operation.
+
+Cloud SSH routes use `HostKeyAlias=<cloud_instance_id>` instead of an IP pin.
+The first connection accepts the instance key once with `accept-new`; later
+address changes keep that identity. If the instance is rebuilt, verify its new
+key, then remove the old alias with `ssh-keygen -R INSTANCE_ID -f KNOWN_HOSTS`
+from the Yoke-managed Test Machine known_hosts file before reconnecting.
+A cloud instance without a public IPv4 refuses as
+`test_machine_power_no_public_address`: enable a public IPv4 in its subnet and
+rerun. `test_machine_host_rebind_refused` preserves the server refusal; fix its
+named cause, re-read the Test Machine and rerun under the host lease.

@@ -121,6 +121,7 @@ ALREADY_SERVED_FUNCTION_IDS: frozenset[str] = frozenset((
     'strategy.surface.get', 'strategy.surface.list', 'test_machine.baseline_group.abort', 'test_machine.baseline_group.begin',
     'test_machine.baseline_group.submit', 'test_machine.baseline_group_execute', 'test_machine.bridge_diagnose', 'test_machine.case.abort',
     'test_machine.case.begin', 'test_machine.case.submit', 'test_machine.case_execute', 'test_machine.get',
+    'test_machine.host_rebind',
     'test_machine.golden_capture', 'test_machine.list', 'test_machine.mission.access', 'test_machine.mission.ready',
     'test_machine.operation.abort', 'test_machine.operation.begin', 'test_machine.operation.submit', 'test_machine.plan_case.begin',
     'test_machine.plan_case.submit', 'test_machine.reset', 'test_machine.settings_replace', 'test_machine.verify',

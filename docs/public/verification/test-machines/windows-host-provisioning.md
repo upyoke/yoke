@@ -29,10 +29,8 @@ user: installing under a service or another administrator account does not
 prepare the test account. Separate operator users/homes remain outside capture,
 restore, inspection and logout. Restrict SSH and RDP ingress to approved
 execution machines or private-network routes.
-An automatically assigned public IPv4 changes on stop/start, so Yoke never
-stops a cloud host without an Elastic IP (`test_machine_power_stop_skipped`).
-An operator-approved Elastic IP is stable but continues charging while
-stopped; it belongs in infrastructure declarations.
+Each lease start re-reads the instance public IPv4 and updates `host` before
+SSH; its last lease release stops the cloud host.
 
 ## 2. Windows SSH, registration and desktop secrets
 
@@ -298,3 +296,13 @@ After restart, the local universe's documented startup path restarts its authori
 Record the exact saved-state proof. A host with `cloud_instance_id` stops when
 its last lease ends; stop any other cloud compute outside the authorized test
 window. A stopped host's old receipt cannot establish today's readiness.
+
+Cloud SSH routes use `HostKeyAlias=<cloud_instance_id>` instead of an IP pin.
+The first connection accepts the instance key once with `accept-new`; later
+address changes keep that identity. If the instance is rebuilt, verify its new
+key, then remove the old alias with `ssh-keygen -R INSTANCE_ID -f KNOWN_HOSTS`
+from the Yoke-managed Test Machine known_hosts file before reconnecting.
+A cloud instance without a public IPv4 refuses as
+`test_machine_power_no_public_address`: enable a public IPv4 in its subnet and
+rerun. `test_machine_host_rebind_refused` preserves the server refusal; fix its
+named cause, re-read the Test Machine and rerun under the host lease.

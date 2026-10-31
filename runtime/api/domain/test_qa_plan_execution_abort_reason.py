@@ -12,7 +12,7 @@ from __future__ import annotations
 
 from yoke_core.domain.qa_plan_execution_abort_reason import (
     CASE_EXECUTION_ERROR_REASON,
-    CONTINUATION_PRE_HOST_ERROR_REASON,
+    PRE_HOST_ERROR_REASON,
     UNUSABLE_BEGIN_REASON,
     abort_reason_code,
 )
@@ -91,7 +91,7 @@ class TestReasonCarriesTheDiagnosis:
             {"continues_execution_id": "prior"},
             _PreHostError("no lease"),
         )
-        assert abort_reason_code(reason) == CONTINUATION_PRE_HOST_ERROR_REASON
+        assert abort_reason_code(reason) == PRE_HOST_ERROR_REASON
         assert "no lease" in reason
 
     def test_multiline_diagnosis_stays_on_one_line(self) -> None:

@@ -29,7 +29,7 @@ from yoke_core.domain.machine_qa_local_execution import (
     prepare_agent_mission_contract,
 )
 from yoke_core.domain.qa_plan_execution_continuation import (
-    CONTINUATION_PRE_HOST_ERROR_REASON,
+    PRE_HOST_ERROR_REASON,
 )
 from yoke_core.domain.qa_plan_execution_state import (
     begin_plan_execution,
@@ -98,7 +98,7 @@ def test_continuation_preparation_preserves_populated_host_state(
             test_db,
             failed,
             state="aborted",
-            reason=CONTINUATION_PRE_HOST_ERROR_REASON,
+            reason=PRE_HOST_ERROR_REASON,
         )
     continued = begin_plan_execution(
         test_db,

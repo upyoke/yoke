@@ -1,8 +1,4 @@
-"""Drive one operator-run test-machine operation from the machine that can.
-
-The host credential lives on one workstation, so the control plane issues the
-contract and this runs it: begin, run, submit, and abort when the run fails.
-"""
+"""Begin, run and settle host operations on the credential-owning workstation."""
 
 from __future__ import annotations
 
@@ -55,7 +51,9 @@ def run_host_operation(
         "--project", required=True, help="Project that owns the test machine."
     )
     parser.add_argument(
-        "--test-machine", metavar="TEST_MACHINE", help="Name of the test machine to use."
+        "--test-machine",
+        metavar="TEST_MACHINE",
+        help="Name of the test machine to use.",
     )
     if with_baseline:
         parser.add_argument("--baseline", help="Name of the baseline to restore.")
@@ -98,7 +96,6 @@ def run_host_operation(
 
 
 def _power() -> Any:
-    """Cloud Test Machine start runs here, where the aws-admin key lives."""
     return importlib.import_module("yoke_core.domain.cloud_machine_power")
 
 
@@ -147,8 +144,11 @@ def _execute(
             execute_host_operation_contract,
         )
 
-        _power().power_on(execution["project"], execution["settings"])
-        if registered := begin.result.get(REGISTERED_GOLDENS_KEY):  # older servers: none
+        settings = _power().power_on(execution["project"], execution["settings"])
+        execution = {**execution, "settings": settings}
+        if registered := begin.result.get(
+            REGISTERED_GOLDENS_KEY
+        ):  # older servers: none
             contract = HostControlExecutionContract.model_validate(execution)
             check_registered_goldens(host_operations_for(contract)._run, registered)
         submission = execute_host_operation_contract(

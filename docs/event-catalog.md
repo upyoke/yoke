@@ -217,6 +217,7 @@
 | WorkflowGateAbsent | audit | workflow_gate_absence | yoke_core.domain.workflow_gate_absence | WARN | A gate the pinned workflow lists did not apply because the declaration that would let it apply does not exist — an approval stage with no approving role or actor. Carries gate_id, target_status, reason, and detail so a listed-but-absent gate is countable rather than reading as an enforced one. |
 | YokeFunctionCalled | workflow | yoke_function_dispatch | yoke_core.domain.yoke_function_dispatch | INFO | Yoke function-call dispatcher invoked a registered handler. Carries function id, request_id, actor_id auth context, target, claim verification outcome, permission key, and downstream surface results. |
 | YokeFunctionPermissionDenied | workflow | yoke_function_dispatch | yoke_core.domain.yoke_function_dispatch | WARN | Yoke function-call dispatcher denied a request before handler execution because the actor lacks the required project permission. |
+| test_machine.host_rebound | lifecycle | test_machine | yoke_core.domain.handlers.machine_qa_host_rebind | INFO | A cloud Test Machine lease holder recorded its current public IPv4, preserving verification. |
 
 <!-- catalog-appendix-start -->
 

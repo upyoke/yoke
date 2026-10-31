@@ -9,7 +9,8 @@ response (``cloud_machine_release_notice``), and the calling client, whatever
 command or process it is, stops it while holding the host's own lease.
 A release no client hears (a server-side reap) leaves the host running
 until its next lease cycles; by operator choice there is no sweep.
-Machines without the setting are never touched.
+Each power-on reads the instance's current public IPv4 and rebinds its
+registered host before SSH. Machines without the setting are never touched.
 """
 
 from __future__ import annotations
@@ -24,7 +25,7 @@ from typing import Any
 from yoke_contracts.api.function_call import TargetRef
 from yoke_contracts.machine_config.capability_secrets import TEST_MACHINE_CAPABILITY
 from yoke_contracts.designed_wait import announce_designed_wait, poll_every
-from yoke_contracts.machine_qa_failures import HostControlLocalError
+from yoke_contracts.machine_qa_failures import SSH_UNAVAILABLE, HostControlLocalError
 from yoke_core.domain.capability_machine_secrets import (
     machine_capability_secret_path,
 )
@@ -36,14 +37,13 @@ from yoke_core.domain.deploy_remote import (
 from yoke_core.domain.ec2_instance_power import (
     Ec2InstancePowerError,
     ensure_instance_running,
+    instance_public_address,
 )
 
 SSH_WAIT_SECONDS = 600
 SSH_LOGIN_SECONDS = 60
 SSH_POLL_SECONDS = 10.0
 SSH_PROBE_OPTIONS = (
-    "StrictHostKeyChecking=accept-new",
-    "UserKnownHostsFile=/dev/null",
     "LogLevel=ERROR",
     "ConnectTimeout=10",
     "BatchMode=yes",
@@ -54,8 +54,6 @@ def _refused(code: str, detail: str, recovery: str) -> HostControlLocalError:
     return HostControlLocalError(
         code=code, phase="power", detail=detail, recovery_hint=recovery
     )
-
-
 
 
 def _emit(line: str) -> None:
@@ -150,6 +148,9 @@ def wait_for_ssh_login(
     name, host = settings["resource_name"], settings["host"]
     argv = ["ssh", "-i", str(key)]
     argv += [part for option in SSH_PROBE_OPTIONS for part in ("-o", option)]
+    from yoke_harness.test_machine_remote_exec import host_key_options
+
+    argv += host_key_options(settings)
     command, probe_input = _readiness_command(settings["os"])
     argv += [f"{settings['user']}@{host}", command]
     announce_designed_wait(
@@ -176,11 +177,11 @@ def wait_for_ssh_login(
             )
         sleeper(SSH_POLL_SECONDS)
     raise _refused(
-        "test_machine_power_ssh_unreachable",
+        SSH_UNAVAILABLE,
         f"Test Machine {name} is running but refused SSH logins on {host} for "
         f"{timeout_s}s ({last_error})",
-        "confirm the instance's public address still matches the registered "
-        "host and its security group admits this machine, then rerun",
+        "confirm the instance's security group admits this machine "
+        "and sshd is running, then rerun",
     )
 
 
@@ -190,19 +191,22 @@ def power_on(
     *,
     runner: CommandRunner | None = None,
     emit: Callable[[str], None] = _emit,
-) -> None:
+) -> Mapping[str, str]:
     """Start a cloud Test Machine for its lease; no-op without an instance id.
 
     Raises ``HostControlLocalError`` naming the failed step and its recovery.
     """
     instance_id = str(settings.get("cloud_instance_id") or "")
     if not instance_id:
-        return
+        return settings
     name = str(settings["resource_name"])
     aws_env = _aws_env(project)
     try:
         prior = ensure_instance_running(
             runner or CommandRunner(), instance_id, aws_env, emit
+        )
+        address = instance_public_address(
+            runner or CommandRunner(), instance_id, aws_env
         )
     except Ec2InstancePowerError as exc:
         raise _refused(
@@ -212,8 +216,42 @@ def power_on(
             f"exec --project {project} -- ec2 describe-instances --instance-ids "
             f"{instance_id}`",
         ) from exc
+    if address is None:
+        raise _refused(
+            "test_machine_power_no_public_address",
+            f"Test Machine {name} instance {instance_id} has no public IPv4",
+            "give the instance a public IPv4 (a subnet that assigns one), then rerun; "
+            f"read it with `yoke aws exec --project {project} -- ec2 "
+            f"describe-instances --instance-ids {instance_id}`",
+        )
+    if address != settings["host"]:
+        current = _call("test_machine.get", {"project": project, "test_machine": name})
+        if current["settings"]["host"] != address:
+            response = _dispatch(
+                "test_machine.host_rebind",
+                {
+                    "project": project,
+                    "test_machine": name,
+                    "host": address,
+                    "base_settings": current["settings_token"],
+                },
+            )
+            if not response.success:
+                error = response.error
+                raise _refused(
+                    "test_machine_host_rebind_refused",
+                    f"{error.code if error else 'unknown'}: "
+                    f"{error.message if error else 'no error'}",
+                    "fix the named server refusal, re-read the Test Machine and rerun",
+                )
+            emit(
+                f"Test Machine {name} moved from {settings['host']} to {address}; "
+                f"its registered host now names {address}"
+            )
+        settings = {**settings, "host": address}
     if prior != "running":
         wait_for_ssh_login(project, settings, emit, runner=runner)
+    return settings
 
 
 __all__ = [

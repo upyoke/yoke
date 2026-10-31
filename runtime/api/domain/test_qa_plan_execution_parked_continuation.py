@@ -23,7 +23,7 @@ from yoke_core.domain.agent_mission_recording import handle_agent_mission_access
 from yoke_core.domain.handlers.machine_qa_plan_case import handle_plan_case_begin
 from yoke_core.domain.qa_plan_execution_continuation import (
     CASE_EXECUTION_ERROR_REASON,
-    CONTINUATION_PRE_HOST_ERROR_REASON,
+    PRE_HOST_ERROR_REASON,
     contract_baselines,
 )
 from yoke_core.domain.qa_plan_execution_lifecycle import (
@@ -199,9 +199,7 @@ def test_continuing_a_swept_mission_reaches_no_host_baseline(
     assert contract["continues_execution_id"] == str(settled["id"])
 
 
-@pytest.mark.parametrize(
-    "reason", [CONTINUATION_PRE_HOST_ERROR_REASON, CASE_EXECUTION_ERROR_REASON]
-)
+@pytest.mark.parametrize("reason", [PRE_HOST_ERROR_REASON, CASE_EXECUTION_ERROR_REASON])
 def test_failed_pre_host_continuation_keeps_the_swept_source_eligible(
     test_db: Any,
     tmp_path: Any,
