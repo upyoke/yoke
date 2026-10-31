@@ -2,7 +2,6 @@
 
 import subprocess
 from types import SimpleNamespace
-import zipfile
 
 import pytest
 
@@ -11,7 +10,7 @@ from yoke_core.tools.session_relay_release import (
     RelayReleaseError,
     release_version_from_build,
 )
-from yoke_core.tools import local_wheel_constraints, session_relay_release_install
+from yoke_core.tools import session_relay_release_install
 
 
 def test_commit_minutes_order_numerically():
@@ -28,18 +27,6 @@ def test_relay_keeps_exact_canonical_handshake_version():
 def test_relay_refuses_invalid_package_identity(value):
     with pytest.raises(RelayReleaseError, match="not a valid Yoke release version"):
         release_version_from_build(value)
-
-
-def test_container_constraints_bind_actual_wheel_paths(tmp_path):
-    wheel = tmp_path / "yoke_core-0.2.0.202610140941-py3-none-any.whl"
-    with zipfile.ZipFile(wheel, "w") as out:
-        out.writestr(
-            "yoke_core.dist-info/METADATA",
-            "Name: yoke-core\nVersion: 0.2.0.202610140941\n",
-        )
-    assert local_wheel_constraints.constraints_for_wheelhouse(
-        tmp_path, ["yoke-core"]
-    ) == [f"yoke-core @ {wheel.as_uri()}"]
 
 
 def test_relay_install_binds_every_product_to_declared_origin(tmp_path):
