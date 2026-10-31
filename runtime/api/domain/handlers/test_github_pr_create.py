@@ -36,7 +36,7 @@ def _make_request(
     include_project: bool = True,
 ) -> FunctionCallRequest:
     if payload is None:
-        payload = {"title": "cli sweep: function-call fixes", "head": "cli-sweep-fixes"}
+        payload = {"title": "cli sweep: function-call fixes", "head": "yoke-install/abc123def456"}
     payload = dict(payload)
     if include_project:
         payload.setdefault("project", "yoke")
@@ -115,7 +115,7 @@ class TestCreate:
         assert _rest_recorder == [{
             "repo": "upyoke/yoke",
             "title": "cli sweep: function-call fixes",
-            "head": "cli-sweep-fixes",
+            "head": "yoke-install/abc123def456",
             "base": "main",
             "body": None,
             "draft": False,
@@ -129,7 +129,7 @@ class TestCreate:
     def test_optional_fields_pass_through(self, _resolver_ok, _rest_recorder):
         outcome = handle_pr_create(_make_request({
             "title": "T",
-            "head": "feature-x",
+            "head": "yoke-install/feature-x",
             "base": "stage",
             "body": "## Summary\n\nDetails.",
             "draft": True,
@@ -182,4 +182,4 @@ class TestRegistration:
         for entry in github_pr_create.REGISTRATIONS:
             assert entry["target_kinds"] == ["global"]
             assert entry["claim_required_kind"] is None
-            assert entry["adapter_status"] == "live"
+            assert entry["adapter_status"] == "internal"

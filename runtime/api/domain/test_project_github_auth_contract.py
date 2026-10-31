@@ -21,6 +21,7 @@ _ERROR_CLASSES = (
     pga.MissingAppCredentials,
     pga.TokenMintFailed,
     pga.UserAuthorizationUnavailable,
+    pga.UserAuthorizationUnbound,
     pga.InvalidToken,
     pga.TransportFailure,
 )
@@ -39,7 +40,7 @@ def test_public_surface_exports():
         "MissingAppCredentials", "MissingCapability", "MissingInstallation",
         "MissingPermission", "MissingRepoBinding", "MissingRepoMetadata",
         "ProjectGithubAuth", "ProjectGithubAuthError", "TokenMintFailed",
-        "TransportFailure", "UserAuthorizationUnavailable",
+        "TransportFailure", "UserAuthorizationUnavailable", "UserAuthorizationUnbound",
         "bind_local_github_user_token_provider", "repair_command_hint",
         "resolve_project_github_auth",
     }

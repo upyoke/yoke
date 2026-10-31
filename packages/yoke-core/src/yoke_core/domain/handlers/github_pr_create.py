@@ -1,15 +1,7 @@
-"""Handler for ``github.pr.create`` — open a pull request via bearer-token REST.
+"""Create installer proposal pull requests through installation authority.
 
-First member of the repo-level ``github.*`` family (PRs are repo
-surfaces, not Actions surfaces, so this deliberately does not overload
-``github_actions.*``). PR-create otherwise has only the generic
-:mod:`yoke_core.domain.gh_rest_transport`, which would push agents back
-to the host ``gh`` binary Yoke is otherwise free of.
-
-Owner/repo resolve from the project's verified GitHub App repo binding through
-``resolve_project_github_auth``, the same resolver the ``github_actions.*``
-handlers use; the payload never carries a repo slug. The POST routes
-through :func:`yoke_core.domain.github_pr_rest.create_pull_request`.
+The installer is the sole consumer. Work-item pull requests belong to the
+governed merge command. Repository identity comes from the project binding.
 """
 
 from __future__ import annotations
@@ -26,10 +18,12 @@ from yoke_core.domain.handlers.github_actions_set import (
 from yoke_contracts.api.function_call import (
     FunctionCallRequest,
     HandlerOutcome,
+    FunctionError,
 )
 from yoke_contracts.github_app_installation_permissions import (
     GITHUB_PULL_REQUESTS_WRITE_PERMISSION_LEVELS,
 )
+from yoke_contracts.install_proposal import INSTALL_PROPOSAL_BRANCH_PREFIX
 from yoke_core.domain.pydantic_validation_safety import safe_validation_message
 
 
@@ -74,19 +68,27 @@ def handle_pr_create(request: FunctionCallRequest) -> HandlerOutcome:
     except ValidationError as exc:
         return _bad_request(safe_validation_message(exc))
 
+    if not payload.head.startswith(INSTALL_PROPOSAL_BRANCH_PREFIX):
+        return HandlerOutcome(
+            result_payload={}, primary_success=False,
+            error=FunctionError(
+                code="pr_create_not_install_proposal",
+                message="Only installer proposal branches may use this function; "
+                "open a work item pull request with `yoke merge PREFIX-N`.",
+            ),
+        )
+
     from yoke_core.domain.project_github_auth import (
-        GITHUB_AUTHORITY_USER,
+        GITHUB_AUTHORITY_INSTALLATION,
         ProjectGithubAuthError,
         resolve_project_github_auth,
     )
 
     try:
-        # A pull request is attributed to whoever opened it, and one opened by
-        # the App is a different actor on the repository.
         resolved = resolve_project_github_auth(
             payload.project,
             required_permissions=GITHUB_PULL_REQUESTS_WRITE_PERMISSION_LEVELS,
-            required_authority=GITHUB_AUTHORITY_USER,
+            required_authority=GITHUB_AUTHORITY_INSTALLATION,
         )
     except ProjectGithubAuthError as exc:
         return _auth_failed(exc, payload.project)
@@ -126,7 +128,7 @@ REGISTRATIONS: List[Dict[str, Any]] = [
         "side_effects": ["github_pr_create"],
         "emitted_event_names": [],
         "guardrails": ["project_auth_required"],
-        "adapter_status": "live",
+        "adapter_status": "internal",
         "claim_required_kind": None,
     },
 ]

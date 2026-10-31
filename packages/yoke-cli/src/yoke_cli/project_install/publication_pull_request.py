@@ -9,7 +9,7 @@ its own.
 
 When the pull request cannot be opened — no project binding, no permission,
 an unreachable control plane — the proposal branch is still pushed, so the
-recovery is one named command instead of a re-run.
+recovery names the pushed branch and its GitHub pull-request destination.
 """
 
 from __future__ import annotations
@@ -21,7 +21,7 @@ from yoke_cli.project_install import files as files_layer
 from yoke_cli.project_install import publication_outcome as outcome_layer
 from yoke_cli.project_install import publication_reconcile as reconcile_layer
 
-PROPOSAL_BRANCH_PREFIX = "yoke-install/"
+from yoke_contracts.install_proposal import INSTALL_PROPOSAL_BRANCH_PREFIX
 PROPOSAL_TITLE = "Install Yoke operating layer"
 
 
@@ -35,7 +35,7 @@ def propose_pull_request(
 ) -> dict[str, Any]:
     """Push the commit to its own branch and open the pull request for it."""
     commit = outcome_layer.head(repo_root)
-    proposal = f"{PROPOSAL_BRANCH_PREFIX}{commit[:12]}"
+    proposal = f"{INSTALL_PROPOSAL_BRANCH_PREFIX}{commit[:12]}"
     pushed = reconcile_layer.network_git(
         repo_root, "push", remote, f"{branch}:refs/heads/{proposal}",
     )
@@ -64,9 +64,8 @@ def propose_pull_request(
             proposal_branch=proposal,
             recovery=(
                 f"{branch} requires review, and {proposal} is pushed with the "
-                f'installed layer. recipe: `yoke github pr create --title '
-                f'"{PROPOSAL_TITLE}" --head {proposal} --base {branch} '
-                f"--project {slug or '<project>'}`"
+                f"installed layer. Open a pull request from {proposal} into "
+                f"{branch} on GitHub."
             ),
         )
     return {
@@ -130,7 +129,6 @@ def project_slug_from_manifest(repo_root: Path) -> str | None:
 
 
 __all__ = [
-    "PROPOSAL_BRANCH_PREFIX",
     "PROPOSAL_TITLE",
     "open_pull_request",
     "project_slug_from_manifest",

@@ -100,6 +100,12 @@ class GitHubUnavailable(ProjectGithubAuthError):
     code = "github_unavailable"
 
 
+class UserAuthorizationUnbound(ProjectGithubAuthError):
+    """Person-attributed work has no bound machine authorization."""
+
+    code = "user_authorization_unbound"
+
+
 class UserAuthorizationUnavailable(ProjectGithubAuthError):
     code = "user_authorization_unavailable"
 
@@ -192,5 +198,6 @@ __all__ = [
     "TokenMinter",
     "TransportFailure",
     "UserAuthorizationTransient",
+    "UserAuthorizationUnbound",
     "UserAuthorizationUnavailable",
 ]

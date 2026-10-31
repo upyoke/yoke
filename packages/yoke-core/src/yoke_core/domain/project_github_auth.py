@@ -43,6 +43,7 @@ from yoke_core.domain.project_github_auth_models import (
     TransportFailure,
     UnnamedProject,
     UserAuthorizationTransient,
+    UserAuthorizationUnbound,
     UserAuthorizationUnavailable,
 )
 from yoke_core.domain.project_github_auth_state import read_github_state
@@ -214,9 +215,8 @@ def _local_user_token(
 ) -> tuple[Optional[str], Optional[ProjectGithubAuthError]]:
     """Read the machine's user token, or say why an installation may stand in.
 
-    Returns ``(None, None)`` when no local provider is bound at all, which is
-    the server-side shape: there is no user authorization to fail, and the
-    installation path is simply the only one.
+    Without a bound provider, only installation-authority work may return
+    ``(None, None)``; user-authority work refuses before minting a token.
 
     The two read failures are not the same fact and are not flattened here. A
     transient one has already spent its retry budget in
@@ -228,7 +228,14 @@ def _local_user_token(
     the read that failed.
     """
     try:
-        return resolve_local_user_token(state), None
+        token = resolve_local_user_token(state)
+        if token is None and not _installation_can_perform(required_authority):
+            raise UserAuthorizationUnbound(
+                state.project_slug,
+                "this operation is attributed to a person, but this process has "
+                "no bound GitHub App user authorization",
+            )
+        return token, None
     except (UserAuthorizationTransient, UserAuthorizationUnavailable) as exc:
         if not _installation_can_perform(required_authority):
             raise
@@ -279,6 +286,11 @@ _HINT_BY_CODE: Mapping[str, str] = {
         "GitHub is failing, not the App credentials; retry or re-drive the "
         "work for project {project} once GitHub recovers"
     ),
+    "user_authorization_unbound": (
+        "run the operation from the machine holding the GitHub App user "
+        "authorization through its governed command; for a work item in "
+        "project {project}, use `yoke merge PREFIX-N`"
+    ),
     "user_authorization_unavailable": (
         f"{GITHUB_AUTH_STATUS_CHECK_RECIPE}, then retry project {{project}}"
     ),
@@ -318,6 +330,7 @@ __all__ = [
     "TransportFailure",
     "UnnamedProject",
     "UserAuthorizationTransient",
+    "UserAuthorizationUnbound",
     "UserAuthorizationUnavailable",
     "bind_local_github_user_token_provider",
     "bound_local_github_user_token_provider",
