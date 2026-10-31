@@ -55,18 +55,27 @@ def satisfied_delivery_member(conn: Any, *, item_id: int, run_id: str) -> bool:
 
     Count the member's own run requirements, using the same ownership rule
     as the done gate. Each post-deploy plan it owes is answered only by a
-    closed plan group of this run that covers it.
+    closed plan group of this run that covers it. With no own cases, live
+    plans owed only on another target leave nothing for this run to settle;
+    the item's done gate still requires their target-qualified credit.
     """
     discharges_without_cases = answer_for_item(
         conn, int(item_id)
     ).discharges_without_cases
     if not (_table_exists(conn, "qa_requirements") and _table_exists(conn, "qa_runs")):
         return discharges_without_cases
-    from yoke_core.domain.deployment_qa_plan_credit import run_plan_credit
+    from yoke_core.domain.deployment_qa_member_plans import member_plan_disposition
+    from yoke_core.domain.deployment_qa_plan_groups import lineage_run_ids, run_groups
 
-    plans_credited = run_plan_credit(conn, int(item_id), str(run_id))
-    if plans_credited is False:
-        return False
+    owed_plans, attached_plans = member_plan_disposition(conn, int(item_id), str(run_id))
+    if owed_plans:
+        covered = {
+            group.plan_id
+            for group in run_groups(conn, lineage_run_ids(conn, str(run_id)))
+            if group.closed and int(item_id) in (group.covered_item_ids or ())
+        }
+        if not owed_plans <= covered:
+            return False
     rows = query_rows(
         conn,
         "SELECT r.id,r.deployment_member_item_id,r.deployment_run_id,"
@@ -88,7 +97,7 @@ def satisfied_delivery_member(conn: Any, *, item_id: int, run_id: str) -> bool:
             carried_member_no_item_qa_reason,
         )
 
-        return bool(plans_credited) or discharges_without_cases or bool(
+        return attached_plans or discharges_without_cases or bool(
             carried_member_no_item_qa_reason(conn, run_id=run_id, item_id=item_id)
         )
     return all(
