@@ -135,7 +135,8 @@ def test_run_ci_verification_head_sha_mismatch_blocks(
 
 
 def test_a_concluded_run_on_the_candidate_is_adopted_without_a_second_suite(
-    monkeypatch: pytest.MonkeyPatch, tmp_path,
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path,
 ) -> None:
     """The QA gate verified this exact commit minutes ago; that verdict stands."""
     head = "1" * 40
@@ -157,9 +158,11 @@ def test_a_concluded_run_on_the_candidate_is_adopted_without_a_second_suite(
     assert payload["ci_conclusion"] == "success"
 
 
-@pytest.mark.parametrize("conclusion", ["failure", "cancelled", "timed_out"])
+@pytest.mark.parametrize("conclusion", ["cancelled", "startup_failure"])
 def test_an_unsuccessful_run_dispatches_again_and_records_the_new_verdict(
-    monkeypatch: pytest.MonkeyPatch, tmp_path, conclusion,
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path,
+    conclusion,
 ) -> None:
     """A fresh failed run remains a test failure rather than a lookup error."""
     head = "2" * 40
@@ -187,7 +190,8 @@ def test_an_unsuccessful_run_dispatches_again_and_records_the_new_verdict(
 
 
 def test_a_run_still_in_flight_on_the_candidate_is_attached_to(
-    monkeypatch: pytest.MonkeyPatch, tmp_path,
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path,
 ) -> None:
     head = "3" * 40
     awaited: list[str] = []
@@ -209,7 +213,8 @@ def test_a_run_still_in_flight_on_the_candidate_is_attached_to(
 
 
 def test_a_dispatched_run_registers_a_durable_wait_before_polling(
-    monkeypatch: pytest.MonkeyPatch, tmp_path,
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path,
 ) -> None:
     """A worker whose turn ends mid-poll must still be woken with the verdict."""
     head = "5" * 40
@@ -238,7 +243,8 @@ def test_a_dispatched_run_registers_a_durable_wait_before_polling(
 
 
 def test_a_polled_run_resolves_the_wait_after_the_watcher_prints_the_verdict(
-    monkeypatch: pytest.MonkeyPatch, tmp_path,
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path,
 ) -> None:
     head = "8" * 40
     bind_candidate_tree(monkeypatch, tmp_path, head)
@@ -266,7 +272,8 @@ def test_a_polled_run_resolves_the_wait_after_the_watcher_prints_the_verdict(
 
 
 def test_an_attached_run_also_registers_a_durable_wait(
-    monkeypatch: pytest.MonkeyPatch, tmp_path,
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path,
 ) -> None:
     head = "6" * 40
     bind_candidate_tree(monkeypatch, tmp_path, head)
@@ -290,7 +297,8 @@ def test_an_attached_run_also_registers_a_durable_wait(
 
 
 def test_an_adopted_run_registers_no_wait_because_nothing_is_polled(
-    monkeypatch: pytest.MonkeyPatch, tmp_path,
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path,
 ) -> None:
     head = "7" * 40
     bind_candidate_tree(monkeypatch, tmp_path, head)
@@ -321,7 +329,8 @@ def test_an_adopted_run_registers_no_wait_because_nothing_is_polled(
 
 
 def test_a_run_on_another_commit_never_answers_for_this_candidate(
-    monkeypatch: pytest.MonkeyPatch, tmp_path,
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path,
 ) -> None:
     """Exactness is the safety argument: a different commit is a different tree."""
     head = "4" * 40

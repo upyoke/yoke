@@ -37,7 +37,7 @@ def recovery_instruction(readback: Any, *, target: str) -> str:
         return (
             "queue_conflict: wait for entries ahead to land or leave, then re-read "
             f"mergeable. If CONFLICTING, rebase the lane onto {target}, re-run the "
-            "verification gate and re-run `yoke merge item`; if MERGEABLE, re-run `yoke merge item`; a failed train requires a correction or one recorded --retry-flake claim."
+            "verification gate and re-run `yoke merge item`; if MERGEABLE, re-run `yoke merge item`; a failed train requires a correction; fix it on the lane, commit, and re-run verification."
         )
     return ""
 
@@ -201,9 +201,14 @@ def recover_ejection(
         ctx, pr_number, lane_head=state.head_sha, base_branch=ctx.args.target
     )
     if refusal:
-        return replace(readback, queue_recovery={
-            **recovery, "action": "blocked", "message": refusal,
-        })
+        return replace(
+            readback,
+            queue_recovery={
+                **recovery,
+                "action": "blocked",
+                "message": refusal,
+            },
+        )
     outcome = enqueue(ctx, pr_number, expected_head_sha=state.head_sha)
     if not outcome.success:
         return replace(

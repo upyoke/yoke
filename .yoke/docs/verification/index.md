@@ -160,9 +160,10 @@ evidence. Adoption and attachment are therefore skipped, and the gate
 dispatches the only run whose inputs are known. A `pull_request` run carries
 no dispatch inputs at all, so a project verifying through its merge queue
 refuses the declaration by name instead of recording a proof it cannot make.
-Cases declaring no inputs adopt completed successful runs and attach to
-in-progress runs. Failed, cancelled and timed-out runs request a fresh dispatch
-on the same commit; the rejected run identifies that retry.
+Cases declaring no inputs adopt completed success, failure and test-timeout
+verdicts and attach to in-progress runs. Failed tests stay red until the cause
+is fixed and committed. Only cancelled and never-started runs request a fresh
+dispatch on the same commit; that no-verdict run identifies the recovery.
 
 ## When the project has no suite
 

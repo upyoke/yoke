@@ -71,4 +71,4 @@ def test_cli_and_watcher_keep_failed_run_and_recovery(
         assert line == f"Error: {public_ref}: {refusal}"
         assert classify_merge_line(line).cls == LineClass.URGENT
     assert all(value in output.err for value in (url, train_sha, LANE_SHA, base_sha))
-    assert "correct the actual cause" in output.err
+    assert "fix it on the lane" in output.err

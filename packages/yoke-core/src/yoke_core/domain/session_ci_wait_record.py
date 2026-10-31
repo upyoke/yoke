@@ -82,10 +82,10 @@ def resolve_received_wait(
 ) -> str:
     """Mark this session's wait notified after the watcher received *conclusion*.
 
-    Only success and failure count: those are the verdicts the watcher
-    printed, and they are what a later sweep would otherwise wake this
-    session to repeat. A timeout, cancel, or poll error leaves the wait
-    pending so a genuinely owed notice still lands. Returns ``""`` when
+    Success, failure and a concluded test timeout are binding verdicts the
+    watcher printed; a later sweep need not wake this session to repeat them.
+    Cancellation or a poll wait expiring leaves the wait pending so an owed
+    notice still lands. Returns ``""`` when
     there is nothing to resolve or the write succeeded, and a warning
     otherwise — the run the caller just mirrored continues either way.
     """

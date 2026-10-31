@@ -8,7 +8,7 @@
  "disclosure": "planned cue",
  "surface": "Command feedback, receipts, --help and deeper pointers",
  "gap": "Audit the whole refusal → reachable installed guide → successful recovery chain. Do not mistake a reference page’s existence for a usable journey.",
- "review": "Source corrections keep required-check recovery explicit for unrelated flaky runs, leave conditional watcher waits with claude-long-commands, retain source-authored QA sync guidance in its epilog, and give retired-plan reads their required project. Installed recovery journeys remain unverified.",
+ "review": "Source corrections keep failing-test fixes and no-verdict recovery explicit, leave conditional watcher waits with claude-long-commands, retain source-authored QA sync guidance in its epilog, and give retired-plan reads their required project. Installed recovery journeys remain unverified.",
  "plan_notes": ["FIRST-USER 29", "FIRST-USER 35", "JOURNEYS open question 4"],
  "sources": ["docs/public/agents/rules/shell-and-cli.md", "docs/public/cli/https-connection-diagnostics.md", "docs/public/agents/rules/claude-long-commands.md", "packages/yoke-core/src/yoke_core/domain/merge_queue_entry_checks.py", "packages/yoke-cli/src/yoke_cli/commands/adapters/qa_catalog_usage.py", "packages/yoke-cli/src/yoke_cli/commands/adapters/qa_plan_source_input.py", "packages/yoke-cli/src/yoke_cli/commands/adapters/qa_plan_retire.py"],
  "position": 2,

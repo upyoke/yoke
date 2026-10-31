@@ -86,13 +86,7 @@ def github(monkeypatch):
         "yoke_core.domain.github_actions_rerun_safety.list_run_jobs",
         lambda *a, **kw: state.get(
             "jobs",
-            [
-                {
-                    "runner_name": "runner",
-                    "steps": [{}],
-                    "conclusion": state["run"]["conclusion"],
-                }
-            ],
+            [{"conclusion": "cancelled", "steps": []}],
         ),
     )
     monkeypatch.setattr(subject, "rest_post", post)
@@ -104,9 +98,7 @@ def test_newest_current_head_reruns_once_and_records(github):
     result = subject.handle_rerun_failed(_request())
     assert result.primary_success
     assert result.result_payload["accepted"]
-    assert github["posts"] == [
-        ("/repos/owner/app/actions/runs/100/rerun-failed-jobs", 1)
-    ]
+    assert github["posts"] == [("/repos/owner/app/actions/runs/100/rerun", 1)]
     assert github["queries"] == [{"branch": "candidate", "per_page": "1"}] * 2
     assert len(github["records"]) == 2
     assert "accepted" in github["records"][1]["content"]
@@ -242,3 +234,49 @@ def test_attempt_changing_after_intent_does_not_post(github, monkeypatch):
     result = subject.handle_rerun_failed(_request())
     assert result.error.code == "ci_rerun_attempt_changed"
     assert not github["posts"]
+
+
+@pytest.mark.parametrize("conclusion", ["failure", "timed_out"])
+def test_failed_step_refuses_without_intent_or_post(github, conclusion):
+    github["jobs"] = [
+        {
+            "runner_name": "runner",
+            "conclusion": conclusion,
+            "steps": [{"conclusion": conclusion}],
+        }
+    ]
+    result = subject.handle_rerun_failed(_request())
+    assert result.error.code == "ci_rerun_verdict"
+    assert github["posts"] == []
+    assert github["records"] == []
+
+
+def test_run_timeout_refuses_without_intent_or_post(github):
+    github["run"]["conclusion"] = "timed_out"
+    result = subject.handle_rerun_failed(_request())
+    assert result.error.code == "ci_rerun_not_failed"
+    assert github["posts"] == []
+    assert github["records"] == []
+
+
+@pytest.mark.parametrize("steps", [[], [{"conclusion": "success"}]])
+def test_runner_loss_without_failed_steps_stays_recoverable(github, steps):
+    github["jobs"] = [
+        {
+            "runner_name": "runner",
+            "conclusion": "failure",
+            "steps": steps,
+        }
+    ]
+    result = subject.handle_rerun_failed(_request())
+    assert result.primary_success
+    assert github["posts"] == [
+        ("/repos/owner/app/actions/runs/100/rerun-failed-jobs", 1)
+    ]
+
+
+def test_recovery_signature_has_no_failure_allowance():
+    from inspect import signature
+    from yoke_core.domain.github_actions_rerun_safety import checked_run
+
+    assert "allow_failure" not in signature(checked_run).parameters

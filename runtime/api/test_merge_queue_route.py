@@ -336,5 +336,5 @@ def test_unchanged_failed_train_refuses_before_queue_entry(monkeypatch):
     assert failed_train_mod.FAILED_TRAIN_UNCHANGED in outcome.error
     assert outcome.error == refusal
     assert run_url in outcome.error and train_sha in outcome.error
-    assert "correct the actual cause" in outcome.error
+    assert "fix it on the lane" in outcome.error
     assert entered == []

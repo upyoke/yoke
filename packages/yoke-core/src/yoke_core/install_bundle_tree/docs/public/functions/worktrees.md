@@ -49,7 +49,6 @@ Read [envelope and authority](index.md) first. `none` means no dispatcher work-c
 | `merge.tests.post_rebase_requirement` | `none` |
 | `merge.tests.record_post_rebase_ci_run` | `none` |
 | `merge.tests.recorded_queue_receipt` | `none` |
-| `merge_queue.flake_retry.claim` | `item` |
 | `merge_queue.landing.observe` | `none` |
 | `merge_queue.landing_pending.clear` | `none` |
 | `merge_queue.landing_pending.mark` | `none` |

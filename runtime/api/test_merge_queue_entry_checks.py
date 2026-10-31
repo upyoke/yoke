@@ -182,3 +182,11 @@ def test_unarmed_red_required_checks_are_terminal():
 def test_a_queue_entry_outranks_a_stale_red_check_read():
     """An explicit queue entry means GitHub is still driving the landing."""
     assert _record(membership=IN_QUEUE, checks=(FAILED_REQUIRED,)).state == PENDING
+
+
+def test_red_check_recovery_requires_a_fix_and_unrelated_cause_dependency():
+    recovery = checks_mod.red_checks_recovery([FAILED_REQUIRED])
+    assert "fix it on the lane" in recovery
+    assert "yoke feedback" in recovery
+    assert "record the dependency, and park" in recovery
+    assert "rerun-failed" not in recovery

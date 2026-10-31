@@ -17,7 +17,6 @@ writes.
 from __future__ import annotations
 
 from yoke_core.domain.handlers import done_transition_writes as _writes
-from yoke_core.domain.handlers import merge_queue_flake_retry as _retry
 from yoke_core.domain.handlers import merge_queue_landing_observe as _observe
 from yoke_core.domain.handlers import merge_queue_marker_writes as _markers
 
@@ -27,18 +26,6 @@ _OBSERVER_MODULE = "yoke_core.domain.handlers.merge_queue_landing_observe"
 
 
 def register(registry) -> None:
-    registry.register(
-        "merge_queue.flake_retry.claim",
-        _retry.handle_claim_retry,
-        _retry.ClaimRetryRequest,
-        _retry.ClaimRetryResponse,
-        stability="stable",
-        owner_module="yoke_core.domain.handlers.merge_queue_flake_retry",
-        target_kinds=["item"], side_effects=["item_section_write"],
-        guardrails=[],
-        adapter_status="internal", claim_required_kind="item",
-        minimum_serving_version="next-release",
-    )
     registry.register(
         "done_transition.finalize_local_side_effects",
         _writes.handle_finalize_local_side_effects,

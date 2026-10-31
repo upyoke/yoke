@@ -5,7 +5,7 @@ holds a durable record of every run keyed by workflow and commit. So
 before the gate dispatches anything it asks that record what has already
 happened to the tree in front of it: a successful run on the exact commit
 is *adopted* as the verdict, a run still in flight there is *attached* to
-and polled, and a failed or unexamined tree is *dispatched*.
+and polled, and an unexamined tree is *dispatched*. Failed and timed-out runs stay red.
 
 Exactness is the whole safety argument. The lookup filters on the head
 SHA server-side and this module checks it again, because a run on any
@@ -14,8 +14,8 @@ one.
 
 Adoption is also the recovery when a gate invocation dies mid-poll: the
 local process is gone but its run is not, so the next invocation finds
-a successful run and records its verdict instead of paying for the same
-answer twice. Failed, cancelled and timed-out runs require a fresh dispatch.
+a completed verdict and records it instead of paying for the same
+answer twice. Only cancelled and never-started runs require a fresh dispatch.
 Attachment is the same insight one step earlier — a second invocation while the first run is still going joins it rather than
 racing a duplicate.
 """
@@ -26,12 +26,12 @@ import json
 from typing import Mapping, Optional
 
 from yoke_core.domain.qa_case_execution import QaCaseExecutionError
+from yoke_core.domain.qa_case_ci_conclusion import BINDING_CONCLUSIONS
 from yoke_core.domain.qa_case_ci_lane import WorkflowRun
 
 #: This invocation dispatched the run and polled it to a conclusion.
 DISPATCHED = "dispatched"
-#: The run had already succeeded when this invocation looked, so no CI
-#: work happened here at all — the verdict is that run's success.
+#: The run already reached a verdict, so no CI work happens here.
 ADOPTED = "adopted"
 #: The run was already in flight; this invocation polled that run to its
 #: conclusion rather than dispatching a second one on the same commit.
@@ -76,8 +76,15 @@ def find_run_for_tree(
         if value:
             args.extend((flag, value))
     result = _github_actions(
-        "find-run", repo, workflow, head_sha, *args, "--json",
-        project=project, sd=None, timeout=timeout_seconds,
+        "find-run",
+        repo,
+        workflow,
+        head_sha,
+        *args,
+        "--json",
+        project=project,
+        sd=None,
+        timeout=timeout_seconds,
     )
     try:
         response = json.loads(result.stdout)
@@ -109,7 +116,10 @@ def find_run_for_tree(
 
 
 def _lookup_failed(
-    workflow: str, repo: str, head_sha: str, result,
+    workflow: str,
+    repo: str,
+    head_sha: str,
+    result,
 ) -> QaCaseExecutionError:
     detail = (result.stderr or result.stdout or "").strip()
     return QaCaseExecutionError(
@@ -127,11 +137,9 @@ def classify(
     """Name what *run* lets this invocation do about *head_sha*.
 
     A run on any other commit, or none at all, means this tree is
-    unexamined and has to be dispatched. Only a completed successful run
-    is adopted. A failed, cancelled, timed-out or otherwise unsuccessful
-    run needs a fresh dispatch so a retry can reach a new verdict on the
-    same commit. Anything still running is attached
-    to, which is the same evidence a moment earlier.
+    unexamined and has to be dispatched. Completed success, failure and
+    test timeouts are adopted; only no-verdict runs need a fresh dispatch.
+    Anything still running is attached to.
 
     ``required_inputs`` are the candidate inputs the case declares
     (:mod:`yoke_core.domain.qa_case_ci_candidate_inputs`). They add a
@@ -147,15 +155,19 @@ def classify(
     if run is None or not run.head_sha or run.head_sha != head_sha:
         return DISPATCHED
     if run.status == "completed":
-        return ADOPTED if run.conclusion == "success" else DISPATCHED
+        return ADOPTED if run.conclusion in BINDING_CONCLUSIONS else DISPATCHED
     return ATTACHED
 
 
-def dispatch_request_id(request_id: str, head_sha: str, run: Optional[WorkflowRun]) -> str:
-    """Give a retry its own identity after a completed unsuccessful run."""
+def dispatch_request_id(
+    request_id: str, head_sha: str, run: Optional[WorkflowRun]
+) -> str:
+    """Give no-verdict recovery its own identity."""
     if (
-        run and run.head_sha == head_sha
-        and run.status == "completed" and run.conclusion != "success"
+        run
+        and run.head_sha == head_sha
+        and run.status == "completed"
+        and run.conclusion not in BINDING_CONCLUSIONS
     ):
         return f"{request_id}:after:{run.run_id}"
     return request_id

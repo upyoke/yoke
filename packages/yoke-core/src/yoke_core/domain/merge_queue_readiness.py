@@ -120,9 +120,9 @@ class MergeQueueReadiness:
         elif self.landing_state == NOT_IN_FLIGHT:
             recovery = (
                 "; re-run `yoke merge item`; for a failed train, inspect its run, "
-                "message `yoke say --steering` with the test and CI run URL, then "
-                "claim at most one unexplained failure with --retry-flake; "
-                "a second failure on the same inputs belongs to the item"
+                "fix it on the lane, commit, and re-run verification. For an "
+                "unrelated cause, file it with `yoke feedback`, promote the fix "
+                "item, record the dependency, and park; the gate stays red"
             )
         return (
             f"pull request {self.pr_number or 'not recorded'}: "

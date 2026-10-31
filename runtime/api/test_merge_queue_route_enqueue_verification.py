@@ -82,48 +82,39 @@ def test_only_an_already_armed_retry_preserves_the_episode(monkeypatch):
         assert calls == [preserve]
 
 
-def test_rejected_entry_restores_retry_but_accepted_entry_spends_it(monkeypatch):
-    from types import SimpleNamespace
-    from runtime.api.domain.merge_queue_observer_test_helpers import observer_connection
+def test_unchanged_failed_train_never_dispatches_or_enters_queue(monkeypatch):
     from runtime.api.merge_queue_landing_test_helpers import LANE_SHA, dispatch_for
     from yoke_core.domain import merge_queue_failed_train as failed
-    from yoke_core.domain.handlers import merge_queue_flake_retry as handler
-    from yoke_core.engines.merge_worktree_pr_queue import QueueEntryResult
     from yoke_core.engines.merge_worktree_pr_train_run import TrainRun
 
     wire_happy_path(monkeypatch, landing_states=[UNARMED])
-    conn, actions = observer_connection(), []
+    actions, entries = [], []
     ordinary_dispatch = dispatch_for({f"YOK-{200}": {}})
+
     def dispatch(**kwargs):
-        if kwargs["function_id"] != "merge_queue.flake_retry.claim":
-            return ordinary_dispatch(**kwargs)
-        body = handler.ClaimRetryRequest.model_validate(kwargs["payload"])
-        actions.append(body.action)
-        allowed = handler.reserve_retry(conn, 101, body, "worker")
-        return SimpleNamespace(
-            success=allowed,
-            result={"claimed": allowed and body.action == "claim", "released": allowed and body.action == "release"},
-            error=SimpleNamespace(code="merge_train_flake_retry_exhausted", message="Fix cause"),
-        )
+        actions.append(kwargs["function_id"])
+        return ordinary_dispatch(**kwargs)
+
     def guard(*args, **kwargs):
         return failed.unchanged_failed_train_refusal(
-            *args, **kwargs, base_sha="b" * 40, parents=["b" * 40, LANE_SHA],
-            train=TrainRun(conclusion="failure", head_sha="c" * 40,
-                           url="https://github.com/example/project/actions/runs/123"),
+            *args,
+            **kwargs,
+            base_sha="b" * 40,
+            parents=["b" * 40, LANE_SHA],
+            train=TrainRun(
+                conclusion="failure",
+                head_sha="c" * 40,
+                url="https://github.com/example/project/actions/runs/123",
+            ),
         )
+
     monkeypatch.setattr(route_mod, "unchanged_failed_train_refusal", guard)
-    entries = []
-    def enter(_ctx, pr_num):
-        entries.append(pr_num)
-        return QueueEntryResult(success=len(entries) > 1, pr_num=pr_num, error_detail="token refused", rejected=True)
-    monkeypatch.setattr(route_mod, "enter_merge_queue", enter)
-    options = dict(dispatch=dispatch, retry_flake="test_clock: unrelated timing", wait_for_landing=False)
-    rejected = land(**options)
-    assert not rejected.ok and "token refused" in rejected.error
-    assert actions == ["claim", "release"]
-    accepted = land(**options)
-    assert accepted.ok and accepted.landing_pending
-    assert actions == ["claim", "release", "claim"]
-    exhausted = land(**options)
-    assert not exhausted.ok and "merge_train_flake_retry_exhausted" in exhausted.error
-    assert len(entries) == 2
+    monkeypatch.setattr(
+        route_mod, "enter_merge_queue", lambda *args: entries.append(args)
+    )
+    result = land(dispatch=dispatch, wait_for_landing=False)
+    assert not result.ok
+    assert "failed-train-unchanged" in result.error
+    assert "fix it on the lane" in result.error
+    assert not any(action.startswith("merge_queue.") for action in actions)
+    assert entries == []

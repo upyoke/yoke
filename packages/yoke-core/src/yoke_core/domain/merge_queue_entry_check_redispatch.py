@@ -95,7 +95,6 @@ def redispatch_no_verdict_checks(
                 run_id,
                 auth.token,
                 expected_head=lane_head,
-                allow_failure=False,
             )
             if isinstance(run, HandlerOutcome):
                 return f"{run.error.code}: {run.error.message}"
@@ -106,7 +105,6 @@ def redispatch_no_verdict_checks(
                 run_id,
                 auth.token,
                 expected_head=run["head_sha"],
-                allow_failure=False,
             )
             if isinstance(refreshed, HandlerOutcome):
                 return f"{refreshed.error.code}: {refreshed.error.message}"

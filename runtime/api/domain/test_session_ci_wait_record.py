@@ -31,24 +31,25 @@ def test_binding_conclusions_dispatch_resolve() -> None:
     assert seen[0]["function_id"] == "session_ci_wait.resolve"
     assert seen[0]["payload"] == {"run_id": "42", "conclusion": "success"}
 
-    seen.clear()
-    assert (
-        resolve_received_wait(
-            run_id="42",
-            conclusion="failure",
-            dispatch=dispatch,
-            session_id="s1",
+    for conclusion in ("failure", "timed_out"):
+        seen.clear()
+        assert (
+            resolve_received_wait(
+                run_id="42",
+                conclusion=conclusion,
+                dispatch=dispatch,
+                session_id="s1",
+            )
+            == ""
         )
-        == ""
-    )
-    assert seen[0]["payload"]["conclusion"] == "failure"
+        assert seen[0]["payload"]["conclusion"] == conclusion
 
 
 def test_non_binding_conclusions_leave_the_wait_pending() -> None:
     def refuse(**_kwargs):  # pragma: no cover - the assertion is unused
-        raise AssertionError("timeout must not consume the wait")
+        raise AssertionError("no verdict must not consume the wait")
 
-    for conclusion in ("timed_out", "cancelled", "error", "startup_failure"):
+    for conclusion in ("cancelled", "error", "startup_failure"):
         assert (
             resolve_received_wait(
                 run_id="42",

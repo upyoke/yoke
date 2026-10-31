@@ -16,4 +16,4 @@ Selected deployment: `yoke merge item ITEM --skip-status --json`; follow `.yoke/
 
 Next: [close-out](close-out.md).
 
-Flakes: `.yoke/docs/github/merge-queue-landings.md#failed-merge-trains`.
+Failing or flaky tests: `.yoke/docs/agents/rules/verification.md#failing-or-flaky-tests`.

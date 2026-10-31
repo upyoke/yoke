@@ -25,7 +25,6 @@ from yoke_core.domain.merge_queue_enqueue_verification import (
 from yoke_core.domain.merge_queue_failed_train import (
     unchanged_failed_train_refusal,
 )
-from yoke_core.domain.merge_queue_flake_retry import release_retry
 from yoke_core.domain.merge_queue_landing_pull_request import (
     ensure_landing_pull_request,
 )
@@ -73,7 +72,6 @@ def land_item_through_merge_queue(
     emit: Callable[[str], None] = _emit_to_stderr,
     wait_for_landing: bool = True,
     relay_launched: bool = False,
-    retry_flake: str = "",
 ) -> QueueLandingOutcome:
     """Land one verified item branch through the merge queue.
 
@@ -204,14 +202,11 @@ def land_item_through_merge_queue(
         )
         if red_checks:
             return fail_landing(pr_num, red_checks, tuple(warnings))
-        reservation = {}
         refusal = unchanged_failed_train_refusal(
             ctx,
             pr_num,
             lane_head=commit_sha,
             base_branch=target,
-            retry_flake=retry_flake, public_ref=public_ref, dispatch=dispatch,
-            retry_reservation=reservation,
         )
         if refusal:
             return QueueLandingOutcome(
@@ -223,12 +218,11 @@ def land_item_through_merge_queue(
             )
         entry = enter_merge_queue(ctx, pr_num)
         if not entry.success:
-            release_error = release_retry(public_ref, reservation, dispatch=dispatch, rejected=entry.rejected) if reservation else ""
             return QueueLandingOutcome(
                 ok=False,
                 exit_code=1,
                 pr_num=pr_num,
-                error="; ".join(filter(None, (entry.error_detail or "queue entry refused", release_error))),
+                error=entry.error_detail or "queue entry refused",
             )
 
     # Arming is a request. What the handoff depends on is GitHub reporting

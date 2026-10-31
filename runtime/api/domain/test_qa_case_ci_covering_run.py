@@ -53,7 +53,10 @@ def _stub_lookup(monkeypatch, body: dict, returncode: int = 0) -> dict:
     def _github_actions(*args, **kwargs):
         seen.update(args=args, kwargs=kwargs)
         return subprocess.CompletedProcess(
-            list(args), returncode, json.dumps(body), "",
+            list(args),
+            returncode,
+            json.dumps(body),
+            "",
         )
 
     monkeypatch.setattr(
@@ -73,13 +76,20 @@ def test_the_lookup_asks_about_the_commit_not_about_how_a_run_started(
     seen = _stub_lookup(monkeypatch, _found())
 
     run = covering.find_run_for_tree(
-        project="yoke", repo="acme/widgets", workflow="ci.yml",
-        head_sha=LANE_HEAD, timeout_seconds=60,
+        project="yoke",
+        repo="acme/widgets",
+        workflow="ci.yml",
+        head_sha=LANE_HEAD,
+        timeout_seconds=60,
     )
 
     assert run == completed_run(LANE_HEAD)
     assert seen["args"] == (
-        "find-run", "acme/widgets", "ci.yml", LANE_HEAD, "--json",
+        "find-run",
+        "acme/widgets",
+        "ci.yml",
+        LANE_HEAD,
+        "--json",
     )
 
 
@@ -94,22 +104,37 @@ def test_narrowing_filters_reach_the_lookup(monkeypatch, filters, expected):
     seen = _stub_lookup(monkeypatch, _found())
 
     covering.find_run_for_tree(
-        project="yoke", repo="acme/widgets", workflow="ci.yml",
-        head_sha=LANE_HEAD, timeout_seconds=60, **filters,
+        project="yoke",
+        repo="acme/widgets",
+        workflow="ci.yml",
+        head_sha=LANE_HEAD,
+        timeout_seconds=60,
+        **filters,
     )
 
     assert seen["args"] == (
-        "find-run", "acme/widgets", "ci.yml", LANE_HEAD, *expected, "--json",
+        "find-run",
+        "acme/widgets",
+        "ci.yml",
+        LANE_HEAD,
+        *expected,
+        "--json",
     )
 
 
 def test_an_untested_commit_answers_none(monkeypatch):
     _stub_lookup(monkeypatch, {"result": {"found": False}}, returncode=1)
 
-    assert covering.find_run_for_tree(
-        project="yoke", repo="acme/widgets", workflow="ci.yml",
-        head_sha=LANE_HEAD, timeout_seconds=60,
-    ) is None
+    assert (
+        covering.find_run_for_tree(
+            project="yoke",
+            repo="acme/widgets",
+            workflow="ci.yml",
+            head_sha=LANE_HEAD,
+            timeout_seconds=60,
+        )
+        is None
+    )
 
 
 def test_a_failed_lookup_refuses_rather_than_reporting_no_run(monkeypatch):
@@ -118,8 +143,11 @@ def test_a_failed_lookup_refuses_rather_than_reporting_no_run(monkeypatch):
 
     with pytest.raises(QaCaseExecutionError, match="could not query workflow"):
         covering.find_run_for_tree(
-            project="yoke", repo="acme/widgets", workflow="ci.yml",
-            head_sha=LANE_HEAD, timeout_seconds=60,
+            project="yoke",
+            repo="acme/widgets",
+            workflow="ci.yml",
+            head_sha=LANE_HEAD,
+            timeout_seconds=60,
         )
 
 
@@ -131,9 +159,9 @@ def test_a_failed_lookup_refuses_rather_than_reporting_no_run(monkeypatch):
     [
         (None, covering.DISPATCHED),
         (completed_run(LANE_HEAD), covering.ADOPTED),
-        (completed_run(LANE_HEAD, "failure"), covering.DISPATCHED),
+        (completed_run(LANE_HEAD, "failure"), covering.ADOPTED),
         (completed_run(LANE_HEAD, "cancelled"), covering.DISPATCHED),
-        (completed_run(LANE_HEAD, "timed_out"), covering.DISPATCHED),
+        (completed_run(LANE_HEAD, "timed_out"), covering.ADOPTED),
         (completed_run("b" * 40), covering.DISPATCHED),
         (in_flight_run(LANE_HEAD), covering.ATTACHED),
         (in_flight_run(LANE_HEAD, "queued"), covering.ATTACHED),
@@ -147,7 +175,11 @@ def test_classify_names_what_the_run_lets_this_invocation_do(run, expected):
 def test_a_run_with_no_reported_sha_is_never_adopted():
     """Exact-SHA matching cannot be satisfied by a missing SHA."""
     blank = qa_case_ci_lane.WorkflowRun(
-        "77", "completed", "success", "https://github.test/runs/77", "",
+        "77",
+        "completed",
+        "success",
+        "https://github.test/runs/77",
+        "",
     )
 
     assert covering.classify(blank, head_sha=LANE_HEAD) == covering.DISPATCHED
@@ -157,12 +189,14 @@ def test_a_run_with_no_reported_sha_is_never_adopted():
 
 
 def test_a_successful_run_is_adopted_without_dispatching_or_polling(
-    wired, monkeypatch,
+    wired,
+    monkeypatch,
 ):
     """The killed-watcher recovery: the verdict costs one lookup, not a suite."""
     checkout, recorder, _ = wired
     monkeypatch.setattr(
-        covering, "find_run_for_tree",
+        covering,
+        "find_run_for_tree",
         lambda **k: completed_run(LANE_HEAD),
     )
     dispatch = mock.Mock(side_effect=AssertionError("must not dispatch"))
@@ -186,13 +220,16 @@ def test_a_successful_run_is_adopted_without_dispatching_or_polling(
 def test_an_in_flight_run_is_polled_instead_of_duplicated(wired, monkeypatch):
     checkout, recorder, _ = wired
     monkeypatch.setattr(
-        covering, "find_run_for_tree", lambda **k: in_flight_run(LANE_HEAD),
+        covering,
+        "find_run_for_tree",
+        lambda **k: in_flight_run(LANE_HEAD),
     )
     dispatch = mock.Mock(side_effect=AssertionError("must not dispatch"))
     monkeypatch.setattr(qa_case_ci_lane, "dispatch_workflow", dispatch)
     awaited: dict = {}
     monkeypatch.setattr(
-        qa_case_ci_lane, "await_workflow",
+        qa_case_ci_lane,
+        "await_workflow",
         lambda **k: awaited.update(k) or (0, "success"),
     )
 
@@ -210,10 +247,14 @@ def test_an_unexamined_commit_still_dispatches(wired, monkeypatch):
     checkout, recorder, _ = wired
     monkeypatch.setattr(covering, "find_run_for_tree", lambda **k: None)
     monkeypatch.setattr(
-        qa_case_ci_lane, "dispatch_workflow", lambda **k: "9182736",
+        qa_case_ci_lane,
+        "dispatch_workflow",
+        lambda **k: "9182736",
     )
     monkeypatch.setattr(
-        qa_case_ci_lane, "await_workflow", lambda **k: (0, "success"),
+        qa_case_ci_lane,
+        "await_workflow",
+        lambda **k: (0, "success"),
     )
 
     result = qa_case_ci_run.execute_ci_case(ci_case(), checkout_path=checkout)
@@ -225,14 +266,18 @@ def test_an_unexamined_commit_still_dispatches(wired, monkeypatch):
 
 
 def test_an_adopted_run_names_its_provenance_in_the_captured_output(
-    wired, monkeypatch,
+    wired,
+    monkeypatch,
 ):
     checkout, _, artifact = wired
     monkeypatch.setattr(
-        covering, "find_run_for_tree", lambda **k: completed_run(LANE_HEAD),
+        covering,
+        "find_run_for_tree",
+        lambda **k: completed_run(LANE_HEAD),
     )
     monkeypatch.setattr(
-        qa_case_ci_lane, "dispatch_workflow",
+        qa_case_ci_lane,
+        "dispatch_workflow",
         mock.Mock(side_effect=AssertionError("must not dispatch")),
     )
 
@@ -259,14 +304,18 @@ def test_a_lookup_failure_records_a_run_before_refusing(wired, monkeypatch):
     assert evidence["ci_run_id"] is None
 
 
-@pytest.mark.parametrize("conclusion", ["failure", "cancelled", "timed_out"])
+@pytest.mark.parametrize(
+    "conclusion", ["cancelled", "startup_failure", "ci_job_not_started"]
+)
 def test_an_unsuccessful_run_requests_a_fresh_dispatch(wired, monkeypatch, conclusion):
     checkout, recorder, _ = wired
     prior = completed_run(LANE_HEAD, conclusion)
     monkeypatch.setattr(covering, "find_run_for_tree", lambda **kwargs: prior)
     dispatch = mock.Mock(return_value="9182736")
     monkeypatch.setattr(qa_case_ci_lane, "dispatch_workflow", dispatch)
-    monkeypatch.setattr(qa_case_ci_lane, "await_workflow", lambda **kwargs: (0, "success"))
+    monkeypatch.setattr(
+        qa_case_ci_lane, "await_workflow", lambda **kwargs: (0, "success")
+    )
 
     result = qa_case_ci_run.execute_ci_case(ci_case(), checkout_path=checkout)
 

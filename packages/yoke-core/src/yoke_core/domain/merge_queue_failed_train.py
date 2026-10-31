@@ -1,8 +1,6 @@
 """Refuse queue re-entry that would replay a known failed train.
 
-A failed train needs a correction or one recorded flake claim. The retry
-budget belongs to the item and its exact head/base inputs, not the worker
-process or CI run. A change to either input is a new train.
+A failed train needs a changed head or base before queue re-entry.
 Uncertainty fails open: an unreadable train is not a known outcome.
 """
 
@@ -110,14 +108,13 @@ def _refusal(
     return (
         f"{FAILED_TRAIN_UNCHANGED}: pull request {pr_num!r} already has a "
         f"failed train for these unchanged inputs; {identity}; {compared}. "
-        f"{inspect}; correct the actual cause, then re-enter `yoke merge item` "
-        "only after the relevant lane head or base changes. Unchanged inputs "
-        "remain refused unless the failure cannot be explained by this change: "
-        "first message `yoke say --steering` naming the test and CI run URL, "
-        "then re-run the same `yoke merge item` command with "
-        "`--retry-flake 'TEST: why the change cannot explain the failure'`. "
-        "One recorded retry is allowed per head/base; a second failure belongs "
-        "to this item. Do not use empty commits to reset the budget."
+        f"{inspect}. A failing or flaky test is a defect: fix it on the lane, "
+        "commit, re-run the verification gate, then re-run yoke merge item. "
+        "If this item's change did not cause it, file it (yoke feedback "
+        "--to universe --category failed --evidence 'Flaky test: TEST, CI run URL, "
+        "observed outcomes' then yoke feedback promote ENTRY --title 'Fix flaky TEST'), "
+        "record the dependency, and park; the gate stays red until the fix lands. "
+        "Do not use empty commits to re-run unchanged inputs."
     )
 
 
@@ -130,16 +127,15 @@ def unchanged_failed_train_refusal(
     train: Optional[TrainRun] = None,
     parents: Optional[list[str]] = None,
     base_sha: str = "",
-    retry_flake: str = "",
-    public_ref: str = "",
-    dispatch=None,
-    retry_reservation=None,
 ) -> Optional[str]:
     """Named refusal, or ``None`` when re-entry is allowed."""
     observed = train
     if observed is None:
         observed, _note = read_train_run(ctx, pr_num)
-    if observed is None or str(observed.conclusion or "") != "failure":
+    if observed is None or str(observed.conclusion or "") not in {
+        "failure",
+        "timed_out",
+    }:
         return None
     train_sha = str(observed.head_sha or "").strip()
     if not train_sha:
@@ -164,15 +160,11 @@ def unchanged_failed_train_refusal(
     current_base = (base_sha or _current_base_sha(ctx, base_branch)).strip()
 
     def refusal():
-        if retry_flake.strip():
-            from yoke_core.domain.merge_queue_flake_retry import claim_retry
-
-            return claim_retry(
-                public_ref, pr_num, head, current_base, observed.url,
-                retry_flake, dispatch=dispatch, reservation=retry_reservation,
-            )
         return _refusal(
-            pr_num, observed, lane_head=head, base_sha=current_base,
+            pr_num,
+            observed,
+            lane_head=head,
+            base_sha=current_base,
             trained_base=trained_base,
         )
 

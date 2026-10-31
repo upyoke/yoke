@@ -18,7 +18,6 @@ FUNCTION_MINIMUM_SERVING_VERSIONS: dict[str, str] = {
     "ouroboros.field_note.append": "next-release",
     "ouroboros.field_note.list": "next-release",
     "ouroboros.field_note.get": "next-release",
-    "merge_queue.flake_retry.claim": "next-release",
     "claims.coordination_claim.acquire_if_free": "next-release",
     "sessions.watcher_activity": "next-release",
     "worktree.classify_dirty": "next-release",
@@ -189,7 +188,9 @@ _TEST_MACHINE_FLOOR = ArgumentFloor(
 #: ignored must also verify the success receipt echoes the requested argument.
 FUNCTION_ARGUMENT_MINIMUM_SERVING_VERSIONS: dict[str, dict[str, ArgumentFloor]] = {
     "ouroboros.field_note.append": {
-        name: ArgumentFloor("next-release", "upgrade the serving Yoke release before filing feedback")
+        name: ArgumentFloor(
+            "next-release", "upgrade the serving Yoke release before filing feedback"
+        )
         for name in ("yoke_version", "agent")
     },
     "sessions.begin": {
