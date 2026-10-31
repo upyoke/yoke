@@ -65,11 +65,17 @@ def satisfied_delivery_member(conn: Any, *, item_id: int, run_id: str) -> bool:
     if not (_table_exists(conn, "qa_requirements") and _table_exists(conn, "qa_runs")):
         return discharges_without_cases
     from yoke_core.domain.deployment_qa_member_plans import member_plan_disposition
-    from yoke_core.domain.deployment_qa_plan_groups import covered_members
+    from yoke_core.domain.deployment_qa_plan_groups import lineage_run_ids, run_groups
 
     owed_plans, attached_plans = member_plan_disposition(conn, int(item_id), str(run_id))
-    if any(int(item_id) not in covered_members(conn, str(run_id), plan) for plan in owed_plans):
-        return False
+    if owed_plans:
+        covered = {
+            group.plan_id
+            for group in run_groups(conn, lineage_run_ids(conn, str(run_id)))
+            if group.closed and int(item_id) in (group.covered_item_ids or ())
+        }
+        if not owed_plans <= covered:
+            return False
     rows = query_rows(
         conn,
         "SELECT r.id,r.deployment_member_item_id,r.deployment_run_id,"

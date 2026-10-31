@@ -106,3 +106,22 @@ def test_an_unsettled_own_case_still_blocks_with_other_target_plan(test_db, atta
                           qa_phase="post_deploy", blocking_mode="blocking")
     assert not satisfied_delivery_member(test_db, item_id=ITEM, run_id="run-prod")
     assert not owes_only_other_targets(test_db, item_id=ITEM, run_id="run-prod")
+
+
+def test_group_closed_during_this_presentation_is_immediately_satisfied(test_db):
+    from runtime.api.domain.test_deployment_qa_plan_groups import MEMBERS, RUN, _seed, _pass_group
+    from yoke_core.domain.deployment_qa_plan_group_writes import ensure_groups
+    from yoke_core.domain.deployment_qa_plan_groups import covered_members
+    from yoke_core.domain.deployment_qa_presentation_reads import presentation_operation
+
+    plan = _seed(test_db)
+    ensure_groups(test_db, RUN, "item-qa")
+    test_db.commit()
+
+    @presentation_operation
+    def close_and_read():
+        assert covered_members(test_db, RUN, plan) == set()
+        _pass_group(test_db)
+        return satisfied_delivery_member(test_db, item_id=MEMBERS[0], run_id=RUN)
+
+    assert close_and_read()
