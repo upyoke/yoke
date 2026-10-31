@@ -252,6 +252,7 @@ def test_a_base_that_moved_past_the_lane_never_reads_as_not_contained(
     item", against a release that shipped it.
     """
     from yoke_core.domain.deployment_run_candidate_containment import (
+        CONTENT_UNDETERMINED,
         UNDETERMINED,
         candidate_contains_commit,
     )
@@ -276,3 +277,19 @@ def test_a_base_that_moved_past_the_lane_never_reads_as_not_contained(
     )
 
     assert verdict.state == UNDETERMINED
+    assert verdict.reason == CONTENT_UNDETERMINED
+
+
+def test_unresolvable_commit_keeps_its_own_reason():
+    from types import SimpleNamespace
+    from yoke_core.domain import deployment_run_candidate_containment as containment
+
+    source = SimpleNamespace(origin="checkout", resolve_commit=lambda ref: "")
+    verdict = containment.CandidateContainment(
+        None, 1, candidate_lineage=CANDIDATE, source=source
+    ).contains(COMMIT)
+
+    assert verdict.state == containment.UNDETERMINED
+    assert verdict.reason == containment.COMMIT_UNREACHABLE
+    assert verdict.recovery == containment.COMMIT_UNREACHABLE_RECOVERY
+    assert "could not resolve" in verdict.recovery
