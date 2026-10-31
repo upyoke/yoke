@@ -4,6 +4,6 @@
  "status": "observed",
  "page": "universes",
  "position": 4,
- "note": "Machine config separates checkout registrations by connection. Selection follows --env, YOKE_ENV, the deepest registered checkout, a unique registered project reference, then active_env. Admin registrations select the ordinary paired connection implicitly; explicit overrides reach the admin door. Equal-depth matches on unrelated connections refuse checkout_connection_ambiguous. Source tests cover routing; no live multi-universe proof is claimed.",
- "sources": ["packages/yoke-contracts/src/yoke_contracts/machine_config/selection.py", "runtime/api/cli/test_connection_selection.py", "docs/public/cli/machine-config.md"]
+ "note": "Machine config separates checkout registrations by connection. Selection follows --env, YOKE_ENV, the deepest registered checkout, a unique registered project reference, then active_env. Admin registrations select the ordinary paired connection implicitly; explicit overrides reach the admin door. Equal-depth matches on unrelated connections refuse checkout_connection_ambiguous. Git credentials select YOKE_ENV, deepest checkout, then active_env; an explicit checkout mismatch or ambiguous registration refuses before reading credentials and teaches environment or registration repair without reconnecting GitHub. Source tests cover routing; no live multi-universe proof is claimed.",
+ "sources": ["packages/yoke-contracts/src/yoke_contracts/machine_config/selection.py", "runtime/api/cli/test_connection_selection.py", "packages/yoke-cli/src/yoke_cli/config/github_git_credential_helper.py", "runtime/api/cli/test_github_git_helper_checkout_selection.py", "docs/public/cli/machine-config.md"]
 }

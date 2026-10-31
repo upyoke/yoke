@@ -1,8 +1,9 @@
 """Git credential entrypoint backed by a GitHub App user authorization.
 
 Yoke copies this file and its credential-store siblings into the CLI
-environment's ``github-credential-helper`` directory. The fallback import keeps HTTPS clones working while an editable
-install is being moved to the checkout that Git is currently cloning.
+environment's ``github-credential-helper`` directory. Connection selection uses
+YOKE_ENV, then the deepest registered checkout, then active_env. An explicit
+YOKE_ENV conflicting with the checkout refuses before credentials are read.
 """
 
 from __future__ import annotations
@@ -33,7 +34,8 @@ def access_token_for_git_request(
     """
 
     config = credential_store.load_config(config_path)
-    github = credential_store.github_service_profile_proof.selected_github(config)
+    label = _git_connection_label(config)
+    github = credential_store.github_service_profile_proof.selected_github(config, label)
     if not isinstance(github, Mapping) or fields.get("protocol") != "https":
         return None
     expected = urllib.parse.urlsplit(
@@ -43,16 +45,16 @@ def access_token_for_git_request(
     ).netloc
     if fields.get("host", "").casefold() != expected.casefold():
         return None
-    _assert_checkout_connection(config)
     return credential_store.access_token_from_config(
         config,
         config_path=config_path,
         opener=opener,
+        connection_env=label,
     )
 
 
-def _assert_checkout_connection(config):
-    """Never answer Git using another connection's checkout registration."""
+def _git_connection_label(config: Mapping[str, Any]) -> str:
+    """Select like the CLI, refusing an explicit override of the checkout."""
     cwd = Path.cwd().resolve()
     primary = cwd
     try:
@@ -72,29 +74,46 @@ def _assert_checkout_connection(config):
             "checkout connection could not be checked; repair Git metadata and retry"
         ) from exc
     groups = config.get("connection_projects") or {}
-    selected = credential_store.token_contract.github_connection_label(
-        config,
-        credential_store.github_service_profile_proof.os.environ.get("YOKE_ENV")
-        or config.get("active_env", ""),
-    )
-    if not isinstance(groups, Mapping):
-        return
+    connection_label = credential_store.token_contract.github_connection_label
+    override = credential_store.github_service_profile_proof.os.environ.get(
+        "YOKE_ENV", ""
+    ).strip()
+    selected = connection_label(config, override or config.get("active_env", ""))
     matches = []
-    for label, entries in groups.items():
+    for label, entries in groups.items() if isinstance(groups, Mapping) else []:
+        label = connection_label(config, label)
+        if label not in (config.get("connections") or {}):
+            continue
         for entry in entries if isinstance(entries, list) else []:
             if not isinstance(entry, Mapping) or not entry.get("checkout"):
                 continue
             root = Path(entry["checkout"]).expanduser().resolve()
             if cwd.is_relative_to(root) or primary == root:
-                matches.append((len(root.parts), label))
+                matches.append((len(root.parts), label, root, entry.get("project_id")))
     if matches:
-        depth = max(size for size, _ in matches)
-        labels = {label for size, label in matches if size == depth}
-        if selected not in labels:
-            label = sorted(labels)[0]
+        depth = max(match[0] for match in matches)
+        deepest = [match for match in matches if match[0] == depth]
+        labels = {match[1] for match in deepest}
+        registered = sorted(labels)[0]
+        _, _, root, project_id = next(m for m in deepest if m[1] == registered)
+        if override and selected not in labels:
             raise credential_store.GitHubCredentialStoreError(
-                credential_store.github_service_profile_proof.missing_authorization(config, label)
+                "checkout connection mismatch: this checkout is registered to Yoke "
+                f"connection '{registered}' but YOKE_ENV selects '{selected}'; "
+                f"unset YOKE_ENV or set YOKE_ENV={registered} for git here, or move "
+                f"the checkout with `yoke --env {selected} project register {root} "
+                f"--project-id {project_id} --reassign`"
             )
+        if not override:
+            if len(labels) == 1:
+                return registered
+            raise credential_store.GitHubCredentialStoreError(
+                "checkout connection ambiguous: this checkout is registered to Yoke "
+                f"connections {', '.join(sorted(labels))}; set YOKE_ENV for git here, "
+                "or move the duplicate with `yoke --env ENV project register "
+                f"{root} --project-id N --reassign`"
+            )
+    return selected
 
 
 def main(
@@ -127,7 +146,11 @@ def main(
         if credential is None:
             return 0
     except credential_store.GitHubCredentialStoreError as exc:
-        if str(exc).startswith("no GitHub authorization for connection "):
+        if str(exc).startswith((
+            "no GitHub authorization for connection ",
+            "checkout connection mismatch: ",
+            "checkout connection ambiguous: ",
+        )):
             print(str(exc), file=sys.stderr)
             return 1
         # The store's own message can name the credential path, and this
