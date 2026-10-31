@@ -119,12 +119,22 @@ def test_a_member_run_carrying_the_landing_holds_it(
     assert verdict.run_id == "run-holder"
     assert verdict.run_flow == FLOW
     from dataclasses import replace
-    from yoke_core.domain.steering_fleet_report_landed_open import landed_without_closeout
-    from yoke_core.domain.steering_fleet_report_landed_gate import AWAITING_RELEASE, LandedGate
-    from yoke_core.domain.steering_fleet_report_landed_phrases import release_wait_phrase
+    from yoke_core.domain.steering_fleet_report_landed_open import (
+        landed_without_closeout,
+    )
+    from yoke_core.domain.steering_fleet_report_landed_gate import (
+        AWAITING_RELEASE,
+        LandedGate,
+    )
+    from yoke_core.domain.steering_fleet_report_landed_phrases import (
+        release_wait_phrase,
+    )
 
     entry = landed_without_closeout(
-        test_db, project_id=PROJECT_ID, now="2026-09-14T01:00:00Z", holders=(),
+        test_db,
+        project_id=PROJECT_ID,
+        now="2026-09-14T01:00:00Z",
+        holders=(),
     )[0]
     assert entry.custody_run_flow == FLOW
     entry = replace(entry, delivery_gate=LandedGate(AWAITING_RELEASE, flow="own-flow"))
@@ -168,9 +178,7 @@ def test_a_cancelled_member_run_holds_nothing(
     repo, _baseline, landing = release_repository(tmp_path, ref)
     serve_repository(monkeypatch, repo)
     _record_landing(test_db, landing)
-    insert_run(
-        test_db, "run-cancelled", lineage=landing, status="cancelled", flow=FLOW
-    )
+    insert_run(test_db, "run-cancelled", lineage=landing, status="cancelled", flow=FLOW)
     test_db.execute(
         "INSERT INTO deployment_run_items(run_id,item_id,added_at) "
         "VALUES ('run-cancelled',%s,'2026-09-14T00:30:00Z')",
@@ -212,3 +220,75 @@ def test_a_terminal_item_is_not_in_the_conversation(test_db: Any) -> None:
     assert [
         int(record["id"]) for record in merged_open_items(test_db, PROJECT_ID)
     ] == []
+
+
+@pytest.mark.parametrize("holder_status", ["executing", "succeeded"])
+def test_diverged_holder_allows_enrollment_without_proving_delivery(
+    test_db, monkeypatch, holder_status
+):
+    from runtime.api.domain.test_repository_containment_reads import (
+        CANDIDATE,
+        COMMIT,
+        _COMPARE_PATH,
+        _compare,
+        _source,
+    )
+    from yoke_core.domain import deployment_run_candidate_containment as containment
+    from yoke_core.domain import deployment_run_unheld_candidates as unheld
+
+    _landed_item(test_db, status="release")
+    _record_landing(test_db, COMMIT)
+    insert_run(
+        test_db, "old-holder", lineage=CANDIDATE, status=holder_status, flow=FLOW
+    )
+    test_db.execute(
+        "INSERT INTO deployment_run_items(run_id,item_id,added_at) "
+        "VALUES ('old-holder',%s,'2026-09-14T00:30:00Z')",
+        (ITEM_ID,),
+    )
+    test_db.commit()
+    source, _ = _source(
+        monkeypatch,
+        {
+            f"/repos/owner/repo/compare/{COMMIT}...{COMMIT}": _compare("identical"),
+            _COMPARE_PATH: _compare(
+                "diverged",
+                [{"filename": "feature.py", "status": "modified", "sha": "f" * 40}],
+            ),
+            "/repos/owner/repo/contents/feature.py": {"sha": "0" * 40},
+        },
+    )
+    monkeypatch.setattr(
+        containment, "carried_work_sources", lambda *args: (lambda: source,)
+    )
+
+    verdict = _custody(test_db)
+    assert verdict.state == REMERGED
+    assert verdict.held is False
+    assert verdict.enrollable is True
+    proof = containment.candidate_contains_commit(
+        test_db,
+        PROJECT_ID,
+        candidate_lineage=CANDIDATE,
+        commit_sha=COMMIT,
+    )
+    assert proof.state == containment.UNDETERMINED
+    assert proof.reason == containment.CONTENT_UNDETERMINED
+
+    monkeypatch.setattr(
+        unheld, "items_requiring_release_membership", lambda *args: {ITEM_ID}
+    )
+    monkeypatch.setattr(unheld, "needed_member_ids", lambda *args, **kw: {ITEM_ID})
+    monkeypatch.setattr(unheld, "_previous_release_lineage", lambda *args: "")
+    monkeypatch.setattr(
+        unheld, "candidate_range_commits", lambda *args, **kw: frozenset()
+    )
+    insert_run(test_db, "new-run", lineage=COMMIT, status="created", flow=FLOW)
+    enrollable, held = unheld._project_custody(
+        test_db,
+        "new-run",
+        project_id=PROJECT_ID,
+        lineage=COMMIT,
+    )
+    assert enrollable == {ITEM_ID}
+    assert held == []

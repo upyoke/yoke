@@ -17,7 +17,9 @@ Both run against every source this host can offer, because they fail for
 unrelated reasons: a checkout can lack a commit it never fetched while the
 provider holds it, and a provider read can time out on a range a checkout
 answers instantly. Only when no source answers is the verdict undetermined,
-and then it names every reason it collected.
+and then it names every reason it collected. Readable commits with an
+inconclusive content comparison name that uncertainty separately from commits
+the source cannot resolve; custody may safely enroll that work again.
 
 A source answers "not contained" only when it answered BOTH questions and
 both said no. One that could not run the content question has not excluded
@@ -53,8 +55,15 @@ UNDETERMINED = "undetermined"
 #: Why a source that opened still could not answer.
 COMMIT_UNREACHABLE = "containment_commit_unreachable"
 COMMIT_UNREACHABLE_RECOVERY = (
-    "Make both the merge identity and the deployed lineage readable from "
+    "A source could not resolve the merge identity or deployed lineage. Make "
+    "both commits readable from "
     "the project's repository, then retry."
+)
+
+CONTENT_UNDETERMINED = "containment_content_undetermined"
+CONTENT_UNDETERMINED_RECOVERY = (
+    "Compare the commits in a checkout that can merge their trees, then retry. "
+    "Custody may enroll the landing again without crediting delivery proof."
 )
 
 
@@ -166,6 +175,9 @@ class CandidateContainment:
                     (COMMIT_UNREACHABLE, COMMIT_UNREACHABLE_RECOVERY),
                 )
                 continue
+            if verdict.state == UNDETERMINED:
+                refusals.append((verdict.reason, verdict.recovery))
+                continue
             if verdict.contained:
                 return verdict
             # A definite exclusion is an answer, but a weaker one than a yes: a
@@ -273,7 +285,7 @@ def _cached_source_verdict(
 def _ask_source(
     source: CarriedWorkSource, resolved_candidate: str, merge: str
 ) -> Optional[ContainmentVerdict]:
-    """Ask one source both containment questions, or ``None`` if it cannot.
+    """Ask both questions; ``None`` means a commit could not be resolved.
 
     The candidate arrives already resolved because it is the same revision
     for every commit the caller asks about; the merge is this question's own
@@ -293,12 +305,12 @@ def _ask_source(
             source=source.origin,
         )
     if adds_nothing is None:
-        # Ancestry said no, and the content question — the one that catches a
-        # lane whose work reached the base under other commit ids — went
-        # unanswered. That is this source not knowing, not this source
-        # excluding the merge, and a caller told "not contained" on it would
-        # send an owner to redeploy work the release already shipped.
-        return None
+        return ContainmentVerdict(
+            UNDETERMINED,
+            CONTENT_UNDETERMINED,
+            CONTENT_UNDETERMINED_RECOVERY,
+            source=source.origin,
+        )
     return ContainmentVerdict(NOT_CONTAINED, source=source.origin)
 
 

@@ -4,7 +4,9 @@ A live or succeeded run holds a landing only when it both owes that item's
 proof through membership and contains its exact merge commit. Failed and
 cancelled runs release custody. During composition, a holder must also cover
 the new run's target obligations; supplemental proof does not reserve final
-delivery. Unanswerable containment stays UNDETERMINED and admits nothing.
+delivery. An inconclusive content comparison does not reserve custody: the
+landing may ship again, without granting delivery proof. Other unanswerable
+containment stays UNDETERMINED and admits nothing.
 """
 
 from __future__ import annotations
@@ -22,6 +24,7 @@ from yoke_core.domain.conflict_survey_declared_paths import TERMINAL_STATUSES
 from yoke_core.domain.deployment_run_candidate_containment import (
     UNDETERMINED as CONTAINMENT_UNDETERMINED,
     CandidateContainment,
+    CONTENT_UNDETERMINED,
 )
 from yoke_core.domain.deployment_run_bound_sources import (
     BOUND_SOURCES_FIELD,
@@ -247,7 +250,11 @@ def _custody_for(
                 run_status=str(run["status"]),
                 run_flow=str(run["flow"]),
             )
-        if verdict.state == CONTAINMENT_UNDETERMINED and undetermined is None:
+        if (
+            verdict.state == CONTAINMENT_UNDETERMINED
+            and verdict.reason != CONTENT_UNDETERMINED
+            and undetermined is None
+        ):
             # Keep walking: an older member run may still answer, and a
             # definite yes beats an unreadable maybe.
             undetermined = LandingCustody(
