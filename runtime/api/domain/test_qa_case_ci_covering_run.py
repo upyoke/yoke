@@ -328,4 +328,3 @@ def test_an_unsuccessful_run_requests_a_fresh_dispatch(wired, monkeypatch, concl
     evidence = json.loads(recorder.payload("qa.run.add")["raw_result"])
     assert evidence["ci_run_source"] == covering.DISPATCHED
     assert evidence["ci_run_id"] == "9182736"
-

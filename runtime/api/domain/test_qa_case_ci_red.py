@@ -5,7 +5,10 @@ from unittest import mock
 import pytest
 
 from runtime.api.domain.qa_case_ci_test_helpers import (
-    LANE_HEAD, ci_case, completed_run, wire_ci_case,
+    LANE_HEAD,
+    ci_case,
+    completed_run,
+    wire_ci_case,
 )
 from yoke_core.domain import qa_case_ci_covering_run as covering
 from yoke_core.domain import qa_case_ci_lane, qa_case_ci_run
