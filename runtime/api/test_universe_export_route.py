@@ -176,3 +176,30 @@ def test_paused_export_refuses_ephemeral_server_state(monkeypatch):
     assert response.status_code == 409
     assert b"universe_pause_storage_unavailable" in response.body
     assert b"protect-existing" in response.body
+
+
+def test_failed_copy_recovery_keeps_its_named_reason(monkeypatch, tmp_path):
+    from fastapi import FastAPI
+    from fastapi.testclient import TestClient
+    from yoke_core.api.universe_pause_admission import install
+    from yoke_core.domain import universe_source_pause as pause
+
+    monkeypatch.setenv(SERVER_MODE_ENV, SERVER_MODE_SELF_HOST)
+    monkeypatch.setenv("YOKE_MACHINE_HOME", str(tmp_path / "machine"))
+    monkeypatch.setattr(
+        route.db_backend, "resolve_pg_dsn", lambda: "host=localhost dbname=source"
+    )
+    monkeypatch.setattr(pause, "is_paused", lambda _dsn: True)
+
+    def fail(_dsn):
+        raise pause.UniversePausedError(
+            "universe_pause_recovery_failed: repair copy space and retry Resume"
+        )
+
+    monkeypatch.setattr(pause, "recover", fail)
+    app = FastAPI()
+    install(app)
+    with TestClient(app) as client:
+        response = client.post("/v1/universe/resume")
+    assert response.status_code == 409
+    assert response.json()["error"]["code"] == "universe_pause_recovery_failed"

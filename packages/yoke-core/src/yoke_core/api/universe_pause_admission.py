@@ -49,7 +49,7 @@ def install(application):
                     content={
                         "success": False,
                         "error": {
-                            "code": "universe_source_busy",
+                            "code": str(exc).partition(":")[0],
                             "message": str(exc),
                         },
                     },
