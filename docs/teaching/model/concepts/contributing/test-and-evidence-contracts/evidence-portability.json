@@ -1,6 +1,7 @@
 {
  "id": "evidence-portability",
  "title": "Evidence portability",
+ "summary": "Evidence storage and reads share the requirement project: member, plan, item or epic, then run. A mismatched object key requires re-capture; rehome moves local bytes only.",
  "status": "draft-copy",
  "audience": "Maintainers",
  "page": "test-and-evidence-contracts",

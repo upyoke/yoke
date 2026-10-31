@@ -1,9 +1,5 @@
 """``qa`` topic table entries for the schema cheat sheet.
 
-Sibling of :mod:`schema_api_context_tables` (which combines per-topic
-dicts into the canonical ``CANONICAL_TABLES``). Holds the ``qa`` topic
-entries: qa_requirements, qa_runs, qa_artifacts.
-
 Pure data only — no I/O or DB connections; composes sibling plan facts.
 """
 
@@ -90,6 +86,10 @@ QA_TABLES: dict[str, dict] = {
             ("created_at", "TIMESTAMPTZ"),
         ],
         "notes": (
+            "runtime.api.qa_test_helpers and qa_full_test_helpers include deployment_runs "
+            "for evidence-owner joins; admitted-copy reconciliation also needs its status "
+            "and qa_requirements.superseded_by_requirement_id. qa.cmd_init alone "
+            "does not supply the latter; assuming it did caused undefined-column failures. "
             "Wrong fixture assumption: create_core_tables supplies a complete QA schema; "
             "its initial qa_requirements lacks retracted_at and superseded_by_requirement_id. "
             "Tests needing only history use item_status_transitions.ensure_schema instead. "

@@ -153,8 +153,13 @@ def _s3_result(conn, row, handle: dict) -> tuple[dict, Optional[HandlerOutcome]]
         )
         if str(handle["key"]) != expected:
             return {
-                "disposition": "evidence_not_portable",
-                "detail": "the recorded object is outside this tenant's store",
+                "disposition": "evidence_key_mismatch",
+                "detail": (
+                    f"the recorded object key {handle['key']!r} differs from "
+                    f"the requirement owner key {expected!r}. "
+                    "Re-run the QA case to re-capture the evidence; rehome "
+                    "only moves local evidence and cannot repair object keys."
+                ),
             }, None
         try:
             signed = presign_with_broker(
@@ -240,7 +245,7 @@ def handle_qa_artifact_read(
         row = query_one(
             conn,
             "SELECT a.id, a.content_type, a.artifact_handle, a.metadata, "
-            "a.qa_run_id AS run_id, r.qa_requirement_id, q.item_id, "
+            "a.qa_run_id AS run_id, r.qa_requirement_id, COALESCE(q.item_id,q.epic_id) AS item_id, "
             "q.deployment_run_id, q.target_env, q.standalone_execution_id, "
             f"{project_of_requirement(member='m', plan='qp', item='i', run='d')} AS project_id, "
             "p.slug AS project "

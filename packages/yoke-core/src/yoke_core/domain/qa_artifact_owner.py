@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 from yoke_core.domain import db_backend
+from yoke_core.domain.qa_activity_selection import project_of_requirement
 
 
 def requirement_storage_owner(conn: Any, requirement_id: int) -> dict[str, Any]:
@@ -13,49 +14,32 @@ def requirement_storage_owner(conn: Any, requirement_id: int) -> dict[str, Any]:
     from yoke_core.domain.db_helpers import query_one
 
     marker = "%s" if db_backend.connection_is_postgres(conn) else "?"
+    project = project_of_requirement(member="m", plan="qp", item="i", run="d")
     row = query_one(
         conn,
-        "SELECT r.item_id, r.epic_id, r.task_num, r.deployment_run_id, "
-        "r.target_env, r.standalone_execution_id, r.plan_id, COALESCE(m.project_id,i.project_id) "
-        "AS project_id, p.slug AS project "
+        "SELECT COALESCE(r.item_id,r.epic_id) AS item_id, r.epic_id, "
+        "r.task_num, r.deployment_run_id, r.target_env, "
+        "r.standalone_execution_id, r.plan_id, "
+        f"{project} AS project_id, p.slug AS project "
         "FROM qa_requirements r "
-        "LEFT JOIN items i ON i.id=r.item_id "
+        "LEFT JOIN items i ON i.id=COALESCE(r.item_id,r.epic_id) "
         "LEFT JOIN items m ON m.id=r.deployment_member_item_id "
-        "LEFT JOIN projects p ON p.id=COALESCE(m.project_id,i.project_id) "
+        "LEFT JOIN qa_plans qp ON qp.id=r.plan_id "
+        "LEFT JOIN deployment_runs d ON d.id=r.deployment_run_id "
+        f"LEFT JOIN projects p ON p.id={project} "
         f"WHERE r.id = {marker}",
         (int(requirement_id),),
     )
     if row is None:
         raise LookupError(f"requirement {requirement_id} not found")
     owner = dict(row)
-    if owner["standalone_execution_id"] is not None:
-        plan_owner = query_one(
-            conn,
-            "SELECT qp.project_id, p.slug AS project FROM qa_plans qp "
-            "JOIN projects p ON p.id=qp.project_id "
-            f"WHERE qp.id={marker}",
-            (owner["plan_id"],),
-        )
-        if plan_owner is not None:
-            owner.update(dict(plan_owner))
-    if owner["project"] is None and owner["deployment_run_id"] is not None:
-        deployment_owner = query_one(
-            conn,
-            "SELECT d.project_id, p.slug AS project "
-            "FROM deployment_runs d "
-            "LEFT JOIN projects p ON p.id = d.project_id "
-            f"WHERE d.id = {marker}",
-            (str(owner["deployment_run_id"]),),
-        )
-        if deployment_owner is not None:
-            owner.update(dict(deployment_owner))
     if owner["project"] is None:
         raise ValueError(
             f"requirement {requirement_id} resolves to no project through its "
             f"owner (item_id={owner['item_id']!r}, "
             f"epic_id={owner['epic_id']!r}, "
             f"deployment_run_id={owner['deployment_run_id']!r}); durable "
-            "evidence requires an item, deployment-run, or standalone plan owner"
+            "evidence requires a deployment member, plan, item, or deployment-run owner"
         )
     return owner
 

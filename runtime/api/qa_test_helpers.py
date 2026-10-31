@@ -34,6 +34,15 @@ CREATE TABLE projects (
     public_item_prefix TEXT NOT NULL DEFAULT 'YOK'
 );
 INSERT INTO projects (id, slug, name) VALUES (1, 'yoke', 'yoke');
+CREATE TABLE qa_plans (
+    id INTEGER PRIMARY KEY,
+    project_id INTEGER NOT NULL
+);
+CREATE TABLE deployment_runs (
+    id TEXT PRIMARY KEY,
+    project_id INTEGER NOT NULL,
+    status TEXT NOT NULL DEFAULT 'created'
+);
 CREATE TABLE items (
     id INTEGER PRIMARY KEY,
     title TEXT NOT NULL DEFAULT '',
@@ -82,6 +91,15 @@ def _apply_qa_schema() -> None:
     finally:
         conn.close()
     qa.cmd_init()
+    conn = db_backend.connect()
+    try:
+        conn.execute(
+            "ALTER TABLE qa_requirements ADD COLUMN "
+            "superseded_by_requirement_id INTEGER REFERENCES qa_requirements(id)"
+        )
+        conn.commit()
+    finally:
+        conn.close()
 
 
 @contextlib.contextmanager

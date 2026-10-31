@@ -25,3 +25,10 @@ with the replaced handle kept as provenance in the artifact's metadata:
 ```text
 yoke qa artifact rehome --requirement-id <id> --artifact-id <id> [--artifact-id <id> ...]
 ```
+
+Evidence uses its requirement's project: deployment member, then plan, then
+item (including an epic task), then release run. A cross-project release case
+therefore keeps its plan's project key. Reads reject a different stored key
+as `evidence_key_mismatch`; re-run the case to re-capture its evidence.
+`yoke qa artifact rehome` moves local bytes only and cannot repair an object
+already stored under the wrong key.
