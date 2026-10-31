@@ -55,17 +55,20 @@ def satisfied_delivery_member(conn: Any, *, item_id: int, run_id: str) -> bool:
 
     Count the member's own run requirements, using the same ownership rule
     as the done gate. Each post-deploy plan it owes is answered only by a
-    closed plan group of this run that covers it.
+    closed plan group of this run that covers it. With no own cases, live
+    plans owed only on another target leave nothing for this run to settle;
+    the item's done gate still requires their target-qualified credit.
     """
     discharges_without_cases = answer_for_item(
         conn, int(item_id)
     ).discharges_without_cases
     if not (_table_exists(conn, "qa_requirements") and _table_exists(conn, "qa_runs")):
         return discharges_without_cases
-    from yoke_core.domain.deployment_qa_plan_credit import run_plan_credit
+    from yoke_core.domain.deployment_qa_member_plans import member_plan_disposition
+    from yoke_core.domain.deployment_qa_plan_groups import covered_members
 
-    plans_credited = run_plan_credit(conn, int(item_id), str(run_id))
-    if plans_credited is False:
+    owed_plans, attached_plans = member_plan_disposition(conn, int(item_id), str(run_id))
+    if any(int(item_id) not in covered_members(conn, str(run_id), plan) for plan in owed_plans):
         return False
     rows = query_rows(
         conn,
@@ -88,7 +91,7 @@ def satisfied_delivery_member(conn: Any, *, item_id: int, run_id: str) -> bool:
             carried_member_no_item_qa_reason,
         )
 
-        return bool(plans_credited) or discharges_without_cases or bool(
+        return attached_plans or discharges_without_cases or bool(
             carried_member_no_item_qa_reason(conn, run_id=run_id, item_id=item_id)
         )
     return all(

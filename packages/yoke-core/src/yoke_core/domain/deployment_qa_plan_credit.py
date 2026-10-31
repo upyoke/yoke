@@ -142,27 +142,4 @@ def _stages(conn: Any, run: dict) -> list[dict]:
     return [stage for stage in stages or [] if isinstance(stage, dict)]
 
 
-def run_plan_credit(conn: Any, item_id: int, run_id: str) -> bool | None:
-    """Whether this run's closed plan groups cover each plan the member owes.
-
-    ``None`` when the member owes the run no post-deploy plan. A group closed
-    in a run this run superseded still counts, as it does at ``done``.
-    """
-    from yoke_core.domain.deployment_qa_member_plans import member_plan_ids
-    from yoke_core.domain.deployment_qa_plan_groups import (
-        lineage_run_ids,
-        run_groups,
-    )
-
-    owed = member_plan_ids(conn, int(item_id), str(run_id))
-    if not owed:
-        return None
-    covered = {
-        group.plan_id
-        for group in run_groups(conn, lineage_run_ids(conn, str(run_id)))
-        if group.closed and int(item_id) in (group.covered_item_ids or ())
-    }
-    return owed <= covered
-
-
-__all__ = ["PLAN_GROUP_QA_KIND", "plan_credit_misses", "run_plan_credit"]
+__all__ = ["PLAN_GROUP_QA_KIND", "plan_credit_misses"]
