@@ -198,8 +198,8 @@ def _ended_owner_recovery(conn, execution):
 
 
 HOST_RESTORE_RECOVERY = (
-    "qa_abort_restore_pending: cancellation is recorded; host custody is retained "
-    "until the runner stops and records starting_state_restore cleanup proof. "
+    "Host custody stays until the runner stops and records starting_state_restore "
+    "cleanup proof. Run `yoke qa plan abort` for this execution's subject. "
     "A declared baseline requires restored=true; an as_is case or a case "
     "without a baseline records that no restoration is required. Keep the "
     "runner connected and retry only after that proof is recorded. If the "
@@ -237,7 +237,9 @@ def require_host_restored(conn, execution, *, reason, commit):
         )
     record_abort_request(conn, execution, request)
     conn.commit()
-    raise QaPlanExecutionStateError(HOST_RESTORE_RECOVERY)
+    raise QaPlanExecutionStateError(
+        "qa_abort_restore_pending: cancellation is recorded; " + HOST_RESTORE_RECOVERY
+    )
 
 
 def restore_cleanup_proven(restore, baseline):

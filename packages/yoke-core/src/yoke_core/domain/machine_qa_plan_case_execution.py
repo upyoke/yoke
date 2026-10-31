@@ -287,13 +287,13 @@ def execute_plan_agent_mission_case(
             "test_machine.plan_case.begin returned no mission contract"
         )
     _report_selection(begun, execution)
-    execution = refreshed_case_contract(
-        execution,
-        plan_execution_id=execution_id,
-        actor=actor,
-        begin=lambda: _begin(target, actor, request),
-    )
     try:
+        execution = refreshed_case_contract(
+            execution,
+            plan_execution_id=execution_id,
+            actor=actor,
+            begin=lambda: _begin(target, actor, request),
+        )
         from yoke_core.domain.machine_qa_host_control import (
             register_test_machine_host_control,
         )

@@ -44,7 +44,6 @@ SSH_WAIT_SECONDS = 600
 SSH_LOGIN_SECONDS = 60
 SSH_POLL_SECONDS = 10.0
 SSH_PROBE_OPTIONS = (
-    "StrictHostKeyChecking=accept-new",
     "LogLevel=ERROR",
     "ConnectTimeout=10",
     "BatchMode=yes",

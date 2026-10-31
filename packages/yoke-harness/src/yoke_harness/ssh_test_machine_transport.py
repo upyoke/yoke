@@ -26,7 +26,6 @@ from yoke_contracts.machine_qa_failures import bounded_machine_qa_diagnostic
 
 # Keep SSH connection diagnostics focused on failures.
 SSH_OPTIONS = (
-    "StrictHostKeyChecking=accept-new",
     "LogLevel=ERROR",
     "ConnectTimeout=10",
     "BatchMode=yes",

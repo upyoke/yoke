@@ -32,7 +32,6 @@ DIAGNOSTIC_TAIL_BYTES = 64 * 1024
 _READ_CHUNK_BYTES = 8192
 SSH_OPTIONS = (
     "IdentityFile=none",
-    "StrictHostKeyChecking=accept-new",
     "BatchMode=yes",
     "ConnectTimeout=10",
 )
@@ -65,7 +64,6 @@ def host_key_options(
         "-o",
         f"UserKnownHostsFile={known_hosts}",
         "-o",
-        "StrictHostKeyChecking=accept-new",
         *(["-o", f"HostKeyAlias={alias}"] if alias else []),
     ]
 
@@ -83,8 +81,6 @@ def remote_exec_argv(
         "ssh",
         "-F",
         "/dev/null",
-        "-o",
-        f"UserKnownHostsFile={known_hosts}",
         *[part for option in SSH_OPTIONS for part in ("-o", option)],
         *host_key_options({"cloud_instance_id": cloud_instance_id}, known_hosts),
         "--",
