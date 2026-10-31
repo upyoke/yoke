@@ -35,7 +35,8 @@ env:
 
 jobs:
   repo_contracts:
-    timeout-minutes: 5
+    # Includes checkout, locked dependencies, portable wheels and repository checks.
+    timeout-minutes: 10
     name: repo-contracts
     permissions: {contents: read, actions: read}
     runs-on: ${{ fromJSON(vars.YOKE_LINUX_RUNS_ON || '["ubuntu-latest"]') }}
