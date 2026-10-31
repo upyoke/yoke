@@ -72,7 +72,8 @@ permissions:
 
 jobs:
   plan:
-    timeout-minutes: 5
+    # Includes checkout, locked dependencies, portable wheels and selection sizing.
+    timeout-minutes: 10
     name: plan
     permissions: {contents: read, actions: read}
     runs-on: ${{ fromJSON(vars.YOKE_LINUX_RUNS_ON || '["ubuntu-latest"]') }}
