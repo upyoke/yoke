@@ -64,6 +64,7 @@ def host_key_options(
         "-o",
         f"UserKnownHostsFile={known_hosts}",
         "-o",
+        "StrictHostKeyChecking=accept-new",
         *(["-o", f"HostKeyAlias={alias}"] if alias else []),
     ]
 
