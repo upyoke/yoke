@@ -12,7 +12,7 @@ import tomllib
 from dataclasses import dataclass
 from importlib.metadata import version
 from pathlib import Path
-from typing import Mapping, Sequence
+from typing import Iterable, Sequence
 
 METADATA_MARKER = "YOKE_SERVER_IMAGE_METADATA="
 _METADATA_FIELDS = frozenset({"build", "version"})
@@ -111,7 +111,7 @@ def canonicalize_name(name: str) -> str:
     return re.sub(r"[-_.]+", "-", name).lower()
 
 
-def version_mismatches(lock_path: Path, installed: Mapping[str, str]) -> list[str]:
+def version_mismatches(lock_path: Path, installed: Iterable[tuple[str, str]]) -> list[str]:
     """Report every unlocked or changed distribution, excluding workspace products."""
     lock = tomllib.loads(lock_path.read_text())
     products = {canonicalize_name(name) for name in lock["manifest"]["members"]}
@@ -122,7 +122,7 @@ def version_mismatches(lock_path: Path, installed: Mapping[str, str]) -> list[st
                 package["version"]
             )
     mismatches = []
-    for name, actual in sorted(installed.items()):
+    for name, actual in sorted(installed):
         name = canonicalize_name(name)
         if name in products:
             continue
@@ -163,7 +163,7 @@ def verify_native_image(args: argparse.Namespace) -> str:
         "import json; from importlib.metadata import distributions; "
         "print(json.dumps({d.metadata['Name']: d.version for d in distributions()}))",
     ))
-    mismatches = version_mismatches(Path("uv.lock"), distributions)
+    mismatches = version_mismatches(Path("uv.lock"), distributions.items())
     if mismatches:
         raise ServerImageMetadataError(
             "native_image_lock_mismatch:\n" + "\n".join(mismatches)

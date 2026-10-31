@@ -9,7 +9,7 @@ import tempfile
 def run_source_tests(root: Path, commands) -> None:
     commands.run(
         "install-test-dependencies",
-        ["uv", "sync", "--all-packages", "--all-groups", "--locked"],
+        ["uv", "sync", "--all-packages", "--locked"],
         cwd=root,
     )
     # The socket must fit even when macOS's ordinary temp root is very long.
