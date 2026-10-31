@@ -24,11 +24,9 @@ from yoke_contracts.machine_config.scratch_roots import scratch_root_candidates
 from yoke_cli.config.path_doctor import PathStateContract, resolve_path_state_contract
 from yoke_contracts.machine_qa_failures import bounded_machine_qa_diagnostic
 
-# The discarded known-hosts file makes ssh warn on every connect; LogLevel=ERROR
-# keeps that warning out of stderr, so a failure's stderr carries only its cause.
+# Keep SSH connection diagnostics focused on failures.
 SSH_OPTIONS = (
     "StrictHostKeyChecking=accept-new",
-    "UserKnownHostsFile=/dev/null",
     "LogLevel=ERROR",
     "ConnectTimeout=10",
     "BatchMode=yes",

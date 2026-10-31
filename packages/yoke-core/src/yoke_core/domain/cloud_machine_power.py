@@ -45,7 +45,6 @@ SSH_LOGIN_SECONDS = 60
 SSH_POLL_SECONDS = 10.0
 SSH_PROBE_OPTIONS = (
     "StrictHostKeyChecking=accept-new",
-    "UserKnownHostsFile=/dev/null",
     "LogLevel=ERROR",
     "ConnectTimeout=10",
     "BatchMode=yes",

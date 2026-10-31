@@ -52,10 +52,22 @@ def known_hosts_path(yoke_home: Path) -> Path:
     return yoke_home / KNOWN_HOSTS_DIR_NAME / KNOWN_HOSTS_FILE_NAME
 
 
-def host_key_options(settings: Mapping[str, str]) -> list[str]:
+def host_key_options(
+    settings: Mapping[str, str], known_hosts: Path | None = None
+) -> list[str]:
     """Pin cloud identity to its instance rather than a recyclable address."""
+    from yoke_cli.config import machine_config
+
+    known_hosts = known_hosts or known_hosts_path(machine_config.yoke_home())
+    create_private_directory(known_hosts.parent)
     alias = settings.get("cloud_instance_id")
-    return ["-o", f"HostKeyAlias={alias}"] if alias else []
+    return [
+        "-o",
+        f"UserKnownHostsFile={known_hosts}",
+        "-o",
+        "StrictHostKeyChecking=accept-new",
+        *(["-o", f"HostKeyAlias={alias}"] if alias else []),
+    ]
 
 
 def remote_exec_argv(
@@ -74,7 +86,7 @@ def remote_exec_argv(
         "-o",
         f"UserKnownHostsFile={known_hosts}",
         *[part for option in SSH_OPTIONS for part in ("-o", option)],
-        *host_key_options({"cloud_instance_id": cloud_instance_id}),
+        *host_key_options({"cloud_instance_id": cloud_instance_id}, known_hosts),
         "--",
         f"{user}@{host}",
         *command,

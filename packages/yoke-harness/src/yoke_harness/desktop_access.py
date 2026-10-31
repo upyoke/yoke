@@ -39,7 +39,7 @@ def _ssh_args(
         "/dev/null",
         "-i",
         str(key_path),
-        *host_key_options(settings),
+        *host_key_options(settings, known_hosts),
         "-S",
         control_path,
         "-o",

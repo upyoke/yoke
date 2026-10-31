@@ -113,7 +113,7 @@ def test_refresh_ssh_failure_submits_unstarted_case_and_waits(
     assert host_unhealthy(test_db, MACHINE)["error_code"] == SSH_UNAVAILABLE
     assert active_claim(test_db, host_claim_target(MACHINE)) is None
     assert test_db.execute(
-        "SELECT 1 FROM qa_test_machine_waits WHERE execution_id=%s AND state='waiting'",
+        "SELECT 1 FROM qa_test_machine_waits WHERE qa_plan_execution_id=%s AND state='waiting'",
         (execution["id"],),
     ).fetchone()
 
@@ -175,3 +175,61 @@ def test_pause_recovery_names_file_only_for_recorded_uncertainty(
     assert ("--recovery-file" in str(caught.value)) is uncertain
     if not uncertain:
         assert "yoke test-machine reset" in str(caught.value)
+
+
+def test_cli_operation_uses_settings_returned_by_power(monkeypatch):
+    from yoke_cli.commands.adapters import test_machine_operation as cli
+    from yoke_core.domain import cloud_machine_power
+    from yoke_contracts.api.function_call import FunctionCallResponse
+    from yoke_harness import (
+        golden_snapshot_retention,
+        harness_cli_latest,
+        test_machine_operations,
+    )
+
+    seen = []
+    execution = {"project": "yoke", "settings": {"host": "old"}}
+    monkeypatch.setattr(cli, "ensure_handlers_loaded", lambda: None)
+    monkeypatch.setattr(cli, "build_actor", lambda **_: SimpleNamespace())
+    monkeypatch.setattr(cli, "emit_response", lambda *_a, **_k: 0)
+    monkeypatch.setattr(cloud_machine_power, "power_on", lambda *_: {"host": "new"})
+
+    def dispatch(**kwargs):
+        result = (
+            {"execution": execution}
+            if kwargs["function_id"].endswith("begin")
+            else {"status": "verified"}
+        )
+        return FunctionCallResponse(
+            success=True, function=kwargs["function_id"], version="v1", result=result
+        )
+
+    monkeypatch.setattr(cli, "call_dispatcher", dispatch)
+    monkeypatch.setattr(
+        test_machine_operations,
+        "execute_host_operation_contract",
+        lambda raw, **_: (
+            seen.append(raw)
+            or SimpleNamespace(payload={}, cleanup_artifacts=lambda: None)
+        ),
+    )
+    monkeypatch.setattr(
+        golden_snapshot_retention, "retain_after_verified_capture", lambda *_: None
+    )
+    monkeypatch.setattr(
+        harness_cli_latest, "warn_capture_behind_latest", lambda *_: None
+    )
+    assert (
+        cli._execute(
+            operation="reset",
+            project="yoke",
+            test_machine="lab",
+            baseline=None,
+            destination=None,
+            probes_document=None,
+            session_id=None,
+            json_mode=False,
+        )
+        == 0
+    )
+    assert seen[0]["settings"]["host"] == "new"

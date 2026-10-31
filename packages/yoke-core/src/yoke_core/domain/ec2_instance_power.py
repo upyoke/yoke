@@ -127,6 +127,7 @@ def instance_public_address(
     runner: CommandRunner, instance_id: str, aws_env: dict
 ) -> str | None:
     """Read the instance's current public IPv4; a private-only instance has none."""
+    # map preserves nulls; a projection silently drops a private-only instance.
     described = _run(
         runner,
         [
@@ -134,7 +135,7 @@ def instance_public_address(
             "--instance-ids",
             instance_id,
             "--query",
-            "Reservations[].Instances[].PublicIpAddress",
+            "map(&PublicIpAddress, Reservations[].Instances[])",
             "--output",
             "json",
         ],
