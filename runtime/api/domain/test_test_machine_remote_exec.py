@@ -173,6 +173,7 @@ def test_exec_runs_as_the_capability_user_at_its_host(cli) -> None:
     assert cli.ran == [
         {
             "host": HOST,
+            "cloud_instance_id": None,
             "user": USER,
             "command": ["uname", "-a"],
             "yoke_home": cli.ran[0]["yoke_home"],
