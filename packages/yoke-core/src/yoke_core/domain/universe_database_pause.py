@@ -76,7 +76,8 @@ def drain(conn, name, *, timeout_s=30):
     deadline = time.monotonic() + timeout_s
     while True:
         rows = conn.execute(
-            "SELECT pid FROM pg_stat_activity WHERE datname=%s", (name,)
+            "SELECT pid FROM pg_stat_activity WHERE datname=%s "
+            "AND backend_type <> 'autovacuum worker'", (name,)
         ).fetchall()
         if not rows:
             return
@@ -118,13 +119,13 @@ def confirm(dsn, state):
     with connect(dsn) as conn:
         _identity(conn, state)
         row = conn.execute(
-            "SELECT datallowconn, (SELECT count(*) FROM pg_stat_activity WHERE datname=%s) "
+            "SELECT datallowconn "
             "FROM pg_database WHERE oid=%s",
-            (state["name"], state["oid"]),
+            (state["oid"],),
         ).fetchone()
-        if not row or row[0] or row[1] != 0 or not state["ready"]:
+        if not row or row[0] or not state["ready"]:
             raise RuntimeError(
-                "universe_pause_unconfirmed: retry paused export after stopping database clients"
+                "universe_pause_unconfirmed: source was reopened or frozen copy is not ready; retry export or run `yoke universe resume`"
             )
 
 
