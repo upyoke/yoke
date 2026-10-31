@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import hashlib
 from collections.abc import Mapping
 from contextlib import contextmanager
 from typing import Iterator
@@ -43,22 +44,17 @@ def _connection(dsn: str) -> psycopg.Connection:
     return db_backend.connect_psycopg(dsn, autocommit=True)
 
 
-def application_sessions(conn):
-    """Client backends except the exact read-only startup coordination lock."""
-    return conn.execute(
-        "SELECT a.pid FROM pg_stat_activity a WHERE a.datname=current_database() "
-        "AND a.pid<>pg_backend_pid() AND a.backend_type='client backend' "
-        "AND NOT (a.application_name=%s AND EXISTS (SELECT 1 FROM pg_locks l "
-        "WHERE l.pid=a.pid AND l.locktype='advisory' AND l.granted "
-        "AND l.mode='ShareLock' AND l.objsubid=1 "
-        "AND l.database=(SELECT oid FROM pg_database WHERE datname=current_database()) "
-        "AND l.classid=%s::bigint::oid AND l.objid=%s::bigint::oid))",
-        (
-            STARTUP_LOCK_APPLICATION,
-            (UNIVERSE_STARTUP_LOCK_ID >> 32) & 0xFFFFFFFF,
-            UNIVERSE_STARTUP_LOCK_ID & 0xFFFFFFFF,
-        ),
-    ).fetchall()
+def _lock_target(dsn):
+    if hosted_tenant_container_process():
+        return dsn, UNIVERSE_STARTUP_LOCK_ID
+    from psycopg.conninfo import conninfo_to_dict
+    from yoke_core.domain.universe_database_pause import maintenance_dsn
+
+    name = conninfo_to_dict(dsn)["dbname"]
+    key = int.from_bytes(hashlib.sha256(name.encode()).digest()[:8], "big") & (
+        (1 << 63) - 1
+    )
+    return maintenance_dsn(dsn), key
 
 
 def _server_connection(dsn: str):
@@ -78,11 +74,10 @@ def _server_connection(dsn: str):
 def server_startup_guard(dsn: str) -> Iterator[None]:
     """Hold a shared lock while a server inspects and prepares its universe."""
     with universe_source_pause.startup_access(dsn):
-        conn = _server_connection(dsn)
+        target, lock_id = _lock_target(dsn)
+        conn = _server_connection(target)
         try:
-            conn.execute(
-                "SELECT pg_advisory_lock_shared(%s)", (UNIVERSE_STARTUP_LOCK_ID,)
-            )
+            conn.execute("SELECT pg_advisory_lock_shared(%s)", (lock_id,))
         except BaseException:
             conn.close()
             raise
@@ -92,7 +87,7 @@ def server_startup_guard(dsn: str) -> Iterator[None]:
         finally:
             conn.execute(
                 "SELECT pg_advisory_unlock_shared(%s)",
-                (UNIVERSE_STARTUP_LOCK_ID,),
+                (lock_id,),
             )
     finally:
         conn.close()
@@ -101,12 +96,13 @@ def server_startup_guard(dsn: str) -> Iterator[None]:
 @contextmanager
 def exclusive_import_guard(dsn: str) -> Iterator[None]:
     """Fail fast if any server is preparing the DB; otherwise exclude one."""
-    conn = _connection(dsn)
+    target, lock_id = _lock_target(dsn)
+    conn = _connection(target)
     acquired = False
     try:
         row = conn.execute(
             "SELECT pg_try_advisory_lock(%s)",
-            (UNIVERSE_STARTUP_LOCK_ID,),
+            (lock_id,),
         ).fetchone()
         acquired = bool(row and row[0])
         if not acquired:
@@ -119,7 +115,7 @@ def exclusive_import_guard(dsn: str) -> Iterator[None]:
         if acquired:
             conn.execute(
                 "SELECT pg_advisory_unlock(%s)",
-                (UNIVERSE_STARTUP_LOCK_ID,),
+                (lock_id,),
             )
         conn.close()
 

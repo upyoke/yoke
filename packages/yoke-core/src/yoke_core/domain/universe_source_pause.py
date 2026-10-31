@@ -1,8 +1,7 @@
 """Durable machine-local writer pause for local and self-host exports.
 
-Every db_backend acquisition checks the same database marker. Export and
-Resume alone bypass it, so background services cannot reopen writer sessions.
-The marker survives failed exports and server restarts until explicit Resume.
+PostgreSQL refuses every source connection until explicit Resume. A durable
+marker owns the frozen copy used for export and paused authentication.
 """
 
 from __future__ import annotations
@@ -19,6 +18,7 @@ from pathlib import Path
 from yoke_contracts.machine_config.paths import yoke_home
 from yoke_contracts.refusal_recovery import compose_refusal
 
+_RESUMING: ContextVar[bool] = ContextVar("universe_resuming", default=False)
 _ALLOWED: ContextVar[bool] = ContextVar("universe_pause_owner", default=False)
 _OPERATION: ContextVar[str | None] = ContextVar(
     "universe_pause_operation", default=None
@@ -108,6 +108,7 @@ def startup_access(dsn: str):
         yield
         return
     with operation(dsn, wait=True), pause_owner():
+        recover(dsn)
         yield
 
 
@@ -148,58 +149,34 @@ def pause_owner():
 def pause(dsn: str, *, timeout_s: float = 30) -> None:
     """Persist refusal before terminating all other database client sessions."""
     from yoke_core.domain import (
-        db_backend,
         postgres_connection_reuse,
         universe_source_services,
     )
 
-    from yoke_core.domain.universe_startup_lock import application_sessions
+    from yoke_core.domain import universe_database_pause as database
 
     marker = _marker(dsn)
     try:
-        marker.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
-        services = (
+        state = (
             json.loads(marker.read_text())
             if marker.exists()
             else universe_source_services.plan(dsn)
         )
-        if not marker.exists():
-            descriptor, temporary = tempfile.mkstemp(
-                dir=marker.parent, prefix=".pause-"
-            )
-            try:
-                with os.fdopen(descriptor, "w") as handle:
-                    json.dump(services, handle)
-                    handle.flush()
-                    os.fsync(handle.fileno())
-                os.replace(temporary, marker)
-            finally:
-                Path(temporary).unlink(missing_ok=True)
-        directory = os.open(marker.parent, os.O_RDONLY)
-        try:
-            os.fsync(directory)
-        finally:
-            os.close(directory)
-        universe_source_services.stop(services)
+        if "database_pause" not in state:
+            state["database_pause"] = database.plan(dsn)
+        _save(marker, state)
+        universe_source_services.stop(state)
         postgres_connection_reuse.close_idle_connections()
-        with pause_owner(), db_backend.connect_psycopg(dsn, autocommit=True) as conn:
-            deadline = time.monotonic() + timeout_s
-            while True:
-                sessions = application_sessions(conn)
-                if not sessions:
-                    return
-                for row in sessions:
-                    conn.execute("SELECT pg_terminate_backend(%s)", (row[0],))
-                if time.monotonic() >= deadline:
-                    raise RuntimeError("client sessions did not drain")
-                time.sleep(0.05)
+        database.freeze(dsn, state["database_pause"], timeout_s=timeout_s)
+        _save(marker, state)
+        database.confirm(dsn, state["database_pause"])
     except universe_source_services.SourceServiceError as exc:
         raise UniversePausedError(str(exc)) from exc
     except Exception as exc:
         raise UniversePausedError(
             compose_refusal(
                 "universe_pause_failed: could not stop and drain source writers; no move archive was produced",
-                recovery="repair local storage or database session termination permission, retry export, or run `yoke universe resume` to restore writers",
+                recovery="check pause storage, database-copy space, CREATE DATABASE and session termination permissions; retry export or run `yoke universe resume`",
             )
         ) from exc
 
@@ -213,26 +190,104 @@ def resuming_source(dsn: str):
         universe_source_services,
     )
 
+    from yoke_core.domain import universe_database_pause as database
+
     with operation(dsn):
+        marker = _marker(dsn)
+        state = json.loads(marker.read_text()) if marker.exists() else {}
+        frozen = state.get("database_pause")
+        token = _RESUMING.set(True)
         try:
+            if frozen:
+                # Persist before reopening, so a failed Resume rebuilds the copy.
+                frozen["ready"] = False
+                _save(marker, state)
+                database.reopen(dsn, frozen)
             with pause_owner(), db_backend.connect_psycopg(dsn) as conn:
                 conn.execute("SELECT 1")
             with pause_owner():
                 yield
-            marker = _marker(dsn)
-            services = json.loads(marker.read_text()) if marker.exists() else {}
-            universe_source_services.start(services)
+            universe_source_services.start(state)
+            if frozen:
+                database.cleanup(dsn, frozen)
             marker.unlink(missing_ok=True)
             postgres_connection_reuse.close_idle_connections()
-        except UniversePausedError:
-            raise
-        except Exception as exc:
+        except BaseException as exc:
+            recovery_state = "source admission could not be confirmed"
+            if frozen:
+                try:
+                    database.freeze(dsn, frozen)
+                    _save(marker, state)
+                    recovery_state = "source connections are fenced again"
+                except Exception:
+                    recovery_state = "source fencing or frozen-copy recovery failed; stop writers and check database administration access"
+            if isinstance(exc, (KeyboardInterrupt, SystemExit)):
+                raise
             raise UniversePausedError(
                 compose_refusal(
-                    "universe_resume_failed: the source could not resume; its pause remains in effect",
-                    recovery="check database availability, the source relay and pause-marker permissions, then retry `yoke universe resume`",
+                    f"universe_resume_failed: Resume did not finish; {recovery_state}",
+                    recovery="check database availability, relay and pause storage, then retry `yoke universe resume`; writes accepted during Resume are retained",
                 )
             ) from exc
+        finally:
+            _RESUMING.reset(token)
+
+
+def _save(marker, state):
+    marker.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+    descriptor, temporary = tempfile.mkstemp(dir=marker.parent, prefix=".pause-")
+    try:
+        with os.fdopen(descriptor, "w") as handle:
+            json.dump(state, handle)
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.replace(temporary, marker)
+        directory = os.open(marker.parent, os.O_RDONLY)
+        try:
+            os.fsync(directory)
+        finally:
+            os.close(directory)
+    finally:
+        Path(temporary).unlink(missing_ok=True)
+
+
+def recover(dsn):
+    """Finish an interrupted authorized pause before paused authentication."""
+    if is_paused(dsn):
+        try:
+            state = json.loads(_marker(dsn).read_text())
+            frozen = state.get("database_pause")
+            if frozen and not frozen["ready"]:
+                from yoke_core.domain import universe_database_pause as database
+
+                database.freeze(dsn, frozen)
+                _save(_marker(dsn), state)
+        except Exception as exc:
+            raise UniversePausedError(
+                "universe_pause_recovery_failed: check database creation space and permissions, then retry export or `yoke universe resume`"
+            ) from exc
+
+
+def connection_dsn(dsn):
+    require_running(dsn)
+    if _ALLOWED.get() and not _RESUMING.get() and is_paused(dsn):
+        from yoke_core.domain.universe_database_pause import read_dsn
+
+        state = json.loads(_marker(dsn).read_text()).get("database_pause")
+        if state:
+            return read_dsn(dsn, state)
+    return dsn
+
+
+def export_source(dsn):
+    from yoke_core.domain import universe_database_pause as database
+
+    state = json.loads(_marker(dsn).read_text())["database_pause"]
+    database.confirm(dsn, state)
+    return database.read_dsn(dsn, state), {
+        "database": state["name"],
+        "database_oid": state["oid"],
+    }
 
 
 def resume(dsn: str) -> dict:

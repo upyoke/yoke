@@ -16,13 +16,24 @@ def test_pause_drains_clients_and_resume_reopens_source(monkeypatch, tmp_path):
     with pg_testdb.test_database() as source:
         source.commit()
         dsn = os.environ[db_backend.PG_DSN_ENV]
+        source_name = source.info.dbname
+        source_oid = source.execute(
+            "SELECT oid FROM pg_database WHERE datname=current_database()"
+        ).fetchone()[0]
+        source.commit()
+        output = []
         with psycopg.connect(dsn) as other:
             other.execute("SELECT 1")
             report = universe_export.export_universe(
-                dsn=dsn, out=tmp_path / "move.tar", pause_source=True
+                dsn=dsn,
+                out=tmp_path / "move.tar",
+                pause_source=True,
+                emit=output.append,
             )
             try:
                 assert pause.is_paused(dsn)
+                with pytest.raises(psycopg.OperationalError):
+                    psycopg.connect(dsn)
                 with pytest.raises(psycopg.OperationalError):
                     other.execute("SELECT 1")
                 for connect in (
@@ -39,6 +50,13 @@ def test_pause_drains_clients_and_resume_reopens_source(monkeypatch, tmp_path):
                     max_dump_bytes=1 << 30,
                 )
                 assert receipt["freeze_intent"]["zero_writable_app_sessions"] is True
+                assert receipt["freeze_intent"]["database"]["name"] == source_name
+                assert receipt["freeze_intent"]["database"]["oid"] == source_oid
+                assert any(
+                    "artifacts-manifest.json" in line
+                    and "artifacts/shared-files" in line
+                    for line in output
+                )
             finally:
                 pause.resume(dsn)
         with db_backend.connect_psycopg(dsn) as restored:
@@ -94,12 +112,13 @@ def test_pause_persists_service_recovery_before_stopping(monkeypatch, tmp_path):
         dsn = os.environ[db_backend.PG_DSN_ENV]
 
         def stop(value):
-            assert value == json.loads(pause._marker(dsn).read_text()) == record
+            assert value == json.loads(pause._marker(dsn).read_text())
+            assert value["relay_environment"] == "isolated"
             events.append("stopped")
 
         def start(value):
             assert pause.is_paused(dsn)
-            assert value == record
+            assert value["relay_environment"] == "isolated"
             events.append("started")
 
         monkeypatch.setattr(services, "stop", stop)

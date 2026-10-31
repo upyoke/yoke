@@ -69,6 +69,11 @@ def converge_for_serving(
     convergence = importlib.import_module("yoke_core.domain.local_universe_convergence")
     if not dsn or not convergence.serves_own_universe(dsn):
         return {"status": STATUS_FOREIGN_UNIVERSE, "engine_identity": identity}
+    pause = importlib.import_module("yoke_core.domain.universe_source_pause")
+    try:
+        pause.require_running(dsn)
+    except pause.UniversePausedError as exc:
+        raise LocalUniverseConvergenceError(str(exc)) from exc
     try:
         convergence.ensure_own_universe_running(emit=emit)
     except RuntimeError as exc:

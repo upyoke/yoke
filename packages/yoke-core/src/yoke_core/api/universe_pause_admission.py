@@ -35,11 +35,13 @@ def install(application):
                 },
             )
         if resume or export:
+            request.state.universe_paused_read = paused
             try:
                 with (
                     universe_source_pause.operation(dsn),
                     universe_source_pause.pause_owner(),
                 ):
+                    universe_source_pause.recover(dsn)
                     return await call_next(request)
             except universe_source_pause.UniversePausedError as exc:
                 return JSONResponse(
@@ -47,7 +49,7 @@ def install(application):
                     content={
                         "success": False,
                         "error": {
-                            "code": "universe_source_busy",
+                            "code": str(exc).partition(":")[0],
                             "message": str(exc),
                         },
                     },

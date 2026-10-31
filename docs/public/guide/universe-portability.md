@@ -20,7 +20,7 @@ For a local or self-host move, use `yoke universe export --pause-source`. Hosted
 
 The result is one `.tar` file. Keep the archive together: its database dump and receipt are both needed for validation and import. Store backups outside any machine home or server volume you intend to remove.
 
-A move export stops source writers and drains client sessions. The source stays paused until `yoke universe resume`, including after a failed export. Export without `--pause-source` creates a backup that hosted import refuses; local import accepts it. Protected direct database connections remain refused.
+A move export disables PostgreSQL connections to the source and terminates its clients, including older engines and raw database clients. It exports a frozen database copy, requiring additional database space and source administration permission. The source stays paused until `yoke universe resume`, including after a failed export. Export without `--pause-source` creates a backup that hosted import refuses; local import accepts it. Protected direct database connections remain refused.
 
 ## Validate and retain backups
 

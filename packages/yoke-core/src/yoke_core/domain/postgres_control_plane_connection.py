@@ -105,7 +105,11 @@ def connect_guarded_socket(dsn: str, *, connection_class=None, **connect_kwargs:
     universe_source_pause.require_running(dsn)
     opener = connection_class.connect if connection_class else psycopg.connect
     return universe_source_pause.check_connection(
-        opener(guarded_conninfo(dsn), **connect_kwargs), dsn
+        opener(
+            guarded_conninfo(universe_source_pause.connection_dsn(dsn)),
+            **connect_kwargs,
+        ),
+        dsn,
     )
 
 

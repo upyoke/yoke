@@ -58,7 +58,7 @@ def status(instance):
 
 
 def stop(record: dict) -> None:
-    if not record:
+    if not record.get("relay_environment"):
         return
     instance = resolve_relay_instance(environment=record["relay_environment"])
     if sys.platform == "linux":
@@ -76,7 +76,7 @@ def stop(record: dict) -> None:
 
 
 def start(record: dict) -> None:
-    if not record:
+    if not record.get("relay_environment"):
         return
     instance = resolve_relay_instance(environment=record["relay_environment"])
     if status(instance).loaded:

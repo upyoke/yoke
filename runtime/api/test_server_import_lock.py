@@ -275,7 +275,12 @@ def test_paused_worker_validation_closes_its_readonly_session(monkeypatch, tmp_p
                 universe_source_pause.pause_owner(),
                 db_backend.connect_psycopg(dsn) as probe,
             ):
-                assert universe_startup_lock.application_sessions(probe) == []
+                assert (
+                    probe.execute(
+                        "SELECT pid FROM pg_stat_activity WHERE datname=current_database() AND pid<>pg_backend_pid()"
+                    ).fetchall()
+                    == []
+                )
             with pytest.raises(universe_source_pause.UniversePausedError):
                 db_backend.connect_psycopg(dsn)
         finally:

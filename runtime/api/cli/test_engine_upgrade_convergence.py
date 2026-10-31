@@ -57,8 +57,15 @@ def wiring(monkeypatch):
         dsn: str = "postgresql://yoke@/yoke",
         stale_layer=None,
     ):
+        original_import = convergence.importlib.import_module
         monkeypatch.setattr(
-            convergence.importlib, "import_module", lambda _name: engine
+            convergence.importlib,
+            "import_module",
+            lambda name: (
+                engine
+                if name.endswith("local_universe_convergence")
+                else original_import(name)
+            ),
         )
         monkeypatch.setattr(convergence, "engine_identity", lambda: identity)
         monkeypatch.setattr(convergence, "_ambient_dsn", lambda: dsn)
@@ -251,3 +258,25 @@ def test_engine_identity_is_empty_when_neither_source_answers(monkeypatch):
     monkeypatch.setattr(convergence, "_engine_module_origin", lambda: "")
 
     assert convergence.engine_identity() == ""
+
+
+def test_paused_universe_refuses_only_with_resume_recovery(
+    machine_home, wiring, monkeypatch
+):
+    from yoke_core.domain import universe_source_pause as pause
+
+    engine = wiring(_Convergence())
+
+    def refuse(_dsn):
+        raise pause.UniversePausedError(
+            "universe_source_paused: run `yoke universe resume`."
+        )
+
+    monkeypatch.setattr(pause, "require_running", refuse)
+    with pytest.raises(convergence.LocalUniverseConvergenceError) as raised:
+        convergence.converge_for_serving()
+    message = str(raised.value)
+    assert "universe resume" in message
+    assert "setup" not in message
+    assert ".." not in message
+    assert engine.ensure_running_calls == engine.converge_calls == 0
