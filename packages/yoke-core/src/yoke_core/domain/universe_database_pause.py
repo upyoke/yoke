@@ -1,5 +1,6 @@
 """PostgreSQL admission fence and its private frozen export database."""
 
+import re
 import time
 import uuid
 
@@ -7,6 +8,15 @@ from psycopg import sql
 from psycopg.conninfo import conninfo_to_dict, make_conninfo
 
 from yoke_core.domain import db_backend
+
+
+def _copy_name(state):
+    name = state["copy"]
+    if name == state["name"] or not re.fullmatch(r"yoke_pause_[0-9a-f]{32}", name):
+        raise RuntimeError(
+            "universe_pause_copy_invalid: restore the private pause record before retrying; no database was removed"
+        )
+    return name
 
 
 def maintenance_dsn(dsn):
@@ -88,18 +98,18 @@ def freeze(dsn, state, *, timeout_s=30):
             # A retry removes only this operation's incomplete copy.
             conn.execute(
                 sql.SQL("DROP DATABASE IF EXISTS {} WITH (FORCE)").format(
-                    sql.Identifier(state["copy"])
+                    sql.Identifier(_copy_name(state))
                 )
             )
             conn.execute(
                 sql.SQL("CREATE DATABASE {} TEMPLATE {} ALLOW_CONNECTIONS true").format(
-                    sql.Identifier(state["copy"]), sql.Identifier(state["name"])
+                    sql.Identifier(_copy_name(state)), sql.Identifier(state["name"])
                 )
             )
             conn.execute(
                 sql.SQL(
                     "ALTER DATABASE {} SET default_transaction_read_only=on"
-                ).format(sql.Identifier(state["copy"]))
+                ).format(sql.Identifier(_copy_name(state)))
             )
     state["ready"] = True
 
@@ -126,7 +136,7 @@ def read_dsn(dsn, state):
     options = conninfo_to_dict(dsn).get("options", "")
     return make_conninfo(
         dsn,
-        dbname=state["copy"],
+        dbname=_copy_name(state),
         options=f"{options} -c default_transaction_read_only=on",
     )
 
@@ -140,6 +150,6 @@ def cleanup(dsn, state):
     with connect(dsn) as conn:
         conn.execute(
             sql.SQL("DROP DATABASE IF EXISTS {} WITH (FORCE)").format(
-                sql.Identifier(state["copy"])
+                sql.Identifier(_copy_name(state))
             )
         )

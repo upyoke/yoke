@@ -108,14 +108,7 @@ def startup_access(dsn: str):
         yield
         return
     with operation(dsn, wait=True), pause_owner():
-        if is_paused(dsn):
-            state = json.loads(_marker(dsn).read_text())
-            frozen = state.get("database_pause")
-            if frozen and not frozen["ready"]:
-                from yoke_core.domain import universe_database_pause as database
-
-                database.freeze(dsn, frozen)
-                _save(_marker(dsn), state)
+        recover(dsn)
         yield
 
 
@@ -183,7 +176,7 @@ def pause(dsn: str, *, timeout_s: float = 30) -> None:
         raise UniversePausedError(
             compose_refusal(
                 "universe_pause_failed: could not stop and drain source writers; no move archive was produced",
-                recovery="repair local storage or database session termination permission, retry export, or run `yoke universe resume` to restore writers",
+                recovery="check pause storage, database-copy space, CREATE DATABASE and session termination permissions; retry export or run `yoke universe resume`",
             )
         ) from exc
 
@@ -256,6 +249,23 @@ def _save(marker, state):
             os.close(directory)
     finally:
         Path(temporary).unlink(missing_ok=True)
+
+
+def recover(dsn):
+    """Finish an interrupted authorized pause before paused authentication."""
+    if is_paused(dsn):
+        try:
+            state = json.loads(_marker(dsn).read_text())
+            frozen = state.get("database_pause")
+            if frozen and not frozen["ready"]:
+                from yoke_core.domain import universe_database_pause as database
+
+                database.freeze(dsn, frozen)
+                _save(_marker(dsn), state)
+        except Exception as exc:
+            raise UniversePausedError(
+                "universe_pause_recovery_failed: check database creation space and permissions, then retry export or `yoke universe resume`"
+            ) from exc
 
 
 def connection_dsn(dsn):

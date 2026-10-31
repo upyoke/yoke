@@ -9,7 +9,13 @@ from fastapi.testclient import TestClient
 from runtime.api.fixtures import pg_testdb
 from yoke_core.api import http_auth, server_entrypoint, universe_pause_admission
 from yoke_core.api.routes.universe_portability import router
-from yoke_core.domain import api_tokens, db_backend, universe_source_pause as pause
+from yoke_core.domain import (
+    api_tokens,
+    db_backend,
+    db_helpers,
+    universe_source_pause as pause,
+)
+from yoke_core.domain import universe_database_pause as database
 from yoke_core.domain.actor_permissions import (
     ROLE_ADMIN,
     grant_actor_org_role,
@@ -39,6 +45,11 @@ def test_paused_restart_keeps_auth_checks_and_resume_uses_original(
         dsn = db_backend.resolve_pg_dsn()
         pause.pause(dsn)
         state = json.loads(pause._marker(dsn).read_text())["database_pause"]
+        # A failed initial copy must recover on the next HTTP attempt,
+        # before authentication needs that copy; no restart is required.
+        database.cleanup(dsn, state)
+        state["ready"] = False
+        pause._save(pause._marker(dsn), {"database_pause": state})
         app = FastAPI()
 
         @app.middleware("http")
@@ -54,7 +65,7 @@ def test_paused_restart_keeps_auth_checks_and_resume_uses_original(
         prepared = []
 
         def prepare(**_kwargs):
-            with db_backend.connect_psycopg(dsn) as conn:
+            with db_helpers.connect() as conn:
                 prepared.append(conn.info.dbname)
                 conn.execute("CREATE TABLE resumed_preparation (value text)")
 

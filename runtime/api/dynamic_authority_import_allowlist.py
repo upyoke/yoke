@@ -27,6 +27,13 @@ from runtime.api.dynamic_authority_import_allowlist_relay import (
 
 ALLOWED_DYNAMIC_AUTHORITY_IMPORTS = {
     (
+        "packages/yoke-cli/src/yoke_cli/engine_upgrade_convergence.py",
+        "yoke_core.domain.universe_source_pause",
+    ): (
+        "local_universe_dispatch",
+        "refuse paused local dispatch with Resume before schema convergence",
+    ),
+    (
         "packages/yoke-cli/src/yoke_cli/commands/local_dispatch_preload.py",
         "yoke_core.domain.handlers.__init_register__",
     ): (

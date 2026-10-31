@@ -133,7 +133,7 @@ def _lease_ambient_postgres(
     """Lease a reused guarded authority connection; ``close()`` returns it."""
     universe_source_pause.require_running(dsn)
     conn = postgres_connection_reuse.lease(
-        dsn,
+        universe_source_pause.connection_dsn(dsn),
         autocommit=autocommit,
         row_factory=row_factory,
         connect=connect_guarded_socket,

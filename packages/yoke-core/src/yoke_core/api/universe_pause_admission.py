@@ -41,6 +41,7 @@ def install(application):
                     universe_source_pause.operation(dsn),
                     universe_source_pause.pause_owner(),
                 ):
+                    universe_source_pause.recover(dsn)
                     return await call_next(request)
             except universe_source_pause.UniversePausedError as exc:
                 return JSONResponse(
