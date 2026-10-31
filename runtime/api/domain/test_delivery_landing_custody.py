@@ -250,6 +250,7 @@ def test_diverged_holder_allows_enrollment_without_proving_delivery(
     source, _ = _source(
         monkeypatch,
         {
+            f"/repos/owner/repo/compare/{COMMIT}...{COMMIT}": _compare("identical"),
             _COMPARE_PATH: _compare(
                 "diverged",
                 [{"filename": "feature.py", "status": "modified", "sha": "f" * 40}],
