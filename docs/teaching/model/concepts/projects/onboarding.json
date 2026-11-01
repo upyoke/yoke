@@ -1,6 +1,6 @@
 {
  "id": "onboarding",
- "title": "Onboarding: existing work to first item done",
+ "title": "Onboarding: plan dashes and hand off",
  "status": "observed",
  "surface_refs": ["packets-help", "project-orientation", "resume-context", "setup-agent", "setup-tui", "skills-roles"],
  "commands": ["yoke onboard checklist", "yoke onboard checklist init", "yoke onboard project", "yoke onboard checklist get", "yoke github open-work list"],
@@ -9,5 +9,5 @@
  "sources": ["docs/public/start/terminal-onboarding.md", ".agents/skills/yoke/onboard/SKILL.md", ".agents/skills/yoke/onboard/strategy-conversation.md", ".agents/skills/yoke/onboard/first-work.md", "packages/yoke-core/src/yoke_core/domain/project_onboarding_configuration.py"],
  "page": "projects",
  "position": 2,
- "text": "/yoke onboard scans open issues, pull requests and local session transcripts, settles strategy and CURRENT-PLAN one decision at a time, configures only what the first work needs and hands off to /yoke steer. The checklist's lifecycle-readiness row verifies itself when the first item reaches done."
+ "text": "/yoke onboard surveys existing work, helps the operator write goals and a high-level CURRENT-PLAN ready for parallel dashes, and configures only what those first dashes need. It files no items and hands off to /yoke steer to vet and present each dash for approval, then assign its done test, flow and QA plan when filing. Project activation remains an item reaching done."
 }

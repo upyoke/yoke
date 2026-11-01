@@ -145,7 +145,7 @@ SKILLS: tuple[Skill, ...] = (
         "onboard",
         "orchestrator",
         False,
-        "adopt existing work and reach the first item done",
+        "plan dashes and hand off to steer",
         "[--project P] [--run-id RUN]",
     ),
     Skill(

@@ -10,7 +10,7 @@ execution guidance and shared files.
 Tell the agent what already exists and where you want the checkout, for example:
 “Add my existing repository at ~/work/my-app to Yoke and onboard its current
 work.” The agent uses `/yoke onboard` to inspect the project, walk the decisions
-with you and configure what its first work needs. For a new project, give the
+with you and configure what its first dashes need. For a new project, give the
 agent its name, intended folder and whether it should connect to GitHub.
 
 ## Create, import, bind
@@ -120,13 +120,13 @@ is unchanged. Setup proceeds automatically without an identity prompt.
 
 The `/yoke onboard` harness skill starts from what already exists: open
 issues, pull requests and local session transcripts, plus anything you add.
-It drafts strategy and CURRENT-PLAN, walks the decisions with you one at a
-time, configures only what the first work needs, then hands off to
-`/yoke steer`. It also reviews the project's own rules: one that applies only
-to some work is proposed as a scoped
-[execution instruction](execution-instructions.md), and only
-approved ones are created; every-turn rules stay where they are. Onboarding is done when that first item reaches done under its
-own completion obligations. Distinct from machine `yoke setup`.
+It helps you write goals and a high-level plan in CURRENT-PLAN, configures
+only what the first dashes need, and hands off to `/yoke steer` to vet and
+present each proposed dash for approval before filing. Decisions come one at
+a time. Work-specific rules become approved, scoped
+[execution instructions](execution-instructions.md); every-turn rules stay.
+Project activation completes when an item reaches done under its own
+obligations. Machine `yoke setup` is separate.
 
 ## Packs
 

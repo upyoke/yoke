@@ -2,13 +2,15 @@
 
 Rows: `repo-survey`, `strategy-setup`.
 
-1. In one message, name what you will scan (open issues/PRs, this checkout's
-   transcripts per harness manifest) and ask what else belongs.
+1. Name the scan: open issues/PRs and checkout transcripts per harness
+   manifest. Ask what else belongs.
 2. Seed, then read MISSION, VISION, MASTER-PLAN, LANDSCAPE, CURRENT-PLAN.
 3. Offer to move work-specific `AGENTS.md` rules into execution instructions.
    Per approved rule: create, `set-scope` (unscoped reaches no work), resolve,
    then delete the moved text from its source.
-4. Draft; carry open work forward. Ask decisions one at a time, the first work last.
+4. Have the operator write goals and a high-level plan in CURRENT-PLAN,
+   defined enough for parallel dashes; preserve open work. Ask one decision
+   at a time.
 5. Write under the STRATEGIZE claim; release it on every exit, then render.
 
 ```text

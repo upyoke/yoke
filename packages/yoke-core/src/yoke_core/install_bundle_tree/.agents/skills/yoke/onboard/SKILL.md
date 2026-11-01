@@ -1,6 +1,6 @@
 ---
 name: onboard
-description: "Adopt a wired project's existing work, set strategy and CURRENT-PLAN, configure only what the first work needs, and hand off to steering until the first item is done."
+description: "Adopt a wired project's existing work, set strategy and CURRENT-PLAN, configure only what the first dashes need, and hand off to steer to file them."
 argument-hint: "[--project P] [--run-id RUN]"
 ---
 
@@ -21,7 +21,7 @@ Secrets go through `--value-stdin` only. The checklist read is authority; never
 edit its rendered local view.
 
 Phase map: read [run-and-rows.md](run-and-rows.md); follow `run.next_action`. Steps 2–7 run only for what the
-first work needs; otherwise write their rows `deferred`.
+first dashes need; otherwise write their rows `deferred`.
 
 1. [strategy-conversation.md](strategy-conversation.md)
 2. Profile, scaffold: [profile-and-scaffold.md](profile-and-scaffold.md)

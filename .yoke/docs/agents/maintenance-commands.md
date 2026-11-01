@@ -33,12 +33,11 @@ checkpoint history. See [strategy](../strategy/index.md).
 
 ### onboard
 
-Adopt a wired project's existing work: scan open issues, pull requests and
-local session transcripts, settle strategy and CURRENT-PLAN one decision at a
-time, configure only what the first work needs, then hand off to `/yoke steer`.
-Done when the first item is done. Follow its approvals before infrastructure effects. Existing
-credentials and host exclusions retain their custody and named refusals.
-Machine `yoke setup` and harness onboarding are separate operations.
+Survey a wired project's issues, PRs and local transcripts; write goals and
+CURRENT-PLAN, then configure only the first dashes' needs. Hand off to
+`/yoke steer` to vet each dash for approval before filing, one decision at a
+time. Activation ends when an item is done. Preserve infrastructure approvals,
+credential custody and host exclusions. Machine `yoke setup` is separate.
 
 ### doctor
 
