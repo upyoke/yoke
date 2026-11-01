@@ -163,7 +163,17 @@ def _artifact_summary(target: Path) -> dict:
                 "archive_artifacts_invalid: manifest exceeds its bound; export again"
             )
         with archive.extractfile(member) as stream:
-            entries = json.load(stream)["entries"]
+            manifest = json.load(stream)
+        entries = manifest.get("entries") if isinstance(manifest, dict) else None
+        if not isinstance(entries, list) or any(
+            not isinstance(entry, dict)
+            or entry.get("status") not in {"included", "missing"}
+            or not isinstance(entry.get("key"), str)
+            for entry in entries
+        ):
+            raise UniverseExportDownloadError(
+                "archive_artifacts_invalid: manifest entries are invalid; export again"
+            )
     missing = [e["key"] for e in entries if e["status"] == "missing"]
     return {
         "included": sum(e["status"] == "included" for e in entries),
