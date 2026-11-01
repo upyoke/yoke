@@ -31,6 +31,7 @@ NORMALIZATION_SCHEMA = "yoke.portable-authority/v2"
 EXCLUDED_TABLE_OWNERSHIP = {
     "destination_convergence": frozenset(
         {
+            "actor_ui_preferences",
             "actor_external_identities",
             "actor_invites",
             "actor_org_roles",
@@ -69,6 +70,11 @@ EXCLUDED_TABLE_OWNERSHIP = {
     # change of authority, and treating it as one made a live export refuse
     # a universe nothing had actually altered.
     "disposable_telemetry": frozenset({"events"}),
+    # Rate admission and observation cadence are operational state, not
+    # project content. Their rows and owned sequences still travel in dumps.
+    "operational_state": frozenset({
+        "frontend_event_rate_limits", "merge_queue_landing_refreshes",
+    }),
 }
 NORMALIZED_EXCLUDED_TABLES = frozenset().union(*EXCLUDED_TABLE_OWNERSHIP.values())
 

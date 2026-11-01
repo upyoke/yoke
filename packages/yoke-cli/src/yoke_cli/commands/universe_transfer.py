@@ -35,7 +35,7 @@ def universe_resume(args):
             report = setup.universe_resume()
         elif onboard_destinations.is_hosted_url(connection.api_url):
             print(
-                "error: universe_resume_dashboard_required: use Resume source on the dashboard's Move universe page",
+                "error: universe_resume_dashboard_required: use Resume source in the dashboard's Universe portability controls",
                 file=sys.stderr,
             )
             return 1

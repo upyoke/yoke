@@ -60,9 +60,9 @@ def test_resolve_export_dsn_refuses_https_connection_in_mode_language(
 
     message = str(excinfo.value)
     assert "universe_export_dashboard_required" in message
-    assert "Download" in message
+    assert "Prepare archive" in message
     assert "hosted" in message
-    assert "Move universe" in message
+    assert "Universe portability controls" in message
     assert "self-host" in message
 
 

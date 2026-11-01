@@ -122,6 +122,9 @@ def test_portable_authority_digest_preserves_environment_tables(
         receipts,
         "_base_tables",
         lambda _conn: [
+            "actor_ui_preferences",
+            "frontend_event_rate_limits",
+            "merge_queue_landing_refreshes",
             "api_tokens",
             "capability_secrets",
             "deployment_preview_environments",
@@ -189,6 +192,9 @@ def test_portable_authority_digest_preserves_environment_tables(
         "sites",
     }
     assert seen["excluded"] == {
+        "actor_ui_preferences",
+        "frontend_event_rate_limits",
+        "merge_queue_landing_refreshes",
         "api_tokens",
         "capability_secrets",
         "events",
