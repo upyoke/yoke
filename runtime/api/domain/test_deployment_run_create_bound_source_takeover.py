@@ -73,10 +73,13 @@ def test_creation_transfers_an_open_bound_project_member_with_its_source(
         "SELECT item_id FROM deployment_run_items WHERE run_id=%s", (created,)
     ).fetchall()
     assert CONSUMER_ITEM_ID in {int(row[0]) for row in members}
-    assert test_db.execute(
-        "SELECT item_id FROM deployment_run_items WHERE run_id=%s AND item_id=%s",
-        (old, CONSUMER_ITEM_ID),
-    ).fetchone() is None
+    assert (
+        test_db.execute(
+            "SELECT item_id FROM deployment_run_items WHERE run_id=%s AND item_id=%s",
+            (old, CONSUMER_ITEM_ID),
+        ).fetchone()
+        is None
+    )
     successor = test_db.execute(
         "SELECT supersedes_run_id,bound_sources FROM deployment_runs WHERE id=%s",
         (created,),
