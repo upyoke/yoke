@@ -58,22 +58,22 @@ _SEND_SAVEPOINT = "_yoke_item_qa_accepted_notice"
 
 
 def item_qa_accepted_idempotency_key(
-    item_id: int, run_id: str, close_out_failure: str = ""
+    item_id: int, run_id: str, close_out_failure: str = "", pending_credit: str = ""
 ) -> str:
-    """One notice per member, accepting run, and distinct close-out refusal.
+    """One notice per member, accepting run, and distinct refusal or credit wait.
 
     A retried close-out that refuses for a new reason tells the owner again;
     the same refusal repeated does not.
     """
     key = f"{ITEM_QA_ACCEPTED_KEY_PREFIX}{item_id}:{run_id}"
-    if close_out_failure:
-        digest = hashlib.sha256(close_out_failure.encode()).hexdigest()[:12]
-        key += f":refused-{digest}"
+    if reason := close_out_failure or pending_credit:
+        digest = hashlib.sha256(reason.encode()).hexdigest()[:12]
+        key += f":{'refused' if close_out_failure else 'waiting'}-{digest}"
     return key
 
 
 def item_qa_accepted_message(
-    *, public_ref: str, run_id: str, route: str, close_out_failure: str = ""
+    *, public_ref: str, run_id: str, route: str, close_out_failure: str = "", pending_credit: str = ""
 ) -> str:
     """Name what was accepted and how the release-wait owner should wait."""
     lead = (
@@ -88,6 +88,8 @@ def item_qa_accepted_message(
         if close_out_failure
         else "The completion flow will auto-close this item when its remaining delivery and QA obligations clear. "
     )
+    if pending_credit and not close_out_failure:
+        recovery = f"{pending_credit} Automatic close-out retries when that credit arrives. "
     if route == HOLDER:
         return (
             f"{lead} You hold its work claim and parked on this wait, so this "
@@ -273,7 +275,7 @@ def _close_or_notify(
         recorded_no_obligation,
     )
 
-    close_out_failure = ""
+    close_out_failure = pending_credit = ""
     public_ref = str(member["public_ref"])
     if delivered_here:
         closed = close_out_satisfied_delivery_member(
@@ -286,8 +288,8 @@ def _close_or_notify(
     if closed is not None and closed.applies:
         if closed.ok:
             return "closed"
-        close_out_failure = closed.detail
-    if recorded_no_obligation(conn, int(item_id)) and not close_out_failure:
+        close_out_failure, pending_credit = closed.detail, closed.pending_credit
+    if recorded_no_obligation(conn, int(item_id)) and not (close_out_failure or pending_credit):
         return ""
     stamp = now
     try:
@@ -301,9 +303,10 @@ def _close_or_notify(
                     run_id=str(run_id),
                     route=route,
                     close_out_failure=close_out_failure,
+                    pending_credit=pending_credit,
                 ),
                 idempotency_key=item_qa_accepted_idempotency_key(
-                    int(member["item_id"]), str(run_id), close_out_failure
+                    int(member["item_id"]), str(run_id), close_out_failure, pending_credit
                 ),
                 now=stamp,
             )
