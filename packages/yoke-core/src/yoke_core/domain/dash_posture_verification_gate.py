@@ -110,7 +110,7 @@ def _plan_group_answer(conn: Any, item_id: int, plan_id: int) -> Any:
     False when the plan is not attached post-deploy; None when a closed group
     credits the item; else the refusal naming the group to run.
     """
-    from yoke_core.domain.deployment_qa_plan_credit import plan_credit_misses
+    from yoke_core.domain.deployment_qa_plan_credit import plan_credit_misses, plan_credit_wait_reason
     from yoke_core.domain.qa_plan_attachment_reads import live_item_attachment_sql
 
     marker = _p(conn)
@@ -128,8 +128,7 @@ def _plan_group_answer(conn: Any, item_id: int, plan_id: int) -> Any:
         return None
     return _failure(
         "GATE_DASH_VERIFICATION_UNSATISFIED",
-        f"Selected post-deploy plan {miss['plan_slug']}: no closed plan group "
-        "of the item's completion run answered it.",
+        f"Selected post-deploy plan {miss['plan_slug']}: {plan_credit_wait_reason(miss)}",
         miss["recovery"],
     )
 

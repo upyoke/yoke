@@ -28,17 +28,17 @@ cross-build observations and exact-execution recovery.
 
 ## Plan groups
 
-At `item-qa`, each unretired attached or default plan owed at this environment
-gets one plan group: memberless run rows per case and baseline, shared by all
-attaching items. Its immutable target records
-`deployment.shared_plan = {plan_id, source_revision, group_id}`. The candidate
-must contain the plan's source revision. Cases filter to the target, and the
-first group pins the plan; edits wait for the next release. Only one group per
-plan can stay open. Supplemental runs enroll members owing plans there even without item cases.
-With no own cases and plans owed only elsewhere, the QA gate and settlement
-agree: this run may succeed while the member stays open for that target's group
-credit. Own cases and plans owed here still block until satisfied. Cases use
-the plan's project unless a deployment member owns them.
+At `item-qa`, each attached or default live plan owed here gets one group:
+memberless rows per case and baseline, shared by attachers. Its immutable target
+records `deployment.shared_plan = {plan_id, source_revision, group_id}`; the
+candidate must contain that source. Cases filter to the target. The first group
+pins the plan; edits wait for the next release. Only one group per plan stays
+open. Supplemental runs enroll members owing plans there without own cases.
+With no own cases and plans owed only elsewhere, this run may succeed while
+the member waits. Notices and the done gate name the owed environment, run
+and open group; close-out retries when its credit arrives. Own cases and plans
+owed here still block. Real evidence or settlement errors still report recovery.
+Cases use the plan's project unless a deployment member owns them.
 
 The driver runs groups outside dispatch; review never stops other groups.
 Manual/review waits notify owing holders (else member project steering), naming

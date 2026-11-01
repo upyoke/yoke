@@ -50,12 +50,13 @@ def done_gate_refusal_errors(conn: Any, rows: Sequence[Any], *, name: str) -> li
     ]
     for row in rows:
         if isinstance(row, dict) and row.get("qa_kind") == "plan_group":
+            from yoke_core.domain.deployment_qa_plan_credit import plan_credit_wait_reason
+
             # A plan group answers this plan once per release; the item owes
             # one that closed while it attached the plan.
             errors.extend(
                 [
-                    f"  - Post-deploy plan {row['plan_slug']}: no closed plan group "
-                    "covers this item on its completion run",
+                    f"  - Post-deploy plan {row['plan_slug']}: {plan_credit_wait_reason(row)}",
                     f"    Run: {row['recovery']}",
                 ]
             )

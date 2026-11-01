@@ -79,7 +79,10 @@ def _plan_target_envs(conn: Any, plan_id: int, item_id: int) -> list[str]:
 
 
 def _miss(item_id: int, plan_id: int, slug: str, run: dict | None, stage: str, target_env: str, *, conn: Any) -> dict:
+    from yoke_core.domain.deployment_qa_plan_groups import run_groups
+
     run_id = str(run["id"]) if run else ""
+    groups = run_groups(conn, run_id, stage, plan_id=plan_id) if run_id else []
     command = (
         f"yoke qa plan run --deployment-run-id {run_id} --stage {stage} --plan {slug}"
         if run_id
@@ -109,6 +112,8 @@ def _miss(item_id: int, plan_id: int, slug: str, run: dict | None, stage: str, t
         "qa_kind": PLAN_GROUP_QA_KIND,
         "qa_phase": "post_deploy",
         "deployment_run_id": run_id or None,
+        "deployment_stage": stage,
+        "group_ids": [group.group_id for group in groups if group.open],
         "item_id": int(item_id),
         "plan_id": int(plan_id),
         "plan_slug": slug,
@@ -116,6 +121,31 @@ def _miss(item_id: int, plan_id: int, slug: str, run: dict | None, stage: str, t
         "target_env": target_env or None,
         "recovery": command,
     }
+
+
+def plan_credit_wait_reason(miss: dict) -> str:
+    """Name the target-qualified credit still owed, without implying failure."""
+    target = miss.get("target_env") or "target"
+    groups = ", ".join(miss.get("group_ids") or [])
+    subject = f"group {groups}" if groups else f"plan {miss['plan_slug']} group credit"
+    run = miss.get("deployment_run_id")
+    location = f" on deployment run {run}" if run else " on a containing deployment run"
+    return f"Awaiting {target} {subject}{location}."
+
+
+def other_target_plan_wait(conn: Any, *, item_id: int, run_id: str) -> str:
+    """Expected waiting only when every remaining done obligation is another target's plan."""
+    from yoke_core.domain.deployment_run_member_targeting import run_environment_name
+    from yoke_core.domain.qa_item_obligation_queries import unsatisfied_blocking
+
+    rows = unsatisfied_blocking(conn, item_id=item_id, target_status="done").rows
+    environment = run_environment_name(conn, run_id)
+    if not rows or not environment or any(
+        row.get("qa_kind") != PLAN_GROUP_QA_KIND or not row.get("target_env")
+        or row["target_env"] == environment for row in rows
+    ):
+        return ""
+    return " ".join(plan_credit_wait_reason(row) for row in rows)
 
 
 def plan_credit_misses(conn: Any, item_id: int) -> list[dict]:
@@ -161,4 +191,4 @@ def _stages(conn: Any, run: dict) -> list[dict]:
     return [stage for stage in stages or [] if isinstance(stage, dict)]
 
 
-__all__ = ["PLAN_GROUP_QA_KIND", "plan_credit_misses"]
+__all__ = ["PLAN_GROUP_QA_KIND", "plan_credit_misses", "plan_credit_wait_reason", "other_target_plan_wait"]

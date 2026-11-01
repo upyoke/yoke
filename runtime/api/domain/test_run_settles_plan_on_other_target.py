@@ -125,3 +125,56 @@ def test_group_closed_during_this_presentation_is_immediately_satisfied(test_db)
         return satisfied_delivery_member(test_db, item_id=MEMBERS[0], run_id=RUN)
 
     assert close_and_read()
+
+
+@pytest.mark.parametrize("missing_evidence", [False, True])
+def test_other_target_notice_names_the_pending_group_without_hiding_failures(
+    test_db, monkeypatch, tmp_path, missing_evidence,
+):
+    from runtime.api.domain.test_deployment_delivery_close_out_notice import _parked_owner
+    from runtime.api.domain.test_deployment_qa_stage_wake_delivery import HOLDER_A, _project
+    from runtime.api.fixtures.supplemental_credit import topology, pin
+    from yoke_core.domain.deployment_qa_member_acceptance_notice import notify_item_qa_accepted
+    from yoke_core.domain.deployment_qa_plan_group_writes import ensure_groups
+    from yoke_core.domain.qa_done_gate_refusal import done_gate_refusal_errors
+
+    _isolate_status_effects(monkeypatch)
+    _project(test_db)
+    _plan_only_pair(test_db)
+    commits = topology(test_db, tmp_path, monkeypatch, ITEM)
+    for run_id in ("run-prod", "run-stage"):
+        pin(test_db, run_id, commits["landing"])
+    test_db.execute(
+        "UPDATE deployment_run_items SET delivery_intent='final' WHERE run_id='run-prod'",
+    )
+    ensure_groups(test_db, "run-stage", "member-qa")
+    test_db.commit()
+    assert _gate(test_db)[0] == 0
+    _parked_owner(test_db, HOLDER_A, ITEM)
+    if missing_evidence:
+        from yoke_core.domain.item_json_sections import upsert_json_section
+
+        upsert_json_section(test_db, item_id=ITEM, section="Execution Evidence", payload={}, ordering=0)
+        test_db.commit()
+
+    delivered = notify_item_qa_accepted(test_db, run_id="run-prod", item_id=ITEM)
+    assert delivered in {"delivered", "undelivered"}
+    [row] = test_db.execute(
+        "SELECT body FROM session_messages WHERE idempotency_key LIKE %s",
+        (f"release-wait-item-qa-accepted:{ITEM}:run-prod:%",),
+    ).fetchall()
+    body = row[0]
+    if missing_evidence:
+        assert "needs recovery" in body, body
+        assert "yoke merge item" in body
+        assert "Awaiting stage group" not in body
+    else:
+        assert "Awaiting stage group run-stage:1 on deployment run run-stage" in body
+        assert "retries when that credit arrives" in body
+        assert "failed" not in body and "needs recovery" not in body
+        gate = "\n".join(done_gate_refusal_errors(
+            test_db, plan_credit_misses(test_db, ITEM), name=str(ITEM),
+        ))
+        assert "stage group run-stage:1 on deployment run run-stage" in gate
+        assert "on its completion run" not in gate
+    assert test_db.execute("SELECT status FROM items WHERE id=%s", (ITEM,)).fetchone()[0] == "release"

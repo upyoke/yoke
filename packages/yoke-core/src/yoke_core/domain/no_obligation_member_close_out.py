@@ -34,13 +34,14 @@ class DeliveryMemberCloseOut:
 
     ``applies`` is the predicate the wake sites read: false means this is
     not an automatic-close case, so the ordinary delivery wake fires. True
-    with ``ok=False`` tells the caller to send a recovery notice carrying
-    ``detail``; a failed close-out must never strand the release-wait owner.
+    with ``ok=False`` carries either real failure ``detail`` or expected
+    ``pending_credit``; the owner gets recovery or the named target wait.
     """
 
     applies: bool
     ok: bool = False
     detail: str = ""
+    pending_credit: str = ""
 
 
 def recorded_no_obligation(conn: Any, item_id: int) -> bool:
@@ -123,6 +124,7 @@ def close_out_satisfied_delivery_member(
     (:mod:`deployment_run_collective_finalization`).
     """
     from yoke_core.domain import delivery_member_close_steps as steps
+    from yoke_core.domain.deployment_qa_plan_credit import other_target_plan_wait
     from yoke_core.domain.project_identity import render_item_ref
 
     if not satisfied_delivery_member(conn, item_id=int(item_id), run_id=run_id):
@@ -132,9 +134,10 @@ def close_out_satisfied_delivery_member(
         refusal = steps.prepare_member_close(
             conn, item_id=int(item_id), public_ref=named
         )
+        pending = "" if refusal else other_target_plan_wait(conn, item_id=int(item_id), run_id=run_id)
         written = (
             None
-            if refusal
+            if refusal or pending
             else steps.stage_member_close(conn, item_id=int(item_id), public_ref=named)
         )
     except Exception as exc:  # noqa: BLE001 - never reverse the succeeded run
@@ -147,6 +150,8 @@ def close_out_satisfied_delivery_member(
         )
     if written is not None and written.refusal:
         refusal = written.refusal
+    if pending:
+        return DeliveryMemberCloseOut(applies=True, pending_credit=pending)
     if refusal:
         conn.rollback()
         return DeliveryMemberCloseOut(

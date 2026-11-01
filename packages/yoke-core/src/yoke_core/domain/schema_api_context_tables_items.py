@@ -46,6 +46,8 @@ ITEMS_TABLE: dict[str, dict] = {
             "The primary key is `id`; items has NO `item_id` or `public_id` column. "
             "Read the specification or Dash instruction via items.get spec; items.detail.get serves narrative and execution instructions. "
             "Wrong guesses: description and instruction are not accepted items.get fields. "
+            "Wrong guess: execution_evidence is not an items column; Dash evidence is the "
+            "Execution Evidence JSON section, read with item_json_sections.read_json_section. "
             "Read landing time via items.get merged_at; merge_log, merge_commit and merge_sha are not "
             "accepted field. Read the merge identity from its recorded receipt or Git ancestry. "
             "Read the landing PR number via items.get merge_queue_pr_number; github_pr is not an accepted field. "
