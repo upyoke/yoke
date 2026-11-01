@@ -188,7 +188,7 @@ def universe_export(args: List[str]) -> int:
             connection.api_url
         ):
             print(
-                "error: universe_export_dashboard_required: use Download on the dashboard's Move universe page",
+                "error: universe_export_dashboard_required: use Prepare archive in the dashboard's Universe portability controls",
                 file=sys.stderr,
             )
             return 1
