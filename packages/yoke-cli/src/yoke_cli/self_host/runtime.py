@@ -39,9 +39,9 @@ class SelfHostRuntimeError(RuntimeError):
 
 def _refuse(reason: str, directory: Path) -> SelfHostRuntimeError:
     return SelfHostRuntimeError(
-        f"{reason}: self-host bootstrap did not complete; inspect `docker compose "
-        f"logs core db` in {directory}, repair the named input, then retry "
-        f"`yoke self-host init --dir {directory} --protect-existing --start`"
+        f"{reason}: self-host bootstrap did not complete; inspect the captured "
+        f"details and `docker compose logs core db` in {directory}, repair the "
+        "named cause, then retry the original self-host command"
     )
 
 
