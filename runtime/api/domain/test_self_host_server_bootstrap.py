@@ -120,6 +120,7 @@ def test_bootstrap_allowlists_import_commands_after_privilege_drop(
     monkeypatch, selector, expected_tail
 ):
     calls = []
+    descriptors = []
     runtime_env = {
         "YOKE_PG_DSN_FILE": "/dev/shm/yoke-runtime-secrets/yoke-db-dsn",
         "YOKE_FIRST_BOOT_TOKEN_FD": "42",
@@ -129,7 +130,11 @@ def test_bootstrap_allowlists_import_commands_after_privilege_drop(
         "receive_bootstrap_handoff",
         lambda env: (runtime_env, {}),
     )
-    monkeypatch.setattr(self_host_server_bootstrap.os, "dup2", lambda *_a: None)
+    monkeypatch.setattr(
+        self_host_server_bootstrap.os,
+        "dup2",
+        lambda source, target: descriptors.append((source, target)),
+    )
     monkeypatch.setattr(self_host_server_bootstrap.os, "geteuid", lambda: 0)
     monkeypatch.setattr(
         self_host_server_bootstrap.pwd,
@@ -175,3 +180,4 @@ def test_bootstrap_allowlists_import_commands_after_privilege_drop(
     assert argv[0] == executable
     assert argv[1:] == expected_tail
     assert env == runtime_env
+    assert descriptors == [(42, 0), (42, 1)]

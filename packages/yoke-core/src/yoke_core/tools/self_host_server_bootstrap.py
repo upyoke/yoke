@@ -150,7 +150,7 @@ def main(argv: list[str] | None = None) -> int:
             descriptor = int(env[FIRST_BOOT_TOKEN_FD_ENV])
             os.dup2(descriptor, 0)
             os.dup2(descriptor, 1)
-            os.dup2(descriptor, 2)
+            # Keep import refusals on Docker stderr, outside the secret result stream.
     except Exception as exc:  # noqa: BLE001 - fail closed before server exec
         print(f"self-host server bootstrap failed: {exc}", file=sys.stderr)
         return 1

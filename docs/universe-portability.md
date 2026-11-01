@@ -172,6 +172,18 @@ Platform adopts this shared function through its own release-gated update.
 Protected direct Postgres connections remain refused. The CLI refuses hosted
 HTTPS sources before engine access and points to the dashboard Universe portability controls and **Prepare archive**.
 
+Self-host import failures retain redacted exec stderr and the last 200 container
+log lines before removing the one-off import container. Failure details report
+exec, wait and container exit codes, OOM state and the memory limit; exec
+stdout is also redacted when an image sends its refusal through that stream.
+Docker output stays out of the refusal message. Read the printed details even with `--json`, repair the named cause,
+and retry the import against the stopped destination bundle. The self-host image
+pins its PostgreSQL clients outside the machine home and persistent volume, so
+imports use the packaged tools even when Compose selects a different home.
+An import supervisor keeps the container alive until the private exec bridge
+returns. The host then finishes the supervisor and checks the importer exit
+code; a killed bridge always fails, even if it emitted a partial receipt.
+
 ## Upload and finish hosted import
 
 For a local or self-host archive, use `yoke universe upload ARCHIVE --org SLUG`

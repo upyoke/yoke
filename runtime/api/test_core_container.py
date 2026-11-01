@@ -192,11 +192,13 @@ def test_dockerfile_uses_wheel_runtime_and_healthcheck() -> None:
     assert "wheel_module_completeness.py" in dockerfile
     assert "postgres_binaries.py" in dockerfile
     assert "['ensure_binaries']()" in dockerfile
+    assert "YOKE_PG_BIN_DIR=/opt/yoke-postgres/bin" in dockerfile
+    assert "RUN YOKE_MACHINE_HOME=/var/lib/yoke/.yoke python" in dockerfile
     assert "libgssapi-krb5-2" in dockerfile
     assert "p._postgres_executable(name), '--version'" in dockerfile
     assert (
-        "COPY --chown=yoke:yoke --from=builder /var/lib/yoke/postgres "
-        "/var/lib/yoke/postgres"
+        "COPY --chown=yoke:yoke --from=builder /opt/yoke-postgres "
+        "/opt/yoke-postgres"
     ) in dockerfile
     assert 'CMD ["python", "-m", "yoke_core.api.server_entrypoint"]' in dockerfile
     assert "RUN python -m yoke_core.tools.product_wheel_validation" in dockerfile
