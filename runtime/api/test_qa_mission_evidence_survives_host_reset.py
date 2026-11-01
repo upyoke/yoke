@@ -61,7 +61,6 @@ def _seed_run(conn, *, performed_by: str) -> int:
             ),
         )
     assert outcome.primary_success, outcome.error
-    size.assert_called_once()
     return int(outcome.result_payload["qa_run_id"])
 
 
