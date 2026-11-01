@@ -193,15 +193,15 @@ def test_import_receipt_requires_successful_container_exit(
         return subprocess.CompletedProcess(command, 0, exit_code, b"")
 
     monkeypatch.setattr(runtime.subprocess, "run", execute)
-    if exit_code == b"0" and bridge_exit != 7:
+    if exit_code == b"0" and bridge_exit == 0:
         assert runtime.import_universe(target, recover=True) == b"receipt\n"
     else:
         with pytest.raises(
             runtime.SelfHostRuntimeError, match="self_host_import_handoff_failed"
         ):
             runtime.import_universe(target, recover=True)
-    expected = [("docker", "wait")]
-    if exit_code != b"0" or bridge_exit == 7:
+    expected = [("docker", "kill"), ("docker", "wait")]
+    if exit_code != b"0" or bridge_exit != 0:
         expected.extend((("docker", "logs"), ("docker", "inspect")))
     assert calls == [*expected, ("docker", "rm")]
 
@@ -301,4 +301,10 @@ def test_import_failure_keeps_redacted_diagnostics_before_cleanup(
     assert TOKEN not in details
     assert "exec failure" not in str(raised.value)
     assert "container failure" not in str(raised.value)
-    assert [command[1] for command in calls] == ["wait", "logs", "inspect", "rm"]
+    assert [command[1] for command in calls] == [
+        "kill",
+        "wait",
+        "logs",
+        "inspect",
+        "rm",
+    ]

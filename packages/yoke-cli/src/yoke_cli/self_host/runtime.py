@@ -253,7 +253,17 @@ def import_universe(directory: Path, *, archive=None, recover: bool = False) -> 
     compose(
         directory,
         "docker",
-        ("run", "-d", "--no-deps", "--name", name, "core", selector),
+        (
+            "run",
+            "-d",
+            "--no-deps",
+            "--name",
+            name,
+            "--entrypoint",
+            "python -m yoke_core.tools.self_host_import_supervisor",
+            "core",
+            selector,
+        ),
     )
     process = None
     errors = []
@@ -293,19 +303,24 @@ def import_universe(directory: Path, *, archive=None, recover: bool = False) -> 
         sender.start()
         output, stderr = process.communicate(timeout=HANDOFF_TIMEOUT_SECONDS)
         sender.join(timeout=HANDOFF_TIMEOUT_SECONDS)
+        finish = terminal_detached_process.run(
+            ("docker", "kill", "--signal", "USR1", name),
+            capture_output=True,
+            timeout=30,
+            check=False,
+        )
+        stderr += finish.stderr
         completion = terminal_detached_process.run(
             ("docker", "wait", name),
             capture_output=True,
             timeout=HANDOFF_TIMEOUT_SECONDS,
             check=False,
         )
-        # Docker can kill the exec bridge after PID 1 emits its result and exits.
-        # The container's successful exit and the caller-validated receipt own success.
         if (
-            process.returncode not in (0, 137)
-            or (process.returncode == 137 and not output.strip())
+            process.returncode
             or errors
             or sender.is_alive()
+            or finish.returncode
             or completion.returncode
             or completion.stdout.strip() != b"0"
         ):

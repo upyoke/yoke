@@ -180,8 +180,9 @@ Docker output stays out of the refusal message. Read the printed details even wi
 and retry the import against the stopped destination bundle. The self-host image
 pins its PostgreSQL clients outside the machine home and persistent volume, so
 imports use the packaged tools even when Compose selects a different home.
-Docker may end the exec bridge with exit 137 when the import container exits;
-a successful container exit and a valid import receipt establish success.
+An import supervisor keeps the container alive until the private exec bridge
+returns. The host then finishes the supervisor and checks the importer exit
+code; a killed bridge always fails, even if it emitted a partial receipt.
 
 ## Upload and finish hosted import
 
