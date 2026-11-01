@@ -126,3 +126,31 @@ def test_automatic_only_group_sends_no_wait_notice(test_db):
     _setup(test_db, manual=False)
     assert _dispatch(test_db)
     assert _messages(test_db) == []
+
+
+def test_closing_one_group_preserves_another_groups_failure_notices(test_db):
+    from runtime.api.domain.test_deployment_qa_plan_groups import _attach
+    from runtime.api.domain.test_deployment_qa_stage_execution import _plan
+    from yoke_core.domain.deployment_qa_plan_group_dispatch import notify_plan_group_failure
+    from yoke_core.domain.deployment_qa_plan_group_writes import group_subject
+    from yoke_core.domain.deployment_qa_plan_groups import close_group
+
+    first = _setup(test_db)
+    plan_id = _plan(test_db, slug="second-smoke")
+    for member in MEMBERS:
+        _attach(test_db, member, plan_id)
+    _manual_plan(test_db, plan_id)
+    _form(test_db)
+    first, second = run_groups(test_db, RUN, "item-qa")
+    _dispatch(test_db)
+    notify_plan_group_failure(test_db, run_id=RUN, stage_name="item-qa", group=second,
+                             project_id=1, reasons=["blocked"], item_refs=str)
+    before = dict(_messages(test_db))
+    held = {key for key in before if f":plan-group-{second.group_id}" in key}
+    assert len(held) == 2 * len(MEMBERS)
+
+    close_group(test_db, group_subject(test_db, RUN, "item-qa", first, require_active=True))
+
+    after = dict(_messages(test_db))
+    assert all(after[key] is None for key in held)
+    assert all(after[_key(first, member)] is not None for member in MEMBERS)

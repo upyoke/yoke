@@ -178,10 +178,16 @@ def _withdraw_waits(conn: Any, *, run_id: str, item_ids: tuple[int, ...], now) -
         withdraw_deployment_qa_wait_wakes,
     )
 
+    credited = tuple(
+        item_id for item_id in dict.fromkeys(item_ids)
+        if _item_qa_cleared(conn, run_id=run_id, item_id=item_id)
+    )
+    if not credited:
+        return
     withdraw_deployment_qa_wait_wakes(
         conn,
         run_id=run_id,
-        item_ids=item_ids,
+        item_ids=credited,
         reason="member_stage_credited",
         now=now,
     )
