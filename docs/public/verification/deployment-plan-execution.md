@@ -58,11 +58,12 @@ group for each attached plan in its target-qualified completion run (including
 supplemental runs that recorded the delivered revision) or superseded lineage.
 Later attachers need a new group; verification passes never count post-deploy.
 
-A failing case keeps the group open; a retry reruns only failed cases. One
-notice per owing item reaches its holder, else its project steering, naming
-requirements and retry; the driver receives the routed refs. An aborted attempt
-with no case result also notifies holders unless a retry is live. No member is
-released. A changed failure report sends a new notice, separate from wait notices.
+A failed case holds its group open; retries run only failed cases. Failure
+notices name requirements and recovery to owing holders, else member-project
+steering; the driver gets routed refs. A resultless abort notifies unless a retry
+is live. Changed reports send new notices, separate from waits. Empty own-case
+sets never cancel still-owed group notices. Group closure withdraws only its own
+member notices, preserving other groups' waits and failures without duplicates.
 
 Recording a case verdict while its stage is executing settles that stage in
 the same write; a group case settles its group. When the stage cannot settle,

@@ -125,7 +125,9 @@ def withdraw_member_qa_wait_wakes(
     )
 
 
-def withdraw_plan_group_wait_wakes(conn: Any, run_id: str, stage_name: str) -> int:
+def withdraw_plan_group_wait_wakes(
+    conn: Any, run_id: str, stage_name: str, *, group_id: str
+) -> int:
     """A changed group roster withdraws consolidated and per-member notices."""
     consolidated = _cancel_matching(conn,
         pattern=f"{DEPLOYMENT_QA_STAGE_WAIT_PREFIX}{run_id}:{stage_name}:plan-groups:%",
@@ -135,6 +137,8 @@ def withdraw_plan_group_wait_wakes(conn: Any, run_id: str, stage_name: str) -> i
         pattern=f"{DEPLOYMENT_QA_STAGE_WAIT_PREFIX}{run_id}:{stage_name}:%:plan-group-%",
         keep=lambda parsed: parsed[:2] == (str(run_id), str(stage_name))
         and parsed[2] is not None,
+        key_matches=lambda key: key.split(":", 4)[-1] == f"plan-group-{group_id}"
+        or key.split(":", 4)[-1].startswith(f"plan-group-{group_id}-failure-"),
         reason="Plan group closed", now=utc_now())
 
 
@@ -145,11 +149,12 @@ def _cancel_matching(
     keep: Callable[[tuple[str, str, Optional[int]]], bool],
     reason: str,
     now: datetime,
+    key_matches: Callable[[str], bool] | None = None,
 ) -> int:
     message_ids = []
     for stored_id, key in _pending_wait_rows(conn, pattern=pattern):
         parsed = parse_deployment_qa_wait_key(key)
-        if parsed is not None and keep(parsed):
+        if parsed is not None and keep(parsed) and (key_matches is None or key_matches(key)):
             message_ids.append(stored_id)
     if message_ids:
         cancel_messages(

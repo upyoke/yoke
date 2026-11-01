@@ -84,3 +84,40 @@ def test_dispatch_and_settlement_route_resultless_abort(test_db):
     subject = group_subject(test_db, RUN, "item-qa", group, require_active=True)
     settle_plan_group(test_db, subject)
     assert len(_notices(test_db)) == len(before)
+
+
+@pytest.mark.parametrize("batch", [True, False])
+def test_failed_group_notices_survive_member_acceptance_and_repeat_dispatch(test_db, batch):
+    from yoke_core.domain.deployment_qa_member_acceptance_notice import (
+        notify_item_qa_accepted,
+    )
+    from yoke_core.domain.deployment_qa_stage_dispatch import (
+        materialize_and_gate_deployment_qa_stage,
+    )
+
+    _setup(test_db, manual=False)
+    execution = _begin(test_db)
+    test_db.execute("UPDATE qa_plan_executions SET state='aborted' WHERE id=%s",
+                    (execution["id"],))
+    test_db.commit()
+
+    def dispatch():
+        rc, _ = materialize_and_gate_deployment_qa_stage(
+            test_db, {"scope": "item", "name": "item-qa"}, run_id=RUN,
+        )
+        assert rc != 0
+        if not batch:
+            for member in MEMBERS:
+                notify_item_qa_accepted(test_db, run_id=RUN, item_id=member)
+        test_db.commit()
+        rows = test_db.execute(
+            "SELECT message_id,cancelled_at FROM session_messages "
+            "WHERE idempotency_key LIKE %s ORDER BY message_id",
+            (f"%{RUN}%failure-%",),
+        ).fetchall()
+        return [(row[0], row[1]) for row in rows]
+
+    first = dispatch()
+    assert len(first) == len(MEMBERS)
+    assert all(row[1] is None for row in first)
+    assert dispatch() == first
