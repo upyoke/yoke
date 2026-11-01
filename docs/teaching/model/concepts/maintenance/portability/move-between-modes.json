@@ -1,7 +1,13 @@
 {
  "id": "move-between-modes",
  "title": "Move between modes",
- "status": "draft-copy",
+ "status": "observed",
  "page": "maintenance",
- "position": 4
+ "position": 4,
+ "note": "Choose the import route for the destination mode, regardless of where the archive was exported. For a fresh selected local universe, use yoke universe import ARCHIVE. For a self-hosted bundle, stop its core service and use yoke self-host import ARCHIVE --dir BUNDLE. For a hosted destination, use Import in its Universe portability controls. Each route replaces destination state and establishes destination credential authority; copied source credentials do not remain usable. See the portability guide for preparation and recovery.",
+ "sources": [
+  "docs/public/guide/universe-portability.md",
+  "packages/yoke-cli/src/yoke_cli/commands/local_universe_import_command.py",
+  "packages/yoke-cli/src/yoke_cli/commands/self_host_import.py"
+ ]
 }
