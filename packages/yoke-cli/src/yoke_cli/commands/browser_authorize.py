@@ -6,7 +6,7 @@ identity's persistent browser profile in a plain window of the browser
 daemon's own Chromium — a directly spawned process, not an automation-
 controlled one — so identity providers that refuse automated browsers still
 let the operator sign in. It first checks each site the identity declares and
-asks for a human only when a session has really expired.
+opens a window for expired sites or an explicit --url.
 """
 
 from __future__ import annotations
@@ -72,7 +72,7 @@ def browser_authorize(args: List[str]) -> int:
     parser.add_argument(
         "--url",
         default=None,
-        help="Starting URL to open instead of the expired sites' origins.",
+        help="Always open a window at this URL, even when every site is signed in.",
     )
     parser.add_argument(
         "--reset",
@@ -160,7 +160,7 @@ def browser_authorize(args: List[str]) -> int:
                 )
             }
         ]
-        if not expired:
+        if not expired and not parsed.url:
             return _done(parsed.json_mode, project_key, identity.name, sites, None)
 
     try:

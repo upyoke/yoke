@@ -145,3 +145,30 @@ def test_machine_progress_carries_match_code_and_approval_hint(capsys, json_mode
     )
     github = capsys.readouterr().err
     assert "approval_hint" not in github and "Match code" not in github
+
+
+@pytest.mark.parametrize("explicit_url", [False, True])
+def test_signed_in_identity_opens_only_for_explicit_url(
+    setup, monkeypatch, capsys, explicit_url
+):
+    declarations = {"identities": {"admin": {"sites": [{
+        "site": "app", "origin": "https://app.example", "account": "admin@example",
+        "probe": {"url": "https://app.example/me", "signed_in_status": 200},
+    }]}}}
+    monkeypatch.setattr(
+        browser_identities, "declared_identities",
+        lambda *a, **kw: parse_identity_declarations(declarations),
+    )
+    monkeypatch.setattr(command, "check_sign_in", lambda *a: [{
+        "site": "app", "state": "signed_in", "origin": "https://app.example",
+    }])
+    url = "https://app.example/confirm-access"
+    windows = []
+    monkeypatch.setattr(
+        command, "_sign_in_window",
+        lambda runtime, profile, urls, json_mode: windows.append(urls) or 0,
+    )
+    args = ["--project", "project", "--identity", "admin", "--json"]
+    assert command.browser_authorize(args + (["--url", url] if explicit_url else [])) == 0
+    assert windows == ([[url]] if explicit_url else [])
+    assert json.loads(capsys.readouterr().out)["ok"] is True

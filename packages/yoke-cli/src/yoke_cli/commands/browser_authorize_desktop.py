@@ -68,7 +68,7 @@ def authorize_desktop(parsed) -> int:
                 "desktop_browser_site_unreachable: repair the declared site's probe or network connection, then retry; no sign-in window was opened."
             )
         expired = checks.sites_in(sites, checks.EXPIRED)
-        if expired:
+        if expired or parsed.url:
             for line in checks.sign_in_request(kind, expired):
                 say(line)
             say(
@@ -80,7 +80,9 @@ def authorize_desktop(parsed) -> int:
                 project=project,
                 identity="desktop-" + kind.lower(),
             ):
-                desktop.sign_in_window(kind, [site["origin"] for site in expired])
+                desktop.sign_in_window(
+                    kind, [parsed.url] if parsed.url else [site["origin"] for site in expired]
+                )
             say("Verifying desktop sign-in after the authorization window closed.")
             sites = desktop.check_desktop(identity, runtime, kind=kind)
             say(checks.summarize(kind, sites))
@@ -99,7 +101,7 @@ def authorize_desktop(parsed) -> int:
             "identity": identity.name,
             "browser": kind,
             "sites": sites,
-            "window_opened": bool(expired),
+            "window_opened": bool(expired or parsed.url),
             "kept_live_through_reset": True,
         }
         if parsed.json_mode:

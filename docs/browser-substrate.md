@@ -150,6 +150,7 @@ python3 -m yoke_core.domain.browser_client exec step '<step-json>' --base-url <u
 |--------|---------|-------------|
 | `navigate` | `page.goto()` | Navigate to a URL (route prepended to base URL) |
 | `click` | `locator.click()` | Click an element by selector or ref |
+| `download` | `waitForEvent("download")` + `click()` + `saveAs()` | Save beneath scratch; report filename, size and sha256 |
 | `fill_form` | `locator.fill()` | Fill a form field |
 | `wait_for` | `locator.waitFor()` | Wait for an element to appear (first match) |
 | `ready` | `locator.waitFor()` / visible text | Wait for a loading placeholder to go away |

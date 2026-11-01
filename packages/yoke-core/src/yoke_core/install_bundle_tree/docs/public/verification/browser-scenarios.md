@@ -22,6 +22,7 @@ exists only when a plan attachment or explicit requirement declares it.
 |---|---|---|
 | `navigate` | `route` | Navigate to a relative or absolute URL. HTTP 401 or 403 fails as an authentication refusal; HTTP 404 fails as `route_not_found` naming the URL, so correct the route. |
 | `click` | `target` | Click an element. |
+| `download` | `target`, `path` | Click and save a download under scratch; return filename, size and sha256. |
 | `type` | `target`, `value` | Type into an input. |
 | `fill_form` | `fields` | Fill several target/value pairs. |
 | `assert` | `target`, `check` | Evaluate an observable condition. |
@@ -108,6 +109,24 @@ aliases such as `url` for `route`, `selector` for `target`, `value` for
 be a string; an object is refused. A screenshot without `capture: true` is
 refused rather than recorded empty. A navigate that sets `target` instead of
 `route` is refused rather than falling through to the base URL.
+
+### Downloads
+
+A download step clicks the same selector forms as `click`, waits for the page's
+download, and saves it beneath the walker's scratch output directory:
+
+```json
+{"action": "download", "target": "text=Download archive", "path": "exports/archive.zip", "timeout_ms": 30000}
+```
+
+`path` names the saved file, relative to the scratch output directory (an absolute
+path beneath it also works). Parent directories are created. Paths outside scratch,
+including symlinks, fail as `browser_download_path_invalid`; use a scratch-relative
+path. The result's `download` object reports `path`, the browser's suggested
+`filename`, `size_bytes`, and `sha256` of the saved bytes. A click that triggers no
+download within `timeout_ms` fails as `browser_download_not_received`; check the
+target and page state or raise the timeout. A failed transfer or save fails as
+`browser_download_save_failed`; check scratch space and the download response.
 
 ### Clipboard permission
 
