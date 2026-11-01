@@ -17,7 +17,7 @@ Authority for this direct engine is DSN possession. Export is sanctioned when
 the active machine-config connection is an unprotected Postgres connection whose
 DSN this machine holds (the local universe's shape). The product CLI routes an
 authenticated self-host HTTPS connection through the server-held authority and
-routes hosted org admins to the dashboard's ``Move universe`` action. This
+routes hosted org admins to the dashboard's Universe portability controls. This
 direct engine still refuses HTTPS connections and protected Postgres
 connections. ``pg_dump`` resolves from the embedded engine's installed
 binaries first, then ``PATH`` — the same rule the cluster lifecycle uses for
@@ -70,8 +70,8 @@ def resolve_export_dsn() -> str:
         )
     if env.backend != "postgres":
         raise UniverseExportError(
-            "universe_export_dashboard_required: hosted sources use Download "
-            "on the dashboard's Move universe page; self-host sources use "
+            "universe_export_dashboard_required: hosted sources use Prepare archive "
+            "in the dashboard's Universe portability controls; self-host sources use "
             "the authenticated server export endpoint"
         )
     if connection_is_protected(env.config):
