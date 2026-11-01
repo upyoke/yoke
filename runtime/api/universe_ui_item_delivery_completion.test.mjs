@@ -72,3 +72,28 @@ test("a delivered run keeps its QA disposition beside the completion", async () 
   const passed = await outcome({ state: "accepted", settling: false }, [], delivered);
   assert.equal(passed.textContent, "✓ QA passed · item completed");
 });
+
+test("a done item's other environment adds no completion outcome", async () => {
+  const documentNode = new FakeDocument();
+  const prod = { ...RUN, status: "succeeded" };
+  const stage = { ...RUN, id: "run-stage", status: "succeeded", target_environment: "stage" };
+  const panel = itemDeliveryPanel({
+    document: documentNode, isMounted: () => true,
+    client: { async call() {
+      return { status: 200, envelope: { success: true, result: {
+        rows: [stage, prod], completion_run: prod,
+        completion_item_qa: { state: "discharged" },
+      } } };
+    } },
+  }, {
+    public_ref: "YOK-80", status: "done", project: { id: 1 },
+    workflow: { id: "dash" }, deployment_flow: "release",
+  });
+  await settle();
+  assert.doesNotMatch(panel.textContent, /awaiting/);
+  const rows = byClass(panel, "item-delivery-run");
+  assert.equal(byClass(rows[0], "item-delivery-outcome").length, 0);
+  assert.equal(byClass(rows[0], "item-delivery-role")[0].textContent, "Also in");
+  assert.equal(byClass(rows[1], "item-delivery-outcome")[0].textContent,
+    "✓ QA waived · item completed");
+});
