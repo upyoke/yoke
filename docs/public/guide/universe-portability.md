@@ -38,7 +38,7 @@ For a new installation, setup offers **Start from a backup** when creating a loc
 
 For an existing destination, import asks for the archive and consent to replace the destination Universe. Local import targets the active local connection; self-host import targets the selected server bundle. Hosted import pulls a signed archive link server-to-server from configured source buckets. For a local or self-host archive, run `yoke universe upload ARCHIVE --org SLUG`, using that destination org's hosted connection (`yoke --env DESTINATION universe upload ARCHIVE --org SLUG`). Paste the printed signed link into Import on the printed dashboard page before its expiry; slow uploads renew their URLs automatically. Hosted Prepare archive enforces a 10 GiB preflight cap and gives a link valid for one hour.
 
-Check the destination before approving replacement. Preserve its current data if you may need it later. Import is replacement, not a merge of two backlogs. Imports place included files in the destination's storage and rewrite their handles; a destination with no configured artifact bucket uses its own permanent local storage. Review the import's missing-file count before resuming work.
+Check the destination before approving replacement. Hosted Import offers a backup first; the replacement is final, and you restore the previous destination by importing that backup. Preserve its current data if you may need it later. Import is replacement, not a merge of two backlogs. Imports place included files in the destination's storage and rewrite their handles; a destination with no configured artifact bucket uses its own permanent local storage. Review the import's missing-file count before resuming work.
 
 ## Move between hosting modes
 
