@@ -1,8 +1,7 @@
 // The delivery box names one flow and one item outcome per environment.
 //
-// Release and Done draw it through one component, so every shape below is
-// asserted on both bands from the same expectation: a box that told a
-// waiting reader less than a finished one is the regression this covers.
+// Release and Done draw it through one component. Both preserve run facts,
+// while Done reads the item's completion instead of inventing a pending gate.
 
 import assert from "node:assert/strict";
 import test from "node:test";
@@ -23,8 +22,7 @@ const ago = (hours) => new Date(REFERENCE_TIME - hours * HOUR).toISOString();
 
 const FLOW = "yoke-hosted-production";
 
-// One item per band, identical in everything the delivery box reads, so a
-// difference in what the two boxes say can only come from the renderer.
+// One item per band, with the same delivery facts and distinct item status.
 const BANDS = [
   {
     key: "release",
@@ -186,7 +184,10 @@ for (const band of BANDS) {
     assert.equal(byClass(box, "item-card-delivery-flow")[0].textContent, FLOW);
     assert.equal(byClass(box, "item-delivery-merges").length, 0);
     assert.deepEqual(byClass(box, "item-deployment-environment").map((node) => node.textContent), ["prod", "stage"]);
-    assert.deepEqual(byClass(box, "item-deployment-outcome").map((node) => node.textContent), ["○ awaiting item completion", "○ in build"]);
+    assert.deepEqual(byClass(box, "item-deployment-outcome").map((node) => node.textContent), [
+      band.item.status === "done" ? "○ item completed" : "○ awaiting item completion",
+      "○ in build",
+    ]);
     assert.deepEqual(byClass(box, "item-deployment-relation").map((node) => node.textContent), ["member", "carried"]);
     assert.equal(byClass(box, "item-deployment-run")[0].href, "/deployments/runs/run-prod?project=1");
     assert.equal(byClass(box, "state-pill").length, 0);
