@@ -7,16 +7,7 @@
  "need": "Save a backup of destination data you need, then choose its mode-specific route. On a fresh selected local universe, run yoke universe import ARCHIVE; copied API tokens and browser sessions are revoked and the machine owner becomes admin. For a self-hosted bundle, stop the destination core service, then run yoke self-host import ARCHIVE --dir BUNDLE; copied tokens and sessions are revoked and one fresh admin token is shown once. Use that token to connect to the destination. For a hosted destination, use Import in Universe portability, then reconnect clients and sign in through destination authority because copied credentials have been revoked. Prepare repository folders, external services and machine-local secrets separately.",
  "disclosure": "current cue",
  "surface": "Mode-specific import help and Universe portability controls; portability guide.",
- "recipes": [
-  "yoke universe import --help",
-  "yoke self-host import --help"
- ],
- "sources": [
-  "docs/public/guide/universe-portability.md",
-  "packages/yoke-core/src/yoke_core/domain/local_universe_import.py",
-  "packages/yoke-core/src/yoke_core/domain/universe_import_credentials.py",
-  "packages/yoke-cli/src/yoke_cli/commands/local_universe_import_command.py",
-  "packages/yoke-cli/src/yoke_cli/commands/self_host_import.py"
- ],
+ "recipes": ["yoke universe import --help", "yoke self-host import --help"],
+ "sources": ["docs/public/guide/universe-portability.md", "packages/yoke-core/src/yoke_core/domain/local_universe_import.py", "packages/yoke-core/src/yoke_core/domain/universe_import_credentials.py", "packages/yoke-cli/src/yoke_cli/commands/local_universe_import_command.py", "packages/yoke-cli/src/yoke_cli/commands/self_host_import.py"],
  "position": 1
 }
