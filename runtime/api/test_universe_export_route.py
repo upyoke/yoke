@@ -213,7 +213,6 @@ def test_artifact_refusal_keeps_reason_resume_and_removes_temp(tmp_path, monkeyp
 
     monkeypatch.setenv(SERVER_MODE_ENV, SERVER_MODE_SELF_HOST)
     monkeypatch.setenv("YOKE_MACHINE_HOME", str(tmp_path / "machine"))
-    monkeypatch.setattr(route.db_helpers, "connect", _Connection)
     monkeypatch.setattr(
         route, "require_control_plane_permission", lambda *_a, **_k: None
     )
@@ -240,6 +239,7 @@ def test_artifact_refusal_keeps_reason_resume_and_removes_temp(tmp_path, monkeyp
     monkeypatch.setattr(universe_artifact_store, "_client", lambda *_: objects)
     with _canonical_universe() as (conn, dsn):
         _seed(conn, {"backend": "s3", "bucket": "evidence", "key": "denied"})
+        monkeypatch.setattr(route.db_helpers, "connect", _Connection)
         monkeypatch.setattr(route.db_backend, "resolve_pg_dsn", lambda: dsn)
         try:
             response = route.download_self_host_universe(_request(), pause_source=True)
