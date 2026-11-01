@@ -22,6 +22,7 @@ exists only when a plan attachment or explicit requirement declares it.
 |---|---|---|
 | `navigate` | `route` | Navigate to a relative or absolute URL. HTTP 401 or 403 fails as an authentication refusal; HTTP 404 fails as `route_not_found` naming the URL, so correct the route. |
 | `click` | `target` | Click an element. |
+| `download` | `target`, `path` | Click and save a download under scratch; return filename, size and sha256. |
 | `type` | `target`, `value` | Type into an input. |
 | `fill_form` | `fields` | Fill several target/value pairs. |
 | `assert` | `target`, `check` | Evaluate an observable condition. |
