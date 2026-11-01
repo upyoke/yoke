@@ -173,6 +173,8 @@ def _member_close_out_route(
     )
 
 
+@presentation_operation
+@run_presentation
 def _withdraw_waits(conn: Any, *, run_id: str, item_ids: tuple[int, ...], now) -> None:
     from yoke_core.domain.deployment_qa_stage_wake_withdraw import (
         withdraw_deployment_qa_wait_wakes,
