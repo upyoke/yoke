@@ -299,8 +299,11 @@ def import_universe(directory: Path, *, archive=None, recover: bool = False) -> 
             timeout=HANDOFF_TIMEOUT_SECONDS,
             check=False,
         )
+        # Docker can kill the exec bridge after PID 1 emits its result and exits.
+        # The container's successful exit and the caller-validated receipt own success.
         if (
-            process.returncode
+            process.returncode not in (0, 137)
+            or (process.returncode == 137 and not output.strip())
             or errors
             or sender.is_alive()
             or completion.returncode
