@@ -9,6 +9,7 @@ import threading
 from pathlib import Path
 from typing import Callable, Optional
 
+from yoke_contracts.refusal_recovery import compose_refusal
 from yoke_core.domain.postgres_client_runtime import postgres_executable
 from yoke_core.domain.universe_portability_catalog import (
     catalog_data_targets,
@@ -113,6 +114,11 @@ def archive_catalog(
         ) from error
     if process.returncode != 0:
         detail = bytes(diagnostic).decode("utf-8", errors="replace")
+        if re.search(r"unsupported version \([0-9.]+\) in file header", detail, re.I):
+            raise ArchiveInvalidError(compose_refusal(
+                "archive_tool_version_unsupported: selected pg_restore cannot read the archive format",
+                recovery="use PostgreSQL client tools matching the source dump writer or newer, then retry validation or import; preserve the original archive and receipt",
+            ))
         tail = detail.strip().splitlines()[-1:]
         raise ArchiveInvalidError(
             "the universe archive catalog is corrupt or unreadable"

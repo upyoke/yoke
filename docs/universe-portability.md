@@ -99,10 +99,16 @@ universe; replacing the current universe is the operator's call, which is why
 the consent stays. Local import addresses only the active `local` connection;
 self-host import addresses an explicitly selected Compose bundle.
 
+If inspection reports `archive_tool_version_unsupported`, the selected
+`pg_restore` cannot read the dump format. Use PostgreSQL client tools matching
+the source dump writer or newer, then retry validation or import. Preserve the
+original archive and its receipt; a tool mismatch does not establish corruption.
+
 ## Export a move or a backup
 
 Prune unwanted records and artifacts, then estimate before pausing a source.
-Hosted sources use **Download** on the dashboard's **Move universe** page.
+Hosted sources use **Prepare archive** in the dashboard's **Universe**
+portability controls.
 Hosted size preflight enforces the 10 GiB cap before pausing; the signed link
 expires after one hour. **Prepare archive** shows polled named phases with
 elapsed seconds and bytes; the result offers **Download archive**, **Copy link**,
@@ -164,7 +170,7 @@ binds the dump, artifact manifest, and receipt to one exported PostgreSQL
 `REPEATABLE READ` snapshot. Its caller supplies the stopped-writer evidence.
 Platform adopts this shared function through its own release-gated update.
 Protected direct Postgres connections remain refused. The CLI refuses hosted
-HTTPS sources before engine access and points to dashboard Download.
+HTTPS sources before engine access and points to the dashboard Universe portability controls and **Prepare archive**.
 
 ## Upload and finish hosted import
 
