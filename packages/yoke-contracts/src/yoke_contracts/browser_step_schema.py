@@ -97,6 +97,13 @@ def declared_schema_help() -> str:
         "An undeclared dialog fails as browser_dialog_unanswered; declare "
         "dialog on the click. A missing dialog fails as browser_dialog_missing."
     )
+    lines.append(
+        "download clicks target and saves to path beneath the walker's scratch "
+        "output directory. It returns download.path, filename, size_bytes and "
+        "sha256. No download within timeout_ms fails as browser_download_not_received; "
+        "check the target or raise timeout_ms. Outside paths refuse as "
+        "browser_download_path_invalid; use a scratch-relative path."
+    )
     if "grant_clipboard" in ACTION_STEP_KEYS:
         lines.append(
             "The Chromium runtime grants clipboard-read and clipboard-write "

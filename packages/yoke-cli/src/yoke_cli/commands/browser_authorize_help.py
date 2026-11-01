@@ -12,7 +12,9 @@ settings; `default` always exists and is the project's original profile.
 
 The command first checks every declared site headless on the identity's
 profile and reports each one (`buyer: google ok, yoke ok, paypal expired`).
-When all are signed in it returns at once and opens nothing. Otherwise it
+With --url it always opens that URL, even when all sites are signed in,
+so you can complete extra access checks. Without --url, when all are signed
+in it returns at once and opens nothing. Otherwise it
 opens a window with one tab per expired site, naming the identity, the site
 and the account to use, then checks again after the window closes and fails
 naming any site still signed out. A site whose check cannot be reached fails
@@ -60,7 +62,7 @@ remote route, --declarations-json still supplies settings locally.
 On Linux and macOS Test Machines, --test-machine also checks the installer's
 desktop browser: snap Chromium or Safari, using the same identity's declared
 sites and account names. It reads that browser's own cookies headless and
-opens native tabs only for expired sites. Close the desktop browser windows
+opens native tabs for expired sites, or always opens an explicit --url. Close the desktop browser windows
 to finish. Unreadable cookies or unreachable probes refuse before opening
 tabs; allow native cookie-store access and unlock the user's keyring first.
 Desktop sign-ins stay live through resets and are never captured into golden

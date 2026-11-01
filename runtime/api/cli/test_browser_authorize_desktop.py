@@ -70,7 +70,7 @@ def run(**changes):
             declarations_json="{}",
             reset=False,
             json_mode=True,
-            **changes,
+            **{"url": None, **changes},
         )
     )
 
@@ -209,3 +209,11 @@ def test_machine_desktop_flag_selects_requested_browser(
     assert ("--desktop-browser" in argv[0]) == native_only
     assert ("--include-desktop-browser" in argv[0]) != native_only
     assert json.loads(capsys.readouterr().out)["desktop_browser"]["ok"]
+
+
+def test_signed_in_desktop_opens_explicit_url(desktop, capsys):
+    desktop["replies"] = [site("signed_in"), site("signed_in")]
+    url = "https://app.example/confirm-access"
+    assert run(url=url) == 0
+    assert desktop["windows"] == [("Chromium", [url])]
+    assert json.loads(capsys.readouterr().out)["window_opened"] is True

@@ -23,6 +23,13 @@
         }
       }
     },
+    "download": {
+      "keys": ["target", "path"],
+      "fields": {
+        "target": {"type": "non_empty_string", "required": true},
+        "path": {"type": "non_empty_string", "required": true}
+      }
+    },
     "type": {
       "keys": ["target", "value", "delay"],
       "fields": {

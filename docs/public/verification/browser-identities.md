@@ -46,7 +46,10 @@ yoke browser authorize --project P --identity buyer     # window only for expire
 ```
 
 `verify` checks every declared site headless and reports each one. `authorize`
-runs the same check first and returns at once when every site is signed in.
+runs the same check first and returns at once when every site is signed in,
+unless you supply `--url URL`. With `--url`, it always opens that URL so you can
+complete an extra access check such as GitHub Confirm access. This also applies
+to `--desktop-browser` and `--test-machine`.
 Otherwise it opens one window with a tab per expired site, naming the identity,
 the site and the account, and checks again after the window closes. A site
 whose check cannot be reached fails by name: no sign-in fixes it.

@@ -10,7 +10,7 @@
  *   resolveUrl(route, baseUrl) -> string
  *
  * Supported actions: navigate, click, fill_form, wait_for, ready, delay,
- *   assert, screenshot, scroll, hover, type, select, grant_clipboard
+ *   assert, screenshot, scroll, hover, type, select, grant_clipboard, download
  */
 
 const { buildRefMap } = require('./snapshot');
@@ -18,6 +18,7 @@ const nav = require('./step-actions/navigation');
 const inter = require('./step-actions/interaction');
 const assertions = require('./step-actions/assertion');
 const capture = require('./step-actions/capture');
+const { executeDownload } = require('./step-actions/download');
 const permissions = require('./step-actions/permissions');
 const { refuseStep } = require('./step-schema');
 const { observeDialogs } = require('./step-dialogs');
@@ -157,6 +158,9 @@ async function executeStep(page, step, options) {
       case 'navigate':
         result = await nav.executeNavigate(page, step, options);
         break;
+      case 'download':
+        result = await executeDownload(page, step, options, refMap);
+        break;
       case 'click':
         result = await inter.executeClick(page, step, options, refMap);
         break;
@@ -220,6 +224,7 @@ async function executeStep(page, step, options) {
       duration_ms,
       ...observedState(page),
       ...(dialogs.records.length ? { dialogs: dialogs.records } : {}),
+      ...(result.download ? { download: result.download } : {}),
       ...(result.artifacts ? { artifacts: result.artifacts } : {}),
       // An assertion that passed without observing anything says so here.
       // Every action-specific fact has to be forwarded by name, which is

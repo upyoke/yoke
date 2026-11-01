@@ -183,3 +183,18 @@ def test_dialog_help_teaches_the_answer_and_failure() -> None:
     assert "dialog=" in text
     assert "browser_dialog_unanswered" in text
     assert 'dialog="dismiss"' in text
+
+
+@pytest.mark.parametrize("missing", [None, "target", "path"])
+def test_download_requires_target_and_destination(missing):
+    from yoke_contracts.browser_step_schema import step_schema_violation
+
+    step = {"action": "download", "target": "#export", "path": "archive.zip"}
+    if missing:
+        del step[missing]
+    found = step_schema_violation(0, step)
+    if missing:
+        assert found is not None
+        assert missing in found.message
+    else:
+        assert found is None
