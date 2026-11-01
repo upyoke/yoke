@@ -264,17 +264,18 @@ def seed_canonical_human(
 
 
 def sole_human_actor_id(conn: Any, *, oldest: bool = False) -> Optional[int]:
-    """The universe's human actor, or ``None``.
+    """The universe's active human actor, or ``None``.
 
     With ``oldest=False`` this answers only for a universe that carries
-    exactly one human — the shape a machine-local universe has by
+    exactly one active human — the shape a machine-local universe has by
     construction and a multi-person control plane does not. With
-    ``oldest=True`` it returns the lowest-id human whatever the count,
+    ``oldest=True`` it returns the lowest-id active human whatever the count,
     which is what a seeding path wants: "is there already somebody here
     to keep?" rather than "who is the operator?".
     """
     rows = conn.execute(
-        "SELECT id FROM actors WHERE kind = 'human' ORDER BY id LIMIT 2"
+        "SELECT id FROM actors WHERE kind = 'human' AND status = 'active' "
+        "ORDER BY id LIMIT 2"
     ).fetchall()
     if not rows:
         return None
