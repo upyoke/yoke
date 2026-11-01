@@ -227,7 +227,28 @@ def estimate_universe(
     conn = _snapshot_connection(resolved_dsn)
     try:
         dump_bytes = int(
-            conn.execute("SELECT pg_database_size(current_database())").fetchone()[0]
+            conn.execute(
+                """
+                SELECT COALESCE(SUM(
+                    CASE WHEN c.reltuples < 0 OR widths.bytes IS NULL
+                         THEN pg_table_size(c.oid)
+                         ELSE c.reltuples::numeric * widths.bytes
+                              + COALESCE(pg_table_size(c.reltoastrelid), 0)
+                    END
+                ), 0)::bigint
+                FROM pg_class c
+                JOIN pg_namespace n ON n.oid = c.relnamespace
+                LEFT JOIN LATERAL (
+                    SELECT SUM(s.avg_width) AS bytes
+                    FROM pg_stats s
+                    WHERE s.schemaname = n.nspname AND s.tablename = c.relname
+                      AND NOT s.inherited
+                ) widths ON true
+                WHERE c.relkind IN ('r', 'm')
+                  AND n.nspname !~ '^pg_'
+                  AND n.nspname <> 'information_schema'
+                """
+            ).fetchone()[0]
         )
         total = missing = count = 0
         missing_keys = []

@@ -16,7 +16,7 @@ Repository folders, application databases, running agents, and external services
 
 For a local or self-host move, use `yoke universe export --pause-source`. Hosted sources use **Prepare archive** in the dashboard’s **Universe** portability controls, then **Download archive**. **Resume source** restores a paused source. The normal CLI export directory is your machine's Yoke exports folder; choose an explicit output location when you need a backup elsewhere.
 
-`yoke universe export --estimate --json` estimates database and artifact bytes before export. Use `--exclude-artifacts` when you only want the database and receipt.
+`yoke universe export --estimate --json` estimates database and artifact bytes before export. The database estimate uses live row counts and column widths from PostgreSQL statistics, plus TOAST storage for large values, excluding indexes and reusable heap space. Tables without statistics use their table storage size instead. After pruning, `VACUUM ANALYZE` updates the statistics used by the estimate. The estimate can differ from the archive size; export and staging byte limits still apply. Use `--exclude-artifacts` when you only want the database and receipt.
 
 The result is one `.tar` file. Keep the archive together: its database dump and receipt are both needed for validation and import. Store backups outside any machine home or server volume you intend to remove.
 
