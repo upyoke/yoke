@@ -21,6 +21,7 @@ from typing import Optional
 import psycopg
 
 from yoke_contracts.machine_config.schema import connection_is_protected
+from yoke_contracts.refusal_recovery import compose_refusal
 from yoke_core.domain import (
     actors,
     db_backend,
@@ -168,22 +169,18 @@ def _prepare_local_owner(conn: psycopg.Connection) -> dict[str, object]:
 
     name = _machine_owner_name()
     now = utc_now()
-    # The imported universe's own human is the owner this machine takes
-    # over; a name is not the identity, so an existing human is kept
-    # whatever the archive called them and only a universe with none gets
-    # a fresh actor named after this machine's login.
+    # Adopt the archive's oldest active human without changing their identity.
     actor_id = actors.sole_human_actor_id(conn, oldest=True)
     if actor_id is None:
-        row = conn.execute(
-            "INSERT INTO actors (kind, system_component, name, created_at) "
-            "VALUES ('human', NULL, %s, %s) RETURNING id",
-            (name, instant_parameter(conn, now)),
-        ).fetchone()
-        if row is None:
-            raise LocalUniverseImportError("the local owner actor could not be created")
-        actor_id = int(row[0])
-    else:
-        name = actors.actor_name(conn, actor_id) or name
+        raise LocalUniverseImportError(
+            compose_refusal(
+                "local_import_no_active_human: the archive has no active human "
+                "to bind as this machine's owner.",
+                recovery="ask a source org admin to enable a human actor, then "
+                "export a new archive and retry the import.",
+            )
+        )
+    name = actors.actor_name(conn, actor_id) or name
 
     conn.execute(
         "INSERT INTO actor_org_roles "
