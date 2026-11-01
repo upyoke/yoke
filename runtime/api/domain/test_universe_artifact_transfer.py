@@ -89,23 +89,28 @@ def _configure(conn, routing):
 
 
 @pytest.mark.parametrize(
-    "source_s3,destination_s3,container",
+    "source_s3,destination_s3,container,oversized",
     [
-        (False, False, False),
-        (False, True, False),
-        (True, False, False),
-        (True, True, False),
-        (False, False, True),
+        (False, False, False, False),
+        (False, True, False, False),
+        (True, False, False, False),
+        (True, True, False, False),
+        (False, False, True, False),
+        (False, False, False, True),
+        (True, False, False, True),
+        (True, True, False, True),
     ],
 )
 def test_archive_roundtrip_rehomes_bytes(
-    tmp_path, monkeypatch, source_s3, destination_s3, container
+    tmp_path, monkeypatch, source_s3, destination_s3, container, oversized
 ):
     objects = Objects()
     monkeypatch.setattr(store, "_client", lambda project, routing: objects)
     source_home, dest_home = tmp_path / "source-home", tmp_path / "dest-home"
     monkeypatch.setenv(machine_runtime.HOME_ENV, str(source_home))
-    content = bytes(range(256)) * (30 * 1024 * 1024 // 256)
+    content = b"portable QA evidence\x00\xff"
+    if oversized:
+        content = bytes(range(256)) * (30 * 1024 * 1024 // 256)
     shared = b"shared file bytes"
     local = source_home / "artifacts" / "original.txt"
     local.parent.mkdir(parents=True)
@@ -211,7 +216,12 @@ def test_archive_roundtrip_rehomes_bytes(
                 readable = _local_result(
                     {**owner, "run_id": run_id, "metadata": "{}"}, restored
                 )
-                assert readable["disposition"] == "ready"
+                if oversized:
+                    # Restore preserves all bytes; inline viewing keeps its own bound.
+                    assert readable["disposition"] == "too_large"
+                    assert "inline limit" in readable["detail"]
+                else:
+                    assert readable["disposition"] == "ready"
                 assert str(dest_home) in restored["path"]
                 assert (
                     read_shared_file(
