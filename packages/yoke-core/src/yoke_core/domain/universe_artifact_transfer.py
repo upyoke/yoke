@@ -6,7 +6,6 @@ import json
 from pathlib import Path
 from typing import Any, Callable
 
-from yoke_contracts.qa_artifact_limits import MAX_ARTIFACT_BYTES
 from yoke_core.domain import db_backend
 from yoke_core.domain import universe_artifact_store as storage
 from yoke_core.domain.qa_artifact_handle import parse_handle, serialize_handle
@@ -91,11 +90,6 @@ def classify_source_failure(source: dict, exc: Exception) -> str:
     ):
         return "artifact_source_absent"
     identity = f"{source.get('project', 'unknown')} {source['key']}"
-    if isinstance(exc, storage.ArtifactTooLargeError):
-        raise UniverseArchiveError(
-            f"archive_artifact_too_large: {identity}: per-file limit is "
-            f"{MAX_ARTIFACT_BYTES} bytes; export with --exclude-artifacts"
-        ) from exc
     recovery = "repair access to that file or store and retry"
     if isinstance(exc, storage.ArtifactCheckoutUnavailableError):
         recovery = (
@@ -132,7 +126,7 @@ def collect_artifacts(
                     repo_root=source.get("repo_root"),
                     client_factory=client_factory,
                 ) as stream:
-                    digest, size = storage.copy_bounded(stream, target)
+                    digest, size = storage.copy_with_digest(stream, target)
                 entry.update(status="included", sha256=digest, bytes=size)
                 files[key] = target
             except Exception as exc:
@@ -272,8 +266,6 @@ def estimate_universe(
                             repo_root=source.get("repo_root"),
                             client_factory=client_factory,
                         )
-                    if size > MAX_ARTIFACT_BYTES:
-                        raise storage.ArtifactTooLargeError()
                     total += size
                 except Exception as exc:
                     classify_source_failure(source, exc)

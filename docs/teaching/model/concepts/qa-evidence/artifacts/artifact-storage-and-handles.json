@@ -1,7 +1,9 @@
 {
  "id": "artifact-storage-and-handles",
  "title": "Artifact storage and handles",
- "status": "draft-copy",
+ "status": "observed",
  "page": "qa-evidence",
- "position": 3
+ "position": 3,
+ "note": "New byte, local-file and S3-handle submissions enforce the 20 MiB artifact upload limit. S3 registration measures the stored object through the hosted signer or machine credentials; a failed size check refuses with a repair step. Existing stored files above that limit remain exportable.",
+ "sources": ["docs/public/verification/browser-evidence.md"]
 }

@@ -16,8 +16,8 @@ from yoke_core.domain import browser_qa
 from yoke_core.domain.browser_qa_steps import (
     QaArtifactWriteError,
     _record_artifact_file,
-    _upload_artifact,
 )
+from yoke_core.domain.browser_qa_upload import _upload_artifact
 from runtime.api.domain.browser_qa_test_helpers import (
     _FakeRunRecorder,
     _browser_check_steps,
@@ -244,7 +244,7 @@ class TestScenarioRecordsUploadedHandles:
             shot = Path(artifact_dir) / "home.png"
             shot.parent.mkdir(parents=True, exist_ok=True)
             shot.write_bytes(b"PNG")
-            return {"success": True, "artifacts": [str(shot)]}
+            return {"success": True, "artifacts": [str(shot)], "clipped": True}
 
         def _fake_upload(url, path, content_type):
             uploads.append((url, path, content_type))
@@ -307,9 +307,10 @@ class TestScenarioRecordsUploadedHandles:
 
         conn = connect_test_db(db_path)
         row = conn.execute(
-            "SELECT artifact_handle FROM qa_artifacts ORDER BY id DESC LIMIT 1"
+            "SELECT artifact_handle, metadata FROM qa_artifacts ORDER BY id DESC LIMIT 1"
         ).fetchone()
         conn.close()
+        assert json.loads(row[1])["clipped"] is True
         handle = json.loads(row[0])
         assert handle["backend"] == "s3"
         assert handle["bucket"] == "yoke-prod-artifacts"

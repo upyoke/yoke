@@ -30,9 +30,9 @@ entries with
 count and keys. Access, credential, network and other read failures refuse with
 `archive_artifact_unreadable`: repair access and retry, or use
 `--exclude-artifacts`. Relative handles require the project's checkout on this
-machine; attach or register it and retry. Files beyond the per-file limit refuse
-with `archive_artifact_too_large`; use `--exclude-artifacts`. Estimates apply the
-same classification. Refusals write no new archive. A source paused by
+machine; attach or register it and retry. Stored files above the current upload
+limit remain exportable; the streaming copy records their full byte counts and
+checksums. The archive total cap remains. Estimates apply the same classification. Refusals write no new archive. A source paused by
 `--pause-source` stays paused; run `yoke universe resume` when it may write again.
 A store that cannot list shared files refuses rather than omitting unknown files.
 `--exclude-artifacts` exports only the database and receipt.

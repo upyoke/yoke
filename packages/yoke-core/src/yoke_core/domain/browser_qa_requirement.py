@@ -55,8 +55,7 @@ def _process_requirement(
             **extra,
         )
 
-    req_id = req_row["id"]
-    qa_kind = req_row["qa_kind"]
+    req_id, qa_kind = req_row["id"], req_row["qa_kind"]
     method_id = req_row.get("method_id")
     method_config_raw = req_row["method_config"]
 
@@ -242,6 +241,7 @@ def _process_requirement(
             observed_url=str(data.get("url") or "") if isinstance(data, dict) else "",
             actor=actor,
             color_scheme=scheme_evidence,
+            clipped=data.get("clipped") is True,
         )
         run_artifacts.extend(step_artifacts.paths)
         run_artifact_ids.extend(step_artifacts.artifact_ids)

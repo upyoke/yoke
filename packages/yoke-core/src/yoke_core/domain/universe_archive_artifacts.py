@@ -11,7 +11,6 @@ from pathlib import Path, PurePosixPath
 from typing import Any
 
 from yoke_contracts.qa_artifact_limits import (
-    MAX_ARTIFACT_BYTES,
     MAX_ARTIFACT_MANIFEST_BYTES,
 )
 
@@ -48,7 +47,7 @@ def allowed_member(member: tarfile.TarInfo) -> bool:
         return member.size <= MAX_ARTIFACT_MANIFEST_BYTES
     if member.name.startswith("artifacts/"):
         safe_key(member.name.removeprefix("artifacts/"))
-        return 0 <= member.size <= MAX_ARTIFACT_BYTES
+        return member.size >= 0
     return False
 
 
@@ -139,7 +138,7 @@ def unpack_files(
         if (
             entry.get("status") != "included"
             or type(size) is not int
-            or not 0 <= size <= MAX_ARTIFACT_BYTES
+            or size < 0
             or not isinstance(digest, str)
             or not _DIGEST.fullmatch(digest)
         ):

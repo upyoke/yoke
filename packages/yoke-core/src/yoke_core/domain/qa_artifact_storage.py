@@ -291,6 +291,24 @@ def validate_s3_handle_owner(
             f"run prefix s3://{bucket}/{expected}",
         )
 
+    from yoke_core.domain.qa_artifact_size import handle_size
+    from yoke_core.domain.aws_machine_client import safe_aws_error_reason
+
+    try:
+        size = handle_size(conn, owner, int(run_id), handle)
+    except Exception as exc:
+        raise ArtifactStorageError(
+            "artifact_size_unavailable",
+            f"cannot measure stored artifact ({safe_aws_error_reason(exc)}); "
+            "repair artifact store access and retry registration",
+        ) from exc
+    if size > MAX_ARTIFACT_BYTES:
+        raise ArtifactStorageError(
+            "artifact_too_large",
+            f"artifact is {size} bytes; limit is {MAX_ARTIFACT_BYTES}; "
+            "capture a smaller region and retry",
+        )
+
 
 def store_artifact_file(
     conn: Any,

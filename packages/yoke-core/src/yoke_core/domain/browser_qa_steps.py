@@ -248,32 +248,6 @@ def _presign_artifact(
     raise QaArtifactWriteError(detail)
 
 
-def _upload_artifact(upload_url: str, file_path: str, content_type: str) -> None:
-    """PUT capture bytes; retain the actual failure for the QA run."""
-    import urllib.error
-    import urllib.request
-
-    try:
-        with open(file_path, "rb") as fh:
-            body = fh.read()
-        request = urllib.request.Request(
-            upload_url,
-            data=body,
-            method="PUT",
-            headers={"Content-Type": content_type or "application/octet-stream"},
-        )
-        with urllib.request.urlopen(request, timeout=60) as response:
-            status = int(response.status)
-    except urllib.error.HTTPError as exc:
-        raise QaArtifactWriteError(
-            f"S3 upload failed: HTTP {exc.code} {exc.reason}"
-        ) from exc
-    except (OSError, urllib.error.URLError, ValueError) as exc:
-        raise QaArtifactWriteError(f"S3 upload failed: {exc}") from exc
-    if not 200 <= status < 300:
-        raise QaArtifactWriteError(f"S3 upload failed: HTTP {status}")
-
-
 def _record_artifact_file(
     run_id: int,
     requirement_id: int,

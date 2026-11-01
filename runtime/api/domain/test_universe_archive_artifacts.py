@@ -11,11 +11,11 @@ from yoke_core.domain.universe_archive_artifacts import MANIFEST
 from runtime.api.domain.test_universe_archive import _receipt_for
 
 
-def _pack(tmp_path, missing_reason="artifact_source_absent"):
+def _pack(tmp_path, missing_reason="artifact_source_absent", content=b"image bytes"):
     dump = tmp_path / "source.dump"
     dump.write_bytes(b"PGDMPexample")
     file = tmp_path / "screenshot.png"
-    file.write_bytes(b"image bytes")
+    file.write_bytes(content)
     key = "qa-artifacts/example/item/1/screenshot.png"
     manifest = {
         "version": 1,
@@ -90,3 +90,19 @@ def test_tampered_or_unsafe_artifact_refuses_before_import(tmp_path, changed):
 
         inspect_archive(altered)
     assert not (tmp_path / "escaped").exists()
+
+
+def test_archive_import_retains_total_artifact_cap(tmp_path):
+    target, _, _ = _pack(tmp_path, content=b"x" * 100)
+    with pytest.raises(archive.UniverseArchiveError, match="artifact bytes exceed the import limit"):
+        with archive.unpacked_universe_archive(target, max_dump_bytes=50):
+            pytest.fail("archive exceeded its artifact byte cap")
+
+
+def test_archive_export_retains_packed_byte_cap(tmp_path):
+    target, _, _ = _pack(tmp_path)
+    destination = tmp_path / "bounded.tar"
+    with archive.unpacked_universe_archive(target, max_dump_bytes=1 << 20) as (dump, receipt):
+        with pytest.raises(archive.UniverseArchiveError, match="universe_export_size_limit"):
+            archive.pack_universe_archive(dump, receipt, destination, max_bytes=1)
+    assert not destination.exists()

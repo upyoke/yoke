@@ -100,6 +100,30 @@ def probe_signed_object(download_url: str, *, bucket: str, key: str) -> None:
         ) from exc
 
 
+def signed_object_size(download_url: str, *, bucket: str, key: str) -> int:
+    """Read the total size from a one-byte ranged GET without downloading it."""
+    address = f"s3://{bucket}/{key}"
+    request = urllib.request.Request(download_url, headers={"Range": "bytes=0-0"})
+    try:
+        with urllib.request.urlopen(request, timeout=TRANSFER_TIMEOUT_S) as response:
+            if int(response.status) == 206:
+                size = int(response.headers["Content-Range"].rsplit("/", 1)[1])
+            else:
+                size = int(response.headers["Content-Length"])
+            if size < 0:
+                raise ValueError("negative object size")
+            return size
+    except urllib.error.HTTPError as exc:
+        if exc.code == 416 and exc.headers.get("Content-Range") == "bytes */0":
+            return 0
+        raise _missing_or_failed(exc, address) from exc
+    except (OSError, ValueError, TypeError, KeyError) as exc:
+        raise ObjectTransferError(
+            "s3_size_unavailable",
+            f"cannot measure object at {address}; repair store access and retry",
+        ) from exc
+
+
 def get_signed_object(
     download_url: str,
     *,
@@ -137,6 +161,7 @@ __all__ = [
     "ObjectTransferError",
     "TRANSFER_TIMEOUT_S",
     "get_signed_object",
+    "signed_object_size",
     "probe_signed_object",
     "put_signed_object",
 ]

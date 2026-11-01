@@ -23,7 +23,9 @@ It lands the bytes under this machine's temp root and reports that path as
 not the capture's own `artifacts` scratch paths. Add `--output PATH` to choose
 the destination yourself.
 
-A full-page capture of a long screen is one very tall image, and a viewer
+New full-page screenshots stop at 10,000 CSS pixels in height and record `clipped: true` in artifact metadata when truncated. Capture a smaller region or scroll and capture each screenful to show the rest. New evidence uploads, including S3 handle registrations, refuse files over 20 MiB; existing stored evidence remains exportable.
+
+A full-page capture of a long screen can be a tall image, and a viewer
 that scales it to fit makes every label in it unreadable. Read the part being
 judged instead:
 

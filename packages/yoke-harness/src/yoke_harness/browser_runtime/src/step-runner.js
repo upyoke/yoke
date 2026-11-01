@@ -226,6 +226,7 @@ async function executeStep(page, step, options) {
       ...(dialogs.records.length ? { dialogs: dialogs.records } : {}),
       ...(result.download ? { download: result.download } : {}),
       ...(result.artifacts ? { artifacts: result.artifacts } : {}),
+      ...(result.clipped ? { clipped: true } : {}),
       // An assertion that passed without observing anything says so here.
       // Every action-specific fact has to be forwarded by name, which is
       // why nothing the assertion handler knew could reach its caller

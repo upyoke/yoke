@@ -100,6 +100,26 @@ async function testFullPageIsViewportBoundedHere() {
   await page.close();
 }
 
+async function testVeryTallFullPageIsClipped() {
+  const page = await context.newPage();
+  await openCards(page);
+  await page.setContent('<div style="height:177941px">Tall page</div>');
+  await page.evaluate(() => window.scrollTo(0, 50000));
+  const result = await executeStep(page, {
+    action: 'screenshot', capture: true, fullPage: true,
+  }, { baseUrl: baseUrl(), outputDir });
+  assertEqual(result.success, true, `tall capture succeeds: ${result.error || ''}`);
+  assertEqual(result.clipped, true, 'tall capture reports clipped metadata');
+  assertEqual(imageSize(result.artifacts[0]).height, 10000, 'height is capped');
+  await page.setContent('<div style="height:800px">Short page</div>');
+  const short = await executeStep(page, {
+    action: 'screenshot', capture: true, fullPage: true,
+  }, { baseUrl: baseUrl(), outputDir });
+  assertEqual(short.clipped, undefined, 'ordinary captures are not marked clipped');
+  assert(imageSize(short.artifacts[0]).height < 10000, 'short height is preserved');
+  await page.close();
+}
+
 async function testTargetFramesTheElementBox() {
   console.log('\n## Test: a targeted capture frames the element, not the screen');
   const page = await context.newPage();
@@ -224,6 +244,7 @@ async function run() {
   context = await browser.newContext();
   try {
     await testFullPageIsViewportBoundedHere();
+    await testVeryTallFullPageIsClipped();
     await testTargetFramesTheElementBox();
     await testTargetBelowTheFoldIsScrolledTo();
     await testTargetCaptureNamesTheLabel();
