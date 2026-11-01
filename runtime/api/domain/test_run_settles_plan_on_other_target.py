@@ -177,4 +177,16 @@ def test_other_target_notice_names_the_pending_group_without_hiding_failures(
         ))
         assert "stage group run-stage:1 on deployment run run-stage" in gate
         assert "on its completion run" not in gate
+        from yoke_contracts.timestamps import parse_instant, utc_now
+        from yoke_core.domain.deployment_delivery_close_out_notice import _close_or_wake
+
+        assert _close_or_wake(test_db, {"item_id": ITEM, "project_id": 1,
+                              "public_ref": f"YOK-{ITEM}"}, "run-prod",
+                              parse_instant(utc_now())) in {"delivered", "undelivered"}
+        [delivered] = test_db.execute(
+            "SELECT body FROM session_messages WHERE idempotency_key=%s",
+            (f"release-wait-delivery-cleared:{ITEM}:run-prod",),
+        ).fetchall()
+        assert "Awaiting stage group run-stage:1" in delivered[0]
+        assert "re-run `yoke merge" not in delivered[0]
     assert test_db.execute("SELECT status FROM items WHERE id=%s", (ITEM,)).fetchone()[0] == "release"

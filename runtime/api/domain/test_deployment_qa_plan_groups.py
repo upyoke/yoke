@@ -174,7 +174,9 @@ def test_the_done_refusal_names_the_plan_group_command_only(test_db):
     miss = _miss(MEMBERS[0], 7, SLUG, {"id": RUN}, "item-qa", "stage", conn=test_db)
     text = "\n".join(done_gate_refusal_errors(test_db, [miss], name="YOK-1"))
 
-    assert f"Post-deploy plan {SLUG}: no closed plan group" in text
+    assert f"Post-deploy plan {SLUG}: Awaiting stage plan {SLUG} group credit" in text
+    assert f"on deployment run {RUN}" in text
+    assert "on its completion run" not in text
     assert f"yoke qa plan run --deployment-run-id {RUN} --stage item-qa --plan {SLUG}" in text
     assert POST_DEPLOY_RECOVERY not in text
 

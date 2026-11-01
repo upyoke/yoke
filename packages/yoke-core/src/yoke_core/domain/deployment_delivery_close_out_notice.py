@@ -63,7 +63,7 @@ def delivery_cleared_idempotency_key(item_id: int, run_id: str) -> str:
 
 
 def delivery_cleared_message(
-    *, public_ref: str, run_id: str, route: str, close_out_failure: str = ""
+    *, public_ref: str, run_id: str, route: str, close_out_failure: str = "", pending_credit: str = ""
 ) -> str:
     """Name what cleared, and the exact command that finishes the item."""
     lead = (
@@ -72,6 +72,8 @@ def delivery_cleared_message(
     )
     if close_out_failure:
         lead += " " + close_out_failure_summary(public_ref, close_out_failure)
+    elif pending_credit:
+        return f"{lead} {pending_credit} Automatic close-out retries when that credit arrives; keep the item parked."
     if route == HOLDER:
         return (
             f"{lead} You hold its work claim and parked on this wait, so this "
@@ -166,6 +168,7 @@ def _send(
     stamp: datetime,
     *,
     close_out_failure: str = "",
+    pending_credit: str = "",
 ) -> str:
     """Send one member's notice inside its own savepoint.
 
@@ -185,6 +188,7 @@ def _send(
                     run_id=run_id,
                     route=route,
                     close_out_failure=close_out_failure,
+                    pending_credit=pending_credit,
                 ),
                 idempotency_key=delivery_cleared_idempotency_key(
                     int(member["item_id"]), run_id
@@ -222,6 +226,8 @@ def _close_or_wake(
     )
     if closed.applies and closed.ok:
         return "closed"
+    if closed.pending_credit:
+        return _send(conn, member, run_id, stamp, pending_credit=closed.pending_credit)
     if closed.applies:
         recovery = _send(
             conn,
