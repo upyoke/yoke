@@ -62,7 +62,12 @@ const { executeStep } = require('../src/step-runner');
     assert.match(link.error, /browser_download_path_invalid/);
     const missing = await executeStep(page, step, { baseUrl });
     assert.equal(missing.success, false);
-    assert.match(missing.error, /supply outputDir/);
+    assert.match(missing.error, /supply a writable outputDir/);
+    const fileRoot = await executeStep(page, step, {
+      baseUrl, outputDir: path.join(scratch, 'exports/archive.bin'),
+    });
+    assert.equal(fileRoot.success, false);
+    assert.match(fileRoot.error, /browser_download_path_invalid/);
     console.log('Download saves served bytes and metadata; missing downloads and outside paths refuse.');
   } finally {
     if (browser) await browser.close();

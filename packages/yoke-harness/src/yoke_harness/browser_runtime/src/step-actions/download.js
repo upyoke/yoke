@@ -9,7 +9,7 @@ const { resolveTarget } = require('./target-helpers');
 function refusePath() {
   return new Error(
     'browser_download_path_invalid: set path to a file beneath the walker scratch '
-    + 'outputDir; supply outputDir and remove traversal or outside symlinks.'
+    + 'outputDir; supply a writable outputDir and remove traversal or outside symlinks.'
   );
 }
 
@@ -48,7 +48,13 @@ async function destination(outputDir, requested) {
 }
 
 async function executeDownload(page, step, options, refMap) {
-  const target = await destination(options.outputDir, step.path);
+  let target;
+  try {
+    target = await destination(options.outputDir, step.path);
+  } catch (err) {
+    if (err.message.startsWith('browser_download_path_invalid:')) throw err;
+    throw new Error(refusePath().message + ' ' + err.message);
+  }
   const timeout = step.timeout_ms || options.timeout || 5000;
   const locator = resolveTarget(page, step.target, refMap);
   let download;
