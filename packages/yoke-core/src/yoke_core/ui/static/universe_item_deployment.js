@@ -5,7 +5,7 @@ import { deliveryStateLabel, NO_ENVIRONMENT_LABEL } from "./deployment_environme
 import { relativeAge, relativeAgePhrase } from "./universe_time.js";
 import { el } from "./universe_view_support.js";
 import {
-  CLEARED_QA_STATES, clearedMemberOutcome, newestDoneApproval,
+  CLEARED_QA_STATES, clearedMemberOutcome, newestDoneApproval, qaDisposition,
 } from "./item_completion_standing.js";
 
 const TERMINAL_RUN_STATES = new Set(["succeeded", "failed", "cancelled"]);
@@ -88,7 +88,10 @@ function runStage(run) {
   )?.name || "");
 }
 
-function itemOutcome(run) {
+function itemOutcome(run, row) {
+  const done = (row.status || run.delivery_item?.status) === "done";
+  const environment = row.delivery?.completed_deliveries?.[0]?.environment;
+  const completed = `item completed${environment ? ` in ${environment}` : ""}`;
   if (run.delivery_relation === "removed") {
     const item = run.delivery_item;
     const reason = String(item.reason || "").trim();
@@ -109,6 +112,9 @@ function itemOutcome(run) {
   }
   if (qa?.state === "rejected") return { symbol: "✗", text: "QA failed" };
   if (run.delivery_relation === "member" && CLEARED_QA_STATES.has(qa?.state)) {
+    if (done) {
+      return { symbol: "◐", text: `${qaDisposition(qa)} · ${completed}`, finished: run.status === "succeeded" };
+    }
     return clearedMemberOutcome(qa, newestDoneApproval(run.gates, run.delivery_item?.id ?? ""), {
       ref: memberItemId(run.delivery_item || {}), settling: Boolean(run.settling_at),
     });
@@ -121,6 +127,9 @@ function itemOutcome(run) {
     return { symbol: "○", text: "QA unavailable", reason: qa.reason };
   }
   if (status === "succeeded") {
+    if (run.delivery_relation === "member" && done) {
+      return { symbol: "○", text: completed, finished: true };
+    }
     return { symbol: "○", text: run.delivery_relation === "member" ? "awaiting item completion" : "in build" };
   }
   const stage = runStage(run);
@@ -239,7 +248,7 @@ export function appendItemDelivery(documentNode, card, row, deployments, project
     box.appendChild(el(documentNode, "small", "item-delivery-no-change", "no code change"));
   }
   for (const run of runs) {
-    box.appendChild(environmentRow(documentNode, runEnvironment(run), itemOutcome(run), run, row));
+    box.appendChild(environmentRow(documentNode, runEnvironment(run), itemOutcome(run, row), run, row));
   }
   const environment = String(row.completion_environment || "");
   // "Next release" needs a debt and a flow. Either one missing means no
@@ -261,7 +270,7 @@ export function deliverySummary(row, deployments) {
   const runs = deliveryRuns(row, deployments)
     .filter((run) => run.delivery_relation !== "removed");
   const parts = runs.map((run) => {
-    const outcome = itemOutcome(run);
+    const outcome = itemOutcome(run, row);
     const state = outcome.finished ? "live" : outcome.symbol === "✗" ? "failed" : "deploying";
     return deliveryStateLabel(state, runEnvironment(run));
   });

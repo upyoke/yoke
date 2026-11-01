@@ -1,0 +1,12 @@
+{
+ "id": "completed-item-rows",
+ "title": "Read completion across delivery environments",
+ "status": "observed",
+ "audience": "both",
+ "when": "A done item has member runs in several environments",
+ "need": "Shipping rows preserve each run's QA disposition and name the environment that completed the item. A successful member run can read live after the item completed elsewhere; an executing run is still deploying. Failed QA and removed rows retain their diagnostics. The item page shows completion only on the completion run, never on Also in rows.",
+ "surface": "Shipping card and item page Delivery panel",
+ "review": "Focused DOM regressions cover done, pending and other-environment outcomes; production observation remains owed.",
+ "sources": ["packages/yoke-core/src/yoke_core/ui/static/universe_item_deployment.js", "runtime/api/universe_ui_card_delivery_completion.test.mjs", "runtime/api/universe_ui_item_delivery_completion.test.mjs"],
+ "position": 4
+}
