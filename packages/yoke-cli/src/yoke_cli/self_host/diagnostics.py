@@ -17,7 +17,7 @@ def _diagnostic(value: str, *, password: bytes = b"") -> str:
     return printable[-2048:] or "No additional diagnostic was reported."
 
 
-def import_failure_details(name, password, exec_code, stderr, completion):
+def import_failure_details(name, password, exec_code, stderr, stdout, completion):
     """Read the one-off container's logs before its caller removes it."""
     try:
         logs = terminal_detached_process.run(
@@ -33,6 +33,22 @@ def import_failure_details(name, password, exec_code, stderr, completion):
             b"Docker logs unavailable; check Docker access and retry import."
         )
         logs_code = "unavailable"
+    try:
+        state = terminal_detached_process.run(
+            (
+                "docker",
+                "inspect",
+                "--format",
+                "{{.State.OOMKilled}} {{.HostConfig.Memory}}",
+                name,
+            ),
+            capture_output=True,
+            timeout=30,
+            check=False,
+        )
+        memory_state = state.stdout if state.returncode == 0 else b"unavailable"
+    except (OSError, subprocess.TimeoutExpired):
+        memory_state = b"unavailable"
     container_code = completion.stdout.strip() if completion else b"unavailable"
     wait_code = str(completion.returncode) if completion else "unavailable"
 
@@ -42,6 +58,8 @@ def import_failure_details(name, password, exec_code, stderr, completion):
     return (
         f"docker exec exit: {exec_code}; docker wait exit: {wait_code}; "
         f"container exit: {clean(container_code)}",
+        f"Container OOMKilled / memory limit bytes: {clean(memory_state)}",
         f"Exec stderr: {clean(stderr)}",
+        f"Exec stdout: {clean(stdout)}",
         f"Container logs (docker logs exit {logs_code}): {clean(container_log)}",
     )

@@ -35,7 +35,7 @@ COPY packages ./packages
 # executes this exact path to keep the two in step.
 RUN PYTHONPATH=/build/packages/yoke-contracts/src:/build/packages/yoke-cli/src:/build/packages/yoke-harness/src:/build/packages/yoke-core/src \
         YOKE_MACHINE_HOME=/var/lib/yoke \
-        python -c "import runpy; runpy.run_path('/build/packages/yoke-core/src/yoke_core/domain/postgres_binaries.py')['ensure_binaries']()"
+        python -c "import runpy, shutil; binaries = runpy.run_path('/build/packages/yoke-core/src/yoke_core/domain/postgres_binaries.py')['ensure_binaries'](); shutil.copytree(binaries.parent, '/opt/yoke-postgres')"
 
 ARG YOKE_ENGINE_VERSION=""
 
@@ -67,6 +67,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     YOKE_API_HOST=0.0.0.0 \
     YOKE_API_PORT=8765 \
     YOKE_MACHINE_HOME=/var/lib/yoke \
+    YOKE_PG_BIN_DIR=/opt/yoke-postgres/bin \
     PATH=/opt/yoke-venv/bin:$PATH \
     YOKE_BUILD_SHA=${YOKE_BUILD_SHA}
 
@@ -81,7 +82,8 @@ RUN addgroup --system yoke \
     && mkdir -p /var/lib/yoke/.yoke \
     && chown -R yoke:yoke /var/lib/yoke
 
-COPY --chown=yoke:yoke --from=builder /var/lib/yoke/postgres /var/lib/yoke/postgres
+# Compose can select another machine home or mount it; clients belong to the image.
+COPY --chown=yoke:yoke --from=builder /opt/yoke-postgres /opt/yoke-postgres
 
 COPY --from=builder /opt/yoke-venv /opt/yoke-venv
 
@@ -103,7 +105,7 @@ RUN YOKE_EXPECTED_ENGINE_VERSION="$YOKE_ENGINE_VERSION" python -c \
 
 # Fail the image build unless the installed product resolver can execute both
 # portability clients with all runtime shared-library dependencies present.
-RUN python -c "from yoke_core.domain import universe_portability as p; import subprocess; [subprocess.run([p._postgres_executable(name), '--version'], check=True) for name in ('pg_restore', 'pg_dump')]"
+RUN YOKE_MACHINE_HOME=/var/lib/yoke/.yoke python -c "from yoke_core.domain import universe_portability as p; import subprocess; [subprocess.run([p._postgres_executable(name), '--version'], check=True) for name in ('pg_restore', 'pg_dump')]"
 
 USER yoke
 

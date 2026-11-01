@@ -257,7 +257,7 @@ def import_universe(directory: Path, *, archive=None, recover: bool = False) -> 
     )
     process = None
     errors = []
-    stderr, completion = b"", None
+    output, stderr, completion = b"", b"", None
     try:
         process = terminal_detached_process.popen(
             (
@@ -311,13 +311,14 @@ def import_universe(directory: Path, *, archive=None, recover: bool = False) -> 
     except (OSError, subprocess.TimeoutExpired, SelfHostRuntimeError):
         if process is not None and process.poll() is None:
             process.kill()
-            _, stderr = process.communicate()
+            output, stderr = process.communicate()
         refusal = _refuse("self_host_import_handoff_failed", directory)
         refusal.detail_lines = import_failure_details(
             name,
             password,
             process.returncode if process else "unavailable",
             stderr,
+            output,
             completion,
         )
         raise refusal from None

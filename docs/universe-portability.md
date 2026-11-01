@@ -174,9 +174,12 @@ HTTPS sources before engine access and points to the dashboard Universe portabil
 
 Self-host import failures retain redacted exec stderr and the last 200 container
 log lines before removing the one-off import container. Failure details report
-exec, wait and container exit codes; Docker output stays out of the refusal
-message. Read the printed details even with `--json`, repair the named cause,
-and retry the import against the stopped destination bundle.
+exec, wait and container exit codes, OOM state and the memory limit; exec
+stdout is also redacted when an image sends its refusal through that stream.
+Docker output stays out of the refusal message. Read the printed details even with `--json`, repair the named cause,
+and retry the import against the stopped destination bundle. The self-host image
+pins its PostgreSQL clients outside the machine home and persistent volume, so
+imports use the packaged tools even when Compose selects a different home.
 
 ## Upload and finish hosted import
 

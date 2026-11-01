@@ -199,7 +199,7 @@ def test_import_receipt_requires_successful_container_exit(
             runtime.import_universe(target, recover=True)
     expected = [("docker", "wait")]
     if exit_code != b"0":
-        expected.append(("docker", "logs"))
+        expected.extend((("docker", "logs"), ("docker", "inspect")))
     assert calls == [*expected, ("docker", "rm")]
 
 
@@ -261,6 +261,7 @@ def test_import_failure_keeps_redacted_diagnostics_before_cleanup(
         monkeypatch,
         "import sys; sys.stdin.buffer.read(); "
         f"print('exec failure {password.decode()} {TOKEN}',file=sys.stderr); "
+        f"print('private result {password.decode()} {TOKEN}'); "
         f"sys.exit({exec_exit})",
     )
     calls = []
@@ -269,6 +270,9 @@ def test_import_failure_keeps_redacted_diagnostics_before_cleanup(
         calls.append(command)
         if command[1] == "wait":
             return subprocess.CompletedProcess(command, wait_exit, b"23\n", b"")
+        if command[1] == "inspect":
+            assert command[3] == "{{.State.OOMKilled}} {{.HostConfig.Memory}}"
+            return subprocess.CompletedProcess(command, 0, b"false 0\n", b"")
         if command[1] == "logs":
             assert command[2:4] == ("--tail", "200")
             return subprocess.CompletedProcess(
@@ -286,10 +290,12 @@ def test_import_failure_keeps_redacted_diagnostics_before_cleanup(
     assert f"docker exec exit: {exec_exit}" in details
     assert f"docker wait exit: {wait_exit}" in details
     assert "container exit: 23" in details
+    assert "Container OOMKilled / memory limit bytes: false 0" in details
     assert "Exec stderr: exec failure" in details
+    assert "Exec stdout: private result" in details
     assert "Container logs (docker logs exit 0): container failure" in details
     assert password.decode() not in details
     assert TOKEN not in details
     assert "exec failure" not in str(raised.value)
     assert "container failure" not in str(raised.value)
-    assert [command[1] for command in calls] == ["wait", "logs", "rm"]
+    assert [command[1] for command in calls] == ["wait", "logs", "inspect", "rm"]
