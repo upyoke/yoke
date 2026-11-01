@@ -220,9 +220,13 @@ def test_artifact_refusal_keeps_reason_resume_and_removes_temp(tmp_path, monkeyp
     real_temp = route.tempfile.mkdtemp
     directories = []
 
-    def make_temp(**kwargs):
-        value = real_temp(dir=tmp_path, **kwargs)
-        directories.append(Path(value))
+    def make_temp(suffix=None, prefix=None, dir=None):
+        is_export = prefix == "yoke-self-host-export-"
+        value = real_temp(
+            suffix=suffix, prefix=prefix, dir=tmp_path if is_export else dir
+        )
+        if is_export:
+            directories.append(Path(value))
         return value
 
     monkeypatch.setattr(route.tempfile, "mkdtemp", make_temp)
