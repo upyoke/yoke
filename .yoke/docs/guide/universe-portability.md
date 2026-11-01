@@ -10,7 +10,7 @@ A portable Universe archive lets you preserve your Yoke records or move them to 
 
 The archive contains the Universe database and a receipt binding that database dump to its exact contents. It preserves records such as projects, strategy documents, and work history. Exports include readable QA artifacts and shared files, with a manifest recording each file's checksum or why it is missing.
 
-Repository folders, application databases, running agents, and external services are not part of the Universe database. Unreadable source files remain listed as missing; recover them at the source and export again if you need them. Credentials require destination-specific handling and reconnection; do not treat an archive as a way to copy working machine access unchanged.
+Repository folders, application databases, running agents, and external services are not part of the Universe database. Confirmed absent files remain listed as missing with `artifact_source_absent`; unavailable handles or owners use `artifact_handle_or_owner_unavailable`. The summary prints the missing count and keys. Access, credential and network failures refuse with `archive_artifact_unreadable`; repair file or store access and retry, or use `--exclude-artifacts`. A relative file path needs its project's checkout attached or registered on this machine. A file beyond the per-file limit refuses with `archive_artifact_too_large`; use `--exclude-artifacts`. Estimates apply the same rules. Refusals write no new archive. Credentials require destination-specific handling and reconnection; do not treat an archive as a way to copy working machine access unchanged.
 
 ## Export a Universe
 
@@ -20,7 +20,7 @@ For a local or self-host move, use `yoke universe export --pause-source`. Hosted
 
 The result is one `.tar` file. Keep the archive together: its database dump and receipt are both needed for validation and import. Store backups outside any machine home or server volume you intend to remove.
 
-A move export checks output-folder write access before pausing. An unavailable path refuses with `universe_export_destination_unavailable` and leaves a running source running. It then disables PostgreSQL connections to the source and terminates its clients, including older engines and raw database clients. It exports a frozen database copy, requiring additional database space and source administration permission. Once paused, the source stays paused until `yoke universe resume`, including after an export failure. The summary names only included artifact paths. Export without `--pause-source` creates a backup that hosted import refuses; local import accepts it. Protected direct database connections remain refused.
+A move export checks output-folder write access before pausing. An unavailable path refuses with `universe_export_destination_unavailable` and leaves a running source running. It then disables PostgreSQL connections to the source and terminates its clients, including older engines and raw database clients. It exports a frozen database copy, requiring additional database space and source administration permission. Once paused, the source stays paused until `yoke universe resume`, including after an export failure. The summary names included artifact paths and any missing file count and keys. Export without `--pause-source` creates a backup that hosted import refuses; local import accepts it. Protected direct database connections remain refused.
 
 ## Validate and retain backups
 

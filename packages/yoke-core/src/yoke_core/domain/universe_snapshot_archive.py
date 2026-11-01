@@ -119,9 +119,19 @@ def snapshot_archive(
 
         members.append(MANIFEST)
         members.extend(sorted({"artifacts/" + key.split("/", 1)[0] for key in files}))
+    missing_keys = [
+        e["key"]
+        for e in (manifest or {}).get("entries", [])
+        if e["status"] == "missing"
+    ]
+    missing_summary = (
+        f"; missing artifacts: {len(missing_keys)} ({', '.join(missing_keys)})"
+        if missing_keys
+        else ""
+    )
     emit(
         f"  [universe-export] wrote {artifact_bytes} bytes"
-        f" ({ARTIFACT_FORMAT}: {' + '.join(members)})"
+        f" ({ARTIFACT_FORMAT}: {' + '.join(members)}){missing_summary}"
     )
     return {
         "artifact": str(dest),
@@ -131,9 +141,8 @@ def snapshot_archive(
         "sha256": inspection.archive_sha256,
         "artifacts": {
             "included": len(files),
-            "missing": sum(
-                e["status"] == "missing" for e in (manifest or {}).get("entries", [])
-            ),
+            "missing": len(missing_keys),
+            "missing_keys": missing_keys,
         },
         "receipt_id": str(receipt["freeze_intent"]["receipt_id"]),
         "writers_stopped": writers_stopped,

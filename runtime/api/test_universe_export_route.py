@@ -203,3 +203,50 @@ def test_failed_copy_recovery_keeps_its_named_reason(monkeypatch, tmp_path):
         response = client.post("/v1/universe/resume")
     assert response.status_code == 409
     assert response.json()["error"]["code"] == "universe_pause_recovery_failed"
+
+
+def test_artifact_refusal_keeps_reason_resume_and_removes_temp(tmp_path, monkeypatch):
+    import json
+    from yoke_core.domain import universe_artifact_store, universe_source_pause
+    from runtime.api.domain._universe_import_test_helpers import _canonical_universe
+    from runtime.api.domain.test_universe_artifact_transfer import Objects, _seed
+
+    monkeypatch.setenv(SERVER_MODE_ENV, SERVER_MODE_SELF_HOST)
+    monkeypatch.setenv("YOKE_MACHINE_HOME", str(tmp_path / "machine"))
+    monkeypatch.setattr(route.db_helpers, "connect", _Connection)
+    monkeypatch.setattr(
+        route, "require_control_plane_permission", lambda *_a, **_k: None
+    )
+    real_temp = route.tempfile.mkdtemp
+    directories = []
+
+    def make_temp(**kwargs):
+        value = real_temp(dir=tmp_path, **kwargs)
+        directories.append(Path(value))
+        return value
+
+    monkeypatch.setattr(route.tempfile, "mkdtemp", make_temp)
+    objects = Objects()
+    from botocore.exceptions import ClientError
+
+    def denied(**_kwargs):
+        raise ClientError({"Error": {"Code": "AccessDenied"}}, "GetObject")
+
+    objects.get_object = denied
+    monkeypatch.setattr(universe_artifact_store, "_client", lambda *_: objects)
+    with _canonical_universe() as (conn, dsn):
+        _seed(conn, {"backend": "s3", "bucket": "evidence", "key": "denied"})
+        monkeypatch.setattr(route.db_backend, "resolve_pg_dsn", lambda: dsn)
+        try:
+            response = route.download_self_host_universe(_request(), pause_source=True)
+            assert response.status_code == 409
+            error = json.loads(response.body)["error"]
+            assert error["code"] == "universe_export_refused"
+            assert "archive_artifact_unreadable: yoke qa-artifacts/" in error["message"]
+            assert "yoke universe resume" in error["message"]
+            assert universe_source_pause.is_paused(dsn)
+            assert directories and all(
+                not directory.exists() for directory in directories
+            )
+        finally:
+            universe_source_pause.resume(dsn)

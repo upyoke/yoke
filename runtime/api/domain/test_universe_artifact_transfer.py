@@ -141,7 +141,9 @@ def test_archive_roundtrip_rehomes_bytes(
         report = universe_export.export_universe(
             dsn=source_dsn, out=tmp_path / "move.tar"
         )
-        assert report["artifacts"] == {"included": 2, "missing": 1}
+        assert report["artifacts"]["included"] == 2
+        assert report["artifacts"]["missing"] == 1
+        assert len(report["artifacts"]["missing_keys"]) == 1
         # Remove the local source to prove import reads only the archive.
         local.unlink()
         shared_path.unlink()
