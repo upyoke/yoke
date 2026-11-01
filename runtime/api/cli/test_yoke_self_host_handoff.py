@@ -197,7 +197,10 @@ def test_import_receipt_requires_successful_container_exit(
             runtime.SelfHostRuntimeError, match="self_host_import_handoff_failed"
         ):
             runtime.import_universe(target, recover=True)
-    assert calls == [("docker", "wait"), ("docker", "rm")]
+    expected = [("docker", "wait")]
+    if exit_code != b"0":
+        expected.append(("docker", "logs"))
+    assert calls == [*expected, ("docker", "rm")]
 
 
 pytestmark = pytest.mark.usefixtures("installed_self_host_prerequisites")
@@ -244,3 +247,49 @@ def test_paused_existing_init_teaches_resume_before_return(target, monkeypatch, 
         == 0
     )
     assert "yoke universe resume" in capsys.readouterr().out
+
+
+@pytest.mark.parametrize("exec_exit,wait_exit", ((7, 0), (0, 9), (7, 9)))
+def test_import_failure_keeps_redacted_diagnostics_before_cleanup(
+    target, monkeypatch, exec_exit, wait_exit
+):
+    password = b"private-bundle-password"
+    monkeypatch.setattr(runtime, "bootstrap_inputs", lambda *_a: (password, b"{}\n"))
+    monkeypatch.setattr(runtime, "start_database", lambda *_a: None)
+    monkeypatch.setattr(runtime, "compose", lambda *_a: b"container")
+    _child(
+        monkeypatch,
+        "import sys; sys.stdin.buffer.read(); "
+        f"print('exec failure {password.decode()} {TOKEN}',file=sys.stderr); "
+        f"sys.exit({exec_exit})",
+    )
+    calls = []
+
+    def execute(command, **_kwargs):
+        calls.append(command)
+        if command[1] == "wait":
+            return subprocess.CompletedProcess(command, wait_exit, b"23\n", b"")
+        if command[1] == "logs":
+            assert command[2:4] == ("--tail", "200")
+            return subprocess.CompletedProcess(
+                command,
+                0,
+                b"container failure " + password,
+                b" token=" + TOKEN.encode(),
+            )
+        return subprocess.CompletedProcess(command, 0, b"", b"")
+
+    monkeypatch.setattr(runtime.subprocess, "run", execute)
+    with pytest.raises(runtime.SelfHostRuntimeError) as raised:
+        runtime.import_universe(target, recover=True)
+    details = "\n".join(raised.value.detail_lines)
+    assert f"docker exec exit: {exec_exit}" in details
+    assert f"docker wait exit: {wait_exit}" in details
+    assert "container exit: 23" in details
+    assert "Exec stderr: exec failure" in details
+    assert "Container logs (docker logs exit 0): container failure" in details
+    assert password.decode() not in details
+    assert TOKEN not in details
+    assert "exec failure" not in str(raised.value)
+    assert "container failure" not in str(raised.value)
+    assert [command[1] for command in calls] == ["wait", "logs", "rm"]

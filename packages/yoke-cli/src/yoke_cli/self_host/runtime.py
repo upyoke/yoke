@@ -13,6 +13,7 @@ import threading
 import uuid
 
 from yoke_cli.self_host import bundle, first_boot_token, protection
+from yoke_cli.self_host.diagnostics import import_failure_details
 from yoke_contracts.designed_wait import announce_designed_wait
 from yoke_contracts.self_host_bootstrap_output import is_api_token
 from yoke_contracts.self_host_handoff import (
@@ -30,6 +31,10 @@ HEALTH_WAIT_SECONDS = 120
 
 class SelfHostRuntimeError(RuntimeError):
     """The bootstrap refused without exposing credentials."""
+
+    def __init__(self, message: str, detail_lines=()) -> None:
+        super().__init__(message)
+        self.detail_lines = tuple(detail_lines)
 
 
 def _refuse(reason: str, directory: Path) -> SelfHostRuntimeError:
@@ -252,6 +257,7 @@ def import_universe(directory: Path, *, archive=None, recover: bool = False) -> 
     )
     process = None
     errors = []
+    stderr, completion = b"", None
     try:
         process = terminal_detached_process.popen(
             (
@@ -285,7 +291,7 @@ def import_universe(directory: Path, *, archive=None, recover: bool = False) -> 
 
         sender = threading.Thread(target=send, daemon=True)
         sender.start()
-        output, _ = process.communicate(timeout=HANDOFF_TIMEOUT_SECONDS)
+        output, stderr = process.communicate(timeout=HANDOFF_TIMEOUT_SECONDS)
         sender.join(timeout=HANDOFF_TIMEOUT_SECONDS)
         completion = terminal_detached_process.run(
             ("docker", "wait", name),
@@ -302,8 +308,19 @@ def import_universe(directory: Path, *, archive=None, recover: bool = False) -> 
         ):
             raise _refuse("self_host_import_handoff_failed", directory)
         return output
-    except (OSError, subprocess.TimeoutExpired):
-        raise _refuse("self_host_import_handoff_failed", directory) from None
+    except (OSError, subprocess.TimeoutExpired, SelfHostRuntimeError):
+        if process is not None and process.poll() is None:
+            process.kill()
+            _, stderr = process.communicate()
+        refusal = _refuse("self_host_import_handoff_failed", directory)
+        refusal.detail_lines = import_failure_details(
+            name,
+            password,
+            process.returncode if process else "unavailable",
+            stderr,
+            completion,
+        )
+        raise refusal from None
     finally:
         if process is not None and process.poll() is None:
             process.kill()

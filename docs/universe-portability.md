@@ -172,6 +172,12 @@ Platform adopts this shared function through its own release-gated update.
 Protected direct Postgres connections remain refused. The CLI refuses hosted
 HTTPS sources before engine access and points to the dashboard Universe portability controls and **Prepare archive**.
 
+Self-host import failures retain redacted exec stderr and the last 200 container
+log lines before removing the one-off import container. Failure details report
+exec, wait and container exit codes; Docker output stays out of the refusal
+message. Read the printed details even with `--json`, repair the named cause,
+and retry the import against the stopped destination bundle.
+
 ## Upload and finish hosted import
 
 For a local or self-host archive, use `yoke universe upload ARCHIVE --org SLUG`

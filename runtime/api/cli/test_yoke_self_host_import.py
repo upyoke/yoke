@@ -130,13 +130,17 @@ def test_failed_container_never_echoes_stdout_secret(import_files, monkeypatch, 
     )
 
     def refuse(*_a, **_k):
-        raise command.runtime.SelfHostRuntimeError("self_host_import_handoff_failed")
+        raise command.runtime.SelfHostRuntimeError(
+            "self_host_import_handoff_failed", ("Exec stderr: diagnosed refusal",)
+        )
 
     monkeypatch.setattr(command.runtime, "import_universe", refuse)
     assert (
         command.self_host_import([str(archive), "--dir", str(directory), "--yes"]) == 1
     )
-    assert "self_host_import_handoff_failed" in capsys.readouterr().err
+    error = capsys.readouterr().err
+    assert "self_host_import_handoff_failed" in error
+    assert "Exec stderr: diagnosed refusal" in error
 
 
 def test_malformed_success_teaches_safe_recovery(import_files, monkeypatch, capsys):

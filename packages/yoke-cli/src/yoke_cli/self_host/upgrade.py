@@ -13,6 +13,7 @@ from yoke_cli.config import install_binding, onboard_self_host_server
 from yoke_cli.self_host import bundle, runtime
 from yoke_cli.self_host import protection
 from yoke_cli.self_host import release_target
+from yoke_cli.self_host.diagnostics import _diagnostic
 from yoke_contracts.self_host_bootstrap_output import redact_api_tokens
 
 INSTALL_TIMEOUT_SECONDS = 600.0
@@ -256,12 +257,6 @@ def _compose_recovery(plan: UpgradePlan) -> tuple[str, ...]:
 
 def _completed_diagnostic(completed: subprocess.CompletedProcess[str]) -> str:
     return _diagnostic(completed.stderr or completed.stdout or "")
-
-
-def _diagnostic(value: str) -> str:
-    text = redact_api_tokens(str(value or "")).strip()
-    printable = "".join(char if char.isprintable() else " " for char in text)
-    return printable[-2048:] or "No additional diagnostic was reported."
 
 
 __all__ = [

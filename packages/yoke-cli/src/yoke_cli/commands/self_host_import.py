@@ -34,6 +34,10 @@ _SUBPROCESS_RUN = subprocess.run
 class SelfHostImportError(RuntimeError):
     """The local compose import orchestration failed safely."""
 
+    def __init__(self, message: str, detail_lines=()) -> None:
+        super().__init__(message)
+        self.detail_lines = tuple(detail_lines)
+
 
 def _decode(value: bytes | str | None) -> str:
     if value is None:
@@ -186,7 +190,7 @@ def _execute_import(directory: Path, archive: BinaryIO) -> Dict[str, object]:
     try:
         return _parse_success(runtime.import_universe(directory, archive=archive))
     except runtime.SelfHostRuntimeError as exc:
-        raise SelfHostImportError(str(exc)) from exc
+        raise SelfHostImportError(str(exc), exc.detail_lines) from exc
 
 
 def _print_summary(payload: Dict[str, object], directory: Path) -> None:
@@ -293,6 +297,8 @@ def self_host_import(args: List[str]) -> int:
             runtime.SelfHostRuntimeError,
         ) as exc:
             print(f"error: {exc}", file=sys.stderr)
+            for line in getattr(exc, "detail_lines", ()):
+                print(f"  {line}", file=sys.stderr)
             return 1
     if not parsed.archive:
         print("error: name an archive or --recover-credential", file=sys.stderr)
@@ -304,6 +310,8 @@ def self_host_import(args: List[str]) -> int:
             payload = _execute_import(directory, archive)
     except (bundle.SelfHostBundleError, SelfHostImportError) as exc:
         print(f"error: {exc}", file=sys.stderr)
+        for line in getattr(exc, "detail_lines", ()):
+            print(f"  {line}", file=sys.stderr)
         return 1
     if parsed.json_mode:
         print(json.dumps(payload, indent=2, sort_keys=True))
