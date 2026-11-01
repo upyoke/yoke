@@ -106,8 +106,7 @@ On each machine, confirm command help accepts `--protected` before proceeding.
    Take the offered pre-import destination backup and save it outside Git
    before confirming permanent replacement. Save the finalized receipt.
    Compare project, item, actor and dependency counts and verify identity
-   links and sample artifact reads. There is no rollback action or window;
-   restoring the old destination requires importing its saved backup as a
+   links and sample artifact reads. Restoring the old destination requires importing its saved backup as a
    new replacement, which replaces later destination writes.
    Resume the hosted source through **Resume source**, or run
    `yoke universe resume` against a local/self-host source. Verify people
