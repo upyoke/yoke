@@ -10,10 +10,12 @@ import tarfile
 from pathlib import Path, PurePosixPath
 from typing import Any
 
-from yoke_contracts.qa_artifact_limits import MAX_ARTIFACT_BYTES
+from yoke_contracts.qa_artifact_limits import (
+    MAX_ARTIFACT_BYTES,
+    MAX_ARTIFACT_MANIFEST_BYTES,
+)
 
 MANIFEST = "artifacts-manifest.json"
-_MANIFEST_LIMIT = 64 * 1024 * 1024
 _DIGEST = re.compile(r"[0-9a-f]{64}")
 
 
@@ -43,7 +45,7 @@ def allowed_member(member: tarfile.TarInfo) -> bool:
     if not member.isreg():
         return False
     if member.name == MANIFEST:
-        return member.size <= _MANIFEST_LIMIT
+        return member.size <= MAX_ARTIFACT_MANIFEST_BYTES
     if member.name.startswith("artifacts/"):
         safe_key(member.name.removeprefix("artifacts/"))
         return 0 <= member.size <= MAX_ARTIFACT_BYTES
@@ -77,7 +79,7 @@ def pack_files(
     from yoke_core.domain.universe_archive import _member
 
     raw = manifest_bytes(manifest)
-    if len(raw) > _MANIFEST_LIMIT:
+    if len(raw) > MAX_ARTIFACT_MANIFEST_BYTES:
         _refuse("manifest exceeds its read limit")
     reader.addfile(_member(MANIFEST, len(raw)), io.BytesIO(raw))
     for key, path in files.items():
@@ -106,7 +108,7 @@ def unpack_files(
         return None
     stream = reader.extractfile(members[MANIFEST])
     with stream:
-        raw = stream.read(_MANIFEST_LIMIT + 1)
+        raw = stream.read(MAX_ARTIFACT_MANIFEST_BYTES + 1)
     if hashlib.sha256(raw).hexdigest() != binding.get("artifacts_manifest_sha256"):
         _refuse("freeze receipt does not bind the artifact manifest")
     try:

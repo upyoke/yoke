@@ -30,6 +30,7 @@ from yoke_cli.transport.response_deadline_read import (
     deadline_after,
 )
 from yoke_contracts.api_urls import UNIVERSE_EXPORT_PATH
+from yoke_contracts.qa_artifact_limits import MAX_ARTIFACT_MANIFEST_BYTES
 
 
 _FILENAME_RE = re.compile(r'filename="([A-Za-z0-9._-]+)"')
@@ -158,7 +159,7 @@ def _artifact_summary(target: Path) -> dict:
             member = archive.getmember("artifacts-manifest.json")
         except KeyError:
             return {"included": 0, "missing": 0, "missing_keys": []}
-        if not member.isfile() or member.size > 64 * 1024 * 1024:
+        if not member.isfile() or member.size > MAX_ARTIFACT_MANIFEST_BYTES:
             raise UniverseExportDownloadError(
                 "archive_artifacts_invalid: manifest exceeds its bound; export again"
             )
