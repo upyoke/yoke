@@ -52,11 +52,15 @@ All JS paths below are the packaged sources; the daemon runs from their material
 | Screenshot engine | `packages/yoke-harness/src/yoke_harness/browser_runtime/src/screenshot.js` | Annotated screenshots with numbered ref badges |
 | Diff engine | `packages/yoke-harness/src/yoke_harness/browser_runtime/src/diff.js` | Pixel-level image comparison via pixelmatch |
 | Step runner | `packages/yoke-harness/src/yoke_harness/browser_runtime/src/step-runner.js` | Scenario step execution |
+| Dialog answers | `packages/yoke-harness/src/yoke_harness/browser_runtime/src/step-dialogs.js` | One declared click dialog; type, message and answer evidence; undeclared dialogs fail as `browser_dialog_unanswered` |
 | Snapshot routes | `packages/yoke-harness/src/yoke_harness/browser_runtime/src/routes/snapshot-routes.js` | HTTP routes for snapshot/screenshot/diff |
 | Exec routes | `packages/yoke-harness/src/yoke_harness/browser_runtime/src/routes/exec-routes.js` | HTTP routes: open/close the page a run owns, run one step on it |
 | `yoke_harness.browser_runtime_home` | `packages/yoke-harness/src/yoke_harness/browser_runtime_home.py` | Single machine-runtime and hash-gated materialization owner |
 | `yoke_core.domain.browser_client` | `packages/yoke-core/src/yoke_core/domain/browser_client.py` | Python daemon client: state, HTTP, lifecycle, exec, snapshot |
 | `yoke_core.domain.browser_qa` | `packages/yoke-core/src/yoke_core/domain/browser_qa.py` | Internal per-requirement Browser scenario orchestration used by the shared case runner |
+
+Click steps use `dialog: "accept"` or `dialog: "dismiss"` to answer one page dialog and record its type and message in the step log.
+To prove a response status or header (for example a 303 and its `Location`), send the request with curl and the session cookie, without following redirects.
 
 ## Daemon Lifecycle
 

@@ -20,6 +20,7 @@ const assertions = require('./step-actions/assertion');
 const capture = require('./step-actions/capture');
 const permissions = require('./step-actions/permissions');
 const { refuseStep } = require('./step-schema');
+const { observeDialogs } = require('./step-dialogs');
 const {
   authenticationWallError,
   isSelectorWaitTimeout,
@@ -87,6 +88,7 @@ function observedState(page) {
  */
 async function executeStep(page, step, options) {
   const startTime = Date.now();
+  let dialogs;
 
   if (!step || !step.action) {
     return {
@@ -149,6 +151,7 @@ async function executeStep(page, step, options) {
       };
     }
 
+    dialogs = observeDialogs(page, step.dialog);
     let result;
     switch (step.action) {
       case 'navigate':
@@ -194,6 +197,8 @@ async function executeStep(page, step, options) {
         throw new Error(`Unknown action: ${step.action}`);
     }
 
+    await dialogs.finish();
+    dialogs.close();
     const settled = await settleGoogleSignIn(page, options.account);
     if (settled.error) {
       return {
@@ -214,6 +219,7 @@ async function executeStep(page, step, options) {
       success: true,
       duration_ms,
       ...observedState(page),
+      ...(dialogs.records.length ? { dialogs: dialogs.records } : {}),
       ...(result.artifacts ? { artifacts: result.artifacts } : {}),
       // An assertion that passed without observing anything says so here.
       // Every action-specific fact has to be forwarded by name, which is
@@ -226,6 +232,9 @@ async function executeStep(page, step, options) {
       signInPage: Boolean(settled.signInPage) || wall,
     };
   } catch (err) {
+    if (dialogs) {
+      try { await dialogs.finish(false); } catch (dialogError) { err = dialogError; }
+    }
     const duration_ms = Date.now() - startTime;
     const wall = await pageShowsAuthenticationWall(page);
     const signInPage = wall || await pageOnGoogleSignIn(page);
@@ -238,9 +247,12 @@ async function executeStep(page, step, options) {
       duration_ms,
       ...observedState(page),
       error,
+      ...(dialogs && dialogs.records.length ? { dialogs: dialogs.records } : {}),
       ...(wall ? { authenticationWall: true } : {}),
       signInPage,
     };
+  } finally {
+    if (dialogs) dialogs.close();
   }
 }
 

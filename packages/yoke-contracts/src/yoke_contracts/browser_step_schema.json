@@ -15,9 +15,12 @@
       }
     },
     "click": {
-      "keys": ["target"],
+      "keys": ["target", "dialog"],
       "fields": {
-        "target": {"type": "non_empty_string", "required": true}
+        "target": {"type": "non_empty_string", "required": true},
+        "dialog": {
+          "type": "enum", "required": false, "values": ["accept", "dismiss"]
+        }
       }
     },
     "type": {

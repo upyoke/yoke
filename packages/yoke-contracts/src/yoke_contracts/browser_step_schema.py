@@ -91,6 +91,12 @@ def declared_schema_help() -> str:
         "artifact. target must be a non-empty string selector, not an "
         "object. On assert, value is refused; use expected."
     )
+    lines.append(
+        'On click, dialog="accept" or dialog="dismiss" answers exactly one '
+        "page dialog and records its type, message and accepted answer. "
+        "An undeclared dialog fails as browser_dialog_unanswered; declare "
+        "dialog on the click. A missing dialog fails as browser_dialog_missing."
+    )
     if "grant_clipboard" in ACTION_STEP_KEYS:
         lines.append(
             "The Chromium runtime grants clipboard-read and clipboard-write "
@@ -137,6 +143,17 @@ def _field_violation(
 ) -> Optional[StepSchemaViolation]:
     present = field in step
     value = step.get(field)
+    if not present and not rule.get("required"):
+        return None
+    if rule.get("type") == "enum":
+        if value not in rule["values"]:
+            return StepSchemaViolation(
+                "step_field_invalid",
+                f"Browser {action} step {index} field {field!r} requires "
+                + " or ".join(repr(choice) for choice in rule["values"])
+                + ".",
+            )
+        return None
     if rule.get("type") == "true":
         if value is not True:
             return StepSchemaViolation(
