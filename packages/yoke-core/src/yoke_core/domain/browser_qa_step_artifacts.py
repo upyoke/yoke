@@ -51,6 +51,7 @@ def record_step_artifacts(
     vacuous_absences: Optional[List[Dict[str, Any]]] = None,
     actor: Optional[ActorContext] = None,
     color_scheme: Optional[Dict[str, Any]] = None,
+    clipped: bool = False,
 ) -> StepArtifacts:
     """Submit each capture of one step durably and describe the outcome."""
     from yoke_core.domain import browser_qa as _bqa
@@ -80,6 +81,8 @@ def record_step_artifacts(
             observed_url=observed_url,
             vacuous_absences=vacuous_absences,
         )
+        if clipped:
+            metadata["clipped"] = True
         if color_scheme is not None:
             metadata["color_scheme"] = dict(color_scheme)
         try:

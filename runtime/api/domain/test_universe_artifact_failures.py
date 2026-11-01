@@ -118,8 +118,8 @@ def test_estimate_refuses_access_denied(monkeypatch):
             )
 
 
-@pytest.mark.parametrize("mode", ["permission", "s3", "checkout", "oversize"])
-def test_export_refuses_unreadable_or_oversized_source_and_cleans_dump(
+@pytest.mark.parametrize("mode", ["permission", "s3", "checkout"])
+def test_export_refuses_unreadable_source_and_cleans_dump(
     tmp_path, monkeypatch, mode
 ):
     monkeypatch.setenv("YOKE_MACHINE_HOME", str(tmp_path / "machine"))
@@ -142,8 +142,6 @@ def test_export_refuses_unreadable_or_oversized_source_and_cleans_dump(
         monkeypatch.setattr(
             project_checkout_locations, "checkout_for_project_id", lambda _: None
         )
-    elif mode == "oversize":
-        monkeypatch.setattr(storage, "MAX_ARTIFACT_BYTES", 2)
     else:
         handle = {"backend": "s3", "bucket": "evidence", "key": "denied"}
         objects = Objects()
@@ -154,22 +152,15 @@ def test_export_refuses_unreadable_or_oversized_source_and_cleans_dump(
         objects.get_object = denied
         monkeypatch.setattr(storage, "_client", lambda *_: objects)
     output = tmp_path / "export.tar"
-    reason = (
-        "archive_artifact_too_large"
-        if mode == "oversize"
-        else "archive_artifact_unreadable"
-    )
     with _canonical_universe() as (conn, dsn):
         _seed(conn, handle)
         with pytest.raises(universe_export.UniverseExportError) as caught:
             universe_export.export_universe(dsn=dsn, out=output)
         message = str(caught.value)
-        assert reason + ": yoke qa-artifacts/" in message
+        assert "archive_artifact_unreadable: yoke qa-artifacts/" in message
         assert "--exclude-artifacts" in message
         if mode == "checkout":
             assert "attach or register" in message
-        if mode == "oversize":
-            assert "per-file limit" in message
         assert not output.exists()
         assert not list(tmp_path.glob(".*.dump"))
         # Explicit exclusion bypasses reads while retaining a valid DB archive.

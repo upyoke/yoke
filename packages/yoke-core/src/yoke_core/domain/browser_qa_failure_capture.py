@@ -136,6 +136,7 @@ def capture_failed_assertion_page(
         observed_url=str(data.get("url") or "") if isinstance(data, dict) else "",
         actor=actor,
         color_scheme=scheme_evidence,
+        clipped=data.get("clipped") is True,
     )
     if recorded.failures:
         return (

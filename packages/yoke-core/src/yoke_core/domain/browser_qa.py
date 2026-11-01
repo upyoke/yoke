@@ -76,8 +76,8 @@ from yoke_core.domain.browser_qa_steps import (
     _record_artifact,
     _record_artifact_file,
     _record_run,
-    _upload_artifact,
 )
+from yoke_core.domain.browser_qa_upload import _upload_artifact
 from yoke_core.domain.browser_qa_sign_in_evidence import (
     load_project_browser_identities,
 )

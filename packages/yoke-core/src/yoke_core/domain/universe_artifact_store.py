@@ -1,4 +1,4 @@
-"""Bounded file transfer using explicit source handles and destination stores."""
+"""Streaming file transfer using explicit source handles and destination stores."""
 
 from __future__ import annotations
 
@@ -6,7 +6,6 @@ from contextlib import closing, contextmanager
 from pathlib import Path
 from typing import Any, Callable, Iterator
 
-from yoke_contracts.qa_artifact_limits import MAX_ARTIFACT_BYTES
 from yoke_core.domain import json_helper, machine_config
 from yoke_core.domain.aws_machine_client import (
     machine_aws_client,
@@ -18,10 +17,6 @@ from yoke_core.domain.handlers.qa_artifact_presign import (
 )
 from yoke_core.domain.qa_artifact_handle import local_handle, s3_handle
 from yoke_core.domain.universe_archive import UniverseArchiveError
-
-
-class ArtifactTooLargeError(OSError):
-    """Source bytes exceed the portable per-file bound."""
 
 
 class ArtifactCheckoutUnavailableError(OSError):
@@ -83,7 +78,7 @@ def read_handle(
             yield stream
 
 
-def copy_bounded(source: Any, destination: Path) -> tuple[str, int]:
+def copy_with_digest(source: Any, destination: Path) -> tuple[str, int]:
     import hashlib
 
     digest = hashlib.sha256()
@@ -93,10 +88,6 @@ def copy_bounded(source: Any, destination: Path) -> tuple[str, int]:
         destination.chmod(0o600)
         while chunk := source.read(1 << 20):
             total += len(chunk)
-            if total > MAX_ARTIFACT_BYTES:
-                raise ArtifactTooLargeError(
-                    "source exceeds the per-file artifact limit"
-                )
             digest.update(chunk)
             sink.write(chunk)
     return digest.hexdigest(), total

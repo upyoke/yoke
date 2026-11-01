@@ -13,6 +13,7 @@ const { resolvePresenceTarget } = require('./target-helpers');
 
 // Default timeout for bringing a capture target into view.
 const DEFAULT_TIMEOUT_MS = 5000;
+const MAX_FULL_PAGE_HEIGHT = 10000;
 
 function screenshotBasename(step) {
   const timestamp = Date.now();
@@ -71,6 +72,19 @@ async function executeScreenshot(page, step, options, refMap) {
     return { success: true, artifacts: [screenshotPath] };
   }
 
+  if (step.fullPage) {
+    const dimensions = await page.evaluate(() => ({
+      width: Math.max(document.documentElement.scrollWidth, document.body?.scrollWidth || 0),
+      height: Math.max(document.documentElement.scrollHeight, document.body?.scrollHeight || 0),
+    }));
+    if (dimensions.height > MAX_FULL_PAGE_HEIGHT) {
+      await page.screenshot({
+        path: screenshotPath,
+        clip: { x: 0, y: 0, width: dimensions.width, height: MAX_FULL_PAGE_HEIGHT },
+      });
+      return { success: true, artifacts: [screenshotPath], clipped: true };
+    }
+  }
   await page.screenshot({ path: screenshotPath, fullPage: !!step.fullPage });
   return { success: true, artifacts: [screenshotPath] };
 }

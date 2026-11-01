@@ -94,6 +94,7 @@ def _configure(conn, routing):
         (False, False, False),
         (False, True, False),
         (True, False, False),
+        (True, True, False),
         (False, False, True),
     ],
 )
@@ -104,7 +105,7 @@ def test_archive_roundtrip_rehomes_bytes(
     monkeypatch.setattr(store, "_client", lambda project, routing: objects)
     source_home, dest_home = tmp_path / "source-home", tmp_path / "dest-home"
     monkeypatch.setenv(machine_runtime.HOME_ENV, str(source_home))
-    content = b"portable QA evidence\x00\xff"
+    content = bytes(range(256)) * (30 * 1024 * 1024 // 256)
     shared = b"shared file bytes"
     local = source_home / "artifacts" / "original.txt"
     local.parent.mkdir(parents=True)

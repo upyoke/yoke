@@ -104,7 +104,7 @@ class TestQaArtifactAdd(unittest.TestCase):
             with patch(
                 "yoke_core.domain.handlers.qa_artifact_presign.resolve_artifacts_bucket",
                 return_value=("prod", "yoke-prod-artifacts", None),
-            ):
+            ), patch("yoke_core.domain.qa_artifact_size.handle_size", return_value=3):
                 outcome = qa_browser_writes.handle_qa_artifact_add(
                     _request(
                         "qa.artifact.add",
@@ -168,7 +168,7 @@ class TestQaArtifactAdd(unittest.TestCase):
             with patch(
                 "yoke_core.domain.handlers.qa_artifact_presign.resolve_artifacts_bucket",
                 return_value=("prod", "yoke-prod-artifacts", None),
-            ):
+            ), patch("yoke_core.domain.qa_artifact_size.handle_size", return_value=3):
                 first = qa_browser_writes.handle_qa_artifact_add(
                     _request(
                         "qa.artifact.add",
@@ -241,7 +241,7 @@ class TestQaArtifactAdd(unittest.TestCase):
             with patch(
                 "yoke_core.domain.handlers.qa_artifact_presign.resolve_artifacts_bucket",
                 return_value=("prod", "yoke-prod-artifacts", None),
-            ):
+            ), patch("yoke_core.domain.qa_artifact_size.handle_size", return_value=3):
                 threads = [
                     threading.Thread(target=_caller, args=(index,))
                     for index in (0, 1)
