@@ -78,9 +78,8 @@ to see the result.
 Setup wires the project to Yoke and installs its operating guidance. It does
 not install an application scaffold. The installed `yoke` skill
 (`$yoke onboard` in Codex; `/yoke onboard` in Claude Code or Cursor)
-starts from the project's
-existing work and configures only what the first work needs, including the
-chosen application Pack when that work needs one. The webapp scaffold contributes an application-docs
+surveys existing work, plans dashes and configures only their needs, including
+any chosen application Pack, then hands off to `/yoke steer`. The webapp scaffold contributes an application-docs
 reference to canonical `AGENTS.md` and a marked `.gitignore` block; project
 guidance, the Yoke managed block and custom ignore rules remain intact.
 Preview with `yoke packs get webapp-scaffold /path/to/project --project P`,

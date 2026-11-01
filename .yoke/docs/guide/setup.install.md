@@ -30,13 +30,13 @@ For the exact agent protocol, see [Agent setup](../start/agent-setup.md).
 
 ## Onboarding
 
-Once setup is complete, your agent runs `/yoke onboard`. It reviews the project and existing work, helps establish strategy and near-term priorities, and configures what the first work needs to be tested and deployed.
+Once setup is complete, your agent runs `/yoke onboard`. It reviews the project and existing work, helps establish strategy and near-term priorities, and configures what the first dashes need to be tested and deployed.
 
 Onboarding can reuse an existing application rather than replacing it with a scaffold. Together, you choose relevant tests, delivery settings, Packs, and database setup. Optional capabilities can be deferred. Credentials and infrastructure changes require the relevant choices and approvals; having a capability available does not mean every project must configure it.
 
 Database onboarding can register a migration model or record that it will be attached later. It does not itself rehearse or apply migrations. See [Databases and migrations](databases.md) for the project-specific integration.
 
-After `/yoke onboard`, your agent uses Yoke to organize work, staff it across available machines and coding agents, and deliver it. It keeps you informed and brings key decisions to you. See [Steering and fleet control](sessions.md).
+After `/yoke onboard`, `/yoke steer` vets proposed dashes and presents each for your approval before filing, then staffs and delivers them. It brings decisions to you one at a time. See [Steering and fleet control](sessions.md).
 
 ## Supported machines and prerequisites
 

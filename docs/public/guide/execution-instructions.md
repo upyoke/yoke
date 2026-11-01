@@ -6,7 +6,7 @@
 
 Execution instructions are snippets of custom project-specific context that you and your agents configure through Yoke to reach the right agent at exactly the right time. They capture conventions, constraints, reminders, or procedures and can apply to selected projects, workflows, and workflow stages.
 
-Manage instructions through your agent or the Workflows dashboard page. During `/yoke onboard`, your agent can help identify and configure the instructions your first work needs.
+Manage instructions through your agent or the Workflows dashboard page. `/yoke onboard` configures only the first dashes’ instructions.
 
 ## Instruction content
 

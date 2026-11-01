@@ -172,7 +172,7 @@ run and its members then close together.
 There is no separate Hosting destination. Hosting shows up as:
 
 - Packs (production-deploy, runners, environment infra, …)
-- `/yoke onboard` gated first deploy, when the first work deploys to managed infrastructure
+- `/yoke onboard` configures delivery only for first dashes that need managed infrastructure
 - Environment settings (projected scalar reads only — never dump whole
   settings documents)
 

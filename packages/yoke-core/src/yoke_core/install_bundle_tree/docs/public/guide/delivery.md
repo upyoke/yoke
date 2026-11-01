@@ -22,7 +22,7 @@ Preview, dev, staging, and Production are useful names and purposes, not a requi
 
 ### Environment settings
 
-Your agent registers environments and connects the settings to the project's actual infrastructure. Onboarding configures what the first work needs rather than inventing deployment targets for a project that does not deploy. [Site and environment reference](../deployments/model/flows.md)
+Your agent registers environments and connects the settings to the project's actual infrastructure. Onboarding configures delivery only for first dashes that deploy. [Site and environment reference](../deployments/model/flows.md)
 
 ## Deployment flows
 

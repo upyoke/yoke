@@ -1,7 +1,7 @@
 # Blitz document handoff
 
-For a doc chunk that needs Blitz, file it with `/yoke idea --workflow blitz`
-with its dependency edges or explicit no-edges, then:
+When the operator chooses Blitz, file `/yoke idea --workflow blitz` with
+dependency edges or explicit no-edges, then:
 
 ```text
 yoke strategy execution link ITEM --slug {SLUG} --project {_project}
