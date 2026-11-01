@@ -80,6 +80,7 @@ async function executeScreenshot(page, step, options, refMap) {
     if (dimensions.height > MAX_FULL_PAGE_HEIGHT) {
       await page.screenshot({
         path: screenshotPath,
+        fullPage: true,
         clip: { x: 0, y: 0, width: dimensions.width, height: MAX_FULL_PAGE_HEIGHT },
       });
       return { success: true, artifacts: [screenshotPath], clipped: true };
