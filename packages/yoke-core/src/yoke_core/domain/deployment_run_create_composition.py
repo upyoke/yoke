@@ -124,6 +124,7 @@ def compose_run(
         prospective_previous_release,
     )
     from yoke_core.domain.deployment_runs_validation import cmd_validate_composition
+    from yoke_core.domain.deployment_run_bound_sources import record_bound_sources
     from yoke_core.domain.deployment_start_timing import timed_preparation
     from yoke_core.domain.workflow_item_binding_lock import (
         lock_item_workflow_bindings,
@@ -167,6 +168,8 @@ def compose_run(
         # bound branches here would let a retry ship a consumer revision
         # the run it retries never carried.
         copy_bound_sources(conn, inherit_members_from, run_id)
+    # Takeover admits transferred members against every project this run ships.
+    timed_preparation("create_bound_sources", record_bound_sources, conn, run_id)
     unlocked = run_id.startswith(UNLOCKED_RUN_PREFIX)
     taken_over = timed_preparation(
         "create_takeover",
