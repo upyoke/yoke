@@ -72,11 +72,15 @@ def download_self_host_universe(
                 ),
                 headers={"Cache-Control": "no-store"},
             )
-        except (RuntimeError, OSError, ValueError):
+        except (RuntimeError, OSError, ValueError) as exc:
+            from yoke_core.domain.universe_archive import UniverseArchiveError
+
             return _error(
                 409,
                 "universe_estimate_failed",
-                "repair source storage access and retry the estimate",
+                str(exc)
+                if isinstance(exc, UniverseArchiveError)
+                else "repair source storage access and retry the estimate",
             )
     directory = Path(tempfile.mkdtemp(prefix="yoke-self-host-export-"))
     directory.chmod(0o700)

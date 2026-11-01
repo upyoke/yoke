@@ -8,6 +8,7 @@ import urllib.parse
 import os
 import re
 import secrets
+import tarfile
 import urllib.error
 import urllib.request
 from pathlib import Path
@@ -29,6 +30,7 @@ from yoke_cli.transport.response_deadline_read import (
     deadline_after,
 )
 from yoke_contracts.api_urls import UNIVERSE_EXPORT_PATH
+from yoke_contracts.qa_artifact_limits import MAX_ARTIFACT_MANIFEST_BYTES
 
 
 _FILENAME_RE = re.compile(r'filename="([A-Za-z0-9._-]+)"')
@@ -127,6 +129,7 @@ def download_universe(
                 "org": str(response.headers.get("x-yoke-universe-org") or ""),
                 "sha256": str(response.headers.get("x-yoke-universe-sha256") or ""),
                 "source": "self-host-https",
+                "artifacts": _artifact_summary(target),
             }
     except urllib.error.HTTPError as exc:
         detail = _http_error_detail(exc, connection.token)
@@ -136,6 +139,7 @@ def download_universe(
     except (
         HttpFinalUrlError,
         HttpOpenPolicyError,
+        tarfile.TarError,
         ResponseOpenDeadlineError,
         ResponseReadError,
         urllib.error.URLError,
@@ -146,6 +150,37 @@ def download_universe(
         raise UniverseExportDownloadError(
             f"the self-host universe export could not complete safely: {exc}"
         ) from exc
+
+
+def _artifact_summary(target: Path) -> dict:
+    """Read the archive's manifest so HTTPS and local summaries agree."""
+    with tarfile.open(target) as archive:
+        try:
+            member = archive.getmember("artifacts-manifest.json")
+        except KeyError:
+            return {"included": 0, "missing": 0, "missing_keys": []}
+        if not member.isfile() or member.size > MAX_ARTIFACT_MANIFEST_BYTES:
+            raise UniverseExportDownloadError(
+                "archive_artifacts_invalid: manifest exceeds its bound; export again"
+            )
+        with archive.extractfile(member) as stream:
+            manifest = json.load(stream)
+        entries = manifest.get("entries") if isinstance(manifest, dict) else None
+        if not isinstance(entries, list) or any(
+            not isinstance(entry, dict)
+            or entry.get("status") not in {"included", "missing"}
+            or not isinstance(entry.get("key"), str)
+            for entry in entries
+        ):
+            raise UniverseExportDownloadError(
+                "archive_artifacts_invalid: manifest entries are invalid; export again"
+            )
+    missing = [e["key"] for e in entries if e["status"] == "missing"]
+    return {
+        "included": sum(e["status"] == "included" for e in entries),
+        "missing": len(missing),
+        "missing_keys": missing,
+    }
 
 
 def _engine_limits() -> tuple[float, int]:

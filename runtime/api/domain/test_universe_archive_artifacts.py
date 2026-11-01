@@ -11,7 +11,7 @@ from yoke_core.domain.universe_archive_artifacts import MANIFEST
 from runtime.api.domain.test_universe_archive import _receipt_for
 
 
-def _pack(tmp_path):
+def _pack(tmp_path, missing_reason="artifact_source_absent"):
     dump = tmp_path / "source.dump"
     dump.write_bytes(b"PGDMPexample")
     file = tmp_path / "screenshot.png"
@@ -33,7 +33,7 @@ def _pack(tmp_path):
                 "key": "qa-artifacts/example/item/1/missing.png",
                 "status": "missing",
                 "original_handle": {"backend": "local", "path": "/gone/file"},
-                "reason": "artifact_source_unreadable",
+                "reason": missing_reason,
             },
         ],
     }
@@ -48,8 +48,11 @@ def _pack(tmp_path):
     return target, key, file
 
 
-def test_manifest_and_files_roundtrip(tmp_path):
-    target, key, file = _pack(tmp_path)
+@pytest.mark.parametrize(
+    "reason", ["artifact_source_absent", "artifact_handle_or_owner_unavailable"]
+)
+def test_manifest_and_files_roundtrip(tmp_path, reason):
+    target, key, file = _pack(tmp_path, reason)
     with archive.unpacked_universe_archive(target, max_dump_bytes=1 << 20) as (
         dump,
         receipt,

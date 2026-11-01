@@ -23,14 +23,23 @@ included file and refuses extra, unsafe, missing or tampered members.
 Two-member archives remain valid and restore their database as before.
 
 Export reads each QA handle from its named local or S3 store and lists shared
-files from each project's store. Unreadable files appear as `missing` entries
-with a reason; retain the archive to inspect those entries and recover the
-source files before a later export. A store that cannot list shared files
-refuses rather than silently omitting unknown files. `--exclude-artifacts`
-exports only the database and receipt. `yoke universe export --estimate --json`
-reports a database-size estimate plus artifact bytes, file and missing counts
-without making a dump; the database-size estimate is not a compressed dump size.
-Both options also work through the authenticated self-host export endpoint.
+files from each project's store. Confirmed absent files appear as `missing`
+entries with
+`artifact_source_absent`; unavailable handles or owners retain
+`artifact_handle_or_owner_unavailable`. Both export summaries print the missing
+count and keys. Access, credential, network and other read failures refuse with
+`archive_artifact_unreadable`: repair access and retry, or use
+`--exclude-artifacts`. Relative handles require the project's checkout on this
+machine; attach or register it and retry. Files beyond the per-file limit refuse
+with `archive_artifact_too_large`; use `--exclude-artifacts`. Estimates apply the
+same classification. Refusals write no new archive. A source paused by
+`--pause-source` stays paused; run `yoke universe resume` when it may write again.
+A store that cannot list shared files refuses rather than omitting unknown files.
+`--exclude-artifacts` exports only the database and receipt.
+`yoke universe export --estimate --json` reports a database-size estimate plus
+artifact bytes, file and missing counts without making a dump; the database-size
+estimate is not a compressed dump size. Both options also work through the
+authenticated self-host export endpoint.
 
 Local and self-host imports capture destination storage routing before replacing
 the database, write files to that store, and rewrite QA handles. Imported source
@@ -112,7 +121,7 @@ yoke universe validate /secure/source.tar
 
 Export checks output-folder write access before pausing; an unavailable path
 refuses with `universe_export_destination_unavailable` and leaves a running
-source running. The completion summary names only included artifact paths.
+source running. The completion summary names included artifact paths and missing file counts and keys.
 The pause stops the selected source's installed relay, sets PostgreSQL's
 `ALLOW_CONNECTIONS=false` on the source database and terminates its existing
 sessions. Older engines and raw PostgreSQL clients cannot reconnect, even as the

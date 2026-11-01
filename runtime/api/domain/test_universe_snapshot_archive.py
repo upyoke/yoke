@@ -132,7 +132,7 @@ def test_manifest_receipt_passes_hosted_admission(monkeypatch, tmp_path):
 @pytest.mark.parametrize(
     "kinds", [[], ["qa-artifacts"], ["shared-files"], ["qa-artifacts", "shared-files"]]
 )
-def test_summary_names_only_included_artifact_paths(monkeypatch, tmp_path, kinds):
+def test_summary_names_included_paths_and_missing_keys(monkeypatch, tmp_path, kinds):
     from yoke_core.domain import universe_artifact_transfer
 
     monkeypatch.setenv("YOKE_MACHINE_HOME", str(tmp_path / "machine"))
@@ -175,6 +175,8 @@ def test_summary_names_only_included_artifact_paths(monkeypatch, tmp_path, kinds
     assert "universe.dump" in summary
     assert "freeze-receipt.json" in summary
     assert "artifacts-manifest.json" in summary
+    assert "missing artifacts: 1 (qa-artifacts/project/missing)" in summary
+    assert report["artifacts"]["missing_keys"] == ["qa-artifacts/project/missing"]
     for kind in ("qa-artifacts", "shared-files"):
         prefix = "artifacts/" + kind
         assert (prefix in summary) == any(m.startswith(prefix + "/") for m in members)

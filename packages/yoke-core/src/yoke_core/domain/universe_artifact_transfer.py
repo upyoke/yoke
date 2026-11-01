@@ -6,6 +6,7 @@ import json
 from pathlib import Path
 from typing import Any, Callable
 
+from yoke_contracts.qa_artifact_limits import MAX_ARTIFACT_BYTES
 from yoke_core.domain import db_backend
 from yoke_core.domain import universe_artifact_store as storage
 from yoke_core.domain.qa_artifact_handle import parse_handle, serialize_handle
@@ -68,12 +69,43 @@ def artifact_sources(
         sources.extend(
             storage.shared_sources(conn, stores, client_factory=client_factory)
         )
+    except UniverseArchiveError:
+        raise
     except Exception as exc:
         raise UniverseArchiveError(
             "archive_shared_files_unlisted: cannot list the source store; "
             "repair its access or export with --exclude-artifacts"
         ) from exc
     return sources
+
+
+def classify_source_failure(source: dict, exc: Exception) -> str:
+    """Keep confirmed absence; refuse every failure that can hide source bytes."""
+    if isinstance(exc, UniverseArchiveError):
+        raise exc
+    from botocore.exceptions import ClientError
+
+    if isinstance(exc, FileNotFoundError) or (
+        isinstance(exc, ClientError)
+        and str(exc.response.get("Error", {}).get("Code")) in {"NoSuchKey", "404"}
+    ):
+        return "artifact_source_absent"
+    identity = f"{source.get('project', 'unknown')} {source['key']}"
+    if isinstance(exc, storage.ArtifactTooLargeError):
+        raise UniverseArchiveError(
+            f"archive_artifact_too_large: {identity}: per-file limit is "
+            f"{MAX_ARTIFACT_BYTES} bytes; export with --exclude-artifacts"
+        ) from exc
+    recovery = "repair access to that file or store and retry"
+    if isinstance(exc, storage.ArtifactCheckoutUnavailableError):
+        recovery = (
+            "attach or register that project's checkout on this machine and retry"
+        )
+    raise UniverseArchiveError(
+        f"archive_artifact_unreadable: {identity}: "
+        f"{storage.safe_aws_error_reason(exc)}; {recovery}, "
+        "or export with --exclude-artifacts"
+    ) from exc
 
 
 def collect_artifacts(
@@ -107,10 +139,7 @@ def collect_artifacts(
                 target.unlink(missing_ok=True)
                 entry.update(
                     status="missing",
-                    reason=(
-                        "artifact_source_unreadable:"
-                        + storage.safe_aws_error_reason(exc)
-                    ),
+                    reason=classify_source_failure(source, exc),
                 )
         entries.append(entry)
     return {"version": 1, "entries": entries}, files
@@ -201,6 +230,7 @@ def estimate_universe(
             conn.execute("SELECT pg_database_size(current_database())").fetchone()[0]
         )
         total = missing = count = 0
+        missing_keys = []
         if not exclude_artifacts:
             if stores is None:
                 stores = storage.project_stores(conn)
@@ -208,26 +238,33 @@ def estimate_universe(
                 count += 1
                 if source.get("status") == "missing":
                     missing += 1
+                    missing_keys.append(source["key"])
                     continue
                 try:
                     if "bytes" in source:
-                        total += source["bytes"]
+                        size = source["bytes"]
                     else:
-                        total += storage.handle_size(
+                        size = storage.handle_size(
                             source["original_handle"],
                             project=source["project"],
                             store=stores.get(source["project"], {}),
                             repo_root=source.get("repo_root"),
                             client_factory=client_factory,
                         )
-                except Exception:
+                    if size > MAX_ARTIFACT_BYTES:
+                        raise storage.ArtifactTooLargeError()
+                    total += size
+                except Exception as exc:
+                    classify_source_failure(source, exc)
                     missing += 1
+                    missing_keys.append(source["key"])
         return {
             "estimated_dump_bytes": dump_bytes,
             "artifact_bytes": total,
             "estimated_bytes": dump_bytes + total,
             "artifact_count": count,
             "missing_artifacts": missing,
+            "missing_artifact_keys": missing_keys,
             "estimate": True,
         }
     finally:

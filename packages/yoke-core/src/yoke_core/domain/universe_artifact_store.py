@@ -20,6 +20,14 @@ from yoke_core.domain.qa_artifact_handle import local_handle, s3_handle
 from yoke_core.domain.universe_archive import UniverseArchiveError
 
 
+class ArtifactTooLargeError(OSError):
+    """Source bytes exceed the portable per-file bound."""
+
+
+class ArtifactCheckoutUnavailableError(OSError):
+    """A relative source handle needs its project checkout."""
+
+
 def project_stores(conn: Any) -> dict[str, dict]:
     """Capture routing before a restore replaces the destination database."""
     from yoke_core.domain.schema_common import _table_exists
@@ -61,7 +69,9 @@ def read_handle(
         path = Path(handle["path"])
         if not path.is_absolute():
             if not repo_root:
-                raise OSError("relative source path has no project checkout")
+                raise ArtifactCheckoutUnavailableError(
+                    "relative source path has no project checkout"
+                )
             path = Path(repo_root) / path
         with path.open("rb") as stream:
             yield stream
@@ -84,7 +94,9 @@ def copy_bounded(source: Any, destination: Path) -> tuple[str, int]:
         while chunk := source.read(1 << 20):
             total += len(chunk)
             if total > MAX_ARTIFACT_BYTES:
-                raise OSError("source exceeds the per-file artifact limit")
+                raise ArtifactTooLargeError(
+                    "source exceeds the per-file artifact limit"
+                )
             digest.update(chunk)
             sink.write(chunk)
     return digest.hexdigest(), total
@@ -214,7 +226,9 @@ def handle_size(
     path = Path(handle["path"])
     if not path.is_absolute():
         if not repo_root:
-            raise OSError("relative source path has no project checkout")
+            raise ArtifactCheckoutUnavailableError(
+                "relative source path has no project checkout"
+            )
         path = Path(repo_root) / path
     return path.stat().st_size
 

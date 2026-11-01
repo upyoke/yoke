@@ -221,10 +221,17 @@ def universe_export(args: List[str]) -> int:
         print(f"estimated bytes: {report.get('estimated_bytes')}")
         print(f"artifact bytes: {report.get('artifact_bytes')}")
         print(f"missing artifacts: {report.get('missing_artifacts')}")
+        for key in report.get("missing_artifact_keys", []):
+            print(f"  missing: {key}")
     else:
         print(f"universe export: {report.get('artifact')}")
         print(f"org: {report.get('org')}")
         print(f"format: {report.get('format')} bytes: {report.get('bytes')}")
+        artifacts = report.get("artifacts", {})
+        if artifacts.get("missing"):
+            print(f"missing artifacts: {artifacts['missing']}")
+            for key in artifacts.get("missing_keys", []):
+                print(f"  missing: {key}")
     return 0
 
 
