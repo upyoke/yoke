@@ -9,8 +9,8 @@ Do not continue independent work against both copies.
 
 Record in the move item's Progress Log: source and destination orgs and tenant
 ids; three moved project ids/slugs;
-checkout paths; source pause/resume authority; outage window; rollback
-window; and owner for each step. Substitute these recorded values below.
+checkout paths; source pause/resume authority; outage window; saved backup
+location and recovery owner; and owner for each step. Substitute these recorded values below.
 `DESTINATION` is the new Stage org's HTTPS connection. Keep any archive in an owner-only directory outside Git; never record signed
 links, tokens or credentials in the Progress Log.
 
@@ -72,8 +72,9 @@ On each machine, confirm command help accepts `--protected` before proceeding.
    not establish safety. Do not clear Production's marker.
 
 6. Estimate and prune before pausing the source. Hosted sources use
-   **Download** on the dashboard's **Move universe** page; its size preflight
-   enforces a 10 GiB cap before pausing, and its signed link lasts one hour.
+   **Prepare archive** in the dashboard's **Universe portability** controls;
+   its size preflight enforces a 10 GiB cap before pausing. Once ready, use
+   **Download archive** or **Copy link**; its signed link lasts one hour.
    Local and self-host sources use the active source connection:
 
    ```text
@@ -87,24 +88,27 @@ On each machine, confirm command help accepts `--protected` before proceeding.
    creates a frozen copy before
    the snapshot. It stays in effect after either success or failure until Resume.
    A backup export without the flag cannot be used for hosted replacement.
-   Hosted CLI export refuses and names dashboard Download; protected direct
+   Hosted CLI export refuses and names **Prepare archive** in the dashboard's
+   **Universe portability** controls; protected direct
    database connections do not bypass the dashboard.
 
-7. On the destination dashboard's **Move universe** page, paste the hosted
-   source's signed link into **Import**. For a local or self-host archive:
+7. In the destination dashboard's **Universe portability** controls, choose
+   **Import archive** and paste the hosted source's signed link. For a local or self-host archive:
 
    ```text
    yoke --env DESTINATION universe upload /secure/source.tar --org DESTINATION_ORG
    ```
 
-   Follow the printed dashboard path to finish Import. The archive streams
+   Follow the printed dashboard path to finish **Import archive**. The archive streams
    directly to signed multipart storage targets. There is no browser upload
    or separate source-bucket copy: import fetches from configured source
    buckets and restores artifacts before the destination serves.
-   Save the receipt and rollback deadline. Compare project, item, actor and
-   dependency counts and verify identity links and sample artifact reads.
-   Finish steps 7–10 within the recorded rollback window. Rollback also
-   requires rebinding repositories on Production before resuming merges.
+   Take the offered pre-import destination backup and save it outside Git
+   before confirming permanent replacement. Save the finalized receipt.
+   Compare project, item, actor and dependency counts and verify identity
+   links and sample artifact reads. There is no rollback action or window;
+   restoring the old destination requires importing its saved backup as a
+   new replacement, which replaces later destination writes.
    Resume the hosted source through **Resume source**, or run
    `yoke universe resume` against a local/self-host source. Verify people
    staying there can sign in and read their work. An export that fails after pausing also needs
@@ -191,7 +195,7 @@ On each machine, confirm command help accepts `--protected` before proceeding.
     Record the final text and returned instruction in the Progress Log. Until
     this step, the operator's attended run overrides the old release policy.
 
-16. After the rollback window and artifact checks pass, retire the old
+16. After destination acceptance and artifact checks pass, retire the old
     source only if nobody still uses it. In a shared source universe, retire
     only the moved project copies through their product commands. Preserve
     the receipt and archive according to the operator's recovery policy.
@@ -204,9 +208,11 @@ On each machine, confirm command help accepts `--protected` before proceeding.
 
 ## Recovery
 
-Before import, use Resume source on a hosted source, or `yoke universe resume`
-on a local/self-host source, even after an export failure. After import, use
-the destination's latest replacement and its exact typed rollback confirmation
-within the recorded window; rollback discards later destination writes.
-Stop destination work first and preserve receipts. Rebind repositories on
-Production through Platform's cutover runbook before resuming merges after rollback.
+Before import, use **Resume source** on a hosted source, or `yoke universe resume`
+on a local/self-host source, even after an export failure. If a source link expires,
+use **Prepare archive** again in its dashboard's **Universe portability** controls
+and retry with the fresh link. Preserve the original archive and receipts.
+After import, restoring the old destination requires a new import of its saved
+pre-import backup. Stop destination work and preserve any later writes first;
+the new replacement permanently replaces them. Rebind repositories through
+Platform's cutover runbook before resuming merges against the restored destination.
