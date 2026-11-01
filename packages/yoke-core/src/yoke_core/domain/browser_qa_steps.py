@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import base64
+import json
 import os
 from pathlib import Path
 from typing import Any, Dict, Optional
@@ -40,13 +41,7 @@ def _execute_step(
     artifact_dir: str,
     page_id: str,
 ) -> Dict[str, Any]:
-    """Execute a single scenario step on the case's own page.
-
-    ``page_id`` is the page this case opened for itself, so every step of the
-    case observes the same screen and no other run can be handed it.
-
-    Returns the parsed JSON response from the daemon, or an error dict.
-    """
+    """Execute a step on its case's page and log the dialog observations."""
     from yoke_core.domain.browser_client import execute_step, daemon_running
     from yoke_core.domain.browser_qa_sign_in_evidence import current_google_account
 
@@ -54,13 +49,19 @@ def _execute_step(
         return {"success": False, "error": "env_setup_failure", "exit_code": 2}
 
     try:
-        return execute_step(
+        response = execute_step(
             step_json,
             base_url,
             output_dir=artifact_dir,
             page_id=page_id,
             account=current_google_account(),
         )
+        from yoke_core.domain.browser_qa import _log
+
+        data = response.get("data", response)
+        for dialog in data.get("dialogs", []):
+            _log("  Dialog: " + json.dumps(dialog, ensure_ascii=True))
+        return response
     except RuntimeError as e:
         return {"success": False, "error": str(e)}
 

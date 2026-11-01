@@ -115,3 +115,71 @@ def test_step_help_publishes_the_declared_schema(
     printed = capsys.readouterr().out
     assert "navigate: route" in printed
     assert "grant_clipboard" in printed
+
+
+@pytest.mark.parametrize("dialog", ["accept", "dismiss"])
+def test_click_accepts_a_declared_dialog(dialog: str) -> None:
+    from yoke_contracts.browser_step_schema import step_schema_violation
+
+    assert (
+        step_schema_violation(
+            0,
+            {
+                "action": "click",
+                "target": "#remove",
+                "dialog": dialog,
+            },
+        )
+        is None
+    )
+
+
+@pytest.mark.parametrize(
+    "dialog",
+    [
+        None,
+        [],
+        {},
+        True,
+        1,
+        "yes",
+        {"accept": True},
+    ],
+)
+def test_invalid_dialog_is_refused_before_execution(dialog) -> None:
+    from yoke_contracts.browser_step_schema import step_schema_violation
+
+    assert (
+        step_schema_violation(
+            0,
+            {
+                "action": "click",
+                "target": "#remove",
+                "dialog": dialog,
+            },
+        )
+        is not None
+    )
+
+
+def test_dialog_is_only_defined_on_click() -> None:
+    from yoke_contracts.browser_step_schema import step_schema_violation
+
+    found = step_schema_violation(
+        0,
+        {
+            "action": "navigate",
+            "route": "/",
+            "dialog": "accept",
+        },
+    )
+    assert found is not None
+    assert found.code == "step_key_unrecognized"
+    assert "dialog" in found.message
+
+
+def test_dialog_help_teaches_the_answer_and_failure() -> None:
+    text = declared_schema_help()
+    assert "dialog=" in text
+    assert "browser_dialog_unanswered" in text
+    assert 'dialog="dismiss"' in text

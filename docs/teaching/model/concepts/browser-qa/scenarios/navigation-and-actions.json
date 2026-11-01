@@ -2,8 +2,8 @@
  "id": "navigation-and-actions",
  "title": "Navigation and actions",
  "status": "observed",
- "summary": "A navigate step reads the HTTP status it lands on. HTTP 401 or 403 fails as an authentication refusal with the session recovery; HTTP 404 fails as route_not_found naming the URL, so the author corrects the route instead of debugging a later missing element. Hosted Yoke dashboard routes carry the /orgs/<org>/ prefix (Yoke's own testing guide).",
- "sources": ["docs/public/verification/browser-scenarios.md", "packages/yoke-harness/src/yoke_harness/browser_runtime/src/step-actions/navigation.js", "packages/yoke-harness/src/yoke_harness/browser_runtime/tests/step-runner-navigate-status.test.js", "docs/testing-verification.md"],
+ "summary": "A navigate step reads the HTTP status it lands on. HTTP 401 or 403 fails as an authentication refusal with the session recovery; HTTP 404 fails as route_not_found naming the URL, so the author corrects the route instead of debugging a later missing element. Hosted Yoke dashboard routes carry the /orgs/<org>/ prefix (Yoke's own testing guide). A click declares dialog as accept or dismiss to answer exactly one page dialog. Results and the case step log record its type, message and accepted answer. An undeclared or extra dialog fails as browser_dialog_unanswered; a missing declared dialog also fails. The author checks page state before retrying a mutation.",
+ "sources": ["docs/public/verification/browser-scenarios.md", "packages/yoke-harness/src/yoke_harness/browser_runtime/src/step-actions/navigation.js", "packages/yoke-harness/src/yoke_harness/browser_runtime/tests/step-runner-navigate-status.test.js", "packages/yoke-harness/src/yoke_harness/browser_runtime/src/step-dialogs.js", "packages/yoke-harness/src/yoke_harness/browser_runtime/tests/step-runner-dialogs.test.js", "docs/testing-verification.md"],
  "page": "browser-qa",
  "position": 0
 }

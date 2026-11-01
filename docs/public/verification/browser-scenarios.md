@@ -118,6 +118,24 @@ browser that cannot grant them fails launch as
 the same permissions for the open page's http or https origin. Another
 origin fails as `clipboard_permission_origin_required`.
 
+### Page dialogs
+
+A click that opens `alert()`, `confirm()`, or `prompt()` declares its answer:
+
+```json
+{"action": "click", "target": "#remove", "dialog": "accept"}
+```
+
+Use `"dismiss"` to dismiss. The step result records `dialogs` with type,
+message and `accepted`; case execution also writes these to its step log.
+A declaration answers exactly one dialog.
+An extra or undeclared dialog is dismissed to unblock the browser and fails
+the step as `browser_dialog_unanswered`, naming its type and message and
+asking for a declaration. No dialog fails as `browser_dialog_missing`.
+Check the target and page state before changing the declaration or retrying
+a click that may already have changed data. A declaration applies only during
+its click; it never answers a later step's dialog.
+
 ### Absence assertions and what they observed
 
 `hidden`, `count_eq` of 0, and `count_gte` of 0 are all satisfied by a page
