@@ -14,7 +14,7 @@ Repository folders, application databases, running agents, and external services
 
 ## Export a Universe
 
-For a local or self-host move, use `yoke universe export --pause-source`. Hosted sources use Download on the dashboard’s Move universe page. The normal CLI export directory is your machine's Yoke exports folder; choose an explicit output location when you need a backup elsewhere.
+For a local or self-host move, use `yoke universe export --pause-source`. Hosted sources use **Prepare archive** in the dashboard’s **Universe** portability controls, then **Download archive**. **Resume source** restores a paused source. The normal CLI export directory is your machine's Yoke exports folder; choose an explicit output location when you need a backup elsewhere.
 
 `yoke universe export --estimate --json` estimates database and artifact bytes before export. Use `--exclude-artifacts` when you only want the database and receipt.
 
@@ -26,6 +26,8 @@ A move export checks output-folder write access before pausing. An unavailable p
 
 `yoke universe validate` checks a portable archive before it is used. Validation checks the archive, receipt, manifest and every included file; it does not prove that an application, repository, or external service was also backed up.
 
+If validation reports `archive_tool_version_unsupported`, use PostgreSQL client tools matching the source dump writer or newer, then retry. Preserve the original archive and receipt; an incompatible reader does not establish archive corruption.
+
 For deeper recovery verification, the supported round-trip validation restores into an explicitly disposable PostgreSQL database. That replaces the validation target, so an operator must prepare and identify the scratch database first.
 
 Keep a backup history appropriate to your recovery needs. Universe retention policies govern old records in the active Universe; they are not a substitute for retaining independent backups.
@@ -34,7 +36,7 @@ Keep a backup history appropriate to your recovery needs. Universe retention pol
 
 For a new installation, setup offers **Start from a backup** when creating a local or self-hosted Universe. It validates the archive before Apply, restores the Universe, and then offers its projects so you can identify their checkouts on the new machine.
 
-For an existing destination, import asks for the archive and consent to replace the destination Universe. Local import targets the active local connection; self-host import targets the selected server bundle. Hosted import pulls a signed archive link server-to-server from configured source buckets. For a local or self-host archive, run `yoke universe upload ARCHIVE --org SLUG`, using that destination org's hosted connection (`yoke --env DESTINATION universe upload ARCHIVE --org SLUG`). Paste the printed signed link into Import on the printed dashboard page before its expiry; slow uploads renew their URLs automatically. Hosted Download enforces a 10 GiB preflight cap and gives a link valid for one hour.
+For an existing destination, import asks for the archive and consent to replace the destination Universe. Local import targets the active local connection; self-host import targets the selected server bundle. Hosted import pulls a signed archive link server-to-server from configured source buckets. For a local or self-host archive, run `yoke universe upload ARCHIVE --org SLUG`, using that destination org's hosted connection (`yoke --env DESTINATION universe upload ARCHIVE --org SLUG`). Paste the printed signed link into Import on the printed dashboard page before its expiry; slow uploads renew their URLs automatically. Hosted Prepare archive enforces a 10 GiB preflight cap and gives a link valid for one hour.
 
 Check the destination before approving replacement. Preserve its current data if you may need it later. Import is replacement, not a merge of two backlogs. Imports place included files in the destination's storage and rewrite their handles; a destination with no configured artifact bucket uses its own permanent local storage. Review the import's missing-file count before resuming work.
 

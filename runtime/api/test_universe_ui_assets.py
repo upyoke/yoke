@@ -187,7 +187,7 @@ def test_hosted_frame_harness_mirrors_the_platform_slot_shapes():
     assert "Hosted-frame harness" in harness
     assert "currentActor" not in harness
     assert 'memberDirectory: { "2": "ben", "5": "dana" }' in harness
-    assert "Move universe" in harness
+    assert "Portability" in harness and "Prepare archive" in harness
 
 
 def test_typed_mount_contract_and_declaration_emit_ship():
