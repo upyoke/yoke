@@ -46,14 +46,25 @@ def hosted_binding_permission(
             )
         except (LookupError, ValueError):
             project = None
-        if project is not None:
-            row = conn.execute(
-                f"SELECT org_id FROM projects WHERE id = {p}", (project.id,)
-            ).fetchone()
-            if row is not None and row[0] in org_ids:
-                return DispatchPermission(
-                    PERM_HOSTED_SERVICE_DELIVER, project.id, project.slug
-                )
+        if project is None:
+            return DispatchPermission(
+                PERM_HOSTED_SERVICE_DELIVER, None, None,
+                error=permission_error_response(
+                    request, entry, "target_not_found",
+                    compose_refusal(
+                        "The GitHub binding's target project could not be resolved.",
+                        recovery="choose an existing project by its numeric id "
+                        "in the hosted org, then retry the binding.",
+                    ),
+                ),
+            )
+        row = conn.execute(
+            f"SELECT org_id FROM projects WHERE id = {p}", (project.id,)
+        ).fetchone()
+        if row is not None and row[0] in org_ids:
+            return DispatchPermission(
+                PERM_HOSTED_SERVICE_DELIVER, project.id, project.slug
+            )
 
     return DispatchPermission(
         PERM_HOSTED_SERVICE_DELIVER,

@@ -153,3 +153,13 @@ def test_hosted_identity_without_authority_does_not_reopen_member_binding(
     assert permission.error.error.code == "github_binding_hosted_only"
     service_permission = check_dispatch_permission(conn, lookup(FUNCTION), _request(service.actor_id))
     assert service_permission.error is not None
+
+
+def test_hosted_service_missing_project_names_target_recovery(binding_db):
+    conn, _ = binding_db
+    service = bootstrap_hosted_service_token(conn)
+    permission = check_dispatch_permission(
+        conn, lookup(FUNCTION), _request(service.actor_id, project="absent-project")
+    )
+    assert permission.error.error.code == "target_not_found"
+    assert "existing project by its numeric id" in permission.error.error.message
