@@ -7,6 +7,8 @@ from pathlib import Path
 
 
 _FREE_PATH_SUFFIXES = (
+    ".cache",
+    "Library/Caches",
     ".claude/projects",
     ".codex/sessions",
     ".codex/archived_sessions",
