@@ -23,8 +23,10 @@ has nothing to check, so the window opens as it always did.
 
 While the window is open no automated browser runs on this machine: every
 browser daemon (any project, any profile) is stopped first, and starting one
-is refused with `browser_human_gate_active` until the window closes. Cases and
-walkers start their daemon again on their next command.
+is refused with `browser_human_gate_active`, naming the identity, project, PID
+and how long the window has been open. Hand off to steering or the person at
+that machine to finish or close that sign-in window, or quit the named PID,
+then retry. Cases and walkers start their daemon again on their next command.
 
 The window is a directly spawned browser process, never an automated one.
 Google's sign-in refuses an automation-controlled browser ("Couldn't sign you

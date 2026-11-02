@@ -113,7 +113,10 @@ def test_the_human_gate_stops_every_daemon_and_refuses_new_ones(
         assert marker["identity"] == "admin"
         assert sorted(names) == ["", "/p/acme/admin"]
         assert stopped == ["/p/acme/admin", None]
-        with pytest.raises(browser_human_gate.HumanGateActiveError, match="'admin'"):
+        with pytest.raises(
+            browser_human_gate.HumanGateActiveError,
+            match="'admin'.*'acme'.*PID.*open for 0h 0m 0s.*Hand off.*quit PID",
+        ):
             browser_human_gate.refuse_during_human_gate(tmp_path)
     browser_human_gate.refuse_during_human_gate(tmp_path)
 

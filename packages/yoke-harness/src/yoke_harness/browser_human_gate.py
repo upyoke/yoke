@@ -14,15 +14,21 @@ from __future__ import annotations
 import json
 import os
 from contextlib import contextmanager
-from yoke_contracts.timestamps import format_instant, utc_now
 from pathlib import Path
 from typing import Iterator
+
+from yoke_contracts.timestamps import (
+    InvalidInstant,
+    format_instant,
+    parse_instant,
+    utc_now,
+)
 
 HUMAN_GATE_FILE_NAME = "human-sign-in.json"
 
 
 class HumanGateActiveError(RuntimeError):
-    """A human sign-in holds this machine's browser; automation must wait."""
+    """A human sign-in holds this machine's browser; automation needs a human handoff."""
 
 
 def _gate_path(runtime_dir: Path) -> Path:
@@ -65,12 +71,23 @@ def refuse_during_human_gate(runtime_dir: Path) -> None:
     gate = active_human_gate(runtime_dir)
     if gate is None:
         return
+    try:
+        seconds = max(
+            0, int((utc_now() - parse_instant(gate.get("started_at"))).total_seconds())
+        )
+        hours, remainder = divmod(seconds, 3600)
+        minutes, seconds = divmod(remainder, 60)
+        elapsed = f"{hours}h {minutes}m {seconds}s"
+    except InvalidInstant:
+        elapsed = "an unknown duration (invalid started_at)"
     raise HumanGateActiveError(
         "browser_human_gate_active: a human is signing in to identity "
         f"{gate.get('identity')!r} of project {gate.get('project')!r} on this "
-        f"machine (PID {gate.get('pid')}, since {gate.get('started_at')}), so "
-        "no automated browser may start. Wait for that sign-in window to "
-        "close, then retry."
+        f"machine (PID {gate.get('pid')}, since {gate.get('started_at')}, "
+        f"open for {elapsed}), so no automated browser may start. "
+        "Hand off to steering or the person at this machine: ask them to "
+        "finish or close the sign-in window for that identity and project, "
+        f"or quit PID {gate.get('pid')}, then retry the browser command."
     )
 
 
