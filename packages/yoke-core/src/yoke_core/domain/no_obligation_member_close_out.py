@@ -3,9 +3,9 @@
 The merge close-out is the one path to done. This module runs that same
 close-out without a session when the member recorded no obligation or a
 waiver-backed declaration, or its completion-flow QA requirements all passed
-or were discharged and closed plan groups of the run cover each post-deploy
-plan it owes. Outstanding run-bound obligations still hold it. An
-unanswered member with an empty case set also stays held, except a carried
+or were discharged and member QA or closed plan groups of the run cover
+each post-deploy plan it owes. Outstanding run-bound obligations still hold
+it. An unanswered member with an empty case set also stays held, except a carried
 cross-project member whose own flow declares no item QA and has no explicit
 obligation. That member closes with the run without authoring an answer.
 """
@@ -55,9 +55,9 @@ def satisfied_delivery_member(conn: Any, *, item_id: int, run_id: str) -> bool:
     """Whether this run settled the member's post-deploy QA obligations.
 
     Count the member's own run requirements, using the same ownership rule
-    as the done gate. Each post-deploy plan it owes is answered only by a
-    closed plan group of this run that covers it. With no own cases, live
-    plans owed only on another target leave nothing for this run to settle;
+    as the done gate. Each post-deploy plan it owes is answered by accepted
+    member QA or a closed plan group of this run that covers it. With no own
+    cases, live plans owed only on another target leave nothing for this run to settle;
     the item's done gate still requires their target-qualified credit.
     """
     discharges_without_cases = answer_for_item(
@@ -66,16 +66,23 @@ def satisfied_delivery_member(conn: Any, *, item_id: int, run_id: str) -> bool:
     if not (_table_exists(conn, "qa_requirements") and _table_exists(conn, "qa_runs")):
         return discharges_without_cases
     from yoke_core.domain.deployment_qa_member_plans import member_plan_disposition
+    from yoke_core.domain.deployment_qa_plan_ownership import member_plan_credited
     from yoke_core.domain.deployment_qa_plan_groups import lineage_run_ids, run_groups
 
-    owed_plans, attached_plans = member_plan_disposition(conn, int(item_id), str(run_id))
+    owed_plans, attached_plans = member_plan_disposition(
+        conn, int(item_id), str(run_id)
+    )
     if owed_plans:
         covered = {
             group.plan_id
             for group in run_groups(conn, lineage_run_ids(conn, str(run_id)))
             if group.closed and int(item_id) in (group.covered_item_ids or ())
         }
-        if not owed_plans <= covered:
+        if not all(
+            plan in covered
+            or member_plan_credited(conn, str(run_id), int(item_id), plan)
+            for plan in owed_plans
+        ):
             return False
     rows = query_rows(
         conn,
@@ -88,18 +95,18 @@ def satisfied_delivery_member(conn: Any, *, item_id: int, run_id: str) -> bool:
         f"AND {unretracted_requirement_sql(conn, 'r')}",
         (str(run_id), int(item_id)),
     )
-    owned = [
-        row
-        for row in rows
-        if row["deployment_member_item_id"] is not None
-    ]
+    owned = [row for row in rows if row["deployment_member_item_id"] is not None]
     if not owned:
         from yoke_core.domain.carried_member_qa_obligation import (
             carried_member_no_item_qa_reason,
         )
 
-        return attached_plans or discharges_without_cases or bool(
-            carried_member_no_item_qa_reason(conn, run_id=run_id, item_id=item_id)
+        return (
+            attached_plans
+            or discharges_without_cases
+            or bool(
+                carried_member_no_item_qa_reason(conn, run_id=run_id, item_id=item_id)
+            )
         )
     return all(
         row["settled"] or has_current_passing_run(conn, int(row["id"])) for row in owned
@@ -134,7 +141,11 @@ def close_out_satisfied_delivery_member(
         refusal = steps.prepare_member_close(
             conn, item_id=int(item_id), public_ref=named
         )
-        pending = "" if refusal else other_target_plan_wait(conn, item_id=int(item_id), run_id=run_id)
+        pending = (
+            ""
+            if refusal
+            else other_target_plan_wait(conn, item_id=int(item_id), run_id=run_id)
+        )
         written = (
             None
             if refusal or pending
