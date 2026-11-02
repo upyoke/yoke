@@ -168,7 +168,7 @@ def test_cli_and_onboard_preserve_platform_bind_refusals(monkeypatch, capsys, co
     def hosted_door(**kwargs):
         assert kwargs["function_id"] == "projects.github_binding.bind"
         return FunctionCallResponse(
-            success=False, function=kwargs["function_id"],
+            success=False, function=kwargs["function_id"], version="v1",
             error=FunctionError(code=code, message=message),
         )
 
