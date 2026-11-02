@@ -8,6 +8,7 @@ from yoke_cli.product_boundary_teaching_sources import TEACHING_GLOBS
 from yoke_core.tools import _impacted_ci_only_contract_floor as _ci_only
 from yoke_core.tools._impacted_ci_workflow_contracts import CI_WORKFLOW_CONTRACTS
 from yoke_core.tools._impacted_merge_contracts import MERGE_PREFIX_CONTRACTS
+from yoke_core.tools._impacted_hook_contracts import HOOK_REGISTRATION_CONTRACTS
 from yoke_core.tools._impacted_contract_tests_hosted_release import (
     HOSTED_RELEASE_WORKFLOW_CONTRACT_TESTS,
     HOSTED_RELEASE_WORKFLOW_PATHS,
@@ -156,6 +157,7 @@ CURSOR_SESSION_IDENTITY_DISPATCH_TESTS = (
 )
 
 PATH_CONTRACT_TESTS = (
+    *HOOK_REGISTRATION_CONTRACTS,
     *MACHINE_CONFIG_CONTRACTS,
     *CI_WORKFLOW_CONTRACTS,
     *PATH_CLAIM_CONTRACTS,
