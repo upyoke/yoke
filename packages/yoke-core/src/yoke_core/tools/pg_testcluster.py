@@ -66,6 +66,7 @@ DISPOSABLE_SERVER_SETTINGS: tuple = (
     ("max_connections", LOCAL_CLUSTER_MAX_CONNECTIONS),
     ("max_wal_size", LOCAL_CLUSTER_MAX_WAL_SIZE),
     ("min_wal_size", LOCAL_CLUSTER_MIN_WAL_SIZE),
+    ("timezone", "Asia/Kathmandu"),
     ("fsync", "off"),
     ("synchronous_commit", "off"),
     ("full_page_writes", "off"),

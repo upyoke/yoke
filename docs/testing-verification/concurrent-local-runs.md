@@ -11,6 +11,11 @@ a second gate, and a raw `uv run --frozen python3 -m pytest <one file>` all
 at the same time. Isolation comes from the database names rather than from a
 cluster per run:
 
+The disposable server pins its session time zone to `Asia/Kathmandu` (UTC+05:45,
+without daylight saving) in both CI and local runs so UTC assumptions fail
+consistently. Restart an already running test cluster to pick up the setting.
+This setting does not change the durable local universe or embedded engine.
+
 Correctness is not the same as capacity, though. *Heavy* invocations —
 anything sweeping directories rather than named files — additionally queue
 behind the machine-wide admission slot (`yoke_core.tools.gate_admission`), so
