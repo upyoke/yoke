@@ -200,6 +200,7 @@ def reachable_tests(changed: Sequence[str], index: ImportIndex) -> set[str] | No
         module
         for rel in changed
         if (module := index.module_of.get(rel) or module_name_for(rel)) is not None
+        and (rel in index.module_of or module in index.importers)
     ]
     if not frontier:
         return None

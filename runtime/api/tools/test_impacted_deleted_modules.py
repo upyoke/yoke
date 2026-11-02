@@ -4,6 +4,7 @@ from pathlib import Path
 
 import pytest
 
+from yoke_core.tools.impacted_tests import select
 from yoke_core.tools._impacted_import_index import (
     bounded_importer_tests,
     build_import_index,
@@ -44,6 +45,10 @@ def test_deleted_module_selects_direct_and_transitive_importers(
     for index in (before, after):
         assert direct_importer_tests([deleted], index) == direct
         assert reachable_tests([deleted], index) == all_importers
+        selection = select([deleted], index)
+        assert selection.full_sweep is False
+        assert all_importers <= set(selection.files)
+        assert "runtime/api/test_unrelated.py" not in selection.files
         assert (
             bounded_importer_tests([deleted], index, total_files=100) == all_importers
         )
@@ -54,5 +59,5 @@ def test_deleted_test_is_not_selected_as_a_runnable_path(tmp_path: Path):
     index = build_import_index(tmp_path)
 
     assert direct_importer_tests([deleted], index) == frozenset()
-    assert reachable_tests([deleted], index) == set()
+    assert reachable_tests([deleted], index) is None
     assert bounded_importer_tests([deleted], index, total_files=100) == frozenset()
