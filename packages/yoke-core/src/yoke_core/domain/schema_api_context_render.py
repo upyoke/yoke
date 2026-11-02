@@ -92,10 +92,9 @@ def unknown_topic_message(topic: str, *, role: str) -> str:
 
 def render_invariant_block() -> list[str]:
     return [
-        "**Control-plane DB invariant:** use registered `yoke` commands; read "
-        'diagnostics only with `yoke db read "SELECT ..."`; never construct a '
-        "DB path. Keep the selected connection on retry. Escalate a missing "
-        "mutation to the control-plane operator.",
+        "**Control-plane DB invariant:** `yoke` commands only; "
+        'diagnostics: `yoke db read "SELECT ..."`. No DB paths. Retry on the '
+        "same connection; operator handles missing mutations.",
     ]
 
 
