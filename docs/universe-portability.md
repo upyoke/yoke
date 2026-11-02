@@ -23,12 +23,14 @@ included file and refuses extra, unsafe, missing or tampered members.
 Two-member archives remain valid and restore their database as before.
 
 Export reads each QA handle from its named local or S3 store and lists shared
-files from each project's store. Confirmed absent files appear as `missing`
+files from each project's store. It downloads up to 8 files at once and
+writes the manifest in source order. Confirmed absent files appear as `missing`
 entries with
 `artifact_source_absent`; unavailable handles or owners retain
 `artifact_handle_or_owner_unavailable`. Both export summaries print the missing
 count and keys. Access, credential, network and other read failures refuse with
-`archive_artifact_unreadable`: repair access and retry, or use
+`archive_artifact_unreadable` for the first failing file in source order:
+repair access and retry, or use
 `--exclude-artifacts`. Relative handles require the project's checkout on this
 machine; attach or register it and retry. Stored files above the current upload
 limit remain exportable; the streaming copy records their full byte counts and
