@@ -318,15 +318,15 @@ def test_claim_arriving_during_send_resolves_to_new_holder(monkeypatch):
     from yoke_core.domain import session_message_service
 
     conn = world(monkeypatch)
-    real_resolve = session_message_service.resolve_recipients
+    real_resolve = session_message_service.resolve_message_recipients
 
     def claim_during_resolution(*args, **kwargs):
         claim(conn)
         return []
 
     monkeypatch.setattr(
-        session_message_service, "resolve_recipients", claim_during_resolution
+        session_message_service, "resolve_message_recipients", claim_during_resolution
     )
     sent = send(conn)
     assert sent["recipients"][0]["session_id"] == "s4"
-    monkeypatch.setattr(session_message_service, "resolve_recipients", real_resolve)
+    monkeypatch.setattr(session_message_service, "resolve_message_recipients", real_resolve)

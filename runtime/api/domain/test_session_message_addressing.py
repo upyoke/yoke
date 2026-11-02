@@ -97,4 +97,4 @@ def test_shared_wake_resolution_preserves_project_union_and_sender():
         actor_id=10,
         now=NOW,
     )
-    assert {row.session_id for row in recipients} == {"s1", "s2"}
+    assert {row.session_id for row in recipients} == {"s1", "s2", "s4"}
