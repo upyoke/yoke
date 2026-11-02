@@ -228,7 +228,7 @@ def test_broker_loss_and_dropped_render_each_consume_one_retry() -> None:
         conn.execute(
             "SELECT wake_attempt_count FROM session_message_recipients"
         ).fetchone()[0]
-        == 2
+        == 1
     )
 
 

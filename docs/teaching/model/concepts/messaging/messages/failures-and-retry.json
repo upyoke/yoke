@@ -4,6 +4,13 @@
  "status": "observed",
  "page": "messaging",
  "position": 5,
- "summary": "Cancelled envelopes keep their history and release their idempotency key. Native route refusals spend a bounded budget; exhaustion sends the named cause and recovery to the covering steering seat, and the message state stays the sender-visible record. Operator-driven hook waits spend no native budget. Verified death reopens pending holds for the exact process while retaining attempt history.",
- "sources": ["packages/yoke-core/src/yoke_core/domain/session_message_store.py", "packages/yoke-core/src/yoke_core/domain/session_message_wake_skip.py", "packages/yoke-core/src/yoke_core/domain/session_wake_failure_notice.py", "packages/yoke-core/src/yoke_core/domain/session_wake_hold_recovery.py"]
+ "summary": "Cancelled envelopes keep their history and release their idempotency key. Native route refusals spend a bounded budget; exhaustion sends the named cause and recovery to the covering steering seat, and the message state stays the sender-visible record. Operator-driven hook waits spend no native budget. Verified death reopens pending holds for the exact process while retaining attempt history. Unreported relay lease expiry and broker hook lease expiry, loss or timeout share one bounded refund limit per recipient. Beyond that limit the attempt keeps its charge and escalates with its own loss code; target changes and invalid broker state never refund.",
+ "sources": [
+  "packages/yoke-core/src/yoke_core/domain/session_message_store.py",
+  "packages/yoke-core/src/yoke_core/domain/session_message_wake_skip.py",
+  "packages/yoke-core/src/yoke_core/domain/session_wake_failure_notice.py",
+  "packages/yoke-core/src/yoke_core/domain/session_wake_hold_recovery.py",
+  "packages/yoke-core/src/yoke_core/domain/session_wake_lease_refund.py",
+  "packages/yoke-core/src/yoke_core/domain/session_broker_wake_settlement.py"
+ ]
 }

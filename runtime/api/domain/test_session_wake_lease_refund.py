@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import json
+
+import pytest
 from datetime import timedelta
 
 from yoke_contracts.session_control.wake_delivery import (
@@ -10,11 +12,17 @@ from yoke_contracts.session_control.wake_delivery import (
 )
 from yoke_contracts.timestamps import parse_instant
 from yoke_core.domain.session_broker_wake_fallback import BROKER_JOB_TIMEOUT_SECONDS
+from yoke_core.domain.session_broker_wake_settlement import (
+    complete_broker_hook_lease,
+    settle_broker_wake_losses,
+)
+from runtime.api.domain import session_broker_test_support as broker
 from yoke_core.domain.session_relay import claim_relay_job, report_relay_job
 from yoke_core.domain.session_relay_types import WAKE_LEASE_SECONDS
 from yoke_core.domain.session_wake_lease_refund import (
     LEASE_EXPIRED_RESULT,
     MAX_REFUNDED_LEASE_EXPIRIES,
+    refund_unreported_wake,
 )
 from runtime.api.domain.test_session_relay import (
     RELAY_ID,
@@ -147,3 +155,129 @@ def test_repeated_unreported_expiry_escalates_by_name_after_the_bound() -> None:
         MAX_REFUNDED_LEASE_EXPIRIES + 1
     )
     assert _recipient(conn) == (1, LEASE_EXPIRED_RESULT)
+
+
+@pytest.mark.parametrize(
+    "code", ["broker_hook_lease_expired", "broker_lost", "broker_timeout"]
+)
+def test_broker_loss_refunds_budget_and_recovered_relay_wakes(code: str) -> None:
+    conn, message_id = broker._seed()
+    lease = broker._reserve(conn)
+    assert lease
+    if code != "broker_hook_lease_expired":
+        complete_broker_hook_lease(
+            conn,
+            lease_id=lease.lease_id,
+            delivered=True,
+            result="injected",
+            now=broker.NOW + timedelta(seconds=2),
+        )
+    if code == "broker_lost":
+        conn.execute(
+            "UPDATE harness_sessions SET turn_posture='waiting' "
+            "WHERE session_id='broker-a'"
+        )
+        conn.commit()
+    recovered_at = broker.NOW + timedelta(seconds=BROKER_JOB_TIMEOUT_SECONDS + 2)
+
+    assert settle_broker_wake_losses(conn, now=recovered_at) == 1
+    assert tuple(
+        conn.execute(
+            "SELECT result_code,completed_at IS NOT NULL "
+            "FROM session_message_attempts WHERE attempt_id=?",
+            (lease.attempt_id,),
+        ).fetchone()
+    ) == (code, 1)
+    assert tuple(
+        conn.execute(
+            "SELECT wake_attempt_count,wake_escalation FROM session_message_recipients "
+            "WHERE message_id=?",
+            (message_id,),
+        ).fetchone()
+    ) == (0, None)
+    assert settle_broker_wake_losses(conn, now=recovered_at) == 0
+    recovered = claim_relay_job(
+        conn,
+        broker._heartbeat(),
+        wait_seconds=0,
+        now_provider=lambda: broker._stamp(seconds=BROKER_JOB_TIMEOUT_SECONDS + 3),
+    )
+    assert len(recovered.jobs) == 1
+    assert recovered.jobs[0].message_id == message_id
+
+
+@pytest.mark.parametrize(
+    "final_kind,final_code",
+    [
+        ("wake_relay", LEASE_EXPIRED_RESULT),
+        ("wake_broker", "broker_timeout"),
+    ],
+)
+def test_mixed_unreported_losses_share_refund_limit(final_kind, final_code) -> None:
+    conn = _explicit_recipient()
+    for index in range(MAX_REFUNDED_LEASE_EXPIRIES + 1):
+        kind, code = (
+            (final_kind, final_code)
+            if index == MAX_REFUNDED_LEASE_EXPIRIES
+            else ("wake_broker", "broker_lost")
+            if index % 2
+            else ("wake_relay", LEASE_EXPIRED_RESULT)
+        )
+        attempt_id = f"unreported-{index}"
+        conn.execute(
+            "UPDATE session_message_recipients "
+            "SET wake_attempt_count=wake_attempt_count+1"
+        )
+        conn.execute(
+            "INSERT INTO session_message_attempts "
+            "(attempt_id,message_id,target_session_id,attempt_kind,started_at,"
+            "completed_at,result_code) VALUES (?, 'message-1','target',?,?,?,?)",
+            (attempt_id, kind, _later(index), _later(index + 1), code),
+        )
+        refund_unreported_wake(conn, attempt_id=attempt_id)
+        if index < MAX_REFUNDED_LEASE_EXPIRIES:
+            assert _recipient(conn) == (0, None)
+    assert _recipient(conn) == (1, final_code)
+
+
+@pytest.mark.parametrize(
+    "change,code",
+    [
+        (
+            "UPDATE harness_sessions SET last_tool_call_at=? WHERE session_id='s4'",
+            "broker_target_changed",
+        ),
+        (
+            "UPDATE session_message_attempts SET started_at=NULL WHERE attempt_id=?",
+            "broker_state_invalid",
+        ),
+    ],
+)
+def test_broker_target_change_and_invalid_state_keep_charge(change, code) -> None:
+    conn, _ = broker._seed()
+    lease = broker._reserve(conn)
+    assert lease
+    value = (
+        lease.attempt_id if code == "broker_state_invalid" else broker._stamp(seconds=2)
+    )
+    conn.execute(change, (value,))
+    conn.commit()
+    assert (
+        settle_broker_wake_losses(
+            conn, now=broker.NOW + timedelta(seconds=BROKER_JOB_TIMEOUT_SECONDS + 2)
+        )
+        == 1
+    )
+    assert (
+        conn.execute(
+            "SELECT result_code FROM session_message_attempts WHERE attempt_id=?",
+            (lease.attempt_id,),
+        ).fetchone()[0]
+        == code
+    )
+    assert (
+        conn.execute(
+            "SELECT wake_attempt_count FROM session_message_recipients"
+        ).fetchone()[0]
+        == 1
+    )

@@ -22,6 +22,7 @@ from yoke_core.domain.session_message_types import (
 )
 from yoke_core.domain.session_relay_evidence import redacted_evidence
 from yoke_core.domain.session_relay_storage import marker
+from yoke_core.domain.session_wake_lease_refund import refund_unreported_wake
 
 
 def _lock(conn: Any, alias: str, *, skip: bool = False) -> str:
@@ -189,14 +190,14 @@ def settle_broker_wake_losses(conn: Any, *, now: datetime | None = None) -> int:
                 code = "broker_timeout"
             else:
                 continue
-            changed += int(
-                close_broker_attempt(
-                    conn,
-                    attempt_id=str(row["attempt_id"]),
-                    result_code=code,
-                    now=current,
-                )
-            )
+            if close_broker_attempt(
+                conn,
+                attempt_id=str(row["attempt_id"]),
+                result_code=code,
+                now=current,
+            ):
+                refund_unreported_wake(conn, attempt_id=str(row["attempt_id"]))
+                changed += 1
         conn.commit()
         return changed
     except Exception:
