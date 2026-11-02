@@ -8,7 +8,6 @@ from typing import Any, Callable, Iterable
 
 from yoke_core.domain.github_actions_run_stall import STALLED_DISPATCH_TOKEN
 
-
 MAX_TRACE_HOPS = 8
 _ANSI = re.compile(r"\x1b\[[0-9;]*[A-Za-z]")
 _TIMESTAMP = re.compile(r"^\ufeff?\d{4}-\d{2}-\d{2}T\S+Z\s+")
@@ -28,7 +27,7 @@ _GENERIC_ERRORS = (
     "deployment did not complete",
     "promotion did not complete",
 )
-_EXCEPTION = re.compile(r"^(?:[A-Za-z_]\w*\.)*[A-Za-z_]\w*: \S")
+_EXCEPTION = re.compile(r"^(?:[A-Za-z_]\w*\.)*[A-Z]\w*: \S")
 _CODED_ERROR = re.compile(r"\berror \([^)]+\):")
 
 
@@ -153,12 +152,13 @@ def _error_score(text: str) -> tuple[int, int]:
     if "assertionerror:" in folded:
         return 90, len(text)
     if "must be the same commit" in folded:
-        # Source-identity guard: dispatched ref, workflow file, and checkout differ.
         return 88, len(text)
     if "error response from daemon:" in folded:
         return 85, len(text)
     if "failed " in folded and " - " in text:
         return 80, len(text)
+    if re.search(r"\bHTTP 5\d\d\b", text):
+        return 75, len(text)
     if "error:" in folded or "##[error]" in folded or _CODED_ERROR.search(folded):
         return 70, len(text)
     return 0, len(text)
