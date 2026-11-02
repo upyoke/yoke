@@ -85,8 +85,8 @@ def test_late_attachment_keeps_ownership_pinned_before_first_dispatch(test_db):
     shared, single = _mixed(test_db)
     _attach(test_db, MEMBERS[1], single)
     test_db.execute(
-        "DELETE FROM qa_plan_item_attachments WHERE item_id=%s AND plan_id=%s",
-        (MEMBERS[-1], shared),
+        "DELETE FROM qa_plan_item_attachments WHERE item_id=ANY(%s) AND plan_id=%s",
+        (list(MEMBERS[1:]), shared),
     )
     test_db.commit()
     ensure_groups(test_db, RUN, "item-qa")
@@ -143,3 +143,33 @@ def test_single_member_plan_settles_and_credits_its_item(test_db, monkeypatch):
     )
     assert standing.accepted
     assert plan_credit_misses(test_db, MEMBERS[0]) == []
+
+
+def test_takeover_keeps_member_plan_owner_and_frozen_cases(test_db):
+    from runtime.api.domain.test_deployment_qa_stage_execution import _seed_run, _stages
+    from yoke_core.domain.deployment_run_qa_transfer import transfer_qa_on
+    from yoke_core.domain.deployment_qa_plan_ownership import _snapshot
+
+    shared, single = _mixed(test_db)
+    materialize_deployment_qa_stage(
+        test_db,
+        deployment_run_id=RUN,
+        deployment_stage="item-qa",
+        deployment_member_item_id=MEMBERS[0],
+    )
+    _attach(test_db, MEMBERS[1], single)
+    successor = "run-member-plan-successor"
+    stages = _stages(shared)
+    stages[1].pop("cases")
+    _seed_run(
+        test_db, run_id=successor, stages=stages, members=(), existing_members=MEMBERS
+    )
+    transfer_qa_on(test_db, old_id=RUN, new_id=successor, moving=set(MEMBERS))
+    test_db.commit()
+    assert plan_owners(test_db, successor) == {shared: None, single: MEMBERS[0]}
+    assert (
+        _snapshot(test_db, successor)["plan_groups"][str(single)]
+        == (_snapshot(test_db, RUN)["plan_groups"][str(single)])
+    )
+    ensure_groups(test_db, successor, "item-qa")
+    assert {group.plan_id for group in run_groups(test_db, successor)} == {shared}
