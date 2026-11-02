@@ -93,4 +93,20 @@ def resolve_file_line_git_scope(
     )
 
 
-__all__ = ["FileLineGitScope", "resolve_file_line_git_scope"]
+def merge_parent_refs(repo_root: Path) -> tuple[str, ...]:
+    """Read every pending merge parent, including in linked worktrees.
+
+    Staged line checks compare against the largest parent version so inherited
+    growth passes while growth introduced by the merge remains subject to policy.
+    Both pre-merge-commit and plain commits finishing conflicts use this state.
+    """
+    merge_head = Path(_git(repo_root, "rev-parse", "--git-path", "MERGE_HEAD"))
+    if not merge_head.is_absolute():
+        merge_head = repo_root / merge_head
+    try:
+        return tuple(merge_head.read_text(encoding="ascii").split())
+    except FileNotFoundError:
+        return ()
+
+
+__all__ = ["FileLineGitScope", "merge_parent_refs", "resolve_file_line_git_scope"]

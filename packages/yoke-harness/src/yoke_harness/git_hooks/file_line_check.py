@@ -35,6 +35,7 @@ from yoke_contracts.project_contract.changed_path_scope import (
     changed_scope_for_check,
 )
 from yoke_contracts.project_contract.file_line_git_scope import (
+    merge_parent_refs,
     resolve_file_line_git_scope,
 )
 from yoke_contracts import terminal_detached_process
@@ -238,7 +239,10 @@ def _build_changed_file(
     )
     if staged:
         old_ref = "HEAD" if head_exists(repo_root) else EMPTY_TREE
-        old = git_show_line_count(old_ref, path, repo_root=repo_root)
+        old = max(
+            git_show_line_count(ref, path, repo_root=repo_root)
+            for ref in (old_ref, *merge_parent_refs(repo_root))
+        )
         new = staged_new_count(path, repo_root=repo_root)
     else:
         old = git_show_line_count(base or "main", path, repo_root=repo_root)

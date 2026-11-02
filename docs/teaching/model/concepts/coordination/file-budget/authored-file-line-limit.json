@@ -4,6 +4,6 @@
  "status": "draft-copy",
  "page": "coordination",
  "position": 4,
- "summary": "Project-owned file-line limits live in .yoke/project.config. Authored exceptions are shrink-only above the limit; file_line_grow_allowed declares generated or data artifacts. Installation migrates managed rules to that class. Every governed landing runs the line preflight.",
- "sources": ["packages/yoke-cli/src/yoke_cli/project_install/file_line_managed_exceptions.py", "packages/yoke-contracts/src/yoke_contracts/project_contract/file_line_policy.py"]
+ "summary": "Project-owned file-line limits live in .yoke/project.config. Authored exceptions are shrink-only above the limit; file_line_grow_allowed declares generated or data artifacts. During a merge, staged checks use the largest line count across HEAD and every MERGE_HEAD parent: inherited growth passes, but growth beyond every parent refuses. This also applies to plain commits finishing conflicts. Installation migrates managed rules to that class. Every governed landing runs the line preflight.",
+ "sources": ["packages/yoke-cli/src/yoke_cli/project_install/file_line_managed_exceptions.py", "packages/yoke-contracts/src/yoke_contracts/project_contract/file_line_policy.py", "packages/yoke-contracts/src/yoke_contracts/project_contract/file_line_git_scope.py"]
 }
