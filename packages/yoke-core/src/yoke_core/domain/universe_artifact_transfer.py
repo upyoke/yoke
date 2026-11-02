@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import json
+import threading
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import Any, Callable
 
@@ -102,6 +104,43 @@ def classify_source_failure(source: dict, exc: Exception) -> str:
     ) from exc
 
 
+#: Concurrent downloads per export; stays within botocore's default pool of 10.
+DOWNLOAD_WORKERS = 8
+
+
+def _shared_clients(
+    factory: Callable[[str, dict], Any],
+) -> Callable[[str, dict], Any]:
+    """Build one thread-safe client per project instead of one per file."""
+    clients: dict[str, Any] = {}
+    lock = threading.Lock()
+
+    def client(project: str, store: dict) -> Any:
+        with lock:
+            if project not in clients:
+                clients[project] = factory(project, store)
+            return clients[project]
+
+    return client
+
+
+def _download(
+    source: dict, target: Path, store: dict, client_factory: Callable
+) -> tuple[str, int]:
+    try:
+        with storage.read_handle(
+            source["original_handle"],
+            project=source["project"],
+            store=store,
+            repo_root=source.get("repo_root"),
+            client_factory=client_factory,
+        ) as stream:
+            return storage.copy_with_digest(stream, target)
+    except Exception:
+        target.unlink(missing_ok=True)
+        raise
+
+
 def collect_artifacts(
     conn: Any,
     work_dir: Path,
@@ -109,33 +148,43 @@ def collect_artifacts(
     stores: dict | None = None,
     client_factory: Callable[[str, dict], Any] | None = None,
 ) -> tuple[dict, dict[str, Path]]:
-    """Collect with caller routing and clients, or machine defaults when omitted."""
+    """Collect with caller routing and clients, or machine defaults when omitted.
+
+    Downloads run concurrently; results are applied in source order, so the
+    manifest and the first refusal match a serial collection.
+    """
     if stores is None:
         stores = storage.project_stores(conn)
+    clients = _shared_clients(client_factory or storage._client)
+    sources = artifact_sources(conn, stores, client_factory=clients)
     entries, files = [], {}
-    for source in artifact_sources(conn, stores, client_factory=client_factory):
-        entry = {k: v for k, v in source.items() if k not in {"repo_root", "bytes"}}
-        key = safe_key(entry["key"])
-        if entry.get("status") != "missing":
-            target = work_dir / key
-            try:
-                with storage.read_handle(
-                    entry["original_handle"],
-                    project=entry["project"],
-                    store=stores.get(entry["project"], {}),
-                    repo_root=source.get("repo_root"),
-                    client_factory=client_factory,
-                ) as stream:
-                    digest, size = storage.copy_with_digest(stream, target)
-                entry.update(status="included", sha256=digest, bytes=size)
-                files[key] = target
-            except Exception as exc:
-                target.unlink(missing_ok=True)
-                entry.update(
-                    status="missing",
-                    reason=classify_source_failure(source, exc),
-                )
-        entries.append(entry)
+    pool = ThreadPoolExecutor(
+        max_workers=DOWNLOAD_WORKERS, thread_name_prefix="artifact-download"
+    )
+    try:
+        pending = []
+        for source in sources:
+            entry = {k: v for k, v in source.items() if k not in {"repo_root", "bytes"}}
+            key = safe_key(entry["key"])
+            future = None
+            if entry.get("status") != "missing":
+                store = stores.get(entry["project"], {})
+                future = pool.submit(_download, source, work_dir / key, store, clients)
+            pending.append((source, entry, key, future))
+        for source, entry, key, future in pending:
+            if future is not None:
+                try:
+                    digest, size = future.result()
+                    entry.update(status="included", sha256=digest, bytes=size)
+                    files[key] = work_dir / key
+                except Exception as exc:
+                    entry.update(
+                        status="missing",
+                        reason=classify_source_failure(source, exc),
+                    )
+            entries.append(entry)
+    finally:
+        pool.shutdown(wait=True, cancel_futures=True)
     return {"version": 1, "entries": entries}, files
 
 
