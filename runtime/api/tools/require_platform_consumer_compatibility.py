@@ -17,19 +17,14 @@ from typing import Any, Dict, Optional, Sequence, Tuple
 
 from runtime.api.tools.platform_consumer_dispatch_ref import (
     bound_dispatch_ref,
-    consumer_dispatch_tag,
 )
 from runtime.api.tools.platform_consumer_run_wait import wait_run
-from yoke_contracts.api_urls import validate_control_api_url
-from yoke_contracts.github_workflow_dispatch import (
-    WORKFLOW_DISPATCH_CORRELATION_INPUT,
+from runtime.api.tools.platform_consumer_dispatch import (
+    build_dispatch, CONSUMER_REPO, CONSUMER_PROJECT,
 )
+from yoke_contracts.api_urls import validate_control_api_url
 
-CONSUMER_REPO = "upyoke/platform"
-CONSUMER_PROJECT = "platform"
-CONSUMER_CHECK_WORKFLOW = "platform-release-pin-check.yml"
 CONSUMER_TRUNK_REF = "main"
-CANDIDATE_INPUT = "product_ref"
 
 CONSUMER_TOKEN_ENV = "YOKE_PLATFORM_RELEASE_API_TOKEN"
 
@@ -39,14 +34,6 @@ _FULL_SHA = re.compile(r"^[0-9a-f]{40}$")
 _COMMAND_TIMEOUT_SECONDS = 300
 _PENDING_JOIN_CODE = "workflow_dispatch_pending"
 _PENDING_JOIN_BUDGET_SECONDS = 120.0
-
-
-def pair_request_id(candidate_sha: str, consumer_sha: str) -> str:
-    """Identical pairs join; different commits never adopt that proof."""
-    return (
-        f"consumer-compat:{candidate_sha}:{consumer_dispatch_tag(consumer_sha)}:"
-        f"{CONSUMER_CHECK_WORKFLOW}"
-    )
 
 
 UNPROVEN = 1
@@ -93,7 +80,7 @@ def bind_consumer_authority() -> str:
         return (
             f"{CONSUMER_TOKEN_ENV} is CI-only for this helper's bootstrap; "
             "the release train provides it. Local verification uses "
-            "`yoke github-actions trigger` on the authenticated project route."
+            "`yoke dev run -- python3 -m runtime.api.tools.platform_consumer_dispatch` on the authenticated project route."
         )
     try:
         endpoint = validate_control_api_url(os.environ.get("YOKE_API_BASE", ""))
@@ -121,7 +108,7 @@ def bind_consumer_authority() -> str:
 
 def dispatch(candidate_sha: str, consumer_sha: str) -> Tuple[str, str]:
     """Dispatch or join proof at the immutable bound consumer commit."""
-    ref, error = bound_dispatch_ref(
+    _, error = bound_dispatch_ref(
         _yoke,
         repo=CONSUMER_REPO,
         project=CONSUMER_PROJECT,
@@ -130,23 +117,7 @@ def dispatch(candidate_sha: str, consumer_sha: str) -> Tuple[str, str]:
     )
     if error:
         return "", error
-    request_id = pair_request_id(candidate_sha, consumer_sha)
-    trigger = [
-        "github-actions",
-        "trigger",
-        CONSUMER_REPO,
-        CONSUMER_CHECK_WORKFLOW,
-        "--ref",
-        ref,
-        "--input",
-        f"{CANDIDATE_INPUT}={candidate_sha}",
-        "--request-id",
-        request_id,
-        "--correlation-input",
-        WORKFLOW_DISPATCH_CORRELATION_INPUT,
-        "--project",
-        CONSUMER_PROJECT,
-    ]
+    trigger = build_dispatch(candidate_sha, consumer_sha)
     deadline = time.monotonic() + _PENDING_JOIN_BUDGET_SECONDS
     delay = 2.0
     while True:

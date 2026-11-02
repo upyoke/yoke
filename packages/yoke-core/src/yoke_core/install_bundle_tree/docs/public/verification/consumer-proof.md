@@ -32,6 +32,23 @@ requested consumer test may still name an exact published producer candidate
 through its existing workflow inputs; see
 [producer candidate inputs](index.md#proving-an-exact-producer-candidate).
 
+## Explicit Yoke repository proof
+
+From a claimed Yoke source lane, dispatch a requested pair with:
+
+```text
+yoke dev run -- python3 -m runtime.api.tools.platform_consumer_dispatch --candidate-sha FULL_YOKE_SHA --consumer-sha FULL_PLATFORM_SHA
+```
+
+Use full 40-hex commits and the authenticated connection that owns Platform.
+This entry point ensures the immutable consumer tag and uses the release
+helper's exact dispatch builder: ref, both `product_ref` and `consumer_sha`
+inputs, request id, correlation input and project. Do not assemble a trigger
+command by hand. The release joins the same pair's run; another pair uses
+another request id, and changing a payload under a reused id still refuses
+with `idempotency_key_collision`. A pending dispatch names its retry recovery;
+repeat this command with the same pair to join it.
+
 ## Diagnose a failed pair
 
 Read the failed consumer run and its job. The release refusal must retain the
