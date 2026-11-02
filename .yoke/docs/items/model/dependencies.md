@@ -38,6 +38,14 @@ satisfaction, evidence) and replies with the stored row: `created dependency #N`
 `updated existing dependency #N: <field> old -> new`, or `unchanged: existing dependency #N`.
 `update` also accepts `--source` and `--evidence`. Updates preserve `created_at`; to wait for another landing after an already satisfied edge, remove that edge and add a new one before the next landing.
 
+Creating a blocking `fact:merged` edge refuses with
+`dependency_blocker_already_landed` when the blocker has a recorded landing and
+its pinned workflow places it past code work (release or terminal). The refusal
+names the blocker and landing; no merge dependency is needed. Reopened code work
+can take a new edge before its next landing. Existing edges keep their creation
+time and evaluation rules; coordination-only records and other satisfaction
+conditions are unaffected.
+
 ### Canonical blocker model
 
 Activation, integration and closure edges have directional meaning: the dependent cannot pass that gate until the blocker satisfies the condition. Coordination-only edges are excluded from blocker evaluation.

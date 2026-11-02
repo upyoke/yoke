@@ -5,11 +5,40 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Optional
 
+from yoke_contracts.refusal_recovery import compose_refusal
 from yoke_core.domain import db_backend
+from yoke_core.domain.project_identity import render_item_ref
+from yoke_core.domain.workflow_runtime import load_item_workflow_runtime
 
 _EDGE_COLUMNS = "id, gate_point, satisfaction, source, rationale, evidence_json"
 _UPDATABLE_FIELDS = ("source", "satisfaction", "rationale", "evidence_json")
 _SHOWN_CHARS = 60
+
+
+class DependencyAlreadyLandedError(ValueError):
+    """A new merge wait has no outstanding blocker work to wait for."""
+
+    code = "dependency_blocker_already_landed"
+
+
+def _refuse_landed_blocker(conn: Any, blk_id: int) -> None:
+    p = placeholder(conn)
+    row = conn.execute(
+        f"SELECT status, merged_at FROM items WHERE id={p}", (blk_id,)
+    ).fetchone()
+    if row is None or not row[1]:
+        return
+    workflow = load_item_workflow_runtime(conn, blk_id)
+    if not workflow.stage_implies_merge(str(row[0])):
+        return
+    blocker = render_item_ref(conn, blk_id)
+    raise DependencyAlreadyLandedError(
+        compose_refusal(
+            f"{DependencyAlreadyLandedError.code}: {blocker} already landed "
+            f"at {row[1]} and has no open code work",
+            recovery="No merge dependency is needed; continue without adding this edge",
+        )
+    )
 
 
 @dataclass(frozen=True)
@@ -93,6 +122,8 @@ def write_dependency_edge(
     """
     p = placeholder(conn)
     if existing is None:
+        if satisfaction == "fact:merged" and gate_point != "coordination_only":
+            _refuse_landed_blocker(conn, blk_id)
         conn.execute(
             "INSERT INTO item_dependencies "
             "(dependent_item_id, blocking_item_id, gate_point, satisfaction, source, "
