@@ -9,6 +9,9 @@ import pytest
 from types import SimpleNamespace
 
 from yoke_cli.commands.adapters import project_github_binding
+from yoke_cli.commands import _helpers
+from yoke_cli.config import project_onboard_support
+from yoke_contracts.api.function_call import FunctionCallResponse, FunctionError
 from yoke_core.domain.handlers.project_github_binding import (
     ProjectGithubBindingBindRequest,
 )
@@ -156,3 +159,31 @@ def test_binding_json_keeps_sync_receipt(monkeypatch):
     assert project_github_binding._dispatch(
         "projects.github_binding.unbind", {}, None, True,
     ) == 0
+
+
+@pytest.mark.parametrize("code", ("github_installation_owned", "github_installation_not_connected"))
+def test_cli_and_onboard_preserve_platform_bind_refusals(monkeypatch, capsys, code):
+    message = "Connect GitHub on this org's GitHub page before binding."
+
+    def hosted_door(**kwargs):
+        assert kwargs["function_id"] == "projects.github_binding.bind"
+        return FunctionCallResponse(
+            success=False, function=kwargs["function_id"], version="v1",
+            error=FunctionError(code=code, message=message),
+        )
+
+    monkeypatch.setattr(_helpers, "call_dispatcher", hosted_door)
+    assert project_github_binding._dispatch(
+        "projects.github_binding.bind", {"project": "demo"}, None, True,
+    ) == 1
+    output = capsys.readouterr()
+    assert code in output.out + output.err
+    assert message in output.out + output.err
+
+    monkeypatch.setattr(project_onboard_support, "call_dispatcher", hosted_door)
+    with pytest.raises(project_onboard_support.ProjectDispatchError) as caught:
+        project_onboard_support.dispatch(
+            "projects.github_binding.bind", {"project": "demo"}, None,
+        )
+    assert caught.value.code == code
+    assert message in str(caught.value)

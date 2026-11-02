@@ -36,6 +36,7 @@ ERROR_TO_STATUS: Dict[str, int] = {
     "actor_id_mismatch": 403,
     "actor_session_missing": 403,
     "permission_denied": 403,
+    "github_binding_hosted_only": 403,
     "permission_check_unavailable": 503,
     "machine_retired": 409,
     "machine_credential_required": 409,
