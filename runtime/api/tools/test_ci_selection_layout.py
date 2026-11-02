@@ -122,7 +122,8 @@ def test_runner_prerequisites_install_only_on_hosted_hosts(
     sudo.chmod(0o755)
     calls = tmp_path / "calls"
     result = subprocess.run(
-        ["bash", "-euo", "pipefail", "-c", step["run"]],
+        ["bash", "-euo", "pipefail", "-c",
+         "source() { VERSION_CODENAME=resolute; }\n" + step["run"]],
         env={**os.environ, "PATH": f"{commands}:{os.environ['PATH']}",
              "RUNNER_ENVIRONMENT": runner, "CALLS": str(calls)},
         text=True, capture_output=True,
