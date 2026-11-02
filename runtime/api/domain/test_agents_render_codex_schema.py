@@ -1,12 +1,11 @@
 """Current Codex custom-subagent schema assertions for the rendered adapters.
 
 Sibling of ``test_agents_render_substrate.py`` (which is at the line cap).
-Covers the schema-truth ACs for YOK-1887: every generated
+Checks that every generated
 ``runtime/harness/codex/agents/yoke-*.toml`` parses with ``tomllib``,
 carries the required ``name`` / ``description`` / ``developer_instructions``
 keys, omits the retired ``prompt`` / ``tools`` / ``max_turns`` / stale-model
-fields, and expresses role posture via the documented ``sandbox_mode``
-field. The renderer's model-policy knob (omit-by-default, pin-on-opt-in) is
+fields, and inherits parent tools and permissions. The renderer's model-policy knob (omit-by-default, pin-on-opt-in) is
 exercised directly so the inheritance default cannot silently regress.
 """
 
@@ -24,24 +23,8 @@ from yoke_core.domain.agents_render_codex import (
     render_codex_agent,
 )
 
-# Codex documents these as the only legal sandbox postures.
-_ALLOWED_SANDBOX = {"read-only", "workspace-write", "danger-full-access"}
-
-# Sandbox posture: only the engineer carries a write-capable sandbox;
-# every read-only Yoke role stays read-only.
-_EXPECTED_SANDBOX = {
-    "product-manager": "read-only",
-    "product-designer": "read-only",
-    "architect": "read-only",
-    "tester": "read-only",
-    "simulator": "read-only",
-    "boss": "read-only",
-    "qa-walker": "read-only",
-    "engineer": "workspace-write",
-}
-
 # Retired adapter keys that must never reappear in a generated Codex TOML.
-_FORBIDDEN_KEYS = ("prompt", "tools", "max_turns")
+_FORBIDDEN_KEYS = ("prompt", "tools", "disallowedTools", "sandbox_mode", "readonly", "max_turns")
 
 # Claude model nicknames carry no Codex meaning (stale cross-provider pin).
 _CLAUDE_MODEL_NICKNAMES = {"opus", "sonnet", "haiku"}
@@ -94,28 +77,9 @@ def test_generated_toml_has_no_stale_model_pin(role: str) -> None:
 
 
 @pytest.mark.parametrize("role", AGENTS)
-def test_generated_toml_sandbox_posture(role: str) -> None:
-    """The sandbox_mode posture is explicit, legal, and role-correct."""
-    data = _generated_toml(role)
-    sandbox = data.get("sandbox_mode")
-    assert sandbox in _ALLOWED_SANDBOX, (
-        f"{role}: sandbox_mode {sandbox!r} not in {_ALLOWED_SANDBOX}"
-    )
-    assert sandbox == _EXPECTED_SANDBOX[role], (
-        f"{role}: expected sandbox_mode {_EXPECTED_SANDBOX[role]!r}, got {sandbox!r}"
-    )
-
-
-@pytest.mark.parametrize("role", AGENTS)
-def test_sidecar_sandbox_value_is_legal(role: str) -> None:
-    """Each Codex sidecar declares a documented sandbox posture."""
+def test_sidecar_inherits_tools_and_permissions(role: str) -> None:
     spec = load_codex_spec(_repo_root() / CANONICAL_DIR, role)
-    assert spec.get("sandbox_mode") in _ALLOWED_SANDBOX, (
-        f"{role}.codex.json sandbox_mode {spec.get('sandbox_mode')!r} is not legal"
-    )
-    # Sidecars must not carry the retired adapter keys either.
-    leftovers = [key for key in (*_FORBIDDEN_KEYS, "model") if key in spec]
-    assert not leftovers, f"{role}.codex.json carries retired keys: {leftovers}"
+    assert not set(spec).intersection((*_FORBIDDEN_KEYS, "model"))
 
 
 @pytest.mark.parametrize("role", AGENTS)

@@ -4,7 +4,6 @@
 
 name = "yoke-qa-walker"
 description = "Walks one exploratory QA mission across declared substrates and returns ranked findings or a precise human-gate handoff. Never issues the final verdict."
-sandbox_mode = "read-only"
 
 developer_instructions = """
 You are a QA Walker. Walk one source case or small same-host chunk in a fresh

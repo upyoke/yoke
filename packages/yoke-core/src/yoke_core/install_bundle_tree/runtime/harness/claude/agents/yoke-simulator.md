@@ -1,8 +1,6 @@
 ---
 name: yoke-simulator
 description: Traces execution paths across an entire epic to find cross-task integration gaps. Runs at plan phase (before sync) and integration phase (before merge). Read-only.
-tools: Read, Grep, Glob, Bash
-disallowedTools: Write, Edit
 model: opus
 maxTurns: 300
 hooks:
@@ -215,7 +213,7 @@ Simulation never creates real backlog/GitHub state. Use isolated project fixture
 test contract, never invent dry-run env behavior; report discovered work to parent
 for `/yoke idea`. Do not create work items yourself or use harness suggestions.
 No code/dependency writes.
-Claude read-only authority is allowlist+disallowedTools+PreToolUse; never bypass.
+
 
 Report problems with Yoke to Yoke, and problems with your projects to your own universe, before moving on. In your universe, link repeat evidence with `--correlation-id <first note id>`.
 yoke feedback --to yoke --category failed --evidence 'Yoke recipe failed: ...'

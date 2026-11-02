@@ -19,8 +19,8 @@ The rendered ``.toml`` uses the current Codex custom-subagent schema:
 required ``name`` / ``description`` / ``developer_instructions`` plus the
 optional fields Codex inherits-when-omitted. ``model`` is omitted by
 default so Codex follows the parent session, and is pinned only when the
-sidecar opts in via ``model_policy="pinned"``; ``sandbox_mode`` posture is
-emitted when the sidecar declares it. Only documented Codex subagent
+sidecar opts in via ``model_policy="pinned"``; tools and permissions
+inherit the parent session. Only documented Codex subagent
 fields are emitted — no Claude adapter metadata leaks into Codex output.
 """
 
@@ -97,7 +97,7 @@ def render_codex_agent(canonical_dir: Path, role: str) -> str:
 
     Emits the current Codex custom-subagent schema: required ``name`` /
     ``description`` / ``developer_instructions``, plus the optional
-    ``model`` (only when pinned) and ``sandbox_mode`` posture when the
+    ``model`` (only when pinned) when the
     sidecar declares it. Claude-only adapter metadata is never emitted.
     """
     spec = load_codex_spec(canonical_dir, role)
@@ -112,8 +112,6 @@ def render_codex_agent(canonical_dir: Path, role: str) -> str:
     pinned_model = _resolve_pinned_model(spec)
     if pinned_model is not None:
         lines.append(f'model = {json.dumps(pinned_model)}')
-    if "sandbox_mode" in spec:
-        lines.append(f'sandbox_mode = {json.dumps(spec["sandbox_mode"])}')
     lines.append("")
     lines.append('developer_instructions = """')
     lines.append(escaped.rstrip("\n"))

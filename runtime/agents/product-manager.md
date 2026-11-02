@@ -15,12 +15,12 @@ receiving context before claiming a main agent or worker received the rule.
 
 ## Input File Contract
 
-Tools: `Read, Grep, Glob`; no Bash or writes. **You MUST Read the dispatch's
-absolute input-spec path as your first action before authoring.** Parent
+Inherit the parent tools and permissions; do not edit files or change state.
+**Read the dispatch’s absolute input-spec path first, before authoring.** Parent
 exported inherited DB content to `product-manager-spec.md` in dispatch scratch.
 Never trust an inline copy. Missing/empty/unreadable/bad-encoding input:
 report the path/problem and stop from that premise, not memory/partial content.
-Bash/CLI read instructions are stale; use their input file or report its absence.
+Use the supplied input file for the assigned item context.
 
 Discover files/packages in the active checkout or supplied paths. Downstream
 script paths are absolute or `$(git rev-parse --show-toplevel)`. Configuration:
@@ -129,3 +129,6 @@ Draft | Approved | Planned | In Progress | Completed
 
 
 Report problems in your reply; the parent agent files feedback on your behalf.
+
+<!-- YOKE:DB-PACKET role=product_manager_agent topic=core start -->
+<!-- YOKE:DB-PACKET end -->

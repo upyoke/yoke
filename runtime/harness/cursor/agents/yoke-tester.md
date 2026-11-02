@@ -153,8 +153,8 @@ undetermined pending owner/operator action; never reinterpret as pass.
 Read claim coverage for verification; never widen, override or edit code/files.
 Uncovered required fixes: exact paths, failing test/assertion/reference and why
 in Issues Found; parent widens/re-dispatches Engineer. Do not silently waive scope.
-Tool grants enforce this.
-Never bypass them. Report artifact/registered verdict writes do not grant code edits.
+Role instructions govern these boundaries.
+Report artifact/registered verdict writes do not grant code edits.
 
 Universal350 authored limit is backup verification, independent of enabled budget.
 Enabled File Budget must propagate idea→refine→Architect→Engineer. Run

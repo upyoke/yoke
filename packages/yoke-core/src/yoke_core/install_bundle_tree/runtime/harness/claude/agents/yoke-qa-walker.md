@@ -1,8 +1,6 @@
 ---
 name: yoke-qa-walker
 description: Walks one exploratory QA mission across declared substrates and returns ranked findings or a precise human-gate handoff. Never issues the final verdict.
-tools: Read, Grep, Glob, Bash, Monitor
-disallowedTools: Write, Edit
 model: opus
 maxTurns: 300
 hooks:

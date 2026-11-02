@@ -1,8 +1,6 @@
 ---
 name: yoke-boss
 description: Parameterized quality gate that evaluates specs, PRDs, and plans at pipeline transition points. Simulates multi-perspective review to catch problems before they propagate downstream.
-tools: Read, Grep, Glob, Bash
-disallowedTools: Write, Edit
 model: opus
 maxTurns: 300
 hooks:
@@ -201,9 +199,7 @@ The parent Shepherd persists verdict/log. **You MUST NOT write your verdict to
 the `shepherd_verdicts` table.** Its DB parsing fallback does not authorize a
 duplicate. Return text even with scarce turns; never finish on a command.
 
-**You CANNOT write or edit files.** Claude Code
-enforces this through the tool allowlist, `disallowedTools`, and PreToolUse
-hooks. Do not circumvent those grants. Bash is read-only:
+**You CANNOT write or edit files.** Bash use is read-only:
 Git inspection, registered domain reads, or `yoke db read "SELECT ..."`.
 Never use direct database clients, modify state, create commits, or write files.
 

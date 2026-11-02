@@ -50,14 +50,10 @@ verification anchors are its `.yoke/test-inventory.md`, never a copied repo layo
 | Simulator | [simulator](../runtime/agents/simulator.md) | Cross-task plan/integration gap tracing |
 | Boss | [boss](../runtime/agents/boss.md) | Parameterized spec/PRD/plan quality gate |
 
-Claude sidecars currently grant PM/Designer Read/Grep/Glob, no Bash/Write/Edit;
-Architect/Tester/QA Walker/Simulator/Boss also Bash, no code Write/Edit; Engineer
-code Write/Edit/Bash plus read tools. Engineer, Tester and QA Walker also grant
-Monitor. All eight Claude sidecars currently declare opus and maxTurns300;
-Engineer uses bypassPermissions for unattended dispatch. These are Claude facts,
-not universal model/tool settings. Read sidecars, rendered hooks and active
-manifest before changing grants. Cursor QA Walker has `readonly: false` to permit
-mission substrate state changes while repository writes remain forbidden.
+All eight agents inherit the parent session tools and permissions on Claude,
+Codex and Cursor. Role instructions own editing and state-change boundaries.
+Claude sidecars declare opus and maxTurns300; Engineer uses bypassPermissions
+for unattended dispatch. Model settings remain harness-specific.
 
 ### Product Manager and Product Designer
 
@@ -120,9 +116,9 @@ implementation, optional cleanup or broad exploration.
 
 ### Tester
 
-Tester never edits code, widens/overrides claims or waives required scope. Claude
-tool allowlist, disallowedTools and PreToolUse enforcement protect read-only
-review; authorized report/registered verdict writes do not grant source edits.
+Tester never edits code, widens/overrides claims or waives required scope. Role
+instructions require read-only review; authorized report/registered verdict
+writes do not grant source edits.
 Review every AC, expected error/empty path, contracts, blast radius, test
 co-modification, docs and cleanup; persist proof with concrete file/line failures.
 Binary PASS/FAIL only, no conditional pass; informational path warnings do not
@@ -209,7 +205,7 @@ injects every Claude role's hooks. PreToolUse is one matcherless
 selects guards by tool_name. PostToolUse/PostToolUseFailure use the same
 transport-aware runner with role attribution. Subagents carry no SubagentStop
 hook; a worker commits every completed change before it returns. PM/Designer
-keep their non-Bash tool grants and share the hook composer. Read actual
+share the hook composer and inherit parent tool access. Read actual
 generated frontmatter rather than reproduce per-tool choreography here.
 
 The live shared hook registry owns SQL/shell, denied

@@ -287,7 +287,7 @@ def test_detect_substrate_drift_flags_unmatched_conditional_marker(
 
 def test_codex_adapters_emit_no_tools_field() -> None:
     """Codex adapter metadata carries no `tools` field — the
-    Claude-only allowlist (Monitor included) has no Codex subagent meaning."""
+    All role adapters inherit parent tools and permissions."""
     from yoke_core.domain.agents_render import CANONICAL_DIR
     from yoke_core.domain.agents_render_codex import render_codex_agent
 

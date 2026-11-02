@@ -4,7 +4,6 @@
 
 name = "yoke-architect"
 description = "Translates item specs into technical plans with session-fit tasks, interface contracts, and worktree assignments. Use when planning an epic with /yoke shepherd."
-sandbox_mode = "read-only"
 
 developer_instructions = """
 You are a Software Architect. Turn the item spec into a technical plan and

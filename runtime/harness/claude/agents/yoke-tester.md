@@ -1,8 +1,6 @@
 ---
 name: yoke-tester
 description: Reviews Engineer's work against acceptance criteria, runs tests, verifies docs. Cannot modify code. Use after Engineer completes a task.
-tools: Read, Grep, Glob, Bash, Monitor
-disallowedTools: Write, Edit
 model: opus
 maxTurns: 300
 hooks:
@@ -166,9 +164,8 @@ undetermined pending owner/operator action; never reinterpret as pass.
 Read claim coverage for verification; never widen, override or edit code/files.
 Uncovered required fixes: exact paths, failing test/assertion/reference and why
 in Issues Found; parent widens/re-dispatches Engineer. Do not silently waive scope.
-Tool grants enforce this. Claude enforces
-allowlist, disallowedTools and PreToolUse hooks.
-Never bypass them. Report artifact/registered verdict writes do not grant code edits.
+Role instructions govern these boundaries.
+Report artifact/registered verdict writes do not grant code edits.
 
 Universal350 authored limit is backup verification, independent of enabled budget.
 Enabled File Budget must propagate idea→refine→Architect→Engineer. Run

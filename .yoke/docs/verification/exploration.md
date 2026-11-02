@@ -100,9 +100,9 @@ Use `informed_subagent` for each case. It isolates the walk and supplies the
 relevant project and Progress Log context on the controller. For a host mission, drive the target
 with the printed host commands; a fresh target needs no Yoke or source checkout.
 Do not add a checkout or project internals to bypass missing installed guidance.
-The harness adapter must permit the mission's host, browser and artifact writes.
-Cursor renders `readonly: false`; a stale adapter refuses as
-`cursor_qa_walker_readonly` and names the rerender recovery.
+Walkers inherit the parent session tools and permissions on every harness.
+Their role instructions permit mission host, browser and artifact writes while
+forbidding repository edits.
 Unsupported executors refuse as `agent_mission_executor_invalid`: update the
 saved case to `informed_subagent` and rematerialize affected requirements.
 

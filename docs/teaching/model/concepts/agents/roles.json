@@ -4,5 +4,6 @@
  "status": "draft-copy",
  "surface_refs": ["execution-instructions", "skills-roles"],
  "page": "agents",
- "position": 1
+ "position": 1,
+ "summary": "All eight subagents inherit parent session tools and permissions on Claude, Codex and Cursor. Role instructions define editing and state-change boundaries; reviewer access does not authorize source edits."
 }

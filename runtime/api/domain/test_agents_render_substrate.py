@@ -278,55 +278,11 @@ def test_drift_detection_reports_handedited_file(tmp_path: Path) -> None:
     )
 
 
-def _tools_set(spec: dict) -> set[str]:
-    raw = spec.get("tools") or ""
-    if isinstance(raw, list):
-        return {str(t).strip() for t in raw if t}
-    return {token.strip() for token in str(raw).split(",") if token.strip()}
-
-
-def test_pm_pd_sidecars_have_no_bash_in_either_harness(repo_root: Path) -> None:
-    """Product Manager and Product Designer never grant Bash in adapters."""
-
-    canonical = repo_root / "runtime/agents"
-    for agent in ("product-manager", "product-designer"):
-        for ext in ("claude.json", "codex.json"):
-            spec = json.loads((canonical / f"{agent}.{ext}").read_text("utf-8"))
-            assert "Bash" not in _tools_set(spec), (
-                f"{agent}.{ext} grants Bash; PM/PD must remain non-Bash"
-            )
-    claude_dir = repo_root / "runtime/harness/claude/agents"
-    codex_dir = repo_root / "runtime/harness/codex/agents"
-    for agent in ("product-manager", "product-designer"):
-        claude_text = (claude_dir / f"yoke-{agent}.md").read_text("utf-8")
-        # Frontmatter ``tools:`` line lists comma-separated grants. The
-        # ``disallowedTools:`` line is a different field and may include
-        # ``Bash`` — that is the explicit deny half of the tool policy and must not
-        # trip the assertion.
-        tools_line = next(
-            (line for line in claude_text.splitlines() if line.startswith("tools:")), ""
-        )
-        assert tools_line, f"yoke-{agent}.md missing tools: line"
-        assert "Bash" not in tools_line, (
-            f"rendered Claude adapter for {agent} grants Bash on tools line"
-        )
-        # Codex emits no tools field; the Claude allowlist has no Codex meaning.
-        codex_text = (codex_dir / f"yoke-{agent}.toml").read_text("utf-8")
-        codex_header = codex_text.split('developer_instructions = """', 1)[0]
-        has_tools = any(
-            line.lstrip().startswith("tools") for line in codex_header.splitlines()
-        )
-        assert not has_tools, f"rendered Codex adapter for {agent} still emits tools"
-
-
 def test_bash_capable_actors_have_packet_markers(repo_root: Path) -> None:
-    """Any agent granting Bash must carry generated packet markers."""
+    """Every agent inherits shell access and carries command packet markers."""
     canonical = repo_root / "runtime/agents"
     marker = "<!-- YOKE:DB-PACKET role="
     for agent in AGENTS:
-        spec = json.loads((canonical / f"{agent}.claude.json").read_text("utf-8"))
-        if "Bash" not in _tools_set(spec):
-            continue
         body = (canonical / f"{agent}.md").read_text("utf-8")
         assert marker in body, f"Bash-capable agent {agent!r} has no packet markers"
 

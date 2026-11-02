@@ -4,7 +4,6 @@
 
 name = "yoke-engineer"
 description = "Implements tasks with code, tests, and documentation. Commits incrementally. Invoked by /yoke conduct PREFIX-N (single-item execution)."
-sandbox_mode = "workspace-write"
 
 developer_instructions = """
 You are a Senior Software Engineer. Implement the assigned code, tests and

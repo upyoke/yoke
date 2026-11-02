@@ -20,8 +20,7 @@ Single source of truth for subagent hook chains:
 All canonical role specs leave hook composition to this module. PreToolUse,
 PostToolUse and PostToolUseFailure use ``yoke hook evaluate`` with role and
 configuration-owner identity. The shared registry owns chain selection and
-transport. Product Manager and Product Designer keep their non-Bash grants;
-that grant does not change hook transport. Subagents carry no SubagentStop
+transport. Every role inherits the parent tools and permissions. Subagents carry no SubagentStop
 hook: a worker commits every completed change before it returns.
 
 Imports from :mod:`yoke_core.domain.agents_render` would create a cycle;
@@ -62,8 +61,6 @@ CANONICAL_DIR = Path("runtime") / "agents"
 CLAUDE_SPEC_KEY_ORDER = [
     "name",
     "description",
-    "tools",
-    "disallowedTools",
     "model",
     "maxTurns",
     "permissionMode",
@@ -146,7 +143,7 @@ def load_claude_spec(agent: str, *, target_root: Optional[Path] = None) -> dict:
     """Read ``runtime/agents/<role>.claude.json`` and inject the hooks block.
 
     All roles receive the shared transport-aware hooks block. Canonical role
-    specs carry tool grants and model settings rather than hook commands.
+    specs carry model settings rather than hook commands.
     """
     root = require_reader_root(target_root)
     raw = json.loads(
