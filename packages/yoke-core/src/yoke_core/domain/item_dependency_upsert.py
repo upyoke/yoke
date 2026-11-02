@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from typing import Any, Optional
 
 from yoke_contracts.refusal_recovery import compose_refusal
+from yoke_contracts.timestamps import format_instant
 from yoke_core.domain import db_backend
 from yoke_core.domain.project_identity import render_item_ref
 from yoke_core.domain.workflow_runtime import load_item_workflow_runtime
@@ -35,7 +36,7 @@ def _refuse_landed_blocker(conn: Any, blk_id: int) -> None:
     raise DependencyAlreadyLandedError(
         compose_refusal(
             f"{DependencyAlreadyLandedError.code}: {blocker} already landed "
-            f"at {row[1]} and has no open code work",
+            f"at {format_instant(row[1])} and has no open code work",
             recovery="No merge dependency is needed; continue without adding this edge",
         )
     )
