@@ -68,7 +68,7 @@ def shipped(monkeypatch):
         lambda _repository, sha, _modules_dir: (histories[sha], ""),
     )
     monkeypatch.setattr(rehearsal.sources, "_bound_checkout", lambda _p: "/consumer")
-    monkeypatch.setattr(rehearsal.release_source, "ensure_commit", lambda _r, _s: "")
+    monkeypatch.setattr(rehearsal.release_source, "ensure_commit", lambda _r, _s, _run: "")
     store = {
         ("yoke", "prod"): _covered(),
         ("consumer", "prod"): {},
@@ -76,7 +76,7 @@ def shipped(monkeypatch):
     }
     histories_by_project = {"yoke": _HISTORY, "consumer": _BOUND_HISTORY}
 
-    def coverage(project, model, environment, _history, _digest):
+    def coverage(project, model, environment, _history, _digest, run_id):
         return dict(store[(project, environment)]), ""
 
     def run_preflight(args: list[str]) -> int:

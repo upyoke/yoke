@@ -40,10 +40,10 @@ def test_recovered_merge_close_out_finishes_settling_run(
 
     prepare = delivery_member_close_steps.prepare_member_close
 
-    def refuse_member(conn, *, item_id, public_ref):
+    def refuse_member(conn, *, item_id, public_ref, run_id):
         if item_id == MEMBER_B:
             return "member close-out prerequisite is temporarily unavailable"
-        return prepare(conn, item_id=item_id, public_ref=public_ref)
+        return prepare(conn, item_id=item_id, public_ref=public_ref, run_id=run_id)
 
     monkeypatch.setattr(
         delivery_member_close_steps, "prepare_member_close", refuse_member

@@ -158,6 +158,7 @@ def test_refresh_after_unrelated_stage_admits_new_member_and_preserves_snapshots
             if project == CONSUMER_PROJECT
             else release["carrier_repo"]
         ),
+        run_id="run-recovery",
     )
     record_attested_candidate_containment(test_db, "run-candidate", attested)
     freeze_run_composition(test_db, "run-candidate")

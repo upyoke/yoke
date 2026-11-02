@@ -30,6 +30,7 @@ def _setup(conn, tmp_path, monkeypatch):
         lambda slug: str(
             release["carrier_repo"] if slug == "yoke" else release["consumer_repo"]
         ),
+        run_id="run-recovery",
     )
     record_attested_candidate_containment(conn, "run-candidate", attestation)
     conn.commit()

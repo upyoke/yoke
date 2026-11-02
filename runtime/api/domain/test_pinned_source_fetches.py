@@ -38,7 +38,9 @@ def fetch_source(request, monkeypatch, tmp_path):
         commits = iter(["", sha])
         monkeypatch.setattr(module, resolver, lambda *_: next(commits))
         if module is pinned:
-            return pinned._ensure_commit(str(tmp_path), "revision")
+            return pinned._ensure_commit(
+                str(tmp_path), "revision", run_id="run-recovery"
+            )
         return candidate._candidate_commit(tmp_path, "revision", "deployment run")
 
     return run, error, tmp_path

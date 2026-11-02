@@ -26,7 +26,8 @@ def _refusal(code):
     )
 
 
-def _attest(basis, checkout):
+def _attest(basis, checkout, *, run_id):
+    assert run_id == RUN_ID
     assert checkout("project") == "/primary"
     return {"basis_digest": basis["basis_digest"]}
 

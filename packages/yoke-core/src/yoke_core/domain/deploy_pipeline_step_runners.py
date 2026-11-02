@@ -172,6 +172,7 @@ def _dispatch_step_runner(
             preview_slug=release_identity,
             before_dispatch=partial(
                 deploy_pipeline_fleet_rehearsal.ensure_before_dispatch,
+                run_id=run_id,
                 project=project,
                 environment=environment_name,
                 repository=project_repo_path,

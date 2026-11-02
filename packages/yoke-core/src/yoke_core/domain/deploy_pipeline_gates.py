@@ -204,6 +204,7 @@ def _check_ci_gate(
     timeout_sec: int,
     *,
     branch: str,
+    run_id: str = "RUN-ID",
     head_sha: str = "",
     sd: Optional[str] = None,
 ) -> Tuple[bool, str]:
@@ -276,6 +277,7 @@ def _check_ci_gate(
             failure,
             workflow=ci_workflow,
             repo=github_repo,
+            run_id=run_id,
         )
 
     result = envelope.get("result")

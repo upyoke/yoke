@@ -70,7 +70,7 @@ def _bypass(public_ref: str) -> Any:
     )
 
 
-def prepare_member_close(conn: Any, *, item_id: int, public_ref: str) -> str:
+def prepare_member_close(conn: Any, *, item_id: int, public_ref: str, run_id: str) -> str:
     """Commit this member's close prerequisites; return why it cannot close.
 
     Direct-evidence workflows stamp the delivery rung landing could not
@@ -97,7 +97,7 @@ def prepare_member_close(conn: Any, *, item_id: int, public_ref: str) -> str:
             conn.rollback()
             return f"its delivery evidence could not be stamped: {exc}"
         conn.commit()
-        if refusal := member_close_evidence_refusal(conn, item_id=int(item_id)):
+        if refusal := member_close_evidence_refusal(conn, item_id=int(item_id), run_id=run_id):
             return refusal
     if refusal := _settlement_refusal(conn, item_id=int(item_id), runtime=runtime):
         return refusal
@@ -136,7 +136,7 @@ def _settlement_refusal(conn: Any, *, item_id: int, runtime: Any) -> str:
 
 
 def member_close_evidence_refusal(
-    conn: Any, *, item_id: int, delivery_pending: bool = False
+    conn: Any, *, item_id: int, run_id: str, delivery_pending: bool = False
 ) -> str:
     """Read the same execution evidence preparation requires, without stamping.
 
@@ -158,12 +158,12 @@ def member_close_evidence_refusal(
         return ""
     return (
         f"landing evidence is missing {', '.join(missing)}. Record it with "
-        f"`yoke merge item` `--result` and `--verification`, then re-drive the run with `{deploy_command()}`"
+        f"`yoke merge item` `--result` and `--verification`, then re-drive the run with `{deploy_command(run_id)}`"
     )
 
 
 def member_close_refusal(
-    conn: Any, *, item_id: int, delivery_pending: bool = False
+    conn: Any, *, item_id: int, run_id: str, delivery_pending: bool = False
 ) -> str:
     """Why closing this member now would refuse, read without writing.
 
@@ -179,7 +179,7 @@ def member_close_refusal(
         return ""
     reasons = [
         member_close_evidence_refusal(
-            conn, item_id=int(item_id), delivery_pending=delivery_pending
+            conn, item_id=int(item_id), run_id=run_id, delivery_pending=delivery_pending
         )
     ]
     terminal = terminal_transition_result(

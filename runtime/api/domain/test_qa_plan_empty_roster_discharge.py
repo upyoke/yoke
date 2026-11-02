@@ -91,12 +91,11 @@ def test_empty_roster_distinguishes_discharge_from_never_asked(test_db) -> None:
 
 def test_a_discharged_begin_refusal_is_a_successful_plan_result() -> None:
     statement = discharged_without_cases_statement(
-        requirement_id=17, qa_kind=NO_OBLIGATION_QA_KIND
+        requirement_id=17, qa_kind=NO_OBLIGATION_QA_KIND, run_id="run-recovery"
     )
     result = as_discharged_plan_result(
         QaPlanExecutionError(
-            f"qa.plan_execution.begin failed ({DISCHARGED_BEGIN_CODE}): "
-            f"{statement}"
+            f"qa.plan_execution.begin failed ({DISCHARGED_BEGIN_CODE}): {statement}"
         )
     )
 
@@ -104,6 +103,9 @@ def test_a_discharged_begin_refusal_is_a_successful_plan_result() -> None:
     assert result["state"] == DISCHARGED_PLAN_STATE
     assert result["message"] == statement
     assert result["requirements"] == []
-    assert as_discharged_plan_result(
-        QaPlanExecutionError("qa.plan_execution.begin failed (other): miss")
-    ) is None
+    assert (
+        as_discharged_plan_result(
+            QaPlanExecutionError("qa.plan_execution.begin failed (other): miss")
+        )
+        is None
+    )

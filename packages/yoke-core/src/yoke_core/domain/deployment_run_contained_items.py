@@ -81,7 +81,8 @@ def parse_candidate_containment(value: Any) -> dict[str, Any]:
 
 
 def attest_candidate_containment(
-    basis: Mapping[str, Any], checkout_for_project: Callable[[str], str]
+    basis: Mapping[str, Any], checkout_for_project: Callable[[str], str],
+    *, run_id: str,
 ) -> dict[str, Any]:
     """Answer a server basis from local checkouts or refuse it by name."""
     recorded = basis.get("recorded_snapshot")
@@ -101,7 +102,7 @@ def attest_candidate_containment(
                 "candidate_containment_checkout_missing",
                 f"no local checkout is registered for project {slug or project_id}",
                 "Register that project's checkout on the deploy driver, fetch the "
-                f"candidate and merge commits, then re-drive the run with `{deploy_command()}`.",
+                f"candidate and merge commits, then re-drive the run with `{deploy_command(run_id)}`.",
             )
         walk = CandidateContainment(
             None,
@@ -119,7 +120,7 @@ def attest_candidate_containment(
                     f"project {slug or project_id} item {item.get('public_ref') or render_item_ref(None, item_id)}: {verdict.reason}",
                     verdict.recovery
                     or "Fetch both commits into the registered checkout, then "
-                    f"re-drive the run with `{deploy_command()}`.",
+                    f"re-drive the run with `{deploy_command(run_id)}`.",
                 )
             answer = {
                 "id": item_id,
@@ -164,7 +165,7 @@ def record_attested_candidate_containment(
         for item in project.get("items") or ()
     }
     if not expected and attestation is None:
-        attestation = attest_candidate_containment(basis, lambda _slug: "")
+        attestation = attest_candidate_containment(basis, lambda _slug: "", run_id=run_id)
     if not isinstance(attestation, Mapping):
         raise CandidateContainmentRefusal(
             "candidate_containment_attestation_required",

@@ -130,7 +130,7 @@ def _read_members(conn: Any, run_id: str) -> CompletionPreview:
 
             reason = " ".join(
                 member_close_refusal(
-                    conn, item_id=item_id, delivery_pending=True
+                    conn, item_id=item_id, run_id=run_id, delivery_pending=True
                 ).splitlines()
             )
         targets = [

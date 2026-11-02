@@ -145,7 +145,9 @@ def _prepared_members(
         if not satisfied_delivery_member(conn, item_id=item_id, run_id=run_id):
             continue
         try:
-            refusal = prepare_member_close(conn, item_id=item_id, public_ref=public_ref)
+            refusal = prepare_member_close(
+                conn, item_id=item_id, public_ref=public_ref, run_id=run_id
+            )
         except Exception as exc:  # noqa: BLE001 - named as this member's blocker
             conn.rollback()
             refusal = str(exc) or exc.__class__.__name__
@@ -160,7 +162,7 @@ class SettlementTransactionLost(RuntimeError):
     """A member's status write ended the transaction settlement owns."""
 
 
-def _end_savepoint(conn: Any, public_ref: str, *, keep: bool) -> None:
+def _end_savepoint(conn: Any, public_ref: str, *, keep: bool, run_id: str) -> None:
     """Release or roll back a member's savepoint, refusing a lost one.
 
     The savepoint only disappears when something inside the member's status
@@ -175,12 +177,12 @@ def _end_savepoint(conn: Any, public_ref: str, *, keep: bool) -> None:
             f"{public_ref}'s status write ended the settlement transaction "
             f"({exc}); members written before it may have committed on their "
             "own. A caller-owned status write must never commit or roll back "
-            f"its connection: fix the step that did, then re-drive the run with `{deploy_command()}`"
+            f"its connection: fix the step that did, then re-drive the run with `{deploy_command(run_id)}`"
         ) from exc
 
 
 def _stage_members(
-    conn: Any, members: list[dict[str, Any]], refusals: dict[int, str]
+    conn: Any, members: list[dict[str, Any]], refusals: dict[int, str], run_id: str
 ) -> list[Any]:
     """Write every prepared member's close into the open transaction.
 
@@ -197,10 +199,10 @@ def _stage_members(
         try:
             written = stage_member_close(conn, item_id=item_id, public_ref=public_ref)
         except Exception as exc:  # noqa: BLE001 - named as this member's blocker
-            _end_savepoint(conn, public_ref, keep=False)
+            _end_savepoint(conn, public_ref, keep=False, run_id=run_id)
             refusals[item_id] = str(exc) or exc.__class__.__name__
             continue
-        _end_savepoint(conn, public_ref, keep=not written.refusal)
+        _end_savepoint(conn, public_ref, keep=not written.refusal, run_id=run_id)
         if written.refusal:
             refusals[item_id] = written.refusal
         else:
@@ -252,7 +254,7 @@ def _commit_phase(conn: Any, run_id: str) -> tuple[list[Any], Optional[str]]:
     if refusals or any(m["item_id"] not in prepared for m in required):
         return [], _blocked(conn, run_id, required, refusals, prepared, cleared)
     try:
-        staged = _stage_members(conn, ready, refusals)
+        staged = _stage_members(conn, ready, refusals, run_id)
     except SettlementTransactionLost as exc:
         conn.rollback()
         return [], settle_refusal(run_id, [str(exc)], closed=False)

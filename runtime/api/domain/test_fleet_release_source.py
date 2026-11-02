@@ -118,9 +118,9 @@ def test_ensure_commit_fetches_a_bound_commit_the_checkout_lacks(
     (origin / "b.txt").write_text("b")
     later = _commit(origin, "later")
 
-    assert release_source.ensure_commit(str(clone), later) == ""
+    assert release_source.ensure_commit(str(clone), later, run_id="run-recovery") == ""
     assert _git(clone, "cat-file", "-t", later) == "commit"
-    assert release_source.ensure_commit(str(clone), later) == ""
+    assert release_source.ensure_commit(str(clone), later, run_id="run-recovery") == ""
 
 
 def test_ensure_commit_names_the_fetch_recovery_when_origin_lacks_it(
@@ -131,7 +131,7 @@ def test_ensure_commit_names_the_fetch_recovery_when_origin_lacks_it(
     _git(repo, "init", "-q")
     missing = "f" * 40
 
-    refusal = release_source.ensure_commit(str(repo), missing)
+    refusal = release_source.ensure_commit(str(repo), missing, run_id="run-recovery")
 
     assert f"commit {missing} is not in" in refusal
     assert f"fetch origin {missing}" in refusal

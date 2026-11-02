@@ -130,7 +130,7 @@ def test_prepare_freezes_a_yoke_shaped_checkout(
         "run_pin",
         lambda _run_id: {"release_lineage": pin, "project": "yoke"},
     )
-    monkeypatch.setattr(pinned, "self_release_checkout", lambda _p: repo)
+    monkeypatch.setattr(pinned, "self_release_checkout", lambda _p, _r: repo)
     prepared = pinned.prepare_self_deploy_driver("run-20260921-010")
     assert prepared is not None
     assert prepared.lineage == pin
@@ -148,7 +148,7 @@ def test_prepare_does_not_compose_membership(
         "run_pin",
         lambda _run_id: {"release_lineage": pin, "project": "yoke"},
     )
-    monkeypatch.setattr(pinned, "self_release_checkout", lambda _p: repo)
+    monkeypatch.setattr(pinned, "self_release_checkout", lambda _p, _r: repo)
 
     def _boom(_run_id: str) -> dict:
         raise AssertionError("prepare must not enroll via execution_context")
@@ -241,7 +241,7 @@ def test_preparation_sweeps_finished_runs_before_taking_a_slot(
         "run_pin",
         lambda _run_id: {"release_lineage": pin, "project": "yoke"},
     )
-    monkeypatch.setattr(pinned, "self_release_checkout", lambda _p: repo)
+    monkeypatch.setattr(pinned, "self_release_checkout", lambda _p, _r: repo)
     monkeypatch.setattr(retirement, "_run_status", lambda _run_id: ("succeeded", ""))
     monkeypatch.setattr(
         retirement, "declared_disposable_roots", lambda _root: frozenset()
@@ -268,7 +268,7 @@ def test_preparation_never_sweeps_the_run_it_is_preparing(
         "run_pin",
         lambda _run_id: {"release_lineage": pin, "project": "yoke"},
     )
-    monkeypatch.setattr(pinned, "self_release_checkout", lambda _p: repo)
+    monkeypatch.setattr(pinned, "self_release_checkout", lambda _p, _r: repo)
     monkeypatch.setattr(retirement, "_run_status", lambda _run_id: ("succeeded", ""))
     monkeypatch.setattr(
         retirement, "declared_disposable_roots", lambda _root: frozenset()
@@ -293,7 +293,7 @@ def test_a_sweep_failure_never_blocks_the_deploy(
         "run_pin",
         lambda _run_id: {"release_lineage": pin, "project": "yoke"},
     )
-    monkeypatch.setattr(pinned, "self_release_checkout", lambda _p: repo)
+    monkeypatch.setattr(pinned, "self_release_checkout", lambda _p, _r: repo)
 
     def _explode(**_kwargs):
         raise RuntimeError("sweep exploded")

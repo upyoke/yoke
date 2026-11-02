@@ -74,7 +74,7 @@ def _resolve_commit(repo: str, revision: str) -> str:
     return (result.stdout or "").strip()
 
 
-def _ensure_commit(repo: str, revision: str) -> str:
+def _ensure_commit(repo: str, revision: str, run_id: str) -> str:
     resolved = _resolve_commit(repo, revision)
     if resolved:
         return resolved
@@ -93,7 +93,7 @@ def _ensure_commit(repo: str, revision: str) -> str:
     raise DeployPinnedSourceError(
         f"pinned release_lineage {revision!r} is not a commit in {repo}: "
         f"{detail}. Fetch that revision into the machine-config checkout "
-        f"and re-drive the run with `{deploy_command()}`."
+        f"and re-drive the run with `{deploy_command(run_id)}`."
     )
 
 
@@ -136,7 +136,7 @@ def driver_worktree_path(checkout: Path, run_id: str) -> Path:
 
 def ensure_pinned_worktree(checkout: str, run_id: str, revision: str) -> Path:
     """Reuse or add a detached worktree at *revision* for *run_id*."""
-    sha = _ensure_commit(checkout, revision)
+    sha = _ensure_commit(checkout, revision, run_id)
     path = driver_worktree_path(Path(checkout), run_id)
     if path.exists():
         existing = _resolve_commit(str(path), "HEAD")
@@ -161,7 +161,7 @@ def ensure_pinned_worktree(checkout: str, run_id: str, revision: str) -> Path:
     return path
 
 
-def self_release_checkout(project: str) -> Path | None:
+def self_release_checkout(project: str, run_id: str) -> Path | None:
     """This machine's Yoke checkout for *project*; None drives with the installed engine.
 
     Reads the selected ``connection_projects`` list's checkout and project id
@@ -172,7 +172,7 @@ def self_release_checkout(project: str) -> Path | None:
     if project_id is None:
         raise DeployPinnedSourceError(
             f"project {project!r} could not be resolved through projects.get; "
-            f"confirm the selected connection serves it and re-drive the run with `{deploy_command()}`"
+            f"confirm the selected connection serves it and re-drive the run with `{deploy_command(run_id)}`"
         )
     try:
         from yoke_contracts.machine_config.schema_connections import (
@@ -189,7 +189,7 @@ def self_release_checkout(project: str) -> Path | None:
     except (machine_config.MachineConfigError, MachineConfigContractError) as exc:
         raise DeployPinnedSourceError(
             f"machine config is unreadable ({exc}); repair ~/.yoke/config.json "
-            f"and re-drive the run with `{deploy_command()}`"
+            f"and re-drive the run with `{deploy_command(run_id)}`"
         ) from exc
     mapped = [
         Path(str(entry["checkout"])).expanduser().resolve()
@@ -204,7 +204,7 @@ def self_release_checkout(project: str) -> Path | None:
             f"No machine-config checkout for project {project!r} (project_id "
             f"{project_id}); the installed engine drives this run. A Yoke "
             "self-release needs its checkout: register it with `yoke project "
-            f"register` from that checkout, then re-drive the run with `{deploy_command()}`.",
+            f"register` from that checkout, then re-drive the run with `{deploy_command(run_id)}`.",
             file=sys.stderr,
         )
         return None
@@ -222,7 +222,7 @@ def prepare_self_deploy_driver(run_id: str) -> PinnedDriverSource | None:
             f"deployment run {run_id} has no release_lineage to pin the "
             "self-release driver to"
         )
-    checkout = self_release_checkout(project)
+    checkout = self_release_checkout(project, run_id)
     if checkout is None:
         return None
     # Before taking a slot, give back the ones finished runs are still holding.
@@ -234,7 +234,7 @@ def prepare_self_deploy_driver(run_id: str) -> PinnedDriverSource | None:
     root = timed_call(
         "worktree_ensure", ensure_pinned_worktree, str(checkout), run_id, lineage
     )
-    return PinnedDriverSource(root=root, lineage=_ensure_commit(str(checkout), lineage))
+    return PinnedDriverSource(root=root, lineage=_ensure_commit(str(checkout), lineage, run_id))
 
 
 def driver_source_drift_refusal(release_lineage: str) -> str | None:

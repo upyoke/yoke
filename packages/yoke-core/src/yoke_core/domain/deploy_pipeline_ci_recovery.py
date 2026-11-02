@@ -39,6 +39,7 @@ def ci_adapter_failure_message(
     *,
     workflow: str,
     repo: str,
+    run_id: str,
 ) -> str:
     """Refuse a gate whose Actions adapter failed before any CI verdict."""
     if code == _MISSING_WORKFLOW_CODE:
@@ -51,7 +52,7 @@ def ci_adapter_failure_message(
     if code == GitHubUnavailable.code:
         return compose_refusal(
             f"\nBLOCKED: Cannot deploy — CI could not be verified; the GitHub Actions adapter returned {failure}.\n\nGitHub itself is failing; the App credentials are not the cause and this is not a failing test conclusion.",
-            recovery=f"re-drive the deployment with `{deploy_command()}` once GitHub recovers.\n",
+            recovery=f"re-drive the deployment with `{deploy_command(run_id)}` once GitHub recovers.\n",
         )
     if code in _AUTH_ADAPTER_CODES:
         kind = "an authorization failure"

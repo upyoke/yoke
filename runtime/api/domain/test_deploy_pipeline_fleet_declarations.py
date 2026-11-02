@@ -80,7 +80,7 @@ def test_named_database_fleet_rehearses_its_own_project_and_model(
     asked: list[str] = []
     rehearsed: list[list[str]] = []
 
-    def coverage(project, _model, _environment, _history, _digest):
+    def coverage(project, _model, _environment, _history, _digest, run_id):
         asked.append(project)
         return ({}, "") if not rehearsed else (_covered(model="registry"), "")
 
