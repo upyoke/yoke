@@ -182,6 +182,12 @@ jobs:
           python-version: ${{ matrix.python-version }}
           pg-container: ${{ env.PG_CONTAINER }}
 
+      - name: Check runner capacity
+        if: env.SUITE_ALREADY_PROVEN != 'true'
+        run: >-
+          PYTHONPATH=packages/yoke-core/src:packages/yoke-contracts/src python3 -m
+          yoke_core.tools.ci_shards check-runner-capacity
+
       - name: Run pytest
         id: pytest
         env:

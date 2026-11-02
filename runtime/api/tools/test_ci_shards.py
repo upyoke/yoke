@@ -156,7 +156,7 @@ def test_slow_runner_refuses_before_pytest_and_retains_recovery(
         ci_shards.subprocess, "Popen", lambda *a, **kw: pytest.fail("pytest started")
     )
 
-    assert ci_shards.main(["run", "--group", "1"]) == 1
+    assert ci_shards.main(["check-runner-capacity"]) == 1
 
     output = capsys.readouterr().out
     assert "ci_runner_slow: runner refused before pytest" in output
@@ -181,6 +181,7 @@ def test_healthy_runner_and_threshold_run_pytest_and_preserve_its_exit_code(
 
     monkeypatch.setattr(ci_shards.subprocess, "Popen", start)
 
+    assert ci_shards.main(["check-runner-capacity"]) == 0
     assert ci_shards.main(["run", "--group", "2"]) == 7
     assert commands == [ci_shards.pytest_command(2)]
     output = capsys.readouterr().out
@@ -195,3 +196,24 @@ def test_pytest_workflow_streams_unbuffered_progress() -> None:
     jobs = yaml.safe_load(_workflow())["jobs"]
     step = next(s for s in jobs["test_shard"]["steps"] if s["name"] == "Run pytest")
     assert str(step["env"]["PYTHONUNBUFFERED"]) == "1"
+
+
+def test_workflow_checks_capacity_in_a_separate_step_before_pytest() -> None:
+    import yaml
+
+    steps = yaml.safe_load(_workflow())["jobs"]["test_shard"]["steps"]
+    capacity = next(s for s in steps if s["name"] == "Check runner capacity")
+    run = next(s for s in steps if s["name"] == "Run pytest")
+    assert steps.index(capacity) < steps.index(run)
+    assert "ci_shards check-runner-capacity" in capacity["run"]
+    assert capacity["if"] == run["if"]
+
+
+def test_shard_run_does_not_probe_capacity(tmp_path, monkeypatch) -> None:
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(ci_shards, "runner_capacity", lambda: pytest.fail("probe ran"))
+    monkeypatch.setattr(
+        ci_shards.subprocess, "Popen",
+        lambda *a, **kw: SimpleNamespace(stdout=StringIO("ok\n"), wait=lambda: 0),
+    )
+    assert ci_shards.main(["run", "--group", "1"]) == 0

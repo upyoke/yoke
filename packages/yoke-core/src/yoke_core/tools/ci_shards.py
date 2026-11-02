@@ -139,6 +139,24 @@ def _run_shard(group: int) -> int:
     """
     if group < 1 or group > SHARD_COUNT:
         raise SystemExit(f"shard {group} is outside 1..{SHARD_COUNT}")
+    process = subprocess.Popen(
+        pytest_command(group),
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+        bufsize=1,
+    )
+    assert process.stdout is not None
+    with Path(OUTPUT_LOG).open("a", encoding="utf-8") as log:
+        for line in process.stdout:
+            sys.stdout.write(line)
+            sys.stdout.flush()
+            log.write(line)
+    return process.wait()
+
+
+def check_runner_capacity() -> int:
+    """Refuse a slow runner before the workflow starts its pytest step."""
     measurements = runner_capacity()
     capacity = "CI runner capacity: " + json.dumps(measurements, sort_keys=True)
     print(capacity, flush=True)
@@ -154,20 +172,7 @@ def _run_shard(group: int) -> int:
             print(reason, flush=True)
             log.write(reason + "\n")
             return 1
-    process = subprocess.Popen(
-        pytest_command(group),
-        stdout=subprocess.PIPE,
-        stderr=subprocess.STDOUT,
-        text=True,
-        bufsize=1,
-    )
-    assert process.stdout is not None
-    with Path(OUTPUT_LOG).open("a", encoding="utf-8") as log:
-        for line in process.stdout:
-            sys.stdout.write(line)
-            sys.stdout.flush()
-            log.write(line)
-    return process.wait()
+    return 0
 
 
 def runner_capacity() -> dict:
@@ -206,6 +211,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         action="store_true",
         help="Append the fan-out to $GITHUB_OUTPUT instead of stdout.",
     )
+    sub.add_parser("check-runner-capacity", help="Check capacity before pytest.")
     run = sub.add_parser("run", help="Run one shard of the suite.")
     run.add_argument("--group", type=int, required=True)
     args = parser.parse_args(list(argv) if argv is not None else None)
@@ -213,6 +219,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     if args.command == "fan-out":
         emit_output_lines(fan_out_lines(), write_github_output=args.write_github_output)
         return 0
+    if args.command == "check-runner-capacity":
+        return check_runner_capacity()
     return _run_shard(args.group)
 
 
