@@ -236,8 +236,8 @@ assert against a running site behind a base URL CI has no access to.
 
 Iterate as much as you want with the cheap layers — a single failing test,
 the changed module's paths, `yoke watch pytest --impacted main --bounded`.
-Those are the recommended loop, and running impacted selection repeatedly
-while fixing is exactly what it is for.
+Selection follows importers of existing and deleted modules using their
+source paths; removed tests are never passed to pytest.
 
 `--impacted` is bounded by default; `--bounded` is an explicit no-op.
 An unbounded change prints

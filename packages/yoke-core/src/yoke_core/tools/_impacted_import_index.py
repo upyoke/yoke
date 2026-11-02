@@ -184,7 +184,7 @@ def direct_changed_tests(changed: Iterable[str], index: ImportIndex) -> frozense
 
 def direct_importer_tests(changed: Iterable[str], index: ImportIndex) -> frozenset[str]:
     """Tests that directly import a changed module, without transitive fanout."""
-    modules = {index.module_of[path] for path in changed if path in index.module_of}
+    modules = {index.module_of.get(rel) or module_name_for(rel) for rel in changed}
     return frozenset(
         importer
         for module in modules
@@ -197,7 +197,9 @@ def reachable_tests(changed: Sequence[str], index: ImportIndex) -> set[str] | No
     """Test files reachable from *changed*, or None when nothing maps."""
     reached: set[str] = set(changed)
     frontier = [
-        module for rel in changed if (module := index.module_of.get(rel)) is not None
+        module
+        for rel in changed
+        if (module := index.module_of.get(rel) or module_name_for(rel)) is not None
     ]
     if not frontier:
         return None
@@ -261,7 +263,7 @@ def bounded_importer_tests(
     """
     paths = tuple(changed)
     tests = set(direct_importer_tests(paths, index))
-    modules = {index.module_of[path] for path in paths if path in index.module_of}
+    modules = {index.module_of.get(rel) or module_name_for(rel) for rel in paths}
     for module in modules:
         for importer in index.importers.get(module, ()):
             if is_test_file(importer):
