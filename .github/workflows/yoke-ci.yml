@@ -39,7 +39,7 @@ jobs:
     timeout-minutes: 10
     name: repo-contracts
     permissions: {contents: read, actions: read}
-    runs-on: ${{ fromJSON(vars.YOKE_LINUX_RUNS_ON || '["ubuntu-latest"]') }}
+    runs-on: ${{ fromJSON(vars.YOKE_LINUX_RUNS_ON || '["ubuntu-24.04"]') }}
     outputs:
       shards: ${{ steps.fan_out.outputs.shards }}
       python_versions: ${{ steps.fan_out.outputs.python_versions }}
@@ -107,7 +107,7 @@ jobs:
   reuse_coverage:
     timeout-minutes: 5
     name: reuse-coverage
-    runs-on: ${{ fromJSON(vars.YOKE_LINUX_RUNS_ON || '["ubuntu-latest"]') }}
+    runs-on: ${{ fromJSON(vars.YOKE_LINUX_RUNS_ON || '["ubuntu-24.04"]') }}
     permissions:
       contents: read
       actions: read
@@ -145,7 +145,7 @@ jobs:
     name: test-shard
     needs: [repo_contracts, reuse_coverage]
     if: ${{ !cancelled() && needs.repo_contracts.result == 'success' }}
-    runs-on: ${{ fromJSON(vars.YOKE_LINUX_RUNS_ON || '["ubuntu-latest"]') }}
+    runs-on: ${{ fromJSON(vars.YOKE_LINUX_RUNS_ON || '["ubuntu-24.04"]') }}
     env:
       YOKE_CI_PYTHON_SCOPE: ${{ matrix.python-version == needs.repo_contracts.outputs.python_latest && 'all' || 'interpreter' }}
       SUITE_ALREADY_PROVEN: ${{ needs.reuse_coverage.outputs.skip_suite }}
@@ -222,7 +222,7 @@ jobs:
   container:
     timeout-minutes: 10
     name: container
-    runs-on: ${{ fromJSON(vars.YOKE_LINUX_RUNS_ON || '["ubuntu-latest"]') }}
+    runs-on: ${{ fromJSON(vars.YOKE_LINUX_RUNS_ON || '["ubuntu-24.04"]') }}
     permissions:
       contents: read
 
