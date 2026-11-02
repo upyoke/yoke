@@ -2,7 +2,7 @@
 
 Before provisioning local-mode QA, check the host against the
 [installation requirements](../public/start/install.md). The pinned embedded
-PostgreSQL 17.10.0 macOS binaries require macOS 26.0 or newer on both CPU
+PostgreSQL 17.11.1 macOS binaries require macOS 15.0 or newer on both CPU
 architectures. `test-mac-pro` on macOS 12.7.6 is an **unsupported local-mode
 host**: do not provision it for a successful local install/init mission.
 Use it only for the expected unsupported-host refusal or remote-core work

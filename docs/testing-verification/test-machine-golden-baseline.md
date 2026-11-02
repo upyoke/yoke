@@ -43,7 +43,7 @@ container writing the restored home is a writer, not inert captured state.
 Yoke uses Ubuntu 24.04 Linux (including arm64), Intel macOS Monterey and current
 Apple Silicon macOS, and Windows Server with WSL2 Ubuntu 24.04. These are tested
 fixture shapes, not support for every OS/version. Monterey supports remote-core
-work only: packaged local PostgreSQL requires macOS 26 or newer; see
+work only: packaged local PostgreSQL requires macOS 15 or newer; see
 [operation constraints](test-machine-operations.md). Check each vendor's current
 OS/architecture requirements before installing; version output alone is insufficient.
 On older Macs use a runnable harness release as the OS guide describes, retaining

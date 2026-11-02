@@ -39,10 +39,10 @@ from yoke_cli.resilient_fetch import (
 
 #: The one pinned embedded-engine Postgres version (theseus-rs release tag:
 #: upstream major.minor plus a build suffix).
-POSTGRES_VERSION = "17.10.0"
+POSTGRES_VERSION = "17.11.1"
 
 #: LC_BUILD_VERSION minos of the pinned macOS release binaries.
-MINIMUM_MACOS_VERSION = (26, 0)
+MINIMUM_MACOS_VERSION = (15, 0)
 
 RELEASE_BASE_URL = "https://github.com/theseus-rs/postgresql-binaries/releases/download"
 

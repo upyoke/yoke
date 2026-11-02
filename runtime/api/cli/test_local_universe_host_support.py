@@ -53,15 +53,15 @@ def test_host_reason_wins_over_a_saved_local_connection(monkeypatch, config_path
     }
     monkeypatch.setattr(setup.machine_config, "load_config", lambda _path: saved)
     monkeypatch.setattr(setup, "stored_dsn", lambda entry: entry["dsn"])
-    _mac(monkeypatch, "26.0")
+    _mac(monkeypatch, "15.0")
     assert setup.inspect_local_state(config_path)["state"] == setup.LOCAL_UNIVERSE_VERIFY
-    _mac(monkeypatch, "15.4")
+    _mac(monkeypatch, "14.9")
 
     state = setup.inspect_local_state(config_path)
 
     assert state["state"] == setup.LOCAL_UNIVERSE_UNAVAILABLE
     assert state["host_unsupported"] is True
-    assert "detected macOS 15.4" in state["reason"]
+    assert "detected macOS 14.9" in state["reason"]
 
 
 def test_unreadable_macos_version_is_unavailable(monkeypatch, config_path):
@@ -74,7 +74,7 @@ def test_unreadable_macos_version_is_unavailable(monkeypatch, config_path):
 
 
 def test_supported_macos_offers_a_new_universe(monkeypatch, config_path):
-    _mac(monkeypatch, "26.0")
+    _mac(monkeypatch, "15.0")
 
     state = setup.inspect_local_state(config_path)
 

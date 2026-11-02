@@ -18,7 +18,7 @@ from yoke_core.tools.source_postgres_environment import shared_postgres_environm
 def test_repeated_source_homes_keep_cluster_and_binary_identity(tmp_path, monkeypatch):
     machine = tmp_path / "machine"
     machine.mkdir()
-    binaries = machine / "postgres/17.10.0/bin"
+    binaries = machine / "postgres/17.11.1/bin"
     binaries.mkdir(parents=True)
     (binaries / "initdb").touch()
     (machine / "config.json").write_text(
@@ -34,12 +34,12 @@ def test_repeated_source_homes_keep_cluster_and_binary_identity(tmp_path, monkey
             )
     assert identities[0] == identities[1]
     assert identities[0][0] == str(tmp_path / "scratch/yoke-pgtest-cluster")
-    assert identities[0][1] == str(machine / "postgres/17.10.0/bin")
+    assert identities[0][1] == str(machine / "postgres/17.11.1/bin")
 
 
 def test_qa_environment_preserves_cluster_when_home_is_replaced(tmp_path, monkeypatch):
     selected = tmp_path / "chosen-cluster"
-    binaries = tmp_path / ".yoke/postgres/17.10.0/bin"
+    binaries = tmp_path / ".yoke/postgres/17.11.1/bin"
     binaries.mkdir(parents=True)
     (binaries / "initdb").touch()
     import sys
@@ -65,7 +65,7 @@ def test_qa_environment_preserves_cluster_when_home_is_replaced(tmp_path, monkey
         env = dict(binding.env)
     env.update(HOME="/disposable", YOKE_MACHINE_HOME="/disposable/.yoke")
     assert shared_postgres_environment(env)["YOKE_PG_CLUSTER_ROOT"] == str(selected)
-    assert env["YOKE_PG_BIN_DIR"] == str(tmp_path / ".yoke/postgres/17.10.0/bin")
+    assert env["YOKE_PG_BIN_DIR"] == str(tmp_path / ".yoke/postgres/17.11.1/bin")
 
 
 def test_disposable_cluster_uses_pinned_binaries(tmp_path, monkeypatch, capsys):
@@ -231,7 +231,7 @@ def test_missing_initdb_keeps_binary_discovery_available(
 ):
     machine = tmp_path / "disposable-machine"
     if cache_directory:
-        (machine / "postgres/17.10.0/bin").mkdir(parents=True)
+        (machine / "postgres/17.11.1/bin").mkdir(parents=True)
     incoming = {"YOKE_MACHINE_HOME": str(machine)}
     env = shared_postgres_environment(incoming)
     assert "YOKE_PG_BIN_DIR" not in env

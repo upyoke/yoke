@@ -36,11 +36,21 @@ def test_platform_target_unsupported_names_host():
         pb.platform_target("SunOS", "sparc")
 
 
-def test_release_asset_url_shape():
-    url = pb.release_asset_url("17.10.0", "aarch64-apple-darwin")
-    assert url == (
+@pytest.mark.parametrize(
+    "target",
+    [
+        "aarch64-apple-darwin",
+        "x86_64-apple-darwin",
+        "aarch64-unknown-linux-gnu",
+        "x86_64-unknown-linux-gnu",
+    ],
+)
+def test_pinned_release_asset_url_shape(target):
+    assert pb.POSTGRES_VERSION == "17.11.1"
+    assert pb.MINIMUM_MACOS_VERSION == (15, 0)
+    assert pb.release_asset_url(pb.POSTGRES_VERSION, target) == (
         "https://github.com/theseus-rs/postgresql-binaries/releases/download"
-        "/17.10.0/postgresql-17.10.0-aarch64-apple-darwin.tar.gz"
+        f"/17.11.1/postgresql-17.11.1-{target}.tar.gz"
     )
 
 
@@ -242,7 +252,7 @@ def test_download_rejects_truncated_tarball_before_publish(tmp_path, monkeypatch
     assert not destination.exists()
 
 
-@pytest.mark.parametrize("version", ["12.7.6", "25.9", "", "unknown"])
+@pytest.mark.parametrize("version", ["12.7.6", "14.9", "", "unknown"])
 @pytest.mark.parametrize("entrypoint", ["ensure_binaries", "fetch_binaries"])
 def test_macos_refuses_before_cache_or_download(monkeypatch, version, entrypoint):
     monkeypatch.setattr(pb.platform, "system", lambda: "Darwin")
@@ -260,15 +270,15 @@ def test_macos_refuses_before_cache_or_download(monkeypatch, version, entrypoint
     with pytest.raises(pb.PostgresBinariesError) as raised:
         getattr(pb, entrypoint)()
     message = str(raised.value)
-    reason = "unsupported" if version in {"12.7.6", "25.9"} else "version_unknown"
+    reason = "unsupported" if version in {"12.7.6", "14.9"} else "version_unknown"
     assert f"embedded_postgres_macos_{reason}" in message
-    assert "26.0 or newer" in message
+    assert "15.0 or newer" in message
     assert "Upgrade macOS" in message
     assert "yoke setup" in message
     assert version in message
 
 
-@pytest.mark.parametrize("version", ["26", "26.0", "26.0.1", "26.1", "27.0"])
+@pytest.mark.parametrize("version", ["15", "15.0", "15.0.1", "15.1", "26.0"])
 def test_macos_at_or_above_minimum_reuses_cached_engine(monkeypatch, tmp_path, version):
     monkeypatch.setattr(pb.platform, "system", lambda: "Darwin")
     monkeypatch.setattr(pb.platform, "mac_ver", lambda: (version, (), ""))
