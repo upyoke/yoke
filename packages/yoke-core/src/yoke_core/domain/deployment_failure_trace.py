@@ -27,7 +27,7 @@ _GENERIC_ERRORS = (
     "deployment did not complete",
     "promotion did not complete",
 )
-_EXCEPTION = re.compile(r"^(?:[A-Za-z_]\w*\.)*[A-Za-z_]\w*: \S")
+_EXCEPTION = re.compile(r"^(?:[A-Za-z_]\w*\.)*[A-Z]\w*: \S")
 _CODED_ERROR = re.compile(r"\berror \([^)]+\):")
 
 
