@@ -247,8 +247,10 @@ def test_project_population_keeps_org_steering_holder_out_of_project_ownership(
 ):
     w = org_steering_holder
     slug = w.conn.execute("SELECT slug FROM projects WHERE id=1").fetchone()[0]
-    selected = selector(
-        projects=[slug], session_ids=["org-target"] if direct else [], liveness=["all"]
+    selected = (
+        selector(session_ids=["org-target"], liveness=["all"])
+        if direct
+        else selector(projects=[slug], liveness=["all"])
     )
     sent = send_message(
         w.conn,
@@ -260,13 +262,14 @@ def test_project_population_keeps_org_steering_holder_out_of_project_ownership(
     )
     rows = message_details(w.conn, sent["message_id"])["recipients"]
     recipients = {row["session_id"]: row for row in rows}
-    assert {"project-sender", "project-target"} <= recipients.keys()
+    assert "project-sender" not in recipients
     if direct:
+        assert set(recipients) == {"org-target"}
         row = recipients["org-target"]
         assert row["project_id"] is None and row["org_id"] == w.org
         assert row["routing_snapshot"]["authorized_project_ids"] == []
     else:
-        assert "org-target" not in recipients
+        assert set(recipients) == {"project-target"}
 
 
 def test_explicit_steering_keeps_org_holder_receipt_in_addressed_project(
