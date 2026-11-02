@@ -66,6 +66,9 @@ browser daemon is stopped first, and a daemon start is refused with
 `browser_human_gate_active`, naming the identity, project, PID and how long
 the window has been open. Hand off to steering or the person at that machine
 to finish or close that sign-in window, or quit the named PID, then retry.
+Sign-in windows close after 30 minutes; managed Chromium gets 10 seconds to
+quit before it is force-stopped. A gate marker older than 30 minutes plus
+that shutdown margin is removed even if its recorded PID is still alive.
 
 ## Signing in on a Test Machine
 
