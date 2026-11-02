@@ -217,3 +217,8 @@ named refusal, complete the pending merge commit when one exists, then retry
 the same merge command. An authored-file limit refusal therefore names the
 file that needs splitting instead of classifying engine-created changes as
 user dirt.
+
+A rejected target push with `merge_target_moved` means the target moved during
+CI. Refresh the lane and re-verify before retrying the governed merge. The
+refusal includes Git's push warning and retains local commits; an unpublished
+local merge does not prove that the candidate landed on `origin/<target>`.

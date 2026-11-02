@@ -229,6 +229,8 @@ def complete(
     if push_warning and not pushed:
         notes.append(push_warning)
     try:
+        if not pushed and push_warning.startswith("merge_target_moved:"):
+            raise LandingUnverified(push_warning)
         merge_sha = verified_target_sha(repo_root, target, commit_sha)
         merge_sha = verified_landing_identity(repo_root, merge_sha, commit_sha)
         disconnected = (
