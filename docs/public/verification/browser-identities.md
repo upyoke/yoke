@@ -63,7 +63,9 @@ for the final receipt and sends progress to stderr.
 
 While a sign-in window is open no automated browser runs on the machine: every
 browser daemon is stopped first, and a daemon start is refused with
-`browser_human_gate_active` until the window closes.
+`browser_human_gate_active`, naming the identity, project, PID and how long
+the window has been open. Hand off to steering or the person at that machine
+to finish or close that sign-in window, or quit the named PID, then retry.
 
 ## Signing in on a Test Machine
 

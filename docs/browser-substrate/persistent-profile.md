@@ -76,8 +76,10 @@ No automated browser runs while a human signs in. Before the window opens,
 every browser daemon on the machine is stopped (any project, any profile) and a
 machine-wide marker (`human-sign-in.json` in the runtime directory) is held
 until the window closes; a daemon start meanwhile is refused with
-`browser_human_gate_active`, naming the identity being signed in. An automated
-window left on screen is the window a person signs into by mistake, and
+`browser_human_gate_active`, naming the identity, project, PID and how long the
+window has been open. Hand off to steering or the person at that machine to
+finish or close that sign-in window, or quit the named PID, then retry.
+An automated window left on screen is the window a person signs into by mistake, and
 identity providers refuse a browser they can see is automated.
 
 On macOS, closing the last window can leave Chromium running with no window.
