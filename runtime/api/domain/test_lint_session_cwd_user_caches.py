@@ -15,7 +15,8 @@ pytestmark = pytest.mark.usefixtures("bound_project_context")
 
 @pytest.fixture
 def cache_context(tmp_path, monkeypatch):
-    # Remove the temp allowance so the fixture home exercises cache authority.
+    # Remove both temp allowances so the fixture home exercises cache authority.
+    monkeypatch.delenv("TMPDIR", raising=False)
     monkeypatch.setattr(
         lint_session_cwd_path_authority, "_STATIC_FREE_PATH_PREFIXES", ()
     )
