@@ -66,7 +66,7 @@ def _parent():
 
 def run(args: MergeArgs) -> int:
     """Execute the full merge workflow. Returns exit code."""
-    from yoke_core.domain import merge_lock
+    from yoke_core.domain import merge_lock, runtime_settings
 
     mw = _parent()
     validate_args = mw.validate_args
@@ -134,7 +134,6 @@ def run(args: MergeArgs) -> int:
 
     from yoke_core.engines.merge_worktree_landing import record_existing_landing
 
-    # Already-merged guard
     already = _run_git(
         ["merge-base", "--is-ancestor", source_ref, args.target],
         cwd=ctx.repo_root,
@@ -145,7 +144,6 @@ def run(args: MergeArgs) -> int:
         _print(f"YOKE_REPO_ROOT={ctx.yoke_repo_root}")
         return record_existing_landing(ctx, verify.stdout.strip(), args.target)
 
-    # A local-only checkout has nothing to fetch.
     if has_remote(ctx.repo_root):
         _run_git(["fetch", "origin", args.target], cwd=ctx.repo_root, capture=True)
     already_origin = _run_git(
@@ -181,7 +179,6 @@ def run(args: MergeArgs) -> int:
                 )
                 args.branch = actual_branch
 
-    # DB merge lock
     lock_handle = None
     try:
         if args.force_lock:
@@ -192,12 +189,16 @@ def run(args: MergeArgs) -> int:
         )
         block_msg = _pre_acquire_check_with_retry(lambda: merge_lock.check(scope=scope))
         if block_msg:
+            ttl = runtime_settings.get_int(
+                "merge_lock_ttl_minutes", merge_lock.DEFAULT_TTL_MINUTES
+            )
             _print(
                 compose_refusal(
                     block_msg,
                     recovery="retryable merge-lock condition "
-                    "(pre-acquire retry budget exhausted). Rerun "
-                    f"merge for branch '{args.branch}' once the holding lock clears.",
+                    "(pre-acquire retry budget exhausted). No wake will arrive. "
+                    f"Rerun the same merge command for branch '{args.branch}' "
+                    f"in a few minutes; the lock expires after {ttl} minutes.",
                 ),
                 err=True,
             )
