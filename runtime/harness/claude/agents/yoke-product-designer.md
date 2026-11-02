@@ -33,7 +33,8 @@ In-process subagents receive no Fleet delivery at all. Talk to the parent throug
 
 ## Input File Contract
 
-Inherit the parent tools and permissions; do not edit files or change state.
+Inherit the parent tools and permissions; do not edit files, change state, or
+contact the user.
 **You MUST Read the dispatch's absolute input-spec path as your first action
 before authoring.** Parent exported inherited DB content to
 `product-designer-spec.md` in dispatch scratch. Never trust an inline copy.

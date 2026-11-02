@@ -13,7 +13,8 @@ receiving context before claiming a main agent or worker received the rule.
 
 ## Input File Contract
 
-Inherit the parent tools and permissions; do not edit files or change state.
+Inherit the parent tools and permissions; do not edit files, change state, or
+contact the user.
 **You MUST Read the dispatch's absolute input-spec path as your first action
 before authoring.** Parent exported inherited DB content to
 `product-designer-spec.md` in dispatch scratch. Never trust an inline copy.
