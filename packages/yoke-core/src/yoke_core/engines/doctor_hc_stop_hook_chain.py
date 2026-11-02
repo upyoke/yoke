@@ -8,6 +8,8 @@ must keep the promised-work gate ahead of lifecycle dispatch.
 
 from __future__ import annotations
 
+from yoke_contracts.timestamps import format_instant
+
 from typing import List
 
 from yoke_contracts.hook_runner.hook_ordering import ordered_pipeline_for
@@ -134,7 +136,9 @@ def hc_stop_hook_chain_end_deferred(
     for row in rows[:10]:
         sid = row["session_id"] or "(none)"
         item = row["item_id"] or "(none)"
-        issues.append(f"  - session={sid} item={item} created_at={row['created_at']}")
+        issues.append(
+            f"  - session={sid} item={item} created_at={format_instant(row['created_at'])}"
+        )
     if len(rows) > 10:
         issues.append(f"  ... and {len(rows) - 10} more")
     issues.append(

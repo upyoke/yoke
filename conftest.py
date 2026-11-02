@@ -22,6 +22,7 @@ pytest_plugins = [
     "runtime.ci_test_selection",
     "runtime.real_home_isolation",
     "runtime.running_environment_isolation",
+    "runtime.sql_calendar_guard",
 ]
 
 # ---------------------------------------------------------------------------

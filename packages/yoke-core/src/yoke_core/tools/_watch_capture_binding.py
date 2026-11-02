@@ -34,6 +34,8 @@ close an import cycle through the streaming-pair renderer.
 
 from __future__ import annotations
 
+from yoke_contracts.timestamps import format_instant
+
 import os
 import re
 import sys
@@ -156,7 +158,7 @@ def unwritten_capture_refusal(
             f"# watch_tail refusing: no watcher claimed {path} within "
             f"{grace_seconds:g}s, and nothing has been written to it.\n"
             f"#   Cause: run {driver.run_id} has a live driver in phase "
-            f"{driver.phase} since {driver.attached_at} (session "
+            f"{driver.phase} since {format_instant(driver.attached_at)} (session "
             f"{driver.session_id}, pid {driver.pid}{capture}); capture flags "
             "are not the problem.\n"
             "#   Fix: wait for that driver, or inspect that process; do "

@@ -102,7 +102,7 @@ def test_many_offline_machines_and_one_full_machine_fit_the_read_limit() -> None
     assert placement.chosen is None
     assert len(reason.encode("utf-8")) < READ_LIMIT_BYTES // 10
     assert "claude-cli claude-opus-5-5 high on m-claude" in reason
-    assert "96 machines offline (newest last seen 2026-08-14T09:00:00Z)" in reason
+    assert "96 machines offline (newest last seen 2026-08-14T09:00:00.000000Z)" in reason
     assert "offline-box-" not in reason
     assert reason.count("no usable machine offers cursor-cli") == 1
     assert "cursor-cli grok-4.7 high: no usable machine offers cursor-cli" in reason

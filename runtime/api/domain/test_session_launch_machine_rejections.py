@@ -88,8 +88,8 @@ def test_mixed_fleet_names_each_live_machine_and_collapses_stale_ones() -> None:
 
     message = launch_refusal_message(conn, _preview(conn))
     assert (
-        "operator-mac: liveness_expired (last seen 2026-08-22T11:59:50Z); "
-        "3 machines offline (newest last seen 2026-08-14T09:00:00Z)"
+        "operator-mac: liveness_expired (last seen 2026-08-22T11:59:50.000000Z); "
+        "3 machines offline (newest last seen 2026-08-14T09:00:00.000000Z)"
     ) in message
     for offline_name in ("EC2AMAZ-AEPC2MI", "Testys-Mac-mini", "ip-172-31-13-189"):
         assert offline_name not in message
@@ -103,7 +103,10 @@ def test_single_live_machine_with_expired_liveness_names_only_that_reason() -> N
     _live_expired(conn)
 
     message = launch_refusal_message(conn, _preview(conn))
-    assert "operator-mac: liveness_expired (last seen 2026-08-22T11:59:50Z)" in message
+    assert (
+        "operator-mac: liveness_expired (last seen 2026-08-22T11:59:50.000000Z)"
+        in message
+    )
     assert "offline" not in message
     for other in ("project_checkout_missing", "surface_absent", "version_below"):
         assert other not in message
@@ -118,8 +121,8 @@ def test_level_reason_uses_the_same_per_machine_clauses() -> None:
     )
     assert ineligible_reason(snapshot, "codex-cli", {}) == (
         "no usable machine offers codex-cli (operator-mac: liveness_expired "
-        "(last seen 2026-08-22T11:59:50Z); 1 machine offline "
-        "(newest last seen 2026-08-14T09:00:00Z))"
+        "(last seen 2026-08-22T11:59:50.000000Z); 1 machine offline "
+        "(newest last seen 2026-08-14T09:00:00.000000Z))"
     )
 
 

@@ -24,6 +24,8 @@ body is ~124k bytes; ``len(body) > 62000`` would falsely pass it.
 
 from __future__ import annotations
 
+from yoke_contracts.timestamps import format_instant
+
 import os
 import sys
 from typing import Any, Literal, Optional, TextIO
@@ -130,7 +132,7 @@ def _evidence_summary(
     task_part = f" (task {row['task_num']})" if row.get("task_num") is not None else ""
     return (
         f"latest transition: {row.get('from_status') or '?'} -> "
-        f"{row['to_status']}{task_part} at {row['created_at']}"
+        f"{row['to_status']}{task_part} at {format_instant(row['created_at'])}"
     )
 
 

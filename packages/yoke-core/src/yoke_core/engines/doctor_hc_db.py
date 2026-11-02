@@ -22,6 +22,8 @@ functions owned by ``doctor_hc_db_qa`` and ``doctor_hc_db_flows`` so the
 
 from __future__ import annotations
 
+from yoke_contracts.timestamps import format_instant
+
 from typing import List
 
 from yoke_core.domain.db_helpers import query_rows, query_scalar
@@ -67,25 +69,31 @@ def hc_orphan_fk(conn, args: DoctorArgs, rec: RecordCollector) -> None:
     total = 0
 
     # Check caveat_dispositions -> shepherd_verdicts
-    if _base._table_exists(conn, "caveat_dispositions") and _base._table_exists(conn, "shepherd_verdicts"):
+    if _base._table_exists(conn, "caveat_dispositions") and _base._table_exists(
+        conn, "shepherd_verdicts"
+    ):
         cd = query_scalar(
             conn,
             "SELECT COUNT(*) FROM caveat_dispositions "
             "WHERE verdict_id NOT IN (SELECT id FROM shepherd_verdicts)",
         )
         if cd and int(cd) > 0:
-            issues.append(f"- caveat_dispositions: {cd} rows reference non-existent shepherd_verdicts")
+            issues.append(
+                f"- caveat_dispositions: {cd} rows reference non-existent shepherd_verdicts"
+            )
             total += int(cd)
 
     if issues:
         rec.record(
-            "HC-orphan-fk", f"Orphaned FK references ({total} total)", "FAIL",
+            "HC-orphan-fk",
+            f"Orphaned FK references ({total} total)",
+            "FAIL",
             "\n".join(issues),
         )
     else:
-        rec.record("HC-orphan-fk", "Orphaned FK references", "PASS",
-                    "0 orphaned FK references")
-
+        rec.record(
+            "HC-orphan-fk", "Orphaned FK references", "PASS", "0 orphaned FK references"
+        )
 
 
 def hc_orphaned_runs(conn, args: DoctorArgs, rec: RecordCollector) -> None:
@@ -96,8 +104,12 @@ def hc_orphaned_runs(conn, args: DoctorArgs, rec: RecordCollector) -> None:
     run created without items that never started executing.
     """
     if not _base._table_exists(conn, "deployment_runs"):
-        rec.record("HC-orphaned-runs", "Item-less runs abandoned before execution", "PASS",
-                    "deployment_runs table does not exist — skipping")
+        rec.record(
+            "HC-orphaned-runs",
+            "Item-less runs abandoned before execution",
+            "PASS",
+            "deployment_runs table does not exist — skipping",
+        )
         return
 
     issues: List[str] = []
@@ -113,23 +125,32 @@ def hc_orphaned_runs(conn, args: DoctorArgs, rec: RecordCollector) -> None:
     for row in rows:
         issues.append(
             f"- run '{row['id']}': project={row['project']}, "
-            f"status={row['status']}, created={row['created_at']} — "
+            f"status={row['status']}, created={format_instant(row['created_at'])} — "
             "no member items and never started"
         )
 
     if issues:
-        rec.record("HC-orphaned-runs", "Item-less runs abandoned before execution", "WARN",
-                    "\n".join(issues))
+        rec.record(
+            "HC-orphaned-runs",
+            "Item-less runs abandoned before execution",
+            "WARN",
+            "\n".join(issues),
+        )
     else:
-        rec.record("HC-orphaned-runs", "Item-less runs abandoned before execution", "PASS", "")
-
+        rec.record(
+            "HC-orphaned-runs", "Item-less runs abandoned before execution", "PASS", ""
+        )
 
 
 def hc_stale_runs(conn, args: DoctorArgs, rec: RecordCollector) -> None:
     """HC-stale-runs: Deployment runs stuck at executing for >24 hours."""
     if not _base._table_exists(conn, "deployment_runs"):
-        rec.record("HC-stale-runs", "Deployment runs stuck at executing", "PASS",
-                    "deployment_runs table does not exist — skipping")
+        rec.record(
+            "HC-stale-runs",
+            "Deployment runs stuck at executing",
+            "PASS",
+            "deployment_runs table does not exist — skipping",
+        )
         return
 
     issues: List[str] = []
@@ -147,22 +168,31 @@ def hc_stale_runs(conn, args: DoctorArgs, rec: RecordCollector) -> None:
         stage = row["current_stage"] or "unknown"
         issues.append(
             f"- run '{row['id']}': project={row['project']}, "
-            f"stage={stage}, started={row['started_at']} — executing for >24h"
+            f"stage={stage}, started={format_instant(row['started_at'])} — executing for >24h"
         )
 
     if issues:
-        rec.record("HC-stale-runs", "Deployment runs stuck at executing", "WARN",
-                    "\n".join(issues))
+        rec.record(
+            "HC-stale-runs",
+            "Deployment runs stuck at executing",
+            "WARN",
+            "\n".join(issues),
+        )
     else:
         rec.record("HC-stale-runs", "Deployment runs stuck at executing", "PASS", "")
 
 
-
-def hc_run_item_status_consistency(conn, args: DoctorArgs, rec: RecordCollector) -> None:
+def hc_run_item_status_consistency(
+    conn, args: DoctorArgs, rec: RecordCollector
+) -> None:
     """HC-run-item-status-consistency: Item/run status mismatches."""
     if not _base._table_exists(conn, "deployment_runs"):
-        rec.record("HC-run-item-status-consistency", "Item/run status consistency", "PASS",
-                    "deployment_runs table does not exist — skipping")
+        rec.record(
+            "HC-run-item-status-consistency",
+            "Item/run status consistency",
+            "PASS",
+            "deployment_runs table does not exist — skipping",
+        )
         return
 
     issues: List[str] = []
@@ -179,7 +209,9 @@ def hc_run_item_status_consistency(conn, args: DoctorArgs, rec: RecordCollector)
         ") ORDER BY i.id",
     )
     for row in rows:
-        issues.append(f"- {render_item_ref(conn, row['id'])}: status=release but not in any executing run")
+        issues.append(
+            f"- {render_item_ref(conn, row['id'])}: status=release but not in any executing run"
+        )
 
     # Check 2: Items at implemented in an executing run (should be release)
     rows2 = query_rows(
@@ -215,10 +247,16 @@ def hc_run_item_status_consistency(conn, args: DoctorArgs, rec: RecordCollector)
         )
 
     if issues:
-        rec.record("HC-run-item-status-consistency", "Item/run status consistency", "WARN",
-                    "\n".join(issues))
+        rec.record(
+            "HC-run-item-status-consistency",
+            "Item/run status consistency",
+            "WARN",
+            "\n".join(issues),
+        )
     else:
-        rec.record("HC-run-item-status-consistency", "Item/run status consistency", "PASS", "")
+        rec.record(
+            "HC-run-item-status-consistency", "Item/run status consistency", "PASS", ""
+        )
 
 
 __all__ = (

@@ -1,8 +1,10 @@
 {
  "id": "wire-timestamp-precision",
  "title": "Wire timestamp precision",
- "status": "draft-copy",
+ "status": "observed",
  "audience": "Maintainers",
  "page": "runtime-evidence",
- "position": 1
+ "position": 1,
+ "summary": "Owned diagnostic prose and transport receipts use fixed-six UTC instants. Ledger day and ISO week buckets convert to UTC explicitly; an executed-SQL test guard rejects calendar buckets that depend on the session zone.",
+ "sources": ["docs/public/runtime/time/encoding.md", "runtime/api/domain/test_sql_instant_buckets.py", "runtime/sql_calendar_guard.py"]
 }

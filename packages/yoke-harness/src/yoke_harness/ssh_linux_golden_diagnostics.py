@@ -1,6 +1,6 @@
 """Retained transport evidence for Linux home archive operations."""
 
-from datetime import datetime, timezone
+from yoke_contracts.timestamps import format_instant, utc_now
 from pathlib import Path
 import re
 import shlex
@@ -45,18 +45,18 @@ def run_golden_command(control, command, *, input_text, timeout):
     client_log = directory / "ssh-client.log"
     client_log.touch(mode=0o600)
     secrets = getattr(control, "secret_values", ())
-    started = datetime.now(timezone.utc)
+    started = utc_now()
     result = control._run(
         command, input_text=input_text, timeout=timeout, debug_log=client_log
     )
-    finished = datetime.now(timezone.utc)
+    finished = utc_now()
     if result.returncode == 0:
         # Transport logs only diagnose failures; a success leaves nothing behind.
         shutil.rmtree(directory)
         return result, {
             "status": "command_succeeded",
-            "started_at": started.isoformat(),
-            "completed_at": finished.isoformat(),
+            "started_at": format_instant(started),
+            "completed_at": format_instant(finished),
         }
     client_log.write_text(_sanitize(client_log.read_text(errors="replace"), secrets))
     journal_command = shlex.join(
@@ -69,9 +69,9 @@ def run_golden_command(control, command, *, input_text, timeout):
             "--unit=ssh.service",
             "--unit=sshd.service",
             "--since",
-            started.isoformat(),
+            format_instant(started),
             "--until",
-            finished.isoformat(),
+            format_instant(finished),
         ]
     )
     journal = control._run(journal_command, timeout=20)
@@ -79,8 +79,8 @@ def run_golden_command(control, command, *, input_text, timeout):
     journal_log.touch(mode=0o600)
     journal_log.write_text(_sanitize(journal.stdout + "\n" + journal.stderr, secrets))
     evidence = {
-        "started_at": started.isoformat(),
-        "completed_at": finished.isoformat(),
+        "started_at": format_instant(started),
+        "completed_at": format_instant(finished),
         "ssh_client_log": str(client_log),
         "sshd_journal_log": str(journal_log),
         "ssh_client_log_available": client_log.stat().st_size > 1,

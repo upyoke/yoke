@@ -25,7 +25,7 @@ from yoke_core.domain.coordination_claim_record import (
     CoordinationClaim,
     row_to_claim,
 )
-from yoke_contracts.timestamps import parse_instant, utc_now
+from yoke_contracts.timestamps import format_instant, parse_instant, utc_now
 from yoke_core.domain.db_helpers import instant_parameter
 from yoke_core.domain.work_claim_target_sql import conflict_match_clause
 from yoke_core.domain.work_claim_targets import WorkClaimTarget
@@ -218,7 +218,7 @@ def heartbeat(
     if not claim.is_active:
         raise CoordinationClaimReleasedError(
             f"Coordination claim id={claim_id} is released "
-            f"(released_at={claim.released_at}); heartbeat refused"
+            f"(released_at={format_instant(claim.released_at)}); heartbeat refused"
         )
     conn.execute(
         f"UPDATE work_claims SET last_heartbeat = {p} "

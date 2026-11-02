@@ -22,7 +22,7 @@ response — never a stand-in for "the call failed for some other reason"
 from __future__ import annotations
 
 import json
-from datetime import datetime, timezone
+from yoke_contracts.timestamps import format_instant, utc_now
 import re
 from typing import Any, Mapping
 import urllib.error
@@ -67,7 +67,7 @@ def _http_failure(exc: urllib.error.HTTPError, headers: Mapping[str, str]) -> st
         if key == "retry-after" and safe.isdigit():
             safe += "s"
         parts.append(f"{key} {safe}")
-    parts.append(f"at {datetime.now(timezone.utc).isoformat(timespec='seconds')}")
+    parts.append(f"at {format_instant(utc_now())}")
     detail = ", ".join(parts)
     host = urllib.parse.urlsplit(exc.url).hostname or "vendor"
     _failures.failed(f"{host} plan-limit usage-check read", detail)
