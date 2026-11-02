@@ -2,6 +2,11 @@
 
 from __future__ import annotations
 
+import os
+import subprocess
+
+import pytest
+
 from yoke_core.domain.yaml_helper import load_document
 from yoke_core.tools._source_pythonpath import repo_root
 
@@ -92,3 +97,46 @@ def test_the_plan_refreshes_the_profile_every_shard_splits_with() -> None:
     assert selection_names.index(download["name"]) < selection_names.index(
         "Run the selection"
     )
+
+
+@pytest.mark.parametrize(
+    ("runner", "installed", "expected"),
+    [("self-hosted", False, 1), ("self-hosted", True, 0),
+     ("github-hosted", False, 0), ("github-hosted", True, 0)],
+)
+def test_runner_prerequisites_install_only_on_hosted_hosts(
+    tmp_path, runner, installed, expected,
+) -> None:
+    action = load_document(GITHUB / "actions" / "yoke-test-runner" / "action.yml")
+    step = next(s for s in action["runs"]["steps"]
+                if s["name"] == "Prepare runner prerequisites")
+    commands = tmp_path / "commands"
+    commands.mkdir()
+    query = commands / "dpkg-query"
+    query.write_text("#!/bin/bash\nprintf '%s' "+
+                     ("'install ok installed'" if installed else "'not installed'"))
+    sudo = commands / "sudo"
+    sudo.write_text('#!/bin/bash\nprintf "%s\\n" "$*" >> "$CALLS"\n'
+                    'if [[ "$1" == tee ]]; then cat >/dev/null; fi\n')
+    query.chmod(0o755)
+    sudo.chmod(0o755)
+    calls = tmp_path / "calls"
+    result = subprocess.run(
+        ["bash", "-euo", "pipefail", "-c",
+         "source() { VERSION_CODENAME=resolute; }\n" + step["run"]],
+        env={**os.environ, "PATH": f"{commands}:{os.environ['PATH']}",
+             "RUNNER_ENVIRONMENT": runner, "CALLS": str(calls)},
+        text=True, capture_output=True,
+    )
+    assert result.returncode == expected, result.stderr
+    if expected:
+        assert "ci_runner_prerequisites_missing: postgresql-client-16" in result.stderr
+        assert "Install these packages from PGDG" in result.stderr
+    if runner == "github-hosted" and not installed:
+        operations = calls.read_text()
+        assert "https://www.postgresql.org/media/keys/ACCC4CF8.asc" in operations
+        assert "apt-get update" in operations
+        assert "apt-get install --yes --no-install-recommends postgresql-client-16" in operations
+        assert "libxml" not in operations
+    else:
+        assert not calls.exists(), "self-hosted and prepared hosts must stay unchanged"

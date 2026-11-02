@@ -28,6 +28,34 @@ runs:
         --runner-environment "${{ runner.environment }}"
         --runner-os "${{ runner.os }}"
 
+    - name: Prepare runner prerequisites
+      shell: bash
+      env:
+        RUNNER_ENVIRONMENT: ${{ runner.environment }}
+      run: |
+        required_packages=(postgresql-client-16)
+        missing_packages=()
+        for package in "${required_packages[@]}"; do
+          if [[ "$(dpkg-query -W -f='${Status}' "$package" 2>/dev/null || true)" != 'install ok installed' ]]; then
+            missing_packages+=("$package")
+          fi
+        done
+        if ((${#missing_packages[@]})); then
+          if [[ "$RUNNER_ENVIRONMENT" != github-hosted ]]; then
+            echo "ci_runner_prerequisites_missing: ${missing_packages[*]}. Install these packages from PGDG on the runner, then retry CI." >&2
+            exit 1
+          fi
+          source /etc/os-release
+          sudo install -d /usr/share/postgresql-common/pgdg
+          sudo curl --fail --silent --show-error --location \
+            https://www.postgresql.org/media/keys/ACCC4CF8.asc \
+            -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc
+          printf 'deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt %s-pgdg main\n' "$VERSION_CODENAME" \
+            | sudo tee /etc/apt/sources.list.d/pgdg.list >/dev/null
+          sudo apt-get update
+          sudo apt-get install --yes --no-install-recommends "${missing_packages[@]}"
+        fi
+
     - name: Set up Python ${{ inputs.python-version }}
       uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
       with:

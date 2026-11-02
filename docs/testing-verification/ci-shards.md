@@ -5,14 +5,21 @@ endpoint runs in parallel on every CI event, pull requests included, covering
 interpreter behavior while repository checks, documentation, generated files,
 path snapshots, and installed wheel scenarios stay on the newest leg.
 
-Linux jobs across `.github/workflows` pin Ubuntu 24.04 (`ubuntu-24.04` for
-x86_64 and `ubuntu-24.04-arm` for arm64). The `YOKE_LINUX_RUNS_ON` override
-must select the same supported substrate on self-hosted runners. Keep the
-release explicit: the moving `ubuntu-latest` label switched to Ubuntu 26.04
-and removed PostgreSQL 16 host clients and `libxml2.so.2` required by the
-copy-lifetime and embedded PostgreSQL machine-admission fixtures. The Docker
-PostgreSQL service does not supply those host dependencies. Upgrade the runner
-release only after full CI proves both supported Python endpoints on it.
+Full CI and change-scoped test selection default to Ubuntu 26.04
+(`ubuntu-26.04`). The `YOKE_LINUX_RUNS_ON` override must select the same
+supported substrate on self-hosted runners. Workflows use explicit releases;
+never use the moving `ubuntu-latest` label. Server-image build and product
+smoke jobs remain pinned to Ubuntu 24.04 until their own runner upgrade is
+verified.
+
+The shared `.github/actions/yoke-test-runner` action declares host prerequisites:
+`postgresql-client-16` supplies the PostgreSQL 16 copy-lifetime tools. When
+missing, GitHub-hosted runners install it from the PostgreSQL PGDG apt
+repository; self-hosted runners refuse with `ci_runner_prerequisites_missing`
+and the package list to install before retrying. The Docker PostgreSQL service
+does not supply host clients. CI does not install embedded-engine libraries:
+fresh Ubuntu 26.04 runners exercise the product's embedded PostgreSQL
+portability. Runner upgrades require full CI on both supported Python endpoints.
 
 The full matrix uses sixteen shards per Python endpoint, with four xdist
 workers on the measured hosted runners. `ci_shards.SHARD_COUNT` owns the

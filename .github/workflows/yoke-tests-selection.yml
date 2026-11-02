@@ -76,7 +76,7 @@ jobs:
     timeout-minutes: 10
     name: plan
     permissions: {contents: read, actions: read}
-    runs-on: ${{ fromJSON(vars.YOKE_LINUX_RUNS_ON || '["ubuntu-24.04"]') }}
+    runs-on: ${{ fromJSON(vars.YOKE_LINUX_RUNS_ON || '["ubuntu-26.04"]') }}
     outputs:
       shards: ${{ steps.plan.outputs.shards }}
       splits: ${{ steps.plan.outputs.splits }}
@@ -155,7 +155,7 @@ jobs:
     timeout-minutes: 35
     name: selection (shard ${{ matrix.shard }})
     needs: plan
-    runs-on: ${{ fromJSON(vars.YOKE_LINUX_RUNS_ON || '["ubuntu-24.04"]') }}
+    runs-on: ${{ fromJSON(vars.YOKE_LINUX_RUNS_ON || '["ubuntu-26.04"]') }}
     strategy:
       # Every shard reports: a cancelled sibling would lose the log and the
       # artifact for tests that were still the selection's own coverage.
