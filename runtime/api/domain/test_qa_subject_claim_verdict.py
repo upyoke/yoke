@@ -8,6 +8,7 @@ verdict it earned after the stale-session sweep reclaimed the first.
 
 from __future__ import annotations
 
+import sqlite3
 import unittest
 from unittest.mock import patch
 
@@ -57,6 +58,25 @@ def _request(payload: dict | None = None) -> FunctionCallRequest:
         target=TargetRef(kind="qa_requirement", qa_requirement_id=_REQUIREMENT),
         payload=payload or {},
     )
+
+
+class TestQaRequirementSubject(unittest.TestCase):
+    def test_task_review_resolves_to_epic_item(self):
+        from yoke_core.domain import db_helpers
+
+        with sqlite3.connect(":memory:") as conn:
+            conn.execute(
+                "CREATE TABLE qa_requirements (id INTEGER, item_id INTEGER, "
+                "deployment_run_id TEXT, deployment_member_item_id INTEGER, "
+                "epic_id INTEGER)"
+            )
+            conn.execute(
+                "INSERT INTO qa_requirements VALUES (?, NULL, NULL, NULL, ?)",
+                (_REQUIREMENT, _ITEM),
+            )
+            with patch.object(db_helpers, "connect", return_value=conn):
+                subject = qa_claims_module.resolve_qa_requirement_subject(_REQUIREMENT)
+        self.assertEqual(subject, (_ITEM, None, None, None))
 
 
 class TestQaSubjectAuthority(unittest.TestCase):

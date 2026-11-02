@@ -67,7 +67,7 @@ def resolve_qa_requirement_subject(
         with db_helpers.connect() as conn:
             p = _placeholder(conn)
             row = conn.execute(
-                "SELECT item_id, deployment_run_id, deployment_member_item_id "
+                "SELECT item_id, deployment_run_id, deployment_member_item_id, epic_id "
                 "FROM qa_requirements "
                 f"WHERE id = {p}",
                 (int(qa_requirement_id),),
@@ -92,6 +92,8 @@ def resolve_qa_requirement_subject(
         return int(item_id), None, None, None
     if deployment_run_id is not None:
         return None, str(deployment_run_id), None, None
+    if row[3] is not None:
+        return int(row[3]), None, None, None
     return (
         None,
         None,
