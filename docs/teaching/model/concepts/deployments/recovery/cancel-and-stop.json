@@ -3,5 +3,7 @@
  "title": "Cancel and stop",
  "status": "draft-copy",
  "page": "deployment-recovery",
- "position": 2
+ "position": 2,
+ "summary": "Before recording a stage failure, the deployment driver re-reads the run. A cancelled run reports cancellation and exits without failure events, failed status or stage writes, or re-drive advice.",
+ "sources": ["packages/yoke-core/src/yoke_core/domain/deploy_pipeline_failure.py", "docs/public/deployments/model/ended-runs.md"]
 }
