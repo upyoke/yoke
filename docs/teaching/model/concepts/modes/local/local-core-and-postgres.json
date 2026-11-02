@@ -4,6 +4,6 @@
  "status": "observed",
  "page": "modes",
  "position": 1,
- "summary": "Local macOS mode requires macOS 26.0 or newer for the pinned PostgreSQL 17.10.0 binaries; older or unreadable versions refuse before download or cached-engine initialization with recovery.",
+ "summary": "The pinned PostgreSQL 17.11.1 build bundles Linux runtime libraries for bare Ubuntu 24.04 and 26.04. Local macOS mode requires macOS 15.0 or newer for the pinned PostgreSQL 17.11.1 binaries; older or unreadable versions refuse before download or cached-engine initialization with recovery.",
  "sources": ["packages/yoke-core/src/yoke_core/domain/postgres_binaries.py", "docs/public/start/install.md"]
 }

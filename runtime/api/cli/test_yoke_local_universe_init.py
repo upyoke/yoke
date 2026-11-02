@@ -86,7 +86,7 @@ def test_init_secures_machine_home_before_nested_runtime_writes(
     machine_home.chmod(0o775)
 
     def engine_after_nested_write():
-        (machine_home / "postgres" / "17.10.0").mkdir(
+        (machine_home / "postgres" / "17.11.1").mkdir(
             mode=0o700, parents=True, exist_ok=True
         )
         assert stat.S_IMODE(machine_home.stat().st_mode) == 0o700

@@ -40,7 +40,7 @@ After `/yoke onboard`, `/yoke steer` vets proposed dashes and presents each for 
 
 ## Supported machines and prerequisites
 
-The installer checks the machine before proceeding. Linux requires a glibc-based distribution. Local mode on macOS requires macOS 26.0 or newer for the embedded PostgreSQL build; a machine that cannot run that database can still connect to a remote core when its CLI prerequisites are met.
+The installer checks the machine before proceeding. Linux requires a glibc-based distribution. Local mode on macOS requires macOS 15.0 or newer for the embedded PostgreSQL build; a machine that cannot run that database can still connect to a remote core when its CLI prerequisites are met.
 
 A working coding-agent sign-in is separate from Yoke sign-in. Setup's session check verifies registration, harness sign-in, and permission to run Yoke commands. Follow the named repair and rerun the check.
 

@@ -3,7 +3,7 @@
  "title": "An older Mac selects local setup",
  "status": "observed",
  "audience": "human",
- "when": "Starting local mode on macOS below 26.0 or with an unreadable OS version",
+ "when": "Starting local mode on macOS below 15.0 or with an unreadable OS version",
  "need": "Refuse before downloading or initializing embedded PostgreSQL, name the detected and required macOS versions, and teach upgrading macOS or connecting to a team server or upyoke.com. Cached binaries must not bypass the refusal.",
  "disclosure": "on the setup local-universe screen right after choosing This machine, before any other local question; again before embedded-engine resolution at Apply",
  "surface": "Setup local-universe screen, local setup refusal and installation requirements",
