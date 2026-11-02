@@ -152,7 +152,6 @@ def _provisioned_project(monkeypatch, tmp_path, **create_kwargs) -> list[str]:
     monkeypatch.setattr(
         worktree_create, "preflight_worktree_plan", lambda *_a, **_k: plan
     )
-    monkeypatch.setattr(worktree_create, "_count_active_worktrees", lambda *_a: (0, []))
     monkeypatch.setattr(
         worktree_create_provisioning,
         "create_worktree_lane",
@@ -233,7 +232,6 @@ def test_creation_refuses_when_no_project_resolves(tmp_path, monkeypatch):
         "preflight_worktree_plan",
         lambda *_a, **_k: WorktreeCreationPlan(worktrees=[entry], primary=entry),
     )
-    monkeypatch.setattr(worktree_create, "_count_active_worktrees", lambda *_a: (0, []))
 
     def _must_not_provision(*_a, **_k):  # pragma: no cover - refusal comes first
         raise AssertionError("provisioning must not run without a project")

@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import os
 import sys
 from pathlib import Path
 from typing import Optional
@@ -210,34 +209,6 @@ def provision_worktree_validation_surfaces(
             )
 
 
-def count_active_worktrees(
-    repo_root: str,
-    worktrees_dir: str,
-) -> tuple[int, list[str]]:
-    """Return active managed worktree count and branch-directory names."""
-    result = _run(
-        [
-            "git",
-            "-C",
-            repo_root,
-            "worktree",
-            "list",
-            "--porcelain",
-        ]
-    )
-    if result.returncode != 0:
-        return 0, []
-    paths = [
-        line[len("worktree ") :]
-        for line in result.stdout.splitlines()
-        if line.startswith("worktree ")
-    ]
-    names = [
-        os.path.basename(path) for path in paths if path.startswith(worktrees_dir + "/")
-    ]
-    return len(names), names
-
-
 def project_field(
     project: str,
     field: str,
@@ -263,7 +234,6 @@ def project_field(
 
 
 __all__ = [
-    "count_active_worktrees",
     "create_worktree_lane",
     "project_field",
     "provision_worktree_harness_setup",

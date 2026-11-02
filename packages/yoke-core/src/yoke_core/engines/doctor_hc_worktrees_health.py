@@ -14,7 +14,7 @@ sweep removes the ones proved finished, so ``--fix`` retires no item lane.
 
 Detached self-deploy driver trees are checked against their run status and
 retired under ``--fix`` once the run is over. Open items' landed lanes are
-listed apart: they hold no ``max_active_worktrees`` slot.
+listed apart while they await release close-out.
 """
 
 from __future__ import annotations
@@ -22,7 +22,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Dict, List
 
-from yoke_core.domain.worktree_capacity import landed_lanes_note
+from yoke_core.domain.worktree_maintenance import landed_lanes_note
 from yoke_core.engines.deploy_run_worktree_naming import run_id_for_driver_worktree
 from yoke_core.engines.deploy_run_worktree_retirement import (
     assess_deploy_run_worktrees,

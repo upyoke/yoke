@@ -150,9 +150,7 @@ class TestCreateWorktreeMultiWorktree:
             assert wt_result.path == expected_path
             assert os.path.isdir(expected_path)
 
-    def test_preflight_blocks_before_side_effects(self, git_repo, yoke_db):
-        # Capacity check fails the entire call before any
-        # `git worktree add` runs for any worktree.
+    def test_multiworktree_creation_ignores_retired_cap(self, git_repo, yoke_db):
         cfg = git_repo / "runtime" / "config"
         cfg.write_text("worktrees_dir=.worktrees\nmax_active_worktrees=1\n")
         branches = ["epic-99203-x", "epic-99203-y"]
@@ -165,11 +163,10 @@ class TestCreateWorktreeMultiWorktree:
             db_path=yoke_db,
         )
 
-        assert result.error is not None
-        assert "max_active_worktrees" in result.error
-        # No worktree directories created — all-worktree preflight blocked first.
+        assert result.error is None
+        assert result.created is True
         for branch in branches:
-            assert not os.path.isdir(str(git_repo / ".worktrees" / branch))
+            assert os.path.isdir(str(git_repo / ".worktrees" / branch))
 
     def test_duplicate_worktree_path_is_rejected_by_registry(self, git_repo, yoke_db):
         branches = ["epic-99209-a", "epic-99209-b"]
