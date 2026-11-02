@@ -28,6 +28,7 @@ HOSTED_SERVICE_MINT_COMMAND = (
 # baseline: no token minting, sessions, decision requests, or models.
 HOSTED_SERVICE_FUNCTIONS = frozenset(
     {
+        "projects.github_binding.bind",
         "projects.github_binding.lifecycle",
         "projects.github_binding.list",
         "machine_authorization.handoff",
@@ -35,9 +36,9 @@ HOSTED_SERVICE_FUNCTIONS = frozenset(
     }
 )
 
-ROLE_HOSTED_SERVICE_DESCRIPTION = "The hosted service's own identity: deliver hosted lifecycle facts and machine codes."
+ROLE_HOSTED_SERVICE_DESCRIPTION = "The hosted service's own identity: bind GitHub repositories, deliver lifecycle facts and machine codes."
 PERM_HOSTED_SERVICE_DELIVER_DESCRIPTION = (
-    "Deliver hosted-service lifecycle facts (GitHub App binding lifecycle, "
+    "Bind GitHub repositories and deliver hosted-service lifecycle facts (GitHub App binding lifecycle, "
     "machine-code handoff, expiry and withdrawal) into this org."
 )
 

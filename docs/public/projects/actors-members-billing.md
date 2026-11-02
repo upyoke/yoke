@@ -117,7 +117,8 @@ The workbench's **Connect your machine** page uses the same engine-owned
 decision and one-time credential delivery in Cloud and self-hosted mode.
 
 On Cloud the roster also shows the hosted service's own system actor,
-`hosted_service`, holding only the `hosted_service` org role. It delivers
+`hosted_service`, holding only the `hosted_service` org role. It binds GitHub
+repositories after the host's admin and installation-ownership checks and delivers
 GitHub App lifecycle changes, machine-code handoff and polling after organization selection,
 and machine-authorization expiry or withdrawal. See the
 [hosted handoff contract](../cli/machine-authorization.md#hosted-code-handoff). No member or admin token can stand in for it, including the

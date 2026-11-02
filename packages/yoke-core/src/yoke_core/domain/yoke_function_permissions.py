@@ -48,6 +48,7 @@ from yoke_core.domain.hosted_service_authority import (
     is_hosted_service_actor,
 )
 from yoke_core.domain.project_identity import AmbiguousProjectRefError
+from yoke_core.domain.project_github_binding_authority import hosted_binding_permission
 from yoke_core.domain.qa_deployment_function_subject import QaSubjectProjectError
 from yoke_core.domain.session_action_dispatch_permission import (
     session_action_dispatch_permission,
@@ -87,6 +88,9 @@ def check_dispatch_permission(
                 "to enable the actor, then sign in again or reconnect its machine",
             ),
         )
+    binding_permission = hosted_binding_permission(conn, entry, request, actor_id)
+    if binding_permission is not None:
+        return binding_permission
     if (
         actor_id is not None
         and entry.function_id not in HOSTED_SERVICE_FUNCTIONS
