@@ -20,7 +20,7 @@ class Request(SimpleNamespace):
 
 def _request(**payload):
     return Request(
-        target=TargetRef(kind="item", item_id=ITEM_ID, project_id=1),
+        target=TargetRef(kind="item", item_id=ITEM_ID, project_id="1"),
         payload={"deployment_stage": "item-qa", **payload},
     )
 

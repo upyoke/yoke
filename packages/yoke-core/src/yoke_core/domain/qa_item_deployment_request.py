@@ -12,6 +12,10 @@ from yoke_core.domain.project_identity import render_item_ref
 from yoke_core.domain.qa_plan_management import QaPlanError
 
 
+class QaItemStageUnavailable(QaPlanError):
+    code = "qa_item_stage_unavailable"
+
+
 def execution_member_id(conn, member):
     if member is None:
         return None
@@ -66,7 +70,7 @@ def resolve_item_deployment_request(conn, request):
             None,
         )
         if run is None:
-            raise QaPlanError(
+            raise QaItemStageUnavailable(
                 _stage_run_recovery(conn, int(item_id), payload["deployment_stage"])
             )
     if run is None:
