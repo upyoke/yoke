@@ -1,7 +1,8 @@
 {
  "id": "liveness-and-heartbeat",
  "title": "Liveness and heartbeat",
- "status": "draft-copy",
+ "status": "observed",
  "page": "machines",
- "position": 0
+ "position": 0,
+ "summary": "Each relay heartbeat refreshes the registered machine last_seen_at in the same transaction. A single conditional UPDATE writes only when last_seen_at is missing or older than one minute, so machine detail tracks recent relay activity without a write on every poll."
 }

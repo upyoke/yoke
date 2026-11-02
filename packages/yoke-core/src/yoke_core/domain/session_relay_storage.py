@@ -10,6 +10,7 @@ from yoke_contracts.fleet_policy import RELAY_POLL_SECONDS
 from yoke_contracts.timestamps import parse_instant
 from yoke_contracts.timestamps import utc_now as utc_now
 from yoke_core.domain.db_helpers import instant_parameter
+from yoke_core.domain.machine_registry import touch_machine_seen
 from yoke_core.domain import db_backend, json_helper
 from yoke_core.domain.session_relay_heartbeat_validation import validate_heartbeat
 from yoke_core.domain.session_relay_types import (
@@ -131,6 +132,7 @@ def heartbeat_relay(
         previous_health=previous_health,
         relay_health=heartbeat.relay_health,
     )
+    touch_machine_seen(conn, machine_id=heartbeat.machine_id, now=now)
     conn.commit()
     return connected_until
 
