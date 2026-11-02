@@ -185,6 +185,8 @@ imports use the packaged tools even when Compose selects a different home.
 An import supervisor keeps the container alive until the private exec bridge
 returns. The host then finishes the supervisor and checks the importer exit
 code; a killed bridge always fails, even if it emitted a partial receipt.
+Completion signals only set a flag; deadline polling bounds the bridge wait
+without taking a lock inside the signal handler.
 
 ## Upload and finish hosted import
 
