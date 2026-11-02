@@ -101,7 +101,7 @@ What a Command case's shell is handed
 {COMMAND_CASE_DEPLOYMENT_RUN_ENV}: the deployment run this case answers for.
 YOKE_QA_CANDIDATE_TREE: JSON with root and head_sha for the candidate checkout.
 
-Plans run once for the whole release, without a member reference. Read the
+Shared plans run once for the release; single-member plans run as member QA. Read the
 candidate's detached HEAD to identify its revision. DEPLOYMENT_MEMBER_REF
 is refused in plan commands; it exists only in member-bound cases.
 

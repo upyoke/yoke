@@ -94,7 +94,7 @@ def deployment_runs_add_item(args: List[str]) -> int:
         default=[],
         help=(
             "Item case requirement id to attach to this member; repeatable. "
-            "Attached post-deploy plans run as plan groups at item QA."
+            "At item QA entry, single-member plans stay with the holder; shared plans belong to the driver."
         ),
     )
     add_session_arg(parser)
