@@ -37,7 +37,7 @@ through its existing workflow inputs; see
 **Yoke source repo only:** from a claimed source lane, dispatch a requested pair with:
 
 ```text
-yoke dev run -- python3 -m runtime.api.tools.platform_consumer_dispatch --candidate-sha FULL_YOKE_SHA --consumer-sha FULL_PLATFORM_SHA
+yoke dev run -- python3 -m runtime.api.tools.platform_consumer_dispatch --candidate-sha FULL_YOKE_SHA --consumer-sha FULL_PLATFORM_SHA # Yoke source repo only
 ```
 
 Use full 40-hex commits and the authenticated connection that owns Platform.
