@@ -213,7 +213,9 @@ When setup stops a mission before product proof, finish `walk-end`, then use
 settles as `capture_failed`, `blocked_on_precondition`, verdict `error`, with
 `mission_setup_blocked` and the stop reason. Diagnostics and starting-state
 restore receipts remain attached; neither counts as product proof or asks a
-human for approval. Resolve the prerequisite before starting a fresh mission.
+human for approval. If no reviewable cases remain, abort closes the review
+bundle without a reviewer or review wake, allowing a fresh execution after
+you resolve the prerequisite.
 Completed product captures in a partial walk retain their review authority.
 
 ## Decision Disposition

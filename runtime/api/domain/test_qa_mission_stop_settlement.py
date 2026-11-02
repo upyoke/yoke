@@ -5,6 +5,11 @@ import pytest
 from runtime.api.fixtures.qa_captured_plan_review_fixture import captured_plan_review
 from yoke_core.domain.qa_plan_execution_lifecycle import finish_plan_execution
 from yoke_core.domain.qa_plan_review import begin_plan_review
+from yoke_core.domain.qa_pending_agent_review import pending_review_requirements
+from yoke_core.domain.qa_plan_execution_state import (
+    advance_plan_execution,
+    begin_plan_execution,
+)
 
 
 @pytest.mark.parametrize(
@@ -14,7 +19,7 @@ from yoke_core.domain.qa_plan_review import begin_plan_review
 @pytest.mark.parametrize("state", ["aborted", "error"])
 @pytest.mark.parametrize("bundle_exists", [False, True])
 def test_stopped_mission_settles_setup_docket(
-    test_db, artifact_type, state, bundle_exists
+    test_db, monkeypatch, artifact_type, state, bundle_exists
 ):
     execution, requirement_id, run_id = captured_plan_review(test_db, 9783)
     execution["roster"][0].update(
@@ -36,6 +41,11 @@ def test_stopped_mission_settles_setup_docket(
         )
     if bundle_exists:
         assert begin_plan_review(test_db, execution) is not None
+    wakes = []
+    monkeypatch.setattr(
+        "yoke_core.domain.qa_plan_agent_review_wake.notify_stopped_capture_review",
+        lambda *args, **kwargs: wakes.append(kwargs),
+    )
     reason = "blocked_on_precondition: sandbox denied; use a compatible declared host"
     finish_plan_execution(test_db, execution, state=state, reason=reason)
     row = test_db.execute(
@@ -47,6 +57,20 @@ def test_stopped_mission_settles_setup_docket(
     assert reason in row[3]
     assert "run a fresh mission" in row[3]
     assert begin_plan_review(test_db, execution, completed_captures_only=True) is None
+    assert pending_review_requirements(test_db, [requirement_id], stopped_only=True) == {}
+    assert wakes == []
+    if bundle_exists:
+        stored = test_db.execute(
+            "SELECT state,reviewer_actor_id,reviewer_session_id,reviewed_at "
+            "FROM qa_plan_review_bundles WHERE execution_id=%s",
+            (str(execution["id"]),),
+        ).fetchone()
+        assert tuple(stored) == ("completed", None, None, None)
+    fresh = begin_plan_execution(
+        test_db, item_id=int(execution["item_id"]), transition_id="implemented",
+        actor_id="7", session_id="review-session",
+    )
+    assert [case["requirement_id"] for case in fresh["roster"]] == [requirement_id]
     assert (
         test_db.execute(
             "SELECT count(*) FROM decision_requests WHERE kind='qa_needs_review' "
@@ -89,3 +113,52 @@ def test_setup_stop_guidance_names_diagnostic_evidence():
     guidance = stopped_mission_guidance("--item example", "execution")
     assert "attach blocker evidence as `diagnostic`" in guidance
     assert "without human review" in guidance
+
+
+def test_setup_stop_preserves_mixed_bundle_review(test_db, monkeypatch):
+    execution, stopped_id, stopped_run = captured_plan_review(
+        test_db, 9785, unfinished_case=True
+    )
+    product_id = int(execution["roster"][1]["requirement_id"])
+    product_run = test_db.execute(
+        "INSERT INTO qa_runs(qa_requirement_id,performed_by,qa_kind,case_outcome,"
+        "raw_result,started_at,completed_at,created_at) "
+        "SELECT %s,performed_by,qa_kind,case_outcome,raw_result,started_at,"
+        "completed_at,created_at FROM qa_runs WHERE id=%s RETURNING id",
+        (product_id, stopped_run),
+    ).fetchone()[0]
+    test_db.execute(
+        "INSERT INTO qa_artifacts(qa_run_id,artifact_type,content_type,"
+        "artifact_handle,metadata,created_at) SELECT %s,artifact_type,content_type,"
+        "artifact_handle,metadata,created_at FROM qa_artifacts WHERE qa_run_id=%s",
+        (product_run, stopped_run),
+    )
+    execution["roster"][0].update(
+        runner_id="agent_mission", method_id="exploratory-mission",
+        method_config={"executor": "informed_subagent"},
+    )
+    test_db.execute(
+        "UPDATE qa_runs SET performed_by='agent_mission',execution_status='captured' "
+        "WHERE id=%s", (stopped_run,),
+    )
+    test_db.execute("DELETE FROM qa_artifacts WHERE qa_run_id=%s", (stopped_run,))
+    advance_plan_execution(
+        test_db, execution, ordinal=1, requirement_id=product_id,
+        result={"run_id": product_run},
+    )
+    bundle = begin_plan_review(test_db, execution)
+    assert len(bundle["cases"]) == 2
+    wakes = []
+    monkeypatch.setattr(
+        "yoke_core.domain.qa_plan_agent_review_wake.notify_stopped_capture_review",
+        lambda *args, **kwargs: wakes.append(kwargs),
+    )
+    finish_plan_execution(
+        test_db, execution, state="aborted",
+        reason="blocked_on_precondition: missing prerequisite; repair setup",
+    )
+    review = begin_plan_review(test_db, execution, completed_captures_only=True)
+    assert review["state"] == "pending"
+    assert [case["requirement_id"] for case in review["cases"]] == [product_id]
+    assert len(wakes) == 1
+    assert pending_review_requirements(test_db, [stopped_id, product_id])
