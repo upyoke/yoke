@@ -42,7 +42,7 @@ def test_entry_shape_the_installed_rules_reject_still_locates_the_checkout(
             {"checkout": str(yoke), "project_id": 1, "future_key": {"x": 1}},
         ],
     )
-    assert pinned.self_release_checkout("yoke") == yoke.resolve()
+    assert pinned.self_release_checkout("yoke", run_id="run-recovery") == yoke.resolve()
 
 
 def test_non_yoke_checkout_drives_with_the_installed_engine(
@@ -51,7 +51,7 @@ def test_non_yoke_checkout_drives_with_the_installed_engine(
     other = tmp_path / "other"
     other.mkdir()
     _config(tmp_path, monkeypatch, [{"checkout": str(other), "project_id": 1}])
-    assert pinned.self_release_checkout("other") is None
+    assert pinned.self_release_checkout("other", run_id="run-recovery") is None
 
 
 def test_unmapped_project_names_the_registration_repair(
@@ -60,7 +60,7 @@ def test_unmapped_project_names_the_registration_repair(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
     _config(tmp_path, monkeypatch, [{"checkout": "/elsewhere", "project_id": 2}])
-    assert pinned.self_release_checkout("yoke") is None
+    assert pinned.self_release_checkout("yoke", run_id="run-recovery") is None
     assert "yoke project register" in capsys.readouterr().err
 
 
@@ -69,7 +69,7 @@ def test_unresolvable_project_refuses_with_redrive(
 ) -> None:
     monkeypatch.setattr(pinned, "project_id_for_slug", lambda _p: None)
     with pytest.raises(DeployPinnedSourceError, match="re-drive"):
-        pinned.self_release_checkout("ghost")
+        pinned.self_release_checkout("ghost", run_id="run-recovery")
 
 
 def test_https_run_of_a_yoke_project_is_pinned(
@@ -83,12 +83,12 @@ def test_https_run_of_a_yoke_project_is_pinned(
         "run_pin",
         lambda _r: {"release_lineage": "abc", "project": "yoke"},
     )
-    monkeypatch.setattr(pinned, "self_release_checkout", lambda _p: yoke)
+    monkeypatch.setattr(pinned, "self_release_checkout", lambda _p, _r: yoke)
     monkeypatch.setattr(pinned, "retire_finished_driver_worktrees", lambda *_a: None)
     monkeypatch.setattr(
         pinned, "ensure_pinned_worktree", lambda _c, _r, _l: tmp_path / "pin"
     )
-    monkeypatch.setattr(pinned, "_ensure_commit", lambda _c, _l: "a" * 40)
+    monkeypatch.setattr(pinned, "_ensure_commit", lambda _c, _l, _r: "a" * 40)
     prepared = pinned.prepare_self_deploy_driver("run-1")
     assert prepared == pinned.PinnedDriverSource(
         root=tmp_path / "pin", lineage="a" * 40

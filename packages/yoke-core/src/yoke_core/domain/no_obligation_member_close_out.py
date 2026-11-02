@@ -139,7 +139,7 @@ def close_out_satisfied_delivery_member(
     named = str(public_ref).strip() or render_item_ref(conn, int(item_id))
     try:
         refusal = steps.prepare_member_close(
-            conn, item_id=int(item_id), public_ref=named
+            conn, item_id=int(item_id), public_ref=named, run_id=run_id
         )
         pending = (
             ""

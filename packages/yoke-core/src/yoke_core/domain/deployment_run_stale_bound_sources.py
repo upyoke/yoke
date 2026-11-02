@@ -51,7 +51,7 @@ def _branches_by_project(stages_text: str) -> dict[str, str]:
 
 
 def _release_output_on_frozen(
-    conn: Any, *, project_id: int, frozen: str, current: str
+    conn: Any, *, run_id: str, project_id: int, frozen: str, current: str
 ) -> tuple[bool, str]:
     """Whether ``current`` is a release's own output written on ``frozen``.
 
@@ -83,7 +83,7 @@ def _release_output_on_frozen(
         return False, (
             f"head {current} is release output of {producer['run_id']}, but its "
             "parent commit did not resolve; make the project's source readable "
-            f"here, then re-drive the run with `{deploy_command()}`"
+            f"here, then re-drive the run with `{deploy_command(run_id)}`"
         )
     return parent.lower() == frozen.lower(), ""
 
@@ -120,7 +120,7 @@ def _compare_to_branch_heads(
         if current.lower() == frozen.lower():
             continue
         on_frozen, unreadable = _release_output_on_frozen(
-            conn, project_id=int(entry["project_id"]), frozen=frozen, current=current
+            conn, run_id=run_id, project_id=int(entry["project_id"]), frozen=frozen, current=current
         )
         if unreadable:
             unverified.append(f"bound source {project} {frozen}: {unreadable}")

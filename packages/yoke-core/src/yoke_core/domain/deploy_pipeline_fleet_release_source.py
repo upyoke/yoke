@@ -62,7 +62,7 @@ def release_checkout(repository: str, release_sha: str) -> Iterator[Path]:
         yield checkout
 
 
-def ensure_commit(repository: str, sha: str) -> str:
+def ensure_commit(repository: str, sha: str, run_id: str) -> str:
     """Fetch *sha* into *repository* when it is missing; why not, or ``""``."""
     root = str(Path(repository).expanduser())
 
@@ -83,7 +83,7 @@ def ensure_commit(repository: str, sha: str) -> str:
     return (
         f"commit {sha} is not in {root} and fetching it from origin failed: "
         f"{(fetched.stderr or fetched.stdout).strip()}. Run `git -C {root} "
-        f"fetch origin {sha}`, then re-drive the run with `{deploy_command()}`"
+        f"fetch origin {sha}`, then re-drive the run with `{deploy_command(run_id)}`"
     )
 
 

@@ -35,6 +35,7 @@ class ReleaseSource:
 def bound_commits(
     input_bindings: Optional[Mapping[str, Any]],
     bound_inputs: Mapping[str, str],
+    *, run_id: str,
 ) -> Tuple[Dict[str, str], str]:
     """Project to the one commit this dispatch's bindings ship, or a refusal."""
     commits: Dict[str, str] = {}
@@ -52,7 +53,7 @@ def bound_commits(
             return {}, (
                 f"release fleet rehearsal refused: bound input {key!r} of project "
                 f"{project!r} has no recorded source commit, so the commit this "
-                f"dispatch ships is unknown; re-drive the run with `{deploy_command()}` so preparation "
+                f"dispatch ships is unknown; re-drive the run with `{deploy_command(run_id)}` so preparation "
                 "records it, or compose a new run"
             )
         if commits.setdefault(project, sha) != sha:
@@ -72,6 +73,7 @@ def resolve_source(
     repository: str,
     release_lineage: str,
     bound: Mapping[str, str],
+    run_id: str,
 ) -> Tuple[Optional[ReleaseSource], str]:
     """The repository and exact commit that *source_project* ships."""
     if source_project == project:
@@ -92,7 +94,7 @@ def resolve_source(
             "(`yoke project register <checkout> --project-id N`), then re-drive "
             "the run"
         )
-    error = release_source.ensure_commit(str(checkout), release_sha)
+    error = release_source.ensure_commit(str(checkout), release_sha, run_id)
     if error:
         return None, f"release fleet rehearsal refused: {error}"
     return ReleaseSource(source_project, str(checkout), release_sha), ""

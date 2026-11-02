@@ -98,6 +98,7 @@ def start_run(
                     attest_candidate_containment,
                     basis,
                     _checkout,
+                    run_id=run_id,
                 )
             try:
                 timed_call(

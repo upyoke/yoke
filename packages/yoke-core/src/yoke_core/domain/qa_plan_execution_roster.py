@@ -58,6 +58,7 @@ def ordered_plan_requirements(
                     refuse_empty_roster(
                         conn,
                         deployment_member_item_id=deployment_member_item_id,
+                        run_id=deployment_run_id,
                         subject=(
                             f"deployment run {deployment_run_id!r} stage "
                             f"{deployment_stage!r} member "
@@ -108,6 +109,7 @@ def ordered_plan_requirements(
         refuse_empty_roster(
             conn,
             deployment_member_item_id=deployment_member_item_id,
+            run_id=deployment_run_id,
             subject=subject,
         )
     for rank, row in enumerate(requirements, start=1):

@@ -25,7 +25,7 @@ def test_uncovered_release_rehearses_records_then_dispatches(monkeypatch) -> Non
     events: list[str] = []
     query_count = 0
 
-    def coverage(_project, _model, _environment, _history, _digest):
+    def coverage(_project, _model, _environment, _history, _digest, run_id):
         nonlocal query_count
         query_count += 1
         events.append("query")
@@ -69,7 +69,7 @@ def test_unrehearsed_data_only_entry_rehearses_though_the_shape_is_covered(
     covered_before = _covered(entries=_HISTORY[:1])
     query_count = 0
 
-    def coverage(_project, _model, _environment, _history, _digest):
+    def coverage(_project, _model, _environment, _history, _digest, run_id):
         nonlocal query_count
         query_count += 1
         return (covered_before, "") if query_count == 1 else (_covered(), "")
@@ -109,7 +109,7 @@ def test_entry_covered_for_one_environment_rehearses_only_the_other(
     by_environment = {"prod": _covered(), "stage": _covered(entries=_HISTORY[:1])}
     rehearsed: list[str] = []
 
-    def coverage(_project, _model, environment, _history, _digest):
+    def coverage(_project, _model, environment, _history, _digest, run_id):
         name = receipt.target_environment_for_admin_env(environment)
         return (by_environment[name], "")
 

@@ -221,7 +221,7 @@ def notify_item_scoped_qa_wait(
     from yoke_core.domain.qa_plan_empty_roster import member_discharge_statement
 
     item_ref = render_item_ref(conn, int(item_id))
-    discharge = member_discharge_statement(conn, int(item_id))
+    discharge = member_discharge_statement(conn, int(item_id), run_id)
     return push_notice(
         conn,
         item_id=item_id,

@@ -201,7 +201,7 @@ def test_a_run_whose_members_are_partly_closed_still_converges(
     for item_id in MEMBERS[:2]:
         public_ref = render_item_ref(test_db, item_id)
         assert not close_out.prepare_member_close(
-            test_db, item_id=item_id, public_ref=public_ref
+            test_db, item_id=item_id, public_ref=public_ref, run_id="run-recovery"
         )
         staged = close_out.stage_member_close(
             test_db, item_id=item_id, public_ref=public_ref

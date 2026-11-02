@@ -130,7 +130,7 @@ def _dispatch_github_actions_workflow(
             github_repo,
             project,
             timeout_sec,
-            branch=gate_branch,
+            branch=gate_branch, run_id=run_id,
             head_sha=project_head_sha,
             sd=sd,
         )

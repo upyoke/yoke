@@ -35,13 +35,13 @@ class QaPlanRosterDischarged(QaPlanExecutionError):
 
 
 def discharged_without_cases_statement(
-    *, requirement_id: int, qa_kind: str
+    *, requirement_id: int, qa_kind: str, run_id: str
 ) -> str:
     """Owner-facing fact: this member's stage is already satisfied."""
     return (
         f"This member's stage is already satisfied: requirement "
         f"#{int(requirement_id)} records {qa_kind}, which discharges the "
-        f"stage without cases. Steering re-drives the run with `{deploy_command()}` and the stage "
+        f"stage without cases. Steering re-drives the run with `{deploy_command(run_id)}` and the stage "
         "gate reads that discharge. Do not run anything else; there is "
         "nothing for this member to run."
     )
@@ -90,7 +90,7 @@ def recorded_discharge(
     return None
 
 
-def member_discharge_statement(conn: Any, item_id: int) -> str | None:
+def member_discharge_statement(conn: Any, item_id: int, run_id: str) -> str | None:
     """Wake-body clause when the member already discharges without cases."""
     from yoke_core.domain.post_deploy_verification_answer import answer_for_item
 
@@ -102,12 +102,12 @@ def member_discharge_statement(conn: Any, item_id: int) -> str | None:
         return (
             "This member's stage is already satisfied: a recorded "
             f"{answer.verdict} answer discharges the stage without cases. "
-            f"Steering re-drives the run with `{deploy_command()}` and the stage gate reads that "
+            f"Steering re-drives the run with `{deploy_command(run_id)}` and the stage gate reads that "
             "discharge. Do not run anything else; there is nothing for "
             "this member to run."
         )
     return discharged_without_cases_statement(
-        requirement_id=record[0], qa_kind=record[1]
+        requirement_id=record[0], qa_kind=record[1], run_id=run_id
     )
 
 
@@ -116,6 +116,7 @@ def refuse_empty_roster(
     *,
     deployment_member_item_id: int | None,
     subject: str,
+    run_id: str | None,
 ) -> NoReturn:
     """Never returns: the empty roster is either discharge or a miss."""
     if deployment_member_item_id is not None:
@@ -131,7 +132,7 @@ def refuse_empty_roster(
             qa_kind = record[1] if record is not None else answer.verdict
             requirement_id = record[0] if record is not None else 0
             statement = discharged_without_cases_statement(
-                requirement_id=requirement_id, qa_kind=qa_kind
+                requirement_id=requirement_id, qa_kind=qa_kind, run_id=run_id or "RUN-ID"
             )
             raise QaPlanRosterDischarged(
                 statement,

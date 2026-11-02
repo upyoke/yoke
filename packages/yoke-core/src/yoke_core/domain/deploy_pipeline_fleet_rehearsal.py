@@ -50,6 +50,7 @@ def ensure_before_dispatch(
     bound_inputs: Mapping[str, str],
     *,
     project: str,
+    run_id: str,
     environment: str,
     repository: str,
     release_lineage: str,
@@ -61,7 +62,7 @@ def ensure_before_dispatch(
     dispatch calls again with the prepared values when preparation re-bound
     one, and covered projects then skip.
     """
-    bound, refusal = sources.bound_commits(input_bindings, bound_inputs)
+    bound, refusal = sources.bound_commits(input_bindings, bound_inputs, run_id=run_id)
     if refusal:
         return 1, refusal
     for source_project in sources.shipped_projects(project, bound):
@@ -81,6 +82,7 @@ def ensure_before_dispatch(
             repository=repository,
             release_lineage=release_lineage,
             bound=bound,
+            run_id=run_id,
         )
         if error or source is None:
             return 1, error
@@ -91,6 +93,7 @@ def ensure_before_dispatch(
                 model,
                 fleet,
                 environment=environment,
+                run_id=run_id,
                 repository=source.repository,
                 release_sha=source.release_sha,
             )
@@ -128,6 +131,7 @@ def _ensure_model(
     environment: str,
     repository: str,
     release_sha: str,
+    run_id: str,
 ) -> tuple[int, str]:
     modules_dir = str(
         ((model.get("runner") or {}).get("config") or {}).get("modules_dir") or ""
@@ -143,7 +147,7 @@ def _ensure_model(
         return 1, f"release schema digest unavailable: {exc}"
 
     values, read_error = _coverage(
-        project, model_name, environment, history, schema_digest
+        project, model_name, environment, history, schema_digest, run_id
     )
     if read_error:
         return 1, read_error
@@ -185,7 +189,7 @@ def _ensure_model(
         )
 
     values, read_error = _coverage(
-        project, model_name, environment, history, schema_digest
+        project, model_name, environment, history, schema_digest, run_id
     )
     if read_error:
         return 1, read_error
@@ -274,6 +278,7 @@ def _coverage(
     environment: str,
     history: Sequence[str],
     schema_digest: str,
+    run_id: str,
 ) -> tuple[dict[str, Any], str]:
     """The environment's coverage for this release, or why it is unknown."""
     values, unreadable = read_coverage(
@@ -286,7 +291,7 @@ def _coverage(
             f"could not read fleet rehearsal receipts of {project}/{environment} "
             f"model {model}: {unreadable}. Each shipped project needs an "
             f"environment named {environment!r} the release control plane can "
-            f"read; register it or grant the read, then re-drive the run with `{deploy_command()}`"
+            f"read; register it or grant the read, then re-drive the run with `{deploy_command(run_id)}`"
         )
     return values, ""
 

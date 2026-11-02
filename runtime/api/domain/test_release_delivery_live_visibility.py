@@ -12,7 +12,7 @@ from yoke_core.domain.deployment_run_candidate_containment import (
     ContainmentVerdict,
 )
 from yoke_core.domain.deployment_run_contained_items import (
-    attest_candidate_containment,
+    attest_candidate_containment as attest,
     candidate_containment_basis,
     parse_candidate_containment,
 )
@@ -134,7 +134,7 @@ def test_local_attestation_persists_when_server_has_no_graph_source(
         _open_item(conn)
         _stage_run(conn)
         basis = candidate_containment_basis(conn, "run-stage")
-        attestation = attest_candidate_containment(basis, lambda _project: "/repo")
+        attestation = attest(basis, lambda _p: "/repo", run_id="run-stage")
 
         assert (
             cmd_update(
@@ -171,7 +171,7 @@ def test_start_persists_known_empty_containment(monkeypatch) -> None:
         _open_item(conn)
         _stage_run(conn)
         basis = candidate_containment_basis(conn, "run-stage")
-        attestation = attest_candidate_containment(basis, lambda _project: "/repo")
+        attestation = attest(basis, lambda _p: "/repo", run_id="run-stage")
 
         assert (
             cmd_update(
@@ -227,7 +227,7 @@ def test_schema_carrying_release_starts_before_containment_column_converges(
         conn.execute("ALTER TABLE deployment_runs DROP COLUMN candidate_containment")
         conn.commit()
         basis = candidate_containment_basis(conn, "run-stage")
-        attestation = attest_candidate_containment(basis, lambda _project: "/repo")
+        attestation = attest(basis, lambda _p: "/repo", run_id="run-stage")
         refusal = cmd_update(
             "run-stage", "status", "executing", candidate_containment=attestation
         )
@@ -260,7 +260,7 @@ def test_undetermined_local_graph_is_a_named_retryable_refusal(monkeypatch) -> N
         containment_module.CandidateContainmentRefusal,
         match="candidate_containment_undetermined.*Fetch both commits",
     ):
-        attest_candidate_containment(basis, lambda _project: "/repo")
+        attest(basis, lambda _p: "/repo", run_id="run-stage")
 
 
 def _present(base, monkeypatch):
