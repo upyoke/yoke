@@ -43,11 +43,13 @@ def test_spec_uses_disposable_cluster_settings(monkeypatch):
     settings = dict(spec.server_settings)
     assert settings["max_connections"] == pg_testcluster.LOCAL_CLUSTER_MAX_CONNECTIONS
     assert settings["max_wal_size"] == "512MB"
+    assert settings["timezone"] == "Asia/Kathmandu"
     assert settings["fsync"] == "off"
     assert settings["full_page_writes"] == "off"
 
     opts = postgres_cluster.server_options(spec)
     assert f"-c max_connections={pg_testcluster.LOCAL_CLUSTER_MAX_CONNECTIONS}" in opts
+    assert "-c timezone=Asia/Kathmandu" in opts
     assert "-c fsync=off" in opts
     assert "-c listen_addresses=''" in opts
 
