@@ -65,11 +65,10 @@ def _unverifiable(token: str) -> ArgvPresence:
         reason_code="checkout_unmapped",
         token=token,
         message=(
-            "this machine has no checkout mapped for the project, so the "
-            "command was not verified against the repository it claims to "
-            "run. Map the checkout with `yoke project register <checkout> "
-            "--project-id <id>` and register from the machine that holds it "
-            "to get that verification."
+            "Repository command check skipped on the server because it has "
+            "no checkout mapped for this project. Client checkout mappings "
+            "are separate. Check the command from the client checkout where "
+            "it runs; no server checkout registration is required."
         ),
     )
 
