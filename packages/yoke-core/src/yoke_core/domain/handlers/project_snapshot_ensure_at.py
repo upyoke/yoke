@@ -81,7 +81,13 @@ def handle_project_snapshot_ensure_at(request: FunctionCallRequest) -> HandlerOu
         return HandlerOutcome(
             primary_success=False,
             error=FunctionError(
-                code="snapshot_ensure_failed", message=str(exc)
+                code="snapshot_ensure_failed",
+                message=(
+                    f"Server-side snapshot pre-warm skipped: {exc}. "
+                    "This check uses the server's checkout mapping; client "
+                    "checkout mappings are separate. This advisory requires "
+                    "no client action."
+                ),
             ),
         )
 

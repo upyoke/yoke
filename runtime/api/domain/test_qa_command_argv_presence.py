@@ -87,7 +87,9 @@ def test_an_unmapped_checkout_reports_that_rather_than_guessing() -> None:
 
     assert not presence.verified
     assert presence.reason_code == "checkout_unmapped"
-    assert "yoke project register" in presence.message
+    assert "skipped on the server" in presence.message
+    assert "Client checkout mappings are separate" in presence.message
+    assert "Check the command from the client checkout" in presence.message
 
 
 def test_an_empty_command_is_refused() -> None:

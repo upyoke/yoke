@@ -98,3 +98,20 @@ def test_ensure_at_missing_project_is_rejected(tmp_path: Path):
     assert outcome.primary_success is False
     assert outcome.error is not None
     assert outcome.error.code == "project_required"
+
+
+def test_unmapped_server_checkout_reports_no_client_action(tmp_path, monkeypatch):
+    repo, sha = _make_repo(tmp_path)
+    with path_snapshot_db(tmp_path, repo):
+        monkeypatch.setattr(
+            "yoke_core.domain.path_snapshots.checkout_for_project_id",
+            lambda project_id: None,
+        )
+        outcome = handle_project_snapshot_ensure_at(
+            _envelope(project="demo", commit_sha=sha)
+        )
+    assert outcome.primary_success is False
+    assert outcome.error.code == "snapshot_ensure_failed"
+    assert "Server-side snapshot pre-warm skipped" in outcome.error.message
+    assert "server's checkout mapping" in outcome.error.message
+    assert "no client action" in outcome.error.message

@@ -1,0 +1,10 @@
+{
+ "id": "server-checkout-checks",
+ "title": "Skipped server checks distinguish server checkout mappings from client checkouts.",
+ "status": "observed",
+ "form": "State",
+ "verification": "Source tests preserve checkout_unmapped and snapshot_ensure_failed outcomes. Hosted receiving proof is pending.",
+ "topics": ["reference/commands", "projects/identity"],
+ "current": "Command registration says the repository check was skipped on the server and directs verification to the client checkout. Snapshot pre-warm replies shared by merge and done-transition advisories identify the server checkout mapping and require no client action.",
+ "sources": ["packages/yoke-core/src/yoke_core/domain/qa_command_argv_presence.py", "packages/yoke-core/src/yoke_core/domain/handlers/project_snapshot_ensure_at.py", "runtime/api/domain/test_qa_command_argv_presence.py", "runtime/api/domain/handlers/test_project_snapshot_ensure_at.py"]
+}
