@@ -4,5 +4,5 @@
  "status": "draft-copy",
  "page": "verification",
  "position": 0,
- "summary": "Impacted selection follows ordinary imports, including helper names resolved from indexed package markers under pytest prepend mode. Bare-name collisions conservatively add tests; existing full module edges remain. Single-word dynamic import strings are not dependency evidence."
+ "summary": "Impacted selection follows ordinary imports, including helper names resolved from indexed package markers under pytest prepend mode. Bare-name collisions conservatively add tests; existing full module edges remain. Single-word dynamic import strings are not dependency evidence. Deleted source paths retain their dotted module identity, so direct, transitive and bounded selection still reach their importers; removed tests are excluded from runnable paths."
 }
