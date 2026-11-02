@@ -55,7 +55,7 @@ def setup(tmp_path, monkeypatch):
         # No automated browser may start while the person signs in.
         started = browser_human_gate.utc_now()
         monkeypatch.setattr(
-            browser_human_gate, "utc_now", lambda: started + timedelta(seconds=3661)
+            browser_human_gate, "utc_now", lambda: started + timedelta(seconds=661)
         )
         with pytest.raises(browser_human_gate.HumanGateActiveError) as refused:
             browser_human_gate.refuse_during_human_gate(tmp_path)
@@ -64,7 +64,7 @@ def setup(tmp_path, monkeypatch):
             "identity 'default'",
             "project 'project'",
             "PID ",
-            "open for 1h 1m 1s",
+            "open for 0h 11m 1s",
             "Hand off to steering or the person",
             "finish or close the sign-in window",
             "quit PID",
