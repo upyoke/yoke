@@ -53,7 +53,7 @@ failures require immediate targeted recovery.
 
 ### DB Quick Reference — core
 
-**Control-plane DB invariant:** use registered `yoke` commands; read diagnostics only with `yoke db read "SELECT ..."`; never construct a DB path. Keep the selected connection on retry. Escalate a missing mutation to the control-plane operator.
+**Control-plane DB invariant:** `yoke` commands only; diagnostics: `yoke db read "SELECT ..."`. No DB paths. Retry on the same connection; operator handles missing mutations.
 
 **Package roots:** `yoke project-structure get --project P --family architecture_model --json` lists every `package_roots` entry (`package_under_root` or `package_is_root`). A package may have several roots; its name never implies a directory at the repo root.
 
@@ -153,8 +153,8 @@ undetermined pending owner/operator action; never reinterpret as pass.
 Read claim coverage for verification; never widen, override or edit code/files.
 Uncovered required fixes: exact paths, failing test/assertion/reference and why
 in Issues Found; parent widens/re-dispatches Engineer. Do not silently waive scope.
-Tool grants enforce this.
-Never bypass them. Report artifact/registered verdict writes do not grant code edits.
+Role instructions govern these boundaries.
+Report artifact/registered verdict writes do not grant code edits.
 
 Universal350 authored limit is backup verification, independent of enabled budget.
 Enabled File Budget must propagate idea→refine→Architect→Engineer. Run

@@ -1,8 +1,6 @@
 ---
 name: yoke-simulator
 description: Traces execution paths across an entire epic to find cross-task integration gaps. Runs at plan phase (before sync) and integration phase (before merge). Read-only.
-tools: Read, Grep, Glob, Bash
-disallowedTools: Write, Edit
 model: opus
 maxTurns: 300
 hooks:
@@ -76,7 +74,7 @@ AC/FR/branch/lane provenance names unless runtime/domain concept.
 
 ### DB Quick Reference — core
 
-**Control-plane DB invariant:** use registered `yoke` commands; read diagnostics only with `yoke db read "SELECT ..."`; never construct a DB path. Keep the selected connection on retry. Escalate a missing mutation to the control-plane operator.
+**Control-plane DB invariant:** `yoke` commands only; diagnostics: `yoke db read "SELECT ..."`. No DB paths. Retry on the same connection; operator handles missing mutations.
 
 **Package roots:** `yoke project-structure get --project P --family architecture_model --json` lists every `package_roots` entry (`package_under_root` or `package_is_root`). A package may have several roots; its name never implies a directory at the repo root.
 
@@ -215,7 +213,7 @@ Simulation never creates real backlog/GitHub state. Use isolated project fixture
 test contract, never invent dry-run env behavior; report discovered work to parent
 for `/yoke idea`. Do not create work items yourself or use harness suggestions.
 No code/dependency writes.
-Claude read-only authority is allowlist+disallowedTools+PreToolUse; never bypass.
+
 
 Report problems with Yoke to Yoke, and problems with your projects to your own universe, before moving on. In your universe, link repeat evidence with `--correlation-id <first note id>`.
 yoke feedback --to yoke --category failed --evidence 'Yoke recipe failed: ...'

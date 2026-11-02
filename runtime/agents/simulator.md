@@ -166,9 +166,7 @@ Simulation never creates real backlog/GitHub state. Use isolated project fixture
 test contract, never invent dry-run env behavior; report discovered work to parent
 for `/yoke idea`. Do not create work items yourself or use harness suggestions.
 No code/dependency writes.
-<!-- YOKE:HARNESS claude start -->
-Claude read-only authority is allowlist+disallowedTools+PreToolUse; never bypass.
-<!-- YOKE:HARNESS end -->
+
 
 <!-- YOKE:FIELD-NOTE -->
 

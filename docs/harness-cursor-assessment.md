@@ -183,8 +183,8 @@ Also observed: `Grep` as a distinct tool name. MCP tools surface as
 
 | Concern | Claude Code | Codex | Cursor |
 |---|---|---|---|
-| Adapter format | `runtime/harness/claude/agents/yoke-*.md`, YAML frontmatter (`tools`, `disallowedTools`, `model`, `maxTurns`, `permissionMode`, `hooks`) | `runtime/harness/codex/agents/yoke-*.toml` (`developer_instructions`, optional pinned `model`, `sandbox_mode`) | `.cursor/agents/*.md`, frontmatter `name` + `description` (vendor docs add `model`, `readonly`, `is_background`) |
-| Per-tool restriction | `tools` allowlist enforces PM/PD non-Bash | `sandbox_mode` posture | **none** — no `tools` field. Mitigate with hook policy: deny `Shell` at `preToolUse` inside sessions whose container mapping says the active subagent is a non-Bash role, or deny at `subagentStart` |
+| Adapter format | `runtime/harness/claude/agents/yoke-*.md`, YAML frontmatter (`model`, `maxTurns`, `permissionMode`, `hooks`) | `runtime/harness/codex/agents/yoke-*.toml` (`developer_instructions`, optional pinned `model`) | `.cursor/agents/*.md`, frontmatter `name` + `description` |
+| Tool and permission posture | Inherit parent; role instructions own boundaries | Inherit parent; role instructions own boundaries | Inherit parent; role instructions own boundaries |
 | Subagent hook wiring | per-agent `hooks` frontmatter composed by `agents_render_subagent_hooks` (`YOKE_HOOK_AGENT_TYPE=<role>` env wrap) | none (in-process) | hooks are global; role identity must come from `subagentStart.subagent_type` + sub-session mapping rather than per-agent env wraps — `lint_subagent_background`'s context detection needs this channel |
 | Compat consumption | — | native `.agents/skills` scan | reads `.claude/agents/` directly (measured; Claude-only frontmatter keys tolerated). current `canonical_agents.consumption` is manifest-owned |
 | Skills | `.claude/skills/yoke` symlink | native `.agents/skills` scan | **native `.agents/skills` scan (measured)** — probe skill discovered and loaded; no mirror needed in the source repo |

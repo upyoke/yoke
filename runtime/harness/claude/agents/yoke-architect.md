@@ -1,8 +1,6 @@
 ---
 name: yoke-architect
 description: Translates item specs into technical plans with session-fit tasks, interface contracts, and worktree assignments. Use when planning an epic with /yoke shepherd.
-tools: Read, Grep, Glob, Bash
-disallowedTools: Write, Edit
 model: opus
 maxTurns: 300
 hooks:
@@ -74,7 +72,7 @@ Epic arguments/targets use complete public refs, never bare numeric tails.
 
 ### DB Quick Reference — core
 
-**Control-plane DB invariant:** use registered `yoke` commands; read diagnostics only with `yoke db read "SELECT ..."`; never construct a DB path. Keep the selected connection on retry. Escalate a missing mutation to the control-plane operator.
+**Control-plane DB invariant:** `yoke` commands only; diagnostics: `yoke db read "SELECT ..."`. No DB paths. Retry on the same connection; operator handles missing mutations.
 
 **Package roots:** `yoke project-structure get --project P --family architecture_model --json` lists every `package_roots` entry (`package_under_root` or `package_is_root`). A package may have several roots; its name never implies a directory at the repo root.
 

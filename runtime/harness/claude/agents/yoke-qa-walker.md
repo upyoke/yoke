@@ -1,8 +1,6 @@
 ---
 name: yoke-qa-walker
 description: Walks one exploratory QA mission across declared substrates and returns ranked findings or a precise human-gate handoff. Never issues the final verdict.
-tools: Read, Grep, Glob, Bash, Monitor
-disallowedTools: Write, Edit
 model: opus
 maxTurns: 300
 hooks:
@@ -209,7 +207,7 @@ verify presence/permissions without reading secret content.
 
 ### DB Quick Reference — core
 
-**Control-plane DB invariant:** use registered `yoke` commands; read diagnostics only with `yoke db read "SELECT ..."`; never construct a DB path. Keep the selected connection on retry. Escalate a missing mutation to the control-plane operator.
+**Control-plane DB invariant:** `yoke` commands only; diagnostics: `yoke db read "SELECT ..."`. No DB paths. Retry on the same connection; operator handles missing mutations.
 
 **Package roots:** `yoke project-structure get --project P --family architecture_model --json` lists every `package_roots` entry (`package_under_root` or `package_is_root`). A package may have several roots; its name never implies a directory at the repo root.
 

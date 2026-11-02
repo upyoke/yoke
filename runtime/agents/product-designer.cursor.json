@@ -1,5 +1,4 @@
 {
   "name": "yoke-product-designer",
-  "description": "Analyzes item specs and existing UI patterns to produce UX specifications. Invoked by /yoke shepherd during the design phase.",
-  "readonly": true
+  "description": "Analyzes item specs and existing UI patterns to produce UX specifications. Invoked by /yoke shepherd during the design phase."
 }

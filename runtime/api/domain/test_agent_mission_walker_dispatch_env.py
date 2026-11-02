@@ -49,7 +49,6 @@ def test_walk_commands_carry_the_connection_env_in_field_and_prompt() -> None:
         mock.patch.object(
             qa_plan_execution_cli, "_review_connection_env", return_value="prod"
         ),
-        mock.patch.object(qa_plan_execution_cli, "_require_walker_dispatch_capability"),
     ):
         qa_plan_execution_cli._qualify_review_dispatch(result)
     walker = dispatch["walker_dispatches"][0]
@@ -107,7 +106,6 @@ def test_controller_commands_keep_connection_without_host_authority():
     dispatch = agent_mission_dispatch_contract(bundle)
     with (
         mock.patch.object(qa_plan_execution_cli, "_review_connection_env", return_value="prod"),
-        mock.patch.object(qa_plan_execution_cli, "_require_walker_dispatch_capability"),
     ):
         qa_plan_execution_cli._qualify_review_dispatch({"review_bundle": {"dispatch": dispatch}})
     walker = dispatch["walker_dispatches"][0]

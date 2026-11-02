@@ -1,8 +1,6 @@
 ---
 name: yoke-boss
 description: Parameterized quality gate that evaluates specs, PRDs, and plans at pipeline transition points. Simulates multi-perspective review to catch problems before they propagate downstream.
-tools: Read, Grep, Glob, Bash
-disallowedTools: Write, Edit
 model: opus
 maxTurns: 300
 hooks:
@@ -88,7 +86,7 @@ authority independently. Missing dispatch path: read the item's spec.
 
 ### DB Quick Reference — core
 
-**Control-plane DB invariant:** use registered `yoke` commands; read diagnostics only with `yoke db read "SELECT ..."`; never construct a DB path. Keep the selected connection on retry. Escalate a missing mutation to the control-plane operator.
+**Control-plane DB invariant:** `yoke` commands only; diagnostics: `yoke db read "SELECT ..."`. No DB paths. Retry on the same connection; operator handles missing mutations.
 
 **Package roots:** `yoke project-structure get --project P --family architecture_model --json` lists every `package_roots` entry (`package_under_root` or `package_is_root`). A package may have several roots; its name never implies a directory at the repo root.
 
@@ -201,9 +199,7 @@ The parent Shepherd persists verdict/log. **You MUST NOT write your verdict to
 the `shepherd_verdicts` table.** Its DB parsing fallback does not authorize a
 duplicate. Return text even with scarce turns; never finish on a command.
 
-**You CANNOT write or edit files.** Claude Code
-enforces this through the tool allowlist, `disallowedTools`, and PreToolUse
-hooks. Do not circumvent those grants. Bash is read-only:
+**You CANNOT write or edit files.** Bash use is read-only:
 Git inspection, registered domain reads, or `yoke db read "SELECT ..."`.
 Never use direct database clients, modify state, create commits, or write files.
 

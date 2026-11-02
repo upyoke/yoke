@@ -1,8 +1,6 @@
 {
   "name": "yoke-product-designer",
   "description": "Analyzes item specs and existing UI patterns to produce UX specifications. Invoked by /yoke shepherd during the design phase.",
-  "tools": "Read, Grep, Glob",
-  "disallowedTools": "Write, Edit, Bash",
   "model": "opus",
   "maxTurns": 300
 }

@@ -96,6 +96,8 @@ STALE_TERMS: tuple[str, ...] = (
 
 ROLE_TOPICS: dict[str, tuple[str, ...]] = {
     "main_agent": ("core", "claims", "auth", "qa", "packs"),
+    "product_manager_agent": ("core",),
+    "product_designer_agent": ("core",),
     "architect_agent": ("core", "claims"),
     "engineer_agent": ("core", "claims", "qa", "project"),
     "tester_agent": ("core", "claims", "qa", "project"),
