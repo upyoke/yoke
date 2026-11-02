@@ -112,7 +112,11 @@ def _miss(
             command = f"yoke qa plan run --item {render_item_ref(conn, item_id)} --stage {stage}"
     if run and (current := run.get("current_stage")):
         names = [entry.get("name") for entry in _stages(conn, run)]
-        if current in names and stage in names and names.index(current) < names.index(stage):
+        if (
+            current in names
+            and stage in names
+            and names.index(current) < names.index(stage)
+        ):
             command = (
                 f"Wait for deployment run {run_id} to reach {stage}; "
                 f"its current stage is {current}. The existing stage-wait notice "

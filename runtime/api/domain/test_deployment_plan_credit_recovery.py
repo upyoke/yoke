@@ -15,19 +15,27 @@ def test_recovery_waits_only_before_the_plan_stage(monkeypatch, member_owned, cu
     run_id, stage, slug = "run-target", "acceptance-qa", "storage-proof"
     monkeypatch.setattr(groups, "run_groups", lambda *args, **kwargs: [])
     monkeypatch.setattr(
-        ownership, "plan_owners",
+        ownership,
+        "plan_owners",
         lambda *args: {plan_id: item_id} if member_owned else {plan_id: None},
     )
     monkeypatch.setattr(project_identity, "render_item_ref", lambda *args: "DEMO-17")
     monkeypatch.setattr(
-        credit, "_stages",
-        lambda *args: [{"name": name} for name in
-                       ("hosted-release", stage, "settlement")],
+        credit,
+        "_stages",
+        lambda *args: [
+            {"name": name} for name in ("hosted-release", stage, "settlement")
+        ],
     )
 
     miss = credit._miss(
-        item_id, plan_id, slug, {"id": run_id, "current_stage": current},
-        stage, "stage", conn=object(),
+        item_id,
+        plan_id,
+        slug,
+        {"id": run_id, "current_stage": current},
+        stage,
+        "stage",
+        conn=object(),
     )
 
     recovery = miss["recovery"]
