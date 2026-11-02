@@ -122,6 +122,11 @@ runs:
           [ "$attempt" -eq 5 ] && exit 1
           sleep $((5 + RANDOM % 26))
         done
+        test_timezone="$(uv run python - <<'PYTHON'
+        from yoke_core.tools.pg_testcluster import DISPOSABLE_SERVER_SETTINGS
+        print(dict(DISPOSABLE_SERVER_SETTINGS)["timezone"])
+        PYTHON
+        )"
         docker run -d \
           --name "$PG_CONTAINER" \
           -v "${socket_dir}:/var/run/postgresql" \
@@ -130,6 +135,7 @@ runs:
           -e POSTGRES_DB=postgres \
           -p 5432 \
           "$POSTGRES_IMAGE" \
+          -c "timezone=${test_timezone}" \
           -c fsync=off \
           -c synchronous_commit=off \
           -c full_page_writes=off \
