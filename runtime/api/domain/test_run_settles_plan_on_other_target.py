@@ -240,7 +240,7 @@ def test_other_target_notice_names_the_pending_group_without_hiding_failures(
         assert "Awaiting stage group" not in body
     else:
         assert (
-            "Awaiting stage plan other-target-plan group credit on deployment run run-stage"
+            "Awaiting stage plan other-target-plan QA credit on deployment run run-stage"
             in body
         )
         assert "retries when that credit arrives" in body
@@ -253,7 +253,7 @@ def test_other_target_notice_names_the_pending_group_without_hiding_failures(
             )
         )
         assert (
-            "stage plan other-target-plan group credit on deployment run run-stage"
+            "stage plan other-target-plan QA credit on deployment run run-stage"
             in gate
         )
         assert "on its completion run" not in gate
@@ -270,7 +270,7 @@ def test_other_target_notice_names_the_pending_group_without_hiding_failures(
             "SELECT body FROM session_messages WHERE idempotency_key=%s",
             (f"release-wait-delivery-cleared:{ITEM}:run-prod",),
         ).fetchall()
-        assert "Awaiting stage group run-stage:1" in delivered[0]
+        assert "Awaiting stage plan other-target-plan QA credit" in delivered[0]
         assert "re-run `yoke merge" not in delivered[0]
     assert (
         test_db.execute("SELECT status FROM items WHERE id=%s", (ITEM,)).fetchone()[0]

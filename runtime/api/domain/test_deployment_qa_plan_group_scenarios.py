@@ -9,25 +9,19 @@ from runtime.api.domain.test_deployment_qa_plan_groups import (
     RUN,
     SLUG,
     _attach,
-    _begin,
     _pass_group,
     _seed,
 )
 from runtime.api.domain.test_deployment_qa_stage_execution import (
-    _complete_case,
     _plan,
-    _seed_run,
-    _stages,
 )
 from runtime.api.fixtures.deployment_run_driver_fixture import DRIVER_SESSION
 from yoke_core.domain.deployment_qa_plan_credit import plan_credit_misses
 from yoke_core.domain.deployment_qa_plan_group_dispatch import (
     gate_plan_groups,
-    settle_group,
 )
 from yoke_core.domain.deployment_qa_plan_group_writes import (
     ensure_groups,
-    group_subject,
 )
 from yoke_core.domain.deployment_qa_plan_groups import (
     retract_unattached_groups,

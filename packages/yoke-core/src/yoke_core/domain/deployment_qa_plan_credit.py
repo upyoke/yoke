@@ -154,7 +154,7 @@ def plan_credit_wait_reason(miss: dict) -> str:
     """Name the target-qualified credit still owed, without implying failure."""
     target = miss.get("target_env") or "target"
     groups = ", ".join(miss.get("group_ids") or [])
-    subject = f"group {groups}" if groups else f"plan {miss['plan_slug']} group credit"
+    subject = f"group {groups}" if groups else f"plan {miss['plan_slug']} QA credit"
     run = miss.get("deployment_run_id")
     location = f" on deployment run {run}" if run else " on a containing deployment run"
     return f"Awaiting {target} {subject}{location}."
@@ -182,7 +182,7 @@ def other_target_plan_wait(conn: Any, *, item_id: int, run_id: str) -> str:
 
 
 def plan_credit_misses(conn: Any, item_id: int) -> list[dict]:
-    """One unsatisfied row per owed plan no closed group credits to this item."""
+    """One unsatisfied row per owed plan no closed QA credits to this item."""
     from yoke_core.domain.deployment_item_completion_runs import latest_qa_member_run
     from yoke_core.domain.deployment_qa_member_plans import member_plan_ids
     from yoke_core.domain.deployment_qa_plan_groups import (
