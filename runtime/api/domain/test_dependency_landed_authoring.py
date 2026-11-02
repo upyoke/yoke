@@ -8,6 +8,7 @@ from yoke_contracts.api.function_call import (
     FunctionCallRequest,
     TargetRef,
 )
+from yoke_contracts.timestamps import parse_instant
 from yoke_core.domain.dependency_satisfaction import evaluate_satisfaction
 from yoke_core.domain.handlers.item_dependency_writes import handle_item_dependency_add
 from yoke_core.domain.item_dependency import cmd_dependency_add
@@ -34,9 +35,15 @@ def _land(conn, status="release", landing=LANDING):
 
 @pytest.mark.parametrize("status", ["release", "done"])
 @pytest.mark.parametrize("gate", ["activation", "integration", "closure"])
-def test_new_merge_wait_refuses_landed_blocker_without_writing(edge, status, gate):
+@pytest.mark.parametrize("timezone", ["UTC", "America/New_York"])
+def test_new_merge_wait_refuses_landed_blocker_without_writing(
+    edge, status, gate, timezone
+):
     conn, dependent, blocker = edge
     _land(conn, status)
+    conn.execute("SELECT set_config('TimeZone', %s, true)", (timezone,))
+    landing = conn.execute("SELECT merged_at FROM items WHERE id=%s", (5,)).fetchone()[0]
+    assert parse_instant(landing) == parse_instant(LANDING)
     with pytest.raises(DependencyAlreadyLandedError) as caught:
         cmd_dependency_add(
             conn,
@@ -49,7 +56,7 @@ def test_new_merge_wait_refuses_landed_blocker_without_writing(edge, status, gat
     message = str(caught.value)
     assert message.startswith("dependency_blocker_already_landed:")
     assert blocker in message
-    assert "2026-01-01" in message
+    assert f"already landed at {landing} and has no open code work" in message
     assert "No merge dependency is needed" in message
     assert conn.execute("SELECT COUNT(*) FROM item_dependencies").fetchone()[0] == 0
 
