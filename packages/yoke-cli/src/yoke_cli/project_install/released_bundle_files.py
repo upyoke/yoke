@@ -23,12 +23,7 @@ class ReleasedBundleFiles:
         canonical = _source_path(rel)
         if canonical is None:
             return False
-        key = canonical.removeprefix(".agents/skills/yoke/")
-        key = (
-            "skills/" + key
-            if canonical.startswith(".agents/skills/yoke/")
-            else "docs/" + canonical.removeprefix("docs/public/")
-        )
+        key = catalogue_key(canonical)
         if sha256_text(content) in _catalogue().get(key, []):
             return True
         if self.root is None:
@@ -82,9 +77,19 @@ class ReleasedBundleFiles:
         return False
 
 
+def catalogue_key(canonical: str) -> str:
+    if canonical.startswith(".agents/skills/yoke/"):
+        return "skills/" + canonical.removeprefix(".agents/skills/yoke/")
+    if canonical.startswith("docs/public/"):
+        return "docs/" + canonical.removeprefix("docs/public/")
+    return canonical
+
+
 def _source_path(rel: str) -> str | None:
-    if rel.startswith(".agents/skills/yoke/"):
-        return rel
+    for harness in ("agents", "claude", "codex", "cursor"):
+        prefix = f".{harness}/skills/yoke/"
+        if rel.startswith(prefix):
+            return ".agents/skills/yoke/" + rel.removeprefix(prefix)
     if rel.startswith(".yoke/docs/"):
         return "docs/public/" + rel.removeprefix(".yoke/docs/")
     for harness in ("claude", "codex", "cursor"):

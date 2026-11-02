@@ -8,7 +8,7 @@ from typing import Iterable
 
 from yoke_contracts.hook_diagnostics import format_hook_diagnostic
 
-from yoke_harness.git_hooks import file_line_check
+from yoke_harness.git_hooks import file_line_check, installed_files
 from yoke_contracts import terminal_detached_process
 
 
@@ -131,6 +131,12 @@ def _run_file_line_check_or_block() -> int:
 def run() -> int:
     """Run the product-safe local pre-commit checks."""
     _emit_diverged_warning()
+    root = _resolve_repo_root()
+    if root is not None:
+        diagnostic = installed_files.check(pathlib.Path(root))
+        if diagnostic:
+            _write_diagnostic(diagnostic)
+            return 1
     return _run_file_line_check_or_block()
 
 

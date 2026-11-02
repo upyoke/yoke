@@ -22,7 +22,8 @@ yoke organizations create "Acme Robotics" --slug acme
 
 Any signed-in member can found a new org with a redeemed beta code; the founder
 becomes its admin. The slug defaults to one derived from the name. Resubmitting
-the same slug resumes your own unfinished founding. Refusals:
+the same slug resumes your own unfinished founding. A retired org does not count
+as unfinished founding; redeem a new beta code to found another org. Refusals:
 `beta_grant_required`, `slug_taken`, `invalid_name`, `invalid_slug`,
 `provisioning_pending` (resubmit to resume), and `provisioning_failed`. Then
 connect a machine to the new org with `yoke setup --connect https://app.upyoke.com`.

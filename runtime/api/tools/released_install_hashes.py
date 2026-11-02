@@ -25,6 +25,8 @@ def source_key(path: str) -> str | None:
         return "skills/" + path.split("/skills/yoke/", 1)[1]
     if path.startswith("docs/public/"):
         return "docs/" + path.removeprefix("docs/public/")
+    if path.startswith("runtime/harness/") and "/agents/" in path:
+        return path
     return None
 
 
@@ -51,6 +53,9 @@ def render(root: Path) -> dict[str, list[str]]:
             ".agents/skills/yoke",
             ".claude/skills/yoke",
             "docs/public",
+            "runtime/harness/claude/agents",
+            "runtime/harness/codex/agents",
+            "runtime/harness/cursor/agents",
         )
         for entry in tree.split(b"\0"):
             if not entry:
