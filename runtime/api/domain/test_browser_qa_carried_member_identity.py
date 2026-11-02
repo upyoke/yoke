@@ -11,6 +11,8 @@ from __future__ import annotations
 
 import json
 
+import pytest
+
 from ops.qa.mission_preparation_evidence import _delivered_commits
 from yoke_core.domain.browser_qa_deployment_identity import (
     DeploymentUnderTest,
@@ -18,6 +20,8 @@ from yoke_core.domain.browser_qa_deployment_identity import (
 )
 from yoke_core.domain.browser_qa_freshness import _establish_deployment_freshness
 from yoke_core.domain.deployment_run_project_sources import delivered_source_sha
+from yoke_core.domain.hosted_promotion_receipt import PromotionReceiptRefused
+from yoke_core.domain import qa_review_requirement_facts
 from yoke_core.domain.qa_review_requirement_facts import frozen_target_facts
 from yoke_core.domain.served_revision_probe import ServedRevisionRead
 
@@ -165,3 +169,33 @@ def test_mission_evidence_accepts_every_commit_the_run_delivered() -> None:
         "bound_sources": _bound_sources(with_output=True),
     }
     assert _delivered_commits(run) == {LINEAGE, OUTPUT}
+
+
+@pytest.mark.parametrize("reason", [
+    "promotion_delivery_identity_missing", "promotion_receipt_missing",
+])
+def test_unresolved_candidate_preserves_other_frozen_facts(monkeypatch, reason):
+    def refuse(conn, target):
+        raise PromotionReceiptRefused(reason, "no attributable receipt")
+
+    monkeypatch.setattr(qa_review_requirement_facts, "_candidate_revision", refuse)
+    target = json.loads(_frozen(BOUND_PROJECT_ID))
+    target.update(
+        environment={"name": "prod"}, observed_url="https://app.example.test"
+    )
+    facts = frozen_target_facts(None, json.dumps(target))
+    assert facts == {
+        "execution_environment": "prod",
+        "execution_candidate_revision": None,
+        "execution_candidate_unresolved": reason,
+        "execution_observed_url": "https://app.example.test",
+    }
+
+
+def test_unexpected_candidate_errors_still_raise(monkeypatch):
+    def fail(conn, target):
+        raise RuntimeError("unexpected failure")
+
+    monkeypatch.setattr(qa_review_requirement_facts, "_candidate_revision", fail)
+    with pytest.raises(RuntimeError, match="unexpected failure"):
+        frozen_target_facts(None, _frozen(BOUND_PROJECT_ID))

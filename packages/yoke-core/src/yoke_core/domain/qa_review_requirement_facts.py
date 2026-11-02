@@ -19,6 +19,7 @@ from typing import Any
 
 from yoke_contracts.public_ref import format_item_ref
 from yoke_core.domain import db_backend
+from yoke_core.domain.hosted_promotion_receipt import PromotionReceiptRefused
 from yoke_core.domain.json_helper import loads_text
 
 
@@ -67,7 +68,8 @@ def frozen_target_facts(conn: Any, execution_target_json: Any) -> dict[str, Any]
     claim and is exactly what a frozen target exists to prevent. The one
     fact read beside it is a carried member's candidate: the frozen lineage
     is the carrying run's, so the member's project answers from the commit
-    that run delivered for it.
+    that run delivered for it. Missing promotion identity leaves the candidate
+    unresolved with its refusal reason; it does not hide the other read facts.
     """
     try:
         target = loads_text(execution_target_json or "") or {}
@@ -76,14 +78,23 @@ def frozen_target_facts(conn: Any, execution_target_json: Any) -> dict[str, Any]
     if not isinstance(target, dict):
         target = {}
     environment = target.get("environment")
-    return {
+    unresolved = None
+    try:
+        candidate = _candidate_revision(conn, target)
+    except PromotionReceiptRefused as exc:
+        candidate = None
+        unresolved = exc.reason
+    facts = {
         "execution_environment": (
             environment.get("name") if isinstance(environment, dict) else None
         )
         or None,
-        "execution_candidate_revision": _candidate_revision(conn, target),
+        "execution_candidate_revision": candidate,
         "execution_observed_url": target.get("observed_url") or None,
     }
+    if unresolved is not None:
+        facts["execution_candidate_unresolved"] = unresolved
+    return facts
 
 
 def _apply_frozen_target(conn: Any, value: dict[str, Any]) -> None:
