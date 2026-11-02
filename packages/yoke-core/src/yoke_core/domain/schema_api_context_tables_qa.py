@@ -86,10 +86,9 @@ QA_TABLES: dict[str, dict] = {
             ("created_at", "TIMESTAMPTZ"),
         ],
         "notes": (
-            "runtime.api.qa_test_helpers and qa_full_test_helpers include deployment_runs "
-            "for evidence-owner joins; admitted-copy reconciliation also needs its status "
-            "and qa_requirements.superseded_by_requirement_id. qa.cmd_init alone "
-            "does not supply the latter; assuming it did caused undefined-column failures. "
+            "qa_test_helpers and qa_full_test_helpers supply deployment_runs status and "
+            "qa_requirements.superseded_by_requirement_id for admitted-copy reconciliation; "
+            "qa.cmd_init alone lacks the latter (the undefined-column cause). "
             "Wrong fixture assumption: create_core_tables supplies a complete QA schema; "
             "its initial qa_requirements lacks retracted_at and superseded_by_requirement_id. "
             "Tests needing only history use item_status_transitions.ensure_schema instead. "
@@ -102,7 +101,9 @@ QA_TABLES: dict[str, dict] = {
             "the stage environment fixture is runtime.api.domain.test_deployment_qa_stage_execution._environment, "
             "not test_deployment_qa_admission_execution._environment. "
             "Plan detail reads use qa_plan_detail.get_plan(conn, plan_id=...), not plan_detail. "
-            "covered_item_ids lists the run members a closed item-qa plan group answered. "
+            "covered_item_ids lists members a closed shared plan group answered. "
+            "member_group_blockers belongs to deployment_qa_plan_group_standings; "
+            "importing it from deployment_qa_plan_group_writes is the obsolete guess. "
             "QA cases declare target_envs as a JSON list; each environment "
             "materializes a separate target_env obligation and done requires every target. "
             "qa_plan_cases.stage_reason (creates_or_destroys_data or "

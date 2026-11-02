@@ -33,13 +33,25 @@ def _run(conn, *, run_id: str, item_id: int) -> None:
         run_id=run_id,
         project="yoke",
         stages=item_qa_stage_definitions(None),
-        members=(item_id,),
+        members=(item_id, item_id + 100000),
         lineage="a" * 40,
     )
 
 
 def _groups(conn, run_id: str):
+    conn.execute(
+        "INSERT INTO qa_plan_item_attachments(item_id,plan_id,transition_id,qa_phase,attached_at) "
+        "SELECT a.item_id+100000,a.plan_id,a.transition_id,a.qa_phase,now() "
+        "FROM qa_plan_item_attachments a JOIN deployment_run_items m ON m.item_id=a.item_id "
+        "WHERE m.run_id=%s AND a.retracted_at IS NULL ON CONFLICT DO NOTHING",
+        (run_id,),
+    )
     ensure_groups(conn, run_id, ITEM_QA_STAGE)
+    conn.execute(
+        "DELETE FROM qa_plan_item_attachments WHERE item_id IN "
+        "(SELECT item_id FROM deployment_run_items WHERE run_id=%s AND item_id>100000)",
+        (run_id,),
+    )
     conn.commit()
     return run_groups(conn, run_id, ITEM_QA_STAGE)
 
@@ -131,7 +143,9 @@ def test_retraction_withdraws_an_unpassed_group_but_never_a_passed_row(
 
     assert retracted.primary_success
     expected = set() if verdict == "pass" else {requirement_id}
-    assert set(retracted.result_payload["result"]["retired_requirement_ids"]) == expected
+    assert (
+        set(retracted.result_payload["result"]["retired_requirement_ids"]) == expected
+    )
     assert _retracted(test_db, group.requirement_ids) == expected
     # The recorded verdict stays as evidence either way.
     assert test_db.execute(

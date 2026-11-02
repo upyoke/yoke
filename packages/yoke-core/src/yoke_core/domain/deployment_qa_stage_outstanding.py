@@ -303,7 +303,7 @@ def _evaluate(
             member_states.append(state)
             lines.extend(member_lines)
     if stage.get("scope") == "item" and not (stop_at_first_waiting and lines):
-        from yoke_core.domain.deployment_qa_plan_group_writes import group_blockers
+        from yoke_core.domain.deployment_qa_plan_group_standings import group_blockers
 
         for label, state, blockers in group_blockers(conn, run_id, stage_name):
             waiting_members.append(None)  # a plan group: memberless

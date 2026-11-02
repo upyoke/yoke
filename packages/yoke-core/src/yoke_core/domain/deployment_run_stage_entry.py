@@ -30,6 +30,10 @@ def set_current_stage(
         ),
     )
 
+    from yoke_core.domain.deployment_qa_plan_ownership import freeze_stage_owners
+
+    freeze_stage_owners(conn, run_id, stage)
+
 
 def parse_stage_plan(raw: Any) -> tuple[dict[str, Any], ...]:
     """The flow's pinned stages in order; unreadable JSON yields no stages."""

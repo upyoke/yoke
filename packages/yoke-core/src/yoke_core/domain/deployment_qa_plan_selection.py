@@ -42,7 +42,15 @@ def selected_plans(
         conn, subject, frozen_plans=frozen, admitted=admitted
     )
     if named and not replacement_keys:
-        raise QaPlanError(AGENT_PLAN_ALREADY_NAMED_REFUSAL)
+        selected = [
+            snapshot
+            for snapshot in frozen
+            if str(agent_plan)
+            in {str(snapshot["plan"]["id"]), snapshot["plan"].get("slug")}
+        ]
+        if not selected:
+            raise QaPlanError(AGENT_PLAN_ALREADY_NAMED_REFUSAL)
+        frozen, agent_plan = selected, None
     if agent_plan is not None:
         plan_project_id = int(subject.get("member_project_id") or subject["project_id"])
         row = conn.execute(

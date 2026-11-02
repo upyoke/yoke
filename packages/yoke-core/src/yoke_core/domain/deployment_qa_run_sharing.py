@@ -20,6 +20,7 @@ from typing import Any, Iterable
 from yoke_core.domain.db_helpers import query_rows
 from yoke_core.domain.deployment_qa_plan_groups import attached_plans, group_marker
 from yoke_core.domain.runs import TERMINAL_RUN_STATUSES
+from yoke_core.domain.deployment_qa_pending_group_cases import pending_plans
 
 
 def _markers(values) -> str:
@@ -88,11 +89,19 @@ def _plan_groups(conn: Any, run_ids: list[str]) -> dict[str, dict]:
         if row["retracted_at"] is None and row["superseded_by_requirement_id"] is None:
             group["case_count"] += 1
             if row["method_id"] is not None:
-                group["cases"].append({"case_key": row["plan_case_key"],
-                    "method_id": row["method_id"], "instructions": row["instructions"],
-                    "method_name": row["method_name"], "project_id": row["project_id"],
-                    "plan": row["slug"], "pending_obligation": True,
-                    "plan_id": int(row["plan_id"]), "qa_phase": "post_deploy"})
+                group["cases"].append(
+                    {
+                        "case_key": row["plan_case_key"],
+                        "method_id": row["method_id"],
+                        "instructions": row["instructions"],
+                        "method_name": row["method_name"],
+                        "project_id": row["project_id"],
+                        "plan": row["slug"],
+                        "pending_obligation": True,
+                        "plan_id": int(row["plan_id"]),
+                        "qa_phase": "post_deploy",
+                    }
+                )
     return {key: value for key, value in groups.items() if key not in retracted}
 
 
@@ -168,52 +177,6 @@ def _sharing_members(conn, runs):
     )
 
 
-def _pending_plans(conn: Any, plan_ids: set[int], groups: dict, runs: list[str]) -> dict[int, dict]:
-    """Owed plans with no plan group yet, with their cases, in one read."""
-    if not plan_ids:
-        return {}
-    plans: dict[int, dict] = {}
-    for group in groups.values():
-        if group["plan_id"] in plan_ids and group["run_id"] in runs:
-            plans[group["plan_id"]] = {key: group[key] for key in
-                ("plan_id", "plan", "plan_name", "cases")}
-    unpinned = plan_ids - plans.keys()
-    if not unpinned:
-        return plans
-    for row in query_rows(
-        conn,
-        "SELECT p.id AS plan_id,p.slug,p.name,p.project_id,c.case_key,"
-        "c.method_id,m.name AS method_name,c.instructions "
-        "FROM qa_plans p JOIN qa_plan_cases c ON c.plan_id=p.id "
-        "LEFT JOIN qa_methods m ON m.id=c.method_id "
-        "WHERE p.id=ANY(%s) ORDER BY p.id,c.position",
-        (sorted(unpinned),),
-    ):
-        plan = plans.setdefault(
-            int(row["plan_id"]),
-            {
-                "plan_id": int(row["plan_id"]),
-                "plan": row["slug"],
-                "plan_name": row["name"] or row["slug"],
-                "cases": [],
-            },
-        )
-        plan["cases"].append(
-            {
-                "plan_id": plan["plan_id"],
-                "plan": plan["plan"],
-                "project_id": row["project_id"],
-                "case_key": row["case_key"],
-                "method_id": row["method_id"],
-                "method_name": row["method_name"],
-                "instructions": row["instructions"],
-                "qa_phase": "post_deploy",
-                "pending_obligation": True,
-            }
-        )
-    return plans
-
-
 def _run_entries(
     run: str,
     groups: dict[str, dict],
@@ -238,8 +201,12 @@ def _run_entries(
                 open_plans.add(group["plan_id"])
                 sharing = (attached or {}).get(group["plan_id"], [])
             entries.append(
-                {**{k: v for k, v in group.items() if k != "cases"}, "closed": closed, "earlier_run_id": None,
-                 "sharing_item_ids": list(sharing)}
+                {
+                    **{k: v for k, v in group.items() if k != "cases"},
+                    "closed": closed,
+                    "earlier_run_id": None,
+                    "sharing_item_ids": list(sharing),
+                }
             )
         elif group["run_id"] in earlier and closed:
             answered = members.intersection(group["covered_item_ids"])
@@ -247,8 +214,12 @@ def _run_entries(
                 continue
             covered[group["plan_id"]].update(answered)
             entries.append(
-                {**{k: v for k, v in group.items() if k != "cases"}, "closed": True, "earlier_run_id": group["run_id"],
-                 "sharing_item_ids": list(group["covered_item_ids"])}
+                {
+                    **{k: v for k, v in group.items() if k != "cases"},
+                    "closed": True,
+                    "earlier_run_id": group["run_id"],
+                    "sharing_item_ids": list(group["covered_item_ids"]),
+                }
             )
     owed = {
         plan_id: [item for item in items if item not in covered[plan_id]]
@@ -282,21 +253,54 @@ def run_qa_sharing(conn: Any, run_ids: Iterable[str]) -> dict[str, dict]:
     )
     entries: dict[str, list[dict]] = {}
     owed: dict[str, dict[int, list[int]]] = {}
+    from yoke_core.domain.deployment_qa_plan_ownership import classify_owners
+
+    snapshots = {
+        str(row["id"]): json.loads(row["requirement_snapshot"] or "{}")
+        for row in query_rows(
+            conn,
+            "SELECT id,requirement_snapshot FROM deployment_runs WHERE id=ANY(%s)",
+            (list(runs),),
+        )
+    }
     for run in runs:
+        attached = attached_plans(conn, run) if run in active else None
+        if attached is not None:
+            owners = classify_owners(
+                snapshots.get(run, {}),
+                {g["plan_id"] for g in groups.values() if g["run_id"] == run},
+                attached,
+            )
+            attached = {
+                plan: items
+                for plan, items in attached.items()
+                if owners.get(plan) is None
+            }
         entries[run], owed[run] = _run_entries(
-            run, groups, lineages[run], by_run[run],
-            attached_plans(conn, run) if run in active else None,
+            run,
+            groups,
+            lineages[run],
+            by_run[run],
+            attached,
         )
     for run, plans in owed.items():
-        pending = _pending_plans(conn, set(plans), groups, [run, *lineages[run]])
+        pending = pending_plans(conn, set(plans), groups, [run, *lineages[run]])
         for plan_id, items in sorted(plans.items()):
             plan = pending.get(plan_id)
             if plan is None:
                 continue
             entries[run].append(
-                {**plan, "group_id": None, "run_id": None, "case_count": len(plan["cases"]),
-                 "covered_item_ids": None, "closed": False, "earlier_run_id": None,
-                 "pending": True, "sharing_item_ids": items}
+                {
+                    **plan,
+                    "group_id": None,
+                    "run_id": None,
+                    "case_count": len(plan["cases"]),
+                    "covered_item_ids": None,
+                    "closed": False,
+                    "earlier_run_id": None,
+                    "pending": True,
+                    "sharing_item_ids": items,
+                }
             )
     removed = removed_members(conn, runs)
     return {
@@ -304,8 +308,11 @@ def run_qa_sharing(conn: Any, run_ids: Iterable[str]) -> dict[str, dict]:
             "plan_groups": sorted(
                 entries[run],
                 # Stable: a plan's groups keep creation order after earlier runs'.
-                key=lambda entry: (entry["plan_id"], entry["earlier_run_id"] is None,
-                                   entry.get("pending", False)),
+                key=lambda entry: (
+                    entry["plan_id"],
+                    entry["earlier_run_id"] is None,
+                    entry.get("pending", False),
+                ),
             ),
             "removed_members": removed.get(run, []),
         }

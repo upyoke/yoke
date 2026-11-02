@@ -61,6 +61,8 @@ class _Conn:
             )
         if "SELECT slug FROM projects" in sql:
             return _Rows(one=(PROJECT_SLUG,))
+        if "SELECT requirement_snapshot" in sql:
+            return _Rows(one=("{}",))
         if "FROM deployment_runs" in sql:
             return _Rows(one=(1, "persistent", "a" * 40))
         if "FROM deployment_run_items" in sql:
@@ -168,4 +170,3 @@ def test_the_gate_leaves_acceptance_to_a_caller_that_defers_it() -> None:
         notify.assert_not_called()
         gate.deployment_qa_stage_status(None, member_item_id=SETTLED_MEMBER, **kwargs)
         notify.assert_called_once()
-

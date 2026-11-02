@@ -81,7 +81,8 @@ def _two_plans(conn):
     """Every member attaches the smoke plan; only the last attaches the other plan."""
     smoke = _seed(conn)
     other = _plan(conn, OTHER)
-    _attach(conn, MEMBERS[-1], other)
+    for member in MEMBERS[1:]:
+        _attach(conn, member, other)
     ensure_groups(conn, RUN, "item-qa")
     conn.commit()
     return smoke, other
@@ -120,7 +121,7 @@ def test_a_failed_group_never_blocks_another_plan_s_group(test_db, monkeypatch):
     groups = _groups(test_db)
     assert sorted(groups[smoke].covered_item_ids) == sorted(MEMBERS)
     assert groups[other].open
-    for member in MEMBERS[:-1]:
+    for member in MEMBERS[:1]:
         assert plan_credit_misses(test_db, member) == []
     assert [m["plan_slug"] for m in plan_credit_misses(test_db, MEMBERS[-1])] == [OTHER]
 

@@ -59,7 +59,7 @@ all-pass policy and evaluation rules; the stored success_policy is JSON.
 | Phase | Obligation |
 |---|---|
 | verification | Blocking requirements gate reviewed-implementation. |
-| post_deploy | Accepted admitted item cases on the selected completion run, including settling, must prove its candidate/stage/member/target, and each attached plan needs a closed plan group covering the item; source needs no separate CI verdict. |
+| post_deploy | Accepted admitted item cases on the selected completion run, including settling, must prove its candidate/stage/member/target, and each shared plan needs a closed plan group covering the item; a single-member plan needs accepted member QA; source needs no separate CI verdict. |
 | manual_acceptance | Human sign-off gates done. |
 
 `reviewed-implementation` is a status; `verification` is a phase. Use current
@@ -132,8 +132,9 @@ Refresh preserves operator waivers and clears only waivers with source
 `system`. It reports all plan_ids reached, including already-answered plans
 (refresh without new rows). Run-scoped copies and takeover keep their own
 snapshot behavior.
-A post-deploy plan is never copied onto its item: each release runs it once
-as a plan group pinned at the revision the release started with, so item
+A post-deploy plan is never copied onto its source item. At item QA entry,
+a single-member plan runs as member QA; shared plans run as driver-owned groups.
+Ownership stays fixed after later attachments. Thus item
 refresh refuses `post_deploy_plan_runs_as_plan_group` for a transition that
 attaches only post-deploy plans, and an edited plan runs on the next release.
 `--plan` filters deployment refresh only; remove it when using `--item`. A
@@ -152,8 +153,8 @@ requires every blocking task-verification and parent requirement satisfied.
 ### Deployment Run Requirements
 
 Name the pinned QA stage and member for item scope; stages credit only their
-own item cases. Each attached post-deploy plan runs once per release as a
-[plan group](deployment-plan-execution.md#plan-groups) with
+own item cases and single-member plans. Shared post-deploy plans run once per
+release as a driver-owned [plan group](deployment-plan-execution.md#plan-groups) with
 `--deployment-run-id RUN --stage item-qa --plan PLAN`. Unscoped execution is refused when a stage is pinned:
 
 ```text

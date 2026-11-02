@@ -82,7 +82,9 @@ def _pinned_snapshot(conn: Any, run_id: str, plan_id: int, project_id: int) -> d
         "SELECT requirement_snapshot FROM deployment_runs WHERE id=%s", (run_id,)
     ).fetchone()
     raw = row["requirement_snapshot"] if hasattr(row, "keys") else row[0]
-    payload = json.loads(str(raw or "{}")) if not isinstance(raw, Mapping) else dict(raw)
+    payload = (
+        json.loads(str(raw or "{}")) if not isinstance(raw, Mapping) else dict(raw)
+    )
     pinned = payload.setdefault(PINNED_PLANS, {})
     snapshot = pinned.get(str(plan_id))
     if snapshot is None:
@@ -91,7 +93,10 @@ def _pinned_snapshot(conn: Any, run_id: str, plan_id: int, project_id: int) -> d
         snapshot = _plan_snapshot(
             conn, int(plan_id), project_id=int(project_id), lock_plan=False
         )
-        pinned[str(plan_id)] = {"plan": dict(snapshot["plan"]), "cases": snapshot["cases"]}
+        pinned[str(plan_id)] = {
+            "plan": dict(snapshot["plan"]),
+            "cases": snapshot["cases"],
+        }
         conn.execute(
             "UPDATE deployment_runs SET requirement_snapshot=%s WHERE id=%s",
             (_canonical(payload), run_id),
@@ -134,10 +139,17 @@ def ensure_groups(conn: Any, run_id: str, stage_name: str) -> list[int]:
     )
     from yoke_core.domain.qa_plan_case_targets import case_applies_to_target
 
+    from yoke_core.domain.deployment_qa_plan_ownership import (
+        freeze_plan_owners,
+        plan_owners,
+    )
+
+    freeze_plan_owners(conn, run_id)
+    owners = plan_owners(conn, run_id)
     open_plans = {g.plan_id for g in run_groups(conn, run_id, stage_name) if g.open}
     created: list[int] = []
     for plan_id, members in attached_plans(conn, run_id).items():
-        if plan_id in open_plans:
+        if owners.get(plan_id) is not None or plan_id in open_plans:
             continue
         covered = covered_members(conn, run_id, plan_id)
         owing = [member for member in members if member not in covered]
@@ -192,14 +204,20 @@ def resolve_group_subject(
     """
     from yoke_core.domain.deployment_qa_stage_contract import _run_stage
 
-    stage = _run_stage(conn, str(run_id), str(stage_name), require_active=False)["stage"]
+    stage = _run_stage(conn, str(run_id), str(stage_name), require_active=False)[
+        "stage"
+    ]
     if str(stage.get("scope") or "") != "item":
         return None
     from yoke_core.domain.deployment_qa_plan_groups import lineage_run_ids
+    from yoke_core.domain.deployment_qa_plan_ownership import plan_owners
 
+    owners = plan_owners(conn, run_id)
     groups = run_groups(conn, lineage_run_ids(conn, run_id), stage_name)
     candidates = {g.plan_id for g in groups} | set(attached_plans(conn, run_id))
-    matches = {pid for pid in candidates if str(plan) in {str(pid), _plan_slug(conn, pid)}}
+    matches = {
+        pid for pid in candidates if str(plan) in {str(pid), _plan_slug(conn, pid)}
+    }
     if len(matches) > 1:
         refusal = PlanGroupError(
             f"plan_group_ambiguous: {plan!r} matches plans {sorted(matches)} in run "
@@ -207,15 +225,23 @@ def resolve_group_subject(
         )
         refusal.code = "plan_group_ambiguous"
         raise refusal
+    if matches and owners.get(next(iter(matches))) is not None:
+        return None
     groups = [g for g in groups if g.plan_id in matches]
     live = [g for g in groups if g.run_id == run_id and g.open]
     if live:
-        return group_subject(conn, run_id, stage_name, live[0], require_active=require_active)
+        return group_subject(
+            conn, run_id, stage_name, live[0], require_active=require_active
+        )
     closed = [group.group_id for group in groups if group.closed]
     raise PlanGroupError(
         f"plan_group_not_open: plan {plan!r} has no open plan group in run {run_id!r} "
         f"stage {stage_name!r}"
-        + (f"; closed groups {closed} already answered their items, so nothing is owed" if closed else "")
+        + (
+            f"; closed groups {closed} already answered their items, so nothing is owed"
+            if closed
+            else ""
+        )
         + f". Read `yoke deployment-runs get {run_id}`: a plan group forms when the "
         "stage dispatches for a member that attaches the plan."
     )
@@ -224,12 +250,16 @@ def resolve_group_subject(
 def _plan_slugs(conn: Any, plan_ids: set[int]) -> dict[int, str]:
     if not plan_ids:
         return {}
-    rows = query_rows(conn, "SELECT id,slug FROM qa_plans WHERE id=ANY(%s)", (sorted(plan_ids),))
+    rows = query_rows(
+        conn, "SELECT id,slug FROM qa_plans WHERE id=ANY(%s)", (sorted(plan_ids),)
+    )
     return {int(row["id"]): str(row["slug"]) for row in rows}
 
 
 def _plan_slug(conn: Any, plan_id: int) -> str:
-    row = conn.execute("SELECT slug FROM qa_plans WHERE id=%s", (int(plan_id),)).fetchone()
+    row = conn.execute(
+        "SELECT slug FROM qa_plans WHERE id=%s", (int(plan_id),)
+    ).fetchone()
     return "" if row is None else str(row["slug"] if hasattr(row, "keys") else row[0])
 
 
@@ -269,67 +299,8 @@ def group_snapshots(
     return [{**snapshot, "cases": cases}] if cases else []
 
 
-def _open_group_standings(conn: Any, run_id: str, stage_name: str) -> list[tuple]:
-    from yoke_core.domain.deployment_qa_stage_acceptance import stage_acceptance
-
-    from yoke_core.domain.deployment_qa_plan_groups import presented_stage_groups
-
-    groups = [g for g in presented_stage_groups(conn, run_id, stage_name) if g.open]
-    slugs = _plan_slugs(conn, {group.plan_id for group in groups})
-    found = []
-    for group in groups:
-        subject = group_subject(conn, run_id, stage_name, group, require_active=False)
-        answer = stage_acceptance(
-            conn,
-            subject=subject,
-            target=subject["shared_target"],
-            acceptance_qa_kind="deployment_stage_acceptance",
-        )
-        if answer.accepted:
-            continue
-        label = f"plan group {group.group_id} ({slugs.get(group.plan_id) or group.plan_id})"
-        command = f"yoke qa plan run --deployment-run-id {run_id} --stage {stage_name} --plan {group.plan_id}"
-        recovery = f"requirements {list(group.requirement_ids)}: `{command}`"
-        found.append((group.plan_id, label, answer.state, [*answer.blockers, recovery]))
-    return found
-
-
-def group_blockers(conn: Any, run_id: str, stage_name: str) -> list[tuple[str, str, list[str]]]:
-    """Each open group's label, acceptance state and blockers; read only.
-
-    Stage readers wait on these like on a member: an open group keeps its
-    stage, and every later stage, from completing.
-    """
-    return [entry[1:] for entry in _open_group_standings(conn, run_id, stage_name)]
-
-
-def member_group_blockers(
-    conn: Any, run_id: str, stage_name: str, item_id: int
-) -> list[tuple[str, str, list[str]]]:
-    """The open groups still owed for plans this member attaches; read once per run."""
-    from yoke_core.domain.deployment_qa_plan_groups import attached_plans
-    from yoke_core.domain.deployment_qa_presentation_reads import presentation_read
-
-    standings = presentation_read(
-        conn,
-        ("plan_group_standings", str(run_id), str(stage_name)),
-        lambda: _open_group_standings(conn, str(run_id), str(stage_name)),
-    )
-    if not standings:
-        return []
-    plans = presentation_read(
-        conn, ("plan_group_attachers", str(run_id)), lambda: attached_plans(conn, str(run_id))
-    )
-    return [
-        entry[1:] for entry in standings if int(item_id) in plans.get(entry[0], ())
-        and int(item_id) not in covered_members(conn, run_id, entry[0])
-    ]
-
-
 __all__ = [
     "ensure_groups",
-    "group_blockers",
-    "member_group_blockers",
     "group_snapshots",
     "group_subject",
     "group_subject_from",

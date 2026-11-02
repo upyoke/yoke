@@ -85,15 +85,22 @@ def _owed_requirement_ids(item: Mapping[str, Any]) -> list[int]:
 
 def _attached_plan_ids(item: Mapping[str, Any], stages: list) -> list[int]:
     """Attached and default plans targeting this flow's item QA environment."""
-    envs = {s["target"].get("environment") for s in stages if s.get("scope") == "item" and isinstance(s.get("target"), Mapping)}
-    return sorted({
-        int(row["plan_id"])
-        for row in item.get("qa_plan_attachments") or ()
-        if isinstance(row, Mapping) and row.get("plan_id") is not None
-        and str(row.get("qa_phase") or "") == DEPLOYMENT_ATTACHMENT_PHASE
-        and not row.get("retracted_at")
-        and (not row.get("target_env") or row["target_env"] in envs)
-    })
+    envs = {
+        s["target"].get("environment")
+        for s in stages
+        if s.get("scope") == "item" and isinstance(s.get("target"), Mapping)
+    }
+    return sorted(
+        {
+            int(row["plan_id"])
+            for row in item.get("qa_plan_attachments") or ()
+            if isinstance(row, Mapping)
+            and row.get("plan_id") is not None
+            and str(row.get("qa_phase") or "") == DEPLOYMENT_ATTACHMENT_PHASE
+            and not row.get("retracted_at")
+            and (not row.get("target_env") or row["target_env"] in envs)
+        }
+    )
 
 
 def delivery_obligation(item: Mapping[str, Any]) -> dict[str, Any]:
@@ -176,7 +183,7 @@ def stage_recipe(obligation: Mapping[str, Any], public_ref: str) -> str:
 
 
 def plan_only(obligation: Mapping[str, Any]) -> bool:
-    """Plan groups answer every item case this item owes; it has none of its own."""
+    """The item owes plans without separately authored item cases."""
     return bool(obligation.get("plan_ids")) and not obligation.get("requirement_ids")
 
 
@@ -187,8 +194,8 @@ def _owes_line(obligation: Mapping[str, Any], public_ref: str) -> str:
         ids = ", ".join(str(i) for i in obligation.get("requirement_ids") or ())
         plans = ", ".join(str(i) for i in obligation.get("plan_ids") or ())
         groups = (
-            f"attached post-deploy plans {plans} run once per release as plan "
-            "groups; the run's driver or starting session runs its plan groups"
+            f"attached post-deploy plans {plans} freeze ownership at item QA entry: "
+            "single-member plans wake their member holder; shared plans belong to the driver"
         )
         if plan_only(obligation):
             return f"owes delivery: no item cases at item-scoped QA stage {stages}; {groups}"
@@ -260,7 +267,7 @@ def _claim_and_next_lines(
         f"and names its recovery (usually `{merge}`)"
     )
     if plan_only(obligation):
-        run = "re-entry runs nothing for plan groups: no wake comes to this session for them"
+        run = "re-entry runs single-member plans when woken; shared-plan notices go only to the driver"
     elif obligation.get("kind") == OWES_QA:
         run = f"re-entry runs {stage_recipe(obligation, public_ref)}"
     else:

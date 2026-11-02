@@ -1,9 +1,15 @@
 """A later group answers only members missing from prior closed coverage."""
 
 from runtime.api.domain.test_deployment_qa_plan_groups import (
-    RUN, SLUG, MEMBERS, _seed, _attach, _pass_group,
+    RUN,
+    SLUG,
+    MEMBERS,
+    _seed,
+    _attach,
+    _pass_group,
 )
-from yoke_core.domain.deployment_qa_plan_group_writes import ensure_groups, member_group_blockers
+from yoke_core.domain.deployment_qa_plan_group_writes import ensure_groups
+from yoke_core.domain.deployment_qa_plan_group_standings import member_group_blockers
 from yoke_core.domain.deployment_qa_plan_groups import run_groups, owing_members
 from yoke_core.domain.deployment_qa_plan_group_dispatch import _group_lines
 
@@ -31,19 +37,27 @@ def test_late_attacher_waits_without_reopening_covered_members(test_db):
 
 
 def test_item_selector_materializes_group_without_member_copy(test_db):
-    from yoke_core.domain.deployment_qa_stage_materialization import materialize_deployment_qa_stage
+    from yoke_core.domain.deployment_qa_stage_materialization import (
+        materialize_deployment_qa_stage,
+    )
 
     _seed(test_db)
     ensure_groups(test_db, RUN, "item-qa")
     test_db.commit()
     materialize_deployment_qa_stage(
-        test_db, deployment_run_id=RUN, deployment_stage="item-qa",
-        deployment_member_item_id=MEMBERS[0], agent_plan=SLUG,
+        test_db,
+        deployment_run_id=RUN,
+        deployment_stage="item-qa",
+        deployment_member_item_id=MEMBERS[0],
+        agent_plan=SLUG,
     )
-    assert test_db.execute(
-        "SELECT COUNT(*) FROM qa_requirements WHERE plan_id IS NOT NULL "
-        "AND deployment_member_item_id IS NOT NULL"
-    ).fetchone()[0] == 0
+    assert (
+        test_db.execute(
+            "SELECT COUNT(*) FROM qa_requirements WHERE plan_id IS NOT NULL "
+            "AND deployment_member_item_id IS NOT NULL"
+        ).fetchone()[0]
+        == 0
+    )
 
 
 def test_later_plan_edit_does_not_change_credit_or_pending_pinned_cases(test_db):
@@ -57,14 +71,26 @@ def test_later_plan_edit_does_not_change_credit_or_pending_pinned_cases(test_db)
     ensure_groups(test_db, RUN, "item-qa")
     test_db.commit()
     _pass_group(test_db)
-    replace_plan_cases(test_db, plan_id=plan, cases=[{
-        "case_key": "edited-smoke", "method_id": "command",
-        "instructions": "Run the edited smoke command.", "expected_outcome": "It passes.",
-        "method_config": {"command": "echo changed"},
-    }])
+    replace_plan_cases(
+        test_db,
+        plan_id=plan,
+        cases=[
+            {
+                "case_key": "edited-smoke",
+                "method_id": "command",
+                "instructions": "Run the edited smoke command.",
+                "expected_outcome": "It passes.",
+                "method_config": {"command": "echo changed"},
+            }
+        ],
+    )
     test_db.commit()
     assert plan_credit_misses(test_db, MEMBERS[0]) == []
     _attach(test_db, MEMBERS[2], plan)
-    pending = [g for g in run_qa_sharing(test_db, [RUN])[RUN]["plan_groups"] if g.get("pending")]
+    pending = [
+        g
+        for g in run_qa_sharing(test_db, [RUN])[RUN]["plan_groups"]
+        if g.get("pending")
+    ]
     assert len(pending) == 1
     assert [c["case_key"] for c in pending[0]["cases"]] == ["command-smoke"]

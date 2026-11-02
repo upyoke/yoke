@@ -159,9 +159,9 @@ whatever its runner already resolves, with no execution target recorded.
 
 A deployment run's QA stages declare their own scope. Acceptance reads
 `deployment_stage = <name>` for every one of them. An item-scoped stage
-resolves each member's item cases, and the run's
-[plan groups](deployment-plan-execution.md#plan-groups) answer attached
-post-deploy plans. Materializing
+resolves each member's item cases and single-member post-deploy plans. The run's
+[plan groups](deployment-plan-execution.md#plan-groups) answer shared plans;
+ownership freezes at item QA entry and stays fixed after later attachments. Materializing
 a plan without a stage writes rows no stage reads: the owner sees a recorded pass and an
 unchanged stage that goes on waiting. A run pinning **any** QA stage, of
 either scope, refuses the run-wide form and names the binding invocation; a

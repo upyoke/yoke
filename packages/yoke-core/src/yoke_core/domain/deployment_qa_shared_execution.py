@@ -1,6 +1,6 @@
 """Route a deployment QA begin to its subject: a member's cases or a plan group.
 
-A member walks only its own item cases. ``--plan P`` at an item-scoped stage
+A member walks its item cases and member-owned plans. ``--plan P`` at an item-scoped stage
 walks P's open plan group, which runs once for the whole release; naming an
 attaching ``--item`` only records who asked. A requirement id resolves the
 subject that owns it.
