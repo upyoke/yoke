@@ -28,7 +28,16 @@ def _open_group_standings(conn: Any, run_id: str, stage_name: str) -> list[tuple
             f"plan group {group.group_id} ({slugs.get(group.plan_id) or group.plan_id})"
         )
         command = f"yoke qa plan run --deployment-run-id {run_id} --stage {stage_name} --plan {group.plan_id}"
+        from yoke_core.domain.deployment_qa_plan_group_failure import group_failed
+        from yoke_core.domain.deployment_qa_failure_triage import pinned_source_guidance
+
         recovery = f"requirements {list(group.requirement_ids)}: `{command}`"
+        if (
+            answer.failed_requirement_ids
+            or answer.state == "rejected"
+            or group_failed(conn, group, {})
+        ):
+            recovery += " " + pinned_source_guidance(conn, run_id)
         found.append((group.plan_id, label, answer.state, [*answer.blockers, recovery]))
     return found
 

@@ -61,11 +61,12 @@ def _plan_target_envs(conn: Any, plan_id: int, item_id: int) -> list[str]:
             target = json.loads(row["execution_target_json"])
             snapshot = json.loads(row["requirement_snapshot"] or "{}")
             pinned = (snapshot.get("plan_groups") or {}).get(str(plan_id), {})
-            for case in pinned.get("cases") or [{}]:
+            for case in pinned.get("cases") or []:
                 raw = case.get("target_envs") or []
                 values = json.loads(raw) if isinstance(raw, str) else raw
                 envs.update(values or [target["environment"].get("name") or ""])
-        return sorted(envs)
+        if envs:
+            return sorted(envs)
     row = conn.execute(
         "SELECT e.name FROM qa_plans p LEFT JOIN environments e "
         "ON e.id=p.target_environment_id WHERE p.id=%s",

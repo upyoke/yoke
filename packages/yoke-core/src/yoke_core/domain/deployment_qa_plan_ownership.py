@@ -12,10 +12,17 @@ OWNERS = "item_qa_plan_owners"
 
 
 def _snapshot(conn: Any, run_id: str) -> dict:
-    row = conn.execute(
-        "SELECT requirement_snapshot FROM deployment_runs WHERE id=%s", (str(run_id),)
-    ).fetchone()
-    raw = row[0] if row is not None else None
+    from yoke_core.domain.deployment_qa_presentation_facts import run_facts
+
+    facts = run_facts(conn, str(run_id))
+    if facts is not None:
+        raw = facts.get("requirement_snapshot")
+    else:
+        row = conn.execute(
+            "SELECT requirement_snapshot FROM deployment_runs WHERE id=%s",
+            (str(run_id),),
+        ).fetchone()
+        raw = row[0] if row is not None else None
     return dict(raw) if isinstance(raw, Mapping) else json.loads(raw or "{}")
 
 
@@ -30,18 +37,35 @@ def plan_owners(conn: Any, run_id: str) -> dict[int, int | None]:
     from yoke_core.domain.deployment_qa_presentation_reads import presentation_read
 
     def read():
-        owners = {
-            int(plan): owner
-            for plan, owner in _snapshot(conn, run_id).get(OWNERS, {}).items()
-        }
-        # Existing groups retain their driver ownership across rollout and takeover.
-        for group in run_groups(conn, run_id):
-            owners.setdefault(group.plan_id, None)
-        for plan, members in attached_plans(conn, run_id).items():
-            owners.setdefault(plan, members[0] if len(members) == 1 else None)
-        return owners
+        from yoke_core.domain.deployment_qa_presentation_facts import presented_run_ids
+
+        runs = presented_run_ids(conn, str(run_id))
+        groups = (
+            presentation_read(
+                conn, ("plan_groups", runs), lambda: run_groups(conn, runs)
+            )
+            if runs
+            else run_groups(conn, run_id)
+        )
+        return classify_owners(
+            _snapshot(conn, run_id),
+            {group.plan_id for group in groups if group.run_id == str(run_id)},
+            attached_plans(conn, run_id),
+        )
 
     return presentation_read(conn, ("item_qa_plan_owners", str(run_id)), read)
+
+
+def classify_owners(
+    snapshot: Mapping, grouped_plans: set[int], attached: Mapping
+) -> dict:
+    """Apply pinned ownership first, then classify newly observed plans."""
+    owners = {int(plan): owner for plan, owner in snapshot.get(OWNERS, {}).items()}
+    for plan in grouped_plans:
+        owners.setdefault(plan, None)
+    for plan, members in attached.items():
+        owners.setdefault(plan, members[0] if len(members) == 1 else None)
+    return owners
 
 
 def freeze_plan_owners(conn: Any, run_id: str) -> None:

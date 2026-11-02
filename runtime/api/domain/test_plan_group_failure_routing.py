@@ -71,6 +71,12 @@ def test_failure_routes_once_per_owing_member_after_a_wait_notice(test_db, outco
     body = notices[0][1]
     assert all(str(member) in body for member in MEMBERS)
     assert "driver owns triage" in body
+    source = test_db.execute(
+        "SELECT release_lineage FROM deployment_runs WHERE id=%s", (RUN,)
+    ).fetchone()[0]
+    assert source in body
+    assert "Retry reruns on that commit" in body
+    assert "later commit" in body and f"takes over {RUN}" in body
     for command in (
         "lifecycle transition",
         "qa plan run",
@@ -163,3 +169,35 @@ def test_failed_group_notices_survive_member_acceptance_and_repeat_dispatch(
     assert len(first) == 1
     assert all(row[1] is None for row in first)
     assert dispatch() == first
+
+
+@pytest.mark.parametrize("outcome", ["aborted", "failed"])
+def test_failed_group_fleet_recovery_names_pinned_commit(test_db, outcome):
+    from yoke_core.domain.deployment_qa_plan_group_standings import group_blockers
+
+    _setup(test_db, manual=False)
+    execution = _begin(test_db)
+    if outcome == "failed":
+        from runtime.api.domain.test_deployment_qa_plan_group_execution import (
+            _fail_case,
+        )
+
+        _fail_case(test_db, execution)
+    else:
+        test_db.execute(
+            "UPDATE qa_plan_executions SET state='aborted' WHERE id=%s",
+            (execution["id"],),
+        )
+        test_db.commit()
+    recovery = " ".join(
+        reason
+        for _, _, reasons in group_blockers(test_db, RUN, "item-qa")
+        for reason in reasons
+    )
+    source = test_db.execute(
+        "SELECT release_lineage FROM deployment_runs WHERE id=%s", (RUN,)
+    ).fetchone()[0]
+    assert source in recovery
+    assert "Retry reruns on that commit" in recovery
+    assert "later commit" in recovery and f"takes over {RUN}" in recovery
+    assert "Waive discharges" in recovery and "remove detaches" in recovery

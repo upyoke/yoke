@@ -18,7 +18,10 @@ run-level QA also belongs only to the driver. Later attachments never change tha
 ownership. Shared-plan waits, failures and passes send no member-holder notice;
 only item QA and close-out wake them. A failed shared plan tells the driver to
 triage which attaching items need code fixes and names rework, retry, authorized
-waiver and member-removal commands. Closed groups
+waiver and member-removal commands. The notice and fleet recovery name the pinned
+commit: Retry reruns that commit for environment/flaky failures; a merged code fix
+needs a new run on a later commit that takes over the failed run. Waive discharges
+the case; remove leaves the item's delivery owed. Closed groups
 credit only their recorded `covered_item_ids` across the superseded-run lineage.
 A later attacher gets a new group; already covered items do not wait on it.
 The group's pinned cases and target remain authoritative after plan edits.

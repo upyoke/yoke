@@ -58,7 +58,12 @@ def test_an_answered_item_owes_its_item_scoped_stage(monkeypatch):
 
 
 def _attachment(plan_id: int, **extra) -> dict:
-    return {"plan_id": plan_id, "qa_phase": "post_deploy", "transition_id": "release", **extra}
+    return {
+        "plan_id": plan_id,
+        "qa_phase": "post_deploy",
+        "transition_id": "release",
+        **extra,
+    }
 
 
 def test_attached_plans_are_listed_and_old_plan_copies_owe_nothing(monkeypatch):
@@ -78,14 +83,19 @@ def test_attached_plans_are_listed_and_old_plan_copies_owe_nothing(monkeypatch):
     assert obligation["requirement_ids"] == [41]
     assert obligation["plan_ids"] == [7, 9]
     owes = facts.awaiting_delivery_lines(
-        {"release_wait": {"obligation": obligation, "wake": {"kind": facts.WAKE_NATIVE}}},
+        {
+            "release_wait": {
+                "obligation": obligation,
+                "wake": {"kind": facts.WAKE_NATIVE},
+            }
+        },
         "YOK-1",
     )[0]
     assert owes == (
         "owes delivery: item-scoped QA stage item-qa (requirements 41); the stage "
         f"credits only {facts.stage_recipe(obligation, 'YOK-1')}; attached post-deploy "
-        "plans 7, 9 run once per release as plan groups; the run's driver or "
-        "starting session runs its plan groups"
+        "plans 7, 9 freeze ownership at item QA entry: single-member plans wake "
+        "their member holder; shared plans belong to the driver"
     )
 
 
@@ -95,16 +105,21 @@ def test_a_plan_only_item_leaves_its_plan_groups_to_the_run_driver(monkeypatch):
 
     assert facts.plan_only(obligation)
     lines = facts.awaiting_delivery_lines(
-        {"release_wait": {"obligation": obligation, "wake": {"kind": facts.WAKE_NATIVE}}},
+        {
+            "release_wait": {
+                "obligation": obligation,
+                "wake": {"kind": facts.WAKE_NATIVE},
+            }
+        },
         "YOK-1",
     )
     assert lines[0] == (
         "owes delivery: no item cases at item-scoped QA stage item-qa; attached "
-        "post-deploy plans 7 run once per release as plan groups; the run's driver "
-        "or starting session runs its plan groups"
+        "post-deploy plans 7 freeze ownership at item QA entry: single-member plans wake "
+        "their member holder; shared plans belong to the driver"
     )
     assert (
-        "re-entry runs nothing for plan groups: no wake comes to this session for them"
+        "re-entry runs single-member plans when woken; shared-plan notices go only to the driver"
         in lines
     )
     assert not any("yoke watch qa-plan" in line for line in lines)
@@ -190,14 +205,28 @@ def test_no_session_row_leaves_wakeability_unread():
 
 
 def test_json_string_flow_stages_preserve_targeted_plan_obligations(monkeypatch):
-    _stages(monkeypatch, json.dumps([
-        *ITEM_QA_STAGES[:1],
-        {**ITEM_QA_STAGES[1], "target": {"environment": "prod"}},
-    ]))
-    obligation = facts.delivery_obligation(_item(qa_plan_attachments=[
-        _attachment(7, target_env="prod"), _attachment(8, target_env="stage"),
-    ]))
+    _stages(
+        monkeypatch,
+        json.dumps(
+            [
+                *ITEM_QA_STAGES[:1],
+                {**ITEM_QA_STAGES[1], "target": {"environment": "prod"}},
+            ]
+        ),
+    )
+    obligation = facts.delivery_obligation(
+        _item(
+            qa_plan_attachments=[
+                _attachment(7, target_env="prod"),
+                _attachment(8, target_env="stage"),
+            ]
+        )
+    )
     assert obligation == {
-        "kind": facts.OWES_QA, "flow": "flow-a", "project": "proj",
-        "stages": ["item-qa"], "requirement_ids": [], "plan_ids": [7],
+        "kind": facts.OWES_QA,
+        "flow": "flow-a",
+        "project": "proj",
+        "stages": ["item-qa"],
+        "requirement_ids": [],
+        "plan_ids": [7],
     }

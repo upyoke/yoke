@@ -1,11 +1,4 @@
-"""A mis-specified item plan attachment can be retracted, not waived.
-
-The attachment is standing and re-materializes on every future run. Waiver
-records the wrong fact; supersede needs a passing replacement that cannot
-exist when the correct answer is that no post-deploy case belongs. Retract
-the attachment, retire what it materialized as retracted, and leave the
-item unanswered until it attaches a corrected plan or records no obligation.
-"""
+"""Retract a wrong attachment while preserving executed evidence and unanswered QA."""
 
 from __future__ import annotations
 
@@ -127,11 +120,7 @@ def _record_no_obligation(item_id: int, reason: str) -> object:
 
 
 def test_a_retracted_attachment_does_not_answer_the_question() -> None:
-    """Classify must ignore a withdrawn attachment, even on a new client.
-
-    An old payload omits ``retracted_at``; treating absence as live keeps
-    sessions working until the serving build learns the column.
-    """
+    """A withdrawn attachment or case never answers post-deploy QA."""
     retracted = classify(
         attachments=[
             {"qa_phase": "post_deploy", "retracted_at": "2026-09-20T16:00:00Z"}
@@ -166,11 +155,19 @@ def _run_with_group(conn, *, run_id: str, item_id: int, slug: str):
         run_id=run_id,
         project="yoke",
         stages=item_qa_stage_definitions(None),
-        members=(item_id,),
+        members=(item_id, item_id + 100000),
         lineage=LINEAGE,
     )
     plan_id = _attach_post_deploy(conn, item_id=item_id, slug=slug)
+    conn.execute(
+        "INSERT INTO qa_plan_item_attachments(item_id,plan_id,transition_id,qa_phase,attached_at) "
+        "VALUES (%s,%s,'release','post_deploy',now())",
+        (item_id + 100000, plan_id),
+    )
     ensure_groups(conn, run_id, ITEM_QA_STAGE)
+    conn.execute(
+        "DELETE FROM qa_plan_item_attachments WHERE item_id=%s", (item_id + 100000,)
+    )
     conn.commit()
     (group,) = run_groups(conn, run_id, ITEM_QA_STAGE)
     assert group.plan_id == plan_id and group.open
@@ -272,12 +269,7 @@ def test_silence_still_blocks_after_retraction(test_db) -> None:
 
 
 def test_a_failing_verification_case_is_not_retirable_this_way(test_db) -> None:
-    """Retraction is about the attachment being wrong, not an unwelcome red.
-
-    A Dash item cannot attach a verification plan through the product
-    path without a posture selection, so this plants the standing row
-    the retract path would see if someone aimed it at a genuine fail.
-    """
+    """A recorded failing verification case refuses retraction."""
     item_id = 9854
     _seed_item(test_db, item_id=item_id)
     plan_id = create_smoke_plan(
@@ -339,7 +331,10 @@ def test_a_passing_post_deploy_case_is_not_rewritten(test_db) -> None:
         (requirement_id,),
     ).fetchone()
     assert (row["retracted_at"], row["waived_at"]) == (None, None)
-    assert test_db.execute(
-        "SELECT verdict FROM qa_runs WHERE qa_requirement_id=%s", (requirement_id,)
-    ).fetchone()["verdict"] == "pass"
+    assert (
+        test_db.execute(
+            "SELECT verdict FROM qa_runs WHERE qa_requirement_id=%s", (requirement_id,)
+        ).fetchone()["verdict"]
+        == "pass"
+    )
     assert not run_groups(test_db, run_id, ITEM_QA_STAGE)[0].retracted

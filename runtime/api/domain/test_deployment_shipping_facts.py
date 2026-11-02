@@ -122,10 +122,21 @@ def test_private_unrun_member_answers_match_scalar_authority(test_db):
     for run, member, stage in subjects:
         assert before[(run, member)] == expected(run, member, stage)
     assert sum(unformed.queries.values()) < 30
-    # Each member's private plan runs as its own plan group.
+    # Each private plan materializes under its member, never under Run QA.
+    from yoke_core.domain.deployment_qa_stage_materialization import (
+        materialize_deployment_qa_stage,
+    )
+
     ensure_groups(test_db, "private-unrun", "item-qa")
+    for member in members:
+        materialize_deployment_qa_stage(
+            test_db,
+            deployment_run_id="private-unrun",
+            deployment_stage="item-qa",
+            deployment_member_item_id=member,
+        )
     test_db.commit()
-    assert len(run_groups(test_db, "private-unrun", "item-qa")) == len(members)
+    assert run_groups(test_db, "private-unrun", "item-qa") == []
     conn = CountedConnection(test_db)
     answers = member_qa_standings(conn, subjects)
     assert all(answer["state"] == "cases unresolved" for answer in answers.values())

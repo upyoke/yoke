@@ -60,7 +60,9 @@ def _grouped_plan(conn) -> int:
 
 
 def _add_member(conn, item_id: int) -> None:
-    source = _original_requirement(conn, item_id=item_id, method_id="browser-inspection")
+    source = _original_requirement(
+        conn, item_id=item_id, method_id="browser-inspection"
+    )
     snapshot = snapshot_member_requirements(
         conn,
         run_id=RUN,
@@ -105,7 +107,9 @@ def test_attached_grouped_plan_materializes_ordered_once_as_a_plan_group(
         "VALUES (%s,%s,'release','post_deploy',%s)",
         (item_id, plan_id, "2026-09-14T00:00:00Z"),
     )
-    own = _original_requirement(test_db, item_id=item_id, method_id="browser-inspection")
+    own = _original_requirement(
+        test_db, item_id=item_id, method_id="browser-inspection"
+    )
     _seed_selected_requirement_run(
         test_db, run_id=RUN, item_id=item_id, requirement_id=own
     )
@@ -124,6 +128,11 @@ def test_attached_grouped_plan_materializes_ordered_once_as_a_plan_group(
             (json.dumps(snapshot), RUN),
         )
     _add_member(test_db, other_item_id)
+    test_db.execute(
+        "INSERT INTO qa_plan_item_attachments(item_id,plan_id,transition_id,qa_phase,attached_at) "
+        "VALUES (%s,%s,'release','post_deploy',now())",
+        (other_item_id, plan_id),
+    )
     test_db.commit()
 
     created = ensure_groups(test_db, RUN, STAGE)

@@ -13,12 +13,7 @@ from runtime.api.domain.test_run_settles_plan_on_other_target import (
     _plan_only_pair,
 )
 from runtime.api.domain.test_deployment_qa_stage_execution import _complete_case
-from yoke_core.domain.deployment_qa_plan_group_dispatch import settle_group
-from yoke_core.domain.deployment_qa_plan_group_writes import (
-    ensure_groups,
-    group_subject,
-)
-from yoke_core.domain.deployment_qa_plan_groups import run_groups
+from yoke_core.domain.deployment_qa_plan_group_writes import ensure_groups
 from yoke_core.domain.qa_plan_execution_state import begin_plan_execution
 
 
@@ -167,21 +162,29 @@ def open_group(conn, run_id):
 
 def close_group(conn, run_id):
     open_group(conn, run_id)
+    from yoke_core.domain.deployment_qa_stage_materialization import (
+        materialize_deployment_qa_stage,
+    )
+    from yoke_core.domain.deployment_qa_run_acceptance import current_item_qa
+
+    materialize_deployment_qa_stage(
+        conn,
+        deployment_run_id=run_id,
+        deployment_stage="member-qa",
+        deployment_member_item_id=ITEM,
+    )
     execution = begin_plan_execution(
         conn,
         deployment_run_id=run_id,
         deployment_stage="member-qa",
-        plan="other-target-plan",
+        deployment_member_item_id=ITEM,
         actor_id="2",
         session_id="release-qa",
     )
     _complete_case(conn, execution)
-    group = run_groups(conn, [run_id], "member-qa")[-1]
-    if not group.closed:
-        settle_group(
-            conn, group_subject(conn, run_id, "member-qa", group, require_active=False)
-        )
-    assert run_groups(conn, [run_id], "member-qa")[-1].closed
+    assert current_item_qa(
+        conn, run_id=run_id, item_id=ITEM, current_stage="member-qa"
+    ).accepted
 
 
 def plan_pair(conn, tmp_path, monkeypatch, *, proof=True):

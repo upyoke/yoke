@@ -203,6 +203,8 @@ def notify_plan_group_failure(
     conn, *, run_id, stage_name, group, project_id, reasons, item_refs
 ) -> None:
     """One notice per failed verdict set of a group; never a member release."""
+    from yoke_core.domain.deployment_qa_failure_triage import pinned_source_guidance
+
     members = owing_members(conn, run_id, group.plan_id)
     lines = _group_lines(
         conn, run_id, stage_name, [group], item_refs, {group.group_id: members}
@@ -213,7 +215,9 @@ def notify_plan_group_failure(
     body = (
         f"Plan group {group.group_id} failed in deployment run {run_id} stage "
         f"{stage_name!r}: {report}. Attaching items: {items}. "
-        "The driver owns triage: decide which attaching items owe a code fix; "
+        + pinned_source_guidance(conn, run_id)
+        + " "
+        + "The driver owns triage: decide which attaching items owe a code fix; "
         "send only those items back with `yoke lifecycle transition PREFIX-N "
         "--from release --to implementing --reason 'Shared plan found a code defect'`. "
         "For an environment or evidence failure, retry only the failed cases:\n"

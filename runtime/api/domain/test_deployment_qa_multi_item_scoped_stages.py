@@ -70,7 +70,9 @@ def _item_qa(
 def _two_item_qa_stages() -> list[dict[str, Any]]:
     return [
         _deploy("preview-deploy"),
-        _item_qa(PREVIEW_QA, source_stage="preview-deploy", kind="persistent_environment"),
+        _item_qa(
+            PREVIEW_QA, source_stage="preview-deploy", kind="persistent_environment"
+        ),
         _deploy("prod-deploy"),
         _item_qa(PROD_QA, source_stage="prod-deploy", kind="persistent_environment"),
     ]
@@ -171,9 +173,10 @@ def test_discharged_member_does_not_block_the_next_item_scoped_stage(test_db) ->
     )
     _no_obligation(test_db, item_id)
 
-    assert prior_stage_refusals(
-        test_db, run_id=run_id, stages=stages, start_stage=PROD_QA
-    ) == []
+    assert (
+        prior_stage_refusals(test_db, run_id=run_id, stages=stages, start_stage=PROD_QA)
+        == []
+    )
     require_prior_stage_acceptance(
         test_db, run_id=run_id, stages=stages, start_stage=PROD_QA
     )
@@ -225,10 +228,21 @@ def test_environment_bound_plan_runs_at_preview_standing_in_for_that_environment
     )
     _attach_plan(test_db, item_id=item_id, plan_id=plan_id)
 
-    created = ensure_groups(test_db, run_id, PREVIEW_QA)
+    result = materialize_deployment_qa_stage(
+        test_db,
+        deployment_run_id=run_id,
+        deployment_stage=PREVIEW_QA,
+        deployment_member_item_id=item_id,
+    )
+    created = result["created_requirement_ids"]
     assert created
-    (group,) = run_groups(test_db, [run_id], PREVIEW_QA)
-    assert group.plan_id == plan_id and sorted(group.requirement_ids) == sorted(created)
+    assert {
+        row[0]
+        for row in test_db.execute(
+            "SELECT plan_id FROM qa_requirements WHERE id=ANY(%s)", (created,)
+        ).fetchall()
+    } == {plan_id}
+    assert run_groups(test_db, [run_id], PREVIEW_QA) == []
 
 
 def test_environment_bound_plan_skips_preview_standing_in_for_a_different_environment(
@@ -260,6 +274,14 @@ def test_environment_bound_plan_skips_preview_standing_in_for_a_different_enviro
         deployment_member_item_id=item_id,
     )
     assert result["created_requirement_ids"] == []
-    from yoke_core.domain.post_deploy_verification_answer import member_post_deploy_answer, NOT_REQUIRED
+    from yoke_core.domain.post_deploy_verification_answer import (
+        member_post_deploy_answer,
+        NOT_REQUIRED,
+    )
 
-    assert member_post_deploy_answer(test_db, {"id": run_id, "member_item_id": item_id}).verdict == NOT_REQUIRED
+    assert (
+        member_post_deploy_answer(
+            test_db, {"id": run_id, "member_item_id": item_id}
+        ).verdict
+        == NOT_REQUIRED
+    )

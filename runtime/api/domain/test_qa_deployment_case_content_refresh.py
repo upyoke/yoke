@@ -259,10 +259,10 @@ def test_stage_picks_up_the_members_attached_plan_without_a_flag(test_db) -> Non
         deployment_stage=ITEM_QA_STAGE,
         deployment_member_item_id=MEMBER,
     )
-    assert member["created_requirement_ids"] == []
-    created = ensure_groups(test_db, run_id, ITEM_QA_STAGE)
-    test_db.commit()
+    created = member["created_requirement_ids"]
     assert len(created) == 1, created
+    assert ensure_groups(test_db, run_id, ITEM_QA_STAGE) == []
+    test_db.commit()
     assert ensure_groups(test_db, run_id, ITEM_QA_STAGE) == []
     row = test_db.execute(
         "SELECT plan_id,plan_case_key,deployment_member_item_id FROM qa_requirements "
@@ -271,7 +271,7 @@ def test_stage_picks_up_the_members_attached_plan_without_a_flag(test_db) -> Non
     ).fetchone()
     assert int(row["plan_id"]) == int(plan_id)
     assert str(row["plan_case_key"]) == "command-smoke"
-    assert row["deployment_member_item_id"] is None
+    assert row["deployment_member_item_id"] == MEMBER
 
 
 @pytest.mark.parametrize("verdict", ["pass", None, "fail"])

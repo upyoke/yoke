@@ -137,8 +137,9 @@ def test_driver_runs_candidate_plans_beside_a_pending_review(tmp_path, monkeypat
         stages = _stages(plans[0])
         stages[1].pop("cases")
         _seed_run(conn, run_id=RUN, stages=stages, members=MEMBERS, release_lineage=tip)
-        for member, plan_id in zip(MEMBERS, plans):
-            _attach(conn, member, plan_id)
+        for plan_id in plans:
+            for member in MEMBERS:
+                _attach(conn, member, plan_id)
         from runtime.api.fixtures.backlog_inserts import insert_item
         from yoke_core.domain.deployment_run_carried_membership import (
             enroll_carried_members,

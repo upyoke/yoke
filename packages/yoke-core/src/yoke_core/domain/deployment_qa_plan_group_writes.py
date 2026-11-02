@@ -213,11 +213,6 @@ def resolve_group_subject(
     from yoke_core.domain.deployment_qa_plan_ownership import plan_owners
 
     owners = plan_owners(conn, run_id)
-    if any(
-        owner is not None and str(plan) in {str(pid), _plan_slug(conn, pid)}
-        for pid, owner in owners.items()
-    ):
-        return None
     groups = run_groups(conn, lineage_run_ids(conn, run_id), stage_name)
     candidates = {g.plan_id for g in groups} | set(attached_plans(conn, run_id))
     matches = {
@@ -230,6 +225,8 @@ def resolve_group_subject(
         )
         refusal.code = "plan_group_ambiguous"
         raise refusal
+    if matches and owners.get(next(iter(matches))) is not None:
+        return None
     groups = [g for g in groups if g.plan_id in matches]
     live = [g for g in groups if g.run_id == run_id and g.open]
     if live:

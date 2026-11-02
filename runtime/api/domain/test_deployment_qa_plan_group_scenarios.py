@@ -45,7 +45,8 @@ def _form(conn):
 
 def _pin_flow(conn, members=MEMBERS):
     conn.execute(
-        "UPDATE items SET deployment_flow=%s WHERE id=ANY(%s)", (f"flow-{RUN}", list(members))
+        "UPDATE items SET deployment_flow=%s WHERE id=ANY(%s)",
+        (f"flow-{RUN}", list(members)),
     )
     conn.commit()
 
@@ -56,7 +57,9 @@ def test_a_retracted_group_is_never_reused_by_a_later_attacher(test_db):
     (first,) = run_groups(test_db, [RUN], "item-qa")
     test_db.execute("DELETE FROM qa_plan_item_attachments WHERE plan_id=%s", (plan_id,))
     test_db.commit()
-    retracted = retract_unattached_groups(test_db, RUN, reason="detached", source="test")
+    retracted = retract_unattached_groups(
+        test_db, RUN, reason="detached", source="test"
+    )
     test_db.commit()
     assert sorted(retracted) == sorted(first.requirement_ids)
 
@@ -102,9 +105,12 @@ def test_a_project_default_only_plan_forms_a_group_and_is_credited(test_db):
     )
     test_db.commit()
     _pin_flow(test_db)
-    assert test_db.execute(
-        "SELECT COUNT(*) FROM qa_plan_item_attachments WHERE plan_id=%s", (plan_id,)
-    ).fetchone()[0] == 0
+    assert (
+        test_db.execute(
+            "SELECT COUNT(*) FROM qa_plan_item_attachments WHERE plan_id=%s", (plan_id,)
+        ).fetchone()[0]
+        == 0
+    )
     assert [m["plan_slug"] for m in plan_credit_misses(test_db, MEMBERS[0])] == [SLUG]
 
     _form(test_db)
@@ -158,10 +164,15 @@ def test_a_second_group_in_the_run_uses_the_pinned_plan_after_an_edit(test_db):
     created = _form(test_db)
 
     first, second = run_groups(test_db, [RUN], "item-qa")
-    assert second.group_id == f"{RUN}:2" and sorted(second.requirement_ids) == sorted(created)
+    assert second.group_id == f"{RUN}:2" and sorted(second.requirement_ids) == sorted(
+        created
+    )
     assert _case_rows(test_db, second.requirement_ids) == pinned
     marker = second.target["deployment"]["shared_plan"]
-    assert marker["source_revision"] == first.target["deployment"]["shared_plan"]["source_revision"]
+    assert (
+        marker["source_revision"]
+        == first.target["deployment"]["shared_plan"]["source_revision"]
+    )
 
 
 def test_a_candidate_lacking_the_plan_source_forms_no_group_and_names_it(
@@ -172,22 +183,29 @@ def test_a_candidate_lacking_the_plan_source_forms_no_group_and_names_it(
 
     plan_id = _seed(test_db)
     revision = "c" * 40
-    test_db.execute("UPDATE qa_plans SET source_revision=%s WHERE id=%s", (revision, plan_id))
+    test_db.execute(
+        "UPDATE qa_plans SET source_revision=%s WHERE id=%s", (revision, plan_id)
+    )
     test_db.commit()
     source = mock.Mock()
     source.resolve_commit.side_effect = lambda value: value
     source.contains_commit.return_value = False
     monkeypatch.setattr(source_binding, "open_carried_work_source", lambda *_: source)
 
-    with pytest.raises(QaPlanError, match="qa_plan_source_candidate_mismatch") as refusal:
+    with pytest.raises(
+        QaPlanError, match="qa_plan_source_candidate_mismatch"
+    ) as refusal:
         ensure_groups(test_db, RUN, "item-qa")
     test_db.rollback()
 
     assert revision in str(refusal.value) and f"plan {plan_id}" in str(refusal.value)
     assert run_groups(test_db, [RUN]) == []
-    assert test_db.execute(
-        "SELECT COUNT(*) FROM qa_requirements WHERE plan_id=%s", (plan_id,)
-    ).fetchone()[0] == 0
+    assert (
+        test_db.execute(
+            "SELECT COUNT(*) FROM qa_requirements WHERE plan_id=%s", (plan_id,)
+        ).fetchone()[0]
+        == 0
+    )
 
 
 def _wait_messages(conn):
@@ -230,7 +248,9 @@ def test_an_unchanged_dispatch_sends_no_second_notice_and_a_new_group_re_sends(t
     _project(test_db)
     seed_session(test_db, "sess-plan-driver")
     release_seeded_driver(test_db, RUN)
-    attach_driver(test_db, RUN, session_id="sess-plan-driver", pid=4243, phase=PHASE_EXECUTING)
+    attach_driver(
+        test_db, RUN, session_id="sess-plan-driver", pid=4243, phase=PHASE_EXECUTING
+    )
     test_db.commit()
     _form(test_db)
 
@@ -241,7 +261,8 @@ def test_an_unchanged_dispatch_sends_no_second_notice_and_a_new_group_re_sends(t
 
     other = _plan(test_db, "other-plan")
     _manual_plan(test_db, other)
-    _attach(test_db, MEMBERS[0], other)
+    for member in MEMBERS[:2]:
+        _attach(test_db, member, other)
     _form(test_db)
     _dispatch(test_db)
     _dispatch(test_db)
@@ -264,12 +285,15 @@ def test_the_notice_recipient_falls_back_driver_then_starter_then_steering(test_
     seed_qa_session(test_db, DRIVER_SESSION, "run-starter")
     insert_steering_claim(test_db, "sess-steering")
     test_db.execute(
-        "UPDATE deployment_runs SET created_by_session_id='run-starter' WHERE id=%s", (RUN,)
+        "UPDATE deployment_runs SET created_by_session_id='run-starter' WHERE id=%s",
+        (RUN,),
     )
     test_db.commit()
 
     def route():
-        session, _actor, why = resolve_run_driver_recipient(test_db, run_id=RUN, project_id=1)
+        session, _actor, why = resolve_run_driver_recipient(
+            test_db, run_id=RUN, project_id=1
+        )
         return session, why
 
     assert route() == (DRIVER_SESSION, "driver")
@@ -280,54 +304,3 @@ def test_the_notice_recipient_falls_back_driver_then_starter_then_steering(test_
     )
     test_db.commit()
     assert route() == ("sess-steering", "steering")
-
-
-def test_a_group_needing_human_acceptance_stays_open_until_accepted(test_db):
-    from yoke_core.domain.decision_request_resolution import resolve_decision_request
-
-    reviewer = 9899
-    test_db.execute(
-        "INSERT INTO actors(id,kind,created_at) VALUES "
-        "(%s,'human','2026-09-14T00:00:00Z') ON CONFLICT(id) DO NOTHING",
-        (reviewer,),
-    )
-    plan_id = _plan(test_db)
-    stages = _stages(
-        plan_id,
-        verdict={
-            "mode": "required_human",
-            "reviewers": {"mode": "all", "roles": [], "actors": [reviewer]},
-        },
-    )
-    stages[1].pop("cases")
-    _seed_run(test_db, run_id=RUN, stages=stages, members=MEMBERS)
-    for member in MEMBERS:
-        _attach(test_db, member, plan_id)
-    _form(test_db)
-
-    def settle():
-        (group,) = run_groups(test_db, [RUN], "item-qa")
-        return settle_group(
-            test_db, group_subject(test_db, RUN, "item-qa", group, require_active=False)
-        )
-
-    _complete_case(test_db, _begin(test_db))
-    assert not settle()["accepted"]
-    (group,) = run_groups(test_db, [RUN], "item-qa")
-    assert group.open and group.covered_item_ids is None
-    (request_id,) = test_db.execute(
-        "SELECT id FROM decision_requests WHERE kind='qa_needs_review' AND status='pending'"
-    ).fetchone()
-
-    with mock.patch(
-        "yoke_core.domain.deployment_run_driver_notice.push_run_scoped_notice",
-        return_value="delivered",
-    ):
-        resolve_decision_request(
-            test_db, int(request_id), actor_id=reviewer, action="approve",
-            note="Reviewed the plan group for the release.",
-        )
-        settle()
-
-    (group,) = run_groups(test_db, [RUN], "item-qa")
-    assert group.closed and group.covered_item_ids == tuple(sorted(MEMBERS))

@@ -1,9 +1,4 @@
-"""Each declared case environment is proven by the release that reaches it.
-
-A post-deploy plan is never copied onto an item. Each release runs it once as
-a plan group at its item-scoped stage, with one row per case and required
-host baseline whose declared environments include the release's environment.
-"""
+"""Each case environment is proven by member QA on the release reaching it."""
 
 import importlib
 import json
@@ -19,10 +14,8 @@ from runtime.api.domain.test_deployment_qa_stage_execution import (
 from runtime.api.fixtures.backlog_inserts import insert_item
 from runtime.api.fixtures.backlog_qa_inserts import insert_qa_requirement
 from runtime.api.fixtures.completed_delivery import pin_run_delivery
-from yoke_core.domain.deployment_qa_plan_group_dispatch import settle_group
 from yoke_core.domain.deployment_qa_plan_group_writes import (
     ensure_groups,
-    group_subject,
 )
 from yoke_core.domain.deployment_qa_plan_groups import run_groups
 from yoke_core.domain.qa_catalog_reads import list_plans
@@ -104,7 +97,9 @@ def _release(conn, plan_id, environment):
     stages[1].pop("cases")
     stages[1]["target"]["environment"] = environment
     run_id = RUNS[environment]
-    _seed_run(conn, run_id=run_id, stages=stages, members=(), existing_members=(ITEM_ID,))
+    _seed_run(
+        conn, run_id=run_id, stages=stages, members=(), existing_members=(ITEM_ID,)
+    )
     pin_run_delivery(conn, run_id, environment=environment)
     conn.execute(
         "UPDATE deployment_stage_receipts SET target_name=%s,observed_url=("
@@ -112,7 +107,16 @@ def _release(conn, plan_id, environment):
         "WHERE run_id=%s AND stage_name='deploy'",
         (environment, environment, run_id),
     )
-    created = ensure_groups(conn, run_id, "item-qa")
+    from yoke_core.domain.deployment_qa_stage_materialization import (
+        materialize_deployment_qa_stage,
+    )
+
+    created = materialize_deployment_qa_stage(
+        conn,
+        deployment_run_id=run_id,
+        deployment_stage="item-qa",
+        deployment_member_item_id=ITEM_ID,
+    )["created_requirement_ids"]
     conn.commit()
     return created
 
@@ -139,28 +143,31 @@ def _pass_group(conn, run_id):
         conn,
         deployment_run_id=run_id,
         deployment_stage="item-qa",
-        deployment_member_item_id=None,
-        plan=SLUG,
+        deployment_member_item_id=ITEM_ID,
         actor_id="2",
         session_id=f"{run_id}-qa",
     )
     _complete_case(conn, execution)
-    group = run_groups(conn, [run_id], "item-qa")[-1]
-    if not group.closed:
-        settle_group(conn, group_subject(conn, run_id, "item-qa", group, require_active=False))
-    assert run_groups(conn, [run_id], "item-qa")[-1].closed
+    from yoke_core.domain.deployment_qa_run_acceptance import current_item_qa
+
+    assert current_item_qa(
+        conn, run_id=run_id, item_id=ITEM_ID, current_stage="item-qa"
+    ).accepted
 
 
 def test_each_release_runs_the_case_at_its_own_declared_environment(test_db):
     _item, plan, _case = _setup(test_db)
-    assert materialize_for_item(
-        test_db, item_id=ITEM_ID, transition_id="release"
-    )["created_requirement_ids"] == []
+    assert (
+        materialize_for_item(test_db, item_id=ITEM_ID, transition_id="release")[
+            "created_requirement_ids"
+        ]
+        == []
+    )
     for environment, run_id in RUNS.items():
         created = _release(test_db, plan["id"], environment)
         assert len(created) == 1
         (row,) = _rows(test_db, run_id)
-        assert row["item_id"] is None and row["deployment_member_item_id"] is None
+        assert row["item_id"] is None and row["deployment_member_item_id"] == ITEM_ID
         assert row["target_env"] == environment
         assert _environment_of(row) == environment
         assert ensure_groups(test_db, run_id, "item-qa") == []
@@ -278,7 +285,7 @@ def test_production_acceptance_cannot_close_an_unproven_stage_obligation(
     assert [(m["plan_slug"], m["deployment_run_id"]) for m in owed] == [
         (SLUG, RUNS["stage"])
     ]
-    assert f"--deployment-run-id {RUNS['stage']}" in owed[0]["recovery"]
+    assert "--item" in owed[0]["recovery"]
 
     _pass_group(test_db, RUNS["stage"])
 

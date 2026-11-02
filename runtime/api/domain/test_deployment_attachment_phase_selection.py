@@ -33,7 +33,9 @@ def test_only_the_post_deploy_attachment_owes_the_plan_once(test_db):
     )
     _attach(test_db, DOUBLE, plan, "reviewing-implementation", "verification")
     _attach(test_db, DOUBLE, plan, "release", "post_deploy")
-    _attach(test_db, VERIFICATION_ONLY, plan, "reviewing-implementation", "verification")
+    _attach(
+        test_db, VERIFICATION_ONLY, plan, "reviewing-implementation", "verification"
+    )
     test_db.commit()
 
     assert members_plan_ids(test_db, [DOUBLE, VERIFICATION_ONLY], RUN) == {
@@ -42,5 +44,20 @@ def test_only_the_post_deploy_attachment_owes_the_plan_once(test_db):
     }
     ensure_groups(test_db, RUN, "item-qa")
     test_db.commit()
-    (group,) = run_groups(test_db, RUN, "item-qa")
-    assert group.plan_id == plan and group.open
+    from yoke_core.domain.deployment_qa_stage_materialization import (
+        materialize_deployment_qa_stage,
+    )
+
+    assert run_groups(test_db, RUN, "item-qa") == []
+    result = materialize_deployment_qa_stage(
+        test_db,
+        deployment_run_id=RUN,
+        deployment_stage="item-qa",
+        deployment_member_item_id=DOUBLE,
+    )
+    assert len(result["created_requirement_ids"]) == 1
+    row = test_db.execute(
+        "SELECT plan_id,deployment_member_item_id FROM qa_requirements WHERE id=%s",
+        (result["created_requirement_ids"][0],),
+    ).fetchone()
+    assert tuple(row) == (plan, DOUBLE)

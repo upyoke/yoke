@@ -198,13 +198,7 @@ def test_unanswered_members_still_hold_the_stage(test_db, own_qa, same_project):
     assert outstanding.no_obligation_lines == ()
 
 
-def test_an_attached_plan_survives_own_flow_and_holds_until_its_group_passes(test_db):
-    from yoke_core.domain.deployment_qa_plan_group_dispatch import settle_group
-    from yoke_core.domain.deployment_qa_plan_group_writes import (
-        ensure_groups,
-        group_subject,
-    )
-    from yoke_core.domain.deployment_qa_plan_groups import run_groups
+def test_an_attached_plan_survives_own_flow_and_holds_until_member_qa_passes(test_db):
     from yoke_core.domain.deployment_qa_run_acceptance import (
         item_qa_acceptance_blockers,
     )
@@ -237,26 +231,19 @@ def test_an_attached_plan_survives_own_flow_and_holds_until_its_group_passes(tes
         (int(plan["id"]), MEMBER),
     )
     test_db.commit()
-    assert ensure_groups(test_db, RUN, "item-qa")
-    test_db.commit()
+    assert _materialize(test_db)["created_requirement_ids"]
     blockers = item_qa_acceptance_blockers(test_db, run_id=RUN, item_id=MEMBER)
-    assert any("plan group" in blocker for blocker in blockers)
+    assert blockers
     execution = begin_plan_execution(
         test_db,
         deployment_run_id=RUN,
         deployment_stage="item-qa",
-        deployment_member_item_id=None,
-        plan="member-smoke",
+        deployment_member_item_id=MEMBER,
         actor_id="2",
         session_id="member-qa",
     )
     _complete_case(test_db, execution)
-    (group,) = run_groups(test_db, [RUN], "item-qa")
-    if not group.closed:
-        settle_group(
-            test_db, group_subject(test_db, RUN, "item-qa", group, require_active=False)
-        )
-    assert run_groups(test_db, [RUN], "item-qa")[0].covered_item_ids == (MEMBER,)
+    assert _status(test_db)["accepted"]
     assert item_qa_acceptance_blockers(test_db, run_id=RUN, item_id=MEMBER) == []
 
 

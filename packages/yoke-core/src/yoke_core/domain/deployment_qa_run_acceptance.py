@@ -316,7 +316,7 @@ def _stage_blockers(
             continue
         blockers.extend(f"{label}: {reason}" for reason in reasons)
         if item_scoped:
-            from yoke_core.domain.deployment_qa_plan_group_writes import (
+            from yoke_core.domain.deployment_qa_plan_group_standings import (
                 member_group_blockers,
             )
 

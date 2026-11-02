@@ -33,6 +33,10 @@ Member runs have two roles. Matrix:
   implementing --reason R`; retry evidence failures with the same plan command,
   record an authorized waiver with `yoke qa requirement waive --requirement-id ID
   --rationale R --source operator --force`, or remove an item with the command above.
+  The notice and fleet recovery name the pinned source commit: Retry uses that
+  commit for environment/flaky failures only. A code fix needs a merge and a new
+  run on a later commit, which takes over the failed run. Waive discharges a case;
+  remove detaches the member and leaves its delivery owed.
   Holders receive no shared-plan notices, whether pending, failed or passed.
 - Workers whose own item has a QA finding that another item must fix first record it:
   `yoke items dependency add DEPENDENT BLOCKER operator --gate-point closure
