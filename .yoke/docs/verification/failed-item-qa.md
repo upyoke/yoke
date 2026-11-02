@@ -26,14 +26,15 @@ and candidate, and diagnosis. The execution's owner already receives its own
 result; the failure handoff suppresses a duplicate notice to that session.
 A failure discovered by the driver routes to the member's holder, or its
 project's steering seat when no holder exists. A failed
-[plan group](deployment-plan-execution.md#plan-groups) notifies every owing
-item's holder, falling back to that item's project steering seat. This includes
-an aborted attempt that saved no case result and has no live retry. The notice
-names requirement ids and the retry command; the run driver receives the routed
-item refs, falling back to its starting session, then steering. A plan group held on review or manual evidence also notifies every
-owing item's live claim holder, falling back to that item's project steering
-seat. The notice names the run, stage, plan and cases with the recovery command;
-closing the group withdraws its pending notices. Read named delivery failures; absence of a notice does not clear the
+[shared plan group](deployment-plan-execution.md#plan-groups) notifies only the
+driver, falling back to its starting session, then steering. This includes an
+aborted attempt that saved no result and has no live retry. The driver owns triage:
+choose which attaching items owe fixes and send only those back for implementation,
+or retry, record an authorized waiver, or remove an item. The notice names the
+existing commands; [release roles](../agents/rules/release-roles.md) also lists them.
+Pending, failed and passed shared plans send no holder notice. A single-member
+plan stays with its member holder, with ownership fixed at item QA entry.
+Closing the group withdraws its pending driver notice. Read named delivery failures; absence of a notice does not clear the
 failed requirement.
 
 - **Product defect:** fix current-item failures in that item by default under

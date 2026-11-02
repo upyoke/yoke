@@ -22,7 +22,9 @@ def item_qa_stage_name(stages: Sequence[Mapping[str, Any]]) -> str:
     return "item-qa"
 
 
-def moved_member_body(*, item_ref: str, old_id: str, new_id: str, stage_name: str) -> str:
+def moved_member_body(
+    *, item_ref: str, old_id: str, new_id: str, stage_name: str
+) -> str:
     """One notice: QA moved, and the predecessor wake is no longer the command."""
     return (
         f"{item_ref}'s QA moved from run {old_id} to run {new_id}. "
@@ -76,12 +78,14 @@ def notify_moved_member_qa(
     from yoke_contracts.public_ref import format_item_ref
     from yoke_core.domain.merge_queue_landing_notice import addressable_items
 
-    from yoke_core.domain.deployment_qa_plan_groups import plan_only_members
+    from yoke_core.domain.deployment_qa_plan_ownership import plan_only_members
 
     stage_name = item_qa_stage_name(stages)
     # A member owing only plans has nothing to run; its plan groups moved whole.
     plan_only = plan_only_members(conn, new_id, item_ids)
-    rows = [row for row in _member_rows(conn, item_ids) if int(row["id"]) not in plan_only]
+    rows = [
+        row for row in _member_rows(conn, item_ids) if int(row["id"]) not in plan_only
+    ]
     by_project: dict[int, list[dict[str, Any]]] = {}
     for row in rows:
         by_project.setdefault(int(row["project_id"]), []).append(row)

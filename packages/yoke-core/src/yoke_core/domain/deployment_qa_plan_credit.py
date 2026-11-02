@@ -45,16 +45,16 @@ def _owed_plans(conn: Any, item_id: int) -> dict[int, str]:
 
 def _plan_target_envs(conn: Any, plan_id: int, item_id: int) -> list[str]:
     """A formed group's frozen plan owns every environment it still owes."""
-    rows = query_rows(conn,
+    rows = query_rows(
+        conn,
         "SELECT DISTINCT q.execution_target_json,r.requirement_snapshot FROM qa_requirements q "
         "JOIN deployment_runs r ON r.id=(NULLIF(q.execution_target_json,'')::jsonb #>> '{deployment,run_id}') "
         "WHERE q.plan_id=%s AND q.deployment_run_id IS NOT NULL "
-        "AND q.deployment_member_item_id IS NULL "
-        "AND COALESCE(NULLIF(q.execution_target_json,''),'{}')::jsonb "
-        "#>> '{deployment,shared_plan,group_id}' IS NOT NULL AND ("
+        "AND ("
         "q.deployment_run_id IN (SELECT run_id FROM deployment_run_items WHERE item_id=%s) "
         "OR COALESCE(q.covered_item_ids,'[]')::jsonb @> %s::jsonb)",
-        (plan_id, item_id, json.dumps([item_id])))
+        (plan_id, item_id, json.dumps([item_id])),
+    )
     envs = set()
     if rows:
         for row in rows:
@@ -68,17 +68,29 @@ def _plan_target_envs(conn: Any, plan_id: int, item_id: int) -> list[str]:
         return sorted(envs)
     row = conn.execute(
         "SELECT e.name FROM qa_plans p LEFT JOIN environments e "
-        "ON e.id=p.target_environment_id WHERE p.id=%s", (plan_id,)
+        "ON e.id=p.target_environment_id WHERE p.id=%s",
+        (plan_id,),
     ).fetchone()
     default = str(row[0] or "") if row else ""
-    for case in query_rows(conn, "SELECT target_envs FROM qa_plan_cases WHERE plan_id=%s", (plan_id,)):
+    for case in query_rows(
+        conn, "SELECT target_envs FROM qa_plan_cases WHERE plan_id=%s", (plan_id,)
+    ):
         raw = case["target_envs"]
         values = json.loads(raw) if isinstance(raw, str) and raw else raw or []
         envs.update(values or [default])
     return sorted(envs) or [default]
 
 
-def _miss(item_id: int, plan_id: int, slug: str, run: dict | None, stage: str, target_env: str, *, conn: Any) -> dict:
+def _miss(
+    item_id: int,
+    plan_id: int,
+    slug: str,
+    run: dict | None,
+    stage: str,
+    target_env: str,
+    *,
+    conn: Any,
+) -> dict:
     from yoke_core.domain.deployment_qa_plan_groups import run_groups
 
     run_id = str(run["id"]) if run else ""
@@ -86,22 +98,36 @@ def _miss(item_id: int, plan_id: int, slug: str, run: dict | None, stage: str, t
     command = (
         f"yoke qa plan run --deployment-run-id {run_id} --stage {stage} --plan {slug}"
         if run_id
-        else (f"the next {target_env or 'target'} deployment run whose commit contains "
-              f"this item's landing enrolls it and runs plan {slug} as a plan group")
+        else (
+            f"the next {target_env or 'target'} deployment run whose commit contains "
+            f"this item's landing enrolls it and runs plan {slug} as a plan group"
+        )
     )
+    if run:
+        from yoke_core.domain.deployment_qa_plan_ownership import plan_owners
+        from yoke_core.domain.project_identity import render_item_ref
+
+        if plan_owners(conn, run_id).get(plan_id) is not None:
+            command = f"yoke qa plan run --item {render_item_ref(conn, item_id)} --stage {stage}"
     if not run:
         from yoke_core.domain.deployment_item_completion_runs import (
-            completion_runs, supplemental_run_carries_landing,
+            completion_runs,
+            supplemental_run_carries_landing,
         )
         from yoke_core.domain.deployment_run_candidate_containment import UNDETERMINED
         from yoke_core.domain.deployment_run_member_targeting import (
-            run_environment_name, supplemental_qa_run,
+            run_environment_name,
+            supplemental_qa_run,
         )
 
         for candidate in completion_runs(conn, item_id, include_qa=True):
-            if (candidate["status"] in {"failed", "cancelled"}
+            if (
+                candidate["status"] in {"failed", "cancelled"}
                 or run_environment_name(conn, candidate["id"]) != target_env
-                or not supplemental_qa_run(conn, run_id=candidate["id"], item_id=item_id)):
+                or not supplemental_qa_run(
+                    conn, run_id=candidate["id"], item_id=item_id
+                )
+            ):
                 continue
             verdict = supplemental_run_carries_landing(conn, candidate, item_id)
             if verdict is not None and verdict.state == UNDETERMINED:
@@ -140,9 +166,15 @@ def other_target_plan_wait(conn: Any, *, item_id: int, run_id: str) -> str:
 
     rows = unsatisfied_blocking(conn, item_id=item_id, target_status="done").rows
     environment = run_environment_name(conn, run_id)
-    if not rows or not environment or any(
-        row.get("qa_kind") != PLAN_GROUP_QA_KIND or not row.get("target_env")
-        or row["target_env"] == environment for row in rows
+    if (
+        not rows
+        or not environment
+        or any(
+            row.get("qa_kind") != PLAN_GROUP_QA_KIND
+            or not row.get("target_env")
+            or row["target_env"] == environment
+            for row in rows
+        )
     ):
         return ""
     return " ".join(plan_credit_wait_reason(row) for row in rows)
@@ -161,20 +193,31 @@ def plan_credit_misses(conn: Any, item_id: int) -> list[dict]:
     misses = []
     for plan_id, slug in sorted(_owed_plans(conn, item_id).items()):
         for target_env in _plan_target_envs(conn, plan_id, item_id):
-            run = latest_qa_member_run(conn, item_id=int(item_id), target_env=target_env)
+            run = latest_qa_member_run(
+                conn, item_id=int(item_id), target_env=target_env
+            )
             if run is not None and plan_id not in member_plan_ids(
                 conn, int(item_id), str(run["id"])
             ):
                 continue  # bound to another environment: this run owes it none
-            credited = run is not None and any(
-                group.closed and int(item_id) in (group.covered_item_ids or ())
-                for group in run_groups(
-                    conn, lineage_run_ids(conn, str(run["id"])), plan_id=plan_id
+            from yoke_core.domain.deployment_qa_plan_ownership import (
+                member_plan_credited,
+            )
+
+            credited = run is not None and (
+                member_plan_credited(conn, str(run["id"]), int(item_id), plan_id)
+                or any(
+                    group.closed and int(item_id) in (group.covered_item_ids or ())
+                    for group in run_groups(
+                        conn, lineage_run_ids(conn, str(run["id"])), plan_id=plan_id
+                    )
                 )
             )
             if not credited:
                 stage = item_qa_stage_name(_stages(conn, run)) if run else "item-qa"
-                misses.append(_miss(item_id, plan_id, slug, run, stage, target_env, conn=conn))
+                misses.append(
+                    _miss(item_id, plan_id, slug, run, stage, target_env, conn=conn)
+                )
                 break
     return misses
 
@@ -191,4 +234,9 @@ def _stages(conn: Any, run: dict) -> list[dict]:
     return [stage for stage in stages or [] if isinstance(stage, dict)]
 
 
-__all__ = ["PLAN_GROUP_QA_KIND", "plan_credit_misses", "plan_credit_wait_reason", "other_target_plan_wait"]
+__all__ = [
+    "PLAN_GROUP_QA_KIND",
+    "plan_credit_misses",
+    "plan_credit_wait_reason",
+    "other_target_plan_wait",
+]

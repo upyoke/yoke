@@ -104,9 +104,24 @@ def frozen_stage_plans(
             return value
         return source_refreshed_plan(conn, subject, value, materialized=materialized)
 
-    # Post-deploy plans never ride a member: they run as plan groups
-    # (:mod:`deployment_qa_plan_group_writes`).
+    from yoke_core.domain.deployment_qa_plan_ownership import member_plan_ids
+
     frozen = _flow_plan(subject, refresh)
+    member = subject.get("member_item_id")
+    if member is not None:
+        project = int(subject.get("member_project_id") or subject["project_id"])
+        for plan_id in sorted(member_plan_ids(conn, str(subject["id"]), int(member))):
+            from yoke_core.domain.deployment_qa_plan_ownership import _snapshot
+
+            pinned = (_snapshot(conn, str(subject["id"])).get("plan_groups") or {}).get(
+                str(plan_id)
+            )
+            frozen.append(
+                pinned
+                or _plan_snapshot(
+                    conn, plan_id, project_id=project, lock_plan=lock_plans
+                )
+            )
     selected_ids = {int(snapshot["plan"]["id"]) for snapshot in frozen}
     project_id = int(subject.get("member_project_id") or subject["project_id"])
     wanted: set[int] = set()

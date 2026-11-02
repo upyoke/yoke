@@ -24,8 +24,9 @@ Model: [verification](../../verification/index.md).
 - A quiet or backgrounded gate is still running: continue it. If its watcher was killed, rerun
   `yoke qa case run`; it rejoins or adopts the CI run for that commit.
 - An item case bound to an item-scoped deployment stage runs with
-  `yoke qa plan run --item PREFIX-N --stage STAGE`. An attached post-deploy plan runs once
-  per release as a plan group:
+  `yoke qa plan run --item PREFIX-N --stage STAGE`, including a plan attached by
+  exactly one member at item QA entry. A plan attached by two or more members runs
+  once per release as a driver-owned plan group:
   `yoke qa plan run --deployment-run-id RUN --stage item-qa --plan PLAN`.
 - Never run raw `python3 -m pytest` over whole test roots; use `yoke watch pytest`.
 - CI verdict wake-ups need a healthy relay on this machine

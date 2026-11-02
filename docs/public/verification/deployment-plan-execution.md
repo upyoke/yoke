@@ -4,21 +4,21 @@
 [Getting started](../index.md) > [Command and technical reference](../guide/reference/index.md) > [Verification](index.md) > Deployment plan execution
 <!-- /yoke:breadcrumbs -->
 
-Run item cases (QA written on one item, or added by the flow without a plan)
-with the item and its pinned stage:
+The holder runs item cases and single-member plans with their pinned stage:
 
 ```text
 yoke qa plan run --item PREFIX-N --stage STAGE --project P
 ```
 
-A post-deploy plan attached to release members runs once per release as one
+A post-deploy plan shared by two or more release members at item QA entry runs
+once per release as one driver-owned
 [plan group](#plan-groups):
 
 ```text
 yoke qa plan run --deployment-run-id RUN --stage item-qa --plan PLAN --project P
 ```
 
-See [item recovery](failed-item-qa.md), [target binding](case-attachment.md#binding-a-deployment-case-to-its-stage-and-member) and `yoke qa plan run --help`.
+See [item recovery](failed-item-qa.md) and `yoke qa plan run --help`.
 
 Admission copies executable item cases, retaining others on the item. Attached
 plans supply cases without copies; stage targets supply `target_env` for corrections.
@@ -28,22 +28,20 @@ cross-build observations and exact-execution recovery.
 
 ## Plan groups
 
-At `item-qa`, each attached or default live plan owed here gets one group:
+At `item-qa` entry, one attacher makes member QA; two or more make a driver-owned
+group. Later attachments keep that ownership. Each shared plan owed here gets
 memberless rows per case and baseline, shared by attachers. Its immutable target
 records `deployment.shared_plan = {plan_id, source_revision, group_id}`; the
 candidate must contain that source. Cases filter to the target. The first group
 pins the plan; edits wait for the next release. Only one group per plan stays
 open. Supplemental runs enroll members owing plans there without own cases.
-With no own cases and plans owed only elsewhere, this run may succeed while
-the member waits. Notices and the done gate name the owed environment, run
-and open group; close-out retries when its credit arrives. Own cases and plans
-owed here still block. Real evidence or settlement errors still report recovery.
-Cases use the plan's project unless a deployment member owns them.
+Plans owed only elsewhere let this run succeed while the member waits.
+The done gate names the owed target and run; close-out retries when credit arrives.
+Cases use the plan's project unless a member owns them.
 
 The driver runs groups outside dispatch; review never stops other groups.
-Manual/review waits notify owing holders (else member project steering), naming
-cases and recovery; closure withdraws them. Driver notices fall back to starter,
-then steering. Plan-only holders park. Recipes retain `--env`.
+Only the driver receives shared-plan waits and failures, falling back to starter,
+then steering. Holders wake for their own QA or close-out. Recipes retain `--env`.
 
 Plan commands have no member: `DEPLOYMENT_MEMBER_REF` refuses as
 `qa_plan_member_reference_unsupported`. Read `YOKE_QA_CANDIDATE_TREE` (`root`,
@@ -54,16 +52,16 @@ Post-deploy `command-ci` refuses as `deployment_ci_case_unsupported`; use Comman
 without one it refuses `plan_group_not_open` and lists closed groups.
 A group closes after all cases pass and required stage acceptance is recorded.
 Its immutable `covered_item_ids` names attachers at closure. Done needs a closed
-group for each attached plan in its target-qualified completion run (including
+group for each shared plan, or accepted member-bound cases for a single-member
+plan, in its target-qualified completion run (including
 supplemental runs that recorded the delivered revision) or superseded lineage.
 Later attachers need a new group; verification passes never count post-deploy.
 
 A failed case holds its group open; retries run only failed cases. Failure
-notices name requirements and recovery to owing holders, else member-project
-steering; the driver gets routed refs. A resultless abort notifies unless a retry
-is live. Changed reports send new notices, separate from waits. Empty own-case
-sets never cancel still-owed group notices. Group closure withdraws only its own
-member notices, preserving other groups' waits and failures without duplicates.
+notices tell the driver to choose which items need fixes, retry, waive with
+authorization or remove an item. [Release roles](../agents/rules/release-roles.md)
+names commands. A resultless abort notifies unless a retry is live. Changed
+reports send new notices; closure withdraws only its own notice.
 
 Recording a case verdict while its stage is executing settles that stage in
 the same write; a group case settles its group. When the stage cannot settle,

@@ -24,10 +24,16 @@ Member runs have two roles. Matrix:
 - Remove a wrong member with `yoke deployment-runs remove-item RUN-ID PREFIX-N --reason R`. After
   removing a member from a run failed at item QA, resume with
   `yoke watch deploy -- RUN-ID --from-stage item-qa`.
-- Pending [plan groups](../../verification/deployment-plan-execution.md#plan-groups) and
+- Shared plans (at least two attaching members at item QA entry) and run QA belong only
+  to this seat. Pending [plan groups](../../verification/deployment-plan-execution.md#plan-groups) and
   their failures are run-scoped notices to this seat: run each with
   `yoke qa plan run --deployment-run-id RUN-ID --stage item-qa --plan PLAN`, and on a
-  failure decide who fixes what.
+  failure triage the evidence and choose which attaching items owe a fix. Send only
+  those items back with `yoke lifecycle transition PREFIX-N --from release --to
+  implementing --reason R`; retry evidence failures with the same plan command,
+  record an authorized waiver with `yoke qa requirement waive --requirement-id ID
+  --rationale R --source operator --force`, or remove an item with the command above.
+  Holders receive no shared-plan notices, whether pending, failed or passed.
 - Workers whose own item has a QA finding that another item must fix first record it:
   `yoke items dependency add DEPENDENT BLOCKER operator --gate-point closure
   --satisfaction status:done --rationale R`.
@@ -38,8 +44,10 @@ Member runs have two roles. Matrix:
 
 - Run the member's item cases with
   `yoke qa plan run --item PREFIX-N --stage STAGE`. Dropping `--stage`
-  or another item does not answer that obligation. Attached post-deploy plans run as
-  plan groups, never by the holder; a plan-only item parks until its groups close. `yoke qa case run` never
+  or another item does not answer that obligation. A post-deploy plan attached by
+  exactly one member at item QA entry runs here as that member's QA; its holder wakes
+  and runs it. Shared-plan-only holders park until close-out. Ownership stays fixed
+  when another member attaches later. `yoke qa case run` never
   credits a stage.
 - A refused automatic close-out wakes you with its blockers; read
   `yoke qa gate-summary --item PREFIX-N --target implemented`. It retries when they settle.

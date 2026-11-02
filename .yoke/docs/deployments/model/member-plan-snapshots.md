@@ -5,8 +5,9 @@
 <!-- /yoke:breadcrumbs -->
 
 Admission freezes a member's item cases, never its post-deploy plans. Each
-attached post-deploy plan runs as a plan group at item QA, pinned at the run's
-first group of that plan ([plan groups](../../verification/deployment-plan-execution.md#plan-groups)).
+plan's ownership freezes at item QA entry. A single-member plan is pinned there
+and runs as member QA; a plan shared by two or more members runs as a driver-owned
+group, pinned at the run's first group of that plan ([plan groups](../../verification/deployment-plan-execution.md#plan-groups)).
 
 An incomplete frozen item case blocks QA, but does not block removing that
 member at independent item QA with `yoke deployment-runs remove-item RUN

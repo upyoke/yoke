@@ -201,7 +201,9 @@ def current_item_qa(
         target=deployment_qa_execution_target(conn, subject),
         acceptance_qa_kind=DEPLOYMENT_STAGE_ACCEPTANCE_QA_KIND,
     )
-    from yoke_core.domain.deployment_qa_plan_group_writes import member_group_blockers
+    from yoke_core.domain.deployment_qa_plan_group_standings import (
+        member_group_blockers,
+    )
 
     state, blockers = acceptance.state, tuple(acceptance.blockers)
     # An open group of a plan this member attaches is still this member's QA.

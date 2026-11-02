@@ -128,7 +128,11 @@ def classify(
     reaches here and a run cannot answer the question on the owner's behalf.
     """
     attached = [row for row in _post_deploy(attachments) if not _is_retracted(row)]
-    rows = [row for row in _post_deploy(requirements) if not _is_retracted(row) and row.get("plan_id") is None]
+    rows = [
+        row
+        for row in _post_deploy(requirements)
+        if not _is_retracted(row) and row.get("plan_id") is None
+    ]
     live = [
         row for row in rows if not _is_no_obligation(row) and not row.get("waived_at")
     ]
@@ -215,10 +219,17 @@ def member_post_deploy_answer(
     from yoke_core.domain.deployment_qa_member_plans import member_plan_disposition
 
     if not _own_snapshot_cases(subject):
-        owed, attached = member_plan_disposition(conn, int(member_item_id), str(subject["id"]))
+        owed, attached = member_plan_disposition(
+            conn, int(member_item_id), str(subject["id"])
+        )
+        from yoke_core.domain.deployment_qa_plan_ownership import member_plan_ids
+
+        if member_plan_ids(conn, str(subject["id"]), int(member_item_id)):
+            return PostDeployAnswer(ANSWERED)
         if owed:
             return PostDeployAnswer(
-                PLAN_GROUPS, ("its post-deploy plans run once for the release as plan groups",)
+                PLAN_GROUPS,
+                ("its post-deploy plans run once for the release as plan groups",),
             )
         if attached:
             return PostDeployAnswer(
@@ -268,7 +279,7 @@ def attach_standing_recipe(public_ref: str, *, project: str, transition: str) ->
 #: teaching one of them as the answer.
 RUN_SCOPED_NOTE = (
     "A third choice exists and is not this one: `--plan` with `--item` on a "
-    "running item stage only runs a plan group the item attaches, and writes "
+    "running item stage executes a plan the item attaches, and writes "
     "nothing the item keeps. It needs a run, so it cannot be made here, and it "
     "never answers this question for the next deployment."
 )
@@ -288,11 +299,13 @@ def cases_not_selected_refusal(*, member_ref: str = "") -> str:
         "a project QA plan and retry under the same run and stage: `yoke qa plan "
         "run --deployment-run-id RUN --stage STAGE --plan PLAN --project P`; that "
         "selection moves with this run. At an item-scoped stage, `--plan` with "
-        "`--item` only runs a plan group the item attaches. The durable answers "
+        "`--item` executes an attached member-owned plan; shared plans belong to "
+        "the run driver. The durable answers "
         "belong to the item and are asked for before it merges: attaching a "
         f"post-deploy plan (`yoke qa item-plan attach --item {subject} ... "
         f"--qa-phase {DEPLOYMENT_ATTACHMENT_PHASE}`) makes the release run it "
-        "as a plan group, or record that no post-deploy obligation exists "
+        "as member QA for one attacher or a driver-owned shared group, or record "
+        "that no post-deploy obligation exists "
         f"with `{record_no_obligation_recipe(subject)}` (not a waiver)."
     )
 

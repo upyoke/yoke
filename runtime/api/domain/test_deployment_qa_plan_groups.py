@@ -69,7 +69,9 @@ def _pass_group(conn):
     _complete_case(conn, execution)
     group = run_groups(conn, [RUN], "item-qa")[-1]
     if not group.closed:
-        settle_group(conn, group_subject(conn, RUN, "item-qa", group, require_active=False))
+        settle_group(
+            conn, group_subject(conn, RUN, "item-qa", group, require_active=False)
+        )
     return execution
 
 
@@ -137,7 +139,9 @@ def test_detaching_retracts_the_open_group_but_never_a_passed_one(test_db):
     test_db.execute("DELETE FROM qa_plan_item_attachments WHERE plan_id=%s", (plan_id,))
     test_db.commit()
 
-    assert retract_unattached_groups(test_db, RUN, reason="detached", source="test") == []
+    assert (
+        retract_unattached_groups(test_db, RUN, reason="detached", source="test") == []
+    )
     assert not run_groups(test_db, [RUN], "item-qa")[0].retracted
 
 
@@ -177,11 +181,16 @@ def test_the_done_refusal_names_the_plan_group_command_only(test_db):
     assert f"Post-deploy plan {SLUG}: Awaiting stage plan {SLUG} group credit" in text
     assert f"on deployment run {RUN}" in text
     assert "on its completion run" not in text
-    assert f"yoke qa plan run --deployment-run-id {RUN} --stage item-qa --plan {SLUG}" in text
+    assert (
+        f"yoke qa plan run --deployment-run-id {RUN} --stage item-qa --plan {SLUG}"
+        in text
+    )
     assert POST_DEPLOY_RECOVERY not in text
 
 
-def test_a_finished_group_walk_wakes_the_run_recipient_not_a_member(test_db, monkeypatch):
+def test_a_finished_group_walk_wakes_the_run_recipient_not_a_member(
+    test_db, monkeypatch
+):
     from yoke_core.domain import deployment_run_driver_notice as notice
     from yoke_core.domain.qa_plan_agent_review_wake import notify_scoped_agent_review
 
@@ -210,7 +219,7 @@ def test_a_member_stands_on_its_open_plan_group_until_the_group_passes(test_db):
         item_qa_acceptance_blockers,
     )
 
-    _seed(test_db, attached=MEMBERS[:1])
+    _seed(test_db, attached=MEMBERS[:2])
     ensure_groups(test_db, RUN, "item-qa")
     test_db.commit()
 
@@ -236,14 +245,17 @@ def test_plan_groups_never_answer_a_member_s_own_unrun_cases(test_db):
         member_post_deploy_answer,
     )
 
-    _seed(test_db, attached=MEMBERS[:1])
+    _seed(test_db, attached=MEMBERS[:2])
     subject = {"id": RUN, "member_item_id": MEMBERS[0]}
     own_case = {"plan_id": None, "qa_phase": "post_deploy", "id": 1}
 
     assert member_post_deploy_answer(test_db, subject).verdict == PLAN_GROUPS
-    assert member_post_deploy_answer(
-        test_db, {**subject, "member_snapshot": {"requirements": [own_case]}}
-    ).verdict != PLAN_GROUPS
+    assert (
+        member_post_deploy_answer(
+            test_db, {**subject, "member_snapshot": {"requirements": [own_case]}}
+        ).verdict
+        != PLAN_GROUPS
+    )
 
 
 def test_an_unattached_group_whose_rows_passed_closes_covering_nobody(test_db):
@@ -259,7 +271,9 @@ def test_an_unattached_group_whose_rows_passed_closes_covering_nobody(test_db):
     test_db.execute("DELETE FROM qa_plan_item_attachments WHERE plan_id=%s", (plan_id,))
     test_db.commit()
 
-    assert retract_unattached_groups(test_db, RUN, reason="detached", source="test") == []
+    assert (
+        retract_unattached_groups(test_db, RUN, reason="detached", source="test") == []
+    )
     (group,) = run_groups(test_db, [RUN], "item-qa")
     assert group.closed and group.covered_item_ids == () and not group.retracted
     _attach(test_db, MEMBERS[0], plan_id)
@@ -268,12 +282,14 @@ def test_an_unattached_group_whose_rows_passed_closes_covering_nobody(test_db):
 
 
 def test_old_admission_forms_a_group_for_a_hosted_environment_plan(test_db):
-    from runtime.api.domain.test_delete_post_deploy_item_qa_copies_migration import MIGRATION
+    from runtime.api.domain.test_delete_post_deploy_item_qa_copies_migration import (
+        MIGRATION,
+    )
     from runtime.api.domain.test_qa_requirement_target_rebind import _hosted_prod_pair
     from yoke_core.domain.deployment_requirement_snapshots import _plan_snapshot
     from yoke_core.domain.deployment_qa_member_plans import member_plan_ids
 
-    plan_id = _seed(test_db, attached=MEMBERS[:1])
+    plan_id = _seed(test_db, attached=MEMBERS[:2])
     hosted_id, _ = _hosted_prod_pair(test_db)
     test_db.execute("UPDATE environments SET name='stage' WHERE id=%s", (hosted_id,))
     test_db.execute(
@@ -283,7 +299,11 @@ def test_old_admission_forms_a_group_for_a_hosted_environment_plan(test_db):
     test_db.execute(
         "UPDATE deployment_run_items SET requirement_snapshot=%s "
         "WHERE run_id=%s AND item_id=%s",
-        (json.dumps({"schema": 1, "requirements": [], "plans": [snapshot]}), RUN, MEMBERS[0]),
+        (
+            json.dumps({"schema": 1, "requirements": [], "plans": [snapshot]}),
+            RUN,
+            MEMBERS[0],
+        ),
     )
     test_db.commit()
     run_environment = test_db.execute(

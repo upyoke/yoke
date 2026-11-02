@@ -11,7 +11,14 @@ its recovery. An item-scoped member also settles when every run-bound item
 case has a current pass and evidence, including passes from `yoke qa case run`.
 A pending independent review still waits; rerunning passed cases cannot supply it.
 
-Each attached or default post-deploy plan runs as a plan group. Closed groups
+Plan ownership freezes at item QA entry. A plan attached by exactly one member
+runs as that member's QA: wake its holder to run `yoke qa plan run --item PREFIX-N
+--stage STAGE`. Plans shared by two or more members run as driver-owned plan groups;
+run-level QA also belongs only to the driver. Later attachments never change that
+ownership. Shared-plan waits, failures and passes send no member-holder notice;
+only item QA and close-out wake them. A failed shared plan tells the driver to
+triage which attaching items need code fixes and names rework, retry, authorized
+waiver and member-removal commands. Closed groups
 credit only their recorded `covered_item_ids` across the superseded-run lineage.
 A later attacher gets a new group; already covered items do not wait on it.
 The group's pinned cases and target remain authoritative after plan edits.

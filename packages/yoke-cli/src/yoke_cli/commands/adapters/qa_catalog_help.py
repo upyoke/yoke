@@ -30,7 +30,7 @@ ITEM_PLAN_ATTACH_EPILOG = (
     "--qa-phase verification, and run yoke qa plan materialize.\n\n"
     "Post-deploy plans attach directly at the pinned release stage with\n"
     "--qa-phase post_deploy; no choice step is needed. Nothing is copied onto\n"
-    "the item: each release runs the plan once as a plan group at item-qa."
+    "the item: at item QA entry, one attacher runs member QA; shared plans belong to the driver."
 )
 
 #: Read as ``yoke qa plan-cases replace --help``. What an author has to know
@@ -163,7 +163,7 @@ than one allowlisted field. The result's plan_ids names every plan the call
 reached; a lost case is waived as removed (waived_requirement_ids).
 
 Post-deploy plans are never materialized on an item: each release runs each
-one once as a plan group at item-qa, pinned at the plan revision the release
+single-member plans as member QA and shared plans as driver-owned groups, pinned when the release
 started with, so an edited plan runs on the next release. An item transition
 that attaches only post-deploy plans refuses as
 post_deploy_plan_runs_as_plan_group, and so does --deployment-run-id at an
