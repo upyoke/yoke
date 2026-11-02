@@ -25,6 +25,7 @@ from yoke_contracts.machine_config.directories import (
 
 import hashlib
 import os
+import re
 import shutil
 import stat
 import subprocess
@@ -205,8 +206,8 @@ def data_dir_major_mismatch(spec: ClusterSpec) -> Optional[str]:
         res = _run([binary(spec, "pg_ctl"), "--version"])
     except FileNotFoundError:
         return None
-    words = (res.stdout or "").split()
-    server_major = words[-1].split(".")[0] if res.returncode == 0 and words else ""
+    version = re.search(r"\(PostgreSQL\)\s+(\d+)", res.stdout or "")
+    server_major = version.group(1) if res.returncode == 0 and version else ""
     if not server_major or server_major == data_major:
         return None
     return f"data directory PG {data_major}, server PG {server_major}"

@@ -273,6 +273,11 @@ def test_live_lifecycle_on_scratch_root():
     [
         ("16", "pg_ctl (PostgreSQL) 17.10\n", "data directory PG 16, server PG 17"),
         ("17", "pg_ctl (PostgreSQL) 17.10\n", None),
+        ("16", "pg_ctl (PostgreSQL) 16.14 (Homebrew)\n", None),
+        (
+            "17", "pg_ctl (PostgreSQL) 16.14 (Homebrew)\n",
+            "data directory PG 17, server PG 16",
+        ),
     ],
 )
 def test_data_dir_major_mismatch_names_both_majors(
