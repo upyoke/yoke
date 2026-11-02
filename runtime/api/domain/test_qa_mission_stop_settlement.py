@@ -116,8 +116,23 @@ def test_setup_stop_guidance_names_diagnostic_evidence():
 
 
 def test_setup_stop_preserves_mixed_bundle_review(test_db, monkeypatch):
-    execution, stopped_id, stopped_run = captured_plan_review(test_db, 9785)
-    other, product_id, product_run = captured_plan_review(test_db, 9786)
+    execution, stopped_id, stopped_run = captured_plan_review(
+        test_db, 9785, unfinished_case=True
+    )
+    product_id = int(execution["roster"][1]["requirement_id"])
+    product_run = test_db.execute(
+        "INSERT INTO qa_runs(qa_requirement_id,performed_by,qa_kind,case_outcome,"
+        "raw_result,started_at,completed_at,created_at) "
+        "SELECT %s,performed_by,qa_kind,case_outcome,raw_result,started_at,"
+        "completed_at,created_at FROM qa_runs WHERE id=%s RETURNING id",
+        (product_id, stopped_run),
+    ).fetchone()[0]
+    test_db.execute(
+        "INSERT INTO qa_artifacts(qa_run_id,artifact_type,content_type,"
+        "artifact_handle,metadata,created_at) SELECT %s,artifact_type,content_type,"
+        "artifact_handle,metadata,created_at FROM qa_artifacts WHERE qa_run_id=%s",
+        (product_run, stopped_run),
+    )
     execution["roster"][0].update(
         runner_id="agent_mission", method_id="exploratory-mission",
         method_config={"executor": "informed_subagent"},
@@ -127,7 +142,6 @@ def test_setup_stop_preserves_mixed_bundle_review(test_db, monkeypatch):
         "WHERE id=%s", (stopped_run,),
     )
     test_db.execute("DELETE FROM qa_artifacts WHERE qa_run_id=%s", (stopped_run,))
-    execution["roster"].append({**other["roster"][0], "ordinal": 1})
     advance_plan_execution(
         test_db, execution, ordinal=1, requirement_id=product_id,
         result={"run_id": product_run},
