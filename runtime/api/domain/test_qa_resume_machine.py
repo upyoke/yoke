@@ -17,7 +17,8 @@ def test_resume_recipe_never_pins_a_host(hosts):
         "deployment_run_id": "run",
         "deployment_stage": "member-qa",
         "roster": [
-            {"project": "example", "method_config": {"test_machine": host}} for host in hosts
+            {"project": "example", "method_config": {"test_machine": host}}
+            for host in hosts
         ],
     }
     command = continuation_recipe(Mock(), execution)
@@ -34,7 +35,9 @@ def test_settled_execution_recovers_host_from_its_recorded_runs(monkeypatch):
             fetchall=lambda: [
                 {
                     "id": 12,
-                    "raw_result": json.dumps({"evidence": {"test_machine": "linux-lab"}}),
+                    "raw_result": json.dumps(
+                        {"evidence": {"test_machine": "linux-lab"}}
+                    ),
                 }
             ]
         ),
@@ -66,7 +69,7 @@ def test_multi_host_correction_notice_omits_a_global_pin(monkeypatch):
     from yoke_core.domain import deployment_qa_correction_notice as notice
 
     conn = Mock()
-    conn.execute.return_value.fetchone.return_value = {"project_id": 1}
+    conn.execute.return_value.fetchone.side_effect = [{"project_id": 1}, {"plan_id": 4}]
     monkeypatch.setattr(
         notice, "resolve_project", lambda *a: SimpleNamespace(slug="example")
     )
@@ -150,7 +153,10 @@ def test_each_platform_recovers_only_its_own_execution_host(
         ),
         Mock(
             fetchall=lambda: [
-                {"id": n, "raw_result": json.dumps({"evidence": {"test_machine": host}})}
+                {
+                    "id": n,
+                    "raw_result": json.dumps({"evidence": {"test_machine": host}}),
+                }
                 for n, host in [(1, "linux-lab"), (2, "test-mac")]
             ]
         ),
@@ -200,7 +206,9 @@ def test_corrected_roster_cases_recover_separate_hosts(requirement, host):
     conn.execute.side_effect = [
         Mock(fetchall=lambda: [{"id": requirement - 1}]),
         Mock(
-            fetchone=lambda: {"raw_result": json.dumps({"evidence": {"test_machine": host}})}
+            fetchone=lambda: {
+                "raw_result": json.dumps({"evidence": {"test_machine": host}})
+            }
         ),
     ]
     assert corrected_case_machine(conn, requirement) == host

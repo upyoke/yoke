@@ -262,16 +262,21 @@ def refreshed_case_keys(
 
 def _behind_plan_refusal(conn: Any, plan_id: int, requirement_ids: list[int]) -> str:
     from yoke_core.domain.qa_plan_case_currency import STALE_PLAN_CASE_CODE
-    from yoke_core.domain.qa_plan_rematerialize import plan_refresh_invocation
+    from yoke_core.domain.qa_plan_rematerialize import refresh_recovery
 
+    row = query_rows(
+        conn,
+        "SELECT id,item_id,deployment_run_id,deployment_stage,"
+        "deployment_member_item_id,plan_id,execution_target_json,qa_phase,"
+        "workflow_transition_id FROM qa_requirements WHERE id=%s",
+        (requirement_ids[0],),
+    )[0]
     ids = ", ".join(str(requirement_id) for requirement_id in requirement_ids)
     return (
         f"{STALE_PLAN_CASE_CODE}: QA requirement {ids} has not been judged, and "
         f"its case in QA plan {plan_id} has changed since it was materialized. "
         "Running it would judge against a definition the plan has already "
-        "replaced. Refresh it from the plan with "
-        f"`{plan_refresh_invocation(conn, requirement_ids[0])}`, then run the "
-        "stage again."
+        f"replaced. {refresh_recovery(conn, row)} Then run the stage again."
     )
 
 
