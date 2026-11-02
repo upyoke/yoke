@@ -210,7 +210,9 @@ def _insert_case(conn, refresh, *, plan, case, baseline, position) -> int:
 
 def write_subject_refresh(conn: Any, refresh: SubjectRefresh) -> dict[str, Any]:
     """Refresh this subject's rows; the caller holds the run lock."""
-    owner_scope = dict(run_id=refresh.run_id, stage=refresh.stage)
+    owner_scope = dict(
+        run_id=refresh.run_id, stage=refresh.stage, member=refresh.member
+    )
     for plan_id in refresh.rows_by_plan:
         selected_plan_owners(conn, plan_id=plan_id, **owner_scope)
     created: list[int] = []

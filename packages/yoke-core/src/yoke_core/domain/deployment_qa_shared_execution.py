@@ -1,9 +1,9 @@
 """Route a deployment QA begin to its subject: a member's cases or a plan group.
 
-A member walks its item cases and member-owned plans. ``--plan P`` at an item-scoped stage
-walks P's open plan group, which runs once for the whole release; naming an
-attaching ``--item`` only records who asked. A requirement id resolves the
-subject that owns it.
+A member walks its item cases, member-owned plans and their correction plans.
+A shared ``--plan P`` walks P's open group once for the release; an attaching
+member only records who asked for that shared walk. A requirement id resolves
+the subject that owns it.
 """
 
 from functools import wraps
@@ -67,12 +67,12 @@ def _begin_open_group(conn, begin, kwargs, run_id, stage, inputs):
     from yoke_core.domain.deployment_qa_plan_groups import attaching_members
     from yoke_core.domain.project_identity import render_item_ref
 
+    member = kwargs.get("deployment_member_item_id")
     group = resolve_group_subject(
-        conn, run_id, stage, str(kwargs["plan"]), require_active=True
+        conn, run_id, stage, str(kwargs["plan"]), require_active=True, member=member
     )
     if group is None:
         return None
-    member = kwargs.get("deployment_member_item_id")
     plan_id = int(group["shared_plan"]["plan_id"])
     if member is not None and int(member) not in attaching_members(
         conn, run_id, plan_id

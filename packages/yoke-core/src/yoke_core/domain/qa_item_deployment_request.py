@@ -13,7 +13,9 @@ def execution_member_id(conn, member):
 
     item_id = resolve_item_ref_or_none(conn, member)
     if item_id is None:
-        raise QaPlanError("qa_member_unknown: no work item resolves from the supplied member selector")
+        raise QaPlanError(
+            "qa_member_unknown: no work item resolves from the supplied member selector"
+        )
     return item_id
 
 
@@ -51,6 +53,15 @@ def resolve_item_deployment_request(conn, request):
             "qa_item_delivery_unavailable: this item has no current QA-capable "
             "completion membership; inspect its delivery before starting QA"
         )
+    member_scoped = True
+    if payload.get("plan"):
+        from yoke_core.domain.deployment_qa_plan_ownership import plan_owners
+
+        owners = plan_owners(conn, str(run["id"]))
+        selected = int(plan["id"])
+        # Only an admitted shared plan selects the driver's memberless group.
+        # A new correction plan retains the member whose failed case it replaces.
+        member_scoped = selected not in owners or owners[selected] is not None
     return request.model_copy(
         update={
             "target": TargetRef(
@@ -60,8 +71,11 @@ def resolve_item_deployment_request(conn, request):
             ),
             "payload": {
                 **payload,
-                **({"deployment_member": render_item_ref(conn, int(item_id))}
-                   if not payload.get("plan") else {}),
+                **(
+                    {"deployment_member": render_item_ref(conn, int(item_id))}
+                    if member_scoped
+                    else {}
+                ),
             },
         }
     )

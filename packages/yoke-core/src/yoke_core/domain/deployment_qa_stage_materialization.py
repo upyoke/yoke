@@ -97,7 +97,7 @@ def stage_subject(conn, *, run_id, stage_name, member, plan, require_active=True
         )
 
         group = resolve_group_subject(
-            conn, run_id, stage_name, plan, require_active=require_active
+            conn, run_id, stage_name, plan, require_active=require_active, member=member
         )
         if group is not None:
             return group
