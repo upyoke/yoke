@@ -12,6 +12,8 @@ Yoke's Postgres control-plane authority, not a SQLite file:
 
 from __future__ import annotations
 
+from yoke_contracts.timestamps import format_instant
+
 from typing import List
 
 from yoke_core.domain import db_backend
@@ -155,7 +157,7 @@ def hc_migration_audit(conn, args: DoctorArgs, rec: RecordCollector) -> None:
     for row in bad_rows:
         issues.append(
             f"- Migration #{row['id']} ({row['migration_name']}): {row['state']} "
-            f"at {row['started_at']} — {row['failure_reason'] or 'no reason recorded'}"
+            f"at {format_instant(row['started_at'])} — {row['failure_reason'] or 'no reason recorded'}"
         )
 
     # Check 3: compare current critical table counts against last completed baseline

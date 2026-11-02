@@ -21,6 +21,8 @@ informational findings, not failures.
 
 from __future__ import annotations
 
+from yoke_contracts.timestamps import format_instant
+
 from typing import List
 
 from yoke_core.domain.db_helpers import query_rows
@@ -30,7 +32,9 @@ from yoke_core.engines.doctor_report import DoctorArgs, RecordCollector
 
 
 _HC_NAME = "HC-qa-runs-mutated"
-_HC_DESC = "qa_runs rows whose raw_result mixes failing verdict with resolution narrative"
+_HC_DESC = (
+    "qa_runs rows whose raw_result mixes failing verdict with resolution narrative"
+)
 
 
 _RESOLUTION_PHRASES = (
@@ -53,9 +57,7 @@ _RESOLUTION_PHRASES = (
 _NORMALIZATION_DISPOSITION_TOKEN = "normalization_disposition"
 
 
-def hc_qa_runs_mutated(
-    conn, args: DoctorArgs, rec: RecordCollector
-) -> None:
+def hc_qa_runs_mutated(conn, args: DoctorArgs, rec: RecordCollector) -> None:
     if not _base._table_exists(conn, "qa_runs"):
         rec.record(_HC_NAME, _HC_DESC, "PASS", "qa_runs table missing -- skipping")
         return
@@ -104,7 +106,7 @@ def hc_qa_runs_mutated(
     for row in suspect[:10]:
         issues.append(
             f"  - qa_run #{row['id']} (req #{row['qa_requirement_id']}) "
-            f"created {row['created_at']}"
+            f"created {format_instant(row['created_at'])}"
         )
     if len(suspect) > 10:
         issues.append(f"  - ... and {len(suspect) - 10} more")

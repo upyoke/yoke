@@ -44,7 +44,6 @@ def _events_audit_schema() -> None:
         c.close()
 
 
-
 class TestEventsSyntheticContamination:
     """HC-events-synthetic-contamination."""
 
@@ -180,8 +179,10 @@ class TestEventsHistoricalCoverageCollapse:
         rec = _run_hc(hc_events_historical_coverage_collapse, conn)
         res = _result(rec)
         assert res.result == "WARN"
-        assert "to_char((created_at)::timestamptz, 'YYYY-MM-DD')" in res.detail
-        assert "strftime" not in res.detail
+        follow_up = res.detail.split('"SELECT ', 1)[1].split('"`', 1)[0]
+        daily = conn.execute("SELECT " + follow_up).fetchall()
+        assert sum(row[1] for row in daily) == 221
+        assert all(len(row[0]) == 10 for row in daily)
 
     def test_backfill_rows_ignored(self):
         conn = _make_conn()
@@ -288,7 +289,6 @@ class TestAuditFingerprintHelper:
             connect_test_db,
             init_test_db,
         )
-
 
         with init_test_db(tmp_path, apply_schema=_events_audit_schema) as db_path:
             setup = connect_test_db(db_path)

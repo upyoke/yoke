@@ -15,7 +15,7 @@ from datetime import datetime, timedelta
 from typing import Any, Iterable, Sequence
 
 from yoke_contracts.harness_cli_manifest import HARNESS_CLI_MANIFESTS
-from yoke_contracts.timestamps import as_utc, parse_instant
+from yoke_contracts.timestamps import as_utc, format_instant, parse_instant
 
 #: A machine silent for longer than this is reported as offline, not by rule.
 OFFLINE_AFTER = timedelta(days=1)
@@ -52,7 +52,7 @@ class MachineRejection:
 def _instant(value: datetime | None) -> str | None:
     if value is None:
         return None
-    return as_utc(value).strftime("%Y-%m-%dT%H:%M:%SZ")
+    return format_instant(value)
 
 
 def rejection_from_row(

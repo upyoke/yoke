@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from yoke_contracts.timestamps import format_instant
+
 from datetime import datetime
 
 from typing import Any, Mapping
@@ -98,7 +100,7 @@ def native_attempt_refusal(launch: LaunchRecord) -> str:
     return (
         f"native attempt for process {launch.native_launch_pid} is still "
         f"in phase {launch.native_launch_phase}; wait for registration through "
-        f"{launch.deadline_at}, then reconcile before retry"
+        f"{format_instant(launch.deadline_at)}, then reconcile before retry"
     )
 
 

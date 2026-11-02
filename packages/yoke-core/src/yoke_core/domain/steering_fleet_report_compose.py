@@ -10,7 +10,7 @@ further refinement becomes another section rather than a new code path.
 
 from __future__ import annotations
 
-from yoke_contracts.timestamps import parse_instant
+from yoke_contracts.timestamps import format_instant, parse_instant
 
 from datetime import datetime
 
@@ -263,7 +263,7 @@ def combined_body(combined: CombinedFleetReport) -> str:
     shared = rows_per_section(reports)
     parts = [
         REPORT_BEGIN,
-        f"composed {combined.composed_at} · {len(combined.sections)} held scopes",
+        f"composed {format_instant(combined.composed_at)} · {len(combined.sections)} held scopes",
         COMBINED_PREAMBLE,
         "",
     ]

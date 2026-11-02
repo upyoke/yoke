@@ -10,6 +10,8 @@ historical telemetry collapse, and unattested destructive maintenance:
 
 from __future__ import annotations
 
+from yoke_contracts.timestamps import format_instant
+
 from typing import List, Tuple
 
 from yoke_core.domain.db_helpers import query_rows, query_scalar
@@ -22,20 +24,17 @@ from yoke_core.engines.doctor_report import DoctorArgs, RecordCollector
 
 def _week_bucket_sql(column: str) -> str:
     """Return a calendar-week bucket fragment for active ledger timestamps."""
-    return f"to_char(({column})::timestamptz, 'IYYY-IW')"
+    return f"to_char(({column})::timestamptz AT TIME ZONE 'UTC', 'IYYY-IW')"
 
 
 def _day_bucket_sql(column: str) -> str:
     """Return a YYYY-MM-DD bucket fragment for operator follow-up queries."""
-    return f"to_char(({column})::timestamptz, 'YYYY-MM-DD')"
+    return f"to_char(({column})::timestamptz AT TIME ZONE 'UTC', 'YYYY-MM-DD')"
 
 
 def _abs_seconds_delta_sql(lhs: str, rhs: str) -> str:
     """Return absolute seconds between two timestamp columns."""
-    return (
-        "ABS(EXTRACT(EPOCH FROM "
-        f"(({lhs})::timestamptz - ({rhs})::timestamptz)))"
-    )
+    return f"ABS(EXTRACT(EPOCH FROM (({lhs})::timestamptz - ({rhs})::timestamptz)))"
 
 
 def hc_events_synthetic_contamination(
@@ -62,7 +61,8 @@ def hc_events_synthetic_contamination(
         rec.record(
             "HC-events-synthetic-contamination",
             "Synthetic or test rows in canonical events ledger",
-            "PASS", "events table does not exist — skipping",
+            "PASS",
+            "events table does not exist — skipping",
         )
         return
 
@@ -74,11 +74,14 @@ def hc_events_synthetic_contamination(
     # that remain are deliberately stranded telemetry; the HC surfaces
     # their count so the operator can reconcile manually, but no live
     # remediation command is offered.
-    legacy = query_scalar(
-        conn,
-        "SELECT COUNT(*) FROM events "
-        "WHERE event_type = 'activity_backfill' OR event_name = 'ActivityBackfilled'",
-    ) or 0
+    legacy = (
+        query_scalar(
+            conn,
+            "SELECT COUNT(*) FROM events "
+            "WHERE event_type = 'activity_backfill' OR event_name = 'ActivityBackfilled'",
+        )
+        or 0
+    )
     if legacy:
         issues.append(
             f"- {legacy} legacy activity_backfill row(s) present — "
@@ -88,15 +91,18 @@ def hc_events_synthetic_contamination(
 
     # 2. Unflagged backfill-lookalike rows (session_id/service markers
     #    but no anomaly_flags='historical_backfill').
-    unflagged = query_scalar(
-        conn,
-        # deliberate case-sensitive match against internal anomaly_flag token
-        "SELECT COUNT(*) FROM events "
-        "WHERE (session_id = 'lifetime-activity-backfill' "
-        "       OR service = 'backfill-lifetime-activity') "
-        "  AND (anomaly_flags IS NULL "
-        "       OR anomaly_flags NOT LIKE '%%historical_backfill%%')",
-    ) or 0
+    unflagged = (
+        query_scalar(
+            conn,
+            # deliberate case-sensitive match against internal anomaly_flag token
+            "SELECT COUNT(*) FROM events "
+            "WHERE (session_id = 'lifetime-activity-backfill' "
+            "       OR service = 'backfill-lifetime-activity') "
+            "  AND (anomaly_flags IS NULL "
+            "       OR anomaly_flags NOT LIKE '%%historical_backfill%%')",
+        )
+        or 0
+    )
     if unflagged:
         issues.append(
             f"- {unflagged} backfill row(s) missing "
@@ -105,39 +111,44 @@ def hc_events_synthetic_contamination(
         )
 
     # 3. Known test-harness session markers leaking into canonical ledger.
-    test_markers = query_scalar(
-        conn,
-        # deliberate case-sensitive match against internal
-        # session_id prefixes and service name tokens
-        "SELECT COUNT(*) FROM events "
-        "WHERE session_id LIKE 'test-%%' "
-        "   OR session_id LIKE 'pytest-%%' "
-        "   OR session_id LIKE 'fixture-%%' "
-        "   OR service LIKE '%%-test' "
-        "   OR service LIKE 'test-%%'",
-    ) or 0
+    test_markers = (
+        query_scalar(
+            conn,
+            # deliberate case-sensitive match against internal
+            # session_id prefixes and service name tokens
+            "SELECT COUNT(*) FROM events "
+            "WHERE session_id LIKE 'test-%%' "
+            "   OR session_id LIKE 'pytest-%%' "
+            "   OR session_id LIKE 'fixture-%%' "
+            "   OR service LIKE '%%-test' "
+            "   OR service LIKE 'test-%%'",
+        )
+        or 0
+    )
     if test_markers:
         issues.append(
             f"- {test_markers} row(s) carry a test-harness "
             "session_id/service marker. Investigate via: "
-            "`python3 -m yoke_core.cli.db_router query \"SELECT "
+            '`python3 -m yoke_core.cli.db_router query "SELECT '
             "source_type, session_id, service, COUNT(*) FROM events "
             "WHERE session_id LIKE 'test-%%' OR session_id LIKE "
             "'pytest-%%' OR service LIKE 'test-%%' GROUP BY 1,2,3 "
-            "ORDER BY 4 DESC LIMIT 20\"`"
+            'ORDER BY 4 DESC LIMIT 20"`'
         )
 
     if issues:
         rec.record(
             "HC-events-synthetic-contamination",
             "Synthetic or test rows in canonical events ledger",
-            "WARN", "\n".join(issues),
+            "WARN",
+            "\n".join(issues),
         )
     else:
         rec.record(
             "HC-events-synthetic-contamination",
             "Synthetic or test rows in canonical events ledger",
-            "PASS", "",
+            "PASS",
+            "",
         )
 
 
@@ -161,7 +172,8 @@ def hc_events_historical_coverage_collapse(
         rec.record(
             "HC-events-historical-coverage-collapse",
             "Historical delivery/status telemetry coverage",
-            "PASS", "events table does not exist — skipping",
+            "PASS",
+            "events table does not exist — skipping",
         )
         return
 
@@ -218,7 +230,7 @@ def hc_events_historical_coverage_collapse(
         day_bucket = _day_bucket_sql("created_at")
         lines.append(
             "- Follow-up: `python3 -m yoke_core.cli.db_router query "
-            f"\"SELECT {day_bucket}, COUNT(*) FROM events "
+            f'"SELECT {day_bucket}, COUNT(*) FROM events '
             "WHERE event_name='ItemStatusChanged' AND "
             "(anomaly_flags IS NULL OR anomaly_flags NOT LIKE "
             "'%%historical_backfill%%') GROUP BY 1 ORDER BY 1\"` — "
@@ -228,13 +240,15 @@ def hc_events_historical_coverage_collapse(
         rec.record(
             "HC-events-historical-coverage-collapse",
             "Historical delivery/status telemetry coverage",
-            "WARN", "\n".join(lines),
+            "WARN",
+            "\n".join(lines),
         )
     else:
         rec.record(
             "HC-events-historical-coverage-collapse",
             "Historical delivery/status telemetry coverage",
-            "PASS", "",
+            "PASS",
+            "",
         )
 
 
@@ -288,7 +302,7 @@ def hc_events_destructive_maintenance_audit(
     for row in unmatched:
         cmd = str(row["cmd"] or "")[:120]
         issues.append(
-            f"- DataLossDetected @ {row['created_at']}: "
+            f"- DataLossDetected @ {format_instant(row['created_at'])}: "
             f"no migration_audit row within +-1h. command: {cmd}"
         )
 
@@ -310,7 +324,7 @@ def hc_events_destructive_maintenance_audit(
     for row in thin_fingerprints:
         issues.append(
             f"- migration_audit #{row['id']} ({row['migration_name']}) "
-            f"@ {row['started_at']}: exception fingerprint is missing a "
+            f"@ {format_instant(row['started_at'])}: exception fingerprint is missing a "
             "rationale note — expected documented safety exception."
         )
 
@@ -318,11 +332,13 @@ def hc_events_destructive_maintenance_audit(
         rec.record(
             "HC-events-destructive-maintenance-audit",
             "Destructive maintenance audit evidence",
-            "WARN", "\n".join(issues),
+            "WARN",
+            "\n".join(issues),
         )
     else:
         rec.record(
             "HC-events-destructive-maintenance-audit",
             "Destructive maintenance audit evidence",
-            "PASS", "",
+            "PASS",
+            "",
         )

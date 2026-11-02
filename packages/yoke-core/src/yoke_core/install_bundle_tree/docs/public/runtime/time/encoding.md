@@ -271,6 +271,14 @@ Strategy headers emit fixed-six UTC identities; parsing rejects invalid clocks a
 relocation compares canonical identities before file inspection, preserving matching file bytes, body hashes and
 editor labels.
 
+Diagnostic prose, compact GitHub evidence, launch refusal details and watcher
+messages format owned instants through `format_instant`, preserving all six
+fractional digits. SSH archive receipts and quota failure observations follow
+the same boundary. Ledger calendar day and ISO week buckets convert instants
+with `AT TIME ZONE 'UTC'` before formatting, independent of the SQL session zone.
+The test SQL guard checks executed `to_char`, `date_trunc` and `::date` calendar
+expressions and rejects an instant bucket without its explicit UTC conversion.
+
 ## Related
 
 - [Clock verification and recovery](verification.md)
