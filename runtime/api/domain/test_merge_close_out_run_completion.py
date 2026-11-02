@@ -62,7 +62,7 @@ def test_recovered_merge_close_out_finishes_settling_run(
     ).fetchone()["settling_at"]
 
     monkeypatch.setattr(delivery_member_close_steps, "prepare_member_close", prepare)
-    assert prepare(test_db, item_id=MEMBER_B, public_ref="member") == ""
+    assert prepare(test_db, item_id=MEMBER_B, public_ref="member", run_id=run_id) == ""
 
     def dispatch(*, function_id, target, payload):
         target = target.model_copy(
