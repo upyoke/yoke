@@ -26,7 +26,7 @@ A move export checks output-folder write access before pausing. An unavailable p
 
 `yoke universe validate` checks a portable archive before it is used. Validation checks the archive, receipt, manifest and every included file; it does not prove that an application, repository, or external service was also backed up.
 
-If validation reports `archive_tool_version_unsupported`, use PostgreSQL client tools matching the source dump writer or newer, then retry. Preserve the original archive and receipt; an incompatible reader does not establish archive corruption.
+If validation reports `archive_tool_version_unsupported`, set `YOKE_PG_BIN_DIR` to the bin directory of PostgreSQL client tools matching the source dump writer or newer, or run `yoke init --local` to fetch Yoke's bundled tools, then retry. Preserve the original archive and receipt; an incompatible reader does not establish archive corruption.
 
 For deeper recovery verification, the supported round-trip validation restores into an explicitly disposable PostgreSQL database. That replaces the validation target, so an operator must prepare and identify the scratch database first.
 

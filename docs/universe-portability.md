@@ -102,8 +102,10 @@ the consent stays. Local import addresses only the active `local` connection;
 self-host import addresses an explicitly selected Compose bundle.
 
 If inspection reports `archive_tool_version_unsupported`, the selected
-`pg_restore` cannot read the dump format. Use PostgreSQL client tools matching
-the source dump writer or newer, then retry validation or import. Preserve the
+`pg_restore` cannot read the dump format. Set `YOKE_PG_BIN_DIR` to the bin
+directory of PostgreSQL client tools matching the source dump writer or newer,
+or run `yoke init --local` to fetch Yoke's bundled tools, then retry validation
+or import. Preserve the
 original archive and its receipt; a tool mismatch does not establish corruption.
 
 ## Export a move or a backup
