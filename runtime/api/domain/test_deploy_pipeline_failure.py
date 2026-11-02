@@ -5,11 +5,41 @@ from __future__ import annotations
 import subprocess
 from unittest import mock
 
+import pytest
+
 from yoke_core.domain import (
     deploy_pipeline,
     deploy_pipeline_failure,
     deploy_pipeline_run_updates as run_updates,
 )
+
+
+@pytest.fixture(autouse=True)
+def run_context():
+    with mock.patch.object(
+        deploy_pipeline_failure.control_plane,
+        "execution_context",
+        return_value={"run": {"status": "executing"}},
+    ) as context:
+        yield context
+
+
+def test_cancelled_run_exits_without_failure_side_effects(run_context, capsys):
+    run_context.return_value = {"run": {"status": "cancelled"}}
+    emit_event = mock.Mock()
+    with (
+        mock.patch.object(run_updates, "update_run_field") as update_run,
+        mock.patch.object(deploy_pipeline_failure.reporting, "_set_deploy_stage") as stage,
+        mock.patch.object(deploy_pipeline_failure, "_report_failure_trace") as trace,
+    ):
+        assert _fail_stage(emit_event) == 0
+    run_context.assert_called_once_with("run-20261019-007")
+    update_run.assert_not_called()
+    stage.assert_not_called()
+    trace.assert_not_called()
+    emit_event.assert_not_called()
+    err = capsys.readouterr().err
+    assert err == "Run run-20261019-007 was cancelled.\n"
 
 
 def _completed(

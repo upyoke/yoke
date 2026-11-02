@@ -9,6 +9,7 @@ from typing import Callable, List, Optional
 
 from yoke_contracts.refusal_recovery import compose_refusal
 
+from yoke_core.domain import deploy_pipeline_control_plane as control_plane
 from yoke_core.domain import deploy_pipeline_poll_authority as poll_authority
 from yoke_core.domain import deploy_pipeline_reporting as reporting
 from yoke_core.domain import deploy_pipeline_run_updates as run_updates
@@ -126,12 +127,15 @@ def fail_pipeline_stage(
     sd: Optional[str],
     emit_event: Callable[..., None],
 ) -> int:
-    """Record one failed stage, explain its terminal cause, and return 1.
+    """Report cancellation or record a failed stage and explain its cause.
 
     The run's status is written before its stage. A refused status write
     leaves both untouched, so the run never reads ``<stage>-failed`` while
     still ``executing`` and live QA scoped to the stage keeps writing.
     """
+    if control_plane.execution_context(run_id)["run"]["status"] == "cancelled":
+        print(f"Run {run_id} was cancelled.", file=sys.stderr)
+        return 0
     if diagnostic:
         print(f"Step runner diagnostic: {diagnostic}", file=sys.stderr)
     context = {
