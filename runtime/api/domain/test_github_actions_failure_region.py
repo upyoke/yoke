@@ -92,6 +92,31 @@ class TestLocate:
             "##[error]read ECONNRESET",
         ]
 
+    @pytest.mark.parametrize("exit_code", [1, 2, 127])
+    def test_process_failure_precedes_later_failure_reporting_step(self, exit_code):
+        failed_step = [
+            "##[group]Run pytest",
+            "ImportError while loading conftest: missing dependency",
+            f"##[error]Process completed with exit code {exit_code}.",
+        ]
+        text = "\n".join(
+            [
+                "##[group]Run actions/checkout@v4",
+                "##[error]getaddrinfo EAI_AGAIN github.com",
+                "Checked out ref after retry",
+                *failed_step,
+                "##[group]Run route-consumer-failure",
+                "##[error]Consumer verification failed; see earlier step",
+                "Process completed with exit code 1.",
+                "##[error]Process completed with exit code 0.",
+            ]
+        )
+
+        region = failure_region(text, max_lines=20, max_bytes=UNBOUNDED)
+
+        assert region.kind == REGION_ERROR_STEP
+        assert region.lines == failed_step
+
     def test_log_without_markers_falls_back_to_its_end_before_teardown(self):
         text = "\n".join([*(f"line {i}" for i in range(30)), "Post job cleanup.", "x"])
 
