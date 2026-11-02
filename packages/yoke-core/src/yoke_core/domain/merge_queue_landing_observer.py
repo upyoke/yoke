@@ -1,15 +1,6 @@
 """The control-plane reader that notices a landing without a waiting worker.
 
-An item's landing used to be recorded only by the process waiting for it.
-Both landing routes converge on the same pull request, but only the
-two-call handoff recorded a queue admission, so a worker holding the
-landing in its own turn left no durable trace at all — and when that turn
-died, the merge was real on GitHub and invisible here: the item sat
-non-terminal with no landing stamp, the fleet report showed an idle holder
-rather than a landing nobody closed out, and a person had to notice by
-hand.
-
-So the pull request is recorded when it is opened
+The pull request is recorded when it is opened
 (:mod:`yoke_core.domain.merge_queue_landing_pending`), and this observer
 reads GitHub for every non-terminal item that has one. Control-plane upkeep and
 a waiting lane both call it, while the project cadence row makes those callers
@@ -83,6 +74,7 @@ from yoke_core.domain.merge_queue_landing_observation import (
     EJECTED,
     LANDED,
     classify_pending_landing,
+    confirm_clean_landing,
     ejection_message,
 )
 from yoke_core.domain.db_helpers import instant_parameter
@@ -160,19 +152,21 @@ def observe_pending_landings(
                 read_membership=read_membership,
                 read_checks=read_checks,
             )
+
+            def reread():
+                return read_landing(
+                    ctx, pr_number, read_state=read_state,
+                    read_membership=read_membership, read_checks=read_checks,
+                )
+
+            readback = confirm_clean_landing(readback, reread)
             readback = recover_ejection(
                 conn,
                 row,
                 ctx,
                 readback,
                 now=current,
-                reread=lambda ctx, pr: read_landing(
-                    ctx,
-                    pr,
-                    read_state=read_state,
-                    read_membership=read_membership,
-                    read_checks=read_checks,
-                ),
+                reread=lambda _ctx, _pr: reread(),
             )
             if readback.membership is not None or readback.merged:
                 if row.get("previously_held") and not row.get(
