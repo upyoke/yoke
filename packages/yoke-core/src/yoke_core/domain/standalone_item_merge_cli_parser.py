@@ -144,9 +144,10 @@ def build_parser() -> argparse.ArgumentParser:
         ),
         (
             "--skip-status",
-            "Merge without the close-out transition. The merge still "
-            "moves an item one edge before review into its review stage; "
-            "an item further back is refused.",
+            "Postpone only the move to done. The merge still moves the "
+            "item to release and releases its work claim. Merge each step "
+            "of multi-step work as its own item. An item one edge before "
+            "review still enters review first; an item further back is refused.",
         ),
         ("--pr", "Merge through a pull request."),
         (

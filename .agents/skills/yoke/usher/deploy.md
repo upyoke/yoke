@@ -1,6 +1,8 @@
 # Usher — delivery
 
-Merge-only stops here and keeps the claim at the delivery wait. Route A,
+Merge-only stops here: `--skip-status` postpones only `done`; the item still
+moves to `release` and its work claim is released. Merge each step of multi-step
+work as its own item. Route A,
 only for a flow that delivers nothing: re-enter the merge without
 `--skip-status` to close the item out. Its envelope `status` reads `done`; a
 `release_wait` block means the flow still owes delivery: use Route B.

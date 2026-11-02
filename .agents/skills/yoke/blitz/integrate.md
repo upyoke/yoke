@@ -19,3 +19,5 @@ yoke strategy coordination append <SLUG> --section "Slice Log" --entry "<slice, 
 ```
 
 Next: [review-and-complete](review-and-complete.md).
+
+`--skip-status` postpones only `done`: the item still moves to `release` and its work claim is released. Merge each step of multi-step work as its own item.

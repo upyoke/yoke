@@ -259,8 +259,10 @@ because they are two different acts.
 The status write refuses the jump itself: a forward move must be an edge the
 pinned version declares, checked before the target stage materializes any QA
 row or approval request in its name. That alone cannot protect the landing,
-because `--skip-status` legitimately lands a branch without moving the item —
-an item-bound deployment run needs the merge identity before close-out. So
+because `--skip-status` postpones only the move to `done`: the merge still
+moves the item to `release` and releases its work claim. Merge each step of
+multi-step work as its own item. An item-bound deployment run needs the merge
+identity before close-out. So
 admission asks the same declared question directly: has this item reached
 the stage its own workflow declares for review, where review is the stage
 the lane-activating stage's declared edge leads to. A definition that

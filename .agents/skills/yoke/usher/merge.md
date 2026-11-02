@@ -9,6 +9,8 @@ yoke watch merge --print-streaming-pair merge-item -- PREFIX-N --skip-status --w
 
 Run the printed command once.
 
+`--skip-status` postpones only `done`: the item still moves to `release` and its work claim is released. Merge each step of multi-step work as its own item.
+
 0 with `landing_pending`: wait, rerun. 3: [conflicts](merge-conflicts.md).
 6: release `handoff-to-usher`. 9: queue wait. Else roll back if unlanded (`yoke lifecycle transition`
 to the pin's rollback target),
