@@ -7,7 +7,7 @@ import pwd
 import signal
 import subprocess
 import sys
-import threading
+import time
 
 from yoke_contracts.self_host_bootstrap import (
     IMPORT_UNIVERSE_ARG,
@@ -29,8 +29,14 @@ def main(argv: list[str] | None = None) -> int:
             file=sys.stderr,
         )
         return 2
-    finished = threading.Event()
-    previous = signal.signal(signal.SIGUSR1, lambda *_args: finished.set())
+    finished = False
+
+    def finish_bridge(*_args: object) -> None:
+        nonlocal finished
+        # Signal handlers can interrupt lock ownership; never acquire a lock here.
+        finished = True
+
+    previous = signal.signal(signal.SIGUSR1, finish_bridge)
     child = None
     try:
         child = subprocess.Popen(
@@ -41,7 +47,13 @@ def main(argv: list[str] | None = None) -> int:
             drop_to_self_host_runtime_identity(uid=account.pw_uid, gid=account.pw_gid)
             assert_no_effective_linux_capabilities()
         result = child.wait()
-        if not finished.wait(HANDOFF_TIMEOUT_SECONDS):
+        deadline = time.monotonic() + HANDOFF_TIMEOUT_SECONDS
+        while not finished:
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                break
+            time.sleep(min(0.1, remaining))
+        if not finished:
             print(
                 "self_host_import_bridge_unconfirmed: the host did not finish its "
                 "private bridge; inspect the host import failure and retry import",
