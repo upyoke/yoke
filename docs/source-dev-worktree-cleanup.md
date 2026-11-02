@@ -153,16 +153,10 @@ released each member's lane rows and claims; the relay on the machine that
 holds a member's lanes removes them on its next sweep. Every lane the sweep
 keeps is named in that relay's log with its reason.
 
-`max_active_worktrees` counts the lanes doing work: unmerged item lanes and
-deploy-run driver trees. An item lane that committed work its base branch
-already carries is only its worker's directory until the relay's lane sweep
-retires it after its item closes, so it holds no slot. A lane that has not committed yet is starting work and
-counts; its branch reflog shows it never moved past the commit it was created
-at.
-
-A full checkout does not wait for the relay's next pass: when a new lane
-would exceed the cap, creation first runs the same sweep against the lane's
-base branch, then counts again and refuses only for what remains.
+`max_worker_lanes` is the machine's only lane limit, enforced before a worker
+launches. Git worktree count does not block lane creation. Creation runs the
+same finished-lane sweep against the lane's base branch before adding a lane.
+An old `max_active_worktrees` setting in machine config is ignored.
 
 Unregistered directories, ambiguous owners, dirty or ignored content,
 unavailable claim/DB state, non-ancestor branches, and removal refusals are
@@ -240,14 +234,12 @@ project-policy`.
 A Yoke self-release run, stage or production, pins its driver source in a
 detached worktree at `.worktrees/deploy-<run-id>` so the driver reads a tree a
 merge landing cannot move underneath it. Because it carries no branch, it is absent from the
-branch-bearing registry the lane paths read, and no item owns it — so the lane
-sweep and `HC-worktree-health` could not see one at all while it consumed the
-same `max_active_worktrees` slot an item lane does.
+branch-bearing registry the lane paths read, and no item owns it. The lane
+sweep and `HC-worktree-health` assess it through its deployment run.
 
 It is retired from its run's own status instead, by whichever of these comes
 first: a self-deploy sweeping before it pins its own source, the relay's
-periodic lane sweep or the same sweep a landing or a full checkout's lane
-creation runs, or the health check's own repair:
+periodic lane sweep or the same sweep a landing or lane creation runs, or the health check's own repair:
 
 ```text
 yoke watch doctor -- --only HC-worktree-health --fix
@@ -265,31 +257,11 @@ caches (a driver that executed there left `__pycache__` behind) and prove
 nothing else remains, then the resumable tombstone removal. Force is never
 used.
 
-When the cap still refuses after that sweep, it sorts the counted slots by
-what frees them and names how many landed lanes it left out:
-
-- unmerged item lanes: merge them;
-- driver trees whose run is not open: retire the finished ones with the doctor
-  repair;
-- driver trees of an open run: in use by that run's driver, and freed when the
-  run finishes. They are never offered for retirement.
+`HC-worktree-health` lists landed lanes of open items on their own line,
+apart from its findings:
 
 ```text
-max_active_worktrees limit reached (80 active + 1 pending > 80; 52 landed
-lane(s) not counted). Merge existing worktrees before creating more. Item
-lanes: .... 3 slot(s) are held by
-deploy-run driver trees, which no merge retires — run `yoke watch doctor --
---only HC-worktree-health --fix` to retire the finished ones. Deploy-run
-lanes: .... 1 slot(s) are in use by open deploy runs' drivers and free when
-those runs finish. In-use deploy-run lanes: ...
-```
-
-`HC-worktree-health` lists the landed lanes of open items on their own line,
-apart from its findings, so its report shows which lanes the cap leaves out:
-
-```text
-- 52 landed lane(s) await release close-out and are not counted against
-max_active_worktrees: ...
+- 52 landed lane(s) await release close-out: ...
 ```
 
 ## Keep Non-Ancestor Evidence Branches

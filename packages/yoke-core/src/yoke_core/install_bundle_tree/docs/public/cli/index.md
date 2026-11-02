@@ -116,9 +116,9 @@ the checkout; use `--project P` to select another project.
 
 ```text
 yoke settings list --scope machine
-yoke settings get max_active_worktrees
-yoke settings set max_active_worktrees 12
-yoke settings unset max_active_worktrees
+yoke settings get max_worker_lanes
+yoke settings set max_worker_lanes 12
+yoke settings unset max_worker_lanes
 yoke settings set levels - < /tmp/levels.json
 ```
 

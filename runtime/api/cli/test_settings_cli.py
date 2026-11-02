@@ -59,30 +59,30 @@ def test_machine_round_trip_local_only(local_config, monkeypatch):
     monkeypatch.setattr(
         SettingsStore, "call", lambda *a: pytest.fail("local setting relayed")
     )
-    assert settings.set_value(["max_active_worktrees", "12"]) == 0
-    assert machine_config.load_config()["settings"]["max_active_worktrees"] == 12
-    assert SettingsStore().read("max_active_worktrees")["source"] == "stored"
-    assert settings.unset(["max_active_worktrees"]) == 0
-    assert SettingsStore().read("max_active_worktrees")["source"] == "default"
-    assert "max_active_worktrees" not in machine_config.load_config()["settings"]
+    assert settings.set_value(["max_worker_lanes", "12"]) == 0
+    assert machine_config.load_config()["settings"]["max_worker_lanes"] == 12
+    assert SettingsStore().read("max_worker_lanes")["source"] == "stored"
+    assert settings.unset(["max_worker_lanes"]) == 0
+    assert SettingsStore().read("max_worker_lanes")["source"] == "default"
+    assert "max_worker_lanes" not in machine_config.load_config()["settings"]
 
 
 def test_invalid_machine_write_preserves_document(local_config):
-    write_setting("max_active_worktrees", 12)
+    write_setting("max_worker_lanes", 12)
     before = local_config.read_bytes()
     for invalid in (True, "many", -1):
         with pytest.raises(ValueError, match="setting_value_invalid"):
-            write_setting("max_active_worktrees", invalid)
+            write_setting("max_worker_lanes", invalid)
     with pytest.raises(ValueError, match="setting_key_unknown"):
         write_setting("access_token", "secret")
     assert local_config.read_bytes() == before
 
 
 def test_typed_refusal_and_closest_key(local_config, capsys):
-    assert settings.set_value(["max_active_worktrees", "many"]) == 2
+    assert settings.set_value(["max_worker_lanes", "many"]) == 2
     assert "setting_value_invalid" in capsys.readouterr().err
-    with pytest.raises(ValueError, match="Did you mean max_active_worktrees"):
-        resolve_setting("max_active_worktree")
+    with pytest.raises(ValueError, match="Did you mean max_worker_lanes"):
+        resolve_setting("max_worker_lane")
 
 
 def test_document_stdin(local_config, monkeypatch):
@@ -177,12 +177,12 @@ def test_org_and_levels_unset_keep_existing_writer(monkeypatch):
 
 def test_runtime_defaults_and_invalid_stored_value(local_config):
     assert (
-        runtime_settings.get_int("max_active_worktrees", 999)
-        == CATALOG["max_active_worktrees"][1].default
+        runtime_settings.get_int("max_worker_lanes", 999)
+        == CATALOG["max_worker_lanes"][1].default
     )
-    local_config.write_text('{"settings":{"max_active_worktrees":"many"}}')
+    local_config.write_text('{"settings":{"max_worker_lanes":"many"}}')
     with pytest.raises(ValueError, match="setting_value_invalid"):
-        runtime_settings.get_int("max_active_worktrees", 999)
+        runtime_settings.get_int("max_worker_lanes", 999)
 
 
 def test_unknown_project_key_refuses_and_keeps_board_owner():
@@ -263,3 +263,12 @@ def test_stored_distribution_cannot_print_extra_secret_fields(local_config, caps
     )
     assert settings.get(["distribution"]) == 2
     assert "private" not in capsys.readouterr().err
+
+
+def test_retired_worktree_cap_is_ignored(local_config):
+    local_config.write_text('{"settings":{"max_active_worktrees":0}}')
+    assert machine_config.load_config()["settings"]["max_active_worktrees"] == 0
+    assert "max_active_worktrees" not in CATALOG
+    assert SettingsStore().read("max_worker_lanes")["source"] == "default"
+    with pytest.raises(ValueError, match="setting_key_unknown"):
+        resolve_setting("max_active_worktrees")

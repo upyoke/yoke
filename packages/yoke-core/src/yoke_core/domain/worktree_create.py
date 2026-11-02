@@ -3,8 +3,8 @@
 Owns ``create_worktree`` and its per-worktree provisioning loop. A
 single-worktree workflow is the N=1 case of a multi-lane workflow — the
 creator resolves universal item lanes and runs one provisioning
-path covering both shapes. Worktree planning, idempotency classification,
-and capacity preflight live in
+path covering both shapes. Worktree planning and idempotency classification
+live in
 :mod:`yoke_core.domain.worktree_create_plan`.
 """
 
@@ -15,7 +15,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Optional, Sequence, Tuple
 
-from yoke_core.domain import project_settings, runtime_settings
+from yoke_core.domain import project_settings
 from yoke_core.domain.project_checkout_locations import checkout_for_project_slug
 from yoke_cli.config.repo_upstream_freshness import refresh_base_branch
 from yoke_core.domain.worktree_create_db import (
@@ -24,10 +24,9 @@ from yoke_core.domain.worktree_create_db import (
     prepare_authoritative_item_worktrees,
     provisioning_project,
 )
-from yoke_core.domain.worktree_capacity import retire_finished_lanes
+from yoke_core.domain.worktree_maintenance import retire_finished_lanes
 from yoke_core.domain.worktree_create_plan import (
     WorktreeCreationEntry,
-    WorktreeCreationPlan,
     dirty_main_error,
     preflight_worktree_plan,
 )
@@ -44,7 +43,6 @@ from yoke_core.domain.worktree_paths import (
     _resolve_repo_root_from_cwd,
 )
 from yoke_core.domain.worktree_provision import (
-    count_active_worktrees as _count_active_worktrees,
     project_field as _project_field,
 )
 
@@ -221,28 +219,7 @@ def create_worktree(
             error=str(exc),
         )
 
-    # --- All-worktree preflight (no side effects yet) ---
-    max_wt = runtime_settings.get_int(
-        "max_active_worktrees",
-        config_path=config_path,
-    )
-
-    def preflight() -> WorktreeCreationPlan:
-        active_count, active_names = _count_active_worktrees(repo_root, worktrees_dir)
-        return preflight_worktree_plan(
-            raw_worktrees,
-            repo_root,
-            worktrees_dir,
-            max_wt,
-            active_count,
-            active_names,
-            base_branch or "",
-        )
-
-    plan = preflight()
-    if plan.capacity_refused and base_branch:
-        retire_finished_lanes(repo_root, base_branch.removeprefix("origin/"))
-        plan = preflight()
+    plan = preflight_worktree_plan(raw_worktrees)
     if plan.error:
         primary = plan.primary or (plan.worktrees[0] if plan.worktrees else None)
         return CreateWorktreeResult(
@@ -254,6 +231,8 @@ def create_worktree(
             failed_branch=plan.failed_branch,
         )
     if plan.pending_worktree_count:
+        if base_branch:
+            retire_finished_lanes(repo_root, base_branch.removeprefix("origin/"))
         dirty_error = dirty_main_error(
             repo_root, worktrees_dir, needed_paths, source_root_prefixes
         )

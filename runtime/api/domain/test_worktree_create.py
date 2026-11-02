@@ -210,7 +210,7 @@ class TestCreateWorktree:
         # Verify the worktree has the feature file
         assert os.path.isfile(os.path.join(result.path, "feature.txt"))
 
-    def test_guardrail(self, git_repo, yoke_db):
+    def test_retired_cap_does_not_block_creation(self, git_repo, yoke_db):
         cfg = git_repo / "runtime" / "config"
         cfg.write_text("worktrees_dir=.worktrees\nmax_active_worktrees=2\n")
         config_path = str(cfg)
@@ -227,13 +227,12 @@ class TestCreateWorktree:
             3, project="yoke", repo_root=str(git_repo), config_path=config_path
         )
 
-        assert result.error is not None
-        assert "max_active_worktrees" in result.error
-        assert result.created is False
+        assert result.error is None
+        assert result.created is True
 
-    def test_full_checkout_sweeps_before_refusing(self, git_repo, yoke_db):
+    def test_creation_sweeps_finished_lanes(self, git_repo, yoke_db):
         cfg = git_repo / "runtime" / "config"
-        cfg.write_text("worktrees_dir=.worktrees\nmax_active_worktrees=1\n")
+        cfg.write_text("worktrees_dir=.worktrees\n")
         config_path = str(cfg)
         for lane_item in (1, 2):
             seed_lane_item(yoke_db, lane_item)

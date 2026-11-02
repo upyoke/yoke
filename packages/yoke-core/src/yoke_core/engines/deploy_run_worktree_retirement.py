@@ -3,15 +3,9 @@
 A self-deploy run freezes its source by adding ``.worktrees/deploy-<run-id>``
 as a detached worktree, so the driver reads a tree that a merge landing on the
 live checkout cannot move underneath it. Nothing about finishing a run releases
-that directory, and because it carries no branch the branch-bearing registry
-every lane-retirement path reads (``git_worktree_registry``) never lists it —
-so the merged-lane sweep and the worktree-health check both looked straight
-past it. They accumulated until a checkout hit ``max_active_worktrees`` and
-refused a new item lane, advising a merge that no deploy worktree has.
-
-This module is the retirement those paths were missing. It answers one question
-per directory — is the run that pinned this tree over? — and reclaims only the
-directories whose run the control plane names as terminal.
+that directory. Because it carries no branch, the branch-bearing registry
+(``git_worktree_registry``) does not list it. The sweep and health check use
+this module to reclaim directories whose deployment run is terminal.
 
 Reclaiming is the same two steps the item-lane paths use: the shared residue
 policy clears named and project-declared caches (a driver that executed here

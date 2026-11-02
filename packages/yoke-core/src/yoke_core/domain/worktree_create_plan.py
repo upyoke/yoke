@@ -5,7 +5,7 @@ single-lane and task-lane items through one provisioning loop.
 
 Why this module exists: ``worktree_create.py`` already approaches the
 350-line hard limit owned by ``yoke_core.domain.file_line_check``.
-Worktree planning, idempotency classification, and capacity preflight live
+Worktree planning and idempotency classification live
 here so the orchestrator stays small and the creator's per-worktree
 provisioning loop reads top-to-bottom.
 """
@@ -15,7 +15,6 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import List, Optional, Sequence, Tuple
 
-from yoke_core.domain.worktree_capacity import capacity_recovery, landed_item_lanes
 from yoke_core.domain.workflow_behavior import LANE_IMPLEMENTATION
 from yoke_core.domain.worktree_lane_plan import (
     resolve_worktree_lanes_for_item,
@@ -52,7 +51,6 @@ class WorktreeCreationPlan:
     primary: Optional[WorktreeCreationEntry] = None
     error: Optional[str] = None
     failed_branch: str = ""
-    capacity_refused: bool = False
 
     @property
     def pending_worktree_count(self) -> int:
@@ -94,19 +92,10 @@ def _classify_existing(branch: str, path: str) -> Tuple[bool, Optional[str]]:
 
 def preflight_worktree_plan(
     raw_worktrees: Sequence[Tuple[str, ...]],
-    repo_root: str,
-    worktrees_dir: str,
-    max_active_worktrees: int,
-    active_count: int,
-    active_names: Sequence[str],
-    landed_base: str,
 ) -> WorktreeCreationPlan:
     """Validate the worktree plan all-at-once before any side effects.
 
-    Detects duplicate paths, mismatched existing directories, and
-    insufficient ``max_active_worktrees`` capacity (counting only the
-    worktrees that need to be created). ``landed_base`` is the ref lanes
-    land on; an item lane it already carries holds no slot.
+    Detects duplicate paths and branches, and mismatched existing directories.
     """
     plan = WorktreeCreationPlan()
     if not raw_worktrees:
@@ -160,24 +149,6 @@ def preflight_worktree_plan(
         plan.worktrees.append(entry)
 
     plan.primary = plan.worktrees[0]
-
-    needed = plan.pending_worktree_count
-    if not needed or active_count + needed <= max_active_worktrees:
-        return plan
-    # Landed lanes hold no slot; proving them costs git reads, so only a
-    # checkout that is over the cap by raw count pays for it.
-    landed = landed_item_lanes(repo_root, active_names, landed_base)
-    counted = active_count - len(landed)
-    if counted + needed > max_active_worktrees:
-        uncounted = f"; {len(landed)} landed lane(s) not counted" if landed else ""
-        plan.error = (
-            f"max_active_worktrees limit reached ({counted} active "
-            f"+ {needed} pending > {max_active_worktrees}{uncounted}). "
-            f"{capacity_recovery(repo_root, active_names, landed)}; "
-            "or raise the limit: yoke settings set max_active_worktrees N"
-        )
-        plan.capacity_refused = True
-        return plan
 
     return plan
 

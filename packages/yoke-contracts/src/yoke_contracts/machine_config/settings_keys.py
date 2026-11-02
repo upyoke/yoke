@@ -32,13 +32,6 @@ SESSION_STALE_TTL_WITH_HOLDINGS_KEY = "session_stale_ttl_with_holdings_minutes"
 # value the reader falls back to when the key is absent, so an unset key and a
 # key set to its default behave identically.
 MACHINE_SETTING_KEYS: Dict[str, SettingSpec] = {
-    "max_active_worktrees": SettingSpec(
-        5,
-        int,
-        "linked worktrees doing work (landed lanes excluded) allowed before "
-        "creation preflight refuses",
-        minimum=0,
-    ),
     "max_worker_lanes": SettingSpec(
         0,
         int,
