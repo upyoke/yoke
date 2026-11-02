@@ -34,7 +34,7 @@ through its existing workflow inputs; see
 
 ## Explicit Yoke repository proof
 
-From a claimed Yoke source lane, dispatch a requested pair with:
+**Yoke source repo only:** from a claimed source lane, dispatch a requested pair with:
 
 ```text
 yoke dev run -- python3 -m runtime.api.tools.platform_consumer_dispatch --candidate-sha FULL_YOKE_SHA --consumer-sha FULL_PLATFORM_SHA
