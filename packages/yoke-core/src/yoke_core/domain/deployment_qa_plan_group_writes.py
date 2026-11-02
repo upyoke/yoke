@@ -5,7 +5,7 @@ snapshot. When an item-scoped stage materializes, each owed plan with no open
 group in the run gets one, built from the plan as the release pinned it. The
 first group of a plan in a run pins the plan into the run's snapshot, so a
 later group of the same plan in the same run runs the same cases and a plan
-edited mid-release waits for the next release.
+edited mid-release waits for the next release unless it corrects a failed case.
 """
 
 from __future__ import annotations
@@ -292,9 +292,14 @@ def group_snapshots(
         # fresh key beside the failed row it replaces.
         snapshot["corrects_own_plan"] = True
     else:
+        from yoke_core.domain.deployment_qa_group_case_corrections import (
+            corrected_group_snapshot,
+        )
+
         snapshot = _pinned_snapshot(
             conn, _creating_run(marker["group_id"]), plan_id, project_id
         )
+        snapshot = corrected_group_snapshot(conn, subject, target, snapshot)
     cases = [c for c in snapshot["cases"] if case_applies_to_target(c, target)]
     return [{**snapshot, "cases": cases}] if cases else []
 

@@ -50,19 +50,17 @@ Post-deploy `command-ci` refuses as `deployment_ci_case_unsupported`; use Comman
 
 `--plan PLAN` at `item-qa` runs the plan's open group for the whole release;
 without one it refuses `plan_group_not_open` and lists closed groups.
-A group closes after all cases pass and required stage acceptance is recorded.
+All cases passing and required stage acceptance close the group.
 Its immutable `covered_item_ids` names attachers at closure. Done needs a closed
 group for each shared plan, or accepted member-bound cases for a single-member
 plan, in its target-qualified completion run (including
 supplemental runs that recorded the delivered revision) or superseded lineage.
 Later attachers need a new group; verification passes never count post-deploy.
 
-A failed case holds its group open; retries run only failed cases. Failure
-notices tell the driver to choose which items need fixes, retry, waive with
-authorization or remove an item. [Release roles](../agents/rules/release-roles.md)
-names commands. A resultless abort notifies unless a retry is live. Changed
-reports send new notices; closure withdraws only its own notice.
-
+A failed case holds its group open; retries run only failed cases.
+[Release roles](../agents/rules/release-roles.md) names fixes, retry, authorized
+waiver and removal commands. Abort notifies unless a retry is live; changed
+reports notify again, and closure withdraws its notice.
 Recording a case verdict while its stage is executing settles that stage in
 the same write; a group case settles its group. When the stage cannot settle,
 the write refuses as `qa_verdict_settlement_refused` with the cause and whether
@@ -70,16 +68,18 @@ the verdict persisted. Record an unpersisted verdict again after repairing the
 cause. For a persisted verdict, let the runner adopt it with
 `yoke --env CONTROL-PLANE watch deploy -- RUN-ID`.
 
-For a correction, name its plan and failed requirement. A group case uses the
-group form above with the same flag:
+Correct a wrong group check in its own plan, keeping its case key, then rerun
+with the group command below. A single-member correction uses a separate plan:
 
 ```text
+yoke qa plan run --deployment-run-id RUN --stage item-qa --plan SAME_PLAN --project P
 yoke qa plan run --item PREFIX-N --stage STAGE \
     --plan CORRECTED_PLAN --project P --replaces CASE_KEY=FAILED_REQUIREMENT_ID
 ```
 
-Only the correction plan's rows run; other cases remain owed. A passing
-independent verdict supersedes the failed requirement.
+Changed failed group cases get fresh rows; their passes supersede failed history.
+Pending and passed cases keep pinned content; new keys wait for another release.
+Single-member corrections run only replacement rows; other cases remain owed.
 
 Takeover moves an open group, its results and any running execution to the
 successor unchanged; a successor member attaching the plan joins it. Closed

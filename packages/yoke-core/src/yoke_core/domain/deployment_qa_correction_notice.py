@@ -42,6 +42,12 @@ def notify_correction(
         if member is not None
         else f"--deployment-run-id {run_id}"
     )
+    if member is None:
+        plan = conn.execute(
+            "SELECT plan_id FROM qa_requirements WHERE id=%s", (ids[0],)
+        ).fetchone()
+        if plan is not None and plan["plan_id"] is not None:
+            scope += f" --plan {plan['plan_id']}"
     command = f"yoke watch qa-plan -- {scope} --stage {stage} --project {project.slug}"
     body = (
         f"Corrected QA requirement(s) {', '.join(map(str, ids))} are ready "

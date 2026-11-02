@@ -1,0 +1,12 @@
+{
+ "id": "03",
+ "title": "Correct a failed shared plan check in its own plan",
+ "status": "observed",
+ "audience": "agent",
+ "when": "A shared deployment plan group failed because a check definition was wrong.",
+ "need": "Edit the failed case in the group's own plan with the same case key, then rerun the same run, stage and plan without --replaces. Content refresh creates a replacement beside the failed history; its pass closes the group and credits its attachers. Pending and passed cases keep admitted content, and new keys wait for another release. Separate correction plans with --replaces are the single-member route. A group correction notice includes the plan; a stale pending case refusal names requirement inspection and supersession instead of an empty refresh command.",
+ "surface": "Deployment plan execution guide and correction notices",
+ "review": "Source regression proves same-plan failed-case correction and nonempty recovery; deployed proof remains owed.",
+ "sources": ["docs/public/verification/deployment-plan-execution.md", "packages/yoke-core/src/yoke_core/domain/deployment_qa_group_case_corrections.py", "runtime/api/domain/test_deployment_qa_plan_group_corrections.py"],
+ "position": 2
+}
