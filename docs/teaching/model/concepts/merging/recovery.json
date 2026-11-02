@@ -2,7 +2,10 @@
  "id": "recovery",
  "title": "Landing recovery",
  "status": "draft-copy",
- "commands": ["yoke usher reconcile-github"],
+ "commands": [
+  "yoke usher reconcile-github"
+ ],
  "page": "merging",
- "position": 3
+ "position": 3,
+ "summary": "A merge_target_moved refusal includes the rejected push warning: refresh the lane and re-verify, then retry. Published target ancestry proves landing; unpublished local commits are retained and do not prove landing."
 }

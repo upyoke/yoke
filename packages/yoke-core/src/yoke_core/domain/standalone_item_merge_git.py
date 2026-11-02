@@ -105,27 +105,22 @@ def fetch_target(repo_root: str, target: str) -> None:
 
 
 def containing_ref(repo_root: str, commit: str, target: str) -> str:
-    """Which ref already holds ``commit`` — ``target``, its remote, or empty.
+    """Read landing from the published target, or local target without a remote.
 
-    A queue-routed merge lands entirely on GitHub, so the local base branch
-    legitimately does not contain the commit until it is fetched; refusing on
-    the local answer alone strands a merge that already happened. Callers that
-    go on to read the landing need to know which of the two answered, because
-    a diff taken against the ref that does not contain it says nothing.
+    An unpublished local merge cannot prove a remote landing. Fetch before
+    checking origin so queue landings and rejected pushes use the same truth.
     """
     if not commit:
         return ""
-    if is_ancestor(repo_root, commit, target):
-        return target
     if not has_remote(repo_root):
-        return ""
+        return target if is_ancestor(repo_root, commit, target) else ""
     fetch_target(repo_root, target)
     remote = f"origin/{target}"
     return remote if is_ancestor(repo_root, commit, remote) else ""
 
 
 def is_landed(repo_root: str, commit: str, target: str) -> bool:
-    """Whether ``commit`` has reached ``target`` locally or at the remote."""
+    """Whether ``commit`` has reached the published target (local without a remote)."""
     return bool(containing_ref(repo_root, commit, target))
 
 
@@ -284,6 +279,11 @@ def publish(repo_root: str, target: str) -> tuple[bool, str]:
         source = getattr(pushed, "credential_source", "")
         return True, f"Publication: {source}." if source else ""
     detail = (pushed.stderr or pushed.stdout or "").strip()
+    if any(reason in detail.lower() for reason in ("non-fast-forward", "fetch first")):
+        return False, (
+            "merge_target_moved: the target moved during CI; refresh the lane "
+            "and re-verify. Local commits are retained. Push warning: " + detail
+        )
     return False, (f"merge landed locally but publishing '{target}' failed: {detail}")
 
 

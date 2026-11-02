@@ -230,8 +230,9 @@ def merge_standalone_branch(
             f"{commit_sha[:12]}. The control plane records it once it is "
             "deployed on a build carrying item_worktrees.commit_sha."
         )
-    observed = git.changed_files(repo_root, commit_sha, target)
-    already = git.is_ancestor(repo_root, commit_sha, target)
+    base = git.current_base_ref(repo_root, target)
+    observed = git.changed_files(repo_root, commit_sha, base)
+    already = git.is_ancestor(repo_root, commit_sha, base)
     if not already:
         receipt_note = receipts.record_before_landing(
             item_id,
