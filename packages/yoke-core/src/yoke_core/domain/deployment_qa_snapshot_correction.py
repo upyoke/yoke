@@ -1,8 +1,8 @@
-"""Atomic explicit corrections to a run's frozen flow-declared plan selection.
+"""Atomic explicit corrections to frozen flow and member-owned plan selections.
 
-Flow-declared plans freeze on the run's ``selections``, one per stage and
-plan. A plan group pins its plan in ``plan_groups`` and is never refreshed:
-an edited plan runs on the next release, so it has no owner here.
+Flow plans freeze in ``selections``; attached member-owned plans freeze in
+``plan_groups`` with their ownership class in ``item_qa_plan_owners``.
+Shared driver groups are outside this member refresh path.
 """
 
 import json
@@ -21,12 +21,15 @@ from yoke_core.domain.deployment_qa_snapshot_selection import (
 )
 
 
-def selected_plan_owners(conn, *, run_id, stage, plan_id):
+def selected_plan_owners(conn, *, run_id, stage, plan_id, member=None):
     """Lock the run and return its one frozen selection of this plan and stage.
 
-    Returns ``(payload, index)``: the run's decoded requirement snapshot and
-    the position of the selection in its ``selections``.
+    Returns the decoded run snapshot and its selected plan contract.
     """
+    from yoke_core.domain.deployment_qa_member_plan_admission import (
+        selection_applies_to_member,
+    )
+
     lock_run(conn, str(run_id))
     run = conn.execute(
         "SELECT requirement_snapshot FROM deployment_runs WHERE id=%s FOR UPDATE",
@@ -37,44 +40,66 @@ def selected_plan_owners(conn, *, run_id, stage, plan_id):
     raw = run["requirement_snapshot"]
     payload = dict(raw) if isinstance(raw, Mapping) else json.loads(str(raw))
     candidates = []
-    for index, value in enumerate(payload.get("selections", [])):
+    for value in payload.get("selections", []):
         if value.get("stage") != stage:
+            continue
+        if not selection_applies_to_member(value, member):
             continue
         if int(value.get("plan", {}).get("id") or 0) != int(plan_id):
             continue
         require_complete_snapshot(value)
-        candidates.append(index)
+        candidates.append(value)
+    owners = payload.get("item_qa_plan_owners", {})
+    if member is not None and owners.get(str(plan_id)) is not None:
+        snapshot = payload.get("plan_groups", {}).get(str(plan_id))
+        if snapshot is not None:
+            require_complete_snapshot(snapshot)
+            candidates.append(snapshot)
     if len(candidates) != 1:
         incomplete_snapshot(plan_id, "selected plan owner is missing or ambiguous")
     return payload, candidates[0]
 
 
-def _case_passed(conn, *, run_id, stage, plan_id, key):
-    """Whether a run-wide copy of this case passed acceptance."""
+def _case_passed(
+    conn, *, run_id, stage, plan_id, key, member=None, exclusive_member=None
+):
+    """Protect every accepted copy sharing the frozen plan contract."""
     from yoke_core.domain.qa_deployment_case_correction_window import (
         determinate_verdict,
     )
 
+    from yoke_core.domain.qa_deployment_case_content_refresh import base_case_key
+
+    scope = "deployment_member_item_id IS " + ("NULL" if member is None else "NOT NULL")
+    params = (run_id, stage, plan_id)
+    if exclusive_member is not None:
+        scope = "deployment_member_item_id=%s"
+        params += (exclusive_member,)
     rows = query_rows(
         conn,
-        "SELECT id FROM qa_requirements WHERE deployment_run_id=%s "
-        "AND deployment_stage=%s AND plan_id=%s AND plan_case_key=%s "
-        "AND deployment_member_item_id IS NULL",
-        (run_id, stage, plan_id, key),
+        "SELECT id,plan_case_key FROM qa_requirements WHERE deployment_run_id=%s "
+        "AND deployment_stage=%s AND plan_id=%s "
+        "AND " + scope,
+        params,
     )
-    return any(determinate_verdict(conn, int(row["id"])) == "pass" for row in rows)
+    return any(
+        determinate_verdict(conn, int(row["id"])) == "pass"
+        for row in rows
+        if base_case_key(row["plan_case_key"]) == key
+    )
 
 
-def refresh_selected_cases(conn, *, run_id, stage, plan_id, cases, allow_added=False):
+def refresh_selected_cases(
+    conn, *, run_id, stage, plan_id, cases, allow_added=False, member=None
+):
     """Correct only eligible cases, preserving the selection's admission provenance."""
     from yoke_core.domain.deployment_requirement_snapshot_format import semantic_row
     from yoke_core.domain.qa_plan_management import _plan_row
 
-    payload, index = selected_plan_owners(
-        conn, run_id=run_id, stage=stage, plan_id=plan_id
+    payload, snapshot = selected_plan_owners(
+        conn, run_id=run_id, stage=stage, plan_id=plan_id, member=member
     )
     current_plan = semantic_row(dict(_plan_row(conn, plan_id)), PLAN_FIELDS)
-    snapshot = payload["selections"][index]
     before = _canonical(payload)
     replacements = {
         str(case["case_key"]): semantic_row(case, CASE_FIELDS) for case in cases
@@ -93,7 +118,15 @@ def refresh_selected_cases(conn, *, run_id, stage, plan_id, cases, allow_added=F
         key = str(frozen["case_key"])
         if key not in replacements or replacements[key] == frozen:
             continue
-        if _case_passed(conn, run_id=run_id, stage=stage, plan_id=plan_id, key=key):
+        if _case_passed(
+            conn,
+            run_id=run_id,
+            stage=stage,
+            plan_id=plan_id,
+            key=key,
+            member=member,
+            exclusive_member=snapshot.get("member_item_id"),
+        ):
             incomplete_snapshot(plan_id, "case already has passed acceptance")
     snapshot["cases"] = [
         replacements.get(str(case["case_key"]), case) for case in snapshot["cases"]

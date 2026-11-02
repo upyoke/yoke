@@ -259,7 +259,8 @@ def test_member_scope_refuses_wrong_project_sibling_and_run_qa(
     create_smoke_plan(conn, project="yoke", slug="carrier-smoke")
     from yoke_core.domain.qa_plan_management import QaPlanError
 
-    with pytest.raises(QaPlanError, match="plan_group_not_open"):
+    before = conn.execute("SELECT COUNT(*) FROM qa_requirements").fetchone()[0]
+    with pytest.raises(QaPlanError, match="qa_plan_selection_unavailable"):
         materialize_deployment_qa_stage(
             conn,
             deployment_run_id=RUN,
@@ -267,6 +268,7 @@ def test_member_scope_refuses_wrong_project_sibling_and_run_qa(
             deployment_member_item_id=CONSUMER_ITEM_ID,
             agent_plan="carrier-smoke",
         )
+    assert conn.execute("SELECT COUNT(*) FROM qa_requirements").fetchone()[0] == before
     sibling = _request(
         "qa.plan.materialize", member=release["carrier_ref"], project="yoke"
     )

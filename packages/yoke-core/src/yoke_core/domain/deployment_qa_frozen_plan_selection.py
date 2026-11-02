@@ -68,11 +68,17 @@ def member_requirements(
 
 
 def _flow_plan(subject: Mapping[str, Any], refresh: Refresh) -> list[dict[str, Any]]:
+    from yoke_core.domain.deployment_qa_member_plan_admission import (
+        selection_applies_to_member,
+    )
+
     stage = str(subject["stage"]["name"])
     return [
         refresh(dict(selection))
         for selection in subject["flow_snapshot"].get("selections") or []
-        if isinstance(selection, Mapping) and str(selection.get("stage") or "") == stage
+        if isinstance(selection, Mapping)
+        and str(selection.get("stage") or "") == stage
+        and selection_applies_to_member(selection, subject.get("member_item_id"))
     ]
 
 

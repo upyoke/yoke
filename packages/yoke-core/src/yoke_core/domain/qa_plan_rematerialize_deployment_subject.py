@@ -210,9 +210,13 @@ def _insert_case(conn, refresh, *, plan, case, baseline, position) -> int:
 
 def write_subject_refresh(conn: Any, refresh: SubjectRefresh) -> dict[str, Any]:
     """Refresh this subject's rows; the caller holds the run lock."""
-    owner_scope = dict(run_id=refresh.run_id, stage=refresh.stage)
-    for plan_id in refresh.rows_by_plan:
-        selected_plan_owners(conn, plan_id=plan_id, **owner_scope)
+    owner_scope = dict(
+        run_id=refresh.run_id, stage=refresh.stage, member=refresh.member
+    )
+    contracts = {
+        plan_id: selected_plan_owners(conn, plan_id=plan_id, **owner_scope)[1]
+        for plan_id in refresh.rows_by_plan
+    }
     created: list[int] = []
     refreshed: list[int] = []
     retained: set[int] = set()
@@ -226,6 +230,12 @@ def write_subject_refresh(conn: Any, refresh: SubjectRefresh) -> dict[str, Any]:
         for case in cases:
             corrected = False
             for position, baseline in enumerate(case_baselines(case), start=1):
+                scopes = contracts[plan_id].get("replacement_scopes")
+                if scopes is not None and not any(
+                    scope["host_baseline"] == baseline
+                    for scope in scopes.get(str(case["case_key"]), [])
+                ):
+                    continue
                 group = groups.get((str(case["case_key"]), baseline), [])
                 retained.update(int(row["id"]) for row in group)
                 live = [

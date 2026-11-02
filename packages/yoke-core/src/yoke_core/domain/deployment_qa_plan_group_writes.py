@@ -195,7 +195,13 @@ def _creating_run(group_id: str) -> str:
 
 
 def resolve_group_subject(
-    conn: Any, run_id: str, stage_name: str, plan: str, *, require_active: bool
+    conn: Any,
+    run_id: str,
+    stage_name: str,
+    plan: str,
+    *,
+    require_active: bool,
+    member=None,
 ) -> dict | None:
     """The open group of ``plan`` (slug or id) at an item stage; None at a run stage.
 
@@ -226,6 +232,8 @@ def resolve_group_subject(
         refusal.code = "plan_group_ambiguous"
         raise refusal
     if matches and owners.get(next(iter(matches))) is not None:
+        return None
+    if not matches and member is not None:
         return None
     groups = [g for g in groups if g.plan_id in matches]
     live = [g for g in groups if g.run_id == run_id and g.open]

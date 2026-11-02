@@ -175,9 +175,16 @@ def plan_only_members(conn: Any, run_id: str, item_ids: Any) -> set[int]:
     return found
 
 
-def transfer_plan_owners(conn: Any, old_id: str, new_id: str) -> None:
+def transfer_plan_owners(
+    conn: Any, old_id: str, new_id: str, *, moving: set[int]
+) -> None:
     """Keep already-pinned ownership and cases with inherited member QA."""
     old, new = _snapshot(conn, old_id), _snapshot(conn, new_id)
+    from yoke_core.domain.deployment_qa_member_plan_admission import (
+        copy_member_selections,
+    )
+
+    copy_member_selections(old, new, moving)
     owners = new.setdefault(OWNERS, {})
     for plan, owner in old.get(OWNERS, {}).items():
         owners.setdefault(plan, owner)
