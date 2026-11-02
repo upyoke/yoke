@@ -1,14 +1,10 @@
-"""Machine registry reads and writes.
-
-Registration persists the asserted identity checked by relay polls;
-credential minting and rotation belong to machine_credentials.
-"""
+"""Machine registry reads and writes; credentials belong to machine_credentials."""
 
 from __future__ import annotations
 
 import uuid
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Any, Mapping, Sequence
 
 from yoke_contracts.machine_authorization import RETIRED_MACHINE_RECOVERY
@@ -323,9 +319,15 @@ def set_machine_access(
 
 def touch_machine_seen(conn: Any, *, machine_id: str, now: datetime | str) -> None:
     p = marker(conn)
+    current = parse_instant(now)
     conn.execute(
-        f"UPDATE machines SET last_seen_at={p} WHERE machine_id={p}",
-        (instant_parameter(conn, parse_instant(now)), str(machine_id)),
+        f"UPDATE machines SET last_seen_at={p} WHERE machine_id={p} "
+        f"AND (last_seen_at IS NULL OR last_seen_at < {p})",
+        (
+            instant_parameter(conn, current),
+            str(machine_id),
+            instant_parameter(conn, current - timedelta(minutes=1)),
+        ),
     )
 
 

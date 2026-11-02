@@ -28,7 +28,7 @@ One row per machine in the control plane:
 | `name` | The human name, defaulting to the operator-set host name. |
 | `owner_actor_id` | The actor who registered it. |
 | `access` | The access document (below). |
-| `registered_at` / `last_seen_at` | Registration, and the last poll seen. |
+| `registered_at` / `last_seen_at` | Registration, and the most recent relay heartbeat (written at most once per minute). |
 
 ## Registering
 

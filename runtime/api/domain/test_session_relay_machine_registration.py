@@ -175,3 +175,47 @@ def test_claim_refuses_viewer_advertisement(monkeypatch) -> None:
     assert outcome.primary_success is False
     assert outcome.error and outcome.error.code == "permission_denied"
     assert conn.execute("SELECT COUNT(*) FROM session_relays").fetchone()[0] == 0
+
+
+@pytest.mark.parametrize("age_seconds", [None, 61, 60, 30, -30])
+def test_relay_heartbeat_refreshes_machine_seen_only_after_one_minute(age_seconds):
+    from datetime import timedelta
+
+    from yoke_contracts.timestamps import parse_instant
+    from yoke_core.domain.db_helpers import instant_parameter
+    from yoke_core.domain.machine_registry import require_machine
+    from yoke_core.domain.session_relay_storage import heartbeat_relay
+    from yoke_core.domain.session_relay_types import RelayHeartbeat
+
+    conn = message_connection()
+    _register_machine(conn, owner_actor_id=13)
+    now = parse_instant("2026-08-22T12:10:00Z")
+    previous = now - timedelta(seconds=age_seconds) if age_seconds is not None else None
+    conn.execute(
+        "UPDATE machines SET last_seen_at=? WHERE machine_id=?",
+        (
+            instant_parameter(conn, previous) if previous is not None else None,
+            MACHINE_ID,
+        ),
+    )
+
+    heartbeat_relay(
+        conn,
+        RelayHeartbeat(
+            relay_id="relay-1",
+            machine_id=MACHINE_ID,
+            actor_id=13,
+            hostname="host-1",
+            relay_version="1.0",
+            surface_versions={},
+            project_ids=[1],
+        ),
+        state="active",
+        next_poll_seconds=30,
+        now=now,
+    )
+
+    expected = now if age_seconds is None or age_seconds > 60 else previous
+    machine = require_machine(conn, MACHINE_ID)
+    assert machine.last_seen_at == expected
+    assert machine.registered_at == parse_instant("2026-08-22T12:00:00Z")

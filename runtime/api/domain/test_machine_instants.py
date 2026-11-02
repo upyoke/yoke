@@ -49,7 +49,11 @@ def test_machine_rotation_and_retirement_preserve_exact_instants(test_db, zone):
         == rotated_at
     )
     assert second.created_at == rotated_at
-    seen_at = rotated_at + timedelta(microseconds=1)
+    machine_registry.touch_machine_seen(
+        test_db, machine_id=machine_id, now=rotated_at + timedelta(microseconds=1)
+    )
+    assert machine_registry.get_machine(test_db, machine_id).last_seen_at == rotated_at
+    seen_at = rotated_at + timedelta(minutes=1, microseconds=1)
     machine_registry.touch_machine_seen(test_db, machine_id=machine_id, now=seen_at)
     assert machine_registry.get_machine(test_db, machine_id).last_seen_at == seen_at
     retired = machine_credentials.retire_with_credentials(
