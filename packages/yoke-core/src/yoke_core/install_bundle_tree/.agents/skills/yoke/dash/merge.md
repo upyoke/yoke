@@ -14,6 +14,8 @@ yoke watch merge --print-streaming-pair merge-item -- ITEM --wait --result "<res
 
 Selected deployment: `yoke merge item ITEM --skip-status --json`; follow `.yoke/docs/agents/rules/delivery.md`. A steering-batched worker starts no run.
 
+`--skip-status` postpones only `done`: the item still moves to `release` and its work claim is released. Merge each step of multi-step work as its own item.
+
 Next: [close-out](close-out.md).
 
 Failing or flaky tests: `.yoke/docs/agents/rules/verification.md#failing-or-flaky-tests`.
