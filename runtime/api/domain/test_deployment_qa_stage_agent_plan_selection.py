@@ -51,7 +51,7 @@ def test_a_stage_whose_member_admits_a_case_refuses_an_agent_selected_plan(
     )
     plan_id = _plan(test_db, "duplicate-selection")
 
-    with pytest.raises(QaPlanError, match="plan_group_not_open"):
+    with pytest.raises(QaPlanError, match="stage already names its cases"):
         materialize_deployment_qa_stage(
             test_db,
             deployment_run_id="run-plan-beside-admitted",
@@ -59,6 +59,12 @@ def test_a_stage_whose_member_admits_a_case_refuses_an_agent_selected_plan(
             deployment_member_item_id=item_id,
             agent_plan=str(plan_id),
         )
+    assert (
+        test_db.execute(
+            "SELECT COUNT(*) FROM qa_requirements WHERE plan_id=%s", (plan_id,)
+        ).fetchone()[0]
+        == 0
+    )
 
 
 def test_the_refusal_names_re_running_without_the_flag(test_db) -> None:
@@ -81,14 +87,9 @@ def test_the_refusal_names_re_running_without_the_flag(test_db) -> None:
             agent_plan=str(plan_id),
         )
 
-    assert "plan_group_not_open" in str(refusal.value)
-    assert "yoke deployment-runs get" in str(refusal.value)
-
-
-
-
-
-
+    assert "stage already names its cases" in str(refusal.value)
+    assert "without --plan" in str(refusal.value)
+    assert "--replaces" in str(refusal.value)
 
 
 def test_an_agent_admission_does_not_leave_the_stage_open_for_unrelated_plans(test_db):
@@ -124,7 +125,9 @@ def test_an_agent_admission_does_not_leave_the_stage_open_for_unrelated_plans(te
         ).fetchall()
     ]
     selections = json.loads(frozen())["selections"]
-    assert [s["plan"]["id"] for s in selections if s.get("selected_by_agent")] == [first]
+    assert [s["plan"]["id"] for s in selections if s.get("selected_by_agent")] == [
+        first
+    ]
     snapshot = frozen()
     with pytest.raises(QaPlanError, match="stage already names its cases"):
         materialize_deployment_qa_stage(test_db, **subject, agent_plan=str(other))
