@@ -248,7 +248,7 @@ def test_mixed_unreported_losses_share_refund_limit(final_kind, final_code) -> N
             "broker_target_changed",
         ),
         (
-            "UPDATE session_message_attempts SET started_at=NULL WHERE attempt_id=?",
+            "UPDATE session_message_attempts SET started_at='' WHERE attempt_id=?",
             "broker_state_invalid",
         ),
     ],
