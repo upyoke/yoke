@@ -7,7 +7,7 @@
  *
  * Covers: an authentication refusal (401) and a missing page (404) each fail
  * the navigate step by name instead of letting later steps run against a
- * page the case did not ask for, and an ordinary page still navigates.
+ * page the case did not ask for. Other responses expose their HTTP status.
  */
 
 const http = require('http');
@@ -119,10 +119,10 @@ async function testNavigateOntoAMissingPageFailsAsRouteNotFound() {
   });
 }
 
-async function testNavigateOntoAServedPageSucceeds() {
-  console.log('\n## Test: navigate onto a served page succeeds');
+async function testNavigateReturnsResponseStatus(status) {
+  console.log(`\n## Test: navigate returns HTTP ${status}`);
   await withServer((req, res) => {
-    res.writeHead(200, { 'Content-Type': 'text/html' });
+    res.writeHead(status, { 'Content-Type': 'text/html' });
     res.end('<!doctype html><title>Home</title><h1>Home</h1>');
   }, async (page, base) => {
     const result = await executeStep(page, {
@@ -130,7 +130,8 @@ async function testNavigateOntoAServedPageSucceeds() {
       action: 'navigate',
     }, { baseUrl: base });
 
-    assertEqual(result.success, true, 'navigate onto a 200 succeeds');
+    assertEqual(result.success, true, `navigate onto a ${status} completes`);
+    assertEqual(result.status, status, 'result exposes the loaded response status');
   });
 }
 
@@ -141,7 +142,8 @@ async function run() {
   try {
     await testNavigateOntoAnAuthRefusalFailsInsteadOfProceeding();
     await testNavigateOntoAMissingPageFailsAsRouteNotFound();
-    await testNavigateOntoAServedPageSucceeds();
+    await testNavigateReturnsResponseStatus(200);
+    await testNavigateReturnsResponseStatus(503);
   } catch (err) {
     console.error('\nUnexpected error:', err);
     failCount++;
