@@ -21,9 +21,7 @@ _EXTRA_PROJECT_IDS = {
 
 
 def _hours_ago(hours: int) -> str:
-    return (datetime.now(timezone.utc) - timedelta(hours=hours)).strftime(
-        "%Y-%m-%d %H:%M:%S"
-    )
+    return (datetime.now(timezone.utc) - timedelta(hours=hours)).isoformat()
 
 
 def _project_id(slug: str) -> int:
