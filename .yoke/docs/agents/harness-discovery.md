@@ -134,6 +134,11 @@ its SessionEnd cannot continue the turn.
 
 Human diagnostics inside Git and harness tools begin with “yoke (<hook>): ”,
 for example “yoke (pre-commit): ERROR: file-line-limit gate blocked this commit.”
+Pre-commit refuses staged edits to installer-owned docs, skills and agent
+definitions unless their bytes match a shipped release. Send changes to Yoke
+with `yoke feedback --to yoke`, or keep them in a project-owned file; restore
+release bytes with `yoke project refresh` before committing again. Yoke's
+source inputs and generated bundle copies remain editable in its source checkout.
 Follow the repair in that diagnostic. Successful checks and the identity-only
 lane-head recordings after commits, merges, rebases and checkouts stay quiet. Required orientation, instructions,
 continuations, handoffs and recovery still arrive through their normal owner.
