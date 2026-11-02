@@ -64,6 +64,7 @@ def history(tmp_path, shape):
 def test_base_update_preserves_resolutions(tmp_path, monkeypatch, driver, shape):
     repo, original = history(tmp_path, shape)
     calls = []
+    monkeypatch.setattr(lane_base_update.lane_head_record, "record_lane_head", Mock(return_value=""))
 
     def run(*args):
         calls.append(args)
@@ -135,3 +136,43 @@ def test_base_update_preserves_resolutions(tmp_path, monkeypatch, driver, shape)
     assert any(c[0] == "rebase" for c in calls) == (shape == "linear")
     if shape != "linear":
         assert any(c[0] == "merge" and "--no-edit" in c for c in calls)
+
+
+@pytest.mark.parametrize("shape", ["linear", "clean"], ids=["rebase", "merge"])
+def test_watcher_update_records_head_for_bind_recorded_source(tmp_path, monkeypatch, shape):
+    from yoke_core.engines.merge_worktree_recorded_source import bind_recorded_source
+
+    repo, original = history(tmp_path, shape)
+    recorded = {"head": original}
+
+    def record_head(project, checkout):
+        assert project == "widgets"
+        assert checkout == str(repo)
+        recorded["head"] = git(repo, "rev-parse", "HEAD").stdout.strip()
+        return ""
+
+    monkeypatch.setattr(
+        lane_base_update, "git", lambda checkout, *a, **kw: git(repo, *a, check=False)
+    )
+    monkeypatch.setattr(
+        "yoke_core.engines.merge_worktree_prepare_state._stash_classify_gate",
+        lambda ctx: None,
+    )
+    monkeypatch.setattr(lane_base_update.lane_head_record, "record_lane_head", record_head)
+    monkeypatch.setattr(
+        merge_worktree, "_run_git", lambda args, **kw: git(repo, *args, check=False)
+    )
+
+    assert lane_base_update.bring_lane_current(
+        repo, branch="lane", target="main", project="widgets"
+    ) is True
+
+    head = git(repo, "rev-parse", "HEAD").stdout.strip()
+    assert head != original
+    assert recorded["head"] == head
+    ctx = MergeContext(
+        args=MergeArgs(branch="lane", target="main", source_sha=recorded["head"]),
+        repo_root=str(repo), worktree_path=str(repo), project="widgets",
+    )
+    # This is yoke merge's recorded lane HEAD divergence check.
+    assert bind_recorded_source(ctx, head) == ""

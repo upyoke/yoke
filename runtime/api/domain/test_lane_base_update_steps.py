@@ -16,6 +16,13 @@ from yoke_core.domain import lane_base_update
 from yoke_core.domain.lane_base_update import LaneBaseUpdateRefused
 
 
+@pytest.fixture(autouse=True)
+def record_head(monkeypatch):
+    recorder = mock.Mock(return_value="")
+    monkeypatch.setattr(lane_base_update.lane_head_record, "record_lane_head", recorder)
+    return recorder
+
+
 def _git_results(monkeypatch, results: dict[str, subprocess.CompletedProcess]):
     calls: list[tuple[str, ...]] = []
 
@@ -34,7 +41,7 @@ def _clean_worktree(monkeypatch):
     )
 
 
-def test_a_lane_behind_the_base_is_fetched_then_rebased(monkeypatch):
+def test_a_lane_behind_the_base_is_fetched_then_rebased(monkeypatch, record_head):
     _clean_worktree(monkeypatch)
     calls = _git_results(
         monkeypatch,
@@ -57,6 +64,7 @@ def test_a_lane_behind_the_base_is_fetched_then_rebased(monkeypatch):
     )
     assert calls[2] == ("rev-list", "--merges", "origin/main..HEAD")
     assert calls[3] == ("rebase", "origin/main")
+    record_head.assert_called_once_with("yoke", "/tmp/tree")
 
 
 def test_lane_rebase_marks_replayed_commits_to_skip_snapshot_sync(monkeypatch):
@@ -73,7 +81,7 @@ def test_lane_rebase_marks_replayed_commits_to_skip_snapshot_sync(monkeypatch):
     assert observed["env"][HEAD_RECORDING_SKIP_ENV] == "1"
 
 
-def test_a_lane_containing_the_base_keeps_its_merge_topology(monkeypatch):
+def test_a_lane_containing_the_base_keeps_its_merge_topology(monkeypatch, record_head):
     _clean_worktree(monkeypatch)
     calls = _git_results(monkeypatch, {})
 
@@ -84,6 +92,7 @@ def test_a_lane_containing_the_base_keeps_its_merge_topology(monkeypatch):
         project="yoke",
     )
 
+    record_head.assert_not_called()
     assert calls == [
         ("fetch", "--quiet", "--no-tags", "origin", "main"),
         ("merge-base", "--is-ancestor", "origin/main", "HEAD"),
@@ -193,3 +202,40 @@ def test_a_timed_out_rebase_aborts_and_returns_a_typed_recovery(monkeypatch):
     assert ("rebase", "--abort") in calls
     assert "lane restored" in str(raised.value)
     assert isinstance(raised.value.__cause__, subprocess.TimeoutExpired)
+
+
+@pytest.mark.parametrize("failure", ["snapshot unavailable", RuntimeError("offline")])
+def test_head_recording_failure_warns_without_failing_update(
+    monkeypatch, record_head, capsys, failure
+):
+    _clean_worktree(monkeypatch)
+    _git_results(monkeypatch, {"merge-base": subprocess.CompletedProcess([], 1, "", "")})
+    if isinstance(failure, Exception):
+        record_head.side_effect = failure
+    else:
+        record_head.return_value = failure
+
+    assert lane_base_update.bring_lane_current(
+        "/tmp/tree", branch="PRJ-9", target="main", project="yoke"
+    ) is True
+
+    warning = capsys.readouterr().err
+    assert "lane_head_record_failed" in warning
+    assert str(failure) in warning
+    assert "yoke project snapshot sync" in warning
+    assert "--head-only" in warning
+
+
+def test_failed_lane_update_does_not_record_head(monkeypatch, record_head):
+    _clean_worktree(monkeypatch)
+    _git_results(monkeypatch, {"merge-base": subprocess.CompletedProcess([], 1, "", "")})
+    monkeypatch.setattr(
+        lane_base_update, "_update", mock.Mock(side_effect=LaneBaseUpdateRefused("conflict"))
+    )
+
+    with pytest.raises(LaneBaseUpdateRefused, match="conflict"):
+        lane_base_update.bring_lane_current(
+            "/tmp/tree", branch="PRJ-9", target="main", project="yoke"
+        )
+
+    record_head.assert_not_called()
