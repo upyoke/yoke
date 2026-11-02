@@ -322,3 +322,19 @@ def test_permission_refusal_preserves_the_unreadable_hop_url() -> None:
     ]
     assert "Actions logs are not visible" in result["stop_reason"]
     assert "restore Actions read/log permission" in result["recovery"]
+
+
+def test_http_dispatch_failure_outranks_trailing_hint_and_general_error() -> None:
+    diagnostic = (
+        "gh workflow run release.yml: could not create workflow dispatch event: HTTP 502"
+    )
+    log = "\n".join(
+        [
+            diagnostic,
+            "error: workflow dispatch failed",
+            "hint: Using 'master' as the name for the initial branch",
+            "##[error]Process completed with exit code 1.",
+        ]
+    )
+
+    assert terminal_error(log) == diagnostic
