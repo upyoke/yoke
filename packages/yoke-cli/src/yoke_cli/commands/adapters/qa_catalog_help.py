@@ -162,13 +162,16 @@ update` cannot write at all -- because it rewrites the derivation whole rather
 than one allowlisted field. The result's plan_ids names every plan the call
 reached; a lost case is waived as removed (waived_requirement_ids).
 
-Post-deploy plans are never materialized on an item: each release runs each
-single-member plans as member QA and shared plans as driver-owned groups, pinned when the release
-started with, so an edited plan runs on the next release. An item transition
-that attaches only post-deploy plans refuses as
-post_deploy_plan_runs_as_plan_group, and so does --deployment-run-id at an
-item-scoped stage (plan_group_not_rematerialized). Correct a failed plan-group
-case with `yoke qa plan run --deployment-run-id RUN --stage item-qa --plan P
+Post-deploy plans run on deployment stages rather than item transitions.
+Refresh a member-owned plan with `yoke qa plan rematerialize --item ITEM
+--stage item-qa --plan P --project PROJECT`, then run that member's scoped QA.
+Its existing frozen plan contract is corrected; the owner class and target stay
+pinned. A new correction-only plan runs with `yoke qa plan run --item ITEM
+--stage item-qa --plan CORRECTED_PLAN --project PROJECT
+--replaces CASE_KEY=FAILED_REQUIREMENT_ID`.
+Shared plans remain driver-owned groups: --deployment-run-id at an item-scoped
+stage refuses plan_group_not_rematerialized. Correct a failed shared case with
+`yoke qa plan run --deployment-run-id RUN --stage item-qa --plan P
 --replaces CASE_KEY=REQUIREMENT_ID`.
 
 A deployment subject converges case by case, so one answered sibling never
