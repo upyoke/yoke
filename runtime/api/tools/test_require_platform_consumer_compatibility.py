@@ -16,7 +16,7 @@ import json
 import pytest
 
 from runtime.api.tools import require_platform_consumer_compatibility as gate
-
+from runtime.api.tools.platform_consumer_dispatch import CANDIDATE_INPUT, CONSUMER_CHECK_WORKFLOW
 
 CANDIDATE = "a" * 40
 CONSUMER_REVISION = "b" * 40
@@ -167,14 +167,14 @@ def test_one_candidate_can_never_adopt_another_candidate_s_run(
     assert request_ids[0] != request_ids[1]
     assert CANDIDATE in request_ids[0]
     assert seen[0][seen[0].index("--input") + 1] == (
-        f"{gate.CANDIDATE_INPUT}={CANDIDATE}"
+        f"{CANDIDATE_INPUT}={CANDIDATE}"
     )
     for argv in seen:
         assert argv[argv.index("--ref") + 1] == (
             f"yoke-deploy/consumer-{CONSUMER_REVISION}"
         )
         assert argv[argv.index("--request-id") + 1].endswith(
-            gate.CONSUMER_CHECK_WORKFLOW
+            CONSUMER_CHECK_WORKFLOW
         )
 
 
@@ -204,8 +204,8 @@ def test_the_gate_reuses_the_consumer_s_own_required_check(
 
     gate.dispatch(CANDIDATE, CONSUMER_REVISION)
 
-    assert gate.CONSUMER_CHECK_WORKFLOW == "platform-release-pin-check.yml"
-    assert seen[0][seen[0].index("trigger") + 2] == gate.CONSUMER_CHECK_WORKFLOW
+    assert CONSUMER_CHECK_WORKFLOW == "platform-release-pin-check.yml"
+    assert seen[0][seen[0].index("trigger") + 2] == CONSUMER_CHECK_WORKFLOW
 
 
 _PENDING = (1, "", "error (workflow_dispatch_pending): run not listed")
@@ -296,7 +296,7 @@ def test_a_missing_scoped_credential_refuses(
 
     assert gate.CONSUMER_TOKEN_ENV in unavailable
     assert "CI-only" in unavailable
-    assert "yoke github-actions trigger" in unavailable
+    assert "platform_consumer_dispatch" in unavailable
     assert "nothing can reach" not in unavailable
 
 

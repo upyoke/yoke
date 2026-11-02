@@ -3,7 +3,7 @@
  "title": "Consumer proof at release",
  "status": "observed",
  "form": "Do",
- "verification": "Source teaching places automatic hosted consumer verification at release only, accepts later integration feedback, and retains full exact-pair proof and explicit diagnostics; live release execution and measured savings remain unclaimed.",
+ "verification": "Source teaching places automatic hosted consumer verification at release only, accepts later integration feedback, and retains full exact-pair proof and explicit diagnostics and one repository-local exact-pair dispatch entry point shared with the release helper; live release execution and measured savings remain unclaimed.",
  "topics": ["contributing/building-and-publishing-yoke-releases/consumer-compatibility"],
- "sources": ["AGENTS.md", "runtime/agents/product-manager.md", "runtime/agents/architect/task-templates.md", ".agents/skills/yoke/conduct/dispatch-context-verify.md", "docs/public/verification/consumer-proof.md"]
+ "sources": ["AGENTS.md", "runtime/agents/product-manager.md", "runtime/agents/architect/task-templates.md", ".agents/skills/yoke/conduct/dispatch-context-verify.md", "docs/public/verification/consumer-proof.md", "runtime/api/tools/platform_consumer_dispatch.py"]
 }
