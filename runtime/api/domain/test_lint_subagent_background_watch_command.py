@@ -46,14 +46,13 @@ class TestYokeWatchCommandSpelling(unittest.TestCase):
 class TestSubagentAdapterWiring(unittest.TestCase):
     """Sibling regressions on the rendered adapter files.
 
-    Walks the on-disk Claude adapter files for every Bash-capable subagent
+    Walks the on-disk Claude adapter files for every subagent
     and asserts one matcherless PreToolUse runner with the env-wrapped
-    subagent identity. Also asserts PM/PD adapters carry zero
+    subagent identity. Also asserts all adapters carry zero
     ``lint_subagent_background`` invocations.
     """
 
-    _BASH_CAPABLE_ROLES = ("engineer", "tester", "architect", "boss", "simulator")
-    _NON_BASH_ROLES = ("product-manager", "product-designer")
+    from yoke_core.domain.agents_render import AGENTS as _ROLES
 
     def _claude_adapter_path(self, role: str):
         from runtime.api.domain.test_agents_render_workspace_fixtures import (
@@ -69,8 +68,8 @@ class TestSubagentAdapterWiring(unittest.TestCase):
             / f"yoke-{role}.md"
         )
 
-    def test_each_bash_capable_adapter_renders_one_matcherless_pretool_entry(self):
-        for role in self._BASH_CAPABLE_ROLES:
+    def test_each_adapter_renders_one_matcherless_pretool_entry(self):
+        for role in self._ROLES:
             adapter_text = self._claude_adapter_path(role).read_text(encoding="utf-8")
             expected_command = (
                 f"YOKE_HOOK_AGENT_TYPE={role} yoke hook evaluate PreToolUse"
@@ -88,13 +87,13 @@ class TestSubagentAdapterWiring(unittest.TestCase):
                 f"yoke-{role}.md: stale --agent-type CLI flag still present",
             )
 
-    def test_pm_pd_adapters_have_zero_lint_subagent_background_invocations(self):
-        for role in self._NON_BASH_ROLES:
+    def test_adapters_have_no_direct_background_lint_invocations(self):
+        for role in self._ROLES:
             adapter_text = self._claude_adapter_path(role).read_text(encoding="utf-8")
             self.assertNotIn(
                 "lint_subagent_background",
                 adapter_text,
-                f"yoke-{role}.md: non-Bash agent must carry zero lint_subagent_background invocations",
+                f"yoke-{role}.md: agent must use the shared hook runner",
             )
 
 
