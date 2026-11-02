@@ -68,7 +68,11 @@ observation. So does an `UNMERGEABLE` entry while GitHub still reports
 `mergeable=UNKNOWN`, and an open pull request whose merge state GitHub reports as
 unknown: GitHub reports that while it recomputes, including mid-merge after it
 clears the queue entry and merge-when-ready, so the observation stays pending
-until a later read shows the merge or a known refusal. A merged pull request receives the normal completion notice.
+until a later read shows the merge or a known refusal. An open `CLEAN` pull
+request with arming cleared and no queue entry can also be mid-merge: the
+observer waits three seconds and reads it once more before sending a stopped
+notice. If the second read still shows that state, it reports the stop; if
+it merged, it receives the normal completion notice.
 
 Recovery belongs to the holder: address the named check or protection rule
 and re-run the same governed `yoke merge item` command. If the lane or base

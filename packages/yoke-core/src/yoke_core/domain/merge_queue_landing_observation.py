@@ -18,11 +18,15 @@ admission check reads — armed, queued, eligible, entry-gated — and
 reports a stop when admission is lost, including a retained UNMERGEABLE entry.
 An open pull request whose merge state GitHub reports unknown is not a stop:
 GitHub reports that mid-merge, after it clears the entry and the arming.
+An open CLEAN pull request with neither arming nor a queue entry is read
+again after three seconds before it can be reported as stopped.
 """
 
 from __future__ import annotations
 
+import time
 from dataclasses import dataclass
+from typing import Callable
 
 from yoke_core.domain.merge_queue_enqueue_verification import LandingReadback
 from yoke_core.domain.merge_queue_landing_notice import HOLDER
@@ -41,6 +45,31 @@ class LandingObservation:
     kind: str
     recovery: str = ""
     observed: str = ""
+
+
+def confirm_clean_landing(
+    readback: LandingReadback,
+    reread: Callable[[], LandingReadback],
+) -> LandingReadback:
+    """Re-read a possible CLEAN mid-merge once before declaring an ejection.
+
+    GitHub can clear arming and queue membership seconds before recording
+    the merge. Use the second read for both the durable record and notice;
+    a persistent CLEAN absence is still a stop, with no stored retry state.
+    """
+    state, member = readback.state, readback.membership
+    if (
+        state is not None and not state.merged and not state.closed
+        and not state.auto_merge_active
+        and state.merge_state_status.strip().lower() == "clean"
+        and member is not None and not member.in_queue
+        and member.mergeable != "CONFLICTING"
+        and not readback.failed_required
+        and readback.queue_recovery.get("action") != "held"
+    ):
+        time.sleep(3.0)
+        return reread()
+    return readback
 
 
 def classify_pending_landing(
@@ -114,5 +143,6 @@ __all__ = [
     "WAITING",
     "LandingObservation",
     "classify_pending_landing",
+    "confirm_clean_landing",
     "ejection_message",
 ]
