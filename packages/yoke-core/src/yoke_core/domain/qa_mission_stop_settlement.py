@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from typing import Any
 
 from yoke_contracts.timestamps import utc_now
@@ -90,6 +91,21 @@ def settle_stopped_mission_dockets(
             },
             unjudged_only=True,
             default_completed_at=utc_now(),
+        )
+
+    bundle = query_one(
+        conn,
+        f"SELECT bundle_json FROM qa_plan_review_bundles WHERE execution_id={p} "
+        "AND state='pending'",
+        (str(execution["id"]),),
+    )
+    if bundle is not None and not mission_review_cases(
+        conn, json.loads(bundle["bundle_json"]).get("cases") or []
+    ):
+        conn.execute(
+            "UPDATE qa_plan_review_bundles SET state='completed' "
+            f"WHERE execution_id={p} AND state='pending'",
+            (str(execution["id"]),),
         )
 
 
