@@ -94,11 +94,27 @@ def install_line_hook(repo, name):
     hook.chmod(0o755)
 
 
-def test_pre_merge_commit_hook_accepts_upstream_growth(repo):
+@pytest.mark.parametrize("extra_growth", [0, 1])
+def test_pre_merge_commit_hook_checks_inherited_and_combined_growth(repo, extra_growth):
+    if extra_growth:
+        _commit_file(repo, "big.py", "lane\n" + _make_lines(400))
     install_line_hook(repo, "pre-merge-commit")
-    result = git(repo, "merge", "--no-ff", "main", "-m", "Integrate base")
-    assert result.returncode == 0
-    assert len(git(repo, "rev-list", "--parents", "-n", "1", "HEAD").stdout.split()) == 3
+    result = git(repo, "merge", "--no-ff", "main", "-m", "Integrate base", check=False)
+    assert result.returncode == extra_growth, result.stderr
+    if extra_growth:
+        assert "existing 401-line file grew" in result.stderr
+    else:
+        assert len(git(repo, "rev-list", "--parents", "-n", "1", "HEAD").stdout.split()) == 3
+
+
+def test_automatic_octopus_merge_hook_reads_all_parents(repo):
+    git(repo, "checkout", "-b", "other")
+    _commit_file(repo, "other.txt", "other\n")
+    git(repo, "checkout", "lane")
+    install_line_hook(repo, "pre-merge-commit")
+    result = git(repo, "merge", "--no-ff", "other", "main", "-m", "Integrate parents", check=False)
+    assert result.returncode == 0, result.stderr
+    assert len(git(repo, "rev-list", "--parents", "-n", "1", "HEAD").stdout.split()) == 4
 
 
 @pytest.mark.parametrize("extra_growth", [0, 1])
