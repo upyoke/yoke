@@ -30,6 +30,7 @@ from runtime.api.fixtures.pg_testdb import test_database
 from yoke_core.domain.lint_session_cwd_target_extract import (
     extract_command_targets,
 )
+from yoke_core.domain.lint_session_cwd_path_authority import is_under_tool_dir
 from yoke_core.domain.lint_session_cwd_validate import (
     TOOL_DIR_PREFIXES,
     validate_targets,
@@ -219,6 +220,37 @@ def conn(tmp_path):
 
 
 class TestToolDirAllowlist:
+    def test_symlinked_tool_entry_does_not_trust_external_directory(self, tmp_path):
+        tools = tmp_path / "usr" / "bin"
+        tools.mkdir(parents=True)
+        implementation = tmp_path / "usr" / "lib" / "cargo" / "bin" / "coreutils"
+        implementation.mkdir(parents=True)
+        binary = implementation / "ls"
+        binary.touch()
+        entry = tools / "ls"
+        entry.symlink_to(binary)
+        alias = tmp_path / "bin"
+        alias.symlink_to(tools, target_is_directory=True)
+        prefixes = (str(tools), str(alias))
+
+        assert is_under_tool_dir(str(entry), prefixes=prefixes)
+        assert is_under_tool_dir(str(alias / "ls"), prefixes=prefixes)
+        assert not is_under_tool_dir(str(binary), prefixes=prefixes)
+        assert not is_under_tool_dir(str(implementation / "other"), prefixes=prefixes)
+
+    def test_directory_symlink_does_not_trust_external_descendants(self, tmp_path):
+        tools = tmp_path / "tools"
+        tools.mkdir()
+        outside = tmp_path / "outside"
+        outside.mkdir()
+        (outside / "arbitrary").touch()
+        (tools / "linked").symlink_to(outside, target_is_directory=True)
+        prefixes = (str(tools),)
+
+        assert not is_under_tool_dir(str(tools / "linked" / "arbitrary"), prefixes=prefixes)
+        assert not is_under_tool_dir(str(tools / ".." / "outside" / "arbitrary"), prefixes=prefixes)
+        assert not is_under_tool_dir(str(tmp_path / "tools-other" / "ls"), prefixes=prefixes)
+
     @pytest.mark.parametrize("target", [
         "/opt/homebrew/bin/pulumi",
         "/opt/homebrew/Cellar/pulumi/3.1/bin/pulumi",

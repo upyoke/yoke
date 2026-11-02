@@ -104,10 +104,20 @@ def is_under_tool_dir(
     *,
     prefixes: Sequence[str] | None = None,
 ) -> bool:
-    """Return True when ``target`` resolves under a standard tool directory."""
+    """Trust tool-directory contents and their individual symlink entries.
+
+    OS packages may link a tool to a private implementation outside the tool
+    directory. Trust that entry without trusting the implementation's directory
+    or descendants reached through a directory symlink.
+    """
     resolved = resolve_for_display(target)
+    parent = resolve_for_display(str(Path(target).parent))
     for prefix in prefixes if prefixes is not None else TOOL_DIR_PREFIXES:
-        if resolved == prefix or resolved.startswith(prefix + os.sep):
+        prefix = resolve_for_display(prefix)
+        if any(
+            candidate == prefix or candidate.startswith(prefix + os.sep)
+            for candidate in (resolved, parent)
+        ):
             return True
     return False
 
