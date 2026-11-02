@@ -36,8 +36,7 @@ const { spawn, execFile } = require('child_process');
 
 const WINDOW_POLL_MS = 2000;
 const WINDOW_START_MS = 30000;
-const AUTHORIZATION_LIMIT_MS = 30 * 60 * 1000;
-const SHUTDOWN_MS = 10000;
+const { AUTHORIZATION_LIMIT_MS, SHUTDOWN_MS } = require('./authorization-limits.json');
 
 // CoreGraphics counts every window, including minimized and off-screen ones.
 // The query only reads window metadata for our spawned PID; it does not attach
@@ -182,23 +181,29 @@ function openSignInWindow(
       if (error) reject(error);
       else resolve();
     };
-    const stop = (reason) => {
+    const stop = (reason, forceOnTimeout = false) => {
       if (finished || stopping) return;
       stopping = true;
       stoppedBecause = reason;
       child.kill('SIGTERM');
       if (finished) return;
-      shutdownTimer = setTimeout(() => finish(new Error(
-        `${reason}; spawned Chromium PID ${child.pid} still holds the profile after `
-        + `${shutdownMs / 1000}s. Quit that process normally, then rerun `
-        + '`yoke browser authorize` without --reset to keep the sign-in.',
-      )), shutdownMs);
+      shutdownTimer = setTimeout(() => {
+        if (forceOnTimeout) child.kill('SIGKILL');
+        finish(new Error(
+          forceOnTimeout
+            ? `${reason}; Chromium was force-stopped. Reopen with `
+              + '`yoke browser authorize` without --reset to keep the sign-in.'
+            : `${reason}; spawned Chromium PID ${child.pid} still holds the profile after `
+              + `${shutdownMs / 1000}s. Quit that process normally, then rerun `
+              + '`yoke browser authorize` without --reset to keep the sign-in.',
+        ));
+      }, shutdownMs);
     };
     const checkWindows = async () => {
       if (finished || stopping) return;
       const elapsed = Date.now() - started;
       if (elapsed >= limitMs) {
-        stop(`authorization exceeded ${limitMs / 60000} minutes with Chromium still running`);
+        stop(`authorization exceeded ${limitMs / 60000} minutes with Chromium still running`, true);
         return;
       }
       if (platform === 'darwin' || platform === 'linux') {

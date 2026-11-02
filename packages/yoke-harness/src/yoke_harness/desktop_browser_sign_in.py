@@ -12,6 +12,7 @@ from urllib.parse import urlsplit
 
 import httpx
 
+from yoke_harness.browser_sign_in_limits import AUTHORIZATION_LIMIT_MS
 from yoke_harness.ssh_linux_preserved_entries import SNAP_CHROMIUM_HOME_ENTRY
 from yoke_harness.ssh_mac_preserved_state import SAFARI_COOKIE_HOME_ENTRY
 
@@ -227,11 +228,11 @@ def sign_in_window(kind: str, urls: list[str]) -> None:
     announce_designed_wait(
         "the operator to sign in and close the native browser windows",
         cadence="checks native desktop windows every 1s",
-        max_wait_seconds=1800,
+        max_wait_seconds=AUTHORIZATION_LIMIT_MS / 1000,
     )
     started = time.monotonic()
     seen = False
-    while time.monotonic() - started < 1800:
+    while time.monotonic() - started < AUTHORIZATION_LIMIT_MS / 1000:
         windows = window_count(kind)
         seen |= windows > 0
         if seen and not windows:
@@ -242,6 +243,7 @@ def sign_in_window(kind: str, urls: list[str]) -> None:
                 "desktop_browser_window_unavailable: open the Test Machine desktop and repair its native browser, then retry."
             )
         time.sleep(1)
+    quit_browser(kind)
     raise RuntimeError(
-        "desktop_browser_sign_in_timeout: close the native browser windows after signing in, then rerun without resetting its profile."
+        "desktop_browser_sign_in_timeout: the sign-in limit expired and the native browser was closed; rerun without resetting its profile."
     )

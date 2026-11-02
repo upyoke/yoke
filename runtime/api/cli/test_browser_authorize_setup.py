@@ -55,7 +55,7 @@ def setup(tmp_path, monkeypatch):
         # No automated browser may start while the person signs in.
         started = browser_human_gate.utc_now()
         monkeypatch.setattr(
-            browser_human_gate, "utc_now", lambda: started + timedelta(seconds=3661)
+            browser_human_gate, "utc_now", lambda: started + timedelta(seconds=661)
         )
         with pytest.raises(browser_human_gate.HumanGateActiveError) as refused:
             browser_human_gate.refuse_during_human_gate(tmp_path)
@@ -64,7 +64,7 @@ def setup(tmp_path, monkeypatch):
             "identity 'default'",
             "project 'project'",
             "PID ",
-            "open for 1h 1m 1s",
+            "open for 0h 11m 1s",
             "Hand off to steering or the person",
             "finish or close the sign-in window",
             "quit PID",
@@ -169,39 +169,74 @@ def test_machine_progress_carries_match_code_and_approval_hint(capsys, json_mode
 def test_signed_in_identity_opens_only_for_explicit_url(
     setup, monkeypatch, capsys, explicit_url
 ):
-    declarations = {"identities": {"admin": {"sites": [{
-        "site": "app", "origin": "https://app.example", "account": "admin@example",
-        "probe": {"url": "https://app.example/me", "signed_in_status": 200},
-    }]}}}
+    declarations = {
+        "identities": {
+            "admin": {
+                "sites": [
+                    {
+                        "site": "app",
+                        "origin": "https://app.example",
+                        "account": "admin@example",
+                        "probe": {
+                            "url": "https://app.example/me",
+                            "signed_in_status": 200,
+                        },
+                    }
+                ]
+            }
+        }
+    }
     monkeypatch.setattr(
-        browser_identities, "declared_identities",
+        browser_identities,
+        "declared_identities",
         lambda *a, **kw: parse_identity_declarations(declarations),
     )
-    monkeypatch.setattr(command, "check_sign_in", lambda *a: [{
-        "site": "app", "state": "signed_in", "origin": "https://app.example",
-    }])
+    monkeypatch.setattr(
+        command,
+        "check_sign_in",
+        lambda *a: [
+            {
+                "site": "app",
+                "state": "signed_in",
+                "origin": "https://app.example",
+            }
+        ],
+    )
     url = "https://app.example/confirm-access"
     windows = []
     monkeypatch.setattr(
-        command, "_sign_in_window",
+        command,
+        "_sign_in_window",
         lambda runtime, profile, urls, json_mode: windows.append(urls) or 0,
     )
     args = ["--project", "project", "--identity", "admin", "--json"]
-    assert command.browser_authorize(args + (["--url", url] if explicit_url else [])) == 0
+    assert (
+        command.browser_authorize(args + (["--url", url] if explicit_url else [])) == 0
+    )
     assert windows == ([[url]] if explicit_url else [])
     assert json.loads(capsys.readouterr().out)["ok"] is True
 
 
-@pytest.mark.parametrize("started_at, elapsed", [
-    ("invalid", "an unknown duration (invalid started_at)"),
-    ("2100-01-01T00:00:00Z", "0h 0m 0s"),
-])
+@pytest.mark.parametrize(
+    "started_at, elapsed",
+    [
+        ("invalid", "an unknown duration (invalid started_at)"),
+        ("2100-01-01T00:00:00Z", "0h 0m 0s"),
+    ],
+)
 def test_gate_handoff_survives_invalid_or_future_start(
     monkeypatch, tmp_path, started_at, elapsed
 ):
-    monkeypatch.setattr(browser_human_gate, "active_human_gate", lambda _: {
-        "pid": 123, "identity": "buyer", "project": "shop", "started_at": started_at,
-    })
+    monkeypatch.setattr(
+        browser_human_gate,
+        "active_human_gate",
+        lambda _: {
+            "pid": 123,
+            "identity": "buyer",
+            "project": "shop",
+            "started_at": started_at,
+        },
+    )
     with pytest.raises(browser_human_gate.HumanGateActiveError) as refused:
         browser_human_gate.refuse_during_human_gate(tmp_path)
     assert f"open for {elapsed}" in str(refused.value)

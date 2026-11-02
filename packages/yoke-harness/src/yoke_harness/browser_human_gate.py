@@ -5,7 +5,8 @@ automated, and an automated daemon window left on screen during a human
 sign-in is the window the person signs into by mistake. So a human sign-in
 first stops every automated browser daemon on this machine, whatever profile
 or project it serves, and holds a machine-wide marker for as long as the
-sign-in window is open. While the marker names a live process, starting an
+sign-in window is open, up to the sign-in limit and shutdown margin. While
+the marker names a live process within that bound, starting an
 automated daemon is refused by name, naming the identity being signed in.
 """
 
@@ -23,6 +24,8 @@ from yoke_contracts.timestamps import (
     parse_instant,
     utc_now,
 )
+
+from yoke_harness.browser_sign_in_limits import AUTHORIZATION_LIMIT_MS, SHUTDOWN_MS
 
 HUMAN_GATE_FILE_NAME = "human-sign-in.json"
 
@@ -50,8 +53,8 @@ def _pid_alive(pid: int) -> bool:
 def active_human_gate(runtime_dir: Path) -> dict | None:
     """The live human sign-in holding this machine, or ``None``.
 
-    A marker whose process is gone was left by a sign-in that crashed; it
-    holds nothing and is removed.
+    A marker whose process is gone, timestamp is invalid, or sign-in limit
+    plus shutdown margin has expired holds nothing and is removed.
     """
     path = _gate_path(runtime_dir)
     try:
@@ -60,8 +63,17 @@ def active_human_gate(runtime_dir: Path) -> dict | None:
         return None
     except (OSError, ValueError):
         gate = {}
-    if isinstance(gate, dict) and _pid_alive(int(gate.get("pid") or 0)):
-        return gate
+    if isinstance(gate, dict):
+        try:
+            age_ms = (
+                utc_now() - parse_instant(gate.get("started_at"))
+            ).total_seconds() * 1000
+            if age_ms <= AUTHORIZATION_LIMIT_MS + SHUTDOWN_MS and _pid_alive(
+                int(gate.get("pid") or 0)
+            ):
+                return gate
+        except (InvalidInstant, TypeError, ValueError):
+            pass
     path.unlink(missing_ok=True)
     return None
 
