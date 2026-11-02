@@ -245,8 +245,9 @@ class TestRunnerStaleLockRetry:
         # Sleep was monkeypatched -- no real delay incurred.
         assert sleeps == [MERGE_LOCK_RETRY_DELAYS[0]]
 
+    @pytest.mark.parametrize("configured_ttl", [None, 47])
     def test_runner_returns_recoverable_exit_when_budget_exhausted(
-        self, monkeypatch, stale_lock_repo
+        self, monkeypatch, stale_lock_repo, configured_ttl
     ):
         repo = stale_lock_repo["repo"]
         messages: list[str] = []
@@ -278,6 +279,15 @@ class TestRunnerStaleLockRetry:
         sleeps: list[float] = []
         monkeypatch.setattr(merge_worktree_runner.time, "sleep", sleeps.append)
 
+        from yoke_core.domain import runtime_settings
+
+        def get_int(key, default):
+            assert key == "merge_lock_ttl_minutes"
+            assert default == 30
+            return default if configured_ttl is None else configured_ttl
+
+        monkeypatch.setattr(runtime_settings, "get_int", get_int)
+
         rc = merge_worktree_runner.run(MergeArgs(branch="STALE-LOCK-BRANCH"))
 
         assert rc == RECOVERABLE_MERGE_LOCK_EXIT_CODE
@@ -294,3 +304,9 @@ class TestRunnerStaleLockRetry:
             for m in messages
         )
         assert any("pre-acquire retry budget exhausted" in m for m in messages)
+        refusal = next(m for m in messages if final_block in m)
+        assert "No wake will arrive" in refusal
+        assert "Rerun the same merge command" in refusal
+        assert "in a few minutes" in refusal
+        ttl = 30 if configured_ttl is None else configured_ttl
+        assert f"the lock expires after {ttl} minutes" in refusal
