@@ -100,13 +100,13 @@ def test_permissions_are_split_by_validation_build_signing_and_publication():
 def test_every_job_is_github_hosted_and_operator_credentials_are_absent():
     text = _text()
     assert re.findall(r"^\s+runs-on:\s*(.+)$", text, re.MULTILINE) == [
-        "ubuntu-latest",
+        "ubuntu-24.04",
         "${{ matrix.runner }}",
         "${{ matrix.runner }}",
-        "ubuntu-latest",
-        "ubuntu-latest",
-        "ubuntu-latest",
-        "ubuntu-latest",
+        "ubuntu-24.04",
+        "ubuntu-24.04",
+        "ubuntu-24.04",
+        "ubuntu-24.04",
     ]
     assert "vars.YOKE_LINUX_RUNS_ON" not in text
     assert "runs-on: self-hosted" not in text
@@ -141,7 +141,7 @@ def test_build_uses_native_runners_and_pushes_only_by_digest():
     assert "ref: ${{ needs.validate-tag.outputs.source_sha }}" in build
     assert "uses: docker/setup-qemu-action@" not in text
     assert "uses: docker/setup-buildx-action@" in build
-    assert "runner: ubuntu-latest" in build
+    assert "runner: ubuntu-24.04" in build
     assert "runner: ubuntu-24.04-arm" in build
     assert "platform: linux/amd64" in build
     assert "platform: linux/arm64" in build
@@ -176,7 +176,7 @@ def test_queue_checks_both_architectures_without_registry_or_signing_authority()
     assert "permissions: {contents: read}" in check
     assert "push: false" in check
     assert "linux/amd64" in check and "linux/arm64" in check
-    assert "ubuntu-latest" in check and "ubuntu-24.04-arm" in check
+    assert "ubuntu-24.04" in check and "ubuntu-24.04-arm" in check
     assert "persist-credentials: false" in check
     for forbidden in ("packages: write", "id-token", "attestations:", "login-action"):
         assert forbidden not in check

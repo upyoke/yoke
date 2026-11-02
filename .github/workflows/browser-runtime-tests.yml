@@ -14,7 +14,7 @@ jobs:
   browser-runtime:
     timeout-minutes: 10
     name: browser-runtime
-    runs-on: ${{ fromJSON(vars.YOKE_LINUX_RUNS_ON || '["ubuntu-latest"]') }}
+    runs-on: ${{ fromJSON(vars.YOKE_LINUX_RUNS_ON || '["ubuntu-24.04"]') }}
     services:
       postgres:
         # Public GHCR copy of the official image. services.image cannot
