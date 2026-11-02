@@ -237,7 +237,10 @@ unadmitted PR without arming it twice. Active, successful and superseded runs
 are protected. Acceptance is not a passing check: resume the exact-head wait.
 A fresh `workflow_dispatch` is a new attempt; verify its head and that GitHub
 replaced the required checks before treating it as recovery.
-A started job with a failed or timed-out step is a red verdict and refuses recovery.
+A started job with a failed or timed-out step other than **Check runner capacity**
+is a red verdict and refuses recovery. A failure only in that capacity step
+produced no pytest verdict and permits failed-job recovery within the same
+three-attempt limit.
 Runner loss without a failed step remains recoverable. A run concluded `timed_out` is red.
 Fix failing or flaky tests through the
 [verification policy](../agents/rules/verification.md#failing-or-flaky-tests).

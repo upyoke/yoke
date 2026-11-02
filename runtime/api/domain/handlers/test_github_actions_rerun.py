@@ -242,7 +242,7 @@ def test_failed_step_refuses_without_intent_or_post(github, conclusion):
         {
             "runner_name": "runner",
             "conclusion": conclusion,
-            "steps": [{"conclusion": conclusion}],
+            "steps": [{"name": "Run pytest", "conclusion": conclusion}],
         }
     ]
     result = subject.handle_rerun_failed(_request())
@@ -280,3 +280,27 @@ def test_recovery_signature_has_no_failure_allowance():
     from yoke_core.domain.github_actions_rerun_safety import checked_run
 
     assert "allow_failure" not in signature(checked_run).parameters
+
+
+@pytest.mark.parametrize("other_failure", [False, True])
+def test_capacity_failure_is_recoverable_only_without_other_failed_steps(
+    github, other_failure
+):
+    steps = [{"name": "Check runner capacity", "conclusion": "failure"}]
+    steps.append({
+        "name": "Run pytest",
+        "conclusion": "failure" if other_failure else "skipped",
+    })
+    github["jobs"] = [{
+        "runner_name": "runner", "conclusion": "failure", "steps": steps,
+    }]
+    result = subject.handle_rerun_failed(_request())
+    if other_failure:
+        assert result.error.code == "ci_rerun_verdict"
+        assert not github["posts"]
+        assert not github["records"]
+    else:
+        assert result.primary_success
+        assert github["posts"] == [
+            ("/repos/owner/app/actions/runs/100/rerun-failed-jobs", 1)
+        ]

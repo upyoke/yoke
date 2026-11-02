@@ -106,6 +106,7 @@ def checked_run(
         and job.get("conclusion") in {"failure", "timed_out"}
         and any(
             step.get("conclusion") in {"failure", "timed_out"}
+            and step.get("name") != "Check runner capacity"
             for step in job.get("steps") or []
         )
         for job in jobs

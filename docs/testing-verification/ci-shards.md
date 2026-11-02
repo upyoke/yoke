@@ -54,14 +54,17 @@ fixtures across shards or workers. Local partial splitting keeps pytest-split's
 ordinary individual-test behavior.
 Files enter the worker queue in descending measured duration; xdist's default
 test-count reorder is disabled so short, expensive files start early.
-Each shard log records CPU model, core count, and a short Python-loop timing
-before starting pytest. The probe takes the median of three local loops;
+The **Check runner capacity** step runs `ci_shards check-runner-capacity`
+before **Run pytest** and records CPU model, core count, and Python-loop timing. The probe takes the median of three local loops;
 `ci_shards.MAX_PYTHON_LOOP_SECONDS` admits values up to 0.05 seconds. Above
 that limit the shard exits non-zero before pytest with
 `ci_runner_slow: runner refused before pytest` and the measured value and limit,
 in both the job log and uploaded `pytest-output.txt`. Restore runner capacity;
-no test verdict was produced. Recover a no-verdict run through the item-owned
-[CI recovery](../public/github/index.md#failed-ci-job-recovery) after inspecting its steps.
+no test verdict was produced. When only **Check runner capacity** failed,
+item-owned [CI recovery](../public/github/index.md#failed-ci-job-recovery)
+allows `rerun-failed` and sends `rerun-failed-jobs`, within the existing
+three-attempt limit. A failed **Run pytest** or any other failed step still
+refuses `ci_rerun_verdict`; fix the cause, commit and verify again.
 This admission check does not change test selection. Missing CPU-model telemetry does not block tests.
 The **Run pytest** step sets `PYTHONUNBUFFERED=1` so progress reaches the
 streaming log without Python output buffering.
