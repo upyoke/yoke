@@ -52,13 +52,15 @@ sends the named failure and recovery to the covering steering seat. The
 original sender is not notified; the message state is their record. Read
 `yoke messages get MESSAGE-ID` for the receipt and attempts.
 Operator-driven hook delivery keeps its own wait without spending that budget.
-A relay wake whose lease expires before the relay reports anything spends
-nothing either, so an explicit wake survives a relay outage: the peer-hook
-broker gets the first retry, then the relay claims it again. After three such
-expiries the receipt keeps the charge and records the `relay_lease_expired`
-escalation; Fleet shows it as `last attempt failed (relay_lease_expired)`.
-Recover with `yoke session-control session wake SESSION-ID` once the relay
-reports again.
+A relay wake whose lease expires before any report gives its charge back.
+Broker attempts closed as `broker_hook_lease_expired`, `broker_lost` or
+`broker_timeout` also give it back, so an explicit wake survives a relay outage
+and the relay can claim it again after recovery. Relay and broker losses share
+one limit of three refunds per recipient. Further losses keep their charge and
+record their own result code as the escalation; Fleet shows that code as
+`last attempt failed`. `broker_target_changed` and `broker_state_invalid` never
+refund. Recover with `yoke session-control session wake SESSION-ID` once the
+relay reports again.
 
 An explicit `yoke session-control session wake SESSION-ID` returns its queued
 receipt after about one second if no relay or broker claims it. A claimed

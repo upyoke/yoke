@@ -13,6 +13,7 @@ from yoke_contracts.session_control.wake_delivery import (
 from yoke_contracts.timestamps import parse_instant
 from yoke_core.domain.session_broker_wake_fallback import BROKER_JOB_TIMEOUT_SECONDS
 from yoke_core.domain.session_broker_wake_settlement import (
+    close_broker_attempt,
     complete_broker_hook_lease,
     settle_broker_wake_losses,
 )
@@ -240,41 +241,18 @@ def test_mixed_unreported_losses_share_refund_limit(final_kind, final_code) -> N
     assert _recipient(conn) == (1, final_code)
 
 
-@pytest.mark.parametrize(
-    "change,code",
-    [
-        (
-            "UPDATE harness_sessions SET last_tool_call_at=? WHERE session_id='s4'",
-            "broker_target_changed",
-        ),
-        (
-            "UPDATE session_message_attempts SET started_at='' WHERE attempt_id=?",
-            "broker_state_invalid",
-        ),
-    ],
-)
-def test_broker_target_change_and_invalid_state_keep_charge(change, code) -> None:
+@pytest.mark.parametrize("code", ["broker_target_changed", "broker_state_invalid"])
+def test_nonrefundable_broker_closures_keep_charge(code: str) -> None:
     conn, _ = broker._seed()
     lease = broker._reserve(conn)
     assert lease
-    value = (
-        lease.attempt_id if code == "broker_state_invalid" else broker._stamp(seconds=2)
+    assert close_broker_attempt(
+        conn,
+        attempt_id=lease.attempt_id,
+        result_code=code,
+        now=broker.NOW + timedelta(seconds=2),
     )
-    conn.execute(change, (value,))
-    conn.commit()
-    assert (
-        settle_broker_wake_losses(
-            conn, now=broker.NOW + timedelta(seconds=BROKER_JOB_TIMEOUT_SECONDS + 2)
-        )
-        == 1
-    )
-    assert (
-        conn.execute(
-            "SELECT result_code FROM session_message_attempts WHERE attempt_id=?",
-            (lease.attempt_id,),
-        ).fetchone()[0]
-        == code
-    )
+    refund_unreported_wake(conn, attempt_id=lease.attempt_id)
     assert (
         conn.execute(
             "SELECT wake_attempt_count FROM session_message_recipients"
