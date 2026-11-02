@@ -25,10 +25,10 @@ from yoke_core.domain.session_message_authorization import (
 )
 from yoke_core.domain.session_item_scope import SessionItemScope
 from yoke_core.domain.session_message_liveness import applied_liveness
+from yoke_core.domain.session_message_addressing import resolve_message_recipients
 from yoke_core.domain.session_message_recipient_scope import owner_key, recipient_policy
 from yoke_core.domain.session_message_selectors import (
     confirmation_token,
-    resolve_recipients,
 )
 from yoke_core.domain.session_message_store import (
     begin_message_mutation,
@@ -119,11 +119,12 @@ def preview_message(
 ) -> dict[str, Any]:
     now = parse_instant(utc_now() if now is None else now)
     address = _steering_address(conn, selector, sender_session_id)
-    recipients = resolve_recipients(
+    recipients = resolve_message_recipients(
         conn,
         selector,
         now=now,
         actor_id=actor_id,
+        sender_session_id=sender_session_id,
         steering_target=address.coverage_target() if address else None,
     )
     actor_recipients = resolve_actor_recipients(
@@ -210,11 +211,12 @@ def send_message(
             conn, sender_session_id=sender_session_id, body=body
         )
         address = _steering_address(conn, selector, sender_session_id, reported_item)
-        recipients = resolve_recipients(
+        recipients = resolve_message_recipients(
             conn,
             selector,
             now=current,
             actor_id=actor_id,
+            sender_session_id=sender_session_id,
             steering_target=address.coverage_target() if address else None,
         )
         actor_recipients = resolve_actor_recipients(
