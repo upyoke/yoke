@@ -124,9 +124,10 @@ def _run_with_conn(fn, *args, **kwargs) -> str:
 
 def _domain_error(exc: Exception) -> HandlerOutcome:
     from yoke_core.domain.dependency_cycles import DependencyCycleError
+    from yoke_core.domain.item_dependency_upsert import DependencyAlreadyLandedError
 
-    if isinstance(exc, DependencyCycleError):
-        code = DependencyCycleError.code
+    if isinstance(exc, (DependencyCycleError, DependencyAlreadyLandedError)):
+        code = exc.code
     elif isinstance(exc, LookupError):
         code = "dependency_not_found"
     else:
