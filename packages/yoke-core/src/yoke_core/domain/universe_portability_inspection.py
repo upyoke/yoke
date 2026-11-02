@@ -117,7 +117,12 @@ def archive_catalog(
         if re.search(r"unsupported version \([0-9.]+\) in file header", detail, re.I):
             raise ArchiveInvalidError(compose_refusal(
                 "archive_tool_version_unsupported: selected pg_restore cannot read the archive format",
-                recovery="use PostgreSQL client tools matching the source dump writer or newer, then retry validation or import; preserve the original archive and receipt",
+                recovery=(
+                    "set YOKE_PG_BIN_DIR to the bin directory of PostgreSQL client "
+                    "tools matching the source dump writer or newer, or run "
+                    "`yoke init --local` to fetch Yoke's bundled tools; then retry "
+                    "validation or import; preserve the original archive and receipt"
+                ),
             ))
         tail = detail.strip().splitlines()[-1:]
         raise ArchiveInvalidError(

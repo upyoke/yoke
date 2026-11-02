@@ -25,6 +25,8 @@ def test_catalog_reader_distinguishes_tool_version_from_corrupt_payload(tmp_path
     if unsupported:
         assert "archive_tool_version_unsupported" in refusal
         assert "matching the source dump writer or newer" in refusal
+        assert "set YOKE_PG_BIN_DIR to the bin directory" in refusal
+        assert "`yoke init --local` to fetch Yoke's bundled tools" in refusal
         assert "preserve the original archive and receipt" in refusal
         assert "corrupt" not in refusal
     else:
