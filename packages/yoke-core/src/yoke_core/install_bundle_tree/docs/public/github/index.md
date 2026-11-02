@@ -143,6 +143,16 @@ restore the connection and retry; cached repository lists do not prove access.
 
 ## GitHub access changes by mode
 
+Hosted repository bindings from `yoke projects github-binding bind`,
+`yoke onboard`, and the dashboard pass through the hosted org's admin and
+installation-ownership checks. Connect the installation on that org's GitHub
+page first. An installation belongs to one hosted org; a refusal names the
+reason and how to connect it. The host then binds with its service identity.
+Direct engine binds with a member or machine token refuse
+`github_binding_hosted_only`; retry through the hosted org or choose
+**Connect GitHub** on its GitHub page. Local and self-hosted binds keep their
+project-admin and GitHub access checks without hosted ownership requirements.
+
 ```bash
 yoke github status
 ```
