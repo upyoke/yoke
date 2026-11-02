@@ -136,11 +136,28 @@ A notice is evidence to reread, not proof that all current blockers cleared.
 On any notice or manual resume, reread the dependency list, current run and
 requirement evidence. Check every remaining blocker, including QA outside the
 cleared dependency. Then identify the qualifying deployed run, stage, member
-and target before executing:
+and target. With no explicit plan, item QA selects the newest member run,
+Stage or production, whose status is `executing` and whose `current_stage`
+is the named stage:
 
 ```text
 yoke watch qa-plan -- --item ITEM --stage STAGE --project P
 ```
+
+If no member run is at that stage, `qa_item_stage_unavailable` gives the
+steering handoff and a concrete create command. Ask steering or the release
+driver to select the Stage-capable flow and create a Stage run that enrolls
+the item; run creation remains the driver's responsibility:
+
+```text
+yoke deployment-runs create P FLOW --environment stage --idempotency-key KEY
+```
+
+The driver confirms enrollment and drives the run to `item-qa`. Then the
+holder runs QA with `--item ITEM --stage item-qa`. To select an attached plan
+explicitly, use `yoke qa plan run --item ITEM --stage item-qa --plan PLAN`;
+its environment selects the corresponding qualifying member run. A finished
+run cannot execute QA again; arrange a new qualifying run before retrying.
 
 A dependency-cleared notice cannot retarget an old frozen run. If the correction
 is absent from that run's lineage, have the driver arrange a later candidate

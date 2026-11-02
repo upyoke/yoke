@@ -100,9 +100,12 @@ def test_item_call_waits_until_the_successor_reaches_item_qa(test_db, monkeypatc
     refused = _materialize(test_db)
     assert refused.primary_success is False
     message = refused.error.message
-    assert refused.error.code == "qa_subject_unavailable"
-    assert f"deployment run {NEW} is 'created'" in message
-    assert "item QA opens at item-qa; you will be woken" in message
+    assert refused.error.code == "qa_item_stage_unavailable"
+    assert "no member run is executing stage 'item-qa'" in message
+    assert "Ask steering or the release driver" in message
+    assert "yoke deployment-runs create" in message
+    assert "--environment stage" in message
+    assert "before you retry QA" in message
 
     _freeze_successor(test_db)
     proceeded = _materialize(test_db)
