@@ -111,9 +111,7 @@ def frozen_stage_plans(
     if member is not None:
         project = int(subject.get("member_project_id") or subject["project_id"])
         for plan_id in sorted(member_plan_ids(conn, str(subject["id"]), int(member))):
-            from yoke_core.domain.deployment_qa_plan_ownership import _snapshot
-
-            pinned = (_snapshot(conn, str(subject["id"])).get("plan_groups") or {}).get(
+            pinned = (subject["flow_snapshot"].get("plan_groups") or {}).get(
                 str(plan_id)
             )
             frozen.append(

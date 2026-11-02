@@ -123,7 +123,7 @@ def member_plan_credited(conn: Any, run_id: str, item_id: int, plan_id: int) -> 
 
 
 def plan_only_members(conn: Any, run_id: str, item_ids: Any) -> set[int]:
-    """Members whose item QA is only plans: plan groups answer them, no holder runs."""
+    """Members owing only driver-owned shared plans, with no holder-run cases."""
     from yoke_core.domain.deployment_qa_member_plans import members_plan_ids
 
     rows = query_rows(
@@ -146,8 +146,6 @@ def plan_only_members(conn: Any, run_id: str, item_ids: Any) -> set[int]:
             and r.get("plan_id") is None
             and r.get("qa_phase") == "post_deploy"
         ]
-        from yoke_core.domain.deployment_qa_plan_ownership import member_plan_ids
-
         if not own and owed[member] and not member_plan_ids(conn, run_id, member):
             found.add(member)
     return found

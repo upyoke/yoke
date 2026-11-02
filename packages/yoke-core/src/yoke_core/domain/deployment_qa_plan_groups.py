@@ -1,4 +1,4 @@
-"""Item-qa plan groups: each attached post-deploy plan runs once per release.
+"""Item-qa plan groups: each shared post-deploy plan runs once per release.
 
 A plan group is the memberless rows of one plan at an item-scoped stage. Its
 target carries ``deployment.shared_plan = {plan_id, source_revision,
