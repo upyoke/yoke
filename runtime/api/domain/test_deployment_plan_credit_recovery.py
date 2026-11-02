@@ -12,6 +12,7 @@ from yoke_core.domain import project_identity
 @pytest.mark.parametrize("current", ["hosted-release", "acceptance-qa", "settlement"])
 def test_recovery_waits_only_before_the_plan_stage(monkeypatch, member_owned, current):
     item_id, plan_id = 17, 29
+    item_ref = f"DEMO-{item_id}"
     run_id, stage, slug = "run-target", "acceptance-qa", "storage-proof"
     monkeypatch.setattr(groups, "run_groups", lambda *args, **kwargs: [])
     monkeypatch.setattr(
@@ -19,7 +20,7 @@ def test_recovery_waits_only_before_the_plan_stage(monkeypatch, member_owned, cu
         "plan_owners",
         lambda *args: {plan_id: item_id} if member_owned else {plan_id: None},
     )
-    monkeypatch.setattr(project_identity, "render_item_ref", lambda *args: "DEMO-17")
+    monkeypatch.setattr(project_identity, "render_item_ref", lambda *args: item_ref)
     monkeypatch.setattr(
         credit,
         "_stages",
@@ -45,7 +46,7 @@ def test_recovery_waits_only_before_the_plan_stage(monkeypatch, member_owned, cu
         assert "stage-wait notice will wake the holder" in recovery
         assert "yoke qa plan run" not in recovery
     elif member_owned:
-        assert recovery == f"yoke qa plan run --item DEMO-17 --stage {stage}"
+        assert recovery == f"yoke qa plan run --item {item_ref} --stage {stage}"
     else:
         assert recovery == (
             f"yoke qa plan run --deployment-run-id {run_id} --stage {stage} --plan {slug}"
