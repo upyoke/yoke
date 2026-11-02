@@ -109,14 +109,17 @@ def freeze_selected_plans(conn, subject, snapshots):
     The caller holds the run lock. An existing contract changes here only to
     the saved source its stage refreshed it to before first materializing it;
     explicit rematerialization owns changes to a previously materialized plan.
-    A member subject runs the run's flow selections and freezes nothing of its
-    own; a plan group is pinned in ``plan_groups`` when it is created.
+    Member-selected corrections keep their own scoped selection; an attached
+    member plan or shared group keeps its existing pinned contract.
     """
-    if (
-        not snapshots
-        or subject.get("shared_plan")
-        or subject.get("member_item_id") is not None
-    ):
+    if not snapshots or subject.get("shared_plan"):
+        return
+    if subject.get("member_item_id") is not None:
+        from yoke_core.domain.deployment_qa_member_plan_admission import (
+            freeze_member_plans,
+        )
+
+        freeze_member_plans(conn, subject, snapshots)
         return
     row = conn.execute(
         "SELECT requirement_snapshot FROM deployment_runs WHERE id=%s",
@@ -128,7 +131,7 @@ def freeze_selected_plans(conn, subject, snapshots):
     existing = {
         int(value["plan"]["id"]): index
         for index, value in enumerate(values)
-        if value.get("stage") == stage
+        if value.get("stage") == stage and value.get("member_item_id") is None
     }
     changed = False
     for snapshot in snapshots:

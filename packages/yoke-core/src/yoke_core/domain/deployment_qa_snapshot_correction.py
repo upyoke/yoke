@@ -26,6 +26,10 @@ def selected_plan_owners(conn, *, run_id, stage, plan_id, member=None):
 
     Returns the decoded run snapshot and its selected plan contract.
     """
+    from yoke_core.domain.deployment_qa_member_plan_admission import (
+        selection_applies_to_member,
+    )
+
     lock_run(conn, str(run_id))
     run = conn.execute(
         "SELECT requirement_snapshot FROM deployment_runs WHERE id=%s FOR UPDATE",
@@ -38,6 +42,8 @@ def selected_plan_owners(conn, *, run_id, stage, plan_id, member=None):
     candidates = []
     for value in payload.get("selections", []):
         if value.get("stage") != stage:
+            continue
+        if not selection_applies_to_member(value, member):
             continue
         if int(value.get("plan", {}).get("id") or 0) != int(plan_id):
             continue
@@ -54,21 +60,33 @@ def selected_plan_owners(conn, *, run_id, stage, plan_id, member=None):
     return payload, candidates[0]
 
 
-def _case_passed(conn, *, run_id, stage, plan_id, key, member=None):
+def _case_passed(
+    conn, *, run_id, stage, plan_id, key, member=None, exclusive_member=None
+):
     """Protect every accepted copy sharing the frozen plan contract."""
     from yoke_core.domain.qa_deployment_case_correction_window import (
         determinate_verdict,
     )
 
+    from yoke_core.domain.qa_deployment_case_content_refresh import base_case_key
+
+    scope = "deployment_member_item_id IS " + ("NULL" if member is None else "NOT NULL")
+    params = (run_id, stage, plan_id)
+    if exclusive_member is not None:
+        scope = "deployment_member_item_id=%s"
+        params += (exclusive_member,)
     rows = query_rows(
         conn,
-        "SELECT id FROM qa_requirements WHERE deployment_run_id=%s "
-        "AND deployment_stage=%s AND plan_id=%s AND plan_case_key=%s "
-        "AND deployment_member_item_id IS "
-        + ("NULL" if member is None else "NOT NULL"),
-        (run_id, stage, plan_id, key),
+        "SELECT id,plan_case_key FROM qa_requirements WHERE deployment_run_id=%s "
+        "AND deployment_stage=%s AND plan_id=%s "
+        "AND " + scope,
+        params,
     )
-    return any(determinate_verdict(conn, int(row["id"])) == "pass" for row in rows)
+    return any(
+        determinate_verdict(conn, int(row["id"])) == "pass"
+        for row in rows
+        if base_case_key(row["plan_case_key"]) == key
+    )
 
 
 def refresh_selected_cases(
@@ -101,7 +119,13 @@ def refresh_selected_cases(
         if key not in replacements or replacements[key] == frozen:
             continue
         if _case_passed(
-            conn, run_id=run_id, stage=stage, plan_id=plan_id, key=key, member=member
+            conn,
+            run_id=run_id,
+            stage=stage,
+            plan_id=plan_id,
+            key=key,
+            member=member,
+            exclusive_member=snapshot.get("member_item_id"),
         ):
             incomplete_snapshot(plan_id, "case already has passed acceptance")
     snapshot["cases"] = [

@@ -1,21 +1,15 @@
-"""Freeze release candidate membership immediately before run execution.
+"""Freeze release candidate membership immediately before execution.
 
-A membership row with no stored requirement selection is one admission
-derived and deliberately did not keep: the answer to "what does this item
-still owe" can change between that admission and this freeze -- a window
-that has run to twenty minutes in practice -- so the list is derived here
-instead, and written back concrete. An operator's stored selection is
-frozen exactly as given.
-
-Writing the derived list back is what keeps a retry honest. A retry copies
-its predecessor's member rows verbatim, so once a run has frozen, every one
-of its rows carries a concrete list and the retry's own freeze takes it as
-given and reproduces the same snapshot. Its recorded ``retry_of`` is what
-marks it a retry (:func:`is_frozen_retry`); a takeover's moved snapshots
-are not.
+Derive unstored requirement selections at freeze; keep explicit selections.
+Frozen retries reproduce their predecessor's concrete member snapshots.
+A takeover derives fresh composition while retaining inherited QA admissions.
 """
 
 from __future__ import annotations
+
+from yoke_core.domain.deployment_qa_member_plan_admission import (
+    preserve_member_admissions,
+)
 
 from yoke_core.domain.schema_read_scope import composition_operation
 from yoke_contracts.timestamps import format_instant, parse_instant
@@ -214,7 +208,7 @@ def freeze_run_composition(
     marker = _p(conn)
     row = conn.execute(
         f"SELECT dr.flow,dr.release_lineage,dr.composition_frozen_at,"
-        f"dr.project_id,df.stages "
+        f"dr.project_id,df.stages,dr.requirement_snapshot "
         f"FROM deployment_runs dr JOIN deployment_flows df ON df.id=dr.flow "
         f"WHERE dr.id={marker}",
         (run_id,),
@@ -238,6 +232,9 @@ def freeze_run_composition(
         flow_id=str(_cell(row, "flow", 0)),
         project_id=int(_cell(row, "project_id", 3)),
         stages=stages,
+    )
+    flow_snapshot = preserve_member_admissions(
+        flow_snapshot, _cell(row, "requirement_snapshot", 5)
     )
     # Attribution must see the recorded source commits.
     record_bound_sources(conn, run_id)

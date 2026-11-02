@@ -25,6 +25,7 @@ from yoke_core.domain.deployment_run_stage_entry import set_current_stage
 from yoke_core.domain.project_identity import render_item_ref
 from yoke_core.domain.qa_item_deployment_request import resolve_item_deployment_request
 from yoke_core.domain.qa_plan_execution_state import begin_plan_execution
+from yoke_core.domain.qa_plan_execution_lifecycle import finish_plan_execution
 from yoke_core.domain.qa_plan_management import QaPlanError, replace_plan_cases
 from yoke_core.domain.qa_plan_rematerialize_deployment import (
     rematerialize_for_deployment_stage,
@@ -51,7 +52,7 @@ def _single(conn):
     return plan, materialized["created_requirement_ids"][0]
 
 
-def _correct(conn, plan):
+def _correct(conn, plan, label="corrected"):
     replace_plan_cases(
         conn,
         plan_id=plan,
@@ -60,9 +61,9 @@ def _correct(conn, plan):
                 "case_key": "command-smoke",
                 "position": 1,
                 "method_id": "command",
-                "instructions": "Run the corrected member probe.",
+                "instructions": f"Run the {label} member probe.",
                 "expected_outcome": "The corrected probe passes.",
-                "method_config": {"command": "echo corrected"},
+                "method_config": {"command": f"echo {label}"},
             }
         ],
     )
@@ -165,11 +166,61 @@ def test_new_correction_plan_replaces_only_the_selected_member_failure(test_db):
     )
     assert {row["requirement_id"] for row in execution["roster"]} == set(corrected)
     assert execution["deployment_member_item_id"] == MEMBERS[0]
+    finish_plan_execution(
+        test_db, execution, state="aborted", reason="Probe needs correction"
+    )
+    _fail(test_db, corrected[0])
+    _correct(test_db, correction, label="corrected again")
+    retried = rematerialize_for_deployment_stage(
+        test_db, **_subject(), plan=str(correction)
+    )["created_requirement_ids"]
+    assert len(retried) == 1 and retried != corrected
+    execution = begin_plan_execution(
+        test_db, **_subject(), plan=str(correction), actor_id="2", session_id="retry"
+    )
+    assert execution["roster"][0]["requirement_id"] == retried[0]
+    assert (
+        execution["roster"][0]["instructions"]
+        == "Run the corrected again member probe."
+    )
     _complete_case(test_db, execution)
     assert current_item_qa(
         test_db, run_id=RUN, item_id=MEMBERS[0], current_stage=STAGE
     ).accepted
     assert _snapshot(test_db, RUN)["item_qa_plan_owners"][str(plan)] == MEMBERS[0]
+    from yoke_core.domain.deployment_qa_snapshot_correction import (
+        refresh_selected_cases,
+    )
+    from yoke_core.domain.deployment_requirement_snapshots import _plan_snapshot
+
+    accepted = _snapshot(test_db, RUN)
+    _correct(test_db, correction, label="changed after acceptance")
+    with pytest.raises(QaPlanError, match="case already has passed acceptance"):
+        refresh_selected_cases(
+            test_db,
+            run_id=RUN,
+            stage=STAGE,
+            member=MEMBERS[0],
+            plan_id=correction,
+            cases=_plan_snapshot(test_db, correction, project_id=1)["cases"],
+        )
+    assert _snapshot(test_db, RUN) == accepted
+    selections = _snapshot(test_db, RUN).get("selections", [])
+    assert len([value for value in selections if value.get("member_item_id")]) == 1
+    from yoke_core.domain.deployment_qa_stage_materialization import (
+        QaCasesNotSelectedError,
+    )
+
+    with pytest.raises(QaCasesNotSelectedError):
+        materialize_deployment_qa_stage(test_db, **_subject(MEMBERS[1]))
+    assert (
+        test_db.execute(
+            "SELECT count(*) FROM qa_requirements WHERE deployment_run_id=%s "
+            "AND deployment_member_item_id=%s AND plan_id=%s",
+            (RUN, MEMBERS[1], correction),
+        ).fetchone()[0]
+        == 0
+    )
 
 
 def test_singleton_refresh_preserves_another_members_passed_contract(test_db):
@@ -201,3 +252,73 @@ def test_missing_singleton_contract_still_refuses_historical_reconstruction(test
         QaPlanError, match="selected plan owner is missing or ambiguous"
     ):
         rematerialize_for_deployment_stage(test_db, **_subject())
+
+
+def test_member_correction_refresh_keeps_its_admitted_case_and_baseline_scope(
+    test_db, tmp_path, monkeypatch
+):
+    from runtime.api.domain.machine_qa_host_test_support import configure_test_machine
+
+    configure_test_machine(test_db, tmp_path, monkeypatch)
+    case = {
+        "case_key": "command-smoke",
+        "method_id": "machine-state-check",
+        "instructions": "check the host",
+        "expected_outcome": "passes",
+        "method_config": {
+            "test_machine": "mac-mini-lab",
+            "assertions": [{"argv": ["/usr/bin/true"]}],
+        },
+        "host_baselines": ["fresh-host", "shell-preconfigured"],
+    }
+    plan = _seed(test_db, attached=MEMBERS[:1])
+    replace_plan_cases(test_db, plan_id=plan, cases=[case])
+    set_current_stage(test_db, RUN, STAGE)
+    test_db.commit()
+    initial = materialize_deployment_qa_stage(test_db, **_subject())
+    rows = test_db.execute(
+        "SELECT id,host_baseline FROM qa_requirements WHERE id=ANY(%s)",
+        (initial["created_requirement_ids"],),
+    ).fetchall()
+    failed = next(row["id"] for row in rows if row["host_baseline"] == "fresh-host")
+    _fail(test_db, failed)
+    correction = _plan(test_db, "baseline-correction")
+    replace_plan_cases(
+        test_db, plan_id=correction, cases=[{**case, "instructions": "corrected host"}]
+    )
+    replacements, scopes = resolve_correction_selection(
+        test_db, [{"requirement_id": failed}]
+    )
+    result = materialize_deployment_qa_stage(
+        test_db,
+        **_subject(),
+        agent_plan=str(correction),
+        replacement_keys={"command-smoke"},
+        replacement_scopes=scopes,
+        replaced_requirement_ids=frozenset({failed}),
+        commit=False,
+    )
+    corrected = result["created_requirement_ids"]
+    assert len(corrected) == 1
+    declare_replacements(test_db, replacements, materialized_requirement_ids=corrected)
+    test_db.commit()
+    _fail(test_db, corrected[0])
+    replace_plan_cases(
+        test_db,
+        plan_id=correction,
+        cases=[
+            {**case, "instructions": "corrected host again"},
+            {**case, "case_key": "unadmitted-probe", "position": 2},
+        ],
+    )
+    retried = rematerialize_for_deployment_stage(
+        test_db, **_subject(), plan=str(correction)
+    )
+    assert len(retried["created_requirement_ids"]) == 1
+    admitted = test_db.execute(
+        "SELECT plan_case_key,host_baseline FROM qa_requirements WHERE deployment_run_id=%s AND plan_id=%s",
+        (RUN, correction),
+    ).fetchall()
+    assert len(admitted) == 2
+    assert all(row["host_baseline"] == "fresh-host" for row in admitted)
+    assert all(row["plan_case_key"].startswith("command-smoke") for row in admitted)

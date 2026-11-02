@@ -29,6 +29,10 @@ def _incomplete(plan_id, subject):
 
 def admitted_plan_selection(conn, subject, target, selector):
     """Return an ordinary receipt only for this stage's exact frozen flow plan."""
+    from yoke_core.domain.deployment_qa_member_plan_admission import (
+        selection_applies_to_member,
+    )
+
     project_id = int(subject.get("member_project_id") or subject["project_id"])
     plans = query_rows(
         conn,
@@ -48,6 +52,7 @@ def admitted_plan_selection(conn, subject, target, selector):
         for value in subject["flow_snapshot"].get("selections", [])
         if value.get("stage") == subject["stage"]["name"]
         and int(value["plan"]["id"]) == plan_id
+        and selection_applies_to_member(value, subject.get("member_item_id"))
     ]
     if not snapshots:
         return None

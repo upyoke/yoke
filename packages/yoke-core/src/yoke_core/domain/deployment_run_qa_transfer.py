@@ -71,7 +71,7 @@ def transfer_qa_on(
     from yoke_core.domain.deployment_qa_plan_ownership import transfer_plan_owners
 
     with savepoint(conn, "transfer_deployment_qa", owns=False):
-        transfer_plan_owners(conn, old_id, new_id)
+        transfer_plan_owners(conn, old_id, new_id, moving=moving)
         # Execution first matches result/review writes, which lock their cursor
         # before their requirements. One set read/write per table, not per case.
         for table in ("qa_plan_executions", "qa_requirements"):
