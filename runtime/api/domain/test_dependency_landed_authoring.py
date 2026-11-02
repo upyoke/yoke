@@ -1,5 +1,8 @@
 """New merge waits reject completed landings and preserve future work waits."""
 
+from datetime import datetime
+from unittest.mock import Mock
+
 import pytest
 
 from runtime.api.fixtures.backlog import insert_item
@@ -8,7 +11,8 @@ from yoke_contracts.api.function_call import (
     FunctionCallRequest,
     TargetRef,
 )
-from yoke_contracts.timestamps import parse_instant
+from yoke_contracts.timestamps import format_instant, parse_instant
+from yoke_core.domain import item_dependency_upsert
 from yoke_core.domain.dependency_satisfaction import evaluate_satisfaction
 from yoke_core.domain.handlers.item_dependency_writes import handle_item_dependency_add
 from yoke_core.domain.item_dependency import cmd_dependency_add
@@ -35,15 +39,9 @@ def _land(conn, status="release", landing=LANDING):
 
 @pytest.mark.parametrize("status", ["release", "done"])
 @pytest.mark.parametrize("gate", ["activation", "integration", "closure"])
-@pytest.mark.parametrize("timezone", ["UTC", "America/New_York"])
-def test_new_merge_wait_refuses_landed_blocker_without_writing(
-    edge, status, gate, timezone
-):
+def test_new_merge_wait_refuses_landed_blocker_without_writing(edge, status, gate):
     conn, dependent, blocker = edge
     _land(conn, status)
-    conn.execute("SELECT set_config('TimeZone', %s, true)", (timezone,))
-    landing = conn.execute("SELECT merged_at FROM items WHERE id=%s", (5,)).fetchone()[0]
-    assert parse_instant(landing) == parse_instant(LANDING)
     with pytest.raises(DependencyAlreadyLandedError) as caught:
         cmd_dependency_add(
             conn,
@@ -56,9 +54,31 @@ def test_new_merge_wait_refuses_landed_blocker_without_writing(
     message = str(caught.value)
     assert message.startswith("dependency_blocker_already_landed:")
     assert blocker in message
-    assert f"already landed at {landing} and has no open code work" in message
+    landing_text = message.split("already landed at ", 1)[1].split(" and ", 1)[0]
+    assert parse_instant(landing_text) == parse_instant(LANDING)
+    assert landing_text == format_instant(LANDING)
     assert "No merge dependency is needed" in message
     assert conn.execute("SELECT COUNT(*) FROM item_dependencies").fetchone()[0] == 0
+
+
+@pytest.mark.parametrize(
+    "landing", ["2026-01-01T00:00:00.123456+00:00", "2025-12-31T19:00:00.123456-05:00"]
+)
+def test_refusal_formats_native_landing_offsets_as_canonical_utc(monkeypatch, landing):
+    conn = Mock()
+    conn.execute.return_value.fetchone.return_value = (
+        "release",
+        datetime.fromisoformat(landing),
+    )
+    monkeypatch.setattr(
+        item_dependency_upsert,
+        "load_item_workflow_runtime",
+        lambda *_: builtin_workflow_runtime("dash"),
+    )
+    monkeypatch.setattr(item_dependency_upsert, "render_item_ref", lambda *_: "blocker")
+    with pytest.raises(DependencyAlreadyLandedError) as caught:
+        item_dependency_upsert._refuse_landed_blocker(conn, 5)
+    assert "blocker already landed at 2026-01-01T00:00:00.123456Z" in str(caught.value)
 
 
 def test_default_integration_merge_wait_returns_named_handler_refusal(edge):
