@@ -84,6 +84,7 @@ def test_hosted_http_refuses_member_and_machine_before_github(
             json=_request(service.actor_id).model_dump(),
         )
     body = response.json()
+    assert response.status_code == 403
     assert not body["success"]
     assert body["error"]["code"] == "github_binding_hosted_only"
     assert "Connect GitHub" in body["error"]["message"]
