@@ -15,7 +15,7 @@ from yoke_core.engines.merge_worktree_prepare import MergeArgs, MergeContext
 
 
 @pytest.fixture
-def checkout(tmp_path, monkeypatch):
+def checkout(tmp_path, monkeypatch, request):
     repo = make_checkout(tmp_path)
     remote = tmp_path / "remote.git"
     remote.mkdir()
@@ -23,7 +23,8 @@ def checkout(tmp_path, monkeypatch):
     git(repo, "remote", "add", "origin", str(remote))
     git(repo, "push", "origin", "main")
     candidate = git(repo, "rev-parse", "ITEM-1")
-    git(repo, "merge", "--no-edit", "ITEM-1")
+    mode = "--no-ff" if getattr(request, "param", False) else "--ff-only"
+    git(repo, "merge", mode, "--no-edit", "ITEM-1")
     records, stamps, failures = [], [], []
     monkeypatch.setattr(completion, "github_merge_enabled", lambda *_a: False)
     monkeypatch.setattr(completion, "fast_forward_main_checkout", lambda *_a: "")
@@ -73,13 +74,34 @@ def test_push_that_did_not_land_never_records_a_landing(checkout, monkeypatch, p
     assert git(repo, "rev-parse", "ITEM-1") == candidate
 
 
-def test_normal_landing_records_the_fresh_remote_tip(checkout):
+@pytest.mark.parametrize(
+    "checkout", [False, True], indirect=True, ids=["fast-forward", "merge-commit"]
+)
+def test_normal_landing_records_the_fresh_remote_tip(checkout, monkeypatch):
+    from yoke_core.domain import item_landings_close_out as landings
+
     repo, remote, candidate, records, stamps, _ = checkout
+    target_sha = git(repo, "rev-parse", "main")
+    sent = []
+    monkeypatch.setattr(
+        landings, "_record", lambda _item, payload: sent.append(payload) or ""
+    )
     result = complete(repo, candidate)
     assert result.ok and result.pushed
-    assert result.merge_sha == git(remote, "rev-parse", "main")
+    assert result.commit_sha == candidate
+    assert result.merge_sha == target_sha == git(remote, "rev-parse", "main")
     assert records[0].merge_sha == result.merge_sha
+    assert records[0].commit_sha == candidate
     assert stamps[0]["merge_sha"] == result.merge_sha
+    lane, note = landings.close_out_lane(
+        item_id=7, branch="ITEM-1", target="main", repo_root=str(repo), outcome=result
+    )
+    assert not note and lane.merge_sha == target_sha
+    assert sent[0]["merge_sha"] == target_sha
+    assert sent[0]["candidate_sha"] == candidate
+    assert sent[0]["route"] == (
+        "fast_forward" if target_sha == candidate else "standalone"
+    )
 
 
 def test_cached_tracking_ref_cannot_hide_a_failed_fetch(checkout):
