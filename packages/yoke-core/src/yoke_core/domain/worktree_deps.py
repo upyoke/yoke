@@ -12,6 +12,7 @@ from typing import List, Optional
 
 from yoke_contracts.playwright_cache import resolve_playwright_cache
 from yoke_core.domain import runtime_settings
+from yoke_core.domain.worktree_deps_diagnostics import report_no_dependency_install
 from yoke_core.domain.worktree_python_dependency_owner import (
     uv_provisioned_projects,
     uv_provisioned_skip_note,
@@ -303,7 +304,8 @@ def install_worktree_deps(
     specs = detect_deps(worktree_path)
 
     if not specs:
-        print("No dependency files detected — skipping install", file=sys.stderr)
+        filenames = [row[0] for row in _ROOT_DETECTORS + _PYTHON_DETECTORS + _OTHER_DETECTORS]
+        report_no_dependency_install(worktree_path, project_id, filenames, _find_nested)
         return 0
 
     exit_code = 0
