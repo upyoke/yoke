@@ -12,7 +12,9 @@ CI contract: a mirror needs the working-tree scope, untracked half included.
 from __future__ import annotations
 
 from dataclasses import dataclass
+import os
 from pathlib import Path
+import re
 
 from yoke_contracts.project_contract.file_line_policy import item_base_config_key
 from yoke_contracts import terminal_detached_process
@@ -93,4 +95,25 @@ def resolve_file_line_git_scope(
     )
 
 
-__all__ = ["FileLineGitScope", "resolve_file_line_git_scope"]
+def merge_parent_refs(repo_root: Path) -> tuple[str, ...]:
+    """Read every merge parent, including in linked worktrees.
+
+    Staged line checks compare against the largest parent version so inherited
+    growth passes while growth introduced by the merge remains subject to policy.
+    Git exports GITHEAD_<oid> before pre-merge-commit, then writes MERGE_HEAD
+    for pending merges and plain commits finishing conflicts.
+    """
+    merge_head = Path(_git(repo_root, "rev-parse", "--git-path", "MERGE_HEAD"))
+    if not merge_head.is_absolute():
+        merge_head = repo_root / merge_head
+    try:
+        return tuple(merge_head.read_text(encoding="ascii").split())
+    except FileNotFoundError:
+        return tuple(
+            match.group(1)
+            for name in os.environ
+            if (match := re.fullmatch(r"GITHEAD_([0-9a-f]{40}|[0-9a-f]{64})", name))
+        )
+
+
+__all__ = ["FileLineGitScope", "merge_parent_refs", "resolve_file_line_git_scope"]
