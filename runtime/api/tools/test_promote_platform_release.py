@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import asdict
 import json
 import os
 from typing import Any, Dict, List, Tuple
@@ -13,6 +14,13 @@ from yoke_core.domain.deployment_failure_trace import (
     RunSnapshot,
     github_run_ref,
     walk_failure_chain,
+)
+
+from yoke_core.domain.github_actions_failed_job_report import build_failed_job_report
+from yoke_core.domain.github_actions_failed_jobs import (
+    LOG_AVAILABLE,
+    FailedJob as ReportJob,
+    RunFailures,
 )
 
 from runtime.api.tools import promote_platform_release as promote
@@ -44,7 +52,7 @@ def _wire(
     *,
     follows: List[Tuple[int, str, str]],
     verdicts: List[str],
-    refusal_regions: List[str],
+    refusal_outputs: List[str],
 ) -> Dict[str, List[Any]]:
     calls: Dict[str, List[Any]] = {"follow": [], "trigger": [], "failed_log": []}
 
@@ -61,8 +69,24 @@ def _wire(
             return 0, json.dumps({"result": {"state": state, "conclusion": state}}), ""
         if argv[:2] == ["github-actions", "failed-log"]:
             calls["failed_log"].append(argv[3])
-            region = refusal_regions.pop(0)
-            return 0, json.dumps({"result": {"jobs": [{"region": region}]}}), ""
+            output = refusal_outputs.pop(0)
+            return (
+                0,
+                json.dumps(
+                    {
+                        "result": {
+                            "jobs": [
+                                {
+                                    "name": "validate annotated release",
+                                    "region": "failing_step",
+                                }
+                            ],
+                            "output": output,
+                        }
+                    }
+                ),
+                "",
+            )
         raise AssertionError(argv)
 
     monkeypatch.setattr(promote, "follow", _follow)
@@ -86,7 +110,7 @@ def test_the_followed_revision_is_what_promotion_is_handed(
         monkeypatch,
         follows=[(0, "moved", MOVED)],
         verdicts=["success"],
-        refusal_regions=[],
+        refusal_outputs=[],
     )
 
     assert promote.main(ARGS) == 0
@@ -108,7 +132,7 @@ def test_a_refusal_naming_the_handed_revision_retries_with_a_fresh_follow(
         monkeypatch,
         follows=[(0, "same", PROVEN), (0, "moved", MOVED)],
         verdicts=["failed", "success"],
-        refusal_regions=[refusal],
+        refusal_outputs=[refusal],
     )
 
     assert promote.main(ARGS) == 0
@@ -128,7 +152,7 @@ def test_any_other_promotion_failure_is_reported_not_repeated(
         monkeypatch,
         follows=[(0, "same", PROVEN)],
         verdicts=["failed"],
-        refusal_regions=["deploy step failed"],
+        refusal_outputs=["deploy step failed"],
     )
 
     assert promote.main(ARGS) == 1
@@ -176,7 +200,7 @@ def test_retries_are_bounded(monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch,
         follows=[(0, "same", PROVEN)] * promote.MAX_ATTEMPTS,
         verdicts=["failed"] * promote.MAX_ATTEMPTS,
-        refusal_regions=[refusal] * promote.MAX_ATTEMPTS,
+        refusal_outputs=[refusal] * promote.MAX_ATTEMPTS,
     )
 
     assert promote.main(ARGS) == 1
@@ -192,7 +216,7 @@ def test_a_trunk_still_moving_during_reproof_follows_again_before_dispatch(
         monkeypatch,
         follows=[(MOVED_AGAIN, "moved again", ""), (0, "moved", MOVED)],
         verdicts=["success"],
-        refusal_regions=[],
+        refusal_outputs=[],
     )
 
     assert promote.main(ARGS) == 0
@@ -205,7 +229,7 @@ def test_a_refused_follow_dispatches_nothing(monkeypatch: pytest.MonkeyPatch) ->
         monkeypatch,
         follows=[(1, "rewritten", "")],
         verdicts=[],
-        refusal_regions=[],
+        refusal_outputs=[],
     )
 
     assert promote.main(ARGS) == 1
@@ -245,10 +269,61 @@ def test_every_dispatched_promotion_is_recorded_for_the_cleanup_step(
         monkeypatch,
         follows=[(0, "same", PROVEN), (0, "moved", MOVED)],
         verdicts=["failed", "success"],
-        refusal_regions=[refusal],
+        refusal_outputs=[refusal],
     )
     started = tmp_path / "started-runs.txt"
     argv = [*ARGS[:-1], str(started)]
 
     assert promote.main(argv) == 0
     assert started.read_text(encoding="utf-8").split() == ["701", "702"]
+
+
+def test_validate_bind_refusal_survives_failed_log_report(monkeypatch) -> None:
+    refusal = f"but the pair was proven at {PROVEN}."
+    report = build_failed_job_report(
+        RunFailures(
+            failed=[
+                ReportJob(
+                    job_id="900",
+                    name="validate annotated release",
+                    conclusion="failure",
+                    html_url="https://github.com/o/r/actions/runs/701/job/900",
+                    log_text=f"##[group]Validate annotated release\n{refusal}\n"
+                    "##[error]Process completed with exit code 1.\n##[endgroup]",
+                    log_status=LOG_AVAILABLE,
+                    log_detail="",
+                )
+            ]
+        ),
+        repo="o/r",
+        run_id="701",
+        max_lines=200,
+    )
+    assert report.jobs[0]["region"] == "failing_step"
+    assert refusal in report.output
+    monkeypatch.setattr(
+        promote,
+        "_yoke",
+        lambda *a, **k: (
+            0,
+            json.dumps({"result": asdict(report)}),
+            "",
+        ),
+    )
+    assert promote.refused_moved_trunk("701", PROVEN)
+    assert not promote.refused_moved_trunk("701", MOVED)
+
+
+@pytest.mark.parametrize(
+    "code, stdout",
+    [
+        (1, ""),
+        (0, "not json"),
+        (0, '{"result": {}}'),
+        (0, '{"result": {"output": ""}}'),
+    ],
+)
+def test_unreadable_failure_log_stops_retry(monkeypatch, capsys, code, stdout):
+    monkeypatch.setattr(promote, "_yoke", lambda *a, **k: (code, stdout, "unavailable"))
+    assert not promote.refused_moved_trunk("701", PROVEN)
+    assert "promotion failure log unreadable:" in capsys.readouterr().err

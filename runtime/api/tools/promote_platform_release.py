@@ -149,17 +149,17 @@ def refused_moved_trunk(run_id: str, proven_sha: str) -> bool:
         timeout=_COMMAND_TIMEOUT_SECONDS,
     )
     try:
-        jobs = ((json.loads(stdout) or {}).get("result") or {}).get("jobs") or []
+        output = ((json.loads(stdout) or {}).get("result") or {}).get("output")
     except (ValueError, AttributeError):
-        jobs = []
-    if code != 0 or not jobs:
+        output = None
+    if code != 0 or not isinstance(output, str) or not output:
         print(
             f"promotion failure log unreadable: {_detail(stdout, stderr)}",
             file=sys.stderr,
         )
         return False
     marker = BIND_REFUSAL_MARKER + proven_sha
-    return any(marker in str(job.get("region") or "") for job in jobs)
+    return marker in output
 
 
 def promote(args: argparse.Namespace) -> int:
