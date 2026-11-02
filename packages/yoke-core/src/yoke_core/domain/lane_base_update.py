@@ -3,7 +3,8 @@
 The full-CI gate updates a lane before publishing it, and
 ``yoke watch pytest --impacted`` updates it before every selection, so a
 lane meets ``origin/<target>`` while the worker iterates instead of first at
-the gate. Both callers share this one update.
+the gate. A successful update records the final lane head; a recording failure
+warns with recovery without undoing the Git update. Both callers share this one update.
 
 A lane that already contains the fetched base is left alone. Otherwise
 uncommitted work goes through the merge engine's safety-stash gate, so
@@ -24,7 +25,7 @@ from pathlib import Path
 
 from yoke_contracts.git_hook_markers import HEAD_RECORDING_SKIP_ENV
 from yoke_cli.config import credentialed_git
-from yoke_core.domain import process_group_reaping
+from yoke_core.domain import lane_head_record, process_group_reaping
 
 
 class LaneBaseUpdateRefused(Exception):
@@ -97,6 +98,18 @@ def bring_lane_current(
         )
     _require_clean_lane(checkout, branch=branch, target=target, project=project)
     _update(checkout, branch=branch, target=target)
+    try:
+        detail = lane_head_record.record_lane_head(project, str(checkout))
+    except Exception as exc:
+        detail = str(exc) or type(exc).__name__
+    if detail:
+        repair = lane_head_record.rerecord_command(project, str(checkout))
+        print(
+            f"warning: lane_head_record_failed: updated lane {branch!r}, but "
+            f"could not record its new head: {detail}. Run `{repair}` "
+            "before merging.",
+            file=sys.stderr,
+        )
     return True
 
 
