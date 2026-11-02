@@ -10,6 +10,10 @@ accepted members. A member held by a QA configuration refusal
 its recovery. An item-scoped member also settles when every run-bound item
 case has a current pass and evidence, including passes from `yoke qa case run`.
 A pending independent review still waits; rerunning passed cases cannot supply it.
+Automatic capture also stops when any live case in a plan has a latest `fail`
+or `error` verdict. Repeated dispatch cannot open another review for that failure.
+A declared `--replaces` correction transfers the obligation to its replacement;
+the failed predecessor no longer prevents the corrected case from capturing.
 
 Plan ownership freezes at item QA entry. A plan attached by exactly one member
 runs as that member's QA: wake its holder to run `yoke qa plan run --item PREFIX-N

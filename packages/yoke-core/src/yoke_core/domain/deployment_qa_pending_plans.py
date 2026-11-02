@@ -3,6 +3,9 @@
 from typing import Any
 
 from yoke_core.domain.deployment_qa_plan_groups import run_groups
+from yoke_core.domain.deployment_qa_case_failure_kinds import RED_VERDICTS
+from yoke_core.domain.qa_latest_execution import latest_verdict_executions
+from yoke_core.domain.qa_obligation_settlement import settled_obligation_sql
 
 
 class QaDispatchResult(tuple):
@@ -18,6 +21,7 @@ def pending_stage_plans(conn: Any, stage: dict, run_id: str) -> list[dict]:
     """Return runnable group plans or the run stage's own selected plan.
 
     Manual evidence stays with its owner; a pending review is already captured.
+    A live case's determinate failure needs correction, not another capture.
     The target digest distinguishes later groups of the same plan.
     """
     name = str(stage["name"])
@@ -31,12 +35,16 @@ def pending_stage_plans(conn: Any, stage: dict, run_id: str) -> list[dict]:
     found = []
     for plan_id, digest in subjects:
         rows = conn.execute(
-            "SELECT wake_path FROM qa_requirements WHERE deployment_run_id=%s "
+            "SELECT id,wake_path FROM qa_requirements WHERE deployment_run_id=%s "
             "AND deployment_stage=%s AND plan_id=%s AND retracted_at IS NULL "
+            f"AND NOT {settled_obligation_sql(conn)} "
             "AND (%s='' OR execution_target_digest=%s)",
             (run_id, name, plan_id, digest, digest),
         ).fetchall()
-        if not rows or any(row[0] == "manual" for row in rows):
+        if not rows or any(row[1] == "manual" for row in rows):
+            continue
+        verdicts = latest_verdict_executions(conn, [row[0] for row in rows])
+        if any(row["verdict"] in RED_VERDICTS for row in verdicts.values()):
             continue
         review = conn.execute(
             "SELECT 1 FROM qa_plan_executions WHERE deployment_run_id=%s "
