@@ -102,6 +102,7 @@ runs:
           -e POSTGRES_DB=postgres \
           -p 5432 \
           "$POSTGRES_IMAGE" \
+          -c timezone=Asia/Kathmandu \
           -c fsync=off \
           -c synchronous_commit=off \
           -c full_page_writes=off \
