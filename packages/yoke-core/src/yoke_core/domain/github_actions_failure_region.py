@@ -7,9 +7,9 @@ module finds the failure region instead:
 1. pytest's ``FAILURES`` / ``ERRORS`` or Vitest's ``Failed Tests`` /
    ``Failed Suites`` section through the end of its step, which carries
    every assertion and the short test summary;
-2. otherwise the step holding the last ``##[error]`` annotation, which
-   ends at the error that failed it (an earlier error may come from a
-   step that recovered on retry);
+2. otherwise the step holding the last nonzero process-exit annotation,
+   falling back to the last ``##[error]`` annotation (an earlier error
+   may come from a step that recovered on retry);
 3. otherwise the log itself, with post-job teardown removed.
 
 The region is bounded by lines and bytes. A test failure region keeps its head
@@ -42,6 +42,9 @@ _TEST_FAILURE_SECTION = re.compile(
 )
 _STEP_START = "##[group]Run "
 _ERROR_ANNOTATION = "##[error]"
+_PROCESS_FAILURE = re.compile(
+    r"^##\[error\]Process completed with exit code [1-9]\d*\.$"
+)
 _POST_JOB_MARKERS = ("##[group]Post ", "Post job cleanup.")
 
 
@@ -95,6 +98,9 @@ def _locate(lines: Sequence[str]) -> Tuple[str, int, int]:
     for index, line in enumerate(lines):
         if _TEST_FAILURE_SECTION.match(line.strip()):
             return REGION_TEST_FAILURES, index, _step_end(lines, index)
+    for index in range(len(lines) - 1, -1, -1):
+        if _PROCESS_FAILURE.fullmatch(lines[index]):
+            return REGION_ERROR_STEP, _step_start(lines, index), _step_end(lines, index)
     for index in range(len(lines) - 1, -1, -1):
         if lines[index].startswith(_ERROR_ANNOTATION):
             return REGION_ERROR_STEP, _step_start(lines, index), _step_end(lines, index)
