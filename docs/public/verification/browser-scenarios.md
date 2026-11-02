@@ -20,7 +20,7 @@ exists only when a plan attachment or explicit requirement declares it.
 
 | Action | Required fields | Purpose |
 |---|---|---|
-| `navigate` | `route` | Navigate to a relative or absolute URL. HTTP 401 or 403 fails as an authentication refusal; HTTP 404 fails as `route_not_found` naming the URL, so correct the route. |
+| `navigate` | `route` | Navigate to a relative or absolute URL; successful results include `status` (HTTP response code, or `0` when no response exists). HTTP 401 or 403 fails as an authentication refusal; HTTP 404 fails as `route_not_found` naming the URL, so correct the route. |
 | `click` | `target` | Click an element. |
 | `download` | `target`, `path` | Click and save a download under scratch; return filename, size and sha256. |
 | `type` | `target`, `value` | Type into an input. |

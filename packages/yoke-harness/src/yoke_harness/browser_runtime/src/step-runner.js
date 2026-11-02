@@ -224,6 +224,7 @@ async function executeStep(page, step, options) {
       duration_ms,
       ...observedState(page),
       ...(dialogs.records.length ? { dialogs: dialogs.records } : {}),
+      ...(result.status !== undefined ? { status: result.status } : {}),
       ...(result.download ? { download: result.download } : {}),
       ...(result.artifacts ? { artifacts: result.artifacts } : {}),
       ...(result.clipped ? { clipped: true } : {}),

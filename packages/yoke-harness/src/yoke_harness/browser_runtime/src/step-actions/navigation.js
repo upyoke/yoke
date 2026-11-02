@@ -178,7 +178,7 @@ async function executeNavigate(page, step, options) {
       'and profile, then drive the remaining steps against bare paths.'
     );
   }
-  return { success: true };
+  return { success: true, status };
 }
 
 /**
