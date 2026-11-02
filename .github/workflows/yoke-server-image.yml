@@ -16,7 +16,7 @@ jobs:
   validate-tag:
     timeout-minutes: 5
     name: resolve-commit-identity
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions: {contents: read}
     outputs:
       latest_ref: ${{ steps.tag.outputs.latest_ref }}
@@ -59,7 +59,7 @@ jobs:
     strategy:
       matrix:
         include:
-          - {platform: linux/amd64, runner: ubuntu-latest}
+          - {platform: linux/amd64, runner: ubuntu-24.04}
           - {platform: linux/arm64, runner: ubuntu-24.04-arm}
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
@@ -90,7 +90,7 @@ jobs:
         include:
           - arch: amd64
             platform: linux/amd64
-            runner: ubuntu-latest
+            runner: ubuntu-24.04
           - arch: arm64
             platform: linux/arm64
             runner: ubuntu-24.04-arm
@@ -150,7 +150,7 @@ jobs:
     timeout-minutes: 5
     name: assemble-content-addressed-image
     needs: [validate-tag, build]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions: {actions: read, packages: write}
     outputs:
       digest: ${{ steps.manifest.outputs.digest }}
@@ -222,7 +222,7 @@ jobs:
     timeout-minutes: 5
     name: attest-content-addressed-image
     needs: [validate-tag, assemble]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions: {attestations: write, contents: read, id-token: write, packages: write}
     steps:
       # Deliberately no checkout and no run step: repository code never shares
@@ -265,7 +265,7 @@ jobs:
   record:
     timeout-minutes: 5
     needs: [validate-tag, assemble, attest]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions: {contents: read}
     steps:
       - name: Record the attested main image identity
@@ -298,7 +298,7 @@ jobs:
     if: startsWith(github.ref, 'refs/tags/')
     name: promote-and-verify-image-tags
     needs: validate-tag
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions: {actions: read, attestations: read, contents: read, packages: write}
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0

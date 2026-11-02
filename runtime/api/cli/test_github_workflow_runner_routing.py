@@ -54,7 +54,7 @@ def test_product_smoke_remains_an_on_demand_three_runner_diagnostic():
     assert {
         (entry["runner"], entry["os"], entry["architecture"]) for entry in matrix
     } == {
-        ("ubuntu-latest", "Ubuntu 24.04", "x86_64"),
+        ("ubuntu-24.04", "Ubuntu 24.04", "x86_64"),
         ("ubuntu-24.04-arm", "Ubuntu 24.04", "arm64"),
         ("macos-latest", "macOS 26", "arm64"),
     }

@@ -18,7 +18,7 @@ jobs:
   validate-tag:
     timeout-minutes: 5
     name: validate-release-tag-and-notes
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       contents: read
     outputs:
@@ -44,7 +44,7 @@ jobs:
     timeout-minutes: 10
     name: publish-github-release
     needs: validate-tag
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       actions: read
       attestations: read

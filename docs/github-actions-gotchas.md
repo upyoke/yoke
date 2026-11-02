@@ -8,7 +8,7 @@ empty string. See [GitHub's secret guidance](https://docs.github.com/en/actions/
 ```yaml
 jobs:
   deploy:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - name: Deploy when configured
         env:

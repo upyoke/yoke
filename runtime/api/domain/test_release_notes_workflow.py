@@ -29,8 +29,8 @@ def test_release_authority_is_isolated_to_final_hosted_job():
     assert "GH_TOKEN: ${{ github.token }}" in text
     assert not re.findall(r"secrets\.([A-Za-z_0-9]+)", text)
     assert re.findall(r"^\s+runs-on:\s*(.+)$", text, re.MULTILINE) == [
-        "ubuntu-latest",
-        "ubuntu-latest",
+        "ubuntu-24.04",
+        "ubuntu-24.04",
     ]
     assert "runs-on: self-hosted" not in text
     assert "YOKE_LINUX_RUNS_ON" not in text

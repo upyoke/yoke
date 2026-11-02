@@ -11,8 +11,9 @@ The Yoke project plan `product-smoke` has one `command-ci` case bound to
 all three GitHub-hosted disposable runners. Nothing schedules it or attaches it to
 changes, pull requests, merges, or deployment gates.
 
-The jobs declare Ubuntu 24.04 x86_64 (`ubuntu-latest`), Ubuntu 24.04 arm64
-(`ubuntu-24.04-arm`), and macOS 26 arm64 (`macos-latest`). These labels follow
+The jobs declare Ubuntu 24.04 x86_64 (`ubuntu-24.04`), Ubuntu 24.04 arm64
+(`ubuntu-24.04-arm`), and macOS 26 arm64 (`macos-latest`). Linux pins the
+[supported CI release](ci-shards.md). Available images are listed in
 [GitHub's runner image catalog](https://github.com/actions/runner-images) and
 [ARM runner catalog](https://github.com/actions/partner-runner-images). Linux's
 `aarch64` machine name is reported as `arm64` to match the matrix declaration.

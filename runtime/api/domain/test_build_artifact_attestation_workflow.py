@@ -80,8 +80,8 @@ def test_main_push_trigger_covers_every_release_factory_input():
 def test_hosted_runner_and_no_operator_credentials():
     text = _text()
     assert re.findall(r"^\s+runs-on:\s*(.+)$", text, re.MULTILINE) == [
-        "ubuntu-latest",
-        "ubuntu-latest",
+        "ubuntu-24.04",
+        "ubuntu-24.04",
     ]
     assert "runs-on: ${{ vars.YOKE_LINUX_RUNS_ON }}" not in text
     assert not re.findall(r"secrets\.([A-Za-z_0-9]+)", text)

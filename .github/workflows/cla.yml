@@ -57,7 +57,7 @@ jobs:
       (github.event.issue.pull_request &&
       (github.event.comment.body == 'recheck' ||
       github.event.comment.body == 'I have read the CLA Document and I hereby sign the CLA')))
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - name: CLA assistant
         # Pinned to the full commit SHA: mutable tags are an injection vector
@@ -79,7 +79,7 @@ jobs:
     timeout-minutes: 5
     name: signature-check
     if: github.repository == 'upyoke/yoke' && github.event_name == 'merge_group'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - name: Merge-queue pass-through
         run: echo "Every train member passed signature-check at queue entry."
