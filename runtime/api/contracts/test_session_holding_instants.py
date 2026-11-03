@@ -120,13 +120,13 @@ def test_board_and_server_path_observations_preserve_unknown_history(monkeypatch
     assert row["currently_held"] is False and row["released_at"] is None
     monkeypatch.setattr(
         projection,
-        "_path_rows",
-        lambda *_args: [
+        "path_rows",
+        lambda *_args, **_kwargs: [
             {"id": 1, "owner_kind": "item", "owner_item_id": 7, "declared_count": 2}
         ],
     )
     observations = projection._path_observations(
-        object(), [], {7: {}}, {7: {"session-test"}}, {7: set()}, {}
+        object(), [], {7: {}}, {7: {"session-test"}}, {7: set()}, {}, None
     )
     result = holdings.group_session_holdings(
         observations["session-test"], previous_limit=None
