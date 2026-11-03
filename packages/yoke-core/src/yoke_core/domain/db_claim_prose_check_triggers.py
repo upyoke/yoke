@@ -57,9 +57,7 @@ _BACKFILL_CONTEXT = (
 )
 
 
-# Compiled patterns — each carries an operator-facing label so the
-# detector can report which rule fired.  Ordering is significant only for
-# deduplication (longer / more specific rules listed first reduce noise).
+# Trigger labels identify matching rules; specific rules come first.
 _PROSE_PATTERNS: List[tuple] = [
     ("ALTER TABLE", re.compile(r"\bALTER\s+TABLE\b", re.IGNORECASE)),
     ("CREATE TABLE", re.compile(r"\bCREATE\s+TABLE\b", re.IGNORECASE)),
@@ -195,6 +193,12 @@ _NEGATIVE_DB_CLAIM_PATTERNS: List[re.Pattern] = [
         re.IGNORECASE,
     ),
     re.compile(
+        r"\bwithout\b[^.;\n]{0,60}\b(?:live\s+)?"
+        r"(?:db|database|schema|migration|bulk\s+data)"
+        r"(?:\s+(?:change|migration|mutation|backfill|work))?s?\b",
+        re.IGNORECASE,
+    ),
+    re.compile(
         r"\bout\s+of\s+scope\b[^.\n]{0,120}\b"
         r"(?:live\s+db|db\s+schema|schema\s+migration|bulk\s+data|"
         r"backfill|governed\s+db)\b",
@@ -230,9 +234,7 @@ _HISTORICAL_SENTENCE_RE = re.compile(
     r"(?:release|version|engine|implementation)\b)[^.!?\n]*(?:[.!?]|\n|\Z)",
     re.IGNORECASE | re.MULTILINE,
 )
-# Whole-line strip — kill any line whose first non-whitespace token is a
-# tooling invocation. The regex matches up to and including the trailing
-# newline (or end of string) so the entire command line vanishes.
+# Strip complete tooling lines, including their trailing newline.
 _TOOLING_LINE_RE = re.compile(
     r"^[ \t]*(?:rg|grep|python3?)\b[^\n]*(?:\n|\Z)",
     re.MULTILINE,
@@ -297,12 +299,7 @@ def _strip_code(prose: str) -> str:
 
 
 def detect_triggers(prose: str) -> List[tuple]:
-    """Return a list of ``(label, snippet)`` for every fired pattern.
-
-    Pure detection — no DB lookups.  Suitable for unit tests over raw
-    prose strings.  Snippets are short context windows around the match
-    so the operator-facing message can quote what triggered the gate.
-    """
+    """Return ``(label, snippet)`` matches without DB lookups."""
     if not prose:
         return []
     cleaned = _strip_code(prose)
