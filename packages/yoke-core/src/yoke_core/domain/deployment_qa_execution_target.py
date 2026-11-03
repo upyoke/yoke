@@ -132,6 +132,19 @@ def deployment_qa_execution_target(conn: Any, subject: Mapping[str, Any]) -> dic
     if subject.get("shared_plan"):
         # A plan group's target is fixed at creation; its group_id keeps it apart.
         return dict(subject["shared_target"])
+    return presentation_read(
+        conn,
+        (
+            "qa_execution_target",
+            str(subject["id"]),
+            str(subject["stage"]["name"]),
+            subject.get("member_item_id"),
+        ),
+        lambda: _resolve_execution_target(conn, subject),
+    )
+
+
+def _resolve_execution_target(conn: Any, subject: Mapping[str, Any]) -> dict:
     project = target_project(conn, subject)
     frozen = first_materialized_execution_target(
         conn,
