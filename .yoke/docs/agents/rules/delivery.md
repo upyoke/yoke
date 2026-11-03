@@ -34,7 +34,9 @@ Model: [delivery](../../deployments/index.md); occupancy, takeover and drivers:
   `yoke deployment-runs get RUN-ID bound_sources`. One commit per project per run.
 - A release that writes its own commit (a version-pin promotion) records it with
   `yoke deployment-runs release-output record RUN-ID --project P`.
-- A consumed bound source whose branch moved needs a new run. A stale carried-work record or
+- A consumed bound source whose branch moved needs a new run unless the head is recorded
+  release output directly on its frozen commit. If promotion pushed before recording output,
+  finish that record and re-drive the same run. A stale carried-work record or
   `candidate_containment_attestation_stale` names its recovery; follow it.
 - A carried item with no completion flow: `yoke workflows delivery-default set --project P
   --workflow W --flow F`, then retry the start.
