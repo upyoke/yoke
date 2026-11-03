@@ -10,7 +10,7 @@ from runtime.api.domain.qa_case_ci_test_helpers import (
     in_flight_run,
     wire_ci_case,
 )
-from runtime.api.domain.test_merge_qa_run_identity import _capture, _proof
+from runtime.api.domain.test_merge_qa_run_identity import _proof
 from runtime.api.fixtures.backlog import (
     insert_item,
     insert_qa_requirement,
@@ -20,6 +20,7 @@ from yoke_core.domain import qa_case_ci_covering_run, qa_case_ci_lane, qa_case_c
 from yoke_core.domain import qa_case_execution
 from yoke_core.domain.qa_case_execution import QaCaseExecutionError
 from yoke_core.domain.qa_run_verdict_record import update_qa_run
+from yoke_core.domain.qa_requirement_pass_currency import stamp_executed_method_config
 
 
 @pytest.mark.parametrize("adopt", [False, True])
@@ -28,8 +29,23 @@ def test_pending_ci_attempt_blocks_merge_until_same_row_passes(
 ):
     checkout, recorder, _ = wire_ci_case(tmp_path, monkeypatch)
     item = insert_item(test_db)
-    requirement = insert_qa_requirement(test_db, item_id=item["id"])
-    _capture(test_db, requirement["id"], 1, "pass")
+    case = ci_case()
+    requirement = insert_qa_requirement(
+        test_db,
+        item_id=item["id"],
+        method_id="command-ci",
+        runner_id="ci_run",
+        method_config=json.dumps(case["method_config"]),
+    )
+    insert_qa_run(
+        test_db,
+        qa_requirement_id=requirement["id"],
+        verdict="pass",
+        started_at="2026-10-01T00:00:01Z",
+        completed_at="2026-10-01T00:00:01Z",
+        raw_result=stamp_executed_method_config("{}", case["method_config"]),
+    )
+    assert _proof(test_db, item["id"], tmp_path)[1][1] == ""
     active = []
 
     def dispatch(function, requirement_id, payload, **kwargs):
@@ -76,7 +92,7 @@ def test_pending_ci_attempt_blocks_merge_until_same_row_passes(
             "find_run_for_tree",
             lambda **k: in_flight_run("a" * 40),
         )
-    result = qa_case_ci_run.execute_ci_case(ci_case(), checkout_path=checkout)
+    result = qa_case_ci_run.execute_ci_case(case, checkout_path=checkout)
     assert result["run_id"] == active[0]
     assert _proof(test_db, item["id"], tmp_path)[1][1] == ""
     assert [c[0] for c in recorder.calls].count("qa.run.add") == 1
