@@ -177,7 +177,29 @@ def unchanged_failed_train_refusal(
     return None
 
 
+def failed_train_readback(ctx, pr_num, readback):
+    """Decide a retained unmergeable entry from its current failed train."""
+    from dataclasses import replace
+
+    member, state = readback.membership, readback.state
+    if (
+        member is None
+        or member.entry_state != "UNMERGEABLE"
+        or member.mergeable == "CONFLICTING"
+        or state is None
+        or not state.head_sha
+    ):
+        return readback
+    refusal = unchanged_failed_train_refusal(
+        ctx, pr_num, lane_head=state.head_sha, base_branch=ctx.args.target
+    )
+    if not refusal:
+        return readback
+    return replace(readback, queue_recovery={"action": "blocked", "message": refusal})
+
+
 __all__ = [
     "FAILED_TRAIN_UNCHANGED",
     "unchanged_failed_train_refusal",
+    "failed_train_readback",
 ]

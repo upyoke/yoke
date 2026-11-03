@@ -59,10 +59,13 @@ def confirm_clean_landing(
     """
     state, member = readback.state, readback.membership
     if (
-        state is not None and not state.merged and not state.closed
+        state is not None
+        and not state.merged
+        and not state.closed
         and not state.auto_merge_active
         and state.merge_state_status.strip().lower() == "clean"
-        and member is not None and not member.in_queue
+        and member is not None
+        and not member.in_queue
         and member.mergeable != "CONFLICTING"
         and not readback.failed_required
         and readback.queue_recovery.get("action") != "held"
@@ -86,7 +89,8 @@ def classify_pending_landing(
     open pull request whose merge state GitHub reports unknown: GitHub
     reports that while it recomputes, including mid-merge after it clears
     the queue entry and merge-when-ready, and so does an UNMERGEABLE entry
-    whose mergeability GitHub has not decided. A decided UNMERGEABLE entry
+    whose mergeability GitHub has not decided and whose current train has not
+    failed. A decided UNMERGEABLE entry
     is an ejection even before GitHub removes it from the queue.
     """
     if readback.state is None:

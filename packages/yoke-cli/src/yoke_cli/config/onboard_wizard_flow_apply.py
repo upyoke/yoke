@@ -112,7 +112,9 @@ class ApplyFlow:
             row = self.query_one(f"#apply-step-{index}", Static)
             row.update(steps.apply_step_line(step))
             if status in {"running", "failed"}:
-                row.scroll_visible()
+                self.call_after_refresh(
+                    row.scroll_visible, animate=False, immediate=True
+                )
             for key in ("machine", "core", "project", "source"):
                 if key in lines:
                     self.query_one(f"#apply-group-{key}", Static).update(lines[key])
