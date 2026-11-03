@@ -333,7 +333,7 @@ test("Sessions cards fold every state signal into one pill", async (t) => {
     [
       [
         "Why parked",
-        "parked by the session itself; its next accepted prompt takes it back"
+        "parked by the session itself; its next accepted prompt or tool activity after turn end takes it back"
         + " · waiting on a blocking claim",
       ],
       [
