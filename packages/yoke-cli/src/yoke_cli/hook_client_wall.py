@@ -11,14 +11,9 @@ import uuid
 from dataclasses import dataclass
 from pathlib import Path
 
-from yoke_cli.config import machine_config
 from yoke_contracts.hook_evaluator_protocol import (
     HOOK_CLIENT_WALL_BATCH_FIELD,
     HOOK_CLIENT_WALL_PATH,
-)
-from yoke_contracts.machine_config.schema import (
-    POSTGRES_TRANSPORTS,
-    connection_is_protected,
 )
 
 
@@ -118,6 +113,11 @@ def record_client_wall(event_id: str, client_wall_ms: int) -> None:
     try:
         import urllib.request
 
+        from yoke_cli.config import machine_config
+        from yoke_contracts.machine_config.schema import (
+            POSTGRES_TRANSPORTS,
+            connection_is_protected,
+        )
         from yoke_cli.transport.bounded_json_http import request_json
         from yoke_cli.transport.https import resolve_https_connection
         from yoke_cli.transport.response_limits import (

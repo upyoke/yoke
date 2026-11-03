@@ -246,7 +246,6 @@ def hook_evaluate(args: List[str]) -> int:
         infrastructure_reply,
         plain_allow_stdout,
     )
-    from yoke_contracts.hook_runner.safety import parse_payload, protect_stop
 
     raw = _read_stdin()
     event = args[0]
@@ -261,7 +260,6 @@ def hook_evaluate(args: List[str]) -> int:
         )
         sys.stdout.write(plain_allow_stdout(event, executor))
         return 0
-    payload = parse_payload(raw)
     stdout, stderr = io.StringIO(), io.StringIO()
     try:
         with contextlib.redirect_stdout(stdout), contextlib.redirect_stderr(stderr):
@@ -278,7 +276,10 @@ def hook_evaluate(args: List[str]) -> int:
         text = stdout.getvalue()
         if stderr.getvalue():
             sys.stderr.write(stderr.getvalue())
-    text, code = protect_stop(event, payload, text, code, executor)
+    if event == "Stop":
+        from yoke_contracts.hook_runner.safety import parse_payload, protect_stop
+
+        text, code = protect_stop(event, parse_payload(raw), text, code, executor)
     if text:
         sys.stdout.write(text)
     return code
