@@ -209,6 +209,10 @@ def _release(view) -> str:
 
 
 def _rework_body(conn, fail_run) -> str:
+    from yoke_core.domain.deployment_qa_stage_materialization import materialize_deployment_qa_stage
+
+    materialize_deployment_qa_stage(conn, deployment_run_id=takeover.NEW,
+        deployment_stage="item-qa", deployment_member_item_id=MEMBER)
     status = deployment_qa_stage_status(
         conn, run_id=takeover.NEW, stage_name="item-qa", member_item_id=MEMBER
     )
