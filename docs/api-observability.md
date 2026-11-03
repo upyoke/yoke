@@ -123,6 +123,9 @@ Records contain no SQL, parameters, credentials, row values or full responses.
 Non-overview reads do not enable this measurement. Run-card presentation reads
 recorded exact-target QA without repository-provider ancestry requests. It still
 reads current attachments, withdrawals, executable content and target identities.
+Execution and settlement targets resolve once per run, stage and member in one
+presentation; a new request re-reads receipts, and acceptance writes leave the
+presentation snapshot before checking authority.
 Admission, materialization and release gates continue to require source ancestry;
 a card read never authorizes execution or settles a gate. Candidate resolution
 reuse remains scoped to one evaluation on those validating paths.
@@ -132,3 +135,13 @@ inspect `shipping_overview` records alongside `HttpRequestCompleted` and the
 handler event. Missing records are unknown, never a performance pass. Hosted
 EMF totals alone cannot allocate component cost; the tenant role cannot read
 the private database statement-statistics view.
+
+For the production observation gate, run
+`python3 -m runtime.api.tools.check_overview_latency --run-id RUN` from the
+merged candidate checkout. It reads the run's latest ready Production receipt
+and the following 24 hours of overview timings through registered CLI reads.
+Wait until that window ends plus five minutes for log arrival. Missing or
+unpaired timing records refuse; empty overviews cannot dilute the populated
+overview p95. Passing requires populated p95 below five seconds and no failed
+overview, including read deadlines. This is controller log evidence and needs
+the hosting project's AWS log-read access.

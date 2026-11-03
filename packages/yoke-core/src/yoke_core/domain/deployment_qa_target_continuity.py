@@ -4,6 +4,7 @@ import json
 from collections.abc import Mapping
 
 from yoke_core.domain.db_helpers import query_rows
+from yoke_core.domain.deployment_qa_presentation_reads import presentation_read
 from yoke_core.domain.deployment_qa_takeover_identity import inherited_target
 from yoke_core.domain.deployment_qa_target_reads import _decode_stored_target
 
@@ -42,6 +43,22 @@ def evidence_target_matches(conn, run_id, stored, current):
 def settlement_target(conn, subject, target):
     if subject.get("shared_plan"):
         return target
+    from yoke_core.domain.qa_execution_environment_target import target_digest
+
+    return presentation_read(
+        conn,
+        (
+            "qa_settlement_target",
+            str(subject["id"]),
+            str(subject["stage"]["name"]),
+            subject.get("member_item_id"),
+            target_digest(target),
+        ),
+        lambda: _resolve_settlement_target(conn, subject, target),
+    )
+
+
+def _resolve_settlement_target(conn, subject, target):
     run_id = str(subject["id"])
     targets = [
         stored
