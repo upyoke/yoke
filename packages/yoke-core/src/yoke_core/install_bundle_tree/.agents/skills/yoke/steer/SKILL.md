@@ -35,7 +35,8 @@ workers and keep plan state; never implement.
 - Workers merge; only the steerer creates deployment runs.
 - Confirm a run carried a commit before calling it live.
 - Check infrastructure is in use before taking work on it.
-- Each reply lists outstanding operator actions and what they unblock.
+- End every reply with `Needs you:` and each open operator ask in one line,
+  or `Nothing needs you.`
 - Before filing, have the operator write goals and a high-level plan in the
   strategy doc, defined enough for a large set of parallel dashes. Break its
   well-defined parts into proposed dashes with correct dependency edges.
