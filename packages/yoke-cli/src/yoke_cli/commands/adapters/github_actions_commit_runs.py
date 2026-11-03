@@ -30,13 +30,15 @@ def github_actions_commit_runs(args: List[str]) -> int:
         prog="yoke github-actions commit-runs list",
         description=(
             "List every GitHub Actions run whose head commit is exactly this "
-            "sha. --workflow matches the workflow's own name, not a run's "
+            "sha. --workflow matches the workflow name or file path, not a run's "
             "display title. --repo defaults to the project's bound repository."
         ),
     )
     parser.add_argument("commit_sha", help="Full commit SHA the runs were built from.")
     parser.add_argument(
-        "--workflow", default="", help="Only runs of the workflow with this name."
+        "--workflow",
+        default="",
+        help="Only runs of the workflow with this name or file path.",
     )
     parser.add_argument(
         "--repo", default="", help="Repository as owner/name; default: project's."

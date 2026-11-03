@@ -47,9 +47,14 @@ runs:
           fi
           source /etc/os-release
           sudo install -d /usr/share/postgresql-common/pgdg
-          sudo curl --fail --silent --show-error --location \
+          if ! sudo curl --fail --silent --show-error --location \
+            --retry 3 --retry-all-errors --retry-max-time 120 \
+            --connect-timeout 15 --max-time 30 \
             https://www.postgresql.org/media/keys/ACCC4CF8.asc \
-            -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc
+            -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc; then
+            echo "ci_runner_pgdg_key_download_failed: bounded download retries exhausted. Check PostgreSQL key endpoint connectivity, then retry CI." >&2
+            exit 1
+          fi
           printf 'deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt %s-pgdg main\n' "$VERSION_CODENAME" \
             | sudo tee /etc/apt/sources.list.d/pgdg.list >/dev/null
           sudo apt-get update

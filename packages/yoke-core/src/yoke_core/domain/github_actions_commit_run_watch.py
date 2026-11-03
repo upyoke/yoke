@@ -12,8 +12,8 @@ Resolution and matching therefore live here, once: the ref is resolved
 with ``git rev-parse <ref>^{commit}``, which yields one full object id
 for a branch, a tag, ``HEAD``, or an abbreviated SHA alike; the run set
 comes from the REST ``head_sha`` query, re-checked against each returned
-``head_sha``; and a workflow name is compared against each run's ``name``
-field, which is the workflow's own name rather than the run title.
+``head_sha``; and the authority resolves a workflow name or file path through the
+workflows API and matches each run by ``workflow_id``.
 
 Reads follow :data:`CI_SUITE_SCHEDULE` so concurrent sessions share the
 project's GitHub budget. Every state change, every terminal conclusion,
@@ -104,7 +104,7 @@ def resolve_commit(ref: str, *, cwd: Path) -> str:
 
 
 def _run_label(run: Dict[str, Any]) -> str:
-    """Name a run by its workflow and id, never by its display title."""
+    """Label a run with GitHub's returned name and id."""
     name = str(run.get("name") or "").strip() or "(unnamed workflow)"
     return f"{name} #{run.get('id')}"
 
@@ -233,7 +233,7 @@ def _parse_args(argv: Sequence[str]) -> argparse.Namespace:
     parser.add_argument(
         "--workflow",
         default="",
-        help="Workflow name to narrow to; omit to watch every run for the "
+        help="Workflow name or file path to narrow to; omit to watch every run for the "
         "commit. Matched against the workflow's name, not the run title.",
     )
     parser.add_argument(

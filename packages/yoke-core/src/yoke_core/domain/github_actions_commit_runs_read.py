@@ -45,9 +45,7 @@ def matching_runs(
     return [
         run
         for run in runs
-        if isinstance(run, dict)
-        and str(run.get("head_sha") or "") == head_sha
-        and (not workflow_name or str(run.get("name") or "") == workflow_name)
+        if isinstance(run, dict) and str(run.get("head_sha") or "") == head_sha
     ]
 
 

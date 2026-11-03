@@ -117,23 +117,15 @@ def test_a_run_for_a_neighbouring_commit_never_matches():
     assert asked == {"project": "yoke", "head_sha": "a" * 40, "workflow": ""}
 
 
-def test_the_workflow_filter_reads_the_workflow_name_not_the_run_title():
-    """``name`` on a REST run is the workflow; the title is separate.
-
-    A filter keyed on the run's display title ("yoke-ci main") never
-    matches the workflow name ("yoke-ci"), and fails by waiting.
-    """
-    runs = [
-        _run(1, name="yoke-ci"),
-        _run(2, name="release"),
-    ]
-    titled = dict(runs[0], display_title="yoke-ci main")
-
+def test_the_client_preserves_authority_selected_runs_with_custom_names():
     def fake_read(project, head_sha, workflow):
-        return [titled, runs[1]]
+        assert workflow == "yoke-ci"
+        return [
+            _run(1, name="Custom CI run"),
+            _run(2, name="Custom CI run", head_sha="b" * 40),
+        ]
 
     matched = watch.matching_runs("yoke", "a" * 40, "yoke-ci", read=fake_read)
-
     assert [run["id"] for run in matched] == [1]
 
 
