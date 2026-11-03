@@ -154,7 +154,7 @@ def _seed_member_execution(conn, monkeypatch, *, producer=HOLDER_A):
     return execution
 
 
-def _take_over_and_deploy(conn, monkeypatch=None, state=containment.CONTAINED):
+def _take_over_and_deploy(conn, monkeypatch=None, state=containment.CONTAINED, *, observed_url="https://preview.example.test"):
     conn.execute(
         "INSERT INTO deployment_runs(id,project_id,flow,target_tier,target_environment_id,"
         "release_lineage,status,created_at,composition_frozen_at,requirement_snapshot) "
@@ -189,7 +189,7 @@ def _take_over_and_deploy(conn, monkeypatch=None, state=containment.CONTAINED):
         correlation_id=str(receipt["correlation_id"]),
         status="ready",
         target_name="stage",
-        observed_url="https://preview.example.test",
+        observed_url=observed_url,
         observed_release_lineage=takeover.NEW_LINEAGE,
         executor_receipt="test://successor-ready",
         commit=False,

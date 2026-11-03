@@ -73,30 +73,16 @@ def test_plan_run_rebinds_in_place_and_carries_only_matching_pass(
     same_destination,
 ):
     execution = _seed_member_execution(test_db, monkeypatch)
-    passed = int(execution["roster"][0]["requirement_id"])
-    if not same_destination:
-        # Change the original evidence's destination, keeping its digest honest.
-        from yoke_core.domain.qa_execution_environment_target import (
-            canonical_target,
-            target_digest,
-        )
-
-        row = test_db.execute(
-            "SELECT execution_target_json FROM qa_requirements WHERE id=%s", (passed,)
-        ).fetchone()
-        old = json.loads(row[0])
-        old["endpoints"]["app_url"] = "https://different.example.test"
-        digest = target_digest(old)
-        test_db.execute(
-            "UPDATE qa_requirements SET execution_target_json=%s,execution_target_digest=%s WHERE id=%s",
-            (canonical_target(old), digest, passed),
-        )
-        test_db.commit()
     passed, _ = _record(test_db, execution, 0, "pass")
     failed, _ = _record(test_db, execution, 1, "fail")
     finish_plan_execution(test_db, execution, state="completed", reason="case failed")
     before = select_plan_execution(test_db, execution["id"], lock=False)
-    _take_over_and_deploy(test_db)
+    successor_url = "https://preview.example.test" if same_destination else "https://different.example.test"
+    if not same_destination:
+        test_db.execute("UPDATE environments SET url=%s WHERE id=%s",
+            (successor_url, execution["execution_target"]["environment"]["id"]))
+        test_db.commit()
+    _take_over_and_deploy(test_db, observed_url=successor_url)
     fresh = _plan_run(test_db, monkeypatch, takeover.NEW)
     rows = test_db.execute(
         "SELECT * FROM qa_requirements WHERE deployment_run_id=%s "
