@@ -133,3 +133,48 @@ def test_other_containment_refusal_is_not_retried(monkeypatch):
     with pytest.raises(CandidateContainmentRefusal, match="source_unverified"):
         preparation.prepare_bound_sources(object(), "run-candidate", "hosted-release")
     assert len(attempts) == 1
+
+
+@pytest.mark.parametrize("unrelated", [False, True])
+def test_retry_preserves_frozen_input_after_promotion_records_its_output(
+    test_db, tmp_path, monkeypatch, unrelated
+):
+    from yoke_core.domain.deployment_run_bound_sources import copy_bound_sources
+    from yoke_core.domain.deployment_run_release_output_record import record_release_output
+    from runtime.api.fixtures.bound_source_release import CONSUMER_PROJECT
+
+    release = two_project_release(test_db, tmp_path, monkeypatch)
+    record_bound_sources(test_db, "run-candidate")
+    sealed = preparation.prepare_bound_sources(test_db, "run-candidate", "hosted-release")
+    copy_bound_sources(test_db, "run-candidate", "run-previous")
+    test_db.execute(
+        "UPDATE deployment_runs SET status='created',create_request=%s "
+        "WHERE id='run-previous'", (json.dumps({"retry_of": "run-candidate"}),)
+    )
+    test_db.commit()
+    repo = release["consumer_repo"]
+    (repo / "yoke-release-pin.txt").write_text("1.2.3\n")
+    git(repo, "add", "yoke-release-pin.txt")
+    git(repo, "commit", "-m", "Materialize released pin")
+    if unrelated:
+        (repo / "application.py").write_text("changed = True\n")
+        git(repo, "add", "application.py")
+        git(repo, "commit", "-m", "Change application after promotion")
+    # The pin is visible before the producing bridge finishes its record.
+    with pytest.raises(ValueError, match="finish that release output record"):
+        preparation.prepare_bound_sources(test_db, "run-previous", "hosted-release")
+    test_db.rollback()
+    record_release_output(
+        test_db, run_id="run-candidate", project=CONSUMER_PROJECT,
+        commit_sha="HEAD^" if unrelated else "HEAD",
+    )
+    test_db.commit()
+    if unrelated:
+        with pytest.raises(ValueError, match="cannot dispatch a stage on it"):
+            preparation.prepare_bound_sources(test_db, "run-previous", "hosted-release")
+        test_db.rollback()
+    else:
+        result = preparation.prepare_bound_sources(test_db, "run-previous", "hosted-release")
+        assert result["rebound"] == []
+        assert result["bound_sources"]["inputs"] == sealed["bound_sources"]["inputs"]
+        assert result["bound_sources"]["projects"][0]["commit_sha"] == release["consumer_tip"]
