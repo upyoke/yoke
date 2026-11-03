@@ -149,7 +149,6 @@ def test_materialized_history_selects_newest_receipt_independent_of_row_order():
 def test_partial_refresh_keeps_unresolved_evidence_from_another_plan(
     test_db, monkeypatch
 ):
-    from runtime.api.domain.test_deployment_run_target_takeover import _memberless_copy
     from runtime.api.fixtures.deployment_scoped_qa_run_fixture import create_smoke_plan
     from yoke_core.domain.deployment_qa_stage_gate import deployment_qa_stage_status
 
@@ -160,10 +159,18 @@ def test_partial_refresh_keeps_unresolved_evidence_from_another_plan(
         test_db, execution, state="completed", reason="failure recorded"
     )
     other_plan = create_smoke_plan(test_db, project="yoke", slug="unrefreshed-plan")
-    other = _memberless_copy(test_db, requirement, stage=takeover.RUN_QA_STAGE)
-    test_db.execute(
-        "UPDATE qa_requirements SET plan_id=%s WHERE id=%s", (other_plan, other)
+    columns = ",".join(
+        row[0]
+        for row in test_db.execute(
+            "SELECT column_name FROM information_schema.columns "
+            "WHERE table_name='qa_requirements' AND column_name NOT IN ('id','plan_id')"
+        ).fetchall()
     )
+    other = test_db.execute(
+        f"INSERT INTO qa_requirements ({columns},plan_id) SELECT {columns},%s "
+        "FROM qa_requirements WHERE id=%s RETURNING id",
+        (other_plan, requirement),
+    ).fetchone()[0]
     record_case_verdict(test_db, other, "fail", evidence=True)
     plan_id = test_db.execute(
         "SELECT plan_id FROM qa_requirements WHERE id=%s", (requirement,)

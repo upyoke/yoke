@@ -160,3 +160,21 @@ def require_fresh_materialization(conn, subject, target):
         "but cases still name its predecessor; preserve prior evidence and run "
         f"`yoke qa plan rematerialize {scope} --stage {stage}` before starting a fresh attempt"
     )
+
+
+def same_owned_destination(predecessor, successor):
+    """Already-owned deployment obligations compare destination, not provenance."""
+    from yoke_core.domain.deployment_qa_execution_target import (
+        is_deployment_execution_target,
+    )
+
+    run_id = predecessor.get("deployment_run_id")
+    if not run_id or run_id != successor.get("deployment_run_id"):
+        return False
+    targets = [
+        _decode_stored_target(row.get("execution_target_json"))
+        for row in (predecessor, successor)
+    ]
+    return all(
+        is_deployment_execution_target(target) for target in targets
+    ) and same_destination(*targets)

@@ -1,21 +1,11 @@
-"""Discharge a broken frozen QA case with a corrected one that passed.
+"""Discharge a broken QA obligation with a named passing correction.
 
-Supersession is the honest alternative. A second case bound to the same
-obligation -- the same run, stage, member and execution target for a
-run-bound case; the same item, transition, phase and execution target for an
-item-bound one -- which has itself passed, may be recorded as discharging
-the broken one. A replacement declared when the corrected case was
-materialized records this automatically once it passes
-(:mod:`yoke_core.domain.qa_requirement_replacement`). The broken row stays exactly as it
-is, so the history of what went wrong survives; what changes is that the
-stage gate reads its obligation as met by the named passing row rather
-than as unmet.
-
-A standing source may also name its own passing frozen deployment copy.
-The copy must retain the same plan case or direct admission identity.
-
-Superseding an admitted copy leaves its item source outstanding; the receipt
-names that source and the explicit retirement recovery.
+Deployment cases retain run, stage, member and destination; receipt and
+release provenance can differ. Item cases retain item, transition, phase
+and target. The broken row and its evidence remain historical records.
+Declared replacements record supersession automatically once they pass.
+A standing source can name its passing frozen deployment copy with the same
+case or admission identity; superseding a copy leaves its source outstanding.
 """
 
 from __future__ import annotations
@@ -113,7 +103,13 @@ def same_scope(broken: dict[str, Any], corrected: dict[str, Any]) -> list[str]:
         broken, corrected = map(source_retirement_scope, (broken, corrected))
     mismatches: list[str] = []
     scope = _RUN_SCOPE if broken.get("deployment_run_id") else _ITEM_SCOPE
+    from yoke_core.domain.deployment_qa_target_continuity import same_owned_destination
+
     for column, label in scope:
+        if column == "execution_target_digest" and same_owned_destination(
+            broken, corrected
+        ):
+            continue
         if str(broken.get(column) or "") != str(corrected.get(column) or ""):
             mismatches.append(
                 f"{label} differs ({broken.get(column)!r} vs {corrected.get(column)!r})"
