@@ -109,9 +109,9 @@ def _refresh_checkouts(yoke: Path, run: Runner, env: dict[str, str]) -> list[dic
 
 
 def _refresh_line(result: dict) -> str:
-    message = (
-        f"Project refresh needed: {result['path']}: {result['reason']} "
-        f"Recovery: {result['recovery']}"
+    message = compose_refusal(
+        f"Project refresh needed: {result['path']}: {result['reason']}",
+        recovery=result["recovery"],
     )
     return " ".join(message.split())
 
