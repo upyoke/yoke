@@ -155,6 +155,18 @@ def test_failure_reader_filters_repaired_checkouts_and_bounds_output(
     assert follow.refresh_skip_lines() == [follow._refresh_line(rows[1])]
 
 
+def test_refresh_notice_keeps_multiline_refusals_on_one_line():
+    line = follow._refresh_line(
+        {
+            "path": "/checkout",
+            "reason": "checkout_dirty:\n commit changes",
+            "recovery": "yoke project install /checkout",
+        }
+    )
+    assert line.splitlines() == [line]
+    assert "checkout_dirty: commit changes" in line
+
+
 @pytest.mark.parametrize("contents", [None, "{", '{"project_refresh": null}'])
 def test_failure_reader_never_raises_for_missing_or_unreadable_records(
     tmp_path, monkeypatch, contents
