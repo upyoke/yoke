@@ -2,10 +2,11 @@
  "id": "launch-binding",
  "title": "Launch attestation, exact identity and assigned-item entry",
  "status": "observed",
- "sources": ["docs/public/sessions/model/sessions.md", "runtime/api/domain/test_session_launch_attested_binding.py", "runtime/api/domain/test_session_launch_work_entry.py"],
+ "sources": ["docs/public/sessions/model/sessions.md", "runtime/api/domain/test_session_launch_attested_binding.py", "runtime/api/domain/test_session_launch_work_entry.py", "runtime/api/domain/test_session_launch_native_death.py"],
  "surface_refs": ["command-feedback", "project-orientation"],
  "commands": ["yoke session-control launch get"],
  "functions": ["session_control.launch.get"],
  "page": "session-identity",
- "position": 3
+ "position": 3,
+ "summary": "Verified native death before work fails a registered launch immediately, including before acknowledgement; durable evidence records the reached phase, exit code and stderr tail, and the requester is notified."
 }
