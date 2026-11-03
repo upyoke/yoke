@@ -54,6 +54,7 @@ class PendingAgentReview:
     session_id: str
     state: str = "awaiting_walk_review"
     scope_flag: str = ""
+    execution_target_digest: str = ""
 
     def review_begin_command(self) -> str:
         return (
@@ -86,6 +87,7 @@ def _pending(conn: Any, row: Any) -> PendingAgentReview:
         session_id=str(row["session_id"] or ""),
         state=str(row["state"]),
         scope_flag=review_scope_flag(conn, row),
+        execution_target_digest=str(row["execution_target_digest"] or ""),
     )
 
 
@@ -118,8 +120,8 @@ def pending_review_requirements(
     """The pending review that owns each of these requirements' verdicts.
 
     ``stopped_only`` keeps only reviews an aborted or errored execution
-    left: a new roster leaves those requirements out, since recapturing
-    them would race that review.
+    left. Roster admission compares their frozen targets before excluding
+    requirements, since only recapturing the same target races that review.
     """
     wanted = {int(value) for value in requirement_ids}
     if not wanted:

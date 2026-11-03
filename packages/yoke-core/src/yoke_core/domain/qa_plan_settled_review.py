@@ -154,8 +154,8 @@ def open_unsettled_roster(
 ) -> tuple[dict[str, Any] | None, list[dict[str, Any]]]:
     """Drop requirements whose newest recorded verdict is a pass.
 
-    Requirements a stopped walk's pending review owns drop out too; when
-    nothing else remains the run refuses with ``qa_plan_nothing_owed``.
+    Requirements a stopped walk's pending review owns on the same target drop
+    out too; when nothing remains the run refuses with ``qa_plan_nothing_owed``.
 
     When nothing remains, return the settled execution carrying those
     verdicts so the runner reprints them. Otherwise return the roster still
@@ -171,6 +171,13 @@ def open_unsettled_roster(
     held = pending_review_requirements(
         conn, [int(row["requirement_id"]) for row in roster], stopped_only=True
     )
+    held = {
+        int(row["requirement_id"]): held[int(row["requirement_id"])]
+        for row in roster
+        if int(row["requirement_id"]) in held
+        and held[int(row["requirement_id"])].execution_target_digest
+        == row.get("execution_target_digest")
+    }
     if held:
         # A stopped walk's pending review owns these verdicts; recapturing
         # them would race that review.
