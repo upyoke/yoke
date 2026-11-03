@@ -106,6 +106,7 @@ _PROSE_PATTERNS: List[tuple] = [
         ),
     ),
     ("schema migration", re.compile(r"\bschema\s+migration\b", re.IGNORECASE)),
+    ("add migration", re.compile(r"\badds?\s+(?:a\s+)?migration\b", re.IGNORECASE)),
     ("schema change", re.compile(r"\bschema\s+change[sd]?\b", re.IGNORECASE)),
     (
         "schema mutation",

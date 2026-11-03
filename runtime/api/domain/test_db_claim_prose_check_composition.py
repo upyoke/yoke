@@ -45,6 +45,7 @@ class TestCheckComposition:
     ])
     def test_unrelated_without_does_not_negate_db_work(self, prose):
         assert _has_explicit_negative_db_claim(prose) is False
+        assert check(prose, profile_raw={"state": "none"}).blocks is True
 
     def test_without_tests_keeps_a_following_db_trigger_blocking(self):
         outcome = check(
