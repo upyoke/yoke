@@ -224,17 +224,21 @@ def recorded_repo_roots(conn: Any) -> List[str]:
         return []
     try:
         rows = conn.execute(
-            "SELECT path FROM item_worktrees WHERE path IS NOT NULL"
+            "SELECT DISTINCT COALESCE(NULLIF(substring(btrim(path) FROM "
+            "'^(.*)/[.]worktrees(?:/.*)?$'), ''), '/') AS repo_root "
+            "FROM item_worktrees "
+            "WHERE btrim(path) ~ '^.*/[.]worktrees(?:/.*)?$' "
+            "ORDER BY repo_root"
         ).fetchall()
     except db_backend.operational_error_types(conn):
         return []
     paths: List[str] = []
     for row in rows:
-        value = row["path"] if hasattr(row, "keys") else row[0]
+        value = row["repo_root"] if hasattr(row, "keys") else row[0]
         text = str(value or "").strip()
         if text:
             paths.append(text)
-    return _unique_repo_roots(paths)
+    return list(dict.fromkeys(str(Path(root)) for root in paths))
 
 
 def repo_root_from_worktree_path(worktree_path: str) -> Optional[str]:

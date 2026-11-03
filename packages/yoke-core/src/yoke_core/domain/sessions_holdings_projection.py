@@ -21,6 +21,7 @@ from yoke_core.domain.sessions_holdings_claim_facts import (
 )
 from yoke_core.domain.sessions_holdings_claim_rows import all_claim_rows
 from yoke_core.domain.sessions_holdings_read import render_claim_target
+from yoke_core.domain.sessions_holdings_path_rows import path_rows
 from yoke_core.domain.work_claim_targets import (
     TARGET_KIND_MIGRATION_SERIALIZATION,
     from_row as work_claim_target_from_row,
@@ -170,17 +171,6 @@ def _query_or_empty(conn: Any, sql: str) -> list[dict[str, Any]]:
         return []
 
 
-def _path_rows(conn: Any) -> list[dict[str, Any]]:
-    return _query_or_empty(
-        conn,
-        "SELECT pc.id,pc.owner_kind,pc.owner_item_id,pc.owner_session_id,"
-        "pc.owner_work_claim_id,pc.released_at,pc.cancelled_at,"
-        "(SELECT COUNT(*) FROM path_claim_targets pct "
-        "WHERE pct.claim_id=pc.id) AS declared_count "
-        "FROM path_claims pc ORDER BY pc.id DESC",
-    )
-
-
 def _path_observations(
     conn: Any,
     claims: list[dict[str, Any]],
@@ -188,6 +178,7 @@ def _path_observations(
     historical_item_sessions: Mapping[int, set[str]],
     current_item_sessions: Mapping[int, set[str]],
     item_releases: Mapping[tuple[str, int], Any],
+    session_ids: tuple[str, ...] | None,
 ) -> dict[str, list[dict[str, Any]]]:
     claims_by_id = {int(claim["id"]): claim for claim in claims}
     buckets: dict[tuple[str, str, bool], dict[str, Any]] = {}
@@ -210,7 +201,7 @@ def _path_observations(
         )
         entry["path_count"] = int(entry["path_count"]) + count
 
-    for row in _path_rows(conn):
+    for row in path_rows(conn, claims=claims, session_ids=session_ids):
         owner_kind = str(row.get("owner_kind") or "")
         terminal = row.get("released_at") or row.get("cancelled_at")
         count = int(row.get("declared_count") or 0)
@@ -298,6 +289,7 @@ def session_holdings_by_session(
     session_ids: Iterable[str] | None = None,
 ) -> dict[str, dict[str, Any]]:
     """Return the shared holdings model for every session with a holding."""
+    session_ids = None if session_ids is None else tuple(session_ids)
     claims = _row_dicts(all_claim_rows(conn, session_ids=session_ids))
     item_ids = [
         int(claim["item_id"])
@@ -321,7 +313,9 @@ def session_holdings_by_session(
     )
     sources = [
         _work_observations(claims, item_facts, steering_docs),
-        _path_observations(conn, claims, item_facts, historical, current, releases),
+        _path_observations(
+            conn, claims, item_facts, historical, current, releases, session_ids
+        ),
         _strategy_observations(conn),
         _coordination_observations(claims, item_facts, historical, current, releases),
     ]
