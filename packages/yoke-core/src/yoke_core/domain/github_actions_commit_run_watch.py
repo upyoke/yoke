@@ -104,7 +104,7 @@ def resolve_commit(ref: str, *, cwd: Path) -> str:
 
 
 def _run_label(run: Dict[str, Any]) -> str:
-    """Name a run by its workflow and id, never by its display title."""
+    """Label a run with GitHub's returned name and id."""
     name = str(run.get("name") or "").strip() or "(unnamed workflow)"
     return f"{name} #{run.get('id')}"
 
