@@ -300,3 +300,42 @@ def test_inflight_frozen_walk_can_finish_after_materialization_rebinds(
     frozen = select_plan_execution(test_db, execution["id"], lock=False)
     assert frozen["execution_target_digest"] == execution["execution_target_digest"]
     assert frozen["roster"] == execution["roster"]
+
+
+def test_unbound_direct_case_is_initialized_by_its_existing_binder(test_db):
+    from runtime.api.domain.test_direct_deployment_qa_case_execution import _qa_stages
+    from runtime.api.domain.test_deployment_qa_stage_execution import _seed_run
+    from runtime.api.fixtures.backlog_qa_inserts import insert_qa_requirement
+
+    run_id, member = "run-unbound-case-materialize", 9867
+    _seed_run(test_db, run_id=run_id, stages=_qa_stages(), members=(member,))
+    row = insert_qa_requirement(
+        test_db,
+        item_id=None,
+        deployment_run_id=run_id,
+        deployment_stage="item-qa",
+        deployment_member_item_id=member,
+        qa_kind="method_case",
+        qa_phase="post_deploy",
+        method_id="command",
+        method_name="Command",
+        runner_id="worktree_run",
+        verdict_path="automatic",
+        capability_requirements="[]",
+        instructions="Run the direct case",
+        expected_outcome="The case passes",
+        method_config='{"command":"true"}',
+    )
+    result = materialize_deployment_qa_stage(
+        test_db,
+        deployment_run_id=run_id,
+        deployment_stage="item-qa",
+        deployment_member_item_id=member,
+    )
+    assert result["existing_requirement_ids"] == [row["id"]]
+    stored = test_db.execute(
+        "SELECT execution_target_digest,rebound_at FROM qa_requirements WHERE id=%s",
+        (row["id"],),
+    ).fetchone()
+    assert stored["execution_target_digest"]
+    assert stored["rebound_at"] is None

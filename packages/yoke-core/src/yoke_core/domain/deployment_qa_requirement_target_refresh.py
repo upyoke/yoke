@@ -29,6 +29,8 @@ def rebind_subject(conn, *, subject, target):
         "SELECT * FROM qa_requirements WHERE deployment_run_id=%s "
         "AND deployment_stage=%s AND COALESCE(deployment_member_item_id,0)=%s "
         "AND superseded_by_requirement_id IS NULL AND retracted_at IS NULL "
+        "AND method_id IS NOT NULL AND execution_target_json IS NOT NULL "
+        "AND execution_target_digest IS NOT NULL "
         "AND execution_target_digest IS DISTINCT FROM %s "
         "AND (%s::integer IS NULL OR plan_id=%s) ORDER BY id",
         (
