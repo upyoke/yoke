@@ -75,3 +75,54 @@ def test_reusing_session_rows_preserves_entire_report(test_db, monkeypatch, exha
     monkeypatch.setattr(stranded, "meter_wall_for_session", read_again)
     reread = compose_held_reports(conn, session_id=STEERING_SESSION, now=NOW)
     assert combined_dict(reused) == combined_dict(reread)
+
+
+def test_multi_project_report_queries_do_not_grow_with_relay_history(test_db):
+    from runtime.api.domain.steering_claim_test_support import seed_project
+    from yoke_core.domain.steering_claims import acquire
+    from yoke_core.domain.session_surface_policy import clear_mark, set_mark
+
+    conn = seed_steering_scope(test_db)
+    _seed_workers(conn, 0, 6)
+    for project in (71, 72):
+        seed_project(conn, project, f"project-{project}")
+        acquire(conn, session_id=STEERING_SESSION, project_id=project,
+                reason="steering report")
+    conn.execute("UPDATE session_relays SET project_checkouts=%s",
+                 (json.dumps([1, 71, 72]),))
+    conn.commit()
+    counts = []
+    for start, stop in ((0, 1), (1, 60)):
+        for index in range(start, stop):
+            conn.execute(
+                "INSERT INTO session_relays "
+                "(relay_id, actor_id, machine_id, hostname, surface_versions, "
+                "project_checkouts, first_seen_at, last_seen_at, connected_until, state) "
+                "VALUES (%s, 1, %s, 'expired', '{}', '[]', %s, %s, %s, 'idle')",
+                (f"old-relay-{index}", f"old-machine-{index}",
+                 LONG_AGO, LONG_AGO, LONG_AGO),
+            )
+        conn.commit()
+        counted = CountingConnection(conn)
+        report = compose_held_reports(counted, session_id=STEERING_SESSION, now=NOW)
+        assert len(report.sections) == 3
+        assert all(any(row.surface == "codex-cli" for row in s.report.launchable)
+                   for s in report.sections)
+        counts.append(counted.count)
+        policy_reads = sum(n for sql, n in counted.statements.items()
+                           if "FROM session_surface_policies" in sql)
+        assert policy_reads == 3
+    assert counts[0] == counts[1]
+    assert counts[1] < 400
+
+    mark = set_mark(conn, machine_id="machine-1", surface="codex-cli",
+                    reason="operator hold", actor_id=1, session_id=STEERING_SESSION,
+                    now=NOW)
+    conn.commit()
+    disabled = compose_held_reports(conn, session_id=STEERING_SESSION, now=NOW)
+    assert all(not s.report.launchable for s in disabled.sections)
+    clear_mark(conn, machine_id=mark["machine_id"], surface=mark["surface"],
+               actor_id=1, now=NOW)
+    conn.commit()
+    restored = compose_held_reports(conn, session_id=STEERING_SESSION, now=NOW)
+    assert combined_dict(restored) == combined_dict(report)

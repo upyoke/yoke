@@ -2,7 +2,8 @@
 
 Project sections share schema checks, session policy, machine facts and item
 identity reads. This wrapper lives for one composition, never across requests;
-mutations and transaction boundaries invalidate all remembered rows.
+mutations and transaction ends invalidate all remembered rows. Savepoint
+creation and release preserve reads because they change no data.
 """
 
 from copy import deepcopy
@@ -42,8 +43,10 @@ class ReportReadConnection:
         return getattr(self._inner, name)
 
     def execute(self, sql, params=()):
-        if not sql.lstrip().upper().startswith("SELECT "):
-            self._reads.clear()
+        command = sql.split(None, 1)[0].upper() if sql.strip() else ""
+        if command != "SELECT":
+            if command not in {"SAVEPOINT", "RELEASE"}:
+                self._reads.clear()
             return self._inner.execute(sql, params)
         key = (sql, tuple(params))
         try:
