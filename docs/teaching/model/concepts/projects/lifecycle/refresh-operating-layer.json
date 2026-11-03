@@ -1,7 +1,9 @@
 {
  "id": "refresh-operating-layer",
  "title": "Refresh operating layer",
- "status": "draft-copy",
+ "status": "observed",
+ "summary": "When the active connection's relay follows a release, it refreshes and publishes each mapped installed checkout with the installed CLI. Source-linked and missing checkouts are skipped. Failed refreshes remain in the machine-local operator-cli-follow.json record; every project or global session startup and the steering report name still-stale failed checkouts with their reason and yoke project install recovery. The advisory shows at most five checkouts and names the record for the remainder.",
+ "sources": ["packages/yoke-cli/src/yoke_cli/config/operator_cli_release_follow.py", "packages/yoke-cli/src/yoke_cli/config/project_update.py", "docs/public/start/install.md"],
  "page": "projects",
  "position": 1
 }

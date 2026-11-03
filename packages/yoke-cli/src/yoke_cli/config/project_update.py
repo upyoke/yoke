@@ -23,16 +23,28 @@ def refresh_current(yoke_bin: str) -> dict[str, Any]:
     )
     if root is None:
         return {"status": "not_installed"}
+    return refresh_checkout(yoke_bin, root)
+
+
+def refresh_checkout(
+    yoke_bin: str,
+    root: Path,
+    *,
+    run=None,
+    env: dict[str, str] | None = None,
+) -> dict[str, Any]:
+    """Refresh one checkout through the installer's existing publish path."""
     manifest = load_manifest(root)
     if (manifest or {}).get("mode") == "source-link":
         return {"status": "source_dev", "recovery": "yoke dev setup"}
     try:
-        result = subprocess.run(
+        result = (run or subprocess.run)(
             [yoke_bin, "project", "refresh", str(root), "--json"],
             cwd=root,
             capture_output=True,
             text=True,
             timeout=600,
+            **({"env": env} if env is not None else {}),
         )
     except (OSError, subprocess.TimeoutExpired) as exc:
         raise ProjectInstallError(

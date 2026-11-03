@@ -101,19 +101,18 @@ def _operating_layer_advisory(root: Path) -> str:
 
 
 def _advisory_lines(root: Path) -> list[str]:
-    """Machine-local install/interpreter advisories, newest problem first.
-
-    These probe the machine this hook runs on, which is exactly why they
-    belong here and not in the server-rendered doctrine block.
-    """
+    """Machine-local advisories, composed on the machine running this hook."""
     from yoke_core.domain.main_agent_packet import (
         render_install_advisory_block,
         render_interpreter_advisory_block,
     )
 
     lines: list[str] = []
+    from yoke_cli.config.operator_cli_release_follow import refresh_skip_lines
+
     for block in (
         _operating_layer_advisory(root),
+        "\n".join(refresh_skip_lines()),
         render_interpreter_advisory_block(),
         render_install_advisory_block(),
     ):
@@ -181,8 +180,11 @@ def render_orientation(payload: dict[str, Any], root: Path) -> str:
         lines,
         [branch_lines + commit_lines, branch_lines, []],
         tail,
-        [line for line in payload.get(SETUP_LINES_KEY, [])
-         if "setup_project_unbound" in line],
+        [
+            line
+            for line in payload.get(SETUP_LINES_KEY, [])
+            if "setup_project_unbound" in line
+        ],
         budget,
     )
 
