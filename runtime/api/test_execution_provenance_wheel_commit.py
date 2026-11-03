@@ -68,3 +68,47 @@ def test_runtime_identity_build_falls_back_to_the_wheel_commit(
     packet = build_runtime_identity(module_file=wheel_module)
 
     assert packet["build"] == COMMIT
+
+
+def test_wheel_ownership_resolves_only_the_recorded_module(
+    wheel_module: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    relative = Path("yoke_contracts/execution_provenance.py")
+    installed = install_binding._distribution("yoke-contracts")
+    installed.files = tuple(Path(f"other/module_{i}.py") for i in range(3000)) + (relative,)
+    located = []
+    original = installed.locate_file
+
+    def locate(path):
+        located.append(path)
+        return original(path)
+
+    monkeypatch.setattr(installed, "locate_file", locate)
+    monkeypatch.setattr(install_binding, "_distribution", lambda name: installed)
+    assert install_binding.distribution_source_commit_for_module(
+        "yoke-contracts", wheel_module,
+    ) == COMMIT
+    assert located == ["", relative]
+
+
+def test_wheel_ownership_refuses_unrecorded_module(
+    wheel_module: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    installed = install_binding._distribution("yoke-contracts")
+    installed.files = (Path("other/execution_provenance.py"),)
+    monkeypatch.setattr(install_binding, "_distribution", lambda name: installed)
+    assert install_binding.distribution_source_commit_for_module(
+        "yoke-contracts", wheel_module,
+    ) == ""
+
+
+def test_wheel_ownership_refuses_recorded_symlink_outside_distribution(
+    wheel_module: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    outside = tmp_path / "outside.py"
+    outside.write_text("")
+    wheel_module.unlink()
+    wheel_module.symlink_to(outside)
+    assert install_binding.distribution_source_commit_for_module(
+        "yoke-contracts", wheel_module,
+    ) == ""

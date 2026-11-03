@@ -14,13 +14,18 @@ from __future__ import annotations
 
 import json
 import re
-from importlib.metadata import (
-    Distribution,
-    PackageNotFoundError,
-    distribution as _distribution,
-)
 from pathlib import Path
-from typing import Any, Mapping, Optional, Union
+from typing import TYPE_CHECKING, Any, Mapping, Optional, Union
+
+if TYPE_CHECKING:
+    from importlib.metadata import Distribution
+
+
+def _distribution(name: str) -> Distribution:
+    # Source-bound hooks need no wheel metadata or its import graph.
+    from importlib.metadata import distribution
+
+    return distribution(name)
 
 KIND_PACKAGED_WHEEL = "packaged_wheel"
 KIND_SOURCE_CHECKOUT = "source_checkout"
@@ -134,7 +139,7 @@ def _owning_distribution(
     try:
         installed = _distribution(distribution_name)
         distribution_root = Path(installed.locate_file("")).resolve()
-    except (PackageNotFoundError, OSError, TypeError, ValueError):
+    except (ModuleNotFoundError, OSError, TypeError, ValueError):
         return None
     if not module_path.is_relative_to(distribution_root):
         return None
@@ -142,8 +147,14 @@ def _owning_distribution(
     if not files:
         return None
     try:
+        relative = module_path.relative_to(distribution_root)
+        # RECORD is a manifest of paths, not a request to stat the wheel's
+        # entire tree. Resolve only the matching entry to retain the physical
+        # ownership check without walking every preceding module on each hook.
         owns_module = any(
-            Path(installed.locate_file(file)).resolve() == module_path for file in files
+            Path(file) == relative
+            and Path(installed.locate_file(file)).resolve() == module_path
+            for file in files
         )
     except (OSError, TypeError, ValueError):
         return None
