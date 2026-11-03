@@ -100,12 +100,13 @@ def test_the_plan_refreshes_the_profile_every_shard_splits_with() -> None:
 
 
 @pytest.mark.parametrize(
-    ("runner", "installed", "expected"),
-    [("self-hosted", False, 1), ("self-hosted", True, 0),
-     ("github-hosted", False, 0), ("github-hosted", True, 0)],
+    ("runner", "installed", "curl_exit", "expected"),
+    [("self-hosted", False, 0, 1), ("self-hosted", True, 0, 0),
+     ("github-hosted", False, 0, 0), ("github-hosted", True, 0, 0),
+     ("github-hosted", False, 55, 1)],
 )
 def test_runner_prerequisites_install_only_on_hosted_hosts(
-    tmp_path, runner, installed, expected,
+    tmp_path, runner, installed, curl_exit, expected,
 ) -> None:
     action = load_document(GITHUB / "actions" / "yoke-test-runner" / "action.yml")
     step = next(s for s in action["runs"]["steps"]
@@ -117,6 +118,7 @@ def test_runner_prerequisites_install_only_on_hosted_hosts(
                      ("'install ok installed'" if installed else "'not installed'"))
     sudo = commands / "sudo"
     sudo.write_text('#!/bin/bash\nprintf "%s\\n" "$*" >> "$CALLS"\n'
+                    'if [[ "$1" == curl ]]; then exit "$CURL_EXIT"; fi\n'
                     'if [[ "$1" == tee ]]; then cat >/dev/null; fi\n')
     query.chmod(0o755)
     sudo.chmod(0o755)
@@ -125,18 +127,27 @@ def test_runner_prerequisites_install_only_on_hosted_hosts(
         ["bash", "-euo", "pipefail", "-c",
          "source() { VERSION_CODENAME=resolute; }\n" + step["run"]],
         env={**os.environ, "PATH": f"{commands}:{os.environ['PATH']}",
-             "RUNNER_ENVIRONMENT": runner, "CALLS": str(calls)},
+             "RUNNER_ENVIRONMENT": runner, "CALLS": str(calls),
+             "CURL_EXIT": str(curl_exit)},
         text=True, capture_output=True,
     )
     assert result.returncode == expected, result.stderr
-    if expected:
+    if expected and not curl_exit:
         assert "ci_runner_prerequisites_missing: postgresql-client-16" in result.stderr
         assert "Install these packages from PGDG" in result.stderr
     if runner == "github-hosted" and not installed:
         operations = calls.read_text()
         assert "https://www.postgresql.org/media/keys/ACCC4CF8.asc" in operations
-        assert "apt-get update" in operations
-        assert "apt-get install --yes --no-install-recommends postgresql-client-16" in operations
+        assert "--retry 5 --retry-all-errors" in operations
+        assert "--connect-timeout 10 --max-time 60" in operations
+        if curl_exit:
+            assert "ci_runner_pgdg_key_download_failed" in result.stderr
+            assert "Check PostgreSQL key endpoint connectivity" in result.stderr
+            assert "apt-get" not in operations
+            return
+        assert "apt-get -o Acquire::Retries=3 update" in operations
+        assert ("apt-get -o Acquire::Retries=3 install --yes "
+                "--no-install-recommends postgresql-client-16") in operations
         assert "libxml" not in operations
     else:
         assert not calls.exists(), "self-hosted and prepared hosts must stay unchanged"
