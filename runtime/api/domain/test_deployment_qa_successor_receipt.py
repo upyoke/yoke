@@ -25,7 +25,7 @@ def _arrive(conn, *, ready):
         "UPDATE deployment_runs n SET status='executing',current_stage=%s,"
         "composition_frozen_at=now(),requirement_snapshot=o.requirement_snapshot "
         "FROM deployment_runs o WHERE n.id=%s AND o.id=%s",
-        (takeover.RUN_QA_STAGE, takeover.NEW, takeover.OLD),
+        ("deploy" if ready else takeover.RUN_QA_STAGE, takeover.NEW, takeover.OLD),
     )
     if ready:
         from yoke_core.domain.deployment_stage_receipts import (
@@ -54,6 +54,10 @@ def _arrive(conn, *, ready):
             executor_receipt="test://successor",
             commit=False,
         )
+    conn.execute(
+        "UPDATE deployment_runs SET current_stage=%s WHERE id=%s",
+        (takeover.RUN_QA_STAGE, takeover.NEW),
+    )
     conn.commit()
 
 
@@ -65,6 +69,7 @@ def test_successor_receipt_controls_fresh_target(test_db, monkeypatch, ready):
         test_db,
         run_id=takeover.NEW,
         stage_name=takeover.RUN_QA_STAGE,
+        member_item_id=None,
     )
     target = deployment_qa_execution_target(test_db, subject)
     assert target["deployment"]["run_id"] == (takeover.NEW if ready else takeover.OLD)
@@ -114,6 +119,11 @@ def test_corrected_case_uses_successor_without_invalidating_prior_evidence(
         (attempt,),
     ).fetchone()
     assert row["verdict"] == "fail"
+    row = test_db.execute(
+        "SELECT replacement_requirement_id FROM qa_requirements WHERE id=%s",
+        (requirement,),
+    ).fetchone()
+    assert row["replacement_requirement_id"] == refreshed["created_requirement_ids"][0]
     # Mixed receipt history remains refreshable on subsequent reads.
     rematerialize_for_deployment_stage(
         test_db,
@@ -133,3 +143,44 @@ def test_materialized_history_selects_newest_receipt_independent_of_row_order():
         for receipt in (20, 10)
     ]
     assert _pinned_target(rows, subject="run QA")["observation"]["receipt_id"] == 20
+
+
+def test_partial_refresh_keeps_unresolved_evidence_from_another_plan(
+    test_db, monkeypatch
+):
+    from runtime.api.domain.test_deployment_run_target_takeover import _memberless_copy
+    from runtime.api.fixtures.deployment_scoped_qa_run_fixture import create_smoke_plan
+    from yoke_core.domain.deployment_qa_stage_gate import deployment_qa_stage_status
+
+    execution = _execution(test_db, monkeypatch)
+    requirement = execution["roster"][0]["requirement_id"]
+    record_case_verdict(test_db, requirement, "fail", evidence=True)
+    finish_plan_execution(
+        test_db, execution, state="completed", reason="failure recorded"
+    )
+    other_plan = create_smoke_plan(test_db, project="yoke", slug="unrefreshed-plan")
+    other = _memberless_copy(test_db, requirement, stage=takeover.RUN_QA_STAGE)
+    test_db.execute(
+        "UPDATE qa_requirements SET plan_id=%s WHERE id=%s", (other_plan, other)
+    )
+    record_case_verdict(test_db, other, "fail", evidence=True)
+    plan_id = test_db.execute(
+        "SELECT plan_id FROM qa_requirements WHERE id=%s", (requirement,)
+    ).fetchone()[0]
+    _arrive(test_db, ready=True)
+    refreshed = rematerialize_for_deployment_stage(
+        test_db,
+        deployment_run_id=takeover.NEW,
+        deployment_stage=takeover.RUN_QA_STAGE,
+        plan=plan_id,
+    )
+    [corrected] = refreshed["created_requirement_ids"]
+    record_case_verdict(test_db, corrected, "pass", evidence=True)
+    status = deployment_qa_stage_status(
+        test_db,
+        run_id=takeover.NEW,
+        stage_name=takeover.RUN_QA_STAGE,
+        member_item_id=None,
+    )
+    assert status["outcome"] == "blocked"
+    assert other in [failure["requirement_id"] for failure in status["case_failures"]]

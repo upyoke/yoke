@@ -73,7 +73,11 @@ def settle_execution(conn: Any, execution: Mapping[str, Any]) -> dict[str, Any] 
     )
 
     subject = execution_subject(conn, execution)
-    frozen_digest = target_digest(deployment_qa_execution_target(conn, subject))
+    from yoke_core.domain.deployment_qa_target_continuity import settlement_target
+
+    frozen_digest = target_digest(
+        settlement_target(conn, subject, deployment_qa_execution_target(conn, subject))
+    )
     if str(execution.get("execution_target_digest") or "") != frozen_digest:
         raise ValueError(
             f"QA execution {execution['id']} targets a different deployment "
@@ -108,7 +112,10 @@ def settle_plan_group(conn: Any, subject: Mapping[str, Any]) -> dict[str, Any]:
     group = group_for_target(conn, run_id, subject["shared_target"])
     if group is not None and group_failed(conn, group, status):
         notify_plan_group_failure(
-            conn, run_id=run_id, stage_name=stage, group=group,
+            conn,
+            run_id=run_id,
+            stage_name=stage,
+            group=group,
             project_id=int(status_project_id(conn, run_id)),
             reasons=list(status.get("reasons") or ()),
             item_refs=lambda member: render_item_ref(conn, member),
@@ -117,8 +124,13 @@ def settle_plan_group(conn: Any, subject: Mapping[str, Any]) -> dict[str, Any]:
     if outcome not in SETTLED_OUTCOMES:
         return status
     return continue_settled_stage(
-        conn, run_id=run_id, stage=stage, member=None, status=status,
-        released=False, item_scoped=True,
+        conn,
+        run_id=run_id,
+        stage=stage,
+        member=None,
+        status=status,
+        released=False,
+        item_scoped=True,
     )
 
 

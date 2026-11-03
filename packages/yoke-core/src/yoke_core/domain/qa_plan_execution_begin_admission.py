@@ -134,6 +134,20 @@ def prepare_roster(
         deployment_stage=deployment_stage,
         deployment_member_item_id=deployment_member_item_id,
     )
+    if expected_target is not None:
+        from yoke_core.domain.deployment_qa_target_continuity import (
+            require_fresh_materialization,
+        )
+
+        require_fresh_materialization(
+            conn,
+            {
+                "id": deployment_run_id,
+                "stage": {"name": deployment_stage},
+                "member_item_id": deployment_member_item_id,
+            },
+            expected_target,
+        )
     roster = build_execution_roster(
         conn,
         item_id=item_id,

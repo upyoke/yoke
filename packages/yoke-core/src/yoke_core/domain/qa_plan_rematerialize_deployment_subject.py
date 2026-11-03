@@ -119,26 +119,9 @@ def read_subject_refresh(
             "the plan onto the stage first"
         )
     target = _pinned_target(rows, subject=label)
-    from yoke_core.domain.deployment_qa_takeover_identity import inherited_target
+    from yoke_core.domain.deployment_qa_target_continuity import refresh_target
 
-    if inherited_target(conn, run_id, target):
-        from yoke_core.domain.deployment_qa_execution_target import (
-            deployment_qa_execution_target,
-        )
-        from yoke_core.domain.deployment_qa_stage_contract import (
-            deployment_qa_stage_subject,
-        )
-
-        target = deployment_qa_execution_target(
-            conn,
-            deployment_qa_stage_subject(
-                conn,
-                run_id=run_id,
-                stage_name=stage,
-                member_item_id=member,
-                require_active=False,
-            ),
-        )
+    target = refresh_target(conn, run_id, stage, member, target)
     rows_by_plan: dict[int, list[dict[str, Any]]] = {}
     for row in rows:
         rows_by_plan.setdefault(int(row["plan_id"]), []).append(row)
@@ -186,7 +169,11 @@ def _needs_corrected_row(
     if carried_by_declared_replacement(conn, group):
         return False
     digest = plan_case_content_digest(conn, case)
-    if any(case_content_digest(row) == digest for row in group):
+    if any(
+        case_content_digest(row) == digest
+        and row["execution_target_digest"] == target_digest(refresh.target)
+        for row in group
+    ):
         return False
     return all(
         obligation_settled(row) or refresh.verdicts.get(int(row["id"])) == "fail"
@@ -306,6 +293,11 @@ def write_subject_refresh(conn: Any, refresh: SubjectRefresh) -> dict[str, Any]:
                 **owner_scope,
             )
     declare_refreshed_replacements(conn, created)
+    from yoke_core.domain.deployment_qa_target_continuity import (
+        link_inherited_replacements,
+    )
+
+    link_inherited_replacements(conn, refresh, created)
     waived = [
         int(row["id"])
         for plan_rows in refresh.rows_by_plan.values()
