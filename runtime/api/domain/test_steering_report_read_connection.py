@@ -31,3 +31,37 @@ def test_mutation_and_rollback_invalidate_rows():
     assert report.execute("SELECT value FROM facts").fetchone() == (3,)
     report.rollback()
     assert report.execute("SELECT value FROM facts").fetchall() == []
+
+
+def test_multiline_select_and_read_only_savepoints_preserve_reuse():
+    conn = sqlite3.connect(":memory:")
+    queries = []
+    conn.set_trace_callback(queries.append)
+    report = ReportReadConnection(conn)
+    sql = "SELECT\n  3 AS value"
+    assert report.execute(sql).fetchone() == (3,)
+    report.execute("SAVEPOINT read_block")
+    assert report.execute(sql).fetchone() == (3,)
+    report.execute("RELEASE SAVEPOINT read_block")
+    assert report.execute(sql).fetchone() == (3,)
+    assert queries.count(sql) == 1
+    report.execute("SAVEPOINT rollback_block")
+    report.execute("ROLLBACK TO SAVEPOINT rollback_block")
+    assert report.execute(sql).fetchone() == (3,)
+    assert queries.count(sql) == 2
+
+
+def test_writes_inside_a_savepoint_and_commit_refresh_rows():
+    conn = sqlite3.connect(":memory:")
+    conn.execute("CREATE TABLE facts (value INTEGER)")
+    conn.commit()
+    report = ReportReadConnection(conn)
+    sql = "SELECT value FROM facts"
+    assert report.execute(sql).fetchall() == []
+    report.execute("SAVEPOINT writing")
+    report.execute("INSERT INTO facts VALUES (4)")
+    report.execute("RELEASE SAVEPOINT writing")
+    assert report.execute(sql).fetchall() == [(4,)]
+    report.commit()
+    conn.execute("INSERT INTO facts VALUES (5)")
+    assert report.execute(sql).fetchall() == [(4,), (5,)]

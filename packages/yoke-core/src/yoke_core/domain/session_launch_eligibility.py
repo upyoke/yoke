@@ -28,7 +28,7 @@ from yoke_core.domain.session_launch_types import (
 )
 from yoke_core.domain.session_surface_policy import (
     SURFACE_DISABLED_REJECTION,
-    live_mark,
+    list_marks,
 )
 
 
@@ -129,6 +129,10 @@ def derive_launch_eligibility(
         ]
     else:
         rows = list(relay_rows)
+    disabled = {
+        mark["machine_id"]
+        for mark in list_marks(conn, machine_id=machine_id, surface=surface)
+    } if rows else set()
     project_keys = _project_keys(conn, project_id)
     considered: set[str] = set()
     selected_by_machine: dict[str, EligibleRelay] = {}
@@ -161,7 +165,7 @@ def derive_launch_eligibility(
             for window in windows
         ):
             codes.append("harness_signed_out")
-        if live_mark(conn, relay_machine, surface) is not None:
+        if relay_machine in disabled:
             codes.append(SURFACE_DISABLED_REJECTION)
         if not codes and relay_machine not in selected_by_machine:
             if relay_machine not in capacities:
