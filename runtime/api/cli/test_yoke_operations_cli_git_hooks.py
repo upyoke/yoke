@@ -130,13 +130,13 @@ class TestPostCommitSnapshotSync:
             return 0
 
         monkeypatch.setattr(mod, "project_snapshot_sync", fake_sync)
-        monkeypatch.delenv(mod.PROJECT_ID_ENV, raising=False)
+        monkeypatch.setattr(mod, "_checkout_project", lambda: "demo")
         rc = cli_main(["git", "post-commit"])
         assert rc == 0
         captured = capsys.readouterr()
         assert captured.out == ""
         assert captured.err == ""
-        assert calls == [["--hook", "post-commit", "--head-only"]]
+        assert calls == [["--hook", "post-commit", "--head-only", "--project", "demo"]]
 
     def test_gate_rebase_replay_skips_the_per_commit_sync(
         self,
@@ -152,25 +152,19 @@ class TestPostCommitSnapshotSync:
         assert calls == []
         assert capsys.readouterr().err == ""
 
-    def test_legacy_project_env_passes_project_flag(self, monkeypatch, capsys):
+    def test_inherited_project_env_does_not_override_checkout(self, monkeypatch):
         calls = []
-
-        def fake_sync(args):
-            calls.append(args)
-            return 0
-
-        monkeypatch.setattr(mod, "project_snapshot_sync", fake_sync)
-        monkeypatch.setenv(mod.PROJECT_ID_ENV, "externalwebapp")
-        rc = cli_main(["git", "post-commit"])
-        assert rc == 0
-        captured = capsys.readouterr()
-        assert captured.out == ""
-        assert captured.err == ""
+        monkeypatch.setattr(mod, "project_snapshot_sync", lambda args: calls.append(args) or 0)
+        monkeypatch.setattr(mod, "_checkout_project", lambda: "demo")
+        monkeypatch.setenv("YOKE_PROJECT_ID", "other")
+        monkeypatch.setenv("YOKE_PROJECT", "other")
+        assert cli_main(["git", "post-commit"]) == 0
         assert calls == [
-            ["--hook", "post-commit", "--head-only", "--project", "externalwebapp"]
+            ["--hook", "post-commit", "--head-only", "--project", "demo"]
         ]
 
     def test_nonzero_snapshot_sync_still_exits_zero(self, monkeypatch, capsys):
+        monkeypatch.setattr(mod, "_checkout_project", lambda: "demo")
         monkeypatch.setattr(mod, "project_snapshot_sync", lambda _args: 7)
         rc = cli_main(["git", "post-commit"])
         assert rc == 0
@@ -183,6 +177,7 @@ class TestPostCommitSnapshotSync:
             raise RuntimeError("transport offline")
 
         monkeypatch.setattr(mod, "project_snapshot_sync", fake_sync)
+        monkeypatch.setattr(mod, "_checkout_project", lambda: "demo")
         assert cli_main(["git", "post-commit"]) == 0
         err = capsys.readouterr().err
         assert "lane head not recorded" in err

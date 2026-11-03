@@ -40,8 +40,6 @@ from yoke_contracts.hook_diagnostics import format_hook_diagnostic
 
 AdapterFn = Callable[[List[str]], int]
 
-PROJECT_ID_ENV = "YOKE_PROJECT_ID"
-
 _PRE_COMMIT_HELP = """\
 usage: yoke git pre-commit
 
@@ -68,6 +66,8 @@ through a full `yoke project snapshot sync`, which path-claim registration
 also runs. Routine success stays quiet; diagnostics on stderr start with
 `yoke ({hook}): `. Exits 0 even when recording needs manual repair; a
 finished git operation is never failed.
+Project scope comes from the committing checkout's machine registration,
+independent of inherited project or cwd environment overrides.
 Gate-owned rebase replay skips recording because the gate binds the
 final lane head after the replay completes.
 
@@ -199,6 +199,22 @@ def _moves_nothing(hook_name: str, args: List[str]) -> bool:
     return False
 
 
+def _checkout_project() -> str:
+    """Use the committing checkout, independently of inherited task context."""
+    from yoke_cli.config import machine_config
+    from yoke_cli.config.checkout_context import resolve_repo_root_from_cwd
+
+    root = resolve_repo_root_from_cwd(cwd=os.getcwd())
+    project = machine_config.project_id(root) if root else None
+    if project is None:
+        raise ValueError(
+            "checkout_project_unavailable: register this checkout with "
+            "`yoke project register CHECKOUT --project-id PROJECT_ID`, "
+            "then retry the head-only snapshot sync from its lane"
+        )
+    return str(project)
+
+
 def _record_head(hook_name: str, args: List[str]) -> int:
     """Never error a finished git operation; the write dispatches server-side."""
     if _wants_help(args):
@@ -207,10 +223,8 @@ def _record_head(hook_name: str, args: List[str]) -> int:
     if os.environ.get(HEAD_RECORDING_SKIP_ENV) or _moves_nothing(hook_name, args):
         return 0
     sync_args = ["--hook", hook_name, "--head-only"]
-    legacy_project = os.environ.get(PROJECT_ID_ENV)
-    if legacy_project:
-        sync_args.extend(["--project", legacy_project])
     try:
+        sync_args.extend(["--project", _checkout_project()])
         rc = int(project_snapshot_sync(sync_args))
     except Exception as exc:  # never block or error a finished git operation
         return _sync_warning(hook_name, str(exc) or type(exc).__name__)
@@ -277,7 +291,6 @@ TOOL_SHAPED_USAGE: Dict[str, str] = {
 
 __all__ = [
     "AdapterFn",
-    "PROJECT_ID_ENV",
     "TOOL_SHAPED_SUBCOMMANDS",
     "TOOL_SHAPED_USAGE",
     "git_post_checkout",

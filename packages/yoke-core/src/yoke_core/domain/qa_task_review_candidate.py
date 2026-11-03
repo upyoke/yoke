@@ -13,7 +13,7 @@ from yoke_core.domain.db_helpers import connect, query_one
 RECOVERY = (
     "Review the current committed task candidate, then retry review-insert "
     "with its full --head-sha. If the registered task lane/head is stale, "
-    "ask the control-plane operator to repair its normal post-commit snapshot."
+    "run `yoke project snapshot sync --head-only` from the task lane, then retry."
 )
 
 

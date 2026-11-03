@@ -90,19 +90,19 @@ def _fired(log: Path) -> List[Tuple[str, str, List[str]]]:
 def _recorded_heads(monkeypatch, fired) -> List[str]:
     """Run each fired hook's real command; return the heads it records."""
     recorded: List[str] = []
+    monkeypatch.setattr(git_hook, "_checkout_project", lambda: "yoke")
     for hook, head, args in fired:
         calls: List[List[str]] = []
         monkeypatch.setattr(git_hook, "project_snapshot_sync", calls.append)
         assert cli_main(["git", hook, *args]) == 0
         if calls:
-            assert calls == [["--hook", hook, "--head-only"]]
+            assert calls == [["--hook", hook, "--head-only", "--project", "yoke"]]
             recorded.append(head)
     return recorded
 
 
 def test_every_head_move_records_the_new_head(tmp_path, monkeypatch) -> None:
     monkeypatch.delenv(git_hook.HEAD_RECORDING_SKIP_ENV, raising=False)
-    monkeypatch.delenv(git_hook.PROJECT_ID_ENV, raising=False)
     repo, env, log = _hooked_repo(tmp_path)
     _commit(repo, env, "seed")
     _git(repo, "branch", "lane", env=env)
@@ -220,7 +220,7 @@ def test_fast_forward_updates_the_recorded_lane_head(
         "yoke_core.domain.db_helpers.connect",
         lambda *_a, **_k: nullcontext(test_db),
     )
-    monkeypatch.setenv(git_hook.PROJECT_ID_ENV, "yoke")
+    monkeypatch.setattr(git_hook, "_checkout_project", lambda: "yoke")
     monkeypatch.delenv(git_hook.HEAD_RECORDING_SKIP_ENV, raising=False)
     monkeypatch.chdir(repo)
 

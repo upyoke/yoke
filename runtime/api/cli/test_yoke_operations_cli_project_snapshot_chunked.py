@@ -128,7 +128,7 @@ def test_chunked_dispatch_deduplicates_same_commit_refs(
             "snapshots": [
                 {
                     "status": "created",
-                    "ref": "main",
+                    "ref": "HEAD",
                     "commit_sha": commit_sha,
                     "snapshot_id": 45,
                     "entry_count": 3,
@@ -150,11 +150,10 @@ def test_chunked_dispatch_deduplicates_same_commit_refs(
         )
 
     assert rc == 0
-    # The integration target uploads first; HEAD reuses it and still
-    # reports first.
+    # HEAD uploads first to record the lane; the integration ref reuses it.
     assert out.splitlines() == [
-        f"reused: HEAD {commit_sha} snapshot=45",
-        f"created: main {commit_sha} snapshot=45",
+        f"created: HEAD {commit_sha} snapshot=45",
+        f"reused: main {commit_sha} snapshot=45",
     ]
     assert non_progress_err(err) == ""
     assert [call["payload"]["operation"] for call in CALLS] == [
@@ -163,7 +162,7 @@ def test_chunked_dispatch_deduplicates_same_commit_refs(
         "append",
         "finalize",
     ]
-    assert CALLS[0]["payload"]["snapshot"]["ref"] == "main"
+    assert CALLS[0]["payload"]["snapshot"]["ref"] == "HEAD"
 
 
 def test_chunked_dispatch_aborts_after_append_failure(tmp_path: Path) -> None:
