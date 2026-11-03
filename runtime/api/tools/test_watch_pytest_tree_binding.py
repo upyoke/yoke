@@ -147,6 +147,7 @@ class TestWatchPytestBinding:
         (lane / trigger).write_text("new\n", encoding="utf-8")
         (main / "pyproject.toml").write_text("[project]\n", encoding="utf-8")
         (lane / "pyproject.toml").write_text("[project]\n", encoding="utf-8")
+        provision_project_venv(lane)
         monkeypatch.chdir(main)
         monkeypatch.setenv("YOKE_SCRATCH_ROOT", str(tmp_path / "scratch"))
         monkeypatch.setattr(watch_pytest, "_impacted_tree", lambda: lane)
