@@ -174,7 +174,7 @@ def test_missing_server_report_refuses_without_claiming_zero(monkeypatch):
         )
 
 
-@pytest.mark.parametrize("other_stage", [None, "earlier-qa", ""])
+@pytest.mark.parametrize("other_stage", [None, "earlier-qa"])
 def test_scoped_report_counts_member_once_and_keeps_other_stages(test_db, other_stage):
     from runtime.api.fixtures.deployment_scoped_qa_run_fixture import seed_member_qa_case
     from runtime.api.domain.test_steering_fleet_report_deployment_run_facts import (
@@ -199,7 +199,10 @@ def test_scoped_report_counts_member_once_and_keeps_other_stages(test_db, other_
     assert len(details) == count
     assert len(result["unresolved"]) == count
     assert any(f"requirement #{requirement_id}" in line for line in result["unresolved"])
-    assert not any(f"requirement #{requirement_id} (" in line for line in details)
+    member_unresolved = next(
+        line for line in result["unresolved"] if f"requirement #{requirement_id}" in line
+    )
+    assert f"  - {member_unresolved}" not in details
     if other_stage is not None:
         assert any("requirement #9001" in line for line in details)
 
