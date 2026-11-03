@@ -65,7 +65,10 @@ def test_concurrent_duplicate_dispatch_replays_one_handler_result(
         guardrails=[],
         adapter_status="live",
     )
-    monkeypatch.setattr(events_module, "emit_event", lambda *_a, **_k: None)
+    emitted = []
+    monkeypatch.setattr(
+        events_module, "emit_event", lambda name, **kw: emitted.append((name, kw))
+    )
     request = FunctionCallRequest(
         function="relay.concurrent.claim",
         actor=ActorContext(actor_id="operator", session_id="session-1"),
@@ -98,3 +101,12 @@ def test_concurrent_duplicate_dispatch_replays_one_handler_result(
     assert waited < 1
     assert first.success and replay.success
     assert first.result == replay.result == {"claimed_batch": "batch-1"}
+
+    refusals = [
+        event for name, event in emitted
+        if name == "YokeFunctionCalled"
+        and event["context"].get("error_code") == "idempotency_request_in_flight"
+    ]
+    assert len(refusals) == 1
+    assert refusals[0]["outcome"] == "failed"
+    assert refusals[0]["duration_ms"] is None  # No handler ran for the duplicate.

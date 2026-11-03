@@ -5,6 +5,6 @@
  "audience": "Maintainers",
  "page": "runtime",
  "position": 6,
- "summary": "Side-effecting function calls reserve their request id with pg_try_advisory_lock. A duplicate still in flight immediately refuses as idempotency_request_in_flight; retrying the identical request after completion returns the durable ledger replay. Read-only and handler-managed calls retain their own concurrency rules.",
+ "summary": "Side-effecting function calls reserve their request id with pg_try_advisory_lock. A duplicate still in flight immediately refuses as idempotency_request_in_flight; retrying the identical request after completion returns the durable ledger replay. Duplicate refusals emit failed-call telemetry without writing replay state. Read-only and handler-managed calls retain their own concurrency rules.",
  "sources": ["packages/yoke-core/src/yoke_core/domain/yoke_function_dispatch_idempotency.py", "runtime/api/domain/test_yoke_function_dispatch_concurrent_idempotency.py", "docs/public/functions/index.md"]
 }
