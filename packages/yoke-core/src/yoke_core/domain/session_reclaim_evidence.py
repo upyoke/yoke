@@ -42,7 +42,7 @@ class ReclaimActivityEvidence:
     @property
     def open_tool_call_live(self) -> bool:
         """Whether the open tool-call row still evidences work in flight."""
-        return open_tool_call_is_live(self.open_tool_call_at, self.activity_at)
+        return open_tool_call_is_live(self.open_tool_call_at, self.last_event_at)
 
     @property
     def in_flight(self) -> bool:

@@ -8,6 +8,8 @@ reactivation ignored release_reason=reclaimed so the loss stayed silent.
 
 from __future__ import annotations
 
+from datetime import timedelta
+
 import pytest
 
 from runtime.api.sessions_api_stale_test_helpers import _ago_minutes, _now_instant
@@ -23,6 +25,7 @@ from yoke_core.domain.session_reclaim_activity import (
     REASON_FRESH,
     REASON_HEARTBEAT_STALE,
     REASON_PROGRESS_STALE,
+    classify_activity,
     classify_reclaimable,
     latest_activity,
     read_activity_signals,
@@ -304,3 +307,25 @@ class TestReclaimedClaimReactivation:
         payload = evidence.as_payload()
         assert payload["turn_posture"] == "running"
         assert payload["open_tool_call"] is True
+
+
+@pytest.mark.parametrize("heartbeat_minutes", [0, 1])
+def test_long_open_call_with_fresh_pulses_and_no_claim_is_fresh(
+    conn_with_events, heartbeat_minutes,
+):
+    c = conn_with_events
+    owner = "long-watched-call"
+    _seed_session(c, owner, heartbeat_ago_min=heartbeat_minutes)
+    _emit_tool_event(c, owner, ago_minutes=100)
+    _open_tool_call(c, owner, ago_minutes=100)
+    c.execute("UPDATE harness_sessions SET episode_started_at=%s WHERE session_id=%s",
+              (_ago_minutes(100), owner))
+    c.commit()
+    evidence = read_activity_signals(c, owner)
+    assert evidence.claim_claimed_at is None
+    assert evidence.open_tool_call_live
+    result = classify_activity(evidence, holds_work_claim=False, progress_threshold_minutes=90)
+    assert result.reason == REASON_FRESH
+    assert not result.is_reclaimable
+    assert latest_activity(c, owner) > _now_instant() - timedelta(seconds=5)
+    assert latest_activity_by_session(c, [owner])[owner] > _now_instant() - timedelta(seconds=5)

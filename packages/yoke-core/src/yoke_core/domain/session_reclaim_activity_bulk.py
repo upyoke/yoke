@@ -79,6 +79,7 @@ def latest_activity_by_session(
     activity: Dict[str, datetime | None] = {session_id: None for session_id in ids}
     executors: Dict[str, Optional[str]] = {session_id: None for session_id in ids}
 
+    tool_activity: Dict[str, datetime | None] = {}
     session_columns = _columns(conn, "harness_sessions")
     if session_columns:
         selected = [
@@ -97,6 +98,7 @@ def latest_activity_by_session(
                     name: _value(row, name, index + 1)
                     for index, name in enumerate(selected)
                 }
+                tool_activity[session_id] = values.get("last_tool_call_at")
                 executors[session_id] = values.get("executor")
                 stamps = [values.get("last_heartbeat"), values.get("last_tool_call_at")]
                 activity[session_id] = _newest(activity.get(session_id), *stamps)
@@ -123,7 +125,7 @@ def latest_activity_by_session(
             ]
             activity[session_id] = _newest(activity.get(session_id), *stamps)
 
-    _mark_in_flight_live(conn, ids, activity, executors, marker, placeholders)
+    _mark_in_flight_live(conn, ids, activity, tool_activity, executors, marker, placeholders)
     return activity
 
 
@@ -131,6 +133,7 @@ def _mark_in_flight_live(
     conn: Any,
     ids: List[str],
     activity: Dict[str, datetime | None],
+    tool_activity: Dict[str, datetime | None],
     executors: Dict[str, Optional[str]],
     marker: str,
     placeholders: str,
@@ -138,7 +141,7 @@ def _mark_in_flight_live(
     """Treat a running turn or a live open tool call as present activity.
 
     An open ``session_tool_calls`` row only counts while it is still the
-    session's newest recorded activity; the same grounding the single-session
+    session's newest recorded tool activity; the same grounding the single-session
     classifier applies, so a harness that never closes its rows cannot make a
     session permanently unreclaimable here either.
     """
@@ -173,7 +176,7 @@ def _mark_in_flight_live(
             session_id = str(_value(row, "session_id", 0))
             if open_tool_call_is_live(
                 _value(row, "started_at", 1),
-                activity.get(session_id),
+                tool_activity.get(session_id),
             ):
                 mark_live(row)
 

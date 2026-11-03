@@ -67,15 +67,18 @@ class SessionRow:
     landing_waits: tuple[str, ...] = ()
     quiet_reason: str = ""  # the park reason, or empty
     message_delivery: str = DELIVERY_UNKNOWN
+    in_flight: bool = False
 
     @property
     def work_activity_at(self) -> datetime | None:
-        """Tool work, including watcher pulses; liveness alone is not progress.
+        """Idle tool clock; a bounded live call is busy, without an idle stamp.
 
         Older roster responses may omit the tool clock. Preserve their prior
         activity interpretation until that serving build is upgraded.
         """
-        return self.last_tool_call_at or self.claimed_at or self.activity_at
+        return None if self.in_flight else (
+            self.last_tool_call_at or self.claimed_at or self.activity_at
+        )
 
     @property
     def lifecycle(self) -> str:
@@ -183,6 +186,7 @@ def session_rows(result: Mapping[str, Any]) -> dict[str, SessionRow]:
             terminated=bool(raw.get("terminated_at")),
             activity_at=parse_timestamp(raw.get("activity_at")),
             last_tool_call_at=parse_timestamp(raw.get("last_tool_call_at")),
+            in_flight=raw.get("in_flight") is True,
             claimed_at=min((
                 stamp for claim in raw.get("claims") or []
                 if isinstance(claim, Mapping) and claim.get("target_kind") == "item"

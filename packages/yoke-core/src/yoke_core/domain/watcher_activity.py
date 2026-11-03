@@ -1,4 +1,4 @@
-"""A bound watch wrapper reports work independently of session liveness."""
+"""A bound watch wrapper refreshes session and claim liveness."""
 
 from pathlib import Path
 
@@ -13,7 +13,7 @@ def refresh_watcher_activity(session_id: str, *, progress_capture: Path) -> bool
 
     The capture binding already belongs to this wrapper. Failure is visible in
     that same progress capture so a successful command cannot conceal lost
-    activity reporting. Ordinary session liveness never calls this path.
+    heartbeat reporting. Ordinary session liveness never calls this path.
     """
     try:
         response = structured_api.call_dispatcher(
