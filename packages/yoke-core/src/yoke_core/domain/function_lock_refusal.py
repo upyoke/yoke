@@ -1,12 +1,15 @@
 """Answer a lock a handler could not take with a named, retryable refusal.
 
-Three database answers mean the same thing to a caller -- another transaction
+Lock contention answers mean the same thing to a caller -- another transaction
 held what this call needed, and this call's open transaction did not commit --
 so each becomes a typed error the caller can retry on instead of a
 ``handler_exception`` that reads as a real failure:
 
 - ``run_busy``: the deployment run row stayed locked past its bound
   (:class:`~yoke_core.domain.deployment_runs_lock.DeploymentRunBusy`).
+- ``qa_plan_busy``: a QA definition or execution lock stayed held for 2 seconds.
+- ``idempotency_request_in_flight``: a duplicate request id is still running;
+  the reservation refuses before the handler starts.
 - ``lock_timeout``: any other lock wait outlived a ``lock_timeout``.
 - ``statement_cancelled``: an operator cancelled the statement
   (``pg_cancel_backend``) or a server timeout ended it.
