@@ -12,6 +12,7 @@ from yoke_cli.commands._helpers import (
     parse_or_usage_error,
 )
 from yoke_contracts.api.function_call import TargetRef
+from yoke_cli.config.operator_cli_release_follow import refresh_skip_lines
 
 
 STEERING_REPORT_GET_USAGE = "yoke steering report get [--project P] [--full] [--json]"
@@ -71,6 +72,8 @@ def _print_report(response: Any, stdout, _stderr) -> None:
     result = response.result or {}
     body = str(result.get("delta_body", result.get("body")) or "").strip()
     print(body or "steering report: nothing to show", file=stdout)
+    for line in refresh_skip_lines():
+        print(line, file=stdout)
 
 
 def _print_full_report(response: Any, stdout, _stderr) -> None:
@@ -78,6 +81,8 @@ def _print_full_report(response: Any, stdout, _stderr) -> None:
         (response.result or {}).get("body") or "steering report: nothing to show",
         file=stdout,
     )
+    for line in refresh_skip_lines():
+        print(line, file=stdout)
 
 
 def steering_report_get(args: List[str]) -> int:

@@ -23,8 +23,11 @@ from typing import Any, Callable
 
 from yoke_contracts.refusal_recovery import compose_refusal
 from yoke_contracts.timestamps import iso8601_now
+from yoke_contracts.machine_config import runtime as machine_config
+from yoke_contracts.machine_config.schema_projects import mapped_checkouts
 
-from yoke_cli.config import self_update
+from yoke_cli.config import project_update, self_update
+from yoke_cli import operating_layer_drift
 from yoke_cli.config.path_state_contract import tool_bin_dir
 from yoke_cli.config.session_relay_instance import strip_relay_owned_python_state
 from yoke_cli.transport.installed_cli_staleness import update_recovery
@@ -58,6 +61,7 @@ def follow_release(
     before = _version(run, yoke, env)
     record["before"] = before
     if before == target:
+        record["project_refresh"] = _refresh_checkouts(yoke, run, env)
         return _finish(record, state_dir, "current")
     if before == SOURCE_VERSION:
         # A source-checkout launcher is updated with git, never by an installer.
@@ -73,10 +77,67 @@ def follow_release(
         detail = f"{type(exc).__name__}: {exc}"
     record["after"] = _version(run, yoke, env)
     if record["after"] == target:
+        record["project_refresh"] = _refresh_checkouts(yoke, run, env)
         return _finish(record, state_dir, "updated")
     record["error"] = detail or "the installer produced no output"
     record["recovery"] = update_recovery(target)
     return _finish(record, state_dir, "update_failed")
+
+
+def _refresh_checkouts(yoke: Path, run: Runner, env: dict[str, str]) -> list[dict]:
+    results = []
+    for checkout, _ in mapped_checkouts(machine_config.load_config()):
+        root = Path(checkout).expanduser()
+        if not root.is_dir() or not (root / ".yoke/install-manifest.json").is_file():
+            results.append({"path": str(root), "status": "skipped"})
+            continue
+        try:
+            result = project_update.refresh_checkout(str(yoke), root, run=run, env=env)
+            result = {**result, "path": str(root)}
+            if result["status"] == "source_dev":
+                result["status"] = "skipped"
+        except Exception as exc:  # noqa: BLE001 - one checkout cannot stop the relay
+            result = {
+                "path": str(root),
+                "status": "failed",
+                "reason": f"{type(exc).__name__}: {exc}",
+                "recovery": operating_layer_drift.refresh_command(root),
+            }
+            print(_refresh_line(result), file=sys.stderr)
+        results.append(result)
+    return results
+
+
+def _refresh_line(result: dict) -> str:
+    return (
+        f"Project refresh needed: {result['path']}: {result['reason']} "
+        f"Recovery: {result['recovery']}"
+    )
+
+
+def refresh_skip_lines() -> list[str]:
+    """Machine-local failed refreshes that still have a stale installed layer."""
+    try:
+        from yoke_cli.config.session_relay_instance import resolve_relay_instance
+
+        instance = resolve_relay_instance(
+            environment=machine_config.load_config()["active_env"]
+        )
+        record = json.loads((instance.state_dir / FOLLOW_RECORD_NAME).read_text())
+        failures = [
+            result
+            for result in record.get("project_refresh", [])
+            if result.get("status") == "failed"
+            and operating_layer_drift.stale_installed_layer(Path(result["path"]))
+        ]
+        lines = [_refresh_line(result) for result in failures[:5]]
+        if len(failures) > 5:
+            lines.append(
+                f"{len(failures) - 5} more failed checkouts in {instance.state_dir / FOLLOW_RECORD_NAME}"
+            )
+        return lines
+    except Exception:  # noqa: BLE001 - advisories never prevent session startup
+        return []
 
 
 def _version(run: Runner, yoke: Path, env: dict[str, str]) -> str:

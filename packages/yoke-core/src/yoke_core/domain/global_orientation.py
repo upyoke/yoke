@@ -54,6 +54,9 @@ def render_global_orientation(
         f"Writing to the user: {WRITING_RULES}",
     ]
     required.extend(required_lines or [])
+    from yoke_cli.config.operator_cli_release_follow import refresh_skip_lines
+
+    required.extend(refresh_skip_lines())
     budget = min(INLINE_CONTEXT_BYTES.values())
     folders = _project_folders()
     from yoke_core.domain.session_orientation_setup import render_with_setup

@@ -211,8 +211,9 @@ The installed CLI follows your active connection (`active_env`, set by
 `yoke env use`) automatically, whether that is upyoke.com, a self-hosted server
 or a fork's own plane: each time that connection's relay observes its server
 serving a new release it restarts on that release and installs exactly that
-version as this machine's CLI, recording the outcome in
-`operator-cli-follow.json` in the relay's state directory. Relays for other
+version as this machine's CLI. The relay also refreshes and publishes each
+registered checkout on the active connection, recording outcomes and failed
+checkouts in `operator-cli-follow.json` in the relay's state directory. Relays for other
 connections never touch the CLI, and nothing runs on a schedule. When the CLI
 is still older than the release the active connection serves, commands sent to
 it print one warning naming `yoke update --version VERSION`; they never update
@@ -262,9 +263,11 @@ to the new engine. A machine-local universe has its schema converged before
 the command is served — the same step a hosted container runs on boot.
 Additive foreign keys match the live `environments.id` type so a universe
 still on text keys reaches the ordered history that converts them. Every control-plane connection declares a bounded `idle_in_transaction_session_timeout` and TCP keepalives as libpq startup options, so an abandoned transaction releases its locks without an operator and a half-dead forward is noticed rather than waited on. That is a property of the connection, which is what makes it hold whatever role the client authenticates as — a role default is scoped to one `(role, database)` pair, so a client connecting as an admin role inherits that role's value rather than the serving role's. The convergence additionally records the same bound as the role's database default, for sessions Yoke did not open; that write is best-effort, so a role that cannot alter its own defaults — or a second boot racing on the same catalog row — degrades with an `application_role_default_not_persisted` diagnostic on stderr instead of refusing every read. A project
-checkout whose operating layer predates the new engine is named once, with
-the `yoke project install <checkout>` that refreshes it. Run that when it
-appears; otherwise the checkout keeps teaching the previous release.
+checkout whose operating layer predates the new engine is named once by commands.
+Every session on this machine and the steering report also list each registered
+checkout whose automatic refresh failed and still needs the refresh, with its
+reason and `yoke project install <checkout>` recovery. Resolve that reason and
+run the recovery so the checkout teaches the current release.
 
 ## Related
 
