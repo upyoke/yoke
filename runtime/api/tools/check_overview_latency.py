@@ -138,8 +138,14 @@ def main():
         subprocess.CalledProcessError,
         ValueError,
         KeyError,
+        OSError,
     ) as exc:
-        parser.exit(1, f"overview_latency_evidence_unavailable: {exc}\n")
+        parser.exit(
+            1,
+            f"overview_latency_evidence_unavailable: {exc}; "
+            "verify the controller CLI and production log-read access, then retry "
+            "the complete observation window\n",
+        )
 
 
 if __name__ == "__main__":

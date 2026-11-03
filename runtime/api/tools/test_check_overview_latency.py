@@ -42,3 +42,20 @@ def test_deadline_failure_cannot_hide_behind_good_p95():
         evaluate(
             _events([100] * 100) + _events([25000], members=None, outcome="failed")
         )
+
+
+def test_missing_controller_command_has_named_recovery(monkeypatch, capsys):
+    from runtime.api.tools import check_overview_latency as checker
+
+    monkeypatch.setattr("sys.argv", ["check-overview", "--run-id", "release-run"])
+
+    def unavailable(_run_id):
+        raise OSError("controller command missing")
+
+    monkeypatch.setattr(checker, "window_start", unavailable)
+    with pytest.raises(SystemExit) as raised:
+        checker.main()
+    assert raised.value.code == 1
+    error = capsys.readouterr().err
+    assert "overview_latency_evidence_unavailable" in error
+    assert "verify the controller CLI and production log-read access" in error
