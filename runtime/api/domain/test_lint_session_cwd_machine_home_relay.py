@@ -281,6 +281,8 @@ def test_client_cache_write_requires_home_evidence_and_teaches_cli_update(
     tool_name,
 ):
     monkeypatch.setenv("HOME", str(SERVER_HOME))
+    # The relay sends canonical homes; /home is a root alias on macOS.
+    client_home = Path(client_home).resolve()
     target = str(Path(client_home) / cache_root / "example/wheels/package.whl")
     tool_input = (
         {"file_path": target, "content": "wheel"}
