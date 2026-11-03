@@ -90,14 +90,14 @@ def test_new_presentation_and_uncached_writes_see_new_receipt(test_db, monkeypat
             assert fresh["deployment"]["run_id"] == takeover.NEW
         return old
 
-    old = overview()
+    overview()
 
     @presentation_operation
     def next_overview():
         fresh = execution.deployment_qa_execution_target(test_db, subject)
         assert fresh["deployment"]["run_id"] == takeover.NEW
         settled = continuity.settlement_target(test_db, subject, fresh)
-        assert settled == old
-        assert continuity.settlement_target(test_db, subject, fresh) == old
+        assert settled == fresh
+        assert continuity.settlement_target(test_db, subject, fresh) == fresh
 
     next_overview()

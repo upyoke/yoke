@@ -205,6 +205,7 @@ def _insert_case(conn, refresh, *, plan, case, baseline, position) -> int:
             plan_id=int(plan["id"]),
             case_key=str(case["case_key"]),
             baseline=baseline,
+            group_id=str(((refresh.target.get("deployment") or {}).get("shared_plan") or {}).get("group_id") or ""),
             execution_target_digest=target_digest(refresh.target),
         )
     if inserted is None:

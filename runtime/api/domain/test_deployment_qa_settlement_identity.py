@@ -7,7 +7,7 @@ import pytest
 from yoke_core.domain.deployment_qa_stage_settlement import settle_execution
 
 
-def test_settlement_rejects_execution_for_a_different_frozen_target(monkeypatch):
+def test_settlement_rejects_execution_for_a_different_destination(monkeypatch):
     monkeypatch.setattr(
         "yoke_core.domain.deployment_qa_stage_settlement._current_execution",
         lambda conn, execution_id: {
@@ -16,6 +16,7 @@ def test_settlement_rejects_execution_for_a_different_frozen_target(monkeypatch)
             "deployment_run_id": "run-frozen",
             "deployment_stage": "visual-qa",
             "execution_target_digest": "old",
+            "execution_target": {"endpoints": {"app_url": "https://old.example.test"}},
         },
     )
     subject = {"stage": {"name": "visual-qa"}}
@@ -40,7 +41,7 @@ def test_settlement_rejects_execution_for_a_different_frozen_target(monkeypatch)
         "status": "executing",
         "current_stage": "visual-qa",
     }
-    with pytest.raises(ValueError, match="different deployment candidate"):
+    with pytest.raises(ValueError, match="qa_execution_destination_mismatch"):
         settle_execution(
             conn,
             {

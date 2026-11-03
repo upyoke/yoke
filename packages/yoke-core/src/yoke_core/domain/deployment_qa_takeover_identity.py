@@ -7,6 +7,7 @@ from collections.abc import Mapping
 from typing import Any
 
 from yoke_core.domain.db_helpers import query_one, query_rows
+from yoke_core.domain.qa_execution_environment_target import canonical_target
 from yoke_core.domain.deployment_qa_presentation_reads import presentation_read
 
 
@@ -76,9 +77,14 @@ def continued_subject(conn: Any, execution: Mapping, target: Mapping) -> dict | 
             conn,
             "SELECT id FROM qa_requirements WHERE deployment_run_id=%s "
             "AND deployment_stage=%s AND deployment_member_item_id IS NOT DISTINCT FROM %s "
-            "AND id=ANY(%s) LIMIT 1",
-            (run_id, stage_name, member,
-             [int(row["requirement_id"]) for row in execution["roster"]]),
+            "AND (id=ANY(%s) OR execution_target_json=%s) LIMIT 1",
+            (
+                run_id,
+                stage_name,
+                member,
+                [int(row["requirement_id"]) for row in execution.get("roster", ())],
+                canonical_target(target),
+            ),
         )
         is None
     ):
@@ -87,7 +93,7 @@ def continued_subject(conn: Any, execution: Mapping, target: Mapping) -> dict | 
             "this frozen execution roster; reconcile the stale execution with "
             f"`yoke qa plan reconcile --project {current['project_slug']} "
             f"--execution-id {execution['id']} --reason "
-            '\"Reconcile QA frozen to a superseded target\"`'
+            '"Reconcile QA frozen to a superseded target"`'
         )
     members = [int(member)] if member is not None else []
     rows = (

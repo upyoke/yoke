@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 from yoke_core.domain.deployment_runs_lock import lock_run
+from yoke_core.domain.qa_deployment_requirement_identity_schema import shared_group_id
 from yoke_core.domain.project_identity import render_item_ref
 from yoke_core.domain.deployment_run_project_sources import run_delivered_sha
 from yoke_core.domain.qa_deployment_case_content_refresh import (
@@ -42,19 +43,23 @@ def _existing_rows(
     stage_name: str,
     member_item_id: int | None,
     plan_id: int,
+    group_id: str,
 ) -> list[dict[str, Any]]:
     return query_rows(
         conn,
-        "SELECT id,plan_case_key,execution_target_json,execution_target_digest "
+        "SELECT id,plan_case_key,execution_target_json,execution_target_digest,retracted_at "
         "FROM qa_requirements WHERE deployment_run_id=%s "
         "AND deployment_stage=%s "
         "AND COALESCE(deployment_member_item_id,0)=%s AND plan_id=%s "
-        "AND superseded_by_requirement_id IS NULL AND retracted_at IS NULL ORDER BY id",
+        "AND superseded_by_requirement_id IS NULL "
+        "AND (retracted_at IS NULL OR retraction_source IN ('operator','agent')) "
+        "AND COALESCE(execution_target_json::jsonb #>> '{deployment,shared_plan,group_id}', '')=%s ORDER BY id",
         (
             run_id,
             stage_name,
             member_item_id or 0,
             int(plan_id),
+            group_id,
         ),
     )
 
@@ -140,6 +145,7 @@ def materialize_subject(
                 stage_name=str(deployment_stage),
                 member_item_id=deployment_member_item_id,
                 plan_id=plan_id,
+                group_id=shared_group_id(target),
             )
             refreshed = refreshed_case_keys(
                 conn,
@@ -161,9 +167,10 @@ def materialize_subject(
                 for case in snapshot["cases"]
             )
             if rows and not refreshed and not added:
+                existing.extend(int(row["id"]) for row in rows if row["retracted_at"] is not None)
                 existing.extend(
                     require_existing_target(
-                        rows,
+                        [row for row in rows if row["retracted_at"] is None],
                         execution_target=target,
                         subject=(
                             f"deployment run {deployment_run_id!r} stage "
@@ -220,6 +227,7 @@ def materialize_subject(
                         plan_id=plan_id,
                         case_key=str(case["case_key"]),
                         baseline=baseline,
+                        group_id=shared_group_id(target),
                         execution_target_digest=target_digest(target),
                     )
                     if winner is not None:

@@ -182,8 +182,8 @@ def test_partial_refresh_keeps_unresolved_evidence_from_another_plan(
         deployment_stage=takeover.RUN_QA_STAGE,
         plan=plan_id,
     )
-    [corrected] = refreshed["created_requirement_ids"]
-    record_case_verdict(test_db, corrected, "pass", evidence=True)
+    assert refreshed["created_requirement_ids"] == []
+    record_case_verdict(test_db, requirement, "pass", evidence=True)
     status = deployment_qa_stage_status(
         test_db,
         run_id=takeover.NEW,

@@ -1,5 +1,19 @@
 """Open deployment case keys; ordered migration owns existing-data cutover."""
 
+SHARED_GROUP_KEY = (
+    "COALESCE(execution_target_json::jsonb #>> '{deployment,shared_plan,group_id}', '')"
+)
+
+
+def shared_group_id(target):
+    return str(
+        (((target or {}).get("deployment") or {}).get("shared_plan") or {}).get(
+            "group_id"
+        )
+        or ""
+    )
+
+
 OBSOLETE_REQUIREMENT_INDEXES = (
     "idx_qa_requirement_deployment_stage_materialization",
     "idx_qa_requirement_deployment_member_stage_materialization",
@@ -16,7 +30,8 @@ def requirement_index_specs(execution_specs):
         (
             name,
             execution[1][: position + 1]
-            + ("plan_id", "plan_case_key", "COALESCE(host_baseline, '')"),
+            + ("plan_id", "plan_case_key", "COALESCE(host_baseline, '')")
+            + ((SHARED_GROUP_KEY,) if position == 1 else ()),
             execution[2]
             + " AND plan_id IS NOT NULL"
             + (

@@ -242,7 +242,14 @@ def _index_contract(
 
 
 def _normalized_keys(keys: tuple[str, ...]) -> tuple[str, ...]:
-    return tuple(re.sub(r"\s+", "", key).replace("::text", "") for key in keys)
+    def normalize(key):
+        value = re.sub(r"\s+", "", key)
+        if "execution_target_json" in value:
+            # Postgres adds expression parentheses and a text-array path cast.
+            return re.sub(r"::text(?:\[\])?", "", value).replace("(", "").replace(")", "")
+        return value.replace("::text", "")
+
+    return tuple(normalize(key) for key in keys)
 
 
 def _assert_indexes(

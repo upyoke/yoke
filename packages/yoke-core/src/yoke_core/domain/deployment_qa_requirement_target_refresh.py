@@ -21,9 +21,8 @@ def rebind_subject(conn, *, subject, target):
     The caller holds the run lock. Executions, captures, runs and replacement
     pointers remain untouched; only the obligation follows the current receipt.
     """
-    shared_plan_id = ((target.get("deployment") or {}).get("shared_plan") or {}).get(
-        "plan_id"
-    )
+    if (target.get("deployment") or {}).get("shared_plan"):
+        return []  # Each shared group retains its own frozen subject and target.
     rows = query_rows(
         conn,
         "SELECT * FROM qa_requirements WHERE deployment_run_id=%s "
@@ -32,16 +31,16 @@ def rebind_subject(conn, *, subject, target):
         "AND method_id IS NOT NULL AND execution_target_json IS NOT NULL "
         "AND execution_target_digest IS NOT NULL "
         "AND execution_target_digest IS DISTINCT FROM %s "
-        "AND (%s::integer IS NULL OR plan_id=%s) ORDER BY id",
+        "AND COALESCE(execution_target_json::jsonb #>> '{deployment,shared_plan,group_id}', '')='' ORDER BY id",
         (
             str(subject["id"]),
             str(subject["stage"]["name"]),
             int(subject.get("member_item_id") or 0),
             target_digest(target),
-            shared_plan_id,
-            shared_plan_id,
         ),
     )
+    if not rows:
+        return []
     attempts = latest_executions(conn, [int(row["id"]) for row in rows])
     passing = passing_requirements_for_rows(conn, rows, attempts)
     rebound = []

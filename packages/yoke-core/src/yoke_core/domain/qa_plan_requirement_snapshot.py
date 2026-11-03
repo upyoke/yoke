@@ -268,6 +268,7 @@ def existing_requirement_id(
     baseline: Optional[str],
     transition_id: Optional[str] = None,
     execution_target_digest: Optional[str] = None,
+    group_id: str = "",
     target_env: Optional[str] = None,
 ) -> Optional[int]:
     """Resolve the snapshot that won a concurrent idempotent insert."""
@@ -282,6 +283,7 @@ def existing_requirement_id(
         execution_target_digest = None
     open_clause = (
         "AND superseded_by_requirement_id IS NULL AND retracted_at IS NULL "
+        "AND COALESCE(execution_target_json::jsonb #>> '{deployment,shared_plan,group_id}', '')=%s "
         if deployment_stage is not None else ""
     )
     target_clause = (
@@ -304,6 +306,8 @@ def existing_requirement_id(
         params += (target_env or "",)
     if execution_target_digest is not None:
         params += (execution_target_digest,)
+    if deployment_stage is not None:
+        params += (group_id,)
     row = query_one(
         conn,
         "SELECT id FROM qa_requirements "
