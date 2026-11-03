@@ -244,11 +244,8 @@ def _poll_github_actions(
 
     Returns (exit_code, output).  0=success, 1=failed.
 
-    Reads follow *schedule*, which defaults to the plain minimum-interval
-    cadence a deploy stage wants: a stage can conclude at any moment, so
-    there is no stretch of it worth skipping. A caller waiting on a run
-    with a known duration floor — the CI suite behind the verification
-    gate — passes that run's schedule instead.
+    Reads follow *schedule*, which defaults to one read a minute for both
+    CI suites and deployment stages, since either can conclude at any time.
     """
     start = time.time()
     transport_retries = 0

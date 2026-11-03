@@ -18,7 +18,7 @@ from yoke_core.domain.github_actions_failed_job_report import build_failed_job_r
 from yoke_core.domain.github_actions_failed_jobs import collect_failed_jobs
 from yoke_core.domain.github_actions_rest import resolve_token
 from yoke_core.domain.github_poll_schedule import (
-    CI_SUITE_SCHEDULE,
+    STEADY_SCHEDULE,
     next_read_delay,
 )
 
@@ -30,8 +30,7 @@ Sleep = Callable[[float], None]
 # the ``yoke github-actions check-ci`` flag adapter's CLIENT-side wait
 # loop. The ``github_actions.check_ci`` handler itself is single-shot
 # because a server-side wait loop exceeds the https relay read timeout.
-# What both forms wait on is the project's CI suite, so both read it on
-# that suite's schedule (:data:`CI_SUITE_SCHEDULE`).
+# Both forms read the project's CI suite once a minute from the start.
 CHECK_CI_DEFAULT_TIMEOUT_SEC = 600
 # How long ``--wait`` keeps polling a ``no_runs`` branch before accepting it.
 # A just-pushed branch can briefly report ``no_runs`` while GitHub registers
@@ -67,7 +66,7 @@ def check_ci_command(
         announce_designed_wait(
             f"CI workflow {workflow} on {repo} branch {branch}",
             max_wait_seconds=timeout_sec,
-            cadence=CI_SUITE_SCHEDULE.describe(),
+            cadence=STEADY_SCHEDULE.describe(),
         )
 
     while True:
@@ -91,7 +90,7 @@ def check_ci_command(
                 f"{appearance_timeout}s)",
                 file=sys.stderr,
             )
-            sleep(next_read_delay(elapsed, CI_SUITE_SCHEDULE))
+            sleep(next_read_delay(elapsed, STEADY_SCHEDULE))
             continue
 
         ci_status = str(run.get("status") or "")
@@ -126,7 +125,7 @@ def check_ci_command(
             f"  CI status: {ci_status} (elapsed: {elapsed}s, timeout: {timeout_sec}s)",
             file=sys.stderr,
         )
-        sleep(next_read_delay(elapsed, CI_SUITE_SCHEDULE))
+        sleep(next_read_delay(elapsed, STEADY_SCHEDULE))
 
 
 def failed_log_command(
