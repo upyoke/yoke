@@ -65,24 +65,23 @@ class SubjectRefresh:
 
 
 def _pinned_target(rows: list[dict[str, Any]], *, subject: str) -> dict[str, Any]:
-    """The one target every row in this subject is already judged against."""
-    digests = {str(row["execution_target_digest"] or "") for row in rows}
-    if len(digests) != 1 or not next(iter(digests)):
-        raise QaPlanError(
-            f"{subject} has ambiguous materialized target history ({len(digests)} "
-            "distinct targets); resolve it against the active stage receipt "
-            "before rematerializing"
-        )
-    raw = rows[0]["execution_target_json"]
-    if isinstance(raw, dict):
-        return dict(raw)
-    try:
-        decoded = json.loads(str(raw or ""))
-    except (TypeError, ValueError) as exc:
-        raise QaPlanError(f"{subject} has an unreadable execution target") from exc
-    if not isinstance(decoded, dict):
-        raise QaPlanError(f"{subject} execution target is not an object")
-    return decoded
+    """Prefer the newest producer receipt when target history spans receipts."""
+    targets = []
+    for row in rows:
+        raw = row["execution_target_json"]
+        try:
+            target = dict(raw) if isinstance(raw, dict) else json.loads(str(raw or ""))
+        except (TypeError, ValueError) as exc:
+            raise QaPlanError(f"{subject} has an unreadable execution target") from exc
+        if not isinstance(target, dict):
+            raise QaPlanError(f"{subject} execution target is not an object")
+        targets.append(target)
+    return max(
+        targets,
+        key=lambda target: int(
+            (target.get("observation") or {}).get("receipt_id") or 0
+        ),
+    )
 
 
 def read_subject_refresh(
@@ -120,6 +119,9 @@ def read_subject_refresh(
             "the plan onto the stage first"
         )
     target = _pinned_target(rows, subject=label)
+    from yoke_core.domain.deployment_qa_target_continuity import refresh_target
+
+    target = refresh_target(conn, run_id, stage, member, target)
     rows_by_plan: dict[int, list[dict[str, Any]]] = {}
     for row in rows:
         rows_by_plan.setdefault(int(row["plan_id"]), []).append(row)
@@ -167,7 +169,11 @@ def _needs_corrected_row(
     if carried_by_declared_replacement(conn, group):
         return False
     digest = plan_case_content_digest(conn, case)
-    if any(case_content_digest(row) == digest for row in group):
+    if any(
+        case_content_digest(row) == digest
+        and row["execution_target_digest"] == target_digest(refresh.target)
+        for row in group
+    ):
         return False
     return all(
         obligation_settled(row) or refresh.verdicts.get(int(row["id"])) == "fail"
@@ -287,6 +293,11 @@ def write_subject_refresh(conn: Any, refresh: SubjectRefresh) -> dict[str, Any]:
                 **owner_scope,
             )
     declare_refreshed_replacements(conn, created)
+    from yoke_core.domain.deployment_qa_target_continuity import (
+        link_inherited_replacements,
+    )
+
+    link_inherited_replacements(conn, refresh, created)
     waived = [
         int(row["id"])
         for plan_rows in refresh.rows_by_plan.values()

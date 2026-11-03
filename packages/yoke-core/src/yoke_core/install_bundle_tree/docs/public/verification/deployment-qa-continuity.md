@@ -21,8 +21,11 @@ the run delivered is normal, not drift: QA start reports a different served
 commit and proceeds, and each deployment-bound browser case records the commit
 its environment served at case start (an observation, not a per-step proof).
 Once the successor deploys, install steps get its pinned `release_version` and
-command cases check out its project source. Stored targets and digests stay as
-provenance and never gate a write.
+command cases check out its project source. Fresh attempts resolve the
+successor's ready receipt and candidate; before that receipt exists they retain
+the predecessor target. Rematerializing uses the newest receipt for new or
+corrected cases. Existing executions and evidence keep their stored targets and
+digests as provenance and never gate a write.
 
 A failed successor retains inherited QA for retry or another takeover. Explicit
 cancellation and genuine member removal retain their cleanup rules. An early QA
@@ -34,16 +37,18 @@ When the successor's QA stage finds an inherited fail whose latest failing
 attempt was created before this run, and the current release contains the
 item's merge, the owner gets one handoff that says to retry. A failure
 created after this run gets the ordinary handoff: classify it and start
-rework or record its blocker. Retry on the same requirement; this opens a
-fresh attempt and keeps the prior fail and its evidence:
+rework or record its blocker. Once a successor receipt is ready, refresh the member's cases before starting
+its fresh attempt; prior passes and failures retain their own evidence:
 
 ```text
+yoke qa plan rematerialize --item PREFIX-N --stage item-qa --project PROJECT
 yoke qa plan run --item PREFIX-N --stage item-qa --project PROJECT
 ```
 
-An item-scoped stage refuses `--deployment-run-id`. Do not use `--replaces`
-for the same case key, and do not rebind the target:
-`replacement_case_corrected_in_place` names this retry instead.
+An item-scoped stage refuses `--deployment-run-id`. Rematerialization gives inherited failed cases a successor-target replacement;
+a prior pass stays a pass. If cases still name only the predecessor,
+`qa_successor_target_not_materialized` names this refresh before a fresh walk.
+Do not rebind the stored target or use `--replaces` for the same case key.
 
 ## Recover communication on the frozen execution
 

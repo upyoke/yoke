@@ -82,7 +82,7 @@ def unsettled_acceptance_blocker(
 
 
 def member_cases_passed(
-    conn: Any, run_id: str, stage: str, member: int, digest: str
+    conn: Any, run_id: str, stage: str, member: int, digest: str, *, target=None
 ) -> bool:
     """Every concrete run-bound case has a current pass for this member."""
     from yoke_core.domain.deployment_qa_stage_case_failures import scoped_cases
@@ -97,6 +97,7 @@ def member_cases_passed(
         stage_name=stage,
         member_item_id=member,
         execution_target_digest=digest,
+        target=target,
     )
     ids = {int(row["id"]) for row in rows if not obligation_settled(row)}
     return bool(rows) and ids <= current_passing_requirements(conn, ids)
@@ -163,6 +164,9 @@ def stage_acceptance(
     run_id = str(subject["id"])
     stage_name = str(subject["stage"]["name"])
     member_item_id = subject.get("member_item_id")
+    from yoke_core.domain.deployment_qa_target_continuity import settlement_target
+
+    target = settlement_target(conn, subject, target)
     digest = target_authority.target_digest(target)
     execution = completed_execution(
         conn,
@@ -178,11 +182,13 @@ def stage_acceptance(
         member_item_id=member_item_id,
         execution_target_digest=digest,
         shared_plan_id=(subject.get("shared_plan") or {}).get("plan_id"),
+        target=target,
     )
     failures = failure_reasons(cases)
     red_ids = tuple(case.requirement_id for case in cases if case.red)
     if obligations_fully_discharged(
         conn,
+        target=target,
         run_id=run_id,
         stage_name=stage_name,
         member_item_id=member_item_id,
@@ -215,7 +221,9 @@ def stage_acceptance(
         not failures
         and execution is None
         and member_item_id is not None
-        and member_cases_passed(conn, run_id, stage_name, member_item_id, digest)
+        and member_cases_passed(
+            conn, run_id, stage_name, member_item_id, digest, target=target
+        )
     ):
         from yoke_core.domain.deployment_run_member_approvals import run_qa_blockers
 

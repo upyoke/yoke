@@ -127,6 +127,9 @@ def deployment_qa_stage_status(
         member_item_id=member_item_id,
     )
     target = deployment_qa_execution_target(conn, subject)
+    from yoke_core.domain.deployment_qa_target_continuity import settlement_target
+
+    target = settlement_target(conn, subject, target)
     digest = target_authority.target_digest(target)
     result = _settle_stage_status(
         conn,
@@ -222,11 +225,13 @@ def _settle_reads(
             member_item_id=member_item_id,
             execution_target_digest=current_target_digest,
             shared_plan_id=(subject.get("shared_plan") or {}).get("plan_id"),
+            target=target,
         )
     )
     reasons = failure_reasons(failures)
     if obligations_fully_discharged(
         conn,
+        target=target,
         run_id=run_id,
         stage_name=stage_name,
         member_item_id=member_item_id,
@@ -265,7 +270,12 @@ def _settle_reads(
         and execution is None
         and member_item_id is not None
         and member_cases_passed(
-            conn, run_id, stage_name, member_item_id, current_target_digest
+            conn,
+            run_id,
+            stage_name,
+            member_item_id,
+            current_target_digest,
+            target=target,
         )
     ):
         blockers = run_qa_blockers(conn, run_id, member_item_id, subject)

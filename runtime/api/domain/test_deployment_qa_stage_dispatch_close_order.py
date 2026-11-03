@@ -156,6 +156,10 @@ def test_the_gate_leaves_acceptance_to_a_caller_that_defers_it() -> None:
     with (
         patch.object(gate, "deployment_qa_stage_subject", return_value={}),
         patch.object(gate, "deployment_qa_execution_target", return_value={}),
+        patch(
+            "yoke_core.domain.deployment_qa_target_continuity.settlement_target",
+            side_effect=lambda conn, subject, target: target,
+        ),
         patch.object(gate.target_authority, "target_digest", return_value="d"),
         patch.object(gate, "_settle_stage_status", return_value=dict(accepted)),
         patch(

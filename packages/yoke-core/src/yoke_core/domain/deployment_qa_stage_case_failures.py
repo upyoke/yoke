@@ -22,25 +22,8 @@ from yoke_core.domain.qa_execution_proof import qa_artifact_counts_by_run
 from yoke_core.domain.qa_requirement_replacement import replacement_note
 from yoke_core.domain.qa_obligation_settlement import (
     obligation_settled,
-    requirement_retracted_at_select,
     unretracted_requirement_sql,
 )
-
-
-#: The blocking cases pinned to one stage/member subject, carrying both
-#: discharge records so :func:`obligation_settled` can read them. That rule
-#: is shared with the run-completing stage, so one boundary never re-opens
-#: an obligation the other accepted as settled.
-def _scoped_cases_sql(conn: Any) -> str:
-    return (
-        "SELECT id,plan_case_key,waived_at,superseded_by_requirement_id,replacement_requirement_id,"
-        f"{requirement_retracted_at_select(conn)} "
-        "FROM qa_requirements "
-        "WHERE deployment_run_id=%s AND deployment_stage=%s "
-        "AND COALESCE(deployment_member_item_id,0)=%s "
-        "AND method_id IS NOT NULL AND blocking_mode='blocking' "
-        "AND execution_target_digest=%s ORDER BY id"
-    )
 
 
 def scoped_cases(
@@ -50,36 +33,18 @@ def scoped_cases(
     stage_name: str,
     member_item_id: int | None,
     execution_target_digest: str,
+    target=None,
 ) -> list[dict[str, Any]]:
-    from yoke_core.domain.deployment_qa_presentation_facts import (
-        subject_requirement_rows,
-    )
+    from yoke_core.domain.deployment_qa_target_continuity import evidence_cases
 
-    rows = subject_requirement_rows(conn, run_id, stage_name, member_item_id)
-    if rows is not None:
-        fields = (
-            "id",
-            "plan_case_key",
-            "waived_at",
-            "superseded_by_requirement_id",
-            "replacement_requirement_id",
-            "retracted_at",
-        )
-        return [
-            {key: row.get(key) for key in fields}
-            for row in rows
-            if row["method_id"] is not None
-            and row["blocking_mode"] == "blocking"
-            and row["execution_target_digest"] == execution_target_digest
-        ]
-    return [
-        dict(row)
-        for row in query_rows(
-            conn,
-            _scoped_cases_sql(conn),
-            (run_id, stage_name, member_item_id or 0, execution_target_digest),
-        )
-    ]
+    return evidence_cases(
+        conn,
+        run_id=run_id,
+        stage_name=stage_name,
+        member_item_id=member_item_id,
+        digest=execution_target_digest,
+        target=target,
+    )
 
 
 def obligations_fully_discharged(
@@ -89,6 +54,7 @@ def obligations_fully_discharged(
     stage_name: str,
     member_item_id: int | None,
     execution_target_digest: str,
+    target=None,
 ) -> bool:
     """True when this subject has cases and every one is waived or superseded.
 
@@ -103,6 +69,7 @@ def obligations_fully_discharged(
         stage_name=stage_name,
         member_item_id=member_item_id,
         execution_target_digest=execution_target_digest,
+        target=target,
     )
     return bool(rows) and all(obligation_settled(row) for row in rows)
 
@@ -145,6 +112,7 @@ def case_failures(
     member_item_id: int | None,
     execution_target_digest: str,
     shared_plan_id: int | None = None,
+    target=None,
 ) -> list[CaseFailure]:
     """Every blocking case this subject cannot accept, each with its kind.
 
@@ -160,6 +128,7 @@ def case_failures(
         stage_name=stage_name,
         member_item_id=member_item_id,
         execution_target_digest=execution_target_digest,
+        target=target,
     )
     if not rows and shared_plan_id is None:
         from yoke_core.domain.deployment_qa_presentation_facts import (
@@ -220,11 +189,14 @@ def case_failures(
             ]
         command = (
             f"yoke qa plan run --item {member_ref_lookup(conn, [member_item_id])(member_item_id)} --stage {stage_name}"
-            if member_item_id is not None else
-            f"yoke qa plan run --deployment-run-id {run_id} --stage {stage_name}"
+            if member_item_id is not None
+            else f"yoke qa plan run --deployment-run-id {run_id} --stage {stage_name}"
         )
-        return [CaseFailure(0, "", FAILURE_UNRUN,
-                            f"{NO_CASES_FAILURE.detail}; run `{command}`")]
+        return [
+            CaseFailure(
+                0, "", FAILURE_UNRUN, f"{NO_CASES_FAILURE.detail}; run `{command}`"
+            )
+        ]
     # The accepted verdict, the execution results behind it, and which runs
     # carry artifacts are all questions about a requirement, and the subject's
     # requirements are already in hand — so each is asked once for the whole
@@ -277,11 +249,14 @@ def case_failures(
                     detail=(
                         f"requirement #{row['id']} ({row['plan_case_key']}) latest "
                         f"verdict is {verdict or 'missing'}{replacement_note(row)}"
-                        + ("" if int(row["id"]) in reviewing else
-                           f"; run `yoke qa plan run --deployment-run-id {run_id} "
-                           f"--stage {stage_name} --plan {shared_plan_id}`"
-                           if shared_plan_id else
-                           f"; run `yoke qa case run --requirement-id {row['id']}`")
+                        + (
+                            ""
+                            if int(row["id"]) in reviewing
+                            else f"; run `yoke qa plan run --deployment-run-id {run_id} "
+                            f"--stage {stage_name} --plan {shared_plan_id}`"
+                            if shared_plan_id
+                            else f"; run `yoke qa case run --requirement-id {row['id']}`"
+                        )
                         + (
                             "; its capture awaits independent review: "
                             + reviewing[int(row["id"])].next_action()
