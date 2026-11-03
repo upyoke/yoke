@@ -52,6 +52,54 @@ def pytest_argv(
     return argv
 
 
+def project_parallel_args(
+    args: Sequence[str], *, no_parallel: bool = False, cwd: Path
+) -> list[str]:
+    """Inject workers only when the selected project Python provides xdist."""
+    from yoke_core.tools._pytest_parallel import (
+        apply_parallel_default,
+        has_explicit_workers,
+    )
+
+    if no_parallel or has_explicit_workers(args):
+        return list(args)
+    command = pytest_argv([], cwd=cwd)[:-2]
+    probe = [
+        *command,
+        "-c",
+        (
+            "import importlib.util; "
+            "raise SystemExit(0 if importlib.util.find_spec('xdist') else 1)"
+        ),
+    ]
+    try:
+        result = subprocess.run(
+            probe, cwd=cwd, capture_output=True, text=True, timeout=30, check=False
+        )
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        raise source_python_environment.SourceEnvironmentRefusal(
+            compose_refusal(
+                "PROJECT-XDIST-PROBE-FAILED: could not check the project's Python.",
+                recovery="Check the project's test environment command, then retry.",
+            )
+        ) from exc
+    if result.returncode == 1:
+        print(
+            "watch_pytest PROJECT-XDIST-MISSING: running serially; add "
+            "pytest-xdist to the project's test dependencies to enable parallel runs.",
+            flush=True,
+        )
+        return list(args)
+    if result.returncode != 0:
+        raise source_python_environment.SourceEnvironmentRefusal(
+            compose_refusal(
+                f"PROJECT-XDIST-PROBE-FAILED: project Python exited {result.returncode}.",
+                recovery="Check the project's test environment command, then retry.",
+            )
+        )
+    return apply_parallel_default(args)
+
+
 def _checkout_venv_python(root: Path) -> Path:
     """The repo root's own .venv interpreter, or a refusal naming its setup."""
     prefix = root / ".venv"

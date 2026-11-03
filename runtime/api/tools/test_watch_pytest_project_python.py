@@ -45,7 +45,9 @@ def _non_uv_checkout(tmp_path: Path, monkeypatch) -> None:
     )
 
 
-@pytest.mark.parametrize("in_venv, root_venv", [(True, True), (True, False), (False, True)])
+@pytest.mark.parametrize(
+    "in_venv, root_venv", [(True, True), (True, False), (False, True)]
+)
 def test_non_uv_tree_reuses_only_an_active_checkout_environment(
     tmp_path: Path, monkeypatch, in_venv: bool, root_venv: bool
 ) -> None:
@@ -196,3 +198,109 @@ def test_impacted_tree_prefers_the_unique_claimed_sibling(
     assert selection.fallback_rule == "unmapped_file_kind"
     assert selection.trigger_paths == (trigger,)
     assert changed_test in selection.files
+
+
+@pytest.mark.parametrize("has_xdist", [False, True])
+def test_project_worker_default_probes_the_selected_interpreter(
+    tmp_path: Path, monkeypatch, capsys, has_xdist: bool
+) -> None:
+    import venv
+
+    # This interpreter cannot see the administering environment's plugins.
+    venv.EnvBuilder(with_pip=False).create(tmp_path / ".venv")
+    _non_uv_checkout(tmp_path, monkeypatch)
+    if has_xdist:
+        (tmp_path / "xdist.py").write_text("", encoding="utf-8")
+    (tmp_path / "pytest.py").write_text(
+        "import sys\n"
+        "print('project pytest', *sys.argv[1:])\n"
+        "raise SystemExit(2 if '-n' in sys.argv and "
+        "__import__('importlib.util').util.find_spec('xdist') is None else 0)\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("YOKE_PYTEST_WORKERS", "4")
+    args = helper.project_parallel_args(["tests/"], cwd=tmp_path)
+    result = subprocess.run(
+        helper.pytest_argv(args, cwd=tmp_path),
+        cwd=tmp_path,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert result.returncode == 0, result.stderr
+    assert args == (["-n", "4", "tests/"] if has_xdist else ["tests/"])
+    note = capsys.readouterr().out
+    assert note.count("PROJECT-XDIST-MISSING") == (0 if has_xdist else 1)
+    if not has_xdist:
+        assert "pytest-xdist to the project's test dependencies" in note
+
+
+@pytest.mark.parametrize(
+    "args,no_parallel",
+    [
+        (["-n", "4", "tests/"], False),
+        (["--numprocesses=2", "tests/"], False),
+        (["tests/"], True),
+    ],
+)
+def test_explicit_parallel_choice_skips_project_probe(
+    tmp_path: Path, monkeypatch, args: list[str], no_parallel: bool
+) -> None:
+    def unexpected_probe(*_args, **_kwargs):
+        pytest.fail("An explicit parallel choice must not probe the interpreter")
+
+    monkeypatch.setattr(helper, "pytest_argv", unexpected_probe)
+    assert (
+        helper.project_parallel_args(args, cwd=tmp_path, no_parallel=no_parallel)
+        == args
+    )
+
+
+@pytest.mark.parametrize(
+    "failure",
+    [
+        subprocess.CompletedProcess([], 2),
+        OSError("cannot start"),
+        subprocess.TimeoutExpired("project-python", 30),
+    ],
+)
+def test_project_probe_failure_names_recovery(tmp_path, monkeypatch, failure):
+    monkeypatch.setattr(
+        helper,
+        "pytest_argv",
+        lambda *_a, **_k: [
+            "uv",
+            "run",
+            "--frozen",
+            "--extra",
+            "tests",
+            "python3",
+            "-m",
+            "pytest",
+        ],
+    )
+    calls = []
+
+    def probe(argv, **kwargs):
+        calls.append((argv, kwargs))
+        if isinstance(failure, Exception):
+            raise failure
+        return failure
+
+    monkeypatch.setattr(helper.subprocess, "run", probe)
+    with pytest.raises(
+        SourceEnvironmentRefusal, match="PROJECT-XDIST-PROBE-FAILED"
+    ) as exc:
+        helper.project_parallel_args(["tests/"], cwd=tmp_path)
+    assert "Recovery: Check the project's test environment command" in str(exc.value)
+    assert len(calls) == 1
+    assert calls[0][0][:7] == [
+        "uv",
+        "run",
+        "--frozen",
+        "--extra",
+        "tests",
+        "python3",
+        "-c",
+    ]
+    assert calls[0][1]["cwd"] == tmp_path

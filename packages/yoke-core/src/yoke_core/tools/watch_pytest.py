@@ -22,8 +22,8 @@ Usage::
 
 Pass BARE pytest args after ``--``; the wrapper supplies the pytest command
 prefix and rejects ``-- python3 -m pytest …``.
-Parallel-by-default: ``-n auto`` (pytest-xdist) is injected into a local
-run unless the pass-through supplies its own ``-n``/``--numprocesses``;
+Parallel-by-default: local runs inject ``-n auto`` when project Python has
+pytest-xdist, unless pass-through supplies ``-n``/``--numprocesses``;
 use ``-n 0`` for sequential order-sensitive debugging. A remote run drops
 those flags, which describe this machine. The wrapper preserves the
 underlying exit code — a remote run's mirrors the CI conclusion.
@@ -31,7 +31,10 @@ underlying exit code — a remote run's mirrors the CI conclusion.
 
 from __future__ import annotations
 
-from yoke_core.tools.watch_pytest_project_python import pytest_argv
+from yoke_core.tools.watch_pytest_project_python import (
+    pytest_argv,
+    project_parallel_args,
+)
 from yoke_core.tools.watch_pytest_project_python import impacted_selection
 from yoke_core.tools.watch_pytest_project_python import impacted_tree
 
@@ -59,7 +62,6 @@ from yoke_core.tools import (
 )
 from yoke_core.tools._pytest_parallel import (
     apply_postgres_xdist_auto_env,
-    apply_parallel_default,
     isolate_from_administering_machine_config,
     split_no_parallel,
 )
@@ -70,7 +72,6 @@ from yoke_core.tools.watch_pytest_project_python import (
 )
 from yoke_core.tools import _watch_pytest_wall_clock
 
-# Re-exported so callers keep one import site for the classifier.
 from yoke_core.tools._watch_pytest_classify import (  # noqa: F401
     PYTEST_COLLECTED_RE,
     PYTEST_PROGRESS_PATTERN,
@@ -243,11 +244,13 @@ def main(argv: Sequence[str] | None = None, *, prog: str = DEFAULT_PROG) -> int:
             timeout_seconds=execution_timeout,
         )
 
-    # Parallel-by-default: inject ``-n auto`` unless caller passed
-    # ``--no-parallel`` or already supplied ``-n``/``--numprocesses``.
-    # ``--no-parallel`` is a wrapper-level concept and never reaches pytest.
     no_parallel, pytest_args = split_no_parallel(pytest_args)
-    pytest_args = apply_parallel_default(pytest_args, no_parallel=no_parallel)
+    try:
+        pytest_args = project_parallel_args(
+            pytest_args, no_parallel=no_parallel, cwd=run_root
+        )
+    except SourceEnvironmentRefusal as exc:
+        return refuse(f"watch_pytest: {exc}", 3)
     source_root = _source_pythonpath.repo_root(run_root)
     pytest_env = apply_postgres_xdist_auto_env(
         pytest_args,
@@ -255,7 +258,6 @@ def main(argv: Sequence[str] | None = None, *, prog: str = DEFAULT_PROG) -> int:
             schema_authority.environment_without_administering_selection()
         ),
     )
-    # Already judged above; the child's startup check inherits that answer.
     pytest_env = _tree_binding_startup.with_binding_evaluated(pytest_env)
     pytest_env, import_refusal = _source_pythonpath.verified_source_environment(
         source_root, pytest_env
@@ -286,7 +288,6 @@ def main(argv: Sequence[str] | None = None, *, prog: str = DEFAULT_PROG) -> int:
             progress_capture=progress_path,
         )
 
-    # Bound above, before preflight; the print branch returned already.
     warning = _watch_pytest_rootdir.rootdir_mismatch_warning(pytest_args, str(run_root))
     if warning:
         sys.stdout.write(warning)
