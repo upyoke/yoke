@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import asyncio
+import subprocess
+import sys
 
 import pytest
 
@@ -103,7 +105,20 @@ def test_applying_rows_use_ascii_marks_in_plain_mode(monkeypatch) -> None:
     asyncio.run(scenario())
 
 
-def test_applying_follows_the_running_row_and_keeps_distinct_targets(monkeypatch):
+@pytest.fixture(scope="module")
+def cpu_load():
+    worker = subprocess.Popen([sys.executable, "-c", "while True: pass"])
+    try:
+        yield
+    finally:
+        worker.terminate()
+        worker.wait(timeout=10)
+
+
+@pytest.mark.parametrize("_attempt", range(200))
+def test_applying_follows_the_running_row_and_keeps_distinct_targets(
+    monkeypatch, cpu_load, _attempt
+):
     monkeypatch.setenv("YOKE_ONBOARD_FORCE_PLAIN", "0")
     app, _spy = make_app()
     app.animation_level = "none"
@@ -123,16 +138,25 @@ def test_applying_follows_the_running_row_and_keeps_distinct_targets(monkeypatch
             }
             app._apply_steps = app._applying_step_model()
             app._goto_applying()
-            await pilot.pause()
+            await app._apply_pending_swap()
             app._set_apply_step_status(
                 "create-or-validate-dir", "/folder/29", "running"
             )
+            refreshed = asyncio.Event()
+            app.call_after_refresh(refreshed.set)
+            await refreshed.wait()
             await pilot.pause()
             assert str(app.query_one("#apply-step-0").render()).startswith("  ○ ")
             assert str(app.query_one("#apply-step-29").render()).startswith("  ◐ ")
             body = app.query_one("#onboard-body")
             assert body.scroll_y > 0
             assert app.query_one("#apply-step-29").region.overlaps(body.content_region)
+            app._set_apply_step_status("create-or-validate-dir", "/folder/0", "failed")
+            refreshed.clear()
+            app.call_after_refresh(refreshed.set)
+            await refreshed.wait()
+            await pilot.pause()
+            assert app.query_one("#apply-step-0").region.overlaps(body.content_region)
             app._set_apply_step_status("create-or-validate-dir", "/folder/29", "done")
             app._render_current()
             await pilot.pause()

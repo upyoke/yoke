@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import pytest
+
 from yoke_core.domain.merge_queue_enqueue_verification import LandingReadback
 from yoke_core.domain.merge_queue_landing_observation import (
     EJECTED,
@@ -168,9 +170,65 @@ def test_two_red_check_urls_appear_once_in_the_holder_message():
     from yoke_core.domain.merge_queue_landing_observation import ejection_message
     from yoke_core.domain.merge_queue_landing_notice import HOLDER
 
-    second = LandingCheck(name="tests", status="completed", conclusion="failure", required=True,
-                          url="https://github.com/o/r/actions/runs/3/job/4")
+    second = LandingCheck(
+        name="tests",
+        status="completed",
+        conclusion="failure",
+        required=True,
+        url="https://github.com/o/r/actions/runs/3/job/4",
+    )
     observation = _classify(_state(), NOT_QUEUED, checks=(FAILED_REQUIRED, second))
     text = ejection_message("ALP-1", "42", observation, HOLDER, "")
     for check in (FAILED_REQUIRED, second):
         assert text.count(check.url) == 1
+
+
+@pytest.mark.parametrize("conclusion", ["failure", "timed_out", "success", "", None])
+@pytest.mark.parametrize("mergeable", ["UNKNOWN", "CONFLICTING"])
+def test_retained_entry_observes_current_failed_train(
+    monkeypatch, conclusion, mergeable
+):
+    from runtime.api.merge_queue_landing_test_helpers import ctx, LANE_SHA
+    from yoke_core.domain import merge_queue_failed_train as failed_train
+    from yoke_core.domain.merge_queue_enqueue_verification import (
+        admission_facts_for_state,
+    )
+    from yoke_core.engines.merge_worktree_pr_train_run import TrainRun
+
+    base = "3" * 40
+    monkeypatch.setattr(
+        failed_train,
+        "read_train_run",
+        lambda *_a: (
+            (
+                TrainRun(conclusion=conclusion, head_sha="4" * 40, url=RUN_URL)
+                if conclusion is not None
+                else None
+            ),
+            None,
+        ),
+    )
+    monkeypatch.setattr(failed_train, "_commit_parents", lambda *_a: [base, LANE_SHA])
+    monkeypatch.setattr(failed_train, "_current_base_sha", lambda *_a: base)
+    readback = admission_facts_for_state(
+        ctx(),
+        "42",
+        _state(head_sha=LANE_SHA, merge_state_status="UNKNOWN"),
+        read_membership=lambda *_a: (
+            PrQueueMembership(
+                in_queue=True, entry_state="UNMERGEABLE", mergeable=mergeable
+            ),
+            None,
+        ),
+        read_checks=lambda *_a: ((), None),
+    )
+    observation = classify_pending_landing(readback, target="main")
+    if mergeable == "CONFLICTING":
+        assert observation.kind == EJECTED
+        assert "base_conflict" in observation.recovery
+    elif conclusion in {"failure", "timed_out"}:
+        assert observation.kind == EJECTED
+        assert "failed-train-unchanged" in observation.recovery
+        assert RUN_URL in observation.recovery
+    else:
+        assert observation.kind == WAITING

@@ -303,3 +303,17 @@ def test_automatic_reentry_receipt_survives_observation_replacement():
     assert receipt["automatic"] is True
     assert receipt["pr_number"] == "42"
     assert receipt["accepted_at"]
+
+
+def test_failed_train_notice_survives_recovery_without_reenqueue():
+    readback = replace(
+        facts(queued=True, unmergeable=True),
+        queue_recovery={
+            "action": "blocked",
+            "message": "failed-train-unchanged: inspect https://github.com/o/r/actions/runs/1",
+        },
+    )
+    assert (
+        recovery(observer_connection(), readback, []).queue_recovery
+        == readback.queue_recovery
+    )

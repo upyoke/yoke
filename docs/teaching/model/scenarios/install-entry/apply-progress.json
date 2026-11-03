@@ -4,7 +4,7 @@
  "status": "observed",
  "audience": "human",
  "when": "After confirming Review",
- "need": "Retain each operation’s row as it moves from pending to running to complete; distinguish skipped and failed work. Name the real relay service file.",
+ "need": "Retain each operation’s row as it moves from pending to running to complete; distinguish skipped and failed work. Name the real relay service file. Scroll the running or failed operation into view after layout, without animation.",
  "disclosure": "live progress",
  "surface": "Applying screen",
  "review": "Source tests and the mixed-status SVG prove candidate rendering; installed-machine campaign proof remains separate.",

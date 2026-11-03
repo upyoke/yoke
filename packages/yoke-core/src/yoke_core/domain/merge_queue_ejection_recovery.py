@@ -126,6 +126,8 @@ def recover_ejection(
                 "action": "rebase" if conflicts_with_base(readback) else "blocked",
             },
         )
+    if readback.queue_recovery.get("action") == "blocked":
+        return readback
     recovering = recovery.get("action") in {"waiting", "retry"}
     queue_only = member.entry_state == "UNMERGEABLE" and member.mergeable == "MERGEABLE"
     if (

@@ -132,7 +132,10 @@ class LandingReadback:
             return False
         merge_state = (state.merge_state_status or "").lower()
         if member is not None and member.entry_state == "UNMERGEABLE":
-            decided = member.mergeable in {"MERGEABLE", "CONFLICTING"}
+            decided = (
+                member.mergeable in {"MERGEABLE", "CONFLICTING"}
+                or self.queue_recovery.get("action") == "blocked"
+            )
             return not decided and merge_state != "dirty"
         refused = member is not None and member.mergeable == "CONFLICTING"
         return not refused and merge_state == "unknown"
@@ -203,24 +206,21 @@ def admission_facts_for_state(
     read_membership: Callable[..., object] = read_pr_queue_membership,
     read_checks: Callable[..., object] = read_required_checks,
 ) -> LandingReadback:
-    """Complete the admission facts for a landing state already read.
+    """Complete admission facts without re-reading a known landing state."""
+    from yoke_core.domain.merge_queue_failed_train import failed_train_readback
 
-    A merged or unreadable pull request stops there: the queue standing
-    and required checks of a landing that is already over answer nothing
-    the caller is about to decide. Callers that read the state for their
-    own reasons first finish the set here instead of reading it twice.
-    """
     if state is None or state.merged:
         return LandingReadback(state=state, state_error=state_error)
     membership, membership_error = read_membership(ctx, pr_num)
     checks, checks_error = read_checks(ctx, pr_num)
-    return LandingReadback(
+    readback = LandingReadback(
         state=state,
         membership=membership,
         required_checks=checks,
         membership_error=membership_error or "",
         checks_error=checks_error or "",
     )
+    return failed_train_readback(ctx, pr_num, readback)
 
 
 def read_landing(
