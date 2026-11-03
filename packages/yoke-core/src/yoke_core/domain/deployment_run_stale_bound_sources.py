@@ -41,7 +41,11 @@ def stale_bound_source_reason(
         f"re-driving {run_id} cannot dispatch a stage on it, and neither can a "
         "--retry-of run, which copies the same frozen commit — leave it failed "
         "and create a new run, which binds the current commit. A re-drive of a "
-        "stage this run already dispatched reattaches regardless"
+        "stage this run already dispatched reattaches regardless. If this head "
+        "is a promotion pin whose producing release has not recorded its output "
+        "yet, finish that release output record, then re-drive this same run "
+        f"with `{deploy_command(run_id)}`: recorded release output directly on "
+        "the frozen commit preserves the original input"
     )
 
 
