@@ -18,7 +18,7 @@ from yoke_core.domain.handlers import session_watcher_activity as handler
 from yoke_core.domain.fleet_delta_alarms import (
     DeltaState, idle_holder_alarms, starved_envelope_alarms,
 )
-from yoke_core.domain.fleet_delta_snapshot import EnvelopeRow, FleetSnapshot, session_rows
+from yoke_core.domain.fleet_delta_snapshot import EnvelopeRow, FleetSnapshot, ItemRow, session_rows
 from yoke_core.domain.session_liveness_pump import SessionLivenessPump
 from yoke_core.domain import sessions_list_rows
 from yoke_core.domain.sessions_list_read import list_sessions
@@ -173,7 +173,10 @@ def test_stopped_seat_with_pulsing_watcher_still_alarms_on_pending_message(
     assert handler.handle_watcher_activity(_request(owner)).primary_success
     envelope = EnvelopeRow("pending-message", owner, "steerer", "pending", 0,
                            now - timedelta(minutes=20))
-    snapshot = replace(_snapshot(conn, owner, now), envelopes={envelope.key: envelope})
+    snapshot = replace(
+        _snapshot(conn, owner, now), envelopes={envelope.key: envelope},
+        items={"YOK-1": ItemRow("YOK-1", "idea", "Unpicked work 1", "claimed_by_other_live", "yoke")},
+    )
     assert not snapshot.sessions[owner].in_flight
     assert "ALARM starved-envelope" in starved_envelope_alarms(snapshot, DeltaState())[0]
     assert "ALARM idle-holder" in idle_holder_alarms(snapshot, DeltaState())[0]
