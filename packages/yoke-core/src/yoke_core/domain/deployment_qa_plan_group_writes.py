@@ -245,7 +245,7 @@ def resolve_group_subject(
             )[0]["slug"]
             refusal = PlanGroupError(
                 f"plan_member_owned: plan {plan_id} ({_plan_slug(conn, plan_id)}) "
-                f"belongs to {item_ref}; its claim holder runs it in this session "
+                f"belongs to {item_ref}; its claim holder runs it "
                 f"with `yoke qa plan run --item {item_ref} --stage {stage_name} "
                 f"--project {project}`"
             )
