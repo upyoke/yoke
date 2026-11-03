@@ -81,7 +81,9 @@ def test_corrected_case_uses_successor_without_invalidating_prior_evidence(
     execution = _execution(test_db, monkeypatch)
     requirement = execution["roster"][0]["requirement_id"]
     attempt = record_case_verdict(test_db, requirement, "fail", evidence=True)
-    finish_plan_execution(test_db, execution, state="completed")
+    finish_plan_execution(
+        test_db, execution, state="completed", reason="failed smoke recorded"
+    )
     test_db.execute(
         "UPDATE qa_plan_cases SET instructions='run corrected smoke' WHERE plan_id="
         "(SELECT plan_id FROM qa_requirements WHERE id=%s)",
