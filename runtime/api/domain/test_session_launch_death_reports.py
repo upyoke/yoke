@@ -26,6 +26,7 @@ def test_registered_launch_is_settled_only_for_death_before_work(conn, scenario)
         request=LaunchRequest(
             project_id=1, executor_surface="codex-cli",
             instructions="Inspect and report.", work_required=False,
+            idempotency_key="registered-worker-death",
         ),
     ).launch
     conn.execute(
