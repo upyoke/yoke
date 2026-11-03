@@ -232,6 +232,25 @@ def resolve_group_subject(
         refusal.code = "plan_group_ambiguous"
         raise refusal
     if matches and owners.get(next(iter(matches))) is not None:
+        if member is None:
+            from yoke_core.domain.project_identity import render_item_ref
+
+            plan_id = next(iter(matches))
+            owner = owners[plan_id]
+            item_ref = render_item_ref(conn, owner)
+            project = query_rows(
+                conn,
+                "SELECT p.slug FROM items i JOIN projects p ON p.id=i.project_id "
+                "WHERE i.id=%s", (owner,),
+            )[0]["slug"]
+            refusal = PlanGroupError(
+                f"plan_member_owned: plan {plan_id} ({_plan_slug(conn, plan_id)}) "
+                f"belongs to {item_ref}; its claim holder runs it "
+                f"with `yoke qa plan run --item {item_ref} --stage {stage_name} "
+                f"--project {project}`"
+            )
+            refusal.code = "plan_member_owned"
+            raise refusal
         return None
     if not matches and member is not None:
         return None

@@ -76,8 +76,11 @@ def qa_plan_run(args: List[str]) -> int:
         args,
         QA_PLAN_RUN_USAGE,
         "Requires the named immutable QA case or execution; item cases require the item work claim. "
-        "At an item-scoped stage, --deployment-run-id RUN --plan P runs the run's open plan group of P; "
+        "At an item-scoped stage, a shared plan (two or more attachers at item QA entry) "
+        "runs with --deployment-run-id RUN --plan P as the run's open plan group of P; "
         "with none open it refuses plan_group_not_open and lists P's closed groups. "
+        "A single-member plan is member QA: its claim holder runs it with "
+        "--item PREFIX-N --stage STAGE; a run-wide call refuses plan_member_owned. "
         "At a run-scoped stage, a new plan fills only an empty stage. "
         "Host selection respects the case OS. Resume and correction commands omit --test-machine; "
         "the scheduler retains each platform's or corrected case's recorded host.\n\n"

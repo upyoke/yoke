@@ -301,4 +301,7 @@ def test_failure_text_records_a_dependency_only_for_a_finding_in_its_own_item(ca
         "another item must land first" in help_text
     )
     assert "shared case" not in help_text and "frozen admissions" not in help_text
-    assert "runs the run's open plan group of P" in help_text
+    assert "shared plan (two or more attachers at item QA entry)" in help_text
+    assert "--deployment-run-id RUN --plan P as the run's open plan group of P" in help_text
+    assert "its claim holder runs it with --item PREFIX-N --stage STAGE" in help_text
+    assert "run-wide call refuses plan_member_owned" in help_text

@@ -72,6 +72,10 @@ class ManualWakeRequirement:
             if route == HOLDER
             else f"{self.item_ref}'s project steering seat (its claim holder is gone)"
         )
+        holder_instruction = (
+            "You hold this item, so run it in this session; do not hand it to a parent or the driver. "
+            if route == HOLDER else ""
+        )
         return (
             f"Deployment run {self.run_id} stage {self.stage!r} is waiting on "
             f"manual-wake QA for {self.item_ref}: requirement "
@@ -79,7 +83,7 @@ class ManualWakeRequirement:
             f"{addressed}. Check this evidence with a registered read "
             "('yoke deployment-runs get', 'yoke qa requirement list', 'yoke db "
             f"read'): {self.wake_evidence} If it exists, run the member's cases: "
-            f"'{self.run_command()}'. If this run cannot produce it, ask the "
+            f"'{self.run_command()}'. {holder_instruction}If this run cannot produce it, ask the "
             "operator through 'yoke say --steering' to waive or remove the case, "
             f"naming the run and requirement. Check 'yoke deployment-runs get "
             f"{self.run_id}' for the current state."

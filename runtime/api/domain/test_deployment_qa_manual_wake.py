@@ -46,6 +46,25 @@ from yoke_core.domain.work_claim_targets import make_item_target
 EVIDENCE = "a deployment run with at least 44 members exists after this release"
 
 
+def test_only_holder_wake_requires_execution_in_this_session():
+    from yoke_core.domain.deployment_qa_manual_wake import ManualWakeRequirement
+    from yoke_core.domain.merge_queue_landing_notice import HOLDER, STEERING
+
+    entry = ManualWakeRequirement(
+        run_id="run-manual", stage="item-qa", item_id=9701,
+        item_ref="TEST-1", project_slug="example", requirement_id=97011,
+        case_key="real-traffic", wake_evidence=EVIDENCE,
+    )
+    instruction = (
+        "You hold this item, so run it in this session; "
+        "do not hand it to a parent or the driver."
+    )
+    assert instruction in entry.wake_message(HOLDER)
+    assert instruction not in entry.wake_message(STEERING)
+    for route in (HOLDER, STEERING):
+        assert entry.run_command() in entry.wake_message(route)
+
+
 def _requirement(
     conn: Any,
     *,
