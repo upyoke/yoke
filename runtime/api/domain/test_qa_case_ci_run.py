@@ -61,7 +61,7 @@ def test_no_pull_request_run_dispatches_and_records_the_result(wired):
 
     added = recorder.payload("qa.run.add")
     assert added["performed_by"] == "ci_run"
-    evidence = json.loads(added["raw_result"])
+    evidence = json.loads(recorder.payload("qa.run.complete")["raw_result"])
     assert evidence["execution_budget_seconds"] == (
         qa_case_ci_run.DEFAULT_CI_RUN_TIMEOUT_SECONDS
     )

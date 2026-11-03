@@ -145,7 +145,7 @@ def test_the_lane_is_rebased_before_the_pull_request_opens(wired, monkeypatch):
         f"open-pr:{POST_REBASE_HEAD}",
     ]
     assert result["verification_tree"]["head_sha"] == POST_REBASE_HEAD
-    evidence = json.loads(recorder.payload("qa.run.add")["raw_result"])
+    evidence = json.loads(recorder.payload("qa.run.complete")["raw_result"])
     assert evidence["verification_tree"]["head_sha"] == POST_REBASE_HEAD
 
 
@@ -211,7 +211,7 @@ def test_rebased_gate_force_cancels_and_records_the_superseded_run(
     assert result["superseded_ci_run_id"] == "88"
     assert cancel.call_args.kwargs["previous_head_sha"] == LANE_HEAD
     assert cancel.call_args.kwargs["current_head_sha"] == POST_REBASE_HEAD
-    evidence = json.loads(recorder.payload("qa.run.add")["raw_result"])
+    evidence = json.loads(recorder.payload("qa.run.complete")["raw_result"])
     assert evidence["superseded_ci_run_id"] == "88"
 
 

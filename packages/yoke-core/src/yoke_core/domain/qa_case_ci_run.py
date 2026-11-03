@@ -20,6 +20,7 @@ from yoke_core.domain import (
     qa_case_ci_progress,
     qa_case_ci_resume as qa_case_ci_resume,
     qa_case_ci_runtime,
+    qa_case_ci_run_recording,
     qa_case_ci_source,
     qa_case_ci_superseded_run,
     verification_tree_binding,
@@ -128,7 +129,9 @@ def execute_ci_case(
     )
     entry_run_base = lane.queue_target
     tree = verification_tree_binding.resolve_tree_identity(checkout)
-    tree = qa_case_ci_source.source_tree(case, checkout, branch, checked_out_branch, tree)
+    tree = qa_case_ci_source.source_tree(
+        case, checkout, branch, checked_out_branch, tree
+    )
     head_sha = tree.head_sha
     target = entry_run_base or qa_case_ci_entry_run.base_branch(project, checkout)
     empty = qa_case_ci_empty_diff.record_pass_if_empty(
@@ -159,13 +162,11 @@ def execute_ci_case(
         "requested_sha": expected_sha,
         **selected_budget.as_record(),
     }
-    ci_run_id = ""
-    run_url = ""
+    qa_run_id = None
+    ci_run_id = run_url = ""
     ci_run_source = qa_case_ci_covering_run.DISPATCHED
-    known_conclusion = ""
+    known_conclusion = poll_output = superseded_ci_run_id = ""
     exit_code = 0
-    poll_output = ""
-    superseded_ci_run_id = ""
     try:
         qa_case_ci_lane.push_lane(
             checkout,
@@ -251,6 +252,16 @@ def execute_ci_case(
                     html_url=covering_run.html_url,
                     source=ci_run_source,
                 )
+            qa_run_id = qa_case_ci_run_recording.start(
+                case,
+                evidence={
+                    **evidence,
+                    "ci_run_id": ci_run_id,
+                    "run_url": run_url,
+                    "ci_run_source": ci_run_source,
+                },
+                actor=actor,
+            )
             if ci_run_source == qa_case_ci_covering_run.ADOPTED:
                 known_conclusion = covering_run.conclusion
                 exit_code = 0 if known_conclusion == "success" else 1
@@ -274,31 +285,19 @@ def execute_ci_case(
                 ci_run_source = awaited.source
                 exit_code = awaited.exit_code
                 poll_output = awaited.output
-    except Exception as exc:
-        duration_ms = int((time.monotonic() - started) * 1000)
-        raw_result = json.dumps(
-            {
-                **evidence,
-                "ci_run_id": ci_run_id or None,
-                "ci_conclusion": "error",
-                "ci_run_source": ci_run_source,
-                "superseded_ci_run_id": superseded_ci_run_id or None,
-                "failure_class": "infrastructure_transient",
-                "error": str(exc),
-            },
-            sort_keys=True,
-        )
-        run_id, _ = qa_case_ci_empty_diff._record_run(
+    except (Exception, KeyboardInterrupt, SystemExit) as exc:
+        qa_case_ci_run_recording.fail(
             case,
-            raw_result=raw_result,
-            duration_ms=duration_ms,
-            verdict="error",
-            output=str(exc),
+            run_id=qa_run_id,
+            evidence=evidence,
+            started=started,
+            ci_run_id=ci_run_id,
+            ci_run_source=ci_run_source,
+            superseded_ci_run_id=superseded_ci_run_id,
+            error=exc,
             actor=actor,
         )
-        raise QaCaseExecutionError(
-            f"CI execution errored; recorded QA run #{run_id}: {exc}"
-        ) from exc
+        raise
     duration_ms = int((time.monotonic() - started) * 1000)
     conclusion = known_conclusion or conclusion_from_poll(exit_code, poll_output)
     verdict, failure_class = (
@@ -319,8 +318,9 @@ def execute_ci_case(
         f"$ {workflow} on {repo}@{branch} ({head_sha[:12] or 'unknown sha'})\n"
         f"{run_url}\n\n[output]\n{poll_output}\n\n[exit_code]\n{exit_code}\n"
     )
-    qa_run_id, artifact_id = qa_case_ci_empty_diff._record_run(
+    qa_run_id, artifact_id = qa_case_ci_run_recording.finish(
         case,
+        run_id=qa_run_id,
         raw_result=raw_result,
         duration_ms=duration_ms,
         verdict=verdict,

@@ -32,6 +32,10 @@ owns discharged and replaced requirement predicates.
 
 Attempt insertion, judgment and replacement validation serialize within the obligation scope so a concurrent write cannot change the selected attempt underneath automatic discharge or close a correction cycle.
 
+Command (CI) records an attempt before polling; merge refuses with its CI link.
+Completion or interruption settles the same row. After executor death, retry
+adopts or supersedes CI and settles the abandoned attempt as an error.
+
 An older unfinished attempt is history after a newer actual attempt. A live
 plan execution, process or lease remains separately owned and must finish or
 abort before terminal settlement. Selecting an attempt does not release it.

@@ -19,7 +19,9 @@ class BlockingRequirementIssue:
     recovery: str
 
 
-def issue_for_requirement(requirement: dict[str, Any]) -> BlockingRequirementIssue | None:
+def issue_for_requirement(
+    requirement: dict[str, Any],
+) -> BlockingRequirementIssue | None:
     requirement_id = str(requirement.get("id") or "<unknown>")
     if error := requirement.get("replacement_graph_error"):
         return BlockingRequirementIssue(
@@ -65,12 +67,15 @@ def issue_for_requirement(requirement: dict[str, Any]) -> BlockingRequirementIss
             or verdict
             or "pending"
         ).strip()
+        ci_run = str(requirement.get("run_url") or "").strip()
+        ci_text = f"; CI run: {ci_run}" if ci_run else ""
         reason = str(requirement.get("verdict_reason") or "").strip()
         reason_text = f"; reason: {reason}" if verdict == "undetermined" else ""
         return BlockingRequirementIssue(
             requirement_id,
             "incomplete",
-            f"latest run #{run_id} concluded {actual!r}{reason_text}, not completed success",
+            f"latest run #{run_id} concluded {actual!r}{reason_text}, "
+            f"not completed success{ci_text}",
             recovery,
         )
     if requirement.get("current_passing_proof") is False:
