@@ -1,6 +1,8 @@
 """Plan definitions read once per presentation, for snapshots and plan groups."""
 
 
+from contextlib import nullcontext
+from yoke_core.domain.qa_plan_lock import bounded_plan_lock
 from yoke_core.domain.db_helpers import query_rows
 from yoke_core.domain.deployment_qa_presentation_reads import (
     presentation_read,
@@ -25,12 +27,13 @@ def read_plan_rows(conn, plan_ids, *, lock_plan):
     postgres = db_backend.connection_is_postgres(conn)
     markers = ",".join("%s" if postgres else "?" for _ in ids)
     lock = " FOR UPDATE" if lock_plan and postgres else ""
-    plans = query_rows(
-        conn,
-        f"SELECT {','.join((*PLAN_FIELDS, 'retired_at'))} "
-        f"FROM qa_plans WHERE id IN ({markers}) ORDER BY id{lock}",
-        ids,
-    )
+    with bounded_plan_lock(conn, "qa_plans") if lock_plan else nullcontext():
+        plans = query_rows(
+            conn,
+            f"SELECT {','.join((*PLAN_FIELDS, 'retired_at'))} "
+            f"FROM qa_plans WHERE id IN ({markers}) ORDER BY id{lock}",
+            ids,
+        )
     columns = ",".join("c." + field for field in PLAN_CASE_COLUMNS)
     cases = query_rows(
         conn,
@@ -71,12 +74,13 @@ def plan_snapshot_row(conn, plan_id, *, lock_plan):
     lock = (
         " FOR UPDATE" if lock_plan and db_backend.connection_is_postgres(conn) else ""
     )
-    rows = query_rows(
-        conn,
-        f"SELECT {','.join((*PLAN_FIELDS, 'retired_at'))} "
-        f"FROM qa_plans WHERE id={_p(conn)}{lock}",
-        (int(plan_id),),
-    )
+    with bounded_plan_lock(conn, "qa_plans") if lock_plan else nullcontext():
+        rows = query_rows(
+            conn,
+            f"SELECT {','.join((*PLAN_FIELDS, 'retired_at'))} "
+            f"FROM qa_plans WHERE id={_p(conn)}{lock}",
+            (int(plan_id),),
+        )
     return rows[0] if rows else None
 
 

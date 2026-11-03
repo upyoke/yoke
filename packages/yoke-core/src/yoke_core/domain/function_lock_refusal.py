@@ -1,12 +1,15 @@
 """Answer a lock a handler could not take with a named, retryable refusal.
 
-Three database answers mean the same thing to a caller -- another transaction
+Lock contention answers mean the same thing to a caller -- another transaction
 held what this call needed, and this call's open transaction did not commit --
 so each becomes a typed error the caller can retry on instead of a
 ``handler_exception`` that reads as a real failure:
 
 - ``run_busy``: the deployment run row stayed locked past its bound
   (:class:`~yoke_core.domain.deployment_runs_lock.DeploymentRunBusy`).
+- ``qa_plan_busy``: a QA definition or execution lock stayed held for 2 seconds.
+- ``idempotency_request_in_flight``: a duplicate request id is still running;
+  the reservation refuses before the handler starts.
 - ``lock_timeout``: any other lock wait outlived a ``lock_timeout``.
 - ``statement_cancelled``: an operator cancelled the statement
   (``pg_cancel_backend``) or a server timeout ended it.
@@ -28,13 +31,17 @@ from yoke_contracts.api.function_call import (
 from yoke_core.domain.deployment_runs_lock import RUN_BUSY_CODE, DeploymentRunBusy
 from yoke_core.domain.yoke_function_registry import RegistryEntry
 
+from yoke_core.domain.qa_plan_lock import QA_PLAN_BUSY_CODE, QaPlanBusy
+from yoke_core.domain.yoke_function_dispatch_idempotency import IDEMPOTENCY_BUSY_CODE
+
 LOCK_TIMEOUT_CODE = "lock_timeout"
 STATEMENT_CANCELLED_CODE = "statement_cancelled"
 
 #: Codes whose call wrote nothing durable in its open transaction and may be
 #: repeated once the holder finishes.
 RETRYABLE_LOCK_CODES = frozenset(
-    {RUN_BUSY_CODE, LOCK_TIMEOUT_CODE, STATEMENT_CANCELLED_CODE}
+    {RUN_BUSY_CODE, QA_PLAN_BUSY_CODE, IDEMPOTENCY_BUSY_CODE,
+     LOCK_TIMEOUT_CODE, STATEMENT_CANCELLED_CODE}
 )
 
 #: Pauses before each repeat of a call refused with one of those codes: 15s,
@@ -53,6 +60,11 @@ _RETRY = (
 
 def lock_refusal_outcome(entry: RegistryEntry, exc: BaseException) -> HandlerOutcome | None:
     """The named refusal for *exc*, or ``None`` when it is not a lock answer."""
+    if isinstance(exc, QaPlanBusy):
+        return HandlerOutcome(
+            primary_success=False,
+            error=FunctionError(code=QA_PLAN_BUSY_CODE, message=str(exc)),
+        )
     if isinstance(exc, DeploymentRunBusy):
         return HandlerOutcome(
             primary_success=False,

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from concurrent.futures import ThreadPoolExecutor
 import threading
+from time import monotonic
 
 from pydantic import BaseModel
 
@@ -35,8 +36,8 @@ def test_concurrent_duplicate_dispatch_replays_one_handler_result(
     monkeypatch, tmp_path,
 ):
     reset_registry_for_tests()
-    callers_ready = threading.Barrier(3)
-    handlers_overlap = threading.Barrier(2)
+    handler_started = threading.Event()
+    handler_release = threading.Event()
     calls: list[int] = []
     calls_lock = threading.Lock()
 
@@ -44,10 +45,8 @@ def test_concurrent_duplicate_dispatch_replays_one_handler_result(
         with calls_lock:
             calls.append(len(calls) + 1)
             call_number = calls[-1]
-        try:
-            handlers_overlap.wait(timeout=3)
-        except threading.BrokenBarrierError:
-            pass
+        handler_started.set()
+        assert handler_release.wait(timeout=10)
         return HandlerOutcome(
             result_payload={"claimed_batch": f"batch-{call_number}"},
             primary_success=True,
@@ -66,7 +65,10 @@ def test_concurrent_duplicate_dispatch_replays_one_handler_result(
         guardrails=[],
         adapter_status="live",
     )
-    monkeypatch.setattr(events_module, "emit_event", lambda *_a, **_k: None)
+    emitted = []
+    monkeypatch.setattr(
+        events_module, "emit_event", lambda name, **kw: emitted.append((name, kw))
+    )
     request = FunctionCallRequest(
         function="relay.concurrent.claim",
         actor=ActorContext(actor_id="operator", session_id="session-1"),
@@ -75,22 +77,36 @@ def test_concurrent_duplicate_dispatch_replays_one_handler_result(
         payload={},
     )
 
-    def call_dispatcher():
-        callers_ready.wait(timeout=5)
-        return dispatch(request, ambient_session_id="")
 
     try:
         with init_test_db(tmp_path), authorize_every_dispatch():
-            with ThreadPoolExecutor(max_workers=2) as executor:
-                futures = [executor.submit(call_dispatcher) for _ in range(2)]
-                callers_ready.wait(timeout=5)
-                responses = [future.result(timeout=15) for future in futures]
+            with ThreadPoolExecutor(max_workers=1) as executor:
+                original = executor.submit(dispatch, request, ambient_session_id="")
+                try:
+                    assert handler_started.wait(timeout=5)
+                    started = monotonic()
+                    duplicate = dispatch(request, ambient_session_id="")
+                    waited = monotonic() - started
+                finally:
+                    handler_release.set()
+                first = original.result(timeout=15)
+            replay = dispatch(request, ambient_session_id="")
     finally:
         reset_registry_for_tests()
 
     assert calls == [1]
-    assert all(response.success for response in responses)
-    assert [response.result for response in responses] == [
-        {"claimed_batch": "batch-1"},
-        {"claimed_batch": "batch-1"},
+    assert not duplicate.success
+    assert duplicate.error.code == "idempotency_request_in_flight"
+    assert "same request_id" in duplicate.error.message
+    assert waited < 1
+    assert first.success and replay.success
+    assert first.result == replay.result == {"claimed_batch": "batch-1"}
+
+    refusals = [
+        event for name, event in emitted
+        if name == "YokeFunctionCalled"
+        and event["context"].get("error_code") == "idempotency_request_in_flight"
     ]
+    assert len(refusals) == 1
+    assert refusals[0]["outcome"] == "failed"
+    assert refusals[0]["duration_ms"] is None  # No handler ran for the duplicate.

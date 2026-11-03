@@ -5,6 +5,8 @@ from __future__ import annotations
 import hashlib
 import json
 from typing import Any, Mapping
+from contextlib import nullcontext
+from yoke_core.domain.qa_plan_lock import bounded_plan_lock
 
 from yoke_core.domain import db_backend
 from yoke_contracts.timestamps import temporal_wire, utc_now
@@ -12,7 +14,6 @@ from yoke_core.domain.db_helpers import instant_parameter
 from yoke_core.domain.deployment_qa_release_version import current_release_execution
 from yoke_core.domain.qa_plan_execution_schema import LIVE_PLAN_EXECUTION_SQL
 
-# The unique live owner wins; history follows execution allocation, not snapshots.
 STANDALONE_HISTORY_ORDER_SQL = (
     f"CASE WHEN state IN ({LIVE_PLAN_EXECUTION_SQL}) THEN 0 ELSE 1 END, "
     "execution_order DESC"
@@ -161,17 +162,17 @@ def select_plan_execution(
     *,
     lock: bool,
 ) -> dict[str, Any]:
-    """Read and normalize one execution, optionally taking a write lock."""
     if lock and not db_backend.connection_is_postgres(conn):
         if not bool(getattr(conn, "in_transaction", False)):
             conn.execute("BEGIN IMMEDIATE")
     placeholder = marker(conn)
     suffix = " FOR UPDATE" if lock and db_backend.connection_is_postgres(conn) else ""
-    cursor = conn.execute(
-        f"SELECT * FROM qa_plan_executions WHERE id={placeholder}{suffix}",
-        (str(execution_id),),
-    )
-    row = _row_dict(cursor, cursor.fetchone())
+    with bounded_plan_lock(conn, "qa_plan_executions") if lock else nullcontext():
+        cursor = conn.execute(
+            f"SELECT * FROM qa_plan_executions WHERE id={placeholder}{suffix}",
+            (str(execution_id),),
+        )
+        row = _row_dict(cursor, cursor.fetchone())
     if row is None:
         raise QaPlanExecutionStateError(f"QA plan execution {execution_id!r} not found")
     from yoke_core.domain.qa_plan_execution_target_snapshot import (
@@ -331,7 +332,6 @@ def plan_execution_view(
         "results": result_rows(conn, str(execution["id"])),
         "host_free_cases_ahead": True,  # recorded ahead while a host queues
     }
-
 
 __all__ = [
     "QaPlanExecutionStateError",

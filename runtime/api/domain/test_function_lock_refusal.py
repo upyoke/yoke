@@ -24,6 +24,9 @@ from yoke_core.domain.function_lock_refusal import (
     name_lock_refusal,
 )
 
+from yoke_core.domain.qa_plan_lock import QA_PLAN_BUSY_CODE, QaPlanBusy
+from yoke_core.domain.yoke_function_dispatch_idempotency import IDEMPOTENCY_BUSY_CODE
+
 _ENTRY = SimpleNamespace(function_id="deployment_runs.qa_stage.dispatch")
 
 
@@ -70,6 +73,8 @@ def test_a_lock_timeout_or_cancelled_statement_is_named(sqlstate: str, code: str
 def test_every_named_code_is_retryable() -> None:
     assert RETRYABLE_LOCK_CODES == {
         RUN_BUSY_CODE,
+        QA_PLAN_BUSY_CODE,
+        IDEMPOTENCY_BUSY_CODE,
         LOCK_TIMEOUT_CODE,
         STATEMENT_CANCELLED_CODE,
     }
@@ -83,3 +88,11 @@ def test_any_other_failure_still_propagates() -> None:
 
 def test_a_successful_handler_passes_through() -> None:
     assert name_lock_refusal(_ENTRY, None, lambda entry, request: "ok") == "ok"
+
+
+def test_a_busy_qa_plan_keeps_its_retryable_refusal():
+    busy = QaPlanBusy("qa_plan_busy: retry the same command")
+    outcome = name_lock_refusal(_ENTRY, None, _raising(busy))
+    assert not outcome.primary_success
+    assert outcome.error.code == QA_PLAN_BUSY_CODE
+    assert outcome.error.message == str(busy)

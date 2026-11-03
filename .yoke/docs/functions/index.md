@@ -93,12 +93,14 @@ payload, so an operator can find the failing line.
 Every write that serializes on a deployment run takes the run row through one
 bounded lock: it waits at most 2 seconds, then refuses `run_busy` with the
 holder's pid, its state and how long it has held the lock. Dispatch answers
-three lock outcomes by name instead of `handler_exception`, because each means
+the following lock outcomes by name instead of `handler_exception`, because each means
 another transaction held what this call needed and this call's open
 transaction did not commit:
 
 | Code | Cause |
 |---|---|
+| `idempotency_request_in_flight` | The same request id is still running; refused immediately. |
+| `qa_plan_busy` | A QA definition or execution lock stayed held past its 2-second bound. |
 | `run_busy` | The deployment run row stayed locked past its 2-second bound. |
 | `lock_timeout` | Another lock wait outlived a `lock_timeout`. |
 | `statement_cancelled` | An operator cancelled the statement, or a server timeout ended it. |
@@ -128,7 +130,9 @@ means Python `None`. Claim policy never grants project/org permissions.
 ## Identity, replay and rollout
 
 Use a stable request id for one intended write. Same function/id replays its
-ledger response; cross-function reuse refuses. After ledger expiry a call is new.
+ledger response; cross-function reuse refuses. A concurrent copy refuses immediately
+as `idempotency_request_in_flight`; retry the identical envelope with the same
+request id after the original finishes to receive its ledger replay. After ledger expiry a call is new.
 Never repeat a mutation merely to request `--json`; request its receipt initially.
 Mutations remain committed when a separately reported downstream side effect
 degrades. Required operational facts belong to durable owners, not event history.

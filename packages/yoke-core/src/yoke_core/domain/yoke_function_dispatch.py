@@ -168,12 +168,8 @@ def _dispatch_impl(
     then the hook-written process-anchor registry) the actor-identity
     binding layer would otherwise perform. In-process Python callers
     typically leave this ``None`` so the local ambient chain resolves.
-    The HTTP boundary supplies the request's session id explicitly
-    (possibly ``""``) after bearer-token verification has overwritten
-    actor id with the token-owned actor, so the server never consults
-    its own environment for the caller's identity. Session id remains
-    payload-owned because claim/session gates still operate on the
-    caller's harness session.
+    HTTPS supplies the caller's session id and authenticated actor, so the
+    server never consults its own ambient identity for that caller.
     """
     _ensure_handlers_registered()
     typed_request, error = _coerce_request(request)
@@ -213,9 +209,7 @@ def _dispatch_impl(
         return bound.error
     assert bound.bound_request is not None  # narrows for the type checker
     typed_request = bound.bound_request
-    # Binder findings recorded on every dispatcher event: operator-debug
-    # session override (payload session uncorroborated by ambient) and
-    # provenance marking for sessions with no harness_sessions row.
+    # Keep binder findings on every dispatcher event.
     identity_context = identity_event_context(bound) or None
 
     # Relay contract: clients carry raw item refs; the server resolves
@@ -253,45 +247,49 @@ def _dispatch_impl(
         visible_project_ids=permission.visible_project_ids,
     )
 
-    with idempotency_module.request_reservation(entry, typed_request):
-        idem = handle_idempotency(
-            entry,
-            typed_request,
-            identity_context=identity_context,
-            permission_key=permission.permission_key,
-            project=permission.project_slug,
-            authorization_scope=authorization_scope,
-            payload_checksum=idempotency_checksum,
-            lookup=_idempotency_lookup,
-        )
-        if idem is not None:
-            return idem
-
-        claim_verification: dict[str, Any] = {}
-        claim_error = verify_claim(
-            entry,
-            typed_request,
-            evidence=claim_verification,
-        )
-        if claim_error is not None:
-            return claim_error
-
-        handler_started = start_duration_measurement()
-        outcome = name_connection_loss(
-            entry,
-            typed_request,
-            lambda e, r: name_lock_refusal(e, r, invoke_handler),
-        )
-        handler_duration_ms = elapsed_duration_ms(handler_started)
-        note_handler_duration(handler_duration_ms)
-        if not isinstance(outcome, HandlerOutcome):
-            return _error_response(
+    claim_verification: dict[str, Any] = {}
+    with idempotency_module.request_reservation(entry, typed_request) as refused:
+        if refused is not None:
+            outcome = HandlerOutcome(primary_success=False, error=refused.error)
+            handler_duration_ms = None
+        else:
+            idem = handle_idempotency(
+                entry,
                 typed_request,
-                entry.function_id,
-                entry.version,
-                "handler_contract",
-                f"handler for {entry.function_id!r} did not return HandlerOutcome",
+                identity_context=identity_context,
+                permission_key=permission.permission_key,
+                project=permission.project_slug,
+                authorization_scope=authorization_scope,
+                payload_checksum=idempotency_checksum,
+                lookup=_idempotency_lookup,
             )
+            if idem is not None:
+                return idem
+
+            claim_error = verify_claim(
+                entry,
+                typed_request,
+                evidence=claim_verification,
+            )
+            if claim_error is not None:
+                return claim_error
+
+            handler_started = start_duration_measurement()
+            outcome = name_connection_loss(
+                entry,
+                typed_request,
+                lambda e, r: name_lock_refusal(e, r, invoke_handler),
+            )
+            handler_duration_ms = elapsed_duration_ms(handler_started)
+            note_handler_duration(handler_duration_ms)
+            if not isinstance(outcome, HandlerOutcome):
+                return _error_response(
+                    typed_request,
+                    entry.function_id,
+                    entry.version,
+                    "handler_contract",
+                    f"handler for {entry.function_id!r} did not return HandlerOutcome",
+                )
 
         response = _build_response(entry, typed_request, outcome)
         if response.warnings:
