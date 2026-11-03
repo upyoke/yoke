@@ -49,9 +49,9 @@ _LOGGER = logging.getLogger(__name__)
 
 ABANDONED_RESULT_CODE = "abandoned_without_claim"
 NATIVE_PROCESS_GONE_REASON = "native_process_gone"
-# Only a launch the plane calls successful can be wrong in this direction.
-# One already closed as failed, expired, or uncertain is already honest.
-_REVIEWABLE_STATES = frozenset({"succeeded"})
+# A registered worker can die before acknowledgement or after launch success.
+# Already failed, expired, or uncertain launches need no correction.
+_REVIEWABLE_STATES = frozenset({"awaiting_registration", "succeeded"})
 
 
 def _launch_for_session(conn: Any, session_id: str) -> LaunchRecord | None:
@@ -127,10 +127,8 @@ def settle_launch_native_death(
 ) -> LaunchRecord | None:
     """Correct the launch of a worker whose native died before it ever worked.
 
-    Runs from the relay's verified-death report, so it does not wait for the
-    session to end — a killed native never ends its own session, which is
-    exactly the shape that left a launch reading ``succeeded`` while its item
-    quietly returned to the frontier.
+    Runs from verified-death reports before acknowledgement or after success;
+    a killed native never ends its own session.
     """
     current = utc_now() if now is None else parse_instant(now)
     begin_mutation(conn)
@@ -149,7 +147,9 @@ def settle_launch_native_death(
         recorded = {
             "result_code": ABANDONED_RESULT_CODE,
             "closure_reason": reason,
-            "launch_phase_reached": "registered_and_acknowledged",
+            "launch_phase_reached": (
+                "registered_and_acknowledged" if launch.state == "succeeded" else launch.state
+            ),
             "registration_session_id": session_id,
             **{
                 name: evidence[name]
@@ -205,7 +205,9 @@ def settle_abandoned_launch(
         evidence = {
             "result_code": ABANDONED_RESULT_CODE,
             "closure_reason": str(end_reason or "session_ended")[:128],
-            "launch_phase_reached": "registered_and_acknowledged",
+            "launch_phase_reached": (
+                "registered_and_acknowledged" if launch.state == "succeeded" else launch.state
+            ),
             "registration_session_id": session_id,
         }
         flipped = update_launch(

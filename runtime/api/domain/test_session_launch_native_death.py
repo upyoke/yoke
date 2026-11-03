@@ -4,7 +4,10 @@ from __future__ import annotations
 
 import json
 
+import pytest
+
 from yoke_core.domain import session_launch_abandonment as launch_abandonment
+from yoke_core.domain.session_launch_store import get_launch
 from yoke_core.domain.session_launch_abandonment import (
     ABANDONED_RESULT_CODE,
     abandonment_notice,
@@ -40,12 +43,15 @@ def _death_evidence() -> dict[str, object]:
     }
 
 
-def test_a_native_that_dies_before_working_flips_its_launch_immediately() -> None:
+@pytest.mark.parametrize("state", ["awaiting_registration", "succeeded"])
+def test_a_native_that_dies_before_working_flips_its_launch_immediately(state) -> None:
     conn = launch_connection()
     _worker_tables(conn)
     _events_table(conn)
     add_relay(conn)
-    assert _delivered_launch(conn).state == "succeeded"
+    launch = _delivered_launch(conn)
+    conn.execute("UPDATE session_launches SET state = ?", (state,))
+    conn.commit()
 
     flipped = launch_abandonment.settle_launch_native_death(
         conn,
@@ -55,9 +61,14 @@ def test_a_native_that_dies_before_working_flips_its_launch_immediately() -> Non
     )
 
     assert flipped is not None
-    assert flipped.state == "failed"
+    stored = get_launch(conn, launch.launch_id)
+    assert stored == flipped
+    assert stored.state == "failed"
     assert flipped.result_code == ABANDONED_RESULT_CODE
-    evidence = json.loads(flipped.result_evidence)
+    evidence = json.loads(stored.result_evidence)
+    assert evidence["launch_phase_reached"] == (
+        "registered_and_acknowledged" if state == "succeeded" else state
+    )
     # The reason travels with the correction, so the launch row explains
     # itself without anyone opening the machine-local capture.
     assert evidence["closure_reason"] == (
@@ -71,12 +82,15 @@ def test_a_native_that_dies_before_working_flips_its_launch_immediately() -> Non
     )
 
 
-def test_a_native_that_completed_a_tool_call_keeps_its_launch() -> None:
+@pytest.mark.parametrize("state", ["awaiting_registration", "succeeded"])
+def test_a_native_that_completed_a_tool_call_keeps_its_launch(state) -> None:
     conn = launch_connection()
     _worker_tables(conn)
     _events_table(conn)
     add_relay(conn)
-    _delivered_launch(conn)
+    launch = _delivered_launch(conn)
+    conn.execute("UPDATE session_launches SET state = ?", (state,))
+    before = get_launch(conn, launch.launch_id)
     # A worker killed mid-work was working; only one that never began is a
     # launch that reported success for nothing. The marker on the session
     # says so, and keeps saying so after the telemetry has been pruned.
@@ -92,6 +106,8 @@ def test_a_native_that_completed_a_tool_call_keeps_its_launch() -> None:
         )
         is None
     )
+
+    assert get_launch(conn, launch.launch_id) == before
 
 
 def test_a_native_death_without_a_tail_still_names_why_it_flipped() -> None:

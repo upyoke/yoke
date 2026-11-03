@@ -61,13 +61,13 @@ Indexes: `idx_harness_sessions_level(execution_level)`, `idx_harness_sessions_he
 
 Shell access: the Python harness-session CLI (`begin|touch|end|get|list|stale|reclaim`). API: `/v1/sessions` endpoints.
 
-**Launch binding.** The opening hook binds its exact session with its launch-specific
-attestation. Folder and time proximity never establish ownership. Relay reports
-preserve that binding and delivery receipt. Item-assigned launches also require
-the worker to claim that exact item before the deadline. Missing entry fails as
-`launch_work_claim_missing`, and the failed launch alone no longer staffs the item.
-Read `yoke session-control launch get LAUNCH-ID --json` for binding, receipt and
-recovery evidence before retrying. Itemless launches need acknowledgement only.
+**Launch binding.** The hook binds the exact session through launch attestation;
+folder and time proximity prove nothing. Relay reports preserve binding and receipt.
+Assigned workers must claim their item before the deadline or fail as
+`launch_work_claim_missing`, freeing staffing. Itemless workers only acknowledge.
+Death before work fails as `abandoned_without_claim`, even before acknowledgement,
+and notifies the requester. Inspect binding, phase, exit code and stderr before
+retrying: `yoke session-control launch get LAUNCH-ID --json`.
 
 ## Table: work_claims
 
@@ -129,10 +129,7 @@ Inside the Yoke source repo only, the in-tree `python3 -m yoke_core.hooks.sessio
 `work_claims` is the **active session occupancy** primitive — including which session currently steers a project or strategy-doc scope. It is NOT path/file ownership truth (that lives in `path_claims`) and NOT a dangerous shared-operation lock (those are the [shared-operation coordination claims](coordination.md#shared-operation-coordination-claims)). Process path claims attribute back to their owning process work-claim through `path_claims.owner_work_claim_id`.
 
 ## Related
-
 - [Shared coordination](coordination.md)
 - [Path claims](path-claims.md)
 - [QA model](../../verification/model/qa.md)
-
-
 Unregistered failures leave the report after item completion, a later registered launch, or operator settlement. Exit evidence renders as `native_exited`; see [launch recovery](../../agents/level-launches.md#unregistered-launch-failures).
