@@ -14,7 +14,12 @@ from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, Field
 
-from yoke_contracts.api.function_call import FunctionCallRequest, HandlerOutcome
+from yoke_contracts.api.function_call import (
+    FunctionCallRequest,
+    FunctionError,
+    HandlerOutcome,
+)
+from yoke_contracts.refusal_recovery import compose_refusal
 from yoke_contracts.github_app_installation_permissions import (
     GITHUB_ACTIONS_READ_PERMISSION_LEVELS,
 )
@@ -58,7 +63,7 @@ class CommitRunsListResponse(BaseModel):
 def _selected(
     data: Any,
     head_sha: str,
-    workflow_name: str,
+    workflow_id: str,
 ) -> List[Dict[str, Any]]:
     if not isinstance(data, dict):
         return []
@@ -71,10 +76,33 @@ def _selected(
             continue
         if str(run.get("head_sha") or "") != head_sha:
             continue
-        if workflow_name and str(run.get("name") or "") != workflow_name:
+        if workflow_id and str(run.get("workflow_id") or "") != workflow_id:
             continue
         selected.append(run)
     return selected
+
+
+def _workflows(repo: str, *, token: str) -> List[Dict[str, Any]]:
+    from yoke_core.domain.gh_rest_transport import RestTransportError
+    from yoke_core.domain.github_actions_rest import rest_get
+
+    workflows: List[Dict[str, Any]] = []
+    page = 1
+    while True:
+        data = rest_get(
+            f"/repos/{repo}/actions/workflows",
+            query={"per_page": "100", "page": str(page)},
+            token=token,
+        )
+        entries = data.get("workflows") if isinstance(data, dict) else None
+        if not isinstance(entries, list) or any(
+            not isinstance(entry, dict) or not entry.get("id") for entry in entries
+        ):
+            raise RestTransportError("GitHub workflows response is malformed")
+        workflows.extend(entries)
+        if len(entries) < 100:
+            return workflows
+        page += 1
 
 
 def handle_commit_runs_list(request: FunctionCallRequest) -> HandlerOutcome:
@@ -98,7 +126,42 @@ def handle_commit_runs_list(request: FunctionCallRequest) -> HandlerOutcome:
             "the project's GitHub binding names no repository to read runs from"
         )
     head_sha = payload.head_sha.strip()
+    workflow_id = ""
     try:
+        if payload.workflow:
+            workflows = _workflows(repo, token=resolved.token)
+            matches = [
+                workflow
+                for workflow in workflows
+                if payload.workflow
+                in (
+                    workflow.get("name"),
+                    workflow.get("path"),
+                    str(workflow.get("path") or "").rsplit("/", 1)[-1],
+                )
+            ]
+            if len(matches) != 1:
+                code = "workflow_not_found" if not matches else "workflow_ambiguous"
+                names = (
+                    ", ".join(
+                        f"{workflow.get('name')} ({workflow.get('path')})"
+                        for workflow in workflows
+                    )
+                    or "(none)"
+                )
+                return HandlerOutcome(
+                    result_payload={},
+                    primary_success=False,
+                    error=FunctionError(
+                        code=code,
+                        message=compose_refusal(
+                            f"{code}: {payload.workflow!r} does not identify one workflow in {repo}",
+                            evaluated=f"repository workflows: {names}",
+                            recovery="Retry --workflow with a listed workflow name or file path",
+                        ),
+                    ),
+                )
+            workflow_id = str(matches[0]["id"])
         data = rest_get(
             f"/repos/{repo}/actions/runs",
             query={"head_sha": head_sha, "per_page": "100"},
@@ -118,7 +181,7 @@ def handle_commit_runs_list(request: FunctionCallRequest) -> HandlerOutcome:
             head_branch=str(run.get("head_branch") or ""),
             event=str(run.get("event") or ""),
         )
-        for run in _selected(data, head_sha, str(payload.workflow or ""))
+        for run in _selected(data, head_sha, workflow_id)
     ]
     return HandlerOutcome(
         result_payload=CommitRunsListResponse(

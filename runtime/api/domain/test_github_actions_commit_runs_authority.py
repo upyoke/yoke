@@ -175,8 +175,12 @@ class _Resolved:
     token = "installation-token"
 
 
-def test_the_handler_selects_by_exact_sha_and_workflow_name(
+@pytest.mark.parametrize(
+    "selector", ["yoke-ci", ".github/workflows/ci.yml", "ci.yml", "missing"]
+)
+def test_the_handler_selects_by_exact_sha_and_workflow_id(
     monkeypatch: pytest.MonkeyPatch,
+    selector,
 ):
     """The matching rules live with the authority, not at the call site."""
     monkeypatch.setattr(
@@ -190,23 +194,42 @@ def test_the_handler_selects_by_exact_sha_and_workflow_name(
     )
     monkeypatch.setattr(
         "yoke_core.domain.github_actions_rest.rest_get",
-        lambda path, *, query, token: {
-            "workflow_runs": [
-                {"id": 1, "name": "yoke-ci", "head_sha": HEAD, "status": "queued"},
-                {"id": 2, "name": "release", "head_sha": HEAD, "status": "queued"},
-                {"id": 3, "name": "yoke-ci", "head_sha": "b" * 40, "status": "queued"},
-            ]
-        },
+        lambda path, *, query, token: (
+            {
+                "workflows": [
+                    {"id": 42, "name": "yoke-ci", "path": ".github/workflows/ci.yml"}
+                ]
+            }
+            if path.endswith("/workflows")
+            else {
+                "workflow_runs": [
+                    {
+                        "id": 1,
+                        "workflow_id": 42,
+                        "name": "Custom run",
+                        "head_sha": HEAD,
+                    },
+                    {"id": 2, "workflow_id": 99, "name": "yoke-ci", "head_sha": HEAD},
+                    {"id": 3, "workflow_id": 42, "head_sha": "b" * 40},
+                ]
+            }
+        ),
     )
 
     outcome = handler_module.handle_commit_runs_list(
         _request(
             function=handler_module.FUNCTION_ID,
             target=TargetRef(kind="global"),
-            payload={"project": "yoke", "head_sha": HEAD, "workflow": "yoke-ci"},
+            payload={"project": "yoke", "head_sha": HEAD, "workflow": selector},
         )
     )
 
+    if selector == "missing":
+        assert not outcome.primary_success
+        assert outcome.error.code == "workflow_not_found"
+        assert "yoke-ci (.github/workflows/ci.yml)" in outcome.error.message
+        assert "Retry --workflow" in outcome.error.message
+        return
     assert outcome.primary_success
     assert [run["id"] for run in outcome.result_payload["runs"]] == ["1"]
     assert outcome.result_payload["repo"] == "owner/name"
