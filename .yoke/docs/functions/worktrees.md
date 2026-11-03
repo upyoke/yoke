@@ -146,3 +146,23 @@ Read the named refusal, repair its cause and rerun the same command. List
 `yoke item-worktrees list PREFIX-N` if preparation stopped after recording paths.
 Use `yoke dev run -- <command>` only after a claimed source lane exists.
 Release pins retain exact lineage; [deployment contracts](../deployments/model/runs.md).
+
+### Declare the project's environment command once
+
+When convention detection cannot install a project's dependencies, someone with
+project authority declares the `setup_command` capability once for the project.
+Use the project's documented environment command, backed by its lockfile or
+toolchain script. For Python tests, it must create the checkout's `.venv` with
+pytest and the project's test dependencies. Do not substitute a floating package
+install for the project's locked setup.
+
+```text
+yoke projects capability-settings set --project PROJECT --cap-type setup_command --settings-json '{"command":"<documented environment command>"}' --new
+```
+
+Without project authority, ask steering or the operator to declare it. Lane
+prepare runs this command automatically in each worktree; do not hand-prepare
+each lane. After declaration, rerun the lane prepare command, then retry tests
+if they refused with `PROJECT-ENVIRONMENT-MISSING`. This also covers a bare
+`pyproject.toml` with differently named locked requirements that convention
+detection does not recognize. Onboarding detection does not declare this choice.
