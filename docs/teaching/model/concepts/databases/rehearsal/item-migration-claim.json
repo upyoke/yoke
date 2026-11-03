@@ -2,6 +2,7 @@
  "id": "item-migration-claim",
  "title": "Item migration claim",
  "status": "draft-copy",
+ "summary": "The prose gate recognizes explicit negative scope such as without any schema change, without a migration, and without database changes. A semicolon ends the without clause, so an unrelated without tests clause cannot negate later database work. Structural SQL still requires a declared claim or reviewed-negative attestation.",
  "page": "databases",
  "position": 0
 }

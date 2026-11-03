@@ -9,6 +9,9 @@ from __future__ import annotations
 import pytest
 
 from yoke_core.domain.db_claim_prose_check import check, check_item
+from yoke_core.domain.db_claim_prose_check_triggers import (
+    _has_explicit_negative_db_claim,
+)
 from runtime.api.fixtures.backlog import insert_item
 
 
@@ -24,6 +27,34 @@ def db_conn(test_db):
 
 
 class TestCheckComposition:
+    @pytest.mark.parametrize("prose", [
+        "without any schema change",
+        "without a migration",
+        "without database changes",
+    ])
+    def test_without_db_work_is_an_explicit_negative_claim(self, prose):
+        assert _has_explicit_negative_db_claim(prose) is True
+        outcome = check(prose, profile_raw={"state": "none"})
+        assert outcome.blocks is False
+        assert outcome.recovery == ""
+
+    @pytest.mark.parametrize("prose", [
+        "adds a schema change",
+        "without tests; adds a migration",
+        "without tests; adds a schema migration",
+    ])
+    def test_unrelated_without_does_not_negate_db_work(self, prose):
+        assert _has_explicit_negative_db_claim(prose) is False
+        assert check(prose, profile_raw={"state": "none"}).blocks is True
+
+    def test_without_tests_keeps_a_following_db_trigger_blocking(self):
+        outcome = check(
+            "without tests; adds a schema migration",
+            profile_raw={"state": "none"},
+        )
+        assert outcome.triggers == ["schema migration"]
+        assert outcome.blocks is True
+
     def test_clean_prose_no_block(self):
         outcome = check("just a refactor of helpers", profile_raw='{"state":"none"}')
         assert outcome.blocks is False
