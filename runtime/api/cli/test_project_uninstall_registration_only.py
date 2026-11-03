@@ -96,3 +96,45 @@ def test_shared_connection_registration_is_preserved(registered):
     ):
         uninstall(root, config_path=config)
     assert config.read_bytes() == before
+
+
+def test_non_repo_removes_only_selected_registration_and_preserves_all_files(
+    registered,
+):
+    root, config = registered
+    (root / ".git").rename(root / "saved-git")
+    (root / ".yoke").mkdir()
+    (root / ".yoke/custom.txt").write_text("preserved layer\n")
+    other = root.parent / "other"
+    other.mkdir()
+    writer.register_project(other, 9, path=config)
+    writer.set_connection(
+        "other",
+        transport="https",
+        api_url="https://other.invalid",
+        token="fixture",
+        path=config,
+    )
+    writer.set_active_env("other", path=config)
+    writer.register_project(root, 8, path=config)
+    writer.set_active_env("prod", path=config)
+    original = json.loads(config.read_text())
+    expected = json.loads(config.read_text())
+    expected["connection_projects"]["prod"] = [
+        row
+        for row in original["connection_projects"]["prod"]
+        if row["checkout"] != str(root)
+    ]
+    before_files = {
+        str(p.relative_to(root)): p.read_bytes() for p in root.rglob("*") if p.is_file()
+    }
+
+    report = uninstall(root, config_path=config)
+
+    assert report["outcome"] == "complete"
+    assert report["files_removed"] == []
+    assert report["local_cleanup"]["trust"] == []
+    assert config.read_bytes() == (json.dumps(expected, indent=2) + "\n").encode()
+    assert {
+        str(p.relative_to(root)): p.read_bytes() for p in root.rglob("*") if p.is_file()
+    } == before_files

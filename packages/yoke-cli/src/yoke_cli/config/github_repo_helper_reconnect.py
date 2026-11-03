@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+import shlex
 import urllib.parse
 
 from yoke_cli.config import github_git_credentials, github_repo_config, machine_config
@@ -113,6 +114,7 @@ def restore_missing_bundle(config_path: str | Path | None) -> dict[str, object]:
     matched: list[Path] = []
     ambiguous: str | None = None
     unreadable: list[Path] = []
+    warnings: list[str] = []
     for root in checkouts:
         outcome = _classify_helper_reference(root, config_path=config_path)
         if outcome == "match":
@@ -121,12 +123,24 @@ def restore_missing_bundle(config_path: str | Path | None) -> dict[str, object]:
             ambiguous = str(root)
         elif outcome == "unreadable":
             unreadable.append(root)
+        elif outcome == "not_a_repo":
+            warnings.append(
+                f"not_a_repo: {root} is registered but is not a Git repository; "
+                f"run yoke project uninstall {shlex.quote(str(root))} "
+                "on its owning connection to remove that exact registration"
+            )
 
+    warning_receipt = {"warnings": warnings} if warnings else {}
     unresolved = _unresolved_reference_error(ambiguous, unreadable)
     if not matched:
         if unresolved is not None:
-            return {"configured": None, "repaired": False, "error": unresolved}
-        return {"configured": False, "repaired": False}
+            return {
+                "configured": None,
+                "repaired": False,
+                "error": unresolved,
+                **warning_receipt,
+            }
+        return {"configured": False, "repaired": False, **warning_receipt}
 
     try:
         helper = github_git_credentials.install_stable_helper()
@@ -134,7 +148,12 @@ def restore_missing_bundle(config_path: str | Path | None) -> dict[str, object]:
         error = str(exc)
         if unresolved is not None:
             error = f"{error}; also unresolved: {unresolved}"
-        return {"configured": True, "repaired": False, "error": error}
+        return {
+            "configured": True,
+            "repaired": False,
+            "error": error,
+            **warning_receipt,
+        }
     rewritten, rewrite_error = _rewrite_stale_references(
         matched, helper=helper, config_path=config_path
     )
@@ -143,6 +162,7 @@ def restore_missing_bundle(config_path: str | Path | None) -> dict[str, object]:
         "configured": True,
         "repaired": True,
         "rewritten": rewritten,
+        **warning_receipt,
     }
     if errors:
         result["error"] = "; ".join(errors)
@@ -207,8 +227,10 @@ def _classify_helper_reference(
     *,
     config_path: str | Path | None,
 ) -> str:
-    """Return "match" / "ambiguous" / "unreadable" / "none" for *root*."""
+    """Classify a checkout's helper reference or stale registration."""
     try:
+        if not github_repo_config.is_repository(root):
+            return "not_a_repo"
         keys = github_repo_config.helper_keys(root)
     except github_repo_config.GitHubRepoConfigError:
         return "unreadable"
