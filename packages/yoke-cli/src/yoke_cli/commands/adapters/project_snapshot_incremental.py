@@ -57,6 +57,9 @@ def sync_snapshots(
     warnings: List[str] = []
     project_id: Any = None
     upload_order = [ref for ref in (plan.integration, plan.head) if ref]
+    if plan.integration and plan.integration.commit_sha == plan.head.commit_sha:
+        # HEAD carries lane identity even when its content matches the base.
+        upload_order.reverse()
     for ref in upload_order:
         if ref.commit_sha in by_commit:
             rows[ref.label] = alias_snapshot_row(
