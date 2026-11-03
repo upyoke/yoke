@@ -64,6 +64,21 @@ def home_free_path_prefixes(machine_home: str | None = None) -> tuple[str, ...]:
     return resolved
 
 
+def resembles_home_free_path(target: str) -> bool:
+    """Recognize a possible home-free operand for diagnosis, never authority."""
+    path = Path(target)
+    if not path.is_absolute():
+        return False
+    # A candidate home must contain at least one component below the root.
+    for home in path.parents:
+        if home == Path(path.anchor):
+            continue
+        for suffix in _FREE_PATH_SUFFIXES:
+            if path.is_relative_to(home / suffix):
+                return True
+    return False
+
+
 def is_sanctioned_installed_read_path(
     target: str,
     *,
@@ -91,5 +106,6 @@ def is_sanctioned_installed_read_path(
 __all__ = [
     "expand_machine_home",
     "home_free_path_prefixes",
+    "resembles_home_free_path",
     "is_sanctioned_installed_read_path",
 ]

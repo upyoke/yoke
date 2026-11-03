@@ -16,6 +16,7 @@ import sys
 import tempfile
 import time
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import Mock
 
 import pytest
@@ -114,6 +115,16 @@ def test_a_launched_resident_that_exits_ends_the_wait_at_once(
 def test_a_resident_that_only_ever_restarts_gives_up_inside_the_budget(
     paths, monkeypatch
 ) -> None:
+    clock = [100.0]
+
+    def sleep(seconds):
+        assert 0 < seconds <= client._START_RETRY_SECONDS
+        clock[0] += seconds
+        assert clock[0] <= 101.0, "restart retries exceeded the hook deadline"
+
+    monkeypatch.setattr(
+        client, "time", SimpleNamespace(monotonic=lambda: clock[0], sleep=sleep)
+    )
     monkeypatch.setattr(client, "_connect", lambda *_args: Mock())
     monkeypatch.setattr(
         client,
@@ -124,8 +135,12 @@ def test_a_resident_that_only_ever_restarts_gives_up_inside_the_budget(
             "requested_revision": "bbbbbbbbbbbb",
         },
     )
-    error, elapsed = _evaluate()
-    assert elapsed < 1.3, f"waited {elapsed:.2f}s on a 1s budget"
+    with pytest.raises(client.ResidentUnavailable) as raised:
+        client.evaluate_with_resident(
+            "PreToolUse", "{}", client_started_monotonic=100.0
+        )
+    error = raised.value
+    assert 1.0 - client._START_RETRY_SECONDS <= clock[0] - 100.0 <= 1.0
     assert error.code == "YOKE_HOOK_RESIDENT_UNREACHABLE"
     # Both revisions are named, so a stuck upgrade reads from one line.
     assert "aaaaaaaaaaaa" in error.detail and "bbbbbbbbbbbb" in error.detail
