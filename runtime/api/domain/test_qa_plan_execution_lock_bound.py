@@ -58,10 +58,10 @@ def test_bounded_call_refuses_with_recovery_when_the_execution_row_stays_locked(
         holder.close()
 
     assert not response.success
-    assert response.error.code == "plan_execution_invalid"
-    assert response.error.message.startswith("qa_checkin_busy:")
-    assert "retry the same execution" in response.error.message
-    assert waited < 10
+    assert response.error.code == "qa_plan_busy"
+    assert response.error.message.startswith("qa_plan_busy:")
+    assert "Retry the same command" in response.error.message
+    assert waited < 5
     state, reason = test_db.execute(
         "SELECT state,release_reason FROM qa_plan_executions WHERE id=%s",
         (str(execution["id"]),),

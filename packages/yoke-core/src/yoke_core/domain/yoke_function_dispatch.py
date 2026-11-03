@@ -213,9 +213,7 @@ def _dispatch_impl(
         return bound.error
     assert bound.bound_request is not None  # narrows for the type checker
     typed_request = bound.bound_request
-    # Binder findings recorded on every dispatcher event: operator-debug
-    # session override (payload session uncorroborated by ambient) and
-    # provenance marking for sessions with no harness_sessions row.
+    # Keep binder findings on every dispatcher event.
     identity_context = identity_event_context(bound) or None
 
     # Relay contract: clients carry raw item refs; the server resolves
@@ -253,7 +251,9 @@ def _dispatch_impl(
         visible_project_ids=permission.visible_project_ids,
     )
 
-    with idempotency_module.request_reservation(entry, typed_request):
+    with idempotency_module.request_reservation(entry, typed_request) as refused:
+        if refused is not None:
+            return refused
         idem = handle_idempotency(
             entry,
             typed_request,

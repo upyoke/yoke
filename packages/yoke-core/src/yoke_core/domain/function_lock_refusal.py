@@ -28,13 +28,17 @@ from yoke_contracts.api.function_call import (
 from yoke_core.domain.deployment_runs_lock import RUN_BUSY_CODE, DeploymentRunBusy
 from yoke_core.domain.yoke_function_registry import RegistryEntry
 
+from yoke_core.domain.qa_plan_lock import QA_PLAN_BUSY_CODE, QaPlanBusy
+from yoke_core.domain.yoke_function_dispatch_idempotency import IDEMPOTENCY_BUSY_CODE
+
 LOCK_TIMEOUT_CODE = "lock_timeout"
 STATEMENT_CANCELLED_CODE = "statement_cancelled"
 
 #: Codes whose call wrote nothing durable in its open transaction and may be
 #: repeated once the holder finishes.
 RETRYABLE_LOCK_CODES = frozenset(
-    {RUN_BUSY_CODE, LOCK_TIMEOUT_CODE, STATEMENT_CANCELLED_CODE}
+    {RUN_BUSY_CODE, QA_PLAN_BUSY_CODE, IDEMPOTENCY_BUSY_CODE,
+     LOCK_TIMEOUT_CODE, STATEMENT_CANCELLED_CODE}
 )
 
 #: Pauses before each repeat of a call refused with one of those codes: 15s,
@@ -53,6 +57,11 @@ _RETRY = (
 
 def lock_refusal_outcome(entry: RegistryEntry, exc: BaseException) -> HandlerOutcome | None:
     """The named refusal for *exc*, or ``None`` when it is not a lock answer."""
+    if isinstance(exc, QaPlanBusy):
+        return HandlerOutcome(
+            primary_success=False,
+            error=FunctionError(code=QA_PLAN_BUSY_CODE, message=str(exc)),
+        )
     if isinstance(exc, DeploymentRunBusy):
         return HandlerOutcome(
             primary_success=False,

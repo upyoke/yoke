@@ -16,6 +16,7 @@ from yoke_core.domain.deployment_run_carried_work_source import (
     open_carried_work_source,
 )
 from yoke_core.domain.deployment_run_project_sources import run_delivered_sha
+from yoke_core.domain.qa_plan_lock import bounded_plan_lock
 from yoke_core.domain.qa_plan_management import QaPlanError, _placeholder
 from yoke_core.domain.schema_common import _column_exists
 from yoke_core.domain.deployment_qa_presentation_reads import presentation_read
@@ -117,11 +118,12 @@ def update_plan_source(
         raise QaPlanError(SOURCE_BINDING_UNAVAILABLE)
     column = "source_revision" if supported else "NULL AS source_revision"
     lock = " FOR UPDATE" if marker == "%s" else ""
-    current_revision = query_scalar(
-        conn,
-        f"SELECT {column} FROM qa_plans WHERE id={marker}{lock}",
-        (int(plan["id"]),),
-    )
+    with bounded_plan_lock(conn, "qa_plans"):
+        current_revision = query_scalar(
+            conn,
+            f"SELECT {column} FROM qa_plans WHERE id={marker}{lock}",
+            (int(plan["id"]),),
+        )
     if current_revision and revision is None:
         raise QaPlanError(
             "qa_plan_source_revision_required: this plan is source-bound; "

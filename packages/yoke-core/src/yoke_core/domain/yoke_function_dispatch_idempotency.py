@@ -15,6 +15,9 @@ from yoke_core.domain.yoke_function_dispatch_events import emit_idempotency_repl
 from yoke_core.domain.yoke_function_registry import RegistryEntry
 
 
+IDEMPOTENCY_BUSY_CODE = "idempotency_request_in_flight"
+
+
 IdempotencyReplay = Tuple[Dict[str, Any], str, str, str, str]
 IdempotencyLookup = Callable[
     [str],
@@ -39,13 +42,14 @@ def _close_quietly(conn: Any) -> None:
 def request_reservation(
     entry: RegistryEntry,
     request: FunctionCallRequest,
-) -> Iterator[None]:
+) -> Iterator[FunctionCallResponse | None]:
     """Serialize concurrent copies of one side-effecting request.
 
     The ledger can replay only after the first successful dispatch records its
     result. A transport retry may arrive before that write, so Postgres holds a
     session advisory lock from the initial lookup through the handler and
-    ledger write. A waiting copy then observes and replays the committed row.
+    ledger write. A concurrent copy refuses immediately and retries the same
+    request id later to replay the committed row.
     Session locks release automatically if the serving process disappears.
 
     Connection acquisition remains best-effort, matching the ledger's existing
@@ -70,7 +74,8 @@ def request_reservation(
 
     lock_key = _reservation_key(request.request_id)
     try:
-        conn.execute("SELECT pg_advisory_lock(%s)", (lock_key,))
+        row = conn.execute("SELECT pg_try_advisory_lock(%s)", (lock_key,)).fetchone()
+        acquired = bool(row[0])
         # Session advisory locks survive a commit. End the transaction before
         # invoking the handler so long-lived operations such as relay polls do
         # not appear as idle-in-transaction lock holders while they wait.
@@ -78,6 +83,26 @@ def request_reservation(
     except Exception:
         _close_quietly(conn)
         yield
+        return
+
+    if not acquired:
+        from yoke_contracts.refusal_recovery import compose_refusal
+
+        _close_quietly(conn)
+        yield FunctionCallResponse(
+            success=False,
+            function=entry.function_id,
+            version=entry.version,
+            request_id=request.request_id,
+            error=FunctionError(
+                code=IDEMPOTENCY_BUSY_CODE,
+                message=compose_refusal(
+                    f"{IDEMPOTENCY_BUSY_CODE}: this request id is already running",
+                    recovery="Retry the identical request with the same request_id "
+                    "after the original finishes to receive its ledger replay",
+                ),
+            ),
+        )
         return
 
     try:
