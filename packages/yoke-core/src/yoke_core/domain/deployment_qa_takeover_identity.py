@@ -84,7 +84,10 @@ def continued_subject(conn: Any, execution: Mapping, target: Mapping) -> dict | 
     ):
         raise ValueError(
             "qa_execution_target_unowned: the current release has no obligation for "
-            "this exact frozen target; inspect the execution's recorded target"
+            "this exact frozen target; reconcile the stale execution with "
+            f"`yoke qa plan reconcile --project {current['project_slug']} "
+            f"--execution-id {execution['id']} --reason "
+            '\"Reconcile QA frozen to a superseded target\"`'
         )
     members = [int(member)] if member is not None else []
     rows = (
@@ -183,4 +186,3 @@ def read_execution_subject(
         member_item_id=execution.get("deployment_member_item_id"),
         require_active=require_active,
     )
-
