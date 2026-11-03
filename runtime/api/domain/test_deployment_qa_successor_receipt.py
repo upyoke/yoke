@@ -6,6 +6,7 @@ import pytest
 
 from runtime.api.domain import test_deployment_run_target_takeover as takeover
 from runtime.api.domain.test_deployment_qa_takeover_identity import _execution
+from runtime.api.domain.test_deployment_qa_successor_retry import _record
 from runtime.api.fixtures.deployment_scoped_qa_run_fixture import record_case_verdict
 from yoke_core.domain.deployment_qa_execution_target import (
     deployment_qa_execution_target,
@@ -85,7 +86,7 @@ def test_corrected_case_uses_successor_without_invalidating_prior_evidence(
 ):
     execution = _execution(test_db, monkeypatch)
     requirement = execution["roster"][0]["requirement_id"]
-    attempt = record_case_verdict(test_db, requirement, "fail", evidence=True)
+    _, attempt = _record(test_db, execution, 0, "fail")
     finish_plan_execution(
         test_db, execution, state="completed", reason="failed smoke recorded"
     )
@@ -154,7 +155,7 @@ def test_partial_refresh_keeps_unresolved_evidence_from_another_plan(
 
     execution = _execution(test_db, monkeypatch)
     requirement = execution["roster"][0]["requirement_id"]
-    record_case_verdict(test_db, requirement, "fail", evidence=True)
+    _record(test_db, execution, 0, "fail")
     finish_plan_execution(
         test_db, execution, state="completed", reason="failure recorded"
     )

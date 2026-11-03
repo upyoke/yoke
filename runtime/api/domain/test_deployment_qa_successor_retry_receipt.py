@@ -2,6 +2,10 @@
 
 import pytest
 
+from runtime.api.domain.test_deployment_qa_successor_retry import (
+    _pinned_release as _pinned_release,
+)
+
 from runtime.api.domain import test_deployment_run_target_takeover as takeover
 from runtime.api.domain.test_deployment_qa_successor_retry import (
     MEMBER,
