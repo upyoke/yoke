@@ -42,7 +42,6 @@ def _existing_rows(
     stage_name: str,
     member_item_id: int | None,
     plan_id: int,
-    execution_target_digest: str,
 ) -> list[dict[str, Any]]:
     return query_rows(
         conn,
@@ -50,13 +49,12 @@ def _existing_rows(
         "FROM qa_requirements WHERE deployment_run_id=%s "
         "AND deployment_stage=%s "
         "AND COALESCE(deployment_member_item_id,0)=%s AND plan_id=%s "
-        "AND execution_target_digest=%s ORDER BY id",
+        "AND superseded_by_requirement_id IS NULL AND retracted_at IS NULL ORDER BY id",
         (
             run_id,
             stage_name,
             member_item_id or 0,
             int(plan_id),
-            execution_target_digest,
         ),
     )
 
@@ -87,6 +85,9 @@ def materialize_subject(
     try:
         # Serializes first materialization without adding another ledger/index.
         lock_run(conn, str(deployment_run_id))
+        from yoke_core.domain.deployment_qa_requirement_target_refresh import rebind_subject
+
+        rebind_subject(conn, subject=subject, target=target)
         from yoke_core.domain.deployment_qa_snapshot_selection import (
             freeze_selected_plans,
         )
@@ -139,7 +140,6 @@ def materialize_subject(
                 stage_name=str(deployment_stage),
                 member_item_id=deployment_member_item_id,
                 plan_id=plan_id,
-                execution_target_digest=target_digest(target),
             )
             refreshed = refreshed_case_keys(
                 conn,

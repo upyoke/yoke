@@ -12,10 +12,10 @@ from yoke_core.domain.schema_common import (
     environment_reference_column_sql,
 )
 from yoke_core.domain.schema_init_apply import execute_schema_script
+from yoke_core.domain.qa_deployment_requirement_identity_schema import ensure_requirement_scope_indexes
 from yoke_core.domain.qa_method_definitions import BUILTIN_QA_METHODS
 from yoke_core.domain.qa_deployment_scope_schema import (
     DEPLOYMENT_SCOPE_COLUMNS,
-    REQUIREMENT_SCOPE_INDEX_SQL,
 )
 
 
@@ -334,7 +334,7 @@ def create_qa_catalog_tables(
     for column, definition in _ATTACHMENT_RETRACT_COLUMNS:
         _add_column_if_not_exists(conn, "qa_plan_item_attachments", column, definition)
     qa_plan_requirement_identity.ensure_plan_requirement_indexes(conn)
-    execute_schema_script(conn, REQUIREMENT_SCOPE_INDEX_SQL)
+    ensure_requirement_scope_indexes(conn)
     if commit:
         conn.commit()
 

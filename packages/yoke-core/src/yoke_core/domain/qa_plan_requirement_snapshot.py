@@ -278,6 +278,12 @@ def existing_requirement_id(
     subject_value: int | str = (
         int(item_id) if item_id is not None else str(deployment_run_id)
     )
+    if deployment_stage is not None:
+        execution_target_digest = None
+    open_clause = (
+        "AND superseded_by_requirement_id IS NULL AND retracted_at IS NULL "
+        if deployment_stage is not None else ""
+    )
     target_clause = (
         f"AND execution_target_digest={marker} "
         if execution_target_digest is not None
@@ -309,7 +315,7 @@ def existing_requirement_id(
         f"AND COALESCE(host_baseline, '')={marker} "
         f"AND COALESCE(workflow_transition_id, '')={marker} "
         f"{environment_clause}"
-        f"{target_clause}",
+        f"{target_clause}{open_clause}",
         params,
     )
     return int(row["id"]) if row is not None else None

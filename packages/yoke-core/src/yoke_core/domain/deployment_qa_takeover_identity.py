@@ -48,7 +48,6 @@ def continued_subject(conn: Any, execution: Mapping, target: Mapping) -> dict | 
     if not inherited_target(conn, run_id, target):
         return None
     from yoke_core.domain.deployment_qa_stage_contract import _read_run, _run_stage
-    from yoke_core.domain.qa_execution_environment_target import target_digest
 
     identity = target["deployment"]
     stage_name = str(execution["deployment_stage"])
@@ -77,14 +76,15 @@ def continued_subject(conn: Any, execution: Mapping, target: Mapping) -> dict | 
             conn,
             "SELECT id FROM qa_requirements WHERE deployment_run_id=%s "
             "AND deployment_stage=%s AND deployment_member_item_id IS NOT DISTINCT FROM %s "
-            "AND execution_target_digest=%s LIMIT 1",
-            (run_id, stage_name, member, target_digest(target)),
+            "AND id=ANY(%s) LIMIT 1",
+            (run_id, stage_name, member,
+             [int(row["requirement_id"]) for row in execution["roster"]]),
         )
         is None
     ):
         raise ValueError(
             "qa_execution_target_unowned: the current release has no obligation for "
-            "this exact frozen target; reconcile the stale execution with "
+            "this frozen execution roster; reconcile the stale execution with "
             f"`yoke qa plan reconcile --project {current['project_slug']} "
             f"--execution-id {execution['id']} --reason "
             '\"Reconcile QA frozen to a superseded target\"`'

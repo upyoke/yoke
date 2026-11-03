@@ -78,7 +78,9 @@ def admitted_plan_selection(conn, subject, target, selector):
         ),
     )
     if not rows:
-        _incomplete(plan_id, subject)
+        # A takeover owns the same cases at a new receipt. The ordinary
+        # writer rebinds those rows before validating the frozen admission.
+        return None
     fan_out = snapshot_fan_out(snapshot["plan"], cases)
     selected_rows = []
     for case in cases:

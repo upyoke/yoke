@@ -216,6 +216,18 @@ def _insert_case(conn, refresh, *, plan, case, baseline, position) -> int:
 
 def write_subject_refresh(conn: Any, refresh: SubjectRefresh) -> dict[str, Any]:
     """Refresh this subject's rows; the caller holds the run lock."""
+    from yoke_core.domain.deployment_qa_requirement_target_refresh import rebind_subject
+
+    rebound = rebind_subject(
+        conn,
+        subject={"id": refresh.run_id, "stage": {"name": refresh.stage},
+                 "member_item_id": refresh.member},
+        target=refresh.target,
+    )
+    for rows in refresh.rows_by_plan.values():
+        for row in rows:
+            if int(row["id"]) in rebound:
+                row["execution_target_digest"] = target_digest(refresh.target)
     owner_scope = dict(
         run_id=refresh.run_id, stage=refresh.stage, member=refresh.member
     )
@@ -293,11 +305,7 @@ def write_subject_refresh(conn: Any, refresh: SubjectRefresh) -> dict[str, Any]:
                 **owner_scope,
             )
     declare_refreshed_replacements(conn, created)
-    from yoke_core.domain.deployment_qa_target_continuity import (
-        link_inherited_replacements,
-    )
 
-    link_inherited_replacements(conn, refresh, created)
     waived = [
         int(row["id"])
         for plan_rows in refresh.rows_by_plan.values()
