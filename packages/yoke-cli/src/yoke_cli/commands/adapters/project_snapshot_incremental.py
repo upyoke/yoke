@@ -4,7 +4,8 @@ Per commit: offer the server a list of ancestor commits before scanning
 anything. A commit the server already holds settles there. Otherwise the
 server names a base it holds and only files whose blob differs from that
 base are read and uploaded; without a base the full inventory is. The
-integration target goes first so the lane's HEAD can build on it.
+integration target goes first when commits differ so HEAD can build on it.
+Identical commits send HEAD first to record the lane before reusing content.
 """
 
 from __future__ import annotations
