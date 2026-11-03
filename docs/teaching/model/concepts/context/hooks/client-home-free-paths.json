@@ -1,0 +1,8 @@
+{
+ "id": "client-home-free-paths",
+ "title": "Client home for free paths",
+ "status": "observed",
+ "surface_refs": ["project-hooks"],
+ "sources": ["packages/yoke-core/src/yoke_core/domain/lint_session_cwd_home.py", "packages/yoke-core/src/yoke_core/domain/lint_session_cwd_denial.py", "runtime/api/domain/test_lint_session_cwd_machine_home_relay.py"],
+ "text": "Home-derived free paths, including standard user cache roots, use the executing client's canonical home fact. When a refused absolute operand resembles a home-derived free path and that fact is missing or invalid, the shared guard names client_home_metadata_missing_or_invalid and teaches the session to update the CLI with yoke update and retry. Recognizing the shape supplies a diagnosis only; it grants no path authority. A valid client-home fact admits the client's standard cache paths. Observed in source and regression tests; live installed delivery is not established by these checks."
+}
