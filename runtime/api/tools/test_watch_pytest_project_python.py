@@ -259,6 +259,7 @@ def test_explicit_parallel_choice_skips_project_probe(
 @pytest.mark.parametrize(
     "failure",
     [
+        subprocess.CompletedProcess([], 1),
         subprocess.CompletedProcess([], 2),
         OSError("cannot start"),
         subprocess.TimeoutExpired("project-python", 30),

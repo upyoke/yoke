@@ -69,7 +69,7 @@ def project_parallel_args(
         "-c",
         (
             "import importlib.util; "
-            "raise SystemExit(0 if importlib.util.find_spec('xdist') else 1)"
+            "raise SystemExit(0 if importlib.util.find_spec('xdist') else 42)"
         ),
     ]
     try:
@@ -83,7 +83,7 @@ def project_parallel_args(
                 recovery="Check the project's test environment command, then retry.",
             )
         ) from exc
-    if result.returncode == 1:
+    if result.returncode == 42:
         print(
             "watch_pytest PROJECT-XDIST-MISSING: running serially; add "
             "pytest-xdist to the project's test dependencies to enable parallel runs.",
