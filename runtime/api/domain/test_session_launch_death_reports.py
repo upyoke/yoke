@@ -28,9 +28,9 @@ def test_registered_launch_is_settled_only_for_death_before_work(conn, scenario)
     )
     conn.execute(
         "INSERT INTO session_launches "
-        "(launch_id, requester_actor_id, project_id, requested_surface, message_id, "
+        "(launch_id, requester_actor_id, project_id, requested_surface, selected_surface, message_id, "
         "state, registered_session_id, native_session_id, created_at, deadline_at) "
-        "VALUES (%s, %s, 1, 'codex-cli', %s, 'awaiting_registration', "
+        "VALUES (%s, %s, 1, 'codex-cli', 'codex-cli', %s, 'awaiting_registration', "
         "%s, %s, %s, %s)",
         (launch_id, actor_id, message_id, session_id, session_id,
          now, now + timedelta(minutes=10)),
