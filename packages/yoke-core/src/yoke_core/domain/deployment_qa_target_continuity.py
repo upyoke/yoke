@@ -133,7 +133,7 @@ def refresh_target(conn, run_id, stage, member, stored):
 
 def require_fresh_materialization(conn, subject, target):
     from yoke_core.domain.qa_execution_environment_target import target_digest
-    from yoke_core.domain.qa_plan_execution_state_shared import (
+    from yoke_core.domain.qa_plan_execution_store import (
         QaPlanExecutionStateError,
     )
 
