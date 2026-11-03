@@ -83,6 +83,7 @@ class _StageRead:
     admitted: list
     snapshots: list
     selected_admission: dict | None = None
+    refresh_target: bool = True
 
 
 def stage_subject(conn, *, run_id, stage_name, member, plan, require_active=True):
@@ -174,7 +175,23 @@ def _read_stage(
         replacement_keys=replacement_keys,
         replacement_scopes=replacement_scopes,
     )
-    return _StageRead(projection, subject, target, admitted, snapshots)
+    from yoke_core.domain.deployment_qa_presentation_facts import subject_requirement_rows
+
+    rows = subject_requirement_rows(
+        conn, run_id, deployment_stage, deployment_member_item_id
+    )
+    # The projection is checked under the run lock before this fact is used.
+    refresh_target = rows is None or any(
+        row.get("method_id") is not None
+        and row.get("execution_target_json") is not None
+        and row.get("execution_target_digest") is not None
+        and row.get("superseded_by_requirement_id") is None
+        and row.get("retracted_at") is None
+        for row in rows
+    )
+    return _StageRead(
+        projection, subject, target, admitted, snapshots, refresh_target=refresh_target
+    )
 
 
 @composition_operation

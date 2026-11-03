@@ -73,6 +73,7 @@ def materialize_subject(
     snapshots: list[dict],
     commit: bool = True,
     replaced_requirement_ids: frozenset[int] = frozenset(),
+    refresh_target: bool = True,
 ) -> dict[str, Any]:
     """Materialize one member's cases, a run subject, or one plan group."""
     from yoke_core.domain.deployment_qa_stage_materialization import (
@@ -92,7 +93,8 @@ def materialize_subject(
         lock_run(conn, str(deployment_run_id))
         from yoke_core.domain.deployment_qa_requirement_target_refresh import rebind_subject
 
-        rebind_subject(conn, subject=subject, target=target)
+        if refresh_target:
+            rebind_subject(conn, subject=subject, target=target)
         from yoke_core.domain.deployment_qa_snapshot_selection import (
             freeze_selected_plans,
         )
