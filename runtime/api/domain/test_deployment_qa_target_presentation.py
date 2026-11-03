@@ -33,6 +33,7 @@ def test_overview_target_queries_and_resolutions_are_bounded(test_db, monkeypatc
         ("targets-large", tuple(range(9801, 9811))),
     ):
         _seed(test_db, run_id, members)
+        calls.clear()
         conn = CountingConnection(test_db)
         subjects = [(run_id, member, "item-qa") for member in members]
 
