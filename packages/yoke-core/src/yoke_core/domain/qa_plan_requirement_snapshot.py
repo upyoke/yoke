@@ -268,6 +268,7 @@ def existing_requirement_id(
     baseline: Optional[str],
     transition_id: Optional[str] = None,
     execution_target_digest: Optional[str] = None,
+    group_id: str = "",
     target_env: Optional[str] = None,
 ) -> Optional[int]:
     """Resolve the snapshot that won a concurrent idempotent insert."""
@@ -277,6 +278,13 @@ def existing_requirement_id(
     subject_column = "item_id" if item_id is not None else "deployment_run_id"
     subject_value: int | str = (
         int(item_id) if item_id is not None else str(deployment_run_id)
+    )
+    if deployment_stage is not None:
+        execution_target_digest = None
+    open_clause = (
+        "AND superseded_by_requirement_id IS NULL AND retracted_at IS NULL "
+        "AND COALESCE(execution_target_json::jsonb #>> '{deployment,shared_plan,group_id}', '')=%s "
+        if deployment_stage is not None else ""
     )
     target_clause = (
         f"AND execution_target_digest={marker} "
@@ -298,6 +306,8 @@ def existing_requirement_id(
         params += (target_env or "",)
     if execution_target_digest is not None:
         params += (execution_target_digest,)
+    if deployment_stage is not None:
+        params += (group_id,)
     row = query_one(
         conn,
         "SELECT id FROM qa_requirements "
@@ -309,7 +319,7 @@ def existing_requirement_id(
         f"AND COALESCE(host_baseline, '')={marker} "
         f"AND COALESCE(workflow_transition_id, '')={marker} "
         f"{environment_clause}"
-        f"{target_clause}",
+        f"{target_clause}{open_clause}",
         params,
     )
     return int(row["id"]) if row is not None else None

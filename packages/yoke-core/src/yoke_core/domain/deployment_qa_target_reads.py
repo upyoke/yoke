@@ -64,7 +64,9 @@ def first_materialized_execution_target(
         if rows is not None:
             targets = {}
             for row in rows:
-                if row["execution_target_json"] is not None:
+                if (row["execution_target_json"] is not None
+                    and row["superseded_by_requirement_id"] is None
+                    and row["retracted_at"] is None):
                     targets.setdefault(
                         int(row["deployment_member_item_id"] or 0), dict(row)
                     )
@@ -76,7 +78,8 @@ def first_materialized_execution_target(
         rows = conn.execute(
             "SELECT deployment_member_item_id,execution_target_json FROM qa_requirements "
             f"WHERE deployment_run_id={_p(conn)} AND deployment_stage={_p(conn)} "
-            f"{member_filter}AND execution_target_json IS NOT NULL ORDER BY "
+            f"{member_filter}AND execution_target_json IS NOT NULL "
+            "AND superseded_by_requirement_id IS NULL AND retracted_at IS NULL ORDER BY "
             "CASE WHEN method_id IS NOT NULL THEN 0 ELSE 1 END, id"
             + ("" if batch else " LIMIT 1"),
             (str(run_id), str(stage_name))

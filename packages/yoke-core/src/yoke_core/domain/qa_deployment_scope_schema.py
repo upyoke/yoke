@@ -8,6 +8,7 @@ from typing import Any
 from yoke_contracts.refusal_recovery import compose_refusal
 
 from yoke_core.domain import db_backend
+from yoke_core.domain.qa_deployment_requirement_identity_schema import requirement_index_specs
 from yoke_core.domain.schema_common import (
     _add_column_if_not_exists,
     _column_exists,
@@ -96,33 +97,14 @@ _EXECUTION_INDEX_SPECS = (
     ),
 )
 
-# Applied history imports the old specs; boot converges only the current keys.
+# Applied history imports the old execution specs; boot uses current keys.
 EXECUTION_INDEX_SPECS = tuple(
     ("idx_qa_plan_executions_deployment_stage_target_active", keys + ("execution_target_digest",), scope)
     if name == "idx_qa_plan_executions_deployment_stage_active" else (name, keys, scope)
     for name, keys, scope in _EXECUTION_INDEX_SPECS
 )
 
-_REQUIREMENT_INDEX_SPECS = tuple(
-    (
-        requirement_name,
-        # Requirements key on the subject alone: (run), (run, stage), (run, stage, member).
-        execution_spec[1][: position + 1]
-        + ("plan_id", "plan_case_key", "COALESCE(host_baseline, '')")
-        + (() if position == 0 else ("execution_target_digest",)),
-        execution_spec[2] + " AND plan_id IS NOT NULL",
-    )
-    for position, (requirement_name, execution_spec) in enumerate(
-        zip(
-            (
-                "idx_qa_requirement_deployment_legacy_materialization",
-                "idx_qa_requirement_deployment_stage_materialization",
-                "idx_qa_requirement_deployment_member_stage_materialization",
-            ),
-            _EXECUTION_INDEX_SPECS,
-        )
-    )
-)
+_REQUIREMENT_INDEX_SPECS = requirement_index_specs(_EXECUTION_INDEX_SPECS)
 
 
 def _index_sql(table: str, specs: tuple[tuple[str, tuple[str, ...], str], ...]) -> str:
@@ -260,7 +242,14 @@ def _index_contract(
 
 
 def _normalized_keys(keys: tuple[str, ...]) -> tuple[str, ...]:
-    return tuple(re.sub(r"\s+", "", key).replace("::text", "") for key in keys)
+    def normalize(key):
+        value = re.sub(r"\s+", "", key)
+        if "execution_target_json" in value:
+            # Postgres adds expression parentheses and a text-array path cast.
+            return re.sub(r"::text(?:\[\])?", "", value).replace("(", "").replace(")", "")
+        return value.replace("::text", "")
+
+    return tuple(normalize(key) for key in keys)
 
 
 def _assert_indexes(
@@ -331,7 +320,6 @@ def assert_deployment_scope_contract(conn: Any) -> None:
             is not None
         ):
             raise AssertionError(f"obsolete index {obsolete} still exists")
-
 
 __all__ = [
     "EXECUTION_SCOPE_INDEX_NAMES",

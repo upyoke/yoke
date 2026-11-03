@@ -20,8 +20,7 @@ and the resulting key distinguishes the corrected row from the frozen one it
 is declared to replace, and which it supersedes once it passes
 (:mod:`qa_requirement_replacement`). The distinct
 key is also what makes the second row possible at all -- a materialized case
-is unique on ``(run, stage, member, plan_id, plan_case_key, host_baseline,
-target)``, so a replacement sharing the original's key could not be inserted.
+is unique on ``(run, stage, member, plan_id, plan_case_key, host_baseline)``, so a replacement sharing the original's key could not be inserted.
 """
 
 from __future__ import annotations

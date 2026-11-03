@@ -97,7 +97,7 @@ def _transferred_requirements(
 
     placeholders = ",".join("%s" for _ in requirement_ids)
     rows = conn.execute(
-        "SELECT id,execution_target_json FROM qa_requirements "
+        "SELECT id,COALESCE(rebound_from_target_json,execution_target_json) FROM qa_requirements "
         f"WHERE id IN ({placeholders})",
         requirement_ids,
     ).fetchall()

@@ -96,12 +96,15 @@ def test_takeover_pending_review_holds_only_its_frozen_target(
         assert fresh["execution_target"]["deployment"]["run_id"] == takeover.NEW
         assert fresh["execution_target_digest"] != execution["execution_target_digest"]
         assert fresh["roster"][0]["requirement_id"] == requirement_id
-        with pytest.raises(ValueError, match="qa_execution_target_unowned") as refused:
-            validate_deployment_execution_target(test_db, execution)
-        assert (
-            f"yoke qa plan reconcile --project yoke --execution-id {execution['id']} "
-            '--reason "Reconcile QA frozen to a superseded target"'
-        ) in str(refused.value)
+        # Frozen captures retain their authorized roster after its obligations rebind.
+        validate_deployment_execution_target(test_db, execution)
+        stored = test_db.execute(
+            "SELECT execution_target_digest,roster_json FROM qa_plan_executions WHERE id=%s",
+            (execution["id"],),
+        ).fetchone()
+        assert stored["execution_target_digest"] == execution["execution_target_digest"]
+        assert json.loads(stored["roster_json"])[0]["execution_target_digest"] == execution["execution_target_digest"]
+
     else:
         with pytest.raises(QaPlanNothingOwed, match="review-begin"):
             open_unsettled_roster(
