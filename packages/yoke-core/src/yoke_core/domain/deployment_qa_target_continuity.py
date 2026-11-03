@@ -175,6 +175,11 @@ def same_owned_destination(predecessor, successor):
         _decode_stored_target(row.get("execution_target_json"))
         for row in (predecessor, successor)
     ]
+    from yoke_core.domain.qa_execution_environment_target import target_digest
+
     return all(
-        is_deployment_execution_target(target) for target in targets
+        target is not None
+        and is_deployment_execution_target(target)
+        and target_digest(target) == row.get("execution_target_digest")
+        for row, target in zip((predecessor, successor), targets, strict=True)
     ) and same_destination(*targets)

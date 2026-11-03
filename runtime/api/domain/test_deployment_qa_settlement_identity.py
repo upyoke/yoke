@@ -31,6 +31,10 @@ def test_settlement_rejects_execution_for_a_different_frozen_target(monkeypatch)
         "yoke_core.domain.qa_execution_environment_target.target_digest",
         lambda *args: "expected",
     )
+    monkeypatch.setattr(
+        "yoke_core.domain.deployment_qa_target_continuity.settlement_target",
+        lambda conn, subject, target: target,
+    )
     conn = mock.Mock()
     conn.execute.return_value.fetchone.return_value = {
         "status": "executing",
