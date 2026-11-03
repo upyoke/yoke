@@ -24,6 +24,16 @@ class GitHubRepoConfigError(RuntimeError):
     """A checkout's local Git config could not be read or changed safely."""
 
 
+def is_repository(root: Path) -> bool:
+    """Distinguish stale folders from repositories Git cannot inspect."""
+    result = _run(root, "rev-parse", "--git-dir")
+    if result.returncode == 0:
+        return True
+    if "not a git repository" in result.stderr:
+        return False
+    raise GitHubRepoConfigError("checkout Git directory could not be read")
+
+
 def values(root: Path, key: str) -> list[str]:
     result = _run(root, "config", "--local", "--get-all", key)
     if result.returncode not in (0, 1):
@@ -110,7 +120,7 @@ def _run(root: Path, *args: str):
         return run_network_git(
             ["git", *args],
             cwd=root,
-            env=git_config_env(()),
+            env={**git_config_env(()), "LC_ALL": "C"},
             timeout_seconds=REPO_CONFIG_TIMEOUT_SECONDS,
             maximum_output_bytes=REPO_CONFIG_OUTPUT_MAX_BYTES,
         )
@@ -157,6 +167,7 @@ __all__ = [
     "REPO_CONFIG_OUTPUT_MAX_BYTES",
     "REPO_CONFIG_TIMEOUT_SECONDS",
     "helper_keys",
+    "is_repository",
     "matching_remote_urls",
     "replace_values",
     "values",

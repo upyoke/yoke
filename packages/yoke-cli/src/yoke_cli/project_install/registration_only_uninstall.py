@@ -6,7 +6,7 @@ import json
 from pathlib import Path
 
 from yoke_contracts.machine_config import schema as contract
-from yoke_cli.config import machine_config_file
+from yoke_cli.config import github_repo_config, machine_config_file
 from yoke_cli.config.machine_config_mutation import load_payload, serialized_mutation
 from yoke_cli.project_install import owned_cleanup, uninstall_commit
 from yoke_cli.project_install.files import MODE_COPY, MODE_KEY, ProjectInstallError
@@ -30,18 +30,29 @@ def uninstall_registration(root: Path, *, path=None) -> dict:
             "registration or install manifest on this connection. Select the "
             "owning connection and registered checkout, then retry project uninstall."
         )
-    # Existing uninstall guards cover both untracked work and a dirty index.
-    _, warnings = uninstall_commit.prepare(
-        root, {"project_id": exact[0]["project_id"]}, cfg
-    )
-    if (root / ".yoke").exists() or (root / ".yoke").is_symlink():
+    try:
+        repository = github_repo_config.is_repository(root)
+    except github_repo_config.GitHubRepoConfigError as exc:
+        raise ProjectInstallError(
+            f"project_uninstall_git_unreadable: {root}; repair Git access or "
+            "configuration, then retry project uninstall; nothing was removed."
+        ) from exc
+    warnings = []
+    if repository:
+        # Existing uninstall guards cover untracked work and a dirty index.
+        _, warnings = uninstall_commit.prepare(
+            root, {"project_id": exact[0]["project_id"]}, cfg
+        )
+    if repository and ((root / ".yoke").exists() or (root / ".yoke").is_symlink()):
         raise ProjectInstallError(
             "project_uninstall_manifest_missing: .yoke exists without its install "
             "manifest. Preserve its contents and recover the install manifest, "
             "then retry project uninstall; no registration or file was removed."
         )
-    reason = owned_cleanup.scope_reason(
-        root, {"project_id": exact[0]["project_id"]}, cfg
+    reason = (
+        owned_cleanup.scope_reason(root, {"project_id": exact[0]["project_id"]}, cfg)
+        if repository
+        else None
     )
     if reason:
         raise ProjectInstallError(

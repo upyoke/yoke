@@ -223,6 +223,11 @@ one launcher pointer atomically. Running commands keep their original modules;
 new commands use the published release. Old environments retire after their
 commands finish; cleanup failures name the reason and the update to retry.
 The installer repairs git credential-helper references for the new release.
+A registered folder that is no longer a Git repository produces a `not_a_repo`
+warning in the helper receipt and does not block activation. Remove that stale
+registration with `yoke project uninstall /path/to/folder` on its owning
+connection. Unreadable Git configuration in a real repository still refuses;
+repair that configuration and retry the update.
 uv runs with umask `022`, so the new release's files are not group- or
 other-writable, and uv keeps its normal cache. Before publishing, the installer
 checks every credential-helper source in the new release. If cached files are

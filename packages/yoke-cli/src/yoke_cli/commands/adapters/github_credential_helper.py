@@ -68,4 +68,7 @@ def github_credential_helper_refresh(args: List[str]) -> int:
             print(f"Pointed {root} at the current git credential helper.")
         if error:
             print(f"credential helper repair failed: {error}")
+    if not parsed.json_mode:
+        for warning in result.get("warnings") or []:
+            print(f"warning: {warning}")
     return 1 if error else 0
