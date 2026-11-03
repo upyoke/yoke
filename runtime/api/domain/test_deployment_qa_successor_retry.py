@@ -89,7 +89,8 @@ def _record(conn, execution, ordinal, verdict, *, created="2026-09-01T00:00:00Z"
         "SELECT method_config FROM qa_requirements WHERE id=%s", (requirement_id,)
     ).fetchone()[0]
     raw = stamp_executed_method_config(
-        f"{verdict} evidence", config, conn=conn, requirement_id=requirement_id
+        f"{verdict} evidence", config, conn=conn, requirement_id=requirement_id,
+        execution_target_digest=execution["execution_target_digest"]
     )
     run_id = int(
         conn.execute(

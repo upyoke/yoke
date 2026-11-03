@@ -81,3 +81,42 @@ def rebind_subject(conn, *, subject, target):
             )
             rebound.append(requirement_id)
     return rebound
+
+
+def carry_execution_passes(conn, *, subject, target, execution):
+    """Credit a frozen walk that finished after its obligations were rebound."""
+    frozen = execution["execution_target"]
+    if not evidence_target_matches(conn, str(subject["id"]), frozen, target):
+        return
+    ids = [int(row["requirement_id"]) for row in execution["roster"]]
+    rows = query_rows(
+        conn,
+        "SELECT * FROM qa_requirements WHERE id=ANY(%s) "
+        "AND deployment_run_id=%s AND execution_target_digest=%s "
+        "AND superseded_by_requirement_id IS NULL AND retracted_at IS NULL",
+        (ids, str(subject["id"]), target_digest(target)),
+    )
+    attempts = latest_executions(conn, ids)
+    now = instant_parameter(conn, utc_now())
+    candidates = [
+        dict(row, rebound_from_digest=target_digest(frozen), rebound_at=now)
+        for row in rows
+    ]
+    passing = passing_requirements_for_rows(conn, candidates, attempts)
+    with savepoint(conn, "qa_frozen_execution_passes", owns=False):
+        for requirement_id in passing:
+            recorded = recorded_execution_target_digest(
+                attempts[requirement_id]["raw_result"]
+            )
+            if recorded == target_digest(frozen):
+                conn.execute(
+                    "UPDATE qa_requirements SET rebound_from_digest=%s,rebound_at=%s WHERE id=%s "
+                    "AND deployment_run_id=%s AND execution_target_digest=%s",
+                    (
+                        recorded,
+                        now,
+                        requirement_id,
+                        str(subject["id"]),
+                        target_digest(target),
+                    ),
+                )

@@ -77,10 +77,16 @@ def test_plan_run_rebinds_in_place_and_carries_only_matching_pass(
     failed, _ = _record(test_db, execution, 1, "fail")
     finish_plan_execution(test_db, execution, state="completed", reason="case failed")
     before = select_plan_execution(test_db, execution["id"], lock=False)
-    successor_url = "https://preview.example.test" if same_destination else "https://different.example.test"
+    successor_url = (
+        "https://preview.example.test"
+        if same_destination
+        else "https://different.example.test"
+    )
     if not same_destination:
-        test_db.execute("UPDATE environments SET url=%s WHERE id=%s",
-            (successor_url, execution["execution_target"]["environment"]["id"]))
+        test_db.execute(
+            "UPDATE environments SET url=%s WHERE id=%s",
+            (successor_url, execution["execution_target"]["environment"]["id"]),
+        )
         test_db.commit()
     _take_over_and_deploy(test_db, observed_url=successor_url)
     fresh = _plan_run(test_db, monkeypatch, takeover.NEW)
@@ -272,3 +278,26 @@ def test_failed_case_keeps_its_correction_pointer_after_rebinding(test_db, monke
     ).fetchone()[0]
     assert row["replacement_requirement_id"] == correction
     assert row["execution_target_digest"] == target
+
+
+def test_inflight_frozen_walk_can_finish_after_materialization_rebinds(
+    test_db, monkeypatch
+):
+    execution = _seed_member_execution(test_db, monkeypatch)
+    passed, _ = _record(test_db, execution, 0, "pass")
+    _take_over_and_deploy(test_db)
+    materialize_deployment_qa_stage(
+        test_db,
+        deployment_run_id=takeover.NEW,
+        deployment_stage="item-qa",
+        deployment_member_item_id=MEMBER,
+    )
+    moved = select_plan_execution(test_db, execution["id"], lock=False)
+    second, _ = _record(test_db, moved, 1, "pass")
+    finish_plan_execution(
+        test_db, moved, state="completed", reason="frozen walk finished"
+    )
+    assert current_passing_requirements(test_db, [passed, second]) == {passed, second}
+    frozen = select_plan_execution(test_db, execution["id"], lock=False)
+    assert frozen["execution_target_digest"] == execution["execution_target_digest"]
+    assert frozen["roster"] == execution["roster"]
