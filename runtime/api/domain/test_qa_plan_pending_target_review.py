@@ -9,6 +9,10 @@ from runtime.api.domain.test_deployment_qa_takeover_identity import _execution
 from yoke_core.domain.deployment_qa_execution_target import (
     validate_deployment_execution_target,
 )
+from yoke_core.domain.deployment_stage_receipts import (
+    allocate_deployment_stage_receipt,
+    complete_deployment_stage_receipt,
+)
 from yoke_core.domain.qa_pending_agent_review import pending_review_requirements
 from yoke_core.domain.qa_plan_execution_begin import begin_plan_execution
 from yoke_core.domain.qa_plan_nothing_owed import QaPlanNothingOwed
@@ -42,6 +46,25 @@ def test_takeover_pending_review_holds_only_its_frozen_target(
     )
     test_db.commit()
     if rematerialize:
+        receipt = allocate_deployment_stage_receipt(
+            test_db,
+            run_id=takeover.NEW,
+            stage_name="deploy",
+            correlation_id="successor-deploy",
+            target_kind="persistent_environment",
+            executor="test",
+        )
+        complete_deployment_stage_receipt(
+            test_db,
+            run_id=takeover.NEW,
+            receipt_id=int(receipt["id"]),
+            correlation_id="successor-deploy",
+            status="ready",
+            target_name="stage",
+            observed_url="https://preview.example.test",
+            observed_release_lineage=takeover.NEW_LINEAGE,
+            executor_receipt="test://successor-deploy-ready",
+        )
         test_db.execute(
             "UPDATE deployment_runs n SET status='executing',current_stage=%s,"
             "composition_frozen_at=now(),requirement_snapshot=o.requirement_snapshot "
