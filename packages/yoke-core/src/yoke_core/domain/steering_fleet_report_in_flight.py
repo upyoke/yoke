@@ -1,7 +1,7 @@
 """Whether a quiet claim holder is stuck or sitting inside one long call.
 
-Tool calls and running command heartbeats measure activity. When neither has
-advanced recently, a holder whose newest open ``session_tool_calls`` row invokes a known
+Tool calls measure work; command heartbeats measure liveness. Without recent
+tool work, a holder whose newest open ``session_tool_calls`` row invokes a known
 long-running shape -- the watcher wrappers and the inline merge-queue landing
 wait -- is reported as in flight rather than counted toward the idle alarm.
 Four facts must hold together, because each alone has been observed lying:
@@ -16,7 +16,7 @@ Four facts must hold together, because each alone has been observed lying:
   dead turn leaves one open row per refused call -- twenty of them on one
   observed session. A denied call ran for zero seconds; reading it as activity
   hides a genuinely stuck holder.
-- **The open row must still be the session's newest activity.** Activity
+- **The open row must still be the session's newest tool activity.** Tool activity
   recorded well after the call opened proves the session kept working and the
   row was simply never closed.
 
@@ -128,6 +128,7 @@ def _newest_open_calls(
                    tc.session_id, tc.started_at, tc.command_summary,
                    hs.turn_posture, hs.ended_at, hs.terminated_at,
                    hs.last_tool_call_at, hs.last_heartbeat, hs.episode_started_at,
+                   hs.mode, hs.turn_posture_at,
                    hs.native_process_gone_at, hs.native_process_gone_evidence
               FROM session_tool_calls tc
               JOIN harness_sessions hs ON hs.session_id=tc.session_id
@@ -145,6 +146,24 @@ def _newest_open_calls(
     return found
 
 
+def live_long_running_calls(
+    conn: Any, session_ids: Sequence[str], *, now: str | datetime,
+) -> dict[str, dict[str, Any]]:
+    """Share the bounded, newest-open-call fact with every idle reader."""
+    if not session_ids or not has_session_tool_calls_table(conn):
+        return {}
+    live = {}
+    for session_id, call in _newest_open_calls(conn, session_ids).items():
+        if long_running_command(call.get("command_summary")) is None:
+            continue
+        started_at = parse_stamp(call.get("started_at"))
+        if started_at is None or not session_call_is_live(call, started_at=started_at):
+            continue
+        if (age_seconds(started_at, now) or 0) < IN_FLIGHT_CEILING_SECONDS:
+            live[session_id] = call
+    return live
+
+
 def in_flight_calls(
     conn: Any,
     *,
@@ -152,28 +171,15 @@ def in_flight_calls(
     now: str,
 ) -> tuple[InFlightCall, ...]:
     """Which of these quiet holders are inside a long-running call."""
-    session_ids = _unique_session_ids(quiet)
-    if not session_ids:
-        return ()
-    if not has_session_tool_calls_table(conn):
-        return ()
-    open_calls = _newest_open_calls(conn, session_ids)
+    open_calls = live_long_running_calls(conn, _unique_session_ids(quiet), now=now)
     calls = []
     for holder in quiet:
         open_call = open_calls.get(str(holder.session_id))
         if open_call is None:
             continue
-        command = long_running_command(open_call.get("command_summary"))
-        if command is None:
-            continue
-        started_at = parse_stamp(open_call.get("started_at"))
-        if started_at is None or not session_call_is_live(
-            open_call, started_at=started_at
-        ):
-            continue
+        started_at = parse_stamp(open_call["started_at"])
+        command = long_running_command(open_call["command_summary"])
         open_seconds = age_seconds(started_at, now) or 0
-        if open_seconds >= IN_FLIGHT_CEILING_SECONDS:
-            continue
         calls.append(
             InFlightCall(
                 session_id=holder.session_id,
@@ -255,5 +261,6 @@ __all__ = [
     "in_flight_dicts",
     "in_flight_section",
     "long_running_command",
+    "live_long_running_calls",
     "partition_quiet",
 ]

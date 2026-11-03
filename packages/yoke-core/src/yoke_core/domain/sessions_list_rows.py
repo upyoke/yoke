@@ -17,6 +17,7 @@ from yoke_contracts.timestamps import (
     utc_now,
 )
 from yoke_core.domain.actor_render import render_actor_names
+from yoke_core.domain.steering_fleet_report_in_flight import live_long_running_calls
 from yoke_core.domain.session_message_reachability import message_reachability
 from yoke_core.domain.session_focus_attribution import focus_attribution
 from yoke_core.domain.session_list_fields import usage_fields
@@ -106,6 +107,9 @@ def render_session_roster_rows(
         (str(row["session_id"]) for row in page if row.get("native_process_gone_at")),
         now=utc_now(),
     )
+    in_flight = live_long_running_calls(
+        conn, [str(row["session_id"]) for row in page], now=now,
+    )
     result: List[Dict[str, Any]] = []
     empty_holdings = {
         "current": [],
@@ -154,6 +158,7 @@ def render_session_roster_rows(
                 "ended_cause": cause,
                 "reclaimable": state == LIVENESS_STALE,
                 "activity_at": activity_at,
+                "in_flight": session_id in in_flight,
                 "last_tool_call_at": (
                     format_instant(row["last_tool_call_at"])
                     if row.get("last_tool_call_at")
