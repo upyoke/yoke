@@ -156,15 +156,18 @@ def test_failure_reader_filters_repaired_checkouts_and_bounds_output(
 
 
 def test_refresh_notice_keeps_multiline_refusals_on_one_line():
+    root = Path("/checkout with  spaces")
+    recovery = follow.operating_layer_drift.refresh_command(root)
     line = follow._refresh_line(
         {
-            "path": "/checkout",
+            "path": str(root),
             "reason": "checkout_dirty:\n commit changes",
-            "recovery": "yoke project install /checkout",
+            "recovery": recovery,
         }
     )
     assert line.splitlines() == [line]
     assert "checkout_dirty: commit changes" in line
+    assert str(root) in line and recovery in line
 
 
 @pytest.mark.parametrize("contents", [None, "{", '{"project_refresh": null}'])
