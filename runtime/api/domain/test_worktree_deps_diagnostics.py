@@ -31,7 +31,14 @@ def test_missing_nested_installer_names_file_and_recovery(tmp_path, capsys, file
     assert "No dependency files detected" not in output
     assert "yoke projects capability-settings set --project 42" in output
     assert "--cap-type setup_command" in output
-    assert '--settings-json \'{"command":"<setup command>"}\' --new' in output
+    assert '--settings-json \'{"command":"<documented environment command>"}\' --new' in output
+    assert "Declare setup_command once at project level" in output
+    assert "documented environment command (its lockfile or toolchain script)" in output
+    assert "requires project authority" in output
+    assert "ask steering or the operator" in output
+    assert "Lane prepare runs it automatically; do not hand-prepare each lane" in output
+    assert "Rerun lane prepare" in output
+    assert "pip install" not in output
 
 
 def test_bare_pyproject_explains_missing_uv_and_lockfile(tmp_path, capsys):

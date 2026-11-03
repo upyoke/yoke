@@ -43,9 +43,13 @@ def report_no_dependency_install(
         print("No dependency files detected — skipping install", file=sys.stderr)
     project = shlex.quote(str(project_id)) if project_id else "<project>"
     print(
-        "Register a project setup_command capability to install dependencies: "
-        f"yoke projects capability-settings set --project {project} "
+        "Declare setup_command once at project level, using the project's "
+        "documented environment command (its lockfile or toolchain script): "
+        f"`yoke projects capability-settings set --project {project} "
         "--cap-type setup_command --settings-json "
-        "'{\"command\":\"<setup command>\"}' --new",
+        "'{\"command\":\"<documented environment command>\"}' --new`. "
+        "This requires project authority; without it, ask steering or the operator "
+        "to declare the capability. Lane prepare runs it automatically; "
+        "do not hand-prepare each lane. Rerun lane prepare after declaration.",
         file=sys.stderr,
     )

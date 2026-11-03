@@ -64,13 +64,16 @@ def _checkout_venv_python(root: Path) -> Path:
             "this checkout is not a uv project and declares no test environment, "
             "and Yoke's own interpreter does not carry the project's test packages.",
             recovery=(
-                "Set the project's setup_command capability to a command that "
-                "creates .venv with pytest and the project's test dependencies, "
-                "for example `yoke projects capability settings merge "
-                "--project PROJECT --cap-type setup_command --set "
-                "'command=python3 -m venv .venv && .venv/bin/pip install -e . "
-                "pytest'`; run that command in "
-                f"{root}, then retry. A uv project (pyproject.toml beside "
+                "Declare setup_command once at project level, using the project's "
+                "documented environment command (its lockfile or toolchain script) "
+                "to create .venv with pytest and the project's test dependencies: "
+                "`yoke projects capability-settings set --project PROJECT "
+                "--cap-type setup_command --settings-json "
+                "'{\"command\":\"<documented environment command>\"}' --new`. "
+                "This requires project authority; without it, ask steering or the "
+                "operator to declare the capability. Lane prepare runs it "
+                "automatically; do not hand-prepare each lane. Rerun lane prepare, "
+                "then retry. A uv project (pyproject.toml beside "
                 "uv.lock) declares the test_environment capability instead"
             ),
         )

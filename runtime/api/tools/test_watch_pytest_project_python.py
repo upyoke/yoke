@@ -86,7 +86,15 @@ def test_non_uv_tree_without_venv_refuses_with_setup_command(
     message = str(refused.value)
     assert message.startswith("PROJECT-ENVIRONMENT-MISSING: ")
     assert str((tmp_path / ".venv").resolve()) in message
-    assert "Recovery: Set the project's setup_command capability" in message
+    assert "Recovery: Declare setup_command once at project level" in message
+    assert "yoke projects capability-settings set --project PROJECT" in message
+    assert "documented environment command (its lockfile or toolchain script)" in message
+    assert "requires project authority" in message
+    assert "ask steering or the operator" in message
+    assert "Lane prepare runs it automatically; do not hand-prepare each lane" in message
+    assert "Rerun lane prepare" in message
+    assert "pip install" not in message
+    assert "capability settings" not in message
     assert "--cap-type setup_command" in message
     assert "test_environment capability" in message
 
