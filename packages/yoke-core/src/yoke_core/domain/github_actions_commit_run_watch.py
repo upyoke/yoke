@@ -15,7 +15,7 @@ comes from the REST ``head_sha`` query, re-checked against each returned
 ``head_sha``; and the authority resolves a workflow name or file path through the
 workflows API and matches each run by ``workflow_id``.
 
-Reads follow :data:`CI_SUITE_SCHEDULE` so concurrent sessions share the
+Reads follow :data:`STEADY_SCHEDULE` so concurrent sessions share the
 project's GitHub budget. Every state change, every terminal conclusion,
 and both deadline cases emit a line, because a watcher that goes quiet is
 indistinguishable from one whose subject is still working.
@@ -49,7 +49,7 @@ from yoke_core.domain.github_actions_commit_runs_read import (
     matching_runs,
 )
 from yoke_core.domain.github_poll_schedule import (
-    CI_SUITE_SCHEDULE,
+    STEADY_SCHEDULE,
     next_read_delay,
 )
 
@@ -134,7 +134,7 @@ def watch_commit_runs(
     announce_designed_wait(
         f"every CI run on {head_sha} to conclude (lines only on state changes)",
         max_wait_seconds=timeout_seconds,
-        cadence=CI_SUITE_SCHEDULE.describe(),
+        cadence=STEADY_SCHEDULE.describe(),
         write=emit,
     )
 
@@ -211,7 +211,7 @@ def watch_commit_runs(
             )
             return EXIT_STILL_RUNNING
 
-        sleep(next_read_delay(elapsed, CI_SUITE_SCHEDULE))
+        sleep(next_read_delay(elapsed, STEADY_SCHEDULE))
 
 
 def _parse_args(argv: Sequence[str]) -> argparse.Namespace:

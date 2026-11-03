@@ -316,11 +316,10 @@ def await_workflow(
 ) -> tuple[int, str]:
     """Block until the run concludes; return ``(exit_code, poll_output)``.
 
-    This run is the project's whole suite, so it is read on the schedule
-    that suite's duration floor implies rather than at a flat cadence.
+    Read the project's whole suite once a minute from the first read.
     """
     from yoke_core.domain.deploy_pipeline_reporting import _poll_github_actions
-    from yoke_core.domain.github_poll_schedule import CI_SUITE_SCHEDULE
+    from yoke_core.domain.github_poll_schedule import STEADY_SCHEDULE
 
     with relay_poll_output():
         return _poll_github_actions(
@@ -329,7 +328,7 @@ def await_workflow(
             timeout_seconds,
             project=project,
             sd=None,
-            schedule=CI_SUITE_SCHEDULE,
+            schedule=STEADY_SCHEDULE,
         )
 
 

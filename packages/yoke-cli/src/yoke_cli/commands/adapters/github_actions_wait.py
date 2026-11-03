@@ -112,7 +112,7 @@ def _ci_cadence() -> str:
     import importlib
 
     module = importlib.import_module("yoke_core.domain.github_poll_schedule")
-    return str(module.CI_SUITE_SCHEDULE.describe())
+    return str(module.STEADY_SCHEDULE.describe())
 
 
 def _next_read_delay(elapsed_seconds: int) -> float:
@@ -120,7 +120,7 @@ def _next_read_delay(elapsed_seconds: int) -> float:
     import importlib
 
     module = importlib.import_module("yoke_core.domain.github_poll_schedule")
-    return float(module.next_read_delay(elapsed_seconds, module.CI_SUITE_SCHEDULE))
+    return float(module.next_read_delay(elapsed_seconds, module.STEADY_SCHEDULE))
 
 
 __all__ = ["wait_for_ci_completion"]
