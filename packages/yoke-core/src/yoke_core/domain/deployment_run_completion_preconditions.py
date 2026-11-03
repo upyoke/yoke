@@ -26,12 +26,16 @@ AWAITING_QA_PREFIX = "deploy stages complete, blocking QA unresolved"
 HELD_STAGE_PREFIX = "final stage held, blocking QA unresolved"
 
 
-def unresolved_blocking_qa(conn: Any, run_id: str) -> List[str]:
+def unresolved_blocking_qa(
+    conn: Any, run_id: str, *, exclude_stage: Optional[str] = None
+) -> List[str]:
     """Describe the run-bound plan cases that remain unsettled."""
-    return _unresolved_plan_cases(conn, run_id)
+    return _unresolved_plan_cases(conn, run_id, exclude_stage=exclude_stage)
 
 
-def _unresolved_plan_cases(conn: Any, run_id: str) -> List[str]:
+def _unresolved_plan_cases(
+    conn: Any, run_id: str, *, exclude_stage: Optional[str]
+) -> List[str]:
     """Run-bound ``qa_requirements`` rows with no passing run, still owed.
 
     "Still owed" is the shared settlement rule, so a row a passing
@@ -41,6 +45,7 @@ def _unresolved_plan_cases(conn: Any, run_id: str) -> List[str]:
     """
     if not (_table_exists(conn, "qa_requirements") and _table_exists(conn, "qa_runs")):
         return []
+    stage_filter = " AND r.deployment_stage IS DISTINCT FROM %s" if exclude_stage else ""
     rows = query_rows(
         conn,
         f"""
@@ -48,9 +53,10 @@ def _unresolved_plan_cases(conn: Any, run_id: str) -> List[str]:
         WHERE r.deployment_run_id = %s
           AND r.blocking_mode = 'blocking'
           AND NOT {settled_obligation_sql(conn, "r")}
+          {stage_filter}
         ORDER BY r.id ASC
         """,
-        (run_id,),
+        (run_id, exclude_stage) if exclude_stage else (run_id,),
     )
     passing = current_passing_requirements(conn, (int(row["id"]) for row in rows))
     rows = [row for row in rows if int(row["id"]) not in passing]

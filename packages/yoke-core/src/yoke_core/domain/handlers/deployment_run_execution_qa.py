@@ -85,8 +85,13 @@ def _qa_pending(conn, resolved: str, stage_name: str) -> dict:
     result = {"run_id": resolved, "unresolved": unresolved}
     if stage_name:
         scoped = qa_stage_outstanding(conn, run_id=resolved, stage_name=stage_name)
-        details = [*unresolved, *(scoped.lines if scoped else ())]
-        count = len(unresolved) + (scoped.waiting if scoped else 0)
+        report_unresolved = (
+            unresolved_blocking_qa(conn, resolved, exclude_stage=stage_name)
+            if scoped is not None
+            else unresolved
+        )
+        details = [*report_unresolved, *(scoped.lines if scoped else ())]
+        count = len(report_unresolved) + (scoped.waiting if scoped else 0)
         result["held_report"] = held_stage_report_lines(
             resolved, stage_name, details, obligation_count=count
         )
