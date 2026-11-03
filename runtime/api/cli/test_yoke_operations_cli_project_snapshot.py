@@ -76,8 +76,8 @@ def test_sync_scans_once_for_same_commit_refs(
     rc, out, _err = _run("project", "snapshot", "sync", str(repo), "--project", "demo")
 
     assert rc == 0
-    assert calls == ["main"]
-    assert [line.split(":")[0] for line in out.splitlines()] == ["reused", "created"]
+    assert calls == ["HEAD"]
+    assert [line.split(":")[0] for line in out.splitlines()] == ["created", "reused"]
 
 
 def test_hook_mode_reports_failure_but_exits_zero(tmp_path: Path) -> None:
