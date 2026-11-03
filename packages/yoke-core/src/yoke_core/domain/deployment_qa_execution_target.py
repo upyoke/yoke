@@ -141,12 +141,6 @@ def deployment_qa_execution_target(conn: Any, subject: Mapping[str, Any]) -> dic
     )
     from yoke_core.domain.deployment_qa_takeover_identity import inherited_target
 
-    if (
-        frozen is not None
-        and (frozen.get("project") or {}).get("id") == project["id"]
-        and inherited_target(conn, str(subject["id"]), frozen)
-    ):
-        return frozen
     pinned = subject["stage"].get("target")
     source_stage = (
         str(pinned.get("source_stage") or "").strip()
@@ -154,10 +148,19 @@ def deployment_qa_execution_target(conn: Any, subject: Mapping[str, Any]) -> dic
         else ""
     )
     latest_receipt = (
-        _latest_ready_receipt_id(conn, run_id=str(subject["id"]), source_stage=source_stage)
+        _latest_ready_receipt_id(
+            conn, run_id=str(subject["id"]), source_stage=source_stage
+        )
         if source_stage
         else None
     )
+    if (
+        latest_receipt is None
+        and frozen is not None
+        and (frozen.get("project") or {}).get("id") == project["id"]
+        and inherited_target(conn, str(subject["id"]), frozen)
+    ):
+        return frozen
     frozen_receipt = _frozen_producer_receipt_id(frozen) if frozen is not None else None
     if (
         frozen is not None
@@ -277,8 +280,12 @@ def _destination(target: Mapping[str, Any]) -> str:
     return canonical_target(
         {
             **{k: v for k, v in target.items() if k != "observation"},
-            "deployment": {k: v for k, v in deployment.items() if k not in _SOURCE_KEYS},
-            "endpoints": {k: v for k, v in endpoints.items() if k != RELEASE_VERSION_KEY},
+            "deployment": {
+                k: v for k, v in deployment.items() if k not in _SOURCE_KEYS
+            },
+            "endpoints": {
+                k: v for k, v in endpoints.items() if k != RELEASE_VERSION_KEY
+            },
         }
     )
 

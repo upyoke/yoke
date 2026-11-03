@@ -65,24 +65,23 @@ class SubjectRefresh:
 
 
 def _pinned_target(rows: list[dict[str, Any]], *, subject: str) -> dict[str, Any]:
-    """The one target every row in this subject is already judged against."""
-    digests = {str(row["execution_target_digest"] or "") for row in rows}
-    if len(digests) != 1 or not next(iter(digests)):
-        raise QaPlanError(
-            f"{subject} has ambiguous materialized target history ({len(digests)} "
-            "distinct targets); resolve it against the active stage receipt "
-            "before rematerializing"
-        )
-    raw = rows[0]["execution_target_json"]
-    if isinstance(raw, dict):
-        return dict(raw)
-    try:
-        decoded = json.loads(str(raw or ""))
-    except (TypeError, ValueError) as exc:
-        raise QaPlanError(f"{subject} has an unreadable execution target") from exc
-    if not isinstance(decoded, dict):
-        raise QaPlanError(f"{subject} execution target is not an object")
-    return decoded
+    """Prefer the newest producer receipt when target history spans receipts."""
+    targets = []
+    for row in rows:
+        raw = row["execution_target_json"]
+        try:
+            target = dict(raw) if isinstance(raw, dict) else json.loads(str(raw or ""))
+        except (TypeError, ValueError) as exc:
+            raise QaPlanError(f"{subject} has an unreadable execution target") from exc
+        if not isinstance(target, dict):
+            raise QaPlanError(f"{subject} execution target is not an object")
+        targets.append(target)
+    return max(
+        targets,
+        key=lambda target: int(
+            (target.get("observation") or {}).get("receipt_id") or 0
+        ),
+    )
 
 
 def read_subject_refresh(
@@ -120,6 +119,26 @@ def read_subject_refresh(
             "the plan onto the stage first"
         )
     target = _pinned_target(rows, subject=label)
+    from yoke_core.domain.deployment_qa_takeover_identity import inherited_target
+
+    if inherited_target(conn, run_id, target):
+        from yoke_core.domain.deployment_qa_execution_target import (
+            deployment_qa_execution_target,
+        )
+        from yoke_core.domain.deployment_qa_stage_contract import (
+            deployment_qa_stage_subject,
+        )
+
+        target = deployment_qa_execution_target(
+            conn,
+            deployment_qa_stage_subject(
+                conn,
+                run_id=run_id,
+                stage_name=stage,
+                member_item_id=member,
+                require_active=False,
+            ),
+        )
     rows_by_plan: dict[int, list[dict[str, Any]]] = {}
     for row in rows:
         rows_by_plan.setdefault(int(row["plan_id"]), []).append(row)

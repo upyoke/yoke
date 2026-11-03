@@ -21,8 +21,11 @@ the run delivered is normal, not drift: QA start reports a different served
 commit and proceeds, and each deployment-bound browser case records the commit
 its environment served at case start (an observation, not a per-step proof).
 Once the successor deploys, install steps get its pinned `release_version` and
-command cases check out its project source. Stored targets and digests stay as
-provenance and never gate a write.
+command cases check out its project source. Fresh attempts resolve the
+successor's ready receipt and candidate; before that receipt exists they retain
+the predecessor target. Rematerializing uses the newest receipt for new or
+corrected cases. Existing executions and evidence keep their stored targets and
+digests as provenance and never gate a write.
 
 A failed successor retains inherited QA for retry or another takeover. Explicit
 cancellation and genuine member removal retain their cleanup rules. An early QA
