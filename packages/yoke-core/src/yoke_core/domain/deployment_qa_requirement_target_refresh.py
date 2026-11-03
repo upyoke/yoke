@@ -21,17 +21,23 @@ def rebind_subject(conn, *, subject, target):
     The caller holds the run lock. Executions, captures, runs and replacement
     pointers remain untouched; only the obligation follows the current receipt.
     """
+    shared_plan_id = ((target.get("deployment") or {}).get("shared_plan") or {}).get(
+        "plan_id"
+    )
     rows = query_rows(
         conn,
         "SELECT * FROM qa_requirements WHERE deployment_run_id=%s "
         "AND deployment_stage=%s AND COALESCE(deployment_member_item_id,0)=%s "
         "AND superseded_by_requirement_id IS NULL AND retracted_at IS NULL "
-        "AND execution_target_digest IS DISTINCT FROM %s ORDER BY id",
+        "AND execution_target_digest IS DISTINCT FROM %s "
+        "AND (%s::integer IS NULL OR plan_id=%s) ORDER BY id",
         (
             str(subject["id"]),
             str(subject["stage"]["name"]),
             int(subject.get("member_item_id") or 0),
             target_digest(target),
+            shared_plan_id,
+            shared_plan_id,
         ),
     )
     attempts = latest_executions(conn, [int(row["id"]) for row in rows])

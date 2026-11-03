@@ -4,9 +4,8 @@ An aborted scoped execution keeps the passes it recorded, but a fresh
 execution used to roster every case again from cursor 0, so a rerun after an
 abort replayed work the target had already proved. Run mode now leaves out
 each requirement whose newest run passed, still proves the live method
-config, and recorded the roster's own execution target digest. Any execution
-may have recorded that pass, including an aborted one. A pass recorded
-against another target (a new lineage or run) proves nothing here, and a
+config and target, including an explicitly carried predecessor digest. Any execution
+may have recorded that pass, including an aborted one. A pass against a different destination proves nothing here, and a
 pass the stage still grades unresolved (no evidence) stays owed. A passed case
 stays while a later case of its chain still owes a verdict, so the chain
 still runs from its opener.
@@ -19,7 +18,6 @@ from __future__ import annotations
 
 from typing import Any
 
-from yoke_core.domain.qa_latest_execution import latest_executions
 from yoke_core.domain.qa_plan_case_chain import settled_chain_tails
 from yoke_core.domain.qa_plan_execution_store import (
     live_plan_execution_id,
@@ -27,7 +25,6 @@ from yoke_core.domain.qa_plan_execution_store import (
 )
 from yoke_core.domain.qa_requirement_pass_currency import (
     current_passing_requirements,
-    recorded_execution_target_digest,
 )
 
 
@@ -49,15 +46,7 @@ def target_passed_requirements(
         for row in roster
     }
     current = current_passing_requirements(conn, digests)
-    latest = latest_executions(conn, current)
-    passed = {
-        requirement_id
-        for requirement_id in current
-        if requirement_id in latest
-        and digests[requirement_id]
-        and recorded_execution_target_digest(latest[requirement_id]["raw_result"])
-        == digests[requirement_id]
-    }
+    passed = {requirement_id for requirement_id in current if digests[requirement_id]}
     if not passed or not deployment_run_id or not deployment_stage:
         return passed
     from yoke_core.domain.deployment_qa_stage_case_failures import case_failures

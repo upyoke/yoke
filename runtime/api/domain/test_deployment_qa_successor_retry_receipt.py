@@ -37,6 +37,10 @@ def test_a_failed_case_is_retried_on_the_successor_and_its_owner_told_once(
     finish_plan_execution(test_db, execution, state="completed", reason="case failed")
     assert _release(plan_execution_view(test_db, execution)) == "v-aaaaaa"
     _take_over_and_deploy(test_db)
+    from yoke_core.domain.deployment_qa_stage_materialization import materialize_deployment_qa_stage
+
+    materialize_deployment_qa_stage(test_db, deployment_run_id=takeover.NEW,
+        deployment_stage="item-qa", deployment_member_item_id=MEMBER)
 
     status = deployment_qa_stage_status(
         test_db, run_id=takeover.NEW, stage_name="item-qa", member_item_id=MEMBER

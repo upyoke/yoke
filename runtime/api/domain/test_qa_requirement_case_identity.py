@@ -73,19 +73,12 @@ def test_plan_run_rebinds_in_place_and_carries_only_matching_pass(
     same_destination,
 ):
     execution = _seed_member_execution(test_db, monkeypatch)
-    passed, _ = _record(test_db, execution, 0, "pass")
-    failed, _ = _record(test_db, execution, 1, "fail")
-    finish_plan_execution(test_db, execution, state="completed", reason="case failed")
-    before = select_plan_execution(test_db, execution["id"], lock=False)
-    _take_over_and_deploy(test_db)
+    passed = int(execution["roster"][0]["requirement_id"])
     if not same_destination:
         # Change the original evidence's destination, keeping its digest honest.
         from yoke_core.domain.qa_execution_environment_target import (
             canonical_target,
             target_digest,
-        )
-        from yoke_core.domain.qa_requirement_pass_currency import (
-            attach_execution_target_digest,
         )
 
         row = test_db.execute(
@@ -98,21 +91,12 @@ def test_plan_run_rebinds_in_place_and_carries_only_matching_pass(
             "UPDATE qa_requirements SET execution_target_json=%s,execution_target_digest=%s WHERE id=%s",
             (canonical_target(old), digest, passed),
         )
-        test_db.execute(
-            "UPDATE qa_runs SET raw_result=%s WHERE qa_requirement_id=%s",
-            (
-                attach_execution_target_digest(
-                    test_db.execute(
-                        "SELECT raw_result FROM qa_runs WHERE qa_requirement_id=%s",
-                        (passed,),
-                    ).fetchone()[0],
-                    digest,
-                    overwrite=True,
-                ),
-                passed,
-            ),
-        )
         test_db.commit()
+    passed, _ = _record(test_db, execution, 0, "pass")
+    failed, _ = _record(test_db, execution, 1, "fail")
+    finish_plan_execution(test_db, execution, state="completed", reason="case failed")
+    before = select_plan_execution(test_db, execution["id"], lock=False)
+    _take_over_and_deploy(test_db)
     fresh = _plan_run(test_db, monkeypatch, takeover.NEW)
     rows = test_db.execute(
         "SELECT * FROM qa_requirements WHERE deployment_run_id=%s "
