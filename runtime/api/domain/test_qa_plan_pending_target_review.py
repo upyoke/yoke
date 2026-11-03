@@ -46,6 +46,12 @@ def test_takeover_pending_review_holds_only_its_frozen_target(
     )
     test_db.commit()
     if rematerialize:
+        test_db.execute(
+            "UPDATE deployment_runs n SET status='executing',current_stage='deploy',"
+            "composition_frozen_at=now(),requirement_snapshot=o.requirement_snapshot "
+            "FROM deployment_runs o WHERE n.id=%s AND o.id=%s",
+            (takeover.NEW, takeover.OLD),
+        )
         receipt = allocate_deployment_stage_receipt(
             test_db,
             run_id=takeover.NEW,
@@ -66,10 +72,8 @@ def test_takeover_pending_review_holds_only_its_frozen_target(
             executor_receipt="test://successor-deploy-ready",
         )
         test_db.execute(
-            "UPDATE deployment_runs n SET status='executing',current_stage=%s,"
-            "composition_frozen_at=now(),requirement_snapshot=o.requirement_snapshot "
-            "FROM deployment_runs o WHERE n.id=%s AND o.id=%s",
-            (takeover.RUN_QA_STAGE, takeover.NEW, takeover.OLD),
+            "UPDATE deployment_runs SET current_stage=%s WHERE id=%s",
+            (takeover.RUN_QA_STAGE, takeover.NEW),
         )
         rematerialize_for_deployment_stage(
             test_db,
