@@ -5,6 +5,8 @@ from __future__ import annotations
 
 from datetime import timedelta
 
+import pytest
+
 from yoke_contracts.timestamps import utc_now
 
 from runtime.api.test_sessions import _register, conn  # noqa: F401
@@ -104,22 +106,59 @@ def test_unknown_mode_is_refused_with_accepted_values(conn):
         raise AssertionError("expected UNKNOWN_MODE")
 
 
-def test_a_tool_call_does_not_clear_parked(conn):
+@pytest.mark.parametrize("posture", ["waiting", "running", "unknown"])
+@pytest.mark.parametrize(
+    "event_name",
+    ["HarnessToolCallStarted", "HarnessToolCallCompleted", "HarnessToolCallFailed"],
+)
+def test_tool_activity_clears_park_only_after_recorded_turn_end(
+    conn, posture, event_name
+):
     _register(conn)
+    _ensure_turn_posture(conn)
+    conn.execute(
+        "UPDATE harness_sessions SET turn_posture = %s WHERE session_id = 'sess-1'",
+        (posture,),
+    )
+    set_session_mode(conn, "sess-1", SESSION_MODE_PARKED, reason="waiting")
+    apply_envelope_state(
+        conn,
+        {
+            "event_name": event_name,
+            "session_id": "sess-1",
+            "event_time": _after_registration(),
+            "tool_use_id": "tool-1",
+            "tool_name": "Shell",
+        },
+    )
+    row = _parked_row(conn)
+    resumed = posture == "waiting"
+    assert row["mode"] == (SESSION_MODE_DEFAULT if resumed else SESSION_MODE_PARKED)
+    assert row["quiet_reason"] == (None if resumed else "waiting")
+    row = conn.execute(
+        "SELECT turn_posture FROM harness_sessions WHERE session_id = 'sess-1'"
+    ).fetchone()
+    assert row["turn_posture"] == "running"
+
+
+def test_delayed_tool_activity_does_not_clear_a_newer_park(conn):
+    _register(conn)
+    _ensure_turn_posture(conn)
+    conn.execute(
+        "UPDATE harness_sessions SET turn_posture = 'waiting' "
+        "WHERE session_id = 'sess-1'"
+    )
     set_session_mode(conn, "sess-1", SESSION_MODE_PARKED, reason="waiting")
     apply_envelope_state(
         conn,
         {
             "event_name": "HarnessToolCallStarted",
             "session_id": "sess-1",
-            "event_time": "2026-08-27T20:00:00Z",
+            "event_time": utc_now() - timedelta(seconds=1),
             "tool_use_id": "tool-1",
-            "tool_name": "Shell",
         },
     )
-    row = conn.execute(
-        "SELECT mode, quiet_reason FROM harness_sessions WHERE session_id = 'sess-1'"
-    ).fetchone()
+    row = _parked_row(conn)
     assert row["mode"] == SESSION_MODE_PARKED
     assert row["quiet_reason"] == "waiting"
 

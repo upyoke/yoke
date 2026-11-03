@@ -80,7 +80,7 @@ function selfParkedStatus(row) {
   return {
     state: "parked",
     label: "parked",
-    detail: "parked by the session itself; its next accepted prompt takes it back",
+    detail: "parked by the session itself; its next accepted prompt or tool activity after turn end takes it back",
   };
 }
 

@@ -112,8 +112,9 @@ def clear_parked_mode(conn: Any, session_id: str) -> bool:
     """Explicit unpark back to wait. No-op when the session is not parked.
 
     Activity-state writers must skip fixtures that have no ``mode`` column.
-    Tool-call telemetry does not call this. The accepted UserPromptSubmit
-    turn-start tail does, after its running posture stamp actually applies.
+    Accepted UserPromptSubmit clears park after its running stamp applies.
+    Tool activity clears it only when an applied stamp changes waiting to
+    running; calls within the turn that parked must preserve that park.
     """
     if not session_id:
         return False

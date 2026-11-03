@@ -324,15 +324,15 @@ test("one pill covers a self-declared park, and its reasons meet in one place", 
   // The state's own detail and the recorded quiet reason are one answer.
   assert.equal(
     sessionStatusExplanation({ ...selfParked, quiet_reason: "waiting on the operator" }, now),
-    "parked by the session itself; its next accepted prompt takes it back"
+    "parked by the session itself; its next accepted prompt or tool activity after turn end takes it back"
     + " · waiting on the operator",
   );
   // A quiet reason that only restates the state is said once.
   assert.equal(
     sessionStatusExplanation(
-      { ...selfParked, quiet_reason: "parked by the session itself; its next accepted prompt takes it back" },
+      { ...selfParked, quiet_reason: "parked by the session itself; its next accepted prompt or tool activity after turn end takes it back" },
       now,
     ),
-    "parked by the session itself; its next accepted prompt takes it back",
+    "parked by the session itself; its next accepted prompt or tool activity after turn end takes it back",
   );
 });

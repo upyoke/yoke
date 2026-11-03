@@ -189,16 +189,8 @@ def record_tool_call_finished(
     interrupted completions pass ``bump_activity=False`` because the
     session is ending and sweep time is not agent activity.
 
-    **The bump is conditional on this call actually closing the row.**
-    The resident retries a batch whose later observation failed, so the
-    earlier ones arrive a second time; counting each arrival rather than
-    each completion inflated ``tool_call_count`` and could drag
-    ``last_tool_call_at`` backwards to a replayed stamp — and
-    ``last_tool_call_at`` is what the idle sweep, the claim-freshness
-    check, and the vendor-resume budget all read. The call identity
-    ``(session_id, tool_use_id)`` already distinguishes a new completion
-    from a re-delivered one, so the state transition decides, not the
-    arrival.
+    Only a call that closes now bumps activity: resident batch replays cannot
+    recount completions or manufacture idleness with an older activity stamp.
 
     A caller with no ``tool_use_id``, or a fixture with no
     ``session_tool_calls`` table, has no identity to deduplicate on and
@@ -296,12 +288,23 @@ def apply_envelope_state(conn: Any, envelope: Dict[str, Any]) -> None:
     observed_at = parse_instant(event_time)
     from yoke_core.domain.session_turn_posture import stamp_turn_posture
 
-    stamp_turn_posture(
+    previous = None
+    if "turn_posture" in _columns(conn, "harness_sessions"):
+        lock = " FOR UPDATE" if db_backend.connection_is_postgres(conn) else ""
+        previous = conn.execute(
+            f"SELECT turn_posture FROM harness_sessions WHERE session_id = {_p(conn)}{lock}",
+            (session_id,),
+        ).fetchone()
+    applied = stamp_turn_posture(
         conn,
         session_id=session_id,
         posture="running",
         observed_at=observed_at,
     )
+    if applied and previous is not None and previous["turn_posture"] == "waiting":
+        from yoke_core.domain.session_mode import clear_parked_mode
+
+        clear_parked_mode(conn, session_id)
     if event_name == _STARTED_EVENT_NAME:
         tool_use_id = envelope.get("tool_use_id")
         if isinstance(tool_use_id, str) and tool_use_id:
