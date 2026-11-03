@@ -210,7 +210,7 @@ def test_a_successful_run_is_adopted_without_dispatching_or_polling(
     assert result["ci_run_source"] == "adopted"
     assert result["ci_run_id"] == "77"
     assert result["run_url"] == "https://github.test/actions/runs/77"
-    evidence = json.loads(recorder.payload("qa.run.add")["raw_result"])
+    evidence = json.loads(recorder.payload("qa.run.complete")["raw_result"])
     assert evidence["ci_run_source"] == "adopted"
     assert evidence["ci_run_id"] == "77"
     dispatch.assert_not_called()
@@ -238,7 +238,7 @@ def test_an_in_flight_run_is_polled_instead_of_duplicated(wired, monkeypatch):
     assert result["ci_run_source"] == "attached"
     assert result["verdict"] == "pass"
     assert awaited["run_id"] == "77"
-    evidence = json.loads(recorder.payload("qa.run.add")["raw_result"])
+    evidence = json.loads(recorder.payload("qa.run.complete")["raw_result"])
     assert evidence["ci_run_source"] == "attached"
     dispatch.assert_not_called()
 
@@ -261,7 +261,7 @@ def test_an_unexamined_commit_still_dispatches(wired, monkeypatch):
 
     assert result["ci_run_source"] == "dispatched"
     assert result["ci_run_id"] == "9182736"
-    evidence = json.loads(recorder.payload("qa.run.add")["raw_result"])
+    evidence = json.loads(recorder.payload("qa.run.complete")["raw_result"])
     assert evidence["ci_run_source"] == "dispatched"
 
 
@@ -325,6 +325,6 @@ def test_an_unsuccessful_run_requests_a_fresh_dispatch(wired, monkeypatch, concl
     assert result["verdict"] == "pass"
     dispatch.assert_called_once()
     assert dispatch.call_args.kwargs["request_id"] == f"qa-case:41:{LANE_HEAD}:after:77"
-    evidence = json.loads(recorder.payload("qa.run.add")["raw_result"])
+    evidence = json.loads(recorder.payload("qa.run.complete")["raw_result"])
     assert evidence["ci_run_source"] == covering.DISPATCHED
     assert evidence["ci_run_id"] == "9182736"

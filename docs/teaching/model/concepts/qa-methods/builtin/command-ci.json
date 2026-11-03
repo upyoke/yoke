@@ -4,5 +4,5 @@
  "status": "draft-copy",
  "page": "qa-methods",
  "position": 1,
- "text": "Unfinished command-CI requirements direct the worker to run the QA case, including when an item-detail response omits method configuration. Merge and terminal checks never advise recording a manual verdict instead of executing the case."
+ "text": "Unfinished command-CI requirements direct the worker to run the QA case, including when an item-detail response omits method configuration. Merge and terminal checks never advise recording a manual verdict instead of executing the case. A CI attempt is recorded before polling, so merge refuses with its CI run link while it is pending. Completion settles the same run. A retry adopts or supersedes CI and settles abandoned attempts as errors."
 }

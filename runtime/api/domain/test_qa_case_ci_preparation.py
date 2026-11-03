@@ -142,6 +142,6 @@ def test_clean_rebase_verifies_new_head_and_retains_requested_sha(
     assert rebased != requested
     assert result["verdict"] == "pass"
     assert result["verification_tree"]["head_sha"] == rebased
-    evidence = json.loads(recorder.payload("qa.run.add")["raw_result"])
+    evidence = json.loads(recorder.payload("qa.run.complete")["raw_result"])
     assert evidence["requested_sha"] == requested
     assert evidence["verification_tree"]["head_sha"] == rebased

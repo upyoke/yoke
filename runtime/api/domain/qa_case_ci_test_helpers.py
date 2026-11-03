@@ -63,6 +63,8 @@ class Recorder:
 
     def __call__(self, function_id, requirement_id, payload, *, actor=None):
         self.calls.append((function_id, requirement_id, payload))
+        if function_id == "qa.run.list":
+            return {"rows": []}
         if function_id == "qa.run.add":
             return {"qa_run_id": 77}
         if function_id == "qa.artifact.add":

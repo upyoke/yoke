@@ -86,6 +86,7 @@ def record_command_run(
     filename: str,
     metadata: dict,
     actor: Optional[ActorContext] = None,
+    run_id: int | None = None,
 ) -> tuple[int, int]:
     """Upload command evidence bytes, then settle their durable run."""
     from yoke_core.domain.qa_artifacts import (
@@ -112,20 +113,20 @@ def record_command_run(
         execution_target_digest=case.get("execution_target_digest"),
     )
     call_qa = recording_leg(case, actor=actor)
-    try:
-        run = call_qa(
-            "qa.run.add",
-            {
-                "performed_by": performed_by,
-                "raw_result": raw_result,
-                "duration_ms": duration_ms,
-            },
-        )
-    except QaPlanCommunicationUnknown as error:
-        retain_capture(error)
-        raise
-
-    run_id = int(run["qa_run_id"])
+    if run_id is None:
+        try:
+            run = call_qa(
+                "qa.run.add",
+                {
+                    "performed_by": performed_by,
+                    "raw_result": raw_result,
+                    "duration_ms": duration_ms,
+                },
+            )
+        except QaPlanCommunicationUnknown as error:
+            retain_capture(error)
+            raise
+        run_id = int(run["qa_run_id"])
     requirement_id = int(case["requirement_id"])
     output_path = artifact_file_path(
         str(case["project"]),
