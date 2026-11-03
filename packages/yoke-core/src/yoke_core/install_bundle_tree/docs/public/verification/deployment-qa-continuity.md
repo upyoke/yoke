@@ -23,12 +23,14 @@ its environment served at case start (an observation, not a per-step proof).
 Once the successor deploys, install steps get its pinned `release_version` and
 command cases check out its project source. Fresh attempts resolve the
 successor's ready receipt and candidate; before that receipt exists they retain
-the predecessor target. Materialization and rematerialization find open cases by run, stage,
-member, plan, case key and host baseline, and rebind each requirement in place
-to the current target. The requirement keeps its ID and records its previous
-target. A predecessor pass carries only when its destination matches; otherwise
-the case is owed again. Existing executions and evidence keep their stored targets and
-digests as provenance and never gate a write.
+the predecessor target. Private and run QA materialization find open cases by
+run, stage, member, plan, case key and host baseline, and rebind each
+requirement in place to the current target. The requirement keeps its ID and
+records its previous target. A predecessor pass carries only when its
+destination matches; otherwise the case is owed again. Shared plan groups retain
+their group ID and frozen target; separate groups remain separate subjects.
+Existing executions and evidence keep their stored targets and digests as
+provenance and never gate a write.
 
 A failed successor retains inherited QA for retry or another takeover. Explicit
 cancellation and genuine member removal retain their cleanup rules. An early QA
