@@ -1,7 +1,6 @@
 """Receipt changes rebind open cases; cutover converges duplicate obligations."""
 
 import importlib
-import json
 
 import pytest
 
