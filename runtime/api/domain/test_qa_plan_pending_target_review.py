@@ -9,12 +9,13 @@ from runtime.api.domain.test_deployment_qa_takeover_identity import _execution
 from yoke_core.domain.deployment_qa_execution_target import (
     validate_deployment_execution_target,
 )
-from yoke_core.domain.deployment_qa_stage_materialization import (
-    materialize_deployment_qa_stage,
-)
 from yoke_core.domain.qa_pending_agent_review import pending_review_requirements
 from yoke_core.domain.qa_plan_execution_begin import begin_plan_execution
 from yoke_core.domain.qa_plan_nothing_owed import QaPlanNothingOwed
+from yoke_core.domain.qa_plan_rematerialize_deployment import (
+    rematerialize_for_deployment_stage,
+)
+from yoke_core.domain.qa_plan_settled_review import open_unsettled_roster
 
 
 @pytest.mark.parametrize("rematerialize", [False, True])
@@ -41,7 +42,13 @@ def test_takeover_pending_review_holds_only_its_frozen_target(
     )
     test_db.commit()
     if rematerialize:
-        materialize_deployment_qa_stage(
+        test_db.execute(
+            "UPDATE deployment_runs n SET status='executing',current_stage=%s,"
+            "composition_frozen_at=now(),requirement_snapshot=o.requirement_snapshot "
+            "FROM deployment_runs o WHERE n.id=%s AND o.id=%s",
+            (takeover.RUN_QA_STAGE, takeover.NEW, takeover.OLD),
+        )
+        rematerialize_for_deployment_stage(
             test_db,
             deployment_run_id=takeover.NEW,
             deployment_stage=takeover.RUN_QA_STAGE,
@@ -70,7 +77,15 @@ def test_takeover_pending_review_holds_only_its_frozen_target(
         ) in str(refused.value)
     else:
         with pytest.raises(QaPlanNothingOwed, match="review-begin"):
-            begin()
+            open_unsettled_roster(
+                test_db,
+                execution["roster"],
+                item_id=None,
+                transition_id=None,
+                deployment_run_id=takeover.NEW,
+                deployment_stage=takeover.RUN_QA_STAGE,
+                deployment_member_item_id=None,
+            )
 
     # Other readers still expose the old review and its evidence as history.
     pending = pending_review_requirements(test_db, [requirement_id], stopped_only=True)
