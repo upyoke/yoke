@@ -1,8 +1,4 @@
-"""Extract tool targets for claim validation, distinguishing write operands.
-
-The session-cwd validator decides lane, control-plane and free-path authority.
-Write-only consumers exclude fixture strings and read operands.
-"""
+"""Extract tool targets, including write-only operands, for claim validation."""
 
 from __future__ import annotations
 
@@ -284,8 +280,9 @@ def resolve_shell_write_operands(
             if i not in ignored and arg != "-" and not arg.startswith("-")
         ]
         if command_base in _LAST_POSITIONAL_WRITE_COMMANDS and positionals:
+            options = clean[: clean.index("--")] if "--" in clean else clean
             positionals = next(
-                ([clean[i + 1]] for i, arg in enumerate(clean[:-1]) if arg == "-t"),
+                ([options[i + 1]] for i, arg in enumerate(options[:-1]) if arg == "-t"),
                 positionals[-1:],
             )
         elif command_base not in _ALL_POSITIONAL_WRITE_COMMANDS:
