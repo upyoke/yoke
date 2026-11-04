@@ -1,6 +1,6 @@
 """Backlog DB-mutation gate dispatch (governed DB-mutation contract §7) — composes the joint /
-evidence / polish gates and the prose-vs-claim consistency check
-used by the canonical status-write path. Each helper returns the
+evidence / polish gates. Older pinned definitions dispatch the separate
+prose-vs-claim check through the canonical status-write path. Each helper returns the
 canonical `{"success": False, ...}` failure payload or `None` on pass.
 """
 
@@ -24,24 +24,6 @@ _DB_MUTATION_GATE_TARGETS = {
     "reviewing-implementation": "evidence",
     "implemented": "polish",
 }
-
-# Targets that trigger a prose-vs-claim consistency check.
-# Distinct from `_DB_MUTATION_GATE_TARGETS` because the prose check fires
-# on more transitions than the heavy gates: refine completes at
-# ``refined-idea`` / ``planned`` and any of those advances should block
-# when the spec/body declares governed DB work but the stored profile is
-# still ``state="none"``.  Heavy-gate targets are also included so the
-# joint/evidence/polish dispatch composes the prose check alongside
-# their existing checks.
-_PROSE_CHECK_TARGETS = frozenset(
-    {
-        "refining-idea",
-        "refined-idea",
-        "planned",
-        "reviewing-implementation",
-        "implemented",
-    }
-)
 
 _WARNING_SINK: ContextVar[Optional[List[FunctionWarning]]] = ContextVar(
     "db_mutation_gate_warning_sink",
@@ -151,25 +133,16 @@ def _run_db_mutation_gate(
     target_status: str,
     db_path: str,
     gate_kind_override: Optional[str] = None,
-    include_prose: bool = True,
     conn: Optional[Any] = None,
 ) -> Optional[dict]:
     """Dispatch to the appropriate governed-DB-mutation gate per target.
 
     Returns ``None`` when the target is not a gated transition or when
-    every gate (heavy + prose) passes (and any post-gate side effects
+    every mutation gate passes (and any post-gate side effects
     have run).  Returns the canonical failure payload when any gate
     blocks; the first failure wins so the operator-facing error is
     attributable to a single rule.
     """
-    if include_prose and target_status in _PROSE_CHECK_TARGETS:
-        prose_result = _run_prose_vs_claim_check(
-            item_id=item_id,
-            db_path=db_path,
-        )
-        if prose_result is not None:
-            return prose_result
-
     gate_kind = (
         gate_kind_override
         if gate_kind_override is not None
@@ -256,7 +229,6 @@ def _run_db_mutation_gate(
 
 __all__ = [
     "_DB_MUTATION_GATE_TARGETS",
-    "_PROSE_CHECK_TARGETS",
     "_profile_declares_mutation",
     "capture_db_mutation_gate_warnings",
     "_run_prose_vs_claim_check",

@@ -10,6 +10,7 @@ from __future__ import annotations
 from copy import deepcopy
 from typing import Any, Dict, Tuple
 
+GATE_NEW_MIGRATIONS_NEED_DB_CLAIM = "new_migrations_need_db_claim"
 GATE_DB_CLAIM_PROSE = "db_claim_prose"
 GATE_DB_MUTATION = "db_mutation"
 GATE_ARCHITECTURE_IMPACT = "architecture_impact"
@@ -27,6 +28,12 @@ GATE_FLOOR_ATTESTATION = "floor_attestation"
 GATE_APPROVAL = "approval"
 
 _GATE_CATALOG: Tuple[Dict[str, Any], ...] = (
+    {
+        "id": GATE_NEW_MIGRATIONS_NEED_DB_CLAIM,
+        "name": "New migrations need a DB claim",
+        "description": "Lane-only numbered migration entries require a declared DB claim.",
+        "source_kind": "status_gate", "availability": "live", "modes": [],
+    },
     {
         "id": GATE_DB_CLAIM_PROSE,
         "name": "DB claim consistency",
@@ -255,6 +262,7 @@ __all__ = [
     "GATE_DASH_EVIDENCE",
     "GATE_FLOOR_ATTESTATION",
     "GATE_DB_CLAIM_PROSE",
+    "GATE_NEW_MIGRATIONS_NEED_DB_CLAIM",
     "GATE_DB_MUTATION",
     "GATE_DOC_CLAIM_ACTIVATION",
     "GATE_DOC_COMPLETION",

@@ -74,3 +74,10 @@ for intake. Full payload: [items and epics](../items/model/items.md).
 
 Claimless catalog entries still enforce actor/project permissions and ownership.
 Read each operation's `--help` before mutation; [envelope](index.md).
+
+New workflow versions require a declared DB claim when the lane adds numbered
+migration entries under any configured `migration_model` history. Refusals name
+each file and `yoke db-claim amend PREFIX-N`; spec wording does not trigger this
+gate. `db_claim.prose_check` remains for older pinned workflow versions. After
+workflow convergence, boot migrates eligible open canon pins to the current
+version; incompatible or edited pins stay for explicit item migration.

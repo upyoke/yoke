@@ -14,6 +14,7 @@ from .workflow_gate_catalog import (
     GATE_ARCHITECTURE_IMPACT,
     GATE_CONFLICT_SURVEY,
     GATE_DB_CLAIM_PROSE,
+    GATE_NEW_MIGRATIONS_NEED_DB_CLAIM,
     GATE_DB_MUTATION,
     GATE_DOC_CLAIM_ACTIVATION,
     GATE_PATH_CLAIM_BOUNDARY,
@@ -48,10 +49,8 @@ def _run_authoritative_status_gate(
     """Run the authoritative QA + governed-DB-mutation gates for status writes.
 
     Composes the gate families that share the canonical write path:
-    * Governed DB-mutation gate (governed DB-mutation contract) for ``refining-idea``,
-      ``reviewing-implementation``, ``implemented`` plus the prose check
-      for ``refining-idea``, ``refined-idea``, ``planned``,
-      ``reviewing-implementation``, ``implemented``.
+    * Definition-selected DB mutation evidence and lane-only migration claims.
+      Older pinned definitions retain the separate prose consistency check.
     * Architecture-impact gate for every transition that has impact.
     * Path-claim boundary check (worktree-bound transitions).
     * Plan-simulation gate at ``planned``.
@@ -162,6 +161,10 @@ def _evaluate_definition_gate(
     """Dispatch one definition-owned gate reference to registered code."""
     from yoke_core.domain import backlog_updates_helpers as _helpers
 
+    if gate_id == GATE_NEW_MIGRATIONS_NEED_DB_CLAIM:
+        from yoke_core.domain.new_migrations_db_claim_gate import check_item
+
+        return check_item(item_id, db_path=db_path, conn=conn)
     if gate_id == GATE_DB_CLAIM_PROSE:
         return _helpers._run_prose_vs_claim_check(
             item_id=item_id,
@@ -173,7 +176,6 @@ def _evaluate_definition_gate(
             target_status=target_status,
             db_path=db_path,
             gate_kind_override=str(mode or ""),
-            include_prose=False,
             conn=conn,
         )
     if gate_id == GATE_ARCHITECTURE_IMPACT:

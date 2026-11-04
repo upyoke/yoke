@@ -107,7 +107,7 @@ def test_runtime_exposes_definition_owned_gate_placement(test_db):
     gates = runtime.gates_for_stage("implemented")
 
     assert [gate["id"] for gate in gates] == [
-        "db_claim_prose",
+        "new_migrations_need_db_claim",
         "db_mutation",
         "architecture_impact",
         "path_claim_boundary",

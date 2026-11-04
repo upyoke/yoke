@@ -160,6 +160,15 @@ def _prose_blocks(monkeypatch: pytest.MonkeyPatch) -> list[str]:
 
     def _dispatch(**kwargs):
         calls.append(kwargs["function_id"])
+        if kwargs["function_id"] == "workflows.version.get":
+            from yoke_core.domain.builtin_workflow_canon import canon_generations
+            from yoke_core.domain.workflow_definition_codec import definition_digest
+
+            response = served(**kwargs)
+            definition = canon_generations("dash")[-2].definition
+            response.result["definition"] = definition
+            response.result["definition_digest"] = definition_digest(definition)
+            return response
         if kwargs["function_id"] != "db_claim.prose_check":
             return served(**kwargs)
         return SimpleNamespace(
@@ -225,3 +234,32 @@ def test_the_review_reads_the_check_asks_are_registered_without_side_effects():
 
     for function_id in ("workflows.version.get", "db_claim.prose_check"):
         assert not entries[function_id].side_effects
+
+
+def test_check_refuses_new_migration_entries_even_after_review(
+    merge, monkeypatch, tmp_path, capsys,
+):
+    from runtime.api.domain.test_migration_merge_preflight import _lane
+    from runtime.api.fixtures.migration_model_test import governed_postgres_test_seed
+
+    repo = _lane(tmp_path, "0014_new")
+    merge["item"] = _item(
+        status="reviewing-implementation", completion_flow="",
+        worktrees=[{"path": str(repo), "branch": "lane"}],
+    )
+    monkeypatch.setattr(readiness_gate, "classify_dirty_files", lambda **_k: ([], []))
+    served = review_gate.call_dispatcher
+    def dispatch(**kwargs):
+        function = kwargs["function_id"]
+        if function == "projects.capability_settings.get":
+            return SimpleNamespace(success=True, result={"settings_json": json.dumps(governed_postgres_test_seed())})
+        if function == "items.get.run":
+            return SimpleNamespace(success=True, result={"fields": {"db_mutation_profile": {"state": "none"}}})
+        return served(**kwargs)
+    monkeypatch.setattr(review_gate, "call_dispatcher", dispatch)
+    assert _run("--check", "--result", "r", "--verification", "v") == 1
+    output = capsys.readouterr().out
+    assert "0014_new.py" in output
+    assert "yoke db-claim amend" in output
+    assert merge["transitions"] == []
+    assert merge["landed"] == 0

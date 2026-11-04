@@ -108,9 +108,14 @@ Negative claims — the reviewed-none decision — use the convenience flag:
 yoke db-claim amend PREFIX-N --state none --reason "<why>"
 ```
 
-Running this is an **explicit reviewed-none decision**: an operator or agent has confirmed the work item does not mutate a governed authoritative DB. The amendment stamps the reviewed-negative attestation onto the stored profile itself — `{"state":"none","reviewed_negative":true,"validated_at":"<ts>"}` — so the decision lives as item state, not in the events ledger. The prose-vs-claim gate reads that attestation as proof the negative claim was deliberately reviewed (not the implicit schema default) and clears vocabulary- and structural-trigger hits alike. Meta work items about DB governance that unavoidably cite `ALTER TABLE`, `ADD COLUMN`, `DROP COLUMN`, `migration_audit`, or similar DDL-shape terms advance once the reviewed-none amendment is on record. The `reviewed_negative` / `validated_at` keys are workflow-managed — amendment payloads that try to supply them are rejected as reserved.
+Running this records an **explicit reviewed-none decision** on the stored profile:
+`{"state":"none","reviewed_negative":true,"validated_at":"<ts>"}`.
+Those keys are workflow-managed; amendment payloads cannot supply them.
+Older pinned versions still use this attestation for their prose gate. New
+versions check migration files, so a reviewed-none decision does not excuse
+new migration entries.
 
-A successful amendment also records a `DbClaimAmended` telemetry event whose envelope carries the previous and new claim summaries, the actor/session, and the operator-supplied reason. That event is disposable: it is written best-effort alongside the amendment and a severity filter, an events outage, or retention expiry drops it without touching the decision. The event stream is history/audit-only — the gate-consulted attestation lives on the profile:
+A successful amendment also records a `DbClaimAmended` telemetry event whose envelope carries the previous and new claim summaries, the actor/session, and the operator-supplied reason. That event is disposable: it is written best-effort alongside the amendment and a severity filter, an events outage, or retention expiry drops it without touching the decision. The event stream is history/audit-only — the reviewed decision lives on the profile:
 
 ```bash
 yoke events query --event-name DbClaimAmended
@@ -120,8 +125,8 @@ yoke events query --event-name DbClaimAmended
 
 - `state="none"` claims stay mutable forever — the freeze stamp applies only when the workflow writes `state="declared"`.
 - The amendment workflow is the sole forward writer of `db_compatibility_attestation.frozen_at` for declared claims.
-- A prose-vs-claim consistency gate (`GATE_DB_CLAIM_PROSE_MISMATCH`) blocks every refine advance, evidence gate, and polish gate when the spec/body declares governed DB work but the stored profile is still the bare `state="none"` default **without** the reviewed-negative attestation. The block points at `db-claim-amend` for recovery; running the amendment workflow with `--state none --reason "<why>"` is the canonical fix for meta work items that legitimately discuss governance vocabulary. Backtick-wrapping DDL verbs or scrubbing terminology from the spec is **not** the canonical remediation.
-- The reviewed-none signal reads the **stored profile JSON** (`state="none"` + `reviewed_negative: true`). The latest amendment is authoritative by construction — a later `state="declared"` amendment replaces the profile and removes the attestation. Malformed profile JSON, the bare implicit default, `reviewed_negative` values other than `true`, and declared states all read as not-reviewed — the gate behaves as if no amendment ever ran.
+- `new_migrations_need_db_claim` compares every configured `migration_model` history in the item's local lane against the integration target. Lane-only numbered entries require `state="declared"`; refusals list the files and `yoke db-claim amend PREFIX-N` recovery. Review entry, `yoke merge item --check`, and merge preflight check this. No capability or no new entries passes; a host without the lane skips the local inspection. Declared apply claims retain ordering and collision checks.
+- After built-in workflow convergence, boot moves non-terminal items on recognized canon versions with the old `db_claim_prose` gate to a current version without it. Each move preserves the stage and uses the normal compatibility checks, including live claims. Terminal, universe-edited, and refused pins stay unchanged; boot continues. Inspect a refused pin with `yoke workflows item get PREFIX-N`, then use `yoke workflows item migrate PREFIX-N`. A universe whose current version still names the old gate must select a new current version with `yoke workflows current set` first.
 - Rows with `state="none"` + a stamped `frozen_at` are accepted as inert compatibility data; the renderer does not surface them, and the joint gate does not add new ones.
 
 The rendered item body presents both halves as one `## DB Claim` section — internal storage stays split because the per-field validators use the column names, but operators see one DB-claim concept.

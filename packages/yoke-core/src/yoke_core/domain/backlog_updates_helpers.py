@@ -39,7 +39,6 @@ from yoke_core.domain.backlog_epic_task_cascade import (  # noqa: F401
 )
 from yoke_core.domain.backlog_db_mutation_gate_runner import (  # noqa: F401
     _DB_MUTATION_GATE_TARGETS,
-    _PROSE_CHECK_TARGETS,
     _profile_declares_mutation,
     _run_db_mutation_gate,
     _run_prose_vs_claim_check,
@@ -69,7 +68,6 @@ __all__ = [
     "_cascade_epic_tasks",
     # DB mutation gate runner
     "_DB_MUTATION_GATE_TARGETS",
-    "_PROSE_CHECK_TARGETS",
     "_profile_declares_mutation",
     "_run_db_mutation_gate",
     "_run_prose_vs_claim_check",

@@ -221,10 +221,8 @@ class TestProseVsClaimGate:
         )
         assert _run_prose_vs_claim_check(item_id=32, db_path=db_path) is None
 
-    def test_prose_check_runs_on_refined_idea_target(self, helper_db) -> None:
-        """`refined-idea` is refine's success advance — the prose check
-        must fire there even though no heavy gate dispatches at that
-        target."""
+    def test_mutation_runner_does_not_guess_prose_at_refined_idea(self, helper_db) -> None:
+        """Definitions dispatch prose checks separately for old pins."""
         conn, db_path = helper_db
         insert_item(
             conn,
@@ -238,13 +236,10 @@ class TestProseVsClaimGate:
             target_status="refined-idea",
             db_path=db_path,
         )
-        assert outcome is not None
-        assert outcome["error_code"] == "GATE_DB_CLAIM_PROSE_MISMATCH"
-        assert "backfill" in outcome["error"]
+        assert outcome is None
 
-    def test_prose_check_runs_on_planned_target(self, helper_db) -> None:
-        """`planned` is the epic-plan refine success advance — same
-        prose-check coverage as `refined-idea`."""
+    def test_mutation_runner_does_not_guess_prose_at_planned(self, helper_db) -> None:
+        """The mutation runner has no prose branch at plan completion."""
         conn, db_path = helper_db
         insert_item(
             conn,
@@ -259,14 +254,10 @@ class TestProseVsClaimGate:
             target_status="planned",
             db_path=db_path,
         )
-        assert outcome is not None
-        assert outcome["error_code"] == "GATE_DB_CLAIM_PROSE_MISMATCH"
-        assert "governed migration" in outcome["error"]
+        assert outcome is None
 
-    def test_prose_check_skipped_on_unrelated_target(self, helper_db) -> None:
-        """Targets outside the prose-check set (for example `release`)
-        do not run the check — the operator-facing failure modes for
-        those transitions belong to other gate families."""
+    def test_mutation_runner_skips_unrelated_target(self, helper_db) -> None:
+        """Release belongs to other gate families, not mutation dispatch."""
         conn, db_path = helper_db
         insert_item(
             conn,
@@ -275,8 +266,7 @@ class TestProseVsClaimGate:
             spec="ALTER TABLE items ADD COLUMN due_date TEXT;",
             db_mutation_profile='{"state":"none"}',
         )
-        # `release` is not in _PROSE_CHECK_TARGETS, so the gate dispatch
-        # short-circuits before the prose check runs.
+        # Release has no mutation gate.
         assert (
             _run_db_mutation_gate(
                 item_id=35,
@@ -286,10 +276,8 @@ class TestProseVsClaimGate:
             is None
         )
 
-    def test_prose_check_runs_on_joint_gate_target(self, helper_db) -> None:
-        """The joint gate fires at `refining-idea`; the prose check
-        composes alongside it — and is checked first so the operator
-        sees the prose mismatch before any heavy-gate noise."""
+    def test_mutation_runner_does_not_guess_prose_at_joint_gate(self, helper_db) -> None:
+        """The joint gate validates the stored claim without guessing prose."""
         conn, db_path = helper_db
         insert_item(
             conn,
@@ -303,5 +291,4 @@ class TestProseVsClaimGate:
             target_status="refining-idea",
             db_path=db_path,
         )
-        assert outcome is not None
-        assert outcome["error_code"] == "GATE_DB_CLAIM_PROSE_MISMATCH"
+        assert outcome is None

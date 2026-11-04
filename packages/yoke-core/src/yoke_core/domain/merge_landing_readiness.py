@@ -1,10 +1,7 @@
 """Every landing blocker for one item, found in one pass.
 
-`yoke merge item` used to stop on the first gate that refused, so an item
-with two unmet gates took two full merge attempts, each with its own
-watcher, to learn about both. This module asks every pre-landing question
-before anything lands or waits and returns all the failing answers
-together, each with its recovery. ``yoke merge item ITEM --check`` prints the
+This module asks every pre-landing question before anything lands or waits
+and returns all failing answers together, each with its recovery. ``yoke merge item ITEM --check`` prints the
 same report and changes nothing.
 
 The questions, in report order: review stage, close-out evidence flags, lane
@@ -21,8 +18,8 @@ after recovery.
 
 An item one declared edge before review is reported as a ``merge_will``
 note because the merge enters review. Entering review runs that stage's
-gates: the database-claim prose gate is asked here, read-only, and its
-refusal is a blocker; the note names the gates only the merge evaluates.
+gates: new migration files are checked locally, while older pins still ask
+the prose gate read-only; the note names gates only the merge evaluates.
 QA start commits are observations; the item's current passing requirements
 authorize landing without rebinding.
 """
@@ -211,22 +208,26 @@ def assess(
     readiness.review = review_readiness(item, public_ref=public_ref)
     if readiness.review.refusal:
         add(LandingBlocker("review stage", readiness.review.refusal))
-    elif readiness.review.enters_review:
-        entry_refusal = review_entry_refusal(public_ref, readiness.review)
+    elif readiness.review.review_gates:
+        entry_refusal = review_entry_refusal(
+            public_ref, readiness.review, item=item,
+            integration_target=str(args.target or (item.get("project") or {}).get("default_branch") or "main"),
+        )
         if entry_refusal:
             add(LandingBlocker("review entry", f"{public_ref}: {entry_refusal}"))
-        left = gates_left_to_merge(readiness.review)
-        readiness.merge_will.append(
-            f"move {public_ref} from {readiness.review.source_stage!r} to "
-            f"{readiness.review.review_stage!r} with --verification as the "
-            "reason"
-            + (
-                f", evaluating that stage's gates {', '.join(left)} only then "
-                "(this check has not run them)"
-                if left
-                else ""
+        if readiness.review.enters_review:
+            left = gates_left_to_merge(readiness.review)
+            readiness.merge_will.append(
+                f"move {public_ref} from {readiness.review.source_stage!r} to "
+                f"{readiness.review.review_stage!r} with --verification as the "
+                "reason"
+                + (
+                    f", evaluating that stage's gates {', '.join(left)} only then "
+                    "(this check has not run them)"
+                    if left
+                    else ""
+                )
             )
-        )
 
     workflow_id = str((item.get("workflow") or {}).get("id") or "")
     if (

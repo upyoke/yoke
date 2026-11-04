@@ -286,8 +286,9 @@ def _serve_pinned_workflow_definitions(monkeypatch: pytest.MonkeyPatch) -> None:
     review. Merge tests stub the item alone and have no universe holding
     published workflow versions, so that read is answered here from the
     same built-in canon those versions are published from, and the
-    review stage's read-only prose check passes. A test whose subject IS
-    the read patches over this with its own answer.
+    review stage's read-only prose check passes. Migration capability is
+    absent unless the test supplies one. Tests of these reads supply their
+    own answers.
     """
     from types import SimpleNamespace
 
@@ -298,6 +299,8 @@ def _serve_pinned_workflow_definitions(monkeypatch: pytest.MonkeyPatch) -> None:
     from yoke_core.domain.workflow_registry import definition_digest
 
     def _serve(**kwargs):
+        if kwargs.get("function_id") == "projects.capability_settings.get":
+            return SimpleNamespace(success=True, error=None, result={"settings_json": None})
         if kwargs.get("function_id") == "db_claim.prose_check":
             return SimpleNamespace(success=True, error=None, result={"blocks": False})
         payload = kwargs.get("payload") or {}
