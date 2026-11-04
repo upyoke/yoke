@@ -15,8 +15,10 @@ costing the caller the lane it just made.
 
 from __future__ import annotations
 
+import shlex
 import sys
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Optional, Sequence
 
 from yoke_core.domain.worktree_create_db import persist_item_worktrees
@@ -24,7 +26,8 @@ from yoke_core.domain.worktree_create_plan import (
     WorktreeCreationEntry,
     WorktreeCreationPlan,
 )
-from yoke_core.domain.worktree_deps import install_worktree_deps
+from yoke_core.domain import source_python_environment
+from yoke_core.domain.worktree_deps import get_setup_command, install_worktree_deps
 from yoke_core.domain.worktree_provision import (
     create_worktree_lane,
     provision_worktree_harness_setup,
@@ -77,11 +80,26 @@ def install_lane_dependencies(
         print(str(exc), file=sys.stderr)
     else:
         if install_exit != 0:
-            print(
-                f"Warning: dependency install failed for worktree "
-                f"'{entry.branch}' (non-fatal)",
-                file=sys.stderr,
-            )
+            setup_command = get_setup_command(project, scripts_dir)
+            if setup_command:
+                print(
+                    f"SETUP-COMMAND-FAILED: command {setup_command!r} exited "
+                    f"{install_exit} in lane {entry.path!r}. Recovery: replace "
+                    "the declaration with "
+                    "yoke projects capability-settings set --project "
+                    f"{shlex.quote(str(project))} --cap-type setup_command "
+                    "--settings-json "
+                    "'{\"command\":\"<documented environment command>\"}' "
+                    "--base '<current setup_command settings JSON>', then "
+                    "rerun lane prepare.",
+                    file=sys.stderr,
+                )
+            else:
+                print(
+                    f"Warning: dependency install failed for worktree "
+                    f"'{entry.branch}' (non-fatal)",
+                    file=sys.stderr,
+                )
 
     provision_worktree_validation_surfaces(entry.path, project)
 
@@ -127,9 +145,15 @@ def provision_planned_lanes(
             failed_branch=primary.branch,
         )
 
-    # Step 3 — best-effort provisioning of the lanes just created.
-    for entry in pending:
-        install_lane_dependencies(entry, project, scripts_dir)
+    # Step 3 — provision new lanes and repair missing declared environments.
+    for entry in plan.worktrees:
+        if not entry.preexisting or (
+            not source_python_environment.venv_python(
+                Path(entry.path) / ".venv"
+            ).is_file()
+            and get_setup_command(project, scripts_dir)
+        ):
+            install_lane_dependencies(entry, project, scripts_dir)
 
     # Every harness contributes its lane-enablement operations through its
     # manifest. This runs for reused lanes as well as new ones so a lane

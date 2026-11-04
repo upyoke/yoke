@@ -95,6 +95,8 @@ def test_non_uv_tree_without_venv_refuses_with_setup_command(
     assert "ask steering or the operator" in message
     assert "Lane prepare runs it automatically; do not hand-prepare each lane" in message
     assert "Rerun lane prepare" in message
+    assert "If setup_command already exists, replace it with the same command" in message
+    assert "--base '<current setup_command settings JSON>' instead of --new" in message
     assert "pip install" not in message
     assert "capability settings" not in message
     assert "--cap-type setup_command" in message

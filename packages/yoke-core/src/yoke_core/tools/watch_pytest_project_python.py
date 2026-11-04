@@ -118,6 +118,8 @@ def _checkout_venv_python(root: Path) -> Path:
                 "`yoke projects capability-settings set --project PROJECT "
                 "--cap-type setup_command --settings-json "
                 "'{\"command\":\"<documented environment command>\"}' --new`. "
+                "If setup_command already exists, replace it with the same command "
+                "using --base '<current setup_command settings JSON>' instead of --new. "
                 "This requires project authority; without it, ask steering or the "
                 "operator to declare the capability. Lane prepare runs it "
                 "automatically; do not hand-prepare each lane. Rerun lane prepare, "

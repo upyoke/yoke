@@ -8,7 +8,7 @@ from yoke_core.domain import worktree_deps
 @pytest.fixture(autouse=True)
 def isolate_install(monkeypatch):
     monkeypatch.setattr(worktree_deps, "resolve_playwright_cache", lambda *args: None)
-    monkeypatch.setattr(worktree_deps, "_get_setup_command", lambda *args: None)
+    monkeypatch.setattr(worktree_deps, "get_setup_command", lambda *args: None)
     monkeypatch.setattr(worktree_deps.runtime_settings, "get_seconds", lambda *args: 600)
     monkeypatch.setattr(worktree_deps.shutil, "which", lambda name: None)
 
@@ -38,6 +38,8 @@ def test_missing_nested_installer_names_file_and_recovery(tmp_path, capsys, file
     assert "ask steering or the operator" in output
     assert "Lane prepare runs it automatically; do not hand-prepare each lane" in output
     assert "Rerun lane prepare" in output
+    assert "If setup_command already exists, replace it with the same command" in output
+    assert "--base '<current setup_command settings JSON>' instead of --new" in output
     assert "pip install" not in output
 
 

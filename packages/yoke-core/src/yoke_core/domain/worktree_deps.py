@@ -285,7 +285,7 @@ def install_worktree_deps(
 
     # --- Project capability override ---
     if project_id:
-        setup_cmd = _get_setup_command(project_id, scripts_dir)
+        setup_cmd = get_setup_command(project_id, scripts_dir)
         if setup_cmd:
             print(
                 f"Installing deps via project setup_command: {setup_cmd}",
@@ -320,7 +320,7 @@ def install_worktree_deps(
     return exit_code
 
 
-def _get_setup_command(project_id: str, scripts_dir: str) -> Optional[str]:
+def get_setup_command(project_id: str, scripts_dir: str) -> Optional[str]:
     """Read the setup_command capability; scripts_dir is an unused caller argument."""
     from yoke_core.domain import projects
 
