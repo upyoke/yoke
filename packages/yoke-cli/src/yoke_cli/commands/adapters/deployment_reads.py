@@ -22,10 +22,6 @@ DEPLOYMENT_RUNS_LIST_USAGE = (
 )
 
 
-#: Server-computed get fields; an older server refuses them as invalid_field.
-COMPUTED_RUN_FIELDS = ("member_items", "membership_removals")
-
-
 def _floor_refusal(response, message):
     return response.model_copy(
         update={
@@ -38,22 +34,8 @@ def _floor_refusal(response, message):
     )
 
 
-def _require_projection(expected_fields=None, summary=False, requested=()):
+def _require_projection(expected_fields=None, summary=False):
     def validate(response, _actor):
-        computed = [name for name in requested if name in COMPUTED_RUN_FIELDS]
-        if (
-            not response.success
-            and computed
-            and response.error is not None
-            and response.error.code == "invalid_field"
-        ):
-            return _floor_refusal(
-                response,
-                f"Serving floor: computed run fields ({', '.join(computed)}). "
-                "Ask the control-plane operator to install a release carrying "
-                "them; until then read members with `yoke deployment-runs list "
-                "--relevance overview --json`.",
-            )
         if not response.success:
             return response
         result = response.result or {}
@@ -133,7 +115,6 @@ def deployment_runs_get(args: List[str]) -> int:
         human_writer=_human_writer,
         response_recovery=_require_projection(
             parsed.fields if len(parsed.fields) > 1 else None,
-            requested=parsed.fields,
         ),
     )
 
