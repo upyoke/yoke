@@ -117,7 +117,7 @@ def browser_authorize(args: List[str]) -> int:
         if parsed.reset:
             from yoke_cli.commands.browser_authorize_automatic import reset_profile
 
-            reset_profile(browser_client, project_key, identity)
+            removed = reset_profile(browser_client, project_key, identity)
     except (ProjectSlugLookupError, BrowserIdentityError, RuntimeError, OSError) as exc:
         return _fail(parsed.json_mode, str(exc), code=2)
     label = f"project {project_key} identity {identity.name}"
@@ -125,6 +125,13 @@ def browser_authorize(args: List[str]) -> int:
     def say(line):
         print(line, file=sys.stderr if parsed.json_mode else sys.stdout, flush=True)
 
+    if parsed.reset:
+        say(
+            f"Removed the previous {label} browser profile at "
+            f"{browser_profile.profile_dir_display(removed)}."
+            if removed is not None
+            else f"No {label} browser profile to remove; starting fresh."
+        )
     expired = list(identity.sites)
     if identity.sites and not parsed.reset:
         try:

@@ -11,7 +11,7 @@ def reset_profile(client, project, identity):
     profile = browser_profile.authorized_profile_dir(project, identity=identity.name)
     if profile:
         browser_identity_check.stop_profile_daemon(client, profile)
-    browser_profile.remove_profile_dir(project, identity=identity.name)
+    return browser_profile.remove_profile_dir(project, identity=identity.name)
 
 
 def authorize_automatic(client, runtime, project, identity, expired):
