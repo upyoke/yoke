@@ -50,7 +50,7 @@ def superseded_run_refusal(run_id: str, successor: str) -> str:
 def terminal_run_refusal(
     conn: Any, run_id: str, status: str, *, advancing_to: str, action: str
 ) -> Optional[str]:
-    """Refuse a write that would advance a cancelled run.
+    """Refuse a write that would advance a superseded or cancelled run.
 
     Only ``cancelled`` is a deliberate, final stop: an operator (or the
     pipeline itself) means "this work is superseded, do not continue."
@@ -61,15 +61,18 @@ def terminal_run_refusal(
     ``succeeded`` evidence keeps flowing in (post-deploy QA, bookkeeping)
     after the pipeline itself marks the run done. Rewriting the SAME
     already-cancelled value is a harmless no-op, not an attempted revival.
-    A run cancelled by a takeover names its successor instead.
+    A run settled by a takeover names its successor instead, including
+    one that succeeded after delivering some of its members.
     """
-    if status != "cancelled" or advancing_to == status:
+    if advancing_to == status:
         return None
     row = conn.execute(
         "SELECT superseded_by_run_id FROM deployment_runs WHERE id=%s", (run_id,)
     ).fetchone()
     if row and row[0]:
         return superseded_run_refusal(run_id, str(row[0]))
+    if status != "cancelled":
+        return None
     return (
         f"Error: deployment run '{run_id}' is cancelled; a cancelled run "
         f"cannot {action}"

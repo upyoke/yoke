@@ -1,6 +1,6 @@
 """A driver whose run a newer release took over exits naming the successor.
 
-Takeover cancels the older run and records ``superseded_by_run_id``. The
+Takeover settles the older run and records ``superseded_by_run_id``. The
 older run's still-live driver then has its next bookkeeping write refused;
 that refusal carries its own code and points at the successor to watch,
 never at a re-drive of the cancelled run, and the driver exits on it
@@ -79,6 +79,31 @@ def test_an_ordinary_cancelled_run_keeps_its_refusal(serving_plane) -> None:
     assert "a cancelled run cannot advance to a new stage" in error["message"]
 
 
+def test_a_superseded_succeeded_run_keeps_its_settled_state(serving_plane) -> None:
+    run_id = _cancelled_run(serving_plane, successor=SUCCESSOR)
+    conn = serving_plane["conn"]
+    conn.execute(
+        "UPDATE deployment_runs SET status='succeeded', current_stage='complete' "
+        "WHERE id=%s",
+        (run_id,),
+    )
+    conn.commit()
+
+    for field, value in (
+        ("status", "failed"),
+        ("current_stage", "item-qa-failed"),
+        ("status", "executing"),
+    ):
+        error = _advance(serving_plane, run_id, field, value)
+        assert error["code"] == RUN_SUPERSEDED_CODE, (field, error)
+        assert SUCCESSOR in error["message"]
+        row = conn.execute(
+            "SELECT status, current_stage FROM deployment_runs WHERE id=%s",
+            (run_id,),
+        ).fetchone()
+        assert tuple(row) == ("succeeded", "complete")
+
+
 def _refusing(code: str):
     def write(run_id, field, value, **_kwargs):
         raise control_plane.DeploymentControlPlaneError(
@@ -102,9 +127,7 @@ def _drive(monkeypatch, capsys, code: str) -> tuple[int, str]:
     return exit_code, capsys.readouterr().err
 
 
-def test_the_superseded_driver_exits_naming_the_successor(
-    monkeypatch, capsys
-) -> None:
+def test_the_superseded_driver_exits_naming_the_successor(monkeypatch, capsys) -> None:
     exit_code, err = _drive(monkeypatch, capsys, RUN_SUPERSEDED_CODE)
 
     assert exit_code == 1

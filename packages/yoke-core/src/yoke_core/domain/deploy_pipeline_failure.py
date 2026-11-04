@@ -13,6 +13,7 @@ from yoke_core.domain import deploy_pipeline_control_plane as control_plane
 from yoke_core.domain import deploy_pipeline_poll_authority as poll_authority
 from yoke_core.domain import deploy_pipeline_reporting as reporting
 from yoke_core.domain import deploy_pipeline_run_updates as run_updates
+from yoke_core.domain.deployment_run_composition_guard import RUN_SUPERSEDED_CODE
 
 EXIT_STAGE_FAILED = 1
 
@@ -146,16 +147,12 @@ def fail_pipeline_stage(
     }
     if diagnostic:
         context["step_runner_diagnostic"] = diagnostic
-    emit_event(
-        "DeploymentRunStageFailed",
-        "failed",
-        context,
-        project=project,
-        sd=sd,
-    )
     try:
         run_updates.update_run_field(run_id, "status", "failed")
     except run_updates.DeployPipelineRunUpdateError as exc:
+        if exc.code == RUN_SUPERSEDED_CODE:
+            print(str(exc), file=sys.stderr)
+            return 0
         print(
             f"Error: stage '{stage_name}' failed (exit code: {exit_code}), but "
             f"run_failure_unrecorded: {exc}. The run's status and stage were "
@@ -163,6 +160,13 @@ def fail_pipeline_stage(
             file=sys.stderr,
         )
         return EXIT_STAGE_FAILED
+    emit_event(
+        "DeploymentRunStageFailed",
+        "failed",
+        context,
+        project=project,
+        sd=sd,
+    )
     reporting._set_deploy_stage(
         f"{stage_name}-failed",
         run_id,

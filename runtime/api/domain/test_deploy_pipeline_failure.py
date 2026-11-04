@@ -12,6 +12,7 @@ from yoke_core.domain import (
     deploy_pipeline_failure,
     deploy_pipeline_run_updates as run_updates,
 )
+from yoke_core.domain.deployment_run_composition_guard import RUN_SUPERSEDED_CODE
 
 
 @pytest.fixture(autouse=True)
@@ -29,7 +30,9 @@ def test_cancelled_run_exits_without_failure_side_effects(run_context, capsys):
     emit_event = mock.Mock()
     with (
         mock.patch.object(run_updates, "update_run_field") as update_run,
-        mock.patch.object(deploy_pipeline_failure.reporting, "_set_deploy_stage") as stage,
+        mock.patch.object(
+            deploy_pipeline_failure.reporting, "_set_deploy_stage"
+        ) as stage,
         mock.patch.object(deploy_pipeline_failure, "_report_failure_trace") as trace,
     ):
         assert _fail_stage(emit_event) == 0
@@ -149,13 +152,40 @@ def test_a_refused_status_write_leaves_the_stage_unchanged(capsys) -> None:
 
     set_stage.assert_not_called()
     trace.assert_not_called()
-    assert [c.args[0] for c in emit_event.call_args_list] == [
-        "DeploymentRunStageFailed"
-    ]
+    emit_event.assert_not_called()
     err = capsys.readouterr().err
     assert "run_failure_unrecorded" in err
     assert "qa_abort_restore_required" in err
     assert "status and stage were left unchanged" in err
+
+
+def test_a_superseded_status_write_exits_without_failure_side_effects(capsys) -> None:
+    successor = "run-20261019-008"
+    refusal = run_updates.DeployPipelineRunUpdateError(
+        f"{RUN_SUPERSEDED_CODE}: run was taken over by {successor}; watch it",
+        code=RUN_SUPERSEDED_CODE,
+    )
+    emit_event = mock.Mock()
+    with (
+        mock.patch.object(
+            deploy_pipeline_failure.reporting, "_set_deploy_stage"
+        ) as set_stage,
+        mock.patch.object(
+            run_updates, "update_run_field", side_effect=refusal
+        ) as update_run,
+        mock.patch.object(deploy_pipeline_failure, "_report_failure_trace") as trace,
+    ):
+        assert _fail_stage(emit_event) == 0
+
+    update_run.assert_called_once_with("run-20261019-007", "status", "failed")
+    set_stage.assert_not_called()
+    emit_event.assert_not_called()
+    trace.assert_not_called()
+    err = capsys.readouterr().err
+    assert successor in err
+    assert RUN_SUPERSEDED_CODE in err
+    assert "run_failure_unrecorded" not in err
+    assert "stage 'item-qa' failed" not in err
 
 
 def test_failure_trace_uses_the_owning_https_control_plane(monkeypatch) -> None:
