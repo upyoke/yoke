@@ -137,3 +137,54 @@ def test_persistence_failure_names_the_lane_it_already_created(
     assert outcome.path == str(tmp_path / "lane")
     assert outcome.created is True
     assert "deps" not in steps
+
+
+@pytest.mark.parametrize(
+    ("declared", "has_python", "expected"),
+    [(True, False, 1), (True, True, 0), (False, False, 0)],
+)
+def test_reused_lane_repairs_only_missing_declared_environment(
+    plan, steps, tmp_path, monkeypatch, declared, has_python, expected
+):
+    entry = plan.primary
+    entry.preexisting = True
+    python = provisioning.source_python_environment.venv_python(
+        Path(entry.path) / ".venv"
+    )
+    if has_python:
+        python.parent.mkdir(parents=True)
+        python.touch()
+    monkeypatch.setattr(
+        provisioning, "get_setup_command",
+        lambda *_: "python3 -m venv .venv" if declared else None,
+    )
+
+    assert not _provision(plan, tmp_path).error
+
+    assert steps.count("deps") == expected
+    assert "lane" not in steps
+    if expected:
+        assert steps.index("persist") < steps.index("deps")
+
+
+def test_setup_failure_names_command_exit_lane_and_replacement(
+    plan, monkeypatch, capsys
+):
+    monkeypatch.setattr(provisioning, "install_worktree_deps", lambda *a, **k: 7)
+    monkeypatch.setattr(
+        provisioning, "get_setup_command", lambda *_: "python3 -m venv .venv"
+    )
+    monkeypatch.setattr(
+        provisioning, "provision_worktree_validation_surfaces", lambda *_: None
+    )
+
+    provisioning.install_lane_dependencies(plan.primary, "42", "/scripts")
+
+    assert capsys.readouterr().err == (
+        "SETUP-COMMAND-FAILED: command 'python3 -m venv .venv' exited "
+        f"7 in lane {plan.primary.path!r}. Recovery: replace the declaration with "
+        "yoke projects capability-settings set --project 42 "
+        "--cap-type setup_command --settings-json "
+        "'{\"command\":\"<documented environment command>\"}' "
+        "--base '<current setup_command settings JSON>', then rerun lane prepare.\n"
+    )

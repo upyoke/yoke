@@ -160,8 +160,15 @@ install for the project's locked setup.
 yoke projects capability-settings set --project PROJECT --cap-type setup_command --settings-json '{"command":"<documented environment command>"}' --new
 ```
 
+To replace an existing declaration, use the current settings as the base:
+
+```text
+yoke projects capability-settings set --project PROJECT --cap-type setup_command --settings-json '{"command":"<documented environment command>"}' --base '<current setup_command settings JSON>'
+```
+
 Without project authority, ask steering or the operator to declare it. Lane
-prepare runs this command automatically in each worktree; do not hand-prepare
+prepare runs this command in new worktrees and reused worktrees without a root
+`.venv` interpreter; a reused lane with that interpreter skips setup. Do not hand-prepare
 each lane. After declaration, rerun the lane prepare command, then retry tests
 if they refused with `PROJECT-ENVIRONMENT-MISSING`. This also covers a bare
 `pyproject.toml` with differently named locked requirements that convention
