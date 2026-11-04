@@ -14,7 +14,7 @@ import {
 
 const GATES = {
   new_migrations_need_db_claim: {
-    name: "DB claim consistency",
+    name: "New migrations need a DB claim",
     description:
       "Lane-only numbered migration entries require a declared DB claim.",
     source_kind: "status_gate",
