@@ -1,13 +1,10 @@
 """Machine-local persistent browser profiles, one per project identity.
 
-An agent must never complete a sign-in, so the signed-in state a Browser case
-or an exploratory walker needs has to come from the operator. ``yoke browser
-authorize`` opens one identity's profile in a plain window of the browser
-daemon's own Chromium; whatever the operator signs into there is signed in for
-every worker context that daemon later hands out for that identity. The window
-is a directly spawned browser process rather than an automated one, because
-identity providers refuse to sign a human into an automation-controlled
-browser.
+``yoke browser authorize`` signs declared automatic first-party test accounts
+in headless from machine-local secret files. Human sites open in a plain
+window of the daemon's Chromium, because some identity providers refuse
+automation-controlled sign-in. Both paths save the identity's profile for
+the daemon; agents never read credential values.
 
 A project declares named identities (``yoke_contracts.browser_identity``);
 each has its own profile, so signing a second account in never overwrites the

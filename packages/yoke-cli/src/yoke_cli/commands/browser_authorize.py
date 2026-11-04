@@ -205,7 +205,16 @@ def browser_authorize(args: List[str]) -> int:
     sites = []
     if identity.sites:
         try:
-            sites = check_sign_in(browser_client, runtime, project_key, identity)
+            from yoke_cli.commands.browser_authorize_automatic import check_after_window
+
+            sites = check_after_window(
+                check_sign_in,
+                browser_client,
+                runtime,
+                project_key,
+                identity,
+                automatic_sites,
+            )
         except browser_identity_check.SignInCheckError as exc:
             return _fail(parsed.json_mode, str(exc), code=1)
         say(browser_identity_check.summarize(identity.name, sites))

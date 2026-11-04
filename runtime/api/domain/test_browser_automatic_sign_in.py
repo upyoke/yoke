@@ -197,3 +197,55 @@ def test_human_identities_need_no_automatic_runtime(monkeypatch):
     del human["sign_in"]
     prepare_automatic_identities("acme", {"buyer": identity(human)}, ["buyer"])
     prepare.assert_not_called()
+
+
+@pytest.mark.parametrize("failure", [None, "browser_automatic_sign_in_failed: shop"])
+def test_scenario_signs_in_before_daemon_or_first_step(monkeypatch, failure):
+    from yoke_core.domain import browser_qa
+    from yoke_core.domain import browser_qa_scenario as scenario
+
+    events = []
+    context = {
+        "standalone_execution_id": "fixture",
+        "requirements": [
+            {
+                "id": 1,
+                "method_config": json.dumps({"browser_identity": "buyer"}),
+            }
+        ],
+    }
+    monkeypatch.setattr(browser_qa, "_fetch_browser_context", lambda *a, **k: context)
+    monkeypatch.setattr(browser_qa, "_validate_reachability", lambda *a: None)
+    monkeypatch.setattr(
+        browser_qa, "load_project_browser_identities", lambda *a: {"buyer": identity()}
+    )
+
+    def prepare(*args):
+        events.append("sign_in")
+        if failure:
+            raise automatic.AutomaticSignInError(failure)
+
+    def daemon(**kwargs):
+        events.append("daemon")
+
+    def process(**kwargs):
+        events.append("step")
+        return SimpleNamespace(
+            run_result=SimpleNamespace(verdict="pass"),
+            skipped=False,
+            executed=True,
+            capture_failed=False,
+            env_failure=False,
+        )
+
+    monkeypatch.setattr(
+        "yoke_core.domain.browser_qa_automatic_sign_in.prepare_automatic_identities",
+        prepare,
+    )
+    monkeypatch.setattr(browser_qa, "_ensure_daemon_running", daemon)
+    monkeypatch.setattr(scenario, "_process_requirement", process)
+    result = scenario.execute_scenario("acme", 1, base_url="https://shop.example")
+    assert events == (["sign_in"] if failure else ["sign_in", "daemon", "step"])
+    assert result.verdict == ("error" if failure else "pass")
+    if failure:
+        assert result.note == "browser_automatic_sign_in_failed"
