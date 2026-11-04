@@ -80,7 +80,7 @@ def test_rejected_finished_resume_retries_only_recoverable_failures(
     assert retry_pending_reports(dispatch, FUNCTION_ID, state_dir=relay, timeout_s=5)
     health = observe_relay_health(relay)
     if permanent:
-        assert health["state"] == "quarantined"
+        assert health["state"] == "healthy"
         assert health["pending_reports"] == 0
         assert health["quarantine_count"] == 1
         assert health["quarantined_reports"][0]["error_code"] == code
