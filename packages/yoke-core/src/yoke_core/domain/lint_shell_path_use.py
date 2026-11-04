@@ -78,7 +78,6 @@ _GIT_LOCAL_STATE_MOVES = frozenset(
         "reset",
         "clean",
         "switch",
-        "fetch",
         "pull",
         "merge",
         "rebase",
@@ -150,7 +149,7 @@ def _command_text(segment: ShellSegment) -> str:
     lexer.commenters = ""
     for _ in range(len(segment.tokens) - len(segment.argv)):
         lexer.get_token()
-    return segment.text[lexer.instream.tell():]
+    return segment.text[lexer.instream.tell() :]
 
 
 def _state_move(tokens: list[str], command: str) -> bool:
@@ -250,9 +249,7 @@ def analyze_shell_path_use(
         lane_move = state_move or _state_move(tokens, command_text)
         mutation = mutation or lane_move
         direct_write = direct_write or state_move
-        role = (
-            PathRole.READ if _match_simple(command_text) else PathRole.UNKNOWN
-        )
+        role = PathRole.READ if _match_simple(command_text) else PathRole.UNKNOWN
         if base == "cd" and len(tokens) == 2 and not tokens[1].startswith("-"):
             role = PathRole.READ
         if state_move:

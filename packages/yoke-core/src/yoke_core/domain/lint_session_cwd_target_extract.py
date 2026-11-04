@@ -1,12 +1,4 @@
-"""Extract target paths from PreToolUse payloads for claim-based validation.
-
-The session-cwd lint validates per-call targets against claim authority.
-This module extracts the paths a tool call would touch; the validator in
-:mod:`lint_session_cwd_validate` decides claimed worktree vs control plane
-vs free path. Write-only consumers use
-:func:`extract_payload_write_targets` so fixture strings and read operands
-are not write targets.
-"""
+"""Extract tool targets, including write-only operands, for claim validation."""
 
 from __future__ import annotations
 
@@ -37,6 +29,7 @@ from yoke_core.domain.lint_session_cwd_target_extract_shell import (
     without_heredoc_operators,
 )
 from yoke_core.domain.observe_apply_patch_parser import parse_patch
+from yoke_core.domain.lint_shell_script_arguments import non_path_argument_indexes
 
 
 APPLY_PATCH_TOOL_NAMES = frozenset({"apply_patch", "ApplyPatch"})
@@ -280,10 +273,18 @@ def resolve_shell_write_operands(
             out.extend(in_segment_cwd(git_targets, segment_cwds, index))
             unresolved = unresolved or git_unresolved
             continue
-        args = clean[1:]
-        positionals = [arg for arg in args if arg != "-" and not arg.startswith("-")]
+        ignored = non_path_argument_indexes(command_base, clean)
+        positionals = [
+            arg
+            for i, arg in enumerate(clean[1:], 1)
+            if i not in ignored and arg != "-" and not arg.startswith("-")
+        ]
         if command_base in _LAST_POSITIONAL_WRITE_COMMANDS and positionals:
-            positionals = positionals[-1:]
+            options = clean[: clean.index("--")] if "--" in clean else clean
+            positionals = next(
+                ([options[i + 1]] for i, arg in enumerate(options[:-1]) if arg == "-t"),
+                positionals[-1:],
+            )
         elif command_base not in _ALL_POSITIONAL_WRITE_COMMANDS:
             continue
         resolved, segment_unresolved = resolve_path_operands(positionals, bindings)
