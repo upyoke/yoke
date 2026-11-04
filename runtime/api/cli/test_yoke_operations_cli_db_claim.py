@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import io
-import json
 from contextlib import redirect_stderr, redirect_stdout
 from typing import List
 from unittest.mock import patch
@@ -103,36 +102,6 @@ class TestDbClaimAmendDispatch:
         }
         assert req.payload["reason"] == "declare profile"
 
-
-class TestDbClaimProseCheckDispatch:
-    def test_prose_check_dispatches(self) -> None:
-        rc = _run(_stub_ok, "db-claim", "prose-check", _FIXTURE_ITEM_REF)
-        assert rc == 0
-        req = _CAPTURED_REQUESTS[-1]
-        assert req.function == "db_claim.prose_check"
-        assert req.target.kind == "item"
-        assert req.target.public_ref == _FIXTURE_ITEM_REF
-        assert req.payload == {}
-
-    def test_prose_check_stdin_runs_locally(self) -> None:
-        import io
-        from contextlib import redirect_stdout
-        from unittest.mock import patch
-
-        from yoke_cli.main import main as cli_main
-
-        stdin = io.StringIO("no governed database mutation here\n")
-        buf = io.StringIO()
-        with patch.dict("os.environ", {"YOKE_SESSION_ID": "test-session"}):
-            with patch("sys.stdin", stdin):
-                with redirect_stdout(buf):
-                    rc = cli_main(["db-claim", "prose-check", "--stdin", "--json"])
-        assert rc == 0
-        assert _CAPTURED_REQUESTS == []
-        envelope = json.loads(buf.getvalue())
-        assert envelope["success"] is True
-        assert envelope["result"]["blocks"] is False
-        assert envelope["result"]["mode"] == "stdin"
 
 
 class TestDbClaimAmendErrors:

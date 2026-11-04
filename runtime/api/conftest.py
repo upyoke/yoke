@@ -301,8 +301,6 @@ def _serve_pinned_workflow_definitions(monkeypatch: pytest.MonkeyPatch) -> None:
     def _serve(**kwargs):
         if kwargs.get("function_id") == "projects.capability_settings.get":
             return SimpleNamespace(success=True, error=None, result={"settings_json": None})
-        if kwargs.get("function_id") == "db_claim.prose_check":
-            return SimpleNamespace(success=True, error=None, result={"blocks": False})
         payload = kwargs.get("payload") or {}
         workflow_id = str(payload.get("workflow_id") or "")
         try:

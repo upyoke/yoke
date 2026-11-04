@@ -1,6 +1,5 @@
 """Backlog DB-mutation gate dispatch (governed DB-mutation contract §7) — composes the joint /
-evidence / polish gates. Older pinned definitions dispatch the separate
-prose-vs-claim check through the canonical status-write path. Each helper returns the
+evidence / polish gates. Each helper returns the
 canonical `{"success": False, ...}` failure payload or `None` on pass.
 """
 
@@ -84,47 +83,6 @@ def _profile_declares_mutation(conn: Any, item_id: int) -> bool:
         return False
     return parsed.get("state") == "declared"
 
-
-def _run_prose_vs_claim_check(
-    *,
-    item_id: int,
-    db_path: str,
-) -> Optional[dict]:
-    """Run the prose-vs-claim consistency check.
-
-    Returns the canonical failure payload when the spec/body names
-    governed DB mutation but the stored ``db_mutation_profile`` is still
-    ``state="none"``.  Returns ``None`` when the prose is clean, the
-    claim is already declared, or the check is unavailable
-    (import/schema issue).
-    """
-    try:
-        from yoke_core.domain import db_claim_prose_check
-    except ImportError:
-        return None
-    from yoke_core.domain.project_identity import render_item_ref
-
-    conn = connect(db_path)
-    try:
-        outcome = db_claim_prose_check.check_item(item_id, conn=conn)
-        public_ref = render_item_ref(conn, item_id) if outcome.blocks else ""
-    except db_backend.operational_error_types(conn) as exc:
-        # Minimal legacy schemas may lack the columns the check reads.
-        # The contract has nothing to enforce in that case.
-        if "no such column" in str(exc) or "no such table" in str(exc):
-            return None
-        raise
-    finally:
-        conn.close()
-    if not outcome.blocks:
-        return None
-    return {
-        "success": False,
-        "error": db_claim_prose_check.mismatch_error(
-            public_ref, outcome.triggers, outcome.recovery
-        ),
-        "error_code": "GATE_DB_CLAIM_PROSE_MISMATCH",
-    }
 
 
 def _run_db_mutation_gate(
@@ -231,6 +189,5 @@ __all__ = [
     "_DB_MUTATION_GATE_TARGETS",
     "_profile_declares_mutation",
     "capture_db_mutation_gate_warnings",
-    "_run_prose_vs_claim_check",
     "_run_db_mutation_gate",
 ]

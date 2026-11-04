@@ -11,7 +11,6 @@ from copy import deepcopy
 from typing import Any, Dict, Tuple
 
 GATE_NEW_MIGRATIONS_NEED_DB_CLAIM = "new_migrations_need_db_claim"
-GATE_DB_CLAIM_PROSE = "db_claim_prose"
 GATE_DB_MUTATION = "db_mutation"
 GATE_ARCHITECTURE_IMPACT = "architecture_impact"
 GATE_PATH_CLAIM_BOUNDARY = "path_claim_boundary"
@@ -33,18 +32,6 @@ _GATE_CATALOG: Tuple[Dict[str, Any], ...] = (
         "name": "New migrations need a DB claim",
         "description": "Lane-only numbered migration entries require a declared DB claim.",
         "source_kind": "status_gate", "availability": "live", "modes": [],
-    },
-    {
-        "id": GATE_DB_CLAIM_PROSE,
-        "name": "DB claim consistency",
-        "description": (
-            "The item's declared DB claim must agree with what its own text "
-            "describes — prose about migrations alongside a claim of none "
-            "is refused."
-        ),
-        "source_kind": "status_gate",
-        "availability": "live",
-        "modes": [],
     },
     {
         "id": GATE_DB_MUTATION,
@@ -261,7 +248,6 @@ __all__ = [
     "GATE_CONFLICT_SURVEY",
     "GATE_DASH_EVIDENCE",
     "GATE_FLOOR_ATTESTATION",
-    "GATE_DB_CLAIM_PROSE",
     "GATE_NEW_MIGRATIONS_NEED_DB_CLAIM",
     "GATE_DB_MUTATION",
     "GATE_DOC_CLAIM_ACTIVATION",

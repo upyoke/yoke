@@ -41,7 +41,6 @@ from yoke_core.domain.backlog_db_mutation_gate_runner import (  # noqa: F401
     _DB_MUTATION_GATE_TARGETS,
     _profile_declares_mutation,
     _run_db_mutation_gate,
-    _run_prose_vs_claim_check,
 )
 from yoke_core.domain.backlog_authoritative_status_gate import (  # noqa: F401
     _run_authoritative_status_gate,
@@ -70,7 +69,6 @@ __all__ = [
     "_DB_MUTATION_GATE_TARGETS",
     "_profile_declares_mutation",
     "_run_db_mutation_gate",
-    "_run_prose_vs_claim_check",
     # Authoritative status gate (composer)
     "_run_authoritative_status_gate",
     # Unsupported field writes

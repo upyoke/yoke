@@ -308,17 +308,3 @@ def register(registry) -> None:
         adapter_status="live",
         claim_required_kind="item",
     )
-    # db_claim.prose_check — https-relayable prose-vs-claim read
-    registry.register(
-        "db_claim.prose_check",
-        _dbc.handle_prose_check,
-        _dbc.ProseCheckRequest,
-        _dbc.ProseCheckResponse,
-        stability="stable",
-        owner_module="yoke_core.domain.handlers.db_claim",
-        target_kinds=["item"],
-        side_effects=[],
-        guardrails=[],
-        adapter_status="live",
-        claim_required_kind=None,
-    )

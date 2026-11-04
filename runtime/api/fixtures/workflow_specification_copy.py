@@ -133,10 +133,8 @@ EXPECTED_WORKFLOW_COPY = {
 }
 
 EXPECTED_GATE_DESCRIPTIONS = {
-    "db_claim_prose": (
-        "The item's declared DB claim must agree with what its own text "
-        "describes — prose about migrations alongside a claim of none is "
-        "refused."
+    "new_migrations_need_db_claim": (
+        "Lane-only numbered migration entries require a declared DB claim."
     ),
     "db_mutation": (
         "A declared governed mutation must satisfy this point's check — "

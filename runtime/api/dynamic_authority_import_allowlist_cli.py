@@ -307,13 +307,6 @@ CLI_PACKAGE_DYNAMIC_AUTHORITY_IMPORTS = {
         "the health report layout is the engine's, rendered from any result",
     ),
     (
-        "packages/yoke-cli/src/yoke_cli/commands/adapters/db_claim.py",
-        "yoke_core.domain.db_claim_prose_check",
-    ): (
-        "client_local_diagnostics",
-        "stdin prose-vs-claim detection needs no control-plane DB",
-    ),
-    (
         "packages/yoke-cli/src/yoke_cli/commands/pulumi_stack_config_loader.py",
         "yoke_core.domain.project_renderer_settings_snapshot",
     ): (

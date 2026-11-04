@@ -14,7 +14,6 @@ _ACTIVE_RECOVERY_SURFACES = (
     "domain/attestation_rehearsal_dryrun.py",
     "domain/backlog_update_op.py",
     "domain/db_error_hook_query_failure.py",
-    "domain/db_claim_prose_check.py",
     "domain/lint_no_agent_runtime_api_import_from_c.py",
     "domain/path_claim_required_gate.py",
     "domain/path_claim_spec_coverage_gate.py",

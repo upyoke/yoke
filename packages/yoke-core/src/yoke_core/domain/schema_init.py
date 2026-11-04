@@ -63,11 +63,6 @@ def project_code_owned_rows(conn) -> None:
     # the deploy and before its item QA freezes them. Each plan commits or
     # rolls back alone, so it runs after everything above has committed.
     _converge_source_bound_plans(conn)
-    from yoke_core.domain.workflow_retired_gate_pin_moves import (
-        move_open_items_off_retired_gate_versions,
-    )
-
-    move_open_items_off_retired_gate_versions(conn)
 
 
 def _converge_source_bound_plans(conn) -> None:
