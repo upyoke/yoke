@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from types import SimpleNamespace
 
 from runtime.harness.session_relay_clock_test_support import at
 
@@ -36,6 +37,38 @@ cursor-grok-4.6-low - Cursor Grok 4.6 Low
 cursor-grok-4.6-xhigh - Cursor Grok 4.6 Extra High
 cursor-grok-4.6-xhigh-fast - Cursor Grok 4.6 Extra High Fast
 """
+
+
+def test_absent_cursor_is_unsupported_without_a_relay_failure(monkeypatch, caplog):
+    monkeypatch.setattr(observer, "resolve_native_cli", lambda _name: None)
+
+    reading = observer.probe_cursor_cli_models(observed_at="2026-09-07T14:00:00Z")
+
+    assert reading["status"] == "unsupported"
+    assert reading["reason"] == "cli_unavailable"
+    assert reading["models"] == []
+    assert "class=relay_failure" not in caplog.text
+
+
+def test_present_cursor_listing_failure_is_unknown_and_logged(monkeypatch, caplog):
+    monkeypatch.setattr(
+        observer, "resolve_native_cli", lambda _name: "/bin/cursor-agent"
+    )
+    monkeypatch.setattr(
+        observer.subprocess,
+        "run",
+        lambda *_args, **_kwargs: SimpleNamespace(
+            returncode=7, stdout="", stderr="bad"
+        ),
+    )
+
+    reading = observer.probe_cursor_cli_models(observed_at="2026-09-07T14:00:00Z")
+
+    assert reading["status"] == "unknown"
+    assert reading["reason"] == "list_models_exit_7"
+    assert reading["models"] == []
+    assert "class=relay_failure" in caplog.text
+
 
 # Recorded from an installed codex app-server. The retiring model is what
 # proves replacement metadata survives; the hidden one must never be offered.

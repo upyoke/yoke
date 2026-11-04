@@ -42,7 +42,7 @@ NATIVE_MODEL_SURFACES = (
 
 #: ``ok`` — this reading came from the surface itself just now.
 #: ``stale`` — the last attempt failed and these are the models last seen.
-#: ``unsupported`` — Yoke declares no native listing route for this surface.
+#: ``unsupported`` — no native listing route, or this surface's CLI is not installed.
 #: ``unknown`` — the surface has never answered, so nothing is known yet.
 NATIVE_MODEL_STATUSES = frozenset({"ok", "stale", "unsupported", "unknown"})
 

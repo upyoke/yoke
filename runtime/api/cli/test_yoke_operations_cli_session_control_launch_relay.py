@@ -21,6 +21,46 @@ FULL_LAUNCH_ID = "44444444-4444-4444-8444-444444444444"
 FULL_MACHINE_ID = "22222222-2222-4222-8222-222222222222"
 
 
+def test_probe_models_succeeds_and_withdraws_cached_models_when_cursor_absent(
+    monkeypatch,
+    tmp_path,
+    capsys,
+) -> None:
+    from yoke_cli.commands.adapters.session_control_relay_models import (
+        relay_probe_models,
+    )
+    from yoke_contracts.session_control.native_models import (
+        models_reading,
+        native_model,
+    )
+    from yoke_harness import session_relay_native_models as observer
+
+    monkeypatch.setattr(
+        observer, "_cache_path", lambda _state_dir: tmp_path / "models.json"
+    )
+    observer._write_cache(
+        {
+            "schema_version": observer.NATIVE_MODEL_CACHE_SCHEMA_VERSION,
+            "surfaces": {
+                "cursor-cli": models_reading(
+                    "cursor-cli",
+                    [native_model("auto")],
+                    source="cursor-agent --list-models",
+                    observed_at="2026-09-07T14:00:00Z",
+                )
+            },
+        },
+        None,
+    )
+    monkeypatch.setattr(observer, "resolve_native_cli", lambda _name: None)
+
+    assert relay_probe_models(["--surface", "cursor-cli", "--json"]) == 0
+    reading = json.loads(capsys.readouterr().out)["surfaces"]["cursor-cli"]
+    assert reading["status"] == "unsupported"
+    assert reading["reason"] == "cli_unavailable"
+    assert reading["models"] == []
+
+
 def test_sessions_create_preview_and_create_use_registered_functions(
     monkeypatch,
 ) -> None:

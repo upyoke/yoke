@@ -1,7 +1,9 @@
 {
  "id": "relay",
  "title": "Machine relay",
- "status": "draft-copy",
+ "status": "observed",
+ "text": "Relay health keeps server-settled quarantine records and their count as evidence without degrading health. Active report failures remain retrying; unsettled codes, missing codes, or an incomplete retained list remain quarantined. Refused takes precedence. No quarantine payloads are deleted or replayed. A missing Cursor CLI is unsupported with cli_unavailable and no models, so probe-models succeeds without a relay failure; an installed CLI whose listing fails remains a failure.",
+ "sources": ["packages/yoke-contracts/src/yoke_contracts/session_control/relay_health.py", "packages/yoke-harness/src/yoke_harness/session_relay_native_models.py", "docs/harness-bootstrap.md"],
  "commands": ["yoke relay diagnostic", "yoke relay install", "yoke relay report quarantine", "yoke relay serve", "yoke relay serve-once", "yoke relay status", "yoke relay uninstall"],
  "page": "machines",
  "position": 1

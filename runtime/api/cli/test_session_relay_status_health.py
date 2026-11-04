@@ -164,15 +164,17 @@ def test_report_quarantine_command_leaves_transport_failure_retryable(
     assert pending.exists()
 
 
+@pytest.mark.parametrize("code", ["payload_invalid", "report_conflict"])
 def test_quarantined_status_teaches_terminal_recovery_without_replay(
     monkeypatch,
     capsys,
     tmp_path: Path,
+    code: str,
 ) -> None:
     deliver_terminal_report(
         lambda **_kwargs: SimpleNamespace(
             success=False,
-            error=SimpleNamespace(code="report_conflict"),
+            error=SimpleNamespace(code=code),
         ),
         session_relay.RELAY_REPORT_FUNCTION_ID,
         _terminal_payload(),
@@ -199,8 +201,14 @@ def test_quarantined_status_teaches_terminal_recovery_without_replay(
         ),
     )
 
-    assert relay.relay_status(["--json"]) == 1
+    assert relay.relay_status(["--json"]) == (1 if code == "payload_invalid" else 0)
     payload = json.loads(capsys.readouterr().out)
+    assert payload["relay_health"]["quarantine_count"] == 1
+    assert payload["relay_health"]["quarantined_reports"][0]["error_code"] == code
+    if code == "report_conflict":
+        assert payload["relay_health"]["state"] == "healthy"
+        return
+    assert payload["relay_health"]["state"] == "quarantined"
     for code in SETTLED_RELAY_REPORT_CODES:
         assert code in payload["relay_health_recovery"]
     assert "do not replay" in payload["relay_health_recovery"]

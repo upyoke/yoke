@@ -120,11 +120,15 @@ def sanitize_relay_health(value: object) -> dict[str, Any]:
     quarantines = _quarantines(document.get("quarantined_reports"))
     refusal = _run_refusal(document.get("run_refusal"))
     pending = _count(document.get("pending_reports"))
+    quarantine_count = max(len(quarantines), _count(document.get("quarantine_count")))
+    actionable_quarantine = quarantine_count > len(quarantines) or any(
+        entry["error_code"] not in SETTLED_RELAY_REPORT_CODES for entry in quarantines
+    )
     state = (
         "refused"
         if refusal
         else "quarantined"
-        if quarantines
+        if actionable_quarantine
         else "retrying"
         if failure or pending
         else "healthy"
@@ -135,35 +139,13 @@ def sanitize_relay_health(value: object) -> dict[str, Any]:
         "report_failure": failure,
         "run_refusal": refusal,
         "quarantined_reports": quarantines,
-        "quarantine_count": max(
-            len(quarantines), _count(document.get("quarantine_count"))
-        ),
+        "quarantine_count": quarantine_count,
     }
 
 
 def relay_refuses_jobs(value: object) -> bool:
     """Whether a heartbeat explicitly refuses native work for build skew."""
     return sanitize_relay_health(value)["state"] == "refused"
-
-
-def retained_settled_reports_only(value: object) -> bool:
-    """True when health is only retained evidence of server-settled reports.
-
-    Incomplete bounded metadata never qualifies: a truncated quarantine
-    list, a missing error_code, or any entry outside
-    ``SETTLED_RELAY_REPORT_CODES`` stays actionable. Pending reports, live failures, and run refusals also
-    stay actionable.
-    """
-    health = sanitize_relay_health(value)
-    if health["pending_reports"] or health["report_failure"] or health["run_refusal"]:
-        return False
-    quarantines = health["quarantined_reports"]
-    if not quarantines:
-        return False
-    if health["quarantine_count"] != len(quarantines):
-        return False
-    codes = [str(entry.get("error_code") or "") for entry in quarantines]
-    return bool(codes) and all(code in SETTLED_RELAY_REPORT_CODES for code in codes)
 
 
 def fleet_relay_error_code(
@@ -190,6 +172,5 @@ __all__ = [
     "SETTLED_RELAY_REPORT_CODES",
     "fleet_relay_error_code",
     "relay_refuses_jobs",
-    "retained_settled_reports_only",
     "sanitize_relay_health",
 ]

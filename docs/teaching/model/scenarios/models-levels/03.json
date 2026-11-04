@@ -4,7 +4,7 @@
  "status": "observed",
  "audience": "agent",
  "when": "A requested model/effort/context is missing or refused",
- "need": "Per-machine native listings expand base-model/min_effort rows to selectors. Exact surface/model/effort/context requests bypass level placement and cannot combine with --level. Surface and context are not stored row fields. Unknown/stale/unsupported listings are distinct; probe unknown listings, and obtain a declared adapter or choose an observed surface for unsupported listings. Preserve each refusal and recovery; unresolved model/effort cannot admit work, and no hidden fallback may borrow a different level.",
+ "need": "Per-machine native listings expand base-model/min_effort rows to selectors. Exact surface/model/effort/context requests bypass level placement and cannot combine with --level. Surface and context are not stored row fields. Unknown/stale/unsupported listings are distinct; probe unknown listings, and obtain a declared adapter, install the missing CLI, or choose an observed surface for unsupported listings. An absent Cursor CLI reports unsupported with cli_unavailable and no models; probe-models succeeds without a relay failure. Preserve each refusal and recovery; unresolved model/effort cannot admit work, and no hidden fallback may borrow a different level.",
  "disclosure": "current cue",
  "surface": "CLI/config observed-model section -> list-models and probe help; Steer exact-model recipe.",
  "review": "Native expansion and exact-override behavior observed in current routing docs/source. This worker launch receipt confirms the named unsupported-listing and unavailable-model/effort refusals; no all-harness launch success claimed.",
