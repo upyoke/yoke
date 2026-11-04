@@ -256,10 +256,8 @@ class TestProseVsClaimGate:
         )
         assert outcome is None
 
-    def test_prose_check_skipped_on_unrelated_target(self, helper_db) -> None:
-        """Targets outside the prose-check set (for example `release`)
-        do not run the check — the operator-facing failure modes for
-        those transitions belong to other gate families."""
+    def test_mutation_runner_skips_unrelated_target(self, helper_db) -> None:
+        """Release belongs to other gate families, not mutation dispatch."""
         conn, db_path = helper_db
         insert_item(
             conn,
