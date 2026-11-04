@@ -30,6 +30,7 @@ from yoke_core.domain.lint_session_cwd_target_extract_shell import (
 )
 from yoke_core.domain.observe_apply_patch_parser import parse_patch
 from yoke_core.domain.lint_shell_script_arguments import non_path_argument_indexes
+from yoke_core.domain.lint_shell_write_operands import copy_write_operands, source_run_argv
 
 
 APPLY_PATCH_TOOL_NAMES = frozenset({"apply_patch", "ApplyPatch"})
@@ -261,7 +262,7 @@ def resolve_shell_write_operands(
         # word-list header carries no operands but can still redirect.
         words = without_heredoc_operators(segment.tokens)
         clean, redirects = _split_redirect_targets(words)
-        clean = strip_env_prefix(clean)
+        clean = strip_env_prefix(source_run_argv(strip_env_prefix(clean)))
         resolved, segment_unresolved = resolve_path_operands(redirects, bindings)
         out.extend(in_segment_cwd(resolved, segment_cwds, index))
         unresolved = unresolved or segment_unresolved
@@ -279,12 +280,8 @@ def resolve_shell_write_operands(
             for i, arg in enumerate(clean[1:], 1)
             if i not in ignored and arg != "-" and not arg.startswith("-")
         ]
-        if command_base in _LAST_POSITIONAL_WRITE_COMMANDS and positionals:
-            options = clean[: clean.index("--")] if "--" in clean else clean
-            positionals = next(
-                ([options[i + 1]] for i, arg in enumerate(options[:-1]) if arg == "-t"),
-                positionals[-1:],
-            )
+        if command_base in _LAST_POSITIONAL_WRITE_COMMANDS:
+            positionals = copy_write_operands(clean[1:])
         elif command_base not in _ALL_POSITIONAL_WRITE_COMMANDS:
             continue
         resolved, segment_unresolved = resolve_path_operands(positionals, bindings)
