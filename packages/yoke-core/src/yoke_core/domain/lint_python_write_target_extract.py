@@ -287,6 +287,11 @@ class _PythonWriteVisitor(ast.NodeVisitor):
             return self.bindings.get(node.id)
         if isinstance(node, ast.Call) and node.args:
             func = node.func
+            if isinstance(func, ast.Attribute) and func.attr == "joinpath":
+                parts = [self._path_value(n) for n in [func.value, *node.args]]
+                if not node.keywords and all(p is not None for p in parts):
+                    return str(PurePath(*parts))
+                return None
             is_path = (
                 isinstance(func, ast.Name)
                 and func.id == "Path"

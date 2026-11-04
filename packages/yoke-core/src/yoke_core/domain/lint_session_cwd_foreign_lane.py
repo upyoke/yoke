@@ -92,10 +92,17 @@ def governed_targets(
         if is_read_only_git_inspection(segment):
             continue
         tokens = segment.tokens
+        if (
+            segment.argv
+            and segment.argv[0] == "yoke"
+            and not any(s.argv and s.argv[0] == "cd" for s in parsed.segments)
+            and len(outside_worktree_lanes(tokens, repo_roots)) == len(tokens)
+        ):
+            continue
         if len(tokens) == 2 and tokens[0] == "cd" and not tokens[1].startswith("-"):
             continue
         label = _match_simple(segment)
-        if not label or label in {"find", "yoke-adapter"}:
+        if not label or label == "find":
             return list(targets)
     return outside_worktree_lanes(targets, repo_roots)
 

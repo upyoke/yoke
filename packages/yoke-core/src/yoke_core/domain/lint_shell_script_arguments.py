@@ -10,9 +10,23 @@ def gh_api_argument_roles(
     if command != "gh":
         return set(), {}
     values = {
-        "-X", "--method", "-H", "--header", "-f", "--raw-field",
-        "-F", "--field", "-q", "--jq", "-t", "--template",
-        "-p", "--preview", "--hostname", "--cache", "--input",
+        "-X",
+        "--method",
+        "-H",
+        "--header",
+        "-f",
+        "--raw-field",
+        "-F",
+        "--field",
+        "-q",
+        "--jq",
+        "-t",
+        "--template",
+        "-p",
+        "--preview",
+        "--hostname",
+        "--cache",
+        "--input",
     }
     ignored: set[int] = set()
     files: dict[int, str] = {}
@@ -61,6 +75,21 @@ def non_path_argument_indexes(command: str, tokens: list[str]) -> set[int]:
     """
     if command == "gh":
         return gh_api_argument_roles(command, tokens)[0]
+    value_options = {
+        "mkdir": {"-m", "--mode"},
+        "touch": {"-d", "-t", "-r"},
+        "truncate": {"-s", "-r"},
+    }.get(command)
+    if value_options is not None:
+        ignored: set[int] = set()
+        index = 1
+        while index < len(tokens) and tokens[index] != "--":
+            if tokens[index] in value_options:
+                if index + 1 < len(tokens):
+                    ignored.add(index + 1)
+                index += 1
+            index += 1
+        return ignored
     if command not in {"sed", "awk", "gawk", "mawk", "nawk"}:
         return set()
     awk = command != "sed"

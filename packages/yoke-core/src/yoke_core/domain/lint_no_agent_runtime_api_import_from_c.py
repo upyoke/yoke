@@ -34,6 +34,7 @@ from __future__ import annotations
 
 from yoke_core.hooks.decision_render import render_codex_decision
 
+import ast
 import json
 import os
 import re
@@ -181,6 +182,27 @@ def _iter_python_c_bodies(command: str | ShellParse):
 
 def _matched_import(body: str) -> str:
     """Return the import statement this rule matched, or ``""``."""
+    try:
+        tree = ast.parse(body)
+    except SyntaxError:
+        tree = None
+    if tree is not None and not any(
+        isinstance(n, ast.Call)
+        and isinstance(n.func, ast.Name)
+        and n.func.id in {"exec", "eval", "compile"}
+        for n in ast.walk(tree)
+    ):
+        for node in ast.walk(tree):
+            modules = (
+                [a.name for a in node.names]
+                if isinstance(node, ast.Import)
+                else [node.module or ""]
+                if isinstance(node, ast.ImportFrom)
+                else []
+            )
+            if any(re.fullmatch(_FORBIDDEN_IMPORT_PREFIX_RE, m) for m in modules):
+                return ast.get_source_segment(body, node) or ast.unparse(node)
+        return ""
     match = _FORBIDDEN_IMPORT_RE.search(body)
     if match is None:
         return ""
@@ -189,7 +211,7 @@ def _matched_import(body: str) -> str:
 
 
 def _body_imports_runtime(body: str) -> bool:
-    return bool(_FORBIDDEN_IMPORT_RE.search(body))
+    return bool(_matched_import(body))
 
 
 def _format_reason(
