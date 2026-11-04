@@ -273,12 +273,16 @@ def execute_scenario(
 
     from yoke_harness.browser_daemon_profile import project_scope
 
-    # Step 5: Ensure a browser daemon runs for every identity the cases name;
-    # each identity is its own profile, so each has its own daemon.
+    # Prepare automatic sign-ins before starting a daemon or recording steps.
     try:
+        from yoke_core.domain.browser_qa_automatic_sign_in import (
+            prepare_automatic_identities,
+        )
+
         declared = _bqa.load_project_browser_identities(project)
         identities = resolve_case_identities(declared, req_rows)
-    except BrowserIdentityError as exc:
+        prepare_automatic_identities(project, declared, identities)
+    except (BrowserIdentityError, RuntimeError) as exc:
         _bqa._log(f"ERROR: {exc}")
         result.verdict = "error"
         result.note = str(exc).split(":", 1)[0]

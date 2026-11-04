@@ -19,6 +19,7 @@ from yoke_cli.config.project_slug_lookup import resolve_project_slug
 from yoke_contracts.api.function_call import TargetRef
 from yoke_contracts.github_app_tokens import GITHUB_CAPABILITY_TYPE
 from yoke_contracts.machine_config.capability_secrets import (
+    is_browser_sign_in_secret,
     is_machine_local_capability_secret,
 )
 from yoke_contracts.machine_config.desktop_access import DESKTOP_PASSWORD_KEY
@@ -100,6 +101,14 @@ def projects_capability_secret_set(args: List[str]) -> int:
         return usage_error(
             "desktop_password requires --cap-type test-machine:NAME and "
             "--value-file FILE or --value-stdin; never put the machine administrator password in argv"
+        )
+    if (
+        is_browser_sign_in_secret(parsed.cap_type, parsed.key)
+        and parsed.value is not None
+    ):
+        return usage_error(
+            "browser sign-in secrets require --value-file FILE or --value-stdin; "
+            "never put credentials in argv"
         )
     try:
         value = _project_secret_value(parsed)

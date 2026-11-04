@@ -41,6 +41,11 @@ from dataclasses import dataclass
 from pathlib import PurePosixPath
 from urllib.parse import urlsplit
 
+from yoke_contracts.browser_automatic_sign_in import (
+    AutomaticSignIn,
+    parse_automatic_sign_in,
+)
+
 DEFAULT_IDENTITY = "default"
 #: Home-relative directory where a Test Machine keeps its live identity
 #: profiles. It sits outside ``~/.yoke`` so a full reset keeps it, the same way
@@ -52,7 +57,7 @@ DEFAULT_IDENTITY = "default"
 LIVE_IDENTITY_STORE_HOME_ENTRY = ".yoke-browser-identities"
 IDENTITIES_SETTING = "identities"
 IDENTITY_NAME_PATTERN = re.compile(r"^[a-z0-9](?:[a-z0-9-]{0,38}[a-z0-9])?$")
-_SITE_KEYS = frozenset({"site", "origin", "account", "probe"})
+_SITE_KEYS = frozenset({"site", "origin", "account", "probe", "sign_in"})
 _PROBE_PREDICATES = ("signed_in_selector", "signed_in_status")
 _DECLARE_RECOVERY = (
     "Declare it in the project's browser-control capability settings, for "
@@ -75,6 +80,7 @@ class SignInCheck:
     signed_in_selector: str | None = None
     signed_in_status: int | None = None
     account: str = ""
+    sign_in: AutomaticSignIn | None = None
 
     def as_probe(self) -> dict[str, object]:
         """The JSON the browser runtime's sign-in check consumes."""
@@ -178,6 +184,7 @@ def _sign_in_check(identity: str, index: int, raw: object) -> SignInCheck:
         signed_in_selector=selector.strip() if selector is not None else None,
         signed_in_status=status,
         account=account.strip(),
+        sign_in=parse_automatic_sign_in(raw.get("sign_in"), str(raw.get("origin"))),
     )
 
 

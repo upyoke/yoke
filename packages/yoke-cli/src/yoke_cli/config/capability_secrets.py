@@ -75,9 +75,11 @@ def list_machine_capability_secret_keys(project_slug: str, cap_type: str) -> lis
     )
     if not base.is_dir():
         return []
-    allowed = contract.machine_local_capability_secret_keys(cap_type)
     return sorted(
-        path.name for path in base.iterdir() if path.is_file() and path.name in allowed
+        path.name
+        for path in base.iterdir()
+        if path.is_file()
+        and contract.is_machine_local_capability_secret(cap_type, path.name)
     )
 
 
