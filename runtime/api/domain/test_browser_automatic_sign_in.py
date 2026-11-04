@@ -84,6 +84,39 @@ def test_parser_rejects_unsafe_declarations(plan):
 
 
 @pytest.mark.parametrize(
+    "origins",
+    [
+        ["https://*.identity.example"],
+        ["https://identity.example/login"],
+        ["http://identity.example"],
+        ["https://user@identity.example"],
+        ["https://identity.example", "https://identity.example"],
+        ["https://identity.example", "https://IDENTITY.example:443"],
+        ["https://identity.example?"],
+        ["https://identity.example#"],
+        ["https://identity.example/"],
+        ["https://identity.example:bad"],
+        ["https://"],
+        [None],
+        "https://identity.example",
+    ],
+)
+def test_parser_rejects_unsafe_credential_origins(origins):
+    site = declaration()
+    site["sign_in"]["credential_origins"] = origins
+    with pytest.raises(BrowserIdentityError, match="credential_origins"):
+        identity(site)
+
+
+def test_parser_keeps_exact_credential_origins():
+    assert identity().sites[0].sign_in.credential_origins == ()
+    site = declaration()
+    origins = ["https://identity.example", "https://identity.example:8443"]
+    site["sign_in"]["credential_origins"] = origins
+    assert identity(site).sites[0].sign_in.credential_origins == tuple(origins)
+
+
+@pytest.mark.parametrize(
     "key,local",
     [
         ("sign-in.buyer.shop.password", True),

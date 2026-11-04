@@ -89,9 +89,19 @@ Add this optional declaration to the site's existing object:
 }
 ```
 
-The URL must have the site's origin. Fill steps refuse to type after a redirect
-to another origin. Selectors and field names are nonsecret; never put values in
-settings. Store each field once on the machine that runs the Browser case:
+The URL must have the site's origin, so the app can create its login state
+before redirecting. For a hosted identity page, add its exact origin:
+
+```json
+"credential_origins": ["https://example.auth.us-east-1.amazoncognito.com"]
+```
+
+Fill steps type only on the app origin or these declared credential origins.
+Each entry must be a unique HTTPS origin with no path, userinfo, query,
+fragment or wildcard. After the final step, sign-in waits up to 15 seconds for
+the browser to return to the app origin; the app's own signed-in probe then
+must pass. A flow that never returns fails. Selectors and field names are
+nonsecret; never put values in settings. Store each field once on the machine that runs the Browser case:
 
 ```text
 yoke projects capability secret set --project P --cap-type browser-control --key sign-in.buyer.shop.email --value-file /private/path/test-email

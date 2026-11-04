@@ -20,6 +20,7 @@ def identity(automatic=True):
     if automatic:
         site["sign_in"] = {
             "mode": "automatic",
+            "credential_origins": ["https://identity.example"],
             "url": "https://shop.example/login",
             "steps": [{"fill": "#password", "secret": "password"}, {"click": "button"}],
         }
@@ -77,6 +78,9 @@ def test_paths_cross_daemon_boundary_and_only_outcomes_cross_evidence_boundary(
         assert kwargs["timeout"] >= 75
         assert body["signIn"]["secret_files"] == {"password": str(file)}
         assert body["signIn"]["identity"] == "buyer"
+        assert body["signIn"]["sign_in"]["credential_origins"] == (
+            "https://identity.example",
+        )
         return {
             "success": True,
             "data": {

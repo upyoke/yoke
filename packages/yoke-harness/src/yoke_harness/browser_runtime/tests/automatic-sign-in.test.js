@@ -129,3 +129,97 @@ test('background Chromium signs in, reopens cookies, and sanitizes wrong-passwor
     fs.rmSync(directory, { recursive: true });
   }
 });
+
+for (const flow of ['declared', 'undeclared', 'no-return', 'owned-page']) {
+  test(`hosted identity redirect: ${flow}`, async () => {
+    const { chromium } = require('playwright');
+    const { launchOptions } = require('../src/browser-executable');
+    const { executeSignIn } = require('../src/step-actions/sign-in');
+    const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'hosted-sign-in-'));
+    const secret = 'synthetic-hosted-identity-password';
+    const file = path.join(directory, 'password');
+    fs.writeFileSync(file, secret, { mode: 0o600 });
+    const received = [];
+    let appOrigin, credentialOrigin;
+    const app = http.createServer((req, res) => {
+      if (req.url === '/login') {
+        // App login establishes state before the hosted identity redirect.
+        res.writeHead(302, { 'Set-Cookie': 'state=ready; Path=/',
+          Location: `${credentialOrigin}/login` });
+        res.end();
+      } else if (req.url === '/callback') {
+        assert.ok((req.headers.cookie || '').includes('state=ready'));
+        res.writeHead(302, { 'Set-Cookie': 'session=ok; Path=/', Location: '/home' });
+        res.end();
+      } else if (req.url === '/me') {
+        res.writeHead((req.headers.cookie || '').includes('session=ok') ? 204 : 401);
+        res.end();
+      } else {
+        res.end('Signed in');
+      }
+    });
+    const credential = http.createServer((req, res) => {
+      res.setHeader('Content-Type', 'text/html');
+      if (req.method === 'POST') {
+        let body = '';
+        req.on('data', chunk => { body += chunk; });
+        req.on('end', () => {
+          received.push(new URLSearchParams(body).get('password'));
+          // Finish the click's navigation before a delayed client callback,
+          // exposing both premature page closure and premature probing.
+          res.end(flow === 'no-return' ? 'Stay on identity page' :
+            `<script>setTimeout(() => location.href = '${appOrigin}/callback', 250)</script>`);
+        });
+      } else {
+        res.end('<form method="POST"><input id="password" name="password" type="password"><button>Sign in</button></form>');
+      }
+    });
+    await new Promise(resolve => app.listen(0, '127.0.0.1', resolve));
+    await new Promise(resolve => credential.listen(0, '127.0.0.1', resolve));
+    appOrigin = `http://127.0.0.1:${app.address().port}`;
+    credentialOrigin = `http://127.0.0.1:${credential.address().port}`;
+    // Local HTTP origins exercise runtime redirect behavior; the declaration
+    // parser separately requires HTTPS credential origins for real settings.
+    const entry = {
+      site: 'shop', identity: 'buyer', origin: appOrigin,
+      probe: { site: 'shop', url: `${appOrigin}/me`, signed_in_status: 204 },
+      sign_in: { url: `${appOrigin}/login`,
+        credential_origins: flow === 'undeclared' ? [] : [credentialOrigin],
+        steps: [{ fill: '#password', secret: 'password' }, { click: 'button' }],
+      }, secret_files: { password: file },
+    };
+    let browser;
+    try {
+      let result;
+      const started = Date.now();
+      if (flow === 'owned-page') {
+        browser = await chromium.launch({ ...launchOptions(), headless: true });
+        const context = await browser.newContext();
+        const page = await context.newPage();
+        result = await executeSignIn(page, { site: 'shop' }, { signIn: entry });
+        assert.equal(result.success, true);
+        assert.equal(page.isClosed(), false);
+        assert.equal(new URL(page.url()).origin, appOrigin);
+      } else {
+        const manifest = path.join(directory, 'manifest.json');
+        fs.writeFileSync(manifest, JSON.stringify({ sites: [entry] }));
+        const run = await runScript('authorize-automatic.js', [
+          path.join(directory, 'profile'), manifest,
+        ]);
+        assert.equal(run.code, 0);
+        result = JSON.parse(run.stdout).sites[0];
+        assert.ok(!JSON.stringify(run).includes(secret));
+      }
+      assert.equal(result.state, ['declared', 'owned-page'].includes(flow) ? 'signed_in' : 'failed');
+      assert.deepEqual(received, flow === 'undeclared' ? [] : [secret]);
+      if (flow === 'no-return') {
+        assert.ok(Date.now() - started >= 15000);
+        assert.ok(Date.now() - started < 25000);
+      }
+    } finally {
+      if (browser) await browser.close();
+      await Promise.all([app, credential].map(server => new Promise(resolve => server.close(resolve))));
+      fs.rmSync(directory, { recursive: true });
+    }
+  });
+}
