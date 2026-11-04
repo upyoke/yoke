@@ -131,8 +131,7 @@ def _qa_stage_bindings(conn: Any, item_id: int) -> list[tuple[str, Any, Any]]:
             if _column_exists(conn, "qa_requirements", "workflow_transition_id")
             else "NULL"
         )
-        # Waived requirements enforce nothing at runtime, so they impose
-        # no compatibility constraint on the target workflow.
+        # Waived requirements impose no constraint on the target workflow.
         waiver_filter = (
             " AND waived_at IS NULL"
             if _column_exists(conn, "qa_requirements", "waived_at")
