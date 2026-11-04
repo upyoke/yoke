@@ -143,10 +143,11 @@ def review_entry_refusal(
     readiness: ReviewReadiness,
     *,
     item: dict[str, Any] | None = None,
+    integration_target: str = "main",
 ) -> str:
     """Ask locally inspectable review gates before the landing."""
     if GATE_NEW_MIGRATIONS_NEED_DB_CLAIM in readiness.review_gates:
-        return _migration_entry_refusal(public_ref, item or {})
+        return _migration_entry_refusal(public_ref, item or {}, integration_target)
     if GATE_DB_CLAIM_PROSE not in readiness.review_gates:
         return ""
     response = call_dispatcher(
@@ -176,7 +177,7 @@ def review_entry_refusal(
     )
 
 
-def _migration_entry_refusal(public_ref: str, item: dict[str, Any]) -> str:
+def _migration_entry_refusal(public_ref: str, item: dict[str, Any], integration_target: str) -> str:
     from yoke_core.domain.standalone_item_merge_lane import lane_path
     from yoke_core.domain.new_migrations_db_claim_gate import missing_claim_errors
 
@@ -215,7 +216,7 @@ def _migration_entry_refusal(public_ref: str, item: dict[str, Any]) -> str:
             ),
             settings=(response.result or {}).get("settings_json") or "",
             worktree_path=Path(lane),
-            integration_target="main",
+            integration_target=integration_target,
             public_ref=public_ref,
         )
     )

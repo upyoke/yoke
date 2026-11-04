@@ -6,8 +6,7 @@ import pytest
 
 from runtime.api.fixtures.backlog import insert_item
 from yoke_core.domain.builtin_workflow_canon import canon_generations
-from yoke_core.domain.builtin_workflow_definitions import builtin_workflow_definition
-from yoke_core.domain.workflow_registry import publish_workflow_version
+from yoke_core.domain.workflow_registry import publish_workflow_version, set_current_workflow_version
 from yoke_core.domain import workflow_retired_gate_pin_moves as moves
 from yoke_core.domain.db_helpers import iso8601_now
 from yoke_core.domain.work_claim_targets import make_item_target
@@ -16,6 +15,11 @@ ITEM_ID = 948
 
 
 def _seed(conn, *, edited=False, status="implementing", old_current=False):
+    row = conn.execute(
+        "SELECT v.id, v.version FROM workflows w JOIN workflow_versions v "
+        "ON v.id = w.current_version_id WHERE w.id = 'dash'"
+    ).fetchone()
+    target = {"version_id": int(row[0]), "version": int(row[1])}
     source_def = deepcopy(canon_generations("dash")[-2].definition)
     if edited:
         source_def["stages"][0]["label"] = "Custom idea"
@@ -25,15 +29,10 @@ def _seed(conn, *, edited=False, status="implementing", old_current=False):
         "UPDATE items SET workflow_version_id = %s WHERE id = %s",
         (source["version_id"], ITEM_ID),
     )
-    target = (
-        source
-        if old_current
-        else publish_workflow_version(
-            conn,
-            workflow_id="dash",
-            definition=builtin_workflow_definition("dash")["definition"],
-        )
-    )
+    if old_current:
+        target = source
+    else:
+        set_current_workflow_version(conn, workflow_id="dash", version=target["version"])
     conn.commit()
     return source, target
 

@@ -212,7 +212,10 @@ def assess(
     if readiness.review.refusal:
         add(LandingBlocker("review stage", readiness.review.refusal))
     elif readiness.review.enters_review:
-        entry_refusal = review_entry_refusal(public_ref, readiness.review, item=item)
+        entry_refusal = review_entry_refusal(
+            public_ref, readiness.review, item=item,
+            integration_target=str(args.target or (item.get("project") or {}).get("default_branch") or "main"),
+        )
         if entry_refusal:
             add(LandingBlocker("review entry", f"{public_ref}: {entry_refusal}"))
         left = gates_left_to_merge(readiness.review)

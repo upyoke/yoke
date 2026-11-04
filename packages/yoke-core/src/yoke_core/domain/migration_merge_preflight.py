@@ -266,4 +266,5 @@ __all__ = [
     "MigrationMergeGate",
     "evaluate_migration_merge",
     "migration_merge_applicable",
+    "lane_only_migration_entries",
 ]

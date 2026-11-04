@@ -108,13 +108,13 @@ def test_numbered_item_relays_roster_and_capability_then_blocks(
     assert "synthetic ordinal conflict" in capsys.readouterr().err
 
 
-def test_slug_only_item_skips_capability_read(monkeypatch) -> None:
+def test_slug_only_item_reads_capability_before_deciding_applicability(monkeypatch) -> None:
     result, calls = _run(monkeypatch, profile=_profile("legacy_module"))
 
     assert result is None
     called = [call["function_id"] for call in calls]
     assert "items.list.run" in called
-    assert "projects.capability_settings.get" not in called
+    assert "projects.capability_settings.get" in called
 
 
 def test_item_roster_unavailable_fails_closed(monkeypatch, capsys) -> None:

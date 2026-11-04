@@ -67,6 +67,7 @@ def missing_claim_errors(
 
 def check_item(item_id: int, *, db_path: str, conn: Any = None) -> dict | None:
     """Use the item's lane on this host; an unmapped host cannot inspect it."""
+    from yoke_core.domain.conflict_survey import read_recorded_survey
     from yoke_core.domain.db_helpers import connect
     from yoke_core.domain.db_mutation_gate_implementing import _item_lane_path
     from yoke_core.domain.db_mutation_gate_loaders import (
@@ -83,11 +84,12 @@ def check_item(item_id: int, *, db_path: str, conn: Any = None) -> dict | None:
             return None
         item = _load_item_row(c, item_id)
         settings = _load_capability_settings(c, item["project"])
+        survey = read_recorded_survey(c, item_id) or {}
         errors = missing_claim_errors(
             profile=item.get("db_mutation_profile"),
             settings=settings,
             worktree_path=lane,
-            integration_target="main",
+            integration_target=str(survey.get("integration_target") or "main"),
             public_ref=render_item_ref(c, item_id),
         )
         return (
