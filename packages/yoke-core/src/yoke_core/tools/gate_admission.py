@@ -149,7 +149,7 @@ def maintenance_dsn() -> Optional[str]:
         else:
             from yoke_core.tools import pg_testcluster
 
-            if pg_testcluster.ensure_started() != 0:
+            if not pg_testcluster._is_ready():
                 return None
             base = pg_testcluster.dsn()
     except Exception:

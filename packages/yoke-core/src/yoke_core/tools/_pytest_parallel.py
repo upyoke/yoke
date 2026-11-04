@@ -35,7 +35,10 @@ import sys
 import tempfile
 from typing import Optional, Sequence
 
+from yoke_contracts.install_binding import is_yoke_source_checkout
 from yoke_contracts.machine_config import runtime as machine_config_runtime
+
+from yoke_core.tools import _source_pythonpath
 from yoke_contracts.machine_config.machine_capacity import free_memory_bytes
 
 
@@ -114,7 +117,7 @@ def uses_xdist_auto_workers(args: Sequence[str]) -> bool:
 
 
 def _prepare_local_pg_testcluster(env: dict[str, str]) -> None:
-    """Start the local test cluster and reclaim orphans before workers spawn.
+    """Start the Yoke source test cluster before workers spawn.
 
     ``YOKE_PG_DSN`` is normally ABSENT here. The suite's conftest binds it to
     the test cluster at import time, inside the pytest process — long after
@@ -122,12 +125,14 @@ def _prepare_local_pg_testcluster(env: dict[str, str]) -> None:
     test cluster" therefore skipped the sweep on every ordinary local run,
     letting databases orphaned by interrupted runs accumulate until cloning a
     template slowed enough to stall every xdist worker behind the maintenance
-    lock. Absence means the conftest will bind this cluster, so sweep it; only
+    lock. In a Yoke source checkout, conftest binds this cluster, so sweep it; only
     a DSN that explicitly names a DIFFERENT cluster is a reason to skip.
 
     The sweep only ever reclaims databases whose owning invocation has exited,
     so running it here cannot disturb a suite already in flight.
     """
+    if not is_yoke_source_checkout(_source_pythonpath.repo_root()):
+        return
     try:
         from yoke_core.tools import pg_testcluster
     except Exception:
