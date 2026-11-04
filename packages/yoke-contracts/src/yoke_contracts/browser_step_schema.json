@@ -8,6 +8,12 @@
     "wait": "delay or wait_for"
   },
   "actions": {
+    "sign_in": {
+      "keys": ["site"],
+      "fields": {
+        "site": {"type": "non_empty_string", "required": true}
+      }
+    },
     "navigate": {
       "keys": ["route"],
       "fields": {

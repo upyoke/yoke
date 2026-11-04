@@ -18,6 +18,7 @@ const nav = require('./step-actions/navigation');
 const inter = require('./step-actions/interaction');
 const assertions = require('./step-actions/assertion');
 const capture = require('./step-actions/capture');
+const { executeSignIn } = require('./step-actions/sign-in');
 const { executeDownload } = require('./step-actions/download');
 const permissions = require('./step-actions/permissions');
 const { refuseStep } = require('./step-schema');
@@ -109,6 +110,11 @@ async function executeStep(page, step, options) {
 
   try {
     refuseStep(step);
+    if (step.action === 'sign_in') {
+      // Keep this credential boundary outside dialog/page observations and
+      // generic exception formatting, which can echo page-controlled values.
+      return await executeSignIn(page, step, options);
+    }
 
     // A step may state the width it is about. Responsive behaviour is only
     // provable by resizing the real viewport — constraining an element inside

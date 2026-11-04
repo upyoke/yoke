@@ -154,7 +154,18 @@ There is no translation layer.
 
 Before capturing, wait for a settled page: no loading text and no covering overlay.
 
-When the page is Google's account chooser, the runner selects the account recorded for the case identity. If that account is not offered, or a Google sign-in page is still showing, the run ends as `browser_sign_in_setup` and names `yoke browser authorize` for that identity. That is a setup error, not a product failure. `sign_in.authenticated` is true only after a step observes the app's signed-in page. Case steps never enter credentials. Before capture, declared automatic first-party test accounts can sign in headless from machine-local secret files; see [browser identities](browser-identities.md#automatic-sign-in-for-first-party-test-accounts). Google and MFA sign-in remain human.
+When the page is Google's account chooser, the runner selects the account recorded for the case identity. If that account is not offered, or a Google sign-in page is still showing, the run ends as `browser_sign_in_setup` and names `yoke browser authorize` for that identity. That is a setup error, not a product failure. `sign_in.authenticated` is true only after a step observes the app's signed-in page. Case steps never contain credential values. Before capture, declared automatic first-party test accounts can sign in headless from machine-local secret files; see [browser identities](browser-identities.md#automatic-sign-in-for-first-party-test-accounts). Google and MFA sign-in remain human.
+
+To test signing in again after sign-out or session expiry, select the case's
+`browser_identity` and add `{"action": "sign_in", "site": "shop"}`. The site
+must declare automatic `sign_in`; the step runs it on the case's owned page
+and checks the site's signed-in probe in the same browser context. Follow it
+with an assertion of the signed-in page. Only site, identity and the check
+outcome enter the step result; credential values stay in machine-local files
+and the browser. `browser_sign_in_step_not_automatic` asks for an automatic
+site declaration; `browser_sign_in_secret_missing` names the secret setup
+command. A failed sign-in reports `browser_automatic_sign_in_failed` with
+recovery guidance. Google and MFA sign-in remain human.
 
 Required steps run in order until the first failure. The runner then records
 that failure, takes one diagnostic screenshot from the owned page when it is

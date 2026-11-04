@@ -49,12 +49,20 @@ def _execute_step(
         return {"success": False, "error": "env_setup_failure", "exit_code": 2}
 
     try:
+        from yoke_core.domain.browser_qa_step_sign_in import resolve_step_sign_in
+
+        extra = (
+            {"sign_in": resolve_step_sign_in(step_json)}
+            if step_json.get("action") == "sign_in"
+            else {}
+        )
         response = execute_step(
             step_json,
             base_url,
             output_dir=artifact_dir,
             page_id=page_id,
             account=current_google_account(),
+            **extra,
         )
         from yoke_core.domain.browser_qa import _log
 
