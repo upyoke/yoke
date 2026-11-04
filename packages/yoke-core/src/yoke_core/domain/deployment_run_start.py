@@ -21,7 +21,6 @@ from yoke_core.domain.deployment_run_composition_plan import (
 )
 from yoke_core.domain.deployment_run_composition_guard import (
     has_frozen_composition,
-    superseded_run_refusal,
     terminal_run_refusal,
 )
 from yoke_core.domain.deployment_run_contained_items import (
@@ -152,11 +151,6 @@ def _admit(conn, run_id, candidate_containment):
         )
         if status is None:
             return f"Error: deployment run '{run_id}' not found"
-        successor = conn.execute(
-            "SELECT superseded_by_run_id FROM deployment_runs WHERE id=%s", (run_id,)
-        ).fetchone()[0]
-        if successor:
-            return superseded_run_refusal(run_id, successor)
         if refusal := terminal_run_refusal(
             conn,
             run_id,
