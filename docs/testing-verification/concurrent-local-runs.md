@@ -5,7 +5,7 @@ cluster without reaching each other's databases, and where a scratch
 database may be created at all. Companion to
 [`docs/testing-verification.md`](../testing-verification.md).
 
-One disposable PostgreSQL cluster serves every test invocation on the
+One disposable PostgreSQL cluster serves every Yoke source test invocation on the
 machine, and any number of them may run at once — a full three-anchor gate,
 a second gate, and a raw `uv run --frozen python3 -m pytest <one file>` all
 at the same time. Isolation comes from the database names rather than from a
@@ -73,6 +73,13 @@ that, which is what the orphan sweep backstops.
 cluster. That is an escape hatch for a wedged shared cluster, not the normal
 isolation mechanism — a full `initdb` per run would slow ordinary iteration
 without adding safety the run tag does not already provide.
+
+Only Yoke source test runs prepare this cluster: the local `-n auto` wrapper
+prepares it before admission, and the source suites prepare it in conftest.
+Admission and watcher diagnostics only probe an existing cluster or use an
+explicit DSN; they never start one. External projects need no test PostgreSQL.
+When no cluster is reachable, admission reports one "proceeding without a slot"
+line and the worker budget returns silently.
 
 ## The worker budget
 

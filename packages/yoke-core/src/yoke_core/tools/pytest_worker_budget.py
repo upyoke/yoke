@@ -215,8 +215,6 @@ def _acquire(request: int, stream: TextIO) -> tuple[object | None, int | None]:
         return None, None
     dsn = gate_admission.maintenance_dsn()
     if dsn is None:
-        print(f"{LOG_PREFIX} no shared test cluster reachable; running ungoverned",
-              file=stream, flush=True)
         return None, None
     try:
         import psycopg
