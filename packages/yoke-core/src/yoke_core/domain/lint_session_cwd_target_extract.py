@@ -1,11 +1,7 @@
-"""Extract target paths from PreToolUse payloads for claim-based validation.
+"""Extract tool targets for claim validation, distinguishing write operands.
 
-The session-cwd lint validates per-call targets against claim authority.
-This module extracts the paths a tool call would touch; the validator in
-:mod:`lint_session_cwd_validate` decides claimed worktree vs control plane
-vs free path. Write-only consumers use
-:func:`extract_payload_write_targets` so fixture strings and read operands
-are not write targets.
+The session-cwd validator decides lane, control-plane and free-path authority.
+Write-only consumers exclude fixture strings and read operands.
 """
 
 from __future__ import annotations
@@ -288,7 +284,10 @@ def resolve_shell_write_operands(
             if i not in ignored and arg != "-" and not arg.startswith("-")
         ]
         if command_base in _LAST_POSITIONAL_WRITE_COMMANDS and positionals:
-            positionals = positionals[-1:]
+            positionals = next(
+                ([clean[i + 1]] for i, arg in enumerate(clean[:-1]) if arg == "-t"),
+                positionals[-1:],
+            )
         elif command_base not in _ALL_POSITIONAL_WRITE_COMMANDS:
             continue
         resolved, segment_unresolved = resolve_path_operands(positionals, bindings)

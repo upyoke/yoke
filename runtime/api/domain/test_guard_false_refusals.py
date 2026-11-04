@@ -173,8 +173,13 @@ def test_write_options_are_data(lanes, options):
 
 
 @pytest.mark.parametrize("command", ["cp", "mv", "install"])
-def test_target_directory_option_keeps_write_target(command):
+def test_target_directory_option_keeps_write_target(command, lanes):
     from yoke_core.domain.lint_shell_path_use import analyze_shell_path_use
+
+    main, own, _ = lanes
+    result = verdict(lint_lane_main_write, f"{command} -t {main}/d /tmp/source", own)
+    assert result.allow is False
+    assert "source write to the main checkout" in result.reason
 
     assert (
         "/repo/d"
