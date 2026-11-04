@@ -123,7 +123,7 @@ def qa_browser_screenshot(args: List[str]) -> int:
             print(f"yoke qa browser screenshot: {exc}", file=sys.stderr)
             return 1
     print(json.dumps(result))
-    return 1 if result.get("success") is False else 0
+    return 0
 
 
 def qa_browser_step(args: List[str]) -> int:
@@ -205,7 +205,7 @@ def qa_browser_step(args: List[str]) -> int:
             print(f"yoke qa browser step: {exc}", file=sys.stderr)
             return 1
     print(json.dumps(result))
-    return 0
+    return 1 if result.get("success") is False else 0
 
 
 # CLI token tuples -> adapter, merged into the launcher's tool-shaped
