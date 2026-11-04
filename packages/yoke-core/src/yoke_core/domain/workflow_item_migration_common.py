@@ -7,6 +7,9 @@ from typing import Any
 
 from yoke_core.domain import db_backend
 from yoke_core.domain.workflow_runtime import WorkflowRuntime
+from yoke_core.domain.workflow_gate_catalog import (
+    GATE_DB_CLAIM_PROSE, GATE_NEW_MIGRATIONS_NEED_DB_CLAIM,
+)
 
 
 def marker(conn: Any) -> str:
@@ -105,10 +108,27 @@ def gate_set_signature(
     )
 
 
+def introduced_gate_signatures(
+    source: frozenset[tuple[str, str | None]],
+    target: frozenset[tuple[str, str | None]],
+) -> frozenset[tuple[str, str | None]]:
+    """New gates, excluding the intentional replacement of the prose gate.
+
+    Replacing that check preserves admission at reached stages. Adding the
+    migration-file gate alongside it, or without it, remains a new obligation.
+    """
+    old = (GATE_DB_CLAIM_PROSE, None)
+    replacement = (GATE_NEW_MIGRATIONS_NEED_DB_CLAIM, None)
+    if old in source and old not in target:
+        source = source | {replacement}
+    return target - source
+
+
 __all__ = [
     "dict_rows",
     "gate_set_signature",
     "gate_signature",
+    "introduced_gate_signatures",
     "mapped_stage",
     "marker",
     "source_stage_for_target",

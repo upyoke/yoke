@@ -15,6 +15,7 @@ from yoke_core.domain.workflow_item_migration_common import (
     dict_rows,
     gate_set_signature,
     gate_signature,
+    introduced_gate_signatures,
     mapped_stage,
     marker,
     source_stage_for_target,
@@ -256,7 +257,7 @@ def _reached_gate_conflicts(
         )
         target_gates = gate_set_signature(target, stage_id)
         for gate_id, mode in sorted(
-            target_gates - source_gates,
+            introduced_gate_signatures(source_gates, target_gates),
             key=lambda value: (value[0], value[1] or ""),
         ):
             if gate_id in {GATE_APPROVAL, GATE_QA_VERIFICATION}:

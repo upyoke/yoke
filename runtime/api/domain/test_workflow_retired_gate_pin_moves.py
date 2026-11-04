@@ -4,7 +4,7 @@ from copy import deepcopy
 
 import pytest
 
-from runtime.api.fixtures.backlog import insert_item
+from runtime.api.fixtures.backlog import insert_item, insert_item_worktree
 from yoke_core.domain.builtin_workflow_canon import canon_generations
 from yoke_core.domain.workflow_registry import publish_workflow_version, set_current_workflow_version
 from yoke_core.domain import workflow_retired_gate_pin_moves as moves
@@ -45,8 +45,12 @@ def _pin(conn):
 
 
 @pytest.mark.parametrize("claim", [False, True])
-def test_boot_moves_open_pin_preserves_stage_and_is_idempotent(test_db, claim):
-    source, target = _seed(test_db)
+@pytest.mark.parametrize("status", ["implementing", "reviewing-implementation", "release"])
+def test_boot_moves_open_pin_preserves_stage_and_is_idempotent(test_db, claim, status):
+    source, target = _seed(test_db, status=status)
+    lane_row = insert_item_worktree(test_db, item_id=ITEM_ID, branch="pin-move-lane")
+    lane_id = int(lane_row["id"])
+    test_db.commit()
     if claim:
         now = iso8601_now()
         project_id = test_db.execute(
@@ -63,10 +67,19 @@ def test_boot_moves_open_pin_preserves_stage_and_is_idempotent(test_db, claim):
         )
         test_db.commit()
     moves.move_open_items_off_retired_gate_versions(test_db)
-    assert _pin(test_db) == (target["version_id"], "implementing")
+    assert _pin(test_db) == (target["version_id"], status)
     moves.move_open_items_off_retired_gate_versions(test_db)
-    assert _pin(test_db) == (target["version_id"], "implementing")
+    assert _pin(test_db) == (target["version_id"], status)
     assert source["version_id"] != target["version_id"]
+    lane = test_db.execute("SELECT state FROM item_worktrees WHERE id = %s", (lane_id,)).fetchone()
+    assert lane[0] == "active"
+    if claim:
+        held = test_db.execute(
+            "SELECT released_at FROM work_claims WHERE session_id = %s",
+            ("pin-move-session",),
+        ).fetchone()
+        assert held[0] is None
+
 
 
 @pytest.mark.parametrize(
