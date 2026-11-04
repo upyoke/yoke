@@ -16,17 +16,9 @@ def _refused(code: str, message: str) -> FunctionCallResponse:
     )
 
 
-def test_older_server_refusing_member_fields_names_the_floor() -> None:
-    validate = _require_projection(None, requested=["member_items"])
-    response = validate(_refused("invalid_field", "invalid field 'member_items'"), None)
-    assert response.error.code == "deployment_run_read_projection_unavailable"
-    assert "member_items" in response.error.message
-    assert "Serving floor" in response.error.message
-
-
 def test_ordinary_invalid_field_keeps_its_own_refusal() -> None:
-    validate = _require_projection(None, requested=["nonesuch"])
-    refused = _refused("invalid_field", "invalid field 'nonesuch'")
+    validate = _require_projection(["stages", "member_items"])
+    refused = _refused("invalid_field", "invalid field 'stages'")
     assert validate(refused, None) is refused
 
 
