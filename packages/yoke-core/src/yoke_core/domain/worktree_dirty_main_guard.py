@@ -4,7 +4,8 @@
 Tracked/staged dirt still blocks only on overlap with the new lane's
 needed paths. Untracked files under source/package roots always block
 (new-module collision). Untracked files outside those roots — typically
-repo-root scratch — become a named warning, never a block.
+repo-root scratch — become a named warning, never a block. With unknown
+roots, top-level dot-directories without indexed files are also scratch.
 """
 
 from __future__ import annotations
@@ -82,6 +83,26 @@ def list_dirty_main_paths(
     return tracked, untracked
 
 
+def scratch_dot_directories(
+    repo_root: str, untracked: Sequence[str]
+) -> tuple[str, ...]:
+    """Find top-level dot-directories without tracked or staged files."""
+    candidates = sorted(
+        {
+            cleaned.split("/", 1)[0]
+            for path in untracked
+            if "/" in (cleaned := clean_path(path)) and cleaned.startswith(".")
+        }
+    )
+    return tuple(
+        name
+        for name in candidates
+        if (result := _run(["git", "-C", repo_root, "ls-files", "--", name])).returncode
+        == 0
+        and not result.stdout.strip()
+    )
+
+
 def overlapping_dirty_main(
     repo_root: str,
     needed_paths: Sequence[str] = (),
@@ -92,7 +113,11 @@ def overlapping_dirty_main(
     """Return ``(blocked, kind, paths)`` for this lane."""
     tracked, untracked = list_dirty_main_paths(repo_root, worktrees_dir=worktrees_dir)
     blocked, kind, paths, _scratch = decide_dirty_main(
-        needed_paths, tracked, untracked, source_root_prefixes
+        needed_paths,
+        tracked,
+        untracked,
+        source_root_prefixes,
+        scratch_dot_directories(repo_root, untracked),
     )
     return blocked, kind, paths
 
@@ -283,7 +308,11 @@ def evaluate_dirty_main_for_item(
     )
     tracked, untracked = list_dirty_main_paths(repo_root, worktrees_dir=worktrees_dir)
     blocked, kind, paths, scratch = decide_dirty_main(
-        needed, tracked, untracked, prefixes
+        needed,
+        tracked,
+        untracked,
+        prefixes,
+        scratch_dot_directories(repo_root, untracked),
     )
     note = scratch_warning_note(scratch)
     if not blocked:
