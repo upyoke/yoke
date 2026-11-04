@@ -124,3 +124,24 @@ def test_secret_set_refuses_positional_value_before_dispatch(capsys):
     out = capsys.readouterr()
     assert secret not in out.out + out.err
     assert "--value-file" in out.err and "--value-stdin" in out.err
+
+
+def test_reset_refuses_before_removing_a_profile_while_a_human_signs_in(
+    target, monkeypatch, capsys
+):
+    from yoke_cli.config import browser_profile
+    from yoke_harness import browser_human_gate
+
+    removed = Mock()
+    monkeypatch.setattr(browser_profile, "remove_profile_dir", removed)
+    monkeypatch.setattr(
+        browser_human_gate,
+        "refuse_during_human_gate",
+        Mock(side_effect=RuntimeError("browser_human_gate_active: finish sign-in")),
+    )
+    assert (
+        browser_authorize.browser_authorize(["--project", "acme", "--reset", "--json"])
+        == 2
+    )
+    assert "browser_human_gate_active" in json.loads(capsys.readouterr().out)["error"]
+    removed.assert_not_called()

@@ -7,7 +7,10 @@ from yoke_harness import browser_identity_check
 from yoke_harness.browser_automatic_sign_in import sign_in_expired_sites
 
 
-def reset_profile(client, project, identity):
+def reset_profile(client, runtime, project, identity):
+    from yoke_harness.browser_human_gate import refuse_during_human_gate
+
+    refuse_during_human_gate(runtime.runtime_dir)
     profile = browser_profile.authorized_profile_dir(project, identity=identity.name)
     if profile:
         browser_identity_check.stop_profile_daemon(client, profile)

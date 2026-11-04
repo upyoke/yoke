@@ -117,7 +117,7 @@ def browser_authorize(args: List[str]) -> int:
         if parsed.reset:
             from yoke_cli.commands.browser_authorize_automatic import reset_profile
 
-            removed = reset_profile(browser_client, project_key, identity)
+            removed = reset_profile(browser_client, runtime, project_key, identity)
     except (ProjectSlugLookupError, BrowserIdentityError, RuntimeError, OSError) as exc:
         return _fail(parsed.json_mode, str(exc), code=2)
     label = f"project {project_key} identity {identity.name}"
