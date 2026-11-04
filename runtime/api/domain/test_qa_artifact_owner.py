@@ -150,3 +150,102 @@ def test_owner_write_and_read_return_identical_evidence(subject, tmp_path, monke
             )
             assert "Re-run the QA case" in message
             assert "run `yoke qa artifact rehome" not in message
+
+
+@pytest.mark.parametrize("invalid_part", ["qa_run", "project", "prefix", "count", "subject"])
+def test_broker_read_preserves_capture_owner_after_takeover(
+    invalid_part, tmp_path, monkeypatch
+):
+    _broker_env(monkeypatch, tmp_path)
+    content = b"evidence captured before takeover"
+    stored = {}
+    signed_subjects = []
+
+    def sign(_config, *, operation, project, subject, run_id, filename):
+        signed_subjects.append((operation, subject))
+        key = build_artifact_key(
+            project, subject, run_id, filename, storage_prefix="tenants/7"
+        )
+        return broker.BrokerPresign(
+            url=f"https://s3.example/{key}",
+            method="PUT" if operation == "put" else "GET",
+            bucket="yoke-prod-artifacts",
+            key=key,
+            expires_in=900,
+        )
+
+    def upload(url, *, content, **_kwargs):
+        stored[url] = content
+
+    with test_database() as conn:
+        run_id = _seed_run(conn)
+        first, second = "run-before-takeover", "run-after-takeover"
+        for deployment_run in (first, second):
+            insert_deployment_run(conn, id=deployment_run)
+        conn.execute(
+            "UPDATE qa_requirements SET item_id=NULL, deployment_run_id=%s WHERE id=10",
+            (first,),
+        )
+        conn.commit()
+        with (
+            patch.object(broker, "presign_with_broker", side_effect=sign),
+            patch("yoke_core.domain.qa_artifact_storage._upload_bytes", side_effect=upload),
+            patch("yoke_core.domain.signed_object_transfer.probe_signed_object"),
+            patch(
+                "yoke_core.domain.handlers.qa_artifact_read.inline_text_base64",
+                side_effect=lambda url: base64.b64encode(stored[url]).decode(),
+            ),
+        ):
+            added = handle_qa_artifact_add(
+                _request(
+                    "qa.artifact.add",
+                    10,
+                    {
+                        "run_id": run_id,
+                        "artifact_type": "log",
+                        "filename": "evidence.log",
+                        "content_type": "text/plain",
+                        "content_base64": base64.b64encode(content).decode(),
+                    },
+                )
+            )
+            assert added.primary_success, added.error
+            artifact_id = added.result_payload["qa_artifact_id"]
+            handle = json.loads(
+                conn.execute(
+                    "SELECT artifact_handle FROM qa_artifacts WHERE id=%s", (artifact_id,)
+                ).fetchone()[0]
+            )
+            conn.execute(
+                "UPDATE qa_requirements SET deployment_run_id=%s WHERE id=10", (second,)
+            )
+            conn.commit()
+            read = handle_qa_artifact_read(artifact_read_request(10, artifact_id))
+            assert read.primary_success, read.error
+            assert read.result_payload["disposition"] == "ready"
+            assert base64.b64decode(read.result_payload["content_base64"]) == content
+            assert signed_subjects == [
+                ("put", f"deployment-run-{first}"), ("get", f"deployment-run-{first}")
+            ]
+            segments = handle["key"].split("/")
+            if invalid_part == "qa_run":
+                segments[-2] = str(run_id + 1)
+            elif invalid_part == "project":
+                segments[-4] = "another-project"
+            elif invalid_part == "prefix":
+                segments[1] = "another-tenant"
+            elif invalid_part == "count":
+                segments.insert(-3, "extra")
+            else:
+                segments[-3] = ".."
+            handle["key"] = "/".join(segments)
+            conn.execute(
+                "UPDATE qa_artifacts SET artifact_handle=%s WHERE id=%s",
+                (json.dumps(handle), artifact_id),
+            )
+            conn.commit()
+            refused = handle_qa_artifact_read(artifact_read_request(10, artifact_id))
+            assert refused.primary_success, refused.error
+            assert refused.result_payload["disposition"] == "evidence_key_mismatch"
+            assert "Re-run the QA case" in refused.result_payload["detail"]
+            assert len(signed_subjects) == 2
