@@ -201,6 +201,24 @@ async function testBearerAuthRejects() {
     });
     assertEqual(r1.statusCode, 401, 'No auth header returns 401');
 
+    const malformed = await httpRequest({
+      hostname: '127.0.0.1', port, path: '/api/health', method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+    }, '{');
+    assertEqual(malformed.statusCode, 401, 'No token with malformed JSON returns 401');
+
+    const external = Object.values(os.networkInterfaces()).flat()
+      .find((address) => address.family === 'IPv4' && !address.internal);
+    if (external) {
+      const error = await httpRequest({
+        hostname: external.address, port, path: '/api/health', method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` },
+      }).then(() => null, (err) => err);
+      assertEqual(error && error.code, 'ECONNREFUSED', 'Non-loopback connection is refused');
+    } else {
+      console.log('  SKIP: No non-internal IPv4 address for listener isolation check');
+    }
+
     const r2 = await httpRequest({
       hostname: '127.0.0.1', port, path: '/api/health', method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer wrong-token' },
