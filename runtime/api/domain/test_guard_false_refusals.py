@@ -201,5 +201,5 @@ def test_joinpath_without_components():
         "python3 - <<'PY'\nfrom pathlib import Path\n"
         "Path('/tmp/out').joinpath().write_text('x')\nPY"
     )
-    assert result.targets == ["/tmp/out"]
+    assert result.targets == ("/tmp/out",)
     assert not result.unresolved_writes
