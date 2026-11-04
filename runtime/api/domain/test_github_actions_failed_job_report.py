@@ -13,6 +13,8 @@ from typing import Any, Dict
 
 import pytest
 
+from yoke_contracts.read_detail import REPLY_LIMIT_BYTES
+
 
 from runtime.api.domain.github_actions_job_log_samples import (
     FIRST_ASSERTION,
@@ -20,7 +22,6 @@ from runtime.api.domain.github_actions_job_log_samples import (
     pytest_job_log,
 )
 from yoke_core.domain.github_actions_failed_job_report import (
-    REPORT_LOG_BYTE_BUDGET,
     build_failed_job_report,
 )
 from yoke_core.domain.github_actions_failed_jobs import (
@@ -103,10 +104,28 @@ class TestBuildFailedJobReport:
 
         report = _report(jobs, max_lines=100_000)
 
-        assert len(report.output.encode("utf-8")) < REPORT_LOG_BYTE_BUDGET + 64 * 1024
-        assert report.output.count(FIRST_ASSERTION) == 64
-        assert report.output.count("200 failed, 4123 passed") == 64
+        assert len((report.output + "\n").encode("utf-8")) <= REPLY_LIMIT_BYTES
+        assert all(f"· shard {index} ·" in report.output for index in range(64))
         assert all(entry["trimmed_line_count"] > 0 for entry in report.jobs)
+
+    def test_nine_large_failed_jobs_fit_the_cli_output_limit(self):
+        jobs = [
+            _failed(f"shard {index}", pytest_job_log(failures=200, traceback_lines=40))
+            for index in range(9)
+        ]
+
+        report = _report(jobs)
+
+        assert len((report.output + "\n").encode("utf-8")) <= REPLY_LIMIT_BYTES
+        assert report.output.count(FIRST_ASSERTION) == 9
+        assert report.output.count("200 failed, 4123 passed") == 9
+        assert report.truncated is True
+        blocks = report.output.split("=== failed job ")[1:]
+        assert len(blocks) == 9
+        for index, block in enumerate(blocks):
+            assert f"· shard {index} ·" in block
+            assert "line(s) of this job's failure region trimmed" in block
+            assert "--full" in block
 
     def test_unfinished_siblings_are_named_beside_finished_failures(self):
         report = _report([_failed("shard 1", pytest_job_log())], unfinished=3)
@@ -145,7 +164,8 @@ class TestBuildFailedJobReport:
 
         assert report.truncated is False
         assert "trimmed" not in report.output
-        assert "line a" in report.output
+        assert report.jobs[0]["trimmed_line_count"] == 0
+        assert "line a\nline b" in report.output
 
     def test_no_failed_jobs_reports_the_run_rather_than_an_error(self):
         report = _report([])

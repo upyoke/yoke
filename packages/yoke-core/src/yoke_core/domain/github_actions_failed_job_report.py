@@ -5,16 +5,18 @@ Each job shows its failure region (see
 that failed it is on screen rather than its teardown. Bounding is per
 job: every job gets an equal share of one report byte budget as well as
 the per-job line bound, so a four-shard failure reports four regions and
-the whole report fits the function relay's response limit however many
-jobs failed. A job whose log is unavailable still gets its block,
+the whole report targets the CLI's human-read output limit across all
+failed jobs. A job whose log is unavailable still gets its block,
 carrying the named reason and its GitHub URL, so nothing is concealed by
 the bound.
 """
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Any, Dict, List, Mapping, Optional
+
+from yoke_contracts.read_detail import REPLY_LIMIT_BYTES
 
 from yoke_core.domain.ci_job_outcome import CANCELLED_RECOVERY, CI_JOB_NOT_STARTED
 from yoke_core.domain.github_actions_failed_jobs import (
@@ -30,13 +32,6 @@ from yoke_core.domain.github_actions_failure_region import (
     FailureRegion,
     failure_region,
 )
-
-
-# Log text the whole report may carry across every failed job. JSON
-# escaping can grow log text several-fold (control characters become
-# six-byte escapes), so this sits far under the relay's 4 MiB response
-# limit.
-REPORT_LOG_BYTE_BUDGET = 512 * 1024
 
 
 @dataclass(frozen=True)
@@ -101,16 +96,38 @@ def build_failed_job_report(
         )
 
     ordered = sorted(failures.failed, key=lambda job: job.name)
-    byte_share = REPORT_LOG_BYTE_BUDGET // len(ordered)
+    available = sum(job.log_status == LOG_AVAILABLE for job in ordered)
+    header_lines = [
+        f"run {run_id}: {len(ordered)} failed job(s), {available} with log "
+        f"output, {len(ordered) - available} without — {run_url}",
+    ]
+    if still_running:
+        header_lines.append(still_running)
+    bound_notice = (
+        f"Each job shows its failure region, bounded to {max_lines} line(s) "
+        "and an equal share of the report size; --full writes every "
+        "failed job's complete log to a local file."
+    )
+    overhead_sections = ["\n".join([*header_lines, bound_notice])]
+    for position, job in enumerate(ordered, start=1):
+        region = failure_region(job.log_text, max_lines=0, max_bytes=0)
+        overhead_sections.append(
+            _section(
+                job,
+                position,
+                len(ordered),
+                replace(region, region_line_count=region.log_line_count),
+            )
+        )
+    overhead = len("\n\n".join(overhead_sections).encode("utf-8"))
+    # Leave room for the CLI's trailing newline and stderr warnings.
+    byte_share = max(0, REPLY_LIMIT_BYTES - overhead - 1_024) // len(ordered)
     sections: List[str] = []
     summaries: List[Dict[str, Any]] = []
     truncated_any = False
-    available = 0
     for position, job in enumerate(ordered, start=1):
         region = failure_region(job.log_text, max_lines=max_lines, max_bytes=byte_share)
         truncated_any = truncated_any or region.trimmed_line_count > 0
-        if job.log_status == LOG_AVAILABLE:
-            available += 1
         download = (downloads or {}).get(job.job_id)
         sections.append(_section(job, position, len(ordered), region))
         summaries.append(
@@ -130,18 +147,8 @@ def build_failed_job_report(
             }
         )
 
-    header_lines = [
-        f"run {run_id}: {len(ordered)} failed job(s), {available} with log "
-        f"output, {len(ordered) - available} without — {run_url}",
-    ]
-    if still_running:
-        header_lines.append(still_running)
     if truncated_any:
-        header_lines.append(
-            f"Each job shows its failure region, bounded to {max_lines} line(s) "
-            "and an equal share of the report size; --full writes every "
-            "failed job's complete log to a local file."
-        )
+        header_lines.append(bound_notice)
     return FailedJobReport(
         output="\n\n".join(["\n".join(header_lines), *sections]),
         truncated=truncated_any,
@@ -188,6 +195,5 @@ def _section(
 
 __all__ = [
     "FailedJobReport",
-    "REPORT_LOG_BYTE_BUDGET",
     "build_failed_job_report",
 ]
