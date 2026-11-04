@@ -49,10 +49,8 @@ def _run_authoritative_status_gate(
     """Run the authoritative QA + governed-DB-mutation gates for status writes.
 
     Composes the gate families that share the canonical write path:
-    * Governed DB-mutation gate (governed DB-mutation contract) for ``refining-idea``,
-      ``reviewing-implementation``, ``implemented`` plus the prose check
-      for ``refining-idea``, ``refined-idea``, ``planned``,
-      ``reviewing-implementation``, ``implemented``.
+    * Definition-selected DB mutation evidence and lane-only migration claims.
+      Older pinned definitions retain the separate prose consistency check.
     * Architecture-impact gate for every transition that has impact.
     * Path-claim boundary check (worktree-bound transitions).
     * Plan-simulation gate at ``planned``.

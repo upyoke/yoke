@@ -21,16 +21,27 @@ def _seed(conn, *, edited=False, status="implementing", old_current=False):
         source_def["stages"][0]["label"] = "Custom idea"
     source = publish_workflow_version(conn, workflow_id="dash", definition=source_def)
     insert_item(conn, id=ITEM_ID, workflow_id="dash", status=status)
-    conn.execute("UPDATE items SET workflow_version_id = %s WHERE id = %s", (source["version_id"], ITEM_ID))
-    target = source if old_current else publish_workflow_version(
-        conn, workflow_id="dash", definition=builtin_workflow_definition("dash")["definition"],
+    conn.execute(
+        "UPDATE items SET workflow_version_id = %s WHERE id = %s",
+        (source["version_id"], ITEM_ID),
+    )
+    target = (
+        source
+        if old_current
+        else publish_workflow_version(
+            conn,
+            workflow_id="dash",
+            definition=builtin_workflow_definition("dash")["definition"],
+        )
     )
     conn.commit()
     return source, target
 
 
 def _pin(conn):
-    row = conn.execute("SELECT workflow_version_id, status FROM items WHERE id = %s", (ITEM_ID,)).fetchone()
+    row = conn.execute(
+        "SELECT workflow_version_id, status FROM items WHERE id = %s", (ITEM_ID,)
+    ).fetchone()
     return int(row[0]), row[1]
 
 
@@ -39,7 +50,9 @@ def test_boot_moves_open_pin_preserves_stage_and_is_idempotent(test_db, claim):
     source, target = _seed(test_db)
     if claim:
         now = iso8601_now()
-        project_id = test_db.execute("SELECT project_id FROM items WHERE id = %s", (ITEM_ID,)).fetchone()[0]
+        project_id = test_db.execute(
+            "SELECT project_id FROM items WHERE id = %s", (ITEM_ID,)
+        ).fetchone()[0]
         test_db.execute(
             "INSERT INTO harness_sessions (session_id, executor, provider, model, execution_level, workspace, project_id, offered_at, last_heartbeat) "
             "VALUES (%s, 'codex', 'openai', 'test-model', 'SENIOR', '/tmp/test', %s, %s, %s)",
@@ -57,26 +70,44 @@ def test_boot_moves_open_pin_preserves_stage_and_is_idempotent(test_db, claim):
     assert source["version_id"] != target["version_id"]
 
 
-@pytest.mark.parametrize("options", [{"edited": True}, {"status": "done"}, {"status": "cancelled"}, {"old_current": True}])
+@pytest.mark.parametrize(
+    "options",
+    [
+        {"edited": True},
+        {"status": "done"},
+        {"status": "cancelled"},
+        {"old_current": True},
+    ],
+)
 def test_boot_leaves_ineligible_pin_unchanged(test_db, options):
     source, _ = _seed(test_db, **options)
     moves.move_open_items_off_retired_gate_versions(test_db)
-    assert _pin(test_db) == (source["version_id"], options.get("status", "implementing"))
+    assert _pin(test_db) == (
+        source["version_id"],
+        options.get("status", "implementing"),
+    )
 
 
 def test_boot_keeps_refused_pin_and_continues(test_db, monkeypatch, caplog):
     source, target = _seed(test_db)
     insert_item(test_db, id=ITEM_ID + 1, workflow_id="dash", status="implementing")
-    test_db.execute("UPDATE items SET workflow_version_id = %s WHERE id = %s", (source["version_id"], ITEM_ID + 1))
+    test_db.execute(
+        "UPDATE items SET workflow_version_id = %s WHERE id = %s",
+        (source["version_id"], ITEM_ID + 1),
+    )
     test_db.commit()
     original = moves.migrate_item_workflow_pin
+
     def migrate(conn, *, item_id, target_version):
         if item_id == ITEM_ID:
             raise ValueError("incompatible live claim")
         return original(conn, item_id=item_id, target_version=target_version)
+
     monkeypatch.setattr(moves, "migrate_item_workflow_pin", migrate)
     moves.move_open_items_off_retired_gate_versions(test_db)
     assert _pin(test_db) == (source["version_id"], "implementing")
-    row = test_db.execute("SELECT workflow_version_id, status FROM items WHERE id = %s", (ITEM_ID + 1,)).fetchone()
+    row = test_db.execute(
+        "SELECT workflow_version_id, status FROM items WHERE id = %s", (ITEM_ID + 1,)
+    ).fetchone()
     assert tuple(row) == (target["version_id"], "implementing")
     assert "retired_gate_pin_move_refused" in caplog.text

@@ -29,7 +29,8 @@ from yoke_core.domain import json_helper
 from yoke_core.domain.db_claim_prose_check import mismatch_error
 from yoke_core.domain.public_item_target import public_item_target
 from yoke_core.domain.workflow_gate_catalog import (
-    GATE_DB_CLAIM_PROSE, GATE_NEW_MIGRATIONS_NEED_DB_CLAIM,
+    GATE_DB_CLAIM_PROSE,
+    GATE_NEW_MIGRATIONS_NEED_DB_CLAIM,
 )
 from yoke_core.domain.workflow_declared_transitions import (
     declares_transition,
@@ -138,7 +139,10 @@ def review_readiness(item: dict[str, Any], *, public_ref: str) -> ReviewReadines
 
 
 def review_entry_refusal(
-    public_ref: str, readiness: ReviewReadiness, *, item: dict[str, Any] | None = None,
+    public_ref: str,
+    readiness: ReviewReadiness,
+    *,
+    item: dict[str, Any] | None = None,
 ) -> str:
     """Ask locally inspectable review gates before the landing."""
     if GATE_NEW_MIGRATIONS_NEED_DB_CLAIM in readiness.review_gates:
@@ -182,22 +186,47 @@ def _migration_entry_refusal(public_ref: str, item: dict[str, Any]) -> str:
     response = call_dispatcher(
         function_id="projects.capability_settings.get",
         target=TargetRef(kind="global"),
-        payload={"project": item.get("project"), "cap_type": "migration_model"},
+        payload={
+            "project": (item.get("project") or {}).get("slug"),
+            "cap_type": "migration_model",
+        },
     )
     if not response.success:
-        detail = getattr(getattr(response, "error", None), "message", "capability read failed")
+        detail = getattr(
+            getattr(response, "error", None), "message", "capability read failed"
+        )
         return f"migration_model settings unavailable: {detail}. Resolve the control-plane read and retry."
-    return "\n".join(missing_claim_errors(
-        profile=item.get("db_mutation_profile"),
-        settings=(response.result or {}).get("settings_json") or "",
-        worktree_path=Path(lane), integration_target="main", public_ref=public_ref,
-    ))
+    if not (response.result or {}).get("settings_json"):
+        return ""
+    claim = call_dispatcher(
+        function_id="items.get.run",
+        target=public_item_target(public_ref),
+        payload={"fields": ["db_mutation_profile"]},
+    )
+    if not claim.success:
+        detail = getattr(
+            getattr(claim, "error", None), "message", "DB claim read failed"
+        )
+        return f"DB claim unavailable: {detail}. Resolve the item read and retry this merge."
+    return "\n".join(
+        missing_claim_errors(
+            profile=((claim.result or {}).get("fields") or {}).get(
+                "db_mutation_profile"
+            ),
+            settings=(response.result or {}).get("settings_json") or "",
+            worktree_path=Path(lane),
+            integration_target="main",
+            public_ref=public_ref,
+        )
+    )
 
 
 def gates_left_to_merge(readiness: ReviewReadiness) -> tuple[str, ...]:
     """The review-entry gates only the merge's own transition evaluates."""
     return tuple(
-        gate for gate in readiness.review_gates if gate not in {GATE_DB_CLAIM_PROSE, GATE_NEW_MIGRATIONS_NEED_DB_CLAIM}
+        gate
+        for gate in readiness.review_gates
+        if gate not in {GATE_DB_CLAIM_PROSE, GATE_NEW_MIGRATIONS_NEED_DB_CLAIM}
     )
 
 

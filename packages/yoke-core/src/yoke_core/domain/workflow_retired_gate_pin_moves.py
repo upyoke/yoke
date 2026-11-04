@@ -18,7 +18,8 @@ _WORKFLOWS = frozenset({"issue", "epic", "blitz", "dash"})
 def _names_old_gate(definition: dict) -> bool:
     return any(
         gate["id"] == "db_claim_prose"
-        for stage in definition["stages"] for gate in stage.get("gates", ())
+        for stage in definition["stages"]
+        for gate in stage.get("gates", ())
     )
 
 
@@ -29,7 +30,10 @@ def move_open_items_off_retired_gate_versions(conn: Any) -> None:
     and terminal items stay untouched. Each migration locks and re-reads its
     item and commits or rolls back alone, including when live claims exist.
     """
-    if not all(_table_exists(conn, table) for table in ("items", "workflows", "workflow_versions")):
+    if not all(
+        _table_exists(conn, table)
+        for table in ("items", "workflows", "workflow_versions")
+    ):
         return
     try:
         rows = conn.execute(
@@ -55,14 +59,17 @@ def move_open_items_off_retired_gate_versions(conn: Any) -> None:
                 continue
             try:
                 migrate_item_workflow_pin(
-                    conn, item_id=int(row["id"]), target_version=int(row["target_version"]),
+                    conn,
+                    item_id=int(row["id"]),
+                    target_version=int(row["target_version"]),
                 )
             except Exception as exc:  # noqa: BLE001 - one refused pin must not stop boot
                 conn.rollback()
                 _LOG.warning(
                     "retired_gate_pin_move_refused: item_id=%s: %s; "
                     "inspect the item's pin and run `yoke workflows item migrate <item-ref>`",
-                    row["id"], exc,
+                    row["id"],
+                    exc,
                 )
     except Exception:  # noqa: BLE001 - availability wins over automatic rebinding
         conn.rollback()

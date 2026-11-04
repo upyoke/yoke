@@ -160,6 +160,15 @@ def _prose_blocks(monkeypatch: pytest.MonkeyPatch) -> list[str]:
 
     def _dispatch(**kwargs):
         calls.append(kwargs["function_id"])
+        if kwargs["function_id"] == "workflows.version.get":
+            from yoke_core.domain.builtin_workflow_canon import canon_generations
+            from yoke_core.domain.workflow_definition_codec import definition_digest
+
+            response = served(**kwargs)
+            definition = canon_generations("dash")[-2].definition
+            response.result["definition"] = definition
+            response.result["definition_digest"] = definition_digest(definition)
+            return response
         if kwargs["function_id"] != "db_claim.prose_check":
             return served(**kwargs)
         return SimpleNamespace(

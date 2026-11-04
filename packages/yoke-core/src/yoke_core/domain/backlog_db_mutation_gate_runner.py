@@ -1,6 +1,6 @@
 """Backlog DB-mutation gate dispatch (governed DB-mutation contract §7) — composes the joint /
-evidence / polish gates and the prose-vs-claim consistency check
-used by the canonical status-write path. Each helper returns the
+evidence / polish gates. Older pinned definitions dispatch the separate
+prose-vs-claim check through the canonical status-write path. Each helper returns the
 canonical `{"success": False, ...}` failure payload or `None` on pass.
 """
 

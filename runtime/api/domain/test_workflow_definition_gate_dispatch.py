@@ -38,9 +38,9 @@ def _gate_ids(workflow_id: str, stage_id: str) -> tuple[str, ...]:
 
 
 def test_issue_definition_owns_gate_placement():
-    assert _gate_ids("issue", "refining-idea") == ("db_claim_prose", "db_mutation")
+    assert _gate_ids("issue", "refining-idea") == ("new_migrations_need_db_claim", "db_mutation")
     assert _gate_ids("issue", "implemented") == (
-        "db_claim_prose",
+        "new_migrations_need_db_claim",
         "db_mutation",
         "architecture_impact",
         "path_claim_boundary",
