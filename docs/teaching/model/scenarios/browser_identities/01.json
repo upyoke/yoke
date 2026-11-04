@@ -6,18 +6,11 @@
  "when": "Before the first local Browser case or headed sign-in",
  "need": "Use the packaged browser runtime; Linux setup names dependency recovery. A daemon belongs to its project/identity profile. Before Browser case capture, automatic first-party test-account sites are checked and expired sessions signed in headless from machine-local secret files. Missing secrets and failed sign-in name recovery; verify never types. Human sites and native Test Machine sign-in keep their human procedure.",
  "disclosure": "current cue",
- "surface": "Public QA lines 215\u2013226 and Machine QA README local-capture section.",
+ "surface": "Public QA lines 215–226 and Machine QA README local-capture section.",
  "gap": "The row 13 pointer should distinguish local runtime repair from host provisioning and from account sign-in.",
  "review": "Source behavior; released background-process proof remains required.",
- "recipes": [
-  "yoke qa browser setup --help"
- ],
- "plan_notes": [
-  "JOURNEYS row 13"
- ],
- "sources": [
-  "docs/public/verification/browser-identities.md",
-  "packages/yoke-core/src/yoke_core/domain/browser_qa_automatic_sign_in.py"
- ],
+ "recipes": ["yoke qa browser setup --help"],
+ "plan_notes": ["JOURNEYS row 13"],
+ "sources": ["docs/public/verification/browser-identities.md", "packages/yoke-core/src/yoke_core/domain/browser_qa_automatic_sign_in.py"],
  "position": 0
 }

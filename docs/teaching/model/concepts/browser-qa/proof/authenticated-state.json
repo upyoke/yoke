@@ -5,9 +5,5 @@
  "page": "browser-qa",
  "position": 1,
  "text": "Before daemon start, the runner checks identities with automatic sites and signs expired first-party test accounts in through unrecorded Playwright using machine-local secret files. Human sign-in stays human. The runner can select the recorded account in Google's chooser; a missing account or remaining Google sign-in page ends as browser_sign_in_setup and names browser authorize. sign_in.authenticated becomes true only after a case step observes the app's signed-in page; automatic setup alone is not that evidence.",
- "sources": [
-  "packages/yoke-core/src/yoke_core/domain/browser_qa_sign_in_evidence.py",
-  "packages/yoke-harness/src/yoke_harness/browser_runtime/src/google-account-chooser.js",
-  "docs/public/verification/browser-targets.md"
- ]
+ "sources": ["packages/yoke-core/src/yoke_core/domain/browser_qa_sign_in_evidence.py", "packages/yoke-harness/src/yoke_harness/browser_runtime/src/google-account-chooser.js", "docs/public/verification/browser-targets.md"]
 }
