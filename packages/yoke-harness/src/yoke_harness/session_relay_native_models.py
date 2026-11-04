@@ -115,7 +115,10 @@ def probe_cursor_cli_models(*, observed_at: str) -> dict[str, Any]:
     """List Cursor's own accepted models from the installed agent."""
     executable = resolve_native_cli(harness_cli_manifest("cursor").executable)
     if not executable:
-        return _cursor_failure("cli_unavailable", "cursor-agent was not found")
+        _failures.recovered(_CURSOR_OPERATION)
+        return empty_reading(
+            "cursor-cli", "unsupported", "cli_unavailable", source=CURSOR_LIST_SOURCE
+        )
     try:
         completed = subprocess.run(
             [executable, "--list-models"],

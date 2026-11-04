@@ -15,7 +15,6 @@ from yoke_contracts.session_control.relay_health import (
     RELAY_NEWER_THAN_SERVER,
     SETTLED_RELAY_REPORT_CODES,
     fleet_relay_error_code,
-    retained_settled_reports_only,
     sanitize_relay_health,
 )
 from yoke_core.domain.steering_fleet_report_detectors import age_seconds, marker
@@ -78,8 +77,6 @@ def relay_health_conditions(
         if project_id is not None and not _serves(row["project_checkouts"], project_id):
             continue
         health = sanitize_relay_health(_document(row["relay_health"], {}))
-        if retained_settled_reports_only(health):
-            continue
         failure = health.get("report_failure")
         failure = failure if isinstance(failure, dict) else {}
         quarantines = health.get("quarantined_reports")

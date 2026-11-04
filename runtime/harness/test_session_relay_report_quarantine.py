@@ -10,7 +10,6 @@ from types import SimpleNamespace
 import pytest
 
 from yoke_harness import session_relay
-from yoke_contracts.session_control.relay_health import retained_settled_reports_only
 from yoke_harness.session_relay_health import (
     PENDING_REPORT_DIR_NAME,
     QUARANTINED_REPORT_DIR_NAME,
@@ -116,10 +115,10 @@ def test_expired_launch_late_report_is_quarantined_and_heartbeat_continues(
     assert metadata["payload_sha256"] == sha256(payloads[0].read_bytes()).hexdigest()
     assert metadata["preserved_path"] == str(payloads[0])
     assert heartbeats[0]["health"]["state"] == "retrying"
-    assert heartbeats[1]["health"]["state"] == "quarantined"
+    assert heartbeats[1]["health"]["state"] == "healthy"
     assert "server_reason=report_conflict" in caplog.text
     assert "report " + metadata["report_id"] + " quarantined" in caplog.text
-    assert observe_relay_health(tmp_path)["state"] == "quarantined"
+    assert observe_relay_health(tmp_path)["state"] == "healthy"
 
 
 @pytest.mark.parametrize("failure", ["transport", "server_error"])
@@ -332,4 +331,4 @@ def test_payload_less_meta_is_omitted_from_relay_health(tmp_path: Path) -> None:
     assert [entry["error_code"] for entry in health["quarantined_reports"]] == [
         "report_conflict"
     ]
-    assert retained_settled_reports_only(health)
+    assert health["state"] == "healthy"

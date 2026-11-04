@@ -201,7 +201,7 @@ Each reading names its own `status`:
 |---|---|
 | `ok` | the surface answered just now; `models` is current |
 | `stale` | the last attempt failed; `models` is what it last published |
-| `unsupported` | Yoke declares no listing adapter for this surface |
+| `unsupported` | No listing adapter, or the surface's CLI is not installed |
 | `unknown` | the surface has never answered |
 
 Only `ok` and `stale` carry models. **Neither `unknown` nor `unsupported` is
@@ -232,6 +232,8 @@ yoke steering report get                         # changed sections in held scop
 The relay refreshes on its own cadence during normal polling;
 `yoke relay probe-models` is the bounded refresh for when you need the answer
 before the next poll.
+An absent Cursor CLI returns `unsupported` with `cli_unavailable` and no models;
+this is a successful probe. Installing the CLI makes the surface probeable again.
 
 ## Launched sessions run unattended
 

@@ -234,7 +234,10 @@ Permanent report rejections include settled conflict, expired lease, closed job,
 missing/mismatched attempt and invalid payload. Launch reports quarantine after
 three permanent rejections without retaining claims; wake reports quarantine
 immediately and release finished resume custody. Preserve refusal evidence and
-do not replay quarantined reports. Early operator quarantine requires existing
+do not replay quarantined reports. Retained server-settled reports do not degrade
+relay health; their metadata and count remain evidence. Active report failures
+still read retrying, and unsettled or incompletely listed quarantines require
+attention. Early operator quarantine requires existing
 report-scoped permanent evidence and records path/digest. Connectivity or
 ambiguous failures retain resume custody or the launch retry queue; pending
 launch retries hold new claims until drained. A timeout is not a permanent

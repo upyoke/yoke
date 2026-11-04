@@ -96,7 +96,7 @@ researched catalog's Anthropic model ids and published efforts; Codex and
 Cursor use native model listings per machine. Impossible provider pairs are
 excluded before weighing. A native listing excludes models it does not offer.
 An unknown listing requires `yoke relay probe-models --surface S`. An unsupported
-listing names the missing adapter; ask the control-plane operator to provide it
+listing names a missing adapter or CLI; provide the adapter, install the CLI,
 or choose a surface with observed models. Neither invents availability.
 
 Every candidate reads only the quota windows its model draws on. A readable
