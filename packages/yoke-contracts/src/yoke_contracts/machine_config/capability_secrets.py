@@ -21,6 +21,18 @@ SSH_CAPABILITY = "ssh"
 SSH_PRIVATE_KEY_SECRET_KEY = "private_key"
 SSH_SECRET_KEYS = frozenset({SSH_PRIVATE_KEY_SECRET_KEY})
 BROWSER_CONTROL_CAPABILITY = "browser-control"
+_SIGN_IN_NAME = r"[a-z0-9](?:[a-z0-9-]{0,38}[a-z0-9])?"
+BROWSER_SIGN_IN_SECRET_PATTERN = re.compile(
+    rf"sign-in\.{_SIGN_IN_NAME}\.{_SIGN_IN_NAME}\.{_SIGN_IN_NAME}"
+)
+
+
+def is_browser_sign_in_secret(cap_type: str, key: str) -> bool:
+    return cap_type == BROWSER_CONTROL_CAPABILITY and bool(
+        BROWSER_SIGN_IN_SECRET_PATTERN.fullmatch(key)
+    )
+
+
 #: Directory name, under the browser-control capability, holding the
 #: operator's signed-in Chromium profile for one project. It is a directory
 #: rather than a secret key file, so it never routes through the
@@ -56,6 +68,8 @@ def is_machine_local_capability_secret(
     key: str | None = None,
 ) -> bool:
     """Return whether a capability secret is owned by the local machine."""
+    if cap_type == BROWSER_CONTROL_CAPABILITY:
+        return key is None or is_browser_sign_in_secret(cap_type, key)
     allowed = machine_local_capability_secret_keys(cap_type)
     if not allowed:
         return False
@@ -143,6 +157,7 @@ __all__ = [
     "capability_secret_directory_relative_path",
     "capability_secret_relative_path",
     "is_machine_local_capability_secret",
+    "is_browser_sign_in_secret",
     "machine_local_capability_secret_keys",
     "safe_secret_component",
 ]

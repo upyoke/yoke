@@ -1,13 +1,4 @@
-"""``yoke browser authorize`` — the operator signs one browser identity in.
-
-An agent must never complete a sign-in, so the signed-in state a Browser case
-or an exploratory walker needs comes from the operator. This opens one project
-identity's persistent browser profile in a plain window of the browser
-daemon's own Chromium — a directly spawned process, not an automation-
-controlled one — so identity providers that refuse automated browsers still
-let the operator sign in. It first checks each site the identity declares and
-opens a window for expired sites or an explicit --url.
-"""
+"""Authorize automatic test-account sites headless, then human sites in a window."""
 
 from __future__ import annotations
 
@@ -78,7 +69,7 @@ def browser_authorize(args: List[str]) -> int:
         "--reset",
         action="store_true",
         help=(
-            "Delete this identity's profile before opening the window, so the "
+            "Delete this identity's profile before signing in, so the "
             "sign-in starts from an empty browser."
         ),
     )
@@ -123,13 +114,24 @@ def browser_authorize(args: List[str]) -> int:
             parsed.project, parsed.identity, parsed.declarations_json
         )
         runtime = prepare_browser_runtime("authorize.js")
-    except (ProjectSlugLookupError, BrowserIdentityError, RuntimeError) as exc:
+        if parsed.reset:
+            from yoke_cli.commands.browser_authorize_automatic import reset_profile
+
+            removed = reset_profile(browser_client, runtime, project_key, identity)
+    except (ProjectSlugLookupError, BrowserIdentityError, RuntimeError, OSError) as exc:
         return _fail(parsed.json_mode, str(exc), code=2)
     label = f"project {project_key} identity {identity.name}"
 
     def say(line):
         print(line, file=sys.stderr if parsed.json_mode else sys.stdout, flush=True)
 
+    if parsed.reset:
+        say(
+            f"Removed the previous {label} browser profile at "
+            f"{browser_profile.profile_dir_display(removed)}."
+            if removed is not None
+            else f"No {label} browser profile to remove; starting fresh."
+        )
     expired = list(identity.sites)
     if identity.sites and not parsed.reset:
         try:
@@ -164,6 +166,20 @@ def browser_authorize(args: List[str]) -> int:
             return _done(parsed.json_mode, project_key, identity.name, sites, None)
 
     try:
+        from yoke_cli.commands.browser_authorize_automatic import authorize_automatic
+
+        automatic_sites, expired = authorize_automatic(
+            browser_client, runtime, project_key, identity, expired
+        )
+        if automatic_sites is not None and not expired and not parsed.url:
+            return _done(
+                parsed.json_mode,
+                project_key,
+                identity.name,
+                automatic_sites,
+                None,
+                reset=parsed.reset,
+            )
         with human_gate(
             browser_client,
             runtime.runtime_dir,
@@ -172,18 +188,6 @@ def browser_authorize(args: List[str]) -> int:
         ) as stopped:
             if stopped:
                 say(f"Stopped {len(stopped)} automated browser daemon(s) first.")
-            removed = (
-                browser_profile.remove_profile_dir(project_key, identity=identity.name)
-                if parsed.reset
-                else None
-            )
-            if parsed.reset:
-                say(
-                    f"Removed the previous {label} browser profile at "
-                    f"{browser_profile.profile_dir_display(removed)}."
-                    if removed is not None
-                    else f"No {label} browser profile to remove; starting fresh."
-                )
             profile = browser_profile.ensure_profile_dir(
                 project_key, identity=identity.name
             )
@@ -208,7 +212,16 @@ def browser_authorize(args: List[str]) -> int:
     sites = []
     if identity.sites:
         try:
-            sites = check_sign_in(browser_client, runtime, project_key, identity)
+            from yoke_cli.commands.browser_authorize_automatic import check_after_window
+
+            sites = check_after_window(
+                check_sign_in,
+                browser_client,
+                runtime,
+                project_key,
+                identity,
+                automatic_sites,
+            )
         except browser_identity_check.SignInCheckError as exc:
             return _fail(parsed.json_mode, str(exc), code=1)
         say(browser_identity_check.summarize(identity.name, sites))
@@ -306,7 +319,7 @@ TOOL_SHAPED_SUBCOMMANDS = {
 TOOL_SHAPED_USAGE = {
     "yoke browser authorize": (
         "Sign one project browser identity in where its declared sites have "
-        "expired, in a plain window of the daemon's own Chromium."
+        "expired: automatic test accounts headless, human sites in a window."
     ),
 }
 

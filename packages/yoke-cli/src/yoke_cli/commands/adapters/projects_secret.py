@@ -19,6 +19,7 @@ from yoke_cli.config.project_slug_lookup import resolve_project_slug
 from yoke_contracts.api.function_call import TargetRef
 from yoke_contracts.github_app_tokens import GITHUB_CAPABILITY_TYPE
 from yoke_contracts.machine_config.capability_secrets import (
+    is_browser_sign_in_secret,
     is_machine_local_capability_secret,
 )
 from yoke_contracts.machine_config.desktop_access import DESKTOP_PASSWORD_KEY
@@ -39,7 +40,10 @@ def projects_capability_secret_set(args: List[str]) -> int:
             "rows, and the App private key is control-plane deployment "
             "configuration. aws-admin secrets, ssh.private_key, the test-machine "
             "SSH key and test-machine:NAME.desktop_password are stored "
-            "on this machine under ~/.yoke/secrets. desktop_password is the "
+            "on this machine under ~/.yoke/secrets. browser-control keys named "
+            "sign-in.IDENTITY.SITE.FIELD also stay machine-local for automatic "
+            "first-party test-account sign-in. Those keys require --value-file "
+            "or --value-stdin. desktop_password is the "
             "machine administrator password, used for desktop access and "
             "test-machine exec --admin on macOS and Linux. VALUE is the default "
             "input; --value-file and --value-stdin import the secret value "
@@ -100,6 +104,14 @@ def projects_capability_secret_set(args: List[str]) -> int:
         return usage_error(
             "desktop_password requires --cap-type test-machine:NAME and "
             "--value-file FILE or --value-stdin; never put the machine administrator password in argv"
+        )
+    if (
+        is_browser_sign_in_secret(parsed.cap_type, parsed.key)
+        and parsed.value is not None
+    ):
+        return usage_error(
+            "browser sign-in secrets require --value-file FILE or --value-stdin; "
+            "never put credentials in argv"
         )
     try:
         value = _project_secret_value(parsed)

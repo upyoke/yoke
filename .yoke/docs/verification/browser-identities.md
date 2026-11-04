@@ -50,7 +50,8 @@ runs the same check first and returns at once when every site is signed in,
 unless you supply `--url URL`. With `--url`, it always opens that URL so you can
 complete an extra access check such as GitHub Confirm access. This also applies
 to `--desktop-browser` and `--test-machine`.
-Otherwise it opens one window with a tab per expired site, naming the identity,
+Otherwise it signs expired automatic sites in headless, then opens one window
+with a tab per expired human site, naming the identity,
 the site and the account, and checks again after the window closes. A site
 whose check cannot be reached fails by name: no sign-in fixes it.
 
@@ -69,6 +70,54 @@ to finish or close that sign-in window, or quit the named PID, then retry.
 Sign-in windows close after 30 minutes; managed Chromium gets 10 seconds to
 quit before it is force-stopped. A gate marker older than 30 minutes plus
 that shutdown margin is removed even if its recorded PID is still alive.
+
+## Automatic sign-in for first-party test accounts
+
+Use a dedicated test account on your own application with synthetic data.
+Google, Microsoft and sites requiring MFA stay human: omit `sign_in` for them.
+Add this optional declaration to the site's existing object:
+
+```json
+"sign_in": {
+  "mode": "automatic",
+  "url": "https://shop.example.com/login",
+  "steps": [
+    {"fill": "#email", "secret": "email"},
+    {"fill": "#password", "secret": "password"},
+    {"click": "button[type=submit]"}
+  ]
+}
+```
+
+The URL must have the site's origin. Fill steps refuse to type after a redirect
+to another origin. Selectors and field names are nonsecret; never put values in
+settings. Store each field once on the machine that runs the Browser case:
+
+```text
+yoke projects capability secret set --project P --cap-type browser-control --key sign-in.buyer.shop.email --value-file /private/path/test-email
+yoke projects capability secret set --project P --cap-type browser-control --key sign-in.buyer.shop.password --value-stdin
+```
+
+Enter the value privately through stdin or a file; agents must never read it or
+put it in a command argument. The fixed key pattern is
+`sign-in.IDENTITY.SITE.FIELD`, with 1–40 lowercase letters, digits or hyphens
+per name. Values live only under this machine's
+`~/.yoke/secrets/capability-secrets/P/browser-control/`, beside its profiles;
+they are never sent to the control plane. Configure every runner machine once.
+
+`authorize` signs expired automatic sites in without opening a window. Before
+starting its daemon, a Browser case stops its identity's daemon, checks the
+sites, signs expired automatic sites in, and verifies the result. `verify` stays
+read-only. The managed Playwright browser uses its existing basic password
+store and mock Keychain switches, including headless background execution;
+it needs no GUI login session or macOS Keychain approval. Sign-in has no
+screenshots or tracing, and reports site states without page text or raw errors.
+Native Test Machine browser sign-in remains human.
+
+`browser_sign_in_secret_missing` names the exact secret setup command.
+`browser_automatic_sign_in_failed` names the site: check the account and steps,
+then retry, or remove `sign_in` and run `yoke browser authorize` for human
+sign-in. A failed automatic sign-in stops the case before it captures anything.
 
 ## Signing in on a Test Machine
 
@@ -128,9 +177,9 @@ the case's routes and data; an account signed into a different organization
 cannot prove a case about your organization. The runner validates named identities
 before starting any browser daemon. Public cases omit the field and continue
 on the `default` daemon without requiring a sign-in identity, even when the
-project declares named identities. No automatic sign-in step precedes every
-case; the runner selects a recorded account only if navigation reaches its
-account chooser.
+project declares named identities. Only identities with automatic sites run a
+pre-case sign-in check; human sites keep their existing behavior. The runner
+can also select a recorded account if navigation reaches its account chooser.
 `authorize` and `verify` still refuse a missing `--identity` when `default`
 has no sites and another identity does. A run whose cases name several identities starts
 one daemon per identity. An

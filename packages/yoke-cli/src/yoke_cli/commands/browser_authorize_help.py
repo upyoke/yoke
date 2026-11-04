@@ -10,12 +10,21 @@ together. A project declares identities under names it chooses, each listing
 its sites and a signed-in check per site, in its browser-control capability
 settings; `default` always exists and is the project's original profile.
 
+For a first-party test account, a site can declare sign_in.mode automatic with
+a same-origin URL and fill/secret or click steps. Store each field on this
+machine using `yoke projects capability secret set --project P --cap-type
+browser-control --key sign-in.IDENTITY.SITE.FIELD --value-stdin` (or
+--value-file FILE). Yoke signs expired automatic sites in headless without a
+window or Keychain. Browser cases do this before their first step; verify
+only checks and never types. Keep Google, Microsoft and MFA sites human by
+omitting sign_in. Native Test Machine browser sign-in stays human.
+
 The command first checks every declared site headless on the identity's
 profile and reports each one (`buyer: google ok, yoke ok, paypal expired`).
 With --url it always opens that URL, even when all sites are signed in,
 so you can complete extra access checks. Without --url, when all are signed
 in it returns at once and opens nothing. Otherwise it
-opens a window with one tab per expired site, naming the identity, the site
+signs automatic sites in, then opens a window with one tab per expired human site, naming the identity, the site
 and the account to use, then checks again after the window closes and fails
 naming any site still signed out. A site whose check cannot be reached fails
 without a window: a sign-in cannot fix it. An identity that declares no sites
