@@ -13,10 +13,10 @@ import {
 } from "./hosted_frame_workflow_epic_fixture.js";
 
 const GATES = {
-  db_claim_prose: {
+  new_migrations_need_db_claim: {
     name: "DB claim consistency",
     description:
-      "The item's declared DB claim must agree with what its own text describes — prose about migrations alongside a claim of none is refused.",
+      "Lane-only numbered migration entries require a declared DB claim.",
     source_kind: "status_gate",
     availability: "live",
   },
@@ -139,7 +139,7 @@ function hostedFrameWorkflows() {
           "reviewing-implementation",
           "reviewing implementation",
           [
-            gate("db_claim_prose"),
+            gate("new_migrations_need_db_claim"),
             gate("db_mutation", "evidence"),
             gate("architecture_impact"),
           ],
@@ -182,12 +182,12 @@ function hostedFrameWorkflows() {
         stage(
           "refining-idea",
           "refining idea",
-          [gate("db_claim_prose"), gate("db_mutation", "joint")],
+          [gate("new_migrations_need_db_claim"), gate("db_mutation", "joint")],
         ),
         stage(
           "refined-idea",
           "refined idea",
-          [gate("db_claim_prose"), gate("architecture_impact")],
+          [gate("new_migrations_need_db_claim"), gate("architecture_impact")],
         ),
         stage(
           "implementing",
@@ -203,7 +203,7 @@ function hostedFrameWorkflows() {
           "reviewing-implementation",
           "reviewing implementation",
           [
-            gate("db_claim_prose"),
+            gate("new_migrations_need_db_claim"),
             gate("db_mutation", "evidence"),
             gate("architecture_impact"),
           ],
@@ -246,12 +246,12 @@ function hostedFrameWorkflows() {
         stage(
           "refining-idea",
           "refining idea",
-          [gate("db_claim_prose"), gate("db_mutation", "joint")],
+          [gate("new_migrations_need_db_claim"), gate("db_mutation", "joint")],
         ),
         stage(
           "refined-idea",
           "refined idea",
-          [gate("db_claim_prose"), gate("architecture_impact")],
+          [gate("new_migrations_need_db_claim"), gate("architecture_impact")],
         ),
         stage(
           "implementing",
@@ -267,7 +267,7 @@ function hostedFrameWorkflows() {
           "reviewing-implementation",
           "reviewing implementation",
           [
-            gate("db_claim_prose"),
+            gate("new_migrations_need_db_claim"),
             gate("db_mutation", "evidence"),
             gate("architecture_impact"),
           ],
@@ -291,7 +291,7 @@ function hostedFrameWorkflows() {
           "implemented",
           "implemented",
           [
-            gate("db_claim_prose"),
+            gate("new_migrations_need_db_claim"),
             gate("db_mutation", "polish"),
             gate("architecture_impact"),
             gate("path_claim_boundary"),

@@ -16,7 +16,6 @@ import pytest
 from yoke_core.domain.backlog_updates_helpers import (
     _profile_declares_mutation,
     _run_db_mutation_gate,
-    _run_prose_vs_claim_check,
 )
 from yoke_core.domain.schema_init_apply import execute_schema_script
 from runtime.api.fixtures import pg_testdb
@@ -166,63 +165,9 @@ class TestJointGateAutoStampAc18:
         assert parsed.get("frozen_at") == "2026-04-23T22:01:29Z"
 
 
-# ---------------------------------------------------------------------------
-# Prose-vs-claim gate dispatch
-# ---------------------------------------------------------------------------
-
-
-class TestProseVsClaimGate:
-    """Coverage for the prose-vs-claim consistency gate."""
-
-    def test_prose_clean_state_none_passes(self, helper_db) -> None:
-        conn, db_path = helper_db
-        insert_item(
-            conn,
-            id=30,
-            status="refining-idea",
-            spec="Refactor a helper signature; update callers.",
-            db_mutation_profile='{"state":"none"}',
-        )
-        assert _run_prose_vs_claim_check(item_id=30, db_path=db_path) is None
-
-    def test_prose_declares_db_with_state_none_blocks(self, helper_db) -> None:
-        conn, db_path = helper_db
-        item_id = 31
-        insert_item(
-            conn,
-            id=item_id,
-            status="refining-idea",
-            spec="The work item will ALTER TABLE items to add a new column.",
-            db_mutation_profile='{"state":"none"}',
-        )
-        outcome = _run_prose_vs_claim_check(item_id=item_id, db_path=db_path)
-        assert outcome is not None
-        assert outcome["error_code"] == "GATE_DB_CLAIM_PROSE_MISMATCH"
-        assert "ALTER TABLE" in outcome["error"]
-        assert "yoke db-claim amend" in outcome["error"]
-        assert f"YOK-{item_id}" in outcome["error"]
-
-    def test_prose_declares_db_with_state_declared_passes(self, helper_db) -> None:
-        conn, db_path = helper_db
-        declared = {
-            "state": "declared",
-            "model_name": "primary",
-            "mutation_intent": "apply",
-            "migration_modules": ["add_items_due_date"],
-            "compatibility_class": "pre_merge_safe",
-            "migration_strategy": "additive_only",
-        }
-        insert_item(
-            conn,
-            id=32,
-            status="refining-idea",
-            spec="ALTER TABLE items ADD COLUMN due_date TEXT;",
-            db_mutation_profile=json.dumps(declared, sort_keys=True),
-        )
-        assert _run_prose_vs_claim_check(item_id=32, db_path=db_path) is None
-
+class TestMutationGateDispatch:
     def test_mutation_runner_does_not_guess_prose_at_refined_idea(self, helper_db) -> None:
-        """Definitions dispatch prose checks separately for old pins."""
+        """Claim evidence is checked at the definition's declared gate."""
         conn, db_path = helper_db
         insert_item(
             conn,

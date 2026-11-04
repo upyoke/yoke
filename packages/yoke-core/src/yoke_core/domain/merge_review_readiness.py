@@ -11,10 +11,7 @@ before the branch lands, with ``--verification`` as the reason. Reaching the
 stage runs its own gates, so a gate refusal there stops the merge with the
 gate's reason. An item further back is refused with the walk it still owes.
 
-Landing readiness checks lane-only migration files locally for new workflow
-versions. Older pins still ask the read-only ``db_claim.prose_check`` gate.
-Boot moves eligible open canon pins after workflow convergence; edited or
-incompatible pins remain unchanged for explicit migration.
+Landing readiness checks lane-only migration files locally.
 """
 
 from __future__ import annotations
@@ -26,10 +23,8 @@ from pathlib import Path
 from yoke_contracts.api.function_call import TargetRef
 from yoke_core.api.service_client_structured_api_adapter import call_dispatcher
 from yoke_core.domain import json_helper
-from yoke_core.domain.db_claim_prose_check import mismatch_error
 from yoke_core.domain.public_item_target import public_item_target
 from yoke_core.domain.workflow_gate_catalog import (
-    GATE_DB_CLAIM_PROSE,
     GATE_NEW_MIGRATIONS_NEED_DB_CLAIM,
 )
 from yoke_core.domain.workflow_declared_transitions import (
@@ -151,33 +146,7 @@ def review_entry_refusal(
     """Ask locally inspectable review gates before the landing."""
     if GATE_NEW_MIGRATIONS_NEED_DB_CLAIM in readiness.review_gates:
         return _migration_entry_refusal(public_ref, item or {}, integration_target)
-    if GATE_DB_CLAIM_PROSE not in readiness.review_gates:
-        return ""
-    response = call_dispatcher(
-        function_id="db_claim.prose_check",
-        target=public_item_target(public_ref),
-        payload={},
-    )
-    stage = readiness.review_stage
-    if not response.success:
-        error = getattr(response, "error", None)
-        detail = getattr(error, "message", None) or "prose check read failed"
-        return (
-            f"entering {stage!r} runs the database-claim prose gate, and its "
-            f"read-only check could not be answered: {detail}. Resolve the "
-            f"control-plane read (`yoke db-claim prose-check {public_ref}` "
-            "asks it alone), then re-run this merge."
-        )
-    result = response.result or {}
-    if not result.get("blocks"):
-        return ""
-    return f"entering {stage!r} would refuse GATE_DB_CLAIM_PROSE_MISMATCH: " + (
-        mismatch_error(
-            public_ref,
-            [str(trigger) for trigger in result.get("triggers") or []],
-            str(result.get("recovery") or ""),
-        )
-    )
+    return ""
 
 
 def _migration_entry_refusal(public_ref: str, item: dict[str, Any], integration_target: str) -> str:
@@ -230,7 +199,7 @@ def gates_left_to_merge(readiness: ReviewReadiness) -> tuple[str, ...]:
     return tuple(
         gate
         for gate in readiness.review_gates
-        if gate not in {GATE_DB_CLAIM_PROSE, GATE_NEW_MIGRATIONS_NEED_DB_CLAIM}
+        if gate not in {GATE_NEW_MIGRATIONS_NEED_DB_CLAIM}
     )
 
 

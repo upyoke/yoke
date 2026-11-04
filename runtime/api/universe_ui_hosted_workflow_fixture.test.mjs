@@ -9,27 +9,27 @@ const EXPECTED_GATE_PLACEMENT = {
   dash: [
     [],
     ["work_claim_activation", "conflict_survey", "architecture_impact"],
-    ["db_claim_prose", "db_mutation:evidence", "architecture_impact"],
+    ["new_migrations_need_db_claim", "db_mutation:evidence", "architecture_impact"],
     ["architecture_impact", "dash_evidence"],
   ],
   blitz: [
     [],
-    ["db_claim_prose", "db_mutation:joint"],
-    ["db_claim_prose", "architecture_impact"],
+    ["new_migrations_need_db_claim", "db_mutation:joint"],
+    ["new_migrations_need_db_claim", "architecture_impact"],
     ["doc_claim_activation", "conflict_survey", "architecture_impact"],
-    ["db_claim_prose", "db_mutation:evidence", "architecture_impact"],
+    ["new_migrations_need_db_claim", "db_mutation:evidence", "architecture_impact"],
     ["architecture_impact", "qa_verification", "doc_completion"],
   ],
   issue: [
     [],
-    ["db_claim_prose", "db_mutation:joint"],
-    ["db_claim_prose", "architecture_impact"],
+    ["new_migrations_need_db_claim", "db_mutation:joint"],
+    ["new_migrations_need_db_claim", "architecture_impact"],
     ["check_hard_blocks", "claim_activation", "architecture_impact"],
-    ["db_claim_prose", "db_mutation:evidence", "architecture_impact"],
+    ["new_migrations_need_db_claim", "db_mutation:evidence", "architecture_impact"],
     ["architecture_impact", "path_claim_boundary", "qa_verification"],
     ["architecture_impact"],
     [
-      "db_claim_prose",
+      "new_migrations_need_db_claim",
       "db_mutation:polish",
       "architecture_impact",
       "path_claim_boundary",
@@ -120,8 +120,8 @@ const EXPECTED_VERSION_ONE_DESCRIPTIONS = {
 };
 
 const EXPECTED_GATE_COPY = {
-  db_claim_prose:
-    "The item's declared DB claim must agree with what its own text describes — prose about migrations alongside a claim of none is refused.",
+  new_migrations_need_db_claim:
+    "Lane-only numbered migration entries require a declared DB claim.",
   db_mutation:
     "A declared governed mutation must satisfy this point's check — joint: the strategy fits the project's breakage policy with no cross-item overlap; evidence: the authoritative apply evidence exists; polish: migration closeout is complete.",
   architecture_impact:
@@ -157,7 +157,7 @@ EXPECTED_GATE_PLACEMENT.epic = [
   ["architecture_impact"],
   ["architecture_impact"],
   ["architecture_impact"],
-  ["db_claim_prose", "architecture_impact", "plan_simulation"],
+  ["new_migrations_need_db_claim", "architecture_impact", "plan_simulation"],
   ...EXPECTED_GATE_PLACEMENT.issue.slice(3),
 ];
 

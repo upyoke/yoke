@@ -55,7 +55,6 @@ from yoke_cli.commands.adapters.config_write import (
 from yoke_cli.commands.adapters.config import ENV_LIST_USAGE
 from yoke_cli.commands.adapters.db_claim import (
     DB_CLAIM_AMEND_USAGE,
-    DB_CLAIM_PROSE_CHECK_USAGE,
 )
 from yoke_cli.commands.adapters.db import DB_READ_USAGE
 from yoke_cli.commands.adapters.files_cli import FILES_UPLOAD_USAGE
@@ -238,7 +237,6 @@ ADAPTER_USAGE: Dict[str, str] = {
     "claims.work.holder_list": CLAIM_WORK_HOLDER_LIST_USAGE,
     "path_claims.conflicts.list": PATH_CLAIMS_CONFLICTS_LIST_USAGE,
     "db_claim.amend": DB_CLAIM_AMEND_USAGE,
-    "db_claim.prose_check": DB_CLAIM_PROSE_CHECK_USAGE,
     "db.read.run": DB_READ_USAGE,
     "files.upload": FILES_UPLOAD_USAGE,
     "operator.data_repair.run": REPAIR_USAGE,

@@ -148,10 +148,6 @@ def _invoke_missing_context_boundary(name: str, monkeypatch) -> str:
         from yoke_core.domain import render_body
 
         return str(render_body.main(["2318"]))
-    if name == "db-claim-prose":
-        from yoke_core.domain import db_claim_prose_check
-
-        return str(db_claim_prose_check._cli_main(["check-item", "2318"]))
     if name == "path-claim-coverage":
         from yoke_core.domain import path_claim_spec_coverage_gate
 
@@ -205,7 +201,6 @@ def _invoke_missing_context_boundary(name: str, monkeypatch) -> str:
         "shepherd-gate",
         "verify-claim",
         "render-body",
-        "db-claim-prose",
         "path-claim-coverage",
         "idea-readiness",
         "idea-readiness-repair",

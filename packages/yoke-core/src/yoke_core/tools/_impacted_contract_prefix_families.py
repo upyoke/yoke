@@ -22,7 +22,6 @@ from yoke_core.domain.install_bundle import (
 AGENT_SKILL_CONTRACT_TESTS = (
     # Skill command prose has no import edge to its contract checks.
     "runtime/api/cli/test_yoke_strategy_render_refresh.py",
-    "runtime/api/domain/test_db_claim_prose_check_buckets.py",
     "runtime/api/domain/test_install_bundle_tree_sync.py",
     "runtime/api/engines/test_doctor_hc_atlas.py",
     "runtime/api/engines/test_doctor_skill_entrypoint_disclosure.py",

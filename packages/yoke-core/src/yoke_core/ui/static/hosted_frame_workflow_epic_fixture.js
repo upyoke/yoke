@@ -20,12 +20,12 @@ export function hostedFrameEpicWorkflow() {
       stage(
         "refining-idea",
         "refining idea",
-        [gate("db_claim_prose"), gate("db_mutation", "joint")],
+        [gate("new_migrations_need_db_claim"), gate("db_mutation", "joint")],
       ),
       stage(
         "refined-idea",
         "refined idea",
-        [gate("db_claim_prose"), gate("architecture_impact")],
+        [gate("new_migrations_need_db_claim"), gate("architecture_impact")],
       ),
       stage(
         "planning",
@@ -49,7 +49,7 @@ export function hostedFrameEpicWorkflow() {
         "planned",
         "planned",
         [
-          gate("db_claim_prose"),
+          gate("new_migrations_need_db_claim"),
           gate("architecture_impact"),
           gate("plan_simulation"),
         ],
@@ -69,7 +69,7 @@ export function hostedFrameEpicWorkflow() {
         "reviewing-implementation",
         "reviewing implementation",
         [
-          gate("db_claim_prose"),
+          gate("new_migrations_need_db_claim"),
           gate("db_mutation", "evidence"),
           gate("architecture_impact"),
         ],
@@ -93,7 +93,7 @@ export function hostedFrameEpicWorkflow() {
         "implemented",
         "implemented",
         [
-          gate("db_claim_prose"),
+          gate("new_migrations_need_db_claim"),
           gate("db_mutation", "polish"),
           gate("architecture_impact"),
           gate("path_claim_boundary"),

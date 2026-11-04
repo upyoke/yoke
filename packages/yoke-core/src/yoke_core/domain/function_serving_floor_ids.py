@@ -20,7 +20,7 @@ ALREADY_SERVED_FUNCTION_IDS: frozenset[str] = frozenset((
     'claims.steering.release', 'claims.work.acquire', 'claims.work.holder_get', 'claims.work.holder_list',
     'claims.work.release', 'claims.work.release_session_scoped', 'conduct.epic.proceed_triage_handoff', 'conduct.epic_task.update_status',
     'config.example.run', 'config.status.run', 'connection.remove.run',
-    'connection.set.run', 'db.read.run', 'db_claim.amend', 'db_claim.prose_check',
+    'connection.set.run', 'db.read.run', 'db_claim.amend',
     'decision_requests.create', 'decision_requests.dispose_ended', 'decision_requests.resolve', 'decision_requests.withdraw',
     'deployment_flows.create', 'deployment_flows.describe', 'deployment_flows.get', 'deployment_flows.list',
     'deployment_flows.reorder', 'deployment_flows.set_status', 'deployment_flows.stages', 'deployment_flows.update',

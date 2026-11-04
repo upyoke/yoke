@@ -9,7 +9,7 @@ READ_FUNCTION_IDS = frozenset(
         "claims.path.coordination_decision_build claims.path.get claims.path.list "
         "claims.path.required_gate claims.path.survey_ensure claims.steering.list "
         "claims.steering.verify claims.work.holder_get claims.work.holder_list "
-        "config.example.run config.status.run db.read.run db_claim.prose_check "
+        "config.example.run config.status.run db.read.run "
         "decision_requests.get deployment_flows.get deployment_flows.list "
         "deployment_flows.stages deployment_flows.validate "
         "deployment_runs.driver.for_capture "

@@ -41,7 +41,6 @@ Read [envelope and authority](index.md) first. `none` means no dispatcher work-c
 | `claims.work.release` | `self_only` |
 | `claims.work.release_session_scoped` | `none` |
 | `db_claim.amend` | `item` |
-| `db_claim.prose_check` | `none` |
 | `decision_requests.create` | `none` |
 | `decision_requests.dispose_ended` | `none` |
 | `decision_requests.get` | `none` |
@@ -75,9 +74,10 @@ for intake. Full payload: [items and epics](../items/model/items.md).
 Claimless catalog entries still enforce actor/project permissions and ownership.
 Read each operation's `--help` before mutation; [envelope](index.md).
 
-New workflow versions require a declared DB claim when the lane adds numbered
-migration entries under any configured `migration_model` history. Refusals name
-each file and `yoke db-claim amend PREFIX-N`; spec wording does not trigger this
-gate. `db_claim.prose_check` remains for older pinned workflow versions. After
-workflow convergence, boot migrates eligible open canon pins to the current
-version; incompatible or edited pins stay for explicit item migration.
+A declared DB claim is required when the lane adds numbered migration entries
+under any configured `migration_model` history. Refusals name each file and
+`yoke db-claim amend PREFIX-N`; spec wording does not trigger this gate.
+Release and boot refuse live references to the retired DB claim gate without
+changing rows. On the running build, migrate affected items with
+`yoke workflows item migrate PREFIX-N` and select clean current versions with
+`yoke workflows current set`, then retry. Terminal pins remain historical.

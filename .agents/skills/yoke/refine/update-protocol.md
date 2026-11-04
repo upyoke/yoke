@@ -16,9 +16,8 @@ yoke lifecycle transition "$ITEM_REF" --from "$REFINE_ACTIVE_STATUS" --to "$REFI
 ```
 `GATE_NEW_MIGRATIONS_NEED_DB_CLAIM`: declare the listed lane-only migration
 entries with `yoke db-claim amend`. Spec wording does not trigger this gate.
-Older pins may still refuse `GATE_DB_CLAIM_PROSE_MISMATCH`; use the same
-amendment surface. Boot moves eligible open canon pins after convergence;
-refused or edited pins need `yoke workflows item migrate PREFIX-N`.
+Release and boot refuse live references to the retired gate; migrate affected
+items on the running build with `yoke workflows item migrate PREFIX-N`.
 Report via [shared handoff](../shared/stage-handoff.md).
 
 If your launch instruction is a single-item mandate for this item, keep the

@@ -111,9 +111,8 @@ yoke db-claim amend PREFIX-N --state none --reason "<why>"
 Running this records an **explicit reviewed-none decision** on the stored profile:
 `{"state":"none","reviewed_negative":true,"validated_at":"<ts>"}`.
 Those keys are workflow-managed; amendment payloads cannot supply them.
-Older pinned versions still use this attestation for their prose gate. New
-versions check migration files, so a reviewed-none decision does not excuse
-new migration entries.
+The stamps are inert data. The gate checks migration files, so a reviewed-none
+decision does not excuse new migration entries.
 
 A successful amendment also records a `DbClaimAmended` telemetry event whose envelope carries the previous and new claim summaries, the actor/session, and the operator-supplied reason. That event is disposable: it is written best-effort alongside the amendment and a severity filter, an events outage, or retention expiry drops it without touching the decision. The event stream is history/audit-only — the reviewed decision lives on the profile:
 
@@ -126,7 +125,7 @@ yoke events query --event-name DbClaimAmended
 - `state="none"` claims stay mutable forever — the freeze stamp applies only when the workflow writes `state="declared"`.
 - The amendment workflow is the sole forward writer of `db_compatibility_attestation.frozen_at` for declared claims.
 - `new_migrations_need_db_claim` compares every configured `migration_model` history in the item's local lane against the integration target. Lane-only numbered entries require `state="declared"`; refusals list the files and `yoke db-claim amend PREFIX-N` recovery. Review entry, `yoke merge item --check`, and merge preflight check this. No capability or no new entries passes; a host without the lane skips the local inspection. Declared apply claims retain ordering and collision checks.
-- After built-in workflow convergence, boot moves non-terminal items on recognized canon versions with the old `db_claim_prose` gate to a current version without it. Each move preserves the stage and uses the normal compatibility checks, including live claims. Replacing the prose gate at the same stage preserves admission even after review has been reached; adding the new gate alongside it or introducing unrelated gates still requires their obligations to be satisfied. Terminal, universe-edited, and refused pins stay unchanged; boot continues. Inspect a refused pin with `yoke workflows item get PREFIX-N`, then use `yoke workflows item migrate PREFIX-N`. A universe whose current version still names the old gate must select a new current version with `yoke workflows current set` first.
+- Release and boot refuse while an open item or current workflow names the retired DB claim gate. Use `yoke workflows item migrate PREFIX-N` on the running build for affected items, or `yoke workflows current set` for current versions, then retry. Terminal items retain their historical pins.
 - Rows with `state="none"` + a stamped `frozen_at` are accepted as inert compatibility data; the renderer does not surface them, and the joint gate does not add new ones.
 
 The rendered item body presents both halves as one `## DB Claim` section — internal storage stays split because the per-field validators use the column names, but operators see one DB-claim concept.
