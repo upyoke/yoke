@@ -34,6 +34,7 @@ from yoke_core.domain.workflow_gate_catalog import (
 )
 from yoke_core.domain.workflow_declared_transitions import (
     declares_transition,
+    implementation_review_stage_id,
     unreached_review_stage,
 )
 from yoke_core.domain.workflow_registry import WorkflowRegistryError
@@ -115,7 +116,9 @@ def review_readiness(item: dict[str, Any], *, public_ref: str) -> ReviewReadines
         )
     review_stage_id = unreached_review_stage(workflow, status)
     if not review_stage_id:
-        return ReviewReadiness()
+        reached = implementation_review_stage_id(workflow)
+        gates = workflow.gate_ids_for_stage(reached) if reached else ()
+        return ReviewReadiness(review_gates=(GATE_NEW_MIGRATIONS_NEED_DB_CLAIM,)) if GATE_NEW_MIGRATIONS_NEED_DB_CLAIM in gates else ReviewReadiness()
     if declares_transition(workflow, status, review_stage_id):
         return ReviewReadiness(
             source_stage=status,
