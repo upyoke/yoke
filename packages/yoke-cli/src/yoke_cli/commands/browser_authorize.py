@@ -69,7 +69,7 @@ def browser_authorize(args: List[str]) -> int:
         "--reset",
         action="store_true",
         help=(
-            "Delete this identity's profile before opening the window, so the "
+            "Delete this identity's profile before signing in, so the "
             "sign-in starts from an empty browser."
         ),
     )
@@ -319,7 +319,7 @@ TOOL_SHAPED_SUBCOMMANDS = {
 TOOL_SHAPED_USAGE = {
     "yoke browser authorize": (
         "Sign one project browser identity in where its declared sites have "
-        "expired, in a plain window of the daemon's own Chromium."
+        "expired: automatic test accounts headless, human sites in a window."
     ),
 }
 

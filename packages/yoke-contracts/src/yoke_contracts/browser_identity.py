@@ -5,8 +5,8 @@ that persona uses (for example a Google account, the product's own account and
 a payment provider together). A project declares any number of identities
 under names it chooses; Yoke attaches no meaning to a name. Each identity
 lists the sites it must be signed into, and each site carries the check that
-proves its session is still live, so a human is asked to sign in only for a
-site whose session has really expired.
+proves its session is still live. Expired sites use human sign-in unless they
+declare automatic first-party test-account steps backed by machine-local secrets.
 
 Declarations are nonsecret data in the project's ``browser-control``
 capability settings::
