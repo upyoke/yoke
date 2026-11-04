@@ -1,8 +1,8 @@
 """Untracked-vs-source-root classification for the dirty-main guard.
 
 Repo-root (and other non-package-root) scratch is a warning. Untracked
-paths under declared package roots — or any nested path when roots are
-unknown — can collide with a new module and still block.
+paths under declared package roots still block. When roots are unknown,
+nested paths block except beneath top-level dot-directories with no indexed files.
 """
 
 from __future__ import annotations
@@ -18,14 +18,18 @@ from yoke_core.domain.conflict_survey_declared_paths import clean_path
 _PATH_LIST_CAP = 20
 
 
-def under_source_root(path: str, prefixes: Sequence[str]) -> bool:
+def under_source_root(
+    path: str,
+    prefixes: Sequence[str],
+    scratch_dot_directories: Sequence[str] = (),
+) -> bool:
     cleaned = clean_path(path)
     if not cleaned:
         return False
     roots = tuple(clean_path(raw).rstrip("/") for raw in prefixes if clean_path(raw))
     if roots:
         return any(cleaned == root or cleaned.startswith(root + "/") for root in roots)
-    return "/" in cleaned
+    return "/" in cleaned and cleaned.split("/", 1)[0] not in scratch_dot_directories
 
 
 def decide_dirty_main(
@@ -33,6 +37,7 @@ def decide_dirty_main(
     tracked: Sequence[str],
     untracked: Sequence[str],
     source_root_prefixes: Sequence[str] = (),
+    scratch_dot_directories: Sequence[str] = (),
 ) -> tuple[bool, str, tuple[str, ...], tuple[str, ...]]:
     """Return ``(blocked, kind, block_paths, scratch_paths)``."""
     from yoke_core.domain.conflict_survey_declared_paths import matching_scope
@@ -45,7 +50,9 @@ def decide_dirty_main(
         dict.fromkeys(clean_path(path) for path in needed_paths if clean_path(path))
     )
     scratch = tuple(
-        path for path in untracked if not under_source_root(path, source_root_prefixes)
+        path
+        for path in untracked
+        if not under_source_root(path, source_root_prefixes, scratch_dot_directories)
     )
     tracked_hit = tuple(
         path for path in tracked if needed and path and matching_scope(needed, [path])
@@ -53,7 +60,9 @@ def decide_dirty_main(
     if tracked_hit:
         return True, BLOCK_DIRTY_TRACKED, tracked_hit, scratch
     under = tuple(
-        path for path in untracked if under_source_root(path, source_root_prefixes)
+        path
+        for path in untracked
+        if under_source_root(path, source_root_prefixes, scratch_dot_directories)
     )
     if under:
         return True, BLOCK_DIRTY_UNTRACKED, under, scratch
