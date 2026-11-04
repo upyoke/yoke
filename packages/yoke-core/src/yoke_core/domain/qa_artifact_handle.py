@@ -17,7 +17,8 @@ There is no bare-path compatibility shape: writers that try to record a
 path without a backend get a typed denial naming this module's vocabulary.
 S3 keys reuse the historical storage taxonomy
 ``qa-artifacts/{project}/{subject}/{run_id}/{filename}`` -- where the
-subject is the requirement's own owner, an item or a deployment run.
+subject is the requirement's owner at capture time. Reads validate the fixed
+key parts without checking the subject against the current owner.
 """
 
 from __future__ import annotations
@@ -63,12 +64,10 @@ def build_artifact_key(
 
     Format: ``{storage_prefix?}/qa-artifacts/{project}/{subject}/{run_id}/{filename}``.
 
-    ``subject`` is the requirement's own owner as
-    :func:`yoke_core.domain.qa_artifacts.case_artifact_subject` names it --
-    an item id, or ``deployment-run-{id}`` for a requirement a deployment
-    run owns. Keying on the real owner is what lets a run-owned requirement
-    store evidence at all; assuming an item id refused those requirements
-    outright.
+    ``subject`` is the requirement's owner at capture time, as
+    :func:`yoke_core.domain.qa_artifacts.case_artifact_subject` names it.
+    Reads preserve that subject and validate the fixed key parts; a later
+    ownership transfer does not change the stored evidence key.
     """
     return artifact_key_prefix(
         project,

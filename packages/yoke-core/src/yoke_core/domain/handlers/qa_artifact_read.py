@@ -122,8 +122,7 @@ def _s3_result(conn, row, handle: dict) -> tuple[dict, Optional[HandlerOutcome]]
         broker_config,
         presign_with_broker,
     )
-    from yoke_core.domain.qa_artifact_handle import build_artifact_key
-    from yoke_core.domain.qa_artifacts import case_artifact_subject
+    from yoke_core.domain.qa_artifact_handle import ArtifactHandleError, build_artifact_key
 
     try:
         configured = resolve_artifacts_bucket(
@@ -142,21 +141,25 @@ def _s3_result(conn, row, handle: dict) -> tuple[dict, Optional[HandlerOutcome]]
             "detail": "the recorded object belongs to a different artifact store",
         }, None
     if broker is not None:
-        filename = str(handle["key"]).rsplit("/", 1)[-1]
-        subject = case_artifact_subject(dict(row))
-        expected = build_artifact_key(
-            str(row["project"]),
-            subject,
-            int(row["run_id"]),
-            filename,
-            storage_prefix=broker.prefix,
-        )
+        segments = str(handle["key"]).split("/")
+        filename = segments[-1]
+        subject = segments[-3] if len(segments) >= 3 else ""
+        try:
+            expected = build_artifact_key(
+                str(row["project"]),
+                subject,
+                int(row["run_id"]),
+                filename,
+                storage_prefix=broker.prefix,
+            )
+        except ArtifactHandleError:
+            expected = None
         if str(handle["key"]) != expected:
             return {
                 "disposition": "evidence_key_mismatch",
                 "detail": (
                     f"the recorded object key {handle['key']!r} differs from "
-                    f"the requirement owner key {expected!r}. "
+                    "the expected artifact prefix, project, QA run, or filename. "
                     "Re-run the QA case to re-capture the evidence; rehome "
                     "only moves local evidence and cannot repair object keys."
                 ),

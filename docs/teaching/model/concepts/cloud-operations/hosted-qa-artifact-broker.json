@@ -1,9 +1,10 @@
 {
  "id": "hosted-qa-artifact-broker",
  "title": "Hosted QA artifact broker",
- "status": "draft-copy",
+ "status": "observed",
  "audience": "Yoke maintainers",
  "private_sources": ["platform"],
  "page": "cloud-operations-services",
- "position": 8
+ "position": 8,
+ "summary": "Broker reads validate the artifact storage prefix, project, QA run, filename, and segment count. The stored subject names the owner at capture time and stays valid after a deployment-run takeover."
 }
