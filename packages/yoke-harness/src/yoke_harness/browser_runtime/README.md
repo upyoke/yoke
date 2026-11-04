@@ -63,7 +63,9 @@ changes, including pull-request and merge-queue trees.
 - `src/routes/*.js`: snapshot routes, and the exec routes that open, close,
   and run steps on the page a caller owns
 
-Each profile has an independent daemon at an OS-assigned port. It writes
+Each profile has an independent daemon at an OS-assigned port, listening only
+on `127.0.0.1`. API requests must pass bearer authentication before JSON bodies
+are parsed. It writes
 `~/.yoke/browser-runtime/daemons/<profile-key>/.daemon-state.json` with the local
 endpoint, PID, bearer token, browser type, health state, and the persistent
 profile directory it launched on. The product Python client reads that state

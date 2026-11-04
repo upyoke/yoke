@@ -217,9 +217,8 @@ async function testStartDaemonRejectsOnEarlyExit() {
     };
     blocker.once('error', onError);
     blocker.once('listening', onListening);
-    // Bind the wildcard address so daemon.js cannot still claim the port on a
-    // different interface family (for example :: vs 127.0.0.1).
-    blocker.listen(port);
+    // Occupy the exact address the daemon uses.
+    blocker.listen(port, '127.0.0.1');
   });
 
   let startupError = null;

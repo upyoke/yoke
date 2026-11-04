@@ -4,5 +4,6 @@
  "status": "draft-copy",
  "audience": "Maintainers",
  "page": "runtime-execution",
- "position": 0
+ "position": 0,
+ "summary": "Each persistent profile has its own browser daemon. The daemon listens only on 127.0.0.1 and authenticates API requests before parsing JSON bodies."
 }

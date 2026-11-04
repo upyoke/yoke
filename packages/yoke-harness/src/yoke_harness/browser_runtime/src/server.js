@@ -27,7 +27,6 @@ function createServer(options) {
   const startTime = Date.now();
 
   const app = express();
-  app.use(express.json());
 
   // Bearer token auth middleware for all /api/* routes
   app.use('/api', (req, res, next) => {
@@ -41,6 +40,8 @@ function createServer(options) {
     }
     next();
   });
+
+  app.use('/api', express.json());
 
   // POST /api/health
   app.post('/api/health', (_req, res) => {

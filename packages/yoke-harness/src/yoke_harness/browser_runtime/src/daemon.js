@@ -204,7 +204,7 @@ async function main() {
   registerExecRoutes(app, browserManager);
 
   // Start server
-  server = app.listen(args.port, () => {
+  server = app.listen(args.port, '127.0.0.1', () => {
     const port = server.address().port;
     const endpoint = `http://127.0.0.1:${port}`;
 
