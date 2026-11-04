@@ -3,5 +3,7 @@
  "title": "Assertion versus visual judgment",
  "status": "draft-copy",
  "page": "browser-qa",
- "position": 3
+ "position": 3,
+ "summary": "Browser step help derives valid assertion checks from the shared schema. A refused check names every valid value. A failed or refused step prints its JSON result and exits 1; assertions establish their declared condition, while visual judgment still needs capture review.",
+ "sources": ["packages/yoke-contracts/src/yoke_contracts/browser_step_schema.json", "packages/yoke-contracts/src/yoke_contracts/browser_step_schema.py", "packages/yoke-cli/src/yoke_cli/commands/qa_browser.py"]
 }

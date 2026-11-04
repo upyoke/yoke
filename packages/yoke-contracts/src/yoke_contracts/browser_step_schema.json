@@ -51,7 +51,11 @@
     "assert": {
       "keys": ["target", "check", "expected", "min_count"],
       "fields": {
-        "target": {"type": "non_empty_string", "required": true}
+        "target": {"type": "non_empty_string", "required": true},
+        "check": {
+          "type": "enum", "required": true,
+          "values": ["visible", "hidden", "text_contains", "text_equals", "count_gte", "count_eq"]
+        }
       },
       "reject_keys": {
         "value": "expected"

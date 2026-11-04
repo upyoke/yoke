@@ -212,7 +212,8 @@ def test_browser_check_records_failed_assertion_on_canonical_runner(
                 {"action": "navigate", "route": "/"},
                 {"action": "assert", "target": "main"},
             ],
-            "requires one of",
+            "field 'check' requires 'visible' or 'hidden' or 'text_contains' "
+            "or 'text_equals' or 'count_gte' or 'count_eq'",
         ),
         (
             "browser-inspection",

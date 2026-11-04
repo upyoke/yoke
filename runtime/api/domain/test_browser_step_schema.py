@@ -7,6 +7,25 @@ import pytest
 from yoke_cli.commands.qa_browser import qa_browser_step
 from yoke_contracts.browser_qa_contract import browser_method_contract_violation
 from yoke_contracts.browser_step_schema import declared_schema_help
+from yoke_contracts.browser_step_schema import step_schema_violation
+
+
+ASSERT_CHECKS = ("visible", "hidden", "text_contains", "text_equals", "count_gte", "count_eq")
+
+
+@pytest.mark.parametrize("check", [None, "disabled", *ASSERT_CHECKS])
+def test_assert_check_uses_declared_values(check):
+    step = {"action": "assert", "target": "button"}
+    if check is not None:
+        step["check"] = check
+    found = step_schema_violation(0, step)
+    if check in ASSERT_CHECKS:
+        assert found is None
+    else:
+        assert found is not None
+        assert found.code == "step_field_invalid"
+        for allowed in ASSERT_CHECKS:
+            assert allowed in found.message
 
 
 def _violation(steps: list[dict]):
@@ -109,12 +128,16 @@ def test_step_help_publishes_the_declared_schema(
     assert "grant_clipboard" in help_text
     assert "clipboard_permission_origin_required" in help_text
     assert "selector -> target" in help_text
+    for check in ASSERT_CHECKS:
+        assert check in help_text
     with pytest.raises(SystemExit) as raised:
         qa_browser_step(["--help"])
     assert raised.value.code == 0
     printed = capsys.readouterr().out
     assert "navigate: route" in printed
     assert "grant_clipboard" in printed
+    for check in ASSERT_CHECKS:
+        assert check in printed
 
 
 @pytest.mark.parametrize("dialog", ["accept", "dismiss"])

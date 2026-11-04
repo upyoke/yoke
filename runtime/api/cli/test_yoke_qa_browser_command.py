@@ -152,6 +152,23 @@ class TestStepAdapter:
             rc = qa_browser_step(list(argv))
         return rc, out.getvalue(), err.getvalue()
 
+    def test_failed_step_exits_one_and_preserves_json(self):
+        result = {"success": False, "error": "assertion failed"}
+        with (
+            patch(
+                "yoke_harness.browser_qa_daemon.ensure_daemon_running",
+                return_value=None,
+            ),
+            patch("yoke_harness.browser_client.ensure_page", return_value="exploratory"),
+            patch("yoke_harness.browser_client.execute_step", return_value=result),
+        ):
+            rc, out, err = self._run(
+                "--base-url", "https://x.example", "--step-json", "{}"
+            )
+        assert rc == 1
+        assert out == json.dumps(result) + "\n"
+        assert err == ""
+
     def test_invalid_step_json_is_usage_error(self):
         rc, _out, err = self._run("--base-url", "https://x.example", "--step-json", "[")
         assert rc == 2
