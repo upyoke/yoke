@@ -21,6 +21,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional, Sequence
 
+from yoke_contracts.refusal_recovery import compose_refusal
+
 from yoke_core.domain.worktree_create_db import persist_item_worktrees
 from yoke_core.domain.worktree_create_plan import (
     WorktreeCreationEntry,
@@ -83,15 +85,19 @@ def install_lane_dependencies(
             setup_command = get_setup_command(project, scripts_dir)
             if setup_command:
                 print(
-                    f"SETUP-COMMAND-FAILED: command {setup_command!r} exited "
-                    f"{install_exit} in lane {entry.path!r}. Recovery: replace "
-                    "the declaration with "
-                    "yoke projects capability-settings set --project "
-                    f"{shlex.quote(str(project))} --cap-type setup_command "
-                    "--settings-json "
-                    "'{\"command\":\"<documented environment command>\"}' "
-                    "--base '<current setup_command settings JSON>', then "
-                    "rerun lane prepare.",
+                    compose_refusal(
+                        f"SETUP-COMMAND-FAILED: command {setup_command!r} exited "
+                        f"{install_exit} in lane {entry.path!r}",
+                        recovery=(
+                            "replace the declaration with "
+                            "yoke projects capability-settings set --project "
+                            f"{shlex.quote(str(project))} --cap-type setup_command "
+                            "--settings-json "
+                            "'{\"command\":\"<documented environment command>\"}' "
+                            "--base '<current setup_command settings JSON>', then "
+                            "rerun lane prepare"
+                        ),
+                    ),
                     file=sys.stderr,
                 )
             else:
