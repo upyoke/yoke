@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 from typing import Any
 
+from yoke_contracts.refusal_recovery import compose_refusal
 from yoke_core.domain.migration_serving_version import NEXT_RELEASE
 from yoke_core.domain.schema_common import _column_exists, _table_exists
 
@@ -90,15 +91,17 @@ def _refuse_live_gate(conn: Any) -> None:
     if current:
         details.append(
             "Current workflow versions: " + ", ".join(current)
-            + ". Recovery: select a version without the retired gate using "
-            "`yoke workflows current set`."
+            + "."
         )
-    raise RuntimeError(
-        "retired_db_claim_prose_gate_pinned: " + " ".join(details)
-        + " On the build this universe is running now, select clean current "
-        "versions and migrate the named items, then retry release or boot. "
-        "This entry changes no rows."
-    )
+    raise RuntimeError(compose_refusal(
+        "retired_db_claim_prose_gate_pinned: " + " ".join(details),
+        evaluated="Open item pins and current workflow versions; this entry changes no rows",
+        recovery=(
+            "On the build this universe is running now, select a version without "
+            "the retired gate using `yoke workflows current set`, migrate the "
+            "named items with their listed commands, then retry release or boot"
+        ),
+    ))
 
 
 def apply(conn: Any) -> None:
