@@ -79,6 +79,10 @@ def declared_schema_help() -> str:
     for action in sorted(ACTION_STEP_KEYS):
         keys = ", ".join(sorted(ACTION_STEP_KEYS[action]))
         lines.append(f"  {action}: {keys}")
+        for field, rule in sorted(_SCHEMA["actions"][action].get("fields", {}).items()):
+            if rule.get("type") == "enum":
+                values = ", ".join(rule["values"])
+                lines.append(f"On {action}, {field} is one of: {values}")
     lines.append("Shared keys: " + ", ".join(sorted(SHARED_STEP_KEYS)))
     aliases = _SCHEMA.get("aliases") or {}
     rendered = ", ".join(f"{key} -> {aliases[key]}" for key in sorted(aliases))
