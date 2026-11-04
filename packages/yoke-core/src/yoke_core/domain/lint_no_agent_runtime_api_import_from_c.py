@@ -188,8 +188,8 @@ def _matched_import(body: str) -> str:
         tree = None
     if tree is not None and not any(
         isinstance(n, ast.Call)
-        and isinstance(n.func, ast.Name)
-        and n.func.id in {"exec", "eval", "compile"}
+        and (getattr(n.func, "id", "") or getattr(n.func, "attr", ""))
+        in {"exec", "eval", "compile"}
         for n in ast.walk(tree)
     ):
         for node in ast.walk(tree):

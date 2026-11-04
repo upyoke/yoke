@@ -174,10 +174,22 @@ def test_write_options_are_data(lanes, options):
 
 @pytest.mark.parametrize("command", ["cp", "mv", "install"])
 def test_target_directory_option_keeps_write_target(command):
-    targets, _ = resolve_shell_write_operands(f"{command} -t /repo/d /tmp/source")
     from yoke_core.domain.lint_shell_path_use import analyze_shell_path_use
 
     assert (
         "/repo/d"
         in analyze_shell_path_use(f"{command} -t /repo/d /tmp/source").write_targets
     )
+
+
+def test_joinpath_without_components():
+    from yoke_core.domain.lint_python_write_target_extract import (
+        analyze_python_heredoc_writes,
+    )
+
+    result = analyze_python_heredoc_writes(
+        "python3 - <<'PY'\nfrom pathlib import Path\n"
+        "Path('/tmp/out').joinpath().write_text('x')\nPY"
+    )
+    assert result.targets == ["/tmp/out"]
+    assert not result.unresolved_writes

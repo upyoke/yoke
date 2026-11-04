@@ -285,7 +285,7 @@ class _PythonWriteVisitor(ast.NodeVisitor):
             return node.value
         if isinstance(node, ast.Name):
             return self.bindings.get(node.id)
-        if isinstance(node, ast.Call) and node.args:
+        if isinstance(node, ast.Call):
             func = node.func
             if isinstance(func, ast.Attribute) and func.attr == "joinpath":
                 parts = [self._path_value(n) for n in [func.value, *node.args]]
@@ -298,7 +298,7 @@ class _PythonWriteVisitor(ast.NodeVisitor):
                 or isinstance(func, ast.Attribute)
                 and func.attr == "Path"
             )
-            if is_path:
+            if is_path and node.args:
                 return self._path_value(node.args[0])
         if isinstance(node, ast.BinOp) and isinstance(node.op, ast.Div):
             left = self._path_value(node.left)
