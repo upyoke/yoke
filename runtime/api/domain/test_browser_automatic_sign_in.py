@@ -188,6 +188,34 @@ def test_browser_case_prepares_each_automatic_identity_once(setup, monkeypatch):
     assert sign_in.call_args.args[2:] == ("acme", buyer)
 
 
+def test_runtime_unreadable_secret_teaches_its_exact_setup_command(setup, monkeypatch):
+    runtime, _, _ = setup
+    store_machine_capability_secret(
+        "acme", "browser-control", "sign-in.buyer.shop.password", "synthetic"
+    )
+    monkeypatch.setattr(
+        automatic.subprocess,
+        "run",
+        lambda *a, **k: subprocess.CompletedProcess(
+            [],
+            0,
+            json.dumps(
+                {
+                    "sites": [
+                        {"site": "shop", "state": "secret_missing", "field": "password"}
+                    ]
+                }
+            ),
+            "",
+        ),
+    )
+    with pytest.raises(
+        automatic.AutomaticSignInError,
+        match="browser_sign_in_secret_missing:.*--key sign-in.buyer.shop.password --value-stdin",
+    ):
+        automatic.sign_in_expired_sites(None, runtime, "acme", identity())
+
+
 def test_human_identities_need_no_automatic_runtime(monkeypatch):
     prepare = Mock(side_effect=AssertionError("human sign-in must not type"))
     monkeypatch.setattr(

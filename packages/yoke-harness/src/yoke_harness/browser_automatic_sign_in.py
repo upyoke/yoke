@@ -66,13 +66,16 @@ def sign_in_expired_sites(
     if profile is not None:
         checks.stop_profile_daemon(client, profile)
     if sites is None:
-        sites = checks.check_identity(
-            identity,
-            profile,
-            node=runtime.node,
-            runtime_dir=runtime.runtime_dir,
-            env=runtime.env,
-        )
+        try:
+            sites = checks.check_identity(
+                identity,
+                profile,
+                node=runtime.node,
+                runtime_dir=runtime.runtime_dir,
+                env=runtime.env,
+            )
+        except (checks.SignInCheckError, OSError, subprocess.SubprocessError):
+            raise _failed(next(s.site for s in identity.sites if s.sign_in)) from None
     for site in identity.sites:
         if site.sign_in and any(
             s["site"] == site.site and s["state"] == checks.UNREACHABLE for s in sites
@@ -107,8 +110,8 @@ def sign_in_expired_sites(
                 secret_files=secret_files,
             )
         )
-    profile = browser_profile.ensure_profile_dir(project, identity=identity.name)
     try:
+        profile = browser_profile.ensure_profile_dir(project, identity=identity.name)
         with tempfile.TemporaryDirectory(prefix="yoke-browser-sign-in-") as directory:
             manifest = Path(directory) / "manifest.json"
             manifest.write_text(json.dumps({"sites": entries}), encoding="utf-8")

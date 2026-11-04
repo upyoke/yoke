@@ -47,6 +47,18 @@ test('a redirect cannot send a secret to another origin', async () => {
   assert.equal(fills, 0);
 });
 
+test('a missing secret reports only its nonsecret field name', async () => {
+  const page = {
+    setDefaultTimeout() {}, async goto() {}, url: () => 'https://shop.example/login',
+    locator: () => { throw Error('must not type'); }, async close() {},
+  };
+  const result = await signInSite({ newPage: async () => page }, {
+    site: 'shop', origin: 'https://shop.example',
+    sign_in: { url: 'https://shop.example/login', steps: [{ fill: '#pw', secret: 'password' }] },
+  }, { password: '/nonexistent-browser-test-secret' });
+  assert.deepEqual(result, { site: 'shop', state: 'secret_missing', field: 'password' });
+});
+
 function runScript(script, args) {
   return new Promise((resolve, reject) => {
     const child = spawn(process.execPath, [path.join(__dirname, '../src', script), ...args], {

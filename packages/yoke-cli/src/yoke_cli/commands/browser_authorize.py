@@ -114,7 +114,11 @@ def browser_authorize(args: List[str]) -> int:
             parsed.project, parsed.identity, parsed.declarations_json
         )
         runtime = prepare_browser_runtime("authorize.js")
-    except (ProjectSlugLookupError, BrowserIdentityError, RuntimeError) as exc:
+        if parsed.reset:
+            from yoke_cli.commands.browser_authorize_automatic import reset_profile
+
+            reset_profile(browser_client, project_key, identity)
+    except (ProjectSlugLookupError, BrowserIdentityError, RuntimeError, OSError) as exc:
         return _fail(parsed.json_mode, str(exc), code=2)
     label = f"project {project_key} identity {identity.name}"
 
@@ -122,10 +126,6 @@ def browser_authorize(args: List[str]) -> int:
         print(line, file=sys.stderr if parsed.json_mode else sys.stdout, flush=True)
 
     expired = list(identity.sites)
-    if parsed.reset:
-        from yoke_cli.commands.browser_authorize_automatic import reset_profile
-
-        reset_profile(browser_client, project_key, identity)
     if identity.sites and not parsed.reset:
         try:
             sites = check_sign_in(browser_client, runtime, project_key, identity)
