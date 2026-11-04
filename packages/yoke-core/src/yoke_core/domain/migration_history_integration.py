@@ -65,7 +65,7 @@ def _git(
     return result
 
 
-def _target_ref(repo: Path, integration_target: str) -> str:
+def resolve_target_ref(repo: Path, integration_target: str) -> str:
     target = str(integration_target).strip()
     if not target:
         raise HistoryError("migration history integration target is empty")
@@ -246,7 +246,7 @@ def _extension(
     if not declared:
         return (), (), str(integration_target)
     relative_dir = _relative_modules_dir(modules_dir)
-    target_ref = _target_ref(worktree_path, integration_target)
+    target_ref = resolve_target_ref(worktree_path, integration_target)
     target = _target_history(worktree_path, target_ref, relative_dir)
     lane = _lane_history(worktree_path, relative_dir)
     pins = _digest_pins(
@@ -327,6 +327,7 @@ __all__ = [
     "RELEASED_DIGESTS_NAME",
     "history_names_at_ref",
     "migration_ordinal",
+    "resolve_target_ref",
     "require_merge_history_extension",
     "require_rehearsal_history_extension",
 ]

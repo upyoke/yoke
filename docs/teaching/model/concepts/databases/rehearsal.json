@@ -2,8 +2,9 @@
  "id": "rehearsal",
  "title": "Rehearsal",
  "status": "draft-copy",
- "commands": ["yoke db-claim amend", "yoke db-claim prose-check", "yoke migration content-identity verify", "yoke migration rehearse"],
- "functions": ["db_claim.amend", "db_claim.prose_check", "migration.content_identity.verify"],
+ "commands": ["yoke db-claim amend", "yoke migration content-identity verify", "yoke migration rehearse"],
+ "functions": ["db_claim.amend", "migration.content_identity.verify"],
  "page": "databases",
- "position": 3
+ "position": 3,
+ "summary": "New lane-only numbered migrations require a declared DB claim before review and merge; declared apply claims retain history ordering, collision checks and rehearsal evidence. Boot moves eligible open canon pins after workflow convergence; incompatible and edited pins remain for explicit migration."
 }

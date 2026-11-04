@@ -59,7 +59,7 @@ def test_one_edge_before_review_is_entered_by_the_merge(monkeypatch) -> None:
         "reviewing-implementation",
     )
     assert result.review_gates == (
-        "db_claim_prose",
+        "new_migrations_need_db_claim",
         "db_mutation",
         "architecture_impact",
     )

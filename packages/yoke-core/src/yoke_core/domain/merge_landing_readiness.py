@@ -21,8 +21,8 @@ after recovery.
 
 An item one declared edge before review is reported as a ``merge_will``
 note because the merge enters review. Entering review runs that stage's
-gates: the database-claim prose gate is asked here, read-only, and its
-refusal is a blocker; the note names the gates only the merge evaluates.
+gates: new migration files are checked locally, while older pins still ask
+the prose gate read-only; the note names gates only the merge evaluates.
 QA start commits are observations; the item's current passing requirements
 authorize landing without rebinding.
 """
@@ -212,7 +212,7 @@ def assess(
     if readiness.review.refusal:
         add(LandingBlocker("review stage", readiness.review.refusal))
     elif readiness.review.enters_review:
-        entry_refusal = review_entry_refusal(public_ref, readiness.review)
+        entry_refusal = review_entry_refusal(public_ref, readiness.review, item=item)
         if entry_refusal:
             add(LandingBlocker("review entry", f"{public_ref}: {entry_refusal}"))
         left = gates_left_to_merge(readiness.review)

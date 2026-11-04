@@ -29,7 +29,7 @@ from yoke_core.domain.workflow_gate_catalog import (
     GATE_ARCHITECTURE_IMPACT,
     GATE_CONFLICT_SURVEY,
     GATE_DASH_EVIDENCE,
-    GATE_DB_CLAIM_PROSE,
+    GATE_NEW_MIGRATIONS_NEED_DB_CLAIM,
     GATE_DB_MUTATION,
     GATE_DOC_CLAIM_ACTIVATION,
     GATE_DOC_COMPLETION,
@@ -57,7 +57,7 @@ _REFINEMENT_STAGES = (
         "refining-idea",
         "refining idea",
         (
-            gate_ref(GATE_DB_CLAIM_PROSE),
+            gate_ref(GATE_NEW_MIGRATIONS_NEED_DB_CLAIM),
             gate_ref(GATE_DB_MUTATION, "joint"),
         ),
     ),
@@ -65,7 +65,7 @@ _REFINEMENT_STAGES = (
         "refined-idea",
         "refined idea",
         (
-            gate_ref(GATE_DB_CLAIM_PROSE),
+            gate_ref(GATE_NEW_MIGRATIONS_NEED_DB_CLAIM),
             gate_ref(GATE_ARCHITECTURE_IMPACT),
         ),
     ),
@@ -97,7 +97,7 @@ BLITZ_WORKFLOW_DEFINITION = definition_fixture(
             "reviewing-implementation",
             "reviewing implementation",
             (
-                gate_ref(GATE_DB_CLAIM_PROSE),
+                gate_ref(GATE_NEW_MIGRATIONS_NEED_DB_CLAIM),
                 gate_ref(GATE_DB_MUTATION, "evidence"),
                 gate_ref(GATE_ARCHITECTURE_IMPACT),
             ),
@@ -171,7 +171,7 @@ DASH_WORKFLOW_DEFINITION = definition_fixture(
             "reviewing-implementation",
             "reviewing implementation",
             (
-                gate_ref(GATE_DB_CLAIM_PROSE),
+                gate_ref(GATE_NEW_MIGRATIONS_NEED_DB_CLAIM),
                 gate_ref(GATE_DB_MUTATION, "evidence"),
                 gate_ref(GATE_ARCHITECTURE_IMPACT),
             ),

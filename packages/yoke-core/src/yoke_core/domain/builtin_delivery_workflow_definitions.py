@@ -28,7 +28,7 @@ from yoke_core.domain.workflow_gate_catalog import (
     GATE_ARCHITECTURE_IMPACT,
     GATE_CHECK_HARD_BLOCKS,
     GATE_CLAIM_ACTIVATION,
-    GATE_DB_CLAIM_PROSE,
+    GATE_NEW_MIGRATIONS_NEED_DB_CLAIM,
     GATE_DB_MUTATION,
     GATE_PATH_CLAIM_BOUNDARY,
     GATE_PLAN_SIMULATION,
@@ -41,7 +41,7 @@ _INTAKE_STAGES = (
         "refining-idea",
         "refining idea",
         (
-            gate_ref(GATE_DB_CLAIM_PROSE),
+            gate_ref(GATE_NEW_MIGRATIONS_NEED_DB_CLAIM),
             gate_ref(GATE_DB_MUTATION, "joint"),
         ),
     ),
@@ -49,7 +49,7 @@ _INTAKE_STAGES = (
         "refined-idea",
         "refined idea",
         (
-            gate_ref(GATE_DB_CLAIM_PROSE),
+            gate_ref(GATE_NEW_MIGRATIONS_NEED_DB_CLAIM),
             gate_ref(GATE_ARCHITECTURE_IMPACT),
         ),
     ),
@@ -61,7 +61,7 @@ def _reviewing_implementation_stage(description: str) -> dict:
         "reviewing-implementation",
         "reviewing implementation",
         (
-            gate_ref(GATE_DB_CLAIM_PROSE),
+            gate_ref(GATE_NEW_MIGRATIONS_NEED_DB_CLAIM),
             gate_ref(GATE_DB_MUTATION, "evidence"),
             gate_ref(GATE_ARCHITECTURE_IMPACT),
         ),
@@ -88,7 +88,7 @@ _IMPLEMENTATION_CLOSE_STAGES = (
         "implemented",
         "implemented",
         (
-            gate_ref(GATE_DB_CLAIM_PROSE),
+            gate_ref(GATE_NEW_MIGRATIONS_NEED_DB_CLAIM),
             gate_ref(GATE_DB_MUTATION, "polish"),
             gate_ref(GATE_ARCHITECTURE_IMPACT),
             gate_ref(GATE_PATH_CLAIM_BOUNDARY),
@@ -209,7 +209,7 @@ EPIC_WORKFLOW_DEFINITION = definition_fixture(
             "planned",
             "planned",
             (
-                gate_ref(GATE_DB_CLAIM_PROSE),
+                gate_ref(GATE_NEW_MIGRATIONS_NEED_DB_CLAIM),
                 gate_ref(GATE_ARCHITECTURE_IMPACT),
                 gate_ref(GATE_PLAN_SIMULATION),
             ),

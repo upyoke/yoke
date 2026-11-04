@@ -17,8 +17,10 @@ from yoke_core.domain.db_mutation_profile import (
     DbMutationProfileError,
     validate as validate_profile,
 )
-from yoke_core.domain.migration_history import HistoryError
+from yoke_core.domain.migration_history import HistoryError, ordinal_entries
 from yoke_core.domain.migration_history_integration import (
+    history_names_at_ref,
+    resolve_target_ref,
     migration_ordinal,
     require_merge_history_extension,
 )
@@ -39,6 +41,18 @@ class MigrationMergeGate:
     @property
     def passed(self) -> bool:
         return not self.errors
+
+
+def lane_only_migration_entries(
+    worktree_path: Path, modules_dir: str, integration_target: str
+) -> tuple[str, ...]:
+    """Numbered entries present in the lane but absent from its target."""
+    target = resolve_target_ref(worktree_path, integration_target)
+    names = set(history_names_at_ref(worktree_path, target, modules_dir))
+    return tuple(
+        entry.name for entry in ordinal_entries(worktree_path / modules_dir)
+        if entry.name not in names
+    )
 
 
 def _profile(raw: Any) -> Mapping[str, Any] | None:
@@ -206,7 +220,14 @@ def evaluate_migration_merge(
         current_profile is None
         or current_profile.get("mutation_intent") != MUTATION_INTENT_APPLY
     ):
-        return MigrationMergeGate(False)
+        from yoke_core.domain.new_migrations_db_claim_gate import missing_claim_errors
+
+        errors = missing_claim_errors(
+            profile=current_row.get("db_mutation_profile"),
+            settings=capability_settings_json, worktree_path=worktree_path,
+            integration_target=integration_target, public_ref=public_ref,
+        )
+        return MigrationMergeGate(bool(errors), tuple(errors))
     try:
         numbered = _numbered_modules(current_profile)
     except HistoryError as exc:

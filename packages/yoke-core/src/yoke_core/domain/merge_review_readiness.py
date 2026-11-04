@@ -11,24 +11,26 @@ before the branch lands, with ``--verification`` as the reason. Reaching the
 stage runs its own gates, so a gate refusal there stops the merge with the
 gate's reason. An item further back is refused with the walk it still owes.
 
-Landing readiness asks one of those gates early. The database-claim prose
-gate has a read-only form, ``db_claim.prose_check``, so when the pinned
-review stage carries it the check runs before anything lands and its
-refusal is a landing blocker. The stage's other gates have no read-only
-form and run only when the merge moves the item.
+Landing readiness checks lane-only migration files locally for new workflow
+versions. Older pins still ask the read-only ``db_claim.prose_check`` gate.
+Boot moves eligible open canon pins after workflow convergence; edited or
+incompatible pins remain unchanged for explicit migration.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import Any, Optional
+from pathlib import Path
 
 from yoke_contracts.api.function_call import TargetRef
 from yoke_core.api.service_client_structured_api_adapter import call_dispatcher
 from yoke_core.domain import json_helper
 from yoke_core.domain.db_claim_prose_check import mismatch_error
 from yoke_core.domain.public_item_target import public_item_target
-from yoke_core.domain.workflow_gate_catalog import GATE_DB_CLAIM_PROSE
+from yoke_core.domain.workflow_gate_catalog import (
+    GATE_DB_CLAIM_PROSE, GATE_NEW_MIGRATIONS_NEED_DB_CLAIM,
+)
 from yoke_core.domain.workflow_declared_transitions import (
     declares_transition,
     unreached_review_stage,
@@ -135,12 +137,12 @@ def review_readiness(item: dict[str, Any], *, public_ref: str) -> ReviewReadines
     )
 
 
-def review_entry_refusal(public_ref: str, readiness: ReviewReadiness) -> str:
-    """Ask the review stage's prose gate read-only. Empty when it would pass.
-
-    Empty too when the stage does not carry that gate. A read that cannot be
-    answered refuses: the check must not report a gate it could not ask.
-    """
+def review_entry_refusal(
+    public_ref: str, readiness: ReviewReadiness, *, item: dict[str, Any] | None = None,
+) -> str:
+    """Ask locally inspectable review gates before the landing."""
+    if GATE_NEW_MIGRATIONS_NEED_DB_CLAIM in readiness.review_gates:
+        return _migration_entry_refusal(public_ref, item or {})
     if GATE_DB_CLAIM_PROSE not in readiness.review_gates:
         return ""
     response = call_dispatcher(
@@ -170,10 +172,32 @@ def review_entry_refusal(public_ref: str, readiness: ReviewReadiness) -> str:
     )
 
 
+def _migration_entry_refusal(public_ref: str, item: dict[str, Any]) -> str:
+    from yoke_core.domain.standalone_item_merge_lane import lane_path
+    from yoke_core.domain.new_migrations_db_claim_gate import missing_claim_errors
+
+    lane = lane_path(item)
+    if not lane or not Path(lane).is_dir():
+        return ""
+    response = call_dispatcher(
+        function_id="projects.capability_settings.get",
+        target=TargetRef(kind="global"),
+        payload={"project": item.get("project"), "cap_type": "migration_model"},
+    )
+    if not response.success:
+        detail = getattr(getattr(response, "error", None), "message", "capability read failed")
+        return f"migration_model settings unavailable: {detail}. Resolve the control-plane read and retry."
+    return "\n".join(missing_claim_errors(
+        profile=item.get("db_mutation_profile"),
+        settings=(response.result or {}).get("settings_json") or "",
+        worktree_path=Path(lane), integration_target="main", public_ref=public_ref,
+    ))
+
+
 def gates_left_to_merge(readiness: ReviewReadiness) -> tuple[str, ...]:
     """The review-entry gates only the merge's own transition evaluates."""
     return tuple(
-        gate for gate in readiness.review_gates if gate != GATE_DB_CLAIM_PROSE
+        gate for gate in readiness.review_gates if gate not in {GATE_DB_CLAIM_PROSE, GATE_NEW_MIGRATIONS_NEED_DB_CLAIM}
     )
 
 
