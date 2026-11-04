@@ -22,7 +22,8 @@ async function main() {
         ? (await checkSites(context, [entry.probe]))[0] : submitted;
       // A site can echo a password in its URL or error response. Keep only
       // closed-vocabulary states, even when the verification fails.
-      sites.push({ site: entry.site, state: checked.state });
+      sites.push({ site: entry.site, state: checked.state,
+        ...(checked.state === 'secret_missing' ? { field: checked.field } : {}) });
     }
     console.log(JSON.stringify({ sites }));
   } finally {

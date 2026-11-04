@@ -6,6 +6,8 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from urllib.parse import urlsplit
 
+from yoke_contracts.refusal_recovery import compose_refusal
+
 
 @dataclass(frozen=True)
 class AutomaticSignIn:
@@ -21,10 +23,13 @@ def parse_automatic_sign_in(raw: object, origin: str) -> AutomaticSignIn | None:
 
     def invalid() -> None:
         raise BrowserIdentityError(
-            "browser_identity_declaration_invalid: sign_in needs mode automatic, "
-            "a URL on the site's origin, and nonempty steps of {fill: SELECTOR, "
-            "secret: FIELD} or {click: SELECTOR}. Store values as machine-local "
-            "browser-control secrets; never declare credentials in settings."
+            compose_refusal(
+                "browser_identity_declaration_invalid: sign_in needs mode automatic, "
+                "a URL on the site's origin, and nonempty steps of {fill: SELECTOR, "
+                "secret: FIELD} or {click: SELECTOR}",
+                recovery="Correct the declaration and store values as machine-local "
+                "browser-control secrets; never declare credentials in settings",
+            )
         )
 
     if raw is None:
@@ -34,7 +39,10 @@ def parse_automatic_sign_in(raw: object, origin: str) -> AutomaticSignIn | None:
     url = raw.get("url")
     if raw.get("mode") != "automatic" or not isinstance(url, str):
         invalid()
-    target, site = urlsplit(url), urlsplit(origin)
+    try:
+        target, site = urlsplit(url), urlsplit(origin)
+    except ValueError:
+        invalid()
     if (
         target.scheme not in {"http", "https"}
         or (target.scheme, target.netloc) != (site.scheme, site.netloc)

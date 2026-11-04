@@ -16,8 +16,13 @@ async function signInSite(context, site, secretFiles) {
         if (new URL(page.url()).origin !== new URL(site.origin).origin) {
           return { site: site.site, state: 'failed' };
         }
-        const value = fs.readFileSync(secretFiles[step.secret], 'utf8').trim();
-        if (!value) return { site: site.site, state: 'secret_missing' };
+        let value;
+        try {
+          value = fs.readFileSync(secretFiles[step.secret], 'utf8').trim();
+        } catch (_) {
+          return { site: site.site, state: 'secret_missing', field: step.secret };
+        }
+        if (!value) return { site: site.site, state: 'secret_missing', field: step.secret };
         await page.locator(step.fill).fill(value);
       } else {
         await page.locator(step.click).click();

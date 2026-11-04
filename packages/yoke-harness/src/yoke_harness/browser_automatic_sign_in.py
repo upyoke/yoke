@@ -8,6 +8,7 @@ import tempfile
 from pathlib import Path
 
 from yoke_contracts.browser_identity import BrowserIdentity
+from yoke_contracts.refusal_recovery import compose_refusal
 from yoke_cli.config import browser_profile
 from yoke_cli.config.capability_secrets import machine_capability_secret_path
 from yoke_cli.config.browser_profile_cookies import (
@@ -23,9 +24,26 @@ class AutomaticSignInError(RuntimeError):
 
 def _failed(site: str) -> AutomaticSignInError:
     return AutomaticSignInError(
-        f"browser_automatic_sign_in_failed: site {site} did not pass its sign-in "
-        "check. Check the test account and declared steps, then retry; for human "
-        "sign-in remove sign_in from the site and run `yoke browser authorize`."
+        compose_refusal(
+            f"browser_automatic_sign_in_failed: site {site} did not pass its sign-in "
+            "check",
+            recovery="Check the test account and declared steps, then retry; for human "
+            "sign-in remove sign_in from the site and run `yoke browser authorize`",
+        )
+    )
+
+
+def _missing(
+    project: str, identity: str, site: str, field: str
+) -> AutomaticSignInError:
+    key = f"sign-in.{identity}.{site}.{field}"
+    return AutomaticSignInError(
+        compose_refusal(
+            f"browser_sign_in_secret_missing: site {site} needs {key}",
+            recovery="Store it on this machine with `yoke projects capability secret "
+            f"set --project {project} --cap-type browser-control --key {key} "
+            "--value-stdin` (or --value-file FILE), then retry",
+        )
     )
 
 
@@ -73,13 +91,12 @@ def sign_in_expired_sites(
             field = step["secret"]
             key = f"sign-in.{identity.name}.{site.site}.{field}"
             path = machine_capability_secret_path(project, "browser-control", key)
-            if not path.is_file() or path.stat().st_size == 0:
-                raise AutomaticSignInError(
-                    f"browser_sign_in_secret_missing: site {site.site} needs {key}. "
-                    "Store it on this machine with `yoke projects capability secret "
-                    f"set --project {project} --cap-type browser-control --key {key} "
-                    "--value-stdin` (or --value-file FILE), then retry."
-                )
+            try:
+                present = path.is_file() and path.stat().st_size > 0
+            except OSError:
+                present = False
+            if not present:
+                raise _missing(project, identity.name, site.site, field)
             secret_files[field] = str(path)
         entries.append(
             dict(
@@ -114,6 +131,13 @@ def sign_in_expired_sites(
                 json.loads(result.stdout)["sites"] if result.returncode == 0 else []
             )
         by_site = {s["site"]: s["state"] for s in outcomes}
+        for outcome in outcomes:
+            if outcome["state"] == "secret_missing":
+                entry = next(e for e in entries if e["site"] == outcome["site"])
+                if outcome.get("field") in entry["secret_files"]:
+                    raise _missing(
+                        project, identity.name, outcome["site"], outcome["field"]
+                    )
         for site in automatic:
             if by_site.get(site.site) != checks.SIGNED_IN:
                 raise _failed(site.site)
