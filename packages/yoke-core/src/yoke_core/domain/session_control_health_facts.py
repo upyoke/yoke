@@ -18,7 +18,7 @@ from typing import Any, Iterable, Mapping, Sequence
 
 from yoke_core.domain import db_backend
 from yoke_core.domain.dependency_satisfaction import evaluate_persisted_satisfaction
-from yoke_core.domain.dependency_types import is_coordination_only
+from yoke_core.domain.dependency_types import deployed_environment, is_coordination_only
 from yoke_core.domain.dependency_workflow_context import (
     workflow_from_joined_values,
 )
@@ -27,7 +27,6 @@ from yoke_core.domain.item_worktree_resolution import (
     primary_item_worktree_branch_sql,
 )
 from yoke_core.domain.schema_common import _table_exists
-from yoke_core.domain.session_stale_alive_probe import probe_key
 from yoke_core.domain.work_claim_targets import scope_int_sql
 
 
@@ -84,15 +83,18 @@ def _claimed_items(
     return claimed
 
 
-def _gating_blockers(
+def gating_blockers(
     conn: Any,
     item_ids: Sequence[int],
+    *,
+    woken_edges_only: bool = False,
 ) -> dict[int, dict[str, Any]]:
     """The first unsatisfied gating blocker per dependent item, if any.
 
     Coordination-only edges are excluded: they attest that two items may
     touch a shared path, and gate nothing, so a session holding one side is
-    not waiting on the other.
+    not waiting on the other. With woken_edges_only, deployment facts are
+    excluded because they have no dependency-satisfaction wake.
     """
     if not item_ids or not _tables_exist(
         conn, "item_dependencies", "items", "workflow_versions", "item_worktrees"
@@ -116,6 +118,8 @@ def _gating_blockers(
     for row in rows:
         dependent = int(row["dependent_item_id"])
         if dependent in blockers or is_coordination_only(str(row["gate_point"])):
+            continue
+        if woken_edges_only and deployed_environment(str(row["satisfaction"])):
             continue
         workflow = workflow_from_joined_values(
             row["workflow_id"],
@@ -154,6 +158,8 @@ def _open_probes(
     session_ids: Sequence[str],
 ) -> dict[str, dict[str, Any]]:
     """Sessions the stale-alive probe has asked and not yet heard back from."""
+    from yoke_core.domain.session_stale_alive_probe import probe_key
+
     if not session_ids or not _tables_exist(
         conn, "session_message_recipients", "session_messages"
     ):
@@ -198,7 +204,7 @@ def session_health_facts(
     """Project declared-wait and open-probe facts for roster rows."""
     session_ids = _session_ids(rows)
     claimed = _claimed_items(conn, session_ids)
-    blockers = _gating_blockers(
+    blockers = gating_blockers(
         conn,
         sorted({item for items in claimed.values() for item in items}),
     )
@@ -223,5 +229,6 @@ def session_health_facts(
 __all__ = [
     "OPEN_PROBE_STATES",
     "WAITING_TURN_POSTURE",
+    "gating_blockers",
     "session_health_facts",
 ]

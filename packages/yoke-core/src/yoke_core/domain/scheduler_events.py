@@ -145,6 +145,8 @@ def emit_chain_end_deferred(
     item_status: Optional[str] = None,
     recovery: Optional[str] = None,
     severity: str = "INFO",
+    blocking_item: Optional[str] = None,
+    gate_point: Optional[str] = None,
 ) -> None:
     """Emit ``ChainEndDeferred`` when a Stop path declines to end a session.
 
@@ -179,6 +181,10 @@ def emit_chain_end_deferred(
             context["item_status"] = item_status
         if recovery is not None:
             context["recovery"] = recovery
+        if blocking_item is not None:
+            context["blocking_item"] = blocking_item
+        if gate_point is not None:
+            context["gate_point"] = gate_point
         emit_event(
             "ChainEndDeferred",
             event_kind="audit",

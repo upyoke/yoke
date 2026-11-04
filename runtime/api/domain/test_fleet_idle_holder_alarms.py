@@ -5,6 +5,8 @@ from __future__ import annotations
 from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace
 
+import pytest
+
 from yoke_core.domain.fleet_delta_alarms import (
     DeltaState,
     IDLE_HOLDER_MINUTES,
@@ -172,3 +174,23 @@ def test_parked_holder_repeats_while_named_dependents_wait() -> None:
     assert f"dependents={dependent}" in idle_holder_alarms(later, state)[0]
     cleared = replace(later, taken_at=NOW + timedelta(minutes=120), items={})
     assert idle_holder_alarms(cleared, state) == []
+
+
+@pytest.mark.parametrize("dependency,quiet", [("WORK-2 integration", True), ("", False)])
+def test_served_dependency_wait_controls_idle_alarm(dependency, quiet):
+    from dataclasses import replace
+
+    row = session_rows({"rows": [{
+        "session_id": "holder", "activity_at": STALE.isoformat(),
+        "claims": [{"target_kind": "item", "target": "WORK-1",
+                    "item_awaiting_dependency": dependency}],
+    }]})["holder"]
+    assert row.dependency_waits == (("WORK-1",) if quiet else ())
+    state = DeltaState()
+    lines = idle_holder_alarms(_snapshot(row), state)
+    assert lines == [] if quiet else "ALARM idle-holder" in lines[0]
+    if quiet:
+        unheld = replace(row, claimed_items=("WORK-3",))
+        assert "items=WORK-3" in idle_holder_alarms(_snapshot(unheld), state)[0]
+        cleared = replace(row, dependency_waits=())
+        assert "items=WORK-1" in idle_holder_alarms(_snapshot(cleared), DeltaState())[0]

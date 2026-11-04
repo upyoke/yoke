@@ -152,7 +152,8 @@ def idle_holder_alarms(current: FleetSnapshot, state: DeltaState) -> list[str]:
 
     A holder whose item waits on a live source is excluded: an armed,
     unlanded landing the queue drives, or a pinned release wait a
-    deployment run drives. Once that source is gone the idle threshold
+    deployment run drives, or an unsatisfied dependency with a satisfaction
+    wake. Once that source is gone the idle threshold
     applies again.
 
     A park declares a wait but does not prove the wait is still sound: a
@@ -165,7 +166,10 @@ def idle_holder_alarms(current: FleetSnapshot, state: DeltaState) -> list[str]:
     lines: list[str] = []
     live: set[str] = set()
     for row in idle_holder_candidates(current):
-        if any(ref in current.landing_waits for ref in row.claimed_items):
+        if any(
+            ref in current.landing_waits or ref in row.dependency_waits
+            for ref in row.claimed_items
+        ):
             continue
         idle = minutes_since(row.work_activity_at, current.taken_at)
         key = f"idle-holder:session={identifier(row.session_id)}"

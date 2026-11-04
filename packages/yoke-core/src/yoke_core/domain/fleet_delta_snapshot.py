@@ -65,6 +65,7 @@ class SessionRow:
     claimed_at: datetime | None = None
     claimed_items: tuple[str, ...] = ()
     landing_waits: tuple[str, ...] = ()
+    dependency_waits: tuple[str, ...] = ()
     quiet_reason: str = ""  # the park reason, or empty
     message_delivery: str = DELIVERY_UNKNOWN
     in_flight: bool = False
@@ -172,7 +173,8 @@ def session_rows(result: Mapping[str, Any]) -> dict[str, SessionRow]:
         if not session_id:
             continue
         claims = [
-            (ref, claim.get("item_awaiting_landing") is True)
+            (ref, claim.get("item_awaiting_landing") is True,
+             bool(claim.get("item_awaiting_dependency")))
             for claim in raw.get("claims") or []
             if isinstance(claim, Mapping) and claim.get("target_kind") == "item"
             if (ref := str(claim.get("target") or claim.get("public_ref") or ""))
@@ -192,8 +194,9 @@ def session_rows(result: Mapping[str, Any]) -> dict[str, SessionRow]:
                 if isinstance(claim, Mapping) and claim.get("target_kind") == "item"
                 if (stamp := parse_timestamp(claim.get("claimed_at"))) is not None
             ), default=None),
-            claimed_items=tuple(ref for ref, _ in claims),
-            landing_waits=tuple(ref for ref, landing in claims if landing),
+            claimed_items=tuple(ref for ref, _, _ in claims),
+            landing_waits=tuple(ref for ref, landing, _ in claims if landing),
+            dependency_waits=tuple(ref for ref, _, waiting in claims if waiting),
             quiet_reason=str(raw.get("quiet_reason") or ""),
             message_delivery=str(raw.get("message_delivery") or DELIVERY_UNKNOWN),
         )
