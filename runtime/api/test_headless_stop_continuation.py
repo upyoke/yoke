@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from runtime.api.turn_end_promised_work_test_support import _Conn
+
 import sqlite3
 
 import pytest
@@ -16,11 +18,6 @@ from yoke_core.domain.sessions_render_end_chain_pending import ChainPendingState
 from yoke_core.hooks.adapter_capability import AdapterCapability
 from yoke_core.hooks.remote_policy import RunControls
 from yoke_core.hooks.types import HookContext, HookDecision, Next, Outcome
-
-
-class _Conn:
-    def close(self) -> None:
-        return None
 
 
 def test_relay_launch_context_uses_durable_session_correlation() -> None:

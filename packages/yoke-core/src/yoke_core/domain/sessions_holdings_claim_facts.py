@@ -21,6 +21,7 @@ from yoke_core.domain.merge_queue_landing_attempt import (
     OPEN_ATTEMPT_JOIN,
 )
 from yoke_core.domain.release_wait_ownership import item_at_release_wait
+from yoke_core.domain.session_control_health_facts import gating_blockers
 from yoke_core.domain.turn_end_unfinished_work import (
     landing_notice_pending,
     waiting_on_landing,
@@ -94,9 +95,14 @@ def claimed_item_facts(
     except db_backend.database_error_types(conn):
         clear_failed_read(conn)
         return {}
+    blockers = gating_blockers(conn, distinct, woken_edges_only=True)
     facts: Dict[int, Dict[str, Any]] = {}
     for row in rows:
+        blocker = blockers.get(int(row["id"]))
         facts[int(row["id"])] = {
+            "item_awaiting_dependency": (
+                f"{blocker['blocking_item']} {blocker['gate_point']}" if blocker else ""
+            ),
             "public_ref": format_item_ref(
                 None,
                 row["prefix"],

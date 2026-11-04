@@ -5,11 +5,15 @@ from __future__ import annotations
 import pytest
 
 from runtime.api.turn_end_promised_work_test_support import _Conn
+from runtime.api.domain import test_session_control_health_facts as health_facts
 from yoke_contracts.turn_end_evidence import TurnEndEvidence, UNAVAILABLE
 from yoke_core.domain import turn_end_promised_work_gate as gate
 from yoke_core.domain.session_recovery_facts import PROMISED_WORK_HOLDS_TABLE
 from yoke_core.domain.sessions_render_end_chain_pending import ChainPendingState
 from yoke_core.hooks.types import HookContext, Outcome, Next
+
+
+dependency_conn = health_facts.conn
 
 
 def _ctx(**kwargs) -> HookContext:
@@ -221,8 +225,12 @@ def test_emit_deferred_consumes_chain_pending_state(monkeypatch) -> None:
         item_id=11,
         reason=gate.REASON_REINJECTED,
         cap_reached=False,
+        blocking_item="WORK-12",
+        gate_point="integration",
     )
     assert seen == ["snapshot"]
+    assert emitted[0]["blocking_item"] == "WORK-12"
+    assert emitted[0]["gate_point"] == "integration"
     # The hold is recorded with the decision that makes it, so the ceiling
     # survives whatever the events ledger retains.
     holds = [
@@ -289,3 +297,39 @@ def test_unavailable_evidence_without_claim_is_quiet(monkeypatch, family):
         lambda ctx: pytest.fail("unclaimed turn emitted failure"),
     )
     assert gate.evaluate(_ctx(executor_family=family)).outcome is Outcome.ALLOW
+
+
+@pytest.mark.parametrize("gate_point,satisfaction,dependent,status,wait", [
+    ("integration", "fact:merged", 41, "implementing", True),
+    ("activation", "status:done", 41, "implementing", True),
+    ("integration", "status:done", 41, "done", False),
+    ("coordination_only", "status:done", 41, "implementing", False),
+    ("integration", "fact:deployed:prod", 41, "implementing", False),
+    ("activation", "status:done", 42, "implementing", False),
+])
+def test_dependency_wait_after_park_cleared(
+    monkeypatch, dependency_conn, gate_point, satisfaction, dependent, status, wait
+):
+    monkeypatch.setattr(gate, "_evidence_for", lambda ctx: _present())
+    conn = dependency_conn
+    captured = _patch_db(monkeypatch, claim={"item_id": 41, "status": "implementing"})
+    monkeypatch.setattr("yoke_core.domain.db_helpers.connect", lambda: conn)
+    conn.execute("UPDATE items SET status=? WHERE id=42", (status,))
+    conn.execute(
+        "INSERT INTO item_dependencies "
+        "(dependent_item_id,blocking_item_id,gate_point,satisfaction) VALUES (?,?,?,?)",
+        (dependent, 42, gate_point, satisfaction),
+    )
+    monkeypatch.setattr(gate, "session_parked", lambda *args: False)
+    monkeypatch.setattr(gate, "ci_wait_pending", lambda *args: False)
+    monkeypatch.setattr(gate, "session_was_relay_launched", lambda *args: True)
+    wakes = []
+    monkeypatch.setattr(gate, "continue_relay_worker",
+                        lambda *args, **kwargs: wakes.append(kwargs) or "relay_wake")
+    decision = gate.evaluate(_ctx(executor_family="codex"))
+    assert decision.outcome is Outcome.ALLOW
+    assert bool(wakes) is not wait
+    assert captured[0]["reason"] == ("dependency_wait" if wait else "relay_wake")
+    if wait:
+        assert captured[0]["blocking_item"] == "YOK-42"
+        assert captured[0]["gate_point"] == gate_point

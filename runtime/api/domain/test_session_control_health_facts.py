@@ -272,3 +272,39 @@ def test_a_partial_schema_reports_absent_facts_rather_than_failing() -> None:
         "declared_wait": None,
         "stale_alive_probe": None,
     }
+
+
+@pytest.mark.parametrize("gate,satisfaction,held,status,expected", [
+    ("integration", "fact:merged", True, "implementing", True),
+    ("activation", "status:done", True, "implementing", True),
+    ("integration", "status:done", True, "done", False),
+    ("coordination_only", "status:done", True, "implementing", False),
+    ("integration", "fact:deployed:prod", True, "implementing", False),
+    ("integration", "status:done", False, "implementing", False),
+])
+def test_claim_dependency_fact_uses_only_woken_edges(
+    test_db, gate, satisfaction, held, status, expected
+):
+    from runtime.api.fixtures.backlog_inserts import insert_item
+    from yoke_core.domain.project_identity import render_item_ref
+    from yoke_core.domain.session_control_health_facts import gating_blockers
+    from yoke_core.domain.sessions_holdings_claim_facts import claimed_item_facts
+
+    dependent, blocker, other = 9811, 9812, 9813
+    for item in (dependent, blocker, other):
+        insert_item(test_db, id=item, project_sequence=item, workflow_id="dash",
+                    status=status if item == blocker else "implementing")
+    test_db.execute(
+        "INSERT INTO item_dependencies "
+        "(dependent_item_id,blocking_item_id,gate_point,satisfaction,source,created_at) "
+        "VALUES (%s,%s,%s,%s,'test','2026-01-01T00:00:00Z')",
+        (dependent if held else other, blocker, gate, satisfaction),
+    )
+    facts = claimed_item_facts(test_db, [dependent, blocker])
+    assert facts[dependent]["item_awaiting_dependency"] == (
+        f"{render_item_ref(test_db, blocker)} {gate}" if expected else ""
+    )
+    assert facts[blocker]["item_awaiting_dependency"] == ""
+    if satisfaction.startswith("fact:deployed:"):
+        assert dependent in gating_blockers(test_db, [dependent])
+        assert gating_blockers(test_db, [dependent], woken_edges_only=True) == {}

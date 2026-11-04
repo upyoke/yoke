@@ -2,14 +2,11 @@
 
 from __future__ import annotations
 
+from runtime.api.turn_end_promised_work_test_support import _Conn
+
 from yoke_contracts.turn_end_evidence import TurnEndEvidence
 from yoke_core.domain import turn_end_promised_work_gate as gate
 from yoke_core.hooks.types import HookContext, Outcome, Next
-
-
-class _Conn:
-    def close(self) -> None:
-        return None
 
 
 def _ctx() -> HookContext:

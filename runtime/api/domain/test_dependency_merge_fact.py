@@ -12,7 +12,7 @@ from yoke_core.domain.dependency_satisfaction import (
     unsatisfied_dependency_pairs,
 )
 from yoke_core.domain.dependency_satisfied_notice import _blocker_verdict
-from yoke_core.domain.session_control_health_facts import _gating_blockers
+from yoke_core.domain.session_control_health_facts import gating_blockers
 from yoke_core.domain.workflow_runtime import builtin_workflow_runtime
 
 CREATED = "2026-01-02T00:00:00Z"
@@ -116,7 +116,7 @@ def test_prior_landing_waits_until_relanding_or_done_in_all_readers(
             is blocked
         )
         assert bool(unsatisfied_dependency_pairs(test_db, [dependent])) is blocked
-        assert bool(_gating_blockers(test_db, [dependent])) is blocked
+        assert bool(gating_blockers(test_db, [dependent])) is blocked
         assert (
             _blocker_verdict(test_db, blocker, "fact:merged", CREATED).satisfied
             is not blocked
