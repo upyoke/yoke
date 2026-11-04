@@ -161,6 +161,10 @@ def sign_in_entry(project, identity, site) -> dict:
         site=site.site,
         origin=site.origin,
         probe=site.as_probe(),
-        sign_in=dict(url=site.sign_in.url, steps=site.sign_in.steps),
+        sign_in=dict(
+            url=site.sign_in.url,
+            steps=site.sign_in.steps,
+            credential_origins=site.sign_in.credential_origins,
+        ),
         secret_files=secret_files,
     )

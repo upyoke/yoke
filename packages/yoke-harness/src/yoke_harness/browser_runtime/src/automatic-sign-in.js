@@ -11,9 +11,12 @@ async function signInSite(context, site, secretFiles, ownedPage) {
     page = page || await context.newPage();
     page.setDefaultTimeout(15000);
     await page.goto(site.sign_in.url, { waitUntil: 'domcontentloaded', timeout: 15000 });
+    const appOrigin = new URL(site.origin).origin;
+    const credentialOrigins = new Set([appOrigin, ...(site.sign_in.credential_origins || [])]
+      .map(origin => new URL(origin).origin));
     for (const step of site.sign_in.steps) {
       if (step.fill) {
-        if (new URL(page.url()).origin !== new URL(site.origin).origin) {
+        if (!credentialOrigins.has(new URL(page.url()).origin)) {
           return { site: site.site, state: 'failed' };
         }
         let value;
@@ -28,6 +31,7 @@ async function signInSite(context, site, secretFiles, ownedPage) {
         await page.locator(step.click).click();
       }
     }
+    await page.waitForURL(url => url.origin === appOrigin, { timeout: 15000 });
     return { site: site.site, state: 'submitted' };
   } catch (_) {
     return { site: site.site, state: 'failed' };
