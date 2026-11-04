@@ -16,15 +16,21 @@ repo = fixtures.repo
 @pytest.mark.parametrize(("template", "target"), [
     ("cp -t ~/.local/bin /tmp/a", "/.local/bin"),
     ("yoke dev run -- touch ~/.local/bin/zz", "/.local/bin/zz"),
-    ("cp --target-directory={repo}/.worktrees/other /tmp/a", "/.worktrees/other"),
+    ("cp --target-directory={other} /tmp/a", "/.worktrees/"),
 ])
 def test_local_write_cannot_borrow_installed_tool_read_access(
     conn, repo, template, target,
 ):
     lane = _seed_lane(conn, repo, session_id="sid-lane")
-    verdict = _verdict(template.format(repo=repo), lane)
+    other = _seed_lane(conn, repo, session_id="sid-other", item_id=2221)
+    verdict = _verdict(template.format(other=other), lane)
     assert not verdict.allow
-    assert verdict.failure_class in {"scope_mismatch", "foreign_lane"}
+    if "{other}" in template:
+        assert verdict.failure_class in {"scope_mismatch", "foreign_lane"}
+        assert str(other) in verdict.reason
+    else:
+        assert verdict.failure_class == "scope_mismatch"
+        assert "/__yoke_relay_home__" + target in verdict.reason
     assert target in verdict.reason
 
 
