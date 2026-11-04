@@ -2,15 +2,8 @@
  "id": "rehearsal",
  "title": "Rehearsal",
  "status": "draft-copy",
- "commands": [
-  "yoke db-claim amend",
-  "yoke migration content-identity verify",
-  "yoke migration rehearse"
- ],
- "functions": [
-  "db_claim.amend",
-  "migration.content_identity.verify"
- ],
+ "commands": ["yoke db-claim amend", "yoke migration content-identity verify", "yoke migration rehearse"],
+ "functions": ["db_claim.amend", "migration.content_identity.verify"],
  "page": "databases",
  "position": 3,
  "summary": "New lane-only numbered migrations require a declared DB claim before review and merge; declared apply claims retain history ordering, collision checks and rehearsal evidence. Release and boot refuse live references to the retired gate without rewriting rows: migrate open items on the running build and select clean current workflow versions. Terminal items retain historical pins; reviewed-negative stamps are inert data."
