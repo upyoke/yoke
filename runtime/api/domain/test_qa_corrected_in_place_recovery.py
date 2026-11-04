@@ -5,8 +5,9 @@ import pytest
 from yoke_core.domain import qa_requirement_replacement as replacement
 
 
-def test_same_row_names_the_fresh_attempt_retry(monkeypatch):
-    row = {"id": 7, "plan_case_key": "corrected"}
+@pytest.mark.parametrize("scope", [{"item_id": 42}, {"deployment_run_id": "shared"}])
+def test_same_row_names_the_fresh_attempt_retry(monkeypatch, scope):
+    row = {"id": 7, "plan_case_key": "corrected", **scope}
     monkeypatch.setattr(replacement, "_row", lambda conn, rid: row)
     with pytest.raises(replacement.QaReplacementError) as caught:
         replacement._replacement_for(None, row, "corrected", [7], exact_scope=True)
@@ -14,6 +15,30 @@ def test_same_row_names_the_fresh_attempt_retry(monkeypatch):
     assert "replacement_case_corrected_in_place" in text
     assert "retry that requirement with `yoke qa plan run`" in text
     assert "no --replaces" in text
+    assert "rematerialize" not in text
+
+
+def test_member_row_names_refresh_before_retry(monkeypatch):
+    from yoke_core.domain import qa_requirement_corrected_recovery as recovery
+
+    row = {
+        "id": 7, "plan_case_key": "corrected", "deployment_member_item_id": 42,
+        "deployment_stage": "item qa", "plan_id": 123,
+    }
+    monkeypatch.setattr(replacement, "_row", lambda conn, rid: row)
+    monkeypatch.setattr(recovery, "query_one", lambda *args: {"project_id": 9})
+    monkeypatch.setattr(recovery, "render_item_ref", lambda conn, item: "APP-17")
+    monkeypatch.setattr(recovery, "resolve_project_slug", lambda conn, project: "my project")
+    with pytest.raises(replacement.QaReplacementError) as caught:
+        replacement._replacement_for(None, row, "corrected", [7])
+    text = str(caught.value)
+    scope = "--item APP-17 --stage 'item qa' --plan 123 --project 'my project'"
+    refresh = f"`yoke qa plan rematerialize {scope}`"
+    retry = f"`yoke qa plan run {scope}`"
+    assert refresh in text
+    assert retry in text
+    assert text.index(refresh) < text.index(retry)
+    assert "--replaces" not in retry
 
 
 def test_real_successor_is_selected_when_materialization_also_contains_failed_row(monkeypatch):

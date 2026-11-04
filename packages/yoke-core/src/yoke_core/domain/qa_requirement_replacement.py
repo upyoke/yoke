@@ -35,7 +35,7 @@ class QaReplacementError(ValueError):
 def _row(conn: Any, requirement_id: int) -> dict[str, Any] | None:
     row = query_one(
         conn,
-        "SELECT id,item_id,epic_id,task_num,deployment_run_id,deployment_stage,"
+        "SELECT id,item_id,epic_id,task_num,plan_id,deployment_run_id,deployment_stage,"
         "deployment_member_item_id,execution_target_json,execution_target_digest,target_env,host_baseline,workflow_transition_id,"
         "qa_phase,plan_case_key,blocking_mode,waived_at,retracted_at,"
         "superseded_by_requirement_id,replacement_requirement_id "
@@ -70,11 +70,12 @@ def _replacement_for(
         and (not exact_scope or not same_scope(failed, row))
     ]
     if not matches and any(int(row["id"]) == int(failed["id"]) and row["base_case_key"] == case_key for row in rows):
+        from yoke_core.domain.qa_requirement_corrected_recovery import corrected_case_recovery
+
         raise QaReplacementError(
             f"replacement_case_corrected_in_place: requirement {failed['id']} "
-            f"already owns corrected case key {case_key!r}. To test corrected "
-            "code, retry that requirement with `yoke qa plan run` (its stage "
-            "scope, no --replaces): a fresh attempt runs against the deployed release."
+            f"already owns corrected case key {case_key!r}. "
+            + corrected_case_recovery(conn, failed)
         )
     if len(matches) != 1:
         found = ", ".join(str(row["id"]) for row in matches) or "none"
