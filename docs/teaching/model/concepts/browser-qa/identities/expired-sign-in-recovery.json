@@ -1,7 +1,8 @@
 {
  "id": "expired-sign-in-recovery",
  "title": "Expired sign-in recovery",
- "status": "draft-copy",
+ "status": "observed",
  "page": "browser-qa",
- "position": 5
+ "position": 5,
+ "summary": "Browser cases can run sign_in for an automatic site after sign-out or expiry. The step uses the case identity, passes machine-local secret file paths to the daemon, and records only the site, identity and signed-in check outcome; credentials never belong in authored steps."
 }

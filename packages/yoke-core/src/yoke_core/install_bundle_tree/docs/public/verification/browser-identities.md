@@ -114,6 +114,16 @@ it needs no GUI login session or macOS Keychain approval. Sign-in has no
 screenshots or tracing, and reports site states without page text or raw errors.
 Native Test Machine browser sign-in remains human.
 
+A Browser case can also sign in during its run after sign-out or session
+expiry: use `{"action": "sign_in", "site": "shop"}` with this identity selected.
+It uses the daemon's open context and the case's page, then checks the site's
+signed-in probe. The step result records only the site, identity and check
+outcome. Python passes secret file paths to the daemon; only the sign-in
+function reads their values. Never put credentials in authored step values.
+A site without automatic `sign_in` refuses as
+`browser_sign_in_step_not_automatic`; declare it for that identity or keep
+human sign-in outside the case.
+
 `browser_sign_in_secret_missing` names the exact secret setup command.
 `browser_automatic_sign_in_failed` names the site: check the account and steps,
 then retry, or remove `sign_in` and run `yoke browser authorize` for human

@@ -33,6 +33,12 @@ def _server(password):
                 self.send_response(204 if signed_in else 401)
                 self.end_headers()
                 return
+            if self.path == "/logout":
+                self.send_response(303)
+                self.send_header("Set-Cookie", "session=; Path=/; Max-Age=0")
+                self.send_header("Location", "/login")
+                self.end_headers()
+                return
             body = (
                 '<main data-test="authenticated">Synthetic workflow ready</main>'
                 if signed_in
@@ -67,11 +73,15 @@ def _case(project, declarations, origin, records):
         "browser_identity": "buyer",
         "steps": [
             {"action": "navigate", "route": "/private"},
+            {"action": "navigate", "route": "/logout"},
+            {"action": "sign_in", "site": "shop"},
             {
                 "action": "assert",
                 "target": "[data-test=authenticated]",
                 "check": "visible",
             },
+            {"action": "navigate", "route": "/logout"},
+            {"action": "assert", "target": "#password", "check": "visible"},
         ],
     }
     context = {
@@ -180,6 +190,7 @@ def _probe():
             "case_verdict": result.verdict,
             "executed": result.executed,
             "secret_absent_from_output_and_evidence": True,
+            "in_run_sign_in_and_sign_out": True,
             "control_plane": "in-memory fixture; real browser and case steps",
         }
     finally:

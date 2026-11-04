@@ -87,29 +87,7 @@ def sign_in_expired_sites(
         return sites
     entries = []
     for site in automatic:
-        secret_files = {}
-        for step in site.sign_in.steps:
-            if "secret" not in step:
-                continue
-            field = step["secret"]
-            key = f"sign-in.{identity.name}.{site.site}.{field}"
-            path = machine_capability_secret_path(project, "browser-control", key)
-            try:
-                present = path.is_file() and path.stat().st_size > 0
-            except OSError:
-                present = False
-            if not present:
-                raise _missing(project, identity.name, site.site, field)
-            secret_files[field] = str(path)
-        entries.append(
-            dict(
-                site=site.site,
-                origin=site.origin,
-                probe=site.as_probe(),
-                sign_in=dict(url=site.sign_in.url, steps=site.sign_in.steps),
-                secret_files=secret_files,
-            )
-        )
+        entries.append(sign_in_entry(project, identity, site))
     try:
         profile = browser_profile.ensure_profile_dir(project, identity=identity.name)
         with tempfile.TemporaryDirectory(prefix="yoke-browser-sign-in-") as directory:
@@ -161,3 +139,28 @@ def sign_in_expired_sites(
         else s
         for s in sites
     ]
+
+
+def sign_in_entry(project, identity, site) -> dict:
+    """Resolve machine-local secret paths without reading credential values."""
+    secret_files = {}
+    for step in site.sign_in.steps:
+        if "secret" not in step:
+            continue
+        field = step["secret"]
+        key = f"sign-in.{identity.name}.{site.site}.{field}"
+        path = machine_capability_secret_path(project, "browser-control", key)
+        try:
+            present = path.is_file() and path.stat().st_size > 0
+        except OSError:
+            present = False
+        if not present:
+            raise _missing(project, identity.name, site.site, field)
+        secret_files[field] = str(path)
+    return dict(
+        site=site.site,
+        origin=site.origin,
+        probe=site.as_probe(),
+        sign_in=dict(url=site.sign_in.url, steps=site.sign_in.steps),
+        secret_files=secret_files,
+    )

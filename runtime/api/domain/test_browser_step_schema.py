@@ -198,3 +198,28 @@ def test_download_requires_target_and_destination(missing):
         assert missing in found.message
     else:
         assert found is None
+
+
+@pytest.mark.parametrize("site", [None, "", {}, "shop"])
+def test_sign_in_requires_a_site_name(site):
+    from yoke_contracts.browser_step_schema import step_schema_violation
+
+    step = {"action": "sign_in"}
+    if site is not None:
+        step["site"] = site
+    assert (step_schema_violation(0, step) is None) == (site == "shop")
+
+
+def test_sign_in_does_not_accept_credentials():
+    from yoke_contracts.browser_step_schema import step_schema_violation
+
+    found = step_schema_violation(
+        0,
+        {
+            "action": "sign_in",
+            "site": "shop",
+            "value": "must-not-be-authored",
+        },
+    )
+    assert found.code == "step_key_unrecognized"
+    assert "sign_in: site" in declared_schema_help()

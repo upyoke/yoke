@@ -135,6 +135,9 @@ def describe_sign_in(
     from yoke_cli.config.browser_profile import resolve_authorized_profile
     from yoke_cli.config.project_slug_lookup import ProjectSlugLookupError
 
+    from yoke_core.domain.browser_qa_step_sign_in import set_case_identity
+
+    set_case_identity(project, declared)
     _GOOGLE_ACCOUNT.set(recorded_google_account(declared))
     described = {"project": project, "identity": identity}
     try:
