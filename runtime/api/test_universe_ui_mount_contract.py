@@ -31,7 +31,8 @@ def _run_javascript_tests(test_modules: list[Path]) -> None:
         pytest.skip("node is unavailable for the vanilla-JS contract test")
     completed = subprocess.run(
         [
-            node, str(Path(__file__).with_name("run_javascript_contracts.mjs")),
+            node, "--experimental-vm-modules",
+            str(Path(__file__).with_name("run_javascript_contracts.mjs")),
             *map(str, test_modules),
         ],
         cwd=Path(__file__).resolve().parents[2],
@@ -62,10 +63,14 @@ def test_javascript_failure_names_file_and_test(tmp_path: Path) -> None:
         _run_javascript_tests([failing_module])
     assert failing_module.name in str(failure.value)
     assert "deliberate contract failure" in str(failure.value)
+    assert "failure diagnostic probe" in str(failure.value)
 
 
 def test_javascript_modules_share_process_and_isolate_globals(tmp_path: Path) -> None:
     pids = tmp_path / "processes.txt"
+    (tmp_path / "counter.mjs").write_text(
+        "let count = 0; export const next = () => ++count;\n"
+    )
     modules = []
     for owner in range(2):
         module = tmp_path / f"isolated_{owner}.test.mjs"
@@ -73,11 +78,13 @@ def test_javascript_modules_share_process_and_isolate_globals(tmp_path: Path) ->
             "import { test } from 'node:test';\n"
             "import assert from 'node:assert/strict';\n"
             "import { appendFileSync } from 'node:fs';\n"
+            "import { next } from './counter.mjs';\n"
             f"globalThis.owner = {owner};\n"
             "test('isolated globals', (t) => {\n"
             "  const timer = setInterval(() => {}, 60000);\n"
             "  t.after(() => clearInterval(timer));\n"
             f"  assert.equal(globalThis.owner, {owner});\n"
+            "  assert.equal(next(), 1);\n"
             f"  appendFileSync({json.dumps(str(pids))}, `${{process.pid}}\\n`);\n"
             "});\n"
         )
