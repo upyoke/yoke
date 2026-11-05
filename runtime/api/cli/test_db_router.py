@@ -6,8 +6,8 @@ Companion files split off:
 - ``test_db_router_worktree.py`` — worktree path stripping + canonical
   ``YOKE_DB`` resolution from a linked worktree
 
-Each test uses a disposable per-test Postgres DB and pins the router env
-so domain modules operate in isolation. Init remains gated by
+Usage tests need only argument parsing. Explicit init and schema checks
+retain database integration coverage. Init remains gated by
 ``YOKE_DB_INIT_ALLOW=1`` or the explicit ``init`` subcommand.
 """
 
@@ -59,36 +59,48 @@ def fresh_db(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[Path]:
 
 
 class TestUsage:
-    def test_no_args_returns_usage_error(self, fresh_db: Path) -> None:
+    @pytest.fixture(autouse=True)
+    def no_database(self, monkeypatch):
+        """Isolate parsing from bootstrap and the runtime authority probe."""
+        def unexpected(*args, **kwargs):
+            pytest.fail("usage/help touched the database bootstrap or schema probe")
+
+        monkeypatch.delenv("YOKE_DB_INIT_ALLOW", raising=False)
+        monkeypatch.delenv("YOKE_DB_INIT_DONE", raising=False)
+        monkeypatch.delenv("YOKE_DB", raising=False)
+        monkeypatch.setattr(db_router, "_run_init_modules", unexpected)
+        monkeypatch.setattr(db_router, "_probe_schema_or_remediate", lambda _: None)
+
+    def test_no_args_returns_usage_error(self) -> None:
         rc, out, err = _run([])
         assert rc == 2
         assert "no domain specified" in err
         assert "Usage:" in err
         assert "Domains:" in err
 
-    def test_unknown_domain_returns_usage_error(self, fresh_db: Path) -> None:
+    def test_unknown_domain_returns_usage_error(self) -> None:
         rc, out, err = _run(["not-a-domain"])
         assert rc == 2
         assert "unknown domain 'not-a-domain'" in err
 
-    def test_help_no_domain_prints_usage_to_stdout(self, fresh_db: Path) -> None:
+    def test_help_no_domain_prints_usage_to_stdout(self) -> None:
         rc, out, err = _run(["help"])
         assert rc == 0
         assert "Domains:" in out
 
-    def test_help_for_domain_prints_hint(self, fresh_db: Path) -> None:
+    def test_help_for_domain_prints_hint(self) -> None:
         rc, out, err = _run(["help", "projects"])
         assert rc == 0
         assert "projects" in err
         assert "yoke_core.domain.projects" in err
 
-    def test_help_for_items_lists_subcommands(self, fresh_db: Path) -> None:
+    def test_help_for_items_lists_subcommands(self) -> None:
         rc, out, err = _run(["help", "items"])
         assert rc == 0
         assert "get" in err
         assert "update" in err
 
-    def test_help_for_unknown_domain_reports_it(self, fresh_db: Path) -> None:
+    def test_help_for_unknown_domain_reports_it(self) -> None:
         rc, out, err = _run(["help", "nope"])
         # help on an unknown domain prints "Unknown domain: ..." and usage
         assert rc == 0

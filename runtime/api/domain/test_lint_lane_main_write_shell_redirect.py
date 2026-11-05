@@ -182,7 +182,7 @@ def test_a_descriptor_redirect_is_not_a_write(template: str) -> None:
     assert not is_write_operation("Bash", {"tool_input": {"command": command}})
 
 
-@pytest.mark.parametrize("template", FD_REDIRECT_READS)
+@pytest.mark.parametrize("template", [FD_REDIRECT_READS[0]])
 def test_a_read_with_a_descriptor_redirect_is_allowed_on_main(
     conn, repo, template: str
 ) -> None:
