@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from functools import partial
 import json
 from pathlib import Path
 import subprocess
@@ -12,7 +13,7 @@ import pytest
 from yoke_cli.config.session_relay_instance import (
     resolve_relay_instance,
 )
-from yoke_core.tools import install_session_relay
+from yoke_core.tools import install_session_relay, launchctl_boundary, session_relay_plist
 from yoke_core.tools.session_relay_plist import (
     RelayInstallError,
     install_relay_launchd,
@@ -24,6 +25,20 @@ from yoke_core.tools.session_relay_release import (
     RelayReleaseError,
     relay_launch_executable,
 )
+
+
+@pytest.fixture(autouse=True)
+def launchd_clock(monkeypatch):
+    clock = [0.0]
+
+    def advance(delay):
+        clock[0] += delay
+
+    monkeypatch.setattr(
+        session_relay_plist, "wait_for_launchd_unload",
+        partial(launchctl_boundary.wait_for_launchd_unload,
+                pause=advance, now=lambda: clock[0]),
+    )
 
 
 def _write_config(tmp_path: Path) -> Path:

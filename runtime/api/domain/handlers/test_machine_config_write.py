@@ -58,9 +58,16 @@ def test_reassignment_requires_explicit_flag_without_a_seat(
         assert _config(home) == before
 
 
-def test_cli_reassignment_writes_machine_config_without_a_seat(home, tmp_path, capsys):
+def test_cli_reassignment_writes_machine_config_without_a_seat(
+    home, tmp_path, capsys, monkeypatch
+):
     from yoke_cli.commands.adapters import config_write_project as cli
+    from yoke_cli.config import setup_facts_summary
 
+    monkeypatch.setattr(
+        setup_facts_summary, "read_project",
+        lambda *args, **kwargs: {"next_action": None, "lines": []},
+    )
     _seed_https(home, tmp_path)
     old = tmp_path / "old"
     new = tmp_path / "new"

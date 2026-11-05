@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
@@ -25,8 +26,9 @@ def _record_replacement(restarts: list):
 
 
 @pytest.fixture(autouse=True)
-def _reset_readiness_cache():
+def _reset_readiness_cache(monkeypatch):
     """The readiness cache is process-global; reset around every test."""
+    monkeypatch.setattr(cer_t, "time", SimpleNamespace(sleep=lambda delay: None))
     cer.reset_cache()
     yield
     cer.reset_cache()
@@ -139,7 +141,6 @@ def test_probe_fail_then_restart_succeeds(managed_env, monkeypatch):
 
     monkeypatch.setattr(cer_t, "_probe_failure", fake_probe)
     monkeypatch.setattr(cer_t, "_replace_forward", _record_replacement(restarts))
-    monkeypatch.setattr(cer_t.time, "sleep", lambda delay: None)
 
     result = cer.ensure_ready(force=True)
 
