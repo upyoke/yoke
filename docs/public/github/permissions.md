@@ -13,7 +13,7 @@ For the operator runbook (registration, private-key custody, rotation) see
 see [GitHub connection layers](index.md#surfaces). For the backlog↔issue
 mirror see [GitHub Sync](sync.md). The machine-checked source of truth
 for the permission set is
-`packages/yoke-contracts/src/yoke_contracts/github_app_installation_permissions.py`.
+`yoke_contracts.github_app_installation_permissions`.
 
 ## Permission boundary
 
@@ -89,7 +89,7 @@ merge that succeeded while its verification reported failure.
 ## Permissions at a glance
 
 Authoritative source:
-`packages/yoke-contracts/src/yoke_contracts/github_app_installation_permissions.py`.
+`yoke_contracts.github_app_installation_permissions`.
 
 ### Baseline — requested of every connection
 
@@ -269,7 +269,7 @@ registration, selected repository scope and privileged binding review.
 ## Source of truth
 
 - Permission contract:
-  `packages/yoke-contracts/src/yoke_contracts/github_app_installation_permissions.py`
+  `yoke_contracts.github_app_installation_permissions`
 - Operator runbook (registration, key custody, rotation):
   [Server GitHub App setup](../self-hosting/github-app.md)
 - Connection model (identity / installation / binding):
