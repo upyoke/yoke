@@ -3,6 +3,8 @@
 from types import SimpleNamespace
 from unittest.mock import Mock
 
+import pytest
+
 from runtime import ci_test_selection as selection
 
 
@@ -38,6 +40,28 @@ def test_latest_and_local_runs_keep_every_test(monkeypatch):
     items = [_item("tests/teaching_prototype/test_map.py::test_links")]
     selection.pytest_collection_modifyitems(None, items)
     assert len(items) == 1
+
+
+@pytest.mark.parametrize("scope", ["interpreter", "all"])
+def test_repository_scans_and_node_checks_run_only_on_latest_leg(monkeypatch, tmp_path, scope):
+    monkeypatch.setenv("YOKE_CI_PYTHON_SCOPE", scope)
+    profile = tmp_path / "durations.json"
+    profile.write_text("{}")
+    monkeypatch.setattr(selection, "DURATIONS_PATH", str(profile))
+    independent = [
+        _item("runtime/api/test_universe_ui_mount_contract.py::test_node"),
+        _item("runtime/api/domain/test_github_operation_permission_scopes.py::test_scan"),
+        _item("runtime/api/tools/test_impacted_tests.py::test_select"),
+        _item("runtime/api/tools/test_impacted_path_literal_references.py::test_edges"),
+    ]
+    runtime = _item("runtime/api/tools/test_watch_pytest_impacted_default.py::test_run")
+    items = [*independent, runtime]
+    config = SimpleNamespace(hook=SimpleNamespace(pytest_deselected=Mock()))
+    selection.pytest_collection_modifyitems(config, items)
+    assert items == ([runtime] if scope == "interpreter" else [*independent, runtime])
+    config.hook.pytest_deselected.assert_called_once_with(
+        items=independent if scope == "interpreter" else []
+    )
 
 
 def test_file_groups_keep_setup_cases_together_and_cover_every_item():
