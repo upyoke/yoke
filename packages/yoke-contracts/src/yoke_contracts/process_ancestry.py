@@ -1,7 +1,7 @@
 """Portable process-ancestry walk for session identity (shared contract).
 
-Pure standard library (macOS ``ps``, Linux procfs). Both
-sides of the ambient-identity contract walk the same body:
+Standard library only: macOS ``ps``, Linux procfs, Windows process tokens.
+Both sides of ambient session identity walk this body:
 
 - **Anchor write (hook side):** a Yoke hook runs as a child of the
   per-session harness agent process, so :func:`find_nearest_harness_anchor`
@@ -10,8 +10,6 @@ sides of the ambient-identity contract walk the same body:
 - **Anchor read (shell side):** any Bash subshell the harness spawns shares
   that ancestor, so :func:`anchor_candidate_pids` enumerates the pids whose
   registry records may name this process's session.
-
-The product CLI client and engine share this ``yoke-contracts`` implementation.
 
 The harness basename set is deliberately small: the per-session Claude agent
 binary is ``.../claude-code/<version>/claude.app/Contents/MacOS/claude``
@@ -141,10 +139,11 @@ def parent_map() -> Dict[int, int]:
 
 
 def process_start_time(pid: int) -> Optional[str]:
-    """Return the platform start token for a running pid, else ``None``.
+    """Return the live process's platform start token; zombies answer as gone."""
+    if sys.platform == "win32":
+        from yoke_contracts import windows_process_snapshot
 
-    Zombies answer as gone. macOS reads state before the spaced ``lstart``.
-    Why: ``docs/archive/decisions/defunct-process-is-an-exited-process.md``."""
+        return windows_process_snapshot.process_start_time(pid)
     if sys.platform == "linux":
         return linux_process_snapshot.process_start_time(pid)
     lines = ps_lines(["-o", "stat=,lstart=", "-p", str(pid)])

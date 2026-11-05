@@ -20,7 +20,6 @@ from yoke_cli.config.capability_secrets import (
     store_machine_capability_secret,
 )
 from yoke_harness import browser_automatic_sign_in as automatic
-from yoke_core.domain.browser_qa_automatic_sign_in import prepare_automatic_identities
 
 
 def declaration():
@@ -205,22 +204,6 @@ def test_secret_never_enters_argv_manifest_receipts_or_errors(
     assert secret not in str(capsys.readouterr())
 
 
-def test_browser_case_prepares_each_automatic_identity_once(setup, monkeypatch):
-    runtime, _, _ = setup
-    prepare = Mock(return_value=runtime)
-    sign_in = Mock()
-    monkeypatch.setattr(
-        "yoke_cli.commands.browser_sign_in.prepare_browser_runtime", prepare
-    )
-    monkeypatch.setattr(automatic, "sign_in_expired_sites", sign_in)
-    buyer = identity()
-    prepare_automatic_identities(
-        "acme", {"buyer": buyer}, ["buyer", "buyer", "default"]
-    )
-    sign_in.assert_called_once()
-    assert sign_in.call_args.args[2:] == ("acme", buyer)
-
-
 def test_runtime_unreadable_secret_teaches_its_exact_setup_command(setup, monkeypatch):
     runtime, _, _ = setup
     store_machine_capability_secret(
@@ -249,19 +232,7 @@ def test_runtime_unreadable_secret_teaches_its_exact_setup_command(setup, monkey
         automatic.sign_in_expired_sites(None, runtime, "acme", identity())
 
 
-def test_human_identities_need_no_automatic_runtime(monkeypatch):
-    prepare = Mock(side_effect=AssertionError("human sign-in must not type"))
-    monkeypatch.setattr(
-        "yoke_cli.commands.browser_sign_in.prepare_browser_runtime", prepare
-    )
-    human = declaration()
-    del human["sign_in"]
-    prepare_automatic_identities("acme", {"buyer": identity(human)}, ["buyer"])
-    prepare.assert_not_called()
-
-
-@pytest.mark.parametrize("failure", [None, "browser_automatic_sign_in_failed: shop"])
-def test_scenario_signs_in_before_daemon_or_first_step(monkeypatch, failure):
+def test_scenario_copies_sign_in_without_refreshing_authoritative_profile(monkeypatch):
     from yoke_core.domain import browser_qa
     from yoke_core.domain import browser_qa_scenario as scenario
 
@@ -281,11 +252,6 @@ def test_scenario_signs_in_before_daemon_or_first_step(monkeypatch, failure):
         browser_qa, "load_project_browser_identities", lambda *a: {"buyer": identity()}
     )
 
-    def prepare(*args):
-        events.append("sign_in")
-        if failure:
-            raise automatic.AutomaticSignInError(failure)
-
     def daemon(**kwargs):
         events.append("daemon")
 
@@ -299,14 +265,11 @@ def test_scenario_signs_in_before_daemon_or_first_step(monkeypatch, failure):
             env_failure=False,
         )
 
-    monkeypatch.setattr(
-        "yoke_core.domain.browser_qa_automatic_sign_in.prepare_automatic_identities",
-        prepare,
-    )
+    sign_in = Mock(side_effect=AssertionError("QA must not refresh the main profile"))
+    monkeypatch.setattr(automatic, "sign_in_expired_sites", sign_in)
     monkeypatch.setattr(browser_qa, "_ensure_daemon_running", daemon)
     monkeypatch.setattr(scenario, "_process_requirement", process)
     result = scenario.execute_scenario("acme", 1, base_url="https://shop.example")
-    assert events == (["sign_in"] if failure else ["sign_in", "daemon", "step"])
-    assert result.verdict == ("error" if failure else "pass")
-    if failure:
-        assert result.note == "browser_automatic_sign_in_failed"
+    assert events == ["daemon", "step"]
+    assert result.verdict == "pass"
+    sign_in.assert_not_called()

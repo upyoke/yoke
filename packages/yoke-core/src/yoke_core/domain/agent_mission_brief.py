@@ -75,7 +75,7 @@ def _walker_dispatch(
     )
     browser_step_command = (
         f"{host_command_base} -- yoke qa browser step --base-url BASE_URL "
-        "--step-json STEP_JSON [--identity NAME] [--page NAME] [--output-dir PATH]"
+        "--step-json STEP_JSON [--identity NAME] [--page NAME] [--output-dir PATH] [--check-id ID] [--keep-open]"
     )
     identities, browser_verify_commands, identity_clause = walker_identity_dispatch(
         case,
@@ -132,7 +132,9 @@ def _walker_dispatch(
         f"{browser_intro}"
         + f"`{browser_setup_command}` with a bounded first-setup timeout, then use "
         f"`{browser_step_command}`. "
-        f"{identity_clause}"
+        f"{identity_clause}Keep the setup response's check_id for this mission; "
+        "pass --check-id ID --keep-open on intermediate steps. Omit --keep-open "
+        "on the final step, or close early with yoke qa browser stop --check-id ID. "
         + (
             ""
             if identities
@@ -203,7 +205,7 @@ def _controller_dispatch(case, browser_settings, execution_target) -> dict[str, 
         execution_target=execution_target,
     )
     setup = "yoke qa browser setup --project PROJECT [--identity NAME]"
-    step = "yoke qa browser step --base-url BASE_URL --step-json STEP_JSON [--identity NAME] [--page NAME]"
+    step = "yoke qa browser step --base-url BASE_URL --step-json STEP_JSON [--identity NAME] [--page NAME] [--check-id ID] [--keep-open]"
     artifact_command = (
         f"yoke qa artifact add --requirement-id {int(case['requirement_id'])} "
         f"--run-id {int(case['capture_run_id'])} --artifact-type TYPE "
@@ -226,7 +228,9 @@ def _controller_dispatch(case, browser_settings, execution_target) -> dict[str, 
             "Explore this mission on the controller, the machine running the main "
             "session. It has no Test Machine lease and owes no host reset or restore. "
             f"Use the controller's declared tools and browser; managed setup: `{setup}`, "
-            f"then `{step}`. {identity_clause}Return ranked findings "
+            f"then `{step}`. {identity_clause}Pass the setup check_id with --check-id ID --keep-open "
+            "on intermediate steps; omit --keep-open on the last step, or use "
+            "yoke qa browser stop --check-id ID before returning. Return ranked findings "
             "with evidence to the main owner, who owns the verdict. Clean up fixtures "
             "you create with the product's own commands and report anything left. "
             f"Attach at most {AGENT_MISSION_ARTIFACT_LIMIT} deliberate proof artifacts "

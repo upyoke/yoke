@@ -4,13 +4,13 @@
  "status": "observed",
  "audience": "agent",
  "when": "Before the first local Browser case or headed sign-in",
- "need": "Use the packaged browser runtime; Linux setup names dependency recovery. A daemon belongs to its project/identity profile. Before Browser case capture, automatic first-party test-account sites are checked and expired sessions signed in headless from machine-local secret files. Missing secrets and failed sign-in name recovery; verify never types. Human sites and native Test Machine sign-in keep their human procedure.",
+ "need": "Use the packaged browser runtime; Linux setup names dependency recovery. Each QA check owns a private daemon and a copy of its identity's sign-in state. Explicit authorize signs expired automatic first-party sites in headless from machine-local secret files; checks never refresh the authoritative profile. Missing secrets and failed sign-in name recovery; verify never types. Human sites and native Test Machine sign-in keep their human procedure.",
  "disclosure": "current cue",
  "surface": "Public QA lines 215–226 and Machine QA README local-capture section.",
  "gap": "The row 13 pointer should distinguish local runtime repair from host provisioning and from account sign-in.",
  "review": "Source behavior; released background-process proof remains required.",
  "recipes": ["yoke qa browser setup --help"],
  "plan_notes": ["JOURNEYS row 13"],
- "sources": ["docs/public/verification/browser-identities.md", "packages/yoke-core/src/yoke_core/domain/browser_qa_automatic_sign_in.py"],
+ "sources": ["docs/public/verification/browser-identities.md", "packages/yoke-harness/src/yoke_harness/browser_check_profile.py"],
  "position": 0
 }

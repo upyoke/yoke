@@ -9,7 +9,7 @@ import pytest
 from yoke_cli.config.browser_profile import authorized_profile_dir
 from yoke_contracts.browser_qa_contract import DEFAULT_BROWSER_VIEWPORT
 from yoke_core.domain import browser_client
-from yoke_harness.browser_daemon_profile import project_scope
+from yoke_harness.browser_check_profile import check_scope
 from yoke_harness.browser_qa_daemon import ensure_daemon_running
 
 
@@ -30,9 +30,9 @@ def test_named_projects_capture_at_once(tmp_path):
     barrier = Barrier(2)
 
     def capture(project):
-        error = ensure_daemon_running(project)
-        assert error is None, error
-        with project_scope(project):
+        with check_scope(project):
+            error = ensure_daemon_running(project)
+            assert error is None, error
             state = browser_client.DaemonState.load()
             page = browser_client.open_owned_page(DEFAULT_BROWSER_VIEWPORT)
             try:

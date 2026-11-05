@@ -23,6 +23,7 @@ from __future__ import annotations
 
 import os
 import signal
+import sys
 import time
 from typing import Any, Dict, List, Optional
 
@@ -37,9 +38,9 @@ def daemon_start(
 ) -> Dict[str, Any]:
     """Start the browser daemon.
 
-    ``profile_dir`` is one project's persistent browser profile. A daemon
-    on that profile is reused after a health check. Each other profile has
-    its own state, log and endpoint, so its captures stay open.
+    ``profile_dir`` is the caller-owned profile; QA supplies a private copy.
+    Calls within that check reuse its daemon after a health check. Every
+    other profile has its own state, log and endpoint.
 
     Returns JSON status dict.
     """
@@ -47,6 +48,7 @@ def daemon_start(
     from yoke_core.domain import browser_client as _bc
     from yoke_harness import browser_client_readiness, browser_setup
     from yoke_harness.browser_human_gate import refuse_during_human_gate
+    from yoke_harness.browser_check_profile import record_daemon_owner
 
     refuse_during_human_gate(_bc._browser_dir())
     requested_profile = canonical_profile(profile_dir)
@@ -55,6 +57,7 @@ def daemon_start(
     if state and _bc.daemon_running(state):
         if state.profile_dir == requested_profile:
             _bc.daemon_health(state=state, timeout=1)
+            record_daemon_owner(requested_profile, state.pid)
             return {"status": "already_running", "endpoint": state.endpoint}
         raise RuntimeError(
             "browser_daemon_profile_mismatch: state belongs to another profile; "
@@ -90,20 +93,26 @@ def daemon_start(
         cmd,
         env,
         state_path.parent,
+        profile_dir=requested_profile,
         load_state=lambda: _bc.DaemonState.load(state_path),
         probe_health=lambda state: _bc.daemon_health(state=state, timeout=1),
         sleep=time.sleep,
     )
 
 
-def daemon_stop(*, profile_dir: str | None = None) -> str:
+def daemon_stop(
+    *, profile_dir: str | None = None, expected_process_start: str | None = None
+) -> str:
     """Stop the browser daemon.  Returns 'stopped'."""
     from yoke_core.domain import browser_client as _bc
+    from yoke_harness.browser_daemon_profile import process_matches_start
 
     state_path = _bc._state_file_path(profile_dir)
     state = _bc.DaemonState.load(state_path)
     if state is None or not _bc.daemon_running(state):
         raise RuntimeError("daemon not running")
+    if not process_matches_start(state.pid, expected_process_start):
+        return "stopped"
 
     # Graceful stop via API
     try:
@@ -113,15 +122,19 @@ def daemon_stop(*, profile_dir: str | None = None) -> str:
 
     # Wait for process to terminate
     for _ in range(5):
-        try:
-            os.kill(state.pid, 0)
-        except (OSError, ProcessLookupError):
+        if not process_matches_start(
+            state.pid, expected_process_start
+        ) or not _bc.daemon_running(state):
             return "stopped"
         time.sleep(1)
 
     # Force kill
+    if not process_matches_start(state.pid, expected_process_start):
+        return "stopped"
     try:
-        os.kill(state.pid, signal.SIGKILL)
+        os.kill(
+            state.pid, signal.SIGTERM if sys.platform == "win32" else signal.SIGKILL
+        )
     except (OSError, ProcessLookupError):
         pass
 

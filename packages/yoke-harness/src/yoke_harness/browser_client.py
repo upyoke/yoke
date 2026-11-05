@@ -88,6 +88,10 @@ def daemon_running(state: Optional[DaemonState] = None) -> bool:
     selected = state or DaemonState.load()
     if selected is None or selected.pid <= 0:
         return False
+    if sys.platform == "win32":
+        from yoke_contracts.process_ancestry import process_start_time
+
+        return process_start_time(selected.pid) is not None
     try:
         os.kill(selected.pid, 0)
     except (OSError, ProcessLookupError):
@@ -173,8 +177,7 @@ def _keep_profile_sign_in(profile: Path) -> None:
         return
     if kept:
         _log(
-            f"[browser-runtime] Kept {kept} session cookie(s) from the browser "
-            f"profile at {profile}."
+            f"[browser-runtime] Kept {kept} session cookie(s) from the browser profile."
         )
 
 
@@ -187,9 +190,11 @@ def daemon_start(
     """Start the daemon, optionally on one project's persistent profile.
 
     Each profile owns its state, log and endpoint. Other profiles' live
-    captures remain open, and same-profile workers reuse the healthy daemon.
+    captures remain open; calls in one check reuse only its private daemon.
     No automated daemon starts while a human signs in on this machine.
     """
+    from yoke_harness.browser_check_profile import record_daemon_owner
+
     refuse_during_human_gate(_browser_dir())
     requested_profile = canonical_profile(profile_dir)
     state_path = _state_file_path(requested_profile)
@@ -203,6 +208,7 @@ def daemon_start(
                     "browser daemon process is alive but its health endpoint is "
                     f"not ready (endpoint={state.endpoint}, pid={state.pid}): {exc}"
                 ) from None
+            record_daemon_owner(requested_profile, state.pid)
             return {
                 "status": "already_running",
                 "endpoint": state.endpoint,
@@ -240,27 +246,38 @@ def daemon_start(
         command,
         env,
         state_path.parent,
+        profile_dir=requested_profile,
         load_state=lambda: DaemonState.load(state_path),
     )
 
 
-def daemon_stop(*, profile_dir: str | None = None) -> str:
+def daemon_stop(
+    *, profile_dir: str | None = None, expected_process_start: str | None = None
+) -> str:
+    from yoke_harness.browser_daemon_profile import process_matches_start
+
     state_path = _state_file_path(profile_dir)
     state = DaemonState.load(state_path)
     if state is None or not daemon_running(state):
         raise RuntimeError("daemon not running")
+    if not process_matches_start(state.pid, expected_process_start):
+        return "stopped"
     try:
         daemon_request("/api/stop", timeout=5, state=state)
     except Exception:
         pass
     for _ in range(5):
-        try:
-            os.kill(state.pid, 0)
-        except (OSError, ProcessLookupError):
+        if not process_matches_start(
+            state.pid, expected_process_start
+        ) or not daemon_running(state):
             return "stopped"
         time.sleep(1)
+    if not process_matches_start(state.pid, expected_process_start):
+        return "stopped"
     try:
-        os.kill(state.pid, signal.SIGKILL)
+        os.kill(
+            state.pid, signal.SIGTERM if sys.platform == "win32" else signal.SIGKILL
+        )
     except (OSError, ProcessLookupError):
         pass
     state_path.unlink(missing_ok=True)

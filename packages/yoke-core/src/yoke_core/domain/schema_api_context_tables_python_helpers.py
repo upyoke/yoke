@@ -7,6 +7,16 @@ from __future__ import annotations
 
 
 PYTHON_HELPERS_TABLES: dict[str, dict] = {
+    "yoke_harness.browser_check_profile": {
+        "columns": [("check_scope", "context manager"), ("sweep_checks", "callable")],
+        "notes": (
+            "check_scope owns a private copied sign-in profile and daemon per QA check. "
+            "Wrong guess: project_scope remains importable from browser_daemon_profile. "
+            "It was removed with shared identity-daemon QA reuse; diagnostic CLI and "
+            "capture tests also use check_scope. CLI sequences carry check_id until "
+            "their final call, while explicit sign-in owns the authoritative profile."
+        ),
+    },
     "yoke_core.domain.universe_snapshot_archive": {
         "columns": [
             ("snapshot_archive", "callable"),

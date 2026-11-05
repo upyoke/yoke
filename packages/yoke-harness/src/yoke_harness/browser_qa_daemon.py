@@ -5,10 +5,9 @@ from __future__ import annotations
 import sys
 from typing import Any, Dict, Optional
 
-from yoke_contracts.project_defaults import MissingProjectError
 from yoke_harness import browser_client
 from yoke_harness.browser_client_readiness import DAEMON_LOG_NAME
-from yoke_harness.browser_daemon_profile import recover_unhealthy_daemon
+from yoke_harness.browser_daemon_profile import selected_profile
 
 
 def _log(message: str) -> None:
@@ -19,38 +18,18 @@ def _log(message: str) -> None:
 def ensure_daemon_running(
     project: Optional[str] = None, identity: Optional[str] = None
 ) -> Optional[str]:
-    """Ensure the daemon runs on one project identity's persistent profile.
-
-    An authorized profile makes every context the daemon hands out signed into
-    whatever the operator signed into; an identity with no profile keeps the
-    clean-context behavior. Every profile owns an independent daemon;
-    another identity's or project's live capture is never stopped or reused.
-    Starting reads no declarations, so a host that cannot reach the project's
-    control plane (a Test Machine) still runs; an identity with no profile is
-    named in the log line with the command that signs it in.
-    """
-    from yoke_contracts.browser_identity import (
-        DEFAULT_IDENTITY,
-        BrowserIdentityError,
-        validate_identity_name,
-    )
-    from yoke_cli.config.browser_profile import resolve_authorized_profile
-    from yoke_cli.config.project_slug_lookup import ProjectSlugLookupError
-
-    try:
-        profile_path, profile_note = resolve_authorized_profile(
-            project, identity=validate_identity_name(identity or DEFAULT_IDENTITY)
+    """Start the selected private check's daemon without stopping any browser."""
+    profile = selected_profile()
+    if not profile:
+        return (
+            "browser_check_scope_required: start the browser inside a private "
+            "QA check scope; rerun the check through `yoke qa case run`."
         )
-    except (ProjectSlugLookupError, MissingProjectError, BrowserIdentityError) as exc:
-        return str(exc)
-    _log(profile_note)
-    profile = str(profile_path) if profile_path else None
 
     last_error: Optional[str] = None
     _log("Ensuring the browser daemon is running...")
     for attempt in range(1, 4):
         try:
-            recover_unhealthy_daemon(browser_client, profile)
             browser_client.daemon_start(profile_dir=profile)
             message = (
                 "Browser daemon started"

@@ -134,9 +134,11 @@ def test_an_unresolvable_id_reference_refuses_with_its_recovery(
 
     monkeypatch.setattr(browser_profile, "resolve_project_slug", _refuse)
 
-    assert browser_qa_daemon.ensure_daemon_running(project="7") == (
-        "project '7' did not resolve to a slug"
-    )
+    from yoke_harness.browser_check_profile import check_scope
+
+    with pytest.raises(ProjectSlugLookupError, match="did not resolve to a slug"):
+        with check_scope("7"):
+            pytest.fail("unresolved project must refuse before copying sign-in")
 
 
 def _healthy_state(profile_dir: str) -> browser_client.DaemonState:
@@ -196,7 +198,7 @@ def test_daemon_start_refuses_foreign_profile_state(tmp_path, monkeypatch) -> No
     assert launched == []
 
 
-def test_ensure_daemon_running_uses_the_projects_profile(
+def test_ensure_daemon_running_uses_a_copy_of_the_projects_profile(
     machine_home,
     monkeypatch,
 ) -> None:
@@ -214,8 +216,14 @@ def test_ensure_daemon_running_uses_the_projects_profile(
         lambda profile_dir=None: calls.append(profile_dir) or {"status": "started"},
     )
 
-    assert browser_qa_daemon.ensure_daemon_running(project="acme") is None
-    assert calls == [str(profile)]
+    from yoke_harness.browser_check_profile import check_scope
+
+    with check_scope("acme") as check:
+        assert browser_qa_daemon.ensure_daemon_running(project="acme") is None
+        assert calls == [str(check.profile)]
+        assert check.profile != profile
+    assert not check.directory.exists()
+    assert profile.exists()
 
 
 def _stub_authorize_runtime(tmp_path, monkeypatch) -> list[dict]:
@@ -269,6 +277,7 @@ def test_authorize_creates_the_profile_and_opens_the_window(
         str(tmp_path / "browser-runtime" / "src" / "authorize.js"),
     ]
     assert command[2:4] == ["--profile-dir", str(profile)]
+    assert not (machine_home / "secrets" / "browser-checks").exists()
 
 
 def test_authorize_prints_the_sign_in_prompt_once(

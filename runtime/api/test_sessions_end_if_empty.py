@@ -4,6 +4,7 @@ import json
 from datetime import timedelta
 
 from runtime.api.test_sessions import _insert_claimable_item, _register
+from runtime.api.test_sessions import conn as conn
 from yoke_core.domain.session_control_schema import create_session_control_tables
 from yoke_core.domain.session_launch_execution import claim_assigned_launch
 from yoke_core.domain.session_launch_requests import create_launch

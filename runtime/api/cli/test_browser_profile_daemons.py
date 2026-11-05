@@ -11,7 +11,6 @@ from yoke_core.domain import browser_qa
 from yoke_harness import browser_client, browser_qa_daemon
 from yoke_harness.browser_daemon_profile import (
     profile_scope,
-    recover_unhealthy_daemon,
     selected_profile,
     state_file_path,
 )
@@ -31,15 +30,21 @@ def test_stop_and_status_address_only_the_requested_profile(
             '"profileDir":"%s","health":"healthy"}' % (pid, pid, profile)
         )
     requests = []
+    alive = {101, 202}
+
+    def request(path, **kwargs):
+        pid = kwargs["state"].pid
+        requests.append(pid)
+        if path == "/api/stop":
+            alive.discard(pid)
+        return {"success": True, "data": {"health": "healthy"}}
+
     monkeypatch.setattr(
         client,
         "daemon_request",
-        lambda *args, **kw: (
-            requests.append(kw["state"].pid)
-            or {"success": True, "data": {"health": "healthy"}}
-        ),
+        request,
     )
-    monkeypatch.setattr(client, "daemon_running", lambda state=None: True)
+    monkeypatch.setattr(client, "daemon_running", lambda state: state.pid in alive)
     monkeypatch.setattr(
         client.os, "kill", lambda *args: (_ for _ in ()).throw(ProcessLookupError())
     )
@@ -69,24 +74,6 @@ def test_profile_scopes_are_thread_local_and_restore_after_errors(tmp_path):
         raise ValueError("capture failed")
     assert selected_profile() == ""
     assert state_file_path(tmp_path, "") not in {a[1], b[1]}
-
-
-@pytest.mark.parametrize("healthy", [True, False])
-def test_retry_cleanup_never_stops_a_healthy_daemon(tmp_path, healthy):
-    profile = str(tmp_path / "alpha")
-    state = browser_client.DaemonState(pid=101, profile_dir=profile)
-    client = Mock()
-    client.DaemonState.load.return_value = state
-    client.daemon_running.return_value = True
-    if not healthy:
-        client.daemon_health.side_effect = RuntimeError("health probe failed")
-
-    recover_unhealthy_daemon(client, profile)
-
-    if healthy:
-        client.daemon_stop.assert_not_called()
-    else:
-        client.daemon_stop.assert_called_once_with(profile_dir=profile)
 
 
 @pytest.mark.parametrize(
@@ -126,17 +113,7 @@ def test_transient_start_error_preserves_healthy_profile(
         "yoke_core.domain.browser_qa_daemon.time.sleep", lambda seconds: None
     )
 
-    assert ensure(project="alpha") is None
+    with profile_scope(profile):
+        assert ensure(project="alpha") is None
     assert start.call_count == 2
     stop.assert_not_called()
-
-
-def test_retry_refuses_foreign_profile_state(tmp_path):
-    client = Mock()
-    client.DaemonState.load.return_value = browser_client.DaemonState(
-        pid=101, profile_dir=str(tmp_path / "beta")
-    )
-    client.daemon_running.return_value = True
-    with pytest.raises(RuntimeError, match="browser_daemon_profile_mismatch"):
-        recover_unhealthy_daemon(client, str(tmp_path / "alpha"))
-    client.daemon_stop.assert_not_called()

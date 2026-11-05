@@ -6,9 +6,7 @@ import argparse
 
 from yoke_contracts.browser_identity import DEFAULT_IDENTITY
 
-QA_BROWSER_STATUS_USAGE = (
-    "yoke qa browser status [--project PROJECT] [--identity NAME] [--json]"
-)
+QA_BROWSER_STATUS_USAGE = "yoke qa browser status [--check-id ID] [--project PROJECT] [--identity NAME] [--json]"
 QA_BROWSER_SETUP_USAGE = (
     "yoke qa browser setup [--dry-run] [--project PROJECT] [--identity NAME] "
     "[--port PORT] [--headed] [--idle-timeout SECONDS] [--json]"
@@ -36,6 +34,9 @@ def status_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Print JSON instead of text.",
     )
+    parser.add_argument(
+        "--check-id", help="Private check id to inspect without closing it."
+    )
     return parser
 
 
@@ -57,7 +58,7 @@ def setup_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--identity",
         default=None,
-        help="Declared browser identity whose profile the daemon opens (default: `default`).",
+        help="Identity whose sign-in state this check copies (default: `default`).",
     )
     parser.add_argument(
         "--port",

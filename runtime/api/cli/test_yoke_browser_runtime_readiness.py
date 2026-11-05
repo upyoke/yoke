@@ -162,67 +162,32 @@ def test_daemon_status_reports_live_pid_with_unreachable_endpoint(
     assert "health endpoint unreachable" in status["error"]
 
 
-def test_itemless_capture_recovers_pid_without_healthy_endpoint() -> None:
-    state = browser_client.DaemonState(
-        pid=777,
-        token="token",
-        endpoint="http://127.0.0.1:9444",
-        health="healthy",
-    )
+def test_itemless_capture_requires_private_scope_before_any_client_call() -> None:
     with (
-        patch(
-            "yoke_harness.browser_client.DaemonState.load",
-            return_value=state,
-        ),
-        patch(
-            "yoke_harness.browser_client.daemon_running",
-            return_value=True,
-        ),
+        patch("yoke_harness.browser_client.daemon_health") as health,
+        patch("yoke_harness.browser_client.daemon_stop") as stop,
+        patch("yoke_harness.browser_client.daemon_start") as start,
+    ):
+        assert "browser_check_scope_required" in ensure_daemon_running()
+    health.assert_not_called()
+    stop.assert_not_called()
+    start.assert_not_called()
+
+
+def test_private_capture_does_not_probe_kill_before_start(tmp_path) -> None:
+    from yoke_harness.browser_daemon_profile import profile_scope
+
+    profile = tmp_path / "private-check"
+    with (
+        profile_scope(profile),
         patch(
             "yoke_harness.browser_client.daemon_health",
-            side_effect=RuntimeError("health endpoint unreachable"),
+            side_effect=RuntimeError("another step is busy"),
         ) as health,
-        patch(
-            "yoke_harness.browser_client.daemon_stop",
-            return_value="stopped",
-        ) as stop,
-        patch(
-            "yoke_harness.browser_client.daemon_start",
-            return_value={"status": "started"},
-        ) as start,
+        patch("yoke_harness.browser_client.daemon_stop") as stop,
+        patch("yoke_harness.browser_client.daemon_start") as start,
     ):
         assert ensure_daemon_running() is None
-
-    health.assert_called_once_with(state=state, timeout=1)
-    stop.assert_called_once_with(profile_dir="")
-    start.assert_called_once_with(profile_dir=None)
-
-
-def test_itemless_capture_checks_health_before_scoped_daemon_start() -> None:
-    state = browser_client.DaemonState(
-        pid=888,
-        token="token",
-        endpoint="http://127.0.0.1:9555",
-        health="healthy",
-    )
-    with (
-        patch(
-            "yoke_harness.browser_client.DaemonState.load",
-            return_value=state,
-        ),
-        patch(
-            "yoke_harness.browser_client.daemon_running",
-            return_value=True,
-        ),
-        patch(
-            "yoke_harness.browser_client.daemon_health",
-            return_value={"success": True, "data": {"health": "healthy"}},
-        ) as health,
-        patch(
-            "yoke_harness.browser_client.daemon_start",
-        ) as start,
-    ):
-        assert ensure_daemon_running() is None
-
-    health.assert_called_once_with(state=state, timeout=1)
-    start.assert_called_once_with(profile_dir=None)
+    health.assert_not_called()
+    stop.assert_not_called()
+    start.assert_called_once_with(profile_dir=str(profile.resolve()))

@@ -137,7 +137,9 @@ def test_browser_client_no_args_does_not_resolve_project(monkeypatch):
 def test_browser_client_missing_project_returns_named_refusal(monkeypatch, capsys):
     from yoke_core.domain.browser_client import main
 
-    monkeypatch.setattr("sys.argv", ["browser_client", "daemon", "status"])
+    monkeypatch.setattr(
+        "sys.argv", ["browser_client", "daemon", "status", "--check-id", "opaque"]
+    )
 
     def refuse(*_a, **_kw):
         raise MissingProjectError(

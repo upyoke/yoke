@@ -1,54 +1,30 @@
-"""Browser daemon client and lifecycle management.
+"""Browser daemon transport, lifecycle and diagnostic CLI.
 
-Provides:
+Daemon state, authenticated HTTP requests, step execution and viewport parsing
+live here. Lifecycle, owned pages, snapshots and CLI dispatch live in sibling
+browser_client modules and are re-exported through this parent. Helpers resolve
+parent attributes at call time so tests can patch their transport seams.
 
-- Daemon state file reading (``DaemonState``)
-- Authenticated HTTP requests to the daemon API (``daemon_request``)
-- Daemon lifecycle: ``daemon_start`` / ``daemon_stop`` / ``daemon_status`` /
-  ``daemon_health``
-- Step execution through the daemon API (``execute_step``)
-- Snapshot primitives: accessibility, screenshot, diff
+State and endpoints are profile-scoped under the machine browser runtime.
+Browser QA owns a private copied sign-in profile per check; the authoritative
+profile belongs to explicit sign-in commands. Profile paths never enter QA
+evidence.
 
-The implementation is split across this parent and three sibling modules:
+Diagnostic CLI:
+    python3 -m yoke_core.domain.browser_client daemon start --project P
+    python3 -m yoke_core.domain.browser_client daemon status --check-id ID
+    python3 -m yoke_core.domain.browser_client daemon health --check-id ID
+    python3 -m yoke_core.domain.browser_client daemon stop --check-id ID
+    python3 -m yoke_core.domain.browser_client snapshot accessibility URL --check-id ID
+    python3 -m yoke_core.domain.browser_client snapshot screenshot URL --check-id ID
+    python3 -m yoke_core.domain.browser_client snapshot diff URL --check-id ID --baseline PATH --viewport WxH
+    python3 -m yoke_core.domain.browser_client exec step JSON --check-id ID --base-url URL
 
-- ``browser_client_lifecycle`` — ``daemon_start`` / ``daemon_stop`` (the
-  npm/playwright/chromium auto-bootstrap and process-launch logic).
-- ``browser_client_owned_page`` — ``open_owned_page`` /
-  ``close_owned_page`` (the page a multi-step run owns from first step to
-  last).
-- ``browser_client_snapshot`` — ``snapshot_accessibility`` /
-  ``snapshot_screenshot`` / ``snapshot_diff``.
-- ``browser_client_cli`` — ``_cli_daemon`` / ``_cli_snapshot`` /
-  ``_cli_exec`` (post-parse dispatch; the argparse tree stays in
-  ``main()`` below).
-
-The parent retains the ``DaemonState`` dataclass, the path helpers
-(``_browser_dir`` / ``_state_file_path`` — both anchored on the
-machine-level runtime directory owned by
-``yoke_harness.browser_runtime_home``, never a repo path), the
-HTTP request layer (``daemon_request`` / ``daemon_status`` /
-``daemon_health`` / ``daemon_running``), ``execute_step``,
-``_parse_viewport``, ``_log``, and the ``main()`` argparse entry point.
-It also re-exports the sibling-owned symbols so existing import paths
-(``from yoke_core.domain.browser_client import daemon_start``, etc.)
-keep working.
-
-CLI usage::
-
-    python3 -m yoke_core.domain.browser_client daemon status
-    python3 -m yoke_core.domain.browser_client daemon start [--port N] [--headed] [--project P] [--identity NAME]
-    python3 -m yoke_core.domain.browser_client daemon stop
-    python3 -m yoke_core.domain.browser_client daemon health
-    python3 -m yoke_core.domain.browser_client snapshot accessibility <url>
-    python3 -m yoke_core.domain.browser_client snapshot screenshot <url> [--viewport WxH]
-    python3 -m yoke_core.domain.browser_client snapshot diff <url> --baseline <path> --viewport WxH
-    python3 -m yoke_core.domain.browser_client exec step '<json>' --base-url <url>
-
-Commands require --project P, YOKE_PROJECT, or a caller checkout binding.
-Missing context reports project_required and accessible projects.
-All output is JSON on stdout.  Errors go to stderr. Exit codes mirror the
-shell convention: 0 = success, 1 = failed, 2 = daemon not running,
-3 = usage error.
+Daemon start returns check_id. Pass it to subsequent commands; --keep-open
+continues a snapshot/step sequence, and its final call or daemon stop deletes
+the copy. Every executable command needs --project, YOKE_PROJECT or a mapped
+checkout. JSON goes to stdout, errors to stderr. Exit codes: success 0, failure
+1, unavailable daemon or project 2, invalid usage 3.
 """
 
 from __future__ import annotations
@@ -158,6 +134,10 @@ def daemon_running(state: Optional[DaemonState] = None) -> bool:
     st = state or DaemonState.load()
     if st is None or st.pid <= 0:
         return False
+    if sys.platform == "win32":
+        from yoke_contracts.process_ancestry import process_start_time
+
+        return process_start_time(st.pid) is not None
     try:
         os.kill(st.pid, 0)
         return True

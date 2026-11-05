@@ -7,6 +7,7 @@ Playwright dependencies. Absent browser dependencies make this a named skip.
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
+import json
 import os
 import shutil
 import threading
@@ -15,6 +16,7 @@ import time
 import pytest
 
 from yoke_contracts.browser_qa_contract import DEFAULT_BROWSER_VIEWPORT
+from yoke_contracts.browser_step_schema import load_schema
 from yoke_contracts.playwright_cache import (
     YOKE_BROWSER_CACHE_PROJECT,
     resolve_playwright_cache,
@@ -42,7 +44,10 @@ class ProbeHandler(BaseHTTPRequestHandler):
 
 @pytest.fixture()
 def daemon_runtime(tmp_path, monkeypatch):
-    installed = Path.home() / ".yoke" / browser_runtime_home.RUNTIME_DIR_NAME
+    installed = Path(
+        os.environ.get("YOKE_BROWSER_TEST_RUNTIME")
+        or Path.home() / ".yoke" / browser_runtime_home.RUNTIME_DIR_NAME
+    )
     if (
         not shutil.which("node")
         or not (installed / "node_modules" / "playwright").is_dir()
@@ -54,13 +59,19 @@ def daemon_runtime(tmp_path, monkeypatch):
         pytest.skip("machine has no materialized Playwright browser runtime")
     runtime = tmp_path / "runtime"
     shutil.copytree(Path(browser_runtime.__file__).parent / "src", runtime / "src")
+    (runtime / "src" / "step-schema.json").write_text(json.dumps(load_schema()))
     (runtime / "node_modules").symlink_to(
         installed / "node_modules", target_is_directory=True
     )
     monkeypatch.setattr(browser_client, "_browser_dir", lambda: runtime)
     monkeypatch.setattr(core_client, "_browser_dir", lambda: runtime)
     env = dict(os.environ)
-    cache = resolve_playwright_cache(YOKE_BROWSER_CACHE_PROJECT, None)
+    configured_cache = os.environ.get("YOKE_BROWSER_TEST_CACHE")
+    cache = (
+        Path(configured_cache)
+        if configured_cache
+        else resolve_playwright_cache(YOKE_BROWSER_CACHE_PROJECT, None)
+    )
     host_cache = Path.home() / ".yoke" / "playwright-cache" / YOKE_BROWSER_CACHE_PROJECT
     if not cache and host_cache.is_dir():
         cache = host_cache

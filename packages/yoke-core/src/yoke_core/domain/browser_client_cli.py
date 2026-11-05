@@ -26,9 +26,7 @@ import json
 from yoke_contracts.browser_qa_contract import DEFAULT_BROWSER_VIEWPORT
 
 
-#: The page these diagnostic commands share. Naming it is what lets one
-#: command navigate and the next one act on what it found, while keeping that
-#: screen apart from any QA case running on the same daemon.
+#: The page successive commands in one private diagnostic check use.
 DIAGNOSTIC_PAGE_ID = "diagnostic"
 
 
@@ -50,21 +48,16 @@ def _cli_daemon(args: argparse.Namespace) -> int:
             return 2
 
     elif args.daemon_cmd == "start":
-        from yoke_contracts.browser_identity import DEFAULT_IDENTITY
-        from yoke_cli.config.browser_profile import resolve_authorized_profile
+        from yoke_harness.browser_daemon_profile import selected_profile
 
-        profile, note = resolve_authorized_profile(
-            getattr(args, "project", None),
-            identity=getattr(args, "identity", None) or DEFAULT_IDENTITY,
-        )
-        _bc._log(note)
         try:
             result = _bc.daemon_start(
                 port=getattr(args, "port", None),
                 headed=getattr(args, "headed", False),
                 idle_timeout=getattr(args, "idle_timeout", None),
-                profile_dir=str(profile) if profile else None,
+                profile_dir=selected_profile(),
             )
+            result["check_id"] = args.check_id
             print(json.dumps(result))
             return 0
         except RuntimeError as e:
@@ -160,19 +153,33 @@ def _cli_exec(args: argparse.Namespace) -> int:
 def run_cli(args: argparse.Namespace, parser: argparse.ArgumentParser) -> int:
     """Resolve caller context only for an executable browser command."""
     from yoke_core.domain import browser_client as client
+    from yoke_contracts.browser_identity import BrowserIdentityError
     from yoke_contracts.project_defaults import MissingProjectError
-    from yoke_harness.browser_daemon_profile import project_scope
+    from yoke_harness.browser_check_profile import check_scope
 
     handlers = {"daemon": _cli_daemon, "snapshot": _cli_snapshot, "exec": _cli_exec}
     handler = handlers.get(args.cmd)
     if handler is None:
         parser.print_help()
         return 3
+    daemon_command = getattr(args, "daemon_cmd", None)
+    check_id = getattr(args, "check_id", None)
+    if daemon_command in {"status", "health", "stop"} and not check_id:
+        client._log("browser_check_scope_required: pass --check-id from daemon start.")
+        return 2
     try:
-        with project_scope(
-            getattr(args, "project", None), getattr(args, "identity", None)
-        ):
+        with check_scope(
+            getattr(args, "project", None),
+            getattr(args, "identity", None),
+            check_id=check_id,
+            keep_open=getattr(args, "keep_open", False)
+            or daemon_command in {"start", "status", "health"},
+        ) as check:
+            args.check_id = check.check_id
             return handler(args)
     except MissingProjectError as exc:
         client._log(str(exc))
         return 2
+    except (RuntimeError, BrowserIdentityError) as exc:
+        client._log(str(exc))
+        return 1

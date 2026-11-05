@@ -71,7 +71,12 @@ def launch_daemon(command: list[str], env: dict[str, str], log_file: Path):
 
 
 def start_daemon(
-    command: list[str], env: dict[str, str], runtime_dir: Path, **wait_seams: Any
+    command: list[str],
+    env: dict[str, str],
+    runtime_dir: Path,
+    *,
+    profile_dir: str = "",
+    **wait_seams: Any,
 ) -> Dict[str, Any]:
     """Launch the daemon logging into ``runtime_dir`` and wait until it is ready.
 
@@ -80,6 +85,21 @@ def start_daemon(
     runtime_dir.mkdir(parents=True, exist_ok=True)
     log_file = runtime_dir / DAEMON_LOG_NAME
     proc = launch_daemon(command, env, log_file)
+    from yoke_harness.browser_check_profile import record_daemon_owner
+
+    try:
+        record_daemon_owner(profile_dir, proc.pid)
+    except RuntimeError:
+        try:
+            proc.kill()
+            proc.wait(timeout=5)
+        except (OSError, subprocess.TimeoutExpired):
+            raise RuntimeError(
+                "browser_check_cleanup_failed: the newly launched browser could "
+                f"not be stopped; stop process pid {proc.pid} on this machine "
+                "and retry the check."
+            ) from None
+        raise
     return wait_for_daemon_ready(proc, log_file, **wait_seams)
 
 

@@ -30,6 +30,7 @@ def build_parser() -> argparse.ArgumentParser:
     for command in dsub.choices.values():
         command.add_argument("--project", default=None)
         command.add_argument("--identity", default=None)
+        command.add_argument("--check-id", default=None)
 
     # snapshot
     s = sub.add_parser("snapshot")
@@ -51,6 +52,8 @@ def build_parser() -> argparse.ArgumentParser:
     for command in ssub.choices.values():
         command.add_argument("--project", default=None)
         command.add_argument("--identity", default=None)
+        command.add_argument("--check-id", default=None)
+        command.add_argument("--keep-open", action="store_true")
 
     # exec
     e = sub.add_parser("exec")
@@ -58,13 +61,15 @@ def build_parser() -> argparse.ArgumentParser:
     es = esub.add_parser("step")
     es.add_argument("--project", default=None)
     es.add_argument("--identity", default=None)
+    es.add_argument("--check-id", default=None)
+    es.add_argument("--keep-open", action="store_true")
     es.add_argument("step_json")
     es.add_argument("--base-url", required=True, dest="base_url")
     es.add_argument("--output-dir", dest="output_dir")
     es.add_argument(
         "--page-id",
         dest="page_id",
-        help="Page to act on (default: the shared diagnostic page).",
+        help="Page within this private check (default: diagnostic).",
     )
 
     return parser

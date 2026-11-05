@@ -1,10 +1,8 @@
 """Scenario-level orchestration for Browser QA.
 
-Owns ``execute_scenario`` — the internal driver for one materialized Browser
-case. The requirement-scoped context read it starts from lives in
-``browser_qa_context_fetch``. It validates freshness/reachability/daemon state and delegates step
-execution to ``_process_requirement`` in
-``browser_qa_requirement``.
+``execute_scenario`` validates the materialized case's target and freshness,
+then runs each requirement in a private browser check scope. Context reads live
+in ``browser_qa_context_fetch``; steps live in ``browser_qa_requirement``.
 
 Every DB leg goes through the Yoke function-call dispatcher
 (``qa.browser_context.get`` here; ``qa.run.add`` / ``qa.run.complete`` /
@@ -271,72 +269,74 @@ def execute_scenario(
         print(result.to_json())
         return result
 
-    from yoke_harness.browser_daemon_profile import project_scope
+    from yoke_harness.browser_check_profile import check_scope
 
-    # Prepare automatic sign-ins before starting a daemon or recording steps.
+    # Resolve identities without changing the authoritative sign-in profiles.
     try:
-        from yoke_core.domain.browser_qa_automatic_sign_in import (
-            prepare_automatic_identities,
-        )
-
         declared = _bqa.load_project_browser_identities(project)
         identities = resolve_case_identities(declared, req_rows)
-        prepare_automatic_identities(project, declared, identities)
     except (BrowserIdentityError, RuntimeError) as exc:
         _bqa._log(f"ERROR: {exc}")
         result.verdict = "error"
         result.note = str(exc).split(":", 1)[0]
         print(result.to_json())
         return result
-    _bqa._log("Checking browser daemon status...")
-    for identity in dict.fromkeys(identities):
-        daemon_error = _bqa._ensure_daemon_running(
-            subject=subject, project=project, identity=identity
-        )
-        if daemon_error:
-            _bqa._log(f"ERROR: {daemon_error}")
-            result.verdict = "error"
-            result.note = "daemon_failure"
-            print(result.to_json())
-            return result
+    try:
+        # Each requirement owns a fresh copy, daemon and page until it completes.
+        for req_row, identity in zip(req_rows, identities):
+            with check_scope(project, identity):
+                daemon_error = _bqa._ensure_daemon_running(
+                    subject=subject, project=project, identity=identity
+                )
+                if daemon_error:
+                    _bqa._log(f"ERROR: {daemon_error}")
+                    result.verdict, result.note = "error", "daemon_failure"
+                    print(result.to_json())
+                    return result
+                outcome = _process_requirement(
+                    req_row=req_row,
+                    subject=subject,
+                    project=project,
+                    base_url=base_url,
+                    code_identity=code_identity,
+                    freshness_validated=freshness_validated,
+                    sign_in=describe_sign_in(project, identity, declared.get(identity)),
+                    actor=actor,
+                )
+                result.runs.append(outcome.run_result)
 
-    # Step 6: Process each requirement on its own identity's daemon
-    for req_row, identity in zip(req_rows, identities):
-        with project_scope(project, identity):
-            outcome = _process_requirement(
-                req_row=req_row,
-                subject=subject,
-                project=project,
-                base_url=base_url,
-                code_identity=code_identity,
-                freshness_validated=freshness_validated,
-                sign_in=describe_sign_in(project, identity, declared.get(identity)),
-                actor=actor,
-            )
-            result.runs.append(outcome.run_result)
+                if outcome.skipped:
+                    result.skipped += 1
+                    continue
 
-            if outcome.skipped:
-                result.skipped += 1
-                continue
+                if outcome.executed:
+                    result.executed += 1
 
-            if outcome.executed:
-                result.executed += 1
+                if outcome.run_result.verdict == "error":
+                    if result.verdict == "pass":
+                        result.verdict = "error"
+                    errors = outcome.run_result.errors or ""
+                    for code in (EXECUTION_TARGET_UNAUTHORIZED, BROWSER_SIGN_IN_SETUP):
+                        if code in errors:
+                            result.note = code
+                elif outcome.capture_failed or outcome.run_result.verdict == "fail":
+                    result.verdict = "fail"
+                elif (
+                    outcome.run_result.verdict == "pending" and result.verdict == "pass"
+                ):
+                    result.verdict = "pending"
 
-            if outcome.run_result.verdict == "error":
-                if result.verdict == "pass":
-                    result.verdict = "error"
-                errors = outcome.run_result.errors or ""
-                for code in (EXECUTION_TARGET_UNAUTHORIZED, BROWSER_SIGN_IN_SETUP):
-                    if code in errors:
-                        result.note = code
-            elif outcome.capture_failed or outcome.run_result.verdict == "fail":
-                result.verdict = "fail"
-            elif outcome.run_result.verdict == "pending" and result.verdict == "pass":
-                result.verdict = "pending"
+                if outcome.env_failure:
+                    _bqa._log(
+                        "Aborting remaining requirements due to env setup failure"
+                    )
+                    break
 
-            if outcome.env_failure:
-                _bqa._log("Aborting remaining requirements due to env setup failure")
-                break
+    except RuntimeError as exc:
+        _bqa._log(f"ERROR: {exc}")
+        result.verdict = "error"
+        result.note = str(exc).split(":", 1)[0]
+        return result
 
     # Step 7: Vacuous pass detection
     if result.executed == 0 and result.skipped > 0:

@@ -16,6 +16,7 @@ from typing import List
 
 from yoke_cli.commands._helpers import parse_or_usage_error, usage_error
 from yoke_cli.config.project_selection import required_project_context
+from yoke_contracts.browser_identity import BrowserIdentityError
 from yoke_contracts.browser_step_schema import declared_schema_help
 from yoke_contracts.project_defaults import MissingProjectError
 
@@ -26,7 +27,8 @@ QA_BROWSER_SCREENSHOT_USAGE = (
 )
 QA_BROWSER_STEP_USAGE = (
     "yoke qa browser step --base-url URL --step-json JSON "
-    "[--output-dir PATH] [--project P] [--identity NAME] [--page NAME]"
+    "[--output-dir PATH] [--project P] [--identity NAME] [--page NAME] "
+    "[--keep-open] [--check-id ID]"
 )
 
 _PROJECT_FLAG_HELP = (
@@ -36,15 +38,16 @@ _PROJECT_FLAG_HELP = (
 )
 _IDENTITY_FLAG_HELP = (
     "Browser identity to use (default: `default`). Each identity has its "
-    "own profile and browser process. An identity never signed in on this "
-    "machine starts signed out; the log names the "
-    "`yoke browser authorize --identity NAME` command that signs it in."
+    "own authoritative sign-in profile. Each check runs on a private copy. "
+    "An identity never signed in on this "
+    "machine starts signed out; run "
+    "`yoke browser authorize --identity NAME` before a check that needs sign-in."
 )
 
 _QA_BROWSER_SCREENSHOT_HELP_DEEP = """\
-Capture one screenshot of a URL with this machine's browser process,
-which starts if it is not running. Use it to look at a page; it does not
-record a QA verdict or replace `yoke qa case run`.
+Capture one screenshot in a private browser copied from the identity's
+sign-in profile. The browser closes and its copy is deleted after capture.
+This records no QA verdict; use `yoke qa case run` for formal checks.
 
 Worked example:
 
@@ -52,8 +55,8 @@ Worked example:
       --output /tmp/yok-1234-dashboard.png
 
 Stdout: the browser's JSON response.
-Exit codes: 0 captured; 1 capture failed; 2 could not start
-(the browser did not start, or the command was used wrongly)."""
+Exit codes: 0 captured; 1 capture or private-copy failure;
+2 daemon unavailable or invalid usage."""
 
 
 def qa_browser_screenshot(args: List[str]) -> int:
@@ -90,7 +93,7 @@ def qa_browser_screenshot(args: List[str]) -> int:
     try:
         from yoke_harness import browser_client
         from yoke_harness.browser_qa_daemon import ensure_daemon_running
-        from yoke_harness.browser_daemon_profile import project_scope
+        from yoke_harness.browser_check_profile import check_scope
     except ImportError as exc:
         print(
             "yoke qa browser screenshot requires yoke-harness in the "
@@ -103,25 +106,21 @@ def qa_browser_screenshot(args: List[str]) -> int:
         parsed.project = required_project_context(parsed.project)
     except MissingProjectError as exc:
         return usage_error(str(exc))
-    daemon_error = ensure_daemon_running(parsed.project, parsed.identity)
-    if daemon_error:
-        print(
-            f"yoke qa browser screenshot: browser daemon unavailable: {daemon_error}",
-            file=sys.stderr,
-        )
-        return 2
-
-    with project_scope(parsed.project, parsed.identity):
-        try:
+    try:
+        with check_scope(parsed.project, parsed.identity):
+            daemon_error = ensure_daemon_running(parsed.project, parsed.identity)
+            if daemon_error:
+                print(f"browser daemon unavailable: {daemon_error}", file=sys.stderr)
+                return 2
             result = browser_client.snapshot_screenshot(
                 parsed.url,
                 annotate=parsed.annotate,
                 output_path=parsed.output,
                 viewport=parsed.viewport,
             )
-        except RuntimeError as exc:
-            print(f"yoke qa browser screenshot: {exc}", file=sys.stderr)
-            return 1
+    except (RuntimeError, BrowserIdentityError) as exc:
+        print(f"yoke qa browser screenshot: {exc}", file=sys.stderr)
+        return 1
     print(json.dumps(result))
     return 0
 
@@ -148,8 +147,17 @@ def qa_browser_step(args: List[str]) -> int:
     parser.add_argument(
         "--page",
         metavar="NAME",
-        help="Named page keeps its state between calls until the daemon stops "
-        "(after 10 idle minutes); default: exploratory.",
+        help="Page within this private check; use --keep-open and --check-id to "
+        "continue a sequence. Omit --keep-open on its final step.",
+    )
+    parser.add_argument(
+        "--keep-open",
+        action="store_true",
+        help="Return check_id for the next step; omit on the last step to delete the copy.",
+    )
+    parser.add_argument(
+        "--check-id",
+        help="Opaque check_id returned by the preceding --keep-open step.",
     )
     parsed = parse_or_usage_error(parser, args, QA_BROWSER_STEP_USAGE)
     if parsed is None:
@@ -172,7 +180,7 @@ def qa_browser_step(args: List[str]) -> int:
     try:
         from yoke_harness import browser_client
         from yoke_harness.browser_qa_daemon import ensure_daemon_running
-        from yoke_harness.browser_daemon_profile import project_scope
+        from yoke_harness.browser_check_profile import check_scope
     except ImportError as exc:
         print(
             f"yoke qa browser step requires yoke-harness in the product install: {exc}",
@@ -183,15 +191,17 @@ def qa_browser_step(args: List[str]) -> int:
         parsed.project = required_project_context(parsed.project)
     except MissingProjectError as exc:
         return usage_error(str(exc))
-    daemon_error = ensure_daemon_running(parsed.project, parsed.identity)
-    if daemon_error:
-        print(
-            f"yoke qa browser step: browser daemon unavailable: {daemon_error}",
-            file=sys.stderr,
-        )
-        return 2
-    with project_scope(parsed.project, parsed.identity):
-        try:
+    try:
+        with check_scope(
+            parsed.project,
+            parsed.identity,
+            check_id=parsed.check_id,
+            keep_open=parsed.keep_open,
+        ) as check:
+            daemon_error = ensure_daemon_running(parsed.project, parsed.identity)
+            if daemon_error:
+                print(f"browser daemon unavailable: {daemon_error}", file=sys.stderr)
+                return 2
             page_id = browser_client.ensure_page(
                 parsed.page or browser_client.EXPLORATORY_PAGE_ID
             )
@@ -201,9 +211,11 @@ def qa_browser_step(args: List[str]) -> int:
                 output_dir=parsed.output_dir,
                 page_id=page_id,
             )
-        except RuntimeError as exc:
-            print(f"yoke qa browser step: {exc}", file=sys.stderr)
-            return 1
+            if parsed.keep_open:
+                result["check_id"] = check.check_id
+    except (RuntimeError, BrowserIdentityError) as exc:
+        print(f"yoke qa browser step: {exc}", file=sys.stderr)
+        return 1
     print(json.dumps(result))
     return 1 if result.get("success") is False else 0
 

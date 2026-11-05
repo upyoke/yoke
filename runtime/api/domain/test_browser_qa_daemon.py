@@ -2,13 +2,15 @@
 
 from __future__ import annotations
 
-import os
 from pathlib import Path
 from typing import Any, Dict, List
 from unittest import mock
 
 from yoke_core.domain import browser_qa
-from yoke_harness.browser_client_readiness import DAEMON_LOG_NAME
+from yoke_harness.browser_daemon_profile import profile_scope as profile_scope_for_test
+from runtime.api.cli.test_browser_profile_daemons_live import (
+    daemon_runtime as daemon_runtime,
+)
 
 import pytest
 
@@ -18,6 +20,14 @@ pytestmark = pytest.mark.usefixtures("bound_project_context")
 # ---------------------------------------------------------------------------
 # Daemon auto-retry and diagnostics
 # ---------------------------------------------------------------------------
+
+
+@pytest.fixture(autouse=True)
+def private_check_scope(tmp_path):
+    from yoke_harness.browser_daemon_profile import profile_scope
+
+    with profile_scope(tmp_path / "check-profile"):
+        yield
 
 
 class TestDaemonRetry:
@@ -217,104 +227,93 @@ class TestDaemonRetry:
         assert result is not None
         assert "boom" in result
 
-    def test_emit_event_uses_native_runtime_emitter(
-        self,
-        harness_family,
-    ) -> None:
-        """Event helper uses the native runtime emitter with item context."""
-        harness_family("codex")
-        env_override = {
-            "CODEX_THREAD_ID": "codex-session",
-            "CODEX_SESSION_ID": "",
-            "YOKE_SESSION_ID": "",
-            "CLAUDE_CODE_SESSION_ID": "",
-        }
-        with (
-            mock.patch.dict(os.environ, env_override),
-            mock.patch("yoke_core.domain.events.emit_event") as mock_emit,
-        ):
-            browser_qa._emit_daemon_startup_failed_event(
-                attempt_count=3,
-                last_error="boom",
-                diagnostics={
-                    "log_tail": "tail",
-                    "daemon_status": {"status": "crashed"},
-                    "daemon_health": {"status": "degraded"},
-                },
-                subject=1407,
-                project="yoke",
+
+def test_same_identity_slow_checks_keep_private_pids_and_pages(
+    daemon_runtime, tmp_path, monkeypatch
+):
+    from concurrent.futures import ThreadPoolExecutor
+    from http.server import ThreadingHTTPServer
+    from threading import Barrier, Thread
+    from yoke_harness import browser_client
+    from yoke_harness.browser_check_profile import check_scope
+    from yoke_harness.browser_daemon_profile import selected_profile
+    from runtime.api.cli.test_browser_profile_daemons_live import ProbeHandler
+
+    source = tmp_path / "authoritative"
+    source.mkdir()
+    monkeypatch.setattr(
+        "yoke_harness.browser_check_profile.resolve_authorized_profile",
+        lambda *a, **k: (source, "authorized"),
+    )
+    monkeypatch.setattr(
+        "yoke_harness.browser_check_profile.machine_config.yoke_home",
+        lambda: tmp_path / "machine",
+    )
+    barrier = Barrier(2)
+    paths = []
+
+    with ThreadingHTTPServer(("127.0.0.1", 0), ProbeHandler) as server:
+        Thread(target=server.serve_forever, daemon=True).start()
+        url = f"http://127.0.0.1:{server.server_port}"
+        # Seed the authoritative profile as an explicit sign-in would.
+        browser_client.daemon_start(profile_dir=str(source))
+        with profile_scope_for_test(source):
+            page = browser_client.ensure_page("sign-in")
+            browser_client.execute_step(
+                {"action": "navigate", "route": "/alpha"}, url, page_id=page
             )
+        browser_client.daemon_stop(profile_dir=str(source))
 
-        mock_emit.assert_called_once_with(
-            "BrowserDaemonStartupFailed",
-            event_kind="system",
-            event_type="browser_daemon",
-            source_type="backend",
-            session_id="codex-session",
-            severity="ERROR",
-            outcome="failed",
-            project="yoke",
-            item_id=1407,
-            context={
-                "attempt_count": 3,
-                "last_error": "boom",
-                "diagnostics": {
-                    "log_tail": "tail",
-                    "daemon_status": {"status": "crashed"},
-                    "daemon_health": {"status": "degraded"},
-                },
-                "subject": 1407,
-            },
+        def check(index):
+            with check_scope("fixture", "admin"):
+                profile = selected_profile()
+                paths.append(Path(profile))
+                assert (
+                    browser_qa._ensure_daemon_running(
+                        project="fixture", identity="admin"
+                    )
+                    is None
+                )
+                pid = browser_client.daemon_status()["pid"]
+                page = browser_client.ensure_page("check")
+                browser_client.execute_step(
+                    {"action": "navigate", "route": f"/check-{index}"},
+                    url,
+                    page_id=page,
+                )
+                barrier.wait(timeout=20)
+                if index == 0:
+                    response = browser_client.execute_step(
+                        {"action": "delay", "duration_ms": 1500}, url, page_id=page
+                    )
+                    assert response["success"], response
+                # The other check's startup/retry cannot reset this pid or page.
+                assert (
+                    browser_qa._ensure_daemon_running(
+                        project="fixture", identity="admin"
+                    )
+                    is None
+                )
+                assert browser_client.daemon_status()["pid"] == pid
+                response = browser_client.execute_step(
+                    {
+                        "action": "assert",
+                        "target": "body",
+                        "check": "text_contains",
+                        "expected": f"check-{index}; cookie=profile=alpha",
+                    },
+                    url,
+                    page_id=page,
+                )
+                assert response["success"], response
+                return pid
+
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            pids = list(pool.map(check, [0, 1]))
+        assert pids[0] != pids[1]
+        assert all(not path.exists() for path in paths)
+        assert source.is_dir()
+        assert (
+            browser_client.daemon_status(profile_dir=str(source))["status"] != "running"
         )
-
-
-class TestCollectDaemonDiagnostics:
-    """Diagnostics collection."""
-
-    def test_collects_daemon_log_tail(self, tmp_path: Path) -> None:
-        """Daemon log content is captured in diagnostics."""
-        from yoke_harness.browser_daemon_profile import state_file_path
-
-        daemon_log = state_file_path(tmp_path, "").parent / DAEMON_LOG_NAME
-        daemon_log.parent.mkdir(parents=True)
-        daemon_log.write_text("line1\nline2\nERROR: port already in use\n")
-
-        with (
-            mock.patch(
-                "yoke_core.domain.browser_client._browser_dir", return_value=tmp_path
-            ),
-            mock.patch(
-                "yoke_core.domain.browser_client.daemon_status",
-                return_value={"status": "crashed"},
-            ),
-            mock.patch(
-                "yoke_core.domain.browser_client.daemon_health",
-                side_effect=RuntimeError("not running"),
-            ),
-        ):
-            diag = browser_qa._collect_daemon_diagnostics()
-
-        assert "log_tail" in diag
-        assert "port already in use" in diag["log_tail"]
-        assert "daemon_status" in diag
-        assert diag["daemon_status"]["status"] == "crashed"
-
-    def test_handles_missing_daemon_log(self, tmp_path: Path) -> None:
-        """Graceful when no daemon log exists."""
-        with (
-            mock.patch(
-                "yoke_core.domain.browser_client._browser_dir", return_value=tmp_path
-            ),
-            mock.patch(
-                "yoke_core.domain.browser_client.daemon_status",
-                return_value={"status": "not_running"},
-            ),
-            mock.patch(
-                "yoke_core.domain.browser_client.daemon_health",
-                side_effect=RuntimeError("not running"),
-            ),
-        ):
-            diag = browser_qa._collect_daemon_diagnostics()
-
-        assert "log_tail" not in diag
-        assert diag["daemon_status"]["status"] == "not_running"
+        server.shutdown()
