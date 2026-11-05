@@ -103,3 +103,29 @@ def test_unavailable_native_query_returns_no_owner_token(monkeypatch):
 
     monkeypatch.setattr(windows, "_kernel32", unavailable)
     assert windows.process_start_time(42) is None
+
+
+@pytest.mark.parametrize("client", [browser_client, core_client])
+def test_private_shutdown_does_not_signal_a_pid_reused_during_stop(
+    monkeypatch, tmp_path, client
+):
+    state = client.DaemonState(pid=42)
+    tokens = iter(["original", "replacement"])
+    monkeypatch.setattr(
+        process_ancestry, "process_start_time", lambda pid: next(tokens)
+    )
+    monkeypatch.setattr(client, "_state_file_path", lambda *a: tmp_path / "state.json")
+    monkeypatch.setattr(client.DaemonState, "load", lambda *a: state)
+    monkeypatch.setattr(client, "daemon_running", lambda *a: True)
+    stop_request = Mock(return_value={})
+    monkeypatch.setattr(client, "daemon_request", stop_request)
+    kill = Mock()
+    monkeypatch.setattr(client.os, "kill", kill)
+    assert (
+        client.daemon_stop(
+            profile_dir="private-check", expected_process_start="original"
+        )
+        == "stopped"
+    )
+    stop_request.assert_called_once()
+    kill.assert_not_called()

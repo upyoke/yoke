@@ -18,6 +18,15 @@ def selected_profile() -> str:
     return _selected_profile.get()
 
 
+def process_matches_start(pid: int, expected: str | None) -> bool:
+    """Keep shutdown scoped to the recorded process through pid reuse."""
+    if expected is None:
+        return True
+    from yoke_contracts.process_ancestry import process_start_time
+
+    return process_start_time(pid) == expected
+
+
 @contextmanager
 def profile_scope(profile_dir: str | Path | None):
     """Route every call in one capture to its profile; restore on all exits."""

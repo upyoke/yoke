@@ -100,14 +100,19 @@ def daemon_start(
     )
 
 
-def daemon_stop(*, profile_dir: str | None = None) -> str:
+def daemon_stop(
+    *, profile_dir: str | None = None, expected_process_start: str | None = None
+) -> str:
     """Stop the browser daemon.  Returns 'stopped'."""
     from yoke_core.domain import browser_client as _bc
+    from yoke_harness.browser_daemon_profile import process_matches_start
 
     state_path = _bc._state_file_path(profile_dir)
     state = _bc.DaemonState.load(state_path)
     if state is None or not _bc.daemon_running(state):
         raise RuntimeError("daemon not running")
+    if not process_matches_start(state.pid, expected_process_start):
+        return "stopped"
 
     # Graceful stop via API
     try:
@@ -117,11 +122,15 @@ def daemon_stop(*, profile_dir: str | None = None) -> str:
 
     # Wait for process to terminate
     for _ in range(5):
-        if not _bc.daemon_running(state):
+        if not process_matches_start(
+            state.pid, expected_process_start
+        ) or not _bc.daemon_running(state):
             return "stopped"
         time.sleep(1)
 
     # Force kill
+    if not process_matches_start(state.pid, expected_process_start):
+        return "stopped"
     try:
         os.kill(
             state.pid, signal.SIGTERM if sys.platform == "win32" else signal.SIGKILL

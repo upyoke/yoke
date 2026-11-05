@@ -116,7 +116,10 @@ def _remove(check: BrowserCheck) -> None:
                 state.pid
             ):
                 try:
-                    browser_client.daemon_stop(profile_dir=str(check.profile))
+                    browser_client.daemon_stop(
+                        profile_dir=str(check.profile),
+                        expected_process_start=daemon["start"],
+                    )
                 except RuntimeError as exc:
                     if str(exc) != "daemon not running":
                         raise
