@@ -172,6 +172,12 @@ def run(args: List[str]) -> int:
         from yoke_core.domain.qa_plan_execution_cli import report_plan_result
 
         return report_plan_result(result)
+    if result.get("already_settled"):
+        print(
+            f"QA run {result['run_id']} was already settled; the late "
+            f"{result['ignored_verdict']} result was not recorded"
+        )
+        return 0
     _report_outcome(result)
     print(json.dumps(result, sort_keys=True))
     if result.get("case_outcome") == "waiting":

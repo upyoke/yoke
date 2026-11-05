@@ -1,0 +1,12 @@
+{
+ "id": "late-ci-result",
+ "title": "A replaced CI attempt finishes late",
+ "status": "observed",
+ "audience": "agent",
+ "when": "A foreground command-ci case finishes after another attempt supersedes its run.",
+ "need": "Only an error run marked with replacement_ci_run_id and a newer run for the same requirement ignores late completion and artifact addition. The original run and evidence stay unchanged. The case command reports the ignored verdict and exits zero; it does not credit that verdict to the replacement. Other settled runs retain immutable verdicts.",
+ "disclosure": "current cue",
+ "surface": "qa case run completion output and run recording handlers",
+ "review": "Source regression coverage; deployed race behavior is not live proof.",
+ "sources": ["packages/yoke-core/src/yoke_core/domain/qa_case_execution_cli.py", "packages/yoke-core/src/yoke_core/domain/qa_run_supersession.py", "runtime/api/test_qa_run_supersession.py"]
+}

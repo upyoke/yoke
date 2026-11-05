@@ -286,7 +286,7 @@ def execute_ci_case(
                 exit_code = awaited.exit_code
                 poll_output = awaited.output
     except (Exception, KeyboardInterrupt, SystemExit) as exc:
-        qa_case_ci_run_recording.fail(
+        settled = qa_case_ci_run_recording.fail(
             case,
             run_id=qa_run_id,
             evidence=evidence,
@@ -297,6 +297,8 @@ def execute_ci_case(
             error=exc,
             actor=actor,
         )
+        if settled:
+            return settled
         raise
     duration_ms = int((time.monotonic() - started) * 1000)
     conclusion = known_conclusion or conclusion_from_poll(exit_code, poll_output)
@@ -327,18 +329,16 @@ def execute_ci_case(
         output=output,
         actor=actor,
     )
+    if artifact_id is None:
+        return qa_case_ci_run_recording.late_result(qa_run_id, verdict)
     return {
         "requirement_id": requirement_id,
         "run_id": qa_run_id,
         "artifact_id": artifact_id,
         "runner_id": EXECUTOR_ID,
         "verdict": verdict,
-        "case_outcome": (
-            "passed"
-            if verdict == "pass"
-            else "failed"
-            if verdict == "fail"
-            else "infrastructure_transient"
+        "case_outcome": {"pass": "passed", "fail": "failed"}.get(
+            verdict, "infrastructure_transient"
         ),
         "duration_ms": duration_ms,
         **outcome,

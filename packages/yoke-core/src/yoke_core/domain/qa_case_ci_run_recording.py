@@ -73,6 +73,15 @@ def finish(case, *, run_id, raw_result, duration_ms, verdict, output, actor):
     )
 
 
+def late_result(run_id, ignored_verdict):
+    return {
+        "run_id": run_id,
+        "already_settled": True,
+        "verdict": "error",
+        "ignored_verdict": ignored_verdict,
+    }
+
+
 def fail(
     case,
     *,
@@ -103,7 +112,7 @@ def fail(
         },
         sort_keys=True,
     )
-    recorded, _ = finish(
+    recorded, artifact_id = finish(
         case,
         run_id=run_id,
         raw_result=raw,
@@ -112,6 +121,8 @@ def fail(
         output=f"{error}\n{recovery}",
         actor=actor,
     )
+    if artifact_id is None:
+        return late_result(recorded, "error")
     if isinstance(error, Exception):
         raise QaCaseExecutionError(
             f"CI execution errored; recorded QA run #{recorded}: {error}. {recovery}"

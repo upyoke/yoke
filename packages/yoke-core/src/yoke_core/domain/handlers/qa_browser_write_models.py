@@ -45,6 +45,9 @@ class QaRunCompleteRequest(BaseModel):
 
 class QaRunCompleteResponse(BaseModel):
     qa_run_id: int
+    already_settled: bool = False
+    verdict: Optional[str] = None
+    ignored_verdict: Optional[str] = None
 
 
 class QaArtifactAddRequest(BaseModel):
@@ -59,7 +62,11 @@ class QaArtifactAddRequest(BaseModel):
 
 
 class QaArtifactAddResponse(BaseModel):
-    qa_artifact_id: int
+    qa_artifact_id: Optional[int] = None
+    qa_run_id: Optional[int] = None
+    already_settled: bool = False
+    verdict: Optional[str] = None
+    ignored_verdict: Optional[str] = None
 
 
 __all__ = [
