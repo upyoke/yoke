@@ -7,8 +7,8 @@ import sys
 import pytest
 
 from yoke_harness.test_machine_remote_exec import _stream_command
-from yoke_harness.test_machine_gui_command import _Progress
-from yoke_harness import test_machine_gui_command as gui
+from yoke_harness.machine_gui_command import _Progress
+from yoke_harness import machine_gui_command as gui
 
 
 def test_streamed_progress_arrives_while_child_is_waiting(tmp_path):

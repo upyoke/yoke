@@ -2,7 +2,7 @@
 registration shape.
 
 Sibling of ``test_strategy_docs.py`` (reads + the replace claim gate);
-shared seeds live in ``_strategy_docs_test_helpers.py``.
+shared seeds live in ``strategy_docs_test_support.py``.
 """
 
 from __future__ import annotations
@@ -15,7 +15,7 @@ import pytest
 
 from yoke_core.domain import strategy_docs as sd
 from yoke_core.domain.handlers import strategy_docs as handlers
-from yoke_core.domain.handlers._strategy_docs_test_helpers import (
+from runtime.api.domain.handlers.strategy_docs_test_support import (
     PROJECT_ID,
     PROJECT_SLUG,
     SEED_CONTENT,

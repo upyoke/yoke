@@ -60,7 +60,7 @@ class TestIsScreenshotStep:
 class TestScreenshotStorageHardBlock:
     """screenshot steps must fail on missing/nonexistent artifacts."""
 
-    def test_ac1_no_artifact_path_fails_run(self, db_path: str) -> None:
+    def test_no_artifact_path_fails_run(self, db_path: str) -> None:
         """Screenshot step with no artifact path returned fails the run."""
         _seed_item(db_path, 600)
         _seed_requirement(
@@ -85,7 +85,7 @@ class TestScreenshotStorageHardBlock:
         assert result.runs[0].verdict == "fail"
         assert "no_screenshot_artifact" in result.runs[0].errors
 
-    def test_ac2_artifact_not_on_disk_fails_run(self, tmp_path: Path, db_path: str) -> None:
+    def test_artifact_not_on_disk_fails_run(self, tmp_path: Path, db_path: str) -> None:
         """Returned artifact path that doesn't exist on disk fails the run."""
         _seed_item(db_path, 601)
         _seed_requirement(
@@ -110,7 +110,7 @@ class TestScreenshotStorageHardBlock:
         assert result.runs[0].verdict == "fail"
         assert "artifact_not_on_disk" in result.runs[0].errors
 
-    def test_ac3_completeness_check_fails_on_mismatch(self, tmp_path: Path, db_path: str) -> None:
+    def test_completeness_check_fails_on_mismatch(self, tmp_path: Path, db_path: str) -> None:
         """Expected>recorded screenshots fails the run even if steps succeeded."""
         _seed_item(db_path, 602)
         _seed_requirement(
@@ -142,7 +142,7 @@ class TestScreenshotStorageHardBlock:
         assert result.runs[0].expected_screenshots == 2
         assert result.runs[0].recorded_screenshots == 1
 
-    def test_ac3_completeness_passes_when_all_recorded(self, tmp_path: Path, db_path: str) -> None:
+    def test_completeness_passes_when_all_recorded(self, tmp_path: Path, db_path: str) -> None:
         """When all expected screenshots are recorded, run passes."""
         _seed_item(db_path, 603)
         _seed_requirement(
@@ -174,7 +174,7 @@ class TestScreenshotStorageHardBlock:
         assert result.runs[0].expected_screenshots == 2
         assert result.runs[0].recorded_screenshots == 2
 
-    def test_ac6_non_screenshot_steps_unaffected(self, db_path: str) -> None:
+    def test_non_screenshot_steps_unaffected(self, db_path: str) -> None:
         """Navigate/click steps without screenshot requirement pass normally."""
         _seed_item(db_path, 604)
         _seed_requirement(
@@ -196,7 +196,7 @@ class TestScreenshotStorageHardBlock:
         assert result.runs[0].expected_screenshots == 0
         assert result.runs[0].recorded_screenshots == 0
 
-    def test_ac6_no_browser_requirements_skip_unaffected(self, db_path: str) -> None:
+    def test_no_browser_requirements_skip_unaffected(self, db_path: str) -> None:
         """Items without browser requirements skip cleanly."""
         _seed_item(db_path, 605)
 

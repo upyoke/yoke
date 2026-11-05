@@ -10,7 +10,7 @@ from types import SimpleNamespace
 import pytest
 
 from yoke_cli.commands import browser_authorize, browser_authorize_remote as remote
-from yoke_harness import test_machine_gui_command as gui
+from yoke_harness import machine_gui_command as gui
 from yoke_harness.test_machine_remote_exec import RemoteExecRefusal
 
 

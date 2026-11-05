@@ -12,7 +12,7 @@ import sys
 from pathlib import Path
 
 from yoke_core.domain import prd_validate
-from yoke_core.domain.prd_validate_test_helpers import (
+from runtime.api.domain.prd_validate_test_support import (
     COMPLETE_PRD,
     _validate,
     _with_default_acs,

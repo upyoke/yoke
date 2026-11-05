@@ -123,7 +123,7 @@ def _close_sign_in_viewer(viewer, test_machine) -> None:
 
 
 def authorize_remote(parsed) -> int:
-    from yoke_harness.test_machine_gui_command import run_gui_command
+    from yoke_harness.machine_gui_command import run_gui_command
     from yoke_harness.test_machine_remote_exec import RemoteExecRefusal
 
     try:

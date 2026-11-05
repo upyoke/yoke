@@ -12,7 +12,7 @@ from yoke_contracts.api.function_call import (
     TargetRef,
 )
 from yoke_core.domain.handlers import claims_work, strategy_docs
-from yoke_core.domain.handlers._strategy_docs_test_helpers import (
+from runtime.api.domain.handlers.strategy_docs_test_support import (
     SEED_CONTENT,
     SEED_UPDATED_AT,
     seed_docs,

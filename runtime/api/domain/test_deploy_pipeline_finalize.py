@@ -16,6 +16,23 @@ from yoke_core.domain import (
 from yoke_cli.transport.relay_telemetry import TRANSPORT_FAILED_CODE as NO_ANSWER
 
 
+@pytest.fixture(autouse=True)
+def no_control_plane_calls(monkeypatch):
+    from yoke_core.domain import (
+        deployment_start_timing, session_ambient_identity, session_less_actor_binding,
+    )
+    from yoke_cli.transport import dispatcher
+
+    monkeypatch.setattr(session_ambient_identity, "resolve_ambient_session_id", lambda: None)
+    monkeypatch.setattr(session_less_actor_binding, "operating_actor_id", lambda: "test-actor")
+    monkeypatch.setattr(deployment_start_timing, "_record_batch", mock.Mock(return_value=""))
+    dispatch = mock.Mock(side_effect=AssertionError("unexpected control-plane call"))
+    monkeypatch.setattr(dispatcher, "call_dispatcher", dispatch)
+    monkeypatch.setattr(deploy_pipeline.control_plane, "call_dispatcher", dispatch)
+    yield
+    dispatch.assert_not_called()
+
+
 def test_run_update_uses_in_process_registered_mutation(monkeypatch):
     update = mock.Mock(return_value=None)
     spawn = mock.Mock(side_effect=AssertionError("must not spawn"))
@@ -171,6 +188,7 @@ def _run_resumed(monkeypatch, *, status: str, stage: str, finish=None):
 
     monkeypatch.setenv("YOKE_ENV", "prod")
     with (
+        mock.patch.object(deploy_pipeline, "converge_release_start_schema"),
         mock.patch.object(
             deploy_pipeline,
             "resolve_flow_gate_branch",
