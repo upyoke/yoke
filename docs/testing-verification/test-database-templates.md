@@ -53,6 +53,11 @@ uses the default flavor instead of rebuilding the same schema.
 it, or `booted_universe_database()` for a fresh disposable clone, where a test
 needs a born universe rather than the test projects.
 
+Inline `partial(apply_inline_ddl, ddl)` strategies share a template and reusable
+clone by exact DDL text, including `partial(apply_inline_ddl, ddl=ddl)`.
+Fresh partials with equal scripts reuse that flavor; different scripts remain
+isolated. Bind them at module level to make the intended schemas clear.
+
 Other schema callables retain separate flavors by callable identity.
 Different functions with the same name remain separate. Callable objects and
 closures retain their identity for the worker's lifetime. Use a distinct
