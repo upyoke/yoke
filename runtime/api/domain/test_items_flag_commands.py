@@ -332,7 +332,7 @@ class TestBlockRefusesALiveHardBlockEdge:
         outcome = handle_block(_request(8310, reason="waiting on upstream"))
         assert not outcome.primary_success
         assert outcome.error.code == "dependency_wait_on_edge"
-        assert "yoke items dependency add" in outcome.error.message
+        assert "yoke items dependency remove" in outcome.error.message
         assert _flags(test_db, 8310)[1] is False
 
     def test_block_accepts_a_coordination_only_edge(self, test_db) -> None:
