@@ -37,12 +37,18 @@ def test_claude_rename_and_forward_scan_only_once(tmp_path, monkeypatch):
     )
     obs = observation("claude-code", transcript_path=str(transcript))
     assert read_client_fact(titles.title_fact(obs), HARNESS_TITLE_KEY) == "[PILLS]"
+    assert (
+        read_client_fact(titles.title_fact(obs, transcript_tail=""), HARNESS_TITLE_KEY)
+        == "[PILLS]"
+    )
+    titles.confirm_title(obs.payload, obs.executor, {"value": "[PILLS]"})
     assert titles.title_fact(obs, transcript_tail="") == {}
     with transcript.open("a") as stream:
         stream.write(
             "\n" + json.dumps({"type": "custom-title", "customTitle": "Renamed"}) + "\n"
         )
     assert read_client_fact(titles.title_fact(obs), HARNESS_TITLE_KEY) == "Renamed"
+    titles.confirm_title(obs.payload, obs.executor, {"value": "Renamed"})
     assert titles.title_fact(obs) == {}
 
 

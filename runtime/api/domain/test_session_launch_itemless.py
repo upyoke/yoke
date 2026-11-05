@@ -69,7 +69,8 @@ def test_itemless_raw_create_skips_item_naming_and_replays(monkeypatch) -> None:
     second = handlers.handle_launch_create(_request(payload))
 
     assert first.primary_success is True, first.error
-    assert not first.result_payload["launch"].get("session_name")
+    assert first.result_payload["launch"]["item_id"] is None
+    assert "session_name" not in first.result_payload["launch"]
     assert second.primary_success is True, second.error
     assert second.result_payload["deduplicated"] is True
     assert (

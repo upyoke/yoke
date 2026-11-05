@@ -83,6 +83,13 @@ def evaluate_local_hook(
         controls=controls,
     )
 
+    from yoke_core.hooks.session_title import confirmed_title
+    from yoke_harness.hooks.client_session_title import confirm_title
+
+    if not controls.timed_out:
+        confirm_title(
+            payload, executor, confirmed_title(payload.get("session_id"), payload_extra)
+        )
     # Even in-process evaluation settles only from the row's write receipt.
     if not controls.timed_out:
         record_model_facts_shipped(

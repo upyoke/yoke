@@ -203,7 +203,7 @@ def _failed_launch(conn: sqlite3.Connection) -> None:
             state TEXT, created_at TEXT
         );
         INSERT INTO session_launches VALUES
-            ('launch-1',1,'YOK-20: worker','failed','2026-09-01T12:01:00Z');
+            ('launch-1',1,20,'failed','2026-09-01T12:01:00Z');
         """
     )
 

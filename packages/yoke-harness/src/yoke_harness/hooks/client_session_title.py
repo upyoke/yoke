@@ -19,8 +19,11 @@ def _name(value):
 def _sqlite_cell(path: Path, sql: str, params: tuple):
     if not path.is_file():
         return None
-    with sqlite3.connect(path.as_uri() + "?mode=ro", uri=True, timeout=0.05) as conn:
+    conn = sqlite3.connect(path.as_uri() + "?mode=ro", uri=True, timeout=0.05)
+    try:
         row = conn.execute(sql, params).fetchone()
+    finally:
+        conn.close()
     return row[0] if row else None
 
 
@@ -71,7 +74,13 @@ def cursor_title(session_id: str, home: Path):
     for store in (home / ".cursor/chats").glob("*/" + session_id + "/store.db"):
         raw = _sqlite_cell(store, "SELECT value FROM meta WHERE key='0'", ())
         if raw:
-            title = _name(json.loads(bytes.fromhex(raw)).get("name"))
+            title = _name(
+                json.loads(
+                    bytes.fromhex(
+                        raw.decode("ascii") if isinstance(raw, bytes) else raw
+                    )
+                ).get("name")
+            )
             if title and title != "New Agent":
                 return title
     return None
@@ -81,14 +90,13 @@ def title_fact(obs, *, transcript_tail: str | None = None):
     if obs.event_name not in {"Stop", "UserPromptSubmit"}:
         return {}
     session_id = str(obs.payload.get("session_id") or "")
-    if not session_id or obs.payload.get("isSidechain"):
+    if (
+        not session_id
+        or any(char in session_id for char in "/\\*?[]")
+        or obs.payload.get("isSidechain")
+    ):
         return {}
-    key = hashlib.sha256((obs.executor + ":" + session_id).encode()).hexdigest()
-    cache_path = (
-        Path(machine_config.effective_temp_root())
-        / "hook-chat-titles"
-        / (key + ".json")
-    )
+    cache_path = _cache_path(obs.executor, session_id)
     try:
         cached = json.loads(cache_path.read_text())
     except (OSError, ValueError):
@@ -117,6 +125,35 @@ def title_fact(obs, *, transcript_tail: str | None = None):
         return {}
     cache_path.parent.mkdir(parents=True, exist_ok=True)
     temporary = cache_path.with_suffix(".tmp")
-    temporary.write_text(json.dumps({"title": title, "scanned": True}))
+    temporary.write_text(json.dumps({**cached, "title": title, "scanned": True}))
     temporary.replace(cache_path)
-    return client_fact(HARNESS_TITLE_KEY, title) if title != previous else {}
+    return (
+        client_fact(HARNESS_TITLE_KEY, title)
+        if title != cached.get("confirmed_title")
+        else {}
+    )
+
+
+def _cache_path(executor, session_id):
+    key = hashlib.sha256((executor + ":" + session_id).encode()).hexdigest()
+    return (
+        Path(machine_config.effective_temp_root())
+        / "hook-chat-titles"
+        / (key + ".json")
+    )
+
+
+def confirm_title(payload, executor, confirmed):
+    """A failed or unconfirmed request must resend its observed title."""
+    session_id = payload.get("session_id")
+    if not session_id or not isinstance(confirmed, dict) or "value" not in confirmed:
+        return
+    cache = _cache_path(executor, session_id)
+    try:
+        cached = json.loads(cache.read_text())
+        cached["confirmed_title"] = confirmed["value"]
+        temporary = cache.with_suffix(".confirmed.tmp")
+        temporary.write_text(json.dumps(cached))
+        temporary.replace(cache)
+    except (OSError, ValueError):
+        return  # Without a marker the next hook safely resends.

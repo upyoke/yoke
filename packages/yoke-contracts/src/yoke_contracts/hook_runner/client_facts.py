@@ -109,6 +109,7 @@ __all__ = [
     "CAPTURE_FILES_KEY",
     "FACT_SCHEMA",
     "HEADLESS_LAUNCH_KEY",
+    "HARNESS_TITLE_KEY",
     "SOURCE_ROOT_KEY",
     "WRITE_TARGETS_KEY",
     "capture_file_state",

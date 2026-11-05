@@ -69,6 +69,7 @@ class HookEvaluateResponse(BaseModel):
     # evaluator counts only such a round trip as a message probe.
     message_probe: bool = False
     model_confirmation: Optional[str] = None
+    harness_title_confirmation: Optional[dict[str, Any]] = None
     capabilities: tuple[str, ...] = HOOK_EVALUATOR_CAPABILITIES
 
 

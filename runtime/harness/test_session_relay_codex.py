@@ -74,6 +74,7 @@ def context(
         launch_attestation=SECRET if job_kind == "launch" else None,
         requested_model="gpt-5.6",
         presentation="focused",
+        session_name=None,
         target_liveness=target_liveness,
         wake_mode=wake_mode,
     )
