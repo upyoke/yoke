@@ -39,6 +39,7 @@ def session_display_details(conn, session_ids):
         for _, target in targets
         if target.kind in {"item", "epic_task"}
     )
+    item_ids = sorted(item_ids)
     refs = render_item_refs(conn, item_ids)
     items = {}
     if item_ids:

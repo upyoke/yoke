@@ -51,22 +51,13 @@ def _seed_workers(conn, start, stop):
 def test_report_statement_count_does_not_grow_per_session(test_db):
     conn = seed_steering_scope(test_db)
     counts = []
-    statements = []
     for start, stop in ((0, 1), (1, 10), (10, 60)):
         _seed_workers(conn, start, stop)
         counting = CountingConnection(conn)
         report = compose_held_reports(counting, session_id=STEERING_SESSION, now=NOW)
         assert len(report.sections) == 1
         counts.append(counting.count)
-        statements.append(counting.statements)
-    assert counts[0] == counts[1] == counts[2], {
-        "counts": counts,
-        "varying_statements": {
-            sql: [sample.get(sql, 0) for sample in statements]
-            for sql in set().union(*statements)
-            if len({sample.get(sql, 0) for sample in statements}) > 1
-        },
-    }
+    assert counts[0] == counts[1] == counts[2]
 
 
 @pytest.mark.parametrize("exhausted", [False, True])

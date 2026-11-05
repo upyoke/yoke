@@ -11,6 +11,7 @@ import pytest
 
 from runtime.api.domain import test_session_launch_item_filter as item_filter
 from yoke_core import domain
+from yoke_contracts.timestamps import parse_instant
 
 
 @pytest.mark.parametrize("preload", [False, True], ids=["list-first", "entry-first"])
@@ -45,8 +46,8 @@ def test_launch_list_test_preserves_work_entry_resolution(
         launch = SimpleNamespace(
             item_id=731,
             registered_session_id="worker",
-            launching_at="2026-11-05T10:00:00Z",
-            deadline_at="2026-11-05T11:00:00Z",
+            launching_at=parse_instant("2026-11-05T10:00:00Z"),
+            deadline_at=parse_instant("2026-11-05T11:00:00Z"),
         )
         assert not work_entry.launch_work_entered(conn, launch)
         conn.execute(
