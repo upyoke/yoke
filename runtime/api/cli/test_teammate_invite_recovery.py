@@ -8,6 +8,7 @@ import pytest
 from yoke_cli.commands import connect
 from yoke_cli.config import hosted_machine_authorization as auth
 from yoke_cli.config import teammate_invite_redemption as redemption
+from yoke_cli.config import team_server_authorization as team
 from yoke_cli.transport.bounded_json_http import BoundedJsonHttpStatusError
 
 ORIGIN = "https://team.example"
@@ -25,6 +26,7 @@ FLAG = "--invite-code-stdin"
     ).split(),
 )
 def test_cli_refusal_recovery(monkeypatch, capsys, reason):
+    monkeypatch.setattr(team, "sign_in_methods", lambda _: team.SignInMethods(True, False))
     code = "yinv_" + "a" * 32
     monkeypatch.setattr(auth, "_machine_identity", lambda: {
         "machine_id": "test-machine", "machine_name": "Test laptop",
