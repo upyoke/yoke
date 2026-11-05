@@ -1,8 +1,8 @@
-"""Which browser profile a QA run used, and whether the page looked signed in.
+"""Which sign-in state a QA run copied, and whether the page looked signed in.
 
 ``raw_result`` already records the commit a freshness source verified. It did
-not record whether the daemon opened the operator's authorized profile or a
-throwaway context, nor whether the page was an authentication wall. Those
+not record whether the private check copied an authorized profile or began
+with a clean context, nor whether the page was an authentication wall. Those
 facts belong beside ``code_identity`` so a signed-out capture cannot be read
 as a product defect on a signed-in screen.
 
@@ -125,7 +125,7 @@ def describe_sign_in(
     identity: str = DEFAULT_IDENTITY,
     declared: BrowserIdentity | None = None,
 ) -> Dict[str, Any]:
-    """Return the profile the daemon would open for one project identity.
+    """Describe the identity's source sign-in state for the private check.
 
     ``authenticated`` stays false until a step observes the app's signed-in
     page. A profile directory is not that observation. A throwaway context

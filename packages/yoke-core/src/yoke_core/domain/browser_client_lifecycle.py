@@ -38,9 +38,9 @@ def daemon_start(
 ) -> Dict[str, Any]:
     """Start the browser daemon.
 
-    ``profile_dir`` is one project's persistent browser profile. A daemon
-    on that profile is reused after a health check. Each other profile has
-    its own state, log and endpoint, so its captures stay open.
+    ``profile_dir`` is the caller-owned profile; QA supplies a private copy.
+    Calls within that check reuse its daemon after a health check. Every
+    other profile has its own state, log and endpoint.
 
     Returns JSON status dict.
     """

@@ -190,7 +190,7 @@ def daemon_start(
     """Start the daemon, optionally on one project's persistent profile.
 
     Each profile owns its state, log and endpoint. Other profiles' live
-    captures remain open, and same-profile workers reuse the healthy daemon.
+    captures remain open; calls in one check reuse only its private daemon.
     No automated daemon starts while a human signs in on this machine.
     """
     from yoke_harness.browser_check_profile import record_daemon_owner
