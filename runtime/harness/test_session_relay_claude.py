@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from functools import partial
+from itertools import count
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -14,8 +16,18 @@ from yoke_harness.session_relay_claude import (
     run_claude_cli_adapter,
     unsupported_claude_route,
 )
+from yoke_harness import session_relay_claude, session_relay_native_create
 from yoke_harness.session_relay_native_capture_format import compose_capture
 from yoke_harness.session_relay_native_spawn import SupervisedNative
+
+
+@pytest.fixture(autouse=True)
+def native_create_clock(monkeypatch):
+    monkeypatch.setattr(
+        session_relay_claude, "immediate_native_refusal",
+        partial(session_relay_native_create.immediate_native_refusal,
+                monotonic=partial(next, count(step=1.0)), sleeper=lambda delay: None),
+    )
 
 
 LAUNCH_ID = "12345678-1234-4234-8234-123456789abc"

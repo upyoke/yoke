@@ -16,6 +16,7 @@ from pathlib import Path
 import socket
 import subprocess
 import sys
+from types import SimpleNamespace
 
 import pytest
 
@@ -43,6 +44,34 @@ def machine_home(monkeypatch, tmp_path) -> Path:
     home = tmp_path / "machine-home"
     monkeypatch.setenv("YOKE_MACHINE_HOME", str(home))
     return home
+
+
+@pytest.fixture(autouse=True)
+def reap_detached_children(monkeypatch):
+    # The test process owns these children; reap exits before kill(pid, 0)
+    # mistakes a zombie for a running daemon and waits the whole stop deadline.
+    children = {}
+
+    def spawn(*args, **kwargs):
+        child = subprocess.Popen(*args, **kwargs)
+        children[child.pid] = child
+        return child
+
+    def alive(pid):
+        child = children.get(pid)
+        return (child is None or child.poll() is None) and state.process_alive(pid)
+
+    monkeypatch.setattr(daemon, "subprocess", SimpleNamespace(
+        Popen=spawn, DEVNULL=subprocess.DEVNULL,
+    ))
+    monkeypatch.setattr(daemon, "process_alive", alive)
+    monkeypatch.setattr(daemon, "READY_POLL_INTERVAL_S", 0.01)
+    monkeypatch.setattr(daemon, "STOP_POLL_INTERVAL_S", 0.01)
+    yield
+    for child in children.values():
+        if child.poll() is None:
+            child.kill()
+        child.wait()
 
 
 def _free_port() -> int:

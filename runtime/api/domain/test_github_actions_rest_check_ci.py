@@ -47,7 +47,10 @@ class TestCheckCi:
     def test_red(self, _resolver_ok, monkeypatch):
         with _fake_urls(
             monkeypatch,
-            [_run_payload(status="completed", conclusion="failure")],
+            [
+                _run_payload(status="completed", conclusion="failure"),
+                {"jobs": [{"conclusion": "failure", "steps": [{"name": "test"}]}]},
+            ],
         ):
             with pytest.raises(SystemExit) as exc_info:
                 github_actions.cmd_check_ci("o/r", "ci.yml", project="yoke")
