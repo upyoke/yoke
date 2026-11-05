@@ -19,9 +19,8 @@ from runtime.api.test_doctor_hc_routed_ownership_helpers import (
     _insert_session,
     _iso,
     _run,
+    conn,
 )
-
-pytest_plugins = ("runtime.api.test_doctor_hc_routed_ownership_helpers",)
 
 
 class TestLiveFrameNoDefense:
