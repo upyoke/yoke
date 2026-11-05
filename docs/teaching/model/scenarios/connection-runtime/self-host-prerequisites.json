@@ -8,5 +8,5 @@
  "disclosure": "at prerequisite refusal",
  "surface": "self-host init stderr and self-host guide prerequisites",
  "review": "Candidate regression tests cover absent Docker, unavailable Compose, process errors and timeouts without writes. Released-host proof remains pending.",
- "sources": ["packages/yoke-cli/src/yoke_cli/self_host/prerequisites.py", "runtime/api/cli/test_yoke_self_host_prerequisites.py", "docs/self-host.md"]
+ "sources": ["packages/yoke-cli/src/yoke_cli/self_host/prerequisites.py", "runtime/api/cli/test_yoke_self_host_prerequisites.py", "docs/public/self-hosting/install.md"]
 }

@@ -183,7 +183,7 @@ def test_dispatch_without_github_authority_refuses_with_its_recovery(
     assert response.success is False
     assert response.error.code == "github_check_authority_unavailable"
     assert "yoke github connect" in response.error.recovery_hint
-    assert "docs/self-host.md" in response.error.recovery_hint
+    assert "docs/public/self-hosting/install.md" in response.error.recovery_hint
 
 
 def test_status_names_the_installations_repository_access_page(binding_db) -> None:

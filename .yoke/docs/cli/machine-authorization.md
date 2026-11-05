@@ -181,7 +181,7 @@ The installer and connect wait stop on expiry; neither rotates codes silently.
 
 For a local universe, the page skips approval reads and explains its local-only
 reach, even with a token. It gives `yoke self-host init` and the
-[Self-host guide](https://github.com/upyoke/yoke/blob/main/docs/self-host.md).
+[Self-host guide](../self-hosting/install.md).
 
 Inspection may read an expired or consumed record to display its outcome,
 but resolve refuses expired codes and poll refuses consumed or unapproved

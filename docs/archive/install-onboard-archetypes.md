@@ -95,8 +95,8 @@ Facts:
   carry `target_tier` NULL, create no deployment run, and are offered alongside
   no default when hosting is deferred or not needed.
 - Idea resolves the requested flow and pinned workflow/project defaults through
-  [its flow owner](../.agents/skills/yoke/idea/infer-deployment-flow.md).
-  Usher's [delivery owner](../.agents/skills/yoke/usher/deploy.md) selects the
+  [its flow owner](../../.agents/skills/yoke/idea/infer-deployment-flow.md).
+  Usher's [delivery owner](../../.agents/skills/yoke/usher/deploy.md) selects the
   verified merge-only or deployment path and preserves named refusals.
 - Hosting separates provider choice (AWS, self-hosted, or undecided) from AWS
   sign-in (guided access key, existing access key, or Not now). Role, SSO/OIDC,

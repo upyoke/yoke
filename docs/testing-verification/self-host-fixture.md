@@ -7,7 +7,7 @@ the cases from an isolated machine home, and tears everything down again.
 
 The fixture creates exactly two cloud resources: one instance (with its root
 volume) and one security group. Everything else is what the documented
-[self-host install](../self-host.md) creates on that instance.
+[self-host install](../public/self-hosting/install.md) creates on that instance.
 
 ## Rules
 

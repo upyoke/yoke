@@ -41,7 +41,7 @@ token from its owner-only file without printing it, and activates the host's
 local connection. IT stores the
 token, mints separate teammate tokens, configures the intranet URL, then picks
 **Finish with server handoff**. The manual `yoke self-host init` reference in
-`docs/self-host.md` remains available.
+`docs/public/self-hosting/install.md` remains available.
 
 On Elena's client machine, **User:** A team server.
 
@@ -104,6 +104,6 @@ The confirmed profile, command/CI binding and immutable QA attachment follow
 | GitHub App | Already skippable | Project GitHub disabled; no issue relay | GitLab stays the forge; Yoke DB is the backlog |
 | Merge target | Default branch prompt exists; forge does not | Cannot open GitHub PRs | Local merge / operator merge on GitLab |
 | Deploy environment | On-prem Jenkins not a `step_runner` | Do not create AWS persistent flows | Empty default; document Jenkins as external |
-| Self-host server | Guided host setup or existing URL+token | Missing Docker/Compose is named before writes; networking remains operator-owned | Run guided Start on the host or use `yoke self-host init` (`docs/self-host.md`) |
+| Self-host server | Guided host setup or existing URL+token | Missing Docker/Compose is named before writes; networking remains operator-owned | Run guided Start on the host or use `yoke self-host init` (`docs/public/self-hosting/install.md`) |
 
 Ledger: G-forge-github-only, G-no-deploy-default-flow.

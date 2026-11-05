@@ -7,6 +7,10 @@ root:
   - {title: "Installation and setup", summary: "Guide installation, configuration, and project onboarding.", path: "guide/setup.install.md"}
   - {title: "Hosting modes", summary: "Help readers choose where their universe lives and understand how to move it later.", path: "guide/setup.hosting.md"}
   - {title: "Self-hosting", summary: "Explain installing and operating a shared Yoke server on your own infrastructure.", path: "guide/self-hosting.md"}
+  - {title: "Install and run a server", summary: "Install, network, upgrade and recover your own server.", path: "self-hosting/install.md"}
+  - {title: "Browser sign-in", summary: "Configure browser admission and trusted proxies.", path: "self-hosting/browser-sign-in.md"}
+  - {title: "People and machines", summary: "Invite teammates and approve personal machines.", path: "self-hosting/people.md"}
+  - {title: "Server GitHub App", summary: "Configure a dedicated App and protected server key.", path: "self-hosting/github-app.md"}
   - {title: "Universe portability, backup, and restore", summary: "Explain moving and protecting a universe across installations and hosting modes.", path: "guide/universe-portability.md"}
   - {title: "Team collaboration", summary: "Explain solo and team collaboration across machines and harness sessions in a shared Universe.", path: "guide/access.collaboration.md"}
   - {title: "Strategy docs", summary: "Explain how direction becomes a plan and actionable work.", path: "guide/strategy.md"}
@@ -82,6 +86,7 @@ root:
       summary: "Connect repository access, mirror issues and inspect merge evidence."
       path: "github/index.md"
       children:
+      - {title: "GitHub App permissions", summary: "Understand repository permissions and credential boundaries.", path: "github/permissions.md"}
       - {title: "Issue sync", summary: "Choose mirroring semantics and repair repository issue bindings.", path: "github/sync.md"}
       - {title: "Merge queue landings", summary: "Read queued landing evidence and recover from a rejected landing.", path: "github/merge-queue-landings.md"}
     - title: "CLI and config"

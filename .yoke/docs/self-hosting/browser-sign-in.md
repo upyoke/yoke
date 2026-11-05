@@ -1,12 +1,16 @@
 # Browser Sign-In for a Self-Hosted Yoke Server
 
-Browser admission on the server described in [Self-Host Yoke](self-host.md).
+<!-- yoke:breadcrumbs -->
+[Getting started](../index.md) > Browser sign-in
+<!-- /yoke:breadcrumbs -->
+
+Browser admission on the server described in [Self-Host Yoke](install.md).
 Company sign-in is optional; API-token clients work with either choice.
 
-The server serves the universe workbench at its own URL — the same
-workbench Local and Cloud serve. Run `yoke ui up` on a connected CLI to open it.
+The server serves the universe web dashboard at its own URL — the same
+web dashboard Local and Hosted beta (upyoke.com) serve. Run `yoke ui up` on a connected CLI to open it.
 A signed-in browser works with **full read and write** as its own
-actor: the workbench calls `POST /v1/functions/call` with the session
+actor: the web dashboard calls `POST /v1/functions/call` with the session
 cookie, and the engine's per-actor permission model decides what that
 actor may do, exactly as for an API token.
 
@@ -38,7 +42,7 @@ which revokes the browser's session and clears its analytics attribution
 cookie. Either sign-in path links that browser's analytics visitor id to the
 signed-in actor; clearing the cookie at sign-out starts the next person on a
 shared browser under a fresh visitor id
-([visitor links](public/operations/events.md#visitor-links)). Sign-out
+([visitor links](../operations/events.md#visitor-links)). Sign-out
 is same-origin only and refuses with `cross_origin_refused` otherwise.
 
 **What protects the cookie.** The session cookie is `HttpOnly` and
@@ -86,7 +90,7 @@ and a recovery message before the function is dispatched. This includes
 `null`, lists (even lists of key/value pairs), strings, numbers, and booleans.
 Omitting `payload` supplies an empty object.
 
-The workbench, its `/assets/` roster, and `/served-build` (the commit the
+The web dashboard, its `/assets/` roster, and `/served-build` (the commit the
 server serves, read by browser QA) are served at the server's site root,
 so expose the server at a host root rather than under a path prefix.
 
@@ -124,9 +128,9 @@ no effective Linux capabilities after the drop. Restart through the same host
 command so it can reopen the inputs; automatic restart is disabled.
 
 **3. Decide who gets in.** Visiting `https://yoke.internal/` (or any
-workbench page) signed out offers "Sign in"; after the provider round-trip
+web dashboard page) signed out offers "Sign in"; after the provider round-trip
 the server admits the verified identity by the first matching rule and
-opens the workbench for that actor:
+opens the web dashboard for that actor:
 
 1. **Already linked** — the identity (issuer + subject) was linked to an
    actor by a previous sign-in or an admin pre-link.
@@ -158,11 +162,11 @@ carries no numeric actor is refused as `actor_required`; run it from a
 signed-in connection, a registered harness session, or a machine whose
 operating actor `yoke setup` recorded.
 
-These invites are the server's own. On Yoke Cloud Platform owns invites; the
+These invites are the server's own. On Hosted beta (upyoke.com) Platform owns invites; the
 same `yoke invite` and `yoke invites` commands reach Platform's invites over a hosted
 connection, and the hosted universe's engine refuses them as
 `hosted_invites_platform_owned`. See
-[Hosted org administration](public/projects/hosted-org-admin.md).
+[Hosted org administration](../projects/hosted-org-admin.md).
 
 Email trust is strict by default: invites and domain membership match only when
 the provider marks the email verified. For providers that omit the
@@ -176,7 +180,7 @@ provider is never trusted).
 With company sign-in configured, run `yoke connect https://<server>` or choose
 **A team server** in `yoke setup`. Open the printed approval link, sign in,
 compare its Match code with your CLI, and select **Approve my machine**.
-Sign-in returns you to that workbench page. The CLI receives a machine-bound
+Sign-in returns you to that web dashboard page. The CLI receives a machine-bound
 credential once and verifies it before saving the connection. Org membership
 is required; approving your own machine does not require an org-admin role.
 
@@ -188,4 +192,4 @@ first-boot admin token remains the bootstrap); your own next machine runs
 already connected with `yoke machines approve CODE`; compare the four-character
 match code and the displayed approver's identity first. `yoke machines pending`
 lists waiting machines and `yoke machines deny CODE` refuses a request.
-See [Machine authorization](public/cli/machine-authorization.md).
+See [Machine authorization](../cli/machine-authorization.md).

@@ -1,5 +1,9 @@
 # People and machines on your server
 
+<!-- yoke:breadcrumbs -->
+[Getting started](../index.md) > People and machines
+<!-- /yoke:breadcrumbs -->
+
 Each engineer installs Yoke, then connects to your server:
 
 ```bash
@@ -18,14 +22,14 @@ yoke machines approve K7F2
 Check the machine and code, and read the signed-in identity shown before the
 decision: the new machine will act as that person. Approve only your own machine.
 To refuse the request, run `yoke machines deny K7F2`. Codes accept either case.
-The workbench offers the same personal decision under **Machines → Waiting for
+The web dashboard offers the same personal decision under **Machines → Waiting for
 approval**. Return to the connecting terminal for one-time credential delivery,
 then run `yoke status`. An expired code or lost delivery requires a fresh connect.
 
 `yoke machine …` manages machines already registered to the server, and
 `yoke machines …` lists, approves and denies machines waiting to connect.
 
-With company sign-in (OIDC), sign in on the workbench to approve your first
+With company sign-in (OIDC), sign in on the web dashboard to approve your first
 machine. The setup wizard's **A team server** option discovers that sign-in
 method after you enter the server URL.
 
@@ -45,7 +49,7 @@ Use `yoke invites list` for the `code-N` or `email-N` reference. Revoke with
 `yoke invites revoke REF`; replace a lost or expired code with
 `yoke invites reissue code-N`, which keeps the same person. Email invitations
 need revoke and a new invite. See
-[Teammate invitations](public/projects/teammate-invitations.md).
+[Teammate invitations](../projects/teammate-invitations.md).
 
 For an explicit token for your own identity, use your connected terminal:
 
@@ -74,5 +78,5 @@ initialized with `--listen 100.101.102.103`. Every private HTTP connection
 warns that the machine token travels unencrypted: safe on Tailscale or a VPN;
 use TLS on a shared LAN. Public HTTP stays refused; use HTTPS.
 The connection is saved only after `/v1/health` and `/v1/auth/identity` pass.
-See [Machine authorization](public/cli/machine-authorization.md) for
+See [Machine authorization](../cli/machine-authorization.md) for
 expiry, retry, and single-use credential delivery.

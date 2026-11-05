@@ -22,7 +22,7 @@ hunt only in `.github/` or only in the App settings.
 | **Merge queue** | Item branches land as PRs through one `merge_group` gate | Project `merge_queue` capability — offered only with GitHub bound, `ci_workflow_file` declared, and that workflow carrying a `merge_group` trigger |
 | **Delivery dispatch** | Deployment flows that trigger Actions | Delivery flows + environment protection + Action secrets/vars |
 | **Runners** | Self-hosted runners for Actions | Packs / runner fleet capabilities; GitHub runner registration |
-| **Permissions** | What the App or tokens may do | App install scope; org/repo permission docs in source tree |
+| **Permissions** | What the App or tokens may do | [GitHub App permissions](permissions.md) |
 
 Yoke's own git operations — the merge push, the QA lane push, the doctor's
 remote reads, the deploy pipeline's tag resolution — authenticate with the
@@ -272,6 +272,7 @@ function before this recovery is available.
 Deep sync mechanics: [github/sync.md](sync.md).
 
 <!-- yoke:contents -->
+- [GitHub App permissions](permissions.md) — Understand repository permissions and credential boundaries.
 - [Issue sync](sync.md) — Choose mirroring semantics and repair repository issue bindings.
 - [Merge queue landings](merge-queue-landings.md) — Read queued landing evidence and recover from a rejected landing.
 <!-- /yoke:contents -->

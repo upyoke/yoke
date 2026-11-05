@@ -82,7 +82,7 @@ integration targets, context routing, hosting/verification posture and delivery
 defaults. Descriptive verification profiles do not execute a gate: immutable
 registered QA cases do. Explicit operator no-tests attestation is distinct from
 missing or failing tests. [Projects and flows](public/databases/model/projects.md)
-and [test setup](install-onboard-archetypes/test-setup.md) own details.
+and [test setup](archive/install-onboard-archetypes/test-setup.md) own details.
 
 Each project uses the same registry/capability machinery; a literal slug does
 not unlock special behavior. GitHub automation uses the verified App repository

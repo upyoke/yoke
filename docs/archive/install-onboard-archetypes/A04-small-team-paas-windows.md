@@ -76,8 +76,8 @@ the GitHub App and eligible **test** workflow are configured; the Render deploy
 job is not verification. Queue delivery also requires `merge_group` support.
 Attach the reusable QA plan's immutable snapshot to steering-filed items at their
 required transition. Follow the current
-[verification binding](../../.agents/skills/yoke/onboard/verification-binding.md)
-and [first-work handoff](../../.agents/skills/yoke/onboard/first-work.md) contracts.
+[verification binding](../../../.agents/skills/yoke/onboard/verification-binding.md)
+and [first-work handoff](../../../.agents/skills/yoke/onboard/first-work.md) contracts.
 
 ## Crux
 

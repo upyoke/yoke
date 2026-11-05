@@ -41,7 +41,7 @@ as themselves through `machine_authorization.resolve`.
 Platform mints in-process against the tenant database at tenant birth through
 `yoke_core.domain.api_tokens.bootstrap_hosted_service_token(conn)`, which
 returns the raw token once. Operators use the [server token bootstrap
-entrypoint](self-host.md#restore-admin-access) on the tenant host, replacing
+entrypoint](public/self-hosting/install.md#restore-admin-access) on the tenant host, replacing
 `bootstrap-admin` and all following arguments with:
 
 ```text
