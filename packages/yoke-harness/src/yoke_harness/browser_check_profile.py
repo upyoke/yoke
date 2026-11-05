@@ -36,9 +36,10 @@ class BrowserCheck:
         return self.directory / "profile"
 
 
-def _root() -> Path:
+def _root(*, create: bool = True) -> Path:
     root = machine_config.yoke_home() / SECRETS_DIR_NAME / "browser-checks"
-    create_private_directory(root)
+    if create:
+        create_private_directory(root)
     return root
 
 
@@ -76,6 +77,26 @@ def _write_record(check: BrowserCheck, record: dict) -> None:
     temporary.replace(path)
 
 
+def record_daemon_owner(profile: str, pid: int) -> None:
+    """Keep the daemon's birth token so a reused pid can never be signalled."""
+    if not profile:
+        return
+    directory = Path(profile).resolve().parent
+    if directory.parent != _root(create=False).resolve():
+        return
+    check = BrowserCheck(directory.name, directory)
+    try:
+        record = json.loads((directory / "owner.json").read_text())
+        record["daemon"] = _owner(pid)
+        _write_record(check, record)
+    except (OSError, ValueError):
+        raise RuntimeError(
+            "browser_check_owner_unavailable: the private daemon's owner record "
+            "is unreadable; restore owner access to the Yoke secret directory "
+            "and start a new check."
+        ) from None
+
+
 def _remove(check: BrowserCheck) -> None:
     from yoke_harness import browser_client
 
@@ -83,11 +104,22 @@ def _remove(check: BrowserCheck) -> None:
         state_path = browser_client._state_file_path(str(check.profile))
         state = browser_client.DaemonState.load(state_path)
         if state and browser_client.daemon_running(state):
-            try:
-                browser_client.daemon_stop(profile_dir=str(check.profile))
-            except RuntimeError as exc:
-                if str(exc) != "daemon not running":
-                    raise
+            record = json.loads((check.directory / "owner.json").read_text())
+            daemon = record.get("daemon")
+            if not daemon:
+                raise RuntimeError(
+                    "browser_check_owner_unavailable: this daemon has no recorded "
+                    "birth token; wait for its idle exit, then retry the check "
+                    "to sweep the abandoned copy."
+                )
+            if daemon["pid"] == state.pid and daemon["start"] == process_start_time(
+                state.pid
+            ):
+                try:
+                    browser_client.daemon_stop(profile_dir=str(check.profile))
+                except RuntimeError as exc:
+                    if str(exc) != "daemon not running":
+                        raise
         if state_path.parent.exists():
             shutil.rmtree(state_path.parent)
         shutil.rmtree(check.directory)
@@ -183,7 +215,9 @@ def check_scope(project, identity=None, *, check_id=None, keep_open=False):
                         "browser_check_unavailable: browser exited; start a new "
                         "sequence without --check-id."
                     )
+                record = json.loads((check.directory / "owner.json").read_text())
                 record["owner"] = _owner(state.pid)
+                record["daemon"] = record["owner"]
                 _write_record(check, record)
                 retain = True
     except OSError:

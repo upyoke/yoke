@@ -193,6 +193,8 @@ def daemon_start(
     captures remain open, and same-profile workers reuse the healthy daemon.
     No automated daemon starts while a human signs in on this machine.
     """
+    from yoke_harness.browser_check_profile import record_daemon_owner
+
     refuse_during_human_gate(_browser_dir())
     requested_profile = canonical_profile(profile_dir)
     state_path = _state_file_path(requested_profile)
@@ -206,6 +208,7 @@ def daemon_start(
                     "browser daemon process is alive but its health endpoint is "
                     f"not ready (endpoint={state.endpoint}, pid={state.pid}): {exc}"
                 ) from None
+            record_daemon_owner(requested_profile, state.pid)
             return {
                 "status": "already_running",
                 "endpoint": state.endpoint,
@@ -239,12 +242,14 @@ def daemon_start(
     command.extend(["--state-file", str(state_path)])
 
     state_path.parent.mkdir(parents=True, exist_ok=True)
-    return start_daemon(
+    result = start_daemon(
         command,
         env,
         state_path.parent,
         load_state=lambda: DaemonState.load(state_path),
     )
+    record_daemon_owner(requested_profile, result["pid"])
+    return result
 
 
 def daemon_stop(*, profile_dir: str | None = None) -> str:

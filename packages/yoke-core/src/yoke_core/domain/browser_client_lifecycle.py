@@ -48,6 +48,7 @@ def daemon_start(
     from yoke_core.domain import browser_client as _bc
     from yoke_harness import browser_client_readiness, browser_setup
     from yoke_harness.browser_human_gate import refuse_during_human_gate
+    from yoke_harness.browser_check_profile import record_daemon_owner
 
     refuse_during_human_gate(_bc._browser_dir())
     requested_profile = canonical_profile(profile_dir)
@@ -56,6 +57,7 @@ def daemon_start(
     if state and _bc.daemon_running(state):
         if state.profile_dir == requested_profile:
             _bc.daemon_health(state=state, timeout=1)
+            record_daemon_owner(requested_profile, state.pid)
             return {"status": "already_running", "endpoint": state.endpoint}
         raise RuntimeError(
             "browser_daemon_profile_mismatch: state belongs to another profile; "
@@ -87,7 +89,7 @@ def daemon_start(
     # Launch and wait through the harness readiness helper, so a cold start is
     # judged by the same deadline and daemon log on both clients.
     state_path.parent.mkdir(parents=True, exist_ok=True)
-    return browser_client_readiness.start_daemon(
+    result = browser_client_readiness.start_daemon(
         cmd,
         env,
         state_path.parent,
@@ -95,6 +97,8 @@ def daemon_start(
         probe_health=lambda state: _bc.daemon_health(state=state, timeout=1),
         sleep=time.sleep,
     )
+    record_daemon_owner(requested_profile, result["pid"])
+    return result
 
 
 def daemon_stop(*, profile_dir: str | None = None) -> str:

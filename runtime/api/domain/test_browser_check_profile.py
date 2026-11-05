@@ -136,6 +136,7 @@ def test_cleanup_deletes_copy_when_daemon_exits_during_stop(profiles, monkeypatc
 
     monkeypatch.setattr(browser_client, "daemon_stop", already_exited)
     with checks.check_scope("fixture") as check:
+        checks.record_daemon_owner(str(check.profile), os.getpid())
         assert check.profile.is_dir()
     assert not check.directory.exists()
 
@@ -149,3 +150,36 @@ def test_unavailable_owner_refuses_without_publishing_a_copy(profiles, monkeypat
     assert not list(checks._root().iterdir())
     assert source.is_dir()
     assert stopped == []
+
+
+def test_reused_daemon_pid_never_stops_the_replacement_process(profiles, monkeypatch):
+    source, stopped = profiles
+    with checks.check_scope("fixture") as check:
+        record = json.loads((check.directory / "owner.json").read_text())
+        record["daemon"] = {"pid": os.getpid(), "start": "previous-process"}
+        checks._write_record(check, record)
+        monkeypatch.setattr(
+            browser_client.DaemonState,
+            "load",
+            lambda *a: SimpleNamespace(pid=os.getpid()),
+        )
+        monkeypatch.setattr(browser_client, "daemon_running", lambda state: True)
+    assert stopped == []
+    assert not check.directory.exists()
+    assert source.is_dir()
+
+
+def test_unproven_live_daemon_is_preserved_until_idle_exit(profiles, monkeypatch):
+    with pytest.raises(RuntimeError, match="browser_check_owner_unavailable"):
+        with checks.check_scope("fixture") as check:
+            monkeypatch.setattr(
+                browser_client.DaemonState,
+                "load",
+                lambda *a: SimpleNamespace(pid=os.getpid()),
+            )
+            monkeypatch.setattr(browser_client, "daemon_running", lambda state: True)
+    assert check.directory.exists()
+    assert profiles[1] == []
+    monkeypatch.setattr(browser_client, "daemon_running", lambda state: False)
+    checks._remove(check)
+    assert not check.directory.exists()
