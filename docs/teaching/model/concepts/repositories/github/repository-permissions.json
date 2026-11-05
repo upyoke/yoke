@@ -2,7 +2,7 @@
  "id": "repository-permissions",
  "title": "Repository permissions",
  "status": "observed",
- "note": "Setup checks existing repository access live before binding. Missing access names the exact owner/repo and installation settings link; failed checks report unknown access and retry. The landing rollup reads pull requests, contents, checks and commit statuses with read-scoped tokens. Doctor needs Administration: write to see queue bypass actors but makes only GET requests. Hidden administrative or landing evidence is unreadable, never a match or a pass; recovery names the App permission and installation approval.",
+ "note": "Setup checks existing repository access live before binding. Missing access names the exact owner/repo and installation settings link; failed checks report unknown access and retry. The landing rollup reads pull requests, contents, checks and commit statuses with read-scoped tokens. Doctor needs Administration: write to see queue bypass actors but makes only GET requests. Issue and PR searches request the relevant read grants; environment listings need Actions: read. Hidden administrative, landing, queue, membership, file or search evidence is unreadable, never a match or a pass; recovery names the App permission and installation approval.",
  "sources": ["packages/yoke-cli/src/yoke_cli/config/onboard_wizard_project_github.py", "packages/yoke-cli/src/yoke_cli/config/onboard_wizard_github_state.py", "docs/public/github/permissions.md"],
  "page": "repositories",
  "position": 2

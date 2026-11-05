@@ -24,7 +24,9 @@ from typing import Any, Optional, Sequence
 from yoke_contracts.github_app_installation_permissions import (
     GITHUB_ISSUES_READ_PERMISSION_LEVELS,
     GITHUB_ISSUES_WRITE_PERMISSION_LEVELS,
-    GITHUB_METADATA_READ_PERMISSION_LEVELS,
+)
+from yoke_core.domain.github_issue_search import (
+    issue_search_permissions, parse_issue_search_items,
 )
 from yoke_core.domain.gh_rest_transport import (
     RestNotFoundError,
@@ -241,16 +243,15 @@ def list_issues(
 ):
     """GET /repos/{owner}/{repo}/issues or /search/issues.
 
-    When ``search`` is non-empty, dispatches to the Search API
-    (``GET /search/issues``) with the project repo scope; otherwise
-    the issues list endpoint. Returns a list of typed Issue.
+    Search uses repo-scoped issue/PR permissions for its type filters;
+    incomplete or hidden search results raise a typed transport error.
     """
     items: list[Any] = []
     if search:
         tgt = _target_for(
             project,
             db_path=db_path,
-            required_permissions=GITHUB_METADATA_READ_PERMISSION_LEVELS,
+            required_permissions=issue_search_permissions(search),
         )
         query = f"repo:{tgt.owner}/{tgt.repo} {search}"
         if label:
@@ -266,8 +267,7 @@ def list_issues(
                 ),
                 token=tgt.token,
             )
-            body = resp.body if isinstance(resp.body, dict) else {}
-            batch = body.get("items") or []
+            batch = parse_issue_search_items(resp.body)
             if not batch:
                 break
             items.extend(batch)

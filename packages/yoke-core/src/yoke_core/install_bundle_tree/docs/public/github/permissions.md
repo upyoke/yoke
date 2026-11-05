@@ -142,7 +142,10 @@ enabled; new projects default to `disabled`, which does zero issue writes.
 into your default branch when you ship a work item (`/yoke usher`), plus the
 agent-driven "open a PR" command. This permission is specifically for
 *creating* PRs; merging the PR is authorized by Contents: write, and the
-find-PR and mergeability reads run at Pull requests: read.
+find-PR and mergeability reads run at Pull requests: read. Issue searches
+request Issues: read, PR searches request Pull requests: read, and searches
+that include both types request both. Hidden or incomplete search results
+are unreadable, rather than proof that no matching work exists.
 
 **Contents: write** — Delivering your code over git. Pushing the worktree
 branch, pushing the base branch when it is ahead, **merging the PR** (`PUT
@@ -168,7 +171,8 @@ exercised level of this grant.
 *triggering* a run as a write. Merely *watching* a run — its status, jobs, and
 logs — needs only read, and Yoke uses read-scoped tokens for exactly that. The
 write level is spent only at the moment a run is started. Only fires for
-projects with a GitHub-Actions deploy stage.
+projects with a GitHub-Actions deploy stage. Listing deployment environments
+also uses Actions: read; an unreadable listing is distinct from an empty one.
 
 **Checks: read** — Before merging a PR, reading its CI check-runs on the head
 commit (`GET …/commits/{sha}/check-runs`) and merging only if they pass.

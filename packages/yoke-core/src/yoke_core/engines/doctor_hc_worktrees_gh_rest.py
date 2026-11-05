@@ -15,6 +15,7 @@ import json
 import subprocess
 from typing import List
 
+from yoke_core.domain.github_issue_search import parse_issue_search_items
 from yoke_core.domain.gh_rest_transport import (
     RestRequest,
     RestTransportError,
@@ -78,11 +79,13 @@ def search_issues_by_query_rest(
                 ),
                 token=token,
             )
-        except RestTransportError:
-            return subprocess.CompletedProcess([], returncode=1, stdout="", stderr="")
-        body = resp.body if isinstance(resp.body, dict) else {}
-        items = body.get("items") if isinstance(body, dict) else None
-        if not isinstance(items, list) or not items:
+            items = parse_issue_search_items(resp.body)
+        except RestTransportError as exc:
+            return subprocess.CompletedProcess(
+                [], returncode=1, stdout="",
+                stderr=f"{exc}; repair: verify Issues read access and retry the search",
+            )
+        if not items:
             break
         for entry in items:
             if isinstance(entry, dict):

@@ -15,7 +15,7 @@ import sys
 from typing import List
 
 from yoke_contracts.github_app_installation_permissions import (
-    GITHUB_METADATA_READ_PERMISSION_LEVELS,
+    GITHUB_ISSUES_READ_PERMISSION_LEVELS,
 )
 from yoke_core.domain import runtime_settings
 from yoke_core.domain.db_helpers import query_rows
@@ -154,7 +154,7 @@ def hc_gh_orphan_detection(conn, args: DoctorArgs, rec: RecordCollector) -> None
                 auth = resolve_project_github_auth(
                     project,
                     db_path=args.db_path,
-                    required_permissions=GITHUB_METADATA_READ_PERMISSION_LEVELS,
+                    required_permissions=GITHUB_ISSUES_READ_PERMISSION_LEVELS,
                 )
             except ProjectGithubAuthError as err:
                 auth_failures.append(
@@ -175,10 +175,12 @@ def hc_gh_orphan_detection(conn, args: DoctorArgs, rec: RecordCollector) -> None
             )
             if r.returncode != 0:
                 search_failures.append(
-                    f"- GitHub orphan search failed for project '{project}'"
+                    f"- GitHub orphan search unreadable for project '{project}': "
+                    f"{r.stderr.strip() or 'no error detail returned; verify Issues read access and retry'}"
                 )
                 continue
             if not r.stdout.strip():
+                search_failures.append(f"- GitHub orphan search unreadable for {project}: empty response")
                 continue
             try:
                 all_gh_issues.extend(json.loads(r.stdout))
