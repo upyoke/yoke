@@ -10,7 +10,6 @@ from runtime.api.test_merge_worktree_full import (
     MergeEnv,
     _git,
     _write_file,
-    merge_env,  # re-export so pytest recognises this fixture
     run_merge,
 )
 
@@ -118,32 +117,6 @@ class TestConflictResolution:
         result = run_merge(merge_env)
         assert result.exit_code == 0
 
-    def test_yok538_branch_modified_doc_not_auto_resolved(self, merge_env: MergeEnv) -> None:
-        """Branch-modified AGENTS.md blocked."""
-        repo = merge_env.repo
-        wt = merge_env.worktree
-
-        (repo / "docs").mkdir(parents=True, exist_ok=True)
-        _write_file(repo / "docs" / "commands.md", "# Commands (main version)\n")
-        _git(repo, "add", "docs/commands.md")
-        _git(repo, "commit", "-m", "add docs on main")
-        _git(repo, "push", "origin", "main")
-
-        (wt / "docs").mkdir(parents=True, exist_ok=True)
-        _write_file(wt / "docs" / "commands.md", "# Commands (branch fixed version)\n")
-        _git(wt, "add", "docs/commands.md")
-        _git(wt, "commit", "-m", "fix docs on feature branch")
-        _git(wt, "push", "origin", TEST_BRANCH, "--force")
-
-        _write_file(repo / "docs" / "commands.md", "# Commands (main updated)\n")
-        _git(repo, "add", "docs/commands.md")
-        _git(repo, "commit", "-m", "update docs on main")
-        _git(repo, "push", "origin", "main")
-
-        result = run_merge(merge_env)
-        assert result.exit_code == 3
-        assert "branch-modified" in result.stderr
-        assert "agent resolution" in result.stderr
 
     def test_yok538_branch_unmodified_doc_auto_resolved(self, merge_env: MergeEnv) -> None:
         """Branch-unmodified doc auto-resolved."""
@@ -193,57 +166,6 @@ class TestConflictResolution:
         # pre-merge integration or merge-commit — success is sufficient proof
         assert "merged" in result.stdout.lower() or "Merge-commit succeeded" in result.stdout
 
-    def test_yok538_claude_md_branch_modified(self, merge_env: MergeEnv) -> None:
-        """AGENTS.md modified on branch blocked."""
-        repo = merge_env.repo
-        wt = merge_env.worktree
-
-        _write_file(repo / "AGENTS.md", "# Project Rules (main version)\n")
-        _git(repo, "add", "AGENTS.md")
-        _git(repo, "commit", "-m", "add AGENTS.md on main")
-        _git(repo, "push", "origin", "main")
-
-        _write_file(wt / "AGENTS.md", "# Project Rules (branch update — new convention added)\n")
-        _git(wt, "add", "AGENTS.md")
-        _git(wt, "commit", "-m", "update AGENTS.md conventions on feature")
-        _git(wt, "push", "origin", TEST_BRANCH, "--force")
-
-        _write_file(repo / "AGENTS.md", "# Project Rules (main updated — different convention)\n")
-        _git(repo, "add", "AGENTS.md")
-        _git(repo, "commit", "-m", "update AGENTS.md on main")
-        _git(repo, "push", "origin", "main")
-
-        result = run_merge(merge_env)
-        assert result.exit_code == 3
-        assert "branch-modified" in result.stderr
-        assert "agent resolution" in result.stderr
-
-    def test_yok538_trial_merge_branch_modified_doc(self, merge_env: MergeEnv) -> None:
-        """Trial merge with branch-modified doc exits 3."""
-        repo = merge_env.repo
-        wt = merge_env.worktree
-
-        (repo / "docs").mkdir(parents=True, exist_ok=True)
-        _write_file(repo / "docs" / "widget.md", "# Widget (main)\n")
-        _git(repo, "add", "docs/widget.md")
-        _git(repo, "commit", "-m", "add widget doc on main")
-        _git(repo, "push", "origin", "main")
-
-        (wt / "docs").mkdir(parents=True, exist_ok=True)
-        _write_file(wt / "docs" / "widget.md", "# Widget (branch — fixed schema types)\n")
-        _git(wt, "add", "docs/widget.md")
-        _git(wt, "commit", "-m", "fix widget schema types on feature")
-        _git(wt, "push", "origin", TEST_BRANCH, "--force")
-
-        _write_file(repo / "docs" / "widget.md", "# Widget (main — added new section)\n")
-        _git(repo, "add", "docs/widget.md")
-        _git(repo, "commit", "-m", "update widget doc on main")
-        _git(repo, "push", "origin", "main")
-
-        result = run_merge(merge_env)
-        assert result.exit_code == 3
-        assert "branch-modified" in result.stderr
-        assert "agent resolution" in result.stderr
 
     def test_yok538_merge_fallback_branch_modified_doc(self, merge_env: MergeEnv) -> None:
         """Merge fallback with branch-modified doc exits 3."""

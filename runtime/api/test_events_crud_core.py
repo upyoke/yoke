@@ -6,7 +6,6 @@ from __future__ import annotations
 import pytest
 
 from yoke_core.domain import events_crud as ec
-from yoke_core.domain.schema_common import _table_exists
 from runtime.api.fixtures.file_test_db import connect_test_db
 from runtime.api.events_crud_test_fixtures import (
     _insert_event,
@@ -16,46 +15,15 @@ from runtime.api.events_crud_test_fixtures import (
 pytest_plugins = ("runtime.api.events_crud_test_fixtures",)
 
 
-class TestInit:
-    def test_init_creates_tables(self, db_path: str) -> None:
-        conn = connect_test_db(db_path)
-        try:
-            assert _table_exists(conn, "events")
-            assert _table_exists(conn, "severity_config")
-            assert _table_exists(conn, "event_registry")
-        finally:
-            conn.close()
-
-    def test_init_idempotent(self, db_path: str) -> None:
-        """Running init twice should not error."""
-        ec.cmd_init(db_path)  # second call
-        ec.cmd_init(db_path)  # third call
-
-    def test_init_seeds_catch_all_severity(self, db_path: str) -> None:
-        conn = connect_test_db(db_path)
-        row = conn.execute(
-            "SELECT min_severity FROM severity_config "
-            "WHERE event_name='*' AND source_type='*'"
-        ).fetchone()
-        conn.close()
-        assert row is not None
-        assert row[0] == "INFO"
-
-
 class TestInsert:
     def test_basic_insert(self, db_path: str) -> None:
         _insert_event(db_path, event_id="ins-001")
         count = ec.cmd_count(db_path)
         assert count == 1
 
-    def test_dedup_on_event_id(self, db_path: str) -> None:
-        _insert_event(db_path, event_id="dup-001")
-        _insert_event(db_path, event_id="dup-001")
-        count = ec.cmd_count(db_path)
-        assert count == 1
 
     def test_invalid_source_type(self, db_path: str) -> None:
-        with pytest.raises(ValueError, match="source_type"):
+        with pytest.raises(ValueError, match="source_type must be one of"):
             ec.cmd_insert(
                 db_path,
                 event_id="bad-src",
@@ -68,7 +36,7 @@ class TestInsert:
             )
 
     def test_invalid_severity(self, db_path: str) -> None:
-        with pytest.raises(ValueError, match="severity"):
+        with pytest.raises(ValueError, match="severity must be one of"):
             ec.cmd_insert(
                 db_path,
                 event_id="bad-sev",
@@ -90,38 +58,6 @@ class TestInsert:
         conn.close()
         assert row[0] == "42"
 
-    def test_severity_filter_drops(self, db_path: str) -> None:
-        """Events below severity threshold are silently dropped."""
-        # Set threshold to WARN
-        ec.cmd_severity_config_set(db_path, "*", "*", "WARN")
-        ec.cmd_insert(
-            db_path,
-            event_id="dropped-debug",
-            source_type="agent",
-            session_id="s1",
-            event_kind="k",
-            event_type="t",
-            event_name="LowPriority",
-            severity="DEBUG",
-        )
-        count = ec.cmd_count(db_path)
-        assert count == 0
-
-    def test_skip_severity_bypasses_filter(self, db_path: str) -> None:
-        ec.cmd_severity_config_set(db_path, "*", "*", "WARN")
-        ec.cmd_insert(
-            db_path,
-            event_id="forced-debug",
-            source_type="agent",
-            session_id="s1",
-            event_kind="k",
-            event_type="t",
-            event_name="ForcedEvent",
-            severity="DEBUG",
-            skip_severity=True,
-        )
-        count = ec.cmd_count(db_path)
-        assert count == 1
 
     def test_optional_fields(self, db_path: str) -> None:
         _insert_event(
@@ -182,11 +118,6 @@ class TestQueries:
 
 
 class TestSeverityConfig:
-    def test_set_and_list(self, db_path: str) -> None:
-        result = ec.cmd_severity_config_set(db_path, "TestEvent", "agent", "WARN")
-        assert "WARN" in result
-        listing = ec.cmd_severity_config_list(db_path)
-        assert "TestEvent" in listing
 
     def test_severity_check(self, db_path: str) -> None:
         ec.cmd_severity_config_set(db_path, "*", "*", "WARN")
@@ -199,6 +130,7 @@ class TestValidateEventName:
         assert ec._validate_event_name("HarnessToolCallCompleted") is True
         assert ec._validate_event_name("A") is True
         assert ec._validate_event_name("Test123") is True
+        assert ec._validate_event_name("ABCDef") is True
 
     def test_invalid_names(self) -> None:
         assert ec._validate_event_name("") is False

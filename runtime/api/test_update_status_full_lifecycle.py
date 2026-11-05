@@ -37,35 +37,8 @@ class TestTerminalSuccess:
         assert r.returncode == 0
         log = env.gh_log.read_text()
         assert "PATCH /repos/upyoke/yoke/issues/100" in log
-
-    def test_canonical_done_label(self, env):
-        """TEST 2: REST POSTs status:done label, never status:completed."""
-        env.insert_task("implementing")
-        env.init_git()
-        r = env.run(
-            TEST_EPIC_REF, "003", "done", extra_env={"YOKE_TASK_DONE_VERIFIED": "1"}
-        )
-        assert r.returncode == 0
-        log = env.gh_log.read_text()
-        # POST /labels with name 'status:done' is recorded as a label-create
-        # request; the canonical reason check is that 'status:done' appears
-        # and 'status:completed' never does.
         assert "POST /repos/upyoke/yoke/labels" in log
 
-    def test_reviewed_implementation_then_done(self, env):
-        """TEST 4: sequential reviewed-impl -> done exits 0 with two closes."""
-        env.insert_task("reviewing-implementation")
-        env.init_git()
-        r1 = env.run(TEST_EPIC_REF, "003", "reviewed-implementation")
-        r2 = env.run(
-            TEST_EPIC_REF, "003", "done", extra_env={"YOKE_TASK_DONE_VERIFIED": "1"}
-        )
-        assert r1.returncode == 0
-        assert r2.returncode == 0
-        log = env.gh_log.read_text()
-        # Each terminal-status transition dispatches one PATCH /issues/100
-        # with state=closed; reviewed-impl + done = two PATCHes.
-        assert log.count("PATCH /repos/upyoke/yoke/issues/100") >= 2
 
     def test_transitions_recorded_as_state_rows(self, env):
         """The status pipeline writes item_status_transitions at mutation
@@ -83,6 +56,8 @@ class TestTerminalSuccess:
             ).returncode
             == 0
         )
+        log = env.gh_log.read_text()
+        assert log.count("PATCH /repos/upyoke/yoke/issues/100") >= 2
         assert (
             env.query_int(
                 "SELECT COUNT(*) FROM item_status_transitions "

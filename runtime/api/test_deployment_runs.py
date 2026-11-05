@@ -5,7 +5,7 @@ and find-by-item. Lineage, QA, validation, CLI exit codes, preview
 environments, and cleanup live in sibling test modules:
 
 - ``test_deployment_runs_lineage_qa.py`` — lineage, QA, validation, CLI.
-- ``test_deployment_runs_preview.py`` — preview claim/release lifecycle and cleanup.
+- ``test_deployment_runs_full_preview.py`` — preview claim/release lifecycle and cleanup.
 """
 
 from __future__ import annotations
@@ -14,41 +14,12 @@ import pytest
 
 from yoke_core.domain import deployment_runs as dr
 from yoke_core.domain.deployment_runs_schema import RUN_FIELDS
-from yoke_core.domain.schema_common import _get_tables
 from runtime.api.deployment_runs_test_db import db_path  # noqa: F401, F811 — fixture re-export
 from runtime.api.fixtures.file_test_db import connect_test_db
 
 
-class TestInit:
-    def test_init_creates_tables(self, db_path: str) -> None:
-        conn = connect_test_db(db_path)
-        tables = _get_tables(conn)
-        conn.close()
-        assert "deployment_runs" in tables
-        assert "deployment_run_items" in tables
-        assert "deployment_run_qa" in tables
-        assert "deployment_preview_environments" in tables
-
-    def test_init_is_idempotent(self, db_path: str) -> None:
-        # Running init again should not fail
-        dr.cmd_init(db_path=db_path)
-
-
 class TestNextIdAndCreateRun:
-    def test_next_id_format(self, db_path: str) -> None:
-        run_id = dr.cmd_next_id(db_path=db_path)
-        assert run_id.startswith("run-")
-        assert run_id.endswith("-001")
 
-    def test_next_id_increments(self, db_path: str) -> None:
-        # Create a run to consume 001
-        dr.cmd_create_run("yoke", "flow-main", db_path=db_path)
-        run_id = dr.cmd_next_id(db_path=db_path)
-        assert run_id.endswith("-002")
-
-    def test_create_run_returns_id(self, db_path: str) -> None:
-        run_id = dr.cmd_create_run("yoke", "flow-main", db_path=db_path)
-        assert run_id.startswith("run-")
 
     def test_create_run_copies_target_from_flow(self, db_path: str) -> None:
         run_id = dr.cmd_create_run("yoke", "flow-main", db_path=db_path)
@@ -63,41 +34,8 @@ class TestNextIdAndCreateRun:
         environment = dr.cmd_get(run_id, field="target_environment", db_path=db_path)
         assert environment == "stage"
 
-    def test_create_run_with_lineage(self, db_path: str) -> None:
-        run_id = dr.cmd_create_run(
-            "yoke", "flow-main", release_lineage="lin-001", db_path=db_path
-        )
-        result = dr.cmd_get(run_id, field="release_lineage", db_path=db_path)
-        assert result == "lin-001"
-
-    def test_create_run_custom_created_by(self, db_path: str) -> None:
-        run_id = dr.cmd_create_run(
-            "yoke", "flow-main", created_by="tester", db_path=db_path
-        )
-        result = dr.cmd_get(run_id, field="created_by", db_path=db_path)
-        assert result == "tester"
-
 
 class TestItemManagement:
-    def test_add_and_list_items(self, db_path: str) -> None:
-        run_id = dr.cmd_create_run("yoke", "flow-main", db_path=db_path)
-        # Insert test items
-        conn = connect_test_db(db_path)
-        conn.execute(
-            "INSERT INTO items (id, title, status, project_id, project_sequence) VALUES (100, 'Test', 'implemented', 1, 100)"
-        )
-        conn.execute(
-            "INSERT INTO items (id, title, status, project_id, project_sequence) VALUES (101, 'Test2', 'implemented', 1, 101)"
-        )
-        conn.commit()
-        conn.close()
-
-        dr.cmd_add_item(run_id, 100, db_path=db_path)
-        dr.cmd_add_item(run_id, 101, db_path=db_path)
-
-        result = dr.cmd_items(run_id, db_path=db_path)
-        assert "100" in result
-        assert "101" in result
 
     def test_remove_item(self, db_path: str) -> None:
         from yoke_core.domain.qa_schema import cmd_init
@@ -135,13 +73,6 @@ class TestGet:
         assert parts[2] == "flow-main"
         assert parts[6] == "created"
 
-    def test_get_single_field(self, db_path: str) -> None:
-        run_id = dr.cmd_create_run("yoke", "flow-main", db_path=db_path)
-        assert dr.cmd_get(run_id, field="status", db_path=db_path) == "created"
-
-    def test_get_not_found(self, db_path: str) -> None:
-        result = dr.cmd_get("nonexistent", db_path=db_path)
-        assert result is None
 
     @pytest.mark.parametrize("field", ["bogus", "stages"])
     def test_get_invalid_field(self, db_path: str, field: str) -> None:
@@ -181,6 +112,7 @@ class TestUpdate:
         err = dr.cmd_update(run_id, "status", "failed", db_path=db_path)
         assert err is None
         assert dr.cmd_get(run_id, field="status", db_path=db_path) == "failed"
+        assert dr.cmd_get(run_id, field="completed_at", db_path=db_path)
 
     def test_update_invalid_status(self, db_path: str) -> None:
         run_id = dr.cmd_create_run("yoke", "flow-main", db_path=db_path)
@@ -224,17 +156,7 @@ class TestUpdate:
 
 
 class TestList:
-    def test_list_all(self, db_path: str) -> None:
-        dr.cmd_create_run("yoke", "flow-main", db_path=db_path)
-        dr.cmd_create_run("yoke", "flow-main", db_path=db_path)
-        result = dr.cmd_list(db_path=db_path)
-        lines = result.strip().split("\n")
-        assert len(lines) == 2
 
-    def test_list_by_project(self, db_path: str) -> None:
-        dr.cmd_create_run("yoke", "flow-main", db_path=db_path)
-        result = dr.cmd_list(project="externalwebapp", db_path=db_path)
-        assert result == ""
 
     def test_list_by_status(self, db_path: str) -> None:
         run_id = dr.cmd_create_run("yoke", "flow-main", db_path=db_path)
@@ -244,18 +166,6 @@ class TestList:
 
 
 class TestFindByItem:
-    def test_find_by_item(self, db_path: str) -> None:
-        run_id = dr.cmd_create_run("yoke", "flow-main", db_path=db_path)
-        conn = connect_test_db(db_path)
-        conn.execute(
-            "INSERT INTO items (id, title, status, project_id, project_sequence) VALUES (300, 'T', 'implemented', 1, 300)"
-        )
-        conn.commit()
-        conn.close()
-        dr.cmd_add_item(run_id, 300, db_path=db_path)
-
-        result = dr.cmd_find_by_item(300, db_path=db_path)
-        assert run_id in result
 
     def test_find_by_item_with_status_filter(self, db_path: str) -> None:
         run_id = dr.cmd_create_run("yoke", "flow-main", db_path=db_path)

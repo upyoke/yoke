@@ -228,26 +228,3 @@ def test_edited_retired_doc_is_preserved_while_unrendered_files_survive(
     assert (target / RETIRED_DOC_REL).read_text(encoding="utf-8") == edited
     assert (target / UNRENDERED_REL).read_text(encoding="utf-8") == UNRENDERED_BODY
     assert _read_manifest(target)["files"][RETIRED_DOC_REL] == _sha(RETIRED_DOC_BODY)
-
-
-def test_second_apply_writes_and_prunes_no_documentation(
-    tmp_path: Path,
-    capsys,
-) -> None:
-    target = tmp_path / "external-project"
-    _git_init(target)
-    _seed_manifest(target, 66, {})
-
-    assert cli_main(_apply_args(target, 66)) == 0
-    first = json.loads(capsys.readouterr().out)
-    written_docs = _installed_docs(first["files_written"])
-    assert written_docs
-    assert all((target / rel).is_file() for rel in written_docs)
-    converged = _project_tree(target)
-
-    assert cli_main(_apply_args(target, 66)) == 0
-    second = json.loads(capsys.readouterr().out)
-    assert _installed_docs(second["files_written"]) == []
-    assert second["files_written"] == []
-    assert second["files_pruned"] == []
-    assert _project_tree(target) == converged

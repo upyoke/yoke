@@ -8,7 +8,6 @@ import subprocess
 
 import pytest
 
-from yoke_core.engines import merge_audit
 from runtime.api.source_pythonpath_test_helpers import SOURCE_PYTHONPATH
 
 
@@ -80,35 +79,6 @@ def _add_branch(repo: str, name: str) -> None:
         capture_output=True,
         check=True,
     )
-
-
-class TestGitHelpers:
-    """Test git helper functions."""
-
-    def test_branch_exists_false(self, fake_repo):
-        assert not merge_audit._branch_exists(fake_repo, "nonexistent")
-
-    def test_branch_exists_true(self, fake_repo):
-        _add_branch(fake_repo, "test-branch")
-        assert merge_audit._branch_exists(fake_repo, "test-branch")
-
-    def test_commits_ahead(self, fake_repo):
-        _add_branch(fake_repo, "ahead-branch")
-        count = merge_audit._commits_ahead(fake_repo, "ahead-branch")
-        assert count == 1
-
-    def test_commits_ahead_nonexistent(self, fake_repo):
-        count = merge_audit._commits_ahead(fake_repo, "nope")
-        assert count == 0
-
-    def test_list_sun_branches(self, fake_repo):
-        _add_branch(fake_repo, "YOK-99")
-        _add_branch(fake_repo, "YOK-100")
-        _add_branch(fake_repo, "other-branch")
-        branches = merge_audit._list_sun_branches(fake_repo)
-        assert "YOK-99" in branches
-        assert "YOK-100" in branches
-        assert "other-branch" not in branches
 
 
 class TestCLI:

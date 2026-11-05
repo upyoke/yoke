@@ -38,36 +38,30 @@ class TestBasicMerge:
         diff = _git(merge_env.repo, "diff", "--name-only", check=False)
         assert ".yoke/BOARD.md" not in diff.stdout
 
-    def test_bug_a3_merge_happy_path_completes(self, merge_env: MergeEnv) -> None:
+    def test_clean_merge_preserves_lane_and_reports_all_steps(self, merge_env: MergeEnv) -> None:
         """The happy-path merge flow (PR create → CI → merge) completes
         cleanly with the seeded REST fakes from the fixture."""
         result = run_merge(merge_env)
         assert result.exit_code == 0
         # Successful merge surfaces the verification + success lines.
         assert "Successfully merged" in result.stdout
-
-    def test_standalone_engine_retains_lane_until_outer_close_out(
-        self, merge_env: MergeEnv
-    ) -> None:
-        """Receipt, evidence and lifecycle close-out still need the lane."""
-        result = run_merge(merge_env)
-        assert result.exit_code == 0
-        wt_list = _git(merge_env.repo, "worktree", "list", "--porcelain", check=False)
-        assert str(merge_env.worktree) in wt_list.stdout
-        branch_list = _git(merge_env.repo, "branch", "--list", TEST_BRANCH, check=False)
-        assert TEST_BRANCH in branch_list.stdout.strip()
+        assert "Falling back to merge-commit" not in result.stdout
+        assert "Running trial merge" in result.stdout
+        assert "Trial merge clean" in result.stdout
+        assert "Running pre-flight checks" in result.stdout
+        assert "Pre-flight checks passed" in result.stdout
+        assert "up to date" in result.stdout or "matches origin" in result.stdout
+        assert f"YOKE_REPO_ROOT={merge_env.repo}" in result.stdout
+        assert not (merge_env.repo / "data" / "config").exists()
+        assert _git(merge_env.repo, "branch", "--show-current").stdout.strip() == "main"
+        assert str(merge_env.worktree) in _git(merge_env.repo, "worktree", "list", "--porcelain").stdout
+        assert TEST_BRANCH in _git(merge_env.repo, "branch", "--list", TEST_BRANCH).stdout
         candidate = _git(merge_env.worktree, "rev-parse", "HEAD").stdout.strip()
-        assert (
-            _git(
-                merge_env.repo,
-                "merge-base",
-                "--is-ancestor",
-                candidate,
-                "origin/main",
-                check=False,
-            ).returncode
-            == 0
-        )
+        assert _git(merge_env.repo, "merge-base", "--is-ancestor", candidate, "origin/main").returncode == 0
+        assert TEST_BRANCH in _git(merge_env.repo, "ls-remote", "--heads", str(merge_env.origin), TEST_BRANCH).stdout
+        assert "Deleted remote branch" not in result.stdout
+        assert "Regenerating DB-sourced views" not in result.stdout
+        assert (merge_env.repo / ".yoke" / "BOARD.md").read_text() == "# Board\n"
 
 
 # ===========================================================================
@@ -76,71 +70,9 @@ class TestBasicMerge:
 class TestRebaseStrategy:
     """Rebase with auto-resolve and merge-commit fallback."""
 
-    def test_yok207_rebase_clean_no_fallback(self, merge_env: MergeEnv) -> None:
-        """Clean rebase, no fallback."""
-        result = run_merge(merge_env)
-        assert result.exit_code == 0
-        assert "Falling back to merge-commit" not in result.stdout
-
-    def test_yok207_fallback_both_fail(self, merge_env: MergeEnv) -> None:
-        """Non-auto-resolvable conflict exits 3."""
-        repo = merge_env.repo
-        wt = merge_env.worktree
-
-        _write_file(repo / "shared-code.js", "main version\n")
-        _git(repo, "add", "shared-code.js")
-        _git(repo, "commit", "-m", "add shared code on main")
-        _git(repo, "push", "origin", "main")
-
-        _write_file(wt / "shared-code.js", "feature version\n")
-        _git(wt, "add", "shared-code.js")
-        _git(wt, "commit", "-m", "modify shared code on feature")
-        _git(wt, "push", "origin", TEST_BRANCH, "--force")
-
-        _write_file(repo / "shared-code.js", "main updated version\n")
-        _git(repo, "add", "shared-code.js")
-        _git(repo, "commit", "-m", "update shared code on main")
-        _git(repo, "push", "origin", "main")
-
-        result = run_merge(merge_env)
-        assert result.exit_code == 3
-        assert "agent resolution" in result.stderr
-        assert "real branch is untouched" in result.stderr
 
     def test_yok207_threshold_triggers_fallback(self, merge_env: MergeEnv) -> None:
         """Threshold=1 triggers fallback, merge succeeds."""
-        repo = merge_env.repo
-        wt = merge_env.worktree
-
-        machine_config = merge_env.tmpdir / "machine-config.json"
-        machine_config.write_text(
-            json.dumps(
-                {"schema_version": 1, "settings": {"merge_conflict_threshold": "1"}}
-            ),
-            encoding="utf-8",
-        )
-
-        _write_file(wt / ".yoke" / "BOARD.md", "# Board (feature v1)\n")
-        _git(wt, "add", "-f", ".yoke/BOARD.md")
-        _git(wt, "commit", "-m", "modify board on feature v1")
-        _write_file(wt / ".yoke" / "BOARD.md", "# Board (feature v2)\n")
-        _git(wt, "add", "-f", ".yoke/BOARD.md")
-        _git(wt, "commit", "-m", "modify board on feature v2")
-        _git(wt, "push", "origin", TEST_BRANCH, "--force")
-
-        _write_file(repo / ".yoke" / "BOARD.md", "# Board (main v1)\n")
-        _git(repo, "add", "-f", ".yoke/BOARD.md")
-        _git(repo, "commit", "-m", "update board on main")
-        _git(repo, "push", "origin", "main")
-
-        result = run_merge(
-            merge_env,
-            extra_env={"YOKE_MACHINE_CONFIG_FILE": str(machine_config)},
-        )
-        assert result.exit_code == 0
-
-    def test_yok207_configurable_threshold(self, merge_env: MergeEnv) -> None:
-        """Configurable threshold via machine config."""
         repo = merge_env.repo
         wt = merge_env.worktree
 
@@ -178,12 +110,6 @@ class TestRebaseStrategy:
 class TestTrialMerge:
     """Trial merge for early conflict detection."""
 
-    def test_yok208_trial_merge_clean(self, merge_env: MergeEnv) -> None:
-        """Clean trial merge passes."""
-        result = run_merge(merge_env)
-        assert result.exit_code == 0
-        assert "Running trial merge" in result.stdout
-        assert "Trial merge clean" in result.stdout
 
     def test_yok208_trial_merge_conflict(self, merge_env: MergeEnv) -> None:
         """Non-auto-resolvable conflict detected by trial merge."""

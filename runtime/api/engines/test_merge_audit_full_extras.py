@@ -166,6 +166,7 @@ class TestSummaryCounts:
             report = merge_audit.generate_report()
 
         assert "Blocked: 1 branches (incomplete tasks)" in report
+        assert "## Summary" in report
 
     def test_conflicts_detected_zero(self, tmp_db, fake_repo):
         """Summary shows 'Conflicts detected: 0' when no conflicts."""
@@ -231,26 +232,6 @@ class TestGitHelpers:
 
 
 class TestCLI:
-    def test_exit_code_always_zero(self, tmp_db, fake_repo):
-        """CLI exits 0 even when there are warnings."""
-        conn = connect_test_db(tmp_db)
-        seed_merge_audit_item(conn, item_id=800, title="Ex", status="implementing")
-        seed_merge_audit_task(
-            conn,
-            epic_id=800,
-            task_num=1,
-            title="T1",
-            status="planned",
-            branch="YOK-800",
-        )
-        conn.commit()
-        conn.close()
-
-        _add_branch(fake_repo, "YOK-800")
-
-        with mock.patch.dict(os.environ, _env(tmp_db, fake_repo)):
-            report = merge_audit.generate_report(epic_filter=f"YOK-{800}")
-        assert "# Merge Readiness Audit" in report
 
     def test_invalid_epic_id_via_main(self, fake_repo):
         """Invalid epic ID produces error and exit 1."""

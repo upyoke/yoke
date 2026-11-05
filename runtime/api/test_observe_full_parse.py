@@ -5,7 +5,6 @@ from __future__ import annotations
 import pytest
 
 from yoke_core.domain.observe import (
-    EventRecord,
     build_envelope,
     detect_anomalies,
     insert_event,
@@ -94,7 +93,7 @@ class TestParseHookEvent:
         assert rec is not None
         assert rec.file_path == "/tmp/edit.py"
 
-    def test_item_id_strips_sun_prefix(self):
+    def test_numeric_item_id_is_preserved(self):
         rec = parse_hook_event(
             SAMPLE_BASH_SUCCESS, item_id="42", hook_event="PostToolUse"
         )
@@ -108,12 +107,6 @@ class TestParseHookEvent:
         assert rec is not None
         assert rec.item_id is None
 
-    def test_numeric_item_id_kept(self):
-        rec = parse_hook_event(
-            SAMPLE_BASH_SUCCESS, item_id="99", hook_event="PostToolUse"
-        )
-        assert rec is not None
-        assert rec.item_id == "99"
 
     def test_agent_type_propagated(self):
         """TC-14: Agent attribution via agent_type kwarg."""
@@ -143,14 +136,6 @@ class TestParseHookEvent:
         assert rec is not None
         assert rec.task_num == 5
 
-    def test_session_id_propagated(self):
-        rec = parse_hook_event(
-            SAMPLE_BASH_SUCCESS,
-            session_id="sess-abc",
-            hook_event="PostToolUse",
-        )
-        assert rec is not None
-        assert rec.session_id == "sess-abc"
 
     def test_empty_payload_returns_record(self):
         """Gracefully handles minimal payload."""
@@ -190,23 +175,6 @@ class TestDedupLogic:
         )
         assert rec is None
 
-    def test_post_tool_use_failure_emits(self):
-        """TC-66: PostToolUseFailure emits HarnessToolCallFailed normally."""
-        rec = parse_hook_event(
-            SAMPLE_EDIT_FAILURE,
-            hook_event="PostToolUseFailure",
-        )
-        assert rec is not None
-        assert rec.is_failure is True
-
-    def test_post_tool_use_passes_success(self):
-        """TC-67: PostToolUse emits HarnessToolCallCompleted for successes."""
-        rec = parse_hook_event(
-            SAMPLE_BASH_SUCCESS,
-            hook_event="PostToolUse",
-        )
-        assert rec is not None
-        assert rec.is_failure is False
 
     def test_both_hooks_same_failure_one_row(self, events_db):
         """TC-68: Both hooks on same failure produces exactly one row."""

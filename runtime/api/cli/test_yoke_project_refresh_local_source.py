@@ -155,6 +155,9 @@ def test_apply_then_second_run_is_idempotent(
     assert first["snapshot_sync"]["status"] == "skipped"
     assert (target / ".yoke/install-manifest.json").is_file()
     assert (target / ".claude/skills/yoke/SKILL.md").is_file()
+    written_docs = [rel for rel in first["files_written"] if rel.startswith(".yoke/docs/")]
+    assert written_docs
+    assert all((target / rel).is_file() for rel in written_docs)
     first_tree = _project_tree(target)
 
     assert cli_main(args) == 0

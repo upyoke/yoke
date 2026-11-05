@@ -133,6 +133,7 @@ class TestHCOrphanedRunsFull:
         r = _result(rec)
         assert r.result == "WARN"
         assert "run-empty" in r.detail
+        assert "no member items" in r.detail
 
     def test_pass_no_runs(self, test_db):
         """Test 3: PASS when no runs exist."""
@@ -182,6 +183,7 @@ class TestHCStaleRunsFull:
         r = _result(rec)
         assert r.result == "WARN"
         assert "run-stale" in r.detail
+        assert "executing for >24h" in r.detail
 
     def test_succeeded_runs_not_flagged(self, test_db):
         """Test 6: Succeeded runs not flagged as stale."""
@@ -203,6 +205,8 @@ class TestHCRunItemStatusConsistencyFull:
 
     def test_pass_consistent(self, test_db):
         """Test 7: PASS when statuses are consistent."""
+        rec = _run_hc(hc_run_item_status_consistency, test_db)
+        assert _result(rec).result == "PASS"
         self._add_project(test_db)
         insert_item(test_db, id=1, title="Release item status test", status="release")
         insert_deployment_run(test_db, id="run-1", project="externalwebapp",
@@ -221,6 +225,7 @@ class TestHCRunItemStatusConsistencyFull:
         r = _result(rec)
         assert r.result == "WARN"
         assert "YOK-10" in r.detail
+        assert "status=release" in r.detail
 
     def test_warn_implemented_in_executing_run(self, test_db):
         """Test 9: WARN when item is still implemented inside an executing run."""
@@ -262,6 +267,8 @@ class TestHCRunQAUnsatisfiedFull:
 
     def test_pass_no_pending_qa(self, test_db):
         """Test 11: PASS when no pending blocking QA."""
+        rec = _run_hc(hc_run_qa_unsatisfied, test_db)
+        assert _result(rec).result == "PASS"
         self._add_project(test_db)
         insert_deployment_run(test_db, id="run-clean", project="externalwebapp",
                               flow="externalwebapp-release", status="succeeded")

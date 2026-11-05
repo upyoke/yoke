@@ -25,6 +25,7 @@ class TestList:
         assert len(lines) == 2
 
     def test_list_by_project(self, db_path):
+        assert dr.cmd_list(project="externalwebapp", db_path=db_path) == ""
         dr.cmd_create_run("yoke", "yoke-internal", db_path=db_path)
         dr.cmd_create_run("externalwebapp", "externalwebapp-standard", db_path=db_path)
         result = dr.cmd_list(project="externalwebapp", db_path=db_path)
@@ -99,7 +100,7 @@ class TestLineage:
             release_lineage="rel-001",
             db_path=db_path,
         )
-        dr.cmd_create_run(
+        r2 = dr.cmd_create_run(
             "yoke",
             "yoke-internal",
             release_lineage="rel-001",
@@ -109,6 +110,8 @@ class TestLineage:
         assert result is not None
         lines = [line for line in result.strip().split("\n") if line]
         assert len(lines) == 2
+        assert r1 in result
+        assert r2 in result
 
     def test_lineage_no_lineage_returns_none(self, db_path):
         rid = dr.cmd_create_run("yoke", "yoke-internal", db_path=db_path)

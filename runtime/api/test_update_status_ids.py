@@ -11,7 +11,6 @@ import os
 import pytest
 
 from runtime.api.update_status_full_test_helpers import (
-    TEST_EPIC_ID,
     TEST_EPIC_REF,
     UpdateStatusEnv,
 )
@@ -35,29 +34,6 @@ def env(tmp_path):
 class TestDBNative:
     """Tests 19, 19b, 20, 21 — DB updates, YOK-N ref, history, dispatch_attempts."""
 
-    def test_db_native_update(self, env):
-        """TEST 19: DB-native interface updates epic_tasks status."""
-        env.insert_task("planned")
-        env.init_git()
-        r = env.run(TEST_EPIC_REF, "003", "implementing", "Started")
-        assert r.returncode == 0
-        assert (
-            env.query("SELECT status FROM epic_tasks WHERE epic_id=42 AND task_num=3")
-            == "implementing"
-        )
-
-    def test_yok_n_ref_resolves(self, env):
-        """TEST 19b: YOK-N epic ref resolves to integer."""
-        env.insert_task("planned")
-        env.init_git()
-        r = env.run(TEST_EPIC_REF, "003", "implementing", "From YOK ref")
-        assert r.returncode == 0
-        assert (
-            env.query(
-                f"SELECT status FROM epic_tasks WHERE epic_id={TEST_EPIC_ID} AND task_num=3"
-            )
-            == "implementing"
-        )
 
     def test_history_insert(self, env):
         """TEST 20: TaskStatusChanged event inserted in epic_task_history."""
@@ -69,6 +45,7 @@ class TestDBNative:
             "SELECT COUNT(*) FROM epic_task_history WHERE epic_id=42 AND task_num=3"
         )
         assert count == 1
+        assert env.query("SELECT status FROM epic_tasks WHERE epic_id=42 AND task_num=3") == "implementing"
         assert (
             env.query(
                 "SELECT from_status FROM epic_task_history WHERE epic_id=42 AND task_num=3"

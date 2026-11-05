@@ -12,7 +12,7 @@ import os
 from io import StringIO
 from unittest import mock
 
-from yoke_core.engines.resync import DriftRecord, LocalOrphan, main
+from yoke_core.engines.resync import DriftRecord, main
 
 from runtime.api.engines._resync_full_test_helpers import (
     populated_db as populated_db,
@@ -21,68 +21,7 @@ from runtime.api.engines._resync_full_test_helpers import (
 
 
 class TestMainCLI:
-    def test_unknown_flag_returns_1(self):
-        """Unknown flag returns exit code 1."""
-        with mock.patch("sys.stderr", StringIO()):
-            rc = main(["--unknown"])
-        assert rc == 1
 
-    def test_detect_no_github_auth_exits_nonzero(self, test_db):
-        """A project whose GitHub App auth is not configured is reported
-        unavailable with its repair hint and the run exits non-zero -- the
-        old SKIP-on-no-gh path has been retired.
-        """
-        from yoke_core.domain.project_github_auth import MissingCapability
-
-        db_dir = os.path.dirname(test_db)
-        with (
-            mock.patch(
-                "yoke_core.engines.resync_runtime.resolve_project_github_auth",
-                side_effect=MissingCapability("yoke", "no capability"),
-            ),
-            mock.patch(
-                "yoke_core.engines.resync_detect_fetch.resolve_project_github_auth",
-                side_effect=MissingCapability("yoke", "no capability"),
-            ),
-            mock.patch(
-                "yoke_core.engines.resync._resolve_yoke_root", return_value=db_dir
-            ),
-            mock.patch("sys.stdout", StringIO()),
-            mock.patch("sys.stderr", StringIO()),
-        ):
-            rc = main(["--detect-only", "--project", "yoke"])
-        # Every project is treated alike: unavailable, never skipped.
-        assert rc == 1
-
-    def test_detect_with_local_orphans_returns_1(self, populated_db):
-        """Detect mode returns 1 when local orphans found."""
-        db_dir = os.path.dirname(populated_db)
-
-        def fake_linkage(db_path, yoke_root, *, project=""):
-            return (
-                [],
-                [
-                    LocalOrphan(
-                        "YOK-99", "/tmp/099.md", "backlog", "yoke", public_ref="YOK-99"
-                    )
-                ],
-                [],
-                {},
-            )
-
-        with (
-            mock.patch(
-                "yoke_core.engines.resync._resolve_yoke_root", return_value=db_dir
-            ),
-            mock.patch("yoke_core.engines.resync.stage1_linkage", fake_linkage),
-            mock.patch(
-                "yoke_core.engines.resync.stage1_5_heavy_fetch", return_value={}
-            ),
-            mock.patch("yoke_core.engines.resync.stage2_compare", return_value=[]),
-            mock.patch("sys.stdout", StringIO()),
-        ):
-            rc = main(["--detect-only", "--project", "yoke"])
-        assert rc == 1
 
     def test_detect_with_drifts_returns_1(self, populated_db):
         """Detect mode returns 1 when drifts found."""
@@ -107,43 +46,6 @@ class TestMainCLI:
             rc = main(["--detect-only", "--project", "yoke"])
         assert rc == 1
 
-    def test_detect_no_drift_returns_0(self, test_db):
-        """Detect mode returns 0 when no issues."""
-        db_dir = os.path.dirname(test_db)
-        with (
-            mock.patch(
-                "yoke_core.engines.resync._resolve_yoke_root", return_value=db_dir
-            ),
-            mock.patch(
-                "yoke_core.engines.resync.stage1_linkage", return_value=([], [], [], {})
-            ),
-            mock.patch(
-                "yoke_core.engines.resync.stage1_5_heavy_fetch", return_value={}
-            ),
-            mock.patch("yoke_core.engines.resync.stage2_compare", return_value=[]),
-            mock.patch("sys.stdout", StringIO()),
-        ):
-            rc = main(["--detect-only", "--project", "yoke"])
-        assert rc == 0
-
-    def test_fix_mode_no_failures_returns_0(self, test_db):
-        """Fix mode returns 0 when no failures."""
-        db_dir = os.path.dirname(test_db)
-        with (
-            mock.patch(
-                "yoke_core.engines.resync._resolve_yoke_root", return_value=db_dir
-            ),
-            mock.patch(
-                "yoke_core.engines.resync.stage1_linkage", return_value=([], [], [], {})
-            ),
-            mock.patch(
-                "yoke_core.engines.resync.stage1_5_heavy_fetch", return_value={}
-            ),
-            mock.patch("yoke_core.engines.resync.stage2_compare", return_value=[]),
-            mock.patch("sys.stdout", StringIO()),
-        ):
-            rc = main(["--fix"])
-        assert rc == 0
 
     def test_detect_doctor_format_with_drifts(self, test_db):
         """Detect + doctor-format with drifts emits HC lines."""

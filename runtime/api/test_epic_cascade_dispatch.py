@@ -81,7 +81,8 @@ class TestDispatchChain:
             "no_chain": 0,
             "started_at": "2025-01-01T00:00:00Z",
         }
-        epic.dispatch_chain_upsert(db_with_task, "42", TEST_ITEM_REF, data)
+        result = epic.dispatch_chain_upsert(db_with_task, "42", TEST_ITEM_REF, data)
+        assert "Upserted dispatch chain" in result
         result = epic.dispatch_chain_get(db_with_task, "42", TEST_ITEM_REF)
         parts = result.split("|")
         assert parts[1] == "42"
@@ -99,6 +100,7 @@ class TestDispatchChain:
         epic.dispatch_chain_update(
             db_with_chain, "42", TEST_ITEM_REF, "current_task", "2"
         )
+        assert epic.dispatch_chain_get(db_with_chain, "42", TEST_ITEM_REF).split("|")[5] == "2"
         row = db_with_chain.execute(
             "SELECT c.current_task FROM epic_dispatch_chains c "
             "JOIN item_worktrees iw ON iw.id=c.item_worktree_id "
@@ -116,6 +118,8 @@ class TestDispatchChain:
             "SELECT id FROM item_worktrees WHERE item_id=42 AND branch='YOK-42'"
         ).fetchone()["id"]
         assert str(lane_id) in result.split("|")
+        epic.dispatch_chain_upsert(db_with_chain, "42", "other", {"queue": [2]})
+        assert len(epic.dispatch_chain_list(db_with_chain, "42").splitlines()) == 2
 
 
 class TestDispatchChainAdvance:
@@ -148,6 +152,12 @@ class TestDispatchChainAdvance:
         ).fetchone()
         assert row["current_index"] == 1
         assert row["current_task"] == "2"
+        db_with_chain.execute(
+            "UPDATE epic_tasks SET status='reviewed-implementation' "
+            "WHERE epic_id=%s AND task_num=2", (TEST_ITEM_ID,),
+        )
+        db_with_chain.commit()
+        assert epic.dispatch_chain_advance(db_with_chain, "42", TEST_ITEM_REF) == "2|3"
 
     def test_advance_when_every_task_is_complete(self, db_with_chain):
         self._tasks(db_with_chain, {1: "done", 2: "done", 3: "reviewed-implementation"})

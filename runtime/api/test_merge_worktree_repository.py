@@ -6,7 +6,7 @@ from pathlib import Path
 import pytest
 
 from runtime.api import merge_worktree_test_repository as repositories
-from runtime.api.test_merge_worktree_full import TEST_BRANCH, _git, merge_env, run_merge
+from runtime.api.test_merge_worktree_full import TEST_BRANCH, _git
 
 
 def test_module_template_is_built_once_and_copies_are_independent(
@@ -54,9 +54,3 @@ def test_module_template_is_built_once_and_copies_are_independent(
         _git(copies[0] / "origin.git", "rev-parse", TEST_BRANCH).stdout
         != _git(copies[1] / "origin.git", "rev-parse", TEST_BRANCH).stdout
     )
-
-
-def test_copied_repository_and_template_database_complete_merge(tmp_path, request):
-    environment = merge_env.__wrapped__(tmp_path, request)
-    result = run_merge(environment)
-    assert result.exit_code == 0, result.stdout + result.stderr

@@ -63,26 +63,6 @@ def _merge_env_fixture(tmp_path, request):
 # ===========================================================================
 # Tests: Dirty file handling
 # ===========================================================================
-class TestDirtyFileHandling:
-    """Dirty file detection and safety stash."""
-
-    def test_yok96_safety_stash(self, merge_env: MergeEnv) -> None:
-        """Dirty Yoke-managed report stashed/restored, no stale stash."""
-        wt = merge_env.worktree
-        rel = "ouroboros/simulation-YOK-9999.md"
-        _write_file(wt / rel, "# simulation\n")
-        _git(wt, "add", rel)
-        _git(wt, "commit", "-m", "add simulation report")
-        _git(wt, "push", "origin", TEST_BRANCH)
-        # Now dirty it
-        _write_file(wt / rel, "# simulation\ndirty report\n")
-
-        result = run_merge(merge_env)
-        assert result.exit_code == 0
-
-        # No stale stash entries
-        stash = _git(merge_env.repo, "stash", "list", check=False)
-        assert "yoke-pre-rebase" not in stash.stdout
 
 
 # ===========================================================================
@@ -96,15 +76,6 @@ class TestBodyDiff:
         _write_file(
             merge_env.repo / ".yoke" / "BOARD.md.ts",
             "---\nid: YOK-1\ntitle: Test item\nstatus: done\n---\nBody content.\n",
-        )
-        result = run_merge(merge_env)
-        assert result.exit_code == 0
-
-    def test_body_diff_body_change(self, merge_env: MergeEnv) -> None:
-        """Generated board sidecar change invisible (gitignored)."""
-        _write_file(
-            merge_env.repo / ".yoke" / "BOARD.md.ts",
-            "---\nid: YOK-1\ntitle: Test item\nstatus: done\n---\nModified body.\n",
         )
         result = run_merge(merge_env)
         assert result.exit_code == 0
@@ -134,12 +105,6 @@ class TestStandaloneBoundaryCeremony:
 class TestPreflight:
     """Pre-flight validation."""
 
-    def test_yok206_preflight_clean(self, merge_env: MergeEnv) -> None:
-        """Clean worktree passes preflight."""
-        result = run_merge(merge_env)
-        assert result.exit_code == 0
-        assert "Running pre-flight checks" in result.stdout
-        assert "Pre-flight checks passed" in result.stdout
 
     def test_yok206_preflight_dirty_user_file(self, merge_env: MergeEnv) -> None:
         """Dirty user file fails preflight."""
@@ -162,6 +127,7 @@ class TestPreflight:
         result = run_merge(merge_env)
         assert result.exit_code == 0
         assert "OK: Worktree clean" in result.stdout
+        assert "yoke-pre-rebase" not in _git(merge_env.repo, "stash", "list", check=False).stdout
 
     def test_yok206_preflight_incomplete_tasks(self, merge_env: MergeEnv) -> None:
         """Incomplete epic tasks block merge."""

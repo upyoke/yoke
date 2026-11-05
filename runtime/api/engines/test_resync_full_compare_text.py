@@ -165,36 +165,3 @@ class TestStage2CompareTextLabel:
         drifts = stage2_compare(paired, gh_issues, {}, populated_db)
         body_drifts = [d for d in drifts if d.field == "body"]
         assert len(body_drifts) == 1
-
-    def test_no_body_drift_when_matching(self, populated_db):
-        """No body drift when bodies match."""
-        gh_issues = _make_gh_issues(
-            [
-                {
-                    "number": 100,
-                    "title": f"[{_FIXTURE_ITEM_REF}] Test item",
-                    "labels": [
-                        {"name": "status:implementing"},
-                        {"name": "priority:high"},
-                        {"name": "workflow:issue"},
-                        {"name": "source:manual"},
-                    ],
-                    "state": "OPEN",
-                    "body": "# Spec: Test item\n\nItem body\n",
-                }
-            ]
-        )
-        paired = [
-            PairedItem(
-                _FIXTURE_ITEM_REF,
-                "/tmp/042.md",
-                100,
-                "backlog",
-                "yoke",
-                "",
-                public_ref=_FIXTURE_ITEM_REF,
-            )
-        ]
-        drifts = stage2_compare(paired, gh_issues, {}, populated_db)
-        body_drifts = [d for d in drifts if d.field == "body"]
-        assert len(body_drifts) == 0
