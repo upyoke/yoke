@@ -12,7 +12,9 @@ def _item(node_id, fixtures=()):
     )
 
 
-def test_oldest_leg_deselects_repository_and_wheel_checks(monkeypatch):
+def test_oldest_leg_deselects_repository_and_wheel_checks(monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / ".test_durations").write_text("{}")
     monkeypatch.setenv("YOKE_CI_PYTHON_SCOPE", "interpreter")
     independent = [
         _item("tests/teaching_prototype/test_map.py::test_links"),
@@ -37,71 +39,17 @@ def test_latest_and_local_runs_keep_every_test(monkeypatch):
     assert len(items) == 1
 
 
-def test_file_groups_keep_setup_cases_together_and_cover_every_item():
-    items = [_item(f"tests/test_{name}.py::test_{case}")
-             for name in "abc" for case in range(2)]
-    durations = {item.nodeid: weight for item, weight in zip(items, [9, 1, 8, 2, 1, 1])}
-    groups = [selection.file_group(items, durations, 2, group) for group in (1, 2)]
-    assert groups[0][0].isdisjoint(groups[1][0])
-    assert groups[0][0] | groups[1][0] == {
-        "tests/test_a.py", "tests/test_b.py", "tests/test_c.py"
-    }
-    assert sorted(estimate for _, estimate in groups) == [10, 12]
-
-
-def test_new_files_receive_known_mean_weight():
-    items = [_item("tests/test_known.py::test_case"), _item("tests/test_new.py::test_case")]
-    groups = [selection.file_group(items, {items[0].nodeid: 4}, 2, n) for n in (1, 2)]
-    assert sorted(weight for _, weight in groups) == [4, 4]
-
-
-def test_short_expensive_files_start_before_long_cheap_files():
-    cheap = [_item(f"tests/test_cheap.py::test_{n}") for n in range(3)]
-    expensive = _item("tests/test_expensive.py::test_case")
-    items = cheap + [expensive]
-    splitter = SimpleNamespace(
-        cached_durations={item.nodeid: 1 for item in cheap} | {expensive.nodeid: 10},
-        writer=Mock(),
+def test_assigned_files_are_ordered_by_weight_and_fingerprinted(monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("YOKE_CI_PYTHON_SCOPE", "all")
+    (tmp_path / ".test_durations").write_text(
+        '{"tests/test_a.py::test_case": 1, "tests/test_b.py::test_case": 9}'
     )
-    config = SimpleNamespace(
-        option=SimpleNamespace(splits=1, group=1),
-        hook=SimpleNamespace(pytest_deselected=Mock()),
-    )
-    selection._FileSplitter(splitter).pytest_collection_modifyitems(config, items)
-    assert items == [expensive, *cheap]
-
-
-def test_product_wheel_files_share_one_shard():
-    wheel = [
-        _item(f"tests/test_wheel_{name}.py::test_case", ["product_venv"])
-        for name in "ab"
-    ] + [_item("tests/test_wheel_c.py::test_case", ["product_wheelhouse"])]
-    plain = [_item(f"tests/test_plain_{name}.py::test_case") for name in "ab"]
-    items = wheel + plain
-    durations = {item.nodeid: 5 for item in items}
-    groups = [selection.file_group(items, durations, 3, n)[0] for n in (1, 2, 3)]
-    wheel_files = {item.nodeid.split("::", 1)[0] for item in wheel}
-    assert [group for group in groups if group & wheel_files] == [wheel_files]
-    assert set().union(*groups) == wheel_files | {
-        "tests/test_plain_a.py", "tests/test_plain_b.py"
-    }
-
-
-def test_collection_fingerprint_records_the_unsplit_ids():
-    items = [_item(f"tests/test_{name}.py::test_case") for name in "abcd"]
-    splitter = SimpleNamespace(cached_durations={}, writer=Mock())
-    configs = []
-    for group in (1, 2):
-        config = SimpleNamespace(
-            option=SimpleNamespace(splits=2, group=group), workeroutput={},
-            hook=SimpleNamespace(pytest_deselected=Mock()),
-        )
-        selected = list(items)
-        selection._FileSplitter(splitter).pytest_collection_modifyitems(config, selected)
-        assert len(selected) == 2
-        configs.append(config)
-    assert configs[0].workeroutput == configs[1].workeroutput
-    assert configs[0].workeroutput["ci_collection"]["count"] == 4
+    items = [_item(f"tests/test_{name}.py::test_case") for name in "ab"]
+    config = SimpleNamespace(workeroutput={}, hook=SimpleNamespace(pytest_deselected=Mock()))
+    selection.pytest_collection_modifyitems(config, items)
+    assert items[0].nodeid == "tests/test_b.py::test_case"
+    assert config.workeroutput["ci_collection"]["count"] == 2
 
 
 def test_worker_collection_fingerprint_reaches_the_controller_log():

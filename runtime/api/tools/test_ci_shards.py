@@ -21,6 +21,15 @@ def _workflow() -> str:
     return WORKFLOW.read_text(encoding="utf-8")
 
 
+@pytest.fixture(autouse=True)
+def groups(tmp_path, monkeypatch):
+    from yoke_core.tools import ci_shard_groups
+    grouped = [[f"tests/test_file_{n}.py"] for n in ci_shards.shard_list()]
+    artifact = tmp_path / "groups.json"
+    artifact.write_text(json.dumps({"all": grouped, "interpreter": grouped}))
+    monkeypatch.setattr(ci_shard_groups, "GROUPS_PATH", str(artifact))
+
+
 def test_fan_out_is_the_shard_list_as_json() -> None:
     lines = ci_shards.fan_out_lines()
     assert len(lines) == 3
@@ -32,9 +41,9 @@ def test_fan_out_is_the_shard_list_as_json() -> None:
 
 def test_the_split_matches_the_fan_out_that_produced_the_group() -> None:
     command = ci_shards.pytest_command(3)
-    assert command[command.index("--splits") + 1] == str(ci_shards.SHARD_COUNT)
-    assert command[command.index("--group") + 1] == "3"
-    assert command[command.index("--splits") + 1] == str(len(ci_shards.shard_list()))
+    assert "--splits" not in command
+    assert "--group" not in command
+    assert "yoke_core.tools.ci_selection_collect" in command
     assert command[command.index("--dist") + 1] == "loadfile"
     assert "--no-loadscope-reorder" in command
     assert command[command.index("-n") :][: len(ci_shards.XDIST_ARGS)] == list(
