@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import os
 import sys
+from functools import cache
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Mapping, Sequence
@@ -29,6 +30,24 @@ FORBIDDEN_AUTHORITY_IMPORTS = (
     "psycopg",
     "psycopg2",
 )
+
+
+@cache
+def command_inventory():
+    """Build immutable checkout rows once per test-worker session."""
+    from yoke_cli import product_boundary_inventory as inventory
+
+    return inventory.generate_inventory(repo_root=REPO_ROOT)
+
+
+@cache
+def teaching_audit():
+    """Share the unchanged checkout audit; fixture repositories stay uncached."""
+    from yoke_cli import product_boundary_inventory as inventory
+
+    return inventory.generate_teaching_audit(repo_root=REPO_ROOT)
+
+
 BOUNDARY_MARKER = "__YOKE_PRODUCT_BOUNDARY__"
 
 _FORBIDDEN_JSON = json.dumps(FORBIDDEN_AUTHORITY_IMPORTS)

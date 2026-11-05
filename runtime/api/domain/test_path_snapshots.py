@@ -4,7 +4,7 @@ Covers idempotency, atomicity, machine-local checkout resolution, and
 whole-repo identity against a real git tree.
 
 Identity-layer tests live in
-``runtime/api/domain/test_path_registry.py``. Yoke-populated graph
+``runtime/api/domain/test_path_registry.py``. Synthetic large-tree graph
 performance tests live in
 ``runtime/api/domain/test_path_snapshots_yoke_graph.py``.
 """
@@ -38,15 +38,16 @@ def _p(conn) -> str:
 def _make_repo(tmp_path: Path, files: dict[str, str]) -> Path:
     repo = tmp_path / "repo"
     repo.mkdir()
-    subprocess.run(
-        ["git", "init", "-q", "-b", "main"], cwd=repo, check=True
-    )
+    subprocess.run(["git", "init", "-q", "-b", "main"], cwd=repo, check=True)
     subprocess.run(
         ["git", "config", "user.email", "test@example.com"],
-        cwd=repo, check=True,
+        cwd=repo,
+        check=True,
     )
     subprocess.run(
-        ["git", "config", "user.name", "Test"], cwd=repo, check=True,
+        ["git", "config", "user.name", "Test"],
+        cwd=repo,
+        check=True,
     )
     for rel, body in files.items():
         target = repo / rel
@@ -54,7 +55,9 @@ def _make_repo(tmp_path: Path, files: dict[str, str]) -> Path:
         target.write_text(body)
     subprocess.run(["git", "add", "-A"], cwd=repo, check=True)
     subprocess.run(
-        ["git", "commit", "-q", "-m", "seed"], cwd=repo, check=True,
+        ["git", "commit", "-q", "-m", "seed"],
+        cwd=repo,
+        check=True,
     )
     return repo
 
@@ -95,7 +98,8 @@ class TestBuildHeadSnapshot:
             snap_id = build_head_snapshot(conn, "demo")
             p = _p(conn)
             paths = {
-                r[0] for r in conn.execute(
+                r[0]
+                for r in conn.execute(
                     "SELECT path_string FROM path_targets t "
                     "JOIN path_snapshot_entries e ON e.target_id = t.id "
                     f"WHERE e.snapshot_id = {p} AND t.kind = 'file'",
@@ -143,15 +147,27 @@ class TestBuildHeadSnapshot:
         with path_snapshot_db(small_repo.parent, small_repo) as conn:
             snap_id = build_head_snapshot(conn, "demo")
             git_files = sorted(
-                line for line in subprocess.run(
-                    ["git", "-C", str(small_repo),
-                     "ls-tree", "-r", "--name-only", "HEAD"],
-                    check=True, capture_output=True, text=True,
-                ).stdout.splitlines() if line
+                line
+                for line in subprocess.run(
+                    [
+                        "git",
+                        "-C",
+                        str(small_repo),
+                        "ls-tree",
+                        "-r",
+                        "--name-only",
+                        "HEAD",
+                    ],
+                    check=True,
+                    capture_output=True,
+                    text=True,
+                ).stdout.splitlines()
+                if line
             )
             p = _p(conn)
             registered_files = sorted(
-                r[0] for r in conn.execute(
+                r[0]
+                for r in conn.execute(
                     "SELECT path_string FROM path_targets t "
                     "JOIN path_snapshot_entries e ON e.target_id = t.id "
                     f"WHERE e.snapshot_id = {p} AND t.kind = 'file'",
@@ -176,25 +192,17 @@ class TestIdempotency:
     def test_rerun_does_not_duplicate_targets_or_entries(self, small_repo):
         with path_snapshot_db(small_repo.parent, small_repo) as conn:
             build_head_snapshot(conn, "demo")
-            t1 = conn.execute(
-                "SELECT COUNT(*) FROM path_targets"
-            ).fetchone()[0]
-            e1 = conn.execute(
-                "SELECT COUNT(*) FROM path_snapshot_entries"
-            ).fetchone()[0]
-            s1 = conn.execute(
-                "SELECT COUNT(*) FROM path_snapshots"
-            ).fetchone()[0]
+            t1 = conn.execute("SELECT COUNT(*) FROM path_targets").fetchone()[0]
+            e1 = conn.execute("SELECT COUNT(*) FROM path_snapshot_entries").fetchone()[
+                0
+            ]
+            s1 = conn.execute("SELECT COUNT(*) FROM path_snapshots").fetchone()[0]
             build_head_snapshot(conn, "demo")
-            t2 = conn.execute(
-                "SELECT COUNT(*) FROM path_targets"
-            ).fetchone()[0]
-            e2 = conn.execute(
-                "SELECT COUNT(*) FROM path_snapshot_entries"
-            ).fetchone()[0]
-            s2 = conn.execute(
-                "SELECT COUNT(*) FROM path_snapshots"
-            ).fetchone()[0]
+            t2 = conn.execute("SELECT COUNT(*) FROM path_targets").fetchone()[0]
+            e2 = conn.execute("SELECT COUNT(*) FROM path_snapshot_entries").fetchone()[
+                0
+            ]
+            s2 = conn.execute("SELECT COUNT(*) FROM path_snapshots").fetchone()[0]
             assert (t1, e1, s1) == (t2, e2, s2)
 
     def test_atomic_rollback_on_failure(self, small_repo, monkeypatch):
@@ -208,12 +216,11 @@ class TestIdempotency:
             with pytest.raises(RuntimeError, match="simulated"):
                 build_head_snapshot(conn, "demo")
             # No partial state: nothing should have been minted.
-            assert conn.execute(
-                "SELECT COUNT(*) FROM path_targets"
-            ).fetchone()[0] == 0
-            assert conn.execute(
-                "SELECT COUNT(*) FROM path_snapshots"
-            ).fetchone()[0] == 0
-            assert conn.execute(
-                "SELECT COUNT(*) FROM path_snapshot_entries"
-            ).fetchone()[0] == 0
+            assert conn.execute("SELECT COUNT(*) FROM path_targets").fetchone()[0] == 0
+            assert (
+                conn.execute("SELECT COUNT(*) FROM path_snapshots").fetchone()[0] == 0
+            )
+            assert (
+                conn.execute("SELECT COUNT(*) FROM path_snapshot_entries").fetchone()[0]
+                == 0
+            )

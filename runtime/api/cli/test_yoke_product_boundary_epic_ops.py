@@ -4,6 +4,9 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from runtime.api.cli.product_boundary_test_support import (
+    command_inventory,
+)
 from yoke_cli import product_boundary_inventory as inventory
 
 
@@ -11,10 +14,7 @@ REPO_ROOT = Path(__file__).resolve().parents[3]
 
 
 def _rows() -> dict[str, inventory.InventoryRow]:
-    return {
-        row.command_helper: row
-        for row in inventory.generate_inventory(repo_root=REPO_ROOT)
-    }
+    return {row.command_helper: row for row in command_inventory()}
 
 
 def test_epic_ops_wrappers_are_https_relay_product_surfaces() -> None:

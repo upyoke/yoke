@@ -5,6 +5,9 @@ from __future__ import annotations
 from pathlib import Path
 
 from yoke_cli import operation_inventory as ops
+from runtime.api.cli.product_boundary_test_support import (
+    command_inventory,
+)
 from yoke_cli import product_boundary_inventory as inventory
 
 
@@ -12,10 +15,7 @@ REPO_ROOT = Path(__file__).resolve().parents[3]
 
 
 def _rows() -> dict[str, inventory.InventoryRow]:
-    return {
-        row.command_helper: row
-        for row in inventory.generate_inventory(repo_root=REPO_ROOT)
-    }
+    return {row.command_helper: row for row in command_inventory()}
 
 
 def test_browser_qa_lifecycle_commands_are_client_local_helpers() -> None:

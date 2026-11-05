@@ -4,7 +4,9 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from yoke_cli import product_boundary_inventory as inventory
+from runtime.api.cli.product_boundary_test_support import (
+    teaching_audit,
+)
 from yoke_cli import product_boundary_teaching as teaching
 
 
@@ -19,7 +21,7 @@ TARGET_RAW_FORMS = (
 
 
 def test_readiness_teaching_uses_registered_surfaces() -> None:
-    audit = inventory.generate_teaching_audit(repo_root=REPO_ROOT)
+    audit = teaching_audit()
     by_form = {row.command_form: row for row in audit.surfaces}
 
     for command_form in (

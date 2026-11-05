@@ -14,6 +14,15 @@ from yoke_core.domain.schema_fingerprint import (
 )
 from yoke_core.domain.source_authority_receipts import authority_receipt
 
+from runtime.api.domain.test_universe_portability_schema_validation import (
+    seed_older_schema,
+    assert_older_schema_restored,
+)
+from runtime.api.domain.test_universe_portability_qa_snapshots import (
+    seed_older_requirement_snapshot,
+    assert_requirement_snapshot_restored,
+)
+
 
 CONTENT_MIGRATION = "0006_migration_content_identity"
 
@@ -42,7 +51,9 @@ def _remove_content_identity_schema(conn: psycopg.Connection) -> tuple[str, ...]
     return names
 
 
-def test_pre_content_archive_restores_and_converges_to_current_schema(tmp_path) -> None:
+def test_older_archive_restores_schema_content_and_requirement_snapshots(
+    tmp_path,
+) -> None:
     with _canonical_test_universe() as (source, source_dsn):
         with _canonical_test_universe() as (reference, _reference_dsn):
             expected_fingerprint = fingerprint_portable_postgres_schema(reference)
@@ -53,6 +64,8 @@ def test_pre_content_archive_restores_and_converges_to_current_schema(tmp_path) 
             "INSERT INTO projects (id, slug, name, public_item_prefix, created_at) "
             "VALUES (88901, 'portable-content', 'Portable Content', 'PCM', now())"
         )
+        seed_older_schema(source)
+        requirement_id = seed_older_requirement_snapshot(source)
         legacy_names = _remove_content_identity_schema(source)
         archive = tmp_path / "pre-content-identity.dump"
         portability.dump_universe(source_dsn, archive)
@@ -90,6 +103,8 @@ def test_pre_content_archive_restores_and_converges_to_current_schema(tmp_path) 
                 raise
             assert result["org"] == "default"
             with psycopg.connect(target_dsn) as converged:
+                assert_older_schema_restored(converged)
+                assert_requirement_snapshot_restored(converged, requirement_id)
                 assert converged.execute(
                     "SELECT name FROM projects WHERE id=88901"
                 ).fetchone() == ("Portable Content",)
