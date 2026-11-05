@@ -43,7 +43,10 @@ fallbacks, loaded by `ui/static/fonts.css`, and OFL notices in `ui/static/fonts-
 martianmono). Consumer stylesheets load their adjacent `fonts.css`, keeping font
 URLs correct under both local and hosted asset prefixes. Public docs carry the
 same font bytes embedded in their generated `fonts.css`: installed docs use a
-text bundle. `brand/export.sh` refreshes that CSS from the UI WOFF2 sources. Martian Mono is retained for live brand text.
+text bundle. `brand/export.sh` refreshes that CSS from the UI WOFF2 sources and
+includes the complete OFL notices in its leading comment. Docs assets permit CSS,
+SVG and HTML files, so no separate license text file is published there.
+Martian Mono is retained for live brand text.
 
 The repository permits this source asset exporter as its sole `.sh` file.
 
