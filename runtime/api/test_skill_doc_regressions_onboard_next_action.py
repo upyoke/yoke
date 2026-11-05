@@ -35,7 +35,8 @@ def test_steer_requires_vetting_and_approval_before_filing():
     rules = (SKILLS / "steer/SKILL.md").read_text()
     assert "File software work only as dashes" in rules
     assert "explicit operator workflow choices intact" in rules
-    assert "correct dependency edges" in rules
+    assert "Don't hand-roll waves" in rules
+    assert "ordering need as a dependency edge" in rules
     assert "Vet each proposal with a subagent for overengineering" in rules
     assert "simplify or delete" in rules
     assert "prefer no new DB fields or migrations" in rules
