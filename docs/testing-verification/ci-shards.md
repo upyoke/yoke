@@ -33,7 +33,12 @@ collection hook applies the same scope in grouping, shards and coverage checks. 
 
 Every CI entry refreshes the timing weights from one successful retained run's
 complete newest-interpreter report set. It shares that single profile artifact
-with every shard, so matrix jobs cannot select against different profiles.
+with every shard for within-shard file ordering. In full CI, `reuse-coverage`
+refreshes weights and runs repo contracts in parallel with the collection and
+wheel build in `repo-contracts`. File assignment uses the committed profile,
+so grouping never waits for retained-report downloads or repository checks.
+Both prerequisite jobs must pass before shards start; required check names
+and independent shard-coverage checks stay unchanged.
 Missing report telemetry prints a named reason and recovery while CI retains
 the committed profile; telemetry availability never decides whether tests run.
 There is no scheduled refresh or automated source commit.
@@ -68,7 +73,7 @@ this rolling average damps setup attribution and runner contention noise.
 Use `--reset` with a complete passing report set after changing fixture setup
 or scheduling costs substantially, so obsolete costs do not bias the baseline.
 `ci_shard_groups` runs one collect-only pass without xdist in `repo-contracts`,
-in parallel with portable-wheel construction, after refreshing weights. It
+in parallel with portable-wheel construction, using committed weights. It
 records fixture and marker facts and publishes `ci-shard-groups.json` for both
 interpreter scopes. It sums recorded durations per file, gives unmeasured files
 the known mean file weight, and places the heaviest fixture units on the
@@ -248,7 +253,8 @@ runner through the composite action `.github/actions/yoke-test-runner`. A
 composite action keeps each job's own check names, so the required
 `test-shard (...)` contexts in `.yoke/merge-queue.json` stay unchanged. The
 selection's plan job refreshes the timing profile from retained CI reports
-and shares it as `ci-test-durations`, as `repo-contracts` does. Selection
+and shares it as `ci-test-durations`, as full CI's `reuse-coverage` does.
+Selection sizing and splitting both use that refreshed profile. Selection
 shards set `YOKE_CI_PYTHON_SCOPE=all`, so whole files stay on one shard.
 
 A selection shard passes pytest the same three roots as a full shard. It

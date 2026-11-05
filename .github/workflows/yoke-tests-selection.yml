@@ -9,7 +9,7 @@ name: yoke-tests-selection
 # Every selection shard is laid out exactly like a yoke-ci test shard: the
 # newest supported Python, the shared yoke-test-runner setup, whole-file
 # splitting (YOKE_CI_PYTHON_SCOPE), and the timing profile the plan job
-# refreshes from retained CI reports the way yoke-ci's repo-contracts job
+# refreshes from retained CI reports the way yoke-ci's reuse-coverage job
 # does. Shards collect from the suite's own roots and skip unselected files,
 # so a selection never collects more than full CI does.
 #

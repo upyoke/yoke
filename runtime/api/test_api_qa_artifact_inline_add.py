@@ -19,7 +19,7 @@ from yoke_contracts.api.function_call import (
     FunctionCallRequest,
     TargetRef,
 )
-from yoke_core.domain import machine_config, project_scratch_dir
+from yoke_core.domain import machine_config, project_scratch_dir, qa_artifact_size
 from yoke_core.domain.handlers.qa_artifact_add import handle_qa_artifact_add
 from yoke_core.domain.handlers.qa_artifact_read import (
     MAX_INLINE_BYTES,
@@ -317,7 +317,7 @@ def test_existing_s3_handle_add_still_records_the_authorized_handle() -> None:
         with patch(
             "yoke_core.domain.handlers.qa_artifact_presign.resolve_artifacts_bucket",
             return_value=("prod", "p-prod-artifacts", None),
-        ), patch("yoke_core.domain.qa_artifact_size.handle_size", return_value=3):
+        ), patch.object(qa_artifact_size, "handle_size", return_value=3):
             outcome = handle_qa_artifact_add(
                 _request(
                     {

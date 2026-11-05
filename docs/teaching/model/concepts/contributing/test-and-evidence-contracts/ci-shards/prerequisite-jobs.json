@@ -1,0 +1,10 @@
+{
+ "id": "prerequisite-jobs",
+ "title": "Parallel CI prerequisites",
+ "status": "observed",
+ "audience": "Maintainers",
+ "summary": "Full CI runs repo checks and timing refresh in reuse-coverage, parallel with collection and wheel construction in repo-contracts. Shared file assignment uses committed weights; the refreshed artifact orders files within shards. Both prerequisite jobs must pass, and required check names remain unchanged.",
+ "sources": ["docs/testing-verification/ci-shards.md", ".github/workflows/yoke-ci.yml", "runtime/api/tools/test_ci_selection_layout.py", "runtime/api/test_yoke_ci_authorization_shape.py"],
+ "page": "test-and-evidence-contracts",
+ "position": 0
+}

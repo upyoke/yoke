@@ -99,6 +99,32 @@ def test_the_plan_refreshes_the_profile_every_shard_splits_with() -> None:
     )
 
 
+def test_full_ci_checks_and_refresh_run_beside_shared_collection() -> None:
+    jobs = _jobs("yoke-ci.yml")
+    collection = jobs["repo_contracts"]
+    checks = jobs["reuse_coverage"]
+    assert not collection.get("needs") and not checks.get("needs")
+    assert "Build product wheels and collect shard files" in _names(collection)
+    for name in (
+        "Refresh shard timing profile from retained CI reports", "Run repo contracts",
+        "Share the timing profile with every shard",
+    ):
+        assert name in _names(checks) and name not in _names(collection)
+        step = next(step for step in checks["steps"] if step.get("name") == name)
+        assert "if" not in step, "contracts and profile publication run on reused trees too"
+    refresh = next(step for step in checks["steps"] if "ci_durations_refresh" in step.get("run", ""))
+    assert refresh["continue-on-error"] is True, "missing telemetry must keep the baseline usable"
+    assert _names(checks).index(refresh["name"]) < _names(checks).index(
+        "Share the timing profile with every shard"
+    )
+    for name in ("test_shard", "shard_coverage", "browser_runtime"):
+        assert {"repo_contracts", "reuse_coverage"} <= set(jobs[name]["needs"])
+        assert "needs.reuse_coverage.result == 'success'" in jobs[name]["if"]
+    artifacts = [step["with"]["name"] for step in checks["steps"]
+                 if step.get("uses", "").startswith("actions/upload-artifact")]
+    assert artifacts.count("ci-test-durations") == 1
+
+
 @pytest.mark.parametrize(
     ("runner", "installed", "curl_exit", "expected"),
     [("self-hosted", False, 0, 1), ("self-hosted", True, 0, 0),

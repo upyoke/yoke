@@ -35,10 +35,10 @@ env:
 
 jobs:
   repo_contracts:
-    # Includes checkout, locked dependencies, portable wheels and repository checks.
+    # Publishes portable wheels and fixture-aware file groups; checks run in parallel.
     timeout-minutes: 10
     name: repo-contracts
-    permissions: {contents: read, actions: read}
+    permissions: {contents: read}
     runs-on: ${{ fromJSON(vars.YOKE_LINUX_RUNS_ON || '["ubuntu-26.04"]') }}
     outputs:
       shards: ${{ steps.fan_out.outputs.shards }}
@@ -61,15 +61,6 @@ jobs:
         with:
           python-version: ${{ steps.fan_out.outputs.python_latest }}
           pg-container: yoke-ci-collection-pg-${{ github.run_id }}
-
-      - name: Refresh shard timing profile from retained CI reports
-        continue-on-error: true # Missing compatible telemetry leaves the committed profile usable.
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: >-
-          uv run python -m yoke_core.tools.ci_durations_refresh --target-root .
-          --latest --repository "${{ github.repository }}"
-          --python "${{ steps.fan_out.outputs.python_latest }}"
 
       - name: Build product wheels and collect shard files
         run: |
@@ -100,19 +91,6 @@ jobs:
           retention-days: 7
           if-no-files-found: error
 
-      - name: Share the timing profile with every shard
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        with:
-          name: ci-test-durations
-          path: .test_durations
-          include-hidden-files: true
-          retention-days: 7
-          if-no-files-found: error
-
-      - name: Run repo contracts
-        run: >-
-          uv run python -m yoke_core.tools.ci_repo_contracts
-          --base "origin/${{ github.event.repository.default_branch }}"
       - name: Stop collection Postgres
         if: always()
         run: |
@@ -154,11 +132,43 @@ jobs:
           retention-days: 1
           overwrite: true
           if-no-files-found: error
+      - name: Publish supported Python endpoints
+        id: fan_out
+        run: >-
+          PYTHONPATH=packages/yoke-core/src:packages/yoke-contracts/src python3 -m
+          yoke_core.tools.ci_shards fan-out --write-github-output
+      - name: Set up contract interpreter
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
+        with: {python-version: '${{ steps.fan_out.outputs.python_latest }}'}
+      - name: Install contract dependencies
+        run: python -m pip install uv && uv sync --all-packages --locked
+      - name: Refresh shard timing profile from retained CI reports
+        continue-on-error: true # Missing compatible telemetry leaves the committed profile usable.
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: >-
+          uv run python -m yoke_core.tools.ci_durations_refresh --target-root .
+          --latest --repository "${{ github.repository }}"
+          --python "${{ steps.fan_out.outputs.python_latest }}"
+
+      - name: Share the timing profile with every shard
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: ci-test-durations
+          path: .test_durations
+          include-hidden-files: true
+          retention-days: 7
+          if-no-files-found: error
+
+      - name: Run repo contracts
+        run: >-
+          uv run python -m yoke_core.tools.ci_repo_contracts
+          --base "origin/${{ github.event.repository.default_branch }}"
   test_shard:
     timeout-minutes: 35
     name: test-shard
     needs: [repo_contracts, reuse_coverage]
-    if: ${{ !cancelled() && needs.repo_contracts.result == 'success' }}
+    if: ${{ !cancelled() && needs.repo_contracts.result == 'success' && needs.reuse_coverage.result == 'success' }}
     runs-on: ${{ fromJSON(vars.YOKE_LINUX_RUNS_ON || '["ubuntu-26.04"]') }}
     env:
       YOKE_CI_PYTHON_SCOPE: ${{ matrix.python-version == needs.repo_contracts.outputs.python_latest && 'all' || 'interpreter' }}
@@ -240,7 +250,7 @@ jobs:
     timeout-minutes: 15
     name: shard-coverage
     needs: [repo_contracts, reuse_coverage, test_shard]
-    if: ${{ !cancelled() && needs.repo_contracts.result == 'success' }}
+    if: ${{ !cancelled() && needs.repo_contracts.result == 'success' && needs.reuse_coverage.result == 'success' }}
     runs-on: ${{ fromJSON(vars.YOKE_LINUX_RUNS_ON || '["ubuntu-26.04"]') }}
     strategy:
       fail-fast: false
@@ -289,7 +299,7 @@ jobs:
           if [ -n "${YOKE_PG_SOCKET_DIR:-}" ]; then sudo rm -rf -- "$YOKE_PG_SOCKET_DIR"; fi
   browser_runtime:
     needs: [repo_contracts, reuse_coverage]
-    if: ${{ !cancelled() && needs.repo_contracts.result == 'success' }}
+    if: ${{ !cancelled() && needs.repo_contracts.result == 'success' && needs.reuse_coverage.result == 'success' }}
     uses: ./.github/workflows/browser-runtime-tests.yml
   container:
     timeout-minutes: 10

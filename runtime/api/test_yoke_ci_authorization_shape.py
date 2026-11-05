@@ -221,10 +221,13 @@ def test_only_a_run_that_executes_the_suite_publishes_coverage_evidence() -> Non
 
 def test_long_work_jobs_use_cancellation_aware_conditions() -> None:
     jobs = _yoke_ci()["jobs"]
-    contracts_ok = "${{ !cancelled() && needs.repo_contracts.result == 'success' }}"
-    assert " ".join(str(jobs["test_shard"]["if"]).split()) == contracts_ok
-    assert " ".join(str(jobs["shard_coverage"]["if"]).split()) == contracts_ok
-    assert " ".join(str(jobs["browser_runtime"]["if"]).split()) == contracts_ok
+    prerequisites_ok = (
+        "${{ !cancelled() && needs.repo_contracts.result == 'success' "
+        "&& needs.reuse_coverage.result == 'success' }}"
+    )
+    assert " ".join(str(jobs["test_shard"]["if"]).split()) == prerequisites_ok
+    assert " ".join(str(jobs["shard_coverage"]["if"]).split()) == prerequisites_ok
+    assert " ".join(str(jobs["browser_runtime"]["if"]).split()) == prerequisites_ok
     # Python coverage never stands in for the commit-versioned image build.
     assert "if" not in jobs["container"] and "needs" not in jobs["container"]
     steps = {step["name"]: step for step in jobs["test_shard"]["steps"]}
