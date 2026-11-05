@@ -188,6 +188,7 @@ def send_message(
     message_id: str | None = None,
     actor_id: int,
     sender_session_id: str | None,
+    engine_sender: bool = False,
     sender_surface: str | None = None,
     selector: RecipientSelector,
     body: str,
@@ -288,7 +289,7 @@ def send_message(
         details, created = insert_message(
             conn,
             message_id=message_id,
-            sender_actor_id=actor_id,
+            sender_actor_id=None if engine_sender else actor_id,
             sender_session_id=sender_session_id,
             sender_surface=(
                 sender_surface

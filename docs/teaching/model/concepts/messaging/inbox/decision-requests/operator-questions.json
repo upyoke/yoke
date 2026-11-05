@@ -1,0 +1,6 @@
+{
+ "id": "operator-questions",
+ "title": "Operator questions",
+ "status": "observed",
+ "summary": "Immutable, non-gating questions record the asking session, context, choices, recommendation and optional image/PDF evidence. Steering keeps pending Inbox decisions synchronized with chat, resolves answers immediately, and withdraws or atomically replaces stale questions. Fleet delivers answers while the decision remains durable. Askers use plain language, sufficient context, named things and very short questions."
+}

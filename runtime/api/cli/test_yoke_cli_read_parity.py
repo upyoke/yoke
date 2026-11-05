@@ -191,6 +191,7 @@ def test_decision_get_hides_request_from_unrelated_actor():
             "yoke_core.domain.decision_request_rows.request_row",
             return_value={
                 "id": 8,
+                "kind": "qa_needs_review",
                 "decisions": [],
                 "originator_actor_id": 1,
             },

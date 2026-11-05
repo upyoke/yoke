@@ -31,7 +31,8 @@ function artifactReads(context) {
 
 export async function readArtifact(context, artifact) {
   const reads = artifactReads(context);
-  const key = `${artifact.requirement_id}:${artifact.id}`;
+  const question = artifact.decision_request_id;
+  const key = `${question ? `question:${question}` : artifact.requirement_id}:${artifact.id}`;
   const existing = reads.get(key);
   if (existing) return existing;
   let timer;
@@ -44,9 +45,9 @@ export async function readArtifact(context, artifact) {
   const pending = Promise.race([
     callFunction(
       context.client,
-      "qa.artifact.read",
-      { artifact_id: artifact.id },
-      { kind: "qa_requirement", qa_requirement_id: artifact.requirement_id },
+      question ? "decision_requests.attachment.read" : "qa.artifact.read",
+      { artifact_id: artifact.id, ...(question ? { request_id: question } : {}) },
+      question ? { kind: "global" } : { kind: "qa_requirement", qa_requirement_id: artifact.requirement_id },
       controller ? { signal: controller.signal } : undefined,
     ),
     new Promise((_, reject) => {

@@ -1,7 +1,8 @@
 {
  "id": "decision-requests",
  "title": "Decision requests",
- "status": "draft-copy",
+ "status": "observed",
  "page": "messaging",
- "position": 1
+ "position": 1,
+ "summary": "Decision requests include gates and non-gating operator questions. Questions keep immutable text, requesting sessions, options and durable answers; requesting sessions or steering can withdraw or atomically replace stale questions."
 }

@@ -5,6 +5,7 @@ from yoke_cli.commands.adapters import (
     harness_machine_report,
     machine,
     inbox_decisions,
+    decision_request_questions,
     item_landings,
     item_worktree_create,
     item_worktrees,
@@ -149,6 +150,18 @@ TEST_MACHINE_SUBCOMMAND_REGISTRY = {
 }
 
 INBOX_DECISION_SUBCOMMAND_REGISTRY = {
+    ("decision-requests", "withdraw"): (
+        "decision_requests.withdraw",
+        decision_request_questions.decision_requests_withdraw,
+    ),
+    ("decision-requests", "ask"): (
+        "decision_requests.ask",
+        decision_request_questions.decision_requests_ask,
+    ),
+    ("decision-requests", "list"): (
+        "decision_requests.list",
+        decision_request_questions.decision_requests_list,
+    ),
     ("inbox", "list"): ("inbox.list", inbox_decisions.inbox_list),
     ("decision-requests", "get"): (
         "decision_requests.get",

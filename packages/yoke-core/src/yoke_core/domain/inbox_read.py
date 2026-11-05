@@ -28,11 +28,10 @@ def inbox_for_actor(
 ) -> dict[str, Any]:
     """Converge dead asks, then compose what still needs a person.
 
-    Two content types reach a person in the Inbox itself and they are the
-    only two: a gate waiting on their decision, and a message someone sent
-    them. Rendering the Inbox is where a decision whose subject already
+    Decision requests include gates and non-gating operator questions,
+    beside messages someone sent them. Rendering the Inbox is where a decision whose subject already
     ended does its damage, so it is also where convergence earns its keep:
-    the reader never sees a gate that gates nothing. A desktop wake notice
+    the reader never sees a request whose subject has ended. A desktop wake notice
     converges the same way and for the same reason — it reports an absence,
     and the absence ends without anyone telling the notice.
 

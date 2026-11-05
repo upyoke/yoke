@@ -1,5 +1,3 @@
-"""Validated decision facts carried by human approval requests."""
-
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
@@ -8,6 +6,7 @@ from typing import Any, NoReturn
 from yoke_contracts.refusal_recovery import compose_refusal
 
 from yoke_core.domain import decision_request_merge_candidate as _merge_candidate
+from yoke_core.domain import decision_request_operator_question as _question
 from yoke_core.domain.decision_request_contract import (
     DEPLOYMENT_STAGE_APPROVAL,
     LIFECYCLE_TRANSITION_APPROVAL,
@@ -322,6 +321,7 @@ _VALIDATORS = {
     LIFECYCLE_TRANSITION_APPROVAL: _validate_lifecycle,
     DEPLOYMENT_STAGE_APPROVAL: _validate_deployment,
     _merge_candidate.KIND: _merge_candidate.validate,
+    _question.KIND: _question.validate,
 }
 
 
@@ -329,7 +329,7 @@ def validate_subject_context(
     kind: str,
     value: Mapping[str, Any] | None,
 ) -> dict[str, Any]:
-    """Validate gate-specific facts and return a detached JSON-ready object."""
+    """Validate kind-specific facts and return a detached JSON-ready object."""
     context = dict(value or {})
     validator = _VALIDATORS.get(kind)
     if validator is not None:

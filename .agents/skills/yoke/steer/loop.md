@@ -39,6 +39,19 @@ yoke messages acknowledge MESSAGE-ID
 ```
 
 Read and acknowledge full messages; act, hold, or surface decisions this pass.
+Every pending operator decision must exist as a pending Inbox decision request
+and be raised in steering chat. Reconcile Questions waiting on you against chat
+each time you report. Withdraw questions that no longer need an answer; use
+`ask --replaces` when facts change. Record chat answers through resolve immediately.
+Use plain language, give the context needed to decide, name things in words (any id follows the name in parentheses), and keep the question very short.
+When a worker needs an operator decision, answer from standing direction or file
+`yoke decision-requests ask --session REQUESTING-SESSION-ID --key SLUG --question TEXT`
+with context, options, recommendation and held item. Present pending operator
+questions from the report one at a time with context and your recommendation.
+Record the operator answer with `decision-requests resolve ID OPTION-ID` or
+`resolve ID freeform --note TEXT`; if unauthorized, answer it on the Inbox page.
+Cancel stale questions with `decision-requests withdraw ID --reason TEXT`, or file
+an immutable replacement with `ask --replaces ID`; never edit a filed question.
 Workers may finish without mail. Verify `DONE PREFIX-N` means terminal status
 and the last claim released `completed`:
 

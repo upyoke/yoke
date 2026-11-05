@@ -1,9 +1,7 @@
 """Closed decision-request vocabulary.
 
-Every kind here gates something: a person's answer is what releases a
-deployment stage, a QA verdict, an item transition, or a merge candidate.
-There is no non-gating kind, so a request row needs no flag saying whether
-it blocks -- being a request is what blocking means.
+Gate kinds release deployment stages, QA, item transitions or merges.
+Operator questions ask for advice and never release any gate.
 """
 
 from __future__ import annotations
@@ -16,6 +14,7 @@ QA_NEEDS_REVIEW = "qa_needs_review"
 LIFECYCLE_TRANSITION_APPROVAL = "lifecycle_transition_approval"
 RETIRED_DECISION_KINDS = ("machine_approval",)
 MERGE_CANDIDATE_REVIEW = "merge_candidate_review"
+OPERATOR_QUESTION = "operator_question"
 
 # Storage retains retired kinds so historical rows stay valid. Creation and
 # actions are limited to the active DECISION_KINDS contract below.
@@ -25,6 +24,7 @@ DECISION_REQUEST_KINDS = (
     LIFECYCLE_TRANSITION_APPROVAL,
     *RETIRED_DECISION_KINDS,
     MERGE_CANDIDATE_REVIEW,
+    OPERATOR_QUESTION,
 )
 
 
@@ -37,6 +37,9 @@ class DecisionKind:
 
 
 DECISION_KINDS = {
+    OPERATOR_QUESTION: DecisionKind(
+        (), "project", ("owner", "operator"), "session_question"
+    ),
     DEPLOYMENT_STAGE_APPROVAL: DecisionKind(
         ("approve", "reject"),
         "project",

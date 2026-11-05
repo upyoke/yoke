@@ -177,6 +177,17 @@ function textChip(context, artifact) {
       chip.children[1].textContent = outcome.state;
       return;
     }
+    if (artifact.content_type === "application/pdf") {
+      const view = documentNode.defaultView;
+      if (outcome.href) view?.open(outcome.href, "_blank");
+      else if (view?.URL && outcome.base64) {
+        const bytes = Uint8Array.from(atob(outcome.base64), (char) => char.charCodeAt(0));
+        const url = view.URL.createObjectURL(new Blob([bytes], { type: "application/pdf" }));
+        view.open(url, "_blank");
+        setTimeout(() => view.URL.revokeObjectURL(url), 60_000);
+      }
+      return;
+    }
     if (outcome.base64 !== undefined) {
       openTextLightbox(documentNode, label, decodeText(outcome.base64));
       return;

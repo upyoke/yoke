@@ -43,6 +43,9 @@ Read [envelope and authority](index.md) first. `none` means no dispatcher work-c
 | `db_claim.amend` | `item` |
 | `decision_requests.create` | `none` |
 | `decision_requests.dispose_ended` | `none` |
+| `decision_requests.ask` | `none` |
+| `decision_requests.list` | `none` |
+| `decision_requests.attachment.read` | `none` |
 | `decision_requests.get` | `none` |
 | `decision_requests.resolve` | `none` |
 | `decision_requests.withdraw` | `none` |

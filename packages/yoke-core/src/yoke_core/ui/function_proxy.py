@@ -11,10 +11,8 @@ from __future__ import annotations
 import uuid
 from typing import Any, Dict, Optional, Tuple
 
-#: The closed roster of function ids the browser proxy may dispatch as
-#: reads. Read-only by construction — registered with no side effects
-#: and no claim requirement — except the documented activation-latch
-#: entry below.
+#: Closed browser reads have no side effects or claim requirement, except
+#: the activation-latch functions declared below.
 UI_READ_FUNCTION_ALLOWLIST = frozenset(
     {
         "organizations.get",
@@ -84,6 +82,7 @@ UI_READ_FUNCTION_ALLOWLIST = frozenset(
         "qa.requirement.get",
         "qa.run.list",
         "qa.artifact.read",
+        "decision_requests.attachment.read",
         "inbox.list",
         "workflow.execution_instruction.list",
         "workflow.execution_instruction.resolve",

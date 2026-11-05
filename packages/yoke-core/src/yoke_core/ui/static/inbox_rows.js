@@ -38,7 +38,7 @@ export function createDecisionResolver(context, reload) {
     appendRowError(
       documentNode,
       wrap,
-      result.envelope.error?.message || "The decision could not be resolved.",
+      [result.envelope.error?.code, result.envelope.error?.message].filter(Boolean).join(": ") || "The decision could not be resolved.",
     );
   };
 }

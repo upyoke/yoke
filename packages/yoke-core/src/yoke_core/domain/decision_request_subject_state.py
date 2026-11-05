@@ -10,6 +10,7 @@ from typing import Any, Callable, Mapping
 from yoke_core.domain.project_identity import render_item_ref
 from yoke_core.domain import db_backend
 from yoke_core.domain import decision_request_merge_candidate as _merge_candidate
+from yoke_core.domain import decision_request_operator_question as _question
 from yoke_core.domain.decision_request_contract import (
     DEPLOYMENT_STAGE_APPROVAL,
     LIFECYCLE_TRANSITION_APPROVAL,
@@ -259,6 +260,7 @@ _SUBJECT_STATE_CHECKS: dict[str, SubjectStateCheck] = {
     QA_NEEDS_REVIEW: _qa_review_ended,
     LIFECYCLE_TRANSITION_APPROVAL: _lifecycle_transition_ended,
     _merge_candidate.KIND: _merge_candidate.subject_ended,
+    _question.KIND: _question.subject_ended,
 }
 
 
