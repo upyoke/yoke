@@ -148,3 +148,61 @@ def test_terminal_item_questions_are_disposed(test_db):
     receipt = dispose_ended_decision_requests(test_db, project_ids=[PROJECT_YOKE])
     assert question["id"] in [row["request_id"] for row in receipt["withdrawn"]]
     assert request_row(test_db, question["id"])["status"] == "withdrawn"
+
+
+def test_question_outcomes_are_delivered_once(test_db):
+    from dataclasses import replace
+    from datetime import timedelta
+    from yoke_core.domain.decision_request_question_filing import file_question
+    from yoke_core.domain.decision_request_resolution import withdraw_decision_request
+    from yoke_core.domain.decision_requests import RoleAuthority
+    from yoke_core.domain.steering_fleet_report_questions import read_questions
+    from yoke_core.domain.steering_fleet_report_compose import CombinedFleetReport
+    from yoke_core.domain.steering_fleet_report_hook_digest import combined_hook_digest
+    from runtime.api.domain.test_fleet_delta_reports import NOW
+
+    _project(test_db)
+    session = "question-worker"
+    seed_session(test_db, session)
+    ids = []
+    for key in ("answer", "withdraw", "consume"):
+        question, _ = file_question(
+            test_db,
+            kind="operator_question",
+            subject_type="session_question",
+            subject_key=f"{session}:{key}",
+            requesting_session_id=session,
+            session_id=session,
+            project_id=PROJECT_YOKE,
+            originator_actor_id=1,
+            role_authorities=[RoleAuthority("project", PROJECT_YOKE, "owner")],
+            subject_context={
+                "question": "Which color?",
+                "options": [{"id": "blue", "label": "Blue"}],
+            },
+        )
+        ids.append(question["id"])
+    before = CombinedFleetReport(
+        NOW, (), questions=read_questions(test_db, [PROJECT_YOKE])
+    )
+    prior = before.fingerprint()
+    resolve_decision_request(
+        test_db, ids[0], actor_id=1, action="blue", session_id=session
+    )
+    withdraw_decision_request(
+        test_db, ids[1], reason="No longer needed", actor_id=1, session_id=session
+    )
+    test_db.execute(
+        "UPDATE decision_requests SET consumed_at=%s WHERE id=%s", (NOW, ids[2])
+    )
+    test_db.commit()
+    rows = read_questions(test_db, [PROJECT_YOKE], ids)
+    after = CombinedFleetReport(NOW + timedelta(minutes=1), (), question_outcomes=rows)
+    digest = combined_hook_digest(after, prior)
+    for request_id, outcome in zip(ids, ("answered (Blue)", "withdrawn", "consumed")):
+        assert digest.count(f"request {request_id} no longer waiting: {outcome}") == 1
+    assert (
+        combined_hook_digest(replace(after, question_outcomes=()), after.fingerprint())
+        == ""
+    )
+    assert read_questions(test_db, [PROJECT_YOKE]) == ()

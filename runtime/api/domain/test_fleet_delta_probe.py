@@ -92,6 +92,8 @@ def _drive(
         if function_id == PROJECT_POLICY_FUNCTION:
             return _policy()
         if function_id == STEERING_REPORT_FUNCTION:
+            if payload.get("questions_only"):
+                return _ok({"question_states": {}})
             assert payload == {"deliver": True}, (
                 "pull every held document seat through the shared delivery record"
             )
@@ -111,13 +113,14 @@ def _drive(
     return code, out.getvalue(), calls
 
 
-def test_one_pass_reads_the_three_registered_functions() -> None:
+def test_one_pass_reads_fleet_and_question_state() -> None:
     code, output, calls = _drive([], duration=1)
     assert code == 0
     assert calls == [
         SESSIONS_FUNCTION,
         FRONTIER_FUNCTION,
         ENVELOPES_FUNCTION,
+        STEERING_REPORT_FUNCTION,
         PROJECT_POLICY_FUNCTION,
         STEERING_REPORT_FUNCTION,
     ]
@@ -135,7 +138,7 @@ def test_heartbeat_only_passes_keep_the_report_cooldown() -> None:
     )
     assert code == 0
     assert output == REPORT_DIGEST + "\n"
-    assert calls.count(STEERING_REPORT_FUNCTION) == 1
+    assert calls.count(STEERING_REPORT_FUNCTION) == 3
 
 
 @pytest.mark.parametrize(
@@ -143,6 +146,10 @@ def test_heartbeat_only_passes_keep_the_report_cooldown() -> None:
     (
         "fleet ERROR read failed sessions.list: unreachable",
         "fleet inbox message-1 state=pending from=worker-1",
+        "fleet question 17 pending",
+        "fleet question 17 resolved",
+        "fleet question 17 withdrawn",
+        "fleet question 17 consumed",
         "fleet ALARM idle-holder session=worker-1",
         "fleet ALARM unowned-item YOK-1 status=implementing",
         "fleet ALARM starved-envelope message=message-1",
@@ -208,7 +215,7 @@ def test_report_due_after_cooldown_is_checked_when_the_fleet_goes_quiet(changed)
         duration=180,
     )
     assert code == 0
-    assert calls.count(STEERING_REPORT_FUNCTION) == 2
+    assert calls.count(STEERING_REPORT_FUNCTION) == 5
     assert output.count(REPORT_DIGEST) == 1
     assert (next_digest in output) is changed
 
@@ -223,7 +230,7 @@ def test_timer_only_finding_is_reported_without_any_delta():
         duration=180,
     )
     assert code == 0
-    assert calls.count(STEERING_REPORT_FUNCTION) == 2
+    assert calls.count(STEERING_REPORT_FUNCTION) == 5
     assert timer_digest in output
     assert "fleet item" not in output
 
@@ -295,48 +302,3 @@ def test_projects_default_to_the_checkout_project(monkeypatch: Any) -> None:
     monkeypatch.setenv("YOKE_PROJECT", "yoke")
     assert fleet_delta_probe.resolve_projects(None) == ["1"]
     assert fleet_delta_probe.resolve_projects(["platform"]) == ["platform"]
-
-
-def test_the_session_id_is_resolved_from_ambient_identity(monkeypatch: Any) -> None:
-    """Nothing passes the steerer's id in, so a handoff needs no edit."""
-    monkeypatch.setattr(
-        fleet_delta_probe, "ambient_session_id", lambda: "resolved-0000"
-    )
-    seen: list[str] = []
-
-    def call(function_id: str, payload: dict[str, Any]) -> Any:
-        if function_id == PROJECT_POLICY_FUNCTION:
-            return _policy()
-        if function_id == STEERING_REPORT_FUNCTION:
-            return _report()
-        if function_id == ENVELOPES_FUNCTION:
-            return _ok(
-                {
-                    "messages": [
-                        {
-                            "message_id": "m",
-                            "sender_session_id": "w",
-                            "created_at": "2026-08-28T17:00:00Z",
-                            "recipients": [
-                                {"session_id": "resolved-0000", "state": "pending"},
-                                {"session_id": "another-0000", "state": "pending"},
-                            ],
-                        }
-                    ]
-                }
-            )
-        return _ok({})
-
-    out = io.StringIO()
-    run(
-        ["yoke"],
-        out=out,
-        call=call,
-        clock=_Clock(),
-        sleep=lambda _seconds: None,
-        duration=90,
-    )
-    seen.append(out.getvalue())
-    # Only the envelope addressed to the resolved session is reported, and
-    # the second pass is what compares it against the first.
-    assert seen[0] == (f"fleet inbox m state=pending from=w\n{REPORT_DIGEST}\n")

@@ -19,32 +19,48 @@ class OperatorQuestion:
     question: str
     created_at: Any
     delivery_reason: str = ""
+    status: str = "pending"
+    outcome: str = ""
 
 
-def read_questions(conn, project_ids):
+def question_states(conn, project_ids, previous_ids=(), *, include_resolved=False):
+    """Read open requests and watched departures inside the held projects."""
     if not project_ids or not _table_exists(conn, "decision_requests"):
-        return ()
+        return {}
+    p = "%s" if db_backend.connection_is_postgres(conn) else "?"
+    open_status = (
+        "status IN ('pending', 'resolved') AND consumed_at IS NULL"
+        if include_resolved
+        else "status='pending' AND consumed_at IS NULL"
+    )
+    watched = f" OR id IN ({','.join(p for _ in previous_ids)})" if previous_ids else ""
+    return {
+        int(row[0]): str(row[1])
+        for row in conn.execute(
+            "SELECT id, CASE WHEN consumed_at IS NOT NULL THEN 'consumed' ELSE status END FROM decision_requests WHERE kind='operator_question' "
+            f"AND project_id IN ({','.join(p for _ in project_ids)}) "
+            f"AND ({open_status}{watched}) ORDER BY created_at, id",
+            (*project_ids, *previous_ids),
+        ).fetchall()
+    }
+
+
+def read_questions(conn, project_ids, previous_ids=()):
     from yoke_core.domain.decision_request_rows import request_rows
+    from yoke_core.domain.decision_request_operator_answer_delivery import answer_text
     from yoke_core.domain.actor_render import actor_display_labels
     from yoke_core.domain.project_identity import render_item_ref
 
     p = "%s" if db_backend.connection_is_postgres(conn) else "?"
-    ids = [
-        row[0]
-        for row in conn.execute(
-            "SELECT id FROM decision_requests WHERE kind='operator_question' "
-            f"AND project_id IN ({','.join(p for _ in project_ids)}) "
-            "AND status IN ('pending', 'resolved') ORDER BY created_at, id",
-            tuple(project_ids),
-        ).fetchall()
-    ]
+    ids = question_states(conn, project_ids, previous_ids, include_resolved=True)
     rows = request_rows(conn, ids)
     result = []
     for request_id in ids:
         row = rows[int(request_id)]
         context = row["subject_context"]
+        status = ids[request_id]
         reason = context.get("answer_delivery", {}).get("reason", "")
-        if row["status"] != "pending" and not reason:
+        if status != "pending" and not reason and request_id not in previous_ids:
             continue
         session_id = row["requesting_session_id"]
         session = conn.execute(
@@ -71,6 +87,8 @@ def read_questions(conn, project_ids):
                 context["question"],
                 row["created_at"],
                 reason,
+                status,
+                f"answered ({answer_text(row)})" if status == "resolved" else status,
             )
         )
     return tuple(result)
@@ -98,3 +116,22 @@ def question_lines(questions, now):
             f"  request {row.request_id} · {row.session_label} · {row.item_ref} · {age}m · {excerpt}{failure}"
         )
     return [*lines, ""]
+
+
+def previous_question_ids(fingerprint):
+    """A pre-upgrade fingerprint has no request identities to recover."""
+    import json
+
+    try:
+        value = json.loads(fingerprint) if fingerprint else {}
+        ids = value.get("question_ids", []) if isinstance(value, dict) else []
+        return tuple(int(value) for value in ids) if isinstance(ids, list) else ()
+    except (ValueError, TypeError):
+        return ()
+
+
+def outcome_lines(questions):
+    return [
+        f"  request {row.request_id} no longer waiting: {row.outcome}"
+        for row in questions
+    ]

@@ -96,14 +96,17 @@ def append_steering_reports(
     state: ReportState,
     report: Mapping[str, Any] | None = None,
     snapshot: FleetSnapshot | None = None,
+    question_change: bool = False,
 ) -> None:
     """Check all held scopes when due, including quiet and timer-only passes."""
     try:
         interval = min(
             _report_interval_minutes(project, call=call) for project in projects
         )
-        if state.checked_at is not None and observed_at - state.checked_at < timedelta(
-            minutes=interval
+        if (
+            not question_change
+            and state.checked_at is not None
+            and observed_at - state.checked_at < timedelta(minutes=interval)
         ):
             return
         # Retain every held document seat; compose only on a due pass.
@@ -111,7 +114,13 @@ def append_steering_reports(
             report
             if report is not None
             else _response_result(
-                call(STEERING_REPORT_FUNCTION, {"deliver": True}),
+                call(
+                    STEERING_REPORT_FUNCTION,
+                    {
+                        "deliver": True,
+                        **({"question_change": True} if question_change else {}),
+                    },
+                ),
                 STEERING_REPORT_FUNCTION,
             )
         )

@@ -200,3 +200,23 @@ def question_fingerprint(questions):
         )
         for row in questions
     ]
+
+
+def combined_fingerprint(combined):
+    """Age-blind section hashes and the open question identities."""
+    from yoke_core.domain.steering_fleet_report_project_rows import rows_per_section
+
+    reports = [section.report for section in combined.sections]
+    material = {
+        f"scope:{section.descriptor}": digest(
+            {
+                "seat": seat_payload(section.report),
+                "project": project_payload(rows),
+            }
+        )
+        for section, rows in zip(combined.sections, rows_per_section(reports))
+    }
+    material["questions"] = digest(question_fingerprint(combined.questions))
+    material["question_ids"] = [row.request_id for row in combined.questions]
+    material["unattended"] = digest([row.item_id for row in combined.unattended])
+    return json.dumps(material, sort_keys=True, separators=(",", ":"))

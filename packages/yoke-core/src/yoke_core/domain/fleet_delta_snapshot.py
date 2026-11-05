@@ -18,6 +18,8 @@ from yoke_contracts.timestamps import parse_instant
 from pathlib import Path
 from typing import Any, Mapping, Sequence
 
+from yoke_core.domain.fleet_delta_questions import read_question_states
+from yoke_core.domain.fleet_delta_snapshot_envelopes import EnvelopeRow, envelope_rows
 from yoke_core.domain.session_mode import session_is_parked
 from yoke_core.domain.session_message_reachability import DELIVERY_UNKNOWN
 
@@ -77,8 +79,10 @@ class SessionRow:
         Older roster responses may omit the tool clock. Preserve their prior
         activity interpretation until that serving build is upgraded.
         """
-        return None if self.in_flight else (
-            self.last_tool_call_at or self.claimed_at or self.activity_at
+        return (
+            None
+            if self.in_flight
+            else (self.last_tool_call_at or self.claimed_at or self.activity_at)
         )
 
     @property
@@ -119,27 +123,12 @@ class ItemRow:
 
 
 @dataclass(frozen=True)
-class EnvelopeRow:
-    """One durable message receipt: a message plus one recipient."""
-
-    message_id: str
-    recipient_session_id: str
-    sender_session_id: str
-    state: str
-    injection_count: int
-    created_at: datetime | None
-
-    @property
-    def key(self) -> tuple[str, str]:
-        return (self.message_id, self.recipient_session_id)
-
-
-@dataclass(frozen=True)
 class FleetSnapshot:
     """Everything one probe pass observed, keyed for comparison."""
 
     taken_at: datetime
     self_session_id: str
+    questions: Mapping[int, str] = field(default_factory=dict)
     sessions: Mapping[str, SessionRow] = field(default_factory=dict)
     items: Mapping[str, ItemRow] = field(default_factory=dict)
     envelopes: Mapping[tuple[str, str], EnvelopeRow] = field(default_factory=dict)
@@ -173,8 +162,11 @@ def session_rows(result: Mapping[str, Any]) -> dict[str, SessionRow]:
         if not session_id:
             continue
         claims = [
-            (ref, claim.get("item_awaiting_landing") is True,
-             bool(claim.get("item_awaiting_dependency")))
+            (
+                ref,
+                claim.get("item_awaiting_landing") is True,
+                bool(claim.get("item_awaiting_dependency")),
+            )
             for claim in raw.get("claims") or []
             if isinstance(claim, Mapping) and claim.get("target_kind") == "item"
             if (ref := str(claim.get("target") or claim.get("public_ref") or ""))
@@ -189,11 +181,15 @@ def session_rows(result: Mapping[str, Any]) -> dict[str, SessionRow]:
             activity_at=parse_timestamp(raw.get("activity_at")),
             last_tool_call_at=parse_timestamp(raw.get("last_tool_call_at")),
             in_flight=raw.get("in_flight") is True,
-            claimed_at=min((
-                stamp for claim in raw.get("claims") or []
-                if isinstance(claim, Mapping) and claim.get("target_kind") == "item"
-                if (stamp := parse_timestamp(claim.get("claimed_at"))) is not None
-            ), default=None),
+            claimed_at=min(
+                (
+                    stamp
+                    for claim in raw.get("claims") or []
+                    if isinstance(claim, Mapping) and claim.get("target_kind") == "item"
+                    if (stamp := parse_timestamp(claim.get("claimed_at"))) is not None
+                ),
+                default=None,
+            ),
             claimed_items=tuple(ref for ref, _, _ in claims),
             landing_waits=tuple(ref for ref, landing, _ in claims if landing),
             dependency_waits=tuple(ref for ref, _, waiting in claims if waiting),
@@ -244,35 +240,6 @@ def deadlock_rows(result: Mapping[str, Any]) -> dict[str, Mapping[str, Any]]:
     return rows
 
 
-def envelope_rows(
-    result: Mapping[str, Any],
-) -> dict[tuple[str, str], EnvelopeRow]:
-    """Normalize a message listing into per-recipient receipt rows."""
-    rows: dict[tuple[str, str], EnvelopeRow] = {}
-    for message in result.get("messages") or []:
-        if not isinstance(message, Mapping):
-            continue
-        message_id = str(message.get("message_id") or "")
-        sender = str(message.get("sender_session_id") or "")
-        created = parse_timestamp(message.get("created_at"))
-        for recipient in message.get("recipients") or []:
-            if not isinstance(recipient, Mapping):
-                continue
-            session_id = str(recipient.get("session_id") or "")
-            if not message_id or not session_id:
-                continue
-            row = EnvelopeRow(
-                message_id=message_id,
-                recipient_session_id=session_id,
-                sender_session_id=sender,
-                state=str(recipient.get("state") or "unknown"),
-                injection_count=int(recipient.get("injection_count") or 0),
-                created_at=(parse_timestamp(recipient.get("created_at")) or created),
-            )
-            rows[row.key] = row
-    return rows
-
-
 def read_snapshot(
     projects: Sequence[str],
     *,
@@ -280,6 +247,7 @@ def read_snapshot(
     now: datetime,
     self_session_id: str,
     workspace: str | None = None,
+    previous_question_ids: Sequence[int] = (),
 ) -> FleetSnapshot:
     """Compose the light roster, frontier and inbox reads for one probe.
 
@@ -316,6 +284,7 @@ def read_snapshot(
         )
     )
     return FleetSnapshot(
+        questions=read_question_states(call, previous_question_ids, _result),
         taken_at=now,
         self_session_id=self_session_id,
         sessions=sessions,

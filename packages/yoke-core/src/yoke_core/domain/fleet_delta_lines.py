@@ -21,6 +21,7 @@ from yoke_core.domain.fleet_delta_alarms import (
     starved_envelope_alarms,
     unowned_item_alarms,
 )
+from yoke_core.domain.fleet_delta_questions import question_deltas
 from yoke_core.domain.fleet_delta_deadlocks import deadlock_alarms
 from yoke_core.domain.fleet_delta_snapshot import FleetSnapshot
 from yoke_core.domain.fleet_delta_unstaffed import unstaffed_ready_alarms
@@ -91,6 +92,7 @@ def compare(
     lines: list[str] = []
     lines.extend(inbox_lines(current, state))
     lines.extend(item_deltas(previous, current))
+    lines.extend(question_deltas(previous, current))
     if previous is not None:
         lines.extend(session_deltas(previous, current))
     lines.extend(idle_holder_alarms(current, state))

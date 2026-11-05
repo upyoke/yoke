@@ -5,7 +5,10 @@ from __future__ import annotations
 import json
 
 from yoke_core.domain.steering_fleet_report_compose import CombinedFleetReport
-from yoke_core.domain.steering_fleet_report_questions import question_lines
+from yoke_core.domain.steering_fleet_report_questions import (
+    question_lines,
+    outcome_lines,
+)
 from yoke_core.domain.steering_fleet_report_project_rows import rows_per_section
 from yoke_core.domain.steering_fleet_report_render import (
     REPORT_BEGIN,
@@ -41,6 +44,7 @@ def combined_hook_digest(
             question_lines(combined.questions, combined.composed_at)
             or ["## Questions waiting on you", "  none", ""]
         )
+    parts.extend(outcome_lines(combined.question_outcomes))
     shared = rows_per_section([section.report for section in combined.sections])
     for section, rows in zip(combined.sections, shared):
         if f"scope:{section.descriptor}" not in changed:
@@ -55,7 +59,7 @@ def combined_hook_digest(
         return ""
     parts.extend(
         [
-            f"{len(current) - len(changed)} section(s) unchanged; "
+            f"{len(current.keys() - {'question_ids'}) - len(changed - {'question_ids'})} section(s) unchanged; "
             "yoke steering report get --full",
             REPORT_END,
         ]

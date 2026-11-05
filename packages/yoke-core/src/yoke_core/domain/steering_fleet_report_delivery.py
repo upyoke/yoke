@@ -151,6 +151,7 @@ def steering_report_candidate(
         session_id=session_id,
         now=current,
         include_inventory=False,
+        prior_fingerprint=last_fingerprint,
     )
     fingerprint = combined.fingerprint()
     if fingerprint == last_fingerprint:
@@ -188,7 +189,7 @@ def confirm_steering_report_delivery(
     return cursor.rowcount == 1
 
 
-def claim_report_composition(conn, *, session_id, now):
+def claim_report_composition(conn, *, session_id, now, question_change=False):
     """Return the claimed boundary, or None when no composition is due."""
     project_ids = _held_project_ids(conn, session_id)
     if not project_ids:
@@ -203,7 +204,25 @@ def claim_report_composition(conn, *, session_id, now):
         for project in project_ids
     )
     not_after = parse_instant(now) - timedelta(minutes=interval)
-    last_at, _ = _last_report(conn, session_id)
+    last_at, prior = _last_report(conn, session_id)
+    if question_change:
+        import json
+        from yoke_core.domain.steering_fleet_report_questions import read_questions
+        from yoke_core.domain.steering_fleet_report_fingerprint import (
+            digest,
+            question_fingerprint,
+        )
+
+        try:
+            old = json.loads(prior) if prior else {}
+        except ValueError:
+            old = {}
+        questions = read_questions(conn, project_ids)
+        if not isinstance(old, dict) or old.get("questions") != digest(
+            question_fingerprint(questions)
+        ):
+            not_after = parse_instant(now)
+
     if last_at and last_at > not_after:
         return None
     if not _claim_interval(
