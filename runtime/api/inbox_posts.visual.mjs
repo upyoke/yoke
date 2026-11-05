@@ -70,6 +70,9 @@ try {
       assert.equal(await page.locator(".inbox-post-body").count(), 0);
       assert.equal(await page.locator('a[href="mailto:person@example.test"]').count(), 1);
     }
+    const field = await page.locator(".inbox-post-fields dd").first().boundingBox();
+    const card = await page.locator(".inbox-post-card").boundingBox();
+    assert(field.width >= card.width / 2, "Field values must retain readable width.");
     const button = page.locator(".inbox-post-header button");
     const height = await button.evaluate((node) => node.getBoundingClientRect().height);
     if (height < 44) await page.screenshot({ path: path.join(output, `${width}-${state}-failure.png`), fullPage: true });
