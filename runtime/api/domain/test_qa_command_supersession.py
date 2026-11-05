@@ -30,7 +30,12 @@ def test_late_recording_prints_ignored_verdict_and_exits_zero(
         qa_case_execution, "recording_leg", lambda *args, **kwargs: dispatch
     )
     run_id, artifact_id = recording.finish(
-        {"requirement_id": 10, "project": "test", "case_key": "full-gate"},
+        {
+            "requirement_id": 10,
+            "project": "test",
+            "item_id": 42,
+            "case_key": "full-gate",
+        },
         run_id=73,
         raw_result="{}",
         duration_ms=10,

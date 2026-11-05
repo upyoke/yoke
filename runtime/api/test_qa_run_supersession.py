@@ -104,7 +104,12 @@ def test_other_settled_runs_retain_immutability(verdict, raw, newer):
         before = snapshot(conn, run_id)
         with pytest.raises(Exception, match="immutable once verdict is set"):
             writes.handle_qa_run_complete(
-                request("qa.run.complete", run_id, verdict="error", raw_result="{}")
+                request(
+                    "qa.run.complete",
+                    run_id,
+                    verdict="error",
+                    raw_result='{"late":true}',
+                )
             )
         assert snapshot(conn, run_id) == before
 
