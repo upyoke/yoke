@@ -11,7 +11,6 @@ from runtime.api.domain.test_yoke_function_dispatch_claims import (
     _stable_kwargs,
 )
 from yoke_core.domain import yoke_function_dispatch_claims as claims_module
-from yoke_core.domain.yoke_function_dispatch import dispatch
 from yoke_core.domain.yoke_function_registry import register
 
 
@@ -19,7 +18,7 @@ class TestTerminalProgressLogRecovery(_ClaimMatrixSuite):
     def test_done_item_without_claim_teaches_skip_checkpoint(self):
         function = "items.progress_log.append"
         public_ref = "BUZZ-7"
-        register(
+        entry = register(
             function,
             _ok_handler,
             _Req,
@@ -38,7 +37,8 @@ class TestTerminalProgressLogRecovery(_ClaimMatrixSuite):
                 return_value=True,
             ) as item_is_terminal,
         ):
-            response = dispatch(_make_request(function))
+            response = claims_module.verify_claim(entry, _make_request(function))
+        assert response is not None
         item_is_terminal.assert_called_once_with(
             connect.return_value.__enter__.return_value,
             42,
