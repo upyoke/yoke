@@ -243,16 +243,20 @@
 
 .universe-app-root .inbox-sections .inbox-question-card { display: flex; min-width: 0; overflow-wrap: anywhere; gap: 12px; }
 .inbox-question-card > h3, .inbox-question-card > p { margin: 0; }
-.inbox-question-actions { display: flex; flex-wrap: wrap; gap: 16px; }
-.inbox-question-choice { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; }
+.inbox-question-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; max-width: 560px; }
+.inbox-question-choice { display: grid; align-content: start; gap: 4px; min-width: 0; }
 .inbox-question-choice > p { margin: 0; }
 .inbox-question-freeform { display: grid; gap: 6px; }
 .inbox-question-freeform textarea { box-sizing: border-box; width: 100%; min-width: 0; resize: vertical; }
 .universe-app-root .inbox-question-card .item-button { min-height: 44px; }
-.inbox-question-answer { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.inbox-question-answer { display: flex; gap: 4px; white-space: nowrap; overflow: hidden; }
+.inbox-question-answer-question { flex-shrink: 0; max-width: 55%; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.inbox-question-answer-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.inbox-question-answer-byline { flex-shrink: 0; }
+.universe-app-root .inbox-question-card .review-shot-image { object-fit: contain; object-position: center; }
 .inbox-question-send { align-self: flex-start; }
 @media (max-width: 520px) {
-  .inbox-question-actions { flex-direction: column; }
+  .inbox-question-actions { grid-template-columns: minmax(0, 1fr); max-width: none; }
   .inbox-question-choice { align-items: stretch; }
   .inbox-question-option, .inbox-question-send { width: 100%; }
 }

@@ -27,7 +27,7 @@ test("a recommended option resolves the same request and moves its card to Decid
   const call = client.requests.find((request) => request.function === "decision_requests.resolve");
   assert.deepEqual(call.payload, { request_id: 9, action: "blue" });
   assert.equal(byClass(inboxSection(main, "waiting"), "inbox-question-card").length, 0);
-  assert.match(inboxSection(main, "decided").textContent, /Answered: Blue/);
+  assert.match(inboxSection(main, "decided").textContent, /Which color\?.*Blue/);
 });
 
 test("freeform Send requires text and retains the answer after resolution", async () => {
@@ -48,10 +48,11 @@ test("freeform Send requires text and retains the answer after resolution", asyn
 
 test("settled questions show the saved answer without controls after reload", async () => {
   const { main } = renderInbox("all", [question({ status: "resolved", decided_by_you: true,
-    actions: [], resolution_action: "freeform", resolution_note: "Use violet" })]);
+    actions: [], resolution_action: "freeform", resolution_note: "Use violet\nLater detail" })]);
   await settle();
   assert.match(inboxSection(main, "decided").textContent, /Use violet/);
   assert.equal(byClass(main, "inbox-question-send").length, 0);
+  assert.doesNotMatch(inboxSection(main, "decided").textContent, /Later detail/);
 });
 
 test("choice-only questions do not offer freeform input", async () => {

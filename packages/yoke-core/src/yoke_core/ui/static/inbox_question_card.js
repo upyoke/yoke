@@ -17,8 +17,14 @@ export function questionCard(context, row, { onAct, compact = false } = {}) {
   const card = el(documentNode, "article", `review-card inbox-question-card${answered ? " compact" : ""}`);
   card.setAttribute("data-request-id", String(row.id));
   if (answered) {
-    const line = el(documentNode, "p", "review-effect inbox-question-answer", `Answered: ${answerLabel(row)} · you · `);
-    line.appendChild(relativeTime(documentNode, row.resolved_at || row.your_decision?.decided_at));
+    const line = el(documentNode, "p", "review-effect inbox-question-answer");
+    const question = el(documentNode, "span", "inbox-question-answer-question", facts.question || "Question");
+    question.title = facts.question || "";
+    line.appendChild(question);
+    line.appendChild(el(documentNode, "span", "inbox-question-answer-text", ` → ${answerLabel(row)}`));
+    const byline = el(documentNode, "span", "inbox-question-answer-byline", " · you · ");
+    byline.appendChild(relativeTime(documentNode, row.resolved_at || row.your_decision?.decided_at));
+    line.appendChild(byline);
     card.appendChild(line);
     return card;
   }
@@ -59,7 +65,7 @@ export function questionCard(context, row, { onAct, compact = false } = {}) {
     input.rows = 3;
     label.appendChild(input);
     card.appendChild(label);
-    const send = el(documentNode, "button", "item-button primary inbox-question-send", "Send");
+    const send = el(documentNode, "button", "item-button inbox-question-send", "Send");
     send.type = "button";
     send.disabled = true;
     const submit = () => { if (!send.disabled && input.value.trim()) onAct(row, "freeform", card, input.value.trim()); };

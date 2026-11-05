@@ -30,11 +30,11 @@ const artifacts=[{artifact_id:1,decision_request_id:7,artifact_type:'screenshot'
 let row={id:7,kind:'operator_question',status:'pending',project_id:10,created_at:stamp,
 requesting_session_id:'sample-worker',requesting_session_label:'Morgan · Codex',
 actions:state==='options' ? ['blue','green','freeform'] : ['freeform'],
-subject_context:{question:state==='options' ? 'Which color should the header use?' : 'What should the welcome message say?',
+subject_context:{question:['options','answered'].includes(state) ? 'Which color should the header use?' : 'What should the welcome message say?',
 context:'The current header uses **blue**. Green has more contrast.',
-options:state==='options' ? [{id:'blue',label:'Keep blue',detail:'Matches the current header.'},{id:'green',label:'Use green'}] : [],
+options:['options','answered'].includes(state) ? [{id:'blue',label:'Keep blue',detail:'Matches the current header.'},{id:'green',label:'Use green'}] : [],
 recommended_option:state==='options' ? 'blue' : null,allow_freeform:true,artifacts:state==='options' ? artifacts : []}};
-if(state==='answered')row={...row,status:'resolved',decided_by_you:true,actions:[],resolution_action:'freeform',resolution_note:'Welcome back',resolved_at:stamp};
+if(state==='answered')row={...row,status:'resolved',decided_by_you:true,actions:[],resolution_action:'blue',resolved_at:stamp};
 window.calls=[];
 const client={async call(request){
 window.calls.push(request);
@@ -68,7 +68,7 @@ try {
     await page.locator(".inbox-question-card").waitFor();
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false);
     if (state === "answered") {
-      assert.match(await page.locator(".inbox-question-answer").textContent(), /Answered: Welcome back · you/);
+      assert.match(await page.locator(".inbox-question-answer").textContent(), /Which color.*Keep blue · you/);
       assert.equal(await page.locator(".inbox-question-card").locator("h3,button,textarea,details").count(), 0);
     } else {
       assert.equal(await page.locator(".inbox-question-context").evaluate((node) => node.open), false);
@@ -93,7 +93,7 @@ try {
     if (state === "options") {
       await page.locator(".inbox-question-option.primary").click();
       await page.locator(".inbox-question-answer").waitFor();
-      assert.match(await page.locator(".inbox-question-answer").textContent(), /Answered: Keep blue/);
+      assert.match(await page.locator(".inbox-question-answer").textContent(), /Which color.*Keep blue/);
     } else if (state !== "answered") {
       const input = page.locator(".inbox-question-freeform textarea");
       assert.equal(await page.locator(".inbox-question-send").isDisabled(), true);
@@ -105,7 +105,7 @@ try {
         assert.equal(await input.inputValue(), "Welcome back");
       } else {
         await page.locator(".inbox-question-answer").waitFor();
-        assert.match(await page.locator(".inbox-question-answer").textContent(), /Answered: Welcome back/);
+        assert.match(await page.locator(".inbox-question-answer").textContent(), /welcome message.*Welcome back/);
       }
     }
     captures.push({ width, state, calls: await page.evaluate(() => window.calls) });
