@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from yoke_core.domain.agent_mission_restore import commit_mission_handback
+from yoke_core.domain.qa_run_supersession import superseded_run_outcome
 
 import base64
 import binascii
@@ -219,6 +220,8 @@ def handle_qa_artifact_add(request: FunctionCallRequest) -> HandlerOutcome:
                 f"run {run_id} belongs to requirement "
                 f"{stored_requirement_id}, not {req_id}",
             )
+        if settled := superseded_run_outcome(conn, run_id, req_id):
+            return settled
         if parsed_handle is not None:
             try:
                 refusal = _local_handle_refusal(

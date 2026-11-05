@@ -27,6 +27,7 @@ from yoke_core.domain.qa_run_execution_evidence import (
     VerdictSettlementRefused,
     commit_settled_verdict,
 )
+from yoke_core.domain.qa_run_supersession import superseded_run_outcome
 from yoke_core.domain.qa_run_verdict_record import insert_qa_run, update_qa_run
 from yoke_core.domain.qa_constants import (
     NEEDS_REVIEW_OUTCOME,
@@ -107,7 +108,8 @@ def handle_qa_run_add(request: FunctionCallRequest) -> HandlerOutcome:
         from yoke_core.domain.qa_run_commit_binding import bind_recorded_raw_result
 
         raw_result = bind_recorded_raw_result(
-            raw_result=raw_result, head_sha=payload.get("head_sha"),
+            raw_result=raw_result,
+            head_sha=payload.get("head_sha"),
         )
         if issue := captured_without_evidence_error(
             execution_status=execution_status,
@@ -235,7 +237,7 @@ def handle_qa_run_complete(request: FunctionCallRequest) -> HandlerOutcome:
         row = query_one(
             conn,
             "SELECT run.qa_requirement_id, run.qa_kind, run.performed_by, "
-            "run.raw_result, run.capture_degraded_reason, req.verdict_path, "
+            "run.verdict, run.raw_result, run.capture_degraded_reason, req.verdict_path, "
             "req.method_id FROM qa_runs run "
             "JOIN qa_requirements req ON req.id = run.qa_requirement_id "
             f"WHERE run.id = {p}",
@@ -249,6 +251,8 @@ def handle_qa_run_complete(request: FunctionCallRequest) -> HandlerOutcome:
                 f"run {run_id} belongs to requirement "
                 f"{row['qa_requirement_id']}, not {req_id}",
             )
+        if settled := superseded_run_outcome(conn, run_id, req_id, verdict):
+            return settled
         if issue := _review_evidence.agent_undetermined_evidence_error(
             conn,
             performed_by=str(row["performed_by"]),

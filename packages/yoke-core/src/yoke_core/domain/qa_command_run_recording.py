@@ -87,7 +87,7 @@ def record_command_run(
     metadata: dict,
     actor: Optional[ActorContext] = None,
     run_id: int | None = None,
-) -> tuple[int, int]:
+) -> tuple[int, int | None]:
     """Upload command evidence bytes, then settle their durable run."""
     from yoke_core.domain.qa_artifacts import (
         artifact_file_path,
@@ -137,9 +137,9 @@ def record_command_run(
     output_bytes = output.encode("utf-8")
     output_path.write_bytes(output_bytes)
 
-    def complete() -> None:
+    def complete() -> dict:
         try:
-            call_qa(
+            return call_qa(
                 "qa.run.complete",
                 {
                     "run_id": run_id,
@@ -181,7 +181,9 @@ def record_command_run(
                 upload_error=exc,
             )
         ) from exc
-    complete()
+    settled = complete()
+    if settled.get("already_settled"):
+        return run_id, None
     return run_id, int(artifact["qa_artifact_id"])
 
 
