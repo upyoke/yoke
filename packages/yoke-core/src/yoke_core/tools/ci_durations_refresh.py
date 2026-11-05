@@ -22,7 +22,8 @@ def node_id(root: Path, case: ET.Element) -> str | None:
     return None  # A report from a prior tree can include tests since deleted.
 
 
-def refresh(root: Path, reports: list[Path], *, expected_shards=SHARD_COUNT, reset=False) -> dict:
+def measurements(root: Path, reports: list[Path], *, expected_shards=SHARD_COUNT):
+    """Validate a single run without changing the committed profile."""
     if len(reports) != expected_shards:
         raise ValueError(
             f"ci_profile_incomplete: expected {expected_shards} reports, got "
@@ -64,6 +65,11 @@ def refresh(root: Path, reports: list[Path], *, expected_shards=SHARD_COUNT, res
         raise ValueError(
             "ci_profile_no_current_tests: use reports matching this checkout."
         )
+    return profile, walls
+
+
+def refresh(root: Path, reports: list[Path], *, expected_shards=SHARD_COUNT, reset=False) -> dict:
+    profile, walls = measurements(root, reports, expected_shards=expected_shards)
     destination = root / DURATIONS_PATH
     try:
         previous = json.loads(destination.read_text(encoding="utf-8"))
@@ -149,7 +155,13 @@ def download_latest(root: Path, repository: str, python: str, directory: Path) -
             if not a["expired"] and a["name"].startswith(f"pytest-output-{python}-")
         }
         if names != available:
+            print(
+                f"ci_profile_run_skipped: run {run_id}: ci_profile_incomplete: "
+                f"expected {len(names)} shard artifacts, got {len(available)}; "
+                "trying the next retained successful run."
+            )
             continue
+        run_directory = directory / run_id
         subprocess.run(
             [
                 "gh",
@@ -161,13 +173,21 @@ def download_latest(root: Path, repository: str, python: str, directory: Path) -
                 "--pattern",
                 f"pytest-output-{python}-*",
                 "--dir",
-                str(directory),
+                str(run_directory),
             ],
             check=True,
             capture_output=True,
             text=True,
             timeout=120,
         )
+        try:
+            measurements(root, sorted(run_directory.rglob("pytest-report.xml")))
+        except (ValueError, ET.ParseError) as error:
+            print(
+                f"ci_profile_run_skipped: run {run_id}: {error}; "
+                "trying the next retained successful run."
+            )
+            continue
         return run_id
     raise ValueError(
         "ci_profile_reports_unavailable: no complete retained CI report set "
@@ -208,6 +228,7 @@ def main(argv=None) -> int:
                 run_id = download_latest(
                     args.target_root, args.repository, args.python, directory
                 )
+                directory = directory / run_id
             result = refresh(
                 args.target_root, sorted(directory.rglob("pytest-report.xml")),
                 reset=args.reset,
