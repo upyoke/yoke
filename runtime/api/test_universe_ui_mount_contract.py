@@ -75,12 +75,13 @@ def test_javascript_modules_share_process_and_isolate_globals(tmp_path: Path) ->
     for owner in range(2):
         module = tmp_path / f"isolated_{owner}.test.mjs"
         module.write_text(
-            "import { test } from 'node:test';\n"
+            "import { after, test } from 'node:test';\n"
             "import assert from 'node:assert/strict';\n"
             "import { appendFileSync } from 'node:fs';\n"
             "import { next } from './counter.mjs';\n"
             "assert.equal(globalThis.owner, undefined);\n"
             f"globalThis.owner = {owner};\n"
+            f"after(() => assert.equal(globalThis.owner, {owner}));\n"
             "test('isolated globals', (t) => {\n"
             "  const timer = setInterval(() => {}, 60000);\n"
             "  t.after(() => clearInterval(timer));\n"

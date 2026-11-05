@@ -9,7 +9,7 @@ const sources = new Map();
 const builtins = new Map();
 // Node's web globals install a permanent dispatcher symbol on first access.
 void globalThis.Response;
-function isolateGlobals(t) {
+function isolateGlobals() {
   const globals = Object.getOwnPropertyDescriptors(globalThis);
   const handles = [];
   for (const [start, stop] of [
@@ -24,14 +24,14 @@ function isolateGlobals(t) {
       return handle;
     };
   }
-  t.after(() => {
+  return () => {
     for (const clear of handles) clear();
     nodeTest.mock.reset();
     for (const name of Reflect.ownKeys(globalThis)) {
       if (!Object.hasOwn(globals, name)) delete globalThis[name];
     }
     Object.defineProperties(globalThis, globals);
-  });
+  };
 }
 
 function testExports(pending) {
@@ -98,12 +98,24 @@ function loaderFor(pending) {
 const files = process.argv.slice(2);
 if (!files.length) throw new Error('javascript_modules_missing: pass test files');
 for (const filename of files) {
-  await nodeTest.test(filename, async (t) => {
-    const pending = [];
-    isolateGlobals(t);
-    const evaluate = loaderFor(pending);
-    await evaluate(pathToFileURL(filename).href);
-    // Await every registered test before its file's parent can finish.
-    for (let next = 0; next < pending.length; next++) await pending[next];
-  });
+  let restore;
+  try {
+    await nodeTest.test(filename, async () => {
+      const pending = [];
+      restore = isolateGlobals();
+      const evaluate = loaderFor(pending);
+      await evaluate(pathToFileURL(filename).href);
+      // Await every registered test before its file's parent can finish.
+      for (let next = 0; next < pending.length; next++) await pending[next];
+    });
+  } finally {
+    try {
+      restore?.();
+    } catch (cause) {
+      throw new Error(
+        `javascript_globals_restore_failed: ${filename}; make test globals configurable and restore mutations in cleanup`,
+        { cause },
+      );
+    }
+  }
 }
