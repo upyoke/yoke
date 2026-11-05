@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 
 from yoke_core.domain.steering_fleet_report_compose import CombinedFleetReport
+from yoke_core.domain.steering_fleet_report_headline import headline_line
 from yoke_core.domain.steering_fleet_report_questions import (
     question_lines,
     outcome_lines,
@@ -28,7 +29,12 @@ def combined_hook_digest(
         prior = {}
     if not isinstance(prior, dict):
         prior = {}
-    changed = {key for key, value in current.items() if prior.get(key) != value}
+    metadata = {"question_ids", "available_ids"}
+    changed = {
+        key
+        for key, value in current.items()
+        if key not in metadata and prior.get(key) != value
+    }
     parts = [REPORT_BEGIN]
     if "unattended" in changed and (combined.unattended or "unattended" in prior):
         parts.extend(
@@ -57,9 +63,10 @@ def combined_hook_digest(
             parts.extend([f"## {key.removeprefix('scope:')}", "  no longer held", ""])
     if len(parts) == 1:
         return ""
+    parts.insert(1, headline_line(combined, prior))
     parts.extend(
         [
-            f"{len(current.keys() - {'question_ids'}) - len(changed - {'question_ids'})} section(s) unchanged; "
+            f"{len(current.keys() - metadata) - len(changed)} section(s) unchanged; "
             "yoke steering report get --full",
             REPORT_END,
         ]
