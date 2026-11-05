@@ -4,31 +4,31 @@ root:
   summary: "An introduction to Yoke and its main concepts."
   path: "index.md"
   children:
-  - {title: "Installation and setup", summary: "Guide installation, configuration, and project onboarding.", path: "guide/setup.install.md"}
-  - {title: "Hosting modes", summary: "Help readers choose where their universe lives and understand how to move it later.", path: "guide/setup.hosting.md"}
-  - {title: "Self-hosting", summary: "Explain installing and operating a shared Yoke server on your own infrastructure.", path: "guide/self-hosting.md"}
+  - {title: "Installation and setup", summary: "Installation, configuration, and project onboarding.", path: "guide/setup.install.md"}
+  - {title: "Hosting modes", summary: "Where your universe lives and how to move it.", path: "guide/setup.hosting.md"}
+  - {title: "Self-hosting", summary: "Installing and operating a shared server on your own infrastructure.", path: "guide/self-hosting.md"}
   - {title: "Install and run a server", summary: "Install, network, upgrade and recover your own server.", path: "self-hosting/install.md"}
   - {title: "Browser sign-in", summary: "Configure browser admission and trusted proxies.", path: "self-hosting/browser-sign-in.md"}
   - {title: "People and machines", summary: "Invite teammates and approve personal machines.", path: "self-hosting/people.md"}
   - {title: "Server GitHub App", summary: "Configure a dedicated App and protected server key.", path: "self-hosting/github-app.md"}
-  - {title: "Universe portability, backup, and restore", summary: "Explain moving and protecting a universe across installations and hosting modes.", path: "guide/universe-portability.md"}
-  - {title: "Team collaboration", summary: "Explain solo and team collaboration across machines and harness sessions in a shared universe.", path: "guide/access.collaboration.md"}
-  - {title: "Strategy docs", summary: "Explain how direction becomes a plan and actionable work.", path: "guide/strategy.md"}
-  - {title: "Yoke web dashboard", summary: "Help people use the web dashboard to follow and coordinate their Yoke work.", path: "guide/dashboard.md"}
-  - {title: "The Frontier", summary: "Explain the Frontier as the boundary between strategy and filed work, how Yoke advances it, and how the dashboard presents it.", path: "guide/frontier.md"}
-  - {title: "Workflows and work items", summary: "Explain how work is recorded and carried to completion.", path: "guide/work.md"}
-  - {title: "Steering and fleet control", summary: "Explain who is working, how work is coordinated and when humans intervene.", path: "guide/sessions.md"}
-  - {title: "Yoke CLI and relay", summary: "Explain the command-line interface and the machine relay that connects agent sessions to Yoke.", path: "guide/cli-relay.md"}
-  - {title: "Agent guidance", summary: "Explain where instructions come from and when agents receive them.", path: "guide/guidance.md"}
-  - {title: "Execution instructions", summary: "Define reusable instructions for agents and control which work receives them and when.", path: "guide/execution-instructions.md"}
-  - {title: "Projects", summary: "Explain projects, their setup, structure, configuration, and integrations.", path: "guide/configuration.md"}
-  - {title: "Packs", summary: "Explain reusable setup and guidance and how projects adopt updates.", path: "guide/configuration.packs.md"}
-  - {title: "Quality assurance", summary: "Explain how checks become trustworthy evidence and gate work.", path: "guide/qa.md"}
-  - {title: "Deployments and releases", summary: "Explain how code becomes a delivered change.", path: "guide/delivery.md"}
-  - {title: "Databases and migrations", summary: "Explain declared databases and safe changes to them.", path: "guide/databases.md"}
-  - {title: "Operations and troubleshooting", summary: "Explain how to inspect health and recover without losing state.", path: "guide/operations.md"}
+  - {title: "Universe portability, backup, and restore", summary: "Moving and protecting a universe across installations and hosting modes.", path: "guide/universe-portability.md"}
+  - {title: "Team collaboration", summary: "Solo and team collaboration across machines and agent sessions.", path: "guide/access.collaboration.md"}
+  - {title: "Strategy docs", summary: "How direction becomes a plan and actionable work.", path: "guide/strategy.md"}
+  - {title: "Yoke web dashboard", summary: "Following and coordinating your work in the web dashboard.", path: "guide/dashboard.md"}
+  - {title: "The Frontier", summary: "How strategy becomes filed work and advances in the dashboard.", path: "guide/frontier.md"}
+  - {title: "Workflows and work items", summary: "How work is recorded and carried to completion.", path: "guide/work.md"}
+  - {title: "Steering and fleet control", summary: "Who is working, how work is coordinated and when humans intervene.", path: "guide/sessions.md"}
+  - {title: "Yoke CLI and relay", summary: "The command line and relay connecting agent sessions to Yoke.", path: "guide/cli-relay.md"}
+  - {title: "Agent guidance", summary: "Where instructions come from and when agents receive them.", path: "guide/guidance.md"}
+  - {title: "Execution instructions", summary: "Reusable agent instructions, which work receives them and when.", path: "guide/execution-instructions.md"}
+  - {title: "Projects", summary: "Project setup, structure, configuration, and integrations.", path: "guide/configuration.md"}
+  - {title: "Packs", summary: "Reusable setup and guidance, and how projects adopt updates.", path: "guide/configuration.packs.md"}
+  - {title: "Quality assurance", summary: "How checks become trustworthy evidence and gate work.", path: "guide/qa.md"}
+  - {title: "Deployments and releases", summary: "How code becomes a delivered change.", path: "guide/delivery.md"}
+  - {title: "Databases and migrations", summary: "Declared databases and safe changes to them.", path: "guide/databases.md"}
+  - {title: "Operations and troubleshooting", summary: "Health checks and recovery without losing state.", path: "guide/operations.md"}
   - title: "Command and technical reference"
-    summary: "Give agents and advanced readers precise contracts without crowding human overviews."
+    summary: "Detailed commands and contracts for agents and advanced use."
     path: "guide/reference/index.md"
     children:
     - title: "Installation reference"
@@ -181,7 +181,7 @@ root:
       - {title: "Landing attempts", summary: "Read durable evidence for a new landing of an item that already landed.", path: "functions/merge-queue-landing-attempts.md"}
       - {title: "Steering dependencies", summary: "Read dependency deadlocks, waiting chains and minimal-edge recovery.", path: "functions/steering-report-dependencies.md"}
     - title: "Verification"
-      summary: "Define cases, execute project plans and inspect evidence for workflow gates."
+      summary: "Cases, project plans and evidence for workflow gates."
       path: "verification/index.md"
       children:
       - {title: "Local connection repair", summary: "Repair local credentials and actor references while preserving the selected connection.", path: "verification/local-connection-repair.md"}
@@ -202,7 +202,7 @@ root:
       - {title: "Browser scenarios", summary: "Author actions and assertions, then execute the Browser case.", path: "verification/browser-scenarios.md"}
       - {title: "Browser evidence", summary: "Read captures and distinguish execution from inspected verdicts.", path: "verification/browser-evidence.md"}
       - {title: "Browser identities", summary: "Declare personas, sign in and use isolated browser profiles.", path: "verification/browser-identities.md"}
-      - {title: "Exploratory missions", summary: "Define discovery territory and follow execution, review and human gates.", path: "verification/exploration.md"}
+      - {title: "Exploratory missions", summary: "Discovery scope, execution, review and human gates.", path: "verification/exploration.md"}
       - {title: "Exploratory evidence", summary: "Use substrates, retain evidence and submit mission decisions.", path: "verification/exploration-evidence.md"}
       - {title: "QA model", summary: "Read requirement, execution and artifact storage contracts.", path: "verification/model/qa.md"}
       - {title: "QA CLI", summary: "Use registered requirement, execution and evidence commands.", path: "verification/qa-cli.md"}

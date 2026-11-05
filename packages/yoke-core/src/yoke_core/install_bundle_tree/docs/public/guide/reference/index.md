@@ -100,7 +100,7 @@ Public documentation is authored in the Yoke repository and distributed through 
 - [Deployments](../../deployments/index.md) — Follow delivery destinations, inspect runs and read release authority.
 - [Databases](../../databases/index.md) — Inspect declared models, migration conventions and governed repair.
 - [Functions](../../functions/index.md) — Discover typed function envelopes and registered operation families.
-- [Verification](../../verification/index.md) — Define cases, execute project plans and inspect evidence for workflow gates.
+- [Verification](../../verification/index.md) — Cases, project plans and evidence for workflow gates.
 - [Operations](../../operations/index.md) — Inspect events, run health checks, record learning and diagnose performance.
 - [Runtime](../../runtime/index.md) — Encode native instants, verify clocks and find timestamp ownership boundaries.
 - [Documentation](../../documentation/index.md) — Write, navigate and verify complete, concise teaching.

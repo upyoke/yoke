@@ -296,7 +296,7 @@ project operator to repair the named definition or target if it persists.
 - [Browser scenarios](browser-scenarios.md) — Author actions and assertions, then execute the Browser case.
 - [Browser evidence](browser-evidence.md) — Read captures and distinguish execution from inspected verdicts.
 - [Browser identities](browser-identities.md) — Declare personas, sign in and use isolated browser profiles.
-- [Exploratory missions](exploration.md) — Define discovery territory and follow execution, review and human gates.
+- [Exploratory missions](exploration.md) — Discovery scope, execution, review and human gates.
 - [Exploratory evidence](exploration-evidence.md) — Use substrates, retain evidence and submit mission decisions.
 - [QA model](model/qa.md) — Read requirement, execution and artifact storage contracts.
 - [QA CLI](qa-cli.md) — Use registered requirement, execution and evidence commands.

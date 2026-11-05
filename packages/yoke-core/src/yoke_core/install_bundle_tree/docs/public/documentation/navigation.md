@@ -29,6 +29,7 @@ The only top-level key is `root`. Each node has non-empty string `title`,
 duplicate keys, anchors, aliases and `<<` merge keys refuse. A category with
 children has an `index.md` basename; the root path is `index.md`. Each page has
 one parent, and every page must appear in the complete tree.
+A summary briefly describes the page to the reader, rather than instructing its author.
 
 Paths are UTF-8 POSIX paths relative to the corpus root and end in `.md`.
 Absolute paths, backslashes, empty, `.` or `..` segments, queries, fragments
