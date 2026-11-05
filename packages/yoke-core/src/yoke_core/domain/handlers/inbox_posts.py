@@ -2,8 +2,9 @@
 
 from typing import Any
 
-from pydantic import BaseModel, Field, ConfigDict
+from pydantic import BaseModel, Field, ConfigDict, ValidationError
 
+from yoke_contracts.refusal_recovery import compose_refusal
 from yoke_contracts.api.function_call import FunctionCallRequest, HandlerOutcome
 from yoke_core.domain.db_savepoint import SavepointLostError
 from yoke_core.domain.handlers.inbox_decisions import _actor_id, _error, _require_global
@@ -42,6 +43,14 @@ def _handle(request: FunctionCallRequest, model_type, operation) -> HandlerOutco
         model = model_type.model_validate(request.payload or {})
         with connect() as conn:
             result = operation(conn, actor_id, model)
+    except ValidationError as exc:
+        return _error(
+            "payload_invalid",
+            compose_refusal(
+                f"payload_invalid: {exc}",
+                recovery="Correct the named payload fields and retry",
+            ),
+        )
     except SavepointLostError:
         raise
     except (ValueError, LookupError, PermissionError) as exc:

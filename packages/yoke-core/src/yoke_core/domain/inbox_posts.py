@@ -169,13 +169,13 @@ def open_posts(
         return []
     p = audiences._p(conn)
     rows = conn.execute(
-        f"SELECT id, project_id FROM inbox_posts WHERE done_at IS NULL AND audience_id IN ({','.join(p for _ in ids)}) ORDER BY created_at DESC, id DESC",
+        f"SELECT * FROM inbox_posts WHERE done_at IS NULL AND audience_id IN ({','.join(p for _ in ids)}) ORDER BY created_at DESC, id DESC",
         ids,
     ).fetchall()
     readable = {}
     result = []
     for row in rows:
-        project_id = int(row[1])
+        project_id = int(row["project_id"])
         if project_ids is not None and project_id not in project_ids:
             continue
         if project_id not in readable:
@@ -186,5 +186,7 @@ def open_posts(
                 permission_key=PERM_ITEMS_READ,
             ).allowed
         if readable[project_id]:
-            result.append(_row(conn, row[0]))
+            post = dict(row)
+            post["fields"] = json.loads(post["fields"])
+            result.append(post)
     return result

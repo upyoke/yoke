@@ -28,6 +28,10 @@ def test_registration_leaf_declares_every_engine_action():
     registry = Registry()
     _register_inbox.register(registry)
     assert [row[0][0] for row in registry.rows] == [
+        "audiences.create",
+        "audiences.list",
+        "inbox.posts.create",
+        "inbox.posts.done",
         "decision_requests.ask",
         "decision_requests.list",
         "decision_requests.attachment.read",
@@ -42,6 +46,10 @@ def test_registration_leaf_declares_every_engine_action():
         "decision_requests.dispose_ended",
     ]
     live_ids = {
+        "audiences.create",
+        "audiences.list",
+        "inbox.posts.create",
+        "inbox.posts.done",
         "decision_requests.ask",
         "decision_requests.list",
         "machine_authorization.pending",
@@ -135,6 +143,7 @@ def test_inbox_list_excludes_retired_machine_requests(monkeypatch):
         lambda *_args, **_kwargs: {"messages": [], "pending_count": 0},
     )
 
+    monkeypatch.setattr(inbox_read, "open_posts", lambda *_args, **_kwargs: [])
     outcome = inbox_decisions.handle_inbox_list(
         FunctionCallRequest(
             function="inbox.list",

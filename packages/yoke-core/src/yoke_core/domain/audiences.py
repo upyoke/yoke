@@ -22,10 +22,18 @@ def validate_rules(conn: Any, rules: Iterable[Mapping[str, Any]]) -> list[dict]:
     normalized = []
     p = _p(conn)
     for raw in rules:
+        if not isinstance(raw, Mapping):
+            _refuse(
+                "invalid_audience_rule",
+                "Every rule must be an object",
+                "Supply scope_kind, scope_id and an optional role_name",
+            )
         kind = str(raw.get("scope_kind", ""))
         scope_id = raw.get("scope_id")
         role = raw.get("role_name") or None
-        if kind not in ("actor", "org", "project") or not isinstance(scope_id, int):
+        if kind not in ("actor", "org", "project") or (
+            not isinstance(scope_id, int) or isinstance(scope_id, bool)
+        ):
             _refuse(
                 "invalid_audience_rule",
                 "A rule needs a scope and integer scope_id",
@@ -112,27 +120,26 @@ def create_audience(
                     "The rule names a different project scope",
                     "Use the owning project or a project in the owning organization",
                 )
+    if name is not None and not name.strip():
+        _refuse(
+            "invalid_audience_name",
+            "The audience name is empty",
+            "Choose a nonempty name or omit it for an inline audience",
+        )
     name = name.strip() if name else None
     begin_write(conn)
     with savepoint(conn, "audience_create", owns=commit):
-        if (
-            name
-            and conn.execute(
-                f"SELECT 1 FROM audiences WHERE name = {p} AND "
-                f"{'project_id' if project_id is not None else 'org_id'} = {p}",
-                (name, project_id if project_id is not None else org_id),
-            ).fetchone()
-        ):
+        row = conn.execute(
+            "INSERT INTO audiences(project_id, org_id, name) "
+            f"VALUES ({p}, {p}, {p}) ON CONFLICT DO NOTHING RETURNING id",
+            (project_id, org_id, name),
+        ).fetchone()
+        if row is None:
             _refuse(
                 "audience_name_exists",
                 "This audience name is already used",
                 "Choose a different name or select the existing audience",
             )
-        row = conn.execute(
-            "INSERT INTO audiences(project_id, org_id, name) "
-            f"VALUES ({p}, {p}, {p}) RETURNING id",
-            (project_id, org_id, name),
-        ).fetchone()
         audience_id = int(row[0])
         for position, rule in enumerate(rules):
             conn.execute(

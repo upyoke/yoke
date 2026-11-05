@@ -112,3 +112,62 @@ def test_borrowed_transaction_and_failed_create_do_not_leak(conn):
     assert conn.execute("SELECT COUNT(*) FROM audiences").fetchone()[0] == 0
     with pytest.raises(LookupError, match="unknown_post"):
         inbox_posts.done_post(conn, post_id=row["id"], actor_id=2)
+
+
+def test_open_post_page_does_not_read_each_post_again(conn):
+    from runtime.api.fixtures.statement_counter import CountingConnection
+
+    post(conn)
+    one = CountingConnection(conn)
+    assert len(inbox_posts.open_posts(one, actor_id=2)) == 1
+    for _ in range(5):
+        post(conn)
+    many = CountingConnection(conn)
+    assert len(inbox_posts.open_posts(many, actor_id=2)) == 6
+    assert many.count == one.count
+
+
+def test_concurrent_done_records_exactly_one_first_person(test_db):
+    from concurrent.futures import ThreadPoolExecutor
+    from threading import Barrier
+
+    from yoke_core.domain import db_helpers
+    from yoke_core.domain.actors import seed_human_actor
+    from yoke_core.domain.actor_permissions import grant_actor_project_role
+    from yoke_core.domain.project_identity import resolve_project_id
+    from yoke_core.domain.project_seed_test_helpers import seed_project_identities
+
+    seed_project_identities(test_db)
+    project_id = resolve_project_id(test_db, "yoke")
+    actors = [
+        seed_human_actor(test_db, name)
+        for name in ("First reviewer", "Second reviewer")
+    ]
+    for actor in actors:
+        grant_actor_project_role(
+            test_db, actor_id=actor, project_id=project_id, role_name="owner"
+        )
+    row = inbox_posts.create_post(
+        test_db,
+        actor_id=actors[0],
+        project_id=project_id,
+        title="Concurrent work",
+        body="Finish once",
+        source="Test",
+        rules=[{"scope_kind": "actor", "scope_id": actor} for actor in actors],
+    )
+    start = Barrier(2)
+
+    def finish(actor):
+        with db_helpers.connect() as conn:
+            start.wait(timeout=15)
+            return inbox_posts.done_post(conn, post_id=row["id"], actor_id=actor)
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        futures = [pool.submit(finish, actor) for actor in actors]
+        results = [future.result(timeout=30) for future in futures]
+    assert {result["done_actor_id"] for result in results} <= set(actors)
+    assert (
+        len({(result["done_actor_id"], result["done_at"]) for result in results}) == 1
+    )
+    assert sum(not result["already_done"] for result in results) == 1

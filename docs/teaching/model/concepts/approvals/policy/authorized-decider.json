@@ -1,7 +1,9 @@
 {
  "id": "authorized-decider",
  "title": "Authorized decider",
- "status": "draft-copy",
+ "status": "observed",
  "page": "approvals",
- "position": 1
+ "position": 1,
+ "summary": "Decision requests resolve active human deciders through the shared audience rules and current role grants. The request retains its any/all policy; an audience by itself grants no approval permission.",
+ "sources": ["docs/public/sessions/inbox.md"]
 }

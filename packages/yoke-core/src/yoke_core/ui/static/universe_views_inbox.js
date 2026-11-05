@@ -172,6 +172,7 @@ export function renderInboxView(context, main, scope) {
   // answering a request and the next read returning it, the row is
   // remembered here so it never blinks out of the page in between.
   const answered = new Map();
+  let postCompletion = null;
   const remember = (row, action, note) => {
     answered.set(String(row.id), {
       ...row,
@@ -212,8 +213,13 @@ export function renderInboxView(context, main, scope) {
 
     const postRows = result.posts || [];
     posts.setCount(postRows.length);
-    posts.hidden = !postRows.length;
-    cardList(documentNode, posts.body, postRows.map((row) => postCard(context, row, load, rowProject(row))), "");
+    posts.hidden = !postRows.length && !postCompletion;
+    cardList(documentNode, posts.body, postRows.map((row) => postCard(context, row, async (post) => { postCompletion = post; await load(); }, rowProject(row))), "");
+    if (postCompletion) {
+      const receipt = el(documentNode, "p", "inbox-post-completion", `Done by ${postCompletion.done_by || "an audience member"} · ${postCompletion.done_at || "time unavailable"}`);
+      receipt.setAttribute("role", "status");
+      posts.body.appendChild(receipt);
+    }
     const allMessages = result.messages || [];
     const noticeRows = allMessages.filter((row) => NOTICE_LABELS[row.notice_kind]);
     const messageRows = allMessages.filter((row) => !NOTICE_LABELS[row.notice_kind]);

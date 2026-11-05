@@ -25,7 +25,7 @@ export function postCard(context, row, reload, projectLabel = null) {
       }
       const post = result.envelope.result?.post || {};
       card.replaceChildren(el(doc, "p", "review-context", `Done by ${post.done_by || "an audience member"} · ${post.done_at || "time unavailable"}`));
-      await reload();
+      await reload(post);
     } catch (error) {
       button.disabled = false;
       appendRowError(doc, card, String(error));
