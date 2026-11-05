@@ -92,6 +92,10 @@ class _Harness:
         with (
             mock.patch.object(deploy_pipeline, "converge_release_start_schema"),
             mock.patch.object(
+                deploy_pipeline, "dispatch_until_qa_resolves",
+                side_effect=lambda dispatch, stage, *, timeout_seconds, fingerprint, **kw: dispatch(stage, **kw),
+            ),
+            mock.patch.object(
                 deploy_pipeline.control_plane,
                 "execution_context",
                 return_value=context,
