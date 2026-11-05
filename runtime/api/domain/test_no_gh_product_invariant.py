@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+import ast
 from pathlib import Path
 
 
@@ -22,7 +23,20 @@ _EXCLUDED_PREFIXES = (
     "docs/archive/legacy-plan-artifacts/",
 )
 
+# GitHub-hosted release/profile jobs supply gh; installed product paths must
+# never import these source-maintainer scripts.
+_CI_TOOLS = {
+    "yoke_core.tools.release_tag_validation",
+    "yoke_core.tools.publish_server_image",
+    "yoke_core.tools.ci_durations_refresh",
+}
+_CI_TOOL_PATHS = {
+    "packages/yoke-core/src/" + name.replace(".", "/") + ".py"
+    for name in _CI_TOOLS
+}
+
 _SCAN_DIRS = (
+    "packages",
     "runtime/api",
     "runtime/harness",
     ".agents/skills/yoke",
@@ -37,7 +51,7 @@ def _repo_root() -> Path:
 
 def _is_excluded(path: Path, root: Path) -> bool:
     rel = path.relative_to(root).as_posix()
-    if rel == "runtime/api/domain/test_no_gh_product_invariant.py":
+    if rel == "runtime/api/domain/test_no_gh_product_invariant.py" or rel in _CI_TOOL_PATHS:
         return True
     if any(rel.startswith(prefix) for prefix in _EXCLUDED_PREFIXES):
         return True
@@ -74,6 +88,7 @@ _FIXTURE_COMMAND = re.compile(
 
 
 def _has_product_dependency(rel: str, section: str, line: str) -> bool:
+    rel = rel.removeprefix("packages/yoke-core/src/yoke_core/install_bundle_tree/")
     if section == _FIXTURE_RECIPE_SECTIONS.get(rel):
         line = _FIXTURE_COMMAND.sub("", line)
     return bool(_FORBIDDEN.search(line))
@@ -112,3 +127,24 @@ def test_no_host_gh_cli_dependency_in_live_surfaces() -> None:
         "Use bearer-token REST through project GitHub auth instead.\n\n"
         + "\n".join(violations[:40])
     )
+
+
+def test_ci_github_tools_are_not_imported_by_product_modules() -> None:
+    root = _repo_root()
+    violations = []
+    for package in (root / "packages").iterdir():
+        for path in (package / "src").rglob("*.py"):
+            if path.relative_to(root).as_posix() in _CI_TOOL_PATHS:
+                continue
+            for node in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):
+                if isinstance(node, ast.Import):
+                    imported = {alias.name for alias in node.names}
+                elif isinstance(node, ast.ImportFrom):
+                    imported = {node.module} | {
+                        f"{node.module}.{alias.name}" for alias in node.names
+                    }
+                else:
+                    continue
+                if imported & _CI_TOOLS:
+                    violations.append(str(path.relative_to(root)))
+    assert not violations, f"CI-only GitHub tools imported by product: {violations}"

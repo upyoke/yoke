@@ -13,7 +13,7 @@ from runtime.api.fixtures.carried_release_candidate import (
     serve_repository,
 )
 from yoke_core.domain.deployment_run_carried_membership import enroll_carried_members
-from yoke_core.domain.deployment_run_member_targeting import holder_covers_run
+from yoke_core.domain.deployment_run_member_targeting import covering_holder_pairs
 from yoke_core.domain.deployment_run_unheld_candidates import resolve_candidate_custody
 
 
@@ -66,11 +66,14 @@ def test_stage_holder_only_prevents_enrollment_on_same_commit(
     test_db.commit()
 
     assert (
-        holder_covers_run(
-            test_db, holder_id="run-stage", run_id="run-new-stage", item_id=item_id
+        ("run-stage", item_id)
+        in covering_holder_pairs(
+            test_db,
+            run_id="run-new-stage",
+            item_ids=(item_id,),
+            holders=({"run_id": "run-stage"},),
         )
-        is same_commit
-    )
+    ) is same_commit
     custody = resolve_candidate_custody(test_db, "run-new-stage")
     resolved = custody.require()
     assert resolved.held_ids == (frozenset({item_id}) if same_commit else frozenset())

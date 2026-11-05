@@ -109,8 +109,6 @@ def needed_member_ids(conn: Any, *, run_id: str, item_ids) -> frozenset[int]:
     )
 
 
-def run_needs_member(conn: Any, *, run_id: str, item_id: int) -> bool:
-    return item_id in needed_member_ids(conn, run_id=run_id, item_ids=(item_id,))
 
 
 def _selection_identity(row) -> frozenset[int]:
@@ -212,10 +210,6 @@ def covering_holder_pairs(
     return frozenset(covered)
 
 
-def holder_covers_run(conn: Any, *, holder_id: str, run_id: str, item_id: int) -> bool:
-    return (holder_id, item_id) in covering_holder_pairs(
-        conn, run_id=run_id, item_ids=(item_id,), holders=({"run_id": holder_id},)
-    )
 
 
 def member_selected_requirement_ids(

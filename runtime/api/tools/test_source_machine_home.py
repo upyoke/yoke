@@ -5,6 +5,8 @@ import os
 from pathlib import Path
 import subprocess
 import sys
+import socket
+import tempfile
 
 import pytest
 
@@ -172,3 +174,31 @@ def test_watcher_evidence_outlives_disposable_machine_settings(tmp_path, monkeyp
     assert config.read_bytes() == original
     capture.unlink()
     evidence.rmdir()
+
+
+@pytest.mark.skipif(not hasattr(socket, "AF_UNIX"), reason="requires Unix sockets")
+def test_snapshot_copies_secrets_without_browser_runtime_links(tmp_path):
+    config, original, token = _seed(tmp_path / "machine")
+    profile = token.parent / "profile"
+    profile.mkdir()
+    (profile / "SingletonLock").symlink_to("missing-browser-process")
+    (profile / "credential-link").symlink_to(token)
+    with tempfile.TemporaryDirectory(prefix="yoke-socket-") as directory:
+        address = Path(directory) / "socket"
+        with socket.socket(socket.AF_UNIX) as server:
+            server.bind(str(address))
+            (profile / "SingletonSocket").symlink_to(address)
+            with isolated_machine_home(
+                {"YOKE_MACHINE_HOME": str(config.parent), "YOKE_SESSION_ID": "fixture"}
+            ) as child:
+                copied = Path(child["YOKE_MACHINE_HOME"]) / "secrets" / "profile"
+                assert {p.name for p in copied.iterdir()} == {"credential-link"}
+                credential = copied / "credential-link"
+                assert not credential.is_symlink()
+                assert credential.read_text() == "fixture-token"
+                credential.write_text("private-change")
+            assert (profile / "SingletonSocket").is_symlink()
+            assert address.is_socket()
+    assert (profile / "SingletonLock").is_symlink()
+    assert token.read_text() == "fixture-token"
+    assert config.read_bytes() == original

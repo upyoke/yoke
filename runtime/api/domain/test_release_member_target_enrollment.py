@@ -26,8 +26,8 @@ from yoke_core.domain.deployment_qa_stage_materialization import (
     materialize_deployment_qa_stage,
 )
 from yoke_core.domain.deployment_run_member_targeting import (
-    holder_covers_run,
-    run_needs_member,
+    covering_holder_pairs,
+    needed_member_ids,
 )
 
 
@@ -71,13 +71,21 @@ def test_targeted_memberships_admit_only_their_own_obligations(test_db):
             test_db, run_id=f"run-{environment}", item_id=item_id
         )
         assert admitted == (source,)
-        assert run_needs_member(test_db, run_id=f"run-{environment}", item_id=item_id)
-    assert not holder_covers_run(
-        test_db, holder_id="run-stage", run_id="run-prod", item_id=item_id
-    )
-    assert not holder_covers_run(
-        test_db, holder_id="run-prod", run_id="run-stage", item_id=item_id
-    )
+        assert item_id in needed_member_ids(
+            test_db, run_id=f"run-{environment}", item_ids=(item_id,)
+        )
+    assert ("run-stage", item_id) not in covering_holder_pairs(
+            test_db,
+            run_id="run-prod",
+            item_ids=(item_id,),
+            holders=({"run_id": "run-stage"},),
+        )
+    assert ("run-prod", item_id) not in covering_holder_pairs(
+            test_db,
+            run_id="run-stage",
+            item_ids=(item_id,),
+            holders=({"run_id": "run-prod"},),
+        )
     assert [run["id"] for run in completion_runs(test_db, item_id)] == ["run-prod"]
 
 
@@ -89,8 +97,8 @@ def test_no_stage_obligation_keeps_member_off_supplemental_run(test_db):
         ("2026-10-06T00:00:00Z", sources["stage"]),
     )
     test_db.commit()
-    assert not run_needs_member(test_db, run_id="run-stage", item_id=item_id)
-    assert run_needs_member(test_db, run_id="run-prod", item_id=item_id)
+    assert item_id not in needed_member_ids(test_db, run_id="run-stage", item_ids=(item_id,))
+    assert item_id in needed_member_ids(test_db, run_id="run-prod", item_ids=(item_id,))
 
 
 @pytest.mark.parametrize("first", ["stage", "prod"])
@@ -286,7 +294,9 @@ def test_unadmitted_notice_only_names_targets_no_composed_sibling_admits(test_db
     assert f"#{source}" in notice and "target_env=uncovered" in notice
 
 
-def test_stage_proof_without_current_landing_cannot_close_delivery(test_db, tmp_path, monkeypatch):
+def test_stage_proof_without_current_landing_cannot_close_delivery(
+    test_db, tmp_path, monkeypatch
+):
     item_id = 9688
     sources = _pair(test_db, item_id=item_id)
     _accept_member_qa(test_db, run_id="run-stage", item_id=item_id)

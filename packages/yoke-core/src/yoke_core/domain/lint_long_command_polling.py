@@ -3,7 +3,7 @@
 Detects and flags the anti-pattern where an agent manually polls the output
 of a long-running command (duplicate ``Monitor`` arming, background waiters on an existing capture,
 short sleeps before reads of registered captures with ``N < 60``, or ``until``/``while``
-loops that sleep between ``gh api``/``gh run view`` reads of a CI run).
+loops that sleep between GitHub API reads of a CI run).
 
 The canonical pattern agents should use instead: ``Bash(run_in_background=
 true)`` with ``Monitor`` tailing the capture file through a line-buffered

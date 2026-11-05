@@ -16,10 +16,9 @@ from runtime.api.domain.test_deployment_run_held_member_composition import (
     LANDED_ITEM_ID,
 )
 from yoke_core.domain.deployment_run_member_targeting import (
-    holder_covers_run,
+    covering_holder_pairs,
     member_selected_requirement_ids,
     needed_member_ids,
-    covering_holder_pairs,
     companion_requirement_sets,
 )
 from yoke_core.domain.deployment_run_unheld_candidates import candidate_custody
@@ -62,8 +61,11 @@ def test_final_target_holder_retains_custody_for_later_targeted_intake(test_db):
         "UPDATE qa_requirements SET target_env='prod' WHERE id=%s", (fresh,)
     )
     test_db.commit()
-    assert holder_covers_run(
-        test_db, holder_id="run-prod", run_id="run-stage", item_id=item_id
+    assert ("run-prod", item_id) in covering_holder_pairs(
+        test_db,
+        run_id="run-stage",
+        item_ids=(item_id,),
+        holders=({"run_id": "run-prod"},),
     )
 
 
@@ -229,11 +231,14 @@ def test_production_holder_never_covers_stage_owing_item(
         test_db, run_id="run-stage", item_ids=(item_id,)
     ) == frozenset({item_id})
     assert (
-        holder_covers_run(
-            test_db, holder_id="run-prod", run_id="run-stage", item_id=item_id
+        ("run-prod", item_id)
+        in covering_holder_pairs(
+            test_db,
+            run_id="run-stage",
+            item_ids=(item_id,),
+            holders=({"run_id": "run-prod"},),
         )
-        is False
-    )
+    ) is False
 
 
 def test_skip_notice_names_the_recorded_holder(test_db):

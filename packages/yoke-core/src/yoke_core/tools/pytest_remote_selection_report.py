@@ -205,7 +205,7 @@ def follow(
     say(
         f"concluded {conclusion} exit={exit_code} run={run_id} {url} "
         f"ci_run_source={source}; full pytest output is one artifact per "
-        f"shard: gh run download {run_id} -p '{artifact_pattern}'{recovery}"
+        f"shard: download '{artifact_pattern}' from the run page{recovery}"
     )
     return exit_code
 

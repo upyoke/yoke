@@ -8,7 +8,7 @@ from yoke_core.domain.deployment_item_completion_runs import (
     latest_qa_member_run,
     uncredited_supplemental_notice,
 )
-from yoke_core.domain.deployment_run_member_targeting import holder_covers_run
+from yoke_core.domain.deployment_run_member_targeting import covering_holder_pairs
 from yoke_core.domain.deployment_runs_crud_mutate import cmd_add_item
 
 
@@ -34,11 +34,14 @@ def test_credit_and_add_item_use_current_landing(
     run = latest_qa_member_run(test_db, item_id=item, target_env="stage")
     assert (run is not None and run["id"] == "run-stage") is credited
     assert (
-        holder_covers_run(
-            test_db, holder_id="run-prod", run_id="run-stage", item_id=item
+        ("run-prod", item)
+        in covering_holder_pairs(
+            test_db,
+            run_id="run-stage",
+            item_ids=(item,),
+            holders=({"run_id": "run-prod"},),
         )
-        is False
-    )
+    ) is False
     notice = uncredited_supplemental_notice(test_db, run_id="run-stage", item_id=item)
     assert (notice == "") is credited
     if not credited:
