@@ -1,9 +1,8 @@
 """Regression coverage for yoke-ci authorization shape.
 
-Keeps the runner-consuming aggregate tail gone and pins the branch-
-protection expectation to CLA's signature-check rather than deleted
-yoke-ci check names. Sibling of ``test_core_container.py`` so that file
-stays under the authored-file line limit.
+Checks that required jobs report on reused trees and that independent shard
+coverage still gates executed suites. Sibling of ``test_core_container.py``
+so that file stays under the authored-file line limit.
 """
 
 from __future__ import annotations
@@ -150,7 +149,7 @@ def test_every_required_context_reports_on_the_reuse_skip_path() -> None:
         f"test-shard ({version}, {shard})"
         for version in versions
         for shard in ci_shards.shard_list()
-    }
+    } | {f"shard-coverage ({version})" for version in versions}
     for context in contexts:
         matched = [
             job
@@ -224,6 +223,7 @@ def test_long_work_jobs_use_cancellation_aware_conditions() -> None:
     jobs = _yoke_ci()["jobs"]
     contracts_ok = "${{ !cancelled() && needs.repo_contracts.result == 'success' }}"
     assert " ".join(str(jobs["test_shard"]["if"]).split()) == contracts_ok
+    assert " ".join(str(jobs["shard_coverage"]["if"]).split()) == contracts_ok
     assert " ".join(str(jobs["browser_runtime"]["if"]).split()) == contracts_ok
     # Python coverage never stands in for the commit-versioned image build.
     assert "if" not in jobs["container"] and "needs" not in jobs["container"]
@@ -238,3 +238,20 @@ def test_orphan_detection_flags_deleted_aggregate_names() -> None:
 
     assert orphan_required_contexts(stale, job_names) == stale
     assert context_matches_job("test-shard (3.10, 1)", job_names)
+
+
+def test_coverage_waits_for_shards_and_checks_the_unsplit_collection() -> None:
+    job = _yoke_ci()["jobs"]["shard_coverage"]
+    assert set(job["needs"]) == {"repo_contracts", "reuse_coverage", "test_shard"}
+    assert job["strategy"]["matrix"]["python-version"] == (
+        "${{ fromJSON(needs.repo_contracts.outputs.python_versions) }}"
+    )
+    steps = {step["name"]: step for step in job["steps"]}
+    check = steps["Compare execution with the unsplit collection"]
+    assert "yoke_core.tools.ci_shard_coverage" in check["run"]
+    assert '--reports shard-reports --python "${{ matrix.python-version }}"' in check["run"]
+    assert not check.get("continue-on-error")
+    download = steps["Download every shard report"]["with"]
+    assert download["pattern"] == "pytest-output-${{ matrix.python-version }}-*"
+    assert download["path"] == "shard-reports"
+    assert "always()" in steps["Upload collection evidence"]["if"]
