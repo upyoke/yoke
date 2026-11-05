@@ -15,9 +15,9 @@ Yoke is a control plane for agentic engineering that gives humans and coding age
 
 Your agent handles installation and guides you through setup, helping you make the right configuration choices.
 
-Once setup is complete, open a new agent session in your project folder and run `/yoke onboard` (`$yoke onboard` in Codex). During onboarding, your agent reviews your project and existing work, helps you write your strategy and choose what to tackle first, and configures what's needed to test and deploy your project.
+Once setup is complete, open a new agent session in your project folder and run `/yoke onboard`. During onboarding, your agent reviews your project and existing work, helps you write your strategy and choose what to tackle first, and configures what's needed to test and deploy your project.
 
-Next, run `/yoke steer` (`$yoke steer` in Codex). Your agent uses Yoke to organize work, staff it across your available machines and coding agents, and deliver it. It keeps you informed and brings key decisions to you.
+Next, run `/yoke steer`. Your agent uses Yoke to organize work, staff it across your available machines and coding agents, and deliver it. It keeps you informed and brings key decisions to you.
 
 [More on Installation and setup](guide/setup.install.md)
 

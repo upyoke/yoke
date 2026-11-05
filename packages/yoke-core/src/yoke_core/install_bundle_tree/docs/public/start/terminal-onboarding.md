@@ -77,7 +77,7 @@ to see the result.
 
 Setup wires the project to Yoke and installs its operating guidance. It does
 not install an application scaffold. The installed `yoke` skill
-(`$yoke onboard` in Codex; `/yoke onboard` in Claude Code or Cursor)
+`/yoke onboard`
 surveys existing work, plans dashes and configures only their needs, including
 any chosen application Pack, then hands off to `/yoke steer`. The webapp scaffold contributes an application-docs
 reference to canonical `AGENTS.md` and a marked `.gitignore` block; project

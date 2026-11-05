@@ -299,7 +299,7 @@ print_path_guidance_after_onboard() {
   printf '%s  %s  open Claude Code, Codex, or Cursor in your project folder%s\n' \
     "$(handoff_bar)" "$handoff_step" "$(sgr_reset)"
   handoff_step=$((handoff_step + 1))
-  printf '%s  %s  use the installed yoke skill: %s%s$yoke onboard (Codex); /yoke onboard (Claude Code/Cursor)%s\n' \
+  printf '%s  %s  use the installed yoke skill: %s%s/yoke onboard%s\n' \
     "$(handoff_bar)" "$handoff_step" \
     "$(c_bright)" "$(c_bold)" "$(sgr_reset)"
 }

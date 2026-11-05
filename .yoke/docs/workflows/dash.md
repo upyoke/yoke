@@ -11,7 +11,7 @@ substantial change when the outcome is clear.
 ## File or execute
 
 Ask your agent to run `/yoke dash "specification"`, or
-`/yoke dash PREFIX-N` for an existing item. Codex uses `$yoke dash`.
+`/yoke dash PREFIX-N` for an existing item.
 The agent follows the skill bound to the item's live workflow stage.
 
 The specification should state the outcome, full scope, and acceptance

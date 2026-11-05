@@ -90,7 +90,7 @@ def test_checklist_init_uses_response_next_action(monkeypatch):
         stream,
         StringIO(),
     )
-    assert "Next: $yoke onboard" in stream.getvalue()
+    assert "Next: /yoke onboard" in stream.getvalue()
     assert "Next:\n  - yoke setup" not in stream.getvalue()
 
 
@@ -125,7 +125,7 @@ def test_setup_done_keeps_readiness_before_shared_project_action(monkeypatch, tm
     flow.report_path = None
     result = flow._done_fields()
     assert "doctor run --session" in result["next"][0]
-    assert "$yoke onboard" in result["next"][1]
+    assert "/yoke onboard" in result["next"][1]
     assert result["next_action"] == ACTION
 
 

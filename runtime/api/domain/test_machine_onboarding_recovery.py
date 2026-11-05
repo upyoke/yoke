@@ -1,4 +1,4 @@
-"""Machine handoffs follow the target project's receiving harness, not the server."""
+"""Machine handoffs use the same skill command for every receiving harness."""
 
 import sqlite3
 
@@ -29,15 +29,13 @@ def _recovery(sessions):
 @pytest.mark.parametrize("executor", ["codex", "codex-cli", "codex-desktop"])
 def test_codex_machine_handoff_uses_native_skill_invocation(executor):
     recovery = _recovery([_session(executor)])
-    assert "$yoke onboard" in recovery
-    assert "/yoke onboard" not in recovery
+    assert "/yoke onboard" in recovery
 
 
 @pytest.mark.parametrize("executor", ["claude-code", "claude-cli", "cursor"])
 def test_slash_harnesses_keep_their_native_invocation(executor):
     recovery = _recovery([_session(executor)])
     assert "/yoke onboard" in recovery
-    assert "$yoke onboard" not in recovery
 
 
 @pytest.mark.parametrize(
@@ -49,10 +47,11 @@ def test_slash_harnesses_keep_their_native_invocation(executor):
         [_session("codex"), _session("cursor")],
     ],
 )
-def test_unknown_or_ambiguous_receiving_harness_teaches_both_forms(sessions):
+def test_unknown_or_ambiguous_receiving_harness_uses_slash_command(sessions):
     recovery = _recovery(sessions)
-    assert "Codex: $yoke onboard" in recovery
-    assert "Claude Code/Cursor: /yoke onboard" in recovery
+    assert "/yoke onboard" in recovery
+    assert "Codex:" not in recovery
+    assert "Claude Code/Cursor:" not in recovery
 
 
 def test_other_projects_and_ended_sessions_do_not_choose_the_harness():
@@ -63,5 +62,4 @@ def test_other_projects_and_ended_sessions_do_not_choose_the_harness():
             _session("codex"),
         ]
     )
-    assert "$yoke onboard" in recovery
-    assert "/yoke onboard" not in recovery
+    assert "/yoke onboard" in recovery

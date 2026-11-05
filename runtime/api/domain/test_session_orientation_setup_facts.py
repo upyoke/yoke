@@ -101,7 +101,7 @@ def test_source_composers_use_same_summary(monkeypatch, harness):
     assert body.count("Setup:") == 1
     assert body.count("Next:") == 1
     assert "blocked setup-checklist-handoff" in body
-    router = "$yoke" if harness == "codex" else "/yoke"
+    router = "/yoke"
     assert f"Next: {router} onboard (setup_required)" in body
     assert len(body.encode()) <= min(INLINE_CONTEXT_BYTES.values())
 

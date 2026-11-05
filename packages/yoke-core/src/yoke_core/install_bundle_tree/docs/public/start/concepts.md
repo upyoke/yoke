@@ -48,8 +48,8 @@ workers, tracks their progress and keeps the plan current. You meet it after
 agreeing what the project should pursue; each worker executes its own item
 through that item's workflow.
 
-With a strategy doc ready, try `/yoke steer` in a Claude Code or Cursor
-session opened in the project folder, or `$yoke steer` in Codex. It uses
+With a strategy doc ready, try `/yoke steer` in a
+session opened in the project folder. It uses
 **CURRENT-PLAN** by default. See [Agents](../agents/index.md) for the skill
 entry points and [Strategy](../strategy/index.md#link-to-items-and-to-a-steering-seat)
 for the scope a steering seat covers.
