@@ -87,7 +87,9 @@ def test_correction_head_survives_later_materialization(
     root = cases[takeover.WAITING]
     # A pending sibling holds the run after the corrected case has answered,
     # and forces dispatch to revisit this member's materialization.
-    corrected_case(test_db, failed_id=root, case_key="pending-sibling")
+    sibling = corrected_case(test_db, failed_id=root, case_key="pending-sibling")
+    test_db.execute("UPDATE qa_requirements SET plan_id=NULL WHERE id=%s", (sibling,))
+    test_db.commit()
     plan = test_db.execute(
         "SELECT plan_id FROM qa_requirements WHERE id=%s", (root,)
     ).fetchone()[0]
