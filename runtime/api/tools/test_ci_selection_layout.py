@@ -28,6 +28,35 @@ def _names(job: dict) -> list[str]:
     return [step.get("name", "") for step in job["steps"]]
 
 
+def test_dependency_setup_caches_uv_downloads_instead_of_pip() -> None:
+    action = load_document(GITHUB / "actions" / "yoke-test-runner" / "action.yml")
+    setups = [action["runs"], _jobs("yoke-ci.yml")["reuse_coverage"],
+              _jobs("yoke-tests-selection.yml")["plan"]]
+    for setup in setups:
+        uv = _step(setup, "astral-sh/setup-uv@")
+        revision = uv["uses"].split("@", 1)[1]
+        assert len(revision) == 40 and all(c in "0123456789abcdef" for c in revision)
+        assert uv["with"]["enable-cache"] is True
+        assert uv["with"]["cache-dependency-glob"] == "uv.lock"
+        assert "cache" not in _step(setup, "actions/setup-python")["with"]
+        assert not any("pip install" in s.get("run", "") for s in setup["steps"])
+        sync = next(s for s in setup["steps"] if "uv sync" in s.get("run", ""))
+        assert sync["run"] == "uv sync --all-packages --locked"
+        assert setup["steps"].index(uv) < setup["steps"].index(sync)
+
+
+def test_partial_fetch_keeps_versioning_and_git_test_history() -> None:
+    jobs = _jobs("yoke-ci.yml")
+    for name in ("test_shard", "reuse_coverage"):
+        checkout = _step(jobs[name], "actions/checkout")["with"]
+        assert checkout["fetch-depth"] == 0
+        assert checkout["filter"] == "blob:none"
+    for name in ("repo_contracts", "shard_coverage", "container"):
+        assert _step(jobs[name], "actions/checkout")["with"]["fetch-depth"] == 0
+    for job in _jobs("yoke-tests-selection.yml").values():
+        assert _step(job, "actions/checkout")["with"]["fetch-depth"] == 0
+
+
 def test_both_shard_kinds_prepare_their_runner_with_the_same_action() -> None:
     full = _step(_jobs("yoke-ci.yml")["test_shard"], RUNNER_ACTION)
     selection = _step(_jobs("yoke-tests-selection.yml")["selection"], RUNNER_ACTION)

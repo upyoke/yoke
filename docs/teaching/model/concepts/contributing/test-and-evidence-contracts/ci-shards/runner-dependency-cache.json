@@ -1,0 +1,15 @@
+{
+ "id": "runner-dependency-cache",
+ "title": "CI dependency caches and history",
+ "status": "observed",
+ "audience": "Maintainers",
+ "summary": "The shared runner, full-CI contract job and selection plan install uv through commit-pinned setup-uv with its download/build cache enabled and keyed on uv.lock. Each job creates its own locked environment; pip caching is removed. Full-CI test_shard and reuse_coverage use blobless full-history checkouts, retaining tags and commits for setuptools-scm, git tests and profile lineage. PostgreSQL host client prerequisites remain required.",
+ "sources": [
+  "docs/testing-verification/ci-shards.md",
+  ".github/actions/yoke-test-runner/action.yml",
+  ".github/workflows/yoke-ci.yml",
+  ".github/workflows/yoke-tests-selection.yml",
+  "runtime/api/tools/test_ci_selection_layout.py"
+ ],
+ "page": "test-and-evidence-contracts"
+}
