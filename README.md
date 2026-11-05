@@ -47,7 +47,7 @@ install upyoke.com
 Your agent installs Yoke, walks you through setup, and then runs onboarding:
 it reviews your project, helps you write a strategy, and sets up testing and
 deployment. Afterward, open a new session in your project folder and run
-`/yoke steer` (`$yoke steer` in Codex) to direct the work.
+`/yoke steer` to direct the work.
 
 Prefer a terminal?
 

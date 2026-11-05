@@ -167,7 +167,7 @@ def test_diagnosed_machine_failure_keeps_its_reachable_repair(monkeypatch):
 @pytest.mark.parametrize(
     "family, router",
     [
-        ("codex", "$yoke"),
+        ("codex", "/yoke"),
         ("claude-code", "/yoke"),
         ("cursor", "/yoke"),
     ],
@@ -187,13 +187,12 @@ def test_orientation_uses_native_skill_with_recovery_arguments(
     assert action["command"] == "/yoke onboard --project 9"
 
 
-def test_setup_terminal_guidance_names_both_harness_forms(monkeypatch):
+def test_setup_terminal_guidance_uses_slash_command(monkeypatch):
     from yoke_cli.config.onboard_report import next_steps
 
     monkeypatch.setattr(handoff, "nearest_harness_family", lambda: None)
     command = next_steps(Path("config.json"), "local-checkout")[1]
-    for router in ("$yoke", "/yoke"):
-        assert f"{router} onboard --run-id <run-id>" in command
+    assert "/yoke onboard --run-id <run-id>" in command
 
 
 def test_shell_recovery_stays_a_shell_command(monkeypatch):
@@ -214,5 +213,5 @@ def test_recovery_sentence_uses_native_onboarding_router(monkeypatch):
         "home": "guide",
     }
     line = summary.next_line(action)
-    assert "Resume $yoke onboard" in line
-    assert "/yoke" not in line
+    assert "Resume /yoke onboard" in line
+    assert "Codex:" not in line

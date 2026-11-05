@@ -21,7 +21,7 @@
   },
   {
    "title": "Onboarding",
-   "outline": ["Open a new session in the project folder; Codex uses $yoke onboard", "Understand the project and its existing work", "Write goals and a high-level plan", "Configure only what the first dashes need", "Hand off to steer for vetted, approved dashes"]
+   "outline": ["Open a new session in the project folder; run /yoke onboard", "Understand the project and its existing work", "Write goals and a high-level plan", "Configure only what the first dashes need", "Hand off to steer for vetted, approved dashes"]
   },
   {
    "title": "Manual terminal setup",

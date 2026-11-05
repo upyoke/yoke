@@ -181,9 +181,8 @@ lifecycle rendering; local lifecycle handlers share the client output path.
 After fresh install and repeated refresh, inspect the native skills menu:
 each native Yoke entry should appear once. Select the installed `yoke` skill,
 which routes to onboarding; there is no separate Yoke Onboard picker entry.
-In Codex, search the skill picker for `yoke` and invoke `$yoke onboard`.
-In Cursor, invoke `/yoke onboard`. Claude Code discovers one `/yoke` router
-through its native link; invoke `/yoke onboard`. Inspect `/config` for Project instructions
+Invoke `/yoke onboard` in a new session. Claude Code discovers the `/yoke` router
+through its native link. Inspect `/config` for Project instructions
 and `/memory` in a fresh supported session. Directory counts alone do not prove
 native discovery or instruction loading.
 

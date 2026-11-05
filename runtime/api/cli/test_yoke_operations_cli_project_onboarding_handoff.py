@@ -78,7 +78,7 @@ def test_onboard_project_apply_writes_handoff_and_worktrees_ignore(
     assert payload["install"]["snapshot_sync"]["status"] == "ok"
     assert payload["handoff"]["run_id"] == "run-handoff"
     assert payload["handoff"]["install_report"]["project_id"] == 43
-    assert payload["handoff"]["agent_command"] == "$yoke onboard --run-id run-handoff"
+    assert payload["handoff"]["agent_command"] == "/yoke onboard --run-id run-handoff"
 
     handoff_call = api.function_call("onboard.checklist.run")
     handoff_payload = handoff_call["payload"]
@@ -92,10 +92,10 @@ def test_onboard_project_apply_writes_handoff_and_worktrees_ignore(
 @pytest.mark.parametrize(
     "family, routers",
     [
-        ("codex", ["$yoke"]),
+        ("codex", ["/yoke"]),
         ("claude-code", ["/yoke"]),
         ("cursor", ["/yoke"]),
-        (None, ["$yoke", "/yoke"]),
+        (None, ["/yoke"]),
     ],
 )
 def test_handoff_uses_native_router_and_preserves_run(monkeypatch, family, routers):
@@ -103,10 +103,7 @@ def test_handoff_uses_native_router_and_preserves_run(monkeypatch, family, route
     command = handoff._agent_command("run-handoff")
     for router in routers:
         assert f"{router} onboard --run-id run-handoff" in command
-    if family == "codex":
-        assert "/yoke" not in command
-    elif family:
-        assert "$yoke" not in command
+    assert command == "/yoke onboard --run-id run-handoff"
 
 
 def test_project_onboard_dry_run_previews_worktrees_ignore_without_writing(

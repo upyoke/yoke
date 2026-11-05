@@ -87,7 +87,7 @@ def test_onboard_yes_writes_machine_config_and_project_handoff(
     assert project_report["project"]["id"] == 44
     assert project_report["handoff"]["run_id"] == "run-handoff"
     assert project_report["handoff"]["agent_command"].startswith(
-        "$yoke onboard --run-id "
+        "/yoke onboard --run-id "
     )
     assert project_report["github_adoption"]["choice"] == "disabled"
     project_reads = api.function_calls("projects.get")
