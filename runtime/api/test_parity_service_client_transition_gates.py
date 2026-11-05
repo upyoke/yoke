@@ -27,14 +27,14 @@ class TestTransitionParity:
     """Verify forward and exceptional transitions in the domain layer."""
 
     def test_forward_transitions_accepted(self):
-        """Forward transitions should be accepted by both surfaces."""
+        """Forward transitions follow the epic workflow."""
         workflow = builtin_workflow_runtime('epic')
         forward_cases = [('idea', 'refining-idea'), ('refining-idea', 'refined-idea'), ('refined-idea', 'planning'), ('planning', 'planned'), ('implementing', 'reviewing-implementation'), ('reviewing-implementation', 'reviewed-implementation'), ('reviewed-implementation', 'polishing-implementation'), ('polishing-implementation', 'implemented'), ('implemented', 'release'), ('release', 'done')]
         for from_s, to_s in forward_cases:
             assert workflow.is_forward_transition(from_s, to_s), f'Domain should accept {from_s} -> {to_s}'
 
     def test_backward_transitions_rejected(self):
-        """Backward transitions should be rejected by both surfaces."""
+        """Backward transitions are rejected by the epic workflow."""
         workflow = builtin_workflow_runtime('epic')
         backward_cases = [('done', 'planning'), ('planned', 'idea'), ('release', 'implementing')]
         for from_s, to_s in backward_cases:
