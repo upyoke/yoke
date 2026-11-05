@@ -87,13 +87,6 @@ def _model_level_invariants(conn: Any) -> None:
             f"{table} row {key} has unconverged levels"
         )
     if _table_exists(conn, "universe_settings"):
-        p = "%s" if db_backend.connection_is_postgres(conn) else "?"
-        row = conn.execute(
-            f"SELECT value FROM universe_settings WHERE key={p}",
-            ("cursor_quota_order",),
-        ).fetchone()
-        ordered = json_helper.loads_text(str(row[0]))
-        assert len(ordered) == 2 and set(ordered) == {
-            "Cursor Models",
-            "Other Models",
-        }, "Cursor quota order must contain its two monthly pools exactly once"
+        from yoke_core.domain.quota_pool_order import read_pool_order
+
+        read_pool_order(conn)

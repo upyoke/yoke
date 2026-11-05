@@ -43,6 +43,7 @@ def test_launch_assignment_backfill_and_drop():
 def test_assignment_invariant_retains_the_model_level_work_purpose():
     conn = sqlite3.connect(":memory:")
     conn.executescript("""
+        CREATE TABLE universe_settings(key TEXT PRIMARY KEY,value TEXT);
         CREATE TABLE items(id INTEGER PRIMARY KEY,project_id INTEGER);
         INSERT INTO items VALUES (73,1);
         CREATE TABLE session_launches(launch_id TEXT,project_id INTEGER,
@@ -58,5 +59,20 @@ def test_assignment_invariant_retains_the_model_level_work_purpose():
     conn.execute(
         "UPDATE session_launches SET level_placement=?",
         ('{"work_required":true}',),
+    )
+    migration.invariants(conn)
+    # No override follows the shipped setting; malformed overrides still refuse.
+    conn.execute(
+        "INSERT INTO universe_settings VALUES ('cursor_quota_order',?)",
+        ('["Cursor Models","Cursor Models"]',),
+    )
+    from yoke_core.domain.quota_pool_order import QuotaPoolOrderError
+
+    with pytest.raises(QuotaPoolOrderError) as raised:
+        migration.invariants(conn)
+    assert raised.value.code == "cursor_quota_order_invalid"
+    conn.execute(
+        "UPDATE universe_settings SET value=?",
+        ('["Other Models","Cursor Models"]',),
     )
     migration.invariants(conn)
