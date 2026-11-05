@@ -122,7 +122,8 @@ def _run_shard(group: int) -> int:
     from yoke_core.tools.ci_selection_collect import SELECTION_FILE_ENV
 
     files = shard_files(Path(GROUPS_PATH), os.environ.get("YOKE_CI_PYTHON_SCOPE", "all"), group)
-    selection = Path("ci-shard-files.txt")
+    selection = Path(".yoke/tmp/ci-shard-files.txt")
+    selection.parent.mkdir(parents=True, exist_ok=True)
     selection.write_text("\n".join(files) + "\n", encoding="utf-8")
     environment = dict(os.environ, **{SELECTION_FILE_ENV: str(selection.resolve())})
     assignment = f"CI shard {group}/{SHARD_COUNT}: {len(files)} assigned files\n"

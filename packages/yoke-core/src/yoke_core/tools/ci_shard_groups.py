@@ -13,7 +13,7 @@ import time
 from yoke_core.tools.ci_shards import SHARD_COUNT, SUITE_PATHS
 
 FACTS_ENV = "YOKE_CI_SHARD_FACTS"
-GROUPS_PATH = "ci-shard-groups.json"
+GROUPS_PATH = ".yoke/tmp/ci-shard-groups.json"
 
 
 def pytest_collection_finish(session):
@@ -96,6 +96,7 @@ def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", type=Path, default=Path(GROUPS_PATH))
     args = parser.parse_args(argv)
+    args.output.parent.mkdir(parents=True, exist_ok=True)
     facts = args.output.with_suffix(".facts.json")
     started = time.monotonic()
     environment = dict(os.environ, **{FACTS_ENV: str(facts.resolve()),
