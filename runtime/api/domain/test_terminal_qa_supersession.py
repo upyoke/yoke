@@ -4,12 +4,12 @@ import json
 
 import pytest
 
-from runtime.api.domain.test_terminal_qa_settlement import (
+from runtime.api.domain.terminal_qa_settlement_test_support import (
     _seed_plan_execution,
     _seed_merging_sha,
     _terminal_result,
 )
-from runtime.api.domain.test_terminal_post_deploy_settlement import (
+from runtime.api.domain.terminal_post_deploy_settlement_test_support import (
     _accept_member_qa,
     _source_member,
 )

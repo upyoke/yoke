@@ -4,10 +4,13 @@ from unittest import mock
 
 import pytest
 
-from runtime.api.domain.test_lint_lane_main_write_shell_redirect import (
-    _bash, _seed_lane,
+from runtime.api.domain.lint_lane_main_write_shell_redirect_test_support import (
+    _bash,
+    _seed_lane,
 )
-from runtime.api.domain import test_lint_lane_main_write_shell_redirect as fixtures
+from runtime.api.domain import (
+    lint_lane_main_write_shell_redirect_test_support as fixtures,
+)
 
 from yoke_core.domain import lint_lane_main_write
 

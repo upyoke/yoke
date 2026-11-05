@@ -12,7 +12,7 @@ from runtime.api.merge_queue_landing_test_helpers import (
     land,
     wire_happy_path,
 )
-from runtime.api.domain.test_ci_no_verdict_redispatch import (
+from runtime.api.domain.ci_no_verdict_redispatch_test_support import (
     CANCELLED_REQUIRED,
     FAILED_REQUIRED,
     QUEUED_REQUIRED,

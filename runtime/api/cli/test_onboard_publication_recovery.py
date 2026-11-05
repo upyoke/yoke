@@ -6,7 +6,9 @@ from yoke_cli.commands.adapters.onboard import _parser
 from yoke_cli.config import onboard_apply_resume, onboard_apply_snapshot
 from yoke_cli.config.onboard_wizard_flow_apply import ApplyFlow
 from yoke_cli.config.project_clone_support import ClonePlan
-from runtime.api.cli.test_onboard_publication_receipts import setup_read_only
+from runtime.api.cli.onboard_publication_receipts_test_support import (
+    setup_read_only,
+)
 
 
 def test_snapshot_restores_layer_keep_but_never_replays_removal():

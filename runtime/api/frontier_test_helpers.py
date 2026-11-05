@@ -6,7 +6,7 @@ file imports the builders/inserters it needs and uses them directly — no
 Postgres test connections that close/drop themselves via the facade finalizer.
 
 The schema itself is built by ``create_dependency_test_db`` from the sibling
-module ``runtime.api.test_dependency_schema`` — re-exported here so the split
+module ``runtime.api.dependency_schema_test_support`` — re-exported here so the split
 files can import everything from one place if they prefer (they may still
 import directly from ``test_dependency_schema`` to mirror the original style).
 """
@@ -15,7 +15,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from runtime.api.test_dependency_schema import create_dependency_test_db
+from runtime.api.dependency_schema_test_support import create_dependency_test_db
 
 
 PROJECT_IDS = {

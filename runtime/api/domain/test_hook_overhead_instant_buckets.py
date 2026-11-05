@@ -20,7 +20,7 @@ NEXT_HOUR = parse_instant("1970-01-01T00:00:00Z")
 
 @pytest.mark.parametrize("zone", SESSION_ZONES)
 def test_native_hour_buckets_cutoff_and_wire_owner(test_db, monkeypatch, zone):
-    from runtime.api.domain.handlers.test_sessions_hook_overhead import (
+    from runtime.api.domain.handlers.sessions_hook_overhead_test_support import (
         _request,
         _use_fixture_database,
     )

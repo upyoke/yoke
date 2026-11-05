@@ -26,7 +26,7 @@ from yoke_core.domain import epic
 from runtime.api.fixtures.backlog_inserts import insert_epic_task, insert_item
 from runtime.api.fixtures.dispatch_actor import register_session_actor
 from runtime.api.fixtures.pg_testdb import test_database
-from runtime.api.test_constants import TEST_ITEM_ID, TEST_ITEM_REF
+from runtime.api.constants_test_support import TEST_ITEM_ID, TEST_ITEM_REF
 
 
 @pytest.fixture

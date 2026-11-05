@@ -13,7 +13,7 @@ from yoke_core.engines.doctor_hc_routed_ownership import (
 # within the AGENTS.md file budget. ``conn`` is the backend-aware per-test DB
 # fixture; the ``_insert_*`` / ``_run`` helpers seed the minimal table set on
 # its disposable Postgres authority.
-from runtime.api.test_doctor_hc_routed_ownership_helpers import (
+from runtime.api.doctor_hc_routed_ownership_helpers_test_support import (
     _insert_item,
     _insert_released_claim,
     _insert_session,

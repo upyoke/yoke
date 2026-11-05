@@ -4,7 +4,10 @@ from datetime import timedelta
 
 import pytest
 
-from runtime.api.domain.test_session_registration_scope import register, world as world
+from runtime.api.domain.session_registration_scope_test_support import (
+    register,
+    world as world,
+)
 from yoke_contracts.timestamps import utc_now
 from yoke_core.domain import sessions_cleanup as cleanup
 from yoke_core.domain.scratch_auto_prune import ScratchPruneResult
@@ -248,7 +251,7 @@ def test_coordination_and_deploy_locks_from_projectless(world, monkeypatch):
 
 @pytest.mark.parametrize("target", [1, 81])
 def test_inaccessible_target_refused_no_disclosure(world, target):
-    from runtime.api.domain.test_function_authz_scope_routing import (
+    from runtime.api.domain.function_authz_scope_routing_test_support import (
         _entry,
         _payload_request,
     )
@@ -282,7 +285,7 @@ def test_inaccessible_target_refused_no_disclosure(world, target):
 
 
 def test_readable_target_keeps_permission_denial_teaching(world):
-    from runtime.api.domain.test_function_authz_scope_routing import (
+    from runtime.api.domain.function_authz_scope_routing_test_support import (
         _entry,
         _payload_request,
     )

@@ -4,7 +4,7 @@ import json
 from types import SimpleNamespace
 from pathlib import Path
 
-from runtime.api.domain.test_standalone_item_merge_close_out_route import (
+from runtime.api.domain.standalone_item_merge_close_out_route_test_support import (
     _wire,
     _run,
     _item,

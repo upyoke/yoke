@@ -13,7 +13,7 @@ from __future__ import annotations
 from dataclasses import replace
 from yoke_contracts.timestamps import parse_instant
 
-from runtime.api.domain.test_steering_fleet_report_populated_body import (
+from runtime.api.domain.steering_fleet_report_populated_body_test_support import (
     _populated_report,
     report_body,
 )

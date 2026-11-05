@@ -1,14 +1,16 @@
 """Shared plan groups keep their human acceptance gate."""
 
 from unittest import mock
-from runtime.api.domain.test_deployment_qa_plan_group_scenarios import _form
-from runtime.api.domain.test_deployment_qa_plan_groups import (
+from runtime.api.domain.deployment_qa_plan_group_scenarios_test_support import (
+    _form,
+)
+from runtime.api.domain.deployment_qa_plan_groups_test_support import (
     RUN,
     MEMBERS,
     _attach,
     _begin,
 )
-from runtime.api.domain.test_deployment_qa_stage_execution import (
+from runtime.api.domain.deployment_qa_stage_execution_test_support import (
     _plan,
     _stages,
     _seed_run,

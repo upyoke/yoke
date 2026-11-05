@@ -5,10 +5,14 @@ from unittest.mock import patch
 
 import pytest
 
-from runtime.api.domain.test_release_member_target_enrollment import _pair
-from runtime.api.domain.test_dash_post_deploy_done_consumption import _bind_original
-from runtime.api.domain.test_dash_post_deploy_review_isolation import _insert_dash
-from runtime.api.domain.test_deployment_run_held_member_composition import (
+from runtime.api.domain.release_member_target_enrollment_test_support import _pair
+from runtime.api.domain.dash_post_deploy_done_consumption_test_support import (
+    _bind_original,
+)
+from runtime.api.domain.dash_post_deploy_review_isolation_test_support import (
+    _insert_dash,
+)
+from runtime.api.domain.deployment_run_held_member_composition_test_support import (
     _carried_landing,
     _holder,
     _members,

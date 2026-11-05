@@ -10,7 +10,10 @@ from yoke_cli.commands import universe_ui
 from yoke_cli.config import universe_ui_daemon as daemon
 from yoke_cli.config import universe_ui_daemon_state as state
 from yoke_cli.config import universe_ui_launchd as launchd
-from runtime.api.cli.test_yoke_universe_ui_daemon import CHILD_SCRIPT, _free_port
+from runtime.api.cli.yoke_universe_ui_daemon_test_support import (
+    CHILD_SCRIPT,
+    _free_port,
+)
 
 
 @pytest.fixture(autouse=True)

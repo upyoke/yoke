@@ -26,7 +26,7 @@ from runtime.api.migration_applied_evidence_test_helpers import (
     regression_db,  # noqa: F401 — module-local fixture
     tmp_db,  # noqa: F401 — module-local fixture
 )
-from runtime.api.test_backlog import _conn
+from runtime.api.backlog_test_support import _conn
 
 # ---------------------------------------------------------------------------
 # Apply variant

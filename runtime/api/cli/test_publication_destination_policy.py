@@ -8,7 +8,10 @@ import pytest
 from yoke_cli.config import credentialed_git, project_onboard, project_clone_support
 from yoke_cli.config import project_publication_destination as destination
 from yoke_cli.config import onboard_publication
-from yoke_cli.project_install import publication_eligibility, publication_commit_ownership
+from yoke_cli.project_install import (
+    publication_eligibility,
+    publication_commit_ownership,
+)
 from yoke_core.domain import worktree_preflight_upstream
 
 
@@ -23,19 +26,22 @@ def git(root: Path, *args: str) -> str:
 def checkout(tmp_path, monkeypatch):
     monkeypatch.setenv("YOKE_MACHINE_HOME", str(tmp_path / "home"))
     monkeypatch.delenv("YOKE_ENV", raising=False)
-    source = tmp_path / 'source.git'
+    source = tmp_path / "source.git"
     source.mkdir()
-    git(source, 'init', '--bare', '--initial-branch=main')
-    root = tmp_path / 'checkout'
-    subprocess.run(['git', 'clone', str(source), str(root)], check=True,
-                   capture_output=True)
-    git(root, 'config', 'user.email', 'test@example.com')
-    git(root, 'config', 'user.name', 'Test')
-    (root / 'README').write_text('source\n')
-    git(root, 'add', 'README')
-    git(root, 'commit', '-m', 'source')
-    git(root, 'push', 'origin', 'main')
-    from runtime.api.cli.test_project_publication_settings import seed_project
+    git(source, "init", "--bare", "--initial-branch=main")
+    root = tmp_path / "checkout"
+    subprocess.run(
+        ["git", "clone", str(source), str(root)], check=True, capture_output=True
+    )
+    git(root, "config", "user.email", "test@example.com")
+    git(root, "config", "user.name", "Test")
+    (root / "README").write_text("source\n")
+    git(root, "add", "README")
+    git(root, "commit", "-m", "source")
+    git(root, "push", "origin", "main")
+    from runtime.api.cli.project_publication_settings_test_support import (
+        seed_project,
+    )
 
     seed_project(root)
     return root, source
@@ -164,11 +170,17 @@ def test_duplicate_refuses_unrelated_local_commit_before_creation(checkout, monk
 @pytest.mark.parametrize("refusal", [False, True])
 @pytest.mark.parametrize("remote", [False, True])
 def test_read_only_local_merge_preserves_remote_and_prints_refusals(
-    tmp_path, monkeypatch, capsys, refusal, remote,
+    tmp_path,
+    monkeypatch,
+    capsys,
+    refusal,
+    remote,
 ):
     from types import SimpleNamespace
     from runtime.api.engines.local_merge_test_support import make_local_checkout
-    from runtime.api.cli.test_project_publication_settings import seed_project
+    from runtime.api.cli.project_publication_settings_test_support import (
+        seed_project,
+    )
     from yoke_core.engines import merge_worktree as engine
     from yoke_core.engines import merge_worktree_prepare_preflight as preflight
     from yoke_core.engines import merge_worktree_runner as runner
@@ -189,13 +201,22 @@ def test_read_only_local_merge_preserves_remote_and_prints_refusals(
                               capture_output=True, text=True)
 
     monkeypatch.setattr(credentialed_git, "_run_own_credentials", run_git)
-    monkeypatch.setattr(preflight, "call_dispatcher",
-                        lambda **_kw: SimpleNamespace(success=True, result={}))
+    monkeypatch.setattr(
+        preflight,
+        "call_dispatcher",
+        lambda **_kw: SimpleNamespace(success=True, result={}),
+    )
     message = "integration_dependency_blocked: wait for the blocking item to land"
-    monkeypatch.setattr(engine, "preflight_checks",
-                        (lambda _ctx: (4, message)) if refusal else preflight.preflight_checks)
-    monkeypatch.setattr(engine, "_ensure_target_pushed",
-                        lambda *_a: pytest.fail("local merge must not publish target"))
+    monkeypatch.setattr(
+        engine,
+        "preflight_checks",
+        (lambda _ctx: (4, message)) if refusal else preflight.preflight_checks,
+    )
+    monkeypatch.setattr(
+        engine,
+        "_ensure_target_pushed",
+        lambda *_a: pytest.fail("local merge must not publish target"),
+    )
     assert runner.run(ctx.args) == (4 if refusal else 0)
     if refusal:
         assert message in capsys.readouterr().err

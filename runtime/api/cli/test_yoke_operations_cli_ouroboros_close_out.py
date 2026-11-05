@@ -6,14 +6,16 @@ from unittest.mock import patch
 
 import pytest
 
-from runtime.api.cli.test_yoke_operations_cli_dispatch import (
+from runtime.api.cli.yoke_operations_cli_dispatch_test_support import (
     _CAPTURED_REQUESTS,
     _run_with_dispatch,
     _stub_dispatch_ok,
 )
 
 
-_PROJECT_CONTEXT = "yoke_cli.commands.adapters.feedback_lifecycle.client_project_context"
+_PROJECT_CONTEXT = (
+    "yoke_cli.commands.adapters.feedback_lifecycle.client_project_context"
+)
 
 
 @pytest.fixture(autouse=True)
@@ -48,8 +50,6 @@ def test_single_entry_review_without_checkout_project_still_dispatches() -> None
 
     assert rc == 0
     assert _CAPTURED_REQUESTS[-1].payload == {"entry_id": 31555}
-
-
 
 
 def test_bounded_all_category_review_dispatches_cutoff_and_limit() -> None:

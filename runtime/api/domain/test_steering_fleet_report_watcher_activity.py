@@ -8,17 +8,34 @@ from types import SimpleNamespace
 import pytest
 
 from runtime.api.steering_fleet_test_helpers import (
-    LONG_AGO, NOW, PROJECT_ID, compose, seed_session, seed_steering_scope, seed_tool_call,
+    LONG_AGO,
+    NOW,
+    PROJECT_ID,
+    compose,
+    seed_session,
+    seed_steering_scope,
+    seed_tool_call,
 )
-from runtime.api.domain.test_steering_fleet_report_holder_read import _claim
-from yoke_contracts.api.function_call import ActorContext, FunctionCallRequest, TargetRef
+from runtime.api.domain.steering_fleet_report_holder_read_test_support import _claim
+from yoke_contracts.api.function_call import (
+    ActorContext,
+    FunctionCallRequest,
+    TargetRef,
+)
 from yoke_contracts.timestamps import parse_instant
 from yoke_core.domain import watcher_activity
 from yoke_core.domain.handlers import session_watcher_activity as handler
 from yoke_core.domain.fleet_delta_alarms import (
-    DeltaState, idle_holder_alarms, starved_envelope_alarms,
+    DeltaState,
+    idle_holder_alarms,
+    starved_envelope_alarms,
 )
-from yoke_core.domain.fleet_delta_snapshot import EnvelopeRow, FleetSnapshot, ItemRow, session_rows
+from yoke_core.domain.fleet_delta_snapshot import (
+    EnvelopeRow,
+    FleetSnapshot,
+    ItemRow,
+    session_rows,
+)
 from yoke_core.domain.session_liveness_pump import SessionLivenessPump
 from yoke_core.domain import sessions_list_rows
 from yoke_core.domain.sessions_list_read import list_sessions

@@ -2,12 +2,12 @@
 
 import pytest
 
-from runtime.api.domain.test_qa_plan_execution_reconcile import (
+from runtime.api.domain.qa_plan_execution_reconcile_test_support import (
     REASON,
     _awaiting_review,
     _stale,
 )
-from runtime.api.domain.test_qa_plan_retire import _handler_uses
+from runtime.api.domain.qa_plan_retire_test_support import _handler_uses
 from runtime.api.fixtures.dispatch_actor import register_session_actor
 from runtime.api.fixtures.session_holdings import insert_item_claim
 from yoke_contracts.api.function_call import (

@@ -1,26 +1,14 @@
 """Archive inspection safety and canonical test-universe setup."""
 
+from runtime.api.domain.universe_portability_test_support import (
+    _canonical_test_universe as _canonical_test_universe,
+)
+
+
 import io
 import subprocess
-from contextlib import contextmanager
-import psycopg
 import pytest
 from yoke_core.domain import universe_portability as portability
-
-
-@contextmanager
-def _canonical_test_universe():
-    from runtime.api.fixtures import pg_testdb
-    from yoke_core.domain.environment_bootstrap import run_init_chain_at_dsn
-
-    name = pg_testdb.create_test_database()
-    dsn = pg_testdb.dsn_for_test_database(name)
-    try:
-        run_init_chain_at_dsn(dsn, emit=lambda _line: None)
-        with psycopg.connect(dsn) as conn:
-            yield conn, dsn
-    finally:
-        pg_testdb.drop_test_database(name)
 
 
 def test_postgres_client_env_keeps_credentials_out_of_argv_env_shape():

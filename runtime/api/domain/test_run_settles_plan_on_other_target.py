@@ -1,14 +1,18 @@
 """A delivery settles without accepting an attached plan owed on another target."""
 
+from runtime.api.domain.run_settles_plan_on_other_target_test_support import (
+    ITEM as ITEM,
+    _plan_only_pair as _plan_only_pair,
+)
+
+
 import json
 
 import pytest
 
-from runtime.api.domain.test_release_member_target_enrollment import _pair
-from runtime.api.domain.test_post_deploy_original_pass_needs_admission import (
-    _record_evidence,
+from runtime.api.domain.status_transition_preflight_test_support import (
+    _isolate_status_effects,
 )
-from runtime.api.domain.test_status_transition_preflight import _isolate_status_effects
 from runtime.api.fixtures.backlog_inserts import insert_qa_requirement
 from yoke_core.domain.deployment_qa_plan_credit import plan_credit_misses
 from yoke_core.domain.deployment_qa_stage_dispatch import (
@@ -17,60 +21,6 @@ from yoke_core.domain.deployment_qa_stage_dispatch import (
 from yoke_core.domain.deployment_run_other_target_members import owes_only_other_targets
 from yoke_core.domain.deployment_runs_crud_mutate import cmd_update
 from yoke_core.domain.no_obligation_member_close_out import satisfied_delivery_member
-from yoke_core.domain.qa_plan_management import create_plan, replace_plan_cases
-from yoke_core.domain.qa_plan_attachments import attach_plan_to_item
-
-ITEM = 9788
-
-
-def _plan_only_pair(conn, *, plan_environment="stage"):
-    _pair(conn, item_id=ITEM)
-    # Replace the fixture's ordinary intake with one standing plan. No own
-    # requirement, snapshot case, or Production result may answer for it.
-    conn.execute("DELETE FROM qa_requirements WHERE item_id=%s", (ITEM,))
-    snapshot = json.dumps(
-        {
-            "schema": 1,
-            "requirements": [],
-            "selection": {"schema": 1, "requirement_ids": [], "plan_ids": []},
-        }
-    )
-    conn.execute(
-        "UPDATE deployment_run_items SET requirement_snapshot=%s,requirement_selection=NULL "
-        "WHERE item_id=%s",
-        (snapshot, ITEM),
-    )
-    plan = create_plan(
-        conn,
-        project="yoke",
-        slug="other-target-plan",
-        target_environment=plan_environment,
-    )
-    replace_plan_cases(
-        conn,
-        plan_id=int(plan["id"]),
-        cases=[
-            {
-                "case_key": "only-case",
-                "method_id": "command",
-                "instructions": "Check behavior on the plan's declared target.",
-                "expected_outcome": "The target passes its check.",
-                "method_config": {"command": "true"},
-                "target_envs": [plan_environment],
-                "stage_reason": "creates_or_destroys_data",
-            }
-        ],
-    )
-    attach_plan_to_item(
-        conn,
-        plan_id=int(plan["id"]),
-        item_id=ITEM,
-        transition_id="release",
-        qa_phase="post_deploy",
-    )
-    _record_evidence(conn, item_id=ITEM)
-    conn.commit()
-    return int(plan["id"])
 
 
 def _gate(conn):
@@ -162,7 +112,7 @@ def test_an_unsettled_own_case_still_blocks_with_other_target_plan(test_db, atta
 
 
 def test_group_closed_during_this_presentation_is_immediately_satisfied(test_db):
-    from runtime.api.domain.test_deployment_qa_plan_groups import (
+    from runtime.api.domain.deployment_qa_plan_groups_test_support import (
         MEMBERS,
         RUN,
         _seed,
@@ -192,10 +142,10 @@ def test_other_target_notice_names_the_pending_group_without_hiding_failures(
     tmp_path,
     missing_evidence,
 ):
-    from runtime.api.domain.test_deployment_delivery_close_out_notice import (
+    from runtime.api.domain.deployment_delivery_close_out_notice_test_support import (
         _parked_owner,
     )
-    from runtime.api.domain.test_deployment_qa_stage_wake_delivery import (
+    from runtime.api.domain.deployment_qa_stage_wake_delivery_test_support import (
         HOLDER_A,
         _project,
     )
@@ -253,8 +203,7 @@ def test_other_target_notice_names_the_pending_group_without_hiding_failures(
             )
         )
         assert (
-            "stage plan other-target-plan QA credit on deployment run run-stage"
-            in gate
+            "stage plan other-target-plan QA credit on deployment run run-stage" in gate
         )
         assert "on its completion run" not in gate
         from yoke_contracts.timestamps import parse_instant, utc_now

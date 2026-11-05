@@ -3,19 +3,19 @@
 import json
 import pytest
 
-from runtime.api.domain.test_deployment_qa_stage_wake_delivery import (
+from runtime.api.domain.deployment_qa_stage_wake_delivery_test_support import (
     _bodies,
     _claim,
     seed_session,
 )
-from runtime.api.domain.test_dash_post_deploy_done_consumption import (
+from runtime.api.domain.dash_post_deploy_done_consumption_test_support import (
     _accept_member_qa,
 )
-from runtime.api.domain.test_post_deploy_original_pass_needs_admission import (
+from runtime.api.domain.post_deploy_original_pass_needs_admission_test_support import (
     _record_evidence,
 )
-from runtime.api.domain.test_release_member_target_enrollment import _pair
-from runtime.api.domain.test_status_transition_preflight import (
+from runtime.api.domain.release_member_target_enrollment_test_support import _pair
+from runtime.api.domain.status_transition_preflight_test_support import (
     _isolate_status_effects,
 )
 from runtime.api.fixtures.backlog_inserts import insert_qa_run

@@ -8,12 +8,13 @@ import pytest
 
 from yoke_core.domain import project_renderer_pulumi
 from yoke_core.domain.project_renderer_settings import ProjectRendererSettings
-from runtime.api.domain.test_project_renderer_pulumi import _settings_from_context
+from runtime.api.domain.project_renderer_pulumi_test_support import (
+    _settings_from_context,
+)
 
 
 _APP_SECRET_ARN = (
-    "arn:aws:secretsmanager:us-east-1:123456789012:"
-    "secret:yoke-github-app-AbCdEf"
+    "arn:aws:secretsmanager:us-east-1:123456789012:secret:yoke-github-app-AbCdEf"
 )
 
 

@@ -12,7 +12,9 @@ from runtime.api.tools.session_control_live_acceptance_wake_route import (
     expected_wake_route,
     selected_route,
 )
-from runtime.api.tools.test_session_control_live_acceptance_contract import _matrix
+from runtime.api.tools.session_control_live_acceptance_contract_test_support import (
+    _matrix,
+)
 
 
 def test_wake_route_derivation_covers_own_route_installed_peer_and_neither() -> None:

@@ -2,7 +2,7 @@
 
 from unittest.mock import MagicMock, patch
 
-from runtime.api.test_api_claims_functions import _ClaimsHandlerSuite, _envelope
+from runtime.api.api_claims_functions_test_support import _ClaimsHandlerSuite, _envelope
 from yoke_core.domain import yoke_function_dispatch_claims as claims_module
 from yoke_core.domain.yoke_function_dispatch import dispatch
 

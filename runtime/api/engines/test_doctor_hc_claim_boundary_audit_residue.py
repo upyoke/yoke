@@ -4,15 +4,8 @@ from __future__ import annotations
 
 from typing import Any
 
-from runtime.api.engines.test_doctor_hc_claim_boundary_audit import (  # noqa: F401 - env is a fixture
-    _add_claim,
-    _add_event,
-    _add_session,
-    _p,
-    _run,
-    _sid,
-    env,
-)
+from runtime.api.engines.doctor_hc_claim_boundary_audit_test_support import (_add_claim, _add_event, _add_session, _run, _sid)
+from runtime.api.domain.path_context_test_support import (_p)
 
 
 def _add_item(conn: Any, item_id: int, status: str) -> None:

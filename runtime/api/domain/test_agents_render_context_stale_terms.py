@@ -7,7 +7,7 @@ from pathlib import Path
 import pytest
 
 from yoke_core.domain import schema_api_context_seed as seed
-from runtime.api.domain.test_agents_render_workspace_fixtures import (
+from runtime.api.domain.agents_render_workspace_fixtures_test_support import (
     resolve_live_repo_root,
 )
 

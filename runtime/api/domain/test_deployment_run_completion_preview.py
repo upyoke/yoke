@@ -2,13 +2,18 @@
 
 from dataclasses import replace
 
-from runtime.api.domain.test_deployment_delivery_close_out_notice import _project
-from runtime.api.domain.test_deployment_qa_stage_wake_delivery import HOLDER_A, HOLDER_B
-from runtime.api.domain.test_no_obligation_member_close_out import (
+from runtime.api.domain.deployment_delivery_close_out_notice_test_support import (
+    _project,
+)
+from runtime.api.domain.deployment_qa_stage_wake_delivery_test_support import (
+    HOLDER_A,
+    HOLDER_B,
+)
+from runtime.api.domain.no_obligation_member_close_out_test_support import (
     _ready_member,
     _no_obligation,
 )
-from runtime.api.domain.test_run_success_member_settlement import (
+from runtime.api.domain.run_success_member_settlement_test_support import (
     _executing_run,
     _status,
 )
@@ -150,7 +155,7 @@ def test_other_target_deferral_does_not_invent_an_atomic_run_blocker(test_db):
 
 
 def test_missing_landing_evidence_is_named_before_calling_a_sibling_ready(test_db):
-    from runtime.api.domain.test_deployment_delivery_close_out_notice import (
+    from runtime.api.domain.deployment_delivery_close_out_notice_test_support import (
         _member_at_release_wait,
     )
 

@@ -2,17 +2,24 @@
 
 from __future__ import annotations
 
+from runtime.api.cli.github_repo_helper_restore_missing_bundle_test_support import (
+    _register_checkouts as _register_checkouts,
+)
+
+
 import json
 from pathlib import Path
 import shutil
 
 import pytest
 
-from runtime.api.cli.test_github_git_credential_install import (
+from runtime.api.cli.github_git_credential_install_test_support import (
     _configured_repo,
     _git,
 )
-from runtime.api.cli.test_github_repo_helper_reconnect import _register_checkout
+from runtime.api.cli.github_repo_helper_reconnect_test_support import (
+    _register_checkout,
+)
 from yoke_cli.config import github_git_credentials
 from yoke_cli.config import github_repo_config
 from yoke_cli.config import github_repo_helper_reconnect
@@ -230,32 +237,6 @@ def test_restore_missing_bundle_reports_unreadable_machine_config_distinctly(
     assert result["configured"] is None
     assert result["repaired"] is False
     assert "machine config" in result["error"]
-
-
-def _register_checkouts(config: Path, repos: list[Path], tmp_path: Path) -> None:
-    payload = json.loads(config.read_text(encoding="utf-8"))
-    payload.update(
-        {
-            "active_env": "stage",
-            "connections": {
-                "stage": {
-                    "transport": "https",
-                    "api_url": "https://stage.yoke.example",
-                    "credential_source": {
-                        "kind": "token_file",
-                        "path": str(tmp_path / "actor.token"),
-                    },
-                }
-            },
-            "connection_projects": {
-                "stage": [
-                    {"checkout": str(repo), "project_id": project_id}
-                    for project_id, repo in enumerate(repos, start=1)
-                ]
-            },
-        }
-    )
-    config.write_text(json.dumps(payload), encoding="utf-8")
 
 
 def _write_ambiguous_reference(repo: Path, config: Path, tmp_path: Path) -> None:

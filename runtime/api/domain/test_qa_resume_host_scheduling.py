@@ -132,7 +132,9 @@ def test_standalone_multi_platform_resume_uses_durable_hosts(
         settings={**TEST_MACHINE_SETTINGS, "resource_name": "linux-lab", "os": "linux"},
         base_settings=None,
     )
-    from runtime.api.domain.test_deployment_qa_stage_execution import _environment
+    from runtime.api.domain.deployment_qa_stage_execution_test_support import (
+        _environment,
+    )
 
     _environment(test_db)
     plan = create_plan(
@@ -204,7 +206,10 @@ def test_standalone_multi_platform_resume_uses_durable_hosts(
         )
         if ordinal == 0:
             wait = record_host_wait(
-                test_db, execution, test_machine="mac-mini-lab", rationale="next platform"
+                test_db,
+                execution,
+                test_machine="mac-mini-lab",
+                rationale="next platform",
             )
             assert "--test-machine" not in wait["host_wait"]["resume_command"]
             resumed = begin()

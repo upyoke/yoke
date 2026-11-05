@@ -2,23 +2,12 @@
 
 from __future__ import annotations
 
+from runtime.api.secondary_domains_flow_basic_test_support import (
+    _insert_projects as _insert_projects,
+)
+
+
 import pytest
-
-
-def _insert_projects(conn):
-    created_at = "2026-04-20T00:00:00Z"
-    for pid, slug, name in [
-        (1, "yoke", "Yoke"),
-        (2, "externalwebapp", "ExternalWebapp"),
-    ]:
-        conn.execute(
-            "INSERT INTO projects (id, slug, name, "
-            "public_item_prefix, created_at) "
-            "VALUES (%s, %s, %s, 'YOK', %s) "
-            "ON CONFLICT(id) DO NOTHING",
-            (pid, slug, name, created_at),
-        )
-    conn.commit()
 
 
 class TestFlowBasic:

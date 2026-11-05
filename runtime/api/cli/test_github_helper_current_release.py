@@ -9,8 +9,10 @@ from runtime.api.cli.github_stable_helper_test_support import (
     run_git,
     write_github_app_config,
 )
-from runtime.api.cli.test_github_git_credential_install import _configured_repo
-from runtime.api.cli.test_github_stable_helper_runtime import (
+from runtime.api.cli.github_git_credential_install_test_support import (
+    _configured_repo,
+)
+from runtime.api.cli.github_stable_helper_runtime_test_support import (
     _write_refresh_sitecustomize,
 )
 from yoke_cli.config import github_git_credentials as credentials

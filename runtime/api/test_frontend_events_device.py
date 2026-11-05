@@ -2,7 +2,7 @@
 
 import json
 
-from runtime.api.test_frontend_events import client, database, event, headers  # noqa: F401
+from runtime.api.frontend_events_test_support import client, database, event, headers  # noqa: F401
 
 MAC_CHROME = (
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 "

@@ -5,7 +5,7 @@ import json
 import pytest
 from fastapi.testclient import TestClient
 
-from runtime.api import test_web_sign_in_door as door
+from runtime.api import web_sign_in_door_test_support as door
 from yoke_core.api import app_factory, frontend_events_config
 from yoke_core.domain.external_identities import resolve_external_identity
 from yoke_core.domain.frontend_events_schema import create_frontend_event_tables

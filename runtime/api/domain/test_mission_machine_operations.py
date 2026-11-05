@@ -1,5 +1,11 @@
 """Host operations retain their mission's lease and reject foreign owners."""
 
+from runtime.api.domain.mission_machine_operations_test_support import (
+    begin as begin,
+    request as request,
+)
+
+
 import base64
 import hashlib
 from io import BytesIO
@@ -11,22 +17,19 @@ from runtime.api.domain.machine_qa_host_test_support import (
     configure_test_machine,
 )
 from runtime.api.domain.machine_qa_test_support import FakeHostControl
-from runtime.api.domain.test_agent_mission_qa import (
+from runtime.api.domain.agent_mission_qa_test_support import (
     ACTOR,
     _materialize_mission,
     _request,
 )
-from runtime.api.domain.test_machine_screenshot import screenshot_result
+from runtime.api.domain.machine_screenshot_test_support import screenshot_result
 from yoke_contracts.api.function_call import (
     ActorContext,
-    FunctionCallRequest,
-    TargetRef,
 )
 from yoke_core.domain.agent_mission_recording import handle_agent_mission_ready
 from yoke_core.domain.coordination_claims import get_claim
 from yoke_core.domain.handlers.machine_qa_execution_abort import handle_operation_abort
 from yoke_core.domain.handlers.machine_qa_operation import (
-    handle_operation_begin,
     handle_operation_submit,
 )
 from yoke_core.domain.handlers.machine_qa_plan_case import handle_plan_case_begin
@@ -43,15 +46,6 @@ from yoke_core.domain.qa_plan_execution_state import (
     lock_plan_execution,
 )
 from yoke_core.domain.qa_plan_review import begin_plan_review
-
-
-def request(payload, actor=ACTOR):
-    return FunctionCallRequest(
-        function="test_machine.operation",
-        actor=actor,
-        target=TargetRef(kind="global"),
-        payload=payload,
-    )
 
 
 @pytest.fixture
@@ -98,23 +92,6 @@ def mission(test_db, tmp_path, monkeypatch):
         yield test_db, contract, control, execution_id
     finally:
         clear_host_control_factory()
-
-
-def begin(operation, actor=ACTOR):
-    return handle_operation_begin(
-        request(
-            {
-                "project": "yoke",
-                "operation": operation,
-                **(
-                    {"destination": "/Users/Shared/yoke-golden/captured-home"}
-                    if operation == "golden_capture"
-                    else {}
-                ),
-            },
-            actor,
-        )
-    )
 
 
 def submit(contract):

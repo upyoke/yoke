@@ -1,6 +1,8 @@
 """Explicit CI source mismatches refuse before preparation or publication."""
 
-import subprocess
+from runtime.api.domain.qa_case_ci_source_test_support import git as git
+
+
 from unittest.mock import Mock
 
 import pytest
@@ -11,12 +13,6 @@ from yoke_core.domain.qa_case_execution import (
     QaCaseExecutionError,
     execute_case_context,
 )
-
-
-def git(root, *args):
-    return subprocess.run(
-        ["git", "-C", str(root), *args], check=True, text=True, capture_output=True
-    ).stdout.strip()
 
 
 @pytest.fixture

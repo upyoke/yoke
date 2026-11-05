@@ -2,7 +2,10 @@
 
 import pytest
 
-from runtime.api.cli.test_github_git_credential_install import _configured_repo, _git
+from runtime.api.cli.github_git_credential_install_test_support import (
+    _configured_repo,
+    _git,
+)
 from yoke_cli.config import github_git_credential_bundle as bundle
 from yoke_cli.config import github_git_credential_launcher as launcher
 from yoke_cli.config import github_git_credentials as credentials

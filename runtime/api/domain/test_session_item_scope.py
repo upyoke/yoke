@@ -6,7 +6,7 @@ from yoke_core.domain.session_item_scope import (
     session_claim_for_item,
     session_item_scope,
 )
-from runtime.api.domain.test_session_message_support import (
+from runtime.api.domain.session_message_support_test_support import (
     NOW_TEXT,
     message_connection,
 )

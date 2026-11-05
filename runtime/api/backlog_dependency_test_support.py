@@ -1,7 +1,8 @@
 """Seed and query helpers for dependency reconciliation tests."""
 
 from runtime.api.fixtures.backlog_inserts import insert_item_worktree
-from runtime.api.test_backlog import _conn, _p
+from runtime.api.backlog_test_support import (_conn)
+from runtime.api.domain.path_context_test_support import (_p)
 
 
 def _seed_active_item_lane(path, *, item_id: int, branch: str) -> None:
@@ -60,12 +61,14 @@ def _dependency_rows(path, *, dependent=None, blocking=None):
         ).fetchall()
     elif dependent is not None:
         rows = conn.execute(
-            select + f"WHERE dependent_item_id = {p} ORDER BY blocking_item_id, gate_point",
+            select
+            + f"WHERE dependent_item_id = {p} ORDER BY blocking_item_id, gate_point",
             (dependent,),
         ).fetchall()
     elif blocking is not None:
         rows = conn.execute(
-            select + f"WHERE blocking_item_id = {p} ORDER BY dependent_item_id, gate_point",
+            select
+            + f"WHERE blocking_item_id = {p} ORDER BY dependent_item_id, gate_point",
             (blocking,),
         ).fetchall()
     else:

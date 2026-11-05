@@ -4,7 +4,9 @@ from unittest.mock import Mock
 
 import pytest
 
-from runtime.api.domain.test_qa_plan_execution_authority import _materialize_two_cases
+from runtime.api.domain.qa_plan_execution_authority_test_support import (
+    _materialize_two_cases,
+)
 from runtime.api.fixtures.backlog import insert_epic_task, insert_item_worktree
 from runtime.api.fixtures.session_holdings import insert_item_claim
 from yoke_contracts.api.function_call import (

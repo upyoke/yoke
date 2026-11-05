@@ -18,7 +18,7 @@ from yoke_core.domain.project_renderer_settings import (
     ProjectRendererSettings,
     RendererEnvironmentSettings,
 )
-from runtime.api.tools.test_pulumi_exec_support import (
+from runtime.api.tools.pulumi_exec_support_test_support import (
     _install_pulumi_project_files,
 )
 

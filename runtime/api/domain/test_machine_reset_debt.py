@@ -1,10 +1,18 @@
 """Unproven teardown releases custody but requires recovery before new host work."""
 
+from runtime.api.domain.machine_reset_debt_test_support import (
+    _debt as _debt,
+    verified_reset as verified_reset,
+)
+
+
 from types import SimpleNamespace
 
 import pytest
 
-from runtime.api.domain import test_agent_mission_cleanup as cleanup_support
+from runtime.api.domain import (
+    agent_mission_cleanup_test_support as cleanup_support,
+)
 from runtime.api.domain.machine_operation_test_support import run_operation
 from yoke_core.domain.agent_mission_recording import handle_agent_mission_access
 from yoke_core.domain.coordination_claims import get_claim
@@ -48,19 +56,6 @@ def test_unproven_finish_releases_and_records_owed_baseline(
     assert reset_owed(test_db, original["settings"]["resource_name"]) == "fresh-host"
 
 
-def _debt(conn, baseline="fresh-host"):
-    from runtime.api.domain.machine_operation_test_support import MACHINE
-
-    record_reset_owed(
-        conn,
-        case={"project_id": 1, "host_baseline": baseline},
-        test_machine=MACHINE,
-        lease_id=77,
-    )
-    conn.commit()
-    return MACHINE
-
-
 def test_manual_success_clears_debt_and_failed_reset_retains_it(
     test_db, tmp_path, monkeypatch
 ):
@@ -102,7 +97,7 @@ def test_steering_names_owed_machine_and_reset_command(test_db, tmp_path, monkey
 def test_no_baseline_case_recovers_before_any_case_work(
     monkeypatch, starting_state, ok
 ):
-    from runtime.api.domain.test_machine_qa_chain_restore import _contract
+    from runtime.api.domain.machine_qa_chain_restore_test_support import _contract
     from yoke_core.domain import machine_qa_local_execution as local
     from yoke_core.domain.machine_qa_case_result import MachineCaseResult
 
@@ -280,24 +275,6 @@ def test_lost_savepoint_is_not_treated_as_an_artifact_failure(
             )
         )
     assert get_claim(test_db, original["lease_id"]).is_active
-
-
-def verified_reset(conn, test_machine, baseline, project_id=1):
-    from yoke_core.domain.machine_operation_recording import (
-        record_test_machine_operation,
-    )
-
-    record_test_machine_operation(
-        conn,
-        project_id,
-        test_machine=test_machine,
-        operation="reset",
-        status="verified",
-        checks=[{"name": baseline, "ok": True}],
-        error_code=None,
-        lease_id=76,
-        contract_digest="",
-    )
 
 
 @pytest.mark.parametrize("starting_state", ["as_is", "inherit"])

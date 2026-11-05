@@ -4,14 +4,14 @@
 
 import pytest
 
-from runtime.api.domain import test_session_termination as termination_support
-from runtime.api.domain.test_session_termination import (
+from runtime.api.domain import session_termination_test_support as termination_support
+from runtime.api.domain.session_termination_test_support import (
     _add_open_message,
     _add_target_claim,
     _register_operator_and_target,
     _terminate,
 )
-from runtime.api.test_sessions import conn  # noqa: F401
+from runtime.api.sessions_test_support import conn  # noqa: F401
 from yoke_core.domain.sessions import SessionError
 from yoke_core.domain.session_termination import OPERATOR_SURFACE_CODE
 

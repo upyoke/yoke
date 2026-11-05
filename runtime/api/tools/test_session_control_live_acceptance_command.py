@@ -2,6 +2,15 @@
 
 from __future__ import annotations
 
+from runtime.api.tools.session_control_live_acceptance_command_test_support import (
+    RELEASE_SHA as RELEASE_SHA,
+    _argv as _argv,
+    _bindings as _bindings,
+    _ready_decision as _ready_decision,
+    _versions as _versions,
+)
+
+
 import io
 import json
 from pathlib import Path
@@ -14,51 +23,13 @@ from runtime.api.tools import session_control_live_acceptance_command as command
 from runtime.api.tools.session_control_live_acceptance_contract import (
     ACCEPTANCE_SURFACE_CELLS,
     SCHEMA_VERSION,
-    ACCEPTANCE_SURFACES,
     AcceptanceContractError,
 )
-from runtime.api.tools.test_session_control_live_acceptance_policy_support import (
+from runtime.api.tools.session_control_live_acceptance_policy_support_test_support import (
     CLAUDE_DESKTOP_EXACT_POLICY_CANDIDATE_VERSION,
     require_exact_desktop_active_policy,
 )
-from yoke_contracts.session_control.capabilities import SESSION_SURFACE_CAPABILITIES
 from yoke_core.domain.deploy_product_source import DeployProductSourceError
-
-
-RELEASE_SHA = "a" * 40
-
-
-def _versions() -> dict[str, str]:
-    return {
-        surface: SESSION_SURFACE_CAPABILITIES[surface].minimum_version
-        for surface in ACCEPTANCE_SURFACES
-    }
-
-
-def _bindings() -> dict[str, object]:
-    return {
-        "schema": 1,
-        "versions": _versions(),
-        "claude_desktop_session_id": "desktop-session",
-        "broker": {
-            "target_session_id": "broker-target",
-            "machine_id": "machine-one",
-            "peer_session_id": "broker-peer",
-        },
-    }
-
-
-def _argv(*extra: str) -> list[str]:
-    return [
-        "--project",
-        "yoke",
-        "--release-sha",
-        RELEASE_SHA,
-        "--run-id",
-        "release-proof",
-        "--bindings-stdin",
-        *extra,
-    ]
 
 
 def _allow_source(monkeypatch) -> None:
@@ -188,31 +159,12 @@ def test_bindings_are_bounded_extra_forbid_and_never_reflected(
     assert "MUST-NOT-REFLECT" not in rendered
 
 
-
-
 def test_unreadable_bindings_emit_only_the_fixed_code(monkeypatch, capsys) -> None:
     _allow_source(monkeypatch)
     monkeypatch.setattr(command.sys, "stdin", _UnreadableStdin())
     assert command.main(_argv("--preview")) == 2
     assert json.loads(capsys.readouterr().out)["failure_code"] == (
         "bindings_unreadable"
-    )
-
-
-def _ready_decision():
-    from runtime.api.tools.session_control_live_acceptance_broker_binding import (
-        BrokerBinding,
-        BrokerBindingDecision,
-    )
-
-    broker = _bindings()["broker"]
-    return BrokerBindingDecision(
-        "ready",
-        BrokerBinding(
-            broker["target_session_id"],
-            broker["machine_id"],
-            broker["peer_session_id"],
-        ),
     )
 
 

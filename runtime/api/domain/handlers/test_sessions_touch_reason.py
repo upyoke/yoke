@@ -3,7 +3,7 @@
 
 from __future__ import annotations
 
-from runtime.api.test_sessions import _register, conn  # noqa: F401
+from runtime.api.sessions_test_support import _register, conn  # noqa: F401
 from yoke_contracts.api.function_call import (
     ActorContext,
     FunctionCallRequest,

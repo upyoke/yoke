@@ -9,6 +9,12 @@ on a real disagreement while an unreadable GitHub only warns.
 
 from __future__ import annotations
 
+from runtime.api.merge_queue_live_drift_test_support import (
+    DECLARED as DECLARED,
+    _live_rules as _live_rules,
+)
+
+
 import json
 from types import SimpleNamespace
 
@@ -35,42 +41,6 @@ from yoke_core.domain.merge_queue_live_drift import (
 
 OWNER = "upyoke"
 REPO = "yoke"
-DECLARED = {
-    "schema": 1,
-    "repository": {"allow_auto_merge": True},
-    "ruleset": {
-        "name": "merge-queue-main",
-        "rules": [
-            {"type": "merge_queue", "parameters": {"merge_method": "MERGE"}},
-            {
-                "type": "required_status_checks",
-                "parameters": {
-                    "strict_required_status_checks_policy": False,
-                    "do_not_enforce_on_create": False,
-                    "required_status_checks": [{"context": "shard-1"}],
-                },
-            },
-        ],
-    },
-}
-
-
-def _live_rules(contexts):
-    return [
-        {
-            "type": "merge_queue",
-            "parameters": {"merge_method": "MERGE"},
-            "ruleset_id": 20658925,
-        },
-        {
-            "type": "required_status_checks",
-            "parameters": {
-                "strict_required_status_checks_policy": False,
-                "do_not_enforce_on_create": False,
-                "required_status_checks": [{"context": name} for name in contexts],
-            },
-        },
-    ]
 
 
 @pytest.fixture

@@ -113,7 +113,7 @@ def test_start_markers_format_wall_clock_without_changing_elapsed_clock(
 
 
 def _replace_capture_clocks(first, last) -> list:
-    from runtime.api.domain.test_deployment_start_report import _capture
+    from runtime.api.domain.deployment_start_report_test_support import _capture
 
     records = _capture()
     for record in records:

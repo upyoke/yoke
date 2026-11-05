@@ -8,8 +8,10 @@ from runtime.api.domain.steering_claim_test_support import (
     seed_session,
     seed_strategy_doc,
 )
-from runtime.api.domain.test_qa_operator_waiver_authority import _BorrowedConnection
-from runtime.api.domain.test_qa_requirement_successor import chain, inconsistent
+from runtime.api.domain.qa_operator_waiver_authority_test_support import (
+    _BorrowedConnection,
+)
+from runtime.api.domain.qa_requirement_successor_test_support import chain, inconsistent
 from runtime.api.fixtures.qa_declared_replacement_fixture import requirement_row
 from yoke_contracts.api.function_call import FunctionCallRequest
 from yoke_core.domain.db_helpers import iso8601_now

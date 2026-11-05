@@ -25,7 +25,7 @@ def test_dispatch_progress_cascade_and_sections_keep_native_microseconds(
     test_db, monkeypatch, zone
 ):
     from runtime.api.fixtures.backlog_inserts import insert_epic_task, insert_item
-    from runtime.api.test_epic_submission_receipt import RECEIPT
+    from runtime.api.epic_submission_receipt_test_support import RECEIPT
     from runtime.api.task_files_touched_test_support import declare_task_files
     from yoke_core.domain.project_identity import render_item_ref
 

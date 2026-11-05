@@ -11,7 +11,7 @@ import pytest
 from unittest.mock import patch
 
 from runtime.api.fixtures.backlog import insert_item
-from runtime.api.test_sessions import _register
+from runtime.api.sessions_test_support import _register
 from yoke_core.domain.sessions import (
     EVENT_OPERATOR_CLAIM_OVERRIDE,
     EVENT_WORK_RELEASED,
@@ -20,7 +20,7 @@ from yoke_core.domain.sessions import (
     operator_override_release_claim,
 )
 
-pytest_plugins = ("runtime.api.test_sessions",)
+pytest_plugins = ("runtime.api.sessions_test_support",)
 
 
 class TestOperatorOverrideReleaseClaim:

@@ -7,6 +7,11 @@ whole holding history and keeping the few rows it wanted.
 
 from __future__ import annotations
 
+from runtime.api.domain.steering_fleet_report_holder_read_test_support import (
+    _claim as _claim,
+)
+
+
 from runtime.api.fixtures.backlog import insert_item
 from runtime.api.fixtures.statement_counter import CountingConnection
 from runtime.api.steering_fleet_test_helpers import (
@@ -17,25 +22,6 @@ from runtime.api.steering_fleet_test_helpers import (
     seed_steering_scope,
 )
 from yoke_core.domain.steering_fleet_report_holders import claim_holders
-from yoke_core.domain.work_claim_targets import make_item_target
-
-
-def _claim(conn, session_id: str, item_id: int, *, released_at: str | None = None):
-    target = make_item_target(item_id)
-    conn.execute(
-        "INSERT INTO work_claims "
-        "(session_id,target_kind,scope,claim_type,claimed_at,last_heartbeat,"
-        "released_at) VALUES (%s,%s,%s,'exclusive',%s,%s,%s)",
-        (
-            session_id,
-            target.kind,
-            target.scope_json(),
-            LONG_AGO,
-            LONG_AGO,
-            released_at,
-        ),
-    )
-    conn.commit()
 
 
 def test_one_session_holding_two_items_is_two_holder_rows(test_db) -> None:

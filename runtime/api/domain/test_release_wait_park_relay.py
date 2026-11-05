@@ -17,11 +17,10 @@ from __future__ import annotations
 from types import SimpleNamespace
 from typing import Any
 
-from runtime.api.test_sessions import (  # noqa: F401
+from runtime.api.sessions_test_support import (
     _connect_with_backend_setup,
     _insert_claimable_items,
     _register,
-    conn,
 )
 from yoke_core.domain import release_wait_park as park
 from yoke_core.domain.handlers import claims_work, sessions_orchestration

@@ -6,8 +6,8 @@ from __future__ import annotations
 import json
 
 from runtime.api.fixtures.file_test_db import connect_test_db
-from runtime.api.test_service_client import _run_client
-from runtime.api.test_service_client_delivery_test_helpers import mutation_db  # noqa: F401,F811
+from runtime.api.service_client_test_support import _run_client
+from runtime.api.service_client_delivery_test_helpers_test_support import mutation_db  # noqa: F401,F811
 
 from yoke_contracts.title_policy import title_max_length
 

@@ -11,11 +11,7 @@ from runtime.api.sessions_api_stale_test_helpers import (
     _ago_minutes,
     apply_ddl_statements,
 )
-from runtime.api.test_sessions import (
-    _insert_claimable_items,
-    _register,
-    conn,  # noqa: F401
-)
+from runtime.api.sessions_test_support import _insert_claimable_items, _register
 from yoke_core.domain.session_cleanup_holdings import active_holding_sessions
 from yoke_core.domain.sessions_analytics_core import (
     DEFAULT_STALE_WITH_HOLDINGS_THRESHOLD_MINUTES,

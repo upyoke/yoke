@@ -5,8 +5,8 @@ from uuid import uuid4
 
 import pytest
 
-from runtime.api import test_api_hooks_evaluate_route_actor as actor_fixtures
-from runtime.api import test_machine_scope_hook_routes as route_cases
+from runtime.api import api_hooks_evaluate_route_actor_test_support as actor_fixtures
+from runtime.api import machine_scope_hook_routes_test_support as route_cases
 from yoke_core.domain import db_helpers
 
 hooks_db = actor_fixtures.hooks_db

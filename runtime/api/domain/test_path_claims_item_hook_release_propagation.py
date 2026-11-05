@@ -11,7 +11,7 @@ from yoke_core.domain.path_claims import activate, get_claim, register
 from yoke_core.domain.path_claims_item_hook_release import (
     release_claims_on_item_terminal,
 )
-from runtime.api.domain.test_path_claims_item_hook_release import _seed_item
+from runtime.api.domain.path_claims_item_hook_release_test_support import _seed_item
 
 
 class TestItemTerminalReleasePropagation:

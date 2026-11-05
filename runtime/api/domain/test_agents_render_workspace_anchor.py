@@ -27,7 +27,7 @@ from runtime.api.domain.agents_render_workspace_anchor_test_support import (
     run_identity_pytest,
     seed_worktree_claim_rows,
 )
-from runtime.api.domain.test_agents_render_workspace_fixtures import (
+from runtime.api.domain.agents_render_workspace_fixtures_test_support import (
     resolve_live_repo_root,
 )
 from runtime.api.fixtures.file_test_db import init_test_db

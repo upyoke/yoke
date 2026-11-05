@@ -13,7 +13,7 @@ from pathlib import Path
 import pytest
 from unittest.mock import patch
 
-from runtime.api.test_sessions import (
+from runtime.api.sessions_test_support import (
     _insert_claimable_items,
     _register,
     _REPO_ROOT,
@@ -21,7 +21,7 @@ from runtime.api.test_sessions import (
     ownership_conn,
     _ensure_active_session,
 )
-from runtime.api.test_dependency_schema import ITEMS_SCHEMA
+from runtime.api.dependency_schema_test_support import ITEMS_SCHEMA
 
 
 _STALE_TS = (datetime.now(timezone.utc) - timedelta(minutes=30)).strftime(

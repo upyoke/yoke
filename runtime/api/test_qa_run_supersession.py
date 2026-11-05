@@ -9,7 +9,10 @@ import pytest
 from yoke_contracts.api.function_call import TargetRef
 from yoke_core.domain.handlers import qa_browser_writes as writes
 from runtime.api.fixtures.pg_testdb import test_database
-from runtime.api.test_api_qa_browser_function import _request, _seed_browser_requirement
+from runtime.api.api_qa_browser_function_test_support import (
+    _request,
+    _seed_browser_requirement,
+)
 
 
 def request(function, run_id, **payload):

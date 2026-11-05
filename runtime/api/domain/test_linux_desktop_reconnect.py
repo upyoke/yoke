@@ -6,8 +6,8 @@ import subprocess
 
 import pytest
 
-from runtime.api.domain import test_linux_desktop_session as shared
-from runtime.api.domain.test_linux_desktop_session import SESSION, PASSWORD
+from runtime.api.domain import linux_desktop_session_test_support as shared
+from runtime.api.domain.linux_desktop_session_test_support import SESSION, PASSWORD
 from yoke_harness import linux_desktop_state as state
 
 host = shared.host

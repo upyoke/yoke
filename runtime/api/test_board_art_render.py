@@ -21,10 +21,6 @@ from yoke_contracts.board.config import BoardConfig
 # Re-export shared fixtures so pytest can pick them up via the test helpers
 # module import. ``art_config`` and ``config_file`` come from the helpers
 # module and are referenced here so that fixture discovery works.
-from runtime.api.test_board_art_test_helpers import (  # noqa: F401
-    art_config,
-    config_file,
-)
 
 
 # ---------------------------------------------------------------------------

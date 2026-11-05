@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from runtime.api.test_merge_worktree_pr_checks_test_helpers import _stub_ctx
+from runtime.api.merge_worktree_pr_checks_test_helpers_test_support import _stub_ctx
 
 
 def test_check_runs_authorization_error_routes_to_failed(monkeypatch) -> None:

@@ -1,30 +1,19 @@
 """Golden archives cannot capture or roll back the live desktop browser profile."""
 
+from runtime.api.domain.linux_browser_sign_in_test_support import operation as operation
+
+
 import hashlib
 import io
 import json
 import os
-import subprocess
-import sys
 import tarfile
 
 import pytest
 
-from yoke_harness.ssh_linux_baseline import _ARCHIVE_PROGRAM
 from yoke_harness.ssh_linux_preserved_entries import SNAP_CHROMIUM_HOME_ENTRY
 
 pytestmark = pytest.mark.skipif(os.getuid() == 0, reason="owner-only archive")
-
-
-def operation(home, golden, action):
-    result = subprocess.run(
-        [sys.executable, "-c", _ARCHIVE_PROGRAM, action, str(home), str(golden)],
-        input="[]",
-        text=True,
-        capture_output=True,
-        env={**os.environ, "HOME": str(home)},
-    )
-    return result, json.loads(result.stdout.splitlines()[-1])
 
 
 def profile(home, value):

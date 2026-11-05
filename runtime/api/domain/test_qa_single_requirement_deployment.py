@@ -110,9 +110,11 @@ def test_case_cli_uses_plan_review_and_exit_semantics(monkeypatch, state, code):
 
 
 def test_review_wake_resumes_the_frozen_execution_instead_of_the_whole_scope(test_db):
-    from runtime.api.domain.test_qa_plan_agent_review_wake import _owner
-    from runtime.api.domain.test_qa_capture_pending_review import _seed_pending
-    from runtime.api.domain.test_deployment_qa_stage_wake_delivery import _bodies
+    from runtime.api.domain.qa_plan_agent_review_wake_test_support import _owner
+    from runtime.api.domain.qa_capture_pending_review_test_support import _seed_pending
+    from runtime.api.domain.deployment_qa_stage_wake_delivery_test_support import (
+        _bodies,
+    )
 
     _owner(test_db)
     execution, _bundle, _requirement = _seed_pending(

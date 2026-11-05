@@ -6,59 +6,22 @@ DB/client fixtures via import.
 
 from __future__ import annotations
 
+from runtime.api.api_hooks_evaluate_route_test_support import (client as client, hooks_db as hooks_db)
+from runtime.api.api_hooks_evaluate_route_actor_test_support import (machine_client as machine_client)
+
+from runtime.api.api_hooks_evaluate_route_actor_test_support import (
+    _machine_request as _machine_request,
+    _stored_session as _stored_session,
+)
+
+
 import json
 from uuid import uuid4
 
 import pytest
 
-from runtime.api.api_items_test_helpers import (
-    _client_for_db,
-    make_test_db_fixture,
-)
-from runtime.api.test_api_hooks_evaluate_route import _request_body
+from runtime.api.api_hooks_evaluate_route_test_support import _request_body
 from yoke_core.domain import db_helpers
-
-
-def _stored_session(session):
-    with db_helpers.connect() as conn:
-        row = conn.execute(
-            "SELECT * FROM harness_sessions WHERE session_id=%s", (session,)
-        ).fetchone()
-        return dict(row) if row is not None else None
-
-
-@pytest.fixture()
-def hooks_db():
-    yield from make_test_db_fixture()
-
-
-@pytest.fixture()
-def client(hooks_db):
-    with _client_for_db(hooks_db["db_path"]) as authed:
-        yield authed
-
-
-@pytest.fixture()
-def machine_client(client):
-    from yoke_core.domain import api_tokens, db_helpers, machine_credentials
-    from yoke_contracts.timestamps import utc_now
-
-    with db_helpers.connect() as conn:
-        account = api_tokens.verify_token(
-            conn, client.headers["authorization"].split(" ", 1)[1]
-        )
-        machine = str(uuid4())
-        credential = machine_credentials.register_with_credential(
-            conn,
-            machine_id=machine,
-            name="hook-client",
-            actor_id=account.actor_id,
-            now=utc_now(),
-        )[2]
-        verified = api_tokens.verify_token(conn, credential.token)
-        assert (verified.actor_id, verified.machine_id) == (account.actor_id, machine)
-    client.headers["authorization"] = f"Bearer {credential.token}"
-    return client, account.actor_id, machine
 
 
 @pytest.mark.parametrize("executor", ["claude", "codex", "cursor"])
@@ -117,7 +80,6 @@ def test_hooks_evaluate_binds_token_actor_at_relayed_registration(
     the in-chain heartbeat module may register the row actor-less before
     the ensure-register tail runs, so the binding must heal an existing
     NULL-actor row, not just fresh inserts."""
-    from yoke_core.domain import db_helpers
 
     session_id = "token-actor-bind-session"
     body = _request_body(
@@ -152,18 +114,6 @@ def test_hooks_evaluate_binds_token_actor_at_relayed_registration(
         conn.close()
 
 
-def _machine_request(session, machine, workspace, **extra):
-    return _request_body(
-        event_name="SessionStart",
-        project_id=None,
-        machine_id=machine,
-        stdin=json.dumps(
-            {"session_id": session, "identity_stamped": True, "cwd": str(workspace)}
-        ),
-        **extra,
-    )
-
-
 @pytest.mark.parametrize("refusal", ["unbound", "mismatch", "nonmember", "foreign"])
 def test_machine_credential_and_session_refusals_do_not_mutate(
     machine_client,
@@ -171,7 +121,7 @@ def test_machine_credential_and_session_refusals_do_not_mutate(
     monkeypatch,
     refusal,
 ):
-    from yoke_core.domain import api_tokens, db_helpers, actors
+    from yoke_core.domain import api_tokens, actors
 
     client, actor, machine = machine_client
     session = str(uuid4())
@@ -243,7 +193,6 @@ def test_stored_org_scope_and_authenticated_identity_dominate_payload(
 
 
 def test_stored_project_cannot_escape_project_authorization(machine_client, tmp_path):
-    from yoke_core.domain import db_helpers
 
     client, actor, machine = machine_client
     session = str(uuid4())
@@ -276,7 +225,6 @@ def test_real_machine_dispatch_uses_actor_scratch_and_restores_context(
 ):
     from yoke_core.domain import (
         actors,
-        db_helpers,
         machine_credentials,
         project_scratch_dir as scratch,
     )

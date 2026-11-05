@@ -8,7 +8,7 @@ from unittest.mock import patch
 import pytest
 
 from runtime.api.domain.qa_review_seed import resolve_capture_review
-from runtime.api.domain.test_standalone_requirement_execution_target import (
+from runtime.api.domain.standalone_requirement_execution_target_test_support import (
     PREVIEW_URL,
     TRANSITION,
     _bound_browser_payload,

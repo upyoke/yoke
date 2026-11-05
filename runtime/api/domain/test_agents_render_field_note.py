@@ -29,7 +29,7 @@ from yoke_contracts.field_note_text import (
     DIRECTIVE,
     FOOTER,
 )
-from runtime.api.domain.test_agents_render_workspace_fixtures import (
+from runtime.api.domain.agents_render_workspace_fixtures_test_support import (
     resolve_live_repo_root,
 )
 
@@ -113,8 +113,8 @@ def test_every_expected_agent_body_carries_exactly_one_marker(
         )
 
 
-
 _RENDERED_AGENTS = tuple(a for a in EXPECTED_MARKERED_AGENTS if a != "tester-browser")
+
 
 def test_rendered_claude_adapter_carries_footer_and_no_marker(
     repo_root: Path,

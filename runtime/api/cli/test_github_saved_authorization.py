@@ -9,7 +9,7 @@ import pytest
 from yoke_cli.config import github_saved_authorization as saved
 from yoke_cli.config import github_app_public_profile as profiles
 from yoke_cli.config import github_machine
-from runtime.api.cli.test_github_app_machine_connection import (
+from runtime.api.cli.github_app_machine_connection_test_support import (
     _api_opener,
     _device_opener,
     _profile_opener,

@@ -9,17 +9,14 @@ surfaces are readable while a lane claim is held without gaining writes.
 
 from __future__ import annotations
 
+from runtime.api.domain.lint_session_cwd_read_shaped_access_test_support import (HELD_ITEM as HELD_ITEM, HOLDER as HOLDER, _register as _register, _seed_lane as _seed_lane)
+from runtime.api.domain.lint_lane_main_write_shell_redirect_test_support import (conn as conn, repo as repo)
+
+
 import os
-from pathlib import Path
 
 import pytest
 
-from runtime.api.domain.lint_session_cwd_test_helpers import (
-    seed_item,
-    seed_item_claim,
-)
-from runtime.api.fixtures.machine_config_test import register_machine_checkout
-from runtime.api.fixtures.pg_testdb import test_database
 from yoke_core.domain import lint_lane_main_write, lint_session_cwd
 from yoke_core.domain.lint_lane_main_write_classify import is_write_operation
 from yoke_core.domain.lint_session_cwd_read_only_signatures import (
@@ -44,9 +41,7 @@ def _home_outside_temp_roots(monkeypatch):
     monkeypatch.setenv("HOME", NON_TEMP_HOME)
 
 
-HOLDER = "sid-holder"
 INTRUDER = "sid-intruder"
-HELD_ITEM = 2220
 INSTALLED_READ_TARGETS = (
     "~/.codex/plugins/cache/browser/SKILL.md",
     "~/.codex/skills/imagegen/SKILL.md",
@@ -72,32 +67,6 @@ DOT_READ_TARGETS = (
     "~/.codex/config.toml",
     "~/.claude/skills/browser/SKILL.md",
 )
-
-
-@pytest.fixture
-def conn():
-    with test_database() as c:
-        yield c
-
-
-@pytest.fixture
-def repo(tmp_path):
-    repo_path = tmp_path / "repo"
-    (repo_path / ".worktrees").mkdir(parents=True)
-    return repo_path
-
-
-def _register(repo):
-    register_machine_checkout(Path(repo).parent / "machine-config", Path(repo), 1)
-
-
-def _seed_lane(conn, repo, *, session_id=HOLDER, item_id=HELD_ITEM):
-    _register(repo)
-    seed_item(conn, item_id=item_id, branch=f"YOK-{item_id}", repo_path=repo)
-    seed_item_claim(conn, session_id, item_id=item_id)
-    lane = repo / ".worktrees" / f"YOK-{item_id}"
-    lane.mkdir(parents=True, exist_ok=True)
-    return lane
 
 
 class TestForeignLaneReadsAreAllowed:

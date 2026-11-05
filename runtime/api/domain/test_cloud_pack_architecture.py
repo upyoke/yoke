@@ -9,7 +9,10 @@ import json
 import pytest
 
 from yoke_core.domain.pack_catalog import pack_version_root
-from runtime.api.domain.test_webapp_registry_stack import _Recorder, _load_pack_module
+from runtime.api.domain.webapp_registry_stack_test_support import (
+    _Recorder,
+    _load_pack_module,
+)
 from runtime.api.domain.webapp_runner_fleet_test_support import (
     _runner_stack,
     default_runner_stack as default_runner_stack,

@@ -12,7 +12,11 @@ from textual.drivers.headless_driver import HeadlessDriver
 from textual.widgets import Input
 
 from runtime.api.cli.onboard_wizard_test_helpers import make_app, stub_path_doctor
-from runtime.api.cli.test_onboard_wizard_copy_and_open import CODE, LONG_URL, _Shell
+from runtime.api.cli.onboard_wizard_copy_and_open_test_support import (
+    CODE,
+    LONG_URL,
+    _Shell,
+)
 from yoke_cli.config import onboard_clipboard
 from yoke_cli.config import onboard_wizard_copy_open as copy_open
 from yoke_cli.config.onboard_wizard_state import CopyTarget

@@ -16,7 +16,7 @@ from __future__ import annotations
 
 import pytest
 
-from runtime.api.test_sessions import _insert_claimable_item, _register
+from runtime.api.sessions_test_support import _insert_claimable_item, _register
 from yoke_core.domain.sessions import (
     SessionError,
     claim_work,
@@ -31,7 +31,7 @@ from yoke_core.domain.sessions_ended_recovery import (
     session_registration_state,
 )
 
-pytest_plugins = ("runtime.api.test_sessions",)
+pytest_plugins = ("runtime.api.sessions_test_support",)
 
 
 class TestSessionRegistrationState:

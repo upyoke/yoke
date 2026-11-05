@@ -9,10 +9,8 @@ from contextlib import redirect_stderr, redirect_stdout
 from unittest.mock import patch
 from uuid import UUID
 
-from runtime.api.cli.test_yoke_operations_cli_hooks import (  # noqa: F401
+from runtime.api.cli.yoke_operations_cli_hooks_test_support import (
     _FakeResponse,
-    https_connection,
-    local_subset,
 )
 from yoke_cli.main import main as cli_main
 

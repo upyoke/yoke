@@ -10,7 +10,7 @@ import pytest
 from yoke_cli.config import github_device_flow, github_machine_access
 from yoke_cli.config import hosted_machine_authorization, setup_browser
 from yoke_cli.config.hosted_machine_browser import BrowserOpenResult
-from runtime.api.cli.test_github_app_device_flow import _Response
+from runtime.api.cli.github_app_device_flow_test_support import _Response
 from yoke_cli.commands.adapters import onboard_hosted_authorization as hosted_setup
 
 

@@ -6,7 +6,7 @@ import json
 
 import pytest
 
-from runtime.api.domain.test_session_message_support import message_connection
+from runtime.api.domain.session_message_support_test_support import message_connection
 from runtime.api.steering_fleet_test_helpers import plan_limit_row
 from yoke_contracts.session_control.plan_limit_unreadable_guidance import (
     CREDENTIAL_GUIDANCE,

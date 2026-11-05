@@ -3,8 +3,12 @@
 from runtime.api.conftest import insert_epic_task
 from runtime.api.fixtures.backlog_inserts import insert_item
 from runtime.api.fixtures.backlog_qa_inserts import insert_qa_requirement
-from runtime.api.test_head_moving_hooks import (
-    _bridge, _commit, _fired, _git, _hooked_repo,
+from runtime.api.head_moving_hooks_test_support import (
+    _bridge,
+    _commit,
+    _fired,
+    _git,
+    _hooked_repo,
 )
 from yoke_cli.commands import git_hook
 from yoke_cli.main import main as cli_main

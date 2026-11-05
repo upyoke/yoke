@@ -11,16 +11,17 @@ from __future__ import annotations
 from yoke_contracts.session_control.wake_delivery import NATIVE_TURN_RUNNING_RESULT
 from yoke_core.domain.session_relay import report_relay_job
 from yoke_core.domain.session_wake_deferral import MAX_RESTORED_DEFERRALS
-from runtime.api.domain.test_session_relay import (
+from runtime.api.domain.session_relay_test_support import (
     RELAY_ID,
     _add_wake_recipient,
     _connection,
 )
-from runtime.api.domain.test_session_wake_deferral import (
+from runtime.api.domain.session_wake_deferral_test_support import (
     RUNNING_NATIVE,
     _claim_wake,
     _recipient,
 )
+
 
 def _defer_once(conn, *, round_index: int, pid: int = RUNNING_NATIVE.pid) -> None:
     """Claim and decline one wake, far enough on to clear the backoff.

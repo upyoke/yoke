@@ -7,7 +7,7 @@ from uuid import uuid4
 
 import pytest
 
-from runtime.api.domain import test_session_registration_scope as registration
+from runtime.api.domain import session_registration_scope_test_support as registration
 from yoke_contracts.timestamps import utc_now
 from yoke_contracts.api.function_call import (
     ActorContext,
@@ -28,7 +28,9 @@ from yoke_core.domain.session_relay_launch_lease import claim_next_launch
 from yoke_core.domain.session_relay_types import RelayHeartbeat
 from yoke_harness.session_relay_runtime import execution_context
 from yoke_cli.config import machine_config
-from runtime.api.domain.test_session_launch_handler_deadlines import _NoCloseConnection
+from runtime.api.domain.session_launch_handler_deadlines_test_support import (
+    _NoCloseConnection,
+)
 from yoke_core.domain.session_launch_authorization import launch_authorization
 from yoke_core.domain.session_launch_requests import create_launch
 from yoke_core.domain.session_launch_types import LaunchRequest, SessionLaunchError

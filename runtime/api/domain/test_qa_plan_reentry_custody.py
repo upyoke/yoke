@@ -5,7 +5,9 @@ from runtime.api.domain.machine_qa_host_test_support import (
     TEST_MACHINE_SETTINGS,
 )
 from runtime.api.domain.machine_qa_session_seed import seed_qa_session
-from runtime.api.domain.test_qa_plan_execution_authority import _materialize_two_cases
+from runtime.api.domain.qa_plan_execution_authority_test_support import (
+    _materialize_two_cases,
+)
 from yoke_contracts.api.function_call import (
     ActorContext,
     FunctionCallRequest,
@@ -74,8 +76,8 @@ def test_unconfirmed_pre_case_pause_reenters_exact_execution_from_saved_receipt(
     monkeypatch,
 ):
     from runtime.api.fixtures.pg_testdb import test_database
-    from runtime.api.domain.test_qa_plan_execution_fail_closed import ACTOR
-    from runtime.api.domain.test_qa_plan_checkin_recovery import _response
+    from runtime.api.domain.qa_plan_execution_fail_closed_test_support import ACTOR
+    from runtime.api.domain.qa_plan_checkin_recovery_test_support import _response
     from yoke_core.domain import qa_plan_execution, qa_composed_dispatch
     from yoke_core.domain.handlers import qa_plan_execution as handlers
     from yoke_core.domain.qa_plan_execution_store import plan_execution_view
@@ -163,7 +165,7 @@ def test_unconfirmed_pre_case_pause_reenters_exact_execution_from_saved_receipt(
 
 def test_review_wait_reenters_after_heartbeats_while_inflight_case_refuses():
     from runtime.api.fixtures.pg_testdb import test_database
-    from runtime.api.domain.test_qa_plan_execution_fail_closed import ACTOR
+    from runtime.api.domain.qa_plan_execution_fail_closed_test_support import ACTOR
     from yoke_core.domain.handlers.qa_plan_execution import (
         handle_plan_execution_heartbeat,
     )

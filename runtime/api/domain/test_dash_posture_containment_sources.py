@@ -15,11 +15,10 @@ from pathlib import Path
 
 import pytest
 
-from runtime.api.domain.test_dash_posture_deployment_containment import (  # noqa: F401
+from runtime.api.domain.dash_posture_deployment_containment_test_support import (
     _bind_lane_head,
     _deploy_posture_item,
     _git,
-    dash_db_path,
 )
 from runtime.api.fixtures.file_test_db import connect_test_db
 from yoke_core.domain import deployment_run_carried_work_source as sources

@@ -4,7 +4,7 @@ import re
 import subprocess
 from typing import List, Tuple
 
-from runtime.api.test_zero_shell_proof_test_helpers import (
+from runtime.api.zero_shell_proof_test_helpers_test_support import (
     REPO_ROOT,
     _DIRECT_SH_ALLOWLIST,
     _HELPER_WRAPPER_NAMES,

@@ -157,7 +157,10 @@ def test_malformed_clock_cursors_refuse_instead_of_changing_the_bound(bad):
 
 
 def test_sqlite_pages_use_canonical_clock_bounds(monkeypatch):
-    from runtime.api.domain.test_deployment_run_history_read import _database, _read
+    from runtime.api.domain.deployment_run_history_read_test_support import (
+        _database,
+        _read,
+    )
 
     conn = _database()
     monkeypatch.setattr(
@@ -199,7 +202,7 @@ def test_github_verification_orders_native_stamps_before_wire_projection(test_db
 
 @pytest.mark.parametrize("delta", [-1, 0, 1])
 def test_removed_custody_requires_a_strictly_later_native_creation(delta):
-    from runtime.api.domain.test_deployment_run_removed_member_presentation import (
+    from runtime.api.domain.deployment_run_removed_member_presentation_test_support import (
         Database,
         Rows,
         run,

@@ -14,7 +14,7 @@ from yoke_harness.session_relay_health import observe_relay_health
 from yoke_harness.session_relay_report_retry import retry_pending_reports
 from yoke_harness.session_relay_resume_settlement import settle_finished_native_resumes
 from yoke_harness.session_relay_native_capture_format import compose_capture
-from runtime.harness.test_session_relay_resume_settlement import (
+from runtime.harness.session_relay_resume_settlement_test_support import (
     ATTEMPT_ID,
     FUNCTION_ID,
     LEASE_ID,

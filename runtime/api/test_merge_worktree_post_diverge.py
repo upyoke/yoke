@@ -5,12 +5,11 @@ Shared fixtures and helpers live in test_merge_worktree_full.py.
 
 # ruff: noqa: F811
 
-from runtime.api.test_merge_worktree_full import (
+from runtime.api.merge_worktree_full_test_support import (
     TEST_BRANCH,
     MergeEnv,
     _git,
     _write_file,
-    merge_env,  # re-export fixture for this test module  # noqa: F401
     run_merge,
 )
 

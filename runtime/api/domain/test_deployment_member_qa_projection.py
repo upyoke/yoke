@@ -212,8 +212,8 @@ def test_unobserved_preview_target_has_a_named_reason_and_recovery(monkeypatch):
 
 
 def test_plan_groups_and_old_plan_copies_stay_out_of_item_cases(test_db):
-    from runtime.api.domain.test_deployment_member_qa_copies import read
-    from runtime.api.domain.test_deployment_qa_run_sharing import (
+    from runtime.api.domain.deployment_member_qa_copies_test_support import read
+    from runtime.api.domain.deployment_qa_run_sharing_test_support import (
         MEMBERS,
         RUN,
         _form_groups,
@@ -226,17 +226,22 @@ def test_plan_groups_and_old_plan_copies_stay_out_of_item_cases(test_db):
     )
     # An item copy of a plan from before plan groups is history only.
     insert_qa_requirement(
-        test_db, item_id=MEMBERS[0], qa_phase="post_deploy", method_id="command",
-        plan_id=lone, plan_case_key="command-smoke",
+        test_db,
+        item_id=MEMBERS[0],
+        qa_phase="post_deploy",
+        method_id="command",
+        plan_id=lone,
+        plan_case_key="command-smoke",
     )
     test_db.commit()
     for formed in (False, True):
         if formed:
             assert _form_groups(test_db)
         projected = read(test_db, RUN, MEMBERS)
-        assert [row["source_requirement_id"] for row in projected[(RUN, MEMBERS[0])]["current"]] == [
-            own["id"]
-        ]
+        assert [
+            row["source_requirement_id"]
+            for row in projected[(RUN, MEMBERS[0])]["current"]
+        ] == [own["id"]]
         for member in MEMBERS[1:]:
             assert projected[(RUN, member)] == {"current": [], "history": []}
     assert plan_id != lone

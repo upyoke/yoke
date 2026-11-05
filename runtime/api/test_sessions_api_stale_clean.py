@@ -10,7 +10,7 @@ from runtime.api.sessions_api_stale_test_helpers import (
     _now_instant,
     conn,  # noqa: F401  (backend-aware pytest fixture)
 )
-from runtime.api.test_sessions import _insert_claimable_items, _register
+from runtime.api.sessions_test_support import _insert_claimable_items, _register
 from yoke_core.domain.sessions import claim_work, clean_stale_harness_sessions
 from yoke_core.domain.sessions_analytics_core import (
     DEFAULT_STALE_WITH_HOLDINGS_THRESHOLD_MINUTES as _HOLDINGS_TTL,

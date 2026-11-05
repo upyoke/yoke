@@ -2,32 +2,37 @@
 
 from __future__ import annotations
 
+from runtime.api.domain.satisfied_delivery_member_close_out_test_support import (
+    _settled_member_requirement as _settled_member_requirement,
+    _waived_item_requirement as _waived_item_requirement,
+)
+
+
 from typing import Any
 
 import pytest
 
-from runtime.api.domain.test_deployment_delivery_close_out_notice import (
+from runtime.api.domain.deployment_delivery_close_out_notice_test_support import (
     COMPLETION_FLOW,
     _member_at_release_wait,
     _parked_owner,
     _project,
     _run,
 )
-from runtime.api.domain.test_deployment_qa_stage_wake_delivery import (
+from runtime.api.domain.deployment_qa_stage_wake_delivery_test_support import (
     HOLDER_A,
     _bodies,
     _recipients,
 )
-from runtime.api.domain.test_no_obligation_member_close_out import (
+from runtime.api.domain.no_obligation_member_close_out_test_support import (
     _no_obligation,
     _ready_member,
 )
-from runtime.api.domain.test_run_success_member_settlement import _executing_run
-from runtime.api.domain.test_status_transition_preflight import (
+from runtime.api.domain.run_success_member_settlement_test_support import _executing_run
+from runtime.api.domain.status_transition_preflight_test_support import (
     _isolate_status_effects,
 )
-from runtime.api.fixtures.backlog_inserts import insert_qa_requirement, insert_qa_run
-from yoke_core.domain.db_helpers import iso8601_now
+from runtime.api.fixtures.backlog_inserts import insert_qa_requirement
 from yoke_core.domain.deployment_delivery_close_out_notice import (
     delivery_cleared_idempotency_key,
     notify_delivery_cleared,
@@ -37,20 +42,6 @@ from yoke_core.domain.no_obligation_member_close_out import satisfied_delivery_m
 
 
 SATISFIED_QA_ITEM = 9827
-
-
-def _waived_item_requirement(conn: Any, item_id: int) -> None:
-    """An ordinary item check waived before release admission copies cases."""
-    insert_qa_requirement(
-        conn,
-        item_id=item_id,
-        qa_kind="plan_case",
-        qa_phase="post_deploy",
-        blocking_mode="blocking",
-        waived_at=iso8601_now(),
-        waiver_rationale="operator accepted the waiver before release",
-        waiver_source="owner",
-    )
 
 
 def test_waived_item_check_does_not_hold_collective_finalization(
@@ -110,37 +101,6 @@ def test_unsettled_run_requirement_holds_every_item_answer(test_db: Any, answer:
     assert not satisfied_delivery_member(
         test_db, item_id=SATISFIED_QA_ITEM, run_id=run_id
     )
-
-
-def _settled_member_requirement(
-    conn: Any, *, item_id: int, run_id: str, resolution: str
-) -> None:
-    requirement = insert_qa_requirement(
-        conn,
-        item_id=None,
-        deployment_run_id=run_id,
-        deployment_member_item_id=item_id,
-        deployment_stage="item-qa",
-        qa_kind="plan_case",
-        qa_phase="post_deploy",
-        blocking_mode="blocking",
-        **(
-            {
-                "waived_at": iso8601_now(),
-                "waiver_rationale": "operator accepted the waiver",
-                "waiver_source": "owner",
-            }
-            if resolution == "waive"
-            else {}
-        ),
-    )
-    if resolution == "pass":
-        insert_qa_run(
-            conn,
-            qa_requirement_id=int(requirement["id"]),
-            qa_kind="plan_case",
-            verdict="pass",
-        )
 
 
 @pytest.mark.parametrize("resolution", ["pass", "waive"])
@@ -239,14 +199,18 @@ def _settle_group(conn, run_id):
 def test_member_with_only_plan_group_checks_settles_after_resolution(
     test_db, resolution
 ):
-    from runtime.api.domain.test_deployment_qa_plan_group_execution import _fail_case
-    from runtime.api.domain.test_deployment_qa_plan_groups import (
+    from runtime.api.domain.deployment_qa_plan_group_execution_test_support import (
+        _fail_case,
+    )
+    from runtime.api.domain.deployment_qa_plan_groups_test_support import (
         MEMBERS,
         RUN,
         _begin,
         _seed,
     )
-    from runtime.api.domain.test_deployment_qa_stage_execution import _complete_case
+    from runtime.api.domain.deployment_qa_stage_execution_test_support import (
+        _complete_case,
+    )
     from yoke_core.domain.deployment_qa_plan_group_writes import ensure_groups
 
     _seed(test_db)
@@ -270,14 +234,14 @@ def test_member_with_only_plan_group_checks_settles_after_resolution(
 
 
 def test_another_plan_s_open_group_does_not_hold_a_member_it_does_not_answer(test_db):
-    from runtime.api.domain.test_deployment_qa_plan_groups import (
+    from runtime.api.domain.deployment_qa_plan_groups_test_support import (
         MEMBERS,
         RUN,
         _attach,
         _pass_group,
         _seed,
     )
-    from runtime.api.domain.test_deployment_qa_stage_execution import _plan
+    from runtime.api.domain.deployment_qa_stage_execution_test_support import _plan
     from yoke_core.domain.deployment_qa_plan_group_writes import ensure_groups
 
     _seed(test_db)

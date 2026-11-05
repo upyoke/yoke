@@ -8,7 +8,7 @@ from runtime.api.tools.session_control_live_acceptance_contract import (
     AcceptanceCell,
     AcceptanceMatrix,
 )
-from runtime.api.tools.test_session_control_live_acceptance_driver import (
+from runtime.api.tools.session_control_live_acceptance_driver_test_support import (
     RELEASE_SHA,
     SERVER_BUILD,
     _ScenarioClient,

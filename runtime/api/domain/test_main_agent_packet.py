@@ -29,7 +29,7 @@ def repo_root() -> Path:
     targets the same checkout the renderer tests do, regardless of the
     pytest subprocess cwd.
     """
-    from runtime.api.domain.test_agents_render_workspace_fixtures import (
+    from runtime.api.domain.agents_render_workspace_fixtures_test_support import (
         resolve_live_repo_root,
     )
 

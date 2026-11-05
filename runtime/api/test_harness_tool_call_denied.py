@@ -75,7 +75,7 @@ def _record(
 
 def _main_commit_facts(branch: str) -> dict:
     """The client's git report for a commit staging one implementation file."""
-    from runtime.api.domain.test_lint_main_commit import git_facts
+    from runtime.api.domain.lint_main_commit_test_support import git_facts
 
     return git_facts(branch, ["runtime/api/domain/foo.py"])
 

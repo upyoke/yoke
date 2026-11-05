@@ -22,7 +22,7 @@ from yoke_core.domain.session_message_delivery_probe import (
 from yoke_core.domain.session_message_attempt_reads import message_attempt_evidence
 from yoke_core.domain.session_message_service import send_message
 from yoke_core.domain.session_message_wake import wake_eligible_recipients
-from runtime.api.domain.test_session_message_support import (
+from runtime.api.domain.session_message_support_test_support import (
     NOW,
     message_connection,
     selector,

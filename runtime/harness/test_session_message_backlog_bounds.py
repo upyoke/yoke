@@ -27,7 +27,7 @@ from yoke_core.hooks.session_message_delivery_port import (
     SessionMessageLease,
 )
 from yoke_core.hooks.types import HookContext
-from runtime.api.domain.test_session_message_support import (
+from runtime.api.domain.session_message_support_test_support import (
     page_rows,
     pin_message_clocks,
     NOW,
@@ -271,7 +271,9 @@ def test_an_oversized_message_settles_once_and_is_not_retried() -> None:
 
 def test_oversized_stub_injection_settles_its_native_wake() -> None:
     from datetime import timedelta
-    from runtime.api.domain.test_session_wake_reconciliation import _add_events_table
+    from runtime.api.domain.session_wake_reconciliation_test_support import (
+        _add_events_table,
+    )
     from yoke_contracts.session_control.wake_delivery import (
         NATIVE_RESUME_ACCEPTED_RESULT,
         WAKE_DELIVERED_RESULT,

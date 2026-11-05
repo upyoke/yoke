@@ -5,7 +5,7 @@ from __future__ import annotations
 import pytest
 
 from runtime.api.turn_end_promised_work_test_support import _Conn
-from runtime.api.domain import test_session_control_health_facts as health_facts
+from runtime.api.domain import session_control_health_facts_test_support as health_facts
 from yoke_contracts.turn_end_evidence import TurnEndEvidence, UNAVAILABLE
 from yoke_core.domain import turn_end_promised_work_gate as gate
 from yoke_core.domain.session_recovery_facts import PROMISED_WORK_HOLDS_TABLE

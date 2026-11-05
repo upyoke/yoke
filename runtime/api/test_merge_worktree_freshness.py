@@ -16,8 +16,8 @@ one source of truth.
 
 from __future__ import annotations
 
-from runtime.api.test_merge_worktree_pr_checks_test_helpers import _stub_ctx
-from runtime.api.test_merge_worktree_pr_checks import (
+from runtime.api.merge_worktree_pr_checks_test_helpers_test_support import _stub_ctx
+from runtime.api.merge_worktree_pr_checks_test_support import (
     _HEAD_SHA,
     _OTHER_SHA,
     _PYTEST_FAILED_OUTPUT,

@@ -9,12 +9,12 @@ import psycopg
 from psycopg.pq import TransactionStatus
 import pytest
 
-from runtime.api.domain.test_deployment_qa_stage_execution import (
+from runtime.api.domain.deployment_qa_stage_execution_test_support import (
     _plan,
     _seed_run,
     _stages,
 )
-from runtime.api.domain.test_deployment_qa_release_version import (
+from runtime.api.domain.deployment_qa_release_version_test_support import (
     _pin_capability,
     _stage,
     PIN_FILE,
@@ -138,7 +138,10 @@ def test_unprepared_external_read_refuses_before_starting_a_subprocess(
 
 
 def test_rollback_loss_envelope_surfaces_the_triggering_timeout():
-    from runtime.api.domain.test_session_less_actor_binding import _entry, _request
+    from runtime.api.domain.session_less_actor_binding_test_support import (
+        _entry,
+        _request,
+    )
     from yoke_core.domain.function_connection_loss import (
         name_connection_loss,
         CONNECTION_LOST_CODE,
@@ -185,7 +188,10 @@ def test_unpublished_prepared_input_returns_the_named_stage_failure(
 
 
 def test_server_idle_timeout_is_resumable_without_a_failed_rollback():
-    from runtime.api.domain.test_session_less_actor_binding import _entry, _request
+    from runtime.api.domain.session_less_actor_binding_test_support import (
+        _entry,
+        _request,
+    )
     from yoke_core.domain.function_connection_loss import (
         name_connection_loss,
         CONNECTION_LOST_CODE,

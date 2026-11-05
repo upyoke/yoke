@@ -19,7 +19,7 @@ from yoke_core.domain.project_renderer_settings import (
     ProjectRendererSettings,
     RendererEnvironmentSettings,
 )
-from runtime.api.domain.test_project_renderer_pulumi_instances import (
+from runtime.api.domain.project_renderer_pulumi_instances_test_support import (
     _environment_settings,
     _make_project_tree,
     _settings_with_environments,

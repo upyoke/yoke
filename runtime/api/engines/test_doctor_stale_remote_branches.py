@@ -4,11 +4,8 @@ from unittest.mock import Mock, patch
 
 import pytest
 
-from runtime.api.engines.test_doctor_git_worktrees import (
-    _make_completed,
-    _make_conn,
-    _run_hc,
-)
+from runtime.api.engines.doctor_git_github_test_support import (_make_completed)
+from runtime.api.engines.doctor_git_worktrees_test_support import (_make_conn, _run_hc)
 from yoke_core.domain.item_refs_schema import ensure_item_refs_view
 from yoke_core.domain.work_claim_targets import make_item_target
 from yoke_core.engines import doctor_hc_worktrees_branches as checks

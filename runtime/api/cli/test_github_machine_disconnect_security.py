@@ -7,7 +7,9 @@ import json
 
 import pytest
 
-from runtime.api.cli.test_github_app_machine_security import _configured_machine
+from runtime.api.cli.github_app_machine_security_test_support import (
+    _configured_machine,
+)
 from yoke_cli.config import github_git_credential_file, github_machine
 
 

@@ -5,11 +5,17 @@ from types import SimpleNamespace
 
 import pytest
 
-from runtime.api.domain.test_deployment_qa_plan_groups import (
-    MEMBERS, RUN, _seed,
+from runtime.api.domain.deployment_qa_plan_groups_test_support import (
+    MEMBERS,
+    RUN,
+    _seed,
 )
 from runtime.api.qa_artifact_read_test_support import artifact_read_request
-from yoke_contracts.api.function_call import ActorContext, FunctionCallRequest, TargetRef
+from yoke_contracts.api.function_call import (
+    ActorContext,
+    FunctionCallRequest,
+    TargetRef,
+)
 from yoke_core.domain import db_helpers
 from yoke_core.domain.deployment_qa_plan_group_writes import ensure_groups
 from yoke_core.domain.function_target_row_project import resolve_qa_requirement_project

@@ -30,10 +30,8 @@ from yoke_contracts.board.art import (
 from yoke_contracts.board.config import BoardConfig
 
 # Re-export shared fixtures so pytest can pick them up.
-from runtime.api.test_board_art_test_helpers import (  # noqa: F401
+from runtime.api.board_art_test_helpers_test_support import (
     MINI_MASTER_MAP,
-    art_config,
-    config_file,
 )
 
 
@@ -214,7 +212,6 @@ class TestRenderMeter:
 
 
 class TestRenderStatsBox:
-
     def test_wide_box_has_eight_lines(self):
         counts = {
             "active": 3, "pipeline": 5, "backlog": 10,
@@ -233,19 +230,23 @@ class TestRenderStatsBox:
 
     def test_wide_box_contains_meters(self):
         counts = {
-            "active": 5, "pipeline": 5, "backlog": 5,
-            "blocked": 5, "done": 5, "frozen": 5,
+            "active": 5,
+            "pipeline": 5,
+            "backlog": 5,
+            "blocked": 5,
+            "done": 5,
+            "frozen": 5,
         }
         lines = _render_stats_box(counts, total=30)
         # Wide box has six meter rows (Active, Pipeline, Backlog, Blocked,
         # Done, Frozen) after the added the Blocked row.
-        meter_lines = [l for l in lines if WHITE in l or BLACK in l]
+        meter_lines = [line for line in lines if WHITE in line or BLACK in line]
         assert len(meter_lines) == 6
 
     def test_title_present(self):
         counts = {"active": 0, "pipeline": 0, "backlog": 0, "done": 0, "frozen": 0}
         lines = _render_stats_box(counts, total=0)
-        assert any("THE BOARD" in l for l in lines)
+        assert any("THE BOARD" in line for line in lines)
 
 
 # ---------------------------------------------------------------------------

@@ -33,8 +33,10 @@ from __future__ import annotations
 
 import pytest
 
-from runtime.api.domain.test_dash_post_deploy_review_isolation import _insert_dash
-from runtime.api.domain.test_deployment_qa_admission_execution import (
+from runtime.api.domain.dash_post_deploy_review_isolation_test_support import (
+    _insert_dash,
+)
+from runtime.api.domain.deployment_qa_admission_execution_test_support import (
     _seed_selected_requirement_run,
 )
 from runtime.api.fixtures.deployment_admitted_case_fixture import (

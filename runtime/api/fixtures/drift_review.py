@@ -9,7 +9,7 @@ import pytest
 
 from yoke_core.domain import db_backend
 from runtime.api.fixtures.file_test_db import connect_test_db, init_test_db
-from runtime.api.test_dependency_schema import PROJECTS_SCHEMA
+from runtime.api.dependency_schema_test_support import PROJECTS_SCHEMA
 
 TEST_ITEM_ID = 42
 

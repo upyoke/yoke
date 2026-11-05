@@ -7,7 +7,7 @@ import pytest
 from yoke_core.domain import deployment_runs
 
 
-pytest_plugins = ["runtime.api.test_deployment_runs_full_helpers"]
+pytest_plugins = ["runtime.api.deployment_runs_full_helpers_test_support"]
 
 
 def test_list_is_recent_first_and_bounded(db_path: str) -> None:

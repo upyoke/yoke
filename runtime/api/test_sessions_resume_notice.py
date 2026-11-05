@@ -15,7 +15,7 @@ from yoke_core.domain.sessions_lifecycle_reactivation import (
     emit_reactivated_with_released_claims,
 )
 from runtime.api.reacquire_identity_test_support import seed_claim_item
-from runtime.api.test_sessions_lifecycle_reacquire_conflict import (
+from runtime.api.sessions_lifecycle_reacquire_conflict_test_support import (
     _PgReacquireTestCase,
     _insert_released_claim,
     _insert_session,

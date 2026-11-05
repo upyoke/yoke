@@ -16,14 +16,14 @@ import pytest
 
 from yoke_core.domain import deployment_runs_lock as run_lock
 
-from runtime.api.domain import test_deployment_qa_pinned_release_reads as pinned
-from runtime.api.domain.test_deployment_qa_stage_execution import (
+from runtime.api.domain import deployment_qa_pinned_release_reads_test_support as pinned
+from runtime.api.domain.deployment_qa_stage_execution_test_support import (
     _plan,
     _seed_run,
     _stages,
 )
 from runtime.api.fixtures.deployment_scoped_qa_run_fixture import seed_member_qa_case
-from runtime.api.domain.test_deployment_qa_materialization_lock_window import (
+from runtime.api.domain.deployment_qa_materialization_lock_window_test_support import (
     STAGE,
     LockWindowRecorder,
     _seed,

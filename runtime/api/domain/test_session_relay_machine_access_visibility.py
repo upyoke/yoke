@@ -7,7 +7,7 @@ import json
 from yoke_contracts.machine_config import machine_access
 from yoke_core.domain import machine_registry
 from yoke_core.domain.session_relay_read import list_visible_relays
-from runtime.api.domain.test_session_message_support import message_connection
+from runtime.api.domain.session_message_support_test_support import message_connection
 
 
 FRESH_MACHINE = "33333333-3333-4333-8333-333333333333"

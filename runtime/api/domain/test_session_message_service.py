@@ -21,7 +21,7 @@ from yoke_core.domain.session_message_receipts import (
 from yoke_core.domain.session_message_service import preview_message, send_message
 from yoke_core.domain.session_message_types import SessionMessageError, parse_timestamp
 from yoke_core.domain.work_claim_targets import make_item_target
-from runtime.api.domain.test_session_message_support import (
+from runtime.api.domain.session_message_support_test_support import (
     page_rows,
     pin_message_clocks,
     NOW,

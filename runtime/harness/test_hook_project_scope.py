@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+from runtime.harness.hook_project_scope_test_support import project_map as project_map
+
+
 import subprocess
 from pathlib import Path
 
@@ -9,20 +12,6 @@ import pytest
 
 from yoke_contracts.hook_runner import project_scope
 from yoke_core.hooks import codex_payload, target
-
-
-@pytest.fixture
-def project_map(tmp_path, monkeypatch):
-    config_file = tmp_path / "config.json"
-    config_file.write_text("{}")
-    config = {"active_env": "local", "connection_projects": {"local": []}}
-    monkeypatch.setattr(
-        project_scope.machine_config, "config_path", lambda: config_file
-    )
-    monkeypatch.setattr(
-        project_scope.machine_config, "load_config", lambda *_args, **_kwargs: config
-    )
-    return config
 
 
 def _git(root: Path, *args: str) -> None:
@@ -201,7 +190,9 @@ def test_unmapped_https_hook_relays_scope_and_preserves_local_guards(
     denied,
 ):
     import json
-    from runtime.api.cli.test_yoke_operations_cli_hooks import _FakeResponse
+    from runtime.api.cli.yoke_operations_cli_hooks_test_support import (
+        _FakeResponse,
+    )
     from yoke_cli.transport.https import HttpsConnection
     from yoke_harness.hooks import relay, machine_hooks, local_subset
 

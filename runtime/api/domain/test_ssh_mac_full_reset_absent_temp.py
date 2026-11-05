@@ -11,7 +11,7 @@ from runtime.api.domain.ssh_mac_full_reset_test_support import (
     require_zsh as _require_zsh,
     run_functions as _run_functions,
 )
-from runtime.api.domain.test_ssh_mac_full_reset_program import (
+from runtime.api.domain.ssh_mac_full_reset_program_test_support import (
     _baseline_pair,
     _clear_and_restore,
 )

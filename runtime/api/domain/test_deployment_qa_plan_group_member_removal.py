@@ -1,7 +1,11 @@
 """Removing run members retracts a plan group only once no member attaches it."""
 
-from runtime.api.domain.test_deployment_qa_plan_groups import MEMBERS, RUN, _seed
-from runtime.api.domain.test_deployment_shipping_reads import CountedConnection
+from runtime.api.domain.deployment_qa_plan_groups_test_support import (
+    MEMBERS,
+    RUN,
+    _seed,
+)
+from runtime.api.domain.deployment_shipping_reads_test_support import CountedConnection
 from yoke_core.domain.deployment_qa_plan_group_writes import ensure_groups
 from yoke_core.domain.deployment_qa_plan_groups import run_groups
 

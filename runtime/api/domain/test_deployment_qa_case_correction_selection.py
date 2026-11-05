@@ -3,7 +3,7 @@
 import pytest
 
 from runtime.api.fixtures.deployment_scoped_qa_run_fixture import record_case_verdict
-from runtime.api.test_qa_plan_rematerialize_convergence import (
+from runtime.api.qa_plan_rematerialize_convergence_test_support import (
     MEMBER,
     _case,
     _two_case_stage,

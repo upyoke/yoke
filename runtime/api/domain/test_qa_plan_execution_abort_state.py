@@ -81,7 +81,7 @@ def test_non_host_interruption_does_not_owe_another_cases_restore():
 
 
 def test_remove_member_with_as_is_cleanup_releases_host(test_db, tmp_path, monkeypatch):
-    from runtime.api.domain.test_qa_member_machine_partitions import (
+    from runtime.api.domain.qa_member_machine_partitions_test_support import (
         MEMBER,
         RUN,
         _seed,
@@ -172,7 +172,10 @@ def test_remove_member_with_as_is_cleanup_releases_host(test_db, tmp_path, monke
 def test_pre_host_abort_waives_only_untouched_unrequested_host(
     test_db, tmp_path, monkeypatch, started, pre_host, already_requested
 ):
-    from runtime.api.domain.test_machine_qa_host_unreachable import _plan, _begin
+    from runtime.api.domain.machine_qa_host_unreachable_test_support import (
+        _plan,
+        _begin,
+    )
     from yoke_core.domain.qa_plan_execution_store import (
         lock_plan_execution,
         QaPlanExecutionStateError,

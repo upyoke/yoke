@@ -4,7 +4,9 @@ from datetime import datetime, timedelta, timezone
 
 import pytest
 
-from runtime.api.domain.handlers.test_sessions_list_handler import _insert_session
+from runtime.api.domain.handlers.sessions_list_handler_test_support import (
+    _insert_session,
+)
 from runtime.api.fixtures.backlog import insert_item
 from runtime.api.fixtures.session_holdings import insert_item_claim, instant_ago
 from yoke_core.domain.session_automatic_reclaim import automatic_reclaim

@@ -4,9 +4,11 @@ from __future__ import annotations
 
 from contextlib import nullcontext
 
-from runtime.api.domain.test_no_change_dash_close_out import _NonClosingConnection
+from runtime.api.domain.no_change_dash_close_out_test_support import (
+    _NonClosingConnection,
+)
 
-from runtime.api.domain.test_status_transition_preflight import (
+from runtime.api.domain.status_transition_preflight_test_support import (
     _isolate_status_effects,
 )
 from runtime.api.fixtures.backlog import insert_item

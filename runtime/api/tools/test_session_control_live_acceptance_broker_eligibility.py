@@ -15,7 +15,9 @@ from runtime.api.tools.session_control_live_acceptance_contract import (
 from runtime.api.tools.session_control_live_acceptance_roster import (
     validated_registration,
 )
-from runtime.api.tools.test_session_control_live_acceptance_broker import _broker_cell
+from runtime.api.tools.session_control_live_acceptance_broker_test_support import (
+    _broker_cell,
+)
 
 
 def _row(session_id: str) -> dict[str, Any]:

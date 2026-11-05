@@ -11,7 +11,7 @@ from unittest.mock import patch
 
 from yoke_cli.main import main as cli_main
 from yoke_contracts.api.function_call import FunctionCallRequest, FunctionCallResponse
-from runtime.api.cli.test_yoke_operations_cli_strategy import (
+from runtime.api.cli.yoke_operations_cli_strategy_test_support import (
     _CAPTURED_REQUESTS,
     _run,
     _seed_view,

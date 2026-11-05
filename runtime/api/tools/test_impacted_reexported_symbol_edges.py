@@ -13,7 +13,7 @@ from pathlib import Path
 from yoke_core.tools._impacted_import_index import direct_importer_tests
 from yoke_core.tools.impacted_tests import build_import_index, select
 
-from runtime.api.tools.test_impacted_tests import _tiny_repo, _write
+from runtime.api.tools.impacted_tests_test_support import _tiny_repo, _write
 
 _DEFINER = "runtime/api/definer.py"
 _DEFINER_BODY = "def behaviour():\n    return 1\n"

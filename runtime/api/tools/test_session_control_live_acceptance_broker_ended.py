@@ -10,8 +10,10 @@ from runtime.api.tools.session_control_live_acceptance_contract import (
     AcceptanceCell,
     AcceptanceContractError,
 )
-from runtime.api.tools.test_session_control_live_acceptance_broker import _broker_cell
-from runtime.api.tools.test_session_control_live_acceptance_driver import (
+from runtime.api.tools.session_control_live_acceptance_broker_test_support import (
+    _broker_cell,
+)
+from runtime.api.tools.session_control_live_acceptance_driver_test_support import (
     _ScenarioClient,
     _driver,
 )

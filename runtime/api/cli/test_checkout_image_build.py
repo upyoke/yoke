@@ -6,7 +6,7 @@ from packaging.version import Version
 from setuptools_scm import get_version
 from yoke_cli.local_core import checkout_build, docker_plan
 from yoke_cli.local_core.launcher import LocalCoreLauncher
-from runtime.api.cli.test_yoke_local_core_launcher import FakeRunner
+from runtime.api.cli.yoke_local_core_launcher_test_support import FakeRunner
 from yoke_contracts.engine_version import UNRESOLVED_SCM_FALLBACK_VERSION
 
 ROOT = Path(__file__).resolve().parents[3]

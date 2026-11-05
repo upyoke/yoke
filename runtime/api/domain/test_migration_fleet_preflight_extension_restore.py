@@ -16,12 +16,17 @@ run is how the unrestorable copy reached a release in the first place.
 
 from __future__ import annotations
 
+from runtime.api.domain.migration_fleet_preflight_extension_restore_test_support import (
+    VERSIONED_BIN_GLOB as VERSIONED_BIN_GLOB,
+    _server_bin_dir as _server_bin_dir,
+)
+
+
 import os
 import shutil
-import subprocess
 import tempfile
 from pathlib import Path
-from typing import List, Optional, Tuple
+from typing import Tuple
 
 import pytest
 
@@ -44,7 +49,6 @@ READER_FUNCTION = f"{EXTENSION_SCHEMA}.current_database_statements_read"
 DEPENDENT_VIEW = f"{EXTENSION_SCHEMA}.current_database_statements"
 
 #: Debian keeps every server binary here, one directory per major version.
-VERSIONED_BIN_GLOB = "/usr/lib/postgresql/*/bin"
 
 
 def _unavailable(reason: str) -> None:
@@ -52,36 +56,6 @@ def _unavailable(reason: str) -> None:
     if os.environ.get("CI"):
         pytest.fail(f"this round trip must run on CI: {reason}")
     pytest.skip(reason)
-
-
-def _server_bin_dir() -> Tuple[Optional[Path], List[str]]:
-    """The directory holding ``initdb``, plus the places that were tried."""
-    searched: List[str] = []
-
-    on_path = shutil.which("initdb")
-    if on_path:
-        return Path(on_path).parent, searched
-    searched.append("PATH")
-
-    if shutil.which("pg_config"):
-        probe = subprocess.run(
-            ["pg_config", "--bindir"], capture_output=True, text=True, timeout=30
-        )
-        candidate = Path(probe.stdout.strip()) if probe.stdout.strip() else None
-        if candidate is not None:
-            searched.append(str(candidate))
-            if (candidate / "initdb").exists():
-                return candidate, searched
-    else:
-        searched.append("pg_config (absent)")
-
-    versioned = sorted(Path("/").glob(VERSIONED_BIN_GLOB.lstrip("/")))
-    searched.append(VERSIONED_BIN_GLOB)
-    for candidate in reversed(versioned):
-        if (candidate / "initdb").exists():
-            return candidate, searched
-
-    return None, searched
 
 
 @pytest.fixture(scope="module")

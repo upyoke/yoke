@@ -7,14 +7,12 @@ HarnessSessionStaleSweepCompleted event coverage.
 
 from __future__ import annotations
 
+
 from unittest.mock import patch
 
 import pytest
 
-from runtime.api.test_sessions import (
-    _register,
-    conn,  # noqa: F401
-)
+from runtime.api.sessions_test_support import _register
 from yoke_core.domain.sessions import (
     EVENT_HARNESS_SESSION_STALE_SWEEP_COMPLETED,
     clean_stale_harness_sessions,

@@ -26,7 +26,7 @@ from yoke_core.domain.installer_campaign_execution_target import (
 )
 from yoke_core.domain.ssh_mac_host_control import SshMacHostControl
 from yoke_core.domain.ssh_linux_host_control import SshLinuxHostControl
-from runtime.api.domain.test_qa_release_channel_target import _target
+from runtime.api.domain.qa_release_channel_target_test_support import _target
 
 
 def test_every_recovery_recipe_satisfies_its_method_contract():

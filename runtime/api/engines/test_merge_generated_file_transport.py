@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from yoke_core.engines import merge_worktree_prepare_state as st
 
-from runtime.api.engines.test_merge_worktree_prepare_transport import (
+from runtime.api.engines.merge_worktree_prepare_transport_test_support import (
     MergeArgs as MergeArgs,
     MergeContext as MergeContext,
     TEST_ITEM_REF as TEST_ITEM_REF,

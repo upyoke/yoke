@@ -11,16 +11,16 @@ Three layers over the same disposable Postgres fixture:
 
 from __future__ import annotations
 
+from runtime.api.board.tests.board_data_function_test_support import (
+    _request as _request,
+)
+
+
 import json
 import os
 from unittest import mock
 
 import pytest
-from yoke_contracts.api.function_call import (
-    ActorContext,
-    FunctionCallRequest,
-    TargetRef,
-)
 from yoke_contracts.board.art import ArtConfig
 from yoke_contracts.board.config import BoardConfig
 from yoke_core.board.renderer import render_board_from_payload
@@ -36,16 +36,6 @@ from yoke_core.domain.yoke_function_registry import reset_registry_for_tests
 
 from runtime.api.fixtures.backlog_inserts import insert_item
 from runtime.api.fixtures.file_test_db import connect_test_db
-
-
-def _request(payload: dict, *, options: dict | None = None) -> FunctionCallRequest:
-    return FunctionCallRequest(
-        function="board.data.get",
-        actor=ActorContext(actor_id=None, session_id=""),
-        target=TargetRef(kind="global"),
-        payload=payload,
-        options=options or {},
-    )
 
 
 def test_handler_returns_named_snapshot(populated_db):

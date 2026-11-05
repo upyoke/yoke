@@ -24,16 +24,13 @@ import sys
 
 import pytest
 
-from runtime.api.cli.test_yoke_operations_cli_hooks import (  # noqa: F401
+from runtime.api.cli.yoke_operations_cli_hooks_test_support import (
     _FakeResponse,
     cli_main,
-    https_connection,
-    local_subset,
 )
-from runtime.api.cli.test_yoke_hooks_relay_orientation import (  # noqa: F401
+from runtime.api.cli.yoke_hooks_relay_orientation_test_support import (
     ORIENTATION,
     _server_response,
-    oriented,
 )
 from yoke_contracts.hook_runner.config_owner import (
     CURSOR_EXECUTOR_ID,

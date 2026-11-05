@@ -6,7 +6,7 @@ from uuid import uuid4
 
 import pytest
 
-from runtime.api.domain.test_session_registration_scope import world  # noqa: F401
+from runtime.api.domain.session_registration_scope_test_support import world  # noqa: F401
 from yoke_cli.transport.function_version_skew import retype_skew
 from yoke_contracts.api.function_call import (
     ActorContext,

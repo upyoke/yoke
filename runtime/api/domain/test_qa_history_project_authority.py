@@ -12,7 +12,7 @@ from runtime.api.domain.deployment_member_qa_authorization_test_support import (
     _mixed_run,
     _request,
 )
-from runtime.api.domain.test_coordination_claim_project_authority import (
+from runtime.api.domain.coordination_claim_project_authority_test_support import (
     _project_owner,
     _qa_host_claim,
     _session,

@@ -7,7 +7,7 @@ import json
 
 import pytest
 
-from runtime.api.test_sessions import _register
+from runtime.api.sessions_test_support import _register
 from yoke_core.domain.session_idle_host_report import (
     EVENT_NATIVE_HOST_RECLAIMED,
     SESSION_LIVE_STATUS,

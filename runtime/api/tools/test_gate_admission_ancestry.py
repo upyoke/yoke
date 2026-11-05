@@ -17,7 +17,7 @@ import pytest
 from yoke_core.domain import qa_gate_timeout
 from yoke_core.tools import gate_admission
 
-from runtime.api.tools.test_gate_admission import _scratch_lock_base
+from runtime.api.tools.gate_admission_test_support import _scratch_lock_base
 
 pytestmark = pytest.mark.usefixtures("bound_project_context")
 

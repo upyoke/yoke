@@ -1,5 +1,8 @@
 """Merge uses the common reader's native-selected run, never history order."""
 
+from runtime.api.domain.merge_qa_run_identity_test_support import _proof as _proof
+
+
 import json
 from itertools import permutations
 
@@ -10,9 +13,7 @@ from runtime.api.fixtures.backlog import (
     insert_qa_requirement,
     insert_qa_run,
 )
-from runtime.api.domain.test_standalone_item_merge_qa import MERGING_SHA, _item
-from yoke_core.domain.item_detail_qa import qa_rows
-from yoke_core.domain.standalone_item_merge_qa import preflight
+from runtime.api.domain.standalone_item_merge_qa_test_support import MERGING_SHA
 
 
 def _capture(conn, requirement_id, ordinal, verdict, *, proof=True):
@@ -30,14 +31,6 @@ def _capture(conn, requirement_id, ordinal, verdict, *, proof=True):
         raw_result=json.dumps({"verification_tree": {"head_sha": MERGING_SHA}})
         if proof
         else "{}",
-    )
-
-
-def _proof(conn, item_id, tmp_path):
-    item = _item(None)
-    item["qa_requirements"] = qa_rows(conn, item_id, include_proof=True)
-    return item, preflight(
-        item, public_ref="example", repo_root=tmp_path, branch="lane"
     )
 
 

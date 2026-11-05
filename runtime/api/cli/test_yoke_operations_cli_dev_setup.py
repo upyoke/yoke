@@ -2,6 +2,11 @@
 
 from __future__ import annotations
 
+from runtime.api.cli.yoke_operations_cli_dev_setup_test_support import (
+    _source_checkout as _source_checkout,
+)
+
+
 import json
 from pathlib import Path
 
@@ -253,13 +258,3 @@ def test_dev_setup_reused_local_postgres_marks_non_prod(
         "source-dev-admin"
     ]
     assert entry["protected"] is False
-
-
-def _source_checkout(tmp_path: Path) -> Path:
-    checkout = tmp_path / "yoke-source"
-    (checkout / "runtime" / "harness").mkdir(parents=True)
-    (checkout / "pyproject.toml").write_text(
-        '[project]\nname = "yoke"\n',
-        encoding="utf-8",
-    )
-    return checkout

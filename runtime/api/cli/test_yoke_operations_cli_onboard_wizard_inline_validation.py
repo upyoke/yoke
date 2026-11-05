@@ -9,6 +9,14 @@ that the pure validators return a string).
 
 from __future__ import annotations
 
+from runtime.api.cli.yoke_operations_cli_onboard_wizard_inline_validation_test_support import (
+    _error_text as _error_text,
+    _pick_mode as _pick_mode,
+    _skip_machine_github as _skip_machine_github,
+    _title as _title,
+)
+
+
 import asyncio
 import threading
 
@@ -20,12 +28,10 @@ from textual.widgets import Input, Static  # noqa: E402
 
 from yoke_cli.config import onboard_project  # noqa: E402
 from yoke_cli.config import onboard_wizard_flow  # noqa: E402
-from yoke_cli.config import onboard_wizard_steps as steps  # noqa: E402
 from yoke_cli.config import project_git_probe  # noqa: E402
 from yoke_cli.config import project_git_transport  # noqa: E402
 
 from runtime.api.cli.onboard_wizard_test_helpers import (  # noqa: E402
-    advance_past_path,
     make_app,
     stub_path_doctor,
     type_text,
@@ -52,18 +58,6 @@ def github_owner():
     return github_publish.RepoOwner("octocat", "user")
 
 
-def _title(app) -> str:
-    return next(str(w.render()) for w in app.query(".onboard-title").results(Static))
-
-
-def _error_text(app) -> str:
-    return " ".join(
-        str(w.render())
-        for selector in (".onboard-input-error", ".onboard-field-error")
-        for w in app.query(selector).results(Static)
-    )
-
-
 def _body_text(app) -> str:
     return " ".join(
         str(w.render()) for w in app.query("#onboard-body Static").results(Static)
@@ -72,19 +66,6 @@ def _body_text(app) -> str:
 
 def _has_input(app) -> bool:
     return bool(list(app.query("#onboard-body Input").results(Input)))
-
-
-async def _pick_mode(pilot, value: str) -> None:
-    index = next(i for i, r in enumerate(steps.MODE_ROWS) if r.value == value)
-    for _ in range(index):
-        await pilot.press("down")
-    await pilot.press("enter")
-
-
-async def _skip_machine_github(pilot) -> None:
-    await advance_past_path(pilot)
-    await pilot.press("down")  # machine github: Skip for now
-    await pilot.press("enter")
 
 
 # ── clone URL reachability gate ──────────────────────────────────────────

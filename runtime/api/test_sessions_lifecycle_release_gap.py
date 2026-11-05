@@ -38,12 +38,12 @@ from yoke_core.api.service_client_work_claims import (
     RELEASE_EXIT_PRECONDITION_REFUSED,
     _RELEASE_FAILURE_TO_EXIT,
 )
-from runtime.api.test_dependency_schema import (
+from runtime.api.dependency_schema_test_support import (
     ITEMS_SCHEMA,
     ITEM_DEPENDENCIES_SCHEMA,
     PROJECTS_SCHEMA,
 )
-from runtime.api.test_constants import TEST_MODEL_ID
+from runtime.api.constants_test_support import TEST_MODEL_ID
 
 
 SESSION_ID = "019e1f0d-7f82-72d2-85ee-b46947b2a6fd"

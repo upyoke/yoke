@@ -5,7 +5,7 @@ import pytest
 from yoke_contracts.timestamps import parse_instant
 
 from runtime.api.fixtures.pg_testdb import test_database
-from runtime.api.domain.test_qa_plan_standalone_execution import _begin, _plan
+from runtime.api.domain.qa_plan_standalone_execution_test_support import _begin, _plan
 from yoke_core.domain import qa_standalone_execution as standalone
 from yoke_core.domain.qa_plan_execution_continuation import latest_plan_execution
 from yoke_core.domain.qa_plan_execution_schema import (

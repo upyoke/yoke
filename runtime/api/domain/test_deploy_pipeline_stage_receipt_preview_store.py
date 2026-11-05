@@ -14,7 +14,7 @@ from typing import Any
 
 import pytest
 
-from runtime.api.domain.test_deploy_pipeline_stage_receipt_store import (
+from runtime.api.domain.deploy_pipeline_stage_receipt_store_test_support import (
     LINEAGE,
     PREVIEW_URL,
     _dispatch,

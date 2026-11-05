@@ -20,7 +20,7 @@ from yoke_core.domain.steering_fleet_report_compose import (
     combined_dict,
     compose_held_reports,
 )
-from runtime.api.domain.test_steering_fleet_report_stranded import (
+from runtime.api.domain.steering_fleet_report_stranded_test_support import (
     _exhausted_other_models,
     _pin_worker,
 )

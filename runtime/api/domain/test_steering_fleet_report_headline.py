@@ -6,7 +6,11 @@ from types import SimpleNamespace
 
 import pytest
 
-from runtime.api.domain.test_steering_fleet_report_compose import NOW, _idle, _report
+from runtime.api.domain.steering_fleet_report_compose_test_support import (
+    NOW,
+    _idle,
+    _report,
+)
 from yoke_core.domain.steering_fleet_report_available import FrontierEntry
 from yoke_core.domain.steering_fleet_report_compose import (
     CombinedFleetReport,

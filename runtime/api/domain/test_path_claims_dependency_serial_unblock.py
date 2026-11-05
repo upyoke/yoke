@@ -6,7 +6,7 @@ from yoke_core.domain.path_claims_dependency_propagation import (
     propagate_release_unblock,
     unblock_stranded_for_released,
 )
-from runtime.api.domain.test_path_claims_dependency_propagation import (
+from runtime.api.domain.path_claims_dependency_propagation_test_support import (
     _add_edge,
     _release_directly,
     _seed_claim,

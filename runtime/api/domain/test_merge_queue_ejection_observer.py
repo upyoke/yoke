@@ -27,7 +27,7 @@ from runtime.api.domain.merge_queue_observer_test_helpers import (
     observe,
     observer_connection,
 )
-from runtime.api.domain.test_session_message_support import NOW
+from runtime.api.domain.session_message_support_test_support import NOW
 from yoke_contracts.timestamps import parse_instant
 from yoke_contracts.session_control.wake import EXPLICIT_WAKE_ROUTING_FLAG
 import yoke_core.domain.merge_queue_landing_observer as landing_observer

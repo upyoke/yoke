@@ -4,7 +4,10 @@ import json
 
 import pytest
 
-from runtime.api.cli.test_github_git_credential_install import _configured_repo, _git
+from runtime.api.cli.github_git_credential_install_test_support import (
+    _configured_repo,
+    _git,
+)
 from yoke_cli.config import github_git_credentials, github_project_setup
 from yoke_cli.config.project_publication_destination import LEGACY_READ_ONLY_PUSH_URL
 from yoke_cli.project_install import runner
@@ -57,7 +60,9 @@ def test_read_only_checkout_converges_helper_without_enabling_push(
 ):
     repo, config, _credential = _configured_repo(tmp_path, monkeypatch)
     _git(repo, "remote", "add", "origin", "git@github.com:octo/repo.git")
-    from runtime.api.cli.test_project_publication_settings import seed_project
+    from runtime.api.cli.project_publication_settings_test_support import (
+        seed_project,
+    )
 
     seed_project(repo, config)
     _git(repo, "config", "remote.origin.pushurl", LEGACY_READ_ONLY_PUSH_URL)
@@ -76,9 +81,10 @@ def test_read_only_checkout_converges_helper_without_enabling_push(
     assert _git(repo, "remote", "get-url", "origin").stdout.strip() == (
         "git@github.com:octo/repo.git"
     )
-    assert _git(
-        repo, "remote", "get-url", "--push", "--all", "origin"
-    ).stdout.splitlines() == expected_push_urls
+    assert (
+        _git(repo, "remote", "get-url", "--push", "--all", "origin").stdout.splitlines()
+        == expected_push_urls
+    )
     assert github_project_setup.converge(repo, config_path=config)["changed"] is False
 
 
@@ -90,7 +96,9 @@ def test_read_only_sentinel_does_not_bypass_other_push_url_validation(
 ):
     repo, config, _credential = _configured_repo(tmp_path, monkeypatch)
     _git(repo, "remote", "add", "origin", "git@github.com:octo/repo.git")
-    from runtime.api.cli.test_project_publication_settings import seed_project
+    from runtime.api.cli.project_publication_settings_test_support import (
+        seed_project,
+    )
 
     seed_project(repo, config)
     _git(repo, "config", "remote.origin.pushurl", LEGACY_READ_ONLY_PUSH_URL)
@@ -128,7 +136,9 @@ def test_install_and_refresh_converge_before_upstream_and_publication(
     repo, config, _credential = _configured_repo(tmp_path, monkeypatch)
     _git(repo, "remote", "add", "origin", "git@github.com:octo/repo.git")
     if read_only:
-        from runtime.api.cli.test_project_publication_settings import seed_project
+        from runtime.api.cli.project_publication_settings_test_support import (
+            seed_project,
+        )
 
         seed_project(repo, config)
         _git(repo, "config", "remote.origin.pushurl", LEGACY_READ_ONLY_PUSH_URL)

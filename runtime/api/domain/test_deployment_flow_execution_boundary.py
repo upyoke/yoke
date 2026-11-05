@@ -24,7 +24,7 @@ from typing import Any
 
 import pytest
 
-from runtime.api.domain.test_deployment_flow_versioning import (
+from runtime.api.domain.deployment_flow_versioning_test_support import (
     ADVANCED_STAGES,
     SUPPORTED_ADVANCED_STAGES,
     _seed_ephemeral_capability,

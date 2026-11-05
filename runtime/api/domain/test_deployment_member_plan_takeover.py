@@ -1,6 +1,6 @@
 """Member correction contracts survive takeover and the successor's first freeze."""
 
-from runtime.api.domain.test_deployment_run_target_takeover import (
+from runtime.api.domain.deployment_run_target_takeover_test_support import (
     OLD,
     NEW,
     PASSED,
@@ -12,8 +12,10 @@ from runtime.api.domain.test_deployment_run_target_takeover import (
     _contains,
     _take_over,
 )
-from runtime.api.domain.test_deployment_run_composition_freeze import _known_carried
-from runtime.api.domain.test_deployment_qa_singleton_correction import _correct
+from runtime.api.domain.deployment_run_composition_freeze_test_support import (
+    _known_carried,
+)
+from runtime.api.domain.deployment_qa_singleton_correction_test_support import _correct
 from runtime.api.fixtures.deployment_scoped_qa_run_fixture import (
     create_smoke_plan,
     record_case_verdict,

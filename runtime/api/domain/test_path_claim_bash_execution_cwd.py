@@ -13,8 +13,8 @@ from pathlib import Path
 
 import pytest
 
-from runtime.api.domain.test_path_claim_bash_guard import _claim_dict, _payload
-from runtime.api.domain.test_path_claim_pre_edit_guard import _record
+from runtime.api.domain.path_claim_bash_guard_test_support import _claim_dict, _payload
+from runtime.api.domain.path_claim_pre_edit_guard_test_support import _record
 from yoke_contracts.hook_runner.session_cwd import client_machine_home_fact
 from yoke_core.domain import path_claim_pre_edit_guard
 from yoke_core.domain.path_claim_bash_guard import evaluate_payload

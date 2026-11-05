@@ -9,9 +9,9 @@ from yoke_contracts.api.function_call import (
     FunctionCallRequest,
     TargetRef,
 )
-from runtime.api.domain.test_deployment_qa_takeover_identity import _execution
-from runtime.api.domain import test_deployment_qa_plan_groups as groups
-from runtime.api.domain import test_deployment_run_target_takeover as takeover
+from runtime.api.domain.deployment_qa_takeover_identity_test_support import _execution
+from runtime.api.domain import deployment_qa_plan_groups_test_support as groups
+from runtime.api.domain import deployment_run_target_takeover_test_support as takeover
 from yoke_core.domain.qa_execution_request_identity import resolve_execution_request
 from yoke_core.domain.function_target_resolution import resolve_project_context
 from yoke_core.domain.handlers.qa_plan_execution import handle_plan_execution_heartbeat

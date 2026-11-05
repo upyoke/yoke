@@ -10,11 +10,11 @@ import json
 
 import pytest
 
-from runtime.api.domain.test_deployment_qa_admission_execution import (
+from runtime.api.domain.deployment_qa_admission_execution_test_support import (
     _original_requirement,
     _seed_selected_requirement_run,
 )
-from runtime.api.domain.test_deployment_qa_stage_execution import _plan
+from runtime.api.domain.deployment_qa_stage_execution_test_support import _plan
 from runtime.api.fixtures.backlog_inserts import insert_item
 from yoke_core.domain.deployment_qa_plan_group_writes import ensure_groups
 from yoke_core.domain.deployment_qa_stage_materialization import (

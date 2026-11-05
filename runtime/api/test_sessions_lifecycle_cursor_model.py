@@ -4,11 +4,12 @@ from __future__ import annotations
 
 import pytest
 
-from runtime.api.test_sessions import _p, _register
+from runtime.api.domain.path_context_test_support import (_p)
+from runtime.api.sessions_test_support import (_register)
 from yoke_contracts.session_model_facts import SessionModelFacts
 from yoke_core.domain.sessions import SessionError
 
-pytest_plugins = ("runtime.api.test_sessions",)
+pytest_plugins = ("runtime.api.sessions_test_support",)
 
 
 def _stored_model(conn, session_id: str) -> str:

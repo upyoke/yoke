@@ -1,8 +1,15 @@
 """Terminal transitions accept item proof without comparing commits."""
 
 import pytest
-from runtime.api.fixtures.backlog import insert_item, insert_qa_requirement, insert_qa_run
-from runtime.api.domain.test_terminal_qa_settlement import _terminal_result, _tree_result
+from runtime.api.fixtures.backlog import (
+    insert_item,
+    insert_qa_requirement,
+    insert_qa_run,
+)
+from runtime.api.domain.terminal_qa_settlement_test_support import (
+    _terminal_result,
+    _tree_result,
+)
 
 
 @pytest.mark.parametrize("sha", ["a" * 40, "b" * 40, ""])

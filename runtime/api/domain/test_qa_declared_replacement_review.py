@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from runtime.api.domain.test_qa_plan_agent_review import _review_execution
+from runtime.api.domain.qa_plan_agent_review_test_support import _review_execution
 from runtime.api.fixtures.deployment_scoped_qa_run_fixture import record_case_verdict
 from runtime.api.fixtures.qa_declared_replacement_fixture import (
     corrected_case,
@@ -134,12 +134,14 @@ def _run_stage_execution(conn: Any, run_id: str, verdict: str) -> list[int]:
 def test_human_acceptance_is_requested_only_after_the_replacement_passes(
     test_db,
 ) -> None:
-    from runtime.api.domain.test_deployment_qa_stage_execution import (
+    from runtime.api.domain.deployment_qa_stage_execution_test_support import (
         _plan,
         _seed_run,
         _stages,
     )
-    from runtime.api.domain.test_deployment_qa_stage_human_review import _human_actor
+    from runtime.api.domain.deployment_qa_stage_human_review_test_support import (
+        _human_actor,
+    )
     from yoke_core.domain.decision_request_resolution import resolve_decision_request
     from yoke_core.domain.deployment_qa_stage_materialization import (
         materialize_deployment_qa_stage,

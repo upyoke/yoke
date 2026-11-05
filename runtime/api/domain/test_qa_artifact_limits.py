@@ -6,8 +6,11 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from runtime.api.domain.test_qa_artifact_broker import (
-    _broker_env, _request, _seed_run, _signed,
+from runtime.api.domain.qa_artifact_broker_test_support import (
+    _broker_env,
+    _request,
+    _seed_run,
+    _signed,
 )
 from runtime.api.fixtures.pg_testdb import test_database
 from yoke_contracts.qa_artifact_limits import MAX_ARTIFACT_BYTES
@@ -16,7 +19,10 @@ from yoke_core.domain import qa_artifact_size, qa_artifact_storage as storage
 from yoke_core.domain.browser_qa_upload import _upload_artifact
 from yoke_core.domain.browser_qa_steps import QaArtifactWriteError
 from yoke_core.domain.handlers.qa_artifact_add import handle_qa_artifact_add
-from yoke_core.domain.signed_object_transfer import ObjectTransferError, signed_object_size
+from yoke_core.domain.signed_object_transfer import (
+    ObjectTransferError,
+    signed_object_size,
+)
 
 
 @pytest.mark.parametrize("submission", ["bytes", "file", "browser"])

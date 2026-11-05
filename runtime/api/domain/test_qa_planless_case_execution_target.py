@@ -14,6 +14,11 @@ environment is registered, never that the screenshots came from it.
 
 from __future__ import annotations
 
+from runtime.api.domain.qa_planless_case_execution_target_test_support import (
+    _environment as _environment,
+)
+
+
 import json
 
 import pytest
@@ -45,20 +50,6 @@ def _browser_case(conn, *, item_id: int, **columns):
         workflow_transition_id=TRANSITION,
         **columns,
     )
-
-
-def _environment(conn, *, name: str, url: str | None = None, settings: str = "{}"):
-    site = conn.execute(
-        "INSERT INTO sites (project_id, name, created_at) "
-        "VALUES (1, %s, %s) RETURNING id",
-        (f"site-{name}", "2026-09-17T00:00:00Z"),
-    ).fetchone()[0]
-    conn.execute(
-        "INSERT INTO environments (site, project_id, name, url, settings, "
-        "created_at) VALUES (%s, 1, %s, %s, %s, %s)",
-        (int(site), name, url, settings, "2026-09-17T00:00:00Z"),
-    )
-    conn.commit()
 
 
 def test_planless_cases_take_a_stable_order_from_the_roster() -> None:

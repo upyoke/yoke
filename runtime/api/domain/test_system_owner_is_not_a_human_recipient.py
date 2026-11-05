@@ -9,13 +9,13 @@ from __future__ import annotations
 
 from typing import Any
 
-from runtime.api.domain.test_deployment_delivery_done_notice import (
+from runtime.api.domain.deployment_delivery_done_notice_test_support import (
     _inbox,
     _owner,
     _project,
     _run,
 )
-from runtime.api.domain.test_deployment_qa_stage_wake_delivery import (
+from runtime.api.domain.deployment_qa_stage_wake_delivery_test_support import (
     HOLDER_A,
     _claim,
     seed_session,

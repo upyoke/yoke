@@ -8,9 +8,6 @@ from fastapi.testclient import TestClient
 
 from yoke_core.api.main import app
 from yoke_contracts.project_contract.project_keys import DEFAULT_WIP_CAP
-from runtime.api.test_api_deploy_test_helpers import (
-    frontier_db,  # noqa: F401 — re-exported pytest fixture
-)
 
 
 # ---------------------------------------------------------------------------

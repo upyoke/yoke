@@ -4,8 +4,8 @@
 from __future__ import annotations
 
 from runtime.api.sessions_api_stale_test_helpers import _ago_minutes
-from runtime.api.test_sessions import _register, conn  # noqa: F401
-from runtime.api.test_constants import TEST_MODEL_ID
+from runtime.api.sessions_test_support import _register, conn  # noqa: F401
+from runtime.api.constants_test_support import TEST_MODEL_ID
 from yoke_core.api.service_client_sessions_lifecycle_begin import begin_session
 from yoke_core.domain.sessions import clean_stale_harness_sessions, end_session
 from yoke_core.hooks.remote_lifecycle import run_remote_session_lifecycle

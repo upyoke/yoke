@@ -2,11 +2,8 @@
 
 import pytest
 
-from runtime.api.cli.test_yoke_operations_cli_projects import (
-    _CAPTURED_REQUESTS,
-    _run,
-    _stub_ok,
-)
+from runtime.api.cli.yoke_operations_cli_projects_test_support import (_CAPTURED_REQUESTS, _stub_ok)
+from runtime.api.cli.yoke_operations_cli_epic_task_test_support import (_run)
 
 
 @pytest.fixture(autouse=True)

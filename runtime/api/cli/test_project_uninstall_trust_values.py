@@ -3,7 +3,9 @@
 import json
 from pathlib import Path
 
-from runtime.api.cli import test_project_uninstall_owned_cleanup as owned_cleanup
+from runtime.api.cli import (
+    project_uninstall_owned_cleanup_test_support as owned_cleanup,
+)
 from yoke_contracts import harness_folder_trust as trust
 from yoke_contracts.codex_config_posture import parse_config
 from yoke_cli.project_install.uninstall import uninstall

@@ -10,10 +10,10 @@ import logging
 
 import pytest
 
-from runtime.api.domain.test_installer_campaign_plan_sync import (
+from runtime.api.domain.installer_campaign_plan_sync_test_support import (
     source_checkout as source_checkout,
 )
-from runtime.api.domain.test_deployment_qa_stage_execution import (
+from runtime.api.domain.deployment_qa_stage_execution_test_support import (
     _plan,
     _seed_run,
     _stages,

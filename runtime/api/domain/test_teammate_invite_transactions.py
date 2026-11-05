@@ -10,12 +10,12 @@ from yoke_core.domain.actor_role_grants import grant_actor_org_role
 from yoke_core.domain.actors import seed_human_actor
 from yoke_core.domain.external_identities import default_org_id
 
-from runtime.api.domain.test_teammate_invite_codes import (
+from runtime.api.domain.teammate_invite_codes_test_support import (
     _assert_refusal,
     _counts,
     _create,
 )
-from runtime.api.domain.test_teammate_invite_codes import store as store
+from runtime.api.domain.teammate_invite_codes_test_support import store as store
 from runtime.api.fixtures import pg_testdb
 
 

@@ -13,7 +13,7 @@ from runtime.api.fixtures.backlog_inserts import insert_deployment_run
 from typing import Any
 
 from runtime.api.domain.coordination_claim_test_support import PROJECT_YOKE
-from runtime.api.domain.test_deployment_qa_stage_wake_delivery import (
+from runtime.api.domain.deployment_qa_stage_wake_delivery_test_support import (
     _bodies,
     _claim,
     _project,

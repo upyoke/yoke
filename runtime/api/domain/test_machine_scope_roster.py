@@ -7,7 +7,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from runtime.api.domain.test_session_registration_scope import (
+from runtime.api.domain.session_registration_scope_test_support import (
     register,
     request as registration_request,
     world as world,

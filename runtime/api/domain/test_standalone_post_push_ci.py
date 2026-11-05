@@ -10,7 +10,7 @@ from yoke_core.domain.standalone_item_merge_publication_message import (
     publication_narration,
     refusal_message,
 )
-from runtime.api.domain.test_standalone_item_merge_post_push import Clock
+from runtime.api.domain.standalone_item_merge_post_push_test_support import Clock
 
 OLD = "a" * 40
 NEW = "b" * 40

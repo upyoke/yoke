@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
-from runtime.api.cli.test_github_machine_credential_cleanup import _config
+from runtime.api.cli.github_machine_credential_cleanup_test_support import (
+    _config,
+)
 from yoke_cli import main as yoke_operations_cli
 from yoke_cli.config import github_machine
 

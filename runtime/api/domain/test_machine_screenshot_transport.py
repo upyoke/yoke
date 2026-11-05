@@ -8,7 +8,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from runtime.api.domain.test_machine_screenshot import png
+from runtime.api.domain.machine_screenshot_test_support import png
 from yoke_contracts.machine_screenshot import screenshot_png
 from yoke_harness.ssh_machine_screenshot import capture_desktop
 

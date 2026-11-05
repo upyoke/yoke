@@ -15,13 +15,13 @@ from yoke_core.domain.session_message_terminal import (
 from yoke_core.domain.session_message_types import SessionMessageError
 from yoke_core.domain.steering_message_drain import drain_to_seat
 from yoke_core.domain.steering_message_recipients import STATE_AWAITING_SEAT
-from runtime.api.domain.test_session_message_support import (
+from runtime.api.domain.session_message_support_test_support import (
     NOW,
     NOW_TEXT,
     message_connection,
     selector,
 )
-from runtime.api.domain.test_steering_role_addressed_messages import (
+from runtime.api.domain.steering_role_addressed_messages_test_support import (
     DONE_BODY,
     PROJECT_SCOPE,
     _message_count,

@@ -2,8 +2,13 @@
 
 from __future__ import annotations
 
+from runtime.api.domain.machine_screenshot_test_support import (
+    png as png,
+    screenshot_result as screenshot_result,
+)
+
+
 import base64
-import hashlib
 from io import BytesIO
 import subprocess
 from types import SimpleNamespace
@@ -24,34 +29,6 @@ from yoke_contracts.machine_screenshot import screenshot_png
 from yoke_core.domain.handlers.machine_qa_operation import handle_operation_submit
 from yoke_harness.ssh_machine_screenshot import capture_desktop
 from yoke_harness.test_machine_types import HostActionResult
-
-
-def png():
-    image = Image.new("RGB", (80, 60), "white")
-    image.putpixel((0, 0), (0, 0, 0))
-    stream = BytesIO()
-    image.save(stream, format="PNG")
-    return stream.getvalue()
-
-
-def screenshot_result():
-    content = png()
-    return HostActionResult(
-        True,
-        {
-            "os": "macos",
-            "width": 80,
-            "height": 60,
-            "sha256": hashlib.sha256(content).hexdigest(),
-            "artifact_token": "desktop",
-            "capture_artifact": {
-                "token": "desktop",
-                "filename": "desktop.png",
-                "content_type": "image/png",
-                "content_base64": base64.b64encode(content).decode(),
-            },
-        },
-    )
 
 
 @pytest.mark.parametrize("value", ["invalid", base64.b64encode(b"not PNG").decode()])

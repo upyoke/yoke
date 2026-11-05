@@ -12,10 +12,7 @@ from unittest.mock import patch
 
 from runtime.api.conftest import insert_item
 from yoke_core.domain import epic
-from runtime.api.test_epic_cascade_dispatch import (  # noqa: F401
-    db_with_chain,
-)
-from runtime.api.test_epic_tasks import db, db_with_task  # noqa: F401,F811
+from runtime.api.epic_tasks_test_support import db, db_with_task  # noqa: F401,F811
 
 
 class TestProceedTriageAndHandoff:

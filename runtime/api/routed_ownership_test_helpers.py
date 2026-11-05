@@ -32,12 +32,12 @@ from runtime.api.scheduler_test_fixtures import (
     PATH_CLAIMS_SCHEMA,
     WORK_CLAIMS_SCHEMA,
 )
-from runtime.api.test_dependency_schema import (
+from runtime.api.dependency_schema_test_support import (
     ITEMS_SCHEMA,
     ITEM_DEPENDENCIES_SCHEMA,
     PROJECTS_SCHEMA,
 )
-from runtime.api.test_constants import TEST_MODEL_ID
+from runtime.api.constants_test_support import TEST_MODEL_ID
 
 
 # Synthetic item id — high enough that no live backlog item collides.

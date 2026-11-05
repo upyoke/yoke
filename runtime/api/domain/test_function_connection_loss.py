@@ -20,7 +20,7 @@ from yoke_core.domain.connected_env_readiness_connector import (
 from yoke_core.domain.function_connection_loss import CONNECTION_LOST_CODE
 from yoke_core.domain.yoke_function_dispatch import dispatch
 from yoke_core.domain.yoke_function_registry import register
-from runtime.api.domain.test_yoke_function_dispatch import (
+from runtime.api.domain.yoke_function_dispatch_test_support import (
     _DispatcherTestBase,
     _Req,
     _Resp,

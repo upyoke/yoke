@@ -7,6 +7,13 @@ stdout as it exits, after the turn's last hook has already run.
 
 from __future__ import annotations
 
+from runtime.harness.cursor_native_result_usage_test_support import (
+    CONVERSATION as CONVERSATION,
+    NATIVE_RESULT_LINE as NATIVE_RESULT_LINE,
+    REQUEST as REQUEST,
+)
+
+
 from dataclasses import replace
 from pathlib import Path
 import json
@@ -31,28 +38,7 @@ from runtime.harness.session_usage_test_support import (  # noqa: F401
 )
 
 
-CONVERSATION = "fc6a9de6-66d6-4e8a-a740-3f83262475ac"
-REQUEST = "77fbd870-80b3-4816-b4f9-f4a6150e9c3c"
-
 #: One real ``cursor-agent --print --output-format json`` result, redacted.
-NATIVE_RESULT_LINE = json.dumps(
-    {
-        "type": "result",
-        "subtype": "success",
-        "is_error": False,
-        "duration_ms": 17137,
-        "duration_api_ms": 17137,
-        "result": "ok",
-        "session_id": CONVERSATION,
-        "request_id": REQUEST,
-        "usage": {
-            "inputTokens": 102596,
-            "outputTokens": 30,
-            "cacheReadTokens": 9600,
-            "cacheWriteTokens": 0,
-        },
-    }
-)
 
 
 def _capture(stdout: str, *, state: str = STATE_EXITED, exit_code: int | None = 0):

@@ -22,7 +22,7 @@ from yoke_core.domain.agents_render import (
     render_claude_agent,
     write_all_claude,
 )
-from runtime.api.domain.test_agents_render_workspace_fixtures import (
+from runtime.api.domain.agents_render_workspace_fixtures_test_support import (
     resolve_live_repo_root,
 )
 

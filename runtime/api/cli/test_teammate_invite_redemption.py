@@ -15,8 +15,11 @@ from uuid import uuid4
 import pytest
 from fastapi.testclient import TestClient
 
-from runtime.api.domain.test_teammate_invite_codes import _create, store as store
-from runtime.api.test_web_sign_in_door import _clean_oidc_env as _clean_oidc_env
+from runtime.api.domain.teammate_invite_codes_test_support import (
+    _create,
+    store as store,
+)
+from runtime.api.web_sign_in_door_test_support import _clean_oidc_env as _clean_oidc_env
 from yoke_cli.commands import connect
 from yoke_cli.config import hosted_machine_authorization as auth, server_connect
 from yoke_cli.config import teammate_invite_redemption as redemption

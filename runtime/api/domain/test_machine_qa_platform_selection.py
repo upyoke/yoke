@@ -6,7 +6,10 @@ from yoke_contracts.machine_qa_execution import HOST_BASELINES, VERIFICATION_CHE
 
 from runtime.api.domain.machine_qa_session_seed import seed_qa_session
 from runtime.api.domain.machine_qa_test_support import make_conn
-from runtime.api.domain.test_machine_qa_multiple_hosts import _register_fleet, _settings
+from runtime.api.domain.machine_qa_multiple_hosts_test_support import (
+    _register_fleet,
+    _settings,
+)
 from yoke_contracts.machine_config.test_machine import (
     TestMachineCapabilityError as CapabilityError,
 )

@@ -2,20 +2,11 @@
 
 from __future__ import annotations
 
-from pathlib import Path
-
-
-_REPO_ROOT = Path(__file__).resolve().parents[2]
-_STEER_DIR = _REPO_ROOT / ".agents" / "skills" / "yoke" / "steer"
-
-
-def _read(path: Path) -> str:
-    text = path.read_text(encoding="utf-8")
-    if path.name == "loop.md":
-        text += _read(_STEER_DIR / "watching.md") + _read(
-            _STEER_DIR / "fleet-findings.md"
-        )
-    return text
+from runtime.api.steer_prompt_test_support import (
+    _REPO_ROOT as _REPO_ROOT,
+    _STEER_DIR as _STEER_DIR,
+    _read as _read,
+)
 
 
 def _words(text: str) -> str:

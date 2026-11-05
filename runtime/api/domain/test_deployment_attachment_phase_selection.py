@@ -1,6 +1,6 @@
 """A release owes a plan by its post-deploy attachment, never its other phases."""
 
-from runtime.api.domain.test_deployment_qa_stage_execution import (
+from runtime.api.domain.deployment_qa_stage_execution_test_support import (
     _plan,
     _seed_run,
     _stages,

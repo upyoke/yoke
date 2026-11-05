@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import pytest
 
-from runtime.api.domain.test_deployment_run_target_takeover import (
+from runtime.api.domain.deployment_run_target_takeover_test_support import (
     NEW,
     NEW_LINEAGE,
     OLD,

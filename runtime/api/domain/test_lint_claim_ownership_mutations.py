@@ -2,6 +2,12 @@
 
 from __future__ import annotations
 
+from runtime.api.domain.lint_claim_ownership_mutations_test_support import (
+    _AMBIENT as _AMBIENT,
+    _payload as _payload,
+)
+
+
 from yoke_core.hooks.decision_render import render_codex_decision
 
 import json
@@ -12,18 +18,7 @@ from yoke_core.hooks.guard_denial_record import guard_audit_outcome
 from yoke_core.hooks.types import HookContext, Next, Outcome
 
 
-_AMBIENT = "sess-self"
 _FOREIGN = "sess-other"
-
-
-def _payload(command: str, session_id: str = _AMBIENT) -> dict:
-    return {
-        "tool_name": "Bash",
-        "tool_input": {"command": command},
-        "session_id": session_id,
-        "tool_use_id": "tu-test",
-        "turn_id": "turn-test",
-    }
 
 
 def _record(payload: dict) -> HookContext:

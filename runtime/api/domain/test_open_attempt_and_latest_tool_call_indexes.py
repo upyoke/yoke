@@ -3,7 +3,7 @@
 import importlib
 import sqlite3
 
-from runtime.api.domain.test_session_message_support import message_connection
+from runtime.api.domain.session_message_support_test_support import message_connection
 from yoke_core.domain.schema_init_tables_sessions import create_session_tables
 
 migration = importlib.import_module(

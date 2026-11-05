@@ -10,11 +10,10 @@ import pytest
 pytest.importorskip("textual")
 
 from runtime.api.cli.onboard_wizard_test_helpers import make_app  # noqa: E402
-from runtime.api.cli.test_yoke_operations_cli_onboard_wizard_publish_capability import (  # noqa: E402
+from runtime.api.cli.yoke_operations_cli_onboard_wizard_publish_capability_test_support import (
     _body_text,
     _github_config,
     _mark_connected,
-    _stubs,  # noqa: F401 - autouse: keep the wizard off the real machine
 )
 from yoke_cli.config import hosted_machine_browser
 from yoke_cli.config import machine_config  # noqa: E402

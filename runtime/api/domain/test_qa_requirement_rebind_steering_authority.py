@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 
 from runtime.api.domain.steering_claim_test_support import seed_session
-from runtime.api.domain.test_qa_requirement_target_rebind import (
+from runtime.api.domain.qa_requirement_target_rebind_test_support import (
     _stamp_requirement,
     _yoke_development,
 )

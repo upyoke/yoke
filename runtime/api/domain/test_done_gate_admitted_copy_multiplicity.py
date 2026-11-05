@@ -9,15 +9,15 @@ is still unsettled.
 
 from __future__ import annotations
 
-from runtime.api.domain.test_dash_post_deploy_done_consumption import (
+from runtime.api.domain.done_gate_admitted_copy_multiplicity_test_support import (
+    _deliver_intake as _deliver_intake,
+)
+
+
+from runtime.api.domain.dash_post_deploy_done_consumption_test_support import (
     _accept_member_qa,
-    _bind_original,
 )
-from runtime.api.domain.test_dash_post_deploy_review_isolation import _insert_dash
-from runtime.api.domain.test_deployment_qa_admission_execution import (
-    _seed_selected_requirement_run,
-)
-from runtime.api.domain.test_post_deploy_original_pass_needs_admission import (
+from runtime.api.domain.post_deploy_original_pass_needs_admission_test_support import (
     _record_evidence,
 )
 from runtime.api.fixtures.backlog_inserts import insert_qa_run
@@ -70,16 +70,6 @@ def _out_of_scope_admitted_copy(conn, *, source_copy_id: int) -> int:
     ).fetchone()
     conn.commit()
     return int(row["id"] if hasattr(row, "keys") else row[0])
-
-
-def _deliver_intake(conn, *, item_id: int, run_id: str) -> int:
-    _insert_dash(conn, item_id=item_id, status="release")
-    intake_id = _bind_original(conn, item_id=item_id)
-    insert_qa_run(conn, qa_requirement_id=intake_id, verdict="pass")
-    _seed_selected_requirement_run(
-        conn, run_id=run_id, item_id=item_id, requirement_id=intake_id
-    )
-    return intake_id
 
 
 def _assert_gate(conn, *, item_id: int, intake_id: int, settles: bool) -> None:

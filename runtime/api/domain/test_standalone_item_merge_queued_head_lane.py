@@ -18,12 +18,11 @@ from yoke_core.domain.standalone_item_merge_lane import (
     lane_resolution_error,
     merge_source_lane,
 )
-from runtime.api.domain.test_standalone_item_merge_lane import (
-    _enter_release_wait_on_close_out,  # noqa: F401 - autouse fixture
+from runtime.api.domain.standalone_item_merge_lane_test_support import (
     _item,
     _wire_cli,
 )
-from runtime.api.domain.test_standalone_item_merge_qa import _requirement
+from runtime.api.domain.standalone_item_merge_qa_test_support import _requirement
 
 QUEUED_SHA = "c" * 40
 INTEGRATION_SHA = "6" * 40

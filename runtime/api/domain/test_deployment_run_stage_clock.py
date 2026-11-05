@@ -8,8 +8,10 @@ from runtime.api.fixtures.session_zones import SESSION_ZONES
 from yoke_contracts.timestamps import parse_instant
 
 from runtime.api.fixtures.deployment_run_driver_fixture import release_seeded_driver
-from runtime.api.domain.test_steering_fleet_report_deployment_run_facts import _seed_run
-from runtime.api.domain.test_deployment_run_member_removal import (
+from runtime.api.domain.steering_fleet_report_deployment_run_facts_test_support import (
+    _seed_run,
+)
+from runtime.api.domain.deployment_run_member_removal_test_support import (
     ITEM,
     RUN,
     REASON,
@@ -118,7 +120,7 @@ def test_complete_with_no_entry_clock_has_unknown_age(test_db):
 
 
 def test_snapshot_stage_repair_does_not_keep_the_previous_stage_age(test_db):
-    from runtime.api.domain.test_deployment_run_projection import (
+    from runtime.api.domain.deployment_run_projection_test_support import (
         _flow,
         _snapshot,
         RUN_ID,

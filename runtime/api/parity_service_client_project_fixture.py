@@ -7,7 +7,7 @@ import json
 from yoke_contracts.timestamps import parse_instant
 from typing import Any
 
-from runtime.api.test_dependency_schema import ITEMS_SCHEMA, PROJECTS_SCHEMA
+from runtime.api.dependency_schema_test_support import ITEMS_SCHEMA, PROJECTS_SCHEMA
 from yoke_core.domain.strategy_docs_schema import (
     STRATEGY_DOC_REVISIONS_CREATE_TABLE_SQL,
     STRATEGY_DOCS_CREATE_TABLE_SQL,

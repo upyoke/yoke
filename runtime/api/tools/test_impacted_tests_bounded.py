@@ -16,12 +16,15 @@ from yoke_core.tools._impacted_contract_tests import (
 )
 from yoke_core.tools.impacted_tests import Selection, build_import_index, select
 
-from runtime.api.tools.test_impacted_tests import _tiny_repo, _with_floor, _write
+from runtime.api.tools.impacted_tests_test_support import (
+    _tiny_repo,
+    _with_floor,
+    _write,
+)
 
 import pytest
 
 pytestmark = pytest.mark.usefixtures("bound_project_context")
-
 
 def test_bounded_selection_declines_to_widen(tmp_path: Path) -> None:
     index = build_import_index(_tiny_repo(tmp_path))
@@ -37,7 +40,6 @@ def test_bounded_selection_declines_to_widen(tmp_path: Path) -> None:
     # that runs — never the anchors.
     assert bounded.pytest_paths() == _with_floor()
 
-
 def test_bounded_selection_still_runs_the_computable_subset(tmp_path: Path) -> None:
     index = build_import_index(_tiny_repo(tmp_path))
 
@@ -48,7 +50,6 @@ def test_bounded_selection_still_runs_the_computable_subset(tmp_path: Path) -> N
     # The Python half of the edit is still bounded by reachability, so its
     # reachable test runs rather than being lost with the unbounded half.
     assert "runtime/api/test_middle.py" in bounded.files
-
 
 def test_bounded_test_tooling_change_does_not_reexpand_through_importers(
     tmp_path: Path,
@@ -66,7 +67,6 @@ def test_bounded_test_tooling_change_does_not_reexpand_through_importers(
     assert bounded.fallback_rule == "test_tooling_module"
     assert bounded.files == _with_floor()
     assert "runtime/api/test_watch_consumer.py" not in bounded.files
-
 
 def _near_total_repo(tmp_path: Path) -> Path:
     """Keep synthetic reachability near-total as the contract floor grows."""

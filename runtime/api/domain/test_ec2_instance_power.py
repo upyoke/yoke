@@ -13,7 +13,7 @@ from yoke_core.domain.ec2_instance_power import (
     instance_public_address,
     stop_instance,
 )
-from runtime.api.domain.test_deploy_remote import FakeRunner
+from runtime.api.domain.deploy_remote_test_support import FakeRunner
 
 OK = CommandResult(0, "", "")
 

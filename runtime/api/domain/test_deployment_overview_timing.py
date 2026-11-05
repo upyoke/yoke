@@ -106,7 +106,7 @@ def test_other_reads_and_broken_diagnostic_sink_do_not_change_result(
 
 def test_registered_overview_measures_real_composition(test_db, capsys):
     from unittest.mock import patch
-    from runtime.api.domain.test_deployment_qa_stage_execution import (
+    from runtime.api.domain.deployment_qa_stage_execution_test_support import (
         _plan,
         _seed_run,
         _stages,
@@ -115,7 +115,9 @@ def test_registered_overview_measures_real_composition(test_db, capsys):
         deployment_request,
     )
     from yoke_core.domain.handlers.deployment_runs import handle_deployment_run_list
-    from runtime.api.domain.test_deployment_shipping_reads import CountedConnection
+    from runtime.api.domain.deployment_shipping_reads_test_support import (
+        CountedConnection,
+    )
 
     _seed_run(
         test_db,

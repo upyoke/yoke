@@ -23,7 +23,7 @@ NOW = "2026-08-30T01:00:00.000000Z"
 def test_cached_readings_serve_the_next_poll_without_probing_again(
     tmp_path: Path, monkeypatch
 ) -> None:
-    from runtime.harness.test_session_relay_native_models import CURSOR_OUTPUT
+    from runtime.harness.session_relay_native_models_test_support import CURSOR_OUTPUT
 
     calls: list[str] = []
 

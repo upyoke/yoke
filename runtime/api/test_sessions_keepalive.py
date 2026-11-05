@@ -2,7 +2,7 @@
 
 import pytest
 
-from runtime.api.test_sessions import _register
+from runtime.api.sessions_test_support import _register
 from yoke_core.domain.session_keepalive import (
     hold_session_keepalive,
     release_session_keepalive,
@@ -13,7 +13,7 @@ from yoke_core.domain.sessions import end_session_if_empty
 from yoke_core.domain.sessions_analytics import SessionError
 from yoke_contracts.session_control.keepalive import MAX_KEEPALIVE_SECONDS
 
-pytest_plugins = ("runtime.api.test_sessions",)
+pytest_plugins = ("runtime.api.sessions_test_support",)
 
 
 def _ended_at(conn, session_id: str):

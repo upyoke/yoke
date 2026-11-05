@@ -56,7 +56,7 @@ def test_relationship_refresh_keeps_file_render_advisory(monkeypatch):
 
 
 def test_record_render_relationships_looks_up_paths_in_one_query(tmp_path):
-    from runtime.api.domain.test_path_context import _seed_target
+    from runtime.api.domain.path_context_test_support import _seed_target
     from runtime.api.path_context_test_helpers import init_minimal_schema
     from yoke_core.domain.agents_render_path_context import (
         record_render_relationships,

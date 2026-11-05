@@ -55,7 +55,7 @@ class TestSubagentAdapterWiring(unittest.TestCase):
     from yoke_core.domain.agents_render import AGENTS as _ROLES
 
     def _claude_adapter_path(self, role: str):
-        from runtime.api.domain.test_agents_render_workspace_fixtures import (
+        from runtime.api.domain.agents_render_workspace_fixtures_test_support import (
             resolve_live_repo_root,
         )
 
@@ -101,7 +101,7 @@ class TestSubagentBackgroundDeployedMode(unittest.TestCase):
     """Dogfood policy pins ``lint_subagent_background=deny``."""
 
     def test_dogfood_config_pins_lint_mode_to_deny(self):
-        from runtime.api.domain.test_agents_render_workspace_fixtures import (
+        from runtime.api.domain.agents_render_workspace_fixtures_test_support import (
             resolve_live_repo_root,
         )
 

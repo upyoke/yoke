@@ -1,6 +1,6 @@
 """Plan edits expose drift in deployment-stage materializations."""
 
-from runtime.api.domain.test_qa_plan_case_currency import (
+from runtime.api.domain.qa_plan_case_currency_test_support import (
     _correct_the_case,
     _materialized,
 )

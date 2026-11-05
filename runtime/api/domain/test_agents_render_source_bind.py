@@ -14,7 +14,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from runtime.api.domain.test_agents_render_workspace_fixtures import (
+from runtime.api.domain.agents_render_workspace_fixtures_test_support import (
     resolve_live_repo_root,
 )
 from yoke_core.domain.agents_render import detect_substrate_drift, write_all

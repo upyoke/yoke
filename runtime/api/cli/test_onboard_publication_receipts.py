@@ -1,5 +1,10 @@
 """Read-only setup can later publish its own history, never authored ancestors."""
 
+from runtime.api.cli.onboard_publication_receipts_test_support import (
+    setup_read_only as setup_read_only,
+)
+
+
 import json
 
 import pytest
@@ -12,7 +17,6 @@ from yoke_cli.config import (
 )
 from yoke_cli.config import project_publication_destination as destination
 from yoke_cli.project_install import publication, runner
-from yoke_cli.config import onboard_wizard_board_art_apply
 from runtime.api.cli.project_install_publication_test_support import (
     bind_bundle,
     git,
@@ -26,42 +30,6 @@ def isolated_machine(tmp_path, monkeypatch):
     monkeypatch.setenv("YOKE_MACHINE_HOME", str(tmp_path / "machine"))
     monkeypatch.delenv("YOKE_MACHINE_CONFIG_FILE", raising=False)
     monkeypatch.delenv("YOKE_ENV", raising=False)
-
-
-def setup_read_only(tmp_path, monkeypatch):
-    monkeypatch.setenv(HEAD_RECORDING_SKIP_ENV, "1")
-    world = remote_world(tmp_path)
-    bind_bundle(monkeypatch)
-    from yoke_cli.project_install import harness_machine_persist
-
-    monkeypatch.setattr(harness_machine_persist, "persist_install_glue", lambda *args: None)
-    monkeypatch.setattr(runner, "sync_local_snapshot_for_write", lambda **kwargs: {})
-    writer = onboard_apply_report.ApplyReportWriter.start(
-        {},
-        {
-            "project_checkout": str(world.checkout),
-            "env_name": "test",
-            "project_default_branch": "main",
-            "config_path": str(tmp_path / "config.json"),
-        },
-    )
-    from runtime.api.cli.test_project_publication_settings import seed_project
-
-    seed_project(world.checkout)
-    destination.prevent_push(world.checkout)
-    with receipts.recording(writer):
-        install = runner.install(world.checkout, project_id=7)
-    art = world.checkout / ".yoke/board-art"
-    art.write_text("generated art\n")
-    art_commit = onboard_wizard_board_art_apply.commit_board_art(
-        world.checkout,
-        {
-            "apply_report": writer.summary(),
-            "project_onboarding": {"install": install},
-        },
-    )["commit"]
-    writer.payload = json.loads(writer.path.read_text())
-    return world, writer, install, art_commit
 
 
 def test_fresh_writable_setup_publishes_receipted_install_and_art(
@@ -177,9 +145,13 @@ def test_installer_proof_survives_later_install_failure(tmp_path, monkeypatch):
     bind_bundle(monkeypatch)
     from yoke_cli.project_install import harness_machine_persist
 
-    monkeypatch.setattr(harness_machine_persist, "persist_install_glue", lambda *args: None)
+    monkeypatch.setattr(
+        harness_machine_persist, "persist_install_glue", lambda *args: None
+    )
     monkeypatch.setattr(runner, "sync_local_snapshot_for_write", lambda **kwargs: {})
-    from runtime.api.cli.test_project_publication_settings import seed_project
+    from runtime.api.cli.project_publication_settings_test_support import (
+        seed_project,
+    )
 
     seed_project(world.checkout)
     destination.prevent_push(world.checkout)

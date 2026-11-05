@@ -12,7 +12,7 @@ from pathlib import Path
 import pytest
 
 from yoke_core.domain import db_backend, postgres_cluster
-from runtime.api.domain.test_migration_fleet_preflight_extension_restore import (
+from runtime.api.domain.migration_fleet_preflight_extension_restore_test_support import (
     _server_bin_dir,
 )
 

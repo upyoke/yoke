@@ -7,7 +7,7 @@ from unittest import mock
 from yoke_core.domain import deploy_health_check
 from yoke_core.domain.deploy_cli_manifest_gate import CliManifestGateResult
 
-from runtime.api.domain.test_deploy_health_check import _dispatch, _stage
+from runtime.api.domain.deploy_health_check_test_support import _dispatch, _stage
 
 
 def _run(serving_connection: str, gate: CliManifestGateResult):

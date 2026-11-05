@@ -10,7 +10,7 @@ from __future__ import annotations
 from yoke_core.domain import db_backend
 from yoke_core.domain import deployment_runs as dr
 from yoke_core.domain.project_seed_test_helpers import SEED_PROJECT_IDS
-from runtime.api.test_deployment_runs_full_helpers import db_path, _conn  # noqa: F401
+from runtime.api.deployment_runs_full_helpers_test_support import db_path, _conn  # noqa: F401
 
 
 def _p(conn) -> str:

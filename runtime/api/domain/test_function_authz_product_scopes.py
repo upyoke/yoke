@@ -16,7 +16,7 @@ from yoke_core.domain.schema_init_path_tables import create_path_registry_tables
 from yoke_core.domain.schema_init_tables import create_core_tables
 from yoke_core.domain.yoke_function_permissions import check_dispatch_permission
 
-from runtime.api.domain.test_function_authz_scope_routing import (
+from runtime.api.domain.function_authz_scope_routing_test_support import (
     _entry,
     _payload_request,
     _project_owner,

@@ -6,7 +6,7 @@ import re
 from typing import List, Set, Tuple
 
 from yoke_contracts.session_identity import AMBIENT_ENV_VARS
-from runtime.api.test_zero_shell_proof_test_helpers import (
+from runtime.api.zero_shell_proof_test_helpers_test_support import (
     _MKTEMP_ALLOWLIST,
     _live_doc_files,
     _relative,

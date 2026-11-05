@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import unittest
 
-from runtime.api.domain.test_lint_raw_pytest_full_suite import (
+from runtime.api.domain.lint_raw_pytest_full_suite_test_support import (
     _anchor_sweep,
     _eval,
     lint,

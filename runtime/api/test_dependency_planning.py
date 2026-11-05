@@ -28,7 +28,7 @@ from yoke_core.domain.dependency_planning import (
     evaluate_item_gate,
     plan_candidate_set,
 )
-from runtime.api.test_dependency_planning_helpers import (
+from runtime.api.dependency_planning_helpers_test_support import (
     create_test_db as _create_test_db,
     insert_dep as _insert_dep,
     insert_item as _insert_item,

@@ -6,7 +6,7 @@ import stat
 
 import pytest
 
-from runtime.api.domain.test_universe_export import _schema_loaded_universe
+from runtime.api.domain.universe_export_test_support import _schema_loaded_universe
 from yoke_core.domain import universe_export as ux
 
 

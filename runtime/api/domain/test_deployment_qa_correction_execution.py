@@ -2,15 +2,15 @@
 
 import pytest
 
-from runtime.api.domain.test_deployment_qa_plan_groups import (
+from runtime.api.domain.deployment_qa_plan_groups_test_support import (
     MEMBERS,
     RUN,
     SLUG,
     _attach,
     _seed,
 )
-from runtime.api.domain.test_deployment_qa_shared_plans import _fail
-from runtime.api.domain.test_deployment_qa_stage_execution import (
+from runtime.api.domain.deployment_qa_shared_plans_test_support import _fail
+from runtime.api.domain.deployment_qa_stage_execution_test_support import (
     _complete_case,
     _plan,
 )

@@ -19,13 +19,13 @@ from runtime.api.tools.session_control_live_acceptance_contract import (
 from runtime.api.tools.session_control_live_acceptance_driver import (
     LiveAcceptanceDriver,
 )
-from runtime.api.tools.test_session_control_live_acceptance_clock import (
+from runtime.api.tools.session_control_live_acceptance_clock_test_support import (
     AcceptanceClock,
 )
-from runtime.api.tools.test_session_control_live_acceptance_driver import (
+from runtime.api.tools.session_control_live_acceptance_driver_test_support import (
     _ScenarioClient,
 )
-from runtime.api.tools.test_session_control_live_acceptance_policy_support import (
+from runtime.api.tools.session_control_live_acceptance_policy_support_test_support import (
     CLAUDE_DESKTOP_EXACT_POLICY_CANDIDATE_VERSION,
     require_exact_desktop_active_policy,
 )

@@ -14,9 +14,6 @@ from yoke_core.domain import db_backend
 from yoke_core.domain import emit_event
 from yoke_core.domain.events import emit_event as emit_event_direct
 from runtime.api.fixtures.file_test_db import connect_test_db
-from runtime.api.test_emit_event_test_helpers import (
-    events_db,  # noqa: F401 — re-exported pytest fixture
-)
 
 
 def test_emit_envelope_is_valid_json_with_key_fields(events_db):

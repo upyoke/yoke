@@ -5,7 +5,7 @@ import json
 import pytest
 
 from yoke_contracts.machine_qa_case_target import case_target_mismatches
-from runtime.api.domain.test_deployment_qa_cross_project_members import (
+from runtime.api.domain.deployment_qa_cross_project_members_test_support import (
     MEMBER,
     OTHER,
     RUN,

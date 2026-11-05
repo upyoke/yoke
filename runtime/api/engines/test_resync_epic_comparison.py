@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from runtime.api.engines.test_resync_full_compare_text import (
+from runtime.api.engines.resync_full_compare_text_test_support import (
     PairedItem as PairedItem,
     _make_gh_issues as _make_gh_issues,
     populated_db as populated_db,

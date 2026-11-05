@@ -8,7 +8,10 @@ from typing import Any
 
 import pytest
 
-from runtime.api.cli.test_github_app_public_profile import _Response, _advertisement
+from runtime.api.cli.github_app_public_profile_test_support import (
+    _Response,
+    _advertisement,
+)
 from yoke_cli.config import (
     github_app_public_profile,
     github_binding_auth,

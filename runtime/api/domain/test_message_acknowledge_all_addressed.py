@@ -2,9 +2,9 @@
 
 import pytest
 
-from runtime.api.domain.test_actor_session_messages import _members
-from runtime.api.domain.test_session_message_handlers import _request
-from runtime.api.domain.test_session_message_support import NOW, selector
+from runtime.api.domain.actor_session_messages_test_support import _members
+from runtime.api.domain.session_message_handlers_test_support import _request
+from runtime.api.domain.session_message_support_test_support import NOW, selector
 from yoke_core.domain import session_message_receipts
 from yoke_core.domain.actor_message_recipients import inbox_actor_messages
 from yoke_core.domain.handlers import session_messages_receipts

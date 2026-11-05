@@ -11,8 +11,8 @@ connection-keyed transport routing.
 
 from __future__ import annotations
 
-from runtime.api.test_constants import TEST_MODEL_ID
-from runtime.api.test_service_client_sessions_helpers import (
+from runtime.api.constants_test_support import TEST_MODEL_ID
+from runtime.api.service_client_sessions_helpers_test_support import (
     session_test_db as session_test_db,
 )
 from yoke_contracts.session_model_facts import SessionModelFacts

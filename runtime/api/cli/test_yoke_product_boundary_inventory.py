@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+from runtime.api.cli.yoke_product_boundary_inventory_test_support import _rows as _rows
+
+
 from pathlib import Path
 
 from runtime.api.cli.product_boundary_test_support import (
@@ -10,10 +13,6 @@ from yoke_cli import product_boundary_teaching as teaching
 
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
-
-
-def _rows() -> dict[str, inventory.InventoryRow]:
-    return {row.command_helper: row for row in command_inventory()}
 
 
 def test_representative_product_client_rows_are_separate_from_source_dev():

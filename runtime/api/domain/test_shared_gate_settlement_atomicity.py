@@ -18,19 +18,19 @@ from runtime.api.fixtures.backlog_inserts import insert_deployment_run
 from typing import Any
 
 from runtime.api.fixtures.deployment_run_driver_fixture import release_seeded_driver
-from runtime.api.domain.test_deployment_delivery_close_out_notice import (
+from runtime.api.domain.deployment_delivery_close_out_notice_test_support import (
     COMPLETION_FLOW,
     _project,
 )
-from runtime.api.domain.test_deployment_qa_stage_wake_delivery import (
+from runtime.api.domain.deployment_qa_stage_wake_delivery_test_support import (
     HOLDER_A,
     HOLDER_B,
 )
-from runtime.api.domain.test_no_obligation_member_close_out import (
+from runtime.api.domain.no_obligation_member_close_out_test_support import (
     _no_obligation,
     _ready_member,
 )
-from runtime.api.domain.test_status_transition_preflight import (
+from runtime.api.domain.status_transition_preflight_test_support import (
     _isolate_status_effects,
 )
 from yoke_core.domain.db_helpers import iso8601_now
@@ -180,7 +180,7 @@ def test_clearing_the_blocker_replays_settlement_without_a_hand_re_drive(
     """Aborting the record that held the run finishes the run on that same
     event. A shared gate that already passed must not wait on somebody
     noticing and re-driving `deployment-runs update status succeeded`."""
-    from runtime.api.domain.test_independent_member_delivery_close_out import (
+    from runtime.api.domain.independent_member_delivery_close_out_test_support import (
         MEMBER_A,
         MEMBER_B,
         _seed_final_run,

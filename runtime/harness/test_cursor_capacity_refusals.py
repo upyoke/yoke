@@ -15,7 +15,7 @@ from runtime.harness.session_relay_cursor_test_support import (
     local_supervision,
     native_argv,
 )
-from runtime.harness.test_session_relay_cursor import _launch, _wake
+from runtime.harness.session_relay_cursor_shared_test_support import _launch, _wake
 
 
 @pytest.mark.parametrize("kind", ["launch", "wake"])

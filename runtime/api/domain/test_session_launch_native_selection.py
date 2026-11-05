@@ -13,7 +13,7 @@ from runtime.api.domain.session_launch_test_support import (
     authorization,
     launch_connection,
 )
-from runtime.api.domain.test_session_launch_handler_deadlines import (
+from runtime.api.domain.session_launch_handler_deadlines_test_support import (
     _request,
     _wire_handler,
 )

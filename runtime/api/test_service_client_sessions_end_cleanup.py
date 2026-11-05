@@ -8,12 +8,14 @@ from yoke_contracts.timestamps import format_instant, parse_instant
 from datetime import datetime, timedelta, timezone
 
 from runtime.api.fixtures.file_test_db import connect_test_db
-from runtime.api.test_service_client import _run_client
-from runtime.api.test_service_client_sessions_helpers import _pre_register_session
+from runtime.api.service_client_test_support import _run_client
+from runtime.api.service_client_sessions_helpers_test_support import (
+    _pre_register_session,
+)
 from yoke_core.domain.work_claim_targets import make_item_target
 from yoke_core.domain.sessions import claim_work
 
-pytest_plugins = ("runtime.api.test_service_client_sessions_helpers",)
+pytest_plugins = ("runtime.api.service_client_sessions_helpers_test_support",)
 
 
 # Precomputed 30-minutes-ago timestamp for tests exercising the

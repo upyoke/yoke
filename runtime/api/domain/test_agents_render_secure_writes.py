@@ -7,7 +7,7 @@ from unittest.mock import patch
 
 import pytest
 
-from runtime.api.domain.test_agents_render_substrate import (
+from runtime.api.domain.agents_render_substrate_test_support import (
     _seed_minimal_canonical_tree,
 )
 from yoke_core.domain.agents_render import (

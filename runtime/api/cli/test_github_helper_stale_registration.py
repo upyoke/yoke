@@ -4,9 +4,11 @@ import json
 
 import pytest
 
-from runtime.api.cli.test_cli_release_runtime import candidate
-from runtime.api.cli.test_github_git_credential_install import _configured_repo
-from runtime.api.cli.test_github_repo_helper_restore_missing_bundle import (
+from runtime.api.cli.cli_release_runtime_test_support import candidate
+from runtime.api.cli.github_git_credential_install_test_support import (
+    _configured_repo,
+)
+from runtime.api.cli.github_repo_helper_restore_missing_bundle_test_support import (
     _register_checkouts,
 )
 from yoke_cli.commands.adapters.github_credential_helper import (

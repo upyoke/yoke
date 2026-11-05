@@ -13,7 +13,9 @@ from runtime.api.domain.session_launch_level_test_support import (
     level_connection,
 )
 from runtime.api.domain.session_launch_test_support import NOW
-from runtime.api.domain.test_session_launch_terminal_admission import _seed_pinned_item
+from runtime.api.domain.session_launch_terminal_admission_test_support import (
+    _seed_pinned_item,
+)
 
 
 def context(monkeypatch, *, target_level="JUNIOR", released=True):

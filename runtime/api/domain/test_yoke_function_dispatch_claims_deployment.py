@@ -10,17 +10,8 @@ from __future__ import annotations
 
 from unittest.mock import patch
 
-from runtime.api.domain.test_yoke_function_dispatch_claims import (
-    _ClaimMatrixSuite,
-    _make_request,
-    _ok_handler,
-    _Req,
-    _Resp,
-    _stable_kwargs,
-    claims_module,
-    dispatch,
-    register,
-)
+from runtime.api.domain.yoke_function_dispatch_claims_test_support import (_ClaimMatrixSuite, _make_request, _Req, _Resp, _stable_kwargs, claims_module, dispatch, register)
+from runtime.api.domain.yoke_function_dispatch_test_support import (_ok_handler)
 
 
 class DeploymentTargetClaimSuite(_ClaimMatrixSuite):

@@ -7,10 +7,16 @@ behavior when no override is supplied — equivalent to all-projects default.
 
 from __future__ import annotations
 
+from runtime.api.session_project_scope_test_support import (
+    _make_disposable_db as _make_disposable_db,
+)
+
+
 import unittest
 
-from runtime.api.api_workflow_test_helpers import install_workflow_registry_and_pin_items
-from runtime.api.fixtures import pg_testdb
+from runtime.api.api_workflow_test_helpers import (
+    install_workflow_registry_and_pin_items,
+)
 from runtime.api.fixtures.schema_ddl import apply_fixture_ddl
 from yoke_core.domain.session_project_scope import (
     parse_project_cli_arg,
@@ -37,13 +43,6 @@ PROJECT_IDS = {
 
 def _project_id(project: str) -> int:
     return PROJECT_IDS.get(project, max(PROJECT_IDS.values()) + 1)
-
-
-def _make_disposable_db():
-    name = pg_testdb.create_test_database()
-    return pg_testdb.drop_database_on_close(
-        pg_testdb.connect_test_database(name), name,
-    )
 
 
 def _make_db(project_ids: list[str]):
@@ -248,7 +247,7 @@ class TestEndToEndProjectScope(unittest.TestCase):
     FIXTURE_PROJECT = "scope-fixture-alpha"
 
     def _make_end_to_end_db(self):
-        from runtime.api.test_dependency_schema import (
+        from runtime.api.dependency_schema_test_support import (
             ITEMS_SCHEMA,
             ITEM_DEPENDENCIES_SCHEMA,
         )

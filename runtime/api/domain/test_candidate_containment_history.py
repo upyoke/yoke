@@ -7,7 +7,7 @@ import pytest
 import json
 
 from runtime.api.fixtures.backlog_inserts import insert_deployment_run, insert_item
-from runtime.api.domain.test_release_delivery_live_visibility import (
+from runtime.api.domain.release_delivery_live_visibility_test_support import (
     _open_item,
     _stage_run,
     ITEM_ID,

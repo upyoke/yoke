@@ -2,32 +2,21 @@
 
 from __future__ import annotations
 
+from runtime.api.domain.operator_question_integration_test_support import _call as _call
+
+
 import importlib
 
-from runtime.api.domain.test_deployment_qa_stage_wake_delivery import (
+from runtime.api.domain.deployment_qa_stage_wake_delivery_test_support import (
     _project,
     seed_session,
     _bodies,
     _recipients,
 )
 from runtime.api.domain.coordination_claim_test_support import PROJECT_YOKE
-from yoke_contracts.api.function_call import (
-    ActorContext,
-    FunctionCallRequest,
-    TargetRef,
-)
 from yoke_core.domain.handlers.decision_request_questions import handle_ask, handle_list
 from yoke_core.domain.decision_request_resolution import resolve_decision_request
 from yoke_core.domain.inbox_read import inbox_for_actor
-
-
-def _call(function, session, payload):
-    return FunctionCallRequest(
-        function=function,
-        actor=ActorContext(actor_id="1", session_id=session),
-        target=TargetRef(kind="global"),
-        payload=payload,
-    )
 
 
 def test_worker_files_without_steering_and_receives_one_engine_answer(
@@ -111,7 +100,7 @@ def test_migration_admits_questions_preserves_gates_and_carries_floor(test_db):
 
 def test_terminal_item_questions_are_disposed(test_db):
     from runtime.api.fixtures.backlog_inserts import insert_item
-    from runtime.api.domain.test_deployment_qa_stage_wake_delivery import _claim
+    from runtime.api.domain.deployment_qa_stage_wake_delivery_test_support import _claim
     from yoke_core.domain.work_claim_targets import make_item_target
     from yoke_core.domain.decision_request_question_filing import file_question
     from yoke_core.domain.decision_requests import RoleAuthority
@@ -159,7 +148,7 @@ def test_question_outcomes_are_delivered_once(test_db):
     from yoke_core.domain.steering_fleet_report_questions import read_questions
     from yoke_core.domain.steering_fleet_report_compose import CombinedFleetReport
     from yoke_core.domain.steering_fleet_report_hook_digest import combined_hook_digest
-    from runtime.api.domain.test_fleet_delta_reports import NOW
+    from runtime.api.domain.fleet_delta_reports_test_support import NOW
 
     _project(test_db)
     session = "question-worker"

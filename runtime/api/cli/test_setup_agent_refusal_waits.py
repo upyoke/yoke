@@ -19,7 +19,7 @@ from runtime.api.cli.setup_agent_test_support import (
     AgentDriver,
     isolate_agent_setup,
 )
-from runtime.api.cli.test_setup_agent_approvals import Server
+from runtime.api.cli.setup_agent_approvals_test_support import Server
 from yoke_cli.config import hosted_machine_authorization, local_universe_setup
 
 pytest.importorskip("textual")

@@ -6,15 +6,19 @@ from urllib.error import HTTPError
 from pathlib import Path
 from unittest.mock import patch
 
-from runtime.api.test_api_yoke_functions import _ApiSuite
+from runtime.api.api_yoke_functions_test_support import _ApiSuite
 from runtime.api.fixtures.file_test_db import connect_test_db, init_test_db
 from yoke_cli.feedback_delivery import send_feedback
 from yoke_core.api.routes import feedback
 
-VALID = {"category": "failed", "evidence": "The documented recipe failed.",
-         "agent": "engineer", "reporter_email": "person@example.test",
-         "yoke_version": "0.2.0.202610290013",
-         "universe_fingerprint": "customer@2026-01-01T00:00:00Z"}
+VALID = {
+    "category": "failed",
+    "evidence": "The documented recipe failed.",
+    "agent": "engineer",
+    "reporter_email": "person@example.test",
+    "yoke_version": "0.2.0.202610290013",
+    "universe_fingerprint": "customer@2026-01-01T00:00:00Z",
+}
 
 
 class TestFeedbackPublic(_ApiSuite):

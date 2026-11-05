@@ -8,7 +8,11 @@ resolver empty). The active-connection sanction contract lives in
 
 from __future__ import annotations
 
-import contextlib
+from runtime.api.domain.universe_export_test_support import (
+    _schema_loaded_universe as _schema_loaded_universe,
+)
+
+
 import os
 import re
 import subprocess
@@ -32,20 +36,6 @@ def _isolated_machine_home(monkeypatch, tmp_path):
     monkeypatch.setenv(machine_runtime.HOME_ENV, str(tmp_path / "machine-home"))
     monkeypatch.delenv(machine_runtime.CONFIG_FILE_ENV, raising=False)
     monkeypatch.delenv("YOKE_ENV", raising=False)
-
-
-@contextlib.contextmanager
-def _schema_loaded_universe():
-    """Yield ``(conn, dsn)`` for a fresh schema-loaded disposable database.
-
-    The fixture schema seeds the default org identity card, so the
-    database looks like a bootstrapped universe to the export probe.
-    """
-    from runtime.api.fixtures import pg_testdb
-    from yoke_core.domain import db_backend
-
-    with pg_testdb.test_database() as conn:
-        yield conn, os.environ[db_backend.PG_DSN_ENV]
 
 
 def _unpack(artifact: Path, work_dir: Path) -> tuple[Path, dict]:

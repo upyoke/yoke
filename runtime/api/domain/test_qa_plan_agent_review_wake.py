@@ -2,16 +2,22 @@
 
 from __future__ import annotations
 
+from runtime.api.domain.qa_plan_agent_review_wake_test_support import (
+    OWNER as OWNER,
+    _owner as _owner,
+)
+
+
 import pytest
 
-from runtime.api.domain.test_deployment_qa_stage_wake_delivery import (
+from runtime.api.domain.deployment_qa_stage_wake_delivery_test_support import (
     _bodies,
     _claim,
     _project,
     _recipients,
     seed_session,
 )
-from runtime.api.domain.test_qa_capture_pending_review import (
+from runtime.api.domain.qa_capture_pending_review_test_support import (
     MEMBER,
     STAGE,
     _seed_pending,
@@ -28,35 +34,8 @@ from yoke_core.domain.qa_plan_settled_review import (
     withdraw_settled_agent_review_wakes,
 )
 from yoke_core.domain.session_explicit_wake import explicit_stopped_wake_requested
-from yoke_core.domain.work_claim_targets import make_item_target
 
-OWNER = "capture-session"
 STEERING = "review-steering"
-
-
-def _owner(conn, *, executor="claude-code", surface="claude-cli"):
-    _project(conn)
-    seed_session(conn, OWNER)
-    conn.execute(
-        "UPDATE harness_sessions SET mode='parked',executor=%s,"
-        "executor_surface=%s,executor_version=%s WHERE session_id=%s",
-        (
-            executor,
-            surface,
-            {
-                "claude-code": "2.1.238",
-                "codex": "0.148.0-alpha.15",
-                "cursor": "2026.08.25-3e8eec8",
-            }[executor],
-            OWNER,
-        ),
-    )
-    _claim(
-        conn,
-        session_id=OWNER,
-        target_kind="item",
-        scope_json=make_item_target(MEMBER).scope_json(),
-    )
 
 
 @pytest.mark.parametrize(

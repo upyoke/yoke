@@ -3,7 +3,7 @@
 
 from contextlib import closing
 
-from runtime.api.domain.test_path_claims_landed_boundary import (
+from runtime.api.domain.path_claims_landed_boundary_test_support import (
     _claim,
     _land_by_merge,
     _commit_in_worktree,

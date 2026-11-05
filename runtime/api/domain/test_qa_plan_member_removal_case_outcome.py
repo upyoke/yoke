@@ -6,16 +6,16 @@ from unittest import mock
 
 from runtime.api.domain.machine_qa_session_seed import seed_qa_session
 from runtime.api.domain.qa_plan_execution_test_support import TEST_EXECUTION_TARGET
-from runtime.api.domain.test_deployment_member_execution_removal import (
+from runtime.api.domain.deployment_member_execution_removal_test_support import (
     _execution,
     _request,
 )
-from runtime.api.domain.test_deployment_qa_stage_member_removal import (
+from runtime.api.domain.deployment_qa_stage_member_removal_test_support import (
     REMOVED,
     RUN,
     _ready_run,
 )
-from runtime.api.domain.test_qa_host_turns import _notices
+from runtime.api.domain.qa_host_turns_test_support import _notices
 from yoke_contracts.api.function_call import ActorContext
 from yoke_contracts.machine_qa_failures import host_control_failure
 from yoke_core.domain import machine_qa_plan_case_execution, qa_plan_execution

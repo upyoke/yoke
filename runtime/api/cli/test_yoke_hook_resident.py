@@ -2,11 +2,16 @@
 
 from __future__ import annotations
 
+from runtime.api.cli.yoke_hook_resident_test_support import (
+    _request as _request,
+    _round_trip as _round_trip,
+)
+
+
 import io
 import json
 import multiprocessing
 import os
-import socket
 import subprocess
 import sys
 import tempfile
@@ -20,11 +25,6 @@ import pytest
 
 from yoke_cli.commands.adapters import hook_inprocess, hooks
 from yoke_cli.hook_resident_client import ResidentUnavailable
-from yoke_contracts.hook_evaluator_protocol import (
-    HookEvaluatorRequest,
-    receive_frame,
-    send_frame,
-)
 from yoke_contracts.hook_resident_routing import is_read_only_tool_event
 from yoke_contracts.hook_runner.hook_ordering import event_types
 from yoke_harness.hook_resident_observations import MESSAGE_PROBE_INTERVAL_SECONDS
@@ -114,43 +114,6 @@ def resident_process():
     for socket_path in socket_paths:
         Path(socket_path).unlink(missing_ok=True)
         Path(socket_path).with_suffix(".lock").unlink(missing_ok=True)
-
-
-def _request(
-    event_name: str,
-    *,
-    cwd: str,
-    revision: str,
-    environment: dict[str, str] | None = None,
-    dry_run: bool = False,
-) -> HookEvaluatorRequest:
-    return HookEvaluatorRequest(
-        event_name=event_name,
-        stdin=json.dumps(
-            {
-                "session_id": f"resident-{event_name.lower()}",
-                "tool_name": "Read",
-                "tool_input": {"file_path": "/tmp/example"},
-            }
-        ),
-        dry_run=dry_run,
-        pid=41001,
-        ppid=41000,
-        cwd=cwd,
-        environment=environment or dict(os.environ),
-        revision=revision,
-    )
-
-
-def _round_trip(socket_path: str, request: HookEvaluatorRequest) -> dict:
-    peer = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-    try:
-        peer.settimeout(10)
-        peer.connect(socket_path)
-        send_frame(peer, request.to_mapping())
-        return receive_frame(peer)
-    finally:
-        peer.close()
 
 
 def test_resident_dry_run_matches_inprocess_for_every_hook_event(

@@ -6,7 +6,7 @@ from copy import deepcopy
 
 import pytest
 
-from runtime.api.domain.test_qa_plan_execution_authority import (
+from runtime.api.domain.qa_plan_execution_authority_test_support import (
     _materialize_two_cases,
 )
 from runtime.api.fixtures.pg_testdb import test_database

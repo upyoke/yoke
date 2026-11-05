@@ -9,6 +9,11 @@ down, because it is the rare answer rather than the safe one.
 
 from __future__ import annotations
 
+from runtime.api.cli.onboard_wizard_existing_detection_first_test_support import (
+    _DetectionShell as _DetectionShell,
+)
+
+
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -24,7 +29,6 @@ from yoke_cli.config.onboard_wizard_existing_project_detected import (
     CHOICE_DETAILS,
     CHOICE_NEW_PROJECT,
     DETECTED_ROWS,
-    ExistingProjectDetectedFlow,
 )
 from yoke_cli.config.onboard_wizard_stored_project import StoredProjectFlow
 from yoke_cli.config.onboard_wizard_widgets import SelectionList
@@ -58,43 +62,6 @@ def test_an_existing_project_is_announced_and_connected_by_default() -> None:
         CHOICE_DETAILS,
         CHOICE_NEW_PROJECT,
     }
-
-
-class _DetectionShell(ExistingProjectDetectedFlow):
-    """The routing surface the detection screen's two answers reach."""
-
-    def __init__(self) -> None:
-        self.result = SimpleNamespace(
-            existing_project_id=7,
-            existing_project_match_source="github_repo",
-            existing_project_local_source=None,
-            project_slug="buzz",
-            project_name="Buzz",
-            project_default_branch="main",
-            project_public_item_prefix="BZZ",
-            project_github_adoption="app_binding",
-            project_github_adoption_preserve=True,
-        )
-        self.announced: list[object] = []
-        self.continued = 0
-        self.slug_prompts = 0
-        self.folder_prompts = 0
-        self.destination_prompts = 0
-
-    def _goto_existing_project_ready(self, *, on_choice=None) -> None:
-        self.announced.append(on_choice)
-
-    def _after_existing_project_ready(self) -> None:
-        self.continued += 1
-
-    def _goto_project_details(self) -> None:
-        self.slug_prompts += 1
-
-    def _goto_checkout_destination(self) -> None:
-        self.destination_prompts += 1
-
-    def _goto_clone_folder(self) -> None:
-        self.folder_prompts += 1
 
 
 def test_the_clone_path_announces_the_match_before_the_folder() -> None:

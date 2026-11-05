@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+from runtime.api.api_qa_browser_function_test_support import (_request as _request)
+
+
 import unittest
 from contextlib import contextmanager
 from unittest.mock import patch
@@ -17,15 +20,6 @@ from runtime.api.fixtures.backlog_inserts import insert_item, insert_qa_requirem
 from runtime.api.fixtures.dispatch_actor import authorize_every_dispatch
 from runtime.api.fixtures.pg_testdb import test_database
 from yoke_core.domain.work_claim_targets import make_item_target
-
-
-def _request(function_id: str, target: TargetRef, payload=None) -> FunctionCallRequest:
-    return FunctionCallRequest(
-        function=function_id,
-        actor=ActorContext(actor_id="op", session_id="s-1"),
-        target=target,
-        payload=payload or {},
-    )
 
 
 class TestQaRequirementUpdate(unittest.TestCase):

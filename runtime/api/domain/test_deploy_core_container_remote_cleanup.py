@@ -7,10 +7,8 @@ import pytest
 from runtime.api.domain.deploy_core_container_test_support import (
     install_core_service_project_source,
 )
-from runtime.api.domain.test_deploy_core_container import (
-    _env,
-)
-from runtime.api.domain.test_deploy_remote import FakeRunner
+from runtime.api.domain.deploy_core_container_shared_test_support import _env
+from runtime.api.domain.deploy_remote_test_support import FakeRunner
 from yoke_core.domain.deploy_core_container_remote import (
     RemoteConvergenceError,
     prune_superseded_images,

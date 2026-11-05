@@ -10,7 +10,7 @@ from typing import Any, Dict
 
 import pytest
 
-from runtime.api.domain.test_github_actions_rest import (
+from runtime.api.domain.github_actions_rest_test_support import (
     _fake_urls,
     _raise_error,
     _resolver_ok as _resolver_ok,

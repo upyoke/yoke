@@ -5,7 +5,7 @@
 
 from __future__ import annotations
 
-from runtime.api.domain.test_projects_capabilities_settings import (
+from runtime.api.domain.projects_capabilities_settings_test_support import (
     _settings,
     cap_db as cap_db,
 )

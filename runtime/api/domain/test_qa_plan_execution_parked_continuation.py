@@ -2,6 +2,15 @@
 
 from __future__ import annotations
 
+from runtime.api.domain.qa_plan_execution_parked_continuation_test_support import (
+    LONG_AGO as LONG_AGO,
+    MISSION_ACTOR as MISSION_ACTOR,
+    MISSION_TRANSITION as MISSION_TRANSITION,
+    _stop_reporting as _stop_reporting,
+    _swept_mission as _swept_mission,
+)
+
+
 from typing import Any
 
 import pytest
@@ -10,12 +19,11 @@ from runtime.api.domain.machine_qa_host_test_support import (
     configure_test_machine,
 )
 from runtime.api.domain.machine_qa_session_seed import seed_qa_session
-from runtime.api.domain.test_agent_mission_qa import _materialize_mission
-from runtime.api.domain.test_qa_plan_execution_authority import (
+from runtime.api.domain.agent_mission_qa_test_support import _materialize_mission
+from runtime.api.domain.qa_plan_execution_authority_test_support import (
     _materialize_two_cases,
 )
 from yoke_contracts.api.function_call import (
-    ActorContext,
     FunctionCallRequest,
     TargetRef,
 )
@@ -35,18 +43,6 @@ from yoke_core.domain.qa_plan_execution_state import (
     finish_plan_execution,
     select_plan_execution,
 )
-
-MISSION_ACTOR = ActorContext(actor_id="1", session_id="session-agent-mission")
-MISSION_TRANSITION = "reviewing-implementation"
-LONG_AGO = "2026-01-01T00:00:00Z"
-
-
-def _stop_reporting(conn: Any, execution_id: str) -> None:
-    conn.execute(
-        "UPDATE qa_plan_executions SET heartbeat_at=%s WHERE id=%s",
-        (LONG_AGO, execution_id),
-    )
-    conn.commit()
 
 
 def _set_session_posture(
@@ -69,31 +65,6 @@ def _state(conn: Any, execution_id: str) -> str:
     state = str(select_plan_execution(conn, execution_id, lock=False)["state"])
     conn.rollback()
     return state
-
-
-def _swept_mission(
-    conn: Any,
-    tmp_path: Any,
-    monkeypatch: Any,
-    *,
-    item_id: int,
-) -> tuple[int, dict[str, Any]]:
-    """Settle one mission execution exactly the way the stale sweep does."""
-    configure_test_machine(conn, tmp_path, monkeypatch)
-    requirement_id = _materialize_mission(conn, item_id=item_id)
-    execution = begin_plan_execution(
-        conn,
-        item_id=item_id,
-        transition_id=MISSION_TRANSITION,
-        actor_id=MISSION_ACTOR.actor_id,
-        session_id=MISSION_ACTOR.session_id,
-    )
-    _stop_reporting(conn, str(execution["id"]))
-    reaped = reap_stale_plan_executions(conn)
-    assert [entry["reaped"] for entry in reaped] == [True]
-    settled = select_plan_execution(conn, str(execution["id"]), lock=False)
-    conn.rollback()
-    return requirement_id, settled
 
 
 def test_a_parked_owner_keeps_its_execution_and_an_unparked_one_loses_it(

@@ -49,7 +49,7 @@ from runtime.api.cli.onboard_wizard_test_helpers import (  # noqa: E402
     stub_path_doctor,
     type_text,
 )
-from runtime.api.cli.test_yoke_operations_cli_onboard_destination import (  # noqa: E402
+from runtime.api.cli.yoke_operations_cli_onboard_destination_test_support import (
     FAKE_DSN,
     _FakeEngine,
     _normalized_local_connection,

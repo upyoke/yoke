@@ -10,10 +10,9 @@ from yoke_core.engines.doctor import (
     hc_delegated_sync,
 )
 
-from runtime.api.engines.test_doctor_git_github import (
+from runtime.api.engines.doctor_git_github_test_support import (
     _make_completed,
     _make_conn,
-    _self_project_is_yoke,  # noqa: F401 — pytest fixture
 )
 
 

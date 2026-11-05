@@ -2,12 +2,12 @@
 
 import pytest
 
-from runtime.api.domain.test_deployment_qa_cross_project_members import (
+from runtime.api.domain.deployment_qa_cross_project_members_test_support import (
     _ready,
     RUN,
     MEMBER,
 )
-from runtime.api.domain.test_deployment_qa_stage_execution import _complete_case
+from runtime.api.domain.deployment_qa_stage_execution_test_support import _complete_case
 from runtime.api.fixtures.backlog_inserts import insert_item
 from yoke_core.domain.deployment_qa_plan_group_writes import (
     ensure_groups,
@@ -83,7 +83,7 @@ def test_duplicate_plan_name_in_run_requires_exact_id(test_db):
         snapshot_member_requirements,
         requirement_selection,
     )
-    from runtime.api.domain.test_deployment_qa_plan_groups import _attach
+    from runtime.api.domain.deployment_qa_plan_groups_test_support import _attach
 
     carried = _default(test_db)
     own = test_db.execute(

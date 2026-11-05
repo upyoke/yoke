@@ -226,7 +226,7 @@ def test_a_terminal_item_is_not_in_the_conversation(test_db: Any) -> None:
 def test_diverged_holder_allows_enrollment_without_proving_delivery(
     test_db, monkeypatch, holder_status
 ):
-    from runtime.api.domain.test_repository_containment_reads import (
+    from runtime.api.domain.repository_containment_reads_test_support import (
         CANDIDATE,
         COMMIT,
         _COMPARE_PATH,

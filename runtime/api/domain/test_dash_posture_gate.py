@@ -2,17 +2,15 @@
 
 from __future__ import annotations
 
-import json
-from pathlib import Path
+from runtime.api.domain.dash_posture_gate_test_support import (_insert_dash as _insert_dash, _insert_session as _insert_session)
+from runtime.api.domain.dash_posture_deployment_containment_test_support import (dash_db_path as dash_db_path)
 
-import pytest
 
 from runtime.api.fixtures.backlog_inserts import (
-    insert_item,
     insert_qa_requirement,
     insert_qa_run,
 )
-from runtime.api.fixtures.file_test_db import connect_test_db, init_test_db
+from runtime.api.fixtures.file_test_db import connect_test_db
 from yoke_core.domain.dash_execution import record_dash_evidence
 from yoke_core.domain.path_claims_register import register_for_item
 from yoke_core.domain.dash_posture_gate import evaluate
@@ -23,56 +21,6 @@ from yoke_core.domain.qa_workflow_binding_validation import (
 from yoke_core.domain.workflow_status_transition_preflight import (
     prepare_status_transition,
 )
-
-
-@pytest.fixture
-def dash_db_path(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
-    with init_test_db(tmp_path) as db_path:
-        monkeypatch.setenv("YOKE_DB", db_path)
-        from yoke_core.domain.deployment_runs_schema import cmd_init
-
-        cmd_init(db_path)
-        conn = connect_test_db(db_path)
-        try:
-            conn.execute(
-                "INSERT INTO actors "
-                "(id, kind, system_component, created_at) "
-                "VALUES (901, 'human', NULL, %s) ON CONFLICT DO NOTHING",
-                (iso8601_now(),),
-            )
-            conn.commit()
-        finally:
-            conn.close()
-        yield db_path
-
-
-def _insert_dash(
-    conn,
-    *,
-    item_id: int,
-    posture: dict,
-    status: str = "reviewing-implementation",
-) -> None:
-    insert_item(
-        conn,
-        id=item_id,
-        workflow_id="dash",
-        status=status,
-        source="901",
-        workflow_posture=json.dumps(posture),
-    )
-
-
-def _insert_session(conn, session_id: str) -> None:
-    now = iso8601_now()
-    conn.execute(
-        "INSERT INTO harness_sessions "
-        "(session_id, executor, provider, model, workspace, project_id, "
-        "offered_at, last_heartbeat, actor_id) "
-        "VALUES (%s, 'codex', 'openai', 'gpt', '/tmp', 1, %s, %s, 901)",
-        (session_id, now, now),
-    )
-    conn.commit()
 
 
 def test_selected_path_claims_register_activate_and_check_coverage(

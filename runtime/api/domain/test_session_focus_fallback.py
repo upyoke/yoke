@@ -9,11 +9,7 @@ the by-claim-id path, operator override, and terminal-item cleanup.
 
 from __future__ import annotations
 
-from runtime.api.test_sessions import (
-    _insert_claimable_items,
-    _register,
-    conn,  # noqa: F401
-)
+from runtime.api.sessions_test_support import _insert_claimable_items, _register
 from yoke_core.domain.sessions import (
     claim_work,
     release_item_focus_for_sessions,

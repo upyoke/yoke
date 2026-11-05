@@ -7,8 +7,10 @@ never delivers, so asking whether it is the item's completion run can never
 say yes.
 """
 
-from runtime.api.domain.test_dash_post_deploy_done_consumption import _accept_member_qa
-from runtime.api.domain.test_release_member_target_enrollment import _pair
+from runtime.api.domain.dash_post_deploy_done_consumption_test_support import (
+    _accept_member_qa,
+)
+from runtime.api.domain.release_member_target_enrollment_test_support import _pair
 from yoke_core.domain.deployment_member_independent_close_out import (
     independent_member_delivery_ready,
     member_qa_answer_ready,

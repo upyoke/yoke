@@ -6,7 +6,10 @@ from unittest.mock import Mock
 
 import pytest
 
-from runtime.api.domain.test_browser_automatic_sign_in import declaration, identity
+from runtime.api.domain.browser_automatic_sign_in_test_support import (
+    declaration,
+    identity,
+)
 from yoke_cli.commands import browser_authorize, browser_verify
 from yoke_cli.commands.adapters.projects_secret import projects_capability_secret_set
 from yoke_harness import browser_automatic_sign_in as automatic

@@ -28,7 +28,7 @@ from yoke_core.domain.github_workflow_dispatch_intents import (
     latest_intent,
     reject_intent,
 )
-from runtime.api.domain.test_github_workflow_dispatch_fixtures import (
+from runtime.api.domain.github_workflow_dispatch_fixtures_test_support import (
     REPO,
     REQUEST_ID,
     WORKFLOW,

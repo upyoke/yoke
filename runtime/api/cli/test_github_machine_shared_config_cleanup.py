@@ -4,7 +4,7 @@ import json
 from pathlib import Path
 from contextlib import contextmanager
 
-from runtime.api.cli.test_github_machine_credential_cleanup import (
+from runtime.api.cli.github_machine_credential_cleanup_test_support import (
     _base_config,
     _github_entry,
 )

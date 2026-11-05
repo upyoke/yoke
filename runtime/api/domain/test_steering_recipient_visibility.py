@@ -21,12 +21,12 @@ from yoke_core.domain.steering_message_recipients import (
     STATE_DELIVERED,
     awaiting_seat_rows,
 )
-from runtime.api.domain.test_steering_role_addressed_messages import (
+from runtime.api.domain.steering_role_addressed_messages_test_support import (
     PROJECT_SCOPE,
     _say_steering,
     _seat,
 )
-from runtime.api.domain.test_session_message_support import (
+from runtime.api.domain.session_message_support_test_support import (
     page_rows,
     NOW,
     message_connection,

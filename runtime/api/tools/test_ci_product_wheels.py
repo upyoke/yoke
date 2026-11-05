@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from runtime.api.cli.test_yoke_build_release import _write_wheel
+from runtime.api.cli.yoke_build_release_test_support import _write_wheel
 from yoke_core.tools import ci_product_wheels as wheels
 
 

@@ -16,7 +16,10 @@ import pytest
 from yoke_core.domain.session_ambient_identity import AMBIENT_ENV_VARS
 from yoke_harness.hooks import relay
 
-from runtime.api.cli.test_yoke_operations_cli_hooks import _FakeResponse, cli_main
+from runtime.api.cli.yoke_operations_cli_hooks_test_support import (
+    _FakeResponse,
+    cli_main,
+)
 
 
 # ``local_subset`` and ``https_connection`` are fixtures, not values: loading

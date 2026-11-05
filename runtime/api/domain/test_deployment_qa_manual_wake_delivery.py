@@ -12,13 +12,16 @@ from typing import Any
 from unittest import mock
 
 from runtime.api.domain.coordination_claim_test_support import PROJECT_YOKE
-from runtime.api.domain.test_deployment_qa_manual_wake import EVIDENCE, _requirement
-from runtime.api.domain.test_deployment_qa_stage_dispatch_wake import (
+from runtime.api.domain.deployment_qa_manual_wake_test_support import (
+    EVIDENCE,
+    _requirement,
+)
+from runtime.api.domain.deployment_qa_stage_dispatch_wake_test_support import (
     _WAITING,
     _member,
     _run,
 )
-from runtime.api.domain.test_deployment_qa_stage_wake_delivery import (
+from runtime.api.domain.deployment_qa_stage_wake_delivery_test_support import (
     HOLDER_A,
     HOLDER_B,
     _bodies,

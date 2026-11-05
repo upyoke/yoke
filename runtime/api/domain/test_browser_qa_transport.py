@@ -9,6 +9,12 @@ the structured-API adapter's own suite.
 
 from __future__ import annotations
 
+from runtime.api.domain.browser_qa_transport_test_support import (
+    _fail as _fail,
+    _ok as _ok,
+)
+
+
 import json
 from typing import Any as Any, Dict as Dict, List as List
 from unittest import mock as mock
@@ -21,29 +27,7 @@ from yoke_core.domain.browser_qa_steps import (
 )
 from yoke_contracts.api.function_call import (
     ActorContext as ActorContext,
-    FunctionCallResponse,
-    FunctionError,
 )
-
-
-def _ok(result: Dict[str, Any]) -> FunctionCallResponse:
-    return FunctionCallResponse(
-        success=True,
-        function="x",
-        version="v1",
-        request_id="r",
-        result=result,
-    )
-
-
-def _fail(code: str = "boom") -> FunctionCallResponse:
-    return FunctionCallResponse(
-        success=False,
-        function="x",
-        version="v1",
-        request_id="r",
-        error=FunctionError(code=code, message="nope"),
-    )
 
 
 class TestFetchBrowserContextSeam:

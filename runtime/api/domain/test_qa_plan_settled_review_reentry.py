@@ -6,7 +6,7 @@ from typing import Any
 from unittest import mock
 
 from runtime.api.domain.machine_qa_host_test_support import configure_test_machine
-from runtime.api.domain.test_qa_capture_settlement import (
+from runtime.api.domain.qa_capture_settlement_test_support import (
     ACTOR,
     _capture_attempt,
     _materialize_mission,

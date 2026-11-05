@@ -6,15 +6,20 @@ import pytest
 
 from yoke_core.domain import merge_queue_hold as hold
 from yoke_core.domain.gh_rest_transport_models import RestResponse
-from yoke_core.domain.project_github_auth_tokens import bind_local_github_user_token_provider
+from yoke_core.domain.project_github_auth_tokens import (
+    bind_local_github_user_token_provider,
+)
 from yoke_core.engines import merge_worktree_pr_check_runs as checks
 from yoke_core.engines import merge_worktree_pr_queue as queue
 from yoke_core.engines.merge_worktree_pr_rest import GITHUB_AUTHORITY_USER
-from runtime.api.engines.test_merge_worktree_pr_check_runs import _ctx, _pr_node
+from runtime.api.engines.merge_worktree_pr_check_runs_test_support import _ctx, _pr_node
 
 
 READ_PERMISSIONS = {
-    "pull_requests": "read", "contents": "read", "checks": "read", "statuses": "read",
+    "pull_requests": "read",
+    "contents": "read",
+    "checks": "read",
+    "statuses": "read",
 }
 
 

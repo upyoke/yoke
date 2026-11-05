@@ -2,6 +2,14 @@
 
 from __future__ import annotations
 
+from runtime.harness.session_relay_resume_settlement_test_support import (
+    ATTEMPT_ID as ATTEMPT_ID,
+    FUNCTION_ID as FUNCTION_ID,
+    LEASE_ID as LEASE_ID,
+    SESSION_ID as SESSION_ID,
+)
+
+
 from dataclasses import replace
 from pathlib import Path
 import os
@@ -31,11 +39,7 @@ from yoke_harness.session_relay_resume_settlement import (
 )
 
 
-ATTEMPT_ID = "11111111-1111-4111-8111-111111111111"
-SESSION_ID = "22222222-2222-4222-8222-222222222222"
-LEASE_ID = "lease-1"
 REFUSAL = "Session is running as a background agent (bg). Use claude agents."
-FUNCTION_ID = "session_control.relay.report"
 
 
 class _Response:
@@ -108,7 +112,7 @@ def test_default_spawn_settles_usage_across_custody_and_relay_directories(
     from yoke_cli.config import machine_config
     from yoke_contracts.session_usage_facts import usage_from_document
     from yoke_harness.cursor_native_result_usage import session_usage_document
-    from runtime.harness.test_cursor_native_result_usage import (
+    from runtime.harness.cursor_native_result_usage_test_support import (
         CONVERSATION,
         NATIVE_RESULT_LINE,
     )

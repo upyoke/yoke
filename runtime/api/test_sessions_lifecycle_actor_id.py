@@ -34,10 +34,7 @@ import json
 import pytest
 
 from yoke_core.domain.sessions import SessionError
-from runtime.api.test_sessions import (
-    conn,  # noqa: F401  (pytest fixture)
-    _register,
-)
+from runtime.api.sessions_test_support import _register
 
 ENV = "local"
 

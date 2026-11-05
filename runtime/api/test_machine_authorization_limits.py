@@ -5,8 +5,8 @@ from types import SimpleNamespace
 from fastapi.testclient import TestClient
 import pytest
 
-from runtime.api import test_web_sign_in_door as door
-from runtime.api.test_machine_authorization import IDENTITY
+from runtime.api import web_sign_in_door_test_support as door
+from runtime.api.machine_authorization_test_support import IDENTITY
 from yoke_contracts.machine_authorization import START_PATH, POLL_PATH
 from yoke_core.domain import machine_authorization_limits as limits
 

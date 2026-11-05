@@ -7,7 +7,10 @@ the execution evidence that attests the no-change outcome.
 
 from __future__ import annotations
 
-from runtime.api.domain.test_roster_delivery_shared_reads import FLOW, _version_id
+from runtime.api.domain.roster_delivery_shared_reads_test_support import (
+    FLOW,
+    _version_id,
+)
 from runtime.api.fixtures.backlog_inserts import insert_item
 from runtime.api.fixtures.pg_testdb import test_database
 from yoke_core.domain.dash_execution import DASH_EVIDENCE_SECTION

@@ -1,6 +1,6 @@
 """CLI refusals validate selectors before reaching the dispatcher."""
 
-from runtime.api.cli.test_yoke_operations_cli_dispatch import (
+from runtime.api.cli.yoke_operations_cli_dispatch_test_support import (
     _CAPTURED_REQUESTS,
     _reset_captured as _reset_captured,
     _run_with_dispatch,

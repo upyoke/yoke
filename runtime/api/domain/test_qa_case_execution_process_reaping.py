@@ -17,7 +17,7 @@ import pytest
 
 from yoke_core.domain import qa_case_execution
 
-from runtime.api.domain.test_qa_case_execution import _case
+from runtime.api.domain.qa_case_execution_test_support import _case
 
 
 def test_command_case_timeout_reaps_the_whole_process_tree(

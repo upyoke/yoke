@@ -2,11 +2,6 @@
 """Deployment-run status update and timestamp tests."""
 
 from yoke_core.domain import deployment_runs as dr
-from runtime.api.test_deployment_runs_full_helpers import (  # noqa: F401
-    _conn,
-    _placeholder,
-    db_path,
-)
 
 
 class TestUpdate:

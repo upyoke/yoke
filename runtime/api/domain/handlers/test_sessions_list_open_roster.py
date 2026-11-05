@@ -22,7 +22,7 @@ from yoke_core.domain import sessions_list_read
 from yoke_core.domain.handlers.sessions_list import handle_sessions_list
 from yoke_core.domain.work_claim_targets import make_steering_target
 
-from runtime.api.domain.handlers.test_sessions_list_handler import (
+from runtime.api.domain.handlers.sessions_list_handler_test_support import (
     _insert_session,
     _iso,
 )

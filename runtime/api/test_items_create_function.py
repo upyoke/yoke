@@ -16,6 +16,12 @@ real ``execute_create`` against a disposable DB.
 
 from __future__ import annotations
 
+from runtime.api.items_create_function_test_support import (
+    _FUNCTION_ID as _FUNCTION_ID,
+    _request as _request,
+)
+
+
 import json
 import os
 from unittest import mock
@@ -27,28 +33,11 @@ from runtime.api.backlog_mutations_test_helpers import (
     tmp_db,  # noqa: F401 — re-exported pytest fixture
 )
 from runtime.api.qa_catalog_test_support import CATALOG_CASES
-from yoke_contracts.api.function_call import (
-    ActorContext,
-    FunctionCallRequest,
-    TargetRef,
-)
 from yoke_core.domain.handlers.items_create import handle_item_create
 from yoke_core.domain.item_entry_surface import (
     ITEM_ENTRY_SURFACE_ENV,
     MISSING_ENTRY_SURFACE_MESSAGE,
 )
-
-
-_FUNCTION_ID = "items.create"
-
-
-def _request(payload, *, session_id="items-create-test", actor_id=None):
-    return FunctionCallRequest(
-        function=_FUNCTION_ID,
-        actor=ActorContext(session_id=session_id, actor_id=actor_id),
-        target=TargetRef(kind="global"),
-        payload={"project": "yoke", **payload},
-    )
 
 
 # ---------------------------------------------------------------------------

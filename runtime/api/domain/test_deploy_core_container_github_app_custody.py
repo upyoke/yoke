@@ -9,12 +9,12 @@ import subprocess
 import pytest
 
 from yoke_contracts.github_app_public import GitHubAppPublicProfile
-from runtime.api.domain.test_deploy_core_container import (
+from runtime.api.domain.deploy_core_container_shared_test_support import (
     _HappyRemoteRunner,
     _env,
     patch_executor_boundaries,
 )
-from runtime.api.domain.test_deploy_remote import FakeRunner
+from runtime.api.domain.deploy_remote_test_support import FakeRunner
 from yoke_core.domain import github_app_deployment
 from yoke_core.domain.deploy_core_container import exec_core_container_deploy
 from yoke_core.domain.deploy_core_container_remote import RemoteConvergenceError

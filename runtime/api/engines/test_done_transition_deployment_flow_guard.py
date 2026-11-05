@@ -2,7 +2,14 @@
 
 from __future__ import annotations
 
-from contextlib import contextmanager
+from runtime.api.engines.done_transition_deployment_flow_guard_test_support import (
+    _patch_latest_run as _patch_latest_run,
+    _patch_qa_gates as _patch_qa_gates,
+    _patch_registered_flows as _patch_registered_flows,
+    _patch_target_tier as _patch_target_tier,
+)
+
+
 from types import SimpleNamespace
 from unittest import mock
 
@@ -13,21 +20,6 @@ from yoke_core.engines import (
     done_transition_deploy_gates,
     done_transition_gates,
 )
-
-
-def _patch_registered_flows(flows):
-    return mock.patch(
-        "yoke_core.domain.deployment_flow_validator.list_registered_flow_ids",
-        return_value=list(flows),
-    )
-
-
-def _patch_target_tier(value):
-    return mock.patch.object(
-        done_transition_deploy_gates,
-        "_read_deployment_flow_target_tier",
-        return_value=value,
-    )
 
 
 class TestDeploymentFlowTargetTierRead:
@@ -153,29 +145,6 @@ class TestDeploymentFlowGuardInvalidFlow:
         out = capsys.readouterr().out
         assert result == (7, "implemented")
         assert "No deployment flows are registered" in out
-
-
-@contextmanager
-def _patch_latest_run(status, run_id=""):
-    with (
-        mock.patch.object(
-            done_transition_deploy_gates,
-            "_get_latest_run_status",
-            return_value=(status, run_id),
-        ),
-        mock.patch.object(
-            done_transition_deploy_gates,
-            "_read_delivery_evidence",
-            return_value={"state": "not_discharged"},
-        ),
-    ):
-        yield
-
-
-def _patch_qa_gates(blocks):
-    return mock.patch.object(
-        done_transition_deploy_gates, "check_run_qa_gates", return_value=blocks
-    )
 
 
 class TestDeploymentFlowGuardRegisteredButMissingEvidence:

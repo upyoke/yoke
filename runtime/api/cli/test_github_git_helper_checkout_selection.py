@@ -4,7 +4,10 @@ from io import StringIO
 
 import pytest
 
-from runtime.api.cli.test_github_connection_slots import configured as configured, save
+from runtime.api.cli.github_connection_slots_test_support import (
+    configured as configured,
+    save,
+)
 from yoke_cli.config import github_git_credential_helper as helper
 from yoke_cli.config import github_git_credential_store as store
 from yoke_contracts.machine_config import selection

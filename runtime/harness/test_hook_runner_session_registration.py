@@ -17,7 +17,7 @@ from yoke_core.hooks.decision_render import render_claude_decision
 from yoke_core.hooks.remote_policy import RunControls
 from yoke_core.hooks.types import HookContext, HookDecision, Next, Outcome
 
-from runtime.harness.test_hook_runner_register_ensure import (
+from runtime.harness.hook_runner_register_ensure_test_support import (
     _Mod,
     _allow,
     _run_runner,

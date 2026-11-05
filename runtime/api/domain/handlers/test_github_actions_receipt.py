@@ -82,7 +82,7 @@ def test_unattributable_or_corrupt_artifact_refuses(receipt_source, key, value, 
 
 
 def test_failed_run_never_reads_receipt(monkeypatch):
-    from runtime.api.domain.handlers.test_github_actions_run import (
+    from runtime.api.domain.handlers.github_actions_run_test_support import (
         _make_request,
         _RESOLVED,
     )

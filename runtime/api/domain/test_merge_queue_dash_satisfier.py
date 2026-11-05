@@ -8,7 +8,7 @@ from contextlib import nullcontext
 from runtime.api.domain.handlers.capabilities_list_test_support import (
     insert_capability,
 )
-from runtime.api.domain.test_status_transition_preflight import (
+from runtime.api.domain.status_transition_preflight_test_support import (
     _isolate_status_effects,
 )
 from runtime.api.fixtures.backlog import insert_item

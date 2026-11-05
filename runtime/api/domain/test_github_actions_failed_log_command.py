@@ -6,7 +6,7 @@ import pytest
 
 from yoke_core.domain import github_actions, github_actions_rest
 from yoke_core.domain.gh_rest_transport import RestAuthError
-from runtime.api.domain.test_github_actions_rest import _RESOLVED
+from runtime.api.domain.github_actions_rest_test_support import _RESOLVED
 
 
 @pytest.fixture

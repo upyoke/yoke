@@ -1,6 +1,6 @@
 """One plan group keeps answering every member that still attaches its plan."""
 
-from runtime.api.domain.test_deployment_qa_plan_groups import (
+from runtime.api.domain.deployment_qa_plan_groups_test_support import (
     MEMBERS,
     RUN,
     _pass_group,

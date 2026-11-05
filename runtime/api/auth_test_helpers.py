@@ -24,7 +24,7 @@ from runtime.api.fixtures.operating_actor import (
     record_fixture_operating_actor,
 )
 from runtime.api.fixtures.schema_ddl import apply_fixture_ddl
-from runtime.api.test_dependency_schema import PROJECTS_SCHEMA
+from runtime.api.dependency_schema_test_support import PROJECTS_SCHEMA
 
 
 @dataclass(frozen=True)

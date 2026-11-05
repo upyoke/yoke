@@ -7,7 +7,7 @@ their consumer files while sharing the verbose schema DDL and time literals.
 
 Postgres connection fixtures (``conn`` / ``ownership_conn``) live here too.
 They route through :func:`init_test_db` so the schema/seed bodies reused from
-``runtime.api.test_sessions`` are built on the same disposable Postgres DB the
+``runtime.api.sessions_test_support`` are built on the same disposable Postgres DB the
 production paths read.
 """
 
@@ -72,13 +72,13 @@ EVENTS_TABLE_FOR_STALE_DETECTION = """
 
 
 def _apply_session_schema():
-    from runtime.api.test_sessions import _create_schema
+    from runtime.api.sessions_test_support import _create_schema
 
     _build_schema(_create_schema)
 
 
 def _apply_ownership_schema():
-    from runtime.api.test_sessions import _create_ownership_schema
+    from runtime.api.sessions_test_support import _create_ownership_schema
 
     _build_ownership_schema(_create_ownership_schema)
 
@@ -89,7 +89,7 @@ def conn(tmp_path):
 
     Disposable per-test Postgres DB with ``YOKE_PG_DSN`` repointed for the
     context's lifetime. The
-    schema is the same one ``runtime.api.test_sessions._create_schema`` builds.
+    schema is the same one ``runtime.api.sessions_test_support._create_schema`` builds.
     The ``with`` stays open across the yield so the connection and the
     introspection shims share the per-test DB for the whole test.
     """
@@ -106,13 +106,11 @@ def conn(tmp_path):
 def ownership_conn(tmp_path):
     """Postgres replacement for the file-based ``ownership_conn`` fixture.
 
-    Mirrors ``runtime.api.test_sessions.ownership_conn``: full ownership schema,
+    Mirrors ``runtime.api.sessions_test_support.ownership_conn``: full ownership schema,
     a seeded runnable item (id 100), and the strategy SML files the scheduler
     coherence check reads.
     """
-    with init_test_db(
-        tmp_path, apply_schema=_apply_ownership_schema
-    ):
+    with init_test_db(tmp_path, apply_schema=_apply_ownership_schema):
         c = connect_test_db(str(tmp_path / "yoke.db"))
         seed_fixture_operating_actor(c)
         # Seed a runnable item (matches the legacy fixture).

@@ -1,11 +1,12 @@
 """End-to-end file-line hint delivery through the shared hook runner."""
+
 from __future__ import annotations
 
 import json
 from typing import Any, Iterable
 
 import pytest
-from runtime.harness.test_hook_project_scope import project_map as project_map
+from runtime.harness.hook_project_scope_test_support import project_map as project_map
 
 from yoke_core.domain.file_line_check import LIMIT as FILE_LINE_LIMIT
 from yoke_core.hooks import runner as runner_module
@@ -43,10 +44,6 @@ def _capability(
 # ---------------------------------------------------------------------------
 # Shared additional-context rendering.
 # ---------------------------------------------------------------------------
-
-
-
-
 
 
 # ---------------------------------------------------------------------------

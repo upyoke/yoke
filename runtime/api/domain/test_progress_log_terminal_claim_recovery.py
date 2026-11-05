@@ -2,14 +2,8 @@
 
 from unittest.mock import patch
 
-from runtime.api.domain.test_yoke_function_dispatch_claims import (
-    _ClaimMatrixSuite,
-    _Req,
-    _Resp,
-    _make_request,
-    _ok_handler,
-    _stable_kwargs,
-)
+from runtime.api.domain.yoke_function_dispatch_claims_test_support import (_ClaimMatrixSuite, _Req, _Resp, _make_request, _stable_kwargs)
+from runtime.api.domain.yoke_function_dispatch_test_support import (_ok_handler)
 from yoke_core.domain import yoke_function_dispatch_claims as claims_module
 from yoke_core.domain.yoke_function_registry import register
 

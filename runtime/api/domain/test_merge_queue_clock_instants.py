@@ -16,7 +16,7 @@ from runtime.api.domain.merge_queue_observer_test_helpers import (
     observe,
     observer_connection,
 )
-from runtime.api.domain.test_merge_queue_landing_record import _record
+from runtime.api.domain.merge_queue_landing_record_test_support import _record
 from runtime.api.fixtures.backlog_inserts import insert_item
 from yoke_contracts.timestamps import InvalidInstant, format_instant, parse_instant
 from yoke_core.domain import merge_queue_landing_observer as observer

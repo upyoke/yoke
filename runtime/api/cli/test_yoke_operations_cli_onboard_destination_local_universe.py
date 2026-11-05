@@ -12,11 +12,9 @@ from yoke_cli import main as yoke_operations_cli
 from yoke_cli.config import onboard_destinations
 from yoke_contracts.machine_config.schema import DEFAULT_TRANSPORT
 
-from runtime.api.cli.test_yoke_operations_cli_onboard_destination import (
+from runtime.api.cli.yoke_operations_cli_onboard_destination_test_support import (
     LOCAL,
     _config_payload,
-    fake_engine,  # noqa: F401
-    scratch_home,  # noqa: F401
 )
 
 

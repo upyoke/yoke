@@ -4,7 +4,7 @@ from unittest import mock
 
 import pytest
 
-from runtime.api.domain.test_qa_member_machine_partitions import (
+from runtime.api.domain.qa_member_machine_partitions_test_support import (
     MACHINES,
     MEMBER,
     RUN,
@@ -14,7 +14,7 @@ from runtime.api.domain.test_qa_member_machine_partitions import (
     _seed,
 )
 from runtime.api.domain.machine_qa_session_seed import seed_qa_session
-from runtime.api.domain.test_deployment_qa_stage_execution import _complete_case
+from runtime.api.domain.deployment_qa_stage_execution_test_support import _complete_case
 from yoke_core.domain.coordination_claims import acquire, release
 from yoke_core.domain.machine_qa_case_hosts import normalize_config_machines
 from yoke_core.domain.qa_plan_execution_state import (

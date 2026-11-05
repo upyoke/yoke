@@ -11,7 +11,7 @@ from yoke_core.domain import deploy_ephemeral
 from yoke_core.domain import deploy_ephemeral_files
 from yoke_core.domain import deploy_ephemeral_remote as remote
 from yoke_core.domain.deploy_remote import CommandResult
-from runtime.api.domain.test_deploy_remote import FakeRunner
+from runtime.api.domain.deploy_remote_test_support import FakeRunner
 from runtime.api.domain.deploy_ephemeral_test_support import (
     PORT as _PORT,
     SHA as _SHA,

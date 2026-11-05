@@ -15,7 +15,7 @@ from pathlib import Path
 from unittest import mock
 
 from yoke_core.domain import sections
-from runtime.api.test_constants import TEST_ITEM_REF
+from runtime.api.constants_test_support import TEST_ITEM_REF
 from runtime.api.domain.sections_test_helpers import (  # noqa: F401 — fixtures
     _RecordingEmitter,
     _RecordingRenderer,

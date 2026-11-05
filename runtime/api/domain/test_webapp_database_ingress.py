@@ -5,7 +5,7 @@ from __future__ import annotations
 import ast
 import types
 
-from runtime.api.domain.test_webapp_database_stack_rotation import (
+from runtime.api.domain.webapp_database_stack_rotation_test_support import (
     _load_database_stack_module,
 )
 from runtime.api.domain.webapp_pulumi_test_support import _pack_program_source

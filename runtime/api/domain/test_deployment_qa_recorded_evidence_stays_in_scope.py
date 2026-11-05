@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 
-from runtime.api.domain.test_deployment_qa_stage_execution import _complete_case
+from runtime.api.domain.deployment_qa_stage_execution_test_support import _complete_case
 from runtime.api.fixtures.deployment_scoped_qa_run_fixture import (
     ITEM_QA_STAGE,
     seed_member_qa_case,

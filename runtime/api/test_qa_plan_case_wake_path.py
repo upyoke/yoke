@@ -8,7 +8,7 @@ requirement is corrected in place, evidence first.
 
 import pytest
 
-from runtime.api.domain.test_deployment_qa_manual_wake import EVIDENCE
+from runtime.api.domain.deployment_qa_manual_wake_test_support import EVIDENCE
 from yoke_core.domain.qa_plan_case_definition import (
     materialized_definition,
     plan_cases,

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from runtime.api.test_service_client_structured_api_adapter_real_cli import (
+from runtime.api.service_client_structured_api_adapter_real_cli_test_support import (
     SimpleNamespace as SimpleNamespace,
     _authorize_dispatch as _authorize_dispatch,
     _silence_claim as _silence_claim,

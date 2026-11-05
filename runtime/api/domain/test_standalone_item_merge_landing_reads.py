@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from yoke_core.domain import standalone_item_merge_git as git
 
-from runtime.api.domain.test_standalone_item_merge_close_out import (
+from runtime.api.domain.standalone_item_merge_close_out_test_support import (
     LANE_SHA as LANE_SHA,
     SimpleNamespace as SimpleNamespace,
     landed as landed,

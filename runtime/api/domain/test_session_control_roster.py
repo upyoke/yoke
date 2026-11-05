@@ -9,7 +9,7 @@ from runtime.api.domain.session_roster_test_support import add_launch_read_schem
 
 import pytest
 
-from runtime.api.test_constants import TEST_ITEM_ID, TEST_ITEM_REF
+from runtime.api.constants_test_support import TEST_ITEM_ID, TEST_ITEM_REF
 from yoke_contracts.session_control.resume import (
     RESUME_NEVER_STARTED_RESULT,
     RESUME_RUNAWAY_RESULT,

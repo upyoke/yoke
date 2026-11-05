@@ -1,11 +1,11 @@
 """A fresh successor retry preserves the inherited pass and failed attempt."""
 
-from runtime.api.domain.test_deployment_qa_successor_retry import (
+from runtime.api.domain.deployment_qa_successor_retry_test_support import (
     _pinned_release as _pinned_release,
 )
 
-from runtime.api.domain import test_deployment_run_target_takeover as takeover
-from runtime.api.domain.test_deployment_qa_successor_retry import (
+from runtime.api.domain import deployment_run_target_takeover_test_support as takeover
+from runtime.api.domain.deployment_qa_successor_retry_test_support import (
     MEMBER,
     HOLDER_A,
     _seed_member_execution,

@@ -12,7 +12,7 @@ import json
 
 import pytest
 
-from runtime.api.cli.test_yoke_operations_cli_dispatch import (
+from runtime.api.cli.yoke_operations_cli_dispatch_test_support import (
     _CAPTURED_REQUESTS,
     _run_capture,
     _run_with_dispatch,

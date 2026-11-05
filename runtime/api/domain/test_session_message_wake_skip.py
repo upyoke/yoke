@@ -7,7 +7,7 @@ import json
 from yoke_core.domain.session_message_service import send_message
 from yoke_core.domain.session_message_wake import wake_eligible_recipients
 from yoke_core.domain import session_message_wake as wake
-from runtime.api.domain.test_session_message_support import (
+from runtime.api.domain.session_message_support_test_support import (
     NOW,
     NATIVE_WAKE_SESSION_ID,
     message_connection,

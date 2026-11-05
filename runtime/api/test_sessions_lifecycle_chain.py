@@ -12,11 +12,7 @@ import json
 import pytest
 from unittest.mock import patch
 
-from runtime.api.test_sessions import (
-    _insert_claimable_items,
-    _register,
-    conn,
-)
+from runtime.api.sessions_test_support import _insert_claimable_items, _register, conn
 from yoke_core.domain.sessions import (
     SessionError,
     claim_work,

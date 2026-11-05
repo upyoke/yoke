@@ -10,7 +10,7 @@ from runtime.api.tools import session_control_live_acceptance_command as command
 from runtime.api.tools.session_control_live_acceptance_contract import (
     AcceptanceContractError,
 )
-from runtime.api.tools.test_session_control_live_acceptance_command import (
+from runtime.api.tools.session_control_live_acceptance_command_test_support import (
     RELEASE_SHA,
     _argv,
     _bindings,

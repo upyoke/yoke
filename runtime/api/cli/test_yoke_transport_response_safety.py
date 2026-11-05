@@ -8,7 +8,8 @@ import urllib.error
 
 import pytest
 
-from runtime.api.cli.test_yoke_transport import _FakeResponse, _request
+from runtime.api.cli.yoke_transport_test_support import (_FakeResponse)
+from runtime.api.cli.yoke_https_engine_handshake_test_support import (_request)
 from yoke_cli.transport import dispatcher as yoke_dispatcher
 from yoke_cli.transport import https as yoke_transport
 from yoke_cli.transport.https import HttpsConnection, relay_https

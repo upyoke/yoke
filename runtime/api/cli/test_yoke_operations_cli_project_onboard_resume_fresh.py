@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from runtime.api.cli.test_yoke_operations_cli_project_onboard_resume import (
+from runtime.api.cli.yoke_operations_cli_project_onboard_resume_test_support import (
     _allow_local_clone,
 )
 from runtime.api.cli.project_onboarding_test_helpers import (

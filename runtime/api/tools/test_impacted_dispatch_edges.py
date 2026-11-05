@@ -7,7 +7,7 @@ from dataclasses import replace
 from yoke_core.tools import _impacted_dispatch_edges as dispatch_edges
 from yoke_core.tools import _impacted_implicit_edges as implicit_edges
 from yoke_core.tools.impacted_tests import FALLBACK_RULES, build_import_index, select
-from runtime.api.tools.test_impacted_tests import _tiny_repo, _write
+from runtime.api.tools.impacted_tests_test_support import _tiny_repo, _write
 
 _HUB = "runtime.api.handlers.hub"
 _FUNCTION_IDS = {

@@ -7,7 +7,7 @@ from yoke_contracts.api.function_call import (
 )
 from yoke_core.domain.project_identity import resolve_project_id
 from yoke_core.domain.yoke_function_permissions import check_dispatch_permission
-from runtime.api.domain.test_function_authz_scope_routing import (
+from runtime.api.domain.function_authz_scope_routing_test_support import (
     conn as conn,
     _new_actor,
     _project_owner,

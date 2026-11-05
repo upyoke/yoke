@@ -6,7 +6,7 @@ import threading
 from typing import Any
 
 from runtime.api.fixtures.pg_testdb import connect_test_database
-from runtime.api.test_sessions import _register
+from runtime.api.sessions_test_support import _register
 from yoke_core.domain.sessions import set_current_item
 from yoke_core.domain.sessions_claim_lifecycle_lock import (
     lock_session_rows_for_claim_lifecycle,

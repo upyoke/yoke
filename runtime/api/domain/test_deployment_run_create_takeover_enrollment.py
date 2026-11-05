@@ -12,8 +12,8 @@ from typing import Any
 
 import pytest
 
-from runtime.api.domain import test_deployment_run_create_takeover_carried_work as base
-from runtime.api.domain import test_deployment_run_target_takeover as takeover
+from runtime.api.domain import deployment_run_create_takeover_carried_work_test_support as base
+from runtime.api.domain import deployment_run_target_takeover_test_support as takeover
 from runtime.api.domain.structural_status_gate_test_helpers import insert_dependency
 from runtime.api.fixtures.backlog import insert_item
 from runtime.api.fixtures.carried_release_candidate import record_landing_receipt

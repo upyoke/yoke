@@ -9,7 +9,7 @@ import pytest
 
 from yoke_contracts.timestamps import utc_now
 
-from runtime.api.test_sessions import _register, conn  # noqa: F401
+from runtime.api.sessions_test_support import _register, conn  # noqa: F401
 from yoke_core.domain.session_activity_state import apply_envelope_state
 from yoke_core.domain.session_mode import (
     SESSION_MODE_DEFAULT,

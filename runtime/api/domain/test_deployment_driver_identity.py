@@ -5,7 +5,7 @@ from unittest.mock import Mock
 import psycopg
 import pytest
 
-from runtime.api.domain.test_session_less_actor_binding import _entry, _request
+from runtime.api.domain.session_less_actor_binding_test_support import _entry, _request
 from yoke_core.domain import yoke_function_actor_identity as identity
 from yoke_core.domain.deployment_driver_identity import driver_identity_operation
 from yoke_core.domain.deploy_pipeline_unknown_outcome import preserve_unknown_outcome

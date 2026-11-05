@@ -5,7 +5,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from runtime.api.domain.test_migration_merge_preflight import _lane, _write
+from runtime.api.domain.migration_merge_preflight_test_support import _lane, _write
 from runtime.api.fixtures.migration_model_test import (
     governed_postgres_test_seed,
     TEST_MIGRATION_MODULES_DIR,

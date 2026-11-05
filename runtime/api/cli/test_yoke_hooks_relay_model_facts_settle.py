@@ -18,7 +18,7 @@ import json
 import sys
 import urllib.error
 
-from runtime.api.cli.test_yoke_operations_cli_hooks import (  # noqa: F401
+from runtime.api.cli.yoke_operations_cli_hooks_test_support import (
     _FakeResponse,
     cli_main,
 )

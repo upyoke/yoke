@@ -13,7 +13,7 @@ from runtime.api.domain.ssh_mac_full_reset_test_support import (
     require_zsh,
     run_functions,
 )
-from runtime.api.domain.test_ssh_mac_golden_capture_copy import _run_capture
+from runtime.api.domain.ssh_mac_golden_capture_copy_test_support import _run_capture
 from yoke_harness.ssh_mac_golden_capture_receipt import closed_capture_outcomes
 from yoke_harness.ssh_mac_preserved_state import (
     PRESERVED_HOME_ENTRIES,

@@ -2,9 +2,14 @@
 
 import pytest
 
-from runtime.api.cli.test_onboard_wizard_existing_detection_first import _DetectionShell
+from runtime.api.cli.onboard_wizard_existing_detection_first_test_support import (
+    _DetectionShell,
+)
 from yoke_cli.config.onboard_wizard_existing_project_detected import (
-    CHOICE_CONNECT, CHOICE_DETAILS, CHOICE_NEW_PROJECT, ExistingProjectDetectedFlow,
+    CHOICE_CONNECT,
+    CHOICE_DETAILS,
+    CHOICE_NEW_PROJECT,
+    ExistingProjectDetectedFlow,
 )
 
 

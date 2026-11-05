@@ -2,14 +2,22 @@
 
 import pytest
 
-from runtime.api.domain.test_qa_plan_case_currency import _case, _materialized
+from runtime.api.domain.qa_plan_case_currency_test_support import _case, _materialized
 from runtime.api.fixtures.deployment_scoped_qa_run_fixture import record_case_verdict
-from yoke_contracts.api.function_call import ActorContext, FunctionCallRequest, TargetRef
+from yoke_contracts.api.function_call import (
+    ActorContext,
+    FunctionCallRequest,
+    TargetRef,
+)
 from yoke_core.domain.handlers.qa_plan_materialize import (
-    handle_materialize, handle_rematerialize,
+    handle_materialize,
+    handle_rematerialize,
 )
 from yoke_core.domain.project_identity import render_item_ref
-from yoke_core.domain.qa_plan_attachments import attach_plan_to_item, materialize_for_item
+from yoke_core.domain.qa_plan_attachments import (
+    attach_plan_to_item,
+    materialize_for_item,
+)
 from yoke_core.domain.qa_plan_execution_roster import ordered_plan_requirements
 from yoke_core.domain.qa_plan_execution_state import begin_plan_execution
 from yoke_core.domain.qa_plan_management import create_plan, replace_plan_cases

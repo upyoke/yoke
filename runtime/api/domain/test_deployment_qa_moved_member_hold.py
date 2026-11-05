@@ -5,7 +5,7 @@ from __future__ import annotations
 from contextlib import nullcontext
 from unittest.mock import patch
 
-from runtime.api.domain.test_deployment_qa_stage_wake_delivery import (
+from runtime.api.domain.deployment_qa_stage_wake_delivery_test_support import (
     HOLDER_A,
     HOLDER_B,
     _bodies,
@@ -13,7 +13,7 @@ from runtime.api.domain.test_deployment_qa_stage_wake_delivery import (
     _project,
     seed_session,
 )
-from runtime.api.domain.test_deployment_run_target_takeover import (
+from runtime.api.domain.deployment_run_target_takeover_test_support import (
     NEW,
     OLD,
     PASSED,

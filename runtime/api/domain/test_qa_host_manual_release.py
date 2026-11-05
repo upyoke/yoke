@@ -5,8 +5,10 @@ from unittest.mock import patch
 
 import pytest
 
-from runtime.api.domain import test_agent_mission_cleanup as mission_support
-from runtime.api.domain.test_qa_member_machine_partitions import (
+from runtime.api.domain import (
+    agent_mission_cleanup_test_support as mission_support,
+)
+from runtime.api.domain.qa_member_machine_partitions_test_support import (
     MACHINES,
     _begin,
     _case_begin,

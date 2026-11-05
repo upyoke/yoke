@@ -2,39 +2,24 @@
 
 from __future__ import annotations
 
+from runtime.api.epic_tasks_test_support import (
+    TEST_ITEM_ID as TEST_ITEM_ID,
+    TEST_ITEM_REF as TEST_ITEM_REF,
+    db as db,
+    db_with_task as db_with_task,
+)
+
+
 from unittest.mock import patch
 
 import pytest
 
 from yoke_core.domain import epic
-from runtime.api.conftest import insert_epic_task, insert_item
+from runtime.api.conftest import insert_epic_task
 
 from yoke_contracts.title_policy import title_max_length
 
 # Synthetic test epic ID — not a real backlog item reference.
-TEST_ITEM_ID = 42
-TEST_ITEM_REF = f"YOK-{TEST_ITEM_ID}"
-
-
-@pytest.fixture
-def db(test_db):
-    """Full Yoke schema on the disposable Postgres authority fixture."""
-    return test_db
-
-
-@pytest.fixture
-def db_with_task(db):
-    """DB with one epic task already inserted."""
-    insert_item(
-        db,
-        id=TEST_ITEM_ID,
-        workflow_id="epic",
-        status="planned",
-    )
-    insert_epic_task(
-        db, epic_id=TEST_ITEM_ID, task_num=1, title="First task", status="planning"
-    )
-    return db
 
 
 class TestTaskUpsert:

@@ -6,7 +6,7 @@ import psycopg
 import pytest
 
 from yoke_core.domain.session_message_store import insert_message
-from runtime.api.domain.test_session_message_support import NOW
+from runtime.api.domain.session_message_support_test_support import NOW
 
 
 def _engine_notice(conn, key):

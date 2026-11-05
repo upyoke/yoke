@@ -9,7 +9,7 @@ import urllib.error
 
 import pytest
 
-from runtime.api.cli.test_yoke_operations_cli_project_clone_outcome import (
+from runtime.api.cli.yoke_operations_cli_project_clone_outcome_test_support import (
     _clone_into,
     _git,
     _seed_bare_source,

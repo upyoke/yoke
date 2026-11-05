@@ -13,11 +13,10 @@ import subprocess
 
 from runtime.api.fixtures.file_test_db import connect_test_db
 from yoke_core.domain import db_backend
-from runtime.api.test_service_client_sessions_helpers import (  # noqa: F401
+from runtime.api.service_client_sessions_helpers_test_support import (
     _pre_register_session,
-    session_test_db,
 )
-from runtime.api.test_service_client import (
+from runtime.api.service_client_test_support import (
     _REPO_ROOT,
     _service_client_cmd,
     _with_source_pythonpath,

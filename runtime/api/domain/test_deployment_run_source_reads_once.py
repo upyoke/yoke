@@ -9,6 +9,12 @@ creation lock only covers the database re-check.
 
 from __future__ import annotations
 
+from runtime.api.domain.deployment_run_source_reads_once_test_support import (
+    _carrier_tip as _carrier_tip,
+    _release as _release,
+)
+
+
 import json
 from datetime import datetime
 import threading
@@ -24,7 +30,6 @@ from runtime.api.fixtures.bound_source_release import (
     CARRIER_FLOW,
     CARRIER_ITEM_ID,
     CONSUMER_ITEM_ID,
-    two_project_release,
 )
 from runtime.api.fixtures.backlog_inserts import insert_item
 from runtime.api.fixtures.carried_release_candidate import insert_run
@@ -40,24 +45,6 @@ from yoke_core.domain.deployment_run_create_write import CreatedRun, create_run
 from yoke_core.domain.handlers import deployment_run_execution as execution
 from yoke_contracts.api.function_call import TargetRef
 from yoke_contracts.timestamps import parse_instant
-
-
-def _release(
-    test_db: Any, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> dict[str, Any]:
-    release = two_project_release(test_db, tmp_path, monkeypatch)
-    test_db.execute(
-        "UPDATE deployment_flows SET status='active' WHERE id=%s", (CARRIER_FLOW,)
-    )
-    test_db.execute("DELETE FROM deployment_runs WHERE id='run-candidate'")
-    test_db.commit()
-    return release
-
-
-def _carrier_tip(release: dict[str, Any]) -> str:
-    from runtime.api.fixtures.carried_release_candidate import git
-
-    return git(release["carrier_repo"], "rev-parse", "HEAD").strip()
 
 
 def _record_reads(

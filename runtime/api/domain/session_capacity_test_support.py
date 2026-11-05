@@ -22,7 +22,9 @@ from runtime.api.domain.session_launch_level_test_support import (
     weekly,
 )
 from runtime.api.domain.session_launch_test_support import NOW, authorization
-from runtime.api.domain.test_session_launch_terminal_admission import _seed_pinned_item
+from runtime.api.domain.session_launch_terminal_admission_test_support import (
+    _seed_pinned_item,
+)
 
 STOPPED = parse_instant(NOW)
 CURRENT = STOPPED + timedelta(minutes=1)

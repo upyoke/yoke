@@ -2,6 +2,11 @@
 
 from __future__ import annotations
 
+from runtime.api.domain.session_launch_history_page_test_support import (
+    _NoCloseConnection as _NoCloseConnection,
+)
+
+
 import sqlite3
 
 from yoke_contracts.api.function_call import (
@@ -23,17 +28,6 @@ from runtime.api.domain.session_launch_test_support import (
 )
 
 import pytest
-
-
-class _NoCloseConnection:
-    def __init__(self, conn: sqlite3.Connection) -> None:
-        self._conn = conn
-
-    def __getattr__(self, name: str):
-        return getattr(self._conn, name)
-
-    def close(self) -> None:
-        pass
 
 
 def _seed(

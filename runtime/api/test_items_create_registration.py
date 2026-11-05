@@ -1,6 +1,6 @@
 """The item-create function registers its project permission and target shape."""
 
-from runtime.api.test_items_create_function import _FUNCTION_ID
+from runtime.api.items_create_function_test_support import _FUNCTION_ID
 
 
 class TestItemsCreateRegistration:

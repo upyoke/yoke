@@ -9,7 +9,7 @@ from yoke_core.engines.doctor import (
     hc_project_vps_reachable,
 )
 
-from runtime.api.engines.test_doctor_project_full import (
+from runtime.api.engines.doctor_project_full_test_support import (
     _make_conn,
     _run_hc,
     _seed_capability,

@@ -16,7 +16,7 @@ from runtime.api.domain.deploy_pipeline_gate_test_support import (
     ci_response as _ci_response,
     commit_file as _commit,
 )
-from runtime.api.domain.test_github_actions_rest import _FakeResponse, _RESOLVED
+from runtime.api.domain.github_actions_rest_test_support import _FakeResponse, _RESOLVED
 from yoke_contracts.api.function_call import (
     ActorContext,
     FunctionCallRequest,

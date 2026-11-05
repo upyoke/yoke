@@ -8,7 +8,7 @@ predates the work and advances an item on a candidate nothing landed.
 
 from __future__ import annotations
 
-from runtime.api.domain.test_standalone_item_merge_landed import (  # noqa: F401
+from runtime.api.domain.standalone_item_merge_landed_test_support import (
     LANE_SHA,
     MERGE_SHA,
     RECEIPT,

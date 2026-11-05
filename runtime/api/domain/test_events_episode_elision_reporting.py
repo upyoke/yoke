@@ -13,7 +13,7 @@ from yoke_core.domain.events_current_episode import (
     note_elided_prior_episodes,
 )
 from yoke_core.domain.events_queries import _build_where
-from runtime.api.domain.test_events_queries_current_episode import (
+from runtime.api.domain.events_queries_current_episode_test_support import (
     _insert_event,
     _setup_db,
     _stamp_episode,

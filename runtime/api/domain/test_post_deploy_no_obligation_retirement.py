@@ -6,13 +6,13 @@ import pytest
 
 from runtime.api.fixtures.backlog_inserts import insert_item
 
-from runtime.api.domain.test_post_deploy_no_obligation import (
+from runtime.api.domain.post_deploy_no_obligation_test_support import (
     _handler_uses,
     _no_obligation_row,
     _record,
     _seed_item,
 )
-from runtime.api.domain.test_qa_plan_item_retract import (
+from runtime.api.domain.qa_plan_item_retract_test_support import (
     _attach_post_deploy,
     _materialize_item,
 )

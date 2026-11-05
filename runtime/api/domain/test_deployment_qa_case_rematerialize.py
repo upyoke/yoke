@@ -131,7 +131,7 @@ def test_selection_keeps_frozen_body_until_explicit_rematerialization(
     Agent-selected plans freeze into the run's selections, so the subject is
     a run-scoped stage; a member stage runs no plan of its own.
     """
-    from runtime.api.domain.test_deployment_qa_stage_execution import (
+    from runtime.api.domain.deployment_qa_stage_execution_test_support import (
         _plan,
         _seed_run,
         _stages,

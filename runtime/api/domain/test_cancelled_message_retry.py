@@ -10,7 +10,7 @@ from yoke_core.domain.session_message_store import (
     insert_message,
     message_details,
 )
-from runtime.api.domain.test_session_message_support import (
+from runtime.api.domain.session_message_support_test_support import (
     NOW,
     message_connection,
     selector,
@@ -72,8 +72,11 @@ def test_deployment_driver_resends_cancelled_notice_at_its_next_check(test_db):
         stage_wait_idempotency_key,
     )
     from yoke_core.domain.work_claim_targets import make_item_target
-    from runtime.api.domain.test_deployment_qa_stage_dispatch_wake import _run, _member
-    from runtime.api.domain.test_deployment_qa_stage_wake_delivery import (
+    from runtime.api.domain.deployment_qa_stage_dispatch_wake_test_support import (
+        _run,
+        _member,
+    )
+    from runtime.api.domain.deployment_qa_stage_wake_delivery_test_support import (
         HOLDER_A,
         _project,
         _claim,

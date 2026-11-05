@@ -6,7 +6,9 @@ from types import SimpleNamespace
 from yoke_cli.commands import _helpers
 from yoke_contracts.api.function_call import FunctionCallResponse, TargetRef
 from yoke_core.domain.terminal_lane_cleanup import TerminalLaneCloseOut
-from runtime.api.cli.test_yoke_operations_cli_deployment import _run_capture
+from runtime.api.cli.yoke_operations_cli_deployment_test_support import (
+    _run_capture,
+)
 
 
 def _response(request, result: dict) -> FunctionCallResponse:

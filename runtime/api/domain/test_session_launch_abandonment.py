@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+
 from yoke_contracts.timestamps import parse_instant
 
 import json
@@ -28,7 +29,7 @@ from runtime.api.domain.session_launch_worker_test_support import (
     add_worker_activity_tables as _worker_tables,
     delivered_launch as _delivered_launch,
 )
-from runtime.api.domain.test_session_message_support import message_connection
+from runtime.api.domain.session_message_support_test_support import message_connection
 
 
 def _capture_notifications(monkeypatch) -> list[tuple[str, str]]:

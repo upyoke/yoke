@@ -15,7 +15,7 @@ from yoke_core.domain.session_broker_wake_fallback import (
     direct_wake_waits_for_broker,
 )
 from yoke_core.domain.session_message_service import send_message
-from runtime.api.domain.test_session_message_support import (
+from runtime.api.domain.session_message_support_test_support import (
     NATIVE_WAKE_SESSION_ID,
     NOW,
     message_connection,
@@ -178,7 +178,7 @@ def test_native_failed_completion_allows_actual_relay_claim_after_cooldown():
         claim_wake_attempt,
     )
     from yoke_core.domain.session_relay_types import RelayHeartbeat
-    from runtime.api.domain.test_session_relay_wake_claim import _waiting
+    from runtime.api.domain.session_relay_wake_claim_test_support import _waiting
 
     conn = message_connection()
     _waiting(conn)

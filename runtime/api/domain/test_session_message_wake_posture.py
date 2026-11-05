@@ -11,7 +11,7 @@ from yoke_core.domain.session_message_wake import wake_eligible_recipients
 from yoke_core.domain.session_relay_types import WakeMode
 from yoke_core.domain.session_relay_wake_claim import claim_wake_attempt
 from yoke_core.domain.session_turn_posture import stamp_turn_posture
-from runtime.api.domain.test_session_message_support import (
+from runtime.api.domain.session_message_support_test_support import (
     NATIVE_WAKE_SESSION_ID,
     NOW,
     NOW_TEXT,
@@ -197,7 +197,7 @@ def test_stale_running_codex_resumes_and_delivers_the_original_receipt(monkeypat
     from yoke_core.domain.session_message_lease_complete import complete_hook_lease
     from yoke_core.domain.session_relay import claim_relay_job
     from yoke_harness.session_relay_runtime import wake_operation as relay_operation
-    from runtime.api.domain.test_session_message_machine_wake_route import (
+    from runtime.api.domain.session_message_machine_wake_route_test_support import (
         WAKE_TIME,
         _heartbeat,
         _register_relay,

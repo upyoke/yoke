@@ -9,6 +9,7 @@ Overflow, deferred-session, and operator-summary cases live in
 ``test_strategize_carry_summary.py``. Shared
 helpers live in ``test_strategize_carry_test_helpers``.
 """
+
 from __future__ import annotations
 
 import unittest
@@ -24,7 +25,7 @@ from yoke_core.domain.strategize_carry import (
 )
 from yoke_core.domain.schema_common import _table_exists
 from runtime.api.fixtures.schema_ddl import apply_fixture_ddl
-from runtime.api.test_strategize_carry_test_helpers import (
+from runtime.api.strategize_carry_test_helpers_test_support import (
     PROJECTS_DDL,
     _make_db,
     _seed_landed_items,

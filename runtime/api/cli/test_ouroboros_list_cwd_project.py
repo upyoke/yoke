@@ -1,7 +1,11 @@
 """Feedback list scope is explicit and defaults to the whole universe."""
 
 from unittest.mock import patch
-from runtime.api.cli.test_yoke_operations_cli_dispatch import _CAPTURED_REQUESTS, _run_with_dispatch, _stub_dispatch_ok
+from runtime.api.cli.yoke_operations_cli_dispatch_test_support import (
+    _CAPTURED_REQUESTS,
+    _run_with_dispatch,
+    _stub_dispatch_ok,
+)
 
 
 def test_default_scope_remains_universe_in_a_checkout():

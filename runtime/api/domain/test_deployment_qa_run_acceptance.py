@@ -8,16 +8,21 @@ member whose own QA is still outstanding while a sibling's has passed.
 
 from __future__ import annotations
 
+from runtime.api.domain.deployment_qa_run_acceptance_test_support import (
+    _acceptance_requirement_id as _acceptance_requirement_id,
+    _settle as _settle,
+)
+
+
 import json
 from typing import Any
 
-from runtime.api.domain.test_deployment_qa_stage_execution import (
-    _complete_case,
+from runtime.api.domain.deployment_qa_stage_execution_test_support import (
     _plan,
     _seed_run,
     _stages,
 )
-from runtime.api.domain.test_deployment_qa_stage_ordering import (
+from runtime.api.domain.deployment_qa_stage_ordering_test_support import (
     _complete_failed,
     _stages as _ordered_stages,
 )
@@ -37,28 +42,6 @@ from yoke_core.domain.deployment_qa_stage_materialization import (
 from yoke_core.domain.qa_plan_execution_state import begin_plan_execution
 
 
-def _settle(conn: Any, *, run_id: str, stage: str, member: int | None) -> None:
-    """Drive one stage subject all the way to a recorded acceptance."""
-    materialize_deployment_qa_stage(
-        conn,
-        deployment_run_id=run_id,
-        deployment_stage=stage,
-        deployment_member_item_id=member,
-    )
-    execution = begin_plan_execution(
-        conn,
-        deployment_run_id=run_id,
-        deployment_stage=stage,
-        deployment_member_item_id=member,
-        actor_id="2",
-        session_id=f"{stage}-{member}",
-    )
-    _complete_case(conn, execution)
-    assert deployment_qa_stage_status(
-        conn, run_id=run_id, stage_name=stage, member_item_id=member
-    )["accepted"]
-
-
 def _finish_run(conn: Any, run_id: str) -> None:
     """The pipeline's own terminal state, after every stage was walked."""
     conn.execute(
@@ -67,16 +50,6 @@ def _finish_run(conn: Any, run_id: str) -> None:
         (run_id,),
     )
     conn.commit()
-
-
-def _acceptance_requirement_id(conn: Any, run_id: str, stage: str) -> int:
-    row = conn.execute(
-        "SELECT id FROM qa_requirements WHERE deployment_run_id=%s "
-        "AND deployment_stage=%s AND qa_kind=%s ORDER BY id DESC LIMIT 1",
-        (run_id, stage, DEPLOYMENT_STAGE_ACCEPTANCE_QA_KIND),
-    ).fetchone()
-    assert row is not None
-    return int(row["id"])
 
 
 def test_unsettled_stage_blocks_a_run_that_already_succeeded(test_db) -> None:

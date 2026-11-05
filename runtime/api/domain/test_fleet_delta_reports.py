@@ -1,14 +1,16 @@
 """Disappearance explanations share report cooldown, framing and read budget."""
 
+from runtime.api.domain.fleet_delta_reports_test_support import NOW as NOW
+
+
 import io
-from datetime import datetime, timedelta, timezone
+from datetime import timedelta
 from types import SimpleNamespace
 
 from yoke_core.domain.fleet_delta_reports import ReportState, append_steering_reports
 from yoke_core.domain.fleet_delta_snapshot import STEERING_REPORT_FUNCTION
 from yoke_core.domain.steering_fleet_report_render import REPORT_BEGIN, REPORT_END
 
-NOW = datetime(2026, 10, 1, tzinfo=timezone.utc)
 REF = "held-candidate"
 
 

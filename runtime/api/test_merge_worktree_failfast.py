@@ -24,7 +24,7 @@ from __future__ import annotations
 import pytest
 
 from runtime.api import merge_worktree_test_rest_fakes as rest_fakes
-from runtime.api.test_merge_worktree_full import (
+from runtime.api.merge_worktree_full_test_support import (
     MergeEnv,
     _git,
     _write_file,
@@ -57,7 +57,7 @@ def _run(rest_env, *, extra_env=None):
 
 
 def _branch():
-    from runtime.api.test_merge_worktree_full import TEST_BRANCH
+    from runtime.api.merge_worktree_full_test_support import TEST_BRANCH
 
     return TEST_BRANCH
 

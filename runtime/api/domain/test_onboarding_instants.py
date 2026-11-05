@@ -13,7 +13,7 @@ from yoke_core.domain import project_onboarding_runs as runs
 from yoke_core.domain import project_onboarding_updates as writes
 from yoke_core.domain import project_onboarding_run_supersede as reconciliation
 from yoke_core.domain import qa_catalog_schema as catalog
-from runtime.api.domain.test_project_onboarding_runs import _conn
+from runtime.api.domain.project_onboarding_runs_test_support import _conn
 
 STAMP = parse_instant("1969-12-31T05:44:59.123456+05:45")
 OPAQUE = {"calendar": "1970-01-01", "provider_clock": "unqualified evidence"}

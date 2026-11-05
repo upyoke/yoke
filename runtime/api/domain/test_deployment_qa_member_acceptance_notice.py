@@ -8,24 +8,24 @@ the flow declares still blocks the send.
 
 from __future__ import annotations
 
+from runtime.api.domain.deployment_qa_member_acceptance_notice_test_support import (
+    _executing_run as _executing_run,
+)
+
+
 from typing import Any
 
-from runtime.api.domain.test_deployment_delivery_close_out_notice import (
-    _member_at_release_wait,
-    _parked_owner,
-)
-from runtime.api.domain.test_deployment_qa_run_acceptance import _settle
-from runtime.api.domain.test_deployment_qa_stage_execution import (
+from runtime.api.domain.deployment_qa_run_acceptance_test_support import _settle
+from runtime.api.domain.deployment_qa_stage_execution_test_support import (
     _plan,
     _seed_run,
     _stages,
 )
-from runtime.api.domain.test_deployment_qa_stage_ordering import (
+from runtime.api.domain.deployment_qa_stage_ordering_test_support import (
     _stages as _run_scoped_stages,
 )
-from runtime.api.domain.test_deployment_qa_stage_wake_delivery import (
+from runtime.api.domain.deployment_qa_stage_wake_delivery_test_support import (
     HOLDER_A,
-    HOLDER_B,
     _bodies,
     _project,
     _recipients,
@@ -44,27 +44,6 @@ MEMBER_A = 33261
 MEMBER_B = 33262
 MEMBER_SHARED = 33263
 MEMBER_DONE = 33264
-
-
-def _executing_run(
-    conn: Any,
-    run_id: str,
-    members: tuple[int, ...],
-    *,
-    stages: list | None = None,
-    plan_slug: str,
-) -> None:
-    _project(conn)
-    for item_id in members:
-        _member_at_release_wait(conn, item_id)
-        _parked_owner(conn, HOLDER_A if item_id == members[0] else HOLDER_B, item_id)
-    _seed_run(
-        conn,
-        run_id=run_id,
-        stages=stages or _stages(_plan(conn, plan_slug)),
-        members=(),
-        existing_members=members,
-    )
 
 
 def test_accepted_item_qa_wakes_the_parked_owner_while_the_run_executes(
@@ -214,13 +193,13 @@ def test_a_failed_send_does_not_undo_the_recorded_acceptance(
 
 
 def test_delivering_execution_defers_both_verdict_close_out_paths(test_db, monkeypatch):
-    from runtime.api.domain import test_deployment_qa_stage_execution as support
-    from runtime.api.domain.test_independent_member_delivery_close_out import (
+    from runtime.api.domain import deployment_qa_stage_execution_test_support as support
+    from runtime.api.domain.independent_member_delivery_close_out_test_support import (
         MEMBER_A,
         _seed_final_run,
         _status,
     )
-    from runtime.api.domain.test_status_transition_preflight import (
+    from runtime.api.domain.status_transition_preflight_test_support import (
         _isolate_status_effects,
     )
     from yoke_core.domain.deployment_member_close_out_retry import (

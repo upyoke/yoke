@@ -9,7 +9,7 @@ from types import SimpleNamespace
 import pytest
 
 from runtime.api.domain.merge_queue_observer_test_helpers import message_count
-from runtime.api.domain.test_session_ci_wait_observer import (
+from runtime.api.domain.session_ci_wait_observer_test_support import (
     NOW,
     waiting_connection as waiting_connection,
 )

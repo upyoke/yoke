@@ -12,7 +12,7 @@ from runtime.api.backlog_github_sync_test_helpers import (
     make_db as _make_db,
 )
 from runtime.api.conftest import insert_item
-from runtime.api.test_constants import TEST_ITEM_REF
+from runtime.api.constants_test_support import TEST_ITEM_REF
 from yoke_core.domain import backlog_github_label_sync, backlog_github_sync
 from yoke_core.domain.project_github_auth import ProjectGithubAuth
 

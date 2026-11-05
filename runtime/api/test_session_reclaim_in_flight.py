@@ -13,12 +13,12 @@ from datetime import timedelta
 import pytest
 
 from runtime.api.sessions_api_stale_test_helpers import _ago_minutes, _now_instant
-from runtime.api.test_session_reclaim_activity import (
+from runtime.api.session_reclaim_activity_test_support import (
     _emit_tool_event,
     _seed_claim,
     _seed_session,
 )
-from runtime.api.test_sessions import _insert_claimable_item, conn  # noqa: F401
+from runtime.api.sessions_test_support import _insert_claimable_item, conn  # noqa: F401
 from yoke_core.domain.session_reclaim_activity import (
     IN_FLIGHT_HARD_TTL_MULTIPLIER,
     REASON_ABANDONED_IN_FLIGHT,

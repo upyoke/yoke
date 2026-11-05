@@ -15,7 +15,7 @@ from yoke_core.domain.session_wake_process_absence import NATIVE_PROCESS_GONE
 from yoke_core.domain.session_native_process_observation import (
     current_native_process_observation,
 )
-from runtime.api.domain.test_session_message_support import (
+from runtime.api.domain.session_message_support_test_support import (
     ACK_GRACE,
     NATIVE_WAKE_SESSION_ID,
     NOW,

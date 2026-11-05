@@ -6,10 +6,8 @@ import json
 
 import pytest
 
-from runtime.api.domain.test_dash_posture_gate import (
-    _insert_dash,
-    dash_db_path as dash_db_path,
-)
+from runtime.api.domain.dash_posture_gate_test_support import (_insert_dash)
+from runtime.api.domain.dash_posture_deployment_containment_test_support import (dash_db_path as dash_db_path)
 from runtime.api.fixtures.backlog_inserts import (
     insert_item_worktree,
     insert_qa_requirement,

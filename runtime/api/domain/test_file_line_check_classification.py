@@ -5,7 +5,7 @@ import pathlib
 from yoke_core.domain import file_line_check as flc
 import pytest
 
-from runtime.api.domain.test_file_line_check import _init_git_repo, _commit_file
+from runtime.api.domain.file_line_check_test_support import _init_git_repo, _commit_file
 
 
 @pytest.fixture
@@ -113,5 +113,3 @@ def test_classify_path_symlink(repo: pathlib.Path) -> None:
     link = repo / "link.md"
     link.symlink_to(target)
     assert flc.classify_path("link.md", repo_root=repo) == flc.Classification.SYMLINK
-
-

@@ -4,8 +4,8 @@ import importlib
 
 import pytest
 
-from runtime.api.domain import test_deployment_run_target_takeover as takeover
-from runtime.api.domain.test_deployment_qa_successor_retry import (
+from runtime.api.domain import deployment_run_target_takeover_test_support as takeover
+from runtime.api.domain.deployment_qa_successor_retry_test_support import (
     HOLDER_A,
     MEMBER,
     _seed_member_execution,
@@ -303,8 +303,10 @@ def test_inflight_frozen_walk_can_finish_after_materialization_rebinds(
 
 
 def test_unbound_direct_case_is_initialized_by_its_existing_binder(test_db):
-    from runtime.api.domain.test_direct_deployment_qa_case_execution import _qa_stages
-    from runtime.api.domain.test_deployment_qa_stage_execution import _seed_run
+    from runtime.api.domain.direct_deployment_qa_case_execution_test_support import (
+        _qa_stages,
+    )
+    from runtime.api.domain.deployment_qa_stage_execution_test_support import _seed_run
     from runtime.api.fixtures.backlog_qa_inserts import insert_qa_requirement
 
     run_id, member = "run-unbound-case-materialize", 9867

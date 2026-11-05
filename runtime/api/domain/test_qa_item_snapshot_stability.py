@@ -2,8 +2,8 @@
 
 import pytest
 
-from runtime.api.domain.test_qa_plan_case_currency import _case, _materialized
-from runtime.api.test_qa_case_environment_obligations import _setup
+from runtime.api.domain.qa_plan_case_currency_test_support import _case, _materialized
+from runtime.api.qa_case_environment_obligations_test_support import _setup
 from yoke_core.domain.qa_plan_attachments import (
     attach_plan_to_item,
     materialize_for_item,

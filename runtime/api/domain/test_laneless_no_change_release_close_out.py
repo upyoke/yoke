@@ -8,16 +8,15 @@ its lifecycle transition is the ceremony. Every other done gate still runs.
 
 from __future__ import annotations
 
-from runtime.api.domain.test_dash_posture_deployment_containment import (  # noqa: F401
+from runtime.api.domain.dash_posture_deployment_containment_test_support import (
     _insert_dash,
-    dash_db_path,
 )
-from runtime.api.domain.test_no_change_dash_close_out import (
+from runtime.api.domain.no_change_dash_close_out_test_support import (
     _bind_fixture_db,
     _empty_delivery_reads,
     _request,
 )
-from runtime.api.domain.test_status_transition_preflight import (
+from runtime.api.domain.status_transition_preflight_test_support import (
     _isolate_status_effects,
 )
 from runtime.api.fixtures.backlog_inserts import (

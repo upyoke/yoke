@@ -16,7 +16,7 @@ import urllib.request
 
 import uvicorn
 
-from runtime.api import test_web_sign_in_door as door
+from runtime.api import web_sign_in_door_test_support as door
 from runtime.api.fixtures.machine_config_test import select_machine_config_file
 from runtime.api.fixtures.operating_actor import record_fixture_operating_actor
 from yoke_cli.config import hosted_machine_authorization as auth

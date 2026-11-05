@@ -2,7 +2,7 @@
 
 from types import SimpleNamespace
 
-from runtime.api.domain.test_deployment_run_member_removal import (
+from runtime.api.domain.deployment_run_member_removal_test_support import (
     ITEM,
     RUN,
     _red_member,

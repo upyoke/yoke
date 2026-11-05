@@ -8,7 +8,7 @@ from runtime.api.sessions_api_stale_test_helpers import (
     _ago_minutes,
     conn as session_conn,  # noqa: F401
 )
-from runtime.api.test_sessions import _register
+from runtime.api.sessions_test_support import _register
 from yoke_core.domain.sessions_cleanup import clean_stale_harness_sessions
 
 

@@ -8,7 +8,7 @@ from yoke_core.domain import projects_capabilities_settings as pcs
 from yoke_core.domain.github_actions_runner_fleet_capability import (
     MAX_RUNNER_FLEET_HOSTS,
 )
-from runtime.api.domain.test_projects_capabilities_settings import cap_db
+from runtime.api.domain.projects_capabilities_settings_test_support import cap_db
 
 
 _FIXTURES = (cap_db,)

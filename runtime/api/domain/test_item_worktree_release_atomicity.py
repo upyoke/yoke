@@ -6,7 +6,9 @@ from contextlib import nullcontext
 import threading
 from typing import Any
 
-from runtime.api.domain.handlers.test_item_worktree_handlers import _request
+from runtime.api.domain.handlers.item_worktree_handlers_test_support import (
+    _request,
+)
 from runtime.api.fixtures.backlog import insert_item
 from runtime.api.fixtures.pg_testdb import connect_test_database
 from yoke_core.domain import db_helpers

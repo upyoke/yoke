@@ -59,7 +59,9 @@ def test_known_project_values_still_refuse(tmp_path, monkeypatch, value):
 @pytest.mark.parametrize("executor", ["claude-code", "codex", "cursor"])
 def test_hook_evaluation_survives_unknown_project_key(tmp_path, monkeypatch, executor):
     import io
-    from runtime.api.cli.test_yoke_operations_cli_hooks import _FakeResponse
+    from runtime.api.cli.yoke_operations_cli_hooks_test_support import (
+        _FakeResponse,
+    )
     from yoke_cli.main import main
     from yoke_harness.hooks import relay, machine_hooks
 

@@ -25,7 +25,7 @@ import json
 import pytest
 
 from runtime.api.fixtures.backlog import insert_item
-from runtime.api.test_sessions import _register  # noqa: F401  (plain helper)
+from runtime.api.sessions_test_support import _register  # noqa: F401  (plain helper)
 from runtime.api.sessions_api_stale_test_helpers import (
     _ago_minutes,
     _now_instant,

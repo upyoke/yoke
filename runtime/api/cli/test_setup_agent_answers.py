@@ -208,10 +208,12 @@ def test_changed_presets_refuse_and_keep_the_stored_ones(agent):
 
 
 @pytest.mark.parametrize("approval_started", [False, True])
-def test_changed_presets_stop_before_machine_setup(agent, monkeypatch, approval_started):
+def test_changed_presets_stop_before_machine_setup(
+    agent, monkeypatch, approval_started
+):
     from unittest.mock import Mock
 
-    from runtime.api.cli.test_setup_agent_approvals import _pending
+    from runtime.api.cli.setup_agent_approvals_test_support import _pending
     from yoke_cli.commands.adapters import onboard_agent
     from yoke_cli.config import hosted_machine_authorization
 

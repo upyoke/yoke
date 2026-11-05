@@ -6,13 +6,13 @@ import json
 
 import pytest
 
-from runtime.api.domain.test_session_message_support import (
+from runtime.api.domain.session_message_support_test_support import (
     NATIVE_WAKE_SESSION_ID,
     NOW,
     NOW_TEXT,
     message_connection,
 )
-from runtime.api.domain.test_session_wake_exhausted_meter import (
+from runtime.api.domain.session_wake_exhausted_meter_test_support import (
     _ABSENT,
     CREDITS,
     DISABLED,

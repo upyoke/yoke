@@ -14,7 +14,7 @@ from yoke_cli.commands.merge_audit import merge_audit
 from yoke_cli.commands.tool_shaped import resolve_tool_shaped
 from yoke_cli.commands.usher_reconcile import usher_reconcile_github
 from yoke_cli.main import main as cli_main
-from runtime.api.test_constants import TEST_ITEM_REF
+from runtime.api.constants_test_support import TEST_ITEM_REF
 
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
@@ -158,4 +158,3 @@ def test_product_boundary_inventory_classifies_recovery_commands() -> None:
         assert {edge.classification for edge in row.import_edges} == {
             "source_dev_admin"
         }
-

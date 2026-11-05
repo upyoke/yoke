@@ -154,7 +154,9 @@ def test_message_receipt_sizes_and_collapsed_body_notice():
 
 def test_json_get_and_acknowledgement_keep_full_receipt_facts():
     import json
-    from runtime.api.cli.test_yoke_operations_cli_dispatch import _run_capture
+    from runtime.api.cli.yoke_operations_cli_dispatch_test_support import (
+        _run_capture,
+    )
     from yoke_contracts.api.function_call import FunctionCallResponse
 
     message = {

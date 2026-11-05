@@ -2,13 +2,19 @@
 
 from __future__ import annotations
 
-import json
+from runtime.api.domain.baseline_harness_requests_test_support import (
+    _Control as _Control,
+    _document as _document,
+    _events as _events,
+    _response as _response,
+)
+
+
 import base64
 import shlex
 import subprocess
 from types import SimpleNamespace
 
-from yoke_harness.test_machine_types import HostActionResult
 
 import pytest
 
@@ -24,59 +30,6 @@ from yoke_harness.ssh_mac_golden_capture import capture_golden_baseline
 from yoke_harness import ssh_mac_gui_session
 from yoke_harness.ssh_mac_transport import SshMacTransport
 from yoke_harness.ssh_linux_host_operations import SshLinuxHostOperations
-
-
-def _document(program):
-    return json.dumps(
-        {
-            "probes": [
-                {
-                    "name": "signed-in harness",
-                    "argv": [f"/home/test/.local/bin/{program}", "status"],
-                    "expect_output_contains": "Logged in",
-                }
-            ]
-        }
-    )
-
-
-def _events(*events):
-    return "\n".join(json.dumps(event) for event in events)
-
-
-def _response(program):
-    if program == "codex":
-        return _events(
-            {"type": "item.completed", "item": {"type": "agent_message", "text": "OK"}},
-            {"type": "turn.completed", "usage": {"output_tokens": 1}},
-        )
-    return _events(
-        {"type": "result", "subtype": "success", "is_error": False, "result": "OK"}
-    )
-
-
-class _Control:
-    golden_baseline_path = "/srv/golden"
-
-    def __init__(self, program, *, stdout=None, returncode=0):
-        self.document = _document(program)
-        self.result = SimpleNamespace(
-            returncode=returncode,
-            stdout=_response(program) if stdout is None else stdout,
-            stderr="private-account@example.com expired OAuth token",
-        )
-        self.calls = []
-
-    def check_terminal_bridge(self):
-        return HostActionResult(True, {})
-
-    def run_command(self, argv, *, timeout, **kwargs):
-        self.calls.append((list(argv), timeout, kwargs))
-        return self.result
-
-    def read_remote_text(self, path):
-        assert path == self.golden_baseline_path + ".probes"
-        return self.document
 
 
 @pytest.mark.parametrize("program", ["claude", "codex", "cursor-agent", "agent"])

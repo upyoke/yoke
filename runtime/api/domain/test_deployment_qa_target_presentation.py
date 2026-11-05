@@ -2,7 +2,7 @@
 
 from collections import Counter
 
-from runtime.api.domain.test_deployment_qa_dispatch_reads import _seed
+from runtime.api.domain.deployment_qa_dispatch_reads_test_support import _seed
 from runtime.api.fixtures.statement_counter import CountingConnection
 from yoke_core.domain import deployment_qa_execution_target as execution
 from yoke_core.domain import deployment_qa_target_continuity as continuity
@@ -63,9 +63,13 @@ def test_overview_target_queries_and_resolutions_are_bounded(test_db, monkeypatc
 
 
 def test_new_presentation_and_uncached_writes_see_new_receipt(test_db, monkeypatch):
-    from runtime.api.domain import test_deployment_run_target_takeover as takeover
-    from runtime.api.domain.test_deployment_qa_successor_receipt import _arrive
-    from runtime.api.domain.test_deployment_qa_takeover_identity import _execution
+    from runtime.api.domain import (
+        deployment_run_target_takeover_test_support as takeover,
+    )
+    from runtime.api.domain.deployment_qa_successor_receipt_test_support import _arrive
+    from runtime.api.domain.deployment_qa_takeover_identity_test_support import (
+        _execution,
+    )
     from yoke_core.domain.deployment_qa_stage_contract import (
         deployment_qa_stage_subject,
     )

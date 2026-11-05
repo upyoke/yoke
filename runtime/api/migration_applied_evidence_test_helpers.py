@@ -30,11 +30,7 @@ from runtime.api.fixtures.machine_config_test import register_machine_checkout
 from yoke_core.domain import backlog_updates
 from runtime.api.fixtures.migration_model_test import governed_postgres_test_seed
 from runtime.api.fixtures.schema_ddl import apply_fixture_ddl
-from runtime.api.test_backlog import (
-    _conn,
-    _patch_externals,
-    tmp_db,  # noqa: F401,F811 — re-exported fixture
-)
+from runtime.api.backlog_test_support import _conn, _patch_externals
 
 
 # ---------------------------------------------------------------------------

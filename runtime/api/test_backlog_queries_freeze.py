@@ -11,12 +11,11 @@ import os
 from unittest import mock
 
 from yoke_core.domain import backlog, db_backend
-from runtime.api.test_backlog import (
+from runtime.api.backlog_test_support import (
     _conn,
     _item_field,
     _patch_externals,
     _seed_item,
-    tmp_db,  # noqa: F401 — re-exported fixture
 )
 
 

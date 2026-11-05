@@ -12,6 +12,17 @@ writes are real and land under a scratch ``YOKE_MACHINE_HOME``.
 
 from __future__ import annotations
 
+from runtime.api.cli.yoke_operations_cli_onboard_destination_test_support import (
+    FAKE_DSN as FAKE_DSN,
+    LOCAL as LOCAL,
+    _FakeEngine as _FakeEngine,
+    _config_payload as _config_payload,
+    _normalized_local_connection as _normalized_local_connection,
+    fake_engine as fake_engine,
+    scratch_home as scratch_home,
+)
+
+
 import json
 from pathlib import Path
 from types import SimpleNamespace
@@ -19,54 +30,12 @@ from types import SimpleNamespace
 import pytest
 
 from yoke_cli import main as yoke_operations_cli
-from yoke_cli.config import local_universe_setup
 from yoke_cli.config import onboard_apply_resume
 from yoke_cli.config import onboard_apply_snapshot
 from yoke_cli.config import onboard_destinations
 from yoke_cli.config import writer
 
 pytestmark = pytest.mark.usefixtures("stub_onboard_session_relay")
-
-FAKE_DSN = "postgresql://yoke@/yoke?host=/fake/local-universe/sock"
-LOCAL = local_universe_setup.LOCAL_ENV
-
-
-class _FakeEngine:
-    """Stands in for the embedded-Postgres engine behind the birth seam."""
-
-    def unsupported_host_reason(self):
-        return ""
-
-    def birth(self, *, org_name=None, admin_name=None, emit=lambda _line: None):
-        emit("fake engine: universe ready")
-        return {
-            "dsn": FAKE_DSN,
-            "born": True,
-            "human_actor_id": 1,
-            "cluster": {"root": "/fake/local-universe", "running": True},
-            "org": {"name": org_name or "Local Org", "slug": "local-org"},
-        }
-
-
-@pytest.fixture()
-def fake_engine(monkeypatch):
-    monkeypatch.setattr(local_universe_setup, "_engine", lambda: _FakeEngine())
-    monkeypatch.setattr(
-        local_universe_setup, "_record_operating_actor", lambda report, path: None
-    )
-
-
-@pytest.fixture()
-def scratch_home(tmp_path: Path, monkeypatch) -> Path:
-    home = tmp_path / "machine-home"
-    monkeypatch.setenv("YOKE_MACHINE_HOME", str(home))
-    monkeypatch.delenv(onboard_destinations.DESTINATION_OVERRIDE, raising=False)
-    monkeypatch.delenv("YOKE_ENV", raising=False)
-    return home
-
-
-def _config_payload(home: Path) -> dict:
-    return json.loads((home / "config.json").read_text(encoding="utf-8"))
 
 
 # ── flag surface ──────────────────────────────────────────────────────────
@@ -161,17 +130,6 @@ def test_destination_override_env_var_routes_local(
     assert "local-universe-init" in [
         step["action"] for step in payload["plan"]["steps"]
     ]
-
-
-def _normalized_local_connection(home: Path) -> dict:
-    payload = _config_payload(home)
-    connection = dict(payload["connections"][LOCAL])
-    source = dict(connection.get("credential_source") or {})
-    dsn_path = source.pop("path", "")
-    connection["credential_source"] = source
-    connection["dsn_value"] = Path(dsn_path).read_text(encoding="utf-8").strip()
-    connection["active_env"] = payload.get("active_env")
-    return connection
 
 
 def test_local_apply_lands_config_like_yoke_init_local(

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from runtime.api.domain.test_steering_fleet_report_compose import NOW, _report
+from runtime.api.domain.steering_fleet_report_compose_test_support import NOW, _report
 from yoke_core.domain.steering_fleet_plan_capacity import PLAN_LIMIT_HEADING
 from yoke_core.domain.steering_fleet_report_capacity import (
     SessionCount,

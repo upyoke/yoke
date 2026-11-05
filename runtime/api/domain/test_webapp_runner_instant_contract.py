@@ -15,8 +15,8 @@ import pytest
 from yoke_core.domain.github_actions_runner_fleet_capability import (
     RunnerFleetLifecycleSettings,
 )
-from runtime.api.domain.test_webapp_registry_stack import _Recorder
-from runtime.api.domain.test_webapp_runner_github_broker import (
+from runtime.api.domain.webapp_registry_stack_test_support import _Recorder
+from runtime.api.domain.webapp_runner_github_broker_test_support import (
     _environment,
     _run_driver,
 )

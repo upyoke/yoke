@@ -12,7 +12,7 @@ from typing import Any
 
 import pytest
 
-from runtime.api.domain.test_deployment_qa_stage_wake_delivery import (
+from runtime.api.domain.deployment_qa_stage_wake_delivery_test_support import (
     HOLDER_A,
     _bodies,
     _claim,
@@ -20,9 +20,7 @@ from runtime.api.domain.test_deployment_qa_stage_wake_delivery import (
     _recipients,
     seed_session,
 )
-from runtime.api.domain.test_items_cancel import (
-    _caller_session,  # noqa: F401
-    _isolate_write_side_effects,  # noqa: F401
+from runtime.api.domain.items_cancel_test_support import (
     SESSION,
     _request,
 )

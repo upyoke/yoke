@@ -9,6 +9,12 @@ once for every card it drew, which is the cost these cases pin down.
 
 from __future__ import annotations
 
+from runtime.api.domain.roster_delivery_shared_reads_test_support import (
+    FLOW as FLOW,
+    _version_id as _version_id,
+)
+
+
 import json
 
 from runtime.api.fixtures.backlog_inserts import insert_deployment_run, insert_item
@@ -26,7 +32,6 @@ from yoke_core.domain.release_delivery_summary import (
 )
 
 PROJECT_ID = 1
-FLOW = "yoke-hosted-production"
 OTHER_FLOW = "yoke-hosted-stage"
 ENVIRONMENT_ID = 7
 LINEAGE = "d" * 40
@@ -304,13 +309,6 @@ def test_a_commit_only_ancestry_knows_is_carried_by_the_newest_release(
             "run_id": "run-1",
             "flow": FLOW,
         }
-
-
-def _version_id(conn, item_id: int) -> int:
-    row = conn.execute(
-        "SELECT workflow_version_id FROM items WHERE id = %s", (item_id,)
-    ).fetchone()
-    return int(row["workflow_version_id"] if hasattr(row, "keys") else row[0])
 
 
 __all__: list[str] = []

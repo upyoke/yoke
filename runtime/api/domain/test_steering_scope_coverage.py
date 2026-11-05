@@ -10,7 +10,7 @@ from yoke_core.domain.steering_scope_coverage import (
     steering_scope_covers,
 )
 from yoke_core.domain.strategy_docs_defaults import NEAR_TERM_PLAN_SLUG
-from runtime.api.domain.test_session_message_support import (
+from runtime.api.domain.session_message_support_test_support import (
     NOW_TEXT,
     message_connection,
 )

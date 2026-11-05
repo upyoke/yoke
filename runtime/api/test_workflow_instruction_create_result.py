@@ -7,7 +7,7 @@ from yoke_contracts.api.function_call import (
 )
 from yoke_core.domain import db_helpers
 from runtime.api.item_page_reads_test_support import _connection
-from runtime.api.test_workflow_execution_instruction_functions import (
+from runtime.api.workflow_execution_instruction_functions_test_support import (
     _UnclosableConnection,
     _seed_resolved_instruction,
 )

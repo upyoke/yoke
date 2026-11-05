@@ -2,7 +2,7 @@
 
 from unittest.mock import patch
 import pytest
-from runtime.api.domain.test_deployment_member_run_coverage import (
+from runtime.api.domain.deployment_member_run_coverage_test_support import (
     _flow,
     _run,
     _item,

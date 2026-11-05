@@ -13,7 +13,7 @@ from yoke_harness.session_relay_job_release import release_claimed_job
 from yoke_harness.session_relay_report_delivery import PENDING_REPORT_DIR_NAME
 from yoke_harness.session_relay_report_retry import retry_pending_reports
 from yoke_harness.session_relay_supervision import Supervisor
-from runtime.harness.test_session_relay import _inventory
+from runtime.harness.session_relay_test_support import _inventory
 
 
 def _job(kind="launch"):

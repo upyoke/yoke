@@ -5,12 +5,16 @@ from __future__ import annotations
 import pytest
 
 from runtime.api.fixtures.deployment_run_driver_fixture import release_seeded_driver
-from runtime.api.domain import test_independent_member_delivery_close_out as delivery
-from runtime.api.domain.test_deployment_qa_admission_execution import (
+from runtime.api.domain import (
+    independent_member_delivery_close_out_test_support as delivery,
+)
+from runtime.api.domain.deployment_qa_admission_execution_test_support import (
     _original_requirement,
 )
-from runtime.api.domain.test_deployment_qa_stage_execution import _plan
-from runtime.api.domain.test_status_transition_preflight import _isolate_status_effects
+from runtime.api.domain.deployment_qa_stage_execution_test_support import _plan
+from runtime.api.domain.status_transition_preflight_test_support import (
+    _isolate_status_effects,
+)
 from runtime.api.fixtures.backlog_inserts import (
     insert_item,
     insert_qa_requirement,

@@ -3,7 +3,7 @@
 import importlib
 import shlex
 
-from runtime.api.domain.test_deployment_run_carried_membership_enrollment import (
+from runtime.api.domain.deployment_run_carried_membership_enrollment_test_support import (
     _flows,
     RELEASE_FLOW,
 )
@@ -161,7 +161,7 @@ def test_materialize_infers_project_from_deployment_run(monkeypatch):
 
 
 def test_run_scoped_stage_returns_its_plan_to_the_driver(test_db):
-    from runtime.api.domain.test_deployment_qa_stage_execution import (
+    from runtime.api.domain.deployment_qa_stage_execution_test_support import (
         _plan,
         _seed_run,
         _stages,

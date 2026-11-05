@@ -9,11 +9,11 @@ from yoke_cli.commands.adapters.session_control_human_output import (
 )
 from yoke_core.domain.session_item_scope import session_claim_for_item
 from yoke_core.domain.session_message_terminal import reporting_episode_marker
-from runtime.api.domain.test_session_message_support import (
+from runtime.api.domain.session_message_support_test_support import (
     NOW_TEXT,
     message_connection,
 )
-from runtime.api.domain.test_steering_role_addressed_messages import (
+from runtime.api.domain.steering_role_addressed_messages_test_support import (
     DONE_BODY,
     _message_count,
     _release_item_claim,

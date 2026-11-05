@@ -5,7 +5,7 @@ from threading import Barrier
 
 import pytest
 
-from runtime.api.domain.test_qa_plan_execution_begin_lock_window import (
+from runtime.api.domain.qa_plan_execution_begin_lock_window_test_support import (
     LockWindowRecorder,
     _seed,
     _seed_stage_wide,

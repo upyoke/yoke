@@ -6,9 +6,13 @@ import json
 
 import pytest
 
-from yoke_contracts.api.function_call import ActorContext, FunctionCallRequest, TargetRef
+from yoke_contracts.api.function_call import (
+    ActorContext,
+    FunctionCallRequest,
+    TargetRef,
+)
 from yoke_core.domain.handlers import machine_config_write as handlers
-from runtime.api.domain.test_machine_config_writer_projects import (
+from runtime.api.domain.machine_config_writer_projects_test_support import (
     home as machine_home,
     _config,
     _seed_https,

@@ -13,7 +13,7 @@ from yoke_core.domain import github_actions, github_actions_rest
 from yoke_core.domain.project_github_auth import (
     MissingAppCredentials,
 )
-from runtime.api.domain.test_github_actions_rest import (
+from runtime.api.domain.github_actions_rest_test_support import (
     _RESOLVED,
     _fake_urls,
     _raise_error,

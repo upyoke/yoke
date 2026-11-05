@@ -10,7 +10,7 @@ import tarfile
 
 import pytest
 
-from runtime.api.domain.test_linux_browser_sign_in import operation
+from runtime.api.domain.linux_browser_sign_in_test_support import operation
 from yoke_harness.ssh_linux_baseline import _ARCHIVE_PROGRAM
 
 pytestmark = pytest.mark.skipif(os.getuid() == 0, reason="owner-only archive")

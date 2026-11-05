@@ -14,7 +14,7 @@ import pytest
 from unittest.mock import patch
 
 from runtime.api.fixtures.backlog import insert_item
-from runtime.api.test_sessions import _register
+from runtime.api.sessions_test_support import _register
 from yoke_core.domain.sessions import (
     EVENT_HARNESS_SESSION_END_RELEASED_CLAIMS,
     EVENT_HARNESS_SESSION_ENDED,
@@ -22,7 +22,7 @@ from yoke_core.domain.sessions import (
     end_session,
 )
 
-pytest_plugins = ("runtime.api.test_sessions",)
+pytest_plugins = ("runtime.api.sessions_test_support",)
 
 
 PRIMARY_ITEM_ID = 9999

@@ -24,7 +24,7 @@ from yoke_core.domain.work_claim_targets import make_item_target
 from yoke_contracts.session_model_facts import SessionModelFacts
 
 
-pytest_plugins = ("runtime.api.test_service_client_sessions_helpers",)
+pytest_plugins = ("runtime.api.service_client_sessions_helpers_test_support",)
 
 
 def _now_iso() -> str:

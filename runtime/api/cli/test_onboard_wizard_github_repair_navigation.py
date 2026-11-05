@@ -15,7 +15,7 @@ from runtime.api.cli.onboard_wizard_test_helpers import (  # noqa: E402
     advance_past_path,
     stub_path_doctor,
 )
-from runtime.api.cli.test_onboard_wizard_github_navigation_safety import (  # noqa: E402
+from runtime.api.cli.onboard_wizard_github_navigation_safety_test_support import (
     _app,
     _body_text,
     _row_values,

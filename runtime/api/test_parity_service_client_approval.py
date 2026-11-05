@@ -6,7 +6,7 @@ import json
 
 import pytest
 
-from runtime.api.test_parity import _run_service_client as _run_subprocess
+from runtime.api.parity_test_support import _run_service_client as _run_subprocess
 
 from yoke_core.domain import approval
 from runtime.api.fixtures.file_test_db import connect_test_db

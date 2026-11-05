@@ -5,11 +5,11 @@ from dataclasses import replace
 
 import pytest
 
-from runtime.api.domain.test_deployment_composition_clock_filters import (
+from runtime.api.domain.deployment_composition_clock_filters_test_support import (
     DRIVER_STAMP,
     clocks as clocks,
 )
-from runtime.api.domain.test_deployment_clock_reads import (
+from runtime.api.domain.deployment_clock_reads_test_support import (
     native_clocks as native_clocks,
 )
 from yoke_contracts.timestamps import InvalidInstant, format_instant
@@ -23,7 +23,7 @@ ITEM_REF = f"ITEM-{ITEM_ID}"
 
 @pytest.mark.parametrize("field", ["observed_at", "changed_at"])
 def test_required_observation_null_refuses_before_storage(field):
-    from runtime.api.domain.test_merge_queue_landing_record import _record
+    from runtime.api.domain.merge_queue_landing_record_test_support import _record
     from yoke_core.domain.merge_queue_landing_record import write_landing_record
     from yoke_core.domain.merge_queue_landing_record_state import PENDING
 

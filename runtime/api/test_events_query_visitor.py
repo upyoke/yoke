@@ -6,7 +6,9 @@ import pytest
 
 from runtime.api.auth_test_helpers import mint_api_auth_context
 from runtime.api.conftest import insert_event
-from runtime.api.domain.handlers.test_events_read_authorization import request
+from runtime.api.domain.handlers.events_read_authorization_test_support import (
+    request,
+)
 from yoke_core.domain.handlers import events_reads
 
 
@@ -42,7 +44,9 @@ def test_visitor_reads_only_matching_frontend_rows_for_org_admin(test_db, verb):
 @pytest.mark.parametrize("verb", ["query", "count", "anomalies"])
 @pytest.mark.parametrize("served", [False, True])
 def test_cli_carries_visitor_filter_and_refuses_older_serving_builds(verb, served):
-    from runtime.api.cli.test_yoke_operations_cli_dispatch import _run_capture
+    from runtime.api.cli.yoke_operations_cli_dispatch_test_support import (
+        _run_capture,
+    )
     from yoke_contracts.api.function_call import FunctionCallResponse
 
     def reply(request):

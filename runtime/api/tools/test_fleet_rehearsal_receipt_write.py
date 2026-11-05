@@ -12,7 +12,7 @@ import pytest
 
 from yoke_core.tools import fleet_rehearsal_receipt_write as receipt_write
 from yoke_core.tools import preflight_fleet_migrations as preflight
-from runtime.api.tools.test_migration_admin_selected_readiness import (
+from runtime.api.tools.migration_admin_selected_readiness_test_support import (
     _authority,
     _declare_admin,
     _select_yoke_fleet,

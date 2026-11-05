@@ -4,7 +4,7 @@ from contextlib import nullcontext
 
 import pytest
 
-from runtime.api.domain.test_release_delivery_live_visibility import (
+from runtime.api.domain.release_delivery_live_visibility_test_support import (
     ITEM_ID,
     _LocalAnswer,
     _open_item,

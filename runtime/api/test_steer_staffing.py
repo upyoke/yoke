@@ -1,6 +1,6 @@
 """Steering report command remains reachable from the worker recipes."""
 
-from runtime.api.test_steer_prompt import _STEER_DIR, _read
+from runtime.api.steer_prompt_test_support import _STEER_DIR, _read
 
 
 def test_steering_report_command():

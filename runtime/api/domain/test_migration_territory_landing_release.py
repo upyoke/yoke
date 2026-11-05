@@ -40,7 +40,7 @@ from runtime.api.domain.migration_boot_test_helpers import (
     marks,
     pending_entries,
 )
-from runtime.api.test_backlog import _conn, tmp_db  # noqa: F401 — reused fixtures
+from runtime.api.backlog_test_support import _conn, tmp_db  # noqa: F401 — reused fixtures
 
 MERGE_SHA = "a" * 40
 

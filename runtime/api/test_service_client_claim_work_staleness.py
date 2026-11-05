@@ -11,8 +11,8 @@ from yoke_core.domain.sessions_analytics_core import (
     DEFAULT_STALE_WITH_HOLDINGS_THRESHOLD_MINUTES,
 )
 from yoke_core.domain.work_claim_targets import make_item_target
-from runtime.api.test_service_client import _run_client
-from runtime.api.test_service_client_sessions_helpers import session_test_db  # noqa: F401
+from runtime.api.service_client_test_support import _run_client
+from runtime.api.service_client_sessions_helpers_test_support import session_test_db  # noqa: F401
 
 
 def _iso(minutes_ago: int) -> str:

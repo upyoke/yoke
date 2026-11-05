@@ -10,7 +10,7 @@ from subprocess import CompletedProcess
 
 import pytest
 
-from runtime.api.domain.test_qa_release_channel_target import _target
+from runtime.api.domain.qa_release_channel_target_test_support import _target
 from yoke_core.domain.installer_campaign_execution_target import (
     installer_campaign_cases_for_target,
 )

@@ -8,9 +8,8 @@ Split from ``test_deployment_runs_full.py``.
 from __future__ import annotations
 
 from yoke_core.domain import deployment_runs as dr
-from runtime.api.test_deployment_runs_full_helpers import (  # noqa: F401
+from runtime.api.deployment_runs_full_helpers_test_support import (
     _insert_delivery_ready_item,
-    db_path,
 )
 
 

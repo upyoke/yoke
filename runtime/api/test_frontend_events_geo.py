@@ -5,7 +5,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from runtime.api.test_frontend_events import client, database, event, headers  # noqa: F401
+from runtime.api.frontend_events_test_support import client, database, event, headers  # noqa: F401
 from yoke_core.api import frontend_events_geo as geo
 
 

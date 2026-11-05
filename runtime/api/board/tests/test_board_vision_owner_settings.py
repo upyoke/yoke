@@ -4,9 +4,7 @@ from __future__ import annotations
 
 from yoke_core.domain.handlers import orchestration
 
-from runtime.api.board.tests.test_board_data_function import (  # noqa: F401
-    _request,
-)
+from runtime.api.board.tests.board_data_function_test_support import _request
 
 
 def test_handler_without_settings_project_draws_no_vision(populated_db):

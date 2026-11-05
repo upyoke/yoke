@@ -9,7 +9,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from runtime.api.domain.test_ssh_mac_golden_capture import (
+from runtime.api.domain.ssh_mac_golden_capture_test_support import (
     DESTINATION,
     PROBES,
     FakeCaptureTransport,

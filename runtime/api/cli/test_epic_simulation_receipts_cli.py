@@ -1,7 +1,7 @@
 """Public epic dispatch receipts."""
 
 from yoke_contracts.api.function_call import FunctionCallRequest, FunctionCallResponse
-from runtime.api.cli.test_yoke_operations_cli_epic_review import (
+from runtime.api.cli.yoke_operations_cli_epic_review_test_support import (
     _CAPTURED_REQUESTS,
     _stub_ok,
     _run,

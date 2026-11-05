@@ -11,10 +11,10 @@ from __future__ import annotations
 import json
 from unittest import mock
 
-from runtime.harness.test_hook_local_subset_denial_telemetry import (
+from runtime.harness.hook_local_subset_denial_telemetry_test_support import (
     dirty_repo as dirty_repo,
 )
-from runtime.harness.test_hook_project_scope import project_map as project_map
+from runtime.harness.hook_project_scope_test_support import project_map as project_map
 
 from yoke_core.api.routes.hooks import HookEvaluateRequest, _refuse_conversation_shaped
 from yoke_core.api.routes.hooks_denial_audit import (

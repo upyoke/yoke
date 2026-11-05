@@ -7,11 +7,10 @@ from typing import Any
 
 import pytest
 
-from runtime.api.domain.test_dependency_deployed_satisfaction import (
+from runtime.api.domain.dependency_deployed_satisfaction_test_support import (
     _insert_edge,
     _insert_item,
     _insert_run,
-    dependency_conn,  # noqa: F401
 )
 from runtime.api.frontier_test_helpers import (
     insert_dep as insert_frontier_dep,

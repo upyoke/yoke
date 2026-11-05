@@ -10,7 +10,7 @@ from yoke_core.domain.qa_requirement_pass_currency import (
     bind_correction_identity,
     recorded_method_config,
 )
-from runtime.api.test_qa_requirement_config_update import _OLD_STEPS, _NEW_STEPS
+from runtime.api.qa_requirement_config_update_test_support import _OLD_STEPS, _NEW_STEPS
 
 
 class TestAttachMethodConfigSnapshot:

@@ -23,7 +23,7 @@ from yoke_core.domain.chain_head_freshness import (
     resolve_freshness_window_s,
 )
 from yoke_core.domain.work_claim_targets import make_item_target
-from runtime.api.test_dependency_schema import create_dependency_test_db
+from runtime.api.dependency_schema_test_support import create_dependency_test_db
 
 
 _EPIC_ID = 1684

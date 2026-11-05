@@ -4,7 +4,10 @@ from __future__ import annotations
 
 import pytest
 
-from runtime.api.domain.test_workflow_canon_auto_follow import _seed_generation, _state
+from runtime.api.domain.workflow_canon_auto_follow_test_support import (
+    _seed_generation,
+    _state,
+)
 from runtime.api.fixtures.backlog_inserts import insert_item
 from runtime.api.fixtures.pg_testdb import test_database
 from yoke_core.domain.builtin_workflow_canon import canon_generations

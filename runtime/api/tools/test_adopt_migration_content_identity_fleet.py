@@ -13,7 +13,7 @@ import pytest
 from yoke_core.domain import db_backend
 from yoke_core.tools import adopt_migration_content_identity as tool
 
-from runtime.api.tools.test_adopt_migration_content_identity import (
+from runtime.api.tools.adopt_migration_content_identity_test_support import (
     _argv,
     _artifact,
     _legacy_connection,

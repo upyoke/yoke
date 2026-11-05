@@ -23,7 +23,7 @@ from runtime.api.domain.session_broker_test_support import (
     _seed,
     _stamp,
 )
-from runtime.api.domain.test_session_message_support import selector
+from runtime.api.domain.session_message_support_test_support import selector
 
 
 def _instruct(conn):

@@ -4,8 +4,10 @@ from unittest.mock import patch
 
 import pytest
 
-from runtime.api.cli.test_yoke_operations_cli_qa_catalog import _run
-from runtime.api.domain.handlers.test_qa_method_session_project import _request
+from runtime.api.cli.yoke_operations_cli_qa_catalog_test_support import _run
+from runtime.api.domain.handlers.qa_method_session_project_test_support import (
+    _request,
+)
 from runtime.api.qa_catalog_test_support import create_release_readiness_plan
 from yoke_core.domain.handlers.qa_catalog_reads import handle_method_get
 from yoke_core.domain.item_posture_validation import ItemPostureError, _verification

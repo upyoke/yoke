@@ -3,7 +3,7 @@
 import json
 from dataclasses import replace
 
-from runtime.api.domain.test_steering_fleet_report_compose import NOW, _report
+from runtime.api.domain.steering_fleet_report_compose_test_support import NOW, _report
 from yoke_core.domain.steering_fleet_report_compose import (
     CombinedFleetReport,
     ScopedFleetReport,

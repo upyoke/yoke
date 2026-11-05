@@ -158,7 +158,7 @@ def test_queued_wake_takes_the_explicit_stopped_route(monkeypatch) -> None:
     from yoke_contracts.session_control.wake import EXPLICIT_WAKE_ROUTING_FLAG
     from yoke_core.domain.session_message_store import message_details
     from yoke_core.domain.session_message_wake import wake_eligible_recipients
-    from runtime.api.domain.test_session_message_support import (
+    from runtime.api.domain.session_message_support_test_support import (
         NOW,
         message_connection,
     )

@@ -7,10 +7,9 @@ from typing import Any
 
 import pytest
 
-from runtime.api.domain.test_dependency_deployed_satisfaction import (
+from runtime.api.domain.dependency_deployed_satisfaction_test_support import (
     WORKFLOW,
     _insert_item,
-    dependency_conn,  # noqa: F401
 )
 from yoke_core.domain.dependencies import Satisfaction
 from yoke_core.domain.dependency_explanation import satisfaction_description

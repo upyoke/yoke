@@ -6,7 +6,10 @@ import sys
 from unittest.mock import patch
 
 
-from runtime.api.cli.test_yoke_operations_cli_deployment import _run_capture, _stub_ok
+from runtime.api.cli.yoke_operations_cli_deployment_test_support import (
+    _run_capture,
+    _stub_ok,
+)
 
 
 def test_deployment_run_execute_is_a_client_local_tool() -> None:

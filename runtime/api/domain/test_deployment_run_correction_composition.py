@@ -2,7 +2,7 @@
 
 import pytest
 
-from runtime.api.domain.test_deployment_run_create_stranded_dependents import (
+from runtime.api.domain.deployment_run_create_stranded_dependents_test_support import (
     RELEASE_FLOW,
     _candidate,
 )

@@ -15,9 +15,6 @@ from runtime.api.fixtures.bound_source_release import (
     two_project_release,
 )
 from runtime.api.fixtures.file_test_db import connect_test_db
-from runtime.api.test_api_release_pin_record_route import (
-    release_pin_db,  # noqa: F401 -- imported fixture
-)
 from yoke_core.tools import migration_rehearsal_release_surfaces as surfaces
 from yoke_core.domain.deployment_runs_crud_mutate import CompositionRefused
 from yoke_core.domain.deployment_run_ci_tested_source import ReleaseSourceRefused

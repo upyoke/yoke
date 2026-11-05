@@ -11,9 +11,11 @@ from unittest.mock import Mock
 import pytest
 
 from runtime.api.domain.migration_apply_test_helpers import (
-    _audit_row, _seed_apply_item, apply_env,  # noqa: F401 -- fixture registration
+    _audit_row,
+    _seed_apply_item,
+    apply_env,  # noqa: F401 -- fixture registration
 )
-from runtime.api.test_backlog import _conn, tmp_db  # noqa: F401 -- fixture registration
+from runtime.api.backlog_test_support import _conn, tmp_db  # noqa: F401 -- fixture registration
 from yoke_core.domain import migration_apply_rehearse as runner
 from yoke_core.domain import migration_restore_point
 from yoke_core.domain.migration_apply_contract import MigrationApplyError

@@ -12,7 +12,7 @@ from runtime.api.domain.migration_apply_test_helpers import (  # noqa: F401
     _connect_validation_db,
     apply_env,
 )
-from runtime.api.test_backlog import _conn, tmp_db  # noqa: F401
+from runtime.api.backlog_test_support import _conn, tmp_db  # noqa: F401
 
 
 def test_resolves_capability_from_supplied_control_connection(apply_env) -> None:

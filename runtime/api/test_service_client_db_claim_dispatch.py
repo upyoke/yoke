@@ -20,7 +20,7 @@ from types import SimpleNamespace
 import pytest
 
 from runtime.api.fixtures.dispatch_actor import authorize_every_dispatch
-from runtime.api.test_constants import TEST_ITEM_ID, TEST_ITEM_REF
+from runtime.api.constants_test_support import TEST_ITEM_ID, TEST_ITEM_REF
 
 
 @pytest.fixture(autouse=True)

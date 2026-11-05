@@ -1,12 +1,17 @@
 """A corrected failed group case runs from the same plan and preserves history."""
 
-from runtime.api.domain.test_deployment_qa_plan_group_execution import (
+from runtime.api.domain.deployment_qa_plan_group_execution_test_support import (
     _begin,
     _fail_case,
     _settle,
 )
-from runtime.api.domain.test_deployment_qa_plan_groups import MEMBERS, RUN, SLUG, _seed
-from runtime.api.domain.test_deployment_qa_stage_execution import _complete_case
+from runtime.api.domain.deployment_qa_plan_groups_test_support import (
+    MEMBERS,
+    RUN,
+    SLUG,
+    _seed,
+)
+from runtime.api.domain.deployment_qa_stage_execution_test_support import _complete_case
 from yoke_core.domain.deployment_qa_plan_group_writes import ensure_groups
 from yoke_core.domain.deployment_qa_plan_groups import run_groups
 from yoke_core.domain.deployment_qa_stage_materialization import (

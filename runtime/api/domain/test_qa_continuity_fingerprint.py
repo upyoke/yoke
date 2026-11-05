@@ -124,7 +124,7 @@ def test_method_normalization_retains_recorded_fingerprint(method):
 
 
 def test_local_case_refusal_skips_fixture_execution(monkeypatch, tmp_path):
-    from runtime.api.domain.test_machine_qa_chain_restore import _contract
+    from runtime.api.domain.machine_qa_chain_restore_test_support import _contract
     from yoke_core.domain import machine_qa_local_execution as local
 
     contract = _contract(baselines=[], starting_state="as_is")

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from runtime.api.domain.test_deploy_pipeline_stage_receipt import (
+from runtime.api.domain.deploy_pipeline_stage_receipt_test_support import (
     _dispatch_with,
     _qa_stage,
     _stage,

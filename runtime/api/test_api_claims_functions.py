@@ -8,75 +8,25 @@ the patterns established by ``test_yoke_function_dispatch_claims``.
 
 from __future__ import annotations
 
+from runtime.api.api_claims_functions_test_support import (
+    _ClaimsHandlerSuite as _ClaimsHandlerSuite,
+    _envelope as _envelope,
+)
+
+
 import unittest
-from typing import Any, Dict, Optional
 from unittest.mock import MagicMock, patch
 
-from runtime.api.fixtures.dispatch_actor import authorize_every_dispatch
-from yoke_core.domain import yoke_function_dispatch as dispatch_module
 from yoke_core.domain import yoke_function_dispatch_claims as claims_module
-from yoke_core.domain import yoke_function_dispatch_events as events_module
-from yoke_core.domain.handlers.__init_register__ import register_all_handlers
 from yoke_core.domain.yoke_function_dispatch import dispatch
-from yoke_contracts.api.function_call import (
-    ActorContext,
-    FunctionCallRequest,
-    TargetRef,
-)
 from yoke_core.domain.yoke_function_registry import (
     lookup,
-    reset_registry_for_tests,
 )
 
 
 # ---------------------------------------------------------------------------
 # Suite scaffolding
 # ---------------------------------------------------------------------------
-
-
-class _ClaimsHandlerSuite(unittest.TestCase):
-    def setUp(self) -> None:
-        reset_registry_for_tests()
-        register_all_handlers()
-        self._patchers = [
-            patch(
-                "yoke_core.domain.function_response_refs.render_item_refs",
-                return_value={42: "ITEM-81", 1665: "EXT-19"},
-            ),
-            patch.object(events_module, "emit_event"),
-            authorize_every_dispatch(),
-            patch.object(
-                dispatch_module,
-                "_idempotency_lookup",
-                lambda *_a, **_k: None,
-            ),
-            # Match the envelope's actor session so the actor-identity gate
-            # passes and the test exercises the verify_claim matrix.
-            patch.dict("os.environ", {"YOKE_SESSION_ID": "s-1"}, clear=False),
-        ]
-        for p in self._patchers:
-            p.start()
-
-    def tearDown(self) -> None:
-        for p in reversed(self._patchers):
-            p.stop()
-        reset_registry_for_tests()
-
-
-def _envelope(
-    function: str,
-    *,
-    target: Dict[str, Any],
-    payload: Optional[Dict[str, Any]] = None,
-    session_id: str = "s-1",
-    actor_id: Optional[str] = "op",
-) -> FunctionCallRequest:
-    return FunctionCallRequest(
-        function=function,
-        actor=ActorContext(actor_id=actor_id, session_id=session_id),
-        target=TargetRef(**target),
-        payload=payload or {},
-    )
 
 
 # ---------------------------------------------------------------------------

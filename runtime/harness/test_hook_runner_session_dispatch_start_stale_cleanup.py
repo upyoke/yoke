@@ -17,11 +17,7 @@ from unittest import mock
 import pytest
 
 from runtime.api.sessions_api_stale_test_helpers import _ago_minutes
-from runtime.api.test_sessions import (
-    _insert_claimable_items,
-    _register,
-    conn,  # noqa: F401
-)
+from runtime.api.sessions_test_support import _insert_claimable_items, _register
 from yoke_core.domain.sessions import claim_work
 from yoke_core.hooks import session_dispatch
 from yoke_core.hooks import session_start_stale_cleanup as _reap

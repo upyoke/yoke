@@ -1,10 +1,20 @@
 """Redispatch reaches a live recipient when a prior QA audience ended."""
 
-from runtime.api.domain.test_deployment_qa_plan_groups import RUN, _seed
-from runtime.api.domain.test_deployment_qa_plan_group_scenarios import _dispatch, _form, _manual_plan
-from runtime.api.domain.test_deployment_qa_stage_wake_delivery import _project, seed_session
+from runtime.api.domain.deployment_qa_plan_groups_test_support import RUN, _seed
+from runtime.api.domain.deployment_qa_plan_group_scenarios_test_support import (
+    _dispatch,
+    _form,
+    _manual_plan,
+)
+from runtime.api.domain.deployment_qa_stage_wake_delivery_test_support import (
+    _project,
+    seed_session,
+)
 from runtime.api.fixtures.deployment_run_driver_fixture import release_seeded_driver
-from yoke_core.domain.deployment_run_driver_attachment import attach_driver, PHASE_EXECUTING
+from yoke_core.domain.deployment_run_driver_attachment import (
+    attach_driver,
+    PHASE_EXECUTING,
+)
 
 
 def test_group_dispatch_replaces_notice_to_ended_driver(test_db):
@@ -62,10 +72,14 @@ def test_unanswered_group_with_no_driver_needs_steering_action(test_db):
 
 
 def test_member_dispatch_replaces_notice_to_ended_holder(test_db):
-    from runtime.api.fixtures.deployment_scoped_qa_run_fixture import seed_member_qa_case
-    from runtime.api.domain.test_deployment_qa_stage_wake_delivery import _claim
+    from runtime.api.fixtures.deployment_scoped_qa_run_fixture import (
+        seed_member_qa_case,
+    )
+    from runtime.api.domain.deployment_qa_stage_wake_delivery_test_support import _claim
     from yoke_core.domain.work_claim_targets import make_item_target
-    from yoke_core.domain.deployment_qa_stage_dispatch import materialize_and_gate_deployment_qa_stage
+    from yoke_core.domain.deployment_qa_stage_dispatch import (
+        materialize_and_gate_deployment_qa_stage,
+    )
 
     run_id, member = "run-member-restaffed", 9983
     requirement_id = seed_member_qa_case(test_db, run_id=run_id, member_item_id=member)
@@ -78,21 +92,33 @@ def test_member_dispatch_replaces_notice_to_ended_holder(test_db):
     _project(test_db)
     for session in ("old-holder", "new-holder"):
         seed_session(test_db, session)
-    _claim(test_db, session_id="old-holder", target_kind="item",
-           scope_json=make_item_target(member).scope_json())
+    _claim(
+        test_db,
+        session_id="old-holder",
+        target_kind="item",
+        scope_json=make_item_target(member).scope_json(),
+    )
     stage = {"name": "item-qa", "scope": "item"}
     materialize_and_gate_deployment_qa_stage(test_db, stage, run_id=run_id)
-    test_db.execute("UPDATE harness_sessions SET ended_at=now() WHERE session_id='old-holder'")
-    test_db.execute("UPDATE work_claims SET released_at=now() WHERE session_id='old-holder'")
+    test_db.execute(
+        "UPDATE harness_sessions SET ended_at=now() WHERE session_id='old-holder'"
+    )
+    test_db.execute(
+        "UPDATE work_claims SET released_at=now() WHERE session_id='old-holder'"
+    )
     test_db.commit()
-    _claim(test_db, session_id="new-holder", target_kind="item",
-           scope_json=make_item_target(member).scope_json())
+    _claim(
+        test_db,
+        session_id="new-holder",
+        target_kind="item",
+        scope_json=make_item_target(member).scope_json(),
+    )
     materialize_and_gate_deployment_qa_stage(test_db, stage, run_id=run_id)
     rows = test_db.execute(
         "SELECT r.session_id,m.cancelled_at FROM session_messages m "
         "JOIN session_message_recipients r ON r.message_id=m.message_id "
         "WHERE m.idempotency_key LIKE %s ORDER BY m.created_at",
-        (f"deployment-qa-stage-wait:{run_id}:item-qa:{member}:%",)
+        (f"deployment-qa-stage-wait:{run_id}:item-qa:{member}:%",),
     ).fetchall()
     assert len(rows) == 2
     assert rows[0][0] == "old-holder" and rows[0][1] is not None

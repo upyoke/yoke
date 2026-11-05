@@ -24,10 +24,7 @@ from yoke_contracts.api.function_call import (
     FunctionCallResponse,
     TargetRef,
 )
-from runtime.api.test_constants import TEST_MODEL_ID
-from runtime.api.test_service_client_sessions_helpers import (
-    session_test_db,  # noqa: F401 — re-exported fixture
-)
+from runtime.api.constants_test_support import TEST_MODEL_ID
 
 
 def _valid_payload() -> dict:

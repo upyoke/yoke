@@ -27,14 +27,14 @@ from yoke_core.domain.session_message_page import read_message_page
 from yoke_core.domain.session_message_queries import get_message
 from yoke_core.domain.session_message_service import send_message
 from yoke_core.domain.steering_message_recipients import STEERING_KIND
-from runtime.api.domain.test_session_message_support import (
+from runtime.api.domain.session_message_support_test_support import (
     NOW,
     message_connection,
     page_rows,
     pin_message_clocks,
     selector,
 )
-from runtime.api.domain.test_steering_role_addressed_messages import (
+from runtime.api.domain.steering_role_addressed_messages_test_support import (
     _say_steering,
     _seat,
 )

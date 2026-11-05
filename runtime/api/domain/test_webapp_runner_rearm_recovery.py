@@ -4,7 +4,7 @@ import shutil
 
 import pytest
 
-from runtime.api.domain.test_webapp_runner_github_broker import (
+from runtime.api.domain.webapp_runner_github_broker_test_support import (
     _environment,
     _run_driver,
     _write_node_fixture,

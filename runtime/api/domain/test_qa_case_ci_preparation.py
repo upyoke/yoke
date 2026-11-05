@@ -11,7 +11,7 @@ from runtime.api.domain.qa_case_ci_test_helpers import (
     completed_run,
     wire_ci_case,
 )
-from runtime.api.domain.test_qa_case_ci_source import git
+from runtime.api.domain.qa_case_ci_source_test_support import git
 from yoke_core.domain import (
     lane_base_update,
     qa_case_ci_covering_run,

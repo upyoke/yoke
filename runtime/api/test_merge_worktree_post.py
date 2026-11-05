@@ -20,7 +20,7 @@ from yoke_core.engines.remote_branch_cleanup import RemoteBranchDeleteResult
 
 import pytest
 
-from runtime.api.test_merge_worktree_full import (
+from runtime.api.merge_worktree_full_test_support import (
     TEST_BRANCH,
     MergeEnv,
     MERGE_MODULE,

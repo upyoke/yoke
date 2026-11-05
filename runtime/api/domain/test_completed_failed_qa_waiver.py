@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from runtime.api.domain.test_deployment_qa_case_discharge import (
+from runtime.api.domain.deployment_qa_case_discharge_test_support import (
     MEMBER,
     STAGE,
     _acceptance,
@@ -13,11 +13,19 @@ from runtime.api.domain.test_deployment_qa_case_discharge import (
     _seed,
     _status,
 )
-from runtime.api.domain.test_deployment_delivery_close_out_notice import _project
-from runtime.api.domain.test_no_obligation_member_close_out import _landing_evidence
-from runtime.api.domain.test_deployment_delivery_close_out_notice import _parked_owner
+from runtime.api.domain.deployment_delivery_close_out_notice_test_support import (
+    _project,
+)
+from runtime.api.domain.no_obligation_member_close_out_test_support import (
+    _landing_evidence,
+)
+from runtime.api.domain.deployment_delivery_close_out_notice_test_support import (
+    _parked_owner,
+)
 from runtime.api.fixtures.workflow_pins import current_workflow_pin_if_available
-from runtime.api.domain.test_status_transition_preflight import _isolate_status_effects
+from runtime.api.domain.status_transition_preflight_test_support import (
+    _isolate_status_effects,
+)
 from runtime.api.fixtures.backlog_inserts import insert_qa_requirement
 from yoke_core.domain.deployment_qa_stage_acceptance import STAGE_DISCHARGED
 from yoke_core.domain.qa_requirement_ops import waive_requirement
@@ -206,7 +214,7 @@ def test_unrelated_run_obligation_still_blocks_member_closeout(
 
 
 def test_run_scoped_stage_still_blocks_after_member_failure_is_waived(test_db):
-    from runtime.api.domain.test_deployment_qa_stage_execution import (
+    from runtime.api.domain.deployment_qa_stage_execution_test_support import (
         _plan,
         _seed_run,
         _stages,
@@ -242,14 +250,14 @@ def test_run_scoped_stage_still_blocks_after_member_failure_is_waived(test_db):
 
 
 def test_waived_group_failure_still_leaves_every_other_plan_group_owed(test_db):
-    from runtime.api.domain.test_deployment_qa_plan_groups import (
+    from runtime.api.domain.deployment_qa_plan_groups_test_support import (
         MEMBERS,
         RUN,
         _attach,
         _begin,
         _seed,
     )
-    from runtime.api.domain.test_deployment_qa_stage_execution import (
+    from runtime.api.domain.deployment_qa_stage_execution_test_support import (
         _complete_case,
         _plan,
     )

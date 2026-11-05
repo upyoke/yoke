@@ -9,12 +9,12 @@ from yoke_core.domain.session_message_service import preview_message, send_messa
 from yoke_core.domain.session_message_store import message_details
 from yoke_core.domain.session_message_types import SessionMessageError
 from yoke_core.domain.work_claim_targets import make_steering_target
-from runtime.api.domain.test_session_message_support import (
+from runtime.api.domain.session_message_support_test_support import (
     NOW,
     message_connection,
     selector,
 )
-from runtime.api.domain.test_session_org_messages import (
+from runtime.api.domain.session_org_messages_test_support import (
     NOW as ORG_NOW,
     org_world as org_world,
 )

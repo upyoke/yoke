@@ -3,7 +3,7 @@
 import pytest
 
 from runtime.api.domain.machine_qa_session_seed import seed_qa_session
-from runtime.api.domain.test_qa_member_machine_partitions import (
+from runtime.api.domain.qa_member_machine_partitions_test_support import (
     MEMBER,
     RUN,
     SESSION,

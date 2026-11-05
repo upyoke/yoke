@@ -2,7 +2,7 @@
 
 from unittest import mock
 
-from runtime.api.test_sessions_lifecycle_reactivation_claims import (
+from runtime.api.sessions_lifecycle_reactivation_claims_test_support import (
     _insert_claim,
     _insert_session,
     _ReactivationDBTest,

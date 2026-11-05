@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 
-from runtime.api.domain.test_webapp_registry_stack import _registry_stack
+from runtime.api.domain.webapp_registry_stack_test_support import _registry_stack
 
 
 def test_github_oidc_owns_only_delivery_authority(monkeypatch):

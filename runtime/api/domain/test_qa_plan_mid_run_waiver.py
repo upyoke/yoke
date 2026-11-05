@@ -8,7 +8,7 @@ from runtime.api.domain.machine_qa_host_test_support import (
 )
 from runtime.api.domain.machine_qa_test_support import FakeHostControl
 from runtime.api.domain.qa_plan_execution_test_support import TEST_ITEM_REF
-from runtime.api.domain.test_machine_qa_plan_execution import ACTOR, _request
+from runtime.api.domain.machine_qa_plan_execution_test_support import ACTOR, _request
 from yoke_contracts.api.function_call import FunctionCallResponse, FunctionError
 from yoke_core.domain import (
     machine_qa_plan_case_execution as runner,

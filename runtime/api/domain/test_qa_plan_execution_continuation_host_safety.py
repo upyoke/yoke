@@ -11,8 +11,8 @@ from runtime.api.domain.machine_qa_host_test_support import (
     configure_test_machine,
 )
 from runtime.api.domain.machine_qa_test_support import FakeHostControl
-from runtime.api.domain.test_agent_mission_qa import _materialize_mission
-from runtime.api.domain.test_qa_plan_execution_parked_continuation import (
+from runtime.api.domain.agent_mission_qa_test_support import _materialize_mission
+from runtime.api.domain.qa_plan_execution_parked_continuation_test_support import (
     LONG_AGO,
     MISSION_ACTOR,
     MISSION_TRANSITION,

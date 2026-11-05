@@ -1,12 +1,12 @@
 """Launch convergence makes queued item mail wakeable without another hook."""
 
-from runtime.api.domain.test_session_message_launch_queue import (
+from runtime.api.domain.session_message_launch_queue_test_support import (
     world,
     send,
     register,
     claim,
 )
-from runtime.api.domain.test_session_message_support import NOW, NOW_TEXT
+from runtime.api.domain.session_message_support_test_support import NOW, NOW_TEXT
 from yoke_core.domain.session_launch_registration import complete_launch_for_message
 from yoke_core.domain.session_message_store import message_details
 

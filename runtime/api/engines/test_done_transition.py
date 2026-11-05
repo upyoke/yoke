@@ -18,13 +18,13 @@ from unittest import mock
 from yoke_core.engines import done_transition
 from yoke_core.engines import done_transition_deploy_gates
 from yoke_core.engines import done_transition_gates
-from runtime.api.test_backlog import (
+from runtime.api.backlog_test_support import (
     _item_field,
     _patch_externals,
     _seed_claim,
     _seed_item,
     _seed_session,
-    tmp_db,  # noqa: F401 — fixture re-export
+    tmp_db,
 )
 
 from runtime.api.engines._done_transition_test_helpers import (

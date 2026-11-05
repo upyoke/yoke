@@ -2,6 +2,13 @@
 
 from __future__ import annotations
 
+from runtime.api.tools.impacted_tests_test_support import (
+    _tiny_repo as _tiny_repo,
+    _with_floor as _with_floor,
+    _write as _write,
+)
+
+
 from pathlib import Path
 
 from yoke_core.tools import impacted_tests
@@ -45,38 +52,6 @@ def test_is_test_file():
         is_test_file("packages/yoke-core/src/yoke_core/domain/handlers/test_machine.py")
         is False
     )
-
-
-def _write(root: Path, rel: str, body: str) -> None:
-    path = root / rel
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(body)
-
-
-def _with_floor(*tests: str) -> tuple[str, ...]:
-    """Expected selection: the reached tests plus the always-run floor."""
-    return tuple(sorted({*tests, *impacted_tests.ALWAYS_RUN_TESTS}))
-
-
-def _tiny_repo(tmp_path: Path) -> Path:
-    _write(tmp_path, "runtime/__init__.py", "")
-    _write(tmp_path, "runtime/api/__init__.py", "")
-    _write(tmp_path, "runtime/api/leaf.py", "VALUE = 1\n")
-    _write(tmp_path, "runtime/api/middle.py", "from runtime.api import leaf\n")
-    _write(tmp_path, "runtime/api/unrelated.py", "OTHER = 2\n")
-    _write(
-        tmp_path,
-        "runtime/api/test_middle.py",
-        "from runtime.api import middle\n\ndef test_x():\n    pass\n",
-    )
-    _write(
-        tmp_path,
-        "runtime/api/test_unrelated.py",
-        "from runtime.api import unrelated\n\ndef test_y():\n    pass\n",
-    )
-    for test_path in impacted_tests.ALWAYS_RUN_TESTS:
-        _write(tmp_path, test_path, "def test_contract(): pass\n")
-    return tmp_path
 
 
 def test_selects_transitively_reachable_tests_only(tmp_path):

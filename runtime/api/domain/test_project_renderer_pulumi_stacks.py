@@ -12,7 +12,7 @@ import ast
 import pytest
 
 from yoke_core.domain import project_renderer_pulumi
-from runtime.api.domain.test_project_renderer_pulumi import (
+from runtime.api.domain.project_renderer_pulumi_test_support import (
     _make_project_root,
     _stub_renderer_settings,
 )

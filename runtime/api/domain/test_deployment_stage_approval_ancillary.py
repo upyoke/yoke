@@ -10,7 +10,7 @@ from __future__ import annotations
 from runtime.api.deployment_stage_approval_fixture import (
     seed_gate_run,
 )
-from runtime.api.domain.test_deployment_stage_approval_operation import (
+from runtime.api.domain.deployment_stage_approval_operation_test_support import (
     _evaluate,
 )
 from runtime.api.fixtures.backlog_inserts import insert_item

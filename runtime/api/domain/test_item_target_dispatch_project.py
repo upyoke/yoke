@@ -22,12 +22,8 @@ from yoke_core.domain.yoke_function_registry import (
     lookup,
     reset_registry_for_tests,
 )
-from runtime.api.domain.test_function_target_row_project import (
-    conn as project_connection,
-    _project_owner,
-    _seed_item,
-    _seed_path_claim,
-)
+from runtime.api.domain.coordination_claim_project_authority_test_support import (conn as project_connection)
+from runtime.api.domain.function_target_row_project_test_support import (_project_owner, _seed_item, _seed_path_claim)
 
 conn = project_connection
 

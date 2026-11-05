@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 from datetime import datetime, timedelta, timezone
 
-from runtime.api.domain.handlers.test_sessions_hook_overhead import (
+from runtime.api.domain.handlers.sessions_hook_overhead_test_support import (
     _use_fixture_database,
 )
 from runtime.api.fixtures.backlog import insert_event

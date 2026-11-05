@@ -11,12 +11,12 @@ from datetime import timedelta
 
 import pytest
 
-from runtime.api.domain.test_session_message_support import (
+from runtime.api.domain.session_message_support_test_support import (
     NOW,
     message_connection,
     selector,
 )
-from runtime.api.test_sessions import _register
+from runtime.api.sessions_test_support import _register
 from yoke_contracts.session_control.liveness import LIVENESS_ENDED, LIVENESS_STATES
 from yoke_core.domain.session_message_delivery import lease_for_hook
 from yoke_core.domain.session_message_liveness import applied_liveness
@@ -31,7 +31,7 @@ from yoke_core.domain.sessions_ended_recovery import (
 )
 
 
-pytest_plugins = ("runtime.api.test_sessions",)
+pytest_plugins = ("runtime.api.sessions_test_support",)
 
 
 def test_ordinary_ended_session_still_reactivates(conn) -> None:

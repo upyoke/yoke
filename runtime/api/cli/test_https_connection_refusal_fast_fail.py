@@ -6,7 +6,7 @@ import urllib.error
 
 import pytest
 
-from runtime.api.cli.test_yoke_transport import _request
+from runtime.api.cli.yoke_https_engine_handshake_test_support import (_request)
 from yoke_cli.transport import https as yoke_transport
 from yoke_cli.transport.https import HttpsConnection, relay_https
 from yoke_cli.transport.https_retry_policy import (

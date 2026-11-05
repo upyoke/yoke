@@ -13,8 +13,8 @@ import time
 import httpx
 import pytest
 
-from runtime.api.cli.test_cli_release_runtime import candidate
-from runtime.api.cli.test_yoke_hook_resident import _request, _round_trip
+from runtime.api.cli.cli_release_runtime_test_support import candidate
+from runtime.api.cli.yoke_hook_resident_test_support import _request, _round_trip
 from yoke_cli.config import cli_release_runtime as runtime
 from yoke_contracts.hook_evaluator_protocol import receive_frame, send_frame
 

@@ -19,7 +19,7 @@ from yoke_core.hooks.codex_model import (
     resolve_from_cache,
     resolve_from_transcript,
 )
-from runtime.api.test_constants import TEST_MODEL_ID
+from runtime.api.constants_test_support import TEST_MODEL_ID
 
 pytestmark = pytest.mark.usefixtures("bound_project_context")
 

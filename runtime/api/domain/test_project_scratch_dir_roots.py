@@ -10,7 +10,7 @@ from yoke_core.domain import project_scratch_dir as scratch
 from yoke_core.domain import project_scratch_roots as roots
 from yoke_contracts.machine_config import runtime as machine_runtime
 from yoke_contracts.machine_config import scratch_roots as root_order
-from runtime.api.domain.test_project_scratch_dir import (
+from runtime.api.domain.project_scratch_dir_test_support import (
     _patch_checkout_project,
     _patch_repo_root,
     _set_identity,

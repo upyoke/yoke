@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from unittest.mock import patch
 import pytest
-from runtime.api.cli.test_yoke_operations_cli_qa import (
+from runtime.api.cli.yoke_operations_cli_qa_test_support import (
     _run,
     _stub_ok,
     _CAPTURED_REQUESTS,

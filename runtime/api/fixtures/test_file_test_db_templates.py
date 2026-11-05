@@ -210,7 +210,7 @@ def test_production_strategy_is_reused_and_resets_actor_data(tmp_path):
 
 
 def test_cached_session_schema_records_each_fresh_machine_home(tmp_path, monkeypatch):
-    from runtime.api import test_service_client_sessions_helpers as sessions
+    from runtime.api import service_client_sessions_helpers_test_support as sessions
     from yoke_contracts.machine_config.schema_connections import operating_actor_binding
 
     builds = []

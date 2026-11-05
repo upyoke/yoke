@@ -1,8 +1,8 @@
 """Detached primary checkouts advance their files or report the refusal."""
 
 from yoke_cli.config import repo_upstream_freshness as freshness
-from runtime.api.domain import test_repo_upstream_freshness as upstream_tests
-from runtime.api.domain.test_repo_upstream_freshness import (
+from runtime.api.domain import repo_upstream_freshness_test_support as upstream_tests
+from runtime.api.domain.repo_upstream_freshness_test_support import (
     _advance_remote,
     _commit,
     _git,

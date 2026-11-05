@@ -21,14 +21,8 @@ from yoke_contracts.api.function_call import (
 from yoke_core.domain.yoke_function_registry import register
 from yoke_core.domain.yoke_function_dispatch import dispatch
 from yoke_core.domain.work_claim_targets import WorkClaimTarget
-from runtime.api.domain.test_yoke_function_dispatch_claims import (
-    _ClaimMatrixSuite,
-    _Req,
-    _Resp,
-    _make_request,
-    _ok_handler,
-    _stable_kwargs,
-)
+from runtime.api.domain.yoke_function_dispatch_claims_test_support import (_ClaimMatrixSuite, _Req, _Resp, _make_request, _stable_kwargs)
+from runtime.api.domain.yoke_function_dispatch_test_support import (_ok_handler)
 
 
 class TestSelfOnlyTargetResolution(_ClaimMatrixSuite):

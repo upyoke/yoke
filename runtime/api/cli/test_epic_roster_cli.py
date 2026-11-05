@@ -1,14 +1,8 @@
 """Public epic dispatch receipts."""
 
 from yoke_contracts.api.function_call import FunctionCallRequest, FunctionCallResponse
-from runtime.api.cli.test_yoke_operations_cli_epic_task import (
-    _CAPTURED_REQUESTS,
-    _stub_ok,
-    _stub_fail,
-    _run,
-    _run_capture,
-    _reset_captured as _reset_captured,
-)
+from runtime.api.cli.yoke_operations_cli_epic_task_test_support import (_CAPTURED_REQUESTS, _stub_ok, _stub_fail, _run, _reset_captured as _reset_captured)
+from runtime.api.cli.yoke_operations_cli_epic_review_test_support import (_run_capture)
 
 
 class TestEpicTasksList:

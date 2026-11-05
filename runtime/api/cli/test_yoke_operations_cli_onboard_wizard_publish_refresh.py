@@ -8,7 +8,7 @@ import asyncio
 import pytest
 from yoke_contracts import github_app_installation_permissions
 
-from runtime.api.cli.test_yoke_operations_cli_onboard_wizard_publish_capability import (
+from runtime.api.cli.yoke_operations_cli_onboard_wizard_publish_capability_test_support import (
     _body_text,
     _github_config,
     _mark_connected,

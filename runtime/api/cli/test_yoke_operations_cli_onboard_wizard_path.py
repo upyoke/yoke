@@ -2,6 +2,11 @@
 
 from __future__ import annotations
 
+from runtime.api.cli.yoke_operations_cli_onboard_wizard_path_test_support import (
+    _diagnosis as _diagnosis,
+)
+
+
 import asyncio
 
 import pytest
@@ -23,31 +28,6 @@ from yoke_cli.config.onboard_wizard_widgets import (  # noqa: E402
 )
 
 UNSAFE_SCREEN_GLYPHS = set("☀✓✔✗●○◐⊘›•→▌─│┃━═—–…↵↑↓·")
-
-
-def _diagnosis(*, needs_fix: bool) -> path_doctor.PathDiagnosis:
-    resolved = [
-        path_doctor.ToolResolution(t, None if needs_fix else f"/bin/{t}")
-        for t in path_doctor.TOOLS
-    ]
-    return path_doctor.PathDiagnosis(
-        current_shell="zsh",
-        tool_bin_dir="/home/u/.local/bin",
-        current_on_path=not needs_fix,
-        current_resolved=resolved,
-        startup_file="/home/u/.zprofile",
-        future_adds_bin=not needs_fix,
-        managed_block_present=not needs_fix,
-        future_resolved=resolved,
-        needs_fix=needs_fix,
-        ssh_startup_file="/home/u/.zshenv",
-        ssh_adds_bin=not needs_fix,
-        ssh_managed_block_present=not needs_fix,
-        ssh_resolved=resolved,
-        ssh_needs_fix=needs_fix,
-        login_needs_fix=needs_fix,
-        managed_path_dirs=("/home/u/.local/bin",),
-    )
 
 
 def _all_clear_diagnosis() -> path_doctor.PathDiagnosis:

@@ -1,18 +1,13 @@
 """A carried result names the run that recorded it; reads stay batched."""
 
-from runtime.api.domain.test_deployment_qa_shared_plans import (
-    MEMBERS,
-    RUN,
-    _attach,
-    _fail,
-    _seed,
-)
-from runtime.api.domain.test_deployment_qa_stage_execution import (
+from runtime.api.domain.deployment_qa_shared_plans_test_support import (MEMBERS, RUN, _fail, _seed)
+from runtime.api.domain.deployment_qa_run_sharing_test_support import (_attach)
+from runtime.api.domain.deployment_qa_stage_execution_test_support import (
     _plan,
     _seed_run,
     _stages,
 )
-from runtime.api.domain.test_deployment_shipping_reads import CountedConnection
+from runtime.api.domain.deployment_shipping_reads_test_support import CountedConnection
 from yoke_core.domain.deployment_qa_plan_group_writes import ensure_groups
 from yoke_core.domain.qa_activity_reads import read_activity
 

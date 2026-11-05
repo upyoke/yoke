@@ -5,7 +5,9 @@ from __future__ import annotations
 import psycopg
 import pytest
 
-from runtime.api.domain.test_universe_portability import _canonical_test_universe
+from runtime.api.domain.universe_portability_test_support import (
+    _canonical_test_universe,
+)
 from runtime.api.fixtures import pg_testdb
 from yoke_core.domain import universe_portability as portability
 from yoke_core.domain.schema_fingerprint import (
@@ -14,11 +16,11 @@ from yoke_core.domain.schema_fingerprint import (
 )
 from yoke_core.domain.source_authority_receipts import authority_receipt
 
-from runtime.api.domain.test_universe_portability_schema_validation import (
+from runtime.api.domain.universe_portability_schema_validation_test_support import (
     seed_older_schema,
     assert_older_schema_restored,
 )
-from runtime.api.domain.test_universe_portability_qa_snapshots import (
+from runtime.api.domain.universe_portability_qa_snapshots_test_support import (
     seed_older_requirement_snapshot,
     assert_requirement_snapshot_restored,
 )

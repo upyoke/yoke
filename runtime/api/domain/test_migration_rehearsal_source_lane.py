@@ -7,12 +7,11 @@ from pathlib import Path
 
 import pytest
 
-from runtime.api.domain.test_session_claimed_worktrees import (
+from runtime.api.domain.session_claimed_worktrees_test_support import (
     _seed_claim,
     _seed_epic_task,
     _seed_item,
     _worktree_path,
-    conn,  # noqa: F401 - disposable authority fixture
 )
 from yoke_contracts.install_binding import SOURCE_DEV_RUN_ROOT_ENV
 from yoke_core.domain import migration_apply as subject

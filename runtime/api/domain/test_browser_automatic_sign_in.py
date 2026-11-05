@@ -1,5 +1,11 @@
 """Credential isolation and automatic Browser case preparation."""
 
+from runtime.api.domain.browser_automatic_sign_in_test_support import (
+    declaration as declaration,
+    identity as identity,
+)
+
+
 import json
 import subprocess
 from pathlib import Path
@@ -10,7 +16,6 @@ import pytest
 
 from yoke_contracts.browser_identity import (
     BrowserIdentityError,
-    parse_identity_declarations,
 )
 from yoke_contracts.machine_config.capability_secrets import (
     is_machine_local_capability_secret,
@@ -20,25 +25,6 @@ from yoke_cli.config.capability_secrets import (
     store_machine_capability_secret,
 )
 from yoke_harness import browser_automatic_sign_in as automatic
-
-
-def declaration():
-    return {
-        "site": "shop",
-        "origin": "https://shop.example",
-        "probe": {"url": "https://shop.example/me", "signed_in_status": 200},
-        "sign_in": {
-            "mode": "automatic",
-            "url": "https://shop.example/login",
-            "steps": [{"fill": "#password", "secret": "password"}, {"click": "button"}],
-        },
-    }
-
-
-def identity(site=None):
-    return parse_identity_declarations(
-        {"identities": {"buyer": {"sites": [site or declaration()]}}}
-    )["buyer"]
 
 
 def test_parser_preserves_only_nonsecret_steps():

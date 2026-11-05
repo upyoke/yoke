@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from runtime.api.cli.test_yoke_operations_cli_dispatch import (
+from runtime.api.cli.yoke_operations_cli_dispatch_test_support import (
     _CAPTURED_REQUESTS,
     _run_with_dispatch,
     _stub_dispatch_ok,
@@ -144,7 +144,9 @@ class TestItemsListingDispatch:
         assert "EX-60\timplementing\tMatch 60" in output.getvalue()
         assert result["matches"] == rows
         import json
-        from runtime.api.cli.test_yoke_operations_cli_dispatch import _run_capture
+        from runtime.api.cli.yoke_operations_cli_dispatch_test_support import (
+            _run_capture,
+        )
 
         def stub(request):
             response = _stub_dispatch_ok(request)

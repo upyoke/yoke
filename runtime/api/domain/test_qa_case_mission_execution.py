@@ -4,7 +4,9 @@ from unittest.mock import Mock
 
 import pytest
 
-from runtime.api.domain.test_qa_plan_execution_authority import _materialize_two_cases
+from runtime.api.domain.qa_plan_execution_authority_test_support import (
+    _materialize_two_cases,
+)
 from runtime.api.fixtures.pg_testdb import test_database
 from yoke_core.domain import qa_case_execution as cases
 from yoke_core.domain import qa_case_mission_execution as missions
@@ -159,8 +161,8 @@ def test_client_never_materializes_or_runs_siblings_from_an_invalid_reply(monkey
 def test_single_mission_reaches_review_and_verdict_with_sibling_untouched(
     test_db, tmp_path, monkeypatch
 ):
-    from runtime.api.domain import test_qa_execution_walk_states as walk_states
-    from runtime.api.domain.test_agent_mission_qa import (
+    from runtime.api.domain import qa_execution_walk_states_test_support as walk_states
+    from runtime.api.domain.agent_mission_qa_test_support import (
         ACTOR,
         _materialize_mission,
         _request,

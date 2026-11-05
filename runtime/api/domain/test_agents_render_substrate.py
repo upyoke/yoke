@@ -14,6 +14,11 @@ canonical Codex prompt body.
 
 from __future__ import annotations
 
+from runtime.api.domain.agents_render_substrate_test_support import (
+    _seed_minimal_canonical_tree as _seed_minimal_canonical_tree,
+)
+
+
 import json
 from pathlib import Path
 from unittest.mock import patch
@@ -44,7 +49,7 @@ from yoke_core.domain.agents_render_codex import (
 @pytest.fixture
 def repo_root() -> Path:
     """Workspace-anchored live checkout for read-only assertions."""
-    from runtime.api.domain.test_agents_render_workspace_fixtures import (
+    from runtime.api.domain.agents_render_workspace_fixtures_test_support import (
         resolve_live_repo_root,
     )
 
@@ -121,6 +126,8 @@ def test_render_codex_agent_body_includes_unconditional_references(
             assert marker and marker in body, (
                 f"{role}: reference {frag.name} marker {marker!r} not embedded"
             )
+
+
 def test_no_codex_canonical_md_exists(repo_root: Path) -> None:
     """The Codex adapter must not have a parallel `.codex.md` canonical body.
 
@@ -251,18 +258,6 @@ def test_substrate_drift_clean_baseline(isolated_repo: Path) -> None:
     """Against a freshly rendered substrate, ``detect_substrate_drift`` is empty."""
     write_all(target_root=isolated_repo, dry_run=False)
     assert detect_substrate_drift(target_root=isolated_repo) == []
-
-
-def _seed_minimal_canonical_tree(repo: Path) -> None:
-    canonical = repo / CANONICAL_DIR
-    canonical.mkdir(parents=True)
-    claude_spec = '{"name": "yoke-architect", "description": "x", "tools": "Read"}'
-    codex_spec = '{"name": "yoke-architect", "description": "x"}'
-    cursor_spec = '{"name": "yoke-architect", "description": "x"}'
-    (canonical / "architect.md").write_text("# canonical body\n", encoding="utf-8")
-    (canonical / "architect.claude.json").write_text(claude_spec)
-    (canonical / "architect.codex.json").write_text(codex_spec)
-    (canonical / "architect.cursor.json").write_text(cursor_spec)
 
 
 def test_drift_detection_reports_handedited_file(tmp_path: Path) -> None:

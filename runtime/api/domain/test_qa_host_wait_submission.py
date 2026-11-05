@@ -1,6 +1,6 @@
 """Contention discovered by a walker queues fresh QA without a FAIL verdict."""
 
-from runtime.api.domain.test_agent_mission_qa import (
+from runtime.api.domain.agent_mission_qa_test_support import (
     ACTOR,
     _materialize_mission,
     _request,

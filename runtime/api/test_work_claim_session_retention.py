@@ -11,7 +11,7 @@ from runtime.api.domain.coordination_claim_test_support import (
     PROJECT_YOKE,
     seed_project,
 )
-from runtime.api.domain.test_deployment_qa_stage_wake_delivery import (
+from runtime.api.domain.deployment_qa_stage_wake_delivery_test_support import (
     _claim,
     seed_session,
 )

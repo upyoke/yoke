@@ -15,7 +15,7 @@ from typing import Any
 
 import pytest
 
-from runtime.api.domain.test_deployment_run_source_reads_once import _release
+from runtime.api.domain.deployment_run_source_reads_once_test_support import _release
 from runtime.api.fixtures.backlog_inserts import insert_item
 from runtime.api.fixtures.bound_source_release import (
     CARRIER_FLOW,

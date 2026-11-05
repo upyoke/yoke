@@ -2,6 +2,13 @@
 
 from __future__ import annotations
 
+from runtime.api.domain.cloud_machine_power_test_support import (
+    CLOUD as CLOUD,
+    MAC as MAC,
+    OK as OK,
+)
+
+
 import json
 import subprocess
 
@@ -14,17 +21,7 @@ from yoke_core.domain.cloud_machine_power import (
     power_on,
     wait_for_ssh_login,
 )
-from runtime.api.domain.test_deploy_remote import FakeRunner
-
-OK = CommandResult(0, "", "")
-CLOUD = {
-    "resource_name": "windows-lab",
-    "host": "54.0.0.1",
-    "user": "Administrator",
-    "os": "windows",
-    "cloud_instance_id": "i-1",
-}
-MAC = {"resource_name": "mac-lab", "host": "10.0.0.2", "user": "qa", "os": "macos"}
+from runtime.api.domain.deploy_remote_test_support import FakeRunner
 
 
 def _json(value) -> CommandResult:

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from runtime.api.domain.test_qa_plan_agent_review import _review_execution
+from runtime.api.domain.qa_plan_agent_review_test_support import _review_execution
 from runtime.api.fixtures.pg_testdb import test_database
 from yoke_core.domain import qa_plan_review_submission, qa_review_requests
 from yoke_core.domain.coordination_claims import acquire, get_claim

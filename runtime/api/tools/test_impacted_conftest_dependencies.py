@@ -1,7 +1,7 @@
 """Conftest and fixture-plugin changes select the tests that use them."""
 
 from yoke_core.tools.impacted_tests import build_import_index, select
-from runtime.api.tools.test_impacted_tests import _tiny_repo, _write
+from runtime.api.tools.impacted_tests_test_support import _tiny_repo, _write
 
 _FIXTURES = """import pytest
 from runtime.api.marker_helpers import VALUE

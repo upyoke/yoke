@@ -9,8 +9,10 @@ recorded retirement.
 
 from __future__ import annotations
 
-from contextlib import contextmanager
-from unittest.mock import patch
+from runtime.api.domain.qa_plan_retire_test_support import (
+    _handler_uses as _handler_uses,
+)
+
 
 import pytest
 
@@ -25,25 +27,6 @@ from yoke_core.domain.qa_plan_retire import DEPENDENTS_CODE, retire_plan
 
 ACCEPTANCE = "done"
 REASON = "only case is unrunnable; its one requirement was retracted"
-
-
-@contextmanager
-def _handler_uses(conn):
-    class _Borrowed:
-        def __getattr__(self, name):
-            return getattr(conn, name)
-
-        def __enter__(self):
-            return self
-
-        def __exit__(self, *exc):
-            return None
-
-        def close(self):
-            return None
-
-    with patch("yoke_core.domain.db_helpers.connect", return_value=_Borrowed()):
-        yield
 
 
 def _attached_item_requirement(
@@ -307,7 +290,9 @@ def test_registration_declares_floor_without_seat_guardrail() -> None:
 
 def test_plan_get_names_a_broken_correction_history(test_db) -> None:
     """A broken correction history is named on the case, not a failed read."""
-    from runtime.api.domain.test_qa_plan_effective_case_union import _replacement
+    from runtime.api.domain.qa_plan_effective_case_union_test_support import (
+        _replacement,
+    )
     from yoke_core.domain.handlers.qa_catalog_reads import handle_plan_get
 
     plan_id, old_id, successor = _replacement(test_db)

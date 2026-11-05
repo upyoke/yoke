@@ -10,7 +10,7 @@ from yoke_core.domain.session_message_service import send_message
 from yoke_core.domain.session_message_wake import wake_eligible_recipients
 from yoke_core.domain.session_relay_jobs import claim_wake_job
 from yoke_core.domain.session_relay_types import RelayHeartbeat
-from runtime.api.domain.test_session_message_support import (
+from runtime.api.domain.session_message_support_test_support import (
     ALPHA_WORKSPACE,
     NATIVE_WAKE_SESSION_ID,
     NOW,

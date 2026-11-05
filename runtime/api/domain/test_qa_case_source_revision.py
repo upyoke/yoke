@@ -11,8 +11,10 @@ from __future__ import annotations
 
 import json
 
-from runtime.api.domain.test_deployment_qa_stage_execution import _seed_run
-from runtime.api.domain.test_direct_deployment_qa_case_execution import _qa_stages
+from runtime.api.domain.deployment_qa_stage_execution_test_support import _seed_run
+from runtime.api.domain.direct_deployment_qa_case_execution_test_support import (
+    _qa_stages,
+)
 from runtime.api.fixtures.backlog_inserts import insert_item
 from runtime.api.fixtures.backlog_qa_inserts import insert_qa_requirement
 from yoke_core.domain.qa_case_execution_context import get_case_execution_context

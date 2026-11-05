@@ -252,7 +252,7 @@ def test_engine_filters_by_local_membership_or_authorized_remote_context(
     assert seen == expected
 
 
-from runtime.harness.test_hook_runner_runner import (  # noqa: E402
+from runtime.harness.hook_runner_runner_test_support import (  # noqa: E402
     _capability,
     _patch_typed_modules,
     _silence_telemetry,

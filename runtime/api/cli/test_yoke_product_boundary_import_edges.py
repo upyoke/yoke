@@ -2,7 +2,7 @@
 
 from yoke_cli import product_boundary_inventory as inventory
 
-from runtime.api.cli.test_yoke_product_boundary_inventory import _rows
+from runtime.api.cli.yoke_product_boundary_inventory_test_support import _rows
 
 
 def test_hook_and_operator_boundaries_keep_their_own_dispositions():

@@ -18,11 +18,11 @@ from typing import Any, Callable
 
 import pytest
 
-from runtime.api.cli.test_github_app_machine_security import (
+from runtime.api.cli.github_app_machine_security_test_support import (
     _profile_opener,
     _refresh_opener,
 )
-from runtime.api.cli.test_github_status_merge_path_binding import (
+from runtime.api.cli.github_status_merge_path_binding_test_support import (
     ADMIN_ENV,
     _admin_sibling_machine,
 )

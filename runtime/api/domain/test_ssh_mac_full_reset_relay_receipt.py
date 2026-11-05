@@ -12,7 +12,7 @@ from runtime.api.domain.ssh_mac_full_reset_test_support import (
     FakeResetTransport,
     closed_reset_stdout,
 )
-from runtime.api.domain.test_ssh_mac_full_reset import _run
+from runtime.api.domain.ssh_mac_full_reset_shared_test_support import _run
 from yoke_core.domain.ssh_mac_full_reset_contract import (
     RESET_FAILURE_PREFIX,
     RESET_PHASES,

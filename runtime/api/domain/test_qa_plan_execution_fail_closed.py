@@ -2,46 +2,22 @@
 
 from __future__ import annotations
 
+from runtime.api.domain.qa_plan_execution_fail_closed_test_support import (
+    ACTOR as ACTOR,
+    CASE as CASE,
+    _begin_result as _begin_result,
+)
+
+
 from unittest import mock
 from types import SimpleNamespace
 
 import pytest
 
 from runtime.api.domain.qa_plan_execution_test_support import (
-    TEST_EXECUTION_TARGET,
-    TEST_ITEM_ID,
     TEST_ITEM_REF,
 )
-from yoke_contracts.api.function_call import ActorContext
 from yoke_core.domain import qa_case_execution, qa_plan_execution
-
-
-ACTOR = ActorContext(actor_id="7", session_id="ordered-failure")
-CASE = {
-    "requirement_id": 11,
-    "item_id": TEST_ITEM_ID,
-    "plan_id": 3,
-    "case_key": "command",
-    "case_position": 1,
-    "baseline_position": 1,
-    "host_baseline": None,
-    "runner_id": "worktree_run",
-}
-
-
-def _begin_result() -> dict:
-    return {
-        "execution_id": "execution-1",
-        "item_id": 42,
-        "transition_id": "implemented",
-        "state": "active",
-        "roster_digest": "digest",
-        "cursor_ordinal": 0,
-        "execution_target": TEST_EXECUTION_TARGET,
-        "execution_target_digest": "target-digest",
-        "requirements": [CASE],
-        "results": [],
-    }
 
 
 def test_begin_denial_prevents_every_local_runner_side_effect() -> None:

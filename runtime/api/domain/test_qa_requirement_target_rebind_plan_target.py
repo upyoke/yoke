@@ -15,7 +15,7 @@ from yoke_core.domain.qa_requirement_target_rebind import (
     rebind_requirement,
 )
 
-from runtime.api.domain.test_qa_requirement_target_rebind import (
+from runtime.api.domain.qa_requirement_target_rebind_test_support import (
     _hosted_prod_pair,
     _identity,
     _stamp_requirement,

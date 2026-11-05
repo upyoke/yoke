@@ -7,12 +7,19 @@ shape of `render_relationship_map`.
 
 from __future__ import annotations
 
+from runtime.api.domain.path_context_test_support import (
+    _apply_path_context_schema as _apply_path_context_schema,
+    _p as _p,
+    _seed_target as _seed_target,
+    fresh_db as fresh_db,
+)
+
+
 import subprocess
 from pathlib import Path
 
-import pytest
 
-from yoke_core.domain import db_backend, path_context
+from yoke_core.domain import path_context
 from yoke_core.domain.agents_render import AGENTS
 from yoke_core.domain.agents_render_conditional import (
     HARNESS_IDS,
@@ -25,66 +32,12 @@ from yoke_core.domain.agents_render_path_context import (
     set_render_relationship,
 )
 from yoke_core.domain.event_catalog_render import EVENT_CATALOG_RELPATH
-from yoke_core.domain.events_schema import ensure_event_schema
-from yoke_core.domain.schema_init_tables import (
-    create_core_tables,
-    create_governed_tables,
-    create_path_integrity_tables,
-    create_path_registry_tables,
-)
 from yoke_contracts.project_contract.install_manifest import (
     PACKAGED_INSTALL_BUNDLE_TREE_REL,
 )
 from yoke_core.tools.atlas_render_docs import ATLAS_RELPATH
-from runtime.api.fixtures.file_test_db import connect_test_db, init_test_db
 
 _CORE_DOMAIN_SOURCE_ROOT = "packages/yoke-core/src/yoke_core/domain"
-
-
-def _apply_path_context_schema() -> None:
-    """Build the render-relationship schema on the active test backend."""
-    from yoke_core.domain import db_backend
-
-    conn = db_backend.connect()
-    try:
-        conn.execute(
-            "CREATE TABLE IF NOT EXISTS projects ("
-            "id INTEGER PRIMARY KEY, slug TEXT UNIQUE NOT NULL, "
-            "name TEXT NOT NULL, "
-            "default_branch TEXT NOT NULL DEFAULT 'main', "
-            "github_repo TEXT, public_item_prefix TEXT NOT NULL DEFAULT 'YOK', "
-            "created_at TIMESTAMPTZ NOT NULL)"
-        )
-        create_core_tables(conn)
-        create_governed_tables(conn)
-        ensure_event_schema(conn)
-        create_path_registry_tables(conn)
-        create_path_integrity_tables(conn)
-        conn.execute(
-            "INSERT INTO projects "
-            "(id, slug, name, created_at) "
-            "VALUES (1, 'yoke', 'yoke', '2026-05-01T00:00:00Z') "
-            "ON CONFLICT DO NOTHING"
-        )
-        conn.commit()
-    finally:
-        conn.close()
-
-
-def _p(conn) -> str:
-    return "%s" if db_backend.connection_is_postgres(conn) else "?"
-
-
-def _seed_target(conn, *, path_string: str) -> int:
-    p = _p(conn)
-    cur = conn.execute(
-        "INSERT INTO path_targets "
-        "(project_id, kind, path_string, generation, created_at) "
-        f"VALUES (1, 'file', {p}, 1, '2026-05-01T00:00:00Z') "
-        "RETURNING id",
-        (path_string,),
-    )
-    return int(cur.fetchone()[0])
 
 
 def _seed_event(conn, *, event_id: str) -> str:
@@ -98,16 +51,6 @@ def _seed_event(conn, *, event_id: str) -> str:
         (event_id,),
     )
     return event_id
-
-
-@pytest.fixture
-def fresh_db(tmp_path):
-    with init_test_db(tmp_path, apply_schema=_apply_path_context_schema) as path:
-        conn = connect_test_db(path)
-        try:
-            yield conn
-        finally:
-            conn.close()
 
 
 def test_family_constants_exported():

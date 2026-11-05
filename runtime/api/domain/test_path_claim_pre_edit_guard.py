@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+from runtime.api.domain.path_claim_pre_edit_guard_test_support import _record as _record
+
+
 from yoke_core.hooks.decision_render import render_codex_decision
 
 import json
@@ -12,7 +15,6 @@ from yoke_core.domain.observe_normalization import (
     TOOL_KIND_BASH,
     TOOL_KIND_EDIT,
     TOOL_KIND_WRITE,
-    ToolEventRecord,
 )
 from yoke_core.domain.path_claim_pre_edit_guard import (
     decide_for_record,
@@ -46,26 +48,6 @@ def _claim_dict(
     if public_ref is not None:
         claim["public_ref"] = public_ref
     return claim
-
-
-def _record(
-    *,
-    tool_kind=TOOL_KIND_EDIT,
-    changed_paths=("runtime/api/domain/foo.py",),
-    cwd="/tmp/yoke-worktrees/YOK-1577",
-    session_id="sess-A",
-    command="",
-) -> ToolEventRecord:
-    return ToolEventRecord(
-        tool_kind=tool_kind,
-        changed_paths=list(changed_paths),
-        command=command,
-        patch_body="",
-        tool_name="Edit",
-        session_id=session_id,
-        cwd=cwd,
-        project_dir=cwd,
-    )
 
 
 class TestInClaim:

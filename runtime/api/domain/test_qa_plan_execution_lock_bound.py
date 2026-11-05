@@ -6,7 +6,7 @@ from time import monotonic
 
 import pytest
 
-from runtime.api.domain.test_qa_execution_request_subject import (
+from runtime.api.domain.qa_execution_request_subject_test_support import (
     SESSION,
     _shared_execution,
 )

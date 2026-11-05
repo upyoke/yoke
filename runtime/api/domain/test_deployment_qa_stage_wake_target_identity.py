@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from runtime.api.domain.test_deployment_qa_stage_wake_delivery import (
+from runtime.api.domain.deployment_qa_stage_wake_delivery_test_support import (
     HOLDER_A,
     PROJECT_YOKE,
     _bodies,

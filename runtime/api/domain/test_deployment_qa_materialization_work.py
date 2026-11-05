@@ -2,13 +2,13 @@
 
 from collections import Counter
 
-from runtime.api.domain.test_deployment_qa_plan_groups import _attach
-from runtime.api.domain.test_deployment_qa_stage_execution import (
+from runtime.api.domain.deployment_qa_plan_groups_test_support import _attach
+from runtime.api.domain.deployment_qa_stage_execution_test_support import (
     _plan,
     _seed_run,
     _stages,
 )
-from runtime.api.domain.test_deployment_shipping_reads import CountedConnection
+from runtime.api.domain.deployment_shipping_reads_test_support import CountedConnection
 from yoke_core.domain import schema_common_postgres as schema
 from yoke_core.domain.deployment_qa_plan_group_writes import ensure_groups
 from yoke_core.domain.deployment_qa_plan_groups import run_groups
@@ -61,10 +61,10 @@ def test_44_member_group_formation_reads_as_much_as_a_4_member_one(
 
 
 def test_methodless_member_obligation_keeps_the_plan_group(test_db):
-    from runtime.api.domain.test_deployment_qa_admission_execution import (
+    from runtime.api.domain.deployment_qa_admission_execution_test_support import (
         _original_requirement,
     )
-    from runtime.api.domain.test_deployment_qa_plan_groups import (
+    from runtime.api.domain.deployment_qa_plan_groups_test_support import (
         MEMBERS,
         RUN,
         _begin,

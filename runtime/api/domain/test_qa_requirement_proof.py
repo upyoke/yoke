@@ -107,7 +107,7 @@ def test_advisory_legacy_row_cannot_become_blocking(test_db):
 
 def test_typed_post_deploy_creation_refuses_uncreditable_derived_row(test_db):
     from runtime.api.fixtures.backlog_inserts import insert_item
-    from runtime.api.test_api_qa_requirement_create_function import _request
+    from runtime.api.api_qa_requirement_create_function_test_support import _request
     from yoke_core.domain.handlers.qa_requirement_create import (
         handle_qa_requirement_add,
     )

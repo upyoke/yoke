@@ -16,7 +16,7 @@ from contextlib import nullcontext
 # Import the module-local fixtures before the route module so they build
 # ``yoke_core.api.main`` in production order without globally registering the
 # helper module's generic fixture names.
-from runtime.api.test_api_helpers import client, test_db  # noqa: F401
+from runtime.api.api_helpers_test_support import client, test_db  # noqa: F401
 from runtime.api.fixtures.file_test_db import connect_test_db
 import yoke_core.api.routes.items_health as items_health
 from yoke_core.domain.migration_content_identity import (

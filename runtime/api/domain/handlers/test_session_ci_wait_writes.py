@@ -13,11 +13,10 @@ from yoke_core.domain.handlers import session_ci_wait_writes as writes
 from yoke_core.domain.handlers import __init_register__ as init_register
 from yoke_core.domain.yoke_function_registry import lookup, reset_registry_for_tests
 
-from runtime.api.domain.test_session_ci_wait_observer import (
+from runtime.api.domain.session_ci_wait_observer_test_support import (
     RUN_ID,
     SESSION,
     _wait_row,
-    waiting_connection,  # noqa: F401 - pytest fixture reuse
 )
 
 
@@ -156,7 +155,7 @@ def test_record_new_candidate_drops_only_its_superseded_pending_waits(
     notified,
     dropped,
 ):
-    from runtime.api.domain.test_session_ci_wait_observer import NOW
+    from runtime.api.domain.session_ci_wait_observer_test_support import NOW
     from yoke_core.domain.session_ci_wait_observer import observe_pending_ci_runs
 
     conn = waiting_connection

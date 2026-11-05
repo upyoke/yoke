@@ -8,7 +8,7 @@ level; a requested stamp cannot override them.
 
 import json
 
-from runtime.api.domain.handlers.test_sessions_list_handler import (
+from runtime.api.domain.handlers.sessions_list_handler_test_support import (
     _insert_session as _base_insert_session,
     _iso,
 )

@@ -2,7 +2,12 @@
 
 from __future__ import annotations
 
-import json
+from runtime.api.domain.dash_post_deploy_review_isolation_test_support import (
+    POSTURE as POSTURE,
+    _insert_dash as _insert_dash,
+)
+
+
 import os
 from pathlib import Path
 from unittest import mock
@@ -10,7 +15,6 @@ from unittest import mock
 import pytest
 
 from runtime.api.fixtures.backlog_inserts import (
-    insert_item,
     insert_qa_requirement,
     insert_qa_run,
 )
@@ -29,19 +33,6 @@ from yoke_core.domain.handlers.lifecycle_transition import handle_transition
 from yoke_core.domain.qa_workflow_binding_validation import (
     ITEM_POSTURE_VERIFICATION_TRANSITION,
 )
-
-
-POSTURE = {"verification": {"kind": "ad_hoc", "method_id": "browser-inspection"}}
-
-
-def _insert_dash(conn, *, item_id: int, status: str) -> None:
-    insert_item(
-        conn,
-        id=item_id,
-        workflow_id="dash",
-        status=status,
-        workflow_posture=json.dumps(POSTURE),
-    )
 
 
 def _insert_post_deploy(conn, *, item_id: int):

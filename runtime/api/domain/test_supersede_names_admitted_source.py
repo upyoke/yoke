@@ -19,7 +19,9 @@ from __future__ import annotations
 
 import json
 
-from runtime.api.domain.test_dash_post_deploy_review_isolation import _insert_dash
+from runtime.api.domain.dash_post_deploy_review_isolation_test_support import (
+    _insert_dash,
+)
 from runtime.api.fixtures.deployment_admitted_case_fixture import (
     deliver_with_failing_admitted_copy,
     intake_requirement,
@@ -29,7 +31,9 @@ from yoke_core.domain.qa_admitted_case_reconciliation import (
 )
 from yoke_core.domain.qa_requirement_config_update import apply_requirement_update
 from yoke_core.domain.qa_requirement_supersession import supersede_requirement
-from runtime.api.domain.test_qa_source_retirement import _corrected_item_requirement
+from runtime.api.domain.qa_source_retirement_test_support import (
+    _corrected_item_requirement,
+)
 
 #: The shape the worked defect had: routes relative to a bare origin that
 #: serves the marketing site, so every navigate landed off the workbench.

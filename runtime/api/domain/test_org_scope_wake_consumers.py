@@ -5,7 +5,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from runtime.api.domain.test_org_scope_relay_reports import (
+from runtime.api.domain.org_scope_relay_reports_test_support import (
     MACHINE,
     NOW,
     OLD,

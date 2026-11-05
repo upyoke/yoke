@@ -15,7 +15,7 @@ from yoke_core.domain.yoke_function_dispatch_claim_evidence import (
     CLAIM_VERIFICATION_ALLOWED,
     CLAIM_VERIFICATION_PHASE,
 )
-from runtime.api.engines.test_doctor_hc_claim_boundary_audit import (
+from runtime.api.engines.doctor_hc_claim_boundary_audit_test_support import (
     _add_claim,
     _add_event,
     _add_session,

@@ -7,7 +7,7 @@ from yoke_core.tools._impacted_contract_tests import (
 )
 from yoke_core.tools.impacted_tests import build_import_index, select
 
-from runtime.api.tools.test_impacted_tests import _tiny_repo, _write
+from runtime.api.tools.impacted_tests_test_support import _tiny_repo, _write
 
 
 def test_cli_and_done_transition_contracts_name_their_widening_paths(tmp_path):

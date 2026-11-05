@@ -8,7 +8,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from runtime.api.domain.test_backlog_updates_helpers import _EXTRA_DDL
+from runtime.api.domain.backlog_updates_helpers_test_support import _EXTRA_DDL
 from runtime.api.fixtures import pg_testdb
 from runtime.api.fixtures.backlog import insert_item
 from yoke_core.domain import db_mutation_gate

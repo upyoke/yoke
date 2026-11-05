@@ -2,23 +2,13 @@
 
 from __future__ import annotations
 
+from runtime.api.epic_submission_receipt_test_support import RECEIPT as RECEIPT
+
+
 import pytest
 
 from runtime.api.conftest import insert_epic_task, insert_item
 from yoke_core.domain import epic
-
-
-RECEIPT = """Progress note text.
-
----SUBMISSION-CHECKS-START---
-test_plan: PASS - pytest passed
-files_touched: PASS - checked files
-edited_tests: SKIP - no tests edited
-clean_worktree: PASS - git status --porcelain is empty
-progress_notes: PASS - note written
-file_budget: PASS - files under limit
----SUBMISSION-CHECKS-END---
-"""
 
 
 def test_submission_receipt_get_reads_latest_progress_note(test_db):

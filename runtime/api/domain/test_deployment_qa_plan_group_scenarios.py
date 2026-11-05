@@ -1,10 +1,18 @@
 """Plan-group identity, pinning, defaults, notices and acceptance, asserted on data."""
 
+from runtime.api.domain.deployment_qa_plan_group_scenarios_test_support import (
+    _dispatch as _dispatch,
+    _form as _form,
+    _manual_plan as _manual_plan,
+    _pin_flow as _pin_flow,
+)
+
+
 from unittest import mock
 
 import pytest
 
-from runtime.api.domain.test_deployment_qa_plan_groups import (
+from runtime.api.domain.deployment_qa_plan_groups_test_support import (
     MEMBERS,
     RUN,
     SLUG,
@@ -12,14 +20,9 @@ from runtime.api.domain.test_deployment_qa_plan_groups import (
     _pass_group,
     _seed,
 )
-from runtime.api.domain.test_deployment_qa_stage_execution import (
-    _plan,
-)
+from runtime.api.domain.deployment_qa_stage_execution_test_support import _plan
 from runtime.api.fixtures.deployment_run_driver_fixture import DRIVER_SESSION
 from yoke_core.domain.deployment_qa_plan_credit import plan_credit_misses
-from yoke_core.domain.deployment_qa_plan_group_dispatch import (
-    gate_plan_groups,
-)
 from yoke_core.domain.deployment_qa_plan_group_writes import (
     ensure_groups,
 )
@@ -29,20 +32,6 @@ from yoke_core.domain.deployment_qa_plan_groups import (
 )
 
 WAIT_KEYS = "deployment-qa-stage-wait:" + RUN + ":item-qa:plan-groups:%"
-
-
-def _form(conn):
-    created = ensure_groups(conn, RUN, "item-qa")
-    conn.commit()
-    return created
-
-
-def _pin_flow(conn, members=MEMBERS):
-    conn.execute(
-        "UPDATE items SET deployment_flow=%s WHERE id=ANY(%s)",
-        (f"flow-{RUN}", list(members)),
-    )
-    conn.commit()
 
 
 def test_a_retracted_group_is_never_reused_by_a_later_attacher(test_db):
@@ -210,23 +199,8 @@ def _wait_messages(conn):
     ).fetchall()
 
 
-def _manual_plan(conn, plan_id):
-    conn.execute(
-        "UPDATE qa_plan_cases SET wake_path='manual', "
-        "wake_evidence='a production traffic sample is recorded for this release' "
-        "WHERE plan_id=%s",
-        (plan_id,),
-    )
-    conn.commit()
-
-
-def _dispatch(conn):
-    stage = {"name": "item-qa", "scope": "item"}
-    return gate_plan_groups(conn, stage, run_id=RUN, project_id=1, item_refs=str)
-
-
 def test_an_unchanged_dispatch_sends_no_second_notice_and_a_new_group_re_sends(test_db):
-    from runtime.api.domain.test_deployment_qa_stage_wake_delivery import (
+    from runtime.api.domain.deployment_qa_stage_wake_delivery_test_support import (
         _project,
         _recipients,
         seed_session,

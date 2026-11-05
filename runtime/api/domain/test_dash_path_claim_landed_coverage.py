@@ -3,10 +3,9 @@
 
 from __future__ import annotations
 
-from runtime.api.domain.test_dash_posture_gate import (  # noqa: F401
+from runtime.api.domain.dash_posture_gate_test_support import (
     _insert_dash,
     _insert_session,
-    dash_db_path,
 )
 from runtime.api.fixtures.file_test_db import connect_test_db
 from yoke_contracts.timestamps import utc_now

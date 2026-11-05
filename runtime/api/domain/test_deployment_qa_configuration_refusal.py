@@ -12,11 +12,7 @@ from unittest.mock import patch
 
 import pytest
 
-from runtime.api.domain.test_deploy_pipeline_scoped_qa_reporting import (  # noqa: F401
-    awaiting_driver,
-    scoped_run,
-)
-from runtime.api.domain.test_deployment_qa_stage_dispatch_close_order import (
+from runtime.api.domain.deployment_qa_stage_dispatch_close_order_test_support import (
     MEMBER_SEQUENCES,
     PROJECT_SLUG,
     PUBLIC_PREFIX,

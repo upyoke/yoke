@@ -4,8 +4,10 @@ import json
 
 from runtime.api.domain.steering_claim_test_support import seed_session
 from runtime.api.fixtures.file_test_db import connect_test_db
-from runtime.api.test_service_client_path_claims import _capture
-from runtime.api.test_service_client_path_claims import path_claims_db as path_claims_db
+from runtime.api.service_client_path_claims_test_support import _capture
+from runtime.api.service_client_path_claims_test_support import (
+    path_claims_db as path_claims_db,
+)
 from yoke_core.api.service_client_path_claims import cmd_path_claim_override
 
 

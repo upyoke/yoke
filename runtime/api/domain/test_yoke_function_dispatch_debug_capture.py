@@ -29,13 +29,13 @@ from yoke_core.domain import yoke_function_dispatch_events as events_module
 from yoke_core.domain.yoke_function_dispatch import dispatch
 from yoke_core.domain.yoke_function_registry import register
 
-from runtime.api.domain.test_yoke_function_dispatch import (
+from runtime.api.domain.yoke_function_dispatch_test_support import (
     _Req,
     _Resp,
     _make_request,
     _stable_kwargs,
 )
-from runtime.api.domain.test_yoke_function_dispatch_compact_events import (
+from runtime.api.domain.yoke_function_dispatch_compact_events_test_support import (
     _BIG_RESULT,
     CompactEventBase,
     _big_result_handler,

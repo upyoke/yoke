@@ -5,7 +5,7 @@ from runtime.api.merge_queue_landing_test_helpers import (
     landing_record,
     wire_happy_path,
 )
-from runtime.api.test_merge_queue_route import stalled_clock
+from runtime.api.merge_queue_route_test_support import stalled_clock
 
 from yoke_core.domain import merge_queue_entry_checks as checks_mod
 from yoke_core.domain import merge_queue_route as route_mod
