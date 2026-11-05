@@ -98,6 +98,11 @@ class TestActiveQueue:
         assert "YOK-3" not in ids, "Cancelled item should be excluded"
         assert "YOK-4" not in ids, "Frozen item should be excluded"
 
+    def test_unknown_flag_rejected(self):
+        result = _run_subprocess(["active-queue", "--unknown"])
+        assert result.returncode == 2
+        assert "Unknown argument: --unknown" in result.stderr
+
     def test_project_filter(self, test_db):
         result = _run_client(
             ["active-queue", "--project", "externalwebapp", "--fields", "id,title"],
