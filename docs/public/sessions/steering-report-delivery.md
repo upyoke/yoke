@@ -152,7 +152,10 @@ record prevents reprinting other's report. Worker mail wakes normally; no mail
 is still followed by next due hook report.
 
 Hook and watcher reserve last_steering_report_at before composition, so only one
-build runs per window, including denied, cut-off or failed replies. Settlement
+build runs per window, including denied, cut-off or failed replies. A watcher
+question-status change requests an early window only when the saved question
+fingerprint differs; a lightweight question-only read detects that change
+without composing the schedule. Settlement
 records last_steering_report_fingerprint only when the report survived the byte
 ceiling. Failed delivery leaves the old fingerprint; the next interval retries.
 Watcher replies carry the digest and compact disappearance identities, without
@@ -160,7 +163,8 @@ the full body or full scope facts. A skipped window preserves watcher row memory
 
 Project-policy defaults: staffing 5 minutes, idle 20, interval 2. Staffing age
 starts when pickable: later item change/claim release. Idle is last tool silence,
-independent of staffing. One combined composition per interval; changed digest,
+independent of staffing. One combined composition per interval, except for a
+changed question; changed digest,
 including decisions, causes attachment, actionable scopes first.
 
 Fingerprint is age-blind and covers rendered digest: run stage/count/reds/

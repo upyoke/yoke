@@ -12,8 +12,8 @@ Both deliver through one record per session — ``last_steering_report_at`` and
 the hook attached is not printed again by the watcher, and the reverse.
 
 Two gates keep that ride cheap and quiet. Composition is real work — it ranks
-the project's schedule — so it happens at most once per interval per steering
-session. A composed report is only attached when the picture changed since
+the project's schedule — so it normally happens once per interval per steering
+session. A changed question fingerprint permits an early watcher composition. A composed report is only attached when the picture changed since
 the last one they saw, including changes to outstanding decisions.
 The failure mode being avoided is specific: a report that keeps
 arriving with nothing in it becomes a report the steerer learns to skim, and
