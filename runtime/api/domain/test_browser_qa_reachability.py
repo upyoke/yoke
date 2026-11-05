@@ -24,7 +24,9 @@ SESSION_COOKIE = "review_session=ok"
 @contextmanager
 def _serve(handler_cls: type[BaseHTTPRequestHandler]) -> Iterator[str]:
     server = ThreadingHTTPServer(("127.0.0.1", 0), handler_cls)
-    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread = threading.Thread(
+        target=server.serve_forever, kwargs={"poll_interval": 0.05}, daemon=True
+    )
     thread.start()
     try:
         host, port = server.server_address

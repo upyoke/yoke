@@ -101,8 +101,13 @@ def _dead_handles(count: int) -> tuple[str, ...]:
     return sessions
 
 
-def _dead_launches(state_dir: Path, count: int) -> tuple[str, ...]:
+def _dead_launches(state_dir: Path, count: int, monkeypatch) -> tuple[str, ...]:
     """Supervise more gone natives than one request is allowed to carry."""
+    monkeypatch.setattr(
+        "yoke_harness.session_launch_containment.process_start_time",
+        lambda pid: RECORDED_START,
+    )
+    monkeypatch.setattr("yoke_harness.session_launch_containment.capture_group", lambda *args: {})
     launches = tuple(
         f"{index:08d}-3333-4333-8333-333333333333" for index in range(count)
     )
@@ -194,7 +199,7 @@ def test_more_launch_deaths_than_one_request_holds_are_sent_as_accepted_batches(
     tmp_path: Path,
     monkeypatch,
 ) -> None:
-    launches = _dead_launches(tmp_path, OVERFLOW)
+    launches = _dead_launches(tmp_path, OVERFLOW, monkeypatch)
     monkeypatch.setattr(
         "yoke_harness.session_process_custody.group_members", lambda group: {}
     )
@@ -242,7 +247,7 @@ def test_a_refused_launch_batch_keeps_its_records_and_the_ones_behind_it(
     monkeypatch,
 ) -> None:
     """A custody record is released only for a batch the server received."""
-    launches = _dead_launches(tmp_path, OVERFLOW)
+    launches = _dead_launches(tmp_path, OVERFLOW, monkeypatch)
     monkeypatch.setattr(
         "yoke_harness.session_process_custody.group_members", lambda group: {}
     )

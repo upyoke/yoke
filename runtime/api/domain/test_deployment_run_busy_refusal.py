@@ -14,13 +14,14 @@ import time
 
 import pytest
 
+from yoke_core.domain import deployment_runs_lock as run_lock
+
 from runtime.api.fixtures.file_test_db import connect_test_db
 from yoke_core.domain import deployment_runs as dr
 from yoke_core.domain.deployment_run_carried_work import record_carried_work
 from yoke_core.domain.deployment_run_terminalization import terminalize_run_on
 from yoke_core.domain.deployment_runs_lock import (
     RUN_BUSY_CODE,
-    RUN_ROW_LOCK_TIMEOUT_MS,
     DeploymentRunBusy,
     lock_run,
 )
@@ -28,7 +29,13 @@ from yoke_core.domain.deployment_runs_lock import (
 pytest_plugins = ["runtime.api.deployment_runs_test_db"]
 
 #: Far below the unbounded wait this replaces, generous for a loaded cluster.
-PROMPT_SECONDS = 30.0
+PROMPT_SECONDS = 0.5
+RUN_ROW_LOCK_TIMEOUT_MS = 100
+
+
+@pytest.fixture(autouse=True)
+def short_lock_bound(monkeypatch):
+    monkeypatch.setattr(run_lock, "RUN_ROW_LOCK_TIMEOUT_MS", RUN_ROW_LOCK_TIMEOUT_MS)
 
 
 def _hold_run_row(conn, run_id: str) -> None:

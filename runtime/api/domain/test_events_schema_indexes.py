@@ -21,7 +21,7 @@ from yoke_core.domain.events_schema import (
     ensure_event_schema,
 )
 from yoke_core.domain.schema_common import _column_exists, _get_indexes
-from runtime.api.fixtures.file_test_db import connect_test_db
+from runtime.api.fixtures.file_test_db import connect_test_db, init_test_db
 
 STOP_CLEANUP_INDEX = STOP_CLEANUP_INDEX_NAME
 
@@ -145,30 +145,30 @@ def test_existing_events_table_gains_actor_id_from_additive_converge(
     (inbox notification projection backfill). Leaving the column migration-only
     after that additive history was retired leaves born DBs without the column.
     """
-    db_path = tmp_path / "legacy.db"
-    conn = _open(db_path)
-    try:
-        conn.execute("DROP TABLE IF EXISTS events CASCADE")
-        conn.execute(
-            """
-            CREATE TABLE events (
-                id INTEGER PRIMARY KEY,
-                event_id TEXT UNIQUE NOT NULL,
-                source_type TEXT NOT NULL,
-                session_id TEXT NOT NULL,
-                severity TEXT NOT NULL DEFAULT 'INFO',
-                event_kind TEXT NOT NULL,
-                event_type TEXT NOT NULL,
-                event_name TEXT NOT NULL,
-                created_at TEXT NOT NULL
+    with init_test_db(tmp_path) as db_path:
+        conn = _open(Path(db_path))
+        try:
+            conn.execute("DROP TABLE IF EXISTS events CASCADE")
+            conn.execute(
+                """
+                CREATE TABLE events (
+                    id INTEGER PRIMARY KEY,
+                    event_id TEXT UNIQUE NOT NULL,
+                    source_type TEXT NOT NULL,
+                    session_id TEXT NOT NULL,
+                    severity TEXT NOT NULL DEFAULT 'INFO',
+                    event_kind TEXT NOT NULL,
+                    event_type TEXT NOT NULL,
+                    event_name TEXT NOT NULL,
+                    created_at TEXT NOT NULL
+                )
+                """
             )
-            """
-        )
-        conn.commit()
+            conn.commit()
 
-        ensure_event_schema(conn)
+            ensure_event_schema(conn)
 
-        assert _column_exists(conn, "events", "actor_id")
-        assert "idx_events_actor_id" in _index_names(conn)
-    finally:
-        conn.close()
+            assert _column_exists(conn, "events", "actor_id")
+            assert "idx_events_actor_id" in _index_names(conn)
+        finally:
+            conn.close()

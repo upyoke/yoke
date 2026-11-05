@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import base64
 import subprocess
+from types import SimpleNamespace
 
 import pytest
 
@@ -16,6 +17,15 @@ from yoke_harness.ssh_mac_gui_session import (
     run_terminal_app_command,
 )
 from yoke_harness.ssh_mac_process_tree import stop_process_tree
+
+
+@pytest.fixture(autouse=True)
+def advance_gui_clock(monkeypatch):
+    ticks = iter(range(100))
+    monkeypatch.setattr(
+        "yoke_harness.ssh_mac_gui_session.time",
+        SimpleNamespace(monotonic=lambda: next(ticks) / 10, sleep=lambda _: None),
+    )
 
 
 def _done(command: str, returncode: int = 0, stdout: str = "", stderr: str = ""):
@@ -103,7 +113,6 @@ def test_a_timed_out_command_is_stopped_before_its_output_is_removed() -> None:
 def test_a_timed_out_command_returns_what_it_printed_before_the_deadline(
     stop: tuple[int, str],
 ) -> None:
-    # A command that prints its approval line, then waits past the timeout.
     host = GuiHost(stop=stop, printed=('{"approve_url": "https://x"}\n', "waiting\n"))
 
     result = _run(host)
