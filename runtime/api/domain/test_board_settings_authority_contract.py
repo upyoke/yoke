@@ -31,8 +31,8 @@ def test_current_teaching_names_db_board_policy() -> None:
     for relative in (
         ".yoke/README.md",
         ".yoke/board-art",
-        "docs/public/databases/model/projects.md",
         "docs/OVERVIEW.md",
+        "runtime/api/board/README.md",
     ):
         body = (REPO_ROOT / relative).read_text(encoding="utf-8")
         assert "project-policy.settings.board" in body, relative
