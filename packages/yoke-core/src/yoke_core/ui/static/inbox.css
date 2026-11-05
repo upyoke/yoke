@@ -264,7 +264,18 @@
 }
 
 .inbox-post-body, .inbox-post-fields dt, .inbox-post-fields dd, .inbox-post-card .review-title { white-space: pre-wrap; overflow-wrap: anywhere; }
-.inbox-post-fields { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 2fr); gap: .4rem 1rem; }
+.inbox-post-fields { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: .2rem .75rem; }
 .inbox-post-fields dd { margin: 0; }
 
-.universe-app-root .inbox-post-card .item-button { min-height: 44px; min-width: 100px; justify-self: start; }
+.universe-app-root .inbox-sections .inbox-post-card { padding: 12px 16px; gap: 6px; }
+.universe-app-root .inbox-sections .inbox-post-card > p, .inbox-post-fields, .inbox-post-header .review-title { margin: 0; }
+.inbox-post-header { display: flex; align-items: start; justify-content: space-between; gap: 8px; min-width: 0; }
+.inbox-post-header .review-title { min-width: 0; }
+.inbox-post-fields dt { color: var(--yoke-muted); font-size: .85rem; }
+.inbox-post-fields dd { min-width: 0; }
+.universe-app-root .inbox-post-card .item-button { min-height: 44px; min-width: 64px; padding: 4px 12px; flex-shrink: 0; }
+@media (max-width: 480px) {
+  .inbox-post-header { flex-wrap: wrap; }
+  .inbox-post-fields { grid-template-columns: minmax(0, 1fr); }
+  .inbox-post-fields dd + dt { margin-top: 4px; }
+}

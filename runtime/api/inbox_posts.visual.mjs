@@ -29,8 +29,8 @@ const stamp=new Date(Date.now()-300000).toISOString();
 const question={id:7,kind:'operator_question',status:'pending',project_id:10,created_at:stamp,
 requesting_session_label:'Morgan',actions:['reply','freeform'],subject_context:{question:'Which response should we send?',
 options:[{id:'reply',label:'Send the response'}],recommended_option:'reply',allow_freeform:true}};
-let posts=[{id:4,project_id:10,title:'Review a request',body:'Please read the details and mark this post Done when the shared work is complete.',
-source:'External form',fields:{Contact:'person@example.test',Details:'Plain text stays readable: <b>this is not markup</b>.'}}];
+let posts=[{id:4,project_id:10,title:'Contact Sales',body:'Please help us choose a plan.',created_at:stamp,
+source:'Website',fields:{Email:'person@example.test',Company:'Example company',message:'Please help us choose a plan.'}}];
 if(state==='long')posts[0]={...posts[0],title:'A'.repeat(160),fields:{['A long field name '.repeat(8)]:'https://example.test/'+('segment'.repeat(90))}};
 window.calls=[];
 const client={async call(request){window.calls.push(request);
@@ -58,7 +58,7 @@ await mkdir(output, { recursive: true });
 const browser = await chromium.launch({ headless: true });
 const captures = [];
 try {
-  for (const width of [1440, 375]) for (const state of ["open", "long", "error", "done"]) {
+  for (const width of [1440, 390]) for (const state of ["open", "long", "error", "done"]) {
     const page = await browser.newPage({ viewport: { width, height: 1000 }, colorScheme: "light" });
     const errors = [];
     page.on("pageerror", (error) => errors.push(String(error)));
@@ -66,7 +66,11 @@ try {
     await page.locator(".inbox-post-card").waitFor();
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false, `${width} ${state} overflowed`);
     assert.equal(await page.locator(".inbox-post-card script, .inbox-post-card b").count(), 0);
-    const button = page.locator(".inbox-post-card button");
+    if (state !== "long") {
+      assert.equal(await page.locator(".inbox-post-body").count(), 0);
+      assert.equal(await page.locator('a[href="mailto:person@example.test"]').count(), 1);
+    }
+    const button = page.locator(".inbox-post-header button");
     const height = await button.evaluate((node) => node.getBoundingClientRect().height);
     if (height < 44) await page.screenshot({ path: path.join(output, `${width}-${state}-failure.png`), fullPage: true });
     assert(height >= 44, `Done must be at least 44px high; observed ${height}px`);
