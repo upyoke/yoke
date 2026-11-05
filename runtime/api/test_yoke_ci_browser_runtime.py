@@ -27,7 +27,8 @@ def test_yoke_ci_calls_browser_runtime_gate_after_repo_contracts() -> None:
     assert job["uses"] == "./.github/workflows/browser-runtime-tests.yml"
     assert job["needs"] == ["repo_contracts", "reuse_coverage"]
     assert " ".join(str(job["if"]).split()) == (
-        "${{ !cancelled() && needs.repo_contracts.result == 'success' }}"
+        "${{ !cancelled() && needs.repo_contracts.result == 'success' "
+        "&& needs.reuse_coverage.result == 'success' }}"
     )
 
 
