@@ -45,6 +45,8 @@ URLs correct under both local and hosted asset prefixes. Public docs carry the
 same font bytes embedded in their generated `fonts.css`: installed docs use a
 text bundle. `brand/export.sh` refreshes that CSS from the UI WOFF2 sources. Martian Mono is retained for live brand text.
 
+The repository permits this source asset exporter as its sole `.sh` file.
+
 Install librsvg and ImageMagick, then run `yoke dev run -- bash brand/export.sh`.
 The script exports square PNG icons (scaled uniformly and padded transparently)
 and multi-size ICO files with `rsvg-convert` and `magick`,

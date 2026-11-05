@@ -16,7 +16,7 @@ from runtime.api.test_zero_shell_proof_test_helpers import (
 )
 
 
-def test_repo_has_no_tracked_shell_files() -> None:
+def test_tracked_shell_files_are_limited_to_brand_asset_exports() -> None:
     result = subprocess.run(
         ["git", "ls-files", "*.sh"],
         cwd=REPO_ROOT,
@@ -24,10 +24,12 @@ def test_repo_has_no_tracked_shell_files() -> None:
         capture_output=True,
         text=True,
     )
-    assert result.stdout.strip() == ""
+    # The source asset build invokes librsvg and ImageMagick; runtime command
+    # paths retain the Python boundary enforced by the remaining guards.
+    assert result.stdout.splitlines() == ["brand/export.sh"]
 
 
-def test_public_installer_is_only_tracked_shell_script() -> None:
+def test_shell_entrypoints_are_limited_to_installation_and_brand_exports() -> None:
     result = subprocess.run(
         ["git", "ls-files", "-z", "--cached", "--others", "--exclude-standard"],
         cwd=REPO_ROOT,
@@ -51,10 +53,15 @@ def test_public_installer_is_only_tracked_shell_script() -> None:
             ).splitlines()[0]
         except IndexError:
             continue
-        if first_line in {"#!/bin/sh", "#!/usr/bin/env sh"}:
+        if first_line in {
+            "#!/bin/sh",
+            "#!/usr/bin/env sh",
+            "#!/bin/bash",
+            "#!/usr/bin/env bash",
+        }:
             shell_scripts.append(rel)
 
-    assert shell_scripts == ["packaging/public-installer/install"]
+    assert shell_scripts == ["brand/export.sh", "packaging/public-installer/install"]
 
 
 def test_codex_hook_config_routes_through_yoke_hook_evaluate() -> None:
