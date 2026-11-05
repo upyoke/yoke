@@ -54,7 +54,7 @@ test("a late response cannot repaint or record a dismissed search", async (t) =>
   await settle();
   assert.equal(visibleText(body), before);
   assert.equal(calls.some((call) => call.function === "ui_preferences.search_history.record"), false);
-  assert.equal(control(root, "header-search-overlay").hidden, true);
+  assert.equal(control(root, "header-search-overlay").matches(":popover-open"), false);
 });
 
 test("reopening search loads fresh catalogues while queries within one open reuse them", async (t) => {
