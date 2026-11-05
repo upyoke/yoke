@@ -1,7 +1,9 @@
 {
  "id": "humans-set-direction",
  "title": "Humans set direction",
- "status": "draft-copy",
+ "status": "observed",
  "page": "basics",
- "position": 0
+ "position": 0,
+ "summary": "People set strategy, choose work and make the decisions required by the selected workflow.",
+ "sources": ["docs/public/start/concepts.md"]
 }

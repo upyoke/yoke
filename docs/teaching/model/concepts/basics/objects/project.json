@@ -1,8 +1,10 @@
 {
  "id": "project",
  "title": "Project",
- "status": "draft-copy",
+ "status": "observed",
  "related": "projects",
  "page": "basics",
- "position": 2
+ "position": 2,
+ "summary": "A project scopes code, backlog, strategy and delivery configuration. Each item belongs to one project.",
+ "sources": ["docs/public/start/concepts.md"]
 }

@@ -1,8 +1,10 @@
 {
  "id": "session",
  "title": "Session",
- "status": "draft-copy",
+ "status": "observed",
  "related": "sessions",
  "page": "basics",
- "position": 5
+ "position": 5,
+ "summary": "A session is a registered agent execution with an identity, project scope and lifecycle. Claims give it work authority.",
+ "sources": ["docs/public/start/concepts.md"]
 }

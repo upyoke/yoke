@@ -1,8 +1,10 @@
 {
  "id": "organization",
  "title": "Organization",
- "status": "draft-copy",
+ "status": "observed",
  "related": "identity/accounts",
  "page": "basics",
- "position": 1
+ "position": 1,
+ "summary": "In Hosted beta (upyoke.com), an organization wraps a hosted universe and owns membership, billing and machine access.",
+ "sources": ["docs/public/start/concepts.md"]
 }

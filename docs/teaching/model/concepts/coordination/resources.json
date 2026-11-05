@@ -3,7 +3,7 @@
  "title": "Shared resource coordination",
  "status": "draft-copy",
  "commands": ["yoke claims coordination-claim acquire", "yoke claims coordination-claim list", "yoke claims coordination-claim operator-release", "yoke claims coordination-claim release", "yoke coordination-claim list", "yoke coordination-claim release"],
- "functions": ["claims.coordination_claim.acquire", "claims.coordination_claim.heartbeat", "claims.coordination_claim.list", "claims.coordination_claim.operator_release", "claims.coordination_claim.release"],
+ "functions": ["claims.coordination_claim.acquire", "claims.coordination_claim.acquire_if_free", "claims.coordination_claim.heartbeat", "claims.coordination_claim.list", "claims.coordination_claim.operator_release", "claims.coordination_claim.release"],
  "page": "coordination",
  "position": 5
 }

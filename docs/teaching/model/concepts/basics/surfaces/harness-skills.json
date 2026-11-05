@@ -1,7 +1,9 @@
 {
  "id": "harness-skills",
  "title": "Harness skills",
- "status": "draft-copy",
+ "status": "observed",
  "page": "basics",
- "position": 2
+ "position": 2,
+ "summary": "Native skills supply task procedures when invoked. Project instructions and hooks have separate loading and delivery owners.",
+ "sources": ["docs/teaching/README.md", "docs/public/start/concepts.md"]
 }

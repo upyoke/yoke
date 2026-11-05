@@ -1,7 +1,9 @@
 {
  "id": "local-machines-and-harnesses",
  "title": "Local machines and harnesses",
- "status": "draft-copy",
+ "status": "observed",
  "page": "basics",
- "position": 2
+ "position": 2,
+ "summary": "Machine setup installs the CLI, relay and harness configuration. Harness readiness and actual context receipt need separate evidence.",
+ "sources": ["docs/public/start/modes.md"]
 }

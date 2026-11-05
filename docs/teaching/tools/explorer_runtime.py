@@ -2,6 +2,7 @@
 
 import ast
 from explorer_documents import REPO
+from install_source import read_install
 
 CLI = "packages/yoke-cli/src/yoke_cli/config/"
 CORE = "packages/yoke-core/src/yoke_core/domain/"
@@ -40,12 +41,13 @@ def source_node(add, key, title, parent, summary, path, row, kind, label):
     return node
 
 
-def add_setup(add):
+def add_setup(add, model):
+    install_command, install_explanation = read_install(model)
     installer = add(
         "installer:script",
         "Install Yoke",
         "source:setup",
-        "upyoke.com/install · installs the CLI and starts setup unless skipped.",
+        install_explanation,
     )
     installer.update(
         document="../../../packaging/public-installer/install",
@@ -53,7 +55,7 @@ def add_setup(add):
         form=(
             "command",
             "Install script",
-            "curl -fsSL https://upyoke.com/install | sh",
+            install_command,
         ),
         related=[
             "branch:install-command",

@@ -1,8 +1,10 @@
 {
  "id": "workflow",
  "title": "Workflow",
- "status": "draft-copy",
+ "status": "observed",
  "related": "workflows",
  "page": "basics",
- "position": 4
+ "position": 4,
+ "summary": "An item pins an immutable workflow version that defines stages, gates, transitions and skill bindings.",
+ "sources": ["docs/public/start/concepts.md"]
 }

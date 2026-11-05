@@ -4,7 +4,7 @@
  "status": "draft-copy",
  "surface_refs": ["setup-agent", "setup-tui", "workbench-cues"],
  "commands": ["yoke github connect", "yoke github credential-helper refresh", "yoke github disconnect", "yoke github status", "yoke projects github-binding bind", "yoke projects github-binding check", "yoke projects github-binding status", "yoke projects github-binding unbind"],
- "functions": ["projects.github_binding.bind", "projects.github_binding.check", "projects.github_binding.lifecycle", "projects.github_binding.status", "projects.github_binding.unbind"],
+ "functions": ["github.pr.create", "projects.github_binding.bind", "projects.github_binding.check", "projects.github_binding.lifecycle", "projects.github_binding.status", "projects.github_binding.unbind"],
  "page": "repositories",
  "position": 1
 }

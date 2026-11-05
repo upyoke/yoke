@@ -1,7 +1,9 @@
 {
  "id": "yoke-control-plane",
  "title": "Yoke control plane",
- "status": "draft-copy",
+ "status": "observed",
  "page": "basics",
- "position": 0
+ "position": 0,
+ "summary": "The Yoke control plane owns registered operations, stored workflow state, claims and durable delivery evidence.",
+ "sources": ["docs/public/start/modes.md"]
 }

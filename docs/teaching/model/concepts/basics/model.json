@@ -1,8 +1,10 @@
 {
  "id": "model",
  "title": "The operating model",
- "status": "draft-copy",
+ "status": "observed",
  "surface_refs": ["docs-landing", "global-orientation", "manual-overview", "terminal-help"],
  "page": "basics",
- "position": 0
+ "position": 0,
+ "summary": "People choose direction; agents and deterministic workers execute pinned workflows, record evidence and deliver the selected outcome.",
+ "sources": ["docs/public/start/concepts.md"]
 }

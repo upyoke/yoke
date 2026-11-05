@@ -1,7 +1,9 @@
 {
  "id": "project-code-and-infrastructure",
  "title": "Project code and infrastructure",
- "status": "draft-copy",
+ "status": "observed",
  "page": "basics",
- "position": 1
+ "position": 1,
+ "summary": "Project repositories own application code and declared infrastructure. Yoke coordinates work using each project’s configuration.",
+ "sources": ["docs/public/start/modes.md"]
 }

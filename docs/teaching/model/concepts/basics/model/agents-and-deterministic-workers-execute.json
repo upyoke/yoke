@@ -1,7 +1,9 @@
 {
  "id": "agents-and-deterministic-workers-execute",
  "title": "Agents and deterministic workers execute",
- "status": "draft-copy",
+ "status": "observed",
  "page": "basics",
- "position": 1
+ "position": 1,
+ "summary": "Agents interpret the work and use registered operations; deterministic workers enforce the stored workflow and its gates.",
+ "sources": ["docs/public/start/concepts.md"]
 }

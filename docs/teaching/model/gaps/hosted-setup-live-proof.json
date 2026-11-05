@@ -2,7 +2,8 @@
  "id": "hosted-setup-live-proof",
  "title": "Accept standalone hosted setup against the deployed build",
  "status": "observed",
- "text": "A committed standalone hosted setup candidate and fixture screenshots cover plain titles, retained named invitation failures, settled URL/Subscription rows and one creation indicator with resumability teaching after 45 seconds. Retained CI founding screenshots, production captures tied to the exact served build, refreshed capture dates and a timed real stage founding journey remain separate pending evidence. Existing production captures remain the serving baseline until deployment and acceptance. Hosted setup delivery owns this proof; private captures and repository evidence remain outside the public map.",
+ "text": "Partly closed: retained CI founding screenshots and the prototype source-render refresh have accepted evidence. The refreshed beta and organization screens cover desktop/phone in both themes, named refusals, aligned URL/Subscription rows and one creation indicator with slow-state wording. The refresh was explicitly accepted as rendering shipped components, not a real founding transaction. Timed real stage founding and production screen inspection remain open; a source render does not close those live obligations.",
  "sources": ["docs/teaching/README.md", "docs/public/start/modes.md"],
- "position": 0
+ "position": 0,
+ "evidence": "Review on 2026-11-05: the producer records passing CI with the founding-proof screenshot matrix. Registered prototype-refresh requirement 43259 has passing QA run 47166 and independent review of artifacts 33376 and 33377. Timed stage requirement 43248 has queued run 48968 with no verdict; production inspection requirements 43249, 43250, 43252 and 43253 have no runs. Keep the remaining live-proof gap open."
 }

@@ -1,7 +1,9 @@
 {
  "id": "boundaries",
  "title": "Ownership and boundaries",
- "status": "draft-copy",
+ "status": "observed",
  "page": "basics",
- "position": 3
+ "position": 3,
+ "summary": "The control plane owns durable work state; project repositories own application changes, machines run harnesses, and the hosted service owns its infrastructure.",
+ "sources": ["docs/public/start/modes.md"]
 }

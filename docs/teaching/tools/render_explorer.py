@@ -5,6 +5,7 @@ from pathlib import Path
 from functools import lru_cache
 
 from inventory import live_registries
+from install_source import read_install
 from explorer_types import describe_nodes, describe_scope, describe_sizes, rollup_output_sizes
 from explorer_documents import add_documents, add_sections, connect_document_links, document, expand_prose_topics, describe_message_estimates
 from explorer_sources import order_nodes
@@ -52,8 +53,9 @@ def map_nodes(model):
         add('branch:' + bid, title, parent, summary)
     add('branch:ask-agent', 'Tell your agent “install upyoke.com”',
         'source:homepage', 'Give this request to your agent; it reads the website and follows the install route.')
+    install_command, install_explanation = read_install(model)
     add('branch:install-command', 'Install command', 'source:homepage',
-        'curl -fsSL https://upyoke.com/install | sh — people use interactive mode; agents use agent mode.')
+        install_command + '\n\n' + install_explanation)
     add('branch:install-human', 'For people: interactive mode', 'branch:install-command',
         'Run the install command in a terminal, then follow setup’s interactive screens.')
     add('branch:install-agent', 'For agents: agent mode', 'branch:install-command',
@@ -63,7 +65,7 @@ def map_nodes(model):
             model.problem('EXPLORER_SOURCE', 'tools/explorer_sources.py',
                           f'{sid}: assign this surface to an agreed source')
     add_documents(add)
-    add_setup(add)
+    add_setup(add, model)
     add_packets(add)
     add_hooks(add)
     add_replies(add)

@@ -1,7 +1,9 @@
 {
  "id": "registered-functions",
  "title": "Registered functions",
- "status": "draft-copy",
+ "status": "observed",
  "page": "basics",
- "position": 3
+ "position": 3,
+ "summary": "Registered functions define typed operation contracts, authority and serving requirements behind the CLI and web dashboard.",
+ "sources": ["docs/teaching/README.md", "docs/public/start/concepts.md"]
 }

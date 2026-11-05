@@ -1,7 +1,8 @@
 {
  "id": "root-help-omissions",
- "title": "Root help omits resolvable commands",
+ "title": "Root help includes Dash and Task",
  "status": "observed",
- "text": "The original root-help omission of `yoke dash` and `yoke task` is repaired in the candidate. The registry-derived command tree and side-effect-free help fixtures verify both routes and every immediate child. This evidence covers the source candidate; release proof comes from the delivery workflow.",
- "position": 16
+ "text": "Closed: the root help formatter lists both yoke dash and yoke task. The registry-derived tree and help tests cover these routes. This is source help coverage, not a claim of live setup or agent receipt.",
+ "position": 16,
+ "sources": ["packages/yoke-cli/src/yoke_cli/commands/command_tree.py"]
 }

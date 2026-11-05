@@ -1,8 +1,10 @@
 {
  "id": "work-item",
  "title": "Work item",
- "status": "draft-copy",
+ "status": "observed",
  "related": "items",
  "page": "basics",
- "position": 3
+ "position": 3,
+ "summary": "An item records a requested outcome and its spec, workflow pin, lifecycle state and evidence. Blocked and frozen are separate flags.",
+ "sources": ["docs/public/start/concepts.md"]
 }
