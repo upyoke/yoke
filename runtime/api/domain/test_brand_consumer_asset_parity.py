@@ -5,6 +5,7 @@ from __future__ import annotations
 import base64
 from pathlib import Path
 import re
+import struct
 
 import pytest
 
@@ -64,3 +65,13 @@ def test_documentation_embeds_the_same_self_hosted_fonts():
     assert len(names) == len(embedded)
     for name, encoded in zip(names, embedded, strict=True):
         assert base64.b64decode(encoded, validate=True) == (UI / name).read_bytes()
+
+
+@pytest.mark.parametrize(
+    ("name", "size"),
+    [("apple-touch-icon.png", 180), ("icon-192.png", 192), ("icon-512.png", 512)],
+)
+def test_app_icon_dimensions_match_their_declared_sizes(name: str, size: int):
+    data = (BRAND / "favicon" / name).read_bytes()
+    assert data[:8] == b"\x89PNG\r\n\x1a\n"
+    assert struct.unpack(">II", data[16:24]) == (size, size)

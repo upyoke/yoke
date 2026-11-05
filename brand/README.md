@@ -46,7 +46,8 @@ same font bytes embedded in their generated `fonts.css`: installed docs use a
 text bundle. `brand/export.sh` refreshes that CSS from the UI WOFF2 sources. Martian Mono is retained for live brand text.
 
 Install librsvg and ImageMagick, then run `yoke dev run -- bash brand/export.sh`.
-The script exports PNG and multi-size ICO files with `rsvg-convert` and `magick`,
+The script exports square PNG icons (scaled uniformly and padded transparently)
+and multi-size ICO files with `rsvg-convert` and `magick`,
 then copies all canonical brand files byte-for-byte into the UI static directory.
 It preserves the source SVG geometry; OG and wordmark lettering is already paths.
 
