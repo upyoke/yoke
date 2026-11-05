@@ -80,6 +80,11 @@ def test_workflow_collects_once_alongside_wheels_before_shards():
     import yaml
     root = Path(__file__).resolve().parents[3]
     jobs = yaml.safe_load((root / ".github/workflows/yoke-ci.yml").read_text())["jobs"]
+    steps = jobs["repo_contracts"]["steps"]
+    preparation = next(step for step in steps if step["name"] == "Prepare collection runner")
+    assert preparation["uses"] == "./.github/actions/yoke-test-runner"
+    assert any(step["name"] == "Stop collection Postgres" and step["if"] == "always()"
+               for step in steps)
     run = next(step["run"] for step in jobs["repo_contracts"]["steps"]
                if step["name"] == "Build product wheels and collect shard files")
     assert "yoke_core.tools.ci_shard_groups &" in run

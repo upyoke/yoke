@@ -56,20 +56,11 @@ jobs:
           PYTHONPATH=packages/yoke-core/src:packages/yoke-contracts/src python3 -m
           yoke_core.tools.ci_shards fan-out --write-github-output
 
-      - name: Set up Python
-        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
+      - name: Prepare collection runner
+        uses: ./.github/actions/yoke-test-runner
         with:
           python-version: ${{ steps.fan_out.outputs.python_latest }}
-          cache: pip
-          cache-dependency-path: uv.lock
-
-      - name: Install uv
-        run: |
-          python -m pip install --upgrade pip
-          python -m pip install uv
-
-      - name: Install dependencies
-        run: uv sync --all-packages --locked
+          pg-container: yoke-ci-collection-pg-${{ github.run_id }}
 
       - name: Refresh shard timing profile from retained CI reports
         continue-on-error: true # Missing compatible telemetry leaves the committed profile usable.
@@ -121,6 +112,11 @@ jobs:
         run: >-
           uv run python -m yoke_core.tools.ci_repo_contracts
           --base "origin/${{ github.event.repository.default_branch }}"
+      - name: Stop collection Postgres
+        if: always()
+        run: |
+          docker rm -f "yoke-ci-collection-pg-${{ github.run_id }}" || true
+          if [ -n "${YOKE_PG_SOCKET_DIR:-}" ]; then sudo rm -rf -- "$YOKE_PG_SOCKET_DIR"; fi
   reuse_coverage:
     timeout-minutes: 5
     name: reuse-coverage
