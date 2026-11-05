@@ -53,8 +53,8 @@ class _Conn:
                     for member in params
                 ]
             )
-        if "SELECT DISTINCT deployment_member_item_id" in sql:
-            return _Rows(many=[(SETTLED_MEMBER,), (WAITING_MEMBER,)])
+        if "SELECT deployment_member_item_id,BOOL_OR(" in sql:
+            return _Rows(many=[(SETTLED_MEMBER, False), (WAITING_MEMBER, False)])
         if "SELECT item_id FROM deployment_run_items" in sql:
             return _Rows(
                 many=[{"item_id": SETTLED_MEMBER}, {"item_id": WAITING_MEMBER}]
