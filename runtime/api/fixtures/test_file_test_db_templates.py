@@ -5,6 +5,7 @@ import json
 import contextlib
 import importlib
 import random
+from functools import partial
 from pathlib import Path
 
 import pytest
@@ -236,3 +237,31 @@ def test_cached_session_schema_records_each_fresh_machine_home(tmp_path, monkeyp
             finally:
                 fixture.close()
     assert builds == [True]
+
+
+@pytest.mark.parametrize("keyword", [False, True])
+def test_fresh_inline_partials_share_template_and_reset_clone(tmp_path, keyword):
+    ddl = (
+        "CREATE TABLE inline_seed (id INTEGER); INSERT INTO inline_seed VALUES (7);"
+        f" -- keyword={keyword}"
+    )
+    before = len(file_test_db._SCHEMA_TEMPLATES)
+    databases = []
+    for index in range(3):
+        apply = (
+            partial(file_test_db.apply_inline_ddl, ddl=ddl)
+            if (keyword or index == 1)
+            else partial(file_test_db.apply_inline_ddl, ddl)
+        )
+        with file_test_db.init_test_db(tmp_path, apply):
+            with db_backend.connect_psycopg() as conn:
+                databases.append(conn.execute("SELECT current_database()").fetchone()[0])
+                assert conn.execute("SELECT id FROM inline_seed").fetchall() == [(7,)]
+                conn.execute("DELETE FROM inline_seed")
+    assert len(set(databases)) == 1
+    assert len(file_test_db._SCHEMA_TEMPLATES) - before == 1
+    different = partial(file_test_db.apply_inline_ddl, ddl.replace("(7)", "(9)"))
+    with file_test_db.init_test_db(tmp_path, different):
+        with db_backend.connect_psycopg() as conn:
+            assert conn.execute("SELECT current_database()").fetchone()[0] != databases[0]
+            assert conn.execute("SELECT id FROM inline_seed").fetchall() == [(9,)]

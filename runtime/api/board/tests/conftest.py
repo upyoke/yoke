@@ -177,11 +177,14 @@ _SCHEMA_DDL = textwrap.dedent("""\
 # ---------------------------------------------------------------------------
 
 
+_BOARD_SCHEMA = partial(apply_inline_ddl, _SCHEMA_DDL)
+
+
 @pytest.fixture
 def test_db_path(tmp_path):
     with init_test_db(
         tmp_path,
-        apply_schema=partial(apply_inline_ddl, _SCHEMA_DDL),
+        apply_schema=_BOARD_SCHEMA,
     ) as db_path:
         conn = connect_test_db(db_path)
         from yoke_core.domain.model_reference_store import (
@@ -266,11 +269,14 @@ _ZEN_DDL = textwrap.dedent("""\
 """)
 
 
+_ZEN_SCHEMA = partial(apply_inline_ddl, _ZEN_DDL)
+
+
 @pytest.fixture
 def zen_db(tmp_path):
     with init_test_db(
         tmp_path,
-        apply_schema=partial(apply_inline_ddl, _ZEN_DDL),
+        apply_schema=_ZEN_SCHEMA,
     ) as db_path:
         yield db_path
 

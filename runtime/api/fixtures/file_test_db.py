@@ -1,6 +1,7 @@
 """Postgres schema templates for helpers that pass path-shaped test tokens.
 
-:func:`init_test_db` chooses a per-worker template by schema callable identity.
+:func:`init_test_db` chooses a per-worker template by schema identity.
+Inline DDL partials share a flavor by DDL text; other callables use identity.
 The default and explicit ``schema.cmd_init`` share the complete production schema
 with test-project identities and sites; :func:`apply_test_schema` selects
 that same template. Other callables retain their own schema and seed data.
@@ -26,11 +27,12 @@ from __future__ import annotations
 import atexit
 import contextlib
 import os
+from functools import partial
 from pathlib import Path
 from typing import Iterator
 
 
-_SCHEMA_TEMPLATES: dict[int, tuple[object, str]] = {}
+_SCHEMA_TEMPLATES: dict[int | tuple[str, str], tuple[object, str]] = {}
 
 
 @contextlib.contextmanager
@@ -107,11 +109,25 @@ def _schema_strategy(apply_schema):
     return apply_schema
 
 
+def _schema_key(strategy):
+    """Share inline scripts by text; retain identity for arbitrary callables."""
+    if isinstance(strategy, partial) and strategy.func is apply_inline_ddl:
+        if len(strategy.args) == 1 and not strategy.keywords:
+            ddl = strategy.args[0]
+        elif not strategy.args and strategy.keywords.keys() == {"ddl"}:
+            ddl = strategy.keywords["ddl"]
+        else:
+            return id(strategy)
+        if isinstance(ddl, str):
+            return ("inline_ddl", ddl)
+    return id(strategy)
+
+
 def _schema_template_db(strategy) -> str:
-    """Build each callable's schema once per worker, retaining its seed data."""
+    """Build each schema flavor once per worker, retaining its seed data."""
     from runtime.api.fixtures import pg_testdb
 
-    key = id(strategy)
+    key = _schema_key(strategy)
     if key not in _SCHEMA_TEMPLATES:
         build = strategy
         base = None
@@ -142,7 +158,7 @@ def _reusable_checkout(strategy):
     from runtime.api.fixtures import pg_reusable_db
 
     return pg_reusable_db.checkout(
-        id(strategy), lambda: _clone_schema_database(strategy)
+        _schema_key(strategy), lambda: _clone_schema_database(strategy)
     )
 
 
@@ -157,8 +173,9 @@ def init_test_db(tmp_path: Path, apply_schema=None):
     and schema-drift replacements clone the same template without replaying
     schema initialization. Templates are never handed to tests.
 
-    Use a distinct callable when its schema or seed inputs differ: callable
-    identity is the flavor, not its name or source text.
+    Inline ``partial(apply_inline_ddl, ddl)`` flavors use exact DDL text,
+    including keyword-bound DDL. Other flavors use callable identity, so use
+    a distinct callable when their schema or seed inputs differ.
     """
     from runtime.api.fixtures import pg_testdb
 
