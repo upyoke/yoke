@@ -1,14 +1,12 @@
 """Review databases follow the serving build's boot schema, including history."""
 
-from contextlib import nullcontext
-
 import pytest
 
 from runtime.api.fixtures import pg_testdb
 from runtime.api.tools import serve_workbench_for_review as review
 from yoke_contracts.schema_authority import serving_build_authority
 from yoke_core.domain import db_backend, db_helpers
-from yoke_core.domain.schema_init import converge_core_schema
+from yoke_core.domain.environment_bootstrap import run_bootstrap
 
 
 @pytest.fixture
@@ -62,12 +60,11 @@ def test_review_schema_matches_fresh_boot_and_repairs_drift(
 ):
     names, (fixture, fresh) = review_databases
     monkeypatch.setattr(review, "serving_connection", lambda: ("review", None))
-    monkeypatch.setattr(db_helpers, "connect", lambda: nullcontext(fixture))
-    with serving_build_authority():
-        converge_core_schema(
-            fresh,
-            backup_target_dsn=pg_testdb.dsn_for_test_database(names[1]),
-        )
+    with (
+        db_backend.bound_pg_dsn(pg_testdb.dsn_for_test_database(names[1])),
+        serving_build_authority(),
+    ):
+        run_bootstrap(emit=lambda _: None)
     from yoke_core.domain import migrations, migration_history
     from yoke_core.domain.org_schema import seed_default_org
 
@@ -91,6 +88,7 @@ def test_review_schema_matches_fresh_boot_and_repairs_drift(
     fresh.commit()
     expected = _schema_shape(fresh)
     actual = _schema_shape(fixture)
+    assert fixture.execute("SELECT count(*) FROM item_dependencies").fetchone()[0] == 0
     assert actual == expected, [
         (
             part,
@@ -106,6 +104,7 @@ def test_review_schema_matches_fresh_boot_and_repairs_drift(
     )
     fixture.commit()
     assert _schema_shape(fixture) != expected
+    fixture.commit()  # Release inspection locks before independent boot connections.
     review.prepare_review_database()
     actual = _schema_shape(fixture)
     assert actual == expected, [
@@ -163,10 +162,10 @@ def test_review_refuses_unservable_connection_before_convergence(
 def test_review_convergence_failure_prevents_server_start(monkeypatch, capsys):
     monkeypatch.setattr(review, "serving_connection", lambda: ("review", None))
 
-    def fail():
+    def fail(**kwargs):
         raise RuntimeError("history verification failed")
 
-    monkeypatch.setattr("yoke_core.api.server_entrypoint.ensure_core_schema", fail)
+    monkeypatch.setattr("yoke_core.domain.environment_bootstrap.run_bootstrap", fail)
     monkeypatch.setattr(review, "serve_ui", lambda **kwargs: pytest.fail("served"))
     monkeypatch.setattr("sys.argv", ["review"])
     with pytest.raises(SystemExit) as outcome:

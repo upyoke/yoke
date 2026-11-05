@@ -67,8 +67,8 @@
   padding: 7px 13px;
   border: 1px solid var(--yoke-accent);
   border-radius: var(--yoke-radius);
-  color: var(--yoke-bg);
-  background: var(--yoke-accent);
+  color: var(--yoke-accent-fill-ink);
+  background: var(--yoke-accent-fill);
   font: 550 12.5px var(--yoke-font-sans);
   cursor: pointer;
 }
@@ -148,7 +148,7 @@
   place-items: center;
 }
 .universe-app-root .machine-approval-steps .active .machine-approval-disc {
-  background: var(--yoke-accent);
+  background: var(--yoke-accent-fill);
   box-shadow: 0 0 0 3px var(--yoke-accent-weak);
 }
 .universe-app-root .machine-approval-step-label {

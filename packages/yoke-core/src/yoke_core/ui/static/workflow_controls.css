@@ -22,8 +22,8 @@
 
 .universe-app-root .workflow-button.primary {
   border-color: transparent;
-  color: white;
-  background: var(--yoke-accent);
+  color: var(--yoke-accent-fill-ink);
+  background: var(--yoke-accent-fill);
 }
 
 .universe-app-root .workflow-button.primary:hover {
@@ -65,7 +65,7 @@
 }
 
 .universe-app-root .workflow-version-dot.current {
-  background: var(--yoke-accent);
+  background: var(--yoke-accent-fill);
 }
 
 .universe-app-root .workflow-version-title {

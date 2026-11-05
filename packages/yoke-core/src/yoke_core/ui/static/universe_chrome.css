@@ -38,7 +38,7 @@
   /* Opt native form controls (buttons) into the active theme so they don't
      render with a light UA appearance on the dark bar. The hosted shell
      inherits this from the platform document; standalone needs it declared. */
-  color-scheme: dark;
+  color-scheme: light dark;
 }
 .universe-app-root,
 .universe-app-root * {
@@ -106,8 +106,8 @@
   color: var(--yoke-ink);
 }
 .universe-app-root .scope-chip.on {
-  background: var(--yoke-accent);
-  color: var(--yoke-bg);
+  background: var(--yoke-accent-fill);
+  color: var(--yoke-accent-fill-ink);
   border-color: transparent;
 }
 /* The way back out of a drill-in, sitting where that view's picker sits. */

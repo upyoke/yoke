@@ -101,7 +101,7 @@
 
 .universe-app-root
   .session-item-stage-progress .delivery-run-stage[data-state="active"] {
-  background: var(--yoke-accent);
+  background: var(--yoke-accent-fill);
 }
 
 .universe-app-root

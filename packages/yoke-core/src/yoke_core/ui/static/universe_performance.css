@@ -17,7 +17,7 @@
 .performance-series button[aria-pressed="false"] { opacity: .45; }
 .performance-target { flex-basis: 100%; color: var(--yoke-muted); }
 .performance-inspector { font-family: var(--yoke-font-sans); color: var(--yoke-ink, var(--yoke-ink)); background: var(--yoke-bg, #fff); border: 1px solid var(--yoke-border, var(--yoke-border)); border-radius: var(--yoke-radius); padding: 22px; width: min(850px, calc(100vw - 28px)); max-height: 85vh; overflow: auto; }
-.performance-inspector::backdrop { background: #101418cc; }
+.performance-inspector::backdrop { background: color-mix(in srgb, var(--yoke-bg) 80%, transparent); }
 .performance-close { float: right; }
 .performance-call { border-top: 1px solid var(--yoke-border, var(--yoke-border)); padding: 12px 0; font-size: 12px; line-height: 1.6; }
 .performance-call summary { cursor: pointer; font-weight: 600; }

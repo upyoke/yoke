@@ -11,7 +11,7 @@
   align-items: center;
   gap: 12px;
   padding: 24px;
-  background: rgba(16, 20, 24, .9);
+  background: color-mix(in srgb, var(--yoke-bg) 90%, transparent);
 }
 .review-lightbox-bar {
   display: flex;

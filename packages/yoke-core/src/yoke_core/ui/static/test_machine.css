@@ -57,8 +57,8 @@
 .universe-app-root .test-machine-actions .btn.primary,
 .universe-app-root .test-machine-dialog-actions .btn.primary {
   border-color: var(--yoke-accent);
-  color: white;
-  background: var(--yoke-accent);
+  color: var(--yoke-accent-fill-ink);
+  background: var(--yoke-accent-fill);
 }
 
 .universe-app-root .test-machine-callout {
