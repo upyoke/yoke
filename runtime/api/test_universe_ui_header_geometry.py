@@ -255,3 +255,16 @@ def test_compact_header_has_search_then_equal_contexts_then_projects():
     for asset in files("yoke_core.ui").joinpath("static").iterdir():
         if asset.is_file():
             assert b"header-search-button" not in asset.read_bytes(), asset.name
+
+
+def test_focused_search_dialog_can_shrink_without_iphone_auto_zoom():
+    css = _static("universe_search.css")
+    for part in ("panel", "field", "input", "body"):
+        rule = _rule(_base(css), f".universe-app-root .header-search-{part}")
+        assert rule["min-width"] == "0"
+    field = _rule(_base(css), ".universe-app-root .header-search-input")
+    assert field["flex"] == "1 1 0"
+    assert field["width"] == "0"
+    assert field["text-overflow"] == "ellipsis"
+    touch = _breakpoint(css, "(hover: none)")
+    assert _rule(touch, ".universe-app-root .header-search-input")["font-size"] == "16px"
