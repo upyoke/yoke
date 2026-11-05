@@ -145,11 +145,11 @@ Pack's source. A Pack installed from a lane or commit updates from the served
 catalog only once a release carries that exact version; until then the update
 refuses with `pack-source-unreleased` and names the `--catalog` to use.
 
-Workbench: **Packs** and **Project settings**.
+Web dashboard: **Packs** and **Project settings**.
 
 ## Project settings
 
-Project-scoped settings, capabilities, and defaults live in the workbench
+Project-scoped settings, capabilities, and defaults live in the web dashboard
 **Project settings** destination (and matching CLI/capability surfaces).
 Universe-wide settings live under **Universe settings**.
 

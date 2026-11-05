@@ -8,7 +8,7 @@ Run applicable health checks and interpret complete, incomplete and unavailable 
 
 ## Doctor
 
-Workbench **Doctor** runs health checks: backlog consistency, GitHub sync,
+Web dashboard **Doctor** runs health checks: backlog consistency, GitHub sync,
 worktrees, docs drift, dispatch chains, project-local checks under
 `.yoke/doctor/`.
 

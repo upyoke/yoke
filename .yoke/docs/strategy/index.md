@@ -4,7 +4,7 @@
 [Getting started](../index.md) > [Command and technical reference](../guide/reference/index.md) > Strategy
 <!-- /yoke:breadcrumbs -->
 
-The workbench **Strategy** tab shows the project's planning corpus. Authority
+The web dashboard **Strategy** tab shows the project's planning corpus. Authority
 is the database (`strategy_docs` rows). Files under `.yoke/strategy/` are
 gitignored local renders.
 

@@ -16,6 +16,7 @@ themselves.
 <!-- yoke:contents -->
 - [Agent setup](agent-setup.md) — Recommended setup through your coding agent; commands and replies.
 - [Install](install.md) — Installation prerequisites, configuration details and recovery.
+- [Source and licensing](licensing.md) — Read the Fair Source license, Apache 2.0 conversion, CLA and contribution guide.
 - [Modes](modes.md) — Choose local, hosted or self-hosted ownership.
 - [Concepts](concepts.md) — Understand universes, projects, items and workflows.
 - [Project installation](project-install.md) — Install repository guidance and manage source launcher ownership.

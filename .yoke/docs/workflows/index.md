@@ -4,7 +4,7 @@
 [Getting started](../index.md) > [Command and technical reference](../guide/reference/index.md) > Workflows
 <!-- /yoke:breadcrumbs -->
 
-Workbench **Workflows** shows versioned definitions: stages, gates, posture,
+Web dashboard **Workflows** shows versioned definitions: stages, gates, posture,
 testing and delivery defaults.
 Each non-terminal stage card shows its level glyph and name beneath its
 checks. Shipped workflows default every non-terminal stage to SENIOR;
@@ -30,6 +30,7 @@ does not jump back to the definition originally named by the route.
 | **Issue** | Bounded change | idea → refine → implement → polish → usher |
 | **Epic** | Multi-task | idea → shepherd → conduct → polish → usher |
 | **Blitz** | Document-led | idea → refine (link one strategy doc) → blitz → release → done |
+| **Task** | Folder-only or non-code project, without a code repository | idea → implementing → done; no Git lane or merge |
 
 Choose the smallest workflow that fits. Posture knobs can tighten
 verification, file budget, path claims, approval, or deployment where the
@@ -92,7 +93,7 @@ yoke workflows canon-follow set <workflow> manual
 yoke workflows canon-follow set <workflow> auto
 ```
 
-The Workbench **Workflows** page offers the same actions. Detail:
+The Web dashboard **Workflows** page offers the same actions. Detail:
 [functions/workflows.md](../functions/workflows.md).
 
 ## Defaults
@@ -112,6 +113,7 @@ rejection by a listed party rejects. Nothing checked is no gate at all.
 Detail: [workflows/lifecycle.md](lifecycle.md).
 
 <!-- yoke:contents -->
+- [Dash](dash.md) — Execute a specification through verification, merge and evidence.
 - [Lifecycle](lifecycle.md) — Read item stage authority and independent generated task progression.
 - [Transitions and routing](transitions.md) — Follow post-merge behavior, skill boundaries and staffing.
 - [Gates](gates.md) — Read readiness and lifecycle gate requirements.

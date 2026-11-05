@@ -20,7 +20,10 @@ python3 -m yoke_core.domain.install_bundle_tree_sync check --target-root <lane>
 
 Edit `nav.yaml` and authored pages, then regenerate their navigation. The corpus
 check verifies the complete nav tree, links and fragments, current derived
-blocks, privacy and the hard 350-line maximum after wrapping at 80 columns.
+blocks, privacy, visual text fallbacks and the hard 350-line maximum after
+wrapping at 80 columns. Every `yoke:visual` marker needs explanatory prose,
+a list or a table in the same heading section, before or after the marker.
+Headings, comments, code, images and link-only paragraphs do not count.
 Pages above the advisory 20,000-character target need readability review;
 that target alone does not refuse publication. Use the render `measure` command
 for those review notes. Scenario checks still establish whether teaching works.
@@ -44,6 +47,7 @@ refusal remains. Fix every named target and repeat the failed check.
 | `STALE_GENERATED_COPY` | Sync from the validated source checkout. |
 | `RETIRED_REFERENCE` | Cite the current concept-tree home and enforcing command. |
 | `STALE_NAV_BLOCK` | Regenerate navigation blocks from the current tree. |
+| `VISUAL_FALLBACK_MISSING` | Explain the visual in readable Markdown in its section so GitHub readers receive the same teaching. |
 | `CORPUS_ROOT_MISSING` | Restore/select the named source checkout and README. |
 | `CORPUS_READ_FAILED` | Restore readable git metadata and retry. |
 

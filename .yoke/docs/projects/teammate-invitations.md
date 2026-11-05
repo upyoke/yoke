@@ -11,7 +11,7 @@ From your connected terminal, an organization admin invites a person with
 |---|---|---|
 | Self-host without company sign-in | Display name | Redeem a private invite code |
 | Self-host with company sign-in | Email address | Sign in with that verified email |
-| Yoke Cloud | Email address | Sign in with their Yoke account |
+| Hosted beta (upyoke.com) | Email address | Sign in with their Yoke account |
 | Local | No teammate invitation | Set up a team server with `yoke self-host init` |
 
 These commands need no project or harness session. They act as the person
