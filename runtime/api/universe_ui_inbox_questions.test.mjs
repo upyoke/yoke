@@ -19,13 +19,15 @@ test("a recommended option resolves the same request and moves its card to Decid
   const { main, client } = renderInbox("all", [question()]);
   await settle();
   const options = byClass(main, "inbox-question-option");
-  assert.match(options[0].textContent, /Blue.*Recommended/);
+  assert.equal(options[0].textContent, "Blue");
+  assert(options[0].classList.contains("primary"));
+  assert.match(byClass(main, "inbox-question-choice")[0].textContent, /Recommended/);
   options[0].dispatchEvent(new Event("click"));
   await settle();
   const call = client.requests.find((request) => request.function === "decision_requests.resolve");
   assert.deepEqual(call.payload, { request_id: 9, action: "blue" });
   assert.equal(byClass(inboxSection(main, "waiting"), "inbox-question-card").length, 0);
-  assert.match(inboxSection(main, "decided").textContent, /Answer · Blue/);
+  assert.match(inboxSection(main, "decided").textContent, /Answered: Blue/);
 });
 
 test("freeform Send requires text and retains the answer after resolution", async () => {
@@ -56,4 +58,22 @@ test("choice-only questions do not offer freeform input", async () => {
   const { main } = renderInbox("all", [question({ actions: ["blue", "green"] })]);
   await settle();
   assert.equal(byClass(main, "inbox-question-freeform").length, 0);
+});
+
+
+test("keyboard send keeps typed text and reports a named error inline on failure", async () => {
+  const { main, client } = renderInbox("all", [question()]);
+  const call = client.call.bind(client);
+  client.call = (request) => request.function === "decision_requests.resolve"
+    ? Promise.resolve({ status: 503, envelope: { success: false,
+      error: { code: "storage_unavailable", message: "Retry Send." } } }) : call(request);
+  await settle();
+  const input = byClass(main, "item-form-control")[0];
+  input.value = "Keep this answer";
+  input.dispatchEvent(new Event("input"));
+  input.dispatchEvent(Object.assign(new Event("keydown"), { key: "Enter", ctrlKey: true }));
+  await settle();
+  assert.equal(input.value, "Keep this answer");
+  assert.match(byClass(main, "inbox-row-error")[0].textContent, /storage_unavailable.*Retry Send/);
+  assert.equal(byClass(inboxSection(main, "waiting"), "inbox-question-card").length, 1);
 });

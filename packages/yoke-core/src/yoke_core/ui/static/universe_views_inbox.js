@@ -201,7 +201,7 @@ export function renderInboxView(context, main, scope) {
     answered.set(String(row.id), {
       ...row,
       decided_by_you: true,
-      your_decision: { action, note },
+      your_decision: { action, note, decided_at: new Date().toISOString() },
       actions: [],
     });
   };

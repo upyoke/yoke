@@ -36,6 +36,7 @@ FUNCTION_MINIMUM_SERVING_VERSIONS: dict[str, str] = {
     "events.performance.aggregate": "next-release",
     "events.performance.detail": "next-release",
     "files.upload": "next-release",
+    "decision_requests.attachment.read": "next-release",
     "decision_requests.ask": "next-release",
     "decision_requests.list": "next-release",
     "decision_requests.get": "next-release",

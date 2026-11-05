@@ -93,3 +93,20 @@ def test_option_requires_id_equals_label(calls):
         == 2
     )
     assert calls == []
+
+
+def test_missing_attachment_refuses_before_dispatch(calls, tmp_path, capsys):
+    with pytest.raises(SystemExit) as exc:
+        adapter.decision_requests_ask(
+            [
+                "--key",
+                "review",
+                "--question",
+                "Which header?",
+                "--attach",
+                str(tmp_path / "missing.png"),
+            ]
+        )
+    assert exc.value.code == 2
+    assert calls == []
+    assert "operator_question_attachment_missing_file" in capsys.readouterr().err

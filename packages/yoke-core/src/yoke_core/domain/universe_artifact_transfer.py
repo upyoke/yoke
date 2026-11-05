@@ -66,6 +66,9 @@ def artifact_sources(
                 reason="artifact_handle_or_owner_unavailable",
             )
         sources.append(entry)
+    from yoke_core.domain.decision_request_attachment_archive import question_sources
+
+    sources.extend(question_sources(conn))
     try:
         sources.extend(
             storage.shared_sources(conn, stores, client_factory=client_factory)
@@ -224,7 +227,14 @@ def restore_artifacts(
                     "archive_artifact_owner_missing: file has no project; export again"
                 )
             original = parse_handle(entry["original_handle"])
-            if key.startswith("qa-artifacts/"):
+            question = entry.get("question_request_id") is not None
+            if question:
+                from yoke_core.domain.decision_request_attachment_archive import (
+                    question_entry,
+                )
+
+                question_entry(conn, entry)
+            elif key.startswith("qa-artifacts/"):
                 row = conn.execute(
                     "SELECT artifact_handle FROM qa_artifacts WHERE id=%s",
                     (entry.get("artifact_id"),),
@@ -242,7 +252,9 @@ def restore_artifacts(
                 content_type=original.get("content_type"),
                 client_factory=client_factory,
             )
-            if key.startswith("qa-artifacts/"):
+            if question:
+                question_entry(conn, entry, replacement=handle)
+            elif key.startswith("qa-artifacts/"):
                 conn.execute(
                     "UPDATE qa_artifacts SET artifact_handle=%s WHERE id=%s",
                     (serialize_handle(handle), entry["artifact_id"]),

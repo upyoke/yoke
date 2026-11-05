@@ -6,6 +6,7 @@ from typing import Any
 from pydantic import BaseModel, Field
 
 from yoke_contracts.api.function_call import FunctionCallRequest, HandlerOutcome
+from yoke_core.domain.qa_artifact_storage import ArtifactStorageError
 from yoke_core.domain.handlers.inbox_decisions import _actor_id, _error, _require_global
 
 
@@ -19,6 +20,7 @@ class QuestionAskRequest(BaseModel):
     allow_freeform: bool = True
     item: str | None = None
     replaces: int | None = None
+    attachments: list[dict[str, Any]] = Field(default_factory=list)
 
 
 class QuestionListRequest(BaseModel):
@@ -68,6 +70,11 @@ def _handle(request, model_type, operation):
         with connect() as conn:
             session = _session(conn, request, session_id, actor_id)
             result = operation(conn, model, session, actor_id)
+    except ArtifactStorageError as exc:
+        return _error(
+            "operator_question_attachment_store_failed",
+            f"{exc}; repair the QA evidence store and retry ask --attach PATH",
+        )
     except (LookupError, ValueError, PermissionError) as exc:
         return _error(
             "permission_denied"
@@ -90,13 +97,14 @@ def handle_ask(request: FunctionCallRequest) -> HandlerOutcome:
                 "operator_question_project_required: start a session in the project and retry"
             )
         context = model.model_dump(
-            exclude={"requesting_session_id", "key", "item", "replaces"}
+            exclude={"requesting_session_id", "key", "item", "replaces", "attachments"}
         )
         if model.item:
             context["item_id"] = resolve_item_ref(conn, model.item)
         row, created = file_question(
             conn,
             replaces=model.replaces,
+            attachments=model.attachments,
             kind="operator_question",
             subject_type="session_question",
             subject_key=f"{session['session_id']}:{model.key}",

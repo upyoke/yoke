@@ -9,3 +9,5 @@ a harness prompt tool; continue other in-scope work or end the turn. The answer
 arrives as Fleet mail. Read `.yoke/docs/sessions/inbox.md#operator-questions`;
 use `decision-requests list --mine` for history, `withdraw ID --reason TEXT` to
 cancel your stale question, or `ask --replaces ID` to replace it without editing.
+
+Use plain language, give the context needed to decide, name things in words (any id follows the name in parentheses), and keep the question very short.

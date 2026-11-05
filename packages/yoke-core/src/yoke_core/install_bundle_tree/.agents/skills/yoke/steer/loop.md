@@ -39,6 +39,11 @@ yoke messages acknowledge MESSAGE-ID
 ```
 
 Read and acknowledge full messages; act, hold, or surface decisions this pass.
+Every pending operator decision must exist as a pending Inbox decision request
+and be raised in steering chat. Reconcile Questions waiting on you against chat
+each time you report. Withdraw questions that no longer need an answer; use
+`ask --replaces` when facts change. Record chat answers through resolve immediately.
+Use plain language, give the context needed to decide, name things in words (any id follows the name in parentheses), and keep the question very short.
 When a worker needs an operator decision, answer from standing direction or file
 `yoke decision-requests ask --session REQUESTING-SESSION-ID --key SLUG --question TEXT`
 with context, options, recommendation and held item. Present pending operator

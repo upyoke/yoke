@@ -30,6 +30,7 @@ def test_registration_leaf_declares_every_engine_action():
     assert [row[0][0] for row in registry.rows] == [
         "decision_requests.ask",
         "decision_requests.list",
+        "decision_requests.attachment.read",
         "machine_authorization.get",
         "machine_authorization.resolve",
         "machine_authorization.pending",

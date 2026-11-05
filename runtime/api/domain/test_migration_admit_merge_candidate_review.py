@@ -26,8 +26,7 @@ def _entry():
     """Load the entry the way the applier does: by path, not by import name."""
     directory = history_dir(migration_history_package)
     match = next(
-        record for record in ordered_entries(directory)
-        if record.name == ENTRY_NAME
+        record for record in ordered_entries(directory) if record.name == ENTRY_NAME
     )
     return load_migration_module(directory / f"{match.name}.py", match.name)
 
@@ -58,7 +57,15 @@ def test_the_widened_vocabulary_is_this_entry_s_own():
     reach backwards and rewrite what this entry produced.
     """
     assert "merge_candidate_review" in entry.ALL_KINDS
-    assert set(entry.ALL_KINDS) == set(DECISION_REQUEST_KINDS)
+    assert set(entry.ALL_KINDS) == {
+        "deployment_stage_approval",
+        "qa_needs_review",
+        "lifecycle_transition_approval",
+        "machine_approval",
+        "merge_candidate_review",
+    }
+    assert set(entry.ALL_KINDS) <= set(DECISION_REQUEST_KINDS)
+    assert "operator_question" not in entry.ALL_KINDS
 
 
 def test_the_entry_is_permissive_and_declares_no_serving_floor():

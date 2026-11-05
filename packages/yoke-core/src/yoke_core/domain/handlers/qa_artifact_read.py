@@ -67,7 +67,7 @@ def _local_result(row, handle: dict) -> dict:
     )
 
     checkout = checkout_for_project_id(int(row["project_id"]))
-    subject = case_artifact_subject(dict(row))
+    subject = dict(row).get("artifact_subject") or case_artifact_subject(dict(row))
     raw_path = Path(str(handle["path"])).expanduser()
     path = (
         raw_path
@@ -122,7 +122,10 @@ def _s3_result(conn, row, handle: dict) -> tuple[dict, Optional[HandlerOutcome]]
         broker_config,
         presign_with_broker,
     )
-    from yoke_core.domain.qa_artifact_handle import ArtifactHandleError, build_artifact_key
+    from yoke_core.domain.qa_artifact_handle import (
+        ArtifactHandleError,
+        build_artifact_key,
+    )
 
     try:
         configured = resolve_artifacts_bucket(

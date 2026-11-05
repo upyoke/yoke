@@ -1,4 +1,4 @@
-// Source fixtures exercise the real Inbox renderer at desktop and phone widths.
+// Source fixtures use the real Inbox, evidence strip and answer resolver.
 import assert from "node:assert/strict";
 import { createServer } from "node:http";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
@@ -18,26 +18,34 @@ const styles = [...entry.matchAll(/href="(?:\.\/|\/)assets\/([^\"]+\.css)"/g)].m
 const html = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width">
 ${styles.map((name) => `<link rel="stylesheet" href="/assets/${name}">`).join("\n")}
 <style>body{margin:0;background:var(--yoke-bg);color:var(--yoke-ink);font-family:var(--yoke-font-sans)}
-main{max-width:960px;margin:auto;padding:16px}footer{font-size:11px;overflow-wrap:anywhere}</style></head>
+main{max-width:960px;margin:auto;padding:16px}footer{font-size:11px;overflow-wrap:anywhere;margin-top:20px}</style></head>
 <body><main class="universe-app-root"><h1>Inbox</h1><div id="inbox"></div>
 <footer>Source fixture · no live universe · ${head}</footer></main><script type="module">
 import {renderInboxView} from '/assets/universe_views_inbox.js';
-let row={id:7,kind:'operator_question',status:'pending',project_id:10,
+const state=new URL(location.href).searchParams.get('state');
+const stamp=new Date(Date.now()-300000).toISOString();
+const svg='<svg xmlns="http://www.w3.org/2000/svg" width="480" height="240"><rect width="480" height="240" fill="#f5f6f8"/><text x="28" y="70" font-family="sans-serif" font-size="24" fill="#253342">Header preview</text><rect x="28" y="105" width="280" height="44" fill="#26334d"/><text x="28" y="193" font-family="sans-serif" font-size="16" fill="#253342">Current blue header</text></svg>';
+const artifacts=[{artifact_id:1,decision_request_id:7,artifact_type:'screenshot',content_type:'image/svg+xml',metadata:{label:'header-preview.svg'}},
+{artifact_id:2,decision_request_id:7,artifact_type:'document',content_type:'application/pdf',metadata:{label:'header-brief.pdf'}}];
+let row={id:7,kind:'operator_question',status:'pending',project_id:10,created_at:stamp,
 requesting_session_id:'sample-worker',requesting_session_label:'Morgan · Codex',
-actions:['blue','green','freeform'],subject_context:{question:'Which color should the header use?',
-context:'The current header uses **blue**. The alternative improves contrast.',
-options:[{id:'blue',label:'Keep blue',detail:'Matches the existing header'},{id:'green',label:'Use green'}],
-recommended_option:'blue',allow_freeform:true}};
+actions:state==='options' ? ['blue','green','freeform'] : ['freeform'],
+subject_context:{question:state==='options' ? 'Which color should the header use?' : 'What should the welcome message say?',
+context:'The current header uses **blue**. Green has more contrast.',
+options:state==='options' ? [{id:'blue',label:'Keep blue',detail:'Matches the current header.'},{id:'green',label:'Use green'}] : [],
+recommended_option:state==='options' ? 'blue' : null,allow_freeform:true,artifacts:state==='options' ? artifacts : []}};
+if(state==='answered')row={...row,status:'resolved',decided_by_you:true,actions:[],resolution_action:'freeform',resolution_note:'Welcome back',resolved_at:stamp};
 window.calls=[];
 const client={async call(request){
 window.calls.push(request);
+if(request.function==='decision_requests.attachment.read')return {status:200,envelope:{success:true,result:{artifact_id:request.payload.artifact_id,backend:'local',disposition:'ready',content_type:'image/svg+xml',content_base64:btoa(svg)}}};
 if(request.function==='decision_requests.resolve'){
+if(state==='error')return {status:503,envelope:{success:false,error:{code:'answer_unavailable',message:'Retry Send.'}}};
 row={...row,status:'resolved',decided_by_you:true,actions:[],resolution_action:request.payload.action,
-resolution_note:request.payload.note,your_decision:{action:request.payload.action,note:request.payload.note}};
+resolution_note:request.payload.note,resolved_at:new Date().toISOString(),your_decision:{action:request.payload.action,note:request.payload.note}};
 return {status:200,envelope:{success:true,result:{request:row}}};}
 return {status:200,envelope:{success:true,result:{needs_decision:[row],messages:[]}}};}};
 renderInboxView({document,client,isMounted:()=>true,projects:()=>[{id:10,slug:'example'}]},document.getElementById('inbox'),'all');
-window.proofReady=true;
 </script></body></html>`;
 const server = createServer(async (request, response) => {
   try {
@@ -54,35 +62,57 @@ await mkdir(output, { recursive: true });
 const browser = await chromium.launch({ headless: true });
 const captures = [];
 try {
-  for (const width of [1440, 375]) for (const answer of ["option", "freeform"]) {
-    const page = await browser.newPage({ viewport: { width, height: 900 } });
-    await page.goto(`http://127.0.0.1:${server.address().port}/`);
+  for (const width of [1440, 375]) for (const state of ["options", "freeform", "answered", "error"]) {
+    const page = await browser.newPage({ viewport: { width, height: 1000 }, colorScheme: "light" });
+    await page.goto(`http://127.0.0.1:${server.address().port}/?state=${state}`);
     await page.locator(".inbox-question-card").waitFor();
-    assert.match(await page.locator(".inbox-question-option").first().textContent(), /Recommended/);
-    await page.locator(".inbox-question-context summary").click();
-    assert.equal(await page.locator(".inbox-question-context strong").textContent(), "blue");
-    const overflow = await page.evaluate(() => document.documentElement.scrollWidth > innerWidth);
-    assert.equal(overflow, false, "Question card must fit phone width.");
-    const heights = await page.locator(".inbox-question-option, .inbox-question-send").evaluateAll((buttons) => buttons.map((button) => button.getBoundingClientRect().height));
-    assert(heights.every((height) => height >= 44), "Question buttons must provide a phone-sized touch target.");
-    await page.screenshot({ path: path.join(output, `${width}-${answer}-pending.png`), fullPage: true });
-    if (answer === "option") await page.locator(".inbox-question-option").first().click();
-    else {
-      await page.locator(".inbox-question-freeform textarea").fill("Use violet");
-      await page.locator(".inbox-question-send").click();
+    assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false);
+    if (state === "answered") {
+      assert.match(await page.locator(".inbox-question-answer").textContent(), /Answered: Welcome back · you/);
+      assert.equal(await page.locator(".inbox-question-card").locator("h3,button,textarea,details").count(), 0);
+    } else {
+      assert.equal(await page.locator(".inbox-question-context").evaluate((node) => node.open), false);
+      const heights = await page.locator(".inbox-question-option, .inbox-question-send").evaluateAll((buttons) => buttons.map((button) => button.getBoundingClientRect().height));
+      assert(heights.every((height) => height >= 44), `Question buttons must be at least 44px: ${heights}`);
+      if (state === "options") {
+        assert.equal(await page.locator(".inbox-question-option.primary").textContent(), "Keep blue");
+        assert.equal(await page.locator(".inbox-question-choice small").textContent(), "Recommended");
+        assert.equal(await page.locator(".review-evidence figure, .review-evidence .review-text-chip").count(), 2);
+        await page.locator(".review-shot.is-ready").waitFor();
+        await page.locator(".review-shot-open").click();
+        await page.locator(".review-lightbox").waitFor();
+        await page.keyboard.press("Escape");
+        if (width === 375) {
+          const boxes = await page.locator(".inbox-question-option").evaluateAll((buttons) => buttons.map((button) => { const box=button.getBoundingClientRect(); return {x:box.x,width:box.width}; }));
+          assert.equal(boxes[0].x, boxes[1].x);
+          assert.equal(boxes[0].width, boxes[1].width);
+        }
+      }
     }
-    await page.locator(".inbox-question-answer").waitFor();
-    assert.match(await page.locator(".inbox-question-answer").textContent(), answer === "option" ? /Keep blue/ : /Use violet/);
-    assert.equal(await page.locator(".inbox-question-option").count(), 0);
-    const call = await page.evaluate(() => window.calls.find((entry) => entry.function === 'decision_requests.resolve'));
-    assert.equal(call.payload.action, answer === "option" ? "blue" : "freeform");
-    if (answer === "freeform") assert.equal(call.payload.note, "Use violet");
-    await page.screenshot({ path: path.join(output, `${width}-${answer}-answered.png`), fullPage: true });
-    captures.push({ width, answer, overflow, call });
+    if (state !== "error") await page.screenshot({ path: path.join(output, `${width}-${state}.png`), fullPage: true });
+    if (state === "options") {
+      await page.locator(".inbox-question-option.primary").click();
+      await page.locator(".inbox-question-answer").waitFor();
+      assert.match(await page.locator(".inbox-question-answer").textContent(), /Answered: Keep blue/);
+    } else if (state !== "answered") {
+      const input = page.locator(".inbox-question-freeform textarea");
+      assert.equal(await page.locator(".inbox-question-send").isDisabled(), true);
+      await input.fill("Welcome back");
+      await input.press("Control+Enter");
+      if (state === "error") {
+        await page.locator(".inbox-row-error").waitFor();
+        assert.match(await page.locator(".inbox-row-error").textContent(), /answer_unavailable.*Retry Send/);
+        assert.equal(await input.inputValue(), "Welcome back");
+      } else {
+        await page.locator(".inbox-question-answer").waitFor();
+        assert.match(await page.locator(".inbox-question-answer").textContent(), /Answered: Welcome back/);
+      }
+    }
+    captures.push({ width, state, calls: await page.evaluate(() => window.calls) });
     await page.close();
   }
   await writeFile(path.join(output, "measurements.json"), JSON.stringify({ head, data_source: "source fixtures", captures }, null, 2));
-  process.stdout.write(`Verified ${captures.length} Inbox question cases at 1440 and 375 pixels.\n`);
+  process.stdout.write(`Verified ${captures.length} question states; wrote six operator review screenshots.\n`);
 } finally {
   await browser.close();
   await new Promise((resolve) => server.close(resolve));

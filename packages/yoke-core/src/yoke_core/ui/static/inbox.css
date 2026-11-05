@@ -241,13 +241,18 @@
   margin-bottom: 3px;
 }
 
-.inbox-question-card { min-width: 0; overflow-wrap: anywhere; }
-.inbox-question-text { white-space: pre-wrap; }
-.inbox-question-actions { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0; }
-.universe-app-root .inbox-question-option { flex-direction: column; align-items: flex-start; max-width: 100%; white-space: normal; text-align: left; }
-.inbox-question-freeform { display: grid; gap: 6px; margin: 12px 0; }
-.inbox-question-freeform textarea { box-sizing: border-box; width: 100%; min-width: 0; }
-.inbox-question-context { margin: 12px 0; }
-
-.universe-app-root .inbox-question-option, .universe-app-root .inbox-question-send { min-height: 44px; }
-.inbox-question-detail { display: block; font-weight: normal; margin-top: 4px; }
+.universe-app-root .inbox-sections .inbox-question-card { display: flex; min-width: 0; overflow-wrap: anywhere; gap: 12px; }
+.inbox-question-card > h3, .inbox-question-card > p { margin: 0; }
+.inbox-question-actions { display: flex; flex-wrap: wrap; gap: 16px; }
+.inbox-question-choice { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; }
+.inbox-question-choice > p { margin: 0; }
+.inbox-question-freeform { display: grid; gap: 6px; }
+.inbox-question-freeform textarea { box-sizing: border-box; width: 100%; min-width: 0; resize: vertical; }
+.universe-app-root .inbox-question-card .item-button { min-height: 44px; }
+.inbox-question-answer { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.inbox-question-send { align-self: flex-start; }
+@media (max-width: 520px) {
+  .inbox-question-actions { flex-direction: column; }
+  .inbox-question-choice { align-items: stretch; }
+  .inbox-question-option, .inbox-question-send { width: 100%; }
+}

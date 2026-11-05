@@ -1,14 +1,5 @@
-// One artifact reader, drawn the same way everywhere a person judges QA
-// evidence.
-//
-// Somebody asked to record a verdict on a screenshot is answering the same
-// question from the Inbox, from a deployment run card, and from QA detail,
-// so all three read the bytes through `qa.artifact.read` and draw the answer
-// here. The gate surfaces used to draw type-and-count chips instead: an
-// approver was told that three screenshots existed and given no way to look
-// at any of them, which is a verdict asked for on evidence its reader never
-// saw.
-//
+// Shared evidence rendering keeps each QA or question attachment tied to its owner.
+
 import {
   callFunction,
   el,
@@ -24,6 +15,7 @@ const EVIDENCE_READ_TIMEOUT_MS = 15_000;
 export function normalizeArtifact(raw, requirementId = null) {
   return {
     id: Number(raw.id ?? raw.artifact_id),
+    decision_request_id: raw.decision_request_id ?? null,
     artifact_type: String(raw.artifact_type || "artifact"),
     content_type: raw.content_type ?? null,
     artifact_handle: raw.artifact_handle ?? null,

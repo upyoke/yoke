@@ -85,6 +85,11 @@ def describe_question(conn, row):
             session[0], "person unavailable"
         )
         row["requesting_session_label"] = f"{name} · {session[1]}"
+    artifacts = row["subject_context"].get("artifacts", [])
+    row["attachment_count"] = len(artifacts)
+    row["attachment_names"] = [
+        artifact["metadata"]["filename"] for artifact in artifacts
+    ]
     if row["subject_context"].get("item_id"):
         row["subject_context"]["item_ref"] = render_item_ref(
             conn, row["subject_context"]["item_id"]
@@ -122,13 +127,16 @@ def cancellation_authority(conn, request, session_id, actor_id):
     )
 
 
-def file_question(conn, *, replaces=None, **kwargs):
+def file_question(conn, *, replaces=None, attachments=None, **kwargs):
     """Replace and file in one transaction; the shared withdrawal owns the write."""
     from yoke_core.domain.db_savepoint import savepoint
     from yoke_core.domain.decision_requests import create_decision_request, _p
     from yoke_core.domain.decision_request_rows import request_row
     from yoke_core.domain.decision_request_resolution import withdraw_for_ended_subject
 
+    from yoke_contracts.operator_question_attachments import validate_uploads
+
+    validate_uploads(attachments or [])
     with savepoint(conn, "file_operator_question", owns=False):
         if replaces is not None:
             suffix = " FOR UPDATE" if _p(conn) == "%s" else ""
@@ -159,6 +167,12 @@ def file_question(conn, *, replaces=None, **kwargs):
                 commit=False,
             )
         row, created = create_decision_request(conn, **kwargs, commit=False)
+        if created and attachments:
+            from yoke_core.domain.decision_request_question_attachments import (
+                attach_files,
+            )
+
+            row = attach_files(conn, row, attachments)
         if replaces is not None:
             conn.execute(
                 f"UPDATE decision_requests SET withdrawal_reason={_p(conn)} WHERE id={_p(conn)}",
@@ -166,3 +180,15 @@ def file_question(conn, *, replaces=None, **kwargs):
             )
     conn.commit()
     return row, created
+
+
+def requester_can_read(conn, request, actor_id):
+    from yoke_core.domain.decision_requests import _p
+
+    if request["kind"] != "operator_question":
+        return False
+    row = conn.execute(
+        f"SELECT actor_id FROM harness_sessions WHERE session_id={_p(conn)}",
+        (request.get("requesting_session_id"),),
+    ).fetchone()
+    return row is not None and row[0] == actor_id

@@ -205,13 +205,17 @@ yoke decision-requests list --requesting-session SESSION-ID --status pending
 Without a live steering seat, the worker files directly and omits `--session`.
 Do not wait on a harness prompt tool: continue other in-scope work or end the turn.
 The answer arrives as a Fleet message on every supported harness and machine.
+Use plain language, give the context needed to decide, name things in words (any id follows the name in parentheses), and keep the question very short.
 Use `--context-file PATH` for Markdown context, repeat `--option ID=LABEL::DETAIL`
 for up to eight choices, and use `--no-freeform` to require a choice. With no
-choices, a freeform answer is required. The optional item must be held by the
+choices, a freeform answer is required. Add `--attach PATH` for each image or PDF
+(maximum 20 MiB per file, 64 MiB for the encoded attachment manifest). Files use
+the existing QA evidence store and viewer; get and list include their names and count. The optional item must be held by the
 requesting session. Reusing a key while pending returns the existing question.
 
-The Inbox shows question cards in **Waiting on you**, including recommended
-choices, expandable context, and a freeform **Send** box when allowed. Answered
+The Inbox shows the question as its heading, then who asked and when, followed
+by attachments, a collapsed Context disclosure, and choices. The recommended
+choice is primary. A labelled answer box supports Send or Cmd/Ctrl+Enter. Answered
 cards appear in **Decided**. Steering presents pending questions one at a time
 with context and its recommendation, then records the person's answer:
 
@@ -239,3 +243,7 @@ session; the old request's withdrawal reason names its replacement. Withdrawn
 questions leave both waiting lists and remain in session history. `dispose-ended`
 also withdraws questions when their item reaches a terminal stage, or when a
 requesting session without an item ends.
+
+Steering raises every pending Inbox decision in chat, reconciles the report
+against chat whenever it reports, withdraws obsolete questions, replaces changed
+facts, and records chat answers through resolve immediately.

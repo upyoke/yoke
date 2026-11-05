@@ -240,3 +240,8 @@ the question to remove it. Failed answer delivery remains visible as
 `operator_question_undelivered`; read the saved answer and relay it to the current
 item holder. Question and delivery state enter the report fingerprint; age does not.
 See [Operator questions](inbox.md#operator-questions) for filing and answering.
+
+Steering keeps every pending operator decision in both the Inbox and steering
+chat, and reconciles this section against chat whenever it reports. When facts
+change, use `ask --replaces`; when the answer is no longer needed, withdraw the
+question. Record an answer from chat through resolve immediately.
