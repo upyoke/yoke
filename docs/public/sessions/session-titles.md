@@ -1,5 +1,9 @@
 # Chat titles and session labels
 
+<!-- yoke:breadcrumbs -->
+[Getting started](../index.md) > [Command and technical reference](../guide/reference/index.md) > [Sessions](index.md) > Chat titles and session labels
+<!-- /yoke:breadcrumbs -->
+
 Session mentions show the native chat title, surface, project, current item
 claims (or the most recently released item), and activity age. An unnamed
 launched chat uses its assigned item ref and title. Labels resolve when read,

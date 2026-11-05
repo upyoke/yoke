@@ -167,6 +167,7 @@ evaluator/client-wall coverage, are labelled incomparable.
 <!-- yoke:contents -->
 - [Audiences and shared posts](audiences-and-posts.md) — Address live groups and finish shared Inbox work.
 - [Inbox and messaging](inbox.md) — Read decisions and send messages to their intended recipients.
+- [Chat titles and session labels](session-titles.md) — Recognize chats by title, project and held work.
 - [Steering report](steering-report.md) — Inspect available work, holders and session delivery failures.
 - [Steering report delivery](steering-report-delivery.md) — Read deployment waits, shared capacity and report deltas.
 - [Fleet policy](fleet-policy.md) — Read session launch limits and supervision policy.

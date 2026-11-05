@@ -116,6 +116,7 @@ root:
       children:
       - {title: "Audiences and shared posts", summary: "Address live groups and finish shared Inbox work.", path: "sessions/audiences-and-posts.md"}
       - {title: "Inbox and messaging", summary: "Read decisions and send messages to their intended recipients.", path: "sessions/inbox.md"}
+      - {title: "Chat titles and session labels", summary: "Recognize chats by title, project and held work.", path: "sessions/session-titles.md"}
       - {title: "Steering report", summary: "Inspect available work, holders and session delivery failures.", path: "sessions/steering-report.md"}
       - {title: "Steering report delivery", summary: "Read deployment waits, shared capacity and report deltas.", path: "sessions/steering-report-delivery.md"}
       - {title: "Fleet policy", summary: "Read session launch limits and supervision policy.", path: "sessions/fleet-policy.md"}
