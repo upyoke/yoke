@@ -175,6 +175,10 @@ def narrowing_flags(parser: argparse.ArgumentParser) -> dict[str, list[str]]:
 
 def read_recovery(function: str) -> str:
     """Teach the narrowing flags this read's parser really has."""
+    if requested_section() is not None:
+        command = shlex.join([*_READ_COMMAND.get(), "--full"])
+        return f"Rerun this read with --full: {command}"
+
     from yoke_cli.commands.registry import SUBCOMMAND_REGISTRY
 
     forms = [

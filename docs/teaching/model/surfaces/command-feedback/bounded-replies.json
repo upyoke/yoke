@@ -4,6 +4,6 @@
  "status": "observed",
  "page": "command-feedback-cases",
  "form": "State",
- "verification": "Routine replies use concise command-specific projections and pages. Write receipts print what changed; --json prints everything. Only oversized registered human reads refuse atomically above 28,000 UTF-8 bytes; the refusal names the field, filter, limit and paging flags that command really has and points to command help. List reads use --limit/--offset paging and explicitly name the next page when cut short.",
+ "verification": "Routine replies use concise command-specific projections and pages. Write receipts print what changed; --json prints everything. Only oversized registered human reads refuse atomically above 28,000 UTF-8 bytes; the refusal names the field, filter, limit and paging flags that command really has and points to command help. List reads use --limit/--offset paging and explicitly name the next page when cut short. An oversized selected section lists only smaller headings when present and offers the same read with --full; without smaller headings, it says so and still gives that working retry.",
  "topics": ["context/disclosure", "reference/commands", "documentation/disclosure/reactive-help"]
 }

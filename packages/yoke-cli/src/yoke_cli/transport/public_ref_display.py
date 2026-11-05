@@ -102,7 +102,11 @@ def emit_response(
     if not json_mode and not machine_mode and output_exceeds_limit(
         response.function, stdout.getvalue(), stderr.getvalue(), full=full
     ):
-        outline = section_outline(stdout.getvalue(), section_command)
+        outline = section_outline(
+            stdout.getvalue(), section_command, selected_heading=section
+        )
+        if section is not None and outline is None:
+            outline = "This section has no smaller headings."
         return _refuse(
             response,
             "read_output_limit_exceeded",
