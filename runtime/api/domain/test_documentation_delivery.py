@@ -333,3 +333,16 @@ def test_malformed_receipt_cli_is_bounded(candidate, tmp_path, capsys, build):
     assert MARKER not in output
     assert "malformed" in output
     assert len(output) < 1000
+
+
+@pytest.mark.parametrize("name", ["extra.txt", "extra.woff2", "linked.md"])
+def test_unexpected_corpus_files_are_refused(tmp_path, name):
+    root = _corpus(tmp_path)
+    path = root / name
+    if name == "linked.md":
+        path.symlink_to(root / "index.md")
+    else:
+        path.write_bytes(b"\xff")
+    refused = [r for r in validation.validate_public_corpus(root)
+               if r.code == "DOCS_CORPUS_UNEXPECTED_FILE"]
+    assert [(r.target, r.repair) for r in refused] == [(name, "remove it from docs/public")]
