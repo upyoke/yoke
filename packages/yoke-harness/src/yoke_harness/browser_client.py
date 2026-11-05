@@ -173,8 +173,7 @@ def _keep_profile_sign_in(profile: Path) -> None:
         return
     if kept:
         _log(
-            f"[browser-runtime] Kept {kept} session cookie(s) from the browser "
-            f"profile at {profile}."
+            f"[browser-runtime] Kept {kept} session cookie(s) from the browser profile."
         )
 
 

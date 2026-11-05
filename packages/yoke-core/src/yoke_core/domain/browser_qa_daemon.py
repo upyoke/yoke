@@ -15,7 +15,7 @@ from typing import Any, Dict, Optional
 from yoke_contracts.browser_identity import DEFAULT_IDENTITY
 from yoke_core.domain.session_ambient_identity import resolve_ambient_session_id
 from yoke_harness.browser_client_readiness import DAEMON_LOG_NAME
-from yoke_harness.browser_daemon_profile import recover_unhealthy_daemon
+from yoke_harness.browser_daemon_profile import selected_profile
 
 
 _DAEMON_MAX_RETRIES = 2  # additional attempts after the first failure
@@ -70,32 +70,19 @@ def _ensure_daemon_running(
     project: str = "",
     identity: str = DEFAULT_IDENTITY,
 ) -> Optional[str]:
-    """Ensure browser daemon is running. Returns error message or None.
-
-    Each profile owns a separate daemon, state file, log and endpoint. A retry
-    stops only this profile's verifiably unhealthy process; a healthy process
-    and every other profile's captures survive startup failures.
-    """
+    """Start the private check's daemon; retries never kill a live browser."""
     # Import lazily so tests patching browser_qa._log /
     # browser_qa._collect_daemon_diagnostics / browser_qa._emit_daemon_startup_failed_event
     # via mock.patch.object(browser_qa, ...) take effect on this caller.
     from yoke_core.domain import browser_qa as _bqa
-    from yoke_core.domain import browser_client
     from yoke_core.domain.browser_client import daemon_start
 
-    from yoke_contracts.browser_identity import BrowserIdentityError
-    from yoke_cli.config.browser_profile import resolve_authorized_profile
-    from yoke_cli.config.project_slug_lookup import ProjectSlugLookupError
-
-    try:
-        profile_path, profile_note = resolve_authorized_profile(
-            project, identity=identity
+    profile = selected_profile()
+    if not profile:
+        return (
+            "browser_check_scope_required: start the browser inside a private "
+            "QA check scope; rerun the check through `yoke qa case run`."
         )
-    except (ProjectSlugLookupError, BrowserIdentityError) as exc:
-        _bqa._log(str(exc))
-        return str(exc)
-    _bqa._log(profile_note)
-    profile = str(profile_path) if profile_path else None
 
     # First attempt
     last_err: Optional[str] = None
@@ -110,18 +97,11 @@ def _ensure_daemon_running(
             f"Browser daemon startup failed (attempt 1/{_DAEMON_MAX_RETRIES + 1}): {first_err}"
         )
 
-    # Retry loop with cleanup
+    # Retry loop without stopping a live daemon
     for attempt in range(2, _DAEMON_MAX_RETRIES + 2):
         _bqa._log(
-            f"Retry {attempt}/{_DAEMON_MAX_RETRIES + 1}: cleaning up stale state..."
+            f"Retry {attempt}/{_DAEMON_MAX_RETRIES + 1}: retrying this private check..."
         )
-        try:
-            recover_unhealthy_daemon(browser_client, profile)
-        except RuntimeError as cleanup_error:
-            last_err = str(cleanup_error)
-            _bqa._log(last_err)
-            continue
-
         time.sleep(1)
 
         _bqa._log(

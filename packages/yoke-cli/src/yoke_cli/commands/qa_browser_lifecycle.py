@@ -140,22 +140,26 @@ def qa_browser_setup(args: List[str]) -> int:
                 runtime_dir, prerequisite_actions
             )
         else:
-            result = {
-                "ok": True,
-                "dry_run": False,
-                "runtime_dir": str(runtime_dir),
-                "prerequisite_actions": prerequisite_actions,
-                "daemon": browser_client.daemon_start(
-                    profile_dir=_profile_dir_arg(parsed.project, identity),
-                    port=parsed.port,
-                    headed=parsed.headed,
-                    idle_timeout=(
-                        parsed.idle_timeout * MILLISECONDS_PER_SECOND
-                        if parsed.idle_timeout is not None
-                        else None
+            from yoke_harness.browser_check_profile import check_scope
+
+            with check_scope(parsed.project, identity, keep_open=True) as check:
+                result = {
+                    "ok": True,
+                    "dry_run": False,
+                    "runtime_dir": str(runtime_dir),
+                    "prerequisite_actions": prerequisite_actions,
+                    "check_id": check.check_id,
+                    "daemon": browser_client.daemon_start(
+                        profile_dir=str(check.profile),
+                        port=parsed.port,
+                        headed=parsed.headed,
+                        idle_timeout=(
+                            parsed.idle_timeout * MILLISECONDS_PER_SECOND
+                            if parsed.idle_timeout is not None
+                            else None
+                        ),
                     ),
-                ),
-            }
+                }
     except (RuntimeError, MissingProjectError, BrowserIdentityError) as exc:
         failure: dict[str, object] = {"ok": False, "error": str(exc)}
         if isinstance(exc, browser_node_toolchain.NodeToolchainError):
@@ -172,6 +176,8 @@ def qa_browser_setup(args: List[str]) -> int:
     else:
         daemon = result.get("daemon") or result.get("readiness", {}).get("daemon", {})
         print(daemon.get("detail") or daemon.get("status", "ready"))
+        if result.get("check_id"):
+            print("check_id: " + result["check_id"])
     return 0
 
 

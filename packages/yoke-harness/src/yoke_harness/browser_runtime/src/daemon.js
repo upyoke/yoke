@@ -142,7 +142,7 @@ async function main() {
 
   // Launch the browser
   const profileNote = args.profileDir
-    ? `persistent profile ${args.profileDir}`
+    ? 'private profile'
     : 'throwaway profile';
   console.log(`Launching Chromium (${args.headed ? 'headed' : 'headless'}, ${profileNote})...`);
   await browserManager.launch();
@@ -222,7 +222,7 @@ async function main() {
 
     writeStateFile(args.stateFile, state);
     console.log(`Daemon listening on ${endpoint}`);
-    console.log(`State file: ${args.stateFile}`);
+    console.log('Daemon state written.');
 
     // Start idle timer
     resetIdleTimer();

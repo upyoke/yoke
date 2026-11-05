@@ -1,82 +1,48 @@
-"""``yoke qa browser stop`` ends the machine-local daemon."""
+"""Closing a private check cannot stop the authoritative identity browser."""
 
-from __future__ import annotations
-
+from contextlib import contextmanager
 import json
-
-import pytest
 
 from yoke_cli.commands.qa_browser_stop import qa_browser_stop
 
 
-def test_stop_reports_stopped(
-    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
-) -> None:
-    monkeypatch.setattr(
-        "yoke_cli.commands.qa_browser_stop.required_project_context",
-        lambda project: "yoke",
-    )
-    monkeypatch.setattr(
-        "yoke_cli.config.browser_profile.authorized_profile_dir",
-        lambda project, identity: None,
-    )
-
-    def _stop(*, profile_dir: str) -> str:
-        assert profile_dir == ""
-        return "stopped"
-
-    import yoke_harness.browser_client as browser_client
-
-    monkeypatch.setattr(browser_client, "daemon_stop", _stop)
-    assert qa_browser_stop(["--project", "yoke", "--json"]) == 0
-    payload = json.loads(capsys.readouterr().out)
-    assert payload == {"status": "stopped"}
+def test_stop_requires_the_check_id(capsys):
+    assert qa_browser_stop(["--project", "fixture", "--json"]) == 2
+    assert "--check-id" in capsys.readouterr().err
 
 
-def test_stop_already_down_is_not_running(
-    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
-) -> None:
-    monkeypatch.setattr(
-        "yoke_cli.commands.qa_browser_stop.required_project_context",
-        lambda project: "yoke",
-    )
-    monkeypatch.setattr(
-        "yoke_cli.config.browser_profile.authorized_profile_dir",
-        lambda project, identity: None,
-    )
+def test_stop_closes_only_the_named_check(monkeypatch, capsys):
+    closed = []
 
-    def _stop(*, profile_dir: str) -> str:
-        raise RuntimeError("daemon not running")
-
-    import yoke_harness.browser_client as browser_client
-
-    monkeypatch.setattr(browser_client, "daemon_stop", _stop)
-    assert qa_browser_stop(["--json"]) == 0
-    payload = json.loads(capsys.readouterr().out)
-    assert payload["status"] == "not_running"
-
-
-def test_stop_failure_names_status_retry(
-    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
-) -> None:
-    monkeypatch.setattr(
-        "yoke_cli.commands.qa_browser_stop.required_project_context",
-        lambda project: "yoke",
-    )
-    monkeypatch.setattr(
-        "yoke_cli.config.browser_profile.authorized_profile_dir",
-        lambda project, identity: None,
-    )
-
-    def _stop(*, profile_dir: str) -> str:
-        raise RuntimeError(
-            "browser_daemon_profile_mismatch: state belongs to another profile"
+    @contextmanager
+    def scope(project, identity, **kwargs):
+        assert (project, identity, kwargs) == (
+            "fixture",
+            "admin",
+            {"check_id": "opaque"},
         )
+        yield
+        closed.append("opaque")
 
-    import yoke_harness.browser_client as browser_client
+    monkeypatch.setattr("yoke_harness.browser_check_profile.check_scope", scope)
+    assert (
+        qa_browser_stop(
+            [
+                "--project",
+                "fixture",
+                "--identity",
+                "admin",
+                "--check-id",
+                "opaque",
+                "--json",
+            ]
+        )
+        == 0
+    )
+    assert json.loads(capsys.readouterr().out) == {"status": "stopped"}
+    assert closed == ["opaque"]
 
-    monkeypatch.setattr(browser_client, "daemon_stop", _stop)
-    assert qa_browser_stop([]) == 1
-    err = capsys.readouterr().err
-    assert "browser_daemon_profile_mismatch" in err
-    assert "yoke qa browser status" in err
+
+def test_unknown_check_names_recovery(capsys):
+    assert qa_browser_stop(["--project", "fixture", "--check-id", "invalid"]) == 1
+    assert "browser_check_unavailable" in capsys.readouterr().err

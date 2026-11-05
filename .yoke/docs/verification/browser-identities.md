@@ -116,8 +116,10 @@ per name. Values live only under this machine's
 they are never sent to the control plane. Configure every runner machine once.
 
 `authorize` signs expired automatic sites in without opening a window. Before
-starting its daemon, a Browser case stops its identity's daemon, checks the
-sites, signs expired automatic sites in, and verifies the result. `verify` stays
+running checks, sign in once with this command. Every QA check copies the
+identity's cookies and storage into its own private profile and daemon. Checks
+never stop or write the authoritative profile. When it expires, authorize again;
+the next check copies the fresh sign-in state. `verify` stays
 read-only. The managed Playwright browser uses its existing basic password
 store and mock Keychain switches, including headless background execution;
 it needs no GUI login session or macOS Keychain approval. Sign-in has no
@@ -196,13 +198,24 @@ Browser case that needs sign-in names its identity with
 the case's routes and data; an account signed into a different organization
 cannot prove a case about your organization. The runner validates named identities
 before starting any browser daemon. Public cases omit the field and continue
-on the `default` daemon without requiring a sign-in identity, even when the
-project declares named identities. Only identities with automatic sites run a
-pre-case sign-in check; human sites keep their existing behavior. The runner
+with a private copy of the `default` profile without requiring a sign-in
+identity, even when the project declares named identities. The runner
 can also select a recorded account if navigation reaches its account chooser.
 `authorize` and `verify` still refuse a missing `--identity` when `default`
-has no sites and another identity does. A run whose cases name several identities starts
-one daemon per identity. An
+has no sites and another identity does. Each check gets a separate daemon,
+including checks using the same identity at the same time. Its copy stays under
+the machine's owner-only Yoke secret directory and is removed when the check
+ends; copies whose owning process has exited are swept on the next browser
+check. No copy leaves the machine or enters QA evidence.
+
+For an interactive step sequence, `qa browser setup --json` returns a
+`check_id`. Pass `--check-id ID --keep-open` on intermediate `qa browser step`
+calls, then omit `--keep-open` on the final call to close and delete the copy.
+A first step with `--keep-open` can also start the sequence and return its id.
+Use `qa browser stop --check-id ID` to close it early, including after an error.
+An idle browser exits after ten minutes and its copy becomes sweepable.
+`--page NAME` selects a page within that check, so two workers never share
+pages merely by choosing the same identity or page name. An
 exploratory mission can select personas with `method_config.browser_identities`,
 for example `["operator"]`; this list wins. With no list, dispatch supplies all
 project-declared identities whose sites cover the target base URL origin,

@@ -108,8 +108,9 @@ case needs a named identity's signed-in profile.
 A named identity must already be declared; each identity keeps its own profile.
 An identity never signed in on the running host gets a clean context and a
 signed-out capture names the `yoke browser authorize --identity NAME` command.
-A run whose cases name several identities starts one daemon per identity, and
-the run's `sign_in` evidence names the identity.
+Each check starts a private daemon from a copy of its identity's sign-in state;
+same-identity checks never share the browser. The run's `sign_in` evidence names
+the identity, and the private copy is removed after the check.
 See [browser sign-in identities](browser-identities.md).
 
 Optional `color_scheme` is exactly `"light"` or `"dark"`; omit it for the

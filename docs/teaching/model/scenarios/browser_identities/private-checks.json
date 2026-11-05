@@ -1,0 +1,10 @@
+{
+ "id": "private-checks",
+ "title": "Run concurrent checks with one signed-in identity",
+ "status": "observed",
+ "audience": "both",
+ "when": "Several workers need the same browser identity on one machine",
+ "need": "Each check copies the authoritative sign-in state into a private browser. Interactive steps carry check_id and keep_open until the last step, or close through qa browser stop. Cases close automatically; abandoned copies are swept after their owner exits. Authorize again when the authoritative sign-in expires, then start a new check.",
+ "sources": ["docs/public/verification/browser-identities.md", "packages/yoke-harness/src/yoke_harness/browser_check_profile.py", "packages/yoke-cli/src/yoke_cli/commands/qa_browser.py"],
+ "position": 3
+}

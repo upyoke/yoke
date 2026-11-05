@@ -3,8 +3,9 @@
 ``yoke browser authorize`` signs declared automatic first-party test accounts
 in headless from machine-local secret files. Human sites open in a plain
 window of the daemon's Chromium, because some identity providers refuse
-automation-controlled sign-in. Both paths save the identity's profile for
-the daemon; agents never read credential values.
+automation-controlled sign-in. Both paths save the authoritative identity
+profile; QA checks copy its sign-in state into private profiles and daemons.
+Agents never read credential values.
 
 A project declares named identities (``yoke_contracts.browser_identity``);
 each has its own profile, so signing a second account in never overwrites the
@@ -22,8 +23,7 @@ from a stale copy. A profile already signed in at the capability path when the
 store is first used is moved into the store, not discarded.
 
 An identity that was never authorized simply has no profile directory. That is
-not an error: the daemon falls back to a clean throwaway context, exactly as it
-behaved before profiles existed.
+not an error: its QA check starts with a clean private profile.
 """
 
 from __future__ import annotations

@@ -13,28 +13,16 @@ from yoke_contracts.project_defaults import MissingProjectError
 
 
 QA_BROWSER_STOP_USAGE = (
-    "yoke qa browser stop [--project PROJECT] [--identity NAME] [--json]"
+    "yoke qa browser stop --check-id ID [--project PROJECT] [--identity NAME] [--json]"
 )
-
-
-def _profile_dir(project: str, identity: str | None) -> str:
-    """The identity profile whose daemon stops, or ``""`` for the clean one."""
-    from yoke_contracts.browser_identity import DEFAULT_IDENTITY
-    from yoke_cli.config.browser_profile import authorized_profile_dir
-
-    authorized = authorized_profile_dir(project, identity=identity or DEFAULT_IDENTITY)
-    return str(authorized) if authorized is not None else ""
 
 
 def qa_browser_stop(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke qa browser stop",
-        description=(
-            "Stop the machine-local Browser QA daemon for one project "
-            "identity's browser profile (default: `default`). A daemon that "
-            "is already stopped is reported as not_running."
-        ),
+        description="Stop a private QA check and delete its copied sign-in state.",
     )
+    parser.add_argument("--check-id", required=True, help="Private check id to close.")
     parser.add_argument(
         "--project",
         default=None,
@@ -60,7 +48,7 @@ def qa_browser_stop(args: List[str]) -> int:
         return usage_error(str(exc))
 
     try:
-        from yoke_harness import browser_client
+        from yoke_harness import browser_check_profile  # noqa: F401
     except ImportError as exc:
         print(
             f"yoke qa browser stop requires yoke-harness in the product install: {exc}",
@@ -68,9 +56,11 @@ def qa_browser_stop(args: List[str]) -> int:
         )
         return 2
 
-    profile = _profile_dir(parsed.project, parsed.identity)
     try:
-        browser_client.daemon_stop(profile_dir=profile)
+        from yoke_harness.browser_check_profile import check_scope
+
+        with check_scope(parsed.project, parsed.identity, check_id=parsed.check_id):
+            pass
     except RuntimeError as exc:
         text = str(exc)
         if text == "daemon not running":

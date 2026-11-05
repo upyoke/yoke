@@ -5,5 +5,5 @@
  "audience": "Maintainers",
  "page": "runtime-execution",
  "position": 0,
- "summary": "Each persistent profile has its own browser daemon. The daemon listens only on 127.0.0.1 and authenticates API requests before parsing JSON bodies."
+ "summary": "The authoritative identity profile holds the operator's sign-in state. Each QA check copies cookies and storage into an owner-only machine-local profile, runs its own daemon, and deletes the copy when done. Concurrent checks using the same identity never reuse or stop each other's daemon. CLI sequences continue with check_id and keep_open, then close on their final step; abandoned copies are swept after their owner exits. Authorize refreshes only the authoritative profile for future checks. The daemon listens only on 127.0.0.1 and authenticates API requests before parsing JSON bodies."
 }
