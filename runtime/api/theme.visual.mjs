@@ -93,7 +93,8 @@ try {
         const url = new URL(routes[name], review); url.search = new URL(review).search;
         await page.goto(url.href);
         await page.locator(".universe-app-root").waitFor();
-        await page.waitForFunction(() => !/Loading…/.test(document.body.innerText));
+        await page.waitForFunction(() => !/Loading/i.test(document.body.innerText));
+        if (name === "sessions") await page.locator(".session-card").first().waitFor();
         if (name === "run" && process.env.YOKE_REVIEW_RUN_FIXTURE === "1") {
           await page.evaluate(async sha => {
             const { renderRunDetailView } = await import("/assets/universe_views_run_detail.js");
@@ -111,6 +112,7 @@ try {
             note.textContent = "Source rendering fixture; no deployment run was created.";
             host.appendChild(note);
           }, head);
+          await page.locator(".run-page").waitFor();
         }
         await page.evaluate(() => document.fonts.ready);
         const filename = `${name}-1440-${system}.png`;
