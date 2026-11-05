@@ -61,3 +61,52 @@ def test_other_workflows_need_no_hosted_connection(monkeypatch):
         {"target": "local"},
         "",
     )
+
+
+@pytest.mark.parametrize("failure", [False, True])
+def test_early_proof_uses_owner_authority_and_never_waits(monkeypatch, capsys, failure):
+    import json
+    import subprocess
+    from yoke_core.domain import deploy_pipeline_reporting as reporting
+    from runtime.api.tools import require_platform_consumer_compatibility as gate
+
+    calls = []
+    candidate, consumer = "a" * 40, "b" * 40
+
+    def actions(*args, project, timeout):
+        calls.append((args, project))
+        if args[:2] == ("dispatch-tag", "ensure"):
+            output = json.dumps({"success": True, "result": {
+                "repo": args[2], "tag": args[3], "sha": args[4]}})
+            return subprocess.CompletedProcess(args, 0, output, "")
+        assert args[:3] == ("trigger", "upyoke/platform", "platform-release-pin-check.yml")
+        return subprocess.CompletedProcess(args, int(failure), "42\n", "denied" if failure else "")
+
+    monkeypatch.setattr(reporting, "_github_actions", actions)
+    monkeypatch.setattr(gate, "await_verdict", lambda *a, **kw: pytest.fail("must not wait"))
+    stages = [{"config": {"workflow": bridge.HOSTED_BRIDGE_WORKFLOW}}]
+    bridge.start_hosted_consumer_proof(stages, candidate, {"consumer_sha": consumer})
+    early_calls = list(calls)
+
+    def run_yoke(argv, *, timeout):
+        args = list(argv[1:])
+        index = args.index("--project")
+        project = args[index + 1]
+        del args[index:index + 2]
+        result = actions(*args, project=project, timeout=timeout)
+        return result.returncode, result.stdout, result.stderr
+
+    monkeypatch.setattr(gate, "_yoke", run_yoke)
+    gate.dispatch(candidate, consumer)
+    assert calls[2:] == early_calls  # Bridge joins the identical durable intent.
+    assert all(project == "platform" for _, project in calls)
+    output = capsys.readouterr().out
+    assert ("consumer_proof_start_unavailable" if failure else "run 42") in output
+
+
+@pytest.mark.parametrize("stages,inputs", [([], {}), ([{"config": {"workflow": "deploy.yml"}}], {}),
+    ([{"config": {"workflow": bridge.HOSTED_BRIDGE_WORKFLOW}}], {})])
+def test_unrelated_or_unbound_flow_never_dispatches(monkeypatch, stages, inputs):
+    from yoke_core.domain import platform_consumer_dispatch as pairs
+    monkeypatch.setattr(pairs, "dispatch_pair", lambda *a: pytest.fail("must not dispatch"))
+    bridge.start_hosted_consumer_proof(stages, "a" * 40, inputs)

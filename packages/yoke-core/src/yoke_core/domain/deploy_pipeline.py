@@ -7,6 +7,7 @@ from yoke_core.domain.deployment_driver_identity import driver_identity_operatio
 
 import json
 import sys
+from yoke_core.domain.deploy_pipeline_hosted_bridge import start_hosted_consumer_proof
 
 from yoke_core.domain.deployment_start_timing import (
     timed_call,
@@ -81,7 +82,6 @@ def run_pipeline(
     sd: Optional[str] = None,
 ) -> int:
     sd = sd or _resolve_script_dir()
-
     if not primary_arg.startswith("run-"):
         print(
             "Error: deployment execution requires a run ID; compose an "
@@ -112,7 +112,6 @@ def run_pipeline(
     flow_id = str(run.get("flow") or "")
     release_lineage = str(run.get("release_lineage") or "")
     bound_inputs = bound_input_values(parse_bound_sources(run.get("bound_sources")))
-
     run_status = str(run.get("status") or "")
     current_stage = str(run.get("current_stage") or "")
     member_items = [str(member["public_ref"]) for member in members]
@@ -124,7 +123,6 @@ def run_pipeline(
     narrate_carried_work_attestation(run.get("carried_work"))
     if not member_items:
         print(f"Run {run_id} has no member items (environment-level deploy)")
-
     if not flow_id:
         print(f"Error: deployment run '{run_id}' has no flow assigned", file=sys.stderr)
         return EXIT_USAGE
@@ -148,7 +146,6 @@ def run_pipeline(
     if not stages:
         print(f"Error: no stages found in flow '{flow_id}'", file=sys.stderr)
         return EXIT_USAGE
-
     try:
         github_repo = control_plane.project_field(project, "github_repo")
     except control_plane.DeploymentControlPlaneError as exc:
@@ -210,6 +207,8 @@ def run_pipeline(
 
     found_start = not start_stage
     run_started = run_status not in {"created", "failed", "cancelled"}
+
+    start_hosted_consumer_proof(stages, release_lineage, bound_inputs)
 
     for stage in stages:
         s_name = stage["name"]

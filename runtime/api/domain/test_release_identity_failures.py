@@ -11,7 +11,7 @@ import pytest
 import yaml
 
 from runtime.api.tools import require_platform_consumer_compatibility as gate
-from runtime.api.tools.platform_consumer_dispatch_ref import bound_dispatch_ref
+from yoke_core.domain.platform_consumer_dispatch_ref import bound_dispatch_ref
 from yoke_core.domain.deployment_failure_trace import (
     FailedJob,
     RunSnapshot,

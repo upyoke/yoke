@@ -5,6 +5,7 @@ import json
 import pytest
 
 from runtime.api.tools import platform_consumer_dispatch as worker
+from yoke_core.domain import platform_consumer_dispatch as pairs
 from runtime.api.tools import require_platform_consumer_compatibility as gate
 from runtime.api.fixtures.file_test_db import init_test_db
 from yoke_contracts.api.function_call import ActorContext, FunctionCallRequest, TargetRef
@@ -76,9 +77,9 @@ def test_worker_proof_is_joined_by_release_with_identical_checksum(tmp_path, mon
 
 @pytest.mark.parametrize("change", ["candidate", "consumer", "input"])
 def test_changed_pair_or_payload_cannot_reuse_request_id(tmp_path, monkeypatch, change):
-    argv = worker.build_dispatch(CANDIDATE, CONSUMER)
+    argv = pairs.build_dispatch(CANDIDATE, CONSUMER)
     original = _request(argv, "worker")
-    changed = worker.build_dispatch(
+    changed = pairs.build_dispatch(
         "c" * 40 if change == "candidate" else CANDIDATE,
         "d" * 40 if change == "consumer" else CONSUMER,
     )
