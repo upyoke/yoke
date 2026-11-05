@@ -77,7 +77,11 @@ def _remove(check: BrowserCheck) -> None:
         state_path = browser_client._state_file_path(str(check.profile))
         state = browser_client.DaemonState.load(state_path)
         if state and browser_client.daemon_running(state):
-            browser_client.daemon_stop(profile_dir=str(check.profile))
+            try:
+                browser_client.daemon_stop(profile_dir=str(check.profile))
+            except RuntimeError as exc:
+                if str(exc) != "daemon not running":
+                    raise
         if state_path.parent.exists():
             shutil.rmtree(state_path.parent)
         shutil.rmtree(check.directory)

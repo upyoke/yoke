@@ -123,3 +123,18 @@ def test_unknown_check_names_recovery(profiles, check_id):
     with pytest.raises(RuntimeError, match="browser_check_unavailable"):
         with checks.check_scope("fixture", check_id=check_id):
             pytest.fail("unknown check must refuse")
+
+
+def test_cleanup_deletes_copy_when_daemon_exits_during_stop(profiles, monkeypatch):
+    monkeypatch.setattr(
+        browser_client.DaemonState, "load", lambda *a: SimpleNamespace(pid=os.getpid())
+    )
+    monkeypatch.setattr(browser_client, "daemon_running", lambda state: True)
+
+    def already_exited(**kwargs):
+        raise RuntimeError("daemon not running")
+
+    monkeypatch.setattr(browser_client, "daemon_stop", already_exited)
+    with checks.check_scope("fixture") as check:
+        assert check.profile.is_dir()
+    assert not check.directory.exists()

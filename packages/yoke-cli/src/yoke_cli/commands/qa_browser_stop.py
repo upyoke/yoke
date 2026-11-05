@@ -64,8 +64,6 @@ def qa_browser_stop(args: List[str]) -> int:
             pass
     except (RuntimeError, BrowserIdentityError) as exc:
         text = str(exc)
-        if text == "daemon not running":
-            return _emit(parsed.json_mode, {"status": "not_running"})
         print(
             f"yoke qa browser stop: {text}. "
             "Run `yoke qa browser status` to inspect the daemon, then retry.",
