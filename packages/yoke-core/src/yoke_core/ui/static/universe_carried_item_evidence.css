@@ -49,7 +49,7 @@
   margin-top: 8px;
   padding: 8px;
   border: 1px solid var(--yoke-border);
-  border-radius: 6px;
+  border-radius: var(--yoke-radius);
   background: var(--yoke-bg);
 }
 .universe-app-root .approval-carried-note {

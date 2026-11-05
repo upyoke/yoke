@@ -12,7 +12,7 @@
   min-height: 44px;
   padding: 6px 14px;
   border: 1px solid var(--yoke-border);
-  border-radius: 8px;
+  border-radius: var(--yoke-radius);
   background: var(--yoke-surface);
   color: var(--yoke-accent);
   font: inherit;

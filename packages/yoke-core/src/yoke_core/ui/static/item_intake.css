@@ -53,7 +53,7 @@
   height: 30px;
   flex: 0 0 auto;
   place-items: center;
-  border-radius: 8px;
+  border-radius: var(--yoke-radius);
   color: var(--yoke-accent);
   background: var(--yoke-accent-weak);
   font-weight: 700;

@@ -25,7 +25,7 @@
   gap: 8px;
   padding: 6px 8px 6px 10px;
   border: 1px solid var(--yoke-border);
-  border-radius: 8px;
+  border-radius: var(--yoke-radius);
   background: var(--yoke-surface);
   color: var(--yoke-muted);
   cursor: pointer;
@@ -53,7 +53,7 @@
   flex: 0 0 auto;
   padding: 1px 5px;
   border: 1px solid var(--yoke-border);
-  border-radius: 4px;
+  border-radius: var(--yoke-radius);
   background: var(--yoke-bg);
   color: var(--yoke-muted);
   font-family: var(--yoke-font-mono);
@@ -80,7 +80,7 @@
   height: 22px;
   flex: 0 0 auto;
   place-items: center;
-  border-radius: 50%;
+  border-radius: var(--yoke-radius);
   background: var(--yoke-surface-2);
   color: var(--yoke-muted);
   font-size: 10px;
@@ -90,7 +90,7 @@
 .universe-app-root .actor-kind {
   padding: 1px 5px;
   border: 1px dashed var(--yoke-accent-line);
-  border-radius: 5px;
+  border-radius: var(--yoke-radius);
   color: var(--yoke-muted);
   font-size: 9px;
   font-weight: 600;
@@ -153,7 +153,7 @@
   width: 286px;
   padding: 8px 12px;
   border: 1px solid var(--yoke-border);
-  border-radius: 9px;
+  border-radius: var(--yoke-radius);
   background: var(--yoke-bg);
   box-shadow: var(--yoke-shadow);
 }

@@ -40,7 +40,7 @@
 /* A word a tab carries only when it is a reason to cross the strip. */
 .universe-app-root .tab-link-status {
   padding: 1px 5px;
-  border-radius: 5px;
+  border-radius: var(--yoke-radius);
   background: var(--yoke-idle-bg);
   color: var(--yoke-idle);
   font-size: 9px;

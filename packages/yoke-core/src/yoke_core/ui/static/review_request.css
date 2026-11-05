@@ -8,13 +8,13 @@
   gap: 12px;
   padding: 16px 18px;
   border: 1px solid var(--yoke-border);
-  border-radius: 12px;
+  border-radius: var(--yoke-radius);
   background: var(--yoke-surface);
 }
 .universe-app-root .review-card.compact {
   gap: 9px;
   padding: 12px 14px;
-  border-radius: 10px;
+  border-radius: var(--yoke-radius);
 }
 .universe-app-root .review-card.decided {
   opacity: .88;
@@ -24,7 +24,7 @@
   gap: 10px;
   padding: 4px 0 0;
   border: 0;
-  border-radius: 0;
+  border-radius: var(--yoke-radius);
   background: transparent;
 }
 .universe-app-root .review-list {
@@ -96,7 +96,7 @@
 .universe-app-root .review-state {
   flex: 0 0 auto;
   padding: 3px 9px;
-  border-radius: 999px;
+  border-radius: var(--yoke-radius);
   background: var(--yoke-hover);
   color: var(--yoke-muted);
   font-size: 11px;
@@ -120,7 +120,7 @@
 .universe-app-root .review-pill {
   display: inline-block;
   padding: 2px 8px;
-  border-radius: 999px;
+  border-radius: var(--yoke-radius);
   font-size: 11px;
   font-weight: 700;
   text-decoration: none;
@@ -159,7 +159,7 @@
   display: block;
   aspect-ratio: 16 / 10;
   overflow: hidden;
-  border-radius: 8px;
+  border-radius: var(--yoke-radius);
 }
 .universe-app-root .review-shot.is-ready .review-shot-open {
   cursor: zoom-in;
@@ -169,7 +169,7 @@
   width: 100%;
   height: 100%;
   border: 1px solid var(--yoke-border);
-  border-radius: 8px;
+  border-radius: var(--yoke-radius);
   background: var(--yoke-surface-2);
   object-fit: cover;
   object-position: top;
@@ -188,7 +188,7 @@
   height: 100%;
   place-items: center;
   border: 1px dashed var(--yoke-border);
-  border-radius: 8px;
+  border-radius: var(--yoke-radius);
   background: var(--yoke-surface-2);
   color: var(--yoke-muted);
   font-size: 11.5px;
@@ -226,7 +226,7 @@
   gap: 2px;
   padding: 8px 11px;
   border: 1px solid var(--yoke-border);
-  border-radius: 8px;
+  border-radius: var(--yoke-radius);
   background: var(--yoke-bg);
   color: var(--yoke-ink);
   font: inherit;
@@ -248,7 +248,7 @@
   align-self: center;
   padding: 8px 11px;
   border: 1px dashed var(--yoke-border);
-  border-radius: 8px;
+  border-radius: var(--yoke-radius);
   background: transparent;
   color: var(--yoke-link);
   font: inherit;
@@ -259,7 +259,7 @@
 .universe-app-root .review-evidence-none {
   padding: 10px 12px;
   border: 1px dashed color-mix(in srgb, var(--yoke-warn) 50%, var(--yoke-border));
-  border-radius: 8px;
+  border-radius: var(--yoke-radius);
   background: var(--yoke-warn-bg);
   color: var(--yoke-ink-2);
   font-size: 12.5px;

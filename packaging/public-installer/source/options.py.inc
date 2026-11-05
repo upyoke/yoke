@@ -38,7 +38,7 @@ GUTTER = GUTTER_ICON
 
 # Truecolor SGR sequences require an explicit terminal capability.
 _SGR_CODES = {
-    "brand": "1;38;2;63;185;80",  # bold accent #3fb950
+    "brand": "1;38;2;244;162;97",  # bold accent #f4a261
     "bright": "38;2;86;211;100",  # accent-bright #56d364
     "dim": "38;2;125;133;144",  # dim #7d8590
     "danger": "1;38;2;248;81;73",  # bold danger #f85149

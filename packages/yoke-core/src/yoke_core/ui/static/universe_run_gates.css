@@ -35,7 +35,7 @@
 .universe-app-root .run-finalization-note {
   margin: 0;
   padding: 9px 12px;
-  border-radius: 6px;
+  border-radius: var(--yoke-radius);
   background: var(--yoke-bg);
   overflow-wrap: anywhere;
 }

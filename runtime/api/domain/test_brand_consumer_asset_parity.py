@@ -36,6 +36,11 @@ BRAND_FILES = (
         ("favicon/favicon.svg", "favicon.svg"),
         ("favicon/favicon.ico", "favicon.ico"),
         ("favicon/apple-touch-icon.png", "apple-touch-icon.png"),
+        ("favicon/icon-192.png", "icon-192.png"),
+        ("favicon/icon-512.png", "icon-512.png"),
+        ("favicon/og-image.svg", "og-image.svg"),
+        ("favicon/og-image.png", "og-image.png"),
+        ("favicon/site.webmanifest", "site.webmanifest"),
     ),
 )
 def test_universe_ui_brand_copy_matches_canonical_source(

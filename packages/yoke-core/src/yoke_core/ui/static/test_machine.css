@@ -45,7 +45,7 @@
 .universe-app-root .test-machine-dialog-actions .btn {
   padding: 7px 13px;
   border: 1px solid var(--yoke-border);
-  border-radius: 8px;
+  border-radius: var(--yoke-radius);
   color: var(--yoke-ink);
   background: var(--yoke-bg);
   font: inherit;
@@ -152,7 +152,7 @@
   align-items: center;
   gap: 10px;
   padding: 10px 12px;
-  border-radius: 8px;
+  border-radius: var(--yoke-radius);
   background: var(--yoke-surface-2);
   font-size: 12px;
 }
@@ -168,7 +168,7 @@
   height: 5px;
   flex: 1;
   overflow: hidden;
-  border-radius: 4px;
+  border-radius: var(--yoke-radius);
   background: var(--yoke-border);
 }
 
@@ -188,7 +188,7 @@
 .universe-app-root .test-machine-stat {
   padding: 10px 11px;
   border: 1px solid var(--yoke-border);
-  border-radius: 8px;
+  border-radius: var(--yoke-radius);
   background: var(--yoke-bg);
 }
 
@@ -213,7 +213,7 @@
   gap: 9px;
   padding: 9px 11px;
   border: 1px solid var(--yoke-border);
-  border-radius: 8px;
+  border-radius: var(--yoke-radius);
   color: inherit;
   background: var(--yoke-bg);
   text-decoration: none;
@@ -225,7 +225,7 @@
   height: 30px;
   flex: 0 0 auto;
   place-items: center;
-  border-radius: 8px;
+  border-radius: var(--yoke-radius);
   color: var(--yoke-accent);
   background: var(--yoke-accent-weak);
   font-weight: 700;
@@ -248,7 +248,7 @@
   overflow: auto;
   padding: 20px 22px;
   border: 1px solid var(--yoke-border);
-  border-radius: 12px;
+  border-radius: var(--yoke-radius);
   background: var(--yoke-bg);
   box-shadow: var(--yoke-shadow);
 }

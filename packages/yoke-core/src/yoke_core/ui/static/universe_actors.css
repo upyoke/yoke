@@ -67,7 +67,7 @@
 
 .universe-app-root .actors-table .actor-avatar.current {
   background: var(--yoke-accent);
-  color: #fff;
+  color: var(--yoke-bg);
 }
 
 .universe-app-root .actors-name {
@@ -103,7 +103,7 @@
 
 .universe-app-root .actors-role {
   padding: 1px 6px;
-  border-radius: 5px;
+  border-radius: var(--yoke-radius);
   background: var(--yoke-accent-weak);
   color: var(--yoke-ink);
   font-family: var(--yoke-font-mono);
@@ -131,7 +131,7 @@
 
 .universe-app-root .actors-tag {
   padding: 1px 6px;
-  border-radius: 4px;
+  border-radius: var(--yoke-radius);
   background: var(--yoke-park-bg);
   color: var(--yoke-park);
   font-size: 10.5px;

@@ -11,14 +11,14 @@
   align-items: center;
   gap: 12px;
   padding: 24px;
-  background: rgba(15, 17, 26, .82);
+  background: rgba(16, 20, 24, .9);
 }
 .review-lightbox-bar {
   display: flex;
   align-items: center;
   gap: 14px;
   width: min(1100px, 100%);
-  color: #fff;
+  color: var(--yoke-ink);
   font-size: 14px;
   font-weight: 600;
 }
@@ -27,15 +27,15 @@
   overflow-wrap: anywhere;
 }
 .review-lightbox-open {
-  color: #fff;
+  color: var(--yoke-ink);
   font-size: 12.5px;
 }
 .review-lightbox-close {
   padding: 5px 12px;
-  border: 1px solid #fff;
-  border-radius: 6px;
-  background: #fff;
-  color: #0f111a;
+  border: 1px solid var(--yoke-ink);
+  border-radius: var(--yoke-radius);
+  background: var(--yoke-ink);
+  color: var(--yoke-bg);
   font: inherit;
   font-size: 12.5px;
   font-weight: 600;
@@ -46,8 +46,8 @@
   object-fit: contain;
   max-width: min(1100px, 100%);
   max-height: calc(100vh - 90px);
-  border-radius: 8px;
-  background: #fff;
+  border-radius: var(--yoke-radius);
+  background: var(--yoke-ink);
 }
 .review-lightbox-text {
   width: min(1100px, 100%);
@@ -55,9 +55,9 @@
   margin: 0;
   padding: 16px;
   overflow: auto;
-  border-radius: 8px;
-  background: #0f111a;
-  color: #d7dbe6;
+  border-radius: var(--yoke-radius);
+  background: var(--yoke-bg);
+  color: var(--yoke-ink);
   font-family: var(--yoke-font-mono);
   font-size: 12px;
   line-height: 1.5;

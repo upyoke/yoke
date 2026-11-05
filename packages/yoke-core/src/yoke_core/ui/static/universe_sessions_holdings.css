@@ -7,7 +7,7 @@
 .universe-app-root .session-holdings-idle {
   gap: 4px;
   padding: 7px 9px;
-  border-radius: 4px;
+  border-radius: var(--yoke-radius);
 }
 
 /* A live hold is green and a released one is grey, so which of the two a
@@ -48,21 +48,21 @@
 .universe-app-root .session-holding-repeat {
   padding: 1px 4px;
   border: 1px solid color-mix(in srgb, var(--yoke-idle) 55%, transparent);
-  border-radius: 999px;
+  border-radius: var(--yoke-radius);
   font-weight: 700;
 }
 
 .universe-app-root .session-item-condition {
   padding: 2px 6px;
-  border-radius: 999px;
+  border-radius: var(--yoke-radius);
   font-size: 10px;
   font-weight: 700;
   white-space: nowrap;
 }
 
 .universe-app-root .session-item-condition.is-frozen {
-  background: #e6f6ff;
-  color: #0b6a9c;
+  background: var(--yoke-good-bg);
+  color: var(--yoke-accent-2);
 }
 
 .universe-app-root .session-item-condition.is-blocked {
@@ -89,7 +89,7 @@
    both themes, and leave the inventory strip on its own treatment. */
 .universe-app-root .session-item-stage-progress .delivery-run-stage {
   height: 8px;
-  border-radius: 2px;
+  border-radius: var(--yoke-radius);
   background: color-mix(in srgb, var(--yoke-idle) 40%, var(--yoke-bg));
   box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--yoke-ink) 45%, transparent);
 }
@@ -116,7 +116,7 @@
 
 .universe-app-root
   .session-item-stage-progress .delivery-run-stage[data-item-condition="frozen"] {
-  background: #80d4f9;
+  background: var(--yoke-accent-2);
   animation: delivery-run-pulse 1.6s ease-in-out infinite;
 }
 

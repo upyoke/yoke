@@ -1,0 +1,16 @@
+@font-face {
+  font-family: 'Fira Code'; src: url('./fira-code.woff2') format('woff2');
+  font-style: normal; font-weight: 300 700; font-display: swap;
+}
+@font-face {
+  font-family: 'Fira Sans'; src: url('./fira-sans.woff2') format('woff2');
+  font-style: normal; font-weight: 400; font-display: swap;
+}
+@font-face {
+  font-family: 'Fira Sans'; src: url('./fira-sans-semibold.woff2') format('woff2');
+  font-style: normal; font-weight: 500 900; font-display: swap;
+}
+@font-face {
+  font-family: 'Martian Mono'; src: url('./martian-mono.woff2') format('woff2');
+  font-style: normal; font-weight: 100 800; font-display: swap;
+}

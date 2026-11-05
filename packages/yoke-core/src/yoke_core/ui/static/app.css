@@ -1,3 +1,4 @@
+@import url("./fonts.css");
 @import url("./universe_build_update.css");
 @import url("./universe_performance.css");
 @import url("./universe_tooltip.css");
@@ -32,7 +33,7 @@
 .universe-app-root .stub-panel {
   padding: 40px 30px;
   border: 1.5px dashed var(--yoke-border);
-  border-radius: 14px;
+  border-radius: var(--yoke-radius);
   background: repeating-linear-gradient(
     135deg,
     transparent,
@@ -45,7 +46,7 @@
 .universe-app-root .stub-panel .badge {
   display: inline-flex;
   padding: 4px 11px;
-  border-radius: 20px;
+  border-radius: var(--yoke-radius);
   background: var(--yoke-warn-bg);
   color: var(--yoke-warn);
   font-size: 11px;
@@ -69,7 +70,7 @@
 }
 .universe-app-root .stub-panel .ln {
   height: 11px;
-  border-radius: 5px;
+  border-radius: var(--yoke-radius);
   background: var(--yoke-surface-2);
 }
 

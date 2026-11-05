@@ -35,7 +35,7 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  border-radius: 50%;
+  border-radius: var(--yoke-radius);
   border: 1px solid var(--yoke-border);
   background: var(--yoke-surface-2);
   font-size: 12px;
@@ -58,7 +58,7 @@
 }
 .universe-app-root .activation-dismiss {
   border: 1px solid var(--yoke-border);
-  border-radius: 7px;
+  border-radius: var(--yoke-radius);
   background: var(--yoke-surface);
   color: var(--yoke-muted);
   font: inherit;
@@ -131,7 +131,7 @@
   font-family: var(--yoke-font-mono);
   font-size: 12px;
   background: var(--yoke-surface-2);
-  border-radius: 5px;
+  border-radius: var(--yoke-radius);
   padding: 1px 5px;
 }
 .universe-app-root .activation-checklist {
@@ -174,7 +174,7 @@
 }
 .universe-app-root .activation-card {
   border: 1px solid var(--yoke-border);
-  border-radius: 7px;
+  border-radius: var(--yoke-radius);
   padding: 6px 8px;
   background: var(--yoke-surface-2);
 }
