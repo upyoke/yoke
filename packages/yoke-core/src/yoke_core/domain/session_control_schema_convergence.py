@@ -24,6 +24,7 @@ def converge_session_control_schema(conn: Any) -> None:
             f"ALTER TABLE session_launches ADD COLUMN origin {ORIGIN_COLUMN_DDL}"
         )
     for name, column_type in (
+        ("item_id", "INTEGER REFERENCES items(id)"),
         ("requested_reasoning_effort", "TEXT"),
         ("requested_context_window_tokens", "INTEGER"),
         ("native_launch_pid", "INTEGER"),

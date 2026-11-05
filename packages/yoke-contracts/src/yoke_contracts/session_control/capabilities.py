@@ -181,7 +181,7 @@ def operator_wake_instruction(
 ) -> str:
     """The one sentence every surface teaches about an operator-woken wake."""
     return (
-        f"Yoke never resumes {display_name or (surface or 'desktop') + ' session'}: a native resume "
+        f"Yoke never resumes {display_name or 'a ' + (surface or 'desktop') + ' session'}: a native resume "
         "forks the transcript its operator is reading. The message stays "
         "pending and is delivered the moment the operator types anything in "
         "that chat, so ask them to open it and type."

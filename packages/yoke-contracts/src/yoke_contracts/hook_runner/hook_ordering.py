@@ -243,8 +243,8 @@ _LIFECYCLE_DISPATCH: tuple[str, ...] = ("yoke_core.hooks.session_dispatch",)
 # wherever the chain runs, after the client-side lifecycle dispatch.
 _FIRST_HOOK_DISPATCH: tuple[str, ...] = (
     *_LIFECYCLE_DISPATCH,
-    "yoke_core.hooks.session_title",
     "yoke_core.hooks.session_resume_block",
+    "yoke_core.hooks.session_title",
     *_MODEL_DELIVERY,
 )
 _STOP_CHAIN: tuple[str, ...] = (

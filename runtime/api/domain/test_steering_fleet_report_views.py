@@ -104,7 +104,7 @@ def test_session_labels_preserve_commands_and_json_identity():
 
     labels = (("worker", "Ada on laptop"),)
     assert label_text("session worker `yoke say --session worker`", labels) == (
-        "session worker (Ada on laptop) `yoke say --session worker`"
+        "session Ada on laptop `yoke say --session worker`"
     )
     assert label_rows({"session_id": "worker"}, labels) == {
         "session_id": "worker",

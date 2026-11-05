@@ -46,8 +46,14 @@ class _Args:
 _MAKE_CONN_DDL = """
     CREATE TABLE harness_sessions (
         session_id TEXT PRIMARY KEY,
-        executor TEXT NOT NULL DEFAULT 'claude-code'
+        executor TEXT NOT NULL DEFAULT 'claude-code',
+        project_id INTEGER, harness_title TEXT
     );
+    CREATE TABLE projects (id INTEGER PRIMARY KEY, slug TEXT);
+    CREATE TABLE session_launches (launch_id TEXT, registered_session_id TEXT,
+        native_session_id TEXT, item_id INTEGER, created_at TIMESTAMPTZ);
+    CREATE TABLE work_claims (id INTEGER, session_id TEXT, target_kind TEXT,
+        scope TEXT, claimed_at TIMESTAMPTZ, released_at TIMESTAMPTZ);
     CREATE TABLE events (
         id INTEGER PRIMARY KEY,
         event_name TEXT NOT NULL,
@@ -95,8 +101,8 @@ def _make_conn():
 
 def _insert_session(conn, sid: str, executor: str = "claude-code") -> None:
     conn.execute(
-        "INSERT INTO harness_sessions (session_id, executor) VALUES (%s, %s)",
-        (sid, executor),
+        "INSERT INTO harness_sessions (session_id, executor, harness_title) VALUES (%s, %s, %s)",
+        (sid, executor, f"Chat {sid}"),
     )
     conn.commit()
 
@@ -174,7 +180,7 @@ class TestHcStaleReclaimCollision:
         slug, label, status, detail = rec.rows[0]
         assert slug == "HC-stale-reclaim-collision"
         assert status == "WARN"
-        assert "sess-A" in detail
+        assert "Chat sess-A · claude-code · outside a project" in detail
         assert "claim=42" in detail
         assert "executor=claude-code" in detail
 
@@ -239,7 +245,7 @@ def test_native_reclaim_window_keeps_inclusive_exact_microsecond_endpoint(
         assert rec.rows[0][2] == "WARN"
         detail = rec.rows[0][3]
         assert "Detected 1 reclaim collision(s)" in detail
-        assert "session endpoint" in detail and "session after-endpoint" not in detail
+        assert "Chat endpoint" in detail and "Chat after-endpoint" not in detail
         assert "1969-12-31T23:29:59.123456Z" in detail
     finally:
         conn.close()

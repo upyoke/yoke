@@ -306,6 +306,8 @@ def test_failed_launch_only_remains_visible_when_unsettled(fleet, settlement):
 def test_unregistered_older_or_other_item_launch_does_not_settle_failure(
     fleet, registered, later, assigned_item
 ):
+    if assigned_item != 1:
+        insert_item(fleet, id=assigned_item, title="Other work", status="implementing")
     _launch(
         fleet,
         "failed-launch",

@@ -27,11 +27,10 @@ def session_wake(session: Any) -> dict[str, Any]:
         kind = WAKE_OPERATOR
     else:
         kind = WAKE_NONE
-    return {
-        "kind": kind,
-        "surface": surface,
-        "display_name": session.get("display_label"),
-    }
+    wake = {"kind": kind, "surface": surface}
+    if session.get("display_label"):
+        wake["display_name"] = session["display_label"]
+    return wake
 
 
 def wake_line(wake: Mapping[str, Any], parked: str) -> str:

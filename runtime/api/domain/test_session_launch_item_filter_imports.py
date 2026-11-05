@@ -5,6 +5,7 @@ from __future__ import annotations
 import importlib
 import sqlite3
 import sys
+from types import SimpleNamespace
 
 import pytest
 
@@ -21,7 +22,9 @@ from yoke_core import domain
     ],
     ids=["canonical", "missing"],
 )
-def test_launch_list_test_preserves_work_entry_resolution(monkeypatch, preload, exercise):
+def test_launch_list_test_preserves_work_entry_resolution(
+    monkeypatch, preload, exercise
+):
     module_name = "yoke_core.domain.session_launch_work_entry"
     monkeypatch.delitem(sys.modules, module_name, raising=False)
     monkeypatch.delattr(domain, "session_launch_work_entry", raising=False)
@@ -34,13 +37,25 @@ def test_launch_list_test_preserves_work_entry_resolution(monkeypatch, preload, 
     with sqlite3.connect(":memory:") as conn:
         conn.executescript(
             """
-            CREATE TABLE projects (
-                id INTEGER PRIMARY KEY, slug TEXT, name TEXT, public_item_prefix TEXT
+            CREATE TABLE work_claims (
+                session_id TEXT, target_kind TEXT, scope TEXT, claimed_at TEXT
             );
-            INSERT INTO projects VALUES (10, 'launch-project', 'Launch project', 'YOK');
-            CREATE TABLE items (id INTEGER, project_id INTEGER, project_sequence INTEGER);
-            INSERT INTO items VALUES (731, 10, 12);
             """
         )
-        assert work_entry.resolve_item_ref_or_none(conn, "YOK-12", project=10) == 731
-        assert work_entry.resolve_item_ref_or_none(conn, "YOK-99999", project=10) is None
+        launch = SimpleNamespace(
+            item_id=731,
+            registered_session_id="worker",
+            launching_at="2026-11-05T10:00:00Z",
+            deadline_at="2026-11-05T11:00:00Z",
+        )
+        assert not work_entry.launch_work_entered(conn, launch)
+        conn.execute(
+            "INSERT INTO work_claims VALUES ('worker','item',?,?)",
+            ('{"item_id": 732}', "2026-11-05T10:01:00Z"),
+        )
+        assert not work_entry.launch_work_entered(conn, launch)
+        conn.execute(
+            "INSERT INTO work_claims VALUES ('worker','item',?,?)",
+            ('{"item_id": 731}', "2026-11-05T10:02:00Z"),
+        )
+        assert work_entry.launch_work_entered(conn, launch)
