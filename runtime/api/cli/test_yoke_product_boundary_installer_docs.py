@@ -11,7 +11,7 @@ TARGET_DOCS = {
     "docs/event-contract.md",
     "docs/event-contract/migration-guidance.md",
     "docs/event-catalog.md",
-    "docs/onboard-external-project.md",
+    "CONTRIBUTING.md",
 }
 HIDDEN_ONBOARDING_TERMS = (
     "yoke_core.domain.api_tokens_cli",
@@ -45,11 +45,12 @@ def test_event_docs_use_registered_emit_surface() -> None:
     assert {row.drift_type for row in emit_rows} == {None}
 
 
-def test_external_onboarding_keeps_admin_modules_out_of_product_path() -> None:
-    body = (REPO_ROOT / "docs/onboard-external-project.md").read_text(
+def test_contributor_setup_keeps_admin_modules_out_of_product_recipes() -> None:
+    body = (REPO_ROOT / "CONTRIBUTING.md").read_text(
         encoding="utf-8"
     )
 
     for term in HIDDEN_ONBOARDING_TERMS:
         assert term not in body
-    assert "source-dev/admin boundary" in body
+    assert "source-dev/admin" in body
+    assert "normal project onboarding" in body

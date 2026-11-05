@@ -194,20 +194,7 @@ yoke feedback --to universe --category observation --evidence 'Project finding: 
 
 ## Repository boundaries
 
-| Path | Owner/purpose |
-|---|---|
-| `packages/yoke-core/` | Domain, API, DB, engines and contributor tools. |
-| `packages/yoke-cli/` | Installed CLI, typed adapters and transport. |
-| `packages/yoke-contracts/` | Shared interface, event and policy contracts. |
-| `packages/yoke-harness/` | Installable hook and browser support. |
-| `runtime/agents/`, `runtime/harness/` | Canonical roles, manifests and rendered adapters. |
-| `runtime/api/`, `runtime/browser_runtime/`, `tests/` | API/browser/boundary verification. |
-| `.agents/skills/yoke/` | Canonical situational skill knowledge. |
-| `packs/` | Immutable reusable capability bundles. |
-| `packaging/` | Pre-runtime installer and distribution metadata. |
-| `docs/`, `.yoke/` | Public/source references and project policy/generated views. |
-| `docs/teaching/` | [Teaching prototype](teaching/README.md): what Yoke teaches, where and when, with evidence and gaps. |
-| `.github/workflows/` | CI and hosted release execution. |
+See the [repository layout](../CONTRIBUTING.md#repository-layout) in CONTRIBUTING.
 
 Project code conventions and naming come from `AGENTS.md` and its operation
 homes. Stateful launchers/helpers are Python-owned; Git/external tooling remains

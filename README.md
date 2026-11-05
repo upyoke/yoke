@@ -1,349 +1,139 @@
-> Orientation doc: describes the intended operating model and may lead the current implementation.
-
 # Yoke
 
-### Yoke runs companies. Software delivery is the first capability.
+**A control plane for agentic engineering.** Yoke gives humans and coding
+agents one shared source of truth for strategy, planning, implementation,
+testing, and deployment. You set the direction; your agents do the work
+through Yoke, and Yoke brings the decisions that matter back to you.
 
-Yoke turns ideas into shipped, deployed, verified code through a disciplined pipeline. The main path is frontier-based item flow: shepherd items to readiness, advance them through implementation, and usher them to production. Seven specialized subagents and three orchestration skills do the work. Postgres holds control-plane state. Git worktrees give you conflict-free parallelism. You make every decision that matters. The AI executes.
-
-Longer term, Yoke becomes a central clearinghouse for company operations — receiving work from many channels, classifying it, routing it into the right lane, and maintaining richly linked facts about intent, participants, state transitions, and outcomes.
+[Documentation](https://upyoke.com/docs) ·
+[Getting started](docs/public/index.md) ·
+[Self-hosting](docs/public/guide/self-hosting.md) ·
+[Contributing](CONTRIBUTING.md) ·
+[License](LICENSE.md)
 
 ---
 
-<!-- BEGIN GENERATED: feedback-directive -->
-Report problems with Yoke to Yoke, and problems with your projects to your own universe, before moving on. In your universe, link repeat evidence with `--correlation-id <first note id>`.
-yoke feedback --to yoke --category failed --evidence 'Yoke recipe failed: ...'
-yoke feedback --to universe --category observation --evidence 'Project finding: ...'
-<!-- END GENERATED: feedback-directive -->
+## How it works
 
-## Master Flowchart
+- **Universe** — the home for your projects, work items, strategy, and
+  configuration. It lives in Postgres: on your machine, on your own server, or
+  at upyoke.com.
+- **Projects** — each project is a repository (or, for Task work, no
+  repository) with its goals, workflows, deployment flows, and QA.
+- **Work items** — Dash, Issue, Epic, Blitz, and Task. Each item is pinned to a
+  versioned workflow whose stages run from idea to `done`, where `done` means
+  delivered and verified with evidence, not just merged.
+- **Agents** — Claude Code, Codex, and Cursor sessions do the work.
+  Repository implementation
+  runs in isolated git worktrees, with claims and dependency checks to
+  coordinate sessions and machines working in parallel. Specialized roles
+  (product manager, architect,
+  engineer, tester, simulator, QA walker, and others) handle planning,
+  building, and checking.
 
-```mermaid
-flowchart LR
-  idea["Idea capture"] --> shepherd["Optional shepherd"]
-  shepherd --> implement["Advance and implement"]
-  implement --> conduct["Conduct when needed"]
-  conduct --> usher["Usher: merge, deploy, verify"]
-  usher --> done["Done with evidence"]
-  usher -. "capability or approval halt" .-> usher
+Read more: [Concepts](docs/public/start/concepts.md) ·
+[Workflows and work items](docs/public/guide/work.md) ·
+[Delivery](docs/public/guide/delivery.md) ·
+[QA](docs/public/guide/qa.md)
+
+## Install
+
+Open Claude Code, Codex, or Cursor and say:
+
+```text
+install upyoke.com
 ```
 
----
+Your agent installs Yoke, walks you through setup, and then runs onboarding:
+it reviews your project, helps you write a strategy, and sets up testing and
+deployment. Afterward, open a new session in your project folder and run
+`/yoke steer` (`$yoke steer` in Codex) to direct the work.
 
-## Quick Start
-
-> [Get started](docs/public/start/index.md) covers install, connection and first work.
-> For supported agent hosts, see
-> [docs/local-setup.md](docs/local-setup.md#agent-hosts).
-
-**Fresh machine? Install the product CLI first.**
-
-The only prerequisites are a shell, `curl`, and `uv`. The public installer
-ensures `uv` is present (installing it on consent when missing), then installs
-`yoke` on Python 3.11–3.14, resolves dependencies, and links it onto PATH.
-If no supported Python is available, uv downloads a managed interpreter
-automatically; `yoke update` does the same. Your system Python is unchanged.
+Prefer a terminal?
 
 ```bash
 curl -fsSL https://upyoke.com/install | sh
-yoke setup
-yoke status
 ```
 
-The installer auto-launches `yoke setup` when interactive. To upgrade later,
-rerun the same curl installer. It resolves one channel version for every Yoke
-product package, selects the Yoke index ahead of an explicit public PyPI
-default, and ignores ambient uv index settings for that resolver run. Direct
-multi-index `uv tool install` commands are not a supported install surface.
+The installer needs only a shell and `curl`. It installs `uv` if missing and
+runs Yoke on a managed Python 3.11–3.14; your system Python is unchanged.
+Rerun it to upgrade.
 
-**Prefer everything on your own machine?** Local mode is free and needs no
-signup or token: `yoke init --local` fetches an embedded Postgres, births a
-complete machine-local universe under `~/.yoke/`, and points the machine
-config at it. When you want to leave or graduate to another deployment
-mode, `yoke universe export` dumps the whole universe to one portable
-tar artifact carrying the database dump and its freeze receipt;
-`yoke self-host import <archive> --dir <bundle>` restores it after one
-replace confirmation and rotates imported platform-held credentials into one
-newly shown admin token. See
-[docs/local-setup.md](docs/local-setup.md) ("Local Mode").
+**Supported platforms:** macOS (local mode needs macOS 15+), Linux with glibc,
+and Windows through WSL2.
+**Note:** setup turns off command-approval prompts and sandbox limits in the
+agent tools it installs into, so Yoke-driven sessions can run unattended.
 
-Optionally connect the Yoke GitHub App for product commands that need to
-inspect or write GitHub from this machine:
+Read more: [Installation and setup](docs/public/guide/setup.install.md) ·
+[Agent setup](docs/public/start/agent-setup.md) ·
+[Terminal setup](docs/public/start/terminal-onboarding.md) ·
+[Install reference](docs/public/start/install.md) ·
+[Windows and WSL](docs/public/start/windows-wsl.md) ·
+[Uninstall](docs/public/start/uninstall.md)
 
-```bash
-yoke github connect
-yoke github status
-```
+## Choose where your universe lives
 
-`yoke setup` is a full-screen wizard: a fixed header and stepper stay on
-screen — Install/PATH, Account, GitHub, Project, Review — while you move
-through the steps with the arrow keys. The Account step opens on a
-deployment-destination picker (this machine / a team server / upyoke.com);
-only the sign-in lane changes with the answer — "This machine" births the
-free local universe with no account, a team server collects your server URL
-plus a token, upyoke.com signs in to the hosted platform. The Project step
-lets you pick the project source — just this machine, create a checkout,
-clone a remote, import an existing remote, onboard a local checkout, or the
-explicit source-dev/admin opt-in — and the wizard previews every persistent
-write before applying. Pass `--yes` for a silent, non-interactive apply;
-`--local` and `--connect URL` mirror the picker without the TUI. Agents run [`yoke setup --agent`](docs/public/start/agent-setup.md), one question at a time. [Ctrl-Y copies links/codes locally or shows selectable scrollback over SSH](docs/public/start/terminal-onboarding.md).
+| Mode | Where it runs | Who can use it | Start with |
+| --- | --- | --- | --- |
+| **Local** | Embedded Postgres under `~/.yoke/` | You, on this machine only. Free, no signup. | `yoke init --local --admin-name "Your Name"` |
+| **Self-hosted** | Your server, via Docker | You and your team, from any machine | `yoke self-host init --admin-name "Your Name" --start` |
+| **Hosted beta (upyoke.com)** | upyoke.com | You and your team (needs a beta code) | Pick **upyoke.com** in setup |
 
-The same project modes are also available as standalone product commands when
-you want to script a single mode:
+Teammates join a self-hosted or hosted universe with `yoke connect <url>`
+after an invite. You can move a universe between modes:
+`yoke universe export` writes one portable archive, and
+`yoke self-host import` restores it.
 
-```bash
-# New repo
-yoke project create ~/work/my-app \
-  --slug my-app --name "My App" --github-repo owner/my-app \
-  --default-branch main --public-item-prefix APP \
-  --github-adoption disabled \
-  --config ~/.yoke/config.json --yes
+Read more: [Modes](docs/public/start/modes.md) ·
+[Hosting modes](docs/public/guide/setup.hosting.md) ·
+[Self-hosting](docs/public/guide/self-hosting.md) ·
+[Universe portability](docs/public/guide/universe-portability.md) ·
+[Team collaboration](docs/public/guide/access.collaboration.md)
 
-# Existing remote
-yoke project import git@github.com:owner/my-app.git ~/work/my-app \
-  --slug my-app --name "My App" --github-repo owner/my-app \
-  --default-branch main --public-item-prefix APP \
-  --github-adoption disabled --config ~/.yoke/config.json --yes
-
-# Existing local checkout
-yoke onboard project ~/work/my-app \
-  --slug my-app --name "My App" --github-repo owner/my-app \
-  --default-branch main --public-item-prefix APP \
-  --github-adoption disabled --config ~/.yoke/config.json --yes
-```
-
-`git` is needed only when a project mode creates, clones, imports, or registers
-a checkout — machine-only onboarding needs no git.
-
-If the project already exists in the Yoke env and only needs the local
-operating layer, install it directly:
-
-```bash
-yoke project install ~/work/my-app \
-  --project-id <project-id> --config ~/.yoke/config.json
-```
-
-Capture the project command's JSON install report, initialize the durable
-onboarding checklist, then hand the repo to the harness-side adoption skill:
-
-```bash
-yoke onboard checklist init \
-  --config ~/.yoke/config.json \
-  --checkout ~/work/my-app --project-id <project-id> --json
-```
-
-Open the installed project in a supported harness and run:
+## Work with Yoke
 
 ```text
-/yoke onboard --run-id <run-id>
+/yoke onboard          set up a project: strategy, testing, deployment
+/yoke steer            direct the work from one session
+/yoke dash "fix login" file and finish a small change end to end
+/yoke idea "..."       capture work for later
+/yoke charge           take the next ready item
+/yoke usher APP-12     merge, deploy, and verify an item
 ```
 
-Yoke source developers follow the same product install first. After the
-Yoke checkout is project-installed, run the explicit source-dev setup:
+The **web dashboard** shows projects, strategy, work items, agent sessions,
+QA, and deployments, and is where you answer questions and approvals. Run
+`yoke ui up` for local and self-hosted universes; hosted universes use
+[app.upyoke.com](https://app.upyoke.com).
 
-```bash
-yoke project install ~/yoke \
-  --project-id <yoke-project-id> --config ~/.yoke/config.json
-yoke dev setup ~/yoke \
-  --config ~/.yoke/config.json --set-active-env
-```
+Read more: [Steering and fleet control](docs/public/guide/sessions.md) ·
+[Dashboard](docs/public/guide/dashboard.md) ·
+[Skills and commands](docs/public/agents/commands.md) ·
+[CLI reference](docs/public/cli/index.md) ·
+[Harnesses](docs/public/agents/index.md)
 
-```bash
-/yoke dash "fix login bug"           # Common path: execute end to end
-# Alternative: plan an item before executing it
-/yoke idea "fix login bug"
-/yoke shepherd YOK-N                # Optional
-/yoke implement YOK-N               # Creates worktree, implements, reviews
-/yoke conduct YOK-N                 # Only if needed to finish pre-merge work
-/yoke usher YOK-N
-```
+## Source, forks, and contributing
 
-Yoke supports an operator-driven planning loop: ask the agent to inspect current state, what landed, what is unblocked, what can run next in parallel, and what order to merge in, then decide in real time how to proceed.
+Yoke is [Fair Source](https://fair.io). The source is public so you can read,
+audit, and contribute to it. The product you run is the packaged install;
+cloning this repository changes nothing about the Yoke on your machine.
 
----
-
-## Core Concepts
-
-### Workflows
-
-| Workflow | What it is | Normal entry |
-| --- | --- | --- |
-| **Dash** | One instruction that can be filed and executed in seconds | Web New Item, `yoke dash`, or `/yoke dash` |
-| **Blitz** | A substantial document-led plan executed as integrated slices | `/yoke idea`, then `/yoke blitz` |
-| **Issue** | A bounded change whose item body is the specification | `/yoke idea`, then refine/advance |
-| **Epic** | Work that the Architect decomposes into task lanes | `/yoke idea`, then shepherd/conduct |
-
-Every work item is pinned to an immutable numbered workflow version. The
-definition supplies its stages, entry checks, posture, and executors; selecting
-a new current version affects future items only. See
-[docs/workflows.md](docs/workflows.md) for workflow selection, version
-operations, Dash/Blitz execution, and project mechanics.
-
-The rendered item body is the spec view — no separate PRD files.
-`yoke items get YOK-N body` renders the authoritative spec from structured fields. One
-artifact, one lifecycle, one source of truth.
-
-### The Seven Agents
-
-**Workers** — produce artifacts in isolated subagent sessions:
-
-| Agent                | Role                                                                          | Key Constraint                  |
-| -------------------- | ----------------------------------------------------------------------------- | ------------------------------- |
-| **Product Manager**  | Writes specs and acceptance criteria into item bodies                         | Read-only                       |
-| **Product Designer** | UX spec from item body + existing UI patterns (optional)                      | Read-only                       |
-| **Architect**        | Decomposes item body → epic plan + tasks + worktree assignments               | Read-only + Bash                |
-| **Engineer**         | Implements task: code + tests + docs, commits incrementally                   | Full tools, `bypassPermissions` |
-| **Tester**           | Validates against acceptance criteria, runs tests                             | **Cannot modify code**          |
-| **Simulator**        | Traces cross-task paths for integration gaps                                  | Read-only                       |
-
-**Evaluator:** **Boss** — per-artifact quality gate (simulated PM/Architect/Engineer debate → READY / NOT READY / CAVEATS). Caveats flow downstream as explicit constraints to the next worker.
-
-> **Shepherd, Conduct, and Usher** are orchestration skills (`/yoke shepherd`, `/yoke conduct`, `/yoke usher`), not agents. They run inline in the main session.
-
----
-
-## Item Lifecycle
-
-At the operator level:
-
-- **Intake:** `idea`
-- **Definition:** optional shepherding until `refined-idea` (issues) or `planned` (epics)
-- **Execution:** `implementing` through engineer / tester / simulator checks
-- **Delivery gate:** `implemented` — pre-deploy work complete, ready for usher
-- **Delivery:** usher drives deploy / verify until `done`
-
-**`done`** means the delivery workflow completed with evidence — not just "code landed."
-
-### Deployment flows
-
-Every item has a **deployment flow** selected during shepherding. Flows are
-control-plane rows created with `yoke deployment-flows create` and retired with
-`yoke deployment-flows set-status <flow-id> disabled`. Examples:
-
-| Flow | When used | Stages after `implemented` |
-|------|-----------|---------------------------|
-| `project-internal` | Scripts, docs, config | merged → complete |
-| `project-production-hotfix` | Urgent prod fix | migration_apply → merged → production-deploy → smoke → complete |
-| `project-production-release` | Standard feature | migration_apply → merged → production-deploy → smoke → complete |
-
-Stage executor types: `auto`, `health-check`, `warm-up`, `environment-activate`, `core-container-deploy`, `ephemeral-deploy`, `ephemeral-teardown`, `ephemeral-verify`, `human-approval`, `github-actions-workflow`. All stage failures halt for v1; re-run `/yoke usher YOK-N` to resume.
-
----
-
-## Command Reference
-
-### Primary entry points
-
-| Command                         | Purpose                                                                                  |
-| ------------------------------- | ---------------------------------------------------------------------------------------- |
-| `/yoke idea {title}`          | Create a backlog item.                                                                   |
-| `yoke dash --title {title} --spec-file {path}` | File a spec-led Dash from the CLI (`--stdin` also reads the spec). |
-| `/yoke dash {instruction \| YOK-N}` | File-and-execute or resume a Dash.                                                  |
-| `/yoke blitz YOK-N`           | Execute a document-led Blitz in integrated slices.                                       |
-| `/yoke conduct YOK-N`          | Execute: sync → engineer → test → simulate → merge.                                     |
-| `/yoke shepherd YOK-N`        | Advance: idea → refined-idea (or planned for epics).                                     |
-| `/yoke usher [YOK-N]`         | Deployment pipeline. Halts on capability gaps and approval gates.                        |
-| `/yoke approve YOK-N`         | Approve a Yoke-handled human gate.                                                     |
-| `/yoke charge`                | Direct-mode: next runnable item from the frontier.                                       |
-| `/yoke feed`                  | Direct-mode: refresh frontier, materialize new work.                                     |
-| `/yoke strategize`            | Direct-mode: guided SML review.                                                          |
-
-### Maintenance
-
-| Command                            | Purpose                                               |
-| ---------------------------------- | ----------------------------------------------------- |
-| `/yoke doctor`                   | 40+ health checks. `--fix` for auto-repair.           |
-| `/yoke curate`                   | Process agent learnings → work items + patterns.       |
-| `/yoke resync`                   | GitHub bidirectional sync.                            |
-| `yoke items freeze YOK-N`        | Park an item. Use `yoke items cancel` if it will never resume. |
-| `yoke items thaw YOK-N`          | Unfreeze.                                             |
-| `yoke items cancel YOK-N`        | Cancel an item that will never resume.                |
-
----
-
-## Architecture
-
-Yoke centers on the canonical subagents under `runtime/agents/`, three orchestration skills (Shepherd, Conduct, Usher), a Postgres-backed state bus, and a dispatch loop for epic task execution. All state is SQL-first — agents write through registered `yoke <subcommand>` adapters over the function-call dispatcher, renderers generate markdown views, and Postgres wins on any conflict.
-
-**Multi-harness:** Any agent runtime that can run the operator command surface can attach to Yoke through a thin harness adapter. Yoke ships current adapters for Claude, Codex, and Cursor, with the shared contract documented in `docs/harness-bootstrap.md` and `docs/harness-adapter-template.md`. What each one can actually do is a manifest fact — read `runtime/harness/<harness_id>/manifest.json` rather than prose.
-
-```
-AGENTS.md                            # Always-on project rules (CLAUDE.md is a compat symlink)
-
-.yoke/                               # BOARD.md (generated board view), board-art
-                                     # (presentation variants), lint-config (hook
-                                     # guard policy), strategy/ (rendered
-                                     # DB-authoritative strategy docs)
-
-packages/                            # The source: yoke-cli (command surface),
-                                     # yoke-contracts (contracts and budgets),
-                                     # yoke-harness (adapters and hooks), and
-                                     # yoke-core/src/yoke_core/{cli,api,engines,
-                                     # domain,tools}
-runtime/api/                         # The test tree for everything above
-runtime/agents/                      # Canonical agent bodies (rendered per harness)
-runtime/harness/                     # Per-harness manifests, rules, and adapters
-
-.agents/skills/yoke/                 # Root router + one folder per command;
-                                     # each SKILL.md routes to its phase files
-.claude/agents/                      # Generated adapter files (yoke-*.md)
-```
-
-Every `/yoke <command>` is entered through `.agents/skills/yoke/<command>/SKILL.md`.
-That file is a router: it states what binds at every phase and names the one
-phase file to read next. Detail a single phase needs lives in that phase's file,
-so a session loads the phase it is in rather than the whole manual.
-
-> For installation, configuration, and operator rules, see [docs/local-setup.md](docs/local-setup.md).
-
----
-
-## Ouroboros — Self-Improvement
-
-Every subagent answers three questions at session end: What went wrong? What process improvements? What game-changing ideas? Observations log to `ouroboros_entries`. A health scanner (`/yoke doctor`) runs 40+ checks. A system simulator (`/yoke simulate --system`) traces coherence gaps. A curator (`/yoke curate`) clusters learnings into work items.
-
-The flywheel: agents work → agents file feedback → curator creates work items → work items fix structural issues → faster delivery each cycle.
-
----
-
-## Multi-Project Support
-
-Each project is a registered git repository with its own deployment flows and configuration. Every item has a non-null integer `project_id`. Local checkout context is machine-resolved from `~/.yoke/config.json`; board appearance and scope come from DB-backed `project-policy.settings.board`, while project-local `.yoke/board-art` supplies the presentation variants rendered into `.yoke/BOARD.md`.
-
-```sh
-yoke config example
-yoke status
-```
-
----
-
-## FAQ
-
-- **What's the minimum flow?** `/yoke idea` → `/yoke refine YOK-N` → `/yoke implement YOK-N` → `/yoke polish YOK-N` → `/yoke usher YOK-N`
-- **What does conduct do?** Single-item execution: Engineer → Tester loop until `implemented`.
-- **What happened to PRD files?** Deprecated. `items get YOK-N body` is the spec view.
-- **What if a harness session stops?** The Engineer commits incrementally. `/yoke conduct YOK-N` resumes.
-- **Can subagents talk to each other?** No. Information flows via SQL state and structured feedback.
-- **Does Ouroboros only improve Yoke?** No — it operates on every managed project.
-- **What does `needs-capability` mean?** A delivery stage requires infrastructure not yet configured. Configure it, then re-run `/yoke usher`.
-- **What does `awaiting-approval` mean?** A run is paused for human approval. Approve via `/yoke approve`, then re-run `/yoke usher`.
-
----
-
-## Contributing
-
-Yoke is [Fair Source](https://fair.io): the source is published to read,
-audit, and contribute to, while the product installs as packaged wheels.
-[CONTRIBUTING.md](CONTRIBUTING.md) covers working on the source — including
-the explicit activation step (`yoke dev setup`) that binds a checkout (cloning
-alone activates nothing), the test workflow, and the CLA signed on your first
-pull request.
-
----
+- **Contribute:** [CONTRIBUTING.md](CONTRIBUTING.md) covers cloning,
+  running tests, binding a checkout with `yoke dev setup`, and the
+  [CLA](CLA.md) you sign on your first pull request.
+- **Run a private fork:** [Maintaining a private fork](docs/public/projects/private-forks.md)
+  covers building your own wheels and server.
+- **Understand the code:** [Architecture overview](docs/OVERVIEW.md) and the
+  [internal docs index](docs/README.md). Contributors can run
+  `yoke dev yokepedia` to browse a map of every rule, skill, role, and
+  document Yoke gives to people and agents.
+- **Add a harness:** [Harness bootstrap](docs/harness-bootstrap.md) and the
+  [adapter template](docs/harness-adapter-template.md).
 
 ## License
 
-Yoke is [Fair Source](https://fair.io) software: source-available under the
+Yoke is source-available under the
 [Functional Source License, Version 1.1, ALv2 Future License](LICENSE.md)
-(FSL-1.1-ALv2). Each version converts to the Apache License, Version 2.0 two
-years after its release. Licensor: Benjamin Bauman.
+(FSL-1.1-ALv2). You may use, modify, and redistribute it for any purpose
+except a competing commercial offering. Each version becomes Apache 2.0 two
+years after release. Licensor: Benjamin Bauman.

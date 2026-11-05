@@ -74,8 +74,8 @@ Related surfaces:
   `packaging/public-installer/install` and
   `packaging/public-installer/install.py`.
 - Installer tests and goldens: `tests/installer/`.
-- Public setup docs: `docs/local-setup.md` and
-  `docs/onboard-external-project.md`.
+- Public setup docs: `docs/public/start/install.md` and
+  `docs/public/start/project-install.md`.
 
 ## Campaign Layout
 

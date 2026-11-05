@@ -10,7 +10,7 @@ CURRENT_TEACHING = (
     ".yoke/README.md",
     ".yoke/board-art",
     "README.md",
-    "docs/local-setup-reference.md",
+    "docs/public/cli/machine-config.md",
     "docs/OVERVIEW.md",
     "runtime/api/board/README.md",
     "packages/yoke-cli/src/yoke_cli/commands/adapters/render.py",
@@ -31,7 +31,7 @@ def test_current_teaching_names_db_board_policy() -> None:
     for relative in (
         ".yoke/README.md",
         ".yoke/board-art",
-        "README.md",
+        "docs/public/databases/model/projects.md",
         "docs/OVERVIEW.md",
     ):
         body = (REPO_ROOT / relative).read_text(encoding="utf-8")

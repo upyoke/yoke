@@ -29,11 +29,11 @@ Run source commands from a claimed lane through `yoke dev run --`. Read [source-
 - [Hooks Reference](hooks.md)
 - [Hosted Service Identity](hosted-service-identity.md)
 - [Installer Session Registration And Telemetry](installer-session-telemetry.md)
-- [Local Setup Reference](local-setup-reference.md)
-- [Local Setup](local-setup.md)
+- [Contributor setup](../CONTRIBUTING.md)
+- [Installation](public/start/install.md)
 - [Machine registry](machine-registry.md)
 - [Native instant storage](native-instant-storage.md)
-- [Onboarding an External Project](onboard-external-project.md)
+- [Project installation](public/start/project-install.md)
 - [Path Claims (internal)](path-claims.md)
 - [Performance implementation evidence](performance-diagnostics.md)
 - [Project selection in the shared app](project-selection.md)
@@ -48,7 +48,7 @@ Run source commands from a claimed lane through `yoke dev run --`. Read [source-
 - [Testing and Verification](testing-verification.md)
 - [Dashboard path routes](universe-path-routing.md)
 - [Universe portability implementation](universe-portability.md)
-- [Workflows](workflows.md)
+- [Workflows](public/workflows/index.md)
 
 - [Hosted GitHub App runtime binding](github-app-hosted-runtime.md)
 
