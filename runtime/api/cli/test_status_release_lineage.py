@@ -16,7 +16,9 @@ from yoke_cli.config import status_release_lineage as lineage
 def _git(root, *args: str) -> None:
     subprocess.run(
         ["git", "-C", str(root), *args],
-        check=True, capture_output=True, text=True,
+        check=True,
+        capture_output=True,
+        text=True,
     )
 
 
@@ -36,12 +38,12 @@ def _commit(root, message: str) -> None:
 def test_reports_the_tag_when_nothing_is_unreleased(tmp_path) -> None:
     root = _repo(tmp_path)
     _commit(root, "one")
-    _git(root, "tag", "v1.0.0")
+    _git(root, "tag", "-a", "0.2.0.202611050458", "-m", "Release")
 
     detected = lineage.detect(root)
 
-    assert detected == {"newest_tag": "v1.0.0", "unreleased_commits": 0}
-    assert lineage.label(detected) == "v1.0.0 (nothing unreleased)"
+    assert detected == {"newest_tag": "0.2.0.202611050458", "unreleased_commits": 0}
+    assert lineage.label(detected) == "0.2.0.202611050458 (nothing unreleased)"
 
 
 def test_names_commits_the_newest_release_has_not_shipped(tmp_path) -> None:
@@ -49,22 +51,22 @@ def test_names_commits_the_newest_release_has_not_shipped(tmp_path) -> None:
     # every version surface reported healthy.
     root = _repo(tmp_path)
     _commit(root, "released")
-    _git(root, "tag", "v1.0.0")
+    _git(root, "tag", "-a", "0.2.0.202611050458", "-m", "Release")
     _commit(root, "merged but unreleased")
     _commit(root, "also unreleased")
 
     detected = lineage.detect(root)
 
-    assert detected == {"newest_tag": "v1.0.0", "unreleased_commits": 2}
+    assert detected == {"newest_tag": "0.2.0.202611050458", "unreleased_commits": 2}
     label = lineage.label(detected)
-    assert "v1.0.0 + 2 unreleased commits" in label
+    assert "0.2.0.202611050458 + 2 unreleased commits" in label
     assert "not deployed" in label
 
 
 def test_singular_reads_correctly_for_one_commit(tmp_path) -> None:
     root = _repo(tmp_path)
     _commit(root, "released")
-    _git(root, "tag", "v1.0.0")
+    _git(root, "tag", "-a", "0.2.0.202611050458", "-m", "Release")
     _commit(root, "one unreleased")
 
     assert "1 unreleased commit —" in lineage.label(lineage.detect(root))
@@ -86,9 +88,32 @@ def test_stays_silent_outside_a_git_checkout(tmp_path) -> None:
 def test_uses_the_newest_tag_not_the_first(tmp_path) -> None:
     root = _repo(tmp_path)
     _commit(root, "one")
-    _git(root, "tag", "v1.0.0")
+    _git(root, "tag", "-a", "0.2.0.202611050458", "-m", "Release")
     _commit(root, "two")
-    _git(root, "tag", "v2.0.0")
+    _git(root, "tag", "-a", "0.2.0.202611050500", "-m", "Release")
     _commit(root, "after the newest")
 
-    assert lineage.detect(root)["newest_tag"] == "v2.0.0"
+    assert lineage.detect(root)["newest_tag"] == "0.2.0.202611050500"
+
+
+def test_skips_non_release_and_lightweight_tags(tmp_path) -> None:
+    root = _repo(tmp_path)
+    _commit(root, "released")
+    _git(root, "tag", "-a", "0.2.0.202611050458", "-m", "Release")
+    _commit(root, "internal marker")
+    _git(root, "tag", "not-a-release")
+    _git(root, "tag", "-a", "v0.1.1+launch.1", "-m", "Old spelling")
+    _git(root, "tag", "0.2.0.202611050500")
+    _commit(root, "candidate")
+
+    assert lineage.detect(root) == {
+        "newest_tag": "0.2.0.202611050458",
+        "unreleased_commits": 2,
+    }
+
+
+def test_stays_silent_with_only_non_release_tags(tmp_path) -> None:
+    root = _repo(tmp_path)
+    _commit(root, "internal marker")
+    _git(root, "tag", "-a", "not-a-release", "-m", "Marker")
+    assert lineage.detect(root) is None

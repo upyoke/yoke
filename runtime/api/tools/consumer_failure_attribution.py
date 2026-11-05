@@ -6,6 +6,8 @@ import re
 import subprocess
 from pathlib import Path
 
+from yoke_contracts.release_version import release_version
+
 
 def _git(checkout: Path, *args: str) -> str:
     result = subprocess.run(
@@ -31,18 +33,34 @@ def producer_failure_context(candidate: str, *, checkout: Path | None = None) ->
         _git(root, "cat-file", "-e", f"{candidate}^{{commit}}")
         if _git(root, "rev-parse", "--is-shallow-repository") != "false":
             raise ValueError("producer history is shallow")
+        releases = {}
+        for row in _git(
+            root,
+            "for-each-ref",
+            "--format=%(objecttype) %(*objectname) %(refname:strip=2)",
+            "refs/tags",
+        ).splitlines():
+            fields = row.split()
+            if len(fields) != 3 or fields[0] != "tag":
+                continue
+            _, commit, name = fields
+            try:
+                release_version(name)
+            except ValueError:
+                continue
+            releases[commit] = name
         try:
-            tag = _git(
-                root,
-                "describe",
-                "--first-parent",
-                "--match",
-                "v[0-9]*",
-                "--abbrev=0",
-                f"{candidate}^",
-            )
+            ancestors = _git(root, "rev-list", "--first-parent", f"{candidate}^")
         except ValueError:
-            tag = ""
+            ancestors = ""
+        tag = next(
+            (
+                releases[commit]
+                for commit in ancestors.splitlines()
+                if commit in releases
+            ),
+            "",
+        )
         if tag:
             baseline = _git(root, "rev-parse", f"{tag}^{{commit}}")
             interval = f"{baseline}..{candidate}"

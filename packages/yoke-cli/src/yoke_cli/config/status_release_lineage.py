@@ -23,6 +23,8 @@ import subprocess
 from pathlib import Path
 from typing import Any
 
+from yoke_contracts.release_version import release_version
+
 _GIT_TIMEOUT_S = 5
 
 
@@ -43,11 +45,34 @@ def _git(repo_root: Path, *args: str) -> str:
 def detect(repo_root: str | Path) -> "dict[str, Any] | None":
     """Return the release-lineage summary for *repo_root*, or ``None``.
 
-    ``None`` when the path is not a git checkout or carries no reachable tag,
+    ``None`` when the path is not a git checkout or carries no reachable annotated release tag,
     which is the ordinary case for a managed project.
     """
     root = Path(repo_root)
-    tag = _git(root, "describe", "--tags", "--abbrev=0")
+    releases = {}
+    for row in _git(
+        root,
+        "for-each-ref",
+        "--format=%(objecttype) %(*objectname) %(refname:strip=2)",
+        "refs/tags",
+    ).splitlines():
+        fields = row.split()
+        if len(fields) != 3 or fields[0] != "tag":
+            continue
+        _, commit, name = fields
+        try:
+            release_version(name)
+        except ValueError:
+            continue
+        releases[commit] = name
+    tag = next(
+        (
+            releases[commit]
+            for commit in _git(root, "rev-list", "--first-parent", "HEAD").splitlines()
+            if commit in releases
+        ),
+        "",
+    )
     if not tag:
         return None
     ahead = _git(root, "rev-list", "--count", f"{tag}..HEAD")
