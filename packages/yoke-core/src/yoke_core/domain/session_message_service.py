@@ -211,6 +211,7 @@ def send_message(
             selector,
             now=current,
             actor_id=actor_id,
+            engine_return_session_id=selector.session_ids[0] if engine_sender else None,
             sender_session_id=sender_session_id,
             steering_target=address.coverage_target() if address else None,
         )
