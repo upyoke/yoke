@@ -1,10 +1,7 @@
-"""The deploy driver re-reads a read-only call that hit its read deadline.
+"""Deploy reads retry deadlines and connection failures on one bounded schedule.
 
-A driver on an operator's laptop reaches the control plane over a slow link,
-so one read can expire while the next one answers. Reads change nothing,
-so the driver asks again a bounded number of times; a call that may write is
-never resent, and a read that keeps expiring names the slow composition
-and the narrow field reads that diagnose it.
+Writes never use the read retry schedule. Exhausted reads distinguish their
+failure and teach the same-run driver recovery.
 """
 
 from __future__ import annotations
@@ -55,12 +52,12 @@ def test_an_expired_read_is_asked_again_until_it_answers(monkeypatch, sleeps, ca
 
     assert control_plane.unresolved_qa(RUN) == ["requirement #7"]
     assert dispatch.call_count == 2
-    assert sleeps == [control_plane._READ_DEADLINE_BACKOFF_SECONDS[0]]
-    assert "exceeded its read deadline; reading again" in capsys.readouterr().err
+    assert sleeps == [control_plane._READ_RETRY_BACKOFF_SECONDS[0]]
+    assert "answered read_deadline_exceeded; reading again" in capsys.readouterr().err
 
 
 def test_a_read_that_keeps_expiring_fails_with_the_driver_recovery(monkeypatch, sleeps):
-    attempts = len(control_plane._READ_DEADLINE_BACKOFF_SECONDS) + 1
+    attempts = len(control_plane._READ_RETRY_BACKOFF_SECONDS) + 1
     dispatch = Mock(side_effect=[_expired() for _ in range(attempts)])
     monkeypatch.setattr(control_plane, "call_dispatcher", dispatch)
 
@@ -68,7 +65,7 @@ def test_a_read_that_keeps_expiring_fails_with_the_driver_recovery(monkeypatch, 
         control_plane.unresolved_qa(RUN)
 
     assert dispatch.call_count == attempts
-    assert sleeps == list(control_plane._READ_DEADLINE_BACKOFF_SECONDS)
+    assert sleeps == list(control_plane._READ_RETRY_BACKOFF_SECONDS)
     assert raised.value.code == control_plane.READ_DEADLINE_CODE
     message = str(raised.value)
     assert f"Every one of {attempts} attempts expired" in message
@@ -103,6 +100,56 @@ def test_other_refusals_are_not_retried(monkeypatch, sleeps):
 
     with pytest.raises(control_plane.DeploymentControlPlaneError, match="not your run"):
         control_plane.unresolved_qa(RUN)
+
+    assert dispatch.call_count == 1
+    assert sleeps == []
+
+
+@pytest.mark.parametrize("code", sorted(control_plane.READ_CONNECTION_CODES))
+def test_connection_failure_read_recovers(monkeypatch, sleeps, capsys, code):
+    response = _expired()
+    response.error.code = code
+    dispatch = Mock(side_effect=[response, _answered({"unresolved": []})])
+    monkeypatch.setattr(control_plane, "call_dispatcher", dispatch)
+
+    assert control_plane.unresolved_qa(RUN) == []
+    assert dispatch.call_count == 2
+    assert sleeps == [control_plane._READ_RETRY_BACKOFF_SECONDS[0]]
+    assert f"answered {code}; reading again" in capsys.readouterr().err
+
+
+@pytest.mark.parametrize("code", sorted(control_plane._READ_RETRY_CODES))
+def test_exhausted_read_has_resume_hint(monkeypatch, sleeps, code):
+    response = _expired()
+    response.error.code = code
+    response.error.message = "read unavailable"
+    dispatch = Mock(return_value=response)
+    monkeypatch.setattr(control_plane, "call_dispatcher", dispatch)
+
+    with pytest.raises(control_plane.DeploymentControlPlaneError) as raised:
+        control_plane.unresolved_qa(RUN)
+
+    assert dispatch.call_count == len(control_plane._READ_RETRY_BACKOFF_SECONDS) + 1
+    assert sleeps == list(control_plane._READ_RETRY_BACKOFF_SECONDS)
+    assert f"yoke watch deploy -- {RUN}" in str(raised.value)
+    assert raised.value.code == code
+    if code != control_plane.READ_DEADLINE_CODE:
+        assert "connectivity remained unavailable" in str(raised.value)
+        assert "attempts expired" not in str(raised.value)
+
+
+@pytest.mark.parametrize("code", sorted(control_plane.READ_CONNECTION_CODES))
+def test_connection_failure_write_is_not_retried(monkeypatch, sleeps, code):
+    response = _expired("deployment_runs.execution.update")
+    response.error.code = code
+    dispatch = Mock(return_value=response)
+    monkeypatch.setattr(control_plane, "call_dispatcher", dispatch)
+    expected = (control_plane.DeploymentOutcomeUnknown
+                if code in control_plane.UNKNOWN_CODES
+                else control_plane.DeploymentControlPlaneError)
+
+    with pytest.raises(expected):
+        control_plane.update_run_field(RUN, "current_stage", "deploy")
 
     assert dispatch.call_count == 1
     assert sleeps == []
