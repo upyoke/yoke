@@ -37,6 +37,25 @@ def test_unknown_files_have_average_file_weight_and_deterministic_git_order():
     assert grouping.group_files(list(reversed(items)), durations, tracked, 2) == groups
 
 
+def test_missing_timings_warn_once_with_unsplit_count_and_keep_every_test(capsys):
+    items = records()
+    tracked = sorted({item["nodeid"].split("::")[0] for item in items})
+    durations = {item["nodeid"]: 5 for item in items[:-1]}
+    groups = grouping.build_groups(items, durations, tracked, count=2)
+    output = capsys.readouterr().out
+    assert output.count("::warning::ci_profile_missing_durations:") == 1
+    assert "1 of 12 collected tests have no timing entry" in output
+    assert "refresh .test_durations" in output
+    assert set().union(*map(set, groups["all"])) == set(tracked)
+
+
+def test_complete_profile_does_not_warn(capsys):
+    items = records()
+    tracked = sorted({item["nodeid"].split("::")[0] for item in items})
+    grouping.build_groups(items, {item["nodeid"]: 0 for item in items}, tracked, count=2)
+    assert "ci_profile_missing_durations" not in capsys.readouterr().out
+
+
 def test_untracked_collection_and_empty_groups_refuse():
     with pytest.raises(ValueError, match="ci_shard_files_untracked"):
         grouping.group_files(records(), {}, [], count=2)

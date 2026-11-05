@@ -43,6 +43,11 @@ measured fixture-cost reset. This check needs Git history; unavailable source
 revisions are ineligible. If no compatible complete run is retained, every
 shard keeps using the committed baseline. An explicit `--reports` refresh names
 the verified measurements used to establish a new baseline.
+Before accepting a retained run, refresh validates its downloaded reports.
+Incomplete, duplicate, failed, empty or malformed sets print
+`ci_profile_run_skipped` with the run id and reason, then try the next eligible
+run. Each run's reports stay separate; rejected reports never enter the chosen
+profile. If every candidate is rejected, the committed profile stays intact.
 
 To refresh the committed baseline in a claimed source lane:
 
@@ -70,6 +75,10 @@ the known mean file weight, and places the heaviest fixture units on the
 lightest shard. Git's tracked-file order breaks equal-weight ties. Files using
 product-wheel fixtures remain one indivisible unit. The grouping log records
 collection/grouping elapsed seconds for comparison with saved shard timings.
+When any collected test lacks a timing entry, grouping emits the GitHub warning
+`ci_profile_missing_durations` once with the missing and total test counts.
+Refresh `.test_durations` from a complete successful current-tree run to recover;
+missing measurements never remove tests or prevent grouping.
 
 Each shard downloads that exact artifact and writes its assigned root-relative
 paths to `ci-shard-files.txt`. The existing `ci_selection_collect` plugin keeps
