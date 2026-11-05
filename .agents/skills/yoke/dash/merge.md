@@ -12,6 +12,8 @@ yoke watch merge --print-streaming-pair merge-item -- ITEM --wait --result "<res
 - Exit 0 is not done; read the `[close-out]` block. Exit 9 names its recovery; a red check or failed QA case means fix, commit, rerun. Wait budget exhausted: checkpoint, park, keep the claim.
 - With a PR, hold before correcting: `yoke github merge-queue hold ITEM --json`.
 
+The merge waits for the merge lock itself and prints the holding item; do not park on it. Exit 6 means the wait hit the lock TTL: checkpoint, park naming the holding item, keep the claim, rerun after it lands. A `merge_target_moved` caused only by release pin commits recovers by itself; any other `merge_target_moved` means refresh the lane and rerun.
+
 Selected deployment: `yoke merge item ITEM --skip-status --json`; follow `.yoke/docs/agents/rules/delivery.md`. A steering-batched worker starts no run.
 
 `--skip-status` postpones only `done`: the item still moves to `release` and its work claim is released. Merge each step of multi-step work as its own item.

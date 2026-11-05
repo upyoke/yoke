@@ -1,22 +1,4 @@
-"""The one merge boundary for an item branch that owns no epic lane.
-
-Every standalone item branch — Dash, Blitz, and any Issue whose workflow
-generates no task graph — lands on its project base branch through
-:func:`merge_standalone_branch`. The function owns the merge itself and the
-bookkeeping the merge produces (identity resolution, the ``merged_at`` stamp
-carrying the landing merge commit's own time,
-publishing the base branch, the durable receipt a retry converges from,
-telemetry). Item bookkeeping that differs by workflow — execution evidence,
-GitHub sync, the lifecycle status flip — stays with the caller so it runs
-through the item's own gates.
-
-The reads live in :mod:`yoke_core.domain.standalone_item_merge_git` and the
-receipt in :mod:`yoke_core.domain.item_merge_receipts`, because
-what git can answer changes as the merge proceeds while the receipt does not.
-
-Rationale and portability constraints: ``docs/archive/decisions/
-standalone-item-merge.md``.
-"""
+"""Land standalone item branches with durable receipts and verified publication."""
 
 from __future__ import annotations
 
@@ -171,21 +153,56 @@ def merge_standalone_branch(
     local_merge: bool = True,
     resume_command: str = "",
 ) -> StandaloneMergeOutcome:
-    """Land one standalone item branch on ``target`` and stamp the item.
+    from dataclasses import replace
+    from yoke_core.domain import standalone_item_merge_pin_refresh as refresh
 
-    Convergent under interruption. Durable pre-merge bookkeeping lets a retry
-    recover even when an older engine already removed the lane. Current
-    retain the lane through merge proof, evidence, and status gates. The
-    caller retires it only after the terminal transition succeeds, preserving
-    the lane whenever close-out fails closed.
+    warnings = []
+    for attempt in range(refresh.PIN_REFRESH_ATTEMPTS + 1):
+        outcome = _merge_once(
+            item_id=item_id,
+            branch=branch,
+            commit_sha=commit_sha,
+            target=target,
+            repo_root=repo_root,
+            project=project,
+            local_merge=local_merge,
+            resume_command=resume_command,
+        )
+        if (
+            not outcome.error.startswith("merge_target_moved:")
+            or attempt == refresh.PIN_REFRESH_ATTEMPTS
+            or not refresh.pin_only_advance(repo_root, target)
+        ):
+            return replace(outcome, warnings=tuple(warnings) + outcome.warnings)
+        pins = git.git_out(
+            repo_root, "log", "--format=%s", f"{target}..origin/{target}"
+        )
+        try:
+            retained = refresh.reset_target_to_origin(repo_root, branch, target)
+        except RuntimeError as exc:
+            return replace(outcome, warnings=tuple(warnings) + (str(exc),))
+        warnings.append(
+            f"Retained unpublished merge on {retained}; retrying over release pins: {pins}"
+        )
+        commit_sha = git.head_of(repo_root, branch)
+    return outcome
 
-    An engine that raises after the merge has landed is still treated as a
-    landed merge rather than losing it, so the item can finish its evidence
-    and terminal transition on retry.
 
-    Merge telemetry (``MergeEngineStarted`` and its outcome) is emitted by the
-    engine this delegates to, so a standalone merge is visible in the events
-    ledger for the same reason an epic-lane merge is.
+def _merge_once(
+    *,
+    item_id: int,
+    branch: str,
+    commit_sha: str = "",
+    target: str,
+    repo_root: str,
+    project: str,
+    local_merge: bool = True,
+    resume_command: str = "",
+) -> StandaloneMergeOutcome:
+    """Land one branch, retaining its lane until proof and close-out succeed.
+
+    Durable receipts converge interrupted attempts. A cleanup error after
+    landing does not erase the landing; the engine owns merge telemetry.
     """
     # The route decides the authority, and the proof after the merge reads
     # checks under that same one rather than the strictest available.
@@ -206,14 +223,7 @@ def merge_standalone_branch(
     output = ""
     warnings: list[str] = []
     if not commit_sha:
-        # A control plane that predates recorded lane identity has no column
-        # to hold this, and it arrives only when that control plane is next
-        # deployed — which is exactly the work that has to merge to get there.
-        # Refusing would make the client's own upgrade unreachable, so derive
-        # what the recorded value would have said and say that it was derived.
-        # The recorded head stays the strong path: it binds the merge to the
-        # commit that was verified, where the branch head only agrees with it
-        # when nothing has been committed since.
+        # Derive the lane head until serving can record it.
         commit_sha = git.head_of(repo_root, branch)
         if not commit_sha:
             return StandaloneMergeOutcome(
@@ -275,7 +285,7 @@ def merge_standalone_branch(
                     commit_sha=commit_sha,
                     touched_files=observed,
                     error=(
-                        "merge lock held by another session; retry once it clears"
+                        f"merge lock wait timed out: {output.strip()}; check the holding item’s merge, then rerun"
                         if exit_code == RECOVERABLE_MERGE_LOCK_EXIT_CODE
                         else f"merge engine exited {exit_code}"
                     ),
@@ -320,7 +330,6 @@ def sync_item_to_github(item_id: int) -> Optional[str]:
     return (
         response.error.message if response.error is not None else "GitHub sync failed"
     )
-
 
 __all__ = [
     "RECOVERABLE_MERGE_LOCK_EXIT_CODE",

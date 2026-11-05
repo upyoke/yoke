@@ -5,5 +5,5 @@
  "commands": ["yoke usher reconcile-github"],
  "page": "merging",
  "position": 3,
- "summary": "A merge_target_moved refusal includes the rejected push warning: refresh the lane and re-verify, then retry. Published target ancestry proves landing; unpublished local commits are retained and do not prove landing."
+ "summary": "The merge waits for the lock up to its TTL and names the holding item; a timeout requires checking that merge and rerunning. Release-pin-only target moves retry automatically up to twice, retaining each unpublished merge on <branch>-unpublished-<sha>. Other merge_target_moved refusals include the rejected push warning: refresh the lane and re-verify, then retry. Published target ancestry proves landing; unpublished local commits are retained and do not prove landing."
 }

@@ -20,6 +20,9 @@ from __future__ import annotations
 
 from typing import Any, List, Optional
 
+from yoke_core.domain import db_backend
+from yoke_core.domain.db_savepoint import SavepointLostError
+
 from pydantic import BaseModel, ConfigDict, Field
 
 from yoke_contracts.api.function_call import (
@@ -152,6 +155,11 @@ def handle_lock_acquire(request: FunctionCallRequest) -> HandlerOutcome:
         with _connect_rw() as conn:
             marker = _marker(conn)
             conn.execute(
+                f"DELETE FROM merge_locks WHERE project_slug = {marker} "
+                f"AND target_branch = {marker} AND expires_at < {marker}",
+                (body.project_slug, body.target_branch, body.acquired_at),
+            )
+            conn.execute(
                 "INSERT INTO merge_locks "
                 "(session_id, branch, epic_id, acquired_at, expires_at, "
                 "project_slug, target_branch) "
@@ -168,6 +176,13 @@ def handle_lock_acquire(request: FunctionCallRequest) -> HandlerOutcome:
                 ),
             )
             conn.commit()
+    except SavepointLostError:
+        raise
+    except db_backend.integrity_error_types(conn):
+        return _err(
+            "merge_lock_held",
+            "Another merge holds the lock; check the holding item and wait again",
+        )
     except Exception as exc:  # noqa: BLE001 - a lock we cannot take is a hard stop
         return _err("merge_lock_acquire_failed", str(exc))
     return HandlerOutcome(

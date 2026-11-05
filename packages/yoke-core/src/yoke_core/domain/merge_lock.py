@@ -31,7 +31,8 @@ from typing import Any, Optional, Sequence
 
 from yoke_core.domain import db_backend, runtime_settings
 from yoke_core.domain import merge_lock_contention as contention
-from yoke_core.domain.merge_lock_contention import LockScope
+from yoke_core.domain.merge_lock_contention import LockScope, MergeLockHeld
+from yoke_core.domain.db_savepoint import savepoint
 from yoke_core.domain import control_plane_transport as _transport
 
 
@@ -213,7 +214,12 @@ def acquire(
         }
         if epic_ref:
             payload["epic_public_ref"] = epic_ref
-        _relay("merge.lock.acquire", payload)
+        try:
+            _relay("merge.lock.acquire", payload)
+        except _transport.ControlPlaneRefused as exc:
+            if exc.code == "merge_lock_held":
+                raise MergeLockHeld(str(exc)) from exc
+            raise
         return LockHandle(session_id=session_id, branch=branch, scope=scope)
 
     conn = live
@@ -222,23 +228,34 @@ def acquire(
 
         epic_id = str(resolve_item_ref(conn, epic_ref)) if epic_ref else None
         p = _p(conn)
-        conn.execute(
-            "INSERT INTO merge_locks (session_id, branch, epic_id, acquired_at, "
-            "expires_at, project_slug, target_branch) "
-            f"VALUES ({p}, {p}, {p}, {p}, {p}, {p}, {p})",
-            (
-                session_id,
-                branch,
-                epic_id,
-                instant_parameter(conn, acquired_at),
-                instant_parameter(conn, expires_at),
-                scope.project_slug,
-                scope.target_branch,
-            ),
-        )
-        conn.commit()
+        with savepoint(conn, "merge_lock_acquire", owns=owned is not None):
+            conn.execute(
+                f"DELETE FROM merge_locks WHERE project_slug = {p} "
+                f"AND target_branch = {p} AND expires_at < {p}",
+                (scope.project_slug, scope.target_branch, instant_parameter(conn, now)),
+            )
+            conn.execute(
+                "INSERT INTO merge_locks (session_id, branch, epic_id, acquired_at, "
+                "expires_at, project_slug, target_branch) "
+                f"VALUES ({p}, {p}, {p}, {p}, {p}, {p}, {p})",
+                (
+                    session_id,
+                    branch,
+                    epic_id,
+                    instant_parameter(conn, acquired_at),
+                    instant_parameter(conn, expires_at),
+                    scope.project_slug,
+                    scope.target_branch,
+                ),
+            )
+            if owned is not None:
+                conn.commit()
 
         return LockHandle(session_id=session_id, branch=branch, scope=scope)
+    except db_backend.integrity_error_types(conn) as exc:
+        raise MergeLockHeld(
+            "Merge lock acquired by another merge; check the holding item and wait again"
+        ) from exc
     finally:
         if owned is not None:
             owned.close()
@@ -296,49 +313,9 @@ def force_clear(conn: Optional[Any] = None) -> None:
 
 
 def main(argv: Optional[list[str]] = None) -> int:
-    args = argv if argv is not None else sys.argv[1:]
-    if not args:
-        print(
-            "Usage: merge_lock.py <check|acquire|release|force-clear> [args...]",
-            file=sys.stderr,
-        )
-        return 2
+    from yoke_core.domain.merge_lock_cli import main as run
 
-    cmd = args[0]
-
-    if cmd == "check":
-        msg = check()
-        if msg:
-            print(msg, file=sys.stderr)
-            return 1
-        return 0
-
-    elif cmd == "acquire":
-        if len(args) < 2:
-            print("Usage: merge_lock.py acquire <branch> [epic_ref]", file=sys.stderr)
-            return 2
-        branch = args[1]
-        epic_ref = args[2] if len(args) > 2 else None
-        handle = acquire(branch, epic_ref)
-        # Output session_id so the caller can pass it to release
-        print(f"{handle.session_id}")
-        return 0
-
-    elif cmd == "release":
-        if len(args) < 3:
-            print("Usage: merge_lock.py release <session_id> <branch>", file=sys.stderr)
-            return 2
-        handle = LockHandle(session_id=args[1], branch=args[2])
-        release(handle)
-        return 0
-
-    elif cmd == "force-clear":
-        force_clear()
-        return 0
-
-    else:
-        print(f"Unknown command: {cmd}", file=sys.stderr)
-        return 2
+    return run(argv)
 
 
 if __name__ == "__main__":

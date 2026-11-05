@@ -1,13 +1,4 @@
-"""Tests for the pre-acquire merge-lock retry path in merge_worktree_runner.
-
-Covers two outcomes: retry success (a transient block message clears on a
-later check call) and retry exhaustion (block message persists across the
-full retry budget, runner returns the recoverable exit code). Both tests
-assert no real ``time.sleep`` delay is incurred so the suite stays fast.
-
-Sibling to ``test_merge_worktree_locks.py``; kept separate so the existing
-334-line lock-test file does not grow further.
-"""
+"""Runner coverage for lock clearance and a full TTL timeout."""
 
 # ruff: noqa: F811
 
@@ -15,67 +6,18 @@ from __future__ import annotations
 
 import subprocess
 from pathlib import Path
-from typing import Optional
 
 import pytest
 
 from yoke_core.engines import merge_worktree
 from yoke_core.engines import merge_worktree_recorded_source
-from yoke_core.engines import merge_worktree_runner
+from yoke_core.engines import merge_worktree_runner, merge_lock_wait
 from yoke_core.engines.merge_worktree import MergeArgs, MergeContext
 from yoke_core.engines.merge_worktree_runner import (
-    MERGE_LOCK_RETRY_DELAYS,
     RECOVERABLE_MERGE_LOCK_EXIT_CODE,
-    _pre_acquire_check_with_retry,
 )
 
 from runtime.api.engines._merge_worktree_test_helpers import mw_db as mw_db
-
-
-class TestPreAcquireCheckRetryUnit:
-    """Direct unit coverage of the retry helper."""
-
-    def test_returns_none_immediately_when_first_check_clear(self):
-        sleeps: list[float] = []
-        result = _pre_acquire_check_with_retry(
-            lambda: None,
-            sleep_fn=sleeps.append,
-        )
-        assert result is None
-        assert sleeps == []
-
-    def test_returns_none_when_retry_clears_block(self):
-        responses = iter(["Merge lock held by session 12345-1 on branch 'X'", None])
-        sleeps: list[float] = []
-        result = _pre_acquire_check_with_retry(
-            lambda: next(responses),
-            sleep_fn=sleeps.append,
-        )
-        assert result is None
-        # One sleep before the retry that cleared the block.
-        assert sleeps == [MERGE_LOCK_RETRY_DELAYS[0]]
-
-    def test_returns_final_block_when_budget_exhausted(self):
-        responses: list[Optional[str]] = [
-            "Merge lock held by session 999-1 on branch 'X'",
-            "Merge lock held by session 999-2 on branch 'X'",
-            "Merge lock held by session 999-3 on branch 'X'",
-            "Merge lock held by session 999-4 on branch 'X'",
-        ]
-        idx = {"i": 0}
-
-        def fake_check(*_a, **_kw):
-            value = responses[idx["i"]]
-            idx["i"] += 1
-            return value
-
-        sleeps: list[float] = []
-        result = _pre_acquire_check_with_retry(
-            fake_check,
-            sleep_fn=sleeps.append,
-        )
-        assert result == "Merge lock held by session 999-4 on branch 'X'"
-        assert sleeps == list(MERGE_LOCK_RETRY_DELAYS)
 
 
 @pytest.fixture
@@ -186,7 +128,7 @@ class TestRunnerStaleLockRetry:
             check_calls["n"] += 1
             if check_calls["n"] == 1:
                 return (
-                    "Merge lock held by session 99999-1 on branch 'STALE-LOCK-BRANCH'"
+                    "Merge lock held by STALE-LOCK-BRANCH (holder process 99999-1)"
                 )
             return None
 
@@ -214,7 +156,18 @@ class TestRunnerStaleLockRetry:
 
         # No real sleep delay.
         sleeps: list[float] = []
-        monkeypatch.setattr(merge_worktree_runner.time, "sleep", sleeps.append)
+        original_wait = merge_lock_wait.wait_and_acquire
+
+        def sleep(seconds):
+            sleeps.append(seconds)
+
+        monkeypatch.setattr(
+            merge_lock_wait,
+            "wait_and_acquire",
+            lambda *a, **k: original_wait(
+                *a, **k, sleep_fn=sleep, clock=lambda: sum(sleeps)
+            ),
+        )
 
         # Stub the body so the runner returns 0 cleanly after acquire.
         monkeypatch.setattr(merge_worktree, "_emit_merge_event", lambda *a, **kw: None)
@@ -243,7 +196,7 @@ class TestRunnerStaleLockRetry:
         assert acquired == [("STALE-LOCK-BRANCH", None)]
         assert released == ["test-session"]
         # Sleep was monkeypatched -- no real delay incurred.
-        assert sleeps == [MERGE_LOCK_RETRY_DELAYS[0]]
+        assert sleeps == [15]
 
     @pytest.mark.parametrize("configured_ttl", [None, 47])
     def test_runner_returns_recoverable_exit_when_budget_exhausted(
@@ -256,9 +209,7 @@ class TestRunnerStaleLockRetry:
 
         from yoke_core.domain import merge_lock as ml
 
-        block_template = (
-            "Merge lock held by session 999-{i} on branch 'STALE-LOCK-BRANCH'"
-        )
+        block_template = "Merge lock held by STALE-LOCK-BRANCH (holder process 999-{i})"
         call_idx = {"n": 0}
 
         def fake_check(*_a, **_kw):
@@ -277,7 +228,18 @@ class TestRunnerStaleLockRetry:
         monkeypatch.setattr(ml, "acquire", fake_acquire)
 
         sleeps: list[float] = []
-        monkeypatch.setattr(merge_worktree_runner.time, "sleep", sleeps.append)
+        original_wait = merge_lock_wait.wait_and_acquire
+
+        def sleep(seconds):
+            sleeps.append(seconds)
+
+        monkeypatch.setattr(
+            merge_lock_wait,
+            "wait_and_acquire",
+            lambda *a, **k: original_wait(
+                *a, **k, sleep_fn=sleep, clock=lambda: sum(sleeps)
+            ),
+        )
 
         from yoke_core.domain import runtime_settings
 
@@ -292,21 +254,13 @@ class TestRunnerStaleLockRetry:
 
         assert rc == RECOVERABLE_MERGE_LOCK_EXIT_CODE
         assert acquired_called["yes"] is False
-        # Initial check + one per delay in the schedule.
-        assert call_idx["n"] == 1 + len(MERGE_LOCK_RETRY_DELAYS)
-        # No real sleep delay.
-        assert sleeps == list(MERGE_LOCK_RETRY_DELAYS)
-        # Final block message and recovery line both surfaced on stderr.
-        final_block = block_template.format(i=call_idx["n"])
-        assert any(final_block in m for m in messages)
-        assert any(
-            "retryable merge-lock condition" in m and "STALE-LOCK-BRANCH" in m
-            for m in messages
-        )
-        assert any("pre-acquire retry budget exhausted" in m for m in messages)
-        refusal = next(m for m in messages if final_block in m)
-        assert "No wake will arrive" in refusal
-        assert "Rerun the same merge command" in refusal
-        assert "in a few minutes" in refusal
         ttl = 30 if configured_ttl is None else configured_ttl
-        assert f"the lock expires after {ttl} minutes" in refusal
+        assert call_idx["n"] == 1 + ttl * 4
+        assert sleeps == [15] * (ttl * 4)
+        final_block = block_template.format(i=call_idx["n"])
+        refusal = messages[-1]
+        assert final_block in refusal
+        assert "STALE-LOCK-BRANCH" in refusal
+        assert f"full lock TTL ({ttl} min)" in refusal
+        assert "rerun this same command" in refusal
+        assert "--force-lock" in refusal

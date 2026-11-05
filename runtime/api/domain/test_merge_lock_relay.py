@@ -284,3 +284,14 @@ class TestPublicItemContract:
         assert refused is not None
         assert refused.code == "internal_item_id_forbidden"
         assert "epic_public_ref" in refused.message
+
+
+def test_relay_acquisition_race_becomes_held(relayed, monkeypatch):
+    from yoke_core.domain.control_plane_transport import ControlPlaneRefused
+
+    def refuse(*args):
+        raise ControlPlaneRefused("held", code="merge_lock_held")
+
+    monkeypatch.setattr(merge_lock, "_relay", refuse)
+    with pytest.raises(merge_lock.MergeLockHeld, match="held"):
+        merge_lock.acquire("ITEM-1")

@@ -14,6 +14,10 @@ from dataclasses import dataclass
 from typing import Any, Mapping, Optional, Sequence
 
 
+class MergeLockHeld(RuntimeError):
+    """Another merge won atomic lock acquisition."""
+
+
 @dataclass(frozen=True)
 class LockScope:
     """What a merge actually contends for: one branch of one project.
@@ -73,7 +77,7 @@ def holder_is_alive(session_id: str) -> bool:
 
 def blocking_message(session_id: str, branch: str, epic_ref: str) -> str:
     epic_info = f" (epic: {epic_ref})" if epic_ref else ""
-    return f"Merge lock held by session {session_id} on branch '{branch}'{epic_info}"
+    return f"Merge lock held by {branch}{epic_info} (holder process {session_id})"
 
 
 def evaluate(
