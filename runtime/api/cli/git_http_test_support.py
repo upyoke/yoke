@@ -10,11 +10,19 @@ import threading
 from urllib.parse import urlsplit
 
 FIXTURE_CREDENTIAL = "fixture:own-credential"
+# Real Git starts helpers and a smart-HTTP backend under full-suite CPU load.
+# Short deadline behavior belongs to the separate process-boundary tests.
+GIT_OPERATION_TIMEOUT_SECONDS = 60
+_BACKEND_TIMEOUT_SECONDS = 30
 
 
 def git(root, *args):
     return subprocess.run(
-        ["git", "-C", str(root), *args], capture_output=True, text=True, check=True
+        ["git", "-C", str(root), *args],
+        capture_output=True,
+        text=True,
+        check=True,
+        timeout=GIT_OPERATION_TIMEOUT_SECONDS,
     ).stdout.strip()
 
 
@@ -22,11 +30,15 @@ def git(root, *args):
 def authenticated_remote(tmp_path):
     remote = tmp_path / "repo.git"
     subprocess.run(
-        ["git", "init", "--bare", str(remote)], check=True, capture_output=True
+        ["git", "init", "--bare", str(remote)],
+        check=True,
+        capture_output=True,
+        timeout=GIT_OPERATION_TIMEOUT_SECONDS,
     )
     git(remote, "config", "http.receivepack", "true")
     expected = "Basic " + base64.b64encode(FIXTURE_CREDENTIAL.encode()).decode()
     requests = []
+    failures = []
 
     class Handler(BaseHTTPRequestHandler):
         def log_message(self, *_args):
@@ -39,6 +51,14 @@ def authenticated_remote(tmp_path):
             self.serve_git()
 
         def serve_git(self):
+            try:
+                self.serve_git_request()
+            except (OSError, ValueError, subprocess.SubprocessError) as exc:
+                failures.append(repr(exc))
+                self.send_error(500, "fixture Git backend failed")
+
+        def serve_git_request(self):
+            self.connection.settimeout(_BACKEND_TIMEOUT_SECONDS)
             authorized = self.headers.get("Authorization") == expected
             requests.append(authorized)
             if not authorized:
@@ -54,6 +74,7 @@ def authenticated_remote(tmp_path):
                 input=self.rfile.read(length),
                 capture_output=True,
                 check=True,
+                timeout=_BACKEND_TIMEOUT_SECONDS,
                 env={
                     **os.environ,
                     "GIT_PROJECT_ROOT": str(tmp_path),
@@ -78,6 +99,8 @@ def authenticated_remote(tmp_path):
             self.wfile.write(body)
 
     server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+    # Join bounded request handlers before inspecting their failures at teardown.
+    server.daemon_threads = False
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()
     try:
@@ -86,6 +109,7 @@ def authenticated_remote(tmp_path):
         server.shutdown()
         server.server_close()
         thread.join()
+        assert not failures, f"Authenticated Git fixture failed: {failures}"
 
 
 def own_credential_config(root: Path, url: str):

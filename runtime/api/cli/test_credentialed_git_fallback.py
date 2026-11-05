@@ -7,6 +7,7 @@ import time
 import pytest
 
 from runtime.api.cli.git_http_test_support import (
+    GIT_OPERATION_TIMEOUT_SECONDS,
     authenticated_remote,
     git,
     own_credential_config,
@@ -53,7 +54,9 @@ def test_real_github_push_uses_optional_helper_or_fails_without_prompt(
             )
         rewrite = f"url.{url}.insteadOf={ORIGIN}"
         result = cg.run(
-            ["-c", rewrite, "push", ORIGIN, "main"], cwd=str(checkout), timeout=5
+            ["-c", rewrite, "push", ORIGIN, "main"],
+            cwd=str(checkout),
+            timeout=GIT_OPERATION_TIMEOUT_SECONDS,
         )
         if credential:
             assert result.returncode == 0, result.stderr
