@@ -236,7 +236,11 @@ carry the recovery command and a null `execution_id`.
 
 The report lists pending operator questions oldest first, with the request id,
 requesting session label, held item, age and question excerpt. Answer or withdraw
-the question to remove it. Failed answer delivery remains visible as
+the question to remove it. The hook update and fleet watcher name each departure
+once: `request N no longer waiting: answered (<option label>)`, `withdrawn`,
+or `consumed`. The watcher checks question status each poll; a change wakes
+steering and requests the outcome report immediately, ahead of the usual report
+interval. Failed answer delivery remains visible as
 `operator_question_undelivered`; read the saved answer and relay it to the current
 item holder. Question and delivery state enter the report fingerprint; age does not.
 See [Operator questions](inbox.md#operator-questions) for filing and answering.

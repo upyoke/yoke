@@ -175,7 +175,7 @@ def test_a_report_the_session_already_received_is_not_printed_again():
     lines = text.splitlines()
     removal = next(line for line in lines if "no longer listed —" in line)
     heading = lines.index("no longer listed:")
-    assert removal in lines[heading + 1:]
+    assert removal in lines[heading + 1 :]
     seen = {row_identity(line) for line in lines if line != removal}
     delta = changed_lines(lines, seen)
     assert delta == ["no longer listed:", removal]
@@ -196,3 +196,43 @@ def test_empty_digest_does_not_fall_back_to_full_body():
     assert output.getvalue() == ""
     assert state.fingerprint == "quiet"
     assert state.checked_at == NOW
+
+
+def test_question_outcome_digest_bypasses_cooldown_and_is_not_repeated():
+    state = ReportState(checked_at=NOW, fingerprint="pending")
+    output = io.StringIO()
+    line = "request 17 no longer waiting: answered (Blue)"
+    digest = f"{REPORT_BEGIN}\n{line}\n{REPORT_END}"
+    calls = []
+
+    def call(function, payload):
+        calls.append((function, payload))
+        return SimpleNamespace(
+            success=True,
+            result=(
+                {"fingerprint": "resolved", "digest": digest, "delivered": True}
+                if function == STEERING_REPORT_FUNCTION
+                else {"settings_json": "{}"}
+            ),
+        )
+
+    append_steering_reports(
+        ["project"],
+        observed_at=NOW + timedelta(seconds=10),
+        stream=output,
+        call=call,
+        state=state,
+        question_change=True,
+    )
+    append_steering_reports(
+        ["project"],
+        observed_at=NOW + timedelta(seconds=20),
+        stream=output,
+        call=call,
+        state=state,
+    )
+    assert output.getvalue().count(line) == 1
+    assert (
+        STEERING_REPORT_FUNCTION,
+        {"deliver": True, "question_change": True},
+    ) in calls

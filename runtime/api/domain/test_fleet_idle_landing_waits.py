@@ -28,7 +28,7 @@ def _snapshot(*, awaiting_landing=False):
     calls = []
 
     def call(function, payload):
-        calls.append(function)
+        calls.append((function, payload))
         results = {
             SESSIONS_FUNCTION: {
                 "rows": [
@@ -48,8 +48,10 @@ def _snapshot(*, awaiting_landing=False):
             },
             FRONTIER_FUNCTION: {},
             ENVELOPES_FUNCTION: {},
+            STEERING_REPORT_FUNCTION: {"question_states": {}},
         }
-        assert function != STEERING_REPORT_FUNCTION
+        if function == STEERING_REPORT_FUNCTION:
+            assert payload == {"questions_only": True, "previous_question_ids": []}
         return SimpleNamespace(success=True, result=results[function])
 
     return read_snapshot(["project"], call=call, now=NOW, self_session_id="seat"), calls
@@ -58,7 +60,9 @@ def _snapshot(*, awaiting_landing=False):
 def test_probe_uses_roster_landing_wait_without_reading_full_report():
     snapshot, calls = _snapshot(awaiting_landing=True)
     assert idle_holder_alarms(snapshot, DeltaState()) == []
-    assert STEERING_REPORT_FUNCTION not in calls
+    assert [
+        payload for function, payload in calls if function == STEERING_REPORT_FUNCTION
+    ] == [{"questions_only": True, "previous_question_ids": []}]
     assert snapshot.landing_waits == frozenset({HELD_REF})
 
 
@@ -66,7 +70,9 @@ def test_probe_uses_roster_landing_wait_without_reading_full_report():
 def test_merged_or_missing_landing_fact_retains_normal_idle_alarm(awaiting_landing):
     snapshot, calls = _snapshot(awaiting_landing=awaiting_landing)
     assert "ALARM idle-holder" in idle_holder_alarms(snapshot, DeltaState())[0]
-    assert STEERING_REPORT_FUNCTION not in calls
+    assert [
+        payload for function, payload in calls if function == STEERING_REPORT_FUNCTION
+    ] == [{"questions_only": True, "previous_question_ids": []}]
 
 
 def test_full_report_is_read_only_when_due_even_with_idle_holder():

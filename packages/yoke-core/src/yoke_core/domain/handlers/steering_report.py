@@ -30,9 +30,13 @@ class SteeringReportGetRequest(BaseModel):
     deliver: bool = False
     read_delta: bool = False
     full: bool = False
+    questions_only: bool = False
+    previous_question_ids: list[int] = Field(default_factory=list)
+    question_change: bool = False
 
 
 class SteeringReportGetResponse(BaseModel):
+    question_states: Dict[int, str] = Field(default_factory=dict)
     composed_at: str = ""
     staffing_after_seconds: int = 0
     idle_after_seconds: int = 0
@@ -125,6 +129,33 @@ def handle_get(request: FunctionCallRequest) -> HandlerOutcome:
             except LookupError as exc:
                 return _error("not_found", str(exc))
         now = utc_now()
+        from yoke_core.domain.steering_fleet_report_delivery import _last_report
+
+        _, prior_fingerprint = _last_report(conn, session_id)
+        if payload.questions_only:
+            from yoke_core.domain.steering_fleet_report_delivery import (
+                _held_project_ids,
+            )
+            from yoke_core.domain.steering_fleet_report_questions import (
+                question_states,
+                previous_question_ids,
+            )
+
+            held = _held_project_ids(conn, session_id)
+            if not held or (project_id is not None and project_id not in held):
+                return _claim_required(project_id)
+            return HandlerOutcome(
+                result_payload={
+                    "question_states": question_states(
+                        conn,
+                        [project_id] if project_id is not None else held,
+                        tuple(
+                            set(payload.previous_question_ids)
+                            | set(previous_question_ids(prior_fingerprint))
+                        ),
+                    )
+                }
+            )
         if payload.deliver:
             from yoke_core.domain.steering_fleet_report_delivery import (
                 claim_report_composition,
@@ -137,7 +168,15 @@ def handle_get(request: FunctionCallRequest) -> HandlerOutcome:
                 project_id is not None and project_id not in held_projects
             ):
                 return _claim_required(project_id)
-            if claim_report_composition(conn, session_id=session_id, now=now) is None:
+            if (
+                claim_report_composition(
+                    conn,
+                    session_id=session_id,
+                    now=now,
+                    question_change=payload.question_change,
+                )
+                is None
+            ):
                 return HandlerOutcome(
                     result_payload={"composition_skipped": True, "delivered": False}
                 )
@@ -148,6 +187,7 @@ def handle_get(request: FunctionCallRequest) -> HandlerOutcome:
             project_id=project_id,
             include_inventory=payload.full or payload.read_delta,
             reuse_schedule=True,
+            prior_fingerprint=prior_fingerprint,
         )
         if not combined.sections:
             return _claim_required(project_id)

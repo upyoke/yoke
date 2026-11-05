@@ -38,9 +38,7 @@ from yoke_core.domain.steering_fleet_report_machine_block import (
 )
 from yoke_core.domain.steering_fleet_report_projection import report_dict
 from yoke_core.domain.steering_fleet_report_fingerprint import (
-    digest,
-    project_payload,
-    seat_payload,
+    combined_fingerprint,
 )
 from yoke_core.domain.steering_fleet_report_project_rows import (
     rows_per_section,
@@ -66,8 +64,8 @@ from yoke_core.domain.steering_fleet_report_questions import (
     OperatorQuestion,
     read_questions,
     question_lines,
+    previous_question_ids,
 )
-from yoke_core.domain.steering_fleet_report_fingerprint import question_fingerprint
 
 
 COMBINED_PREAMBLE = (
@@ -124,6 +122,7 @@ class CombinedFleetReport:
     sections: tuple[ScopedFleetReport, ...]
     questions: tuple[OperatorQuestion, ...] = ()
     unattended: tuple[UnattendedLinkedItem, ...] = ()
+    question_outcomes: tuple[OperatorQuestion, ...] = ()
     #: Functions over their latency budget: diagnostic, never actionable.
     slow_paths: tuple[SlowPath, ...] = ()
 
@@ -135,19 +134,7 @@ class CombinedFleetReport:
 
     def fingerprint(self) -> str:
         """JSON map of age-blind content hashes for each digest scope."""
-        reports = [section.report for section in self.sections]
-        material = {
-            f"scope:{section.descriptor}": digest(
-                {
-                    "seat": seat_payload(section.report),
-                    "project": project_payload(rows),
-                }
-            )
-            for section, rows in zip(self.sections, rows_per_section(reports))
-        }
-        material["questions"] = digest(question_fingerprint(self.questions))
-        material["unattended"] = digest([row.item_id for row in self.unattended])
-        return json.dumps(material, sort_keys=True, separators=(",", ":"))
+        return combined_fingerprint(self)
 
 
 def compose_held_reports(
@@ -158,6 +145,7 @@ def compose_held_reports(
     project_id: int | None = None,
     include_inventory: bool = True,
     reuse_schedule: bool = False,
+    prior_fingerprint: str = "",
 ) -> CombinedFleetReport:
     """Assemble one combined report from this session's active steering claims.
 
@@ -232,10 +220,18 @@ def compose_held_reports(
         replace(s, report=replace(s.report, session_labels=labels)) for s in sections
     ]
     project_ids = [int(section.report.project_id) for section in sections]
+    questions = read_questions(
+        conn, sorted(set(project_ids)), previous_question_ids(prior_fingerprint)
+    )
     return CombinedFleetReport(
         composed_at=now,
         sections=tuple(sections),
-        questions=read_questions(conn, sorted(set(project_ids))),
+        questions=tuple(
+            q for q in questions if q.status == "pending" or q.delivery_reason
+        ),
+        question_outcomes=tuple(
+            q for q in questions if q.status != "pending" and not q.delivery_reason
+        ),
         unattended=unattended_linked_items(conn, project_ids),
         slow_paths=(
             read_slow_paths(conn, project_ids=sorted(set(project_ids)), now=now)

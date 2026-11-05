@@ -32,7 +32,7 @@ DELTA_WAKE_RULES = (
     (
         WAKE_NOW,
         re.compile(
-            r"^fleet (?:(?:ERROR|FATAL)\b|inbox\b|ALARM "
+            r"^fleet (?:(?:ERROR|FATAL)\b|inbox\b|question \d+ (?:pending|resolved|withdrawn|consumed)\b|ALARM "
             r"(?:idle-holder|unowned-item|starved-envelope|unstaffed-ready)\b|"
             r"session \S+ terminated\b|item \S+ available\b|"
             r"item \S+ status .* -> (?:blocked|stopped)\b)"
@@ -50,7 +50,7 @@ DELTA_WAKE_RULES = (
 
 HELP_EPILOG = """\
 Each pass reads roster, schedule and inbox, plus silent holders' landing facts.
-Failures, messages, alarms, abnormal ends and runnable or blocked items wake
+Failures, messages, question changes, alarms, abnormal ends and runnable or blocked items wake
 now; routine churn waits for the next changed report. All lines stay raw.
 Due reports are checked on quiet passes. Identifiers are printed whole.
 Removed holder, landing and run rows get one reason in the next due report.
@@ -59,6 +59,7 @@ Raw line shapes:
   fleet item YOK-N status <old> -> <new>
   fleet item YOK-N available status=<status> claim=<claim-state>
   fleet session <session-id> registered|ended|terminated surface=<surface>
+  fleet question <request-id> pending|resolved|withdrawn|consumed
   fleet inbox <message-id> state=pending|injected from=<session-id>
   fleet ALARM idle-holder|unowned-item|starved-envelope|unstaffed-ready ...
   fleet CLEAR <alarm-kind> <subject>
@@ -134,6 +135,13 @@ def run(
                 call=call,
                 now=pass_at,
                 self_session_id=resolved_session,
+                previous_question_ids=tuple(
+                    key
+                    for key, status in previous.questions.items()
+                    if status == "pending"
+                )
+                if previous
+                else (),
             )
         except FleetReadError as failure:
             consecutive_failures += 1
@@ -169,6 +177,9 @@ def run(
                 call=call,
                 state=report_state,
                 snapshot=current,
+                question_change=any(
+                    line.startswith("fleet question ") for line in delta_lines
+                ),
             )
             previous = current
 

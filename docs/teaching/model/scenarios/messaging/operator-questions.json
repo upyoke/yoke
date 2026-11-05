@@ -1,0 +1,9 @@
+{
+ "id": "operator-questions",
+ "title": "Notice an operator question outcome",
+ "status": "observed",
+ "when": "A worker question is answered, withdrawn or consumed",
+ "need": "The shared hook and watcher digest prints the saved outcome once. Question status changes wake steering on the next watcher poll and request a report before its scheduled interval. Failed answer delivery stays visible for manual relay.",
+ "sources": ["docs/public/sessions/steering-report.md", "packages/yoke-core/src/yoke_core/domain/steering_fleet_report_questions.py", "runtime/api/domain/test_operator_question_integration.py"],
+ "review": "Source regression coverage; post-release Inbox answer and steering wake proof is still owed."
+}
