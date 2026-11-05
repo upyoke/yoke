@@ -43,7 +43,7 @@ def test_public_install_changes_reach_both_cards(monkeypatch, tmp_path):
     nodes = {node['id']: node for node in render_explorer.map_nodes(model)}
     assert not model.problems
     assert 'new-installer --guided' in nodes['branch:install-command']['summary']
-    assert nodes['installer:script']['form'][2] == 'new-installer --guided'
+    assert nodes['installer:script']['type_hint'] == 'new-installer --guided'
     for key in ('branch:install-command', 'installer:script'):
         assert 'chooses its mode from the terminal' in nodes[key]['summary']
 
