@@ -1,14 +1,16 @@
-// Run files sequentially with fresh module instances and restored globals.
+// Run isolated file batches in one Node process with shared compiled sources.
 import { readFileSync } from 'node:fs';
 import { isBuiltin } from 'node:module';
 import * as nodeTest from 'node:test';
 import { pathToFileURL } from 'node:url';
 import vm from 'node:vm';
+import { Worker, isMainThread, parentPort, workerData } from 'node:worker_threads';
 
 const sources = new Map();
 const builtins = new Map();
 // Node's web globals install a permanent dispatcher symbol on first access.
 void globalThis.Response;
+
 function isolateGlobals() {
   const globals = Object.getOwnPropertyDescriptors(globalThis);
   const handles = [];
@@ -95,27 +97,64 @@ function loaderFor(pending) {
   return evaluate;
 }
 
-const files = process.argv.slice(2);
-if (!files.length) throw new Error('javascript_modules_missing: pass test files');
-for (const filename of files) {
-  let restore;
-  try {
-    await nodeTest.test(filename, async () => {
-      const pending = [];
-      restore = isolateGlobals();
-      const evaluate = loaderFor(pending);
-      await evaluate(pathToFileURL(filename).href);
-      // Await every registered test before its file's parent can finish.
-      for (let next = 0; next < pending.length; next++) await pending[next];
-    });
-  } finally {
+async function runFiles(files) {
+  for (const filename of files) {
+    parentPort.postMessage({ filename });
+    let restore;
     try {
-      restore?.();
-    } catch (cause) {
-      throw new Error(
-        `javascript_globals_restore_failed: ${filename}; make test globals configurable and restore mutations in cleanup`,
-        { cause },
-      );
+      await nodeTest.test(filename, async () => {
+        const pending = [];
+        restore = isolateGlobals();
+        const evaluate = loaderFor(pending);
+        await evaluate(pathToFileURL(filename).href);
+        // Await every registered test before its file's parent can finish.
+        for (let next = 0; next < pending.length; next++) await pending[next];
+      });
+    } finally {
+      try {
+        restore?.();
+      } catch (cause) {
+        throw new Error(
+          `javascript_globals_restore_failed: ${filename}; make test globals configurable and restore mutations in cleanup`,
+          { cause },
+        );
+      }
     }
   }
+  parentPort.postMessage({ completed: true });
 }
+
+async function runBatches(files) {
+  const batches = Array.from({ length: Math.min(4, files.length) }, () => []);
+  files.forEach((filename, index) => batches[index % batches.length].push(filename));
+  await Promise.all(batches.map((batch) => new Promise((resolve) => {
+    const worker = new Worker(new URL(import.meta.url), {
+      workerData: batch, stdout: true, stderr: true,
+    });
+    let output = '';
+    let completed = false;
+    let activeFile = batch[0];
+    worker.stdout.on('data', (data) => { output += data; });
+    worker.stderr.on('data', (data) => { output += data; });
+    worker.on('error', (error) => { output += `${error.stack}\n`; });
+    worker.on('message', (message) => {
+      if (message.filename) activeFile = message.filename;
+      if (message.completed) completed = true;
+    });
+    worker.on('exit', (code) => {
+      if (!completed || code !== 0) {
+        process.exitCode = 1;
+        if (!completed) {
+          output = `javascript_worker_incomplete: ${activeFile}; let tests finish before exiting\n${output}`;
+        }
+        console.error(output);
+      }
+      resolve();
+    });
+  })));
+}
+
+const files = isMainThread ? process.argv.slice(2) : workerData;
+if (!files.length) throw new Error('javascript_modules_missing: pass test files');
+if (isMainThread) await runBatches(files);
+else await runFiles(files);

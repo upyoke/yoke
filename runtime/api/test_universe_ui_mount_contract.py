@@ -66,13 +66,22 @@ def test_javascript_failure_names_file_and_test(tmp_path: Path) -> None:
     assert "failure diagnostic probe" in str(failure.value)
 
 
+def test_javascript_premature_exit_is_a_failure(tmp_path: Path) -> None:
+    module = tmp_path / "premature_exit.test.mjs"
+    module.write_text("process.exit(0);\n")
+    with pytest.raises(AssertionError) as failure:
+        _run_javascript_tests([module])
+    assert module.name in str(failure.value)
+    assert "javascript_worker_incomplete" in str(failure.value)
+
+
 def test_javascript_modules_share_process_and_isolate_globals(tmp_path: Path) -> None:
     pids = tmp_path / "processes.txt"
     (tmp_path / "counter.mjs").write_text(
         "let count = 0; export const next = () => ++count;\n"
     )
     modules = []
-    for owner in range(2):
+    for owner in range(8):
         module = tmp_path / f"isolated_{owner}.test.mjs"
         module.write_text(
             "import { after, test } from 'node:test';\n"
