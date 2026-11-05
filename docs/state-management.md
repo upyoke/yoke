@@ -41,7 +41,7 @@ definition is the authority for:
 Do not infer a lifecycle or an item type from the workflow id.
 Selecting a different current version affects future items only; moving an
 existing item is explicit and compatibility-checked. See
-[workflows.md](workflows.md).
+[workflow reference](public/workflows/index.md).
 
 Current definitions with `policies.delivery=release_stage` bind `usher` across
 their delivery tail and may use deployment runs. Definitions with

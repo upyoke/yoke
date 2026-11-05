@@ -7,8 +7,8 @@ ROOT = Path(__file__).resolve().parents[3]
 
 SURFACES = (
     "README.md",
-    "docs/local-setup.md",
-    "docs/onboard-external-project.md",
+    "docs/public/start/install.md",
+    "docs/public/start/project-install.md",
     "docs/OVERVIEW.md",
     "packages/yoke-cli/src/yoke_cli/config/onboard_github_copy.py",
     "packages/yoke-cli/src/yoke_cli/config/onboard_wizard_flow_github.py",

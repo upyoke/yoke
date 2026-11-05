@@ -59,13 +59,11 @@ _SHARED_LONG_FORM_PATH: str = "runtime/agents/_shared/ouroboros-field-note.md"
 # Every session loads the AGENTS.md managed block, so skills and the Claude
 # session rules do not repeat the directive.
 INVENTORY: tuple[str, ...] = (
-    "README.md",
     "AGENTS.md",
     "docs/OVERVIEW.md",
     "docs/public/agents/commands.md",
     "docs/prompt-philosophy.md",
     "docs/public/workflows/lifecycle.md",
-    "docs/local-setup.md",
     "docs/source-dev-worktree-cleanup.md",
     _SHARED_LONG_FORM_PATH,
 )

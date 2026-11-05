@@ -4,5 +4,7 @@
  "status": "draft-copy",
  "audience": "Maintainers",
  "page": "contributing",
- "position": 0
+ "position": 0,
+ "summary": "CONTRIBUTING owns contributor setup and repository layout. Unregistered forks use locked uv dependencies and direct pytest without Yoke authority; registered source lanes use dev setup, dev run and the impacted CI watcher. README introduces the product and links to public setup, hosting and contribution owners.",
+ "sources": ["README.md", "CONTRIBUTING.md", "docs/OVERVIEW.md"]
 }

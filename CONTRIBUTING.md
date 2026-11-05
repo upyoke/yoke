@@ -1,111 +1,152 @@
 # Contributing to Yoke
 
-Yoke is [Fair Source](https://fair.io) software: the source is published to
-read, audit, and contribute to, while the product you run is the packaged
-install. This document covers how those two relate and how a change gets in.
+Yoke is [Fair Source](https://fair.io): you can read, audit, fork and
+contribute to the source. This page owns contributor setup; product users
+start with [installation](docs/public/start/install.md).
 
-## The packaged install is the product
+Cloning activates nothing. The installed `yoke` continues to use its packaged
+wheels until you explicitly bind a source checkout.
 
-Yoke installs as lockstep packaged wheels (`yoke-cli`, `yoke-contracts`,
-`yoke-harness`, `yoke-core`) via the public installer:
+## Fork and test without Yoke
 
-```bash
-curl -fsSL https://upyoke.com/install | sh
-```
+Install [uv](https://docs.astral.sh/uv/getting-started/installation/), Git,
+and Node.js 22 with npm. Database tests need PostgreSQL server tools
+(`initdb`, `pg_ctl`, `pg_isready`) on PATH; use a normal user, not root.
+The tests create disposable databases, so do not point them at real data.
+Configure a Git name and email for tests that create commits.
 
-Install, upgrade, and onboarding details live in
-[docs/local-setup.md](docs/local-setup.md).
-
-## Cloning is for reading and contributing — it activates nothing
-
-`git clone` gives you the full source to read and audit. It changes nothing
-about your machine's Yoke: the installed `yoke` keeps running its packaged
-wheels no matter how many checkouts exist on disk. Binding a checkout is a
-separate, explicit step (below) — never a side effect of cloning.
-
-`yoke status` states the current binding on its `install:` line:
-
-```text
-install: packaged wheel 1.4.0             # the packaged product is running
-install: source checkout /Users/you/yoke  # an explicitly activated checkout is running
-```
-
-## Run the tests without touching your install
-
-The checkout is a uv workspace. Sync it, then run the canonical test target
-inside the checkout-local venv — your installed `yoke` is not involved:
+Fork on GitHub if you want to submit changes, then clone your fork over HTTPS
+(replace `YOUR-ACCOUNT` below; use `upyoke` to read the original):
 
 ```bash
+git clone https://github.com/YOUR-ACCOUNT/yoke.git
+cd yoke
 uv sync --all-packages --all-groups --locked
 npm ci --prefix packages/yoke-core/src/yoke_core/ui
-yoke watch pytest -- runtime/api/ runtime/harness/ tests/
+uv run --frozen python3 -m pytest runtime/api runtime/harness tests -n auto
+uv run --frozen python3 -m ruff check PATH_TO_CHANGED_PYTHON_FILE
 ```
 
-- Pass the three anchors exactly as shown — never bare `runtime/`, which breaks
-  pytest conftest collection (the wrapper refuses it with a repair message).
-- For a focused run, pass specific file or directory paths after `--`.
-- Tests run in parallel by default (pytest-xdist `-n auto`); pass `-n 0` after
-  `--` for sequential order-sensitive debugging.
-- Ruff is locked with the dev environment. Run
-  `yoke dev ruff-changed --base <ref>` from a session that owns a source lane;
-  add `--format-check` to verify formatting too. It lints the claimed lane or
-  an explicit `--workdir <checkout>`, never the working directory, and names
-  the tree it read in every line. Its file set is everything a commit of the
-  tree would carry — untracked new files included — so a green predicts the
-  required CI check; each result names that scope's tracked and untracked
-  counts.
-- The suite starts its own disposable Postgres cluster on first use; no
-  database setup is required. It uses the embedded Postgres binaries fetched
-  during onboarding, falling back to system binaries (`initdb`, `pg_ctl`,
-  `pg_isready`) on `PATH` when no embedded installation is available.
+Direct pytest needs no installed Yoke, account, project registration or work
+claim. For a focused check, replace the three test roots with specific test
+paths; use `-n 0` for order-sensitive debugging. The full suite is large.
+The generic `yoke_core.tools.run_tests` wrapper and `yoke watch pytest`
+resolve Yoke project authority, so use direct pytest for an unregistered fork.
+Ruff is pinned in the locked development environment; pass each changed Python
+file to match CI's changed-file lint scope.
 
-## Activate a source checkout (explicit source-dev step)
+## Develop inside Yoke
 
-Activate a checkout only when the `yoke` command itself should run your
-checkout's code — for example, to exercise a CLI change end to end:
+Install the [packaged product](docs/public/start/install.md), register/install
+this checkout as a project through setup, and claim an item before preparing
+its lane. Read [AGENTS.md](AGENTS.md) and the
+[source-dev doctrine](docs/source-dev-doctrine.md).
 
 ```bash
-yoke dev setup /path/to/yoke --editable-install --yes
+yoke dev setup /absolute/path/to/yoke --editable-install --yes
+yoke status
+yoke watch pytest --impacted main --bounded
+yoke dev ruff-changed --base main
 ```
 
-`yoke dev setup` owns source-link repair, the editable install, and the
-optional local-Postgres admin connection (`--with-test-postgres`,
-`--set-active-env`, DSN flags — see `yoke dev setup --help`). Its editable
-install replaces pip's absolute-path artifacts with a config-driven shim, so
-a later checkout move only needs the machine-config path updated, with no
-reinstall. Verify the result:
+`yoke dev setup` owns source-link repair, editable installation and optional
+local PostgreSQL admin setup (`--with-test-postgres`, `--set-active-env`, and
+the tunnel/authority flags in `yoke dev setup --help`). The `install:` line of
+`yoke status` says `packaged wheel <version>` or `source checkout <path>`.
+The editable shim reads the checkout path from machine config, so update
+that path after moving the checkout; a bare `pip install -e` needs reinstalling.
+
+Use `yoke dev run -- <command>` for lane source commands: it binds the claimed
+lane and locked environment, and isolates machine administration context.
+Commit before CI; the impacted watcher runs remotely for this project.
+The attached QA case owns the full suite. Add `--format-check` to
+`yoke dev ruff-changed` when checking formatting too.
+
+Editable installation replaces the packaged wheels. Finish running Yoke
+commands before repointing the launcher; setup defers this replacement until
+its last step. To return to the packaged product, rerun the public installer.
+To update a bound source checkout, update Git rather than using `yoke update`.
+
+Run `yoke dev yokepedia` to browse the local map of rules, skills, roles and
+teaching surfaces.
+
+### Preview an unshipped project layer
+
+Source maintainers can preview a local checkout's skills, agents, rules and
+docs without changing the target or its machine configuration:
 
 ```bash
-yoke status    # install: source checkout /path/to/yoke
+yoke project refresh /absolute/path/to/project \
+  --source-checkout /absolute/path/to/yoke \
+  --project-id PROJECT_ID --project-slug PROJECT_SLUG --json
 ```
 
-**The editable-install trap:** the editable install uninstalls the packaged
-wheels the running process is executing from. Never repoint the `yoke`
-launcher while any yoke process — a wizard, a long-running command — is
-mid-flow; `yoke dev setup` itself defers the editable install to its last
-step for exactly this reason. To return to the packaged product, rerun the
-curl installer.
+After reviewing it, repeat with `--apply`. For a linked worktree lacking its
+ignored manifest, also pass `--manifest-from /absolute/path/to/main/.yoke/install-manifest.json`.
+Apply requires a clean target, preserves edited project contracts and strategy,
+and does not fetch bundles, register a checkout or sync environment snapshots.
+Managed source namespaces prune unchanged retired files; edited retired files
+are preserved and released from management. Other managed namespaces retain
+their prior hashes. See `yoke project refresh --help` for the full contract.
+
+Source-dev/admin work also includes release builds, install-bundle and packet
+rendering, server provisioning and repair, actor grants, migration and recovery.
+These are separate from normal project onboarding; use the owning runbook and
+registered command rather than internal Python admin modules. For a local source-built core, inspect the plan first:
+
+```bash
+yoke core build --checkout /absolute/path/to/yoke --dry-run
+yoke core start --from-checkout /absolute/path/to/yoke --build
+yoke core status --json
+yoke core logs
+yoke core stop
+yoke core upgrade --from-checkout /absolute/path/to/yoke --build --dry-run
+```
+
+Core state lives under `~/.yoke/local-core`; `--image IMAGE` selects an
+already-built private image. This source-dev/admin launcher does not pull a
+public default image or grant normal operators direct database authority.
 
 ## Submitting a change
 
-1. Fork, branch, commit. The in-repo contributor rulebook is
-   [AGENTS.md](AGENTS.md) — the always-on rule set for human and agent
-   contributors alike (`CLAUDE.md` and `CODEX.md` are compatibility pointers
-   to it).
-2. Open a pull request that includes tests for the change.
-3. **Sign the CLA on your first pull request.** An automated comment links to
-   [CLA.md](CLA.md); you sign by replying on the pull request with the exact
-   comment it asks for. The signature is recorded durably and covers all your
-   future contributions — returning contributors are recognized automatically
-   and never asked again.
+1. Branch and commit your change, following [AGENTS.md](AGENTS.md).
+2. Open a pull request with tests for changed behavior and updated owning docs.
+3. Sign the [CLA](CLA.md) on your first pull request by replying with the exact
+   comment the automated check requests. The recorded signature covers later
+   contributions.
 
-Maintainers cut tagged releases through the authored-note and provenance
-contract in [docs/releases/README.md](docs/releases/README.md).
+Pull requests to `main`, including forks, trigger
+[the CI workflow](.github/workflows/yoke-ci.yml): portable wheel builds,
+repository contracts (changed-file Ruff, authored-file limits, generated
+surfaces and bundle checks), sharded Python tests, browser-runtime tests and
+a core-container build. Python versions and shard groups come from the
+checked-in CI policy. GitHub may require maintainer approval before a new
+contributor's workflow runs. The [CLA workflow](.github/workflows/cla.yml)
+checks the contribution agreement separately.
+
+Maintainers publish through the [release contract](docs/releases/README.md).
+Private builds and distribution have their own
+[fork guide](docs/public/projects/private-forks.md).
+
+## Repository layout
+
+| Path | Contents |
+|---|---|
+| `packages/yoke-core/` | Domain, API, DB, engines and contributor tools. |
+| `packages/yoke-cli/` | Installed CLI, typed adapters and transport. |
+| `packages/yoke-contracts/` | Shared interface, event and policy contracts. |
+| `packages/yoke-harness/` | Installable hook and browser support. |
+| `runtime/agents/`, `runtime/harness/` | Canonical roles, manifests and rendered adapters. |
+| `runtime/api/`, `runtime/browser_runtime/`, `tests/` | API/browser/boundary verification. |
+| `.agents/skills/yoke/` | Canonical situational skill knowledge. |
+| `packs/` | Immutable reusable capability bundles. |
+| `packaging/` | Pre-runtime installer and distribution metadata. |
+| `docs/`, `.yoke/` | Public/source references and project policy/generated views. |
+| `docs/teaching/` | [Teaching prototype](docs/teaching/README.md): what Yoke teaches, where and when, with evidence and gaps. |
+| `.github/workflows/` | CI and hosted release execution. |
 
 ## License
 
-Yoke is Fair Source, source-available under the
+Contributions use the terms of the [CLA](CLA.md). Yoke uses the
 [Functional Source License, Version 1.1, ALv2 Future License](LICENSE.md)
-(FSL-1.1-ALv2). Each version converts to the Apache License, Version 2.0 two
-years after its release. Your contributions are licensed to the project under
-the terms of the [CLA](CLA.md).
+(FSL-1.1-ALv2); each version converts to Apache 2.0 two years after release.
