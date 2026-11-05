@@ -30,7 +30,10 @@ def process_start_time(pid: int, *, api=None) -> str | None:
     """Return a live process's immutable creation time; absent processes return None."""
     if pid <= 0:
         return None
-    api = _kernel32() if api is None else api
+    try:
+        api = _kernel32() if api is None else api
+    except (OSError, AttributeError):
+        return None
     handle = api.OpenProcess(
         PROCESS_QUERY_LIMITED_INFORMATION | SYNCHRONIZE, False, pid
     )

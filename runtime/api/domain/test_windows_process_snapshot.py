@@ -95,3 +95,11 @@ def test_windows_private_shutdown_uses_supported_termination(
         patched.setattr(client.os, "kill", kill)
         assert client.daemon_stop(profile_dir="private-check") == "stopped"
         kill.assert_called_once_with(42, signal.SIGTERM)
+
+
+def test_unavailable_native_query_returns_no_owner_token(monkeypatch):
+    def unavailable():
+        raise OSError("process query unavailable")
+
+    monkeypatch.setattr(windows, "_kernel32", unavailable)
+    assert windows.process_start_time(42) is None
