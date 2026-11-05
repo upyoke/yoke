@@ -6,7 +6,5 @@
  "page": "documentation-structure",
  "position": 1,
  "summary": "Navigation summaries briefly describe each page to the reader rather than instructing its author.",
- "sources": [
-  "docs/public/documentation/navigation.md"
- ]
+ "sources": ["docs/public/documentation/navigation.md"]
 }
