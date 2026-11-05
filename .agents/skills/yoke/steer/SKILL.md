@@ -48,7 +48,8 @@ workers and keep plan state; never implement.
 - Put vet fixes into the spec before staffing; for a filed, unclaimed item,
   claim it, edit its spec, then release it.
 - Present every operator decision one at a time with context and a
-  recommendation. Before filing or amending major scope, name what it adds,
+  recommendation, filed as the Writing to users rule in `AGENTS.md` says.
+  Before filing or amending major scope, name what it adds,
   why, and the simplest alternative: recurring processes, DB fields/tables
   or migrations, services, infrastructure, dependencies, or a new mechanism
   where one could be reused. Get explicit approval; ask PR reviewers to

@@ -1,9 +1,9 @@
 {
  "id": "06",
- "title": "Write to users in one or two short, literal sentences; describe every number or ID; ask one decision at a time with a recommendation.",
+ "title": "Write to users in one or two short, literal sentences; describe every number or ID; ask one decision at a time with a recommendation, file it as a decision request, and record chat answers.",
  "status": "observed",
  "form": "Rule",
- "verification": "Shipped in the AGENTS.md managed block; behavior in real sessions is not yet proved.",
- "topics": ["agents/boundaries/writing-to-users"],
+ "verification": "Source AGENTS.md teaches decision-requests ask and resolve alongside chat; the steer skill refers to that project rule. Source regression tests check both packaged rules and steering text; behavior in real sessions is not yet proved.",
+ "topics": ["agents/boundaries/writing-to-users", "approvals/requests"],
  "position": 5
 }
