@@ -127,7 +127,10 @@ def test_project_less_questions_filter_viewer_in_report_poll_and_outcomes(
     from yoke_core.domain.steering_fleet_report_compose import compose_held_reports
     from yoke_core.domain.steering_fleet_report_questions import read_questions
 
+    from yoke_core.domain.actors import seed_human_actor
+
     conn = steering_scope
+    recipient = seed_human_actor(conn, name="Question reviewer")
     worker = "organization-question-worker"
     seed_session(conn, worker)
     org = conn.execute(
@@ -142,13 +145,13 @@ def test_project_less_questions_filter_viewer_in_report_poll_and_outcomes(
         session_id=worker,
         org_id=org,
         originator_actor_id=1,
-        named_actor_ids=[2],
+        named_actor_ids=[recipient],
         subject_context={"question": "Which color?"},
     )
     monkeypatch.setattr(
         "yoke_core.domain.db_helpers.connect", lambda: BorrowedConnection(conn)
     )
-    for viewer, expected in ((2, {question["id"]: "pending"}), (1, {})):
+    for viewer, expected in ((recipient, {question["id"]: "pending"}), (1, {})):
         conn.execute(
             "UPDATE harness_sessions SET actor_id=%s WHERE session_id=%s",
             (viewer, STEERING_SESSION),
@@ -162,9 +165,9 @@ def test_project_less_questions_filter_viewer_in_report_poll_and_outcomes(
         report = compose_held_reports(conn, session_id=STEERING_SESSION, now=NOW)
         assert [row.request_id for row in report.questions] == list(expected)
     answered = resolve_decision_request(
-        conn, question["id"], actor_id=2, action="freeform", note="Blue"
+        conn, question["id"], actor_id=recipient, action="freeform", note="Blue"
     )
     assert answered["status"] == "resolved"
     assert read_questions(conn, [], [question["id"]], viewer_actor_id=1) == ()
-    [outcome] = read_questions(conn, [], [question["id"]], viewer_actor_id=2)
+    [outcome] = read_questions(conn, [], [question["id"]], viewer_actor_id=recipient)
     assert outcome.outcome == "answered (Blue)"
