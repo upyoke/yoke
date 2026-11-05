@@ -127,16 +127,23 @@ function wizardBody(documentNode, module, mode, body, result) {
     cta.appendChild(el(documentNode, "code", null, "yoke setup"));
     body.appendChild(cta);
   } else if (module.state === "in_progress" && mode === "hosted") {
-    const webFirst = el(documentNode, "p", "activation-copy web-first");
+    const command = installCommand(result);
+    const origin = command.match(/https?:\/\/[^/\s'"]+/);
+    const prompt = origin
+      ? `install ${new URL(origin[0]).host.replace(/^api\./, "")}` : command;
+    const webFirst = el(documentNode, "div", "activation-copy web-first");
+    const lead = el(documentNode, "p", null, "Tell Claude Code, Codex, or Cursor: ");
+    lead.appendChild(el(documentNode, "code", null, prompt));
+    webFirst.appendChild(lead);
+    const detail = el(documentNode, "p");
+    const small = el(documentNode, "small", null, "Your agent runs: ");
+    small.appendChild(el(documentNode, "code", null, command));
+    detail.appendChild(small);
+    webFirst.appendChild(detail);
     webFirst.appendChild(el(
-      documentNode, "strong", null, "Install Yoke on your machine",
+      documentNode, "p", null,
+      "The wizard connects this machine, then GitHub and Hosting.",
     ));
-    webFirst.appendChild(documentNode.createElement("span")).textContent =
-      " — ";
-    webFirst.appendChild(el(documentNode, "code", null, installCommand(result)));
-    webFirst.appendChild(documentNode.createElement("span")).textContent =
-      " — the wizard connects this machine, then GitHub · Hosting " +
-      "fold in here.";
     body.appendChild(webFirst);
   }
   body.appendChild(wizardChecklist(documentNode, module, mode));
