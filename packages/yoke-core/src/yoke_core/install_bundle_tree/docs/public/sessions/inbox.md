@@ -209,8 +209,24 @@ Use `--context-file PATH` for Markdown context, repeat `--option ID=LABEL::DETAI
 for up to eight choices, and use `--no-freeform` to require a choice. With no
 choices, a freeform answer is required. Add `--attach PATH` for each image or PDF
 (maximum 20 MiB per file, 64 MiB for the encoded attachment manifest). Files use
-the existing QA evidence store and viewer; get and list include their names and count. The optional item must be held by the
-requesting session. Reusing a key while pending returns the existing question.
+the existing QA evidence store and viewer; get and list include their names and count. The optional `--item` names the item
+being discussed; the requester need not hold it. Reusing a key while pending
+returns the existing question.
+
+Repeat `--to PERSON` for actor ids or unique human names in your organization,
+or use `--audience NAME` for a named audience. These replace the default project
+owner/operator audience; only audience members can answer. Named audiences use
+live membership, including people added after filing.
+
+`--project PROJECT` selects a visible project. Without it, `--item` selects its
+project; otherwise an unaddressed question uses the session's project. Explicit
+recipients or a named audience without a project or item create a project-less
+question in one organization shared by the asker and all recipients, or the
+named audience's organization. Multiple possible organizations refuse; choose a
+named organization audience. A question with neither project nor audience refuses
+`operator_question_audience_required`; supply `--to` or `--audience`. A named
+audience must belong to the question's project, or its organization when project-less.
+Do not combine `--to` and `--audience`.
 
 The Inbox shows the question as its heading, then who asked and when, followed
 by attachments, a collapsed Context disclosure, and choices. The recommended

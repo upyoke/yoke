@@ -206,3 +206,109 @@ def test_question_outcomes_are_delivered_once(test_db):
         == ""
     )
     assert read_questions(test_db, [PROJECT_YOKE]) == ()
+
+
+def _named_question(test_db, monkeypatch, *, project_less):
+    from contextlib import contextmanager
+    from yoke_core.domain.actor_role_grants import grant_actor_org_role
+    from yoke_core.domain.actors import seed_human_actor
+
+    _project(test_db)
+    session = "named-question-worker"
+    seed_session(test_db, session)
+    recipient = seed_human_actor(test_db, name="Question Recipient")
+    org = test_db.execute(
+        "SELECT org_id FROM projects WHERE id=%s", (PROJECT_YOKE,)
+    ).fetchone()[0]
+    grant_actor_org_role(test_db, actor_id=1, org_id=org, role_name="admin")
+    grant_actor_org_role(test_db, actor_id=recipient, org_id=org, role_name="viewer")
+    if project_less:
+        test_db.execute(
+            "UPDATE harness_sessions SET project_id=NULL WHERE session_id=%s",
+            (session,),
+        )
+        test_db.commit()
+
+    @contextmanager
+    def connection():
+        yield test_db
+
+    monkeypatch.setattr("yoke_core.domain.db_helpers.connect", connection)
+    payload = {"key": "choose", "question": "Which color?", "to": [str(recipient)]}
+    if not project_less:
+        payload["project"] = str(PROJECT_YOKE)
+    filed = handle_ask(_call("decision_requests.ask", session, payload))
+    assert filed.primary_success, filed.error
+    return session, recipient, org, filed.result_payload["request"]
+
+
+def test_named_recipient_sees_and_answers_and_asker_gets_mail(test_db, monkeypatch):
+    import pytest
+
+    session, recipient, _, row = _named_question(
+        test_db, monkeypatch, project_less=False
+    )
+    waiting = inbox_for_actor(
+        test_db, actor_id=recipient, project_ids=[PROJECT_YOKE], include_read=False
+    )
+    assert row["id"] in [q["id"] for q in waiting["needs_decision"]]
+    owner = inbox_for_actor(
+        test_db, actor_id=1, project_ids=[PROJECT_YOKE], include_read=False
+    )
+    assert row["id"] not in [q["id"] for q in owner["needs_decision"]]
+    with pytest.raises(PermissionError):
+        resolve_decision_request(
+            test_db, row["id"], actor_id=1, action="freeform", note="Blue"
+        )
+    resolve_decision_request(
+        test_db, row["id"], actor_id=recipient, action="freeform", note="Blue"
+    )
+    assert _recipients(test_db, f"operator-question-answer:{row['id']}") == [session]
+
+
+def test_project_less_question_reaches_org_only_member(test_db, monkeypatch):
+    from yoke_core.domain.handlers.decision_request_get import (
+        handle_decision_request_get,
+    )
+    from yoke_core.domain.actors import seed_human_actor
+
+    session, recipient, org, row = _named_question(
+        test_db, monkeypatch, project_less=True
+    )
+    assert row["project_id"] is None and row["org_id"] == org
+    waiting = inbox_for_actor(
+        test_db, actor_id=recipient, project_ids=[PROJECT_YOKE], include_read=False
+    )
+    assert row["id"] in [q["id"] for q in waiting["needs_decision"]]
+    outsider = seed_human_actor(test_db, name="Outside Recipient")
+    call = _call("decision_requests.get", session, {"request_id": row["id"]})
+    call.actor.actor_id = str(outsider)
+    hidden = handle_decision_request_get(call)
+    assert not hidden.primary_success and hidden.error.code == "not_found"
+    resolve_decision_request(
+        test_db, row["id"], actor_id=recipient, action="freeform", note="Blue"
+    )
+    assert _recipients(test_db, f"operator-question-answer:{row['id']}") == [session]
+
+
+def test_project_less_question_without_audience_refuses(test_db, monkeypatch):
+    from contextlib import contextmanager
+
+    _project(test_db)
+    session = "unscoped-question-worker"
+    seed_session(test_db, session)
+    test_db.execute(
+        "UPDATE harness_sessions SET project_id=NULL WHERE session_id=%s", (session,)
+    )
+    test_db.commit()
+
+    @contextmanager
+    def connection():
+        yield test_db
+
+    monkeypatch.setattr("yoke_core.domain.db_helpers.connect", connection)
+    result = handle_ask(
+        _call("decision_requests.ask", session, {"key": "choose", "question": "Q"})
+    )
+    assert not result.primary_success
+    assert "operator_question_audience_required" in result.error.message

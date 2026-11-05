@@ -37,6 +37,7 @@ def conn():
             INSERT INTO harness_sessions VALUES ('other', 10, 1, 'cursor', NULL, NULL);
             INSERT INTO harness_sessions VALUES ('steering', 10, 2, 'claude-code', NULL, NULL);
         """)
+        value.execute("INSERT INTO actor_project_roles VALUES (1, 10, 4, 'now')")
         yield value
 
 

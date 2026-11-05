@@ -37,12 +37,23 @@ def test_ask_options_recommendation_replacement_and_requester(tmp_path, calls):
                 str(context),
                 "--replaces",
                 "17",
+                "--to",
+                "301",
+                "--to",
+                "Jane Doe",
+                "--audience",
+                "Reviewers",
+                "--project",
+                "transaction-intelligence",
                 "--json",
             ]
         )
         == 0
     )
     call = calls[0]
+    assert call["payload"]["to"] == ["301", "Jane Doe"]
+    assert call["payload"]["audience"] == "Reviewers"
+    assert call["payload"]["project"] == "transaction-intelligence"
     assert call["function_id"] == "decision_requests.ask"
     assert call["payload"]["requesting_session_id"] == "requesting-worker"
     assert call["payload"]["replaces"] == 17
@@ -59,6 +70,7 @@ def test_ask_defaults_requester_to_calling_session(calls):
         == 0
     )
     assert calls[0]["payload"]["requesting_session_id"] is None
+    assert calls[0]["payload"]["project"] is None
     assert calls[0]["payload"]["allow_freeform"]
 
 

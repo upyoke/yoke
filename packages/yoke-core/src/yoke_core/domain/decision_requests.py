@@ -63,6 +63,8 @@ def _validate_scope(
         raise ValueError(f"{kind} requires exactly one project scope")
     if spec.role_scope == "org" and (org_id is None or project_id is not None):
         raise ValueError(f"{kind} requires exactly one organization scope")
+    if spec.role_scope == "project_or_org" and (project_id is None) == (org_id is None):
+        raise ValueError(f"{kind} requires exactly one project or organization scope")
     p = _p(conn)
     project_org_id = None
     if project_id is not None:
@@ -104,6 +106,7 @@ def create_decision_request(
     originator_actor_id: Optional[int] = None,
     role_authorities: Iterable[RoleAuthority] = (),
     named_actor_ids: Iterable[int] = (),
+    audience_id: Optional[int] = None,
     approval_mode: str = DEFAULT_APPROVAL_MODE,
     subject_context: Optional[Mapping[str, Any]] = None,
     requesting_session_id: Optional[str] = None,
@@ -140,7 +143,23 @@ def create_decision_request(
             "named actor authorities must reference existing human actors: "
             + ", ".join(str(actor_id) for actor_id in invalid_actors)
         )
-    if not roles and not actors:
+    if audience_id is not None:
+        if kind != "operator_question":
+            raise ValueError(
+                "named audiences are supported only for operator questions"
+            )
+        if roles or actors:
+            raise ValueError("named audience and inline authorities are exclusive")
+        owner = audiences.audience(conn, audience_id)
+        if owner["project_id"] != project_id or owner["org_id"] != org_id:
+            raise ValueError(
+                "audience_scope_mismatch: select an audience owned by the question scope"
+            )
+        if not audiences.rules_for_audiences(conn, (audience_id,)).get(audience_id):
+            raise ValueError(
+                "empty_audience: select an audience with at least one rule"
+            )
+    if not roles and not actors and audience_id is None:
         raise ValueError("at least one role or named actor authority is required")
     if approval_mode not in APPROVAL_MODES:
         raise ValueError(f"approval_mode must be one of: {', '.join(APPROVAL_MODES)}")
@@ -187,7 +206,7 @@ def create_decision_request(
         created = inserted is not None
         if created:
             request_id = int(inserted[0])
-            audience_id = audiences.create_audience(
+            selected_audience_id = audience_id or audiences.create_audience(
                 conn,
                 project_id=project_id,
                 org_id=org_id,
@@ -206,7 +225,7 @@ def create_decision_request(
             )
             conn.execute(
                 f"UPDATE decision_requests SET audience_id = {p} WHERE id = {p}",
-                (audience_id, request_id),
+                (selected_audience_id, request_id),
             )
             append_decision_event(
                 conn,

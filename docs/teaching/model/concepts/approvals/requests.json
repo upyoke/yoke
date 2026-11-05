@@ -1,9 +1,10 @@
 {
  "id": "requests",
  "title": "Decision requests",
- "status": "draft-copy",
+ "status": "observed",
  "commands": ["yoke decision-requests ask", "yoke decision-requests dispose-ended", "yoke decision-requests get", "yoke decision-requests list", "yoke decision-requests resolve", "yoke decision-requests withdraw"],
  "functions": ["decision_requests.ask", "decision_requests.attachment.read", "decision_requests.create", "decision_requests.dispose_ended", "decision_requests.get", "decision_requests.list", "decision_requests.resolve", "decision_requests.withdraw"],
  "page": "approvals",
- "position": 2
+ "position": 2,
+ "summary": "Operator questions address project operators, named people, or a live named audience. Explicit recipients can receive organization-scoped questions without a project; audience membership alone grants answer authority."
 }
