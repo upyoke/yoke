@@ -1,12 +1,12 @@
 # Yoke
 
-**A control plane for agentic engineering.** Yoke gives humans and coding
-agents one shared source of truth for strategy, planning, implementation,
-testing, and deployment. You set the direction; your agents do the work
-through Yoke, and Yoke brings the decisions that matter back to you.
+**New to Yoke? Start with [Getting started](https://upyoke.com/docs).**
+It explains what Yoke is and how to use it. This README is for developers who
+want to build, test, or contribute changes to Yoke's source.
 
-[Documentation](https://upyoke.com/docs) ·
-[Getting started](docs/public/index.md) ·
+Yoke is a control plane for humans and coding agents to plan, build, test,
+and deploy software together.
+
 [Self-hosting](docs/public/guide/self-hosting.md) ·
 [Contributing](CONTRIBUTING.md) ·
 [License](LICENSE.md)
