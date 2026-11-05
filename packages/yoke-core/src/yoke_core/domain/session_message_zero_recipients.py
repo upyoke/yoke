@@ -47,7 +47,11 @@ def zero_recipients_detail(selector: RecipientSelector) -> str:
         return (
             f"no session holds a live work claim on {_listed(selector.public_refs)}, "
             "so it addresses nobody. Confirm the holder with "
-            "`yoke claims work holder-get PREFIX-N`."
+            "`yoke claims work holder-get PREFIX-N`. "
+            "If it is unclaimed, claim it (`yoke claims work acquire --item "
+            "PREFIX-N --reason ...`), edit its spec (`yoke items structured-field "
+            "section-upsert PREFIX-N --field spec --section NAME --stdin`), then "
+            "release it (`yoke claims work release --item PREFIX-N --reason ...`)."
         )
     if selector.epic_tasks:
         return (

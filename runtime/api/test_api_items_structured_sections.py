@@ -107,6 +107,16 @@ class TestFieldTargetedSectionRoute(_ApiSuite):
         self.assertEqual(body["result"]["heading_level"], 2)
         self.assertEqual(self.db.fetch_field(101, "spec"), "## EDGE\n\nbody\n")
 
+    def test_section_name_strips_leading_hashes(self):
+        self.db.insert_item(101, spec="")
+        env = _envelope(
+            "items.structured_field.section_upsert",
+            payload={"field": "spec", "section": "## EDGE", "content": "body"},
+        )
+        body = self.client.post("/v1/functions/call", json=env).json()
+        self.assertTrue(body["success"], body)
+        self.assertEqual(self.db.fetch_field(101, "spec"), "## EDGE\n\nbody\n")
+
     def test_invalid_payloads_do_not_write(self):
         self.db.insert_item(101, spec="original")
         invalid = [
@@ -116,6 +126,7 @@ class TestFieldTargetedSectionRoute(_ApiSuite):
             {"ordering": 5},
             {"section": "two\nlines"},
             {"section": ""},
+            {"section": "##"},
             {"content": " "},
             {"unexpected": True},
         ]

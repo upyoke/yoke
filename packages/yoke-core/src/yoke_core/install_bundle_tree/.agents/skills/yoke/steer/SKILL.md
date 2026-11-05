@@ -45,6 +45,8 @@ workers and keep plan state; never implement.
   each vetted dash as very short, plain-language bullets, using real code
   names where useful. File only after explicit operator approval, then keep
   the strategy doc current with what was filed.
+- Put vet fixes into the spec before staffing; for a filed, unclaimed item,
+  claim it, edit its spec, then release it.
 - Present every operator decision one at a time with context and a
   recommendation. Before filing or amending major scope, name what it adds,
   why, and the simplest alternative: recurring processes, DB fields/tables
