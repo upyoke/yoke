@@ -17,6 +17,12 @@ PRODUCT_WHEEL_UNIT = "product wheel files"
 
 
 def version_independent(node_id: str, fixtures=()) -> bool:
+    """Run repository scans, docs and Node checks only on the newest leg.
+
+    Add reviewed module names or families here when their outcome does not
+    depend on Python runtime behavior. AST scans check repository contracts;
+    the oldest leg's import tests retain Python syntax compatibility coverage.
+    """
     path = node_id.split("::", 1)[0]
     name = path.rsplit("/", 1)[-1]
     return (
@@ -32,6 +38,7 @@ def version_independent(node_id: str, fixtures=()) -> bool:
                 "test_doc_",
                 "test_docs_",
                 "test_generated_",
+                "test_impacted_",
             )
         )
         or name
@@ -40,6 +47,8 @@ def version_independent(node_id: str, fixtures=()) -> bool:
             "test_generated_block_render.py",
             "test_atlas_render_docs.py",
             "test_disposable_generated_paths_policy.py",
+            "test_universe_ui_mount_contract.py",
+            "test_github_operation_permission_scopes.py",
         }
     )
 
