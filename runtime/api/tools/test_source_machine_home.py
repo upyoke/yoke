@@ -4,8 +4,9 @@ import json
 import os
 from pathlib import Path
 import subprocess
-import sys
 import socket
+import shutil
+import sys
 import tempfile
 
 import pytest
@@ -202,3 +203,57 @@ def test_snapshot_copies_secrets_without_browser_runtime_links(tmp_path):
     assert (profile / "SingletonLock").is_symlink()
     assert token.read_text() == "fixture-token"
     assert config.read_bytes() == original
+
+
+@pytest.mark.skipif(not hasattr(socket, "AF_UNIX"), reason="requires Unix sockets")
+def test_snapshot_skips_live_browser_profiles_and_stray_special_files(
+    tmp_path, monkeypatch
+):
+    config, _, token = _seed(tmp_path / "machine")
+    secrets = token.parent
+    profile = (
+        secrets
+        / "capability-secrets"
+        / "project"
+        / "browser-control"
+        / "identities"
+        / "operator"
+        / "profile"
+    )
+    profile.mkdir(parents=True)
+    (profile / "SingletonLock").symlink_to("missing-lock")
+    (profile / "Preferences").write_text("private browser state")
+    (secrets / "dangling").symlink_to("missing")
+    with (
+        socket.socket(socket.AF_UNIX) as browser,
+        socket.socket(socket.AF_UNIX) as stray,
+    ):
+        monkeypatch.chdir(profile)
+        browser.bind("SingletonSocket")
+        monkeypatch.chdir(secrets)
+        stray.bind("socket")
+        with isolated_machine_home(
+            {"YOKE_MACHINE_HOME": str(config.parent), "YOKE_SESSION_ID": "fixture"}
+        ) as child:
+            target = Path(child["YOKE_MACHINE_HOME"])
+            assert not (target / profile.relative_to(config.parent)).exists()
+            assert not (target / "secrets" / "dangling").is_symlink()
+            assert not (target / "secrets" / "socket").exists()
+            assert (target / "secrets" / token.name).read_text() == "fixture-token"
+
+
+def test_snapshot_unreadable_secret_names_failed_path(tmp_path, monkeypatch):
+    config, _, token = _seed(tmp_path / "machine")
+    original = shutil.copyfile
+
+    def copyfile(source, destination, **kwargs):
+        if Path(source) == token:
+            raise PermissionError(13, "Permission denied", str(token))
+        return original(source, destination, **kwargs)
+
+    monkeypatch.setattr(shutil, "copyfile", copyfile)
+    with pytest.raises(OSError, match=str(token)):
+        with isolated_machine_home(
+            {"YOKE_MACHINE_HOME": str(config.parent), "YOKE_SESSION_ID": "fixture"}
+        ):
+            pytest.fail("unreadable secrets must refuse the snapshot")

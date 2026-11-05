@@ -226,8 +226,8 @@ def run(
             return _run_bound(args, root, fallback_project_id, authority_signature, env)
     except OSError as exc:
         print(
-            f"source_machine_home_unavailable: {exc}; repair machine-home read "
-            "permissions and temporary storage, then retry.",
+            f"source_machine_home_unavailable: {exc}; repair the named path "
+            "or temporary storage, then retry.",
             file=sys.stderr,
         )
         return 1

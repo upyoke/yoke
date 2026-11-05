@@ -63,9 +63,11 @@ declaration and refuse with `SOURCE-ENVIRONMENT-DECLARATION` when unreadable.
 
 Before any source import probe or child starts, `dev run` creates a private,
 disposable machine-home snapshot. It copies machine settings, secrets, and referenced
-files under that home, omitting broken links and special files such as browser
-locks and Unix sockets. It rebases machine-home paths and supplies private default
-cache and temp paths. It does not clone caches, runtimes or live relay state.
+files under that home, rebases machine-home paths, and supplies private default
+cache and temp paths. It excludes browser identity `profile` directories under
+`secrets/capability-secrets/*/browser-control/identities/*/`, plus special files
+such as sockets and dangling symlinks anywhere in the copied tree. It does not
+clone caches, runtimes or live relay state.
 Source config writes affect only the snapshot, which is removed after the
 command finishes or refuses. Watcher captures use the printed separate
 `source evidence root` through `YOKE_SCRATCH_ROOT`, so proof survives snapshot
@@ -94,8 +96,8 @@ yoke dev run --allow-real-machine-home -- <command>
 
 This flag permits real writes and is printed in the execution evidence. The
 installed-release CLI keeps its ordinary machine-home behavior. A snapshot
-failure refuses as `source_machine_home_unavailable`; repair the named config's
-JSON/read permissions or temporary storage, then retry. This is environment
+failure refuses as `source_machine_home_unavailable`; repair the named path,
+its JSON or read permissions, or temporary storage, then retry. This is
 isolation for cooperative source commands, not an operating-system sandbox.
 
 Protected schema and administered-cluster guards still judge that selected

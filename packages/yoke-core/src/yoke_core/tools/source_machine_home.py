@@ -53,6 +53,28 @@ def _snapshot(source: Path, destination: Path, selected: Path) -> None:
     if not isinstance(payload, dict):
         raise ValueError("machine config must contain a JSON object")
 
+    def browser_profile(path: Path) -> bool:
+        for origin in (source, source.resolve(), Path.home() / ".yoke"):
+            try:
+                relative = path.relative_to(origin).parts
+                break
+            except ValueError:
+                continue
+        else:
+            relative = ()
+        return (
+            len(relative) >= 7
+            and relative[:2] == ("secrets", "capability-secrets")
+            and relative[3:5] == ("browser-control", "identities")
+            and relative[6] == "profile"
+        )
+
+    def ignore(directory, names):
+        profiles = {name for name in names if browser_profile(Path(directory) / name)}
+        return profiles | _non_file_entries(
+            directory, [name for name in names if name not in profiles]
+        )
+
     def rebase(value):
         if isinstance(value, dict):
             return {
@@ -76,7 +98,7 @@ def _snapshot(source: Path, destination: Path, selected: Path) -> None:
         else:
             return value
         target = destination / relative
-        if candidate.is_file():
+        if candidate.is_file() and not browser_profile(candidate):
             target.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
             shutil.copyfile(candidate, target)
             target.chmod(0o600)
@@ -85,8 +107,11 @@ def _snapshot(source: Path, destination: Path, selected: Path) -> None:
     secrets = source / "secrets"
     if secrets.is_dir():
         shutil.copytree(
-            secrets, destination / "secrets", symlinks=False, dirs_exist_ok=True,
-            ignore=_non_file_entries,
+            secrets,
+            destination / "secrets",
+            symlinks=False,
+            dirs_exist_ok=True,
+            ignore=ignore,
         )
     payload = rebase(payload)
     payload.setdefault("temp_root", str(destination / "tmp"))
@@ -126,11 +151,12 @@ def isolated_machine_home(
         destination = Path(directory)
         try:
             _snapshot(source, destination, selected)
-        except (ValueError, OSError) as exc:
+        except ValueError as exc:
             raise OSError(
-                f"cannot snapshot machine config {selected}; repair its JSON "
-                "and read permissions"
+                f"cannot snapshot machine config {selected}: {exc}; repair its JSON"
             ) from exc
+        except OSError as exc:
+            raise OSError(f"cannot snapshot machine home: {exc}") from exc
         resolved[HOME_ENV] = str(destination)
         resolved.pop(CONFIG_FILE_ENV, None)
         # Identity must survive moving away from the hook's process registry.
