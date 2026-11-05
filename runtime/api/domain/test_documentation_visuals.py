@@ -47,6 +47,17 @@ def test_fenced_example_marker_is_inert():
     ) == []
 
 
+def test_generated_navigation_does_not_explain_a_visual():
+    errors = validate_visual_fallbacks(
+        "guide.md",
+        "# Hosting\n\n<!-- yoke:breadcrumbs -->\n"
+        "[Guide](index.md) > Hosting\n<!-- /yoke:breadcrumbs -->\n\n"
+        "<!-- yoke:visual hosting -->\n\n<!-- yoke:contents -->\n"
+        "- [Local](local.md) — Choose a mode.\n<!-- /yoke:contents -->\n",
+    )
+    assert [r.code for r in errors] == ["VISUAL_FALLBACK_MISSING"]
+
+
 def test_explanation_does_not_leak_from_previous_section():
     errors = validate_visual_fallbacks(
         "guide.md",

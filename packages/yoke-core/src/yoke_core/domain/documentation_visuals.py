@@ -22,6 +22,7 @@ def validate_visual_fallbacks(page: str, markdown: str) -> list[NavigationRefusa
     markers: list[tuple[str, int]] = []
     readable = False
     heading = False
+    navigation = False
 
     def finish() -> None:
         if readable:
@@ -44,10 +45,20 @@ def validate_visual_fallbacks(page: str, markdown: str) -> list[NavigationRefusa
         elif token.type == "heading_close":
             heading = False
         elif token.type == "html_block":
+            if any(
+                f"<!-- yoke:{name} -->" in token.content
+                for name in ("breadcrumbs", "contents")
+            ):
+                navigation = True
+            if any(
+                f"<!-- /yoke:{name} -->" in token.content
+                for name in ("breadcrumbs", "contents")
+            ):
+                navigation = False
             for match in _MARKER.finditer(token.content):
                 line = (token.map or [0])[0] + token.content[: match.start()].count("\n") + 1
                 markers.append((match.group(1), line))
-        elif token.type == "inline" and not heading:
+        elif token.type == "inline" and not heading and not navigation:
             link_depth = 0
             for child in token.children or []:
                 if child.type == "link_open":
