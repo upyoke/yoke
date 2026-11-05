@@ -17,7 +17,7 @@ Yoke has two local setup lanes:
 
 The normal wizard can also create and start the Yoke API server on this
 machine. The manual/operator path remains `yoke self-host init`, documented in
-[docs/self-host.md](self-host.md).
+[docs/self-host.md](public/self-hosting/install.md).
 
 ## Product/Operator Setup
 
@@ -131,7 +131,7 @@ authority. Local and self-host imports require an owner-only archive. Self-host
 import also requires a stopped `core` and one
 consent to replace the destination universe; it atomically revokes imported
 tokens and browser sessions before minting one fresh org-admin token. See
-[Self-Host Yoke](self-host.md) for recovery details.
+[Self-Host Yoke](public/self-hosting/install.md) for recovery details.
 
 The `yoke setup` wizard below drives the same birth machinery when its
 deployment-destination picker answers "This machine" (or with `--local` /
