@@ -1,6 +1,5 @@
 """One published partition preserves coverage, scope and shared fixtures."""
 
-import json
 from pathlib import Path
 import subprocess
 import sys
