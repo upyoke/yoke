@@ -29,8 +29,13 @@ requirement in place to the current target. The requirement keeps its ID and
 records its previous target. A predecessor pass carries only when its
 destination matches; otherwise the case is owed again. Shared plan groups retain
 their group ID and frozen target; separate groups remain separate subjects.
+Successor stage dispatch also materializes members whose live private cases
+still name another run, even when those members already have requirements.
+Retracted, superseded and shared-group cases do not trigger this refresh;
+a second dispatch with current targets leaves the requirements unchanged.
 Existing executions and evidence keep their stored targets and digests as
-provenance and never gate a write.
+provenance and never gate a write. Their timestamps and observation windows
+do not restart when a requirement follows the successor target.
 
 A failed successor retains inherited QA for retry or another takeover. Explicit
 cancellation and genuine member removal retain their cleanup rules. An early QA
