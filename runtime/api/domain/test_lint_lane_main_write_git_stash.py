@@ -17,6 +17,7 @@ from runtime.api.domain.lint_session_cwd_test_helpers import (
 from runtime.api.fixtures.machine_config_test import register_machine_checkout
 from runtime.api.fixtures.pg_testdb import test_database
 from yoke_core.domain import lint_lane_main_write
+from yoke_core.domain.lint_lane_main_write_classify import is_write_operation
 
 SESSION = "sid-stash"
 ITEM_ID = 2014
@@ -71,8 +72,16 @@ def test_stash_show_on_main_is_a_read(lane_and_main) -> None:
     assert _verdict(f"git -C {main} stash show -p stash@{{0}}", lane).allow is True
 
 
-@pytest.mark.parametrize("action", ["pop", "drop", "apply", "push", ""])
+@pytest.mark.parametrize("action", ["pop"])
 def test_other_stash_actions_on_main_stay_refused(lane_and_main, action) -> None:
     lane, main = lane_and_main
     command = f"git -C {main} stash {action}".rstrip()
     assert _verdict(command, lane).allow is False
+
+
+@pytest.mark.parametrize("action", ["list", "show -p stash@{0}", "pop", "drop", "apply", "push", ""])
+def test_stash_action_classification(action):
+    command = f"git -C /repo stash {action}".rstrip()
+    assert is_write_operation("Bash", {"tool_input": {"command": command}}) is (
+        action not in {"list", "show -p stash@{0}"}
+    )

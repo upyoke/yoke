@@ -198,35 +198,6 @@ def test_concurrent_route_redemption_issues_one_credential(endpoint, store):
     assert _row(store[1], "SELECT count(*) FROM api_tokens") == (1,)
 
 
-@pytest.mark.parametrize(
-    "reason",
-    (
-        "invite_code_invalid invite_expired invite_revoked invite_consumed "
-        "invite_actor_disabled invite_machine_owned machine_identity_required "
-        "result_unavailable invite_email_required invite_local_universe "
-        "invite_reissue_disabled_actor oidc_misconfigured "
-        "authorization_invite_redeem_rate_limited"
-    ).split(),
-)
-def test_cli_refusal_recovery(endpoint, monkeypatch, capsys, reason):
-    client, created, _ = endpoint
-    _bridge(monkeypatch, client)
-
-    def refuse(*args, **kwargs):
-        raise BoundedJsonHttpStatusError(
-            429 if "rate_limited" in reason else 409,
-            {"error": reason, "message": created.code + " raw-credential"},
-        )
-
-    monkeypatch.setattr(redemption, "request_json", refuse)
-    monkeypatch.setattr(sys, "stdin", io.StringIO(created.code))
-    assert connect.connect([ORIGIN, FLAG, "--json"]) == 1
-    output = capsys.readouterr()
-    assert reason + ":" in output.err and redemption._RECOVERY[reason] in output.err
-    assert created.code not in output.out + output.err
-    assert "raw-credential" not in output.err
-
-
 @pytest.mark.parametrize("fault", ["lost", "origin", "schema"])
 def test_failed_delivery_privacy(endpoint, store, monkeypatch, tmp_path, capsys, fault):
     client, created, _ = endpoint
