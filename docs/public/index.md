@@ -207,28 +207,28 @@ Ouroboros, Yoke’s learning loop, lets agents record problems as feedback, iden
 [More on Command and technical reference](guide/reference/index.md)
 
 <!-- yoke:contents -->
-- [Installation and setup](guide/setup.install.md) — Guide installation, configuration, and project onboarding.
-- [Hosting modes](guide/setup.hosting.md) — Help readers choose where their universe lives and understand how to move it later.
-- [Self-hosting](guide/self-hosting.md) — Explain installing and operating a shared Yoke server on your own infrastructure.
+- [Installation and setup](guide/setup.install.md) — Installation, configuration, and project onboarding.
+- [Hosting modes](guide/setup.hosting.md) — Where your universe lives and how to move it.
+- [Self-hosting](guide/self-hosting.md) — Installing and operating a shared server on your own infrastructure.
 - [Install and run a server](self-hosting/install.md) — Install, network, upgrade and recover your own server.
 - [Browser sign-in](self-hosting/browser-sign-in.md) — Configure browser admission and trusted proxies.
 - [People and machines](self-hosting/people.md) — Invite teammates and approve personal machines.
 - [Server GitHub App](self-hosting/github-app.md) — Configure a dedicated App and protected server key.
-- [Universe portability, backup, and restore](guide/universe-portability.md) — Explain moving and protecting a universe across installations and hosting modes.
-- [Team collaboration](guide/access.collaboration.md) — Explain solo and team collaboration across machines and harness sessions in a shared universe.
-- [Strategy docs](guide/strategy.md) — Explain how direction becomes a plan and actionable work.
-- [Yoke web dashboard](guide/dashboard.md) — Help people use the web dashboard to follow and coordinate their Yoke work.
-- [The Frontier](guide/frontier.md) — Explain the Frontier as the boundary between strategy and filed work, how Yoke advances it, and how the dashboard presents it.
-- [Workflows and work items](guide/work.md) — Explain how work is recorded and carried to completion.
-- [Steering and fleet control](guide/sessions.md) — Explain who is working, how work is coordinated and when humans intervene.
-- [Yoke CLI and relay](guide/cli-relay.md) — Explain the command-line interface and the machine relay that connects agent sessions to Yoke.
-- [Agent guidance](guide/guidance.md) — Explain where instructions come from and when agents receive them.
-- [Execution instructions](guide/execution-instructions.md) — Define reusable instructions for agents and control which work receives them and when.
-- [Projects](guide/configuration.md) — Explain projects, their setup, structure, configuration, and integrations.
-- [Packs](guide/configuration.packs.md) — Explain reusable setup and guidance and how projects adopt updates.
-- [Quality assurance](guide/qa.md) — Explain how checks become trustworthy evidence and gate work.
-- [Deployments and releases](guide/delivery.md) — Explain how code becomes a delivered change.
-- [Databases and migrations](guide/databases.md) — Explain declared databases and safe changes to them.
-- [Operations and troubleshooting](guide/operations.md) — Explain how to inspect health and recover without losing state.
-- [Command and technical reference](guide/reference/index.md) — Give agents and advanced readers precise contracts without crowding human overviews.
+- [Universe portability, backup, and restore](guide/universe-portability.md) — Moving and protecting a universe across installations and hosting modes.
+- [Team collaboration](guide/access.collaboration.md) — Solo and team collaboration across machines and agent sessions.
+- [Strategy docs](guide/strategy.md) — How direction becomes a plan and actionable work.
+- [Yoke web dashboard](guide/dashboard.md) — Following and coordinating your work in the web dashboard.
+- [The Frontier](guide/frontier.md) — How strategy becomes filed work and advances in the dashboard.
+- [Workflows and work items](guide/work.md) — How work is recorded and carried to completion.
+- [Steering and fleet control](guide/sessions.md) — Who is working, how work is coordinated and when humans intervene.
+- [Yoke CLI and relay](guide/cli-relay.md) — The command line and relay connecting agent sessions to Yoke.
+- [Agent guidance](guide/guidance.md) — Where instructions come from and when agents receive them.
+- [Execution instructions](guide/execution-instructions.md) — Reusable agent instructions, which work receives them and when.
+- [Projects](guide/configuration.md) — Project setup, structure, configuration, and integrations.
+- [Packs](guide/configuration.packs.md) — Reusable setup and guidance, and how projects adopt updates.
+- [Quality assurance](guide/qa.md) — How checks become trustworthy evidence and gate work.
+- [Deployments and releases](guide/delivery.md) — How code becomes a delivered change.
+- [Databases and migrations](guide/databases.md) — Declared databases and safe changes to them.
+- [Operations and troubleshooting](guide/operations.md) — Health checks and recovery without losing state.
+- [Command and technical reference](guide/reference/index.md) — Detailed commands and contracts for agents and advanced use.
 <!-- /yoke:contents -->
