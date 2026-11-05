@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import io
-import re
 from contextlib import redirect_stderr, redirect_stdout
 
 import pytest
@@ -230,67 +229,3 @@ class TestHelpText:
             assert usage.startswith("yoke "), (
                 f"usage for {function_id!r} should start with 'yoke ': {usage!r}"
             )
-
-
-# ---------------------------------------------------------------------------
-# Usage-string ↔ parser conformance
-# ---------------------------------------------------------------------------
-
-
-_FLAG_TOKEN_RE = re.compile(r"--[A-Za-z0-9][A-Za-z0-9-]*")
-_ANGLE_PLACEHOLDER_RE = re.compile(r"<[^<>]*>")
-
-
-def _usage_flag_tokens(usage: str) -> set[str]:
-    return set(_FLAG_TOKEN_RE.findall(_ANGLE_PLACEHOLDER_RE.sub(" ", usage)))
-
-
-def _capture_subcommand_help(cli_tokens: tuple[str, ...]) -> str:
-    out = io.StringIO()
-    try:
-        with redirect_stdout(out), redirect_stderr(io.StringIO()):
-            rc = cli_main([*cli_tokens, "--help"])
-    except SystemExit as exc:
-        rc = exc.code if isinstance(exc.code, int) else 1
-    assert rc == 0, (
-        f"`yoke {' '.join(cli_tokens)} --help` exited {rc} instead of "
-        "printing parser help"
-    )
-    return out.getvalue()
-
-
-class TestUsageParserConformance:
-    """Every flag a usage string advertises must exist on the parser.
-
-    The parser is ground truth: ``--help`` output is generated from the
-    argparse definition, so a usage-string flag missing there is a stale
-    or confabulated teaching surface.
-    """
-
-    @pytest.mark.parametrize(
-        "cli_tokens, function_id",
-        [
-            (tokens, fn)
-            for tokens, (fn, _adapter) in sorted(SUBCOMMAND_REGISTRY.items())
-        ],
-        ids=lambda value: " ".join(value) if isinstance(value, tuple) else None,
-    )
-    def test_usage_flags_exist_on_parser(
-        self,
-        cli_tokens: tuple[str, ...],
-        function_id: str,
-        monkeypatch,
-    ) -> None:
-        monkeypatch.setenv(
-            "YOKE_MACHINE_CONFIG_FILE",
-            "/nonexistent/machine-config.json",
-        )
-        usage = adapters.ADAPTER_USAGE[function_id]
-        usage_flags = _usage_flag_tokens(usage)
-        help_text = _capture_subcommand_help(cli_tokens)
-        parser_flags = set(_FLAG_TOKEN_RE.findall(help_text))
-        missing = usage_flags - parser_flags
-        assert not missing, (
-            f"usage string for {function_id!r} advertises flags the parser "
-            f"does not define: {sorted(missing)}\n  usage: {usage}"
-        )

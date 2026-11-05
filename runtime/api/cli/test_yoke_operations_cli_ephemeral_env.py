@@ -38,12 +38,6 @@ def _run_capture(stub, *argv: str) -> tuple[int, str, str]:
                 return rc, out.getvalue(), err.getvalue()
 
 
-def test_registry_maps_ephemeral_env_update_to_function_id() -> None:
-    from yoke_cli.commands.registry import SUBCOMMAND_REGISTRY
-
-    assert SUBCOMMAND_REGISTRY[("ephemeral-env", "update")][0] == (
-        "ephemeral_env.update"
-    )
 
 
 def test_ephemeral_env_get_dispatches_project_branch_and_prints_environment() -> None:

@@ -59,13 +59,6 @@ def _run_capture(
 
 
 class TestProjectStructureDeployDefaults:
-    def test_deploy_defaults_registry_maps_tokens_to_function_id(self) -> None:
-        from yoke_cli.commands.registry import SUBCOMMAND_REGISTRY
-
-        assert (
-            SUBCOMMAND_REGISTRY[("project-structure", "deploy-defaults", "get")][0]
-            == "project_structure.deploy_defaults.get"
-        )
 
     def test_deploy_defaults_get_dispatches_project(self) -> None:
         rc = _run(

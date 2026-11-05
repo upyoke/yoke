@@ -39,13 +39,6 @@ def _run(*args: str) -> int:
                     return cli_main(list(args))
 
 
-def test_registry_maps_organization_commands() -> None:
-    from yoke_cli.commands.registry import SUBCOMMAND_REGISTRY
-
-    assert SUBCOMMAND_REGISTRY[("organizations", "get")][0] == ("organizations.get")
-    assert SUBCOMMAND_REGISTRY[("organizations", "domain", "set")][0] == (
-        "organizations.domain.set"
-    )
 
 
 def test_org_settings_route_to_existing_authority(monkeypatch):

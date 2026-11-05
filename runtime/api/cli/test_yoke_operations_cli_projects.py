@@ -129,13 +129,6 @@ class TestProjectsGet:
 
 
 class TestProjectsResolveByGithubRepo:
-    def test_registry_maps_tokens_to_function_id(self) -> None:
-        from yoke_cli.commands.registry import SUBCOMMAND_REGISTRY
-
-        assert (
-            SUBCOMMAND_REGISTRY[("projects", "resolve-by-github-repo")][0]
-            == "projects.resolve_by_github_repo"
-        )
 
     def test_dispatches_github_repo_payload(self) -> None:
         rc = _run(

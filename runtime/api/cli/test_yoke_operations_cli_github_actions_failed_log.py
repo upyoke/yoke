@@ -82,12 +82,6 @@ def _run(
     return rc, out.getvalue(), err.getvalue()
 
 
-def test_primary_registry_maps_failed_log() -> None:
-    from yoke_cli.commands.registry import SUBCOMMAND_REGISTRY
-
-    assert SUBCOMMAND_REGISTRY[("github-actions", "failed-log")][0] == (
-        "github_actions.failed_log"
-    )
 
 
 def test_failed_log_relays_run_id_and_prints_output() -> None:

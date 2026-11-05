@@ -15,7 +15,7 @@ def test_read_classification_selects_real_command_help(tmp_path: Path, changed: 
     source = tmp_path / changed
     source.parent.mkdir(parents=True, exist_ok=True)
     source.write_text("VALUE = 1\n")
-    usage_test = "runtime/api/cli/test_cli_usage_matches_parser.py"
+    usage_test = "runtime/api/cli/test_cli_registry_contract.py"
     test = tmp_path / usage_test
     test.parent.mkdir(parents=True, exist_ok=True)
     test.write_text("def test_usage(): pass\n")

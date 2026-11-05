@@ -20,12 +20,6 @@ from runtime.api.cli.project_snapshot_cli_test_helpers import (
 _UNSET = object()
 
 
-def test_registry_maps_project_snapshot_sync() -> None:
-    from yoke_cli.commands.registry import SUBCOMMAND_REGISTRY
-
-    assert SUBCOMMAND_REGISTRY[("project", "snapshot", "sync")][0] == (
-        "project.snapshot.sync"
-    )
 
 
 def test_project_snapshot_sync_scans_and_dispatches_payload(tmp_path: Path) -> None:

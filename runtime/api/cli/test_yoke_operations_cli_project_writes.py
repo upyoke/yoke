@@ -21,11 +21,6 @@ def _reset_captured() -> None:
 
 
 class TestProjectsCreateAndUpdate:
-    def test_registry_maps_create_and_update_tokens(self) -> None:
-        from yoke_cli.commands.registry import SUBCOMMAND_REGISTRY
-
-        assert SUBCOMMAND_REGISTRY[("projects", "create")][0] == "projects.create"
-        assert SUBCOMMAND_REGISTRY[("projects", "update")][0] == "projects.update"
 
     def test_create_dispatches_project_metadata(self) -> None:
         rc = _run(
@@ -102,19 +97,6 @@ class TestProjectsCreateAndUpdate:
 
 
 class TestProjectsCapabilitySecretSet:
-    def test_registry_maps_tokens_to_function_id(self) -> None:
-        from yoke_cli.commands.registry import (
-            SUBCOMMAND_ALIAS_REGISTRY,
-            SUBCOMMAND_REGISTRY,
-        )
-
-        assert SUBCOMMAND_REGISTRY[("projects", "capability-secret", "set")][0] == (
-            "projects.capability_secret.set"
-        )
-        assert (
-            SUBCOMMAND_ALIAS_REGISTRY[("projects", "capability", "secret", "set")][0]
-            == "projects.capability_secret.set"
-        )
 
     def test_github_secret_is_rejected_before_read_or_dispatch(self) -> None:
         secret = "ghs_project_runtime_secret"
