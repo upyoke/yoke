@@ -93,9 +93,9 @@ legacy-command evidence. With no eligible Actions test workflow, do not bind
 `command-ci` or a merge queue. A registered command uses this project's exact
 argv and reusable QA plan; steering-filed items attach its immutable snapshot at the
 required transition. Follow the current
-[profile](../../.agents/skills/yoke/onboard/profile-and-scaffold.md),
-[verification binding](../../.agents/skills/yoke/onboard/verification-binding.md)
-and [first-work handoff](../../.agents/skills/yoke/onboard/first-work.md) contracts.
+[profile](../../../.agents/skills/yoke/onboard/profile-and-scaffold.md),
+[verification binding](../../../.agents/skills/yoke/onboard/verification-binding.md)
+and [first-work handoff](../../../.agents/skills/yoke/onboard/first-work.md) contracts.
 
 ## Crux
 

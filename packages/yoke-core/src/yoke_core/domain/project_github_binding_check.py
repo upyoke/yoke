@@ -48,7 +48,7 @@ CHECK_RECIPE = (
     "Run the check where GitHub authority lives: for a local universe, "
     "`yoke projects github-binding check --project {project}` on the "
     "operator's machine after `yoke github connect`; for a self-hosted "
-    "server, configure its GitHub App key (docs/self-host.md, GitHub App "
+    "server, configure its GitHub App key (docs/public/self-hosting/install.md, GitHub App "
     "server automation) and check again"
 )
 

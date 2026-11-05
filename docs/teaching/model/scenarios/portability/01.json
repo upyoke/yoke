@@ -10,6 +10,6 @@
  "review": "Observed in merged Platform revision fafa745170b5f0838f19e886d13655fd3ebfbce0; source behavior is covered by focused CI, with live move acceptance still owed.",
  "recipes": ["yoke universe export --help", "yoke universe resume --help", "yoke status", "yoke universe upload --help"],
  "plan_notes": ["FIRST-USER item 9", "FIRST-USER P6"],
- "sources": ["docs/public/projects/actors-members-billing.md", "docs/public/start/install.md", "packages/yoke-cli/src/yoke_cli/commands/local_universe.py", "packages/yoke-core/src/yoke_core/domain/universe_export.py", "docs/universe-portability.md", "packages/yoke-cli/src/yoke_cli/commands/universe_upload.py"],
+ "sources": ["docs/public/projects/actors-members-billing.md", "docs/public/start/install.md", "packages/yoke-cli/src/yoke_cli/commands/local_universe.py", "packages/yoke-core/src/yoke_core/domain/universe_export.py", "docs/public/guide/universe-portability.md", "packages/yoke-cli/src/yoke_cli/commands/universe_upload.py"],
  "position": 0
 }

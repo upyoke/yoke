@@ -284,7 +284,7 @@ class TestDisabledDoor:
         resp = client.get(OIDC_START_PATH)
         assert resp.status_code == 409
         assert resp.json()["error"]["code"] == "oidc_not_configured"
-        assert "docs/self-host.md" in resp.json()["error"]["message"]
+        assert "docs/public/self-hosting/install.md" in resp.json()["error"]["message"]
         assert client.get(OIDC_CALLBACK_PATH).status_code == 409
 
     def test_landing_offers_no_sign_in_link(self, db_conn, client):

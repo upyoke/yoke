@@ -213,6 +213,10 @@ Ouroboros, Yoke’s learning loop, lets agents record problems as feedback, iden
 - [Installation and setup](guide/setup.install.md) — Guide installation, configuration, and project onboarding.
 - [Hosting modes](guide/setup.hosting.md) — Help readers choose where their universe lives and understand how to move it later.
 - [Self-hosting](guide/self-hosting.md) — Explain installing and operating a shared Yoke server on your own infrastructure.
+- [Install and run a server](self-hosting/install.md) — Install, network, upgrade and recover your own server.
+- [Browser sign-in](self-hosting/browser-sign-in.md) — Configure browser admission and trusted proxies.
+- [People and machines](self-hosting/people.md) — Invite teammates and approve personal machines.
+- [Server GitHub App](self-hosting/github-app.md) — Configure a dedicated App and protected server key.
 - [Universe portability, backup, and restore](guide/universe-portability.md) — Explain moving and protecting a universe across installations and hosting modes.
 - [Team collaboration](guide/access.collaboration.md) — Explain solo and team collaboration across machines and harness sessions in a shared Universe.
 - [Strategy docs](guide/strategy.md) — Explain how direction becomes a plan and actionable work.

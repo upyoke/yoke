@@ -17,7 +17,7 @@ DOCKER_INSTALL_GUIDANCE = (
     "Install Docker Desktop or Docker Engine with the Compose plugin: "
     "https://docs.docker.com/get-started/get-docker/"
 )
-SELF_HOST_GUIDE = "https://github.com/upyoke/yoke/blob/main/docs/self-host.md"
+SELF_HOST_GUIDE = "https://github.com/upyoke/yoke/blob/main/docs/public/self-hosting/install.md"
 COLIMA_INSTALL_URL = "https://colima.run/docs/installation/"
 
 

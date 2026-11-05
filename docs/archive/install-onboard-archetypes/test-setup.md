@@ -6,9 +6,9 @@ profile and registered binding, not a transcript's past missing-feature claim.
 
 The setup wizard covers PATH, destination, GitHub, project and hosting; test
 posture belongs to harness onboarding. Follow
-[profile confirmation](../../.agents/skills/yoke/onboard/profile-and-scaffold.md),
-[verification binding](../../.agents/skills/yoke/onboard/verification-binding.md)
-and [first-work handoff](../../.agents/skills/yoke/onboard/first-work.md) when acting.
+[profile confirmation](../../../.agents/skills/yoke/onboard/profile-and-scaffold.md),
+[verification binding](../../../.agents/skills/yoke/onboard/verification-binding.md)
+and [first-work handoff](../../../.agents/skills/yoke/onboard/first-work.md) when acting.
 
 ## Confirm the posture
 

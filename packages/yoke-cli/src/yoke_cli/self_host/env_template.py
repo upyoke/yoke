@@ -37,7 +37,7 @@ def env_text(*, image: str, publish_spec: str, admin_name: str) -> str:
         "# --- Browser sign-in via your OIDC provider (optional) ----------\n"
         "# Uncomment and fill to enable the web sign-in door; leave\n"
         "# commented to keep it disabled (API tokens work either way).\n"
-        "# Walkthrough: docs/self-host-browser-sign-in.md.\n"
+        "# Walkthrough: docs/public/self-hosting/browser-sign-in.md.\n"
         "#YOKE_OIDC_ISSUER=https://accounts.example.com\n"
         "#YOKE_OIDC_CLIENT_ID=yoke\n"
         "# The server's external base URL; the callback path is derived\n"

@@ -142,7 +142,7 @@ service's own least-privilege identity. See
 For the safe order when changing an already-bound project's repository, see
 [GitHub sync](../.yoke/docs/github/sync.md). For why Yoke requests each repository permission
 and what it does with them, see
-[GitHub App Permissions](github-permissions.md). App registration, permission,
+[GitHub App Permissions](public/github/permissions.md). App registration, permission,
 and key-custody operations are documented in
 [GitHub App Operations](github-app-operations.md). For how Yoke's own git
 operations authenticate — including on SSH-origin and manually cloned

@@ -94,11 +94,11 @@ machine with a display.
   serves. A local install answers `local: reachable here only` there.
 - Manual/operator path: `yoke self-host init --admin-name "Your Name" --start` writes and starts the same Compose
   bundle through the private host secret handoff. Restart with
-  `yoke self-host init --dir PATH --protect-existing --start`; [`docs/self-host.md`](https://github.com/upyoke/yoke/blob/main/docs/self-host.md)
+  `yoke self-host init --dir PATH --protect-existing --start`; [Install and run](../self-hosting/install.md)
   remains the full reference.
 - The server serves the workbench at its own URL. People sign in with company
   sign-in (OIDC) and work with full read and write as their own actor; see
-  [Browser Sign-In](https://github.com/upyoke/yoke/blob/main/docs/self-host-browser-sign-in.md)
+  [Browser Sign-In](../self-hosting/browser-sign-in.md)
 - Billing and Team seats do not apply (Cloud-only platform features)
 
 `yoke self-host init` keeps loopback-only by default; add `--listen ADDRESS`

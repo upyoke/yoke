@@ -259,7 +259,7 @@ test("local reachability sentence matches the CLI and token notice is distinct",
   const full = localReachabilityNotice(doc, { variant: "full" });
   assert.equal(tag(full, "P")[0].textContent.replace("yoke self-host init", "`yoke self-host init`"), expected);
   assert.equal(tag(full, "A")[0].textContent, "Self-host guide →");
-  assert.equal(tag(full, "A")[0].href, "https://github.com/upyoke/yoke/blob/main/docs/self-host.md");
+  assert.equal(tag(full, "A")[0].href, "https://github.com/upyoke/yoke/blob/main/docs/public/self-hosting/install.md");
   assert.equal(tag(full, "A")[0].target, "_blank");
   assert.equal(tag(full, "A")[0].rel, "noopener noreferrer");
   const token = localReachabilityNotice(doc, { variant: "token" });

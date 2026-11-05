@@ -1,6 +1,6 @@
 import { el } from "./universe_view_support.js";
 
-const SELF_HOST_GUIDE = "https://github.com/upyoke/yoke/blob/main/docs/self-host.md";
+const SELF_HOST_GUIDE = "https://github.com/upyoke/yoke/blob/main/docs/public/self-hosting/install.md";
 
 export function localReachabilityNotice(documentNode, { variant = "full" } = {}) {
   const notice = el(documentNode, "div", "local-reachability-notice");

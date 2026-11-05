@@ -1,5 +1,9 @@
 # Self-Host Yoke
 
+<!-- yoke:breadcrumbs -->
+[Getting started](../index.md) > Install and run a server
+<!-- /yoke:breadcrumbs -->
+
 Run the Yoke API server on your own host: one `docker compose` bundle carrying
 the published server image plus a Postgres 17 database. Your data stays on
 hardware you control; engineers point their CLIs at your server instead of the
@@ -87,10 +91,10 @@ yoke self-host import ~/Downloads/acme-universe-20260714T120000Z.tar \
   --dir /path/to/yoke-server
 ```
 
-The tar carries the database dump and freeze receipt (see [Universe portability](universe-portability.md)); that receipt supplies checksum verification. Type `replace` at the prompt, or pass `--yes` for a non-interactive replacement.
+The tar carries the database dump and freeze receipt (see [Universe portability](../guide/universe-portability.md)); that receipt supplies checksum verification. Type `replace` at the prompt, or pass `--yes` for a non-interactive replacement.
 The command requires Docker with Compose, validates the bundle, and refuses while `core` runs. The archive must be a current-owner, single-link regular file with no group/world access. Compose starts only the database and streams the archive to a one-off process in the pinned image; it never bind-mounts the host archive.
 Uploaded DDL never runs. Yoke creates the trusted destination schema, validates the bounded archive, and restores approved data and sequences in one transaction; retry replaces a failed or interrupted attempt.
-Archives can contain raw capability secrets plus hashed credentials. Keep them owner-only and rotate secrets when custody changes. Restore revokes imported API tokens and browser sessions, re-credentials the archive's org-admin person (an archive with none refuses), and mints one replacement token. Save its one-time success output, then run the printed `yoke self-host init --protect-existing --start` and `yoke connect` steps.
+Archives contain private records and hashed credentials; capability-secret data is excluded. Keep them owner-only and rotate secrets when custody changes. Restore revokes imported API tokens and browser sessions, re-credentials the archive's org-admin person (an archive with none refuses), and mints one replacement token. Save its one-time success output, then run the printed `yoke self-host init --protect-existing --start` and `yoke connect` steps.
 If the restore reported success but its one-time result was lost before you
 could save it, mint a recovery credential while `core` remains stopped:
 
@@ -119,6 +123,8 @@ generated Compose bundle marks the runtime with
 `YOKE_SERVER_MODE=self-host`; without that explicit marker the core endpoint
 is hidden. Hosted Platform tenants continue through Platform's
 fleet-coordinated download route instead of this self-host boundary.
+## Networking
+
 By default the API publishes on loopback only (`127.0.0.1:8765`). To
 serve your network, pass `--listen ADDRESS` at init, for example
 `yoke self-host init --admin-name "Your Name" --listen 100.101.102.103 --start`.
@@ -137,11 +143,11 @@ warns when the configured publish address is beyond loopback, including on
 `--protect-existing --start`; the warning never blocks setup or startup.
 Set `YOKE_API_TRUSTED_PROXIES` in `.env` to the proxy IPs/CIDRs seen by core;
 restart with `yoke self-host init --dir PATH --protect-existing --start`.
-See [proxy forwarding](self-host-browser-sign-in.md#proxy-forwarding) for headers and trust.
+See [proxy forwarding](browser-sign-in.md#proxy-forwarding) for headers and trust.
 
 ## Engineer machines
 
-See [People and machines](self-host-people.md) to connect engineers and approve your own machines.
+See [People and machines](people.md) to connect engineers and approve your own machines.
 
 ## Restore admin access
 
@@ -156,103 +162,16 @@ docker compose exec --user yoke core python3 -m yoke_core.domain.api_tokens_cli 
 ```
 
 Save the one-time token and reconnect with `yoke connect <server> --token-stdin`.
-Once connected, use [personal token controls](self-host-people.md) to revoke the
+Once connected, use [personal token controls](people.md) to revoke the
 lost token and manage your own tokens.
 
-## Workbench and browser sign-in
+## Web dashboard and browser sign-in
 
-The server serves the workbench at its own URL. Run `yoke ui up` on a connected
-CLI: company sign-in opens the server URL; without OIDC, your API token gets a
-single-use sign-in link that expires in two minutes. Both give full read and
-write as your actor. Sign-in links go directly to the browser and are never
-printed. For an agent or headless machine, run `yoke ui up` from your own
-terminal on a machine with a display. The cookie protection is in
-[Browser Sign-In](self-host-browser-sign-in.md).
+See [Browser sign-in](browser-sign-in.md) for token links, company sign-in and proxy configuration.
 
 ## GitHub App server automation
 
-GitHub automation uses an operator-owned App and key dedicated to the self-hosted
-server, never an upyoke Product App or Yoke Development. Configure its URLs on the
-server's HTTPS origin. Project rows store verified installation/repository
-bindings; the App private key is never stored in `capability_secrets` or any
-per-project setting.
-Registration, least-privilege installation scope, hosted secret ownership,
-dual-key rotation, and incident response are defined in
-[GitHub App Operations](github-app-operations.md). Use that runbook before
-creating the runtime file below.
-When the same App also serves engineer-machine authorization, enable **Device
-Flow** and **Expire user authorization tokens** in its registration before
-connecting any machine. The first enables browser device authorization; the
-second supplies the expiring access token, refresh token, and expiries that the
-local credential store requires. Use the baseline repository grant in the
-operations runbook.
-Install the downloaded App private key through Yoke's owner-only ingress. From
-outside the bundle, run:
-
-```bash
-chmod 600 /secure/path/app-key.pem
-yoke self-host init --dir /path/to/yoke-server --protect-existing \
-  --github-app-private-key /secure/path/app-key.pem
-```
-
-The source must be a real, single-link regular file owned by the current user
-with no group/world access. The command opens it once without following
-symlinks, validates a nonempty private-key-shaped PEM, writes a mode `0600`
-temporary file in the bundle's `secrets/` directory, fsyncs it, atomically
-replaces `github-app-private-key.pem`, and fsyncs the directory. Rotation never
-publishes a partial key and never regenerates the bundle's database credentials.
-Then set these non-secret/runtime bindings in `.env`:
-
-```text
-YOKE_GITHUB_APP_ISSUER=<numeric-app-id>
-YOKE_GITHUB_APP_API_URL=https://api.github.com
-YOKE_GITHUB_APP_PRIVATE_KEY_FILE=/dev/shm/yoke-runtime-secrets/yoke-github-app-private-key
-
-# Optional product-facing Connect GitHub profile; set all four or none.
-YOKE_GITHUB_APP_WEB_URL=https://github.com
-YOKE_GITHUB_APP_ID=<numeric-app-id>
-YOKE_GITHUB_APP_CLIENT_ID=<public-client-id>
-YOKE_GITHUB_APP_SLUG=<app-slug>
-```
-
-Enable the file binding in `.env`, then run `yoke self-host init --protect-existing --start`. The
-GitHub App is disabled until all three values and the host key
-are present. GitHub Enterprise Server uses its HTTPS API origin in
-`YOKE_GITHUB_APP_API_URL`; redirects to another origin are rejected.
-The key stays mode `0600` in the host bundle. The host command opens it and
-streams it to the bootstrap alongside the database DSN and optional OIDC secret.
-The runtime user writes mode `0600` copies in private tmpfs after the privilege
-drop; host ownership and modes stay unchanged.
-Hosted/stage deployments use the same runtime contract but source the key from
-AWS Secrets Manager. The deploy environment's `environments.settings` contains
-only this non-secret reference block:
-
-```json
-{
-  "github_app": {
-    "issuer": "<numeric-app-id>",
-    "api_url": "https://api.github.com",
-    "private_key_secret_arn": "arn:aws:secretsmanager:<region>:<account>:secret:<name>",
-    "public": {
-      "client_id": "<public-client-id>",
-      "app_slug": "<app-slug>",
-      "app_id": 123456,
-      "web_url": "https://github.com"
-    }
-  }
-}
-```
-
-Omit `public` for a private/operator-only App that must never become the
-default machine Connect profile. If `public` is present it must be complete;
-the outer `api_url` is its single API-origin authority.
-The origin instance role resolves that ARN locally. Deployment writes
-`github-app-private-key.pem` as mode `0640`, owned by the deploy user and a
-dedicated host secrets group, and grants only that numeric supplemental group
-to the non-root container that mounts it at
-`/dev/shm/yoke-runtime-secrets/yoke-github-app-private-key`. Secret values never cross SSH and
-are not placed in Compose environment variables, command arguments, Pulumi
-state, or project-engine databases.
+Use a dedicated operator-owned App for server automation. [GitHub App setup](github-app.md) covers private-key ingress and runtime settings.
 
 ## Upgrades
 
@@ -307,7 +226,7 @@ silently repoint an unrelated remote bundle.
 
 ## Take it back off
 
-For full machine removal, use [`yoke uninstall`](public/start/uninstall.md#uninstall). `yoke self-host teardown` removes the server install. It always stops and removes the
+For full machine removal, use [`yoke uninstall`](../start/uninstall.md#uninstall). `yoke self-host teardown` removes the server install. It always stops and removes the
 stack; everything further is opt-in and named for what it destroys. Run it
 from anywhere; it defaults to the machine-home bundle. Name another bundle
 with `--dir PATH`:

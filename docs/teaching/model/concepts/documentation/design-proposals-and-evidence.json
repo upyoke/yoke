@@ -3,7 +3,7 @@
  "title": "Design proposals and evidence",
  "status": "draft-copy",
  "audience": "Documentation authors / maintainers",
- "sources": ["docs/install-onboard-archetypes.md", "docs/install-onboard-archetypes/gap-ledger.md", "docs/install-onboard-archetypes/test-setup.md"],
+ "sources": ["docs/archive/install-onboard-archetypes.md", "docs/archive/install-onboard-archetypes/gap-ledger.md", "docs/archive/install-onboard-archetypes/test-setup.md"],
  "private_sources": ["platform"],
  "page": "documentation",
  "position": 0

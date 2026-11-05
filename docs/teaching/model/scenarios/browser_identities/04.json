@@ -9,6 +9,6 @@
  "surface": "UI command help and feedback; workbench sign-in guide.",
  "review": "Source and command regression coverage; deployment proof remains separate.",
  "recipes": ["yoke ui up --help"],
- "sources": ["packages/yoke-cli/src/yoke_cli/commands/universe_ui.py", "runtime/api/cli/test_yoke_universe_ui_output.py", "docs/self-host-browser-sign-in.md", "runtime/api/tools/serve_workbench_for_review.py", "runtime/api/tools/test_review_browser_admission.py"],
+ "sources": ["packages/yoke-cli/src/yoke_cli/commands/universe_ui.py", "runtime/api/cli/test_yoke_universe_ui_output.py", "docs/public/self-hosting/browser-sign-in.md", "runtime/api/tools/serve_workbench_for_review.py", "runtime/api/tools/test_review_browser_admission.py"],
  "position": 3
 }

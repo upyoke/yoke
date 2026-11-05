@@ -1,15 +1,19 @@
 # GitHub App Permissions — What Yoke Asks For, and Why
 
+<!-- yoke:breadcrumbs -->
+[Getting started](../index.md) > [Command and technical reference](../guide/reference/index.md) > [GitHub](index.md) > GitHub App permissions
+<!-- /yoke:breadcrumbs -->
+
 This is the user-facing rationale for the GitHub access Yoke requests: why the
 connection exists, the exact repository permissions the Yoke GitHub App
 declares, and what Yoke actually does with each one.
 
 For the operator runbook (registration, private-key custody, rotation) see
-[GitHub App Operations](github-app-operations.md). For the connection model
-see [GitHub Connection Layers](github-connections.md). For the backlog↔issue
-mirror see [GitHub Sync](../.yoke/docs/github/sync.md). The machine-checked source of truth
+[server GitHub App setup](../self-hosting/github-app.md). For the connection model
+see [GitHub connection layers](index.md#surfaces). For the backlog↔issue
+mirror see [GitHub Sync](sync.md). The machine-checked source of truth
 for the permission set is
-`packages/yoke-contracts/src/yoke_contracts/github_app_installation_permissions.py`.
+`yoke_contracts.github_app_installation_permissions`.
 
 ## Permission boundary
 
@@ -85,7 +89,7 @@ merge that succeeded while its verification reported failure.
 ## Permissions at a glance
 
 Authoritative source:
-`packages/yoke-contracts/src/yoke_contracts/github_app_installation_permissions.py`.
+`yoke_contracts.github_app_installation_permissions`.
 
 ### Baseline — requested of every connection
 
@@ -149,7 +153,7 @@ same grant. Git talks to GitHub over HTTPS using a short-lived token
 stored remote URL. Yoke's own remote operations carry it as a URL-scoped
 `http.extraheader` supplied per command; a URL-scoped credential helper
 installed into onboarded checkouts serves the git commands people run in their
-own shells. See [github-credentialed-git.md](github-credentialed-git.md).
+own shells. See [GitHub connection setup](index.md#typical-first-connect).
 
 **Workflows: write** — So the App may manage the GitHub Actions workflow files
 Yoke ships into `.github/workflows/` (a CI workflow plus deploy/hotfix/smoke
@@ -265,10 +269,10 @@ registration, selected repository scope and privileged binding review.
 ## Source of truth
 
 - Permission contract:
-  `packages/yoke-contracts/src/yoke_contracts/github_app_installation_permissions.py`
+  `yoke_contracts.github_app_installation_permissions`
 - Operator runbook (registration, key custody, rotation):
-  [GitHub App Operations](github-app-operations.md)
+  [Server GitHub App setup](../self-hosting/github-app.md)
 - Connection model (identity / installation / binding):
-  [GitHub Connection Layers](github-connections.md)
+  [GitHub connection layers](index.md#surfaces)
 - Backlog↔issue mirror and the per-project sync switch:
-  [GitHub Sync](../.yoke/docs/github/sync.md)
+  [GitHub Sync](sync.md)

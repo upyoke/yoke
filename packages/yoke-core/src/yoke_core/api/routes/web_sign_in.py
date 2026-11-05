@@ -92,7 +92,7 @@ def _door_disabled() -> JSONResponse:
         "company sign-in is not configured on this server; set "
         "YOKE_OIDC_ISSUER, YOKE_OIDC_CLIENT_ID, "
         "YOKE_OIDC_CLIENT_SECRET_FILE, and YOKE_OIDC_REDIRECT_URL to "
-        "enable it (see docs/self-host.md). For token browser sign-in, "
+        "enable it (see docs/public/self-hosting/install.md). For token browser sign-in, "
         "run `yoke ui up` on a connected CLI.",
     )
 
@@ -297,7 +297,7 @@ def signed_out_page() -> HTMLResponse:
             "<p>Browser sign-in is misconfigured on this server: "
             f"{html.escape(str(exc))}. A server operator corrects the "
             "<code>YOKE_OIDC_*</code> settings as described in "
-            "<code>docs/self-host-browser-sign-in.md</code>.</p>",
+            "<code>docs/public/self-hosting/browser-sign-in.md</code>.</p>",
             status_code=503,
         )
     if config is not None:
@@ -312,7 +312,7 @@ def signed_out_page() -> HTMLResponse:
             "It opens a short-lived, single-use sign-in link for your actor. "
             "To connect first, run <code>yoke connect &lt;server-url&gt; "
             "--token-stdin</code> with your API token. Company sign-in is "
-            "optional; see <code>docs/self-host-browser-sign-in.md</code>.</p>"
+            "optional; see <code>docs/public/self-hosting/browser-sign-in.md</code>.</p>"
         )
     return _page("Sign in to Yoke", body)
 
