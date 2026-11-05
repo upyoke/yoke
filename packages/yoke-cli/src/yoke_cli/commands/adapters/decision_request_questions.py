@@ -7,6 +7,7 @@ from pathlib import Path
 
 from yoke_cli.commands._helpers import (
     add_json_arg,
+    add_project_arg,
     add_session_arg,
     dispatch_and_emit,
     parse_or_usage_error,
@@ -81,6 +82,7 @@ def decision_requests_ask(args):
         help="Atomically withdraw this pending question and file its replacement.",
     )
     parser.add_argument("--attach", action="append", default=[], help=ATTACHMENT_HELP)
+    add_project_arg(parser)
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, ASK_USAGE)
@@ -136,6 +138,7 @@ def decision_requests_list(args):
         choices=("pending", "resolved", "withdrawn"),
         help="Show only questions in this state.",
     )
+    add_project_arg(parser)
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, LIST_USAGE)
@@ -166,6 +169,7 @@ def decision_requests_withdraw(args):
     parser.add_argument(
         "--reason", required=True, help="Why this question no longer needs an answer."
     )
+    add_project_arg(parser)
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, WITHDRAW_USAGE)
