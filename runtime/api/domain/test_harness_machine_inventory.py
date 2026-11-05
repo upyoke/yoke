@@ -13,15 +13,10 @@ from yoke_cli.project_install.harness_inventory import (
     collect_pack_prerequisite_inventory as collect_cli_pack_prerequisites,
 )
 from yoke_contracts.codex_hook_trust import normalized_codex_hook_hashes
-from yoke_core.domain.harness_machine_inventory import (
-    collect_harness_inventory as collect_core_inventory,
-    collect_pack_prerequisite_inventory as collect_core_pack_prerequisites,
-)
 
 
-COLLECTORS = (collect_core_inventory, collect_cli_inventory)
+COLLECTORS = (collect_cli_inventory,)
 PACK_COLLECTORS = (
-    collect_core_pack_prerequisites,
     collect_cli_pack_prerequisites,
 )
 
@@ -63,7 +58,7 @@ def _report(collector, checkout: Path) -> dict:
     return {row["harness_id"]: row for row in collector(checkout)}["codex"]
 
 
-@pytest.fixture(params=COLLECTORS, ids=("core", "cli"))
+@pytest.fixture(params=COLLECTORS, ids=("cli",))
 def collector(request):
     return request.param
 
@@ -196,7 +191,7 @@ def test_trust_for_another_literal_path_is_unapproved(
     assert _report(collector, checkout)["approval_state"] == "unapproved"
 
 
-@pytest.mark.parametrize("pack_collector", PACK_COLLECTORS, ids=("core", "cli"))
+@pytest.mark.parametrize("pack_collector", PACK_COLLECTORS, ids=("cli",))
 def test_machine_inventory_reports_an_installed_pack_missing_its_tool(
     pack_collector,
     monkeypatch,

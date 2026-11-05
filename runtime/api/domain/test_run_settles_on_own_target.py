@@ -36,8 +36,8 @@ from yoke_core.domain.deployment_run_collective_finalization import (
     settle_members,
 )
 from yoke_core.domain.deployment_run_member_targeting import (
-    holder_covers_run,
-    run_needs_member,
+    covering_holder_pairs,
+    needed_member_ids,
 )
 from yoke_core.domain.deployment_run_other_target_members import (
     SET_ASIDE_KEY_PREFIX,
@@ -77,9 +77,17 @@ def test_production_holder_without_a_selection_does_not_hold_stage_obligations(
     )
     test_db.commit()
 
-    assert run_needs_member(test_db, run_id="run-stage", item_id=item_id)
-    assert not holder_covers_run(
-        test_db, holder_id="run-prod", run_id="run-stage", item_id=item_id
+    assert item_id in needed_member_ids(
+        test_db, run_id="run-stage", item_ids=(item_id,)
+    )
+    assert not (
+        ("run-prod", item_id)
+        in covering_holder_pairs(
+            test_db,
+            run_id="run-stage",
+            item_ids=(item_id,),
+            holders=({"run_id": "run-prod"},),
+        )
     )
 
 
@@ -101,8 +109,14 @@ def test_production_selection_naming_stage_cases_does_not_hold_them(test_db):
     )
     test_db.commit()
 
-    assert not holder_covers_run(
-        test_db, holder_id="run-prod", run_id="run-stage", item_id=item_id
+    assert not (
+        ("run-prod", item_id)
+        in covering_holder_pairs(
+            test_db,
+            run_id="run-stage",
+            item_ids=(item_id,),
+            holders=({"run_id": "run-prod"},),
+        )
     )
 
 

@@ -23,6 +23,7 @@ _EXCLUDED_PREFIXES = (
 )
 
 _SCAN_DIRS = (
+    "packages",
     "runtime/api",
     "runtime/harness",
     ".agents/skills/yoke",
@@ -74,6 +75,7 @@ _FIXTURE_COMMAND = re.compile(
 
 
 def _has_product_dependency(rel: str, section: str, line: str) -> bool:
+    rel = rel.removeprefix("packages/yoke-core/src/yoke_core/install_bundle_tree/")
     if section == _FIXTURE_RECIPE_SECTIONS.get(rel):
         line = _FIXTURE_COMMAND.sub("", line)
     return bool(_FORBIDDEN.search(line))

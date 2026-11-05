@@ -35,7 +35,7 @@ from yoke_core.domain.deployment_run_item_qa_membership import (
     NO_MEMBER_OWES_TARGET,
     owed_delivery_item_ids,
 )
-from yoke_core.domain.deployment_run_member_targeting import run_needs_member
+from yoke_core.domain.deployment_run_member_targeting import needed_member_ids
 from yoke_core.domain.handlers.deployment_run_execution import (
     handle_deployment_execution_context,
 )
@@ -76,7 +76,9 @@ def targeted_out(test_db: Any) -> Any:
         "UPDATE items SET deployment_flow='flow-run-prod' WHERE id=%s", (ITEM_ID,)
     )
     test_db.commit()
-    assert not run_needs_member(test_db, run_id="run-stage", item_id=ITEM_ID)
+    assert not (
+        ITEM_ID in needed_member_ids(test_db, run_id="run-stage", item_ids=(ITEM_ID,))
+    )
     return test_db
 
 
