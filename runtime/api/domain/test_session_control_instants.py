@@ -5,6 +5,7 @@ from uuid import uuid4
 
 import pytest
 
+from runtime.api.fixtures.session_zones import SESSION_ZONES
 from yoke_contracts.timestamps import InvalidInstant, format_instant
 from yoke_core.domain.session_launch_cursor import (
     decode_launch_cursor,
@@ -52,7 +53,7 @@ def fleet_identity(test_db):
     return actor_id, project_id, machine_id
 
 
-@pytest.mark.parametrize("zone", ["UTC", "America/New_York", "Asia/Kolkata"])
+@pytest.mark.parametrize("zone", SESSION_ZONES[1:])
 @pytest.mark.parametrize("batch_seconds", [90, 120])
 def test_relay_lease_edge_is_native_exact_and_half_open(
     test_db, fleet_identity, zone, batch_seconds
@@ -98,7 +99,7 @@ def test_relay_lease_edge_is_native_exact_and_half_open(
     assert not relay_has_live_batch(test_db, relay_id=relay_id, now=edge)
 
 
-@pytest.mark.parametrize("zone", ["UTC", "America/New_York", "Asia/Kolkata"])
+@pytest.mark.parametrize("zone", SESSION_ZONES[1:])
 def test_launch_claim_and_terminal_delivery_keep_native_instants(
     test_db, fleet_identity, zone
 ):

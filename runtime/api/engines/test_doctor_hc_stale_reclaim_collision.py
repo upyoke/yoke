@@ -10,6 +10,8 @@ from __future__ import annotations
 
 import pytest
 
+from runtime.api.fixtures.session_zones import SESSION_ZONES
+
 import json
 import os
 from dataclasses import dataclass, field
@@ -207,7 +209,7 @@ class TestHcStaleReclaimCollision:
         assert "executor=codex" in detail
 
 
-@pytest.mark.parametrize("zone", ["UTC", "America/New_York", "Asia/Kathmandu"])
+@pytest.mark.parametrize("zone", SESSION_ZONES[1:])
 def test_native_reclaim_window_keeps_inclusive_exact_microsecond_endpoint(
     monkeypatch, zone
 ):

@@ -7,6 +7,7 @@ from uuid import uuid4
 
 import pytest
 
+from runtime.api.fixtures.session_zones import SESSION_ZONES
 from runtime.api.domain.machine_qa_host_test_support import (
     materialize_installer_campaign,
 )
@@ -27,10 +28,9 @@ from yoke_core.hooks import sessions_inventory as inventory
 
 
 MOMENT = parse_instant("2026-11-01T05:29:59.123456+05:45")
-ZONES = ["UTC", "America/New_York", "Asia/Kathmandu"]
 
 
-@pytest.mark.parametrize("zone", ZONES)
+@pytest.mark.parametrize("zone", SESSION_ZONES[1:])
 def test_stale_inventory_uses_exact_native_heartbeat_and_tool_cutoffs(
     test_db, monkeypatch, zone
 ):
@@ -55,7 +55,7 @@ def test_stale_inventory_uses_exact_native_heartbeat_and_tool_cutoffs(
     )
 
 
-@pytest.mark.parametrize("zone", ZONES)
+@pytest.mark.parametrize("zone", SESSION_ZONES[1:])
 def test_machine_capture_and_artifact_share_native_recording_fact(
     test_db, monkeypatch, zone
 ):
@@ -97,7 +97,7 @@ def test_machine_capture_and_artifact_share_native_recording_fact(
     assert artifact == (MOMENT, "timestamp with time zone")
 
 
-@pytest.mark.parametrize("zone", ZONES)
+@pytest.mark.parametrize("zone", SESSION_ZONES[1:])
 def test_merge_ci_requirement_and_run_retain_native_microseconds(
     test_db, monkeypatch, zone
 ):

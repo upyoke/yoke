@@ -8,6 +8,7 @@ from types import SimpleNamespace
 
 import pytest
 
+from runtime.api.fixtures.session_zones import SESSION_ZONES
 from yoke_contracts.timestamps import InvalidInstant, parse_instant
 from yoke_core.domain import source_authority_receipts as receipts
 from yoke_core.domain import source_authority_overlay_receipts as overlay
@@ -122,7 +123,7 @@ def test_strategy_and_overlay_metadata_share_instant_digest(monkeypatch, clock):
     assert "private-value-marker" not in json.dumps(secrets)
 
 
-@pytest.mark.parametrize("zone", ["UTC", "America/Los_Angeles", "Asia/Kathmandu"])
+@pytest.mark.parametrize("zone", SESSION_ZONES[1:])
 def test_actual_native_table_metadata_is_timezone_independent(test_db, zone):
     test_db.execute(
         "CREATE TEMP TABLE receipt_clock_probe (id INTEGER, updated_at TIMESTAMPTZ)"

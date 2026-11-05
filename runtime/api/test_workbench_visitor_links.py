@@ -4,6 +4,8 @@ from datetime import datetime, timedelta, timezone
 from uuid import uuid4
 
 import pytest
+
+from runtime.api.fixtures.session_zones import SESSION_ZONES
 from fastapi.testclient import TestClient
 
 from runtime.api import test_web_sign_in_door as door
@@ -109,7 +111,7 @@ def test_each_browser_sign_in_links_its_visitor_and_joins_earlier_page_views(
     assert joined == {anonymous_view, signed_in_view}
 
 
-@pytest.mark.parametrize("zone", ["UTC", "America/New_York", "Asia/Kathmandu"])
+@pytest.mark.parametrize("zone", SESSION_ZONES[1:])
 @pytest.mark.parametrize("microsecond", [0, 123456])
 def test_visitor_linked_to_one_actor_is_refused_for_another_by_name(
     db_conn, monkeypatch, zone, microsecond

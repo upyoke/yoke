@@ -6,6 +6,7 @@ import sqlite3
 
 import pytest
 
+from runtime.api.fixtures.session_zones import SESSION_ZONES
 from runtime.api.fixtures.backlog_qa_inserts import insert_qa_requirement
 from yoke_contracts.timestamps import InvalidInstant, format_instant, parse_instant
 from yoke_core.domain.qa_constants import _pipe_row
@@ -17,7 +18,7 @@ from yoke_core.domain.qa_plan_execution_store import canonical
 from yoke_core.domain.qa_run_verdict_record import insert_qa_run, update_qa_run
 
 
-@pytest.mark.parametrize("zone", ["UTC", "America/New_York", "Asia/Kolkata"])
+@pytest.mark.parametrize("zone", SESSION_ZONES[1:])
 def test_run_writes_bind_native_clocks_and_preserve_capture_bytes(test_db, zone):
     test_db.execute("SELECT set_config('TimeZone', %s, false)", (zone,))
     instant = parse_instant("1969-12-31T23:59:59.999999Z")

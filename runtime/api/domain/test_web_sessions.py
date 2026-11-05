@@ -9,6 +9,7 @@ from typing import Any, Iterator
 
 import pytest
 
+from runtime.api.fixtures.session_zones import SESSION_ZONES
 from runtime.api.fixtures import pg_testdb
 
 from yoke_core.domain import web_sessions
@@ -54,7 +55,7 @@ def conn() -> Iterator[Any]:
 
 
 @pytest.mark.parametrize("microsecond", [0, 123456])
-@pytest.mark.parametrize("zone", ["UTC", "America/New_York", "Asia/Kathmandu"])
+@pytest.mark.parametrize("zone", SESSION_ZONES[1:])
 def test_mint_stores_hash_only_and_verify_touches_last_used(
     conn, monkeypatch, microsecond, zone
 ):

@@ -5,6 +5,7 @@ import json
 
 import pytest
 
+from runtime.api.fixtures.session_zones import SESSION_ZONES
 from yoke_contracts.timestamps import parse_instant, format_instant
 from yoke_contracts.session_control.presentation import (
     PRESENTATION_MODE_BIDIRECTIONAL,
@@ -37,7 +38,7 @@ def payload(clock, attached):
     )
 
 
-@pytest.mark.parametrize("zone", ["UTC", "America/New_York", "Asia/Kathmandu"])
+@pytest.mark.parametrize("zone", SESSION_ZONES[1:])
 def test_material_presentation_changes_compare_native_microseconds(test_db, zone):
     seed_session(test_db, "native-presentation")
     test_db.execute("SELECT set_config('TimeZone',%s,false)", (zone,))

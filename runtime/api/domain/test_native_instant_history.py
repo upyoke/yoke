@@ -5,6 +5,7 @@ import json
 
 import pytest
 
+from runtime.api.fixtures.session_zones import SESSION_ZONES
 from runtime.api.fixtures.native_instant_database import BORN_NATIVE_AFTER_HISTORY
 from yoke_contracts.schema_authority import SchemaAuthorityRefused
 from yoke_contracts.timestamps import format_instant
@@ -17,7 +18,7 @@ history = importlib.import_module(
 STAMP = "2026-10-08T16:30:00.123456Z"
 
 
-@pytest.mark.parametrize("zone", ["UTC", "America/New_York", "Asia/Kathmandu"])
+@pytest.mark.parametrize("zone", SESSION_ZONES[1:])
 @pytest.mark.parametrize(
     "supplied",
     ["2026-10-08T22:00:00.123456+05:30", "2026-10-08 16:30:00.1234569", "broken"],
@@ -134,7 +135,7 @@ def _owners(conn):
     )
 
 
-@pytest.mark.parametrize("zone", ["UTC", "America/New_York", "Asia/Kathmandu"])
+@pytest.mark.parametrize("zone", SESSION_ZONES[1:])
 def test_owned_repairs_native_storage_opaque_facts_and_idempotence(blank, zone):
     conn = blank
     _owners(conn)
@@ -305,7 +306,7 @@ def test_unowned_or_custom_view_refuses_before_drop_or_ddl(blank, dependent):
     assert blank.execute("SELECT to_regclass(%s)", (name,)).fetchone()[0] is not None
 
 
-@pytest.mark.parametrize("zone", ["UTC", "America/New_York", "Asia/Kathmandu"])
+@pytest.mark.parametrize("zone", SESSION_ZONES[1:])
 @pytest.mark.parametrize("microsecond", [0, 123456])
 def test_visitor_clock_history_preserves_keys_nulls_and_exact_instants(
     blank, zone, microsecond

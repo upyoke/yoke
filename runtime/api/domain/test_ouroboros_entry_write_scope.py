@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import pytest
 
+from runtime.api.fixtures.session_zones import SESSION_ZONES
 from yoke_contracts.api.function_call import (
     ActorContext,
     FunctionCallRequest,
@@ -41,7 +42,9 @@ def _entry(conn, body: str, project: str | None = None) -> int:
             "failed",
             body,
             project,
-        yoke_version="0.2.0.202610290013", universe_fingerprint="fixture@2026-01-01T00:00:00Z")
+            yoke_version="0.2.0.202610290013",
+            universe_fingerprint="fixture@2026-01-01T00:00:00Z",
+        )
     )
     conn.execute(
         "UPDATE ouroboros_entries SET created_at='2026-07-01T00:00:00Z' WHERE id=%s",
@@ -230,7 +233,7 @@ class TestHandlerSurface:
         assert not _is_archived(test_db, entry_id)
 
 
-@pytest.mark.parametrize("zone", ["UTC", "America/New_York", "Asia/Kathmandu"])
+@pytest.mark.parametrize("zone", SESSION_ZONES)
 def test_calendar_review_cutoff_is_utc_midnight_and_retains_native_review_clock(
     test_db, monkeypatch, zone
 ):

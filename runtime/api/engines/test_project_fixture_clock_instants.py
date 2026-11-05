@@ -6,13 +6,14 @@ import sqlite3
 
 import pytest
 
+from runtime.api.fixtures.session_zones import SESSION_ZONES
 from yoke_contracts.timestamps import InvalidInstant, parse_instant
 
 NOW = parse_instant("2060-10-08T05:45:00.123456+05:45")
 OPAQUE = "2060-10-08T00:00:00+09:00 unchanged"
 
 
-@pytest.mark.parametrize("zone", ["UTC", "America/Los_Angeles", "Asia/Kathmandu"])
+@pytest.mark.parametrize("zone", SESSION_ZONES[1:])
 def test_project_item_and_flow_clock_writers_preserve_native_microseconds(
     test_db, zone
 ):

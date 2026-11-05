@@ -5,6 +5,7 @@ from unittest.mock import patch
 
 import pytest
 
+from runtime.api.fixtures.session_zones import SESSION_ZONES
 from runtime.api.fixtures.backlog_qa_inserts import insert_qa_requirement, insert_qa_run
 from yoke_contracts.timestamps import InvalidInstant, format_instant, parse_instant
 from yoke_core.api.observability_debug import (
@@ -31,7 +32,7 @@ from yoke_core.domain.time_parse import (
 )
 
 
-@pytest.mark.parametrize("zone", ["UTC", "America/New_York", "Asia/Kolkata"])
+@pytest.mark.parametrize("zone", SESSION_ZONES[1:])
 def test_actual_start_order_and_wire_summary_are_timezone_invariant(test_db, zone):
     test_db.execute("SELECT set_config('TimeZone', %s, false)", (zone,))
     epoch = parse_instant("1969-12-31T23:59:59.999998Z")

@@ -7,6 +7,7 @@ from uuid import uuid4
 
 import pytest
 
+from runtime.api.fixtures.session_zones import SESSION_ZONES
 from yoke_contracts.timestamps import InvalidInstant, format_instant, parse_instant
 from yoke_core.domain import session_native_turn_end as turn_end
 from yoke_core.domain import session_stale_alive_probe as probe
@@ -20,7 +21,6 @@ from yoke_core.domain.sessions_analytics_core import DEFAULT_STALE_THRESHOLD_MIN
 from runtime.api.domain.coordination_claim_test_support import seed_session
 
 MOMENT = parse_instant("2026-10-09T16:11:12.345678+05:45")
-ZONES = ["UTC", "America/New_York", "Asia/Kathmandu"]
 OPAQUE = "foreign detail 2026-10-09 10:26:12+00:00"
 
 
@@ -64,7 +64,7 @@ def _seed(conn):
     return message["message_id"], machine_id
 
 
-@pytest.mark.parametrize("zone", ZONES)
+@pytest.mark.parametrize("zone", SESSION_ZONES[1:])
 @pytest.mark.parametrize("delta,open_count", [(-1, 1), (0, 0), (1, 0)])
 def test_probe_receipt_and_native_turn_target_expiry_are_strict_at_microsecond(
     test_db,
@@ -95,7 +95,7 @@ def test_probe_receipt_and_native_turn_target_expiry_are_strict_at_microsecond(
     assert len(targets) == open_count
 
 
-@pytest.mark.parametrize("zone", ZONES)
+@pytest.mark.parametrize("zone", SESSION_ZONES[1:])
 @pytest.mark.parametrize("delta,refunded", [(-1, True), (0, True), (1, False)])
 def test_deferral_backoff_and_refund_comparison_preserve_native_microsecond(
     test_db,
@@ -130,7 +130,7 @@ def test_deferral_backoff_and_refund_comparison_preserve_native_microsecond(
     assert tuple(row) == (0 if refunded else 1, backoff if refunded else original)
 
 
-@pytest.mark.parametrize("zone", ZONES)
+@pytest.mark.parametrize("zone", SESSION_ZONES[1:])
 def test_native_turn_report_keeps_native_posture_record_clock_and_explicit_json(
     test_db, zone
 ):
@@ -160,7 +160,7 @@ def test_native_turn_report_keeps_native_posture_record_clock_and_explicit_json(
     assert body["observed_at"] == format_instant(observed) and body["detail"] == OPAQUE
 
 
-@pytest.mark.parametrize("zone", ZONES)
+@pytest.mark.parametrize("zone", SESSION_ZONES[1:])
 @pytest.mark.parametrize("delta,asked", [(-1, 1), (0, 0), (1, 0)])
 def test_stale_probe_threshold_selects_latest_native_activity_with_strict_order(
     test_db,
@@ -208,7 +208,7 @@ def test_stale_probe_threshold_selects_latest_native_activity_with_strict_order(
     assert len(sent) == asked and len(result["probed"]) == asked
 
 
-@pytest.mark.parametrize("zone", ZONES)
+@pytest.mark.parametrize("zone", SESSION_ZONES[1:])
 @pytest.mark.parametrize("state", ["pending", "acknowledged"])
 def test_steering_cancel_clock_is_native_and_acknowledged_recipient_is_retained(
     test_db, zone, state

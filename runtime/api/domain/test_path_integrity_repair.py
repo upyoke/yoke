@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import pytest
 
+from runtime.api.fixtures.session_zones import SESSION_ZONES
 from yoke_core.domain import db_backend
 from runtime.api.domain._path_integrity_test_helpers import path_integrity_db
 from yoke_core.domain.db_helpers import iso8601_now
@@ -273,7 +274,7 @@ def test_abandon_refuses_empty_reason(db_with_dupe):
         )
 
 
-@pytest.mark.parametrize("zone", ["UTC", "America/New_York", "Asia/Kathmandu"])
+@pytest.mark.parametrize("zone", SESSION_ZONES[1:])
 def test_abandon_audit_uses_one_native_microsecond_fact(
     db_with_dupe, monkeypatch, zone
 ):

@@ -3,6 +3,8 @@ from __future__ import annotations
 from datetime import datetime, timedelta, timezone
 
 import pytest
+
+from runtime.api.fixtures.session_zones import SESSION_ZONES
 from psycopg.rows import tuple_row
 from yoke_contracts.timestamps import parse_instant, temporal_wire
 
@@ -166,7 +168,7 @@ def _catalog() -> list[dict[str, object]]:
     ]
 
 
-@pytest.mark.parametrize("zone", ["UTC", "America/New_York", "Asia/Kathmandu"])
+@pytest.mark.parametrize("zone", SESSION_ZONES[1:])
 def test_pack_projection_writes_and_receipts_retain_native_clock(
     test_db, monkeypatch, zone
 ):

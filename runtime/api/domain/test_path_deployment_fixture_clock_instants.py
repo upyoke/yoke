@@ -5,6 +5,7 @@ import sqlite3
 
 import pytest
 
+from runtime.api.fixtures.session_zones import SESSION_ZONES
 from yoke_contracts.timestamps import InvalidInstant, parse_instant
 from yoke_core.domain import path_integrity_fixtures as catalog
 from yoke_core.domain import path_integrity_fixtures_helpers as paths
@@ -13,11 +14,10 @@ from runtime.api.domain._path_integrity_test_helpers import path_integrity_db
 from runtime.api.fixtures import deployment_scoped_qa_run_fixture as deployment
 
 MOMENT = parse_instant("2026-10-09T16:11:12.345678+05:45")
-ZONES = ["UTC", "America/New_York", "Asia/Kathmandu"]
 OPAQUE = "captured 2026-10-09 10:26:12+00:00"
 
 
-@pytest.mark.parametrize("zone", ZONES)
+@pytest.mark.parametrize("zone", SESSION_ZONES[1:])
 def test_continuity_fixture_graph_keeps_native_clocks_and_context_values(
     tmp_path, monkeypatch, zone
 ):
@@ -52,7 +52,7 @@ def test_continuity_fixture_graph_keeps_native_clocks_and_context_values(
         } == {'{"value":"high"}', '{"value":"low"}'}
 
 
-@pytest.mark.parametrize("zone", ZONES)
+@pytest.mark.parametrize("zone", SESSION_ZONES[1:])
 def test_context_fixture_event_and_target_keep_native_clock_and_opaque_text(
     tmp_path, monkeypatch, zone
 ):
@@ -80,7 +80,7 @@ def test_context_fixture_event_and_target_keep_native_clock_and_opaque_text(
         conn.close()
 
 
-@pytest.mark.parametrize("zone", ZONES)
+@pytest.mark.parametrize("zone", SESSION_ZONES[1:])
 def test_frozen_deployment_and_verdict_fixture_bind_native_clocks(
     test_db, monkeypatch, zone
 ):

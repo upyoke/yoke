@@ -4,6 +4,7 @@ from datetime import datetime
 
 import pytest
 
+from runtime.api.fixtures.session_zones import SESSION_ZONES
 from yoke_contracts.api.function_call import FunctionCallResponse
 from yoke_contracts.timestamps import format_instant, parse_instant
 from yoke_core.domain.items_projection import ITEM_INSTANT_FIELDS
@@ -29,7 +30,7 @@ class _KeepOpen:
         pass
 
 
-@pytest.mark.parametrize("zone", ["UTC", "America/New_York", "Asia/Kathmandu"])
+@pytest.mark.parametrize("zone", SESSION_ZONES[1:])
 def test_real_item_clock_selectors_scalar_pipe_and_json_owners(
     test_db, monkeypatch, capsys, zone
 ):

@@ -5,6 +5,7 @@ import sqlite3
 
 import pytest
 
+from runtime.api.fixtures.session_zones import SESSION_ZONES
 from yoke_contracts.timestamps import InvalidInstant, parse_instant
 from yoke_core.domain import project_seed_test_helpers as projects
 from runtime.api.domain.handlers import strategy_docs_test_support as strategy
@@ -22,7 +23,7 @@ MOMENT = parse_instant("2026-10-09T16:11:12.345678+05:45")
 SEEDERS = [projects, strategy, coordination, lint, machine, paths, steering, execution]
 
 
-@pytest.mark.parametrize("zone", ["UTC", "America/New_York", "Asia/Kathmandu"])
+@pytest.mark.parametrize("zone", SESSION_ZONES[1:])
 def test_seed_graph_has_native_clock_facts_and_nullable_history(
     test_db, monkeypatch, zone
 ):

@@ -6,6 +6,7 @@ from datetime import timedelta
 
 import pytest
 
+from runtime.api.fixtures.session_zones import SESSION_ZONES
 from yoke_contracts.timestamps import InvalidInstant, parse_instant
 from yoke_core.domain.delivery_landing_custody import landed_at
 from yoke_core.domain.sessions_lifecycle_claim import claim_work
@@ -34,7 +35,7 @@ OFFSET_NOW = "1969-12-31T19:00:00.123456-05:00"
 CANONICAL_NOW = "1970-01-01T00:00:00.123456Z"
 
 
-@pytest.mark.parametrize("zone", ["UTC", "America/New_York", "Asia/Kathmandu"])
+@pytest.mark.parametrize("zone", SESSION_ZONES[1:])
 def test_native_fleet_rows_and_projections_agree_in_every_session_zone(test_db, zone):
     from runtime.api.steering_fleet_test_helpers import (
         WORKER_SESSION,
@@ -87,7 +88,7 @@ def test_native_fleet_rows_and_projections_agree_in_every_session_zone(test_db, 
     assert in_flight_dicts(calls)[0]["started_at"] == START
 
 
-@pytest.mark.parametrize("zone", ["UTC", "America/New_York", "Asia/Kathmandu"])
+@pytest.mark.parametrize("zone", SESSION_ZONES[1:])
 def test_report_interval_preserves_the_inclusive_microsecond_cutoff(test_db, zone):
     from runtime.api.steering_fleet_test_helpers import (
         STEERING_SESSION,

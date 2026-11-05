@@ -5,6 +5,7 @@ from datetime import timedelta
 
 import pytest
 
+from runtime.api.fixtures.session_zones import SESSION_ZONES
 from yoke_contracts.api.function_call import FunctionCallResponse
 from yoke_contracts.timestamps import format_instant, parse_instant
 from yoke_core.domain import hook_overhead, hook_overhead_tool
@@ -17,7 +18,7 @@ CUTOFF = NOW - timedelta(hours=1)
 NEXT_HOUR = parse_instant("1970-01-01T00:00:00Z")
 
 
-@pytest.mark.parametrize("zone", ["UTC", "America/New_York", "Asia/Kathmandu"])
+@pytest.mark.parametrize("zone", SESSION_ZONES)
 def test_native_hour_buckets_cutoff_and_wire_owner(test_db, monkeypatch, zone):
     from runtime.api.domain.handlers.test_sessions_hook_overhead import (
         _request,

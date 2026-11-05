@@ -3,6 +3,8 @@
 from datetime import timedelta
 
 import pytest
+
+from runtime.api.fixtures.session_zones import SESSION_ZONES
 from yoke_contracts.timestamps import parse_instant
 
 from runtime.api.fixtures.deployment_run_driver_fixture import release_seeded_driver
@@ -144,7 +146,7 @@ def test_snapshot_stage_repair_does_not_keep_the_previous_stage_age(test_db):
     assert row["current_stage_entered_at"] is None
 
 
-@pytest.mark.parametrize("zone", ["UTC", "America/New_York", "Asia/Kathmandu"])
+@pytest.mark.parametrize("zone", SESSION_ZONES[1:])
 def test_stage_entry_keeps_microseconds_and_only_changes_with_the_stage(
     test_db, monkeypatch, zone
 ):

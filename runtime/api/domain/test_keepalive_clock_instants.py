@@ -4,6 +4,7 @@ from datetime import datetime, timedelta, timezone
 
 import pytest
 
+from runtime.api.fixtures.session_zones import SESSION_ZONES
 from yoke_contracts.timestamps import InvalidInstant, format_instant, parse_instant
 from yoke_core.domain import session_keepalive as keepalive
 from runtime.api.domain.coordination_claim_test_support import seed_session
@@ -11,7 +12,7 @@ from runtime.api.domain.coordination_claim_test_support import seed_session
 MOMENT = parse_instant("2026-10-09T16:11:12.345678+05:45")
 
 
-@pytest.mark.parametrize("zone", ["UTC", "America/New_York", "Asia/Kathmandu"])
+@pytest.mark.parametrize("zone", SESSION_ZONES[1:])
 def test_keepalive_sql_native_microseconds_and_wire_facts_then_null_release(
     test_db, zone
 ):

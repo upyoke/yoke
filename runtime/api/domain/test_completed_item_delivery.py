@@ -6,6 +6,7 @@ import json
 
 import pytest
 
+from runtime.api.fixtures.session_zones import SESSION_ZONES
 from runtime.api.domain.test_independent_member_delivery_close_out import (
     MEMBER_A,
     MEMBER_B,
@@ -270,7 +271,7 @@ def test_delivery_stamp_storage_failure_rolls_back_without_refusing_the_gate(tes
     assert conn.rolled_back
 
 
-@pytest.mark.parametrize("zone", ["UTC", "America/New_York", "Asia/Kathmandu"])
+@pytest.mark.parametrize("zone", SESSION_ZONES[1:])
 @pytest.mark.parametrize("microsecond", [0, 123456])
 def test_completion_recorded_clock_is_native_at_the_sql_owner(
     test_db, monkeypatch, zone, microsecond

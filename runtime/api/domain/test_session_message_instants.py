@@ -5,6 +5,7 @@ from datetime import datetime, timedelta, timezone
 
 import pytest
 
+from runtime.api.fixtures.session_zones import SESSION_ZONES
 from yoke_contracts.timestamps import InvalidInstant, format_instant
 from yoke_core.domain.json_helper import dumps_compact
 from yoke_core.domain.session_message_cursor import (
@@ -22,7 +23,7 @@ from runtime.api.domain.test_session_message_support import (
 )
 
 
-@pytest.mark.parametrize("zone", ["UTC", "America/New_York", "Asia/Kolkata"])
+@pytest.mark.parametrize("zone", SESSION_ZONES[1:])
 def test_native_message_write_and_cursor_keep_microseconds(test_db, zone):
     test_db.execute("SELECT set_config('TimeZone', %s, true)", (zone,))
     instant = datetime(

@@ -5,6 +5,7 @@ from datetime import datetime, timedelta
 
 import pytest
 
+from runtime.api.fixtures.session_zones import SESSION_ZONES
 from yoke_contracts.timestamps import (
     InvalidInstant,
     format_instant,
@@ -57,7 +58,7 @@ def _transition_request(conn, *, item_id, clock, project_id, actor_id):
     )
 
 
-@pytest.mark.parametrize("zone", ["UTC", "America/New_York", "Asia/Kolkata"])
+@pytest.mark.parametrize("zone", SESSION_ZONES[1:])
 def test_decisions_and_withdrawals_bind_native_clocks_and_atomic_audits(test_db, zone):
     test_db.execute("SELECT set_config('TimeZone', %s, false)", (zone,))
     anchor = parse_instant("1969-12-31T23:59:59.999999Z")

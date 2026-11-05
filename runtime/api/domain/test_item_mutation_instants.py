@@ -5,6 +5,7 @@ from datetime import datetime
 
 import pytest
 
+from runtime.api.fixtures.session_zones import SESSION_ZONES
 from yoke_contracts.timestamps import InvalidInstant, parse_instant, temporal_wire
 from yoke_core.domain import backlog_item_db_writes, mutations_create, mutations_update
 from yoke_core.domain.mutation_fields import ApprovalResult, ItemState
@@ -19,7 +20,10 @@ def test_prepared_item_mutations_retain_native_clocks(monkeypatch):
     monkeypatch.setattr(mutations_create, "utc_now", lambda: STAMP)
     monkeypatch.setattr(mutations_update, "utc_now", lambda: STAMP)
     created = mutations_create.prepare_create(
-        title="Native clock", workflow=workflow, project="yoke", spec="Agreed outcome: done when it shows."
+        title="Native clock",
+        workflow=workflow,
+        project="yoke",
+        spec="Agreed outcome: done when it shows.",
     )
     assert created.success
     assert (
@@ -42,7 +46,7 @@ def test_prepared_item_mutations_retain_native_clocks(monkeypatch):
     assert updated.field_writes["updated_at"] == STAMP
 
 
-@pytest.mark.parametrize("zone", ["UTC", "America/New_York", "Asia/Kathmandu"])
+@pytest.mark.parametrize("zone", SESSION_ZONES[1:])
 def test_backlog_clock_writes_are_native_and_nullable(test_db, monkeypatch, zone):
     from runtime.api.fixtures.backlog_inserts import insert_item
 

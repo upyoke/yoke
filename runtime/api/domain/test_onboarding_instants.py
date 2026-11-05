@@ -6,6 +6,8 @@ from datetime import datetime, timedelta
 from uuid import uuid4
 
 import pytest
+
+from runtime.api.fixtures.session_zones import SESSION_ZONES
 from yoke_contracts.timestamps import InvalidInstant, parse_instant, temporal_wire
 from yoke_core.domain import project_onboarding_runs as runs
 from yoke_core.domain import project_onboarding_updates as writes
@@ -14,11 +16,10 @@ from yoke_core.domain import qa_catalog_schema as catalog
 from runtime.api.domain.test_project_onboarding_runs import _conn
 
 STAMP = parse_instant("1969-12-31T05:44:59.123456+05:45")
-ZONES = ["UTC", "America/New_York", "Asia/Kathmandu"]
 OPAQUE = {"calendar": "1970-01-01", "provider_clock": "unqualified evidence"}
 
 
-@pytest.mark.parametrize("zone", ZONES)
+@pytest.mark.parametrize("zone", SESSION_ZONES[1:])
 def test_checklist_update_shares_native_fact_without_interpreting_evidence(
     monkeypatch, zone
 ):
@@ -66,7 +67,7 @@ def test_checklist_update_shares_native_fact_without_interpreting_evidence(
         conn.close()
 
 
-@pytest.mark.parametrize("zone", ZONES)
+@pytest.mark.parametrize("zone", SESSION_ZONES[1:])
 def test_overtaking_deployment_compares_exact_instants_and_formats_only_new_metadata(
     test_db, monkeypatch, zone
 ):
@@ -109,7 +110,7 @@ def test_overtaking_deployment_compares_exact_instants_and_formats_only_new_meta
     assert reconciliation.supersede_overtaken_runs(test_db) == []
 
 
-@pytest.mark.parametrize("zone", ZONES)
+@pytest.mark.parametrize("zone", SESSION_ZONES[1:])
 def test_builtin_projection_binds_native_method_creation_and_update(
     test_db, monkeypatch, zone
 ):

@@ -2,6 +2,7 @@
 
 import pytest
 
+from runtime.api.fixtures.session_zones import SESSION_ZONES
 from runtime.api.domain import test_qa_operator_waiver_authority as waivers
 from runtime.api.domain.test_qa_operator_waiver_authority import (
     waiver_world as waiver_world,
@@ -12,7 +13,7 @@ from yoke_core.domain.handlers.deployment_run_execution import require_run_drive
 from yoke_core.engines.runs_release_handoff import _live_driver
 
 
-@pytest.mark.parametrize("zone", ["UTC", "America/New_York", "Asia/Kolkata"])
+@pytest.mark.parametrize("zone", SESSION_ZONES[1:])
 @pytest.mark.parametrize("microsecond", [0, 123456])
 def test_real_driver_callers_preserve_native_clock(
     waiver_world, monkeypatch, zone, microsecond

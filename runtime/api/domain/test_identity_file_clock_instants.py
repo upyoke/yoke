@@ -5,6 +5,7 @@ import json
 
 import pytest
 
+from runtime.api.fixtures.session_zones import SESSION_ZONES
 from yoke_contracts import timestamps
 from yoke_contracts.cursor_session_map import record_conversation_session
 from yoke_contracts.process_ancestry import ProcessAnchor
@@ -89,8 +90,10 @@ def test_routed_fixture_binds_native_or_explicit_sqlite_instants(monkeypatch, po
     assert conn.writes == before
 
 
-@pytest.mark.parametrize("zone", ["UTC", "America/New_York", "Asia/Kathmandu"])
-@pytest.mark.parametrize("wire", [WIRE, "2026-11-01T05:27:00.123456Z", "2026-11-01T06:27:00.123456Z"])
+@pytest.mark.parametrize("zone", SESSION_ZONES[1:])
+@pytest.mark.parametrize(
+    "wire", [WIRE, "2026-11-01T05:27:00.123456Z", "2026-11-01T06:27:00.123456Z"]
+)
 def test_release_gap_fixture_reads_native_session_and_claim_clocks(
     tmp_path, monkeypatch, zone, wire
 ):
@@ -112,7 +115,11 @@ def test_release_gap_fixture_reads_native_session_and_claim_clocks(
                 isinstance(value, datetime) and value.tzinfo is not None
                 for value in (row[0], row[1])
             )
-            assert timestamps.parse_instant(row[0]) == timestamps.parse_instant(row[1]) == instant
+            assert (
+                timestamps.parse_instant(row[0])
+                == timestamps.parse_instant(row[1])
+                == instant
+            )
             assert row[0].microsecond == 123456
             assert row[2] is None
             claim = conn.execute(
@@ -123,6 +130,8 @@ def test_release_gap_fixture_reads_native_session_and_claim_clocks(
                 isinstance(value, datetime) and value.tzinfo is not None
                 for value in (claim[0], claim[1])
             )
-            assert timestamps.parse_instant(claim[1]) >= timestamps.parse_instant(claim[0])
+            assert timestamps.parse_instant(claim[1]) >= timestamps.parse_instant(
+                claim[0]
+            )
         finally:
             conn.close()

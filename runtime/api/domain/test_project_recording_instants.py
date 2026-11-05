@@ -5,6 +5,7 @@ from uuid import uuid4
 
 import pytest
 
+from runtime.api.fixtures.session_zones import SESSION_ZONES
 from runtime.api.conftest import insert_epic_task, insert_item
 from yoke_contracts.path_snapshot_chunks import (
     PathSnapshotChunkSyncPayload,
@@ -17,7 +18,6 @@ from yoke_core.domain import projects_pulumi_state_migration_rows as pulumi
 from yoke_core.domain import item_status_transitions as task_history
 
 MOMENT = parse_instant("1969-12-31T05:44:59.123456+05:45")
-ZONES = ["UTC", "America/New_York", "Asia/Kathmandu"]
 
 
 def _native(value):
@@ -25,7 +25,7 @@ def _native(value):
     assert value == MOMENT
 
 
-@pytest.mark.parametrize("zone", ZONES)
+@pytest.mark.parametrize("zone", SESSION_ZONES[1:])
 def test_snapshot_begin_persists_native_staging_clock(test_db, monkeypatch, zone):
     test_db.execute("SELECT set_config('TimeZone',%s,false)", (zone,))
     monkeypatch.setattr(staging, "utc_now", lambda: MOMENT)
@@ -42,7 +42,7 @@ def test_snapshot_begin_persists_native_staging_clock(test_db, monkeypatch, zone
     _native(staging._load_upload(test_db, payload.upload_id)["created_at"])
 
 
-@pytest.mark.parametrize("zone", ZONES)
+@pytest.mark.parametrize("zone", SESSION_ZONES[1:])
 def test_capability_creation_and_idempotent_pulumi_rows_keep_native_clock(
     test_db, monkeypatch, zone
 ):
@@ -67,7 +67,7 @@ def test_capability_creation_and_idempotent_pulumi_rows_keep_native_clock(
     )
 
 
-@pytest.mark.parametrize("zone", ZONES)
+@pytest.mark.parametrize("zone", SESSION_ZONES[1:])
 def test_canonical_task_transition_history_uses_native_fact(test_db, monkeypatch, zone):
     test_db.execute("SELECT set_config('TimeZone',%s,false)", (zone,))
     monkeypatch.setattr(task_history, "utc_now", lambda: MOMENT)

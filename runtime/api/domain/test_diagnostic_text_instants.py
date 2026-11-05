@@ -5,6 +5,7 @@ from types import SimpleNamespace
 
 import pytest
 
+from runtime.api.fixtures.session_zones import SESSION_ZONES
 from yoke_contracts.timestamps import parse_instant
 from yoke_core.domain import backlog_github_body_budget as budget
 from yoke_core.domain import coordination_claims as claims
@@ -20,7 +21,7 @@ from yoke_core.tools._watch_capture_binding import unwritten_capture_refusal
 WIRE = "2026-10-05T00:00:00.123456Z"
 
 
-@pytest.mark.parametrize("zone", ["America/New_York", "Asia/Kathmandu"])
+@pytest.mark.parametrize("zone", SESSION_ZONES[1:])
 def test_diagnostic_text_formats_native_sql_instants(test_db, monkeypatch, zone):
     test_db.execute("SELECT set_config('TimeZone',%s,false)", (zone,))
     point = test_db.execute(

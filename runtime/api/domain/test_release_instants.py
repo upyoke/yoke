@@ -5,6 +5,7 @@ from types import SimpleNamespace
 
 import pytest
 
+from runtime.api.fixtures.session_zones import SESSION_ZONES
 from yoke_contracts.timestamps import InvalidInstant, format_instant, parse_instant
 from yoke_core.domain.delivery_release_candidates import (
     completion_order,
@@ -16,7 +17,7 @@ from yoke_core.domain.release_delivery_membership import ReleaseDeliveryIndex
 from yoke_core.domain.release_delivery_summary import succeeded_runs_for_environment
 
 
-@pytest.mark.parametrize("zone", ["UTC", "America/New_York", "Asia/Kolkata"])
+@pytest.mark.parametrize("zone", SESSION_ZONES[1:])
 def test_combined_release_candidates_keep_native_order_and_null_last(test_db, zone):
     import json
     from runtime.api.fixtures.backlog_inserts import insert_deployment_run

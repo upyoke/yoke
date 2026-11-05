@@ -6,6 +6,7 @@ from datetime import datetime, timedelta, timezone
 
 import pytest
 
+from runtime.api.fixtures.session_zones import SESSION_ZONES
 from runtime.api.fixtures import pg_testdb
 from yoke_core.domain import db_backend
 from yoke_core.engines.doctor_hc_work_claim_status_mismatch import (
@@ -212,7 +213,7 @@ def test_warns_for_claims_without_a_fresh_holder(
     assert "service_client" not in result.detail
 
 
-@pytest.mark.parametrize("zone", ["UTC", "America/New_York", "Asia/Kathmandu"])
+@pytest.mark.parametrize("zone", SESSION_ZONES[1:])
 def test_native_holder_heartbeat_keeps_exact_freshness_boundary(
     conn, monkeypatch, zone
 ):

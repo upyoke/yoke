@@ -5,6 +5,7 @@ from datetime import timedelta
 
 import pytest
 
+from runtime.api.fixtures.session_zones import SESSION_ZONES
 from runtime.api.domain.merge_queue_observer_test_helpers import (
     DIRTY,
     MERGED,
@@ -32,10 +33,9 @@ from yoke_core.domain.merge_queue_landing_record_schema import (
 )
 
 MOMENT = parse_instant("2026-10-09T15:56:12.345678+05:45")
-ZONES = ["UTC", "America/New_York", "Asia/Kathmandu"]
 
 
-@pytest.mark.parametrize("zone", ZONES)
+@pytest.mark.parametrize("zone", SESSION_ZONES[1:])
 def test_native_queue_refresh_preserves_semantic_change_microseconds(test_db, zone):
     insert_item(
         test_db, id=7, project_sequence=7, workflow_id="dash", status="implementing"
@@ -61,7 +61,7 @@ def test_native_queue_refresh_preserves_semantic_change_microseconds(test_db, zo
     assert read_landing_record(test_db, 7).changed_at == later
 
 
-@pytest.mark.parametrize("zone", ZONES)
+@pytest.mark.parametrize("zone", SESSION_ZONES[1:])
 def test_observer_landing_and_notification_bind_native_microseconds(
     test_db, monkeypatch, zone
 ):
@@ -187,7 +187,7 @@ def test_invalid_stored_arming_suffix_refuses_without_creating_a_new_identity():
         conn.close()
 
 
-@pytest.mark.parametrize("zone", ZONES)
+@pytest.mark.parametrize("zone", SESSION_ZONES[1:])
 @pytest.mark.parametrize("rearmed", [False, True])
 def test_native_ejection_clears_only_its_exact_arming_instant(
     test_db, monkeypatch, zone, rearmed
@@ -248,9 +248,7 @@ def test_landing_models_format_only_report_clock_owners(clock):
         True, True, False, merged_at=clock, merge_commit_sha="opaque"
     )
     expected = MOMENT if clock is not None else None
-    readiness = classify_readiness(
-        pr_number="42", target="main", state=state
-    )
+    readiness = classify_readiness(pr_number="42", target="main", state=state)
     hold = _landed(readiness, outcome="landed", actions=(), before=readiness)
     assert state.merged_at == readiness.merged_at == hold.merged_at == expected
     wire = format_instant(MOMENT) if clock is not None else None
@@ -294,13 +292,20 @@ def test_graphql_landing_clock_refusal_is_unreadable(monkeypatch, clock):
         "graphql_with_auth",
         lambda *_args, **_kw: (
             {
-                "repository": {"pullRequest": {
-                    "merged": True, "closed": True, "state": "MERGED",
-                    "mergedAt": clock, "mergeCommit": {"oid": "merged-head"},
-                    "autoMergeRequest": None, "mergeQueueEntry": None,
-                    "mergeStateStatus": "CLEAN", "headRefOid": "pr-head",
-                    "commits": {"nodes": [{"commit": {"statusCheckRollup": None}}]},
-                }},
+                "repository": {
+                    "pullRequest": {
+                        "merged": True,
+                        "closed": True,
+                        "state": "MERGED",
+                        "mergedAt": clock,
+                        "mergeCommit": {"oid": "merged-head"},
+                        "autoMergeRequest": None,
+                        "mergeQueueEntry": None,
+                        "mergeStateStatus": "CLEAN",
+                        "headRefOid": "pr-head",
+                        "commits": {"nodes": [{"commit": {"statusCheckRollup": None}}]},
+                    }
+                },
             },
             None,
         ),

@@ -13,6 +13,7 @@ from typing import Any, Dict
 
 import pytest
 
+from runtime.api.fixtures.session_zones import SESSION_ZONES
 from yoke_core.domain import db_backend
 from yoke_core.domain.db_claim import (
     DbClaimAmendmentError,
@@ -222,7 +223,7 @@ class TestReadClaim:
             read_claim(9999, conn=db_conn)
 
 
-@pytest.mark.parametrize("zone", ["UTC", "America/New_York", "Asia/Kathmandu"])
+@pytest.mark.parametrize("zone", SESSION_ZONES[1:])
 def test_reviewed_negative_stamp_formats_shared_native_amendment_clock(
     db_conn, monkeypatch, zone
 ):

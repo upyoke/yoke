@@ -5,6 +5,7 @@ from datetime import datetime, timedelta
 
 import pytest
 
+from runtime.api.fixtures.session_zones import SESSION_ZONES
 from yoke_contracts.timestamps import InvalidInstant, format_instant, parse_instant
 from yoke_core.domain import (
     epic_cascade,
@@ -19,7 +20,7 @@ from yoke_core.domain.epic_submission_receipt import submission_receipt_get
 from yoke_core.domain.sections_cli import cmd_list
 
 
-@pytest.mark.parametrize("zone", ["UTC", "America/New_York", "Asia/Kolkata"])
+@pytest.mark.parametrize("zone", SESSION_ZONES[1:])
 def test_dispatch_progress_cascade_and_sections_keep_native_microseconds(
     test_db, monkeypatch, zone
 ):

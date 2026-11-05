@@ -6,6 +6,7 @@ from types import SimpleNamespace
 
 import pytest
 
+from runtime.api.fixtures.session_zones import SESSION_ZONES
 from runtime.api.domain.test_chain_checkpoint_instants import _session
 from yoke_contracts.timestamps import format_instant, parse_instant
 from yoke_core.domain import migration_harness_core as migration
@@ -15,7 +16,6 @@ from yoke_core.domain.work_claim_targets import make_item_target
 from yoke_core.hooks import observation_batch as batch
 
 MOMENT = parse_instant("2026-10-09T15:56:12.345678+05:45")
-ZONES = ["UTC", "America/New_York", "Asia/Kathmandu"]
 
 
 def test_batch_clock_ingress_returns_native_qualified_instant():
@@ -41,7 +41,7 @@ def test_batch_invalid_clock_refuses_without_returning_a_guess(value):
         batch._observed_at(value)
 
 
-@pytest.mark.parametrize("zone", ZONES)
+@pytest.mark.parametrize("zone", SESSION_ZONES[1:])
 def test_native_heartbeat_comparison_retains_microseconds_and_never_moves_back(
     test_db, monkeypatch, zone
 ):

@@ -5,6 +5,7 @@ import json
 
 import pytest
 
+from runtime.api.fixtures.session_zones import SESSION_ZONES
 from yoke_contracts.api.function_call import FunctionCallResponse
 from yoke_contracts.timestamps import format_instant, parse_instant
 
@@ -72,7 +73,7 @@ def test_text_formatter_aliases_preserve_nonclock_cells_and_refuse_naive():
     assert typed_project_field("name", TITLE) == TITLE
 
 
-@pytest.mark.parametrize("zone", ["UTC", "America/New_York", "Asia/Kathmandu"])
+@pytest.mark.parametrize("zone", SESSION_ZONES[1:])
 def test_actual_project_and_baseline_readers_keep_native_sql_and_owned_text(
     test_db, monkeypatch, capsys, zone
 ):

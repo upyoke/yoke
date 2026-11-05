@@ -7,6 +7,7 @@ from uuid import uuid4
 
 import pytest
 
+from runtime.api.fixtures.session_zones import SESSION_ZONES
 from yoke_contracts.timestamps import InvalidInstant, format_instant, parse_instant
 from yoke_core.domain.events import build_envelope
 from yoke_core.domain.events_history_read import decode_cursor, encode_cursor
@@ -58,7 +59,7 @@ def test_event_cursor_retains_microseconds_and_refuses_old_tokens():
         decode_cursor(old)
 
 
-@pytest.mark.parametrize("zone", ["UTC", "America/New_York", "Asia/Kolkata"])
+@pytest.mark.parametrize("zone", SESSION_ZONES[1:])
 def test_performance_fractional_half_open_range_uses_native_event_instants(
     test_db, monkeypatch, zone
 ):

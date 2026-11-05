@@ -14,6 +14,7 @@ from runtime.api.fixtures.file_test_db import (
 )
 import pytest
 
+from runtime.api.fixtures.session_zones import SESSION_ZONES
 from yoke_core.domain import deployment_runs as dr
 from yoke_core.domain.environment_delivery_record import UnregisteredEnvironment
 
@@ -97,7 +98,7 @@ def test_merge_only_flow_refuses_release_run(delivery_db) -> None:
     assert "merge close-out" in str(refused.value)
 
 
-@pytest.mark.parametrize("zone", ["UTC", "America/New_York", "Asia/Kathmandu"])
+@pytest.mark.parametrize("zone", SESSION_ZONES[1:])
 def test_delivery_owner_normalizes_qualified_ingress_and_native_defaults(
     delivery_db, monkeypatch, zone
 ):

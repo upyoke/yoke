@@ -13,6 +13,7 @@ from typing import List
 
 import pytest
 
+from runtime.api.fixtures.session_zones import SESSION_ZONES
 from runtime.api.fixtures import pg_testdb
 from runtime.api.fixtures.schema_ddl import apply_fixture_ddl
 from yoke_project_checks import check_event_outcome_enum_coverage as mod
@@ -141,7 +142,7 @@ class TestLiveEventsScan:
         assert rec.results[0].result == "PASS"
 
 
-@pytest.mark.parametrize("zone", ["UTC", "America/New_York", "Asia/Kolkata"])
+@pytest.mark.parametrize("zone", SESSION_ZONES[1:])
 def test_live_scan_cutoff_retains_microseconds_across_database_zones(
     db_conn, monkeypatch, zone
 ):
