@@ -154,6 +154,9 @@ def validate_targets(
         )
 
     for raw in targets_to_check:
+        roles = {use.role for use in path_uses if use.path == raw}
+        if tool_name.strip() and roles == {PathRole.READ}:
+            continue
         if _is_target_authorised(
             raw,
             claims=claims,
@@ -214,6 +217,7 @@ def _is_target_authorised(
     path_uses: tuple[PathUse, ...] = (),
     yoke_root: str = "",
 ) -> bool:
+    roles = {use.role for use in path_uses if use.path == target}
     if _is_free_path(
         target,
         session_id=session_id,
@@ -224,7 +228,6 @@ def _is_target_authorised(
         return True
     if _is_under_tool_dir(target):
         return True
-    roles = {use.role for use in path_uses if use.path == target}
     if is_sanctioned_installed_read_path(target, machine_home=machine_home) and (
         read_only or (roles and PathRole.WRITE not in roles)
     ):
