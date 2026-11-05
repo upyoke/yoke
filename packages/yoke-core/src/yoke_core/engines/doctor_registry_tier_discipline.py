@@ -82,6 +82,7 @@ TIER_1_GLOBS: tuple[str, ...] = ()
 # Tier 3 — reference catalogs. The truth target every Tier 0/2/4/5
 # cross-reference points at.
 TIER_3_GLOBS: tuple[str, ...] = (
+    "CONTRIBUTING.md",
     "docs/atlas.md",
     "docs/event-catalog.md",
     ".yoke/docs/databases/*.md",
