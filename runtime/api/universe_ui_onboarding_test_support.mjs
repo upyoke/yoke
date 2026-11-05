@@ -109,7 +109,7 @@ export function activationAnswer({
       dismissed: dismissed.includes(key),
       submodules: [],
       ...(key === "run_onboard" ? { onboard: null } : {}),
-      ...(key === "connect_harness" ? { machines: [], projects: [] } : {}),
+      ...(key === "connect_harness" ? { machines: [] } : {}),
       ...(key === "finish_installation_wizard"
         ? { submodules: wizardSubmodules(), fully_complete: false } : {}),
       ...(extras[key] || {}),

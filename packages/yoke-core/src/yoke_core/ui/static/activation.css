@@ -126,8 +126,7 @@
   font-weight: 640;
 }
 .universe-app-root .activation-cta code,
-.universe-app-root .activation-copy code,
-.universe-app-root .activation-project code {
+.universe-app-root .activation-copy code {
   font-family: var(--yoke-font-mono);
   font-size: 12px;
   background: var(--yoke-surface-2);
@@ -159,10 +158,6 @@
 .universe-app-root .activation-check-optional {
   color: var(--yoke-muted);
   font-size: 11px;
-}
-.universe-app-root .activation-project {
-  margin: 5px 0 0;
-  font-size: 12.5px;
 }
 /* One card per supported harness surface. The status line is the meaning;
    colour only tints it, so the card still reads correctly in monochrome. */

@@ -193,7 +193,6 @@ test("the harness module answers per machine, never for the universe", async (t)
             "claude-code": true, "claude-cli": true, "claude-vscode": true,
           }),
         })],
-        projects: [{ slug: "yoke", workspace: "/Users/dev/yoke" }],
       },
     },
   });
@@ -240,7 +239,7 @@ test("the harness module answers per machine, never for the universe", async (t)
   // Why the unlit targets are not blockers explains the activation model;
   // the cards carry that themselves without a note beneath them.
   assert.equal(byClass(harness, "activation-note").length, 0);
-  // An activated module lists no project directories to open.
+  // The harness step has no project rows.
   assert.equal(byClass(harness, "activation-project").length, 0);
   // The unlocked third module carries its next-action copy.
   assert.ok(textOf(cards[2]).includes(
@@ -269,7 +268,6 @@ test("an unapproved harness reads red with its remediation", async (t) => {
             { codex: surface, "codex-cli": surface },
           ),
         })],
-        projects: [],
       },
     },
   });

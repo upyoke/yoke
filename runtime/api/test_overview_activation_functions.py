@@ -163,7 +163,7 @@ def test_tail_signals_fill_submodules_and_fully_complete(test_db):
     assert wizard["fully_complete"] is True
 
 
-def test_project_rows_carry_most_recent_workspace_or_none(test_db):
+def test_harness_payload_excludes_project_directories(test_db):
     # Explicit id: the fixture template seeds ids without consuming the
     # identity sequence, so a defaulted id would collide with a seeded row.
     test_db.execute(
@@ -174,10 +174,11 @@ def test_project_rows_carry_most_recent_workspace_or_none(test_db):
     test_db.commit()
     _seed_session(test_db, "s-old", workspace="/w/old", at="2026-01-01T00:00:00+00:00")
     _seed_session(test_db, "s-new", workspace="/w/new", at="2026-06-01T00:00:00+00:00")
-    projects = _modules_by_key(_get())["connect_harness"]["projects"]
-    by_slug = {p["slug"]: p["workspace"] for p in projects}
-    assert by_slug["yoke"] == "/w/new"
-    assert by_slug["quiet"] is None
+    result = _get()
+    for module in result["modules"]:
+        assert "projects" not in module
+        assert "project_directories" not in module
+    assert "project_directories" not in result
 
 
 def test_dismiss_requires_actor_and_scopes_to_the_actor(test_db):

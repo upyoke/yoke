@@ -115,17 +115,6 @@ def read_signals(conn: Any, actor_id: Optional[int] = None) -> Dict[str, Any]:
             actor_id=actor_id,
         ),
     )
-    directories = [
-        {"slug": str(row[0]), "workspace": row[1]}
-        for row in conn.execute(
-            "SELECT p.slug, s.workspace FROM projects p "
-            "LEFT JOIN LATERAL ("
-            "  SELECT workspace FROM harness_sessions h "
-            "  WHERE h.project_id = p.id "
-            "  ORDER BY h.last_heartbeat DESC LIMIT 1"
-            ") s ON TRUE ORDER BY p.id"
-        ).fetchall()
-    ]
     return {
         "github_connected": _guarded_exists(
             conn,
@@ -138,7 +127,6 @@ def read_signals(conn: Any, actor_id: Optional[int] = None) -> Dict[str, Any]:
             "SELECT 1 FROM project_capabilities WHERE type = 'aws-admin'",
         ),
         "machines": machines,
-        "project_directories": directories,
         "onboard_progress": read_onboard_progress(conn),
     }
 
@@ -295,7 +283,6 @@ def compute_activation(
             module["onboard"] = signals["onboard_progress"]
         if key == MODULE_CONNECT_HARNESS:
             module["machines"] = _harness_machines(signals["machines"])
-            module["projects"] = signals["project_directories"]
         modules.append(module)
         earlier_all_activated = earlier_all_activated and activated
     return {
