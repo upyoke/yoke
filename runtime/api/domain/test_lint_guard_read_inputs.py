@@ -27,11 +27,11 @@ def validate(monkeypatch):
     monkeypatch.setattr(validator, "occupying_claim", lambda *a, target, **k:
         SimpleNamespace() if target.startswith(FOREIGN) else None)
 
-    def run(command):
+    def run(command, tool_name="Bash"):
         analysis = analyze_shell_path_use(command)
         return validator.validate_targets(
             None, session_id="reader", targets=analysis.local_targets,
-            fallback_cwd=OWN, tool_name="Bash", command=command,
+            fallback_cwd=OWN, tool_name=tool_name, command=command,
             read_only=not analysis.direct_write, path_uses=analysis.uses,
         )
     return run
@@ -103,3 +103,7 @@ def test_an_input_path_reused_as_an_unknown_operand_keeps_scope_checks(validate,
 ])
 def test_content_file_after_option_terminator_grants_no_read_authority(validate, command):
     assert not validate(command).allow
+
+
+def test_read_role_without_a_declared_tool_keeps_scope_checks(validate):
+    assert not validate(f"cat {INPUT}", tool_name="").allow

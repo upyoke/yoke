@@ -83,6 +83,7 @@ def test_original_capacity_refusal_and_permitted_counterpart(
     [
         f"cat {HOME}/.yoke/config-private.json", f"ls {HOME}/.yoke",
         f"stat {HOME}/.yoke", f"file {HOME}/.yoke",
+        f"df -k {HOME}/.yoke && cat ~/.yoke/config-private.json",
     ],
 )
 def test_read_shapes_need_no_capacity_exemption(isolated_authority, command):
@@ -93,7 +94,6 @@ def test_read_shapes_need_no_capacity_exemption(isolated_authority, command):
     "command",
     [
         f"df -k {HOME}/.yoke && cat .yoke/config-private.json",
-        f"df -k {HOME}/.yoke && cat ~/.yoke/config-private.json",
         f"du -sh {HOME}/.yoke",
         f"cd {HOME}/.yoke && df -k .",
         f"touch {HOME}/.yoke/out",

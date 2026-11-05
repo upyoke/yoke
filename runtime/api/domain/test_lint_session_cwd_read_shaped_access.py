@@ -340,7 +340,7 @@ class TestSanctionedReadPaths:
         assert allowed.allow is True
 
     @pytest.mark.parametrize("target", DOT_READ_TARGETS)
-    def test_explicit_file_read_is_allowed_beside_a_scratch_redirect(self, conn, repo, target):
+    def test_excluded_target_stays_refused_beside_a_redirect(self, conn, repo, target):
         _seed_lane(conn, repo, session_id="sid-lane")
         command = f"cat {target} > /tmp/log"
-        assert _lane_verdict("Bash", {"command": command}).allow is True
+        assert _lane_verdict("Bash", {"command": command}).allow is False

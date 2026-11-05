@@ -154,6 +154,9 @@ def validate_targets(
         )
 
     for raw in targets_to_check:
+        roles = {use.role for use in path_uses if use.path == raw}
+        if tool_name.strip() and roles == {PathRole.READ}:
+            continue
         if _is_target_authorised(
             raw,
             claims=claims,
@@ -215,8 +218,6 @@ def _is_target_authorised(
     yoke_root: str = "",
 ) -> bool:
     roles = {use.role for use in path_uses if use.path == target}
-    if roles == {PathRole.READ}:
-        return True
     if _is_free_path(
         target,
         session_id=session_id,
