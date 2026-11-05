@@ -214,58 +214,38 @@ def test_live_cloud_refusals_validate_and_keep_cli_recovery(
         assert len(seen) == 1
 
 
-def test_response_type_refusals_survive_optimized_python():
-    import subprocess
-    import sys
+@pytest.mark.parametrize("operation", ["start", "poll"])
+def test_response_type_refusals_survive_optimized_python(operation):
+    from pathlib import Path
+    from types import ModuleType
 
-    script = """
-import sys
-import time
-began = time.monotonic()
-def mark(phase):
-    print(f"{phase}: {time.monotonic() - began:.3f}s", file=sys.stderr, flush=True)
-mark("imports started")
-from yoke_cli.config import hosted_machine_authorization as auth
-from yoke_contracts import machine_authorization as wire
-mark("imports complete")
-if __debug__ or sys.flags.optimize != 1:
-    raise SystemExit("optimized interpreter required")
-auth._post_json = lambda *a, **k: ({}, 200, {})
-auth._machine_identity = lambda: {"machine_id": "machine", "machine_name": "host"}
-auth.parse_authorization_response = lambda *a, **k: wire.MachineAuthorizationRefused(error="unexpected_outcome")
-for operation in ("start", "poll"):
-    mark(f"{operation} started")
-    try:
+    optimized = ModuleType(auth.__name__)
+    optimized.__package__ = auth.__package__
+    source = Path(auth.__file__).read_text()
+    # Compile production guards too: optimizing only a caller would miss asserts.
+    code = compile(
+        source + "\n_optimized = not __debug__\nassert False\n",
+        auth.__file__, "exec", dont_inherit=True, optimize=1,
+    )
+    exec(code, vars(optimized))
+    assert optimized._optimized
+    optimized._post_json = lambda *a, **k: ({}, 200, {})
+    optimized._machine_identity = lambda: {
+        "machine_id": "machine", "machine_name": "host",
+    }
+    optimized.parse_authorization_response = lambda *a, **k: (
+        wire.MachineAuthorizationRefused(error="unexpected_outcome")
+    )
+    with pytest.raises(wire.HostedMachineAuthorizationError) as exc:
         if operation == "start":
-            auth.start("https://app.upyoke.com")
+            optimized.start("https://app.upyoke.com")
         else:
-            pending = wire.PendingMachineAuthorization("https://app.upyoke.com", "secret", "CODE", "", "", 60, 2)
-            auth.complete(pending, sleep=lambda seconds: None, monotonic=lambda: 0)
-    except wire.HostedMachineAuthorizationError as exc:
-        print(f"{operation}: {exc}", flush=True)
-    else:
-        raise SystemExit(f"{operation}: missing named refusal")
-    mark(f"{operation} complete")
-"""
-    # Share cold optimized imports; each operation still proves its own refusal.
-    try:
-        result = subprocess.run(
-            [sys.executable, "-O", "-u", "-c", script],
-            text=True, capture_output=True, timeout=15,
-        )
-    except subprocess.TimeoutExpired as exc:
-        pytest.fail(
-            "optimized_authorization_timeout: inspect the last phase marker "
-            f"to distinguish imports from authorization; stderr={exc.stderr!r}; "
-            f"stdout={exc.stdout!r}",
-            pytrace=False,
-        )
-    assert result.returncode == 0, result.stderr
-    refusals = dict(line.split(": ", 1) for line in result.stdout.splitlines())
-    assert set(refusals) == {"start", "poll"}, result.stdout
-    for operation, refusal in refusals.items():
-        assert "authorization_response_invalid" in refusal, (operation, refusal)
-        assert "reconnect" in refusal, (operation, refusal)
+            pending = wire.PendingMachineAuthorization(
+                "https://app.upyoke.com", "secret", "CODE", "", "", 60, 2,
+            )
+            optimized.complete(pending, sleep=lambda seconds: None, monotonic=lambda: 0)
+    assert "authorization_response_invalid" in str(exc.value)
+    assert "reconnect" in str(exc.value)
 
 
 def test_every_mode_start_requires_the_same_machine_identity_and_platform():
