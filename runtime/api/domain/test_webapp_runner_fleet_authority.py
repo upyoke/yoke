@@ -136,6 +136,7 @@ def test_authority_drift_refuses_before_github_provider_construction(monkeypatch
         _runner_stack(
             monkeypatch,
             config_overrides={"github_api_url": "https://attacker.example"},
+            authority_overrides={"api_url": "https://api.github.com"},
             recorder=recorder,
         )
     assert recorder.resources == []
