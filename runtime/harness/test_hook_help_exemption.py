@@ -46,6 +46,7 @@ def test_print_only_commands(command):
     'yoke say "$(touch /tmp/example)" --help',
     'yoke dev run python3 --help', 'echo "yoke watch pytest --help"',
     'yoke watch pytest --help > /tmp/output', 'yoke unknown --help',
+    'yoke items --help | head',
     'yoke watch pytest --help\nyoke watch pytest -- tests/',
     'claude --help "', '',
 ])

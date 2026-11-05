@@ -3,7 +3,7 @@
  "title": "Adding or changing a harness adapter",
  "status": "draft-copy",
  "audience": "Maintainers",
- "sources": ["docs/harness-adapter-template.md", "docs/codex-source-reference.md", "docs/cursor-source-reference.md", "docs/harness-cursor-assessment.md", "docs/harness-linux.md", "docs/testing-verification/real-harness.md"],
+ "sources": ["docs/harness-adapter-template.md", "docs/harness-contributor-index.md", "docs/harness-cursor-assessment.md", "docs/harness-linux.md", "docs/testing-verification/real-harness.md"],
  "page": "contributing-guides",
  "position": 5
 }
