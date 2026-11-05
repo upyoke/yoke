@@ -31,8 +31,9 @@ SUBMIT = {"bundle_id": "bundle-behind-lock", "bundle_digest": "0" * 64}
     ],
 )
 def test_bounded_call_refuses_with_recovery_when_the_execution_row_stays_locked(
-    test_db, function, payload
+    test_db, function, payload, monkeypatch
 ):
+    monkeypatch.setattr("yoke_core.domain.qa_plan_lock.QA_PLAN_LOCK_TIMEOUT_MS", 100)
     run_id = "run-execution-lock-bound"
     execution = _shared_execution(test_db, run_id, (9301, 9302))
     holder = connect_test_database(test_db.info.dbname)
@@ -61,7 +62,7 @@ def test_bounded_call_refuses_with_recovery_when_the_execution_row_stays_locked(
     assert response.error.code == "qa_plan_busy"
     assert response.error.message.startswith("qa_plan_busy:")
     assert "Retry the same command" in response.error.message
-    assert waited < 5
+    assert 0.1 <= waited < 0.5
     state, reason = test_db.execute(
         "SELECT state,release_reason FROM qa_plan_executions WHERE id=%s",
         (str(execution["id"]),),

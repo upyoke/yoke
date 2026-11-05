@@ -1,20 +1,13 @@
-"""A deploy driver's liveness writes refuse a busy run row instead of queueing.
-
-The driver attachment is bookkeeping about whether this process is still alive.
-Waiting for it is therefore self-defeating: a heartbeat queued behind another
-transaction stops reporting the very liveness it exists to report, and the
-watcher that reads its stream has nothing else to print. Worse, the release on
-shutdown queues the same way, so a process asked to stop cannot.
-
-Both sides here take the run row under a bounded lock and refuse by name --
-holder pid, age and state -- leaving the caller's transaction intact.
-"""
+"""Run liveness writes refuse busy rows and preserve the caller transaction."""
 
 from __future__ import annotations
 
 import time
+from unittest.mock import Mock
 
 import pytest
+
+from yoke_core.domain import deployment_runs_lock as run_lock
 
 from yoke_contracts.timestamps import parse_instant
 
@@ -27,7 +20,6 @@ from yoke_core.domain.deployment_run_driver_attachment import (
 )
 from yoke_core.domain.deployment_runs_lock import (
     RUN_BUSY_CODE,
-    RUN_ROW_LOCK_TIMEOUT_MS,
     DeploymentRunBusy,
     lock_run,
 )
@@ -36,9 +28,15 @@ pytest_plugins = ["runtime.api.deployment_runs_test_db"]
 
 NOW = parse_instant("2026-09-21T12:00:00Z")
 
-#: Generous enough that a loaded shared cluster cannot flake it, far below the
-#: unbounded wait this replaces -- the reported stall ran past eleven minutes.
-PROMPT_SECONDS = 30.0
+PROMPT_SECONDS = 0.5
+RUN_ROW_LOCK_TIMEOUT_MS = 100
+
+
+@pytest.fixture(autouse=True)
+def short_lock_bound(monkeypatch, request):
+    if request.node.name == "test_an_uncontended_row_still_locks_and_reports_its_status":
+        return
+    monkeypatch.setattr(run_lock, "RUN_ROW_LOCK_TIMEOUT_MS", RUN_ROW_LOCK_TIMEOUT_MS)
 
 
 def _hold_run_row(conn, run_id: str) -> None:
@@ -136,12 +134,19 @@ def test_release_refuses_a_busy_row_so_shutdown_always_completes(
         driver.close()
 
 
-def test_an_uncontended_row_still_locks_and_reports_its_status(db_path: str) -> None:
-    """The bound narrows nothing when the row is free."""
+def test_an_uncontended_row_still_locks_and_reports_its_status(
+    db_path: str, monkeypatch
+) -> None:
+    """The production SQL uses its declared bound without waiting on a lock."""
+    assert run_lock.RUN_ROW_LOCK_TIMEOUT_MS == 2000
     run_id = dr.cmd_create_run("yoke", "flow-main", db_path=db_path)
     conn = connect_test_db(db_path)
     try:
-        assert lock_run(conn, run_id) == "created"
+        recorded = Mock(wraps=conn)
+        assert lock_run(recorded, run_id) == "created"
+        recorded.execute.assert_any_call(
+            "SELECT set_config('lock_timeout', %s, true)", ("2000ms",)
+        )
         assert lock_run(conn, "run-does-not-exist") is None
     finally:
         conn.rollback()

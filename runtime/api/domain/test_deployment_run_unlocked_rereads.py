@@ -14,6 +14,8 @@ import time
 import psycopg
 import pytest
 
+from yoke_core.domain import deployment_runs_lock as run_lock
+
 from runtime.api.domain import test_deployment_qa_pinned_release_reads as pinned
 from runtime.api.domain.test_deployment_qa_stage_execution import (
     _plan,
@@ -35,14 +37,19 @@ from yoke_core.domain.deployment_runs_crud_mutate import cmd_remove_item, cmd_up
 from yoke_core.domain.deployment_runs_lock import (
     RUN_BUSY_CODE,
     RUN_READ_ATTEMPTS,
-    RUN_ROW_LOCK_TIMEOUT_MS,
     DeploymentRunChanging,
 )
 from yoke_core.domain.qa_plan_rematerialize_deployment import (
     rematerialize_for_deployment_stage,
 )
 
-PROMPT_SECONDS = 30.0
+PROMPT_SECONDS = 0.5
+RUN_ROW_LOCK_TIMEOUT_MS = 100
+
+
+@pytest.fixture(autouse=True)
+def short_lock_bound(monkeypatch):
+    monkeypatch.setattr(run_lock, "RUN_ROW_LOCK_TIMEOUT_MS", RUN_ROW_LOCK_TIMEOUT_MS)
 
 
 def _run_row_locked(run_id: str) -> bool:
@@ -225,9 +232,7 @@ def test_status_update_refuses_a_held_member_lock_within_the_bound(test_db):
         started = time.monotonic()
         refusal = cmd_update(run_id, "status", "failed")
         assert refusal is not None
-        _assert_prompt_lock_refusal(
-            started, refusal.removeprefix("Error: "), run_id
-        )
+        _assert_prompt_lock_refusal(started, refusal.removeprefix("Error: "), run_id)
     finally:
         holder.rollback()
         holder.close()
@@ -258,7 +263,10 @@ def test_materialize_and_refresh_every_member_grow_at_most_linearly(test_db):
         ("run-unlocked-reread-forty", 26001, 40),
     ):
         members = _seed_flow_plan_members(test_db, run_id, first, size)
-        materialized, refreshed = LockWindowRecorder(test_db), LockWindowRecorder(test_db)
+        materialized, refreshed = (
+            LockWindowRecorder(test_db),
+            LockWindowRecorder(test_db),
+        )
         for member in members:
             materialize_deployment_qa_stage(
                 materialized,

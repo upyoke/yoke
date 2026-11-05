@@ -10,11 +10,20 @@ import pytest
 
 from public_installer_helpers import (
     FAKE_INSTALL_PY,
-    linux_stub_bin,
+    linux_stub_bin as _linux_stub_bin,
     run_shim,
     write_executable,
     write_uv_stub,
 )
+
+
+def linux_stub_bin(tmp_path):
+    bin_dir = _linux_stub_bin(tmp_path)
+    write_executable(
+        bin_dir / "sleep",
+        f'#!/bin/sh\n[ "$1" != 1 ] || set -- 0.05\nexec {shutil.which("sleep")} "$@"\n',
+    )
+    return bin_dir
 
 
 @pytest.mark.parametrize("force_color", ["0", "1"])
@@ -103,7 +112,7 @@ def test_uv_bootstrap_without_ps(tmp_path: Path, times_out: bool) -> None:
     bin_dir = linux_stub_bin(tmp_path)
     # Restrict PATH to the bootstrap's actual commands; ps is absent, rather
     # than a stub that would still satisfy command -v.
-    for name in ("cat", "chmod", "cp", "env", "mktemp", "rm", "rmdir", "sleep"):
+    for name in ("cat", "chmod", "cp", "env", "mktemp", "rm", "rmdir"):
         executable = shutil.which(name)
         assert executable is not None
         (bin_dir / name).symlink_to(executable)
