@@ -1,4 +1,4 @@
-// Each file owns its globals and module cache inside one JavaScript engine.
+// Run files sequentially with fresh module instances and restored globals.
 import { readFileSync } from 'node:fs';
 import { isBuiltin } from 'node:module';
 import * as nodeTest from 'node:test';
@@ -7,30 +7,31 @@ import vm from 'node:vm';
 
 const sources = new Map();
 const builtins = new Map();
-const intrinsics = new Set(vm.runInNewContext('Object.getOwnPropertyNames(globalThis)'));
-
-function sandboxFor(t) {
-  const sandbox = {};
-  for (const name of Object.getOwnPropertyNames(globalThis)) {
-    if (!intrinsics.has(name) && name !== 'global') {
-      Object.defineProperty(sandbox, name, Object.getOwnPropertyDescriptor(globalThis, name));
-    }
-  }
+// Node's web globals install a permanent dispatcher symbol on first access.
+void globalThis.Response;
+function isolateGlobals(t) {
+  const globals = Object.getOwnPropertyDescriptors(globalThis);
   const handles = [];
   for (const [start, stop] of [
     ['setTimeout', 'clearTimeout'], ['setInterval', 'clearInterval'],
     ['setImmediate', 'clearImmediate'],
   ]) {
-    sandbox[start] = (...args) => {
-      const handle = globalThis[start](...args);
-      handles.push(() => globalThis[stop](handle));
+    const schedule = globalThis[start];
+    const clear = globalThis[stop];
+    globalThis[start] = (...args) => {
+      const handle = schedule(...args);
+      handles.push(() => clear(handle));
       return handle;
     };
   }
-  t.after(() => { for (const clear of handles) clear(); });
-  const context = vm.createContext(sandbox);
-  vm.runInContext('global = globalThis', context);
-  return context;
+  t.after(() => {
+    for (const clear of handles) clear();
+    nodeTest.mock.reset();
+    for (const name of Reflect.ownKeys(globalThis)) {
+      if (!Object.hasOwn(globals, name)) delete globalThis[name];
+    }
+    Object.defineProperties(globalThis, globals);
+  });
 }
 
 function testExports(pending) {
@@ -53,7 +54,7 @@ function testExports(pending) {
   return exports;
 }
 
-function loaderFor(context, pending) {
+function loaderFor(pending) {
   const modules = new Map();
   async function load(specifier, parent) {
     const builtin = isBuiltin(specifier);
@@ -65,14 +66,15 @@ function loaderFor(context, pending) {
           const exports = identifier === 'node:test' ? testExports(pending) : await builtins.get(identifier);
           return new vm.SyntheticModule(Object.keys(exports), function () {
             for (const [name, value] of Object.entries(exports)) this.setExport(name, value);
-          }, { context, identifier });
+          }, { identifier });
         }
         const url = new URL(identifier);
         const filename = url.pathname;
         if (!sources.has(filename)) sources.set(filename, { text: readFileSync(url, 'utf8') });
         const source = sources.get(filename);
+        // Reuse compiled code, never a module's evaluated state.
         const module = new vm.SourceTextModule(source.text, {
-          context, identifier, cachedData: source.cachedData,
+          identifier, cachedData: source.cachedData,
           initializeImportMeta(meta) { meta.url = identifier; },
           importModuleDynamically: evaluate,
         });
@@ -98,7 +100,8 @@ if (!files.length) throw new Error('javascript_modules_missing: pass test files'
 for (const filename of files) {
   await nodeTest.test(filename, async (t) => {
     const pending = [];
-    const evaluate = loaderFor(sandboxFor(t), pending);
+    isolateGlobals(t);
+    const evaluate = loaderFor(pending);
     await evaluate(pathToFileURL(filename).href);
     // Await every registered test before its file's parent can finish.
     for (let next = 0; next < pending.length; next++) await pending[next];
