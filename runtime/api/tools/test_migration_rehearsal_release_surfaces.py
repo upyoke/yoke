@@ -22,6 +22,11 @@ from yoke_core.tools import migration_rehearsal_release_surfaces as surfaces
 from yoke_core.domain.deployment_runs_crud_mutate import CompositionRefused
 from yoke_core.domain.deployment_run_ci_tested_source import ReleaseSourceRefused
 from yoke_core.domain.project_github_auth_models import MissingAppCredentials
+from yoke_core.domain.deployment_start_timing import (
+    start_step,
+    timing_facts,
+    timing_scope,
+)
 from yoke_core.tools.yoke_migration_rehearsal import (
     rehearsal_plan,
     verify_migrated_copy,
@@ -119,7 +124,9 @@ def test_deployment_run_resolve_and_create_must_agree(monkeypatch: Any) -> None:
         calls.append((project, flow))
         return "persistent", 7, "stage"
 
-    def create(project: str, flow: str, **_kwargs: Any) -> str:
+    def create(project: str, flow: str, **kwargs: Any) -> str:
+        assert "release_lineage" not in kwargs
+        timing_facts(run_id="run-1", source_sha="leak")
         calls.append((project, flow))
         created["run-1"] = ("persistent", 7)
         return "run-1"
@@ -127,9 +134,16 @@ def test_deployment_run_resolve_and_create_must_agree(monkeypatch: Any) -> None:
     monkeypatch.setattr(surfaces, "cmd_resolve_target", resolve)
     monkeypatch.setattr(surfaces, "cmd_create_run", create)
 
-    surfaces._exercise_deployment_run_drivers(_Connection(handler))
+    with timing_scope("run-outer", collect=True) as records:
+        timing_facts(source_sha="a" * 40)
+        surfaces._exercise_deployment_run_drivers(_Connection(handler))
+        with start_step("preflight_progress"):
+            pass
 
     assert calls == [("yoke", "release-stage"), ("yoke", "release-stage")]
+    assert len(records) == 2
+    assert all(record["run_id"] == "run-outer" for record in records)
+    assert all(record["source_sha"] == "a" * 40 for record in records)
 
 
 def test_release_pin_record_and_verify_round_trip(monkeypatch: Any) -> None:
@@ -241,18 +255,21 @@ def test_broken_run_driver_still_fails_the_rehearsal(monkeypatch: Any) -> None:
     assert "composition_resolution is missing" in detail
 
 
-def test_custody_flow_with_a_prior_release_does_not_fail_the_rehearsal(
+def test_custody_flow_with_a_prior_release_reaches_stored_target_check(
     test_db: Any, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """The shape that broke a prod preflight: custody flow, prior release.
-
-    Carried-work derivation compares the run's lineage against the preceding
-    succeeded run's. The rehearsal lineage names no real commit, so a flow
-    that takes delivery custody and has already shipped once cannot resolve
-    it and composition refuses. The migrated rows were read and judged, which
-    is what the rehearsal asked, so the verdict must not fail it.
-    """
-    two_project_release(test_db, tmp_path, monkeypatch)
+    """A lineage-less rehearsal creates a custody run even after a release."""
+    stages = json.dumps(
+        [
+            {
+                "name": "release",
+                "step_runner": "auto",
+                "stage_kind": "execution",
+                "scope": "run",
+            }
+        ]
+    )
+    two_project_release(test_db, tmp_path, monkeypatch, stages=stages)
     environment = test_db.execute(
         "SELECT id FROM environments WHERE project_id=1 AND name='stage'"
     ).fetchone()[0]
@@ -270,21 +287,13 @@ def test_custody_flow_with_a_prior_release_does_not_fail_the_rehearsal(
         (environment,),
     )
     test_db.commit()
-    before = test_db.execute("SELECT count(*) FROM deployment_runs").fetchone()[0]
-
-    # Establish that this flow really does refuse, so the rehearsal below is
-    # proving tolerance rather than passing because nothing refused.
-    with pytest.raises(CompositionRefused) as refusal:
-        surfaces.cmd_create_run(
-            "yoke",
-            CARRIER_FLOW,
-            release_lineage=surfaces._REHEARSAL_LINEAGE,
-            created_by="migration-rehearsal",
-        )
-    assert "current_release_lineage_unreachable" in str(refusal.value)
 
     surfaces._exercise_deployment_run_drivers(test_db)
 
-    assert (
-        test_db.execute("SELECT count(*) FROM deployment_runs").fetchone()[0] == before
-    )
+    created = test_db.execute(
+        "SELECT target_tier,target_environment_id FROM deployment_runs "
+        "WHERE flow=%s AND created_by='migration-rehearsal'",
+        (CARRIER_FLOW,),
+    ).fetchone()
+    assert created is not None
+    assert tuple(created) == ("persistent", environment)
