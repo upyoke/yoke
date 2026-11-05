@@ -65,7 +65,7 @@ def decision_requests_ask(args):
         action="append",
         type=_option,
         default=[],
-        help="Repeat ID=LABEL[::DETAIL] for up to eight choices; label at most 80 characters and detail at most 500.",
+        help="Repeat ID=LABEL[::DETAIL] for up to eight choices; label at most 80 characters and detail at most 500. Write DETAIL as what happens if the user picks this option, in plain words.",
     )
     parser.add_argument("--recommend", help="Recommended option id.")
     parser.add_argument(

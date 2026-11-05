@@ -122,3 +122,11 @@ def test_missing_attachment_refuses_before_dispatch(calls, tmp_path, capsys):
     assert exc.value.code == 2
     assert calls == []
     assert "operator_question_attachment_missing_file" in capsys.readouterr().err
+
+
+def test_ask_help_teaches_option_consequences(capsys):
+    with pytest.raises(SystemExit) as exc:
+        adapter.decision_requests_ask(["--help"])
+    assert exc.value.code == 0
+    output = " ".join(capsys.readouterr().out.split())
+    assert "Write DETAIL as what happens if the user picks this option, in plain words." in output

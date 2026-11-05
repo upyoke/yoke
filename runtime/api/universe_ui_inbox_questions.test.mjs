@@ -21,7 +21,11 @@ test("a recommended option resolves the same request and moves its card to Decid
   const options = byClass(main, "inbox-question-option");
   assert.equal(options[0].textContent, "Blue");
   assert(options[0].classList.contains("primary"));
-  assert.match(byClass(main, "inbox-question-choice")[0].textContent, /Recommended/);
+  const choice = byClass(main, "inbox-question-choice")[0];
+  assert.equal(choice.children[0].textContent, "Recommended");
+  assert.equal(choice.children[1], options[0]);
+  assert.equal(choice.children[2].textContent, "Matches the header");
+  assert.equal(byClass(main, "inbox-question-choice")[1].children[0].textContent, "");
   options[0].dispatchEvent(new Event("click"));
   await settle();
   const call = client.requests.find((request) => request.function === "decision_requests.resolve");
@@ -90,4 +94,20 @@ test("a project-less question renders without a project label and resolves", asy
   assert.deepEqual(client.requests.find(request => request.function === "decision_requests.resolve").payload,
     { request_id: 9, action: "blue" });
   assert.match(inboxSection(main, "decided").textContent, /Blue/);
+});
+
+
+test("context is visible text and Asked by prefers the holdings label over the item", async () => {
+  const row = question();
+  row.requesting_session_label = "Morgan · steering seat for example";
+  row.subject_context = { ...row.subject_context, context: "Visible **context**", item_ref: "ITEM-9" };
+  const { main } = renderInbox("all", [row]);
+  await settle();
+  const context = byClass(main, "inbox-question-context")[0];
+  assert.match(context.textContent, /Visible context/);
+  assert.equal(context.tagName, "DIV");
+  const tags = (node) => [node.tagName, ...Array.from(node.children || []).flatMap(tags)];
+  assert(!tags(context).some((tag) => ["DETAILS", "SUMMARY"].includes(tag)));
+  assert.match(main.textContent, /Asked by Morgan · steering seat for example/);
+  assert.doesNotMatch(main.textContent, /Asked by ITEM-9/);
 });

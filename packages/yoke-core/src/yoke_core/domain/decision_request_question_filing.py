@@ -72,20 +72,12 @@ def list_questions(conn: Any, session_id: str, status: str | None = None):
     return [rows[int(request_id)] for request_id in ids]
 
 
-def describe_question(conn, row):
-    from yoke_core.domain.decision_requests import _p
-    from yoke_core.domain.actor_render import actor_display_labels
+def describe_question(conn, row, requester_labels):
     from yoke_core.domain.project_identity import render_item_ref
 
-    session = conn.execute(
-        f"SELECT actor_id, executor FROM harness_sessions WHERE session_id={_p(conn)}",
-        (row["requesting_session_id"],),
-    ).fetchone()
-    if session is not None:
-        name = actor_display_labels(conn, [session[0]]).get(
-            session[0], "person unavailable"
-        )
-        row["requesting_session_label"] = f"{name} · {session[1]}"
+    label = requester_labels.get(row["requesting_session_id"])
+    if label:
+        row["requesting_session_label"] = label
     artifacts = row["subject_context"].get("artifacts", [])
     row["attachment_count"] = len(artifacts)
     row["attachment_names"] = [

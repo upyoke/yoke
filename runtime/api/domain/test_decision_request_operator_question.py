@@ -38,6 +38,9 @@ def conn():
             INSERT INTO harness_sessions VALUES ('steering', 10, 2, 'claude-code', NULL, NULL);
         """)
         value.execute("INSERT INTO actor_project_roles VALUES (1, 10, 4, 'now')")
+        from runtime.api.domain.test_decision_request_requester_label import add_holdings_schema
+
+        add_holdings_schema(value)
         yield value
 
 
@@ -166,7 +169,7 @@ def test_delivery_falls_back_only_to_current_holder(conn, monkeypatch):
         "UPDATE harness_sessions SET ended_at='ended' WHERE session_id='worker'"
     )
     conn.execute(
-        "INSERT INTO work_claims VALUES (1, 'other', 'item', ?, NULL)",
+        "INSERT INTO work_claims (id, session_id, target_kind, scope, released_at) VALUES (1, 'other', 'item', ?, NULL)",
         (json.dumps({"item_id": 12}),),
     )
     answered = resolve_decision_request(conn, row["id"], actor_id=2, action="blue")

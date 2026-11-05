@@ -29,15 +29,14 @@ export function questionCard(context, row, { onAct, compact = false } = {}) {
     return card;
   }
   card.appendChild(el(documentNode, "h3", "review-title", facts.question || "Question unavailable"));
-  const subject = facts.item_ref || row.requesting_session_label || row.requesting_session_id || "Session";
+  const subject = row.requesting_session_label || row.requesting_session_id || "Session";
   const asker = el(documentNode, "p", "review-context", `Asked by ${subject} · `);
   asker.appendChild(relativeTime(documentNode, row.created_at));
   card.appendChild(asker);
   const evidence = evidenceStrip(context, facts.artifacts || []);
   if (evidence) card.appendChild(evidence);
   if (facts.context) {
-    const disclosure = el(documentNode, "details", "inbox-question-context");
-    disclosure.appendChild(el(documentNode, "summary", null, "Context"));
+    const disclosure = el(documentNode, "div", "inbox-question-context");
     disclosure.appendChild(renderMarkdown(documentNode, facts.context));
     card.appendChild(disclosure);
   }
@@ -51,8 +50,10 @@ export function questionCard(context, row, { onAct, compact = false } = {}) {
       const button = el(documentNode, "button", `item-button inbox-question-option${recommended ? " primary" : ""}`, option.label);
       button.type = "button";
       button.addEventListener("click", () => onAct(row, option.id, card));
+      const tag = el(documentNode, "div", "inbox-question-tag");
+      if (recommended) tag.appendChild(el(documentNode, "small", "inbox-question-recommended", "Recommended"));
+      choice.appendChild(tag);
       choice.appendChild(button);
-      if (recommended) choice.appendChild(el(documentNode, "small", "review-context", "Recommended"));
       if (option.detail) choice.appendChild(el(documentNode, "p", "review-context", option.detail));
       actions.appendChild(choice);
     }

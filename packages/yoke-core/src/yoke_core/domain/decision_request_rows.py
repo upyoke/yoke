@@ -49,6 +49,12 @@ def request_rows(conn: Any, request_ids: Iterable[int]) -> dict[int, dict[str, A
         conn, (int(row["audience_id"]) for row in rows)
     )
     answers = decisions_for_requests(conn, ids)
+    from yoke_core.domain.decision_request_requester_label import requester_labels
+
+    labels = requester_labels(conn, [
+        row["requesting_session_id"] for row in rows
+        if row["kind"] == "operator_question" and row["requesting_session_id"]
+    ])
     composed: dict[int, dict[str, Any]] = {}
     for raw in rows:
         result = dict(raw)
@@ -85,7 +91,7 @@ def request_rows(conn: Any, request_ids: Iterable[int]) -> dict[int, dict[str, A
                 describe_question,
             )
 
-            describe_question(conn, result)
+            describe_question(conn, result, labels)
         result["actions"] = (
             []
             if result["kind"] in RETIRED_DECISION_KINDS
