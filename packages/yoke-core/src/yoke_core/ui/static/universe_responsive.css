@@ -245,7 +245,6 @@
   /* The wide field gives up its space to the icon button, which opens the
      same dialog: search survives the narrow bar instead of disappearing with
      the room the field needed. */
-  .universe-app-root .brand,
   .universe-app-root .header-search,
   .universe-app-root .actor-kind { display: none; }
   .universe-app-root .content {
