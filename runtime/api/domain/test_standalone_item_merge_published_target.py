@@ -135,7 +135,8 @@ def test_permission_failure_keeps_its_original_diagnostic(monkeypatch):
     assert "merge_target_moved" not in warning
 
 
-def test_pin_only_target_advance_self_recovers(checkout, monkeypatch):
+@pytest.mark.parametrize("pin_advances", [1, 3])
+def test_pin_only_target_advance_self_recovers(checkout, monkeypatch, pin_advances):
     repo, remote = checkout
     other = repo.parent / "other"
     git(repo, "clone", "--branch", "main", str(remote), str(other))
@@ -150,18 +151,20 @@ def test_pin_only_target_advance_self_recovers(checkout, monkeypatch):
         git(repo, "checkout", "ITEM-1")
         git(repo, "merge", "--no-edit", "origin/main")
         result = integrate_candidate(**kwargs)
-        if len(attempts) == 1:
+        if len(attempts) <= pin_advances:
             unpublished.append(git(repo, "rev-parse", "main"))
-            (other / "pin.txt").write_text("0.1.1\n")
+            (other / "pin.txt").write_text(f"0.1.{len(attempts)}\n")
             git(other, "add", "pin.txt")
-            git(other, "commit", "-m", "Pin prod Yoke 0.1.1")
+            git(other, "commit", "-m", f"Pin prod Yoke 0.1.{len(attempts)}")
             git(other, "push", "origin", "main")
         return result
 
     monkeypatch.setattr(boundary, "_run_merge_engine", engine)
     outcome = merge(repo)
-    assert outcome.ok
-    assert len(attempts) == 2
+    assert outcome.ok is (pin_advances == 1)
+    assert len(attempts) == min(pin_advances + 1, 3)
+    if pin_advances == 3:
+        assert outcome.error.startswith("merge_target_moved:")
     retained = "ITEM-1-unpublished-" + unpublished[0][:12]
     assert git(repo, "rev-parse", retained) == unpublished[0]
     assert any(

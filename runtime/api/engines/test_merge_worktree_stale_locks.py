@@ -128,7 +128,7 @@ class TestRunnerStaleLockRetry:
             check_calls["n"] += 1
             if check_calls["n"] == 1:
                 return (
-                    "Merge lock held by session 99999-1 on branch 'STALE-LOCK-BRANCH'"
+                    "Merge lock held by STALE-LOCK-BRANCH (holder process 99999-1)"
                 )
             return None
 
