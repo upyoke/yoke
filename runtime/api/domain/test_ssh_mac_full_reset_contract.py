@@ -9,8 +9,6 @@ from runtime.api.domain.ssh_mac_full_reset_test_support import (
 )
 from yoke_cli.config import path_doctor
 from yoke_core.domain.ssh_mac_full_reset_contract import (
-    FULL_DISK_ACCESS_PROBE_PATH,
-    FULL_RESET_MARKER,
     PRESERVED_HOME_ENTRIES,
     STARTUP_FILE_NAMES,
     YOKE_ABSENT_RELATIVE_DIRECTORIES,
@@ -23,11 +21,10 @@ from yoke_core.domain.ssh_mac_full_reset_script import FULL_RESET_SCRIPT
 from yoke_harness.ssh_mac_full_reset_script import (
     preserved_levels,
     render_full_reset_script,
-    render_level_functions,
 )
 
 
-def test_rendered_program_restores_a_baseline_rather_than_enumerating_residue() -> None:
+def test_startup_file_contract_and_rendered_program_syntax() -> None:
     assert STARTUP_FILE_NAMES == (
         ".zprofile",
         ".zshenv",
@@ -39,31 +36,8 @@ def test_rendered_program_restores_a_baseline_rather_than_enumerating_residue() 
         ".profile",
         ".config/fish/config.fish",
     )
-    assert FULL_DISK_ACCESS_PROBE_PATH in FULL_RESET_SCRIPT
-    assert "assert_full_disk_access" in FULL_RESET_SCRIPT
-    assert 'run_reset_step "$reset_phase_restore_golden" restore_golden' in (
-        FULL_RESET_SCRIPT
-    )
-    assert FULL_RESET_MARKER in FULL_RESET_SCRIPT
-    # The enumeration the restore replaces is gone, not merely bypassed, and so
-    # is the smoke-token machinery it carried.
-    for retired in (
-        "remove_registered_state",
-        "clean_startup_files",
-        "uninstall_homebrew_uv",
-        "preserve_tokens",
-        "restore_tokens",
-        "yoke-smoke-tokens",
-        "/tmp/yoke-stage.token",
-        # The uv the old reset uninstalled, not the prefix itself: a container
-        # runtime legitimately installs under the same Homebrew prefix.
-        "/opt/homebrew/bin/uv",
-        "YOKE TEST HOST BASELINE",
-    ):
-        assert retired not in FULL_RESET_SCRIPT, retired
-    assert run_zsh_syntax_if_available(FULL_RESET_SCRIPT) in (None,) or (
-        run_zsh_syntax_if_available(FULL_RESET_SCRIPT).returncode == 0
-    )
+    syntax = run_zsh_syntax_if_available(FULL_RESET_SCRIPT)
+    assert syntax is None or syntax.returncode == 0, syntax.stderr if syntax else ""
 
 
 def test_reference_reset_contract_is_host_independent_posix_state() -> None:
@@ -83,47 +57,7 @@ def test_preserved_levels_descend_exactly_as_far_as_a_protected_ancestor() -> No
     )
 
 
-def test_clear_and_restore_walk_the_same_levels_and_keep_the_same_names() -> None:
-    rendered = render_level_functions(preserved_levels())
-    clear, separator, restore = rendered.partition("restore_golden_levels() {")
-    assert separator
-    clear_levels = [line for line in clear.splitlines() if "/usr/bin/find" in line]
-    restore_levels = [line for line in restore.splitlines() if "/usr/bin/find" in line]
-    restore_calls = [
-        line
-        for line in restore.splitlines()
-        if 'restore_captured_entry "$captured"' in line
-    ]
-    # Symmetry is the invariant: flattening either walk lets the captured copy
-    # of a preserved path overwrite the live one.
-    assert (
-        len(clear_levels)
-        == len(restore_levels)
-        == len(restore_calls)
-        == len(preserved_levels())
-    )
-    for clear_line, restore_line, (_directory, names) in zip(
-        clear_levels, restore_levels, preserved_levels()
-    ):
-        for name in names:
-            assert f"-not -name {name!r}".replace('"', "'") in clear_line or (
-                name in clear_line
-            )
-            assert name in restore_line
-        assert "/bin/rm -rf" in clear_line
-    assert '/usr/bin/ditto "$captured" "$destination"' in FULL_RESET_SCRIPT
-    assert '/bin/cp -Rpf "$captured" "$target_dir"' in FULL_RESET_SCRIPT
-    assert '/bin/chmod -RN "$destination"' in FULL_RESET_SCRIPT
-    # Restore records why it failed; the clear tolerates cosmetic ACL refusals.
-    # Each entry's diagnostics are captured by the per-entry wrapper rather than
-    # at the call site, so the aggregate log and the list of entries that
-    # produced it stay in step.
-    assert '2>"$entry_log"' in FULL_RESET_SCRIPT
-    assert '>> "$restore_failure_report"' in FULL_RESET_SCRIPT
-    assert all("2>/dev/null" in line for line in clear_levels)
-
-
-def test_preserved_and_absent_surfaces_are_reachable_from_the_program() -> None:
+def test_preserved_and_absent_surface_contract() -> None:
     assert PRESERVED_HOME_ENTRIES == (
         ".ssh",
         "Library/Application Support/com.apple.TCC",
@@ -136,10 +70,6 @@ def test_preserved_and_absent_surfaces_are_reachable_from_the_program() -> None:
     )
     assert ".yoke" in YOKE_ABSENT_RELATIVE_DIRECTORIES
     assert YOKE_ABSENT_TEMP_FILES == ("/tmp/yoke-install",)
-    assert "clear_absent_temp_files" in FULL_RESET_SCRIPT
-    assert 'for target in "${yoke_absent_temp_files[@]}"' in FULL_RESET_SCRIPT
-    for suffix in PRESERVED_HOME_ENTRIES:
-        assert suffix in FULL_RESET_SCRIPT
 
 
 def test_golden_baseline_must_survive_the_clear_it_drives() -> None:

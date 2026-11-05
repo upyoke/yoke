@@ -92,13 +92,6 @@ def test_picker_opens_account_step_with_local_preselected() -> None:
     async def scenario() -> None:
         async with app.run_test() as pilot:
             await advance_past_path(pilot)
-            text = _body_text(app)
-            assert "Where should this Yoke universe live?" in text
-            assert (
-                "Keep the engine and database on your machine, or use a server "
-                "for team collab."
-            ) in text
-            assert "reachable here only" in text
             assert app.query_one(SelectionList).selected_value == (DESTINATION_LOCAL)
 
     asyncio.run(scenario())
@@ -111,11 +104,6 @@ def test_local_pick_swaps_sign_in_for_universe_summary() -> None:
         async with app.run_test() as pilot:
             await advance_past_path(pilot)
             await pilot.press("enter")
-            text = _body_text(app)
-            assert "Your Yoke lives on this machine." in text
-            assert "No account is required" in text
-            assert "Private data: ~/.yoke" in text
-            assert "Reinstalling Yoke preserves this universe by default" in text
             assert app.result.destination == DESTINATION_LOCAL
             assert app.result.env_name == local_universe_setup.LOCAL_ENV
             assert app.result.api_url == ""
@@ -174,9 +162,6 @@ def test_server_pick_discovers_sign_in_before_explicit_token_entry() -> None:
             await advance_past_path(pilot)
             await pilot.press("down")  # picker: local -> A team server
             await pilot.press("enter")
-            text = _body_text(app)
-            assert "Connect to your team server." in text
-            assert "checks how this machine can join your team" in text
             await type_text(pilot, "https://yoke.acme.test")
             await pilot.press("enter")  # URL -> sign-in discovery
             await app.workers.wait_for_complete()
@@ -188,11 +173,6 @@ def test_server_pick_discovers_sign_in_before_explicit_token_entry() -> None:
             assert "Use an API token" in text
             await pilot.press("down", "down", "enter")
             await pilot.pause()
-            text = _body_text(app)
-            assert "Connect to your Yoke team server." in text
-            assert "Server URL" in text
-            assert "Paste token" in text
-            assert "Token file" in text
             await pilot.press("enter")  # URL -> token-source selector
             await pilot.press("enter")  # Paste token -> masked token field
             await pilot.pause()

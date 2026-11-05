@@ -55,6 +55,40 @@ def test_github_machine_help_and_registry(capsys) -> None:
     assert "yoke github disconnect" in disconnect_out
     assert "--config" in disconnect_out
 
+    from yoke_cli.commands.adapters.usage import ADAPTER_USAGE
+    from yoke_cli.operation_inventory_data import WRAPPED_ROWS
+
+    repo_root = Path(__file__).resolve().parents[3]
+
+    assert yoke_operations_cli.main(["github", "pr", "create", "--help"]) != 0
+    captured = capsys.readouterr()
+    assert "unknown" in (captured.out + captured.err).lower()
+    assert ("github", "pr", "create") not in SUBCOMMAND_REGISTRY
+    assert "github.pr.create" not in ADAPTER_USAGE
+
+    summaries = json.loads((repo_root / (
+        "packages/yoke-cli/src/yoke_cli/commands/summaries/github.json"
+    )).read_text())
+    assert "github pr" not in summaries
+    assert "github pr create" not in summaries
+    assert "yoke github pr create" not in repr(WRAPPED_ROWS)
+    landing = json.loads((repo_root / (
+        "docs/teaching/model/concepts/merging/landing.json"
+    )).read_text())
+    assert "yoke github pr create" not in landing["commands"]
+    assert "github.pr.create" not in landing["functions"]
+
+    stale = []
+    for directory in ("packages", "docs/teaching", ".yoke/docs"):
+        for source in (repo_root / directory).rglob("*"):
+            if not source.is_file() or source.suffix not in {".py", ".md", ".json"}:
+                continue
+            if {"archive", "views", "__pycache__"} & set(source.parts):
+                continue
+            if "yoke github pr create" in source.read_text():
+                stale.append(str(source.relative_to(repo_root)))
+    assert stale == []
+
 
 def test_github_connect_requires_public_app_metadata_before_network_access(
     tmp_path: Path, monkeypatch, capsys

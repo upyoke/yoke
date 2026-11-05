@@ -21,16 +21,6 @@ def test_version_does_not_import_source_authority(tmp_path: Path) -> None:
     _assert_clean_client_boundary(run)
 
 
-def test_top_level_help_does_not_import_source_authority(tmp_path: Path) -> None:
-    run = _run_product_cli(tmp_path, ["--help"])
-
-    assert run.returncode == 0
-    assert "yoke status" in run.stdout
-    assert "yoke project " in run.stdout
-    assert run.stderr == ""
-    _assert_clean_client_boundary(run)
-
-
 def test_status_missing_config_reports_locally_without_authority_import(
     tmp_path: Path,
 ) -> None:
@@ -52,6 +42,7 @@ def test_product_local_help_commands_do_not_import_source_authority(
     tmp_path: Path,
 ) -> None:
     commands = (
+        (("--help",), "yoke status"),
         (("db", "read", "--help"), "usage: yoke db read"),
         (("setup", "--help"), "usage: yoke setup"),
         (("project", "install", "--help"), "usage: yoke project install"),
@@ -62,12 +53,21 @@ def test_product_local_help_commands_do_not_import_source_authority(
         ),
     )
 
-    for args, expected_usage in commands:
-        run = _run_product_cli(tmp_path / "-".join(args), args)
-        assert run.returncode == 0
-        assert expected_usage in run.stdout
-        assert run.stderr == ""
-        _assert_clean_client_boundary(run)
+    run = _run_product_cli(
+        tmp_path,
+        ["--boundary-help-batch", json.dumps([args for args, _ in commands])],
+    )
+    assert run.returncode == 0
+    assert run.stderr == ""
+    _assert_clean_client_boundary(run)
+    pages = json.loads(run.stdout)
+    assert len(pages) == len(commands)
+    for page, (args, expected_usage) in zip(pages, commands):
+        assert page["args"] == list(args)
+        assert page["returncode"] == 0, page
+        assert expected_usage in page["stdout"], page
+        assert page["stderr"] == "", page
+    assert "yoke project " in pages[0]["stdout"]
 
 
 def test_db_read_dispatch_fails_closed_at_existing_local_boundary(

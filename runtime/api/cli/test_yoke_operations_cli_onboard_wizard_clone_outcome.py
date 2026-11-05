@@ -178,16 +178,8 @@ def test_writable_variant_drops_fork_even_when_forkable() -> None:
     assert clone.CLONE_OUTCOME_FORK not in [row.value for row in rows]
 
 
-def test_destination_prompt_explains_publication_work_requirement() -> None:
-    """Both prompt consumers get the early-work publication boundary."""
-    prompt = screens.clone_outcome_prompt("https://github.com/acme/widgets.git")
-    assert prompt.title == "Where should Yoke publish work from acme/widgets?"
-    assert "blocks publication-required" in prompt.subtitle
-    assert "writable destination" in prompt.subtitle
-
-
-def test_clone_outcome_screen_writable_variant_drops_fork(monkeypatch) -> None:
-    """A writable token (probe True) renders the 2-row writable screen."""
+def test_clone_outcome_screen_uses_source_access_and_origin(monkeypatch) -> None:
+    """One live flow checks writable GitHub and non-GitHub row visibility."""
     from yoke_cli.config import onboard_wizard_flow_clone as clone_flow
 
     monkeypatch.setattr(clone_flow.CloneFlow, "_source_push_access", lambda self: True)
@@ -211,7 +203,15 @@ def test_clone_outcome_screen_writable_variant_drops_fork(monkeypatch) -> None:
                 clone.CLONE_OUTCOME_JUST_CLONE,
                 clone.CLONE_OUTCOME_MAKE_IT_MINE,
             ]
-            assert selection.cursor == 0  # Clone it pre-selected
+            assert selection.cursor == 0
+            app.result.project_remote_url = "https://gitlab.com/acme/widgets.git"
+            app._goto_clone_outcome()
+            await pilot.pause()
+            selection = app.query_one("#onboard-body SelectionList", SelectionList)
+            values = [row.value for row in selection.rows]
+            assert clone.CLONE_OUTCOME_FORK not in values
+            assert clone.CLONE_OUTCOME_JUST_CLONE in values
+            assert clone.CLONE_OUTCOME_MAKE_IT_MINE in values
 
     asyncio.run(scenario())
 
@@ -272,30 +272,6 @@ def test_empty_private_repo_picker_requires_app_access(monkeypatch) -> None:
                 "check",
                 "back",
             ]
-
-    asyncio.run(scenario())
-
-
-def test_clone_outcome_screen_drops_fork_row_for_non_github_remote() -> None:
-    """The live clone-outcome screen omits the fork row for a gitlab remote."""
-    app, _spy = make_app()
-
-    async def scenario() -> None:
-        async with app.run_test() as pilot:
-            await _connect_machine_github_auth(app, pilot)
-            await _pick_mode(pilot, onboard_project.PROJECT_MODE_CLONE_REMOTE)
-            await pilot.press("enter")  # visibility: Public -> paste-URL input
-            await type_text(pilot, "https://gitlab.com/acme/widgets.git")
-            await pilot.press("enter")  # remote -> clone-folder input
-            await app.workers.wait_for_complete()
-            await pilot.pause()
-            await pilot.press("enter")  # accept default folder -> clone-outcome screen
-            await pilot.pause()
-            selection = app.query_one("#onboard-body SelectionList", SelectionList)
-            values = [row.value for row in selection.rows]
-            assert clone.CLONE_OUTCOME_FORK not in values
-            assert clone.CLONE_OUTCOME_JUST_CLONE in values
-            assert clone.CLONE_OUTCOME_MAKE_IT_MINE in values
 
     asyncio.run(scenario())
 

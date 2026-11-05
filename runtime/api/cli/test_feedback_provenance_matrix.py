@@ -39,10 +39,20 @@ def storage(request, tmp_path):
         conn.close()
 
 
-@pytest.mark.parametrize("install", ["wheel", "source", "editable", "worktree", "dirty"])
-@pytest.mark.parametrize("destination", ["yoke", "universe"])
-@pytest.mark.parametrize("session", ["harness-session", None])
-@pytest.mark.parametrize("surface", ["claude-code", "codex", "cursor", None])
+# Source, editable and worktree labels all take the same clean-checkout path.
+# Pair the independent axes instead of replaying their Cartesian product.
+@pytest.mark.parametrize(
+    ("storage", "install", "destination", "session", "surface"),
+    [
+        ("sqlite-local", "wheel", "yoke", "harness-session", "claude-code"),
+        ("postgres-tenant", "wheel", "universe", None, None),
+        ("postgres-tenant", "source", "yoke", None, "codex"),
+        ("sqlite-local", "source", "universe", "harness-session", "cursor"),
+        ("sqlite-local", "dirty", "yoke", None, None),
+        ("postgres-tenant", "dirty", "universe", "harness-session", "claude-code"),
+    ],
+    indirect=["storage"],
+)
 def test_stored_identity_matrix(monkeypatch, tmp_path, storage, install, destination, session, surface):
     root = tmp_path / install
     monkeypatch.setattr(runtime_identity, "source_checkout_root", lambda module: None if install == "wheel" else root)

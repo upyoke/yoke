@@ -82,8 +82,24 @@ caught = None
 try:
     from yoke_cli.main import main
 
-    rc = main(sys.argv[1:])
-    rc = int(rc or 0)
+    if sys.argv[1:2] == ["--boundary-help-batch"]:
+        from contextlib import redirect_stdout, redirect_stderr
+        from io import StringIO
+
+        pages = []
+        for args in json.loads(sys.argv[2]):
+            out, err = StringIO(), StringIO()
+            with redirect_stdout(out), redirect_stderr(err):
+                try:
+                    code = int(main(args) or 0)
+                except SystemExit as exc:
+                    code = exc.code if isinstance(exc.code, int) else 1
+            pages.append({"args": args, "returncode": code,
+                          "stdout": out.getvalue(), "stderr": err.getvalue()})
+        print(json.dumps(pages))
+        rc = 0
+    else:
+        rc = int(main(sys.argv[1:]) or 0)
 except SystemExit as exc:
     rc = exc.code if isinstance(exc.code, int) else 1
 except Exception as exc:

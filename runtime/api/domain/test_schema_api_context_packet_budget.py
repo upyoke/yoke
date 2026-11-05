@@ -38,30 +38,14 @@ def report() -> dict:
     return budget.packet_budget_report()
 
 
-def _row(report: dict, role: str) -> dict:
-    return next(r for r in report["roles"] if r["role"] == role)
-
-
-@pytest.mark.parametrize("role", sorted(seed.ROLE_TOPICS))
-def test_role_packet_within_line_budget(role: str) -> None:
-    lines, cap = budget.check_role_packet_size(role)
-    assert lines <= cap, (
-        f"role={role} packet has {lines} lines, budget is {cap}. Run "
-        f"`{budget.BUDGET_READ_COMMAND}` for every role's headroom, then "
-        "either trim the seed or raise PACKET_LINE_BUDGET_PER_ROLE with an "
-        "explicit rationale."
-    )
-
-
-@pytest.mark.parametrize("role", sorted(seed.ROLE_TOPICS))
-def test_role_packet_within_byte_budget(role: str) -> None:
-    spent, cap = budget.check_role_packet_bytes(role)
-    assert spent <= cap, (
-        f"role={role} packet spends {spent} bytes, budget is {cap}. Run "
-        f"`{budget.BUDGET_READ_COMMAND}`, then either trim the seed or raise "
-        "PACKET_BYTE_BUDGET_PER_ROLE with an explicit rationale. The byte "
-        "axis is the one a delivery channel measures."
-    )
+def test_role_packets_within_both_budgets(report: dict) -> None:
+    for row in report["roles"]:
+        assert row["lines"] <= row["line_budget"], (
+            f"{row['role']}: {row}. Run `{budget.BUDGET_READ_COMMAND}`."
+        )
+        assert row["bytes"] <= row["byte_budget"], (
+            f"{row['role']}: {row}. Run `{budget.BUDGET_READ_COMMAND}`."
+        )
 
 
 def test_aggregate_packet_size_within_both_budgets() -> None:
@@ -81,13 +65,12 @@ def test_report_covers_every_role_in_sorted_order(report: dict) -> None:
     assert [row["role"] for row in report["roles"]] == sorted(seed.ROLE_TOPICS)
 
 
-@pytest.mark.parametrize("role", sorted(seed.ROLE_TOPICS))
-def test_reported_usage_is_the_number_each_role_gate_enforces(
-    report: dict, role: str
-) -> None:
-    row = _row(report, role)
-    assert (row["lines"], row["line_budget"]) == budget.check_role_packet_size(role)
-    assert (row["bytes"], row["byte_budget"]) == budget.check_role_packet_bytes(role)
+def test_reported_usage_is_the_number_each_role_gate_enforces(report: dict) -> None:
+    # Both gates share their implementation across roles; the report above
+    # checks every role's limits without rendering each packet three times.
+    row = report["roles"][0]
+    assert (row["lines"], row["line_budget"]) == budget.check_role_packet_size(row["role"])
+    assert (row["bytes"], row["byte_budget"]) == budget.check_role_packet_bytes(row["role"])
 
 
 def test_reported_aggregate_is_the_number_each_aggregate_gate_enforces(

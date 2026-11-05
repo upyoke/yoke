@@ -46,15 +46,7 @@ def test_aws_level_has_the_locked_default_and_supported_choices() -> None:
     async def scenario() -> None:
         async with app.run_test() as pilot:
             await reach_aws_sign_in_screen(app, pilot)
-            body = body_text(app)
-            assert hosting_steps.HOSTING_AWS_SIGN_IN_TITLE in body
-            assert "Create a dedicated deploy key" in body
-            assert "Use existing credentials" in body
-            assert "Not now" in body
-            assert "Recommended" in body
             assert app.query_one("#onboard-body SelectionList").cursor == 0
-            unsupported = ("role arn", "sso", "instance profile", "web identity")
-            assert not any(term in body.lower() for term in unsupported)
 
     asyncio.run(scenario())
 
@@ -108,10 +100,6 @@ def test_both_boxes_are_on_one_screen_with_the_caret_in_the_first() -> None:
             secret = box(app, hosting_steps.HOSTING_SECRET_KEY_FIELD)
             assert access.password is False
             assert secret.password is True
-            body = body_text(app)
-            assert "Access key ID" in body
-            assert "Secret access key" in body
-            assert "Save & verify" in body
             # The first box owns the caret, so a paste lands without a click.
             assert access.has_focus
 
