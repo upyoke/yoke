@@ -1,7 +1,7 @@
 """Requests share live audience targeting without changing approval policy."""
 
 from runtime.api.domain.decision_request_test_support import decision_request_connection
-from runtime.api.domain.test_decision_requests import _transition_request
+from runtime.api.domain.decision_request_test_support import transition_request
 from yoke_core.domain import audiences
 from yoke_core.domain.approval_decisions import evaluate_decisions
 from yoke_core.domain.decision_request_rows import request_row
@@ -10,7 +10,7 @@ from yoke_core.domain.decision_request_authority import authority_reason
 
 def test_request_storage_and_role_change_share_audience_resolver():
     with decision_request_connection() as conn:
-        request, _ = _transition_request(conn)
+        request, _ = transition_request(conn)
         assert request["audience_id"]
         assert (
             len(
@@ -31,7 +31,7 @@ def test_request_storage_and_role_change_share_audience_resolver():
 
 def test_all_mode_counts_rules_and_any_mode_counts_one():
     with decision_request_connection() as conn:
-        request, _ = _transition_request(conn)
+        request, _ = transition_request(conn)
         request["approval_mode"] = "all"
         one_answer = [{"actor_id": 2, "action": "approve", "note": None}]
         progress = evaluate_decisions(conn, request, decisions=one_answer)

@@ -40,6 +40,7 @@ def test_expected_catalog_includes_additive_workflow_and_lane_columns() -> None:
         "project_id": "INTEGER",
         "org_id": "INTEGER",
         "originator_actor_id": "INTEGER",
+        "audience_id": "INTEGER",
         "requesting_session_id": "TEXT",
         "approval_mode": "TEXT",
         "status": "TEXT",
@@ -55,6 +56,9 @@ def test_expected_catalog_includes_additive_workflow_and_lane_columns() -> None:
         "consumed_workflow_version_id": "INTEGER",
         "created_at": "TIMESTAMPTZ",
     }
+    assert expected["audiences"]["name"] == "TEXT"
+    assert expected["audience_rules"]["scope_kind"] == "TEXT"
+    assert expected["inbox_posts"]["done_at"] == "TIMESTAMPTZ"
     assert expected["item_worktrees"]["commit_sha"] == "TEXT"
     assert expected["workflow_versions"]["derived_from_canon_version"] == "INTEGER"
     assert expected["qa_plan_cases"]["target_envs"] == "TEXT"

@@ -1,11 +1,7 @@
-"""Compose decision-request rows for a whole page, one read per question.
+"""Compose a page of requests, audience rules and recorded answers.
 
-A gate row is assembled from four tables — the request itself, the roles it
-addresses, the people it names, and the answers it has collected. Composing
-one row at a time asked each of those questions once per gate on the page,
-so an Inbox showing ten gates paid forty round trips for four answers. Every
-question here is asked once for the set; :func:`request_row` is the
-one-element case the write paths still use.
+Each shared read runs once for the set; request_row is the one-element
+form. Audience membership remains live and belongs to the audience resolver.
 """
 
 from __future__ import annotations
@@ -31,16 +27,6 @@ from yoke_core.domain.decision_request_live_evidence import (
 
 def _p(conn: Any) -> str:
     return "%s" if db_backend.connection_is_postgres(conn) else "?"
-
-
-def _grouped(conn: Any, sql: str, ids: tuple[int, ...]) -> dict[int, list[Any]]:
-    rows = conn.execute(
-        sql.format(placeholders=", ".join(_p(conn) for _ in ids)), ids
-    ).fetchall()
-    grouped: dict[int, list[Any]] = {}
-    for row in rows:
-        grouped.setdefault(int(row[0]), []).append(row)
-    return grouped
 
 
 def request_rows(conn: Any, request_ids: Iterable[int]) -> dict[int, dict[str, Any]]:

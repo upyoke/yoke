@@ -10,6 +10,7 @@ from yoke_cli.commands._helpers import (
     dispatch_and_emit,
     parse_or_usage_error,
 )
+from yoke_contracts.refusal_recovery import compose_refusal
 from yoke_contracts.api.function_call import TargetRef
 
 USAGE_BY_FUNCTION_ID = {
@@ -24,10 +25,21 @@ def _run(args, action):
         prog=f"yoke audiences {action}",
         description="Named audiences select current members from actor, organization or project rules. Rules are combined with any; an audience grants no action by itself.",
     )
-    parser.add_argument("--project-id", type=int, required=True)
+    parser.add_argument(
+        "--project-id",
+        type=int,
+        required=True,
+        help="Project that owns this audience or post.",
+    )
     if action == "create":
-        parser.add_argument("--name", required=True)
-        parser.add_argument("--rules", required=True)
+        parser.add_argument(
+            "--name", required=True, help="Reusable audience name within the project."
+        )
+        parser.add_argument(
+            "--rules",
+            required=True,
+            help="JSON rule array with scope_kind, scope_id and an optional role_name.",
+        )
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, USAGE_BY_FUNCTION_ID[function_id])
@@ -39,7 +51,10 @@ def _run(args, action):
             rules = json.loads(parsed.rules)
         except json.JSONDecodeError as exc:
             print(
-                f"payload_json_invalid: {exc}. Recovery: supply a valid JSON rule array.",
+                compose_refusal(
+                    f"payload_json_invalid: {exc}",
+                    recovery="Supply a valid JSON rule array",
+                ),
                 file=sys.stderr,
             )
             return 2

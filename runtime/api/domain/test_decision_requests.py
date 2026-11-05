@@ -6,6 +6,7 @@ import pytest
 
 from runtime.api.domain.decision_request_test_support import (
     decision_request_connection,
+    transition_request,
 )
 from yoke_core.domain.actor_decision_queue import (
     pending_requests_for_actor,
@@ -35,47 +36,9 @@ def conn():
         yield value
 
 
-def _transition_request(conn):
-    return create_decision_request(
-        conn,
-        kind="lifecycle_transition_approval",
-        subject_type="item_transition",
-        subject_key="1907:reviewing-implementation",
-        project_id=10,
-        originator_actor_id=1,
-        role_authorities=[
-            RoleAuthority("project", 10, "owner"),
-            RoleAuthority("project", 10, "operator"),
-            RoleAuthority("org", 1, "admin"),
-        ],
-        named_actor_ids=[3],
-        subject_context={
-            "item_id": 1907,
-            "item_ref": "YOK-1907",
-            "item_title": "Fold GitHub identity into app shell",
-            "from_stage": "reviewing-implementation",
-            "to_stage": "reviewing-implementation",
-            "workflow_id": "issue",
-            "workflow_version_id": 1,
-            "branch_changes": {
-                "branch": None,
-                "commit_sha": None,
-                "touched_files": [],
-                "summary": "No implementation branch is recorded.",
-            },
-            "approval_source": {
-                "kind": "workflow_approval_default",
-                "entry": "approval_defaults.reviewing-implementation",
-            },
-            "title": "Fold GitHub identity into app shell",
-        },
-        created_at="2026-07-26T12:00:00Z",
-    )
-
-
 def test_create_is_open_subject_idempotent_and_audited(conn):
-    first, created = _transition_request(conn)
-    second, created_again = _transition_request(conn)
+    first, created = transition_request(conn)
+    second, created_again = transition_request(conn)
     assert created is True
     assert created_again is False
     assert second["id"] == first["id"]
@@ -99,7 +62,7 @@ def test_lifecycle_request_rejects_malformed_subject_keys(conn, subject_key):
 
 
 def test_live_role_union_named_priority_and_authorized_resolution(conn):
-    request, _ = _transition_request(conn)
+    request, _ = transition_request(conn)
     owner = pending_requests_for_actor(conn, 2)
     named = pending_requests_for_actor(conn, 3)
     admin = pending_requests_for_actor(conn, 5)
@@ -136,7 +99,7 @@ def test_live_role_union_named_priority_and_authorized_resolution(conn):
 
 def test_decider_labels_distinguish_people_with_the_same_name(conn):
     conn.execute("UPDATE actors SET name = 'Ben Bauman' WHERE id IN (2, 3)")
-    request, _ = _transition_request(conn)
+    request, _ = transition_request(conn)
     labels = {
         row["actor_id"]: row["label"] for row in request_deciders(conn, request["id"])
     }
@@ -147,7 +110,7 @@ def test_decider_labels_distinguish_people_with_the_same_name(conn):
 def test_system_actors_cannot_be_named_or_inherit_human_authority(conn):
     conn.execute("UPDATE actors SET kind = 'system' WHERE id = 4")
     conn.execute("INSERT INTO actor_project_roles VALUES (4, 10, 1, 'later')")
-    request, _ = _transition_request(conn)
+    request, _ = transition_request(conn)
     assert decision_request_authority_actor_ids(conn, request["id"]) == (2, 3, 5)
     assert pending_requests_for_actor(conn, 4) == []
     with pytest.raises(ValueError, match="existing human actors: 4"):
@@ -162,7 +125,7 @@ def test_system_actors_cannot_be_named_or_inherit_human_authority(conn):
 
 
 def test_unauthorized_resolution_refuses_without_state_change(conn):
-    request, _ = _transition_request(conn)
+    request, _ = transition_request(conn)
     with pytest.raises(PermissionError, match="not authorized"):
         resolve_decision_request(conn, request["id"], actor_id=4, action="approve")
     assert (
@@ -191,7 +154,7 @@ def test_withdrawal_is_explicit_and_audited(conn):
         "(id, project_id, title, status, workflow_id, workflow_version_id) "
         "VALUES (1907, 10, 'Item', 'reviewing-implementation', 'issue', 1)"
     )
-    request, _ = _transition_request(conn)
+    request, _ = transition_request(conn)
     conn.execute("UPDATE items SET status = 'cancelled' WHERE id = 1907")
     withdrawn = withdraw_decision_request(
         conn,
@@ -208,7 +171,7 @@ def test_withdrawal_is_explicit_and_audited(conn):
 
 
 def _settled_by_actor_four(conn):
-    request, _ = _transition_request(conn)
+    request, _ = transition_request(conn)
     conn.execute("INSERT INTO actor_project_roles VALUES (4, 10, 2, 'later')")
     resolve_decision_request(
         conn,
@@ -275,7 +238,7 @@ def _owner_only_request(conn):
 
 
 def test_unauthorized_resolution_names_roles_humans_and_caller(conn):
-    request, _ = _transition_request(conn)
+    request, _ = transition_request(conn)
     with pytest.raises(PermissionError, match="required") as excinfo:
         resolve_decision_request(conn, request["id"], actor_id=4, action="approve")
     message = str(excinfo.value)

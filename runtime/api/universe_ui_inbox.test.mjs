@@ -26,13 +26,14 @@ test("Inbox renders its sections, the served counts, and one card shape", async 
 
   assert.deepEqual(
     byClass(main, "band-section-title").map((node) => node.textContent),
-    ["Waiting on you", "Notices", "Messages", "Decided"],
+    ["Waiting on you", "Posts", "Notices", "Messages", "Decided"],
   );
   assert.deepEqual(
     byClass(main, "band-section-count").map((node) => node.textContent),
-    ["1", "0", "1", "0"],
+    ["1", "0", "0", "1", "0"],
   );
-  // No notice and nothing decided, so neither section is on the page.
+  // No shared post, notice or settled decision means those sections stay hidden.
+  assert.equal(section(main, "posts").hidden, true);
   assert.equal(section(main, "notices").hidden, true);
   assert.equal(section(main, "decided").hidden, true);
   assert.equal(byClass(main, "review-card").length, 1);

@@ -14,6 +14,8 @@ Read [envelope and authority](index.md). `none` skips only the claim check.
 | `agents.render.check` | `none` |
 | `agents.render.run` | `none` |
 | `agents.render_relationships.record` | `none` |
+| `audiences.create` | `none` |
+| `audiences.list` | `none` |
 | `auth.set.run` | `none` |
 | `board.data.get` | `none` |
 | `board.rebuild.run` | `none` |
@@ -111,6 +113,8 @@ Read [envelope and authority](index.md). `none` skips only the claim check.
 | `identity.invite.revoke` | `none` |
 | `identity.link.set` | `none` |
 | `inbox.list` | `none` |
+| `inbox.posts.create` | `none` |
+| `inbox.posts.done` | `none` |
 | `lint.config.show` | `none` |
 | `machine.detail` | `none` |
 | `machine.list` | `none` |

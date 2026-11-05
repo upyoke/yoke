@@ -11,6 +11,7 @@ from yoke_cli.commands._helpers import (
     dispatch_and_emit,
     parse_or_usage_error,
 )
+from yoke_contracts.refusal_recovery import compose_refusal
 from yoke_contracts.api.function_call import TargetRef
 
 USAGE_BY_FUNCTION_ID = {
@@ -24,18 +25,37 @@ def create(args: List[str]) -> int:
         prog="yoke inbox posts create",
         description="Post shared work to a live audience. Creating requires the project's items.write permission; any addressed reader may mark it Done for everyone.",
     )
-    parser.add_argument("--project-id", type=int, required=True)
-    parser.add_argument("--title", required=True)
-    parser.add_argument("--body", required=True)
-    parser.add_argument("--source", required=True)
+    parser.add_argument(
+        "--project-id",
+        type=int,
+        required=True,
+        help="Project that owns this audience or post.",
+    )
+    parser.add_argument(
+        "--title", required=True, help="Short heading for the shared work."
+    )
+    parser.add_argument(
+        "--body", required=True, help="Plain-text details for audience members."
+    )
+    parser.add_argument(
+        "--source", required=True, help="Label identifying where the post came from."
+    )
     group = parser.add_mutually_exclusive_group(required=True)
-    group.add_argument("--audience-id", type=int)
-    group.add_argument("--audience-name")
+    group.add_argument(
+        "--audience-id", type=int, help="Existing audience owned by this project."
+    )
+    group.add_argument(
+        "--audience-name", help="Reusable audience name in this project."
+    )
     group.add_argument(
         "--rules",
         help="JSON rule array: scope_kind, scope_id, optional role_name.",
     )
-    parser.add_argument("--fields", default="{}")
+    parser.add_argument(
+        "--fields",
+        default="{}",
+        help="Optional JSON object of generic key/value details.",
+    )
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(
@@ -49,7 +69,10 @@ def create(args: List[str]) -> int:
             parsed.rules = json.loads(parsed.rules)
     except json.JSONDecodeError as exc:
         print(
-            f"payload_json_invalid: {exc}. Recovery: supply valid JSON for rules and fields.",
+            compose_refusal(
+                f"payload_json_invalid: {exc}",
+                recovery="Supply valid JSON for rules and fields",
+            ),
             file=sys.stderr,
         )
         return 2
@@ -81,7 +104,9 @@ def done(args: List[str]) -> int:
         prog="yoke inbox posts done",
         description="Mark an addressed post Done for everyone. Repeated calls report the first person and time.",
     )
-    parser.add_argument("post_id", type=int)
+    parser.add_argument(
+        "post_id", type=int, help="Post to complete for every audience member."
+    )
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(

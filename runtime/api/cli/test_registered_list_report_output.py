@@ -71,6 +71,8 @@ def read_universe(test_db, tmp_path):
 def test_default_read_outputs_fit_fixed_universe(entry, read_universe, capsys):
     fields = entry.request_model.model_fields
     payload = {"project": "yoke"} if "project" in fields else {}
+    if "project_id" in fields and fields["project_id"].is_required():
+        payload["project_id"] = 1
     if "head_sha" in fields:
         payload["head_sha"] = "a" * 40
     if "config_path" in fields:
@@ -113,7 +115,9 @@ def test_default_read_outputs_fit_fixed_universe(entry, read_universe, capsys):
 
 def test_oversized_json_fixture_keeps_selected_result(capsys):
     response = FunctionCallResponse(
-        function="qa.plan.list", version="v1", success=True,
+        function="qa.plan.list",
+        version="v1",
+        success=True,
         result={"rows": [{"description": "x" * REPLY_LIMIT_BYTES}]},
     )
     assert emit_response(response, json_mode=True) == 0

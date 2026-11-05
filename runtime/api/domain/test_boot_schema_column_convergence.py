@@ -112,8 +112,11 @@ _HISTORY_CONVERGED_COLUMNS = frozenset(
 # Owed QA settlement follow-ups add one table; its queue row is born with it.
 # An ordered history entry renames qa_plan_executions' born-with
 # machine_lease_id to test_machine_lease_id, so neither spelling is born-with.
+# audiences, audience_rules and inbox_posts are new tables with complete
+# born-with rows. The ordered audience migration retires the replaced
+# authority tables; decision_requests.audience_id has an additive boot lookup.
 _BORN_WITH_COLUMN_DIGEST = (
-    "4ecfd712a64046213073922f6f70d083d67ce61bd3d65682eaed93d00cc3eb30"
+    "518f41bb0e4f4a55b411f6da4d16ab07ba738d647d6850eb71b7185feaf5869f"
 )
 
 
