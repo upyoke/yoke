@@ -152,9 +152,10 @@ test("the actor menu names the person and links to Profile; the sidebar does not
   assert.equal(chip.tagName, "BUTTON");
   assert.equal(byClass(root, "actor-name")[0].textContent, "Ben");
   const menu = byClass(root, "actor-menu")[0];
-  assert.equal(menu.hidden, true);
+  assert.equal(menu.matches(":popover-open"), false);
+  assert.equal(menu.getAttribute("popover"), "manual");
   chip.dispatchEvent(new Event("click"));
-  assert.equal(menu.hidden, false);
+  assert.equal(menu.matches(":popover-open"), true);
   assert.equal(
     byClass(root, "actor-menu-heading")[0].textContent,
     "Ben · ben@example.test",

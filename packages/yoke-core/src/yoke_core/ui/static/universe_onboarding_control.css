@@ -30,9 +30,8 @@
   display: none;
 }
 .universe-app-root .onboarding-summary {
-  position: fixed;
-  z-index: 80;
   inset: auto;
+  margin: 0;
   width: 260px;
   max-width: calc(100vw - 16px);
   padding: 14px;
@@ -43,9 +42,6 @@
   color: var(--yoke-ink);
   font-size: 13px;
   line-height: 1.8;
-}
-.universe-app-root .onboarding-summary[hidden] {
-  display: none;
 }
 .universe-app-root .onboarding-dialog {
   width: min(1000px, 90vw);

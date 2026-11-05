@@ -65,7 +65,7 @@ export function createSearchDialog(documentNode, controlId, onOpened) {
   const { button, field } = triggers(documentNode, controlId);
 
   const overlay = el(documentNode, "div", "header-search-overlay");
-  overlay.hidden = true;
+  overlay.setAttribute("popover", "manual");
   const backdrop = el(documentNode, "button", "header-search-backdrop");
   backdrop.type = "button";
   backdrop.setAttribute("aria-label", "Close search");
@@ -109,7 +109,7 @@ export function createSearchDialog(documentNode, controlId, onOpened) {
   root.appendChild(overlay);
 
   let restoreFocusTo = null;
-  const isOpen = () => !overlay.hidden;
+  const isOpen = () => overlay.matches(":popover-open");
   const setExpanded = (value) => {
     for (const node of [field, button]) {
       node.setAttribute("aria-expanded", value ? "true" : "false");
@@ -117,7 +117,7 @@ export function createSearchDialog(documentNode, controlId, onOpened) {
   };
   const close = () => {
     if (!isOpen()) return;
-    overlay.hidden = true;
+    overlay.hidePopover();
     setExpanded(false);
     // Dismissal returns the operator where they were: the control they
     // opened search from, not the top of the document.
@@ -130,7 +130,7 @@ export function createSearchDialog(documentNode, controlId, onOpened) {
       return;
     }
     restoreFocusTo = opener || null;
-    overlay.hidden = false;
+    overlay.showPopover();
     setExpanded(true);
     input.focus?.();
     onOpened?.();

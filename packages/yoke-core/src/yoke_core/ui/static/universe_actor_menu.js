@@ -10,6 +10,7 @@
 // refreshed from one profile.get read, which also carries the person's
 // time-zone preference so every absolute time on the page honours it.
 
+import { placeUnderTrigger } from "./universe_reveal_panel.js";
 import { attachMenuDismissal } from "./universe_menu_dismissal.js";
 import { buildUniverseRoute } from "./universe_navigation.js";
 import { setDisplayTimeZone } from "./universe_time.js";
@@ -41,7 +42,7 @@ export function createActorMenu(documentNode, client, actor) {
 
   const menu = el(documentNode, "div", "actor-menu");
   menu.setAttribute("role", "menu");
-  menu.hidden = true;
+  menu.setAttribute("popover", "manual");
   const heading = el(documentNode, "div", "actor-menu-heading");
   const profileLink = el(documentNode, "a", "actor-menu-link", "Profile");
   profileLink.href = buildUniverseRoute("profile", null);
@@ -62,17 +63,22 @@ export function createActorMenu(documentNode, client, actor) {
   draw({ ...actor, name: actor.label });
 
   const setOpen = (open) => {
-    menu.hidden = !open;
+    if (open) {
+      menu.showPopover();
+      placeUnderTrigger(documentNode, chip, menu);
+    } else {
+      menu.hidePopover();
+    }
     chip.setAttribute("aria-expanded", open ? "true" : "false");
   };
-  chip.addEventListener("click", () => setOpen(menu.hidden));
+  chip.addEventListener("click", () => setOpen(!menu.matches(":popover-open")));
   // Activating the item closes the menu itself, because reaching the page
   // the menu is already on emits no navigation event for the dismissal to observe.
   profileLink.addEventListener("click", () => setOpen(false));
   const disposeDismissal = attachMenuDismissal(documentNode, {
     root: host,
     close: () => setOpen(false),
-    isOpen: () => !menu.hidden,
+    isOpen: () => menu.matches(":popover-open"),
     trigger: chip,
   });
 

@@ -1,9 +1,8 @@
 /* The controls a work card carries: the condition it is in, who is holding
    it, and where it went.
  *
- * All three reveal a panel, and the panel is fixed to the viewport rather
- * than to the card — a card in a scrolling grid is a poor anchor for a panel
- * that can be taller than the card itself. */
+ * Panels open in the browser top layer, outside the card's stacking context
+ * and overflow clip, and stay within the viewport. */
 
 .universe-app-root .reveal-host {
   position: relative;
@@ -70,8 +69,6 @@
   outline-offset: 3px;
 }
 .universe-app-root .item-status-detail {
-  position: fixed;
-  z-index: 80;
   inset: auto;
   box-sizing: border-box;
   width: min(440px, calc(100vw - 24px));
@@ -87,9 +84,6 @@
   font: 400 14px/1.5 var(--yoke-font-sans);
   overflow-wrap: anywhere;
   white-space: normal;
-}
-.universe-app-root .item-status-detail[hidden] {
-  display: none;
 }
 .universe-app-root .item-status-detail-label {
   display: block;
@@ -146,8 +140,6 @@
   font-weight: 650;
 }
 .universe-app-root .item-claimant-preview {
-  position: fixed;
-  z-index: 80;
   inset: auto;
   width: min(360px, calc(100vw - 16px));
   max-height: calc(100vh - 16px);
@@ -160,12 +152,12 @@
   box-shadow: var(--yoke-shadow);
   color: var(--yoke-ink);
 }
-.universe-app-root .item-claimant-preview[hidden] {
-  display: none;
-}
 .universe-app-root .item-claimant-preview > .session-card {
   margin: 0;
   border: 0;
+  border-radius: var(--yoke-radius);
+  box-shadow: none;
+  background: transparent;
 }
 
 /* The delivery box every Frontier card carries.

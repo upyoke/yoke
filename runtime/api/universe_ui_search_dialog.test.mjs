@@ -22,10 +22,11 @@ test("the dialog opens on what search covers, not on invented results", async (t
   const { documentNode, root } = await mountShell(t, client);
 
   const overlay = byClass(root, "header-search-overlay")[0];
-  assert.equal(overlay.hidden, true);
+  assert.equal(overlay.matches(":popover-open"), false);
+  assert.equal(overlay.getAttribute("popover"), "manual");
   byClass(root, "header-search")[0].dispatchEvent(new Event("click"));
   await settle();
-  assert.equal(overlay.hidden, false);
+  assert.equal(overlay.matches(":popover-open"), true);
   assert.equal(
     documentNode.activeElement, byClass(root, "header-search-input")[0],
   );
@@ -82,9 +83,9 @@ test("the shortcut opens and closes the same dialog from anywhere", async (t) =>
   };
   shortcut();
   await settle();
-  assert.equal(overlay.hidden, false);
+  assert.equal(overlay.matches(":popover-open"), true);
   shortcut();
-  assert.equal(overlay.hidden, true);
+  assert.equal(overlay.matches(":popover-open"), false);
 
   // Escape is the way out wherever focus sits: a modal owns the whole page
   // while it is open, so its dismissal is window-level too.
@@ -93,7 +94,7 @@ test("the shortcut opens and closes the same dialog from anywhere", async (t) =>
   const escape = new Event("keydown");
   Object.defineProperty(escape, "key", { value: "Escape" });
   documentNode.defaultView.dispatchEvent(escape);
-  assert.equal(overlay.hidden, true);
+  assert.equal(overlay.matches(":popover-open"), false);
 });
 
 test("arrow keys walk the results and Enter follows the active one", async (t) => {
@@ -121,7 +122,7 @@ test("arrow keys walk the results and Enter follows the active one", async (t) =
     documentNode.defaultView.location.href,
     "/sessions/session-rebaseline?project=1&selection=all",
   );
-  assert.equal(byClass(root, "header-search-overlay")[0].hidden, true);
+  assert.equal(byClass(root, "header-search-overlay")[0].matches(":popover-open"), false);
 });
 
 test("a recent query re-runs it rather than only filling the field", async (t) => {
@@ -155,14 +156,14 @@ test("a route change closes the dialog rather than leaving its backdrop over the
 
   byClass(root, "header-search")[0].dispatchEvent(new Event("click"));
   await settle();
-  assert.equal(overlay.hidden, false, "the dialog opens");
+  assert.equal(overlay.matches(":popover-open"), true, "the dialog opens");
 
   // The navigation the dialog did not make: Back, a pasted hash, a link
   // elsewhere in the shell. All of them reach the shell as one event.
   documentNode.defaultView.dispatchEvent(new Event("popstate"));
   await settle();
 
-  assert.equal(overlay.hidden, true, "the dialog closes with the route");
+  assert.equal(overlay.matches(":popover-open"), false, "the dialog closes with the route");
   assert.equal(
     byClass(root, "header-search")[0].getAttribute("aria-expanded"), "false",
     "and the trigger stops claiming it is expanded",
@@ -174,12 +175,12 @@ test("repeated route changes with the dialog shut stay a no-op", async (t) => {
   const { documentNode, root } = await mountShell(t, client);
   const overlay = byClass(root, "header-search-overlay")[0];
 
-  assert.equal(overlay.hidden, true);
+  assert.equal(overlay.matches(":popover-open"), false);
   for (let index = 0; index < 3; index += 1) {
     documentNode.defaultView.dispatchEvent(new Event("popstate"));
   }
   await settle();
-  assert.equal(overlay.hidden, true, "closing what is already shut changes nothing");
+  assert.equal(overlay.matches(":popover-open"), false, "closing what is already shut changes nothing");
 });
 
 test("choosing a result still closes the dialog itself", async (t) => {
@@ -201,7 +202,7 @@ test("choosing a result still closes the dialog itself", async (t) => {
   // The result handler closes it before navigating, so the route-change
   // listener is a second guarantee rather than the only one. Both firing is
   // a no-op, which is why this behaviour is unchanged.
-  assert.equal(overlay.hidden, true, "the dialog closes on its own choosing path");
+  assert.equal(overlay.matches(":popover-open"), false, "the dialog closes on its own choosing path");
 });
 
 test("Escape still closes the dialog and returns focus to its opener", async (t) => {
@@ -212,7 +213,7 @@ test("Escape still closes the dialog and returns focus to its opener", async (t)
 
   trigger.dispatchEvent(new Event("click"));
   await settle();
-  assert.equal(overlay.hidden, false);
+  assert.equal(overlay.matches(":popover-open"), true);
 
   const escape = new Event("keydown");
   escape.key = "Escape";
@@ -220,6 +221,6 @@ test("Escape still closes the dialog and returns focus to its opener", async (t)
   documentNode.defaultView.dispatchEvent(escape);
   await settle();
 
-  assert.equal(overlay.hidden, true, "Escape still closes it");
+  assert.equal(overlay.matches(":popover-open"), false, "Escape still closes it");
   assert.equal(documentNode.activeElement, trigger, "and focus returns to the opener");
 });

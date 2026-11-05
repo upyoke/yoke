@@ -92,37 +92,6 @@ function miniSessionCard(documentNode, row, note) {
   return button;
 }
 
-// The session card as a top-layer popover anchored 6px under its chip, so
-// no tile, faded parent or scrolling canvas can cover, fade or clip it. The
-// browser owns dismissal — a press outside or Escape — and the card's own
-// Close; links inside it still navigate, and no click on it reaches the
-// surface the chip sits on.
-function attachSessionPopover(documentNode, trigger, panel) {
-  panel.setAttribute("popover", "auto");
-  trigger.setAttribute("aria-expanded", "false");
-  if (panel.id) trigger.setAttribute("aria-controls", panel.id);
-  panel.addEventListener("toggle", (event) => {
-    trigger.setAttribute("aria-expanded", String(event.newState === "open"));
-  });
-  panel.addEventListener("click", (event) => {
-    if (!event.target?.closest?.("a")) event.stopPropagation();
-  });
-  trigger.addEventListener("click", (event) => {
-    event.stopPropagation();
-    event.preventDefault();
-    if (panel.matches(":popover-open")) {
-      panel.hidePopover();
-      return;
-    }
-    panel.showPopover();
-    const rect = trigger.getBoundingClientRect();
-    const width = documentNode.documentElement.clientWidth;
-    panel.style.left = `${Math.max(8, Math.min(rect.left, width - panel.offsetWidth - 8))}px`;
-    panel.style.top = `${rect.bottom + 6}px`;
-  });
-  return { close: () => panel.hidePopover() };
-}
-
 /**
  * The claimant control for one session, ready to append to an item card.
  *
@@ -133,12 +102,9 @@ function attachSessionPopover(documentNode, trigger, panel) {
  * one more fact about this session, in the caller's own vocabulary, so a
  * surface can say what its session holds without this module learning the
  * word for it.
- *
- * `popover` opens the session card in the top layer instead of the inline
- * reveal panel, for surfaces whose cards sit in a scrolling or dimmed region.
  */
 export function itemClaimantControl(
-  documentNode, row, { renderFullSession, label, note, popover = false },
+  documentNode, row, { renderFullSession, label, note },
 ) {
   const host = el(documentNode, "div", "item-claimant reveal-host");
   const trigger = miniSessionCard(documentNode, row, note);
@@ -146,9 +112,7 @@ export function itemClaimantControl(
   const panel = el(documentNode, "div", "item-claimant-preview");
   claimantPanelSequence += 1;
   panel.id = `item-claimant-preview-${claimantPanelSequence}`;
-  const controls = popover
-    ? attachSessionPopover(documentNode, trigger, panel)
-    : attachRevealPanel({ documentNode, trigger, panel, container: host });
+  const controls = attachRevealPanel({ documentNode, trigger, panel, container: host });
   panel.appendChild(revealCloseButton(
     documentNode, "Close session ×", controls.close,
   ));
@@ -166,11 +130,10 @@ export function itemClaimantControl(
  * working, waiting, exited or gone.
  *
  * Returns how many were drawn, so a caller can say "unclaimed" where that is
- * the fact rather than inferring it from an empty element. `popover` is
- * passed to every chip (see `itemClaimantControl`).
+ * the fact rather than inferring it from an empty element.
  */
 export function appendItemClaimants(
-  documentNode, card, reference, claimants, renderFullSession, { popover = false } = {},
+  documentNode, card, reference, claimants, renderFullSession,
 ) {
   const rows = (claimants.get(reference) || []).filter(sessionIsLive);
   if (!rows.length) return 0;
@@ -178,7 +141,6 @@ export function appendItemClaimants(
   for (const row of rows) {
     host.appendChild(itemClaimantControl(documentNode, row, {
       renderFullSession,
-      popover,
       label: rows.length > 1
         ? `Show one of ${rows.length} claiming sessions for ${reference}`
         : `Show claiming session for ${reference}`,

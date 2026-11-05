@@ -6,7 +6,7 @@
 // one panel is open at a time — two overlapping cards each showing a floating
 // panel is how a reader loses track of which card they were reading — and
 // Escape, an outside press, or the panel's own Close ends it. Positioning is
-// clamped to the viewport and the panel scrolls internally, because the
+// in the browser top layer, clamped to the viewport, and scrolls internally; the
 // content is a whole session card and the trigger can sit anywhere on screen.
 
 import { el } from "./universe_view_support.js";
@@ -19,7 +19,7 @@ function closeOpen() {
   if (!openEntry) return;
   const { trigger, panel, onClose } = openEntry;
   openEntry = null;
-  panel.hidden = true;
+  panel.hidePopover();
   trigger.setAttribute("aria-expanded", "false");
   onClose?.();
 }
@@ -30,7 +30,7 @@ export function closeRevealPanels() {
   closeOpen();
 }
 
-function clampToViewport(documentNode, trigger, panel) {
+export function placeUnderTrigger(documentNode, trigger, panel) {
   const root = documentNode.documentElement;
   if (
     typeof trigger.getBoundingClientRect !== "function"
@@ -61,7 +61,10 @@ function clampToViewport(documentNode, trigger, panel) {
 export function attachRevealPanel({
   documentNode, trigger, panel, container, onOpen,
 }) {
-  panel.hidden = true;
+  panel.setAttribute("popover", "manual");
+  panel.addEventListener("click", (event) => {
+    if (!event.target?.closest?.("a")) event.stopPropagation?.();
+  });
   trigger.setAttribute("aria-expanded", "false");
   if (panel.id) {
     trigger.setAttribute("aria-controls", panel.id);
@@ -74,11 +77,11 @@ export function attachRevealPanel({
   const open = () => {
     if (openEntry?.trigger === trigger) return;
     closeOpen();
-    panel.hidden = false;
+    panel.showPopover();
     trigger.setAttribute("aria-expanded", "true");
     openEntry = { trigger, panel, onClose: () => { pinned = false; } };
     onOpen?.();
-    clampToViewport(documentNode, trigger, panel);
+    placeUnderTrigger(documentNode, trigger, panel);
   };
 
   trigger.addEventListener("pointerenter", (event) => {
