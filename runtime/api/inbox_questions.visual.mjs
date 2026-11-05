@@ -70,6 +70,7 @@ try {
     if (state === "answered") {
       assert.match(await page.locator(".inbox-question-answer").textContent(), /Which color.*Keep blue · you/);
       assert.equal(await page.locator(".inbox-question-card").locator("h3,button,textarea,details").count(), 0);
+      assert.equal(await page.locator(".inbox-question-answer-text").evaluate((node) => node.scrollWidth <= node.clientWidth), true, "Keep the short answer fully visible.");
     } else {
       assert.equal(await page.locator(".inbox-question-context").evaluate((node) => node.open), false);
       const heights = await page.locator(".inbox-question-option, .inbox-question-send").evaluateAll((buttons) => buttons.map((button) => button.getBoundingClientRect().height));

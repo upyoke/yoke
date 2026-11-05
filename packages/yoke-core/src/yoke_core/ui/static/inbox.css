@@ -250,8 +250,8 @@
 .inbox-question-freeform textarea { box-sizing: border-box; width: 100%; min-width: 0; resize: vertical; }
 .universe-app-root .inbox-question-card .item-button { min-height: 44px; }
 .inbox-question-answer { display: flex; gap: 4px; white-space: nowrap; overflow: hidden; }
-.inbox-question-answer-question { flex-shrink: 0; max-width: 55%; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
-.inbox-question-answer-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.inbox-question-answer-question { flex-shrink: 1; max-width: 55%; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.inbox-question-answer-text { flex-shrink: 0; max-width: 55%; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .inbox-question-answer-byline { flex-shrink: 0; }
 .universe-app-root .inbox-question-card .review-shot-image { object-fit: contain; object-position: center; }
 .inbox-question-send { align-self: flex-start; }
