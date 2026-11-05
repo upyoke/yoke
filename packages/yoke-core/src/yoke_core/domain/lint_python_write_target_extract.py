@@ -25,9 +25,9 @@ from yoke_contracts.free_paths import STATIC_FREE_PATH_PREFIXES
 from yoke_contracts.hook_runner.shell_parse import ShellParse, parse_shell
 
 from yoke_core.domain.lint_session_cwd_target_extract_shell import in_segment_cwd
-
-
 from yoke_core.domain.lint_python_heredoc_sources import python_sources
+
+
 _PATH_WRITE_METHODS = frozenset({"write_text", "write_bytes", "touch", "mkdir"})
 # Receivers that read wrong without parentheses: ``WT / rel.write_text``
 # names a different expression than ``(WT / rel).write_text``.

@@ -89,3 +89,9 @@ def test_git_grep_pager_forms_are_not_foreign_lane_inspection(validate, option):
     assert not is_read_only_git_inspection(command)
     assert governed_targets([FOREIGN], ["/repo"], command) == [FOREIGN]
     assert not validate(command).allow
+
+
+@pytest.mark.parametrize("other_use", [INPUT, f"--output {INPUT}"])
+def test_an_input_path_reused_as_an_unknown_operand_keeps_scope_checks(validate, other_use):
+    command = f"yoke qa artifact add --content-file {INPUT} {other_use}"
+    assert not validate(command).allow
