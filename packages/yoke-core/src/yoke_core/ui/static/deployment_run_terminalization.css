@@ -6,7 +6,7 @@
 
 .delivery-run-terminalize {
   border: 1px solid var(--yoke-border);
-  border-radius: 7px;
+  border-radius: var(--yoke-radius);
   padding: 3px 7px;
   background: var(--yoke-bg);
   color: var(--yoke-ink);
@@ -29,7 +29,7 @@
   width: min(540px, 100%);
   padding: 20px;
   border: 1px solid var(--yoke-border);
-  border-radius: 12px;
+  border-radius: var(--yoke-radius);
   background: var(--yoke-bg);
   box-shadow: var(--yoke-shadow);
 }
@@ -52,7 +52,7 @@
   box-sizing: border-box;
   width: 100%;
   border: 1px solid var(--yoke-border);
-  border-radius: 8px;
+  border-radius: var(--yoke-radius);
   padding: 8px;
   background: var(--yoke-bg);
   color: var(--yoke-ink);

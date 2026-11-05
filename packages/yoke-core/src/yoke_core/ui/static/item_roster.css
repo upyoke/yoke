@@ -67,7 +67,7 @@
   display: inline-flex;
   padding: 1px 6px;
   border: 0;
-  border-radius: 5px;
+  border-radius: var(--yoke-radius);
   color: var(--yoke-ink-2);
   background: var(--yoke-surface-2);
   font-size: 10.5px;
@@ -78,7 +78,7 @@
 .universe-app-root .strategy-revision-chip {
   padding: 1px 6px;
   border: 1px solid var(--yoke-border);
-  border-radius: 5px;
+  border-radius: var(--yoke-radius);
   color: var(--yoke-muted);
   font-family: var(--yoke-font-mono);
   font-size: 10.5px;
@@ -86,7 +86,7 @@
 
 .universe-app-root .item-workflow-link {
   padding: 2px 8px;
-  border-radius: 6px;
+  border-radius: var(--yoke-radius);
   color: var(--yoke-accent);
   background: var(--yoke-accent-weak);
   font-size: 11.5px;
@@ -104,7 +104,7 @@
   height: 15px;
   margin-right: 5px;
   place-items: center;
-  border-radius: 50%;
+  border-radius: var(--yoke-radius);
   color: var(--yoke-ink-2);
   background: var(--yoke-surface-2);
   font-size: 8px;

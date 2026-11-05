@@ -38,7 +38,7 @@
   /* Opt native form controls (buttons) into the active theme so they don't
      render with a light UA appearance on the dark bar. The hosted shell
      inherits this from the platform document; standalone needs it declared. */
-  color-scheme: light dark;
+  color-scheme: dark;
 }
 .universe-app-root,
 .universe-app-root * {
@@ -94,7 +94,7 @@
   font-weight: 550;
   line-height: 15px;
   padding: 4px 12px;
-  border-radius: 20px;
+  border-radius: var(--yoke-radius);
   border: 1px solid var(--yoke-border);
   background: var(--yoke-bg);
   color: var(--yoke-ink-2);
@@ -107,7 +107,7 @@
 }
 .universe-app-root .scope-chip.on {
   background: var(--yoke-accent);
-  color: #fff;
+  color: var(--yoke-bg);
   border-color: transparent;
 }
 /* The way back out of a drill-in, sitting where that view's picker sits. */
@@ -121,7 +121,7 @@
 }
 .universe-app-root .breadcrumb-parent {
   padding: 2px 8px;
-  border-radius: 6px;
+  border-radius: var(--yoke-radius);
   color: var(--yoke-accent);
   background: var(--yoke-accent-weak);
   font-size: 11.5px;
@@ -198,7 +198,7 @@
   align-items: center;
   gap: 10px;
   padding: 7px 10px;
-  border-radius: 8px;
+  border-radius: var(--yoke-radius);
   color: var(--yoke-ink-2);
   text-decoration: none;
   font-size: 13px;
@@ -307,4 +307,10 @@
   overflow: hidden;
   margin-bottom: 14px;
   transition: box-shadow 140ms ease;
+}
+
+.universe-app-root .scope-chip.on:hover {
+  background: var(--yoke-accent-weak);
+  border-color: var(--yoke-accent);
+  color: var(--yoke-accent);
 }

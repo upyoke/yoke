@@ -35,7 +35,7 @@
   min-height: 30px;
   padding: 7px 13px;
   border: 1px solid var(--yoke-border);
-  border-radius: 8px;
+  border-radius: var(--yoke-radius);
   color: var(--yoke-ink);
   background: var(--yoke-bg);
   font: inherit;
@@ -60,7 +60,7 @@
 
 .universe-app-root .item-button.primary,
 .universe-app-root .item-action.primary {
-  color: #fff;
+  color: var(--yoke-bg);
   border-color: transparent;
   background: var(--yoke-accent);
 }
@@ -70,7 +70,7 @@
 .universe-app-root .item-setting-select {
   width: 100%;
   border: 1px solid var(--yoke-border);
-  border-radius: 7px;
+  border-radius: var(--yoke-radius);
   color: var(--yoke-ink);
   background: var(--yoke-bg);
   font: inherit;
@@ -112,7 +112,7 @@
   gap: 10px;
   padding: 9px 11px;
   border: 1px solid var(--yoke-border);
-  border-radius: 8px;
+  border-radius: var(--yoke-radius);
   background: var(--yoke-bg);
 }
 
@@ -128,4 +128,10 @@
   margin-top: 2px;
   color: var(--yoke-muted);
   font-size: 11px;
+}
+
+.universe-app-root :is(.item-button.primary, .item-action.primary):hover {
+  background: var(--yoke-accent-weak);
+  border-color: var(--yoke-accent);
+  color: var(--yoke-accent);
 }

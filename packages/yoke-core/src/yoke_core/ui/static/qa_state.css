@@ -13,12 +13,12 @@
 .universe-app-root .carried-item-evidence.is-no-obligation,
 .universe-app-root .carried-item-evidence.is-waived {
   border-left-color: color-mix(
-    in srgb, var(--yoke-warn, #b45309) 55%, var(--yoke-border)
+    in srgb, var(--yoke-warn, var(--yoke-warn)) 55%, var(--yoke-border)
   );
 }
 .universe-app-root .carried-item-evidence.is-never-asked {
   border-left-color: color-mix(
-    in srgb, var(--yoke-crit, #b91c1c) 45%, var(--yoke-border)
+    in srgb, var(--yoke-crit, var(--yoke-crit)) 45%, var(--yoke-border)
   );
 }
 .universe-app-root .carried-item-evidence.is-no-obligation {

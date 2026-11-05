@@ -14,7 +14,7 @@
   margin: 8px 8px 0 auto;
   padding: 4px 8px;
   border: 1px solid var(--yoke-border);
-  border-radius: 6px;
+  border-radius: var(--yoke-radius);
   background: var(--yoke-surface);
   color: var(--yoke-ink-2);
   font: inherit;
@@ -33,7 +33,7 @@
   gap: 6px;
   padding: 5px 10px;
   border: 0;
-  border-radius: 99px;
+  border-radius: var(--yoke-radius);
   background: var(--yoke-surface-2);
   color: var(--yoke-ink-2);
   font: 650 13px/1.25 var(--yoke-font-sans);
@@ -44,7 +44,7 @@
   width: 7px;
   height: 7px;
   flex: none;
-  border-radius: 50%;
+  border-radius: var(--yoke-radius);
   background: currentColor;
 }
 .universe-app-root .item-status-pill.is-ready,
@@ -62,8 +62,8 @@
   color: var(--yoke-warn);
 }
 .universe-app-root .item-status-pill.is-frozen {
-  background: #e6f6ff;
-  color: #0b6a9c;
+  background: var(--yoke-good-bg);
+  color: var(--yoke-accent-2);
 }
 .universe-app-root .item-status-pill:focus-visible {
   outline: 2px solid var(--yoke-accent);
@@ -80,7 +80,7 @@
   padding: 15px;
   overflow: auto;
   border: 1px solid var(--yoke-border);
-  border-radius: 10px;
+  border-radius: var(--yoke-radius);
   background: var(--yoke-surface);
   box-shadow: var(--yoke-shadow);
   color: var(--yoke-ink);
@@ -120,7 +120,7 @@
   max-width: 100%;
   padding: 5px 7px;
   border: 1px solid var(--yoke-border);
-  border-radius: 7px;
+  border-radius: var(--yoke-radius);
   background: var(--yoke-bg);
   color: var(--yoke-ink);
   font: inherit;
@@ -129,7 +129,7 @@
 .universe-app-root .item-claimant-mini .session-harness {
   width: 18px;
   height: 18px;
-  border-radius: 4px;
+  border-radius: var(--yoke-radius);
   font-size: 11px;
 }
 .universe-app-root .item-claimant-mini .session-executor {
@@ -155,7 +155,7 @@
   padding: 0;
   overflow: auto;
   border: 1px solid var(--yoke-border);
-  border-radius: 12px;
+  border-radius: var(--yoke-radius);
   background: var(--yoke-surface);
   box-shadow: var(--yoke-shadow);
   color: var(--yoke-ink);
@@ -181,7 +181,7 @@
   margin-top: 10px;
   padding: 8px;
   border: 1px solid var(--yoke-border);
-  border-radius: 8px;
+  border-radius: var(--yoke-radius);
   background: var(--yoke-bg);
 }
 .universe-app-root .item-delivery-head {
@@ -208,7 +208,7 @@
   gap: 6px 10px;
   padding: 9px;
   border: 1px solid var(--yoke-border);
-  border-radius: 8px;
+  border-radius: var(--yoke-radius);
   background: var(--yoke-bg);
   color: var(--yoke-muted);
   font-size: 11px;
@@ -252,7 +252,7 @@
 .universe-app-root .work-item-card-landings {
   padding: 1px 6px;
   border: 1px solid var(--yoke-border);
-  border-radius: 999px;
+  border-radius: var(--yoke-radius);
   color: var(--yoke-ink-2);
   font-size: 11px;
   font-variant-numeric: tabular-nums;

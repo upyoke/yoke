@@ -7,7 +7,7 @@
   gap: 9px;
   padding: 18px;
   border: 1px solid var(--yoke-border);
-  border-radius: 12px;
+  border-radius: var(--yoke-radius);
   background: var(--yoke-surface);
   color: var(--yoke-ink);
   text-decoration: none;
@@ -129,7 +129,7 @@
   display: inline-flex;
   flex: none;
   padding: 3px 7px;
-  border-radius: 5px;
+  border-radius: var(--yoke-radius);
   background: var(--yoke-accent-weak);
   color: var(--yoke-accent);
   font-size: 12px;
@@ -172,7 +172,7 @@
   white-space: nowrap;
   padding: 1px 6px;
   border: 1px solid var(--yoke-border);
-  border-radius: 999px;
+  border-radius: var(--yoke-radius);
   color: var(--yoke-muted);
   font-size: 9.5px;
   font-weight: 650;
@@ -190,14 +190,14 @@
   width: 7px;
   height: 7px;
   flex: 0 0 auto;
-  border-radius: 50%;
+  border-radius: var(--yoke-radius);
   background: var(--yoke-muted);
 }
 .universe-app-root .strategy-doc-age.is-today .strategy-doc-age-dot {
   background: var(--yoke-good);
 }
 .universe-app-root .strategy-doc-age.is-week .strategy-doc-age-dot {
-  background: #84cc16;
+  background: var(--yoke-accent-2);
 }
 .universe-app-root .strategy-doc-age.is-month .strategy-doc-age-dot {
   background: var(--yoke-warn);
@@ -213,7 +213,7 @@
   margin-top: 12px;
   padding: 9px 10px;
   border-left: 3px solid var(--yoke-accent);
-  border-radius: 6px;
+  border-radius: var(--yoke-radius);
   background: var(--yoke-accent-weak);
   font-size: 12px;
 }
@@ -239,10 +239,10 @@
   height: 22px;
 }
 .universe-app-root .strategy-doc-claim.is-blitz {
-  border-color: #8b5cf6;
+  border-color: var(--yoke-stage-release);
 }
 .universe-app-root .strategy-doc-claim-label {
-  font-family: "Avenir Next Condensed", "Arial Narrow", sans-serif;
+  font-family: var(--yoke-font-display);
   font-size: 16px;
   font-weight: 600;
   letter-spacing: .045em;
@@ -325,7 +325,7 @@
   gap: 4px;
   padding: 8px;
   border: 1px solid var(--yoke-border);
-  border-radius: 6px;
+  border-radius: var(--yoke-radius);
   background: var(--yoke-bg);
 }
 .universe-app-root .release-member {

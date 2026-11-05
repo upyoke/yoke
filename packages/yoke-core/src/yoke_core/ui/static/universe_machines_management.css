@@ -23,7 +23,7 @@
   height: auto;
   padding: 8px 12px;
   border: 1px solid var(--yoke-border);
-  border-radius: 8px;
+  border-radius: var(--yoke-radius);
   background: var(--yoke-surface);
 }
 .universe-app-root .machine-roster-stats > .usage-stat .usage-stat-value {
@@ -42,7 +42,7 @@
 
 .machine-detail-card {
   border: 1px solid var(--yoke-border);
-  border-radius: 12px;
+  border-radius: var(--yoke-radius);
   background: var(--yoke-surface);
 }
 
@@ -104,7 +104,7 @@
   margin-bottom: 8px;
   padding: 7px;
   border: 1px solid var(--yoke-border);
-  border-radius: 6px;
+  border-radius: var(--yoke-radius);
   background: var(--yoke-surface);
   color: var(--yoke-ink);
 }

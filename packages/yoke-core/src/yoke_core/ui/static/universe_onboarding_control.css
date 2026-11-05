@@ -13,7 +13,7 @@
 .universe-app-root .onboarding-trigger {
   padding: 7px 12px;
   border: 1px solid color-mix(in srgb, var(--yoke-accent) 40%, var(--yoke-border));
-  border-radius: 20px;
+  border-radius: var(--yoke-radius);
   background: var(--yoke-accent-weak);
   color: var(--yoke-accent);
   font: inherit;
@@ -37,7 +37,7 @@
   max-width: calc(100vw - 16px);
   padding: 14px;
   border: 1px solid var(--yoke-border);
-  border-radius: 10px;
+  border-radius: var(--yoke-radius);
   background: var(--yoke-surface);
   box-shadow: var(--yoke-shadow);
   color: var(--yoke-ink);
@@ -53,7 +53,7 @@
   padding: 20px;
   overflow: auto;
   border: 1px solid var(--yoke-border);
-  border-radius: 14px;
+  border-radius: var(--yoke-radius);
   background: var(--yoke-surface);
   color: var(--yoke-ink);
 }

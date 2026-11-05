@@ -88,7 +88,7 @@
 .universe-app-root .event-filter {
   padding: 5px 10px;
   border: 1px solid var(--yoke-border);
-  border-radius: 999px;
+  border-radius: var(--yoke-radius);
   background: transparent;
   color: var(--yoke-muted);
   cursor: pointer;
@@ -144,7 +144,7 @@
   width: 7px;
   height: 7px;
   border: 2px solid var(--yoke-surface);
-  border-radius: 50%;
+  border-radius: var(--yoke-radius);
   background: var(--yoke-accent);
   box-shadow: 0 0 0 1px var(--yoke-border);
   content: "";
@@ -208,11 +208,11 @@
 }
 
 .universe-app-root .delivery-stage:first-child i {
-  border-radius: 999px 0 0 999px;
+  border-radius: var(--yoke-radius);
 }
 
 .universe-app-root .delivery-stage:last-child i {
-  border-radius: 0 999px 999px 0;
+  border-radius: var(--yoke-radius);
 }
 
 .universe-app-root .delivery-stage[data-state="complete"] i { background: var(--yoke-good); }
@@ -231,7 +231,7 @@
   gap: 5px;
   padding: 4px 7px;
   border: 1px solid var(--yoke-border);
-  border-radius: 999px;
+  border-radius: var(--yoke-radius);
   color: var(--yoke-muted);
   font-size: 11px;
   text-decoration: none;
@@ -250,7 +250,7 @@
 .universe-app-root .delivery-run-stage {
   height: 5px;
   flex: 1 1 0;
-  border-radius: 3px;
+  border-radius: var(--yoke-radius);
   background: var(--yoke-surface-2);
 }
 

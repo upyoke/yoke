@@ -1,0 +1,7 @@
+{
+ "id": "brand-assets",
+ "term": "Brand assets",
+ "definition": "Canonical logos, colors, type and icon exports shared by Yoke's UI and docs. Steel orange is dark only. The source asset build uses brand/export.sh to refresh raster exports and embedded documentation fonts.",
+ "status": "draft",
+ "sources": ["brand/README.md"]
+}

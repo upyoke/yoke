@@ -27,7 +27,7 @@
   box-sizing: border-box;
   padding: 8px 11px;
   border: 1px solid var(--yoke-border);
-  border-radius: 8px;
+  border-radius: var(--yoke-radius);
   background: var(--yoke-bg);
   color: var(--yoke-ink);
   font: inherit;
@@ -76,7 +76,7 @@
   padding: 9px 11px;
   border: 0;
   border-left: 3px solid transparent;
-  border-radius: 8px;
+  border-radius: var(--yoke-radius);
   background: transparent;
   color: var(--yoke-ink);
   text-align: left;

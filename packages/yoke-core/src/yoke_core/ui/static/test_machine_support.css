@@ -85,7 +85,7 @@
   height: 8px;
   flex: 0 0 8px;
   margin: 6px 0 0 5px;
-  border-radius: 50%;
+  border-radius: var(--yoke-radius);
   background: var(--yoke-accent);
 }
 

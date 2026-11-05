@@ -5,7 +5,7 @@
   min-width: 0;
   padding: 10px;
   border: 1px solid var(--yoke-border);
-  border-radius: 8px;
+  border-radius: var(--yoke-radius);
 }
 
 .universe-app-root .organization-membership-path {

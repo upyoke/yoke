@@ -18,7 +18,7 @@
   gap: 4px;
   padding: 14px 12px;
   border: 1px dashed var(--session-steering-color, var(--yoke-accent));
-  border-radius: 7px;
+  border-radius: var(--yoke-radius);
   background: color-mix(
     in srgb, var(--session-steering-color, var(--yoke-accent)) 8%, transparent
   );
@@ -99,7 +99,7 @@
 .universe-app-root .session-steering-lead-label {
   margin: 0;
   color: var(--session-steering-color, var(--yoke-accent));
-  font-family: "Avenir Next Condensed", "Arial Narrow", sans-serif;
+  font-family: var(--yoke-font-display);
   font-size: 16px;
   font-weight: 600;
   letter-spacing: .045em;
@@ -133,7 +133,7 @@
 .universe-app-root .session-steering-wide {
   flex: 0 0 auto;
   padding: 1px 6px;
-  border-radius: 4px;
+  border-radius: var(--yoke-radius);
   color: var(--session-steering-color, var(--yoke-accent));
   background: color-mix(
     in srgb, var(--session-steering-color, var(--yoke-accent)) 16%, transparent

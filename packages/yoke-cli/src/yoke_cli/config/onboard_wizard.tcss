@@ -2,17 +2,17 @@
    Palette is defined once here; widgets reference these variables and toggle
    classes rather than hardcoding colors. */
 
-$onboard-accent: #3fb950;
-$onboard-accent-bright: #56d364;
-$onboard-brand: #3fb950;
+$onboard-accent: #f4a261;
+$onboard-accent-bright: #f4a261;
+$onboard-brand: #f4a261;
 $onboard-danger: #f85149;
-$onboard-text: #e6edf3;
-$onboard-dim: #7d8590;
-$onboard-row-bg: #102a1c;
-$onboard-rule: #21262d;
+$onboard-text: #dfe6ec;
+$onboard-dim: #8995a1;
+$onboard-row-bg: #171c22;
+$onboard-rule: #262e37;
 
 Screen {
-    background: transparent;
+    background: #101418;
     color: $onboard-text;
     layout: vertical;
 }
@@ -144,12 +144,12 @@ Screen.plain-glyphs _OptionRow.-selected {
 .onboard-input {
     height: auto;
     margin: 1 3 0 0;
-    border: round $onboard-accent;
+    border: solid $onboard-accent;
     background: transparent;
 }
 
 .onboard-input:focus {
-    border: round $onboard-accent-bright;
+    border: solid $onboard-accent-bright;
 }
 
 .onboard-input-error {
@@ -190,7 +190,7 @@ Screen.plain-glyphs _OptionRow.-selected {
 
 .onboard-plan-group-core,
 .onboard-plan-group-control {
-    color: #58a6ff;
+    color: #a5d8ff;
     text-style: bold;
     margin: 1 0 0 0;
 }

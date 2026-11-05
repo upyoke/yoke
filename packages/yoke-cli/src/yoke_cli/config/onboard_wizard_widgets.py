@@ -82,9 +82,9 @@ class Stepper(Static):
                 github_complete=github_complete,
             )
             if state == "done":
-                line.append(f"{marks.step_done} {label}", style="bold #3fb950")
+                line.append(f"{marks.step_done} {label}", style="bold #f4a261")
             elif state == "active":
-                line.append(f"{marks.step_active} {label}", style="bold #56d364")
+                line.append(f"{marks.step_active} {label}", style="bold #f4a261")
             else:
                 line.append(f"{marks.step_pending} {label}", style="#6e7681")
         return line

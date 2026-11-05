@@ -33,7 +33,7 @@
   max-width: min(280px, calc(100vw - 16px));
   padding: 7px 10px;
   border: 1px solid var(--yoke-border);
-  border-radius: 8px;
+  border-radius: var(--yoke-radius);
   background: var(--yoke-surface);
   box-shadow: var(--yoke-shadow);
   color: var(--yoke-ink);
@@ -66,7 +66,7 @@
   min-height: 0;
   padding: 0;
   border: 1px solid color-mix(in srgb, var(--yoke-muted) 55%, transparent);
-  border-radius: 999px;
+  border-radius: var(--yoke-radius);
   background: transparent;
   color: var(--yoke-muted);
   font-family: var(--yoke-font-mono);

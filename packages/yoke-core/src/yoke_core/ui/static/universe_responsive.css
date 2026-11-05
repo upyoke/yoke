@@ -35,7 +35,7 @@
   min-width: 38px;
   min-height: 38px;
   border: 1px solid var(--yoke-border);
-  border-radius: 8px;
+  border-radius: var(--yoke-radius);
   background: var(--yoke-surface);
   color: var(--yoke-ink-2);
   cursor: pointer;
@@ -60,7 +60,7 @@
   gap: 8px;
   padding: 0 10px;
   border: 1px solid var(--yoke-border);
-  border-radius: 9px;
+  border-radius: var(--yoke-radius);
   background: var(--yoke-bg);
 }
 .universe-app-root .header-context-control[hidden] { display: none; }
@@ -159,7 +159,7 @@
   width: 17px;
   height: 1.5px;
   margin: 3px auto;
-  border-radius: 2px;
+  border-radius: var(--yoke-radius);
   background: currentColor;
 }
 
@@ -245,7 +245,6 @@
   /* The wide field gives up its space to the icon button, which opens the
      same dialog: search survives the narrow bar instead of disappearing with
      the room the field needed. */
-  .universe-app-root .brand,
   .universe-app-root .header-search,
   .universe-app-root .actor-kind { display: none; }
   .universe-app-root .content {
@@ -293,7 +292,7 @@
     max-height: none;
     height: 100%;
     border: 0;
-    border-radius: 0;
+    border-radius: var(--yoke-radius);
   }
   .universe-app-root .content { padding: 16px 12px 26px; }
   .universe-app-root .band-section { margin-bottom: 18px; }
