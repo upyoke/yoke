@@ -26,6 +26,15 @@ class ReleasedBundleFiles:
         key = catalogue_key(canonical)
         if sha256_text(content) in _catalogue().get(key, []):
             return True
+        try:
+            if (
+                files("yoke_core.install_bundle_tree")
+                .joinpath(canonical)
+                .read_bytes() == content.encode("utf-8")
+            ):
+                return True
+        except (OSError, ModuleNotFoundError, TypeError):
+            return False
         if self.root is None:
             return False
         raw = content.encode("utf-8")
@@ -62,6 +71,7 @@ class ReleasedBundleFiles:
                 commit,
                 "--format=%(refname) %(objecttype)",
                 "refs/tags/v*",
+                "refs/tags/0.*",
             )
             if tags.returncode:
                 return False

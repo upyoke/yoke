@@ -32,7 +32,10 @@ def source_key(path: str) -> str | None:
 
 def render(root: Path) -> dict[str, list[str]]:
     tags = (
-        git(root, "for-each-ref", "--format=%(refname) %(objecttype)", "refs/tags/v*")
+        git(
+            root, "for-each-ref", "--format=%(refname) %(objecttype)",
+            "refs/tags/v*", "refs/tags/0.*",
+        )
         .decode()
         .splitlines()
     )
