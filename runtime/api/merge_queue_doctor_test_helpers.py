@@ -157,6 +157,8 @@ def run(
     workflow_text=None,
     allow_auto_merge=True,
     bypass_actors=None,
+    hidden_bypass=False,
+    resolve_auth=None,
 ):
     if repo_body is _ABSENT and repo_declaration is not None:
         repo_body = repo_declaration
@@ -164,7 +166,9 @@ def run(
         workflow_text = WORKFLOW_WITH_MERGE_GROUP
     monkeypatch.setattr(
         hc_mod, "resolve_project_github_auth",
-        lambda project, db_path=None, required_permissions=None: auth(),
+        resolve_auth or (
+            lambda project, db_path=None, required_permissions=None: auth()
+        ),
     )
 
     def fake_retry(req, *, token, **_kw):
@@ -188,7 +192,7 @@ def run(
     )
     monkeypatch.setattr(
         hc_mod.mq_rest, "get_ruleset",
-        lambda *a, **k: {
+        lambda *a, **k: {} if hidden_bypass else {
             "id": 99,
             "bypass_actors": bypass_actors if bypass_actors is not None else [
                 {

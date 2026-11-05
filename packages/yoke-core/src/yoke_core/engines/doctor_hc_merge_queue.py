@@ -25,6 +25,7 @@ from typing import Optional, Tuple
 
 from yoke_contracts.github_app_installation_permissions import (
     GITHUB_CONTENTS_READ_PERMISSION_LEVELS,
+    GITHUB_ADMINISTRATION_WRITE_PERMISSION_LEVELS,
     GITHUB_METADATA_READ_PERMISSION_LEVELS,
 )
 from yoke_core.domain import (
@@ -40,6 +41,7 @@ from yoke_core.domain.gh_rest_transport import (
     RestTransportError,
 )
 from yoke_core.domain.merge_queue_live_drift import (
+    ADMINISTRATION_RECOVERY,
     MERGE_QUEUE_RULE_TYPE as _MERGE_QUEUE_RULE_TYPE,
     compare_declared_against_live,
     live_branch_rules,
@@ -53,6 +55,7 @@ from yoke_core.domain.merge_queue_declaration import (
 )
 from yoke_core.domain.project_github_auth import (
     ProjectGithubAuthError,
+    MissingPermission,
     repair_command_hint,
     resolve_project_github_auth,
 )
@@ -202,18 +205,35 @@ def hc_merge_queue_binding(
         )
         return
 
+    access_problem = ""
+    read_permissions = {
+        **GITHUB_METADATA_READ_PERMISSION_LEVELS,
+        **GITHUB_CONTENTS_READ_PERMISSION_LEVELS,
+    }
     try:
-        # Branch rules + workflow contents are metadata/contents reads.
-        # Parameter drift uses the same surfaces; bypass_actors may need
-        # a ruleset GET that fails closed into presence-only comparison.
+        # GitHub hides bypass actors without write authority, even on GET.
         auth = resolve_project_github_auth(
             project,
             db_path=args.db_path,
             required_permissions={
-                **GITHUB_METADATA_READ_PERMISSION_LEVELS,
-                **GITHUB_CONTENTS_READ_PERMISSION_LEVELS,
+                **read_permissions,
+                **GITHUB_ADMINISTRATION_WRITE_PERMISSION_LEVELS,
             },
         )
+    except MissingPermission as err:
+        access_problem = (
+            f"administrative settings unreadable: {err}. {ADMINISTRATION_RECOVERY}"
+        )
+        try:
+            auth = resolve_project_github_auth(
+                project, db_path=args.db_path, required_permissions=read_permissions,
+            )
+        except ProjectGithubAuthError as err:
+            rec.record(
+                CHECK_ID, CHECK_NAME, "FAIL",
+                f"{access_problem} Read access also unavailable: {err}",
+            )
+            return
     except ProjectGithubAuthError as err:
         rec.record(
             CHECK_ID, CHECK_NAME, "SKIP",
@@ -230,7 +250,10 @@ def hc_merge_queue_binding(
         owner, repo, default_branch, token=auth.token,
     )
     if live_rules is None:
-        rec.record(CHECK_ID, CHECK_NAME, "SKIP", str(rules_error))
+        rec.record(
+            CHECK_ID, CHECK_NAME, "FAIL" if access_problem else "SKIP",
+            f"{access_problem} {rules_error}".strip(),
+        )
         return
 
     has_queue = any(
@@ -241,7 +264,7 @@ def hc_merge_queue_binding(
         conn, auth.token, owner, repo, project_id, default_branch
     )
 
-    problems = []
+    problems = [access_problem] if access_problem else []
     if not has_queue:
         problems.append(
             f"default branch '{default_branch}' has no merge_queue rule; "

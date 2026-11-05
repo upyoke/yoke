@@ -27,7 +27,9 @@ from typing import Any, Callable, Optional
 
 from yoke_contracts.github_app_installation_permissions import (
     GITHUB_CHECKS_READ_PERMISSION_LEVELS as CHECKS_READ,
+    GITHUB_CONTENTS_READ_PERMISSION_LEVELS as CONTENTS_READ,
     GITHUB_PULL_REQUESTS_READ_PERMISSION_LEVELS as PR_READ,
+    GITHUB_STATUSES_READ_PERMISSION_LEVELS as STATUSES_READ,
 )
 
 from yoke_core.domain.gh_rest_transport import (
@@ -42,6 +44,9 @@ from yoke_core.engines.merge_worktree_pr_queue import (
     resolve_auth_detail,
 )
 from yoke_core.engines.merge_worktree_prepare import MergeContext
+from yoke_core.engines.merge_worktree_pr_projection import unreadable_landing_field
+
+_LANDING_READ = {**PR_READ, **CONTENTS_READ, **CHECKS_READ, **STATUSES_READ}
 
 
 #: One document per distinct pull request: landing status plus the rollup
@@ -261,6 +266,10 @@ def _parse_landing_state(pull_request: dict[str, Any]) -> PrLandingState:
 
 
 def _unreadable(reason: str) -> PrLandingProjection:
+    reason += (
+        "; repair: verify the GitHub App installation grants Pull requests, "
+        "Contents, Checks and Commit statuses read access, then retry"
+    )
     return PrLandingProjection(state_error=reason, checks_error=reason)
 
 
@@ -278,7 +287,7 @@ def read_pr_landing_and_required_checks(
     A GraphQL error list still fails the whole document: partial payloads
     are not interpreted as success.
     """
-    auth, auth_err = resolve_auth_detail(ctx, PR_READ)
+    auth, auth_err = resolve_auth_detail(ctx, _LANDING_READ)
     if auth_err or auth is None:
         return _unreadable(auth_err or "github auth unavailable")
     owner, name = split_repo(auth.repo)
@@ -290,7 +299,7 @@ def read_pr_landing_and_required_checks(
         auth,
         query=_PR_LANDING_AND_CHECKS_QUERY,
         variables={"owner": owner, "name": name, "number": number},
-        required_permissions=PR_READ,
+        required_permissions=_LANDING_READ,
         **({"request": request} if request is not None else {}),
     )
     if err:
@@ -301,6 +310,9 @@ def read_pr_landing_and_required_checks(
             f"repository {owner}/{name} returned no pull request {pr_num}; "
             "its landing status and required checks could not be read"
         )
+    hidden = unreadable_landing_field(pull_request)
+    if hidden:
+        return _unreadable(f"pull-request landing field {hidden} is unreadable")
     try:
         return PrLandingProjection(
             state=_parse_landing_state(pull_request),

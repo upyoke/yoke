@@ -9,9 +9,9 @@ weaker set without anyone being told.
 
 Two readers need the same comparison — the Doctor check that reports the
 drift and the queue landing that refuses to merge through it — so the
-read lives here once. It needs only repository read access, which is
-what makes it usable on the merge path: the apply itself demands
-Administration write, a permission a merging agent has no reason to hold.
+read lives here once. Doctor's full comparison needs Administration: write
+to see bypass actors, but performs only GETs. The landing path compares
+enforcement alone with repository read access.
 """
 
 from __future__ import annotations
@@ -35,6 +35,10 @@ from yoke_core.domain.merge_queue_declaration import (
 )
 
 MERGE_QUEUE_RULE_TYPE = "merge_queue"
+ADMINISTRATION_RECOVERY = (
+    "Grant Administration: write on the GitHub App installation, approve its "
+    "updated repository permissions, then rerun Doctor."
+)
 DRIFT_SKIP_DECLARATION_MISSING = "declaration_missing"
 DRIFT_SKIP_DECLARATION_UNREADABLE = "declaration_unreadable"
 DRIFT_SKIP_GITHUB_AUTH_UNRESOLVED = "github_auth_unresolved"
@@ -155,7 +159,8 @@ def _live_bypass_actors(
         detail = mq_rest.get_ruleset(owner, repo, ruleset_id, token=token)
     except RestTransportError:
         return None, False
-    return detail.get("bypass_actors"), True
+    actors = detail.get("bypass_actors")
+    return actors, isinstance(actors, list)
 
 
 def compare_declared_against_live(
@@ -174,15 +179,22 @@ def compare_declared_against_live(
             unreadable=(f"repository settings unreadable: {exc}",),
         )
     live_auto = repo_row.get("allow_auto_merge")
+    unreadable = []
     if not isinstance(live_auto, bool):
         live_auto = None
+        unreadable.append(
+            f"allow_auto_merge unreadable: {ADMINISTRATION_RECOVERY}"
+        )
     bypass, compare_bypass = _live_bypass_actors(
         owner,
         repo,
         rules,
         token=token,
     )
+    if not compare_bypass:
+        unreadable.append(f"bypass_actors unreadable: {ADMINISTRATION_RECOVERY}")
     return LiveDriftReport(
+        unreadable=tuple(unreadable),
         drift=tuple(
             diff_declared_against_live(
                 declared,

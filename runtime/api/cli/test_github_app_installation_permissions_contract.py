@@ -15,6 +15,7 @@ def test_required_repository_permissions_match_onboarding_copy() -> None:
         "Actions: write",
         "Checks: read",
         "Contents: write",
+        "Commit statuses: read",
         "Issues: write",
         "Metadata: read",
         "Pull requests: write",
@@ -90,6 +91,9 @@ def test_unknown_required_permission_level_never_passes() -> None:
 
 
 def test_operation_permission_maps_are_immutable_and_exact() -> None:
+    assert dict(contract.GITHUB_STATUSES_READ_PERMISSION_LEVELS) == {
+        "statuses": "read",
+    }
     assert dict(contract.GITHUB_METADATA_READ_PERMISSION_LEVELS) == {
         "metadata": "read",
     }

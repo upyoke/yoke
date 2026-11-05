@@ -97,7 +97,7 @@ App-level webhook above.
 Baseline repository permissions are:
 
 - Actions: write
-- Checks: read
+- Checks: read; Commit statuses: read
 - Contents: write
 - Issues: write
 - Metadata: read
