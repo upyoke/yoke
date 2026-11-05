@@ -1,0 +1,8 @@
+{
+  "schemaVersion": 1,
+  "allowedPathPattern": "(?:.*\\.md|nav\\.yaml|assets/[a-z0-9/._-]+\\.(?:css|svg|html))",
+  "identityFiles": [
+    "materialization.json",
+    "yoke-docs-build-evidence.json"
+  ]
+}
