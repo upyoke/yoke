@@ -301,6 +301,8 @@ def create_core_tables(conn: Any) -> None:
           project_slug TEXT,
           target_branch TEXT
         );
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_merge_locks_scope
+          ON merge_locks(project_slug, target_branch);
         CREATE TABLE IF NOT EXISTS item_sections (
           item_id INTEGER NOT NULL,
           section_name TEXT NOT NULL,

@@ -12,7 +12,9 @@ Run the printed command once.
 `--skip-status` postpones only `done`: the item still moves to `release` and its work claim is released. Merge each step of multi-step work as its own item.
 
 0 with `landing_pending`: wait, rerun. 3: [conflicts](merge-conflicts.md).
-6: release `handoff-to-usher`. 9: queue wait. Else roll back if unlanded (`yoke lifecycle transition`
+6: the merge already waited the full lock TTL; the refusal names the holding item. Check it, then rerun or release `handoff-to-usher`.
+`merge_target_moved`: pin-only target moves self-recover; any other means refresh the lane and rerun.
+9: queue wait. Else roll back if unlanded (`yoke lifecycle transition`
 to the pin's rollback target),
 release `usher-halt-merge-failure` (unknown codes `usher-halt-unexpected`).
 

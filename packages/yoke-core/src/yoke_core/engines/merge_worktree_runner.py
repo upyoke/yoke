@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import time
-from typing import Callable, Optional
 
 from yoke_contracts.refusal_recovery import compose_refusal
 
@@ -16,46 +14,8 @@ from yoke_core.engines.merge_worktree_base import target_ref
 from yoke_core.engines.merge_worktree_pr_rest import validate_github_auth_for_merge
 from yoke_core.engines.merge_worktree_prepare import MergeArgs
 
-# Exit code returned when the pre-acquire merge-lock retry budget is exhausted
-# and the block message is still present. Distinct from existing engine exit
-# codes 1/3/4/5 so .agents/skills/yoke/usher/merge.md can treat it as a
-# retryable coordination outcome instead of a halt-class merge failure.
+# Exit 6 means the full merge-lock TTL wait timed out, with its holder named.
 RECOVERABLE_MERGE_LOCK_EXIT_CODE = 6
-
-# Pre-acquire merge-lock retry schedule (seconds). The first attempt runs
-# immediately; each entry is the sleep BEFORE the next retry. The total wall
-# wait when the block never clears is the sum (~9s). Tests monkeypatch
-# ``time.sleep`` so the suite incurs no real delay.
-MERGE_LOCK_RETRY_DELAYS = (1.0, 3.0, 5.0)
-
-
-def _pre_acquire_check_with_retry(
-    check_fn: Callable[[], Optional[str]],
-    *,
-    sleep_fn: Optional[Callable[[float], None]] = None,
-    delays: tuple[float, ...] = MERGE_LOCK_RETRY_DELAYS,
-) -> Optional[str]:
-    """Call ``check_fn`` with bounded retries; return final block message or None.
-
-    Calls ``check_fn`` once immediately. If it returns a non-None block message,
-    sleep for each entry in ``delays`` and retry. As soon as ``check_fn`` returns
-    None (stale row pruned by a subsequent check, or holder released), return
-    None so the caller proceeds to acquire. If every retry still reports a
-    block, return the most recent block message. ``sleep_fn`` defaults to
-    ``time.sleep`` via module-attribute lookup so tests can monkeypatch the
-    ``time`` module without binding a stale default.
-    """
-    if sleep_fn is None:
-        sleep_fn = time.sleep
-    block_msg = check_fn()
-    if block_msg is None:
-        return None
-    for delay in delays:
-        sleep_fn(delay)
-        block_msg = check_fn()
-        if block_msg is None:
-            return None
-    return block_msg
 
 
 def _parent():
@@ -187,23 +147,26 @@ def run(args: MergeArgs) -> int:
             project_slug=ctx.project or "",
             target_branch=args.target,
         )
-        block_msg = _pre_acquire_check_with_retry(lambda: merge_lock.check(scope=scope))
-        if block_msg:
+        from yoke_core.engines import merge_lock_wait
+
+        acquired = merge_lock_wait.wait_and_acquire(
+            scope, args.branch, ctx.epic_id, print_fn=_print
+        )
+        if isinstance(acquired, str):
             ttl = runtime_settings.get_int(
                 "merge_lock_ttl_minutes", merge_lock.DEFAULT_TTL_MINUTES
             )
             _print(
                 compose_refusal(
-                    block_msg,
-                    recovery="retryable merge-lock condition "
-                    "(pre-acquire retry budget exhausted). No wake will arrive. "
-                    f"Rerun the same merge command for branch '{args.branch}' "
-                    f"in a few minutes; the lock expires after {ttl} minutes.",
+                    acquired,
+                    recovery=f"the merge waited the full lock TTL ({ttl} min) and "
+                    f"{acquired}. Check that item's merge; rerun this same command "
+                    "to wait again, or ask steering to clear a dead holder with --force-lock.",
                 ),
                 err=True,
             )
             return RECOVERABLE_MERGE_LOCK_EXIT_CODE
-        lock_handle = merge_lock.acquire(args.branch, ctx.epic_id, scope=scope)
+        lock_handle = acquired
     except Exception as e:
         _print(f"Merge lock error: {e}", err=True)
         return 1

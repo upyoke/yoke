@@ -223,6 +223,9 @@ file that needs splitting instead of classifying engine-created changes as
 user dirt.
 
 A rejected target push with `merge_target_moved` means the target moved during
-CI. Refresh the lane and re-verify before retrying the governed merge. The
+CI. When every new target commit is a release pin commit, the merge retries
+itself up to two times, rerunning the merge engine and its tests. It retains
+each unpublished local merge on `<branch>-unpublished-<sha>`. Other target
+moves require refreshing the lane and re-verifying before retrying. The
 refusal includes Git's push warning and retains local commits; an unpublished
 local merge does not prove that the candidate landed on `origin/<target>`.

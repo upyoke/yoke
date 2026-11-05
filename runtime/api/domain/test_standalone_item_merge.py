@@ -92,7 +92,8 @@ class TestMergeBoundary:
         )
         outcome = _merge(repo)
         assert outcome.exit_code == sim.RECOVERABLE_MERGE_LOCK_EXIT_CODE
-        assert "retry" in outcome.error
+        assert "wait timed out" in outcome.error
+        assert "retry once " + "it clears" not in outcome.error
 
     def test_already_merged_branch_converges_instead_of_refusing(
         self,

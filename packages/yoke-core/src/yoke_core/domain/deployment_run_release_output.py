@@ -34,6 +34,7 @@ from yoke_core.domain.deployment_run_bound_sources import (
 RELEASE_OUTPUT_KEY = "outputs"
 
 #: What a promotion that rewrote a version pin calls its own commit.
+RELEASE_PIN_SUBJECT_PREFIX = "Pin prod Yoke "
 REASON_RELEASE_PIN = "release_pin_materialization"
 
 
