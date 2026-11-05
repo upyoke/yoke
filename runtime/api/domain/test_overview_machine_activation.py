@@ -10,6 +10,7 @@ from __future__ import annotations
 
 from yoke_contracts.timestamps import parse_instant
 from yoke_core.domain.db_helpers import iso8601_now
+from yoke_core.domain.machine_registry import register_machine
 from yoke_core.domain.overview_machine_activation import (
     MACHINE_MODULE_CONNECT_HARNESS,
     MACHINE_MODULE_MACHINE_CONNECTED,
@@ -49,6 +50,9 @@ def _seed_relay(
         actor_id
         if actor_id is not None
         else conn.execute("SELECT id FROM actors ORDER BY id LIMIT 1").fetchone()[0]
+    )
+    register_machine(
+        conn, machine_id=machine_id, name=hostname, actor_id=actor, now=seen
     )
     conn.execute(
         "INSERT INTO session_relays (relay_id, actor_id, machine_id, hostname, "
@@ -147,15 +151,10 @@ def test_two_machines_read_their_own_harness_history(test_db):
     assert beta["registered_at"] == parse_instant("2026-08-02T00:00:00Z")
 
 
-def test_a_machine_known_only_from_sessions_lists_without_a_name(test_db):
+def test_a_machine_known_only_from_sessions_is_not_registered(test_db):
     _seed_session(test_db, "s-b", MACHINE_B, at="2026-08-03T00:00:00Z")
 
-    [machine] = read_registered_machines(test_db)
-
-    assert machine["machine_id"] == MACHINE_B
-    assert machine["name"] is None
-    assert machine["surfaces"] == []
-    assert machine["registered_at"] == parse_instant("2026-08-03T00:00:00Z")
+    assert read_registered_machines(test_db) == []
 
 
 def test_sessions_without_a_machine_id_attribute_to_no_machine(test_db):
@@ -170,12 +169,14 @@ def test_sessions_without_a_machine_id_attribute_to_no_machine(test_db):
     assert read_registered_machines(test_db) == []
 
 
-def test_a_revoked_relay_with_no_sessions_leaves_the_list(test_db):
+def test_registry_retirement_excludes_machines_with_or_without_sessions(test_db):
     _seed_relay(test_db, MACHINE_A, "gone-box", state="revoked")
     _seed_relay(test_db, MACHINE_B, "kept-box", state="revoked")
     _seed_session(test_db, "s-b", MACHINE_B)
 
-    assert [m["machine_id"] for m in read_registered_machines(test_db)] == [MACHINE_B]
+    test_db.execute("UPDATE machines SET retired_at = %s", (iso8601_now(),))
+    test_db.commit()
+    assert read_registered_machines(test_db) == []
 
 
 def test_latch_is_monotone_per_machine_and_module(test_db):
@@ -228,7 +229,7 @@ def test_latch_write_is_idempotent(test_db):
 
 
 def test_another_members_machine_never_renders_for_this_viewer(test_db):
-    """A relay names its owner, and only the owner is shown their box."""
+    """The registry names its owner, and only the owner sees their box."""
     viewer = _actor(test_db)
     other = _actor(test_db)
     _seed_relay(test_db, MACHINE_A, "mine-box", actor_id=viewer)
@@ -244,12 +245,15 @@ def test_another_members_machine_never_renders_for_this_viewer(test_db):
     assert [row["machine_id"] for row in unscoped] == [MACHINE_A, MACHINE_B]
 
 
-def test_a_relayless_machine_is_read_from_the_viewers_own_sessions(test_db):
-    """No relay to name an owner, so the sessions that ran there decide."""
+def test_relayless_machine_ownership_comes_from_registry(test_db):
+    """Session ownership cannot move a registered machine to another viewer."""
     viewer = _actor(test_db)
     other = _actor(test_db)
-    _seed_session(test_db, "s-mine", MACHINE_A, actor_id=viewer)
-    _seed_session(test_db, "s-theirs", MACHINE_B, actor_id=other)
+    register_machine(
+        test_db, machine_id=MACHINE_A, name="mine", actor_id=viewer, now=iso8601_now()
+    )
+    _seed_session(test_db, "s-mine", MACHINE_A, actor_id=other)
+    _seed_session(test_db, "s-theirs", MACHINE_B, actor_id=viewer)
 
     assert [
         row["machine_id"] for row in read_registered_machines(test_db, actor_id=viewer)
