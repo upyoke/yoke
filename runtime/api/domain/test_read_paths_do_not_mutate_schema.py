@@ -84,11 +84,14 @@ _SANCTIONED_SCHEMA_HELPER_CALLS: frozenset[str] = frozenset(
         # Ordered migration history, which changes schema by definition.
         "domain/migrations/0015_session_surface_and_organization_domain.py::apply",
         "domain/migrations/0021_session_termination.py::apply",
+        "domain/migrations/0101_decision_request_audiences.py::apply",
         # ``cmd_init`` surfaces whose whole job is standing a database up.
         "domain/events_schema.py::cmd_init",
         "domain/flow_init.py::cmd_init",
         "domain/project_structure.py::cmd_init",
         "domain/projects_restart.py::cmd_init",
+        # The decision schema creates its referenced audience storage first.
+        "domain/decision_request_schema.py::create_decision_request_tables",
         # One schema helper calling another.
         "domain/org_schema.py::create_org_tables",
         "domain/project_onboarding_runs.py::ensure_schema",

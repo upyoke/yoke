@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 from yoke_core.domain.decision_request_contract import DECISION_REQUEST_KINDS
+from yoke_core.domain.audience_schema import create_audience_tables
 from yoke_core.domain.schema_common import _add_column_if_not_exists
 from yoke_core.domain.schema_init_apply import execute_schema_script
 
@@ -19,6 +20,7 @@ def create_decision_request_tables(
     commit: bool = True,
 ) -> None:
     """Create the Inbox substrate, committing unless the caller owns the transaction."""
+    create_audience_tables(conn, commit=False)
     request_kinds = _sql_values(DECISION_REQUEST_KINDS)
     execute_schema_script(
         conn,
@@ -32,6 +34,7 @@ def create_decision_request_tables(
             project_id INTEGER REFERENCES projects(id),
             org_id INTEGER REFERENCES organizations(id),
             originator_actor_id INTEGER REFERENCES actors(id),
+            audience_id INTEGER REFERENCES audiences(id),
             approval_mode TEXT NOT NULL DEFAULT 'any'
                 CHECK(approval_mode IN ('any', 'all')),
             status TEXT NOT NULL DEFAULT 'pending'
@@ -60,28 +63,6 @@ def create_decision_request_tables(
         CREATE INDEX IF NOT EXISTS idx_decision_requests_org_status
             ON decision_requests(org_id, status, created_at);
 
-        CREATE TABLE IF NOT EXISTS decision_request_role_authorities (
-            request_id INTEGER NOT NULL REFERENCES decision_requests(id)
-                ON DELETE CASCADE,
-            scope_kind TEXT NOT NULL CHECK(scope_kind IN ('project', 'org')),
-            scope_id INTEGER NOT NULL,
-            role_name TEXT NOT NULL,
-            PRIMARY KEY (request_id, scope_kind, scope_id, role_name)
-        );
-        CREATE INDEX IF NOT EXISTS idx_decision_request_roles_scope
-            ON decision_request_role_authorities(
-                scope_kind, scope_id, role_name, request_id
-            );
-
-        CREATE TABLE IF NOT EXISTS decision_request_actor_authorities (
-            request_id INTEGER NOT NULL REFERENCES decision_requests(id)
-                ON DELETE CASCADE,
-            actor_id INTEGER NOT NULL REFERENCES actors(id),
-            PRIMARY KEY (request_id, actor_id)
-        );
-        CREATE INDEX IF NOT EXISTS idx_decision_request_actors_actor
-            ON decision_request_actor_authorities(actor_id, request_id);
-
         CREATE TABLE IF NOT EXISTS decision_request_decisions (
             id INTEGER PRIMARY KEY,
             request_id INTEGER NOT NULL REFERENCES decision_requests(id)
@@ -100,6 +81,9 @@ def create_decision_request_tables(
         CREATE INDEX IF NOT EXISTS idx_decision_request_decisions_request
             ON decision_request_decisions(request_id, decided_at, id);
     """,
+    )
+    _add_column_if_not_exists(
+        conn, "decision_requests", "audience_id", "INTEGER REFERENCES audiences(id)"
     )
     _add_column_if_not_exists(
         conn,

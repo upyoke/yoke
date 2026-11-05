@@ -1,7 +1,9 @@
 {
  "id": "inbox-sections",
  "title": "Inbox sections",
- "status": "draft-copy",
+ "status": "observed",
  "page": "messaging",
- "position": 5
+ "position": 5,
+ "summary": "The Inbox separates waiting decisions, shared posts, reporting notices, messages and recent decisions. A post has shared Done; messages are acknowledged and delivery notices are dismissed.",
+ "sources": ["docs/public/sessions/inbox.md"]
 }

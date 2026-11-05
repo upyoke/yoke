@@ -8,6 +8,7 @@ import sqlite3
 from yoke_core.domain.decision_request_schema import (
     create_decision_request_tables,
 )
+from yoke_core.domain.inbox_post_schema import create_inbox_post_table
 from yoke_core.domain.events_schema import ensure_event_schema
 
 
@@ -80,6 +81,7 @@ def decision_request_connection():
     """)
     ensure_event_schema(value)
     create_decision_request_tables(value)
+    create_inbox_post_table(value)
     value.execute("INSERT INTO organizations VALUES (1, 'default', 'Default', 'now')")
     value.execute(
         "INSERT INTO projects "
@@ -121,3 +123,46 @@ def decision_request_connection():
         yield value
     finally:
         value.close()
+
+
+def transition_request(conn):
+    from yoke_core.domain.decision_requests import (
+        RoleAuthority,
+        create_decision_request,
+    )
+
+    return create_decision_request(
+        conn,
+        kind="lifecycle_transition_approval",
+        subject_type="item_transition",
+        subject_key="1907:reviewing-implementation",
+        project_id=10,
+        originator_actor_id=1,
+        role_authorities=[
+            RoleAuthority("project", 10, "owner"),
+            RoleAuthority("project", 10, "operator"),
+            RoleAuthority("org", 1, "admin"),
+        ],
+        named_actor_ids=[3],
+        subject_context={
+            "item_id": 1907,
+            "item_ref": "YOK-1907",
+            "item_title": "Fold GitHub identity into app shell",
+            "from_stage": "reviewing-implementation",
+            "to_stage": "reviewing-implementation",
+            "workflow_id": "issue",
+            "workflow_version_id": 1,
+            "branch_changes": {
+                "branch": None,
+                "commit_sha": None,
+                "touched_files": [],
+                "summary": "No implementation branch is recorded.",
+            },
+            "approval_source": {
+                "kind": "workflow_approval_default",
+                "entry": "approval_defaults.reviewing-implementation",
+            },
+            "title": "Fold GitHub identity into app shell",
+        },
+        created_at="2026-07-26T12:00:00Z",
+    )

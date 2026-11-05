@@ -10,8 +10,9 @@ from yoke_core.domain import universe_portability as portability
 
 def test_additive_work_surfaces_accept_older_archive_shapes():
     additive_tables = {
-        "decision_request_actor_authorities",
-        "decision_request_role_authorities",
+        "audience_rules",
+        "inbox_posts",
+        "audiences",
         "decision_requests",
         "item_strategy_docs",
         "qa_methods",

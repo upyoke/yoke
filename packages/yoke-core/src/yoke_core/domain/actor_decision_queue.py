@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from typing import Any, Iterable, Optional
 
-from yoke_core.domain import db_backend
+from yoke_core.domain import audiences, db_backend
 from yoke_core.domain.decision_answers import decision_by_actor
 from yoke_core.domain.decision_request_authority import (
     authority_reason,
@@ -52,6 +52,9 @@ def pending_requests_for_actor(
         "ORDER BY created_at DESC, id DESC"
     ).fetchall()
     composed = request_rows(conn, (int(row[0]) for row in rows))
+    matches = audiences.member_matches_for_audiences(
+        conn, (int(row["audience_id"]) for row in composed.values())
+    )
     result = []
     for row in rows:
         request = composed.get(int(row[0]))
@@ -63,7 +66,13 @@ def pending_requests_for_actor(
             and int(request["project_id"]) not in allowed_projects
         ):
             continue
-        reason = authority_reason(conn, request["id"], actor_id, request=request)
+        reason = authority_reason(
+            conn,
+            request["id"],
+            actor_id,
+            request=request,
+            matches=matches.get(request["audience_id"], []),
+        )
         if reason is None:
             continue
         decision = decision_by_actor(request["decisions"], actor_id)
@@ -72,7 +81,11 @@ def pending_requests_for_actor(
         request["your_decision"] = decision
         request["decided_by_you"] = decision is not None
         request["deciders"] = request_deciders(
-            conn, request["id"], actor_id, request=request,
+            conn,
+            request["id"],
+            actor_id,
+            request=request,
+            matches=matches.get(request["audience_id"], []),
         )
         result.append(request)
     result.sort(key=lambda value: (value["decided_by_you"], not value["asked_of_you"]))
@@ -134,7 +147,10 @@ def recently_decided_requests_for_actor(
         request["your_decision"] = decision_by_actor(request["decisions"], actor_id)
         request["decided_by_you"] = True
         request["deciders"] = request_deciders(
-            conn, request["id"], actor_id, request=request,
+            conn,
+            request["id"],
+            actor_id,
+            request=request,
         )
         request["actions"] = []
         request["can_act"] = False

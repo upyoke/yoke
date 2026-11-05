@@ -65,9 +65,9 @@ def inbox_list(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke inbox list",
         description=(
-            "List the current actor's decision requests and notifications. "
+            "List the current actor's decisions, messages and shared posts. "
             "Repeat --project-id to restrict the inbox to specific projects; "
-            "read notifications are omitted unless --include-read is set."
+            "read messages are omitted unless --include-read is set."
         ),
     )
     parser.add_argument(
@@ -80,7 +80,7 @@ def inbox_list(args: List[str]) -> int:
     parser.add_argument(
         "--include-read",
         action="store_true",
-        help="Include notifications the current actor has already read.",
+        help="Include messages the current actor has already read.",
     )
     add_session_arg(parser)
     add_json_arg(parser)

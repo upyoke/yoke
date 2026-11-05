@@ -105,6 +105,7 @@ root:
       summary: "Inspect live sessions, ownership, messages and steering reports."
       path: "sessions/index.md"
       children:
+      - {title: "Audiences and shared posts", summary: "Address live groups and finish shared Inbox work.", path: "sessions/audiences-and-posts.md"}
       - {title: "Inbox and messaging", summary: "Read decisions and send messages to their intended recipients.", path: "sessions/inbox.md"}
       - {title: "Steering report", summary: "Inspect available work, holders and session delivery failures.", path: "sessions/steering-report.md"}
       - {title: "Steering report delivery", summary: "Read deployment waits, shared capacity and report deltas.", path: "sessions/steering-report-delivery.md"}

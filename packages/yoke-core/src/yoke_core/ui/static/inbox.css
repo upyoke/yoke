@@ -260,3 +260,9 @@
   .inbox-question-choice { align-items: stretch; }
   .inbox-question-option, .inbox-question-send { width: 100%; }
 }
+
+.inbox-post-body, .inbox-post-fields dt, .inbox-post-fields dd, .inbox-post-card .review-title { white-space: pre-wrap; overflow-wrap: anywhere; }
+.inbox-post-fields { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 2fr); gap: .4rem 1rem; }
+.inbox-post-fields dd { margin: 0; }
+
+.universe-app-root .inbox-post-card .item-button { min-height: 44px; min-width: 100px; justify-self: start; }

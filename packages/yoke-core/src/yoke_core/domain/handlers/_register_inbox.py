@@ -38,6 +38,10 @@ def _register(
 
 
 def register(registry) -> None:
+    from yoke_core.domain.handlers import audiences, inbox_posts
+
+    audiences.register(registry)
+    inbox_posts.register(registry)
     from yoke_core.domain.handlers.decision_request_questions import (
         register as register_questions,
     )

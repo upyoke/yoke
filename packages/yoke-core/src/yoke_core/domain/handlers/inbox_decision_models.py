@@ -16,6 +16,7 @@ class InboxListResponse(BaseModel):
     needs_decision: List[Dict[str, Any]]
     messages: List[Dict[str, Any]] = Field(default_factory=list)
     pending_actor_message_count: int = 0
+    posts: List[Dict[str, Any]] = Field(default_factory=list)
 
 
 class DecisionRoleAuthority(BaseModel):

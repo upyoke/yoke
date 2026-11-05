@@ -149,8 +149,8 @@ def test_the_registered_operation_reports_a_stage_named_person_gate(
     named = [
         int(row[0])
         for row in test_db.execute(
-            "SELECT actor_id FROM decision_request_actor_authorities "
-            "WHERE request_id=%s",
+            "SELECT r.scope_id FROM audience_rules r JOIN decision_requests d ON d.audience_id=r.audience_id "
+            "WHERE d.id=%s AND r.scope_kind='actor'",
             (outcome.result_payload["request_id"],),
         ).fetchall()
     ]

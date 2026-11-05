@@ -8,11 +8,15 @@ and session claims are never trusted; the server or relay owns identity.
 
 from __future__ import annotations
 
+from yoke_core.ui.function_proxy_inbox import (
+    INBOX_READ_FUNCTIONS,
+    INBOX_MUTATION_FUNCTIONS,
+    INBOX_ACTOR_READ_FUNCTIONS,
+)
+
 import uuid
 from typing import Any, Dict, Optional, Tuple
 
-#: Closed browser reads have no side effects or claim requirement, except
-#: the activation-latch functions declared below.
 UI_READ_FUNCTION_ALLOWLIST = frozenset(
     {
         "organizations.get",
@@ -82,8 +86,7 @@ UI_READ_FUNCTION_ALLOWLIST = frozenset(
         "qa.requirement.get",
         "qa.run.list",
         "qa.artifact.read",
-        "decision_requests.attachment.read",
-        "inbox.list",
+        *INBOX_READ_FUNCTIONS,
         "workflow.execution_instruction.list",
         "workflow.execution_instruction.resolve",
         "workflows.definition.get",
@@ -108,19 +111,11 @@ UI_READ_FUNCTION_ALLOWLIST = frozenset(
     }
 )
 
-#: Read-allowlist members whose one sanctioned side effect is the
-#: universe-scoped monotone activation latch. Kept as its own roster so
-#: the read-only assertion over the rest of the allowlist stays exact.
-#: The latch is a write, so these dispatch as the resolved local operator
-#: actor and refuse without one; ``dismiss_available`` and the per-actor
-#: dismissal flags then match what the dismissal writes would do.
 UI_ACTIVATION_LATCH_FUNCTIONS = frozenset({"overview.activation.get"})
 
-#: Reads whose result is defined for the resolved local operator rather than
-#: an anonymous browser process.
 UI_ACTOR_BOUND_READ_FUNCTIONS = frozenset(
     {
-        "inbox.list",
+        *INBOX_ACTOR_READ_FUNCTIONS,
         "session_control.message.preview",
         "session_control.message.list",
         "session_control.message.get",
@@ -142,11 +137,6 @@ UI_ACTOR_BOUND_READ_FUNCTIONS = frozenset(
     }
 )
 
-#: Reads the operator's identity SHAPES but does not define: the rows are
-#: the same for everyone, and knowing who is reading only decides which of
-#: them offer an action. They bind the operator when one resolves and stay
-#: answerable when none does, because refusing them would blank a whole
-#: page over an action nobody was going to take.
 UI_OPERATOR_OPTIONAL_READ_FUNCTIONS = frozenset(
     {
         "deployment_runs.list",
@@ -157,7 +147,6 @@ UI_OPERATOR_OPTIONAL_READ_FUNCTIONS = frozenset(
     }
 )
 
-#: The only mutations the local proxy may dispatch. All act as the resolved
 #: local operator actor (:mod:`yoke_core.ui.local_operator_actor`) and are
 #: refused when no operator resolves; every other mutation stays 403.
 UI_MUTATION_FUNCTION_ALLOWLIST = frozenset(
@@ -190,7 +179,7 @@ UI_MUTATION_FUNCTION_ALLOWLIST = frozenset(
         "workflows.approval_defaults.publish",
         "test_machine.settings_replace",
         "test_machine.verify",
-        "decision_requests.resolve",
+        *INBOX_MUTATION_FUNCTIONS,
         "machine_authorization.resolve",
         "qa.case.waive",
         "items.create",

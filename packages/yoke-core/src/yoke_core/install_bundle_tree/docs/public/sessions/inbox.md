@@ -45,9 +45,8 @@ Read decisions and delivery notices, then address messages to their intended rec
   page uses the same order. A run whose stages are complete but whose
   members are still being settled reads **finalizing** until its authoritative
   status succeeds.
-- **Inbox** — three sections: the decisions waiting on you (a release
-  approval, a work approval, or a QA review), the messages sent to you, and
-  what you decided while on the page. An agent that needs you to know
+- **Inbox** — decisions waiting on you (including operator questions), shared
+  posts, messages sent to you, reporting notices, and your recent decisions. An agent that needs you to know
   something sends a message, with context and a specific ask. A run's own QA
   evidence review is titled **Run QA evidence · <case name>**, linking the run,
   and asks to settle evidence the independent review could not decide with
@@ -247,3 +246,8 @@ requesting session without an item ends.
 Steering raises every pending Inbox decision in chat, reconciles the report
 against chat whenever it reports, withdraws obsolete questions, replaces changed
 facts, and records chat answers through resolve immediately.
+
+## Audiences and shared posts
+
+See [Audiences and shared posts](audiences-and-posts.md) for live recipient
+rules, reusable audiences and durable work with one shared Done action.

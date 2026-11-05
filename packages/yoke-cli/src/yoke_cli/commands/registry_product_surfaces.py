@@ -4,12 +4,9 @@ from yoke_cli.commands.adapters import (
     actors,
     harness_machine_report,
     machine,
-    inbox_decisions,
-    decision_request_questions,
     item_landings,
     item_worktree_create,
     item_worktrees,
-    merge_review,
     models,
     models_level_proposal,
     overview,
@@ -24,6 +21,7 @@ from yoke_cli.commands.adapters import (
     universe_levels,
     universe_retention,
 )
+from yoke_cli.commands.registry_inbox import INBOX_DECISION_SUBCOMMAND_REGISTRY
 from yoke_cli.commands.registry_direct_workflows import (
     DIRECT_WORKFLOW_SUBCOMMAND_ALIAS_REGISTRY,
     DIRECT_WORKFLOW_SUBCOMMAND_REGISTRY,
@@ -146,38 +144,6 @@ TEST_MACHINE_SUBCOMMAND_REGISTRY = {
     ("test-machine", "bridge-diagnose"): (
         "test_machine.bridge_diagnose",
         test_machine.test_machine_bridge_diagnose,
-    ),
-}
-
-INBOX_DECISION_SUBCOMMAND_REGISTRY = {
-    ("decision-requests", "withdraw"): (
-        "decision_requests.withdraw",
-        decision_request_questions.decision_requests_withdraw,
-    ),
-    ("decision-requests", "ask"): (
-        "decision_requests.ask",
-        decision_request_questions.decision_requests_ask,
-    ),
-    ("decision-requests", "list"): (
-        "decision_requests.list",
-        decision_request_questions.decision_requests_list,
-    ),
-    ("inbox", "list"): ("inbox.list", inbox_decisions.inbox_list),
-    ("decision-requests", "get"): (
-        "decision_requests.get",
-        inbox_decisions.decision_requests_get,
-    ),
-    ("merge-review", "candidate", "evaluate"): (
-        "merge_review.candidate.evaluate",
-        merge_review.merge_review_candidate_evaluate,
-    ),
-    ("decision-requests", "resolve"): (
-        "decision_requests.resolve",
-        inbox_decisions.decision_requests_resolve,
-    ),
-    ("decision-requests", "dispose-ended"): (
-        "decision_requests.dispose_ended",
-        inbox_decisions.decision_requests_dispose_ended,
     ),
 }
 

@@ -61,6 +61,7 @@ class TestRegistrationShape:
             "test_machine.settings_replace",
             "test_machine.verify",
             "decision_requests.resolve",
+            "inbox.posts.done",
             "machine_authorization.resolve",
             "qa.case.waive",
             "items.create",

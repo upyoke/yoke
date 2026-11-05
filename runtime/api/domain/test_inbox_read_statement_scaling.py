@@ -82,8 +82,7 @@ class TestGateComposition:
         assert set(composed) == set(ids)
         for table in (
             "FROM decision_requests",
-            "decision_request_role_authorities",
-            "decision_request_actor_authorities",
+            "audience_rules",
             "decision_request_decisions",
         ):
             assert _table_reads(counting, table) == 1, table
@@ -91,9 +90,10 @@ class TestGateComposition:
     def test_the_single_form_matches_the_set_form(self, conn):
         request = _gate(conn, 2011)
 
-        assert request_row(conn, request["id"]) == request_rows(
-            conn, [request["id"]]
-        )[request["id"]]
+        assert (
+            request_row(conn, request["id"])
+            == request_rows(conn, [request["id"]])[request["id"]]
+        )
 
     def test_an_unknown_request_still_refuses_by_name(self, conn):
         with pytest.raises(LookupError):
@@ -107,16 +107,15 @@ class TestGateComposition:
         pending = pending_requests_for_actor(counting, 3)
 
         assert len(pending) == 3
-        # Three gates, still one composition read per table. The named-actor
-        # table is deliberately not in this list: what the page asks of it is
-        # per reader and per gate — whether this actor is a person the gate
-        # named — rather than the gate's own membership, which composition
-        # already carries.
+        # One audience rule composition read plus one batched live membership
+        # read for the entire page; answers still cost one set read.
         for table in (
-            "decision_request_role_authorities",
+            "audience_rules",
             "decision_request_decisions",
         ):
-            assert _table_reads(counting, table) == 1, table
+            assert _table_reads(counting, table) == (
+                2 if table == "audience_rules" else 1
+            ), table
 
 
 class TestDecisionAnswerReads:

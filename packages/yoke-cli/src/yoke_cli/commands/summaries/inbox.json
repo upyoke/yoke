@@ -1,4 +1,7 @@
 {
-  "inbox": "Read your decision requests and notifications.",
-  "inbox list": "List your decision requests and notifications."
+  "inbox": "Read decisions, messages and shared posts.",
+  "inbox list": "List decisions, messages and shared posts addressed to you.",
+  "inbox posts": "Create and finish shared Inbox work.",
+  "inbox posts create": "Create a durable post addressed to an audience.",
+  "inbox posts done": "Mark an addressed post Done for everyone."
 }

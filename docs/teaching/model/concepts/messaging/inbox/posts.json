@@ -1,0 +1,9 @@
+{
+ "id": "posts",
+ "title": "Shared Inbox posts",
+ "status": "observed",
+ "summary": "Durable audience-addressed project work has one shared Done state, with the first completing actor and time. Posts do not expire; posting requires project items.write permission, and completing requires live audience membership plus project read access. Fields are generic key/value data.",
+ "commands": ["yoke inbox posts create", "yoke inbox posts done", "yoke inbox list"],
+ "functions": ["inbox.posts.create", "inbox.posts.done", "inbox.list"],
+ "sources": ["docs/public/sessions/audiences-and-posts.md", "packages/yoke-core/src/yoke_core/domain/inbox_posts.py"]
+}
