@@ -11,6 +11,7 @@ import subprocess
 import sys
 import xml.etree.ElementTree as ET
 
+from yoke_contracts.refusal_recovery import compose_refusal
 from yoke_core.tools.ci_shards import SHARD_COUNT, SUITE_PATHS
 
 MANIFEST_ENV = "YOKE_CI_COLLECTION_MANIFEST"
@@ -95,9 +96,12 @@ def main(argv=None) -> int:
         result = compare(json.loads(manifest.read_text(encoding="utf-8")),
                          paths, args.python)
     except (OSError, ValueError, KeyError, TypeError, ET.ParseError) as error:
-        print(f"ci_shard_coverage_failed: Python {args.python}: {error}\nRecovery: download every shard report from this run, "
-              "repair collection/profile divergence or missing test execution, "
-              "then verify the corrected commit.")
+        print(compose_refusal(
+            f"ci_shard_coverage_failed: Python {args.python}: {error}",
+            recovery="download every shard report from this run, repair "
+            "collection/profile divergence or missing test execution, then "
+            "verify the corrected commit",
+        ))
         return 1
     print("ci_shard_coverage_passed: " + json.dumps(result, sort_keys=True))
     return 0
