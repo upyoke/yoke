@@ -30,7 +30,7 @@ The bootstrap loader ensures the harness session starts with the same Yoke orien
 
 ### Requirements
 
-- Load the required files and commands listed in the [Harness Bootstrap Contract](harness-bootstrap.md) section 1 (Startup Reads).
+- Load the required files and commands listed in [Startup Reads](harness-bootstrap.md#startup-reads).
 - Work without hooks. A wrapper command or harness-native config mechanism is always sufficient.
 - May optionally use a session-start hook when the harness runtime supports one.
 
@@ -44,7 +44,7 @@ The bootstrap loader ensures the harness session starts with the same Yoke orien
 
 ### What to load
 
-The canonical bootstrap content lives in `runtime/harness/bootstrap-spec.json`. The human rationale and delivery rules live in [harness-bootstrap.md](harness-bootstrap.md) section 1. Adapters should read the spec instead of duplicating the shared file/command list in harness-local docs or scripts.
+The canonical bootstrap content lives in `runtime/harness/bootstrap-spec.json`. The human rationale and delivery rules live in [Startup Reads](harness-bootstrap.md#startup-reads). Adapters should read the spec instead of duplicating the shared file/command list in harness-local docs or scripts.
 
 ### Degradation rule
 
@@ -79,7 +79,7 @@ consumption. Required fields and version floors remain schema-owned.
 
 The shared registry distinguishes two kinds of Yoke surfaces:
 
-- **Entrypoints** are top-level `/yoke` operator commands (Tier 1 in the [bootstrap contract](harness-bootstrap.md) section 3). Yoke-owned harnesses inherit these commands from shared Yoke code unless their manifest declares a concrete limitation.
+- **Entrypoints** are top-level `/yoke` operator commands in [Safe Operator Commands](harness-bootstrap.md#safe-operator-commands). Yoke-owned harnesses inherit these commands from shared Yoke code unless their manifest declares a concrete limitation.
 
 - **Downstream paths** name delivery capabilities declared by the shared registry and limited by each harness manifest. Staffing selects an item entrypoint from its pinned workflow binding.
 
@@ -145,7 +145,12 @@ Both modes must produce identical correctness outcomes. Hook-enhanced mode adds 
 
 ## Part 5: Smoke-Test Matrix
 
-Every adapter must include a smoke-test matrix that validates both operating modes.
+Every adapter must validate both operating modes through executable tests.
+Codex and Cursor also keep contributor checklists at
+[`codex/SMOKE-TEST.md`](../runtime/harness/codex/SMOKE-TEST.md) and
+[`cursor/SMOKE-TEST.md`](../runtime/harness/cursor/SMOKE-TEST.md). Claude
+coverage lives in the shared Python harness tests; it has no `SMOKE-TEST.md`.
+See the [harness contributor index](harness-contributor-index.md) for owners.
 
 ### Required test dimensions
 
@@ -187,7 +192,7 @@ Additional downstream paths may be added later. The vocabulary is intentionally 
 
 Use this checklist when creating a new harness adapter.
 
-- [ ] **Bootstrap loader implemented.** The adapter loads all required files from the [Harness Bootstrap Contract](harness-bootstrap.md) section 1 via at least one mechanism (wrapper command, hook, or harness-native config).
+- [ ] **Bootstrap loader implemented.** The adapter loads all required files from [Startup Reads](harness-bootstrap.md#startup-reads) via at least one mechanism (wrapper command, hook, or harness-native config).
 - [ ] **Capability manifest defined.** A JSON manifest matching the authoritative manifest schema exists for this harness, with all required fields populated.
 - [ ] **`harness_id` is unique.** No other adapter uses the same `harness_id`.
 - [ ] **`supports.command_source` is shared.** Yoke-owned harnesses use `"shared_yoke_registry"` and do not copy command/path lists into the manifest.
