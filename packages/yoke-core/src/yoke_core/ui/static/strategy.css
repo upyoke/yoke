@@ -200,7 +200,7 @@
 }
 
 .universe-app-root .strategy-revision-dot.current {
-  background: var(--yoke-accent);
+  background: var(--yoke-accent-fill);
 }
 
 .universe-app-root .strategy-revision-copy {

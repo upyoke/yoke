@@ -1,6 +1,89 @@
-/* Steel orange: shared dark-only brand tokens. Light host requests use the same palette. */
-:root,
-:root[data-theme="light"],
+/* Steel orange: light defaults, system dark preference, then host overrides. */
+:root {
+  --yoke-radius: 0;
+  --yoke-font-sans: 'Fira Sans', system-ui, sans-serif;
+  --yoke-font-mono: 'Fira Code', ui-monospace, monospace;
+  --yoke-font-display: 'Fira Code', ui-monospace, monospace;
+  --yoke-h-claude: #c8622a;
+  --yoke-h-codex: #10a37f;
+  --yoke-accent-fill: #f4a261;
+  --yoke-accent-fill-ink: #101418;
+  color-scheme: light;
+  --yoke-bg: #f7f8fa;
+  --yoke-ink: #202830;
+  --yoke-muted: #566371;
+  --yoke-accent: #994600;
+  --yoke-accent-2: #24618f;
+  --yoke-surface: #ffffff;
+  --yoke-border: #c8d0d8;
+  --yoke-surface-2: #edf0f4;
+  --yoke-hover: #e5eaf0;
+  --yoke-ink-2: #3c4b59;
+  --yoke-accent-weak: rgba(153, 70, 0, .10);
+  --yoke-accent-line: rgba(153, 70, 0, .4);
+  --yoke-shadow: 0 1px 2px #20283014, 0 6px 20px #20283012;
+  --yoke-good: #24618f; --yoke-good-bg: rgba(36, 97, 143, .10);
+  --yoke-warn: #994600; --yoke-warn-bg: rgba(153, 70, 0, .10);
+  --yoke-crit: #ad3039; --yoke-crit-bg: rgba(173, 48, 57, .10);
+  --yoke-run: #994600; --yoke-run-bg: rgba(153, 70, 0, .10);
+  --yoke-idle: #566371; --yoke-idle-bg: rgba(86, 99, 113, .10);
+  --yoke-park: #994600; --yoke-park-bg: rgba(153, 70, 0, .10);
+  --yoke-stage-waiting: #994600; --yoke-stage-hold: #566371;
+  --yoke-stage-ready: #24618f; --yoke-stage-active: #994600;
+  --yoke-stage-release: #6841a8; --yoke-stage-done: #24618f;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    color-scheme: dark;
+    --yoke-bg: #101418;
+    --yoke-ink: #dfe6ec;
+    --yoke-muted: #8995a1;
+    --yoke-accent: #f4a261;
+    --yoke-accent-2: #a5d8ff;
+    --yoke-surface: #171c22;
+    --yoke-border: #262e37;
+    --yoke-surface-2: #1d242c;
+    --yoke-hover: #202830;
+    --yoke-ink-2: #b8c4cf;
+    --yoke-accent-weak: rgba(244, 162, 97, .12);
+    --yoke-accent-line: rgba(244, 162, 97, .4);
+    --yoke-shadow: 0 1px 2px #0006, 0 6px 20px #0005;
+    --yoke-good: #a5d8ff; --yoke-good-bg: rgba(165, 216, 255, .12);
+    --yoke-warn: #f4a261; --yoke-warn-bg: rgba(244, 162, 97, .12);
+    --yoke-crit: #f08080; --yoke-crit-bg: rgba(240, 128, 128, .12);
+    --yoke-run: #f4a261; --yoke-run-bg: rgba(244, 162, 97, .12);
+    --yoke-idle: #8995a1; --yoke-idle-bg: rgba(137, 149, 161, .12);
+    --yoke-park: #f4a261; --yoke-park-bg: rgba(244, 162, 97, .12);
+    --yoke-stage-waiting: #f4a261; --yoke-stage-hold: #8995a1;
+    --yoke-stage-ready: #a5d8ff; --yoke-stage-active: #f4a261;
+    --yoke-stage-release: #c4b5fd; --yoke-stage-done: #a5d8ff;
+  }
+}
+:root[data-theme="light"] {
+  color-scheme: light;
+  --yoke-bg: #f7f8fa;
+  --yoke-ink: #202830;
+  --yoke-muted: #566371;
+  --yoke-accent: #994600;
+  --yoke-accent-2: #24618f;
+  --yoke-surface: #ffffff;
+  --yoke-border: #c8d0d8;
+  --yoke-surface-2: #edf0f4;
+  --yoke-hover: #e5eaf0;
+  --yoke-ink-2: #3c4b59;
+  --yoke-accent-weak: rgba(153, 70, 0, .10);
+  --yoke-accent-line: rgba(153, 70, 0, .4);
+  --yoke-shadow: 0 1px 2px #20283014, 0 6px 20px #20283012;
+  --yoke-good: #24618f; --yoke-good-bg: rgba(36, 97, 143, .10);
+  --yoke-warn: #994600; --yoke-warn-bg: rgba(153, 70, 0, .10);
+  --yoke-crit: #ad3039; --yoke-crit-bg: rgba(173, 48, 57, .10);
+  --yoke-run: #994600; --yoke-run-bg: rgba(153, 70, 0, .10);
+  --yoke-idle: #566371; --yoke-idle-bg: rgba(86, 99, 113, .10);
+  --yoke-park: #994600; --yoke-park-bg: rgba(153, 70, 0, .10);
+  --yoke-stage-waiting: #994600; --yoke-stage-hold: #566371;
+  --yoke-stage-ready: #24618f; --yoke-stage-active: #994600;
+  --yoke-stage-release: #6841a8; --yoke-stage-done: #24618f;
+}
 :root[data-theme="dark"] {
   color-scheme: dark;
   --yoke-bg: #101418;
@@ -10,10 +93,6 @@
   --yoke-accent-2: #a5d8ff;
   --yoke-surface: #171c22;
   --yoke-border: #262e37;
-  --yoke-radius: 0;
-  --yoke-font-sans: 'Fira Sans', system-ui, sans-serif;
-  --yoke-font-mono: 'Fira Code', ui-monospace, monospace;
-  --yoke-font-display: 'Fira Code', ui-monospace, monospace;
   --yoke-surface-2: #1d242c;
   --yoke-hover: #202830;
   --yoke-ink-2: #b8c4cf;
@@ -29,8 +108,5 @@
   --yoke-stage-waiting: #f4a261; --yoke-stage-hold: #8995a1;
   --yoke-stage-ready: #a5d8ff; --yoke-stage-active: #f4a261;
   --yoke-stage-release: #c4b5fd; --yoke-stage-done: #a5d8ff;
-  /* Harness marks retain their own identities. */
-  --yoke-h-claude: #c8622a;
-  --yoke-h-codex: #10a37f;
 }
 :is(h1, h2, h3, h4, h5, h6) { font-family: var(--yoke-font-display); }

@@ -66,8 +66,8 @@
 }
 
 .universe-app-root .actors-table .actor-avatar.current {
-  background: var(--yoke-accent);
-  color: var(--yoke-bg);
+  background: var(--yoke-accent-fill);
+  color: var(--yoke-accent-fill-ink);
 }
 
 .universe-app-root .actors-name {

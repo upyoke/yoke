@@ -204,8 +204,8 @@
 
 .qa-action-dialog .btn.primary {
   border-color: var(--yoke-accent);
-  background: var(--yoke-accent);
-  color: white;
+  background: var(--yoke-accent-fill);
+  color: var(--yoke-accent-fill-ink);
 }
 
 .qa-action-error {

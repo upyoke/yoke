@@ -60,9 +60,9 @@
 
 .universe-app-root .item-button.primary,
 .universe-app-root .item-action.primary {
-  color: var(--yoke-bg);
+  color: var(--yoke-accent-fill-ink);
   border-color: transparent;
-  background: var(--yoke-accent);
+  background: var(--yoke-accent-fill);
 }
 
 .universe-app-root .item-filter-control,

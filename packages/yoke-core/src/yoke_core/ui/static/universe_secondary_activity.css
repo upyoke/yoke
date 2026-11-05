@@ -145,7 +145,7 @@
   height: 7px;
   border: 2px solid var(--yoke-surface);
   border-radius: var(--yoke-radius);
-  background: var(--yoke-accent);
+  background: var(--yoke-accent-fill);
   box-shadow: 0 0 0 1px var(--yoke-border);
   content: "";
 }
@@ -216,7 +216,7 @@
 }
 
 .universe-app-root .delivery-stage[data-state="complete"] i { background: var(--yoke-good); }
-.universe-app-root .delivery-stage[data-state="active"] i { background: var(--yoke-accent); }
+.universe-app-root .delivery-stage[data-state="active"] i { background: var(--yoke-accent-fill); }
 .universe-app-root .delivery-stage[data-state="failed"] i { background: var(--yoke-crit); }
 .universe-app-root .delivery-stage[data-state="stopped"] i { background: var(--yoke-warn); }
 
@@ -258,7 +258,7 @@
   background: var(--yoke-good);
 }
 .universe-app-root .delivery-run-stage[data-state="active"] {
-  background: var(--yoke-accent);
+  background: var(--yoke-accent-fill);
   animation: delivery-run-pulse 1.6s ease-in-out infinite;
 }
 .universe-app-root .delivery-run-stage[data-state="failed"] {

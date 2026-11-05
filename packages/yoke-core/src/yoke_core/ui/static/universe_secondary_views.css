@@ -102,7 +102,7 @@
 }
 
 .universe-app-root .stage-progress-segment.is-complete {
-  background: var(--yoke-accent);
+  background: var(--yoke-accent-fill);
 }
 
 .universe-app-root .packs-stack {

@@ -33,10 +33,14 @@ execution** work items. Strategy foundation -> parallel execution.
 
 ## Customizing
 
-Steel orange is dark only: background `#101418`, ink `#dfe6ec`, muted `#8995a1`,
-accent `#f4a261`, second accent `#a5d8ff`, surface `#171c22`, border `#262e37`.
-Light theme requests alias the same palette. Corners are square; filled buttons
-use dark labels and turn to accent outlines on hover. Fira Code sets display and
+Steel orange follows the system light or dark preference. A root `data-theme="light"`
+or `data-theme="dark"` overrides that preference. Light uses background `#f7f8fa`,
+ink `#202830`, orange text `#994600` and blue text `#24618f`; dark retains
+background `#101418`, ink `#dfe6ec`, orange `#f4a261` and blue `#a5d8ff`.
+Corners are square. Filled controls use `--yoke-accent-fill` (`#f4a261`) with
+`--yoke-accent-fill-ink` (`#101418`); text uses the theme's `--yoke-accent`.
+Wordmark letters inherit the host's text colour when embedded inline.
+Fira Code sets display and
 mono text; Fira Sans sets body text. The UI self-hosts WOFF2 fonts with system
 fallbacks, loaded by `ui/static/fonts.css`, and OFL notices in `ui/static/fonts-OFL.txt`; upstream sources are
 [Google Fonts](https://github.com/google/fonts/tree/main/ofl) (firacode, firasans,
