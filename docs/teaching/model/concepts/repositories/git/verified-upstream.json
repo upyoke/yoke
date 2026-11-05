@@ -3,5 +3,7 @@
  "title": "Verified upstream",
  "status": "draft-copy",
  "page": "repositories",
- "position": 3
+ "position": 3,
+ "current": "Upstream freshness reattaches a detached primary checkout to the declared base branch before fast-forwarding only when the checkout is clean and HEAD equals that branch's local tip. Its files and branch then advance together. A dirty primary checkout or one detached at another commit stays unchanged and reports behind_not_updated with the detached revision and the git switch recovery command. Linked worktrees keep their detached HEAD; a base branch held in another worktree remains untouched.",
+ "sources": ["packages/yoke-cli/src/yoke_cli/config/repo_upstream_git.py", "runtime/api/domain/test_repo_upstream_freshness_detached.py"]
 }

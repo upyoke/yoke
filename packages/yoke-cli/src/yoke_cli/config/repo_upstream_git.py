@@ -149,6 +149,8 @@ def fast_forward(
     the ref and git refuses rather than overwrite an uncommitted change. A
     branch checked out somewhere else is left alone entirely — moving its
     ref from here would leave that tree reporting reversions it never made.
+    A clean detached primary checkout at the branch tip reattaches first,
+    so its files advance too. Other detached primary checkouts refuse.
     Anywhere else the ref moves under a compare-and-swap on the revision
     this evaluation actually read.
     """
@@ -158,6 +160,31 @@ def fast_forward(
         return (merged.returncode == 0), reason(merged)
     if holder:
         return False, f"{base_branch} is checked out at {holder}"
+    git_dir = git(repo_root, "rev-parse", "--git-dir")
+    common_dir = git(repo_root, "rev-parse", "--git-common-dir")
+    if (
+        git_dir.returncode == 0
+        and common_dir.returncode == 0
+        and out(git_dir) == out(common_dir)
+        and git(repo_root, "symbolic-ref", "-q", "HEAD").returncode != 0
+    ):
+        head = git(repo_root, "rev-parse", "HEAD")
+        status = git(repo_root, "status", "--porcelain")
+        if (
+            head.returncode == 0
+            and out(head) == local_sha
+            and status.returncode == 0
+            and not out(status)
+        ):
+            switched = git(repo_root, "switch", base_branch)
+            if switched.returncode != 0:
+                return False, reason(switched)
+            merged = git(repo_root, "merge", "--ff-only", upstream_sha)
+            return (merged.returncode == 0), reason(merged)
+        return False, (
+            f"{repo_root} has a detached HEAD at {out(head)}; "
+            f"run git -C {repo_root} switch {base_branch}"
+        )
     moved = git(
         repo_root, "update-ref", f"refs/heads/{base_branch}", upstream_sha, local_sha
     )
