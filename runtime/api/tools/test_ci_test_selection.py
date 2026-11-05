@@ -15,6 +15,7 @@ def _item(node_id, fixtures=()):
 def test_oldest_leg_deselects_repository_and_wheel_checks(monkeypatch, tmp_path):
     monkeypatch.chdir(tmp_path)
     (tmp_path / ".test_durations").write_text("{}")
+    monkeypatch.setattr(selection, "DURATIONS_PATH", str(tmp_path / ".test_durations"))
     monkeypatch.setenv("YOKE_CI_PYTHON_SCOPE", "interpreter")
     independent = [
         _item("tests/teaching_prototype/test_map.py::test_links"),
@@ -128,6 +129,7 @@ def test_assigned_files_are_ordered_by_weight_and_fingerprinted(monkeypatch, tmp
     (tmp_path / ".test_durations").write_text(
         '{"tests/test_a.py::test_case": 1, "tests/test_b.py::test_case": 9}'
     )
+    monkeypatch.setattr(selection, "DURATIONS_PATH", str(tmp_path / ".test_durations"))
     items = [_item(f"tests/test_{name}.py::test_case") for name in "ab"]
     config = SimpleNamespace(workeroutput={}, hook=SimpleNamespace(pytest_deselected=Mock()))
     selection.pytest_collection_modifyitems(config, items)

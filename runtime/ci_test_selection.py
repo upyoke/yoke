@@ -4,8 +4,11 @@ import hashlib
 import json
 import os
 from dataclasses import dataclass
+from pathlib import Path
 
 import pytest
+
+from yoke_core.tools.ci_shards import DURATIONS_PATH
 
 #: Tests using the installed product environment. Their files share one
 #: shard so the product install that ``product_venv`` builds runs once.
@@ -154,8 +157,14 @@ def pytest_collection_modifyitems(config, items):
         (deselected if scope == "interpreter" and independent else kept).append(item)
     items[:] = kept
     config.hook.pytest_deselected(items=deselected)
-    with open(".test_durations", encoding="utf-8") as profile:
-        durations = json.load(profile)
+    profile = Path(__file__).resolve().parents[1] / DURATIONS_PATH
+    try:
+        durations = json.loads(profile.read_text(encoding="utf-8"))
+    except (OSError, ValueError) as error:
+        raise pytest.UsageError(
+            f"ci_duration_profile_unavailable: {profile}: {error}; restore the "
+            "checkout's timing profile or download this run's shared profile"
+        ) from error
     weights = file_weights(items, durations)
     items.sort(key=lambda item: (-weights[item.nodeid.split("::", 1)[0]],
                                  item.nodeid.split("::", 1)[0]))
