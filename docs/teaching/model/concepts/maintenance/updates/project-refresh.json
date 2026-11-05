@@ -1,7 +1,9 @@
 {
  "id": "project-refresh",
  "title": "Project refresh",
- "status": "draft-copy",
+ "status": "observed",
+ "summary": "Install and refresh reconcile the project-local .yoke/.gitignore with the seeded ignore policy. The tmp/ entry keeps session scratch files out of Git's untracked files and merge cleanliness checks; other contract files remain visible.",
+ "sources": ["packages/yoke-contracts/src/yoke_contracts/project_contract/install_policy.py", "packages/yoke-cli/src/yoke_cli/project_install/contract_files.py", "runtime/api/domain/test_project_contract.py"],
  "page": "maintenance",
  "position": 4
 }

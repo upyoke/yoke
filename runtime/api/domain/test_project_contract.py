@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import subprocess
 from dataclasses import MISSING, fields
 from pathlib import Path
 
@@ -78,6 +79,26 @@ def test_lint_config_is_canonical_render_covering_guard_catalog() -> None:
     )
     for spec in lint_config.GUARD_CATALOG:
         assert f"{spec.guard}={lint_config.DENY}" in body
+
+
+def test_seeded_gitignore_ignores_project_scratch(tmp_path: Path) -> None:
+    subprocess.run(["git", "init", str(tmp_path)], check=True, capture_output=True)
+    contract_dir = tmp_path / ".yoke"
+    contract_dir.mkdir()
+    (contract_dir / ".gitignore").write_text(
+        _entries()[".yoke/.gitignore"]["content"], encoding="utf-8"
+    )
+    result = subprocess.run(
+        ["git", "-C", str(tmp_path), "check-ignore", ".yoke/tmp/x.png"],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    assert result.stdout.strip() == ".yoke/tmp/x.png"
+    assert subprocess.run(
+        ["git", "-C", str(tmp_path), "check-ignore", ".yoke/project.config"],
+        capture_output=True,
+    ).returncode == 1
 
 
 def test_render_label_policy_uses_key_value_format() -> None:
