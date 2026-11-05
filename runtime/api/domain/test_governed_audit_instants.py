@@ -7,6 +7,7 @@ from types import SimpleNamespace
 
 import pytest
 
+from runtime.api.fixtures.session_zones import SESSION_ZONES
 from yoke_contracts.timestamps import InvalidInstant, format_instant, parse_instant
 from yoke_core.domain import migration_apply_audit as audit
 from yoke_core.domain import migration_apply_contract as contract
@@ -18,7 +19,6 @@ from yoke_core.domain.migration_audit_schema import ensure_migration_audit_table
 MOMENT = parse_instant("2026-10-09T15:56:12.345678+05:45")
 WIRE = "2026-10-09T10:11:12.345678Z"
 OPAQUE = "2026-10-09 10:11:12+00:00"
-ZONES = ["UTC", "America/New_York", "Asia/Kathmandu"]
 WRITERS = [
     (audit._insert_audit_row, audit._update_audit_state),
     (checks.pg_insert_migration_audit_row, checks.pg_update_migration_audit_state),
@@ -38,7 +38,7 @@ def _insert(conn, insert):
     )
 
 
-@pytest.mark.parametrize("zone", ZONES)
+@pytest.mark.parametrize("zone", SESSION_ZONES[1:])
 @pytest.mark.parametrize("insert,update", WRITERS)
 def test_governed_audit_writers_preserve_native_clocks_null_and_opaque_fields(
     test_db, monkeypatch, zone, insert, update

@@ -8,6 +8,7 @@ from typing import Any
 
 import pytest
 
+from runtime.api.fixtures.session_zones import SESSION_ZONES
 from yoke_contracts.timestamps import parse_instant
 from runtime.api.fixtures import pg_testdb
 from runtime.api.fixtures.schema_ddl import apply_fixture_ddl
@@ -153,7 +154,7 @@ def test_missing_result_names_repo(tmp_path, monkeypatch, github_repo):
     assert results[0]["status"] == STATUS_MISSING
 
 
-@pytest.mark.parametrize("zone", ["UTC", "America/New_York", "Asia/Kathmandu"])
+@pytest.mark.parametrize("zone", SESSION_ZONES[1:])
 def test_reconciliation_stores_exact_native_verification_clock(
     tmp_path, monkeypatch, zone
 ):

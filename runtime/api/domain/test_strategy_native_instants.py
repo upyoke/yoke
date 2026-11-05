@@ -5,6 +5,7 @@ from hashlib import sha256
 
 import pytest
 
+from runtime.api.fixtures.session_zones import SESSION_ZONES
 from yoke_contracts.timestamps import parse_instant
 from yoke_core.domain import (
     strategy_docs,
@@ -17,7 +18,7 @@ from yoke_core.domain.strategy_doc_history import list_doc_revisions
 STAMP = parse_instant("1970-01-01T05:29:59.123456+05:30")
 
 
-@pytest.mark.parametrize("zone", ["UTC", "America/New_York", "Asia/Kathmandu"])
+@pytest.mark.parametrize("zone", SESSION_ZONES[1:])
 def test_strategy_clock_roundtrip_and_cas_are_timezone_independent(
     test_db, monkeypatch, zone
 ):
@@ -92,7 +93,7 @@ def test_strategy_clock_roundtrip_and_cas_are_timezone_independent(
     )
 
 
-@pytest.mark.parametrize("zone", ["UTC", "America/New_York", "Asia/Kathmandu"])
+@pytest.mark.parametrize("zone", SESSION_ZONES[1:])
 def test_strategy_checkpoint_keeps_native_anchor(test_db, monkeypatch, zone):
     monkeypatch.setattr(strategy_checkpoints, "utc_now", lambda: STAMP)
     test_db.execute("SELECT set_config('TimeZone',%s,false)", (zone,))
@@ -101,7 +102,7 @@ def test_strategy_checkpoint_keeps_native_anchor(test_db, monkeypatch, zone):
     assert strategy_checkpoints.latest_checkpoint_at(test_db, 1) == STAMP
 
 
-@pytest.mark.parametrize("zone", ["UTC", "America/New_York", "Asia/Kathmandu"])
+@pytest.mark.parametrize("zone", SESSION_ZONES[1:])
 def test_document_claim_release_retains_native_fact_and_formats_event(
     test_db, monkeypatch, zone
 ):

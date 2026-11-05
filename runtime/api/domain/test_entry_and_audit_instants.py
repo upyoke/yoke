@@ -4,13 +4,15 @@ from datetime import datetime
 
 import pytest
 
+from runtime.api.fixtures.session_zones import SESSION_ZONES
 from yoke_contracts.timestamps import parse_instant
 from yoke_core.domain import migration_harness_audit as audit
 from yoke_core.domain import ouroboros as entries
 from yoke_core.domain.migration_audit_schema import ensure_migration_audit_table
 
 MOMENT = parse_instant("2026-10-09T15:56:12.345678+05:45")
-ZONES = ["UTC", "America/New_York", "Asia/Kathmandu"]
+
+
 def test_legacy_entry_writer_is_unavailable():
     assert not hasattr(entries, "cmd_insert_entry")
     assert not hasattr(entries, "_insert_entry_named")
@@ -43,7 +45,7 @@ def _audit(test_db, monkeypatch):
     )
 
 
-@pytest.mark.parametrize("zone", ZONES)
+@pytest.mark.parametrize("zone", SESSION_ZONES[1:])
 def test_exception_audit_binds_native_instants_in_any_database_timezone(
     test_db, monkeypatch, zone
 ):

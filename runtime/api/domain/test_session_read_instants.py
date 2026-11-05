@@ -6,6 +6,7 @@ from uuid import uuid4
 
 import pytest
 
+from runtime.api.fixtures.session_zones import SESSION_ZONES
 from yoke_contracts.timestamps import InvalidInstant, format_instant, parse_instant
 from yoke_core.domain import model_reference_store as models
 from yoke_core.domain.session_history_cursor import decode
@@ -22,7 +23,7 @@ from yoke_core.domain.sessions_list_rows import _latest_activity
 MOMENT = parse_instant("2026-11-01T05:29:59.123456+05:30")
 
 
-@pytest.mark.parametrize("zone", ["UTC", "America/New_York", "Asia/Kolkata"])
+@pytest.mark.parametrize("zone", SESSION_ZONES[1:])
 def test_session_history_pages_exact_microseconds_and_native_roster_order(
     test_db, zone
 ):
@@ -91,7 +92,7 @@ def test_activity_order_uses_instants_and_refuses_naive_values():
         _latest_activity("1970-01-01T00:00:00", None)
 
 
-@pytest.mark.parametrize("zone", ["UTC", "America/New_York", "Asia/Kolkata"])
+@pytest.mark.parametrize("zone", SESSION_ZONES[1:])
 def test_model_catalog_selects_native_exact_effective_boundary(
     test_db, monkeypatch, zone
 ):
@@ -129,7 +130,7 @@ def test_model_catalog_selects_native_exact_effective_boundary(
     assert models.revisions_list(test_db)[0]["published_at"] == format_instant(MOMENT)
 
 
-@pytest.mark.parametrize("zone", ["UTC", "America/New_York", "Asia/Kolkata"])
+@pytest.mark.parametrize("zone", SESSION_ZONES[1:])
 def test_native_process_reports_preserve_microsecond_death_order(test_db, zone):
     test_db.execute("SELECT set_config('TimeZone',%s,false)", (zone,))
     session_id = str(uuid4())

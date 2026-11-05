@@ -6,6 +6,7 @@ from uuid import uuid4
 
 import pytest
 
+from runtime.api.fixtures.session_zones import SESSION_ZONES
 from runtime.api.fixtures.session_holdings import insert_session
 from runtime.api.domain.session_vendor_error_test_support import (
     worker_connection,
@@ -25,7 +26,7 @@ MOMENT = parse_instant("1969-12-31T23:59:59.123456Z")
 OFFSET = "1970-01-01T05:29:59.123456+05:30"
 
 
-@pytest.mark.parametrize("zone", ["UTC", "America/New_York", "Asia/Kolkata"])
+@pytest.mark.parametrize("zone", SESSION_ZONES[1:])
 def test_activity_replay_and_recovery_keep_microseconds(test_db, zone):
     test_db.execute("SELECT set_config('TimeZone',%s,false)", (zone,))
     sid = str(uuid4())

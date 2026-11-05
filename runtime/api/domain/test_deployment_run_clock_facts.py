@@ -3,6 +3,8 @@
 from datetime import datetime
 
 import pytest
+
+from runtime.api.fixtures.session_zones import SESSION_ZONES
 from pydantic import ValidationError
 from yoke_contracts.timestamps import InvalidInstant, parse_instant, temporal_wire
 from runtime.api.deployment_stage_approval_fixture import OpenConnection
@@ -16,7 +18,7 @@ from yoke_core.domain.deployment_run_insert import insert_run
 from yoke_core.domain.handlers.deployment_common import DeploymentRunApproveResponse
 
 
-@pytest.mark.parametrize("zone", ["UTC", "America/New_York", "Asia/Kathmandu"])
+@pytest.mark.parametrize("zone", SESSION_ZONES[1:])
 def test_approval_clock_is_native_in_receipt_and_storage_and_wire_in_event(
     test_db, monkeypatch, zone
 ):

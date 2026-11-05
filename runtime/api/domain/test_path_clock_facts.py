@@ -4,6 +4,7 @@ from datetime import datetime, timedelta
 
 import pytest
 
+from runtime.api.fixtures.session_zones import SESSION_ZONES
 from yoke_contracts.timestamps import parse_instant
 from yoke_core.domain import pack_projection, path_claim_ambient_siblings
 
@@ -37,7 +38,7 @@ def test_malformed_internal_path_and_pack_clocks_refuse(clock):
         path_claim_ambient_siblings._age_hours(clock)
 
 
-@pytest.mark.parametrize("zone", ["UTC", "America/New_York", "Asia/Kathmandu"])
+@pytest.mark.parametrize("zone", SESSION_ZONES[1:])
 def test_planned_path_clocks_bind_native_precision(test_db, monkeypatch, zone):
     from yoke_core.domain import path_targets_planning
     from yoke_core.domain.path_registry import KIND_FILE

@@ -4,13 +4,14 @@ from datetime import timedelta
 
 import pytest
 
+from runtime.api.fixtures.session_zones import SESSION_ZONES
 from runtime.api.fixtures.backlog_inserts import insert_item
 from runtime.api.fixtures.backlog_qa_inserts import insert_qa_requirement, insert_qa_run
 from yoke_contracts.timestamps import parse_instant
 from yoke_core.domain import qa_activity_reads as activity
 
 
-@pytest.mark.parametrize("zone", ["UTC", "America/New_York", "Asia/Kathmandu"])
+@pytest.mark.parametrize("zone", SESSION_ZONES)
 def test_daily_summary_keeps_half_open_microsecond_bounds_in_every_server_zone(
     test_db, zone
 ):

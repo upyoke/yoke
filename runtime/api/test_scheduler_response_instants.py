@@ -6,6 +6,7 @@ from datetime import datetime, timedelta, timezone
 
 import pytest
 
+from runtime.api.fixtures.session_zones import SESSION_ZONES
 from yoke_contracts.timestamps import InvalidInstant, format_instant, parse_instant
 from yoke_core.api.routes import deploy
 from yoke_core.api.main_models import FrontierItemModel, ScheduledStepModel
@@ -151,7 +152,7 @@ def test_exceptional_sqlite_clock_decodes_before_native_step_handoff(clock):
     assert step.created_at == expected
 
 
-@pytest.mark.parametrize("zone", ["UTC", "America/New_York", "Asia/Kathmandu"])
+@pytest.mark.parametrize("zone", SESSION_ZONES[1:])
 @pytest.mark.parametrize("microsecond", [0, 123456])
 def test_exceptional_postgres_clock_remains_native_through_api(zone, microsecond):
     from runtime.api.fixtures.native_instant_database import blank_database

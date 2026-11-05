@@ -5,6 +5,7 @@ from types import SimpleNamespace
 
 import pytest
 
+from runtime.api.fixtures.session_zones import SESSION_ZONES
 from yoke_contracts.timestamps import parse_instant
 from yoke_core.domain import (
     local_universe_import,
@@ -19,7 +20,7 @@ STAMP = parse_instant("1970-01-01T05:29:59.123456+05:30")
 WIRE = "1969-12-31T23:59:59.123456Z"
 
 
-@pytest.mark.parametrize("zone", ["UTC", "America/New_York", "Asia/Kathmandu"])
+@pytest.mark.parametrize("zone", SESSION_ZONES[1:])
 def test_import_owner_and_rotated_credentials_bind_native_clocks(
     tmp_path, monkeypatch, zone
 ):

@@ -5,6 +5,7 @@ from datetime import datetime, timedelta
 
 import pytest
 
+from runtime.api.fixtures.session_zones import SESSION_ZONES
 from yoke_contracts.timestamps import parse_instant
 from yoke_contracts.universe_retention import RetentionPolicy, PruneRequest
 from yoke_core.domain.retention_table_policies import policies
@@ -16,7 +17,7 @@ from yoke_core.domain import github_workflow_dispatch_intents as intents
 STAMP = parse_instant("1970-01-01T05:29:59.123456+05:30")
 
 
-@pytest.mark.parametrize("zone", ["UTC", "America/New_York", "Asia/Kathmandu"])
+@pytest.mark.parametrize("zone", SESSION_ZONES[1:])
 def test_ledger_expiration_is_strict_at_native_microsecond_cutoff(
     test_db, monkeypatch, zone
 ):
@@ -57,7 +58,7 @@ def test_ledger_expiration_is_strict_at_native_microsecond_cutoff(
     ]
 
 
-@pytest.mark.parametrize("zone", ["UTC", "America/New_York", "Asia/Kathmandu"])
+@pytest.mark.parametrize("zone", SESSION_ZONES[1:])
 def test_dispatch_birth_and_terminal_retention_use_native_clocks(
     test_db, monkeypatch, zone
 ):
@@ -126,7 +127,7 @@ def test_retention_cutoffs_refuse_unqualified_supplied_clock(value):
         PruneRequest(cutoff=value)
 
 
-@pytest.mark.parametrize("zone", ["UTC", "America/New_York", "Asia/Kathmandu"])
+@pytest.mark.parametrize("zone", SESSION_ZONES[1:])
 def test_client_completion_lookup_keeps_exact_inclusive_window(
     test_db, monkeypatch, zone
 ):

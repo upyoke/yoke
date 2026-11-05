@@ -6,6 +6,7 @@ from datetime import timedelta
 
 import pytest
 
+from runtime.api.fixtures.session_zones import SESSION_ZONES
 from yoke_contracts.timestamps import format_instant, parse_instant, temporal_wire
 from yoke_core.domain import last_doctor_run_read, merge_queue_landing_refresh
 from yoke_core.domain.yoke_function_dispatch_events import serialize_payload
@@ -13,7 +14,7 @@ from yoke_core.domain.yoke_function_dispatch_events import serialize_payload
 STAMP = parse_instant("1970-01-01T05:29:59.123456+05:30")
 
 
-@pytest.mark.parametrize("zone", ["UTC", "America/New_York", "Asia/Kathmandu"])
+@pytest.mark.parametrize("zone", SESSION_ZONES[1:])
 def test_refresh_cadence_keeps_exact_native_boundary(test_db, zone):
     from yoke_core.domain.merge_queue_landing_record_schema import (
         ensure_merge_queue_landing_record_schema,
@@ -44,7 +45,7 @@ def test_refresh_cadence_keeps_exact_native_boundary(test_db, zone):
     )
 
 
-@pytest.mark.parametrize("zone", ["UTC", "America/New_York", "Asia/Kathmandu"])
+@pytest.mark.parametrize("zone", SESSION_ZONES[1:])
 def test_doctor_receipt_native_storage_and_wire_projection(test_db, zone):
     from yoke_core.domain.health_runs_schema import ensure_doctor_runs_schema
 
@@ -78,7 +79,7 @@ def test_new_payload_digest_projects_native_clocks_and_preserves_opaque_values()
     assert native["clock"] == STAMP
 
 
-@pytest.mark.parametrize("zone", ["UTC", "America/New_York", "Asia/Kathmandu"])
+@pytest.mark.parametrize("zone", SESSION_ZONES[1:])
 def test_merge_lock_keeps_native_expiry_and_exact_cutoff(test_db, monkeypatch, zone):
     from yoke_core.domain import merge_lock
 
@@ -96,7 +97,7 @@ def test_merge_lock_keeps_native_expiry_and_exact_cutoff(test_db, monkeypatch, z
     )
 
 
-@pytest.mark.parametrize("zone", ["UTC", "America/New_York", "Asia/Kathmandu"])
+@pytest.mark.parametrize("zone", SESSION_ZONES[1:])
 def test_ephemeral_cleanup_preserves_exact_cutoff_and_native_stopped_fact(
     test_db, monkeypatch, zone
 ):
@@ -123,7 +124,7 @@ def test_ephemeral_cleanup_preserves_exact_cutoff_and_native_stopped_fact(
     assert tuple(facts[1]) == ("exact", "running", None)
 
 
-@pytest.mark.parametrize("zone", ["UTC", "America/New_York", "Asia/Kathmandu"])
+@pytest.mark.parametrize("zone", SESSION_ZONES[1:])
 def test_qa_requirement_creation_and_waiver_bind_native_instants(
     test_db, monkeypatch, zone
 ):
@@ -187,7 +188,7 @@ def test_qa_requirement_creation_and_waiver_bind_native_instants(
     ).fetchone()[0] == STAMP + timedelta(microseconds=1)
 
 
-@pytest.mark.parametrize("zone", ["UTC", "America/New_York", "Asia/Kathmandu"])
+@pytest.mark.parametrize("zone", SESSION_ZONES[1:])
 def test_worktree_history_updates_and_release_keep_native_precision(
     test_db, monkeypatch, zone
 ):
@@ -250,7 +251,7 @@ def test_worktree_history_updates_and_release_keep_native_precision(
     )
 
 
-@pytest.mark.parametrize("zone", ["UTC", "America/New_York", "Asia/Kathmandu"])
+@pytest.mark.parametrize("zone", SESSION_ZONES[1:])
 def test_overview_native_latches_and_machine_order_keep_exact_facts(
     test_db, monkeypatch, zone
 ):
@@ -284,7 +285,7 @@ def test_overview_native_latches_and_machine_order_keep_exact_facts(
     assert temporal_wire(first)[universe_key] == format_instant(STAMP)
 
 
-@pytest.mark.parametrize("zone", ["UTC", "America/New_York", "Asia/Kathmandu"])
+@pytest.mark.parametrize("zone", SESSION_ZONES[1:])
 def test_machine_reports_return_the_same_native_fact_as_storage(
     test_db, monkeypatch, zone
 ):

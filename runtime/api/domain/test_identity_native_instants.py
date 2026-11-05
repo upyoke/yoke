@@ -5,13 +5,14 @@ from datetime import timedelta
 
 import pytest
 
+from runtime.api.fixtures.session_zones import SESSION_ZONES
 from yoke_contracts.timestamps import parse_instant, temporal_wire
 from yoke_core.domain import actor_invites, external_identities, release_notes
 
 STAMP = parse_instant("1970-01-01T05:29:59.123456+05:30")
 
 
-@pytest.mark.parametrize("zone", ["UTC", "America/New_York", "Asia/Kathmandu"])
+@pytest.mark.parametrize("zone", SESSION_ZONES[1:])
 def test_invite_and_external_identity_clocks_are_native(test_db, monkeypatch, zone):
     from yoke_core.domain.actors import seed_human_actor
 
@@ -67,7 +68,7 @@ def test_release_note_pipe_projection_has_canonical_clock(test_db, monkeypatch):
     )
 
 
-@pytest.mark.parametrize("zone", ["UTC", "America/New_York", "Asia/Kathmandu"])
+@pytest.mark.parametrize("zone", SESSION_ZONES[1:])
 def test_permission_seed_clocks_are_native(test_db, monkeypatch, zone):
     from yoke_core.domain import actor_permissions
 
@@ -88,7 +89,7 @@ def test_permission_seed_clocks_are_native(test_db, monkeypatch, zone):
         assert all(row[0] == STAMP for row in clocks)
 
 
-@pytest.mark.parametrize("zone", ["UTC", "America/New_York", "Asia/Kathmandu"])
+@pytest.mark.parametrize("zone", SESSION_ZONES[1:])
 def test_actor_birth_clocks_preserve_microseconds(test_db, monkeypatch, zone):
     from yoke_core.domain import actors
 
@@ -105,7 +106,7 @@ def test_actor_birth_clocks_preserve_microseconds(test_db, monkeypatch, zone):
         )
 
 
-@pytest.mark.parametrize("zone", ["UTC", "America/New_York", "Asia/Kathmandu"])
+@pytest.mark.parametrize("zone", SESSION_ZONES[1:])
 def test_org_and_project_grants_keep_native_clocks(test_db, monkeypatch, zone):
     from yoke_core.domain import actor_permissions, actor_role_grants, actors
 

@@ -6,6 +6,7 @@ from datetime import timedelta
 
 import pytest
 
+from runtime.api.fixtures.session_zones import SESSION_ZONES
 from yoke_contracts.timestamps import format_instant, parse_instant
 from yoke_core.domain.deployment_run_history_read import (
     RunHistoryCursorError,
@@ -23,7 +24,7 @@ def _token(payload):
     return base64.urlsafe_b64encode(json.dumps(payload).encode()).decode().rstrip("=")
 
 
-@pytest.mark.parametrize("zone", ["UTC", "America/New_York", "Asia/Kolkata"])
+@pytest.mark.parametrize("zone", SESSION_ZONES[1:])
 @pytest.mark.parametrize("direction", ["asc", "desc"])
 def test_native_pages_preserve_exact_ties_and_nullable_review_order(
     test_db, monkeypatch, zone, direction
@@ -56,7 +57,9 @@ def test_native_pages_preserve_exact_ties_and_nullable_review_order(
                 "idea",
                 "opaque 1969-12-31",
                 "yoke",
-            yoke_version="0.2.0.202610290013", universe_fingerprint="fixture@2026-01-01T00:00:00Z")
+                yoke_version="0.2.0.202610290013",
+                universe_fingerprint="fixture@2026-01-01T00:00:00Z",
+            )
         )
         reviewed = None if index < 2 else clock
         test_db.execute(
@@ -172,7 +175,7 @@ def test_sqlite_pages_use_canonical_clock_bounds(monkeypatch):
     conn.close()
 
 
-@pytest.mark.parametrize("zone", ["UTC", "America/New_York", "Asia/Kolkata"])
+@pytest.mark.parametrize("zone", SESSION_ZONES[1:])
 def test_github_verification_orders_native_stamps_before_wire_projection(test_db, zone):
     from runtime.api.domain.handlers.capabilities_list_test_support import (
         insert_capability,

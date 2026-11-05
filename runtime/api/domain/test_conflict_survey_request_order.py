@@ -6,6 +6,7 @@ import json
 
 import pytest
 
+from runtime.api.fixtures.session_zones import SESSION_ZONES
 from runtime.api.fixtures.backlog_inserts import insert_item
 from yoke_core.domain.conflict_survey import (
     record_conflict_survey,
@@ -62,7 +63,7 @@ def test_newer_survey_record_wins_when_an_older_request_finishes_late(test_db):
     assert json.loads(stored[0])["touch_paths"] == ["src/newer.py"]
 
 
-@pytest.mark.parametrize("zone", ["UTC", "America/New_York", "Asia/Kathmandu"])
+@pytest.mark.parametrize("zone", SESSION_ZONES[1:])
 def test_reservation_and_survey_clocks_are_native_with_canonical_document(
     test_db, monkeypatch, zone
 ):

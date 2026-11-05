@@ -4,6 +4,7 @@ from datetime import timedelta, timezone
 
 import pytest
 
+from runtime.api.fixtures.session_zones import SESSION_ZONES
 from yoke_contracts.time_sql import now_sql
 
 
@@ -19,7 +20,7 @@ def test_ambiguous_clock_modifiers_refuse(kwargs, reason):
         now_sql(**kwargs)
 
 
-@pytest.mark.parametrize("zone", ["UTC", "America/New_York", "Asia/Kolkata"])
+@pytest.mark.parametrize("zone", SESSION_ZONES[1:])
 @pytest.mark.parametrize(
     "kwargs,seconds",
     [

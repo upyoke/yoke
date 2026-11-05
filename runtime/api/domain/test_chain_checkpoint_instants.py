@@ -5,6 +5,7 @@ from uuid import uuid4
 
 import pytest
 
+from runtime.api.fixtures.session_zones import SESSION_ZONES
 from runtime.api.fixtures.backlog_inserts import insert_item
 from yoke_contracts.timestamps import (
     InvalidInstant,
@@ -19,7 +20,6 @@ from yoke_core.domain.sessions import claim_work
 
 
 MOMENT = parse_instant("2026-11-01T05:29:59.123456+05:45")
-ZONES = ["UTC", "America/New_York", "Asia/Kathmandu"]
 
 
 def _session(conn, *, envelope=None):
@@ -40,7 +40,7 @@ def _session(conn, *, envelope=None):
     return session
 
 
-@pytest.mark.parametrize("zone", ZONES)
+@pytest.mark.parametrize("zone", SESSION_ZONES[1:])
 def test_chain_checkpoint_native_read_matches_scalar_and_finite_wire_clock(
     test_db, monkeypatch, zone
 ):
@@ -87,7 +87,7 @@ def test_invalid_chain_clock_refuses_without_rewriting_envelope(test_db, clock):
         assert json.loads(stored) == raw
 
 
-@pytest.mark.parametrize("zone", ZONES)
+@pytest.mark.parametrize("zone", SESSION_ZONES[1:])
 def test_reclaim_and_handoff_keep_native_clock_facts(test_db, monkeypatch, zone):
     test_db.execute("SELECT set_config('TimeZone',%s,false)", (zone,))
     monkeypatch.setattr(reclaim, "utc_now", lambda: MOMENT)

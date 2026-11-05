@@ -4,6 +4,8 @@ import json
 from datetime import datetime, timedelta
 
 import pytest
+
+from runtime.api.fixtures.session_zones import SESSION_ZONES
 from pydantic import ValidationError
 
 from yoke_contracts.timestamps import parse_instant, temporal_wire
@@ -49,7 +51,7 @@ def seed(conn):
     )
 
 
-@pytest.mark.parametrize("zone", ["UTC", "America/New_York", "Asia/Kathmandu"])
+@pytest.mark.parametrize("zone", SESSION_ZONES[1:])
 def test_verification_replay_keeps_native_clock_and_prior_history(
     test_db, monkeypatch, zone
 ):
@@ -111,7 +113,7 @@ def test_verification_replay_keeps_native_clock_and_prior_history(
     assert temporal_wire(first)["checked_at"] == "1969-12-30T23:59:59.123456Z"
 
 
-@pytest.mark.parametrize("zone", ["UTC", "America/New_York", "Asia/Kathmandu"])
+@pytest.mark.parametrize("zone", SESSION_ZONES[1:])
 def test_operation_receipt_replay_and_order_use_native_instants(
     test_db, monkeypatch, zone
 ):

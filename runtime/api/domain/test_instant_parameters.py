@@ -4,11 +4,12 @@ from datetime import datetime, timedelta, timezone
 
 import pytest
 
+from runtime.api.fixtures.session_zones import SESSION_ZONES
 from yoke_contracts.timestamps import InvalidInstant
 from yoke_core.domain.db_helpers import instant_parameter
 
 
-@pytest.mark.parametrize("zone", ["UTC", "America/New_York", "Asia/Kolkata"])
+@pytest.mark.parametrize("zone", SESSION_ZONES[1:])
 def test_postgres_parameter_is_native_and_microseconds_survive(test_db, zone):
     value = datetime(
         1969,

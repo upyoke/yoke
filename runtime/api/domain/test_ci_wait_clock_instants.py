@@ -5,6 +5,7 @@ import sqlite3
 
 import pytest
 
+from runtime.api.fixtures.session_zones import SESSION_ZONES
 from yoke_contracts.timestamps import InvalidInstant, parse_instant
 from yoke_core.domain.handlers import session_ci_wait_writes as writes
 from yoke_core.domain import session_ci_wait_observer as observer
@@ -12,7 +13,6 @@ from yoke_core.domain.session_ci_wait_schema import ensure_session_ci_wait_schem
 from runtime.api.domain.coordination_claim_test_support import seed_session
 
 MOMENT = parse_instant("2026-10-09T16:11:12.345678+05:45")
-ZONES = ["UTC", "America/New_York", "Asia/Kathmandu"]
 OPAQUE = "captured output 2026-10-09 10:26:12+00:00"
 
 
@@ -46,7 +46,7 @@ def _seed(conn):
     return body
 
 
-@pytest.mark.parametrize("zone", ZONES)
+@pytest.mark.parametrize("zone", SESSION_ZONES[1:])
 def test_ci_wait_record_and_received_verdict_preserve_native_clock_null_and_command(
     test_db, zone
 ):
@@ -86,7 +86,7 @@ def test_ci_wait_record_and_received_verdict_preserve_native_clock_null_and_comm
     ) == (MOMENT, later, "success", OPAQUE)
 
 
-@pytest.mark.parametrize("zone", ZONES)
+@pytest.mark.parametrize("zone", SESSION_ZONES[1:])
 @pytest.mark.parametrize("delta,checked", [(-1, 0), (0, 1), (1, 1)])
 def test_ci_poll_cutoff_is_inclusive_at_exact_native_microsecond(
     test_db, zone, delta, checked
@@ -111,7 +111,7 @@ def test_ci_poll_cutoff_is_inclusive_at_exact_native_microsecond(
     ] == (now if checked else MOMENT)
 
 
-@pytest.mark.parametrize("zone", ZONES)
+@pytest.mark.parametrize("zone", SESSION_ZONES[1:])
 def test_ci_notice_acceptance_binds_native_read_and_notification_facts(
     test_db, monkeypatch, zone
 ):

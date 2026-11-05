@@ -5,6 +5,7 @@ from datetime import timedelta
 
 import pytest
 
+from runtime.api.fixtures.session_zones import SESSION_ZONES
 from yoke_contracts.timestamps import InvalidInstant, parse_instant
 from yoke_core.domain import item_landings_close_out as closeout
 from yoke_core.domain.item_landings import (
@@ -36,7 +37,7 @@ def test_native_fact_and_record_payloads_preserve_microseconds():
     assert facts_from_json(facts_to_json([fact])) == (fact,)
 
 
-@pytest.mark.parametrize("zone", ["UTC", "America/New_York", "Asia/Kathmandu"])
+@pytest.mark.parametrize("zone", SESSION_ZONES[1:])
 def test_native_landing_reads_and_writes_in_any_session_zone(test_db, zone):
     from runtime.api.fixtures.backlog_inserts import insert_item
 

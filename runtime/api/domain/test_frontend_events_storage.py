@@ -5,6 +5,7 @@ from datetime import datetime, timedelta, timezone
 import json
 import pytest
 
+from runtime.api.fixtures.session_zones import SESSION_ZONES
 from runtime.api import test_frontend_events as collector_fixtures
 
 from yoke_core.domain import frontend_events_storage as storage
@@ -75,7 +76,7 @@ def test_rate_admission_is_shared_and_windows_expire(conn):
     )
 
 
-@pytest.mark.parametrize("zone", ["UTC", "America/New_York", "Asia/Kolkata"])
+@pytest.mark.parametrize("zone", SESSION_ZONES[1:])
 def test_rate_window_start_is_native_and_retains_utc_epoch_alignment(conn, zone):
     conn.execute("SELECT set_config('TimeZone',%s,false)", (zone,))
     org, _, _ = collector_identity(conn)
@@ -119,7 +120,7 @@ def test_collector_refuses_unqualified_or_excess_precision_instants(client, valu
     assert response.json()["error"] == "envelope_invalid"
 
 
-@pytest.mark.parametrize("zone", ["UTC", "America/New_York", "Asia/Kathmandu"])
+@pytest.mark.parametrize("zone", SESSION_ZONES[1:])
 @pytest.mark.parametrize("micros", [0, 123456])
 def test_collector_normalizes_client_and_receipt_instants(
     client, database, monkeypatch, zone, micros

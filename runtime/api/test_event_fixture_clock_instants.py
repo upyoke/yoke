@@ -6,6 +6,7 @@ import json
 
 import pytest
 
+from runtime.api.fixtures.session_zones import SESSION_ZONES
 from yoke_contracts.timestamps import format_instant, parse_instant
 
 NOW = parse_instant("2060-10-08T00:00:00.123456Z")
@@ -13,7 +14,7 @@ OPAQUE = "2060-10-08T00:00:00+09:00 unchanged"
 ENVELOPE = json.dumps({"context": {"clock_looking_value": OPAQUE}})
 
 
-@pytest.mark.parametrize("zone", ["UTC", "America/Los_Angeles", "Asia/Kathmandu"])
+@pytest.mark.parametrize("zone", SESSION_ZONES[1:])
 def test_real_fixture_and_command_writers_keep_native_clocks(
     test_db, monkeypatch, zone
 ):

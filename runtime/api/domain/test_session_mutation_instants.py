@@ -5,7 +5,8 @@ from uuid import uuid4
 
 import pytest
 
-from runtime.api.domain.test_chain_checkpoint_instants import MOMENT, ZONES, _session
+from runtime.api.fixtures.session_zones import SESSION_ZONES
+from runtime.api.domain.test_chain_checkpoint_instants import MOMENT, _session
 from runtime.api.domain.steering_claim_test_support import (
     PROJECT_ALPHA,
     SESSION_ALPHA,
@@ -20,7 +21,7 @@ from yoke_core.domain import sessions_render_end_if_empty as idle
 from yoke_core.domain import steering_claims as steering
 
 
-@pytest.mark.parametrize("zone", ZONES)
+@pytest.mark.parametrize("zone", SESSION_ZONES[1:])
 def test_focus_rotation_preserves_native_microseconds_and_nulls(
     test_db, monkeypatch, zone
 ):
@@ -64,7 +65,7 @@ def _message(conn, session, *, expires_at):
     return message
 
 
-@pytest.mark.parametrize("zone", ZONES)
+@pytest.mark.parametrize("zone", SESSION_ZONES[1:])
 def test_wake_expiry_cutoff_is_native_and_idle_end_clock_is_exact(
     test_db, monkeypatch, zone
 ):
@@ -87,7 +88,7 @@ def test_wake_expiry_cutoff_is_native_and_idle_end_clock_is_exact(
     assert result["session"]["ended_at"] == MOMENT
 
 
-@pytest.mark.parametrize("zone", ZONES)
+@pytest.mark.parametrize("zone", SESSION_ZONES[1:])
 def test_steering_claim_creation_has_native_clock_precision(test_db, monkeypatch, zone):
     test_db.execute("SELECT set_config('TimeZone',%s,false)", (zone,))
     seed_standard_steering_world(test_db)
@@ -101,7 +102,7 @@ def test_steering_claim_creation_has_native_clock_precision(test_db, monkeypatch
     assert row == (MOMENT, "timestamp with time zone")
 
 
-@pytest.mark.parametrize("zone", ZONES)
+@pytest.mark.parametrize("zone", SESSION_ZONES[1:])
 def test_termination_and_reap_share_native_fact_with_message_cancellation(
     test_db, monkeypatch, zone
 ):

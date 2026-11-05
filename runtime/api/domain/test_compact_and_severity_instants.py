@@ -5,6 +5,7 @@ import sqlite3
 
 import pytest
 
+from runtime.api.fixtures.session_zones import SESSION_ZONES
 from yoke_contracts.timestamps import InvalidInstant, parse_instant
 from yoke_core.domain import backlog_github_compact_pending_flag as compact
 from yoke_core.domain import db_helpers, events_schema
@@ -12,10 +13,9 @@ from runtime.api.fixtures.backlog_inserts import insert_item
 
 MOMENT = parse_instant("2026-10-09T16:11:12.345678+05:45")
 WIRE = "2026-10-09T10:26:12.345678Z"
-ZONES = ["UTC", "America/New_York", "Asia/Kathmandu"]
 
 
-@pytest.mark.parametrize("zone", ZONES)
+@pytest.mark.parametrize("zone", SESSION_ZONES[1:])
 def test_compact_flag_native_write_replaces_clock_then_clears_null(
     test_db, monkeypatch, zone
 ):
@@ -74,7 +74,7 @@ def test_explicit_sqlite_compact_flag_formats_at_the_writer(monkeypatch):
         )
 
 
-@pytest.mark.parametrize("zone", ZONES)
+@pytest.mark.parametrize("zone", SESSION_ZONES[1:])
 def test_severity_seed_preserves_native_microseconds_and_existing_seed(
     test_db, monkeypatch, zone
 ):

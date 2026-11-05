@@ -7,6 +7,7 @@ from types import SimpleNamespace
 
 import pytest
 
+from runtime.api.fixtures.session_zones import SESSION_ZONES
 from yoke_contracts.timestamps import parse_instant
 from yoke_core.domain import observe_event_emission, observe_normalization, observe_pre
 from yoke_core.domain.observe_parsing import EventRecord
@@ -15,7 +16,7 @@ STAMP = parse_instant("1970-01-01T05:29:59.123456+05:30")
 WIRE = "1969-12-31T23:59:59.123456Z"
 
 
-@pytest.mark.parametrize("zone", ["UTC", "America/New_York", "Asia/Kathmandu"])
+@pytest.mark.parametrize("zone", SESSION_ZONES[1:])
 def test_thin_observation_fixture_has_native_creation_clock(monkeypatch, zone):
     from runtime.api.observe_test_helpers import make_memory_db
 
@@ -40,7 +41,7 @@ def test_thin_observation_fixture_has_native_creation_clock(monkeypatch, zone):
         conn.close()
 
 
-@pytest.mark.parametrize("zone", ["UTC", "America/New_York", "Asia/Kathmandu"])
+@pytest.mark.parametrize("zone", SESSION_ZONES[1:])
 def test_baseline_artifact_metadata_and_sql_share_one_exact_clock(
     test_db, monkeypatch, zone
 ):
@@ -87,7 +88,7 @@ def test_start_and_completion_read_one_clock_with_full_precision(monkeypatch):
     assert clock.calls == 1
 
 
-@pytest.mark.parametrize("zone", ["UTC", "America/New_York", "Asia/Kathmandu"])
+@pytest.mark.parametrize("zone", SESSION_ZONES[1:])
 def test_event_sql_retains_native_clock_beside_canonical_envelope(
     test_db, monkeypatch, zone
 ):

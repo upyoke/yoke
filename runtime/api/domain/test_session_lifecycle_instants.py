@@ -5,6 +5,7 @@ from uuid import uuid4
 
 import pytest
 
+from runtime.api.fixtures.session_zones import SESSION_ZONES
 from runtime.api.test_sessions import _insert_claimable_item, _register
 from yoke_contracts.timestamps import InvalidInstant, format_instant, parse_instant
 from yoke_core.domain import sessions_lifecycle_registry as registry
@@ -22,7 +23,7 @@ from yoke_core.domain.session_reclaim_progress import newest_activity_stamp
 MOMENT = parse_instant("1969-12-31T23:59:59.123456Z")
 
 
-@pytest.mark.parametrize("zone", ["UTC", "America/New_York", "Asia/Kolkata"])
+@pytest.mark.parametrize("zone", SESSION_ZONES[1:])
 def test_session_claim_heartbeat_release_and_checkpoint_keep_native_precision(
     test_db, monkeypatch, zone
 ):
@@ -88,7 +89,7 @@ def test_reclaim_order_is_native_and_duration_keeps_integer_milliseconds():
         compute_duration_ms("1970-01-01T00:00:00", epoch)
 
 
-@pytest.mark.parametrize("zone", ["UTC", "America/New_York", "Asia/Kolkata"])
+@pytest.mark.parametrize("zone", SESSION_ZONES[1:])
 def test_hook_claims_focus_and_pipe_output_keep_native_instants(
     test_db, monkeypatch, zone
 ):

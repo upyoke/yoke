@@ -12,6 +12,7 @@ from pathlib import Path
 
 import pytest
 
+from runtime.api.fixtures.session_zones import SESSION_ZONES
 from yoke_contracts.board.momentum_series import strategy_bytes_by_day
 from yoke_core.domain.board_zen_signals import ConnBoardDB
 from yoke_core.domain.strategy_docs_schema import (
@@ -145,7 +146,7 @@ def test_a_document_with_no_knowable_baseline_is_excluded(tmp_db: str) -> None:
     assert series == {DAY: 30}
 
 
-@pytest.mark.parametrize("zone", ["UTC", "America/New_York", "Asia/Kathmandu"])
+@pytest.mark.parametrize("zone", SESSION_ZONES)
 def test_strategy_day_bucket_uses_utc_with_native_microseconds(tmp_db, zone):
     from yoke_contracts.timestamps import parse_instant
 

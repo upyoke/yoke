@@ -9,6 +9,7 @@ from datetime import datetime
 
 import pytest
 
+from runtime.api.fixtures.session_zones import SESSION_ZONES
 from yoke_contracts.timestamps import InvalidInstant, parse_instant
 
 from yoke_core.domain.builtin_workflow_canon import (
@@ -215,7 +216,7 @@ def test_canon_publication_ingress_refuses_missing_or_ambiguous_clock(bad):
         CanonGeneration(payload)
 
 
-@pytest.mark.parametrize("zone", ["UTC", "America/New_York", "Asia/Kolkata"])
+@pytest.mark.parametrize("zone", SESSION_ZONES[1:])
 def test_historical_generation_fixture_binds_native_publication_clock(
     test_db, monkeypatch, zone
 ):

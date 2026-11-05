@@ -302,3 +302,16 @@ Doctor checks every protected local-Postgres connection this machine knows
 for leftover `yoke_test_run*` databases. A finding stays manual: its report
 prints a dry-run review command and the explicit removal command for that
 connection; Doctor never drops a database itself.
+
+## Database session-zone coverage
+
+`runtime/api/fixtures/session_zones.py` owns the two odd-offset test zones:
+America/St_Johns (negative) and Asia/Kathmandu (positive). Ordinary native
+storage tests use `SESSION_ZONES[1:]`; UTC calendar and bucket boundaries use
+both `SESSION_ZONES` because either offset sign can expose a day error.
+`test_stored_instant_session_zones.py` owns the registry-wide storage proof:
+it clones the columns in `STORED_INSTANT_COLUMNS`, writes aware microsecond
+instants in each zone, and reads them back in both zones. Keep other session
+zone parametrizations on this shared constant. The shared timestamp contract
+owns invalid-clock shapes; each operation owner needs one refusal example.
+Tests of fixture helpers alone add no product coverage.

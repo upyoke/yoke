@@ -3,6 +3,8 @@
 from datetime import datetime, timedelta
 
 import pytest
+
+from runtime.api.fixtures.session_zones import SESSION_ZONES
 from yoke_contracts.timestamps import parse_instant
 from yoke_core.engines import doctor_report as report
 from yoke_core.engines import doctor_hc_meta as meta
@@ -16,7 +18,6 @@ from runtime.api.engines._doctor_meta_test_helpers import (
 )
 
 EPOCH = parse_instant("1970-01-01T05:45:00+05:45")
-ZONES = ["UTC", "America/New_York", "Asia/Kathmandu"]
 
 
 def result(check, conn):
@@ -26,7 +27,7 @@ def result(check, conn):
     return rec.results[0]
 
 
-@pytest.mark.parametrize("zone", ZONES)
+@pytest.mark.parametrize("zone", SESSION_ZONES[1:])
 def test_blocked_age_treats_epoch_zero_as_a_valid_instant(zone, monkeypatch):
     conn = _make_conn()
     try:
@@ -43,7 +44,7 @@ def test_blocked_age_treats_epoch_zero_as_a_valid_instant(zone, monkeypatch):
         conn.close()
 
 
-@pytest.mark.parametrize("zone", ZONES)
+@pytest.mark.parametrize("zone", SESSION_ZONES[1:])
 def test_backlog_staleness_preserves_exact_elapsed_boundary(monkeypatch, zone):
     conn = _make_conn()
     try:
@@ -68,7 +69,7 @@ def test_backlog_staleness_preserves_exact_elapsed_boundary(monkeypatch, zone):
         conn.close()
 
 
-@pytest.mark.parametrize("zone", ZONES)
+@pytest.mark.parametrize("zone", SESSION_ZONES[1:])
 def test_undeployed_age_keeps_exact_inclusive_boundary(monkeypatch, zone):
     conn = _make_conn()
     try:
@@ -154,7 +155,7 @@ def test_report_and_drift_event_format_owned_clocks_with_six_digits(monkeypatch)
     assert seen[0]["context"]["drift_detected_at"] == "1970-01-01T00:00:00.000000Z"
 
 
-@pytest.mark.parametrize("zone", ZONES)
+@pytest.mark.parametrize("zone", SESSION_ZONES[1:])
 def test_dispatch_heartbeat_keeps_exact_inclusive_boundary(monkeypatch, zone):
     conn = _make_conn()
     try:

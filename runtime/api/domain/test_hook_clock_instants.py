@@ -4,6 +4,7 @@ from datetime import datetime, timedelta
 
 import pytest
 
+from runtime.api.fixtures.session_zones import SESSION_ZONES
 from yoke_contracts.timestamps import InvalidInstant, format_instant, parse_instant
 from yoke_core.domain import control_plane_transport, db_helpers
 from yoke_core.domain import session_activity_state as activity
@@ -14,7 +15,6 @@ from yoke_core.hooks import denial, stdin
 from runtime.api.domain.coordination_claim_test_support import seed_session
 
 MOMENT = parse_instant("2026-10-09T16:11:12.345678+05:45")
-ZONES = ["UTC", "America/New_York", "Asia/Kathmandu"]
 OPAQUE = "captured process start Fri Oct 9 10:26:12 2026"
 
 
@@ -41,7 +41,7 @@ def _local_owner(monkeypatch):
     )
 
 
-@pytest.mark.parametrize("zone", ZONES)
+@pytest.mark.parametrize("zone", SESSION_ZONES[1:])
 def test_hook_denial_and_first_prompt_bind_native_clock_once_without_activity_bump(
     test_db, monkeypatch, zone
 ):
@@ -108,7 +108,7 @@ def test_hook_denial_and_first_prompt_bind_native_clock_once_without_activity_bu
     )
 
 
-@pytest.mark.parametrize("zone", ZONES)
+@pytest.mark.parametrize("zone", SESSION_ZONES[1:])
 def test_invalid_generated_hook_clocks_leave_durable_rows_unchanged(
     test_db, monkeypatch, zone
 ):
@@ -134,7 +134,7 @@ def test_invalid_generated_hook_clocks_leave_durable_rows_unchanged(
     )
 
 
-@pytest.mark.parametrize("zone", ZONES)
+@pytest.mark.parametrize("zone", SESSION_ZONES[1:])
 def test_native_process_arrival_retains_microseconds_and_repeat_identity_clock(
     test_db, zone
 ):

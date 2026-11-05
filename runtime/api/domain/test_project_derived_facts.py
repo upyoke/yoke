@@ -11,6 +11,7 @@ from typing import Any, Iterator
 
 import pytest
 
+from runtime.api.fixtures.session_zones import SESSION_ZONES
 from runtime.api.fixtures import pg_testdb
 from yoke_core.domain.gate_satisfier_facts import (
     DERIVED_ENVIRONMENTS_PRESENT,
@@ -199,7 +200,7 @@ def test_an_absent_store_still_answers_from_a_live_observation(conn):
     assert facts.verdict(DERIVED_ENVIRONMENTS_PRESENT) is FactVerdict.PRESENT
 
 
-@pytest.mark.parametrize("zone", ["UTC", "America/New_York", "Asia/Kathmandu"])
+@pytest.mark.parametrize("zone", SESSION_ZONES[1:])
 def test_convergence_shares_exact_native_clock_on_insert_and_update(
     conn, monkeypatch, zone
 ):

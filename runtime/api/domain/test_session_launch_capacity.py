@@ -9,6 +9,7 @@ from datetime import datetime, timedelta, timezone
 
 import pytest
 
+from runtime.api.fixtures.session_zones import SESSION_ZONES
 from yoke_contracts.timestamps import InvalidInstant, parse_instant
 
 from yoke_core.domain.session_launch_capacity import (
@@ -279,7 +280,7 @@ def test_internal_capacity_reference_refuses_before_any_sql(clock):
             call()
 
 
-@pytest.mark.parametrize("zone", ["UTC", "America/New_York", "Asia/Kathmandu"])
+@pytest.mark.parametrize("zone", SESSION_ZONES[1:])
 @pytest.mark.parametrize("microsecond", [0, 123456])
 def test_native_lane_deadline_comparison_preserves_exact_microseconds(
     zone, microsecond
@@ -301,7 +302,8 @@ def test_native_lane_deadline_comparison_preserves_exact_microseconds(
             "deadline_at TIMESTAMPTZ, level_placement TEXT)"
         )
         conn.execute(
-            "INSERT INTO harness_sessions VALUES ('worker', %s, NULL, NULL, NULL)", (MACHINE,)
+            "INSERT INTO harness_sessions VALUES ('worker', %s, NULL, NULL, NULL)",
+            (MACHINE,),
         )
         conn.execute(
             "INSERT INTO session_launches "

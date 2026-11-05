@@ -5,6 +5,7 @@ from uuid import uuid4
 
 import pytest
 
+from runtime.api.fixtures.session_zones import SESSION_ZONES
 from yoke_contracts.session_control.capabilities import capability_for_surface
 from yoke_contracts.timestamps import InvalidInstant
 from yoke_core.domain import session_broker_wake as broker
@@ -26,7 +27,6 @@ from runtime.api.domain.coordination_claim_test_support import seed_session
 MOMENT = datetime(
     2026, 10, 9, 16, 11, 12, 345678, timezone(timedelta(hours=5, minutes=45))
 )
-ZONES = ["UTC", "America/New_York", "Asia/Kathmandu"]
 BODY = "opaque instruction captured at 2026-10-09 10:26:12+00:00"
 SNAPSHOT_CLOCKS = (
     "last_wake_at",
@@ -142,7 +142,7 @@ def _assert_message_unchanged(conn, message_id, original):
     )
 
 
-@pytest.mark.parametrize("zone", ZONES)
+@pytest.mark.parametrize("zone", SESSION_ZONES[1:])
 def test_broker_reservation_and_close_preserve_native_microseconds_and_message(
     test_db, zone
 ):
@@ -180,7 +180,7 @@ def test_broker_reservation_and_close_preserve_native_microseconds_and_message(
     _assert_message_unchanged(test_db, lease.message_id, original)
 
 
-@pytest.mark.parametrize("zone", ZONES)
+@pytest.mark.parametrize("zone", SESSION_ZONES[1:])
 @pytest.mark.parametrize("delta,closed", [(-1, 0), (0, 1), (1, 1)])
 def test_broker_hook_lease_expires_inclusively_at_exact_microsecond(
     test_db, zone, delta, closed
@@ -205,7 +205,7 @@ def test_broker_hook_lease_expires_inclusively_at_exact_microsecond(
     _assert_message_unchanged(test_db, lease.message_id, original)
 
 
-@pytest.mark.parametrize("zone", ZONES)
+@pytest.mark.parametrize("zone", SESSION_ZONES[1:])
 def test_broker_adoption_keeps_native_job_clock(test_db, zone):
     test_db.execute("SELECT set_config('TimeZone',%s,false)", (zone,))
     candidate, heartbeat, original = _prepare(test_db)
@@ -269,7 +269,7 @@ def test_broker_adoption_keeps_native_job_clock(test_db, zone):
     _assert_message_unchanged(test_db, lease.message_id, original)
 
 
-@pytest.mark.parametrize("zone", ZONES)
+@pytest.mark.parametrize("zone", SESSION_ZONES[1:])
 @pytest.mark.parametrize("delta,fresh", [(-1, True), (0, False), (1, False)])
 def test_relay_freshness_is_strict_at_exact_native_microsecond(
     test_db, zone, delta, fresh

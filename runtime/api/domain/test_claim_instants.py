@@ -5,6 +5,7 @@ from uuid import uuid4
 
 import pytest
 
+from runtime.api.fixtures.session_zones import SESSION_ZONES
 from yoke_contracts.timestamps import InvalidInstant, format_instant
 from yoke_contracts.session_control.private_route_qualification import (
     qualification_expires_at,
@@ -21,7 +22,7 @@ INSTANT = datetime(
 )
 
 
-@pytest.mark.parametrize("zone", ["UTC", "America/New_York", "Asia/Kolkata"])
+@pytest.mark.parametrize("zone", SESSION_ZONES[1:])
 def test_claim_and_posture_preserve_microseconds_and_nulls(test_db, zone):
     test_db.execute("SELECT set_config('TimeZone',%s,false)", (zone,))
     project_id = test_db.execute(

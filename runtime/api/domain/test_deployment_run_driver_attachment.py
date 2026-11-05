@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import pytest
 
+from runtime.api.fixtures.session_zones import SESSION_ZONES
 from yoke_contracts.timestamps import parse_instant
 
 from runtime.api.fixtures.file_test_db import connect_test_db
@@ -25,7 +26,7 @@ LATER = parse_instant("2026-09-21T12:01:00Z")
 STALE = parse_instant("2026-09-21T12:10:01Z")
 
 
-@pytest.mark.parametrize("zone", ["UTC", "America/New_York", "Asia/Kolkata"])
+@pytest.mark.parametrize("zone", SESSION_ZONES[1:])
 @pytest.mark.parametrize("microsecond", [0, 123456])
 def test_run_notice_resolves_native_driver_clock(
     db_path, monkeypatch, zone, microsecond

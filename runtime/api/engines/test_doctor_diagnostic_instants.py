@@ -2,6 +2,7 @@
 
 import pytest
 
+from runtime.api.fixtures.session_zones import SESSION_ZONES
 from yoke_core.engines import doctor_hc_db as runs
 from yoke_core.engines import doctor_hc_db_events_ledger as ledger
 from yoke_core.engines import doctor_hc_db_project_schema as schema
@@ -13,7 +14,7 @@ from yoke_contracts.timestamps import parse_instant
 WIRE = "2026-10-05T00:00:00.123456Z"
 
 
-@pytest.mark.parametrize("zone", ["America/New_York", "Asia/Kathmandu"])
+@pytest.mark.parametrize("zone", SESSION_ZONES[1:])
 @pytest.mark.parametrize(
     "module,check,rows",
     [

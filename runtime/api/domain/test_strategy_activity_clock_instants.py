@@ -6,6 +6,7 @@ import json
 
 import pytest
 
+from runtime.api.fixtures.session_zones import SESSION_ZONES
 from yoke_contracts.api.function_call import (
     ActorContext,
     FunctionCallRequest,
@@ -35,7 +36,7 @@ class _ReadCapture:
         return self._conn.execute(sql, params)
 
 
-@pytest.mark.parametrize("zone", ["UTC", "America/New_York", "Asia/Kathmandu"])
+@pytest.mark.parametrize("zone", SESSION_ZONES)
 def test_real_strategy_day_projection_native_cutoff_and_registered_reader(
     test_db, monkeypatch, zone
 ):

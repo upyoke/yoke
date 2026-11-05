@@ -2,6 +2,7 @@
 
 import pytest
 
+from runtime.api.fixtures.session_zones import SESSION_ZONES
 from runtime.sql_calendar_guard import unsafe_buckets
 
 from yoke_contracts.timestamps import parse_instant
@@ -11,7 +12,7 @@ from yoke_core.engines.doctor_hc_db_events_ledger import (
 )
 
 
-@pytest.mark.parametrize("zone", ["UTC", "America/New_York", "Asia/Kathmandu"])
+@pytest.mark.parametrize("zone", SESSION_ZONES)
 @pytest.mark.parametrize(
     "wire,day,week",
     [

@@ -4,6 +4,7 @@ from datetime import datetime, timedelta
 
 import pytest
 
+from runtime.api.fixtures.session_zones import SESSION_ZONES
 from runtime.api.api_items_test_helpers import (
     connect_test_db,
     make_test_db_fixture,
@@ -19,7 +20,7 @@ def item_database():
     yield from make_test_db_fixture()
 
 
-@pytest.mark.parametrize("zone", ["UTC", "America/New_York", "Asia/Kathmandu"])
+@pytest.mark.parametrize("zone", SESSION_ZONES[1:])
 def test_item_response_formats_native_clocks_and_preserves_null(item_database, zone):
     conn = connect_test_db(item_database["db_path"])
     try:

@@ -13,6 +13,7 @@ from datetime import datetime, timedelta, timezone
 
 import pytest
 
+from runtime.api.fixtures.session_zones import SESSION_ZONES
 from runtime.api.steering_fleet_test_helpers import (
     ANSWERER,
     ASKER,
@@ -92,7 +93,7 @@ def test_a_younger_queued_wake_holds_back_the_release_of_an_older_one(fleet):
     assert queued[0].wake_releasable_at == _releasable_at(fleet, JUST_NOW)
 
 
-@pytest.mark.parametrize("zone", ["UTC", "America/New_York", "Asia/Kolkata"])
+@pytest.mark.parametrize("zone", SESSION_ZONES[1:])
 @pytest.mark.parametrize("micros", [0, 123456])
 def test_queued_wake_keeps_native_release_until_text_projection(fleet, zone, micros):
     from yoke_core.domain.steering_fleet_report_render_undelivered import _state_phrase

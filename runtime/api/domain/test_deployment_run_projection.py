@@ -9,6 +9,7 @@ from yoke_contracts.timestamps import parse_instant
 
 import pytest
 
+from runtime.api.fixtures.session_zones import SESSION_ZONES
 from yoke_core.domain.deployment_run_projection import (
     DeploymentRunProjectionCollision,
     DeploymentRunProjectionError,
@@ -166,7 +167,7 @@ def test_projection_refuses_stale_digest_and_identity_collision(
         )
 
 
-@pytest.mark.parametrize("zone", ["UTC", "America/New_York", "Asia/Kathmandu"])
+@pytest.mark.parametrize("zone", SESSION_ZONES[1:])
 def test_projection_uses_native_instants_for_replay_and_microsecond_cas(test_db, zone):
     test_db.execute("SELECT set_config('TimeZone', %s, false)", (zone,))
     _flow(test_db)

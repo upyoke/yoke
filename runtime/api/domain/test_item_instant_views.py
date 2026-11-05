@@ -4,6 +4,7 @@ from datetime import datetime, timedelta
 
 import pytest
 
+from runtime.api.fixtures.session_zones import SESSION_ZONES
 from yoke_contracts.timestamps import InvalidInstant, format_instant, parse_instant
 from yoke_core.domain import item_finished_times
 from yoke_core.domain.chain_head_freshness import _age_seconds
@@ -15,7 +16,7 @@ from yoke_core.domain.item_execution_status_helpers import (
 from yoke_core.domain.sessions_lifecycle_reactivation_claims import _within_window
 
 
-@pytest.mark.parametrize("zone", ["UTC", "America/New_York", "Asia/Kolkata"])
+@pytest.mark.parametrize("zone", SESSION_ZONES[1:])
 def test_finished_window_binds_exact_native_cutoff_and_returns_native_instants(
     test_db, monkeypatch, zone
 ):

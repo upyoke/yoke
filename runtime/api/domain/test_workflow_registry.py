@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import pytest
 
+from runtime.api.fixtures.session_zones import SESSION_ZONES
 from runtime.api.fixtures.backlog_inserts import insert_item
 from runtime.api.workflow_version_test_helpers import current_workflow_version
 from yoke_core.domain.builtin_workflow_definitions import (
@@ -261,7 +262,7 @@ def test_publication_refuses_noop_definition(test_db):
         publish_workflow_version(test_db, workflow_id="issue", definition=_definition())
 
 
-@pytest.mark.parametrize("zone", ["UTC", "America/New_York", "Asia/Kathmandu"])
+@pytest.mark.parametrize("zone", SESSION_ZONES[1:])
 def test_new_publication_keeps_native_clocks_and_preserves_published_bytes(
     test_db, monkeypatch, zone
 ):

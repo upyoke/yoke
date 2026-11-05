@@ -4,6 +4,7 @@ from datetime import datetime, timedelta, timezone
 
 import pytest
 
+from runtime.api.fixtures.session_zones import SESSION_ZONES
 from yoke_contracts.timestamps import InvalidInstant, parse_instant
 from yoke_core.domain.github_app_token_models import (
     GitHubAppTokenError,
@@ -113,7 +114,7 @@ def test_actions_stall_threshold_and_wire_projection(offset):
     assert _classify(payload, {"status": "in_progress"}).updated_at is None
 
 
-@pytest.mark.parametrize("zone", ["UTC", "America/New_York", "Asia/Kathmandu"])
+@pytest.mark.parametrize("zone", SESSION_ZONES[1:])
 def test_binding_persistence_and_refresh_preserve_native_verification_facts(
     test_db, zone
 ):

@@ -4,6 +4,7 @@ import json
 
 import pytest
 
+from runtime.api.fixtures.session_zones import SESSION_ZONES
 from yoke_contracts.timestamps import format_instant
 from yoke_core.domain.migrations import _native_instant_documents as documents
 from runtime.api.domain.test_native_instant_history import STAMP, history
@@ -48,7 +49,7 @@ def _relay(conn):
     return opaque
 
 
-@pytest.mark.parametrize("zone", ["UTC", "America/New_York", "Asia/Kathmandu"])
+@pytest.mark.parametrize("zone", SESSION_ZONES[1:])
 def test_relay_history_repairs_only_owned_clocks_and_is_idempotent(blank, zone):
     opaque = _relay(blank)
     blank.execute("SELECT set_config('TimeZone',%s,true)", (zone,))

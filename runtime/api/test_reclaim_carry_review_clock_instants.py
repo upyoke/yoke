@@ -5,6 +5,7 @@ import importlib
 
 import pytest
 
+from runtime.api.fixtures.session_zones import SESSION_ZONES
 from yoke_contracts.timestamps import parse_instant
 
 NOW = parse_instant("2060-10-08T00:00:00.123456Z")
@@ -48,7 +49,7 @@ def test_actual_reclaim_fixtures_declare_native_clocks_and_seed_items(
         generator.close()
 
 
-@pytest.mark.parametrize("zone", ["UTC", "America/Los_Angeles", "Asia/Kathmandu"])
+@pytest.mark.parametrize("zone", SESSION_ZONES[1:])
 def test_stale_event_schema_binds_native_microseconds(test_db, zone):
     from runtime.api import sessions_api_stale_test_helpers as fixtures
     from runtime.api.test_sessions_api_stale_reclaim_misc import (

@@ -8,6 +8,7 @@ from pathlib import Path
 
 import pytest
 
+from runtime.api.fixtures.session_zones import SESSION_ZONES
 from yoke_contracts.timestamps import (
     InvalidInstant,
     as_utc,
@@ -181,7 +182,7 @@ def test_http_cli_and_replay_ledger_serialize_identical_temporal_results():
     assert isinstance(response.result["at"], datetime)
 
 
-@pytest.mark.parametrize("zone", ["UTC", "America/New_York", "Asia/Kolkata"])
+@pytest.mark.parametrize("zone", SESSION_ZONES[1:])
 def test_sql_wire_projection_preserves_native_instants_and_nulls(test_db, zone):
     from yoke_contracts.time_sql import instant_wire_sql
     from yoke_core.domain import db_helpers

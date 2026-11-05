@@ -4,6 +4,7 @@ from datetime import datetime, timedelta
 
 import pytest
 
+from runtime.api.fixtures.session_zones import SESSION_ZONES
 from yoke_contracts.timestamps import InvalidInstant, format_instant, parse_instant
 from yoke_core.domain import qa_plan_edit, qa_plan_management
 from yoke_core.domain.deployment_flow_succession import successor_flows
@@ -11,7 +12,7 @@ from yoke_core.domain.deployment_run_composition_guard import has_frozen_composi
 from yoke_core.domain.qa_plan_detail import get_plan
 
 
-@pytest.mark.parametrize("zone", ["UTC", "America/New_York", "Asia/Kolkata"])
+@pytest.mark.parametrize("zone", SESSION_ZONES[1:])
 def test_editor_tokens_compare_instants_and_keep_microsecond_cas(
     test_db, monkeypatch, zone
 ):
@@ -48,7 +49,7 @@ def test_editor_tokens_compare_instants_and_keep_microsecond_cas(
     assert isinstance(clock, datetime) and clock == after
 
 
-@pytest.mark.parametrize("zone", ["UTC", "America/New_York", "Asia/Kolkata"])
+@pytest.mark.parametrize("zone", SESSION_ZONES[1:])
 def test_successors_order_native_clocks_then_identity(test_db, zone):
     from runtime.api.domain.test_deployment_flow_succession import _flow
 
@@ -93,7 +94,7 @@ def test_editor_refuses_invalid_clock_before_database_access(bad):
         )
 
 
-@pytest.mark.parametrize("zone", ["UTC", "America/New_York", "Asia/Kathmandu"])
+@pytest.mark.parametrize("zone", SESSION_ZONES[1:])
 def test_builtin_method_seeding_keeps_native_updates_and_original_creation(
     test_db, monkeypatch, zone
 ):

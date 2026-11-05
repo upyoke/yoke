@@ -5,6 +5,7 @@ from uuid import uuid4
 
 import pytest
 
+from runtime.api.fixtures.session_zones import SESSION_ZONES
 from yoke_contracts.timestamps import InvalidInstant, format_instant, parse_instant
 from yoke_core.domain import machine_authorization_codes as codes
 from yoke_core.domain import machine_credentials, machine_registry
@@ -14,7 +15,7 @@ from yoke_core.domain.actors import seed_human_actor
 MOMENT = parse_instant("1969-12-31T05:44:59.654321+05:45")
 
 
-@pytest.mark.parametrize("zone", ["UTC", "America/New_York", "Asia/Kolkata"])
+@pytest.mark.parametrize("zone", SESSION_ZONES[1:])
 def test_machine_rotation_and_retirement_preserve_exact_instants(test_db, zone):
     test_db.execute("SELECT set_config('TimeZone',%s,false)", (zone,))
     actor = seed_human_actor(test_db)
@@ -80,7 +81,7 @@ def test_machine_rotation_and_retirement_preserve_exact_instants(test_db, zone):
     )
 
 
-@pytest.mark.parametrize("zone", ["UTC", "America/New_York", "Asia/Kolkata"])
+@pytest.mark.parametrize("zone", SESSION_ZONES[1:])
 def test_device_code_expiry_and_prune_keep_microseconds(test_db, monkeypatch, zone):
     test_db.execute("SELECT set_config('TimeZone',%s,false)", (zone,))
     clock = [MOMENT]

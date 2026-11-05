@@ -7,6 +7,8 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import pytest
+
+from runtime.api.fixtures.session_zones import SESSION_ZONES
 from yoke_contracts.timestamps import InvalidInstant, format_instant, parse_instant
 
 from runtime.api.domain.migration_artifact_trust_test_helpers import (
@@ -247,7 +249,7 @@ def test_adoption_generates_native_fact_until_sqlite_evidence_owner(tmp_path, cl
 
 
 @pytest.mark.parametrize("microsecond", [0, 123456])
-@pytest.mark.parametrize("zone", ["UTC", "America/New_York", "Asia/Kathmandu"])
+@pytest.mark.parametrize("zone", SESSION_ZONES[1:])
 def test_adoption_evidence_sql_owner_binds_native_microseconds(
     test_db, zone, microsecond
 ):

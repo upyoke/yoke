@@ -4,6 +4,7 @@ from datetime import datetime, timedelta, timezone
 
 import pytest
 
+from runtime.api.fixtures.session_zones import SESSION_ZONES
 from yoke_contracts.timestamps import InvalidInstant
 from yoke_core.domain import (
     api_token_audit,
@@ -18,10 +19,9 @@ from yoke_core.domain.external_identity_schema import create_external_identity_t
 START = datetime(
     1969, 12, 31, 18, 29, 59, 123456, timezone(timedelta(hours=-5, minutes=-30))
 )
-ZONES = ["UTC", "America/New_York", "Asia/Kolkata"]
 
 
-@pytest.mark.parametrize("zone", ZONES)
+@pytest.mark.parametrize("zone", SESSION_ZONES[1:])
 def test_api_token_expiry_and_audit_preserve_microseconds(test_db, monkeypatch, zone):
     test_db.execute("SELECT set_config('TimeZone',%s,false)", (zone,))
     actor = seed_human_actor(test_db)
@@ -89,7 +89,7 @@ def test_invalid_api_token_expiry_refuses_before_insertion(test_db, invalid):
     assert test_db.execute("SELECT count(*) FROM api_tokens").fetchone()[0] == before
 
 
-@pytest.mark.parametrize("zone", ZONES)
+@pytest.mark.parametrize("zone", SESSION_ZONES[1:])
 def test_web_session_expiry_and_prune_are_exact(test_db, monkeypatch, zone):
     test_db.execute("SELECT set_config('TimeZone',%s,false)", (zone,))
     actor = seed_human_actor(test_db)
@@ -125,7 +125,7 @@ def test_web_session_expiry_and_prune_are_exact(test_db, monkeypatch, zone):
     )
 
 
-@pytest.mark.parametrize("zone", ZONES)
+@pytest.mark.parametrize("zone", SESSION_ZONES[1:])
 def test_sign_in_link_consumption_and_expiry_are_exact(test_db, monkeypatch, zone):
     create_external_identity_tables(test_db)
     test_db.execute("SELECT set_config('TimeZone',%s,false)", (zone,))

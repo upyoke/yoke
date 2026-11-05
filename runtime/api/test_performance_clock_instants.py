@@ -6,6 +6,7 @@ from types import SimpleNamespace
 
 import pytest
 
+from runtime.api.fixtures.session_zones import SESSION_ZONES
 from yoke_contracts.timestamps import format_instant, parse_instant
 
 START = parse_instant("2060-10-08T00:00:00.123456Z")
@@ -13,7 +14,7 @@ END = START + timedelta(seconds=120, microseconds=1)
 OPAQUE = "2060-10-08T00:00:00+09:00 unchanged"
 
 
-@pytest.mark.parametrize("zone", ["UTC", "America/Los_Angeles", "Asia/Kathmandu"])
+@pytest.mark.parametrize("zone", SESSION_ZONES[1:])
 def test_real_event_range_groups_native_microseconds_and_half_open_edges(test_db, zone):
     from runtime.api.auth_test_helpers import mint_api_auth_context
     from runtime.api.fixtures.backlog import insert_event

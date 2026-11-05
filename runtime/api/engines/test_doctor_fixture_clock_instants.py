@@ -4,13 +4,14 @@ from datetime import datetime, timedelta
 
 import pytest
 
+from runtime.api.fixtures.session_zones import SESSION_ZONES
 from yoke_contracts.timestamps import parse_instant
 
 NOW = parse_instant("2060-10-08T00:00:00.123456Z")
 OPAQUE = "2060-10-08T00:00:00+09:00 unchanged"
 
 
-@pytest.mark.parametrize("zone", ["UTC", "America/Los_Angeles", "Asia/Kathmandu"])
+@pytest.mark.parametrize("zone", SESSION_ZONES[1:])
 @pytest.mark.parametrize("audit_owner", ["shared", "dispatch"])
 def test_full_doctor_catalog_clocks_and_audit_rows_are_native(zone, audit_owner):
     from runtime.api.engines import _doctor_hc_meta_full_test_helpers as fixtures

@@ -5,6 +5,7 @@ import json
 
 import pytest
 
+from runtime.api.fixtures.session_zones import SESSION_ZONES
 from yoke_contracts.timestamps import InvalidInstant, parse_instant
 from yoke_core.domain import deployment_run_driver_attachment as driver
 from yoke_core.domain import deployment_qa_stage_wake_state as wake
@@ -81,7 +82,7 @@ def test_bad_driver_clock_refuses_before_database_or_liveness(invalid) -> None:
             )
 
 
-@pytest.mark.parametrize("zone", ["UTC", "America/New_York", "Asia/Kathmandu"])
+@pytest.mark.parametrize("zone", SESSION_ZONES[1:])
 def test_wake_notice_retains_native_clock_in_each_database_zone(test_db, zone) -> None:
     from runtime.api.steering_fleet_test_helpers import (
         PROJECT_ID,
