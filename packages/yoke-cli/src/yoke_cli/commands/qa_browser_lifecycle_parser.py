@@ -57,7 +57,7 @@ def setup_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--identity",
         default=None,
-        help="Declared browser identity whose profile the daemon opens (default: `default`).",
+        help="Identity whose sign-in state this check copies (default: `default`).",
     )
     parser.add_argument(
         "--port",

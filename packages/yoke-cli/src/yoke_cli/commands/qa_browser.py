@@ -45,9 +45,9 @@ _IDENTITY_FLAG_HELP = (
 )
 
 _QA_BROWSER_SCREENSHOT_HELP_DEEP = """\
-Capture one screenshot of a URL with this machine's browser process,
-which starts if it is not running. Use it to look at a page; it does not
-record a QA verdict or replace `yoke qa case run`.
+Capture one screenshot in a private browser copied from the identity's
+sign-in profile. The browser closes and its copy is deleted after capture.
+This records no QA verdict; use `yoke qa case run` for formal checks.
 
 Worked example:
 

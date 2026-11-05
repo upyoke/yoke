@@ -32,7 +32,7 @@ def qa_browser_stop(args: List[str]) -> int:
     parser.add_argument(
         "--identity",
         default=None,
-        help="Browser identity whose daemon to stop; default: default.",
+        help="Identity of this private check; default: default.",
     )
     parser.add_argument(
         "--json",
