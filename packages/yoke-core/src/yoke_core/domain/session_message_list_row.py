@@ -38,6 +38,7 @@ _RECEIPT_FIELDS = ("session_id", "state", "injection_count", "created_at")
 _CARRIED = (
     "sender_actor_label",
     "sender_session_id",
+    "sender_session_label",
     "sender_surface_label",
     "created_at",
     "expires_at",
@@ -67,7 +68,7 @@ def message_list_row(summary: dict[str, Any]) -> dict[str, Any]:
         # One "from", already resolved: a message sent by a session names
         # that session, and one sent by a person names the person.
         "sender": (
-            summary.get("sender_session_id") or summary.get("sender_actor_label")
+            summary.get("sender_session_label") or summary.get("sender_actor_label")
         ),
         "recipient_count": summary.get("recipient_count", len(rows)),
         "recipient_states": sorted(

@@ -84,21 +84,16 @@ def launch_failures(
     )
     marker = _p(conn)
     records = conn.execute(
-        "SELECT project_id,session_name,state FROM session_launches "
+        "SELECT project_id,item_id,state FROM session_launches "
         "WHERE project_id IN ("
         + ",".join(marker for _ in project_ids)
         + ") ORDER BY created_at DESC,launch_id DESC",
         project_ids,
     ).fetchall()
-    by_ref = {
-        (int(item["project_id"]), str(item["public_ref"])): item_id
-        for item_id, item in items.items()
-    }
     observed: set[int] = set()
     failures: dict[int, str] = {}
     for record in records:
-        public_ref = str(record["session_name"] or "").partition(":")[0]
-        item_id = by_ref.get((int(record["project_id"]), public_ref))
+        item_id = record["item_id"]
         if item_id is None or item_id in active or item_id in observed:
             continue
         observed.add(item_id)

@@ -18,6 +18,8 @@ from .db_helpers import instant_parameter
 
 from typing import Any, Dict, Optional
 
+from yoke_core.domain.session_display import session_display_name
+
 from . import db_backend
 from . import sessions_analytics as _sa
 from .sessions_analytics import (
@@ -125,7 +127,11 @@ def operator_override_release_claim(
             raise SessionError(
                 "NOT_FOUND",
                 f"No active claim found for {render_item_ref(conn, item_id)}"
-                + (f" in session {session_id}" if session_id else "")
+                + (
+                    f" in session {session_id} ({session_display_name(conn, session_id)})"
+                    if session_id
+                    else ""
+                )
                 + ".",
             )
         discovered_session_id = str(discovered["session_id"] or "")
@@ -140,7 +146,11 @@ def operator_override_release_claim(
             raise SessionError(
                 "NOT_FOUND",
                 f"No active claim found for {render_item_ref(conn, item_id)}"
-                + (f" in session {session_id}" if session_id else "")
+                + (
+                    f" in session {session_id} ({session_display_name(conn, session_id)})"
+                    if session_id
+                    else ""
+                )
                 + ".",
             )
         if (

@@ -48,9 +48,9 @@ def world(monkeypatch, *, surface="codex-cli"):
     )
     conn.execute(
         "INSERT INTO session_launches(launch_id,requester_actor_id,project_id,"
-        "requested_surface,selected_surface,session_name,allow_surface_fallback,"
+        "requested_surface,selected_surface,item_id,allow_surface_fallback,"
         "message_id,state,deadline_at,created_at,origin) VALUES "
-        "('launch',10,1,?,?,'ALP-1: Test work',0,'mandate','assigned',?,?,'steering')",
+        "('launch',10,1,?,?,101,0,'mandate','assigned',?,?,'steering')",
         (surface, surface, (NOW + timedelta(minutes=10)).isoformat(), NOW_TEXT),
     )
     conn.commit()
@@ -329,4 +329,6 @@ def test_claim_arriving_during_send_resolves_to_new_holder(monkeypatch):
     )
     sent = send(conn)
     assert sent["recipients"][0]["session_id"] == "s4"
-    monkeypatch.setattr(session_message_service, "resolve_message_recipients", real_resolve)
+    monkeypatch.setattr(
+        session_message_service, "resolve_message_recipients", real_resolve
+    )

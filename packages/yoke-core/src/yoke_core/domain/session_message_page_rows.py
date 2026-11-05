@@ -66,7 +66,7 @@ def page_summaries(
         for row in _rows(
             conn,
             "SELECT message_id,sender_actor_id,sender_session_id,body,created_at,"
-            "expires_at,cancelled_at,cancellation_reason,sender_surface,selector_snapshot "
+            "expires_at,cancelled_at,cancellation_reason,sender_surface,selector_snapshot,idempotency_key "
             "FROM session_messages WHERE message_id IN ({ids})",
             ids,
         )
@@ -158,6 +158,9 @@ def page_summaries(
                 message["sender_surface"]
             )
         project_due_receipts(message, now=now)
+    from yoke_core.domain.session_message_display import project_session_names
+
+    project_session_names(conn, list(messages.values()))
     return {
         message_id: temporal_wire(message) for message_id, message in messages.items()
     }

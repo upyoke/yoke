@@ -234,6 +234,7 @@ def test_claude_launch_defaults_to_local_presentation_and_keeps_structured_name(
 ):
     conn = launch_connection()
     add_relay(conn, surface="claude-cli", version="2.1.238")
+    conn.execute("INSERT INTO items(id) VALUES (42)")
     outcome = create_launch(
         conn,
         auth=authorization(),
@@ -242,13 +243,13 @@ def test_claude_launch_defaults_to_local_presentation_and_keeps_structured_name(
             executor_surface="claude-cli",
             instructions="Do the bounded task.",
             idempotency_key="claude-local",
-            session_name="YOK-2580: Record session presentation",
+            item_id=42,
         ),
         now=NOW,
     )
 
     assert outcome.launch.presentation_preference == "local"
-    assert outcome.launch.session_name == "YOK-2580: Record session presentation"
+    assert outcome.launch.item_id == 42
 
 
 def test_claude_launch_refuses_an_ignored_presentation_preference() -> None:
@@ -264,7 +265,7 @@ def test_claude_launch_refuses_an_ignored_presentation_preference() -> None:
                 instructions="Do the bounded task.",
                 idempotency_key="claude-remote",
                 presentation="remote-control",
-                session_name="YOK-2580: Record session presentation",
+                item_id=42,
             ),
             now=NOW,
         )

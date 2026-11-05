@@ -43,7 +43,7 @@ def _item_filter_floor(response: Any, _actor: Any) -> Any:
                     "Serving floor: `launch list --item`. Ask the control-plane "
                     "operator to install a release carrying it; until then run "
                     "`yoke session-control launch list --project P --json` and "
-                    "read each launch's session_name prefix."
+                    "read each launch's item field."
                 ),
             ),
         }

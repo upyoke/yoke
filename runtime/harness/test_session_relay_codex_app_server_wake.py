@@ -139,3 +139,21 @@ def test_app_server_delegates_real_turn_ownership_out_of_serve_once(
 
     assert outcome == expected
     assert calls == [request]
+
+
+def test_create_names_worker_before_starting_turn(monkeypatch, tmp_path):
+    client = FakeAppClient("idle")
+    monkeypatch.setattr(
+        app_module.CodexAppServerTransport, "_client", lambda *_: client
+    )
+    worker = context(tmp_path)
+    worker.session_name = "APP-12: Assigned work"
+    request = adapter_module._request(worker)[0]
+    outcome = app_module.CodexAppServerTransport(worker=True).create(request)
+    assert outcome.state == "accepted"
+    assert [method for method, _ in client.calls] == [
+        "thread/start",
+        "thread/name/set",
+        "turn/start",
+    ]
+    assert client.calls[1][1] == {"threadId": "native-1", "name": worker.session_name}

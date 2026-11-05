@@ -25,7 +25,6 @@ from typing import Any, Sequence
 from yoke_core.domain.frontier_landing_wait import landing_wait_reason
 from yoke_core.domain.item_ref_render import render_item_refs
 from yoke_core.domain.scheduler import compute_schedule
-from yoke_core.domain.session_launch_assignment import assignment_ref
 from yoke_core.domain.scheduler_types import ClaimState
 from yoke_core.domain.steering_fleet_report_detectors import age_seconds, marker
 from yoke_core.domain.work_claim_targets import scope_int_sql
@@ -143,17 +142,18 @@ def _staffing_launches(
     p = marker(conn)
     holes = ", ".join(p for _ in STAFFING_LAUNCH_STATES)
     rows = conn.execute(
-        f"""SELECT launch_id, state, created_at, session_name
+        f"""SELECT launch_id, state, created_at, item_id
               FROM session_launches
              WHERE project_id = {p}
                AND state IN ({holes})
              ORDER BY created_at ASC, launch_id ASC""",
         (int(project_id), *STAFFING_LAUNCH_STATES),
     ).fetchall()
+    refs = render_item_refs(conn, [row["item_id"] for row in rows if row["item_id"]])
     assigned: dict[str, tuple[str, str, datetime | None]] = {}
     for row in rows:
         record = dict(row)
-        ref = assignment_ref(record.get("session_name"))
+        ref = refs.get(record["item_id"])
         if not ref or ref in assigned:
             continue
         assigned[ref] = (

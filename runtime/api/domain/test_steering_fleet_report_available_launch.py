@@ -42,7 +42,6 @@ def _in_flight_launch(
     created_at: str = JUST_NOW,
     launch_id: str = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
 ) -> None:
-    public_ref = f"YOK-{item_id}"
     message_id = f"msg-{launch_id}"
     conn.execute(
         "INSERT INTO session_messages "
@@ -62,7 +61,7 @@ def _in_flight_launch(
         "INSERT INTO session_launches "
         "(launch_id, requester_actor_id, project_id, requested_surface, "
         "selected_surface, allow_surface_fallback, message_id, state, "
-        "deadline_at, created_at, origin, session_name) "
+        "deadline_at, created_at, origin, item_id) "
         "VALUES (%s, %s, %s, 'cursor-cli', 'cursor-cli', 0, %s, %s, "
         "%s, %s, 'steering', %s)",
         (
@@ -73,7 +72,7 @@ def _in_flight_launch(
             state,
             NOW,
             created_at,
-            f"{public_ref}: Unpicked work {item_id}",
+            item_id,
         ),
     )
     conn.commit()

@@ -93,7 +93,7 @@ def _launch(context, name, *, session=None, state="succeeded", native=False):
     )
     conn.execute(
         "INSERT INTO session_launches "
-        "(launch_id,requester_actor_id,project_id,message_id,session_name,state,"
+        "(launch_id,requester_actor_id,project_id,message_id,item_id,state,"
         "registered_session_id,native_session_id,deadline_at,created_at,"
         "requested_surface,selected_surface) "
         "VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,'codex-cli','codex-cli')",
@@ -102,7 +102,7 @@ def _launch(context, name, *, session=None, state="succeeded", native=False):
             actor,
             item["project_id"],
             name,
-            f"{render_item_ref(conn, item['id'], required=True)}: Resume",
+            item["id"],
             state,
             None if native else session,
             session if native else None,

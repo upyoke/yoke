@@ -176,10 +176,12 @@ def native_wake_supported(surface: str | None) -> bool:
     return surface_wake_authority(surface) == "native"
 
 
-def operator_wake_instruction(surface: str | None) -> str:
+def operator_wake_instruction(
+    surface: str | None, display_name: str | None = None
+) -> str:
     """The one sentence every surface teaches about an operator-woken wake."""
     return (
-        f"Yoke never resumes a {surface or 'desktop'} session: a native resume "
+        f"Yoke never resumes {display_name or (surface or 'desktop') + ' session'}: a native resume "
         "forks the transcript its operator is reading. The message stays "
         "pending and is delivered the moment the operator types anything in "
         "that chat, so ask them to open it and type."

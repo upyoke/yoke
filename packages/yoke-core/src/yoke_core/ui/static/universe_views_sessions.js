@@ -115,6 +115,7 @@ export function sessionCard(
   // with a harness name and a level for the same eye.
   const top = el(documentNode, "div", "session-top");
   const harness = harnessIdentity(row);
+  if (row.harness_title) attachTooltip(documentNode, top, row.harness_title);
   top.appendChild(el(
     documentNode,
     "span",

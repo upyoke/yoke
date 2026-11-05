@@ -23,8 +23,6 @@ def converge_session_control_schema(conn: Any) -> None:
         conn.execute(
             f"ALTER TABLE session_launches ADD COLUMN origin {ORIGIN_COLUMN_DDL}"
         )
-    if not _column_exists(conn, "session_launches", "session_name"):
-        conn.execute("ALTER TABLE session_launches ADD COLUMN session_name TEXT")
     for name, column_type in (
         ("requested_reasoning_effort", "TEXT"),
         ("requested_context_window_tokens", "INTEGER"),

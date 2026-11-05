@@ -11,7 +11,7 @@ export function senderDescription(message) {
     message.sender_actor_label || `actor ${message.sender_actor_id || "unknown"}`,
   );
   if (message.sender_session_id) {
-    return `${label} via session ${message.sender_session_id}`;
+    return message.sender_session_label || "Session unavailable";
   }
   if (message.sender_actor_id == null) {
     return label;
@@ -23,20 +23,9 @@ export function senderDescription(message) {
   return `${label} (${kind}, ${surface})`;
 }
 
-function itemHeldBy(session) {
-  const claim = (session?.claims || []).find(
-    (row) => row.target_kind === "item" && row.target === session.current_item,
-  ) || (session?.claims || []).find((row) => row.target_kind === "item");
-  return claim?.target || session?.current_item || "";
-}
-
 export function sessionMessageParty(documentNode, sessionId, snapshot, sessions) {
   const session = sessions.get(String(sessionId || ""));
-  const surface = session?.executor_surface || session?.executor
-    || snapshot?.executor_surface || snapshot?.executor;
-  const work = itemHeldBy(session);
-  const label = [surface, work].filter(Boolean).join(" · ")
-    || (sessionId ? `session ${sessionId}` : "session not reported");
+  const label = session?.display_label || snapshot?.session_label || "Session unavailable";
   const identity = el(documentNode, "span", "session-message-party", label);
   const title = [
     sessionId ? `Session ${sessionId}` : "",
@@ -47,9 +36,9 @@ export function sessionMessageParty(documentNode, sessionId, snapshot, sessions)
 }
 
 export function senderMessageParty(documentNode, message) {
-  return el(
-    documentNode, "span", "session-message-party", senderDescription(message),
-  );
+  const node = el(documentNode, "span", "session-message-party", senderDescription(message));
+  if (message.sender_session_id) attachTooltip(documentNode, node, `Session ${message.sender_session_id}`);
+  return node;
 }
 
 function actorStatus(documentNode, recipient, message) {

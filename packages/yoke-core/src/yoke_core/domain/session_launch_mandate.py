@@ -153,6 +153,7 @@ def compose_item_launch_instructions(
         extras=parsed.instructions,
     )
 
+
 def _instructions_for_create(
     conn: Any,
     parsed: LaunchCreateRequest,
@@ -200,15 +201,13 @@ def launch_request_for_create(
     deadline_seconds: int,
     actor_id: int | None = None,
     session_id: str | None = None,
-    session_name: str | None = None,
 ) -> LaunchRequest:
     """Build the domain launch request, composing the mandate when requested."""
-    if session_name is None and parsed.item:
-        from yoke_core.domain.session_launch_assignment import assignment_session_name
+    item_id = None
+    if parsed.item:
+        from yoke_core.domain.session_launch_assignment import assigned_item_id
 
-        session_name = assignment_session_name(
-            conn, public_ref=parsed.item, project_id=project_id
-        )
+        item_id = assigned_item_id(conn, public_ref=parsed.item, project_id=project_id)
     return LaunchRequest(
         project_id=project_id,
         executor_surface=parsed.executor_surface or "",
@@ -226,7 +225,7 @@ def launch_request_for_create(
         reasoning_effort=parsed.reasoning_effort,
         context_window_tokens=parsed.context_window_tokens,
         presentation=parsed.presentation,
-        session_name=session_name,
+        item_id=item_id,
         allow_surface_fallback=parsed.allow_surface_fallback,
         deadline_seconds=deadline_seconds,
         item=str(parsed.item) if parsed.item else None,

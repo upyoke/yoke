@@ -169,7 +169,11 @@ def session_wake(session: Any) -> dict[str, Any]:
         kind = WAKE_OPERATOR
     else:
         kind = WAKE_NONE
-    return {"kind": kind, "surface": surface}
+    return {
+        "kind": kind,
+        "surface": surface,
+        "display_name": session.get("display_label"),
+    }
 
 
 def stage_recipe(obligation: Mapping[str, Any], public_ref: str) -> str:
@@ -225,7 +229,7 @@ def _wake_line(wake: Mapping[str, Any], parked: str) -> str:
         return f"wake: this {surface} session is woken natively when a stage needs it"
     if kind == WAKE_OPERATOR:
         return (
-            f"wake: none will arrive — {operator_wake_instruction(surface)} "
+            f"wake: none will arrive — {operator_wake_instruction(surface, wake.get('display_name'))} "
             "A steering seat may ask the operator to re-enter it"
         )
     if kind == WAKE_NONE:

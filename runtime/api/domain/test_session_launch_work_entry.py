@@ -26,8 +26,8 @@ def setup_launch(*, acknowledge=True, bind_hook=True):
     add_relay(conn)
     launch, claim, session = registered_launch(conn, "codex-cli", "assignment")
     conn.execute(
-        "UPDATE session_launches SET session_name=? WHERE launch_id=?",
-        (f"{ref}: Active launch target", launch.launch_id),
+        "UPDATE session_launches SET item_id=? WHERE launch_id=?",
+        (41, launch.launch_id),
     )
     conn.commit()
     if bind_hook:

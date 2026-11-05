@@ -41,6 +41,7 @@ _RPC_ERROR_MESSAGE_MAX_CHARS = 200
 # where it is.
 _METHOD_PHASES: dict[str, NativePhase] = {
     "thread/start": "thread_open",
+    "thread/name/set": "thread_open",
     "thread/read": "thread_open",
     "thread/resume": "thread_open",
     "turn/start": "turn_start",

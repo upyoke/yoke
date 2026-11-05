@@ -121,6 +121,9 @@ def message_details(conn: Any, message_id: str) -> dict[str, Any]:
         )
     )
     message.update(message_attempt_evidence(conn, message_id))
+    from yoke_core.domain.session_message_display import project_session_names
+
+    project_session_names(conn, [message])
     return temporal_wire(message)
 
 

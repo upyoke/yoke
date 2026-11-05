@@ -1,7 +1,8 @@
 {
  "id": "labels-and-execution-level",
  "title": "Labels and execution level",
- "status": "draft-copy",
+ "status": "observed",
  "page": "session-identity",
- "position": 5
+ "position": 5,
+ "summary": "Session mentions resolve the current native chat title, surface, project, current or most recent item claim and activity age at read time. Unnamed launched chats use their assigned item. Session cards expose titles on hover or tap; dashboard search matches titles."
 }

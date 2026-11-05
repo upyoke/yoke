@@ -178,3 +178,23 @@ test("a query that found nothing is not offered back as Recent", async (t) => {
     0,
   );
 });
+
+
+test("session titles match search without an id or item match", async (t) => {
+  const client = fixtureClient({ overrides: {
+    "sessions.list": () => ok({ rows: [{
+      session_id: "unrecognizable-id", project_id: 1, project: "alpha",
+      harness_title: "[PILLS]", executor: "claude-code",
+    }] }),
+  } });
+  const { root } = await mountShell(t, client);
+  byClass(root, "header-search")[0].dispatchEvent(new Event("click"));
+  const input = byClass(root, "header-search-input")[0];
+  input.value = "PILLS";
+  input.dispatchEvent(new Event("input"));
+  await settleSearch();
+  const results = byClass(root, "header-search-result");
+  assert.equal(results.length, 1);
+  assert.ok(results[0].textContent.includes("[PILLS]"));
+  assert.equal(results[0].href, "/sessions/unrecognizable-id?project=1");
+});

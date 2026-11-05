@@ -59,7 +59,7 @@ The process-gone columns record machine evidence without ending a claim holder. 
 
 Indexes: `idx_harness_sessions_level(execution_level)`, `idx_harness_sessions_heartbeat(last_heartbeat)`.
 
-Shell access: the Python harness-session CLI (`begin|touch|end|get|list|stale|reclaim`). API: `/v1/sessions` endpoints.
+Inspect with `yoke sessions list`; see [chat titles](../session-titles.md).
 
 **Launch binding.** The hook binds the exact session through launch attestation;
 folder and time proximity prove nothing. Relay reports preserve binding and receipt.

@@ -146,7 +146,7 @@ def handle_launch_create(request: FunctionCallRequest) -> HandlerOutcome:
         )
         return HandlerOutcome(
             result_payload={
-                "launch": public_launch_record(outcome.launch),
+                "launch": public_launch_record(outcome.launch, conn),
                 "preview": outcome.preview.to_dict(),
                 "deduplicated": outcome.deduplicated,
                 "item_level": outcome.item_level,
@@ -180,7 +180,9 @@ def handle_launch_get(request: FunctionCallRequest) -> HandlerOutcome:
         launch, auth = _launch_and_auth(conn, request, launch_id)
         if not auth.can_operate_project:
             raise SessionLaunchError("permission_denied", "project operator required")
-        return HandlerOutcome(result_payload={"launch": public_launch_record(launch)})
+        return HandlerOutcome(
+            result_payload={"launch": public_launch_record(launch, conn)}
+        )
     except Exception as exc:
         return _domain_error(exc)
     finally:
@@ -266,7 +268,9 @@ def _mutate(request: FunctionCallRequest, model: Any, operation: str) -> Handler
                 auth=auth,
                 observed_native_id=parsed.observed_native_id,
             )
-        return HandlerOutcome(result_payload={"launch": public_launch_record(launch)})
+        return HandlerOutcome(
+            result_payload={"launch": public_launch_record(launch, conn)}
+        )
     except Exception as exc:
         return _domain_error(exc)
     finally:

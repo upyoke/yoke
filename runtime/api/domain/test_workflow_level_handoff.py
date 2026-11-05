@@ -53,7 +53,12 @@ def test_different_effective_level_names_exact_successor_command(monkeypatch):
     assert handoff["level"] == "JUNIOR"
     assert f"--item {ref}" in handoff["next_command"]
     assert "--level" not in handoff["next_command"]
-    assert "\n## Stage-level handoff\n" in open(__file__.rsplit("/runtime/", 1)[0] + "/" + handoff["read"].split("#")[0]).read()
+    assert (
+        "\n## Stage-level handoff\n"
+        in open(
+            __file__.rsplit("/runtime/", 1)[0] + "/" + handoff["read"].split("#")[0]
+        ).read()
+    )
 
 
 @pytest.mark.parametrize("target_level", ["SENIOR", None])
@@ -106,8 +111,8 @@ def test_released_predecessor_launch_is_exempt_but_other_live_launch_is_not(
     add_relay(conn)
     old = assigned_launch(conn, key="old-worker")
     conn.execute(
-        "UPDATE session_launches SET session_name=?, registered_session_id='predecessor', state='succeeded' WHERE launch_id=?",
-        (f"{ref}: Active launch target", old.launch_id),
+        "UPDATE session_launches SET item_id=?, registered_session_id='predecessor', state='succeeded' WHERE launch_id=?",
+        (41, old.launch_id),
     )
     args = dict(
         public_ref=ref,

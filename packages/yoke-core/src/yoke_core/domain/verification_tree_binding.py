@@ -12,6 +12,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional, Sequence
 
+from yoke_core.domain.session_display_lookup import session_identity_label
 from yoke_core.domain.verification_tree_binding_messages import (
     ALLOW_TREE_MISMATCH_FLAG,
     ALLOW_TREE_MISMATCH_NOTICE,
@@ -126,14 +127,14 @@ def evaluate_tree_binding(
     if not live:
         return MISSING_LANE_REFUSAL_TEMPLATE.format(
             surface=surface,
-            sid=session_id,
+            sid=session_identity_label(session_id),
             wt=worktrees[0],
             tree=tree,
             item=lane_item_id if lane_item_id is not None else "<item>",
         )
     return TREE_BINDING_REFUSAL_TEMPLATE.format(
         surface=surface,
-        sid=session_id,
+        sid=session_identity_label(session_id),
         wt=live[0],
         tree=tree,
     )

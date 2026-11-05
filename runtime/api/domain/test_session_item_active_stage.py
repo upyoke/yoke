@@ -51,8 +51,7 @@ def test_landed_open_item_paints_the_verification_close() -> None:
     runtime = builtin_workflow_runtime("dash")
 
     assert (
-        active_stage_id(runtime, "idea", landed_open=True)
-        == "reviewing-implementation"
+        active_stage_id(runtime, "idea", landed_open=True) == "reviewing-implementation"
     )
 
 
@@ -178,7 +177,13 @@ def test_lane_session_on_a_claimed_item_sees_the_status_stage() -> None:
 
     stages = primary_item_stages_by_session(
         conn,
-        [{"session_id": "lane", "work_role": "implementation", "current_item": "YOK-20"}],
+        [
+            {
+                "session_id": "lane",
+                "work_role": "implementation",
+                "current_item": "YOK-20",
+            }
+        ],
     )
 
     assert _states(stages["lane"]) == [
@@ -194,7 +199,7 @@ def _failed_launch(conn: sqlite3.Connection) -> None:
     conn.executescript(
         """
         CREATE TABLE session_launches (
-            launch_id TEXT PRIMARY KEY, project_id INTEGER, session_name TEXT,
+            launch_id TEXT PRIMARY KEY, project_id INTEGER, item_id INTEGER,
             state TEXT, created_at TEXT
         );
         INSERT INTO session_launches VALUES
@@ -218,7 +223,13 @@ def test_projection_keeps_launch_failure_without_live_holder() -> None:
 
     stages = primary_item_stages_by_session(
         conn,
-        [{"session_id": "lane", "work_role": "implementation", "current_item": "YOK-20"}],
+        [
+            {
+                "session_id": "lane",
+                "work_role": "implementation",
+                "current_item": "YOK-20",
+            }
+        ],
     )["lane"]
 
     assert stages[0] == {"name": "idea", "state": "failed", "failure": "launch failed"}

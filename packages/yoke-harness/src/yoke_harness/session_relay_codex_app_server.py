@@ -160,6 +160,11 @@ class CodexAppServerTransport:
                     "identity_match",
                     code="identity_mismatch",
                 )
+            if request.session_name:
+                client.request(
+                    "thread/name/set",
+                    {"threadId": identity[0], "name": request.session_name},
+                )
             turn_id = _start_turn(client, identity[0], request)
             client.detach_until_turn_completed(turn_id)
             return _outcome(

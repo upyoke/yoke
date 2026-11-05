@@ -54,6 +54,7 @@ from yoke_harness.hooks.client_fact_probes import (
     yoke_source_root_fact,
 )
 from yoke_harness.hooks.client_write_targets import write_targets_fact
+from yoke_harness.hooks.client_session_title import title_fact
 from yoke_harness.hooks.main_commit_client import collect_git_commit_facts
 from yoke_harness.session_launch_handoff import LAUNCH_CONTEXT_ENV
 
@@ -84,7 +85,10 @@ def _turn_end_evidence(obs: Observation) -> dict:
     evidence = extract_turn_end_evidence(
         payload=dict(obs.payload), transcript_text=text
     )
-    return {TURN_END_EVIDENCE_KEY: evidence.as_dict()}
+    return {
+        TURN_END_EVIDENCE_KEY: evidence.as_dict(),
+        **title_fact(obs, transcript_tail=text),
+    }
 
 
 def _command_duration(obs: Observation) -> dict:
@@ -134,6 +138,7 @@ _COLLECTORS: dict[str, Callable[[Observation], dict]] = {
     ),
     TURN_END_EVIDENCE_KEY: _turn_end_evidence,
     cf.HEADLESS_LAUNCH_KEY: _headless_launch,
+    cf.HARNESS_TITLE_KEY: title_fact,
     cf.SOURCE_ROOT_KEY: lambda obs: yoke_source_root_fact(),
     cf.CAPTURE_FILES_KEY: lambda obs: capture_files_fact(obs.payload),
     cf.WRITE_TARGETS_KEY: lambda obs: write_targets_fact(obs.payload, obs.shell),
@@ -160,7 +165,8 @@ def event_chain(
     """
     matcher = tool_matcher(event_name, payload)
     chain = help_only_chain(
-        chain_for(event_name, matcher), event_name,
+        chain_for(event_name, matcher),
+        event_name,
         matcher == "Bash" and is_help_only_command(extract_command(payload)),
     )
     if project_scope is not None:
@@ -189,7 +195,10 @@ def collect_client_facts(
     facts: dict[str, object] = {
         lint_policy.SNAPSHOT_PAYLOAD_KEY: lint_config_snapshot(payload)
     }
-    for key in sorted(client_facts_for(chain)):
+    keys = client_facts_for(chain)
+    if TURN_END_EVIDENCE_KEY in keys:
+        keys = keys - {cf.HARNESS_TITLE_KEY}
+    for key in sorted(keys):
         try:
             facts.update(_COLLECTORS[key](obs))
         except Exception as exc:  # a missing fact must not fail the hook

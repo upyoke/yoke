@@ -85,7 +85,7 @@ def row_to_launch(row: Any) -> LaunchRecord:
             row, "requested_context_window_tokens", 9
         ),
         presentation_preference=value(row, "presentation_preference", 10),
-        session_name=value(row, "session_name", 11),
+        item_id=value(row, "item_id", 11),
         allow_surface_fallback=bool(value(row, "allow_surface_fallback", 12)),
         message_id=str(value(row, "message_id", 13)),
         idempotency_key=value(row, "idempotency_key", 14),
