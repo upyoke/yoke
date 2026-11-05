@@ -12,15 +12,11 @@ import os
 import re
 import subprocess
 import sys
-import time
 from typing import Any, Dict, Optional, Sequence, Tuple
 
-from runtime.api.tools.platform_consumer_dispatch_ref import (
-    bound_dispatch_ref,
-)
 from runtime.api.tools.platform_consumer_run_wait import wait_run
-from runtime.api.tools.platform_consumer_dispatch import (
-    build_dispatch, CONSUMER_REPO, CONSUMER_PROJECT,
+from yoke_core.domain.platform_consumer_dispatch import (
+    dispatch_pair, CONSUMER_REPO, CONSUMER_PROJECT,
 )
 from yoke_contracts.api_urls import validate_control_api_url
 
@@ -32,8 +28,6 @@ CONSUMER_CONNECTION = "platform-consumer-check"
 
 _FULL_SHA = re.compile(r"^[0-9a-f]{40}$")
 _COMMAND_TIMEOUT_SECONDS = 300
-_PENDING_JOIN_CODE = "workflow_dispatch_pending"
-_PENDING_JOIN_BUDGET_SECONDS = 120.0
 
 
 UNPROVEN = 1
@@ -107,35 +101,8 @@ def bind_consumer_authority() -> str:
 
 
 def dispatch(candidate_sha: str, consumer_sha: str) -> Tuple[str, str]:
-    """Dispatch or join proof at the immutable bound consumer commit."""
-    _, error = bound_dispatch_ref(
-        _yoke,
-        repo=CONSUMER_REPO,
-        project=CONSUMER_PROJECT,
-        sha=consumer_sha,
-        timeout=_COMMAND_TIMEOUT_SECONDS,
-    )
-    if error:
-        return "", error
-    trigger = build_dispatch(candidate_sha, consumer_sha)
-    deadline = time.monotonic() + _PENDING_JOIN_BUDGET_SECONDS
-    delay = 2.0
-    while True:
-        code, stdout, stderr = _yoke(trigger, timeout=_COMMAND_TIMEOUT_SECONDS)
-        if code == 0 or _PENDING_JOIN_CODE not in f"{stderr}\n{stdout}":
-            break
-        remaining = deadline - time.monotonic()
-        if remaining <= 0:
-            break
-        print("consumer check join is pending; retrying same request_id", flush=True)
-        time.sleep(min(delay, remaining))
-        delay = min(delay * 2, 30.0)
-    if code != 0:
-        return "", f"consumer check could not be dispatched: {_detail(stdout, stderr)}"
-    lines = [line.strip() for line in stdout.splitlines() if line.strip()]
-    if not lines:
-        return "", "consumer check dispatch named no run to read"
-    return lines[0], ""
+    """Start or join through the same dispatcher used by the deploy driver."""
+    return dispatch_pair(_yoke, candidate_sha, consumer_sha)
 
 
 def await_verdict(run_id: str, *, timeout_sec: int) -> Tuple[Dict[str, Any], str]:

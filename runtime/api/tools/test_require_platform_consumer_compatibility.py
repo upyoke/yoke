@@ -16,7 +16,8 @@ import json
 import pytest
 
 from runtime.api.tools import require_platform_consumer_compatibility as gate
-from runtime.api.tools.platform_consumer_dispatch import CANDIDATE_INPUT, CONSUMER_CHECK_WORKFLOW
+from yoke_core.domain import platform_consumer_dispatch as pairs
+from yoke_core.domain.platform_consumer_dispatch import CANDIDATE_INPUT, CONSUMER_CHECK_WORKFLOW
 
 CANDIDATE = "a" * 40
 CONSUMER_REVISION = "b" * 40
@@ -210,7 +211,6 @@ def test_the_gate_reuses_the_consumer_s_own_required_check(
 
 _PENDING = (1, "", "error (workflow_dispatch_pending): run not listed")
 
-
 def _clock(monkeypatch: pytest.MonkeyPatch) -> List[float]:
     now = {"t": 0.0}
     slept: List[float] = []
@@ -219,8 +219,8 @@ def _clock(monkeypatch: pytest.MonkeyPatch) -> List[float]:
         slept.append(seconds)
         now["t"] += float(seconds)
 
-    monkeypatch.setattr(gate.time, "monotonic", lambda: now["t"])
-    monkeypatch.setattr(gate.time, "sleep", _sleep)
+    monkeypatch.setattr(pairs.time, "monotonic", lambda: now["t"])
+    monkeypatch.setattr(pairs.time, "sleep", _sleep)
     return slept
 
 
@@ -257,7 +257,7 @@ def test_a_pending_join_past_the_budget_stays_unavailable(
     assert (code, proven) == (gate.UNAVAILABLE, "")
     assert "could not be dispatched" in narrative
     assert "unproven:" in narrative and "workflow_dispatch_pending" in narrative
-    assert sum(slept) == gate._PENDING_JOIN_BUDGET_SECONDS
+    assert sum(slept) == pairs._PENDING_JOIN_BUDGET_SECONDS
     ids = {argv[argv.index("--request-id") + 1] for argv in calls}
     assert len(calls) > 1 and len(ids) == 1
 

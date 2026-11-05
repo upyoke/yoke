@@ -19,7 +19,13 @@ Use the project's declared release workflow. Its existing consumer gate builds
 against the exact producer candidate and bound consumer commit before the
 release publishes its tag. A passing producer suite alone cannot prove that
 pair; the release gate owns this evidence and refuses a failed or unproven pair.
-With no prior result, the gate dispatches and awaits proof itself. Retries
+The hosted deploy driver starts or joins the bound pair before waiting for
+producer CI, without waiting for the proof verdict. It uses the run owner's
+existing GitHub authority; no push workflow credential is added. The bridge
+still decides publication and joins the same pair. An early-start failure names
+its recovery and the bridge retries dispatch before publication. If the bound
+consumer later moves, the early proof is wasted but harmless: another pair
+needs its own proof. With no prior result, the gate dispatches and awaits proof itself. Retries
 and simultaneous environment callers join proof for the same immutable pair;
 a changed producer or consumer commit needs its own proof. Missing, failed,
 cancelled, timed-out or mismatched evidence cannot publish a release.
