@@ -16,3 +16,16 @@ def canonical_item_ref(item_id: int) -> Optional[str]:
     except Exception:
         return None
 
+
+def terminal_progress_log_recovery(item_id: int, public_ref: str) -> Optional[str]:
+    """Teach the checkpoint rule when the item has already finished."""
+    from yoke_core.domain import db_helpers
+    from yoke_core.domain.item_terminal_resources import item_is_terminal
+
+    with db_helpers.connect() as conn:
+        if not item_is_terminal(conn, item_id):
+            return None
+    return (
+        f"item {public_ref} is terminal; its result is already recorded — "
+        "skip the final checkpoint (.yoke/docs/agents/rules/item-writes.md)"
+    )

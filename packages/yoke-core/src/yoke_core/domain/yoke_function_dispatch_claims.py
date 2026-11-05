@@ -1,8 +1,6 @@
 """Claim verification helpers for the function-call dispatcher.
 
-Extracted from :mod:`yoke_function_dispatch` to keep the dispatcher's
-main routing flow within the file-line budget. Each ``claim_required_kind``
-maps to one verification predicate:
+Each ``claim_required_kind`` maps to one verification predicate:
 
 - ``"item"`` / ``"epic"`` — consult the canonical session-claim lookup
   for the target item / epic id; require the actor's ``session_id`` to
@@ -11,11 +9,7 @@ maps to one verification predicate:
 - ``"self_only"`` — read ``work_claims`` by id; require the actor to own
   the claim row or hold a live steering seat on any project.
 - ``"steering"`` — require a live steering seat covering the target scope.
-- ``"qa_subject"`` — delegate to
-  :func:`yoke_core.domain.yoke_function_dispatch_qa_claims.qa_subject_claim_verdict`,
-  which accepts a live item claim or the claim a long gate run bound at
-  its start.
-
+- ``"qa_subject"`` — accept a live item claim or a long gate run's bound claim.
 """
 
 from __future__ import annotations
@@ -34,6 +28,7 @@ from yoke_core.domain.yoke_function_dispatch_qa_claims import (
 )
 from yoke_core.domain.claim_recovery import (
     canonical_item_ref as _claim_recovery_item_ref,
+    terminal_progress_log_recovery,
 )
 from yoke_core.domain.session_steering_authority import foreign_claim_release_refusal
 from yoke_core.domain.yoke_function_dispatch_claim_evidence import (
@@ -223,15 +218,21 @@ def verify_claim(
                 else "acquire the required claim before retrying"
             )
             target_ref = public_ref or str(target_id)
+            terminal = (
+                terminal_progress_log_recovery(int(target_id), target_ref)
+                if fid == "items.progress_log.append"
+                else None
+            )
             return _claim_error(
                 request,
                 fid,
                 ver,
                 "claim_required",
-                f"no active claim by session {actor_session!r} on "
+                terminal
+                or f"no active claim by session {actor_session!r} on "
                 f"{kind} {target_ref}; acquire one first: "
                 f"{recovery}",
-                recovery_hint=recovery,
+                recovery_hint=terminal or recovery,
             )
         allow_claim_verification(
             evidence,
