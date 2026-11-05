@@ -64,3 +64,22 @@ def test_public_install_failure_names_recovery(monkeypatch, tmp_path):
     model.problems.clear()
     install_source.read_install(model)
     assert 'no shell installation recipe' in model.problems[0].message
+
+
+def test_unmapped_registry_entry_stops_build_before_publication(monkeypatch, capsys):
+    monkeypatch.syspath_prepend(str(TOOLS))
+    import build
+
+    live = build.inventory.live_registries()
+    live['commands']['yoke unmapped-example'] = None
+    monkeypatch.setattr(build.inventory, 'live_registries', lambda: live)
+
+    def unexpected_render(*args, **kwargs):
+        raise AssertionError('incomplete registry reached rendering')
+
+    monkeypatch.setattr(build, 'GuideData', unexpected_render)
+    assert build.main(['--check']) == 1
+    output = capsys.readouterr().out
+    assert 'UNMAPPED_REGISTRY_ENTRY' in output
+    assert 'yoke unmapped-example' in output
+    assert 'add it to the appropriate concept' in output
