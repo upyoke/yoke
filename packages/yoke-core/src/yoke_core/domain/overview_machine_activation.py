@@ -8,20 +8,12 @@ as its own — "claude-code connected 21m ago" with every harness target
 green, while it has connected nothing.
 
 Machine identity is read in exactly one place, :func:`read_registered_machines`.
-Today a registered machine is a distinct ``machine_id`` seen on
-``session_relays`` (which carries the hostname, connected surfaces, and
-liveness) or stamped on ``harness_sessions`` (which carries the harnesses
-that ran from it). When the machine registry table lands, that function
-switches its identity source to the registry row and nothing else changes;
-do not build a second machine surface beside it.
+The machine registry supplies live identities, names and registration facts.
+Retired and unregistered machines are excluded. Relays supply installed
+surfaces and liveness; sessions supply harness activity for each live machine.
 
-The read is scoped to the viewing actor. A universe is shared by an
-organization's members, and another member's laptop is not something the
-viewer can act on — it is noise at best and a wrong instruction at worst
-("next up: open a harness on a box you have never touched"). Relays name
-their owner, so the viewer's machines are their own relays plus any machine
-that ran their sessions and has no relay at all. Without a bound actor
-(a local single-actor universe) every machine is the viewer's.
+The read is scoped to the viewing actor through registry ownership. Without
+a bound actor (a local single-actor universe), all live machines are listed.
 
 The latch is monotone per ``(machine_id, module_key)`` in
 ``overview_machine_activation_facts``: once a machine has been observed
@@ -36,7 +28,7 @@ from datetime import datetime
 
 from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple
 
-from yoke_core.domain import json_helper
+from yoke_core.domain import json_helper, machine_registry
 from yoke_contracts.timestamps import parse_instant
 from yoke_core.domain.db_helpers import instant_parameter, utc_now
 from yoke_core.domain.overview_harness_hook_health import (
@@ -53,25 +45,7 @@ MACHINE_MODULE_KEYS: Tuple[str, ...] = (
     MACHINE_MODULE_CONNECT_HARNESS,
 )
 
-#: A relay the operator revoked names a machine that left the fleet; it
-#: stays listed only while harness sessions still attribute work to it.
-RELAY_STATE_REVOKED = "revoked"
-
 FACTS_TABLE = "overview_machine_activation_facts"
-
-
-def _relayed_machine_ids(conn: Any) -> set:
-    """Every machine that has a relay, whoever owns it.
-
-    A machine someone else's relay owns is theirs even if the viewer once
-    ran a session on it, so this set is what session-only identity defers to.
-    """
-    if not _table_exists(conn, "session_relays"):
-        return set()
-    return {
-        str(row[0])
-        for row in conn.execute("SELECT machine_id FROM session_relays").fetchall()
-    }
 
 
 def _relay_rows(conn: Any, actor_id: Optional[int]) -> Dict[str, Dict[str, Any]]:
@@ -168,53 +142,36 @@ def read_registered_machines(
 ) -> List[Dict[str, Any]]:
     """The viewing actor's machines, with the harnesses that ran from each.
 
-    This is the single machine-identity read for the Overview. Identity
-    comes from ``session_relays`` and ``harness_sessions.machine_id`` today;
-    when the machine registry table lands, swap the identity source here and
-    keep the returned shape. ``reports`` are harness machine reports keyed by
-    machine, so each machine's hook health reads only its own evidence.
-    ``actor_id`` is the viewer; ``None`` means an unscoped universe and lists
-    every machine.
+    The registry owns identity, retirement and actor ownership. ``reports``
+    carry machine-keyed hook health; relays and sessions enrich only live
+    registry records. ``actor_id=None`` lists all live machines.
     """
     relays = _relay_rows(conn, actor_id)
     sessions = _session_rows(conn, actor_id)
-    if actor_id is not None:
-        relayed = _relayed_machine_ids(conn)
-        sessions = {
-            machine_id: rows
-            for machine_id, rows in sessions.items()
-            if machine_id in relays or machine_id not in relayed
-        }
     stored = list(reports or ())
     machines: List[Dict[str, Any]] = []
-    for machine_id in sorted(set(relays) | set(sessions)):
+    for record in machine_registry.list_machines(conn, owner_actor_id=actor_id):
+        if record.retired_at is not None:
+            continue
+        machine_id = record.machine_id
         relay = relays.get(machine_id)
         rows = sessions.get(machine_id, [])
-        if (
-            relay is not None
-            and relay["relay_state"] == RELAY_STATE_REVOKED
-            and not rows
-        ):
-            continue
         harnesses = _harnesses(rows)
-        first_session = min(
-            (parse_instant(row[5]) for row in rows if row[5] is not None), default=None
-        )
         last_session = harnesses[0]["last_at"] if harnesses else None
         machines.append(
             {
                 "machine_id": machine_id,
-                "name": relay["name"] if relay else None,
+                "name": record.name,
                 "surfaces": relay["surfaces"] if relay else [],
                 "relay_state": relay["relay_state"] if relay else None,
-                "registered_at": (relay["registered_at"] if relay else None)
-                or first_session,
+                "registered_at": record.registered_at,
                 "last_seen_at": max(
                     (
                         value
                         for value in (
                             relay["last_seen_at"] if relay else None,
                             last_session,
+                            record.last_seen_at,
                         )
                         if value is not None
                     ),
@@ -233,7 +190,11 @@ def read_registered_machines(
                 ),
             }
         )
-    return machines
+    return sorted(
+        machines,
+        key=lambda row: (row["last_seen_at"] is not None, row["last_seen_at"]),
+        reverse=True,
+    )
 
 
 def latch_machine_activations(
@@ -315,7 +276,6 @@ __all__ = [
     "MACHINE_MODULE_CONNECT_HARNESS",
     "MACHINE_MODULE_KEYS",
     "MACHINE_MODULE_MACHINE_CONNECTED",
-    "RELAY_STATE_REVOKED",
     "every_machine_has_harness",
     "latch_machine_activations",
     "machine_module_rows",

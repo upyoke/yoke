@@ -15,6 +15,7 @@ from yoke_contracts.api.function_call import (
     TargetRef,
 )
 from yoke_core.domain.db_helpers import iso8601_now
+from yoke_core.domain.machine_registry import register_machine
 from yoke_core.domain.handlers.overview_activation import (
     handle_overview_activation_get,
 )
@@ -39,6 +40,9 @@ def _modules(payload=None):
 def _seed_relay(conn, machine_id, hostname):
     actor = conn.execute("SELECT id FROM actors ORDER BY id LIMIT 1").fetchone()[0]
     now = iso8601_now()
+    register_machine(
+        conn, machine_id=machine_id, name=hostname, actor_id=actor, now=now
+    )
     conn.execute(
         "INSERT INTO session_relays (relay_id, actor_id, machine_id, hostname, "
         "surface_versions, project_checkouts, first_seen_at, last_seen_at, "
@@ -94,7 +98,7 @@ def test_a_relay_only_machine_stays_next_up_beside_a_connected_one(test_db):
     # Registered machines satisfy the row with no host fact at all.
     assert machine_row["done"] is True
     assert machine_row["detail"] is None
-    assert [m["name"] for m in machine_row["machines"]] == ["alpha-box", "beta-box"]
+    assert [m["name"] for m in machine_row["machines"]] == ["beta-box", "alpha-box"]
     assert all(m["connected_at"] for m in machine_row["machines"])
     assert wizard["state"] == "activated"
 
@@ -229,3 +233,51 @@ def test_the_machine_row_answers_for_the_viewer_not_the_universe(test_db):
     # Another actor's connected machine is not the invitee's progress.
     assert row["done"] is False
     assert row["machines"] == []
+
+
+def test_retired_and_unregistered_machines_do_not_block_harness_setup(test_db):
+    _seed_relay(test_db, MACHINE_A, "live-box")
+    _seed_session(test_db, "live-session", MACHINE_A)
+    retired_with_session = MACHINE_B
+    retired_without_session = "cccccccc-cccc-4ccc-8ccc-cccccccccccc"
+    for machine_id in (retired_with_session, retired_without_session):
+        _seed_relay(test_db, machine_id, "old-box")
+        test_db.execute(
+            "UPDATE machines SET retired_at = %s WHERE machine_id = %s",
+            (iso8601_now(), machine_id),
+        )
+    _seed_session(test_db, "retired-session", retired_with_session)
+    _seed_session(test_db, "unregistered-session", "unregistered-machine")
+    test_db.commit()
+
+    harness = _modules()["connect_harness"]
+    assert harness["state"] == "activated"
+    assert [row["machine_id"] for row in harness["machines"]] == [MACHINE_A]
+
+
+def test_live_registry_machines_sort_by_latest_activity(test_db):
+    from yoke_core.domain.overview_machine_activation import read_registered_machines
+
+    _seed_relay(test_db, MACHINE_A, "alpha-box")
+    _seed_relay(test_db, MACHINE_B, "beta-box")
+    test_db.execute(
+        "UPDATE session_relays SET last_seen_at = '2026-01-01T00:00:00Z'"
+    )
+    test_db.execute(
+        "UPDATE machines SET last_seen_at = '2026-02-01T00:00:00Z' "
+        "WHERE machine_id = %s", (MACHINE_A,),
+    )
+    test_db.execute(
+        "UPDATE machines SET last_seen_at = NULL WHERE machine_id = %s",
+        (MACHINE_B,),
+    )
+    test_db.commit()
+    rows = read_registered_machines(test_db)
+    assert [row["machine_id"] for row in rows] == [MACHINE_A, MACHINE_B]
+    test_db.execute(
+        "UPDATE session_relays SET last_seen_at = '2026-03-01T00:00:00Z' "
+        "WHERE machine_id = %s", (MACHINE_B,),
+    )
+    assert [row["machine_id"] for row in read_registered_machines(test_db)] == [
+        MACHINE_B, MACHINE_A,
+    ]
