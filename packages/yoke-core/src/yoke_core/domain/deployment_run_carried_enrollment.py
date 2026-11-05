@@ -25,6 +25,7 @@ from yoke_core.domain.deployment_run_composition_freeze import (
 from yoke_core.domain.deployment_run_dependency_readiness import (
     unshipped_dependency_pairs,
 )
+from yoke_core.domain.deployment_landing_guard import open_landing_refusals
 from yoke_core.domain.deployment_run_enrollment_error import CarriedEnrollmentError
 from yoke_core.domain.deployment_run_member_admission import (
     MemberAdmission,
@@ -135,6 +136,8 @@ def decide_carried_enrollment(
         )
     }
     candidates = [item_id for item_id in candidates if item_id not in blocked]
+    open_landings = open_landing_refusals(conn, candidates)
+    candidates = [item_id for item_id in candidates if item_id not in open_landings]
     admission = refusal = None
     try:
         admission = prepare_run_items(

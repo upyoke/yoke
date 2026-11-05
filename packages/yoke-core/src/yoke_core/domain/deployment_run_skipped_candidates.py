@@ -1,6 +1,6 @@
 """Carried items a run's composition left out, and why, in one notice.
 
-A run's candidate carries more landed code than the run delivers. Four
+A run's candidate carries more landed code than the run delivers. Five
 reasons keep a carried item out of its membership, and "why is my item not a
 member" is otherwise answerable only by reading several runs and item
 histories by hand:
@@ -15,6 +15,8 @@ histories by hand:
   later release enrolls it once it returns;
 * **removed** -- an operator took it out of this run with a recorded reason
   (:mod:`deployment_run_membership_removals`).
+* **open correction** -- an in-flight correction PR keeps its item carried
+  until its landing closes; other ready items can enroll.
 * **blocked** -- an open dependency needs a blocker that has not shipped yet.
   A blocker a live or settling release still holds has not shipped either:
   the dependency gate counts only a recorded ``succeeded`` run, so the
@@ -47,6 +49,7 @@ from yoke_core.domain.deployment_run_dependency_readiness import (
 from yoke_core.domain.deployment_run_membership_removals import (
     membership_removals,
 )
+from yoke_core.domain.deployment_landing_guard import open_landing_refusals
 from yoke_core.domain.dependency_types import GateResult
 from yoke_core.domain.deployment_run_unheld_candidates import (
     CustodyResolution,
@@ -123,6 +126,7 @@ class SkippedCandidates(NamedTuple):
     removed: tuple[Mapping[str, Any], ...]
     rework: tuple[tuple[int, str], ...]
     blocked: list[tuple[int, int, GateResult]]
+    open_landings: Mapping[int, str]
 
 
 def skipped_candidates(
@@ -165,14 +169,17 @@ def skipped_candidates(
         [item_id for item_id in candidates if item_id in required],
         member_ids=members,
     )
-    return SkippedCandidates(held, removed, rework, blocked)
+    open_landings = open_landing_refusals(
+        conn, [item_id for item_id in candidates if item_id in required]
+    )
+    return SkippedCandidates(held, removed, rework, blocked, open_landings)
 
 
 def describe_skipped(conn: Any, run_id: str, skipped: SkippedCandidates | None) -> str:
     """The one notice naming every skipped carried item and why."""
     if skipped is None:
         return ""
-    held, removed, rework, blocked = skipped
+    held, removed, rework, blocked, open_landings = skipped
     ref = render_item_ref_lookup(
         conn,
         [i for i, _ in rework]
@@ -187,6 +194,11 @@ def describe_skipped(conn: Any, run_id: str, skipped: SkippedCandidates | None) 
                 _describe_blocked(conn, ref, dependent, blocker, str(verdict.reason))
                 for dependent, blocker, verdict in blocked
             )
+        )
+    if open_landings:
+        parts.append(
+            "open corrections; the first release after their landing closes enrolls them: "
+            + "; ".join(open_landings.values())
         )
     if held:
         parts.append(
@@ -212,7 +224,12 @@ def describe_skipped(conn: Any, run_id: str, skipped: SkippedCandidates | None) 
         )
     if not parts:
         return ""
-    count = len(held) + len(rework) + len(removed) + len({d for d, _, _ in blocked})
+    count = (
+        len(held)
+        + len(rework)
+        + len(removed)
+        + len({d for d, _, _ in blocked} | set(open_landings))
+    )
     return (
         f"Skipped {count} carried item(s) this run does not deliver -- "
         + " | ".join(parts)
