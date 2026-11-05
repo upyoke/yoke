@@ -63,7 +63,8 @@ declaration and refuse with `SOURCE-ENVIRONMENT-DECLARATION` when unreadable.
 
 Before any source import probe or child starts, `dev run` creates a private,
 disposable machine-home snapshot. It copies machine settings, secrets, and referenced
-files under that home, rebases machine-home paths, and supplies private default
+files under that home, omitting broken links and special files such as browser
+locks and Unix sockets. It rebases machine-home paths and supplies private default
 cache and temp paths. It does not clone caches, runtimes or live relay state.
 Source config writes affect only the snapshot, which is removed after the
 command finishes or refuses. Watcher captures use the printed separate

@@ -8,6 +8,7 @@ import os
 from pathlib import Path
 import shutil
 import signal
+import stat
 import threading
 import sys
 import tempfile
@@ -20,6 +21,23 @@ def _home(env: Mapping[str, str]) -> Path:
     return Path(
         os.path.abspath(Path(env.get(HOME_ENV) or Path.home() / ".yoke").expanduser())
     )
+
+
+def _non_file_entries(directory: str, names: list[str]) -> set[str]:
+    """Omit runtime sockets, devices and broken links from private copies."""
+    ignored = set()
+    for name in names:
+        entry = Path(directory) / name
+        try:
+            mode = entry.stat().st_mode
+        except FileNotFoundError:
+            if entry.is_symlink():
+                ignored.add(name)
+                continue
+            raise
+        if not (stat.S_ISREG(mode) or stat.S_ISDIR(mode)):
+            ignored.add(name)
+    return ignored
 
 
 def _snapshot(source: Path, destination: Path, selected: Path) -> None:
@@ -67,7 +85,8 @@ def _snapshot(source: Path, destination: Path, selected: Path) -> None:
     secrets = source / "secrets"
     if secrets.is_dir():
         shutil.copytree(
-            secrets, destination / "secrets", symlinks=False, dirs_exist_ok=True
+            secrets, destination / "secrets", symlinks=False, dirs_exist_ok=True,
+            ignore=_non_file_entries,
         )
     payload = rebase(payload)
     payload.setdefault("temp_root", str(destination / "tmp"))
