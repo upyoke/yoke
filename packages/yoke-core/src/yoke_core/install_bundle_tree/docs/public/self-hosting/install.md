@@ -266,3 +266,12 @@ leaves the machine unconfigured, which `yoke status` then reports.
   schedule.
 - **TLS is yours.** Use TLS for public access or shared LANs and declare proxy peers
   in `YOKE_API_TRUSTED_PROXIES`; publish the API only where intended.
+
+
+### Optional GeoIP context
+
+Mount unpacked DB-IP Lite City and ASN `.mmdb` files read-only and set
+`YOKE_GEOIP_CITY_DB` and `YOKE_GEOIP_ASN_DB` to their container paths.
+Update the files monthly; missing files leave collection working without geo
+fields. The trusted client IP is still stored. Follow the privacy and
+[DB-IP credit requirements](../operations/events.md#browser-and-network-context).

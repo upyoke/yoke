@@ -24,5 +24,10 @@ export function getPageProps()                          {
 export function getDeviceProps()                          {
   const ua = navigator.userAgent;
   // The collector derives browser, browser_version, os and device_type from request headers.
-  return { user_agent: ua, is_bot: isBot(ua) };
+  return {
+    user_agent: ua, is_bot: isBot(ua), language: navigator.language,
+    time_zone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+    screen: `${window.screen.width}x${window.screen.height}`,
+    viewport: `${window.innerWidth}x${window.innerHeight}`,
+  };
 }

@@ -91,3 +91,11 @@ severity_default TEXT NOT NULL DEFAULT 'INFO' -- default severity level
 - [QA CLI](../../verification/qa-cli.md)
 - [Body writes](../../items/model/body-writes.md)
 - [Status lifecycle](../../workflows/model/statuses.md)
+
+
+Frontend envelopes also carry `client_ip` from the trusted request client,
+optional `geo_country`, `geo_region`, `geo_city`, `network_org`, and browser
+`language`, `time_zone`, `screen`, `viewport`. GeoIP setup, privacy and
+[DB-IP attribution](../events.md#browser-and-network-context) belong to operations.
+`events.query.run` accepts `visitor_id`, matching only frontend envelopes;
+authorization still excludes global rows for actors without org-admin access.

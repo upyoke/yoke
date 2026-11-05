@@ -21,8 +21,9 @@ const stop = startPageViews();
 Collection starts on first load; there is no consent state. Each page view
 captures attribution for its URL and referrer before it emits, so the first view
 carries the landing touch. The server owns the visitor cookie; the browser keeps
-no attribution storage, and session identity stays in memory. Collect only
-non-personal data through this Pack.
+no attribution storage, and session identity stays in memory. Browser context includes language, time_zone, screen and viewport (width x height
+in pixels, without spaces). Visitor identity and any collector-added client IP
+are personal data; obtain permission before public launch.
 
 Page tracking emits an initial view and one view per path change through
 pushState, replaceState or popstate. A navigation that changes only the query or

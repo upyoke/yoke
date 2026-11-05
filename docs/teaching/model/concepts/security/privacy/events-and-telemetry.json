@@ -3,5 +3,6 @@
  "title": "Events and telemetry",
  "status": "draft-copy",
  "page": "security",
- "position": 2
+ "position": 2,
+ "summary": "Frontend collection starts on first load and stores personal data including visitor identity and trusted client_ip. Operators must obtain permission before public launch; consent UI awaits legal review. Browser-supplied geo fields are discarded; DB-IP enrichment is optional and requires attribution wherever location is displayed."
 }

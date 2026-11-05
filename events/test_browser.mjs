@@ -3,18 +3,18 @@ import assert from 'node:assert/strict';
 import { CLIENT_TIME_TOLERANCE_SECONDS, createAttributionHandler, createCollector } from './api-route.ts';
 import rules from './attribution_rules.json' with { type: 'json' };
 import { sanitizeUrl, isBot } from './events_attribution.ts';
-import { deviceProps } from './events_device.ts';
-import { getDeviceProps } from './events_props.ts';
+import { checkCollectorDeviceContext } from './test_browser_device.mjs';
 
 const windowEvents = new EventTarget();
 const documentEvents = new EventTarget();
 let location = new URL('https://app.example.com/?token=private&utm_source=chatgpt.com');
 globalThis.window = Object.assign(windowEvents, {
   get location() { return location; },
+  screen: { width: 1920, height: 1080 }, innerWidth: 1280, innerHeight: 720,
 });
 Object.defineProperty(window, 'location', { get: () => location });
 globalThis.document = Object.assign(documentEvents, { title: 'Page', referrer: '', visibilityState: 'visible' });
-Object.defineProperty(globalThis, 'navigator', { value: { userAgent: 'HeadlessChrome' }, configurable: true });
+Object.defineProperty(globalThis, 'navigator', { value: { userAgent: 'HeadlessChrome', language: 'en-US' }, configurable: true });
 globalThis.history = {
   pushState(_state, _title, url) { if (url) location = new URL(url, location); },
   replaceState(_state, _title, url) { if (url) location = new URL(url, location); },
@@ -76,6 +76,10 @@ test('first load collects with no consent step: server persistence, SPA views an
   assert.equal(batches[0].events[0].visitor_id, first.visitor_id);
   assert.ok(!batches[0].events[0].page_url.includes('token'));
   assert.equal(batches[0].events[0].is_bot, true);
+  assert.equal(batches[0].events[0].language, 'en-US');
+  assert.equal(batches[0].events[0].time_zone, Intl.DateTimeFormat().resolvedOptions().timeZone);
+  assert.equal(batches[0].events[0].screen, '1920x1080');
+  assert.equal(batches[0].events[0].viewport, '1280x720');
 
   // A view follows the path: filter and app rewrites that only change the query are not pages.
   history.pushState({}, '', '/orders');
@@ -320,31 +324,6 @@ test('rotated or invalid attribution cookies recover through the capture API', a
   }
 });
 
-const MAC_CHROME = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36';
-const ANDROID = 'Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36';
 test('collector classifies browser, os and device type from request headers only', async () => {
-  const cases = [
-    [{ 'User-Agent': MAC_CHROME }, ['Chrome', 'macOS', 'desktop']],
-    [{ 'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.5 Mobile/15E148 Safari/604.1' }, ['Safari', 'iOS', 'mobile']],
-    [{ 'User-Agent': 'Mozilla/5.0 (iPad; CPU OS 17_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Mobile/15E148 Safari/604.1' }, ['Safari', 'iOS', 'tablet']],
-    [{ 'User-Agent': ANDROID, 'Sec-CH-UA-Mobile': '?1', 'Sec-CH-UA-Platform': '"Android"' }, ['Chrome', 'Android', 'mobile']],
-    [{ 'User-Agent': ANDROID, 'Sec-CH-UA-Mobile': '?0', 'Sec-CH-UA-Platform': '"Android"' }, ['Chrome', 'Android', 'tablet']],
-    [{ 'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Claude/1.0.211 Chrome/138.0.7204.251 Electron/37.6.0 Safari/537.36' }, ['Electron', 'macOS', 'desktop']],
-  ];
-  for (const [headers, expected] of cases) {
-    const props = deviceProps(new Headers(headers));
-    assert.deepEqual([props.browser, props.os, props.device_type], expected);
-    assert.ok(props.browser_version);
-  }
-  assert.deepEqual(deviceProps(new Headers()), { is_bot: false, browser: null, browser_version: null, os: null, device_type: null });
-  assert.ok(!('device_type' in getDeviceProps()));
-  const writes = [];
-  const handler = createCollector({ ...base, rateLimit: async () => 0, writeEvents: async events => { writes.push(events); } });
-  const event = { event_id: crypto.randomUUID(), event_name: 'PageViewed', event_kind: 'analytics', event_type: 'page_view',
-    event_time: new Date().toISOString(), session_id: 'session', source_type: 'frontend', device_type: 'mobile', browser: 'forged' };
-  const response = await handler(new Request('https://app.example.com/api/events', { method: 'POST', body: JSON.stringify({ events: [event] }),
-    headers: { Origin: 'https://app.example.com', 'X-Events-Key': 'public', 'Content-Type': 'application/json', 'User-Agent': MAC_CHROME } }));
-  assert.equal(response.status, 200);
-  assert.equal(writes[0][0].device_type, 'desktop');
-  assert.equal(writes[0][0].browser, 'Chrome');
+  await checkCollectorDeviceContext(base);
 });
