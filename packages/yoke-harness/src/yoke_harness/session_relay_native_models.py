@@ -39,8 +39,8 @@ from yoke_contracts.session_control.native_models import (
     sanitize_native_models,
     stale_reading,
 )
+from yoke_harness.session_relay_codex_app_server_errors import CodexAppServerError
 from yoke_harness.session_relay_codex_app_server_client import (
-    CodexAppServerError,
     _Client,
 )
 from yoke_harness.session_relay_codex_app_server_reasons import (

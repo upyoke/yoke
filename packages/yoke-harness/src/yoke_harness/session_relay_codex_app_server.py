@@ -14,8 +14,8 @@ from yoke_harness.session_relay_codex import (
     CodexNativeRequest,
     NativePhase,
 )
+from yoke_harness.session_relay_codex_app_server_errors import CodexAppServerError
 from yoke_harness.session_relay_codex_app_server_client import (
-    CodexAppServerError,
     _Client,
 )
 from yoke_harness.session_relay_codex_invocation import codex_launch_environment

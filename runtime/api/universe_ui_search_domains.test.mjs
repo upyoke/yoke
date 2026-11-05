@@ -182,6 +182,7 @@ test("a query that found nothing is not offered back as Recent", async (t) => {
 
 test("session titles match search without an id or item match", async (t) => {
   const client = fixtureClient({ overrides: {
+    "items.search.run": () => ok({ rows: [] }),
     "sessions.list": () => ok({ rows: [{
       session_id: "unrecognizable-id", project_id: 1, project: "alpha",
       harness_title: "[PILLS]", executor: "claude-code",

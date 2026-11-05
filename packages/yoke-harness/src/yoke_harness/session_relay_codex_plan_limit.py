@@ -21,8 +21,8 @@ from typing import Any, Mapping
 
 from yoke_contracts.session_control.plan_limit_parsers import parse_codex_rate_limits
 from yoke_contracts.session_control.plan_limits import reading_is_ok, unknown_reading
+from yoke_harness.session_relay_codex_app_server_errors import CodexAppServerError
 from yoke_harness.session_relay_codex_app_server_client import (
-    CodexAppServerError,
     _Client,
 )
 from yoke_harness.session_relay_codex_app_server_reasons import (

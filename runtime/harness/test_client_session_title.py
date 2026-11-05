@@ -134,3 +134,39 @@ def test_cursor_desktop_and_cli_names(tmp_path):
     )
     assert titles.cursor_title("chat", tmp_path) is None
     assert titles.cursor_title("headless", tmp_path) is None
+
+
+def test_stop_reuses_tail_and_isolates_title_failure(tmp_path, monkeypatch):
+    from yoke_contracts import turn_end_evidence
+    from yoke_harness.hooks import client_facts
+
+    reads = []
+
+    def tail(path):
+        reads.append(path)
+        return json.dumps(
+            {
+                "type": "assistant",
+                "message": {"role": "assistant", "content": "Finished."},
+            }
+        )
+
+    monkeypatch.setattr(turn_end_evidence, "read_transcript_tail", tail)
+
+    def failed_title(obs, **kwargs):
+        assert kwargs["transcript_tail"] is not None
+        raise OSError("native title store unavailable")
+
+    monkeypatch.setattr(client_facts, "title_fact", failed_title)
+    facts = client_facts.collect_client_facts(
+        "Stop",
+        {"session_id": "chat", "transcript_path": str(tmp_path / "chat.jsonl")},
+        "claude-code",
+        [
+            "yoke_core.hooks.session_title",
+            "yoke_core.domain.turn_end_promised_work_gate",
+        ],
+    )
+    assert reads == [str(tmp_path / "chat.jsonl")]
+    assert HARNESS_TITLE_KEY not in facts
+    assert facts[turn_end_evidence.PAYLOAD_KEY]["available"] is True

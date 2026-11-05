@@ -32,7 +32,13 @@ from typing import Any
 from yoke_contracts.read_detail import excerpt
 
 #: Fields each compact session receipt carries when the recipient row has them.
-_RECEIPT_FIELDS = ("session_id", "state", "injection_count", "created_at")
+_RECEIPT_FIELDS = (
+    "session_id",
+    "session_label",
+    "state",
+    "injection_count",
+    "created_at",
+)
 
 #: Fields copied straight through when the summary carries them.
 _CARRIED = (

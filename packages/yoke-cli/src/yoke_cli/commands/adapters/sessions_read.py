@@ -89,9 +89,24 @@ def sessions_list(args: List[str]) -> int:
     def _human_writer(response, stdout, stderr) -> None:
         result = response.result or {}
         displayed = [
-            {**row, "project": recipient_project(row)} for row in result.get("rows", [])
+            {
+                **row,
+                "session": row.get("display_label") or "session label unavailable",
+                "read": f"yoke sessions get {row.get('session_id')}",
+                "project": recipient_project(row),
+            }
+            for row in result.get("rows", [])
         ]
-        write_human({**result, "rows": displayed}, stdout)
+        fields = [
+            "session",
+            "read",
+            *(
+                key
+                for key in result.get("fields", [])
+                if key not in {"session_id", "display_label", "harness_title"}
+            ),
+        ]
+        write_human({**result, "fields": fields, "rows": displayed}, stdout)
 
     payload: Dict[str, Any] = {
         "detail": "full" if parsed.full else "summary",

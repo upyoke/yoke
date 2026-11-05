@@ -17,6 +17,7 @@ from __future__ import annotations
 import os
 import sys
 from dataclasses import dataclass
+from functools import cached_property
 from pathlib import Path
 from typing import Callable, Iterable, Mapping
 
@@ -71,24 +72,25 @@ class Observation:
     executor: str
     shell: ShellParse
 
+    @cached_property
+    def transcript_tail(self):
+        from yoke_contracts.turn_end_evidence import read_transcript_tail
+
+        path = self.payload.get("transcript_path")
+        return read_transcript_tail(path) if isinstance(path, str) and path else None
+
 
 def _turn_end_evidence(obs: Observation) -> dict:
     if obs.event_name not in turn_end_events(obs.executor):
         return {}
     from yoke_contracts.turn_end_evidence import (
         extract_turn_end_evidence,
-        read_transcript_tail,
     )
 
-    path = obs.payload.get("transcript_path")
-    text = read_transcript_tail(path) if isinstance(path, str) and path else None
     evidence = extract_turn_end_evidence(
-        payload=dict(obs.payload), transcript_text=text
+        payload=dict(obs.payload), transcript_text=obs.transcript_tail
     )
-    return {
-        TURN_END_EVIDENCE_KEY: evidence.as_dict(),
-        **title_fact(obs, transcript_tail=text),
-    }
+    return {TURN_END_EVIDENCE_KEY: evidence.as_dict()}
 
 
 def _command_duration(obs: Observation) -> dict:
@@ -138,7 +140,9 @@ _COLLECTORS: dict[str, Callable[[Observation], dict]] = {
     ),
     TURN_END_EVIDENCE_KEY: _turn_end_evidence,
     cf.HEADLESS_LAUNCH_KEY: _headless_launch,
-    cf.HARNESS_TITLE_KEY: title_fact,
+    cf.HARNESS_TITLE_KEY: lambda obs: title_fact(
+        obs, transcript_tail=obs.transcript_tail if obs.event_name == "Stop" else None
+    ),
     cf.SOURCE_ROOT_KEY: lambda obs: yoke_source_root_fact(),
     cf.CAPTURE_FILES_KEY: lambda obs: capture_files_fact(obs.payload),
     cf.WRITE_TARGETS_KEY: lambda obs: write_targets_fact(obs.payload, obs.shell),
@@ -196,8 +200,6 @@ def collect_client_facts(
         lint_policy.SNAPSHOT_PAYLOAD_KEY: lint_config_snapshot(payload)
     }
     keys = client_facts_for(chain)
-    if TURN_END_EVIDENCE_KEY in keys:
-        keys = keys - {cf.HARNESS_TITLE_KEY}
     for key in sorted(keys):
         try:
             facts.update(_COLLECTORS[key](obs))

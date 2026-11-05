@@ -290,6 +290,7 @@ def session_summary_result(rows: list[dict], *, offset: int, limit: int | None) 
     """The routine roster omits diagnostics, stored usage and holdings detail."""
     fields = (
         "session_id",
+        "display_label",
         "actor_label",
         "project",
         "org_id",

@@ -80,12 +80,13 @@ test("message receipts expose recipient delivery and wake state", async (t) => {
     wake_attempt_count: 1, acknowledged_at: "2026-08-23T01:07:00Z",
     executor_surface: "codex-cli",
   }];
+  for (const row of recipients) row.session_label = "Worker chat · codex-cli · yoke";
   const client = shellClient(requests, {
     "session_control.message.list": () => ok({
       messages: [{
         message_id: "message-1", body: "Please report delivery status.",
         sender_actor_id: 2, sender_actor_label: "ben", sender_actor_kind: "human",
-        sender_session_id: "session-sender",
+        sender_session_id: "session-sender", sender_session_label: "Sender chat · codex-cli · yoke",
         sender_surface: "harness_session", sender_surface_label: "harness session",
         created_at: "2026-08-23T01:00:00Z",
         needs_attention: true,
@@ -100,7 +101,7 @@ test("message receipts expose recipient delivery and wake state", async (t) => {
       message: {
         message_id: "message-1", body: "Please report delivery status.",
         sender_actor_id: 2, sender_actor_label: "ben", sender_actor_kind: "human",
-        sender_session_id: "session-sender", created_at: "2026-08-23T01:00:00Z",
+        sender_session_id: "session-sender", sender_session_label: "Sender chat · codex-cli · yoke", created_at: "2026-08-23T01:00:00Z",
         recipients: structuredClone(recipients),
       },
     }),
@@ -121,10 +122,10 @@ test("message receipts expose recipient delivery and wake state", async (t) => {
   assert.deepEqual(
     byClass(root, "session-message-party").map((node) => node.textContent),
     [
-      "ben via session session-sender",
-      "codex-cli",
-      "codex-cli",
-      "codex-cli",
+      "Sender chat · codex-cli · yoke",
+      "Worker chat · codex-cli · yoke",
+      "Worker chat · codex-cli · yoke",
+      "Worker chat · codex-cli · yoke",
     ],
   );
   const acknowledged = byClass(root, "session-message-recipient-status")[1];

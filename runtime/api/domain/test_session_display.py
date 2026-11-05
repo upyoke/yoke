@@ -55,3 +55,21 @@ def test_launched_item_title_and_most_recent_released_claim(monkeypatch):
     assert (
         " · held ALP-1 · " in session_display.session_display_names(conn, ["s1"])["s1"]
     )
+
+
+def test_roster_and_summary_expose_labels_without_changing_identity():
+    from yoke_core.domain.session_control_roster import session_control_roster_result
+    from yoke_core.domain.sessions_list_read import session_summary_result
+    from runtime.api.domain.test_session_control_roster import _connection, _add_session, _base_row, NOW
+
+    conn = _connection()
+    _add_session(conn, surface="codex-vscode", version="0.148.0-alpha.15")
+    base = _base_row(surface="codex-vscode", liveness="active")
+    base.update(harness_title="Chat title", display_label="Chat title · codex-vscode · yoke")
+    result = session_control_roster_result([base], conn=conn, now=NOW)
+    assert {"harness_title", "display_label"} <= set(result["fields"])
+    assert result["rows"][0]["harness_title"] == "Chat title"
+    assert result["rows"][0]["display_label"] == base["display_label"]
+    summary = session_summary_result(result["rows"], offset=0, limit=25)
+    assert summary["rows"][0]["display_label"] == base["display_label"]
+    assert summary["rows"][0]["session_id"] == base["session_id"]
