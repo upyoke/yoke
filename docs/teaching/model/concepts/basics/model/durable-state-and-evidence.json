@@ -1,7 +1,9 @@
 {
  "id": "durable-state-and-evidence",
  "title": "Durable state and evidence",
- "status": "draft-copy",
+ "status": "observed",
  "page": "basics",
- "position": 2
+ "position": 2,
+ "summary": "The universe stores work, decisions and evidence references so another session can continue from durable facts.",
+ "sources": ["docs/public/start/concepts.md"]
 }

@@ -1,7 +1,9 @@
 {
  "id": "surfaces",
  "title": "Ways to use Yoke",
- "status": "draft-copy",
+ "status": "observed",
  "page": "basics",
- "position": 2
+ "position": 2,
+ "summary": "The web dashboard, CLI, registered functions, native skills and documentation expose different views of the same system.",
+ "sources": ["docs/teaching/README.md", "docs/public/start/concepts.md"]
 }

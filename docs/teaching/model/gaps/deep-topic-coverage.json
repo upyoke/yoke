@@ -1,10 +1,10 @@
 {
  "id": "deep-topic-coverage",
- "title": "Reconcile direct topic homes and remaining journey depth",
+ "title": "Check registry coverage separately from teaching proof",
  "status": "observed",
- "text": "The nested source tree and documentation cascade now have direct homes. Every current registry command, function and skill has a direct concept mapping; the live crosswalk is checked without inheriting parent coverage. The four individual JOURNEYS gaps name tracking-choice, qa-adoption, preview-recipe and strategy-closeout with their owners, direct topics and evidence. Draft lesson questions remain research; a direct mapping does not prove teaching quality or live delivery. Existing FIRST-USER and COREWORK needs remain current work, while only the explicitly evidenced JOURNEYS depth is deferred.",
+ "text": "Every current command, function and skill must have a direct concept mapping. The builder checks completeness against the current registries without inheriting parent coverage. A mapping locates a topic; it does not prove useful teaching or live delivery. Worked examples remain open in the linked gaps.",
  "position": 3,
- "owner": "Current source reconciliation; JOURNEYS only for separately evidenced journey depth",
- "sources": ["docs/teaching/README.md", "docs/teaching/tools/explorer_inventory.py", "docs/teaching/tools/model.py", "docs/public/documentation/index.md"],
+ "owner": "Teaching model maintainers",
+ "sources": ["docs/teaching/README.md", "docs/teaching/tools/model_checks.py", "docs/public/documentation/index.md"],
  "gaps": ["tracking-choice", "qa-adoption", "preview-recipe", "strategy-closeout"]
 }

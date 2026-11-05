@@ -1,8 +1,10 @@
 {
  "id": "universe",
  "title": "Universe",
- "status": "draft-copy",
+ "status": "observed",
  "related": "universes",
  "page": "basics",
- "position": 0
+ "position": 0,
+ "summary": "A universe is one control-plane database and the projects, workflows, strategy, events and delivery state inside it.",
+ "sources": ["docs/public/start/concepts.md"]
 }

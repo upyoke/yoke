@@ -1,7 +1,9 @@
 {
  "id": "public-and-installed-documentation",
  "title": "Public and installed documentation",
- "status": "draft-copy",
+ "status": "observed",
  "page": "basics",
- "position": 4
+ "position": 4,
+ "summary": "Public docs own user guidance. The install bundle distributes selected guidance to projects; Yokepedia is a source-only review tool.",
+ "sources": ["docs/teaching/README.md", "docs/public/start/concepts.md"]
 }

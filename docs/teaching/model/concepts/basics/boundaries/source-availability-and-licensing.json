@@ -1,7 +1,9 @@
 {
  "id": "source-availability-and-licensing",
  "title": "Source availability and licensing",
- "status": "draft-copy",
+ "status": "observed",
  "page": "basics",
- "position": 4
+ "position": 4,
+ "summary": "Yoke publishes its source under FSL-1.1-ALv2. The license permits internal use, modification, self-hosting and other permitted purposes, restricts competing commercial offerings, and grants Apache 2.0 rights for each version on its second anniversary. LICENSE.md owns the terms; the public modes page explains the source-available choice.",
+ "sources": ["LICENSE.md", "docs/public/start/modes.md"]
 }

@@ -1,8 +1,10 @@
 {
  "id": "deployment-run",
  "title": "Deployment run",
- "status": "draft-copy",
+ "status": "observed",
  "related": "deployments/runs",
  "page": "basics",
- "position": 6
+ "position": 6,
+ "summary": "A deployment run binds selected source, delivery flow, environments and carried items to durable stage evidence.",
+ "sources": ["docs/public/start/concepts.md"]
 }

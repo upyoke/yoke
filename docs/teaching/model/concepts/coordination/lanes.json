@@ -3,7 +3,7 @@
  "title": "Worktree lanes",
  "status": "draft-copy",
  "surface_refs": ["project-hooks", "project-native"],
- "commands": ["yoke direct-workflow worktree prepare", "yoke item-worktrees create", "yoke item-worktrees get", "yoke item-worktrees inventory", "yoke item-worktrees list", "yoke item-worktrees path-record", "yoke item-worktrees release"],
+ "commands": ["yoke direct-workflow worktree prepare", "yoke item-worktrees create", "yoke item-worktrees get", "yoke item-worktrees inventory", "yoke item-worktrees list", "yoke item-worktrees path-record", "yoke item-worktrees release", "yoke worktree paths", "yoke worktree prepare"],
  "functions": ["item_worktrees.create", "item_worktrees.get", "item_worktrees.inventory", "item_worktrees.list", "item_worktrees.path_record", "item_worktrees.release", "item_worktrees.release_merged_lane"],
  "page": "coordination-lanes",
  "position": 0

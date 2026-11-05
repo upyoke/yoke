@@ -1,7 +1,9 @@
 {
  "id": "cloud-platform",
- "title": "Cloud platform",
- "status": "draft-copy",
+ "title": "Hosted beta (upyoke.com)",
+ "status": "observed",
  "page": "basics",
- "position": 3
+ "position": 3,
+ "summary": "Hosted beta (upyoke.com) operates the hosted infrastructure, organizations and billing around the shared Yoke engine.",
+ "sources": ["docs/public/start/modes.md"]
 }

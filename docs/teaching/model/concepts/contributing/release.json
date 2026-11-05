@@ -4,7 +4,7 @@
  "status": "draft-copy",
  "audience": "Maintainers",
  "commands": ["yoke core build", "yoke github release create-commit-tag", "yoke release-pin record", "yoke release-pin verify"],
- "functions": ["github.release.create_commit_tag", "release_pin.record"],
+ "functions": ["deployment_runs.execution.delivery_reuse", "github.release.create_commit_tag", "release_pin.record"],
  "page": "contributing",
  "position": 3
 }

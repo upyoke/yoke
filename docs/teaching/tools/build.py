@@ -23,6 +23,7 @@ from pathlib import Path, PurePosixPath
 
 import inventory
 import privacy
+from model_checks import check_registry_coverage
 from model import (
     MODEL_ROOT,
     REBUILD,
@@ -58,6 +59,7 @@ def main(argv: list[str] | None = None) -> int:
     files = inventory.tracked_files()
     docs = inventory.documents(files)
     validate(model, live, set(files))
+    check_registry_coverage(model, live)
     if model.problems:
         return report(model.problems, check=args.check)
     graph = model.docs_graph

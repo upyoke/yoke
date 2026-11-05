@@ -1,7 +1,9 @@
 {
  "id": "strategy-work-verification-delivery",
  "title": "Strategy → work → verification → delivery",
- "status": "draft-copy",
+ "status": "observed",
  "page": "basics",
- "position": 3
+ "position": 3,
+ "summary": "Strategy guides work selection. Items carry changes through verification and their declared delivery obligations.",
+ "sources": ["docs/public/start/concepts.md"]
 }

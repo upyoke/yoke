@@ -76,6 +76,10 @@ their owner (`setup-agent/desired-01`), stored at
 record's local `id`. Add a record by creating its file; claim that concrete
 path without changing or claiming its parent record. Optional `position`
 sets display order (then filename). Legacy `page` metadata does not create pages or routes in the guide.
+For surface and scenario parts it still reserves a name within its own kind;
+a part cannot use a page owned by another surface or scenario of that kind.
+Legacy `plan_notes` is inert provenance, not teaching or authority; do not add
+new entries. Removing existing plan citations is separate maintenance.
 Evidence collection metadata lives at
 `model/evidence/<collection>.json`, with records in the matching directory.
 `docs-graph.json` remains the documentation graph configuration.
@@ -92,7 +96,9 @@ existing record files without an array source retain their data and receive
 canonical formatting. Rebuild and check afterwards.
 
 Commands, functions and skills are never copied here. Concept records name
-them, and the check resolves every name against the live registries. The guide reads current command registries and tracked-document inventories at build time; it does not capture live session state. All generated views are untracked. The stylesheet source lives in `tools/explorer.css`.
+them, and the check resolves every name against the live registries. It also
+requires every current command, function and skill to have a direct concept
+mapping; a parent mapping does not cover a child entry. The guide reads current command registries and tracked-document inventories at build time; it does not capture live session state. All generated views are untracked. The stylesheet source lives in `tools/explorer.css`.
 
 ## Record status
 
@@ -162,7 +168,9 @@ Fix the named records, rebuild, then run `--check`:
 | `MODEL_NOT_CANONICAL` | Run `yoke dev run -- python3 docs/teaching/tools/convert_model.py`, then rebuild and check |
 | `MODEL_RECORD_ID` | Store one record with an `id` matching its filename |
 | `LINE_LIMIT` | Split the authored file at a meaningful boundary. Keep record content; rebuild |
-| `PAGE_COLLISION` | Give the part a `page` name no other surface or scenario uses |
+| `PAGE_COLLISION` | Give the part a `page` name no other owner of the same kind uses |
+| `MODEL_UNREADABLE` | Restore readable valid JSON in the named model file |
+| `UNMAPPED_REGISTRY_ENTRY` | Add the named command, function or skill directly to its concept |
 | `PRIVATE_MATERIAL` | Remove the private path or id |
 | `GUIDE_SOURCE_UNREADABLE` | Restore the named document or record, or stop citing it |
 | `GUIDE_ASSET_UNSAFE` | Build the named closing-tag or comment text in `tools/` from parts |
@@ -223,15 +231,10 @@ session captures. Readable guidance shows exact UTF-8 byte and line counts (char
 counts on hover); implementation code has no size badge. Generated messages show
 output estimates in lines and bytes, or explicitly variable output when bodies are unbounded. Containers total their child output estimates; an exact document or whole-message
 sample already includes its children and is counted once. Links do not add text.
-Variable hook messages also show estimates from offline examples: synthetic IDs,
-zero to five project folders, and explicit allowances for setup or other variable
-fields. Hover for each estimate's assumptions. These are illustrative ranges, not
-observed percentiles or hard limits; open-ended instruction bodies show a base size
-plus variable content. Every card has a line/byte range or an explicit variable remainder. Incoming message
-parts are measured from output templates with synthetic IDs and optional notices.
-Unsampled output uses visibly labelled rough planning bands, documented on hover;
-these are not measured renders. Parent totals are an inventory, not a claim that
-all conditional messages are delivered together.
+Variable output uses offline examples with synthetic IDs and explicit
+assumptions, or rough planning bands labelled on hover. These ranges are not
+measured percentiles or limits. Unbounded instructions retain a variable
+remainder. Parent totals inventory possible output, not simultaneous delivery.
 Long Markdown leaves (80 words or more) expose headings or original passages as
 subnodes. Incoming-message and resume-message topics describe the delivered prose.
 
@@ -247,8 +250,6 @@ Harness-specific orientation cards show prominent applicability badges and deliv
 Alternate install-mode cards expose the actual setup subtree in place. Cross-map navigation retains a Back button to the previous view.
 
 Command help separates root output from the command-group tree. Every group has its own rendered help output alongside child commands; all groups remain available through normal page scrolling.
-
-Cards have no fixed heights or nested preview layers; each title and Explore link opens the next level.
 
 
 ## Sources guide

@@ -1,7 +1,9 @@
 {
  "id": "web-workbench",
- "title": "Web workbench",
- "status": "draft-copy",
+ "title": "Web dashboard",
+ "status": "observed",
  "page": "basics",
- "position": 0
+ "position": 0,
+ "summary": "The web dashboard presents strategy, work, sessions, shipping, settings and diagnostics for a universe.",
+ "sources": ["docs/teaching/README.md", "docs/public/start/concepts.md"]
 }
