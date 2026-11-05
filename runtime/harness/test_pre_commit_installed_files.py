@@ -119,7 +119,67 @@ def test_catalogue_renders_agents_from_annotated_releases(checkout):
     path.write_text("released agent\n")
     git("add", rel)
     git("-c", "core.hooksPath=/dev/null", "commit", "-qm", "release")
-    git("tag", "-a", "v1.0.0", "-m", "release")
+    git("tag", "-a", "0.2.0.202611041824", "-m", "release")
     path.write_text("unreleased agent\n")
     catalogue = render(root)
     assert catalogue[rel] == [hashlib.sha256(b"released agent\n").hexdigest()]
+
+
+@pytest.mark.parametrize("harness", ["agents", "claude", "codex", "cursor"])
+def test_running_bundle_proves_exact_bytes_without_catalogue_or_source(
+    checkout, monkeypatch, tmp_path, harness,
+):
+    monkeypatch.setattr(released_bundle_files, "_catalogue", lambda: {})
+    bundle = tmp_path / "bundle"
+    path = bundle / ".agents/skills/yoke/dash/merge.md"
+    path.parent.mkdir(parents=True)
+    path.write_bytes(b"running release\n")
+    monkeypatch.setattr(released_bundle_files, "files", lambda _: bundle)
+    proof = released_bundle_files.ReleasedBundleFiles()
+    assert proof.root is None
+    rel = f".{harness}/skills/yoke/dash/merge.md"
+    assert proof.proves(rel, "running release\n")
+    assert not proof.proves(rel, "edited release\n")
+
+
+@pytest.mark.parametrize("error", [OSError, ModuleNotFoundError, TypeError])
+def test_running_bundle_lookup_failure_refuses(checkout, monkeypatch, error):
+    monkeypatch.setattr(released_bundle_files, "_catalogue", lambda: {})
+    def unavailable(_):
+        raise error("bundle unavailable")
+    monkeypatch.setattr(released_bundle_files, "files", unavailable)
+    assert not released_bundle_files.ReleasedBundleFiles().proves(
+        ".agents/skills/yoke/dash/merge.md", "release\n",
+    )
+
+
+@pytest.mark.parametrize("tag", ["0.2.0.202611041824", "1.2.3.202611041824"])
+def test_canonical_annotated_tags_prove_releases_and_skip_other_tags(
+    checkout, monkeypatch, tag,
+):
+    root, git = checkout
+    canonical = ".agents/skills/yoke/dash/merge.md"
+    path = root / canonical
+    path.parent.mkdir(parents=True)
+    path.write_text("released skill\n")
+    git("add", canonical)
+    git("-c", "core.hooksPath=/dev/null", "commit", "-qm", "release")
+    git("tag", "-a", tag, "-m", "release")
+    path.write_text("unreleased skill\n")
+    git("add", canonical)
+    git("-c", "core.hooksPath=/dev/null", "commit", "-qm", "unreleased")
+    git("tag", "0.2.0.202611041825")
+    git("tag", "-a", "v1.0.0", "-m", "non-release")
+    git("tag", "-a", "preview", "-m", "non-release")
+    catalogue = render(root)
+    assert catalogue["skills/dash/merge.md"] == [
+        hashlib.sha256(b"released skill\n").hexdigest(),
+    ]
+    monkeypatch.setattr(released_bundle_files, "_catalogue", lambda: {})
+    monkeypatch.setattr(released_bundle_files, "files", lambda _: root / "empty-bundle")
+    (root / "empty-bundle" / canonical).parent.mkdir(parents=True)
+    (root / "empty-bundle" / canonical).write_text("other bytes\n")
+    proof = released_bundle_files.ReleasedBundleFiles()
+    proof.root = root
+    assert proof.proves(canonical, "released skill\n")
+    assert not proof.proves(canonical, "unreleased skill\n")

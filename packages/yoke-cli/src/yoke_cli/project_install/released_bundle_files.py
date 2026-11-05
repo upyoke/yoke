@@ -10,6 +10,7 @@ from yoke_cli.project_install.files import ProjectInstallError, sha256_text
 
 from yoke_cli.project_install import checkout_gate
 from yoke_contracts.install_binding import source_checkout_root
+from yoke_contracts.release_version import release_version
 
 
 class ReleasedBundleFiles:
@@ -26,6 +27,15 @@ class ReleasedBundleFiles:
         key = catalogue_key(canonical)
         if sha256_text(content) in _catalogue().get(key, []):
             return True
+        try:
+            if (
+                files("yoke_core.install_bundle_tree")
+                .joinpath(canonical)
+                .read_bytes() == content.encode("utf-8")
+            ):
+                return True
+        except (OSError, ModuleNotFoundError, TypeError):
+            return False
         if self.root is None:
             return False
         raw = content.encode("utf-8")
@@ -61,13 +71,17 @@ class ReleasedBundleFiles:
                 "--contains",
                 commit,
                 "--format=%(refname) %(objecttype)",
-                "refs/tags/v*",
+                "refs/tags",
             )
             if tags.returncode:
                 return False
             for line in tags.stdout.splitlines():
                 tag, kind = line.split()
                 if kind != "tag":
+                    continue
+                try:
+                    release_version(tag.removeprefix("refs/tags/"))
+                except ValueError:
                     continue
                 released = checkout_gate.run_git(
                     self.root, "rev-parse", f"{tag}:{canonical}"

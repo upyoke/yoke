@@ -8,6 +8,7 @@ import json
 import subprocess
 from pathlib import Path
 
+from yoke_contracts.release_version import release_version
 from yoke_core.domain.workspace_authority import (
     assert_target_under_session_work_authority,
 )
@@ -32,7 +33,10 @@ def source_key(path: str) -> str | None:
 
 def render(root: Path) -> dict[str, list[str]]:
     tags = (
-        git(root, "for-each-ref", "--format=%(refname) %(objecttype)", "refs/tags/v*")
+        git(
+            root, "for-each-ref", "--format=%(refname) %(objecttype)",
+            "refs/tags",
+        )
         .decode()
         .splitlines()
     )
@@ -41,6 +45,10 @@ def render(root: Path) -> dict[str, list[str]]:
     for tag in tags:
         ref, kind = tag.split()
         if kind != "tag":
+            continue
+        try:
+            release_version(ref.removeprefix("refs/tags/"))
+        except ValueError:
             continue
         releases += 1
         tree = git(
