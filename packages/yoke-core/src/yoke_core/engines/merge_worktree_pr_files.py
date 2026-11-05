@@ -49,6 +49,13 @@ PR_FILES_LISTING_LIMIT = 3000
 _PR_FILES_PAGE_LIMIT = 30
 
 
+def _unreadable(reason: str):
+    return None, (
+        f"pull_request_files_unreadable: {reason}; verify Pull requests: read "
+        "on the GitHub App installation and retry the file listing"
+    )
+
+
 def read_pr_changed_files(
     ctx: MergeContext, pr_num: str
 ) -> tuple[Optional[tuple[str, ...]], Optional[str]]:
@@ -82,20 +89,26 @@ def read_pr_changed_files(
             },
         )
         if err:
-            return None, err
+            return _unreadable(err)
         pull_request = ((data or {}).get("repository") or {}).get("pullRequest") or {}
         files = pull_request.get("files")
         if not isinstance(files, dict):
-            return None, (
+            return _unreadable(
                 f"repository {owner}/{name} returned no file listing for "
                 f"pull request {pr_num}"
             )
-        for node in files.get("nodes") or []:
-            if not isinstance(node, dict):
-                continue
-            path = str(node.get("path") or "")
-            if path:
-                paths.append(path)
+        nodes = files.get("nodes")
+        page_info = files.get("pageInfo")
+        if (
+            not isinstance(nodes, list) or not isinstance(page_info, dict)
+            or not isinstance(page_info.get("hasNextPage"), bool)
+            or "endCursor" not in page_info
+        ):
+            return _unreadable("nodes or pageInfo is hidden or malformed")
+        for node in nodes:
+            if not isinstance(node, dict) or not isinstance(node.get("path"), str) or not node["path"]:
+                return _unreadable("a file path is hidden or malformed")
+            paths.append(node["path"])
         if len(paths) >= PR_FILES_LISTING_LIMIT:
             return None, (
                 f"pull request {pr_num} lists {len(paths)} or more changed "
@@ -103,9 +116,10 @@ def read_pr_changed_files(
                 "lists, so its file set may be incomplete; record the "
                 "landing from a checkout that holds the merge commit"
             )
-        page_info = files.get("pageInfo") or {}
         cursor = str(page_info.get("endCursor") or "")
-        if not page_info.get("hasNextPage") or not cursor:
+        if page_info["hasNextPage"] and not cursor:
+            return _unreadable("the next page cursor is hidden")
+        if not page_info["hasNextPage"]:
             break
     return tuple(dict.fromkeys(paths)), None
 

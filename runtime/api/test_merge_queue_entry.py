@@ -155,13 +155,16 @@ def test_read_queue_members_maps_entries(monkeypatch):
             "repository": {
                 "mergeQueue": {
                     "entries": {
+                        "pageInfo": {"hasNextPage": False},
                         "nodes": [
                             {
                                 "state": "AWAITING_CHECKS",
                                 "pullRequest": {"number": 11, "headRefName": "YOK-101"},
                             },
-                            {"pullRequest": {"number": 12, "headRefName": "YOK-102"}},
-                            {"pullRequest": None},
+                            {
+                                "state": "QUEUED",
+                                "pullRequest": {"number": 12, "headRefName": "YOK-102"},
+                            },
                         ]
                     }
                 }
@@ -177,7 +180,7 @@ def test_read_queue_members_maps_entries(monkeypatch):
     assert err is None
     assert [(m.pr_num, m.head_ref, m.state) for m in members] == [
         ("11", "YOK-101", "AWAITING_CHECKS"),
-        ("12", "YOK-102", ""),
+        ("12", "YOK-102", "QUEUED"),
     ]
 
 
@@ -197,7 +200,9 @@ def test_read_queue_members_no_queue_is_named_refusal(monkeypatch):
 
 def test_read_queue_members_empty_queue_is_empty_list(monkeypatch):
     monkeypatch.setattr(queue_mod, "resolve_auth", lambda *_a, **_kw: _auth())
-    body = {"data": {"repository": {"mergeQueue": {"entries": {"nodes": []}}}}}
+    body = {"data": {"repository": {"mergeQueue": {"entries": {
+        "nodes": [], "pageInfo": {"hasNextPage": False},
+    }}}}}
     monkeypatch.setattr(
         queue_mod,
         "request_with_retry",

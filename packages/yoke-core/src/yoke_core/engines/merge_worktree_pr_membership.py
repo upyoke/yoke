@@ -78,7 +78,7 @@ def read_pr_queue_membership(
         required_permissions=PR_READ,
     )
     if err:
-        return None, err
+        return None, f"queue_membership_unreadable: {err}; verify Pull requests: read access and retry"
     pull_request = ((data or {}).get("repository") or {}).get("pullRequest")
     if not isinstance(pull_request, dict):
         return None, (
@@ -86,6 +86,20 @@ def read_pr_queue_membership(
             "queue membership could not be read"
         )
     entry: Any = pull_request.get("mergeQueueEntry")
+    if (
+        not isinstance(pull_request.get("isInMergeQueue"), bool)
+        or not isinstance(pull_request.get("mergeable"), str)
+        or not pull_request["mergeable"]
+        or "mergeQueueEntry" not in pull_request
+        or (entry is not None and (
+            not isinstance(entry, dict) or not isinstance(entry.get("state"), str)
+            or not entry["state"]
+        ))
+    ):
+        return None, (
+            "queue_membership_unreadable: a queried field is hidden or malformed; "
+            "verify Pull requests: read on the GitHub App installation and retry"
+        )
     entry_state = (
         str((entry or {}).get("state") or "") if isinstance(entry, dict) else ""
     )

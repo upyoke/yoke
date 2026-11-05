@@ -34,6 +34,9 @@ from yoke_core.engines.merge_worktree_pr_graphql import (
     graphql_with_auth as _graphql_with_auth,
 )
 from yoke_core.engines.merge_worktree_prepare import MergeContext
+from yoke_core.engines.merge_worktree_pr_queue_projection import (
+    QueueMember, parse_queue_members,
+)
 
 
 _ENABLE_AUTO_MERGE_MUTATION = """
@@ -87,15 +90,6 @@ class QueueEntryResult:
     pr_num: str = ""
     error_detail: Optional[str] = None
     rejected: bool = False  # Known rejection, rather than a lost mutation reply.
-
-
-@dataclass(frozen=True)
-class QueueMember:
-    """One queued PR, mapped back to its item by head branch name."""
-
-    pr_num: str
-    head_ref: str
-    state: str = ""
 
 
 def resolve_auth_detail(
@@ -304,34 +298,7 @@ def read_queue_members(
     )
     if err:
         return None, err
-    repo = f"{owner}/{name}"
-    queue = ((data or {}).get("repository") or {}).get("mergeQueue")
-    if not isinstance(queue, dict):
-        return None, (
-            f"repository {repo} reports no merge queue on {base_branch!r}; "
-            "configure the queue ruleset before selecting the queue route"
-        )
-    if ((queue.get("entries") or {}).get("pageInfo") or {}).get("hasNextPage"):
-        return (
-            None,
-            "queue_order_incomplete: more than 50 entries; retry after the queue drains below 50 entries",
-        )
-    nodes = ((queue.get("entries") or {}).get("nodes")) or []
-    members: list[QueueMember] = []
-    for node in nodes:
-        pr = (node or {}).get("pullRequest") or {}
-        number = pr.get("number")
-        head = str(pr.get("headRefName") or "")
-        if number is None or not head:
-            continue
-        members.append(
-            QueueMember(
-                pr_num=str(number),
-                head_ref=head,
-                state=str((node or {}).get("state") or ""),
-            )
-        )
-    return members, None
+    return parse_queue_members(data, repo=f"{owner}/{name}", branch=base_branch)
 
 
 __all__ = [
