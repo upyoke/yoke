@@ -3,5 +3,8 @@
  "title": "Spec",
  "status": "observed",
  "page": "items",
- "position": 1
+ "position": 1,
+ "summary": "Put vet fixes into the spec before staffing. For a filed, unclaimed item, acquire its work claim, edit the spec through typed structured-field writes, then release the claim. Section-upsert strips leading hashes and spaces from section names before validating them.",
+ "commands": ["yoke claims work acquire", "yoke items structured-field section-upsert", "yoke claims work release"],
+ "sources": [".agents/skills/yoke/steer/SKILL.md", "packages/yoke-core/src/yoke_core/domain/session_message_zero_recipients.py", "packages/yoke-core/src/yoke_core/domain/item_field_transform_sections.py"]
 }

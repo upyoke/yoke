@@ -110,6 +110,7 @@ def section_upsert(
     twice. Multiple matches return a guarded failure with no write.
     No match falls through to the canonical ``item_sections`` path.
     """
+    section = (section or "").lstrip("# ")
     op = SECTION_UPSERT
     if field is not None:
         from yoke_core.domain.item_field_transform_field_section import (
