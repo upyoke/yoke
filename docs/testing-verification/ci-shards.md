@@ -28,8 +28,7 @@ shard context. Change these together and verify coverage before applying
 the declaration to GitHub.
 
 `runtime/ci_test_selection.py` owns the interpreter-independent selection. Its
-collection hook runs before pytest-split, so every selected test belongs to
-exactly one shard. Local and newest-interpreter runs retain all tests. Explicit
+collection hook applies the same scope in grouping, shards and coverage checks. Local and newest-interpreter runs retain all tests. Explicit
 `ci_version_independent` markers can identify additional repository-only cases.
 
 Every CI entry refreshes the timing weights from one successful retained run's
@@ -57,14 +56,28 @@ read a previously downloaded complete report set from one successful run.
 duplicate report sets before replacing the existing profile.
 
 JUnit testcase times include parallel contention. Each report's weights are
-scaled to its actual suite wall time before pytest-split's greedy assignment.
+scaled to its actual suite wall time before greedy file assignment.
 Tests removed from the current checkout disappear from the refreshed profile.
 Existing cases blend their prior weight equally with the new measurement;
 this rolling average damps setup attribution and runner contention noise.
 Use `--reset` with a complete passing report set after changing fixture setup
 or scheduling costs substantially, so obsolete costs do not bias the baseline.
-CI aggregates those weights by file and assigns whole files through the same
-least-duration algorithm. Xdist uses `loadfile` so a file also stays on one
+`ci_shard_groups` runs one collect-only pass without xdist in `repo-contracts`,
+in parallel with portable-wheel construction, after refreshing weights. It
+records fixture and marker facts and publishes `ci-shard-groups.json` for both
+interpreter scopes. It sums recorded durations per file, gives unmeasured files
+the known mean file weight, and places the heaviest fixture units on the
+lightest shard. Git's tracked-file order breaks equal-weight ties. Files using
+product-wheel fixtures remain one indivisible unit. The grouping log records
+collection/grouping elapsed seconds for comparison with saved shard timings.
+
+Each shard downloads that exact artifact and writes its assigned root-relative
+paths to `ci-shard-files.txt`. The existing `ci_selection_collect` plugin keeps
+all three suite roots as conftest anchors and skips every unassigned file before
+import. A worker collects only its assigned files; no post-collection split
+runs. Empty, unreadable or invalid groups refuse as `ci_shard_groups_invalid`
+with regeneration/download recovery. The uploaded shard artifact retains its
+file list. pytest-split remains a dependency for change-scoped selection runs. Xdist uses `loadfile` so a file also stays on one
 worker. This stabilizes setup attribution and avoids repeating a file's
 fixtures across shards or workers. Local partial splitting keeps pytest-split's
 ordinary individual-test behavior.
@@ -165,13 +178,12 @@ On `SUITE_ALREADY_PROVEN`, both coverage jobs skip collection and report
 comparison and remain successful, as the test shards do. Required check names
 live in `.yoke/merge-queue.json`; apply that declaration when changing them.
 
-Each shard records every worker's unsplit collection count, sorted-ID SHA-256,
-and timing-profile SHA-256 in `pytest-output.txt`. Compare these before
-investigating the split. Test IDs must remain stable across machines running
-the same interpreter leg: use explicit parameter IDs for values such as the
-local Python patch version. A patch-specific ID present in the shared timing
-profile gets a measured weight on one runner and a fallback weight on another;
-even that small difference can change thousands of greedy file assignments.
+Each shard records every worker's assigned collection count and sorted-ID
+SHA-256 in `pytest-output.txt`. Compare these with `ci-shard-files.txt` and
+the published grouping facts when diagnosing collection. Stable parameter IDs
+across runner patch versions keep profile weights and the independent coverage
+comparison meaningful. Group assignment is computed once and shared; workers
+never recompute it from their own collection.
 
 ## Reproduce a timing comparison
 

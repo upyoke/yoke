@@ -4,8 +4,11 @@ import hashlib
 import json
 import os
 from dataclasses import dataclass
+from pathlib import Path
 
 import pytest
+
+from yoke_core.tools.ci_shards import DURATIONS_PATH
 
 #: Tests using the installed product environment. Their files share one
 #: shard so the product install that ``product_venv`` builds runs once.
@@ -47,9 +50,10 @@ def pytest_configure(config):
         "markers", "ci_version_independent: repository and installed-wheel checks"
     )
     splitter = config.pluginmanager.get_plugin("pytestsplitplugin")
-    if splitter is not None and os.environ.get("YOKE_CI_PYTHON_SCOPE") in {
+    if (splitter is not None and getattr(config.option, "splits", None)
+            and os.environ.get("YOKE_CI_PYTHON_SCOPE") in {
         "all", "interpreter"
-    }:
+    }):
         config.pluginmanager.unregister(splitter)
         config.pluginmanager.register(_FileSplitter(splitter), "ci_file_splitter")
 
@@ -142,21 +146,38 @@ class _FileSplitter:
 
 @pytest.hookimpl(tryfirst=True)
 def pytest_collection_modifyitems(config, items):
-    if os.environ.get("YOKE_CI_PYTHON_SCOPE") != "interpreter":
+    scope = os.environ.get("YOKE_CI_PYTHON_SCOPE")
+    if scope not in {"all", "interpreter"}:
         return
     kept, deselected = [], []
     for item in items:
         independent = version_independent(
             item.nodeid, item.fixturenames
         ) or item.get_closest_marker("ci_version_independent")
-        (deselected if independent else kept).append(item)
+        (deselected if scope == "interpreter" and independent else kept).append(item)
     items[:] = kept
     config.hook.pytest_deselected(items=deselected)
+    profile = Path(__file__).resolve().parents[1] / DURATIONS_PATH
+    try:
+        durations = json.loads(profile.read_text(encoding="utf-8"))
+    except (OSError, ValueError) as error:
+        raise pytest.UsageError(
+            f"ci_duration_profile_unavailable: {profile}: {error}; restore the "
+            "checkout's timing profile or download this run's shared profile"
+        ) from error
+    weights = file_weights(items, durations)
+    items.sort(key=lambda item: (-weights[item.nodeid.split("::", 1)[0]],
+                                 item.nodeid.split("::", 1)[0]))
+    fingerprint = {"count": len(items), "ids_sha256": hashlib.sha256(
+        "\n".join(sorted(item.nodeid for item in items)).encode()).hexdigest()}
+    if hasattr(config, "workeroutput"):
+        config.workeroutput["ci_collection"] = fingerprint
+
 
 
 @pytest.hookimpl(optionalhook=True)
 def pytest_testnodedown(node, error):
-    """Retain each worker's unsplit collection facts in the controller log."""
+    """Retain each worker's collection facts in the controller log."""
     fingerprint = getattr(node, "workeroutput", {}).get("ci_collection")
     if fingerprint:
         reporter = node.config.pluginmanager.get_plugin("terminalreporter")

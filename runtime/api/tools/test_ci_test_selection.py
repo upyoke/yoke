@@ -12,7 +12,10 @@ def _item(node_id, fixtures=()):
     )
 
 
-def test_oldest_leg_deselects_repository_and_wheel_checks(monkeypatch):
+def test_oldest_leg_deselects_repository_and_wheel_checks(monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / ".test_durations").write_text("{}")
+    monkeypatch.setattr(selection, "DURATIONS_PATH", str(tmp_path / ".test_durations"))
     monkeypatch.setenv("YOKE_CI_PYTHON_SCOPE", "interpreter")
     independent = [
         _item("tests/teaching_prototype/test_map.py::test_links"),
@@ -118,3 +121,26 @@ def test_worker_collection_fingerprint_reaches_the_controller_log():
 
 def test_worker_crash_without_collection_telemetry_keeps_its_original_verdict():
     selection.pytest_testnodedown(SimpleNamespace(), RuntimeError("worker lost"))
+
+
+def test_assigned_files_are_ordered_by_weight_and_fingerprinted(monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("YOKE_CI_PYTHON_SCOPE", "all")
+    (tmp_path / ".test_durations").write_text(
+        '{"tests/test_a.py::test_case": 1, "tests/test_b.py::test_case": 9}'
+    )
+    monkeypatch.setattr(selection, "DURATIONS_PATH", str(tmp_path / ".test_durations"))
+    items = [_item(f"tests/test_{name}.py::test_case") for name in "ab"]
+    config = SimpleNamespace(workeroutput={}, hook=SimpleNamespace(pytest_deselected=Mock()))
+    selection.pytest_collection_modifyitems(config, items)
+    assert items[0].nodeid == "tests/test_b.py::test_case"
+    assert config.workeroutput["ci_collection"]["count"] == 2
+
+
+def test_profile_lookup_survives_a_nested_run_from_another_cwd(monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("YOKE_CI_PYTHON_SCOPE", "all")
+    items = [_item("tests/test_selected.py::test_case")]
+    config = SimpleNamespace(hook=SimpleNamespace(pytest_deselected=Mock()))
+    selection.pytest_collection_modifyitems(config, items)
+    assert len(items) == 1

@@ -1,21 +1,7 @@
-"""One shard count for the workflow matrix and pytest-split.
+"""Run CI shards using file groups published by one fixture-aware collection.
 
-The newest Python endpoint runs the full suite. The oldest endpoint runs in
-parallel on every CI event and excludes repository-only checks through
-runtime.ci_test_selection before splitting. Both keep the same shard count
-and required check names. Tree reuse requires evidence of both legs.
-
-CI refreshes weights from a complete retained report set whose source includes
-the committed timing baseline before fan-out,
-then shares the same profile with every shard. The committed baseline is
-refreshed through ci_durations_refresh; see docs/testing-verification/ci-shards.md.
-Times measured under xdist are scaled to each report's actual suite wall time.
-The greedy least_duration algorithm balances aggregate file weights; a file
-stays on one shard and one worker so its fixtures are not repeated elsewhere.
-
-A change-scoped selection is sized against the same profile by
-ci_shard_sizing. CI uses every core inside each shard with -n auto and
-loadfile scheduling.
+The collection filter preserves all suite-root conftests while skipping files
+outside the assigned group before import. Every worker collects only its group.
 """
 
 from __future__ import annotations
@@ -32,7 +18,7 @@ from typing import Sequence
 
 
 # The number of shards the suite is cut into, per Python version. The workflow
-# matrix and pytest's --splits both derive from this and cannot disagree.
+# matrix and published file groups both derive from this.
 SHARD_COUNT = 16
 
 # The three roots that are the full suite. A partial anchor silently demotes a
@@ -117,14 +103,7 @@ def pytest_command(group: int) -> list[str]:
         "pytest",
         *SUITE_PATHS,
         *XDIST_ARGS,
-        "--splits",
-        str(SHARD_COUNT),
-        "--group",
-        str(group),
-        "--splitting-algorithm",
-        "least_duration",
-        "--durations-path",
-        DURATIONS_PATH,
+        "-p", "yoke_core.tools.ci_selection_collect",
         "--tb=short",
         "--durations=25",
         f"--junitxml={JUNIT_REPORT}",
@@ -139,8 +118,21 @@ def _run_shard(group: int) -> int:
     """
     if group < 1 or group > SHARD_COUNT:
         raise SystemExit(f"shard {group} is outside 1..{SHARD_COUNT}")
+    from yoke_core.tools.ci_shard_groups import GROUPS_PATH, shard_files
+    from yoke_core.tools.ci_selection_collect import SELECTION_FILE_ENV
+
+    files = shard_files(Path(GROUPS_PATH), os.environ.get("YOKE_CI_PYTHON_SCOPE", "all"), group)
+    selection = Path(".yoke/tmp/ci-shard-files.txt")
+    selection.parent.mkdir(parents=True, exist_ok=True)
+    selection.write_text("\n".join(files) + "\n", encoding="utf-8")
+    environment = dict(os.environ, **{SELECTION_FILE_ENV: str(selection.resolve())})
+    assignment = f"CI shard {group}/{SHARD_COUNT}: {len(files)} assigned files\n"
+    print(assignment, end="", flush=True)
+    with Path(OUTPUT_LOG).open("a", encoding="utf-8") as log:
+        log.write(assignment)
     process = subprocess.Popen(
         pytest_command(group),
+        env=environment,
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
         text=True,
