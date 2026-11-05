@@ -40,8 +40,8 @@ _IDENTITY_FLAG_HELP = (
     "Browser identity to use (default: `default`). Each identity has its "
     "own authoritative sign-in profile. Each check runs on a private copy. "
     "An identity never signed in on this "
-    "machine starts signed out; the log names the "
-    "`yoke browser authorize --identity NAME` command that signs it in."
+    "machine starts signed out; run "
+    "`yoke browser authorize --identity NAME` before a check that needs sign-in."
 )
 
 _QA_BROWSER_SCREENSHOT_HELP_DEEP = """\
@@ -55,8 +55,8 @@ Worked example:
       --output /tmp/yok-1234-dashboard.png
 
 Stdout: the browser's JSON response.
-Exit codes: 0 captured; 1 capture failed; 2 could not start
-(the browser did not start, or the command was used wrongly)."""
+Exit codes: 0 captured; 1 capture or private-copy failure;
+2 daemon unavailable or invalid usage."""
 
 
 def qa_browser_screenshot(args: List[str]) -> int:
