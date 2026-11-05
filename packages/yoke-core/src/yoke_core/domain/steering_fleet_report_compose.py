@@ -22,7 +22,7 @@ from yoke_contracts.project_contract.project_keys import (
     DEFAULT_STEERING_REPORT_IDLE_MINUTES,
     DEFAULT_STEERING_REPORT_STAFFING_MINUTES,
 )
-from yoke_core.domain.project_identity import resolve_project_slug
+from yoke_core.domain.project_identity import resolve_project_slug, placeholder
 from yoke_core.domain.project_policy_capabilities import project_policy_value
 from yoke_core.domain.steering_claims import list_session_claims
 from yoke_core.domain.steering_scope_membership import scope_document
@@ -220,8 +220,15 @@ def compose_held_reports(
         replace(s, report=replace(s.report, session_labels=labels)) for s in sections
     ]
     project_ids = [int(section.report.project_id) for section in sections]
+    viewer = conn.execute(
+        f"SELECT actor_id FROM harness_sessions WHERE session_id={placeholder(conn)}",
+        (session_id,),
+    ).fetchone()
     questions = read_questions(
-        conn, sorted(set(project_ids)), previous_question_ids(prior_fingerprint)
+        conn,
+        sorted(set(project_ids)),
+        previous_question_ids(prior_fingerprint),
+        viewer_actor_id=viewer[0] if viewer else None,
     )
     return CombinedFleetReport(
         composed_at=now,

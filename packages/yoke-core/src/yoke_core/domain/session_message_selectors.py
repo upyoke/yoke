@@ -162,7 +162,11 @@ def _operable(
 ) -> bool:
     """An org session's own actor, else one permission decision per scope."""
     scope = session_scope_of(row)
-    if scope.org_id is not None and actor_id is not None and row["actor_id"] == actor_id:
+    if (
+        scope.org_id is not None
+        and actor_id is not None
+        and row["actor_id"] == actor_id
+    ):
         return True
     if scope not in decided:
         decided[scope] = actor_may_operate_session(
@@ -182,6 +186,7 @@ def resolve_recipients(
     now: datetime | None = None,
     actor_id: int | None = None,
     steering_target: Mapping[str, Any] | None = None,
+    engine_return_session_id: str | None = None,
 ) -> list[ResolvedRecipient]:
     """Resolve unioned anchors, then intersect filters and deduplicate.
 
@@ -223,8 +228,10 @@ def resolve_recipients(
             if projects
             else None
         )
-        if primary_project is None and not _operable(
-            conn, row, actor_id=actor_id, decided=operable_scopes
+        if (
+            primary_project is None
+            and session_id != engine_return_session_id
+            and not _operable(conn, row, actor_id=actor_id, decided=operable_scopes)
         ):
             continue
         liveness = session_liveness(row, now=current)

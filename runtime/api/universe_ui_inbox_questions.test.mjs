@@ -78,3 +78,16 @@ test("keyboard send keeps typed text and reports a named error inline on failure
   assert.match(byClass(main, "inbox-row-error")[0].textContent, /storage_unavailable.*Retry Send/);
   assert.equal(byClass(inboxSection(main, "waiting"), "inbox-question-card").length, 1);
 });
+
+test("a project-less question renders without a project label and resolves", async () => {
+  const { main, client } = renderInbox("all", [question({ project_id: null })]);
+  await settle();
+  const card = byClass(main, "inbox-question-card")[0];
+  assert.match(card.textContent, /Which color/);
+  assert.doesNotMatch(card.textContent, /Yoke|undefined|null/);
+  byClass(main, "inbox-question-option")[0].dispatchEvent(new Event("click"));
+  await settle();
+  assert.deepEqual(client.requests.find(request => request.function === "decision_requests.resolve").payload,
+    { request_id: 9, action: "blue" });
+  assert.match(inboxSection(main, "decided").textContent, /Blue/);
+});

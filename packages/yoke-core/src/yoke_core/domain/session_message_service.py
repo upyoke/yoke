@@ -20,13 +20,12 @@ from yoke_core.domain.actor_message_recipients import (
     resolve_actor_recipients,
 )
 from yoke_core.domain.session_message_authorization import (
-    authorize_recipients,
+    recipient_policies,
     authorize_universe,
 )
 from yoke_core.domain.session_item_scope import SessionItemScope
 from yoke_core.domain.session_message_liveness import applied_liveness
 from yoke_core.domain.session_message_addressing import resolve_message_recipients
-from yoke_core.domain.session_message_recipient_scope import owner_key, recipient_policy
 from yoke_core.domain.session_message_selectors import (
     confirmation_token,
 )
@@ -68,20 +67,6 @@ from yoke_core.domain.steering_recipient_projection import (
 
 def _public_recipients(recipients: list[ResolvedRecipient]) -> list[dict[str, Any]]:
     return [recipient.public() for recipient in recipients]
-
-
-def _recipient_policies(conn, *, actor_id, recipients, additional_project_ids=()):
-    policies = authorize_recipients(
-        conn,
-        actor_id=actor_id,
-        recipients=recipients,
-        additional_project_ids=additional_project_ids,
-    )
-    owned = {("project", pid): policy for pid, policy in policies.items()}
-    for recipient in recipients:
-        row = recipient.routing_snapshot()
-        owned[owner_key(row)] = recipient_policy(conn, row)
-    return owned
 
 
 def _selector_snapshot(selector: RecipientSelector) -> dict[str, Any]:
@@ -137,7 +122,7 @@ def preview_message(
     )
     if address is None and launch is None:
         require_recipients(recipients, selector, actor_recipients=actor_recipients)
-    policies = _recipient_policies(
+    policies = recipient_policies(
         conn,
         actor_id=actor_id,
         recipients=recipients,
@@ -198,6 +183,15 @@ def send_message(
     now: datetime | None = None,
     commit: bool = True,
 ) -> dict[str, Any]:
+    if engine_sender and (
+        len(selector.session_ids) != 1
+        or selector != RecipientSelector(session_ids=selector.session_ids)
+        or sender_session_id is not None
+    ):
+        raise SessionMessageError(
+            "engine_message_target_invalid",
+            "Engine answers require one exact session recipient and no sender session; use ordinary messaging for other selectors",
+        )
     now = parse_instant(utc_now() if now is None else now)
     current = now
     if actor_id is not None and sender_session_id:
@@ -217,6 +211,7 @@ def send_message(
             selector,
             now=current,
             actor_id=actor_id,
+            engine_return_session_id=selector.session_ids[0] if engine_sender else None,
             sender_session_id=sender_session_id,
             steering_target=address.coverage_target() if address else None,
         )
@@ -232,9 +227,10 @@ def send_message(
         )
         if address is None and launch is None:
             require_recipients(recipients, selector, actor_recipients=actor_recipients)
-        policies = _recipient_policies(
+        policies = recipient_policies(
             conn,
             actor_id=actor_id,
+            engine_sender=engine_sender,
             recipients=recipients,
             additional_project_ids=([address.project_id] if address else [])
             + ([launch["project_id"]] if launch else []),

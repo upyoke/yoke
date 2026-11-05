@@ -19,6 +19,9 @@ class QuestionAskRequest(BaseModel):
     recommended_option: str | None = None
     allow_freeform: bool = True
     item: str | None = None
+    to: list[str] = Field(default_factory=list)
+    audience: str | None = None
+    project: str | None = None
     replaces: int | None = None
     attachments: list[dict[str, Any]] = Field(default_factory=list)
 
@@ -87,20 +90,25 @@ def _handle(request, model_type, operation):
 
 def handle_ask(request: FunctionCallRequest) -> HandlerOutcome:
     def file(conn, model, session, actor_id):
-        from yoke_core.domain.decision_requests import RoleAuthority
         from yoke_core.domain.decision_request_question_filing import file_question
-        from yoke_core.domain.item_ref_resolution import resolve_item_ref
+        from yoke_core.domain.decision_request_question_target import question_target
 
-        project_id = session["project_id"]
-        if project_id is None:
-            raise ValueError(
-                "operator_question_project_required: start a session in the project and retry"
-            )
+        target = question_target(conn, model, session, actor_id)
         context = model.model_dump(
-            exclude={"requesting_session_id", "key", "item", "replaces", "attachments"}
+            exclude={
+                "requesting_session_id",
+                "key",
+                "item",
+                "replaces",
+                "attachments",
+                "to",
+                "audience",
+                "project",
+            }
         )
-        if model.item:
-            context["item_id"] = resolve_item_ref(conn, model.item)
+        item_id = target.pop("item_id")
+        if item_id is not None:
+            context["item_id"] = item_id
         row, created = file_question(
             conn,
             replaces=model.replaces,
@@ -108,15 +116,11 @@ def handle_ask(request: FunctionCallRequest) -> HandlerOutcome:
             kind="operator_question",
             subject_type="session_question",
             subject_key=f"{session['session_id']}:{model.key}",
-            project_id=project_id,
+            **target,
             requesting_session_id=session["session_id"],
             originator_actor_id=actor_id,
             subject_context=context,
             session_id=request.actor.session_id,
-            role_authorities=[
-                RoleAuthority("project", project_id, role)
-                for role in ("owner", "operator")
-            ],
         )
         return {"request": row, "created": created}
 

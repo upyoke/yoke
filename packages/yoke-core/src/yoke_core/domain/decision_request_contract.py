@@ -38,7 +38,7 @@ class DecisionKind:
 
 DECISION_KINDS = {
     OPERATOR_QUESTION: DecisionKind(
-        (), "project", ("owner", "operator"), "session_question"
+        (), "project_or_org", ("owner", "operator"), "session_question"
     ),
     DEPLOYMENT_STAGE_APPROVAL: DecisionKind(
         ("approve", "reject"),

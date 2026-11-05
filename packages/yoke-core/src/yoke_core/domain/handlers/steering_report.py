@@ -110,7 +110,7 @@ def handle_get(request: FunctionCallRequest) -> HandlerOutcome:
         )
 
     from yoke_core.domain.db_helpers import connect
-    from yoke_core.domain.project_identity import resolve_project_id
+    from yoke_core.domain.project_identity import resolve_project_id, placeholder
     from yoke_core.domain.session_launch_store import utc_now
     from yoke_core.domain.steering_fleet_report_compose import (
         combined_dict,
@@ -144,6 +144,10 @@ def handle_get(request: FunctionCallRequest) -> HandlerOutcome:
             held = _held_project_ids(conn, session_id)
             if not held or (project_id is not None and project_id not in held):
                 return _claim_required(project_id)
+            viewer = conn.execute(
+                f"SELECT actor_id FROM harness_sessions WHERE session_id={placeholder(conn)}",
+                (session_id,),
+            ).fetchone()
             return HandlerOutcome(
                 result_payload={
                     "question_states": question_states(
@@ -153,6 +157,7 @@ def handle_get(request: FunctionCallRequest) -> HandlerOutcome:
                             set(payload.previous_question_ids)
                             | set(previous_question_ids(prior_fingerprint))
                         ),
+                        viewer_actor_id=viewer[0] if viewer else None,
                     )
                 }
             )

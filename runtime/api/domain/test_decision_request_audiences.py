@@ -47,3 +47,24 @@ def test_all_mode_counts_rules_and_any_mode_counts_one():
         request["approval_mode"] = "any"
         assert evaluate_decisions(conn, request, decisions=one_answer).resolved
         assert request_row(conn, request["id"])["audience_id"] == request["audience_id"]
+
+
+def test_named_audience_id_and_inline_rules_are_exclusive():
+    import pytest
+    from runtime.api.domain.test_decision_request_operator_question import filing
+    from yoke_core.domain.decision_requests import create_decision_request
+
+    with decision_request_connection() as value:
+        value.executescript("""
+            CREATE TABLE harness_sessions (session_id TEXT, actor_id INTEGER,
+                ended_at TEXT, terminated_at TEXT);
+            INSERT INTO harness_sessions VALUES ('worker', 2, NULL, NULL);
+        """)
+        audience_id = audiences.create_audience(
+            value, project_id=10, rules=[{"scope_kind": "actor", "scope_id": 3}]
+        )
+        for overrides in ({}, {"role_authorities": [], "named_actor_ids": [3]}):
+            with pytest.raises(ValueError, match="exclusive"):
+                create_decision_request(
+                    value, **filing(audience_id=audience_id, **overrides)
+                )

@@ -153,6 +153,32 @@ def authorize_recipients(
     return policies
 
 
+def recipient_policies(
+    conn, *, actor_id, recipients, additional_project_ids=(), engine_sender=False
+):
+    from yoke_core.domain.session_message_recipient_scope import (
+        owner_key,
+        recipient_policy,
+    )
+
+    # Engine answers already have decision authority and an exact return session.
+    policies = (
+        authorize_recipients(
+            conn,
+            actor_id=actor_id,
+            recipients=recipients,
+            additional_project_ids=additional_project_ids,
+        )
+        if not engine_sender
+        else {}
+    )
+    owned = {("project", pid): policy for pid, policy in policies.items()}
+    for recipient in recipients:
+        row = recipient.routing_snapshot()
+        owned[owner_key(row)] = recipient_policy(conn, row)
+    return owned
+
+
 def authorize_universe(
     conn: Any,
     *,

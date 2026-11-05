@@ -18,7 +18,7 @@ from yoke_contracts.operator_question_attachments import ATTACHMENT_HELP, upload
 ASK_USAGE = (
     "yoke decision-requests ask [--session REQUESTING-SESSION-ID] --key SLUG --question TEXT "
     "[--context-file PATH] [--option ID=LABEL[::DETAIL] ...] [--recommend ID] "
-    "[--no-freeform] [--item ITEM] [--replaces ID] [--attach PATH ...] [--session-id S] [--project P] [--json]"
+    "[--to PERSON ...] [--audience NAME] [--no-freeform] [--item ITEM] [--replaces ID] [--attach PATH ...] [--session-id S] [--project P] [--json]"
 )
 LIST_USAGE = "yoke decision-requests list (--requesting-session SESSION-ID | --mine) [--status pending|resolved|withdrawn] [--session-id S] [--project P] [--json]"
 USAGE_BY_FUNCTION_ID = {
@@ -73,16 +73,27 @@ def decision_requests_ask(args):
         action="store_true",
         help="Require a listed option; cannot be used without options.",
     )
-    parser.add_argument(
-        "--item", help="Public ref of the item the requesting session holds."
-    )
+    parser.add_argument("--item", help="Item the question is about.")
     parser.add_argument(
         "--replaces",
         type=int,
         help="Atomically withdraw this pending question and file its replacement.",
     )
     parser.add_argument("--attach", action="append", default=[], help=ATTACHMENT_HELP)
-    add_project_arg(parser)
+    parser.add_argument(
+        "--to",
+        action="append",
+        default=[],
+        help="Actor id or unique name of a person in your organization; repeat for each person.",
+    )
+    parser.add_argument(
+        "--audience",
+        help="Named audience owned by the question's project or organization.",
+    )
+    parser.add_argument(
+        "--project",
+        help="Project the question is about; default: the session's project when no --to or --audience is given.",
+    )
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, ASK_USAGE)
@@ -109,6 +120,9 @@ def decision_requests_ask(args):
             "recommended_option": parsed.recommend,
             "allow_freeform": not parsed.no_freeform,
             "item": parsed.item,
+            "to": parsed.to,
+            "audience": parsed.audience,
+            "project": parsed.project,
             "replaces": parsed.replaces,
             "attachments": attachments,
         },

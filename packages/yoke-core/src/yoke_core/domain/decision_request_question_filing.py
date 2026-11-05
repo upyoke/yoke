@@ -1,4 +1,4 @@
-"""Requester identity, held item checks, and question history."""
+"""Requester identity, item visibility, and question history."""
 
 from __future__ import annotations
 
@@ -9,7 +9,7 @@ from yoke_core.domain.decision_request_operator_question import invalid, slug
 
 def validate_requester(conn, session_id, project_id, subject_key, context):
     from yoke_core.domain.decision_requests import _p
-    from yoke_core.domain.work_claim_targets import scope_int_sql
+    from yoke_core.domain.actor_project_visibility import actor_visible_project_ids
 
     if not session_id or not subject_key.startswith(session_id + ":"):
         raise invalid("requesting_session_id is required and must prefix subject_key")
@@ -17,23 +17,24 @@ def validate_requester(conn, session_id, project_id, subject_key, context):
         raise invalid("question key must be a lowercase slug")
     p = _p(conn)
     row = conn.execute(
-        f"SELECT project_id, ended_at, terminated_at FROM harness_sessions WHERE session_id={p}",
+        f"SELECT actor_id, ended_at, terminated_at FROM harness_sessions WHERE session_id={p}",
         (session_id,),
     ).fetchone()
     if row is None or row[1] is not None or row[2] is not None:
         raise invalid("requesting session must exist and be live")
-    if row[0] != project_id:
-        raise invalid("requesting session must belong to the question project")
+    if project_id is not None and project_id not in actor_visible_project_ids(
+        conn, row[0]
+    ):
+        raise invalid(
+            "question project must be visible to the requesting session's actor"
+        )
     item_id = context.get("item_id")
     if item_id is not None:
-        item_scope = scope_int_sql(conn, "scope", "item_id")
-        held = conn.execute(
-            f"SELECT 1 FROM work_claims WHERE session_id={p} AND target_kind='item' "
-            f"AND released_at IS NULL AND {item_scope}={p}",
-            (session_id, item_id),
+        item = conn.execute(
+            f"SELECT project_id FROM items WHERE id={p}", (item_id,)
         ).fetchone()
-        if held is None:
-            raise invalid("item_id must name the requesting session's held item")
+        if item is None or item[0] != project_id:
+            raise invalid("item must exist and belong to the question project")
 
 
 def list_questions(conn: Any, session_id: str, status: str | None = None):

@@ -118,3 +118,56 @@ def test_light_poll_finds_hook_seen_answer_and_forces_one_outcome(
         )
     )
     assert not denied.primary_success and denied.error.code == "steering_claim_required"
+
+
+def test_project_less_questions_filter_viewer_in_report_poll_and_outcomes(
+    steering_scope, monkeypatch
+):
+    from runtime.api.domain.test_deployment_qa_stage_wake_delivery import seed_session
+    from yoke_core.domain.steering_fleet_report_compose import compose_held_reports
+    from yoke_core.domain.steering_fleet_report_questions import read_questions
+
+    from yoke_core.domain.actors import seed_human_actor
+
+    conn = steering_scope
+    recipient = seed_human_actor(conn, name="Question reviewer")
+    worker = "organization-question-worker"
+    seed_session(conn, worker)
+    org = conn.execute(
+        "SELECT org_id FROM projects WHERE id=%s", (PROJECT_ID,)
+    ).fetchone()[0]
+    question, _ = file_question(
+        conn,
+        kind="operator_question",
+        subject_type="session_question",
+        subject_key=f"{worker}:choose",
+        requesting_session_id=worker,
+        session_id=worker,
+        org_id=org,
+        originator_actor_id=1,
+        named_actor_ids=[recipient],
+        subject_context={"question": "Which color?"},
+    )
+    monkeypatch.setattr(
+        "yoke_core.domain.db_helpers.connect", lambda: BorrowedConnection(conn)
+    )
+    for viewer, expected in ((recipient, {question["id"]: "pending"}), (1, {})):
+        conn.execute(
+            "UPDATE harness_sessions SET actor_id=%s WHERE session_id=%s",
+            (viewer, STEERING_SESSION),
+        )
+        conn.commit()
+        poll = handle_get(
+            _call("steering.report.get", STEERING_SESSION, {"questions_only": True})
+        )
+        assert poll.primary_success, poll.error
+        assert poll.result_payload["question_states"] == expected
+        report = compose_held_reports(conn, session_id=STEERING_SESSION, now=NOW)
+        assert [row.request_id for row in report.questions] == list(expected)
+    answered = resolve_decision_request(
+        conn, question["id"], actor_id=recipient, action="freeform", note="Blue"
+    )
+    assert answered["status"] == "resolved"
+    assert read_questions(conn, [], [question["id"]], viewer_actor_id=1) == ()
+    [outcome] = read_questions(conn, [], [question["id"]], viewer_actor_id=recipient)
+    assert outcome.outcome == "answered (Blue)"

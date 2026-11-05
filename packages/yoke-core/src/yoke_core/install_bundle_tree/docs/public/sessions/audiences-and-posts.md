@@ -44,3 +44,17 @@ shared work and use **Done**.
 ## Related
 
 - [Inbox and messaging](inbox.md)
+
+## Address an operator question
+
+Use `yoke decision-requests ask --to PERSON` (repeat for each actor id or unique
+human name) or `--audience NAME` to replace the default project owner/operator
+audience. Only members can answer; named audiences retain live membership.
+Use `--project PROJECT` for a visible project, or `--item ITEM` to use its project
+without holding the item. Without either, an addressed question has no project:
+it belongs to the one organization shared by asker and recipients, or the named
+audience's organization. Ambiguous organizations refuse; choose a named audience.
+A named audience must be owned by that project or organization and have rules.
+Without explicit recipients, the session project and its owner/operator roles
+remain the defaults; a project-less question requires `--to` or `--audience`.
+See [operator questions](inbox.md#operator-questions) for filing and answers.
