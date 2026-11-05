@@ -111,4 +111,9 @@ def _where_from_payload(
         clause = "item_id = %s"
         where = f"{where} AND {clause}" if where else f"WHERE {clause}"
         params = [*params, str(item_id)]
+    visitor_id = payload.get("visitor_id")
+    if visitor_id:
+        clause = "source_type = 'frontend' AND envelope::jsonb ->> 'visitor_id' = %s"
+        where = f"{where} AND ({clause})" if where else f"WHERE ({clause})"
+        params = [*params, visitor_id]
     return where, list(params), None

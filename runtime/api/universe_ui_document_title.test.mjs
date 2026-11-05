@@ -6,12 +6,13 @@ import { FakeDocument } from "./universe_ui_dom_test_support.mjs";
 // history owner and the real tracker against one fake window.
 const doc = new FakeDocument();
 const browser = doc.defaultView;
+Object.assign(browser, { screen: { width: 1920, height: 1080 }, innerWidth: 1200, innerHeight: 800 });
 doc.referrer = "";
 globalThis.window = browser;
 globalThis.document = doc;
 globalThis.history = browser.history;
 Object.defineProperty(globalThis, "navigator", {
-  value: { userAgent: "WorkbenchBrowser" }, configurable: true,
+  value: { userAgent: "WorkbenchBrowser", language: "en-US" }, configurable: true,
 });
 const events = [];
 globalThis.fetch = async (url, options = {}) => {

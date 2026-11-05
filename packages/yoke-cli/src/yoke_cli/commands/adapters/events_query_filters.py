@@ -11,13 +11,14 @@ from yoke_cli.commands._helpers import (
     parse_or_usage_error,
     usage_error,
 )
-from yoke_contracts.api.function_call import TargetRef
+from yoke_contracts.api.function_call import FunctionError, TargetRef
 
 
 _FILTER_FLAGS = (
     # (flag, dest, payload_key, help). ``--session`` is the row FILTER;
     # its dest stays distinct from add_session_arg's ``--session-id``
     # (caller identity), which owns the ``session_id`` namespace dest.
+    ("--visitor-id", "visitor_id", "visitor_id", "Only frontend events for this visitor."),
     ("--event-name", "event_name", "event_name", "Filter by event name."),
     (
         "--session",
@@ -61,6 +62,7 @@ _FILTER_FLAGS = (
 
 
 _METAVARS = {
+    "--visitor-id": "ID",
     "--event-name": "NAME",
     "--session": "S",
     "--source-type": "T",
@@ -127,6 +129,21 @@ def _filters_target(parsed: argparse.Namespace) -> TargetRef:
     )
 
 
+
+def _visitor_filter_floor(response: Any, _actor: Any) -> Any:
+    """An older serving build must not silently ignore the visitor filter."""
+    if not response.success or "visitor_id" in (response.result or {}):
+        return response
+    return response.model_copy(update={
+        "success": False, "result": None,
+        "error": FunctionError(
+            code="events_visitor_filter_unavailable",
+            message="Serving floor: events --visitor-id. Ask the control-plane operator "
+                    "to install a release carrying the visitor filter, then retry.",
+        ),
+    })
+
+
 def _dispatch_filtered(
     function_id: str,
     prog: str,
@@ -165,4 +182,5 @@ def _dispatch_filtered(
         payload=payload,
         session_id=parsed.session_id,
         json_mode=parsed.json_mode,
+        response_recovery=_visitor_filter_floor if parsed.visitor_id else None,
     )

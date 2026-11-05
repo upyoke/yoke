@@ -224,7 +224,7 @@ def events_emit(args: List[str]) -> int:
 
 _FILTER_USAGE = (
     "[--event-name NAME] [--item PREFIX-N] [--project P] "
-    "[--session S] [--source-type T] [--event-kind K] [--agent A] "
+    "[--session S] [--visitor-id ID] [--source-type T] [--event-kind K] [--agent A] "
     "[--service SVC] [--actor-id N] [--trace-id T] [--tool-use-id ID] "
     "[--turn-id ID] [--hook-event-name NAME] [--min-severity LEVEL] "
     "[--since WHEN] [--until WHEN] [--current-episode]"

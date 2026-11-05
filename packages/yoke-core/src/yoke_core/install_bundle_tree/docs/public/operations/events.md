@@ -22,9 +22,10 @@ An organization administrator can review defaults with
 owns the windows, protections, apply command and interrupted-run recovery.
 
 The web dashboard collects usage analytics from first load in every mode — local,
-self-hosted, and hosted — with no consent prompt, banner, or toggle; nothing it
-collects is personal data, and a local or self-hosted web dashboard collects into
-its own universe. The first load captures the visitor's attribution cookie, and
+self-hosted, and hosted — with no consent prompt, banner, or toggle. Events include
+personal data such as the trusted client IP address and visitor identity. Operators
+are responsible for permission before public launch; a consent banner awaits legal
+review. A local or self-hosted web dashboard collects into its own universe. The first load captures the visitor's attribution cookie, and
 that load and each client navigation that changes the path emit `PageViewed`
 with `event_type=page_view`. Query-only, fragment-only, and state-only
 navigation (filters, `?selection=all` rewrites) emits no view. The web dashboard
@@ -125,7 +126,27 @@ observed names as suggestions. Advanced filters keep the precise server-side
 event name, source, severity and time constraints. The loaded scope remains
 explicit; text search does not promise matches outside it.
 
-### Visitor links
+### Browser and network context
+
+Browser events include `language`, `time_zone`, `screen` and `viewport`
+(the two sizes use `<width>x<height>` pixels). The collector stamps `client_ip`
+from the same trusted request client used for rate limits, never a raw browser
+header. Keep it out of logs. Configure `YOKE_API_TRUSTED_PROXIES` only for
+known proxy peers; without a trusted proxy this is the socket peer address.
+
+Optional `YOKE_GEOIP_CITY_DB` and `YOKE_GEOIP_ASN_DB` point to unpacked
+DB-IP Lite City and ASN `.mmdb` files. They add `geo_country` (country code),
+`geo_region`, `geo_city`, and `network_org` (ASN organization). Missing
+settings, files or failed lookups omit enrichment and never reject collection;
+`client_ip` remains present. Install fresh monthly files from
+[DB-IP Lite](https://db-ip.com/db/lite.php). The data is CC BY 4.0:
+show [IP geolocation by DB-IP](https://db-ip.com) wherever location is displayed.
+
+Use `yoke events query --visitor-id VISITOR --since "1 day ago" --limit 50`
+for one visitor's frontend rows. The filter does not broaden access:
+project-less frontend rows require organization-admin access.
+
+## Visitor links
 
 `actor_visitor_links` is the durable list of browsers each actor has signed in
 from: one row per `visitor_id`, owned by its `actor_id`. Every web sign-in

@@ -15,7 +15,9 @@ The collector classifies browser, OS and device type from request headers; add
 Run `python3 -m pytest events` and
 `node --experimental-strip-types --test events/test_browser.mjs` (Node >=22.6).
 Events, page views and attribution capture run from first load with no consent
-state; collect only non-personal data. A page view follows the path: query-only
+state. Events carry visitor identity and browser language, time zone, screen
+and viewport; collector-added client IP is personal data. Obtain permission
+before public launch. A page view follows the path: query-only
 and fragment-only navigation emits no view. Page tracking is document-wide: a
 host page and an embedded app that each bundle this Pack start one tracker
 between them.
