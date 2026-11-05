@@ -73,7 +73,7 @@ ALLOWANCES: Tuple[Allowance, ...] = (
         "backs the Yoke repository's own historical-ref check",
     ),
     Allowance(
-        "runtime/api/tools/platform_consumer_dispatch.py",
+        "packages/yoke-core/src/yoke_core/domain/platform_consumer_dispatch.py",
         "CONSUMER_PROJECT",
         "release-train gate naming the external consumer repository it builds",
     ),
