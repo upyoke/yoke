@@ -100,7 +100,7 @@ def _call(function_id: str, run_id: str, payload: Dict[str, Any]) -> Dict[str, A
         elif error and error.code in READ_CONNECTION_CODES and retries:
             message = compose_refusal(
                 f"{message} Control-plane connectivity remained unavailable after {len(retries) + 1} read attempts ({error.code}). Nothing was written by this read.",
-                recovery="restore the control-plane connection before resuming this run.",
+                recovery=error.recovery_hint or "restore the control-plane connection before resuming this run.",
             )
         elif error and error.recovery_hint:
             message = compose_refusal(f"{message}", recovery=f"{error.recovery_hint}")
