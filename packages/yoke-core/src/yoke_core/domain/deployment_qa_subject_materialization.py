@@ -130,7 +130,6 @@ def materialize_subject(
                 stage_name=deployment_stage,
                 member_item_id=deployment_member_item_id,
                 plan_id=plan_id,
-                execution_target_digest=target_digest(target),
                 group_id=shared_group_id(target),
                 cases=[dict(case) for case in snapshot["cases"]],
                 explicitly_replaced=(
@@ -214,7 +213,7 @@ def materialize_subject(
         ),
         "execution_target": target,
         "created_requirement_ids": created,
-        "existing_requirement_ids": existing,
+        "existing_requirement_ids": sorted(set(existing)),
         # Non-empty only for a member that recorded it needs no post-deploy
         # verification, so a reader can tell a stage that credited nothing
         # deliberately from one that found work to do.

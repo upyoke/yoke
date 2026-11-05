@@ -138,3 +138,73 @@ def test_head_work_is_decided_by_verdict_and_discharge_owner(
     )
     root = dict(id=1, replacement_requirement_id=2)
     assert lineage_heads([root, head], [root]) == [head]
+
+
+def test_revisiting_older_content_corrects_the_failed_head_once(test_db):
+    run = "run-repeat-correction-content"
+    plan, root, _ = _two_case_stage(test_db, run)
+    scope = dict(
+        deployment_run_id=run,
+        deployment_stage="item-qa",
+        deployment_member_item_id=MEMBER,
+    )
+    head = root
+    seen = {root}
+    for wording in ["first correction", "another correction", "first correction"]:
+        record_case_verdict(test_db, head, "fail", evidence=True)
+        replace_plan_cases(
+            test_db,
+            plan_id=plan,
+            cases=[
+                _case("command-smoke", wording, 1),
+                _case("second-smoke", "run the second smoke command", 2),
+            ],
+        )
+        result = rematerialize_for_deployment_stage(test_db, **scope)
+        assert len(result["created_requirement_ids"]) == 1
+        head = result["created_requirement_ids"][0]
+        assert head not in seen
+        seen.add(head)
+        assert (
+            rematerialize_for_deployment_stage(test_db, **scope)[
+                "created_requirement_ids"
+            ]
+            == []
+        )
+        heads = rows_by_case(
+            test_db,
+            run_id=run,
+            stage_name="item-qa",
+            member_item_id=MEMBER,
+            plan_id=plan,
+        )
+        assert [row["id"] for row in heads[("command-smoke", None)]] == [head]
+
+
+def test_pending_correction_head_refreshes_in_place(test_db):
+    run = "run-refresh-pending-head"
+    plan, root, _ = _two_case_stage(test_db, run)
+    scope = dict(
+        deployment_run_id=run,
+        deployment_stage="item-qa",
+        deployment_member_item_id=MEMBER,
+    )
+    record_case_verdict(test_db, root, "fail", evidence=True)
+    replace_plan_cases(
+        test_db, plan_id=plan, cases=[_case("command-smoke", "corrected")]
+    )
+    head = rematerialize_for_deployment_stage(test_db, **scope)[
+        "created_requirement_ids"
+    ][0]
+    replace_plan_cases(
+        test_db, plan_id=plan, cases=[_case("command-smoke", "corrected pending")]
+    )
+    result = rematerialize_for_deployment_stage(test_db, **scope)
+    assert result["created_requirement_ids"] == []
+    assert result["refreshed_requirement_ids"] == [head]
+    assert (
+        test_db.execute(
+            "SELECT instructions FROM qa_requirements WHERE id=%s", (head,)
+        ).fetchone()[0]
+        == "corrected pending"
+    )

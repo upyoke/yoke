@@ -111,7 +111,6 @@ def refreshed_case_keys(
     stage_name: str,
     member_item_id: int | None,
     plan_id: int,
-    execution_target_digest: str,
     group_id: str = "",
     cases: list[Mapping[str, Any]],
     explicitly_replaced: frozenset[int] = frozenset(),
