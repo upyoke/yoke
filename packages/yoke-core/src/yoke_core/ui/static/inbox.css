@@ -248,3 +248,6 @@
 .inbox-question-freeform { display: grid; gap: 6px; margin: 12px 0; }
 .inbox-question-freeform textarea { box-sizing: border-box; width: 100%; min-width: 0; }
 .inbox-question-context { margin: 12px 0; }
+
+.inbox-question-option, .inbox-question-send { min-height: 44px; }
+.inbox-question-detail { display: block; font-weight: normal; margin-top: 4px; }

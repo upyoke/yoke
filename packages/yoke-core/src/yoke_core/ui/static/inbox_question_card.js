@@ -33,10 +33,10 @@ export function questionCard(context, row, { onAct, compact = false, projectLabe
   for (const option of facts.options || []) {
     if (!(row.actions || []).includes(option.id)) continue;
     const recommended = facts.recommended_option === option.id;
-    const button = el(documentNode, "button", "inbox-question-option",
+    const button = el(documentNode, "button", "item-button inbox-question-option",
       `${option.label}${recommended ? " (Recommended)" : ""}`);
     button.type = "button";
-    if (option.detail) button.title = option.detail;
+    if (option.detail) button.appendChild(el(documentNode, "span", "inbox-question-detail", option.detail));
     button.addEventListener("click", () => onAct(row, option.id, card));
     actions.appendChild(button);
   }
@@ -48,7 +48,7 @@ export function questionCard(context, row, { onAct, compact = false, projectLabe
     input.rows = 3;
     label.appendChild(input);
     card.appendChild(label);
-    const send = el(documentNode, "button", "inbox-question-send", "Send");
+    const send = el(documentNode, "button", "item-button primary inbox-question-send", "Send");
     send.type = "button";
     send.disabled = true;
     input.addEventListener("input", () => { send.disabled = !input.value.trim(); });
