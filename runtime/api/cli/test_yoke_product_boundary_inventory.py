@@ -2,6 +2,9 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from runtime.api.cli.product_boundary_test_support import (
+    command_inventory,
+)
 from yoke_cli import product_boundary_inventory as inventory
 from yoke_cli import product_boundary_teaching as teaching
 
@@ -10,10 +13,7 @@ REPO_ROOT = Path(__file__).resolve().parents[3]
 
 
 def _rows() -> dict[str, inventory.InventoryRow]:
-    return {
-        row.command_helper: row
-        for row in inventory.generate_inventory(repo_root=REPO_ROOT)
-    }
+    return {row.command_helper: row for row in command_inventory()}
 
 
 def test_representative_product_client_rows_are_separate_from_source_dev():
@@ -92,7 +92,7 @@ def test_registry_operation_and_tool_shaped_surfaces_are_present():
     )
     assert "python3 -m yoke_core.cli.db_router runs get" not in rows
 
-    rows = tuple(inventory.generate_inventory(repo_root=REPO_ROOT))
+    rows = tuple(command_inventory())
     first = inventory.render_markdown(rows)
     second = inventory.render_markdown(rows)
     assert first == second
@@ -248,7 +248,7 @@ def test_teaching_audit_accepts_inline_namespace_and_skill_router_references(
 
 def test_markdown_renderer_can_include_teaching_audit(tmp_path: Path):
     _write_doc(tmp_path, "`yoke nope nope`\n")
-    rows = tuple(inventory.generate_inventory(repo_root=REPO_ROOT))
+    rows = tuple(command_inventory())
     audit = inventory.generate_teaching_audit(repo_root=tmp_path)
     body = inventory.render_markdown(rows, teaching_audit=audit)
     assert "## taught-recipe surface audit\n" in body

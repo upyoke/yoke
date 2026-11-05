@@ -4,7 +4,9 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from yoke_cli import product_boundary_inventory as inventory
+from runtime.api.cli.product_boundary_test_support import (
+    teaching_audit,
+)
 from yoke_cli import product_boundary_teaching as teaching
 
 
@@ -13,7 +15,7 @@ RAW_ENV_UPDATE = "python3 -m yoke_core.cli.db_router envs update"
 
 
 def test_ephemeral_env_teaching_uses_registered_update_surface() -> None:
-    audit = inventory.generate_teaching_audit(repo_root=REPO_ROOT)
+    audit = teaching_audit()
     by_form = {row.command_form: row for row in audit.surfaces}
 
     row = by_form["yoke ephemeral-env update"]

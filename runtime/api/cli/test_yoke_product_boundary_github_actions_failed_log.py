@@ -4,6 +4,10 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from runtime.api.cli.product_boundary_test_support import (
+    command_inventory,
+    teaching_audit,
+)
 from yoke_cli import product_boundary_inventory as inventory
 from yoke_cli import product_boundary_teaching as teaching
 
@@ -13,10 +17,7 @@ RAW_FAILED_LOG = "python3 -m yoke_core.domain.github_actions failed-log"
 
 
 def test_failed_log_inventory_is_https_relay_safe() -> None:
-    rows = {
-        row.command_helper: row
-        for row in inventory.generate_inventory(repo_root=REPO_ROOT)
-    }
+    rows = {row.command_helper: row for row in command_inventory()}
 
     row = rows["yoke github-actions failed-log"]
     assert row.function_id == "github_actions.failed_log"
@@ -25,7 +26,7 @@ def test_failed_log_inventory_is_https_relay_safe() -> None:
     assert row.capability_required == "project GitHub App auth"
     assert row.import_edges == ()
 
-    audit = inventory.generate_teaching_audit(repo_root=REPO_ROOT)
+    audit = teaching_audit()
     by_form = {row.command_form: row for row in audit.surfaces}
 
     row = by_form["yoke github-actions failed-log"]

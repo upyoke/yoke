@@ -2,6 +2,9 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from runtime.api.cli.product_boundary_test_support import (
+    command_inventory,
+)
 from yoke_cli import product_boundary_inventory as inventory
 
 
@@ -21,14 +24,9 @@ def _only_surface(audit: inventory.TeachingAudit):
 
 
 def test_registry_contains_shepherd_and_qa_writer_surfaces():
-    rows = {
-        row.command_helper: row
-        for row in inventory.generate_inventory(repo_root=REPO_ROOT)
-    }
+    rows = {row.command_helper: row for row in command_inventory()}
 
-    assert rows["yoke qa requirement waive"].function_id == (
-        "qa.requirement.waive"
-    )
+    assert rows["yoke qa requirement waive"].function_id == ("qa.requirement.waive")
     assert rows["yoke shepherd verdict"].function_id == "shepherd.verdict.run"
     assert rows["yoke shepherd caveat-disposition"].function_id == (
         "shepherd.caveat_disposition.run"
@@ -50,9 +48,7 @@ def test_teaching_audit_resolves_shepherd_verdict_writers(tmp_path: Path):
     audit = inventory.generate_teaching_audit(repo_root=tmp_path)
     by_command = {row.command_form: row for row in audit.surfaces}
 
-    assert by_command["yoke shepherd verdict"].function_id == (
-        "shepherd.verdict.run"
-    )
+    assert by_command["yoke shepherd verdict"].function_id == ("shepherd.verdict.run")
     assert by_command["yoke shepherd caveat-disposition"].function_id == (
         "shepherd.caveat_disposition.run"
     )

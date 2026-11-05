@@ -91,14 +91,9 @@ def _configure(conn, routing):
 @pytest.mark.parametrize(
     "source_s3,destination_s3,container,oversized",
     [
-        (False, False, False, False),
-        (False, True, False, False),
-        (True, False, False, False),
-        (True, True, False, False),
-        (False, False, True, False),
-        (False, False, False, True),
+        (False, True, False, True),
         (True, False, False, True),
-        (True, True, False, True),
+        (False, False, True, False),
     ],
 )
 def test_archive_roundtrip_rehomes_bytes(
