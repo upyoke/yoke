@@ -28,11 +28,11 @@ const svg='<svg xmlns="http://www.w3.org/2000/svg" width="480" height="240"><rec
 const artifacts=[{artifact_id:1,decision_request_id:7,artifact_type:'screenshot',content_type:'image/svg+xml',metadata:{label:'header-preview.svg'}},
 {artifact_id:2,decision_request_id:7,artifact_type:'document',content_type:'application/pdf',metadata:{label:'header-brief.pdf'}}];
 let row={id:7,kind:'operator_question',status:'pending',project_id:10,created_at:stamp,
-requesting_session_id:'sample-worker',requesting_session_label:'Morgan · Codex',
+requesting_session_id:'sample-worker',requesting_session_label:'Morgan · steering seat for example',
 actions:state==='options' ? ['blue','green','freeform'] : ['freeform'],
 subject_context:{question:['options','answered'].includes(state) ? 'Which color should the header use?' : 'What should the welcome message say?',
 context:'The current header uses **blue**. Green has more contrast.',
-options:['options','answered'].includes(state) ? [{id:'blue',label:'Keep blue',detail:'Matches the current header.'},{id:'green',label:'Use green'}] : [],
+options:['options','answered'].includes(state) ? [{id:'blue',label:'Keep blue',detail:'Matches the current header.'},{id:'green',label:'Use green',detail:'Changes the header to green.'}] : [],
 recommended_option:state==='options' ? 'blue' : null,allow_freeform:true,artifacts:state==='options' ? artifacts : []}};
 if(state==='answered')row={...row,status:'resolved',decided_by_you:true,actions:[],resolution_action:'blue',resolved_at:stamp};
 window.calls=[];
@@ -72,7 +72,8 @@ try {
       assert.equal(await page.locator(".inbox-question-card").locator("h3,button,textarea,details").count(), 0);
       assert.equal(await page.locator(".inbox-question-answer-text").evaluate((node) => node.scrollWidth <= node.clientWidth), true, "Keep the short answer fully visible.");
     } else {
-      assert.equal(await page.locator(".inbox-question-context").evaluate((node) => node.open), false);
+      assert.equal(await page.locator(".inbox-question-context").locator("details, summary").count(), 0);
+      assert.match(await page.locator(".inbox-question-context").textContent(), /current header/);
       const heights = await page.locator(".inbox-question-option, .inbox-question-send").evaluateAll((buttons) => buttons.map((button) => button.getBoundingClientRect().height));
       assert(heights.every((height) => height >= 44), `Question buttons must be at least 44px: ${heights}`);
       if (state === "options") {
@@ -83,6 +84,16 @@ try {
         await page.locator(".review-shot-open").click();
         await page.locator(".review-lightbox").waitFor();
         await page.keyboard.press("Escape");
+        const positions = await page.locator(".inbox-question-choice").evaluateAll((choices) => choices.map((choice) => ({
+          button: choice.querySelector("button").getBoundingClientRect().top,
+          detail: choice.querySelector("p").getBoundingClientRect().top,
+          tag: choice.firstElementChild.getBoundingClientRect().bottom,
+        })));
+        assert(positions.every((p) => p.tag <= p.button));
+        if (width === 1440) {
+          assert.equal(positions[0].button, positions[1].button);
+          assert.equal(positions[0].detail, positions[1].detail);
+        }
         if (width === 375) {
           const boxes = await page.locator(".inbox-question-option").evaluateAll((buttons) => buttons.map((button) => { const box=button.getBoundingClientRect(); return {x:box.x,width:box.width}; }));
           assert.equal(boxes[0].x, boxes[1].x);

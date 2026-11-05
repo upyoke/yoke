@@ -207,7 +207,7 @@ The answer arrives as a Fleet message on every supported harness and machine.
 Use plain language, give the context needed to decide, name things in words (any id follows the name in parentheses), and keep the question very short.
 Use `--context-file PATH` for Markdown context, repeat `--option ID=LABEL::DETAIL`
 for up to eight choices, and use `--no-freeform` to require a choice. With no
-choices, a freeform answer is required. Add `--attach PATH` for each image or PDF
+choices, a freeform answer is required. Write DETAIL as what happens if the user picks this option, in plain words. Add `--attach PATH` for each image or PDF
 (maximum 20 MiB per file, 64 MiB for the encoded attachment manifest). Files use
 the existing QA evidence store and viewer; get and list include their names and count. The optional `--item` names the item
 being discussed; the requester need not hold it. Reusing a key while pending
@@ -229,8 +229,9 @@ audience must belong to the question's project, or its organization when project
 Do not combine `--to` and `--audience`.
 
 The Inbox shows the question as its heading, then who asked and when, followed
-by attachments, a collapsed Context disclosure, and choices. The recommended
-choice is primary. A labelled answer box supports Send or Cmd/Ctrl+Enter. Answered
+by attachments, context as text, and choices. Asked by names the person and what
+the asking session holds. The recommended tag sits above its primary button;
+option details line up beneath the buttons. A labelled answer box supports Send or Cmd/Ctrl+Enter. Answered
 cards appear in **Decided**. Steering presents pending questions one at a time
 with context and its recommendation, then records the person's answer:
 

@@ -246,6 +246,8 @@
 .inbox-question-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; max-width: 560px; }
 .inbox-question-choice { display: grid; align-content: start; gap: 4px; min-width: 0; }
 .inbox-question-choice > p { margin: 0; }
+.inbox-question-tag { height: 20px; }
+.inbox-question-recommended { color: var(--yoke-accent-fill); }
 .inbox-question-freeform { display: grid; gap: 6px; }
 .inbox-question-freeform textarea { box-sizing: border-box; width: 100%; min-width: 0; resize: vertical; }
 .universe-app-root .inbox-question-card .item-button { min-height: 44px; }

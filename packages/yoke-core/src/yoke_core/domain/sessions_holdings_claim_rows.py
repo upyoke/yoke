@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import Any, Iterable, Optional
 
+from yoke_core.domain import db_backend
 from yoke_core.domain.work_claim_targets import scope_int_sql, scope_text_sql
 
 
@@ -26,7 +27,8 @@ def _claim_rows(
         ids = [str(session_id) for session_id in session_ids]
         if not ids:
             return []
-        markers = ", ".join("%s" for _ in ids)
+        marker = "%s" if db_backend.connection_is_postgres(conn) else "?"
+        markers = ", ".join(marker for _ in ids)
         clauses.append(f"wc.session_id IN ({markers})")
         params.extend(ids)
     where = f"WHERE {' AND '.join(clauses)}" if clauses else ""
