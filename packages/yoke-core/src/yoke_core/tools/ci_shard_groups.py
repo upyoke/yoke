@@ -48,7 +48,9 @@ def group_files(records, durations, tracked, count=SHARD_COUNT):
         raise ValueError(f"ci_shard_files_untracked: git add collected files: {sorted(missing)}")
     weights = {filename: sum(durations[node] for node in nodes if node in durations)
                for filename, nodes in files.items()}
-    known = [weight for weight in weights.values() if weight > 0]
+    recorded = {filename for filename, nodes in files.items()
+                if any(node in durations for node in nodes)}
+    known = [weights[filename] for filename in recorded]
     average = sum(known) / len(known) if known else 1.0
     units = {}
     for filename in tracked:
@@ -56,10 +58,12 @@ def group_files(records, durations, tracked, count=SHARD_COUNT):
             continue
         unit = "product wheel files" if filename in wheels else filename
         names, weight = units.get(unit, ([], 0))
-        units[unit] = (names + [filename], weight + (weights[filename] or average))
+        units[unit] = (names + [filename], weight + (
+            weights[filename] if filename in recorded else average))
     groups, totals = [[] for _ in range(count)], [0.0] * count
     for names, weight in sorted(units.values(), key=lambda unit: -unit[1]):
-        index = min(range(count), key=lambda index: (totals[index], index))
+        index = min(range(count), key=lambda index: (
+            totals[index], len(groups[index]), index))
         groups[index].extend(names)
         totals[index] += weight
     if any(not group for group in groups):
@@ -114,7 +118,7 @@ def main(argv=None):
         groups = build_groups(json.loads(facts.read_text()),
                               json.loads(Path(".test_durations").read_text()), tracked)
         args.output.write_text(json.dumps(groups, indent=2) + "\n")
-    except (OSError, ValueError, subprocess.SubprocessError) as error:
+    except (OSError, ValueError, KeyError, TypeError, subprocess.SubprocessError) as error:
         print(f"ci_shard_groups_failed: {error}; repair collection and regenerate file groups")
         return 1
     print(f"CI file grouping: {time.monotonic() - started:.2f}s; "

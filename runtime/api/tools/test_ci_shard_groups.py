@@ -45,6 +45,14 @@ def test_untracked_collection_and_empty_groups_refuse():
         grouping.group_files(records(), {}, tracked, count=16)
 
 
+def test_recorded_zero_weights_still_fill_every_group():
+    items = records()[4:]
+    tracked = sorted({item["nodeid"].split("::")[0] for item in items})
+    durations = {item["nodeid"]: 0 for item in items}
+    assert grouping.group_files(items, durations, tracked, 2) == [
+        [tracked[0], tracked[2]], [tracked[1], tracked[3]]]
+
+
 @pytest.mark.parametrize("contents", ["{}", "bad json", '{"all": [[]]}'])
 def test_bad_artifact_refuses_before_launching_pytest(tmp_path, contents):
     artifact = tmp_path / "groups.json"
