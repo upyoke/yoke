@@ -133,5 +133,3 @@ def test_assigned_files_are_ordered_by_weight_and_fingerprinted(monkeypatch, tmp
     selection.pytest_collection_modifyitems(config, items)
     assert items[0].nodeid == "tests/test_b.py::test_case"
     assert config.workeroutput["ci_collection"]["count"] == 2
-
-
