@@ -2,6 +2,8 @@
 
 from types import SimpleNamespace
 
+import pytest
+
 from yoke_core.domain import merge_queue_batch_receipt as receipt_mod
 from yoke_core.domain.gh_rest_transport_models import RestResponse
 from yoke_core.domain.json_helper import loads_text
@@ -141,7 +143,14 @@ def test_observe_batch_without_runs_keeps_merge_identity(monkeypatch):
     assert "no merge_group workflow run" in warn.reason
 
 
-def test_record_batch_evidence_payload_shape():
+@pytest.mark.parametrize("scope", ["quick", "full"])
+def test_record_batch_evidence_payload_shape(monkeypatch, scope):
+    def resolve(public_ref, *, materialize):
+        assert public_ref == "ITEM-9"
+        assert materialize is False
+        return scope, "python3 -m pytest", []
+
+    monkeypatch.setattr(receipt_mod, "resolve_verification", resolve)
     captured = {}
 
     def dispatch(*, function_id, target, payload, **_kw):
@@ -160,6 +169,8 @@ def test_record_batch_evidence_payload_shape():
     assert error is None
     assert captured["function_id"] == "merge.tests.record_post_rebase_ci_run"
     payload = captured["payload"]
+    assert payload["scope"] == scope
+    assert payload["command"] == "python3 -m pytest"
     assert payload["verdict"] == "pass"
     assert payload["performed_by"] == "ci_run"
     raw = loads_text(payload["raw_result"])
@@ -170,7 +181,11 @@ def test_record_batch_evidence_payload_shape():
     assert batch["run_url"] == "https://runs/42"
 
 
-def test_record_batch_evidence_surfaces_dispatch_error():
+def test_record_batch_evidence_surfaces_dispatch_error(monkeypatch):
+    monkeypatch.setattr(
+        receipt_mod, "resolve_verification", lambda *_a, **_k: ("full", "pytest", [])
+    )
+
     def dispatch(**_kw):
         return SimpleNamespace(
             success=False,
@@ -180,7 +195,9 @@ def test_record_batch_evidence_surfaces_dispatch_error():
 
     receipt = BatchReceipt(pr_num="42")
     error = receipt_mod.record_batch_evidence("ITEM-9", receipt, dispatch=dispatch)
-    assert error == "claim gate refused"
+    assert error.reason == "claim gate refused"
+    assert error.retryable is True
+    assert error.recovery
 
 
 def test_an_open_pull_request_is_not_this_landing(monkeypatch):
@@ -266,3 +283,27 @@ def test_an_open_pull_request_with_no_known_landing_refuses_by_name(monkeypatch)
     assert "has not merged" in warn.reason
     assert warn.retryable is False
     assert "other landing" in warn.recovery
+
+
+@pytest.mark.parametrize("resolved", [None, ("no_tests_attested", "no suite", [])])
+def test_missing_executable_command_refuses_without_dispatch(monkeypatch, resolved):
+    def resolve(*_a, **_k):
+        if resolved is None:
+            raise RuntimeError(
+                "integration verification resolution failed "
+                "(post_rebase_verification_missing): project 'example' has no executable "
+                "registered full or quick command Register the project's suite; then rerun the merge."
+            )
+        return resolved
+
+    monkeypatch.setattr(receipt_mod, "resolve_verification", resolve)
+    failure = receipt_mod.record_batch_evidence(
+        "ITEM-9",
+        BatchReceipt(pr_num="42"),
+        dispatch=lambda **_k: pytest.fail(
+            "no command must not dispatch a command case"
+        ),
+    )
+    assert failure.retryable is False
+    assert "yoke qa registered-command set" in failure.recovery
+    assert "rerun" not in failure.reason.lower()

@@ -13,7 +13,7 @@ from runtime.api.domain.test_merge_queue_close_out import (
     LANE_SHA,
 )
 from yoke_core.domain import merge_queue_close_out as close_out_mod
-from yoke_core.domain.merge_queue_batch_receipt import BatchReceipt
+from yoke_core.domain.merge_queue_batch_receipt import BatchReceipt, EvidenceFailure
 
 
 def test_ci_recording_failure_keeps_close_out_retriable(monkeypatch):
@@ -33,7 +33,9 @@ def test_ci_recording_failure_keeps_close_out_retriable(monkeypatch):
     monkeypatch.setattr(
         close_out_mod,
         "record_batch_evidence",
-        lambda item_id, receipt, **_kw: "evidence write refused",
+        lambda item_id, receipt, **_kw: EvidenceFailure(
+            "evidence write refused", True, "Restore the evidence writer."
+        ),
     )
     monkeypatch.setattr(
         close_out_mod.receipts,
@@ -117,3 +119,56 @@ def test_a_search_that_cannot_succeed_does_not_prescribe_a_re_run(monkeypatch):
     assert "Re-run" not in refusal
     assert "reaches the same answer" in refusal
     assert "Confirm the queue ran that workflow" in refusal
+
+
+@pytest.mark.parametrize("scope", ["quick", "full", None])
+def test_close_out_preserves_resolved_scope_and_command_recovery(monkeypatch, scope):
+    from types import SimpleNamespace
+    from yoke_core.domain import merge_queue_batch_receipt as receipt_mod
+
+    batch = BatchReceipt(
+        pr_num="42", merge_sha=MERGE_SHA, head_sha=COMBINED_SHA, run_url=RUN_URL
+    )
+    _wire(monkeypatch, batch=batch)
+    payloads = []
+
+    def resolve(*_a, **_k):
+        if scope is None:
+            raise RuntimeError(
+                "project has no executable registered full or quick command"
+            )
+        return scope, "python3 -m pytest", []
+
+    def dispatch(**kwargs):
+        payloads.append(kwargs["payload"])
+        return SimpleNamespace(success=True)
+
+    monkeypatch.setattr(receipt_mod, "resolve_verification", resolve)
+    monkeypatch.setattr(
+        receipt_mod,
+        "public_item_target",
+        lambda _item: SimpleNamespace(public_ref="ITEM-9"),
+    )
+    monkeypatch.setattr(
+        close_out_mod,
+        "record_batch_evidence",
+        lambda item, receipt: receipt_mod.record_batch_evidence(
+            item, receipt, dispatch=dispatch
+        ),
+    )
+    outcome = close_out_mod.record_landing(
+        _ctx(),
+        item_id=7,
+        commit_sha=LANE_SHA,
+        pr_num="42",
+    )
+    if scope is not None:
+        assert outcome.ci_evidence_error == ""
+        assert payloads[0]["scope"] == scope
+        assert payloads[0]["command"] == "python3 -m pytest"
+    else:
+        assert payloads == []
+        assert outcome.ci_evidence_retryable is False
+        refusal = outcome.ci_evidence_refusal("42", "yoke merge item ITEM-9")
+        assert "yoke qa registered-command set" in refusal
+        assert "re-run" not in refusal.lower()
