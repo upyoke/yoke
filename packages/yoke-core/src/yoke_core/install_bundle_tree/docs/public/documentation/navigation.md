@@ -129,8 +129,8 @@ from the declared full candidate commit with its matching release evidence.
 
 ## Allowed corpus files
 
-`packages/yoke-core/src/yoke_core/ui/contracts/docs-corpus-files.json` owns
-the shared file allowlist (`schemaVersion: 1`): `allowedPathPattern` is matched
+Yoke source repo only: `packages/yoke-core/src/yoke_core/ui/contracts/docs-corpus-files.json`
+owns the shared file allowlist (`schemaVersion: 1`): `allowedPathPattern` is matched
 against the whole relative path, and `identityFiles` adds literal root names.
 The corpus accepts Markdown (`*.md`), `nav.yaml`, assets matching
 `assets/[a-z0-9/._-]+.(css|svg|html)`, and the root identity files
