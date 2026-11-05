@@ -217,6 +217,10 @@ def combined_fingerprint(combined):
         for section, rows in zip(combined.sections, rows_per_section(reports))
     }
     material["questions"] = digest(question_fingerprint(combined.questions))
+    material["available_ids"] = {
+        section.descriptor: sorted(entry.item_id for entry in section.report.available)
+        for section in combined.sections
+    }
     material["question_ids"] = [row.request_id for row in combined.questions]
     material["unattended"] = digest([row.item_id for row in combined.unattended])
     return json.dumps(material, sort_keys=True, separators=(",", ":"))
