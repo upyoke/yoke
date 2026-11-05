@@ -242,14 +242,13 @@ def daemon_start(
     command.extend(["--state-file", str(state_path)])
 
     state_path.parent.mkdir(parents=True, exist_ok=True)
-    result = start_daemon(
+    return start_daemon(
         command,
         env,
         state_path.parent,
+        profile_dir=requested_profile,
         load_state=lambda: DaemonState.load(state_path),
     )
-    record_daemon_owner(requested_profile, result["pid"])
-    return result
 
 
 def daemon_stop(*, profile_dir: str | None = None) -> str:

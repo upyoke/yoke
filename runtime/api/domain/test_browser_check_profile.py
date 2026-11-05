@@ -183,3 +183,54 @@ def test_unproven_live_daemon_is_preserved_until_idle_exit(profiles, monkeypatch
     monkeypatch.setattr(browser_client, "daemon_running", lambda state: False)
     checks._remove(check)
     assert not check.directory.exists()
+
+
+def test_daemon_birth_token_is_recorded_before_readiness(
+    profiles, monkeypatch, tmp_path
+):
+    from unittest.mock import Mock
+    from yoke_harness import browser_client_readiness as readiness
+
+    process = SimpleNamespace(pid=os.getpid(), kill=Mock(), wait=Mock())
+    monkeypatch.setattr(readiness, "launch_daemon", lambda *a: process)
+    with checks.check_scope("fixture") as check:
+
+        def ready(*args, **kwargs):
+            record = json.loads((check.directory / "owner.json").read_text())
+            assert record["daemon"] == checks._owner(process.pid)
+            return {"pid": process.pid, "status": "started"}
+
+        monkeypatch.setattr(readiness, "wait_for_daemon_ready", ready)
+        result = readiness.start_daemon(
+            ["node"], {}, tmp_path / "runtime-state", profile_dir=str(check.profile)
+        )
+        assert result["pid"] == process.pid
+    process.kill.assert_not_called()
+
+
+def test_failed_daemon_owner_record_stops_only_the_new_child(
+    profiles, monkeypatch, tmp_path
+):
+    from unittest.mock import Mock
+    from yoke_harness import browser_client_readiness as readiness
+
+    process = SimpleNamespace(pid=42, kill=Mock(), wait=Mock())
+    monkeypatch.setattr(readiness, "launch_daemon", lambda *a: process)
+    ready = Mock()
+    monkeypatch.setattr(readiness, "wait_for_daemon_ready", ready)
+    with pytest.raises(RuntimeError, match="browser_check_owner_unavailable"):
+        with checks.check_scope("fixture") as check:
+
+            def unavailable(pid):
+                raise RuntimeError(
+                    "browser_check_owner_unavailable: process query failed"
+                )
+
+            monkeypatch.setattr(checks, "_owner", unavailable)
+            readiness.start_daemon(
+                ["node"], {}, tmp_path / "runtime-state", profile_dir=str(check.profile)
+            )
+    process.kill.assert_called_once_with()
+    process.wait.assert_called_once_with(timeout=5)
+    ready.assert_not_called()
+    assert not check.directory.exists()

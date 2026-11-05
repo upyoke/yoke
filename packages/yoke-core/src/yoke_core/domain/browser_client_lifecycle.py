@@ -89,16 +89,15 @@ def daemon_start(
     # Launch and wait through the harness readiness helper, so a cold start is
     # judged by the same deadline and daemon log on both clients.
     state_path.parent.mkdir(parents=True, exist_ok=True)
-    result = browser_client_readiness.start_daemon(
+    return browser_client_readiness.start_daemon(
         cmd,
         env,
         state_path.parent,
+        profile_dir=requested_profile,
         load_state=lambda: _bc.DaemonState.load(state_path),
         probe_health=lambda state: _bc.daemon_health(state=state, timeout=1),
         sleep=time.sleep,
     )
-    record_daemon_owner(requested_profile, result["pid"])
-    return result
 
 
 def daemon_stop(*, profile_dir: str | None = None) -> str:
