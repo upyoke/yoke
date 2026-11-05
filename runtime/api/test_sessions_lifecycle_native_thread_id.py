@@ -1,3 +1,4 @@
+# ruff: noqa: F811  (the shared `conn` fixture is imported, then used by name)
 """``register_session`` native_thread_id coverage.
 
 Split out alongside ``test_sessions_lifecycle_actor_id.py`` rather than
@@ -18,11 +19,8 @@ from __future__ import annotations
 
 import pytest
 
-from runtime.api.test_sessions import _p, _register
+from runtime.api.test_sessions import _p, _register, conn  # noqa: F401
 from yoke_core.domain.sessions import SessionError, end_session
-
-pytest_plugins = ("runtime.api.test_sessions",)
-
 
 class TestRegisterSessionNativeThreadId:
     def test_register_persists_native_thread_id(self, conn):
