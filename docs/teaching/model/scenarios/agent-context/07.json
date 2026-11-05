@@ -4,7 +4,7 @@
  "status": "observed",
  "audience": "agent",
  "when": "A launched worker initializes local state or changes connections",
- "need": "Select YOKE_MACHINE_HOME before configuration commands. It owns config.json and wins over a stale config-file override. Relay launches strip inherited YOKE_MACHINE_CONFIG_FILE; foreign writes refuse machine_config_not_owned with a recovery step, even when no home override is set. Use dev run for source commands: it snapshots settings and ordinary secrets before source imports, skips broken links and special files such as browser locks and sockets, and removes the private home after exit. Only --allow-real-machine-home permits deliberate real writes. Unknown config keys warn and do not block hooks.",
+ "need": "Select YOKE_MACHINE_HOME before configuration commands. It owns config.json and wins over a stale config-file override. Relay launches strip inherited YOKE_MACHINE_CONFIG_FILE; foreign writes refuse machine_config_not_owned with a recovery step, even when no home override is set. Use dev run for source commands: it snapshots settings and ordinary secrets before source imports, skips browser identity profile directories, broken links and special files such as browser locks and sockets, and removes the private home after exit. Genuine snapshot failures name the failed path and its repair. Only --allow-real-machine-home permits deliberate real writes. Unknown config keys warn and do not block hooks.",
  "disclosure": "current cue",
  "surface": "Config writer help and CLI/config machine-config home",
  "review": "Candidate subprocess tests cover Claude, Codex and Cursor child environments and preserve the steering configuration; deployed behavior remains unproven.",
