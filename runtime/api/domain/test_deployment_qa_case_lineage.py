@@ -13,6 +13,7 @@ from runtime.api.fixtures.deployment_scoped_qa_run_fixture import (
     record_case_verdict,
 )
 from runtime.api.fixtures.statement_counter import CountingConnection
+from runtime.api.fixtures.qa_declared_replacement_fixture import corrected_case
 from yoke_core.domain.deployment_qa_stage_materialization import (
     materialize_deployment_qa_stage,
 )
@@ -84,6 +85,9 @@ def test_correction_head_survives_later_materialization(
     cases = takeover._seed_old(test_db, run_qa=False)
     takeover._close_passed(test_db)
     root = cases[takeover.WAITING]
+    # A pending sibling holds the run after the corrected case has answered,
+    # and forces dispatch to revisit this member's materialization.
+    corrected_case(test_db, failed_id=root, case_key="pending-sibling")
     plan = test_db.execute(
         "SELECT plan_id FROM qa_requirements WHERE id=%s", (root,)
     ).fetchone()[0]
@@ -131,7 +135,7 @@ def test_correction_head_survives_later_materialization(
             monkeypatch.setattr(takeover, "NEW_LINEAGE", str(number + 3) * 40)
             if number and shape == "chain-pass":
                 test_db.execute(
-                    "UPDATE deployment_runs SET status='failed',settling_at=now() WHERE id=%s",
+                    "UPDATE deployment_runs SET status='failed',settling_at=NULL WHERE id=%s",
                     (run,),
                 )
                 test_db.commit()
