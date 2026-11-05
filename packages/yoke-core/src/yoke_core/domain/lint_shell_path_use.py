@@ -268,8 +268,21 @@ def analyze_shell_path_use(
                 and base not in SHELL_WRITE_COMMAND_BASES
             )
         )
+        input_paths = []
+        if base == "yoke":
+            for i, token in enumerate(tokens):
+                if token == "--content-file" and i + 1 < len(tokens):
+                    input_paths.append(tokens[i + 1])
+                elif token.startswith("--content-file="):
+                    input_paths.append(token.split("=", 1)[1])
+        input_paths, _ = resolve_path_operands(input_paths, bindings)
+        input_paths = in_segment_cwd(input_paths, segment_cwds, index)
+        targets.extend(path for path in input_paths if path not in targets)
+        local_targets.extend(path for path in input_paths if path not in local_targets)
         for target in targets:
             target_role = PathRole.WRITE if target in writes else role
+            if target in input_paths and target not in writes:
+                target_role = PathRole.READ
             if capacity_settled and target in capacity and target not in writes:
                 target_role = PathRole.CAPACITY
             uses.append(PathUse(target, target_role))

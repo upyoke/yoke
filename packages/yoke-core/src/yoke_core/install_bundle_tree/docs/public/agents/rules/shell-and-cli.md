@@ -11,6 +11,8 @@
 - Work claims cover their lanes, main control-plane paths and `/tmp` or `/var/folders`.
   Source guard excludes client-proven Git metadata; main exceptions use
   `# lint:allow-lane-main-write`. See [lane rules](lanes-and-claims.md).
+- Remove tracked generated output with `git -C <lane> rm -r -- <dir>`; use the literal
+  absolute path for untracked output.
 - Reads pass anywhere the harness permits. Writes, redirects, substitutions, outputs
   and Git moves keep lane limits.
 - Use literal absolute paths; unresolved homes refuse.

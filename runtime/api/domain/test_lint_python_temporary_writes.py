@@ -100,3 +100,44 @@ def test_registered_checkout_under_temp_is_not_scratch():
     )
     assert not result.unresolved_variable
     assert result.unresolved_writes == ("(root / filename).write_text(...)",)
+
+
+@pytest.mark.parametrize("paths", ["['/tmp/a', '/tmp/b']", "('/tmp/a', '/tmp/b')"])
+def test_literal_scratch_loop_does_not_fall_back_to_cwd(paths):
+    result = analyze(
+        f"from pathlib import Path\nfor target in {paths}:\n Path(target).write_bytes(b'x')"
+    )
+    assert result.unresolved_variable
+    assert not result.unresolved_writes
+
+
+@pytest.mark.parametrize("paths", [
+    "['/tmp/a', '/repo/source.py']", "unknown", "[]",
+    "['/repo/a', '/repo/b']", "['/tmp/a', unknown]",
+])
+def test_other_loops_remain_unresolved_even_after_a_scratch_binding(paths):
+    result = analyze(
+        "from pathlib import Path\ntarget='/tmp/old'\n"
+        f"for target in {paths}:\n Path(target).write_bytes(b'x')"
+    )
+    assert not result.unresolved_variable
+    assert result.unresolved_writes
+
+
+def test_scratch_loop_does_not_hide_explicit_source_write():
+    result = analyze(
+        "from pathlib import Path\nfor target in ['/tmp/a', '/tmp/b']:\n"
+        " Path(target).write_bytes(b'x')\n Path('/repo/source.py').write_text('x')"
+    )
+    assert '/repo/source.py' in result.targets
+
+
+def test_registered_checkout_loop_under_temp_stays_unresolved():
+    result = analyze_payload_write_targets({
+        "tool_name": "Bash", "tool_input": {"command":
+            "python3 - <<'PY'\nfrom pathlib import Path\n"
+            "for target in ['/tmp/checkout/a', '/tmp/checkout/b']:\n"
+            " Path(target).write_bytes(b'x')\nPY"},
+    }, protected_roots=("/tmp/checkout",))
+    assert not result.unresolved_variable
+    assert result.unresolved_writes

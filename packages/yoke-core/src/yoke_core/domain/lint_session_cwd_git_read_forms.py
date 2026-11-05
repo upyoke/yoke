@@ -14,6 +14,7 @@ _GIT_VALUE_FLAGS = frozenset({"-C", "-c", "--config-env", "--git-dir", "--work-t
 GIT_INSPECTION_SUBS = frozenset(
     {
         "status",
+        "grep",
         "log",
         "diff",
         "show",
@@ -147,6 +148,13 @@ def classify_git(tokens: List[str]) -> Optional[str]:
     sub = tokens[index]
     args = tokens[index + 1 :]
     if any(t == "--output" or t.startswith("--output=") for t in args):
+        return None
+    if sub == "grep" and any(
+        t.startswith("-O")
+        or (len(t.split("=", 1)[0]) >= 3
+            and "--open-files-in-pager".startswith(t.split("=", 1)[0]))
+        for t in args
+    ):
         return None
     if sub in GIT_LISTING_SUBS and not _listing_is_read(sub, args):
         return None

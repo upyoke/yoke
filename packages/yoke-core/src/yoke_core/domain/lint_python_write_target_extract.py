@@ -27,7 +27,7 @@ from yoke_contracts.hook_runner.shell_parse import ShellParse, parse_shell
 from yoke_core.domain.lint_session_cwd_target_extract_shell import in_segment_cwd
 
 
-_PYTHON = frozenset({"python", "python3"})
+from yoke_core.domain.lint_python_heredoc_sources import python_sources
 _PATH_WRITE_METHODS = frozenset({"write_text", "write_bytes", "touch", "mkdir"})
 # Receivers that read wrong without parentheses: ``WT / rel.write_text``
 # names a different expression than ``(WT / rel).write_text``.
@@ -56,7 +56,7 @@ def analyze_python_heredoc_writes(
     unresolved: List[str] = []
     detected = False
     free_writes = False
-    for index, source in _python_sources(parsed):
+    for index, source in python_sources(parsed):
         try:
             tree = ast.parse(source)
         except (SyntaxError, ValueError):
@@ -73,30 +73,6 @@ def analyze_python_heredoc_writes(
         _dedupe(unresolved),
         free_writes,
     )
-
-
-def _python_sources(parsed: ShellParse) -> List[Tuple[int, str]]:
-    """Return ``(segment index, body)`` for each heredoc a Python segment reads."""
-    spans: List[Tuple[int, int, int]] = []
-    cursor = 0
-    for index, segment in enumerate(parsed.segments):
-        start = parsed.code.find(segment.text, cursor)
-        if start >= 0:
-            cursor = start + len(segment.text)
-            spans.append((start, cursor, index))
-    sources: List[Tuple[int, str]] = []
-    for heredoc in parsed.heredocs:
-        index = next(
-            (i for start, end, i in spans if start <= heredoc.operator_offset < end),
-            None,
-        )
-        if index is None or parsed.segments[index].program not in _PYTHON:
-            continue
-        body = heredoc.body
-        if parsed.code.startswith("<<-", heredoc.operator_offset):
-            body = "\n".join(line.lstrip("\t") for line in body.split("\n"))
-        sources += [(index, body)]
-    return sources
 
 
 def _dedupe(paths: List[str]) -> Tuple[str, ...]:
@@ -220,6 +196,23 @@ class _PythonWriteVisitor(ast.NodeVisitor):
     def visit_Assign(self, node: ast.Assign) -> None:
         for target in node.targets:
             self._bind(target, node.value)
+        self.generic_visit(node)
+
+    def visit_For(self, node: ast.For) -> None:
+        # A name cannot represent several concrete paths. Keep only proof
+        # that every possible element stays in scratch; all else is unknown.
+        names = [n.id for n in ast.walk(node.target) if isinstance(n, ast.Name)]
+        free = (
+            isinstance(node.target, ast.Name)
+            and isinstance(node.iter, (ast.List, ast.Tuple))
+            and bool(node.iter.elts)
+            and all(self._is_free_path(value) for value in node.iter.elts)
+        )
+        for name in names:
+            self.bindings.pop(name, None)
+            self.free_bindings.discard(name)
+        if free:
+            self.free_bindings.add(node.target.id)
         self.generic_visit(node)
 
     def visit_With(self, node: ast.With) -> None:
