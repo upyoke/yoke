@@ -24,6 +24,10 @@ from yoke_core.domain import (
 
 @pytest.fixture(autouse=True)
 def no_control_plane_calls(monkeypatch):
+    from yoke_core.domain import session_ambient_identity, session_less_actor_binding
+
+    monkeypatch.setattr(session_ambient_identity, "resolve_ambient_session_id", lambda: None)
+    monkeypatch.setattr(session_less_actor_binding, "operating_actor_id", lambda: "test-actor")
     dispatch = mock.Mock(side_effect=AssertionError("unexpected control-plane call"))
     monkeypatch.setattr(deploy_pipeline.control_plane, "call_dispatcher", dispatch)
     yield
