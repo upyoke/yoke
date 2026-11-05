@@ -36,7 +36,7 @@ TOP_LEVEL_KEYS = {
 }
 
 
-@pytest.fixture
+@pytest.fixture(scope="module")
 def repo_root() -> Path:
     here = Path(__file__).resolve()
     for parent in (here, *here.parents):
@@ -45,7 +45,7 @@ def repo_root() -> Path:
     raise RuntimeError("could not infer repo root from test file path")
 
 
-@pytest.fixture
+@pytest.fixture(scope="module")
 def report(repo_root: Path) -> dict:
     return aia.build_report(repo_root, generated_at="1970-01-01T00:00:00Z")
 
@@ -135,7 +135,9 @@ class TestTopLevelShape:
 
 class TestFieldNoteCollection:
     def test_uses_field_note_cli_transport_surface(self, monkeypatch) -> None:
-        monkeypatch.setattr("yoke_cli.commands._helpers.client_project_context", lambda: "1")
+        monkeypatch.setattr(
+            "yoke_cli.commands._helpers.client_project_context", lambda: "1"
+        )
         seen = {}
 
         def fake_call_dispatcher(**kwargs):

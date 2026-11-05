@@ -7,6 +7,8 @@ import json
 import os
 import types
 
+import pytest
+
 from runtime.api.domain.test_webapp_registry_stack import (
     _Recorder,
     _load_pack_module,
@@ -250,8 +252,20 @@ def _runner_stack(
         authority_intent.AUTHORITY_INTENT_ENV,
         _authority_envelope(authority),
     )
+    recorder.runner_args = args
+    recorder.runner_authority = authority
+    recorder.fleet_config = fleet_config
+    recorder.authority_intent = authority_intent
+    recorder.internals = internals
     stack = module.WebappRunnerFleetStack("yoke-runner-fleet", args)
     return recorder, stack
 
 
 __all__ = ["_REPOSITORY_TOKEN", "_runner_stack"]
+
+
+@pytest.fixture(scope="module")
+def default_runner_stack():
+    """Build the default resource graph once; consumers treat it as read-only."""
+    with pytest.MonkeyPatch.context() as patch:
+        yield _runner_stack(patch)

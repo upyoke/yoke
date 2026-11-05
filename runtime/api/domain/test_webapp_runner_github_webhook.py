@@ -7,13 +7,14 @@ import pytest
 from runtime.api.domain.webapp_runner_fleet_test_support import (
     _REPOSITORY_TOKEN,
     _runner_stack,
+    default_runner_stack as default_runner_stack,
 )
 
 
 def test_repository_automation_reconciles_with_secret_installation_token(
-    monkeypatch,
+    default_runner_stack,
 ):
-    recorder, stack = _runner_stack(monkeypatch)
+    recorder, stack = default_runner_stack
 
     provider = recorder.single("runnerFleetGithubProvider")
     assert provider.kwargs["owner"] == "upyoke"
@@ -30,9 +31,7 @@ def test_repository_automation_reconciles_with_secret_installation_token(
     assert configuration["url"].value == "runnerFleetWebhookUrl.function_url"
     assert configuration["content_type"] == "json"
     assert configuration["insecure_ssl"] is False
-    assert configuration["secret"].value == (
-        "runnerFleetWebhookSecretValue.result"
-    )
+    assert configuration["secret"].value == ("runnerFleetWebhookSecretValue.result")
     assert webhook.opts.provider is provider
     ingress_ready = [
         recorder.single("runnerFleetWebhookUrlPermission"),

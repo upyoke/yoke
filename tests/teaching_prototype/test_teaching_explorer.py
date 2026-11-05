@@ -1,6 +1,7 @@
 """The responsive guide preserves canonical context nodes and relationship chains."""
 
 import json
+from copy import deepcopy
 from pathlib import Path
 
 import pytest
@@ -10,20 +11,20 @@ from tests.teaching_prototype.yokepedia_page import inline_scripts, page_data
 TOOLS = Path(__file__).resolve().parents[2] / 'docs/teaching/tools'
 
 
-@pytest.fixture
-def explorer(monkeypatch):
-    monkeypatch.syspath_prepend(str(TOOLS))
-    import model
-    import render_explorer
-    from guide_data import GuideData
+@pytest.fixture(scope="module")
+def explorer():
+    with pytest.MonkeyPatch.context() as patch:
+        patch.syspath_prepend(str(TOOLS))
+        import model
+        import render_explorer
+        from guide_data import GuideData
 
-    loaded = model.load()
-    pages = GuideData(loaded, {}, {}, lambda _: None)
-    views = {}
-    render_explorer.build_explorer(views, pages)
-    assert not loaded.problems
-    return loaded, views, render_explorer
-
+        loaded = model.load()
+        pages = GuideData(loaded, {}, {}, lambda _: None)
+        views = {}
+        render_explorer.build_explorer(views, pages)
+        assert not loaded.problems
+        yield loaded, views, render_explorer
 
 def test_map_contains_sources_instead_of_research_proposals(explorer):
     model, _, renderer = explorer
@@ -74,6 +75,7 @@ def test_single_page_embeds_every_node_document_and_record(explorer):
 
 def test_missing_navigation_assignment_is_actionable(explorer):
     model, _, renderer = explorer
+    model = deepcopy(model)
     model.surfaces['new-surface'] = {'title': 'New surface'}
     renderer.map_nodes(model)
     assert model.problems[0].code == 'EXPLORER_SOURCE'

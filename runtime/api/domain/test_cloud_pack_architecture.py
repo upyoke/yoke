@@ -3,13 +3,23 @@
 from __future__ import annotations
 
 import base64
+from dataclasses import replace
 import json
 
 import pytest
 
 from yoke_core.domain.pack_catalog import pack_version_root
 from runtime.api.domain.test_webapp_registry_stack import _Recorder, _load_pack_module
-from runtime.api.domain.webapp_runner_fleet_test_support import _runner_stack
+from runtime.api.domain.webapp_runner_fleet_test_support import (
+    _runner_stack,
+    default_runner_stack as default_runner_stack,
+)
+
+
+@pytest.fixture(scope="module")
+def vps_module():
+    with pytest.MonkeyPatch.context() as patch:
+        yield _load_pack_module(patch, _Recorder(), "webapp_vps_stack.py")
 
 
 @pytest.mark.parametrize(
@@ -29,9 +39,8 @@ from runtime.api.domain.webapp_runner_fleet_test_support import _runner_stack
         "c99gn.large",
     ],
 )
-def test_graviton_processor_suffix_selects_arm_ami(monkeypatch, instance_type):
-    module = _load_pack_module(monkeypatch, _Recorder(), "webapp_vps_stack.py")
-    assert module._ami_arch_for_instance(instance_type) == "arm64"
+def test_graviton_processor_suffix_selects_arm_ami(vps_module, instance_type):
+    assert vps_module._ami_arch_for_instance(instance_type) == "arm64"
 
 
 @pytest.mark.parametrize(
@@ -46,9 +55,8 @@ def test_graviton_processor_suffix_selects_arm_ami(monkeypatch, instance_type):
         "c7i.largeg",
     ],
 )
-def test_other_processors_select_x86_ami(monkeypatch, instance_type):
-    module = _load_pack_module(monkeypatch, _Recorder(), "webapp_vps_stack.py")
-    assert module._ami_arch_for_instance(instance_type) == "amd64"
+def test_other_processors_select_x86_ami(vps_module, instance_type):
+    assert vps_module._ami_arch_for_instance(instance_type) == "amd64"
 
 
 @pytest.mark.parametrize(
@@ -62,24 +70,27 @@ def test_other_processors_select_x86_ami(monkeypatch, instance_type):
         ("x86_64", "x64", "amd64"),
     ],
 )
-def test_fleet_ami_host_and_broker_share_normalized_architecture(
-    monkeypatch,
-    architecture,
-    runner_arch,
-    ami_arch,
+def test_runner_architecture_normalization(
+    default_runner_stack, architecture, runner_arch, ami_arch
 ):
-    recorder = _Recorder()
-    internals = _load_pack_module(
-        monkeypatch,
-        recorder,
-        "webapp_runner_fleet_internals.py",
+    recorder, _ = default_runner_stack
+    assert recorder.internals._ami_arch(architecture) == ami_arch
+    assert (
+        recorder.fleet_config.normalize_runner_architecture(architecture) == runner_arch
     )
-    assert internals._ami_arch(architecture) == ami_arch
+
+
+@pytest.mark.parametrize(
+    "architecture,runner_arch", [("arm64", "arm64"), ("x86_64", "x64")]
+)
+def test_fleet_ami_host_and_broker_share_normalized_architecture(
+    monkeypatch, architecture, runner_arch
+):
     recorder, _ = _runner_stack(
-        monkeypatch,
-        recorder=recorder,
-        config_overrides={"architecture": architecture},
+        monkeypatch, config_overrides={"architecture": architecture}
     )
+    ami_arch = "arm64" if runner_arch == "arm64" else "amd64"
+    assert recorder.internals._ami_arch(architecture) == ami_arch
     launch = recorder.single("runnerFleetLaunchTemplate")
     user_data = base64.b64decode(launch.kwargs["user_data"]).decode()
     assert f"RUNNER_ARCH={runner_arch}" in user_data
@@ -91,18 +102,23 @@ def test_fleet_ami_host_and_broker_share_normalized_architecture(
 
 
 @pytest.mark.parametrize("architecture", ["", "arm", "armv7", "riscv64", "typo"])
-def test_unknown_runner_architecture_refuses_before_aws_resources(
-    monkeypatch,
-    architecture,
-):
+def test_unknown_runner_architecture_refuses(default_runner_stack, architecture):
+    recorder, _ = default_runner_stack
+    with pytest.raises(
+        ValueError, match="unsupported_runner_architecture:.*set architecture"
+    ):
+        recorder.fleet_config.validate_runner_fleet_configuration(
+            replace(recorder.runner_args, architecture=architecture)
+        )
+
+
+def test_unknown_runner_architecture_refuses_before_aws_resources(monkeypatch):
     recorder = _Recorder()
     with pytest.raises(
         ValueError, match="unsupported_runner_architecture:.*set architecture"
     ):
         _runner_stack(
-            monkeypatch,
-            recorder=recorder,
-            config_overrides={"architecture": architecture},
+            monkeypatch, recorder=recorder, config_overrides={"architecture": "typo"}
         )
     assert not any(
         resource.resource_type.startswith("aws:") for resource in recorder.resources
