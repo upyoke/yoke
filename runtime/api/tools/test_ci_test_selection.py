@@ -114,3 +114,7 @@ def test_worker_collection_fingerprint_reaches_the_controller_log():
     selection.pytest_testnodedown(node, None)
     assert 'CI collection gw0:' in reporter.write_line.call_args.args[0]
     assert '"count": 4' in reporter.write_line.call_args.args[0]
+
+
+def test_worker_crash_without_collection_telemetry_keeps_its_original_verdict():
+    selection.pytest_testnodedown(SimpleNamespace(), RuntimeError("worker lost"))

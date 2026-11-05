@@ -157,7 +157,8 @@ def pytest_collection_modifyitems(config, items):
 @pytest.hookimpl(optionalhook=True)
 def pytest_testnodedown(node, error):
     """Retain each worker's unsplit collection facts in the controller log."""
-    fingerprint = node.workeroutput.get("ci_collection")
+    fingerprint = getattr(node, "workeroutput", {}).get("ci_collection")
     if fingerprint:
         reporter = node.config.pluginmanager.get_plugin("terminalreporter")
-        reporter.write_line(f"CI collection {node.gateway.id}: " + json.dumps(fingerprint))
+        if reporter is not None:
+            reporter.write_line(f"CI collection {node.gateway.id}: " + json.dumps(fingerprint))
