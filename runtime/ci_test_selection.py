@@ -9,7 +9,6 @@ import pytest
 #: Tests using the installed product environment. Their files share one
 #: shard so the product install that ``product_venv`` builds runs once.
 PRODUCT_WHEEL_FIXTURES = frozenset({"product_venv", "product_wheelhouse"})
-PRODUCT_WHEEL_UNIT = "product wheel files"
 
 
 def version_independent(node_id: str, fixtures=()) -> bool:
@@ -73,7 +72,8 @@ def pytest_collection_modifyitems(config, items):
         (deselected if scope == "interpreter" and independent else kept).append(item)
     items[:] = kept
     config.hook.pytest_deselected(items=deselected)
-    durations = json.loads(open(".test_durations", encoding="utf-8").read())
+    with open(".test_durations", encoding="utf-8") as profile:
+        durations = json.load(profile)
     weights = file_weights(items, durations)
     items.sort(key=lambda item: (-weights[item.nodeid.split("::", 1)[0]],
                                  item.nodeid.split("::", 1)[0]))

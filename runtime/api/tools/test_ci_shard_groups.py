@@ -81,8 +81,11 @@ def test_workflow_collects_once_alongside_wheels_before_shards():
     root = Path(__file__).resolve().parents[3]
     jobs = yaml.safe_load((root / ".github/workflows/yoke-ci.yml").read_text())["jobs"]
     run = next(step["run"] for step in jobs["repo_contracts"]["steps"]
-               if step["name"] == "Build portable product wheels")
+               if step["name"] == "Build product wheels and collect shard files")
     assert "yoke_core.tools.ci_shard_groups &" in run
     assert 'wait "$grouping_pid"' in run
+    upload = next(step for step in jobs["repo_contracts"]["steps"]
+                  if step["name"] == "Share file groups with every shard")
+    assert upload["if"] == "always()"
     downloads = [step.get("with", {}).get("name") for step in jobs["test_shard"]["steps"]]
     assert "ci-shard-groups" in downloads
