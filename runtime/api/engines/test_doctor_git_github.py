@@ -15,7 +15,6 @@ from unittest.mock import patch
 import pytest
 from yoke_contracts.github_app_installation_permissions import (
     GITHUB_ISSUES_READ_PERMISSION_LEVELS,
-    GITHUB_METADATA_READ_PERMISSION_LEVELS,
 )
 from yoke_core.domain.item_worktree_schema import ITEM_WORKTREES_TABLE_SQL
 from yoke_core.engines._project_identity_test_helpers import (
@@ -220,7 +219,7 @@ class TestHcGhOrphanDetection:
         assert "#999" in rec.results[0].detail
         assert (
             mock_resolve.call_args.kwargs["required_permissions"]
-            is GITHUB_METADATA_READ_PERMISSION_LEVELS
+            is GITHUB_ISSUES_READ_PERMISSION_LEVELS
         )
         assert mock_rest.call_args.kwargs["search"] == "[YOK- is:issue"
 
@@ -241,7 +240,9 @@ class TestHcGhOrphanDetection:
         rec = _run_hc(hc_gh_orphan_detection, conn)
 
         assert rec.results[0].result == "WARN"
-        assert "search failed" in rec.results[0].detail
+        assert "search unreadable" in rec.results[0].detail
+        assert "Issues read access" in rec.results[0].detail
+        assert "retry" in rec.results[0].detail
 
 
 class TestHcWrongRepoIssues:
