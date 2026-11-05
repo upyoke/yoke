@@ -104,3 +104,28 @@ __all__ = [
     "pending_entries",
     "stamp_history",
 ]
+
+
+from contextlib import contextmanager
+
+
+@contextmanager
+def entry_database(tmp_path: Path, surface: str):
+    """Use existing templates for an empty universe or a seeded current one.
+
+    A new universe receives today's additive schema before history is stamped;
+    a bare database without that schema is not a boot migration target.
+    """
+    from runtime.api.fixtures.file_test_db import (
+        apply_booted_schema,
+        connect_test_db,
+        init_test_db,
+    )
+
+    schema = apply_booted_schema if surface == "empty" else None
+    with init_test_db(tmp_path, apply_schema=schema) as token:
+        conn = connect_test_db(token)
+        try:
+            yield conn
+        finally:
+            conn.close()
