@@ -22,6 +22,7 @@ YOKE_TREE_IGNORED_NAMES = (
     ".merge-lock",
     "install-manifest.json",
     "install-pending.json",
+    "tmp/",
 )
 
 # Surfaces a bundle must never name as contract files: generated board
