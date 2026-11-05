@@ -11,6 +11,11 @@ from yoke_core.domain.item_refs_schema import ensure_item_refs_view
 def test_launch_assignment_backfill_and_drop():
     conn = sqlite3.connect(":memory:")
     conn.executescript("""
+        CREATE TABLE harness_sessions(
+            session_id TEXT PRIMARY KEY,presentation_surface TEXT,
+            presentation_state TEXT,presentation_mode TEXT,presentation_source TEXT,
+            presentation_observed_at TEXT);
+        INSERT INTO harness_sessions(session_id) VALUES ('native-chat');
         CREATE TABLE projects(id INTEGER PRIMARY KEY,public_item_prefix TEXT);
         INSERT INTO projects VALUES (1,'APP'),(2,'OTHER');
         CREATE TABLE items(id INTEGER PRIMARY KEY,project_id INTEGER,project_sequence INTEGER);
@@ -27,7 +32,15 @@ def test_launch_assignment_backfill_and_drop():
     )
     migration.apply(conn)
     migration.invariants(conn)
+    assert (
+        conn.execute("SELECT harness_title FROM harness_sessions").fetchone()[0] is None
+    )
+    conn.execute("UPDATE harness_sessions SET harness_title='Review'")
     migration.apply(conn)
+    assert (
+        conn.execute("SELECT harness_title FROM harness_sessions").fetchone()[0]
+        == "Review"
+    )
     assert dict(conn.execute("SELECT launch_id,item_id FROM session_launches")) == {
         "assigned": 73,
         "unassigned": None,

@@ -19,6 +19,8 @@ RETIRES_INVARIANTS = (
 
 
 def apply(conn: Any) -> None:
+    if _table_exists(conn, "harness_sessions"):
+        _add_column_if_not_exists(conn, "harness_sessions", "harness_title", "TEXT")
     if not _table_exists(conn, "session_launches"):
         return
     _add_column_if_not_exists(
@@ -52,6 +54,7 @@ def invariants(conn: Any) -> None:
     _model_level_invariants(conn)
     if _table_exists(conn, "harness_sessions"):
         for column in (
+            "harness_title",
             "presentation_surface",
             "presentation_state",
             "presentation_mode",
