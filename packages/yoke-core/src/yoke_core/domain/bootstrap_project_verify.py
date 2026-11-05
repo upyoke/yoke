@@ -250,8 +250,16 @@ def run_verify(
     env_names: list[str] = []
     prod_has_reviewers = False
     production_env_name = ""
-    if envs_resp is not None and isinstance(envs_resp.body, dict):
-        for entry in envs_resp.body.get("environments", []) or []:
+    envs_readable = (
+        envs_resp is not None and isinstance(envs_resp.body, dict)
+        and isinstance(envs_resp.body.get("environments"), list)
+        and all(
+            isinstance(entry, dict) and isinstance(entry.get("name"), str)
+            for entry in envs_resp.body["environments"]
+        )
+    )
+    if envs_readable:
+        for entry in envs_resp.body["environments"]:
             if isinstance(entry, dict):
                 name = entry.get("name")
                 if isinstance(name, str):
@@ -278,7 +286,10 @@ def run_verify(
             )
     else:
         verify_fail += 1
-        print("[FAIL] Environment: none registered")
+        print(
+            "[FAIL] Environment: none registered" if envs_readable
+            else "[FAIL] Environment: unreadable; check GitHub Actions read access"
+        )
 
     total = verify_pass + verify_fail
     print()

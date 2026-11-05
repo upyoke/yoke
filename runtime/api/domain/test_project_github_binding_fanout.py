@@ -29,6 +29,7 @@ _FULL_PERMISSIONS = {
     "contents": "write",
     "actions": "write",
     "checks": "read",
+    "statuses": "read",
     "workflows": "write",
     "secrets": "write",
     "actions_variables": "write",

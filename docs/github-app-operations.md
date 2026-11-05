@@ -91,13 +91,13 @@ Set or review these fields:
 | App-level webhook | Hosted Product App: active at its exact Platform origin plus `/api/github/webhooks`, using an environment-owned webhook secret in Platform secret custody. |
 | Optional webhook events | Leave the checklist entirely unchecked. GitHub sends `github_app_authorization`, `installation`, and `installation_repositories` automatically; they are not optional subscriptions, so public App metadata correctly reports `events: []`. |
 
-The runner fleet uses a Pulumi-managed **repository webhook**. It is not the
-App-level webhook above.
+The runner fleet uses a Pulumi-managed **repository webhook**, separate from the App-level webhook.
 
 Baseline repository permissions are:
 
 - Actions: write
 - Checks: read
+- Commit statuses: read
 - Contents: write
 - Issues: write
 - Metadata: read

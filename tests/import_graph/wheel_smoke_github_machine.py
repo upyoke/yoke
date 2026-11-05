@@ -144,6 +144,7 @@ def smoke(
                             "permissions": {
                                 "actions": "write",
                                 "checks": "read",
+                                "statuses": "read",
                                 "contents": "write",
                                 "issues": "write",
                                 "metadata": "read",

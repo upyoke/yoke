@@ -102,6 +102,7 @@ Authoritative source:
 | **Workflows** | write | Manage the CI/CD workflow files Yoke ships into `.github/workflows/` |
 | **Actions** | write | Kick off (dispatch) the deploy/CI workflows Yoke orchestrates |
 | **Checks** | read | Read a PR's CI results and merge only when green |
+| **Commit statuses** | read | Read required legacy status contexts in the PR's check rollup |
 | **Secrets** | write | Seed the encrypted deploy credentials your generated pipelines need |
 | **Variables** | write | Set non-secret Actions config (CI-enable flags, runner routing) |
 
@@ -141,7 +142,10 @@ enabled; new projects default to `disabled`, which does zero issue writes.
 into your default branch when you ship a work item (`/yoke usher`), plus the
 agent-driven "open a PR" command. This permission is specifically for
 *creating* PRs; merging the PR is authorized by Contents: write, and the
-find-PR and mergeability reads run at Pull requests: read.
+find-PR and mergeability reads run at Pull requests: read. Issue searches
+request Issues: read, PR searches request Pull requests: read, and searches
+that include both types request both. Hidden or incomplete search results
+are unreadable, rather than proof that no matching work exists.
 
 **Contents: write** — Delivering your code over git. Pushing the worktree
 branch, pushing the base branch when it is ahead, **merging the PR** (`PUT
@@ -167,16 +171,23 @@ exercised level of this grant.
 *triggering* a run as a write. Merely *watching* a run — its status, jobs, and
 logs — needs only read, and Yoke uses read-scoped tokens for exactly that. The
 write level is spent only at the moment a run is started. Only fires for
-projects with a GitHub-Actions deploy stage.
+projects with a GitHub-Actions deploy stage. Listing deployment environments
+also uses Actions: read; an unreadable listing is distinct from an empty one.
 
 **Checks: read** — Before merging a PR, reading its CI check-runs on the head
 commit (`GET …/commits/{sha}/check-runs`) and merging only if they pass.
-Strictly read-only — Yoke never creates or re-runs a check — and it uses the
-modern Check Runs API, not the legacy commit-status API. Its consumers are the
+Strictly read-only — Yoke never creates or re-runs a check. Its consumers are the
 PR-merge gate and the post-push proof a direct standalone landing runs against
 the commit it just published; the second reads under installation authority,
 because a direct merge is authorized that way. (The deploy-branch CI advisory
 reads workflow-run status under Actions: read, not this permission.)
+
+**Commit statuses: read** — Read legacy status contexts alongside check runs
+in the pull request's GraphQL check rollup. That combined query requests
+Pull requests, Contents, Checks and Commit statuses at read level. Missing
+access or a hidden response field is unreadable, never proof of passing checks.
+Grant the named permission on the GitHub App, approve the installation's
+updated permissions, and retry the landing read. Yoke never writes statuses.
 
 **Secrets: write** — Seeding the SSH deploy credentials (key, host, user) that
 Yoke's generated deploy workflows need to reach your server. Each value is
@@ -202,8 +213,12 @@ repository for automated deploys (silently skipped if not granted), standing
 up a self-hosted runner fleet, and applying the declared merge-queue ruleset
 plus ``allow_auto_merge`` from ``.yoke/merge-queue.json`` via
 ``yoke github merge-queue apply`` (fails closed when Administration is
-absent). If you attach a repository you already have and never retune the
-queue from Yoke, you never need this. Two other Administration touches —
+absent). Doctor also needs Administration: write to read the full declared
+queue settings: GitHub hides bypass actors without this authority even on
+GET requests. Doctor remains read-only; hidden auto-merge or bypass fields
+fail as unreadable with an access recovery, rather than as drift or a pass.
+Without this grant Doctor still checks the readable enforcement and workflow
+with a metadata/contents token. Two other Administration touches —
 reading branch protection, reading runner status — are Administration:
 **read**, and both degrade to a warning when Administration is absent.
 

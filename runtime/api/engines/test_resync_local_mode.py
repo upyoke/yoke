@@ -78,11 +78,9 @@ class _FakeHttpResponse:
 
 
 class _RecordingGithubApi:
-    """Replacement for ``gh_rest_transport.urlopen``.
+    """Record requests and return GitHub-shaped issue/search/GraphQL fixtures.
 
-    Records (method, url, Authorization) for every request and routes to
-    canned GitHub-shaped responses. ``issues`` feeds the repo issue list;
-    ``graphql_bodies`` maps issue number -> body for the heavy fetch.
+    ``graphql_bodies`` maps issue numbers to heavy-fetch bodies.
     """
 
     def __init__(self, *, issues=None, graphql_bodies=None) -> None:
@@ -103,7 +101,9 @@ class _RecordingGithubApi:
         assert url.startswith(gh_rest_transport.GITHUB_API_BASE), url
         api_path = urllib.parse.urlsplit(url).path
         if method == "GET" and api_path == "/search/issues":
-            return _FakeHttpResponse({"total_count": 0, "items": []})
+            return _FakeHttpResponse({
+                "total_count": 0, "incomplete_results": False, "items": [],
+            })
         if method == "GET" and api_path.endswith("/issues"):
             return _FakeHttpResponse(self._issues)
         if method == "POST" and api_path == "/graphql":

@@ -9,8 +9,7 @@ from pathlib import Path
 _REPO_ROOT = Path(__file__).resolve().parents[3]
 _SOURCE_ROOT = _REPO_ROOT / "packages/yoke-core/src/yoke_core"
 _EXPLICIT_SCOPE_HELPERS = frozenset({
-    "_target_for",
-    "_validate_and_resolve",
+    "_target_for", "_validate_and_resolve",
     "_validate_and_resolve_auth",
     "graphql_query",
     "resolve_auth",
@@ -25,14 +24,15 @@ _PRIVILEGED_SCOPE_NAMES = frozenset({
     "RUNNERS_STATUS_PERMISSION_LEVELS",
 })
 _PRIVILEGED_PERMISSION_KEYS = frozenset({
-    "administration",
-    "repository_hooks",
+    "administration", "repository_hooks",
 })
 _PRIVILEGED_PERMISSION_KEY_NAMES = {
     "ADMINISTRATION_PERMISSION": "administration",
     "REPOSITORY_HOOKS_PERMISSION": "repository_hooks",
 }
 _PRIVILEGED_SCOPE_ALLOWLIST = frozenset({
+    ("packages/yoke-core/src/yoke_core/engines/doctor_hc_merge_queue.py",
+     "hc_merge_queue_binding", "GITHUB_ADMINISTRATION_WRITE_PERMISSION_LEVELS"),
     (
         "packages/yoke-core/src/yoke_core/domain/bootstrap_project_setup.py",
         "run_setup",

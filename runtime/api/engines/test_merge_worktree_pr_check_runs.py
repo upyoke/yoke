@@ -59,6 +59,7 @@ def _pr_node(
         "autoMergeRequest": {"enabledAt": "2026-09-21T00:00:00Z"}
         if auto_merge
         else None,
+        "mergeQueueEntry": None,
         "mergeStateStatus": merge_state,
         "headRefOid": head,
         "mergedAt": merged_at or None,
@@ -325,6 +326,7 @@ def test_invalid_required_check_clock_makes_projection_unreadable(
             "state": "SUCCESS",
             "createdAt": clock,
             "isRequired": True,
+            "targetUrl": "opaque/url",
         }
     _wire(monkeypatch, _pr_node(contexts=[node]))
     projection = checks_mod.read_pr_landing_and_required_checks(_ctx(), "42")

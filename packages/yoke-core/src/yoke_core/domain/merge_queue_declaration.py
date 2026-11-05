@@ -197,9 +197,7 @@ def diff_declared_against_live(
                 )
 
     want_auto = bool(declared["repository"]["allow_auto_merge"])
-    if live_allow_auto_merge is None:
-        problems.append("live allow_auto_merge could not be read")
-    elif bool(live_allow_auto_merge) != want_auto:
+    if live_allow_auto_merge is not None and bool(live_allow_auto_merge) != want_auto:
         problems.append(
             "allow_auto_merge drifted "
             f"(declared={want_auto}; live={bool(live_allow_auto_merge)})"

@@ -1,13 +1,14 @@
 """Merge-queue binding health check verdicts."""
 
 from runtime.api.merge_queue_doctor_test_helpers import (
+    auth,
     FakeConn,
     WORKFLOW_COMMENT_ONLY_MERGE_GROUP,
     declared,
     live_rules,
     run,
 )
-from yoke_core.domain.project_github_auth import ProjectGithubAuthError
+from yoke_core.domain.project_github_auth import ProjectGithubAuthError, MissingPermission
 from yoke_core.engines import doctor_hc_merge_queue as hc_mod
 from yoke_core.engines.doctor_report import DoctorArgs, RecordCollector
 
@@ -166,3 +167,72 @@ def test_allow_auto_merge_drift_fails(monkeypatch):
     )
     assert result.result == "FAIL"
     assert "allow_auto_merge drifted" in result.detail
+
+
+def test_doctor_requests_administration_write_but_only_reads(monkeypatch):
+    requested = []
+
+    def resolve(project, **kwargs):
+        requested.append(kwargs["required_permissions"])
+        return auth()
+
+    result = run(
+        monkeypatch, conn=FakeConn(), rules_body=live_rules(),
+        declaration=declared(), resolve_auth=resolve,
+    )
+    assert result.result == "PASS"
+    assert requested == [{
+        "metadata": "read", "contents": "read", "administration": "write",
+    }]
+
+
+def test_hidden_auto_merge_fails_with_access_recovery(monkeypatch):
+    result = run(
+        monkeypatch, conn=FakeConn(), rules_body=live_rules(),
+        declaration=declared(), allow_auto_merge=None,
+    )
+    assert result.result == "FAIL"
+    assert "allow_auto_merge unreadable" in result.detail
+    assert "allow_auto_merge drifted" not in result.detail
+    assert "Administration: write" in result.detail
+
+
+def test_hidden_bypass_fails_with_access_recovery(monkeypatch):
+    result = run(
+        monkeypatch, conn=FakeConn(), rules_body=live_rules(),
+        declaration=declared(), hidden_bypass=True,
+    )
+    assert result.result == "FAIL"
+    assert "bypass_actors unreadable" in result.detail
+    assert "bypass_actors drifted" not in result.detail
+    assert "Administration: write" in result.detail
+
+
+def test_real_bypass_drift_fails(monkeypatch):
+    result = run(
+        monkeypatch, conn=FakeConn(), rules_body=live_rules(),
+        declaration=declared(), bypass_actors=[],
+    )
+    assert result.result == "FAIL"
+    assert "bypass_actors drifted" in result.detail
+
+
+def test_missing_administration_uses_read_token_and_never_passes(monkeypatch):
+    requested = []
+
+    def resolve(project, **kwargs):
+        permissions = kwargs["required_permissions"]
+        requested.append(permissions)
+        if "administration" in permissions:
+            raise MissingPermission(project, "administration not granted")
+        return auth()
+
+    result = run(
+        monkeypatch, conn=FakeConn(), rules_body=live_rules(),
+        declaration=declared(), resolve_auth=resolve,
+    )
+    assert result.result == "FAIL"
+    assert requested[-1] == {"metadata": "read", "contents": "read"}
+    assert "administrative settings unreadable" in result.detail
+    assert "Administration: write" in result.detail
+    assert "rerun Doctor" in result.detail

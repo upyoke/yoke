@@ -45,6 +45,7 @@ def _verified(
             "contents": "write",
             "actions": "write",
             "checks": "read",
+            "statuses": "read",
             "workflows": "write",
             "secrets": "write",
             "actions_variables": "write",

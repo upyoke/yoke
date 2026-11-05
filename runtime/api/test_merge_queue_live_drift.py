@@ -76,7 +76,7 @@ def _live_rules(contexts):
 @pytest.fixture
 def rest(monkeypatch):
     """Stub the three REST reads the comparison makes."""
-    calls = {"repo": {"allow_auto_merge": True}, "ruleset": {}}
+    calls = {"repo": {"allow_auto_merge": True}, "ruleset": {"bypass_actors": []}}
 
     def _repo(owner, repo, *, token):
         if isinstance(calls["repo"], Exception):
@@ -108,6 +108,21 @@ def test_matching_ruleset_reports_no_drift(rest, monkeypatch):
     )
     assert report.drifted is False
     assert report.unreadable == ()
+
+
+@pytest.mark.parametrize("surface,field", [
+    ("repo", "allow_auto_merge"), ("ruleset", "bypass_actors"),
+])
+def test_hidden_administrative_fields_are_unreadable_not_drift(rest, surface, field):
+    rest[surface] = {}
+    report = compare_declared_against_live(
+        DECLARED, owner=OWNER, repo=REPO,
+        rules=_live_rules(["shard-1"]), token="t",
+    )
+    assert report.drift == ()
+    assert any(field in line for line in report.unreadable)
+    assert "Administration: write" in report.unreadable[0]
+    assert "rerun Doctor" in report.unreadable[0]
 
 
 def test_a_live_ruleset_requiring_less_than_declared_is_drift(rest):

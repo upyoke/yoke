@@ -165,7 +165,15 @@ def _check_github_actions_infrastructure(
 
     # 3d. Prod environment
     if token and github_repo:
-        if _rest_environment_exists(github_repo, "prod", token):
+        try:
+            environment_exists = _rest_environment_exists(github_repo, "prod", token)
+        except gh_rest_transport.RestTransportError as exc:
+            _check_fail(
+                counters, f"GitHub environments unreadable: {exc}",
+                "Check GitHub App Actions read access for this repository.",
+            )
+            return
+        if environment_exists:
             _check_pass(counters, "GitHub environment 'prod' exists")
         else:
             _check_fail(
@@ -197,21 +205,18 @@ def _rest_actions_secret_names(repo: str, token: str) -> list[str]:
 
 
 def _rest_environment_exists(repo: str, name: str, token: str) -> bool:
-    try:
-        resp = gh_rest_transport.request_with_retry(
-            gh_rest_transport.RestRequest(
-                method="GET", path=f"/repos/{repo}/environments",
-            ),
-            token=token,
-        )
-    except gh_rest_transport.RestTransportError:
-        return False
-    if not isinstance(resp.body, dict):
-        return False
-    for entry in resp.body.get("environments", []) or []:
-        if isinstance(entry, dict) and entry.get("name") == name:
-            return True
-    return False
+    resp = gh_rest_transport.request_with_retry(
+        gh_rest_transport.RestRequest(
+            method="GET", path=f"/repos/{repo}/environments",
+        ),
+        token=token,
+    )
+    if not isinstance(resp.body, dict) or not isinstance(resp.body.get("environments"), list):
+        raise gh_rest_transport.RestTransportError("response has no environments list")
+    for entry in resp.body["environments"]:
+        if not isinstance(entry, dict) or not isinstance(entry.get("name"), str):
+            raise gh_rest_transport.RestTransportError("response has unreadable environment name")
+    return any(entry["name"] == name for entry in resp.body["environments"])
 
 
 def _check_pipeline_scripts(_ctx: ValidateContext, counters: Counters) -> None:
