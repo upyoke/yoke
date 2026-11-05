@@ -138,6 +138,7 @@ const contents=document.querySelector(".content");
 const chrome=createWorkbenchChrome({client:context.client,context,documentNode:document,
  mountedSlotNodes:[],options:{runtimeIdentity:{version:"2.3.4",build:"verified-candidate",environmentLabel:"hosted",installKind:"source",portabilityMode:"hosted"},currentActor:{kind:"human",label:"Ben Bauman"},capabilities:context.capabilities},
  resolvedSections:{},resolvedSlots:{},slots:{}});
+chrome.brand.innerHTML=${JSON.stringify(await readFile(path.join(root,"yoke-wordmark.svg"),"utf8"))};
 chrome.main.replaceChildren(...contents.childNodes);
 document.querySelector(".universe-app-root").replaceChildren(chrome.header,chrome.shell);
 chrome.orgContext.textContent="upyoke";
