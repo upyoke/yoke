@@ -105,12 +105,19 @@ def test_source_packages_and_project_checks_do_not_gain_bare_aliases(
         assert reachable_tests([subject], index) == {"checks/test_named.py"}
 
 
-def test_public_installer_helper_selects_all_importers(monkeypatch):
+def test_public_installer_helper_selects_all_importers(tmp_path: Path, monkeypatch):
     monkeypatch.setattr(
         "yoke_core.tools._impacted_import_index.current_test_roots",
         lambda: ("tests/",),
     )
-    root = Path(__file__).resolve().parents[3]
+    source = Path(__file__).resolve().parents[3]
+    root = tmp_path
+    helper = "tests/installer/public_installer_helpers.py"
+    _write(root, helper, (source / helper).read_text(encoding="utf-8"))
+    for path in (source / "tests/installer").glob("test_public_installer_*.py"):
+        body = path.read_text(encoding="utf-8")
+        if "from public_installer_helpers import" in body:
+            _write(root, path.relative_to(source).as_posix(), body)
     index = build_import_index(root)
     expected = {
         path.relative_to(root).as_posix()
