@@ -195,15 +195,14 @@ def test_new_correction_plan_replaces_only_the_selected_member_failure(test_db):
 
     accepted = _snapshot(test_db, RUN)
     _correct(test_db, correction, label="changed after acceptance")
-    with pytest.raises(QaPlanError, match="case already has passed acceptance"):
-        refresh_selected_cases(
-            test_db,
-            run_id=RUN,
-            stage=STAGE,
-            member=MEMBERS[0],
-            plan_id=correction,
-            cases=_plan_snapshot(test_db, correction, project_id=1)["cases"],
-        )
+    refresh_selected_cases(
+        test_db,
+        run_id=RUN,
+        stage=STAGE,
+        member=MEMBERS[0],
+        plan_id=correction,
+        cases=_plan_snapshot(test_db, correction, project_id=1)["cases"],
+    )
     assert _snapshot(test_db, RUN) == accepted
     selections = _snapshot(test_db, RUN).get("selections", [])
     assert len([value for value in selections if value.get("member_item_id")]) == 1
@@ -234,9 +233,14 @@ def test_singleton_refresh_preserves_another_members_passed_contract(test_db):
     _fail(test_db, failed)
     before = _snapshot(test_db, RUN)
     _correct(test_db, plan)
-    with pytest.raises(QaPlanError, match="case already has passed acceptance"):
-        rematerialize_for_deployment_stage(test_db, **_subject())
+    result = rematerialize_for_deployment_stage(test_db, **_subject())
+    assert len(result["created_requirement_ids"]) == 1
     assert _snapshot(test_db, RUN) == before
+    row = test_db.execute(
+        "SELECT instructions FROM qa_requirements WHERE id=%s",
+        (result["created_requirement_ids"][0],),
+    ).fetchone()
+    assert row[0] == "Run the corrected member probe."
 
 
 def test_missing_singleton_contract_still_refuses_historical_reconstruction(test_db):

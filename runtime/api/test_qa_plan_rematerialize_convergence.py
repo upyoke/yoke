@@ -170,7 +170,7 @@ def test_explicit_replacement_suppresses_the_automatic_one(test_db) -> None:
         "cases": [_case("command-smoke", "run the corrected smoke command")],
     }
 
-    assert list(refreshed_case_keys(test_db, **scope)) == ["command-smoke"]
+    assert list(refreshed_case_keys(test_db, **scope)) == [("command-smoke", None)]
     assert (
         refreshed_case_keys(test_db, **scope, explicitly_replaced=frozenset({failed}))
         == {}

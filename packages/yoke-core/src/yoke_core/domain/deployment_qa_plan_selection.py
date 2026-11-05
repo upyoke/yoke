@@ -68,8 +68,18 @@ def selected_plans(
         )
         if named:
             require_correction_only_plan(snapshot, replacement_keys or set())
+            snapshot["cases"] = [
+                case
+                for case in snapshot["cases"]
+                if str(case["case_key"]) in replacement_keys
+            ]
         if replacement_scopes:
             snapshot["replacement_scopes"] = replacement_scopes
+            snapshot["corrects_own_plan"] = all(
+                int(row.get("plan_id") or 0) == agent_plan_id
+                for rows in replacement_scopes.values()
+                for row in rows
+            )
         snapshot["selected_by_agent"] = True
         frozen = [
             value

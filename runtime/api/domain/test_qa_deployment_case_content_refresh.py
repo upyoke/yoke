@@ -302,8 +302,8 @@ def test_external_replacement_controls_automatic_correction(test_db, verdict) ->
         plan=slug,
     )
     created = result["created_requirement_ids"]
-    assert len(created) == (1 if verdict == "fail" else 0), result
-    assert len(_rows(test_db, run_id)) == (3 if verdict == "fail" else 2)
+    assert created == [], result
+    assert len(_rows(test_db, run_id)) == 2
     selected = _materialize(test_db, run_id, plan=slug)
     assert selected["created_requirement_ids"] == []
-    assert selected["existing_requirement_ids"] == (created or [original_id])
+    assert selected["existing_requirement_ids"] == [replacement_id]

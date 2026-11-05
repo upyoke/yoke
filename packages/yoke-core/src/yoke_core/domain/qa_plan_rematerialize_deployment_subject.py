@@ -8,7 +8,6 @@ run row lock once the caller proved the read still current.
 from __future__ import annotations
 
 import json
-from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Any
 
@@ -18,10 +17,9 @@ from yoke_core.domain.deployment_qa_snapshot_correction import (
     selected_plan_owners,
 )
 from yoke_core.domain.project_identity import render_item_ref
+from yoke_core.domain.qa_requirement_lineage import needs_corrected_row, rows_by_case
 from yoke_core.domain.qa_deployment_case_content_refresh import (
     base_case_key,
-    carried_by_declared_replacement,
-    case_content_digest,
     declare_refreshed_replacements,
     plan_case_content_digest,
     refreshed_case_key,
@@ -160,27 +158,6 @@ def read_subject_refresh(
     )
 
 
-def _needs_corrected_row(
-    conn: Any, refresh: SubjectRefresh, case: Mapping[str, Any], group: list[dict]
-) -> bool:
-    """New or changed failed/discharged cases owe a row; passed cases stand."""
-    if not group:
-        return True
-    if carried_by_declared_replacement(conn, group):
-        return False
-    digest = plan_case_content_digest(conn, case)
-    if any(
-        case_content_digest(row) == digest
-        and row["execution_target_digest"] == target_digest(refresh.target)
-        for row in group
-    ):
-        return False
-    return all(
-        obligation_settled(row) or refresh.verdicts.get(int(row["id"])) == "fail"
-        for row in group
-    )
-
-
 def _insert_case(conn, refresh, *, plan, case, baseline, position) -> int:
     scope = {
         "deployment_run_id": refresh.run_id,
@@ -205,7 +182,12 @@ def _insert_case(conn, refresh, *, plan, case, baseline, position) -> int:
             plan_id=int(plan["id"]),
             case_key=str(case["case_key"]),
             baseline=baseline,
-            group_id=str(((refresh.target.get("deployment") or {}).get("shared_plan") or {}).get("group_id") or ""),
+            group_id=str(
+                ((refresh.target.get("deployment") or {}).get("shared_plan") or {}).get(
+                    "group_id"
+                )
+                or ""
+            ),
             execution_target_digest=target_digest(refresh.target),
         )
     if inserted is None:
@@ -221,8 +203,11 @@ def write_subject_refresh(conn: Any, refresh: SubjectRefresh) -> dict[str, Any]:
 
     rebound = rebind_subject(
         conn,
-        subject={"id": refresh.run_id, "stage": {"name": refresh.stage},
-                 "member_item_id": refresh.member},
+        subject={
+            "id": refresh.run_id,
+            "stage": {"name": refresh.stage},
+            "member_item_id": refresh.member,
+        },
         target=refresh.target,
     )
     for rows in refresh.rows_by_plan.values():
@@ -241,10 +226,18 @@ def write_subject_refresh(conn: Any, refresh: SubjectRefresh) -> dict[str, Any]:
     retained: set[int] = set()
     for plan_id, plan_rows in refresh.rows_by_plan.items():
         plan_row, cases = refresh.plans[plan_id]
-        groups: dict[tuple[str, Any], list[dict[str, Any]]] = {}
-        for row in plan_rows:
-            key = (base_case_key(row["plan_case_key"]), row["host_baseline"])
-            groups.setdefault(key, []).append(row)
+        from yoke_core.domain.qa_deployment_requirement_identity_schema import (
+            shared_group_id,
+        )
+
+        groups = rows_by_case(
+            conn,
+            run_id=refresh.run_id,
+            stage_name=refresh.stage,
+            member_item_id=refresh.member,
+            plan_id=plan_id,
+            group_id=shared_group_id(refresh.target),
+        )
         corrected_cases = []
         for case in cases:
             corrected = False
@@ -256,7 +249,15 @@ def write_subject_refresh(conn: Any, refresh: SubjectRefresh) -> dict[str, Any]:
                 ):
                     continue
                 group = groups.get((str(case["case_key"]), baseline), [])
-                retained.update(int(row["id"]) for row in group)
+                retained.update(
+                    int(row["id"])
+                    for row in plan_rows
+                    if base_case_key(row["plan_case_key"]) == str(case["case_key"])
+                    and row["host_baseline"] == baseline
+                )
+                group = [row for row in group if int(row["plan_id"]) == plan_id]
+                if not group and (str(case["case_key"]), baseline) in groups:
+                    continue
                 live = [
                     row
                     for row in group
@@ -264,8 +265,6 @@ def write_subject_refresh(conn: Any, refresh: SubjectRefresh) -> dict[str, Any]:
                     and not refresh.verdicts.get(int(row["id"]))
                 ]
                 for row in live:
-                    # A corrected row keeps the distinct key it was minted
-                    # under; only its content follows the plan.
                     refresh_requirement(
                         conn,
                         requirement_id=int(row["id"]),
@@ -279,7 +278,7 @@ def write_subject_refresh(conn: Any, refresh: SubjectRefresh) -> dict[str, Any]:
                     )
                     refreshed.append(int(row["id"]))
                     corrected = True
-                if live or not _needs_corrected_row(conn, refresh, case, group):
+                if live or not needs_corrected_row(conn, case, group):
                     continue
                 key = str(case["case_key"])
                 if group:
