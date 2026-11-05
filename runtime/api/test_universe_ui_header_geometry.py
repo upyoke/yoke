@@ -86,6 +86,27 @@ def _rule(css: str, selector: str) -> dict[str, str]:
     return declarations
 
 
+def test_actor_menu_uses_viewport_gutters_on_phones_and_chip_anchor_on_desktop():
+    css = _static("profile.css")
+    selector = ".universe-app-root .actor-menu"
+    desktop = _rule(_base(css), selector)
+    assert desktop["position"] == "absolute"
+    assert desktop["right"] == "0"
+    assert desktop["top"] == "calc(100% + 8px)"
+    assert desktop["max-width"] == "calc(100vw - 32px)"
+    phone = _rule(_breakpoint(css, "(max-width: 640px)"), selector)
+    assert phone["position"] == "fixed"
+    assert phone["left"] == phone["right"] == "16px"
+    assert phone["min-width"] == "0"
+    # Percentage top would put a fixed menu below the viewport.
+    assert phone["top"] == (
+        "calc(var(--yoke-app-header-height, var(--yoke-header-height)) + 8px)"
+    )
+    heading = _rule(css, ".universe-app-root .actor-menu-heading")
+    assert heading["white-space"] == "normal"
+    assert heading["overflow-wrap"] == "anywhere"
+
+
 def _px(value: str) -> float:
     assert value == "0" or value.endswith("px"), value
     return float(value.removesuffix("px"))
