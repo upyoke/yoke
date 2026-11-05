@@ -282,7 +282,11 @@ def write_subject_refresh(conn: Any, refresh: SubjectRefresh) -> dict[str, Any]:
                     continue
                 key = str(case["case_key"])
                 if group:
-                    key = refreshed_case_key(key, plan_case_content_digest(conn, case))
+                    key = refreshed_case_key(
+                        key,
+                        plan_case_content_digest(conn, case),
+                        max(int(row["id"]) for row in group),
+                    )
                 created.append(
                     _insert_case(
                         conn,

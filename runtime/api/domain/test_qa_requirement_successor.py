@@ -58,8 +58,8 @@ def test_superseding_chain_moves_both_links_to_terminal_and_settles_gate(test_db
 
 def inconsistent(conn, old, final):
     conn.execute(
-        "UPDATE qa_requirements SET superseded_by_requirement_id=%s, supersession_rationale=%s, supersession_source='agent', superseded_at=%s WHERE id=%s",
-        (final, "original correction history", "2026-01-01T00:00:00Z", old),
+        "UPDATE qa_requirements SET replacement_requirement_id=(SELECT id FROM qa_requirements WHERE replacement_requirement_id=%s AND id<>%s ORDER BY id DESC LIMIT 1), superseded_by_requirement_id=%s, supersession_rationale=%s, supersession_source='agent', superseded_at=%s WHERE id=%s",
+        (final, old, final, "original correction history", "2026-01-01T00:00:00Z", old),
     )
     conn.commit()
 

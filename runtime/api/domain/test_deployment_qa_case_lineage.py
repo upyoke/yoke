@@ -111,6 +111,16 @@ def test_correction_head_survives_later_materialization(
             record_case_verdict(test_db, head, "pass", evidence=True)
         elif shape == "failed":
             record_case_verdict(test_db, head, "fail", evidence=True)
+    # Keep this member in the release even when its QA has settled: a later
+    # release may take over before member close-out runs.
+    test_db.execute(
+        "UPDATE items SET status='release' WHERE id=%s", (takeover.WAITING,)
+    )
+    test_db.execute(
+        "UPDATE deployment_runs SET status='executing',current_stage=%s WHERE id=%s",
+        (ITEM_QA_STAGE, run),
+    )
+    test_db.commit()
     before = _count(test_db, run)
     if "takeover" in trigger:
         takeover._contains(monkeypatch)
@@ -119,6 +129,12 @@ def test_correction_head_survives_later_materialization(
             monkeypatch.setattr(takeover, "OLD", run)
             monkeypatch.setattr(takeover, "NEW", successor)
             monkeypatch.setattr(takeover, "NEW_LINEAGE", str(number + 3) * 40)
+            if number and shape == "chain-pass":
+                test_db.execute(
+                    "UPDATE deployment_runs SET status='failed',settling_at=now() WHERE id=%s",
+                    (run,),
+                )
+                test_db.commit()
             takeover._seed_new(test_db, lineage=takeover.NEW_LINEAGE)
             assert takeover._take_over(test_db) == run
             _arrive(test_db, ready=True)

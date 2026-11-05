@@ -122,7 +122,6 @@ def rows_by_case(
     stage_name,
     member_item_id,
     plan_id,
-    execution_target_digest=None,
     group_id="",
 ):
     """Resolve each plan's case/baseline roots across its whole subject."""

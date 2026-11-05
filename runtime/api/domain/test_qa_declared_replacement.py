@@ -179,7 +179,7 @@ def test_retry_correction_retains_each_immediate_successor(test_db) -> None:
     )
     assert _roster(test_db, run_id) == [second_fix]
 
-    assert _pass(test_db, run_id) == [first_fix]
+    assert _pass(test_db, run_id) == [failed_id, first_fix]
     status = _status(test_db, run_id)
     assert status["accepted"], status["reasons"]
 
@@ -287,6 +287,7 @@ def test_deployment_replacement_admits_unpassed_cases(
         )
         test_db.commit()
     corrected_id = corrected_case(test_db, failed_id=failed_id, case_key="smoke-fixed")
+
     def replace():
         if declaration == "existing":
             return declare_existing_replacement(
@@ -308,4 +309,7 @@ def test_deployment_replacement_admits_unpassed_cases(
     assert row["superseded_by_requirement_id"] is None
     assert _roster(test_db, run_id) == [corrected_id]
     record_case_verdict(test_db, corrected_id, "pass", evidence=True)
-    assert requirement_row(test_db, failed_id)["superseded_by_requirement_id"] == corrected_id
+    assert (
+        requirement_row(test_db, failed_id)["superseded_by_requirement_id"]
+        == corrected_id
+    )

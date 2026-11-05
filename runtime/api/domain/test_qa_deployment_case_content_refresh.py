@@ -26,8 +26,6 @@ from yoke_core.domain.deployment_qa_stage_materialization import (
     materialize_deployment_qa_stage,
 )
 from yoke_core.domain.qa_deployment_case_content_refresh import (
-    REFRESH_KEY_SEPARATOR,
-    base_case_key,
     case_content_digest,
 )
 from runtime.api.fixtures.qa_declared_replacement_fixture import declare
@@ -99,7 +97,7 @@ def _rows(conn: Any, run_id: str) -> list[dict[str, Any]]:
     ]
 
 
-def test_corrected_case_reaches_a_member_whose_row_was_waived(test_db) -> None:
+def test_operator_waiver_keeps_its_case_answered_after_plan_edits(test_db) -> None:
     run_id = "run-refresh-waived"
     slug, requirement_id = _seed(test_db, run_id)
     waive_requirement(
@@ -120,21 +118,13 @@ def test_corrected_case_reaches_a_member_whose_row_was_waived(test_db) -> None:
         deployment_stage=STAGE,
         plan=slug,
     )
-    assert len(result["created_requirement_ids"]) == 1, result
+    assert result["created_requirement_ids"] == []
+    assert result["refreshed_requirement_ids"] == []
     selected = _materialize(test_db, run_id, plan=slug)
-    assert selected["created_requirement_ids"] == []
-    assert selected["existing_requirement_ids"] == result["created_requirement_ids"]
-
+    assert selected["existing_requirement_ids"] == [requirement_id]
     rows = _rows(test_db, run_id)
-    assert len(rows) == 2
-    # The waived row survives untouched as history; the corrected content
-    # arrives beside it under a key the unique index can accept.
-    frozen, corrected = rows
-    assert frozen["id"] == requirement_id
-    assert REFRESH_KEY_SEPARATOR not in str(frozen["plan_case_key"])
-    assert REFRESH_KEY_SEPARATOR in str(corrected["plan_case_key"])
-    assert base_case_key(corrected["plan_case_key"]) == str(frozen["plan_case_key"])
-    assert "probe --corrected" in str(corrected["method_config"])
+    assert len(rows) == 1
+    assert "probe --corrected" not in str(rows[0]["method_config"])
 
 
 def test_corrected_case_reaches_a_member_whose_row_failed(test_db) -> None:

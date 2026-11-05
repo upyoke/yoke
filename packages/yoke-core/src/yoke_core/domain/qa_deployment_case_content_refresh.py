@@ -99,9 +99,9 @@ def plan_case_content_digest(conn: Any, case: Mapping[str, Any]) -> str:
     )
 
 
-def refreshed_case_key(plan_case_key: str, digest: str) -> str:
+def refreshed_case_key(plan_case_key: str, digest: str, predecessor_id: int) -> str:
     """The key a corrected case materializes under, beside the frozen row."""
-    return f"{base_case_key(plan_case_key)}{REFRESH_KEY_SEPARATOR}{digest}"
+    return f"{base_case_key(plan_case_key)}{REFRESH_KEY_SEPARATOR}{digest}-{predecessor_id}"
 
 
 def refreshed_case_keys(
@@ -155,7 +155,9 @@ def refreshed_case_keys(
                 if int(head["id"]) in explicitly_replaced:
                     continue
                 if head_owes_work(conn, head):
-                    refreshed[(key, baseline)] = refreshed_case_key(key, digest)
+                    refreshed[(key, baseline)] = refreshed_case_key(
+                        key, digest, int(head["id"])
+                    )
                 elif not determinate_verdict(conn, int(head["id"])) and not any(
                     head.get(field) for field in ("waived_at", "retracted_at")
                 ):
