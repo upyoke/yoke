@@ -1,8 +1,9 @@
 """Store launch assignments directly instead of parsing a chat name."""
 
+from importlib import import_module
 from typing import Any
 
-from yoke_core.domain import db_backend
+from yoke_core.domain import db_backend, json_helper
 from yoke_core.domain.migration_serving_version import NEXT_RELEASE
 from yoke_core.domain.schema_common import (
     _add_column_if_not_exists,
@@ -11,7 +12,10 @@ from yoke_core.domain.schema_common import (
 )
 
 MINIMUM_SERVING_VERSION = NEXT_RELEASE
-RETIRES_INVARIANTS = ("0024_session_presentation_and_launch_name",)
+RETIRES_INVARIANTS = (
+    "0024_session_presentation_and_launch_name",
+    "0071_model_effort_levels",
+)
 
 
 def apply(conn: Any) -> None:
@@ -45,6 +49,7 @@ def apply(conn: Any) -> None:
 
 
 def invariants(conn: Any) -> None:
+    _model_level_invariants(conn)
     if _table_exists(conn, "harness_sessions"):
         for column in (
             "presentation_surface",
@@ -62,3 +67,33 @@ def invariants(conn: Any) -> None:
         "SELECT l.launch_id FROM session_launches l LEFT JOIN items i ON i.id=l.item_id "
         "WHERE l.item_id IS NOT NULL AND (i.id IS NULL OR i.project_id<>l.project_id)"
     ).fetchall()
+
+
+def _model_level_invariants(conn: Any) -> None:
+    """Retain the model-level proofs using the structured launch assignment."""
+    levels = import_module("yoke_core.domain.migrations.0071_model_effort_levels")
+    if _table_exists(conn, "session_launches") and _column_exists(
+        conn, "session_launches", "level_placement"
+    ):
+        for launch_id, raw in conn.execute(
+            "SELECT launch_id,level_placement FROM session_launches "
+            "WHERE requested_level IS NOT NULL OR item_id IS NOT NULL"
+        ).fetchall():
+            assert json_helper.loads_text(str(raw)) == levels._work_placement(raw), (
+                f"launch {launch_id} has unconverged work purpose"
+            )
+    for table, _, key, raw in levels._documents(conn):
+        assert json_helper.loads_text(str(raw)) == levels._decode(table, key, raw), (
+            f"{table} row {key} has unconverged levels"
+        )
+    if _table_exists(conn, "universe_settings"):
+        p = "%s" if db_backend.connection_is_postgres(conn) else "?"
+        row = conn.execute(
+            f"SELECT value FROM universe_settings WHERE key={p}",
+            ("cursor_quota_order",),
+        ).fetchone()
+        ordered = json_helper.loads_text(str(row[0]))
+        assert len(ordered) == 2 and set(ordered) == {
+            "Cursor Models",
+            "Other Models",
+        }, "Cursor quota order must contain its two monthly pools exactly once"

@@ -3,6 +3,8 @@
 import importlib
 import sqlite3
 
+import pytest
+
 from yoke_core.domain.item_refs_schema import ensure_item_refs_view
 
 
@@ -36,3 +38,25 @@ def test_launch_assignment_backfill_and_drop():
     assert "session_name" not in {
         row[1] for row in conn.execute("PRAGMA table_info(session_launches)")
     }
+
+
+def test_assignment_invariant_retains_the_model_level_work_purpose():
+    conn = sqlite3.connect(":memory:")
+    conn.executescript("""
+        CREATE TABLE items(id INTEGER PRIMARY KEY,project_id INTEGER);
+        INSERT INTO items VALUES (73,1);
+        CREATE TABLE session_launches(launch_id TEXT,project_id INTEGER,
+            item_id INTEGER,requested_level TEXT,level_placement TEXT);
+        INSERT INTO session_launches VALUES ('assigned',1,73,NULL,'{}');
+    """)
+    migration = importlib.import_module(
+        "yoke_core.domain.migrations.0103_session_names"
+    )
+    assert "0071_model_effort_levels" in migration.RETIRES_INVARIANTS
+    with pytest.raises(AssertionError, match="unconverged work purpose"):
+        migration.invariants(conn)
+    conn.execute(
+        "UPDATE session_launches SET level_placement=?",
+        ('{"work_required":true}',),
+    )
+    migration.invariants(conn)

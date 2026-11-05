@@ -126,11 +126,15 @@ def test_default_page_serves_one_compact_row_per_message() -> None:
     assert row["recipients"] == [
         {
             "session_id": "s1",
+            "session_label": row["recipients"][0]["session_label"],
             "state": "pending",
             "injection_count": 0,
             "created_at": row["recipients"][0]["created_at"],
         }
     ]
+    assert row["recipients"][0]["session_label"].startswith(
+        "codex-desktop · alpha · holds ALP-1 'Test work' · active "
+    )
     assert row["recipients"][0]["created_at"]
     # The prose and the full recipient records are what the row exists to
     # leave behind; `yoke messages get` still serves them whole.
