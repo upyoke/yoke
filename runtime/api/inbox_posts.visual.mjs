@@ -67,7 +67,9 @@ try {
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false, `${width} ${state} overflowed`);
     assert.equal(await page.locator(".inbox-post-card script, .inbox-post-card b").count(), 0);
     const button = page.locator(".inbox-post-card button");
-    assert(await button.evaluate((node) => node.getBoundingClientRect().height >= 44));
+    const height = await button.evaluate((node) => node.getBoundingClientRect().height);
+    if (height < 44) await page.screenshot({ path: path.join(output, `${width}-${state}-failure.png`), fullPage: true });
+    assert(height >= 44, `Done must be at least 44px high; observed ${height}px`);
     if (state === "error" || state === "done") {
       await button.click();
       if (state === "error") {
