@@ -95,3 +95,11 @@ def test_git_grep_pager_forms_are_not_foreign_lane_inspection(validate, option):
 def test_an_input_path_reused_as_an_unknown_operand_keeps_scope_checks(validate, other_use):
     command = f"yoke qa artifact add --content-file {INPUT} {other_use}"
     assert not validate(command).allow
+
+
+@pytest.mark.parametrize("command", [
+    f"yoke dev run -- python x.py --content-file {INPUT}",
+    f"yoke qa artifact add -- --content-file {INPUT}",
+])
+def test_content_file_after_option_terminator_grants_no_read_authority(validate, command):
+    assert not validate(command).allow

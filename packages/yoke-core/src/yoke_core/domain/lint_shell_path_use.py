@@ -271,6 +271,8 @@ def analyze_shell_path_use(
         input_paths, input_indexes = [], set()
         if base == "yoke":
             for i, token in enumerate(tokens):
+                if token == "--":
+                    break
                 if token == "--content-file" and i + 1 < len(tokens):
                     input_paths.append(tokens[i + 1])
                     input_indexes.update({i, i + 1})
