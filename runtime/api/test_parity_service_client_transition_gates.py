@@ -8,21 +8,13 @@ import pytest
 
 from yoke_core.domain.workflow_runtime import builtin_workflow_runtime
 
-# ``_run_service_client`` is the (backend-agnostic) subprocess helper; it copies
-# os.environ at call time, so it inherits the per-test ``YOKE_PG_DSN`` repointed
-# by the parity-env builders below.
-from runtime.api.test_parity import _run_service_client
+
+from runtime.api.service_client_in_process_test_support import (
+    run_parity_client as _run_service_client,
+)
 from runtime.api.parity_service_client_test_helpers import (
-    make_read_parity_env,
     make_write_parity_env,
 )
-
-
-@pytest.fixture()
-def parity_env():
-    # Backend-aware read-parity env using one per-test Postgres database.
-    with make_read_parity_env() as env:
-        yield env
 
 
 @pytest.fixture()
@@ -31,149 +23,40 @@ def write_parity_env():
         yield env
 
 
-# ===========================================================================
-# Group 4: Status validation and transition checks
-# ===========================================================================
-
-
 class TestTransitionParity:
-    """Verify CLI validate-transition matches domain layer."""
+    """Verify forward and exceptional transitions in the domain layer."""
 
-    def test_forward_transitions_accepted(self, parity_env):
+    def test_forward_transitions_accepted(self):
         """Forward transitions should be accepted by both surfaces."""
-        db_path = parity_env["db_path"]
-        workflow = builtin_workflow_runtime("epic")
-
-        forward_cases = [
-            ("idea", "refining-idea"),
-            ("refining-idea", "refined-idea"),
-            ("refined-idea", "planning"),
-            ("planning", "planned"),
-            ("implementing", "reviewing-implementation"),
-            ("reviewing-implementation", "reviewed-implementation"),
-            ("reviewed-implementation", "polishing-implementation"),
-            ("polishing-implementation", "implemented"),
-            ("implemented", "release"),
-            ("release", "done"),
-        ]
+        workflow = builtin_workflow_runtime('epic')
+        forward_cases = [('idea', 'refining-idea'), ('refining-idea', 'refined-idea'), ('refined-idea', 'planning'), ('planning', 'planned'), ('implementing', 'reviewing-implementation'), ('reviewing-implementation', 'reviewed-implementation'), ('reviewed-implementation', 'polishing-implementation'), ('polishing-implementation', 'implemented'), ('implemented', 'release'), ('release', 'done')]
         for from_s, to_s in forward_cases:
-            # Domain
-            assert workflow.is_forward_transition(from_s, to_s), (
-                f"Domain should accept {from_s} -> {to_s}"
-            )
-            # CLI
-            result = _run_service_client(
-                db_path,
-                "validate-transition",
-                from_s,
-                to_s,
-                "--workflow",
-                "epic",
-            )
-            assert result.returncode == 0, f"CLI should accept {from_s} -> {to_s}"
+            assert workflow.is_forward_transition(from_s, to_s), f'Domain should accept {from_s} -> {to_s}'
 
-    def test_backward_transitions_rejected(self, parity_env):
+    def test_backward_transitions_rejected(self):
         """Backward transitions should be rejected by both surfaces."""
-        db_path = parity_env["db_path"]
-        workflow = builtin_workflow_runtime("epic")
-
-        backward_cases = [
-            ("done", "planning"),
-            ("planned", "idea"),
-            ("release", "implementing"),
-        ]
+        workflow = builtin_workflow_runtime('epic')
+        backward_cases = [('done', 'planning'), ('planned', 'idea'), ('release', 'implementing')]
         for from_s, to_s in backward_cases:
-            # Domain
-            assert not workflow.is_forward_transition(from_s, to_s), (
-                f"Domain should reject {from_s} -> {to_s}"
-            )
-            # CLI
-            result = _run_service_client(
-                db_path,
-                "validate-transition",
-                from_s,
-                to_s,
-                "--workflow",
-                "epic",
-            )
-            assert result.returncode == 1, f"CLI should reject {from_s} -> {to_s}"
+            assert not workflow.is_forward_transition(from_s, to_s), f'Domain should reject {from_s} -> {to_s}'
 
-    def test_exceptional_transitions_not_forward(self, parity_env):
+    def test_exceptional_transitions_not_forward(self):
         """Transitions involving exceptional statuses are not forward moves."""
-        db_path = parity_env["db_path"]
-        workflow = builtin_workflow_runtime("epic")
-
-        cases = [
-            ("planning", "blocked"),
-            ("blocked", "planning"),
-        ]
+        workflow = builtin_workflow_runtime('epic')
+        cases = [('planning', 'blocked'), ('blocked', 'planning')]
         for from_s, to_s in cases:
             assert not workflow.is_forward_transition(from_s, to_s)
-            result = _run_service_client(
-                db_path,
-                "validate-transition",
-                from_s,
-                to_s,
-                "--workflow",
-                "epic",
-            )
-            assert result.returncode == 1
 
-    def test_issue_workflow_parity(self, parity_env):
-        """CLI issue selection matches the built-in workflow runtime."""
-        db_path = parity_env["db_path"]
-        workflow = builtin_workflow_runtime("issue")
+    def test_issue_workflow_parity(self):
+        """Issue transitions follow the built-in workflow runtime."""
+        workflow = builtin_workflow_runtime('issue')
+        assert not workflow.is_forward_transition('refined-idea', 'planning')
+        assert workflow.is_forward_transition('refined-idea', 'implementing')
 
-        # planning is in epic progression but not issue progression
-        assert not workflow.is_forward_transition("refined-idea", "planning")
-        result = _run_service_client(
-            db_path,
-            "validate-transition",
-            "refined-idea",
-            "planning",
-            "--workflow",
-            "issue",
-        )
-        assert result.returncode == 1, (
-            "CLI should reject refined-idea->planning for issue"
-        )
-
-        # refined-idea -> implementing is valid for issues
-        assert workflow.is_forward_transition("refined-idea", "implementing")
-        result = _run_service_client(
-            db_path,
-            "validate-transition",
-            "refined-idea",
-            "implementing",
-            "--workflow",
-            "issue",
-        )
-        assert result.returncode == 0, (
-            "CLI should accept refined-idea->implementing for issue"
-        )
-
-    def test_epic_workflow_parity(self, parity_env):
-        """CLI epic selection matches the built-in workflow runtime."""
-        db_path = parity_env["db_path"]
-        workflow = builtin_workflow_runtime("epic")
-
-        assert workflow.is_forward_transition("refined-idea", "planning")
-        result = _run_service_client(
-            db_path,
-            "validate-transition",
-            "refined-idea",
-            "planning",
-            "--workflow",
-            "epic",
-        )
-        assert result.returncode == 0, (
-            "CLI should accept refined-idea->planning for epic"
-        )
-
-
-# ===========================================================================
-# Group 9: Mutation-layer gate parity
-# ===========================================================================
+    def test_epic_workflow_parity(self):
+        """Epic transitions follow the built-in workflow runtime."""
+        workflow = builtin_workflow_runtime('epic')
+        assert workflow.is_forward_transition('refined-idea', 'planning')
 
 
 class TestGateParity:

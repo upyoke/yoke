@@ -4,8 +4,6 @@ Covers:
 - approve-check: validates approval gate check and next-stage resolution
 - active-queue: validates non-done/non-cancelled/non-frozen queue filtering
 - classify-status: validates board-bucket classification
-- validate-status: validates canonical status checking
-- validate-transition: validates forward-transition checking
 - create-item: validates item creation mutation (task 3)
 - update-item: validates item update mutation (task 3)
 - apply-approval: validates approval-apply mutation (task 3)

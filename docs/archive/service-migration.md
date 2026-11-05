@@ -229,8 +229,6 @@ The `service_client.py` CLI adapter bridges shell scripts into the Python domain
 | `approve-check <flow> <stage>` | `approval.resolve_approval()` | Approval gates in deployment pipelines |
 | `active-queue [--project P]` | `queries.active_queue_filter()` + `build_where_clause()` | Queue analysis |
 | `classify-status <status>` | `board.status_to_board_bucket()` | Board rendering helpers |
-| `validate-status <status>` | `lifecycle.is_valid_item_status()` | Status transition guards |
-| `validate-transition <from> <to> [--item-type TYPE]` | `lifecycle.is_forward_transition(..., item_type=)` | Transition validation |
 
 ### Write/Mutation Commands (YOK-1133)
 

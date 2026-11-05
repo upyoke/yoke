@@ -1301,8 +1301,6 @@ Subcommands:
 - `approve-check <flow-id> <current-stage>` — Check if stage requires approval
 - `active-queue [--project P] [--fields "f1,f2,..."]` — Query active work queue
 - `classify-status <status> [--frozen 0|1] [--has-active-run 0|1]` — Classify item board bucket
-- `validate-status <status>` — Check if status is valid
-- `validate-transition <from> <to> [--item-type TYPE]` — Check if status transition is valid (omit flag for epic/default)
 
 Key behavior:
 - Handles path resolution and `YOKE_DB` propagation

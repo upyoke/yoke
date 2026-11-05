@@ -60,8 +60,6 @@ _FAMILY_GROUPS: Tuple[Tuple[str, Tuple[str, ...]], ...] = (
         (
             "approve-check",
             "classify-status",
-            "validate-status",
-            "validate-transition",
             "evaluate-gate",
         ),
     ),

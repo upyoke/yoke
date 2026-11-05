@@ -52,8 +52,8 @@ class TestImportStructure:
         assert "approve-check" in COMMANDS
         assert "active-queue" in COMMANDS
         assert "classify-status" in COMMANDS
-        assert "validate-status" in COMMANDS
-        assert "validate-transition" in COMMANDS
+        assert "validate-status" not in COMMANDS
+        assert "validate-transition" not in COMMANDS
 
 
 # ===========================================================================

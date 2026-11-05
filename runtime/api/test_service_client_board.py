@@ -5,7 +5,8 @@ Split from test_service_client.py.
 
 from __future__ import annotations
 
-from runtime.api.test_service_client import _run_client
+from runtime.api.test_service_client import _run_client as _run_subprocess
+from runtime.api.service_client_in_process_test_support import run_client as _run_client
 
 
 # ---------------------------------------------------------------------------
@@ -17,7 +18,7 @@ class TestClassifyStatus:
     """Tests for classify-status board bucket mapping."""
 
     def test_implementing_maps_to_implementing(self):
-        result = _run_client(["classify-status", "implementing"])
+        result = _run_subprocess(["classify-status", "implementing"])
         assert result.returncode == 0
         assert result.stdout.strip() == "implementing"
 
@@ -63,6 +64,11 @@ class TestClassifyStatus:
         result = _run_client(["classify-status", "bogus"])
         assert result.returncode == 0
         assert result.stdout.strip() == "unknown"
+
+    def test_unknown_flag_rejected(self):
+        result = _run_subprocess(["classify-status", "idea", "--unknown"])
+        assert result.returncode == 2
+        assert "Unknown argument: --unknown" in result.stderr
 
 
 class TestBacklogCli:

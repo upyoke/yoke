@@ -6,13 +6,14 @@ import json
 
 import pytest
 
+from runtime.api.test_parity import _run_service_client as _run_subprocess
+
 from yoke_core.domain import approval
 from runtime.api.fixtures.file_test_db import connect_test_db
 
-# ``_run_service_client`` is the (backend-agnostic) subprocess helper; it copies
-# os.environ at call time, so it inherits the per-test ``YOKE_PG_DSN`` repointed
-# by the parity-env builders below.
-from runtime.api.test_parity import _run_service_client
+from runtime.api.service_client_in_process_test_support import (
+    run_parity_client as _run_service_client,
+)
 from runtime.api.parity_service_client_test_helpers import (
     make_read_parity_env,
     make_write_parity_env,
@@ -22,7 +23,7 @@ from runtime.api.parity_service_client_test_helpers import (
 @pytest.fixture()
 def parity_env():
     # Backend-aware read-parity env using one per-test Postgres database, so the
-    # service_client subprocess reads the same database this fixture seeds.
+    # service-client dispatch reads the database this fixture seeds.
     with make_read_parity_env() as env:
         yield env
 
@@ -190,7 +191,7 @@ class TestApprovalWriteParity:
         conn.close()
 
         # CLI approval on item 100
-        cli_result = _run_service_client(db_path, "apply-approval", "YOK-100")
+        cli_result = _run_subprocess(db_path, "apply-approval", "YOK-100")
         assert cli_result.returncode == 0
         cli_data = json.loads(cli_result.stdout)
         assert cli_data["success"] is True
@@ -205,7 +206,7 @@ class TestApprovalWriteParity:
         api_resp = client.post("/v1/items/YOK-1/approve", json={})
         assert api_resp.status_code == 409
 
-        cli_result = _run_service_client(db_path, "apply-approval", "1")
+        cli_result = _run_subprocess(db_path, "apply-approval", "1")
         assert cli_result.returncode == 1
         cli_data = json.loads(cli_result.stdout)
         assert cli_data["success"] is False

@@ -1,7 +1,6 @@
-"""Status/transition validation and next-id command handlers.
+"""Board classification and next-id command handlers.
 
-Owns the read-only commands that validate item status strings, validate
-forward transitions, classify a status into its board bucket, and compute
+Owns the read-only commands that classify a status into its board bucket and compute
 the next public ref (``PREFIX-N``) a project would issue.
 """
 
@@ -11,13 +10,8 @@ import sys
 
 from yoke_core.domain import db_backend
 from yoke_core.api.service_client_shared import (
-    _get_db_readonly,
     board,
 )
-from yoke_core.domain.workflow_stage_vocabulary import (
-    published_workflow_stage_ids,
-)
-from yoke_core.domain.workflow_runtime import ENGINE_EXCEPTIONAL_STAGE_IDS
 
 
 def cmd_item_next_id(args: list[str]) -> int:
@@ -85,89 +79,5 @@ def cmd_classify_status(args: list[str]) -> int:
     return 0
 
 
-def cmd_validate_status(args: list[str]) -> int:
-    """Validate that a status string is a canonical item status.
 
-    Usage: validate-status <status>
-    Exit 0 if valid, exit 1 if not.
-    """
-    if len(args) < 1:
-        print("Usage: validate-status <status>", file=sys.stderr)
-        return 2
-
-    conn = _get_db_readonly()
-    try:
-        valid_stages = (
-            set(published_workflow_stage_ids(conn))
-            | ENGINE_EXCEPTIONAL_STAGE_IDS
-        )
-    finally:
-        conn.close()
-    if args[0] in valid_stages:
-        print("valid")
-        return 0
-    else:
-        print(f"invalid: '{args[0]}' is not a canonical item status", file=sys.stderr)
-        return 1
-
-
-def cmd_validate_transition(args: list[str]) -> int:
-    """Validate that a status transition is a forward progression step.
-
-    Usage: validate-transition <from-status> <to-status> --workflow WORKFLOW
-    Exit 0 if forward, exit 1 if not.
-    """
-    if len(args) < 2:
-        print("Usage: validate-transition <from-status> <to-status> --workflow WORKFLOW", file=sys.stderr)
-        return 2
-
-    from_status = args[0]
-    to_status = args[1]
-    workflow_id = None
-
-    i = 2
-    while i < len(args):
-        if args[i] == "--workflow" and i + 1 < len(args):
-            workflow_id = args[i + 1]
-            i += 2
-        else:
-            print(f"Unknown argument: {args[i]}", file=sys.stderr)
-            return 2
-
-    if workflow_id is None:
-        print("Usage: validate-transition <from-status> <to-status> --workflow WORKFLOW", file=sys.stderr)
-        return 2
-
-    from yoke_core.domain.workflow_registry import (
-        WorkflowRegistryError,
-        resolve_current_workflow_pin,
-    )
-    from yoke_core.domain.workflow_runtime import load_workflow_runtime
-
-    conn = _get_db_readonly()
-    try:
-        resolved_id, version_id = resolve_current_workflow_pin(conn, workflow_id)
-        workflow = load_workflow_runtime(
-            conn,
-            workflow_id=resolved_id,
-            workflow_version_id=version_id,
-        )
-    except WorkflowRegistryError as exc:
-        print(str(exc), file=sys.stderr)
-        return 1
-    finally:
-        conn.close()
-    if workflow.is_forward_transition(from_status, to_status):
-        print("forward")
-        return 0
-    else:
-        print(f"not-forward: {from_status} -> {to_status}", file=sys.stderr)
-        return 1
-
-
-__all__ = [
-    "cmd_item_next_id",
-    "cmd_classify_status",
-    "cmd_validate_status",
-    "cmd_validate_transition",
-]
+__all__ = ["cmd_item_next_id", "cmd_classify_status"]
