@@ -39,7 +39,10 @@ workers and keep plan state; never implement.
   or `Nothing needs you.`
 - Before filing, have the operator write goals and a high-level plan in the
   strategy doc, defined enough for a large set of parallel dashes. Break its
-  well-defined parts into proposed dashes with correct dependency edges.
+  well-defined parts into proposed dashes. Don't hand-roll waves: enter every
+  ordering need as a dependency edge (`yoke items dependency add`), only where
+  items share a file or need another's result. Keep chains flat, and attach
+  each edge at the earliest stage that works, for max throughput.
 - Vet each proposal with a subagent for overengineering: simplify or delete
   before adding machinery; prefer no new DB fields or migrations. Present
   each vetted dash as very short, plain-language bullets, using real code
