@@ -91,6 +91,9 @@ def apply_additive_schema(conn: Any) -> None:
     # "scope unknown", which blocks conservatively.
     _add_column_if_not_exists(conn, "merge_locks", "project_slug", "TEXT DEFAULT NULL")
     _add_column_if_not_exists(conn, "merge_locks", "target_branch", "TEXT DEFAULT NULL")
+    from yoke_core.domain.merge_lock_schema import ensure_scope_index
+
+    ensure_scope_index(conn)
     conn.commit()
 
     # Per-project GitHub sync switch defaults safely when added to a

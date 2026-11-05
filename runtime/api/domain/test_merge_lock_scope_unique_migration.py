@@ -22,6 +22,9 @@ def test_duplicate_scope_keeps_lowest_id_and_enforces_uniqueness(test_db):
             "'project','main')",
             (row_id,),
         )
+    from yoke_core.domain.merge_lock_schema import ensure_scope_index
+    ensure_scope_index(test_db)
+    assert test_db.execute("SELECT COUNT(*) FROM merge_locks").fetchone()[0] == 2
     ENTRY.apply(test_db)
     ENTRY.apply(test_db)
     ENTRY.invariants(test_db)

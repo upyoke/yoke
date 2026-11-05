@@ -1,22 +1,4 @@
-"""The one merge boundary for an item branch that owns no epic lane.
-
-Every standalone item branch — Dash, Blitz, and any Issue whose workflow
-generates no task graph — lands on its project base branch through
-:func:`merge_standalone_branch`. The function owns the merge itself and the
-bookkeeping the merge produces (identity resolution, the ``merged_at`` stamp
-carrying the landing merge commit's own time,
-publishing the base branch, the durable receipt a retry converges from,
-telemetry). Item bookkeeping that differs by workflow — execution evidence,
-GitHub sync, the lifecycle status flip — stays with the caller so it runs
-through the item's own gates.
-
-The reads live in :mod:`yoke_core.domain.standalone_item_merge_git` and the
-receipt in :mod:`yoke_core.domain.item_merge_receipts`, because
-what git can answer changes as the merge proceeds while the receipt does not.
-
-Rationale and portability constraints: ``docs/archive/decisions/
-standalone-item-merge.md``.
-"""
+"""Land standalone item branches with durable receipts and verified publication."""
 
 from __future__ import annotations
 
@@ -32,10 +14,7 @@ from yoke_core.domain.merge_github_authority import classify_merge_authority
 from yoke_core.domain import standalone_item_merge_post_push as post_push
 from yoke_core.domain import item_merge_receipts as receipts
 from yoke_core.domain.standalone_item_merge_engine import run as _run_merge_engine
-from yoke_core.domain.standalone_item_merge_outcome import (
-    StandaloneMergeOutcome,
-    sync_item_to_github,
-)
+from yoke_core.domain.standalone_item_merge_outcome import StandaloneMergeOutcome
 
 # Exit code for a merge the engine refused because another session holds the
 # merge lock. Mirrors the engine's own retryable class so callers can
@@ -334,6 +313,23 @@ def _merge_once(
         resume_command=resume_command,
     )
 
+
+def sync_item_to_github(item_id: int) -> Optional[str]:
+    """Mirror the item to GitHub when its project's sync mode allows it.
+
+    The sync owner already skips projects that do not mirror, so this call is
+    unconditional; the return value is advisory and never unwinds a merge.
+    """
+    response = call_dispatcher(
+        function_id="items.github_sync",
+        target=public_item_target(item_id),
+        payload={},
+    )
+    if response.success:
+        return None
+    return (
+        response.error.message if response.error is not None else "GitHub sync failed"
+    )
 
 __all__ = [
     "RECOVERABLE_MERGE_LOCK_EXIT_CODE",

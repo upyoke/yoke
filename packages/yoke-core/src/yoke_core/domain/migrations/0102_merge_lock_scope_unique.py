@@ -3,6 +3,7 @@
 from typing import Any
 
 from yoke_core.domain.migration_serving_version import NEXT_RELEASE
+from yoke_core.domain.merge_lock_schema import SCOPE_INDEX_SQL
 from yoke_core.domain.schema_common import _table_exists
 
 MINIMUM_SERVING_VERSION = NEXT_RELEASE
@@ -16,10 +17,7 @@ def apply(conn: Any) -> None:
         "AND target_branch IS NOT NULL AND id NOT IN "
         "(SELECT MIN(id) FROM merge_locks GROUP BY project_slug, target_branch)"
     )
-    conn.execute(
-        "CREATE UNIQUE INDEX IF NOT EXISTS idx_merge_locks_scope "
-        "ON merge_locks(project_slug, target_branch)"
-    )
+    conn.execute(SCOPE_INDEX_SQL)
 
 
 def invariants(conn: Any) -> None:
