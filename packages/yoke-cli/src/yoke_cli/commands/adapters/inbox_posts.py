@@ -2,6 +2,7 @@
 
 import argparse
 import json
+import sys
 from typing import List
 
 from yoke_cli.commands._helpers import (
@@ -32,16 +33,25 @@ def create(args: List[str]) -> int:
     group.add_argument("--audience-name")
     group.add_argument(
         "--rules",
-        type=json.loads,
         help="JSON rule array: scope_kind, scope_id, optional role_name.",
     )
-    parser.add_argument("--fields", type=json.loads, default={})
+    parser.add_argument("--fields", default="{}")
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(
         parser, args, USAGE_BY_FUNCTION_ID["inbox.posts.create"]
     )
     if parsed is None:
+        return 2
+    try:
+        parsed.fields = json.loads(parsed.fields)
+        if parsed.rules is not None:
+            parsed.rules = json.loads(parsed.rules)
+    except json.JSONDecodeError as exc:
+        print(
+            f"payload_json_invalid: {exc}. Recovery: supply valid JSON for rules and fields.",
+            file=sys.stderr,
+        )
         return 2
     payload = {
         key: getattr(parsed, key)

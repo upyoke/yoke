@@ -2,6 +2,7 @@
 
 import argparse
 import json
+import sys
 
 from yoke_cli.commands._helpers import (
     add_json_arg,
@@ -26,7 +27,7 @@ def _run(args, action):
     parser.add_argument("--project-id", type=int, required=True)
     if action == "create":
         parser.add_argument("--name", required=True)
-        parser.add_argument("--rules", type=json.loads, required=True)
+        parser.add_argument("--rules", required=True)
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, USAGE_BY_FUNCTION_ID[function_id])
@@ -34,7 +35,15 @@ def _run(args, action):
         return 2
     payload = {"project_id": parsed.project_id}
     if action == "create":
-        payload.update(name=parsed.name, rules=parsed.rules)
+        try:
+            rules = json.loads(parsed.rules)
+        except json.JSONDecodeError as exc:
+            print(
+                f"payload_json_invalid: {exc}. Recovery: supply a valid JSON rule array.",
+                file=sys.stderr,
+            )
+            return 2
+        payload.update(name=parsed.name, rules=rules)
     return dispatch_and_emit(
         function_id=function_id,
         target=TargetRef(kind="global"),
