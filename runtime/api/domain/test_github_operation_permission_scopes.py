@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 import ast
+from functools import cache
 from pathlib import Path
-
 
 _REPO_ROOT = Path(__file__).resolve().parents[3]
 _SOURCE_ROOT = _REPO_ROOT / "packages/yoke-core/src/yoke_core"
@@ -135,9 +135,12 @@ def _enclosing_scope(
     return tree
 
 
+@cache
 def _source_modules():
-    for path in sorted(_SOURCE_ROOT.rglob("*.py")):
-        yield path, ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+    return tuple(
+        (path, ast.parse(path.read_text(encoding="utf-8"), filename=str(path)))
+        for path in sorted(_SOURCE_ROOT.rglob("*.py"))
+    )
 
 
 def _import_aliases(tree: ast.Module) -> dict[str, str]:
