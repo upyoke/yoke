@@ -283,3 +283,26 @@ def test_restore_retries_a_copy_once_and_reports_persistent_failure(
     assert bool(Path(str(error_log) + ".entries").read_text()) == always_fails
     if not always_fails:
         assert (home / "Documents/notes.txt").read_text() == "user notes\n"
+
+
+def test_clear_and_restore_preserve_every_declared_live_entry(tmp_path):
+    from yoke_harness.ssh_mac_preserved_state import PRESERVED_HOME_ENTRIES
+
+    _require_zsh()
+    golden, home = tmp_path / "golden", tmp_path / "live"
+    for suffix in PRESERVED_HOME_ENTRIES:
+        _write(golden / suffix / "identity", "captured")
+        _write(home / suffix / "identity", "live")
+        _write((golden / suffix).parent / "neighbor", "baseline")
+        _write((home / suffix).parent / "contaminant", "remove")
+    error_log = tmp_path / "restore-errors"
+    result = _run_functions(
+        _clear_and_restore(golden, home, error_log),
+        shell_home=tmp_path / "shell-home",
+    )
+    assert result.returncode == 0, result.stderr
+    assert error_log.read_text() == ""
+    for suffix in PRESERVED_HOME_ENTRIES:
+        assert (home / suffix / "identity").read_text() == "live", suffix
+        assert ((home / suffix).parent / "neighbor").read_text() == "baseline", suffix
+        assert not ((home / suffix).parent / "contaminant").exists(), suffix
