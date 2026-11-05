@@ -69,7 +69,8 @@ def test_collection_filter_never_imports_an_unassigned_file(tmp_path):
     environment = dict(os.environ, YOKE_CI_SELECTION_FILE=str(selected))
     result = subprocess.run(
         [sys.executable, "-m", "pytest", "runtime/api/", "runtime/harness/", "tests/",
-         "--collect-only", "-q", "-p", "yoke_core.tools.ci_selection_collect"],
+         "--collect-only", "--import-mode=importlib", "-q",
+         "-p", "yoke_core.tools.ci_selection_collect"],
         cwd=tmp_path, env=environment, capture_output=True, text=True,
     )
     assert result.returncode == 0, result.stdout + result.stderr

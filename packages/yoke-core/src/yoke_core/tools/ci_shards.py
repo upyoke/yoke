@@ -125,7 +125,10 @@ def _run_shard(group: int) -> int:
     selection = Path("ci-shard-files.txt")
     selection.write_text("\n".join(files) + "\n", encoding="utf-8")
     environment = dict(os.environ, **{SELECTION_FILE_ENV: str(selection.resolve())})
-    print(f"CI shard {group}/{SHARD_COUNT}: {len(files)} assigned files", flush=True)
+    assignment = f"CI shard {group}/{SHARD_COUNT}: {len(files)} assigned files\n"
+    print(assignment, end="", flush=True)
+    with Path(OUTPUT_LOG).open("a", encoding="utf-8") as log:
+        log.write(assignment)
     process = subprocess.Popen(
         pytest_command(group),
         env=environment,
