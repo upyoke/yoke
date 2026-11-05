@@ -87,7 +87,7 @@ def test_question_page_reads_labels_once(monkeypatch):
         ids = [file_question(conn, **filing(
             requesting_session_id=session, subject_key=f'{session}:{key}',
         ))[0]['id'] for session, key in [('worker', 'one'), ('worker', 'two'), ('other', 'three')]]
-        tracked = Mock(wraps=conn)
+        tracked = Mock(spec=conn, wraps=conn)
         actual = labels.requester_labels
         read = Mock(wraps=actual)
         monkeypatch.setattr(labels, 'requester_labels', read)
