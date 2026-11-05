@@ -271,8 +271,7 @@ def verify_claim(
                     fid,
                     ver,
                     "claim_required",
-                    terminal
-                    or f"no active claim by session {actor_session!r} on "
+                    f"no active claim by session {actor_session!r} on "
                     f"{shape}; pass --claim-id explicitly or acquire one "
                     "first: yoke claims work acquire",
                 )
