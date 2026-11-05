@@ -15,9 +15,9 @@ Yoke is a control plane for agentic engineering that gives humans and coding age
 
 Your agent handles installation and guides you through setup, helping you make the right configuration choices.
 
-Once setup is complete, your agent will launch the `/yoke onboard` skill. During onboarding, your agent reviews your project and existing work, helps you write your strategy and choose what to tackle first, and configures what's needed to test and deploy your project.
+Once setup is complete, open a new agent session in your project folder and run `/yoke onboard` (`$yoke onboard` in Codex). During onboarding, your agent reviews your project and existing work, helps you write your strategy and choose what to tackle first, and configures what's needed to test and deploy your project.
 
-After `/yoke onboard`, your agent uses Yoke to organize work, staff it across your available machines and coding agents, and deliver it. It keeps you informed and brings key decisions to you.
+Next, run `/yoke steer` (`$yoke steer` in Codex). Your agent uses Yoke to organize work, staff it across your available machines and coding agents, and deliver it. It keeps you informed and brings key decisions to you.
 
 [More on Installation and setup](guide/setup.install.md)
 
@@ -36,7 +36,11 @@ After `/yoke onboard`, your agent uses Yoke to organize work, staff it across yo
 
 A universe is the home for your Yoke projects, work records, and configuration. Each project brings together its software, goals, and work. You can keep several projects in one universe.
 
-**Choose where your Universe lives during setup:**
+**Choose where your universe lives during setup:**
+
+- **Local** runs on one computer and is reachable there only.
+- **Self-hosted** runs on your own server using Docker, for a team or multiple computers.
+- **Hosted beta (upyoke.com)** runs on Yoke’s service and requires a beta code.
 
 <!-- yoke:visual hosting -->
 
@@ -46,14 +50,14 @@ You can move a universe between these options using export and import.
 
 [More on Self-hosting](guide/self-hosting.md)
 
-[More on Universe portability, backup, and restore](guide/universe-portability.md)
+[More on universe portability, backup, and restore](guide/universe-portability.md)
 
 
 ---
 
 ## Team collaboration
 
-You can use Yoke solo, including from multiple machines. In self-hosted and hosted modes, you can also invite everyone on your team to connect to the shared Universe. When multiple humans collaborate, Yoke is even more powerful, coordinating work in real time across all active users, machines, and harness sessions.
+You can use Yoke solo on one machine in any mode. Working from more than one machine requires self-hosted mode or Hosted beta (upyoke.com). In self-hosted and hosted modes, you can also invite everyone on your team to connect to the shared universe. When multiple humans collaborate, Yoke is even more powerful, coordinating work in real time across all active users, machines, and harness sessions.
 
 [More on Team collaboration](guide/access.collaboration.md)
 
@@ -62,19 +66,12 @@ You can use Yoke solo, including from multiple machines. In self-hosted and host
 
 ## Yoke web dashboard
 
-The web dashboard gives you a shared view of your Universe: projects, strategy, work items, agent sessions, QA, and deployments. Use it to follow progress, review evidence, and respond to questions and approvals.
+The web dashboard gives you a shared view of your universe: projects, strategy, work items, agent sessions, QA, and deployments. Use it to follow progress, review evidence, and respond to questions and approvals.
 
-### Local & self-hosted
-
-Run in your Terminal:
-
-`yoke ui up`
-
-### Hosted
-
-Private beta
-
-[Log in at app.upyoke.com ↗](https://app.upyoke.com)
+Local and self-hosted installations open the dashboard through the connected
+CLI. Hosted beta (upyoke.com) requires a beta code; [sign in at
+app.upyoke.com](https://app.upyoke.com). See the dashboard guide for opening
+instructions.
 
 [More on Yoke web dashboard](guide/dashboard.md)
 
@@ -83,7 +80,7 @@ Private beta
 
 ## Strategy docs
 
-Strategy documents are markdown text stored in your Yoke Universe’s database that you and your agents can create, edit, and archive.
+Strategy documents are markdown text stored in your Yoke universe’s database that you and your agents can create, edit, and archive.
 
 ### Standing strategy docs
 
@@ -127,7 +124,7 @@ A work item is a piece of work following that workflow. It records what needs to
 
 <!-- yoke:visual workflow -->
 
-Yoke ships with Dash, Issue, Epic, and Blitz workflows, each with different stages and gates, the checks required to advance. Execution posture settings control requirements such as verification, work isolation, and delivery. You can configure human approvals and default execution levels for stages, which determine the models and effort agents use.
+Yoke ships with Dash, Issue, Epic, Blitz, and Task workflows, each with different stages and gates, the checks required to advance. Execution posture settings control requirements such as verification, work isolation, and delivery. You can configure human approvals and default execution levels for stages, which determine the models and effort agents use.
 
 [More on Workflows and work items](guide/work.md)
 
@@ -218,7 +215,7 @@ Ouroboros, Yoke’s learning loop, lets agents record problems as feedback, iden
 - [People and machines](self-hosting/people.md) — Invite teammates and approve personal machines.
 - [Server GitHub App](self-hosting/github-app.md) — Configure a dedicated App and protected server key.
 - [Universe portability, backup, and restore](guide/universe-portability.md) — Explain moving and protecting a universe across installations and hosting modes.
-- [Team collaboration](guide/access.collaboration.md) — Explain solo and team collaboration across machines and harness sessions in a shared Universe.
+- [Team collaboration](guide/access.collaboration.md) — Explain solo and team collaboration across machines and harness sessions in a shared universe.
 - [Strategy docs](guide/strategy.md) — Explain how direction becomes a plan and actionable work.
 - [Yoke web dashboard](guide/dashboard.md) — Help people use the web dashboard to follow and coordinate their Yoke work.
 - [The Frontier](guide/frontier.md) — Explain the Frontier as the boundary between strategy and filed work, how Yoke advances it, and how the dashboard presents it.

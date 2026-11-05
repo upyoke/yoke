@@ -4,7 +4,7 @@
 [Getting started](../index.md) > [Command and technical reference](../guide/reference/index.md) > Databases
 <!-- /yoke:breadcrumbs -->
 
-Workbench path: **Delivery → Databases**.
+Web dashboard path: **Delivery → Databases**.
 
 ## What you see
 

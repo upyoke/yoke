@@ -44,6 +44,7 @@ Staff work through `/yoke steer`; inspect the runnable frontier with `/yoke char
 - [Commands](commands.md) — Find operator commands and the delivery skill for the current binding.
 - [Maintenance commands](maintenance-commands.md) — Inspect maintenance operations, internal helpers and project context.
 - [Native discovery](harness-discovery.md) — Load shared instructions, discover skills and inspect installed capabilities.
+- [Claude Code](claude.md) — Use Claude Code discovery, session checks and shared Yoke skills.
 - [Codex](codex.md) — Install and verify Yoke’s Codex hooks and agent surfaces.
 - [Cursor](cursor.md) — Install and verify Yoke’s Cursor hooks and agent surfaces.
 - [Execution levels](levels.md) — Read model thresholds, routing settings and stage-level handoffs.

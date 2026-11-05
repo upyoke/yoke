@@ -4,7 +4,7 @@
 [Getting started](../index.md) > [Command and technical reference](../guide/reference/index.md) > Deployments
 <!-- /yoke:breadcrumbs -->
 
-Workbench delivery has three destinations, and **Deployments** carries two
+Web dashboard delivery has three destinations, and **Deployments** carries two
 tabs because a flow definition and a run of it are two readings of one
 subject:
 

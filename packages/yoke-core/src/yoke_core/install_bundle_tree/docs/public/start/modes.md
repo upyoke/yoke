@@ -14,7 +14,7 @@ PostgreSQL build, on both Apple Silicon and Intel. Older systems refuse
 before download or initialization; upgrade macOS or connect to a remote core.
 See [installation requirements](install.md).
 
-A local install is reachable here only: the engine and its workbench answer
+A local install is reachable here only: the engine and its web dashboard answer
 on this machine alone, so no other computer can connect to it. `yoke status`
 says `local: reachable here only`. To work from more than one computer, or
 with a team, pick **Host a server here** (self-hosted) or **upyoke.com**
@@ -23,13 +23,13 @@ instead, then move this universe across with export/import.
 - Wizard: pick **This machine** (`reachable here only`; it asks your name: you become the universe's
   first admin), or run `yoke init --local --admin-name "Your Name"`
 - Data under `~/.yoke/`
-- The machine relay is installed here too, so the workbench sees which harnesses
+- The machine relay is installed here too, so the web dashboard sees which harnesses
   this machine can start, reports session liveness, and can launch and resume
   sessions. It runs your installed Yoke and needs no account or API token.
   macOS uses a LaunchAgent; Linux uses a systemd user service that stops at
   logout without linger. See [Linux relay supervision](../sessions/linux-relay.md).
-- Open the workbench with `yoke ui up` (detached; `yoke ui` reports it, `yoke ui down` stops it)
-- Billing and Team seats do not apply (Cloud-only platform features)
+- Open the web dashboard with `yoke ui up` (detached; `yoke ui` reports it, `yoke ui down` stops it)
+- Billing and Team seats do not apply (Hosted beta (upyoke.com)-only platform features)
 
 Init preserves an existing active connection. Use `yoke init --local --activate`
 to select local explicitly; see [connection repair](../verification/local-connection-repair.md).
@@ -40,12 +40,12 @@ a file or folder. Import the archive later into
 self-hosted or another local machine.
 
 Local browser function calls to `POST /api/functions/call` require an object
-in `payload`, just like the self-hosted workbench. Omit it or send `{}` for
+in `payload`, just like the self-hosted web dashboard. Omit it or send `{}` for
 an empty payload. `null`, lists (including key/value pairs), strings, numbers,
 and booleans receive HTTP 422 `envelope_invalid` with recovery text before
 dispatch.
 
-## Yoke Cloud
+## Hosted beta (upyoke.com)
 
 Hosted core at upyoke.com. Collaborate from the web dashboard.
 
@@ -67,7 +67,7 @@ engine's upstream address.
 
 Run Yoke core and Postgres on your own server.
 
-Open its workbench with `yoke ui up` on a connected machine: company sign-in
+Open its web dashboard with `yoke ui up` on a connected machine: company sign-in
 opens the server URL; without OIDC, the API token gets a single-use browser
 sign-in link valid for two minutes. Rerun the command if the link expires.
 Sign-in links are never printed, including in JSON. If a browser cannot open
@@ -83,7 +83,7 @@ machine with a display.
   restart that bundle and reconnect with its first-boot token. The bundle lives
   in `~/.yoke/yoke-server`, or `YOKE_MACHINE_HOME/yoke-server` when set, outside projects.
 - Wizard on another machine: pick **A team server** and enter its reachable URL
-  first. Company sign-in (OIDC), when configured, opens the workbench with a
+  first. Company sign-in (OIDC), when configured, opens the web dashboard with a
   one-time code so you approve your own machine. Otherwise provide a pasted
   API token or token-file path; your own next machine can instead run
   `yoke connect URL` and approve its code from a machine you already connected. The guided host screen teaches the handoff without configuring
@@ -96,10 +96,10 @@ machine with a display.
   bundle through the private host secret handoff. Restart with
   `yoke self-host init --dir PATH --protect-existing --start`; [Install and run](../self-hosting/install.md)
   remains the full reference.
-- The server serves the workbench at its own URL. People sign in with company
+- The server serves the web dashboard at its own URL. People sign in with company
   sign-in (OIDC) and work with full read and write as their own actor; see
   [Browser Sign-In](../self-hosting/browser-sign-in.md)
-- Billing and Team seats do not apply (Cloud-only platform features)
+- Billing and Team seats do not apply (Hosted beta (upyoke.com)-only platform features)
 
 `yoke self-host init` keeps loopback-only by default; add `--listen ADDRESS`
 to publish on a LAN or Tailscale IP (or `0.0.0.0` for all IPv4 interfaces).
@@ -117,18 +117,10 @@ IPs/CIDRs in `.env` as `YOKE_API_TRUSTED_PROXIES`, then restart with
 `yoke self-host init --dir PATH --protect-existing --start`. Preserve Host and
 forward `X-Forwarded-Proto` and `X-Forwarded-For`; undeclared peers are ignored.
 
-## Source available
+## Source and licensing
 
-Yoke is Fair Source (FSL-1.1-ALv2). Use, modify, and self-host; the license
-converts to Apache 2.0 after its fixed window. Public source:
-[github.com/upyoke/yoke](https://github.com/upyoke/yoke).
-
-The wizard's **Edit Yoke source** row accepts an existing checkout or any
-public fork. That checkout powers the local CLI and harness, and powers the
-in-process engine in Local mode. If the same machine is also the guided
-self-host, Yoke uses its existing checkout build/start path for the server
-image. Existing remote self-hosted and Cloud servers are not redeployed by
-this choice; they continue running their deployed build.
+Yoke is Fair Source. See [Source and licensing](licensing.md) for the license,
+Apache 2.0 conversion, contribution agreement, and source-development pointers.
 
 ## Switching later
 

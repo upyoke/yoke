@@ -4,7 +4,7 @@
 [Getting started](../index.md) > [Command and technical reference](../guide/reference/index.md) > [Operations](index.md) > Events
 <!-- /yoke:breadcrumbs -->
 
-Read workbench telemetry, collector admission and durable visitor attribution.
+Read web dashboard telemetry, collector admission and durable visitor attribution.
 
 ## Events
 
@@ -21,13 +21,13 @@ An organization administrator can review defaults with
 `yoke universe retention get`; [universe retention](../universe-retention.md)
 owns the windows, protections, apply command and interrupted-run recovery.
 
-The workbench collects usage analytics from first load in every mode — local,
+The web dashboard collects usage analytics from first load in every mode — local,
 self-hosted, and hosted — with no consent prompt, banner, or toggle; nothing it
-collects is personal data, and a local or self-hosted workbench collects into
+collects is personal data, and a local or self-hosted web dashboard collects into
 its own universe. The first load captures the visitor's attribution cookie, and
 that load and each client navigation that changes the path emit `PageViewed`
 with `event_type=page_view`. Query-only, fragment-only, and state-only
-navigation (filters, `?selection=all` rewrites) emits no view. The workbench
+navigation (filters, `?selection=all` rewrites) emits no view. The web dashboard
 names each screen in the browser title before the URL changes, most specific
 part first (`PREFIX-12 · Items · Yoke`, `Runs · Deployments · Yoke`), so each
 view's `page_title` tells screens apart; a machine-approval code never enters
@@ -37,7 +37,7 @@ keys, userinfo, and fragments from `page_url` and referrer, and stores
 `/machine-approval/<code>` as `/machine-approval/redacted` in `page_url`,
 `page_path`, and referrer, in the browser and again in the collector. Only one page-view
 tracker runs per document, so a host page that tracks its own views and mounts
-the workbench records each navigation once.
+the web dashboard records each navigation once.
 
 The engine exposes anonymous `GET /api/events/config`, `POST /api/events`, and
 `GET`/`POST /api/events/attribution`. The collector accepts only frontend
@@ -50,9 +50,9 @@ preserve Host, and forward scheme/client headers; restart with
 Backend and operational writes retain their
 authenticated boundary.
 
-Each workbench sends to its own universe's collector. A local or self-hosted
-workbench uses the serving universe's `/api/events`. A hosted shell serves
-several universes from one origin, so it mounts the workbench with
+Each web dashboard sends to its own universe's collector. A local or self-hosted
+web dashboard uses the serving universe's `/api/events`. A hosted shell serves
+several universes from one origin, so it mounts the web dashboard with
 `eventsEndpoint` set to the organization's own collector route
 (`/api/orgs/<slug>/api/events`) and forwards that route, with the viewer's
 session, to the tenant engine. A hosted mount without `eventsEndpoint` sends
@@ -79,7 +79,7 @@ viewer's verified actor: a bearer token, the self-hosted `yoke_web_session`
 cookie, or, on the Local view, the per-run token that admits the local
 operator. A page view without one stays anonymous and carries only the
 browser's `visitor_id`. The emitter's `service` and `project` are stored as
-sent (`web` and `yoke` for the workbench); browser-supplied identity and
+sent (`web` and `yoke` for the web dashboard); browser-supplied identity and
 project/work-item references cannot choose their durable owners, so the row
 indexes as global.
 Accepted batches deduplicate on event UUIDs through the existing event sink.
@@ -109,7 +109,7 @@ Generated helpers and rule data ship in the engine wheel. Rebuild them after
 an accepted Pack update; `--check` reports stale outputs. Node >=22.13 is needed
 only to build, while installed engines need no Node runtime for collection.
 
-Workbench **Events** is the audit stream: lifecycle, claims, deploy, doctor
+Web dashboard **Events** is the audit stream: lifecycle, claims, deploy, doctor
 findings, function calls. Filter by name and time when debugging "what
 happened."
 

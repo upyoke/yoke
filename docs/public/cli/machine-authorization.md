@@ -1,18 +1,18 @@
 # Machine authorization
 
 <!-- yoke:breadcrumbs -->
-[Getting started](../index.md) > [Command and technical reference](../guide/reference/index.md) > [CLI and config](index.md) > Machine authorization
+[Getting started](../index.md) > [Command and technical reference](../guide/reference/index.md) > [CLI and config](index.md) > Machine approval and authorization
 <!-- /yoke:breadcrumbs -->
 
-Cloud and self-hosted servers share the device-code wire contract in
-`yoke_contracts.machine_authorization`. Cloud retains its org selection. Self-host binds a code to its sole organization at start.
+Hosted beta (upyoke.com) and self-hosted servers share the device-code wire contract in
+`yoke_contracts.machine_authorization`. Hosted beta (upyoke.com) retains its org selection. Self-host binds a code to its sole organization at start.
 
 ## Connect
 
 Run `yoke connect https://<server>` and compare the four-character **Match code**
 with your own machine's request. Approve it from a machine already connected to
 that server with `yoke machines approve K7F2`, or use **Machines → Waiting for
-approval** in the signed-in workbench. Approve only your own codes: approval
+approval** in the signed-in web dashboard. Approve only your own codes: approval
 grants your identity. The wizard's **A team server** discovers the sign-in method.
 Without company sign-in, teammates choose **Enter invite code** and enter the
 private code from their administrator. For bootstrap or recovery, use
@@ -40,7 +40,7 @@ return to the terminal. Agent, non-TTY, and `--json` runs print the link instead
   `authorization_poll_rate_limited` (honoring `Retry-After`). HTTP 410
   `authorization_denied`, `authorization_expired`, or `authorization_consumed`
   requires a new connection. Other statuses are diagnosed refusals.
-- Cloud's API authority is `/api/orgs/<slug>` on the selected origin. Self-host's
+- Hosted beta (upyoke.com)'s API authority is `/api/orgs/<slug>` on the selected origin. Self-host's
   authority is the server origin. Clients reject foreign origins or mismatched
   authorities before persisting a credential.
 - Self-host discovery is `GET /api/machine/authorizations`: `device_code` is
@@ -63,7 +63,7 @@ codes accept either case. `--json` emits structured function replies. A local
 universe instead explains that other computers cannot connect and points to
 `yoke self-host init`.
 
-The CLI and shared `/machine-approval[/CODE]` workbench page use
+The CLI and shared `/machine-approval[/CODE]` web dashboard page use
 `machine_authorization.get` and `machine_authorization.resolve`. The read returns
 `authorization` with code, machine name/ID, platform, expiry, decision, current
 state, viewer and requested-by identity; resolve takes `{code, action: approve|deny}`
@@ -102,7 +102,7 @@ sharing an address share these budgets. A denied, consumed,
 or expired code requires a new connection. Wrong machine identity, missing
 org membership, or disabled actor refuses with its recovery step. A database
 failure before issuance leaves delivery retryable. Cookies authorize browser
-functions only with the workbench's existing same-origin CSRF protection.
+functions only with the web dashboard's existing same-origin CSRF protection.
 
 ## Waiting for approval
 
@@ -216,9 +216,9 @@ model, error outcome's HTTP status and body model, and retry policy. Start and p
 `MachineAuthorizationPending`, `MachineAuthorizationDenied`,
 `MachineAuthorizationExpired` (including consumed), `MachineAuthorizationSlowDown`,
 and `MachineAuthorizationUnavailable` define poll outcomes. Other diagnosed
-refusals use `MachineAuthorizationRefused`. Recovery text is optional on the wire: self-host supplies `message`, and Cloud
+refusals use `MachineAuthorizationRefused`. Recovery text is optional on the wire: self-host supplies `message`, and Hosted beta (upyoke.com)
 supplies `detail`. Both are explicit fields in the shared refusal model; the CLI
-retains supplied recovery text in fatal diagnostics. Cloud credential refusals
+retains supplied recovery text in fatal diagnostics. Hosted beta (upyoke.com) credential refusals
 use HTTP 409; missing machine identity uses 400, malformed requests use 400 or
 413, and retryable credential unavailability uses 503. The strict schema rejects
 unrecognized response fields. Secrets are excluded from model repr and

@@ -4,7 +4,7 @@
 [Getting started](../index.md) > [Command and technical reference](../guide/reference/index.md) > [Projects](index.md) > Capabilities
 <!-- /yoke:breadcrumbs -->
 
-Workbench **Capabilities** lists providers, models, and test resources Yoke
+Web dashboard **Capabilities** lists providers, models, and test resources Yoke
 may use for a project.
 
 Examples: cloud credentials (`aws-admin`), model providers, CI workflow

@@ -70,7 +70,7 @@ Read `yoke items structured-field --help` before replacing or transforming field
 
 > **Blocked is a flag on items.** Columns `items.blocked INTEGER DEFAULT 0` and `items.blocked_reason TEXT` carry the operator-set block; lifecycle status is preserved. The flag is for waits with no unsatisfied blocking edge: `items.block` refuses while an activation/integration/closure edge is unsatisfied and names only unsatisfied blockers. Wait for the blocking item, or remove the edge with `yoke items dependency remove`; satisfied edges permit an unrelated hold. Operators use `yoke items block PREFIX-N --reason TEXT` / `yoke items unblock PREFIX-N`. Epic-task `blocked` is unchanged. View column `item_progress_view.blocked_reason` is `pipeline_blocked_reason`. Architectural-why: `docs/archive/decisions/blocked-flag-retirement.md`.
 
-### DB Claim — the unified amendment workflow
+### DB Claim: the unified amendment workflow
 
 `db_mutation_profile` and `db_compatibility_attestation` are two JSON columns on the `items` table (not standalone tables) — the two storage halves of one operator-facing concept: the item's **DB claim**. The claim says (a) what governed DB mutation the work item performs and (b) the safety argument for why pre-merge `main` stays true after it lands.
 

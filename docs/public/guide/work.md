@@ -20,6 +20,7 @@ A **stage** says where an item is in its workflow. A **transition** moves it to 
 | Issue | A bounded change that needs refinement before implementation |
 | Epic | Work that benefits from a plan with generated implementation tasks |
 | Blitz | Substantial work organized around a linked strategy document |
+| Task | Folder-only or non-code work in a project without a code repository |
 
 Choose by how the work should be organized, not just by its size. The Workflows dashboard page shows the actual stages and checks for each definition. [Workflow reference](../workflows/index.md)
 

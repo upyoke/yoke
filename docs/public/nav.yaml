@@ -12,7 +12,7 @@ root:
   - {title: "People and machines", summary: "Invite teammates and approve personal machines.", path: "self-hosting/people.md"}
   - {title: "Server GitHub App", summary: "Configure a dedicated App and protected server key.", path: "self-hosting/github-app.md"}
   - {title: "Universe portability, backup, and restore", summary: "Explain moving and protecting a universe across installations and hosting modes.", path: "guide/universe-portability.md"}
-  - {title: "Team collaboration", summary: "Explain solo and team collaboration across machines and harness sessions in a shared Universe.", path: "guide/access.collaboration.md"}
+  - {title: "Team collaboration", summary: "Explain solo and team collaboration across machines and harness sessions in a shared universe.", path: "guide/access.collaboration.md"}
   - {title: "Strategy docs", summary: "Explain how direction becomes a plan and actionable work.", path: "guide/strategy.md"}
   - {title: "Yoke web dashboard", summary: "Help people use the web dashboard to follow and coordinate their Yoke work.", path: "guide/dashboard.md"}
   - {title: "The Frontier", summary: "Explain the Frontier as the boundary between strategy and filed work, how Yoke advances it, and how the dashboard presents it.", path: "guide/frontier.md"}
@@ -37,6 +37,7 @@ root:
       children:
       - {title: "Agent setup", summary: "Recommended setup through your coding agent; commands and replies.", path: "start/agent-setup.md"}
       - {title: "Install", summary: "Installation prerequisites, configuration details and recovery.", path: "start/install.md"}
+      - {title: "Source and licensing", summary: "Read the Fair Source license, Apache 2.0 conversion, CLA and contribution guide.", path: "start/licensing.md"}
       - {title: "Modes", summary: "Choose local, hosted or self-hosted ownership.", path: "start/modes.md"}
       - {title: "Concepts", summary: "Understand universes, projects, items and workflows.", path: "start/concepts.md"}
       - {title: "Project installation", summary: "Install repository guidance and manage source launcher ownership.", path: "start/project-install.md"}
@@ -50,6 +51,7 @@ root:
       - {title: "Commands", summary: "Find operator commands and the delivery skill for the current binding.", path: "agents/commands.md"}
       - {title: "Maintenance commands", summary: "Inspect maintenance operations, internal helpers and project context.", path: "agents/maintenance-commands.md"}
       - {title: "Native discovery", summary: "Load shared instructions, discover skills and inspect installed capabilities.", path: "agents/harness-discovery.md"}
+      - {title: "Claude Code", summary: "Use Claude Code discovery, session checks and shared Yoke skills.", path: "agents/claude.md"}
       - {title: "Codex", summary: "Install and verify Yoke’s Codex hooks and agent surfaces.", path: "agents/codex.md"}
       - {title: "Cursor", summary: "Install and verify Yoke’s Cursor hooks and agent surfaces.", path: "agents/cursor.md"}
       - {title: "Execution levels", summary: "Read model thresholds, routing settings and stage-level handoffs.", path: "agents/levels.md"}
@@ -87,16 +89,18 @@ root:
       path: "github/index.md"
       children:
       - {title: "GitHub App permissions", summary: "Understand repository permissions and credential boundaries.", path: "github/permissions.md"}
+      - {title: "Merge an item", summary: "Check readiness, land a verified lane and record close-out evidence.", path: "github/merge-item.md"}
       - {title: "Issue sync", summary: "Choose mirroring semantics and repair repository issue bindings.", path: "github/sync.md"}
       - {title: "Merge queue landings", summary: "Read queued landing evidence and recover from a rejected landing.", path: "github/merge-queue-landings.md"}
     - title: "CLI and config"
       summary: "Read command help, choose connections and configure your machine."
       path: "cli/index.md"
       children:
+      - {title: "Create a local universe", summary: "Initialize this machine’s embedded universe and choose its connection.", path: "cli/init.md"}
       - {title: "Machine config and native models", summary: "Select configuration and inspect native model availability and unattended launches.", path: "cli/machine-config.md"}
       - {title: "Help and replies", summary: "Read focused command help and choose human or machine output.", path: "cli/help.md"}
       - {title: "HTTPS connection diagnostics", summary: "Diagnose API transport and connection failures.", path: "cli/https-connection-diagnostics.md"}
-      - {title: "Machine authorization", summary: "Connect a machine and inspect actor approval and hosted handoff.", path: "cli/machine-authorization.md"}
+      - {title: "Machine approval and authorization", summary: "Connect a machine and inspect actor approval and hosted handoff.", path: "cli/machine-authorization.md"}
     - title: "Items"
       summary: "Read and update backlog work, generated tasks and landing evidence."
       path: "items/index.md"
@@ -123,6 +127,7 @@ root:
       summary: "Choose definitions and follow pinned lifecycle gates and transitions."
       path: "workflows/index.md"
       children:
+      - {title: "Dash", summary: "Execute a specification through verification, merge and evidence.", path: "workflows/dash.md"}
       - {title: "Lifecycle", summary: "Read item stage authority and independent generated task progression.", path: "workflows/lifecycle.md"}
       - {title: "Transitions and routing", summary: "Follow post-merge behavior, skill boundaries and staffing.", path: "workflows/transitions.md"}
       - {title: "Gates", summary: "Read readiness and lifecycle gate requirements.", path: "workflows/gates.md"}

@@ -8,7 +8,7 @@ Inspect session liveness, work ownership and steering communication.
 
 ## Sessions
 
-Workbench **Sessions** lists harness sessions against this universe: who is
+Web dashboard **Sessions** lists harness sessions against this universe: who is
 running, what item they hold, and whether each is parked.
 
 Held item IDs show Frozen and Blocked pills from the item's own state. If
@@ -101,7 +101,7 @@ of those explicit actions rather than a heartbeat timeout.
 
 An active steering scope appears on the generated board with its holder,
 project and held strategy documents, claim age, liveness, steering-launched
-worker count, and unacknowledged report count. In Workbench, Steering badges
+worker count, and unacknowledged report count. In Web dashboard, Steering badges
 show the same scope, steering-launched workers group under their holder, and
 each of those workers shows whether its latest deliberate report was sent or
 acknowledged. Every worker reaches the seat deliberately with `yoke say

@@ -4,7 +4,7 @@
 [Getting started](../index.md) > [Command and technical reference](../guide/reference/index.md) > CLI and config
 <!-- /yoke:breadcrumbs -->
 
-Read command help, select connections and open the workbench from your machine.
+Read command help, select connections and open the web dashboard from your machine.
 
 ## CLI
 
@@ -141,19 +141,19 @@ outside this catalog.
 A connection is how this machine reaches a universe:
 
 - **local-postgres** — in-process against a local DB
-- **https** — relay to Cloud or self-hosted API
+- **https** — relay to Hosted beta (upyoke.com) or self-hosted API
 
 `yoke status` shows which connection is active.
 
-## Workbench
+## Web dashboard
 
 ```bash
-yoke ui up       # open self-host workbench, or start the local view detached
+yoke ui up       # open self-host web dashboard, or start the local view detached
 yoke ui          # same as `yoke ui status` — running or stopped, without sign-in tokens
 yoke ui down     # stop it
 ```
 
-On a self-host connection, `yoke ui up` opens the server's own workbench:
+On a self-host connection, `yoke ui up` opens the server's own web dashboard:
 company sign-in opens its URL; without OIDC, the API token gets a single-use
 link valid for two minutes. Rerun to replace an expired link. On Local
 (typically `http://127.0.0.1:8688`), it starts a machine daemon: closing the
@@ -199,8 +199,9 @@ An unmapped folder is a `project_mapping_missing` warning in status.
 - [Machine config and native models](machine-config.md)
 
 <!-- yoke:contents -->
+- [Create a local universe](init.md) — Initialize this machine’s embedded universe and choose its connection.
 - [Machine config and native models](machine-config.md) — Select configuration and inspect native model availability and unattended launches.
 - [Help and replies](help.md) — Read focused command help and choose human or machine output.
 - [HTTPS connection diagnostics](https-connection-diagnostics.md) — Diagnose API transport and connection failures.
-- [Machine authorization](machine-authorization.md) — Connect a machine and inspect actor approval and hosted handoff.
+- [Machine approval and authorization](machine-authorization.md) — Connect a machine and inspect actor approval and hosted handoff.
 <!-- /yoke:contents -->

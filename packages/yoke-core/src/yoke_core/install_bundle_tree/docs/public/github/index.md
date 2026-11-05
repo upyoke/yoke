@@ -16,7 +16,7 @@ hunt only in `.github/` or only in the App settings.
 |---|---|---|
 | **GitHub App (machine)** | Product commands that inspect/write GitHub from this machine | `yoke github connect` / `yoke github status`; GitHub Settings → Applications |
 | **Git over the network** | Every push, fetch, and remote read Yoke itself runs | Connected App authorization; optional own git credentials when no authorization is stored |
-| **Repo binding** | Which repo a project maps to | Project create/import; workbench **GitHub** tab |
+| **Repo binding** | Which repo a project maps to | Project create/import; web dashboard **GitHub** tab |
 | **Issue sync** | Backlog ↔ GitHub issues (labels, body, close) | Project `github_sync_mode` (e.g. disabled / sync modes); see [github/sync.md](sync.md) |
 | **CI** | PR and push checks; full-suite authority on protected merge | Repo Actions workflows; branch protection; project `ci_workflow_file` capability naming the **test** workflow — it must be dispatchable with a `yoke_dispatch_id` input, or the binding is refused ([Verification](../verification/index.md)) |
 | **Merge queue** | Item branches land as PRs through one `merge_group` gate | Project `merge_queue` capability — offered only with GitHub bound, `ci_workflow_file` declared, and that workflow carrying a `merge_group` trigger |
@@ -165,7 +165,7 @@ After returning from App settings, refresh access with **Check repositories**
 for a new repo or **Check access again** for an existing one before continuing.
 Issue mirroring remains a separate setting.
 
-The workbench **GitHub** tab is the same page in every mode. It lists App
+The web dashboard **GitHub** tab is the same page in every mode. It lists App
 installations, this machine's or organization's personal authorization when
 one is known, and each project's repository mapping. Each installation links
 to its GitHub repository-access settings (**Manage on GitHub**). Hosted pages
@@ -224,7 +224,7 @@ That page owns the logout and linger procedure.
 
 Projects can run backlog-only (DB is authority, no issue sync) or sync with
 GitHub issues. Public repos and permission posture constrain which modes are
-safe. Prefer the workbench **GitHub** tab and project settings over editing
+safe. Prefer the web dashboard **GitHub** tab and project settings over editing
 raw DB rows.
 
 ## Failed CI job recovery
@@ -273,6 +273,7 @@ Deep sync mechanics: [github/sync.md](sync.md).
 
 <!-- yoke:contents -->
 - [GitHub App permissions](permissions.md) — Understand repository permissions and credential boundaries.
+- [Merge an item](merge-item.md) — Check readiness, land a verified lane and record close-out evidence.
 - [Issue sync](sync.md) — Choose mirroring semantics and repair repository issue bindings.
 - [Merge queue landings](merge-queue-landings.md) — Read queued landing evidence and recover from a rejected landing.
 <!-- /yoke:contents -->

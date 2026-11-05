@@ -8,7 +8,7 @@ Read and update backlog work and its effective completion flow.
 
 ## Items
 
-Workbench **Items** lists backlog work. Open an item for status, fields,
+Web dashboard **Items** lists backlog work. Open an item for status, fields,
 progress, claims, and QA attachments.
 
 New Item keeps a draft through refresh in the same browser tab when session

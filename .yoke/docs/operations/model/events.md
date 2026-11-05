@@ -8,7 +8,7 @@ Read the event log, write-side severity configuration and event registry. [Datab
 
 ## Table: events
 
-Cross-stack structured event log. Unified envelope for agent tool calls, session lifecycle, backend telemetry, frontend analytics, and system events. All source types share the same schema, enabling cross-source queries on a single table. Workbench analytics use the mounted universe's own `/api/events` collector, which stamps the viewer's actor when a credential is present; [workbench telemetry](../events.md) explains consent, admission, URL hygiene, packaging, durable `actors.attribution` ownership, and the `actor_visitor_links` join that ties anonymous page views to actors.
+Cross-stack structured event log. Unified envelope for agent tool calls, session lifecycle, backend telemetry, frontend analytics, and system events. All source types share the same schema, enabling cross-source queries on a single table. Web dashboard analytics use the mounted universe's own `/api/events` collector, which stamps the viewer's actor when a credential is present; [web dashboard telemetry](../events.md) explains consent, admission, URL hygiene, packaging, durable `actors.attribution` ownership, and the `actor_visitor_links` join that ties anonymous page views to actors.
 
 Compatibility note: first-class tool-call correlation columns are optional across local installs and emitters. Readers and emitters must tolerate their absence until all live event tables expose the full correlation surface.
 
@@ -86,7 +86,7 @@ severity_default TEXT NOT NULL DEFAULT 'INFO' -- default severity level
 
 ## Related
 
-- [Workbench events](../events.md)
+- [Web dashboard events](../events.md)
 - [Deployment environments and flows](../../deployments/model/flows.md)
 - [QA CLI](../../verification/qa-cli.md)
 - [Body writes](../../items/model/body-writes.md)
