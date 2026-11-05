@@ -259,7 +259,17 @@ def test_custody_flow_with_a_prior_release_reaches_stored_target_check(
     test_db: Any, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """A lineage-less rehearsal creates a custody run even after a release."""
-    two_project_release(test_db, tmp_path, monkeypatch, stages="[]")
+    stages = json.dumps(
+        [
+            {
+                "name": "release",
+                "step_runner": "auto",
+                "stage_kind": "execution",
+                "scope": "run",
+            }
+        ]
+    )
+    two_project_release(test_db, tmp_path, monkeypatch, stages=stages)
     environment = test_db.execute(
         "SELECT id FROM environments WHERE project_id=1 AND name='stage'"
     ).fetchone()[0]
