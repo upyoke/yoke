@@ -7,7 +7,7 @@
 ## Team
 
 Who and what may act on the universe and per project: machine connect,
-approvals, tokens. On Cloud, CLI connect and machine authorization start
+approvals, tokens. On Hosted beta (upyoke.com), CLI connect and machine authorization start
 at the platform routes (`/connect`, `/machine`).
 
 The dashboard's **Team** page reads the live actor roster in two groups:
@@ -53,7 +53,7 @@ Org admins use **Invite** in the Team page head. The server selects the form:
 | Local | No Invite action | This universe is reachable on this computer only. Set up a team server with `yoke self-host init` to share it. |
 | Self-hosted without company sign-in | Name and org role | Send the one-time invite code privately. The teammate runs `yoke connect <server>` and chooses **Enter invite code**. |
 | Self-hosted with company sign-in | Email and org role | The teammate signs in with their own company identity. |
-| Cloud | Email and org role | The teammate signs in with their own Yoke account. |
+| Hosted beta (upyoke.com) | Email and org role | The teammate signs in with their own Yoke account. |
 
 The role defaults to `operator`; its description comes from the roster.
 A matching name warns that another person will be created. A code invite
@@ -64,7 +64,7 @@ code; Yoke keeps only its hash. An email invitation shows a sent confirmation
 without a code.
 
 The **Invites** panel sits above People and shows each person, invite kind,
-role, state, expiry and inviter. On Cloud, when the viewer can invite, its
+role, state, expiry and inviter. On Hosted beta (upyoke.com), when the viewer can invite, its
 header also shows **· N seats left** and the invite form adds **This invite
 uses 1 of N seats left.** At zero the form instead says **No seats left.
 Change plan in Billing, or revoke a pending invite.** Pending, expired, revoked and joined rows are grouped in that order,
@@ -85,7 +85,7 @@ refusals request a server upgrade, and a company sign-in configuration refusal
 names the server operator recovery. See [teammate invitations](../projects/teammate-invitations.md).
 
 Each person holds exactly one org role, and the engine owns it in every mode —
-local, self-hosted, and Cloud alike:
+local, self-hosted, and Hosted beta (upyoke.com) alike:
 
 | Org role | What it allows |
 |---|---|
@@ -113,10 +113,10 @@ and every access fact.
 Use **Machines** to approve a request after comparing its machine, code,
 organization and deciding identity. Approval grants only the approving person's
 identity. Approve your own machines; a teammate must join with their own invite.
-The workbench's **Connect your machine** page uses the same engine-owned
-decision and one-time credential delivery in Cloud and self-hosted mode.
+The web dashboard's **Connect your machine** page uses the same engine-owned
+decision and one-time credential delivery in Hosted beta (upyoke.com) and self-hosted mode.
 
-On Cloud the roster also shows the hosted service's own system actor,
+On Hosted beta (upyoke.com) the roster also shows the hosted service's own system actor,
 `hosted_service`, holding only the `hosted_service` org role. It binds GitHub
 repositories after the host's admin and installation-ownership checks and delivers
 GitHub App lifecycle changes, machine-code handoff and polling after organization selection,
@@ -124,9 +124,9 @@ and machine-authorization expiry or withdrawal. See the
 [hosted handoff contract](../cli/machine-authorization.md#hosted-code-handoff). No member or admin token can stand in for it, including the
 universe's first `initial-admin` token.
 
-## Seats and membership (Cloud)
+## Seats and membership (Hosted beta)
 
-Team is the one people destination in every mode. On Cloud, Platform's seat
+Team is the one people destination in every mode. On Hosted beta (upyoke.com), Platform's seat
 section leads the Team page, above Invites; there is no separate Members
 page, and a `/members` link opens Team. Local and self-hosted Team pages
 have no seat section.
@@ -138,7 +138,7 @@ people. An unnamed account leaves the actor's existing name unchanged.
 Actors without a member link keep their names. This never waits on Platform:
 an unreachable Platform leaves a stale name instead of returning an error.
 
-## Billing (Cloud)
+## Billing (Hosted beta)
 
 Platform-fed. Plan and payments. Local and typical self-host shells omit or
 stub this.
@@ -146,14 +146,14 @@ stub this.
 ## Universe settings
 
 Organization / universe level: export/import portability, founding new orgs
-(Cloud), and other universe-scoped controls. Project settings stay under
+(Hosted beta), and other universe-scoped controls. Project settings stay under
 **Project settings**.
 
-## Local, Self-hosted, and Cloud cheat sheet
+## Local, Self-hosted, and Hosted beta (upyoke.com) cheat sheet
 
-| Concern | Local | Self-hosted | Cloud |
+| Concern | Local | Self-hosted | Hosted beta (upyoke.com) |
 |---|---|---|---|
-| Workbench | `yoke ui up` | `yoke ui up`: company sign-in or a single-use token link | app.upyoke.com |
+| Web dashboard | `yoke ui up` | `yoke ui up`: company sign-in or a single-use token link | app.upyoke.com |
 | Seats / Billing | N/A | N/A | Team seat section; Billing page |
 | Team invitations | Unavailable; reachability notice | Name/code or company email, as reported by the server | Email invitation |
 | Machine approval | N/A (you are the machine) | Connect, then approve your own machine from the printed link or Machines | Machines page / connect |

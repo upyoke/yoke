@@ -4,7 +4,7 @@
 [Getting started](../index.md) > [Command and technical reference](../guide/reference/index.md) > [Projects](index.md) > Hosted organization administration
 <!-- /yoke:breadcrumbs -->
 
-On Yoke Cloud, Platform owns organizations and email invitations. The CLI
+On Hosted beta (upyoke.com), Platform owns organizations and email invitations. The CLI
 reaches the same email invitations as **Team**, with the same permission and
 seat checks, over a machine's hosted connection
 (`https://app.upyoke.com/api/orgs/<slug>`). The invite-form read and machine

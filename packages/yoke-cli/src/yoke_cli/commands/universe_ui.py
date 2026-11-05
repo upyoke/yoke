@@ -60,12 +60,12 @@ def ui_status(
     parser = argparse.ArgumentParser(
         prog=prog,
         description=(
-            "Report whether this machine's universe view is serving, and "
+            "Report whether this machine's web dashboard is serving, and "
             "report its state without sign-in tokens. Reading status is all bare "
             "`yoke ui` does — serving is `yoke ui up`."
         ),
         epilog=(
-            "The view is a machine daemon, not a terminal job:\n"
+            "The web dashboard is a machine daemon, not a terminal job:\n"
             "  yoke ui up      start it detached and open the browser\n"
             "  yoke ui         report it (this command)\n"
             "  yoke ui status  the same report, named\n"
@@ -124,10 +124,10 @@ def ui_up(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke ui up",
         description=(
-            "Open the active self-host server's workbench, using company "
+            "Open the active self-host server's web dashboard, using company "
             "sign-in or a single-use API-token sign-in link. On a non-prod "
             "local-postgres connection (`yoke init --local`), start the "
-            "loopback universe view as a detached daemon and open the browser."
+            "loopback web dashboard as a detached daemon and open the browser."
         ),
     )
     _add_host_port_flags(parser)
@@ -210,7 +210,7 @@ def ui_down(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke ui down",
         description=(
-            "Stop the machine-local universe view and remove its "
+            "Stop the machine-local web dashboard and remove its "
             "supervisor. The machine's session token survives, so the "
             "next `yoke ui up` opens the browser for sign-in."
         ),

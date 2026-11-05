@@ -6,7 +6,7 @@
 
 **Open Claude Code, Codex, or Cursor and say:** `install upyoke.com`
 
-Your agent installs Yoke, guides you through setup, and helps configure the project. You make the configuration choices and complete browser sign-in. After setup, `/yoke onboard` helps turn your existing project and plans into work Yoke can carry through delivery.
+Your agent installs Yoke, guides you through setup, and helps configure the project. You make the configuration choices. Your agent can approve the machine and GitHub match codes for this setup; password entry stays with you. After setup, `/yoke onboard` helps turn your existing project and plans into work Yoke can carry through delivery.
 
 ## Install Yoke
 
@@ -20,9 +20,9 @@ The [installation reference](../start/install.md) contains prerequisites, instal
 
 Setup asks one question at a time and saves each answer. Your agent presents the choices and continues from the saved position if the conversation or command stops.
 
-You choose where your Universe runs: your computer, your own server, or Yoke's hosted service. See [Hosting modes](setup.hosting.md). You can connect an existing project, import or clone a repository, or create a new project. Setup recognizes existing Yoke configuration before proposing changes.
+You choose where your universe runs: your computer, your own server, or Yoke's hosted service. See [Hosting modes](setup.hosting.md). You can connect an existing project, import or clone a repository, or create a new project. Setup recognizes existing Yoke configuration before proposing changes.
 
-Complete sign-in and machine approval in your own browser. A browser code authorizes a particular connection; your agent should show the returned instructions and let you make that decision. GitHub connection is optional, and GitHub issue mirroring is a separate project choice.
+Your agent follows the returned sign-in instructions and approves this setup’s machine and GitHub match codes in an already signed-in browser or from an already connected machine. If a password is required, you enter it yourself. GitHub connection is optional, and GitHub issue mirroring is a separate project choice.
 
 Review the proposed changes, apply them, and follow the returned next action. Some harnesses require a new session to load newly installed hooks. Yoke's session check identifies whether yours needs that restart; there is no need to restart every harness by default.
 
@@ -30,7 +30,7 @@ For the exact agent protocol, see [Agent setup](../start/agent-setup.md).
 
 ## Onboarding
 
-Once setup is complete, your agent runs `/yoke onboard`. It reviews the project and existing work, helps establish strategy and near-term priorities, and configures what the first dashes need to be tested and deployed.
+Once setup is complete, open a new session in the project folder and run `/yoke onboard` (`$yoke onboard` in Codex). It reviews the project and existing work, helps establish strategy and near-term priorities, and configures what the first dashes need to be tested and deployed.
 
 Onboarding can reuse an existing application rather than replacing it with a scaffold. Together, you choose relevant tests, delivery settings, Packs, and database setup. Optional capabilities can be deferred. Credentials and infrastructure changes require the relevant choices and approvals; having a capability available does not mean every project must configure it.
 
@@ -62,7 +62,7 @@ This is an alternative interface for installation, not a separate way to run you
 
 `yoke update` updates the installed release and reports the next step. Local mode updates the local server with the CLI; a self-hosted server has its own operator-managed update, and hosted servers follow hosted releases. Project guidance is refreshed when the update runs inside an installed project.
 
-Removing the CLI from a machine and removing Yoke's layer from a project are different operations. Before uninstalling a machine that holds a Universe, choose whether to export a backup: there is no automatic backup. Hosted client removal does not remove the hosted Universe.
+Removing the CLI from a machine and removing Yoke's layer from a project are different operations. Before uninstalling a machine that holds a universe, choose whether to export a backup: there is no automatic backup. Hosted client removal does not remove the hosted universe.
 
 See [Remove Yoke](../start/uninstall.md) and [Universe portability, backup, and restore](universe-portability.md) before removing an installation that holds data.
 

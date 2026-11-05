@@ -10,18 +10,18 @@
  "outline": ["Install Yoke", "Agent-guided setup", "Onboarding", "Supported machines and prerequisites", "Windows and WSL", "Manual terminal setup", "Updates, uninstalling, and retaining data", "Troubleshooting installation"],
  "terms": ["agent", "harness", "installation", "restore", "setup", "connection", "machine-approval", "project-installation", "onboarding", "agent-mode", "setup-checklist", "manual-setup", "wsl", "backup", "uninstall", "capability", "current-plan", "item", "project", "strategy", "checkout", "agent-guidance"],
  "commands": ["command:yoke setup", "command:yoke update", "command:yoke path", "command:yoke onboard", "command:yoke onboard checklist", "command:yoke wsl", "command:yoke uninstall", "command:yoke onboard project", "command:yoke strategy ingest"],
- "sources": ["source:homepage", "branch:shared-setup", "doc:docs/public/start/install.md", "branch:agent-setup", "doc:docs/public/start/agent-setup.md", "doc:docs/public/start/project-install.md", "source:setup", "doc:docs/public/start/index.md", "replies:onboard", "branch:terminal-setup", "doc:docs/public/start/terminal-onboarding.md", "doc:docs/public/start/windows-wsl.md", "doc:docs/public/start/uninstall.md", "skill:onboard"],
+ "sources": ["source:homepage", "branch:shared-setup", "doc:docs/public/start/install.md", "branch:agent-setup", "doc:docs/public/start/agent-setup.md", "doc:docs/public/start/project-install.md", "source:setup", "doc:docs/public/start/index.md", "replies:onboard", "branch:terminal-setup", "doc:docs/public/start/terminal-onboarding.md", "doc:docs/public/start/windows-wsl.md", "doc:docs/public/start/uninstall.md", "skill:onboard", "doc:docs/public/cli/init.md"],
  "deeper_pages": ["configuration"],
  "open_questions": ["Split upgrade reference out of the current install page.", "Keep JSON reply shapes in a separate agent reference, not the human summary."],
  "position": 4,
  "topics": [
   {
    "title": "Agent-guided setup",
-   "outline": ["One question at a time", "Choose where Yoke runs", "Complete browser sign-in yourself", "Review changes and follow the returned next step"]
+   "outline": ["One question at a time", "Choose where Yoke runs", "Agent approves this setup’s machine and GitHub match codes; person enters passwords", "Review changes and follow the returned next step"]
   },
   {
    "title": "Onboarding",
-   "outline": ["Understand the project and its existing work", "Write goals and a high-level plan", "Configure only what the first dashes need", "Hand off to steer for vetted, approved dashes"]
+   "outline": ["Open a new session in the project folder; Codex uses $yoke onboard", "Understand the project and its existing work", "Write goals and a high-level plan", "Configure only what the first dashes need", "Hand off to steer for vetted, approved dashes"]
   },
   {
    "title": "Manual terminal setup",

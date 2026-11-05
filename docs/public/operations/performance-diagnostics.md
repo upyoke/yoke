@@ -4,7 +4,7 @@
 [Getting started](../index.md) > [Command and technical reference](../guide/reference/index.md) > [Operations](index.md) > Performance diagnostics
 <!-- /yoke:breadcrumbs -->
 
-Open **Diagnostics → Performance**. Yoke Events uses the workbench's selected
+Open **Diagnostics → Performance**. Yoke Events uses the web dashboard's selected
 universe and its existing All/multiple-project selection. It never combines
 universes. Changing scope cancels previous reads and closes inspection.
 

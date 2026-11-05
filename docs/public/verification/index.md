@@ -4,7 +4,7 @@
 [Getting started](../index.md) > [Command and technical reference](../guide/reference/index.md) > Verification
 <!-- /yoke:breadcrumbs -->
 
-Workbench **QA** tabs:
+Web dashboard **QA** tabs:
 
 | Tab | Meaning |
 |---|---|

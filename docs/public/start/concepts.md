@@ -8,13 +8,13 @@
 
 A universe is one Yoke control-plane database plus the projects, workflows,
 strategy docs, events, and delivery state inside it. Local mode births a
-universe on your laptop. Cloud and self-hosted each host one (or more) for
+universe on your laptop. Hosted beta (upyoke.com) and self-hosted each host one (or more) for
 your organization.
 
-## Organization (Cloud)
+## Organization (Hosted beta)
 
-On Yoke Cloud, an organization wraps a hosted universe. Members, billing, and
-machine access are organization concerns. The workbench URL looks like
+On Hosted beta (upyoke.com), an organization wraps a hosted universe. Members, billing, and
+machine access are organization concerns. The web dashboard URL looks like
 `app.upyoke.com/orgs/<slug>/...`.
 
 ## Project
@@ -37,7 +37,7 @@ work: **MISSION** states its purpose, **VISION** its chosen future,
 **LANDSCAPE** the research, **MASTER-PLAN** the wider plan and
 **CURRENT-PLAN** the near-term focus.
 
-Try opening **Strategy** in the workbench and reading the project's current
+Try opening **Strategy** in the web dashboard and reading the project's current
 plan. See [Strategy](../strategy/index.md) for the document roles and how to
 write them with `/yoke strategize`.
 
@@ -77,18 +77,18 @@ See [Workflows](../workflows/index.md) and [workflows/lifecycle.md](../workflows
 
 ## Team
 
-**Team** is the workbench page for people and machine accounts, their roles,
+**Team** is the web dashboard page for people and machine accounts, their roles,
 access and invitations. You meet it when checking who can act in your
 universe or adding a teammate. It is available in local, self-hosted and
-Cloud modes; a local universe needs a team server before inviting people.
+Hosted beta (upyoke.com) modes; a local universe needs a team server before inviting people.
 
 Try opening **Settings → Team** and checking your role in **People**.
 See [Team, Billing, Universe settings](../projects/actors-members-billing.md#team)
 for roles, invitations and the differences between modes.
 
-## Workbench destinations
+## Web dashboard destinations
 
-The universe workbench sidenav is the operator map, in three groups. Focus is
+The universe web dashboard sidenav is the operator map, in three groups. Focus is
 the working day: Strategy, Frontier, Items, Shipping, Machines, Sessions, Inbox.
 Settings is what persists: Universe, Levels, Workflows, Projects, GitHub,
 Team, Billing. Diagnostics is the drawer, closed until you open it:

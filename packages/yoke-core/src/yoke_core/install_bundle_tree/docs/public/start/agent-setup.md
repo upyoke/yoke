@@ -5,8 +5,8 @@
 <!-- /yoke:breadcrumbs -->
 
 Agent setup is the recommended way to get started. Ask your coding agent to
-install Yoke and guide you through the choices; you approve changes and complete
-browser sign-in yourself. Start with [Get started](index.md) for the short guide.
+install Yoke and guide you through the choices; you choose and approve changes. The agent can approve this setup’s machine and
+GitHub match codes; only password entry goes to you. Start with [Get started](index.md) for the short guide.
 
 The details below are for the agent running setup. In agent mode, setup asks
 one question at a time as JSON lines. The agent shows each question to the

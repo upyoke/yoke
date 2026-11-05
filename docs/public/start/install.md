@@ -87,22 +87,30 @@ The optional terminal path uses `yoke setup --tui`, a full-screen wizard.
 For the recommended agent path, see [Agent setup](agent-setup.md).
 The wizard has these steps:
 
-1. **Install / PATH** — checks required tools and repairs PATH automatically,
+1. **Install** — checks required tools and repairs PATH automatically,
    then asks where the code lives before Account and GitHub. A project preset
    or saved checkout skips that early question. The chosen project path runs
    after GitHub; choosing another saved or restored project asks again.
    Install appears only when a check fails or a required
    tool is missing; fix the named cause and choose **Retry Install**. Review
    and the final summary list any shell files changed by uv.
-2. **Account** — where Yoke lives (this machine / team server / upyoke.com)
+2. **Account or Universe** — choose a destination and connect or create the local universe
 3. **GitHub** — optional App connect for product GitHub commands
 4. **Project** — create, clone, import, or bind a checkout. A clone is
    fetched here, not at Apply, so you see what the repository holds — and
    decide what happens to any Yoke files it already carries — first
-5. **Review** — check compact change counts, then Apply. **Show all changes**
+5. **Hosting** — configure or defer the project’s deployment credentials
+6. **Review** — check compact change counts, then Apply. **Show all changes**
    lists applicable configuration and hook-trust writes; **Show summary** returns
    to the counts. Shell PATH files changed during Install are already applied
    and stay changed if you cancel. Expanded Review names worker launch arguments.
+
+The destination picker offers four choices:
+
+- **This machine** — a local universe reachable on this computer only.
+- **A team server** — connect to an existing self-hosted server.
+- **Host a server here** — create a self-hosted Docker server for multiple computers.
+- **upyoke.com** — Hosted beta (upyoke.com), requiring a beta code.
 
 The first question explains the machine-wide permission changes: setup disables
 command approval and sandbox restrictions for installed agent tools. Workers
@@ -168,8 +176,8 @@ shell content, including PATH entries owned by the user or another tool.
 
 ```bash
 yoke status          # machine, env, credentials, checkouts
-yoke ui up           # local daemon, or the connected self-host workbench
-# or open the Cloud dashboard after sign-in
+yoke ui up           # local daemon, or the connected self-host web dashboard
+# or open the Hosted beta (upyoke.com) dashboard after sign-in
 ```
 
 On a team server, `yoke ui up` opens company sign-in when configured. Otherwise

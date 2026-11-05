@@ -17,6 +17,7 @@ from yoke_contracts.project_contract.install_manifest import (
 from yoke_core.domain import documentation_links as links
 from yoke_core.domain import documentation_navigation as nav
 from yoke_core.domain.documentation_render import render_page
+from yoke_core.domain.documentation_visuals import validate_visual_fallbacks
 from yoke_core.domain.docs_corpus_rule import load_corpus_rule
 
 
@@ -58,10 +59,10 @@ def _size(path: Path, text: str) -> list[CorpusRefusal]:
 
 def validate_public_corpus(root: Path) -> list[CorpusRefusal]:
     """Use tracked source pages, or present pages in materialized trees."""
+    root = Path(root)
     rule = load_corpus_rule()
     if isinstance(rule, CorpusRefusal):
         return [rule]
-    root = Path(root)
     refusals = [
         CorpusRefusal(r.code, r.target, r.detail, r.repair)
         for r in nav.validate_navigation(root, complete=True)
@@ -90,6 +91,8 @@ def validate_public_corpus(root: Path) -> list[CorpusRefusal]:
             continue  # The link validator owns the unreadable-page refusal.
         if path.suffix == ".md":
             refusals.extend(_size(path, text))
+            visual_errors = validate_visual_fallbacks(page, text)
+            refusals.extend(CorpusRefusal(r.code, r.target, r.detail, r.repair) for r in visual_errors)
         if any(pattern.search(text) for pattern in _PRIVATE[:-1]) or any(
             _PRIVATE[-1].search(line)
             and not re.search(r"\b(example|synthetic|schema)\b", line, re.I)
@@ -224,7 +227,6 @@ def verify_candidate(
 ) -> list[CorpusRefusal]:
     """Refuse ambient or stale identity; the producer contract owns the format."""
     from yoke_core.domain import install_bundle_project as project
-
     repo = Path(repo)
     refusals = _consumer_proof(consumer_evidence, declared_commit)
 
