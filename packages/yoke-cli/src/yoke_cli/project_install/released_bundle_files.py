@@ -10,6 +10,7 @@ from yoke_cli.project_install.files import ProjectInstallError, sha256_text
 
 from yoke_cli.project_install import checkout_gate
 from yoke_contracts.install_binding import source_checkout_root
+from yoke_contracts.release_version import release_version
 
 
 class ReleasedBundleFiles:
@@ -70,14 +71,17 @@ class ReleasedBundleFiles:
                 "--contains",
                 commit,
                 "--format=%(refname) %(objecttype)",
-                "refs/tags/v*",
-                "refs/tags/0.*",
+                "refs/tags",
             )
             if tags.returncode:
                 return False
             for line in tags.stdout.splitlines():
                 tag, kind = line.split()
                 if kind != "tag":
+                    continue
+                try:
+                    release_version(tag.removeprefix("refs/tags/"))
+                except ValueError:
                     continue
                 released = checkout_gate.run_git(
                     self.root, "rev-parse", f"{tag}:{canonical}"

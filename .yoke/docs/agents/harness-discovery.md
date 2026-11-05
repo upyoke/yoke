@@ -136,7 +136,7 @@ Human diagnostics inside Git and harness tools begin with “yoke (<hook>): ”,
 for example “yoke (pre-commit): ERROR: file-line-limit gate blocked this commit.”
 Pre-commit refuses staged edits to installer-owned docs, skills and agent
 definitions unless their bytes match a shipped release. Proof accepts this CLI’s packaged
-bundle or hashes from annotated `v*` and `0.*` release tags. Send changes to Yoke
+bundle or hashes from annotated tags accepted by the shared release-version validator. Send changes to Yoke
 with `yoke feedback --to yoke`, or keep them in a project-owned file; restore
 release bytes with `yoke project refresh` before committing again. Yoke's
 source inputs and generated bundle copies remain editable in its source checkout.

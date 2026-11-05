@@ -119,7 +119,7 @@ def test_catalogue_renders_agents_from_annotated_releases(checkout):
     path.write_text("released agent\n")
     git("add", rel)
     git("-c", "core.hooksPath=/dev/null", "commit", "-qm", "release")
-    git("tag", "-a", "v1.0.0", "-m", "release")
+    git("tag", "-a", "0.2.0.202611041824", "-m", "release")
     path.write_text("unreleased agent\n")
     catalogue = render(root)
     assert catalogue[rel] == [hashlib.sha256(b"released agent\n").hexdigest()]
@@ -153,8 +153,8 @@ def test_running_bundle_lookup_failure_refuses(checkout, monkeypatch, error):
     )
 
 
-@pytest.mark.parametrize("tag", ["v1.0.0", "0.2.0.202611041824"])
-def test_current_annotated_tags_prove_releases_and_skip_lightweight(
+@pytest.mark.parametrize("tag", ["0.2.0.202611041824", "1.2.3.202611041824"])
+def test_canonical_annotated_tags_prove_releases_and_skip_other_tags(
     checkout, monkeypatch, tag,
 ):
     root, git = checkout
@@ -168,7 +168,9 @@ def test_current_annotated_tags_prove_releases_and_skip_lightweight(
     path.write_text("unreleased skill\n")
     git("add", canonical)
     git("-c", "core.hooksPath=/dev/null", "commit", "-qm", "unreleased")
-    git("tag", "0.2.0.999999999999")
+    git("tag", "0.2.0.202611041825")
+    git("tag", "-a", "v1.0.0", "-m", "non-release")
+    git("tag", "-a", "preview", "-m", "non-release")
     catalogue = render(root)
     assert catalogue["skills/dash/merge.md"] == [
         hashlib.sha256(b"released skill\n").hexdigest(),
