@@ -17,6 +17,7 @@ from yoke_contracts.project_contract.install_manifest import (
 from yoke_core.domain import documentation_links as links
 from yoke_core.domain import documentation_navigation as nav
 from yoke_core.domain.documentation_render import render_page
+from yoke_core.domain.docs_corpus_rule import load_corpus_rule
 
 
 # Public examples use placeholders, never a person's home, capture or identity.
@@ -57,6 +58,9 @@ def _size(path: Path, text: str) -> list[CorpusRefusal]:
 
 def validate_public_corpus(root: Path) -> list[CorpusRefusal]:
     """Use tracked source pages, or present pages in materialized trees."""
+    rule = load_corpus_rule()
+    if isinstance(rule, CorpusRefusal):
+        return [rule]
     root = Path(root)
     refusals = [
         CorpusRefusal(r.code, r.target, r.detail, r.repair)
@@ -77,7 +81,7 @@ def validate_public_corpus(root: Path) -> list[CorpusRefusal]:
     nodes = {n.path: n for n in nav.iter_nodes(tree)} if tree else {}
     for path in public_corpus_files(root):
         page = path.relative_to(root.resolve()).as_posix()
-        if rejected := refuse_unexpected_file(page, symlink=path.is_symlink()):
+        if rejected := refuse_unexpected_file(page, rule, symlink=path.is_symlink()):
             refusals.extend(rejected)
             continue
         try:

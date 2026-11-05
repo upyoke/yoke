@@ -129,12 +129,16 @@ from the declared full candidate commit with its matching release evidence.
 
 ## Allowed corpus files
 
-`yoke_contracts.project_contract.docs_corpus_files` owns Yoke's file allowlist.
+Yoke source repo only: `packages/yoke-core/src/yoke_core/ui/contracts/docs-corpus-files.json`
+owns the shared file allowlist (`schemaVersion: 1`): `allowedPathPattern` is matched
+against the whole relative path, and `identityFiles` adds literal root names.
 The corpus accepts Markdown (`*.md`), `nav.yaml`, assets matching
 `assets/[a-z0-9/._-]+.(css|svg|html)`, and the root identity files
 `materialization.json` and `yoke-docs-build-evidence.json`. Symlinks and all
 other files refuse with `DOCS_CORPUS_UNEXPECTED_FILE`; remove them from
 `docs/public`. Sync and bundle creation enforce this before reading files.
+A missing or malformed contract refuses with `DOCS_CORPUS_RULE_MISSING`;
+restore the contract from the matching yoke-core release.
 
 ## Consumer build evidence
 
