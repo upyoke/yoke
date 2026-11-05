@@ -191,7 +191,11 @@ def test_sync_and_record_reclassifies_disabled_skip_as_unmirrored(monkeypatch, c
     assert "resync --fix" not in capsys.readouterr().err
 
 
-def test_a_skipped_drift_check_rides_the_batch_evidence():
+def test_a_skipped_drift_check_rides_the_batch_evidence(monkeypatch):
+    monkeypatch.setattr(
+        "yoke_core.domain.merge_queue_batch_receipt.resolve_verification",
+        lambda *_a, **_k: ("full", "pytest", []),
+    )
     """Never fail-open silently: the batch says the comparison did not run."""
     skipped = LiveDriftReport(
         skip_reason="github_unreachable", skip_detail="GitHub 503"
