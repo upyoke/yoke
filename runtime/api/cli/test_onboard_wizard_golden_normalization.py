@@ -1,6 +1,5 @@
 """Determinism checks for the Textual SVG golden normalizer."""
 
-
 from runtime.api.cli.onboard_wizard_golden_support import _normalize
 
 
