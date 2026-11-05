@@ -94,10 +94,29 @@ try {
         await page.goto(url.href);
         await page.locator(".universe-app-root").waitFor();
         await page.waitForFunction(() => !/Loading…/.test(document.body.innerText));
+        if (name === "run" && process.env.YOKE_REVIEW_RUN_FIXTURE === "1") {
+          await page.evaluate(async sha => {
+            const { renderRunDetailView } = await import("/assets/universe_views_run_detail.js");
+            const row = { id: "source-review", project: "Example project", flow: "Production release",
+              status: "executing", current_stage: "verification", target_environment: "prod",
+              release_lineage: sha, stages: [{ name: "Build", state: "complete" },
+                { name: "Verification", state: "active" }, { name: "Deploy", state: "pending" }] };
+            const context = { document, projects: () => [], isMounted: () => true,
+              client: { call: async () => ({ status: 200, envelope: { success: true,
+                result: { rows: [row] } } }) } };
+            const host = document.querySelector(".view-host");
+            if (!host) throw new Error("Missing review view host");
+            await renderRunDetailView(context, host, null, row.id);
+            const note = document.createElement("p");
+            note.textContent = "Source rendering fixture; no deployment run was created.";
+            host.appendChild(note);
+          }, head);
+        }
         await page.evaluate(() => document.fonts.ready);
         const filename = `${name}-1440-${system}.png`;
         await page.screenshot({ path: path.join(output, filename), fullPage: true });
-        report.captures.push({ name, theme: system, filename });
+        report.captures.push({ name, theme: system, filename,
+          source_fixture: name === "run" && process.env.YOKE_REVIEW_RUN_FIXTURE === "1" });
       }
       assert.equal((await (await fetch(identity)).text()).trim(), head);
     }

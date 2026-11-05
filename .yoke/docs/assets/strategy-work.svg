@@ -1,4 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="105 10 1180 500">
+  <!-- Fixed Steel artwork keeps its own dark canvas in both page themes. -->
+  <rect x="105" y="10" width="1180" height="500" fill="#101418"/>
   <title>Steering turns a working strategy document into coordinated work items</title>
   <g font-family="Fira Sans, sans-serif">
     <rect x="120" y="24" width="320" height="90" rx="0" fill="#171c22" stroke="#262e37" stroke-width="1.5" stroke-dasharray="5 3" />
