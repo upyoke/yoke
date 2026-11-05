@@ -28,6 +28,7 @@ from yoke_core.domain.fleet_delta_snapshot import (
     ENVELOPES_FUNCTION,
     FRONTIER_FUNCTION,
     SESSIONS_FUNCTION,
+    STEERING_REPORT_FUNCTION,
     read_snapshot,
 )
 from yoke_core.domain.sessions_holdings_claim_facts import (
@@ -95,7 +96,10 @@ def _alarms_for(awaiting_landing: bool) -> list[str]:
             SESSIONS_FUNCTION: {"rows": rows},
             FRONTIER_FUNCTION: {},
             ENVELOPES_FUNCTION: {},
+            STEERING_REPORT_FUNCTION: {"question_states": {}},
         }
+        if function == STEERING_REPORT_FUNCTION:
+            assert payload == {"questions_only": True, "previous_question_ids": []}
         return SimpleNamespace(success=True, result=results[function])
 
     snapshot = read_snapshot(["project"], call=call, now=now, self_session_id="seat")

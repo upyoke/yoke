@@ -284,7 +284,9 @@ def read_snapshot(
         )
     )
     return FleetSnapshot(
-        questions=read_question_states(call, previous_question_ids, _result),
+        questions=read_question_states(call, previous_question_ids, _result)
+        if projects
+        else {},
         taken_at=now,
         self_session_id=self_session_id,
         sessions=sessions,
