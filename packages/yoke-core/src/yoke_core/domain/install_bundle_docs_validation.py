@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import argparse
-from dataclasses import dataclass
 from datetime import datetime
 import json
 from pathlib import Path
@@ -11,23 +10,13 @@ import re
 import subprocess
 
 from yoke_cli.transport.response_evidence import wrapped_lines
+from yoke_contracts.project_contract.docs_corpus_files import CorpusRefusal, refuse_unexpected_file
 from yoke_contracts.project_contract.install_manifest import (
     PACKAGED_INSTALL_BUNDLE_TREE_REL,
 )
 from yoke_core.domain import documentation_links as links
 from yoke_core.domain import documentation_navigation as nav
 from yoke_core.domain.documentation_render import render_page
-
-
-@dataclass(frozen=True)
-class CorpusRefusal:
-    code: str
-    target: str
-    detail: str
-    repair: str
-
-    def __str__(self) -> str:
-        return f"{self.code} {self.target}: {self.detail}. Repair: {self.repair}"
 
 
 # Public examples use placeholders, never a person's home, capture or identity.
@@ -88,6 +77,9 @@ def validate_public_corpus(root: Path) -> list[CorpusRefusal]:
     nodes = {n.path: n for n in nav.iter_nodes(tree)} if tree else {}
     for path in public_corpus_files(root):
         page = path.relative_to(root.resolve()).as_posix()
+        if rejected := refuse_unexpected_file(page, symlink=path.is_symlink()):
+            refusals.extend(rejected)
+            continue
         try:
             text = path.read_text(encoding="utf-8")
         except (OSError, UnicodeError):
@@ -136,7 +128,7 @@ def public_corpus_files(root: Path) -> list[Path]:
         if result.returncode:
             raise OSError("tracked public files unavailable")
         return [repo / p for p in result.stdout.decode().split("\0") if p]
-    return sorted(p for p in root.rglob("*") if p.is_file())
+    return sorted(p for p in root.rglob("*") if p.is_symlink() or p.is_file())
 
 
 def validate_published_copies(repo: Path) -> list[CorpusRefusal]:
