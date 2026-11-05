@@ -40,6 +40,8 @@
           "required_status_checks": [
             {"context": "repo-contracts"},
             {"context": "reuse-coverage"},
+            {"context": "shard-coverage (3.11)"},
+            {"context": "shard-coverage (3.14)"},
             {"context": "build"},
             {"context": "attest-validated-release-provenance"},
             {"context": "container"},

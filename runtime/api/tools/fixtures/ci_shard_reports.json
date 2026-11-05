@@ -1,0 +1,70 @@
+{
+  "selected": {
+    "duplicate": [
+      "runtime/api/board/tests/test_art_celebration.py::TestCelebrationMode::test_celebration_consistent_within_render",
+      "runtime/api/board/tests/test_art_celebration.py::TestCelebrationMode::test_celebration_emoji_pool_size"
+    ],
+    "missing": [
+      "runtime/api/board/tests/test_art.py::TestParseArtConfig::test_ascii_variant_parsing",
+      "runtime/api/board/tests/test_art.py::TestParseArtConfig::test_config_path_reads_board_art_sibling"
+    ],
+    "ordinary": "runtime/api/board/tests/test_activity_data.py::test_activity_counts_refresh_for_each_snapshot"
+  },
+  "expected": [
+    {
+      "classname": "runtime.api.board.tests.test_art_celebration.TestCelebrationMode",
+      "name": "test_celebration_consistent_within_render",
+      "nodeid": "runtime/api/board/tests/test_art_celebration.py::TestCelebrationMode::test_celebration_consistent_within_render"
+    },
+    {
+      "classname": "runtime.api.board.tests.test_art_celebration.TestCelebrationMode",
+      "name": "test_celebration_emoji_pool_size",
+      "nodeid": "runtime/api/board/tests/test_art_celebration.py::TestCelebrationMode::test_celebration_emoji_pool_size"
+    },
+    {
+      "classname": "runtime.api.board.tests.test_art.TestParseArtConfig",
+      "name": "test_ascii_variant_parsing",
+      "nodeid": "runtime/api/board/tests/test_art.py::TestParseArtConfig::test_ascii_variant_parsing"
+    },
+    {
+      "classname": "runtime.api.board.tests.test_art.TestParseArtConfig",
+      "name": "test_config_path_reads_board_art_sibling",
+      "nodeid": "runtime/api/board/tests/test_art.py::TestParseArtConfig::test_config_path_reads_board_art_sibling"
+    },
+    {
+      "classname": "runtime.api.board.tests.test_activity_data",
+      "name": "test_activity_counts_refresh_for_each_snapshot",
+      "nodeid": "runtime/api/board/tests/test_activity_data.py::test_activity_counts_refresh_for_each_snapshot"
+    }
+  ],
+  "bad": {
+    "pytest-output-3.14-14": [
+      "<testcase classname=\"runtime.api.board.tests.test_art_celebration.TestCelebrationMode\" name=\"test_celebration_consistent_within_render\" time=\"0.012\" />",
+      "<testcase classname=\"runtime.api.board.tests.test_art_celebration.TestCelebrationMode\" name=\"test_celebration_emoji_pool_size\" time=\"0.011\" />"
+    ],
+    "pytest-output-3.14-7": [
+      "<testcase classname=\"runtime.api.board.tests.test_art_celebration.TestCelebrationMode\" name=\"test_celebration_consistent_within_render\" time=\"0.007\" />",
+      "<testcase classname=\"runtime.api.board.tests.test_art_celebration.TestCelebrationMode\" name=\"test_celebration_emoji_pool_size\" time=\"0.007\" />"
+    ],
+    "pytest-output-3.14-9": [
+      "<testcase classname=\"runtime.api.board.tests.test_activity_data\" name=\"test_activity_counts_refresh_for_each_snapshot\" time=\"0.640\" />"
+    ]
+  },
+  "good": {
+    "pytest-output-3.14-7": [
+      "<testcase classname=\"runtime.api.board.tests.test_art_celebration.TestCelebrationMode\" name=\"test_celebration_consistent_within_render\" time=\"0.009\" />",
+      "<testcase classname=\"runtime.api.board.tests.test_art_celebration.TestCelebrationMode\" name=\"test_celebration_emoji_pool_size\" time=\"0.008\" />"
+    ],
+    "pytest-output-3.14-11": [
+      "<testcase classname=\"runtime.api.board.tests.test_art.TestParseArtConfig\" name=\"test_ascii_variant_parsing\" time=\"0.006\" />",
+      "<testcase classname=\"runtime.api.board.tests.test_art.TestParseArtConfig\" name=\"test_config_path_reads_board_art_sibling\" time=\"0.006\" />"
+    ],
+    "pytest-output-3.14-4": [
+      "<testcase classname=\"runtime.api.board.tests.test_activity_data\" name=\"test_activity_counts_refresh_for_each_snapshot\" time=\"0.869\" />"
+    ]
+  },
+  "source_runs": {
+    "bad": 42080443129,
+    "good": 42078990104
+  }
+}

@@ -85,3 +85,36 @@ def test_product_wheel_files_share_one_shard():
     assert set().union(*groups) == wheel_files | {
         "tests/test_plain_a.py", "tests/test_plain_b.py"
     }
+
+
+def test_collection_fingerprint_records_the_unsplit_ids():
+    items = [_item(f"tests/test_{name}.py::test_case") for name in "abcd"]
+    splitter = SimpleNamespace(cached_durations={}, writer=Mock())
+    configs = []
+    for group in (1, 2):
+        config = SimpleNamespace(
+            option=SimpleNamespace(splits=2, group=group), workeroutput={},
+            hook=SimpleNamespace(pytest_deselected=Mock()),
+        )
+        selected = list(items)
+        selection._FileSplitter(splitter).pytest_collection_modifyitems(config, selected)
+        assert len(selected) == 2
+        configs.append(config)
+    assert configs[0].workeroutput == configs[1].workeroutput
+    assert configs[0].workeroutput["ci_collection"]["count"] == 4
+
+
+def test_worker_collection_fingerprint_reaches_the_controller_log():
+    reporter = Mock()
+    node = SimpleNamespace(
+        workeroutput={"ci_collection": {"count": 4, "ids_sha256": "abc"}},
+        gateway=SimpleNamespace(id="gw0"),
+        config=SimpleNamespace(pluginmanager=SimpleNamespace(get_plugin=lambda _: reporter)),
+    )
+    selection.pytest_testnodedown(node, None)
+    assert 'CI collection gw0:' in reporter.write_line.call_args.args[0]
+    assert '"count": 4' in reporter.write_line.call_args.args[0]
+
+
+def test_worker_crash_without_collection_telemetry_keeps_its_original_verdict():
+    selection.pytest_testnodedown(SimpleNamespace(), RuntimeError("worker lost"))

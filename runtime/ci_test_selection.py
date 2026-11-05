@@ -1,5 +1,7 @@
 """Keep interpreter-independent repository checks on the newest CI leg."""
 
+import hashlib
+import json
 import os
 from dataclasses import dataclass
 
@@ -106,6 +108,19 @@ class _FileSplitter:
 
     @pytest.hookimpl(trylast=True)
     def pytest_collection_modifyitems(self, config, items):
+        fingerprint = {
+            "count": len(items),
+            "ids_sha256": hashlib.sha256(
+                "\n".join(sorted(item.nodeid for item in items)).encode()
+            ).hexdigest(),
+            "profile_sha256": hashlib.sha256(json.dumps(
+                self.splitter.cached_durations, sort_keys=True
+            ).encode()).hexdigest(),
+        }
+        if hasattr(config, "workeroutput"):
+            config.workeroutput["ci_collection"] = fingerprint
+        else:
+            self.splitter.writer.line("CI collection: " + json.dumps(fingerprint))
         names, estimate = file_group(
             items, self.splitter.cached_durations,
             config.option.splits, config.option.group,
@@ -137,3 +152,13 @@ def pytest_collection_modifyitems(config, items):
         (deselected if independent else kept).append(item)
     items[:] = kept
     config.hook.pytest_deselected(items=deselected)
+
+
+@pytest.hookimpl(optionalhook=True)
+def pytest_testnodedown(node, error):
+    """Retain each worker's unsplit collection facts in the controller log."""
+    fingerprint = getattr(node, "workeroutput", {}).get("ci_collection")
+    if fingerprint:
+        reporter = node.config.pluginmanager.get_plugin("terminalreporter")
+        if reporter is not None:
+            reporter.write_line(f"CI collection {node.gateway.id}: " + json.dumps(fingerprint))

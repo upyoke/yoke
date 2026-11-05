@@ -141,6 +141,38 @@ installed packages on the same interpreter, retaining its engine-absence proof.
 The eight import-graph scenarios remain eight parametrized cases in
 `tests/import_graph/test_yoke_cli_wheel_smoke.py`.
 
+## Prove shard coverage
+
+The required `shard-coverage (3.11)` and `shard-coverage (3.14)` jobs run
+once all shards finish, including when a shard failed. Each downloads every
+`pytest-output-<python>-<shard>` report and independently collects the full
+suite without splitting or xdist. The older interpreter's collection applies
+its normal repository-only deselection. A skipped testcase still counts as
+one execution; a deselected testcase is outside that interpreter's contract.
+
+`ci_shard_coverage` compares JUnit identities against that collection and
+refuses missing, duplicated or unexpected tests with their names and Python
+version. A missing report refuses `ci_shard_reports_missing` and names its
+shard. Restore the report upload or fix collection/profile divergence, then
+verify the corrected commit. `shard-collection-<python>` retains the expected
+IDs and collection log. To replay saved evidence:
+
+```text
+yoke dev run -- python3 -m yoke_core.tools.ci_shard_coverage --python 3.14 --reports REPORT_DIRECTORY --expected expected-tests.json
+```
+
+On `SUITE_ALREADY_PROVEN`, both coverage jobs skip collection and report
+comparison and remain successful, as the test shards do. Required check names
+live in `.yoke/merge-queue.json`; apply that declaration when changing them.
+
+Each shard records every worker's unsplit collection count, sorted-ID SHA-256,
+and timing-profile SHA-256 in `pytest-output.txt`. Compare these before
+investigating the split. Test IDs must remain stable across machines running
+the same interpreter leg: use explicit parameter IDs for values such as the
+local Python patch version. A patch-specific ID present in the shared timing
+profile gets a measured weight on one runner and a fallback weight on another;
+even that small difference can change thousands of greedy file assignments.
+
 ## Reproduce a timing comparison
 
 Save the completed run object from GitHub's
