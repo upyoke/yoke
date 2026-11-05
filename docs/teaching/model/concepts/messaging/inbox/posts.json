@@ -2,8 +2,8 @@
  "id": "posts",
  "title": "Shared Inbox posts",
  "status": "observed",
- "summary": "Durable audience-addressed project work has one shared Done state, with the first completing actor and time. Posts do not expire; posting requires project items.write permission, and completing requires live audience membership plus project read access. Fields are generic key/value data.",
+ "summary": "Durable audience-addressed project work has one shared Done state, with the first completing actor and time. Posts do not expire; posting requires project items.write permission, and completing requires live audience membership plus project read access. Fields are generic key/value data. Compact post cards show project, source and received time together, hide a body repeated by a field, and link email and HTTP(S) values; narrow screens stack labels above values.",
  "commands": ["yoke inbox posts create", "yoke inbox posts done", "yoke inbox list"],
  "functions": ["inbox.posts.create", "inbox.posts.done", "inbox.list"],
- "sources": ["docs/public/sessions/audiences-and-posts.md", "packages/yoke-core/src/yoke_core/domain/inbox_posts.py"]
+ "sources": ["docs/public/sessions/audiences-and-posts.md", "packages/yoke-core/src/yoke_core/domain/inbox_posts.py", "packages/yoke-core/src/yoke_core/ui/static/inbox_post_card.js"]
 }
