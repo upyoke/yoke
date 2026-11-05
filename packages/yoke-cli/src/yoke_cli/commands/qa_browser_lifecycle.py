@@ -49,11 +49,25 @@ def qa_browser_status(args: List[str]) -> int:
         return 2
 
     payload = _browser_readiness(
-        browser_client,
         browser_runtime_home,
         project=parsed.project,
         identity=parsed.identity,
     )
+    if parsed.check_id is not None:
+        from yoke_harness.browser_check_profile import check_scope
+
+        try:
+            with check_scope(
+                parsed.project,
+                parsed.identity,
+                check_id=parsed.check_id,
+                keep_open=True,
+            ):
+                payload["daemon"] = browser_client.daemon_status()
+            payload["check_id"] = parsed.check_id
+        except (RuntimeError, BrowserIdentityError) as exc:
+            print(f"yoke qa browser status: {exc}", file=sys.stderr)
+            return 2
     if parsed.json_mode:
         print(json.dumps(payload))
     else:
@@ -80,6 +94,8 @@ def _format_status_human(payload: dict[str, object]) -> str:
         f"{profile.get('identity', 'unknown')}) {profile.get('path', '')}",
     ]
     repairs = payload.get("repairs") or []
+    if daemon.get("detail"):
+        lines.append(str(daemon["detail"]))
     if repairs:
         lines.append("repairs:")
         lines.extend(f"  - {hint}" for hint in repairs)
@@ -122,7 +138,6 @@ def qa_browser_setup(args: List[str]) -> int:
                 emit=lambda line: print(line, file=sys.stderr)
             )
         readiness = _browser_readiness(
-            browser_client,
             browser_runtime_home,
             project=parsed.project,
             identity=identity,
@@ -188,25 +203,8 @@ def _declared_identity(project: str | None, identity: str | None) -> str:
     return validate_identity_name(identity or DEFAULT_IDENTITY)
 
 
-def _profile_dir_arg(project: str | None, identity: str) -> str | None:
-    """The authorized profile the daemon should launch, or ``None`` for clean."""
-    from yoke_cli.config.browser_profile import authorized_profile_dir
-
-    if project is None:
-        return None
-
-    authorized = authorized_profile_dir(project, identity=identity)
-    return str(authorized) if authorized is not None else None
-
-
 def _profile_readiness(project: str | None, identity: str) -> dict[str, object]:
-    """Report which project profile a daemon started here would open.
-
-    Status is a diagnostic surface, so a project reference that does not
-    resolve to a slug is reported as the unresolved facet it is rather than
-    raised — the operator asked what this machine would open, and "the project
-    could not be named" is that answer.
-    """
+    """Report the authoritative source profile; unresolved references are facets."""
     from yoke_cli.config import browser_profile
     from yoke_cli.config.project_slug_lookup import ProjectSlugLookupError
 
@@ -226,7 +224,6 @@ def _profile_readiness(project: str | None, identity: str) -> dict[str, object]:
 
 
 def _browser_readiness(
-    browser_client,
     browser_runtime_home,
     project: str | None = None,
     identity: str = DEFAULT_IDENTITY,
@@ -246,9 +243,10 @@ def _browser_readiness(
         "node": node,
         "npm_dependencies": {"status": "ready" if deps_ready else "missing"},
         "chromium": {"status": chromium},
-        "daemon": browser_client.daemon_status(
-            profile_dir=_profile_dir_arg(project, identity) or ""
-        ),
+        "daemon": {
+            "status": "not_running",
+            "detail": "No private check selected. Pass --check-id ID to inspect one.",
+        },
         "profile": _profile_readiness(project, identity),
         "repairs": repairs,
     }
@@ -317,7 +315,9 @@ QA_BROWSER_LIFECYCLE_USAGE = {
     "yoke qa browser setup": (
         "Materialize and optionally start the machine-local Browser QA daemon."
     ),
-    "yoke qa browser status": ("Report the machine-local Browser QA daemon status."),
+    "yoke qa browser status": (
+        "Report browser readiness or one private check's status."
+    ),
     "yoke qa browser stop": ("Stop the machine-local Browser QA daemon."),
 }
 

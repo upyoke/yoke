@@ -103,7 +103,8 @@ class TestStatusAdapter:
         assert payload["node"]["source"] == "host_path"
         assert payload["npm_dependencies"]["status"] == "ready"
         assert payload["chromium"]["status"] == "ready"
-        assert payload["daemon"] == {"status": "not_running"}
+        assert payload["daemon"]["status"] == "not_running"
+        assert "--check-id" in payload["daemon"]["detail"]
         assert payload["repairs"] == []
 
     def test_status_json_names_the_provisioned_toolchain(self, tmp_path):

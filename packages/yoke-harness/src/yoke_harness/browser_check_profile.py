@@ -165,7 +165,7 @@ def check_scope(project, identity=None, *, check_id=None, keep_open=False):
     retain = False
     try:
         sweep_checks()
-        if check_id:
+        if check_id is not None:
             try:
                 check_id = str(UUID(check_id))
                 check = BrowserCheck(check_id, _root() / check_id)

@@ -117,7 +117,7 @@ def test_wrong_identity_cannot_close_another_check(profiles, monkeypatch):
 
 
 @pytest.mark.parametrize(
-    "check_id", ["invalid", "../outside", "00000000-0000-0000-0000-000000000000"]
+    "check_id", ["", "invalid", "../outside", "00000000-0000-0000-0000-000000000000"]
 )
 def test_unknown_check_names_recovery(profiles, check_id):
     with pytest.raises(RuntimeError, match="browser_check_unavailable"):

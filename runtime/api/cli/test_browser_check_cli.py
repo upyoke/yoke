@@ -146,3 +146,67 @@ def test_invalid_identity_names_recovery_without_traceback(operation, capsys):
         adapter([*arguments, "--project", "fixture", "--identity", "../invalid"]) == 1
     )
     assert "browser_identity" in capsys.readouterr().err
+
+
+def test_status_inspects_only_the_named_private_check(monkeypatch, capsys):
+    from contextlib import contextmanager
+    from yoke_cli.commands.qa_browser_lifecycle import qa_browser_status
+    from yoke_harness import browser_client
+
+    @contextmanager
+    def scope(project, identity, *, check_id, keep_open):
+        assert (project, identity, check_id, keep_open) == (
+            "fixture",
+            "admin",
+            "opaque",
+            True,
+        )
+        yield
+
+    monkeypatch.setattr("yoke_harness.browser_check_profile.check_scope", scope)
+    monkeypatch.setattr(
+        "yoke_cli.commands.qa_browser_lifecycle._browser_readiness",
+        lambda *a, **k: {"daemon": {"status": "not_running"}},
+    )
+    monkeypatch.setattr(
+        browser_client, "daemon_status", lambda: {"status": "running", "pid": 42}
+    )
+    assert (
+        qa_browser_status(
+            [
+                "--project",
+                "fixture",
+                "--identity",
+                "admin",
+                "--check-id",
+                "opaque",
+                "--json",
+            ]
+        )
+        == 0
+    )
+    result = json.loads(capsys.readouterr().out)
+    assert result["daemon"] == {"status": "running", "pid": 42}
+    assert result["check_id"] == "opaque"
+
+
+def test_default_status_never_probes_the_authoritative_daemon(monkeypatch, capsys):
+    from unittest.mock import Mock
+    from yoke_cli.commands.qa_browser_lifecycle import qa_browser_status
+    from yoke_harness import browser_client
+
+    status = Mock(
+        side_effect=AssertionError("shared identity daemon must not be probed")
+    )
+    monkeypatch.setattr(browser_client, "daemon_status", status)
+    assert qa_browser_status(["--project", "fixture", "--json"]) == 0
+    result = json.loads(capsys.readouterr().out)
+    assert "--check-id" in result["daemon"]["detail"]
+    status.assert_not_called()
+
+
+def test_blank_status_check_id_refuses_instead_of_inspecting_another_browser(capsys):
+    from yoke_cli.commands.qa_browser_lifecycle import qa_browser_status
+
+    assert qa_browser_status(["--project", "fixture", "--check-id", ""]) == 2
+    assert "browser_check_unavailable" in capsys.readouterr().err

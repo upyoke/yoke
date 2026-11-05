@@ -212,7 +212,9 @@ For an interactive step sequence, `qa browser setup --json` returns a
 `check_id`. Pass `--check-id ID --keep-open` on intermediate `qa browser step`
 calls, then omit `--keep-open` on the final call to close and delete the copy.
 A first step with `--keep-open` can also start the sequence and return its id.
+Pass the same `--project` and `--identity` on every call.
 Use `qa browser stop --check-id ID` to close it early, including after an error.
+Inspect its PID and health with `qa browser status --check-id ID --json`.
 An idle browser exits after ten minutes and its copy becomes sweepable.
 `--page NAME` selects a page within that check, so two workers never share
 pages merely by choosing the same identity or page name. An
