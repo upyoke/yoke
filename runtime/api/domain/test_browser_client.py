@@ -132,9 +132,14 @@ class TestDaemonRunning:
 
 class TestDaemonStatus:
     def test_running(self, state_file):
-        with mock.patch(
-            "yoke_core.domain.browser_client._state_file_path", return_value=state_file
+        with (
+            mock.patch(
+                "yoke_core.domain.browser_client._state_file_path",
+                return_value=state_file,
+            ),
+            mock.patch("yoke_harness.browser_check_profile.check_scope") as scope,
         ):
+            scope.return_value.__enter__.return_value.check_id = "opaque"
             result = daemon_status()
             assert result["status"] == "running"
             assert result["health"] == "healthy"
@@ -308,7 +313,15 @@ class TestCLI:
         ):
             with mock.patch(
                 "sys.argv",
-                ["browser_client", "daemon", "status", "--project", "fixture"],
+                [
+                    "browser_client",
+                    "daemon",
+                    "status",
+                    "--project",
+                    "fixture",
+                    "--check-id",
+                    "opaque",
+                ],
             ):
                 rc = main()
                 assert rc == 0
