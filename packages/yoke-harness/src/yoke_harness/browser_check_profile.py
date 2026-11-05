@@ -59,7 +59,13 @@ def _copy_profile(source: Path, destination: Path) -> None:
 
 
 def _owner(pid: int) -> dict:
-    return {"pid": pid, "start": process_start_time(pid)}
+    start = process_start_time(pid)
+    if start is None:
+        raise RuntimeError(
+            "browser_check_owner_unavailable: cannot inspect the browser check's "
+            "owning process; restore local process-query access, then retry."
+        )
+    return {"pid": pid, "start": start}
 
 
 def _write_record(check: BrowserCheck, record: dict) -> None:

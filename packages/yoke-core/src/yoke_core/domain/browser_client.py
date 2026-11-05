@@ -134,6 +134,10 @@ def daemon_running(state: Optional[DaemonState] = None) -> bool:
     st = state or DaemonState.load()
     if st is None or st.pid <= 0:
         return False
+    if sys.platform == "win32":
+        from yoke_contracts.process_ancestry import process_start_time
+
+        return process_start_time(st.pid) is not None
     try:
         os.kill(st.pid, 0)
         return True

@@ -138,3 +138,14 @@ def test_cleanup_deletes_copy_when_daemon_exits_during_stop(profiles, monkeypatc
     with checks.check_scope("fixture") as check:
         assert check.profile.is_dir()
     assert not check.directory.exists()
+
+
+def test_unavailable_owner_refuses_without_publishing_a_copy(profiles, monkeypatch):
+    source, stopped = profiles
+    monkeypatch.setattr(checks, "process_start_time", lambda pid: None)
+    with pytest.raises(RuntimeError, match="browser_check_owner_unavailable"):
+        with checks.check_scope("fixture"):
+            pytest.fail("an unowned copy must never be used")
+    assert not list(checks._root().iterdir())
+    assert source.is_dir()
+    assert stopped == []

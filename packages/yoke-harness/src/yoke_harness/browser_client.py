@@ -88,6 +88,10 @@ def daemon_running(state: Optional[DaemonState] = None) -> bool:
     selected = state or DaemonState.load()
     if selected is None or selected.pid <= 0:
         return False
+    if sys.platform == "win32":
+        from yoke_contracts.process_ancestry import process_start_time
+
+        return process_start_time(selected.pid) is not None
     try:
         os.kill(selected.pid, 0)
     except (OSError, ProcessLookupError):
@@ -253,13 +257,13 @@ def daemon_stop(*, profile_dir: str | None = None) -> str:
     except Exception:
         pass
     for _ in range(5):
-        try:
-            os.kill(state.pid, 0)
-        except (OSError, ProcessLookupError):
+        if not daemon_running(state):
             return "stopped"
         time.sleep(1)
     try:
-        os.kill(state.pid, signal.SIGKILL)
+        os.kill(
+            state.pid, signal.SIGTERM if sys.platform == "win32" else signal.SIGKILL
+        )
     except (OSError, ProcessLookupError):
         pass
     state_path.unlink(missing_ok=True)

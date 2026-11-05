@@ -30,15 +30,21 @@ def test_stop_and_status_address_only_the_requested_profile(
             '"profileDir":"%s","health":"healthy"}' % (pid, pid, profile)
         )
     requests = []
+    alive = {101, 202}
+
+    def request(path, **kwargs):
+        pid = kwargs["state"].pid
+        requests.append(pid)
+        if path == "/api/stop":
+            alive.discard(pid)
+        return {"success": True, "data": {"health": "healthy"}}
+
     monkeypatch.setattr(
         client,
         "daemon_request",
-        lambda *args, **kw: (
-            requests.append(kw["state"].pid)
-            or {"success": True, "data": {"health": "healthy"}}
-        ),
+        request,
     )
-    monkeypatch.setattr(client, "daemon_running", lambda state=None: True)
+    monkeypatch.setattr(client, "daemon_running", lambda state: state.pid in alive)
     monkeypatch.setattr(
         client.os, "kill", lambda *args: (_ for _ in ()).throw(ProcessLookupError())
     )

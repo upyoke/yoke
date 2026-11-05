@@ -23,6 +23,7 @@ from __future__ import annotations
 
 import os
 import signal
+import sys
 import time
 from typing import Any, Dict, List, Optional
 
@@ -113,15 +114,15 @@ def daemon_stop(*, profile_dir: str | None = None) -> str:
 
     # Wait for process to terminate
     for _ in range(5):
-        try:
-            os.kill(state.pid, 0)
-        except (OSError, ProcessLookupError):
+        if not _bc.daemon_running(state):
             return "stopped"
         time.sleep(1)
 
     # Force kill
     try:
-        os.kill(state.pid, signal.SIGKILL)
+        os.kill(
+            state.pid, signal.SIGTERM if sys.platform == "win32" else signal.SIGKILL
+        )
     except (OSError, ProcessLookupError):
         pass
 
