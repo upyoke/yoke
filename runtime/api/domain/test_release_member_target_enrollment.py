@@ -74,24 +74,18 @@ def test_targeted_memberships_admit_only_their_own_obligations(test_db):
         assert item_id in needed_member_ids(
             test_db, run_id=f"run-{environment}", item_ids=(item_id,)
         )
-    assert not (
-        ("run-stage", item_id)
-        in covering_holder_pairs(
+    assert ("run-stage", item_id) not in covering_holder_pairs(
             test_db,
             run_id="run-prod",
             item_ids=(item_id,),
             holders=({"run_id": "run-stage"},),
         )
-    )
-    assert not (
-        ("run-prod", item_id)
-        in covering_holder_pairs(
+    assert ("run-prod", item_id) not in covering_holder_pairs(
             test_db,
             run_id="run-stage",
             item_ids=(item_id,),
             holders=({"run_id": "run-prod"},),
         )
-    )
     assert [run["id"] for run in completion_runs(test_db, item_id)] == ["run-prod"]
 
 
@@ -103,9 +97,7 @@ def test_no_stage_obligation_keeps_member_off_supplemental_run(test_db):
         ("2026-10-06T00:00:00Z", sources["stage"]),
     )
     test_db.commit()
-    assert not (
-        item_id in needed_member_ids(test_db, run_id="run-stage", item_ids=(item_id,))
-    )
+    assert item_id not in needed_member_ids(test_db, run_id="run-stage", item_ids=(item_id,))
     assert item_id in needed_member_ids(test_db, run_id="run-prod", item_ids=(item_id,))
 
 

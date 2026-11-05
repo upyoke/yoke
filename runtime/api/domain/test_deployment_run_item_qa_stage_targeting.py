@@ -76,9 +76,7 @@ def targeted_out(test_db: Any) -> Any:
         "UPDATE items SET deployment_flow='flow-run-prod' WHERE id=%s", (ITEM_ID,)
     )
     test_db.commit()
-    assert not (
-        ITEM_ID in needed_member_ids(test_db, run_id="run-stage", item_ids=(ITEM_ID,))
-    )
+    assert ITEM_ID not in needed_member_ids(test_db, run_id="run-stage", item_ids=(ITEM_ID,))
     return test_db
 
 

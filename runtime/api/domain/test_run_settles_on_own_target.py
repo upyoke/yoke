@@ -80,15 +80,12 @@ def test_production_holder_without_a_selection_does_not_hold_stage_obligations(
     assert item_id in needed_member_ids(
         test_db, run_id="run-stage", item_ids=(item_id,)
     )
-    assert not (
-        ("run-prod", item_id)
-        in covering_holder_pairs(
+    assert ("run-prod", item_id) not in covering_holder_pairs(
             test_db,
             run_id="run-stage",
             item_ids=(item_id,),
             holders=({"run_id": "run-prod"},),
         )
-    )
 
 
 def test_production_selection_naming_stage_cases_does_not_hold_them(test_db):
@@ -109,15 +106,12 @@ def test_production_selection_naming_stage_cases_does_not_hold_them(test_db):
     )
     test_db.commit()
 
-    assert not (
-        ("run-prod", item_id)
-        in covering_holder_pairs(
+    assert ("run-prod", item_id) not in covering_holder_pairs(
             test_db,
             run_id="run-stage",
             item_ids=(item_id,),
             holders=({"run_id": "run-prod"},),
         )
-    )
 
 
 def test_production_run_settles_while_a_member_still_owes_stage(test_db, monkeypatch):
