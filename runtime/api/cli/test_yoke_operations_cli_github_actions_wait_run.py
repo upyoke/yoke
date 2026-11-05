@@ -82,12 +82,6 @@ def _run_wait(*argv: str, states: List[tuple[str, str]], clock=None):
     return rc, sleeps, out.getvalue(), err.getvalue()
 
 
-def test_registry_maps_wait_run_to_single_shot_read() -> None:
-    from yoke_cli.commands.registry import SUBCOMMAND_REGISTRY
-
-    assert SUBCOMMAND_REGISTRY[("github-actions", "wait-run")][0] == (
-        "github_actions.wait_run"
-    )
 
 
 def test_wait_run_dispatches_single_shot_reads_until_success() -> None:

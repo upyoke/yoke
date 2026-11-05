@@ -20,14 +20,12 @@ def response(function, result):
     )
 
 
-@pytest.mark.parametrize(
-    "route,function",
-    [
-        (" ".join(route), fid or "client-local")
-        for route, (fid, _) in sorted(command_routes().items())
-    ],
-)
-def test_each_registered_response_boundary(route, function, capsys):
+def test_registered_response_boundaries(capsys):
+    for route, (function, _) in sorted(command_routes().items()):
+        _assert_response_boundary(" ".join(route), function or "client-local", capsys)
+
+
+def _assert_response_boundary(route, function, capsys):
     # These are shared-boundary fixtures, not live adapter executions.
     for result, expected in [
         (

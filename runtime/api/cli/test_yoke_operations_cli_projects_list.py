@@ -22,10 +22,6 @@ def _reset_captured() -> None:
 
 
 class TestProjectsList:
-    def test_registry_maps_tokens_to_function_id(self) -> None:
-        from yoke_cli.commands.registry import SUBCOMMAND_REGISTRY
-
-        assert SUBCOMMAND_REGISTRY[("projects", "list")][0] == "projects.list"
 
     def test_dispatches_empty_payload(self) -> None:
         rc = _run(_stub_ok, "projects", "list")

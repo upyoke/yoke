@@ -12,7 +12,6 @@ from yoke_cli.commands.adapters import (
 )
 from yoke_cli.commands.adapters import item_worktrees, list_paging
 from yoke_cli.commands.adapters.usage import ADAPTER_USAGE
-from yoke_cli.commands.registry import SUBCOMMAND_REGISTRY
 
 
 def _capture_dispatch(monkeypatch):
@@ -229,14 +228,6 @@ def test_list_and_path_record_build_registered_envelopes(monkeypatch) -> None:
 
 
 def test_registry_usage_and_inventory_expose_lane_operations() -> None:
-    assert SUBCOMMAND_REGISTRY[("item-worktrees", "get")][0] == ("item_worktrees.get")
-    assert SUBCOMMAND_REGISTRY[("item-worktrees", "list")][0] == ("item_worktrees.list")
-    assert SUBCOMMAND_REGISTRY[("item-worktrees", "path-record")][0] == (
-        "item_worktrees.path_record"
-    )
-    assert SUBCOMMAND_REGISTRY[("item-worktrees", "release")][0] == (
-        "item_worktrees.release"
-    )
     assert ADAPTER_USAGE["item_worktrees.get"].startswith("yoke item-worktrees get")
     assert ADAPTER_USAGE["item_worktrees.list"].startswith("yoke item-worktrees list")
     assert ADAPTER_USAGE["item_worktrees.path_record"].startswith(

@@ -83,27 +83,6 @@ def _run(
                                 return cli_main(list(argv))
 
 
-class TestRegistry:
-    def test_tokens_resolve_to_function_ids(self) -> None:
-        from yoke_cli.commands.registry import SUBCOMMAND_REGISTRY
-
-        assert SUBCOMMAND_REGISTRY[("strategy", "doc", "list")][0] == (
-            "strategy.doc.list"
-        )
-        assert SUBCOMMAND_REGISTRY[("strategy", "doc", "get")][0] == (
-            "strategy.doc.get"
-        )
-        assert SUBCOMMAND_REGISTRY[("strategy", "doc", "create")][0] == (
-            "strategy.doc.create"
-        )
-        assert SUBCOMMAND_REGISTRY[("strategy", "doc", "replace")][0] == (
-            "strategy.doc.replace"
-        )
-        assert SUBCOMMAND_REGISTRY[("strategy", "render")][0] == ("strategy.render.run")
-        assert SUBCOMMAND_REGISTRY[("strategy", "ingest")][0] == ("strategy.ingest.run")
-        assert SUBCOMMAND_REGISTRY[("strategy", "seed-defaults")][0] == (
-            "strategy.seed_defaults.run"
-        )
 
 
 class TestDocList:

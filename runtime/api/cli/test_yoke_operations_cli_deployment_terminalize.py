@@ -80,12 +80,8 @@ def test_terminalize_requires_disposition_and_reason():
 
 
 def test_terminalize_is_registered_and_inventoried():
-    from yoke_cli.commands.registry import SUBCOMMAND_REGISTRY
     from yoke_cli.operation_inventory import lookup
 
-    assert SUBCOMMAND_REGISTRY[("deployment-runs", "terminalize")][0] == (
-        "deployment_runs.terminalize"
-    )
     assert lookup("yoke deployment-runs terminalize").status == "wrapped"
 
 

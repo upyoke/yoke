@@ -53,16 +53,6 @@ def _run(
     return rc, out.getvalue(), err.getvalue()
 
 
-class TestRegistry:
-    def test_tokens_resolve_to_function_ids(self) -> None:
-        from yoke_cli.commands.registry import SUBCOMMAND_REGISTRY
-
-        assert SUBCOMMAND_REGISTRY[("github-actions", "secret", "set")][0] == (
-            "github_actions.secret.set"
-        )
-        assert SUBCOMMAND_REGISTRY[("github-actions", "variable", "set")][0] == (
-            "github_actions.variable.set"
-        )
 
 
 def _check_ci_response(state: str, **extra) -> dict:

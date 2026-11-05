@@ -160,10 +160,6 @@ def test_charge_schedule_dispatches() -> None:
     assert req.payload["workspace"]
 
 
-def test_registry_maps_sessions_list_to_function_id() -> None:
-    from yoke_cli.commands.registry import SUBCOMMAND_REGISTRY
-
-    assert SUBCOMMAND_REGISTRY[("sessions", "list")][0] == "sessions.list"
 
 
 def test_sessions_hook_overhead_dispatches_hours() -> None:

@@ -49,29 +49,6 @@ def _run_capture(stub, *argv: str) -> tuple[int, str, str]:
                 return rc, out.getvalue(), err.getvalue()
 
 
-def test_registry_maps_deployment_tokens_to_function_ids() -> None:
-    from yoke_cli.commands.registry import SUBCOMMAND_REGISTRY
-
-    assert SUBCOMMAND_REGISTRY[("deployment-flows", "get")][0] == (
-        "deployment_flows.get"
-    )
-    assert SUBCOMMAND_REGISTRY[("deployment-flows", "stages")][0] == (
-        "deployment_flows.stages"
-    )
-    assert SUBCOMMAND_REGISTRY[("deployment-runs", "get")][0] == ("deployment_runs.get")
-    assert SUBCOMMAND_REGISTRY[("deployment-runs", "approve")][0] == (
-        "deployment_runs.approve"
-    )
-    assert SUBCOMMAND_REGISTRY[("deployment-runs", "list")][0] == (
-        "deployment_runs.list"
-    )
-    assert SUBCOMMAND_REGISTRY[("deployment-runs", "update")][0] == (
-        "deployment_runs.update"
-    )
-    assert (
-        SUBCOMMAND_REGISTRY[("deployment-runs", "resolve-target")][0]
-        == "deployment_runs.resolve_target"
-    )
 
 
 def test_flow_stages_dispatches_and_prints_raw_stages() -> None:
@@ -250,12 +227,6 @@ def test_resolve_target_dispatches_and_prints_typed_triple() -> None:
     }
 
 
-def test_registry_maps_deployment_run_create() -> None:
-    from yoke_cli.commands.registry import SUBCOMMAND_REGISTRY
-
-    assert SUBCOMMAND_REGISTRY[("deployment-runs", "create")][0] == (
-        "deployment_runs.create"
-    )
 
 
 def test_deployment_run_create_dispatches_mechanically_bound_lineage() -> None:

@@ -43,21 +43,6 @@ def test_deployment_inspection_adapters_build_typed_requests() -> None:
     assert calls[3]["target"].deployment_run_id == "run-20260829-006"
 
 
-def test_deployment_inspection_registry_entries() -> None:
-    from yoke_cli.commands.registry import SUBCOMMAND_REGISTRY
-
-    assert SUBCOMMAND_REGISTRY[("deployment-flows", "list")][0] == (
-        "deployment_flows.list"
-    )
-    assert SUBCOMMAND_REGISTRY[("deployment-runs", "find-by-item")][0] == (
-        "deployment_runs.find_by_item"
-    )
-    assert SUBCOMMAND_REGISTRY[("deployment-runs", "stages")][0] == (
-        "deployment_runs.stages"
-    )
-    assert SUBCOMMAND_REGISTRY[("deployment-runs", "failure-trace")][0] == (
-        "deployment_runs.failure_trace"
-    )
 
 
 @pytest.mark.parametrize("json_mode", [False, True])

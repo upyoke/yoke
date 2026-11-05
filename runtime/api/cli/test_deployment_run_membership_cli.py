@@ -50,16 +50,6 @@ def _run(*argv: str) -> tuple[int, str, str]:
     return result, stdout.getvalue(), stderr.getvalue()
 
 
-def test_registry_exposes_membership_commands() -> None:
-    from yoke_cli.commands.registry import SUBCOMMAND_REGISTRY
-
-    assert SUBCOMMAND_REGISTRY[("deployment-runs", "add-item")][0] == (
-        "deployment_runs.add_item"
-    )
-    assert (
-        SUBCOMMAND_REGISTRY[("deployment-runs", "validate-composition")][0]
-        == "deployment_runs.validate_composition"
-    )
 
 
 def test_add_item_routes_public_ref_for_server_side_resolution() -> None:

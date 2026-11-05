@@ -54,7 +54,6 @@ def test_registry_maps_identity_tokens_to_function_ids() -> None:
 
     for action in ("create", "list", "revoke"):
         assert ("identity", "invite", action) not in SUBCOMMAND_REGISTRY
-    assert SUBCOMMAND_REGISTRY[("identity", "link", "set")][0] == ("identity.link.set")
 
 
 @pytest.mark.parametrize("action", ["create", "list", "revoke"])

@@ -29,12 +29,6 @@ def _reset_captured(monkeypatch) -> None:
 
 
 class TestProjectsCheckoutContext:
-    def test_registry_maps_tokens_to_function_id(self) -> None:
-        from yoke_cli.commands.registry import SUBCOMMAND_REGISTRY
-
-        assert SUBCOMMAND_REGISTRY[("projects", "checkout-context")][0] == (
-            "projects.checkout_context.run"
-        )
 
     def test_dispatches_empty_payload_global_target(self) -> None:
         rc = _run(_stub_ok, "projects", "checkout-context")

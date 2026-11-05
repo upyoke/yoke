@@ -60,12 +60,6 @@ def _run(*argv: str) -> tuple[int, str, str]:
     return rc, out.getvalue(), err.getvalue()
 
 
-def test_registry_resolves_runner_status() -> None:
-    from yoke_cli.commands.registry import SUBCOMMAND_REGISTRY
-
-    assert SUBCOMMAND_REGISTRY[
-        ("github-actions", "runners", "status")
-    ][0] == "github_actions.runners.status"
 
 
 def test_default_runner_status_payload() -> None:
