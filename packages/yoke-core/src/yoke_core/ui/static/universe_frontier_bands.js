@@ -120,11 +120,9 @@ export async function loadFrontier(context, bands, getScope, sessionRoster, opti
     const renderFullSession = options.renderFullSession || (() => (
       el(documentNode, "p", "empty", "Session detail is unavailable here.")
     ));
-    // Every session chip on this page opens its card as a top-layer popover.
     const withClaimants = (card, row) => {
       appendItemClaimants(
         documentNode, card, reference(row), rows.claimants, renderFullSession,
-        { popover: true },
       );
       return card;
     };
@@ -185,7 +183,7 @@ export async function loadFrontier(context, bands, getScope, sessionRoster, opti
           claimantFor: (ref) => {
             const host = el(documentNode, "div");
             appendItemClaimants(
-              documentNode, host, ref, rows.claimants, renderFullSession, { popover: true },
+              documentNode, host, ref, rows.claimants, renderFullSession,
             );
             return host.children[0] || null;
           },

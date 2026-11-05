@@ -134,7 +134,7 @@ test("shared shell search, footer, identity, and route navigation are live", asy
 
   const input = byClass(root, "header-search-input")[0];
   byClass(root, "header-search")[0].dispatchEvent(new Event("click"));
-  assert.equal(byClass(root, "header-search-overlay")[0].hidden, false);
+  assert.equal(byClass(root, "header-search-overlay")[0].matches(":popover-open"), true);
   assert.equal(documentNode.activeElement, input);
   input.value = "shell";
   input.dispatchEvent(new Event("input"));
@@ -337,10 +337,10 @@ test("compact chrome opens the navigation drawer and shared search overlay", asy
   const searchButton = byClass(root, "header-search-button")[0];
   const overlay = byClass(root, "header-search-overlay")[0];
   searchButton.dispatchEvent(new Event("click"));
-  assert.equal(overlay.hidden, false);
+  assert.equal(overlay.matches(":popover-open"), true);
   assert.equal(documentNode.activeElement, byClass(root, "header-search-input")[0]);
   byClass(root, "header-search-close")[0].dispatchEvent(new Event("click"));
-  assert.equal(overlay.hidden, true);
+  assert.equal(overlay.matches(":popover-open"), false);
   mounted.unmount();
   assert.equal(documentNode.body.classList.contains("side-open"), false);
 });

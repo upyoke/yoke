@@ -115,15 +115,15 @@ test("a condition is a pill; its whole reason is one press away", async (t) => {
     /No blockers; specification and plan are current\./,
   );
   // Closed until asked for, and the pill says so.
-  assert.equal(details[0].hidden, true);
+  assert.equal(details[0].matches(":popover-open"), false);
   assert.equal(pills[0].getAttribute("aria-expanded"), "false");
   pills[0].dispatchEvent(new Event("click"));
-  assert.equal(details[0].hidden, false);
+  assert.equal(details[0].matches(":popover-open"), true);
   assert.equal(pills[0].getAttribute("aria-expanded"), "true");
   // Only one at a time.
   pills[1].dispatchEvent(new Event("click"));
-  assert.equal(details[0].hidden, true);
-  assert.equal(details[1].hidden, false);
+  assert.equal(details[0].matches(":popover-open"), false);
+  assert.equal(details[1].matches(":popover-open"), true);
   mounted.unmount();
 });
 
@@ -227,7 +227,7 @@ test("Active is claimed work, and Ready omits what a session holds", async (t) =
   assert.ok(claimant);
   assert.match(descendantText(claimant), /codex/);
   const preview = byClass(root, "item-claimant-preview")[0];
-  assert.equal(preview.getAttribute("popover"), "auto");
+  assert.equal(preview.getAttribute("popover"), "manual");
   assert.equal(preview.matches(":popover-open"), false);
   assert.equal(byClass(preview, "session-card").length, 1);
   claimant.dispatchEvent(new Event("click"));

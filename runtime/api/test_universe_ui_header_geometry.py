@@ -86,25 +86,34 @@ def _rule(css: str, selector: str) -> dict[str, str]:
     return declarations
 
 
-def test_actor_menu_uses_viewport_gutters_on_phones_and_chip_anchor_on_desktop():
+def test_actor_menu_uses_top_layer_placement_and_viewport_sizing():
     css = _static("profile.css")
     selector = ".universe-app-root .actor-menu"
     desktop = _rule(_base(css), selector)
-    assert desktop["position"] == "absolute"
-    assert desktop["right"] == "0"
-    assert desktop["top"] == "calc(100% + 8px)"
+    assert not {"position", "top", "right", "z-index"} & desktop.keys()
     assert desktop["max-width"] == "calc(100vw - 32px)"
-    phone = _rule(_breakpoint(css, "(max-width: 640px)"), selector)
-    assert phone["position"] == "fixed"
-    assert phone["left"] == phone["right"] == "16px"
-    assert phone["min-width"] == "0"
-    # Percentage top would put a fixed menu below the viewport.
-    assert phone["top"] == (
-        "calc(var(--yoke-app-header-height, var(--yoke-header-height)) + 8px)"
-    )
+    if "@media (max-width: 640px)" in css:
+        assert selector not in _breakpoint(css, "(max-width: 640px)")
     heading = _rule(css, ".universe-app-root .actor-menu-heading")
     assert heading["white-space"] == "normal"
     assert heading["overflow-wrap"] == "anywhere"
+
+
+def test_floating_panels_declare_no_stacking_rules():
+    for name, selector in (
+        ("universe_onboarding_control.css", "onboarding-summary"),
+        ("universe_item_signals.css", "item-status-detail"),
+        ("universe_item_signals.css", "item-claimant-preview"),
+        ("profile.css", "actor-menu"),
+        ("universe_search.css", "header-search-overlay"),
+    ):
+        rule = _rule(_static(name), f".universe-app-root .{selector}")
+        assert "z-index" not in rule
+        assert rule.get("position") != "fixed"
+        assert rule["margin"] == "0"
+        assert "display" not in rule
+        assert "color" in rule and "background" in rule
+    assert ".item-claimant-preview:popover-open" not in _static("frontier_graph.css")
 
 
 def _px(value: str) -> float:

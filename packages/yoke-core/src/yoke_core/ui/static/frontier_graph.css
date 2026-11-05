@@ -1,5 +1,5 @@
 /* The Frontier's Waiting graph: tiles, edges, canvas, detail panel, phone
-   outline, and the session-card popover every Frontier chip opens. Built on
+   outline. Built on
    the theme tokens (--yoke-*), with tiles edged in the same stage tones the
    band titles use (theme.css). */
 .universe-app-root{--fdv-line:color-mix(in srgb,var(--yoke-muted) 50%,transparent)}
@@ -32,9 +32,6 @@
 .universe-app-root .fdv-tile .item-claimant-mini{display:inline-flex;flex-wrap:wrap;align-items:center;row-gap:4px;min-height:0;max-width:100%}
 .universe-app-root .fdv-tile .item-claimant-mini>*{flex-shrink:0;white-space:nowrap}
 .universe-app-root .fdv-tile .item-claimant-mini .tooltip-info{display:none}
-.universe-app-root .item-claimant-preview:popover-open{position:fixed;inset:auto;margin:0;padding:0;width:min(380px,calc(100vw - 16px));overflow:hidden;background:var(--yoke-surface);color:var(--yoke-ink);border:1px solid var(--yoke-border);border-radius: var(--yoke-radius);box-shadow:0 12px 32px rgba(15,23,42,.18),0 2px 6px rgba(15,23,42,.08)}
-.universe-app-root .item-claimant-preview:popover-open>.reveal-close{display:block;margin:8px 8px 0 auto}
-.universe-app-root .item-claimant-preview:popover-open>.session-card{margin:0;border:0;border-radius: var(--yoke-radius);box-shadow:none;background:transparent}
 .universe-app-root .fdv-tile .item-claimant-mini:not(:has(+ .item-claimant-preview)){cursor:default}
 .universe-app-root .fdv-tile.is-stall{border-color:color-mix(in srgb,var(--yoke-crit) 55%,transparent);border-left-color:var(--yoke-crit);background:var(--yoke-crit-bg)}
 .universe-app-root .fdv-tile.is-stall .fdv-tile-meta,.universe-app-root .fdv-tile.is-stuck .fdv-tile-meta{color:var(--yoke-crit)}

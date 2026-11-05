@@ -173,14 +173,15 @@ async function mountActorMenu() {
 
 test("the actor menu closes when its Profile item navigates", async () => {
   const surfaceUnderTest = await mountActorMenu();
-  assert.equal(surfaceUnderTest.menu.hidden, false);
+  assert.equal(surfaceUnderTest.menu.matches(":popover-open"), true);
+  assert.equal(surfaceUnderTest.menu.getAttribute("popover"), "manual");
   assert.equal(surfaceUnderTest.chip.getAttribute("aria-expanded"), "true");
 
   // What the reported defect was: the item IS the route link, so the page
   // underneath changed while the panel stayed open over it.
   surfaceUnderTest.documentNode.defaultView.location.href = "/profile";
   surfaceUnderTest.documentNode.defaultView.dispatchEvent(new Event("popstate"));
-  assert.equal(surfaceUnderTest.menu.hidden, true);
+  assert.equal(surfaceUnderTest.menu.matches(":popover-open"), false);
   assert.equal(surfaceUnderTest.chip.getAttribute("aria-expanded"), "false");
   surfaceUnderTest.mounted.unmount();
 });
@@ -190,15 +191,15 @@ test("the actor menu closes on Escape and on an outside click", async () => {
   const windowNode = surfaceUnderTest.documentNode.defaultView;
 
   pressKey(windowNode, "Escape");
-  assert.equal(surfaceUnderTest.menu.hidden, true);
+  assert.equal(surfaceUnderTest.menu.matches(":popover-open"), false);
   assert.equal(
     surfaceUnderTest.documentNode.activeElement, surfaceUnderTest.chip,
   );
 
   surfaceUnderTest.chip.dispatchEvent(new Event("click"));
-  assert.equal(surfaceUnderTest.menu.hidden, false);
+  assert.equal(surfaceUnderTest.menu.matches(":popover-open"), true);
   clickAt(windowNode, surfaceUnderTest.documentNode.createElement("div"));
-  assert.equal(surfaceUnderTest.menu.hidden, true);
+  assert.equal(surfaceUnderTest.menu.matches(":popover-open"), false);
   surfaceUnderTest.mounted.unmount();
 });
 
