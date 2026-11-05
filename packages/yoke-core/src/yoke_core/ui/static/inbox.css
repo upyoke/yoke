@@ -244,10 +244,10 @@
 .inbox-question-card { min-width: 0; overflow-wrap: anywhere; }
 .inbox-question-text { white-space: pre-wrap; }
 .inbox-question-actions { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0; }
-.inbox-question-option { max-width: 100%; white-space: normal; text-align: left; }
+.universe-app-root .inbox-question-option { flex-direction: column; align-items: flex-start; max-width: 100%; white-space: normal; text-align: left; }
 .inbox-question-freeform { display: grid; gap: 6px; margin: 12px 0; }
 .inbox-question-freeform textarea { box-sizing: border-box; width: 100%; min-width: 0; }
 .inbox-question-context { margin: 12px 0; }
 
-.inbox-question-option, .inbox-question-send { min-height: 44px; }
+.universe-app-root .inbox-question-option, .universe-app-root .inbox-question-send { min-height: 44px; }
 .inbox-question-detail { display: block; font-weight: normal; margin-top: 4px; }

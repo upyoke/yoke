@@ -216,8 +216,8 @@ cards appear in **Decided**. Steering presents pending questions one at a time
 with context and its recommendation, then records the person's answer:
 
 ```text
-yoke decision-requests resolve REQUEST-ID blue
-yoke decision-requests resolve REQUEST-ID freeform --note "Use violet"
+yoke decision-requests resolve 17 blue
+yoke decision-requests resolve 17 freeform --note "Use violet"
 ```
 
 The same durable decision records the person and answering session for either
@@ -230,8 +230,8 @@ Filed questions cannot be edited. The requesting session or steering may cancel
 a pending question, or replace it atomically with a new immutable question:
 
 ```text
-yoke decision-requests withdraw REQUEST-ID --reason "Direction changed"
-yoke decision-requests ask --replaces REQUEST-ID --key choose-color --question "Which shade?"
+yoke decision-requests withdraw 17 --reason "Direction changed"
+yoke decision-requests ask --replaces 17 --key choose-color --question "Which shade?"
 ```
 
 Replacement requires a pending operator question from the same requesting

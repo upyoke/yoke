@@ -63,6 +63,8 @@ try {
     assert.equal(await page.locator(".inbox-question-context strong").textContent(), "blue");
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth > innerWidth);
     assert.equal(overflow, false, "Question card must fit phone width.");
+    const heights = await page.locator(".inbox-question-option, .inbox-question-send").evaluateAll((buttons) => buttons.map((button) => button.getBoundingClientRect().height));
+    assert(heights.every((height) => height >= 44), "Question buttons must provide a phone-sized touch target.");
     await page.screenshot({ path: path.join(output, `${width}-${answer}-pending.png`), fullPage: true });
     if (answer === "option") await page.locator(".inbox-question-option").first().click();
     else {
