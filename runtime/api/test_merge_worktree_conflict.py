@@ -10,6 +10,7 @@ from runtime.api.test_merge_worktree_full import (
     MergeEnv,
     _git,
     _write_file,
+    merge_env as merge_env,
     run_merge,
 )
 
