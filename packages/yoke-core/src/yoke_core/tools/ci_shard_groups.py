@@ -72,6 +72,14 @@ def group_files(records, durations, tracked, count=SHARD_COUNT):
 
 
 def build_groups(records, durations, tracked, count=SHARD_COUNT):
+    missing = sum(record["nodeid"] not in durations for record in records)
+    if missing:
+        print(
+            f"::warning::ci_profile_missing_durations: {missing} of {len(records)} "
+            "collected tests have no timing entry; refresh .test_durations "
+            "from a complete successful current-tree CI run. Files with no "
+            "recorded cases use the known mean file weight."
+        )
     return {scope: group_files(
         [record for record in records if scope == "all" or not record["independent"]],
         durations, tracked, count,
