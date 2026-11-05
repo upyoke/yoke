@@ -157,13 +157,11 @@ test("hosted with the machine pending reads the web-first copy", async (t) => {
 
   const webFirst = byClass(root, "web-first")[0];
   assert.ok(webFirst, "hosted machine-pending module renders web-first copy");
-  const strong = allNodes(webFirst).find((node) => node.tagName === "STRONG");
-  assert.equal(strong.textContent, "Install Yoke on your machine");
-  const code = allNodes(webFirst).find((node) => node.tagName === "CODE");
-  assert.match(code.textContent, /install_origin_unavailable/);
+  const codes = allNodes(webFirst).filter((node) => node.tagName === "CODE");
+  assert.equal(codes.length, 2);
+  for (const code of codes) assert.match(code.textContent, /install_origin_unavailable/);
   assert.ok(textOf(webFirst).includes(
-    " — the wizard connects this machine, then GitHub · Hosting " +
-    "fold in here.",
+    "The wizard connects this machine, then GitHub and Hosting.",
   ));
   // The hosted machine row wears its hosted label.
   assert.equal(

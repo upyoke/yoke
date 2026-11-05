@@ -4,6 +4,6 @@
  "status": "observed",
  "page": "workbench",
  "position": 0,
- "text": "Finish the installation wizard activates once the viewer's machine is connected. GitHub and hosting are recommended rows; a project is not part of installation, because the person's agent adds one afterwards.",
- "sources": ["packages/yoke-core/src/yoke_core/domain/overview_activation_read.py", "packages/yoke-core/src/yoke_core/ui/static/universe_onboarding_copy.js"]
+ "text": "Hosted Setup leads with Tell Claude Code, Codex, or Cursor and install <marketing host>, derived from the same environment as the smaller Your agent runs curl command. The wizard connects this machine, then GitHub and Hosting. Finish the installation wizard activates once the viewer's machine is connected. GitHub and hosting are recommended rows; a project is not part of installation, because the person's agent adds one afterwards.",
+ "sources": ["packages/yoke-core/src/yoke_core/domain/overview_activation_read.py", "packages/yoke-core/src/yoke_core/ui/static/universe_onboarding_copy.js", "packages/yoke-core/src/yoke_core/ui/static/universe_onboarding_modules.js"]
 }
