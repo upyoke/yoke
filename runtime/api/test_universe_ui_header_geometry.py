@@ -149,6 +149,9 @@ def test_header_scope_chips_are_whole_pixels_at_every_breakpoint():
     responsive = _static("universe_responsive.css")
     selector = ".universe-app-root .header-scope-host .scope-chip"
     header = _rule(_base(responsive), selector)
+    assert header["height"] == "20px"
+    assert header["padding"] == "0 10px"
+    assert header["text-box"] == "trim-both cap alphabetic"
     assert header["line-height"] == "14px"
     assert _vertical(chip, header) == 20
     touch = _rule(_breakpoint(responsive, "(hover: none)"), selector)
