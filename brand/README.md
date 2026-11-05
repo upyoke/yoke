@@ -39,7 +39,9 @@ ink `#202830`, orange text `#994600` and blue text `#24618f`; dark retains
 background `#101418`, ink `#dfe6ec`, orange `#f4a261` and blue `#a5d8ff`.
 Corners are square. Filled controls use `--yoke-accent-fill` (`#f4a261`) with
 `--yoke-accent-fill-ink` (`#101418`); text uses the theme's `--yoke-accent`.
-Wordmark letters inherit the host's text colour when embedded inline.
+Wordmark letters use the host's `--yoke-ink` when embedded inline. As an SVG
+image, the letters use light or dark ink from the image's colour scheme, while
+the symbol stays orange; consumers need no inversion filter.
 Fira Code sets display and
 mono text; Fira Sans sets body text. The UI self-hosts WOFF2 fonts with system
 fallbacks, loaded by `ui/static/fonts.css`, and OFL notices in `ui/static/fonts-OFL.txt`; upstream sources are

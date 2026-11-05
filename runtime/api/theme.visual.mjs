@@ -23,6 +23,7 @@ const tokens = ["ink", "ink-2", "muted", "accent", "accent-2", "good", "warn", "
 const html = `<!doctype html><html><head><link rel="stylesheet" href="/theme.css"></head>
 <body style="background:var(--yoke-bg);color:var(--yoke-ink)">
 <h1>Steel orange theme proof</h1><div id="mark"></div>
+<img id="external-mark" src="/wordmark.svg" width="650" height="203" alt="Yoke">
 <button style="background:var(--yoke-accent-fill);color:var(--yoke-accent-fill-ink)">Filled control</button>
 ${tokens.map(t => `<p style="color:var(--yoke-${t})">${t}</p>`).join("")}
 <footer>Committed source fixture; no live universe</footer></body></html>`;
@@ -30,6 +31,10 @@ const server = createServer(async (request, response) => {
   try {
     if (request.url === "/") {
       response.setHeader("Content-Type", "text/html"); response.end(html); return;
+    }
+    if (request.url === "/wordmark.svg") {
+      response.setHeader("Content-Type", "image/svg+xml");
+      response.end(await readFile(path.join(root, "yoke-wordmark.svg"))); return;
     }
     assert.equal(request.url, "/theme.css");
     response.setHeader("Content-Type", "text/css");
@@ -72,10 +77,23 @@ try {
           .concat([["scheme", style.colorScheme], ["wordmark", getComputedStyle(document.querySelector("#mark g:last-child")).fill],
             ["inkColor", getComputedStyle(document.body).color]]));
       }, tokens);
+      const external = await page.evaluate(async () => {
+        const mark = document.querySelector("#external-mark");
+        await mark.decode();
+        await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+        const canvas = document.createElement("canvas");
+        canvas.width = 650; canvas.height = 203;
+        const context = canvas.getContext("2d"); context.drawImage(mark, 0, 0, 650, 203);
+        return { letters: [...context.getImageData(296, 8, 1, 1).data],
+          symbol: [...context.getImageData(104, 118, 1, 1).data] };
+      });
       assert.equal(values.bg, theme === "light" ? "#f7f8fa" : "#101418");
       assert.equal(values.scheme, theme);
       assert.equal(values.wordmark, values.inkColor, "Inline wordmark must inherit theme ink.");
-      report.themes.push({ system, forced, effective: theme, values });
+      assert.deepEqual(external.letters, theme === "light" ? [32, 40, 48, 255] : [223, 230, 236, 255],
+        `External wordmark letters must follow ${theme}, system ${system}, forced ${forced}`);
+      assert.deepEqual(external.symbol, [244, 162, 97, 255], "External symbol must stay orange.");
+      report.themes.push({ system, forced, effective: theme, values, external });
       if (forced === null) {
         for (const token of tokens) for (const background of ["bg", "surface"]) {
           const ratio = contrast(values[token], values[background]);
