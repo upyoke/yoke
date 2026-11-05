@@ -113,7 +113,25 @@ def test_oversized_section_outlines_its_own_subsections(capsys):
     assert _emit(["PLAN", "--section", "Archive"], big) == 1
     err = capsys.readouterr().err
     assert "--section Old" in err
+    assert "--section Archive" not in "\n".join(
+        line for line in err.splitlines() if "--full" not in line
+    )
+    assert "Narrow " not in err
     assert "--section Next" not in err
+
+
+def test_oversized_section_without_smaller_headings_teaches_full_retry(capsys):
+    big = "## Archive\n\n" + "x" * REPLY_LIMIT_BYTES + "\n\n## Next\n"
+    args = ["PLAN", "--project", "p", "--section", "Archive"]
+    assert _emit(args, big) == 1
+    err = capsys.readouterr().err
+    assert "This section has no smaller headings." in err
+    assert "yoke strategy doc get PLAN --project p --section Archive --full" in err
+    assert "Read one section:" not in err
+    assert "Narrow " not in err
+    assert "section-replace" not in err
+    assert _emit([*args, "--full"], big) == 0
+    assert capsys.readouterr().out == select_section(big, "Archive")
 
 
 def test_outline_keeps_two_levels_and_both_ends_within_budget():

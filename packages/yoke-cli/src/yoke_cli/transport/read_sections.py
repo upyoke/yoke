@@ -28,7 +28,9 @@ def select_section(text: str, heading: str) -> str | None:
     return "\n".join(lines).rstrip() + "\n"
 
 
-def section_outline(text: str, command_for) -> str | None:
+def section_outline(
+    text: str, command_for, *, selected_heading: str | None = None
+) -> str | None:
     """Each heading with its size and exact read command, or ``None``.
 
     *command_for* maps a heading to the command that reads it, or ``None``
@@ -37,6 +39,9 @@ def section_outline(text: str, command_for) -> str | None:
     show, so a document under one title still lists the sections inside it.
     """
     spans = section_spans(text)
+    if selected_heading is not None:
+        selected = find_section(text, selected_heading)
+        spans = [(heading, span) for heading, span in spans if span != selected]
     if not spans or command_for(spans[0][0]) is None:
         return None
     lines = text.splitlines()
