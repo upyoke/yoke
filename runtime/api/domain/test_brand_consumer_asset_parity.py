@@ -67,6 +67,15 @@ def test_documentation_embeds_the_same_self_hosted_fonts():
         assert base64.b64decode(encoded, validate=True) == (UI / name).read_bytes()
 
 
+def test_documentation_carries_font_licenses_in_supported_css():
+    assets = ROOT / "docs/public/assets"
+    css = (assets / "fonts.css").read_text()
+    notice = (UI / "fonts-OFL.txt").read_text()
+    assert notice in css.split("*/", 1)[0]
+    assert css.startswith("/*")
+    assert not (assets / "fonts-OFL.txt").exists()
+
+
 @pytest.mark.parametrize(
     ("name", "size"),
     [("apple-touch-icon.png", 180), ("icon-192.png", 192), ("icon-512.png", 512)],
