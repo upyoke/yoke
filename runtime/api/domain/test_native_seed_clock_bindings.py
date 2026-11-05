@@ -7,7 +7,7 @@ import pytest
 
 from yoke_contracts.timestamps import InvalidInstant, parse_instant
 from yoke_core.domain import project_seed_test_helpers as projects
-from yoke_core.domain.handlers import _strategy_docs_test_helpers as strategy
+from runtime.api.domain.handlers import strategy_docs_test_support as strategy
 from runtime.api.domain import (
     coordination_claim_test_support as coordination,
     lint_session_cwd_test_helpers as lint,

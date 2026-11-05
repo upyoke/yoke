@@ -11,6 +11,12 @@ Shared fixtures and helpers live in test_merge_worktree_full.py.
 import subprocess
 import sys
 import textwrap
+from unittest import mock
+
+from yoke_core.engines import merge_worktree as engine
+from yoke_core.engines import merge_worktree_cleanup as cleanup
+from yoke_core.engines.merge_worktree_context import MergeArgs, MergeContext
+from yoke_core.engines.remote_branch_cleanup import RemoteBranchDeleteResult
 
 import pytest
 
@@ -30,6 +36,27 @@ from runtime.api.test_merge_worktree_full import (
 def _merge_env_fixture(tmp_path, request):
     """Expose the shared fixture without relying on plugin load order."""
     return _shared_merge_env.__wrapped__(tmp_path, request)
+
+
+@pytest.fixture
+def cleanup_context(tmp_path, monkeypatch):
+    """A proven landing with local post-merge effects isolated."""
+    from yoke_core.domain import merge_landing_proof
+    from yoke_core.engines import merge_worktree_landing
+
+    ctx = MergeContext(
+        args=MergeArgs(branch="feature", standalone=True),
+        repo_root=str(tmp_path), yoke_repo_root=str(tmp_path),
+        worktree_path=str(tmp_path / "lane"),
+    )
+    monkeypatch.setattr(merge_landing_proof, "verified_target_sha", lambda *a: "b" * 40)
+    monkeypatch.setattr(merge_worktree_landing, "record_worktree_landing", lambda *a, **k: True)
+    monkeypatch.setattr(engine, "_run_git", mock.Mock(return_value=subprocess.CompletedProcess([], 0, "", "")))
+    monkeypatch.setattr(engine, "_emit_merge_event", mock.Mock())
+    monkeypatch.setattr(engine, "_sync_local_target", mock.Mock(return_value=True))
+    monkeypatch.setattr(engine, "_schema_refresh", mock.Mock())
+    monkeypatch.setattr(engine, "_ensure_target_branch", mock.Mock())
+    return ctx
 
 
 # ===========================================================================
@@ -108,11 +135,17 @@ class TestPostMergeOps:
         )
         assert anc.returncode == 0
 
-    def test_yok443_sync_failure_nonfatal(self, merge_env: MergeEnv) -> None:
-        """Sync failure is non-fatal."""
-        result = run_merge(merge_env)
-        assert result.exit_code == 0
-        assert "Syncing local" in result.stdout
+    def test_sync_failure_preserves_landed_lane_for_retry(
+        self, cleanup_context, monkeypatch, capsys,
+    ) -> None:
+        """A proven landing with failed sync returns its distinct retry exit."""
+        monkeypatch.setattr(engine, "_sync_local_target", mock.Mock(return_value=False))
+        assert cleanup._post_merge_cleanup(cleanup_context, no_changes=False) == 5
+        engine._sync_local_target.assert_called_once_with(cleanup_context)
+        assert "merge_target_sync_failed: landing is proven" in capsys.readouterr().err
+        engine._schema_refresh.assert_not_called()
+        assert not any(call.args[0][:2] == ["worktree", "remove"]
+                       for call in engine._run_git.call_args_list)
 
     def test_unowned_agent_residue_is_preserved(self, merge_env: MergeEnv) -> None:
         """Filesystem naming alone never authorizes destructive cleanup."""
@@ -180,11 +213,23 @@ class TestRemoteCleanup:
         assert TEST_BRANCH in ls_remote.stdout
         assert "Deleted remote branch" not in result.stdout
 
-    def test_yok541_remote_delete_warning_on_failure(self, merge_env: MergeEnv) -> None:
-        """Remote delete failure is warning, not crash."""
-        result = run_merge(merge_env)
-        assert result.exit_code == 0
-        assert "YOKE_REPO_ROOT=" in result.stdout
+    def test_remote_delete_failure_warns_and_preserves_retry_lane(
+        self, cleanup_context, monkeypatch, capsys,
+    ) -> None:
+        """A refused remote deletion warns and retains local retry state."""
+        cleanup_context.args.standalone = False
+        delete = mock.Mock(return_value=RemoteBranchDeleteResult(
+            "preserved", "leased remote delete was refused",
+        ))
+        monkeypatch.setattr(cleanup, "delete_remote_branch_if_merged", delete)
+        assert cleanup._post_merge_cleanup(cleanup_context, no_changes=False) == 0
+        delete.assert_called_once()
+        assert delete.call_args.kwargs["branch"] == "feature"
+        output = capsys.readouterr()
+        assert "WARNING: Preserving remote branch feature: leased remote delete was refused" in output.err
+        assert "Preserving local worktree and branch" in output.err
+        assert not any(call.args[0][0] in {"worktree", "branch"}
+                       for call in engine._run_git.call_args_list)
 
 
 # ===========================================================================

@@ -21,7 +21,7 @@ from yoke_cli.main import main as cli_main
 from yoke_core.domain import strategy_docs as sd
 from yoke_core.domain.agents_render_workspace import RENDER_TARGET_ROOT_ENV_VAR
 from yoke_core.domain.handlers.__init_register__ import register_all_handlers
-from yoke_core.domain.handlers._strategy_docs_test_helpers import (
+from runtime.api.domain.handlers.strategy_docs_test_support import (
     SEED_CONTENT,
     SEED_SLUGS,
     seed_docs,

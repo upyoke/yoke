@@ -10,7 +10,7 @@ from __future__ import annotations
 import pytest
 
 from yoke_core.domain import qa_events
-from yoke_core.domain._qa_events_test_helpers import (
+from runtime.api.domain.qa_events_test_support import (
     Captured,
     insert_deployment_requirement,
     insert_epic_requirement,

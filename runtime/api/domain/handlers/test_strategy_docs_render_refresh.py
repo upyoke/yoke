@@ -10,7 +10,7 @@ from yoke_contracts.api.function_call import FunctionCallResponse
 from yoke_contracts.project_contract.strategy_docs_header import content_sha256
 from yoke_core.domain import strategy_docs as sd
 from yoke_core.domain.handlers import strategy_docs as handlers
-from yoke_core.domain.handlers._strategy_docs_test_helpers import (
+from runtime.api.domain.handlers.strategy_docs_test_support import (
     PROJECT_ID,
     SEED_CONTENT,
     SEED_UPDATED_AT,

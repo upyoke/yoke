@@ -11,7 +11,7 @@ import pytest
 
 from yoke_core.domain import strategy_docs as sd
 from yoke_core.domain.handlers import strategy_docs_archive as handlers
-from yoke_core.domain.handlers._strategy_docs_test_helpers import (
+from runtime.api.domain.handlers.strategy_docs_test_support import (
     PROJECT_ID,
     SESSION_WITH_CLAIM,
     SESSION_WITHOUT_CLAIM,
@@ -179,7 +179,7 @@ class TestIngestOfArchivedDoc:
         archived file."""
         from yoke_core.domain import events as _events_mod
         from yoke_core.domain.handlers import strategy_docs_ingest as ingest_handlers
-        from yoke_core.domain.handlers._strategy_docs_test_helpers import (
+        from runtime.api.domain.handlers.strategy_docs_test_support import (
             ingest_files_payload,
         )
         from yoke_contracts.project_contract.strategy_docs_io import (

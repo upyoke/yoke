@@ -57,13 +57,17 @@ class TestPostMergeCheckout:
         head = _git(merge_env.repo, "rev-parse", "--abbrev-ref", "HEAD", check=False)
         assert head.stdout.strip() == "main"
 
-    def test_yok858_non_target_corrected(self, merge_env: MergeEnv) -> None:
-        """Non-target branch corrected, YOKE_REPO_ROOT in output."""
+    def test_non_target_branch_is_corrected(self, merge_env: MergeEnv) -> None:
+        """A different checked-out branch is switched back to the target."""
+        _git(merge_env.repo, "checkout", "-b", "unrelated-checkout")
+        before = _git(merge_env.repo, "branch", "--show-current")
+        assert before.stdout.strip() == "unrelated-checkout"
         result = run_merge(merge_env)
         assert result.exit_code == 0
 
         head = _git(merge_env.repo, "rev-parse", "--abbrev-ref", "HEAD", check=False)
         assert head.stdout.strip() == "main"
+        assert "not 'main'. Switching." in result.stderr
         assert "YOKE_REPO_ROOT=" in result.stdout
 
 

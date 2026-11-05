@@ -14,7 +14,7 @@ import pytest
 
 from yoke_core.domain.db_helpers import iso8601_now
 from yoke_core.domain.handlers import projects_checkout_context as handlers
-from yoke_core.domain.handlers._strategy_docs_test_helpers import (
+from runtime.api.domain.handlers.strategy_docs_test_support import (
     OTHER_PROJECT_ID,
     OTHER_PROJECT_SLUG,
     PROJECT_ID,

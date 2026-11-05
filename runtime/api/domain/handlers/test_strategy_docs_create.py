@@ -14,7 +14,7 @@ import pytest
 
 from yoke_core.domain import strategy_docs as sd
 from yoke_core.domain.handlers import strategy_docs_create as handlers
-from yoke_core.domain.handlers._strategy_docs_test_helpers import (
+from runtime.api.domain.handlers.strategy_docs_test_support import (
     PROJECT_ID,
     PROJECT_SLUG,
     SEED_CONTENT,

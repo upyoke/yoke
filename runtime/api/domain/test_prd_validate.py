@@ -5,14 +5,14 @@ sibling files so each authored file stays under the 350-line limit:
 heading variations + strict mode + DB-backed resolution live in
 ``test_prd_validate_variations``; edge-case triggers (PRD-6/7/8) and the CLI
 surface live in ``test_prd_validate_triggers``. Heavy fixture/helper code
-lives in ``prd_validate_test_helpers``.
+lives in ``prd_validate_test_support``.
 
 TEST-N / PRD-N method name mapping is preserved for traceability.
 """
 
 from __future__ import annotations
 
-from yoke_core.domain.prd_validate_test_helpers import (
+from runtime.api.domain.prd_validate_test_support import (
     COMPLETE_PRD,
     _validate,
     _with_default_acs,

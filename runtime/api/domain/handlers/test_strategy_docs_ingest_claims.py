@@ -1,7 +1,7 @@
 """Foreign-claim refusal + permission-key tests for ``strategy.ingest.run``.
 
 Split from ``test_strategy_docs_ingest.py`` (authored-file line cap);
-shared seeds/builders live in ``_strategy_docs_test_helpers``.
+shared seeds/builders live in ``strategy_docs_test_support``.
 """
 
 from __future__ import annotations
@@ -16,7 +16,7 @@ import pytest
 from yoke_core.domain import strategy_docs as sd
 from yoke_core.domain.handlers import strategy_docs as doc_handlers
 from yoke_core.domain.handlers import strategy_docs_ingest as handlers
-from yoke_core.domain.handlers._strategy_docs_test_helpers import (
+from runtime.api.domain.handlers.strategy_docs_test_support import (
     PROJECT_ID,
     SEED_CONTENT,
     SEED_UPDATED_AT,

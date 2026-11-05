@@ -4,12 +4,22 @@ from __future__ import annotations
 
 from unittest import mock
 
+import pytest
+
 from yoke_core.domain import (
     deploy_pipeline,
     deploy_pipeline_gates,
     deploy_pipeline_run_context,
     deploy_pipeline_run_updates,
 )
+
+@pytest.fixture(autouse=True)
+def no_control_plane_calls(monkeypatch):
+    dispatch = mock.Mock(side_effect=AssertionError("unexpected control-plane call"))
+    monkeypatch.setattr(deploy_pipeline.control_plane, "call_dispatcher", dispatch)
+    yield
+    dispatch.assert_not_called()
+
 
 SHA = "b" * 40
 RECOVERY = "Refresh origin, then re-drive the run."
@@ -43,6 +53,7 @@ def _drive(capsys, monkeypatch, carried_work):
         return 0, ""
 
     with (
+        mock.patch.object(deploy_pipeline, "converge_release_start_schema"),
         mock.patch.object(
             deploy_pipeline,
             "resolve_flow_gate_branch",

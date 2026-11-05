@@ -8,7 +8,7 @@ from unittest.mock import patch
 import pytest
 
 from yoke_core.domain.handlers import strategy_docs_seed as handlers
-from yoke_core.domain.handlers._strategy_docs_test_helpers import (
+from runtime.api.domain.handlers.strategy_docs_test_support import (
     OTHER_PROJECT_ID,
     OTHER_PROJECT_SLUG,
     SEED_SLUGS,

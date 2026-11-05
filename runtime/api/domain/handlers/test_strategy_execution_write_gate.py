@@ -11,7 +11,7 @@ from runtime.api.fixtures.file_test_db import connect_test_db, init_test_db
 from yoke_core.domain.db_helpers import iso8601_now
 from yoke_core.domain.handlers import strategy_docs as doc_handlers
 from yoke_core.domain.handlers import strategy_docs_ingest as ingest_handlers
-from yoke_core.domain.handlers._strategy_docs_test_helpers import (
+from runtime.api.domain.handlers.strategy_docs_test_support import (
     SEED_CONTENT,
     SEED_UPDATED_AT,
     build_request,

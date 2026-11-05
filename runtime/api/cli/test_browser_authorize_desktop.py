@@ -165,7 +165,7 @@ def test_machine_desktop_flag_selects_requested_browser(
 ):
     import subprocess
     from yoke_cli.commands import browser_authorize, browser_authorize_remote as remote
-    from yoke_harness import test_machine_gui_command as gui
+    from yoke_harness import machine_gui_command as gui
 
     argv = []
     monkeypatch.setattr(remote.browser_profile, "profile_project_key", lambda _: "acme")

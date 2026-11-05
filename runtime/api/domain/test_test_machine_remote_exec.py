@@ -280,7 +280,7 @@ def test_cloud_key_alias_is_shared_by_all_ssh_routes(instance, tmp_path):
     from yoke_harness.test_machine_remote_exec import remote_exec_argv
     from yoke_harness.desktop_access import _ssh_args
     from yoke_harness.ssh_test_machine_transport import SshTestMachineTransport
-    from yoke_harness.test_machine_gui_command import _GuiSshControl
+    from yoke_harness.machine_gui_command import _GuiSshControl
     from unittest.mock import patch
     import subprocess
 
@@ -309,7 +309,7 @@ def test_cloud_key_alias_is_shared_by_all_ssh_routes(instance, tmp_path):
         transport._ssh_argv("true"),
     ]
     with patch(
-        "yoke_harness.test_machine_gui_command.subprocess.run",
+        "yoke_harness.machine_gui_command.subprocess.run",
         return_value=subprocess.CompletedProcess([], 0, "", ""),
     ) as run:
         _GuiSshControl(settings, tmp_path, None)._run("true")

@@ -283,7 +283,7 @@ def test_remote_route_runs_local_human_gate_and_verifies_after_window(
 ):
     from types import SimpleNamespace
     from yoke_cli.commands import browser_authorize_remote as remote
-    from yoke_harness import test_machine_gui_command as gui
+    from yoke_harness import machine_gui_command as gui
     from yoke_harness import desktop_browser_sign_in as desktop
 
     desktop_checks = []

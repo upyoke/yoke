@@ -13,11 +13,21 @@ from __future__ import annotations
 
 from unittest import mock
 
+import pytest
+
 from yoke_core.domain import (
     deploy_pipeline_run_context,
     deploy_pipeline,
     deploy_pipeline_run_updates,
 )
+
+
+@pytest.fixture(autouse=True)
+def no_control_plane_calls(monkeypatch):
+    dispatch = mock.Mock(side_effect=AssertionError("unexpected control-plane call"))
+    monkeypatch.setattr(deploy_pipeline.control_plane, "call_dispatcher", dispatch)
+    yield
+    dispatch.assert_not_called()
 
 
 _FIXTURE_ITEM_REF = f"YOK-{42}"
@@ -80,6 +90,7 @@ class _Harness:
             "stages": _STAGES,
         }
         with (
+            mock.patch.object(deploy_pipeline, "converge_release_start_schema"),
             mock.patch.object(
                 deploy_pipeline.control_plane,
                 "execution_context",
