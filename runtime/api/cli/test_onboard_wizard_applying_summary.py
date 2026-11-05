@@ -3,8 +3,7 @@
 from __future__ import annotations
 
 import asyncio
-import subprocess
-import sys
+from unittest.mock import Mock
 
 import pytest
 
@@ -105,20 +104,7 @@ def test_applying_rows_use_ascii_marks_in_plain_mode(monkeypatch) -> None:
     asyncio.run(scenario())
 
 
-@pytest.fixture(scope="module")
-def cpu_load():
-    worker = subprocess.Popen([sys.executable, "-c", "while True: pass"])
-    try:
-        yield
-    finally:
-        worker.terminate()
-        worker.wait(timeout=10)
-
-
-@pytest.mark.parametrize("_attempt", range(200))
-def test_applying_follows_the_running_row_and_keeps_distinct_targets(
-    monkeypatch, cpu_load, _attempt
-):
+def test_applying_follows_the_running_row_and_keeps_distinct_targets(monkeypatch):
     monkeypatch.setenv("YOKE_ONBOARD_FORCE_PLAIN", "0")
     app, _spy = make_app()
     app.animation_level = "none"
@@ -139,9 +125,15 @@ def test_applying_follows_the_running_row_and_keeps_distinct_targets(
             app._apply_steps = app._applying_step_model()
             app._goto_applying()
             await app._apply_pending_swap()
+            last_row = app.query_one("#apply-step-29")
+            scroll_last = Mock(wraps=last_row.scroll_visible)
+            monkeypatch.setattr(last_row, "scroll_visible", scroll_last)
             app._set_apply_step_status(
                 "create-or-validate-dir", "/folder/29", "running"
             )
+            # No event-loop yield: scrolling now would use pre-refresh layout.
+            # This catches the race directly, without CPU load or repetition.
+            scroll_last.assert_not_called()
             refreshed = asyncio.Event()
             app.call_after_refresh(refreshed.set)
             await refreshed.wait()
@@ -149,14 +141,20 @@ def test_applying_follows_the_running_row_and_keeps_distinct_targets(
             assert str(app.query_one("#apply-step-0").render()).startswith("  ○ ")
             assert str(app.query_one("#apply-step-29").render()).startswith("  ◐ ")
             body = app.query_one("#onboard-body")
+            scroll_last.assert_called_once_with(animate=False, immediate=True)
             assert body.scroll_y > 0
             assert app.query_one("#apply-step-29").region.overlaps(body.content_region)
+            first_row = app.query_one("#apply-step-0")
+            scroll_first = Mock(wraps=first_row.scroll_visible)
+            monkeypatch.setattr(first_row, "scroll_visible", scroll_first)
             app._set_apply_step_status("create-or-validate-dir", "/folder/0", "failed")
+            scroll_first.assert_not_called()
             refreshed.clear()
             app.call_after_refresh(refreshed.set)
             await refreshed.wait()
             await pilot.pause()
-            assert app.query_one("#apply-step-0").region.overlaps(body.content_region)
+            scroll_first.assert_called_once_with(animate=False, immediate=True)
+            assert first_row.region.overlaps(body.content_region)
             app._set_apply_step_status("create-or-validate-dir", "/folder/29", "done")
             app._render_current()
             await pilot.pause()
