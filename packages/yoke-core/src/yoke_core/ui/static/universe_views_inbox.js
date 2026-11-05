@@ -1,5 +1,4 @@
-// Per-actor needs-you surface: the decisions waiting on you, the messages
-// sent to you, and what you have already decided.
+import { postCard } from "./inbox_post_card.js";
 
 import { appendCarriedItemHeading } from "./universe_carried_item_titles.js";
 import { appendOutsideCommits } from "./universe_outside_commits.js";
@@ -53,19 +52,6 @@ function projectLabel(context, row) {
   return label == null ? "" : String(label);
 }
 
-// What this approval ships, and on whose authority the list is known.
-//
-// Two different records answer that. Derived lineage — the trunk changes
-// between this release and the last — is the fuller answer, and it is the
-// one shown whenever the deriver could compute it. When it could not (no
-// commit lineage to compare, no checkout to read), its item list is empty,
-// and an empty derivation is not an empty release: the run's own explicit
-// membership is still a known fact, and reading the unknown as "carries
-// nothing" hid the very item a reviewer was asked to look at. So membership
-// is the fallback, and the block says which of the two it is showing.
-//
-// Membership rows name the item as `item_ref`; derived rows name it `ref`.
-// Both are normalized here so one renderer draws either shape.
 const CARRIED_BASIS_DERIVED = "derived";
 const CARRIED_BASIS_MEMBERSHIP = "membership";
 
@@ -88,10 +74,6 @@ function approvalCarried(row) {
   };
 }
 
-// A release approval decides a deployment, not the QA its carried items
-// recorded. That separation is structural — each item review under this
-// block is its own request with its own answer — so the block carries it in
-// its shape rather than in a sentence repeated on every card that has one.
 function appendApprovalCarried(context, card, row, facts, onDecide) {
   if (row.kind === "deployment_stage_approval") {
     appendOutsideCommits(context.document, card, {
@@ -108,10 +90,6 @@ function appendApprovalCarried(context, card, row, facts, onDecide) {
     "release-batch-title",
     `Carries · ${items.length} item${items.length === 1 ? "" : "s"}`,
   ));
-  // Only when the list is narrower than it looks. The sentence about this
-  // approval not approving the items' QA is gone — the block's shape says
-  // that now — but a list that could not be derived from release lineage is
-  // a fact about the data, not an explanation of the layout.
   if (basis === CARRIED_BASIS_MEMBERSHIP) {
     wrap.appendChild(el(
       documentNode,
@@ -136,9 +114,6 @@ function appendApprovalCarried(context, card, row, facts, onDecide) {
   for (const item of items.slice(0, CARRIED_ITEMS_VISIBLE)) {
     wrap.appendChild(entryFor(item));
   }
-  // A release of twenty items used to draw twenty entries with their
-  // evidence, which is a wall rather than a card. The rest are still here,
-  // one press away, and none of them is dropped.
   if (items.length > CARRIED_ITEMS_VISIBLE) {
     const region = el(documentNode, "div", "release-member-rest");
     region.setAttribute("role", "region");
@@ -171,15 +146,15 @@ function cardList(documentNode, body, cards, emptyText) {
 export function renderInboxView(context, main, scope) {
   const documentNode = context.document;
   const waiting = bandSection(documentNode, "inbox-waiting", "Waiting on you");
-  // A delivery notice asks for nothing, so it does not belong beside the
-  // decisions that do, and it does not belong among messages a person sent
   // either — reading one as the other is how a report gets answered and a
   // question gets dismissed.
+  const posts = bandSection(documentNode, "inbox-posts", "Posts");
   const notices = bandSection(documentNode, "inbox-notices", "Notices");
   const messages = bandSection(documentNode, "inbox-messages", "Messages");
   const decided = bandSection(documentNode, "inbox-decided", "Decided");
   const host = el(documentNode, "div", "inbox-sections");
   host.appendChild(waiting);
+  host.appendChild(posts);
   host.appendChild(notices);
   host.appendChild(messages);
   host.appendChild(decided);
@@ -212,7 +187,7 @@ export function renderInboxView(context, main, scope) {
     );
     if (!context.isMounted()) return;
     if (failed) {
-      for (const section of [waiting, notices, messages, decided]) {
+      for (const section of [waiting, posts, notices, messages, decided]) {
         section.body.replaceChildren();
         renderError(section.body, failed);
       }
@@ -235,6 +210,10 @@ export function renderInboxView(context, main, scope) {
       return card;
     }), "Nothing is waiting on you.");
 
+    const postRows = result.posts || [];
+    posts.setCount(postRows.length);
+    posts.hidden = !postRows.length;
+    cardList(documentNode, posts.body, postRows.map((row) => postCard(context, row, load, rowProject(row))), "");
     const allMessages = result.messages || [];
     const noticeRows = allMessages.filter((row) => NOTICE_LABELS[row.notice_kind]);
     const messageRows = allMessages.filter((row) => !NOTICE_LABELS[row.notice_kind]);

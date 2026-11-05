@@ -1,9 +1,10 @@
-"""Compose the signed-in actor's gate and message Inbox."""
+"""Compose decisions, messages and durable shared posts for the signed-in actor."""
 
 from __future__ import annotations
 
 from typing import Any
 
+from yoke_core.domain.inbox_posts import open_posts
 from yoke_core.domain.actor_message_recipients import inbox_actor_messages
 from yoke_core.domain.actor_decision_queue import (
     pending_requests_for_actor,
@@ -65,6 +66,7 @@ def inbox_for_actor(
             if row["kind"] not in RETIRED_DECISION_KINDS
         ],
         "messages": messages,
+        "posts": open_posts(conn, actor_id=actor_id, project_ids=project_ids),
         "pending_actor_message_count": actor_messages["pending_count"],
     }
 

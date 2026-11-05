@@ -111,6 +111,7 @@ ASSET_CONTENT_TYPES: Dict[str, str] = {
     "universe_items_roster_loader.js": "text/javascript; charset=utf-8",
     "universe_views_inbox.js": "text/javascript; charset=utf-8",
     "inbox_presentation.js": "text/javascript; charset=utf-8",
+    "inbox_post_card.js": "text/javascript; charset=utf-8",
     "inbox_question_card.js": "text/javascript; charset=utf-8",
     "inbox_rows.js": "text/javascript; charset=utf-8",
     "review_request_card.js": "text/javascript; charset=utf-8",

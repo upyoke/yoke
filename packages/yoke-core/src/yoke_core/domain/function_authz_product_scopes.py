@@ -46,6 +46,10 @@ PRODUCT_AUTHZ_BY_ID = {
     "actors.role.set": AuthzSpec(ACTOR_SESSION, None),
     "items.overview.list": AuthzSpec(ACTOR_SESSION, None),
     "items.detail.get": AuthzSpec(ACTOR_SESSION, None),
+    "audiences.create": AuthzSpec(PROJECT, PERM_ITEMS_WRITE),
+    "audiences.list": AuthzSpec(PROJECT, PERM_ITEMS_READ),
+    "inbox.posts.create": AuthzSpec(PROJECT, PERM_ITEMS_WRITE),
+    "inbox.posts.done": AuthzSpec(ACTOR_SESSION, None),
     "inbox.list": AuthzSpec(ACTOR_SESSION, None),
     # The handler requires the hosted service identity on the exact payload org.
     "machine_authorization.handoff": AuthzSpec(ACTOR_SESSION, None),

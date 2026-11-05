@@ -47,7 +47,11 @@ def dash_db_path(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
 
 
 def _insert_dash(
-    conn, *, item_id: int, posture: dict, status: str = "reviewing-implementation",
+    conn,
+    *,
+    item_id: int,
+    posture: dict,
+    status: str = "reviewing-implementation",
 ) -> None:
     insert_item(
         conn,
@@ -251,7 +255,10 @@ def test_approval_on_done_creates_and_requires_project_owner_request(
     try:
         # "done" is declared from "release", the pinned canon's own wait.
         _insert_dash(
-            conn, item_id=2303, posture={"approval_on_done": True}, status="release",
+            conn,
+            item_id=2303,
+            posture={"approval_on_done": True},
+            status="release",
         )
         preflight = prepare_status_transition(
             conn,
@@ -273,8 +280,8 @@ def test_approval_on_done_creates_and_requires_project_owner_request(
             "AND subject_key='2303:done'",
         ).fetchone()
         authorities = conn.execute(
-            "SELECT role_name FROM decision_request_role_authorities "
-            "WHERE request_id=%s",
+            "SELECT r.role_name FROM audience_rules r JOIN decision_requests d ON d.audience_id=r.audience_id "
+            "WHERE d.id=%s AND r.role_name IS NOT NULL",
             (decision[0],),
         ).fetchall()
     finally:
@@ -294,7 +301,10 @@ def test_approval_on_done_explains_when_no_human_owner_remains(
     conn = connect_test_db(dash_db_path)
     try:
         _insert_dash(
-            conn, item_id=2306, posture={"approval_on_done": True}, status="release",
+            conn,
+            item_id=2306,
+            posture={"approval_on_done": True},
+            status="release",
         )
         prepare_status_transition(
             conn,

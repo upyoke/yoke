@@ -13,7 +13,7 @@ from __future__ import annotations
 import json
 from typing import Any, Iterable
 
-from yoke_core.domain import db_backend
+from yoke_core.domain import audiences, db_backend
 from yoke_core.domain.approval_policy import DEFAULT_APPROVAL_MODE
 from yoke_core.domain.decision_request_contract import (
     DECISION_KINDS,
@@ -59,19 +59,8 @@ def request_rows(conn: Any, request_ids: Iterable[int]) -> dict[int, dict[str, A
         f"SELECT * FROM decision_requests WHERE id IN ({placeholders})",
         ids,
     ).fetchall()
-    roles = _grouped(
-        conn,
-        "SELECT request_id, scope_kind, scope_id, role_name "
-        "FROM decision_request_role_authorities "
-        "WHERE request_id IN ({placeholders}) "
-        "ORDER BY request_id, role_name, scope_id",
-        ids,
-    )
-    named = _grouped(
-        conn,
-        "SELECT request_id, actor_id FROM decision_request_actor_authorities "
-        "WHERE request_id IN ({placeholders}) ORDER BY request_id, actor_id",
-        ids,
+    audience_rules = audiences.rules_for_audiences(
+        conn, (int(row["audience_id"]) for row in rows)
     )
     answers = decisions_for_requests(conn, ids)
     composed: dict[int, dict[str, Any]] = {}
@@ -118,15 +107,21 @@ def request_rows(conn: Any, request_ids: Iterable[int]) -> dict[int, dict[str, A
             if result["kind"] == "operator_question"
             else list(DECISION_KINDS[result["kind"]].actions)
         )
+        rules = audience_rules.get(int(result["audience_id"]), [])
+        result["audience_rules"] = rules
+        # Gate policy consumes rule boxes, while membership has one shared owner.
         result["role_authorities"] = [
             {
-                "scope_kind": row[1],
-                "scope_id": row[2],
-                "role_name": row[3],
+                "scope_kind": rule["scope_kind"],
+                "scope_id": rule["scope_id"],
+                "role_name": rule["role_name"],
             }
-            for row in roles.get(request_id, [])
+            for rule in rules
+            if rule["scope_kind"] != "actor"
         ]
-        result["named_actor_ids"] = [int(row[1]) for row in named.get(request_id, [])]
+        result["named_actor_ids"] = [
+            int(rule["scope_id"]) for rule in rules if rule["scope_kind"] == "actor"
+        ]
         result["approval_mode"] = str(
             result.get("approval_mode") or DEFAULT_APPROVAL_MODE
         )

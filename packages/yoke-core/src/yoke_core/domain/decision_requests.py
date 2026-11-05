@@ -7,7 +7,8 @@ import json
 from datetime import datetime
 from typing import Any, Iterable, Mapping, Optional
 
-from yoke_core.domain import db_backend
+from yoke_core.domain import audiences, db_backend
+from yoke_core.domain.db_savepoint import savepoint
 from yoke_core.domain.actors import is_human_actor
 from yoke_core.domain.approval_policy import (
     APPROVAL_MODES,
@@ -158,79 +159,82 @@ def create_decision_request(
             )
         lock_item_workflow_bindings(conn, (int(parts[0]),))
     p = _p(conn)
-    cursor = conn.execute(
-        "INSERT INTO decision_requests "
-        "(kind, subject_type, subject_key, subject_context, project_id, org_id, "
-        "originator_actor_id, approval_mode, requesting_session_id, status, created_at) "
-        f"VALUES ({p}, {p}, {p}, {p}, {p}, {p}, {p}, {p}, {p}, 'pending', {p}) "
-        "ON CONFLICT DO NOTHING RETURNING id",
-        (
-            kind,
-            subject_type,
-            subject_key,
-            json.dumps(
-                validate_subject_context(kind, context),
-                separators=(",", ":"),
-            ),
-            project_id,
-            org_id,
-            originator_actor_id,
-            approval_mode,
-            requesting_session_id,
-            stored_stamp,
-        ),
-    )
-    inserted = cursor.fetchone()
-    created = inserted is not None
-    if created:
-        request_id = int(inserted[0])
-        for authority in roles:
-            conn.execute(
-                "INSERT INTO decision_request_role_authorities "
-                "(request_id, scope_kind, scope_id, role_name) "
-                f"VALUES ({p}, {p}, {p}, {p})",
-                (
-                    request_id,
-                    authority.scope_kind,
-                    authority.scope_id,
-                    authority.role_name,
+    audiences.begin_write(conn)
+    with savepoint(conn, "decision_request_create", owns=commit):
+        cursor = conn.execute(
+            "INSERT INTO decision_requests "
+            "(kind, subject_type, subject_key, subject_context, project_id, org_id, "
+            "originator_actor_id, approval_mode, requesting_session_id, status, created_at) "
+            f"VALUES ({p}, {p}, {p}, {p}, {p}, {p}, {p}, {p}, {p}, 'pending', {p}) "
+            "ON CONFLICT DO NOTHING RETURNING id",
+            (
+                kind,
+                subject_type,
+                subject_key,
+                json.dumps(
+                    validate_subject_context(kind, context),
+                    separators=(",", ":"),
                 ),
-            )
-        for actor_id in actors:
-            conn.execute(
-                "INSERT INTO decision_request_actor_authorities "
-                f"(request_id, actor_id) VALUES ({p}, {p})",
-                (request_id, actor_id),
-            )
-        append_decision_event(
-            conn,
-            REQUEST_CREATED_EVENT,
-            actor_id=originator_actor_id,
-            session_id=session_id,
-            project_id=project_id,
-            org_id=org_id,
-            context={
-                "request_id": request_id,
-                "kind": kind,
-                "subject_type": subject_type,
-                "subject_key": subject_key,
-            },
-            created_at=stamp,
+                project_id,
+                org_id,
+                originator_actor_id,
+                approval_mode,
+                requesting_session_id,
+                stored_stamp,
+            ),
         )
-        if commit:
-            conn.commit()
-    else:
-        row = conn.execute(
-            "SELECT id FROM decision_requests "
-            f"WHERE kind = {p} AND subject_type = {p} AND subject_key = {p} "
-            "AND status = 'pending'",
-            (kind, subject_type, subject_key),
-        ).fetchone()
-        if row is None:
-            raise RuntimeError("decision request idempotency race did not converge")
-        request_id = int(row[0])
-        if commit:
-            conn.commit()
+        inserted = cursor.fetchone()
+        created = inserted is not None
+        if created:
+            request_id = int(inserted[0])
+            audience_id = audiences.create_audience(
+                conn,
+                project_id=project_id,
+                org_id=org_id,
+                rules=[
+                    {
+                        "scope_kind": authority.scope_kind,
+                        "scope_id": authority.scope_id,
+                        "role_name": authority.role_name,
+                    }
+                    for authority in roles
+                ]
+                + [
+                    {"scope_kind": "actor", "scope_id": actor_id} for actor_id in actors
+                ],
+                commit=False,
+            )
+            conn.execute(
+                f"UPDATE decision_requests SET audience_id = {p} WHERE id = {p}",
+                (audience_id, request_id),
+            )
+            append_decision_event(
+                conn,
+                REQUEST_CREATED_EVENT,
+                actor_id=originator_actor_id,
+                session_id=session_id,
+                project_id=project_id,
+                org_id=org_id,
+                context={
+                    "request_id": request_id,
+                    "kind": kind,
+                    "subject_type": subject_type,
+                    "subject_key": subject_key,
+                },
+                created_at=stamp,
+            )
+        else:
+            row = conn.execute(
+                "SELECT id FROM decision_requests "
+                f"WHERE kind = {p} AND subject_type = {p} AND subject_key = {p} "
+                "AND status = 'pending'",
+                (kind, subject_type, subject_key),
+            ).fetchone()
+            if row is None:
+                raise RuntimeError("decision request idempotency race did not converge")
+            request_id = int(row[0])
+    if commit:
+        conn.commit()
     return _request_row(conn, request_id), created
 
 

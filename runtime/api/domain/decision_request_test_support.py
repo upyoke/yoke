@@ -8,6 +8,7 @@ import sqlite3
 from yoke_core.domain.decision_request_schema import (
     create_decision_request_tables,
 )
+from yoke_core.domain.inbox_post_schema import create_inbox_post_table
 from yoke_core.domain.events_schema import ensure_event_schema
 
 
@@ -80,6 +81,7 @@ def decision_request_connection():
     """)
     ensure_event_schema(value)
     create_decision_request_tables(value)
+    create_inbox_post_table(value)
     value.execute("INSERT INTO organizations VALUES (1, 'default', 'Default', 'now')")
     value.execute(
         "INSERT INTO projects "

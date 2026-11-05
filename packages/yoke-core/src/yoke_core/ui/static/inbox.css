@@ -260,3 +260,7 @@
   .inbox-question-choice { align-items: stretch; }
   .inbox-question-option, .inbox-question-send { width: 100%; }
 }
+
+.inbox-post-body, .inbox-post-fields dd { white-space: pre-wrap; overflow-wrap: anywhere; }
+.inbox-post-fields { display: grid; grid-template-columns: minmax(5rem, auto) minmax(0, 1fr); gap: .4rem 1rem; }
+.inbox-post-fields dd { margin: 0; }

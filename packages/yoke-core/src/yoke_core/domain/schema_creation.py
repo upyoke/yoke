@@ -21,6 +21,7 @@ from typing import Any
 
 from yoke_core.domain import db_backend
 from yoke_core.domain.auth_schema import create_auth_tables
+from yoke_core.domain.inbox_post_schema import create_inbox_post_table
 from yoke_core.domain.decision_request_schema import create_decision_request_tables
 from yoke_core.domain.events_function_index import ensure_function_index
 from yoke_core.domain.events_retention_index import ensure_retention_index
@@ -139,6 +140,7 @@ def _create_in_dependency_order(conn: Any) -> None:
     create_session_control_tables(conn)
     create_session_message_prefix_index(conn)
     create_decision_request_tables(conn)
+    create_inbox_post_table(conn)
     create_github_app_tables(conn)
     # QA plans bind to a concrete environment, so site/environment authority
     # must exist before the QA catalog creates that foreign key.

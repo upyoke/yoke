@@ -135,14 +135,14 @@ def test_named_actor_is_the_configured_authority(test_db):
     named = [
         int(row[0])
         for row in test_db.execute(
-            "SELECT actor_id FROM decision_request_actor_authorities "
-            "WHERE request_id=%s",
+            "SELECT r.scope_id FROM audience_rules r JOIN decision_requests d ON d.audience_id=r.audience_id "
+            "WHERE d.id=%s AND r.scope_kind='actor'",
             (verdict.request_id,),
         ).fetchall()
     ]
     assert named == [actor]
     roles = test_db.execute(
-        "SELECT role_name FROM decision_request_role_authorities WHERE request_id=%s",
+        "SELECT r.role_name FROM audience_rules r JOIN decision_requests d ON d.audience_id=r.audience_id WHERE d.id=%s AND r.role_name IS NOT NULL",
         (verdict.request_id,),
     ).fetchall()
     assert roles == []

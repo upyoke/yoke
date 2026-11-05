@@ -14,6 +14,10 @@ from typing import Any, Mapping
 
 #: function_id -> minimum serving version. Do not copy already-served ids here.
 FUNCTION_MINIMUM_SERVING_VERSIONS: dict[str, str] = {
+    "audiences.create": "next-release",
+    "audiences.list": "next-release",
+    "inbox.posts.create": "next-release",
+    "inbox.posts.done": "next-release",
     "feedback.provenance.get": "next-release",
     "ouroboros.field_note.append": "next-release",
     "ouroboros.field_note.list": "next-release",

@@ -10,6 +10,7 @@ from yoke_contracts.api.function_call import (
     TargetRef,
 )
 from yoke_contracts.timestamps import parse_instant
+from yoke_core.domain.audiences import create_audience
 from yoke_core.domain.actor_permissions import grant_actor_project_role
 from yoke_core.domain.actors import seed_human_actor
 from yoke_core.domain.decision_requests import create_decision_request
@@ -50,9 +51,15 @@ def test_historical_machine_request_is_read_only_and_absent_from_inbox(test_db, 
             "approve" if status == "resolved" else None,
         ),
     ).fetchone()[0]
+    audience_id = create_audience(
+        test_db,
+        org_id=org_id,
+        rules=[{"scope_kind": "actor", "scope_id": actor_id}],
+        commit=False,
+    )
     test_db.execute(
-        "INSERT INTO decision_request_actor_authorities VALUES (%s,%s)",
-        (request_id, actor_id),
+        "UPDATE decision_requests SET audience_id=%s WHERE id=%s",
+        (audience_id, request_id),
     )
     if status == "resolved":
         test_db.execute(
@@ -67,7 +74,7 @@ def test_historical_machine_request_is_read_only_and_absent_from_inbox(test_db, 
             [tuple(row) for row in test_db.execute(sql, (request_id,)).fetchall()]
             for sql in (
                 "SELECT * FROM decision_requests WHERE id=%s",
-                "SELECT * FROM decision_request_actor_authorities WHERE request_id=%s",
+                "SELECT * FROM audience_rules WHERE audience_id=(SELECT audience_id FROM decision_requests WHERE id=%s)",
                 "SELECT * FROM decision_request_decisions WHERE request_id=%s",
             )
         ]

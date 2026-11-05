@@ -20,8 +20,8 @@ _REQUIRED_TABLES = (
     "qa_requirements",
     "qa_runs",
     "decision_requests",
-    "decision_request_role_authorities",
-    "decision_request_actor_authorities",
+    "audiences",
+    "audience_rules",
 )
 
 
