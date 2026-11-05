@@ -38,7 +38,7 @@ def question_target(conn, model, session, actor_id):
             conn, RecipientSelector(actors=model.to), sender_actor_id=actor_id
         )
     except SessionMessageError as exc:
-        raise invalid(str(exc)) from exc
+        raise invalid(f"{exc.code}: {exc}") from exc
     orgs = {
         int(row[0])
         for row in conn.execute(

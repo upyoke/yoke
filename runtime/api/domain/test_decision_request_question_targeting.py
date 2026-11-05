@@ -4,7 +4,7 @@ from unittest.mock import Mock
 
 import pytest
 
-from runtime.api.domain.test_decision_request_operator_question import filing
+from runtime.api.domain.test_decision_request_operator_question import conn as conn, filing
 from yoke_core.domain import audiences
 from yoke_core.domain.decision_request_question_filing import file_question
 from yoke_core.domain.decision_request_question_target import question_target
