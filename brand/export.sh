@@ -15,7 +15,7 @@ for pair in apple-touch-icon:180 icon-192:192 icon-512:512; do
   rsvg-convert -w "$size" -h "$size" --keep-aspect-ratio \
     "$assets/favicon.svg" -o "$assets/$name.png"
   magick "$assets/$name.png" -background none -gravity center \
-    -extent "${size}x${size}" "$assets/$name.png"
+    -extent "${size}x${size}" -strip "$assets/$name.png"
 done
 rsvg-convert "$assets/og-image.svg" -o "$assets/og-image.png"
 magick "$assets/icon-512.png" -define icon:auto-resize=64,48,32,16 \
