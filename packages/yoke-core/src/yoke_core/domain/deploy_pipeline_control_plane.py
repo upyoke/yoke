@@ -13,11 +13,11 @@ from yoke_contracts.refusal_recovery import compose_refusal
 from yoke_core.api.service_client_structured_api_adapter import call_dispatcher
 from yoke_core.domain.deploy_pipeline_unknown_outcome import (
     UNKNOWN_CODES,
+    READ_CONNECTION_CODES,
     DeploymentOutcomeUnknown,
     DeploymentRunStayedBusy,
 )
 from yoke_core.domain.deployment_start_timing import emit_records
-from yoke_core.domain.function_connection_loss import CONNECTION_LOST_CODE
 from yoke_core.domain.function_lock_refusal import (
     LOCK_RETRY_DELAYS_SECONDS,
     RETRYABLE_LOCK_CODES,
@@ -43,15 +43,15 @@ _READ_ONLY = frozenset(
 )
 
 
-#: The serving read-deadline code, and the pauses before each re-read of a
-#: read-only call that hit it. A busy control plane or a slow link can push one
-#: read past its deadline; the read changes nothing, so asking again is safe.
+#: Reads change nothing, so deadlines and unavailable connections share one
+#: bounded schedule that rides out a brief outage before returning recovery.
 READ_DEADLINE_CODE = "read_deadline_exceeded"
-_READ_DEADLINE_BACKOFF_SECONDS = (2.0, 5.0)
+_READ_RETRY_CODES = READ_CONNECTION_CODES | {READ_DEADLINE_CODE}
+_READ_RETRY_BACKOFF_SECONDS = (2.0, 5.0, 10.0, 15.0, 30.0)
 
 
 def _call(function_id: str, run_id: str, payload: Dict[str, Any]) -> Dict[str, Any]:
-    retries = _READ_DEADLINE_BACKOFF_SECONDS if function_id in _READ_ONLY else ()
+    retries = _READ_RETRY_BACKOFF_SECONDS if function_id in _READ_ONLY else ()
     read_delays = iter(retries)
     # A busy answer wrote nothing, so any call -- write or read -- asks again
     # on the shared schedule; past it the driver stops with the run unchanged.
@@ -78,13 +78,13 @@ def _call(function_id: str, run_id: str, payload: Dict[str, Any]) -> Dict[str, A
             )
             time.sleep(delay)
             continue
-        if error is None or error.code != READ_DEADLINE_CODE:
+        if error is None or error.code not in _READ_RETRY_CODES:
             break
         delay = next(read_delays, None)
         if delay is None:
             break
         print(
-            f"{function_id} exceeded its read deadline; reading again in {delay:g}s",
+            f"{function_id} answered {error.code}; reading again in {delay:g}s",
             file=sys.stderr,
         )
         time.sleep(delay)
@@ -97,13 +97,18 @@ def _call(function_id: str, run_id: str, payload: Dict[str, Any]) -> Dict[str, A
                 f"{message} Every one of {len(retries) + 1} attempts expired; The slow composition was {function_id} with fields {payload}. Nothing was written by this read.",
                 recovery=f"inspect this run with `yoke deployment-runs get {run_id} release_lineage` and `yoke deployment-runs get {run_id} project` field reads; omit member_closure diagnostics. If these narrow reads also expire, ask the control-plane operator to diagnose that reader before rerunning the driver.",
             )
+        elif error and error.code in READ_CONNECTION_CODES and retries:
+            message = compose_refusal(
+                f"{message} Control-plane connectivity remained unavailable after {len(retries) + 1} read attempts ({error.code}). Nothing was written by this read.",
+                recovery=error.recovery_hint or "restore the control-plane connection before resuming this run.",
+            )
         elif error and error.recovery_hint:
             message = compose_refusal(f"{message}", recovery=f"{error.recovery_hint}")
         if error and error.code in UNKNOWN_CODES and function_id not in _READ_ONLY:
             raise DeploymentOutcomeUnknown(
                 run_id, function_id, response.request_id, message
             )
-        if error and error.code == CONNECTION_LOST_CODE:
+        if error and error.code in _READ_RETRY_CODES and retries:
             message = f"{message} The read can be resumed: rerun `yoke watch deploy -- {run_id}`."
         raise DeploymentControlPlaneError(
             f"{function_id} failed: {message}",

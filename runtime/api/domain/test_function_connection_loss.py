@@ -120,7 +120,9 @@ class TestDispatchConnectionLoss(_DispatcherTestBase):
             dispatch(_make_request("test.read"))
 
     def test_driver_surfaces_the_named_refusal_with_the_run_to_resume(self):
-        handler, _calls = _dropping_handler(drops=2)
+        attempts = len(control_plane._READ_RETRY_BACKOFF_SECONDS) + 1
+        handler, calls = _dropping_handler(drops=2 * attempts)
+        waited = []
         register(
             "deployment_runs.execution.qa_pending",
             handler,
@@ -139,10 +141,15 @@ class TestDispatchConnectionLoss(_DispatcherTestBase):
                 )
             )
 
-        with patch.object(control_plane, "call_dispatcher", through_dispatcher):
+        with (
+            patch.object(control_plane, "call_dispatcher", through_dispatcher),
+            patch.object(control_plane.time, "sleep", waited.append),
+        ):
             with pytest.raises(control_plane.DeploymentControlPlaneError) as raised:
                 control_plane.unresolved_qa("run-20261013-010")
 
+        assert len(calls) == 2 * attempts
+        assert waited == list(control_plane._READ_RETRY_BACKOFF_SECONDS)
         assert raised.value.code == CONNECTION_LOST_CODE
         message = str(raised.value)
         assert "lost its control-plane database connection" in message

@@ -7,6 +7,8 @@ from yoke_cli.transport.relay_telemetry import TRANSPORT_FAILED_CODE
 from yoke_core.domain.function_connection_loss import CONNECTION_LOST_CODE
 
 UNKNOWN_CODES = frozenset({TRANSPORT_FAILED_CODE, CONNECTION_LOST_CODE})
+# The self-deploy database door wraps connection exceptions in this code.
+READ_CONNECTION_CODES = UNKNOWN_CODES | {"handler_exception"}
 
 
 class DeploymentOutcomeUnknown(RuntimeError):
