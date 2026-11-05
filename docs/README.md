@@ -57,7 +57,6 @@ Run source commands from a claimed lane through `yoke dev run --`. Read [source-
 
 - [browser-substrate](browser-substrate/) — Contributor material grouped by browser substrate.
 - [event-contract](event-contract/) — Contributor material grouped by event contract.
-- [install-onboard-archetypes](install-onboard-archetypes/) — Contributor material grouped by install onboard archetypes.
 - [packs](packs/) — Contributor material grouped by packs.
 - [qa-platform](qa-platform/) — Contributor material grouped by qa platform.
 - [releases](releases/) — Contributor material grouped by releases.
