@@ -10,14 +10,15 @@ import json
 
 
 from runtime.api.fixtures.file_test_db import connect_test_db
-from runtime.api.test_service_client import _run_client
+from runtime.api.test_service_client import _run_client as _run_subprocess
+from runtime.api.service_client_in_process_test_support import run_client as _run_client
 
 
 class TestApproveCheck:
     """Regression tests for approve-check (approval semantics via domain layer)."""
 
     def test_valid_approval_returns_next_stage(self, test_db):
-        result = _run_client(
+        result = _run_subprocess(
             ["approve-check", "test-flow", "approve-deploy"], db_path=test_db["db_path"]
         )
         assert result.returncode == 0
@@ -28,7 +29,7 @@ class TestApproveCheck:
         assert data["flow_id"] == "test-flow"
 
     def test_non_approval_stage_rejected(self, test_db):
-        result = _run_client(
+        result = _run_subprocess(
             ["approve-check", "test-flow", "merged"], db_path=test_db["db_path"]
         )
         assert result.returncode == 1
@@ -84,7 +85,7 @@ class TestActiveQueue:
     """Regression tests for active-queue (query path via domain layer)."""
 
     def test_excludes_done_cancelled_frozen(self, test_db):
-        result = _run_client(
+        result = _run_subprocess(
             ["active-queue", "--fields", "id,title,status"], db_path=test_db["db_path"]
         )
         assert result.returncode == 0
@@ -96,6 +97,11 @@ class TestActiveQueue:
         assert "YOK-2" not in ids, "Done item should be excluded"
         assert "YOK-3" not in ids, "Cancelled item should be excluded"
         assert "YOK-4" not in ids, "Frozen item should be excluded"
+
+    def test_unknown_flag_rejected(self):
+        result = _run_subprocess(["active-queue", "--unknown"])
+        assert result.returncode == 2
+        assert "Unknown argument: --unknown" in result.stderr
 
     def test_project_filter(self, test_db):
         result = _run_client(
@@ -124,148 +130,9 @@ class TestActiveQueue:
         assert len(lines[0].split("|")) == 6
 
 
-class TestValidateStatus:
-    def test_valid_statuses(self):
-        for status in [
-            "idea",
-            "refined-idea",
-            "implementing",
-            "reviewing-implementation",
-            "implemented",
-            "release",
-            "cancelled",
-        ]:
-            result = _run_client(["validate-status", status])
-            assert result.returncode == 0, f"{status} should be valid"
-            assert result.stdout.strip() == "valid"
-
-    def test_invalid_statuses(self):
-        for status in ["qa", "merged", "in_release", "bogus", ""]:
-            result = _run_client(["validate-status", status])
-            assert result.returncode == 1, f"'{status}' should be invalid"
-
-
-class TestValidateTransition:
-    """Tests for validate-transition forward progression checks."""
-
-    def test_forward_transitions(self):
-        forward_pairs = [
-            ("idea", "refining-idea"),
-            ("refining-idea", "refined-idea"),
-            # Issue workflow transitions
-            ("refined-idea", "implementing"),
-            ("implementing", "reviewing-implementation"),
-            ("reviewing-implementation", "reviewed-implementation"),
-            ("reviewed-implementation", "polishing-implementation"),
-            ("polishing-implementation", "implemented"),
-            # Epic workflow transitions
-            ("refined-idea", "planning"),
-            ("planning", "planned"),
-            ("implemented", "release"),
-            ("release", "done"),
-        ]
-        for from_s, to_s in forward_pairs:
-            result = _run_client(
-                [
-                    "validate-transition",
-                    from_s,
-                    to_s,
-                    "--workflow",
-                    "epic",
-                ]
-            )
-            assert result.returncode == 0, f"{from_s}->{to_s} should be forward"
-
-    def test_backward_transitions(self):
-        backward_pairs = [
-            ("done", "idea"),
-            ("implementing", "refined-idea"),
-            ("reviewed-implementation", "implementing"),
-            ("planned", "idea"),
-            ("release", "implementing"),
-        ]
-        for from_s, to_s in backward_pairs:
-            result = _run_client(
-                [
-                    "validate-transition",
-                    from_s,
-                    to_s,
-                    "--workflow",
-                    "epic",
-                ]
-            )
-            assert result.returncode == 1, f"{from_s}->{to_s} should not be forward"
-
-    def test_exceptional_status_not_in_progression(self):
-        result = _run_client(
-            [
-                "validate-transition",
-                "implementing",
-                "blocked",
-                "--workflow",
-                "epic",
-            ]
-        )
-        assert result.returncode == 1, "blocked is exceptional, not in progression"
-
-    def test_issue_workflow_forward(self):
-        result = _run_client(
-            [
-                "validate-transition",
-                "refined-idea",
-                "implementing",
-                "--workflow",
-                "issue",
-            ]
-        )
-        assert result.returncode == 0, (
-            "refined-idea->implementing is forward for issues"
-        )
-
-    def test_issue_workflow_rejects_epic_only_stage(self):
-        # planning is in the epic progression but not the issue progression
-        result = _run_client(
-            ["validate-transition", "refined-idea", "planning", "--workflow", "issue"]
-        )
-        assert result.returncode == 1, "planning is not in the issue progression"
-
-    def test_epic_workflow_accepts_planning(self):
-        result = _run_client(
-            ["validate-transition", "refined-idea", "planning", "--workflow", "epic"]
-        )
-        assert result.returncode == 0, "refined-idea->planning is forward for epics"
-
-    def test_workflow_is_required(self):
-        result = _run_client(["validate-transition", "refined-idea", "planning"])
-        assert result.returncode == 2
-        assert "--workflow WORKFLOW" in result.stderr
-
-    def test_workflow_flag_uses_current_registry_version(self, test_db):
-        from runtime.api.workflow_version_test_helpers import (
-            publish_issue_completion_stage,
-        )
-
-        conn = connect_test_db(test_db["db_path"])
-        try:
-            publish_issue_completion_stage(conn)
-        finally:
-            conn.close()
-        result = _run_client(
-            ["validate-transition", "done", "archived", "--workflow", "issue"],
-            db_path=test_db["db_path"],
-        )
-        assert result.returncode == 0
-
-    def test_unknown_argument_returns_2(self):
-        result = _run_client(
-            ["validate-transition", "idea", "refining-idea", "--bad-flag"]
-        )
-        assert result.returncode == 2
-
-
 class TestUsage:
     def test_help(self):
-        result = _run_client(["help"])
+        result = _run_subprocess(["help"])
         assert result.returncode == 0
         assert "approve-check" in result.stdout
         assert "active-queue" in result.stdout
@@ -273,7 +140,7 @@ class TestUsage:
         assert "apply-approval" in result.stdout
 
     def test_unknown_command(self):
-        result = _run_client(["nonexistent"])
+        result = _run_subprocess(["nonexistent"])
         assert result.returncode == 2
         assert "Unknown command" in result.stderr
 
@@ -309,7 +176,7 @@ class TestItemProgressStaleView:
 
     def test_item_progress_fails_against_stale_view(self, test_db):
         self._install_stale_view(test_db["db_path"])
-        result = _run_client(["item-progress", "YOK-1"], db_path=test_db["db_path"])
+        result = _run_subprocess(["item-progress", "YOK-1"], db_path=test_db["db_path"])
         assert result.returncode != 0
         assert "pipeline_blocked_reason" in result.stderr
 
@@ -322,6 +189,6 @@ class TestItemProgressStaleView:
             create_or_replace_item_progress_view(conn)
         finally:
             conn.close()
-        result = _run_client(["item-progress", "YOK-1"], db_path=test_db["db_path"])
+        result = _run_subprocess(["item-progress", "YOK-1"], db_path=test_db["db_path"])
         assert result.returncode == 0, result.stderr
         assert result.stdout.strip() != ""

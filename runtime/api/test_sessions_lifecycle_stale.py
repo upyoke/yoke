@@ -74,6 +74,28 @@ class TestStaleDetection:
         stale = find_stale_sessions(conn, stale_threshold_minutes=10)
         assert len(stale) == 0
 
+    def test_stale_excludes_sessions_with_active_claims(self, conn):
+        _register(conn)
+        claim_work(conn, session_id="sess-1", item_id=9999)
+        conn.execute(
+            "UPDATE harness_sessions SET last_heartbeat = '2020-01-01T00:00:00Z' "
+            "WHERE session_id='sess-1'"
+        )
+        conn.commit()
+        assert find_stale_sessions(conn, stale_threshold_minutes=10) == []
+
+    def test_stale_excludes_sessions_with_recent_tool_activity(self, conn):
+        from yoke_core.domain.db_helpers import utc_now
+
+        _register(conn)
+        conn.execute(
+            "UPDATE harness_sessions SET last_heartbeat = '2020-01-01T00:00:00Z', "
+            "last_tool_call_at = %s, tool_call_count = 1 WHERE session_id='sess-1'",
+            (utc_now(),),
+        )
+        conn.commit()
+        assert find_stale_sessions(conn, stale_threshold_minutes=10) == []
+
     def test_reclaim_stale_session_refuses_active_work_claim(self, conn):
         _register(conn)
         claim_work(conn, session_id="sess-1", item_id=9999)

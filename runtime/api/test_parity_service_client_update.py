@@ -6,7 +6,11 @@ import json
 
 import pytest
 
-from runtime.api.test_parity import _run_service_client
+from runtime.api.test_parity import _run_service_client as _run_subprocess
+
+from runtime.api.service_client_in_process_test_support import (
+    run_parity_client as _run_service_client,
+)
 from runtime.api.parity_service_client_test_helpers import make_write_parity_env
 
 from yoke_contracts.title_policy import title_max_length
@@ -91,7 +95,7 @@ class TestUpdateParity:
         assert api_resp.status_code == 200
         assert api_resp.json()["title"] == "New title"
 
-        cli_result = _run_service_client(
+        cli_result = _run_subprocess(
             db_path,
             "update-item",
             "EXT-1",
@@ -113,7 +117,7 @@ class TestUpdateParity:
         api_resp = client.patch("/v1/items/YOK-1", json={"title": long_title})
         assert api_resp.status_code == 422
 
-        cli_result = _run_service_client(
+        cli_result = _run_subprocess(
             db_path,
             "update-item",
             "YOK-1",

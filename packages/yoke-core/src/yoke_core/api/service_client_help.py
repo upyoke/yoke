@@ -10,7 +10,7 @@ The dispatcher pre-existing behaviour mapped subcommand exit ``2`` to
 that mapping converts the parse-error into a clean exit. But a
 subcommand that reads ``args[0]`` as a positional id (e.g.
 ``cmd_apply_approval``, ``cmd_update_item``, ``cmd_execute_close``,
-``cmd_execute_update``, ``cmd_validate_status``, ``cmd_validate_update``)
+``cmd_execute_update``, ``cmd_validate_update``)
 crashes with ``Item ID must be integer, got '--help'`` and exits ``1``
 — OR raises an unhandled exception (``cmd_backlog_dedup_search`` tries
 to query the DB for ``--help`` and dies on a missing file). This

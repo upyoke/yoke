@@ -21,13 +21,6 @@ Read/decision commands:
     classify-status <status> [--frozen 0|1] [--has-active-run 0|1]
         Return the board bucket for a given status/frozen/active-run combo.
 
-    validate-status <status>
-        Return 0 if status is a valid canonical item status, 1 if not.
-
-    validate-transition <from-status> <to-status> [--workflow WORKFLOW]
-        Return 0 if the transition is a forward progression step, 1 if not.
-        When --workflow is omitted, uses the built-in Epic workflow.
-
 Mutation commands (return structured JSON for shell adapters to apply):
     validate-update <item-id> --field FIELD --value VALUE
                 [--done-nonce-verified] [--force] [--qa-bypass]
@@ -149,8 +142,6 @@ from yoke_core.api.service_client_items import (  # noqa: F401
     cmd_item_progress,
     cmd_item_render,
     cmd_item_row,
-    cmd_validate_status,
-    cmd_validate_transition,
 )
 
 # Sessions-related commands
@@ -243,8 +234,6 @@ COMMANDS = {
     "active-queue": cmd_active_queue,
     "item-next-id": cmd_item_next_id,
     "classify-status": cmd_classify_status,
-    "validate-status": cmd_validate_status,
-    "validate-transition": cmd_validate_transition,
     "validate-update": cmd_update_item,
     "update-item": cmd_update_item,  # DEPRECATED: use validate-update
     "apply-approval": cmd_apply_approval,

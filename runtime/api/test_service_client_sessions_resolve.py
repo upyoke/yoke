@@ -18,6 +18,7 @@ from yoke_contracts.harness_family_identity import (
     nearest_harness_family,
 )
 from yoke_contracts.session_identity import AMBIENT_ENV_VARS
+from runtime.api.service_client_in_process_test_support import run_client
 from runtime.api.fixtures.file_test_db import connect_test_db
 from runtime.api.test_service_client import (
     _REPO_ROOT,
@@ -277,15 +278,11 @@ class TestSessionIdAutoResolutionIntegration:
             ["session-checkpoint-read"],
         ]
 
-        for cmd_args in commands_requiring_session_id:
-            r = subprocess.run(
-                _service_client_cmd(cmd_args),
-                capture_output=True,
-                text=True,
-                env=_with_source_pythonpath(env),
-                cwd=_REPO_ROOT,
-                timeout=30,
-            )
+        for index, cmd_args in enumerate(commands_requiring_session_id):
+            r = (subprocess.run(
+                _service_client_cmd(cmd_args), capture_output=True, text=True,
+                env=_with_source_pythonpath(env), cwd=_REPO_ROOT, timeout=30,
+            ) if index == 0 else run_client(cmd_args, env=env))
             assert r.returncode == 2, (
                 f"Expected exit 2 for {cmd_args[0]} without session ID, "
                 f"got {r.returncode}. stderr: {r.stderr}"
