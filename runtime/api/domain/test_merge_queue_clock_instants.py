@@ -294,7 +294,13 @@ def test_graphql_landing_clock_refusal_is_unreadable(monkeypatch, clock):
         "graphql_with_auth",
         lambda *_args, **_kw: (
             {
-                "repository": {"pullRequest": {"merged": True, "mergedAt": clock}},
+                "repository": {"pullRequest": {
+                    "merged": True, "closed": True, "state": "MERGED",
+                    "mergedAt": clock, "mergeCommit": {"oid": "merged-head"},
+                    "autoMergeRequest": None, "mergeQueueEntry": None,
+                    "mergeStateStatus": "CLEAN", "headRefOid": "pr-head",
+                    "commits": {"nodes": [{"commit": {"statusCheckRollup": None}}]},
+                }},
             },
             None,
         ),
