@@ -69,12 +69,6 @@ export const harnessStatusLine = (status, lastSeen) => (
     : HARNESS_STATUS_TEXT[status] || ""
 );
 
-export const MODULE_COPY = {
-  connect_harness: {
-    in_progress: "Open a supported harness in a project directory:",
-  },
-};
-
 // Machine rows. Every registered machine answers the harness module for
 // itself, so the copy names the machine before it names the harness. A
 // machine the control plane knows only by id has no hostname yet, and its

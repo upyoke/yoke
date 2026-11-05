@@ -23,7 +23,6 @@ import {
 import {
   DISMISS_HINT,
   installCommand,
-  MODULE_COPY,
   MODULE_TITLES,
   RUN_ONBOARD_TITLE_HINT,
   STATE_PILL_TEXT,
@@ -183,9 +182,6 @@ function renderModule(context, module, position, result, draw, viewState) {
     harnessBody(documentNode, module, body);
   } else if (module.key === "run_onboard") {
     onboardBody(documentNode, module, body);
-  } else {
-    const copy = (MODULE_COPY[module.key] || {})[module.state];
-    if (copy) body.appendChild(el(documentNode, "p", "activation-copy", copy));
   }
   card.appendChild(body);
   return card;

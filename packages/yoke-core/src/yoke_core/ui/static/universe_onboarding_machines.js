@@ -7,28 +7,12 @@
 import { el } from "./universe_view_support.js";
 import {
   MACHINE_PENDING_COPY,
-  MODULE_COPY,
   machineConnectedLine,
   machineMetaLine,
   machineNameOf,
 } from "./universe_onboarding_copy.js";
-import { addProjectCue } from "./add_project_cue.js";
 import { renderHarnessTargets } from "./universe_onboarding_health.js";
 import { preciseAge } from "./universe_time.js";
-
-function projectDirectories(documentNode, module, body) {
-  for (const project of module.projects || []) {
-    const row = el(documentNode, "p", "activation-project");
-    row.appendChild(el(documentNode, "span", "mono", project.slug));
-    if (project.workspace) {
-      row.appendChild(el(documentNode, "span", null, ` · ${project.workspace} · `));
-      row.appendChild(el(
-        documentNode, "code", null, `cd ${project.workspace}`,
-      ));
-    }
-    body.appendChild(row);
-  }
-}
 
 function machineRow(documentNode, machine) {
   const row = el(documentNode, "section", "activation-machine");
@@ -61,26 +45,8 @@ function machineRow(documentNode, machine) {
   return row;
 }
 
-// The module's in-progress copy leads only when no machine is listed yet;
-// once machines exist, each row says what it is waiting on.
-// With no project there is no directory to name: the agent adds one first.
 export function harnessBody(documentNode, module, body) {
-  const machines = module.machines || [];
-  if (module.state === "in_progress" && !machines.length) {
-    if (!(module.projects || []).length) {
-      body.appendChild(addProjectCue(documentNode));
-      return;
-    }
-    body.appendChild(el(
-      documentNode, "p", "activation-copy", MODULE_COPY.connect_harness.in_progress,
-    ));
-    projectDirectories(documentNode, module, body);
-    return;
-  }
-  for (const machine of machines) {
+  for (const machine of module.machines || []) {
     body.appendChild(machineRow(documentNode, machine));
-  }
-  if (module.state === "in_progress") {
-    projectDirectories(documentNode, module, body);
   }
 }

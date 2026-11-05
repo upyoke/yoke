@@ -44,7 +44,6 @@ async function mountMachines(t, { harnessState, machines, wizardMachines }) {
       },
       connect_harness: {
         machines,
-        projects: [{ slug: "yoke", workspace: "/Users/dev/yoke" }],
       },
     },
   });
@@ -151,8 +150,7 @@ test("a relay-only machine reads next up beside a connected one", async (t) => {
     "Next up — open a supported harness on this machine.",
   ));
   assert.ok(!textOf(rows[1]).includes("codex connected"));
-  // The module is still in progress, so the directories to open follow.
-  assert.equal(byClass(harness, "activation-project").length, 1);
+  assert.equal(byClass(harness, "activation-project").length, 0);
   // The lead universe copy yields to the machine rows.
   assert.ok(!textOf(harness).includes("Open a supported harness in a project directory:"));
   mounted.unmount();
@@ -181,51 +179,18 @@ test("a machine the control plane knows only by id names itself by id", async (t
   mounted.unmount();
 });
 
-test("the in-progress harness module lists project directories", async (t) => {
-  stubFetch(t);
-  const answer = activationAnswer({
-    states: {
-      finish_installation_wizard: "activated", connect_harness: "in_progress",
-    },
-    extras: {
-      connect_harness: {
-        machines: [],
-        projects: [
-          { slug: "yoke", workspace: "/Users/dev/yoke" },
-          { slug: "quiet", workspace: null },
-        ],
-      },
-    },
+for (const machines of [[], [machineRow({ machine_id: BETA, name: "beta-box" })]]) {
+  test(`the harness step omits project instructions with ${machines.length} machines`, async (t) => {
+    const { harness, mounted } = await mountMachines(t, {
+      harnessState: "in_progress", machines,
+    });
+    assert.equal(byClass(harness, "activation-project").length, 0);
+    assert.ok(!textOf(harness).includes("cd "));
+    assert.ok(!textOf(harness).includes(ADD_PROJECT_CUE));
+    assert.ok(!textOf(harness).includes("project directory"));
+    mounted.unmount();
   });
-  const { root, mounted } = await mountWorkbench(activationClient(answer));
-
-  const harness = byClass(root, "activation-module")[1];
-  assert.ok(textOf(harness).includes(
-    "Open a supported harness in a project directory:",
-  ));
-  const rows = byClass(harness, "activation-project");
-  assert.equal(rows.length, 2);
-  assert.equal(textOf(rows[0]), "yoke · /Users/dev/yoke · cd /Users/dev/yoke");
-  // A project with no known directory lists without one.
-  assert.equal(textOf(rows[1]), "quiet");
-  mounted.unmount();
-});
-
-test("with no project yet, the harness module routes to the agent", async (t) => {
-  stubFetch(t);
-  const answer = activationAnswer({
-    states: {
-      finish_installation_wizard: "activated", connect_harness: "in_progress",
-    },
-    extras: { connect_harness: { machines: [], projects: [] } },
-  });
-  const { root, mounted } = await mountWorkbench(activationClient(answer));
-
-  const harness = byClass(root, "activation-module")[1];
-  assert.ok(textOf(harness).includes(ADD_PROJECT_CUE));
-  assert.ok(!textOf(harness).includes("project directory"));
-  mounted.unmount();
-});
+}
 
 function textOf(node) {
   return visibleText(node);
