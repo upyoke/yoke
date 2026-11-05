@@ -29,11 +29,12 @@ def prepare_review_database() -> None:
         raise UiServerError(f"review_database_connection_refused: {refusal}")
 
     from yoke_contracts.control_plane_locality import local_authority_exempt
-    from yoke_core.api.server_entrypoint import ensure_core_schema
+    from yoke_contracts.schema_authority import serving_build_authority
+    from yoke_core.domain.environment_bootstrap import run_bootstrap
 
     try:
-        with local_authority_exempt():
-            ensure_core_schema()
+        with local_authority_exempt(), serving_build_authority():
+            run_bootstrap(emit=lambda _: None)
     except Exception as exc:
         raise UiServerError(
             f"review_database_convergence_failed: {environment or 'local universe'} "
