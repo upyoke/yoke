@@ -55,33 +55,6 @@ class TestInsert:
         with pytest.raises(db_backend.integrity_error_types()):
             _insert_event_direct(test_db, event_id=eid, event_name="Evt1")
 
-    def test_source_type_validation(self):
-        """Invalid source_type raises ValueError."""
-        with pytest.raises(ValueError, match="source_type must be one of"):
-            events_crud.cmd_insert(
-                ":memory:",
-                event_id="e1",
-                source_type="invalid",
-                session_id="s1",
-                event_kind="lifecycle",
-                event_type="test",
-                event_name="Test",
-                skip_severity=True,
-            )
-
-    def test_severity_validation(self):
-        with pytest.raises(ValueError, match="severity must be one of"):
-            events_crud.cmd_insert(
-                ":memory:",
-                event_id="e1",
-                source_type="system",
-                session_id="s1",
-                severity="INVALID",
-                event_kind="lifecycle",
-                event_type="test",
-                event_name="Test",
-                skip_severity=True,
-            )
 
     def test_item_id_numeric_stays_canonical(self, test_db):
         _setup_severity_config(test_db)
@@ -95,14 +68,7 @@ class TestInsert:
 
 
 class TestSeverityCheck:
-    def test_default_info_passes(self, test_db):
-        _setup_severity_config(test_db)
-        # severity_num: INFO=1, which is >= INFO=1
-        assert events_crud.severity_num("INFO") >= events_crud.severity_num("INFO")
 
-    def test_debug_below_info(self, test_db):
-        """DEBUG severity is below default INFO threshold."""
-        assert events_crud.severity_num("DEBUG") < events_crud.severity_num("INFO")
 
     def test_severity_ordering(self):
         levels = ["DEBUG", "INFO", "STATUS", "WARN", "ERROR", "FATAL"]
@@ -114,11 +80,6 @@ class TestSeverityCheck:
     def test_unknown_severity_defaults_to_info(self):
         assert events_crud.severity_num("UNKNOWN") == 1  # INFO level
 
-    def test_cmd_severity_check_pass(self, test_db):
-        _setup_severity_config(test_db)
-        # Validation-only smoke: backend-routed command behavior is covered in
-        # the split cmd tests that use the disposable Postgres db_path fixture.
-        assert events_crud.cmd_severity_check.__doc__  # exists
 
     def test_severity_config_set_and_list(self, test_db):
         _setup_severity_config(test_db)

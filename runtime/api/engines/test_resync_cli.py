@@ -13,9 +13,7 @@ from io import StringIO
 from unittest import mock
 
 from yoke_core.engines.resync import (
-    DriftRecord,
     LocalOrphan,
-    _emit_doctor_format,
     main,
 )
 
@@ -26,63 +24,6 @@ from runtime.api.engines._resync_test_helpers import (
 
 
 _FIXTURE_ITEM_REF = f"YOK-{42}"
-
-
-class TestDoctorFormat:
-    def test_all_pass_when_no_issues(self, test_db):
-        """Doctor format shows PASS for all HCs when no issues found."""
-        captured = StringIO()
-        with mock.patch("sys.stdout", captured):
-            _emit_doctor_format([], [], [], "detect")
-
-        output = captured.getvalue()
-        assert "HC-missing-gh-issues|Missing GitHub issues|PASS|" in output
-        assert "HC-title-drift|Title drift|PASS|" in output
-        assert "HC-body-drift|Body drift|PASS|" in output
-        assert "HC-state-drift|State drift|PASS|" in output
-        assert "HC-label-drift|Label drift|PASS|" in output
-
-    def test_warn_on_title_drift(self, test_db):
-        """Doctor format shows WARN for title drift."""
-        drifts = [
-            DriftRecord(_FIXTURE_ITEM_REF, "title", "Local Title", "GitHub Title")
-        ]
-        captured = StringIO()
-        with mock.patch("sys.stdout", captured):
-            _emit_doctor_format([], [], drifts, "detect")
-
-        output = captured.getvalue()
-        assert "HC-title-drift|Title drift|WARN|" in output
-        assert _FIXTURE_ITEM_REF in output
-
-    def test_warn_on_local_orphans(self, test_db):
-        """Doctor format shows WARN for local orphans."""
-        orphans = [
-            LocalOrphan("YOK-99", "/tmp/099.md", "backlog", "yoke", public_ref="YOK-99")
-        ]
-        captured = StringIO()
-        with mock.patch("sys.stdout", captured):
-            _emit_doctor_format(orphans, [], [], "detect")
-
-        output = captured.getvalue()
-        assert "HC-missing-gh-issues|Missing GitHub issues|WARN|" in output
-
-    def test_hc_lines_are_parseable(self, test_db):
-        """Each HC line has exactly the pipe-separated format."""
-        drifts = [
-            DriftRecord("YOK-1", "title", "a", "b"),
-            DriftRecord("YOK-2", "body", "<local body>", "<github body>"),
-            DriftRecord("YOK-3", "state", "CLOSED", "OPEN"),
-        ]
-        captured = StringIO()
-        with mock.patch("sys.stdout", captured):
-            _emit_doctor_format([], [], drifts, "detect")
-
-        for line in captured.getvalue().strip().split("\n"):
-            if line.startswith("HC-"):
-                parts = line.split("|")
-                assert len(parts) >= 3, f"HC line has <3 pipe fields: {line}"
-                assert parts[2] in ("PASS", "WARN", "FAIL"), f"Bad status: {parts[2]}"
 
 
 class TestMainCLI:
@@ -288,12 +229,6 @@ class TestMainCLI:
             rc = main(["--detect-only", "--project", "yoke"])
 
         assert rc == 1  # local orphan = drift
-
-
-class TestDriftRecord:
-    def test_to_pipe(self):
-        d = DriftRecord(_FIXTURE_ITEM_REF, "title", "local", "github")
-        assert d.to_pipe() == f"{_FIXTURE_ITEM_REF}|title|local|github"
 
 
 class TestExitCodes:

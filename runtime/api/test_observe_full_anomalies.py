@@ -186,6 +186,7 @@ class TestDetectAnomalies:
             tool_name="Bash",
             is_failure=True,
             hook_error="Awaiting human approval",
+            response_text="approval gate",
         )
         anomalies = detect_anomalies(rec)
         assert "structured_exit" in anomalies

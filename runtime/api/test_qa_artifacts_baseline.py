@@ -92,9 +92,12 @@ class TestBaseline:
         assert art_id > 0
         # Should be candidate_baseline (not main branch)
         conn = connect_test_db(db_path)
-        row = conn.execute("SELECT artifact_type FROM qa_artifacts WHERE id = %s", (art_id,)).fetchone()
+        row = conn.execute("SELECT artifact_type, artifact_handle FROM qa_artifacts WHERE id = %s", (art_id,)).fetchone()
         conn.close()
         assert row[0] == "candidate_baseline"
+        handle = json.loads(row[1])
+        assert handle["backend"] == "local"
+        assert "1920x1080" in handle["path"]
 
     def test_record_baseline_on_main(self, db_path: str, tmp_path: Path) -> None:
         screenshot = tmp_path / "shot.png"
@@ -157,13 +160,14 @@ class TestBaseline:
         )
         line = qa.cmd_baseline_get("/dashboard", "1920x1080", db_path=db_path)
         assert "dashboard" in line
+        assert "1920x1080" in line
 
     def test_baseline_get_missing_exits(self, db_path: str) -> None:
         with pytest.raises(SystemExit) as exc:
             qa.cmd_baseline_get("/missing", "1920x1080", db_path=db_path)
         assert exc.value.code == 1
 
-    def test_baseline_promote(self, db_path: str, tmp_path: Path) -> None:
+    def test_baseline_promote(self, db_path: str, tmp_path: Path, capsys) -> None:
         screenshot = tmp_path / "shot.png"
         screenshot.write_bytes(b"fake-png")
         art_id = qa.cmd_baseline_record(
@@ -178,6 +182,7 @@ class TestBaseline:
 
         # Promote
         qa.cmd_baseline_promote(art_id, db_path=db_path)
+        assert "Promoted" in capsys.readouterr().out
 
         # Verify it is now a baseline
         conn = connect_test_db(db_path)

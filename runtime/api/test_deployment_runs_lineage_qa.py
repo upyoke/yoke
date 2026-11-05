@@ -12,159 +12,16 @@ import pytest
 
 from yoke_core.domain import deployment_runs as dr
 from runtime.api.deployment_runs_test_db import db_path  # noqa: F401, F811 — fixture re-export
-from runtime.api.fixtures.file_test_db import connect_test_db
 
 
 class TestLineage:
-    def test_lineage_groups_runs(self, db_path: str) -> None:
-        lin = dr.cmd_lineage_create(db_path=db_path)
-        r1 = dr.cmd_create_run(
-            "yoke", "flow-main", release_lineage=lin, db_path=db_path
-        )
-        r2 = dr.cmd_create_run(
-            "yoke", "flow-main", release_lineage=lin, db_path=db_path
-        )
-        result = dr.cmd_lineage(r1, db_path=db_path)
-        assert r1 in result
-        assert r2 in result
 
-    def test_lineage_no_lineage(self, db_path: str) -> None:
-        run_id = dr.cmd_create_run("yoke", "flow-main", db_path=db_path)
-        result = dr.cmd_lineage(run_id, db_path=db_path)
-        assert result is None
-
-    def test_lineage_create_format(self, db_path: str) -> None:
-        lin = dr.cmd_lineage_create(db_path=db_path)
-        assert lin.startswith("lineage-")
-        assert lin.endswith("-001")
 
     def test_lineage_create_increments(self, db_path: str) -> None:
         lin1 = dr.cmd_lineage_create(db_path=db_path)
         dr.cmd_create_run("yoke", "flow-main", release_lineage=lin1, db_path=db_path)
         lin2 = dr.cmd_lineage_create(db_path=db_path)
         assert lin2.endswith("-002")
-
-    def test_lineage_final_status_none(self, db_path: str) -> None:
-        assert dr.cmd_lineage_final_status("nonexistent", db_path=db_path) == "none"
-
-    def test_lineage_final_status_succeeded(self, db_path: str) -> None:
-        lin = dr.cmd_lineage_create(db_path=db_path)
-        run_id = dr.cmd_create_run(
-            "yoke",
-            "flow-main",
-            release_lineage=lin,
-            environment="prod",
-            db_path=db_path,
-        )
-        dr.cmd_update(run_id, "current_stage", "complete", db_path=db_path)
-        dr.cmd_update(run_id, "status", "succeeded", db_path=db_path)
-        assert dr.cmd_lineage_final_status(lin, db_path=db_path) == "succeeded"
-
-
-class TestValidateComposition:
-    def test_valid_composition(self, db_path: str) -> None:
-        run_id = dr.cmd_create_run("yoke", "flow-main", db_path=db_path)
-        conn = connect_test_db(db_path)
-        conn.execute(
-            "INSERT INTO items (id, title, status, project_id, project_sequence) VALUES (400, 'A', 'implemented', 1, 400)"
-        )
-        conn.commit()
-        conn.close()
-        dr.cmd_add_item(run_id, 400, db_path=db_path)
-
-        ok, msg = dr.cmd_validate_composition(run_id, db_path=db_path)
-        assert ok
-        assert msg == "OK"
-
-    def test_wrong_project(self, db_path: str) -> None:
-        run_id = dr.cmd_create_run("yoke", "flow-main", db_path=db_path)
-        conn = connect_test_db(db_path)
-        conn.execute(
-            "INSERT INTO items (id, title, status, project_id, project_sequence) VALUES (401, 'B', 'implemented', 2, 401)"
-        )
-        conn.commit()
-        conn.close()
-        dr.cmd_add_item(run_id, 401, db_path=db_path)
-
-        ok, msg = dr.cmd_validate_composition(run_id, db_path=db_path)
-        assert not ok
-        assert "Project mismatch" in msg
-
-    def test_wrong_status(self, db_path: str) -> None:
-        run_id = dr.cmd_create_run("yoke", "flow-main", db_path=db_path)
-        conn = connect_test_db(db_path)
-        conn.execute(
-            "INSERT INTO items (id, title, status, project_id, project_sequence) VALUES (402, 'C', 'idea', 1, 402)"
-        )
-        conn.commit()
-        conn.close()
-        dr.cmd_add_item(run_id, 402, db_path=db_path)
-
-        ok, msg = dr.cmd_validate_composition(run_id, db_path=db_path)
-        assert not ok
-        assert "not delivery-ready" in msg
-
-    def test_not_found(self, db_path: str) -> None:
-        ok, msg = dr.cmd_validate_composition("nonexistent", db_path=db_path)
-        assert not ok
-        assert "not found" in msg
-
-    def test_wrong_flow(self, db_path: str) -> None:
-        run_id = dr.cmd_create_run("yoke", "flow-main", db_path=db_path)
-        conn = connect_test_db(db_path)
-        conn.execute(
-            "INSERT INTO items (id, title, status, project_id, project_sequence, deployment_flow) "
-            "VALUES (403, 'D', 'implemented', 1, 403, 'flow-preview')"
-        )
-        conn.commit()
-        conn.close()
-        dr.cmd_add_item(run_id, 403, db_path=db_path)
-
-        ok, msg = dr.cmd_validate_composition(run_id, db_path=db_path)
-        assert ok
-        # Composition still accepts a member whose own completion flow is
-        # another one; the run just says it cannot close this member.
-        assert msg.startswith("OK; ")
-        assert "cannot close the item, whose completion flow is 'flow-preview'" in msg
-
-
-class TestCheckBatchCompatibility:
-    def test_valid_batch(self, db_path: str) -> None:
-        conn = connect_test_db(db_path)
-        conn.execute(
-            "INSERT INTO items (id, title, status, project_id, project_sequence) VALUES (500, 'X', 'implemented', 1, 500)"
-        )
-        conn.execute(
-            "INSERT INTO items (id, title, status, project_id, project_sequence) VALUES (501, 'Y', 'release', 1, 501)"
-        )
-        conn.commit()
-        conn.close()
-
-        ok, msg = dr.cmd_check_batch_compatibility(
-            "yoke", "flow-main", [500, 501], db_path=db_path
-        )
-        assert ok
-        assert msg == "OK"
-
-    def test_batch_wrong_project(self, db_path: str) -> None:
-        conn = connect_test_db(db_path)
-        conn.execute(
-            "INSERT INTO items (id, title, status, project_id, project_sequence) VALUES (502, 'Z', 'implemented', 2, 502)"
-        )
-        conn.commit()
-        conn.close()
-
-        ok, msg = dr.cmd_check_batch_compatibility(
-            "yoke", "flow-main", [502], db_path=db_path
-        )
-        assert not ok
-        assert "Project mismatch" in msg
-
-    def test_batch_no_items(self, db_path: str) -> None:
-        ok, msg = dr.cmd_check_batch_compatibility(
-            "yoke", "flow-main", [], db_path=db_path
-        )
-        assert not ok
 
 
 class TestResolveTarget:

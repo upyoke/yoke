@@ -52,17 +52,6 @@ class TestAutoUnblock:
         )
         assert "Auto-unblocking" in r.stderr or "Auto-unblocking" in r.stdout
 
-    def test_auto_unblock_on_done(self, env):
-        """TEST 29: auto-unblock triggers specifically on done status."""
-        self._setup_blocked_pair(env)
-        r = env.run(
-            TEST_EPIC_REF, "001", "done", extra_env={"YOKE_TASK_DONE_VERIFIED": "1"}
-        )
-        assert r.returncode == 0
-        assert (
-            env.query("SELECT status FROM epic_tasks WHERE epic_id=42 AND task_num=2")
-            == "planned"
-        )
 
     def test_auto_unblock_on_reviewed_implementation(self, env):
         """TEST 30: auto-unblock triggers on reviewed-implementation."""

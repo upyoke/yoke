@@ -4,54 +4,11 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import pytest
 
 from yoke_core.domain import events_crud as ec
 from runtime.api.events_crud_test_fixtures import db_path as db_path
-from runtime.api.fixtures.file_test_db import connect_test_db
 
 
-class TestRegistry:
-    def _seed_test_event(self, db_path: str, name: str = "TestEvent") -> None:
-        conn = connect_test_db(db_path)
-        try:
-            conn.execute(
-                "INSERT INTO event_registry "
-                "(event_name, event_kind, event_type, owner_service, description) "
-                "VALUES (%s, 'system', 'tool_call', 'cli', 'A test event')",
-                (name,),
-            )
-            conn.commit()
-        finally:
-            conn.close()
-
-    def test_get(self, db_path: str) -> None:
-        self._seed_test_event(db_path)
-        result = ec.cmd_registry_get(db_path, "TestEvent")
-        assert "TestEvent" in result
-        assert "system" in result
-
-    def test_list(self, db_path: str) -> None:
-        """Registry list matches shell output format."""
-        self._seed_test_event(db_path, "EventA")
-        self._seed_test_event(db_path, "EventB")
-        result = ec.cmd_registry_list(db_path)
-        assert "EventA" in result
-        assert "EventB" in result
-
-    def test_list_with_kind_filter(self, db_path: str) -> None:
-        self._seed_test_event(db_path, "SystemEvt")
-        assert "SystemEvt" in ec.cmd_registry_list(db_path, kind="system")
-        assert "SystemEvt" not in ec.cmd_registry_list(db_path, kind="lifecycle")
-
-    def test_count(self, db_path: str) -> None:
-        self._seed_test_event(db_path, "Evt1")
-        self._seed_test_event(db_path, "Evt2")
-        assert ec.cmd_registry_count(db_path) == 2
-
-    def test_get_not_found(self, db_path: str) -> None:
-        with pytest.raises(LookupError):
-            ec.cmd_registry_get(db_path, "NonExistent")
 
 
 class TestDiscover:

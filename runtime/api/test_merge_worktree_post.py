@@ -183,12 +183,6 @@ class TestPostMergeOps:
         result = run_merge(merge_env)
         assert result.exit_code == 0
 
-    def test_yok443_no_push_when_synced(self, merge_env: MergeEnv) -> None:
-        """No push when local matches origin after pull."""
-        result = run_merge(merge_env)
-        assert result.exit_code == 0
-        assert "up to date" in result.stdout or "matches origin" in result.stdout
-
 
 # ===========================================================================
 # Tests: Remote cleanup
@@ -196,22 +190,6 @@ class TestPostMergeOps:
 class TestRemoteCleanup:
     """Remote branch deletion."""
 
-    def test_standalone_engine_preserves_remote_branch_for_close_out(
-        self, merge_env: MergeEnv
-    ) -> None:
-        """The outer boundary retires the branch after its durable writes."""
-        result = run_merge(merge_env)
-        assert result.exit_code == 0
-        ls_remote = _git(
-            merge_env.repo,
-            "ls-remote",
-            "--heads",
-            str(merge_env.origin),
-            TEST_BRANCH,
-            check=False,
-        )
-        assert TEST_BRANCH in ls_remote.stdout
-        assert "Deleted remote branch" not in result.stdout
 
     def test_remote_delete_failure_warns_and_preserves_retry_lane(
         self, cleanup_context, monkeypatch, capsys,

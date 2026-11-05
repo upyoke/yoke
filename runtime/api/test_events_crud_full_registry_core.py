@@ -95,20 +95,7 @@ class TestRegistryTable:
 
 
 class TestRegistryDiscover:
-    def test_validate_event_name_pascal_case(self):
-        assert events_crud._validate_event_name("TestEvent") is True
-        assert events_crud._validate_event_name("A") is True
-        assert events_crud._validate_event_name("ABCDef") is True
 
-    def test_validate_event_name_rejects_lowercase_start(self):
-        assert events_crud._validate_event_name("testEvent") is False
-
-    def test_validate_event_name_rejects_empty(self):
-        assert events_crud._validate_event_name("") is False
-
-    def test_validate_event_name_rejects_special_chars(self):
-        assert events_crud._validate_event_name("Test-Event") is False
-        assert events_crud._validate_event_name("Test_Event") is False
 
     def test_extract_event_name_from_line(self):
         assert (

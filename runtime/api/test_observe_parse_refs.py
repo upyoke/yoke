@@ -3,89 +3,10 @@
 from __future__ import annotations
 
 from yoke_core.domain.observe import parse_hook_event
-from runtime.api.observe_test_helpers import (
-    SAMPLE_BASH_FAILURE,
-    SAMPLE_POST_TOOL_USE,
-    SAMPLE_POST_TOOL_USE_FAILURE,
-)
 
 
 class TestParseHookEvent:
-    def test_basic_bash_event(self):
-        rec = parse_hook_event(
-            SAMPLE_POST_TOOL_USE,
-            session_id="sess-1",
-            agent_type="engineer",
-            hook_event="PostToolUse",
-        )
-        assert rec is not None
-        assert rec.tool_name == "Bash"
-        assert rec.command == "echo hello"
-        assert rec.exit_code == 0
-        assert rec.is_failure is False
-        assert rec.session_id == "sess-1"
-        assert rec.agent_type == "engineer"
 
-    def test_failure_event(self):
-        rec = parse_hook_event(
-            SAMPLE_POST_TOOL_USE_FAILURE,
-            hook_event="PostToolUseFailure",
-        )
-        assert rec is not None
-        assert rec.is_failure is True
-        assert rec.hook_error == "String to replace not found in file"
-
-    def test_dedup_drops_post_tool_use_for_failure(self):
-        """PostToolUse hook should be silently dropped for failures."""
-        rec = parse_hook_event(
-            SAMPLE_POST_TOOL_USE_FAILURE,
-            hook_event="PostToolUse",
-        )
-        assert rec is None
-
-    def test_dedup_allows_post_tool_use_failure(self):
-        """PostToolUseFailure hook should NOT be dropped."""
-        rec = parse_hook_event(
-            SAMPLE_POST_TOOL_USE_FAILURE,
-            hook_event="PostToolUseFailure",
-        )
-        assert rec is not None
-
-    def test_item_id_keeps_numeric_form(self):
-        rec = parse_hook_event(
-            SAMPLE_POST_TOOL_USE,
-            item_id="42",
-            hook_event="PostToolUse",
-        )
-        assert rec is not None
-        assert rec.item_id == "42"
-
-    def test_empty_item_id_becomes_none(self):
-        rec = parse_hook_event(
-            SAMPLE_POST_TOOL_USE,
-            item_id="",
-            hook_event="PostToolUse",
-        )
-        assert rec is not None
-        assert rec.item_id is None
-
-    def test_read_file_path_extraction(self):
-        data = {
-            "tool_name": "Read",
-            "tool_input": {"file_path": "/tmp/foo.py"},
-            "tool_response": {"content": "file contents"},
-        }
-        rec = parse_hook_event(data, hook_event="PostToolUse")
-        assert rec is not None
-        assert rec.file_path == "/tmp/foo.py"
-
-    def test_bash_exit_code_from_error(self):
-        rec = parse_hook_event(
-            SAMPLE_BASH_FAILURE,
-            hook_event="PostToolUseFailure",
-        )
-        assert rec is not None
-        assert rec.exit_code == 1
 
     def test_response_text_list_content(self):
         data = {

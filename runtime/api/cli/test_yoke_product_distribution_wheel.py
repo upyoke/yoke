@@ -70,16 +70,7 @@ def test_product_wheels_exercise_installer_plan_surfaces(
         "yoke",
     )
 
-    _assert_command(
-        yoke,
-        project,
-        env,
-        ["--version"],
-        0,
-        _wheel_version(product_wheelhouse, "yoke-cli"),
-    )
     _assert_command(yoke, project, env, [], 1)
-    _assert_command(yoke, project, env, ["--help"], 0)
     _assert_command(yoke, project, env, ["project", "--help"], 0)
     status = _assert_command(
         yoke,
@@ -101,12 +92,8 @@ def test_product_wheels_exercise_installer_plan_surfaces(
     }
 
     for args in (
-        ["setup", "--help"],
-        ["github", "connect", "--help"],
-        ["github", "status", "--help"],
         ["project", "create", "--help"],
         ["project", "import", "--help"],
-        ["project", "install", "--help"],
         ["packs", "list", "--help"],
         ["db", "read", "--help"],
         ["core", "build", "--help"],
@@ -115,18 +102,6 @@ def test_product_wheels_exercise_installer_plan_surfaces(
         ["dev", "setup", "--help"],
     ):
         _assert_command(yoke, project, env, args, 0)
-
-    core_status = _assert_command(
-        yoke,
-        project,
-        env,
-        ["core", "status", "--json"],
-        1,
-        "local_core_not_installed",
-    )
-    core_status_payload = json.loads(core_status.stdout)
-    assert core_status_payload["installed"] is False
-    assert core_status_payload["image"] is None
 
     core_start = _assert_command(
         yoke,

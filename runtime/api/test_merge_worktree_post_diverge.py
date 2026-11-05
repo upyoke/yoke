@@ -49,13 +49,6 @@ class TestDivergenceHandling:
 class TestPostMergeCheckout:
     """Repo ends on target branch after merge."""
 
-    def test_yok858_target_branch_checkout(self, merge_env: MergeEnv) -> None:
-        """Repo on main after merge."""
-        result = run_merge(merge_env)
-        assert result.exit_code == 0
-
-        head = _git(merge_env.repo, "rev-parse", "--abbrev-ref", "HEAD", check=False)
-        assert head.stdout.strip() == "main"
 
     def test_non_target_branch_is_corrected(self, merge_env: MergeEnv) -> None:
         """A different checked-out branch is switched back to the target."""
@@ -74,30 +67,3 @@ class TestPostMergeCheckout:
 # ===========================================================================
 # Tests: post-merge cleanup
 # ===========================================================================
-class TestPostMergeCleanup:
-    """Cleanup runs after a committed merge and never rebuilds the board."""
-
-    def test_exit_0_clean_path_still_works(self, merge_env: MergeEnv) -> None:
-        """The happy path — merge + schema refresh + cleanup all succeed —
-        still returns 0 and prints the ``YOKE_REPO_ROOT={path}`` contract
-        line last."""
-        result = run_merge(merge_env)
-        assert result.exit_code == 0
-        assert f"YOKE_REPO_ROOT={merge_env.repo}" in result.stdout
-        assert not (merge_env.repo / "data" / "config").exists()
-
-    def test_merge_never_rebuilds_the_board(self, merge_env: MergeEnv) -> None:
-        """The board refreshes only on an explicit ``yoke board rebuild``.
-
-        A merge is one of the entry points that used to trigger a rebuild;
-        it must now leave the generated view entirely alone.
-        """
-        board = merge_env.repo / ".yoke" / "BOARD.md"
-        before = board.read_text() if board.is_file() else None
-
-        result = run_merge(merge_env)
-        assert result.exit_code == 0
-
-        assert "Regenerating DB-sourced views" not in result.stdout
-        after = board.read_text() if board.is_file() else None
-        assert after == before

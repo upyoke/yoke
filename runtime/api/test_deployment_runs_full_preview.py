@@ -72,6 +72,8 @@ class TestCheckPreviewOccupancy:
         dr.cmd_preview_claim(rid, "yoke", "preview-1", db_path=db_path)
         result = dr.cmd_check_preview_occupancy("yoke", "preview-1", db_path=db_path)
         assert TEST_ITEM_REF in result
+        assert result.startswith("active|")
+        assert rid in result
 
 
 class TestClaimPreview:

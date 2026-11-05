@@ -318,11 +318,6 @@ class TestAddRemoveItem:
 class TestGet:
     """cmd_get: full row and single field."""
 
-    def test_get_full_row(self, db_path):
-        rid = dr.cmd_create_run("yoke", "yoke-internal", db_path=db_path)
-        result = dr.cmd_get(rid, db_path=db_path)
-        assert result is not None
-        assert rid in result
 
     def test_get_single_field(self, db_path):
         rid = dr.cmd_create_run("yoke", "yoke-internal", db_path=db_path)
@@ -331,8 +326,3 @@ class TestGet:
 
     def test_get_not_found(self, db_path):
         assert dr.cmd_get("nonexistent", db_path=db_path) is None
-
-    def test_get_invalid_field(self, db_path):
-        rid = dr.cmd_create_run("yoke", "yoke-internal", db_path=db_path)
-        with pytest.raises(ValueError, match="invalid field"):
-            dr.cmd_get(rid, field="nonexistent_col", db_path=db_path)

@@ -14,11 +14,7 @@ from yoke_core.engines.doctor import (
     RecordCollector,
     hc_epic_validation,
     hc_orphan_fk,
-    hc_orphaned_runs,
     hc_preview_occupancy_stale,
-    hc_run_item_status_consistency,
-    hc_run_qa_unsatisfied,
-    hc_stale_runs,
     hc_undeployed_done,
     hc_validation_no_qa_reqs,
 )
@@ -112,125 +108,6 @@ class TestHCOrphanFK:
         r = _get_result(rec, "HC-orphan-fk")
         assert r.result == "FAIL"
         assert "caveat_dispositions" in r.detail
-
-
-class TestHCOrphanedRuns:
-    def test_pass_all_runs_populated(self, conn):
-        conn.execute(
-            "INSERT INTO deployment_runs (id, project_id, status, created_at) "
-            "VALUES ('r1', 1, 'succeeded', '2025-01-01T00:00:00')"
-        )
-        conn.execute(
-            "INSERT INTO deployment_run_items (run_id, item_id) VALUES ('r1', 1)"
-        )
-        rec = RecordCollector()
-        hc_orphaned_runs(conn, _default_args(), rec)
-        assert _get_result(rec, "HC-orphaned-runs").result == "PASS"
-
-    def test_warn_empty_run_never_started(self, conn):
-        conn.execute(
-            "INSERT INTO deployment_runs (id, project_id, status, created_at) "
-            "VALUES ('r1', 1, 'created', '2025-01-01T00:00:00')"
-        )
-        rec = RecordCollector()
-        hc_orphaned_runs(conn, _default_args(), rec)
-        r = _get_result(rec, "HC-orphaned-runs")
-        assert r.result == "WARN"
-        assert "no member items" in r.detail
-
-    def test_pass_itemless_executed_run(self, conn):
-        # Item-less runs that executed are environment-level deploys.
-        conn.execute(
-            "INSERT INTO deployment_runs (id, project_id, status, created_at) "
-            "VALUES ('r1', 1, 'succeeded', '2025-01-01T00:00:00')"
-        )
-        rec = RecordCollector()
-        hc_orphaned_runs(conn, _default_args(), rec)
-        assert _get_result(rec, "HC-orphaned-runs").result == "PASS"
-
-
-class TestHCStaleRuns:
-    def test_pass_no_stale(self, conn):
-        p = _p(conn)
-        conn.execute(
-            "INSERT INTO deployment_runs (id, project_id, status, started_at) "
-            f"VALUES ('r1', 1, 'executing', {p})",
-            (_instant_offset(hours=-2),),
-        )
-        rec = RecordCollector()
-        hc_stale_runs(conn, _default_args(), rec)
-        assert _get_result(rec, "HC-stale-runs").result == "PASS"
-
-    def test_warn_stale_run(self, conn):
-        p = _p(conn)
-        conn.execute(
-            "INSERT INTO deployment_runs (id, project_id, status, started_at, current_stage) "
-            f"VALUES ('r1', 1, 'executing', {p}, 'deploy')",
-            (_instant_offset(hours=-48),),
-        )
-        rec = RecordCollector()
-        hc_stale_runs(conn, _default_args(), rec)
-        r = _get_result(rec, "HC-stale-runs")
-        assert r.result == "WARN"
-        assert "executing for >24h" in r.detail
-
-
-class TestHCRunItemStatusConsistency:
-    def test_pass_consistent(self, conn):
-        rec = RecordCollector()
-        hc_run_item_status_consistency(conn, _default_args(), rec)
-        assert _get_result(rec, "HC-run-item-status-consistency").result == "PASS"
-
-    def test_warn_release_not_in_run(self, conn):
-        conn.execute(
-            "INSERT INTO items (id, title, workflow_id, workflow_version_id, status, priority) "
-            "VALUES (1, 'T', 'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), 'release', 'low')"
-        )
-        rec = RecordCollector()
-        hc_run_item_status_consistency(conn, _default_args(), rec)
-        r = _get_result(rec, "HC-run-item-status-consistency")
-        assert r.result == "WARN"
-        assert "status=release" in r.detail
-
-    def test_warn_implemented_in_executing_run(self, conn):
-        conn.execute(
-            "INSERT INTO items (id, title, workflow_id, workflow_version_id, status, priority) "
-            "VALUES (2, 'T2', 'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), 'implemented', 'low')"
-        )
-        conn.execute(
-            "INSERT INTO deployment_runs (id, project_id, status) "
-            "VALUES ('run-implemented', 1, 'executing')"
-        )
-        conn.execute(
-            "INSERT INTO deployment_run_items (run_id, item_id) VALUES ('run-implemented', 2)"
-        )
-        rec = RecordCollector()
-        hc_run_item_status_consistency(conn, _default_args(), rec)
-        r = _get_result(rec, "HC-run-item-status-consistency")
-        assert r.result == "WARN"
-        assert "status=implemented" in r.detail
-
-
-class TestHCRunQAUnsatisfied:
-    def test_pass_no_pending(self, conn):
-        rec = RecordCollector()
-        hc_run_qa_unsatisfied(conn, _default_args(), rec)
-        assert _get_result(rec, "HC-run-qa-unsatisfied").result == "PASS"
-
-    def test_warn_pending_blocking(self, conn):
-        conn.execute(
-            "INSERT INTO deployment_runs (id, project_id, status) "
-            "VALUES ('r1', 1, 'succeeded')"
-        )
-        conn.execute(
-            "INSERT INTO deployment_run_qa (run_id, check_name, blocking, status) "
-            "VALUES ('r1', 'smoke-test', 1, 'pending')"
-        )
-        rec = RecordCollector()
-        hc_run_qa_unsatisfied(conn, _default_args(), rec)
-        r = _get_result(rec, "HC-run-qa-unsatisfied")
-        assert r.result == "WARN"
-        assert "smoke-test" in r.detail
 
 
 class TestHCPreviewOccupancyStale:

@@ -1,7 +1,7 @@
 """Shared ``db_path`` fixture for the deployment-runs test modules.
 
 Used by ``test_deployment_runs.py``, ``test_deployment_runs_lineage_qa.py``,
-and ``test_deployment_runs_preview.py``. No tests live here — the lack of
+and ``test_deployment_runs_full_preview.py``. No tests live here — the lack of
 a ``test_`` prefix keeps pytest from collecting it.
 
 The fixture builds a temp DB with the minimal schema (projects,

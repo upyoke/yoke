@@ -150,19 +150,12 @@ class TestBuildEnvelope:
             assert key in env, f"Missing required field: {key}"
 
     def test_oversized_envelope_truncated(self):
-        """Verify truncation for oversized envelopes."""
-        rec = EventRecord(
-            tool_name="Bash",
-            command="x" * 4000,
-            response_text="y" * 4000,
-        )
+        """Large context metadata reaches the production truncation branch."""
+        rec = EventRecord(tool_name="Bash", hook_event="x" * 70000)
         rec.anomalies = []
         env = build_envelope(rec)
-        envelope_json = json.dumps(env, separators=(",", ":"))
-        if len(envelope_json.encode("utf-8")) > 100:
-            env["context"] = {"detail": {"tool_name": rec.tool_name, "truncated": True}}
-            env["_truncated"] = True
         assert env.get("_truncated") is True
+        assert env["context"]["detail"] == {"tool_name": "Bash", "truncated": True}
 
     def test_task_num_in_envelope(self):
         rec = EventRecord(tool_name="Bash", task_num=7, session_id="s1")

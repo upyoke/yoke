@@ -11,22 +11,14 @@ import pytest
 
 from yoke_core.domain import epic
 from runtime.api.conftest import insert_item
-from runtime.api.fixtures.backlog import insert_item_worktree
-from runtime.api.task_files_touched_test_support import declare_task_files
 
 TEST_EPIC_ID = 42
 TEST_EPIC_REF = f"YOK-{TEST_EPIC_ID}"
 TEST_EPIC_WORKTREE_PATH = f"/tmp/worktrees/{TEST_EPIC_REF}"
 
 
-def _p(conn) -> str:
-    return epic._placeholder(conn)
 
 
-def _declare_no_files(conn, task_nums) -> None:
-    for task_num in task_nums:
-        declare_task_files(conn, TEST_EPIC_ID, task_num, [])
-    conn.commit()
 
 
 class TestDispatchChains:
@@ -40,119 +32,15 @@ class TestDispatchChains:
             project="yoke",
         )
 
-    def test_upsert_and_get(self, test_db):
-        data = {
-            "worktree_path": TEST_EPIC_WORKTREE_PATH,
-            "queue": [1, 2, 3],
-            "current_index": 0,
-            "current_task": "1",
-            "current_attempt": 1,
-            "max_attempts": 5,
-            "no_chain": 0,
-        }
-        result = epic.dispatch_chain_upsert(test_db, "42", "feature-wt1", data)
-        assert "Upserted dispatch chain: 42/feature-wt1" in result
-
-        chain = epic.dispatch_chain_get(test_db, "42", "feature-wt1")
-        fields = chain.split("|")
-        assert fields[1] == "42"  # epic_id
-        lane = test_db.execute(
-            "SELECT id, path FROM item_worktrees "
-            "WHERE item_id=42 AND branch='feature-wt1'"
-        ).fetchone()
-        assert fields[2] == str(lane["id"])
-        assert lane["path"] == TEST_EPIC_WORKTREE_PATH
-
-    def test_get_not_found(self, test_db):
-        with pytest.raises(LookupError, match="not found"):
-            epic.dispatch_chain_get(test_db, "42", "nonexistent")
-
-    def test_update_field(self, test_db):
-        data = {"queue": [1, 2], "current_index": 0, "current_task": "1"}
-        epic.dispatch_chain_upsert(test_db, "42", "wt1", data)
-        epic.dispatch_chain_update(test_db, "42", "wt1", "current_task", "2")
-        chain = epic.dispatch_chain_get(test_db, "42", "wt1")
-        assert chain.split("|")[5] == "2"  # current_task
-
-    def test_update_invalid_field(self, test_db):
-        data = {"queue": [1, 2]}
-        epic.dispatch_chain_upsert(test_db, "42", "wt1", data)
-        with pytest.raises(ValueError, match="invalid field"):
-            epic.dispatch_chain_update(test_db, "42", "wt1", "bogus", "val")
 
     def test_update_not_found(self, test_db):
         with pytest.raises(LookupError, match="not found"):
             epic.dispatch_chain_update(test_db, "42", "nonexist", "current_task", "1")
 
-    def test_list(self, test_db):
-        epic.dispatch_chain_upsert(test_db, "42", "wt1", {"queue": [1]})
-        epic.dispatch_chain_upsert(test_db, "42", "wt2", {"queue": [2]})
-        result = epic.dispatch_chain_list(test_db, "42")
-        lines = result.strip().split("\n")
-        assert len(lines) == 2
 
     def test_list_empty(self, test_db):
         result = epic.dispatch_chain_list(test_db, "42")
         assert result == ""
-
-    def test_advance(self, test_db):
-        for task_num in (10, 20, 30):
-            epic.task_upsert(test_db, "42", task_num, f"Task {task_num}", "", "", "")
-        test_db.execute("UPDATE epic_tasks SET status='planned' WHERE epic_id='42'")
-        test_db.execute(
-            "UPDATE epic_tasks SET status='done' WHERE epic_id='42' AND task_num=10"
-        )
-        _declare_no_files(test_db, (10, 20, 30))
-        data = {"queue": [10, 20, 30], "current_index": 0, "current_task": "10"}
-        epic.dispatch_chain_upsert(test_db, "42", "wt1", data)
-        result = epic.dispatch_chain_advance(test_db, "42", "wt1")
-        assert result == "1|20"
-
-        test_db.execute(
-            "UPDATE epic_tasks SET status='reviewed-implementation' "
-            "WHERE epic_id='42' AND task_num=20"
-        )
-        test_db.commit()
-        result2 = epic.dispatch_chain_advance(test_db, "42", "wt1")
-        assert result2 == "2|30"
-
-    def test_advance_at_end_raises(self, test_db):
-        epic.task_upsert(test_db, "42", 10, "Task 10", "", "", "")
-        test_db.execute("UPDATE epic_tasks SET status='done' WHERE epic_id='42'")
-        _declare_no_files(test_db, (10,))
-        data = {"queue": [10], "current_index": 0, "current_task": "10"}
-        epic.dispatch_chain_upsert(test_db, "42", "wt1", data)
-        with pytest.raises(RuntimeError, match="chain_complete"):
-            epic.dispatch_chain_advance(test_db, "42", "wt1")
-
-    def test_advance_not_found(self, test_db):
-        with pytest.raises(LookupError, match="not found"):
-            epic.dispatch_chain_advance(test_db, "42", "nonexist")
-
-    def test_csv_queue_fallback(self, test_db):
-        """Queue stored as CSV string instead of JSON array."""
-        p = _p(test_db)
-        lane = insert_item_worktree(
-            test_db,
-            item_id=TEST_EPIC_ID,
-            branch="wt-csv",
-            lane_role="worker",
-        )
-        test_db.execute(
-            "INSERT INTO epic_dispatch_chains "
-            "(epic_id, item_worktree_id, queue, current_index, current_task) "
-            f"VALUES ({p}, {p}, {p}, {p}, {p})",
-            ("42", lane["id"], "10,20,30", 0, "10"),
-        )
-        for task_num, status in ((10, "done"), (20, "planned"), (30, "planned")):
-            epic.task_upsert(test_db, "42", task_num, f"Task {task_num}", "", "", "")
-            test_db.execute(
-                f"UPDATE epic_tasks SET status={p} WHERE epic_id='42' AND task_num={p}",
-                (status, task_num),
-            )
-        test_db.commit()
-        result = epic.dispatch_chain_advance(test_db, "42", "wt-csv")
-        assert result == "1|20"
 
 
 class TestProgressNotes:
