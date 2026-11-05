@@ -24,11 +24,11 @@ MACHINE_A = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"
 MACHINE_B = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb"
 
 
-def _modules(payload=None):
+def _modules(payload=None, *, actor_id=None):
     outcome = handle_overview_activation_get(
         FunctionCallRequest(
             function="overview.activation.get",
-            actor=ActorContext(actor_id=None, session_id=""),
+            actor=ActorContext(actor_id=actor_id, session_id=""),
             target=TargetRef(kind="global"),
             payload=payload or {},
         )
@@ -98,7 +98,7 @@ def test_a_relay_only_machine_stays_next_up_beside_a_connected_one(test_db):
     # Registered machines satisfy the row with no host fact at all.
     assert machine_row["done"] is True
     assert machine_row["detail"] is None
-    assert [m["name"] for m in machine_row["machines"]] == ["beta-box", "alpha-box"]
+    assert [m["name"] for m in machine_row["machines"]] == ["alpha-box", "beta-box"]
     assert all(m["connected_at"] for m in machine_row["machines"])
     assert wizard["state"] == "activated"
 
@@ -250,7 +250,10 @@ def test_retired_and_unregistered_machines_do_not_block_harness_setup(test_db):
     _seed_session(test_db, "unregistered-session", "unregistered-machine")
     test_db.commit()
 
-    harness = _modules()["connect_harness"]
+    actor = test_db.execute("SELECT owner_actor_id FROM machines LIMIT 1").fetchone()[0]
+    test_db.execute("UPDATE harness_sessions SET actor_id = %s", (actor,))
+    test_db.commit()
+    harness = _modules(actor_id=str(actor))["connect_harness"]
     assert harness["state"] == "activated"
     assert [row["machine_id"] for row in harness["machines"]] == [MACHINE_A]
 
@@ -281,3 +284,16 @@ def test_live_registry_machines_sort_by_latest_activity(test_db):
     assert [row["machine_id"] for row in read_registered_machines(test_db)] == [
         MACHINE_B, MACHINE_A,
     ]
+
+
+def test_registry_identity_needs_no_relay_or_session(test_db):
+    from yoke_core.domain.overview_machine_activation import read_registered_machines
+
+    actor = test_db.execute("SELECT id FROM actors ORDER BY id LIMIT 1").fetchone()[0]
+    register_machine(
+        test_db, machine_id=MACHINE_A, name="registry-box", actor_id=actor,
+        now=iso8601_now(),
+    )
+    rows = read_registered_machines(test_db, actor_id=actor)
+    assert [row["name"] for row in rows] == ["registry-box"]
+    assert rows[0]["harnesses"] == []
