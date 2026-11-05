@@ -5,8 +5,8 @@ of how an item's landing is recorded. Two corrections, either or both:
 
 ``--merged-at``
     For a terminal item whose ``merged_at`` was never recorded, which
-    happens when a branch lands outside the merge boundary (a hand-run
-    ``gh pr merge``, for example) and the item then reaches a terminal
+    happens when a branch lands outside the merge boundary (a merge through
+    GitHub, for example) and the item then reaches a terminal
     stage with the field still unset. Terminal items are otherwise
     immutable, and that is deliberate: the ordinary scalar-write path
     requires a work claim, and a terminal item cannot be claimed. This is
@@ -78,7 +78,7 @@ Examples
 --------
   yoke items merge-provenance operator-correct YOK-1234 \\
     --merged-at 2026-08-01T18:42:00Z \\
-    --reason "branch landed via gh pr merge; PR merge path unavailable"
+    --reason "branch landed through GitHub; PR merge path unavailable"
 
   yoke items merge-provenance operator-correct YOK-1234 --pr-number 1276 \\
     --reason "PR 1259 never merged; 1276 carried these commits"

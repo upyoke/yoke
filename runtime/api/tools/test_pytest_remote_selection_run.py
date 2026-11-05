@@ -80,7 +80,7 @@ def test_exit_status_mirrors_the_conclusion(
     out = capsys.readouterr().out
     assert f"concluded {conclusion} exit={exit_code}" in out
     assert "ci_run_source=dispatched" in out
-    assert "gh run download 42 -p 'pytest-output-selection-*'" in out
+    assert "download 'pytest-output-selection-*' from the run page" in out
     if conclusion == "success":
         assert "failed_log" not in seen
     else:

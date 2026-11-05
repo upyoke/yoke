@@ -96,7 +96,7 @@ def test_a_selection_is_skipped_when_full_ci_for_the_head_is_running_or_green(
     assert covering.html_url in out
     assert "no selection run was created" in out
     assert "ci_run_source=full_ci" in out
-    assert "gh run download 900 -p 'pytest-output-*'" in out
+    assert "download 'pytest-output-*' from the run page" in out
     assert no_selection_run["polled"]["run_id"] == "900"
     assert no_selection_run["wait"]["run_id"] == "900"
     assert ("relay" in no_selection_run) is (conclusion == "failure")
