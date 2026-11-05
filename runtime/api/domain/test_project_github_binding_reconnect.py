@@ -27,6 +27,7 @@ def _verified(repository_id: str, github_repo: str) -> VerifiedProjectGitHubBind
             "contents": "write",
             "actions": "write",
             "checks": "read",
+            "statuses": "read",
             "workflows": "write",
             "secrets": "write",
             "actions_variables": "write",

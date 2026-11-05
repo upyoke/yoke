@@ -33,6 +33,8 @@ _PRIVILEGED_PERMISSION_KEY_NAMES = {
     "REPOSITORY_HOOKS_PERMISSION": "repository_hooks",
 }
 _PRIVILEGED_SCOPE_ALLOWLIST = frozenset({
+    ("packages/yoke-core/src/yoke_core/engines/doctor_hc_merge_queue.py",
+     "hc_merge_queue_binding", "GITHUB_ADMINISTRATION_WRITE_PERMISSION_LEVELS"),
     (
         "packages/yoke-core/src/yoke_core/domain/bootstrap_project_setup.py",
         "run_setup",
