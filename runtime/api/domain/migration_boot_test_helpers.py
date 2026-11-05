@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import sqlite3
+from contextlib import contextmanager
 from pathlib import Path
 
 from yoke_core.domain.migration_audit_receipts import now_stamp, record_missing_receipts
@@ -104,9 +105,6 @@ __all__ = [
     "pending_entries",
     "stamp_history",
 ]
-
-
-from contextlib import contextmanager
 
 
 @contextmanager
