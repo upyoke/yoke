@@ -124,3 +124,25 @@ def test_step_sequence_routes_private_state_until_final_call(
     assert started == [str(copy)] * 3
     assert stopped == [str(copy)]
     assert not copy.parent.exists()
+
+
+@pytest.mark.parametrize("operation", ["step", "screenshot", "stop"])
+def test_invalid_identity_names_recovery_without_traceback(operation, capsys):
+    from yoke_cli.commands.qa_browser import qa_browser_step, qa_browser_screenshot
+    from yoke_cli.commands.qa_browser_stop import qa_browser_stop
+
+    adapter, arguments = {
+        "step": (
+            qa_browser_step,
+            ["--base-url", "https://example.test", "--step-json", "{}"],
+        ),
+        "screenshot": (
+            qa_browser_screenshot,
+            ["https://example.test", "--output", "/tmp/unused.png"],
+        ),
+        "stop": (qa_browser_stop, ["--check-id", "unused"]),
+    }[operation]
+    assert (
+        adapter([*arguments, "--project", "fixture", "--identity", "../invalid"]) == 1
+    )
+    assert "browser_identity" in capsys.readouterr().err

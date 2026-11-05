@@ -9,6 +9,7 @@ from typing import List
 
 from yoke_cli.commands._helpers import parse_or_usage_error, usage_error
 from yoke_cli.config.project_selection import required_project_context
+from yoke_contracts.browser_identity import BrowserIdentityError
 from yoke_contracts.project_defaults import MissingProjectError
 
 
@@ -61,7 +62,7 @@ def qa_browser_stop(args: List[str]) -> int:
 
         with check_scope(parsed.project, parsed.identity, check_id=parsed.check_id):
             pass
-    except RuntimeError as exc:
+    except (RuntimeError, BrowserIdentityError) as exc:
         text = str(exc)
         if text == "daemon not running":
             return _emit(parsed.json_mode, {"status": "not_running"})

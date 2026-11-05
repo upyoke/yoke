@@ -16,6 +16,7 @@ from typing import List
 
 from yoke_cli.commands._helpers import parse_or_usage_error, usage_error
 from yoke_cli.config.project_selection import required_project_context
+from yoke_contracts.browser_identity import BrowserIdentityError
 from yoke_contracts.browser_step_schema import declared_schema_help
 from yoke_contracts.project_defaults import MissingProjectError
 
@@ -117,7 +118,7 @@ def qa_browser_screenshot(args: List[str]) -> int:
                 output_path=parsed.output,
                 viewport=parsed.viewport,
             )
-    except RuntimeError as exc:
+    except (RuntimeError, BrowserIdentityError) as exc:
         print(f"yoke qa browser screenshot: {exc}", file=sys.stderr)
         return 1
     print(json.dumps(result))
@@ -212,7 +213,7 @@ def qa_browser_step(args: List[str]) -> int:
             )
             if parsed.keep_open:
                 result["check_id"] = check.check_id
-    except RuntimeError as exc:
+    except (RuntimeError, BrowserIdentityError) as exc:
         print(f"yoke qa browser step: {exc}", file=sys.stderr)
         return 1
     print(json.dumps(result))
