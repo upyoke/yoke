@@ -17,6 +17,7 @@ from collections.abc import Mapping
 from typing import Any
 
 from yoke_core.domain.deployment_run_member_targeting import needed_member_ids
+from yoke_core.domain.deployment_landing_guard import open_landing_refusals
 from yoke_core.domain import db_backend
 from yoke_core.domain.deployment_item_flow_admission import completion_flow_refusals
 from yoke_core.domain.deployment_run_carried_membership import (
@@ -141,6 +142,8 @@ def carried_membership_refusal(
         )
     }
     eligible = [item_id for item_id in eligible if item_id not in blocked]
+    open_landings = open_landing_refusals(conn, eligible)
+    eligible = [item_id for item_id in eligible if item_id not in open_landings]
     refusals = completion_flow_refusals(conn, eligible)
     for item_id in eligible:
         if item_id in refusals:

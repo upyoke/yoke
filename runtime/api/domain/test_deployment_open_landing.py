@@ -11,6 +11,14 @@ from yoke_core.domain.deployment_run_member_admission import (
 )
 
 
+@pytest.fixture(autouse=True)
+def github_open_corrections(monkeypatch):
+    from yoke_core.domain import deployment_landing_guard as guard
+    from runtime.api.domain.merge_queue_observer_test_helpers import open_unarmed
+
+    monkeypatch.setattr(guard, "read_pr_landing_state", open_unarmed)
+
+
 def test_admission_refuses_an_open_unarmed_correction_before_writing_membership():
     conn = observer_connection()
     record_attempt(conn, 101, "43", enqueued_at=None)
@@ -112,12 +120,48 @@ def test_a_removed_member_open_correction_never_blocks_a_fresh_basis(
 
     run_id = "removed-correction-fresh"
     _run_with_open_landings(test_db, run_id, (9876, 9877))
-    monkeypatch.setattr(
-        basis_module, "_delivery_item_ids", lambda *_args: (9876, 9877)
-    )
+    monkeypatch.setattr(basis_module, "_delivery_item_ids", lambda *_args: (9876, 9877))
     remove_member_on(test_db, run_id, 9876, reason="rides a later release")
     with pytest.raises(ValueError, match="item_landing_open:.*#10877") as refused:
         basis_module.candidate_containment_basis(test_db, run_id)
     assert "#10876" not in str(refused.value)
     close_attempt(test_db, 9877, "10877", "closed without merging")
     assert basis_module.candidate_containment_basis(test_db, run_id)["projects"]
+
+
+@pytest.mark.parametrize("outcome", ["closed", "merged"])
+def test_release_guard_settles_stale_attempt_with_real_outcome(monkeypatch, outcome):
+    from yoke_core.domain import deployment_landing_guard as guard
+    from yoke_core.domain.merge_queue_landing_attempt import read_latest_attempt
+    from runtime.api.domain.merge_queue_observer_test_helpers import MERGED
+    from dataclasses import replace
+
+    conn = observer_connection()
+    record_attempt(conn, 101, "43", enqueued_at=None)
+    state = MERGED if outcome == "merged" else replace(MERGED, merged=False)
+    monkeypatch.setattr(guard, "read_pr_landing_state", lambda *_: (state, None))
+    guard.require_closed_landing(conn, 101)
+    attempt = read_latest_attempt(conn, 101)
+    assert attempt["closed_at"] is not None
+    assert ("promoted" in attempt["closed_reason"]) == (outcome == "merged")
+    row = conn.execute(
+        "SELECT merge_queue_pr_number,merged_at FROM items WHERE id=101"
+    ).fetchone()
+    assert row[0] == ("43" if outcome == "merged" else "42")
+    assert bool(row[1]) == (outcome == "merged")
+    conn.rollback()  # Reconciliation never commits its caller's transaction.
+    assert read_latest_attempt(conn, 101) is None
+
+
+def test_unreadable_correction_stays_open_and_names_recovery(monkeypatch):
+    from yoke_core.domain import deployment_landing_guard as guard
+    from yoke_core.domain.merge_queue_landing_attempt import read_open_attempt
+
+    conn = observer_connection()
+    record_attempt(conn, 101, "43", enqueued_at=None)
+    monkeypatch.setattr(
+        guard, "read_pr_landing_state", lambda *_: (None, "GitHub unavailable")
+    )
+    with pytest.raises(ValueError, match="repair GitHub read access and retry"):
+        guard.require_closed_landing(conn, 101)
+    assert read_open_attempt(conn, 101)["pr_number"] == "43"

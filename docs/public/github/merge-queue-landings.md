@@ -123,10 +123,15 @@ superseded. Opening a never-armed attempt preserves the prior landed
 observation; closing that attempt unmerged leaves it available. Arming a new
 attempt starts a new observation episode. Leaving the queue clears the
 attempt's `enqueued_at`; the durable recovery record keeps the queue blocker
-and shared files. Release enrollment and containment refuse a current run
-member's open attempt with `item_landing_open`, naming its PR. Wait for the
-correction to merge or close, then refresh the candidate and retry release
-admission; the older landing cannot stand in for a correction still in flight.
+and shared files. Automatic release enrollment skips an item's open correction
+and names its PR in the `Skipped N carried item(s)` notice; other ready items
+enroll normally. The skipped item stays carried for the first release after
+its correction merges or closes. Explicit `add-item` and containment still
+refuse an open correction with `item_landing_open`. These reads check GitHub:
+a closed PR closes its stale attempt with the real outcome, and a merged PR
+becomes the item's current landing. An unreadable PR stays open and names
+GitHub read access as the recovery. Refresh the candidate after a correction
+merges; an older landing cannot stand in for its new code.
 A member removed with `yoke deployment-runs remove-item` no longer blocks the
 run: its open correction rides a later release.
 
