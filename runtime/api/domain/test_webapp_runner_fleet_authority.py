@@ -67,10 +67,7 @@ from runtime.api.domain.webapp_runner_fleet_test_support import (
             {
                 "runner_variable_name": "YOKE_LINUX_RUNS_ON",
                 "runner_labels": [
-                    "self-hosted",
-                    "Linux",
-                    "ARM64",
-                    "yoke-github-actions",
+                    "self-hosted", "Linux", "ARM64", "yoke-github-actions",
                 ],
                 "routing_enabled": True,
             },
@@ -119,11 +116,7 @@ from runtime.api.domain.webapp_runner_fleet_test_support import (
     ],
 )
 def test_authority_comparator_rejects_each_drift(
-    monkeypatch,
-    default_runner_stack,
-    config_overrides,
-    authority_overrides,
-    field,
+    monkeypatch, default_runner_stack, config_overrides, authority_overrides, field,
 ):
     recorder, _ = default_runner_stack
     authority = dict(recorder.runner_authority, **authority_overrides)

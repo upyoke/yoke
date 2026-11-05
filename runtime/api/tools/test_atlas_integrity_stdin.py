@@ -59,6 +59,8 @@ def test_open_stdin_pipe_matches_empty_stdin(monkeypatch, tmp_path: Path) -> Non
     empty = _build_report_with_stdin(monkeypatch, io.StringIO(""), tmp_path)
     assert empty is not None
     assert piped["recipes"]["total"] == 1
-    assert piped["recipes"]["failed"] == 0
+    # Empty evidence is refused after stdin is isolated, without blocking.
+    assert piped["recipes"]["failed"] == 1
+    assert piped["recipes"]["verdicts"][0]["error"] == "cli_main exit=2"
     assert piped["recipes"] == empty["recipes"]
     assert piped["help_pages"] == empty["help_pages"]
