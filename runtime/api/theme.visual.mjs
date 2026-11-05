@@ -93,8 +93,10 @@ try {
         const url = new URL(routes[name], review); url.search = new URL(review).search;
         await page.goto(url.href);
         await page.locator(".universe-app-root").waitFor();
+        const ready = { board: ".work-item-card", item: ".item-detail-grid",
+          run: ".shipping-runs", sessions: ".session-card" };
+        await page.locator(ready[name]).first().waitFor();
         await page.waitForFunction(() => !/Loading/i.test(document.body.innerText));
-        if (name === "sessions") await page.locator(".session-card").first().waitFor();
         if (name === "run" && process.env.YOKE_REVIEW_RUN_FIXTURE === "1") {
           await page.evaluate(async sha => {
             const { renderRunDetailView } = await import("/assets/universe_views_run_detail.js");
