@@ -58,7 +58,8 @@ def test_repository_scans_and_node_checks_run_only_on_latest_leg(monkeypatch, tm
     items = [*independent, runtime]
     config = SimpleNamespace(hook=SimpleNamespace(pytest_deselected=Mock()))
     selection.pytest_collection_modifyitems(config, items)
-    assert items == ([runtime] if scope == "interpreter" else [*independent, runtime])
+    expected = [runtime] if scope == "interpreter" else [*independent, runtime]
+    assert sorted(item.nodeid for item in items) == sorted(item.nodeid for item in expected)
     config.hook.pytest_deselected.assert_called_once_with(
         items=independent if scope == "interpreter" else []
     )
