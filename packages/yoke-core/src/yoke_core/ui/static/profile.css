@@ -210,6 +210,7 @@
   right: 0;
   z-index: 40;
   min-width: 260px;
+  max-width: calc(100vw - 32px);
   padding: 16px 20px;
   border: 1px solid var(--yoke-border);
   border-radius: var(--yoke-radius);
@@ -221,7 +222,8 @@
   font-size: 14px;
   color: var(--yoke-ink-2, var(--yoke-ink));
   margin-bottom: 12px;
-  white-space: nowrap;
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 .universe-app-root .actor-menu-link {
   display: block;
@@ -229,4 +231,14 @@
   color: var(--yoke-ink);
   text-decoration: underline;
   padding: 3px 0;
+}
+
+@media (max-width: 640px) {
+  .universe-app-root .actor-menu {
+    position: fixed;
+    top: calc(var(--yoke-app-header-height, var(--yoke-header-height)) + 8px);
+    left: 16px;
+    right: 16px;
+    min-width: 0;
+  }
 }
