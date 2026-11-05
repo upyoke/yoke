@@ -1,27 +1,4 @@
-"""Let a corrected plan case reach a member whose frozen row was discharged.
-
-Stage materialization is idempotent per plan: once a member has rows for a
-plan, materializing again returns them untouched. That is right while those
-rows still answer for the plan, and wrong the moment one is discharged and
-the plan's case is then corrected. The member is left with no executable
-case -- the discharged row satisfies idempotency, so the corrected content
-never arrives -- and the only way through was to publish a whole new plan
-carrying the same fixed probe.
-
-The decision here is narrow on purpose. A fresh row is warranted only when
-both halves hold: the existing row no longer answers (waived, superseded, or
-settled ``fail``), and the plan's case content has actually changed since it
-was materialized. An unchanged case stays idempotent however its row was
-discharged, so re-running a plan never quietly manufactures work.
-
-Content identity is computed from the case itself rather than stored, so no
-column or table carries it: the fields a runner actually executes are hashed,
-and the resulting key distinguishes the corrected row from the frozen one it
-is declared to replace, and which it supersedes once it passes
-(:mod:`qa_requirement_replacement`). The distinct
-key is also what makes the second row possible at all -- a materialized case
-is unique on ``(run, stage, member, plan_id, plan_case_key, host_baseline)``, so a replacement sharing the original's key could not be inserted.
-"""
+"""Compare executable case content and correct only the lineage head."""
 
 from __future__ import annotations
 
@@ -35,9 +12,10 @@ from yoke_core.domain.qa_deployment_case_correction_window import (
 )
 from yoke_core.domain.qa_plan_management import QaPlanError
 from yoke_core.domain.qa_requirement_pass_currency import executable_method_config
-from yoke_core.domain.qa_obligation_settlement import (
-    obligation_settled,
-    requirement_retracted_at_select,
+from yoke_core.domain.qa_requirement_lineage import (
+    base_case_key,
+    head_owes_work,
+    rows_by_case,
 )
 
 
@@ -121,77 +99,9 @@ def plan_case_content_digest(conn: Any, case: Mapping[str, Any]) -> str:
     )
 
 
-def base_case_key(plan_case_key: str) -> str:
-    """The authored key behind a possibly-refreshed one."""
-    return str(plan_case_key).split(REFRESH_KEY_SEPARATOR, 1)[0]
-
-
-def refreshed_case_key(plan_case_key: str, digest: str) -> str:
+def refreshed_case_key(plan_case_key: str, digest: str, predecessor_id: int) -> str:
     """The key a corrected case materializes under, beside the frozen row."""
-    return f"{base_case_key(plan_case_key)}{REFRESH_KEY_SEPARATOR}{digest}"
-
-
-def _discharged_or_failed(conn: Any, row: Mapping[str, Any]) -> bool:
-    """True when this row no longer answers for its case."""
-    if obligation_settled(row):
-        return True
-    from yoke_core.domain.qa_latest_execution import latest_executions
-
-    attempt = latest_executions(conn, [int(row["id"])]).get(int(row["id"]))
-    return attempt is not None and attempt["verdict"] == "fail"
-
-
-def carried_by_declared_replacement(conn: Any, rows: list[Mapping[str, Any]]) -> bool:
-    """Whether a corrected case outside *rows* still carries their attempt.
-
-    A failed row pointed at a replacement declared from another plan (an
-    explicit ``--replaces``) is already being answered there; a second,
-    automatic correction would compete with it. A replacement among *rows*
-    themselves, or one that has itself failed, carries nothing further: the
-    next correction inherits the whole chain (:func:`point_at_replacement`).
-    """
-    own = {int(row["id"]) for row in rows}
-    for row in rows:
-        replacement_id = row.get("replacement_requirement_id")
-        if (
-            replacement_id
-            and int(replacement_id) not in own
-            and determinate_verdict(conn, int(replacement_id)) != "fail"
-        ):
-            return True
-    return False
-
-
-def _rows_by_case(
-    conn: Any,
-    *,
-    run_id: str,
-    stage_name: str,
-    member_item_id: int | None,
-    plan_id: int,
-    execution_target_digest: str,
-) -> dict[str, list[dict[str, Any]]]:
-    """This subject's rows for one plan, grouped by their authored case key."""
-    rows = query_rows(
-        conn,
-        "SELECT id,plan_case_key,method_id,method_config,instructions,"
-        "expected_outcome,waived_at,superseded_by_requirement_id,"
-        f"replacement_requirement_id,{requirement_retracted_at_select(conn)} "
-        "FROM qa_requirements WHERE deployment_run_id=%s AND deployment_stage=%s "
-        "AND COALESCE(deployment_member_item_id,0)=%s AND plan_id=%s "
-        "AND execution_target_digest=%s ORDER BY id",
-        (
-            run_id,
-            stage_name,
-            member_item_id or 0,
-            int(plan_id),
-            execution_target_digest,
-        ),
-    )
-    by_key: dict[str, list[dict[str, Any]]] = {}
-    for row in rows:
-        by_key.setdefault(base_case_key(row["plan_case_key"]), []).append(dict(row))
-    return by_key
+    return f"{base_case_key(plan_case_key)}{REFRESH_KEY_SEPARATOR}{digest}-{predecessor_id}"
 
 
 def refreshed_case_keys(
@@ -201,10 +111,10 @@ def refreshed_case_keys(
     stage_name: str,
     member_item_id: int | None,
     plan_id: int,
-    execution_target_digest: str,
+    group_id: str = "",
     cases: list[Mapping[str, Any]],
     explicitly_replaced: frozenset[int] = frozenset(),
-) -> dict[str, str]:
+) -> dict[tuple[str, Any], str]:
     """Map each case key that needs a fresh row to the key it takes.
 
     Empty when every case is either still answered by its row or unchanged
@@ -219,41 +129,38 @@ def refreshed_case_keys(
     case already carries that attempt, and a second, automatic one would
     compete with it (:func:`carried_by_declared_replacement`).
     """
-    by_key = _rows_by_case(
+    by_key = rows_by_case(
         conn,
         run_id=run_id,
         stage_name=stage_name,
         member_item_id=member_item_id,
         plan_id=plan_id,
-        execution_target_digest=execution_target_digest,
+        group_id=group_id,
     )
-    refreshed: dict[str, str] = {}
-    behind: list[int] = []
+    refreshed = {}
+    behind = []
     for case in cases:
         key = str(case["case_key"])
-        materialized = by_key.get(key)
-        if not materialized:
-            # Never materialized here; ordinary insertion handles it.
-            continue
         digest = plan_case_content_digest(conn, case)
-        if any(case_content_digest(row) == digest for row in materialized):
-            # This exact content is already present, discharged or not.
-            continue
-        if not all(_discharged_or_failed(conn, row) for row in materialized):
-            # Something still answers for this case; a correction would be
-            # competing with live work rather than replacing spent work.
-            behind.extend(
-                int(row["id"])
-                for row in materialized
-                if not obligation_settled(row)
-                and not determinate_verdict(conn, int(row["id"]))
-            )
-            continue
-        if any(int(row["id"]) in explicitly_replaced for row in materialized):
-            continue
-        if carried_by_declared_replacement(conn, materialized):
-            continue
-        refreshed[key] = refreshed_case_key(key, digest)
+        for (authored, baseline), heads in by_key.items():
+            if authored != key:
+                continue
+            for head in heads:
+                # A correction can only be created by the head's own plan.
+                if int(head["plan_id"]) != int(plan_id):
+                    continue
+                if case_content_digest(head) == digest:
+                    continue
+                if int(head["id"]) in explicitly_replaced:
+                    continue
+                if head_owes_work(conn, head):
+                    refreshed[(key, baseline)] = refreshed_case_key(
+                        key, digest, int(head["id"])
+                    )
+                elif not determinate_verdict(conn, int(head["id"])) and not any(
+                    head.get(field) for field in ("waived_at", "retracted_at")
+                ):
+                    behind.append(int(head["id"]))
     if behind:
         raise QaPlanError(_behind_plan_refusal(conn, plan_id, behind))
     return refreshed
@@ -293,45 +200,38 @@ def declare_refreshed_replacements(conn: Any, created_ids: list[int]) -> None:
         fresh = query_rows(
             conn,
             "SELECT id,plan_case_key,deployment_run_id,deployment_stage,"
-            "deployment_member_item_id,plan_id,execution_target_digest,"
+            "deployment_member_item_id,plan_id,execution_target_json,"
             "host_baseline FROM qa_requirements WHERE id=%s",
             (int(created_id),),
         )
         if not fresh or REFRESH_KEY_SEPARATOR not in str(fresh[0]["plan_case_key"]):
             continue
         row = fresh[0]
-        base = base_case_key(row["plan_case_key"])
-        earlier = query_rows(
-            conn,
-            "SELECT id,waived_at,superseded_by_requirement_id,"
-            f"{requirement_retracted_at_select(conn)} FROM qa_requirements "
-            "WHERE deployment_run_id=%s AND deployment_stage=%s "
-            "AND COALESCE(deployment_member_item_id,0)=%s AND plan_id=%s "
-            "AND execution_target_digest=%s "
-            "AND COALESCE(host_baseline,'')=COALESCE(%s,'') AND id<>%s "
-            "AND replacement_requirement_id IS NULL "
-            "AND (plan_case_key=%s OR substr(plan_case_key,1,%s)=%s) ORDER BY id",
-            (
-                row["deployment_run_id"],
-                row["deployment_stage"],
-                row["deployment_member_item_id"] or 0,
-                row["plan_id"],
-                row["execution_target_digest"],
-                row["host_baseline"],
-                int(row["id"]),
-                base,
-                len(base) + 1,
-                f"{base}{REFRESH_KEY_SEPARATOR}",
-            ),
+        from yoke_core.domain.qa_requirement_lineage import rows_by_case
+        from yoke_core.domain.qa_deployment_requirement_identity_schema import (
+            shared_group_id,
         )
-        for failed in earlier:
-            if not obligation_settled(failed) and _discharged_or_failed(conn, failed):
-                point_at_replacement(conn, int(failed["id"]), int(row["id"]))
+        import json
+
+        target = row["execution_target_json"]
+        target = target if isinstance(target, dict) else json.loads(target)
+        groups = rows_by_case(
+            conn,
+            run_id=row["deployment_run_id"],
+            stage_name=row["deployment_stage"],
+            member_item_id=row["deployment_member_item_id"],
+            plan_id=row["plan_id"],
+            group_id=shared_group_id(target),
+        )
+        for head in groups.get(
+            (base_case_key(row["plan_case_key"]), row["host_baseline"]), []
+        ):
+            if int(head["id"]) != created_id and head_owes_work(conn, head):
+                point_at_replacement(conn, int(head["id"]), created_id)
 
 
 __all__ = [
     "REFRESH_KEY_SEPARATOR",
-    "carried_by_declared_replacement",
     "declare_refreshed_replacements",
     "base_case_key",
     "case_content_digest",

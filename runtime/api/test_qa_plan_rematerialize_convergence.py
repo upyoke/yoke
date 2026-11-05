@@ -158,19 +158,15 @@ def test_explicit_replacement_suppresses_the_automatic_one(test_db) -> None:
     run_id = "run-converge-explicit"
     failed = seed_member_qa_case(test_db, run_id=run_id, member_item_id=MEMBER)
     record_case_verdict(test_db, failed, "fail", evidence=True)
-    digest = test_db.execute(
-        "SELECT execution_target_digest FROM qa_requirements WHERE id=%s", (failed,)
-    ).fetchone()["execution_target_digest"]
     scope = {
         "run_id": run_id,
         "stage_name": ITEM_QA_STAGE,
         "member_item_id": MEMBER,
         "plan_id": _plan_id(test_db, failed),
-        "execution_target_digest": str(digest),
         "cases": [_case("command-smoke", "run the corrected smoke command")],
     }
 
-    assert list(refreshed_case_keys(test_db, **scope)) == ["command-smoke"]
+    assert list(refreshed_case_keys(test_db, **scope)) == [("command-smoke", None)]
     assert (
         refreshed_case_keys(test_db, **scope, explicitly_replaced=frozenset({failed}))
         == {}

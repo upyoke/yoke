@@ -6,14 +6,13 @@ from typing import Any
 
 from yoke_core.domain.deployment_runs_lock import lock_run
 from yoke_core.domain.qa_deployment_requirement_identity_schema import shared_group_id
-from yoke_core.domain.project_identity import render_item_ref
 from yoke_core.domain.deployment_run_project_sources import run_delivered_sha
 from yoke_core.domain.qa_deployment_case_content_refresh import (
-    base_case_key,
     declare_refreshed_replacements,
     refreshed_case_keys,
 )
-from yoke_core.domain.db_helpers import utc_now, query_rows
+from yoke_core.domain.db_helpers import utc_now
+from yoke_core.domain.qa_requirement_lineage import rows_by_case
 from yoke_core.domain.deployment_qa_admission_materialization import (
     materialize_admitted_requirement,
 )
@@ -31,37 +30,8 @@ from yoke_core.domain.qa_execution_environment_target import target_digest
 from yoke_core.domain.qa_plan_requirement_snapshot import (
     existing_requirement_id,
     insert_requirement,
-    require_existing_target,
     require_requirement_id_target,
 )
-
-
-def _existing_rows(
-    conn: Any,
-    *,
-    run_id: str,
-    stage_name: str,
-    member_item_id: int | None,
-    plan_id: int,
-    group_id: str,
-) -> list[dict[str, Any]]:
-    return query_rows(
-        conn,
-        "SELECT id,plan_case_key,execution_target_json,execution_target_digest,retracted_at "
-        "FROM qa_requirements WHERE deployment_run_id=%s "
-        "AND deployment_stage=%s "
-        "AND COALESCE(deployment_member_item_id,0)=%s AND plan_id=%s "
-        "AND superseded_by_requirement_id IS NULL "
-        "AND (retracted_at IS NULL OR retraction_source IN ('operator','agent')) "
-        "AND COALESCE(execution_target_json::jsonb #>> '{deployment,shared_plan,group_id}', '')=%s ORDER BY id",
-        (
-            run_id,
-            stage_name,
-            member_item_id or 0,
-            int(plan_id),
-            group_id,
-        ),
-    )
 
 
 def materialize_subject(
@@ -91,7 +61,9 @@ def materialize_subject(
     try:
         # Serializes first materialization without adding another ledger/index.
         lock_run(conn, str(deployment_run_id))
-        from yoke_core.domain.deployment_qa_requirement_target_refresh import rebind_subject
+        from yoke_core.domain.deployment_qa_requirement_target_refresh import (
+            rebind_subject,
+        )
 
         if refresh_target:
             rebind_subject(conn, subject=subject, target=target)
@@ -141,21 +113,24 @@ def materialize_subject(
         for snapshot in snapshots:
             plan = dict(snapshot["plan"])
             plan_id = int(plan["id"])
-            rows = _existing_rows(
+            groups = rows_by_case(
                 conn,
-                run_id=str(deployment_run_id),
-                stage_name=str(deployment_stage),
+                run_id=deployment_run_id,
+                stage_name=deployment_stage,
                 member_item_id=deployment_member_item_id,
                 plan_id=plan_id,
                 group_id=shared_group_id(target),
             )
+            existing.extend(
+                {int(head["id"]) for heads in groups.values() for head in heads}
+            )
             refreshed = refreshed_case_keys(
                 conn,
-                run_id=str(deployment_run_id),
-                stage_name=str(deployment_stage),
+                run_id=deployment_run_id,
+                stage_name=deployment_stage,
                 member_item_id=deployment_member_item_id,
                 plan_id=plan_id,
-                execution_target_digest=target_digest(target),
+                group_id=shared_group_id(target),
                 cases=[dict(case) for case in snapshot["cases"]],
                 explicitly_replaced=(
                     frozenset()
@@ -163,41 +138,20 @@ def materialize_subject(
                     else replaced_requirement_ids
                 ),
             )
-            materialized_keys = {base_case_key(row["plan_case_key"]) for row in rows}
-            added = any(
-                str(case["case_key"]) not in materialized_keys
-                for case in snapshot["cases"]
-            )
-            if rows and not refreshed and not added:
-                existing.extend(int(row["id"]) for row in rows if row["retracted_at"] is not None)
-                existing.extend(
-                    require_existing_target(
-                        [row for row in rows if row["retracted_at"] is None],
-                        execution_target=target,
-                        subject=(
-                            f"deployment run {deployment_run_id!r} stage "
-                            f"{deployment_stage!r} member {render_item_ref(conn, deployment_member_item_id) if deployment_member_item_id is not None else 'run'}"
-                        ),
-                        conn=conn,
-                    )
-                )
-                continue
             attachment = {"qa_phase": "post_deploy"}
             fan_out = snapshot_fan_out(plan, snapshot["cases"])
             for case_value in snapshot["cases"]:
                 case = dict(case_value)
                 baselines = fan_out[str(case["case_key"])]
-                if rows:
-                    # Already-materialized plan: a case added since gets its
-                    # first row under its own key; of the rest, only a case
-                    # whose content changed after its row stopped answering
-                    # gets a fresh row, keyed apart from the frozen one.
-                    fresh_key = refreshed.get(str(case["case_key"]))
-                    if fresh_key is not None:
-                        case["case_key"] = fresh_key
-                    elif str(case["case_key"]) in materialized_keys:
-                        continue
                 for position, baseline in enumerate(baselines, start=1):
+                    key = (str(case_value["case_key"]), baseline)
+                    fresh_key = refreshed.get(key)
+                    if key in groups and fresh_key is None:
+                        continue
+                    case = {
+                        **dict(case_value),
+                        "case_key": fresh_key or case_value["case_key"],
+                    }
                     scopes = snapshot.get("replacement_scopes", {}).get(
                         str(case_value["case_key"])
                     )
@@ -259,7 +213,7 @@ def materialize_subject(
         ),
         "execution_target": target,
         "created_requirement_ids": created,
-        "existing_requirement_ids": existing,
+        "existing_requirement_ids": sorted(set(existing)),
         # Non-empty only for a member that recorded it needs no post-deploy
         # verification, so a reader can tell a stage that credited nothing
         # deliberately from one that found work to do.

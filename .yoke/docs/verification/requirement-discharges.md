@@ -40,7 +40,10 @@ yoke watch qa-plan -- --item PREFIX-N --stage {STAGE} --plan {CORRECTED_PLAN} --
 ```
 
 Materialization/declaration commit together; old failure remains history,
-corrected blocking case and pending siblings still need proof. Interrupted
+only the selected corrected keys are admitted from the plan; other cases,
+including passed siblings, keep their frozen definitions. Every replaced key
+must exist in the selected plan. The corrected blocking case and pending
+siblings still need proof. Interrupted
 re-entry reuses declaration. Existing direct correction can be declared with
 qa.requirement.supersede --declare-replacement, then scoped plan execution
 without --plan. Predecessor leaves roster; successor still must pass.
@@ -67,7 +70,8 @@ pass. History is untouched. Declared replacement via plan run/materialize --repl
 replacement_requirement_id after same-scope/acyclic validation. Predecessor
 immediately leaves grading/roster; only terminal successor answers, even pending
 or failing. Review bundle includes newly captured cases only. Independent pass
-(agent review or human approval) supersedes in that verdict transaction; fail/
+(agent review or human approval) at the lineage head supersedes every unsettled
+predecessor through any number of replacement links in that verdict transaction; fail/
 undetermined supersedes nothing. Content refresh declares correction automatically;
 qa.requirement.supersede can declare one explicitly.
 

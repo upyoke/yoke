@@ -69,8 +69,13 @@ def _replacement_for(
         and not row["replacement_requirement_id"]
         and (not exact_scope or not same_scope(failed, row))
     ]
-    if not matches and any(int(row["id"]) == int(failed["id"]) and row["base_case_key"] == case_key for row in rows):
-        from yoke_core.domain.qa_requirement_corrected_recovery import corrected_case_recovery
+    if not matches and any(
+        int(row["id"]) == int(failed["id"]) and row["base_case_key"] == case_key
+        for row in rows
+    ):
+        from yoke_core.domain.qa_requirement_corrected_recovery import (
+            corrected_case_recovery,
+        )
 
         raise QaReplacementError(
             f"replacement_case_corrected_in_place: requirement {failed['id']} "
@@ -299,13 +304,9 @@ def discharge_declared_replacements(
         lock_requirement_scope(conn, replacement_id)
         if not has_current_passing_run(conn, replacement_id):
             continue
-        waiting = query_rows(
-            conn,
-            "SELECT id FROM qa_requirements WHERE replacement_requirement_id=%s "
-            "AND superseded_by_requirement_id IS NULL AND waived_at IS NULL "
-            "AND retracted_at IS NULL ORDER BY id",
-            (replacement_id,),
-        )
+        from yoke_core.domain.qa_requirement_lineage import predecessors_at_head
+
+        waiting = predecessors_at_head(conn, replacement_id)
         # A row settled another way since the declaration keeps the record
         # that settled it; anything else refusing here is a broken invariant
         # and rolls back the verdict rather than hiding the failure.

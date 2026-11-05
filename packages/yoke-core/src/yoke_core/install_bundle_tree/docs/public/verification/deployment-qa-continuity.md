@@ -23,9 +23,11 @@ its environment served at case start (an observation, not a per-step proof).
 Once the successor deploys, install steps get its pinned `release_version` and
 command cases check out its project source. Fresh attempts resolve the
 successor's ready receipt and candidate; before that receipt exists they retain
-the predecessor target. Private and run QA materialization find open cases by
-run, stage, member, plan, case key and host baseline, and rebind each
-requirement in place to the current target. The requirement keeps its ID and
+the predecessor target. Private and run QA materialization resolve each frozen plan's case and host
+baseline through its correction lineage within the run, stage and member.
+Replacement and supersession links join rows across plans and target digests;
+unrelated plans sharing a case key remain separate. System-retracted rows do
+not establish a lineage. Existing live requirements rebind in place to the current target. The requirement keeps its ID and
 records its previous target. A predecessor pass carries only when its
 destination matches; otherwise the case is owed again. Shared plan groups retain
 their group ID and frozen target; separate groups remain separate subjects.
@@ -40,6 +42,14 @@ do not restart when a requirement follows the successor target.
 A failed successor retains inherited QA for retry or another takeover. Explicit
 cancellation and genuine member removal retain their cleanup rules. An early QA
 pass never bypasses successor deployment prerequisites or human release approvals.
+
+A frozen root is never materialized again while its lineage exists. The newest
+chain end (creation time, then ID) decides whether work remains, including
+forked history. Passed, pending and operator/agent-discharged heads prevent a
+second case. A failed or system-discharged head permits one content correction
+on its own plan; unchanged failed content keeps the existing head owed.
+`qa plan rematerialize` refreshes a pending head in place, preserves passed
+cases' frozen definitions and corrects eligible unpassed cases independently.
 
 ## Retry a failed case after the fix ships
 

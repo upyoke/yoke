@@ -1,16 +1,12 @@
 """Select complete frozen admissions without entering materialization writers."""
 
 from yoke_core.domain.db_helpers import query_rows
-from yoke_core.domain.qa_deployment_case_content_refresh import (
-    plan_case_content_digest,
-    refreshed_case_key,
-)
+from yoke_core.domain.qa_requirement_lineage import rows_by_case
 from yoke_core.domain.deployment_qa_execution_target import (
     deployment_qa_execution_target,
 )
 from yoke_core.domain.deployment_qa_snapshot_selection import require_complete_snapshot
 from yoke_core.domain.deployment_run_project_sources import run_delivered_sha
-from yoke_core.domain.qa_obligation_settlement import unretracted_requirement_sql
 from yoke_core.domain.qa_execution_environment_target import target_digest
 from yoke_core.domain.qa_plan_case_definition import snapshot_fan_out
 from yoke_core.domain.qa_plan_case_targets import case_applies_to_target
@@ -61,42 +57,33 @@ def admitted_plan_selection(conn, subject, target, selector):
     cases = [c for c in snapshot["cases"] if case_applies_to_target(c, target)]
     snapshot = {**snapshot, "cases": cases}
     selected_target = deployment_qa_execution_target(conn, subject)
-    rows = query_rows(
+    groups = rows_by_case(
         conn,
-        "SELECT id,plan_case_key,host_baseline,method_id,execution_target_json,"
-        "execution_target_digest FROM qa_requirements WHERE deployment_run_id=%s "
-        "AND deployment_stage=%s AND COALESCE(deployment_member_item_id,0)=%s "
-        "AND plan_id=%s AND execution_target_digest=%s "
-        f"AND {unretracted_requirement_sql(conn)} "
-        "ORDER BY case_position,baseline_position,id",
-        (
-            subject["id"],
-            subject["stage"]["name"],
-            subject.get("member_item_id") or 0,
-            plan_id,
-            target_digest(selected_target),
-        ),
+        run_id=subject["id"],
+        stage_name=subject["stage"]["name"],
+        member_item_id=subject.get("member_item_id"),
+        plan_id=plan_id,
     )
-    if not rows:
-        # A takeover owns the same cases at a new receipt. The ordinary
-        # writer rebinds those rows before validating the frozen admission.
+    if not groups:
         return None
     fan_out = snapshot_fan_out(snapshot["plan"], cases)
     selected_rows = []
     for case in cases:
         key = str(case["case_key"])
         scopes = snapshot.get("replacement_scopes", {}).get(key)
-        refreshed_key = refreshed_case_key(key, plan_case_content_digest(conn, case))
         for baseline in fan_out[key]:
             if scopes and not any(
                 scope["host_baseline"] == baseline for scope in scopes
             ):
                 continue
-            matches = [r for r in rows if r["host_baseline"] == baseline]
-            corrected = [r for r in matches if r["plan_case_key"] == refreshed_key]
-            canonical = corrected or [r for r in matches if r["plan_case_key"] == key]
-            if len(canonical) != 1 or not canonical[0].get("method_id"):
-                _incomplete(plan_id, subject)
+            canonical = groups.get((key, baseline), [])
+            if not canonical:
+                return None
+            if any(
+                row["execution_target_digest"] != target_digest(selected_target)
+                for row in canonical
+            ):
+                return None  # Ordinary materialization rebinds the live heads.
             selected_rows.extend(canonical)
     if not selected_rows:
         _incomplete(plan_id, subject)

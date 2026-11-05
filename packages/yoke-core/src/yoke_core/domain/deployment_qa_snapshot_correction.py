@@ -127,7 +127,7 @@ def refresh_selected_cases(
             member=member,
             exclusive_member=snapshot.get("member_item_id"),
         ):
-            incomplete_snapshot(plan_id, "case already has passed acceptance")
+            replacements.pop(key, None)
     snapshot["cases"] = [
         replacements.get(str(case["case_key"]), case) for case in snapshot["cases"]
     ]

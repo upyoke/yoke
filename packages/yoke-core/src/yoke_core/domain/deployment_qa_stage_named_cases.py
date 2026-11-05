@@ -35,8 +35,8 @@ AGENT_PLAN_ALREADY_NAMED_REFUSAL = (
     "only a stage that names none. To correct "
     "a failed admitted case, use --plan CORRECTED_PLAN with "
     "--replaces CORRECTED_CASE_KEY=FAILED_REQUIREMENT_ID, or "
-    "--replaces-requirement FAILED_ID for its exact host baseline, for every case in "
-    "that plan."
+    "--replaces-requirement FAILED_ID for its exact host baseline. Only named "
+    "correction keys are selected from that plan."
 )
 
 
@@ -79,12 +79,12 @@ def require_correction_only_plan(snapshot: Mapping[str, Any], keys: set[str]) ->
     """A correction plan may add only the cases explicitly replacing failures."""
     cases = snapshot.get("cases")
     actual = {str(case.get("case_key")) for case in cases or []}
-    if not keys or actual != keys or len(cases or []) != len(keys):
+    if not keys or not keys <= actual:
         raise QaPlanError(
             "a stage already naming cases accepts --plan only with --replaces "
             "or --replaces-requirement "
-            "for every case in the corrected plan; select a plan containing "
-            "exactly those corrected case keys"
+            "for every replaced key; select a plan containing "
+            "all those corrected case keys"
         )
 
 

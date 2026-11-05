@@ -2,15 +2,11 @@
 
 from __future__ import annotations
 
-from yoke_core.domain.db_helpers import query_rows
+from yoke_core.domain.qa_requirement_lineage import head_owes_work, rows_by_case
 from yoke_core.domain.qa_deployment_case_content_refresh import (
-    base_case_key,
-    carried_by_declared_replacement,
     case_content_digest,
     plan_case_content_digest,
 )
-from yoke_core.domain.qa_latest_execution import latest_verdict_executions
-from yoke_core.domain.qa_obligation_settlement import obligation_settled
 
 
 def corrected_group_snapshot(conn, subject, target, snapshot):
@@ -20,30 +16,31 @@ def corrected_group_snapshot(conn, subject, target, snapshot):
     New keys and edits to pending or passed cases wait for the next release.
     The ordinary content-refresh writer records and settles each replacement.
     """
-    from yoke_core.domain.qa_execution_environment_target import target_digest
+    from yoke_core.domain.qa_deployment_requirement_identity_schema import (
+        shared_group_id,
+    )
     from yoke_core.domain.deployment_requirement_snapshots import _plan_snapshot
     from yoke_core.domain.qa_plan_source_revision import require_candidate_plan
 
     plan_id = int(subject["shared_plan"]["plan_id"])
-    rows = query_rows(
+    groups = rows_by_case(
         conn,
-        "SELECT id,plan_case_key,method_id,method_config,instructions,expected_outcome,"
-        "replacement_requirement_id,waived_at,superseded_by_requirement_id,retracted_at "
-        "FROM qa_requirements WHERE deployment_run_id=%s "
-        "AND deployment_stage=%s AND deployment_member_item_id IS NULL AND plan_id=%s "
-        "AND execution_target_digest=%s ORDER BY id",
-        (subject["id"], subject["stage"]["name"], plan_id, target_digest(target)),
+        run_id=subject["id"],
+        stage_name=subject["stage"]["name"],
+        member_item_id=None,
+        plan_id=plan_id,
+        group_id=shared_group_id(target),
     )
     by_key = {}
-    for row in rows:
-        by_key.setdefault(base_case_key(row["plan_case_key"]), []).append(row)
-    attempts = latest_verdict_executions(conn, [int(row["id"]) for row in rows])
+    for (key, baseline), heads in groups.items():
+        by_key.setdefault(key, []).extend(heads)
     failed = {
         key
-        for key, copies in by_key.items()
-        if attempts.get(int(copies[-1]["id"]), {}).get("verdict") == "fail"
-        and not obligation_settled(copies[-1])
-        and not carried_by_declared_replacement(conn, copies)
+        for key, heads in by_key.items()
+        if any(
+            int(head["plan_id"]) == plan_id and head_owes_work(conn, head)
+            for head in heads
+        )
     }
     live = (
         _plan_snapshot(conn, plan_id, project_id=int(subject["member_project_id"]))
