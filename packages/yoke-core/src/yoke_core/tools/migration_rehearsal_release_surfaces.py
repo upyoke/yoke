@@ -26,6 +26,7 @@ from yoke_contracts.release_pin import (
 from yoke_core.domain import db_backend
 from yoke_core.domain.deployment_run_target_resolution import cmd_resolve_target
 from yoke_core.domain.deployment_runs_crud_mutate import cmd_create_run
+from yoke_core.domain.deployment_start_timing import timing_scope
 from yoke_core.domain.domain_refusal import DomainRefusal
 from yoke_core.domain.projects_capability_settings_validation import (
     canonicalize_capability_settings,
@@ -38,7 +39,6 @@ from yoke_core.domain.settings_cas import (
 )
 
 
-_REHEARSAL_LINEAGE = "0" * 40
 _REHEARSAL_PIN = "migration-rehearsal-pin"
 
 
@@ -88,16 +88,16 @@ def _exercise_deployment_run_drivers(conn: Any) -> None:
         flow = str(_cell(row, "flow", 1))
         tier, environment_id, _environment = cmd_resolve_target(project, flow)
         try:
-            run_id = cmd_create_run(
-                project,
-                flow,
-                release_lineage=_REHEARSAL_LINEAGE,
-                created_by="migration-rehearsal",
-            )
+            with timing_scope("", collect=True):
+                run_id = cmd_create_run(
+                    project,
+                    flow,
+                    created_by="migration-rehearsal",
+                )
         except DomainRefusal:
             # A named domain verdict proves the driver read and judged the
-            # migrated rows. Synthetic lineage, copied composition, or live
-            # GitHub readiness can refuse creation without a schema defect.
+            # migrated rows. Dispatch stages require lineage, and copied
+            # composition can refuse creation without a schema defect.
             # Untyped read/import/schema failures still fail the rehearsal.
             continue
         created = conn.execute(
