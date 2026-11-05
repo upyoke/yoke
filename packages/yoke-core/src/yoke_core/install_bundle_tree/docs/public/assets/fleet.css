@@ -1,6 +1,6 @@
 @import url("./fonts.css");
 .intro-fleet { margin: 28px 0; padding: 28px 20px 18px; background: var(--yoke-surface); border: 0; border-radius: var(--yoke-radius); color: var(--yoke-ink); }
-.fleet-session { background: white; border: 1px solid var(--yoke-border); border-radius: var(--yoke-radius); overflow: hidden; box-shadow: 0 4px 16px var(--yoke-ink); }
+.fleet-session { background: var(--yoke-surface); border: 1px solid var(--yoke-border); border-radius: var(--yoke-radius); overflow: hidden; box-shadow: var(--yoke-shadow); }
 .fleet-lead { width: 340px; max-width: 100%; margin: 0 auto; border-color: var(--yoke-muted); position: relative; overflow: visible; }
 .fleet-session-header { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 6px 10px; padding: 12px 14px; border-bottom: 1px solid var(--yoke-border); font-size: 12px; }
 .fleet-session-header span { color: var(--yoke-muted); font-size: 11px; }

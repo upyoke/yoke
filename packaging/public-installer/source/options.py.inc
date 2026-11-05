@@ -39,15 +39,15 @@ GUTTER = GUTTER_ICON
 # Truecolor SGR sequences require an explicit terminal capability.
 _SGR_CODES = {
     "brand": "1;38;2;244;162;97",  # bold accent #f4a261
-    "bright": "38;2;86;211;100",  # accent-bright #56d364
-    "dim": "38;2;125;133;144",  # dim #7d8590
+    "bright": "38;2;244;162;97",  # accent-bright #f4a261
+    "dim": "38;2;137;149;161",  # dim #8995a1
     "danger": "1;38;2;248;81;73",  # bold danger #f85149
-    "amber": "38;2;210;153;34",  # amber #d29922 (the sun)
+    "amber": "38;2;244;162;97",  # amber #f4a261 (the sun)
 }
 
 _ANSI_CODES = {
-    "brand": "1;32",
-    "bright": "32",
+    "brand": "1;33",
+    "bright": "33",
     "dim": "39",
     "danger": "1;31",
     "amber": "33",
