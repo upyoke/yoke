@@ -3,7 +3,6 @@
    rules so the shell and every card collection share the same breakpoints. */
 
 .universe-app-root .navigation-toggle,
-.universe-app-root .header-search-button,
 .universe-app-root .navigation-scrim {
   display: none;
 }
@@ -30,7 +29,6 @@
   min-width: 0;
   align-items: center;
 }
-.universe-app-root .header-search-button,
 .universe-app-root .navigation-toggle {
   min-width: 38px;
   min-height: 38px;
@@ -211,14 +209,29 @@
     background: color-mix(in srgb, var(--yoke-ink) 25%, transparent);
   }
   body.side-open { overflow: hidden; }
-  .universe-app-root .navigation-toggle,
-  .universe-app-root .header-search-button { display: block; }
-  /* The context group stops being one unbreakable block: its three controls
-     lay out directly in the header so the header's own wrapping can move
-     them onto a second row instead of pushing the last one off the side. */
+  .universe-app-root .navigation-toggle { display: block; }
+  /* Search fills row one beside the menu and wordmark. Universe and Actor
+     share row two; Projects keeps its content width on row three. */
+  .universe-app-root .shell-search { flex: 1 1 0; min-width: 0; }
+  .universe-app-root .header-search { width: 100%; min-width: 0; }
+  .universe-app-root .header-spacer { display: none; }
   .universe-app-root .context-side {
-    display: contents;
+    display: flex;
+    flex: 1 1 100%;
+    flex-wrap: wrap;
+    gap: 6px;
   }
+  .universe-app-root .context-side > :not(.header-project-context) {
+    flex: 1 1 calc(50% - 3px);
+    min-width: 0;
+  }
+  .universe-app-root .context-side .header-context-control:not(.header-project-context) {
+    width: 100%;
+  }
+  .universe-app-root .context-side > .header-project-context { order: 1; flex: 0 1 auto; }
+  .universe-app-root .header-context-control .actor-chip,
+  .universe-app-root .actor-name { min-width: 0; }
+  .universe-app-root .actor-name { overflow: hidden; text-overflow: ellipsis; }
   /* A single-project screen carries two pickers in this one control — the
      projects in scope, and which of them is focused. Side by side they are
      wider than the header has room for here, and neither could shrink, so
@@ -244,10 +257,6 @@
     overflow-x: auto;
   }
 
-  /* The wide field gives up its space to the icon button, which opens the
-     same dialog: search survives the narrow bar instead of disappearing with
-     the room the field needed. */
-  .universe-app-root .header-search,
   .universe-app-root .actor-kind { display: none; }
   .universe-app-root .content {
     padding: 20px 20px 32px;
@@ -276,11 +285,8 @@
     gap: 6px;
     padding: 8px;
   }
-  /* Context controls keep their content width and wrap in reading order. */
+  /* Keep labels legible inside the two equal context controls. */
   .universe-app-root .header-context-control { gap: 3px; padding-inline: 5px; }
-  .universe-app-root .header-universe-context { order: 10; }
-  .universe-app-root .header-actor-context { order: 11; }
-  .universe-app-root .header-project-context { flex: 0 1 auto; order: 12; }
   .universe-app-root button.actor-chip { font-size: 12.5px; min-height: 22px; }
   /* A phone has no room for a panel floating over a page: the dialog IS the
      screen here, so it fills it rather than centring inside a viewport it
@@ -313,6 +319,7 @@
 }
 
 @media (hover: none) {
+  .universe-app-root .header-search-key { display: none; }
   .universe-app-root button,
   .universe-app-root .nav-link,
   .universe-app-root .item-button { min-height: 40px; min-width: 40px; }

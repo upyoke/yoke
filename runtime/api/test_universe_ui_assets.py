@@ -111,18 +111,11 @@ def test_responsive_shell_uses_a_drawer_and_search_overlay():
     assert ".universe-app-root .shell > .sidenav" in compact
     assert "transform: translateX(-105%)" in compact
     assert ".shell.side-open > .sidenav" in compact
-    # The wide field gives up its space to the icon button that opens the
-    # same dialog, so search never disappears with the room the field needed.
-    assert ".header-search-button { display: block; }" in compact
-    assert ".universe-app-root .header-search,\n" in compact
-    # The context group stops being one unbreakable block at the drawer
-    # breakpoint, so the header's own wrapping can move its controls to a
-    # second row rather than pushing the last one off the side.
-    assert (
-        ".universe-app-root .context-side {\n    display: contents;\n  }"
-    ) in compact
+    assert ".shell-search { flex: 1 1 0; min-width: 0; }" in compact
+    assert ".header-search { width: 100%; min-width: 0; }" in compact
+    assert "flex: 1 1 100%" in compact
+    assert "display: contents" not in compact
     phone = responsive.split("@media (max-width: 640px)", 1)[1]
-    assert ".header-project-context" in phone
     # On a phone the dialog IS the screen rather than a panel floating over it.
     assert ".header-search-panel" in phone
     assert "height: 100%" in phone
@@ -161,6 +154,7 @@ def test_hosted_frame_harness_mirrors_the_platform_slot_shapes():
         .read_text()
     )
     for platform_marker in (
+        'el("summary", "header-context-control")',
         "hosted-universe-menu",
         "hosted-universe-option",
         "hosted-universe-check",

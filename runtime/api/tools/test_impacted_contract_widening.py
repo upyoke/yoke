@@ -228,3 +228,16 @@ def test_every_client_package_root_is_named_by_the_boundary_trigger():
         "packages/yoke-contracts/src/yoke_contracts/",
         "packages/yoke-harness/src/yoke_harness/",
     }
+
+
+def test_responsive_css_selects_dashboard_wrapping_assertions(tmp_path):
+    root = _tiny_repo(tmp_path)
+    source = "packages/yoke-core/src/yoke_core/ui/static/universe_responsive.css"
+    reader = "runtime/api/test_dashboard_wrapping_rows.py"
+    _write(root, source, ".context-side { display: flex; }\n")
+    _write(root, reader, "def test_header_context_rows(): pass\n")
+
+    selection = select([source], build_import_index(root), bounded=True)
+
+    assert reader in selection.files
+    assert f"universe_ui_contract:{source}" in selection.telemetry()

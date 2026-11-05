@@ -334,7 +334,7 @@ test("compact chrome opens the navigation drawer and shared search overlay", asy
   scrim.dispatchEvent(new Event("click"));
   assert.equal(shell.classList.contains("side-open"), false);
 
-  const searchButton = byClass(root, "header-search-button")[0];
+  const searchButton = byClass(root, "header-search")[0];
   const overlay = byClass(root, "header-search-overlay")[0];
   searchButton.dispatchEvent(new Event("click"));
   assert.equal(overlay.matches(":popover-open"), true);

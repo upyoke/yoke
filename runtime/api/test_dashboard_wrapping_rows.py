@@ -139,7 +139,7 @@ def test_action_only_groups_reach_the_right_edge_without_stretching_badges():
     assert ".session-filter-search { max-width: none; }" not in source
 
 
-def test_mobile_header_keeps_intrinsic_widths_and_visible_actor_name():
+def test_mobile_header_keeps_equal_contexts_and_visible_actor_name():
     source = (
         files("yoke_core.ui").joinpath("static", "universe_responsive.css").read_text()
     )
@@ -147,7 +147,10 @@ def test_mobile_header_keeps_intrinsic_widths_and_visible_actor_name():
     assert "flex: 1 0 100%" not in phone
     assert ".actor-name { display: none" not in phone
     assert "height: 22px" in phone
-    assert ".header-actor-context { order: 11; }" in phone
+    compact = source.split("@media (max-width: 980px)", 1)[1].split("@media", 1)[0]
+    assert "flex: 1 1 calc(50% - 3px)" in compact
+    assert ".actor-name { overflow: hidden; text-overflow: ellipsis; }" in compact
+    assert ".context-side > .header-project-context { order: 1;" in compact
 
 
 def test_session_control_geometry_uses_border_box_and_shared_icon():

@@ -1,10 +1,8 @@
 // The search dialog: one centred panel over a dimmed app, at every width.
 //
-// The header field is the entry point, not the feature. It is a button shaped
-// like a field — clicking it, or pressing the shortcut it already advertises,
-// opens the same panel the narrow icon button opens. Search therefore has one
-// query state, one result list, and one keyboard model everywhere, instead of
-// an inline dropdown at desktop and a different surface on a phone.
+// The header button looks like a field at every width. Clicking it or
+// pressing its advertised shortcut opens the same dialog, with one query
+// state, result list and keyboard model on desktop and phone.
 
 function el(documentNode, tag, className, text) {
   const node = documentNode.createElement(tag);
@@ -15,7 +13,7 @@ function el(documentNode, tag, className, text) {
 
 // A drawn glyph rather than a font character: the ⌕ codepoint renders at
 // wildly different sizes across fonts, so an SVG is the only way the icon is
-// the same size in the field and in the button.
+// a consistent size in the header field and dialog.
 export function magnifier(documentNode, className) {
   if (typeof documentNode.createElementNS !== "function") {
     return el(documentNode, "span", className, "⌕");
@@ -51,18 +49,12 @@ function triggers(documentNode, controlId) {
     documentNode, "span", "header-search-placeholder", "Search this universe",
   ));
   field.appendChild(el(documentNode, "kbd", "header-search-key", "⌘K"));
-  const button = el(documentNode, "button", "header-search-button");
-  button.type = "button";
-  button.setAttribute("aria-label", "Search this universe");
-  button.setAttribute("aria-haspopup", "dialog");
-  button.setAttribute("aria-expanded", "false");
-  button.appendChild(magnifier(documentNode, "header-search-icon"));
-  return { button, field };
+  return field;
 }
 
 export function createSearchDialog(documentNode, controlId, onOpened) {
   const root = el(documentNode, "div", "shell-search");
-  const { button, field } = triggers(documentNode, controlId);
+  const field = triggers(documentNode, controlId);
 
   const overlay = el(documentNode, "div", "header-search-overlay");
   overlay.setAttribute("popover", "manual");
@@ -105,15 +97,12 @@ export function createSearchDialog(documentNode, controlId, onOpened) {
   overlay.appendChild(backdrop);
   overlay.appendChild(panel);
   root.appendChild(field);
-  root.appendChild(button);
   root.appendChild(overlay);
 
   let restoreFocusTo = null;
   const isOpen = () => overlay.matches(":popover-open");
   const setExpanded = (value) => {
-    for (const node of [field, button]) {
-      node.setAttribute("aria-expanded", value ? "true" : "false");
-    }
+    field.setAttribute("aria-expanded", value ? "true" : "false");
   };
   const close = () => {
     if (!isOpen()) return;
@@ -136,7 +125,6 @@ export function createSearchDialog(documentNode, controlId, onOpened) {
     onOpened?.();
   };
   field.addEventListener("click", () => open(field));
-  button.addEventListener("click", () => open(button));
   backdrop.addEventListener("click", close);
   closeButton.addEventListener("click", close);
   // A modal dialog owns the focus while it is open: tabbing past its last

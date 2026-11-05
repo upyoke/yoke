@@ -231,3 +231,27 @@ def test_a_selected_pending_machine_row_is_whole_pixels():
     content = _static("universe_content.css")
     cell = _rule(content, ".universe-app-root table.items td")
     assert _vertical(cell, {"line-height": "19px"}) == 40
+
+
+def test_compact_header_has_search_then_equal_contexts_then_projects():
+    import re
+
+    compact = _breakpoint(_static("universe_responsive.css"), "(max-width: 980px)")
+    prefix = ".universe-app-root "
+    assert _rule(compact, prefix + ".shell-search")["flex"] == "1 1 0"
+    context = _rule(compact, prefix + ".context-side")
+    assert context["flex"] == "1 1 100%"
+    assert context["display"] == "flex"
+    assert "display: contents" not in compact
+    halves = ".context-side > :not(.header-project-context)"
+    assert _rule(compact, prefix + halves)["flex"] == "1 1 calc(50% - 3px)"
+    project = ".context-side > .header-project-context"
+    assert _rule(compact, prefix + project)["order"] == "1"
+    boxes = ".context-side .header-context-control:not(.header-project-context)"
+    assert _rule(compact, prefix + boxes)["width"] == "100%"
+    for selectors, body in re.findall(r"([^{}]+)\{([^{}]+)\}", compact):
+        if re.search(r"display:\s*none", body):
+            assert not re.search(r"\.header-search(?![\w-])", selectors)
+    for asset in files("yoke_core.ui").joinpath("static").iterdir():
+        if asset.is_file():
+            assert b"header-search-button" not in asset.read_bytes(), asset.name

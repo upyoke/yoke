@@ -170,6 +170,8 @@ UNIVERSE_UI_CONTRACT_TESTS = (
     # selection and failed the full suite on the roster it was missing from.
     "runtime/api/test_universe_ui_assets.py",
     "runtime/api/test_hosted_stylesheet_entrypoints.py",
+    # Static CSS readers have no Python import edge to their subjects.
+    "runtime/api/test_dashboard_wrapping_rows.py",
 )
 UNIVERSE_UI_SOURCE_PREFIXES = (
     "packages/yoke-core/src/yoke_core/ui/static/",

@@ -103,7 +103,7 @@ export async function captureAlignmentProof({freshPage,output,baseline}){
   await page.locator(".topbar").screenshot({path:path.join(output,`header-two-pickers-${width}.png`)});await page.close();
  }
  const page=await freshPage(390);await page.locator(".actor-chip").evaluate((n)=>n.style.fontSize="16px");
- measured.actorInheritedFont=await page.locator(".topbar").evaluate((n)=>[...n.querySelectorAll(".navigation-toggle,.header-search-button,.header-universe-context,.header-actor-context")].map((b)=>({name:b.className,top:b.getBoundingClientRect().top,width:b.getBoundingClientRect().width})));
+ measured.actorInheritedFont=await page.locator(".topbar").evaluate((n)=>[...n.querySelectorAll(".navigation-toggle,.header-search,.header-universe-context,.header-actor-context")].map((b)=>({name:b.className,top:b.getBoundingClientRect().top,width:b.getBoundingClientRect().width})));
  if(!baseline)assert(measured.actorInheritedFont[3].top>measured.actorInheritedFont[0].top,"Inherited16px Actor font should exercise the overflow that12.5px fixes");
  await page.locator(".topbar").screenshot({path:path.join(output,"header-actor-inherited-390.png")});await page.close();
  await writeFile(path.join(output,"alignment-measurements.json"),JSON.stringify(measured,null,2));

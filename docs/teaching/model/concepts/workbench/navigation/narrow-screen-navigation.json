@@ -3,5 +3,6 @@
  "title": "Narrow-screen navigation",
  "status": "draft-copy",
  "page": "workbench",
- "position": 4
+ "position": 4,
+ "summary": "At the drawer breakpoint, search fills the header beside the menu and wordmark. Universe and Actor share equal halves below it; Projects has its own row. Search opens the same dialog at every width."
 }
