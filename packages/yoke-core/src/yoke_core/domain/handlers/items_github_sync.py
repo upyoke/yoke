@@ -11,16 +11,22 @@ from __future__ import annotations
 from yoke_core.domain.project_identity_item_ref import item_ref_for_id
 
 from typing import Any, Dict, List
+from shlex import quote
 
 from pydantic import BaseModel
 
 from yoke_contracts.api.function_call import (
     FunctionCallRequest,
     FunctionError,
+    FunctionWarning,
     HandlerOutcome,
 )
-from yoke_core.domain import backlog_github_sync
+from yoke_core.domain import backlog_github_sync, db_helpers
 from yoke_core.domain.backlog_github_sync_cli import check_ownership
+from yoke_core.domain.projects_github_sync_mode import (
+    github_sync_disabled_notice,
+    github_sync_enabled,
+)
 
 
 class GithubSyncRequest(BaseModel):
@@ -36,6 +42,7 @@ class GithubDoneSyncRequest(BaseModel):
 class GithubSyncResponse(BaseModel):
     item_id: int
     exit_code: int
+    skipped: bool = False
 
 
 def _error_outcome(code: str, message: str) -> HandlerOutcome:
@@ -43,6 +50,38 @@ def _error_outcome(code: str, message: str) -> HandlerOutcome:
         result_payload={},
         primary_success=False,
         error=FunctionError(code=code, message=message),
+    )
+
+
+def _disabled_sync_outcome(item_id: int, operation: str) -> HandlerOutcome | None:
+    with db_helpers.connect() as conn:
+        context = backlog_github_sync._item_context(item_id, conn=conn)
+        if context is None:
+            return _error_outcome(
+                "item_not_found",
+                "Read the item reference and retry with an existing item.",
+            )
+        _, project, _repo = context
+        if github_sync_enabled(project, conn=conn):
+            return None
+    return HandlerOutcome(
+        result_payload=GithubSyncResponse(
+            item_id=item_id,
+            exit_code=0,
+            skipped=True,
+        ).model_dump(),
+        primary_success=True,
+        warnings=[
+            FunctionWarning(
+                code="github_sync_disabled",
+                step="github_sync",
+                detail=(
+                    f"{github_sync_disabled_notice(project, operation)}. Enable with "
+                    f"yoke projects update --slug {quote(project)} --name <Name> "
+                    "--github-sync-mode enabled"
+                ),
+            )
+        ],
     )
 
 
@@ -69,6 +108,10 @@ def handle_github_sync(request: FunctionCallRequest) -> HandlerOutcome:
             f"Refusing to sync item for {item_ref_for_id(item_id)}: "
             f"work claim held by session {holder}",
         )
+
+    skipped = _disabled_sync_outcome(item_id, "sync-item")
+    if skipped is not None:
+        return skipped
 
     rc = backlog_github_sync.sync_item(item_id)
     if rc != 0:
@@ -116,6 +159,10 @@ def handle_github_done_sync(request: FunctionCallRequest) -> HandlerOutcome:
             f"Refusing to sync item for {item_ref_for_id(item_id)}: "
             f"work claim held by session {holder}",
         )
+
+    skipped = _disabled_sync_outcome(item_id, "done-sync")
+    if skipped is not None:
+        return skipped
 
     rc = backlog_github_sync.sync_done_item(item_id, payload.old_status)
     if rc != 0:

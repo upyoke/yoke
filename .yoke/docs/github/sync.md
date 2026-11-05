@@ -88,6 +88,10 @@ yoke projects github-sync-mode repair
 yoke projects github-sync-mode repair --apply
 ```
 
+`yoke items github-sync REF` on a disabled project succeeds with `skipped: true`
+and a `github_sync_disabled` warning containing the enable command above. It
+does not contact GitHub; the CLI prints the warning and includes it in `--json`.
+
 Enabling permits subsequent syncs to file backlog items and tasks as issues;
 it does not file an issue itself. Each issue creation, including the first,
 returns a short notice and the GitHub issue link. A response without a URL
