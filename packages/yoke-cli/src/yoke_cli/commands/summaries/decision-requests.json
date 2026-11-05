@@ -3,7 +3,7 @@
   "decision-requests dispose-ended": "Close pending decision requests whose subject has ended.",
   "decision-requests get": "Show one decision request and its decisions.",
   "decision-requests resolve": "Record your decision on a pending decision request.",
-  "decision-requests ask": "Ask project operators, named people, or a named audience; answers reach the requesting session.",
+  "decision-requests ask": "Ask project operators, named people, or an audience.",
   "decision-requests list": "List a session’s questions and answers.",
   "decision-requests withdraw": "Cancel a pending operator question."
 }

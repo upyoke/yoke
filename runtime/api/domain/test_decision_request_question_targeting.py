@@ -4,7 +4,10 @@ from unittest.mock import Mock
 
 import pytest
 
-from runtime.api.domain.test_decision_request_operator_question import conn as conn, filing
+from runtime.api.domain.test_decision_request_operator_question import (
+    conn as conn,
+    filing,
+)
 from yoke_core.domain import audiences
 from yoke_core.domain.decision_request_question_filing import file_question
 from yoke_core.domain.decision_request_question_target import question_target
@@ -130,10 +133,33 @@ def test_target_refuses_ambiguous_org_and_invalid_recipient(conn):
 def test_audience_scope_and_rules_are_required(conn):
     seed_members(conn)
     audience_id = audiences.create_audience(
-        conn, project_id=10, name="Empty", rules=[{"scope_kind": "actor", "scope_id": 3}]
+        conn,
+        project_id=10,
+        name="Empty",
+        rules=[{"scope_kind": "actor", "scope_id": 3}],
     )
     conn.execute("DELETE FROM audience_rules WHERE audience_id=?", (audience_id,))
     with pytest.raises(ValueError, match="empty_audience"):
         target(conn, project="yoke", audience="Empty")
     with pytest.raises(ValueError, match="missing or ambiguous"):
         target(conn, audience="Empty")
+
+
+@pytest.mark.parametrize(
+    "selector", [{"session_ids": ["one", "two"]}, {"universe": True}]
+)
+def test_engine_answers_require_one_exact_session(conn, selector):
+    from yoke_contracts.session_control.models import RecipientSelector
+    from yoke_core.domain.session_message_service import send_message
+    from yoke_core.domain.session_message_types import SessionMessageError
+
+    with pytest.raises(SessionMessageError) as refused:
+        send_message(
+            conn,
+            actor_id=1,
+            sender_session_id=None,
+            engine_sender=True,
+            selector=RecipientSelector(**selector),
+            body="Answer",
+        )
+    assert refused.value.code == "engine_message_target_invalid"

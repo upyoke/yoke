@@ -34,8 +34,12 @@ def question_target(conn, model, session, actor_id):
     if model.to and model.audience:
         raise invalid("choose --to or --audience, then retry")
     try:
-        recipients = resolve_actor_recipients(
-            conn, RecipientSelector(actors=model.to), sender_actor_id=actor_id
+        recipients = (
+            resolve_actor_recipients(
+                conn, RecipientSelector(actors=model.to), sender_actor_id=actor_id
+            )
+            if model.to
+            else []
         )
     except SessionMessageError as exc:
         raise invalid(f"{exc.code}: {exc}") from exc

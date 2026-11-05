@@ -224,8 +224,8 @@ def _named_question(test_db, monkeypatch, *, project_less):
     grant_actor_org_role(test_db, actor_id=recipient, org_id=org, role_name="viewer")
     if project_less:
         test_db.execute(
-            "UPDATE harness_sessions SET project_id=NULL WHERE session_id=%s",
-            (session,),
+            "UPDATE harness_sessions SET project_id=NULL, org_id=%s WHERE session_id=%s",
+            (org, session),
         )
         test_db.commit()
 
@@ -260,9 +260,23 @@ def test_named_recipient_sees_and_answers_and_asker_gets_mail(test_db, monkeypat
         resolve_decision_request(
             test_db, row["id"], actor_id=1, action="freeform", note="Blue"
         )
-    resolve_decision_request(
+    from yoke_core.domain.session_message_service import send_message
+    from yoke_core.domain.session_message_types import SessionMessageError
+    from yoke_contracts.session_control.models import RecipientSelector
+
+    with pytest.raises(SessionMessageError) as denied:
+        send_message(
+            test_db,
+            actor_id=recipient,
+            sender_session_id=None,
+            selector=RecipientSelector(session_ids=[session]),
+            body="Ordinary message",
+        )
+    assert denied.value.code == "unauthorized_target"
+    answered = resolve_decision_request(
         test_db, row["id"], actor_id=recipient, action="freeform", note="Blue"
     )
+    assert "reason" not in answered["subject_context"]["answer_delivery"], answered
     assert _recipients(test_db, f"operator-question-answer:{row['id']}") == [session]
 
 
@@ -285,9 +299,10 @@ def test_project_less_question_reaches_org_only_member(test_db, monkeypatch):
     call.actor.actor_id = str(outsider)
     hidden = handle_decision_request_get(call)
     assert not hidden.primary_success and hidden.error.code == "not_found"
-    resolve_decision_request(
+    answered = resolve_decision_request(
         test_db, row["id"], actor_id=recipient, action="freeform", note="Blue"
     )
+    assert "reason" not in answered["subject_context"]["answer_delivery"], answered
     assert _recipients(test_db, f"operator-question-answer:{row['id']}") == [session]
 
 
@@ -297,8 +312,12 @@ def test_project_less_question_without_audience_refuses(test_db, monkeypatch):
     _project(test_db)
     session = "unscoped-question-worker"
     seed_session(test_db, session)
+    org = test_db.execute(
+        "SELECT org_id FROM projects WHERE id=%s", (PROJECT_YOKE,)
+    ).fetchone()[0]
     test_db.execute(
-        "UPDATE harness_sessions SET project_id=NULL WHERE session_id=%s", (session,)
+        "UPDATE harness_sessions SET project_id=NULL, org_id=%s WHERE session_id=%s",
+        (org, session),
     )
     test_db.commit()
 
