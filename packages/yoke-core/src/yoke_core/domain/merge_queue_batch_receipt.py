@@ -38,6 +38,7 @@ from yoke_core.engines.merge_worktree_pr_train_run import (
     read_train_run,
 )
 from yoke_core.engines.merge_worktree_prepare import MergeContext
+from yoke_core.engines.merge_worktree_tests import resolve_verification
 
 
 @dataclass(frozen=True)
@@ -150,15 +151,50 @@ def observe_batch(
     )
 
 
+@dataclass(frozen=True)
+class EvidenceFailure:
+    """A failed evidence write and the action that can recover it."""
+
+    reason: str
+    retryable: bool
+    recovery: str
+
+
 def record_batch_evidence(
     item_id: int,
     receipt: BatchReceipt,
     *,
-    scope: str = "full",
     workflow: str = "",
     dispatch: Callable[..., Any] = call_dispatcher,
-) -> Optional[str]:
-    """Record the member's covering ``ci_run`` row; returns error text."""
+) -> Optional[EvidenceFailure]:
+    """Record the member's covering ``ci_run`` row under its merge-gate scope."""
+    target = public_item_target(item_id)
+    try:
+        scope, command, _covering = resolve_verification(
+            target.public_ref, materialize=False
+        )
+    except RuntimeError as exc:
+        reason = str(exc)
+        missing = "no executable registered" in reason
+        return EvidenceFailure(
+            reason=reason.split(" Register the project's suite", 1)[0]
+            if missing
+            else reason,
+            retryable=not missing,
+            recovery=(
+                "Register an executable suite with `yoke qa registered-command set "
+                "--project <p> --scope full --command '<command>'`."
+                if missing
+                else "Restore integration verification resolution, then retry close-out."
+            ),
+        )
+    if scope not in {"full", "quick"} or not command.strip():
+        return EvidenceFailure(
+            reason="merge_queue_ci_command_missing: no executable registered command",
+            retryable=False,
+            recovery="Register an executable suite with `yoke qa registered-command set "
+            "--project <p> --scope full --command '<command>'`.",
+        )
     raw_result = dumps_compact(
         {
             "verification_tree": {"head_sha": receipt.head_sha},
@@ -174,9 +210,10 @@ def record_batch_evidence(
     )
     response = dispatch(
         function_id="merge.tests.record_post_rebase_ci_run",
-        target=public_item_target(item_id),
+        target=target,
         payload={
             "scope": scope,
+            "command": command,
             "workflow": workflow,
             "verdict": "pass",
             "raw_result": raw_result,
@@ -186,7 +223,12 @@ def record_batch_evidence(
     if getattr(response, "success", False):
         return None
     error = getattr(response, "error", None)
-    return getattr(error, "message", None) or "batch evidence recording failed"
+    return EvidenceFailure(
+        reason=getattr(error, "message", None) or "batch evidence recording failed",
+        retryable=True,
+        recovery=getattr(error, "recovery_hint", "")
+        or "Retry close-out after restoring the evidence writer.",
+    )
 
 
 __all__ = ["BatchReceipt", "observe_batch", "record_batch_evidence"]

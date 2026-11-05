@@ -77,7 +77,7 @@ def connected_control_plane() -> Iterator[str]:
 def record_merge_queue_ci_evidence(
     item_id: int,
     receipt: queue_ci.BatchReceipt,
-) -> Optional[str]:
+) -> Optional[queue_ci.EvidenceFailure]:
     """Record one landed queue run where the terminal gate will read it."""
     with connected_control_plane():
         return queue_ci.record_batch_evidence(item_id, receipt)

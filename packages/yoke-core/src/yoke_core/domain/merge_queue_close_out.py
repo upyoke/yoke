@@ -266,10 +266,10 @@ def record_landing(
         else:
             evidence_error = record_batch_evidence(item_id, batch)
             if evidence_error:
-                ci_evidence_error = evidence_error
-                ci_evidence_retryable = True
-                ci_evidence_recovery = ""
-                warnings.append(f"batch evidence not recorded: {evidence_error}")
+                ci_evidence_error = evidence_error.reason
+                ci_evidence_retryable = evidence_error.retryable
+                ci_evidence_recovery = evidence_error.recovery
+                warnings.append(f"batch evidence not recorded: {evidence_error.reason}")
 
     try:
         landing_sha = verified_landing_identity(
