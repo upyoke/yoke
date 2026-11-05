@@ -29,7 +29,10 @@ def _run_javascript_tests(test_modules: list[Path]) -> None:
     if node is None:
         pytest.skip("node is unavailable for the vanilla-JS contract test")
     completed = subprocess.run(
-        [node, "--test", "--test-reporter=tap", *map(str, test_modules)],
+        [
+            node, "--test", "--test-concurrency=8", "--test-reporter=tap",
+            *map(str, test_modules),
+        ],
         cwd=Path(__file__).resolve().parents[2],
         text=True,
         capture_output=True,
