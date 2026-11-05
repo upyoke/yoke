@@ -7,7 +7,8 @@ doc.title = "Workbench";
 doc.referrer = "";
 let location = new URL("https://workbench.example/items?token=door&utm_source=email");
 const browser = Object.assign(new EventTarget(), {
-  innerWidth: 1200,
+  innerWidth: 1200, innerHeight: 800,
+  screen: { width: 1920, height: 1080 },
   history: {
     pushState(_state, _title, url) { if (url) location = new URL(url, location); },
     replaceState(_state, _title, url) { if (url) location = new URL(url, location); },
@@ -18,7 +19,7 @@ globalThis.window = browser;
 globalThis.history = browser.history;
 globalThis.document = doc;
 Object.defineProperty(globalThis, "navigator", {
-  value: { userAgent: "WorkbenchBrowser" }, configurable: true,
+  value: { userAgent: "WorkbenchBrowser", language: "en-US" }, configurable: true,
 });
 const requests = [], events = [];
 let configFailure = false;
@@ -63,6 +64,10 @@ test("workbench collects one initial view and one per path change with no consen
   assert.equal(events[0].visitor_id, record.visitor_id);
   assert.equal(events[0].event_type, "page_view");
   assert.equal(events[0].referrer, null);
+  assert.equal(events[0].language, "en-US");
+  assert.equal(events[0].time_zone, Intl.DateTimeFormat().resolvedOptions().timeZone);
+  assert.equal(events[0].screen, "1920x1080");
+  assert.equal(events[0].viewport, "1200x800");
   history.pushState({}, "", "/sessions");
   // Query-only rewrites (filters, ?selection=all) are not new pages.
   history.replaceState({}, "", "/sessions?tab=active");
