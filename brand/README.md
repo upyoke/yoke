@@ -42,7 +42,8 @@ fallbacks, loaded by `ui/static/fonts.css`, and OFL notices in `ui/static/fonts-
 [Google Fonts](https://github.com/google/fonts/tree/main/ofl) (firacode, firasans,
 martianmono). Consumer stylesheets load their adjacent `fonts.css`, keeping font
 URLs correct under both local and hosted asset prefixes. Public docs carry the
-same font bytes beside their stylesheets. Martian Mono is retained for live brand text.
+same font bytes embedded in their generated `fonts.css`: installed docs use a
+text bundle. `brand/export.sh` refreshes that CSS from the UI WOFF2 sources. Martian Mono is retained for live brand text.
 
 Install librsvg and ImageMagick, then run `yoke dev run -- bash brand/export.sh`.
 The script exports PNG and multi-size ICO files with `rsvg-convert` and `magick`,

@@ -302,7 +302,7 @@ test("The roster toolbar uses compact prototype controls without flattening fiel
   assert.match(css, /\.universe-app-root \{\s*--session-control-height: 34px;\s*\}/);
   assert.match(
     css,
-    /\.session-roster-filter \{[^}]*min-height: var\(--session-control-height\);[^}]*border: 1px solid var\(--yoke-border\);[^}]*border-radius: 9px;/s,
+    /\.session-roster-filter \{[^}]*min-height: var\(--session-control-height\);[^}]*border: 1px solid var\(--yoke-border\);[^}]*border-radius: var\(--yoke-radius\);/s,
   );
   // The Sessions toolbar grid sizes the search; the shared sheet only sets
   // its cursor.

@@ -43,7 +43,7 @@ test("a card's age follows its chip inline and is never pushed right", () => {
   assert.match(head, /flex-wrap: wrap;/);
 });
 
-test("the delivery box is a white container lifted off the card fill", () => {
+test("the delivery box contrasts with the card and uses shared corners", () => {
   const signals = css("universe_item_signals.css");
   const box = rule(signals, "\\.item-delivery");
   // The card itself is --yoke-surface; a box painted the same colour is the
@@ -57,7 +57,7 @@ test("the delivery box is a white container lifted off the card fill", () => {
   // Each environment's outcome keeps its own boxed form inside it.
   const subCard = rule(signals, "\\.item-deployment");
   assert.match(subCard, /border: 1px solid var\(--yoke-border\);/);
-  assert.match(subCard, /border-radius: 8px;/);
+  assert.match(subCard, /border-radius: var\(--yoke-radius\);/);
   assert.match(rule(signals, "\\.item-deployment-run"), /--yoke-accent/);
 });
 

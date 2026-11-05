@@ -62,7 +62,7 @@ function card(documentNode, extras = {}) {
   );
 }
 
-test("Currently held boxes in green while Previously held stays grey", () => {
+test("Currently held boxes use the positive accent while Previous stays muted", () => {
   const rendered = card(new FakeDocument());
   const previous = byClass(rendered, "session-holdings-previous")[0];
   const current = byClass(rendered, "session-holdings-current")[0];
@@ -100,7 +100,7 @@ test("Currently held boxes in green while Previously held stays grey", () => {
     /\.session-holdings-idle \{\n  border-left: 3px solid var\(--yoke-idle\)/,
   );
   assert.match(css, /padding: 7px 9px/);
-  assert.match(css, /border-radius: 4px/);
+  assert.match(css, /border-radius: var\(--yoke-radius\)/);
 });
 
 test("the stage strip starts at the box edge with session-scoped contrast", () => {
