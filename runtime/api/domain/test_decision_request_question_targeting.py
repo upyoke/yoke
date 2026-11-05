@@ -129,7 +129,10 @@ def test_target_refuses_ambiguous_org_and_invalid_recipient(conn):
 
 def test_audience_scope_and_rules_are_required(conn):
     seed_members(conn)
-    audiences.create_audience(conn, project_id=10, name="Empty", rules=[])
+    audience_id = audiences.create_audience(
+        conn, project_id=10, name="Empty", rules=[{"scope_kind": "actor", "scope_id": 3}]
+    )
+    conn.execute("DELETE FROM audience_rules WHERE audience_id=?", (audience_id,))
     with pytest.raises(ValueError, match="empty_audience"):
         target(conn, project="yoke", audience="Empty")
     with pytest.raises(ValueError, match="missing or ambiguous"):
