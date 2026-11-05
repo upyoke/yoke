@@ -99,7 +99,7 @@ test("the shortcut opens and closes the same dialog from anywhere", async (t) =>
 
 test("arrow keys walk the results and Enter follows the active one", async (t) => {
   const { documentNode, root } = await mountShell(t, fixtureClient());
-  byClass(root, "header-search-button")[0].dispatchEvent(new Event("click"));
+  byClass(root, "header-search")[0].dispatchEvent(new Event("click"));
   const input = byClass(root, "header-search-input")[0];
   input.value = "rebaseline";
   input.dispatchEvent(new Event("input"));

@@ -97,8 +97,8 @@
     // topbarStart — the platform's Universe membership menu.
     function sampleOrgSwitcher() {
       const details = el("details", "hosted-universe-menu hosted-context-control");
-      const summary = el("summary");
-      summary.appendChild(el("span", "hosted-context-label", "UNIVERSE"));
+      const summary = el("summary", "header-context-control");
+      summary.appendChild(el("span", "header-context-label", "UNIVERSE"));
       summary.appendChild(el("span", "hosted-universe-current", SAMPLE_ORG.name));
       const panel = el("div", "hosted-universe-panel");
       panel.appendChild(el(
@@ -129,9 +129,9 @@
     // topbarEnd — the platform's inline Actor identity and account menu.
     function sampleUserMenu() {
       const details = el("details", "hosted-user-menu hosted-context-control");
-      const summary = el("summary");
+      const summary = el("summary", "header-context-control");
       summary.setAttribute("aria-label", "Ben (sample)");
-      summary.appendChild(el("span", "hosted-context-label", "ACTOR"));
+      summary.appendChild(el("span", "header-context-label", "ACTOR"));
       summary.appendChild(el("span", "hosted-user-avatar", "B"));
       const identity = el("span", "hosted-actor-identity");
       identity.appendChild(el("span", "hosted-actor-name", "Ben (sample)"));

@@ -167,7 +167,7 @@ const freshPage=async(width)=>{
  return page;
 };
 try{
- for(const width of [1280,390,375,320]){
+ for(const width of [1280,768,390,375,320]){
   const page=await freshPage(width);
   const data=await page.evaluate(()=>{
    const r=(n)=>n.getBoundingClientRect();
@@ -202,16 +202,27 @@ try{
    assert.deepEqual(data.item,{display:"flex",margin:"10px"});
   }
   const header=await page.locator(".topbar").evaluate((n)=>{
-   const style=getComputedStyle(n);return {width:n.getBoundingClientRect().width,gap:style.columnGap,
-    hoverNone:matchMedia("(hover: none)").matches, actorPadding:getComputedStyle(n.querySelector(".actor-chip")).padding, padding:[style.paddingLeft,style.paddingRight],children:[...n.children].map((b)=>({class:b.className,width:b.getBoundingClientRect().width,display:getComputedStyle(b).display})),boxes:[...n.querySelectorAll(".navigation-toggle,.header-search-button,.header-context-control")]
+   const style=getComputedStyle(n);return {right:n.getBoundingClientRect().right-parseFloat(style.paddingRight),width:n.getBoundingClientRect().width,gap:style.columnGap,
+    hoverNone:matchMedia("(hover: none)").matches, actorPadding:getComputedStyle(n.querySelector(".actor-chip")).padding, padding:[style.paddingLeft,style.paddingRight],children:[...n.children].map((b)=>({class:b.className,width:b.getBoundingClientRect().width,display:getComputedStyle(b).display})),boxes:[...n.querySelectorAll(".navigation-toggle,.brand,.header-search,.header-context-control")]
      .map((b)=>({class:b.className,text:b.textContent,top:b.getBoundingClientRect().top,
-       width:b.getBoundingClientRect().width,height:b.getBoundingClientRect().height}))};
+       right:b.getBoundingClientRect().right,width:b.getBoundingClientRect().width,height:b.getBoundingClientRect().height}))};
   });
   await writeFile(path.join(output,`header-${width}.json`),JSON.stringify(header,null,2));
-  if(!sourceRoot && width===390){
-   assert(header.hoverNone,"Phone proof must exercise hover:none");
-   const first=header.boxes.filter((b)=>!b.class.includes("project"));
-   assert(Math.max(...first.map((b)=>b.top)) < Math.min(...first.map((b)=>b.top+b.height)),"Menu, search, Universe and Actor must share row at 390px");
+  if(!sourceRoot){
+   const box=(name)=>header.boxes.find((b)=>b.class.split(" ").includes(name));
+   const search=box("header-search"),actor=box("header-actor-context");
+   if(width<=980){
+    assert(header.hoverNone,"Compact proof must exercise hover:none");
+    const first=[box("navigation-toggle"),box("brand"),search];
+    assert(Math.max(...first.map((b)=>b.top)) < Math.min(...first.map((b)=>b.top+b.height)),"Menu, wordmark and search must share the first row");
+    assert(Math.abs(search.right-header.right)<=1,"Search must fill the remaining first row");
+    const universe=box("header-universe-context"),projects=box("header-project-context");
+    assert(Math.abs(universe.top-actor.top)<=1 && actor.top>=search.top+search.height,"Equal contexts must share the second row");
+    assert(Math.abs(universe.width-actor.width)<=1,"Universe and Actor must have equal widths");
+    assert(projects.top>=actor.top+actor.height,"Projects must sit below Actor");
+   }else{
+    assert(Math.max(search.top,actor.top)<Math.min(search.top+search.height,actor.top+actor.height),"Desktop search and Actor must share one row");
+   }
   }
   if(!sourceRoot && width===390){
    const controls=await page.locator(".header-context-control").evaluateAll((nodes)=>nodes.map((n)=>n.getBoundingClientRect().height));

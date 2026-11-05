@@ -15,8 +15,7 @@
 /* ---------- search ----------
    The header control is an entry point, not the feature: a button shaped like
    a field, which opens the dialog the shortcut it advertises also opens. The
-   icon button beside it is the same entry point at a width the field cannot
-   survive, so search never disappears with the space it needed. */
+   field fills the remaining header width on compact screens. */
 .universe-app-root .header-search {
   display: flex;
   width: min(280px, 32vw);
