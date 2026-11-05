@@ -1,9 +1,15 @@
 """Authority refusal boundaries for the self-hosted runner Pack."""
 
+from dataclasses import replace
+
 import pytest
 
 from runtime.api.domain.test_webapp_registry_stack import _Recorder
-from runtime.api.domain.webapp_runner_fleet_test_support import _runner_stack
+from runtime.api.domain.webapp_runner_fleet_test_support import (
+    _authority_envelope,
+    _runner_stack,
+    default_runner_stack as default_runner_stack,
+)
 
 
 @pytest.mark.parametrize(
@@ -38,8 +44,7 @@ from runtime.api.domain.webapp_runner_fleet_test_support import _runner_stack
                 "github_repo_owner": "other-org",
                 "github_repo_name": "other-repo",
                 "github_private_key_secret_arn": (
-                    "arn:aws:secretsmanager:us-east-1:123456789012:"
-                    "secret:other-app"
+                    "arn:aws:secretsmanager:us-east-1:123456789012:secret:other-app"
                 ),
             },
             {
@@ -62,7 +67,10 @@ from runtime.api.domain.webapp_runner_fleet_test_support import _runner_stack
             {
                 "runner_variable_name": "YOKE_LINUX_RUNS_ON",
                 "runner_labels": [
-                    "self-hosted", "Linux", "ARM64", "yoke-github-actions",
+                    "self-hosted",
+                    "Linux",
+                    "ARM64",
+                    "yoke-github-actions",
                 ],
                 "routing_enabled": True,
             },
@@ -110,19 +118,33 @@ from runtime.api.domain.webapp_runner_fleet_test_support import _runner_stack
         ),
     ],
 )
-def test_authority_drift_refuses_before_github_provider_construction(
-    monkeypatch, config_overrides, authority_overrides, field,
+def test_authority_comparator_rejects_each_drift(
+    monkeypatch,
+    default_runner_stack,
+    config_overrides,
+    authority_overrides,
+    field,
 ):
-    recorder = _Recorder()
-
+    recorder, _ = default_runner_stack
+    authority = dict(recorder.runner_authority, **authority_overrides)
+    monkeypatch.setenv(
+        recorder.authority_intent.AUTHORITY_INTENT_ENV, _authority_envelope(authority)
+    )
     with pytest.raises(RuntimeError, match=field):
-        _runner_stack(
-            monkeypatch,
-            config_overrides=config_overrides,
-            authority_overrides=authority_overrides,
-            recorder=recorder,
+        recorder.authority_intent.require_matching_authority_intent(
+            replace(recorder.runner_args, **config_overrides),
+            stack_name="yoke-runner-fleet",
         )
 
+
+def test_authority_drift_refuses_before_github_provider_construction(monkeypatch):
+    recorder = _Recorder()
+    with pytest.raises(RuntimeError, match="api_url"):
+        _runner_stack(
+            monkeypatch,
+            config_overrides={"github_api_url": "https://attacker.example"},
+            recorder=recorder,
+        )
     assert recorder.resources == []
 
 

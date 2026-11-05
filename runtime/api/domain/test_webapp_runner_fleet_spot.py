@@ -6,16 +6,19 @@ file approaches the authored-file line limit.
 
 from __future__ import annotations
 
-from runtime.api.domain.webapp_runner_fleet_test_support import _runner_stack
+from runtime.api.domain.webapp_runner_fleet_test_support import (
+    _runner_stack,
+    default_runner_stack as default_runner_stack,
+)
 
 
-def test_asg_buys_spare_capacity_and_replaces_reclaimed_hosts(monkeypatch):
+def test_asg_buys_spare_capacity_and_replaces_reclaimed_hosts(default_runner_stack):
     """Runners are disposable, so the fleet defaults to spare (spot) capacity.
 
     An ASG can only hold spot through a mixed-instances policy, so the policy
     carries the launch template instead of the plain ``launch_template`` arg.
     """
-    recorder, _stack = _runner_stack(monkeypatch)
+    recorder, _stack = default_runner_stack
     asg = recorder.single("runnerFleetAsg")
 
     assert "launch_template" not in asg.kwargs
@@ -44,9 +47,11 @@ def test_asg_can_hold_an_on_demand_floor(monkeypatch):
         spot_on_demand_base_capacity=1,
         spot_on_demand_percentage_above_base=50,
     )
-    distribution = recorder.single("runnerFleetAsg").kwargs[
-        "mixed_instances_policy"
-    ].kwargs["instances_distribution"]
+    distribution = (
+        recorder.single("runnerFleetAsg")
+        .kwargs["mixed_instances_policy"]
+        .kwargs["instances_distribution"]
+    )
 
     assert distribution.kwargs["on_demand_base_capacity"] == 1
     assert distribution.kwargs["on_demand_percentage_above_base_capacity"] == 50

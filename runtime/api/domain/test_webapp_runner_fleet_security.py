@@ -2,15 +2,18 @@
 
 import json
 
-from runtime.api.domain.webapp_runner_fleet_test_support import _runner_stack
+from runtime.api.domain.webapp_runner_fleet_test_support import (
+    _runner_stack,
+    default_runner_stack as default_runner_stack,
+)
 from runtime.api.domain.webapp_pulumi_test_support import _pack_program_source
 from yoke_core.domain.project_renderer_pulumi_files import (
     RUNNER_FLEET_PROGRAM_FILES,
 )
 
 
-def test_github_broker_is_only_app_key_reader_and_token_minter(monkeypatch):
-    recorder, stack = _runner_stack(monkeypatch)
+def test_github_broker_is_only_app_key_reader_and_token_minter(default_runner_stack):
+    recorder, stack = default_runner_stack
 
     broker = recorder.single("runnerFleetGithubBroker")
     assert broker.kwargs["runtime"] == "nodejs22.x"
@@ -22,18 +25,26 @@ def test_github_broker_is_only_app_key_reader_and_token_minter(monkeypatch):
     assert variables["GITHUB_REPO_OWNER"] == "upyoke"
     assert variables["GITHUB_REPO_NAME"] == "yoke"
     source = broker.kwargs["code"].kwargs["assets"]["index.mjs"].kwargs["text"]
-    api_source = broker.kwargs["code"].kwargs["assets"][
-        "webapp_runner_github_api.mjs"
-    ].kwargs["text"]
-    registration_source = broker.kwargs["code"].kwargs["assets"][
-        "webapp_runner_registration.mjs"
-    ].kwargs["text"]
-    aws_state_source = broker.kwargs["code"].kwargs["assets"][
-        "webapp_runner_aws_state.mjs"
-    ].kwargs["text"]
-    termination_source = broker.kwargs["code"].kwargs["assets"][
-        "webapp_runner_termination.mjs"
-    ].kwargs["text"]
+    api_source = (
+        broker.kwargs["code"]
+        .kwargs["assets"]["webapp_runner_github_api.mjs"]
+        .kwargs["text"]
+    )
+    registration_source = (
+        broker.kwargs["code"]
+        .kwargs["assets"]["webapp_runner_registration.mjs"]
+        .kwargs["text"]
+    )
+    aws_state_source = (
+        broker.kwargs["code"]
+        .kwargs["assets"]["webapp_runner_aws_state.mjs"]
+        .kwargs["text"]
+    )
+    termination_source = (
+        broker.kwargs["code"]
+        .kwargs["assets"]["webapp_runner_termination.mjs"]
+        .kwargs["text"]
+    )
     assert 'administration: "write"' in api_source
     assert 'repository_hooks: "read"' in api_source
     assert 'actions_variables: "read"' in api_source
@@ -46,16 +57,14 @@ def test_github_broker_is_only_app_key_reader_and_token_minter(monkeypatch):
     assert "currentAsgInstanceIds" in aws_state_source
     assert "MaxRecords: 50" in aws_state_source
     assert "termination_acknowledged" in termination_source
-    assert "redirect: \"error\"" in api_source
+    assert 'redirect: "error"' in api_source
     assert "validatedApiBase" in api_source
     assert "canonical GitHub HTTPS API base" in api_source
     assert "SecretString" in api_source
     assert variables["BROKER_MODE"] == "bootstrap"
     reaper = recorder.single("runnerFleetGithubReaper")
     assert reaper.kwargs["runtime"] == "nodejs22.x"
-    assert reaper.kwargs["environment"].kwargs["variables"]["BROKER_MODE"] == (
-        "reaper"
-    )
+    assert reaper.kwargs["environment"].kwargs["variables"]["BROKER_MODE"] == ("reaper")
 
     secret_policy = recorder.single("runnerFleetGithubBootstrapSecretRead")
     assert "secretsmanager:GetSecretValue" in secret_policy.kwargs["policy"]
@@ -76,21 +85,25 @@ def test_github_broker_is_only_app_key_reader_and_token_minter(monkeypatch):
     reaper_policy = recorder.single("runnerFleetGithubReaperRuntime")
     reaper_document = json.loads(reaper_policy.kwargs["policy"])
     assert "autoscaling:SetDesiredCapacity" in reaper_policy.kwargs["policy"]
-    assert "autoscaling:TerminateInstanceInAutoScalingGroup" in (
-        reaper_policy.kwargs["policy"]
+    assert (
+        "autoscaling:TerminateInstanceInAutoScalingGroup"
+        in (reaper_policy.kwargs["policy"])
     )
     assert "ec2:DescribeInstances" in reaper_policy.kwargs["policy"]
     path_read = next(
-        statement for statement in reaper_document["Statement"]
+        statement
+        for statement in reaper_document["Statement"]
         if statement["Action"] == "ssm:GetParametersByPath"
     )
     marker_delete = next(
-        statement for statement in reaper_document["Statement"]
+        statement
+        for statement in reaper_document["Statement"]
         if "ssm:DeleteParameter" in statement["Action"]
     )
     assert path_read["Resource"].endswith("/bootstrap")
     assert set(marker_delete["Action"]) == {
-        "ssm:PutParameter", "ssm:DeleteParameter",
+        "ssm:PutParameter",
+        "ssm:DeleteParameter",
     }
     assert marker_delete["Resource"].endswith("/bootstrap/*")
     for resource_name in (
@@ -111,11 +124,13 @@ def test_github_broker_is_only_app_key_reader_and_token_minter(monkeypatch):
         assert resource_name in webhook_policy.kwargs["policy"]
     assert '"Resource": "*"' not in webhook_policy.kwargs["policy"]
     role_policies = [
-        resource for resource in recorder.resources
+        resource
+        for resource in recorder.resources
         if resource.resource_type == "aws:iam:RolePolicy"
     ]
     wildcard_policies = [
-        policy for policy in role_policies
+        policy
+        for policy in role_policies
         if '"Resource": "*"' in policy.kwargs["policy"]
     ]
     assert wildcard_policies == [bootstrap_policy, reaper_policy]
@@ -128,16 +143,15 @@ def test_github_broker_is_only_app_key_reader_and_token_minter(monkeypatch):
 
 def test_runner_fleet_has_only_short_lived_repository_credential_input():
     stack_source = _pack_program_source("webapp_runner_fleet_stack.py").read_text()
-    webhook_source = _pack_program_source(
-        "webapp_runner_github_webhook.py"
-    ).read_text()
+    webhook_source = _pack_program_source("webapp_runner_github_webhook.py").read_text()
     provider_source = _pack_program_source(
         "webapp_github_repository_provider.py"
     ).read_text()
     runtime_sources = "\n".join(
         _pack_program_source(name).read_text()
         for name in RUNNER_FLEET_PROGRAM_FILES
-        if name not in {
+        if name
+        not in {
             "webapp_runner_fleet_stack.py",
             "webapp_runner_github_webhook.py",
         }
@@ -147,7 +161,7 @@ def test_runner_fleet_has_only_short_lived_repository_credential_input():
     assert "require_repository_token_environment" in stack_source
     assert "RUNNER_FLEET_GITHUB_TOKEN" in provider_source
     assert "create_repository_provider" in webhook_source
-    assert 'os.environ.get(GITHUB_TOKEN_ENV' in provider_source
+    assert "os.environ.get(GITHUB_TOKEN_ENV" in provider_source
     assert "hmac.compare_digest(token, provider_token)" in provider_source
     assert "os.environ.pop(GITHUB_TOKEN_ENV)" in provider_source
     assert "os.environ[GITHUB_TOKEN_ENV] = provider_token" in provider_source

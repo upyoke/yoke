@@ -10,17 +10,15 @@ import types
 
 import pytest
 
-from runtime.api.domain.test_webapp_registry_stack import (
-    _Recorder,
-    _load_pack_module,
+from runtime.api.domain.webapp_runner_fleet_test_support import (
+    _runner_stack,
+    default_runner_stack as default_runner_stack,
 )
-from runtime.api.domain.webapp_runner_fleet_test_support import _runner_stack
 
 
-def test_launch_template_uses_selected_size_and_disposable_root(monkeypatch):
-    recorder, _stack = _runner_stack(monkeypatch)
+def test_launch_template_uses_selected_size_and_disposable_root(default_runner_stack):
+    recorder, _stack = default_runner_stack
     launch_template = recorder.single("runnerFleetLaunchTemplate")
-
     assert launch_template.kwargs["instance_type"] == "m7g.2xlarge"
     block = launch_template.kwargs["block_device_mappings"][0]
     ebs = block.kwargs["ebs"]
@@ -31,13 +29,16 @@ def test_launch_template_uses_selected_size_and_disposable_root(monkeypatch):
 
     user_data = base64.b64decode(launch_template.kwargs["user_data"]).decode()
     subprocess.run(
-        ["bash", "-n"], input=user_data, text=True, check=True,
+        ["bash", "-n"],
+        input=user_data,
+        text=True,
+        check=True,
         capture_output=True,
     )
     assert "RUNNER_COUNT=" not in user_data
     assert "RUNNER_ARCH=arm64" in user_data
     assert "awscli-exe-linux-${AWSCLI_ARCH}.zip" in user_data
-    assert "AWSCLI_ARCH=\"aarch64\"" in user_data
+    assert 'AWSCLI_ARCH="aarch64"' in user_data
     assert "actions/runners/downloads" not in user_data
     assert "github_broker bootstrap" in user_data
     assert "github_broker failed" in user_data
@@ -67,14 +68,16 @@ def test_launch_template_uses_selected_size_and_disposable_root(monkeypatch):
     assert "GITHUB_TOKEN" not in user_data
     assert "ssm get-parameter" not in user_data
 
-def test_user_data_serializes_broker_actions_as_json(monkeypatch, tmp_path):
-    recorder, _stack = _runner_stack(monkeypatch)
+
+def test_user_data_serializes_broker_actions_as_json(default_runner_stack, tmp_path):
+    recorder, _stack = default_runner_stack
     launch_template = recorder.single("runnerFleetLaunchTemplate")
     user_data = base64.b64decode(
         launch_template.kwargs["user_data"],
     ).decode()
     function = user_data.split("github_broker() {", 1)[1].split(
-        "\n\nBOOTSTRAP_FILE=", 1,
+        "\n\nBOOTSTRAP_FILE=",
+        1,
     )[0]
     aws_path = tmp_path / "aws"
     aws_path.write_text(
@@ -113,9 +116,7 @@ def test_user_data_serializes_broker_actions_as_json(monkeypatch, tmp_path):
         )
         observed.append(json.loads(payload_path.read_text()))
         argv = json.loads(args_path.read_text())
-        assert argv[argv.index("--cli-binary-format") + 1] == (
-            "raw-in-base64-out"
-        )
+        assert argv[argv.index("--cli-binary-format") + 1] == ("raw-in-base64-out")
 
     assert observed == [
         {"action": action, "instance_id": "i-0123456789abcdef0"}
@@ -123,32 +124,31 @@ def test_user_data_serializes_broker_actions_as_json(monkeypatch, tmp_path):
     ]
 
 
-def test_runner_network_is_dedicated_and_egress_limited(monkeypatch):
-    recorder, _stack = _runner_stack(monkeypatch)
+def test_runner_network_is_dedicated_and_egress_limited(default_runner_stack):
+    recorder, _stack = default_runner_stack
     vpc = recorder.single("runnerFleetVpc")
     assert vpc.kwargs["cidr_block"] == "10.253.0.0/24"
     subnet = recorder.single("runnerFleetSubnet")
     assert subnet.kwargs["vpc_id"].value == "runnerFleetVpc.id"
     assert subnet.kwargs["map_public_ip_on_launch"] is True
     asg = recorder.single("runnerFleetAsg")
-    assert asg.kwargs["vpc_zone_identifiers"][0].value == (
-        "runnerFleetSubnet.id"
-    )
+    assert asg.kwargs["vpc_zone_identifiers"][0].value == ("runnerFleetSubnet.id")
     security_group = recorder.single("runnerFleetSecurityGroup")
     egress = security_group.kwargs["egress"]
     assert {(rule.kwargs["protocol"], rule.kwargs["from_port"]) for rule in egress} == {
-        ("tcp", 443), ("tcp", 80), ("udp", 53), ("tcp", 53),
+        ("tcp", 443),
+        ("tcp", 80),
+        ("udp", 53),
+        ("tcp", 53),
         ("tcp", 22),
     }
     assert all(rule.kwargs["protocol"] != "-1" for rule in egress)
     ssh_rules = [rule for rule in egress if rule.kwargs["from_port"] == 22]
     assert [rule.kwargs["cidr_blocks"] for rule in ssh_rules] == [
-        ["203.0.113.10/32"], ["203.0.113.11/32"],
+        ["203.0.113.10/32"],
+        ["203.0.113.11/32"],
     ]
-    assert all(
-        rule.kwargs["cidr_blocks"] != ["0.0.0.0/0"]
-        for rule in ssh_rules
-    )
+    assert all(rule.kwargs["cidr_blocks"] != ["0.0.0.0/0"] for rule in ssh_rules)
     assert recorder.stack_references == ["yoke-prod", "yoke-stage"]
     assert recorder.stack_reference_outputs == [
         ("yoke-prod", "originElasticIpAddress"),
@@ -182,11 +182,8 @@ def test_runner_network_deduplicates_same_ssh_destination(monkeypatch):
     assert [rule.kwargs["cidr_blocks"] for rule in ssh_rules] == [
         ["203.0.113.10/32"],
     ]
-    assert ssh_rules[0].kwargs["description"] == (
-        "SSH to deployment stack yoke-prod"
-    )
+    assert ssh_rules[0].kwargs["description"] == ("SSH to deployment stack yoke-prod")
     assert recorder.stack_references == ["yoke-prod", "yoke-stage"]
-
 
 def test_runner_network_rejects_non_ipv4_stack_output(monkeypatch):
     with pytest.raises(RuntimeError, match="must use an IPv4 Elastic IP"):
@@ -199,9 +196,8 @@ def test_runner_network_rejects_non_ipv4_stack_output(monkeypatch):
         )
 
 
-def test_idle_reaper_runs_outside_the_workflow_host(monkeypatch):
-    recorder, _stack = _runner_stack(monkeypatch)
-
+def test_idle_reaper_runs_outside_the_workflow_host(default_runner_stack):
+    recorder, _stack = default_runner_stack
     reaper_runtime = recorder.single("runnerFleetGithubReaperRuntime")
     for parameter_name in (
         "runnerFleetLifecycleState",
@@ -219,15 +215,9 @@ def test_idle_reaper_runs_outside_the_workflow_host(monkeypatch):
     assert permission in target.opts.depends_on
 
 
-def test_user_data_treats_rendered_values_as_data(monkeypatch):
-    recorder = _Recorder()
-    host_cycle = _load_pack_module(
-        monkeypatch, recorder, "webapp_runner_host_cycle.py",
-    )
-    internals = _load_pack_module(
-        monkeypatch, recorder, "webapp_runner_fleet_internals.py",
-        extra_modules={"webapp_runner_host_cycle": host_cycle},
-    )
+def test_user_data_treats_rendered_values_as_data(default_runner_stack):
+    recorder, _ = default_runner_stack
+    internals = recorder.internals
     args = types.SimpleNamespace(
         deploy_namespace="yoke$(exit 77)",
         github_repo="acme/repo$(exit 78)",
@@ -251,39 +241,37 @@ def test_user_data_treats_rendered_values_as_data(monkeypatch):
         check=True,
         capture_output=True,
     )
-
     assert result.stdout == "yoke$(exit 77)"
     assert "instance_id" in script
 
 
-def test_asg_starts_at_zero_and_keeps_one_disposable_host(monkeypatch):
-    recorder, _stack = _runner_stack(monkeypatch)
+def test_asg_starts_at_zero_and_keeps_one_disposable_host(default_runner_stack):
+    recorder, _stack = default_runner_stack
     asg = recorder.single("runnerFleetAsg")
 
     assert asg.kwargs["name"] == "yoke-github-actions-runner-fleet"
     assert asg.kwargs["min_size"] == 0
     assert "desired_capacity" not in asg.kwargs
     assert asg.kwargs["max_size"] == 1
-    assert asg.kwargs["vpc_zone_identifiers"][0].value == (
-        "runnerFleetSubnet.id"
-    )
+    assert asg.kwargs["vpc_zone_identifiers"][0].value == ("runnerFleetSubnet.id")
     assert asg.opts.ignore_changes == ["desiredCapacity"]
 
 
 def test_asg_supports_multiple_isolated_ephemeral_hosts(monkeypatch):
     recorder, _stack = _runner_stack(
-        monkeypatch, runner_count=2, max_count=2,
+        monkeypatch,
+        runner_count=2,
+        max_count=2,
     )
-
     assert recorder.single("runnerFleetAsg").kwargs["max_size"] == 2
     webhook = recorder.single("runnerFleetWebhook")
-    assert webhook.kwargs["environment"].kwargs["variables"][
-        "DESIRED_RUNNER_COUNT"
-    ] == "2"
+    assert (
+        webhook.kwargs["environment"].kwargs["variables"]["DESIRED_RUNNER_COUNT"] == "2"
+    )
     reaper = recorder.single("runnerFleetGithubReaper")
-    assert reaper.kwargs["environment"].kwargs["variables"][
-        "DESIRED_RUNNER_COUNT"
-    ] == "2"
+    assert (
+        reaper.kwargs["environment"].kwargs["variables"]["DESIRED_RUNNER_COUNT"] == "2"
+    )
 
 
 def test_stack_rejects_desired_capacity_above_maximum(monkeypatch):
@@ -291,9 +279,8 @@ def test_stack_rejects_desired_capacity_above_maximum(monkeypatch):
         _runner_stack(monkeypatch, runner_count=2, max_count=1)
 
 
-def test_webhook_lambda_is_hmac_backed_and_routes_matching_labels(monkeypatch):
-    recorder, _stack = _runner_stack(monkeypatch)
-
+def test_webhook_lambda_is_hmac_backed_and_routes_matching_labels(default_runner_stack):
+    recorder, _stack = default_runner_stack
     generated_secret = recorder.single("runnerFleetWebhookSecretValue")
     assert generated_secret.kwargs["length"] == 64
     assert generated_secret.kwargs["special"] is False
@@ -310,9 +297,7 @@ def test_webhook_lambda_is_hmac_backed_and_routes_matching_labels(monkeypatch):
     assert variables["WEBHOOK_SECRET_PARAMETER"] == (
         "/yoke/github-actions-runner-fleet/webhook-secret"
     )
-    assert variables["WEBHOOK_SECRET_VERSION"] == (
-        "runnerFleetWebhookSecret.version"
-    )
+    assert variables["WEBHOOK_SECRET_VERSION"] == ("runnerFleetWebhookSecret.version")
     assert variables["REQUIRED_LABELS"] == (
         "self-hosted,Linux,ARM64,yoke-github-actions"
     )
@@ -336,8 +321,9 @@ def test_webhook_lambda_is_hmac_backed_and_routes_matching_labels(monkeypatch):
     assert "QUEUE_ACTIVITY_PARAMETER" in code_asset.kwargs["text"]
     assert "RUNNER_PROGRESS_PARAMETER" in code_asset.kwargs["text"]
     assert "RUNNER_COMPLETION_PARAMETER" in code_asset.kwargs["text"]
-    assert 'DesiredCapacity=int(os.environ["DESIRED_RUNNER_COUNT"])' in (
-        code_asset.kwargs["text"]
+    assert (
+        'DesiredCapacity=int(os.environ["DESIRED_RUNNER_COUNT"])'
+        in (code_asset.kwargs["text"])
     )
     assert code_asset.kwargs["text"].index("QUEUE_ACTIVITY_PARAMETER") < (
         code_asset.kwargs["text"].index("set_desired_capacity")
@@ -353,10 +339,7 @@ def test_webhook_lambda_is_hmac_backed_and_routes_matching_labels(monkeypatch):
     invoke_permission = recorder.single("runnerFleetWebhookUrlInvokePermission")
     assert invoke_permission.props["function_name"].value == "runnerFleetWebhook.name"
     assert invoke_permission.props["region"] == "us-east-1"
-    assert (
-        invoke_permission.props["statement_id"]
-        == "FunctionURLAllowPublicInvokeOnly"
-    )
+    assert invoke_permission.props["statement_id"] == "FunctionURLAllowPublicInvokeOnly"
     assert permission in invoke_permission.opts.depends_on
     assert url in invoke_permission.opts.depends_on
 

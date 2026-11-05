@@ -1,5 +1,7 @@
 """Canonical stored-clock refusals and complete writer pause admission."""
 
+from dataclasses import replace
+
 import hashlib
 import hmac
 import json
@@ -21,7 +23,10 @@ from runtime.api.domain.test_webapp_runner_github_broker import (
 from runtime.api.domain.webapp_runner_broker_test_support import (
     _write_node_fixture,
 )
-from runtime.api.domain.webapp_runner_fleet_test_support import _runner_stack
+from runtime.api.domain.webapp_runner_fleet_test_support import (
+    _runner_stack,
+    default_runner_stack as default_runner_stack,
+)
 
 
 @pytest.mark.parametrize(
@@ -60,13 +65,21 @@ def test_pause_authority_drift_refuses_before_resources(monkeypatch):
 
 
 @pytest.mark.parametrize("value", ["false", 0, None])
-def test_pause_requires_a_boolean_before_resources(monkeypatch, value):
-    recorder = _Recorder()
+def test_pause_requires_a_boolean(default_runner_stack, value):
+    recorder, _ = default_runner_stack
     with pytest.raises(ValueError, match="runner_writer_pause_invalid"):
-        _runner_stack(monkeypatch, lifecycle_writers_paused=value, recorder=recorder)
-    assert recorder.resources == []
+        recorder.fleet_config.validate_runner_fleet_configuration(
+            replace(recorder.runner_args, lifecycle_writers_paused=value)
+        )
     with pytest.raises(ValueError, match="writers_paused"):
         RunnerFleetLifecycleSettings(writers_paused=value)
+
+
+def test_invalid_pause_refuses_before_resources(monkeypatch):
+    recorder = _Recorder()
+    with pytest.raises(ValueError, match="runner_writer_pause_invalid"):
+        _runner_stack(monkeypatch, lifecycle_writers_paused="false", recorder=recorder)
+    assert recorder.resources == []
 
 
 @pytest.mark.skipif(shutil.which("node") is None, reason="node is unavailable")
@@ -120,8 +133,10 @@ def test_legacy_clock_refuses_before_state_write(tmp_path, value):
 
 
 @pytest.mark.parametrize("action", ["in_progress", "completed"])
-def test_signed_webhook_asset_writes_canonical_event_clock(monkeypatch, action):
-    recorder, _ = _runner_stack(monkeypatch)
+def test_signed_webhook_asset_writes_canonical_event_clock(
+    default_runner_stack, monkeypatch, action
+):
+    recorder, _ = default_runner_stack
     function = recorder.single("runnerFleetWebhook")
     assets = function.kwargs["code"].kwargs["assets"]
     timestamps = types.ModuleType("webapp_runner_timestamps")
