@@ -96,6 +96,14 @@ def resolve_decision_request(
         raise ValueError(
             f"{request['kind']} accepts actions: {', '.join(request['actions'])}"
         )
+    if (
+        request["kind"] == "operator_question"
+        and action == "freeform"
+        and not (note or "").strip()
+    ):
+        raise ValueError(
+            "operator_question_answer_required: freeform requires a non-empty note; supply --note TEXT"
+        )
     if action == "request_changes" and not (note or "").strip():
         raise ValueError("request_changes requires a note")
     if note is not None and len(note) > 4000:
@@ -108,6 +116,11 @@ def resolve_decision_request(
 
         raise PermissionError(
             unauthorized_resolution_message(conn, request_id, actor_id)
+            + (
+                " Answer it on the Inbox page."
+                if request["kind"] == "operator_question"
+                else ""
+            )
         )
     record_decision(
         conn,
@@ -192,6 +205,12 @@ def resolve_decision_request(
         created_at=stamp,
     )
     conn.commit()
+    if request["kind"] == "operator_question":
+        from yoke_core.domain.decision_request_operator_answer_delivery import (
+            deliver_answer,
+        )
+
+        deliver_answer(conn, _request_row(conn, request_id))
     notify_subject_resolution(
         conn,
         request,
@@ -217,7 +236,16 @@ def withdraw_decision_request(
     request = _request_row(conn, request_id)
     if request["status"] != "pending":
         raise ValueError(f"decision request {request_id} is {request['status']}")
-    if actor_id is None or authority_reason(conn, request_id, actor_id) is None:
+    question = request["kind"] == "operator_question"
+    if question:
+        from yoke_core.domain.decision_request_question_filing import (
+            cancellation_authority,
+        )
+
+        cancellation_authority(conn, request, session_id, actor_id)
+    if not question and (
+        actor_id is None or authority_reason(conn, request_id, actor_id) is None
+    ):
         raise PermissionError(
             f"actor {actor_id} is not authorized to withdraw "
             f"decision request {request_id}"
@@ -229,6 +257,7 @@ def withdraw_decision_request(
         actor_id=actor_id,
         session_id=session_id,
         withdrawn_at=stamp,
+        question_cancellation=question,
     )
 
 
@@ -241,6 +270,7 @@ def withdraw_for_ended_subject(
     session_id: str = "",
     withdrawn_at: datetime | str | None = None,
     commit: bool = True,
+    question_cancellation: bool = False,
 ) -> dict[str, Any]:
     """Withdraw a pending request whose typed subject has verifiably ended.
 
@@ -258,11 +288,20 @@ def withdraw_for_ended_subject(
     if request["status"] != "pending":
         raise ValueError(f"decision request {request_id} is {request['status']}")
     p = _p(conn)
-    subject_end_evidence = require_decision_request_subject_ended(
-        conn,
-        request,
-        observed_at=stamp,
-    )
+    if question_cancellation:
+        from yoke_core.domain.decision_request_question_filing import (
+            cancellation_authority,
+        )
+
+        subject_end_evidence = cancellation_authority(
+            conn, request, session_id, actor_id
+        )
+    else:
+        subject_end_evidence = require_decision_request_subject_ended(
+            conn,
+            request,
+            observed_at=stamp,
+        )
     cursor = conn.execute(
         "UPDATE decision_requests SET status = 'withdrawn', "
         f"withdrawal_reason = {p}, withdrawn_at = {p} "

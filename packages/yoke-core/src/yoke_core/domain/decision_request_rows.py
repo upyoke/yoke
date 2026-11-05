@@ -19,6 +19,9 @@ from yoke_core.domain.decision_request_contract import (
     DECISION_KINDS,
     RETIRED_DECISION_KINDS,
 )
+from yoke_core.domain.decision_request_operator_question import (
+    actions as question_actions,
+)
 from yoke_core.domain.decision_answers import decisions_for_requests
 from yoke_core.domain.decision_request_live_evidence import (
     live_evidence,
@@ -102,9 +105,17 @@ def request_rows(conn: Any, request_ids: Iterable[int]) -> dict[int, dict[str, A
                     **result["subject_context"]["evidence"],
                     "state": settled,
                 }
+        if result["kind"] == "operator_question":
+            from yoke_core.domain.decision_request_question_filing import (
+                describe_question,
+            )
+
+            describe_question(conn, result)
         result["actions"] = (
             []
             if result["kind"] in RETIRED_DECISION_KINDS
+            else question_actions(result["subject_context"])
+            if result["kind"] == "operator_question"
             else list(DECISION_KINDS[result["kind"]].actions)
         )
         result["role_authorities"] = [

@@ -189,3 +189,53 @@ records; framing markers and the lease token survive bounded stub delivery.
 
 - [Items](../items/index.md)
 - [Sessions](index.md)
+
+## Operator questions
+
+Operator questions are decision requests that gate nothing. A worker with a live
+steering seat asks through `yoke say --steering`, including the question, context,
+options and recommendation. Steering answers from standing direction or files it:
+
+```text
+yoke decision-requests ask --session REQUESTING-SESSION-ID --key choose-color --question "Which color?" --option blue=Blue --option green=Green --recommend blue --item PREFIX-N
+yoke decision-requests list --mine
+yoke decision-requests list --requesting-session SESSION-ID --status pending
+```
+
+Without a live steering seat, the worker files directly and omits `--session`.
+Do not wait on a harness prompt tool: continue other in-scope work or end the turn.
+The answer arrives as a Fleet message on every supported harness and machine.
+Use `--context-file PATH` for Markdown context, repeat `--option ID=LABEL::DETAIL`
+for up to eight choices, and use `--no-freeform` to require a choice. With no
+choices, a freeform answer is required. The optional item must be held by the
+requesting session. Reusing a key while pending returns the existing question.
+
+The Inbox shows question cards in **Waiting on you**, including recommended
+choices, expandable context, and a freeform **Send** box when allowed. Answered
+cards appear in **Decided**. Steering presents pending questions one at a time
+with context and its recommendation, then records the person's answer:
+
+```text
+yoke decision-requests resolve REQUEST-ID blue
+yoke decision-requests resolve REQUEST-ID freeform --note "Use violet"
+```
+
+The same durable decision records the person and answering session for either
+path. If steering lacks authority, answer it on the Inbox page. Delivery goes
+to the requesting session, or to the item's current holder if that session ended.
+A failed delivery records `operator_question_undelivered` on the request and in
+the steering report; read the saved answer and relay it to the holder.
+
+Filed questions cannot be edited. The requesting session or steering may cancel
+a pending question, or replace it atomically with a new immutable question:
+
+```text
+yoke decision-requests withdraw REQUEST-ID --reason "Direction changed"
+yoke decision-requests ask --replaces REQUEST-ID --key choose-color --question "Which shade?"
+```
+
+Replacement requires a pending operator question from the same requesting
+session; the old request's withdrawal reason names its replacement. Withdrawn
+questions leave both waiting lists and remain in session history. `dispose-ended`
+also withdraws questions when their item reaches a terminal stage, or when a
+requesting session without an item ends.

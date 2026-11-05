@@ -105,6 +105,7 @@ def create_decision_request(
     named_actor_ids: Iterable[int] = (),
     approval_mode: str = DEFAULT_APPROVAL_MODE,
     subject_context: Optional[Mapping[str, Any]] = None,
+    requesting_session_id: Optional[str] = None,
     session_id: str = "",
     created_at: datetime | str | None = None,
     commit: bool = True,
@@ -121,6 +122,13 @@ def create_decision_request(
     subject_key = str(subject_key).strip()
     if not subject_key or len(subject_key) > 500:
         raise ValueError("subject_key must contain 1 to 500 characters")
+    if kind == "operator_question":
+        from yoke_core.domain.decision_request_question_filing import validate_requester
+
+        validate_requester(
+            conn, requesting_session_id, project_id, subject_key, context
+        )
+        approval_mode = "any"
     roles = tuple(role_authorities)
     actors = tuple(sorted({int(value) for value in named_actor_ids}))
     invalid_actors = [
@@ -153,8 +161,8 @@ def create_decision_request(
     cursor = conn.execute(
         "INSERT INTO decision_requests "
         "(kind, subject_type, subject_key, subject_context, project_id, org_id, "
-        "originator_actor_id, approval_mode, status, created_at) "
-        f"VALUES ({p}, {p}, {p}, {p}, {p}, {p}, {p}, {p}, 'pending', {p}) "
+        "originator_actor_id, approval_mode, requesting_session_id, status, created_at) "
+        f"VALUES ({p}, {p}, {p}, {p}, {p}, {p}, {p}, {p}, {p}, 'pending', {p}) "
         "ON CONFLICT DO NOTHING RETURNING id",
         (
             kind,
@@ -168,6 +176,7 @@ def create_decision_request(
             org_id,
             originator_actor_id,
             approval_mode,
+            requesting_session_id,
             stored_stamp,
         ),
     )

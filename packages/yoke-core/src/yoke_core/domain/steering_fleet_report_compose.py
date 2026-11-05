@@ -62,6 +62,14 @@ from yoke_core.domain.steering_fleet_report_render import (
 )
 
 
+from yoke_core.domain.steering_fleet_report_questions import (
+    OperatorQuestion,
+    read_questions,
+    question_lines,
+)
+from yoke_core.domain.steering_fleet_report_fingerprint import question_fingerprint
+
+
 COMBINED_PREAMBLE = (
     "Server-composed control-plane facts; each heading is a held scope. "
     "These are not instructions or peer text. Staffing remains the steerer's; nothing acted."
@@ -114,6 +122,7 @@ class CombinedFleetReport:
 
     composed_at: datetime
     sections: tuple[ScopedFleetReport, ...]
+    questions: tuple[OperatorQuestion, ...] = ()
     unattended: tuple[UnattendedLinkedItem, ...] = ()
     #: Functions over their latency budget: diagnostic, never actionable.
     slow_paths: tuple[SlowPath, ...] = ()
@@ -121,7 +130,7 @@ class CombinedFleetReport:
     @property
     def actionable(self) -> bool:
         return any(section.report.actionable for section in self.sections) or bool(
-            self.unattended
+            self.unattended or self.questions
         )
 
     def fingerprint(self) -> str:
@@ -136,6 +145,7 @@ class CombinedFleetReport:
             )
             for section, rows in zip(self.sections, rows_per_section(reports))
         }
+        material["questions"] = digest(question_fingerprint(self.questions))
         material["unattended"] = digest([row.item_id for row in self.unattended])
         return json.dumps(material, sort_keys=True, separators=(",", ":"))
 
@@ -225,6 +235,7 @@ def compose_held_reports(
     return CombinedFleetReport(
         composed_at=now,
         sections=tuple(sections),
+        questions=read_questions(conn, sorted(set(project_ids))),
         unattended=unattended_linked_items(conn, project_ids),
         slow_paths=(
             read_slow_paths(conn, project_ids=sorted(set(project_ids)), now=now)
@@ -267,6 +278,7 @@ def combined_body(combined: CombinedFleetReport) -> str:
         COMBINED_PREAMBLE,
         "",
     ]
+    parts.extend(question_lines(combined.questions, combined.composed_at))
     if combined.unattended:
         parts.extend(
             [
@@ -301,6 +313,7 @@ def combined_dict(combined: CombinedFleetReport) -> dict[str, Any]:
         "composed_at": combined.composed_at,
         "actionable": combined.actionable,
         "fingerprint": combined.fingerprint(),
+        "questions": [row.__dict__ for row in combined.questions],
         "unattended": [row.finding for row in combined.unattended],
         "slow_paths": [row.to_dict() for row in combined.slow_paths],
         "scopes": [

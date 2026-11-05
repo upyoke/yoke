@@ -186,3 +186,17 @@ __all__ = [
     "report_fingerprint",
     "seat_payload",
 ]
+
+
+def question_fingerprint(questions):
+    """Question identity ignores the age displayed beside each request."""
+    return [
+        (
+            row.request_id,
+            row.requesting_session_id,
+            row.item_ref,
+            row.question,
+            row.delivery_reason,
+        )
+        for row in questions
+    ]

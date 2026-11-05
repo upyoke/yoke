@@ -38,6 +38,11 @@ def _register(
 
 
 def register(registry) -> None:
+    from yoke_core.domain.handlers.decision_request_questions import (
+        register as register_questions,
+    )
+
+    register_questions(registry)
     from yoke_core.domain.handlers import machine_authorization as authorization
 
     for function_id, handler, model, effects in (

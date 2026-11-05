@@ -137,6 +137,13 @@ def create_decision_request_tables(
         "consumed_workflow_version_id",
         "INTEGER",
     )
+    _add_column_if_not_exists(
+        conn, "decision_requests", "requesting_session_id", "TEXT"
+    )
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_decision_requests_requesting_session "
+        "ON decision_requests(requesting_session_id, status, created_at)"
+    )
     if commit:
         conn.commit()
 

@@ -128,6 +128,7 @@ def handle_decision_create(request: FunctionCallRequest) -> HandlerOutcome:
             ],
             named_actor_ids=model.named_actor_ids,
             subject_context=model.subject_context,
+            requesting_session_id=model.requesting_session_id,
             session_id=request.actor.session_id,
         )
     except (LookupError, ValueError) as exc:

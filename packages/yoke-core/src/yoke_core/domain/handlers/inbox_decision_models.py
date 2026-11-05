@@ -34,11 +34,13 @@ class DecisionCreateRequest(BaseModel):
     role_authorities: List[DecisionRoleAuthority] = Field(default_factory=list)
     named_actor_ids: List[int] = Field(default_factory=list)
     subject_context: Dict[str, Any] = Field(default_factory=dict)
+    requesting_session_id: Optional[str] = None
 
     @field_validator("kind")
     @classmethod
     def exclude_gate_owned_requests(cls, value: str) -> str:
         gate_owned = {
+            "operator_question": "decision-requests ask",
             "lifecycle_transition_approval": "the lifecycle gate",
             "merge_candidate_review": (
                 "the merge boundary's candidate-review gate "

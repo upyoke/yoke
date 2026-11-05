@@ -17,6 +17,7 @@ import {
   emptyRow,
   NOTICE_LABELS,
 } from "./inbox_rows.js";
+import { questionCard } from "./inbox_question_card.js";
 import { reviewRequestCard } from "./review_request_card.js";
 import {
   appendMoreDisclosure,
@@ -36,7 +37,6 @@ import {
 
 export { inboxPresentation } from "./inbox_presentation.js";
 
-// How many carried items an approval lists before it offers the rest.
 const CARRIED_ITEMS_VISIBLE = 4;
 
 function projectLabel(context, row) {
@@ -197,11 +197,11 @@ export function renderInboxView(context, main, scope) {
   // answering a request and the next read returning it, the row is
   // remembered here so it never blinks out of the page in between.
   const answered = new Map();
-  const remember = (row, action) => {
+  const remember = (row, action, note) => {
     answered.set(String(row.id), {
       ...row,
       decided_by_you: true,
-      your_decision: { action },
+      your_decision: { action, note },
       actions: [],
     });
   };
@@ -234,8 +234,6 @@ export function renderInboxView(context, main, scope) {
       cards.set(row, card);
       return card;
     }), "Nothing is waiting on you.");
-    // What each carried item proved is a second read, so the Inbox paints
-    // its decisions first and fills that context in when it lands.
 
     const allMessages = result.messages || [];
     const noticeRows = allMessages.filter((row) => NOTICE_LABELS[row.notice_kind]);
@@ -276,7 +274,8 @@ export function renderInboxView(context, main, scope) {
 
   // A run QA review draws the run's own checks; every other decision keeps
   // the shared request card.
-  const decisionCard = (row, options) => (isRunQaReview(row)
+  const decisionCard = (row, options) => (row.kind === "operator_question"
+    ? questionCard(context, row, options) : isRunQaReview(row)
     ? runQaReviewCard(context, row, options)
     : reviewRequestCard(context, row, options));
 
@@ -305,7 +304,7 @@ export function renderInboxView(context, main, scope) {
 
   const resolveOnServer = createDecisionResolver(context, load);
   const resolve = (row, action, card, note) => {
-    remember(row, action);
+    remember(row, action, note);
     return resolveOnServer(row, action, card, note).then(() => {
       // A refused resolution leaves the row where it was; forgetting it here
       // keeps the page from claiming a decision the server never recorded.

@@ -240,3 +240,11 @@
   color: var(--yoke-muted);
   margin-bottom: 3px;
 }
+
+.inbox-question-card { min-width: 0; overflow-wrap: anywhere; }
+.inbox-question-text { white-space: pre-wrap; }
+.inbox-question-actions { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0; }
+.inbox-question-option { max-width: 100%; white-space: normal; text-align: left; }
+.inbox-question-freeform { display: grid; gap: 6px; margin: 12px 0; }
+.inbox-question-freeform textarea { box-sizing: border-box; width: 100%; min-width: 0; }
+.inbox-question-context { margin: 12px 0; }

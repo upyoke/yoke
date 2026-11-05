@@ -231,3 +231,12 @@ When no live execution holds the host, the report reads `machine_needs_repair`
 and names the reset command and owed baseline. JSON `reset_debts` rows name the
 `test_machine`. Held rows carry `execution_id` and a null `recovery`; unheld rows
 carry the recovery command and a null `execution_id`.
+
+## Questions waiting on you
+
+The report lists pending operator questions oldest first, with the request id,
+requesting session label, held item, age and question excerpt. Answer or withdraw
+the question to remove it. Failed answer delivery remains visible as
+`operator_question_undelivered`; read the saved answer and relay it to the current
+item holder. Question and delivery state enter the report fingerprint; age does not.
+See [Operator questions](inbox.md#operator-questions) for filing and answering.

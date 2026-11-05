@@ -39,6 +39,14 @@ yoke messages acknowledge MESSAGE-ID
 ```
 
 Read and acknowledge full messages; act, hold, or surface decisions this pass.
+When a worker needs an operator decision, answer from standing direction or file
+`yoke decision-requests ask --session REQUESTING-SESSION-ID --key SLUG --question TEXT`
+with context, options, recommendation and held item. Present pending operator
+questions from the report one at a time with context and your recommendation.
+Record the operator answer with `decision-requests resolve ID OPTION-ID` or
+`resolve ID freeform --note TEXT`; if unauthorized, answer it on the Inbox page.
+Cancel stale questions with `decision-requests withdraw ID --reason TEXT`, or file
+an immutable replacement with `ask --replaces ID`; never edit a filed question.
 Workers may finish without mail. Verify `DONE PREFIX-N` means terminal status
 and the last claim released `completed`:
 
