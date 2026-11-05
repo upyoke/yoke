@@ -27,7 +27,7 @@ _APP_PERMISSIONS = {
     "pull_requests": "write",
     "contents": "write",
     "actions": "write",
-    "checks": "read",
+    "checks": "read", "statuses": "read",
     "workflows": "write",
     "secrets": "write",
     "actions_variables": "write",
