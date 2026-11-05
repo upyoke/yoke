@@ -24,17 +24,12 @@ def test_javascript_test_modules_are_discovered() -> None:
     assert _javascript_test_modules()
 
 
-@pytest.mark.parametrize(
-    "test_module",
-    _javascript_test_modules(),
-    ids=lambda path: path.name,
-)
-def test_universe_ui_javascript_module_in_node(test_module: Path) -> None:
+def _run_javascript_tests(test_modules: list[Path]) -> None:
     node = shutil.which("node")
     if node is None:
         pytest.skip("node is unavailable for the vanilla-JS contract test")
     completed = subprocess.run(
-        [node, "--test", str(test_module)],
+        [node, "--test", "--test-reporter=tap", *map(str, test_modules)],
         cwd=Path(__file__).resolve().parents[2],
         text=True,
         capture_output=True,
@@ -44,3 +39,22 @@ def test_universe_ui_javascript_module_in_node(test_module: Path) -> None:
     assert completed.returncode == 0, (
         f"{completed.stdout}\n{completed.stderr}"
     )
+
+
+def test_universe_ui_javascript_modules_in_node() -> None:
+    # One pytest case keeps xdist from launching the entire suite per worker.
+    _run_javascript_tests(_javascript_test_modules())
+
+
+def test_javascript_failure_names_file_and_test(tmp_path: Path) -> None:
+    failing_module = tmp_path / "deliberate_failure.test.mjs"
+    failing_module.write_text(
+        "import { test } from 'node:test';\n"
+        "test('deliberate contract failure', () => {\n"
+        "  throw new Error('failure diagnostic probe');\n"
+        "});\n"
+    )
+    with pytest.raises(AssertionError) as failure:
+        _run_javascript_tests([failing_module])
+    assert failing_module.name in str(failure.value)
+    assert "deliberate contract failure" in str(failure.value)
