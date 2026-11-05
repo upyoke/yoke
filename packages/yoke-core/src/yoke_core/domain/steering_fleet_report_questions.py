@@ -23,9 +23,13 @@ class OperatorQuestion:
     outcome: str = ""
 
 
-def question_states(conn, project_ids, previous_ids=(), *, include_resolved=False, viewer_actor_id=None):
+def question_states(
+    conn, project_ids, previous_ids=(), *, include_resolved=False, viewer_actor_id=None
+):
     """Read open requests and watched departures inside the held projects."""
-    if (not project_ids and viewer_actor_id is None) or not _table_exists(conn, "decision_requests"):
+    if (not project_ids and viewer_actor_id is None) or not _table_exists(
+        conn, "decision_requests"
+    ):
         return {}
     p = "%s" if db_backend.connection_is_postgres(conn) else "?"
     open_status = (
@@ -36,7 +40,9 @@ def question_states(conn, project_ids, previous_ids=(), *, include_resolved=Fals
     watched = f" OR id IN ({','.join(p for _ in previous_ids)})" if previous_ids else ""
     from yoke_core.domain.audiences import includes_actor
 
-    project_clause = f"project_id IN ({','.join(p for _ in project_ids)})" if project_ids else "1=0"
+    project_clause = (
+        f"project_id IN ({','.join(p for _ in project_ids)})" if project_ids else "1=0"
+    )
     return {
         int(row[0]): str(row[1])
         for row in conn.execute(
@@ -45,7 +51,11 @@ def question_states(conn, project_ids, previous_ids=(), *, include_resolved=Fals
             f"AND ({open_status}{watched}) ORDER BY created_at, id",
             (*project_ids, *previous_ids),
         ).fetchall()
-        if row[2] is not None or (viewer_actor_id is not None and includes_actor(conn, row[3], viewer_actor_id))
+        if row[2] is not None
+        or (
+            viewer_actor_id is not None
+            and includes_actor(conn, row[3], viewer_actor_id)
+        )
     }
 
 
@@ -56,7 +66,13 @@ def read_questions(conn, project_ids, previous_ids=(), *, viewer_actor_id=None):
     from yoke_core.domain.project_identity import render_item_ref
 
     p = "%s" if db_backend.connection_is_postgres(conn) else "?"
-    ids = question_states(conn, project_ids, previous_ids, include_resolved=True, viewer_actor_id=viewer_actor_id)
+    ids = question_states(
+        conn,
+        project_ids,
+        previous_ids,
+        include_resolved=True,
+        viewer_actor_id=viewer_actor_id,
+    )
     rows = request_rows(conn, ids)
     result = []
     for request_id in ids:

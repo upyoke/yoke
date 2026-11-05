@@ -221,10 +221,14 @@ def compose_held_reports(
     ]
     project_ids = [int(section.report.project_id) for section in sections]
     viewer = conn.execute(
-        f"SELECT actor_id FROM harness_sessions WHERE session_id={placeholder(conn)}", (session_id,)
+        f"SELECT actor_id FROM harness_sessions WHERE session_id={placeholder(conn)}",
+        (session_id,),
     ).fetchone()
     questions = read_questions(
-        conn, sorted(set(project_ids)), previous_question_ids(prior_fingerprint), viewer_actor_id=viewer[0] if viewer else None
+        conn,
+        sorted(set(project_ids)),
+        previous_question_ids(prior_fingerprint),
+        viewer_actor_id=viewer[0] if viewer else None,
     )
     return CombinedFleetReport(
         composed_at=now,
