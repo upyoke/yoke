@@ -163,14 +163,15 @@ def run_cli(args: argparse.Namespace, parser: argparse.ArgumentParser) -> int:
         parser.print_help()
         return 3
     daemon_command = getattr(args, "daemon_cmd", None)
-    if daemon_command in {"status", "health", "stop"} and not args.check_id:
+    check_id = getattr(args, "check_id", None)
+    if daemon_command in {"status", "health", "stop"} and not check_id:
         client._log("browser_check_scope_required: pass --check-id from daemon start.")
         return 2
     try:
         with check_scope(
             getattr(args, "project", None),
             getattr(args, "identity", None),
-            check_id=args.check_id,
+            check_id=check_id,
             keep_open=getattr(args, "keep_open", False)
             or daemon_command in {"start", "status", "health"},
         ) as check:
