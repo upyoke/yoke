@@ -59,7 +59,7 @@ def test_blocked_gate_names_each_blocker_and_the_recovery():
         resume_command="yoke merge item YOK-200 --json",
     )
     assert (
-        "Keep your work claim and lane; do not release or end the session; the notice wakes you as holder."
+        "At the merge step, keep your work claim and lane; do not release or end the session; the notice wakes you as holder."
         in refusal
     )
     assert (
