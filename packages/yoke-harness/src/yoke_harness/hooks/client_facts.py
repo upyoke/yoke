@@ -38,10 +38,8 @@ from yoke_contracts.hook_runner.policy_home import client_facts_for
 from yoke_contracts.hook_runner.project_scope import HookProjectScope
 from yoke_contracts.hook_runner.shell_parse import ShellParse, parse_shell
 from yoke_contracts.hook_runner.session_cwd import (
-    CLIENT_CLAUDE_JOB_TMP_KEY,
     CLIENT_MACHINE_HOME_KEY,
     CLIENT_SCRATCH_ROOT_KEY,
-    client_claude_job_tmp_fact,
     client_machine_home_fact,
     client_scratch_root_fact,
 )
@@ -131,9 +129,6 @@ _COLLECTORS: dict[str, Callable[[Observation], dict]] = {
     ),
     CLIENT_SCRATCH_ROOT_KEY: lambda obs: client_scratch_root_fact(
         machine_config.effective_temp_root()
-    ),
-    CLIENT_CLAUDE_JOB_TMP_KEY: lambda obs: client_claude_job_tmp_fact(
-        os.environ.get("CLAUDE_JOB_DIR", "")
     ),
     FLEET_WATCHER_OBSERVATION_KEY: lambda obs: observe_fleet_watcher(
         dict(obs.payload), executor=obs.executor, event_name=obs.event_name

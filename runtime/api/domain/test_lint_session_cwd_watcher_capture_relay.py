@@ -14,12 +14,8 @@ from runtime.api.fixtures.machine_config_test import register_machine_checkout
 from runtime.api.fixtures.pg_testdb import test_database
 from yoke_core.hooks.types import HookContext, Outcome
 from yoke_contracts.hook_runner.session_cwd import (
-    CLIENT_CLAUDE_JOB_TMP_KEY,
-    CLIENT_CLAUDE_JOB_TMP_SCHEMA,
     CLIENT_SCRATCH_ROOT_KEY,
     CLIENT_SCRATCH_ROOT_SCHEMA,
-    client_claude_job_tmp,
-    client_claude_job_tmp_fact,
     client_scratch_root,
     client_scratch_root_fact,
 )
@@ -67,8 +63,6 @@ def _capture(stream: str, *, session_id: str = SESSION_ID) -> Path:
 def _remote_decision(
     tool_name: str,
     tool_input: dict,
-    *,
-    include_job_tmp: bool = False,
 ) -> Outcome:
     payload = {
         "session_id": SESSION_ID,
@@ -76,8 +70,6 @@ def _remote_decision(
         "tool_input": tool_input,
         **client_scratch_root_fact(str(CLIENT_ROOT)),
     }
-    if include_job_tmp:
-        payload.update(client_claude_job_tmp_fact(str(CLAUDE_JOB_DIR)))
     return _same_decision_both_ways(payload, tool_name)
 
 
@@ -109,30 +101,6 @@ def test_client_root_contract_rejects_non_scoped_roots(root: str) -> None:
                 CLIENT_SCRATCH_ROOT_KEY: {
                     "schema": CLIENT_SCRATCH_ROOT_SCHEMA,
                     "root": root,
-                }
-            }
-        )
-        == ""
-    )
-
-
-def test_client_job_tmp_contract_is_bounded(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("CLAUDE_JOB_DIR", str(CLAUDE_JOB_DIR))
-    fact = client_claude_job_tmp_fact(str(CLAUDE_JOB_DIR))
-    assert fact == {
-        CLIENT_CLAUDE_JOB_TMP_KEY: {
-            "schema": CLIENT_CLAUDE_JOB_TMP_SCHEMA,
-            "root": str(CLAUDE_JOB_DIR / "tmp"),
-        }
-    }
-    assert client_claude_job_tmp(fact) == str(CLAUDE_JOB_DIR / "tmp")
-    assert client_claude_job_tmp({}) == ""
-    assert (
-        client_claude_job_tmp(
-            {
-                CLIENT_CLAUDE_JOB_TMP_KEY: {
-                    "schema": CLIENT_CLAUDE_JOB_TMP_SCHEMA,
-                    "root": str(CLAUDE_JOB_DIR),
                 }
             }
         )
@@ -257,15 +225,6 @@ def test_relay_allows_external_job_paths_without_job_tmp_fact(
         _remote_decision(
             "Bash",
             {"command": f"touch {target}"},
-            include_job_tmp=True,
-        )
-        is Outcome.NOOP
-    )
-    assert (
-        _remote_decision(
-            "Bash",
-            {"command": f"touch {target}"},
-            include_job_tmp=False,
         )
         is Outcome.NOOP
     )
@@ -273,7 +232,6 @@ def test_relay_allows_external_job_paths_without_job_tmp_fact(
         _remote_decision(
             "Bash",
             {"command": f"touch {CLAUDE_JOB_DIR / 'result.json'}"},
-            include_job_tmp=True,
         )
         is Outcome.NOOP
     )

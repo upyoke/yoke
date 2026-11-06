@@ -42,7 +42,6 @@ from yoke_contracts.hook_runner.client_facts import (
 )
 from yoke_contracts.hook_runner.main_commit import CLIENT_GIT_COMMIT_FACTS_KEY
 from yoke_contracts.hook_runner.session_cwd import (
-    CLIENT_CLAUDE_JOB_TMP_KEY,
     CLIENT_MACHINE_HOME_KEY,
     CLIENT_SCRATCH_ROOT_KEY,
 )
@@ -102,8 +101,6 @@ _POLICY_HOMES: dict[str, PolicyPlacement] = {
     _D + "lint_main_commit": _facts(CLIENT_GIT_COMMIT_FACTS_KEY),
     _D + "lint_session_cwd": _facts(
         CLIENT_MACHINE_HOME_KEY,
-        CLIENT_SCRATCH_ROOT_KEY,
-        CLIENT_CLAUDE_JOB_TMP_KEY,
         SOURCE_ROOT_KEY,
     ),
     _D + "observe_pre": _facts(HEADLESS_LAUNCH_KEY),

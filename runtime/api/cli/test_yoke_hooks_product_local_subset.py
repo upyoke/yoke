@@ -16,8 +16,6 @@ from yoke_contracts.hook_driver_process import DRIVER_PAYLOAD_KEY
 from yoke_contracts.hook_runner.project_scope import HookProjectScope
 from yoke_contracts.machine_config.runtime import SCRATCH_ROOT_ENV
 from yoke_contracts.hook_runner.session_cwd import (
-    CLIENT_CLAUDE_JOB_TMP_KEY,
-    CLIENT_CLAUDE_JOB_TMP_SCHEMA,
     CLIENT_MACHINE_HOME_KEY,
     CLIENT_MACHINE_HOME_SCHEMA,
     CLIENT_SCRATCH_ROOT_KEY,
@@ -125,7 +123,7 @@ def test_product_local_subset_denies_in_cursor_wire_shape(
     assert envelope["user_message"] == "blocked by local policy"
 
 
-def test_relay_subset_reports_client_free_path_roots(
+def test_relay_subset_reports_client_path_roots(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     client_root = str(Path.home() / ".yoke" / "tmp")
@@ -149,21 +147,17 @@ def test_relay_subset_reports_client_free_path_roots(
     # The driving process self-reports here so the evaluating server does not
     # have to guess it; its pids are this process's, so check the shape. The
     # chain's other facts ride beside these; hold the path roots exactly.
+    assert all("job_tmp" not in key for key in reported)
     driver = reported.pop(DRIVER_PAYLOAD_KEY)
     assert driver == {"pid": os.getpid(), "ppid": os.getppid(), "origin": "client"}
     path_roots = {
         key: reported.get(key)
         for key in (
-            CLIENT_CLAUDE_JOB_TMP_KEY,
             CLIENT_SCRATCH_ROOT_KEY,
             CLIENT_MACHINE_HOME_KEY,
         )
     }
     assert path_roots == {
-        CLIENT_CLAUDE_JOB_TMP_KEY: {
-            "schema": CLIENT_CLAUDE_JOB_TMP_SCHEMA,
-            "root": str(Path(job_dir) / "tmp"),
-        },
         CLIENT_SCRATCH_ROOT_KEY: {
             "schema": CLIENT_SCRATCH_ROOT_SCHEMA,
             "root": client_root,
