@@ -124,3 +124,16 @@ def test_concurrent_stash_does_not_change_the_copied_commit(lanes, monkeypatch):
         safety_sha, concurrent_sha, other_sha,
     ]
     assert any(safety_sha in message for message in messages)
+
+
+def test_staged_change_with_worktree_restored_is_still_user_work(lanes):
+    repo, lane, ctx, other_sha, messages, _ = lanes
+    (lane / "code.txt").write_text("staged work\n")
+    assert git(lane, "add", "code.txt").returncode == 0
+    (lane / "code.txt").write_text("base\n")
+    before = git(lane, "status", "--porcelain").stdout
+    assert _stash_classify_gate(ctx)[0] == 4
+    assert git(lane, "status", "--porcelain").stdout == before
+    safety_sha = git(repo, "rev-parse", "refs/stash").stdout.strip()
+    assert git(repo, "show", f"{safety_sha}^2:code.txt").stdout == "staged work\n"
+    assert (lane / "code.txt").read_text() == "base\n"

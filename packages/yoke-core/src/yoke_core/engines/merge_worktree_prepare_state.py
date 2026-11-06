@@ -202,6 +202,7 @@ def _stash_classify_gate(ctx: MergeContext) -> Optional[Tuple[int, str]]:
     _run_git = mw._run_git
 
     cwd = ctx.worktree_path
+
     def refuse(result, operation):
         message = (
             f"merge_safety_copy_failed: {operation}: "
@@ -231,20 +232,21 @@ def _stash_classify_gate(ctx: MergeContext) -> Optional[Tuple[int, str]]:
             return refuse(stored, f"retain safety copy {safety_sha}")
 
     # Classify
-    dirty_tracked = _run_git(["diff", "HEAD", "--name-only"], cwd=cwd, capture=True)
+    dirty_tracked = _run_git(["diff", "--name-only"], cwd=cwd, capture=True)
+    dirty_staged = _run_git(
+        ["diff", "--cached", "--name-only"], cwd=cwd, capture=True
+    )
     dirty_untracked = _run_git(
         ["ls-files", "--others", "--exclude-standard"], cwd=cwd, capture=True
     )
 
-    for result in (dirty_tracked, dirty_untracked):
+    for result in (dirty_tracked, dirty_staged, dirty_untracked):
         if result.returncode:
             return refuse(result, "classify dirty files")
 
-    all_tracked = (
-        dirty_tracked.stdout.strip().splitlines()
-        if dirty_tracked.stdout.strip()
-        else []
-    )
+    all_tracked = sorted(set(
+        dirty_tracked.stdout.splitlines() + dirty_staged.stdout.splitlines()
+    ))
     all_untracked = (
         dirty_untracked.stdout.strip().splitlines()
         if dirty_untracked.stdout.strip()
