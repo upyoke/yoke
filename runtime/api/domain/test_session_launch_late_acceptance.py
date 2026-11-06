@@ -71,11 +71,11 @@ def seed(context, *, surface="codex-cli", bound=True):
     conn.execute(
         f"INSERT INTO session_launches({columns}) VALUES ({','.join([p]*14)})",
         (launch, actor_id, project_id, item_id, message, "awaiting_registration", session,
-         attestation_digest("secret"), DEADLINE, NOW, NOW, NOW, surface, surface),
+         attestation_digest(session), DEADLINE, NOW, NOW, NOW, surface, surface),
     )
     conn.commit()
     if bound:
-        prepare_launch_registration(conn, launch_id=launch, attestation="secret", session_id=session, now=NOW)
+        prepare_launch_registration(conn, launch_id=launch, attestation=session, session_id=session, now=NOW)
     return get_launch(conn, launch), session
 
 
@@ -114,7 +114,7 @@ def test_registration_after_deadline_succeeds(context, surface):
     launch, session = seed(context, surface=surface, bound=False)
     failed = settle_launch_deadlines(conn, launch_id=launch.launch_id, now=DEADLINE)[0]
     assert failed.result_code == "registration_deadline"
-    prepare_launch_registration(conn, launch_id=launch.launch_id, attestation="secret", session_id=session, now=LATE)
+    prepare_launch_registration(conn, launch_id=launch.launch_id, attestation=session, session_id=session, now=LATE)
     recovered = get_launch(conn, launch.launch_id)
     assert recovered.registered_session_id == session
     assert json.loads(recovered.result_evidence)["previous_launch_result"] == "registration_deadline"
@@ -148,7 +148,7 @@ def test_takeover_refuses_late_worker(context, takeover, operation):
         if operation == "acknowledge":
             acknowledge_message(conn, message_id=launch.message_id, session_id=session, now=parse_instant(LATE))
         else:
-            prepare_launch_registration(conn, launch_id=launch.launch_id, attestation="secret", session_id=session, now=LATE)
+            prepare_launch_registration(conn, launch_id=launch.launch_id, attestation=session, session_id=session, now=LATE)
     assert refused.value.code == "launch_taken_over"
     assert expected in str(refused.value)
     assert "Stop this worker" in str(refused.value)
