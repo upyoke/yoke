@@ -105,3 +105,20 @@ and [this help reference](https://upyoke.com/docs/cli/help).
 `yoke <command> --help` works from any directory and describes the installed
 CLI's options; public docs describe the current service. A project-relative
 `.yoke/docs` path applies only after that project's operating layer is installed.
+
+## Session and item state reads
+
+`yoke sessions list` and `yoke sessions get SESSION` show presence, activity,
+intent, next actor and holds from the same model as the web pages. Intent and
+custody include their reasons. Filter before pagination with `--presence
+present|gone|ended`, `--activity working|between_turns|silent`, or `--intent
+none|parked|awaiting`. The session read flag `--liveness` is removed; a server
+receiving it names the required client floor and upgrade recovery. Message
+recipient filters remain documented separately in [Inbox](../sessions/inbox.md).
+
+`yoke items list` and `yoke items get ITEM stage home_section next_actor progress`
+show the pinned workflow stage, Frontier home, next action and ordered stage
+progress. Epics include completed and total task counts beside those stages.
+`yoke frontier list` carries the same item state. The canonical `frontier_group`
+also explains the home's activity and reason; older serving builds may omit
+that field. `yoke status` adds the current session and item state to machine health.

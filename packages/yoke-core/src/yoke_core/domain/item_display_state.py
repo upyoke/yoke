@@ -9,50 +9,19 @@ from yoke_core.domain.schema_common import _table_exists
 STATE_FIELDS = ("stage", "home_section", "next_actor", "progress")
 
 
-def home_section(row, *, claimant=None, ready=False, blockers=()):
-    """Choose one home; holding work and blocking it remain separate facts."""
-    runtime = row["runtime"]
-    if row["status"] in runtime.terminal_stage_ids:
-        return "done"
-    if row["status"] == "release":
-        return "release"
-    if row.get("frozen"):
-        return "on_hold"
-    state = (claimant or {}).get("session_state") or {}
-    if state and state["presence"] != "ended" and (
-        state["presence"] == "present" or state["intent"]["state"] != "none"
-    ):
-        return "active"
-    starting = [entry for entry in blockers if entry.get("holds_pickup", True)]
-    if starting or row.get("blocked"):
-        return "waiting" if any(e.get("blocking_item") for e in starting) else "on_hold"
-    return "on_hold" if claimant else "ready" if ready else "on_hold"
-
-
-def item_display_states(conn, item_ids, *, frontier=None):
+def item_display_states(conn, item_ids):
     """Read one shared projection for CLI rows, web cards and item details."""
     items = _item_rows(conn, tuple(dict.fromkeys(int(i) for i in item_ids)))
     if not items:
         return {}
-    if frontier is None:
-        from yoke_core.domain.frontier_list_read import list_frontier
-
-        frontier = list_frontier(include_state=False)
-    ready = {str(row.get("public_ref") or row.get("item_id")) for row in frontier["ready_rows"]}
-    blocked = {}
-    for row in frontier["blocked_rows"]:
-        blocked.setdefault(str(row.get("public_ref") or row.get("item_id")), []).append(row)
     claims = active_item_claims(conn, items)
-    sessions = {}
-    if claims:
-        from yoke_core.domain.sessions_list_read import list_sessions
-
-        sessions = {row["session_id"]: row for row in list_sessions(
-            session_ids=[claim["session_id"] for claim in claims.values()], limit=None
-        )}
     runtimes = {int(row["workflow_version_id"]): row["runtime"] for row in items.values()}
+    from yoke_core.domain.item_finished_times import is_finished
+    from yoke_core.domain.item_spec_completeness import item_needs_spec
+
     actions = item_action_states(conn, [
-        {**row, "internal_id": iid} for iid, row in items.items()
+        {**row, "internal_id": iid, "finished": is_finished(row["runtime"], row["status"]),
+         "needs_spec": item_needs_spec(row)} for iid, row in items.items()
     ], claims, runtimes)
     tasks = {}
     if _table_exists(conn, "epic_tasks"):
@@ -64,7 +33,6 @@ def item_display_states(conn, item_ids, *, frontier=None):
     result = {}
     for iid, row in items.items():
         runtime = row["runtime"]
-        ref = row["public_ref"]
         progress = {"stages": item_stage_states(runtime, row["status"])}
         if runtime.policies["generated_children"] == "epic_tasks":
             statuses = tasks.get(iid, [])
@@ -74,11 +42,9 @@ def item_display_states(conn, item_ids, *, frontier=None):
             }
         result[iid] = {
             "stage": {"id": row["status"], "label": runtime.stage_label(row["status"])},
-            "home_section": home_section(
-                row, claimant=sessions.get((claims.get(iid) or {}).get("session_id")),
-                ready=ref in ready, blockers=blocked.get(ref, ()),
-            ),
-            "next_actor": actions[iid],
+            "frontier_group": actions[iid]["frontier_group"],
+            "home_section": actions[iid]["frontier_group"]["section"],
+            "next_actor": actions[iid]["next_actor"],
             "progress": progress,
         }
     return result

@@ -18,7 +18,7 @@ from yoke_core.domain.dependency_planning import (
 )
 from yoke_core.domain.dependency_cycles_read import BLOCKING_GATE_POINTS
 from yoke_core.domain.frontier_blocked_rows import (
-    FRONTIER_BLOCKED_FIELDS,
+    FRONTIER_BLOCKED_FIELDS as _BLOCKED_FIELDS,
     blocked_row,
 )
 from yoke_core.domain.frontier_dependency_edges import (
@@ -63,6 +63,9 @@ FRONTIER_READY_FIELDS = (
     "downstream_depth",
     "created_at",
 )
+
+
+FRONTIER_BLOCKED_FIELDS = (*_BLOCKED_FIELDS, "stage", "home_section", "next_actor", "progress")
 
 
 #: Gate points the frontier computation does not enforce but whose
@@ -133,7 +136,6 @@ def list_frontier(
     *,
     project: Optional[str] = None,
     wip_cap: Optional[int] = None,
-    include_state: bool = True,
 ) -> Dict[str, Any]:
     """Project the frontier for one project or every registered project.
 
@@ -267,19 +269,16 @@ def list_frontier(
                 )
             )
 
-        if include_state:
-            from yoke_core.domain.item_display_state import item_display_states
+        from yoke_core.domain.item_display_state import item_display_states
 
-            projection = item_display_states(conn, tracked_steps, frontier={
-                "ready_rows": ready_rows, "blocked_rows": blocked_rows,
-            })
-            by_ref = {public_refs[iid]: state for iid, state in projection.items()}
-            for row in [*ready_rows, *blocked_rows]:
-                row.update(by_ref.get(str(row.get("public_ref") or row.get("item_id")), {}))
+        projection = item_display_states(conn, tracked_steps)
+        by_ref = {public_refs[iid]: state for iid, state in projection.items()}
+        for row in [*ready_rows, *blocked_rows]:
+            row.update(by_ref.get(str(row.get("public_ref") or row.get("item_id")), {}))
         return {
             "fields": {
                 "ready": list(FRONTIER_READY_FIELDS),
-                "blocked": [*FRONTIER_BLOCKED_FIELDS, "stage", "home_section", "next_actor", "progress"],
+                "blocked": list(FRONTIER_BLOCKED_FIELDS),
                 "dependency_edges": list(FRONTIER_EDGE_FIELDS),
                 "dependency_cycles": list(FRONTIER_CYCLE_FIELDS),
             },
