@@ -22,6 +22,21 @@ def read(sql: str) -> dict:
     return json.loads(result.stdout)
 
 
+def first_deployment_sql(quoted_run: str) -> str:
+    """Keep the observation clock through a requirement's release takeovers."""
+    return (
+        "(SELECT MIN(delivered_at) FROM (SELECT MAX(r.completed_at) AS delivered_at "
+        "FROM deployment_stage_receipts r JOIN deployment_runs d ON d.id=r.run_id "
+        "JOIN deployment_run_items di ON di.run_id=d.id "
+        "WHERE r.status='ready' AND d.target_environment_id="
+        f"(SELECT target_environment_id FROM deployment_runs WHERE id={quoted_run}) "
+        "AND di.item_id IN (SELECT q.deployment_member_item_id FROM qa_requirements q "
+        "JOIN qa_plans p ON p.id=q.plan_id "
+        f"WHERE q.deployment_run_id={quoted_run} AND p.slug='parked-workers-production-day') "
+        "GROUP BY r.run_id) delivered)"
+    )
+
+
 def main() -> None:
     run_id = os.environ.get("DEPLOYMENT_RUN_ID", "")
     if not run_id:
@@ -30,10 +45,7 @@ def main() -> None:
         )
     quoted = "'" + run_id.replace("'", "''") + "'"
     # Receipts are durable deployment facts; telemetry retention proves nothing.
-    start = (
-        "(SELECT MAX(completed_at) FROM deployment_stage_receipts "
-        f"WHERE run_id={quoted} AND status='ready')"
-    )
+    start = first_deployment_sql(quoted)
     report = read(
         f"SELECT {start} AS deployed_at, CURRENT_TIMESTAMP AS checked_at, "
         f"CURRENT_TIMESTAMP >= {start} + INTERVAL '1 day' AS day_complete, "

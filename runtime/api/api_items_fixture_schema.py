@@ -87,7 +87,8 @@ CREATE TABLE qa_requirements (
     success_policy TEXT NOT NULL DEFAULT 'blocking', capability_requirements TEXT,
     suite_id TEXT, waived_at TIMESTAMPTZ, waiver_rationale TEXT, created_at TIMESTAMPTZ NOT NULL,
     plan_id INTEGER, plan_case_key TEXT, deployment_member_item_id INTEGER,
-    execution_target_json TEXT, superseded_by_requirement_id INTEGER
+    execution_target_json TEXT, superseded_by_requirement_id INTEGER,
+    superseded_at TIMESTAMPTZ, retracted_at TIMESTAMPTZ
 );
 CREATE TABLE qa_plans (
     id INTEGER PRIMARY KEY, slug TEXT, project_id INTEGER, target_environment_id INTEGER,
