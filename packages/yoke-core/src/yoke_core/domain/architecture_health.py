@@ -22,6 +22,7 @@ from yoke_core.domain.architecture_context_data import (
     package_roots_from_model,
 )
 from yoke_core.domain.architecture_model import derive_edges
+from yoke_core.domain.architecture_path_context_seed import _compile
 
 
 UnclassifiedFinding = Tuple[int, str]
@@ -131,7 +132,7 @@ def cross_cutting_violations(
     conn: Any, project_id: str | int, *, model: Mapping[str, Any],
     entries: Optional[List[PythonEntry]] = None,
 ) -> List[CrossCuttingFinding]:
-    """Direct imports of guarded symbols outside the approved modules.
+    """Guarded imports outside approved modules and map-exempt paths.
 
     Each finding is ``(path, entrypoint, guarded_symbol,
     approved_modules)``.
@@ -141,8 +142,15 @@ def cross_cutting_violations(
         return []
     if entries is None:
         entries = iter_python_entries(conn, project_id)
+    exemptions = [
+        _compile(entry["glob"])
+        for entry in model.get("exemptions") or []
+        if isinstance(entry, Mapping) and entry.get("glob")
+    ]
     findings: List[CrossCuttingFinding] = []
     for _tid, path, source_module, deps_text in entries:
+        if any(matcher.match(path) for matcher in exemptions):
+            continue
         try:
             edges = json.loads(deps_text)
         except (TypeError, ValueError):

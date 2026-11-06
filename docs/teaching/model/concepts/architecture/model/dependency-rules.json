@@ -3,5 +3,6 @@
  "title": "Dependency rules",
  "status": "draft-copy",
  "page": "architecture",
- "position": 3
+ "position": 3,
+ "summary": "Import resolution prefers an existing submodule for from-package imports and falls back to the containing module for imported symbols. Snapshot-index and database resolution use the same candidate order."
 }

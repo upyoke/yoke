@@ -184,3 +184,39 @@ def test_aggregate_health_reads_the_python_snapshot_once(conn, monkeypatch) -> N
     monkeypatch.setattr(subject, "iter_python_entries", counting)
     compute_architecture_health(conn, 1)
     assert calls["n"] == 1
+
+
+@pytest.mark.parametrize("path,pattern,exempt", [
+    ("packs/example/main.py", "packs/**", True),
+    ("events/example/main.py", "events/**", True),
+    ("generated/nested/main.py", "generated/**", True),
+    ("tests/test_api.py", "tests/*.py", True),
+    ("tests/nested/test_api.py", "tests/*.py", False),
+    ("src/api.py", "packs/**", False),
+])
+def test_guarded_imports_respect_model_exemptions(path, pattern, exempt):
+    from yoke_core.domain.architecture_health import cross_cutting_violations
+
+    model = _model()
+    model["exemptions"] = [{"glob": pattern, "family": "architecture_generated"}]
+    findings = cross_cutting_violations(
+        None, 1, model=model,
+        entries=[(1, path, "sample.main", json.dumps([
+            {"imported_module": "sqlite3", "imported_name": "connect"},
+        ]))],
+    )
+    assert len(findings) == (0 if exempt else 1)
+
+
+def test_forbidden_edges_use_submodule_layer():
+    from yoke_core.domain.architecture_health import forbidden_edge_violations
+
+    assert forbidden_edge_violations(
+        None, 1, model=_model(),
+        entries=[(1, "src/api.py", "src.api", json.dumps([
+            {"imported_module": "src", "imported_name": "store"},
+        ]))],
+        module_index={"src/__init__.py": 2, "src/store.py": 3},
+        contexts={1: {"layer": "storage"}, 2: {"layer": "service"},
+                  3: {"layer": "storage"}},
+    ) == []

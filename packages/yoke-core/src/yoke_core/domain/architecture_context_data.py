@@ -211,7 +211,7 @@ def _candidate_paths_for_module(
         return ()
     modules = [module_name]
     if imported_name and imported_name != "*":
-        modules.append(f"{module_name}.{imported_name}")
+        modules.insert(0, f"{module_name}.{imported_name}")
 
     paths: List[str] = []
     seen: set[str] = set()
@@ -231,6 +231,11 @@ def _candidate_paths_for_module(
                 bare_stem = _SLASH.join(parts[1:])
                 if bare_stem:
                     add(root + _SLASH + bare_stem)
+                else:
+                    path = root + _SLASH + "__init__.py"
+                    if path not in seen:
+                        seen.add(path)
+                        paths.append(path)
             else:
                 add(root + _SLASH + package_stem)
     return tuple(paths)
@@ -254,12 +259,13 @@ def module_to_target_id(
     p = _p(conn)
     placeholders = ",".join(p for _ in path_candidates)
     numeric_project_id = resolve_project_numeric(conn, project_id)
-    row = conn.execute(
-        f"SELECT id FROM path_targets WHERE project_id = {p} "
+    rows = conn.execute(
+        f"SELECT path_string, id FROM path_targets WHERE project_id = {p} "
         f"AND kind = 'file' AND path_string IN ({placeholders})",
         (numeric_project_id, *path_candidates),
-    ).fetchone()
-    return int(row[0]) if row else None
+    ).fetchall()
+    index = {str(row[0]): int(row[1]) for row in rows}
+    return next((index[path] for path in path_candidates if path in index), None)
 
 
 def iter_python_entries(
