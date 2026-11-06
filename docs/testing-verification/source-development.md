@@ -141,7 +141,10 @@ Keep the `yoke watch <kind>` spelling inside that wrapper: the retired
 
 Focused pytest normally goes through `yoke watch pytest`, which already binds
 the same resolver and enforces the session's verification-tree claim. For a
-project that declares CI, use that runner for normal verification; a direct
+project declaring `ci_workflow_file` with its `selection_workflow_file` in the tree
+(default `.github/workflows/yoke-tests-selection.yml`; inputs `head_sha`, `base_sha`,
+`pytest_args`), it runs on CI; otherwise it runs here and prints why. Use that
+runner for normal verification; a direct
 `python3 -m pytest` invocation is only a small targeted check expected to finish
 in about one minute. Use the general recipe only for a direct invocation that
 is not covered by a wrapper:

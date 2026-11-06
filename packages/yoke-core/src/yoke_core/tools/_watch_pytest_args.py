@@ -101,10 +101,12 @@ def parse_args(argv: Sequence[str], prog: str) -> argparse.Namespace:
         ),
         description=(
             "Run pytest under a shared raw+progress watcher wrapper. For a "
-            "project that declares its CI workflow the run executes on CI: "
+            "project declaring ci_workflow_file with selection_workflow_file in "
+            "the tree (default .github/workflows/yoke-tests-selection.yml; "
+            "inputs head_sha, base_sha, pytest_args), the run executes on CI: "
             "the lane commit is pushed, the selection workflow is dispatched "
             "with (base_sha, head_sha), and the exit status mirrors the run's "
-            f"conclusion. {LOCAL_FLAG} is only a small targeted check "
+            f"conclusion. Local runs always print why. {LOCAL_FLAG} is only a small targeted check "
             "expected to finish in about one minute."
         ),
         epilog=(

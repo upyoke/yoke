@@ -76,8 +76,10 @@ terminal failures/results, and pytest streams progress. After exit inspect
 For Yoke change-scoped checks: `yoke watch pytest --impacted main --bounded`.
 Contract floor remains; unbounded selection is reported, not silently widened.
 QA case owns one full execution for that tree; protected CI owns full sweep.
-With `ci_workflow_file`, commit first: runner pushes exact lane candidate and
-dispatches CI; dirty/base-branch trees refuse. `--local` is a small targeted
+CI requires `ci_workflow_file` and the tree's `selection_workflow_file` (default
+`.github/workflows/yoke-tests-selection.yml`; inputs `head_sha`, `base_sha`,
+`pytest_args`). Commit first: runner pushes the lane candidate and dispatches CI;
+dirty/base-branch trees refuse. Otherwise runs stay here and print why, including `--local`. `--local` is a small targeted
 check expected within about one minute, or declared machine-specific/offline
 debugging, never justification for a slow dirty-tree suite. Local xdist uses
 machine-wide budget. If an eligible local check exceeds a minute, interrupt

@@ -269,7 +269,10 @@ full-CI gate runs (`yoke_core.domain.lane_base_update`): merge-shaped lanes
 merge the base, linear lanes rebase, and uncommitted work or a conflict
 refuses with a named reason (`lane_uncommitted_work`, `lane_rebase_conflict`,
 `lane_merge_conflict`) and runs no tests. Committed CI-capable lanes then
-execute the selection off-machine. Local checks must be
+execute the selection off-machine when `ci_workflow_file` is declared and the
+tree has `selection_workflow_file` (default `.github/workflows/yoke-tests-selection.yml`;
+inputs `head_sha`, `base_sha`, `pytest_args`). Otherwise they run here and print
+why; explicit local runs print why too. Local checks must be
 small and expected to finish in about one minute. The native QA case is the
 one full execution; rerun after tree changes.
 

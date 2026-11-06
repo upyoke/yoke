@@ -20,9 +20,11 @@ Usage::
     python3 -m yoke_core.tools.run_tests --no-parallel        # serial mode (debug order)
     python3 -m yoke_core.tools.run_tests --local <paths>      # this machine, not CI
 
-For a project that declares its CI workflow the run executes on CI by
-default (see :mod:`yoke_core.tools.pytest_remote_selection`); ``--local``
-runs it here under the machine-wide worker budget. Parallel-by-default:
+CI requires ``ci_workflow_file`` and a selection workflow in the tree
+(``selection_workflow_file``, default ``.github/workflows/yoke-tests-selection.yml``;
+inputs ``head_sha``, ``base_sha``, ``pytest_args``). Otherwise, or with ``--local``,
+the run stays here and prints why. See :mod:`yoke_core.tools.pytest_remote_selection`
+for other local routes. Local runs share the worker budget. Parallel-by-default:
 ``-n auto`` (pytest-xdist) is injected unless the caller passes
 ``--no-parallel`` or supplies its own ``-n``/``--numprocesses`` after ``--``.
 
@@ -246,6 +248,7 @@ def run(
         return route.exit_code
     if isinstance(route, pytest_remote_selection.RemoteRoute):
         return _run_remote(route)
+    print(f"running on this machine: {route.reason}", file=sys.stderr, flush=True)
 
     if _is_yoke_backend_verification(root, requested):
         if not _prepare_yoke_backend_env(root):
