@@ -126,6 +126,24 @@ def test_real_home_opt_in_keeps_original_git_environment(repository):
     assert secret.read_text() == "child-write"
 
 
+def test_selected_lane_helpers_work_from_another_directory(
+    repository, monkeypatch, tmp_path
+):
+    repo, env, _, _, _ = repository
+    monkeypatch.chdir(tmp_path)
+    with isolated_machine_home(env, git_root=repo) as child:
+        monkeypatch.chdir(repo)
+        output = _git(
+            child,
+            "-c",
+            "credential.username=fixture-user",
+            "credential",
+            "fill",
+            input="protocol=https\nhost=github.com\n\n",
+        )
+        assert "password=fixture-password" in output
+
+
 def test_unrelated_config_and_absent_helpers_leave_environment_intact(repository):
     _, env, config, _, _ = repository
     assert snapshot_git_helpers(env, config.parent / "other.json", config) == env

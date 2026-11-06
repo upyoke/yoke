@@ -68,7 +68,7 @@ cache and temp paths. It excludes browser identity `profile` directories under
 `secrets/capability-secrets/*/browser-control/identities/*/`, plus special files
 such as sockets and dangling symlinks anywhere in the copied tree. It does not
 clone caches, runtimes or live relay state.
-Git credential helper commands bound to that selected config use its private
+Git credential helper commands in the selected lane bound to that config use its private
 copy too. The child receives a Git config overlay that replays the effective
 helper order, including URL scopes and empty resets, while rebinding canonical
 `python helper --config <selected-config>` commands to the snapshot. Other

@@ -8,13 +8,14 @@ from yoke_contracts.git_credential_command import rebind_helper
 
 
 def snapshot_git_helpers(
-    env: Mapping[str, str], selected: Path, snapshot: Path
+    env: Mapping[str, str], selected: Path, snapshot: Path, root: Path | None = None
 ) -> dict[str, str]:
     """Replay the effective helper chain in a child-only Git config overlay."""
     resolved = dict(env)
     result = subprocess.run(
         ["git", "config", "--null", "--get-regexp", r"^credential(\..*)?\.helper$"],
         env=resolved,
+        cwd=root,
         capture_output=True,
         text=True,
         timeout=10,

@@ -221,7 +221,7 @@ def run(
             return 1
     try:
         with isolated_machine_home(
-            dict(os.environ), allow_real=allow_real_machine_home
+            dict(os.environ), allow_real=allow_real_machine_home, git_root=root
         ) as env:
             return _run_bound(args, root, fallback_project_id, authority_signature, env)
     except OSError as exc:
