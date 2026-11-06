@@ -36,6 +36,7 @@ from yoke_core.domain.session_message_store import (
 )
 from yoke_core.domain.session_message_queries import get_message
 from yoke_core.domain.session_message_reads import public_recipients
+from yoke_core.domain.session_message_recipient_summary import recipient_summary
 from yoke_core.domain.session_message_substance import validate_body
 from yoke_core.domain.session_message_types import (
     ResolvedRecipient,
@@ -140,13 +141,10 @@ def preview_message(
         if address
         else None
     )
-    return {
+    result = {
         "recipients": public,
         "actor_recipients": public_actors,
-        "recipient_count": len(public)
-        + len(public_actors)
-        + bool(steering)
-        + bool(launch),
+        "recipient_count": int(bool(launch)),
         "applied_liveness": list(applied_liveness(selector)),
         "confirmation_token": launch_confirmation(
             confirmation_token(selector, recipients, actor_recipients=actor_recipients),
@@ -154,6 +152,8 @@ def preview_message(
         ),
         **({"steering_recipient": steering} if steering else {}),
     }
+    result.update(recipient_summary(result))
+    return result
 
 
 def _validate_routes(recipients: list[ResolvedRecipient]) -> None:
@@ -316,20 +316,17 @@ def send_message(
             else details.get("actor_recipients", [])
         )
         steering = stored_steering_recipient(conn, str(details["message_id"]))
-        queued = details.get("recipient_count", 0)
         result = {
             "message_id": details["message_id"],
             "recipients": selected,
             "actor_recipients": selected_actors,
-            "recipient_count": (
-                len(selected) + len(selected_actors) + bool(steering) + bool(queued)
-            ),
             "deduplicated": not created,
         }
         if not created and details.get("body_sha256") != body_sha256(body):
             result["collapsed_differing_body"] = True
         if steering is not None:
             result["steering_recipient"] = steering
+        result.update(recipient_summary({**details, "steering_recipient": steering}))
         return result
 
 

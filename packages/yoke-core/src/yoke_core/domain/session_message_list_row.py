@@ -30,6 +30,7 @@ from __future__ import annotations
 from typing import Any
 
 from yoke_contracts.read_detail import excerpt
+from yoke_core.domain.session_message_recipient_summary import recipient_summary
 
 #: Fields each compact session receipt carries when the recipient row has them.
 _RECEIPT_FIELDS = (
@@ -55,20 +56,9 @@ _CARRIED = (
 )
 
 
-def recipient_rows(message: dict[str, Any]) -> list[Any]:
-    """Every recipient record on a full message: sessions, people, the seat."""
-    steering = message.get("steering_recipient")
-    return [
-        *(message.get("recipients") or []),
-        *(message.get("actor_recipients") or []),
-        *([steering] if steering else []),
-    ]
-
-
 def message_list_row(summary: dict[str, Any]) -> dict[str, Any]:
     """Project one message summary down to its mailbox list row."""
     message_id = summary["message_id"]
-    rows = recipient_rows(summary)
     row: dict[str, Any] = {
         "message_id": message_id,
         # One "from", already resolved: a message sent by a session names
@@ -76,14 +66,7 @@ def message_list_row(summary: dict[str, Any]) -> dict[str, Any]:
         "sender": (
             summary.get("sender_session_label") or summary.get("sender_actor_label")
         ),
-        "recipient_count": summary.get("recipient_count", len(rows)),
-        "recipient_states": sorted(
-            {
-                str(record.get("state") or record.get("liveness") or "")
-                for record in rows
-            }
-            or ({summary["state"]} if summary.get("state") else set())
-        ),
+        **recipient_summary(summary),
         "recipients": [
             {key: record[key] for key in _RECEIPT_FIELDS if key in record}
             for record in summary.get("recipients") or []
@@ -100,4 +83,4 @@ def message_list_row(summary: dict[str, Any]) -> dict[str, Any]:
     return row
 
 
-__all__ = ["message_list_row", "recipient_rows"]
+__all__ = ["message_list_row"]

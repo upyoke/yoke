@@ -35,8 +35,7 @@ def display_recipients(
 def recipient_count(message: Mapping[str, Any]) -> int:
     """How many parties a message reached.
 
-    A compact mailbox row carries the answer because it dropped the rows
-    it would be counted from; a full message still carries the rows.
+    The server counts distinct parties. Older servers leave out this field.
     """
     if "recipient_count" in message:
         return int(message["recipient_count"])
@@ -49,6 +48,8 @@ def recipient_count(message: Mapping[str, Any]) -> int:
 
 def recipient_states(message: Mapping[str, Any]) -> set[Any]:
     """Every distinct recipient state, from the rows or the compact list."""
+    if "recipient_state_counts" in message:
+        return set(message["recipient_state_counts"])
     if "recipient_states" in message:
         return {state for state in message["recipient_states"] if state}
     steering = message.get("steering_recipient")

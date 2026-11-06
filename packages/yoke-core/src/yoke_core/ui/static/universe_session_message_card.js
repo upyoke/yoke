@@ -28,25 +28,28 @@ function deliverySummary(message) {
   if (message.cancelled_at) {
     return { state: "cancelled", label: "Cancelled", attention: false };
   }
-  const counts = new Map();
-  for (const recipient of recipientsOf(message)) {
-    const state = String(recipient.state || "pending");
-    counts.set(state, (counts.get(state) || 0) + 1);
+  const counts = new Map(Object.entries(message.recipient_state_counts || {}));
+  if (!message.recipient_state_counts) {
+    for (const recipient of recipientsOf(message)) {
+      const state = String(recipient.state || "pending");
+      counts.set(state, (counts.get(state) || 0) + 1);
+    }
+    for (const [state, count] of actorRecipientStateCounts(message)) {
+      counts.set(state, (counts.get(state) || 0) + count);
+    }
+    const steeringState = String(message.steering_recipient?.state || "");
+    if (OPEN_STEERING_STATES.has(steeringState)) {
+      counts.set("pending", (counts.get("pending") || 0) + 1);
+    } else if (steeringState === "acknowledged") {
+      counts.set("acknowledged", (counts.get("acknowledged") || 0) + 1);
+    }
   }
-  for (const [state, count] of actorRecipientStateCounts(message)) {
-    counts.set(state, (counts.get(state) || 0) + count);
-  }
-  const steeringState = String(message.steering_recipient?.state || "");
-  if (OPEN_STEERING_STATES.has(steeringState)) {
-    counts.set("pending", (counts.get("pending") || 0) + 1);
-  } else if (steeringState === "acknowledged") {
-    counts.set("acknowledged", (counts.get("acknowledged") || 0) + 1);
-  }
-  const awaiting = (counts.get("pending") || 0) + (counts.get("injected") || 0);
+  const awaiting = (counts.get("pending") || 0) + (counts.get("injected") || 0)
+    + (counts.get("awaiting_seat") || 0) + (counts.get("delivered") || 0);
   if (awaiting) {
     return { state: "pending", label: `${awaiting} awaiting`, attention: true };
   }
-  const acknowledged = counts.get("acknowledged") || 0;
+  const acknowledged = (counts.get("acknowledged") || 0) + (counts.get("read") || 0);
   const expired = counts.get("expired") || 0;
   const cancelled = counts.get("cancelled") || 0;
   if (acknowledged && !expired) {
@@ -169,9 +172,10 @@ function messageRoute(documentNode, message) {
   sender.appendChild(el(documentNode, "span", null, "From "));
   sender.appendChild(senderMessageParty(documentNode, message));
   route.appendChild(sender);
-  const count = recipientsOf(message).length + actorRecipientsOf(message).length
+  const count = message.recipient_count ?? (
+    recipientsOf(message).length + actorRecipientsOf(message).length
     + (message.steering_recipient ? 1 : 0)
-    || Number(message.recipient_count || 0);
+  );
   route.appendChild(el(
     documentNode,
     "span",

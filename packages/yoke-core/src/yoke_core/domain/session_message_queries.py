@@ -12,6 +12,7 @@ from typing import Any, Sequence
 
 from yoke_contracts.timestamps import parse_instant
 from yoke_core.domain.session_message_reads import message_details
+from yoke_core.domain.session_message_recipient_summary import recipient_summary
 from yoke_core.domain.session_message_receipt_expiry import project_due_receipts
 from yoke_core.domain.session_message_types import SessionMessageError, utc_now
 from yoke_core.domain.session_message_visibility import message_visible
@@ -52,6 +53,7 @@ def message_with_actor_context(
     session_id: str | None,
 ) -> dict[str, Any]:
     result = _actor_receipt(details, actor_id)
+    result.update(recipient_summary(result))
     command = _acknowledgement_command(details, session_id)
     if command:
         result["acknowledgement_command"] = command

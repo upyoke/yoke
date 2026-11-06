@@ -24,6 +24,7 @@ from yoke_core.domain.actor_message_recipients import ACTOR_KIND
 from yoke_core.domain.actor_render import render_actor_names
 from yoke_core.domain.session_message_launch_queue import queued_mail_status
 from yoke_core.domain.session_message_reads import ENGINE_SENDER_LABEL
+from yoke_core.domain.session_message_recipient_summary import recipient_summary
 from yoke_core.domain.session_message_receipt_expiry import project_due_receipts
 from yoke_core.domain.session_message_types import row_dict
 from yoke_core.domain.steering_message_recipients import STEERING_KIND, TABLE
@@ -158,6 +159,7 @@ def page_summaries(
                 message["sender_surface"]
             )
         project_due_receipts(message, now=now)
+        message.update(recipient_summary(message))
     from yoke_core.domain.session_message_display import project_session_names
 
     project_session_names(conn, list(messages.values()))

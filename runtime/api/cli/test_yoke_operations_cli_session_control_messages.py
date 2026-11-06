@@ -313,3 +313,22 @@ def test_json_acknowledge_rejects_multiple_ids_before_dispatch(monkeypatch):
         messages.session_message_acknowledge(["first", "second", "--json"])
     assert error.value.code == 2
     dispatch.assert_not_called()
+
+
+def test_server_recipient_counts_override_overlapping_delivery_rows():
+    from yoke_cli.commands.adapters.session_control_recipient_output import (
+        recipient_count, recipient_states,
+    )
+
+    message = {
+        "recipients": [{"session_id": "seat", "state": "pending"}],
+        "steering_recipient": {"session_id": "seat", "state": "delivered"},
+        "recipient_count": 1,
+        "recipient_state_counts": {"pending": 1},
+    }
+    assert recipient_count(message) == 1
+    assert recipient_states(message) == {"pending"}
+    del message["recipient_count"]
+    del message["recipient_state_counts"]
+    assert recipient_count(message) == 2
+    assert recipient_states(message) == {"pending", "delivered"}
