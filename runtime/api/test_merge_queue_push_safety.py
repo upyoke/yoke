@@ -1,6 +1,7 @@
 """Publishing a lane refuses while its candidate is still holding a landing."""
 
 from pathlib import Path
+from subprocess import CompletedProcess
 
 import pytest
 
@@ -243,11 +244,10 @@ def test_the_publish_path_proceeds_when_nothing_is_holding_the_branch(
     wire(_readiness(), rows=())
     calls: list = []
     monkeypatch.setattr(qa_case_ci_lane, "ref_sha", lambda _checkout, _ref: NEW_HEAD)
-    monkeypatch.setattr(qa_case_ci_lane, "_git", lambda *a, **_kw: calls.append(a[1]))
     monkeypatch.setattr(
         qa_case_ci_lane,
-        "_git_output",
-        lambda *a, **_kw: calls.append(a[1]) or "",
+        "_git",
+        lambda *a, **_kw: calls.append(a[1]) or CompletedProcess([], 0, "", ""),
     )
     qa_case_ci_lane.push_lane(CHECKOUT, BRANCH, project="prj", target=TARGET)
     assert calls == ["fetch", "push"]
@@ -284,8 +284,9 @@ def test_the_publish_path_lists_under_bound_machine_authority(wire, monkeypatch)
     wire(_readiness(), rows=())
     monkeypatch.setattr(safety, "list_branch_pull_requests", _listing)
     monkeypatch.setattr(qa_case_ci_lane, "ref_sha", lambda *_a, **_k: NEW_HEAD)
-    monkeypatch.setattr(qa_case_ci_lane, "_git", lambda *_a, **_k: None)
-    monkeypatch.setattr(qa_case_ci_lane, "_git_output", lambda *_a, **_k: "")
+    monkeypatch.setattr(
+        qa_case_ci_lane, "_git", lambda *a, **k: CompletedProcess([], 0, "", "")
+    )
 
     qa_case_ci_lane.push_lane(CHECKOUT, BRANCH, project="prj", target=TARGET)
     assert seen.get("bound") is True
