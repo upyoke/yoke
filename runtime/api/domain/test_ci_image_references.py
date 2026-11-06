@@ -24,54 +24,16 @@ _EXPECTED_IMAGES = frozenset(
 # Flags that consume the next docker run/pull token. The image is the first
 # positional; arguments after it (postgres -c ...) are not docker flags.
 _VALUE_FLAGS = frozenset(
-    {
-        "--add-host",
-        "--cap-add",
-        "--cap-drop",
-        "--cpus",
-        "--device",
-        "--entrypoint",
-        "--env",
-        "--env-file",
-        "--group-add",
-        "--health-cmd",
-        "--health-interval",
-        "--health-retries",
-        "--health-start-period",
-        "--health-timeout",
-        "--hostname",
-        "--label",
-        "--label-file",
-        "--log-driver",
-        "--log-opt",
-        "--memory",
-        "--memory-reservation",
-        "--memory-swap",
-        "--mount",
-        "--name",
-        "--network",
-        "--publish",
-        "--pull",
-        "--restart",
-        "--security-opt",
-        "--shm-size",
-        "--sysctl",
-        "--tmpfs",
-        "--ulimit",
-        "--user",
-        "--volume",
-        "--workdir",
-        "-e",
-        "-h",
-        "-l",
-        "-m",
-        "-p",
-        "-u",
-        "-v",
-        "-w",
-    }
+    (
+        "--add-host --cap-add --cap-drop --cpus --device --entrypoint --env --env-file "
+        "--group-add --health-cmd --health-interval --health-retries --health-start-period "
+        "--health-timeout --hostname --label --label-file --log-driver --log-opt --memory "
+        "--memory-reservation --memory-swap --mount --name --network --publish --pull "
+        "--restart --security-opt --shm-size --sysctl --tmpfs --ulimit --user --volume "
+        "--workdir -e -h -l -m -p -u -v -w"
+    ).split()
 )
-_FROM = re.compile(r"^FROM\s+(\S+)", re.MULTILINE)
+_FROM = re.compile(r"^FROM\s+(\S+)(?:\s+AS\s+(\S+))?", re.MULTILINE | re.IGNORECASE)
 _ARG = re.compile(r"^ARG\s+([A-Za-z_][A-Za-z0-9_]*)=(.*)$", re.MULTILINE)
 _DOCKER_INVOCATION = re.compile(r"\bdocker\s+(run|pull)\b")
 _BARE_OFFICIAL = re.compile(r"(?<![\w./-])(?:postgres|python|registry):[^\s\\'\"]+")
@@ -130,7 +92,9 @@ def test_ci_steps_retry_mirror_pulls_before_using_the_image() -> None:
     assert 'docker pull "$python_image"' in build
     assert "for attempt in 1 2 3 4 5" in build
     workflow = (_WORKFLOWS / "yoke-ci.yml").read_text()
-    assert workflow.index("Pull the base image") < workflow.index("Build Yoke core image")
+    assert workflow.index("Pull the base image") < workflow.index(
+        "Build Yoke core image"
+    )
 
 
 def test_ci_files_do_not_name_bare_docker_hub_official_images() -> None:
@@ -184,13 +148,19 @@ def _workflow_paths() -> list[Path]:
     )
 
 
-def _dockerfile_images() -> list[str]:
-    text = _DOCKERFILE.read_text(encoding="utf-8")
+def _dockerfile_images(text: str | None = None) -> list[str]:
+    text = _DOCKERFILE.read_text(encoding="utf-8") if text is None else text
     first = _FROM.search(text)
     preamble = text[: first.start()] if first else text
     defaults = {name: value.strip() for name, value in _ARG.findall(preamble)}
     images: list[str] = []
-    for token in _FROM.findall(text):
+    stages: set[str] = set()
+    for token, alias in _FROM.findall(text):
+        local = token.casefold() in stages
+        if alias:
+            stages.add(alias.casefold())
+        if local:
+            continue
         name = _shell_name(token)
         if name is not None:
             if name not in defaults:
@@ -203,6 +173,21 @@ def _dockerfile_images() -> list[str]:
             raise AssertionError(f"Dockerfile: FROM {token!r} is not a concrete image")
         images.append(token)
     return images
+
+
+def test_dockerfile_stage_inheritance_keeps_external_image_policy():
+    text = (
+        "ARG BASE=ghcr.io/upyoke/python:3.13-slim\n"
+        "FROM ${BASE} AS dependencies\nFROM dependencies AS builder\n"
+        "FROM builder AS runtime\nFROM docker.io/python:3.13 AS other\n"
+        "FROM future AS early\nFROM ${BASE} AS future\n"
+    )
+    assert _dockerfile_images(text) == [
+        "ghcr.io/upyoke/python:3.13-slim",
+        "docker.io/python:3.13",
+        "future",
+        "ghcr.io/upyoke/python:3.13-slim",
+    ]
 
 
 def _job_container_images(job: dict, origin: str) -> list[str]:
