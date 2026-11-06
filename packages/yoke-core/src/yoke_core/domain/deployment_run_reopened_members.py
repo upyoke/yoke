@@ -53,19 +53,29 @@ def composition_member_readiness(
         carried = projected_carried_members
         if carried is None:
             predecessor = (
-                conn.execute("SELECT supersedes_run_id FROM deployment_runs WHERE id=%s", (run_id,)).fetchone()
-                if _column_exists(conn, "deployment_runs", "supersedes_run_id") else None
+                conn.execute(
+                    "SELECT supersedes_run_id FROM deployment_runs WHERE id=%s",
+                    (run_id,),
+                ).fetchone()
+                if _column_exists(conn, "deployment_runs", "supersedes_run_id")
+                else None
             )
-            carried = frozenset(
-                int(entry["item_id"])
-                for entry in membership_removals(conn, str(predecessor[0]))
-                if entry.get("transferred_to_run_id") == run_id
-            ) if predecessor and predecessor[0] else frozenset()
+            carried = (
+                frozenset(
+                    int(entry["item_id"])
+                    for entry in membership_removals(conn, str(predecessor[0]))
+                    if entry.get("transferred_to_run_id") == run_id
+                )
+                if predecessor and predecessor[0]
+                else frozenset()
+            )
         candidates = [row for row in rows if int(row[0]) not in carried]
         unready = unready_item_ids(conn, candidates, allow_completed=True)
         ref = render_item_ref_lookup(conn, unready)
         statuses = {int(row[0]): str(row[1]) for row in candidates}
-        refused = [f"{ref(item_id)} (status={statuses[item_id]})" for item_id in unready]
+        refused = [
+            f"{ref(item_id)} (status={statuses[item_id]})" for item_id in unready
+        ]
     return refused, notice, [int(row[0]) for row in rows]
 
 
