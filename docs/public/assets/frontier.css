@@ -4,8 +4,8 @@
 .frontier-example-scroll { overflow-x: auto; }
 .frontier-example-graph { display: grid; grid-template-columns: repeat(3, 1fr); grid-template-rows: 24px 130px 130px; column-gap: 40px; row-gap: 10px; min-width: 680px; position: relative; }
 .frontier-example-column { font-size: 9px; font-weight: 700; letter-spacing: .08em; color: var(--yoke-muted); }
-.frontier-example-graph > svg { position: absolute; top: 34px; left: 0; width: 100%; height: 270px; pointer-events: none; }
-.frontier-example-graph > svg path { fill: none; stroke: var(--yoke-border); stroke-width: 1.5; }
+.frontier-example-graph > svg { position: absolute; top: 34px; width: 40px; height: 270px; pointer-events: none; }
+.frontier-example-graph > svg path { fill: none; stroke: var(--yoke-muted); stroke-width: 1.5; }
 .frontier-example-card { z-index: 1; display: flex; flex-direction: column; gap: 12px; padding: 13px; border: 1px solid var(--yoke-border); border-left: 3px solid var(--yoke-accent); border-radius: var(--yoke-radius); background: var(--yoke-surface); }
 .frontier-example-card.active { border-left-color: var(--yoke-accent); }
 .frontier-example-meta { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; font-size: 10px; }
@@ -19,3 +19,6 @@
 .frontier-example-card[data-position="frontier-position-3"] { grid-area: 3 / 2; }
 .frontier-example-card[data-position="frontier-position-4"] { grid-area: 2 / 3; }
 .frontier-example-card[data-position="frontier-position-5"] { grid-area: 3 / 3; }
+
+.frontier-first-links { left: calc((100% - 80px) / 3); }
+.frontier-next-links { left: calc((100% - 80px) * 2 / 3 + 40px); }

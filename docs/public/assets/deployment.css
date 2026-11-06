@@ -11,7 +11,7 @@
 .deployment-example-pipeline ol { padding: 0; margin: 0; list-style: none; }
 .deployment-example-pipeline li { position: relative; display: flex; gap: 12px; padding-bottom: 20px; }
 .deployment-example-pipeline li:last-child { padding-bottom: 0; }
-.deployment-example-pipeline li:not(:last-child)::after { content: ''; position: absolute; left: 13px; top: 31px; bottom: 4px; width: 2px; background: var(--yoke-border); }
+.deployment-example-pipeline li:not(:last-child)::after { content: ''; position: absolute; left: 13px; top: 31px; bottom: 4px; width: 2px; background: var(--yoke-muted); }
 .deployment-stage-number { display: grid; place-items: center; width: 28px; height: 28px; flex-shrink: 0; border-radius: var(--yoke-radius); background: var(--yoke-surface); color: var(--yoke-muted); font-size: 12px; font-weight: 600; }
 .qa-stage .deployment-stage-number { background: var(--yoke-surface); color: var(--yoke-accent); }
 .deployment-stage-copy { display: grid; gap: 5px; padding-top: 4px; }

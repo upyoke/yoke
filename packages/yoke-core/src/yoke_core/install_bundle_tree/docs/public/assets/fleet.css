@@ -1,6 +1,6 @@
 @import url("./fonts.css");
 .intro-fleet { margin: 28px 0; padding: 28px 20px 18px; background: var(--yoke-surface); border: 0; border-radius: var(--yoke-radius); color: var(--yoke-ink); }
-.fleet-session { background: var(--yoke-surface); border: 1px solid var(--yoke-border); border-radius: var(--yoke-radius); overflow: hidden; box-shadow: var(--yoke-shadow); }
+.fleet-session { background: var(--yoke-bg); border: 1px solid var(--yoke-border); border-radius: var(--yoke-radius); overflow: hidden; box-shadow: var(--yoke-shadow); }
 .fleet-lead { width: 340px; max-width: 100%; margin: 0 auto; border-color: var(--yoke-muted); position: relative; overflow: visible; }
 .fleet-session-header { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 6px 10px; padding: 12px 14px; border-bottom: 1px solid var(--yoke-border); font-size: 12px; }
 .fleet-session-header span { color: var(--yoke-muted); font-size: 11px; }
@@ -10,7 +10,7 @@
 .fleet-session-role img { width: 20px; height: 20px; }
 .fleet-session-state { color: var(--yoke-accent-2); background: var(--yoke-surface); border-radius: var(--yoke-radius); padding: 4px 8px; font-size: 11px; justify-self: start; }
 .fleet-workers { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 18px; position: relative; padding-top: 46px; }
-.fleet-workers::before { content: ''; position: absolute; left: 16.667%; right: 16.667%; top: 23px; height: 1px; background: var(--yoke-muted); }
+.fleet-workers::before { content: ''; position: absolute; left: calc((100% - 36px) / 6); right: calc((100% - 36px) / 6); top: 23px; height: 1px; background: var(--yoke-muted); }
 .fleet-lead::after { content: ''; position: absolute; top: 100%; height: 23px; left: 50%; width: 1px; background: var(--yoke-muted); }
 .fleet-workers > .fleet-session { position: relative; overflow: visible; }
 .fleet-workers > .fleet-session::before { content: ''; position: absolute; bottom: 100%; height: 23px; left: 50%; width: 1px; background: var(--yoke-muted); }
@@ -18,15 +18,15 @@
 @media (max-width: 650px) {
  .intro-fleet { padding: 20px 14px 14px; }
  .fleet-lead { width: auto; }
- .fleet-workers { grid-template-columns: 1fr; padding: 24px 0 0 20px; gap: 12px; }
- .fleet-workers::before { left: 7px; right: auto; top: 0; bottom: 65px; width: 1px; height: auto; }
+ .fleet-workers { grid-template-columns: 1fr; grid-auto-rows: 1fr; padding: 24px 0 0 20px; gap: 12px; }
+ .fleet-workers::before { left: 7px; right: auto; top: 0; bottom: calc((100% - 48px) / 6); width: 1px; height: auto; }
  .fleet-lead::after { display: none; }
  .fleet-workers > .fleet-session::before { left: -13px; top: 50%; bottom: auto; width: 13px; height: 1px; }
 }
 
 /* Match the dashboard's session, steering-seat, held-item, and relay treatments. */
 .intro-fleet { background: var(--yoke-surface); border-color: var(--yoke-border); }
-.fleet-session { background: var(--yoke-surface); border-color: var(--yoke-border); box-shadow: none; }
+.fleet-session { background: var(--yoke-bg); border-color: var(--yoke-border); box-shadow: none; }
 .fleet-lead { border-color: var(--yoke-border); }
 .fleet-session-header { justify-content: flex-start; border: 0; padding: 16px 14px 0; gap: 8px; }
 .fleet-session-header strong { font-size: 14px; color: var(--yoke-ink); }
@@ -36,7 +36,6 @@
 .fleet-session-body { gap: 12px; padding: 14px; }
 .fleet-seat { padding: 12px; border: 1px dashed var(--yoke-accent); border-radius: var(--yoke-radius); background: var(--yoke-surface); }
 .fleet-session-role { color: var(--yoke-accent); letter-spacing: .035em; font: 700 13px/1.3 var(--yoke-font-mono); }
-.fleet-session-role img { filter: hue-rotate(25deg) saturate(1.8); }
 .fleet-plan { display: block; margin-top: 14px; color: var(--yoke-ink); font: 600 14px/1.4 var(--yoke-font-mono); }
 .fleet-held { display: grid; gap: 8px; padding: 12px; background: var(--yoke-surface); border-left: 3px solid var(--yoke-accent-2); border-radius: var(--yoke-radius); }
 .fleet-held-label { color: var(--yoke-accent-2); font-size: 10px; font-weight: 700; letter-spacing: .08em; }
