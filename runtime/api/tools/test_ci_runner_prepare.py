@@ -125,6 +125,76 @@ def test_postgres_pull_retries_are_bounded_and_keep_cleanup(monkeypatch, postgre
     assert "YOKE_PG_SOCKET_DIR=" in postgres.read_text()
 
 
+@pytest.mark.parametrize("failures", [0, 1, 2])
+@pytest.mark.parametrize("failure_kind", ["timeout", "error"])
+def test_postgres_start_budget_retry_and_diagnostics(
+    monkeypatch, postgres, capsys, failures, failure_kind,
+):
+    calls = []
+    starts = 0
+
+    def run(args, **kwargs):
+        nonlocal starts
+        calls.append((args, kwargs))
+        if args[:2] == ["docker", "run"]:
+            starts += 1
+            assert kwargs["timeout"] == 120
+            if starts <= failures:
+                if failure_kind == "timeout":
+                    raise subprocess.TimeoutExpired(args, 120)
+                raise subprocess.CalledProcessError(1, args)
+        if args[:2] == ["docker", "port"]:
+            return subprocess.CompletedProcess(args, 0, "0.0.0.0:32768\n", "")
+        return subprocess.CompletedProcess(args, 0, "diagnostic stdout", "diagnostic stderr")
+
+    monkeypatch.setattr(runner.subprocess, "run", run)
+    if failures == 2:
+        with pytest.raises(runner.PreparationError, match="ci_runner_setup_command_failed"):
+            runner.start_postgres()
+        assert "YOKE_PG_DSN=" not in postgres.read_text()
+    else:
+        runner.start_postgres()
+        assert "port=32768" in postgres.read_text()
+    assert starts == min(failures + 1, 2)
+    commands = [args for args, _ in calls]
+    cleanup = ["docker", "rm", "-f", "isolated-test-pg"]
+    assert commands.count(cleanup) == bool(failures)
+    if failures:
+        assert commands[1][:2] == ["docker", "run"]
+        assert commands[2] == cleanup
+        assert commands[3] == commands[1]
+    diagnostics = [
+        ["docker", "ps", "-a", "--filter", "name=isolated-test-pg"],
+        ["docker", "logs", "--tail", "50", "isolated-test-pg"],
+        ["docker", "info"],
+    ]
+    output = capsys.readouterr().err
+    if failures == 2:
+        assert commands[-3:] == diagnostics
+        assert all(kwargs["timeout"] == 10 and kwargs["capture_output"]
+                   for _, kwargs in calls[-3:])
+        assert output.count("diagnostic stdout") == 3
+        assert output.count("diagnostic stderr") == 3
+        assert all(" ".join(command) in output for command in diagnostics)
+    else:
+        assert not output
+        assert not any(command in commands for command in diagnostics)
+
+
+def test_start_failure_survives_cleanup_and_diagnostic_failures(monkeypatch, capsys):
+    calls = []
+
+    def fail(args, **kwargs):
+        calls.append(args)
+        raise runner.PreparationError("ci_runner_setup_command_failed: " + args[1])
+
+    monkeypatch.setattr(runner, "_run", fail)
+    with pytest.raises(runner.PreparationError, match="ci_runner_setup_command_failed: run"):
+        runner._start_container(["docker", "run"], "test-pg")
+    assert [args[1] for args in calls] == ["run", "rm", "run", "ps", "logs", "info"]
+    assert "ci_runner_setup_command_failed: rm" in capsys.readouterr().err
+
+
 @pytest.mark.parametrize("failure", [False, True])
 def test_all_independent_tasks_start_and_join_even_when_one_fails(monkeypatch, failure):
     barrier = threading.Barrier(3, timeout=5)

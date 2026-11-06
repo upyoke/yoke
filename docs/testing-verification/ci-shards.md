@@ -37,6 +37,11 @@ It imports with `python3 -S` from the checkout before dependencies exist.
 Every task has bounded commands and records its elapsed time; one barrier
 joins all tasks before any later setup or pytest. A failure refuses as
 `ci_runner_setup_failed`, names the task and recovery, and starts no tests.
+Docker container start gets 120 seconds per attempt, with one bounded
+`docker rm -f` cleanup and one retry on timeout or error. Final failure logs
+`docker ps -a --filter name=<container>`, `docker logs --tail 50 <container>`
+and `docker info`, each limited to 10 seconds and 8,000 characters per stream,
+then raises `ci_runner_setup_command_failed`; it never prints container env.
 The socket cleanup path is published before Docker starts, so the caller's
 always-cleanup still removes resources on failure. Database readiness and
 CREATEDB checks remain required after the barrier.
