@@ -17,14 +17,13 @@ blue; Blocked remains visible beside it. Blocked alone colors that segment
 red. Completed and upcoming segments retain their normal colors. A parked or
 idle session does not, by itself, mark its item Frozen or Blocked.
 
-The command selector retains the liveness values `active`, `waiting`, `stale`, or `ended`.
-`stale` means eligible for automatic reclaim, with every work-claim,
-document-holdings, in-flight and episode-progress rule applied. A live active
-work-claim holder never reads stale. An intentional pause declared by mode
-`parked` while holding work is `waiting`, displayed
-as **parked**, however old its activity becomes. Other protected live sessions
-remain active; their activity age is a separate diagnostic. Silence does not
-declare a pause. Ended sessions stay ended.
+The CLI filters the same projection before pagination: `yoke sessions list
+--presence present`, `--activity working`, and `--intent awaiting` can be
+combined. Presence accepts present, gone or ended; activity accepts working,
+between_turns or silent; intent accepts none, parked or awaiting.
+`yoke sessions get SESSION-ID` reads one session. The list command no longer
+accepts `--liveness`; message recipient selection keeps its own `--liveness`
+flag. Protected claims remain held independently of activity and presence.
 
 The roster opens on **Open**: sessions whose shared presence is present.
 **Working**, **Between turns**, **Parked or awaiting**, **Silent**, **Gone** and

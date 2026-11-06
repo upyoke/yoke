@@ -108,4 +108,5 @@ decisions take priority, followed by unmet dependencies, CI and release runs.
 A decision resolves its audience to active people, including organization roles
 inherited by the project. An empty audience names the steering owner and asks
 for audience repair. The state time comes from the obligation, never a heartbeat.
-Older servers may omit this projection; clients keep their existing state display.
+Older servers may omit this projection; cards name unavailable state and retain
+known end and holdings facts. Upgrade the server and refresh for detailed filters.

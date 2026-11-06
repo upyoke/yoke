@@ -24,6 +24,10 @@ const FAMILIES = {
   implemented: "good",
   done: "good",
   active: "good",
+  working: "good",
+  between_turns: "idle",
+  gone: "crit",
+  unavailable: "warn",
   idle: "idle",
   ended: "idle",
   // A session that parked itself is neither running nor neutral: it declared

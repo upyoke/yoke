@@ -169,7 +169,7 @@ test("Sessions matches the prototype's runtime, assignment, level, and operator 
   assert.deepEqual(
     byClass(root, "pill").map((pill) => [pill.textContent, pill.className]),
     [
-      ["working", "pill idle session-status-pill"],
+      ["working", "pill good session-status-pill"],
       ["test-mac", "pill good session-relay-pill"],
       ["silent", "pill warn session-status-pill"],
       ["machine-2", "pill crit session-relay-pill"],
@@ -213,14 +213,14 @@ test("Sessions matches the prototype's runtime, assignment, level, and operator 
   const cardText = cards.map(visibleText);
   for (const expected of [
     "claude-code", "YOK-2228", "Execute WORKFLOW-TYPES",
-    "🧭 Integration", "claude-opus-4-8", "claim held", "idle", "Ben",
+    "🧭 Integration", "claude-opus-4-8", "claim held", "last tool unavailable", "Ben",
     "Relay:", "test-mac",
   ]) {
     assert.ok(cardText[0].includes(expected), expected);
   }
   for (const expected of [
     "codex", "DARIUS", "gpt-5.6-sol", "worktree attached",
-    "stale", "preview-ci", "no relay connected",
+    "silent", "preview-ci", "no relay connected",
   ]) {
     assert.ok(cardText[1].includes(expected), expected);
   }

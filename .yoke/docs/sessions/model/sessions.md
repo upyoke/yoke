@@ -23,8 +23,11 @@ settles ownership; automatic reclaim refuses with `reason=active_work_claim`.
 The roster consumes `session_state` for presence, activity, intent, custody and
 next actor. An absent end stamp means open, not working or process present.
 Tool recency uses `last_tool_call_at`; heartbeat age never establishes activity.
+The CLI reads these fields with `sessions list --presence`, `--activity` and
+`--intent`, applied before pagination, or `sessions get SESSION-ID`. The list
+command removes `--liveness`; message recipient filtering is unchanged.
 
-The legacy `liveness` selector reports `active`, `waiting`, `stale` or `ended`.
+The legacy `liveness` response field reports `active`, `waiting`, `stale` or `ended`.
 An explicit parked claim holder reports `waiting`; other protected holders
 report `active`. Turn posture never declares a pause. Live roster `reclaimable`
 flags match `liveness=stale`. `classify_activity` applies holdings and progress rules;
