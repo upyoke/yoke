@@ -14,10 +14,19 @@ dependency rules, gateways and exemptions.
 - Layers may depend only on what `may_depend_on` allows:
 
 ```text
-schema_storage -> payload_validators -> persistence_queries -> domain_invariants ->
-service_api -> orchestration -> harness_adapters -> skill_docs
+schema_storage <-> payload_validators (shared base pair)
+persistence_queries -> migrations -> domain_invariants -> service_api ->
+orchestration -> harness_adapters -> skill_docs
 ```
 
+- The order shows layers, not permission to depend on every earlier layer.
+  Every layer may use `payload_validators`; all other dependencies must be explicit.
+  `schema_storage` holds table definitions. `migrations` may use only
+  `schema_storage`, `persistence_queries` and `payload_validators`; imports of live
+  domain code remain findings. `orchestration` may use storage and migrations.
+- Domains are classification labels only; no check reads them as dependency
+  boundaries. Each file gets one domain and layer from the first matching path
+  pattern in declaration order. Put specific patterns before broader ones.
 - Cross-cutting concerns use only gateways in `cross_cutting_entrypoints`;
   importing a `guarded_imports` symbol elsewhere fires `HC-architecture-cross-cutting-entrypoint`.
 - Generated, fixture, archive, test and Pack-source exemptions use the map's
