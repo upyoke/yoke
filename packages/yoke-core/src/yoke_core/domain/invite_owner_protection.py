@@ -15,7 +15,10 @@ def require_invite_owner_change(conn, caller, target, org_id, role_id):
         ).fetchone()
         if row is None:
             raise ValueError(
-                "invite_role_missing: choose a seeded human role and invite again"
+                compose_refusal(
+                    "invite_role_missing: the role is not seeded",
+                    recovery="Choose a seeded human role and invite again",
+                )
             )
         role = str(row[0])
         require_human_org_role(role)
