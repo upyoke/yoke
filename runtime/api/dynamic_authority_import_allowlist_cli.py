@@ -315,6 +315,10 @@ CLI_PACKAGE_DYNAMIC_AUTHORITY_IMPORTS = {
     ),
     (
         "packages/yoke-cli/src/yoke_cli/config/db_admin_dsn_exec.py",
+        "yoke_core.domain.connected_env_tunnel_coordination",
+    ): ("source_dev_admin", "explicit db-admin exec tunnel lease"),
+    (
+        "packages/yoke-cli/src/yoke_cli/config/db_admin_dsn_exec.py",
         "yoke_core.domain.deploy_remote",
     ): ("source_dev_admin", "explicit db-admin exec aws-admin capability precheck"),
     (
