@@ -60,7 +60,7 @@ def resettle_execution(conn: Any, execution: Mapping[str, Any]) -> dict | None:
 def resettle_stage(
     conn: Any, *, run_id: str, stage: str, member: int | None = None
 ) -> None:
-    """Retry completed evidence before a nothing-owed or close-out response.
+    """Try completed evidence before a nothing-owed response.
 
     Call only at a command boundary, before acquiring write locks. Settlement
     owns its post-commit transaction; read-only acceptance readers stay pure.
