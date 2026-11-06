@@ -71,6 +71,7 @@ Read [envelope and authority](index.md) first. `none` means no dispatcher work-c
 | `test_machine.case.begin` | `qa_subject` |
 | `test_machine.case.submit` | `qa_subject` |
 | `test_machine.case_execute` | `qa_subject` |
+| `test_machine.delete` | `none`; project admin; refuses shared leases, pending waits and reset debt. |
 | `test_machine.desktop_access` | `none` |
 | `test_machine.get` | `none` |
 | `test_machine.host_rebind` | Record a cloud instance public IPv4 under the calling session’s host lease; CAS preserves verification and moves a matching desktop host. |
