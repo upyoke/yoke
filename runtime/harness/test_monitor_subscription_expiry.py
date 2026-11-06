@@ -89,7 +89,8 @@ def test_the_monitor_recipe_arms_at_the_cap_and_re_arms_on_expiry(
 
 def test_a_recipe_without_a_subscription_limit_keeps_arm_once(tmp_path: Path) -> None:
     recipe = _recipe("notify_on_output", tmp_path)
-    assert "for the lifetime of the bg command" in recipe
+    assert "No subscription deadline is established" in recipe
+    assert "If a native expiry notice arrives, re-arm the same tail" in recipe
     assert "timeout_ms" not in recipe
 
 

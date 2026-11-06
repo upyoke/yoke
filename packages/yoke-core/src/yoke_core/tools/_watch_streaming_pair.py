@@ -198,12 +198,9 @@ def print_streaming_pair(
             "# subscription is live is the wake-loop bug, denied at PreToolUse.\n"
         )
     else:
-        stream.write(
-            "# for the lifetime of the bg command. Do NOT re-arm to 'continue\n"
-        )
-        stream.write(
-            "# tail' — that is the wake-loop bug and is denied at PreToolUse.\n"
-        )
+        stream.write("# No subscription deadline is established for this harness.\n")
+        stream.write("# Keep this subscription; do not re-arm to 'continue tail'.\n")
+        stream.write("# If a native expiry notice arrives, re-arm the same tail.\n")
     stream.write("# Auto-exits when the wrapper writes its exit sentinel.\n")
     if not outcome_only:
         for tier_line in TIER_HELP.rstrip().splitlines():
