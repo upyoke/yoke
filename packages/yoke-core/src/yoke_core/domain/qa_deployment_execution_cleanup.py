@@ -16,5 +16,7 @@ def terminal_run_status(conn, execution):
 
 
 def abort_reason(conn, execution, reason):
-    status = terminal_run_status(conn, execution)
-    return f"{reason}; deployment run status={status}" if status else reason
+    run_id = execution.get("deployment_run_id")
+    row = query_one(conn, "SELECT status FROM deployment_runs WHERE id=%s", (run_id,)) if run_id else None
+    status = row["status"] if row else None
+    return f"{reason}; deployment run status={status}" if status in TERMINAL_RUN_STATUSES else reason

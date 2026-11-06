@@ -236,5 +236,13 @@ def test_failed_run_start_uses_the_reopened_member_rule(
     )
     test_db.execute("UPDATE deployment_runs SET status='failed' WHERE id=%s", (RUN,))
     test_db.commit()
-    assert cmd_update(RUN, "status", "executing") is None
+    from yoke_core.domain.deployment_run_contained_items import (
+        attest_candidate_containment, candidate_containment_basis,
+    )
+
+    attestation = attest_candidate_containment(
+        candidate_containment_basis(test_db, RUN),
+        lambda slug: str(tmp_path / "reopened"), run_id=RUN,
+    )
+    assert cmd_update(RUN, "status", "executing", candidate_containment=attestation) is None
     assert _members(test_db) == expected_members

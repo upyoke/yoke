@@ -264,7 +264,7 @@ def test_close_replay_without_receipt_wakes_a_deployed_dependent(test_db, monkey
     _items(test_db)
     _edge(test_db, BLOCKER, "closure", "fact:deployed:prod")
     _parked_dependent(test_db)
-    test_db.execute("INSERT INTO environments(id,project_id,site,name) SELECT 321,1,id,'prod' FROM sites WHERE project_id=1 ORDER BY id LIMIT 1")
+    test_db.execute("INSERT INTO environments(id,project_id,site,name,created_at) SELECT 321,1,id,'prod',now() FROM sites WHERE project_id=1 ORDER BY id LIMIT 1")
     entry = {"item_id": BLOCKER, "project_id": 1, "run_id": "run-delivered",
              "member_item_id": BLOCKER, "environment_id": 321, "environment": "prod",
              "candidate": "b" * 40, "source": "run_membership"}

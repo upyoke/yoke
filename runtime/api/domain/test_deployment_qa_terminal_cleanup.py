@@ -105,6 +105,12 @@ def test_terminal_run_keeps_other_writes_and_other_sessions_guarded(
     test_db, deployment_execution
 ):
     request = deployment_execution
+    # Failed releases keep the owner's continuation; cancellation still refuses it.
+    assert resolve_run_qa_subject(test_db, resolve_execution_request(
+        test_db, request.model_copy(update={"function": "qa.plan_execution.advance"})
+    )) == (1, "yoke", 9701)
+    test_db.execute("UPDATE deployment_runs SET status='cancelled' WHERE id='run-abort-after-failure'")
+    test_db.commit()
     with pytest.raises(ValueError, match="active stage"):
         resolve_run_qa_subject(
             test_db,

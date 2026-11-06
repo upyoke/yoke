@@ -128,7 +128,7 @@ def test_closed_deployment_still_authorizes_its_bound_capture_review(
         )
     )
     assert submitted.primary_success, submitted.error
-    assert submitted.result_payload["state"] == "aborted"
+    assert submitted.result_payload["state"] == ("passed" if disposition == "failed" else "aborted")
     assert (
         test_db.execute(
             "SELECT status FROM deployment_runs WHERE id=%s", (run_id,)

@@ -37,6 +37,9 @@ def test_failed_successor_keeps_red_sibling_and_live_execution_for_next_release(
     assert settle_unsuccessful_run(test_db, takeover.NEW, reason="driver failed")
     assert terminal_run_status(test_db, {"deployment_run_id": takeover.NEW}) is None
     test_db.commit()
+    from yoke_core.domain.deploy_target_occupancy import occupancies, run_target
+
+    assert occupancies(test_db, run_target(test_db, takeover.NEW).origins) == []
     assert test_db.execute("SELECT state FROM qa_plan_executions WHERE id=%s", (execution["id"],)).fetchone()[0] == "active"
     assert test_db.execute("SELECT count(*) FROM qa_requirements WHERE id=ANY(%s) AND retracted_at IS NULL", (list(cases.values()),)).fetchone()[0] == 2
     next_run = "run-takeover-next"
