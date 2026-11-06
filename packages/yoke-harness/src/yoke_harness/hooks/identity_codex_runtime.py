@@ -59,7 +59,9 @@ def codex_transcript_candidates(
     """Share path discovery briefly; transcript contents always remain live."""
     if not thread_id:
         return []
-    stores = tuple(roots if roots is not None else codex_transcript_roots())
+    stores = tuple(
+        root.absolute() for root in (roots if roots is not None else codex_transcript_roots())
+    )
     key = (stores, thread_id)
     with _candidate_lock:
         now = time.monotonic()
