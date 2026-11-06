@@ -61,7 +61,7 @@ def test_dependency_inputs_exclude_source_and_release_identity():
     identity = runtime.index('ARG YOKE_BUILD_SHA=""')
     assert runtime.index("uv pip install") < identity
     assert "--no-deps --no-index /wheels/*.whl" in runtime
-    assert "--compile-bytecode" in dependencies
+    assert "--compile-bytecode --no-cache" in dependencies
     assert "--no-cache --compile-bytecode" in runtime
     for stable in ("apt-get update", "addgroup", "uv sync", "['ensure_binaries']()"):
         assert stable in dependencies

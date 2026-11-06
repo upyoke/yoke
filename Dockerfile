@@ -41,7 +41,7 @@ COPY packages/yoke-cli/pyproject.toml ./packages/yoke-cli/pyproject.toml
 COPY packages/yoke-contracts/pyproject.toml ./packages/yoke-contracts/pyproject.toml
 COPY packages/yoke-harness/pyproject.toml ./packages/yoke-harness/pyproject.toml
 RUN --mount=type=bind,from=tools,source=/usr/local/bin/uv,target=/usr/local/bin/uv \
-    uv sync --locked --no-default-groups --no-editable --no-install-workspace --compile-bytecode
+    uv sync --locked --no-default-groups --no-editable --no-install-workspace --compile-bytecode --no-cache
 
 WORKDIR /app
 
