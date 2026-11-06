@@ -206,6 +206,8 @@ def test_ancillary_run_cannot_borrow_selected_flow_qa_or_reopen_done(
     )
     _settle(test_db, run_id="run-selected-prod", stage="item-qa", member=member)
     _finish_run(test_db, "run-selected-prod")
+    test_db.execute("UPDATE items SET status='done' WHERE id=%s", (member,))
+    test_db.commit()
     _seed_run(
         test_db,
         run_id="run-ancillary-stage",

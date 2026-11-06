@@ -95,6 +95,7 @@ def test_member_dispatch_replaces_notice_to_ended_holder(test_db):
 
     run_id, member = "run-member-restaffed", 9983
     requirement_id = seed_member_qa_case(test_db, run_id=run_id, member_item_id=member)
+    test_db.execute("UPDATE items SET status='release' WHERE id=%s", (member,))
     test_db.execute(
         "UPDATE qa_requirements SET wake_path='manual', "
         "wake_evidence='a production traffic sample is recorded for this release' WHERE id=%s",

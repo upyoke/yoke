@@ -11,15 +11,23 @@ class MaterializationProjection:
     later unlocked read of the run is still current.
     """
 
-    def __init__(self, conn, run_id):
+    def __init__(self, conn, run_id, *, member_item_id=None):
         self.conn = conn
         self.run_id = str(run_id)
-        self.fingerprint = run_qa_fingerprint(conn, self.run_id)
+        self.member_item_id = member_item_id
+        self.advance(conn)
         self._members = None
 
     def holds(self, conn) -> bool:
         """Whether nothing this projection read changed; call under the run lock."""
-        return run_qa_fingerprint(conn, self.run_id) == self.fingerprint
+        return self.current(conn) == self.fingerprint
+
+    def current(self, conn):
+        return run_qa_fingerprint(conn, self.run_id, member_item_id=self.member_item_id)
+
+    def advance(self, conn):
+        """Include this member's own committed writes in its prepared projection."""
+        self.fingerprint = self.current(conn)
 
     def members(self):
         if self._members is None:

@@ -99,6 +99,7 @@ def test_later_stage_dispatch_statements_grow_linearly(test_db, monkeypatch):
             assert sent == (list(members) if call == "settle" else []), call
     for call in ("materialize", "settle", "repeat"):
         assert counts[40, call] <= 2 * counts[20, call], counts
-    # The materializing dispatch writes its cohort under one run lock, so a
-    # member costs its own reads and writes only, never a lock per member.
-    assert counts[40, "materialize"] <= 20 * 40, counts
+    # Each member now pays its own bounded lock and fingerprint advance.
+    # Twelve lock/check statements replace the former shared cohort check;
+    # the member read/write budget remains twenty statements, plus setup.
+    assert counts[40, "materialize"] - 12 * 40 <= 20 * 40 + 100, counts

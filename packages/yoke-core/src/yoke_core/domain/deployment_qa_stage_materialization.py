@@ -54,25 +54,6 @@ def _require_member_still_attached(
         raise _member_removed(conn, run_id, member_item_id)
 
 
-def removed_member_refusals(
-    conn: Any, run_id: str, members: Any
-) -> dict[int, LookupError]:
-    """:func:`_require_member_still_attached` for a cohort, in one read."""
-    wanted = sorted(int(member) for member in members if member is not None)
-    if not wanted:
-        return {}
-    rows = conn.execute(
-        "SELECT item_id FROM deployment_run_items WHERE run_id=%s AND item_id=ANY(%s)",
-        (run_id, wanted),
-    ).fetchall()
-    attached = {int(row[0]) for row in rows}
-    return {
-        member: _member_removed(conn, run_id, member)
-        for member in wanted
-        if member not in attached
-    }
-
-
 @dataclass
 class _StageRead:
     """Everything the write needs, read unlocked as one set for the run."""
@@ -136,8 +117,10 @@ def _read_stage(
 
     projection = presentation_read(
         conn,
-        ("qa_materialization_projection", run_id),
-        lambda: MaterializationProjection(conn, run_id),
+        ("qa_materialization_projection", run_id, deployment_member_item_id),
+        lambda: MaterializationProjection(
+            conn, run_id, member_item_id=deployment_member_item_id
+        ),
     )
     subject = stage_subject(
         conn,
@@ -175,7 +158,9 @@ def _read_stage(
         replacement_keys=replacement_keys,
         replacement_scopes=replacement_scopes,
     )
-    from yoke_core.domain.deployment_qa_presentation_facts import subject_requirement_rows
+    from yoke_core.domain.deployment_qa_presentation_facts import (
+        subject_requirement_rows,
+    )
 
     rows = subject_requirement_rows(
         conn, run_id, deployment_stage, deployment_member_item_id

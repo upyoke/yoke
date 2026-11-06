@@ -20,7 +20,11 @@ def _digest(select: str, order: str) -> str:
 
 
 def run_qa_fingerprint(
-    conn: Any, run_id: str, *, include_progress: bool = False
+    conn: Any,
+    run_id: str,
+    *,
+    include_progress: bool = False,
+    member_item_id: int | None = None,
 ) -> str:
     """The digest of every fact a QA writer's unlocked read depended on."""
     # A table a schema has not created yet holds no facts to change.
@@ -36,6 +40,11 @@ def run_qa_fingerprint(
             "decision_requests",
         )
     }
+    snapshot = "m.requirement_snapshot"
+    status = "i.status"
+    if member_item_id is not None:
+        snapshot = f"CASE WHEN m.item_id={int(member_item_id)} THEN m.requirement_snapshot END"
+        status = f"CASE WHEN m.item_id={int(member_item_id)} THEN i.status END"
     parts = [
         _digest(
             "SELECT status,current_stage,settling_at,requirement_snapshot "
@@ -43,7 +52,7 @@ def run_qa_fingerprint(
             "t.status",
         ),
         _digest(
-            "SELECT m.item_id,m.requirement_snapshot,i.status FROM deployment_run_items m "
+            f"SELECT m.item_id,{snapshot} AS requirement_snapshot,{status} AS status FROM deployment_run_items m "
             "JOIN items i ON i.id=m.item_id WHERE m.run_id=%s",
             "t.item_id",
         ),
@@ -114,9 +123,58 @@ def run_qa_fingerprint(
                 "t.id",
             )
         )
+    if member_item_id is not None:
+        # Membership and attachments are structural run facts; QA progress is
+        # private to this member and the shared groups its read can depend on.
+        scope = f" AND (deployment_member_item_id={int(member_item_id)} OR deployment_member_item_id IS NULL)"
+        parts = [
+            part.replace(
+                "WHERE deployment_run_id=%s", "WHERE deployment_run_id=%s" + scope
+            ).replace(
+                "WHERE q.deployment_run_id=%s",
+                "WHERE q.deployment_run_id=%s"
+                + scope.replace(
+                    "deployment_member_item_id", "q.deployment_member_item_id"
+                ),
+            )
+            for part in parts
+        ]
     sql = f"SELECT md5(concat_ws(',',{','.join(parts)}))"
     row = conn.execute(sql, (str(run_id),) * sql.count("%s")).fetchone()
     return str(row[0])
 
 
-__all__ = ["run_qa_fingerprint"]
+def member_acceptance_fingerprint(conn, run_id: str, member: int) -> str:
+    """Exact member evidence, excluding the acceptance that stores this proof.
+
+    Frozen selections and source withdrawals, concrete requirements, attempts,
+    artifacts, executions and review decisions all participate. Peer progress
+    and shared-group settlement cannot change a member's own acceptance.
+    """
+    from yoke_core.domain.deployment_qa_stage_contract import DEPLOYMENT_STAGE_ACCEPTANCE_QA_KIND
+
+    # Both values are typed internal identities; bind the run once in a CTE.
+    member = int(member)
+    kind = DEPLOYMENT_STAGE_ACCEPTANCE_QA_KIND
+    subjects = (
+        f"((deployment_run_id=(SELECT id FROM run) AND deployment_member_item_id={member}) "
+        f"OR (deployment_run_id IS NULL AND item_id={member})) "
+        f"AND qa_kind IS DISTINCT FROM '{kind}'"
+    )
+    parts = [
+        _digest(f"SELECT requirement_snapshot FROM deployment_run_items WHERE run_id=(SELECT id FROM run) AND item_id={member}", "t.requirement_snapshot"),
+        _digest(f"SELECT * FROM qa_plan_item_attachments WHERE item_id={member}", "t.plan_id,t.transition_id,t.qa_phase"),
+        _digest("SELECT * FROM requirements", "t.id"),
+        _digest("SELECT r.* FROM qa_runs r JOIN requirements q ON q.id=r.qa_requirement_id", "t.id"),
+        _digest("SELECT a.* FROM qa_artifacts a JOIN qa_runs r ON r.id=a.qa_run_id JOIN requirements q ON q.id=r.qa_requirement_id", "t.id"),
+        _digest(f"SELECT * FROM qa_plan_executions WHERE deployment_run_id=(SELECT id FROM run) AND deployment_member_item_id={member}", "t.id"),
+        _digest(f"SELECT * FROM decision_requests WHERE subject_type='item_transition' AND subject_key='{member}:done'", "t.id"),
+    ]
+    row = conn.execute(
+        "WITH run AS (SELECT %s::text AS id), requirements AS (SELECT * FROM qa_requirements WHERE "
+        + subjects + ") SELECT md5(concat_ws(','," + ','.join(parts) + "))", (str(run_id),),
+    ).fetchone()
+    return str(row[0])
+
+
+__all__ = ["run_qa_fingerprint", "member_acceptance_fingerprint"]

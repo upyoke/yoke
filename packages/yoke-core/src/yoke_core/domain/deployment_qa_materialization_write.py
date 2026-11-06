@@ -2,12 +2,10 @@
 
 The read stays outside the lock: a run that changed since it is read again
 unlocked (:func:`lock_current_read`), so no run-wide query, git or HTTP call
-ever runs while this writer holds the run row. A dispatch writes its whole
-cohort under one lock and one fingerprint check, because every member's
-read shares one projection of the run.
+ever runs while this writer holds the run row. Each member commits separately,
+so workers can settle their QA between writes.
 """
 
-from yoke_core.domain.db_savepoint import savepoint
 from yoke_core.domain.deployment_qa_transaction_recovery import rollback_after_error
 from yoke_core.domain.deployment_runs_lock import (
     lock_current_read,
@@ -15,8 +13,6 @@ from yoke_core.domain.deployment_runs_lock import (
     run_lock_held,
     run_lock_is_held,
 )
-
-_MEMBER_WRITE_SAVEPOINT = "yoke_member_qa_write"
 
 
 def _write_subject(conn, stage_read, *, member, replaced_requirement_ids):
@@ -61,8 +57,7 @@ def write_prepared_stage(
         return reread()
 
     try:
-        # Inside a cohort write the cohort's one check already proved this
-        # read current under the lock this transaction holds.
+        # A dispatch already validated this member under its short run lock.
         if not run_lock_is_held(conn, str(run_id)):
             stage_read = lock_current_read(
                 conn,
@@ -78,6 +73,8 @@ def write_prepared_stage(
             member=member,
             replaced_requirement_ids=replaced_requirement_ids,
         )
+        if not run_lock_is_held(conn, str(run_id)):
+            stage_read.projection.advance(conn)
         if commit:
             conn.commit()
         return result
@@ -98,47 +95,43 @@ def write_under_run_lock(conn, run_id, write):
         raise
 
 
-def write_prepared_cohort(conn, *, run_id, read, write, then=None):
-    """Write every member ``read()`` prepared under one run lock; return errors.
+def write_prepared_cohort(conn, *, run_id, read, write, reread, then=None):
+    """Read unlocked, then validate and commit each member under a short lock.
 
-    ``read()`` answers ``(reads, errors)`` for the cohort, unlocked. One
-    fingerprint check proves every read current; ``write(member, read)``
-    then runs per member with the run's re-locks answered from the held
-    lock. A member whose write refuses rolls back only its own savepoint.
-    ``then()`` runs last under the same lock, and the cohort commits once.
+    A changed member is read again without the lock; other members' verdicts
+    leave its prepared read valid. Plan groups have their own transaction.
     """
-    from yoke_core.domain.deployment_qa_stage_materialization import (
-        removed_member_refusals,
-    )
+    from yoke_core.domain.deployment_qa_presentation_reads import uncached_presentation
 
-    prepared = read()
-    if not prepared[0]:
-        if then is not None:
-            write_under_run_lock(conn, run_id, then)
-        return dict(prepared[1])
+    from yoke_core.domain.deployment_qa_stage_materialization import _require_member_still_attached
 
-    def holds(current):
-        reads = current[0]
-        return not reads or next(iter(reads.values())).projection.holds(conn)
+    reads, errors = read()
+    errors = dict(errors)
+    for member, prepared in reads.items():
 
-    try:
-        reads, errors = lock_current_read(
-            conn, str(run_id), read, prepared=prepared, holds=holds
-        )
-        errors = {**errors, **removed_member_refusals(conn, run_id, reads)}
-        with run_lock_held(conn, str(run_id)):
-            for member, stage_read in reads.items():
-                if member in errors:
-                    continue
-                try:
-                    with savepoint(conn, _MEMBER_WRITE_SAVEPOINT, owns=False):
-                        write(member, stage_read)
-                except (LookupError, ValueError) as exc:
-                    errors[member] = exc
-            if then is not None:
-                then()
-        conn.commit()
-        return errors
-    except Exception as exc:
-        rollback_after_error(conn, exc)
-        raise
+        def read_current():
+            with uncached_presentation():
+                _require_member_still_attached(conn, run_id, member)
+                return reread(member)
+
+        try:
+            current = lock_current_read(
+                conn,
+                str(run_id),
+                read_current,
+                prepared=prepared,
+                holds=lambda current: current.projection.holds(conn),
+            )
+            with run_lock_held(conn, str(run_id)):
+                write(member, current)
+                current.projection.advance(conn)
+            conn.commit()
+        except (LookupError, ValueError) as exc:
+            rollback_after_error(conn, exc)
+            errors[member] = exc
+        except Exception as exc:
+            rollback_after_error(conn, exc)
+            raise
+    if then is not None:
+        write_under_run_lock(conn, run_id, then)
+    return errors

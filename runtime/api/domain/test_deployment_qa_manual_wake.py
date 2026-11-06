@@ -35,7 +35,7 @@ from runtime.api.steering_fleet_test_helpers import (
     seed_steering_scope,
 )
 from yoke_core.domain import deployment_qa_dispatch_wait_notice as wait_notice_mod
-from yoke_core.domain import deployment_qa_stage_dispatch as dispatch_mod
+from yoke_core.domain import deployment_qa_dispatch_gating as dispatch_mod
 from yoke_core.domain.db_helpers import iso8601_now
 from yoke_core.domain.deployment_qa_manual_wake import (
     NO_OWNER,

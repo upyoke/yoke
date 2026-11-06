@@ -127,8 +127,8 @@ def test_a_run_changed_between_read_and_lock_is_read_again_unlocked(
     reads: list[tuple[int, bool]] = []
     real = projection.MaterializationProjection.__init__
 
-    def read(self, conn, run):
-        real(self, conn, run)
+    def read(self, conn, run, **kwargs):
+        real(self, conn, run, **kwargs)
         reads.append((len(self.members()), _run_row_locked(run_id)))
         if len(reads) == 1:
             # Committed after the fingerprint, before the run row lock.

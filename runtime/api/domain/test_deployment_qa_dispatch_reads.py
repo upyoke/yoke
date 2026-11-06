@@ -17,7 +17,7 @@ def test_dispatch_run_wide_read_counts_stay_constant(
     test_db, monkeypatch, materialized
 ):
     monkeypatch.setattr(
-        "yoke_core.domain.deployment_qa_stage_dispatch.notify_stage_wait",
+        "yoke_core.domain.deployment_qa_dispatch_gating.notify_stage_wait",
         lambda *a, **k: None,
     )
     monkeypatch.setattr(
@@ -174,8 +174,13 @@ def _accept(conn, run_id, members):
         _complete_case(conn, execution)
 
 
-def test_dispatch_cost_per_member_does_not_grow_with_the_run(test_db):
+def test_dispatch_cost_per_member_does_not_grow_with_the_run(test_db, monkeypatch):
     """Production-sized frozen snapshots once moved N times per member."""
+    # Closure has its own acceptance tests; this counts dispatch reads/writes.
+    monkeypatch.setattr(
+        "yoke_core.domain.deployment_qa_member_acceptance_notice.notify_items_qa_accepted",
+        lambda *a, **kw: None,
+    )
     per_member = []
     for run_id, members in [
         ("run-bound-small", tuple(range(9301, 9303))),

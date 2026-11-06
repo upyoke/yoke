@@ -28,6 +28,7 @@ from yoke_contracts.public_ref import format_item_ref
 
 from yoke_core.domain import deployment_qa_dispatch_wait_notice as wait_notice
 from yoke_core.domain import deployment_qa_stage_dispatch as dispatch
+from yoke_core.domain import deployment_qa_dispatch_gating as gating
 from yoke_core.domain import deployment_qa_stage_gate as gate
 
 
@@ -35,8 +36,9 @@ def test_every_waiting_member_wakes_before_an_accepted_member_closes() -> None:
     events: list[tuple[str, int]] = []
     conn = _Conn()
     with (
+        patch("yoke_core.domain.deployment_qa_dispatch_settled.settled_member_status", return_value=None),
         patch.object(gate, "deployment_qa_stage_status", side_effect=_status),
-        patch.object(dispatch, "report_stage_result"),
+        patch.object(gating, "report_stage_result"),
         patch.object(
             wait_notice,
             "notify_item_scoped_qa_wait",
@@ -76,9 +78,10 @@ def test_a_later_member_error_still_closes_members_accepted_before_it() -> None:
     closed: list[int] = []
     conn = _Conn()
     with (
+        patch("yoke_core.domain.deployment_qa_dispatch_settled.settled_member_status", return_value=None),
         patch.object(gate, "deployment_qa_stage_status", side_effect=failing),
-        patch.object(dispatch, "removed_item_ids", return_value=set()),
-        patch.object(dispatch, "report_stage_result"),
+        patch.object(gating, "removed_item_ids", return_value=set()),
+        patch.object(gating, "report_stage_result"),
         patch(
             "yoke_core.domain.deployment_qa_member_acceptance_notice."
             "notify_items_qa_accepted",
@@ -98,6 +101,7 @@ def test_a_later_member_error_still_closes_members_accepted_before_it() -> None:
 def test_the_gate_leaves_acceptance_to_a_caller_that_defers_it() -> None:
     accepted = {"accepted": True, "reasons": []}
     with (
+        patch("yoke_core.domain.deployment_qa_dispatch_settled.settled_member_status", return_value=None),
         patch.object(gate, "deployment_qa_stage_subject", return_value={}),
         patch.object(gate, "deployment_qa_execution_target", return_value={}),
         patch(

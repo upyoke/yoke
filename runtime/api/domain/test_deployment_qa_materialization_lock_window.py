@@ -85,8 +85,8 @@ def test_a_membership_change_during_the_read_is_read_again(test_db, monkeypatch)
     reads = []
     real = module.MaterializationProjection.__init__
 
-    def read(self, conn, run):
-        real(self, conn, run)
+    def read(self, conn, run, **kwargs):
+        real(self, conn, run, **kwargs)
         reads.append(len(self.members()))
         if len(reads) == 1:
             # Committed after the fingerprint, before the run row lock.
@@ -109,7 +109,9 @@ def test_a_membership_change_during_the_read_is_read_again(test_db, monkeypatch)
         ).fetchall()
     }
     assert peer not in owners
-    assert all(members == [first] for members in attached_plans(test_db, run_id).values())
+    assert all(
+        members == [first] for members in attached_plans(test_db, run_id).values()
+    )
 
 
 def test_member_removal_costs_the_same_at_any_run_size(test_db, monkeypatch):
@@ -150,12 +152,8 @@ def _lock_windows(recorder) -> list[int]:
     return windows
 
 
-def test_a_dispatch_writes_its_cohort_under_one_run_lock(test_db):
-    """One lock and one fingerprint check per dispatch, never one per member.
-
-    Under the lock each member costs only its own writes, so the window grows
-    by the same few statements per member and holds no run-wide read.
-    """
+def test_a_dispatch_commits_each_member_under_its_own_run_lock(test_db):
+    """No lock window grows with the cohort; groups form in a separate write."""
     from yoke_core.domain.deployment_qa_run_acceptance import pinned_stages
     from yoke_core.domain.deployment_qa_stage_dispatch import (
         materialize_and_gate_deployment_qa_stage,
@@ -163,19 +161,16 @@ def test_a_dispatch_writes_its_cohort_under_one_run_lock(test_db):
 
     widest = {}
     for run_id, first, size in SIZES:
-        _seed(test_db, run_id, first, size, requirements=1)
+        members = _seed(test_db, run_id, first, size, requirements=1)
+        test_db.execute("UPDATE items SET status='release' WHERE id=ANY(%s)", (list(members),))
+        test_db.commit()
         stage = next(s for s in pinned_stages(test_db, run_id) if s["name"] == STAGE)
         recorder = LockWindowRecorder(test_db)
         materialize_and_gate_deployment_qa_stage(recorder, stage, run_id=run_id)
         windows = _lock_windows(recorder)
-        assert len(windows) == 1, windows
-        locked = [text for held, text in recorder.statements if held]
-        assert sum(text.startswith("SELECT md5(") for text in locked) <= 1
-        assert sum(text.endswith("FOR UPDATE") for text in locked) == 1
-        widest[size] = windows[0]
-    per_member = (widest[33] - widest[3]) / 30
-    assert per_member <= 20, widest
-    assert widest[3] >= 3 * per_member, widest
+        assert len(windows) == size + 1, windows
+        widest[size] = max(windows[:-1])
+    assert widest[33] == widest[3], widest
 
 
 def test_an_interrupted_lock_wait_holds_the_stage_instead_of_failing_the_run(
@@ -232,8 +227,8 @@ def test_an_interrupted_lock_wait_holds_the_stage_instead_of_failing_the_run(
     ).fetchone()[0]
 
 
-def test_the_gate_holds_the_run_lock_only_for_each_acceptance(test_db):
-    """Members' item walks and two passed groups each re-read under their own lock."""
+def test_repeated_dispatch_reuses_current_member_acceptance(test_db, monkeypatch):
+    """Settled member evidence skips the ladder while groups keep their own lock."""
     from runtime.api.domain.deployment_qa_stage_execution_test_support import (
         _complete_case,
     )
@@ -274,10 +269,21 @@ def test_the_gate_holds_the_run_lock_only_for_each_acceptance(test_db):
         materialize_and_gate_deployment_qa_stage(test_db, stage, run_id=run_id)[0] == 0
     )
     assert all(group.closed for group in run_groups(test_db, [run_id], STAGE))
+    from yoke_core.domain import deployment_qa_stage_gate as gate
+
+    walks = []
+    real_read = gate._read_settlement
+
+    def read(conn, **kwargs):
+        walks.append(kwargs['member_item_id'])
+        return real_read(conn, **kwargs)
+
+    monkeypatch.setattr(gate, '_read_settlement', read)
     recorder = LockWindowRecorder(test_db)
     assert (
         materialize_and_gate_deployment_qa_stage(recorder, stage, run_id=run_id)[0] == 0
     )
+    assert not any(member in walks for member in members), walks
     locked = [text for held, text in recorder.statements if held]
-    assert locked  # each acceptance is still re-read under the run lock
+    assert locked  # plan groups still have their own locked transaction
     assert not any("qa_plan_executions" in text for text in locked), locked

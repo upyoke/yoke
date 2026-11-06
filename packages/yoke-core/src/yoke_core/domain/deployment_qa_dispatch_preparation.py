@@ -33,8 +33,8 @@ def _read_members(conn, stage, *, run_id, members):
 def prepare_members(conn, stage, *, run_id, members, then=None):
     """Materialize missing cases and stale member targets; return errors.
 
-    The cohort is read as one set, unlocked, then written under one run lock,
-    which ``then()`` (the stage's plan groups) shares.
+    The cohort is read unlocked; each member commits under its own short lock.
+    Plan groups form separately after the member writes.
     """
     from yoke_core.domain import deployment_qa_stage_materialization as materialization
     from yoke_core.domain.deployment_qa_materialization_write import (
@@ -43,7 +43,8 @@ def prepare_members(conn, stage, *, run_id, members, then=None):
     )
 
     from yoke_core.domain.deployment_qa_empty_members import (
-        empty_members, remember_empty_members,
+        empty_members,
+        remember_empty_members,
     )
 
     stage_name = str(stage["name"])
@@ -66,7 +67,8 @@ def prepare_members(conn, stage, *, run_id, members, then=None):
         for row in rows
     }
     pending = [
-        member for member in members
+        member
+        for member in members
         if member not in empty and (member not in existing or existing[member])
     ]
     if not pending:
@@ -83,7 +85,10 @@ def prepare_members(conn, stage, *, run_id, members, then=None):
             prepared_read=read,
             commit=False,
         )
-        if not result["created_requirement_ids"] and not result["existing_requirement_ids"]:
+        if (
+            not result["created_requirement_ids"]
+            and not result["existing_requirement_ids"]
+        ):
             empty.add(member)
 
     def finish():
@@ -96,5 +101,6 @@ def prepare_members(conn, stage, *, run_id, members, then=None):
         run_id=run_id,
         read=lambda: _read_members(conn, stage, run_id=run_id, members=pending),
         write=write,
+        reread=lambda member: _read_member(conn, run_id, stage, member),
         then=finish,
     )

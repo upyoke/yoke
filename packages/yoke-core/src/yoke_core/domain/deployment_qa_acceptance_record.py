@@ -37,8 +37,13 @@ def record_acceptance(
         raise ValueError(
             "stage_acceptance_execution_missing: acceptance must identify its actual execution"
         )
+    from yoke_core.domain.deployment_qa_dispatch_settled import acceptance_proof
+
     raw = stamp_executed_method_config(
-        json.dumps({"execution_id": execution_id}, sort_keys=True),
+        json.dumps(
+            {"execution_id": execution_id, **acceptance_proof(conn, requirement_id)},
+            sort_keys=True,
+        ),
         None,
         execution_target_digest=execution["execution_target_digest"],
     )

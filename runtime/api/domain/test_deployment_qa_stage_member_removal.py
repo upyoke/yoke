@@ -57,7 +57,7 @@ def test_removed_member_does_not_fail_live_stage(test_db, monkeypatch, boundary)
     if boundary == "materialize":
         assert set(visited) == {REMOVED}  # only the member still owing cases
     else:
-        assert visited == [REMOVED, REMAINING]
+        assert visited == [REMOVED]  # the current accepted member skips the ladder
     assert (
         test_db.execute(
             "SELECT item_id FROM deployment_run_items WHERE run_id=%s", (RUN,)
