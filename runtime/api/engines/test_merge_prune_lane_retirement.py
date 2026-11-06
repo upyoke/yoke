@@ -101,7 +101,7 @@ def test_pruned_worker_retires_row_and_surviving_worker_merges(
     # The mocked detail read carries the surviving lane's current candidate.
     for lane in lanes:
         if lane["branch"] == "surviving":
-            lane["commit_sha"] = _git(surviving, "rev-parse", "HEAD")
+            lane["commit_sha"] = _git(surviving, "rev-parse", "HEAD").stdout.strip()
     item = {
         "id": 917,
         "public_ref": public_ref,
