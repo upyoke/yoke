@@ -2,6 +2,7 @@
  "id": "definitions",
  "title": "Workflow definitions",
  "status": "draft-copy",
+ "summary": "Read one workflow, the Gate catalog or a named flow with --section. Human replies summarize version history; --full expands it and --json preserves the complete server payload.",
  "commands": ["yoke workflows definition get"],
  "functions": ["workflows.definition.get"],
  "page": "workflows",

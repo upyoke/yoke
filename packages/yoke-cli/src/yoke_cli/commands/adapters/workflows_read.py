@@ -6,6 +6,9 @@ and deployment flows, plus explicit current-version and item-migration actions.
 
 from __future__ import annotations
 from yoke_cli.transport.human_values import write_human
+from yoke_cli.commands.adapters.workflows_definition_render import (
+    write_workflows_definition,
+)
 
 import argparse
 from typing import Any, Dict, List
@@ -51,6 +54,11 @@ def workflows_definition_get(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke workflows definition get",
         usage=WORKFLOWS_DEFINITION_GET_USAGE,
+        description=(
+            "Read current workflows, gate catalog and deployment flows. "
+            "Use --section WORKFLOW-ID, --section 'Gate catalog', or "
+            "--section FLOW-NAME for one section; --full includes version history."
+        ),
     )
     parser.add_argument(
         "--project", default=None, metavar="P", help="Project to read from."
@@ -65,9 +73,6 @@ def workflows_definition_get(args: List[str]) -> int:
     if parsed is None:
         return 2
 
-    def _human_writer(response, stdout, stderr) -> None:
-        write_human(response.result or {}, stdout)
-
     payload: Dict[str, Any] = {}
     if parsed.project is not None:
         payload["project"] = parsed.project
@@ -77,7 +82,7 @@ def workflows_definition_get(args: List[str]) -> int:
         payload=payload,
         session_id=parsed.session_id,
         json_mode=parsed.json_mode,
-        human_writer=_human_writer,
+        human_writer=write_workflows_definition,
     )
 
 

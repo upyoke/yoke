@@ -30,6 +30,9 @@ def test_human_output_renders_registry_rows_and_gate_catalog(capsys) -> None:
                     "current_version": 1,
                     "current_version_id": 7,
                     "status": "active",
+                    "versions": [
+                        {"version": 1, "published_reason": "Initial definition"}
+                    ],
                     "definition": {
                         "stages": [
                             {
@@ -66,6 +69,11 @@ def test_human_output_renders_registry_rows_and_gate_catalog(capsys) -> None:
     assert "family: work-items" in text
     assert "title max length: 100" in text
     assert "id: issue" in text
+    assert "## issue" in text
+    assert "## Gate catalog" in text
+    assert "## Flows" in text
+    assert "1 versions, current 1 (see `yoke workflows version list issue`)" in text
+    assert "Initial definition" not in text
     assert "db_mutation" in text
     assert "DB mutation evidence is complete." in text
 

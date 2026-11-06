@@ -11,7 +11,7 @@ Item-level and epic-task-level status lifecycles, with valid transitions, deriva
 Every item pins `workflow_id` and `workflow_version_id`. The immutable
 definition owns its ordered stages, terminal stages, gates, policies, and
 registered skill bindings. Read the authoritative definitions with
-`yoke workflows definition get`; do not reconstruct stage tables from this
+`yoke workflows definition get --section <workflow-id>`; do not reconstruct stage tables from this
 reference.
 
 The runtime additionally recognizes the engine-owned exceptional stages
@@ -39,7 +39,9 @@ metadata, `done`, `release`, and other definition-owned stages classify as
 `unknown`. Engine cancellation and failure states retain their shared meaning.
 
 `yoke workflows definition get` serves current selections and the gate
-catalog. `yoke workflows item get PREFIX-N` plus
+catalog. Select `--section 'Gate catalog'` for gates or `--section <flow-name>`
+for a deployment flow; `--full` expands workflow version history.
+`yoke workflows item get PREFIX-N` plus
 `yoke workflows version get WORKFLOW VERSION` serves the exact authority for
 an existing item. Board buckets are a projection over item stage and workflow
 context; they do not define valid transitions.
