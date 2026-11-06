@@ -1,7 +1,7 @@
 {
  "id": "message",
  "term": "Message",
- "definition": "An addressed communication recorded by Yoke, with delivery and acknowledgement state. A message can ask for a decision but does not itself record an approval.",
+ "definition": "An addressed communication recorded by Yoke, with delivery and acknowledgement state. Recipient totals count a steering role and its matching session receipt once; role scope and handover details remain visible. A message can ask for a decision but does not itself record an approval.",
  "status": "draft",
  "sources": ["docs/public/sessions/inbox.md"],
  "aliases": ["Messages"]

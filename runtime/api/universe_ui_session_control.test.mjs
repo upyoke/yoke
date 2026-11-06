@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
+import { messageCard } from "../../packages/yoke-core/src/yoke_core/ui/static/universe_session_message_card.js";
 import { mountUniverseApp } from "../../packages/yoke-core/src/yoke_core/ui/static/app.js";
 import {
   FakeDocument,
@@ -273,4 +274,27 @@ test("roster keeps exact message actions on every session", async (t) => {
   state.dispatchEvent(new Event("change"));
   assert.deepEqual(cardIds(), ["messageable", "wakeable"]);
   mounted.unmount();
+});
+
+
+test("message cards use server party totals and preserve old-server fallback", () => {
+  const documentNode = new FakeDocument();
+  const message = {
+    message_id: "role-message", body: "Seat update",
+    recipients: [{ session_id: "seat", state: "pending" }],
+    steering_recipient: { session_id: "seat", state: "delivered" },
+    recipient_count: 1, recipient_state_counts: { pending: 1 },
+  };
+  const view = { expanded: new Set() };
+  const card = messageCard(documentNode, message, view);
+  assert.ok(card.textContent.includes("To 1 recipient"));
+  assert.ok(card.textContent.includes("1 awaiting"));
+  assert.ok(!card.textContent.includes("2 awaiting"));
+  message.recipient_state_counts = { read: 1 };
+  assert.equal(messageCard(documentNode, message, view).getAttribute("data-message-state"), "acknowledged");
+  delete message.recipient_count;
+  delete message.recipient_state_counts;
+  const legacy = messageCard(documentNode, message, view);
+  assert.ok(legacy.textContent.includes("To 2 recipients"));
+  assert.ok(legacy.textContent.includes("2 awaiting"));
 });
