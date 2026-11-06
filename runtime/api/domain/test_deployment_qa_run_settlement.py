@@ -38,7 +38,7 @@ def test_closure_preserves_execution_that_completes_before_its_lock(monkeypatch)
     from unittest.mock import Mock
 
     conn = Mock()
-    monkeypatch.setattr(settlement, "preserves_inherited_qa", lambda *args: False)
+    monkeypatch.setattr(settlement, "preserves_open_qa", lambda *args: False)
     monkeypatch.setattr(settlement, "_table_exists", lambda *args: True)
     monkeypatch.setattr(settlement, "settled_obligation_sql", lambda *args: "FALSE")
     monkeypatch.setattr(
@@ -59,9 +59,6 @@ def test_closure_preserves_execution_that_completes_before_its_lock(monkeypatch)
     monkeypatch.setattr(settlement, "retract_requirements", Mock())
     settlement.settle_unsuccessful_run(conn, "run-failed", reason="runner failed")
     finish.assert_not_called()
-    conn.execute.assert_called_once_with(
-        "SELECT status FROM deployment_runs WHERE id=%s", ("run-failed",)
-    )
 
 
 def test_failed_run_qa_cleanup_rolls_back_with_the_run(test_db, monkeypatch):
@@ -186,14 +183,19 @@ def test_run_closure_retires_only_its_open_qa(test_db, disposition, writer):
         "SELECT state,release_reason,test_machine_lease_id FROM qa_plan_executions WHERE id=%s",
         (execution["id"],),
     ).fetchone()
-    assert row["state"] == "aborted" and run_id in row["release_reason"]
+    assert row["state"] == ("awaiting_walk_review" if disposition == "failed" else "aborted")
+    if disposition == "cancelled":
+        assert run_id in row["release_reason"]
     assert row["test_machine_lease_id"] is None
     for label in ("open", "info"):
         row = test_db.execute(
             "SELECT retracted_at,retraction_rationale,waived_at FROM qa_requirements WHERE id=%s",
             (ids[label],),
         ).fetchone()
-        assert row["retracted_at"] and run_id in row["retraction_rationale"]
+        if disposition == "cancelled":
+            assert row["retracted_at"] and run_id in row["retraction_rationale"]
+        else:
+            assert row["retracted_at"] is None
         assert row["waived_at"] is None
     for label in ("pass", "other"):
         assert (
@@ -202,7 +204,7 @@ def test_run_closure_retires_only_its_open_qa(test_db, disposition, writer):
             ).fetchone()[0]
             is None
         )
-    assert find_unsettled_records(test_db, item_id=item_id) == []
+    assert bool(find_unsettled_records(test_db, item_id=item_id)) is (disposition == "failed")
 
 
 def test_late_recorded_verdict_links_actual_evidence_and_accepts_stage(test_db):

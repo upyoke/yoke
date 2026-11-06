@@ -81,6 +81,11 @@ def _validate_member_state(
         return
     from yoke_core.domain.deployment_run_landed_closeout import landed_closeout_members
 
+    from yoke_core.domain.deployment_run_composition_guard import has_frozen_composition
+
+    if allow_completed and has_frozen_composition(conn, run_id):
+        # Frozen readiness is owned by deployment_run_reopened_members.
+        return
     if not delivery_ready_for_stage(runtime, status) and item_id not in landed_closeout_members(conn, (item_id,)):
         raise WorkflowItemBindingError(
             f"{render_item_ref(conn, item_id)} workflow {runtime.workflow_id}@{runtime.version} "

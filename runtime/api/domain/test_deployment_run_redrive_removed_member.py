@@ -36,13 +36,13 @@ def test_retry_after_removal_restores_only_current_obligations(test_db):
             (RUN, ITEM_QA_STAGE),
         ).fetchone()[0]
     )
-    settle_unsuccessful_run(test_db, RUN, reason="runner failed")
     test_db.execute(
         "UPDATE deployment_runs SET status='failed',current_stage=%s WHERE id=%s",
         (f"{ITEM_QA_STAGE}-failed", RUN),
     )
+    settle_unsuccessful_run(test_db, RUN, reason="runner failed")
     test_db.commit()
-    assert _retraction(test_db, requirement)["retraction_source"] == "deployment_run"
+    assert _retraction(test_db, requirement)["retraction_source"] is None
 
     # The audited write itself; eligibility is the removal command's concern.
     remove_members_on(test_db, RUN, [ITEM], reason=REASON, actor_id=1)
@@ -62,7 +62,8 @@ def test_retry_after_removal_restores_only_current_obligations(test_db):
 
 def test_retry_skips_a_non_member_row_the_failed_run_retired(test_db):
     requirement = _red_member(test_db)
-    settle_unsuccessful_run(test_db, RUN, reason="runner failed")
+    test_db.execute("UPDATE deployment_runs SET status='cancelled' WHERE id=%s", (RUN,))
+    settle_unsuccessful_run(test_db, RUN, reason="runner cancelled")
     test_db.execute(
         "DELETE FROM deployment_run_items WHERE run_id=%s AND item_id=%s", (RUN, ITEM)
     )

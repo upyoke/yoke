@@ -146,7 +146,7 @@ stage entry, they fail or prove nothing. Give such a case
 Write `wake_evidence` as the evidence itself, as something a registered read
 can confirm (`yoke deployment-runs get`, `yoke db read`, `yoke qa requirement
 list`), not as a time or a hope. Method, runner and verdict path are
-unchanged, and the case stays blocking until it is settled, waived or removed.
+unchanged, and the case stays open across release takeovers until evidence settles it.
 `manual` without evidence refuses `wake_evidence_required`; evidence on an
 automatic case refuses `wake_evidence_without_manual_wake`; an unknown path
 refuses `wake_path_invalid`; more than one line or 300 characters refuses
@@ -156,8 +156,8 @@ While one of a member's manual cases is open, the stage driver sends its
 owner one notice per open manual case instead of the ordinary stage wake,
 because one stage execution runs the member's whole roster. The notice names
 the evidence: check it with a registered read, run the member's cases if it
-exists, otherwise ask the operator through `yoke say --steering` to waive or
-remove the case. A parked holder is woken; a member with no live holder
+exists. Evidence not available on this release yet: stay parked; the case
+rides the next release takeover. A parked holder is woken; a member with no live holder
 reaches the project's steering seat. The steering fleet report lists each open
 one under "waiting on manual wake" with its run, item, requirement, case,
 evidence, owner and run command. To mark an already materialized requirement,

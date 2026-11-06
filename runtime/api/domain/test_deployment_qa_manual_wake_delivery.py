@@ -106,7 +106,8 @@ def test_parked_holder_gets_one_wake_per_manual_requirement(test_db: Any) -> Non
         assert (
             f"yoke qa plan run --item {ref} --stage item-qa --project yoke"
         ) in body
-        assert "waive or remove the case" in body
+        assert "stay parked; the case rides the next release takeover" in body
+        assert "waiv" not in body
 
 
 def test_holderless_member_routes_its_manual_wake_to_steering(test_db: Any) -> None:

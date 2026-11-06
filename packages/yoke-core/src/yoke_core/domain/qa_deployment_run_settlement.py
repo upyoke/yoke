@@ -1,4 +1,4 @@
-"""Retire an unsuccessful deployment's QA on its closing transaction."""
+"""Preserve failed deployment QA; retire cancelled obligations transactionally."""
 
 from typing import Any
 
@@ -21,29 +21,30 @@ def inherited_qa_sql(alias: str = "") -> str:
     prefix = f"{alias}." if alias else ""
     return (
         f"COALESCE(NULLIF({prefix}execution_target_json,''),'{{}}')::jsonb "
-        f"#>> '{{deployment,run_id}}' <> {prefix}deployment_run_id"
+        f"#>> '{{deployment,starting_run_id}}' <> {prefix}deployment_run_id"
     )
 
 
-def preserves_inherited_qa(conn: Any, run_id: str) -> bool:
-    """A failed successor keeps its inherited work until retry or takeover."""
+def preserves_open_qa(conn: Any, run_id: str) -> bool:
+    """A failed run keeps its work until retry or takeover."""
     row = conn.execute(
-        "SELECT 1 FROM deployment_runs WHERE id=%s AND status='failed' "
-        "AND supersedes_run_id IS NOT NULL AND superseded_by_run_id IS NULL",
+        "SELECT 1 FROM deployment_runs WHERE id=%s AND status='failed'",
         (run_id,),
     ).fetchone()
     return row is not None
 
 
 def failed_qa_owner_sql(conn: Any, alias: str) -> str:
-    """Failed ownership exists only where inherited QA records exist."""
+    """Failed ownership exists wherever unfinished QA still belongs to the run."""
     if not _table_exists(conn, "qa_requirements"):
         return "false"
     return (
-        f"{alias}.status='failed' AND {alias}.supersedes_run_id IS NOT NULL "
+        f"{alias}.status='failed' "
         f"AND {alias}.superseded_by_run_id IS NULL AND EXISTS ("
         f"SELECT 1 FROM qa_requirements q WHERE q.deployment_run_id={alias}.id "
-        f"AND q.retracted_at IS NULL AND ({inherited_qa_sql('q')}))"
+        f"AND NOT {settled_obligation_sql(conn, 'q')} "
+        f"AND NOT EXISTS (SELECT 1 FROM qa_runs qr "
+        f"WHERE qr.id=({latest_execution_id_sql('q.id')}) AND qr.verdict='pass'))"
     )
 
 
@@ -52,19 +53,15 @@ def settle_unsuccessful_run(conn: Any, run_id: str, *, reason: str) -> bool:
 
     A cursor already settling through a recorded abort is left to that abort.
     """
-    preserve = preserves_inherited_qa(conn, run_id)
-    failed = conn.execute("SELECT status FROM deployment_runs WHERE id=%s", (run_id,)).fetchone()
-    failed = failed is not None and str(failed[0]) == "failed"
-    group_sql = "COALESCE(NULLIF(execution_target_json,''),'{}')::jsonb #>> '{deployment,shared_plan,group_id}' IS NOT NULL"
-    ordinary = f"AND NOT COALESCE(({inherited_qa_sql()}),false) " if preserve else ""
-    ordinary += f"AND NOT ({group_sql}) " if failed else ""
+    if preserves_open_qa(conn, run_id):
+        return True
     executions = [
         lock_plan_execution(conn, str(row["id"]))
         for row in (
             query_rows(
                 conn,
                 "SELECT id FROM qa_plan_executions WHERE deployment_run_id=%s "
-                f"AND state IN ({LIVE_PLAN_EXECUTION_SQL}) {ordinary}ORDER BY id",
+                f"AND state IN ({LIVE_PLAN_EXECUTION_SQL}) ORDER BY id",
                 (run_id,),
             )
             if _table_exists(conn, "qa_plan_executions")
@@ -90,13 +87,11 @@ def settle_unsuccessful_run(conn: Any, run_id: str, *, reason: str) -> bool:
             conn, execution, state="aborted", reason=reason, commit=False
         )
     if not _table_exists(conn, "qa_requirements"):
-        return preserve
+        return False
     rows = query_rows(
         conn,
         "SELECT r.id FROM qa_requirements r WHERE r.deployment_run_id=%s "
-        + (f"AND NOT COALESCE(({inherited_qa_sql('r')}),false) " if preserve else "")
         + f"AND NOT {settled_obligation_sql(conn, 'r')} "
-        + (f"AND NOT ({group_sql.replace('execution_target_json', 'r.execution_target_json')}) " if failed else "")
         + "AND NOT EXISTS (SELECT 1 FROM qa_runs qr "
         f"WHERE qr.id=({latest_execution_id_sql('r.id')}) AND qr.verdict='pass')",
         (run_id,),
@@ -104,7 +99,7 @@ def settle_unsuccessful_run(conn: Any, run_id: str, *, reason: str) -> bool:
     retract_requirements(
         conn, [int(row["id"]) for row in rows], reason=reason, source="deployment_run"
     )
-    return preserve
+    return False
 
 
 def restore_retry_obligations(conn: Any, run_id: str) -> None:

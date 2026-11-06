@@ -186,9 +186,15 @@ def test_without_the_declaration_the_door_still_refuses_routine_calls(
 
 
 @pytest.mark.parametrize("recovery_attempt", [1, 3, None])
+@pytest.mark.parametrize("pending_code", [TRANSPORT_FAILED_CODE, "idempotency_request_in_flight", "run_busy", "qa_plan_busy", "lock_timeout", "statement_cancelled"])
 def test_timed_out_dispatch_waits_over_https_without_a_door(
-    planes, monkeypatch, capsys, recovery_attempt
+    planes, monkeypatch, capsys, recovery_attempt, pending_code
 ):
+    from yoke_cli.transport import https_dispatch_result_wait as result_wait
+
+    clock = [0.0]
+    monkeypatch.setattr(result_wait.time, "monotonic", lambda: clock[0])
+    monkeypatch.setattr(result_wait.time, "sleep", lambda seconds: clock.__setitem__(0, clock[0] + 60))
     recovered = recovery_attempt is not None
     transport = dispatcher.https_transport
     sends = []
@@ -210,7 +216,7 @@ def test_timed_out_dispatch_waits_over_https_without_a_door(
             request,
             success=False,
             error=FunctionError(
-                code=TRANSPORT_FAILED_CODE,
+                code=pending_code,
                 message="unreachable",
             ),
         ), 1

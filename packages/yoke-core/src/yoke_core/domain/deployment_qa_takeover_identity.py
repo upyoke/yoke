@@ -13,7 +13,8 @@ from yoke_core.domain.deployment_qa_presentation_reads import presentation_read
 
 def inherited_target(conn: Any, run_id: str, target: Mapping) -> bool:
     """Prove the immutable starting release is an ancestor on the same target."""
-    original = str((target.get("deployment") or {}).get("run_id") or "")
+    identity = target.get("deployment") or {}
+    original = str(identity.get("starting_run_id", identity.get("run_id")) or "")
     if not original or original == str(run_id):
         return False
 

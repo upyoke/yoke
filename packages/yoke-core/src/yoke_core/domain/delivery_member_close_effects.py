@@ -66,6 +66,13 @@ def run_closed_member_effects(
                     conn, receipt=receipt, out=io.StringIO()
                 )
             )
+        from yoke_core.domain.dependency_satisfied_notice import (
+            EVENT_DONE, notify_satisfied_dependents,
+        )
+
+        _in_short_transaction(lambda conn: notify_satisfied_dependents(
+            conn, blocking_item_id=int(item_id), event=EVENT_DONE
+        ))
         github_error = sync_item_to_github(int(item_id))
         _in_short_transaction(
             lambda conn: _end_previous_claim_holders_if_empty(conn, item_id=item_id)

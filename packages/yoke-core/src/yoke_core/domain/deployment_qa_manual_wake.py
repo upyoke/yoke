@@ -6,7 +6,7 @@ production traffic exists. Its stage waits on it, and the stage driver wakes
 the member's owner with one notice per open manual requirement instead of the
 ordinary stage-wait notice. Each notice names the evidence: the owner checks
 it with a registered read, runs the member's cases if it exists, and otherwise
-asks the operator for a waiver. Delivery is :func:`push_notice`, so a parked
+stays parked until evidence exists on this or a later release takeover. Delivery is :func:`push_notice`, so a parked
 holder is woken and a member with no live holder reaches its project's
 steering seat.
 
@@ -83,9 +83,9 @@ class ManualWakeRequirement:
             f"{addressed}. Check this evidence with a registered read "
             "('yoke deployment-runs get', 'yoke qa requirement list', 'yoke db "
             f"read'): {self.wake_evidence} If it exists, run the member's cases: "
-            f"'{self.run_command()}'. {holder_instruction}If this run cannot produce it, ask the "
-            "operator through 'yoke say --steering' to waive or remove the case, "
-            f"naming the run and requirement. Check 'yoke deployment-runs get "
+            f"'{self.run_command()}'. {holder_instruction}"
+            "Evidence not available on this release yet: stay parked; "
+            "the case rides the next release takeover. Check 'yoke deployment-runs get "
             f"{self.run_id}' for the current state."
         )
 

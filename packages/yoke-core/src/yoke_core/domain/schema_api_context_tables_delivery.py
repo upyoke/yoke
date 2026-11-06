@@ -93,8 +93,9 @@ DELIVERY_TABLES: dict[str, dict] = {
         ],
         "notes": (
             "Partial deployment clock fixtures need supersedes_run_id and "
-            "superseded_by_run_id for preserves_inherited_qa; omitting the takeover "
+            "superseded_by_run_id for QA takeover; omitting the takeover "
             "links causes an undefined-column failure during failed-run settlement. "
+            "There is no flow_snapshot column; frozen selections live in requirement_snapshot. "
             "`flow` column joins to `deployment_flows.id`. There is no "
             "`item_id` column on this table. Item-bound delivery joins "
             "through `deployment_run_items`. Use `deployment_runs.id` in "

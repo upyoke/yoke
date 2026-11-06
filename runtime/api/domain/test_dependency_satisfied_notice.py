@@ -255,3 +255,31 @@ def test_recreated_merge_wait_gets_a_fresh_notice(test_db):
     assert _key(test_db, "integration") != old_key
     assert len(_bodies(test_db, old_key)) == 1
     assert len(_bodies(test_db, _key(test_db, "integration"))) == 1
+
+
+def test_close_replay_without_receipt_wakes_a_deployed_dependent(test_db, monkeypatch):
+    import json
+    from yoke_core.domain import delivery_member_close_effects as effects
+
+    _items(test_db)
+    _edge(test_db, BLOCKER, "closure", "fact:deployed:prod")
+    _parked_dependent(test_db)
+    test_db.execute("INSERT INTO environments(id,project_id,site,name) SELECT 321,1,id,'prod' FROM sites WHERE project_id=1 ORDER BY id LIMIT 1")
+    entry = {"item_id": BLOCKER, "project_id": 1, "run_id": "run-delivered",
+             "member_item_id": BLOCKER, "environment_id": 321, "environment": "prod",
+             "candidate": "b" * 40, "source": "run_membership"}
+    test_db.execute("UPDATE items SET status='done' WHERE id=%s", (BLOCKER,))
+    test_db.execute(
+        "INSERT INTO item_gate_satisfactions(item_id,obligation,rung_id,target_status,detail,facts,recorded_at) "
+        "VALUES (%s,'delivery_evidence','deployment_run_succeeded','done','delivered',%s,now())",
+        (BLOCKER, json.dumps({"completed_deliveries": [entry]})),
+    )
+    test_db.commit()
+    monkeypatch.setattr(effects, "_in_short_transaction", lambda step: (step(test_db), test_db.commit()))
+    monkeypatch.setattr(effects, "_end_previous_claim_holders_if_empty", lambda *a, **k: None)
+    monkeypatch.setattr("yoke_core.domain.standalone_item_merge.sync_item_to_github", lambda *a: "")
+    for _ in range(2):
+        assert effects.run_closed_member_effects(item_id=BLOCKER, public_ref=render_item_ref(test_db, BLOCKER)) == ""
+    assert _recipients(test_db, _key(test_db, "closure")) == [HOLDER_A]
+    [body] = _bodies(test_db, _key(test_db, "closure"))
+    assert "closure gate fact:deployed:prod" in body

@@ -124,6 +124,19 @@ def _require_removable(conn: Any, run_id: str, item_id: int, status: str) -> Non
         raise ValueError(
             f"member {render_item_ref(conn, item_id)} is already closed; retain its delivery evidence."
         )
+    from yoke_core.domain.deployment_run_reopened_members import unready_item_ids
+    from yoke_core.domain.deployment_member_candidate_release import candidate_exclusions
+
+    if unready_item_ids(conn, [(item_id, item["status"])], allow_completed=True):
+        if candidate_exclusions(
+            conn, run_id, [{"item_id": item_id, "reopened": True}], include_lane_head=True
+        ):
+            return
+        raise ValueError(
+            f"member {render_item_ref(conn, item_id)} still belongs to this frozen "
+            "candidate or its containment is undetermined; keep it in the run "
+            "and inspect its current merge and lane head before retrying"
+        )
     from yoke_core.domain.qa_plan_management import QaPlanError
 
     try:

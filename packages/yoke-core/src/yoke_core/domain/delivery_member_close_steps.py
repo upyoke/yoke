@@ -231,6 +231,16 @@ def stage_member_close(
                 result.get("error") or captured.getvalue() or "close-out refused"
             ),
         )
+    conn.execute(
+        "UPDATE items SET deployed_to=COALESCE(e.name,dr.target_tier) "
+        "FROM deployment_runs dr LEFT JOIN environments e ON e.id=dr.target_environment_id "
+        "WHERE items.id=%s AND dr.id=(SELECT entry->>'run_id' "
+        "FROM item_gate_satisfactions s CROSS JOIN LATERAL "
+        "jsonb_array_elements(s.facts::jsonb->'completed_deliveries') entry "
+        "WHERE s.item_id=items.id AND s.obligation='delivery_evidence' "
+        "ORDER BY s.recorded_at DESC LIMIT 1)",
+        (int(item_id),),
+    )
     return StagedMemberClose(
         item_id=int(item_id), public_ref=public_ref, receipt=result["effect_receipt"]
     )

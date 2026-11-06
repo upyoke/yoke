@@ -42,6 +42,12 @@ def prepare_members(conn, stage, *, run_id, members, then=None):
         write_under_run_lock,
     )
 
+    from yoke_core.domain.deployment_qa_empty_members import (
+        empty_members, remember_empty_members,
+    )
+
+    stage_name = str(stage["name"])
+    empty = empty_members(conn, run_id, stage_name)
     rows = conn.execute(
         "SELECT deployment_member_item_id,BOOL_OR("
         "superseded_by_requirement_id IS NULL AND retracted_at IS NULL "
@@ -60,7 +66,8 @@ def prepare_members(conn, stage, *, run_id, members, then=None):
         for row in rows
     }
     pending = [
-        member for member in members if member not in existing or existing[member]
+        member for member in members
+        if member not in empty and (member not in existing or existing[member])
     ]
     if not pending:
         if then is not None:
@@ -68,7 +75,7 @@ def prepare_members(conn, stage, *, run_id, members, then=None):
         return {}
 
     def write(member, read):
-        materialization.materialize_deployment_qa_stage(
+        result = materialization.materialize_deployment_qa_stage(
             conn,
             deployment_run_id=run_id,
             deployment_stage=str(stage["name"]),
@@ -76,11 +83,18 @@ def prepare_members(conn, stage, *, run_id, members, then=None):
             prepared_read=read,
             commit=False,
         )
+        if not result["created_requirement_ids"] and not result["existing_requirement_ids"]:
+            empty.add(member)
+
+    def finish():
+        if then is not None:
+            then()
+        remember_empty_members(conn, run_id, stage_name, empty)
 
     return write_prepared_cohort(
         conn,
         run_id=run_id,
         read=lambda: _read_members(conn, stage, run_id=run_id, members=pending),
         write=write,
-        then=then,
+        then=finish,
     )

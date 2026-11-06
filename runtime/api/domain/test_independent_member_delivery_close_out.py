@@ -219,6 +219,7 @@ def test_one_member_closes_while_sibling_qa_blocks_the_run(
 
     assert independent_member_delivery_ready(test_db, item_id=MEMBER_A, run_id=run_id)
     assert _status(test_db, MEMBER_A) == "done"
+    assert test_db.execute("SELECT deployed_to FROM items WHERE id=%s", (MEMBER_A,)).fetchone()[0] == "prod"
     assert _status(test_db, MEMBER_B) == "release"
     assert (
         test_db.execute(

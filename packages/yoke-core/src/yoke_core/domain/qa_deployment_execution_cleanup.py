@@ -11,19 +11,7 @@ def terminal_run_status(conn, execution):
     row = query_one(conn, "SELECT status FROM deployment_runs WHERE id=%s", (run_id,))
     status = row["status"] if row else None
     if status == "failed":
-        from yoke_core.domain.deployment_qa_takeover_identity import inherited_target
-        from yoke_core.domain.qa_deployment_run_settlement import preserves_inherited_qa
-        from yoke_core.domain.qa_plan_execution_target_snapshot import (
-            decode_execution_target,
-        )
-
-        target = execution.get("execution_target") or decode_execution_target(execution)
-        if (
-            target
-            and preserves_inherited_qa(conn, str(run_id))
-            and inherited_target(conn, str(run_id), target)
-        ):
-            return None
+        return None  # Open executions retain custody until retry or takeover.
     return status if status in TERMINAL_RUN_STATUSES else None
 
 

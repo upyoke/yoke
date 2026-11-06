@@ -155,10 +155,6 @@ def take_over_waiting_run(
 
 
 def _take_over(conn, new_run_id, *, session_id, actor_id, apply):
-    from yoke_core.domain.deployment_run_member_admission import (
-        MemberAdmission,
-        admit_run_items,
-    )
     from yoke_core.domain.deployment_run_qa_transfer import transfer_qa_on
     from yoke_core.domain.deployment_run_membership_removals import (
         record_membership_removals,
@@ -218,41 +214,28 @@ def _take_over(conn, new_run_id, *, session_id, actor_id, apply):
     ids = [int(member["item_id"]) for member in moving]
     # Preserve the original admission snapshots and selection. Admission still
     # validates the successor, but cannot replace the obligations already owed.
-    memberships = query_rows(
-        conn,
-        "SELECT item_id,requirement_selection,requirement_snapshot "
-        "FROM deployment_run_items WHERE run_id=%s AND item_id=ANY(%s) ORDER BY item_id",
-        (old_id, ids),
-    )
     transfer_qa_on(
         conn,
         old_id=old_id,
         new_id=new_run_id,
         moving=set(ids),
     )
+    # These are established members, including reopened work. Preserve the
+    # admission rather than applying new-member delivery-readiness rules.
+    conn.execute(
+        "INSERT INTO deployment_run_items "
+        "(run_id,item_id,added_at,delivery_intent,requirement_selection,requirement_snapshot) "
+        "SELECT %s,item_id,added_at,delivery_intent,requirement_selection,requirement_snapshot "
+        "FROM deployment_run_items WHERE run_id=%s AND item_id=ANY(%s) "
+        "ON CONFLICT (run_id,item_id) DO UPDATE SET "
+        "delivery_intent=EXCLUDED.delivery_intent,requirement_selection=EXCLUDED.requirement_selection,"
+        "requirement_snapshot=EXCLUDED.requirement_snapshot",
+        (new_run_id, old_id, ids),
+    )
     conn.execute(
         "DELETE FROM deployment_run_items WHERE run_id=%s AND item_id=ANY(%s)",
         (old_id, ids),
     )
-    admit_run_items(
-        conn,
-        run_id=new_run_id,
-        members=[
-            MemberAdmission(int(m["item_id"]), m["delivery_intent"]) for m in moving
-        ],
-    )
-    if memberships:
-        conn.execute(
-            "UPDATE deployment_run_items m SET requirement_selection=v.selection, "
-            "requirement_snapshot=v.snapshot FROM unnest(%s::bigint[],%s::text[],%s::text[]) "
-            "AS v(item_id,selection,snapshot) WHERE m.run_id=%s AND m.item_id=v.item_id",
-            (
-                ids,
-                [m["requirement_selection"] for m in memberships],
-                [m["requirement_snapshot"] for m in memberships],
-                new_run_id,
-            ),
-        )
     if apply:
         record_membership_removals(
             conn,
