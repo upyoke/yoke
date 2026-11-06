@@ -3,10 +3,5 @@
  "title": "Migration entry test coverage",
  "status": "observed",
  "text": "One shared table-driven harness discovers every packaged entry, checks destructive serving floors, applies twice on empty booted and seeded current schemas, and re-proves standing invariants with the production retirement rules. Dedicated tests retain reachable data-change and refusal assertions. Retiring historical coverage requires accounting for known hosted, local and self-hosted installs. A baseline squash deletes dedicated tests with their entries; a source check refuses references to absent entry modules or loader selectors. Migration-area impact selection includes both shared checks whenever an entry changes.",
- "sources": [
-  "docs/testing-verification/migration-entry-tests.md",
-  "runtime/api/domain/test_migration_entry_contract.py",
-  "runtime/api/domain/test_migration_entry_test_policy.py",
-  "packages/yoke-core/src/yoke_core/tools/_impacted_contract_prefix_families.py"
- ]
+ "sources": ["docs/testing-verification/migration-entry-tests.md", "runtime/api/domain/test_migration_entry_contract.py", "runtime/api/domain/test_migration_entry_test_policy.py", "packages/yoke-core/src/yoke_core/tools/_impacted_contract_prefix_families.py"]
 }
