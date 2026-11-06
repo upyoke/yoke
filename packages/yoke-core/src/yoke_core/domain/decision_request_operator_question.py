@@ -96,8 +96,13 @@ def subject_ended(
         )
         return ended, f"question item is {row[0]}"
     row = conn.execute(
-        f"SELECT ended_at, terminated_at FROM harness_sessions WHERE session_id={_p(conn)}",
+        f"SELECT terminated_at FROM harness_sessions WHERE session_id={_p(conn)}",
         (request["requesting_session_id"],),
     ).fetchone()
-    ended = row is None or row[0] is not None or row[1] is not None
-    return ended, "requesting session ended" if ended else "requesting session is live"
+    ended = row is None or row[0] is not None
+    return (
+        ended,
+        "requesting session terminated or removed"
+        if ended
+        else "requesting session is not terminated",
+    )

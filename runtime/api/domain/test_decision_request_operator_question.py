@@ -77,13 +77,20 @@ def test_no_options_defaults_to_freeform(conn):
 @pytest.mark.parametrize(
     "action,note", [("blue", "Proceed"), ("freeform", "Use violet")]
 )
-def test_answers_record_actor_session_and_send_once(conn, monkeypatch, action, note):
+@pytest.mark.parametrize("idle", [False, True])
+def test_answers_record_actor_session_and_send_once(
+    conn, monkeypatch, action, note, idle
+):
     sender = Mock(return_value={"message_id": "answer-message"})
     monkeypatch.setattr("yoke_core.domain.session_message_service.send_message", sender)
     monkeypatch.setattr(
         "yoke_core.domain.session_explicit_wake.mark_explicit_stopped_wake", Mock()
     )
     row, _ = file_question(conn, **filing())
+    if idle:
+        conn.execute(
+            "UPDATE harness_sessions SET ended_at='ended' WHERE session_id='worker'"
+        )
     answered = resolve_decision_request(
         conn, row["id"], actor_id=2, session_id="steering", action=action, note=note
     )
@@ -125,7 +132,7 @@ def test_delivery_falls_back_only_to_current_holder(conn, monkeypatch):
         (json.dumps(context), row["id"]),
     )
     conn.execute(
-        "UPDATE harness_sessions SET ended_at='ended' WHERE session_id='worker'"
+        "UPDATE harness_sessions SET terminated_at='terminated' WHERE session_id='worker'"
     )
     conn.execute(
         "INSERT INTO work_claims (id, session_id, target_kind, scope, released_at) VALUES (1, 'other', 'item', ?, NULL)",
@@ -149,9 +156,7 @@ def test_missing_recipient_or_send_failure_keeps_answer_and_named_reason(
             Mock(side_effect=RuntimeError("offline")),
         )
     else:
-        conn.execute(
-            "UPDATE harness_sessions SET ended_at='ended' WHERE session_id='worker'"
-        )
+        conn.execute("DELETE FROM harness_sessions WHERE session_id='worker'")
     answered = resolve_decision_request(conn, row["id"], actor_id=2, action="blue")
     assert answered["status"] == "resolved"
     assert (
@@ -225,11 +230,41 @@ def test_failed_replace_preserves_original(conn):
     assert len(list_questions(conn, "worker")) == 1
 
 
-def test_ended_unattached_session_withdraws_question(conn):
+def test_idle_unattached_session_keeps_question_and_resolves_after_resume(
+    conn, monkeypatch
+):
     row, _ = file_question(conn, **filing())
     assert not subject_ended(conn, row, None)[0]
     conn.execute(
         "UPDATE harness_sessions SET ended_at='ended' WHERE session_id='worker'"
+    )
+    assert not subject_ended(conn, row, None)[0]
+    from yoke_core.domain.decision_request_resolution import withdraw_for_ended_subject
+
+    with pytest.raises(ValueError):
+        withdraw_for_ended_subject(conn, row["id"], reason="Session idle")
+    assert request_row(conn, row["id"])["status"] == "pending"
+    conn.execute("UPDATE harness_sessions SET ended_at=NULL WHERE session_id='worker'")
+    monkeypatch.setattr(
+        "yoke_core.domain.session_message_service.send_message",
+        Mock(return_value={"message_id": "answer-message"}),
+    )
+    monkeypatch.setattr(
+        "yoke_core.domain.session_explicit_wake.mark_explicit_stopped_wake", Mock()
+    )
+    assert (
+        resolve_decision_request(conn, row["id"], actor_id=2, action="blue")["status"]
+        == "resolved"
+    )
+
+
+@pytest.mark.parametrize("removed", [False, True])
+def test_terminated_or_missing_unattached_session_withdraws_question(conn, removed):
+    row, _ = file_question(conn, **filing())
+    conn.execute(
+        "DELETE FROM harness_sessions WHERE session_id='worker'"
+        if removed
+        else "UPDATE harness_sessions SET terminated_at='terminated' WHERE session_id='worker'"
     )
     assert subject_ended(conn, row, None)[0]
     from yoke_core.domain.decision_request_resolution import withdraw_for_ended_subject
