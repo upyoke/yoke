@@ -123,7 +123,9 @@ def test_unobserved_or_mismatched_steps_cannot_credit_evidence(
         assert result.runs[0].execution_status == "capture_failed"
         assert code in result.runs[0].errors
         conn = connect_test_db(db_path)
-        assert conn.execute("SELECT COUNT(*) FROM qa_artifacts").fetchone()[0] == 0
+        assert conn.execute(
+            "SELECT artifact_type FROM qa_artifacts"
+        ).fetchone()[0] == "evidence"
         raw = json.loads(conn.execute("SELECT raw_result FROM qa_runs").fetchone()[0])
         conn.close()
         assert raw["color_scheme"]["requested"] == "dark"

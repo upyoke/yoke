@@ -23,7 +23,7 @@ from yoke_core.domain.browser_qa_results import RequirementOutcome, RunResult
 from yoke_core.domain import browser_qa_sign_in_evidence as _sign_in
 from yoke_core.domain.browser_qa_step_artifacts import record_step_artifacts
 from yoke_core.domain.qa_artifacts import artifact_directory
-from yoke_core.domain.qa_capture_agreement import degraded_reason_for_empty_capture
+from yoke_core.domain.browser_qa_run_evidence import complete_run_with_evidence
 from yoke_core.domain.qa_constants import INVALID_BROWSER_METHOD_LABEL
 
 
@@ -295,16 +295,14 @@ def _process_requirement(
             run_verdict = "pass"
         else:
             _mark_capture_failed(verdict_failure)
-    _bqa._complete_run(
+    run_execution_status, run_verdict, step_errors = complete_run_with_evidence(
         run_id,
         req_id,
         verdict=run_verdict,
         execution_status=run_execution_status,
-        capture_degraded_reason=(
-            degraded_reason_for_empty_capture(len(run_artifact_ids))
-            if run_execution_status == "captured"
-            else None
-        ),
+        artifact_dir=artifact_dir,
+        artifacts=run_artifacts,
+        artifact_ids=run_artifact_ids,
         raw_result=_payload(
             verdict=run_verdict,
             execution_status=run_execution_status,
@@ -315,6 +313,8 @@ def _process_requirement(
             expected_screenshots=expected_screenshots,
             recorded_screenshots=recorded_screenshots,
             vacuous_absences=assertions.vacuous,
+            assertions_declared=assertions.declared,
+            assertions_passed=assertions.passed,
         ),
         actor=actor,
     )
