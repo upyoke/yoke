@@ -60,7 +60,7 @@ def test_launched_item_title_and_most_recent_released_claim(monkeypatch):
 def test_roster_and_summary_expose_labels_without_changing_identity():
     from yoke_core.domain.session_control_roster import session_control_roster_result
     from yoke_core.domain.sessions_list_read import session_summary_result
-    from runtime.api.domain.test_session_control_roster import (
+    from runtime.api.domain.session_control_roster_test_support import (
         _connection,
         _add_session,
         _base_row,
