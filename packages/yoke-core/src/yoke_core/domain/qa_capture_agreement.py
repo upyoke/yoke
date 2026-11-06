@@ -16,7 +16,6 @@ from yoke_contracts.qa_execution_status import CAPTURED
 
 CAPTURE_STATUS_ARTIFACT_DISAGREEMENT = "capture_status_artifact_disagreement"
 
-NO_SCREENSHOT_ARTIFACTS_REASON = "no_screenshot_artifacts:case_produced_none"
 
 AGENT_MISSION_DOCKET_REASON = (
     "agent_mission_docket:walker_artifacts_not_yet_attached"
@@ -80,19 +79,10 @@ def abort_if_captured_without_evidence(
     raise SystemExit(2)
 
 
-def degraded_reason_for_empty_capture(artifact_count: int) -> Optional[str]:
-    """Name a zero-artifact capture, or None when artifacts exist."""
-    if int(artifact_count) > 0:
-        return None
-    return NO_SCREENSHOT_ARTIFACTS_REASON
-
-
 __all__ = [
     "AGENT_MISSION_DOCKET_REASON",
     "CAPTURE_STATUS_ARTIFACT_DISAGREEMENT",
-    "NO_SCREENSHOT_ARTIFACTS_REASON",
     "abort_if_captured_without_evidence",
     "captured_without_evidence_error",
-    "degraded_reason_for_empty_capture",
     "run_artifact_count",
 ]

@@ -175,11 +175,14 @@ Perception is disposable. A walker may inspect hundreds of screens, DOM states,
 or command outputs while deciding what to do; those observations are not
 automatically evidence.
 
-Attach only deliberate proof that makes a finding or human gate independently
+Attach deliberate proof that makes a finding or human gate independently
 understandable. The dispatch carries the single runtime-owned artifact limit,
 and the shared artifact-add surface rejects attachments beyond it. Never make a
 parallel run to evade the cap, and never attach credentials or secret-bearing
 content.
+
+On a clean walk, attach one deliberate proof of the good outcome as `evidence`
+before submitting the review, within the same runtime artifact limit.
 
 A mission attaches evidence as bytes, never as a path on the test host. That
 host's starting state is restored when the walk ends, so an artifact row

@@ -1,7 +1,7 @@
 """The structured result a Browser QA run records about itself.
 
-``raw_result`` is the only durable account of what a run did, and the
-merge gate reads the commit out of it, so what goes in here is evidence
+The payload is retained as ``raw_result`` and an evidence artifact. The
+merge gate reads its commit, so what goes in here is evidence
 rather than intention: the code identity carries a commit some source
 verified about the target, never the one the caller asked for.
 """
@@ -48,6 +48,8 @@ def _build_run_payload(
     expected_screenshots: int = 0,
     recorded_screenshots: int = 0,
     vacuous_absences: Optional[List[Dict[str, Any]]] = None,
+    assertions_declared: int = 0,
+    assertions_passed: int = 0,
     note: Optional[str] = None,
     sign_in: Optional[Dict[str, Any]] = None,
     color_scheme: Optional[Dict[str, Any]] = None,
@@ -57,6 +59,8 @@ def _build_run_payload(
         "project": project,
         "base_url": base_url,
         "freshness_validated": freshness_validated,
+        "assertions_declared": assertions_declared,
+        "assertions_passed": assertions_passed,
     }
     if code_identity:
         payload["code_identity"] = code_identity

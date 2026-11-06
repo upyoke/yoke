@@ -6,6 +6,6 @@
  "functions": ["direct_workflow.dash.evidence", "qa.artifact.add", "qa.artifact.get", "qa.artifact.presign", "qa.artifact.read", "qa.artifact.rehome", "test_machine.screenshot"],
  "page": "qa-evidence",
  "position": 1,
- "summary": "Artifact byte reads, writes and plan review-begin use the evidence store of the build serving the universe. Admin connections route these operations through their paired HTTPS connection; metadata-only artifact get and unrelated operations stay direct. Local universes keep local evidence. A missing serving connection refuses with evidence_plane_unresolved and the connection repair, and an unavailable relay never falls back to local storage.",
+ "summary": "Artifact byte reads, writes and plan review-begin use the evidence store of the build serving the universe. Admin connections route these operations through their paired HTTPS connection; metadata-only artifact get and unrelated operations stay direct. Local universes keep local evidence. A missing serving connection refuses with evidence_plane_unresolved and the connection repair, and an unavailable relay never falls back to local storage. Browser captures retain a JSON run-result evidence artifact, including assertion counts, even for assert-only checks and failed captures.",
  "sources": ["packages/yoke-contracts/src/yoke_contracts/qa_evidence_plane.py", "runtime/api/domain/test_qa_evidence_plane.py", "docs/public/verification/browser-evidence.md"]
 }
