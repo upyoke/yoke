@@ -12,6 +12,8 @@ from yoke_harness.hooks import relay
 from yoke_cli.transport.https import HttpsConnection
 from yoke_contracts.bounded_json_http import (
     BoundedJsonHttpDeadlineError,
+    BoundedJsonHttpBodyError,
+    BoundedJsonHttpStatusError,
     BoundedJsonHttpNetworkError,
 )
 from runtime.api.cli.hook_relay_test_support import local_subset as local_subset  # noqa: F401
@@ -38,6 +40,8 @@ def test_resident_preserves_httpx_read_timeout():
         (BoundedJsonHttpDeadlineError("deadline"), "timed out"),
         (BoundedJsonHttpNetworkError("read", reason="timed_out"), "timed out"),
         (BoundedJsonHttpNetworkError("connection refused"), "unreachable"),
+        (BoundedJsonHttpBodyError("invalid body"), "failed"),
+        (BoundedJsonHttpStatusError(503, "unavailable"), "failed"),
     ],
 )
 def test_every_harness_relay_names_transport_cause(

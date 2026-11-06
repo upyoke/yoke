@@ -11,6 +11,7 @@ from typing import Any, Callable, Optional
 from yoke_contracts.bounded_json_http import (
     BoundedJsonHttpError,
     BoundedJsonHttpDeadlineError,
+    BoundedJsonHttpNetworkError,
     BoundedJsonHttpStatusError,
     request_json,
     safe_diagnostic_text,
@@ -255,6 +256,8 @@ def relay_hook_event(
                 if isinstance(exc, BoundedJsonHttpDeadlineError)
                 or getattr(exc, "reason", None) == "timed_out"
                 else "unreachable"
+                if isinstance(exc, BoundedJsonHttpNetworkError)
+                else "failed"
             ),
             preserved_stdout=allow_stdout,
         )

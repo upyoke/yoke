@@ -23,7 +23,7 @@ def degrade_to_noop(
     detail: str,
     *,
     preserved_stdout: str = "",
-    cause: str = "unreachable",
+    cause: str = "failed",
 ) -> int:
     """Fail open for hook transport/local harness failures."""
     # A terminal event never carries a continuation out of a failed relay.
