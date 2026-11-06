@@ -11,7 +11,9 @@ Repository-only rules; linked owners hold the detail.
 - Plain `yoke` runs the installed release. `YOKE_SOURCE_DEV=1 yoke <command>` is an explicit
   per-command operator opt-in.
 - Before the QA case, iterate with `yoke watch pytest --impacted main --bounded` or targeted
-  paths. It runs on CI (commit first) and defers to full CI.
+  paths. CI requires `ci_workflow_file` and the tree's `selection_workflow_file`
+  (default `.github/workflows/yoke-tests-selection.yml`; inputs `head_sha`, `base_sha`,
+  `pytest_args`); local runs print why. Commit first; selection defers to full CI.
 - `--local` is only a small targeted check expected to finish in about one minute; uncommitted
   work does not justify a slow local run. Both shapes inject xdist `-n auto`. Use `-- -n 0` for
   order-sensitive debugging.

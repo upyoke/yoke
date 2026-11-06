@@ -186,16 +186,16 @@ def dead_writer_refusal(path: Path, *, pid: int) -> str:
 
 
 def note_claimed_capture(progress_capture: Path | None, text: str) -> None:
-    """Append one wrapper metadata line to an already-claimed capture.
+    """Print wrapper metadata and append it to an already-claimed capture.
 
     A wrapper claims its capture before its own preflight, so anything
     slow that runs before the watched command starts owes the follower a
     line saying so; silence and death read identically otherwise.
     """
-    if progress_capture is None:
-        return
-    with progress_capture.open("a", encoding="utf-8") as handle:
-        handle.write(f"{text.rstrip()}\n")
+    print(text, file=sys.stderr, flush=True)
+    if progress_capture is not None:
+        with progress_capture.open("a", encoding="utf-8") as handle:
+            handle.write(f"{text.rstrip()}\n")
 
 
 def refuse_claimed_capture(

@@ -220,11 +220,12 @@ While implementing, use impacted selection:
 yoke watch pytest --impacted main --bounded
 ```
 
-When the project declares a `ci_workflow_file` capability, that selection
-runs on its CI against the pushed lane commit — so commit first; it refuses
-an uncommitted tree and a checkout on the base branch. `--local` (or
-`YOKE_PYTEST_LOCAL=1`) runs it on this machine instead, under one
-machine-wide xdist worker budget.
+CI requires `ci_workflow_file` and the tree's `selection_workflow_file`
+(default `.github/workflows/yoke-tests-selection.yml`; inputs `head_sha`,
+`base_sha`, `pytest_args`). Commit first: CI refuses dirty/base-branch trees.
+Without either workflow, tests run here without refusal. Every local run prints
+why, including `--local`, `YOKE_PYTEST_LOCAL=1`, QA candidates, runs already on
+CI, and no control-plane connection. Local xdist shares one machine-wide budget.
 
 Full-suite authority on protected merges is CI (when configured). Local full
 sweeps are the CI-outage fallback.
