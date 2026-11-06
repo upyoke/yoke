@@ -83,7 +83,12 @@ class TestClassifyItems:
         for i, status in enumerate(
             ["planned", "refined-idea", "planning", "refining-plan"], start=20
         ):
-            insert_item(test_db, i, status=status)
+            insert_item(
+                test_db,
+                i,
+                status=status,
+                workflow_id="issue" if status == "refined-idea" else "epic",
+            )
 
         insert_item(test_db, 30, status="idea")
         insert_item(test_db, 40, status="done")
