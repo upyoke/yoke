@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from unittest.mock import Mock
 
 import pytest
 
@@ -29,6 +30,11 @@ WRAPPER = (
 )
 TAIL = f"python3 /bin/yoke watch tail {PROGRESS}"
 UNRELATED = ("zsh", "cursor", "python3 -m pytest")
+
+
+@pytest.fixture(autouse=True)
+def empty_process_list_cache(monkeypatch) -> None:
+    monkeypatch.setattr(observation, "_process_list", None)
 
 
 def test_detection_tokens_match_the_live_watcher_modules() -> None:
@@ -86,6 +92,31 @@ def test_failed_process_listing_proves_nothing(monkeypatch) -> None:
     )
     assert seen == {}
     assert not observed_absent(seen, SESSION)
+
+
+def test_expired_process_listing_failure_does_not_reuse_absence(monkeypatch) -> None:
+    clock = [10.0]
+    listed = Mock(side_effect=[UNRELATED, (), (PROBE, WRAPPER)])
+    monkeypatch.setattr(observation.time, "monotonic", lambda: clock[0])
+    monkeypatch.setattr(observation, "list_process_cmdlines", listed)
+    payload = {"session_id": SESSION}
+    assert observed_absent(
+        observe_fleet_watcher(payload, executor="codex", event_name="PreToolUse"),
+        SESSION,
+    )
+
+    clock[0] += observation._PROCESS_LIST_TTL_SECONDS
+    seen = observe_fleet_watcher(payload, executor="codex", event_name="PreToolUse")
+    assert seen == {}
+    assert not observed_absent(seen, SESSION)
+
+    recovered = observe_fleet_watcher(
+        payload, executor="codex", event_name="PreToolUse"
+    )
+    assert recovered == {
+        FLEET_WATCHER_OBSERVATION_KEY: {"session_id": SESSION, "live": True}
+    }
+    assert listed.call_count == 3
 
 
 def test_relay_request_carries_the_observation(monkeypatch) -> None:
