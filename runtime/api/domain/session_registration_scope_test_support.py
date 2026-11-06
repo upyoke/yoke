@@ -52,7 +52,7 @@ def world(test_db, monkeypatch):
     owner = seed_human_actor(conn, "Registration member")
     stranger = seed_human_actor(conn, "Registration nonmember")
     org = default_org_id(conn)
-    actor_permissions.seed_org_role(
+    seed_org_role(
         conn, actor_id=owner, org_id=org, role_name="operator"
     )
     conn.commit()

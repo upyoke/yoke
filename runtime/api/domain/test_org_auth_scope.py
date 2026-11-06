@@ -94,7 +94,7 @@ def test_schema_reseed_refuses_multiple_identity_cards(authdb):
         seed_default_org(authdb)
 
 
-def test_owner_role_lacks_org_admin(authdb):
+def test_owner_role_includes_org_admin(authdb):
     row = authdb.execute(
         "SELECT COUNT(*) FROM roles r "
         "JOIN role_permissions rp ON rp.role_id = r.id "
@@ -102,7 +102,7 @@ def test_owner_role_lacks_org_admin(authdb):
         "WHERE r.name = %s AND p.key = %s",
         (ROLE_OWNER, PERM_ORG_ADMIN),
     ).fetchone()[0]
-    assert row == 0
+    assert row == 1
 
 
 def test_org_admin_implies_all_project_permissions(authdb):
@@ -146,7 +146,7 @@ def test_org_operator_grant_authorizes_every_project(authdb):
     ).allowed
 
 
-@pytest.mark.parametrize("role_name", [ROLE_OWNER, "deployment_ci", "nonexistent"])
+@pytest.mark.parametrize("role_name", ["deployment_ci", "nonexistent"])
 def test_org_grant_refuses_role_not_grantable_at_org_scope(authdb, role_name):
     actor_id = seed_human_actor(authdb)
     org_id = org_id_by_slug(authdb, DEFAULT_ORG_SLUG)

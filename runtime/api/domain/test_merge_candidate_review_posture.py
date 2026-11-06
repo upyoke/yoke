@@ -100,14 +100,14 @@ def test_selecting_the_posture_refuses_a_project_with_nobody_to_clear() -> None:
         item_id = _dash(conn, item_id=2861, posture={})
         project_id = _project_id(conn, item_id)
         conn.execute(
-            "UPDATE actors SET kind = 'system' WHERE id IN ("
+            "UPDATE actors SET status = 'disabled' WHERE id IN ("
             "SELECT apr.actor_id FROM actor_project_roles apr "
             "JOIN roles r ON r.id = apr.role_id "
             "WHERE apr.project_id = %s AND r.name IN ('owner', 'operator'))",
             (project_id,),
         )
         conn.commit()
-        with pytest.raises(ItemPostureAmendError, match="owner or operator"):
+        with pytest.raises(ItemPostureAmendError, match="empty_audience_members"):
             amend_item_posture(
                 conn,
                 item_id=item_id,

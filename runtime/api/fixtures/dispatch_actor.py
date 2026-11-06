@@ -25,10 +25,13 @@ from yoke_core.domain.yoke_function_permission_types import DispatchPermission
 
 def register_session_actor(conn: Any, session_id: str) -> int:
     """Register ``session_id`` bound to the operating actor; return its id."""
-    from yoke_core.domain.local_operating_actor import ensure_local_operating_actor
+    from yoke_core.domain.actors import seed_canonical_human
+    from yoke_core.domain.org_schema import seed_default_org
+    from runtime.api.fixtures.actor_roles import seed_org_role
     from runtime.api.fixtures.session_holdings import insert_session
 
-    actor_id, _seeded = ensure_local_operating_actor(conn)
+    actor_id = seed_canonical_human(conn)
+    seed_org_role(conn, actor_id=actor_id, org_id=seed_default_org(conn), role_name="owner")
     exists = conn.execute(
         "SELECT 1 FROM harness_sessions WHERE session_id = %s", (session_id,)
     ).fetchone()

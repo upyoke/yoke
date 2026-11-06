@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from runtime.api.fixtures.actor_roles import seed_service_actor
+
 import pytest
 
 from runtime.api.api_items_test_helpers import (
@@ -13,7 +15,6 @@ from yoke_core.domain.actor_permissions import (
     ROLE_DEPLOYMENT_CI,
     grant_actor_project_role,
 )
-from yoke_core.domain.actors import seed_human_actor
 from yoke_core.domain.api_tokens import mint_token
 from yoke_core.domain.project_identity import resolve_project_id
 from yoke_contracts.github_workflow_dispatch import (
@@ -39,7 +40,7 @@ def _deployment_ci_headers(
 ) -> dict[str, str]:
     conn = connect_test_db(db_path)
     try:
-        actor_id = seed_human_actor(conn)
+        actor_id = seed_service_actor(conn)
         grant_actor_project_role(
             conn,
             actor_id=actor_id,

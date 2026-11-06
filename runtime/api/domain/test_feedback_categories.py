@@ -1,5 +1,7 @@
 """Stored feedback data, category convergence and visibility."""
 
+from runtime.api.fixtures.actor_roles import seed_org_role
+
 import importlib
 import pytest
 
@@ -11,7 +13,6 @@ from yoke_contracts.api.function_call import (
 from yoke_core.domain.handlers.ouroboros_reads import handle_ouroboros_entry_list
 from yoke_core.domain.ouroboros_entry_insert import cmd_insert_entry
 from runtime.api.domain.ouroboros_https_permissions_test_support import _project_owner
-from yoke_core.domain.actor_permissions import grant_actor_org_role
 
 
 def insert(conn, category="observation", project=None):
@@ -66,7 +67,7 @@ def test_scope_respects_admin_and_project_visibility(test_db, shape):
     member = _project_owner(test_db, "yoke")
     admin = _project_owner(test_db, "yoke")
     org = test_db.execute("SELECT org_id FROM projects WHERE slug='yoke'").fetchone()[0]
-    grant_actor_org_role(test_db, actor_id=admin, org_id=org, role_name="admin")
+    seed_org_role(test_db, actor_id=admin, org_id=org, role_name="admin")
     scoped, unscoped = insert(test_db, project="yoke"), insert(test_db)
     options = {"shape": shape} if shape else {}
     assert read(admin, **options) == {scoped, unscoped}
@@ -94,7 +95,7 @@ def test_only_admin_can_curate_unscoped_note_without_a_project_hint(
     member = _project_owner(test_db, "yoke")
     admin = _project_owner(test_db, "yoke")
     org = test_db.execute("SELECT org_id FROM projects WHERE slug='yoke'").fetchone()[0]
-    grant_actor_org_role(test_db, actor_id=admin, org_id=org, role_name="admin")
+    seed_org_role(test_db, actor_id=admin, org_id=org, role_name="admin")
     entry_id = insert(test_db)
     request = FunctionCallRequest(
         function=function,
