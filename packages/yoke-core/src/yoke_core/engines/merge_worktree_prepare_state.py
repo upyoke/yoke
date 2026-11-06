@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from yoke_contracts.refusal_recovery import compose_refusal
 from yoke_core.domain.public_item_target import public_item_target
 from yoke_core.engines.merge_worktree_base import target_ref
 
@@ -204,10 +205,10 @@ def _stash_classify_gate(ctx: MergeContext) -> Optional[Tuple[int, str]]:
     cwd = ctx.worktree_path
 
     def refuse(result, operation):
-        message = (
-            f"merge_safety_copy_failed: {operation}: "
-            f"{result.stderr or result.stdout}. Commit the lane's work, "
-            "then retry merge-worktree; no dirty files were changed."
+        message = compose_refusal(
+            f"merge_safety_copy_failed: {operation}: {result.stderr or result.stdout}",
+            evaluated="no dirty files were changed",
+            recovery="Commit the lane's work, then retry the item merge",
         )
         _print(message, err=True)
         return (4, message)
@@ -275,10 +276,10 @@ def _stash_classify_gate(ctx: MergeContext) -> Optional[Tuple[int, str]]:
     for sf in yoke_tracked:
         cleaned = _run_git(["checkout", "--", sf], cwd=cwd, capture=True)
         if cleaned.returncode:
-            message = (
-                f"merge_dirty_cleanup_failed: {sf}: {cleaned.stderr or cleaned.stdout}. "
-                f"Safety copy: {safety_sha or 'no tracked changes'}. "
-                "Inspect the lane, commit its work, then retry merge-worktree."
+            message = compose_refusal(
+                f"merge_dirty_cleanup_failed: {sf}: {cleaned.stderr or cleaned.stdout}",
+                evaluated=f"Safety copy: {safety_sha or 'no tracked changes'}",
+                recovery="Inspect the lane, commit its work, then retry the item merge",
             )
             _print(message, err=True)
             return (4, message)
