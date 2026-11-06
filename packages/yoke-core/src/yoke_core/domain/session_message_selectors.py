@@ -24,11 +24,11 @@ from yoke_core.domain.session_message_candidates import candidate_identities
 from yoke_core.domain.schema_common import _get_columns
 from yoke_core.domain.session_message_liveness import (
     applied_liveness,
+    bulk_message_eligible,
     is_bulk_evidence,
     narrows_bulk_by_default,
 )
 from yoke_core.domain.session_message_routing import messageability
-from yoke_core.domain.session_activity_state import session_mode_column_present
 from yoke_core.domain.session_staleness import activity_liveness, session_liveness
 from yoke_core.domain.session_relay_machine_versions import (
     connected_relay_routes,
@@ -47,28 +47,23 @@ def _p(conn: Any) -> str:
 
 
 def _session_rows(conn: Any, session_ids) -> dict[str, dict[str, Any]]:
-    # A fixture composed by hand carries no declared posture, so no session
-    # there reads as parked and none is waiting.
-    mode_select = "mode, " if session_mode_column_present(conn) else ""
     if not session_ids:
         return {}
+    from .session_automatic_reclaim import RECLAIM_SESSION_FIELDS, reclaim_facts
+
     columns = _get_columns(conn, "harness_sessions")
-    extra = "".join(
-        f"{name}, "
-        for name in ("turn_posture", "tool_call_count", "episode_started_at")
-        if name in columns
-    )
+    fields = tuple(dict.fromkeys((
+        "session_id", "org_id", "actor_id", "executor_surface", "launch_origin",
+        "executor_version", "machine_id", "execution_level", *RECLAIM_SESSION_FIELDS,
+    )))
+    selected = ", ".join(name for name in fields if name in columns)
     rows = conn.execute(
-        "SELECT session_id, project_id, org_id, actor_id, executor, executor_surface, launch_origin, "
-        f"executor_version, machine_id, execution_level, {mode_select}"
-        f"last_heartbeat, last_tool_call_at, ended_at, terminated_at, {extra}"
+        f"SELECT {selected}, "
         f"{holds_work_claim_sql('harness_sessions')} AS holds_work_claim "
         f"FROM harness_sessions WHERE session_id IN ({','.join(_p(conn) for _ in session_ids)}) "
         "ORDER BY session_id",
         tuple(session_ids),
     ).fetchall()
-    from .session_automatic_reclaim import reclaim_facts
-
     return {
         str(row["session_id"]): row
         for row in reclaim_facts(conn, rows, session_facts_complete=True)
@@ -132,7 +127,7 @@ def _passes_filters(
     recipient: ResolvedRecipient,
     *,
     explicit_liveness: tuple[str, ...] = (),
-    bulk_liveness: tuple[str, ...] = (),
+    bulk_eligible: bool = True,
 ) -> bool:
     checks = (
         (selector.executor_families, {recipient.executor}),
@@ -152,8 +147,8 @@ def _passes_filters(
     # The bulk default narrows only recipients that a population anchor
     # reached. A session the sender named, or an item/epic-task/process
     # anchor resolved to, was chosen deliberately and keeps every state.
-    if bulk_liveness and is_bulk_evidence(recipient.resolution):
-        return recipient.liveness in bulk_liveness
+    if is_bulk_evidence(recipient.resolution):
+        return bulk_eligible
     return True
 
 
@@ -190,8 +185,8 @@ def resolve_recipients(
 ) -> list[ResolvedRecipient]:
     """Resolve unioned anchors, then intersect filters and deduplicate.
 
-    A bulk anchor the sender did not qualify resolves against active
-    sessions only; see :mod:`yoke_core.domain.session_message_liveness`.
+    An unqualified bulk anchor selects present, working or between-turns
+    sessions; see :mod:`yoke_core.domain.session_message_liveness`.
     ``steering_target`` is the addressed work a role anchor resolves
     against; the role resolves to nobody when no live seat covers it, which
     the send path parks rather than refuses.
@@ -201,7 +196,6 @@ def resolve_recipients(
     narrows_by_default = narrows_bulk_by_default(selector)
     states = applied_liveness(selector)
     explicit_liveness = () if narrows_by_default or not selector.liveness else states
-    bulk_liveness = states if narrows_by_default else ()
     claims = _claim_rows(conn)
     hits = anchor_hits(
         conn,
@@ -268,7 +262,7 @@ def resolve_recipients(
             selector,
             recipient,
             explicit_liveness=explicit_liveness,
-            bulk_liveness=bulk_liveness,
+            bulk_eligible=not narrows_by_default or bulk_message_eligible(row, now=current),
         ):
             resolved.append(recipient)
     return resolved

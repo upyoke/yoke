@@ -65,7 +65,7 @@ def zero_recipients_detail(selector: RecipientSelector) -> str:
     # addressed ones, so what is left is a roster audience.
     return (
         "the roster audience resolved to zero sessions. Filters intersect; "
-        "--project/--universe default to active unless --liveness widens them. "
+        "--project/--universe default to present, working/between-turns sessions; --liveness selects legacy states. "
         "Check `yoke sessions list --liveness active`, then adjust filters."
     )
 

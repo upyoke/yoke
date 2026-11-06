@@ -1,4 +1,4 @@
-"""Bulk recipient anchors resolve against active sessions unless widened."""
+"""Bulk recipient anchors use presence and tool activity unless explicitly filtered."""
 
 from __future__ import annotations
 
@@ -130,7 +130,7 @@ def test_preview_names_the_applied_liveness_filter() -> None:
             now=NOW,
         )
 
-        assert default["applied_liveness"] == ["active"]
+        assert default["applied_liveness"] == ["active", "waiting"]
         assert widened["applied_liveness"] == ["active", "waiting", "stale", "ended"]
     finally:
         conn.close()
@@ -165,7 +165,7 @@ def test_the_stored_snapshot_names_what_the_sender_resolved_against() -> None:
         ).fetchone()
 
         snapshot = json.loads(message["selector_snapshot"])
-        assert snapshot["applied_liveness"] == ["active"]
+        assert snapshot["applied_liveness"] == ["active", "waiting"]
         assert snapshot["projects"] == ["alpha"]
         assert ENDED not in [row["session_id"] for row in result["recipients"]]
     finally:
@@ -195,3 +195,45 @@ def test_a_bulk_selector_that_reaches_nobody_active_refuses_the_send() -> None:
 def test_an_unknown_liveness_state_is_refused_at_the_contract(value: str) -> None:
     with pytest.raises(ValidationError, match="unknown liveness states"):
         selector(projects=["alpha"], liveness=[value])
+
+
+@pytest.mark.parametrize("posture", ["running", "waiting"])
+def test_bulk_reaches_holder_between_turns_and_while_parked(posture):
+    conn = message_connection()
+    conn.execute("ALTER TABLE harness_sessions ADD COLUMN mode TEXT")
+    conn.execute(
+        "UPDATE harness_sessions SET turn_posture=?,mode='parked' WHERE session_id='s1'",
+        (posture,),
+    )
+    assert "s1" in _resolved(conn, projects=["alpha"])
+    assert "s1" in _resolved(conn, universe=True)
+    sent = send_message(
+        conn, actor_id=10, sender_session_id="s2",
+        selector=selector(projects=["alpha"]), body="Check your held work.", now=NOW,
+    )
+    assert "s1" in [row["session_id"] for row in sent["recipients"]]
+    conn.close()
+
+
+@pytest.mark.parametrize("gone", [False, True])
+def test_bulk_skips_silent_holder_despite_fresh_heartbeat(gone):
+    conn = message_connection()
+    conn.execute(
+        "UPDATE harness_sessions SET last_tool_call_at=?,native_process_gone_at=? "
+        "WHERE session_id='s1'",
+        (LONG_AGO, NOW_TEXT if gone else None),
+    )
+    assert "s1" not in _resolved(conn, projects=["alpha"])
+    assert "s1" in _resolved(conn, session_ids=["s1"])
+    assert "s1" in _resolved(conn, projects=["alpha"], liveness=["all"])
+    conn.close()
+
+
+def test_bulk_skips_gone_holder_even_with_recent_tool_and_heartbeat():
+    conn = message_connection()
+    conn.execute(
+        "UPDATE harness_sessions SET native_process_gone_at=? WHERE session_id='s1'",
+        (NOW_TEXT,),
+    )
+    assert "s1" not in _resolved(conn, projects=["alpha"])
+    conn.close()
