@@ -18,6 +18,8 @@ Preview the files and required settings before applying a Pack. Infrastructure c
 
 Install settings specialize generic Pack source for the project. Runtime settings tell the installed application or Yoke capability how to operate. Credentials belong to the relevant capability's secret store, not to Pack template values or committed configuration.
 
+Bundle fetch builds the render value groups used by the selected Pack version. Incomplete settings for unrelated infrastructure do not block a Pack update. If a required value cannot be built, `pack_bundle_failed` names the invalid setting and the settings command to correct it before retrying.
+
 For example, a Pack may install infrastructure source while the project's capability and environment settings identify which provider and destination to use. Keep those responsibilities separate so a source update does not silently replace deployment credentials.
 
 See [Projects](configuration.md) for settings, capabilities, and secrets.

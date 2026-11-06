@@ -9,6 +9,7 @@ from yoke_contracts.packs import (
     PACK_BUNDLE_SCHEMA,
     PACKS_SOURCE,
 )
+from yoke_contracts.refusal_recovery import compose_refusal
 from yoke_core.domain import json_helper
 from yoke_core.domain.install_bundle import server_tree_root
 from yoke_core.domain.pack_catalog_validation import (
@@ -122,9 +123,26 @@ def build_pack_bundle(
     required_keys = _required_render_keys(descriptor, selected)
     if render_values is None:
         settings = _load_project_renderer_settings(conn, identity.slug)
-        available_values = gather_pulumi_values(
-            identity.slug, server_tree_root(), settings
-        )
+        try:
+            available_values = gather_pulumi_values(
+                identity.slug,
+                server_tree_root(),
+                settings,
+                required_keys=required_keys,
+            )
+        except ValueError as exc:
+            raise PackError(
+                compose_refusal(
+                    f"pack_render_settings_invalid: Pack {pack!r}: {exc}",
+                    recovery=(
+                        "Correct the named setting with "
+                        "`yoke projects capability-settings set` for capability "
+                        "settings or `yoke projects environment-settings merge` "
+                        "for environment settings, then retry the Pack operation; "
+                        "use each command's --help for its required arguments"
+                    ),
+                )
+            ) from exc
         missing = sorted(required_keys - set(available_values))
         if missing:
             raise PackError(

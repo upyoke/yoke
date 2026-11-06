@@ -28,12 +28,15 @@ def gather_pulumi_values(
     settings: ProjectRendererSettings | None = None,
     *,
     pulumi_stack: str | None = None,
+    required_keys: set[str] | None = None,
 ) -> Dict[str, str]:
     """Return the Pulumi value dict: inherited keys + VPS + Pulumi + CI keys."""
     del project_root
     if settings is None:
         settings = load_project_renderer_settings(project)
     values = dict(_values_from_settings(project, settings))
+    if required_keys is not None and required_keys <= values.keys():
+        return {key: values[key] for key in required_keys}
     data = _pulumi_context_from_settings(settings)
 
     values["vps_instance_type"] = _stringify(data.get("vpsInstanceType"))
@@ -43,9 +46,7 @@ def gather_pulumi_values(
         data.get("vpsIamInstanceProfileName")
     )
     values["origin_id"] = _stringify(data.get("originId"))
-    values["distribution_bucket_name"] = _stringify(
-        data.get("distributionBucketName")
-    )
+    values["distribution_bucket_name"] = _stringify(data.get("distributionBucketName"))
     values["domain_txt_records_json"] = _domain_txt_records_json(data)
     values["domain_mx_records_json"] = _domain_mx_records_json(data)
     state = settings.capabilities.get(PULUMI_STATE_CAPABILITY_TYPE, {})
@@ -80,17 +81,31 @@ def gather_pulumi_values(
     values["manage_platform_image_lifecycle"] = _stringify(
         registry.get("manage_platform_image_lifecycle"), "false"
     )
-    values.update(delivery_ci_values(settings))
+    ci_keys = {
+        "github_api_url",
+        "delivery_distribution_bucket_names_json",
+        "delivery_cloudfront_distribution_ids_json",
+        "github_app_private_key_secret_arns_json",
+        "delivery_authority_json",
+    }
+    if required_keys is None or required_keys & ci_keys:
+        values.update(delivery_ci_values(settings, required_keys=required_keys))
     runner_fleet_enabled = "runner-fleet" in (data.get("stacks") or [])
     if (
-        pulumi_stack is None
-        or pulumi_stack == values["pulumi_runner_fleet_stack_name"]
+        required_keys is None
+        or any(key.startswith("runner_fleet_") for key in required_keys)
+    ) and (
+        pulumi_stack is None or pulumi_stack == values["pulumi_runner_fleet_stack_name"]
     ):
-        values.update(runner_fleet_values(
-            settings,
-            fallback_repo=values["github_repo_slug"],
-            enabled=runner_fleet_enabled,
-        ))
+        values.update(
+            runner_fleet_values(
+                settings,
+                fallback_repo=values["github_repo_slug"],
+                enabled=runner_fleet_enabled,
+            )
+        )
+    if required_keys is not None:
+        return {key: values[key] for key in required_keys if key in values}
     return values
 
 
