@@ -1,5 +1,4 @@
 """Frontend analytics: exact origin/key, shared rate budget, named refusals.
-
 Verified bearer or web credentials attribute the viewer; anonymous views
 retain their visitor id for actor_visitor_links at query time.
 """
@@ -134,6 +133,7 @@ def validated_events(body, request):
         sanitize_url,
     )
     from yoke_core.api.frontend_events_geo import GEO_FIELDS, device_props, geo_props
+    from yoke_core.frontend_events.events_device import merge_device_props
 
     events = body.get("events") if isinstance(body, dict) else None
     if (
@@ -187,7 +187,7 @@ def validated_events(body, request):
             event["page_path"] = sanitize_path(event["page_path"])
         for key in GEO_FIELDS:
             event.pop(key, None)
-        event.update(device)
+        merge_device_props(event, device)
     return events
 
 def viewer_actor_id(request, auth):

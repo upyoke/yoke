@@ -7,6 +7,9 @@ User-Agent Client Hints the browser sent by default override it. Viewport
 size is a layout signal and never decides device type.
 """
 
+import math
+import re
+
 try:
     from ua_parser import parse
 except ImportError as error:  # pragma: no cover - exercised by installs only
@@ -56,10 +59,41 @@ def device_props(headers):
         for part in (agent.major, agent.minor, agent.patch, agent.patch_minor)
         if part
     )
-    return {
+    props = {
         "is_bot": is_bot(user_agent),
         "browser": agent.family if agent else None,
         "browser_version": version or None,
         "os": os_name or None,
         "device_type": device_type,
     }
+    ios_version = re.search(r"(?:CPU (?:iPhone )?OS|iPhone OS) (\d+(?:_\d+)*)", user_agent)
+    if ios_version:
+        props["os_version"] = ios_version[1].replace("_", ".")
+    return props
+
+
+STRING_FACTS = {"os_version", "device_model", "cpu_architecture", "cpu_bitness", "gpu_renderer", "connection_type"}
+NUMBER_FACTS = {
+    "cpu_cores": (1, 1024, True), "device_memory_gb": (0, 1024, False),
+    "pixel_ratio": (0, 16, False), "touch_points": (0, 256, True),
+    "color_depth": (1, 64, True), "connection_downlink_mbps": (0, 100000, False),
+}
+
+
+def merge_device_props(event, device):
+    """Drop invalid optional facts, then stamp the collector's authoritative facts."""
+    for name in STRING_FACTS:
+        if name in event and not (isinstance(event[name], str) and 0 < len(event[name]) <= 128):
+            event.pop(name)
+    for name, (low, high, integer) in NUMBER_FACTS.items():
+        if name not in event:
+            continue
+        value = event[name]
+        valid = type(value) in (int, float) and low <= value <= high and math.isfinite(value)
+        if valid and integer:
+            valid = value == int(value)
+        if name in {"device_memory_gb", "pixel_ratio"} and valid:
+            valid = value > 0
+        if not valid:
+            event.pop(name)
+    event.update(device)

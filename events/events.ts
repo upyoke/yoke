@@ -3,7 +3,7 @@ import rules from './attribution_rules.json' with { type: 'json' };
 /** Frontend envelopes and retrying batches. One fetch per batch. */
 import { MAX_ENVELOPE_BYTES, MAX_CONTEXT_FIELD_BYTES, MAX_BATCH_SIZE } from './events_types.ts';
 import type { EventEnvelope, EmitOptions } from './events_types.ts';
-import { getSystemProps, getSessionProps, getOrgProps, getPageProps, getDeviceProps } from './events_props.ts';
+import { getSystemProps, getSessionProps, getOrgProps, getPageProps, getDeviceProps, fillDeviceHints } from './events_props.ts';
 import { getAttributionProps, configureAttribution } from './events_capture.ts';
 
 const queue: EventEnvelope[] = [];
@@ -73,6 +73,7 @@ export async function flushEvents(): Promise<void> {
   if (timer) { clearTimeout(timer); timer = null; }
   if (!queue.length) return;
   if (Date.now() < retryAt) { schedule(retryAt - Date.now()); return; }
+  for (const event of queue) fillDeviceHints(event);
   // Keepalive has a browser-wide ~64 KB budget. Bound ordinary batches below it.
   let count = 0;
   let bytes = 16;
