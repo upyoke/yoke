@@ -114,7 +114,9 @@ def write_sessions_result(response, stdout, stderr, *, full=False) -> None:
     result = response.result or {}
     rows = result.get("rows") or []
     if full:
-        write_human(result, stdout)
+        write_human({**result,
+                     "fields": [field for field in result.get("fields", []) if field != "liveness"],
+                     "rows": [{key: value for key, value in row.items() if key != "liveness"} for row in rows]}, stdout)
         return
 
     def description(value, key):
