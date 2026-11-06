@@ -14,7 +14,7 @@ from yoke_core.domain.session_message_starvation import PARKED_WITHOUT_IDLE_WAKE
 from yoke_core.domain.session_message_wake import wake_eligible_recipients
 from yoke_core.domain.session_manual_wake import request_session_wake
 from yoke_core.domain.session_staleness import activity_liveness
-from yoke_core.domain.session_tool_call_liveness import session_call_is_live
+from yoke_core.domain.session_state import session_in_flight
 from runtime.api.domain.session_message_support_test_support import (
     NOW as MESSAGE_NOW,
     NATIVE_WAKE_SESSION_ID,
@@ -244,6 +244,6 @@ def test_the_fleet_report_reads_a_pre_park_open_call_as_not_live():
         "last_tool_call_at": MESSAGE_NOW.isoformat(),
         "turn_posture_at": (MESSAGE_NOW + timedelta(minutes=1)).isoformat(),
     }
-    assert not session_call_is_live(record, started_at=MESSAGE_NOW.isoformat())
+    assert not session_in_flight({**record, "open_tool_call_at": MESSAGE_NOW}, now=MESSAGE_NOW)
     record["turn_posture_at"] = (MESSAGE_NOW - timedelta(minutes=1)).isoformat()
-    assert session_call_is_live(record, started_at=MESSAGE_NOW.isoformat())
+    assert session_in_flight({**record, "open_tool_call_at": MESSAGE_NOW}, now=MESSAGE_NOW)

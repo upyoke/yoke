@@ -143,7 +143,7 @@ def test_available_work_is_immediate_on_arm_and_after_a_dependency_clears():
 def test_released_and_stale_claims_make_runnable_work_available():
     row = replace(_item("ready", "idea", "claimed_by_other_live"), runnable=True)
     held = _snapshot(items={row.ref: row})
-    for claim in ("unclaimed", "claimed_by_stale"):
+    for claim in ("unclaimed", "claimed_by_ended"):
         ready = _snapshot(items={row.ref: replace(row, claim_state=claim)})
         assert any("available" in line for line in item_deltas(held, ready))
     blocked = _snapshot(

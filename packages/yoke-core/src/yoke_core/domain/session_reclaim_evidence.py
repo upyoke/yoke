@@ -1,11 +1,11 @@
 """Native reclaim activity facts and their owned wire evidence projection."""
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Optional
+from typing import Any, Mapping, Optional
 
 from yoke_contracts.timestamps import temporal_wire
-from .session_reclaim_progress import open_tool_call_is_live, session_turn_is_running
+from .session_state import session_in_flight
 
 
 @dataclass(frozen=True)
@@ -23,6 +23,8 @@ class ReclaimActivityEvidence:
     turn_posture: Optional[str]
     open_tool_call_at: datetime | None
 
+    session_facts: Mapping[str, Any] = field(default_factory=dict)
+
     def as_payload(self) -> dict:
         return temporal_wire(
             {
@@ -39,14 +41,25 @@ class ReclaimActivityEvidence:
             }
         )
 
+    def is_in_flight(self, *, now: datetime | None = None) -> bool:
+        return session_in_flight(
+            {
+                **self.session_facts,
+                "ended_at": self.ended_at,
+                "last_tool_call_at": self.last_event_at,
+                "turn_posture": self.turn_posture,
+                "open_tool_call_at": self.open_tool_call_at,
+            },
+            now=now,
+        )
+
     @property
     def open_tool_call_live(self) -> bool:
-        """Whether the open tool-call row still evidences work in flight."""
-        return open_tool_call_is_live(self.open_tool_call_at, self.last_event_at)
+        return self.is_in_flight()
 
     @property
     def in_flight(self) -> bool:
-        return self.open_tool_call_live or session_turn_is_running(self.turn_posture)
+        return self.is_in_flight()
 
 
 @dataclass(frozen=True)

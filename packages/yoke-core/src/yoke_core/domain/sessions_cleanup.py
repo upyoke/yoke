@@ -77,9 +77,13 @@ def clean_stale_harness_sessions(
         if name in active_cols:
             select_cols += f", {name}"
 
+    live_where = "ended_at IS NULL"
+    if "terminated_at" in active_cols:
+        live_where += " AND terminated_at IS NULL"
+
     if project_ids is None:
         all_active = conn.execute(
-            f"SELECT {select_cols} FROM harness_sessions WHERE ended_at IS NULL",
+            f"SELECT {select_cols} FROM harness_sessions WHERE {live_where}",
         ).fetchall()
     else:
         scoped_project_ids = sorted({int(value) for value in project_ids})
@@ -88,7 +92,7 @@ def clean_stale_harness_sessions(
             placeholders = ", ".join(marker for _ in scoped_project_ids)
             all_active = conn.execute(
                 f"SELECT {select_cols} FROM harness_sessions "
-                "WHERE ended_at IS NULL "
+                f"WHERE {live_where} "
                 f"AND project_id IN ({placeholders})",
                 tuple(scoped_project_ids),
             ).fetchall()

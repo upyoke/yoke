@@ -15,10 +15,6 @@ from typing import Any, Mapping
 
 from yoke_contracts.session_queue_posture import SESSION_MODE_PARKED
 from yoke_core.domain.session_message_types import parse_timestamp
-from yoke_core.domain.session_native_process_observation import (
-    current_native_process_observation,
-)
-from yoke_core.domain.session_reclaim_progress import open_tool_call_is_live
 
 
 def open_call_predates_park(
@@ -36,17 +32,3 @@ def open_call_predates_park(
     parked_at = parse_timestamp(record.get("turn_posture_at"))
     return since is not None and parked_at is not None and since < parked_at
 
-
-def session_call_is_live(
-    record: Mapping[str, Any], *, started_at: datetime | str | None
-) -> bool:
-    """Require a running session, current call, and no observed process death."""
-    return (
-        record.get("turn_posture") == "running"
-        and not record.get("ended_at")
-        and not record.get("terminated_at")
-        and open_tool_call_is_live(started_at, record.get("last_tool_call_at"))
-        and not open_call_predates_park(record, started_at=started_at)
-        and current_native_process_observation(record, include_expected_exit=True)
-        is None
-    )

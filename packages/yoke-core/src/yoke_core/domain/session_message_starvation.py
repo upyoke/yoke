@@ -113,10 +113,6 @@ from yoke_contracts.session_control.surface_versions import (
 )
 from yoke_core.domain.session_message_types import parse_timestamp
 from yoke_core.domain.session_mode import session_is_parked
-from yoke_core.domain.session_native_process_observation import (
-    current_native_process_observation,
-)
-from yoke_core.domain.session_tool_call_liveness import open_call_predates_park
 
 
 #: Recorded on the receipt and wake attempt this escalation authorized.
@@ -125,31 +121,15 @@ STARVED_HOOK_ROUTE = "starved_hook_route"
 PARKED_WITHOUT_IDLE_WAKE = "parked_without_idle_wake"
 
 
-def turn_in_flight(row: Mapping[str, Any]) -> datetime | None:
-    """When the recipient's still-running tool call started, if one is.
+def turn_in_flight(
+    row: Mapping[str, Any], *, now: datetime | None = None
+) -> datetime | None:
+    """Return the open call's start only while the shared model says it runs."""
+    from yoke_core.domain.session_state import session_in_flight
 
-    ``open_tool_call_since`` is the ``started_at`` of the recipient's most
-    recent ``session_tool_calls`` row when that row has no ``completed_at``.
-    Its presence means one thing: a hook will run for this session when the
-    call returns. So the hook route is not absent and must not be
-    escalated, however long the call has been running — a native resume
-    against a turn already executing is a second turn on the same
-    conversation, which is the fork this refuses.
-
-    A verified process exit retires an orphaned open call even while the
-    session remains live under its work claim. Later activity retires that
-    exit, so a replacement process's open call still blocks a second turn.
-
-    Parking also retires a call that started before it
-    (:func:`open_call_predates_park`): the session ended that turn, and its
-    completion hook never recorded.
-    """
-    if current_native_process_observation(row, include_expected_exit=True) is not None:
-        return None
     since = row.get("open_tool_call_since")
-    if open_call_predates_park(row, started_at=since):
-        return None
-    return parse_timestamp(since)
+    record = {**row, "open_tool_call_at": since}
+    return parse_timestamp(since) if session_in_flight(record, now=now) else None
 
 
 def awaiting_injection(row: Mapping[str, Any]) -> bool:

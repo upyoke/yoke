@@ -33,7 +33,7 @@ CREATE TABLE IF NOT EXISTS harness_sessions (
     execution_level TEXT NOT NULL DEFAULT 'primary', executor_version TEXT, machine_id TEXT,
     workspace TEXT NOT NULL DEFAULT '', mode TEXT NOT NULL DEFAULT 'wait',
     offered_at TIMESTAMPTZ NOT NULL, last_heartbeat TIMESTAMPTZ NOT NULL,
-    ended_at TIMESTAMPTZ, offer_envelope TEXT, actor_id INTEGER
+    ended_at TIMESTAMPTZ, terminated_at TIMESTAMPTZ, offer_envelope TEXT, actor_id INTEGER
 );
 CREATE TABLE IF NOT EXISTS work_claims (
     id INTEGER PRIMARY KEY, session_id TEXT NOT NULL,
@@ -173,6 +173,17 @@ class TestRoutedOwnershipExclusions(unittest.TestCase):
             requesting_session_id="other",
         )
         self.assertEqual(excluded, {})
+
+    def test_terminated_owner_no_longer_defends_released_work(self) -> None:
+        conn = self._build_conn()
+        _insert_session(conn, "owner", heartbeat_age_s=10)
+        conn.execute(
+            "UPDATE harness_sessions SET terminated_at=%s WHERE session_id='owner'",
+            (_instant(),),
+        )
+        conn.commit()
+        _insert_released_claim(conn, "owner", 18, released_age_s=10)
+        self.assertEqual(routed_ownership_exclusions(conn, window_s=300, requesting_session_id="other"), {})
 
     def test_not_defended_past_window(self) -> None:
         conn = self._build_conn()

@@ -9,8 +9,6 @@ from typing import Any, Optional
 from . import db_backend
 from .schema_common import _get_columns as _schema_get_columns
 
-_TURN_RUNNING = "running"
-
 # One hook writes ``last_tool_call_at`` and the open ``session_tool_calls`` row,
 # so the two stamps of a live call land within seconds of each other. Only a
 # gap wider than that separates a running call from an unclosed leftover.
@@ -41,60 +39,6 @@ def current_episode_progress_stamp(
 def live_activity_stamp() -> datetime:
     """Present-moment instant so in-flight work is not classified stale."""
     return utc_now()
-
-
-def read_session_state(
-    conn: Any,
-    session_id: str,
-) -> tuple[
-    Optional[str],
-    datetime | None,
-    datetime | None,
-    datetime | None,
-    datetime | None,
-    Optional[str],
-]:
-    """Return executor, heartbeat, end, tool-call, episode, and turn posture."""
-    empty = (None, None, None, None, None, None)
-    try:
-        columns = set(_schema_get_columns(conn, "harness_sessions"))
-    except db_backend.operational_error_types():
-        return empty
-    if not columns:
-        return empty
-    selected = ["last_heartbeat", "ended_at"]
-    for optional in (
-        "executor",
-        "last_tool_call_at",
-        "episode_started_at",
-        "turn_posture",
-    ):
-        if optional in columns:
-            selected.append(optional)
-    try:
-        marker = "%s" if db_backend.connection_is_postgres(conn) else "?"
-        row = conn.execute(
-            f"SELECT {', '.join(selected)} FROM harness_sessions "
-            f"WHERE session_id = {marker}",
-            (session_id,),
-        ).fetchone()
-    except db_backend.operational_error_types():
-        return empty
-    if row is None:
-        return empty
-    values = (
-        {name: row[name] for name in selected}
-        if hasattr(row, "keys")
-        else dict(zip(selected, row))
-    )
-    return (
-        values.get("executor"),
-        parse_stamp(values.get("last_heartbeat")),
-        parse_stamp(values.get("ended_at")),
-        parse_stamp(values.get("last_tool_call_at")),
-        parse_stamp(values.get("episode_started_at")),
-        values.get("turn_posture"),
-    )
 
 
 def open_tool_call_started_at(conn: Any, session_id: str) -> datetime | None:
@@ -150,9 +94,10 @@ def open_tool_call_is_live(
     return newest_at - marker_at <= timedelta(seconds=OPEN_TOOL_CALL_WRITE_SKEW_SECONDS)
 
 
+
 def session_turn_is_running(turn_posture: Optional[str]) -> bool:
-    """True when the native turn is still in flight (thinking or a tool)."""
-    return str(turn_posture or "") == _TURN_RUNNING
+    """Read native turn phase without making a liveness decision."""
+    return turn_posture == "running"
 
 
 __all__ = [
@@ -163,6 +108,5 @@ __all__ = [
     "open_tool_call_is_live",
     "open_tool_call_started_at",
     "parse_stamp",
-    "read_session_state",
     "session_turn_is_running",
 ]

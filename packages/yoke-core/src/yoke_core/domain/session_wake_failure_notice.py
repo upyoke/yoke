@@ -93,7 +93,7 @@ def notify_failed_wake(
         completed = parse_timestamp(attempt[2])
         opportunity = parse_timestamp(row.get("last_tool_call_at"))
         if (
-            turn_in_flight(row) is not None
+            turn_in_flight(row, now=now) is not None
             or completed is None
             or opportunity is None
             or opportunity <= completed

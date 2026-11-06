@@ -32,11 +32,11 @@ OLD = NOW - timedelta(days=7)
         ({"mode": "parked"}, "stale"),
         ({"has_active_holdings": True}, "active"),
         ({"has_active_holdings": True, "last_heartbeat": OLD}, "stale"),
-        ({"turn_posture": "running"}, "active"),
+        ({"turn_posture": "running"}, "stale"),
         ({"turn_posture": "running", "last_heartbeat": OLD}, "stale"),
-        ({"open_tool_call_at": QUIET}, "active"),
+        ({"turn_posture": "running", "open_tool_call_at": QUIET}, "active"),
         ({"open_tool_call_at": OLD, "last_tool_call_at": QUIET}, "stale"),
-        ({"open_tool_call_at": OLD}, "active"),
+        ({"open_tool_call_at": OLD}, "stale"),
         ({"open_tool_call_at": OLD, "last_heartbeat": OLD}, "stale"),
         ({"ended_at": QUIET}, "ended"),
         ({"terminated_at": QUIET}, "ended"),
@@ -66,7 +66,7 @@ def test_shared_snapshot_decision(executor, fields, state):
     }
     decision = automatic_reclaim(row, now=NOW)
     assert session_liveness(row, now=NOW) == state
-    assert decision.is_reclaimable == (state == "stale")
+    assert decision.is_reclaimable == (state in {"stale", "ended"})
 
 
 def test_roster_filters_preview_and_execution_agree(test_db):

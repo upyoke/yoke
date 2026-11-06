@@ -20,7 +20,7 @@ def keep_operator_hook_route(
     if native_wake_supported(row.get("executor_surface"), row.get("launch_origin")):
         return False
     notify_operator_to_wake(conn, row, now=now, grace_seconds=grace_seconds)
-    if turn_in_flight(row) is None:
+    if turn_in_flight(row, now=now) is None:
         record_wake_skip(
             conn,
             row,

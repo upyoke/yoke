@@ -5,6 +5,7 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta
 
+import pytest
 from yoke_contracts.timestamps import utc_now
 
 from yoke_core.domain.scheduler import (
@@ -142,7 +143,8 @@ def test_parked_holder_past_ttl_stays_live(scheduler_db):
         assert result.selected_step.item_id != top_item
 
 
-def test_ended_parked_holder_is_stale(scheduler_db):
+@pytest.mark.parametrize("terminal", ["ended_at", "terminated_at"])
+def test_terminal_parked_holder_is_assignable(scheduler_db, terminal):
     """The park protects a wait, not a session that is over."""
     conn = scheduler_db["conn"]
     top_item = _claim_top_item(
@@ -153,13 +155,13 @@ def test_ended_parked_holder_is_stale(scheduler_db):
     )
     _park(conn, "parked-ended")
     conn.execute(
-        "UPDATE harness_sessions SET ended_at = %s WHERE session_id = %s",
+        f"UPDATE harness_sessions SET {terminal} = %s WHERE session_id = %s",
         (_seen_at(30), "parked-ended"),
     )
     conn.commit()
 
     claims = _evaluate_claim_states(conn, [top_item])
-    assert claims[top_item] == ClaimState.CLAIMED_BY_STALE
+    assert claims[top_item] == ClaimState.CLAIMED_BY_ENDED
 
 
 def test_parked_holder_with_dead_native_remains_held(scheduler_db):

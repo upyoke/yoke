@@ -16,8 +16,6 @@ from .session_reclaim_progress import (
     current_episode_progress_stamp,
     live_activity_stamp,
     newest_activity_stamp,
-    open_tool_call_started_at,
-    read_session_state,
     parse_stamp,
 )
 
@@ -31,8 +29,6 @@ REASON_HEARTBEAT_STALE = "heartbeat_stale"
 REASON_PROGRESS_STALE = "progress_stale"
 REASON_FRESH = "fresh"
 REASON_ACTIVE_WORK_CLAIM = "active_work_claim"
-REASON_ABANDONED_IN_FLIGHT = "abandoned_in_flight"
-IN_FLIGHT_HARD_TTL_MULTIPLIER = 3
 
 
 def _p(conn) -> str:
@@ -110,47 +106,29 @@ def read_activity_signals(
     overrides: Optional[Mapping[str, int]] = None,
 ) -> ReclaimActivityEvidence:
     """Read the canonical reclaim activity signals for ``session_id``."""
-    (
-        executor_raw,
-        last_heartbeat,
-        ended_at,
-        last_event_at,
-        episode_started_at,
-        turn_posture,
-    ) = read_session_state(conn, session_id)
-    claim_last_heartbeat, claim_claimed_at = _claim_state(
-        conn,
-        session_id,
-        claim_id,
-    )
-    open_tool_call_at = open_tool_call_started_at(conn, session_id)
+    from .session_automatic_reclaim import reclaim_facts
 
-    activity_at = newest_activity_stamp(
-        claim_last_heartbeat,
-        claim_claimed_at,
-        last_heartbeat,
-        last_event_at,
-    )
-
-    executor = executor_raw if executor_raw else "unknown"
-    effective_ttl = resolve_effective_ttl(
-        executor,
-        base_ttl_minutes=base_ttl_minutes,
-        overrides=overrides,
-    )
+    row = reclaim_facts(conn, [{"session_id": session_id}])[0]
+    claim_heartbeat, claimed_at = _claim_state(conn, session_id, claim_id)
     return ReclaimActivityEvidence(
         session_id=session_id,
-        executor=executor,
-        effective_ttl_minutes=effective_ttl,
-        last_heartbeat=last_heartbeat,
-        last_event_at=last_event_at,
-        claim_last_heartbeat=claim_last_heartbeat,
-        claim_claimed_at=claim_claimed_at,
-        episode_started_at=episode_started_at,
-        activity_at=activity_at,
-        ended_at=ended_at,
-        turn_posture=turn_posture,
-        open_tool_call_at=open_tool_call_at,
+        executor=str(row.get("executor") or "unknown"),
+        effective_ttl_minutes=resolve_effective_ttl(
+            row.get("executor"), base_ttl_minutes=base_ttl_minutes, overrides=overrides
+        ),
+        last_heartbeat=parse_stamp(row.get("last_heartbeat")),
+        last_event_at=parse_stamp(row.get("last_tool_call_at")),
+        claim_last_heartbeat=claim_heartbeat,
+        claim_claimed_at=claimed_at,
+        episode_started_at=parse_stamp(row.get("episode_started_at")),
+        activity_at=newest_activity_stamp(
+            row.get("last_heartbeat"), row.get("last_tool_call_at"),
+            claim_heartbeat, claimed_at,
+        ),
+        ended_at=parse_stamp(row.get("ended_at") or row.get("terminated_at")),
+        turn_posture=row.get("turn_posture"),
+        open_tool_call_at=parse_stamp(row.get("open_tool_call_at")),
+        session_facts=row,
     )
 
 
@@ -163,28 +141,9 @@ def latest_activity(
     """Return the native "is this session alive?" instant."""
     del executor  # routed via read_activity_signals
     evidence = read_activity_signals(conn, session_id)
-    if evidence.in_flight and not in_flight_activity_is_hard_stale(
-        evidence.activity_at,
-        effective_ttl_minutes=evidence.effective_ttl_minutes,
-    ):
+    if evidence.in_flight:
         return live_activity_stamp()
     return evidence.activity_at
-
-
-def in_flight_activity_is_hard_stale(
-    activity_at: datetime | None,
-    *,
-    effective_ttl_minutes: int,
-    now: Optional[datetime] = None,
-) -> bool:
-    """Bound crashed in-flight markers while normal liveness remains protected."""
-    return activity_is_stale(
-        activity_at,
-        executor=None,
-        base_ttl_minutes=effective_ttl_minutes * IN_FLIGHT_HARD_TTL_MULTIPLIER,
-        now=now,
-        executor_ttl_overrides={},
-    )
 
 
 def classify_reclaimable(
@@ -246,7 +205,8 @@ def classify_activity(
     if holds_work_claim:
         return ReclaimClassification(False, REASON_ACTIVE_WORK_CLAIM, evidence)
 
-    if not evidence.in_flight and activity_is_stale(
+    in_flight = evidence.is_in_flight(now=now)
+    if not in_flight and activity_is_stale(
         evidence.activity_at,
         executor=None,
         base_ttl_minutes=base_ttl_minutes,
@@ -269,7 +229,7 @@ def classify_activity(
     if (
         progress_threshold_minutes is not None
         and progress_at is not None
-        and not evidence.open_tool_call_live
+        and not in_flight
     ):
         progress_stale = activity_is_stale(
             progress_at,
@@ -285,13 +245,6 @@ def classify_activity(
                 evidence=evidence,
             )
 
-    if evidence.in_flight and in_flight_activity_is_hard_stale(
-        evidence.activity_at,
-        effective_ttl_minutes=evidence.effective_ttl_minutes,
-        now=now,
-    ):
-        return ReclaimClassification(True, REASON_ABANDONED_IN_FLIGHT, evidence)
-
     return ReclaimClassification(False, REASON_FRESH, evidence)
 
 
@@ -300,8 +253,6 @@ __all__ = [
     "ReclaimClassification",
     "SCOPE_ITEM_CLAIM",
     "SCOPE_SESSION_CLEANUP",
-    "IN_FLIGHT_HARD_TTL_MULTIPLIER",
-    "REASON_ABANDONED_IN_FLIGHT",
     "REASON_ENDED",
     "REASON_FRESH",
     "REASON_ACTIVE_WORK_CLAIM",
@@ -309,7 +260,6 @@ __all__ = [
     "REASON_NEVER_ENGAGED",
     "REASON_PROGRESS_STALE",
     "current_episode_progress_stamp",
-    "in_flight_activity_is_hard_stale",
     "newest_activity_stamp",
     "resolve_effective_ttl",
     "read_activity_signals",

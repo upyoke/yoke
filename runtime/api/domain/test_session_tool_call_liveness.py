@@ -4,7 +4,7 @@ from datetime import timedelta
 
 import pytest
 
-from yoke_core.domain.session_tool_call_liveness import session_call_is_live
+from yoke_core.domain.session_state import session_in_flight
 from yoke_core.domain.steering_fleet_report_delivery_states import (
     delivery_state,
     TURN_IN_FLIGHT,
@@ -40,7 +40,7 @@ def running():
 )
 def test_dead_stopped_or_superseded_call_never_hides_queued_messages(extra):
     record = {**running(), **extra}
-    assert not session_call_is_live(record, started_at=START)
+    assert not session_in_flight({**record, "open_tool_call_at": START}, now=parse_stamp(NOW))
     assert (
         delivery_state(
             record,
@@ -55,7 +55,7 @@ def test_dead_stopped_or_superseded_call_never_hides_queued_messages(extra):
 
 
 def test_live_call_still_waits_for_its_hook():
-    assert session_call_is_live(running(), started_at=START)
+    assert session_in_flight({**running(), "open_tool_call_at": START}, now=parse_stamp(NOW))
     assert (
         delivery_state(
             running(),

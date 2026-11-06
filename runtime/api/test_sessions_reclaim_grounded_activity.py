@@ -59,6 +59,10 @@ def _open_tool_call(conn, session_id: str, ago_minutes: int) -> None:
         "VALUES (%s, %s, 'Bash', %s)",
         (session_id, f"open-{session_id}", _ago_minutes(ago_minutes)),
     )
+    conn.execute(
+        "UPDATE harness_sessions SET turn_posture='running' WHERE session_id=%s",
+        (session_id,),
+    )
     conn.commit()
 
 

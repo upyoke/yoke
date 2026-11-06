@@ -36,13 +36,13 @@ class ClaimState(str, Enum):
         UNCLAIMED: No active exclusive claim exists.
         CLAIMED_BY_SELF: The offering session holds the claim.
         CLAIMED_BY_OTHER_LIVE: Another live session holds the claim.
-        CLAIMED_BY_STALE: A stale/ended session holds the claim.
+        CLAIMED_BY_ENDED: An ended or terminated session holds the claim.
     """
 
     UNCLAIMED = "unclaimed"
     CLAIMED_BY_SELF = "claimed_by_self"
     CLAIMED_BY_OTHER_LIVE = "claimed_by_other_live"
-    CLAIMED_BY_STALE = "claimed_by_stale"
+    CLAIMED_BY_ENDED = "claimed_by_ended"
 
 
 @dataclass(frozen=True)
@@ -90,7 +90,7 @@ def is_assignable_claim_state(state: ClaimState) -> bool:
     return state in (
         ClaimState.UNCLAIMED,
         ClaimState.CLAIMED_BY_SELF,
-        ClaimState.CLAIMED_BY_STALE,
+        ClaimState.CLAIMED_BY_ENDED,
     )
 
 

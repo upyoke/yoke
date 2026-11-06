@@ -8,8 +8,6 @@ reactivation ignored release_reason=reclaimed so the loss stayed silent.
 
 from __future__ import annotations
 
-from datetime import timedelta
-
 import pytest
 
 from runtime.api.sessions_api_stale_test_helpers import _ago_minutes, _now_instant
@@ -19,17 +17,14 @@ from runtime.api.session_reclaim_activity_test_support import (
     _seed_session,
 )
 from runtime.api.sessions_test_support import _insert_claimable_item, conn  # noqa: F401
+from yoke_contracts.session_control.liveness import IN_FLIGHT_CEILING_SECONDS
 from yoke_core.domain.session_reclaim_activity import (
-    IN_FLIGHT_HARD_TTL_MULTIPLIER,
-    REASON_ABANDONED_IN_FLIGHT,
     REASON_FRESH,
     REASON_HEARTBEAT_STALE,
-    REASON_PROGRESS_STALE,
     classify_activity,
     classify_reclaimable,
     latest_activity,
     read_activity_signals,
-    resolve_effective_ttl,
 )
 from yoke_core.domain.session_reclaim_activity_bulk import latest_activity_by_session
 from yoke_core.domain.session_staleness import activity_is_stale
@@ -85,6 +80,7 @@ class TestInFlightReclaim:
         _seed_session(c, "running-dash", heartbeat_ago_min=30)
         _emit_tool_event(c, "running-dash", ago_minutes=24)
         _set_turn_posture(c, "running-dash", "running")
+        _open_tool_call(c, "running-dash", ago_minutes=24)
 
         result = classify_reclaimable(c, "running-dash")
 
@@ -101,6 +97,7 @@ class TestInFlightReclaim:
         _seed_session(c, "long-bash", heartbeat_ago_min=30)
         _emit_tool_event(c, "long-bash", ago_minutes=25)
         _open_tool_call(c, "long-bash", ago_minutes=25)
+        _set_turn_posture(c, "long-bash", "running")
 
         result = classify_reclaimable(c, "long-bash")
 
@@ -140,12 +137,12 @@ class TestInFlightReclaim:
         )
 
         assert result.is_reclaimable is True
-        assert result.reason == REASON_PROGRESS_STALE
+        assert result.reason == REASON_HEARTBEAT_STALE
 
     def test_open_tool_call_is_reclaimable_after_the_hard_ttl(self, conn_with_events):
         c = conn_with_events
         old_minutes = (
-            resolve_effective_ttl("claude-code") * IN_FLIGHT_HARD_TTL_MULTIPLIER + 1
+            IN_FLIGHT_CEILING_SECONDS // 60 + 1
         )
         _seed_session(c, "hour-pytest", heartbeat_ago_min=old_minutes)
         _emit_tool_event(c, "hour-pytest", ago_minutes=old_minutes)
@@ -164,7 +161,7 @@ class TestInFlightReclaim:
         )
 
         assert result.is_reclaimable is True
-        assert result.reason == REASON_ABANDONED_IN_FLIGHT
+        assert result.reason == REASON_HEARTBEAT_STALE
 
 
 class TestInFlightSweepAndScheduler:
@@ -204,6 +201,7 @@ class TestInFlightSweepAndScheduler:
         _seed_session(c, "bulk-running", heartbeat_ago_min=30)
         _emit_tool_event(c, "bulk-running", ago_minutes=24)
         _set_turn_posture(c, "bulk-running", "running")
+        _open_tool_call(c, "bulk-running", ago_minutes=24)
 
         activity = latest_activity_by_session(c, ["bulk-running"])
 
@@ -214,7 +212,7 @@ class TestInFlightSweepAndScheduler:
 
     def test_bulk_activity_stops_masking_an_abandoned_turn(self, conn_with_events):
         c = conn_with_events
-        old_minutes = 20 * IN_FLIGHT_HARD_TTL_MULTIPLIER + 1
+        old_minutes = IN_FLIGHT_CEILING_SECONDS // 60 + 1
         _seed_session(c, "bulk-abandoned", heartbeat_ago_min=old_minutes)
         _emit_tool_event(c, "bulk-abandoned", ago_minutes=old_minutes)
         _set_turn_posture(c, "bulk-abandoned", "running")
@@ -228,7 +226,6 @@ class TestInFlightSweepAndScheduler:
         _insert_claimable_item(c, 9103)
         old_minutes = (
             DEFAULT_STALE_WITH_HOLDINGS_THRESHOLD_MINUTES
-            * IN_FLIGHT_HARD_TTL_MULTIPLIER
             + 1
         )
         _seed_session(c, "abandoned-worker", heartbeat_ago_min=old_minutes)
@@ -310,7 +307,7 @@ class TestReclaimedClaimReactivation:
 
 
 @pytest.mark.parametrize("heartbeat_minutes", [0, 1])
-def test_long_open_call_with_fresh_pulses_and_no_claim_is_fresh(
+def test_old_open_call_cannot_hide_no_progress_with_fresh_pulses(
     conn_with_events, heartbeat_minutes,
 ):
     c = conn_with_events
@@ -323,9 +320,9 @@ def test_long_open_call_with_fresh_pulses_and_no_claim_is_fresh(
     c.commit()
     evidence = read_activity_signals(c, owner)
     assert evidence.claim_claimed_at is None
-    assert evidence.open_tool_call_live
+    assert not evidence.open_tool_call_live
     result = classify_activity(evidence, holds_work_claim=False, progress_threshold_minutes=90)
-    assert result.reason == REASON_FRESH
-    assert not result.is_reclaimable
-    assert latest_activity(c, owner) > _now_instant() - timedelta(seconds=5)
-    assert latest_activity_by_session(c, [owner])[owner] > _now_instant() - timedelta(seconds=5)
+    assert result.reason == "progress_stale"
+    assert result.is_reclaimable
+    assert latest_activity(c, owner) == evidence.activity_at
+    assert latest_activity_by_session(c, [owner])[owner] == evidence.activity_at

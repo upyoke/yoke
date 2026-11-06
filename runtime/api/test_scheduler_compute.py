@@ -240,10 +240,10 @@ class TestComputeSchedule:
 
         assert result.selected_step is not None
         assert result.selected_step.item_id == top_item
-        assert result.selected_step.claim_state == ClaimState.CLAIMED_BY_STALE
+        assert result.selected_step.claim_state == ClaimState.CLAIMED_BY_ENDED
 
     def test_schedule_claim_state_ended_session(self, scheduler_db):
-        """claims from ended sessions are CLAIMED_BY_STALE."""
+        """claims from ended sessions are CLAIMED_BY_ENDED."""
         conn = scheduler_db["conn"]
         now_iso = utc_now()
         conn.execute(
@@ -264,7 +264,7 @@ class TestComputeSchedule:
         conn.commit()
 
         claims = _evaluate_claim_states(conn, [top_item])
-        assert claims[top_item] == ClaimState.CLAIMED_BY_STALE
+        assert claims[top_item] == ClaimState.CLAIMED_BY_ENDED
 
         # And the scheduler still selects it
         result = compute_schedule(conn, project_scope=["yoke"])

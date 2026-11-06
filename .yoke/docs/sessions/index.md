@@ -216,5 +216,6 @@ pending message, so an older serving process cannot deliver it early.
 - [Path claim model](model/path-claims.md) — Read claim ownership, path coverage and overlap decisions.
 - [Linux relay](linux-relay.md) — Install and inspect login-scoped Linux relay supervision.
 - [Session model](model/sessions.md) — Read harness identity, liveness and work-claim ownership.
+- [Reclaim and current calls](model/reclaim.md) — Read terminal custody, reclaim thresholds and current-call evidence.
 - [Shared coordination model](model/coordination.md) — Read shared-operation leases, host queues and session accounting.
 <!-- /yoke:contents -->

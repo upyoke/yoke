@@ -2,7 +2,7 @@
 
 Callers supply durable session, holdings and open-call facts, plus the project's
 session_idle_minutes. No heartbeat or telemetry event proves process presence
-or tool progress. Reclaim policy remains with automatic_reclaim.
+or tool progress. Reclaim policy remains with classify_activity.
 """
 
 from __future__ import annotations
@@ -14,10 +14,10 @@ from yoke_contracts.project_contract.project_keys import DEFAULT_SESSION_IDLE_MI
 from yoke_contracts.session_control.liveness import IN_FLIGHT_CEILING_SECONDS
 from yoke_contracts.session_queue_posture import (
     session_declared_wait,
-    session_pause_declared,
 )
 from yoke_contracts.timestamps import as_utc, parse_instant, temporal_wire, utc_now
-from yoke_core.domain.session_tool_call_liveness import session_call_is_live
+from yoke_core.domain.session_tool_call_liveness import open_call_predates_park
+from yoke_core.domain.session_reclaim_progress import open_tool_call_is_live
 
 
 def session_presence(row: Mapping[str, Any]) -> str:
@@ -37,19 +37,25 @@ def session_presence(row: Mapping[str, Any]) -> str:
     return "gone" if gone is not None and (tool is None or tool <= gone) else "present"
 
 
-def session_in_flight(row: Mapping[str, Any], *, now: datetime) -> bool:
+def session_in_flight(
+    row: Mapping[str, Any], *, now: datetime | None = None
+) -> bool:
     """A current running call is bounded by the shared watcher ceiling."""
     started = row.get("open_tool_call_at")
     if (
         started is None
         or session_presence(row) != "present"
-        or session_pause_declared(row)
     ):
         return False
+    now = utc_now() if now is None else as_utc(now)
     stamp = parse_instant(started)
     return timedelta(0) <= now - stamp < timedelta(
         seconds=IN_FLIGHT_CEILING_SECONDS
-    ) and session_call_is_live(row, started_at=stamp)
+    ) and (
+        row.get("turn_posture") == "running"
+        and open_tool_call_is_live(stamp, row.get("last_tool_call_at"))
+        and not open_call_predates_park(row, started_at=stamp)
+    )
 
 
 def session_state(

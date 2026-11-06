@@ -25,13 +25,11 @@ SESSIONS_RECLAIM_STALE_USAGE = (
     "[--session-id S] [--json]"
 )
 SESSIONS_RECLAIM_STALE_DESCRIPTION = (
-    "Reclaim idle sessions and their liveness-bound claims. A holder the "
-    "fleet probe already reports as claimed_by_stale is reclaimed on the "
-    "probe's short TTL; other holdings keep the holdings TTL. "
-    "total_reclaimed=0 names whether nothing was stale or everything stale "
-    "is still inside that holdings bound, and the escalation "
-    "(yoke claims work release --claim-id N --reason R, run from a steering "
-    "seat) that frees a held claim now."
+    "Reclaim idle sessions with no active work claim. Strategy-document locks "
+    "keep the holdings TTL; an active work claim protects its holder without "
+    "an inactivity limit. Ended and terminated sessions are excluded from "
+    "cleanup. To free a held claim explicitly, use "
+    "yoke claims work release --claim-id N --reason R from a steering seat."
 )
 
 

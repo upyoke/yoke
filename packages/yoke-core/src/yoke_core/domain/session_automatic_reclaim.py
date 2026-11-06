@@ -75,9 +75,8 @@ def automatic_reclaim(
         ended_at=stamp("ended_at") or stamp("terminated_at"),
         turn_posture=row.get("turn_posture"),
         open_tool_call_at=stamp("open_tool_call_at"),
+        session_facts=row,
     )
-    if evidence.ended_at is not None:
-        return ReclaimClassification(False, "ended", evidence)
     progress_ttl = (
         max(progress_threshold_minutes, ttl)
         if row.get("has_active_holdings")

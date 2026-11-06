@@ -124,6 +124,7 @@ root:
       - {title: "Path claim model", summary: "Read claim ownership, path coverage and overlap decisions.", path: "sessions/model/path-claims.md"}
       - {title: "Linux relay", summary: "Install and inspect login-scoped Linux relay supervision.", path: "sessions/linux-relay.md"}
       - {title: "Session model", summary: "Read harness identity, liveness and work-claim ownership.", path: "sessions/model/sessions.md"}
+      - {title: "Reclaim and current calls", summary: "Read terminal custody, reclaim thresholds and current-call evidence.", path: "sessions/model/reclaim.md"}
       - {title: "Shared coordination model", summary: "Read shared-operation leases, host queues and session accounting.", path: "sessions/model/coordination.md"}
     - title: "Workflows"
       summary: "Choose definitions and follow pinned lifecycle gates and transitions."

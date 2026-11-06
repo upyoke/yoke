@@ -68,7 +68,7 @@ _LATER_GATE_POINTS = ("integration", "closure")
 _CLAIM_STATE_PROSE = {
     ClaimState.UNCLAIMED: "unclaimed",
     ClaimState.CLAIMED_BY_SELF: "claimed by this session",
-    ClaimState.CLAIMED_BY_STALE: "prior claim is stale and reclaimable",
+    ClaimState.CLAIMED_BY_ENDED: "prior claim holder ended",
     ClaimState.CLAIMED_BY_OTHER_LIVE: "claimed by another live session",
 }
 

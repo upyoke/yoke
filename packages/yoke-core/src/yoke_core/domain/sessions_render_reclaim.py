@@ -63,7 +63,7 @@ def find_stale_sessions(
 
     now = utc_now()
     rows = conn.execute(
-        "SELECT * FROM harness_sessions WHERE ended_at IS NULL"
+        "SELECT * FROM harness_sessions WHERE ended_at IS NULL AND terminated_at IS NULL"
     ).fetchall()
     return [
         row

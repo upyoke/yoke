@@ -35,6 +35,7 @@ CREATE TABLE harness_sessions (
     offered_at TIMESTAMPTZ NOT NULL,
     last_heartbeat TIMESTAMPTZ NOT NULL,
     ended_at TIMESTAMPTZ,
+    terminated_at TIMESTAMPTZ,
     offer_envelope TEXT,
     current_item_id TEXT DEFAULT NULL,
     current_item_set_at TIMESTAMPTZ DEFAULT NULL,

@@ -1,31 +1,21 @@
-"""Reading the reclaim activity signal for many sessions in one pass.
+"""Batch session, claim and open-call facts with a fixed number of reads.
 
-:func:`yoke_core.domain.session_reclaim_activity.read_activity_signals` answers
-"is this session alive?" for one session and costs two reads plus two schema
-probes. Callers that ask the same question about every live claim — the
-scheduler's claim-state pass is the hot one — ask it here instead: the schema
-probe happens once and the two reads are grouped, so the cost is four
-statements regardless of how many sessions are in play.
-
-The signal itself is defined once, in the single-session module: the newest of
-the session's heartbeat and tool-call stamps and its live claims' heartbeat and
-claim stamps. This module reproduces that selection over a set, and the shared
-:func:`_newest` helper keeps the two paths from drifting apart.
+The shared newest-activity helper selects the same stamps as single-session
+reads; session_state.session_in_flight owns the live-call decision.
 """
 
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Any, Dict, Iterable, List, Optional, Sequence, Set
+from typing import Any, Dict, Iterable, List, Sequence, Set
 
 from . import db_backend
 from .schema_common import _get_columns as _schema_get_columns
 from .session_reclaim_activity import (
-    in_flight_activity_is_hard_stale,
     newest_activity_stamp as _newest,
-    resolve_effective_ttl,
 )
-from .session_reclaim_progress import live_activity_stamp, open_tool_call_is_live
+from .session_reclaim_progress import live_activity_stamp
+from .session_state import session_in_flight
 
 
 def _p(conn: Any) -> str:
@@ -77,14 +67,17 @@ def latest_activity_by_session(
     marker = _p(conn)
     placeholders = ", ".join(marker for _ in ids)
     activity: Dict[str, datetime | None] = {session_id: None for session_id in ids}
-    executors: Dict[str, Optional[str]] = {session_id: None for session_id in ids}
 
-    tool_activity: Dict[str, datetime | None] = {}
+    session_facts: Dict[str, dict] = {}
     session_columns = _columns(conn, "harness_sessions")
     if session_columns:
         selected = [
             name
-            for name in ("executor", "last_heartbeat", "last_tool_call_at")
+            for name in (
+                "executor", "last_heartbeat", "last_tool_call_at", "ended_at",
+                "terminated_at", "mode", "turn_posture", "turn_posture_at",
+                "quiet_reason", "native_process_gone_at", "native_process_gone_evidence",
+            )
             if name in session_columns
         ]
         if selected:
@@ -98,8 +91,7 @@ def latest_activity_by_session(
                     name: _value(row, name, index + 1)
                     for index, name in enumerate(selected)
                 }
-                tool_activity[session_id] = values.get("last_tool_call_at")
-                executors[session_id] = values.get("executor")
+                session_facts[session_id] = values
                 stamps = [values.get("last_heartbeat"), values.get("last_tool_call_at")]
                 activity[session_id] = _newest(activity.get(session_id), *stamps)
 
@@ -125,7 +117,7 @@ def latest_activity_by_session(
             ]
             activity[session_id] = _newest(activity.get(session_id), *stamps)
 
-    _mark_in_flight_live(conn, ids, activity, tool_activity, executors, marker, placeholders)
+    _mark_in_flight_live(conn, ids, activity, session_facts, placeholders)
     return activity
 
 
@@ -133,52 +125,27 @@ def _mark_in_flight_live(
     conn: Any,
     ids: List[str],
     activity: Dict[str, datetime | None],
-    tool_activity: Dict[str, datetime | None],
-    executors: Dict[str, Optional[str]],
-    marker: str,
+    session_facts: Dict[str, dict],
     placeholders: str,
 ) -> None:
-    """Treat a running turn or a live open tool call as present activity.
-
-    An open ``session_tool_calls`` row only counts while it is still the
-    session's newest recorded tool activity; the same grounding the single-session
-    classifier applies, so a harness that never closes its rows cannot make a
-    session permanently unreclaimable here either.
-    """
+    """Project open calls through the same session rule as single reads."""
     live_stamp = live_activity_stamp()
-
-    def mark_live(row: Any) -> None:
-        session_id = str(_value(row, "session_id", 0))
-        if session_id not in activity or in_flight_activity_is_hard_stale(
-            activity[session_id],
-            effective_ttl_minutes=resolve_effective_ttl(executors.get(session_id)),
-        ):
-            return
-        activity[session_id] = live_stamp
-
-    session_columns = _columns(conn, "harness_sessions")
-    if "turn_posture" in session_columns:
-        sql = (
-            f"SELECT session_id FROM harness_sessions "
-            f"WHERE session_id IN ({placeholders}) AND turn_posture = {marker}"
-        )
-        for row in _rows(conn, sql, (*ids, "running")):
-            mark_live(row)
     tool_columns = _columns(conn, "session_tool_calls")
-    if "completed_at" in tool_columns and "session_id" in tool_columns:
-        sql = (
-            "SELECT session_id, MAX(started_at) AS started_at "
-            f"FROM session_tool_calls "
-            f"WHERE completed_at IS NULL AND session_id IN ({placeholders}) "
-            "GROUP BY session_id"
-        )
-        for row in _rows(conn, sql, ids):
-            session_id = str(_value(row, "session_id", 0))
-            if open_tool_call_is_live(
-                _value(row, "started_at", 1),
-                tool_activity.get(session_id),
-            ):
-                mark_live(row)
+    if "completed_at" not in tool_columns or "session_id" not in tool_columns:
+        return
+    sql = (
+        "SELECT session_id, MAX(started_at) AS started_at FROM session_tool_calls "
+        f"WHERE completed_at IS NULL AND session_id IN ({placeholders}) "
+        "GROUP BY session_id"
+    )
+    for row in _rows(conn, sql, ids):
+        session_id = str(_value(row, "session_id", 0))
+        facts = {
+            **session_facts.get(session_id, {}),
+            "open_tool_call_at": _value(row, "started_at", 1),
+        }
+        if session_in_flight(facts, now=live_stamp):
+            activity[session_id] = live_stamp
 
 
 __all__ = ["latest_activity_by_session"]
