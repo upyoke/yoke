@@ -45,6 +45,22 @@ def test_cache_hit_must_belong_to_postgres_download_step():
     )
 
 
+def test_transfer_diagnostics_keep_parallel_vertex_times_without_changing_build_metric():
+    from yoke_core.tools.server_image_cache_evidence import buildkit_timings
+
+    log = (
+        "2026-11-05T12:00:00Z #5 exporting to GitHub Actions Cache\n"
+        "#6 exporting to image\n#6 exporting layers 3.0s done\n"
+        "#5 preparing build cache for export\n#5 DONE 45.2s\n#6 DONE 12.1s\n"
+        "#7 [builder 5/12] RUN postgres_binaries.py\n#7 CACHED\n"
+    )
+    assert buildkit_timings(log) == [
+        {"step": "exporting to GitHub Actions Cache", "seconds": 45.2},
+        {"step": "exporting to image", "seconds": 12.1},
+    ]
+    assert build_seconds([_job("amd64", 25), _job("arm64", 40)]) == 40
+
+
 @pytest.mark.parametrize(
     "files, expected",
     [
@@ -73,10 +89,11 @@ def test_cache_reuse_proof_requires_application_change_without_bootstrap_edit(
 
 
 @pytest.mark.parametrize(
-    "cached_seconds, samples, expected", [(10, 10, 0), (11, 10, 1), (10, 9, 1)]
+    "cached_seconds, samples, legacy, expected",
+    [(10, 10, False, 0), (11, 10, False, 1), (10, 9, False, 1), (10, 10, True, 1)],
 )
 def test_command_uses_authenticated_rest_and_requires_ten_runs_and_thirty_seconds(
-    monkeypatch, cached_seconds, samples, expected, capsys
+    monkeypatch, cached_seconds, samples, legacy, expected, capsys
 ):
     import base64
     from yoke_core.tools import server_image_cache_evidence as evidence
@@ -109,6 +126,8 @@ def test_command_uses_authenticated_rest_and_requires_ten_runs_and_thirty_second
             return {
                 "content": base64.b64encode(
                     b"cache-to: type=gha,mode=max,scope=yoke-server-linux/amd64"
+                    if legacy
+                    else b"cache-to: type=registry,ref=${{ needs.validate-tag.outputs.repository }}:buildcache-${{ matrix.arch }},mode=max"
                 ).decode()
             }
         if "/compare/" in path:

@@ -283,15 +283,13 @@ def test_image_cache_is_scoped_by_platform_and_validation_never_writes():
     text = _text()
     check = text.split("  check-build:\n", 1)[1].split("\n  build:\n", 1)[0]
     build = text.split("  build:\n", 1)[1].split("\n  assemble:\n", 1)[0]
-    cache = "type=gha,scope=yoke-server-${{ matrix.platform }}"
+    cache = "type=registry,ref=${{ needs.validate-tag.outputs.repository }}:buildcache-${{ matrix.arch }}"
     assert f"cache-from: {cache}" in check
     assert "cache-to:" not in check
     assert "if: github.event_name == 'merge_group'" in check
     assert f"cache-from: {cache}" in build
     assert "if: github.ref == 'refs/heads/main'" in build
-    assert (
-        "cache-to: type=gha,mode=max,scope=yoke-server-${{ matrix.platform }}" in build
-    )
+    assert f"cache-to: {cache},mode=max" in build
 
 
 def test_ci_cache_writes_are_ref_gated_and_pr_builds_only_read():

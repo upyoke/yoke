@@ -69,6 +69,21 @@ def postgres_cached(log: str) -> bool:
     return any(re.search(rf"#{step} CACHED\b", log) for step in steps)
 
 
+def buildkit_timings(log: str) -> list[dict]:
+    """Keep completed vertex durations for diagnosing transfer/build overhead."""
+    names, timings = {}, []
+    for match in re.finditer(r"#(\d+) ([^\r\n]+)", log):
+        vertex, message = match.groups()
+        if vertex == "0" and message.startswith("building with "):
+            names.clear()  # Job logs can also contain Buildx setup vertices.
+        done = re.fullmatch(r"DONE ([\d.]+)s", message)
+        if done and vertex in names:
+            timings.append({"step": names[vertex], "seconds": float(done[1])})
+        elif vertex not in names and not re.match(r"[\d.]+ |CACHED$", message):
+            names[vertex] = message
+    return sorted(timings, key=lambda row: row["seconds"], reverse=True)
+
+
 def application_changed_without_bootstrap(files: list[str]) -> bool:
     bootstrap = (
         "Dockerfile",
@@ -85,6 +100,11 @@ def _check() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--repository", required=True)
     parser.add_argument("--baseline-run", action="append", required=True, type=int)
+    parser.add_argument(
+        "--diagnostics",
+        action="store_true",
+        help="Include retained BuildKit vertex timings for both sample groups",
+    )
     args = parser.parse_args()
     if len(set(args.baseline_run)) != 10:
         parser.error(
@@ -110,7 +130,10 @@ def _check() -> int:
             token=token,
         )
         workflow = base64.b64decode(source["content"]).decode()
-        if "cache-to: type=gha,mode=max,scope=yoke-server-" in workflow:
+        if (
+            "cache-to: type=registry,ref=${{ needs.validate-tag.outputs.repository }}:buildcache-"
+            in workflow
+        ):
             current.append(
                 {
                     "databaseId": run["id"],
@@ -135,7 +158,26 @@ def _check() -> int:
         return build_seconds(jobs), jobs
 
     try:
-        baseline = [measure(run_id)[0] for run_id in args.baseline_run]
+        diagnostics = []
+
+        def diagnose(run_id, jobs):
+            for job in jobs:
+                if job["name"].startswith("build-native-"):
+                    log = fetch_job_log(repository, job["id"], token=token)
+                    diagnostics.append(
+                        {
+                            "run_id": run_id,
+                            "job": job["name"],
+                            "vertices": buildkit_timings(log),
+                        }
+                    )
+
+        baseline = []
+        for run_id in args.baseline_run:
+            seconds, jobs = measure(run_id)
+            baseline.append(seconds)
+            if args.diagnostics:
+                diagnose(run_id, jobs)
         timings, hits = [], []
         for index, run in enumerate(current):
             seconds, jobs = measure(run["databaseId"])
@@ -153,6 +195,14 @@ def _check() -> int:
             for job in jobs:
                 if job["name"].startswith("build-native-"):
                     log = fetch_job_log(repository, job["id"], token=token)
+                    if args.diagnostics:
+                        diagnostics.append(
+                            {
+                                "run_id": run["databaseId"],
+                                "job": job["name"],
+                                "vertices": buildkit_timings(log),
+                            }
+                        )
                     if postgres_cached(log) and application_changed_without_bootstrap(
                         files
                     ):
@@ -173,6 +223,7 @@ def _check() -> int:
                     "cached_seconds": timings,
                     "median_improvement_seconds": improvement,
                     "postgres_cache_hits": hits,
+                    **({"buildkit_timings": diagnostics} if args.diagnostics else {}),
                 },
                 indent=2,
             )

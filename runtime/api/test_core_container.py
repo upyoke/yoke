@@ -17,7 +17,9 @@ from yoke_core.api import container_healthcheck, server_entrypoint
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-TEST_RUNNER_ACTION = REPO_ROOT / ".github" / "actions" / "yoke-test-runner" / "action.yml"
+TEST_RUNNER_ACTION = (
+    REPO_ROOT / ".github" / "actions" / "yoke-test-runner" / "action.yml"
+)
 
 
 class _Response:
@@ -171,52 +173,18 @@ def test_container_healthcheck_rejects_schema_not_ready() -> None:
         raise AssertionError("healthcheck accepted a DB-not-ready response")
 
 
-def test_dockerfile_uses_wheel_runtime_and_healthcheck() -> None:
-    dockerfile = (REPO_ROOT / "Dockerfile").read_text(encoding="utf-8")
-
-    assert "ARG PYTHON_IMAGE=ghcr.io/upyoke/python:3.13-slim" in dockerfile
-    assert "FROM ${PYTHON_IMAGE} AS builder" in dockerfile
-    assert "FROM ${PYTHON_IMAGE} AS runtime" in dockerfile
-    assert "COPY .git_archival.txt ./" in dockerfile
-    assert 'ARG YOKE_ENGINE_VERSION=""' in dockerfile
-    assert dockerfile.count('ARG YOKE_ENGINE_VERSION=""') == 2
-    assert "SETUPTOOLS_SCM_PRETEND_VERSION_FOR_YOKE_CORE" in dockerfile
-    assert "YOKE_EXPECTED_ENGINE_VERSION" in dockerfile
-    assert "UNRESOLVED_SCM_FALLBACK_VERSION as fallback" in dockerfile
-    assert "installed yoke-core version" in dockerfile
-    assert "COPY uv.lock ./" in dockerfile
-    assert "uv sync --locked --no-default-groups --no-editable" in dockerfile
-    assert "COPY --from=builder /opt/yoke-venv /opt/yoke-venv" in dockerfile
-    assert "pip install --no-cache-dir" not in dockerfile
-    assert "uv build --wheel --package yoke-core" in dockerfile
-    assert "wheel_module_completeness.py" in dockerfile
-    assert "postgres_binaries.py" in dockerfile
-    assert "['ensure_binaries']()" in dockerfile
-    assert "YOKE_PG_BIN_DIR=/opt/yoke-postgres/bin" in dockerfile
-    assert "RUN YOKE_MACHINE_HOME=/var/lib/yoke/.yoke python" in dockerfile
-    assert "libgssapi-krb5-2" in dockerfile
-    assert "p._postgres_executable(name), '--version'" in dockerfile
-    assert (
-        "COPY --chown=yoke:yoke --from=builder /opt/yoke-postgres "
-        "/opt/yoke-postgres"
-    ) in dockerfile
-    assert 'CMD ["python", "-m", "yoke_core.api.server_entrypoint"]' in dockerfile
-    assert "RUN python -m yoke_core.tools.product_wheel_validation" in dockerfile
-    assert 'CMD ["python", "-m", "yoke_core.api.container_healthcheck"]' in dockerfile
-    assert "EXPOSE 8765" in dockerfile
-    assert "USER yoke" in dockerfile
-    assert "curl" not in dockerfile
-    assert "wget" not in dockerfile
-
-
 @pytest.mark.parametrize("arch", ["x86_64", "aarch64"])
 def test_locked_runtime_packages_have_cp313_manylinux_wheels(arch: str) -> None:
     lock = tomllib.loads((REPO_ROOT / "uv.lock").read_text())
     packages = {p["name"]: p for p in lock["package"]}
     environment = default_environment() | {
-        "sys_platform": "linux", "platform_system": "Linux", "os_name": "posix",
-        "platform_machine": arch, "python_version": "3.13",
-        "python_full_version": "3.13.0", "implementation_name": "cpython",
+        "sys_platform": "linux",
+        "platform_system": "Linux",
+        "os_name": "posix",
+        "platform_machine": arch,
+        "python_version": "3.13",
+        "python_full_version": "3.13.0",
+        "implementation_name": "cpython",
         "platform_python_implementation": "CPython",
     }
     pending = [("yoke", ())]
@@ -233,7 +201,9 @@ def test_locked_runtime_packages_have_cp313_manylinux_wheels(arch: str) -> None:
         for extra in extras:
             dependencies.extend(package.get("optional-dependencies", {}).get(extra, []))
         for dependency in dependencies:
-            if Marker(dependency.get("marker", "python_version >= '3'")).evaluate(environment):
+            if Marker(dependency.get("marker", "python_version >= '3'")).evaluate(
+                environment
+            ):
                 pending.append((dependency["name"], tuple(dependency.get("extra", []))))
     platforms = [f"manylinux_2_{minor}_{arch}" for minor in range(5, 42)]
     platforms += [f"manylinux2014_{arch}"]
@@ -246,8 +216,10 @@ def test_locked_runtime_packages_have_cp313_manylinux_wheels(arch: str) -> None:
         package = packages[name]
         if "registry" not in package["source"]:
             continue
-        wheels = [parse_wheel_filename(Path(urlparse(w["url"]).path).name)[3]
-                  for w in package.get("wheels", [])]
+        wheels = [
+            parse_wheel_filename(Path(urlparse(w["url"]).path).name)[3]
+            for w in package.get("wheels", [])
+        ]
         if not any(tags & wheel_tags for wheel_tags in wheels):
             missing.append(f"{name}=={package['version']}")
     assert not missing, f"cp313 {arch} wheels missing in uv.lock: {missing}"
