@@ -86,7 +86,11 @@ A browser sign-in session is different: it establishes dashboard access and is n
 
 ### Registration and heartbeat
 
-Harness hooks register sessions and report activity. The relay supplies machine and process information. Session liveness, current turn activity, and item state are separate facts; an old activity timestamp does not by itself mean work is abandoned.
+Harness hooks register sessions and report activity. The relay supplies machine and process information. Presence, tool activity, pause intent, holdings and the next actor are separate facts; an old activity timestamp does not by itself mean work is abandoned.
+
+The Sessions page defaults to Open (presence present). Its detailed filters separate
+Working, Between turns, Parked or awaiting, Silent, Gone and Ended. Cards show
+these facts separately, and last tool measures tool activity rather than heartbeat age.
 
 ### Parking and resuming
 
@@ -104,4 +108,5 @@ decisions take priority, followed by unmet dependencies, CI and release runs.
 A decision resolves its audience to active people, including organization roles
 inherited by the project. An empty audience names the steering owner and asks
 for audience repair. The state time comes from the obligation, never a heartbeat.
-Older servers may omit this projection; clients keep their existing state display.
+Older servers may omit this projection; cards name unavailable state and retain
+known end and holdings facts. Upgrade the server and refresh for detailed filters.

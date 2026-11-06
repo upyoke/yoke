@@ -15,6 +15,8 @@ const delay = (milliseconds) => new Promise((resolve) => setTimeout(resolve, mil
 
 function row(sessionId, liveness = "ended") {
   return {
+    session_state: { presence: liveness === "ended" ? "ended" : "present",
+      activity: "silent", intent: { state: "none" } },
     session_id: sessionId, liveness, reclaimable: liveness === "stale",
     project_id: 1, project: "yoke",
     executor: "codex", executor_surface: "codex-cli", model: "gpt-5.6-sol",
@@ -158,7 +160,7 @@ test("reclaim refreshes open rows without resetting loaded history", async (t) =
   state.value = "ended";
   state.dispatchEvent(new Event("change"));
   await settle();
-  button(root, "Reclaim stale").dispatchEvent(new Event("click"));
+  button(root, "Reclaim sessions").dispatchEvent(new Event("click"));
   await settle();
   assert.deepEqual(cardIds(root), ["ended"]);
   assert.equal(requests.filter((request) => request.payload?.history).length, 1);
@@ -167,7 +169,7 @@ test("reclaim refreshes open rows without resetting loaded history", async (t) =
   mounted.unmount();
 });
 
-test("Reclaim stale counts only what the sweep would act on", async (t) => {
+test("Reclaim sessions counts only what the sweep would act on", async (t) => {
   // A parked claim holder is waiting and a quiet claim holder is protected:
   // both stay listed as open sessions, and neither is something to reclaim.
   const { root, mounted } = await mountHistory(t, (request) => {
@@ -181,7 +183,7 @@ test("Reclaim stale counts only what the sweep would act on", async (t) => {
     throw new Error(`unexpected function ${request.function}`);
   });
   assert.deepEqual(cardIds(root).sort(), ["holder", "parked"]);
-  assert.equal(button(root, "Reclaim stale").disabled, true);
+  assert.equal(button(root, "Reclaim sessions").disabled, true);
   mounted.unmount();
 });
 
@@ -196,7 +198,7 @@ test("a failed reclaim refresh preserves rows and reports recovery", async (t) =
     if (request.function === "sessions.reclaim_stale") return ok({ total_reclaimed: 1 });
     throw new Error(`unexpected function ${request.function}`);
   });
-  button(root, "Reclaim stale").dispatchEvent(new Event("click"));
+  button(root, "Reclaim sessions").dispatchEvent(new Event("click"));
   await settle();
   assert.deepEqual(cardIds(root), ["stale"]);
   assert.match(byClass(root, "sessions-action-status")[0].textContent,

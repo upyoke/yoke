@@ -116,7 +116,6 @@ for (const detail of [false, true]) {
 
 
 import { planWindowHeadroom, readingIsStale } from "../../packages/yoke-core/src/yoke_core/ui/static/universe_machines_meters.js";
-import { sessionHealthState } from "../../packages/yoke-core/src/yoke_core/ui/static/universe_session_diagnostics.js";
 
 test("an unexpired meter reset retains its last microsecond of runway", () => {
   const now = Date.parse("2060-10-08T00:00:00Z");
@@ -135,19 +134,6 @@ test("an unqualified meter observation supplies no freshness", () => {
   assert.equal(readingIsStale("2060-10-08T00:00:00-00:00", now), true);
   assert.equal(readingIsStale("2060-10-08T00:00:00.000001Z", now), false);
 });
-
-test("session activity age respects exact instants without assigning stale", () => {
-  const now = Date.parse("2060-10-08T00:00:00Z");
-  const row = { liveness: "active", claims: [{ target_kind: "item" }],
-    activity_quiet_at: "2060-10-08T00:00:00.000001Z" };
-  assert.equal(sessionHealthState(row, now), null);
-  assert.equal(sessionHealthState({ ...row,
-    activity_quiet_at: "2060-10-08T05:45:00.000001+05:45" }, now), null);
-  assert.equal(sessionHealthState({ ...row,
-    activity_quiet_at: "2060-10-08T00:00:00.000000Z" }, now).state, "quiet");
-  assert.equal(sessionHealthState({ ...row, liveness: "stale" }, now), null);
-});
-
 
 import { progressPanel } from "../../packages/yoke-core/src/yoke_core/ui/static/item_view_shell.js";
 

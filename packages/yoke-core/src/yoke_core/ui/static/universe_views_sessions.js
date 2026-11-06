@@ -17,7 +17,7 @@ import {
 import {
   appendSessionMessageLine,
   appendSessionPrimaryStatus,
-  sessionPrimaryStatus,
+  appendSessionStateFacts,
 } from "./universe_session_diagnostics.js";
 import { appendSessionAge } from "./universe_session_age.js";
 import {
@@ -86,9 +86,7 @@ export function sessionCard(
   documentNode, row, onMessage, projects = [], groupColors = new Map(),
 ) {
   const liveness = String(row.liveness || "").toLowerCase();
-  const primary = sessionPrimaryStatus(row);
   const classes = ["session-card"];
-  if (primary.state === "stale") classes.push("is-stale");
   const card = el(documentNode, "article", classes.join(" "));
   card.setAttribute("data-session-id", String(row.session_id || ""));
   card.setAttribute("data-liveness", liveness || "unknown");
@@ -137,7 +135,8 @@ export function sessionCard(
   appendSessionPrimaryStatus(documentNode, state, row);
   appendModel(documentNode, state, row);
   body.appendChild(state);
-  appendNextActor(documentNode, body, row.next_actor || row.session_state?.next_actor);
+  appendSessionStateFacts(documentNode, body, row);
+  appendNextActor(documentNode, body, row.session_state?.next_actor || row.next_actor);
   appendSessionUsage(documentNode, body, row);
   // Every state uses the same section sequence; empty sections stay silent.
   appendSteeringHoldings(documentNode, body, row, projects);
@@ -173,7 +172,7 @@ export function renderSessionsView(context, main, scope, chrome = {}) {
   messageAll.disabled = true;
   const messageAllHost = tooltipHost(documentNode, messageAll, "");
   const reclaim = el(
-    documentNode, "button", "item-button session-filter-action", "Reclaim stale",
+    documentNode, "button", "item-button session-filter-action", "Reclaim sessions",
   );
   reclaim.type = "button";
   reclaim.disabled = true;
@@ -248,8 +247,8 @@ export function renderSessionsView(context, main, scope, chrome = {}) {
     ).length;
     reclaim.disabled = staleCount === 0;
     reclaimHost.tooltip.set(staleCount
-      ? `Recheck and reclaim ${staleCount} stale session${staleCount === 1 ? "" : "s"}`
-      : "No stale sessions in this scope");
+      ? `Recheck and reclaim ${staleCount} reclaimable session${staleCount === 1 ? "" : "s"}`
+      : "No reclaimable sessions in this scope");
   };
   filters = sessionRosterFilters(documentNode, (key) => loader?.filtersChanged(key));
   loader = sessionsHistoryLoader(context, scope, filters, renderRoster);
@@ -310,7 +309,7 @@ export function renderSessionsView(context, main, scope, chrome = {}) {
       .filter((entry) => entry.recheck || entry.reason === "active_work_claim")
       .map((entry) => `${entry.session_id}: ${entry.reason}; refresh the roster before retrying`);
     actionStatus.textContent =
-      `${reclaimed} stale session${reclaimed === 1 ? "" : "s"} reclaimed`
+      `${reclaimed} reclaimable session${reclaimed === 1 ? "" : "s"} reclaimed`
       + (skipped.length ? `; skipped after recheck: ${skipped.join("; ")}` : "");
     if (!await loader.loadOpen()) {
       actionStatus.textContent += `; ${presentSessionControlFailure(

@@ -35,12 +35,12 @@ for (const recheck of [false, true]) {
     renderSessionsView(context, main, "all");
     await settle();
     const reclaim = allNodes(main).find((node) => node.tagName === "BUTTON"
-      && node.textContent === "Reclaim stale");
+      && node.textContent === "Reclaim sessions");
     assert.equal(reclaim.disabled, false);
     reclaim.dispatchEvent(new Event("click"));
     await settle();
     const status = byClass(main, "sessions-action-status")[0].textContent;
-    assert.match(status, /0 stale sessions reclaimed/);
+    assert.match(status, /0 reclaimable sessions reclaimed/);
     assert.match(status, /new-holder: active_work_claim; refresh the roster before retrying/);
     assert.equal(reclaim.disabled, true);
   });

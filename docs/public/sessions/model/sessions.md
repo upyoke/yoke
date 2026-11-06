@@ -20,7 +20,14 @@ Active work claims protect their holders regardless of activity age or process
 presence. Explicit release, completion, cancellation or authorized termination
 settles ownership; automatic reclaim refuses with `reason=active_work_claim`.
 
-The legacy `liveness` selector reports `active`, `waiting`, `stale` or `ended`.
+The roster consumes `session_state` for presence, activity, intent, custody and
+next actor. An absent end stamp means open, not working or process present.
+Tool recency uses `last_tool_call_at`; heartbeat age never establishes activity.
+The CLI reads these fields with `sessions list --presence`, `--activity` and
+`--intent`, applied before pagination, or `sessions get SESSION-ID`. The list
+command removes `--liveness`; message recipient filtering is unchanged.
+
+The legacy `liveness` response field reports `active`, `waiting`, `stale` or `ended`.
 An explicit parked claim holder reports `waiting`; other protected holders
 report `active`. Turn posture never declares a pause. Live roster `reclaimable`
 flags match `liveness=stale`. `classify_activity` applies holdings and progress rules;
@@ -53,7 +60,7 @@ offered_at TEXT NOT NULL -- ISO 8601 when session was registered
 last_heartbeat TEXT NOT NULL -- ISO 8601 of last heartbeat
 native_process_gone_at TEXT -- when the death was first seen, not when last reported
 native_process_gone_evidence TEXT -- bounded JSON evidence from local records
-ended_at TEXT -- NULL while active; set when session ends
+ended_at TEXT -- NULL while open; set when session ends
 offer_envelope TEXT -- checkpoint and skip-memory telemetry JSON (optional)
 actor_id INTEGER -- registered acting identity; legacy/additive storage permits NULL
 ```

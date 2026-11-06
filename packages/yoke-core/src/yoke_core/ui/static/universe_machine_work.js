@@ -115,16 +115,17 @@ export function appendMachineWork(
   const rows = sessionsOnMachine(roster.rows, relay);
   if (!rows.length) return null;
   const section = el(documentNode, "section", "machine-work");
-  const active = rows.filter(
-    (row) => String(row.liveness || "").toLowerCase() === "active",
-  ).length;
+  const working = rows.filter((row) => row.session_state?.activity === "working").length;
+  const silent = rows.filter((row) => row.session_state?.activity === "silent").length;
+  const held = rows.filter((row) => row.session_state?.custody?.holds?.length).length;
   const steering = rows.filter((row) => steeringClaims(row).length);
   section.appendChild(el(
     documentNode,
     "h3",
     null,
-    `${active} active · ${rows.length - active} other open · `
-      + `${steering.length} steering`,
+    rows.some((row) => !row.session_state)
+      ? "Session state unavailable; upgrade the server and refresh."
+      : `${working} working · ${held} held · ${silent} silent`,
   ));
   for (const row of steering) {
     const line = el(documentNode, "div", "machine-steering");

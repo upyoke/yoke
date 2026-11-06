@@ -57,6 +57,7 @@ function item(sequence, title, fields = {}) {
 function holder(sessionId, ref, title, fields = {}) {
   return {
     ...claimingSession(),
+    session_state: { presence: "present", activity: "between_turns", intent: { state: fields.mode === "parked" ? "parked" : "none" } },
     session_id: sessionId,
     current_item: ref,
     current_item_title: title,
@@ -107,7 +108,8 @@ test("every claimed card carries its holder, whichever band drew it", async (t) 
   // and opens the full session card as a popover on click.
   const releaseCard = cardFor(root, "YOK-11");
   const pill = byClass(releaseCard, "session-status-pill")[0];
-  assert.equal(pill.textContent, "parked");
+  assert.equal(pill.textContent, "between turns");
+  assert.equal(byClass(releaseCard, "item-claimant-intent")[0].textContent, "parked");
   const preview = byClass(releaseCard, "item-claimant-preview")[0];
   assert.equal(preview.matches(":popover-open"), false);
   byClass(releaseCard, "item-claimant-mini")[0].dispatchEvent(new Event("click"));
