@@ -43,14 +43,14 @@ def test_module_name_for_package_and_repo_layouts():
 
 
 def test_is_test_file():
-    assert is_test_file("runtime/api/test_thing.py") is True
-    assert is_test_file("runtime/harness/test_adapter.py") is True
-    assert is_test_file("tests/import_graph/test_contract.py") is True
-    assert is_test_file("runtime/api/thing_test.py") is False
-    assert is_test_file("runtime/api/testing_helper.py") is False
-    assert (
-        is_test_file("packages/yoke-core/src/yoke_core/domain/handlers/test_machine.py")
-        is False
+    roots = impacted_tests.TEST_ANCHORS
+    assert is_test_file("runtime/api/test_thing.py", roots) is True
+    assert is_test_file("runtime/harness/test_adapter.py", roots) is True
+    assert is_test_file("tests/import_graph/test_contract.py", roots) is True
+    assert is_test_file("runtime/api/thing_test.py", roots) is False
+    assert is_test_file("runtime/api/testing_helper.py", roots) is False
+    assert not is_test_file(
+        "packages/yoke-core/src/yoke_core/domain/handlers/test_machine.py", roots
     )
 
 
@@ -147,12 +147,14 @@ def test_selection_pytest_paths_prefers_selected_tests():
     selected = Selection(full_sweep=False, reason="x", files=("a/test_b.py",))
     assert selected.pytest_paths() == ("a/test_b.py",)
 
-    sweep = Selection(full_sweep=True, reason="y")
+    sweep = Selection(
+        full_sweep=True, reason="y", test_roots=impacted_tests.TEST_ANCHORS
+    )
     assert sweep.pytest_paths() == impacted_tests.TEST_ANCHORS
 
 
 def test_no_changes_selects_nothing():
-    selection = select([], ImportIndex(importers={}, module_of={}))
+    selection = select([], ImportIndex(importers={}, module_of={}, test_roots=()))
     assert selection.full_sweep is False
     assert selection.files == ()
 

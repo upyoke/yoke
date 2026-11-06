@@ -90,12 +90,18 @@ def test_non_uv_tree_without_venv_refuses_with_setup_command(
     assert str((tmp_path / ".venv").resolve()) in message
     assert "Recovery: Declare setup_command once at project level" in message
     assert "yoke projects capability-settings set --project PROJECT" in message
-    assert "documented environment command (its lockfile or toolchain script)" in message
+    assert (
+        "documented environment command (its lockfile or toolchain script)" in message
+    )
     assert "requires project authority" in message
     assert "ask steering or the operator" in message
-    assert "Lane prepare runs it automatically; do not hand-prepare each lane" in message
+    assert (
+        "Lane prepare runs it automatically; do not hand-prepare each lane" in message
+    )
     assert "Rerun lane prepare" in message
-    assert "If setup_command already exists, replace it with the same command" in message
+    assert (
+        "If setup_command already exists, replace it with the same command" in message
+    )
     assert "--base '<current setup_command settings JSON>' instead of --new" in message
     assert "pip install" not in message
     assert "capability settings" not in message
@@ -181,13 +187,14 @@ def test_impacted_tree_prefers_the_unique_claimed_sibling(
     )
     (lane / trigger).parent.mkdir(parents=True)
     (lane / trigger).write_text("new\n", encoding="utf-8")
-    from yoke_core.tools import _impacted_import_index, _impacted_selection
+    from yoke_core.tools import impacted_project_test_roots as roots
 
     def test_roots() -> tuple[str, ...]:
         return ("runtime/api/",)
 
-    monkeypatch.setattr(_impacted_import_index, "current_test_roots", test_roots)
-    monkeypatch.setattr(_impacted_selection, "current_test_roots", test_roots)
+    roots.resolve_test_roots.cache_clear()
+    monkeypatch.setattr(roots, "default_project_for_directory", lambda _: "fixture")
+    monkeypatch.setattr(roots, "_try_read", lambda _: test_roots())
     monkeypatch.setattr(helper, "resolve_test_roots", lambda _root: test_roots())
 
     selection = helper.impacted_selection(
@@ -200,6 +207,7 @@ def test_impacted_tree_prefers_the_unique_claimed_sibling(
     assert selection.fallback_rule == "unmapped_file_kind"
     assert selection.trigger_paths == (trigger,)
     assert changed_test in selection.files
+    roots.resolve_test_roots.cache_clear()
 
 
 @pytest.mark.parametrize("has_xdist", [False, True])

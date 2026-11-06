@@ -16,8 +16,8 @@ def _write(root: Path, rel: str, body: str = "") -> None:
 @pytest.fixture
 def helper_tree(tmp_path: Path, monkeypatch) -> Path:
     monkeypatch.setattr(
-        "yoke_core.tools._impacted_import_index.current_test_roots",
-        lambda: ("checks/",),
+        "yoke_core.tools.impacted_project_test_roots._try_read",
+        lambda _: ("checks/",),
     )
     for rel in (
         "checks/helpers.py",
@@ -86,8 +86,8 @@ def test_source_packages_and_project_checks_do_not_gain_bare_aliases(
     tmp_path: Path, monkeypatch
 ):
     monkeypatch.setattr(
-        "yoke_core.tools._impacted_import_index.current_test_roots",
-        lambda: ("checks/",),
+        "yoke_core.tools.impacted_project_test_roots._try_read",
+        lambda _: ("checks/",),
     )
     _write(tmp_path, "packages/demo/src/demo/helper.py")
     _write(tmp_path, ".yoke/doctor/check_helper.py")
@@ -107,8 +107,8 @@ def test_source_packages_and_project_checks_do_not_gain_bare_aliases(
 
 def test_public_installer_helper_selects_all_importers(tmp_path: Path, monkeypatch):
     monkeypatch.setattr(
-        "yoke_core.tools._impacted_import_index.current_test_roots",
-        lambda: ("tests/",),
+        "yoke_core.tools.impacted_project_test_roots._try_read",
+        lambda _: ("tests/",),
     )
     source = Path(__file__).resolve().parents[3]
     root = tmp_path

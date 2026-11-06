@@ -74,7 +74,7 @@ def _dependents(
     for path, requested in index.fixtures.uses.items():
         if not path.startswith(owner.scope):
             continue
-        if is_test_file(path) and (whole or requested & affected):
+        if is_test_file(path, index.test_roots) and (whole or requested & affected):
             found.add(path)
         child = index.fixtures.owners.get(path)
         if child and path not in seen and (whole or requested & affected):
@@ -103,7 +103,9 @@ def fixture_dependents(
                 continue
             triggers = frozenset(names) | (references & reached)
         by_owner[path] = frozenset(_dependents(owner, triggers, index, set()))
-    tests = sorted(path for path in index.fixtures.uses if is_test_file(path))
+    tests = sorted(
+        path for path in index.fixtures.uses if is_test_file(path, index.test_roots)
+    )
     probes = {
         probe
         for owner in by_owner

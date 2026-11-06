@@ -69,7 +69,7 @@ def test_bounded_deferral_keeps_small_direct_importer_set(tmp_path: Path) -> Non
         )
 
     index = build_import_index(root)
-    total = sum(is_test_file(path) for path in index.module_of)
+    total = sum(is_test_file(path, index.test_roots) for path in index.module_of)
     assert is_effectively_full(len(reachable_tests((bridge,), index) or ()), total)
     selection = select(["docs/lifecycle.md", source], index, bounded=True)
 
@@ -98,7 +98,7 @@ def test_bounded_deferral_keeps_tests_on_a_narrow_importer_branch(
         )
 
     index = build_import_index(root)
-    total = sum(is_test_file(path) for path in index.module_of)
+    total = sum(is_test_file(path, index.test_roots) for path in index.module_of)
     assert is_effectively_full(
         len(reachable_tests((broad_bridge,), index) or ()), total
     )
@@ -142,7 +142,7 @@ def test_bounded_keeps_a_broad_importer_s_own_test(tmp_path: Path) -> None:
 
     index = build_import_index(root)
     consumer_branch = reachable_tests(("runtime/api/consumer.py",), index)
-    total = sum(is_test_file(path) for path in index.module_of)
+    total = sum(is_test_file(path, index.test_roots) for path in index.module_of)
     assert is_effectively_full(len(consumer_branch or ()), total)
 
     bounded = select(["docs/lifecycle.md", changed], index, bounded=True)
@@ -299,7 +299,7 @@ def test_helper_closure_still_obeys_the_caller_s_bound(tmp_path: Path) -> None:
         )
 
     index = build_import_index(root)
-    total = sum(is_test_file(path) for path in index.module_of)
+    total = sum(is_test_file(path, index.test_roots) for path in index.module_of)
     # The closure's own result is near-total here, which is precisely the
     # case the caller is responsible for refusing.
     assert is_effectively_full(
