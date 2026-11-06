@@ -15,7 +15,7 @@ def ask_operator(*, repo: str, run_id: str, output: str, actor=None) -> str:
     """File one session question per run, preserving the provider's words."""
     question = (
         f"GitHub could not start CI run {run_id} in {repo}. "
-        "Please resolve its annotation before retrying."
+        f"Please resolve its annotation before retrying.\n{output[:1700]}"
     )
     context = output if len(output) <= 7900 else output[:7900] + "\n[truncated; open the run for all annotations]"
     try:

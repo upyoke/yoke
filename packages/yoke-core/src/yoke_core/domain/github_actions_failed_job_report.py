@@ -104,6 +104,7 @@ def build_failed_job_report(
     if failures.conclusion == CI_JOB_NOT_STARTED:
         header_lines.append(not_started_message({
             "ci_job_annotations": [row for job in ordered for row in job.annotations],
+            "ci_job_annotations_error": "\n".join(job.annotation_error for job in ordered if job.annotation_error),
         }))
     if still_running:
         header_lines.append(still_running)
@@ -143,6 +144,7 @@ def build_failed_job_report(
                 "log_status": job.log_status,
                 "log_detail": job.log_detail,
                 "annotations": job.annotations,
+                "annotation_error": job.annotation_error,
                 "log_line_count": region.log_line_count,
                 "region": region.kind,
                 "region_line_count": region.region_line_count,

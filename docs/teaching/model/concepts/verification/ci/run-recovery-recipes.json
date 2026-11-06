@@ -2,22 +2,9 @@
  "id": "run-recovery-recipes",
  "title": "CI run recovery recipes",
  "status": "observed",
- "commands": [
-  "yoke github-actions failed-log",
-  "yoke github-actions run cancel"
- ],
+ "commands": ["yoke github-actions failed-log", "yoke github-actions run cancel"],
  "text": "When a QA case attaches to a CI run it names the run, then teaches only registered commands: `yoke github-actions failed-log` for each failed job and `yoke github-actions run cancel` to cancel. The failed-log report prefers pytest FAILURES / ERRORS and Vitest Failed Tests / Failed Suites sections over trailing error annotations; bounded test regions keep their first failure and summary. Each job gets an equal share of the CLI human-read byte limit after headers, labels, URLs, trim notices and a warning margin are reserved; --full still writes complete logs to local files. Without a test section, it prefers the last nonzero process-exit annotation over later failure-reporting annotations, then falls back to the last error annotation so recovered early errors do not hide the failing step. It prints no `gh` watch or force-cancel recipe; the running `yoke qa case run` invocation is the watch. The gate itself force-cancels a run that never starts and redispatches it, and a stalled-dispatch detail and the cancel refusal say so. Observed in source and tests; deployed proof is pending. Jobs with failure, startup_failure or cancelled conclusions and no runner or steps reached no verdict. The failed-log report labels them never_started and reads Checks annotations instead of downloading nonexistent logs. Watchers and CI QA preserve annotation levels and messages. A failure annotation asks the operator before any retry and does not spend a no-verdict attempt; without annotations the existing retry remains. A nonzero runner_id proves a job started even with no steps; its missing or expired log stays expired_or_missing.",
  "page": "verification-ci",
  "position": 6,
- "sources": [
-  "packages/yoke-core/src/yoke_core/domain/github_actions_failed_job_report.py",
-  "runtime/api/domain/test_github_actions_failed_job_report.py",
-  "packages/yoke-core/src/yoke_core/domain/github_actions_failure_region.py",
-  "runtime/api/domain/test_github_actions_failure_region.py",
-  "packages/yoke-core/src/yoke_core/domain/qa_case_ci_progress.py",
-  "packages/yoke-core/src/yoke_core/domain/github_actions_run_stall.py",
-  "packages/yoke-core/src/yoke_core/domain/handlers/github_actions_run_cancel.py",
-  "docs/qa-platform/cli-reference.md",
-  "runtime/api/domain/test_qa_case_ci_progress.py"
- ]
+ "sources": ["packages/yoke-core/src/yoke_core/domain/github_actions_failed_job_report.py", "runtime/api/domain/test_github_actions_failed_job_report.py", "packages/yoke-core/src/yoke_core/domain/github_actions_failure_region.py", "runtime/api/domain/test_github_actions_failure_region.py", "packages/yoke-core/src/yoke_core/domain/qa_case_ci_progress.py", "packages/yoke-core/src/yoke_core/domain/github_actions_run_stall.py", "packages/yoke-core/src/yoke_core/domain/handlers/github_actions_run_cancel.py", "docs/qa-platform/cli-reference.md", "runtime/api/domain/test_qa_case_ci_progress.py"]
 }

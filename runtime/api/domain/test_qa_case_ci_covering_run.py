@@ -314,7 +314,9 @@ def test_an_unsuccessful_run_requests_a_fresh_dispatch(wired, monkeypatch, concl
     dispatch = mock.Mock(return_value="9182736")
     monkeypatch.setattr(qa_case_ci_lane, "dispatch_workflow", dispatch)
     monkeypatch.setattr(
-        qa_case_ci_lane, "await_workflow", lambda **kwargs: (0, "success")
+        qa_case_ci_lane, "await_workflow",
+        lambda **kwargs: (1, "failed:ci_job_not_started")
+        if kwargs["run_id"] == "77" and conclusion != "cancelled" else (0, "success")
     )
 
     result = qa_case_ci_run.execute_ci_case(ci_case(), checkout_path=checkout)
@@ -324,7 +326,8 @@ def test_an_unsuccessful_run_requests_a_fresh_dispatch(wired, monkeypatch, concl
     assert result["ci_run_id"] != prior.run_id
     assert result["verdict"] == "pass"
     dispatch.assert_called_once()
-    assert dispatch.call_args.kwargs["request_id"] == f"qa-case:41:{LANE_HEAD}:after:77"
+    suffix = "after:77" if conclusion == "cancelled" else "never-started-retry"
+    assert dispatch.call_args.kwargs["request_id"] == f"qa-case:41:{LANE_HEAD}:{suffix}"
     evidence = json.loads(recorder.payload("qa.run.complete")["raw_result"])
     assert evidence["ci_run_source"] == covering.DISPATCHED
     assert evidence["ci_run_id"] == "9182736"

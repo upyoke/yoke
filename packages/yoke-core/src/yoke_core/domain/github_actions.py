@@ -1,9 +1,7 @@
 """GitHub Actions integration — trigger, poll, wait-run, find-run, check-ci, failed-log.
 
 Every command resolves canonical project GitHub auth and verifies the requested
-repository matches that binding;
-``ProjectGithubAuthError`` surfaces as
-``sys.exit(4)`` with the typed code + repair hint. No credential fallback.
+repository matches that binding. Auth failures exit with a typed repair hint.
 
 All REST calls dispatch through :mod:`yoke_core.domain.gh_rest_transport` via
 :mod:`yoke_core.domain.github_actions_rest` (workflow-run JSON) and
@@ -23,6 +21,7 @@ from typing import Any, Dict, List, Optional
 
 from yoke_contracts.github_app_installation_permissions import (
     GITHUB_ACTIONS_READ_PERMISSION_LEVELS,
+    GITHUB_CHECKS_READ_PERMISSION_LEVELS,
     GITHUB_ACTIONS_WRITE_PERMISSION_LEVELS,
 )
 from yoke_core.domain.ci_commit_proof import proof_run
@@ -88,7 +87,7 @@ def cmd_poll(repo: str, run_id: str, *, project: str) -> None:
     token = resolve_token(
         project,
         repo,
-        required_permissions=GITHUB_ACTIONS_READ_PERMISSION_LEVELS,
+        required_permissions={**GITHUB_ACTIONS_READ_PERMISSION_LEVELS, **GITHUB_CHECKS_READ_PERMISSION_LEVELS},
     )
     exit_code, message = run_state(repo, run_id, token=token)
     output = (
@@ -111,7 +110,7 @@ def cmd_jobs_count(
     token = resolve_token(
         project,
         repo,
-        required_permissions=GITHUB_ACTIONS_READ_PERMISSION_LEVELS,
+        required_permissions={**GITHUB_ACTIONS_READ_PERMISSION_LEVELS, **GITHUB_CHECKS_READ_PERMISSION_LEVELS},
     )
     try:
         data = rest_get(
@@ -149,7 +148,7 @@ def cmd_wait_run(
     token = resolve_token(
         project,
         repo,
-        required_permissions=GITHUB_ACTIONS_READ_PERMISSION_LEVELS,
+        required_permissions={**GITHUB_ACTIONS_READ_PERMISSION_LEVELS, **GITHUB_CHECKS_READ_PERMISSION_LEVELS},
     )
 
     start = time.monotonic()
@@ -191,7 +190,7 @@ def cmd_find_run(
     token = resolve_token(
         project,
         repo,
-        required_permissions=GITHUB_ACTIONS_READ_PERMISSION_LEVELS,
+        required_permissions={**GITHUB_ACTIONS_READ_PERMISSION_LEVELS, **GITHUB_CHECKS_READ_PERMISSION_LEVELS},
     )
     try:
         data = rest_get(
@@ -246,7 +245,7 @@ def cmd_check_ci(
     token = resolve_token(
         project,
         repo,
-        required_permissions=GITHUB_ACTIONS_READ_PERMISSION_LEVELS,
+        required_permissions={**GITHUB_ACTIONS_READ_PERMISSION_LEVELS, **GITHUB_CHECKS_READ_PERMISSION_LEVELS},
     )
 
     def _bound_latest_run() -> Optional[Dict[str, Any]]:

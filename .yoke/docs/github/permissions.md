@@ -176,6 +176,9 @@ also uses Actions: read; an unreadable listing is distinct from an empty one.
 
 **Checks: read** — Before merging a PR, reading its CI check-runs on the head
 commit (`GET …/commits/{sha}/check-runs`) and merging only if they pass.
+It also reads `GET …/check-runs/{id}/annotations` to explain jobs that never
+started in failed-log, watcher output and CI QA evidence. Those reads request
+Actions and Checks at read level together.
 Strictly read-only — Yoke never creates or re-runs a check. Its consumers are the
 PR-merge gate and the post-push proof a direct standalone landing runs against
 the commit it just published; the second reads under installation authority,

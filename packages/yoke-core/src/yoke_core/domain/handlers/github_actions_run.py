@@ -17,6 +17,7 @@ from yoke_contracts.timestamps import InvalidInstant, format_instant, parse_inst
 
 from yoke_contracts.github_app_installation_permissions import (
     GITHUB_ACTIONS_READ_PERMISSION_LEVELS,
+    GITHUB_CHECKS_READ_PERMISSION_LEVELS,
 )
 from yoke_core.domain.handlers.github_actions_set import (
     _transport_failed,
@@ -139,7 +140,7 @@ def handle_run_get(request: FunctionCallRequest) -> HandlerOutcome:
         request,
         RunGetRequest,
         "github_actions.wait_run",
-        required_permissions=GITHUB_ACTIONS_READ_PERMISSION_LEVELS,
+        required_permissions={**GITHUB_ACTIONS_READ_PERMISSION_LEVELS, **GITHUB_CHECKS_READ_PERMISSION_LEVELS},
     )
     if err is not None:
         return err

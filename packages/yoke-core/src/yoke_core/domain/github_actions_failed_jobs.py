@@ -61,6 +61,7 @@ class FailedJob:
     log_status: str
     log_detail: str
     annotations: list[dict] = field(default_factory=list)
+    annotation_error: str = ""
 
 
 @dataclass(frozen=True)
@@ -184,12 +185,17 @@ def _failed_job(repo: str, job: Dict[str, Any], *, token: str) -> FailedJob:
         "html_url": str(job.get("html_url") or ""),
     }
     if job_never_started(job):
-        annotations = job_annotations(repo, job, token=token)
+        annotation_error = ""
+        try:
+            annotations = job_annotations(repo, job, token=token)
+        except RestTransportError as exc:
+            annotations = []
+            annotation_error = f"ci_job_annotations_unavailable: {exc}; inspect the GitHub job annotations before retrying"
         detail = "No runner or steps; this job never started."
         return FailedJob(
             **fields, log_text="", log_status=LOG_NEVER_STARTED,
-            log_detail=detail + ("\n" + annotation_text(annotations) if annotations else ""),
-            annotations=annotations,
+            log_detail="\n".join(part for part in (detail, annotation_text(annotations), annotation_error) if part),
+            annotations=annotations, annotation_error=annotation_error,
         )
     if not job_id:
         return FailedJob(

@@ -98,3 +98,36 @@ def test_operator_question_quotes_annotation_and_names_filing_failure(monkeypatc
     assert requests[0]["payload"]["context"] == output
     monkeypatch.setattr(recovery, "call_dispatcher", lambda **kw: SimpleNamespace(success=False, error=SimpleNamespace(message="unavailable")))
     assert "ci_job_start_question_failed" in recovery.ask_operator(repo="acme/widgets", run_id="1", output=output)
+
+
+def test_notice_preserves_reason_and_omits_retry_advice():
+    from yoke_core.domain.session_ci_wait_notice import ci_run_message
+
+    message = ci_run_message(
+        conclusion="ci_job_not_started", repo="acme/widgets", run_id="1",
+        head_sha="a" * 40, kind="selection", continue_command="retry command",
+        diagnostics=recovery.OPERATOR_REQUIRED + "\nfailure: Provider refused this job",
+    )
+    assert "failure: Provider refused this job" in message
+    assert "Re-dispatch with" not in message
+
+
+def test_replayed_refusal_asks_before_correlated_redispatch(monkeypatch):
+    from yoke_core.domain import ci_run_redispatch as replay
+
+    output = "failed:ci_job_not_started — " + recovery.OPERATOR_REQUIRED + "\nfailure: Provider refused this job"
+    monkeypatch.setattr("yoke_core.domain.deploy_pipeline_reporting._github_actions", lambda *a, **kw: SimpleNamespace(returncode=1, stdout=output, stderr=""))
+    requests = []
+    monkeypatch.setattr(recovery, "ask_operator", lambda **kw: requests.append(kw) or kw["output"])
+    with pytest.raises(replay.RedispatchChainExhausted, match="Provider refused this job"):
+        replay.concluded_without_verdict(project="demo", repo="acme/widgets", run_id="1")
+    assert len(requests) == 1
+
+
+def test_unreadable_annotations_keep_job_and_block_blind_retry(monkeypatch):
+    monkeypatch.setattr(rest, "rest_get", lambda *a, **kw: None)
+    result = failures._failed_job("acme/widgets", JOB, token="t")
+    assert result.log_status == "never_started"
+    assert recovery.ANNOTATIONS_UNAVAILABLE in result.log_detail
+    report = build_failed_job_report(failures.RunFailures(failed=[result], conclusion="ci_job_not_started"), repo="acme/widgets", run_id=1, max_lines=10)
+    assert recovery.recovery_blocked(report.output)

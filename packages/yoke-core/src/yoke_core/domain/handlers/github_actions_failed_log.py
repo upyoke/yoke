@@ -13,6 +13,7 @@ from yoke_contracts.api.function_call import (
 )
 from yoke_contracts.github_app_installation_permissions import (
     GITHUB_ACTIONS_READ_PERMISSION_LEVELS,
+    GITHUB_CHECKS_READ_PERMISSION_LEVELS,
 )
 from yoke_core.domain.github_actions_identifiers import (
     WorkflowIdentifier,
@@ -55,6 +56,7 @@ class FailedJobSummary(BaseModel):
     log_status: str
     log_detail: str
     annotations: List[Dict[str, str]] = Field(default_factory=list)
+    annotation_error: str = ""
     log_line_count: int
     region: str
     region_line_count: int
@@ -122,7 +124,7 @@ def handle_failed_log(request: FunctionCallRequest) -> HandlerOutcome:
         request,
         FailedLogRequest,
         "github_actions.failed_log",
-        required_permissions=GITHUB_ACTIONS_READ_PERMISSION_LEVELS,
+        required_permissions={**GITHUB_ACTIONS_READ_PERMISSION_LEVELS, **GITHUB_CHECKS_READ_PERMISSION_LEVELS},
     )
     if error is not None:
         return error

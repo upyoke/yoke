@@ -230,7 +230,13 @@ raw DB rows.
 ## Failed CI job recovery
 
 Inspect the failed jobs with `yoke github-actions failed-log <owner/repo> <run-id> --project <project>`.
-For a run that reached no verdict, the worker holding the item claim runs
+Jobs without a runner or steps report `never_started`, with GitHub's check-run
+annotation levels and messages instead of a log download. A failure annotation
+raises an operator question before any retry and does not consume a no-verdict
+attempt; resolve that provider reason before retrying. Without annotations,
+the existing no-verdict retry applies. A started job's missing or expired log
+reports `expired_or_missing`.
+For a run that reached no verdict without a failure annotation, the worker holding the item claim runs
 `yoke github-actions run rerun-failed ITEM RUN-ID`, then resumes the same CI/QA
 wait. The registered `github_actions.run.rerun_failed` mutation derives the
 repository and landing PR from the item, requires the run to match the PR's

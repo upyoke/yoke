@@ -196,7 +196,8 @@ def _emit_with_full_logs(response: Any, *, json_mode: bool) -> int:
             file=sys.stderr,
         )
         return 1
-    captures = capture_full_logs(str(result.get("run_id") or ""), jobs)
+    log_jobs = [job for job in jobs if job.get("log_status") != "never_started"]
+    captures = capture_full_logs(str(result.get("run_id") or ""), log_jobs) if log_jobs else []
     result["full_logs"] = [capture.__dict__ for capture in captures]
     if json_mode:
         emit_response(response, json_mode=True)
