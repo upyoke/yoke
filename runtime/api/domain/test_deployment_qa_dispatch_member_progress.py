@@ -148,6 +148,9 @@ def test_worker_can_settle_during_first_materialization(test_db, monkeypatch):
     from yoke_core.domain import deployment_qa_materialization_write as writes
     from yoke_core.domain.db_helpers import connect
     from yoke_core.domain.deployment_runs_lock import lock_run
+    from yoke_core.domain.qa_run_verdict_record import insert_qa_run
+    from yoke_core.domain.qa_requirement_pass_currency import stamp_executed_method_config
+    from yoke_core.domain.db_helpers import utc_now
 
     run_id = "run-dispatch-concurrent-worker"
     members = _seed(test_db, run_id, 22301, 37, requirements=1)
@@ -160,11 +163,12 @@ def test_worker_can_settle_during_first_materialization(test_db, monkeypatch):
         conn = connect()
         try:
             lock_run(conn, run_id)
-            conn.execute(
-                "UPDATE qa_requirements SET waived_at=NOW(),waiver_source='owner',"
-                "waiver_rationale='worker settled' WHERE id=%s",
-                (requirement,),
-            )
+            method_config = conn.execute("SELECT method_config FROM qa_requirements WHERE id=%s", (requirement,)).fetchone()[0]
+            raw = stamp_executed_method_config("worker passed", method_config, conn=conn, requirement_id=requirement)
+            now = utc_now()
+            insert_qa_run(conn, qa_requirement_id=requirement, performed_by='agent',
+                          qa_kind='command', verdict='pass', verdict_reason='worker passed',
+                          raw_result=raw, started_at=now, completed_at=now, created_at=now)
             conn.commit()
             result.append(time.monotonic() - started)
         except Exception as exc:

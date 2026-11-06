@@ -227,8 +227,8 @@ def test_an_interrupted_lock_wait_holds_the_stage_instead_of_failing_the_run(
     ).fetchone()[0]
 
 
-def test_the_gate_holds_the_run_lock_only_for_each_acceptance(test_db):
-    """Members' item walks and two passed groups each re-read under their own lock."""
+def test_repeated_dispatch_reuses_current_member_acceptance(test_db, monkeypatch):
+    """Settled member evidence skips the ladder while groups keep their own lock."""
     from runtime.api.domain.deployment_qa_stage_execution_test_support import (
         _complete_case,
     )
@@ -269,10 +269,21 @@ def test_the_gate_holds_the_run_lock_only_for_each_acceptance(test_db):
         materialize_and_gate_deployment_qa_stage(test_db, stage, run_id=run_id)[0] == 0
     )
     assert all(group.closed for group in run_groups(test_db, [run_id], STAGE))
+    from yoke_core.domain import deployment_qa_stage_gate as gate
+
+    walks = []
+    real_read = gate._read_settlement
+
+    def read(conn, **kwargs):
+        walks.append(kwargs['member_item_id'])
+        return real_read(conn, **kwargs)
+
+    monkeypatch.setattr(gate, '_read_settlement', read)
     recorder = LockWindowRecorder(test_db)
     assert (
         materialize_and_gate_deployment_qa_stage(recorder, stage, run_id=run_id)[0] == 0
     )
+    assert not any(member in walks for member in members), walks
     locked = [text for held, text in recorder.statements if held]
-    assert locked  # each acceptance is still re-read under the run lock
+    assert locked  # plan groups still have their own locked transaction
     assert not any("qa_plan_executions" in text for text in locked), locked
