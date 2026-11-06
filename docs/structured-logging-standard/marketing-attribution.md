@@ -53,7 +53,7 @@ identify ai_assistant. The Pack guide names the vocabulary and limitations.
 
 A first-party server-set cookie avoids the script-storage cap described by
 [WebKit](https://webkit.org/blog/10218/full-third-party-cookie-blocking-and-more/).
-Privacy policies can still shorten retention. The cookie lasts 30 days on the
+Privacy policies can still shorten retention. The cookie lasts 400 days, renewed on every capture, on the
 same HTTPS origin; JavaScript never writes it. For concurrent tabs or longer retention, use a signed opaque visitor id and atomic
 persistence with the project's durable visitor owner. Cookie-only writes have
 last-response-wins semantics across tabs and a bounded payload. The Pack guide

@@ -154,7 +154,7 @@
     "keepalive_bytes": 60000,
     "flush_interval_ms": 5000,
     "cookie_value_chars": 3800,
-    "cookie_seconds": 2592000,
+    "cookie_seconds": 34560000,
     "cookie_name": "__Host-events_attribution",
     "signing_secret_chars": 32,
     "queue_events": 500
