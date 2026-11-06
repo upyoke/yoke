@@ -34,12 +34,12 @@ def _row(**fields):
         (
             {"mode": "parked", "holds_work_claim": True, "last_heartbeat": FRESH},
             "waiting",
-            "active",
+            "stale",
         ),
         ({"holds_work_claim": True}, "active", "stale"),
-        ({"holds_work_claim": True, "turn_posture": "waiting"}, "waiting", "stale"),
+        ({"holds_work_claim": True, "turn_posture": "waiting"}, "active", "stale"),
         ({"mode": "parked"}, "stale", "stale"),
-        ({"last_heartbeat": FRESH}, "active", "active"),
+        ({"last_heartbeat": FRESH}, "active", "stale"),
         (
             {"mode": "parked", "holds_work_claim": True, "ended_at": QUIET},
             "ended",

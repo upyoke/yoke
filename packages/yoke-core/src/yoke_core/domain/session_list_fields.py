@@ -13,6 +13,7 @@ SESSION_LIST_FIELDS = (
     "display_label",
     "harness_title",
     "liveness",
+    "session_state",
     "ended_cause",
     "activity_at",
     "last_tool_call_at",

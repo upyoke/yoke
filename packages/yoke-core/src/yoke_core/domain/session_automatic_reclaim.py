@@ -24,6 +24,11 @@ from .sessions_analytics_core import (
 
 RECLAIM_SESSION_FIELDS = (
     "executor",
+    "project_id",
+    "native_process_gone_at",
+    "native_process_gone_evidence",
+    "turn_posture_at",
+    "quiet_reason",
     "last_heartbeat",
     "last_tool_call_at",
     "ended_at",
@@ -129,12 +134,33 @@ def reclaim_facts(
                 ids,
             ).fetchall()
         }
+    from yoke_contracts.project_contract.project_keys import (
+        DEFAULT_SESSION_IDLE_MINUTES,
+    )
+    from .project_policy_capabilities import project_policy_value
+
+    project_ids = {
+        row.get(
+            "project_id", sessions.get(str(row["session_id"]), {}).get("project_id")
+        )
+        for row in page
+    }
+    idle_minutes = {
+        project_id: project_policy_value(
+            conn, project_id, "session_idle_minutes", DEFAULT_SESSION_IDLE_MINUTES
+        )
+        for project_id in project_ids
+        if project_id is not None and _table_exists(conn, "project_capabilities")
+    }
     for row in page:
         sid = str(row["session_id"])
         facts = sessions.get(sid, {})
         for name in RECLAIM_SESSION_FIELDS:
             if name in facts:
                 row[name] = facts[name]
+        row["session_idle_minutes"] = idle_minutes.get(
+            row.get("project_id"), DEFAULT_SESSION_IDLE_MINUTES
+        )
         row["holds_work_claim"] = sid in claims
         row["has_active_holdings"] = sid in holdings
         row["open_tool_call_at"] = tools.get(sid)

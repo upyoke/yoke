@@ -4,11 +4,10 @@ One spelling of the states a session row can be in, so the roster, the
 recipient selector, and every adapter that offers a ``--liveness`` flag
 accept and report the same words.
 
-A live session is ``stale`` exactly when it is eligible for automatic reclaim.
-Active work claims always protect their holders. An intentional pause (mode
-``parked`` or turn posture ``waiting``) holding a claim is ``waiting``, shown
-as parked to people. Other protected or fresh live sessions are ``active``.
-Activity age remains a separate diagnostic and routing signal.
+The orthogonal state model separates process presence, tool activity, declared
+intent, custody and the next actor. Turn posture describes activity; it never
+declares a pause. The legacy liveness selector projects reclaim eligibility
+and explicit pauses for existing command consumers.
 
 How a session became dead is a separate facet.
 A session killed through ``session_control.session.terminate`` is ``ended``
@@ -112,3 +111,18 @@ __all__ = [
     "holds_work_claim_sql",
     "live_session_sql",
 ]
+
+# Orthogonal state vocabulary; core owns the projection and reclaim decision.
+PRESENCE_STATES = ("present", "gone", "ended")
+ACTIVITY_STATES = ("working", "between_turns", "silent")
+INTENT_STATES = ("none", "parked", "awaiting")
+NEXT_ACTORS = (
+    "this_session",
+    "operator",
+    "parent_or_steering",
+    "another_item",
+    "ci_or_deploy",
+    "nobody",
+)
+# The widest registered watcher budget, after which an open call is residue.
+IN_FLIGHT_CEILING_SECONDS = 45 * 60

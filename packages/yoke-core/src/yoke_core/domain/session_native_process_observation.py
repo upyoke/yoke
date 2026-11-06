@@ -288,7 +288,7 @@ def current_native_process_observation(
         return None
     activity = [
         parsed
-        for field in ("last_heartbeat", "last_tool_call_at", "episode_started_at")
+        for field in ("last_tool_call_at",)
         if (parsed := parse_timestamp(row.get(field))) is not None
     ]
     # Equal instants can be the report and the episode that just died;

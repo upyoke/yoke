@@ -184,13 +184,13 @@ def verified_dead_sessions(
 ) -> tuple[VerifiedDeadSession, ...]:
     """Return the sessions whose every recorded process is verifiably gone."""
     diagnostic_state_dir = diagnostic_state_dir or state_dir
-    # Imported here rather than at module scope because the custody reader
-    # names this module's launch-handle family; the dependency runs both ways
-    # and only this direction is needed at call time.
+    # Custody readers also import process-record vocabulary from this module.
     from yoke_harness.session_relay_native_turn_custody import (
         overlay_finished_resume_evidence,
         running_native_for_session,
     )
+
+    from yoke_harness.session_relay_interactive_holder import running_interactive_holder
 
     by_session: dict[str, list[SessionProcessRecord]] = {}
     for record in session_process_records(
@@ -203,13 +203,11 @@ def verified_dead_sessions(
     for session_id, records in sorted(by_session.items()):
         if any(record.running for record in records):
             continue
-        if (
-            running_native_for_session(
-                session_id,
-                custody_state_dir=state_dir,
-                start_time_of=start_time_of,
-            )
-            is not None
+        if running_native_for_session(
+            session_id, custody_state_dir=state_dir, start_time_of=start_time_of,
+        ) or running_interactive_holder(
+            session_id, custody_state_dir=state_dir, anchors_dir=anchors_dir,
+            start_time_of=start_time_of,
         ):
             continue
         evidence: dict[str, Any] = {

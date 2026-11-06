@@ -1,7 +1,7 @@
 {
  "id": "stale-session",
  "term": "Stale session",
- "definition": "A session eligible for reclaim under Yoke's ownership and liveness rules.",
+ "definition": "The legacy command name for a session eligible for automatic reclaim. Prefer reclaimable in display prose; tool silence and process absence alone never release a protected work claim.",
  "status": "draft",
- "sources": ["docs/public/sessions/index.md"]
+ "sources": ["docs/public/guide/glossary.md", "docs/public/sessions/model/sessions.md"]
 }

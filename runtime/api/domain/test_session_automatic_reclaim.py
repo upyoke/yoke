@@ -28,7 +28,7 @@ OLD = NOW - timedelta(days=7)
         ({"last_heartbeat": NOW}, "active"),
         ({"holds_work_claim": True}, "active"),
         ({"holds_work_claim": True, "mode": "parked"}, "waiting"),
-        ({"holds_work_claim": True, "turn_posture": "waiting"}, "waiting"),
+        ({"holds_work_claim": True, "turn_posture": "waiting"}, "active"),
         ({"mode": "parked"}, "stale"),
         ({"has_active_holdings": True}, "active"),
         ({"has_active_holdings": True, "last_heartbeat": OLD}, "stale"),
@@ -106,7 +106,7 @@ def test_roster_filters_preview_and_execution_agree(test_db):
     assert stale == {row["session_id"] for row in find_stale_sessions(test_db)}
     for row in rows:
         if row["session_id"].endswith("paused"):
-            assert row["liveness"] == "waiting"
+            assert row["liveness"] == "active"
     result = clean_stale_harness_sessions(test_db, project_ids=[1])
     assert result["total_reclaimed"] == len(stale)
     assert {

@@ -37,7 +37,7 @@ from typing import Any, Sequence
 
 from yoke_contracts.watch_cli_forms import WATCH_CLI_TOKENS
 from yoke_core.domain.session_activity_state import has_session_tool_calls_table
-from yoke_core.domain.session_tool_call_liveness import session_call_is_live
+from yoke_core.domain.session_state import session_in_flight
 from yoke_core.domain.steering_fleet_report_detectors import (
     age_seconds,
     marker,
@@ -45,11 +45,8 @@ from yoke_core.domain.steering_fleet_report_detectors import (
 )
 
 
-#: How long an open long-running call may go unexamined before it rejoins the
-#: idle alarm. Set to the widest budget any of these shapes gives itself -- the
-#: merge-queue landing wait's own poll deadline -- so a call that outlives it
-#: has outlived the bound its own command would have enforced.
-IN_FLIGHT_CEILING_SECONDS = 45 * 60
+from yoke_contracts.session_control.liveness import IN_FLIGHT_CEILING_SECONDS
+
 
 # Both spellings of every watcher wrapper: the `yoke watch <kind>` sub-command
 # pair and the module fallback. The pair rather than the whole `yoke watch
@@ -147,7 +144,10 @@ def _newest_open_calls(
 
 
 def live_long_running_calls(
-    conn: Any, session_ids: Sequence[str], *, now: str | datetime,
+    conn: Any,
+    session_ids: Sequence[str],
+    *,
+    now: str | datetime,
 ) -> dict[str, dict[str, Any]]:
     """Share the bounded, newest-open-call fact with every idle reader."""
     if not session_ids or not has_session_tool_calls_table(conn):
@@ -157,9 +157,9 @@ def live_long_running_calls(
         if long_running_command(call.get("command_summary")) is None:
             continue
         started_at = parse_stamp(call.get("started_at"))
-        if started_at is None or not session_call_is_live(call, started_at=started_at):
-            continue
-        if (age_seconds(started_at, now) or 0) < IN_FLIGHT_CEILING_SECONDS:
+        if started_at is not None and session_in_flight(
+            {**call, "open_tool_call_at": started_at}, now=parse_stamp(now)
+        ):
             live[session_id] = call
     return live
 

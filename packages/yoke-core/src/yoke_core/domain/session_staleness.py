@@ -11,7 +11,6 @@ from yoke_contracts.session_control.liveness import (
     LIVENESS_STALE,
     LIVENESS_WAITING,
 )
-from yoke_contracts.session_queue_posture import session_pause_declared
 from yoke_contracts.timestamps import as_utc, parse_instant, utc_now
 
 from .sessions_analytics_core import DEFAULT_STALE_THRESHOLD_MINUTES
@@ -49,45 +48,34 @@ HOLDS_WORK_CLAIM_COLUMN = "holds_work_claim"
 
 
 def activity_liveness(row: Mapping[str, Any], *, now: Optional[datetime] = None) -> str:
-    """``ended``, ``stale`` or ``active`` from the end stamps and activity alone.
+    """Route by tool activity and presence, independently of custody."""
+    from .session_state import session_state
 
-    This is what wake and message routing key on: whether the session's own
-    hooks are still running is a question of activity, not of what the session
-    declared. A roster row that already carries its ``activity_at`` (the later
-    of the two stamps) answers the same way as the raw session row.
-    """
-    if row.get("terminated_at") or row.get("ended_at"):
+    state = session_state(row, now=now)
+    if state["presence"] == "ended":
         return LIVENESS_ENDED
-    candidates = [
-        parse_instant(row[key])
-        for key in ("last_heartbeat", "last_tool_call_at", "activity_at")
-        if row.get(key) is not None
-    ]
-    activity_at = max(candidates) if candidates else None
-    if activity_is_stale(activity_at, executor=row.get("executor"), now=now):
-        return LIVENESS_STALE
-    return LIVENESS_ACTIVE
+    return (
+        LIVENESS_ACTIVE
+        if state["presence"] == "present" and (state["activity"] != "silent")
+        else LIVENESS_STALE
+    )
 
 
 def session_liveness(row: Mapping[str, Any], *, now: Optional[datetime] = None) -> str:
-    """Report stale exactly when automatic reclaim is eligible.
+    """Project reclaim eligibility and explicit intent for legacy selectors."""
+    from .session_state import session_state
 
-    Intentional pauses on protected work report waiting (shown as parked).
-    Activity-only routing remains independent of this display classification.
-    """
-    if row.get("terminated_at") or row.get("ended_at"):
-        return LIVENESS_ENDED
-    if HOLDS_WORK_CLAIM_COLUMN not in row:
+    if (
+        not (row.get("terminated_at") or row.get("ended_at"))
+        and HOLDS_WORK_CLAIM_COLUMN not in row
+    ):
         raise KeyError(
             "session liveness needs the row's holds_work_claim fact: select "
             "holds_work_claim_sql(<alias>) AS holds_work_claim in the session read"
         )
-    if row[HOLDS_WORK_CLAIM_COLUMN] and session_pause_declared(row):
+    state = session_state(row, now=now)
+    if state["presence"] == "ended":
+        return LIVENESS_ENDED
+    if row.get(HOLDS_WORK_CLAIM_COLUMN) and state["intent"]["state"] != "none":
         return LIVENESS_WAITING
-    from .session_automatic_reclaim import automatic_reclaim
-
-    return (
-        LIVENESS_STALE
-        if automatic_reclaim(row, now=now).is_reclaimable
-        else LIVENESS_ACTIVE
-    )
+    return LIVENESS_STALE if state["custody"]["reclaimable"] else LIVENESS_ACTIVE
