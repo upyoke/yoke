@@ -145,11 +145,12 @@ def create_worktree(
         return CreateWorktreeResult(
             path="", branch=fallback_branch, created=False, error=project_error,
         )
+    default_branch = (
+        _project_field(project_for_install, "default_branch", scripts_dir, project_db_get)
+        or "main"
+    )
     if base_branch is None:
-        base_branch = (
-            _project_field(project_for_install, "default_branch", scripts_dir, project_db_get)
-            or "main"
-        )
+        base_branch = default_branch
         freshness = refresh_base_branch(repo_root, base_branch)
         if not freshness.verified:
             return CreateWorktreeResult(
@@ -230,8 +231,7 @@ def create_worktree(
             failed_branch=plan.failed_branch,
         )
     if plan.pending_worktree_count:
-        if base_branch:
-            retire_finished_lanes(repo_root, base_branch.removeprefix("origin/"))
+        retire_finished_lanes(repo_root, default_branch)
         dirty_error = dirty_main_error(
             repo_root, worktrees_dir, needed_paths, source_root_prefixes
         )
