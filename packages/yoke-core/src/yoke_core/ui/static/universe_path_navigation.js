@@ -15,10 +15,12 @@ export const currentRouteHref = (windowNode) =>
 export function createPathNavigation(windowNode, basePath = "", navigation = []) {
   const base = normalizeRouteBase(basePath);
   const { history, location } = windowNode;
+  const hostPage = () => navEntry(
+    parseUniverseRoute(currentRouteHref(windowNode), base, navigation).view, navigation,
+  ).hostPage;
   const current = () => {
     const href = currentRouteHref(windowNode);
-    const entry = navEntry(parseUniverseRoute(href, base, navigation).view, navigation);
-    return href + (entry.hostPage ? location.hash || "" : "");
+    return href + (hostPage() ? location.hash || "" : "");
   };
   const position = () => history.state?.[HISTORY_KEY]?.basePath === base
     ? history.state[HISTORY_KEY].position : 0;
@@ -33,7 +35,7 @@ export function createPathNavigation(windowNode, basePath = "", navigation = [])
   const onPopState = () => nameScreen(current());
   windowNode.addEventListener("popstate", onPopState);
   // A bookmark's fragment query moves into the server-visible query once.
-  if (location.hash?.startsWith("#/")) {
+  if (!hostPage() && location.hash?.startsWith("#/")) {
     const legacy = routeHref(location.hash.slice(1), base, navigation);
     if (legacy) history.replaceState(history.state, "", legacy);
   }

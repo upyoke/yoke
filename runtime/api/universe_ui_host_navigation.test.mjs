@@ -82,6 +82,13 @@ test("built-in route resolution still canonicalizes project selection", async (t
   assert.equal(mounted.window.location.href, `${basePath}/items?status=new&project=all`);
 });
 
+test("host pages own fragments that resemble legacy workbench bookmarks", async (t) => {
+  const href = `${basePath}/reports?status=new#/exports?host=owned`;
+  const mounted = await mount(t, href, group(() => null));
+  assert.equal(mounted.window.location.href, href);
+  assert.equal(byClass(mounted.root, "title")[0].textContent, "Reports");
+});
+
 test("host content anchors navigate within the app, aborting outgoing factories", async (t) => {
   const contexts = [];
   const document = new FakeDocument();
