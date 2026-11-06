@@ -26,6 +26,10 @@ def isolated(tmp_path, monkeypatch):
         "yoke_harness.session_relay_native_turn_custody.process_start_time",
         lambda _pid: START,
     )
+    monkeypatch.setattr(
+        "yoke_harness.session_relay_interactive_holder.process_start_time",
+        lambda _pid: START,
+    )
     runtime.reset_relay_adapters_for_tests()
     yield
     runtime.reset_relay_adapters_for_tests()
