@@ -12,6 +12,7 @@ is not landing.
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Any, Optional
 
 from yoke_contracts.refusal_recovery import compose_refusal
@@ -119,7 +120,12 @@ def refresh_recorded_head(item: dict[str, Any], resolve_item):
     checkout = lane_path(item)
     if lane is None or not checkout:
         return item, ""
-    head = git.head_of(checkout, "HEAD")
+    head = git.git_out(checkout, "rev-parse", "HEAD")
+    if not head and Path(checkout).is_dir():
+        return item, compose_refusal(
+            "merge_lane_head_unreadable: local lane HEAD could not be read",
+            recovery=f"repair the Git checkout at {checkout}, then retry merge",
+        )
     if not head or head == str(lane.get("commit_sha") or "").strip():
         return item, ""
     project = str((item.get("project") or {}).get("slug") or "")
