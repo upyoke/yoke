@@ -28,7 +28,7 @@ def empty_caches(monkeypatch):
 
 
 def test_no_named_anchor_does_not_fall_back_to_an_ambient_ancestor(monkeypatch):
-    monkeypatch.setattr(hooks, "_caller_anchor", lambda names: None)
+    monkeypatch.setattr(hooks, "_caller_anchor", lambda *args, **kwargs: None)
     write = Mock()
     monkeypatch.setattr(hooks, "_record_session_anchor", write)
     hooks.record_session_anchor("session-a")
@@ -217,3 +217,35 @@ def test_transcript_discovery_is_bounded_and_scoped_without_caching_contents(
     rollout.unlink()
     assert codex.codex_transcript_candidates("thread", roots=[root]) == []
     assert codex.codex_transcript_candidates("", roots=[root]) == []
+
+
+def test_claude_keeps_ambient_anchor_while_codex_skips_its_walk(monkeypatch):
+    from yoke_harness.hooks import identity_runtime
+
+    lookup = Mock(return_value=ProcessAnchor(200, "start", "claude"))
+    write = Mock()
+    monkeypatch.setattr(hooks, "_caller_anchor", lookup)
+    monkeypatch.setattr(hooks, "_record_session_anchor", write)
+    monkeypatch.setattr(hooks, "liveness_process_names", lambda surface: ())
+    monkeypatch.setattr(identity_runtime, "detect_executor", lambda: "claude-code")
+    hooks.record_session_anchor("claude-session")
+    lookup.assert_called_once_with((), ambient=True)
+    assert write.call_args.kwargs["anchor"].pid == 200
+    lookup.reset_mock()
+    write.reset_mock()
+    monkeypatch.setattr(identity_runtime, "detect_executor", lambda: "codex-cli")
+    hooks.record_session_anchor("codex-session")
+    lookup.assert_not_called()
+    write.assert_not_called()
+
+
+def test_ambient_anchor_cache_preserves_shared_host_boundary(monkeypatch):
+    monkeypatch.setattr(hooks, "process_start_time", lambda pid: "start")
+    ambient = Mock(return_value=None)
+    named = Mock()
+    monkeypatch.setattr(hooks, "find_nearest_harness_anchor", ambient)
+    monkeypatch.setattr(hooks, "find_nearest_named_process_anchor", named)
+    assert hooks._caller_anchor((), ambient=True) is None
+    assert hooks._caller_anchor((), ambient=True) is None
+    ambient.assert_called_once()
+    named.assert_not_called()

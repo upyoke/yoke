@@ -23,11 +23,12 @@ answer separates client work from network time; it does not prove the
 Production gap. Exercise concurrent calls and both missing and saved
 transcripts, and preserve which discovery or ancestor selection was mocked.
 
-A surface without liveness process names does not write an ambient anchor.
+Claude keeps its per-session ambient anchor walk, including its shared-host
+boundary. Other surfaces without liveness process names skip that walk.
 A failed named lookup also stops there; passing an absent anchor to the
-shared registry would trigger a second, generic ancestry walk. Named ancestry
-is cached for two seconds under the caller parent's PID, start token and
-surface names. Recheck the parent's start token and any cached anchor's live
+shared registry would trigger a second, generic ancestry walk. Ancestry is
+cached for two seconds under the caller parent's PID, start token, surface
+names and walk mode. Recheck the parent's start token and any cached anchor's live
 start token on reuse. Registry tenancy is always reread: a clean unchanged
 record needs no write, while a changed transcript or contending session still
 updates the record and runs the existing fail-closed checks.
