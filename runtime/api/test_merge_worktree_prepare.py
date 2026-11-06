@@ -197,7 +197,8 @@ class TestSimulationGate:
         machine_home = merge_env.tmpdir / "sim-machine-home"
         machine_home.mkdir(exist_ok=True)
         (machine_home / "config.json").write_text(
-            '{"settings": {"ci_registration_timeout": "1", "ci_poll_interval": "1"}}',
+            '{"active_env": "local", "connections": {"local": {"transport": "local-postgres"}}, '
+            '"settings": {"ci_registration_timeout": "1", "ci_poll_interval": "1"}}',
             encoding="utf-8",
         )
         return run_merge(

@@ -42,6 +42,13 @@ _YOKE_DB_DDL = textwrap.dedent("""\
         public_item_prefix TEXT NOT NULL DEFAULT 'YOK',
         created_at TIMESTAMPTZ DEFAULT '2026-01-01T00:00:00Z'
     );
+    CREATE TABLE IF NOT EXISTS project_capabilities (
+        id INTEGER PRIMARY KEY,
+        project_id INTEGER NOT NULL REFERENCES projects(id),
+        type TEXT NOT NULL,
+        settings TEXT,
+        UNIQUE(project_id, type)
+    );
     CREATE TABLE IF NOT EXISTS items (
         id INTEGER PRIMARY KEY,
         title TEXT,

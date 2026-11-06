@@ -28,6 +28,7 @@ class WorktreePreflightOutcome:
     physical_cwd_mode: str = ""
     actions_taken: List[str] = field(default_factory=list)
     notes: List[str] = field(default_factory=list)
+    setup_command: dict = field(default_factory=dict)
 
     def to_envelope(self) -> Dict[str, Any]:
         """Serialise as the operator-defined execution envelope."""
@@ -37,6 +38,7 @@ class WorktreePreflightOutcome:
                 "block_kind": self.block_kind,
                 "narrative": self.narrative,
                 "public_ref": self.public_ref,
+                "setup_command": dict(self.setup_command),
             }
         return {
             "ok": True,
@@ -47,6 +49,7 @@ class WorktreePreflightOutcome:
             "physical_cwd_mode": self.physical_cwd_mode,
             "actions_taken": list(self.actions_taken),
             "notes": list(self.notes),
+            "setup_command": dict(self.setup_command),
         }
 
 

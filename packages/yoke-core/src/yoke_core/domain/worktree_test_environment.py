@@ -149,7 +149,7 @@ def provision_test_environment(
     with no actions.
     """
     root = Path(worktree_path)
-    declaration = load_declaration(project, checkout=root)
+    declaration = load_declaration(project, checkout=root, strict=True)
     try:
         resolved = resolve_uv_projects(root, declaration, discover=uv_projects)
     except OSError as exc:

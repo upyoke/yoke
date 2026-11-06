@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from yoke_core.domain.public_item_target import public_item_target
+from yoke_contracts.refusal_recovery import compose_refusal
 
 from typing import Any, Iterable, Optional, Sequence, Tuple
 
@@ -15,8 +16,11 @@ def item_worktree_authority_is_https() -> bool:
         from yoke_cli.config import machine_config
 
         connection = machine_config.active_connection()
-    except Exception:
-        return False
+    except Exception as exc:  # noqa: BLE001 — routing must not guess local authority
+        raise RuntimeError(compose_refusal(
+            f"worktree_authority_unavailable: {exc}",
+            recovery="Inspect the selected connection with `yoke env list`, repair it, then retry preparation",
+        )) from exc
     return bool(connection and str(connection.get("transport") or "") == "https")
 
 
@@ -157,16 +161,16 @@ def item_project_slug(item_id: int | str, db_path: Optional[str]) -> str:
             payload={},
         )
         if not response.success:
-            return ""
+            raise RuntimeError(compose_refusal(
+                f"provisioning_project_read_failed: {_response_error(response)}",
+                recovery="Read the item with `yoke items detail get`, then retry preparation",
+            ))
         item = (response.result or {}).get("item") or {}
         return str((item.get("project") or {}).get("slug") or "")
 
     from yoke_core.domain.db_helpers import connect
 
-    try:
-        conn = connect(db_path)
-    except Exception:  # noqa: BLE001 - an unreachable database names no project
-        return ""
+    conn = connect(db_path)
     try:
         from yoke_core.domain.item_ref_resolution import resolve_item_ref
 
@@ -177,8 +181,6 @@ def item_project_slug(item_id: int | str, db_path: Optional[str]) -> str:
             "WHERE i.id = " + ("%s" if _is_postgres(conn) else "?") + " LIMIT 1",
             (int(item_id),),
         ).fetchone()
-    except Exception:  # noqa: BLE001 - a minimal fixture names no project
-        return ""
     finally:
         conn.close()
     if row is None:
@@ -230,7 +232,13 @@ def provisioning_project(
     """
     if project:
         return str(project), ""
-    slug = item_project_slug(item_id, db_path)
+    try:
+        slug = item_project_slug(item_id, db_path)
+    except Exception as exc:  # noqa: BLE001 — preserve read failures as provisioning errors
+        return "", compose_refusal(
+            f"provisioning_project_read_failed: {exc}",
+            recovery="Read the item with `yoke items detail get`, then retry preparation",
+        )
     if slug:
         return slug, ""
     return "", (

@@ -13,7 +13,7 @@ def _remote_control_plane_error() -> None:
         raise RuntimeError(str(exc)) from exc
 
 
-def test_remote_control_plane_skip_is_silent(monkeypatch, capsys) -> None:
+def test_remote_control_plane_failure_is_reported(monkeypatch, capsys) -> None:
     monkeypatch.setattr(
         worktree_validation_surface,
         "provision_validation_surfaces",
@@ -22,7 +22,7 @@ def test_remote_control_plane_skip_is_silent(monkeypatch, capsys) -> None:
 
     worktree_provision.provision_worktree_validation_surfaces("/lane", "yoke")
 
-    assert capsys.readouterr().err == ""
+    assert "https has no local Postgres" in capsys.readouterr().err
 
 
 def test_local_provisioning_failure_remains_actionable(monkeypatch, capsys) -> None:

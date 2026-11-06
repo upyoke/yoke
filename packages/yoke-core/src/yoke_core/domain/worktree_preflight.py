@@ -264,6 +264,7 @@ def run_preflight(
             needed_paths=needed_paths,
             source_root_prefixes=source_roots,
         )
+        out.setup_command = create_result.setup_command
         if create_result.error:
             out.ok = False
             out.block_kind = BLOCK_CREATE_FAILED

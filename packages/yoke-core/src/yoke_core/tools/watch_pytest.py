@@ -247,7 +247,7 @@ def main(argv: Sequence[str] | None = None, *, prog: str = DEFAULT_PROG) -> int:
     no_parallel, pytest_args = split_no_parallel(pytest_args)
     try:
         pytest_args = project_parallel_args(
-            pytest_args, no_parallel=no_parallel, cwd=run_root
+            pytest_args, no_parallel=no_parallel or remote, cwd=run_root
         )
     except SourceEnvironmentRefusal as exc:
         return refuse(f"watch_pytest: {exc}", 3)

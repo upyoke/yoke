@@ -17,6 +17,7 @@ from runtime.api.domain.worktree_create_test_support import (
 
 import os
 import subprocess
+import pytest
 from unittest.mock import patch
 
 from yoke_core.domain import worktree_create
@@ -33,6 +34,16 @@ from runtime.api.domain.worktree_test_helpers import (
 from yoke_contracts.project_contract.file_line_policy import item_base_config_key
 from runtime.api.fixtures.file_test_db import connect_test_db
 from runtime.api.domain.worktree_test_helpers import seed_lane_item
+
+
+@pytest.fixture(autouse=True)
+def local_postgres_authority(monkeypatch):
+    # These integration tests own their Postgres fixture, including calls
+    # that deliberately omit db_path to exercise connected persistence.
+    monkeypatch.setattr(
+        "yoke_cli.config.machine_config.active_connection",
+        lambda **_kwargs: {"transport": "local-postgres"},
+    )
 
 
 class TestCreateWorktree:

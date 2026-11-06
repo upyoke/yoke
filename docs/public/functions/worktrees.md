@@ -167,9 +167,12 @@ yoke projects capability-settings set --project PROJECT --cap-type setup_command
 ```
 
 Without project authority, ask steering or the operator to declare it. Lane
-prepare runs this command in new worktrees and reused worktrees without a root
-`.venv` interpreter; a reused lane with that interpreter skips setup. Do not hand-prepare
-each lane. After declaration, rerun the lane prepare command, then retry tests
+prepare runs this command on every prepare route, in new and reused worktrees,
+with local, self-hosted and hosted HTTPS connections. Do not hand-prepare each lane.
+Prepare JSON reports `setup_command.status` as `ran`, `skipped` (none declared),
+or `failed`, alongside `setup_command.command`. An unreadable declaration prints
+`SETUP-COMMAND-UNREADABLE` with its reason and recovery; a failed command prints
+`SETUP-COMMAND-FAILED` and its output. The lane stays available for repair. After declaration, rerun the lane prepare command, then retry tests
 if they refused with `PROJECT-ENVIRONMENT-MISSING`. This also covers a bare
 `pyproject.toml` with differently named locked requirements that convention
 detection does not recognize. Onboarding detection does not declare this choice.

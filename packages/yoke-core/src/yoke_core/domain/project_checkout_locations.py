@@ -56,7 +56,7 @@ def project_id_for_slug(project: str) -> Optional[int]:
     """Resolve a project slug to its id through the ``projects.get`` relay.
 
     The function relays over https and dispatches in-process on a local
-    Postgres connection. Returns ``None`` when the project cannot be resolved.
+    Postgres connection. Failed or malformed reads raise with recovery.
     """
 
     from yoke_contracts.api.function_call import TargetRef
@@ -64,23 +64,33 @@ def project_id_for_slug(project: str) -> Optional[int]:
         call_dispatcher,
     )
 
+    from yoke_contracts.refusal_recovery import compose_refusal
+
+    def failed(detail: str) -> RuntimeError:
+        return RuntimeError(compose_refusal(
+            f"project_checkout_identity_unavailable: project {project!r}: {detail}",
+            recovery="Read the project with `yoke projects get`, then retry lane preparation",
+        ))
+
     try:
         response = call_dispatcher(
             function_id="projects.get",
             target=TargetRef(kind="global"),
             payload={"project": str(project), "field": "id"},
         )
-    except Exception:
-        return None
+    except Exception as exc:  # noqa: BLE001 — keep failed reads distinct from missing mappings
+        raise failed(str(exc)) from exc
     if not response.success:
-        return None
+        error = response.error
+        raise failed(f"{error.code}: {error.message}" if error else "read refused")
     value = (response.result or {}).get("value")
-    if value in (None, ""):
-        return None
     try:
-        return int(value)
-    except (TypeError, ValueError):
-        return None
+        project_id = int(value)
+    except (TypeError, ValueError) as exc:
+        raise failed("projects.get returned no valid project id") from exc
+    if project_id <= 0:
+        raise failed("projects.get returned no valid project id")
+    return project_id
 
 
 def checkout_for_project_slug(
@@ -93,8 +103,8 @@ def checkout_for_project_slug(
     Transport-aware sibling of :func:`checkout_for_project`: the project id
     comes from :func:`project_id_for_slug` instead of a caller-supplied DB
     connection. The selected connection supplies its machine-local checkout
-    map after the relay resolves the project id. Returns ``None`` when the
-    project cannot be resolved or has no checkout on that connection.
+    map after the relay resolves the project id. Returns ``None`` when no
+    checkout is mapped. Failed identity reads raise with recovery.
     """
 
     project_id = project_id_for_slug(project)

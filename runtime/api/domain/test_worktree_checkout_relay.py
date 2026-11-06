@@ -9,6 +9,8 @@ repo-root branch instead of opening a bare local connection.
 
 from __future__ import annotations
 
+import pytest
+
 from pathlib import Path
 from typing import Any, Dict, List
 
@@ -46,7 +48,7 @@ def test_checkout_for_project_slug_relays_projects_get(monkeypatch):
     assert calls[0]["payload"] == {"project": "yoke", "field": "id"}
 
 
-def test_checkout_for_project_slug_none_when_relay_refuses(monkeypatch):
+def test_checkout_for_project_slug_diagnoses_relay_refusal(monkeypatch):
     from yoke_core.api import service_client_structured_api_adapter as facade
 
     monkeypatch.setattr(
@@ -55,17 +57,19 @@ def test_checkout_for_project_slug_none_when_relay_refuses(monkeypatch):
             success=False, function="projects.get", version="v1",
         ),
     )
-    assert pcl.checkout_for_project_slug("nope") is None
+    with pytest.raises(RuntimeError, match="project_checkout_identity_unavailable.*Recovery:"):
+        pcl.checkout_for_project_slug("nope")
 
 
-def test_checkout_for_project_slug_none_when_relay_raises(monkeypatch):
+def test_checkout_for_project_slug_diagnoses_relay_exception(monkeypatch):
     from yoke_core.api import service_client_structured_api_adapter as facade
 
     def boom(**_kwargs):
         raise AttributeError("'_Connection' object has no attribute 'execute'")
 
     monkeypatch.setattr(facade, "call_dispatcher", boom)
-    assert pcl.checkout_for_project_slug("yoke") is None
+    with pytest.raises(RuntimeError, match="project_checkout_identity_unavailable.*Recovery:"):
+        pcl.checkout_for_project_slug("yoke")
 
 
 def test_create_worktree_project_branch_uses_transport_relay(monkeypatch):

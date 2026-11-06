@@ -18,6 +18,7 @@ class TestEnvelope:
             physical_cwd_mode=steps.CWD_MODE_STATIC,
             actions_taken=["work-claim:already-owned"],
             notes=["..."],
+            setup_command={"status": "ran", "command": "./setup"},
         )
         envelope = outcome.to_envelope()
         required = {
@@ -29,6 +30,7 @@ class TestEnvelope:
             "physical_cwd_mode",
             "actions_taken",
             "notes",
+            "setup_command",
         }
         for field in (
             "public_ref",
@@ -38,10 +40,12 @@ class TestEnvelope:
             "physical_cwd_mode",
             "actions_taken",
             "notes",
+            "setup_command",
         ):
             assert field in envelope, f"missing {field}"
         assert set(envelope) == required
         assert envelope["ok"] is True
+        assert envelope["setup_command"] == {"status": "ran", "command": "./setup"}
 
     def test_block_envelope_carries_block_kind(self):
         outcome = wp.WorktreePreflightOutcome(
@@ -56,4 +60,5 @@ class TestEnvelope:
             "block_kind": steps.BLOCK_WORK_CLAIM,
             "narrative": "conflict",
             "public_ref": "YOK-9001",
+            "setup_command": {},
         }

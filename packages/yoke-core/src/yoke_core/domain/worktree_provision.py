@@ -181,12 +181,6 @@ def provision_worktree_validation_surfaces(
 
         result = _wvs.provision_validation_surfaces(worktree_path, project)
     except Exception as exc:  # noqa: BLE001 — best-effort
-        from yoke_core.domain.yoke_connected_env import (
-            ConnectedEnvNotLocalPostgres,
-        )
-
-        if isinstance(exc.__cause__, ConnectedEnvNotLocalPostgres):
-            return
         print(
             f"Warning: validation-surface provisioning failed (non-fatal): {exc}",
             file=sys.stderr,
@@ -215,22 +209,36 @@ def project_field(
     scripts_dir: str,
     project_db_get: Optional[object] = None,
 ) -> Optional[str]:
-    """Read one project field through the existing local tool surface."""
+    """Read one project field through the connected control plane."""
     if project_db_get is not None:
         return project_db_get(project, field)
-    result = _run(
-        [
-            sys.executable,
-            "-m",
-            "yoke_core.domain.projects",
-            "get",
-            project,
-            field,
-        ]
-    )
-    if result.returncode == 0:
-        return result.stdout.strip() or None
-    return None
+    from yoke_contracts.api.function_call import TargetRef
+    from yoke_contracts.refusal_recovery import compose_refusal
+    from yoke_core.api.service_client_structured_api_adapter import call_dispatcher
+
+    recovery = f"Read project {project!r} with `yoke projects get`, then retry lane preparation"
+    try:
+        response = call_dispatcher(
+            function_id="projects.get",
+            target=TargetRef(kind="global"),
+            payload={"project": project, "field": field},
+        )
+    except Exception as exc:  # noqa: BLE001 — preserve transport failure with recovery
+        raise RuntimeError(compose_refusal(
+            f"project_field_read_failed: {project!r}.{field}: {exc}",
+            recovery=recovery,
+        )) from exc
+    if not response.success:
+        error = response.error
+        detail = f"{error.code}: {error.message}" if error else "read refused"
+        raise RuntimeError(compose_refusal(
+            f"project_field_read_failed: {project!r}.{field}: {detail}",
+            recovery=recovery,
+        ))
+    value = (response.result or {}).get("value")
+    if value is None:
+        return None
+    return str(value).strip() or None
 
 
 __all__ = [

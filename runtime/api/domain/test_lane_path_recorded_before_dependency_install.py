@@ -139,52 +139,41 @@ def test_persistence_failure_names_the_lane_it_already_created(
     assert "deps" not in steps
 
 
-@pytest.mark.parametrize(
-    ("declared", "has_python", "expected"),
-    [(True, False, 1), (True, True, 0), (False, False, 0)],
-)
-def test_reused_lane_repairs_only_missing_declared_environment(
-    plan, steps, tmp_path, monkeypatch, declared, has_python, expected
-):
+@pytest.mark.parametrize("preexisting", [True, False])
+def test_https_prepare_runs_declared_setup(plan, steps, tmp_path, monkeypatch, preexisting):
+    import json
+    import sys
+    from yoke_contracts.api.function_call import FunctionCallResponse
+    from yoke_core.api import service_client_structured_api_adapter as adapter
+    from yoke_core.domain import db_backend, worktree_deps
+
     entry = plan.primary
-    entry.preexisting = True
-    python = provisioning.source_python_environment.venv_python(
-        Path(entry.path) / ".venv"
-    )
-    if has_python:
-        python.parent.mkdir(parents=True)
-        python.touch()
-    monkeypatch.setattr(
-        provisioning, "get_setup_command",
-        lambda *_: "python3 -m venv .venv" if declared else None,
-    )
+    entry.preexisting = preexisting
+    Path(entry.path).mkdir()
+    command = f"{sys.executable} -c \"from pathlib import Path; Path('.venv').mkdir()\""
+    calls = []
+
+    def relay(**kwargs):
+        calls.append(kwargs)
+        return FunctionCallResponse(
+            success=True, function=kwargs["function_id"], version="v1",
+            result={"settings_json": json.dumps({"command": command})},
+        )
+
+    def forbidden(*args, **kwargs):
+        raise RuntimeError("unmarked connect refused on https")
+
+    monkeypatch.setattr(db_backend, "connect", forbidden)
+    monkeypatch.setattr(adapter, "call_dispatcher", relay)
+    monkeypatch.setattr(worktree_deps, "resolve_playwright_cache", lambda *_: None)
+    monkeypatch.setattr(provisioning, "install_lane_dependencies", real_install)
+    monkeypatch.setattr(provisioning, "provision_worktree_validation_surfaces", lambda *_: None)
 
     assert not _provision(plan, tmp_path).error
+    assert (Path(entry.path) / ".venv").is_dir()
+    assert entry.setup_command == {"status": "ran", "command": command}
+    assert calls[0]["function_id"] == "projects.capability_settings.get"
+    assert calls[0]["payload"] == {"project": "yoke", "cap_type": "setup_command"}
 
-    assert steps.count("deps") == expected
-    assert "lane" not in steps
-    if expected:
-        assert steps.index("persist") < steps.index("deps")
 
-
-def test_setup_failure_names_command_exit_lane_and_replacement(
-    plan, monkeypatch, capsys
-):
-    monkeypatch.setattr(provisioning, "install_worktree_deps", lambda *a, **k: 7)
-    monkeypatch.setattr(
-        provisioning, "get_setup_command", lambda *_: "python3 -m venv .venv"
-    )
-    monkeypatch.setattr(
-        provisioning, "provision_worktree_validation_surfaces", lambda *_: None
-    )
-
-    provisioning.install_lane_dependencies(plan.primary, "42", "/scripts")
-
-    assert capsys.readouterr().err == (
-        "SETUP-COMMAND-FAILED: command 'python3 -m venv .venv' exited "
-        f"7 in lane {plan.primary.path!r}. Recovery: replace the declaration with "
-        "yoke projects capability-settings set --project 42 "
-        "--cap-type setup_command --settings-json "
-        "'{\"command\":\"<documented environment command>\"}' "
-        "--base '<current setup_command settings JSON>', then rerun lane prepare.\n"
-    )
+real_install = provisioning.install_lane_dependencies

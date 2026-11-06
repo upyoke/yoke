@@ -7,6 +7,8 @@ alongside or extend these.
 
 from __future__ import annotations
 
+import json
+
 from pathlib import Path
 
 from runtime.api.fixtures.dispatch_actor import register_session_actor
@@ -86,11 +88,18 @@ def _seed_yoke_project_with_github_app(
         ),
     )
     register_session_actor(conn, MERGE_SESSION_ID)
-    register_machine_checkout(
+    config_path = register_machine_checkout(
         config_root,
         Path(repo_path),
         1,
     )
+    # The subprocess uses this checkout mapping as its selected authority.
+    # Its database is the inherited test Postgres fixture, not an HTTPS plane.
+    config = json.loads(config_path.read_text(encoding="utf-8"))
+    config.setdefault("connections", {})[config["active_env"]] = {
+        "transport": "local-postgres",
+    }
+    config_path.write_text(json.dumps(config, sort_keys=True), encoding="utf-8")
     verified = VerifiedProjectGitHubBinding(
         installation_id="12345",
         account_id="9988",
