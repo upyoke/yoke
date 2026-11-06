@@ -16,6 +16,7 @@ from yoke_core.domain.sessions_visible_roster import (
     resolve_project_ids,
 )
 from yoke_contracts.read_detail import DETAIL_FULL, DETAIL_SUMMARY, ReadDetail
+from yoke_contracts.refusal_recovery import compose_refusal
 
 class SessionsHistoryRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
@@ -150,10 +151,11 @@ def handle_sessions_list(request: FunctionCallRequest) -> HandlerOutcome:
         )
     payload = request.payload or {}
     if "liveness" in payload:
-        return _error("function_version_skew",
-            "sessions.list removed liveness; required client floor next-release. "
-            "Ask the release operator for the carrying release, update the CLI, "
-            "then use --presence, --activity or --intent.", jsonpath="$.payload.liveness")
+        return _error("function_version_skew", compose_refusal(
+            "sessions.list removed liveness; required client floor next-release",
+            recovery="Ask the release operator for the carrying release, update the CLI, "
+                     "then use --presence, --activity or --intent",
+        ), jsonpath="$.payload.liveness")
     detail, offset = payload.get("detail", DETAIL_SUMMARY), payload.get("offset", 0)
     if (
         detail not in (DETAIL_FULL, DETAIL_SUMMARY)
