@@ -42,14 +42,12 @@ def failed_qa_owner_sql(conn: Any, alias: str) -> str:
         f"{alias}.status='failed' "
         f"AND {alias}.superseded_by_run_id IS NULL AND EXISTS ("
         f"SELECT 1 FROM qa_requirements q WHERE q.deployment_run_id={alias}.id "
-        f"AND NOT {settled_obligation_sql(conn, 'q')} "
-        f"AND NOT EXISTS (SELECT 1 FROM qa_runs qr "
-        f"WHERE qr.id=({latest_execution_id_sql('q.id')}) AND qr.verdict='pass'))"
+        f"AND NOT {settled_obligation_sql(conn, 'q')})"
     )
 
 
 def settle_unsuccessful_run(conn: Any, run_id: str, *, reason: str) -> bool:
-    """Abort live cursors and retract unfulfilled run obligations without committing.
+    """Keep failed-run work; abort and retract cancelled obligations without committing.
 
     A cursor already settling through a recorded abort is left to that abort.
     """

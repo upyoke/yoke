@@ -220,6 +220,13 @@ def test_one_member_closes_while_sibling_qa_blocks_the_run(
     assert independent_member_delivery_ready(test_db, item_id=MEMBER_A, run_id=run_id)
     assert _status(test_db, MEMBER_A) == "done"
     assert test_db.execute("SELECT deployed_to FROM items WHERE id=%s", (MEMBER_A,)).fetchone()[0] == "prod"
+    from yoke_core.domain.dependency_satisfaction import evaluate_persisted_satisfaction
+    from yoke_core.domain.workflow_runtime import load_item_workflow_runtime
+
+    assert evaluate_persisted_satisfaction(
+        test_db, blocking_item_id=MEMBER_A, satisfaction="fact:deployed:prod",
+        blocking_status="done", workflow=load_item_workflow_runtime(test_db, MEMBER_A),
+    ).satisfied
     assert _status(test_db, MEMBER_B) == "release"
     assert (
         test_db.execute(

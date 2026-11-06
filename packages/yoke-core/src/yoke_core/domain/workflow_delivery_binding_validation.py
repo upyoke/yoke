@@ -161,7 +161,8 @@ def validate_run_member(
 
 
 def validate_deployment_run_members(
-    conn: Any, *, run_id: str, item_ids: Iterable[int], attached: bool
+    conn: Any, *, run_id: str, item_ids: Iterable[int], attached: bool,
+    frozen: bool | None = None,
 ) -> None:
     """Validate a set of members from one read; the first refusal, in id order, stands."""
     if not has_workflow_pin_schema(conn):
@@ -170,7 +171,8 @@ def validate_deployment_run_members(
     pinned = read_pinned_items(conn, ids)
     from yoke_core.domain.deployment_run_composition_guard import has_frozen_composition
 
-    frozen = attached and has_frozen_composition(conn, run_id)
+    if frozen is None:
+        frozen = attached and has_frozen_composition(conn, run_id)
     for item_id in ids:
         validate_run_member(
             conn,

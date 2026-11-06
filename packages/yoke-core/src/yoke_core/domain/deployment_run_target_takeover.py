@@ -212,8 +212,13 @@ def _take_over(conn, new_run_id, *, session_id, actor_id, apply):
         "the member's QA continues there"
     )
     ids = [int(member["item_id"]) for member in moving]
-    # Preserve the original admission snapshots and selection. Admission still
-    # validates the successor, but cannot replace the obligations already owed.
+    from yoke_core.domain.workflow_delivery_binding_validation import validate_deployment_run_members
+
+    # Established admission may be reopened, but still needs carried source
+    # and a valid workflow pin in the successor.
+    validate_deployment_run_members(
+        conn, run_id=new_run_id, item_ids=ids, attached=True, frozen=True
+    )
     transfer_qa_on(
         conn,
         old_id=old_id,
