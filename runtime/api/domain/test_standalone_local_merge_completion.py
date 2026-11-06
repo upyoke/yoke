@@ -162,7 +162,10 @@ def test_local_merge_item_closes_only_with_target_ancestry_proof(
     if layout != "no-remote":
         assert exit_code == 1
         assert not transitions
-        assert "merge_landing_fetch_failed" in capsys.readouterr().out
+        refused = capsys.readouterr().out
+        assert "publishing 'main' failed" in refused
+        assert "No fixture credentials" in refused
+        assert f"yoke merge item {ref}" in refused
         assert lane.is_dir()
         return
     assert exit_code == 0

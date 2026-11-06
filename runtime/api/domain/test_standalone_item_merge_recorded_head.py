@@ -278,3 +278,46 @@ def test_an_unresolvable_branch_still_refuses(
 
     assert outcome.ok is False
     assert "could not be resolved" in outcome.error
+
+
+@pytest.mark.parametrize("record_error", ["", "snapshot unavailable"])
+def test_missed_hook_records_repair_before_candidate_reads(repo, monkeypatch, record_error):
+    from yoke_core.domain import lane_head_record
+    from yoke_core.domain import standalone_item_merge_lane as lane
+
+    old = _git(repo, "rev-parse", "main")
+    repair = _git(repo, "rev-parse", "HEAD")
+    item = {"project": {"slug": "example"}, "worktrees": [
+        {"branch": "lane", "path": str(repo), "commit_sha": old}
+    ]}
+    events = []
+    def record(project, checkout):
+        events.append((project, checkout))
+        return record_error
+    def refresh():
+        events.append("read")
+        return {**item, "worktrees": [{**item["worktrees"][0], "commit_sha": repair}]}, ""
+    monkeypatch.setattr(lane_head_record, "record_lane_head", record)
+    refreshed, error = lane.refresh_recorded_head(item, refresh)
+    assert events[0] == ("example", str(repo))
+    if record_error:
+        assert "merge_lane_head_unrecorded" in error
+        assert "--head-only" in error
+        assert events == [("example", str(repo))]
+    else:
+        assert not error
+        assert events[-1] == "read"
+        assert refreshed["worktrees"][0]["commit_sha"] == repair
+
+
+def test_deferred_head_recording_refuses_stale_reread(repo, monkeypatch):
+    from yoke_core.domain import lane_head_record
+    from yoke_core.domain import standalone_item_merge_lane as lane
+
+    item = {"project": {"slug": "example"}, "worktrees": [
+        {"branch": "lane", "path": str(repo), "commit_sha": _git(repo, "rev-parse", "main")}
+    ]}
+    monkeypatch.setattr(lane_head_record, "record_lane_head", lambda *_a: "")
+    _, error = lane.refresh_recorded_head(item, lambda: (item, ""))
+    assert "merge_lane_head_unrecorded" in error
+    assert "--head-only" in error

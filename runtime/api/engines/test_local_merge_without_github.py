@@ -53,7 +53,9 @@ def test_disconnected_merge_requires_remote_proof_for_standalone_close_out(
         )
         if layout != "no-remote":
             assert not outcome.ok and not outcome.merge_sha
-            assert "merge_landing_fetch_failed" in outcome.error
+            assert "publishing 'main' failed" in outcome.error
+            assert "No fixture credentials" in outcome.error
+            assert "yoke merge item finished" in outcome.error
             assert lane.is_dir()
             return
         assert outcome.ok, outcome.error

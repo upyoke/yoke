@@ -12,6 +12,11 @@ LANE_SHA = "1" * 40
 MERGE_SHA = "2" * 40
 
 
+@pytest.fixture(autouse=True)
+def disconnected(monkeypatch):
+    monkeypatch.setattr(converging, "github_merge_enabled", lambda _p: False)
+
+
 def test_converging_records_the_merge_identity_a_retry_reads(monkeypatch):
     recorded: list[receipts.MergeReceipt] = []
     monkeypatch.setattr(converging, "stale_unlanded_work", lambda **_k: "")
@@ -123,3 +128,33 @@ def test_converging_publishes_a_landing_that_never_reached_origin(monkeypatch):
         ),
     )
     assert pushes == ["main"] and outcome.pushed is True
+
+
+@pytest.mark.parametrize("kind", ["passed", "failed", "timed_out", "unreadable"])
+def test_retry_rechecks_post_push_on_the_landing(monkeypatch, kind):
+    from yoke_core.domain.project_github_auth_models import GITHUB_AUTHORITY_INSTALLATION
+
+    seen = []
+    monkeypatch.setattr(converging, "stale_unlanded_work", lambda **_k: "")
+    monkeypatch.setattr(converging, "verified_target_sha", lambda *_a: MERGE_SHA)
+    monkeypatch.setattr(converging, "verified_landing_identity", lambda *_a: MERGE_SHA)
+    monkeypatch.setattr(converging.git, "has_remote", lambda *_a: True)
+    monkeypatch.setattr(converging, "github_merge_enabled", lambda _p: True)
+    monkeypatch.setattr(converging.receipts, "record", lambda *_a, **_k: "")
+    monkeypatch.setattr(converging, "fast_forward_main_checkout", lambda *_a: "")
+    monkeypatch.setattr(
+        "yoke_core.domain.standalone_item_merge.stamp_merged_at", lambda *_a, **_k: ""
+    )
+    def checks(*args):
+        seen.append(args)
+        return converging.post_push.PostPushVerdict(kind)
+    monkeypatch.setattr(converging.post_push, "await_post_push_checks", checks)
+    outcome = converging.converge(
+        item_id=7, project="example", repo_root="/repo", public_ref="ITEM-7",
+        lane=landed.LandedLane(branch="lane", target="main", commit_sha=LANE_SHA),
+    )
+    assert seen == [("example", MERGE_SHA, GITHUB_AUTHORITY_INSTALLATION)]
+    assert outcome.ok is (kind == "passed")
+    assert outcome.already_merged
+    if kind != "passed":
+        assert "yoke merge item ITEM-7" in outcome.error

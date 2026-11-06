@@ -67,8 +67,12 @@ def test_push_that_did_not_land_never_records_a_landing(checkout, monkeypatch, p
     )
     result = complete(repo, candidate)
     assert not result.ok and not result.merge_sha
-    assert "merge_candidate_not_landed" in result.error
-    assert "governed merge command" in result.error
+    if push_ok:
+        assert "merge_candidate_not_landed" in result.error
+        assert "governed merge command" in result.error
+    else:
+        assert "push did not update remote" in result.error
+        assert "yoke merge item ITEM-1" in result.error
     assert not records and not stamps
     assert failures[0]["label"] == "merge_landing_unverified"
     assert git(repo, "rev-parse", "ITEM-1") == candidate
@@ -211,7 +215,8 @@ def test_retry_cannot_converge_on_an_unpublished_local_landing(checkout, monkeyp
         repo_root=str(repo),
         lane=LandedLane(branch="ITEM-1", target="main", commit_sha=candidate),
     )
-    assert not result.ok and "merge_candidate_not_landed" in result.error
+    assert not result.ok and "denied" in result.error
+    assert "yoke merge item ITEM-1" in result.error
     assert not records and not stamps and failures
 
 
