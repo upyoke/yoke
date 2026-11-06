@@ -161,6 +161,9 @@ def create_session_tables(conn: Any) -> None:
     """,
     )
     _add_column_if_not_exists(
+        conn, "session_tool_calls", "monitor_deadline_at", "TIMESTAMPTZ"
+    )
+    _add_column_if_not_exists(
         conn, "harness_sessions", "org_id", "INTEGER REFERENCES organizations(id)"
     )
     _add_column_if_not_exists(conn, "harness_sessions", "harness_title", "TEXT")

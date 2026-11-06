@@ -139,3 +139,22 @@ def test_background_waiter_reads_deadline_bearing_monitor_rows():
         assert waiter._existing_capture_files({"session_id": SESSION}, ("/tmp",)) == {
             CAPTURE
         }
+
+
+def test_boot_adds_monitor_deadline_to_an_existing_tool_call_table(test_db):
+    from yoke_core.domain.schema_common import _get_columns
+    from yoke_core.domain.schema_init_tables_sessions import create_session_tables
+
+    test_db.execute("ALTER TABLE session_tool_calls DROP COLUMN monitor_deadline_at")
+    test_db.execute(
+        "INSERT INTO session_tool_calls (session_id, tool_use_id, started_at) "
+        "VALUES (%s, 'before-upgrade', %s)",
+        (SESSION, utc_now()),
+    )
+    create_session_tables(test_db)
+    create_session_tables(test_db)
+    assert "monitor_deadline_at" in _get_columns(test_db, "session_tool_calls")
+    assert test_db.execute(
+        "SELECT tool_use_id, monitor_deadline_at FROM session_tool_calls WHERE session_id=%s",
+        (SESSION,),
+    ).fetchone() == ("before-upgrade", None)

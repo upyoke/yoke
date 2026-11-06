@@ -9,6 +9,7 @@ BORN_NATIVE_AFTER_HISTORY = frozenset(
     {("qa_test_machine_waits", c) for c in ("queued_at", "settled_at")}
     | {("merge_queue_landing_attempts", c) for c in ("enqueued_at", "opened_at")}
     | {("merge_queue_landing_attempts", "closed_at")}
+    | {("session_tool_calls", "monitor_deadline_at")}
     | {("deployment_run_timings", "recorded_at")}
     | {("machine_authorization_codes", "decided_at")}
     | {("qa_plan_execution_adoptions", "adopted_at")}
