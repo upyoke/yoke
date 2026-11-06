@@ -4,7 +4,10 @@ from __future__ import annotations
 
 import ast
 import importlib
+import os
 from pathlib import Path
+import subprocess
+import sys
 from types import SimpleNamespace
 from typing import Protocol
 
@@ -100,3 +103,31 @@ def test_installed_adapters_satisfy_the_published_interfaces():
         module = importlib.import_module(f"yoke_contracts.runtime_ports.{path.stem}")
         implementation = getattr(module, f"get_{path.stem}")()
         assert implementation is not None
+
+
+def test_postgres_bootstrap_does_not_require_installed_adapters():
+    root = Path(__file__).resolve().parents[3]
+    source = root / "packages/yoke-core/src/yoke_core/domain/postgres_binaries.py"
+    environment = {
+        **os.environ,
+        "PYTHONPATH": os.pathsep.join(
+            str(root / "packages" / package / "src")
+            for package in ("yoke-contracts", "yoke-core")
+        ),
+    }
+    code = (
+        f"import runpy, sys; scope = runpy.run_path({str(source)!r}); "
+        "assert callable(scope['ensure_binaries']); "
+        "assert 'yoke_contracts.runtime_ports.loader' not in sys.modules; "
+        "assert not any(name.split('.')[0] in {'yoke_cli', 'yoke_harness'} "
+        "for name in sys.modules)"
+    )
+    completed = subprocess.run(
+        [sys.executable, "-S", "-c", code],
+        cwd=root,
+        env=environment,
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+    assert completed.returncode == 0, completed.stderr

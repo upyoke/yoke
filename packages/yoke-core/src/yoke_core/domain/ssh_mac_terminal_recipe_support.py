@@ -11,13 +11,12 @@ from yoke_core.domain.host_control_runner import HostActionResult
 from yoke_core.domain.machine_qa_recipe_contracts import (
     REGISTERED_STAGE_URLS,
 )
-from yoke_contracts.runtime_ports.resilient_fetch import get_resilient_fetch
 from yoke_contracts.runtime_ports.ssh_mac_terminal_capture import get_ssh_mac_terminal_capture
 
 
 
-FetchError = get_resilient_fetch().FetchError
-fetch_bytes = get_resilient_fetch().fetch_bytes
+from yoke_contracts.resilient_fetch import FetchError
+from yoke_contracts.resilient_fetch import fetch_bytes
 RunRemote = get_ssh_mac_terminal_capture().RunRemote
 
 UploadBytes = Callable[[str, bytes], bool]

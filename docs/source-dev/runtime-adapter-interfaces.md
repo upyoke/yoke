@@ -18,6 +18,11 @@ duplicate, unloadable or incomplete implementation refuses with
 matching packages with the official installer; source contributors sync the
 checkout's locked environment. No alternate implementation is guessed.
 
+Bootstrap code runs before package metadata exists. It uses shared helpers
+directly, including `yoke_contracts.resilient_fetch` for artifact downloads;
+it never resolves a runtime interface. The Postgres bootstrap test exercises
+this boundary with `python -S` and only core and contracts on the source path.
+
 When adding an operation, extend the owning interface and its adapter in the
 same change. Keep pure records and helpers in shared contracts. Tests may
 supply a structural implementation without importing a CLI or harness package;

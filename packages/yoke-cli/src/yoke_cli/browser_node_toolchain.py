@@ -37,7 +37,7 @@ from yoke_contracts.machine_config.directories import create_private_directory
 from yoke_contracts.refusal_recovery import compose_refusal
 
 from yoke_cli.config import machine_config
-from yoke_cli.resilient_fetch import FetchError, FetchVerificationError, fetch_file
+from yoke_contracts.resilient_fetch import FetchError, FetchVerificationError, fetch_file
 
 #: The one pinned Node.js release this product provisions when a host has no
 #: usable Node. Bumping it means replacing the digests below in the same

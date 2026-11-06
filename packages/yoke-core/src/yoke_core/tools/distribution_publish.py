@@ -15,7 +15,7 @@ from typing import Iterable, Mapping, Sequence
 from urllib.parse import urljoin
 
 from yoke_core.domain import json_helper
-from yoke_cli.resilient_fetch import FetchError, fetch_bytes
+from yoke_contracts.resilient_fetch import FetchError, fetch_bytes
 from yoke_core.tools import (
     distribution_channel,
     distribution_release_validation,

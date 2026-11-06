@@ -15,12 +15,11 @@ from yoke_core.domain.deploy_remote import (
     push_remote_file,
     run_remote,
 )
-from yoke_contracts.runtime_ports.resilient_fetch import get_resilient_fetch
 
 
 
-FetchError = get_resilient_fetch().FetchError
-fetch_bytes = get_resilient_fetch().fetch_bytes
+from yoke_contracts.resilient_fetch import FetchError
+from yoke_contracts.resilient_fetch import fetch_bytes
 
 _RUNTIME_PROBE = (
     "command -v docker >/dev/null 2>&1"

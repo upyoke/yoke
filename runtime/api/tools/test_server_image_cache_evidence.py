@@ -73,7 +73,7 @@ def test_transfer_diagnostics_keep_parallel_vertex_times_without_changing_build_
         (
             [
                 "runtime/api/main.py",
-                "packages/yoke-cli/src/yoke_cli/resilient_fetch.py",
+                "packages/yoke-contracts/src/yoke_contracts/resilient_fetch.py",
             ],
             False,
         ),
