@@ -17,7 +17,6 @@ never overwritten with requests.
 
 from __future__ import annotations
 
-from datetime import datetime
 
 import hmac
 from typing import Any, Mapping, Sequence
@@ -26,7 +25,6 @@ from yoke_contracts.session_control.launch_registration import (
     SESSION_ENDED_UNBOUND_CODE,
 )
 from yoke_core.domain import json_helper
-from yoke_core.domain.session_launch_closure_evidence import closure_evidence
 from yoke_core.domain.session_launch_store import (
     attestation_digest,
     begin_mutation,
@@ -65,28 +63,6 @@ def bound_registration_evidence(
     if stamped_columns:
         labels["stamped_requested_columns"] = ",".join(stamped_columns)
     return merge_redacted_evidence(launch.result_evidence, labels)
-
-
-def late_registration_evidence(
-    conn: Any,
-    *,
-    launch: LaunchRecord,
-    session_id: str,
-    now: datetime | str,
-) -> str:
-    """Say which session registered too late, and how far the launch got."""
-    document = closure_evidence(
-        conn,
-        launch=launch,
-        result_code="late_registration",
-        closure_reason="registration_after_deadline",
-        relay_id=launch.assigned_relay_id,
-        machine_id=launch.assigned_machine_id,
-        started_at=launch.awaiting_registration_at,
-        now=now,
-    )
-    document["registration_session_id"] = session_id
-    return merge_redacted_evidence(launch.result_evidence, document)
 
 
 def _recorded_refusal(stored_evidence: Any) -> str:
@@ -221,7 +197,6 @@ def record_session_ended_unbound(
 
 __all__ = [
     "bound_registration_evidence",
-    "late_registration_evidence",
     "record_registration_refusal",
     "record_session_ended_unbound",
     "SESSION_END_RECORDED",

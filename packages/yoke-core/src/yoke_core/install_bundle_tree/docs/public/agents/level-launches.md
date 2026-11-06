@@ -130,6 +130,20 @@ server still accepts. The CLI marks a selector-free create with
 serving floor, so an older server names the unavailable stage default and the
 explicit `--level` recovery rather than silently placing another level.
 
+## Delayed launch workers
+
+The launch deadline diagnoses a worker that has not registered, acknowledged,
+or claimed its assignment. A slow host, sleep or lost connection can outlast
+that window. The original worker may still register with its launch attestation
+or acknowledge its own mandate after timeout, with no time cap, when the launch
+is uncontested. Yoke reopens it with a fresh window, restores its message receipt,
+and records `accepted_late` in `result_evidence`; the worker then claims its item.
+
+A retry, cancellation, rebound session, replacement launch or another session's
+active item claim prevents recovery. Yoke refuses `launch_taken_over`, names the
+takeover and tells the delayed worker to stop without claiming work. Inspect the
+named launch or session and coordinate with its holder before restaffing.
+
 ## Unregistered launch failures
 
 The steering report shows unregistered launch failures immediately, without an

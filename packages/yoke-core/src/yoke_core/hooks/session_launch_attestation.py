@@ -82,7 +82,6 @@ def render_launch_instructions(injection: LaunchRegistrationInjection) -> str:
 # identity report yet. The sidecar retries on its next event; recording or
 # rendering that short race as supersession would terminate the live native.
 _REGISTRATION_PENDING_STATES = frozenset({"launching", "awaiting_registration"})
-_BENIGN_REFUSALS = frozenset({"late_registration"})
 
 
 def _prepare_or_record_refusal(
@@ -110,7 +109,7 @@ def _prepare_or_record_refusal(
             exc.code == "invalid_state"
             and exc.launch_state in _REGISTRATION_PENDING_STATES
         )
-        if exc.code not in _BENIGN_REFUSALS and not pending:
+        if not pending:
             try:
                 record_registration_refusal(
                     conn,
@@ -131,7 +130,7 @@ _SUPERSEDED_LAUNCH_CODES = frozenset(
     {
         "invalid_state",
         "attestation_consumed",
-        "late_registration",
+        "launch_taken_over",
         "session_mismatch",
         "native_session_mismatch",
     }
@@ -150,7 +149,7 @@ def _superseded_launch_stop_context(
         "## Yoke launch superseded\n\n"
         f"This launch attempt is no longer the live one for its work ({code}). "
         "Another attempt already bound, or the launch was reconciled, retried, "
-        "or expired. You hold no work claim and carry no mandate to execute. "
+        "or taken over. You hold no work claim and carry no mandate to execute. "
         "Do not read the backlog, adopt an item, or write to the checkout. "
         "Stop now: end this turn without taking further action."
     )
@@ -233,7 +232,7 @@ def evaluate_launch_attestation(
                 audit["additionalContext"] = stop_context
         return HookDecision(
             outcome=Outcome.WARN,
-            message=f"Yoke launch registration refused ({exc.code}).",
+            message=f"Yoke launch registration refused ({exc.code}): {exc}",
             audit_fields=audit,
             next=Next.CONTINUE,
         )

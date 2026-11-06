@@ -64,7 +64,9 @@ Inspect with `yoke sessions list`; see [chat titles](../session-titles.md).
 **Launch binding.** The hook binds the exact session through launch attestation;
 folder and time proximity prove nothing. Relay reports preserve binding and receipt.
 Assigned workers must claim their item before the deadline or fail as
-`launch_work_claim_missing`, freeing staffing. Itemless workers only acknowledge.
+`launch_work_claim_missing`, freeing staffing. An original worker may recover
+an uncontested timeout; see [late acceptance](../../agents/level-launches.md#delayed-launch-workers).
+Itemless workers only acknowledge.
 Death before work fails as `abandoned_without_claim`, even before acknowledgement,
 and notifies the requester. Inspect binding, phase, exit code and stderr before
 retrying: `yoke session-control launch get LAUNCH-ID --json`.

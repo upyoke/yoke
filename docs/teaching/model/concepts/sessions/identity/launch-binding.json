@@ -2,11 +2,11 @@
  "id": "launch-binding",
  "title": "Launch attestation, exact identity and assigned-item entry",
  "status": "observed",
- "sources": ["docs/public/sessions/model/sessions.md", "runtime/api/domain/test_session_launch_attested_binding.py", "runtime/api/domain/test_session_launch_work_entry.py", "runtime/api/domain/test_session_launch_native_death.py"],
+ "sources": ["docs/public/sessions/model/sessions.md", "runtime/api/domain/test_session_launch_attested_binding.py", "runtime/api/domain/test_session_launch_work_entry.py", "runtime/api/domain/test_session_launch_native_death.py", "docs/public/agents/level-launches.md", "runtime/api/domain/test_session_launch_late_acceptance.py"],
  "surface_refs": ["command-feedback", "project-orientation"],
  "commands": ["yoke session-control launch get"],
  "functions": ["session_control.launch.get"],
  "page": "session-identity",
  "position": 3,
- "summary": "Verified native death before work fails a registered launch immediately, including before acknowledgement; durable evidence records the reached phase, exit code and stderr tail, and the requester is notified."
+ "summary": "Verified native death before work fails a registered launch immediately, including before acknowledgement; durable evidence records the reached phase, exit code and stderr tail, and the requester is notified. A delayed original worker can register or acknowledge after timeout without a time cap when no retry, cancellation, rebound, replacement launch or other active item claim has taken over. Recovery restores the receipt, gives a fresh deadline and records accepted_late; contested workers receive launch_taken_over and stop without claiming."
 }
