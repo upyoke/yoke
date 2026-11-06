@@ -258,4 +258,17 @@ def test_delivering_execution_defers_both_verdict_close_out_paths(test_db, monke
     )
 
     finish_plan_execution(test_db, execution, state="completed", reason="case-complete")
+    assert _status(test_db, MEMBER_A) == "release"
+    from yoke_core.domain.deployment_qa_stage_dispatch import (
+        materialize_and_gate_deployment_qa_stage,
+    )
+    from yoke_core.domain.deployment_qa_run_acceptance import pinned_stages
+
+    stage = next(
+        stage for stage in pinned_stages(test_db, run_id) if stage["name"] == "item-qa"
+    )
+    code, reason = materialize_and_gate_deployment_qa_stage(
+        test_db, stage, run_id=run_id
+    )
+    assert code == -4, reason  # The sibling still owes QA.
     assert _status(test_db, MEMBER_A) == "done"
