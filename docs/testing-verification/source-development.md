@@ -65,7 +65,8 @@ Before any source import probe or child starts, `dev run` creates a private,
 disposable machine-home snapshot. It copies machine settings, secrets, and referenced
 files under that home, rebases machine-home paths, and supplies private default
 cache and temp paths. It excludes browser identity `profile` directories under
-`secrets/capability-secrets/*/browser-control/identities/*/`, plus special files
+`secrets/capability-secrets/*/browser-control/identities/*/` and per-check profiles at
+`secrets/browser-checks/*/profile`, plus special files
 such as sockets and dangling symlinks anywhere in the copied tree. It does not
 clone caches, runtimes or live relay state.
 Git credential helper commands in the selected lane bound to that config use its private

@@ -242,6 +242,37 @@ def test_snapshot_skips_live_browser_profiles_and_stray_special_files(
             assert (target / "secrets" / token.name).read_text() == "fixture-token"
 
 
+def test_snapshot_skips_browser_check_profiles_and_preserves_other_secrets(tmp_path):
+    config, original, token = _seed(tmp_path / "machine")
+    check = config.parent / "secrets" / "browser-checks" / "fixture-check"
+    profile = check / "profile"
+    profile.mkdir(parents=True)
+    (profile / "Cache").mkdir()
+    (profile / "Cache" / "active").write_text("mutable browser cache")
+    (check / "receipt.json").write_text("fixture receipt")
+    payload = json.loads(config.read_text())
+    payload["browser_cache"] = str(profile / "Cache" / "active")
+    config.write_text(json.dumps(payload))
+    original = config.read_bytes()
+
+    with isolated_machine_home(
+        {"YOKE_MACHINE_HOME": str(config.parent), "YOKE_SESSION_ID": "fixture"}
+    ) as child:
+        target = Path(child["YOKE_MACHINE_HOME"])
+        copied_check = target / check.relative_to(config.parent)
+        assert not (copied_check / "profile").exists()
+        assert (copied_check / "receipt.json").read_text() == "fixture receipt"
+        assert (
+            target / token.relative_to(config.parent)
+        ).read_text() == "fixture-token"
+        copied = json.loads((target / "config.json").read_text())
+        assert copied["browser_cache"] == str(
+            copied_check / "profile" / "Cache" / "active"
+        )
+    assert config.read_bytes() == original
+    assert (profile / "Cache" / "active").read_text() == "mutable browser cache"
+
+
 def test_snapshot_unreadable_secret_names_failed_path(tmp_path, monkeypatch):
     config, _, token = _seed(tmp_path / "machine")
     original = shutil.copyfile

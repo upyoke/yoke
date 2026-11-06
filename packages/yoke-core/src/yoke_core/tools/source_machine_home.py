@@ -63,6 +63,10 @@ def _snapshot(source: Path, destination: Path, selected: Path) -> None:
         else:
             relative = ()
         return (
+            len(relative) >= 4
+            and relative[:2] == ("secrets", "browser-checks")
+            and relative[3] == "profile"
+        ) or (
             len(relative) >= 7
             and relative[:2] == ("secrets", "capability-secrets")
             and relative[3:5] == ("browser-control", "identities")
