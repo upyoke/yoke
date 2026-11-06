@@ -13,6 +13,8 @@ from runtime.api.domain.deployment_run_target_takeover_test_support import (
     RUN_QA_STAGE as RUN_QA_STAGE,
     WAITING as WAITING,
     _close_passed as _close_passed,
+    _dated_copy,
+    _dated_target,
     _contains as _contains,
     _members as _members,
     _requirement as _requirement,
@@ -209,3 +211,60 @@ def test_real_flow_final_completion_tail(test_db, monkeypatch, tail):
     _contains(monkeypatch)
     assert _take_over(test_db) == (OLD if tail == "auto" else None)
     assert _members(test_db, NEW) == ({WAITING} if tail == "auto" else set())
+
+
+def test_newest_live_run_wins_over_stale_failed_qa_without_restarting(
+    test_db, monkeypatch
+):
+    from yoke_core.domain.qa_plan_execution_begin import begin_plan_execution
+    from yoke_core.domain.qa_plan_execution_store import select_plan_execution
+
+    cases = _dated_target(test_db)
+    stale = "run-aaa-failed"
+    _dated_copy(test_db, stale, status="failed", created_at="2026-11-01T00:00:00Z",
+                open_requirement=cases[WAITING])
+    execution = begin_plan_execution(
+        test_db, deployment_run_id=OLD, deployment_stage="item-qa",
+        deployment_member_item_id=WAITING, actor_id="1", session_id=DRIVER_SESSION,
+    )
+    before = select_plan_execution(test_db, execution["id"], lock=False)
+    _contains(monkeypatch)
+
+    assert _take_over(test_db) == OLD
+
+    after = select_plan_execution(test_db, execution["id"], lock=False)
+    assert after == {**before, "deployment_run_id": NEW}
+    assert _run(test_db, NEW)["supersedes_run_id"] == OLD
+    assert _run(test_db, stale)["superseded_by_run_id"] is None
+    assert open_qa_lines(test_db, stale)
+
+
+@pytest.mark.parametrize("newest_status", ["failed", "succeeded", "created"])
+def test_only_newest_candidate_can_supply_qa(test_db, monkeypatch, newest_status):
+    cases = _dated_target(test_db)
+    stale = "run-aaa-failed"
+    _dated_copy(test_db, stale, status="failed", created_at="2026-11-01T00:00:00Z",
+                open_requirement=cases[WAITING])
+    test_db.execute("UPDATE deployment_runs SET status=%s WHERE id=%s",
+                    (newest_status, OLD))
+    if newest_status == "created":
+        test_db.execute("UPDATE deployment_runs SET supersedes_run_id=%s WHERE id=%s",
+                        (stale, OLD))
+    _contains(monkeypatch)
+
+    expected = OLD if newest_status == "failed" else None
+    assert _take_over(test_db) == expected
+    assert _run(test_db, NEW)["supersedes_run_id"] == expected
+    assert _run(test_db, stale)["superseded_by_run_id"] is None
+
+
+def test_cancelled_and_never_started_runs_are_skipped(test_db, monkeypatch):
+    _dated_target(test_db)
+    _dated_copy(test_db, "run-cancelled", status="cancelled",
+                created_at="2026-11-03T00:00:00Z")
+    _dated_copy(test_db, "run-never-started", status="created",
+                created_at="2026-11-04T00:00:00Z")
+    _contains(monkeypatch)
+
+    assert _take_over(test_db) == OLD
+    assert _run(test_db, NEW)["supersedes_run_id"] == OLD

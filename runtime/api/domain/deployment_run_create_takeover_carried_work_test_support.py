@@ -86,7 +86,8 @@ def _seed_prior_release(conn: Any) -> None:
         "INSERT INTO deployment_runs(id,project_id,flow,target_tier,"
         "target_environment_id,release_lineage,status,current_stage,created_at,"
         "completed_at) SELECT %s,project_id,flow,target_tier,"
-        "target_environment_id,%s,'succeeded','complete',created_at,created_at "
+        "target_environment_id,%s,'succeeded','complete',"
+        "created_at - interval '1 day',created_at - interval '1 day' "
         "FROM deployment_runs WHERE id=%s",
         (PRIOR, PRIOR_LINEAGE, takeover_case.OLD),
     )
