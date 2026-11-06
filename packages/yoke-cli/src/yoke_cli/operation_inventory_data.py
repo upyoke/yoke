@@ -125,6 +125,7 @@ WRAPPED_ROWS: Tuple[_Row, ...] = (
     _w("yoke sessions steering-groups list", "sessions"),
     _w("yoke sessions hook-overhead", "sessions"),
     _w("yoke sessions touch", "sessions"),
+    _w("yoke sessions wake schedule", "sessions"),
     _w("yoke sessions watcher-activity", "sessions"),
     _w("yoke sessions checkpoint", "sessions"),
     _w("yoke sessions checkpoint-read", "sessions"),

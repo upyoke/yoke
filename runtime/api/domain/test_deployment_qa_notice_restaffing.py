@@ -24,27 +24,36 @@ def test_group_dispatch_replaces_notice_to_ended_driver(test_db):
     for session in ("old-driver", "run-starter"):
         seed_session(test_db, session)
     release_seeded_driver(test_db, RUN)
-    attach_driver(test_db, RUN, session_id="old-driver", pid=4243, phase=PHASE_EXECUTING)
-    test_db.execute("UPDATE deployment_runs SET created_by_session_id='run-starter' WHERE id=%s", (RUN,))
+    attach_driver(
+        test_db, RUN, session_id="old-driver", pid=4243, phase=PHASE_EXECUTING
+    )
+    test_db.execute(
+        "UPDATE deployment_runs SET created_by_session_id='run-starter' WHERE id=%s",
+        (RUN,),
+    )
     test_db.commit()
     _form(test_db)
     _dispatch(test_db)
-    test_db.execute("UPDATE harness_sessions SET ended_at=now() WHERE session_id='old-driver'")
+    test_db.execute(
+        "UPDATE harness_sessions SET ended_at=now() WHERE session_id='old-driver'"
+    )
     test_db.commit()
     _dispatch(test_db)
     rows = test_db.execute(
         "SELECT r.session_id,m.cancelled_at FROM session_messages m "
         "JOIN session_message_recipients r ON r.message_id=m.message_id "
         "WHERE m.idempotency_key LIKE %s ORDER BY m.created_at",
-        (f"deployment-qa-stage-wait:{RUN}:item-qa:plan-groups:%",)
+        (f"deployment-qa-stage-wait:{RUN}:item-qa:plan-groups:%",),
     ).fetchall()
     assert len(rows) == 2
     assert rows[0][0] == "old-driver" and rows[0][1] is not None
     assert rows[1][0] == "run-starter" and rows[1][1] is None
     from yoke_core.domain.deployment_qa_stage_wake_state import stalled_qa_notice
 
-    test_db.execute("UPDATE session_message_recipients SET state='acknowledged',"
-                    "acknowledged_at=now() WHERE session_id='run-starter'")
+    test_db.execute(
+        "UPDATE session_message_recipients SET state='acknowledged',"
+        "acknowledged_at=now() WHERE session_id='run-starter'"
+    )
     test_db.commit()
     assert not stalled_qa_notice(test_db, RUN, "item-qa")
 
@@ -59,7 +68,10 @@ def test_unanswered_group_with_no_driver_needs_steering_action(test_db):
     _project(test_db)
     seed_session(test_db, "run-starter")
     release_seeded_driver(test_db, RUN)
-    test_db.execute("UPDATE deployment_runs SET created_by_session_id='run-starter' WHERE id=%s", (RUN,))
+    test_db.execute(
+        "UPDATE deployment_runs SET created_by_session_id='run-starter' WHERE id=%s",
+        (RUN,),
+    )
     test_db.commit()
     _form(test_db)
     _dispatch(test_db)
@@ -118,7 +130,7 @@ def test_member_dispatch_replaces_notice_to_ended_holder(test_db):
         "SELECT r.session_id,m.cancelled_at FROM session_messages m "
         "JOIN session_message_recipients r ON r.message_id=m.message_id "
         "WHERE m.idempotency_key LIKE %s ORDER BY m.created_at",
-        (f"deployment-qa-stage-wait:{run_id}:item-qa:{member}:%",),
+        (f"deployment-qa-manual-wait:{requirement_id}:%",),
     ).fetchall()
     assert len(rows) == 2
     assert rows[0][0] == "old-holder" and rows[0][1] is not None

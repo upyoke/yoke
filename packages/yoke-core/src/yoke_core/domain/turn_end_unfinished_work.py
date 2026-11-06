@@ -32,9 +32,21 @@ DIRECTIVE = (
 _HOLD_EXEMPT_STATUSES = ENGINE_TERMINAL_STAGE_IDS | ENGINE_WAIT_STAGE_IDS | {"done"}
 
 
+def lane_head_landed_sql(item_alias: str = "i") -> str:
+    """A landing proves the recorded lane head, never an older merge stamp."""
+    return (
+        "EXISTS (SELECT 1 FROM item_landings il "
+        f"WHERE il.item_id={item_alias}.id AND il.candidate_sha <> '' "
+        "AND il.candidate_sha=(SELECT iw.commit_sha FROM item_worktrees iw "
+        f"WHERE iw.item_id={item_alias}.id "
+        "AND iw.lane_role IN ('implementation','integration') "
+        "ORDER BY CASE WHEN iw.state='active' THEN 0 ELSE 1 END, iw.id DESC LIMIT 1))"
+    )
+
+
 def landed_but_open(claim: dict[str, Any]) -> bool:
     """Whether the branch already landed while the item stayed open."""
-    return bool(claim.get("merged_at") or claim.get("merge_queue_landed_at"))
+    return bool(claim.get("lane_head_landed"))
 
 
 def waiting_on_landing(claim: dict[str, Any]) -> bool:
@@ -51,7 +63,13 @@ def waiting_on_landing(claim: dict[str, Any]) -> bool:
     """
     if claim.get("open_attempt_enqueued_at"):
         return True
-    return bool(claim.get("merge_queue_enqueued_at")) and not landed_but_open(claim)
+    enqueued = claim.get("merge_queue_enqueued_at")
+    landed = claim.get("merge_queue_landed_at") or claim.get("merged_at")
+    return (
+        bool(enqueued)
+        and not landed_but_open(claim)
+        and (not landed or parse_instant(enqueued) > parse_instant(landed))
+    )
 
 
 def landing_notice_pending(claim: dict[str, Any]) -> bool:
@@ -64,7 +82,7 @@ def landing_notice_pending(claim: dict[str, Any]) -> bool:
     rules apply again. With no notice recorded nothing excuses the silence,
     so a notice that was never delivered still alarms.
     """
-    if not claim.get("merge_queue_landed_at"):
+    if not landed_but_open(claim) or not claim.get("merge_queue_landed_at"):
         return False
     if str(claim.get("status") or "").strip() in _HOLD_EXEMPT_STATUSES:
         return False
@@ -100,8 +118,8 @@ def recovery_for(claim: dict[str, Any]) -> str:
             f"item {ref} is still {status} after landing; status is not the "
             "landing signal. Finish close-out with "
             f"`yoke merge item {ref}` (Dash) or `/yoke usher {ref}` "
-            "(delivery). Confirm merged_at, the merge receipt, or git "
-            "ancestry of the merge sha."
+            "(delivery). The recorded lane head matches a candidate in this "
+            "item's landing receipts."
         )
     return DIRECTIVE
 

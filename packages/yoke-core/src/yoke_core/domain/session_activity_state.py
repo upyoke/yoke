@@ -285,23 +285,12 @@ def apply_envelope_state(conn: Any, envelope: Dict[str, Any]) -> None:
     observed_at = parse_instant(event_time)
     from yoke_core.domain.session_turn_posture import stamp_turn_posture
 
-    previous = None
-    if "turn_posture" in _columns(conn, "harness_sessions"):
-        lock = " FOR UPDATE" if db_backend.connection_is_postgres(conn) else ""
-        previous = conn.execute(
-            f"SELECT turn_posture FROM harness_sessions WHERE session_id = {_p(conn)}{lock}",
-            (session_id,),
-        ).fetchone()
     applied = stamp_turn_posture(
         conn,
         session_id=session_id,
         posture="running",
         observed_at=observed_at,
     )
-    if applied and previous is not None and previous["turn_posture"] == "waiting":
-        from yoke_core.domain.session_mode import clear_parked_mode
-
-        clear_parked_mode(conn, session_id)
     if event_name == _STARTED_EVENT_NAME:
         tool_use_id = envelope.get("tool_use_id")
         if isinstance(tool_use_id, str) and tool_use_id:
@@ -319,7 +308,7 @@ def apply_envelope_state(conn: Any, envelope: Dict[str, Any]) -> None:
         return
     if event_name in COMPLETION_EVENT_NAMES:
         tool_use_id = envelope.get("tool_use_id")
-        record_tool_call_finished(
+        completed = record_tool_call_finished(
             conn,
             session_id=session_id,
             tool_use_id=tool_use_id if isinstance(tool_use_id, str) else None,
@@ -329,6 +318,10 @@ def apply_envelope_state(conn: Any, envelope: Dict[str, Any]) -> None:
             completed_at=observed_at,
             command_summary=_envelope_command_summary(envelope),
         )
+        if applied and completed and event_name == _COMPLETED_EVENT_NAME:
+            from yoke_core.domain.session_park_turn import unpark_after_work
+
+            unpark_after_work(conn, envelope)
 
 
 __all__ = [

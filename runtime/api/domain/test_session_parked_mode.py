@@ -111,9 +111,7 @@ def test_unknown_mode_is_refused_with_accepted_values(conn):
     "event_name",
     ["HarnessToolCallStarted", "HarnessToolCallCompleted", "HarnessToolCallFailed"],
 )
-def test_tool_activity_clears_park_only_after_recorded_turn_end(
-    conn, posture, event_name
-):
+def test_only_successful_work_clears_park(conn, posture, event_name):
     _register(conn)
     _ensure_turn_posture(conn)
     conn.execute(
@@ -132,7 +130,7 @@ def test_tool_activity_clears_park_only_after_recorded_turn_end(
         },
     )
     row = _parked_row(conn)
-    resumed = posture == "waiting"
+    resumed = event_name == "HarnessToolCallCompleted"
     assert row["mode"] == (SESSION_MODE_DEFAULT if resumed else SESSION_MODE_PARKED)
     assert row["quiet_reason"] == (None if resumed else "waiting")
     row = conn.execute(
@@ -180,7 +178,7 @@ def _parked_row(conn):
     ).fetchone()
 
 
-def test_accepted_prompt_submit_clears_parked(conn, monkeypatch):
+def test_accepted_prompt_submit_preserves_parked(conn, monkeypatch):
     _register(conn)
     _ensure_turn_posture(conn)
     set_session_mode(
@@ -196,8 +194,8 @@ def test_accepted_prompt_submit_clears_parked(conn, monkeypatch):
         connection_factory=_shared_factory(conn, monkeypatch),
     )
     row = _parked_row(conn)
-    assert row["mode"] == SESSION_MODE_DEFAULT
-    assert row["quiet_reason"] is None
+    assert row["mode"] == SESSION_MODE_PARKED
+    assert row["quiet_reason"] == "awaiting superseded decisions"
 
 
 def test_failed_or_denied_prompt_submit_does_not_clear_parked(conn, monkeypatch):

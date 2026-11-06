@@ -1,4 +1,4 @@
-"""Session queue posture: parked waits until a mode stamp or confirmed turn start."""
+"""Session queue posture: parked waits through prompts and message-only turns."""
 
 from __future__ import annotations
 
@@ -112,9 +112,8 @@ def clear_parked_mode(conn: Any, session_id: str) -> bool:
     """Explicit unpark back to wait. No-op when the session is not parked.
 
     Activity-state writers must skip fixtures that have no ``mode`` column.
-    Accepted UserPromptSubmit clears park after its running stamp applies.
-    Tool activity clears it only when an applied stamp changes waiting to
-    running; calls within the turn that parked must preserve that park.
+    Successful work clears it after its running stamp applies. Prompts,
+    message receipts and explicit mode commands do not clear it implicitly.
     """
     if not session_id:
         return False

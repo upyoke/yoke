@@ -266,3 +266,17 @@ def test_capacity_messages_use_every_wake_backoff_before_relaunch(error):
             conn, at=died_at, error_message=error, vendor_code="server_overloaded"
         )
     assert one_state(conn, now=died_at + timedelta(hours=1))["status"] == "relaunch_due"
+
+
+@pytest.mark.parametrize("attempts", [0, len(RESUME_BACKOFF_SECONDS)])
+def test_parked_worker_is_never_due_for_capacity_recovery(attempts):
+    conn = worker_connection()
+    observe_turn_end(
+        conn, error_message="server overloaded", vendor_code="server_overloaded"
+    )
+    conn.execute("UPDATE harness_sessions SET mode='parked'")
+    for _ in range(attempts):
+        record_resume(conn, at=TURN_ENDED_AT)
+    result = one_state(conn, now=TURN_ENDED_AT + timedelta(hours=2))
+    assert result["status"] == "parked"
+    assert "declared wake" in result["reason"]

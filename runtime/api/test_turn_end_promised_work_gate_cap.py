@@ -47,6 +47,7 @@ def test_cap_names_close_out_and_warns(monkeypatch) -> None:
         "item_id": 2652,
         "status": "reviewing-implementation",
         "merged_at": "2026-08-28T21:24:11Z",
+        "lane_head_landed": True,
         "merge_queue_landed_at": None,
     }
     gate._emit_deferred(

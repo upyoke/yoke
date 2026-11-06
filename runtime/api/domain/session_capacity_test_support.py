@@ -52,6 +52,7 @@ def capacity_connection(
     ref = _seed_pinned_item(conn, status="implementing")
     for declaration in (
         "actor_id INTEGER DEFAULT 1",
+        "mode TEXT DEFAULT 'wait'",
         "last_tool_call_at TEXT",
         "turn_posture TEXT DEFAULT 'waiting'",
         "execution_level TEXT DEFAULT 'SENIOR'",

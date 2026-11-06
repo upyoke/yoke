@@ -43,6 +43,8 @@ def _next_actor(entry: VendorErrorSession) -> str:
         return entry.reason
     if entry.status == "capacity_recovery_refused":
         return f"{entry.reason} — yours: resolve the named refusal before restaffing"
+    if entry.status == "parked":
+        return "deliberately parked; wait for its declared wake"
     if entry.status == "due":
         return f"relay resumes it this poll (attempt {attempt} of {entry.budget})"
     if entry.status == "waiting_backoff":

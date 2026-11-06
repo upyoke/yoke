@@ -121,8 +121,9 @@ _HISTORY_CONVERGED_COLUMNS = frozenset(
 # audiences, audience_rules and inbox_posts are new tables with complete
 # born-with rows. The ordered audience migration retires the replaced
 # authority tables; decision_requests.audience_id has an additive boot lookup.
+# Timed self-wakes add a new table whose seven columns are born with it.
 _BORN_WITH_COLUMN_DIGEST = (
-    "518f41bb0e4f4a55b411f6da4d16ab07ba738d647d6850eb71b7185feaf5869f"
+    "e3cadf0a8104a0548c6098a89a12f4e4e4b7be038a0f163502d77e4aa2dbba15"
 )
 
 

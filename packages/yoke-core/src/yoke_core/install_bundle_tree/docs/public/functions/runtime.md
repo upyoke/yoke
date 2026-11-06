@@ -4,9 +4,7 @@
 [Getting started](../index.md) > [Command and technical reference](../guide/reference/index.md) > [Functions](index.md) > Runtime
 <!-- /yoke:breadcrumbs -->
 
-Read [envelope and authority](index.md). `none` skips only the claim check.
-
-| Function id | Claim policy |
+| Function id | [Claim policy](index.md) |
 |---|---|
 | `actors.role.set` | `none` |
 | `actors.roster` | `none` |
@@ -206,6 +204,7 @@ Read [envelope and authority](index.md). `none` skips only the claim check.
 | `sessions.reclaim_stale` | `none` |
 | `sessions.steering_groups.list` | `none` |
 | `sessions.touch` | `none` |
+| `sessions.wake.schedule` | `none` |
 | `sessions.watcher_activity` | `none` |
 | `steering.report.get` | `none` |
 | `teammate_invites.create` | `none` |

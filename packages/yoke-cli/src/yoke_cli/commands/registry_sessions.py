@@ -15,7 +15,14 @@ from yoke_cli.commands.adapters.sessions_read import (
 )
 
 
+from yoke_cli.commands.adapters.sessions_scheduled_wake import sessions_wake_schedule
+
+
 SESSIONS_SUBCOMMAND_REGISTRY = {
+    ("sessions", "wake", "schedule"): (
+        "sessions.wake.schedule",
+        sessions_wake_schedule,
+    ),
     ("sessions", "watcher-activity"): ("sessions.watcher_activity", watcher_activity),
     ("sessions", "begin"): ("sessions.begin", _adapters.sessions_begin),
     ("sessions", "identity"): (

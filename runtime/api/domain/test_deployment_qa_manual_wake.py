@@ -55,9 +55,14 @@ def test_only_holder_wake_requires_execution_in_this_session():
     from yoke_core.domain.merge_queue_landing_notice import HOLDER, STEERING
 
     entry = ManualWakeRequirement(
-        run_id="run-manual", stage="item-qa", item_id=9701,
-        item_ref="TEST-1", project_slug="example", requirement_id=97011,
-        case_key="real-traffic", wake_evidence=EVIDENCE,
+        run_id="run-manual",
+        stage="item-qa",
+        item_id=9701,
+        item_ref="TEST-1",
+        project_slug="example",
+        requirement_id=97011,
+        case_key="real-traffic",
+        wake_evidence=EVIDENCE,
     )
     instruction = (
         "You hold this item, so run it in this session; "
@@ -249,7 +254,7 @@ def test_report_lists_the_manual_wake_with_evidence_owner_and_run(
     )
     assert wake.run_command() == run_command
     assert f"run: {run_command}" in body
-    assert "stay parked; the case rides the next release takeover" in body
+    assert "schedule a timed recheck" in body
     assert "waive or remove" not in body
     projected = report_dict(report)
     assert "9801" in str(projected) and "run_command" in str(projected)

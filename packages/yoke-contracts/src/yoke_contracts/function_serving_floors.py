@@ -14,6 +14,7 @@ from typing import Any, Mapping
 
 #: function_id -> minimum serving version. Do not copy already-served ids here.
 FUNCTION_MINIMUM_SERVING_VERSIONS: dict[str, str] = {
+    "sessions.wake.schedule": "next-release",
     "audiences.create": "next-release",
     "audiences.list": "next-release",
     "inbox.posts.create": "next-release",

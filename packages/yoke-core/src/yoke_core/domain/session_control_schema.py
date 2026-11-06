@@ -25,7 +25,13 @@ from yoke_core.domain.session_launch_surface_domain import (
 )
 
 
+from yoke_core.domain.session_scheduled_wake_schema import (
+    create_session_scheduled_wakes,
+)
+
+
 SESSION_CONTROL_TABLES = (
+    "session_scheduled_wakes",
     "session_messages",
     "session_message_recipients",
     "session_message_attempts",
@@ -73,6 +79,7 @@ def create_session_control_tables(conn: Any) -> None:
         """,
     )
     create_session_message_recipient_table(conn)
+    create_session_scheduled_wakes(conn)
     execute_schema_script(
         conn,
         f"""
