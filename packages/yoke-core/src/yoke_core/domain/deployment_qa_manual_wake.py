@@ -30,6 +30,9 @@ from yoke_core.domain.merge_queue_landing_notice import (
     resolve_lane_recipient,
 )
 from yoke_core.domain.qa_plan_execution_store import marker
+from yoke_core.domain.deployment_qa_manual_notice import (
+    withdraw_obsolete_manual_notices,
+)
 from yoke_core.domain.session_staleness import activity_liveness
 from yoke_core.domain.work_claim_targets import scope_int_sql
 
@@ -239,6 +242,12 @@ def wake_manual_requirement_owners(
                 conn,
                 item_id=entry.item_id,
                 project_id=project_id,
+            )
+            withdraw_obsolete_manual_notices(
+                conn,
+                requirement_id=entry.requirement_id,
+                current_key=entry.idempotency_key(recipient),
+                now=parse_instant(utc_now()),
             )
             delivery = push_notice(
                 conn,

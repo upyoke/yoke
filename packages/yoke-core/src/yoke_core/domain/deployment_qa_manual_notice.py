@@ -15,55 +15,104 @@ MANUAL_WAIT_PREFIX = "deployment-qa-manual-wait:"
 def manual_notice_rows(
     conn: Any, *, run_id: str, stage_name: str
 ) -> list[dict[str, Any]]:
-    """Present a carried requirement's existing wake under its current run."""
-    if not _table_exists(conn, "qa_requirements"):
-        return []
+    """Read once per presentation; a carried notice follows its requirement."""
+    from yoke_core.domain.deployment_qa_presentation_facts import presented_run_ids
+    from yoke_core.domain.deployment_qa_presentation_reads import presentation_read
+
+    runs = presented_run_ids(conn, run_id) or (run_id,)
     p = marker(conn)
-    rows = conn.execute(
-        "SELECT m.message_id, m.idempotency_key, m.created_at AS sent_at, "
-        "COALESCE(r.session_id,'') AS session_id, "
-        "CASE WHEN m.cancelled_at IS NOT NULL THEN 'cancelled' "
-        "WHEN h.ended_at IS NOT NULL THEN 'ended' ELSE COALESCE(r.state,'') END AS state, "
-        "COALESCE(r.wake_escalation,'') AS escalation, "
-        "q.deployment_member_item_id AS member, COALESCE(q.wake_evidence,'') AS evidence "
-        "FROM qa_requirements q JOIN session_messages m ON m.idempotency_key LIKE "
-        f"{p} || CAST(q.id AS TEXT) || {p} "
-        "LEFT JOIN session_message_recipients r ON r.message_id=m.message_id "
-        "LEFT JOIN harness_sessions h ON h.session_id=r.session_id "
-        f"WHERE q.deployment_run_id={p} AND q.deployment_stage={p} "
-        "ORDER BY m.created_at DESC, m.message_id",
-        (MANUAL_WAIT_PREFIX, ":%", run_id, stage_name),
-    ).fetchall()
+
+    def read():
+        if not _table_exists(conn, "qa_requirements") or not _table_exists(
+            conn, "session_messages"
+        ):
+            return []
+        return [
+            dict(row)
+            for row in conn.execute(
+                "SELECT m.message_id, m.idempotency_key, m.created_at AS sent_at, "
+                "COALESCE(r.session_id,'') AS session_id, "
+                "CASE WHEN m.cancelled_at IS NOT NULL THEN 'cancelled' "
+                "WHEN h.ended_at IS NOT NULL THEN 'ended' ELSE COALESCE(r.state,'') END AS state, "
+                "COALESCE(r.wake_escalation,'') AS escalation, "
+                "q.deployment_member_item_id AS member, COALESCE(q.wake_evidence,'') AS evidence, "
+                "q.deployment_run_id AS run_id,q.deployment_stage AS stage,q.id AS requirement_id "
+                "FROM qa_requirements q JOIN session_messages m ON m.idempotency_key LIKE "
+                f"{p} || CAST(q.id AS TEXT) || {p} "
+                "LEFT JOIN session_message_recipients r ON r.message_id=m.message_id "
+                "LEFT JOIN harness_sessions h ON h.session_id=r.session_id "
+                f"WHERE q.deployment_run_id IN ({','.join([p] * len(runs))}) "
+                "ORDER BY m.created_at DESC, m.message_id",
+                (MANUAL_WAIT_PREFIX, ":%", *runs),
+            ).fetchall()
+        ]
+
     found = []
-    for row in rows:
+    for row in presentation_read(conn, ("qa_manual_notices", runs), read):
         record = dict(row)
+        if record.pop("run_id") != run_id or record.pop("stage") != stage_name:
+            continue
         digest = sha256(record.pop("evidence").encode("utf-8")).hexdigest()
         if not record["idempotency_key"].endswith(f":{digest}"):
             continue
-        member = record.pop("member")
+        member, requirement = record.pop("member"), record.pop("requirement_id")
         record["idempotency_key"] = (
-            f"deployment-qa-stage-wait:{run_id}:{stage_name}:{member}:manual"
+            f"deployment-qa-stage-wait:{run_id}:{stage_name}:{member}:manual:{requirement}"
         )
         found.append(record)
     return found
 
 
+def withdraw_obsolete_manual_notices(
+    conn: Any, *, requirement_id: int, current_key: str, now: Any
+) -> None:
+    """Changed ownership or evidence retires the old instruction before sending."""
+    p = marker(conn)
+    rows = conn.execute(
+        f"SELECT message_id FROM session_messages WHERE idempotency_key LIKE {p} "
+        f"AND idempotency_key <> {p} AND cancelled_at IS NULL",
+        (f"{MANUAL_WAIT_PREFIX}{requirement_id}:%", current_key),
+    ).fetchall()
+    if rows:
+        cancel_messages(
+            conn,
+            message_ids=[str(row[0]) for row in rows],
+            actor_id=None,
+            reason="Manual QA owner or evidence changed",
+            cancelled_at=now,
+        )
+
+
 def withdraw_settled_manual_notices(
-    conn: Any, *, item_id: int | None, reason: str, now: Any, run_id: str | None = None
+    conn: Any,
+    *,
+    item_id: int | None,
+    reason: str,
+    now: Any,
+    run_id: str | None = None,
 ) -> int:
     """A run ending does not settle its carried requirement; QA or item closure does."""
-    if not _table_exists(conn, "qa_requirements"):
+    if not _table_exists(conn, "qa_requirements") or not _table_exists(
+        conn, "session_messages"
+    ):
         return 0
     p = marker(conn)
+    item_clause = f" OR q.deployment_member_item_id={p}" if item_id is not None else ""
     rows = conn.execute(
         "SELECT m.message_id FROM session_messages m JOIN qa_requirements q "
         f"ON m.idempotency_key LIKE {p} || CAST(q.id AS TEXT) || {p} "
         f"WHERE m.cancelled_at IS NULL AND (CAST({p} AS TEXT) IS NULL OR q.deployment_run_id={p}) "
-        "AND (q.waived_at IS NOT NULL "
-        "OR q.superseded_at IS NOT NULL OR q.retracted_at IS NOT NULL "
+        "AND (q.waived_at IS NOT NULL OR q.superseded_at IS NOT NULL OR q.retracted_at IS NOT NULL "
         "OR EXISTS (SELECT 1 FROM qa_runs qr WHERE qr.qa_requirement_id=q.id) "
-        f"OR q.deployment_member_item_id={p})",
-        (MANUAL_WAIT_PREFIX, ":%", run_id, run_id, item_id),
+        + item_clause
+        + ")",
+        (
+            MANUAL_WAIT_PREFIX,
+            ":%",
+            run_id,
+            run_id,
+            *((item_id,) if item_id is not None else ()),
+        ),
     ).fetchall()
     ids = [str(row[0]) for row in rows]
     if ids:

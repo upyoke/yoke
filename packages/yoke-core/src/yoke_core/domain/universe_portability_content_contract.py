@@ -4,6 +4,7 @@ from __future__ import annotations
 
 ARCHIVE_OMITTABLE_TARGET_TABLES = frozenset(
     {
+        "session_scheduled_wakes",
         "actor_message_recipients",
         "capability_secrets",
         "audience_rules",

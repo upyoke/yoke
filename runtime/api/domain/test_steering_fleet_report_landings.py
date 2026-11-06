@@ -36,7 +36,9 @@ def _wire(monkeypatch, *, state: PrLandingState, checks=()) -> None:
     monkeypatch.setattr(
         reads_mod,
         "read_pr_landing_and_required_checks",
-        lambda _ctx, _pr, **_kwargs: PrLandingProjection(state=state, required_checks=checks),
+        lambda _ctx, _pr, **_kwargs: PrLandingProjection(
+            state=state, required_checks=checks
+        ),
     )
 
 
@@ -45,8 +47,13 @@ def test_fleet_names_the_entry_state_when_arming_was_consumed(
 ) -> None:
     _wire(
         monkeypatch,
-        state=PrLandingState(False, False, False, merge_state_status="blocked",
-                             queue_entry_state="AWAITING_CHECKS"),
+        state=PrLandingState(
+            False,
+            False,
+            False,
+            merge_state_status="blocked",
+            queue_entry_state="AWAITING_CHECKS",
+        ),
     )
 
     report = compose(fleet)
@@ -93,8 +100,12 @@ def test_idle_holder_waiting_on_healthy_landing_is_not_idle(fleet, monkeypatch, 
     claim_work(fleet, session_id=WORKER_SESSION, target=make_item_target(1))
     _wire(
         monkeypatch,
-        state=PrLandingState(False, False, not queued,
-            queue_entry_state="AWAITING_CHECKS" if queued else "absent"),
+        state=PrLandingState(
+            False,
+            False,
+            not queued,
+            queue_entry_state="AWAITING_CHECKS" if queued else "absent",
+        ),
     )
 
     report = compose(fleet)
@@ -110,8 +121,12 @@ def test_failed_required_check_retains_idle_holder(fleet, monkeypatch, queued):
     claim_work(fleet, session_id=WORKER_SESSION, target=make_item_target(1))
     _wire(
         monkeypatch,
-        state=PrLandingState(False, False, True,
-            queue_entry_state="AWAITING_CHECKS" if queued else "absent"),
+        state=PrLandingState(
+            False,
+            False,
+            True,
+            queue_entry_state="AWAITING_CHECKS" if queued else "absent",
+        ),
         checks=(LandingCheck("tests", "completed", "failure", required=True),),
     )
 
@@ -136,6 +151,18 @@ def test_merged_landing_excuses_the_holder_until_it_acts_after_the_notice(
     fleet.execute(
         "UPDATE items SET merge_queue_landed_at=%s WHERE id=1",
         ("2026-08-26T11:00:00.000000Z",),
+    )
+    fleet.commit()
+
+    fleet.execute(
+        "INSERT INTO item_worktrees(item_id,lane_role,path,branch,commit_sha,created_at,updated_at) "
+        "VALUES (1,'implementation','/tmp/landed','landed',%s,%s,%s)",
+        ("a" * 40, "2026-08-26T11:00:00Z", "2026-08-26T11:00:00Z"),
+    )
+    fleet.execute(
+        "INSERT INTO item_landings(item_id,merge_sha,candidate_sha,route,landed_at) "
+        "VALUES (1,%s,%s,'merge_queue',%s)",
+        ("b" * 40, "a" * 40, "2026-08-26T11:00:00Z"),
     )
     fleet.commit()
 

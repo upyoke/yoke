@@ -179,15 +179,16 @@ def _describe(notice: tuple[str, datetime | None, str, str]) -> str:
 
 def stalled_qa_notice(conn: Any, run_id: str, stage_name: str) -> bool:
     """No live driver owns the wait; an unreceived or unanswered notice still needs action."""
-    active = [
-        notice[2]
-        for notice in _latest_notices(
-            conn,
-            run_id=run_id,
-            stage_name=stage_name,
-        ).values()
-        if notice[2] != "cancelled"
-    ]
+    from yoke_core.domain.deployment_qa_manual_notice import manual_notice_rows
+
+    latest = {}
+    for row in _notice_rows(conn, run_id=run_id, stage_name=stage_name):
+        latest.setdefault(
+            str(_get(row, "idempotency_key", 1)), str(_get(row, "state", 4))
+        )
+    for row in manual_notice_rows(conn, run_id=run_id, stage_name=stage_name):
+        latest.setdefault(row["idempotency_key"], row["state"])
+    active = [state for state in latest.values() if state != "cancelled"]
     return not active or any(state != "acknowledged" for state in active)
 
 
