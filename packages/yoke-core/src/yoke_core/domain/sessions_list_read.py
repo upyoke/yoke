@@ -194,6 +194,10 @@ def list_sessions(
             clauses.append("s.session_id = ANY(%s)")
             where_params.append(list(session_ids))
         clauses.append(not_probe_session_sql("s"))
+        if presence == "ended":
+            clauses.append(ended_session_sql("s"))
+        elif presence in {"present", "gone"} or activity in {"working", "between_turns"}:
+            clauses.append(live_session_sql("s"))
         if liveness == LIVENESS_ENDED or ended_cause is not None:
             clauses.append(ended_session_sql("s"))
         elif open or liveness in LIVE_LIVENESS_STATES:
