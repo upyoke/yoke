@@ -78,7 +78,7 @@ def resettle_stage(
 
     rows = conn.execute(
         "SELECT id FROM qa_plan_executions WHERE deployment_run_id=%s "
-        "AND deployment_stage=%s AND state='completed' "
+        "AND deployment_stage=%s AND state IN ('completed','aborted','error') "
         "AND (%s::bigint IS NULL OR deployment_member_item_id=%s OR deployment_member_item_id IS NULL) "
         "ORDER BY created_at DESC,id",
         (run_id, stage, member, member),

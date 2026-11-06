@@ -43,13 +43,17 @@ def _current_execution(conn, execution_id):
 
 
 def settle_execution(conn: Any, execution: Mapping[str, Any]) -> dict[str, Any] | None:
-    """Settle the active stage for one completed, target-bound execution."""
+    """Settle the active stage from one terminal, target-bound execution."""
     if not execution.get("deployment_stage"):
         return None
     execution = _current_execution(conn, str(execution["id"]))
     run_id = str(execution.get("deployment_run_id") or "")
     stage = str(execution.get("deployment_stage") or "")
-    if not run_id or not stage or execution.get("state") != "completed":
+    if (
+        not run_id
+        or not stage
+        or execution.get("state") not in {"completed", "aborted", "error"}
+    ):
         return None
     run = conn.execute(
         "SELECT status,current_stage FROM deployment_runs WHERE id=%s", (run_id,)
