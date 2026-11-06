@@ -9,7 +9,8 @@ from yoke_core.domain.handlers.reads import handle_items_get
 
 def test_item_state_agrees_across_reads(test_db):
     insert_item(test_db, id=841, project_sequence=81, workflow_id="issue",
-                status="implementing", title="Consistent display")
+                status="implementing", title="Consistent display",
+                spec="Show the same pinned state on every item read.")
     test_db.commit()
     actor = ActorContext(actor_id=None, session_id="")
     fields = ["stage", "home_section", "next_actor", "progress"]
