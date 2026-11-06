@@ -276,7 +276,8 @@ def dispatch_deployment_qa_stage(
 
     # Lost idempotent dispatches retry, then stop the driver resumably.
     response = redispatch_after_connection_loss(
-        lambda: call_dispatcher(
+        lambda request_id: call_dispatcher(
+            request_id=request_id,
             function_id=DISPATCH_DEPLOYMENT_QA_STAGE_FUNCTION,
             target=TargetRef(kind="workflow_run", workflow_run_id=run_id),
             payload={"stage_name": str(stage.get("name") or "")},

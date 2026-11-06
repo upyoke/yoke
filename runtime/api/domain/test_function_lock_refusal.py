@@ -77,6 +77,8 @@ def test_every_named_code_is_retryable() -> None:
         IDEMPOTENCY_BUSY_CODE,
         LOCK_TIMEOUT_CODE,
         STATEMENT_CANCELLED_CODE,
+        "qa_checkin_busy", "qa_ownership_busy",
+        "deployment_start_lock_busy", "deployment_membership_changed",
     }
 
 
@@ -96,3 +98,26 @@ def test_a_busy_qa_plan_keeps_its_retryable_refusal():
     assert not outcome.primary_success
     assert outcome.error.code == QA_PLAN_BUSY_CODE
     assert outcome.error.message == str(busy)
+
+
+@pytest.mark.parametrize("code", [
+    "qa_checkin_busy", "qa_ownership_busy",
+    "deployment_start_lock_busy", "deployment_membership_changed",
+])
+def test_rolled_back_named_refusals_keep_their_code(code):
+    from yoke_contracts.api.function_call import FunctionError, HandlerOutcome
+
+    message = f"{code}: transaction rolled back; retry the same request"
+    raised = name_lock_refusal(_ENTRY, None, _raising(ValueError(message)))
+    assert raised.error.code == code
+    wrapped = HandlerOutcome(primary_success=False, error=FunctionError(
+        code="run_create_rejected", message=message, jsonpath="$.payload"
+    ))
+    result = name_lock_refusal(_ENTRY, None, lambda entry, request: wrapped)
+    assert result.error.code == code
+    assert result.error.message == message
+    assert result.error.jsonpath == "$.payload"
+
+
+def test_other_value_errors_do_not_become_retryable():
+    assert lock_refusal_outcome(_ENTRY, ValueError("invalid: stop")) is None

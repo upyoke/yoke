@@ -19,9 +19,9 @@ RESULT_RETRY_SECONDS = 1.0
 def recover_dispatch_result(request, response, connection, *, relay):
     """Wait on the same request reservation; never switch to a DB door.
 
-    The server serializes the original and this identical request, then reads
-    its recorded result. Failed originals may run again: QA dispatch is itself
-    idempotent. An unanswered recovery leaves the driver resumable.
+    An in-flight copy refuses immediately; keep waiting on the identical
+    request until the original records its result. Failed originals may run
+    again: QA dispatch is itself idempotent. An unanswered recovery leaves the driver resumable.
     """
     if (
         request.function != "deployment_runs.qa_stage.dispatch"
@@ -43,12 +43,13 @@ def recover_dispatch_result(request, response, connection, *, relay):
         recovered, used = relay()
         attempts += used
         if recovered.error is None or recovered.error.code not in {
-            TRANSPORT_FAILED_CODE,
+            TRANSPORT_FAILED_CODE, "idempotency_request_in_flight",
         }:
             break
         time.sleep(min(RESULT_RETRY_SECONDS, max(0, deadline - time.monotonic())))
     if recovered.error is not None and recovered.error.code in {
-        TRANSPORT_FAILED_CODE, SKEW_ERROR_CODE, ARGUMENT_SKEW_ERROR_CODE,
+        TRANSPORT_FAILED_CODE, "idempotency_request_in_flight",
+        SKEW_ERROR_CODE, ARGUMENT_SKEW_ERROR_CODE,
     }:
         recovered = recovered.model_copy(update={"error": FunctionError(
             code="control_plane_connection_lost",

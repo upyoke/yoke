@@ -74,6 +74,7 @@ def test_a_loss_followed_by_success_makes_two_calls(code, _no_real_pauses):
 
     assert result == (-4, "member pending")
     assert sender.call_count == 2
+    assert sender.call_args_list[0].kwargs["request_id"] == sender.call_args_list[1].kwargs["request_id"]
     assert _no_real_pauses == [5.0]
 
 
@@ -130,6 +131,7 @@ def test_busy_dispatch_retries_then_succeeds(code, _no_real_pauses):
     result, sender = _dispatch(_lost(code), _accepted())
     assert result == (-4, "member pending")
     assert sender.call_count == 2
+    assert sender.call_args_list[0].kwargs["request_id"] == sender.call_args_list[1].kwargs["request_id"]
     assert _no_real_pauses == [LOCK_RETRY_DELAYS_SECONDS[0]]
 
 
@@ -167,7 +169,7 @@ def test_busy_and_lost_answers_keep_independent_retry_budgets(_no_real_pauses):
     assert _no_real_pauses == [5.0, *LOCK_RETRY_DELAYS_SECONDS, 15.0]
 
 
-@pytest.mark.parametrize("code", sorted(RETRYABLE_LOCK_CODES))
+@pytest.mark.parametrize("code", sorted(RETRYABLE_LOCK_CODES - {"idempotency_request_in_flight"}))
 @pytest.mark.parametrize("after_timeout", [False, True])
 def test_https_busy_answer_reaches_shared_retry_policy(code, after_timeout, _no_real_pauses):
     from types import SimpleNamespace
@@ -184,7 +186,7 @@ def test_https_busy_answer_reaches_shared_retry_policy(code, after_timeout, _no_
     responses = iter([timeout if after_timeout else busy, _accepted()])
     replay = Mock(return_value=(busy, 1))
 
-    def call():
+    def call(*, request_id):
         response, _ = recover_dispatch_result(
             request, next(responses), SimpleNamespace(env="test"), relay=replay
         )
@@ -196,3 +198,79 @@ def test_https_busy_answer_reaches_shared_retry_policy(code, after_timeout, _no_
     assert result.success
     assert replay.call_count == int(after_timeout)
     assert _no_real_pauses == [LOCK_RETRY_DELAYS_SECONDS[0]]
+
+
+def test_each_driver_check_gets_a_new_request_identity():
+    _, first = _dispatch(_accepted())
+    _, second = _dispatch(_accepted())
+    assert first.call_args.kwargs["request_id"]
+    assert first.call_args.kwargs["request_id"] != second.call_args.kwargs["request_id"]
+
+
+def test_slow_https_dispatch_joins_one_execution_and_replays_result(monkeypatch):
+    """An 80s server call outlives the 30s read; copies only read its ledger."""
+    from types import SimpleNamespace
+    from yoke_cli.transport import https_dispatch_result_wait as wait
+    from yoke_cli.transport.https_response_policy import RESPONSE_TIMEOUT_DETAIL
+
+    clock = [0.0]
+    ledger = {}
+    ids = []
+    executions = []
+    monkeypatch.setattr(wait.time, "monotonic", lambda: clock[0])
+    monkeypatch.setattr(wait.time, "sleep", lambda seconds: clock.__setitem__(0, clock[0] + seconds))
+
+    def send(request_id):
+        ids.append(request_id)
+        if request_id not in ledger:
+            executions.append(request_id)
+            ledger[request_id] = clock[0] + 80
+            clock[0] += 30
+            return _lost(TRANSPORT_FAILED_CODE).model_copy(update={
+                "error": FunctionError(code=TRANSPORT_FAILED_CODE, message=RESPONSE_TIMEOUT_DETAIL)
+            })
+        if clock[0] < ledger[request_id]:
+            return _lost("idempotency_request_in_flight")
+        return _accepted()
+
+    def transport(**kwargs):
+        request_id = kwargs["request_id"]
+        response, _ = wait.recover_dispatch_result(
+            SimpleNamespace(function=kwargs["function_id"], request_id=request_id),
+            send(request_id), SimpleNamespace(env="test"),
+            relay=lambda: (send(request_id), 1),
+        )
+        return response
+
+    with patch("yoke_core.api.service_client_structured_api_adapter.call_dispatcher", transport):
+        result = dispatch_mod.dispatch_deployment_qa_stage(
+            {"name": "item-qa", "scope": "item"}, run_id=_RUN
+        )
+    assert result == (-4, "member pending")
+    assert clock[0] == 80
+    assert len(executions) == 1
+    assert set(ids) == set(executions)
+    assert len(ids) > len(LOCK_RETRY_DELAYS_SECONDS) + 1
+
+
+def test_https_inflight_wait_exhaustion_leaves_an_unknown_outcome(monkeypatch):
+    from types import SimpleNamespace
+    from yoke_cli.transport import https_dispatch_result_wait as wait
+    from yoke_cli.transport.https_response_policy import RESPONSE_TIMEOUT_DETAIL
+
+    clock = [0.0]
+    monkeypatch.setattr(wait, "RESULT_WAIT_SECONDS", 1)
+    monkeypatch.setattr(wait, "RESULT_WAIT_ATTEMPTS", 2)
+    monkeypatch.setattr(wait.time, "monotonic", lambda: clock[0])
+    monkeypatch.setattr(wait.time, "sleep", lambda seconds: clock.__setitem__(0, clock[0] + seconds))
+    timeout = _lost(TRANSPORT_FAILED_CODE).model_copy(update={
+        "error": FunctionError(code=TRANSPORT_FAILED_CODE, message=RESPONSE_TIMEOUT_DETAIL)
+    })
+    response, attempts = wait.recover_dispatch_result(
+        SimpleNamespace(function=dispatch_mod.DISPATCH_DEPLOYMENT_QA_STAGE_FUNCTION, request_id="req-1"),
+        timeout, SimpleNamespace(env="test"),
+        relay=lambda: (_lost("idempotency_request_in_flight"), 1),
+    )
+    assert attempts == 2
+    assert response.error.code == CONNECTION_LOST_CODE
+    assert "qa_dispatch_result_unconfirmed" in response.error.message
