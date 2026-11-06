@@ -95,6 +95,7 @@ SESSION_SURFACE_CAPABILITIES: dict[str, SessionSurfaceCapability] = {
         "none",
         "supported",
         relay_stop_denial_continuation="none",
+        liveness_process_names=("codex",),
     ),
     "codex-desktop": SessionSurfaceCapability(
         "26.814.41407",

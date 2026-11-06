@@ -49,13 +49,10 @@ wake passes through, before any surface adapter can spawn. The comparison is
 against the recorded start time, so a reused pid reads as gone rather than as
 alive, and a session with no record at all proves nothing and is left alone.
 
-The process-anchor registry is deliberately excluded. An anchor names a
-process for any session, including an operator's own interactive one, where a
-live process means a person has a window open and not that a turn is
-executing — deferring on it would leave an idle interactive session's
-envelope undelivered. An operator-opened interactive session is therefore not
-covered by this guard, which remains the narrower correct answer over one
-that trades this defect for a starvation.
+The relay also checks process anchors for operator-opened CLI sessions. A live
+anchor outside relay-owned process groups keeps the conversation with its
+interactive holder; mail waits for that holder's next hook, even between turns.
+This applies to every wake, including explicit Inbox-answer wakes.
 
 ## What a declined wake owes the envelope
 

@@ -82,7 +82,9 @@
         "message_stopped": "supported",
         "stop_denial_continuation": "supported",
         "relay_stop_denial_continuation": "none",
-        "liveness_process_names": [],
+        "liveness_process_names": [
+          "codex"
+        ],
         "wake_authority": "native",
         "turn_end_event": "Stop"
       },

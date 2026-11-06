@@ -47,6 +47,14 @@ open the chat and start a turn. A missing relay leaves messaging available;
 the card explains that hook delivery can proceed and automatic wake waits
 for the relay to reconnect. Active sessions keep their normal hook delivery.
 
+The relay never resumes a CLI session while a live interactive process holds
+it, including after an Inbox answer or an explicit wake request. A matching
+process anchor with the same PID start time keeps the message pending for
+that process's next hook. Wake attempts report `native_turn_running` with
+`running_native_source=process_anchor`; bounded deferral refunds and escalation
+still apply. Claude CLI and Cursor CLI write anchors; Codex CLI does too.
+Codex desktop and editor surfaces do not write these CLI anchors.
+
 Native wake routes that refuse delivery spend a bounded retry budget. Exhaustion
 sends the named failure and recovery to the covering steering seat. The
 original sender is not notified; the message state is their record. Read

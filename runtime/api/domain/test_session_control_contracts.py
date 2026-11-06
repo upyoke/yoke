@@ -55,7 +55,7 @@ def test_registered_function_vocabulary_uses_product_verbs_only() -> None:
             "supported",
             "supported",
             "none",
-            (),
+            ("codex",),
         ),
         (
             "cursor-cli",

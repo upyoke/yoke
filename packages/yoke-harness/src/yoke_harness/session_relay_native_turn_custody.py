@@ -39,12 +39,6 @@ turn left in its process group is not a turn, and reading it as one held a
 gone Cursor worker's next message until steering terminated the session.
 A containment result that proved the exit settles it the same way.
 
-The process-anchor registry is deliberately not read here. An anchor names a
-process for any session, including an operator's own interactive one, where
-a live process means a person has a window open rather than that a turn is
-executing. Deferring on that would leave an idle interactive session's
-envelope undelivered, so an operator-opened interactive session is outside
-what this guard covers.
 """
 
 from __future__ import annotations
@@ -333,6 +327,12 @@ def deferral_for_running_native(
         custody_state_dir=custody_state_dir,
         start_time_of=start_time_of,
     )
+    if running is None:
+        from yoke_harness.session_relay_interactive_holder import interactive_holder
+
+        running = interactive_holder(
+            context, custody_state_dir=custody_state_dir, start_time_of=start_time_of,
+        )
     if running is None:
         return None
     return RelayAdapterResult(NATIVE_TURN_RUNNING_RESULT, evidence=running.evidence)
