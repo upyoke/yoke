@@ -35,7 +35,6 @@ class TestSkipObservability:
         monkeypatch.setattr(gate_mod, "call_dispatcher", dispatch)
         result = gate_mod.drift_check_before_landing(
             "yoke",
-            checkout="/repo",
             branch="main",
             public_ref="YOK-7",
         )
@@ -70,7 +69,6 @@ class TestSkipObservability:
 
         result = gate_mod.drift_check_before_landing(
             "yoke",
-            checkout="/repo",
             branch="main",
             public_ref="YOK-7",
         )

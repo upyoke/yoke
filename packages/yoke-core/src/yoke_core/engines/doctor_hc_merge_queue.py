@@ -7,10 +7,8 @@ branch, and a CI workflow carrying the ``merge_group`` trigger the
 queue's integration gate runs through. It also diffs live merge_queue
 parameters, required checks, ``allow_auto_merge``, and (when readable)
 bypass actors against ``.yoke/merge-queue.json`` so parameter drift
-turns red. The declaration comes from the project checkout when this
-host has one — it sees uncommitted edits — and otherwise from the
-repository itself at the default branch head, so a hosted runner with
-no checkout performs the same parameter diff.
+turns red. The declaration is fetched only from the repository at the
+project's gate branch, so local and hosted runners compare the same rules.
 
 SKIPs cleanly when the project does not declare the capability, when
 GitHub auth is unavailable on this host, or when the CI workflow
@@ -20,7 +18,6 @@ checks, not merge-queue drift.
 
 from __future__ import annotations
 
-from pathlib import Path
 from typing import Optional, Tuple
 
 from yoke_contracts.github_app_installation_permissions import (
@@ -49,8 +46,6 @@ from yoke_core.domain.merge_queue_live_drift import (
 from yoke_core.domain.merge_queue_declaration import (
     DECLARATION_RELATIVE_PATH,
     MergeQueueDeclarationError,
-    declaration_path,
-    load_declaration,
     parse_declaration,
 )
 from yoke_core.domain.project_github_auth import (
@@ -62,7 +57,6 @@ from yoke_core.domain.project_github_auth import (
 from yoke_core.domain.projects_seed_ci_workflow import (
     MERGE_QUEUE_CAPABILITY_TYPE,
 )
-from yoke_core.engines.doctor_context import resolve_context
 from yoke_core.engines.doctor_report import DoctorArgs, RecordCollector
 from yoke_core.domain.project_attribution import resolved_project
 
@@ -132,25 +126,6 @@ def _workflow_has_merge_group_trigger(
     return has_trigger, workflow_file
 
 
-def _checkout_declaration(
-    conn, args: DoctorArgs,
-) -> Tuple[Optional[dict], str]:
-    """Return (declared, detail) from this host's project checkout."""
-    try:
-        checkout = resolve_context(conn, args).source_checkout
-    except Exception as exc:  # noqa: BLE001 — doctor must not crash
-        return None, f"checkout unresolved: {exc}"
-    if checkout is None:
-        return None, "no source checkout mapped for project"
-    path = declaration_path(Path(checkout))
-    if not path.is_file():
-        return None, f"no declaration at {path.name}"
-    try:
-        return load_declaration(path), str(path)
-    except MergeQueueDeclarationError as exc:
-        return None, f"declaration unreadable: {exc}"
-
-
 def _repo_declaration(
     owner: str, repo: str, ref: str, token: str,
 ) -> Tuple[Optional[dict], str]:
@@ -168,21 +143,6 @@ def _repo_declaration(
         return parse_declaration(raw, source=source), source
     except MergeQueueDeclarationError as exc:
         return None, f"declaration unreadable: {exc}"
-
-
-def _resolve_declaration(
-    conn, args: DoctorArgs, owner: str, repo: str, ref: str, token: str,
-) -> Tuple[Optional[dict], str]:
-    """Prefer the local checkout; fall back to the repository at ``ref``.
-
-    The checkout read wins where it exists because it sees uncommitted
-    edits an operator is mid-way through applying; the repository read
-    keeps the parameter diff running on hosts that hold no checkout.
-    """
-    declared, detail = _checkout_declaration(conn, args)
-    if declared is not None or "declaration unreadable" in detail:
-        return declared, detail
-    return _repo_declaration(owner, repo, ref, token)
 
 
 def hc_merge_queue_binding(
@@ -276,8 +236,8 @@ def hc_merge_queue_binding(
             "the queue's integration gate would never run"
         )
 
-    declared, decl_detail = _resolve_declaration(
-        conn, args, owner, repo, default_branch, auth.token
+    declared, decl_detail = _repo_declaration(
+        owner, repo, default_branch, auth.token
     )
     if declared is not None:
         report = compare_declared_against_live(

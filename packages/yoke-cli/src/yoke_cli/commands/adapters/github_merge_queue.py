@@ -137,8 +137,8 @@ def github_merge_queue_apply(args: List[str]) -> int:
         description=(
             "Idempotently apply .yoke/merge-queue.json (ruleset + "
             "allow_auto_merge) to the project's bound GitHub repository. "
-            "Requires Administration: write on the App installation. "
-            "Dry-run with --preview."
+            "Requires Administration: write and Contents: read on the App installation. "
+            "Real apply requires content matching the landed gate declaration. Preview lane changes with --preview."
         ),
     )
     parser.add_argument(
@@ -150,7 +150,7 @@ def github_merge_queue_apply(args: List[str]) -> int:
         "--declaration",
         default=None,
         help=(
-            "Path to the declared JSON (default: <checkout>/.yoke/merge-queue.json)."
+            "Optional JSON to compare with the gate branch; preview defaults to <checkout>/.yoke/merge-queue.json."
         ),
     )
     parser.add_argument(
@@ -172,23 +172,24 @@ def github_merge_queue_apply(args: List[str]) -> int:
         "project": parsed.project,
         "preview": parsed.preview,
     }
-    if parsed.declaration:
-        declaration_path = Path(parsed.declaration).expanduser()
-    else:
-        checkout = resolve_repo_root_from_cwd()
-        if checkout is None:
-            return usage_error(
-                "cannot resolve the local checkout; pass --declaration PATH"
-            )
-        declaration_path = Path(checkout) / DECLARATION_RELATIVE_PATH
-    try:
-        declaration_text = declaration_path.read_text(encoding="utf-8")
-    except OSError as exc:
-        return usage_error(f"unreadable {declaration_path}: {exc}")
-    try:
-        payload["declaration"] = json.loads(declaration_text)
-    except json.JSONDecodeError as exc:
-        return usage_error(f"invalid JSON in {declaration_path}: {exc}")
+    if parsed.declaration or parsed.preview:
+        if parsed.declaration:
+            declaration_path = Path(parsed.declaration).expanduser()
+        else:
+            checkout = resolve_repo_root_from_cwd()
+            if checkout is None:
+                return usage_error(
+                    "cannot resolve the local checkout; pass --declaration PATH"
+                )
+            declaration_path = Path(checkout) / DECLARATION_RELATIVE_PATH
+        try:
+            declaration_text = declaration_path.read_text(encoding="utf-8")
+        except OSError as exc:
+            return usage_error(f"unreadable {declaration_path}: {exc}")
+        try:
+            payload["declaration"] = json.loads(declaration_text)
+        except json.JSONDecodeError as exc:
+            return usage_error(f"invalid JSON in {declaration_path}: {exc}")
 
     def _human_writer(response, stdout, stderr) -> None:
         del stderr

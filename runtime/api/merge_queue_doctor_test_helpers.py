@@ -160,8 +160,11 @@ def run(
     hidden_bypass=False,
     resolve_auth=None,
 ):
-    if repo_body is _ABSENT and repo_declaration is not None:
-        repo_body = repo_declaration
+    if repo_body is _ABSENT:
+        if repo_declaration is not None:
+            repo_body = repo_declaration
+        elif declaration is not None:
+            repo_body = declaration
     if workflow_text is None:
         workflow_text = WORKFLOW_WITH_MERGE_GROUP
     monkeypatch.setattr(
@@ -203,18 +206,6 @@ def run(
             ],
         },
     )
-    if declaration is None:
-        monkeypatch.setattr(
-            hc_mod, "_checkout_declaration",
-            lambda conn, args: (
-                None, "no source checkout mapped for project"
-            ),
-        )
-    else:
-        monkeypatch.setattr(
-            hc_mod, "_checkout_declaration",
-            lambda conn, args: (declaration, ".yoke/merge-queue.json"),
-        )
     rec = RecordCollector()
     hc_mod.hc_merge_queue_binding(conn, DoctorArgs(project="yoke"), rec)
     return rec.results[-1]

@@ -10,16 +10,17 @@ the operator-edited source of truth. Apply it with
 the App). Doctor `HC-merge-queue-binding` diffs the live ruleset parameters
 and `allow_auto_merge` against the declaration so grouping flips, dropped
 required checks, widened bypass, or a disabled auto-merge turn red. The
-check reads the declaration from the project checkout when the host has
-one — so an operator sees uncommitted retunes — and otherwise fetches it
-from the repository at the default branch head, which is what lets a
-hosted runner holding no checkout run the same parameter diff.
+check reads the declaration only from the repository at the project's gate
+branch head, using the same GitHub Contents read in every installation mode.
 
-Landing admission compares the live ruleset with the candidate worktree's
-declaration, falling back to the main checkout only when no lane exists.
-A required-check retune must be applied before that candidate can enter the
-queue; reading main's previous declaration would refuse the very change
-that makes the new checks authoritative.
+Landing admission compares live rules with that landed gate declaration.
+A lane adding checks lands under the existing rules, then apply activates the
+landed declaration. Real apply refuses transported content that differs from
+the gate branch as `declaration_not_landed`; `--preview` may use lane content.
+To remove or rename a required check, use two PRs: first land and apply the
+declaration change, then remove or rename the CI job. Otherwise GitHub still
+requires a check the candidate no longer runs. Never apply an unlanded lane's
+rules to the shared repository.
 
 The declared ruleset carries a `merge_queue` rule (merge method MERGE,
 HEADGREEN grouping, trains of five entries with a one-minute wait to gather

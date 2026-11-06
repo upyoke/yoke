@@ -197,3 +197,13 @@ def test_readiness_cli_dispatches_the_item_scoped_read() -> None:
     assert call["function_id"] == "github.merge_queue.readiness"
     assert call["target"].public_ref == "YOK-2842"
     assert call["payload"] == {}
+
+
+def test_real_apply_without_path_uses_gate_without_local_checkout():
+    with (
+        patch("yoke_cli.commands.adapters.github_merge_queue.dispatch_and_emit", return_value=0) as dispatch,
+        patch("yoke_cli.commands.adapters.github_merge_queue.resolve_repo_root_from_cwd",
+              side_effect=AssertionError("real apply needs no local checkout")),
+    ):
+        assert cli_main(["github", "merge-queue", "apply", "--project", "project"]) == 0
+    assert dispatch.call_args.kwargs["payload"] == {"project": "project", "preview": False}

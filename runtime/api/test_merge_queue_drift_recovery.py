@@ -54,13 +54,13 @@ def test_stale_lane_gets_update_recovery_when_gate_matches_live(gate, monkeypatc
     assert gate["reads"] == [(".yoke/merge-queue.json", "main")]
 
 
-def test_gate_drift_gets_apply_from_gate_checkout(gate):
+def test_gate_drift_gets_apply_of_landed_gate(gate):
     gate["rules"] = _live_rules([])
     message = drift_mod.LiveDriftReport(drift=("checks differ",)).refusal(
         "project", branch="main",
     )
     assert "origin/main also differs" in message
-    assert "From an up-to-date checkout of main" in message
+    assert "Apply the landed gate declaration" in message
     assert "yoke github merge-queue apply --project project" in message
 
 

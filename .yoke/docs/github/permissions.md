@@ -113,6 +113,10 @@ Authoritative source:
 | **Administration** | write | …let Yoke create a repo for you, create a deploy environment, apply merge-queue declarations, or run a runner fleet |
 | **Webhooks** (`repository_hooks`) | write | …run your own self-hosted GitHub Actions runner fleet |
 
+Merge-queue apply also requires **Contents: read** to fetch the gate branch's
+landed declaration before changing any rule. Preview may use lane content; real
+apply refuses content that has not landed.
+
 A contract test actively enforces that Administration and Webhooks stay out of
 the baseline set.
 

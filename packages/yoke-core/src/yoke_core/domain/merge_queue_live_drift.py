@@ -1,6 +1,6 @@
 """Compare the declared merge-queue ruleset against the live one.
 
-The declaration in the project checkout is authoritative and
+The declaration on the project gate branch is authoritative and
 ``github.merge_queue.apply`` is its only writer, but nothing forces the
 two together: between a declaration landing and an operator running the
 apply, the live ruleset can require fewer checks than the repository
@@ -17,7 +17,6 @@ enforcement alone with repository read access.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from pathlib import Path
 from typing import Any, Optional, Sequence
 
 from yoke_contracts.github_app_installation_permissions import (
@@ -116,8 +115,7 @@ def _drift_recovery(project: str, *, branch: str) -> str:
             f"{source}, re-verify, then retry the merge."
         )
     return (
-        f"{source} also differs from the live rules. From an up-to-date checkout "
-        f"of {branch}, apply its declaration with "
+        f"{source} also differs from the live rules. Apply the landed gate declaration with "
         f"`yoke github merge-queue apply --project {project or '<project>'}`, "
         "then retry the merge."
     )
@@ -234,10 +232,9 @@ def enforcement_drift(declared: Any, *, rules: Sequence[Any]) -> tuple[str, ...]
 def drift_blocking_landing(
     project: str,
     *,
-    checkout: str,
     branch: str,
 ) -> LiveDriftReport:
-    """Drift that must stop a landing on ``branch``, read from ``checkout``.
+    """Drift that must stop a landing, using the landed gate declaration.
 
     Every failure short of an actual disagreement reports as unreadable
     rather than as drift. A landing blocked because GitHub was briefly
@@ -247,30 +244,13 @@ def drift_blocking_landing(
     from yoke_core.domain import gh_rest_transport
     from yoke_core.domain.merge_queue_declaration import (
         MergeQueueDeclarationError,
-        declaration_path,
-        load_declaration,
+        parse_declaration,
     )
     from yoke_core.domain.project_github_auth import (
         GitHubUnavailable,
         ProjectGithubAuthError,
         resolve_project_github_auth,
     )
-
-    path = declaration_path(Path(checkout))
-    if not path.is_file():
-        return LiveDriftReport(
-            skip_reason=DRIFT_SKIP_DECLARATION_MISSING,
-            skip_detail=f"no declaration at {DECLARATION_RELATIVE_PATH}",
-        )
-    try:
-        declared = load_declaration(path)
-    except MergeQueueDeclarationError as exc:
-        detail = f"declaration unreadable: {exc}"
-        return LiveDriftReport(
-            unreadable=(detail,),
-            skip_reason=DRIFT_SKIP_DECLARATION_UNREADABLE,
-            skip_detail=detail,
-        )
 
     try:
         auth = resolve_project_github_auth(
@@ -293,6 +273,25 @@ def drift_blocking_landing(
         )
 
     owner, repo = gh_rest_transport.split_repo(auth.repo)
+    try:
+        raw = mq_rest.fetch_file_text(
+            owner, repo, DECLARATION_RELATIVE_PATH, ref=branch, token=auth.token,
+        )
+        if raw is None:
+            return LiveDriftReport(
+                skip_reason=DRIFT_SKIP_DECLARATION_MISSING,
+                skip_detail=f"no declaration on {branch} at {DECLARATION_RELATIVE_PATH}",
+            )
+        declared = parse_declaration(raw, source=f"{owner}/{repo}@{branch}")
+    except (RestTransportError, MergeQueueDeclarationError) as exc:
+        detail = f"gate declaration unreadable: {exc}"
+        return LiveDriftReport(
+            unreadable=(detail,),
+            skip_reason=(DRIFT_SKIP_GITHUB_UNREACHABLE
+                         if isinstance(exc, RestTransportError)
+                         else DRIFT_SKIP_DECLARATION_UNREADABLE),
+            skip_detail=detail,
+        )
     rules, rules_error = live_branch_rules(
         owner,
         repo,
