@@ -259,7 +259,7 @@ def test_copy_failure_recovery_quotes_a_locale_diagnostic():
 
 
 def test_reset_copy_tools_use_a_host_supported_utf8_locale():
-    from yoke_core.domain.ssh_mac_full_reset_script import FULL_RESET_SCRIPT
+    from yoke_harness.ssh_mac_full_reset_script import FULL_RESET_SCRIPT
 
     assert 'LC_ALL=en_US.UTF-8 /usr/bin/ditto "$captured"' in FULL_RESET_SCRIPT
     assert 'LC_ALL=en_US.UTF-8 /bin/cp -Rpf "$captured"' in FULL_RESET_SCRIPT

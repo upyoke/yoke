@@ -17,13 +17,13 @@ from runtime.api.domain.ssh_mac_full_reset_test_support import (
     closed_reset_stdout,
 )
 from yoke_cli.config import path_doctor
-from yoke_core.domain.ssh_mac_full_reset_contract import (
+from yoke_contracts.ssh_mac_full_reset_contract import (
     FULL_DISK_ACCESS_PROBE_PATH,
     FULL_RESET_REMOTE_PATH,
     RESET_FAILURE_PREFIX,
     RESET_PHASES,
 )
-from yoke_core.domain.ssh_mac_full_reset_script import FULL_RESET_SCRIPT
+from yoke_harness.ssh_mac_full_reset_script import FULL_RESET_SCRIPT
 from yoke_harness.ssh_mac_full_reset import is_safe_test_mac_home
 from yoke_contracts.ssh_mac_full_reset_contract import (
     INSTALLER_TEMP_PATH,

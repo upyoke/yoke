@@ -19,6 +19,8 @@ Two write rules keep the stored figure honest:
 
 from __future__ import annotations
 
+from yoke_contracts.runtime_ports.usage_attestation import get_usage_attestation
+
 import json
 from typing import Any
 
@@ -69,7 +71,7 @@ def observed_usage_document(payload_json: str, executor: str) -> str:
     if not executor:
         return ""
     try:
-        from yoke_harness.usage_attestation import attest_session_usage
+        attest_session_usage = get_usage_attestation().attest_session_usage
 
         transcript = payload.get("transcript_path")
         usage = attest_session_usage(

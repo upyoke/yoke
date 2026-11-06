@@ -16,6 +16,9 @@ cannot be read.
 
 from __future__ import annotations
 
+from yoke_contracts.runtime_ports.operator_cli_release_follow import get_operator_cli_release_follow
+from yoke_contracts.runtime_ports.setup_facts_summary import get_setup_facts_summary
+
 from pathlib import Path
 from typing import Any
 
@@ -54,13 +57,13 @@ def render_global_orientation(
         f"Writing to the user: {WRITING_RULES}",
     ]
     required.extend(required_lines or [])
-    from yoke_cli.config.operator_cli_release_follow import refresh_skip_lines
+    refresh_skip_lines = get_operator_cli_release_follow().refresh_skip_lines
 
     required.extend(refresh_skip_lines())
     budget = min(INLINE_CONTEXT_BYTES.values())
     folders = _project_folders()
     from yoke_core.domain.session_orientation_setup import render_with_setup
-    from yoke_cli.config.setup_facts_summary import orientation_lines
+    orientation_lines = get_setup_facts_summary().orientation_lines
 
     setup = orientation_lines(None) if setup_lines is None else setup_lines
     return render_with_setup(

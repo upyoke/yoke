@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from yoke_contracts.runtime_ports.manifest import get_manifest
+
 from dataclasses import dataclass
 from typing import Any, Mapping
 
@@ -25,11 +27,9 @@ def verify_deployed_cli_manifest(env_name: str) -> CliManifestGateResult:
             f"cli-manifest gate skipped: env {env_name!r} is not HTTPS",
         )
 
-    from yoke_cli.manifest import (
-        build_manifest,
-        diagnose_env_manifest_fetch,
-        fetch_env_manifest,
-    )
+    build_manifest = get_manifest().build_manifest
+    diagnose_env_manifest_fetch = get_manifest().diagnose_env_manifest_fetch
+    fetch_env_manifest = get_manifest().fetch_env_manifest
 
     remote = fetch_env_manifest(env_name)
     if remote is None:

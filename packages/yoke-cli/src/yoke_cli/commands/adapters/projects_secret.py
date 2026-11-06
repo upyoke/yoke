@@ -155,7 +155,7 @@ def _store_machine_local_secret(parsed: argparse.Namespace, value: str) -> int:
             session_id=parsed.session_id,
         )
         local_secrets = importlib.import_module(
-            "yoke_core.domain.capability_machine_secrets"
+            "yoke_contracts.machine_config.capability_secret_store"
         )
         path = local_secrets.store_machine_capability_secret(
             project_slug,

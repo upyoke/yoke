@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from yoke_contracts.runtime_ports.identity import get_identity
+
 import json
 import os
 from typing import Any, Dict, List, Optional
@@ -141,7 +143,7 @@ def resolve_harness_capabilities(
     manifest exists, command/path truth comes from the shared Yoke registry and
     the manifest can only subtract support through explicit limitations.
     """
-    from yoke_harness.hooks.identity import canonical_harness_id
+    canonical_harness_id = get_identity().canonical_harness_id
 
     try:
         manifest_executor = canonical_harness_id(executor)

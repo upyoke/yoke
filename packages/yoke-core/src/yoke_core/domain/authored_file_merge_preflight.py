@@ -8,9 +8,12 @@ from yoke_contracts.project_contract.file_line_git_scope import (
     FileLineGitScope,
     resolve_file_line_git_scope,
 )
-from yoke_harness.git_hooks import file_line_check
+from yoke_contracts.runtime_ports.file_line_check import get_file_line_check
 from yoke_core.domain.qa_case_execution import QaCaseExecutionError
 
+
+
+file_line_check = get_file_line_check()
 
 def _base_ref(checkout: Path, target: str) -> str:
     remote = target if target.startswith("origin/") else f"origin/{target}"

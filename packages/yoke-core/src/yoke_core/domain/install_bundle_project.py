@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from yoke_contracts.runtime_ports.project_install_files import get_project_install_files
+
 import subprocess
 from pathlib import Path
 from typing import Any, Dict, List
@@ -119,7 +121,7 @@ def _project_row(project_id: int, conn: Any) -> tuple[str, str, str]:
 def _contract_files(display_name: str) -> List[Dict[str, str]]:
     """Return seed-if-missing project contract entries."""
     from yoke_core.domain import project_contract
-    from yoke_core.domain.project_install_files import assert_safe_contract_paths
+    assert_safe_contract_paths = get_project_install_files().assert_safe_contract_paths
 
     entries = project_contract.bundle_contract_files(display_name)
     assert_safe_contract_paths(entry["path"] for entry in entries)

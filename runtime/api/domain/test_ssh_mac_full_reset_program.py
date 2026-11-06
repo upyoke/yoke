@@ -30,7 +30,7 @@ from yoke_contracts.ssh_mac_full_reset_contract import (
     RESET_PHASES,
     RESET_RESTORE_UNRESTORED_PREFIX,
 )
-from yoke_core.domain.ssh_mac_full_reset_script import FULL_RESET_SCRIPT
+from yoke_harness.ssh_mac_full_reset_script import FULL_RESET_SCRIPT
 
 
 def test_zsh_program_closes_home_validation_failure_to_a_phase_marker(

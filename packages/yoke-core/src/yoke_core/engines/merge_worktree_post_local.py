@@ -25,7 +25,7 @@ def _ensure_snapshot_for_project(ctx: MergeContext) -> None:
 
     Defense in depth alongside the global ``post-commit`` hook installed
     by ``yoke project install`` (shim owner:
-    :mod:`yoke_core.domain.project_install_git_hooks`). Failures here
+    :mod:`yoke_cli.project_install.git_hooks`). Failures here
     are advisory — a snapshot miss does not roll back a successful
     merge; the next activate call will surface a clearer error.
     """

@@ -6,8 +6,8 @@ import pytest
 
 from runtime.api.cli.project_install_publication_test_support import local_only_checkout
 from runtime.api.domain.project_install_test_support import MANIFEST_REL, _tree_bytes
-from yoke_core.domain import project_install
-from yoke_core.domain.project_install import ProjectInstallError
+from yoke_cli.project_install import runner as project_install
+from yoke_cli.project_install.runner import ProjectInstallError
 from yoke_core.domain.project_install_test_helpers import make_bundle
 
 
@@ -51,7 +51,8 @@ def test_install_requires_a_resolvable_project_id(repo, tmp_path, monkeypatch) -
 def test_install_registers_checkout_mapping_for_explicit_id(
     repo, tmp_path, monkeypatch
 ) -> None:
-    from yoke_core.domain import machine_config, machine_config_writer
+    from yoke_core.domain import machine_config
+    from yoke_cli.config import writer as machine_config_writer
 
     cfg = tmp_path / "machine-home" / "config.json"
     dsn = tmp_path / "local.dsn"
@@ -79,7 +80,7 @@ def test_install_registers_checkout_mapping_for_explicit_id(
 def test_registration_failure_leaves_repo_untouched(
     repo, tmp_path, monkeypatch
 ) -> None:
-    from yoke_core.domain.machine_config_writer import MachineConfigWriteError
+    from yoke_cli.config.writer import MachineConfigWriteError
 
     cfg = tmp_path / "machine-home" / "config.json"
     cfg.parent.mkdir(parents=True)

@@ -20,6 +20,8 @@ silently break the test contract.
 
 from __future__ import annotations
 
+from yoke_contracts.runtime_ports.browser_check_profile import get_browser_check_profile
+
 import argparse
 import json
 
@@ -155,7 +157,7 @@ def run_cli(args: argparse.Namespace, parser: argparse.ArgumentParser) -> int:
     from yoke_core.domain import browser_client as client
     from yoke_contracts.browser_identity import BrowserIdentityError
     from yoke_contracts.project_defaults import MissingProjectError
-    from yoke_harness.browser_check_profile import check_scope
+    check_scope = get_browser_check_profile().check_scope
 
     handlers = {"daemon": _cli_daemon, "snapshot": _cli_snapshot, "exec": _cli_exec}
     handler = handlers.get(args.cmd)

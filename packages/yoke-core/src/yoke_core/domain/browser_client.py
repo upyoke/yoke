@@ -51,7 +51,7 @@ from yoke_contracts.browser_daemon_api import (
     step_request_timeout_seconds,
 )
 from yoke_contracts.browser_client_errors import daemon_failure_message
-from yoke_harness import browser_runtime_home
+from yoke_contracts.runtime_ports.browser_runtime_home import get_browser_runtime_home
 from yoke_contracts.browser_daemon_profile import state_file_path
 from yoke_core.domain.browser_client_cli import run_cli
 from yoke_core.domain.browser_client_lifecycle import (  # noqa: F401
@@ -73,6 +73,9 @@ from yoke_core.domain.browser_client_snapshot import (
 # Path resolution
 # ---------------------------------------------------------------------------
 
+
+
+browser_runtime_home = get_browser_runtime_home()
 
 def _browser_dir() -> Path:
     """Return the machine-level browser runtime dir, materializing it."""

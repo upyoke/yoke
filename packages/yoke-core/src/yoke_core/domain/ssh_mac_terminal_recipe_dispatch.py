@@ -10,7 +10,7 @@ from typing import Any
 
 from yoke_core.domain.host_control_runner import HostActionResult
 from yoke_contracts.machine_qa_result_safety import redact_machine_qa_value
-from yoke_core.domain.ssh_mac_terminal_capture import RunRemote
+from yoke_contracts.runtime_ports.ssh_mac_terminal_capture import get_ssh_mac_terminal_capture
 from yoke_core.domain.ssh_mac_terminal_recipe_cleanup import (
     remove_staged_files,
     with_staged_cleanup,
@@ -21,6 +21,9 @@ from yoke_core.domain.ssh_mac_terminal_recipe_support import (
     stage_recipe_files,
 )
 
+
+
+RunRemote = get_ssh_mac_terminal_capture().RunRemote
 
 def execute_terminal_recipe(
     run: RunRemote,

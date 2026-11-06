@@ -6,12 +6,14 @@ from yoke_core.domain.machine_qa_admission_gate import yoke_runner
 from yoke_core.domain.machine_qa_human_gate import run_operator_gate_with_io
 from yoke_core.domain.machine_qa_setup_exit import marker_exit_code
 from yoke_core.domain.ssh_mac_terminal_recipe_support import send_recipe_keys
-from yoke_harness.ssh_linux_browser_approval import (
-    approve_machine_in_desktop_chromium,
-)
-from yoke_harness.ssh_linux_terminal import LinuxTerminalWindowError
+from yoke_contracts.runtime_ports.ssh_linux_browser_approval import get_ssh_linux_browser_approval
+from yoke_contracts.runtime_ports.ssh_linux_terminal import get_ssh_linux_terminal
 from yoke_contracts.test_machine_types import HostActionResult
 
+
+
+approve_machine_in_desktop_chromium = get_ssh_linux_browser_approval().approve_machine_in_desktop_chromium
+LinuxTerminalWindowError = get_ssh_linux_terminal().LinuxTerminalWindowError
 
 def checkpoint(control, rows, terminal=None):
     """Attach a screenshot to the last step, or name why it failed.

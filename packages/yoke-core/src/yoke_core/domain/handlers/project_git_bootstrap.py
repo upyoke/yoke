@@ -6,6 +6,13 @@ repository on the server filesystem, which is never the intended checkout.
 
 from __future__ import annotations
 
+from yoke_contracts.runtime_ports.github_publish import get_github_publish
+from yoke_contracts.runtime_ports.onboard_project_github_inputs import get_onboard_project_github_inputs
+from yoke_contracts.runtime_ports.project_git_bootstrap import get_project_git_bootstrap
+from yoke_contracts.runtime_ports.project_git_prerequisite import get_project_git_prerequisite
+from yoke_contracts.runtime_ports.project_github_adoption import get_project_github_adoption
+from yoke_contracts.runtime_ports.project_onboard_support import get_project_onboard_support
+
 from typing import Any, Optional
 
 from pydantic import BaseModel
@@ -65,12 +72,12 @@ def handle_project_git_bootstrap(request: FunctionCallRequest) -> HandlerOutcome
             "checkout must be a non-empty string",
             jsonpath="$.payload.checkout",
         )
-    from yoke_cli.config.project_git_bootstrap import bootstrap_checkout
-    from yoke_cli.config.project_git_prerequisite import MissingGitError
-    from yoke_cli.config.project_github_adoption import ProjectGithubAdoptionError
-    from yoke_cli.config.project_onboard_support import ProjectOnboardError
-    from yoke_cli.config.github_publish import GitHubPublishError
-    from yoke_cli.config.onboard_project_github_inputs import MachineGitHubInputError
+    bootstrap_checkout = get_project_git_bootstrap().bootstrap_checkout
+    MissingGitError = get_project_git_prerequisite().MissingGitError
+    ProjectGithubAdoptionError = get_project_github_adoption().ProjectGithubAdoptionError
+    ProjectOnboardError = get_project_onboard_support().ProjectOnboardError
+    GitHubPublishError = get_github_publish().GitHubPublishError
+    MachineGitHubInputError = get_onboard_project_github_inputs().MachineGitHubInputError
 
     try:
         result = bootstrap_checkout(

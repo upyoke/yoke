@@ -14,15 +14,18 @@ from typing import Any, Dict, Optional
 
 from pydantic import BaseModel
 
-from yoke_core.domain import machine_config_writer
+from yoke_contracts.runtime_ports.machine_config_writes import get_machine_config_writes
 from yoke_core.domain.machine_config import MachineConfigError
-from yoke_core.domain.machine_config_writer import MachineConfigWriteError
 from yoke_contracts.api.function_call import (
     FunctionCallRequest,
     FunctionError,
     HandlerOutcome,
 )
 
+
+
+machine_config_writer = get_machine_config_writes()
+MachineConfigWriteError = get_machine_config_writes().MachineConfigWriteError
 
 class EnvUseRequest(BaseModel):
     env: str

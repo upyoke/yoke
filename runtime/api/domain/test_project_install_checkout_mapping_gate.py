@@ -8,8 +8,10 @@ from runtime.api.cli.project_install_publication_test_support import local_only_
 
 import pytest
 
-from yoke_core.domain import machine_config, machine_config_writer, project_install
-from yoke_core.domain.project_install import ProjectInstallError
+from yoke_core.domain import machine_config
+from yoke_cli.config import writer as machine_config_writer
+from yoke_cli.project_install import runner as project_install
+from yoke_cli.project_install.runner import ProjectInstallError
 from yoke_core.domain.project_install_test_helpers import make_bundle
 
 

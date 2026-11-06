@@ -16,6 +16,8 @@ one so no caller can converge on a landing the checkout never confirmed.
 
 from __future__ import annotations
 
+from yoke_contracts.runtime_ports.credentialed_git import get_credentialed_git
+
 import subprocess
 from datetime import datetime, timezone
 from typing import Optional
@@ -30,7 +32,7 @@ def _git(repo_root: str, *args: str) -> subprocess.CompletedProcess:
     soft-failure reading above stays true and :func:`publish` still surfaces
     the reason.
     """
-    from yoke_cli.config import credentialed_git
+    credentialed_git = get_credentialed_git()
 
     return credentialed_git.run(["-C", str(repo_root), *args])
 

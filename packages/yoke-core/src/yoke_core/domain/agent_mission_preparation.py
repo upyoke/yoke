@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from yoke_contracts.runtime_ports.qa_host_package_fixture import get_qa_host_package_fixture
+
 from yoke_core.domain.qa_plan_execution_checkin import (
     checkin_busy,
     communication_unknown,
@@ -16,11 +18,14 @@ from yoke_contracts.machine_qa_failures import (
     host_control_failure,
 )
 from yoke_contracts.qa_mission_scratch import mission_scratch_path
-from yoke_harness.test_machine_temp_state import require_mission_disk_space
+from yoke_contracts.runtime_ports.test_machine_temp_state import get_test_machine_temp_state
 from yoke_core.domain.machine_qa_phase_heartbeat import heartbeat_during
 from yoke_contracts.machine_qa_result_safety import redact_machine_qa_value
 from yoke_core.domain.machine_qa_submission_artifacts import ensure_secret_free_result
 
+
+
+require_mission_disk_space = get_test_machine_temp_state().require_mission_disk_space
 
 def mission_manages_packages(contract: Any) -> bool:
     if not contract.cases:
@@ -143,7 +148,7 @@ def prepare_mission(
             execution.control
         )
         if mission_manages_packages(contract) and not contract.continues_execution_id:
-            from yoke_harness.qa_host_package_fixture import restore_host_packages
+            restore_host_packages = get_qa_host_package_fixture().restore_host_packages
 
             phase = "os_packages"
             preparation["evidence"]["os_packages"] = restore_host_packages(

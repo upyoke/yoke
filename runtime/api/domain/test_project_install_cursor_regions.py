@@ -21,8 +21,8 @@ from yoke_contracts.cursor_permissions import (
     CURSOR_PERMISSIONS_MANIFEST_KEY,
     CURSOR_SANDBOX_REL,
 )
-from yoke_core.domain import project_install
-from yoke_core.domain.project_install import apply_bundle
+from yoke_cli.project_install import runner as project_install
+from yoke_cli.project_install.runner import apply_bundle
 from yoke_core.domain.project_install_test_helpers import make_bundle
 
 MANIFEST_REL = ".yoke/install-manifest.json"

@@ -1,4 +1,4 @@
-"""Compatibility imports for direct Terminal.app host control."""
+"""Structured API for direct Terminal.app host control."""
 
 from yoke_harness.ssh_mac_display_frame import (
     DisplayFrame,

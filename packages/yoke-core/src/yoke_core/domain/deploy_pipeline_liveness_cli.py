@@ -13,9 +13,7 @@ from yoke_core.domain.deployment_start_timing import (
 )
 from typing import List, Optional
 
-from yoke_cli.commands.adapters.deployment_execution_authority import (
-    self_deploy_door,
-)
+from yoke_contracts.runtime_ports.deployment_execution_authority import get_deployment_execution_authority
 from yoke_core.domain import deploy_pipeline
 from yoke_core.domain.deploy_pipeline_control_plane import (
     DeploymentControlPlaneError,
@@ -35,6 +33,9 @@ from yoke_core.domain.deployment_run_driver_attachment import (
     PHASE_FREEZING_SOURCE,
 )
 from yoke_core.domain.session_liveness_pump import SessionLivenessPump
+
+
+self_deploy_door = get_deployment_execution_authority().self_deploy_door
 
 _ENGINE = "yoke_core.domain.deploy_pipeline_liveness_cli"
 

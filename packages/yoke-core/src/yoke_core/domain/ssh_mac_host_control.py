@@ -7,11 +7,8 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any, Mapping, Sequence
 
-from yoke_harness.remote_file_copy import ZSH_READER, stream_remote_file
-from yoke_harness.ssh_mac_transport import (
-    SSH_OPTIONS,
-    SshMacTransport,
-)
+from yoke_contracts.runtime_ports.remote_file_copy import get_remote_file_copy
+from yoke_contracts.runtime_ports.ssh_mac_transport import get_ssh_mac_transport
 
 from yoke_core.domain import machine_config
 from yoke_core.domain.host_control_runner import (
@@ -25,6 +22,12 @@ from yoke_core.domain.ssh_mac_terminal_legacy import (
     execute_legacy_terminal_case,
 )
 
+
+
+ZSH_READER = get_remote_file_copy().ZSH_READER
+stream_remote_file = get_remote_file_copy().stream_remote_file
+SSH_OPTIONS = get_ssh_mac_transport().SSH_OPTIONS
+SshMacTransport = get_ssh_mac_transport().SshMacTransport
 
 class SshMacHostControl(SshMacTransport):
     """Approved structured adapter for a project-owned macOS test resource."""

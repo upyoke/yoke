@@ -17,11 +17,10 @@ dependencies = [
   "maxminddb>=3.0,<4",
     "yoke-contracts",
     "yoke-cli",
-    # Harness-identity helpers (yoke_harness.hooks.identity): the session
-    # domain canonicalizes executor/harness ids through them at import time
-    # (boot path: yoke_core.domain -> frontier -> session canonicalization),
-    # so the engine wheel cannot boot without the harness wheel. The reverse
-    # edge stays forbidden — yoke-harness never imports yoke-core.
+    # Installed harness implementations supply the engine's declared runtime
+    # interfaces. Shared contracts own those interfaces; core domain code
+    # never imports an implementation package. The reverse dependency stays
+    # forbidden: yoke-harness never imports yoke-core.
     "yoke-harness",
     "fastapi==0.128.8",
     "uvicorn[standard]==0.39.0",

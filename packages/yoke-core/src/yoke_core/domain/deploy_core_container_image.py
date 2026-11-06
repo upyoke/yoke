@@ -27,7 +27,7 @@ import time
 from pathlib import Path
 from typing import Callable, Mapping, Optional
 
-from yoke_cli.config import credentialed_git
+from yoke_contracts.runtime_ports.credentialed_git import get_credentialed_git
 from yoke_contracts.designed_wait import announce_designed_wait, poll_every
 
 from yoke_core.domain.deploy_environment_settings import DeployEnvironment
@@ -37,6 +37,9 @@ from yoke_core.domain.deploy_remote import CommandResult, CommandRunner
 # Explicit mode selector: the invoking workflow sets this; operator
 # machines never do. Value contract mirrors the codebase env-flag idiom
 # (set to the literal "1" to enable).
+
+credentialed_git = get_credentialed_git()
+
 IMAGE_WAIT_ENV_VAR = "YOKE_DEPLOY_IMAGE_WAIT"
 _WAIT_POLL_INTERVAL_S = 30.0
 _WAIT_BUDGET_S = 20 * 60

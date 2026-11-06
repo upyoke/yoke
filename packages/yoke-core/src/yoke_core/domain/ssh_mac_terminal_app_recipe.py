@@ -13,27 +13,15 @@ from yoke_core.domain.host_control_runner import HostActionResult
 from yoke_core.domain.machine_qa_admission_gate import yoke_runner
 from yoke_core.domain.machine_qa_human_gate import run_operator_gate_with_io
 from yoke_core.domain.machine_qa_setup_exit import step_failure
-from yoke_harness.ssh_mac_browser_approval import approve_machine_in_safari
+from yoke_contracts.runtime_ports.ssh_mac_browser_approval import get_ssh_mac_browser_approval
 from yoke_core.domain.qa_artifact_handle import local_handle
 from yoke_contracts.machine_qa_terminal_bridge import (
     TERMINAL_BRIDGE_RECOVERY,
     TERMINAL_DISPLAY_FRAME_UNAVAILABLE_ERROR_CODE,
 )
-from yoke_harness.ssh_mac_terminal_automation_probe import (
-    terminal_system_events_automation,
-)
-from yoke_harness.ssh_mac_host_session_state import read_load_average
-from yoke_core.domain.ssh_mac_terminal_app import (
-    DisplayFrameUnavailable,
-    RunRemote,
-    capture_terminal_app_screen,
-    capture_terminal_app_transcript,
-    close_terminal_app_window,
-    open_terminal_app_window,
-    resolve_display_frame,
-    send_terminal_app_keys,
-    window_layout,
-)
+from yoke_contracts.runtime_ports.ssh_mac_terminal_automation_probe import get_ssh_mac_terminal_automation_probe
+from yoke_contracts.runtime_ports.ssh_mac_host_session_state import get_ssh_mac_host_session_state
+from yoke_contracts.runtime_ports.terminal_control import get_terminal_control
 from yoke_core.domain.ssh_mac_terminal_readiness import (
     DEFAULT_READY_TIMEOUT_SECONDS,
     wait_for_ready_text_with_reader,
@@ -46,6 +34,20 @@ from yoke_core.domain.terminal_screenshot_quality import (
     TerminalScreenshotRegistry,
 )
 
+
+
+approve_machine_in_safari = get_ssh_mac_browser_approval().approve_machine_in_safari
+terminal_system_events_automation = get_ssh_mac_terminal_automation_probe().terminal_system_events_automation
+read_load_average = get_ssh_mac_host_session_state().read_load_average
+DisplayFrameUnavailable = get_terminal_control().DisplayFrameUnavailable
+RunRemote = get_terminal_control().RunRemote
+capture_terminal_app_screen = get_terminal_control().capture_terminal_app_screen
+capture_terminal_app_transcript = get_terminal_control().capture_terminal_app_transcript
+close_terminal_app_window = get_terminal_control().close_terminal_app_window
+open_terminal_app_window = get_terminal_control().open_terminal_app_window
+resolve_display_frame = get_terminal_control().resolve_display_frame
+send_terminal_app_keys = get_terminal_control().send_terminal_app_keys
+window_layout = get_terminal_control().window_layout
 
 def _failure(
     error_code: str,

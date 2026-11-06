@@ -14,6 +14,8 @@ Storage: one small JSON file per anchor pid under
 
 from __future__ import annotations
 
+from yoke_contracts.runtime_ports.session_liveness import get_session_liveness
+
 from pathlib import Path
 from typing import Any, Callable, Dict, Optional
 
@@ -32,7 +34,7 @@ def anchors_dir() -> Path:
 def _liveness_probe() -> Optional[session_identity.ContenderIsLive]:
     """The transport-backed session liveness probe, or ``None`` unavailable."""
     try:
-        from yoke_cli.transport.session_liveness import contender_is_live
+        contender_is_live = get_session_liveness().contender_is_live
     except Exception:  # noqa: BLE001 — no probe degrades to fail-closed
         return None
     return contender_is_live

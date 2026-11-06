@@ -6,7 +6,7 @@ Project rules own command discovery and connection guidance.
 
 from __future__ import annotations
 
-from yoke_cli.config.install_advice import install_command
+from yoke_contracts.runtime_ports.install_advice import get_install_advice
 
 import shutil
 
@@ -16,6 +16,9 @@ from yoke_contracts.session_control.teaching import (
     FLEET_TOP_LEVEL_RECEIPT_GUIDANCE,
 )
 
+
+
+install_command = get_install_advice().install_command
 
 MAIN_AGENT_ROLE = "main_agent"
 

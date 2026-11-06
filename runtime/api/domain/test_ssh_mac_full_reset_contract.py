@@ -8,7 +8,7 @@ from runtime.api.domain.ssh_mac_full_reset_test_support import (
     run_zsh_syntax_if_available,
 )
 from yoke_cli.config import path_doctor
-from yoke_core.domain.ssh_mac_full_reset_contract import (
+from yoke_contracts.ssh_mac_full_reset_contract import (
     PRESERVED_HOME_ENTRIES,
     STARTUP_FILE_NAMES,
     YOKE_ABSENT_RELATIVE_DIRECTORIES,
@@ -17,7 +17,7 @@ from yoke_core.domain.ssh_mac_full_reset_contract import (
     golden_baseline_clears_home,
     resolve_full_reset_path_contract,
 )
-from yoke_core.domain.ssh_mac_full_reset_script import FULL_RESET_SCRIPT
+from yoke_harness.ssh_mac_full_reset_script import FULL_RESET_SCRIPT
 from yoke_harness.ssh_mac_full_reset_script import (
     preserved_levels,
     render_full_reset_script,

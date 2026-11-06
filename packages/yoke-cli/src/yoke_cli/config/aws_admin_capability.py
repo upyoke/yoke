@@ -234,7 +234,7 @@ def store_credential(
     """Write both values owner-only under the machine secrets root."""
     try:
         machine_secrets = importlib.import_module(
-            "yoke_core.domain.capability_machine_secrets"
+            "yoke_contracts.machine_config.capability_secret_store"
         )
         return [
             machine_secrets.store_machine_capability_secret(
