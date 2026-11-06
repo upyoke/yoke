@@ -97,6 +97,34 @@ def _publish_env(values: dict[str, str]) -> None:
         target.writelines(f"{key}={value}\n" for key, value in values.items())
 
 
+def _start_container(args: list[str], container: str) -> None:
+    for attempt in range(2):
+        try:
+            _run(args, timeout=120)
+            return
+        except PreparationError:
+            if attempt == 0:
+                try:
+                    _run(["docker", "rm", "-f", container], timeout=30)
+                except PreparationError as exc:
+                    print(str(exc), file=sys.stderr, flush=True)
+                continue
+            for command in (
+                ["docker", "ps", "-a", "--filter", f"name={container}"],
+                ["docker", "logs", "--tail", "50", container],
+                ["docker", "info"],
+            ):
+                print("CI Postgres diagnostic: " + " ".join(command),
+                      file=sys.stderr, flush=True)
+                try:
+                    result = _run(command, capture=True, timeout=10)
+                    print((result.stdout or "")[:8000], file=sys.stderr, flush=True)
+                    print((result.stderr or "")[:8000], file=sys.stderr, flush=True)
+                except PreparationError as exc:
+                    print(str(exc), file=sys.stderr, flush=True)
+            raise
+
+
 def start_postgres() -> None:
     container = os.environ["PG_CONTAINER"]
     image = os.environ["POSTGRES_IMAGE"]
@@ -117,7 +145,7 @@ def start_postgres() -> None:
             # artifact-fetch-allow: bounded retries for transient GHCR transport faults
             time.sleep(random.randint(5, 30))
     timezone = dict(DISPOSABLE_SERVER_SETTINGS)["timezone"]
-    _run([
+    _start_container([
         "docker", "run", "-d", "--name", container,
         "-v", f"{socket_dir}:/var/run/postgresql",
         "-e", "POSTGRES_USER=yoke", "-e", "POSTGRES_PASSWORD=yoke",
@@ -125,7 +153,7 @@ def start_postgres() -> None:
         "-c", f"timezone={timezone}", "-c", "fsync=off",
         "-c", "synchronous_commit=off", "-c", "full_page_writes=off",
         "-c", "wal_level=minimal", "-c", "max_wal_senders=0",
-    ], timeout=30)
+    ], container)
     mapping = _run(["docker", "port", container, "5432"], capture=True, timeout=10)
     lines = mapping.stdout.splitlines()
     port = lines[0].rsplit(":", 1)[-1] if lines else ""
