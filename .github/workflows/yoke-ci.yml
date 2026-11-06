@@ -320,14 +320,15 @@ jobs:
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           fetch-depth: 0
-
       - name: Resolve package version
         run: |
           python -m pip install "setuptools-scm[toml]"
           version="$(python -m setuptools_scm --root "$GITHUB_WORKSPACE")"
           echo "YOKE_ENGINE_VERSION=$version" >> "$GITHUB_ENV"
 
-      - name: Build Yoke core image
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c
+      - name: Pull the base image with bounded transport retries
         run: |
           python_image="$(sed -n 's/^ARG PYTHON_IMAGE=//p' Dockerfile)"
           for attempt in 1 2 3 4 5; do
@@ -336,6 +337,13 @@ jobs:
             [ "$attempt" -eq 5 ] && exit 1
             sleep $((5 + RANDOM % 26))
           done
-          docker build \
-            --build-arg "YOKE_ENGINE_VERSION=$YOKE_ENGINE_VERSION" \
-            --tag yoke-core:${{ github.sha }} .
+      - name: Build Yoke core image
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a
+        with:
+          context: .
+          push: false
+          load: true
+          tags: yoke-core:${{ github.sha }}
+          build-args: YOKE_ENGINE_VERSION=${{ env.YOKE_ENGINE_VERSION }}
+          cache-from: type=gha,scope=yoke-ci-container
+          cache-to: ${{ github.ref == 'refs/heads/main' && 'type=gha,mode=max,scope=yoke-ci-container' || '' }}

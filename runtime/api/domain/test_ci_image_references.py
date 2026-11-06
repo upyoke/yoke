@@ -124,11 +124,14 @@ def test_ci_steps_retry_mirror_pulls_before_using_the_image() -> None:
         assert "./.github/actions/yoke-test-runner" in (_WORKFLOWS / name).read_text(
             encoding="utf-8"
         ), name
-    build = _step_body(_WORKFLOWS / "yoke-ci.yml", "Build Yoke core image")
+    build = _step_body(
+        _WORKFLOWS / "yoke-ci.yml", "Pull the base image with bounded transport retries"
+    )
     assert "s/^ARG PYTHON_IMAGE=//p" in build
     assert 'docker pull "$python_image"' in build
     assert "for attempt in 1 2 3 4 5" in build
-    assert build.index('docker pull "$python_image"') < build.index("docker build")
+    workflow = (_WORKFLOWS / "yoke-ci.yml").read_text()
+    assert workflow.index("Pull the base image") < workflow.index("Build Yoke core image")
 
 
 def test_ci_files_do_not_name_bare_docker_hub_official_images() -> None:

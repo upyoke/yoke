@@ -71,6 +71,7 @@ jobs:
           context: .
           push: false
           platforms: ${{ matrix.platform }}
+          cache-from: type=gha,scope=yoke-server-${{ matrix.platform }}
           build-args: |
             YOKE_BUILD_SHA=${{ needs.validate-tag.outputs.source_sha }}
             YOKE_ENGINE_VERSION=${{ needs.validate-tag.outputs.release_version }}
@@ -116,7 +117,10 @@ jobs:
         with:
           context: .
           push: true
+          # Only main publishes this cache; queue builds only import it.
+          cache-to: type=gha,mode=max,scope=yoke-server-${{ matrix.platform }}
           platforms: ${{ matrix.platform }}
+          cache-from: type=gha,scope=yoke-server-${{ matrix.platform }}
           # Push content-addressed images first without changing human-facing tags;
           # post-attestation publication refuses a conflicting immutable version.
           outputs: type=image,name=${{ needs.validate-tag.outputs.repository }},push-by-digest=true,name-canonical=true,push=true
