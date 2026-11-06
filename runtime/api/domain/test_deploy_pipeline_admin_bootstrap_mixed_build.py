@@ -237,6 +237,10 @@ def test_admin_candidate_keeps_local_scoped_qa_while_its_https_sibling_still_rel
         lineage=source_sha,
     )
 
+    # Open QA belongs to a delivery-waiting member; closed members skip dispatch.
+    conn.execute("UPDATE items SET status='release' WHERE id=%s", (ITEM_ID,))
+    conn.commit()
+
     _admin_driver_env(monkeypatch, serving_plane)
     monkeypatch.setattr(
         deploy_pipeline, "resolve_project_checkout_path", lambda _p: str(tmp_path)
