@@ -96,6 +96,11 @@ def resettle_item(conn: Any, *, run_id: str, item_id: int) -> None:
         _is_qa_stage,
     )
 
+    if conn.execute(
+        "SELECT 1 FROM deployment_run_items WHERE run_id=%s AND item_id=%s",
+        (run_id, item_id),
+    ).fetchone() is None:
+        return
     for stage in pinned_stages(conn, run_id):
         if _is_qa_stage(stage):
             resettle_stage(
