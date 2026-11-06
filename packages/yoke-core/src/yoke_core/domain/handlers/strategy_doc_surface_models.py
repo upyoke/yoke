@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, ConfigDict, Field
+from yoke_contracts.list_paging import ListPageRequest, ListPageResponse
 
 
 class EmptyRequest(BaseModel):
@@ -15,7 +16,11 @@ class StrategySurfaceGetRequest(BaseModel):
     slug: str = Field(..., min_length=1)
 
 
-class StrategySurfaceListResponse(BaseModel):
+class StrategySurfaceListRequest(ListPageRequest):
+    model_config = ConfigDict(extra="forbid")
+
+
+class StrategySurfaceListResponse(ListPageResponse):
     project_id: int
     project_slug: str
     docs: List[Dict[str, Any]] = Field(default_factory=list)

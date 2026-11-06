@@ -75,6 +75,8 @@ The delivery columns converge additively on boot. Existing instruction rows
 retain their prose and scope and acquire defaults; no data rewrite or separate
 migration entry is required.
 
+`yoke workflow execution-instruction list` lists instruction ids and their first content lines. Add `--full` to read complete content under one `## <id> <title>` heading per instruction; `--section` can select that heading. `--json` retains the complete response, including scope and delivery settings.
+
 ## Keep portable guidance in shipped homes
 
 Before adding an instruction, classify its clauses by audience and authority:

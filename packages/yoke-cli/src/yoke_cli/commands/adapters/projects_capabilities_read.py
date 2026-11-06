@@ -6,7 +6,7 @@ authored-file line cap.
 """
 
 from __future__ import annotations
-from yoke_cli.transport.human_values import write_human
+from yoke_cli.commands.adapters.list_paging import add_page_args, dispatch_list
 
 import argparse
 from typing import Any, Dict, List
@@ -14,15 +14,12 @@ from typing import Any, Dict, List
 from yoke_cli.commands._helpers import (
     add_json_arg,
     add_session_arg,
-    dispatch_and_emit,
     parse_or_usage_error,
 )
 from yoke_contracts.api.function_call import TargetRef
 
 
-PROJECTS_CAPABILITIES_LIST_USAGE = (
-    "yoke projects capabilities list [--project P] [--full] [--session-id S] [--json]"
-)
+PROJECTS_CAPABILITIES_LIST_USAGE = "yoke projects capabilities list [--project P] [--limit N] [--offset N] [--full] [--session-id S] [--json]"
 
 
 def projects_capabilities_list(args: List[str]) -> int:
@@ -36,6 +33,7 @@ def projects_capabilities_list(args: List[str]) -> int:
         metavar="P",
         help="Project whose capabilities to list.",
     )
+    add_page_args(parser)
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(
@@ -46,19 +44,16 @@ def projects_capabilities_list(args: List[str]) -> int:
     if parsed is None:
         return 2
 
-    def _human_writer(response, stdout, stderr) -> None:
-        write_human(response.result or {}, stdout)
-
     payload: Dict[str, Any] = {}
     if parsed.project is not None:
         payload["project"] = parsed.project
-    return dispatch_and_emit(
+    return dispatch_list(
+        parsed=parsed,
         function_id="projects.capabilities.list",
         target=TargetRef(kind="global"),
         payload=payload,
         session_id=parsed.session_id,
         json_mode=parsed.json_mode,
-        human_writer=_human_writer,
     )
 
 

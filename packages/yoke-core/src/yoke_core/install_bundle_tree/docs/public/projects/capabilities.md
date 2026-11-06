@@ -10,6 +10,8 @@ may use for a project.
 Examples: cloud credentials (`aws-admin`), model providers, CI workflow
 binding, browser/machine QA, runner fleets.
 
+The capability roster is available through `yoke projects capabilities list`. Use `--project P` to select one project; omit it to read across projects. Lists accept `--limit N` and `--offset N` (25 rows by default); follow the printed next-page command. `--json` retains every field in the selected page.
+
 ## Ownership
 
 - Non-secret settings: `project_capabilities` / environment settings

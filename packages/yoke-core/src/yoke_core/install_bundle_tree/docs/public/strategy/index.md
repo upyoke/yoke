@@ -8,6 +8,8 @@ The web dashboard **Strategy** tab shows the project's planning corpus. Authorit
 is the database (`strategy_docs` rows). Files under `.yoke/strategy/` are
 gitignored local renders.
 
+Review the corpus with `yoke strategy surface list --project P --limit 25`. The reply includes document activity and pages the document list; follow its next-page command or pass `--offset N`. `--json` retains all document fields in that page.
+
 ## Core documents
 
 | Doc | Role |

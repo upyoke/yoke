@@ -199,6 +199,16 @@ _TEST_MACHINE_FLOOR = ArgumentFloor(
 #: ignore them. Payload refusals name this floor; adapters whose writes can be
 #: ignored must also verify the success receipt echoes the requested argument.
 FUNCTION_ARGUMENT_MINIMUM_SERVING_VERSIONS: dict[str, dict[str, ArgumentFloor]] = {
+    **{
+        function_id: {
+            name: ArgumentFloor(
+                "next-release",
+                "omit --limit and --offset to use the serving release's unpaged list",
+            )
+            for name in ("limit", "offset")
+        }
+        for function_id in ("projects.capabilities.list", "strategy.surface.list")
+    },
     "ouroboros.field_note.append": {
         name: ArgumentFloor(
             "next-release", "upgrade the serving Yoke release before filing feedback"

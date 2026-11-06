@@ -1,6 +1,7 @@
 {
  "id": "capabilities",
  "title": "Capability declarations",
+ "summary": "The capability roster can select one project or enumerate all projects. CLI reads page 25 rows by default; --limit and --offset control the page, and the reply teaches the next-page command.",
  "status": "draft-copy",
  "commands": ["yoke projects capabilities list", "yoke projects capability has"],
  "functions": ["projects.capabilities.list", "projects.capability.has"],

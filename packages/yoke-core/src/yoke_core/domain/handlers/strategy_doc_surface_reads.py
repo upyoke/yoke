@@ -3,10 +3,11 @@
 from __future__ import annotations
 
 from yoke_contracts.project_contract.strategy_doc_fields import StrategyDocFieldError
+from yoke_contracts.list_paging import page_result
 
 from yoke_contracts.api.function_call import FunctionCallRequest, HandlerOutcome
 from yoke_core.domain.handlers.strategy_doc_surface_models import (
-    EmptyRequest,
+    StrategySurfaceListRequest,
     StrategyCoordinationAppendRequest,
     StrategyCoordinationAppendResponse,
     StrategyParentSetRequest,
@@ -51,7 +52,7 @@ from yoke_core.domain.strategy_execution_events import (
 
 
 def handle_surface_list(request: FunctionCallRequest) -> HandlerOutcome:
-    _, invalid = _model(request, EmptyRequest)
+    payload, invalid = _model(request, StrategySurfaceListRequest)
     if invalid:
         return invalid
     from yoke_core.domain.db_helpers import connect
@@ -63,12 +64,16 @@ def handle_surface_list(request: FunctionCallRequest) -> HandlerOutcome:
         docs = list_strategy_surfaces(conn, int(project.id))
         writes = strategy_write_activity(conn, int(project.id))
     return HandlerOutcome(
-        result_payload=StrategySurfaceListResponse(
-            project_id=project.id,
-            project_slug=project.slug,
-            docs=docs,
-            writes=writes,
-        ).model_dump(),
+        result_payload=page_result(
+            StrategySurfaceListResponse(
+                project_id=project.id,
+                project_slug=project.slug,
+                docs=docs,
+                writes=writes,
+            ).model_dump(),
+            "docs",
+            payload.model_dump(),
+        ),
         primary_success=True,
     )
 

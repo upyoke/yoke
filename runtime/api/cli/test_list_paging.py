@@ -28,6 +28,8 @@ LISTS = [
     (["item-worktrees", "inventory", "--project", "example"], "lanes"),
     (["epic-tasks", "list", "--epic", REF], "tasks"),
     (["strategy", "doc", "list", "--project", "example"], "docs"),
+    (["projects", "capabilities", "list"], "rows"),
+    (["strategy", "surface", "list", "--project", "example"], "docs"),
     (
         [
             "workflow-item",
@@ -43,7 +45,7 @@ LISTS = [
 ]
 
 
-def run_list(monkeypatch, argv, key, *, large=False):
+def run_list(monkeypatch, argv, key, *, large=False, legacy=False):
     requests = []
     rows = [
         dict(
@@ -61,7 +63,11 @@ def run_list(monkeypatch, argv, key, *, large=False):
     def dispatch(request):
         requests.append(request)
         # The transport preserves the server's explicit page metadata.
-        result = page_result({key: rows}, key, request.payload)
+        result = (
+            {key: rows[:1]}
+            if legacy
+            else page_result({key: rows}, key, request.payload)
+        )
         return FunctionCallResponse(
             success=True,
             function=request.function,
@@ -159,6 +165,20 @@ def test_empty_and_past_end_pages_have_no_continuation():
         assert result["rows"] == []
         assert result["next_offset"] is None
         assert result["current_run_id"] == 1
+
+
+@pytest.mark.parametrize(
+    "argv,key",
+    [
+        (["projects", "capabilities", "list"], "rows"),
+        (["strategy", "surface", "list", "--project", "example"], "docs"),
+    ],
+)
+def test_roster_reply_without_page_fields_retains_previous_read(monkeypatch, argv, key):
+    code, out, err, _ = run_list(monkeypatch, argv, key, legacy=True)
+    assert code == 0, err
+    assert "More rows" not in out
+    assert "界" in out
 
 
 @pytest.mark.parametrize(

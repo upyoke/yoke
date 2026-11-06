@@ -25,6 +25,7 @@ from yoke_cli.commands.adapters.workflow_instruction_delivery_args import (
     _delivery_payload,
 )
 from yoke_cli.commands.adapters.item_flow_output import render_item_instruction_summary
+from yoke_cli.commands.adapters.workflow_instruction_list import instruction_list_writer
 
 EXECUTION_INSTRUCTION_BLOCK_HEADER = (
     "# Workflow Execution Instructions (operator-authored — obey these)"
@@ -44,6 +45,7 @@ def render_execution_instruction_block(instructions: List[Dict[str, Any]]) -> st
         lines.append(str(instruction.get("content") or "").rstrip())
         lines.append("")
     return "\n".join(lines) + "\n"
+
 
 _DELIVERY_NOTE = (
     "Select at least one delivery point; When entering stage requires a "
@@ -193,9 +195,12 @@ def workflow_execution_instruction_list(args: List[str]) -> int:
     return _dispatch(
         args,
         tokens="workflow execution-instruction list",
-        configure=None,
+        configure=lambda parser: add_full_arg(
+            parser, "the complete instruction content"
+        ),
         function_id="workflow.execution_instruction.list",
         payload=lambda _parsed: {},
+        human_writer=instruction_list_writer(args, render_instruction_descriptors),
     )
 
 

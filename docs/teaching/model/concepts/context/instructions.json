@@ -1,6 +1,7 @@
 {
  "id": "instructions",
  "title": "Execution instructions",
+ "summary": "The instruction roster lists each id and first content line by default. --full prints complete content under per-instruction headings; JSON retains scope, delivery settings and content.",
  "status": "draft-copy",
  "surface_refs": ["execution-instructions", "project-native", "project-orientation", "skills-roles"],
  "commands": ["yoke workflow execution-instruction create", "yoke workflow execution-instruction delete", "yoke workflow execution-instruction list", "yoke workflow execution-instruction resolve", "yoke workflow execution-instruction set-scope", "yoke workflow execution-instruction update"],
