@@ -204,7 +204,7 @@ def test_a_run_whose_members_are_partly_closed_still_converges(
             test_db, item_id=item_id, public_ref=public_ref, run_id="run-recovery"
         )
         staged = close_out.stage_member_close(
-            test_db, item_id=item_id, public_ref=public_ref
+            test_db, item_id=item_id, public_ref=public_ref, run_id="run-partial"
         )
         assert not staged.refusal
         test_db.commit()
