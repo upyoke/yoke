@@ -7,14 +7,29 @@
 # One ARG so both stages pull the same image without upstream registry quotas.
 ARG PYTHON_IMAGE=ghcr.io/upyoke/python:3.13-slim
 
-FROM ${PYTHON_IMAGE} AS dependencies
+FROM ${PYTHON_IMAGE} AS tools
+RUN python -m pip install uv==0.12.1
+
+FROM ${PYTHON_IMAGE} AS runtime-base
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONUNBUFFERED=1
+    PYTHONUNBUFFERED=1 \
+    YOKE_API_HOST=0.0.0.0 \
+    YOKE_API_PORT=8765 \
+    YOKE_MACHINE_HOME=/var/lib/yoke \
+    YOKE_PG_BIN_DIR=/opt/yoke-postgres/bin \
+    PATH=/opt/yoke-venv/bin:$PATH
 
 WORKDIR /build
 
-RUN python -m pip install uv==0.12.1
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends libgssapi-krb5-2 \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN addgroup --system yoke \
+    && adduser --system --ingroup yoke --home /var/lib/yoke yoke \
+    && mkdir -p /var/lib/yoke/.yoke \
+    && chown -R yoke:yoke /var/lib/yoke
 
 # Lockfile and manifests alone own third-party dependencies. Workspace source
 # and release clocks must not rebuild or republish this large virtualenv.
@@ -25,27 +40,30 @@ COPY packages/yoke-core/pyproject.toml ./packages/yoke-core/pyproject.toml
 COPY packages/yoke-cli/pyproject.toml ./packages/yoke-cli/pyproject.toml
 COPY packages/yoke-contracts/pyproject.toml ./packages/yoke-contracts/pyproject.toml
 COPY packages/yoke-harness/pyproject.toml ./packages/yoke-harness/pyproject.toml
-RUN uv sync --locked --no-default-groups --no-editable --no-install-workspace
+RUN --mount=type=bind,from=tools,source=/usr/local/bin/uv,target=/usr/local/bin/uv \
+    uv sync --locked --no-default-groups --no-editable --no-install-workspace --compile-bytecode
 
-FROM dependencies AS builder
+WORKDIR /app
 
-# Fetch checksum-verified PostgreSQL before copying application sources or
-# version metadata. Only the bootstrap module and its package dependencies
-# invalidate this layer; ordinary server changes reuse the downloaded clients.
-COPY packages/yoke-contracts/src ./packages/yoke-contracts/src
-COPY packages/yoke-cli/src ./packages/yoke-cli/src
-COPY packages/yoke-core/src/yoke_core/domain/postgres_binaries.py ./packages/yoke-core/src/yoke_core/domain/postgres_binaries.py
-RUN PYTHONPATH=/build/packages/yoke-contracts/src:/build/packages/yoke-cli/src:/build/packages/yoke-core/src \
-        YOKE_MACHINE_HOME=/var/lib/yoke \
-        python -c "import runpy, shutil; binaries = runpy.run_path('/build/packages/yoke-core/src/yoke_core/domain/postgres_binaries.py')['ensure_binaries'](); shutil.copytree(binaries.parent, '/opt/yoke-postgres')"
+# The checksum-verified PostgreSQL operation is an ancestor of the final image,
+# so mode=min retains it without publishing source or wheel-building layers.
+RUN --mount=type=bind,source=packages/yoke-contracts/src,target=/bootstrap/contracts \
+    --mount=type=bind,source=packages/yoke-cli/src,target=/bootstrap/cli \
+    --mount=type=bind,source=packages/yoke-core/src/yoke_core/domain/postgres_binaries.py,target=/bootstrap/postgres_binaries.py \
+    PYTHONPATH=/bootstrap/contracts:/bootstrap/cli YOKE_MACHINE_HOME=/tmp/postgres-bootstrap \
+    python -c "import runpy, shutil; binaries = runpy.run_path('/bootstrap/postgres_binaries.py')['ensure_binaries'](); shutil.move(str(binaries.parent), '/opt/yoke-postgres'); shutil.rmtree('/tmp/postgres-bootstrap')"
 
-COPY .git_archival.txt ./
-COPY runtime ./runtime
-COPY packages ./packages
+FROM runtime-base AS builder
 
+WORKDIR /build
+
+# Source and setuptools scratch live only in this writable bind mount. The
+# cache receives wheels, never another copy of the application source tree.
 ARG YOKE_ENGINE_VERSION=""
 
-RUN if [ -n "$YOKE_ENGINE_VERSION" ]; then \
+RUN --mount=type=bind,source=.,target=/build,rw \
+    --mount=type=bind,from=tools,source=/usr/local/bin/uv,target=/usr/local/bin/uv \
+    if [ -n "$YOKE_ENGINE_VERSION" ]; then \
         export SETUPTOOLS_SCM_PRETEND_VERSION_FOR_YOKE="$YOKE_ENGINE_VERSION"; \
         export SETUPTOOLS_SCM_PRETEND_VERSION_FOR_YOKE_CONTRACTS="$YOKE_ENGINE_VERSION"; \
         export SETUPTOOLS_SCM_PRETEND_VERSION_FOR_YOKE_CLI="$YOKE_ENGINE_VERSION"; \
@@ -57,37 +75,13 @@ RUN if [ -n "$YOKE_ENGINE_VERSION" ]; then \
         --package-root packages/yoke-core/src/yoke_core \
         --wheel /wheels/yoke_core-*.whl
 
-FROM ${PYTHON_IMAGE} AS runtime
-
-ENV PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONUNBUFFERED=1 \
-    YOKE_API_HOST=0.0.0.0 \
-    YOKE_API_PORT=8765 \
-    YOKE_MACHINE_HOME=/var/lib/yoke \
-    YOKE_PG_BIN_DIR=/opt/yoke-postgres/bin \
-    PATH=/opt/yoke-venv/bin:$PATH
-
-WORKDIR /app
-
-RUN apt-get update \
-    && apt-get install -y --no-install-recommends libgssapi-krb5-2 \
-    && rm -rf /var/lib/apt/lists/*
-
-RUN addgroup --system yoke \
-    && adduser --system --ingroup yoke --home /var/lib/yoke yoke \
-    && mkdir -p /var/lib/yoke/.yoke \
-    && chown -R yoke:yoke /var/lib/yoke
-
-# Compose can select another machine home or mount it; clients belong to the image.
-COPY --chown=yoke:yoke --from=builder /opt/yoke-postgres /opt/yoke-postgres
-
-COPY --from=dependencies /opt/yoke-venv /opt/yoke-venv
+FROM runtime-base AS runtime
 
 # Bind mounts keep build tooling/wheels out of the image. Only the small
 # workspace installation changes; the external-dependency layer stays shared.
 RUN --mount=type=bind,from=builder,source=/wheels,target=/wheels \
-    --mount=type=bind,from=dependencies,source=/usr/local/bin/uv,target=/usr/local/bin/uv \
-    uv pip install --python /opt/yoke-venv/bin/python --no-cache --no-deps --no-index /wheels/*.whl
+    --mount=type=bind,from=tools,source=/usr/local/bin/uv,target=/usr/local/bin/uv \
+    uv pip install --python /opt/yoke-venv/bin/python --no-cache --compile-bytecode --no-deps --no-index /wheels/*.whl
 
 # Commit identity belongs after stable OS, user, PostgreSQL and dependencies.
 ARG YOKE_BUILD_SHA=""

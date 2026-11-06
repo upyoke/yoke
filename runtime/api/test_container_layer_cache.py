@@ -14,9 +14,10 @@ def test_dockerfile_uses_wheel_runtime_and_healthcheck() -> None:
     dockerfile = (ROOT / "Dockerfile").read_text(encoding="utf-8")
 
     assert "ARG PYTHON_IMAGE=ghcr.io/upyoke/python:3.13-slim" in dockerfile
-    assert "FROM dependencies AS builder" in dockerfile
-    assert "FROM ${PYTHON_IMAGE} AS runtime" in dockerfile
-    assert "COPY .git_archival.txt ./" in dockerfile
+    assert "FROM runtime-base AS builder" in dockerfile
+    assert "FROM ${PYTHON_IMAGE} AS runtime-base" in dockerfile
+    assert "FROM runtime-base AS runtime" in dockerfile
+    assert "--mount=type=bind,source=.,target=/build,rw" in dockerfile
     assert 'ARG YOKE_ENGINE_VERSION=""' in dockerfile
     assert dockerfile.count('ARG YOKE_ENGINE_VERSION=""') == 2
     assert "SETUPTOOLS_SCM_PRETEND_VERSION_FOR_YOKE_CORE" in dockerfile
@@ -25,7 +26,7 @@ def test_dockerfile_uses_wheel_runtime_and_healthcheck() -> None:
     assert "installed yoke-core version" in dockerfile
     assert "COPY uv.lock ./" in dockerfile
     assert "uv sync --locked --no-default-groups --no-editable" in dockerfile
-    assert "COPY --from=dependencies /opt/yoke-venv /opt/yoke-venv" in dockerfile
+    assert "UV_PROJECT_ENVIRONMENT=/opt/yoke-venv" in dockerfile
     assert "pip install --no-cache-dir" not in dockerfile
     assert "uv build --wheel --all-packages" in dockerfile
     assert "wheel_module_completeness.py" in dockerfile
@@ -35,9 +36,7 @@ def test_dockerfile_uses_wheel_runtime_and_healthcheck() -> None:
     assert "RUN YOKE_MACHINE_HOME=/var/lib/yoke/.yoke python" in dockerfile
     assert "libgssapi-krb5-2" in dockerfile
     assert "p._postgres_executable(name), '--version'" in dockerfile
-    assert (
-        "COPY --chown=yoke:yoke --from=builder /opt/yoke-postgres /opt/yoke-postgres"
-    ) in dockerfile
+    assert ("shutil.move(str(binaries.parent), '/opt/yoke-postgres')") in dockerfile
     assert 'CMD ["python", "-m", "yoke_core.api.server_entrypoint"]' in dockerfile
     assert "RUN python -m yoke_core.tools.product_wheel_validation" in dockerfile
     assert 'CMD ["python", "-m", "yoke_core.api.container_healthcheck"]' in dockerfile
@@ -49,7 +48,7 @@ def test_dockerfile_uses_wheel_runtime_and_healthcheck() -> None:
 
 def test_dependency_inputs_exclude_source_and_release_identity():
     dockerfile = (ROOT / "Dockerfile").read_text()
-    dependencies, builder = dockerfile.split("FROM dependencies AS builder", 1)
+    dependencies, builder = dockerfile.split("FROM runtime-base AS builder", 1)
     assert "--no-install-workspace" in dependencies
     assert "--locked --no-default-groups" in dependencies
     assert "COPY runtime" not in dependencies
@@ -58,17 +57,23 @@ def test_dependency_inputs_exclude_source_and_release_identity():
     for manifest in (ROOT / "packages").glob("yoke-*/pyproject.toml"):
         assert f"COPY {manifest.relative_to(ROOT)} " in dependencies
     assert builder.count("uv build --wheel --all-packages") == 1
-    runtime = builder.split("FROM ${PYTHON_IMAGE} AS runtime", 1)[1]
+    runtime = builder.split("FROM runtime-base AS runtime", 1)[1]
     identity = runtime.index('ARG YOKE_BUILD_SHA=""')
-    for stable in (
-        "apt-get update",
-        "addgroup",
-        "COPY --from=dependencies",
-        "uv pip install",
-    ):
-        assert runtime.index(stable) < identity
+    assert runtime.index("uv pip install") < identity
     assert "--no-deps --no-index /wheels/*.whl" in runtime
-    assert "COPY --from=builder /opt/yoke-venv" not in runtime
+    assert "--compile-bytecode" in dependencies
+    assert "--no-cache --compile-bytecode" in runtime
+    for stable in ("apt-get update", "addgroup", "uv sync", "['ensure_binaries']()"):
+        assert stable in dependencies
+        assert stable not in runtime
+    assert "YOKE_MACHINE_HOME=/tmp/postgres-bootstrap" in dependencies
+    assert "COPY packages ./packages" not in builder
+    assert "COPY runtime ./runtime" not in builder
+    assert "--mount=type=bind,source=.,target=/build,rw" in builder
+    assert "uv build --wheel --all-packages --out-dir /wheels" in builder
+    assert "source=/wheels,target=/wheels" in runtime
+    assert "--mount=type=bind,from=tools" in dependencies
+    assert "--mount=type=bind,from=tools" in runtime
 
 
 @pytest.mark.parametrize("wheel,bundle", [(0, 0), (1, 0), (0, 1), (1, 1)])
