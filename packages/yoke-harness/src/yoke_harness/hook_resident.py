@@ -67,8 +67,6 @@ class _ResidentServer(socketserver.ThreadingMixIn, socketserver.UnixStreamServer
         self.last_message_probes: dict[str, float] = {}
         self.stop_event = threading.Event()
         self.restart_event = threading.Event()
-        # Bind before the slow evaluator import, so a cold start is reachable
-        # at once and its first callers queue for the answer.
         super().__init__(socket_path, _ResidentHandler)
         self.timeout = _SERVER_POLL_SECONDS
 
@@ -79,7 +77,6 @@ class _ResidentServer(socketserver.ThreadingMixIn, socketserver.UnixStreamServer
 
         self.http_opener = ResidentHttpOpener()
         self.observations = ObservationQueue(self.http_opener)
-        # Process facades must exist before importing the canonical evaluator.
         from yoke_cli.commands.adapters.hook_inprocess import evaluate_inprocess
 
         self.evaluate_inprocess = evaluate_inprocess
@@ -140,7 +137,9 @@ class _ResidentServer(socketserver.ThreadingMixIn, socketserver.UnixStreamServer
         local = read_only and self.should_evaluate_locally(probe_key)
         started = time.monotonic()
         self.http_opener.begin_hook_request()
-        with activate_process_context(process) as capture:
+        from yoke_cli.transport.http_request_context import use_http_opener
+        context = activate_process_context(process)
+        with context as capture, use_http_opener(self.http_opener):
             from yoke_cli.commands.adapters.hook_config_dedup import (
                 is_cursor_config_invocation,
             )

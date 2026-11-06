@@ -12,6 +12,9 @@ from __future__ import annotations
 import json
 import os
 import re
+import threading
+import time
+from collections import OrderedDict
 from pathlib import Path
 from typing import Optional
 
@@ -43,18 +46,42 @@ def codex_transcript_roots() -> list[Path]:
     return [home / name for name in CODEX_TRANSCRIPT_ROOT_NAMES]
 
 
+_CANDIDATE_TTL_SECONDS = 2.0
+_candidate_lock = threading.Lock()
+_candidate_cache: OrderedDict[tuple, tuple[float, tuple[Path, ...]]] = OrderedDict()
+
+
 def codex_transcript_candidates(
     thread_id: str,
     *,
     roots: list[Path] | None = None,
 ) -> list[Path]:
-    """Return one thread's transcripts, most recently written first."""
-    candidates: list[Path] = []
-    for root in roots if roots is not None else codex_transcript_roots():
-        if root.exists():
-            candidates.extend(root.rglob(f"*{thread_id}.jsonl"))
-    candidates.sort(key=lambda path: path.stat().st_mtime, reverse=True)
-    return candidates
+    """Share path discovery briefly; transcript contents always remain live."""
+    if not thread_id:
+        return []
+    stores = tuple(roots if roots is not None else codex_transcript_roots())
+    key = (stores, thread_id)
+    with _candidate_lock:
+        now = time.monotonic()
+        cached = _candidate_cache.get(key)
+        if cached and now - cached[0] < _CANDIDATE_TTL_SECONDS:
+            candidates = cached[1]
+        else:
+            candidates = tuple(
+                path for root in stores if root.exists()
+                for path in root.rglob(f"*{thread_id}.jsonl")
+            )
+            _candidate_cache[key] = (time.monotonic(), candidates)
+            _candidate_cache.move_to_end(key)
+            while len(_candidate_cache) > 128:
+                _candidate_cache.popitem(last=False)
+    live: list[tuple[float, Path]] = []
+    for path in candidates:
+        try:
+            live.append((path.stat().st_mtime, path))
+        except OSError:
+            continue
+    return [path for _, path in sorted(live, reverse=True)]
 
 
 def codex_transcript_exists(session_id: str, transcript_path: str = "") -> bool:

@@ -17,12 +17,8 @@ process running under?":
 4. **Conversation mapping:** a harness that neither stamps step 2 nor can
    be anchored resolves through the pairing its own hooks record.
 
-Pure standard library; takes ``anchors_dir`` as an argument so BOTH sides
-share one body: the engine core via the thin ``yoke_core.domain``
-re-export shims, and the product CLI client, which MUST resolve identity
-client-side because an https server cannot inspect the caller's process
-tree. One implementation prevents the drift that let an env-only copy
-silently omit the ancestry walk.
+Pure standard library; both engine and CLI share this body. The HTTPS
+server cannot inspect the caller's process tree, so the client resolves it.
 """
 
 from __future__ import annotations
@@ -94,9 +90,7 @@ def resolve_actor_role(
     return (source.get(ACTOR_ROLE_ENV_VAR) or "").strip() or None
 
 
-# ---------------------------------------------------------------------------
-# Anchor registry (read / write / prune) — one small JSON file per anchor pid
-# ---------------------------------------------------------------------------
+# Anchor registry: one JSON file per anchor pid.
 
 
 def _load_json(path: Path) -> Optional[Dict[str, Any]]:
@@ -157,6 +151,15 @@ def record_session_anchor(
         existing = _load_json(final) if final.is_file() else None
         if existing and existing.get("anchor_start_time") != resolved.start_time:
             existing = None  # reused pid: the recorded process is gone
+        if (
+            existing and existing.get("session_id") == session_id
+            and existing.get("anchor_pid") == resolved.pid
+            and not existing.get("shared_by_multiple_sessions")
+            and not existing.get("contending_session_ids")
+            and existing.get("transcript_path", "") == (transcript_path or "")
+            and existing.get("anchor_process_name") == resolved.process_name
+        ):
+            return existing
         decision = resolve_tenancy(
             existing,
             session_id,
@@ -279,9 +282,7 @@ def prune_stale_anchors(
     return removed
 
 
-# ---------------------------------------------------------------------------
-# The unified ambient chain
-# ---------------------------------------------------------------------------
+# The unified ambient chain.
 
 
 def resolve_ambient_session_id(

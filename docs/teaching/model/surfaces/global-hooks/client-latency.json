@@ -1,9 +1,11 @@
 {
  "id": "client-latency",
- "title": "Measure hook client startup and confirm latency after client rollout.",
+ "title": "Profile hook startup and resident work; confirm latency after client rollout.",
  "status": "observed",
  "form": "State",
- "verification": "Source guidance in docs/source-dev/hook-client-latency.md separates entry import checks and warm resident timing from Production acceptance. Existing client-wall telemetry supplies paired client/server measurements; sessions hook-overhead supplies coverage and harness/surface context. Three complete days after client adoption remain required before claiming the latency target.",
- "topics": ["context/hooks"],
+ "verification": "Source guidance in docs/source-dev/hook-client-latency.md covers entry imports, evaluate_inprocess profiling, concurrent observations, bounded process/transcript discovery and request-scoped HTTP reuse. Controlled measurements separate client work from transport and explicitly name fixtures. Existing telemetry supplies paired client/server measurements and harness coverage; three complete Production days after client adoption still own acceptance.",
+ "topics": [
+  "context/hooks"
+ ],
  "position": 7
 }

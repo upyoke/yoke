@@ -44,6 +44,7 @@ from yoke_cli.transport.https_response_policy import (
     read_bounded_response,
 )
 from yoke_cli.transport.https_urlopen import open_no_redirect
+from yoke_cli.transport.http_request_context import active_http_opener
 from yoke_cli.transport.https_credentials import TransportError, resolve_token
 from yoke_cli.transport.response_deadline_errors import (
     ResponseHeadersDeadlineError,
@@ -297,13 +298,19 @@ def _open_function_relay(
     if open_no_redirect is not _DEFAULT_OPEN_NO_REDIRECT:
         return open_no_redirect(request, timeout=timeout_s)
     try:
-        return open_bounded_request(
+        opened = open_bounded_request(
             request,
             deadline=deadline,
             replay_safe=False,
             allow_private_http=True,
-            opener=None,
+            opener=active_http_opener(),
         )
+        if opened.getcode() >= 300:
+            raise urllib.error.HTTPError(
+                request.full_url, opened.getcode(), "function relay HTTP error",
+                opened.headers, opened,
+            )
+        return opened
     except HttpOpenPolicyError as exc:
         raise HttpsResponsePolicyError(str(exc)) from exc
 

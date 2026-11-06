@@ -13,6 +13,10 @@ wrote the record last.
 
 from __future__ import annotations
 
+import os
+import threading
+import time
+from collections import OrderedDict
 from typing import Optional
 
 from yoke_cli.config import machine_config
@@ -22,8 +26,41 @@ from yoke_contracts.session_identity import (
     prune_stale_anchors,
     record_session_anchor as _record_session_anchor,
 )
-from yoke_contracts.process_ancestry import find_nearest_named_process_anchor
+from yoke_contracts.process_ancestry import (
+    ProcessAnchor, find_nearest_named_process_anchor, process_start_time,
+)
 from yoke_contracts.session_control import liveness_process_names
+
+
+# Only ancestry is shared; registry tenancy is read again on every write.
+_ANCHOR_TTL_SECONDS = 2.0
+_anchor_cache: OrderedDict[tuple, tuple[float, Optional[ProcessAnchor]]] = OrderedDict()
+_anchor_lock = threading.Lock()
+
+
+def _caller_anchor(names: tuple[str, ...]) -> Optional[ProcessAnchor]:
+    parent = os.getppid()
+    started = process_start_time(parent)
+    if not started:
+        return None
+    key = (parent, started, names)
+    now = time.monotonic()
+    with _anchor_lock:
+        cached = _anchor_cache.get(key)
+    if cached and now - cached[0] < _ANCHOR_TTL_SECONDS:
+        anchor = cached[1]
+        if anchor is None or (
+            (started if anchor.pid == parent else process_start_time(anchor.pid))
+            == anchor.start_time
+        ):
+            return anchor
+    anchor = find_nearest_named_process_anchor(names)
+    with _anchor_lock:
+        _anchor_cache[key] = (now, anchor)
+        _anchor_cache.move_to_end(key)
+        while len(_anchor_cache) > 128:
+            _anchor_cache.popitem(last=False)
+    return anchor
 
 
 def _anchors_dir():
@@ -49,7 +86,9 @@ def record_session_anchor(session_id: str, *, transcript_path: str = "") -> None
     executor = detect_executor()
     surface = cursor_surface_entrypoint() if executor == "cursor" else executor
     names = liveness_process_names(surface)
-    anchor = find_nearest_named_process_anchor(names) if names else None
+    anchor = _caller_anchor(tuple(names)) if names else None
+    if anchor is None:
+        return
     _record_session_anchor(
         session_id,
         _anchors_dir(),
