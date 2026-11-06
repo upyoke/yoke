@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
+
 from yoke_core.tools import impacted_project_test_roots as roots
 
 
@@ -60,6 +62,15 @@ def test_explicit_environment_project_without_checkout_binding(monkeypatch, tmp_
     assert seen == ["selected"]
 
 
+@pytest.fixture
+def selector_roots(monkeypatch):
+    roots.resolve_test_roots.cache_clear()
+    monkeypatch.setattr(roots, "default_project_for_directory", lambda _: "fixture")
+    monkeypatch.setattr(roots, "_try_read", lambda _: roots.YOKE_SEEDED_TEST_ROOTS)
+    yield
+    roots.resolve_test_roots.cache_clear()
+
+
 def _selector_tree(checkout: Path, test_root: str, count: int = 1) -> None:
     (checkout / "pkg").mkdir(parents=True)
     (checkout / "pkg/subject.py").write_text("VALUE = 1\n")
@@ -76,14 +87,18 @@ def _selector_tree(checkout: Path, test_root: str, count: int = 1) -> None:
         (checkout / "pkg" / f"helper_{number}.py").write_text("VALUE = 2\n")
 
 
-def test_index_and_selection_never_read_working_directory(monkeypatch, tmp_path):
+def test_index_and_selection_never_read_working_directory(
+    monkeypatch, tmp_path, selector_roots
+):
     import os
 
     from yoke_core.tools.impacted_tests import build_import_index, is_test_file, select
 
     _selector_tree(tmp_path, "tests", count=200)
     for n in range(100):
-        (tmp_path / "tests" / f"test_unrelated_{n}.py").write_text("def test_ok(): pass\n")
+        (tmp_path / "tests" / f"test_unrelated_{n}.py").write_text(
+            "def test_ok(): pass\n"
+        )
     calls = 0
 
     def getcwd():
@@ -103,7 +118,9 @@ def test_index_and_selection_never_read_working_directory(monkeypatch, tmp_path)
     assert selected.test_roots == index.test_roots
 
 
-def test_each_index_keeps_its_checkout_roots_after_chdir(monkeypatch, tmp_path):
+def test_each_index_keeps_its_checkout_roots_after_chdir(
+    monkeypatch, tmp_path, selector_roots
+):
     from yoke_core.tools.impacted_tests import build_import_index, select
 
     first, second = tmp_path / "first", tmp_path / "second"
@@ -124,7 +141,9 @@ def test_each_index_keeps_its_checkout_roots_after_chdir(monkeypatch, tmp_path):
     assert select(["docs/readme.md"], other).pytest_paths() == ("specs/",)
 
 
-def test_selection_survives_deleted_working_directory(monkeypatch, tmp_path):
+def test_selection_survives_deleted_working_directory(
+    monkeypatch, tmp_path, selector_roots
+):
     import os
 
     from yoke_core.tools.impacted_tests import build_import_index, select

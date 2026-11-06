@@ -302,8 +302,6 @@ def test_watcher_footer_reports_collected_items_and_denominator() -> None:
 
 
 def test_fallback_rules_covers_every_rule_the_selector_can_emit() -> None:
-    # The identifiers are the grouping key for captured telemetry, so the
-    # published set and the rule table must not drift apart.
     from_table = {rule for rule, _paths, _why in _impacted_unbounded_paths.PATH_RULES}
     assert from_table <= set(impacted_tests.FALLBACK_RULES)
     assert len(impacted_tests.FALLBACK_RULES) == len(set(impacted_tests.FALLBACK_RULES))
@@ -313,6 +311,7 @@ def test_wrapper_prints_prose_reason_and_telemetry(capsys, monkeypatch) -> None:
     monkeypatch.setattr(project_python, "resolve_test_roots", lambda _: ("tests/",))
     selection = Selection(
         full_sweep=True,
+        test_roots=("tests/",),
         reason="tools/run_tests.py selects or runs the suite itself",
         fallback_rule="test_tooling_module",
         trigger_paths=("tools/run_tests.py",),
