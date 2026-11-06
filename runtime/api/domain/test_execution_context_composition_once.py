@@ -13,7 +13,14 @@ from yoke_core.domain.handlers import deployment_run_execution as execution
 from yoke_core.domain.deployment_run_carried_work import require_bound_project_coverage
 
 
-def _context(*, frozen: bool, compose: Any, frozen_verdict: Any):
+def _context(
+    *,
+    frozen: bool,
+    compose: Any,
+    frozen_verdict: Any,
+    set_aside: Any = None,
+    record_sources: Any = None,
+):
     """Run the execution context with every read but composition stubbed."""
     values = {
         "id": "run-once",
@@ -30,7 +37,16 @@ def _context(*, frozen: bool, compose: Any, frozen_verdict: Any):
     )
     with (
         patch.object(execution, "require_run_driver", return_value=None),
-        patch.object(execution, "_record_bound_sources", return_value={}),
+        patch.object(
+            execution,
+            "_record_bound_sources",
+            return_value={},
+            side_effect=record_sources,
+        ),
+        patch(
+            "yoke_core.domain.deployment_run_context_members.set_aside_context_members",
+            return_value=set_aside or {},
+        ),
         patch.object(execution, "_member_rows", return_value=[]),
         patch(
             "yoke_core.domain.deployment_run_composition_guard.has_frozen_composition",
@@ -82,6 +98,37 @@ def test_execution_context_composes_once_and_returns_its_enrollment():
     composition.assert_called_once()
     assert composition.call_args.kwargs["connection"] is conn
     conn.commit.assert_called_once()
+
+
+@pytest.mark.parametrize("removed", [{}, {1: "item-ref"}], ids=["unchanged", "set-aside"])
+def test_context_commits_removals_before_resolving_bound_sources(removed):
+    callbacks = []
+    expected_early_commits = int(bool(removed))
+
+    def record_sources(conn, run_id):
+        assert run_id == "run-once"
+        assert conn.commit.call_count == expected_early_commits
+        callbacks.append("bound-sources")
+        return {}
+
+    def compose(_run_id, *, composition_result, connection):
+        assert callbacks == ["bound-sources"]
+        assert connection.commit.call_count == expected_early_commits
+        callbacks.append("composition")
+        return True, "OK"
+
+    result, conn, _, _ = _context(
+        frozen=False,
+        compose=compose,
+        frozen_verdict=_unexpected,
+        set_aside=removed,
+        record_sources=record_sources,
+    )
+
+    assert result.primary_success
+    assert callbacks == ["bound-sources", "composition"]
+    assert conn.commit.call_count == expected_early_commits + 1
+    conn.rollback.assert_not_called()
 
 
 def test_a_frozen_run_redrive_judges_only_members_that_can_change():
