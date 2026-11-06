@@ -301,6 +301,7 @@ def session_summary_result(rows: list[dict], *, offset: int, limit: int | None) 
         "execution_level",
         "mode",
         "liveness",
+        "next_actor",
         "current_item",
         "current_item_title",
     )

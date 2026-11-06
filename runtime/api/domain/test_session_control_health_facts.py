@@ -60,6 +60,7 @@ def test_a_gating_edge_on_a_claimed_item_is_a_declared_wait(conn) -> None:
         "blocking_item": "YOK-42",
         "gate_point": "activation",
         "blocking_status": "implementing",
+        "since": "2026-01-01T00:00:00Z",
     }
 
 

@@ -1,3 +1,4 @@
+import { appendNextActor } from "./next_actor_display.js";
 // Card renderers for the three live objects on the Overview frontier: items,
 // sessions (rendered by the Sessions module), and deployment runs.
 
@@ -98,6 +99,7 @@ export function workItemCard(documentNode, row, scope, options = {}) {
   titleLink.href = href;
   title.appendChild(titleLink);
   card.appendChild(title);
+  appendNextActor(documentNode, card, row.next_actor);
 
   // Progress belongs inside the card: a strip that spanned the grid row
   // stopped saying which item it described.

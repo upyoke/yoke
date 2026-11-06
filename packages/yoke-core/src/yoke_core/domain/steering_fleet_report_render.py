@@ -94,6 +94,10 @@ def _holder_lines(holders: tuple[ClaimHolder, ...], *, idle: bool = False) -> li
         )
         if holder.quiet_reason:
             line += f", {holder.quiet_reason}"
+        if holder.next_actor:
+            next_action = holder.next_actor
+            people = ", ".join(person["name"] for person in next_action.get("people", []) if person.get("name"))
+            line += f"  next: {people or next_action['actor']} — {next_action['reason']}"
         if holder.hand_started:
             line += "  hand-started (operator origin)"
         line += f"  {holder.message_delivery}"

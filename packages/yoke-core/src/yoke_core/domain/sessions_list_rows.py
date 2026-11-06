@@ -117,6 +117,9 @@ def render_session_roster_rows(
     from yoke_core.domain.session_display import session_display_details
 
     display = session_display_details(conn, [row["session_id"] for row in page])
+    from yoke_core.domain.next_actor_facts import next_actor_facts
+
+    actor_facts, _ = next_actor_facts(conn, session_ids=[row["session_id"] for row in page])
     for row in page:
         activity_at, _parsed = _latest_activity(
             row.get("last_heartbeat"),
@@ -152,7 +155,7 @@ def render_session_roster_rows(
             entry.get(ITEM_AWAITING_LANDING_KEY) for entry in holdings["current"]
         )
         model = session_state(
-            {**row, "holds": holdings["current"], "claims": claims}, now=now
+            {**row, **actor_facts.get(session_id, {}), "holds": holdings["current"], "claims": claims}, now=now
         )
         result.append(
             {
@@ -165,6 +168,7 @@ def render_session_roster_rows(
                 "activity_at": activity_at,
                 "in_flight": model["in_flight"],
                 "session_state": model,
+                "next_actor": model["next_actor"],
                 "last_tool_call_at": (
                     format_instant(row["last_tool_call_at"])
                     if row.get("last_tool_call_at")

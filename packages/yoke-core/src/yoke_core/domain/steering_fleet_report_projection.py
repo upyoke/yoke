@@ -54,6 +54,7 @@ def _holder_dict(holder: ClaimHolder) -> dict[str, Any]:
         "item_id": holder.item_id,
         "public_ref": holder.public_ref,
         "mode": holder.mode,
+        "next_actor": holder.next_actor,
         "parked": holder.parked,
         "last_activity_at": holder.last_activity_at,
         "idle_seconds": holder.idle_seconds,

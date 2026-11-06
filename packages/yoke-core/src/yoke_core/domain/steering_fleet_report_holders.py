@@ -8,7 +8,7 @@ module decides only who the holders are.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field, replace
 from datetime import datetime
 from typing import Any
 
@@ -80,6 +80,7 @@ class ClaimHolder:
     #: The item's queued PR landed and the holder has not acted since the
     #: landing notice, so its silence is not yet idleness.
     landing_notice_pending: bool = False
+    next_actor: dict = field(default_factory=dict)
 
     @property
     def requires_immediate_alarm(self) -> bool:
@@ -193,6 +194,9 @@ def claim_holders(
         (session_id for session_id, process in processes.items() if process),
         now=parse_stamp(now),
     )
+    from yoke_core.domain.next_actor import session_next_actor
+    from yoke_core.domain.session_state import session_presence
+
     for row in rows:
         last_activity = parse_stamp(
             row.get("last_tool_call_at")
@@ -220,6 +224,9 @@ def claim_holders(
                     None, row["prefix"], row["project_sequence"]
                 ),
                 mode=mode,
+                next_actor=session_next_actor(
+                    row,
+                    presence=session_presence(row)),
                 parked=session_is_parked(mode),
                 last_activity_at=last_activity,
                 idle_seconds=age_seconds(last_activity, now) or 0,
@@ -237,6 +244,21 @@ def claim_holders(
             )
         )
     return tuple(holders)
+
+
+def with_next_actor(conn: Any, holders: tuple[ClaimHolder, ...]) -> tuple[ClaimHolder, ...]:
+    """Enrich a report page after the narrow, one-statement holder read."""
+    from yoke_core.domain.next_actor_facts import next_actor_facts
+    from yoke_core.domain.next_actor import session_next_actor
+
+    facts, _ = next_actor_facts(conn, session_ids=[h.session_id for h in holders],
+                              item_ids=[h.item_id for h in holders])
+    return tuple(replace(holder, next_actor=session_next_actor(
+        {"mode": holder.mode, "quiet_reason": holder.quiet_reason,
+         "turn_posture_at": holder.next_actor.get("since"),
+         "native_process_gone_at": holder.native_process_gone_at,
+         **facts.get(holder.session_id, {})},
+        presence="gone" if holder.native_process_gone else "present")) for holder in holders)
 
 
 __all__ = ["ClaimHolder", "claim_holders"]
