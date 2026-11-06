@@ -26,9 +26,9 @@ Host helpers exported from `static/app.js` and declared in
 `contracts/universe-app.ts` use these signatures:
 
 ```ts
-buildUniverseRoute(view, project = null, segment = null, detail = null, basePath = "")
-parseUniverseRoute(href, basePath = "")
-withProjectSelection(href, selections, basePath = "")
+buildUniverseRoute(view, project = null, segment = null, detail = null, basePath = "", navigation = [])
+parseUniverseRoute(href, basePath = "", navigation = [])
+withProjectSelection(href, selections, basePath = "", navigation = [])
 ```
 
 `selections.selectionFor(view)` answers `"all"` or an array of project IDs.
@@ -75,3 +75,45 @@ The TypeScript source declares the mount contract version. After changing it,
 compile `contracts/tsconfig.json` with the UI's pinned TypeScript compiler and
 commit both the declaration emit and runtime `static/contract-version.js`.
 Hosts materialize types and static assets from the same pinned product revision.
+
+Hosts add their own destinations through `UniverseAppOptions.navigation`, a
+readonly array of `UniverseHostNavGroup` values from
+`contracts/universe-host-navigation.ts` (also re-exported by `universe-app.ts`):
+
+```ts
+navigation: [{
+  id: "host-tools", label: "Host tools", pages: [{
+    id: "reports", label: "Reports",
+    content: ({ detail, signal }) => renderReport(detail, signal),
+  }],
+}]
+```
+
+Each group has `{ id, label, pages }`; each page has `{ id, label, content }`.
+Groups follow Diagnostics in host order, and empty groups do not appear. Group
+ids are unique lowercase slugs. Page ids are lowercase slugs unique across all
+host groups. A Yoke view id or moved view id refuses mounting with
+`host_page_id_reserved`, naming the id; choose a distinct id and remount.
+Malformed or duplicate ids refuse with `host_page_id_invalid` or
+`host_group_id_invalid`; fix the named slug and remount.
+
+A page opens at `BASE/<pageId>[/<detail>]`, with its label in the page head,
+sidebar, and browser title. Pass the same navigation array to exported route
+helpers (including `universeNavScope`) when building host links outside the
+mount. Host anchors inside the mount use app history, including detail links.
+The host's HTTP handler must serve its mount shell on these declared page
+paths, in addition to the built-in dashboard route roster, so reloads and deep
+links work. The built-in roster does not enumerate host-owned pages.
+
+Content is an Element or synchronous factory receiving `UniverseHostPageContext`:
+`UniverseSectionContext` plus decoded `detail: string | null`. Host pages have
+`scope: null` and `projectSelection: "all"`; they take no project query scope.
+Signals abort on navigation and unmount, and nodes detach for reuse. Null factory
+results leave the body empty; a failing factory aborts its signal and displays
+`host_page_render_failed` with recovery on the affected page.
+
+The host decides access by omitting groups the viewer may not see. The
+workbench does not infer permissions. Mounts without navigation keep their
+existing destinations and route behavior: unknown pages still open Strategy.
+The contract version remains 11; hosts consume the new declarations with the
+same pinned workbench bundle.

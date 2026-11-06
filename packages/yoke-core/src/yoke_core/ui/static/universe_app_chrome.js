@@ -233,6 +233,7 @@ export function createWorkbenchChrome({
     documentNode,
     navEl,
     resolvedSections,
+    hostNavigation: options.navigation,
     onGroupToggle(groupId, open) {
       // Persisted against the person, so the drawer an operator closed is
       // still closed on the next visit. A failure here loses the choice and

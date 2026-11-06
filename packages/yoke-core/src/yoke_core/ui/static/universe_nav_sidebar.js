@@ -84,11 +84,12 @@ export function buildSidebarNavigation({
   navEl,
   resolvedSections,
   onGroupToggle,
+  hostNavigation = [],
 }) {
   const navLinks = new Map();
   const collapsible = new Map();
-  for (const group of NAV_GROUPS) {
-    const entries = NAV.filter((entry) => (
+  for (const group of [...NAV_GROUPS, ...hostNavigation]) {
+    const entries = group.pages || NAV.filter((entry) => (
       entry.group === group.id
       && !entry.hidden
       && !(entry.hostFed && !resolvedSections[entry.id])

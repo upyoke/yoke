@@ -13,14 +13,20 @@ import {
 import attributionRules from "./attribution_rules.js";
 export { knownProjectId } from "./universe_project_selection.js";
 
-export { NAV, NAV_GROUPS, SCOPE_MULTI, SCOPE_NONE, SCOPE_SINGLE };
-
-export function navEntry(view) {
-  return NAV.find((entry) => entry.id === view) || NAV[0];
+export function hostNavEntries(navigation = []) {
+  return navigation.flatMap((group) => group.pages.map((page) => ({
+    ...page, group: group.id, scope: SCOPE_NONE, hostPage: true,
+  })));
 }
 
-export function universeNavScope(view) {
-  return navEntry(view).scope;
+export { NAV, NAV_GROUPS, SCOPE_MULTI, SCOPE_NONE, SCOPE_SINGLE };
+
+export function navEntry(view, navigation = []) {
+  return NAV.find((entry) => entry.id === view) || hostNavEntries(navigation).find((entry) => entry.id === view) || NAV[0];
+}
+
+export function universeNavScope(view, navigation = []) {
+  return navEntry(view, navigation).scope;
 }
 
 // The tabs a destination declares, and the one it opens on. A destination
@@ -39,10 +45,10 @@ export function defaultTabFor(view) {
 // apart: `PREFIX-12 · Items · Yoke`, `Runs · Deployments · Yoke`. A drill-in
 // beneath a sensitive parent (a machine-approval code) stays out of the title,
 // as the events Pack keeps it out of every recorded path.
-export function routeDocumentTitle(route) {
+export function routeDocumentTitle(route, navigation = []) {
   const tab = navTabs(route.view).find((candidate) => candidate.id === route.tab);
   const detail = attributionRules.sensitive_path_parents.includes(route.view) ? null : route.detail;
-  return [detail, tab?.label, navEntry(route.view).label, "Yoke"]
+  return [detail, tab?.label, navEntry(route.view, navigation).label, "Yoke"]
     .filter(Boolean).join(" · ");
 }
 
@@ -73,23 +79,23 @@ export function routePath(href, basePath = "") {
   return `${url.pathname.slice(base.length)}${url.search}`;
 }
 
-export function routeHref(href, basePath = "") {
+export function routeHref(href, basePath = "", navigation = []) {
   const base = normalizeRouteBase(basePath);
   const text = String(href || "");
   if (!text.startsWith("/") || text.startsWith("//")) return null;
   const relative = base && (text === base || text.startsWith(`${base}/`))
     ? text.slice(base.length) : text;
   const view = relative.split(/[/?#]/)[1];
-  return NAV.some((entry) => entry.id === view) ? `${base}${relative}` : null;
+  return [...NAV, ...hostNavEntries(navigation)].some((entry) => entry.id === view) ? `${base}${relative}` : null;
 }
 
-export function parseUniverseRoute(href, basePath = "") {
+export function parseUniverseRoute(href, basePath = "", navigation = []) {
   const raw = routePath(href, basePath).replace(/^\//, "");
   const [pathPart, queryPart] = raw.split("?");
   const [requestedView, firstSegment, secondSegment] = pathPart.split("/");
   const viewPart = Object.hasOwn(MOVED_VIEWS, requestedView)
     ? MOVED_VIEWS[requestedView] : requestedView;
-  const view = NAV.some((entry) => entry.id === viewPart)
+  const view = [...NAV, ...hostNavEntries(navigation)].some((entry) => entry.id === viewPart)
     ? viewPart : NAV[0].id;
   const query = new URLSearchParams(queryPart || "");
   const project = query.get("project");
@@ -104,7 +110,8 @@ export function parseUniverseRoute(href, basePath = "") {
   const tab = tabs.some((entry) => entry.id === segments[0])
     ? segments[0] : null;
   const detail = (tab ? segments[1] : segments[0]) || null;
-  return { view, tab, detail, project, selection };
+  const hostPage = hostNavEntries(navigation).some((entry) => entry.id === view);
+  return { view, tab, detail, project: hostPage ? null : project, selection: hostPage ? null : selection };
 }
 
 export function buildUniverseRoute(
@@ -113,8 +120,9 @@ export function buildUniverseRoute(
   segment = null,
   detail = null,
   basePath = "",
+  navigation = [],
 ) {
-  const resolvedView = NAV.some((entry) => entry.id === view)
+  const resolvedView = [...NAV, ...hostNavEntries(navigation)].some((entry) => entry.id === view)
     ? view : NAV[0].id;
   const segmentPart = (resolvedView === view && segment)
     ? `/${encodeURIComponent(segment)}` : "";
@@ -122,7 +130,7 @@ export function buildUniverseRoute(
     ? `/${encodeURIComponent(detail)}` : "";
   // Commas separate the members of a project set and stay literal so the
   // route reads the way it was written; everything else percent-encodes.
-  const query = project
+  const query = project && !hostNavEntries(navigation).some((entry) => entry.id === resolvedView)
     ? `?project=${encodeURIComponent(project).replace(/%2C/g, ",")}`
     : "";
   return `${normalizeRouteBase(basePath)}/${resolvedView}${segmentPart}${detailPart}${query}`;
