@@ -8,7 +8,7 @@ from yoke_contracts.public_ref import format_item_ref
 from yoke_core.domain import db_backend, db_helpers
 from yoke_core.domain.item_finished_times import (
     FINISHED_WINDOW,
-    finished_times_in_window,
+    finished_times_for_items,
     finished_window_clause,
     is_finished,
 )
@@ -42,7 +42,7 @@ def append_overview_window(
     where_clause: str,
     params: list[Any],
 ) -> tuple[str, list[Any]]:
-    """Keep every unfinished item plus items finished in the last 24h.
+    """Keep live work, recent finishes, and older live dependency blockers.
 
     Dated by the transition that put the item into the status it holds, not by
     ``merged_at``: an item merges when its code lands and finishes when
@@ -51,6 +51,13 @@ def append_overview_window(
     exactly the items that had just finished.
     """
     clause, clause_params = finished_window_clause(conn)
+    from yoke_core.domain.dependency_cycles_read import live_blocking_edges
+
+    linked = sorted({edge.blocker_id for edge in live_blocking_edges(conn) if edge.blocker_id})
+    if linked:
+        slots = ", ".join(_p(conn) for _ in linked)
+        clause = f"({clause} OR i.id IN ({slots}))"
+        clause_params.extend(linked)
     prefix = " AND " if where_clause else "WHERE "
     return (where_clause + prefix + clause, [*params, *clause_params])
 
@@ -86,7 +93,7 @@ def _resolve_finished_facts(
     reader downstream — the delivery read here, the Frontier bands, the card
     text — needs a status list of its own to re-derive them from.
     """
-    finished_times = finished_times_in_window(conn)
+    finished_times = finished_times_for_items(conn, [int(row["internal_id"]) for row in base_rows])
     for row in base_rows:
         runtime = runtimes[int(row["workflow_version_id"])]
         status = str(row["status"])
@@ -123,7 +130,7 @@ def enrich_item_overview_rows(
         marker = _p(conn)
         placeholders = ", ".join(marker for _ in ids)
         cursor = conn.execute(
-            "SELECT i.id, i.owner, i.frozen, i.blocked, i.blocked_reason, i.updated_at, i.created_at, i.project_sequence, p.id AS project_id, "
+            "SELECT i.id, i.owner, i.spec, i.frozen, i.blocked, i.blocked_reason, i.updated_at, i.created_at, i.project_sequence, p.id AS project_id, "
             "p.slug AS project, p.name AS project_name, "
             "p.public_item_prefix "
             "FROM items i JOIN projects p ON p.id = i.project_id "
@@ -185,7 +192,18 @@ def enrich_item_overview_rows(
             _resolve_finished_facts(conn, base_rows, runtimes)
         from yoke_core.domain.item_next_actor_read import item_action_states
 
-        action_states = item_action_states(conn, [{**facts[int(row["internal_id"])], **row} for row in base_rows], claims, runtimes)
+        from yoke_core.domain.item_spec_completeness import item_needs_spec
+
+        action_rows = []
+        for row in base_rows:
+            fact = facts[int(row["internal_id"])]
+            runtime = runtimes[int(row["workflow_version_id"])]
+            action_rows.append({
+                **fact, **row,
+                "needs_spec": row["status"] == runtime.stage_ids[0]
+                and item_needs_spec({**fact, **row}),
+            })
+        action_states = item_action_states(conn, action_rows, claims, runtimes)
         delivery = _card_delivery(conn, base_rows, facts, compact=compact)
     finally:
         conn.close()
@@ -207,7 +225,7 @@ def enrich_item_overview_rows(
                 "project_name": str(fact["project_name"]),
                 **owner_facts(fact.get("owner"), owner_names),
                 "claimed_by": claims.get(item_id),
-                "next_actor": action_states[item_id],
+                **action_states[item_id],
                 "worktrees": worktrees.get(item_id, []),
                 "stage_label": runtime.stage_label(str(row["status"])),
                 "qa_attention": qa_attention.get(item_id),

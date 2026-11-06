@@ -1,7 +1,7 @@
 // The Frontier's bands, painted together from one item roster, one frontier
 // read and one session roster: Waiting (the dependency graph), On hold,
-// Ready, Active, Release and Done. Which band each item belongs to is decided
-// in frontier_band_rows.js; this module reads, filters and draws.
+// Ready, In progress, Release and Done. Which band each item belongs to comes from
+// the server; frontier_band_rows.js partitions those projected homes.
 //
 // The project filter keeps whole dependency chains: every item in the
 // selected projects, plus every item tied to one through any chain, in any
@@ -19,7 +19,7 @@ import { appendItemDelivery, deliverySummary } from "./universe_item_deployment.
 import { workItemCard } from "./universe_work_cards.js";
 import { el, settledScopedCalls } from "./universe_view_support.js";
 import { finishedAt, frontierBandRows, reference } from "./frontier_band_rows.js";
-import { frontierFilter, frontierWaitingSplit } from "./frontier_dependency_model.js";
+import { frontierFilter } from "./frontier_dependency_model.js";
 import { frontierGraphModel } from "./frontier_graph_nodes.js";
 import { frontierGraphSection } from "./frontier_graph.js";
 
@@ -97,12 +97,16 @@ export async function loadFrontier(context, bands, getScope, sessionRoster, opti
     const scope = getScope();
     const projects = context.projects();
     const documentNode = context.document;
-    const rows = frontierBandRows({
+    let rows;
+    try { rows = frontierBandRows({
       items: itemsResult.rows || [],
       readyRows: frontierResult.ready_rows || [],
       blockedRows: frontierResult.blocked_rows || [],
       sessionRows: sessionsResult.rows || [],
-    });
+    }); } catch (error) {
+      for (const band of Object.values(bands)) band.renderError(error.message);
+      return;
+    }
     const edgeRows = frontierResult.dependency_edges;
     const graphServed = Array.isArray(edgeRows);
     const deploy = (row) => (deploymentsSettled ? deliverySummary(row, deployments) : "");
@@ -132,7 +136,7 @@ export async function loadFrontier(context, bands, getScope, sessionRoster, opti
       return build;
     };
 
-    const waiting = rows.waiting.filter(({ row }) => kept(row));
+    const waiting = [...rows.waiting, ...rows.held].filter(({ row }) => kept(row));
     for (const { row, reason } of waiting) {
       card(row, () => withClaimants(workItemCard(documentNode, row, scope, {
         flag: reason.flag, timestamp: row.created_at, timeLabel: "filed",
@@ -141,7 +145,11 @@ export async function loadFrontier(context, bands, getScope, sessionRoster, opti
     const active = rows.active.filter(({ row }) => kept(row)).map(({ row, reason }) => card(
       row,
       () => withClaimants(workItemCard(documentNode, row, scope, {
-        flag: reason?.flag,
+        flag: reason?.flag || {
+          label: row.frontier_group.activity === "working" ? "Working" : "Held, not working",
+          text: String(row.frontier_group.reason).replaceAll("_", " "),
+          tone: row.frontier_group.activity === "working" ? "ready" : "blocked",
+        },
         stages: rows.stages.get(reference(row)) || [],
         timestamp: row.updated_at,
       }), row),
@@ -174,9 +182,14 @@ export async function loadFrontier(context, bands, getScope, sessionRoster, opti
       row, delivered(row, { tone: "done", timestamp: finishedAt(row), timeLabel: "finished" }),
     ));
 
+    const homeCard = (row) => {
+      const built = cardBuilders.get(reference(row))();
+      built.id = `frontier-home-${encodeURIComponent(reference(row))}`;
+      return built;
+    };
     if (graphServed) {
-      const { held, graphCount } = frontierWaitingSplit(model);
-      bands.waiting.setCount(graphCount);
+      const held = rows.held.filter(({ row }) => kept(row));
+      bands.waiting.setCount(rows.waiting.filter(({ row }) => kept(row)).length);
       if (model.linked.length) {
         graph = frontierGraphSection(documentNode, model, {
           cardFor: (ref) => cardBuilders.get(ref)?.() || null,
@@ -193,7 +206,7 @@ export async function loadFrontier(context, bands, getScope, sessionRoster, opti
         bands.waiting.renderCards([], "Nothing is waiting on other work.");
       }
       bands.hold.setCount(held.length);
-      bands.hold.renderCards(held.map((node) => cardBuilders.get(node.ref)()), "Nothing is on hold.");
+      bands.hold.renderCards(held.map(({ row }) => homeCard(row)), "Nothing is on hold.");
     } else {
       for (const band of [bands.waiting, bands.hold]) {
         band.setCount(null);
@@ -202,12 +215,16 @@ export async function loadFrontier(context, bands, getScope, sessionRoster, opti
     }
 
     bands.active.setCount(active.length);
-    bands.active.renderCards(
-      active.map((build) => build()),
-      "No session is running against this universe.",
-    );
+    const progressCards = [];
+    for (const [activity, label] of [["working", "Working"], ["held", "Held, not working"]]) {
+      const members = rows.active.filter(({ row }) => kept(row) && row.frontier_group.activity === activity);
+      if (!members.length) continue;
+      progressCards.push(el(documentNode, "h3", "frontier-progress-heading", `${label} (${members.length})`));
+      progressCards.push(...members.map(({ row }) => homeCard(row)));
+    }
+    bands.active.renderCards(progressCards, "No item is in progress.");
     bands.ready.setCount(ready.length);
-    bands.ready.renderCards(ready.map((build) => build()), "Nothing is ready to pick up.");
+    bands.ready.renderCards(rows.ready.filter(kept).map(homeCard), "Nothing is ready to pick up.");
 
     if (!deploymentsSettled) {
       for (const band of [bands.release, bands.done]) band.setCount(null);
@@ -219,8 +236,10 @@ export async function loadFrontier(context, bands, getScope, sessionRoster, opti
     // queue somebody is waiting to see empty, and a hidden remainder there
     // would understate what is still unshipped.
     bands.release.setCount(releasing.length);
-    bands.release.renderCards(releasing.map((build) => build()), "Nothing is waiting to ship.");
-    const visible = done.slice(0, BAND_CARD_LIMIT).map((build) => build());
+    bands.release.renderCards(rows.releasing.filter(kept).map(homeCard), "Nothing is waiting to ship.");
+    const doneRows = rows.done.filter(kept);
+    const visible = doneRows.filter((row, index) => index < BAND_CARD_LIMIT
+      || model.linked.some((node) => node.ref === reference(row))).map(homeCard);
     if (done.length > visible.length) visible.push(seeMoreCard(documentNode, scope));
     bands.done.setCount(done.length);
     bands.done.renderCards(visible, "Nothing finished in the last 24 hours.");

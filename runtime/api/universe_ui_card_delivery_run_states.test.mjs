@@ -64,7 +64,7 @@ test("an older in-flight run shows its stage and elapsed time", async (t) => {
         project_sequence: ITEM_SEQUENCE,
         title: "Show active runs",
         workflow_id: "dash",
-        status: "release",
+        frontier_group: { section: "release", reason: "awaiting_delivery" }, status: "release",
         completion_flow: "flow",
         completion_flow_source: "item",
         delivery: { merges: 1, deployed: 0, not_deployed: 1 },
@@ -101,7 +101,7 @@ function deliveryBox(facts, others = []) {
   const card = documentNode.createElement("div");
   const active = {
     ...run("run-current", "executing", 120), current_stage: "item-qa",
-    member_items: [{ id: ITEM_ID, ref: ITEM_REF, status: "release", ...facts }, ...others],
+    member_items: [{ id: ITEM_ID, ref: ITEM_REF, frontier_group: { section: "release", reason: "awaiting_delivery" }, status: "release", ...facts }, ...others],
   };
   return appendItemDelivery(documentNode, card, {
     public_ref: ITEM_REF, project_id: 1, completion_flow: "flow",
@@ -116,7 +116,7 @@ const completed = (runId = "run-current") => [{
 test("completed attribution is deployed while its run waits on another member", () => {
   const siblingRef = `YOK-${ITEM_SEQUENCE + 1}`;
   const box = deliveryBox({ completed_deliveries: completed(), item_qa: { state: "accepted" } }, [
-    { id: ITEM_ID + 1, ref: siblingRef, status: "release", item_qa: { state: "awaiting review" } },
+    { id: ITEM_ID + 1, ref: siblingRef, frontier_group: { section: "release", reason: "awaiting_delivery" }, status: "release", item_qa: { state: "awaiting review" } },
   ]);
   assert.equal(byClass(box, "item-deployment-outcome")[0].textContent, "✓ deployed · item completed");
   assert.equal(byClass(box, "item-deployment-wait")[0].textContent, `run still open: waiting on ${siblingRef}`);

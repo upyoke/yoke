@@ -22,7 +22,7 @@ function itemRow() {
   return {
     title: "carry this somewhere",
     public_ref: "YOK-50",
-    status: "release",
+    frontier_group: { section: "release", reason: "awaiting_delivery" }, status: "release",
     project: "yoke",
     project_id: 1,
     project_sequence: 50,

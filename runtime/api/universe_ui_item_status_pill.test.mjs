@@ -16,7 +16,7 @@ async function bandCard(t, bandKey, overrides) {
   const documentNode = new FakeDocument();
   documentNode.defaultView.location.href = "/frontier?project=1";
   const root = documentNode.createElement("div");
-  const mounted = mountUniverseApp(root, { client: workbenchClient(overrides) });
+  const mounted = mountUniverseApp(root, { client: workbenchClient({ homes: { "YOK-9": { section: bandKey === "active" ? "in_progress" : "on_hold", activity: "held", reason: "session_process_gone" } }, ...overrides }) });
   t.after(() => mounted.unmount());
   await settle();
   const band = byClass(root, `work-band-${bandKey}`)[0];
@@ -35,21 +35,16 @@ function blockedRow(blocker, why) {
   };
 }
 
-test("an unavailable owner's pill names the owner condition and retains its reason", async (t) => {
-  const card = await bandCard(t, "hold", {
+test("a gone holder's pill retains the actual process reason", async (t) => {
+  const card = await bandCard(t, "active", {
     "sessions.list": { rows: [{
       ...claimingSession(), liveness: "stale", native_process: { state: "gone" },
     }] },
   });
   const pill = byClass(card, "item-status-pill")[0];
-  assert.equal(descendantText(pill), "Owner unavailable");
-  assert.ok(pill.classList.contains("is-owner-unavailable"));
+  assert.equal(descendantText(pill), "Held, not working");
   const detail = byClass(card, "item-status-detail")[0];
-  assert.equal(byClass(detail, "item-status-detail-label")[0].textContent, "Owner unavailable");
-  assert.equal(byClass(detail, "item-status-detail-copy")[0].textContent,
-    "Held by a work claim whose session is abandoned: not parked, its "
-      + "process gone, and quiet past its activity window. A steering-seat "
-      + "holder frees this item with yoke claims work release --claim-id.");
+  assert.equal(byClass(detail, "item-status-detail-copy")[0].textContent, "session process gone");
 });
 
 for (const [rows, label] of [

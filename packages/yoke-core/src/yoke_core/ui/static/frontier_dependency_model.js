@@ -270,10 +270,11 @@ export function frontierOutline(model) {
   return trees;
 }
 
-// Waiting items held for a reason of their own with nothing waiting on them
-// are On hold; every other waiting item is drawn in the graph.
+// Counts describe home cards, never reference nodes in the graph.
 export function frontierWaitingSplit(model) {
-  const waiting = [...model.nodes.values()].filter((n) => n.band === "waiting");
-  const held = waiting.filter((n) => !n.blockers.length && !n.dependents.length);
-  return { held, graphCount: waiting.length - held.length };
+  const nodes = [...model.nodes.values()];
+  return {
+    held: nodes.filter((n) => n.band === "on_hold"),
+    graphCount: nodes.filter((n) => n.band === "waiting").length,
+  };
 }

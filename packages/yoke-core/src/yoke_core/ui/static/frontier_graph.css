@@ -89,3 +89,8 @@
 .universe-app-root .fdv-outline ul{margin:8px 0 0 10px;padding-left:12px;border-left:2px solid var(--fdv-line)}
 @media (max-width:1100px){.universe-app-root .fdv-graph-layout.has-detail{grid-template-columns:minmax(0,1fr)}.universe-app-root .fdv-graph-detail{position:static}}
 @media (max-width:720px){.universe-app-root .fdv-graph-layout:not(.has-detail),.universe-app-root .fdv-graph-canvas{display:none}.universe-app-root .fdv-graph-outline{display:block}}
+
+.universe-app-root .fdv-tile.is-reference{max-width:210px;border:1px solid var(--fdv-tone,var(--yoke-border));background:transparent;padding:6px 8px;gap:3px}
+.universe-app-root .fdv-reference-home{font-size:11px;color:var(--yoke-muted)}
+.universe-app-root .frontier-progress-heading{grid-column:1/-1;margin:6px 0;font-size:13px;color:var(--yoke-muted)}
+.universe-app-root [id^="frontier-home-"]{scroll-margin-top:96px}

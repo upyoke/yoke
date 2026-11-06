@@ -1,7 +1,8 @@
 {
  "id": "done",
  "title": "Done",
- "status": "draft-copy",
+ "status": "observed",
  "page": "frontier",
- "position": 3
+ "position": 3,
+ "summary": "Done includes recent finished work and older finished blockers still referenced by a live unsatisfied dependency. Every known graph reference retains a home card and its actual finishing time."
 }

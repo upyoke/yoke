@@ -111,7 +111,8 @@ def gating_blockers(
         "LEFT JOIN workflow_versions wv ON wv.id=b.workflow_version_id "
         "WHERE d.dependent_item_id IN ("
         + ",".join(marker for _ in item_ids)
-        + ") ORDER BY d.dependent_item_id,d.id",
+        + ") ORDER BY d.dependent_item_id,"
+        "CASE WHEN d.gate_point='activation' THEN 0 ELSE 1 END,d.id",
         tuple(int(value) for value in item_ids),
     ).fetchall()
     blockers: dict[int, dict[str, Any]] = {}

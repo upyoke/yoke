@@ -122,7 +122,7 @@ export function activationAnswer({
 export function activationClient(activation, overrides = {}) {
   const requests = [];
   const answers = {
-    "items.overview.list": { rows: [] },
+    "items.overview.list": { rows: [{ public_ref: "YOK-9", project: "yoke", frontier_group: { section: "ready", reason: "ready_without_holder" } }] },
     "frontier.list": {
       ready_rows: [{
         public_ref: "YOK-9", project: "yoke", next_step: "implement",

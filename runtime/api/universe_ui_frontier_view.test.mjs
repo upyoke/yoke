@@ -45,7 +45,7 @@ test("Frontier is six bands of work under one page heading", async (t) => {
   assert.equal(byClass(root, "title")[0].textContent, "Frontier");
   assert.deepEqual(
     byClass(root, "work-band-title").map(ownTextContent),
-    ["Waiting", "On hold", "Ready", "Active", "Release", "Done (24h)"],
+    ["Waiting", "On hold", "Ready", "In progress", "Release", "Done"],
   );
   // Shipping is its own page; the Frontier does not draw run cards.
   assert.equal(byClass(root, "shipping-run-card").length, 0);
@@ -191,20 +191,20 @@ test("Done lists every environment under the item's single flow", async (t) => {
   mounted.unmount();
 });
 
-test("Active is claimed work, and Ready omits what a session holds", async (t) => {
+test("server homes keep claimed work in progress and out of Ready", async (t) => {
   stubFetch(t);
   const { root, mounted } = await mountAt(
     "/frontier?project=1",
-    workbenchClient({ "sessions.list": { rows: [claimingSession()] } }),
+    workbenchClient({ homes: { "YOK-9": { section: "in_progress", activity: "working", reason: "session_can_continue" } }, "sessions.list": { rows: [claimingSession()] } }),
   );
 
-  // Active renders the ITEM, not the session card: the grid holds item
+  // In progress renders the ITEM, not the session card: the grid holds item
   // cards, and the only session card in the band is the one a claimant
   // preview reveals.
   assert.deepEqual(
     byClass(band(root, "active"), "work-card-grid")[0].children
       .map((node) => node.className),
-    ["work-item-card"],
+    ["frontier-progress-heading", "work-item-card"],
   );
   for (const card of byClass(band(root, "active"), "session-card")) {
     assert.ok(card.parentNode.classList.contains("item-claimant-preview"));
@@ -243,21 +243,13 @@ test("work whose only claimant is gone waits, and says whose fault that is", asy
   };
   const { root, mounted } = await mountAt(
     "/frontier?project=1",
-    workbenchClient({ "sessions.list": { rows: [gone] } }),
+    workbenchClient({ homes: { "YOK-9": { section: "in_progress", activity: "held", reason: "session_process_gone" } }, "sessions.list": { rows: [gone] } }),
   );
 
-  // Not Active: nothing is running against it. Not Ready either: the claim
-  // is still held, so it is not free to pick up. Nothing waits on it, so it
-  // is On hold rather than in the Waiting graph.
-  assert.deepEqual(
-    byClass(band(root, "active"), "work-item-card").map(ownTextContent), [],
-  );
-  assert.deepEqual(
-    byClass(band(root, "ready"), "work-item-card").map(ownTextContent), [],
-  );
-  const held = descendantText(band(root, "hold"));
-  assert.match(held, /YOK-9/);
-  assert.match(held, /Owner unavailable/);
+  assert.equal(byClass(band(root, "active"), "work-item-card").length, 1);
+  assert.match(descendantText(band(root, "active")), /Held, not working/);
+  assert.match(descendantText(band(root, "active")), /session process gone/);
+  assert.equal(byClass(band(root, "ready"), "work-item-card").length, 0);
   mounted.unmount();
 });
 
@@ -274,6 +266,7 @@ function releasingClient() {
     project_id: 1,
     project_sequence: 11,
     workflow_id: "issue",
+    frontier_group: { section: "release", reason: "awaiting_delivery" },
     status: "release",
     created_at: recentIso(12),
     updated_at: recentIso(1),
@@ -325,7 +318,7 @@ test("a release item is drawn once, and only in Release", async (t) => {
   mounted.unmount();
 });
 
-test("Release sits between Active and Done", async (t) => {
+test("Release sits between In progress and Done", async (t) => {
   stubFetch(t);
   const { root, mounted } = await mountAt("/frontier?project=1", releasingClient());
 

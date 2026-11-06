@@ -196,9 +196,12 @@ def _seed_item(conn, node: dict, pin: tuple) -> None:
         conn.execute(
             "INSERT INTO harness_sessions (session_id, executor, executor_surface, "
             "provider, workspace, project_id, offered_at, last_heartbeat, mode, "
-            "current_item_id, ended_at) VALUES (%s,%s,%s,%s,'/tmp/fgr',%s,%s,%s,%s,%s,NULL) "
+            "current_item_id, ended_at, last_tool_call_at, turn_posture, quiet_reason, "
+            "native_process_gone_at) VALUES (%s,%s,%s,%s,'/tmp/fgr',%s,%s,%s,%s,%s,NULL,%s,%s,%s,%s) "
             "ON CONFLICT (session_id) DO UPDATE SET ended_at=NULL, "
-            "last_heartbeat=excluded.last_heartbeat, mode=excluded.mode",
+            "last_heartbeat=excluded.last_heartbeat, mode=excluded.mode, "
+            "last_tool_call_at=excluded.last_tool_call_at, turn_posture=excluded.turn_posture, "
+            "quiet_reason=excluded.quiet_reason, native_process_gone_at=excluded.native_process_gone_at",
             (
                 session_id,
                 executor,
@@ -207,8 +210,12 @@ def _seed_item(conn, node: dict, pin: tuple) -> None:
                 project_id,
                 _stamp(hours=2),
                 _stamp(),
-                mode,
+                "parked" if mode == "parked" else "wait",
                 _item_id(ref),
+                _stamp(hours=2) if mode == "stale" else _stamp(),
+                "running" if mode == "active" else "waiting",
+                "awaiting direction" if mode == "parked" else None,
+                _stamp(hours=1) if mode == "stale" else None,
             ),
         )
         conn.execute(

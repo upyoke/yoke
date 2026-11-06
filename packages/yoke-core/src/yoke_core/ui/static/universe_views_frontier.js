@@ -1,7 +1,7 @@
 // Frontier is the work itself, in the states work is actually in: waiting on
 // other work (drawn as the dependency graph), held for a reason of its own,
 // free to pick up, being worked on right now, merged and waiting on its
-// deployment, and finished in the last day. Deployment runs are their own
+// deployment, and recent or dependency-linked finished work. Runs have their own
 // page — what is shipping is a different question from what is being built,
 // and Release answers only which items are between the two.
 
@@ -20,6 +20,7 @@ export function renderFrontierView(context, main, scope) {
   const waiting = workBand(
     documentNode, "waiting", "Waiting", "Nothing is waiting on other work.",
   );
+  waiting.id = "frontier-waiting";
   const onHold = workBand(documentNode, "hold", "On hold", "Nothing is on hold.");
   const ready = workBand(
     documentNode, "ready", "Ready", "Nothing is ready to pick up.",
@@ -27,14 +28,14 @@ export function renderFrontierView(context, main, scope) {
   const active = workBand(
     documentNode,
     "active",
-    "Active",
-    "No session is running against this universe.",
+    "In progress",
+    "No item is in progress.",
   );
   const release = workBand(
     documentNode, "release", "Release", "Nothing is waiting to ship.",
   );
   const done = workBand(
-    documentNode, "done", "Done (24h)", "Nothing finished in the last 24 hours.",
+    documentNode, "done", "Done", "Nothing finished in the last 24 hours.",
   );
   const dialogHost = el(documentNode, "div", "work-session-dialog-host");
   main.replaceChildren(waiting, onHold, ready, active, release, done, dialogHost);
@@ -48,8 +49,7 @@ export function renderFrontierView(context, main, scope) {
   const onMessage = (sessionId) => openSessionMessageCompose(
     context, dialogHost, { audience: exactSessionAudience([sessionId]) },
   );
-  // Active and Ready answer the same question from opposite sides, so they
-  // read one session roster: Ready omits every item a live session holds.
+  // One session roster annotates home cards with their holders and progress.
   const sessionRoster = settledScopedCalls(context, [{
     functionId: "sessions.list",
     payload: { per_project: true, open: true, detail: "full" },
@@ -73,7 +73,7 @@ export function renderFrontierView(context, main, scope) {
     })),
   );
   // The run roster is handed over as a promise, not awaited. It answers a
-  // different question than the item reads do: Waiting, Ready and Active
+  // different question than the item reads do: Waiting, Ready and In progress
   // draw without it, and Release and Done fill when it settles.
   const deployments = runRoster.then(({ callResults }) => deploymentsByItemId(
     callResults.flatMap((callResult) => successfulResult(callResult)?.rows || []),

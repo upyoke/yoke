@@ -30,6 +30,7 @@ function item(ref, project, projectId, facts = {}) {
     created_at: recentIso(12),
     updated_at: recentIso(1),
     // The feed resolves these against the item's pinned workflow definition.
+    frontier_group: { section: "ready", activity: null, reason: "ready_without_holder" },
     terminal: false,
     finished: false,
     finished_at: null,
@@ -61,10 +62,11 @@ export function multiProjectWorkbenchClient({ failProject } = {}) {
     { id: 2, slug: "beta", name: "Beta", emoji: "🐝", public_item_prefix: "BET" },
   ];
   const items = [
-    item("YOK-9", "yoke", 1),
-    item("YOK-8", "yoke", 1, { frozen: true }),
-    item("BET-20", "beta", 2),
+    item("YOK-9", "yoke", 1, { frontier_group: { section: "in_progress", activity: "working", reason: "session_can_continue" } }),
+    item("YOK-8", "yoke", 1, { frozen: true, frontier_group: { section: "on_hold", reason: "item_on_hold" } }),
+    item("BET-20", "beta", 2, { frontier_group: { section: "in_progress", activity: "working", reason: "session_can_continue" } }),
     item("BET-19", "beta", 2, {
+      frontier_group: { section: "done", reason: "item_finished" },
       status: "done",
       merged_at: recentIso(2),
       terminal: true,
@@ -167,6 +169,7 @@ export function descendantText(root) {
 export function workbenchClient(overrides = {}) {
   const requests = [];
   const frozen = item("YOK-7", "yoke", 1, {
+    frontier_group: { section: "on_hold", reason: "item_on_hold" },
     frozen: true,
     blocked_reason: "Waiting for a product decision.",
   });
@@ -177,6 +180,7 @@ export function workbenchClient(overrides = {}) {
   // once a release wait sits between the two: the card dates it by the
   // finish.
   const done = item("YOK-6", "yoke", 1, {
+    frontier_group: { section: "done", reason: "item_finished" },
     title: "Land the release",
     status: "done",
     merged_at: recentIso(36),
@@ -269,6 +273,11 @@ export function workbenchClient(overrides = {}) {
       requests.push(request);
       if (request.function === "organizations.get") return ok({ name: "Yoke" });
       if (request.function === "projects.list") return ok({ rows: projects });
+      if (request.function === "items.overview.list") return ok({
+        ...answers[request.function], rows: answers[request.function].rows.map((row) => ({
+          ...row, frontier_group: overrides.homes?.[row.public_ref] || row.frontier_group,
+        })),
+      });
       if (request.function in answers) return ok(answers[request.function]);
       throw new Error(`unexpected function ${request.function}`);
     },
