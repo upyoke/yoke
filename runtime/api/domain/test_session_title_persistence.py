@@ -102,7 +102,9 @@ def test_desktop_title_survives_real_hook_route_and_confirms(
             )
             assert response.status_code == 200, response.text
             result = response.json()
-            assert result["harness_title_confirmation"] == {"value": title}, result
+            assert result["harness_title_confirmation"] == {"value": title}, json.dumps(
+                result, indent=2
+            )
             with db_helpers.connect() as conn:
                 row = conn.execute(
                     "SELECT harness_title FROM harness_sessions WHERE session_id=%s",
