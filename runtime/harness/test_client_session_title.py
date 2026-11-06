@@ -4,6 +4,8 @@ import json
 import sqlite3
 from types import SimpleNamespace
 
+import pytest
+
 from yoke_contracts.hook_runner.client_facts import HARNESS_TITLE_KEY, read_client_fact
 from yoke_harness.hooks import client_session_title as titles
 
@@ -108,7 +110,8 @@ def test_codex_home_and_prompt_rename(tmp_path, monkeypatch):
     assert read_client_fact(titles.title_fact(obs), HARNESS_TITLE_KEY) == "Second"
 
 
-def test_cursor_desktop_and_cli_names(tmp_path):
+def test_cursor_desktop_and_cli_names(tmp_path, monkeypatch):
+    monkeypatch.setattr(titles.sys, "platform", "darwin")
     desktop = (
         tmp_path / "Library/Application Support/Cursor/User/globalStorage/state.vscdb"
     )
@@ -170,3 +173,30 @@ def test_stop_reuses_tail_and_isolates_title_failure(tmp_path, monkeypatch):
     assert reads == [str(tmp_path / "chat.jsonl")]
     assert HARNESS_TITLE_KEY not in facts
     assert facts[turn_end_evidence.PAYLOAD_KEY]["available"] is True
+
+
+@pytest.mark.parametrize(
+    "platform,key",
+    [
+        ("linux", None),
+        ("linux", "XDG_CONFIG_HOME"),
+        ("win32", None),
+        ("win32", "APPDATA"),
+    ],
+)
+def test_cursor_desktop_uses_native_config_root(tmp_path, monkeypatch, platform, key):
+    monkeypatch.setattr(titles.sys, "platform", platform)
+    monkeypatch.delenv("XDG_CONFIG_HOME", raising=False)
+    monkeypatch.delenv("APPDATA", raising=False)
+    root = tmp_path / (".config" if platform == "linux" else "AppData/Roaming")
+    if key:
+        root = tmp_path / "custom-config"
+        monkeypatch.setenv(key, str(root))
+    desktop = root / "Cursor/User/globalStorage/state.vscdb"
+    database(desktop, "CREATE TABLE cursorDiskKV(key TEXT PRIMARY KEY,value TEXT);")
+    database(
+        desktop,
+        "INSERT INTO cursorDiskKV VALUES (?,?)",
+        ("composerData:desktop", json.dumps({"name": "Native title"})),
+    )
+    assert titles.cursor_title("desktop", tmp_path) == "Native title"

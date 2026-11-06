@@ -6,6 +6,7 @@ import hashlib
 import json
 import os
 import sqlite3
+import sys
 from pathlib import Path
 
 from yoke_contracts.hook_runner.client_facts import HARNESS_TITLE_KEY, client_fact
@@ -61,7 +62,13 @@ def codex_title(session_id: str, home: Path):
 
 
 def cursor_title(session_id: str, home: Path):
-    desktop = home / "Library/Application Support/Cursor/User/globalStorage/state.vscdb"
+    if sys.platform == "darwin":
+        config = home / "Library/Application Support"
+    elif sys.platform == "win32":
+        config = Path(os.environ.get("APPDATA") or home / "AppData/Roaming")
+    else:
+        config = Path(os.environ.get("XDG_CONFIG_HOME") or home / ".config")
+    desktop = config / "Cursor/User/globalStorage/state.vscdb"
     raw = _sqlite_cell(
         desktop,
         "SELECT value FROM cursorDiskKV WHERE key=?",
