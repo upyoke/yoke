@@ -187,6 +187,9 @@ test("a large open roster keeps every session in the machine totals", async () =
       },
     }));
   }
+  rows.push(openSession("gone", "alpha", {
+    session_state: { presence: "gone", activity: "silent", custody: { holds: [] } },
+  }));
   const { main } = await renderView({
     "machine_authorization.pending": () => ok({ requests: [] }),
     "machine.list": () => ok({
@@ -207,7 +210,7 @@ test("a large open roster keeps every session in the machine totals", async () =
   const headings = byClass(main, "machine-work")
     .map((node) => node.children[0].textContent);
   assert.deepEqual(headings, [
-    "25 working · 5 held · 15 silent",
+    "25 working · 5 held · 16 silent",
     "40 working · 1 held · 0 silent",
   ]);
   assert.equal(byClass(main, "machine-work-row").length, 5);
