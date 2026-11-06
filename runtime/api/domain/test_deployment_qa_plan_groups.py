@@ -282,8 +282,10 @@ def test_an_unattached_group_whose_rows_passed_closes_covering_nobody(test_db):
 
 
 def test_old_admission_forms_a_group_for_a_hosted_environment_plan(test_db):
-    from runtime.api.domain.test_delete_post_deploy_item_qa_copies_migration import (
-        MIGRATION,
+    import importlib
+
+    migration = importlib.import_module(
+        "yoke_core.domain.migrations.0094_delete_post_deploy_item_qa_copies"
     )
     from runtime.api.domain.test_qa_requirement_target_rebind import _hosted_prod_pair
     from yoke_core.domain.deployment_requirement_snapshots import _plan_snapshot
@@ -312,7 +314,7 @@ def test_old_admission_forms_a_group_for_a_hosted_environment_plan(test_db):
     assert run_environment != hosted_id
     assert _plan_rows(test_db) == []
 
-    MIGRATION.apply(test_db)
+    migration.apply(test_db)
     assert member_plan_ids(test_db, MEMBERS[0], RUN) == {plan_id}
     created = ensure_groups(test_db, RUN, "item-qa")
     test_db.commit()

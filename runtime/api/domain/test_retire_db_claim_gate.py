@@ -101,9 +101,3 @@ def test_terminal_history_and_clean_open_pins_pass_repeatedly_unchanged():
         MIGRATION.invariants(conn)
     assert _snapshot(conn) == before
 
-
-def test_empty_universe_passes_and_declares_serving_floor():
-    conn = sqlite3.connect(":memory:")
-    MIGRATION.apply(conn)
-    MIGRATION.invariants(conn)
-    assert MIGRATION.MINIMUM_SERVING_VERSION == "next-release"

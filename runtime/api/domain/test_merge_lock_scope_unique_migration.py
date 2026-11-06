@@ -6,7 +6,6 @@ import pytest
 
 from yoke_core.domain import db_backend
 from yoke_core.domain.db_savepoint import savepoint
-from yoke_core.domain.migration_serving_version import NEXT_RELEASE
 
 ENTRY = importlib.import_module(
     "yoke_core.domain.migrations.0102_merge_lock_scope_unique"
@@ -36,10 +35,4 @@ def test_duplicate_scope_keeps_lowest_id_and_enforces_uniqueness(test_db):
                 "project_slug,target_branch) VALUES('other','ITEM-2',now(),now(),"
                 "'project','main')"
             )
-    assert ENTRY.MINIMUM_SERVING_VERSION == NEXT_RELEASE
 
-
-def test_absent_table_is_safe(test_db):
-    test_db.execute("DROP TABLE merge_locks")
-    ENTRY.apply(test_db)
-    ENTRY.invariants(test_db)

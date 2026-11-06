@@ -19,6 +19,7 @@ from runtime.api.test_dependency_schema import (
 from runtime.api.test_service_client import _run_client
 from runtime.api.test_constants import TEST_MODEL_ID
 from yoke_core.domain.work_claim_target_sql import TARGET_KIND_CHECK_SQL
+from yoke_core.domain.session_turn_posture import TURN_POSTURE_COLUMN_DDL
 from yoke_contracts.machine_config.schema import upsert_project_entry
 
 # Session/claim/event/actor tables the session lifecycle reads. ``actors``
@@ -63,6 +64,7 @@ _SESSION_SCHEMA_DDL = f"""
         episode_started_at TIMESTAMPTZ DEFAULT NULL,
         pending_resume_notice TEXT DEFAULT NULL,
         last_chain_step INTEGER DEFAULT NULL,
+        turn_posture {TURN_POSTURE_COLUMN_DDL},
         turn_posture_at TIMESTAMPTZ DEFAULT NULL,
         last_checkpoint_at TIMESTAMPTZ DEFAULT NULL
     );
