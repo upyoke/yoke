@@ -50,15 +50,16 @@ def status_emoji(
     status: str,
     celebration: Optional[str] = None,
     glyph: Optional[str] = None,
+    completed: bool = False,
 ) -> str:
     """Map a status string to its emoji-prefixed display form.
 
     Returns ``"<emoji> <status>"`` for known statuses, or the raw status
     string for unrecognised values. When *celebration* is set and the status
-    is ``done``, the celebration glyph replaces the normal ✅ (frontier
+    is completed, the celebration glyph replaces the normal glyph (frontier
     inbox-zero flourish, kept consistent with the stats box and section header).
     """
-    if celebration and status == "done":
+    if celebration and completed:
         return f"{celebration} {status}"
     prefix = glyph if glyph is not None else _STATUS_EMOJI_PREFIX.get(status)
     if prefix is None:

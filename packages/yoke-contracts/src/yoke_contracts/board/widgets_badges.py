@@ -6,6 +6,8 @@ achievement-streak helper.
 
 from __future__ import annotations
 
+from yoke_contracts.lifecycle_status import terminal_item_sql
+
 from datetime import date
 from typing import List
 
@@ -49,8 +51,8 @@ def collect_age_counts(db: BoardDBLike, config: BoardConfig, scope: str) -> dict
     sql = (
         "WITH aged AS ("
         f"  SELECT {age_days_expr('created_at')} AS age_days"
-        "  FROM items"
-        "  WHERE status NOT IN ('done','cancelled')"
+        "  FROM items i"
+        f"  WHERE NOT {terminal_item_sql()}"
         "    AND (frozen IS NULL OR frozen <> 1)"
         f"    {pf}"
         ") "
@@ -92,8 +94,8 @@ def collect_workflow_counts(
     """
     pf, params = _project_filter(scope)
     sql = (
-        "SELECT workflow_id, COUNT(*) AS cnt FROM items"
-        " WHERE status NOT IN ('done','cancelled')"
+        "SELECT workflow_id, COUNT(*) AS cnt FROM items i"
+        f" WHERE NOT {terminal_item_sql()}"
         "  AND (frozen IS NULL OR frozen <> 1)"
         f"  {pf}"
         " GROUP BY workflow_id ORDER BY COUNT(*) DESC"
@@ -114,15 +116,15 @@ def collect_achievement_counts(
     pf, params = _project_filter(scope)
     streak = _compute_achievement_streak(db, scope)
     bug_count = db.scalar(
-        "SELECT COUNT(*) FROM items"
-        " WHERE status NOT IN ('done','cancelled')"
+        "SELECT COUNT(*) FROM items i"
+        f" WHERE NOT {terminal_item_sql()}"
         "  AND (frozen IS NULL OR frozen <> 1)"
         f"  AND POSITION('bug' IN LOWER(title)) > 0 {pf}",
         params,
     )
     bug_count = int(bug_count or 0)
     idea_count = db.scalar(
-        "SELECT COUNT(*) FROM items"
+        "SELECT COUNT(*) FROM items i"
         " WHERE status = 'idea'"
         "  AND (frozen IS NULL OR frozen <> 1)"
         f"  {pf}",

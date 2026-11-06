@@ -98,7 +98,10 @@ def apply_prepared_item_writes(
             )
             if stale is not None:
                 return stale
-            if value == "done" and item["status"] != "done":
+            from yoke_core.domain.workflow_runtime import load_item_workflow_runtime
+
+            terminals = load_item_workflow_runtime(conn, item_id).terminal_stage_ids
+            if value in terminals and item["status"] not in terminals:
                 from yoke_core.domain.completed_item_delivery import (
                     record_completion_delivery,
                 )

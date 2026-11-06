@@ -7,6 +7,8 @@ labels and rendering submodules.
 
 from __future__ import annotations
 
+from yoke_contracts.lifecycle_status import completed_item_sql, terminal_item_sql
+
 from datetime import datetime
 from typing import List, Optional, Tuple
 
@@ -85,12 +87,12 @@ def _zen_query_projects(db: BoardDBLike, scope: str = "all") -> List[Tuple[str, 
         "FROM projects p "
         "WHERE EXISTS ("
         "  SELECT 1 FROM items i "
-        "  WHERE i.project_id = p.id AND i.status = 'done'"
+        f"  WHERE i.project_id = p.id AND {completed_item_sql()}"
         ") "
         f"{scope_sql} "
         "ORDER BY ("
         "  SELECT COUNT(*) FROM items i "
-        "  WHERE i.project_id = p.id AND i.status = 'done'"
+        f"  WHERE i.project_id = p.id AND {completed_item_sql()}"
         ") DESC",
         params,
     )
@@ -104,8 +106,8 @@ def _zen_query_items(
     project_id = _zen_project_id(db, project)
     return db.query(
         "SELECT id, title, created_at, workflow_id "
-        "FROM items "
-        "WHERE project_id = %s AND status = 'done' AND created_at >= %s "
+        "FROM items i "
+        f"WHERE project_id = %s AND {completed_item_sql()} AND created_at >= %s "
         "ORDER BY created_at",
         (project_id, window_start),
     )
@@ -115,11 +117,11 @@ def _zen_queued_count(db: BoardDBLike, project: str) -> int:
     """Count of queued items for *project*."""
     project_id = _zen_project_id(db, project)
     val = db.scalar(
-        "SELECT COUNT(*) FROM items "
+        "SELECT COUNT(*) FROM items i "
         "WHERE project_id = %s "
         "AND (status IN ('idea','planned','refined-idea','refining-idea') "
         "     OR (frozen = 1 "
-        "         AND status NOT IN ('done','cancelled','stopped','failed')))",
+        f"         AND NOT {terminal_item_sql()} AND i.status <> 'failed')))",
         (project_id,),
     )
     return int(val) if val else 0
@@ -129,7 +131,7 @@ def _zen_compute_window(db: BoardDBLike, project: str) -> Optional[datetime]:
     """Timeline window start: UTC midnight of the first done item, or ``None``."""
     project_id = _zen_project_id(db, project)
     val = db.scalar(
-        "SELECT MIN(created_at) FROM items WHERE project_id = %s AND status = 'done'",
+        f"SELECT MIN(created_at) FROM items i WHERE project_id = %s AND {completed_item_sql()}",
         (project_id,),
     )
     if val is not None:
@@ -159,8 +161,8 @@ def _zen_item_positions(
         "FROM ("
         "  SELECT "
         f"    {elapsed_from_window} * %s / GREATEST({elapsed_window_span}, 1) AS pos_raw "
-        "  FROM items "
-        "  WHERE project_id = %s AND status = 'done' AND created_at >= %s "
+        "  FROM items i "
+        f"  WHERE project_id = %s AND {completed_item_sql()} AND created_at >= %s "
         ") sub "
         "ORDER BY pos",
         (

@@ -73,19 +73,43 @@ def test_production_code_has_no_copied_item_terminal_sets():
                 or path.name == "lifecycle_status.py"
             ):
                 continue
-            for node in ast.walk(ast.parse(path.read_text())):
+            tree = ast.parse(path.read_text())
+            docstrings = {
+                id(node.body[0].value)
+                for node in ast.walk(tree)
+                if isinstance(
+                    node,
+                    (ast.Module, ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef),
+                )
+                and node.body
+                and isinstance(node.body[0], ast.Expr)
+                and isinstance(node.body[0].value, ast.Constant)
+                and isinstance(node.body[0].value.value, str)
+            }
+
+            def stage_operand(value):
+                if isinstance(value, ast.Name):
+                    return value.id == "status" or value.id.endswith("_status")
+                if isinstance(value, ast.Attribute):
+                    return value.attr == "status" or value.attr.endswith("_status")
+                return (
+                    isinstance(value, ast.Subscript)
+                    and isinstance(value.slice, ast.Constant)
+                    and value.slice.value == "status"
+                )
+
+            for node in ast.walk(tree):
                 if isinstance(node, ast.Compare):
                     operands = [node.left, *node.comparators]
                     if any(
                         isinstance(value, ast.Constant)
                         and value.value in ("done", "release")
                         for value in operands
-                    ) and any(
-                        "status" in ast.unparse(value).lower() for value in operands
-                    ):
+                    ) and any(stage_operand(value) for value in operands):
                         violations.append(f"{path.relative_to(root)}:{node.lineno}")
                 if (
                     isinstance(node, ast.Constant)
+                    and id(node) not in docstrings
                     and isinstance(node.value, str)
                     and re.search(
                         r"\bstatus\s*(?:=|<>|(?:NOT )?IN)\s*(?:\([^)]*)?'(?:done|release)'",

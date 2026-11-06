@@ -17,6 +17,9 @@ from yoke_core.domain.lifecycle_approval_context import (
     load_lifecycle_item,
 )
 from yoke_core.domain.workflow_runtime import load_item_workflow_runtime
+from yoke_core.domain.workflow_delivery_binding_validation import (
+    delivery_ready_for_stage,
+)
 
 
 def _members(conn: Any, run_id: str) -> list[dict[str, Any]]:
@@ -54,35 +57,38 @@ def member_approval_blockers(
     blockers: list[str] = []
     for member in _members(conn, run_id):
         item_id = member["id"]
-        if member["status"] == "done":
+        workflow = load_item_workflow_runtime(conn, item_id)
+        target_status = workflow.completion_stage_id
+        if member["status"] in workflow.terminal_stage_ids:
             continue
-        if member["status"] != "release":
+        if not delivery_ready_for_stage(workflow, member["status"]):
             blockers.append(
                 f"{member['ref']} is {member['status']}; restore its release "
                 "wait before shared acceptance"
             )
             continue
-        workflow = load_item_workflow_runtime(conn, item_id)
         policy = approval_policy_or_none(
-            dict(workflow.policies.get("approval_defaults", {})).get("done"),
-            path="policies.approval_defaults.done",
+            dict(workflow.policies.get("approval_defaults", {})).get(target_status),
+            path=f"policies.approval_defaults.{target_status}",
         )
-        source = workflow_default_approval_source("done")
+        source = workflow_default_approval_source(target_status)
         if policy is None:
             from yoke_core.domain.dash_approval_posture import (
                 approval_policy_for_transition,
             )
 
             policy = approval_policy_for_transition(
-                conn, item_id=item_id, target_status="done"
+                conn, item_id=item_id, target_status=target_status
             )
             source = item_posture_approval_source()
         if policy is None:
             continue
-        history = list_subject_requests(conn, "item_transition", f"{item_id}:done")
+        history = list_subject_requests(
+            conn, "item_transition", f"{item_id}:{target_status}"
+        )
         latest = history[0] if history else None
         matches = latest is not None and lifecycle_transition_matches(
-            latest, load_lifecycle_item(conn, item_id), "done", source
+            latest, load_lifecycle_item(conn, item_id), target_status, source
         )
         if (
             matches
@@ -108,7 +114,7 @@ def member_approval_blockers(
         verdict = evaluate_lifecycle_approval(
             conn,
             item_id=item_id,
-            to_stage_id="done",
+            to_stage_id=target_status,
             policy=policy,
             approval_source=source,
             commit=commit,

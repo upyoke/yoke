@@ -24,7 +24,7 @@ from yoke_contracts.board.sections_classify import (
 )
 from yoke_contracts.board.workflow_membership import membership_sql
 
-EpicTaskRow = Tuple[int, str, str] | Tuple[int, str, str, Optional[str]]
+EpicTaskRow = Tuple[int, str, str, Optional[str], bool]
 
 # ---------------------------------------------------------------------------
 # Epic progress
@@ -109,7 +109,7 @@ def _format_epic_task_rows(
     result: List[str] = []
     for row in rows:
         task_num, title, task_status = row[:3]
-        task_glyph = row[3] if len(row) > 3 else None
+        task_glyph, task_completed = row[3:5]
         tnum_pad = f"{task_num:03d}"
         # Escape pipe chars in title
         title_clean = title.replace("|", "∣") if title else ""
@@ -117,6 +117,7 @@ def _format_epic_task_rows(
             task_status or "",
             celebration,
             glyph=task_glyph,
+            completed=task_completed,
         )
         result.append(
             f"| {pad} | {tstat_emoji} | | | task | | └ {tnum_pad}: {title_clean} |"
@@ -133,13 +134,14 @@ def precompute_epic_task_rows(
     pf, params = project_filter(scope, "i")
     rows = query_precomputed_epic_task_rows(db, pf, params)
     result: Dict[int, List[EpicTaskRow]] = {}
-    for epic_id, task_num, title, status, task_glyph in rows:
+    for epic_id, task_num, title, status, task_glyph, task_completed in rows:
         result.setdefault(int(epic_id), []).append(
             (
                 int(task_num),
                 title or "",
                 status or "",
                 str(task_glyph) if task_glyph else None,
+                bool(task_completed),
             )
         )
     return result
@@ -258,6 +260,7 @@ def render_section(
             item.status,
             celebration,
             glyph=item.status_glyph,
+            completed=item.workflow_stage_bucket == "done",
         )
         lines.append(
             f"| {rid_padded} | {rstat_emoji} | {item.project} | "

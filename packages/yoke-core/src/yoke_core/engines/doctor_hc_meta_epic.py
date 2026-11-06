@@ -85,8 +85,7 @@ def hc_orphaned_active_items(conn, args: DoctorArgs, rec: RecordCollector) -> No
             conn,
             "SELECT DISTINCT i.id, i.status, iw.branch FROM items i "
             "JOIN item_worktrees iw ON iw.item_id = i.id "
-            "WHERE i.status IN ('planned','implementing','reviewing-implementation',"
-            "'reviewed-implementation','polishing-implementation','release','implemented') "
+            f"WHERE NOT {terminal_items_sql(conn)} "
             "AND iw.state = 'active' ORDER BY i.id, iw.branch",
         )
         for row in wt_rows:

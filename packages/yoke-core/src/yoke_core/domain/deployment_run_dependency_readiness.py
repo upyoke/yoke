@@ -52,7 +52,13 @@ def blocker_holding_run(conn: Any, blocker_id: int) -> tuple[str, str] | None:
     been released yet, or its delivery finished.
     """
     item = query_one(conn, "SELECT status FROM items WHERE id=%s", (int(blocker_id),))
-    if item and item["status"] == "done":
+    from yoke_core.domain.workflow_runtime import load_item_workflow_runtime
+
+    if (
+        item
+        and item["status"]
+        in load_item_workflow_runtime(conn, int(blocker_id)).terminal_stage_ids
+    ):
         return None
     delivery = latest_completion_run(conn, int(blocker_id), skip_terminal_failures=True)
     if delivery is None or _delivered(delivery):

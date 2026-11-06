@@ -83,3 +83,16 @@ def workflow_status_metadata_refusal() -> str:
         "workflow_status_metadata_unavailable: requires the next-release serving floor",
         recovery="Use the installed CLI matching the serving engine until that engine is upgraded",
     )
+
+
+def completed_item_sql(alias: str = "i", *, status: str | None = None) -> str:
+    """PostgreSQL successful-terminal membership for a pinned item row."""
+    return (
+        f"EXISTS (SELECT 1 FROM workflow_versions wv WHERE wv.id={alias}.workflow_version_id "
+        f"AND (wv.definition_json::jsonb->'terminal_stage_ids') ? {status or alias + '.status'})"
+    )
+
+
+def terminal_item_sql(alias: str = "i") -> str:
+    engine = ",".join("'" + stage + "'" for stage in sorted(ENGINE_TERMINAL_STAGE_IDS))
+    return f"({alias}.status IN ({engine}) OR {completed_item_sql(alias)})"

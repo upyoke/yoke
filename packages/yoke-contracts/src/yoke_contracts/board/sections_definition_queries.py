@@ -72,7 +72,8 @@ def _epic_task_rows_sql() -> str:
         "SELECT et.task_num, et.title, et.status, "
         "(SELECT stage->>'glyph' "
         " FROM jsonb_array_elements(wv.definition_json::jsonb->'stages') stage "
-        " WHERE stage->>'id'=et.status LIMIT 1) "
+        " WHERE stage->>'id'=et.status LIMIT 1), "
+        "(wv.definition_json::jsonb->'terminal_stage_ids') ? et.status "
         "FROM epic_tasks et "
         "LEFT JOIN items i ON i.id = et.epic_id "
         "LEFT JOIN workflow_versions wv ON wv.id = i.workflow_version_id "
@@ -82,7 +83,7 @@ def _epic_task_rows_sql() -> str:
 
 def query_epic_task_rows(
     db: Any, epic_id: int
-) -> List[Tuple[int, str, str, Optional[str]]]:
+) -> List[Tuple[int, str, str, Optional[str], bool]]:
     """Read per-epic task glyphs from the pinned definition."""
     enriched_sql = _epic_task_rows_sql()
     params = (epic_id,)
@@ -93,8 +94,9 @@ def query_epic_task_rows(
             title or "",
             task_status or "",
             str(task_glyph) if task_glyph else None,
+            bool(task_completed),
         )
-        for task_num, title, task_status, task_glyph in rows
+        for task_num, title, task_status, task_glyph, task_completed in rows
     ]
 
 
@@ -102,7 +104,8 @@ def _precomputed_epic_tasks_sql(project_filter: str) -> str:
     metadata_column = """,
                (SELECT stage->>'glyph'
                 FROM jsonb_array_elements(wv.definition_json::jsonb->'stages') stage
-                WHERE stage->>'id'=et.status LIMIT 1)"""
+                WHERE stage->>'id'=et.status LIMIT 1),
+                (wv.definition_json::jsonb->'terminal_stage_ids') ? et.status"""
     workflow_join = (
         "\n        LEFT JOIN workflow_versions wv ON wv.id = i.workflow_version_id"
     )

@@ -36,7 +36,8 @@ def hc_epic_task_worktree(conn, args: DoctorArgs, rec: RecordCollector) -> None:
         "LEFT JOIN item_worktrees iw ON iw.id = et.item_worktree_id "
         "WHERE (et.item_worktree_id IS NULL OR iw.id IS NULL) "
         "AND i.status NOT IN ('idea','refining-idea','refined-idea','planning',"
-        "'plan-drafted','refining-plan','planned','done','cancelled') "
+        "'plan-drafted','refining-plan','planned') "
+        f"AND NOT {terminal_items_sql(conn)} "
         "ORDER BY et.epic_id, et.task_num",
     )
 
@@ -155,7 +156,8 @@ def hc_epic_task_scope_state(conn, args: DoctorArgs, rec: RecordCollector) -> No
         "SELECT et.epic_id, et.task_num, COALESCE(et.body, '') AS body, "
         "i.status FROM epic_tasks et JOIN items i ON i.id=et.epic_id "
         "WHERE i.status NOT IN ('idea','refining-idea','refined-idea',"
-        "'planning','plan-drafted','done','cancelled','failed','stopped') "
+        "'planning','plan-drafted','failed') "
+        f"AND NOT {terminal_items_sql(conn)} "
         "ORDER BY et.epic_id, et.task_num",
     )
     details = []
