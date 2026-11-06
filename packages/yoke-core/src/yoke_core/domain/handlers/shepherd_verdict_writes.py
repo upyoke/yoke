@@ -93,7 +93,9 @@ def _run_with_conn(fn, *args, **kwargs) -> str:
 
 
 def _domain_error(exc: Exception) -> HandlerOutcome:
-    code = "not_found" if isinstance(exc, LookupError) else "write_failed"
+    code = getattr(exc, "code", None) or (
+        "not_found" if isinstance(exc, LookupError) else "write_failed"
+    )
     return _err(code, str(exc))
 
 

@@ -3,7 +3,6 @@
 ```text
 yoke workflow-item epic-dispatch-chain list --epic PREFIX-N --json
 yoke items github-sync PREFIX-N
-yoke lifecycle transition PREFIX-N --from {LIVE_STAGE} --to {IMPLEMENTING_STAGE} --reason "Conduct: synced graph ready for activation" --json
 ```
 
 No chains: github-sync builds them. Stages come from the pin.
@@ -19,6 +18,7 @@ Path-claim overlaps: [lanes-and-claims.md](../../../../.yoke/docs/agents/rules/l
 
 ```text
 yoke worktree prepare --item PREFIX-N --project {PROJECT}
+yoke lifecycle transition PREFIX-N --from {LIVE_STAGE} --to {IMPLEMENTING_STAGE} --reason "Conduct: synced graph ready for activation" --json
 git -C {WORKTREE_PATH} merge {PREDECESSOR_BRANCH} --no-edit
 yoke conduct epic-task update-status --epic PREFIX-N --task-num {task_num} --status implementing --note "Dispatched by conduct (task fan-out)"
 yoke workflow-item epic-dispatch-chain refresh-activation --epic PREFIX-N --worktree {BRANCH} --task-num {task_num}

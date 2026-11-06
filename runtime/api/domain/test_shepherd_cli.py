@@ -10,6 +10,7 @@ import tempfile
 import pytest
 
 from yoke_core.domain import db_backend
+from runtime.api.conftest import insert_item
 
 
 def _run_shepherd_cli(args, db_path):
@@ -50,6 +51,10 @@ def shepherd_db():
         env=env,
     )
     assert shepherd_init.returncode == 0, shepherd_init.stderr
+    with db_backend.connect() as conn:
+        for item_id in (1, 2, 3):
+            insert_item(conn, id=item_id, workflow_id="epic", status="planned")
+        conn.commit()
     yield path
     os.unlink(path)
 
@@ -57,7 +62,7 @@ def shepherd_db():
 def test_verdict_inserts_minimal_row(shepherd_db):
     """The ``verdict`` subcommand inserts with the four required positionals."""
     result = _run_shepherd_cli(
-        ["verdict", "TEST-1", "test_transition", "test-worker", "READY"],
+        ["verdict", "YOK-1", "planning_to_plan_drafted", "test-worker", "READY"],
         shepherd_db,
     )
     assert result.returncode == 0, result.stderr
@@ -69,8 +74,8 @@ def test_verdict_inserts_with_caveats(shepherd_db):
     result = _run_shepherd_cli(
         [
             "verdict",
-            "TEST-2",
-            "test_transition",
+            "YOK-2",
+            "planning_to_plan_drafted",
             "test-worker",
             "CAVEATS",
             "caveat body",
@@ -89,8 +94,8 @@ def test_verdict_ignores_extra_trailing_positional(shepherd_db):
     result = _run_shepherd_cli(
         [
             "verdict",
-            "TEST-3",
-            "test_transition",
+            "YOK-3",
+            "planning_to_plan_drafted",
             "test-worker",
             "READY",
             "",

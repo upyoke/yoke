@@ -1,7 +1,9 @@
 # Shepherd — Parse and Persist
 
 Parse `VERDICT: READY|NOT_READY|CAVEATS`; else loose wording; else one
-tool-less extraction; else NOT_READY `[UNPARSEABLE_BOSS_OUTPUT]`. Persist once:
+tool-less extraction; else NOT_READY `[UNPARSEABLE_BOSS_OUTPUT]`. EDGE is the pinned
+Shepherd verdict key: source_to_target with stage hyphens replaced by underscores
+(for example `planning_to_plan_drafted`). Persist once:
 ```bash
 yoke shepherd verdict --item ITEM --transition EDGE --worker WORKER --verdict VERDICT --caveats "{reason or numbered caveats}" --json
 ```

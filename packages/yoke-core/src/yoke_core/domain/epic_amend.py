@@ -154,15 +154,9 @@ def task_reassign(
     old = ""
     if row is not None:
         old = (row[0] if not hasattr(row, "keys") else row["branch"]) or ""
-    from yoke_core.domain.item_worktrees import record_worker_item_worktree
+    from yoke_core.domain.epic_dispatch import reassign_task_dispatch
 
-    lane = record_worker_item_worktree(
-        conn,
-        item_id=int(epic_id),
-        branch=new_worktree,
-        path=None,
-    )
-    task_update_field(conn, epic_key, task_num, "item_worktree_id", str(lane["id"]))
+    reassign_task_dispatch(conn, epic_id, task_num, old, new_worktree)
     return ReassignResult(
         task_num=task_num,
         old_worktree=old,

@@ -204,11 +204,7 @@ def evaluate_shepherd_verdict(
         "success": False,
         "error_code": "GATE_SHEPHERD_VERDICT",
         "error": f"Cannot advance to {target_status!r} — {result.reason}",
-        "remediation_hint": (
-            "Shepherd writes this verdict at its pinned handoff; run "
-            f"`/yoke shepherd {render_item_ref(conn, int(item_id))}` while the "
-            "item is still inside shepherd's segment."
-        ),
+        "remediation_hint": (result.reason),
     }
 
 
