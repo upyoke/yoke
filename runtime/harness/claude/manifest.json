@@ -6,9 +6,10 @@
     "executable": "claude",
     "quota_source": "anthropic_oauth_usage",
     "launch_environment": {
-      "BASH_DEFAULT_TIMEOUT_MS": "3600000"
+      "BASH_DEFAULT_TIMEOUT_MS": "28800000",
+      "BASH_MAX_TIMEOUT_MS": "28800000"
     },
-    "background_time_limit": "Unattended text-prompt -p runs default to 10 minutes after backgrounding. BASH_DEFAULT_TIMEOUT_MS=3600000 raises the default to one hour, including moved foreground commands and subagents. Explicit background timeout selects its own lifetime. Docs checked 2026-10-20: https://code.claude.com/docs/en/tools-reference",
+    "background_time_limit": "Interactive background Bash has no time limit. Text-prompt -p runs default to 10 minutes; explicit timeout selects the lifetime up to 2 hours. BASH_MAX_TIMEOUT_MS raises that ceiling; BASH_DEFAULT_TIMEOUT_MS raises the default for moved commands. Yoke launches set both to the longest wrapper duration; recipes pass the wrapper duration as timeout. Limits do not depend on plan. Docs checked 2026-11-06: https://code.claude.com/docs/en/tools-reference",
     "version_args": [
       "--version"
     ],
@@ -160,8 +161,12 @@
     "timer_wake": "supported",
     "timer_wake_mechanism": "ScheduleWakeup",
     "verified_on_surface": "claude-cli",
-    "evidence": "Monitor and ScheduleWakeup are first-class model-facing tools. Every stdout line a Monitor filter matches resumes the turn, which is what the main-session long-command rule is built on. A Monitor ends at its timeout_ms deadline (default 5 minutes, capped at 30) with one expiry notice and its watcher killed; re-arming the same tail then continues the watch. Ending the current turn closes the Monitor reader; see docs/archive/decisions/monitor-wake-resumes-current-turn.md.",
-    "idle_wake_subscription_limit_seconds": 1800,
+    "evidence": "Monitor and ScheduleWakeup are first-class model-facing tools. Every stdout line a Monitor filter matches resumes the turn, which is what the main-session long-command rule is built on. A Monitor ends at its timeout_ms deadline (default 5 minutes, capped at 30 interactive or 10 in text-prompt headless runs) with one expiry notice and its watcher killed; re-arming the same tail then continues the watch. Ending the current turn closes the Monitor reader; see docs/archive/decisions/monitor-wake-resumes-current-turn.md.",
+    "idle_wake_subscription_limits_seconds": {
+      "interactive": 1800,
+      "headless": 600
+    },
+    "idle_wake_default_timeout_seconds": 300,
     "idle_wake_deadline_parameter": "timeout_ms"
   },
   "parallel_subagents": {

@@ -156,7 +156,7 @@ _EXPECTED_SCHEMA_STR = (
     "|session_relays:relay_id/TEXT,actor_id/INTEGER,machine_id/TEXT,hostname/TEXT,relay_version/TEXT,surface_versions/TEXT,surface_confirmed_absent/TEXT,project_checkouts/TEXT,first_seen_at/TIMESTAMPTZ,last_seen_at/TIMESTAMPTZ,connected_until/TIMESTAMPTZ,last_job_at/TIMESTAMPTZ,state/TEXT,lease_id/TEXT,lease_expires_at/TIMESTAMPTZ,surface_plan_limits/TEXT,machine_capacity/TEXT,relay_health/TEXT,surface_native_models/TEXT,credential_presence/TEXT"
     "|session_surface_policies:mark_id/TEXT,machine_id/TEXT,surface/TEXT,state/TEXT,reason/TEXT,evidence/TEXT,set_by_actor_id/INTEGER,set_by_session_id/TEXT,created_at/TIMESTAMPTZ,cleared_at/TIMESTAMPTZ,cleared_by_actor_id/INTEGER"
     "|session_termination_reaps:target_session_id/TEXT,project_id/INTEGER,org_id/INTEGER,machine_id/TEXT,executor_surface/TEXT,target_native_thread_id/TEXT,launch_id/TEXT,state/TEXT,requested_at/TIMESTAMPTZ,lease_id/TEXT,lease_expires_at/TIMESTAMPTZ,completed_at/TIMESTAMPTZ,result_code/TEXT,evidence/TEXT"
-    "|session_tool_calls:id/INTEGER,session_id/TEXT,tool_use_id/TEXT,tool_name/TEXT,started_at/TIMESTAMPTZ,completed_at/TIMESTAMPTZ,outcome/TEXT,command_summary/TEXT"
+    "|session_tool_calls:id/INTEGER,session_id/TEXT,tool_use_id/TEXT,tool_name/TEXT,started_at/TIMESTAMPTZ,completed_at/TIMESTAMPTZ,outcome/TEXT,command_summary/TEXT,monitor_deadline_at/TIMESTAMPTZ"
     "|severity_config:id/INTEGER,event_name/TEXT,source_type/TEXT,min_severity/TEXT,created_at/TIMESTAMPTZ"
     "|shepherd_verdicts:id/INTEGER,public_ref/TEXT,archived_item_key/TEXT,transition/TEXT,worker/TEXT,verdict/TEXT,caveats/TEXT,attempt/INTEGER,created_at/TIMESTAMPTZ"
     "|sites:id/INTEGER,project_id/INTEGER,name/TEXT,description/TEXT,created_at/TIMESTAMPTZ,settings/TEXT"

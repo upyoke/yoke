@@ -128,6 +128,11 @@ def parse_pre_event(
     if agent_type:
         detail = envelope.setdefault("context", {}).setdefault("detail", {})
         detail["actor_role"] = agent_type
+    from yoke_core.domain.session_monitor_deadline import monitor_timeout_seconds
+
+    seconds = monitor_timeout_seconds(data)
+    if seconds is not None:
+        envelope["monitor_timeout_seconds"] = seconds
     return envelope
 
 

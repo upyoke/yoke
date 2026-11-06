@@ -108,10 +108,12 @@ def _wake_phrase(wake: str, mechanism: str) -> str:
 
 def _idle_phrase(cap: HarnessWakeCapability) -> str:
     phrase = _wake_phrase(cap.idle_wake, cap.idle_wake_mechanism)
-    limit = cap.idle_wake_subscription_limit_seconds
+    limits = cap.idle_wake_subscription_limits_seconds
+    limit = limits["interactive"]
     if limit:
         phrase += (
-            f", each subscription ending within {limit // 60} minutes "
+            f", subscriptions: interactive {limit // 60} minutes, "
+            f"headless {limits['headless'] // 60} minutes "
             f"(`{cap.idle_wake_deadline_parameter}`); re-arm the same tail "
             "on the expiry notice"
         )
@@ -174,9 +176,7 @@ def build_table_block() -> str:
         timer = _wake_phrase(cap.timer_wake, cap.timer_wake_mechanism)
         resume = _message_resume_phrase(harness_id)
         verified = cap.verified_on_surface or "not verified"
-        lines.append(
-            f"| `{harness_id}` | {idle} | {timer} | {resume} | `{verified}` |"
-        )
+        lines.append(f"| `{harness_id}` | {idle} | {timer} | {resume} | `{verified}` |")
     lines.append("")
     lines.append("Evidence behind each row:")
     lines.append("")

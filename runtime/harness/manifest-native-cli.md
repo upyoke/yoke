@@ -35,10 +35,12 @@ added to shell PATH blocks because application updates replace them. Missing com
 Yoke tool directory is still added for later installs.
 
 
-Claude declares `BASH_DEFAULT_TIMEOUT_MS=3600000`: a one-hour default for
-unattended background commands, including foreground commands moved at their
-timeout. This must exist before Claude starts, including its subagents; a Bash
-export cannot configure the parent process. Explicit background commands select
-their lifetime with `timeout`. The shared launcher reads the registry for every
-harness, with no Claude-specific branch. Codex and Cursor declare empty launch
-environments and a documented deferral for this Claude-only setting.
+Claude declares `BASH_DEFAULT_TIMEOUT_MS` and `BASH_MAX_TIMEOUT_MS` at the
+longest wrapper duration: the default protects moved commands and the maximum
+raises the headless two-hour ceiling. Interactive background Bash has no limit;
+text-prompt headless runs default to ten minutes. These limits do not depend on
+plan. Settings must exist before Claude starts, including its subagents; a Bash
+export cannot configure the parent process. Explicit background commands pass
+the wrapper duration as `timeout`. The shared launcher reads the registry for
+every harness. Codex and Cursor declare empty launch environments and a documented
+deferral for these Claude settings.

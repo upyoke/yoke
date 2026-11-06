@@ -122,7 +122,8 @@ def create_session_tables(conn: Any) -> None:
           started_at TIMESTAMPTZ NOT NULL,
           completed_at TIMESTAMPTZ,
           outcome TEXT,
-          command_summary TEXT
+          command_summary TEXT,
+          monitor_deadline_at TIMESTAMPTZ
         );
         CREATE UNIQUE INDEX IF NOT EXISTS idx_session_tool_calls_dedup
           ON session_tool_calls(session_id, tool_use_id);

@@ -115,6 +115,7 @@ CLAIMS_TABLES: dict[str, dict] = {
             ("completed_at", "TIMESTAMPTZ"),
             ("outcome", "TEXT"),
             ("command_summary", "TEXT"),
+            ("monitor_deadline_at", "TIMESTAMPTZ"),
         ],
         "notes": (
             "Rolling per-tool-call state (seven days after completed_at via "
@@ -140,7 +141,8 @@ CLAIMS_TABLES: dict[str, dict] = {
             "projects the name; that module names the tool). "
             "Closing a row is idempotent: the activity bump and the "
             "completed-work markers fire only on the transition, so a "
-            "replayed observation converges. command_summary "
+            "replayed observation converges. monitor_deadline_at is the effective "
+            "Monitor expiry from requested timeout and client run-mode cap. command_summary "
             "is the bounded (500-char) command text the pre-tool-call "
             "lint guardrails scan. Unique key (session_id, "
             "tool_use_id). This table is state, not telemetry — the "

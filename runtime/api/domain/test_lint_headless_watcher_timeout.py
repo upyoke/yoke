@@ -56,10 +56,10 @@ class TestScope(unittest.TestCase):
         self.assertEqual(outcome, "denied")
         self.assertIn(f"timeout: {IN_TURN_WATCHER_TIMEOUT_MS}", reason)
         self.assertIn("not a blanket Bash rule", reason)
-        self.assertIn("BASH_DEFAULT_TIMEOUT_MS=3600000 before Claude", reason)
-        self.assertIn("run_in_background: true with timeout: 3600000", reason)
-        self.assertIn("subagents must use foreground Bash", reason)
-        self.assertIn("Exporting it inside Bash is too late", reason)
+        self.assertIn("BASH_DEFAULT_TIMEOUT_MS and BASH_MAX_TIMEOUT_MS", reason)
+        self.assertIn("timeout equal to the wrapper duration", reason)
+        self.assertIn("Subagents must use foreground Bash", reason)
+        self.assertIn("exporting inside Bash is too late", reason)
         self.assertNotIn("continue the same backgrounded call until it exits", reason)
 
     def test_low_timeout_is_denied(self):

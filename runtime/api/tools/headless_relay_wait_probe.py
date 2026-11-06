@@ -12,6 +12,11 @@ import uuid
 from runtime.api.tools.session_launch_mandate_probe import CliClient, check_route
 from runtime.api.tools.session_launch_probe_support import ProbeFailure
 
+from yoke_contracts.harness_cli_manifest import harness_cli_manifest
+
+LAUNCH_TIMEOUT_MS = dict(harness_cli_manifest("claude-code").launch_environment)[
+    "BASH_DEFAULT_TIMEOUT_MS"
+]
 WAIT_SECONDS = 1265
 
 
@@ -24,7 +29,8 @@ def completion_matches(body: str, nonce: str, elapsed: float) -> bool:
     return (
         isinstance(proof, dict)
         and proof.get("nonce") == nonce
-        and proof.get("launch_timeout_ms") == "3600000"
+        and proof.get("launch_timeout_ms") == LAUNCH_TIMEOUT_MS
+        and proof.get("launch_max_timeout_ms") == LAUNCH_TIMEOUT_MS
         and isinstance(proof.get("elapsed_seconds"), (int, float))
         and proof["elapsed_seconds"] >= WAIT_SECONDS
         and elapsed >= WAIT_SECONDS
@@ -35,11 +41,13 @@ def instructions(nonce: str, recipient: str) -> str:
     program = (
         "import json,os,time; "
         "v=os.environ.get('BASH_DEFAULT_TIMEOUT_MS'); "
-        "assert v=='3600000', 'launch_timeout_missing: relaunch with manifest setting'; "
+        f"assert v=={LAUNCH_TIMEOUT_MS!r}, 'launch_timeout_missing: relaunch with manifest setting'; "
+        "m=os.environ.get('BASH_MAX_TIMEOUT_MS'); "
+        f"assert m=={LAUNCH_TIMEOUT_MS!r}, 'launch_max_timeout_missing: relaunch'; "
         "t=time.monotonic(); "
         f"time.sleep({WAIT_SECONDS}); "
         "print(json.dumps({"
-        f"'nonce':{nonce!r},'launch_timeout_ms':v,"
+        f"'nonce':{nonce!r},'launch_timeout_ms':v,'launch_max_timeout_ms':m,"
         "'elapsed_seconds':time.monotonic()-t}),flush=True)"
     )
     command = "python3 -c " + shlex.quote(program)

@@ -17,6 +17,8 @@ tests exercise the Started-row lookup against an isolated temp DB.
 from __future__ import annotations
 
 import tempfile
+from datetime import timedelta
+from yoke_contracts.timestamps import utc_now, format_instant
 import unittest
 from pathlib import Path
 from unittest import mock
@@ -77,7 +79,7 @@ class _DuplicateMonitorBase(unittest.TestCase):
         return mock.patch.object(
             monitor_dup,
             "_captures_targeted_in_session",
-            return_value=armed_pairs,
+            return_value=[(*pair, "2099-01-01T00:00:00Z") for pair in armed_pairs],
         )
 
 
@@ -238,8 +240,8 @@ class TestCapturesTargetedLookup(unittest.TestCase):
             conn.execute(
                 """INSERT INTO session_tool_calls
                    (session_id, tool_use_id, tool_name, started_at,
-                    completed_at, outcome, command_summary)
-                   VALUES (%s, %s, 'Monitor', %s, %s, %s, %s)""",
+                    completed_at, outcome, command_summary, monitor_deadline_at)
+                   VALUES (%s, %s, 'Monitor', %s, %s, %s, %s, %s)""",
                 (
                     "sess-monitor",
                     tool_use_id,
@@ -247,6 +249,7 @@ class TestCapturesTargetedLookup(unittest.TestCase):
                     now if completed else None,
                     "completed" if completed else None,
                     command or None,
+                    format_instant(utc_now() + timedelta(seconds=600)),
                 ),
             )
             conn.commit()
@@ -262,7 +265,12 @@ class TestCapturesTargetedLookup(unittest.TestCase):
         )
 
         self.assertEqual(
-            monitor_dup._captures_targeted_in_session(db_path, "sess-monitor", ROOTS),
+            [
+                (i, c)
+                for i, c, d in monitor_dup._captures_targeted_in_session(
+                    db_path, "sess-monitor", ROOTS
+                )
+            ],
             [("tu-open", _CAPTURE_X)],
         )
 
@@ -278,7 +286,12 @@ class TestCapturesTargetedLookup(unittest.TestCase):
         )
 
         self.assertEqual(
-            monitor_dup._captures_targeted_in_session(db_path, "sess-monitor", ROOTS),
+            [
+                (i, c)
+                for i, c, d in monitor_dup._captures_targeted_in_session(
+                    db_path, "sess-monitor", ROOTS
+                )
+            ],
             [("tu-done", _CAPTURE_X)],
         )
 
