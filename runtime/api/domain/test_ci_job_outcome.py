@@ -227,7 +227,7 @@ def test_never_started_jobs_report_names_no_verdict_and_redispatch():
     assert "Re-dispatch" in report.output
 
 
-def test_selection_run_never_relays_failed_logs_for_a_not_started_run(
+def test_selection_run_relays_provider_reason_for_a_not_started_run(
     monkeypatch, capsys
 ):
     from yoke_core.tools import pytest_remote_selection_report as report
@@ -267,7 +267,7 @@ def test_selection_run_never_relays_failed_logs_for_a_not_started_run(
 
     out = capsys.readouterr().out
     assert exit_code == 5
-    assert relayed == []
+    assert len(relayed) == 1
     assert f"concluded {CI_JOB_NOT_STARTED}" in out
     assert "re-dispatch" in out
 

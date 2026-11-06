@@ -148,3 +148,15 @@ def test_cancelled_run_is_not_redispatched(monkeypatch):
     dispatch.assert_not_called()
     cancel.assert_not_called()
     assert resolved == [{"run_id": "77", "conclusion": "cancelled"}]
+
+
+def test_failure_annotation_asks_operator_without_redispatch(monkeypatch):
+    output = "failed:ci_job_not_started — ci_job_not_started_requires_operator\nbuild: failure: Provider refused this job"
+    asked = []
+    monkeypatch.setattr(qa_case_ci_never_started, "ask_operator", lambda **kw: asked.append(kw) or kw["output"])
+    result, dispatch, cancel, _ = _await(monkeypatch, [(1, output)])
+    assert result.run_id == "77"
+    assert "Provider refused this job" in result.output
+    assert asked[0]["output"] == output
+    dispatch.assert_not_called()
+    cancel.assert_not_called()

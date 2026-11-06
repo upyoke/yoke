@@ -4,6 +4,9 @@
  "status": "draft-copy",
  "page": "verification-ci",
  "position": 4,
- "summary": "A failing or flaky test is a defect. Fix failures caused by this item or in files it touches here, commit and re-run the gate. For an unrelated cause, file feedback, promote a fix item, record a dependency and park; the gate stays red until the fix lands. Never weaken a behavior assertion or re-run unchanged inputs to get a pass. Cancelled or never-started jobs are no verdict and remain recoverable.",
- "sources": ["AGENTS.md", "docs/public/agents/rules/verification.md"]
+ "summary": "A failing or flaky test is a defect. Fix failures caused by this item or in files it touches here, commit and re-run the gate. For an unrelated cause, file feedback, promote a fix item, record a dependency and park; the gate stays red until the fix lands. Never weaken a behavior assertion or re-run unchanged inputs to get a pass. Cancelled or never-started jobs are no verdict and remain recoverable. Jobs with failure, startup_failure or cancelled conclusions and no runner or steps reached no verdict. The failed-log report labels them never_started and reads Checks annotations instead of downloading nonexistent logs. Watchers and CI QA preserve annotation levels and messages. A failure annotation asks the operator before any retry and does not spend a no-verdict attempt; without annotations the existing retry remains. A nonzero runner_id proves a job started even with no steps; its missing or expired log stays expired_or_missing.",
+ "sources": [
+  "AGENTS.md",
+  "docs/public/agents/rules/verification.md"
+ ]
 }

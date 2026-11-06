@@ -187,7 +187,7 @@ def follow(
     if warning := resolve_received_wait(run_id=run_id, conclusion=conclusion):
         say(warning)
     log = ""
-    if conclusion not in ("success", CI_JOB_NOT_STARTED):
+    if conclusion != "success":
         log = relay_failed_log(project=project, repo=repo, run_id=run_id)
     exit_code = CONCLUSION_EXIT.get(conclusion, EXIT_UNREACHABLE)
     recovery = ""
@@ -196,6 +196,11 @@ def follow(
         conclusion, exit_code = "refused_by_plan", EXIT_REFUSED
         recovery = f"; {refusal}"
     elif conclusion == CI_JOB_NOT_STARTED:
+        from yoke_core.domain.ci_job_start_recovery import ask_operator, recovery_blocked
+
+        if recovery_blocked(log):
+            say(ask_operator(repo=repo, run_id=run_id, output=log))
+            return exit_code
         recovery = f"; {REDISPATCH_RECOVERY}, or re-run with {LOCAL_FLAG}"
     elif conclusion not in ("success", "failure"):
         recovery = (

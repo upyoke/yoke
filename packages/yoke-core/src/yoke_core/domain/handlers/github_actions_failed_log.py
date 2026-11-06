@@ -54,6 +54,7 @@ class FailedJobSummary(BaseModel):
     html_url: str
     log_status: str
     log_detail: str
+    annotations: List[Dict[str, str]] = Field(default_factory=list)
     log_line_count: int
     region: str
     region_line_count: int

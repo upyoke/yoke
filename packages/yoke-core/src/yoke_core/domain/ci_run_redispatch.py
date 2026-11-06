@@ -48,6 +48,10 @@ def concluded_without_verdict(*, project: str, repo: str, run_id: str) -> str:
     if result.returncode not in (0, 1):
         return ""
     output = f"{result.stdout or ''}\n{result.stderr or ''}"
+    from yoke_core.domain.ci_job_start_recovery import ask_operator, recovery_blocked
+
+    if recovery_blocked(output):
+        raise RedispatchChainExhausted(ask_operator(repo=repo, run_id=run_id, output=output))
     conclusion = conclusion_from_poll(result.returncode, output)
     if conclusion in VERDICT_CONCLUSIONS or conclusion == "error":
         return ""

@@ -42,19 +42,19 @@ CANCELLED_RECOVERY = (
 #: Job conclusions that are a red answer from a job that ran.
 _RED_JOB_CONCLUSIONS = frozenset({"failure", "timed_out"})
 #: Job conclusions a job can carry without ever having started.
-_UNSTARTED_JOB_CONCLUSIONS = frozenset({"cancelled", "startup_failure"})
+_UNSTARTED_JOB_CONCLUSIONS = frozenset({"failure", "cancelled", "startup_failure"})
 
 
 def job_started(job: Mapping[str, Any]) -> bool:
     """True once GitHub assigned the job a runner or recorded a step."""
-    return bool(str(job.get("runner_name") or "").strip()) or bool(job.get("steps"))
+    return bool(job.get("runner_id")) or bool(
+        str(job.get("runner_name") or "").strip()
+    ) or bool(job.get("steps"))
 
 
 def job_never_started(job: Mapping[str, Any]) -> bool:
     """A job that failed to start, or was cancelled before any runner took it."""
     conclusion = str(job.get("conclusion") or "")
-    if conclusion == "startup_failure":
-        return True
     return conclusion in _UNSTARTED_JOB_CONCLUSIONS and not job_started(job)
 
 
@@ -75,7 +75,8 @@ def effective_conclusion(
         return CI_JOB_NOT_STARTED
     if jobs is None:
         return conclusion
-    if any(str(job.get("conclusion") or "") in _RED_JOB_CONCLUSIONS for job in jobs):
+    if any(job_started(job) and str(job.get("conclusion") or "")
+           in _RED_JOB_CONCLUSIONS for job in jobs):
         return conclusion
     if not jobs or any(job_never_started(job) for job in jobs):
         return CI_JOB_NOT_STARTED
@@ -113,6 +114,13 @@ def with_effective_conclusion(
         except RestTransportError:
             jobs = None
     copied["conclusion"] = effective_conclusion(conclusion, jobs)
+    if jobs and copied["conclusion"] == CI_JOB_NOT_STARTED:
+        from yoke_core.domain.github_actions_check_annotations import never_started_annotations
+
+        try:
+            copied["ci_job_annotations"] = never_started_annotations(repo, jobs, token=token)
+        except RestTransportError as exc:
+            copied["ci_job_annotations_error"] = str(exc)
     return copied
 
 
@@ -125,3 +133,19 @@ __all__ = [
     "job_started",
     "with_effective_conclusion",
 ]
+
+
+def not_started_message(data: Mapping[str, Any]) -> str:
+    """Provider evidence and recovery for the effective no-verdict result."""
+    from yoke_core.domain.github_actions_check_annotations import annotation_text
+
+    annotations = data.get("ci_job_annotations") or []
+    text = annotation_text(annotations)
+    error = data.get("ci_job_annotations_error")
+    if any(row["annotation_level"] == "failure" for row in annotations):
+        recovery = "ci_job_not_started_requires_operator: ask the operator to resolve GitHub's failure annotation before re-dispatching"
+    elif error:
+        recovery = str(error)
+    else:
+        recovery = REDISPATCH_RECOVERY
+    return "\n".join(part for part in (recovery, text) if part)

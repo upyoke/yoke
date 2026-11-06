@@ -24,7 +24,7 @@ from yoke_core.domain.handlers.github_actions_set import (
 )
 from yoke_core.domain.ci_job_outcome import (
     CI_JOB_NOT_STARTED,
-    REDISPATCH_RECOVERY,
+    not_started_message,
     with_effective_conclusion,
 )
 from yoke_core.domain.github_actions_identifiers import WorkflowRunId
@@ -90,7 +90,7 @@ def _classify(
             failure = conclusion or "unknown"
             state, message = "failed", f"failed:{failure}"
             if failure == CI_JOB_NOT_STARTED:
-                message = f"{message} — {REDISPATCH_RECOVERY}"
+                message = f"{message} — {not_started_message(data)}"
     elif status in {"queued", "pending", "waiting"}:
         state, message = "waiting", "waiting"
         if status == "pending" and jobs_count is not None:

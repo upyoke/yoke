@@ -25,6 +25,7 @@ from yoke_core.domain import (
     qa_case_ci_superseded_run,
 )
 from yoke_core.domain.ci_job_outcome import CI_JOB_NOT_STARTED
+from yoke_core.domain.ci_job_start_recovery import ask_operator, recovery_blocked
 from yoke_core.domain.github_actions_run_stall import (
     CI_RUN_NEVER_STARTED_REASON,
 )
@@ -117,6 +118,9 @@ def await_with_one_redispatch(
         run_id=run_id,
         timeout_seconds=timeout_seconds,
     )
+    if _never_started(output) and recovery_blocked(output):
+        output = ask_operator(repo=repo, run_id=run_id, output=output)
+        return AwaitedWorkflowRun(run_id, run_url, source, exit_code, output)
     if not _never_started(output):
         _resolve_wait(run_id, exit_code, output)
         return AwaitedWorkflowRun(
@@ -166,6 +170,14 @@ def await_with_one_redispatch(
         run_id=replacement_id,
         timeout_seconds=timeout_seconds,
     )
+    if _never_started(replacement_output) and recovery_blocked(replacement_output):
+        replacement_output = ask_operator(
+            repo=repo, run_id=replacement_id, output=replacement_output,
+        )
+        return AwaitedWorkflowRun(
+            replacement_id, replacement_url, qa_case_ci_covering_run.DISPATCHED,
+            replacement_code, _joined_output(output, replacement_output),
+        )
     if not _never_started(replacement_output):
         _resolve_wait(replacement_id, replacement_code, replacement_output)
         return AwaitedWorkflowRun(

@@ -108,6 +108,13 @@ def handle_rerun_failed(request: FunctionCallRequest) -> HandlerOutcome:
             f"Safety reads failed: {exc}; restore GitHub access and retry. No rerun was sent.",
         )
     if isinstance(run, HandlerOutcome):
+        if run.error.code == "ci_job_not_started_requires_operator":
+            from yoke_core.domain.ci_job_start_recovery import ask_operator
+
+            run.error.message = ask_operator(
+                repo=auth.repo, run_id=payload.run_id,
+                output=run.error.message, actor=request.actor,
+            )
         return run
     facts = RerunFailedResponse(
         run_id=payload.run_id,
