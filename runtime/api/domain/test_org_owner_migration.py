@@ -4,7 +4,7 @@ from importlib import import_module
 
 from runtime.api.domain.decision_request_test_support import decision_request_connection
 
-migration = import_module("yoke_core.domain.migrations.0105_org_owners")
+migration = import_module("yoke_core.domain.migrations.0106_org_owners")
 
 
 def test_earliest_active_human_admin_becomes_owner_and_others_are_unchanged():

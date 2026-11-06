@@ -10,6 +10,8 @@ from runtime.api.api_release_pin_record_route_test_support import (
     release_pin_db as release_pin_db,
 )
 
+from runtime.api.fixtures.actor_roles import seed_service_actor
+
 import json
 
 import pytest
@@ -24,7 +26,6 @@ from yoke_core.domain.actor_permissions import (
     ROLE_OWNER,
     grant_actor_project_role,
 )
-from yoke_core.domain.actors import seed_human_actor
 from yoke_core.domain.api_tokens import mint_token
 
 
@@ -98,7 +99,7 @@ def test_duplicate_slug_records_only_the_authorized_tenant_environment(
                 ),
             ),
         )
-        actor_id = seed_human_actor(conn)
+        actor_id = seed_service_actor(conn)
         grant_actor_project_role(
             conn,
             actor_id=actor_id,
@@ -111,7 +112,7 @@ def test_duplicate_slug_records_only_the_authorized_tenant_environment(
             actor_id=actor_id,
             name="tenant-two-deployment",
         )
-        owner_id = seed_human_actor(conn)
+        owner_id = seed_service_actor(conn)
         seed_project_role(
             conn,
             actor_id=owner_id,

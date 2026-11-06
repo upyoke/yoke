@@ -1,5 +1,7 @@
 """Org message administration and original-sender notice identity boundaries."""
 
+from runtime.api.fixtures.actor_roles import seed_project_role
+
 from datetime import timedelta
 
 import pytest
@@ -48,7 +50,7 @@ def test_org_admin_can_cancel_engine_message(org_world):
 def test_project_admin_cannot_cancel_mixed_org_fanout(org_world):
     w = org_world
     mid = send(w, ("org-target", "project-target"))["message_id"]
-    permissions.grant_actor_project_role(
+    seed_project_role(
         w.conn, actor_id=w.reader, project_id=1, role_name="owner"
     )
     with pytest.raises(SessionMessageError) as error:
