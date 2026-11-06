@@ -265,6 +265,10 @@ def test_fallback_refuses_to_run_without_audit_evidence(monkeypatch, tmp_path):
 
 @pytest.fixture(autouse=True)
 def isolated_environment_probe(monkeypatch):
+    monkeypatch.setattr(
+        "yoke_core.tools.source_git_credentials.snapshot_git_helpers",
+        lambda env, *_args: dict(env),
+    )
     import sys
     from yoke_core.domain.source_python_environment import SourcePythonEnvironment
 
