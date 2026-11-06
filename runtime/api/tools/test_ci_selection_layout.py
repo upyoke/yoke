@@ -2,11 +2,6 @@
 
 from __future__ import annotations
 
-import os
-import subprocess
-
-import pytest
-
 from yoke_core.domain.yaml_helper import load_document
 from yoke_core.tools._source_pythonpath import repo_root
 
@@ -30,9 +25,9 @@ def _names(job: dict) -> list[str]:
 
 def test_dependency_setup_caches_uv_downloads_instead_of_pip() -> None:
     action = load_document(GITHUB / "actions" / "yoke-test-runner" / "action.yml")
-    setups = [action["runs"], _jobs("yoke-ci.yml")["reuse_coverage"],
+    setups = [_jobs("yoke-ci.yml")["reuse_coverage"],
               _jobs("yoke-tests-selection.yml")["plan"]]
-    for setup in setups:
+    for setup in [action["runs"], *setups]:
         uv = _step(setup, "astral-sh/setup-uv@")
         revision = uv["uses"].split("@", 1)[1]
         assert len(revision) == 40 and all(c in "0123456789abcdef" for c in revision)
@@ -40,9 +35,14 @@ def test_dependency_setup_caches_uv_downloads_instead_of_pip() -> None:
         assert uv["with"]["cache-dependency-glob"] == "uv.lock"
         assert "cache" not in _step(setup, "actions/setup-python")["with"]
         assert not any("pip install" in s.get("run", "") for s in setup["steps"])
-        sync = next(s for s in setup["steps"] if "uv sync" in s.get("run", ""))
-        assert sync["run"] == "uv sync --all-packages --locked"
-        assert setup["steps"].index(uv) < setup["steps"].index(sync)
+        install = next(s for s in setup["steps"]
+                       if "uv sync" in s.get("run", "")
+                       or "yoke_core.tools.ci_runner_prepare" in s.get("run", ""))
+        if setup in setups:
+            assert install["run"] == "uv sync --all-packages --locked"
+        else:
+            assert "python3 -S -m yoke_core.tools.ci_runner_prepare" in install["run"]
+        assert setup["steps"].index(uv) < setup["steps"].index(install)
 
 
 def test_partial_fetch_keeps_versioning_and_git_test_history() -> None:
@@ -75,10 +75,9 @@ def test_the_shared_action_owns_every_setup_step() -> None:
     steps = [step["name"] for step in action["runs"]["steps"]]
     for name in (
         "Reclaim runner disk",
-        "Install dependencies",
+        "Prepare runner prerequisites, dependencies and Postgres",
         "Install TypeScript compiler",
         "Register libpython with the system loader cache",
-        "Start Postgres (durability off, dynamic host port)",
         "Verify Postgres CREATEDB",
     ):
         assert name in steps
@@ -153,56 +152,3 @@ def test_full_ci_checks_and_refresh_run_beside_shared_collection() -> None:
                  if step.get("uses", "").startswith("actions/upload-artifact")]
     assert artifacts.count("ci-test-durations") == 1
 
-
-@pytest.mark.parametrize(
-    ("runner", "installed", "curl_exit", "expected"),
-    [("self-hosted", False, 0, 1), ("self-hosted", True, 0, 0),
-     ("github-hosted", False, 0, 0), ("github-hosted", True, 0, 0),
-     ("github-hosted", False, 55, 1)],
-)
-def test_runner_prerequisites_install_only_on_hosted_hosts(
-    tmp_path, runner, installed, curl_exit, expected,
-) -> None:
-    action = load_document(GITHUB / "actions" / "yoke-test-runner" / "action.yml")
-    step = next(s for s in action["runs"]["steps"]
-                if s["name"] == "Prepare runner prerequisites")
-    commands = tmp_path / "commands"
-    commands.mkdir()
-    query = commands / "dpkg-query"
-    query.write_text("#!/bin/bash\nprintf '%s' "+
-                     ("'install ok installed'" if installed else "'not installed'"))
-    sudo = commands / "sudo"
-    sudo.write_text('#!/bin/bash\nprintf "%s\\n" "$*" >> "$CALLS"\n'
-                    'if [[ "$1" == curl ]]; then exit "$CURL_EXIT"; fi\n'
-                    'if [[ "$1" == tee ]]; then cat >/dev/null; fi\n')
-    query.chmod(0o755)
-    sudo.chmod(0o755)
-    calls = tmp_path / "calls"
-    result = subprocess.run(
-        ["bash", "-euo", "pipefail", "-c",
-         "source() { VERSION_CODENAME=resolute; }\n" + step["run"]],
-        env={**os.environ, "PATH": f"{commands}:{os.environ['PATH']}",
-             "RUNNER_ENVIRONMENT": runner, "CALLS": str(calls),
-             "CURL_EXIT": str(curl_exit)},
-        text=True, capture_output=True,
-    )
-    assert result.returncode == expected, result.stderr
-    if expected and not curl_exit:
-        assert "ci_runner_prerequisites_missing: postgresql-client-16" in result.stderr
-        assert "Install these packages from PGDG" in result.stderr
-    if runner == "github-hosted" and not installed:
-        operations = calls.read_text()
-        assert "https://www.postgresql.org/media/keys/ACCC4CF8.asc" in operations
-        assert "--retry 5 --retry-all-errors" in operations
-        assert "--connect-timeout 10 --max-time 60" in operations
-        if curl_exit:
-            assert "ci_runner_pgdg_key_download_failed" in result.stderr
-            assert "Check PostgreSQL key endpoint connectivity" in result.stderr
-            assert "apt-get" not in operations
-            return
-        assert "apt-get -o Acquire::Retries=3 update" in operations
-        assert ("apt-get -o Acquire::Retries=3 install --yes "
-                "--no-install-recommends postgresql-client-16") in operations
-        assert "libxml" not in operations
-    else:
-        assert not calls.exists(), "self-hosted and prepared hosts must stay unchanged"

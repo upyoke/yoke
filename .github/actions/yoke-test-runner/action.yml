@@ -28,39 +28,6 @@ runs:
         --runner-environment "${{ runner.environment }}"
         --runner-os "${{ runner.os }}"
 
-    - name: Prepare runner prerequisites
-      shell: bash
-      env:
-        RUNNER_ENVIRONMENT: ${{ runner.environment }}
-      run: |
-        required_packages=(postgresql-client-16)
-        missing_packages=()
-        for package in "${required_packages[@]}"; do
-          if [[ "$(dpkg-query -W -f='${Status}' "$package" 2>/dev/null || true)" != 'install ok installed' ]]; then
-            missing_packages+=("$package")
-          fi
-        done
-        if ((${#missing_packages[@]})); then
-          if [[ "$RUNNER_ENVIRONMENT" != github-hosted ]]; then
-            echo "ci_runner_prerequisites_missing: ${missing_packages[*]}. Install these packages from PGDG on the runner, then retry CI." >&2
-            exit 1
-          fi
-          source /etc/os-release
-          sudo install -d /usr/share/postgresql-common/pgdg
-          if ! sudo curl --fail --silent --show-error --location \
-            --retry 5 --retry-all-errors \
-            --connect-timeout 10 --max-time 60 \
-            https://www.postgresql.org/media/keys/ACCC4CF8.asc \
-            -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc; then
-            echo "ci_runner_pgdg_key_download_failed: bounded download retries exhausted. Check PostgreSQL key endpoint connectivity, then retry CI." >&2
-            exit 1
-          fi
-          printf 'deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt %s-pgdg main\n' "$VERSION_CODENAME" \
-            | sudo tee /etc/apt/sources.list.d/pgdg.list >/dev/null
-          sudo apt-get -o Acquire::Retries=3 update
-          sudo apt-get -o Acquire::Retries=3 install --yes --no-install-recommends "${missing_packages[@]}"
-        fi
-
     - name: Set up Python ${{ inputs.python-version }}
       uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
       with:
@@ -72,9 +39,14 @@ runs:
         enable-cache: true
         cache-dependency-glob: uv.lock
 
-    - name: Install dependencies
+    - name: Prepare runner prerequisites, dependencies and Postgres
       shell: bash
-      run: uv sync --all-packages --locked
+      env:
+        RUNNER_ENVIRONMENT: ${{ runner.environment }}
+        PG_CONTAINER: ${{ inputs.pg-container }}
+      run: >-
+        PYTHONPATH=packages/yoke-core/src:packages/yoke-contracts/src:packages/yoke-cli/src:packages/yoke-harness/src
+        python3 -S -m yoke_core.tools.ci_runner_prepare
 
     - name: Set up Node.js
       # Selected TypeScript contract tests fail without the toolchain.
@@ -111,53 +83,6 @@ runs:
         git config --global user.email "ci@yoke.local"
         git config --global user.name "Yoke CI"
         git config --global init.defaultBranch main
-
-    - name: Start Postgres (durability off, dynamic host port)
-      shell: bash
-      env:
-        PG_CONTAINER: ${{ inputs.pg-container }}
-      run: |
-        socket_dir="$(mktemp -d /tmp/yoke-ci-pg.XXXXXX)"
-        echo "YOKE_PG_SOCKET_DIR=${socket_dir}" >> "$GITHUB_ENV"
-        for attempt in 1 2 3 4 5; do
-          # artifact-fetch-allow: retry transient GHCR transport failures; five jittered attempts precede use
-          docker pull "$POSTGRES_IMAGE" && break
-          [ "$attempt" -eq 5 ] && exit 1
-          sleep $((5 + RANDOM % 26))
-        done
-        test_timezone="$(uv run python - <<'PYTHON'
-        from yoke_core.tools.pg_testcluster import DISPOSABLE_SERVER_SETTINGS
-        print(dict(DISPOSABLE_SERVER_SETTINGS)["timezone"])
-        PYTHON
-        )"
-        docker run -d \
-          --name "$PG_CONTAINER" \
-          -v "${socket_dir}:/var/run/postgresql" \
-          -e POSTGRES_USER=yoke \
-          -e POSTGRES_PASSWORD=yoke \
-          -e POSTGRES_DB=postgres \
-          -p 5432 \
-          "$POSTGRES_IMAGE" \
-          -c "timezone=${test_timezone}" \
-          -c fsync=off \
-          -c synchronous_commit=off \
-          -c full_page_writes=off \
-          -c wal_level=minimal \
-          -c max_wal_senders=0
-
-    - name: Resolve Postgres DSN (dynamic host port)
-      shell: bash
-      env:
-        PG_CONTAINER: ${{ inputs.pg-container }}
-      run: |
-        set -o pipefail
-        host_port="$(docker port "$PG_CONTAINER" 5432 | head -n1 | sed 's/.*://')"
-        if [ -z "$host_port" ]; then
-          echo "Postgres host port did not resolve" >&2
-          exit 1
-        fi
-        echo "Resolved Postgres host port: ${host_port}"
-        echo "YOKE_PG_DSN=host=localhost port=${host_port} user=yoke password=yoke dbname=postgres" >> "$GITHUB_ENV"
 
     - name: Wait for Postgres
       shell: bash
