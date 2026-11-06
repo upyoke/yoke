@@ -1,20 +1,14 @@
-"""Which liveness states a recipient selector resolves against.
+"""Bulk messages reach present sessions with recent or in-flight tool activity.
 
-An anchor that names sessions one at a time is a deliberate choice, so it
-resolves against every liveness state. A bulk anchor is not: ``--project``
-and ``--universe`` describe a population rather than a list, and the
-population an operator means when broadcasting is the sessions currently
-working. Resolving bulk anchors against ended sessions turns one directive
-into a wake for every session that ever ran under that project.
-
-So bulk anchors default to ``active``, and an explicit ``--liveness``
-widens them deliberately. ``all`` is the widening sentinel that restores
-the unfiltered population.
+Between-turns sessions remain recipients, including holders that declared a
+pause. Explicit liveness flags retain their legacy selector meaning; named
+anchors remain deliberate choices across every state.
 """
 
 from __future__ import annotations
 
-from typing import Any, Iterable
+from datetime import datetime
+from typing import Any, Iterable, Mapping
 
 from yoke_contracts.session_control.liveness import (
     LIVENESS_ALL,
@@ -22,11 +16,21 @@ from yoke_contracts.session_control.liveness import (
 )
 
 #: What a bulk anchor resolves against when the sender names nothing.
-DEFAULT_BULK_LIVENESS: tuple[str, ...] = ("active",)
+DEFAULT_BULK_LIVENESS: tuple[str, ...] = ("active", "waiting")
 
 #: Anchor evidence that describes a population rather than named sessions.
 _PROJECT_EVIDENCE_PREFIX = "project:"
 _UNIVERSE_EVIDENCE = "universe"
+
+
+def bulk_message_eligible(row: Mapping[str, Any], *, now: datetime) -> bool:
+    """Use the shared state model, never heartbeats or claim protection."""
+    from yoke_core.domain.session_state import session_state
+
+    state = session_state(row, now=now)
+    return state["presence"] == "present" and state["activity"] in {
+        "working", "between_turns"
+    }
 
 
 def has_bulk_anchor(selector: Any) -> bool:
@@ -73,6 +77,7 @@ def narrows_bulk_by_default(selector: Any) -> bool:
 
 __all__ = [
     "DEFAULT_BULK_LIVENESS",
+    "bulk_message_eligible",
     "applied_liveness",
     "has_bulk_anchor",
     "is_bulk_evidence",

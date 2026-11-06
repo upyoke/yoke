@@ -93,13 +93,9 @@ def session_display_details(conn, session_ids):
             current[session_id]
             or ([recent[session_id]] if session_id in recent else [])
         )
-        stamps = [
-            parse_instant(row[key])
-            for key in ("last_tool_call_at", "last_heartbeat")
-            if row.get(key)
-        ]
-        if stamps:
-            seconds = max(0, int((now - max(stamps)).total_seconds()))
+        tool_at = row.get("last_tool_call_at")
+        if tool_at:
+            seconds = max(0, int((now - parse_instant(tool_at)).total_seconds()))
             age = (
                 f"{seconds}s"
                 if seconds < 60
@@ -109,7 +105,7 @@ def session_display_details(conn, session_ids):
                 if seconds < 86400
                 else f"{seconds // 86400}d"
             )
-            parts.append(f"active {age} ago")
+            parts.append(f"last tool {age} ago")
         details[session_id] = {"title": title, "label": " · ".join(parts)}
     return details
 

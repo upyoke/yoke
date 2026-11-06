@@ -272,3 +272,9 @@ facts, and records chat answers through resolve immediately.
 
 See [Audiences and shared posts](audiences-and-posts.md) for live recipient
 rules, reusable audiences and durable work with one shared Done action.
+
+
+Bulk sends select present, working/between-turns sessions, including parked
+holders. Silent/gone sessions are excluded despite heartbeats/claims;
+`session_idle_minutes` sets silence. Explicit `--liveness` uses legacy states;
+previews list the default as `active, waiting`. Named addresses stay deliberate.

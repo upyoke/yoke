@@ -5,9 +5,12 @@
 <!-- /yoke:breadcrumbs -->
 
 Session mentions show the native chat title, surface, project, current item
-claims (or the most recently released item), and activity age. An unnamed
+claims (or the most recently released item), and last tool age. An unnamed
 launched chat uses its assigned item ref and title. Labels resolve when read,
 so later renames and claim changes appear in existing notices and messages.
+Labels say `last tool Nm ago` using only the last tool call. Heartbeats never
+refresh this age, including after a process exits; without a tool timestamp,
+the label omits the age.
 UUIDs remain in commands and secondary session details.
 
 Session cards retain their usual fields. Hover or tap their identity header

@@ -106,7 +106,7 @@ def add_selector_arguments(parser: argparse.ArgumentParser) -> None:
         "epic_tasks": "ANCHOR (union). Epic task as QUALIFIED-ITEM:TASK.",
         "process_keys": "ANCHOR (union). Claimed process key (repeatable).",
         "projects": (
-            "ANCHOR. Broadcast to active project sessions. Messages exclude "
+            "ANCHOR. Broadcast to present project sessions with tool activity. Messages exclude "
             "the sender and refuse combining --project with --item, "
             "--epic-task, --process or --session; drop --project; the item "
             "ref already names its project."
@@ -126,8 +126,8 @@ def add_selector_arguments(parser: argparse.ArgumentParser) -> None:
         "machine_ids": "FILTER. Keep recipients on this machine (repeatable).",
         "liveness": (
             "FILTER. Keep recipients in this liveness state (repeatable). "
-            "--project and --universe resolve against active sessions "
-            "unless this widens them; 'all' restores every state."
+            "--project and --universe default to present, working/between-turns sessions "
+            "unless this selects legacy states; 'all' restores every state."
         ),
         "exclude_session_ids": "FILTER. Remove this exact session from the result (repeatable).",
     }
