@@ -121,3 +121,21 @@ def test_failed_monitor_setup_does_not_block_a_replacement(test_db):
         patch.object(test_db, "close"),
     ):
         assert guard._captures_targeted_in_session("", SESSION, ("/tmp",)) == []
+
+
+def test_background_waiter_reads_deadline_bearing_monitor_rows():
+    from yoke_core.domain import lint_long_command_polling_waiter as waiter
+    from yoke_core.domain import lint_long_command_polling_evaluate as polling
+
+    with (
+        patch.object(waiter, "_resolve_db_path", return_value="fixture"),
+        patch.object(polling, "_recent_bash_commands", return_value=[]),
+        patch.object(
+            guard,
+            "_captures_targeted_in_session",
+            return_value=[("live-monitor", CAPTURE, "2099-01-01T00:00:00Z")],
+        ),
+    ):
+        assert waiter._existing_capture_files({"session_id": SESSION}, ("/tmp",)) == {
+            CAPTURE
+        }

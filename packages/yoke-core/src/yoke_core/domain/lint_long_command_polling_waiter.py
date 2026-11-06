@@ -153,7 +153,7 @@ def _existing_capture_files(payload: dict, roots: Sequence[str]) -> set[str]:
     except Exception:
         _captures_targeted_in_session = None  # type: ignore[assignment]
     if _captures_targeted_in_session is not None:
-        for _tool_use_id, capture_file in _captures_targeted_in_session(
+        for _tool_use_id, capture_file, _deadline in _captures_targeted_in_session(
             db_path,
             session_id,
             roots,
