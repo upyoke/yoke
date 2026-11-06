@@ -1,0 +1,18 @@
+{
+ "id": "glossary",
+ "title": "Session state glossary",
+ "parent": "start",
+ "route": "/docs/guide/glossary",
+ "kind": "detail",
+ "status": "draft",
+ "audience": "People and agents reading session state",
+ "purpose": "Distinguish session presence, tool activity, declared intent, custody and next actor.",
+ "outline": ["Independent session facts"],
+ "terms": ["session-liveness", "stale-session", "parked-session", "work-claim", "heartbeat"],
+ "commands": ["command:yoke sessions"],
+ "sources": ["doc:docs/public/guide/glossary.md", "doc:docs/public/sessions/model/sessions.md"],
+ "deeper_pages": ["sessions"],
+ "open_questions": [],
+ "position": 21,
+ "topics": []
+}

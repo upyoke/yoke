@@ -2,6 +2,7 @@
 
 from typing import Any
 
+from yoke_contracts.refusal_recovery import compose_refusal
 from yoke_core.domain import json_helper
 from yoke_core.domain.db_backend import connection_is_postgres
 from yoke_core.domain.migration_serving_version import NEXT_RELEASE
@@ -28,8 +29,10 @@ def _document(row: Any) -> dict[str, Any]:
     except (ValueError, TypeError):
         pass
     raise RuntimeError(
-        f"session_idle_settings_invalid: capability {row[0]}. Recovery: repair "
-        "its project-policy settings to a JSON object, then retry boot or rehearsal."
+        compose_refusal(
+            f"session_idle_settings_invalid: capability {row[0]}",
+            recovery="repair its project-policy settings to a JSON object, then retry boot or rehearsal",
+        )
     )
 
 
@@ -53,6 +56,8 @@ def invariants(conn: Any) -> None:
     for row in _rows(conn):
         if OLD_KEY in _document(row):
             raise RuntimeError(
-                f"session_idle_settings_not_converged: capability {row[0]}. "
-                "Recovery: rehearse the session idle settings migration and retry boot."
+                compose_refusal(
+                    f"session_idle_settings_not_converged: capability {row[0]}",
+                    recovery="rehearse the session idle settings migration and retry boot",
+                )
             )

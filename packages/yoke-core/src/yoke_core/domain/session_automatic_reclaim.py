@@ -156,7 +156,7 @@ def reclaim_facts(
         sid = str(row["session_id"])
         facts = sessions.get(sid, {})
         for name in RECLAIM_SESSION_FIELDS:
-            if name in facts:
+            if name in facts and (name != "project_id" or name not in row):
                 row[name] = facts[name]
         row["session_idle_minutes"] = idle_minutes.get(
             row.get("project_id"), DEFAULT_SESSION_IDLE_MINUTES

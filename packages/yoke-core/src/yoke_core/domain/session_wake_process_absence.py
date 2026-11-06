@@ -13,10 +13,9 @@ would only postpone the resume that is the sole way in. Six item-QA envelopes
 went out to recipients whose processes were already recorded gone and none
 reached a session for ten to fourteen minutes.
 
-Liveness does not catch this on its own. A session whose heartbeat is still
-inside the liveness window reads ``active`` while its process is recorded
-gone -- the heartbeat outlives the process that stopped refreshing it -- and
-an ``active`` recipient is handed to the hook route it no longer has.
+A recorded death makes the hook route unreachable even while its last
+heartbeat remains fresh. Its explicit cause also determines immediate wake
+eligibility and repeat-wake spacing, independently of the silence window.
 
 The verdict itself is not re-derived here. The shared reader retires a death
 after later activity, but delivery includes expected clean exits: parking

@@ -7,6 +7,8 @@
 Session ownership and execution answer separate questions. Read these facts
 together to understand a session; an active claim alone does not prove progress.
 
+## Independent session facts
+
 | Term | Meaning |
 | --- | --- |
 | Presence | `present` unless end stamps or unsuperseded native process death prove `ended` or `gone`. A later tool call proves presence again; heartbeat alone does not. |
