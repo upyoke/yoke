@@ -133,6 +133,10 @@ test("ended history is lazy, cursor-paged, and excluded from bulk audiences", as
   button(root, "Load more").dispatchEvent(new Event("click"));
   await settle();
   assert.deepEqual(cardIds(root), ["ended-1", "ended-2", "ended-3"]);
+  assert.deepEqual(byClass(root, "session-presence").map((node) => node.textContent),
+    ["Presenceended", "Presenceended", "Presenceended"]);
+  assert.deepEqual(byClass(root, "session-activity").map((node) => node.textContent),
+    ["Activitysilent", "Activitysilent", "Activitysilent"]);
   assert.equal(button(root, "Load more").hidden, true);
 
   state.value = "";
