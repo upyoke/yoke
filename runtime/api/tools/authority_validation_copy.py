@@ -96,9 +96,7 @@ def _reset_validation_schema(dsn: str) -> None:
             ).fetchall()
         ]
         for name in names:
-            conn.execute(
-                sql.SQL("DROP SCHEMA {} CASCADE").format(sql.Identifier(name))
-            )
+            conn.execute(sql.SQL("DROP SCHEMA {} CASCADE").format(sql.Identifier(name)))
         conn.execute("CREATE SCHEMA public")
 
 
