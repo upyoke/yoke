@@ -18,11 +18,11 @@ def test_lost_verdict_reply_replays_same_request(monkeypatch, function):
 
     def transport(**kwargs):
         calls.append(kwargs)
-        return (
-            _response(kwargs, code="https_transport_failed")
-            if len(calls) == 1
-            else _response(kwargs, result={"state": "completed"})
-        )
+        if len(calls) == 1:
+            return _response(kwargs, code="https_transport_failed")
+        if len(calls) == 2:
+            return _response(kwargs, code="idempotency_request_in_flight")
+        return _response(kwargs, result={"state": "completed"})
 
     monkeypatch.setattr(
         "yoke_core.domain.qa_composed_dispatch.call_qa_function", transport
@@ -37,8 +37,8 @@ def test_lost_verdict_reply_replays_same_request(monkeypatch, function):
         actor=ACTOR,
     )
     assert result["state"] == "completed"
-    assert calls[0] == calls[1]
-    assert len(calls) == 2
+    assert calls[0] == calls[1] == calls[2]
+    assert len(calls) == 3
 
 
 def test_completed_execution_recovery_names_driver_without_reconcile():

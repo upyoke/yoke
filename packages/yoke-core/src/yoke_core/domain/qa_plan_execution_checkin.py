@@ -154,7 +154,8 @@ def deliver_plan_function(*, function_id, target, payload, actor):
                 flush=True,
             )
             time.sleep(delay)
-            request_id = str(uuid4())
+            if code != "idempotency_request_in_flight":
+                request_id = str(uuid4())
             continue
         if code != "https_transport_failed":
             raise QaPlanExecutionError(
