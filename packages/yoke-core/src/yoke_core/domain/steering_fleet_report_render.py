@@ -183,7 +183,9 @@ def _scope_work_lines(report: FleetReport, shared: ProjectRows) -> list[str]:
         ),
         *_section(
             "awaiting holders — declared wait or another actor",
-            _holder_lines(report.awaiting),
+            _holder_lines(
+                tuple(h for h in report.awaiting if h.item_id not in landed_ids)
+            ),
         ),
         *_in_flight.in_flight_section(report.in_flight),
         *_section(

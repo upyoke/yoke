@@ -100,7 +100,7 @@ def shown_rows(
                 continue
             source = project_scope if section in PROJECT_SECTIONS else scope
             rows = list(source.get(section, ()))
-            if section in ("idle", "suspected_orphaned_waiters", "holders"):
+            if section in ("idle", "awaiting", "suspected_orphaned_waiters", "holders"):
                 rows = [row for row in rows if row.get("item_id") not in landed]
             if section == "holders":
                 rows = [row for row in rows if row.get("session_id") not in named]
