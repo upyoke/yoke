@@ -305,7 +305,7 @@ def _open_function_relay(
             allow_private_http=True,
             opener=active_http_opener(),
         )
-        if opened.getcode() >= 300:
+        if active_http_opener() is not None and opened.getcode() >= 300:
             raise urllib.error.HTTPError(
                 request.full_url, opened.getcode(), "function relay HTTP error",
                 opened.headers, opened,

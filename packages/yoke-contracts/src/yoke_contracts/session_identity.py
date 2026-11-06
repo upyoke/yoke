@@ -151,6 +151,7 @@ def record_session_anchor(
         existing = _load_json(final) if final.is_file() else None
         if existing and existing.get("anchor_start_time") != resolved.start_time:
             existing = None  # reused pid: the recorded process is gone
+        registered_at = iso8601_now()
         if (
             existing and existing.get("session_id") == session_id
             and existing.get("anchor_pid") == resolved.pid
@@ -175,7 +176,7 @@ def record_session_anchor(
             "anchor_pid": resolved.pid,
             "anchor_start_time": resolved.start_time,
             "anchor_process_name": resolved.process_name,
-            "registered_at": iso8601_now(),
+            "registered_at": registered_at,
         }
         if decision.contended:
             record["shared_by_multiple_sessions"] = True
