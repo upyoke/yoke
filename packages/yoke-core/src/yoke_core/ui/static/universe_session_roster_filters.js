@@ -132,6 +132,7 @@ export function sessionRosterFilters(documentNode, onChange) {
       if (outsideOnly) return outside;
       const searchable = [
         row.session_id, sessionScopeLabel(row), row.focus, row.actor_label,
+        row.harness_title, row.display_label,
         row.current_item_title, row.model, row.requested_model,
       ].join(" ").toLowerCase();
       return (!query || searchable.includes(query))
