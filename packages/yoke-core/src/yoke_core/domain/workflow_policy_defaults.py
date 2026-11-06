@@ -137,7 +137,7 @@ def publish_workflow_policy_defaults(
         result_fields = {"path_survey_default": bool(path_survey_default)}
     else:
         assert approval_defaults is not None
-        role_order = {"owner": 0, "operator": 1, "admin": 2}
+        role_order = {"owner": 0, "admin": 1, "operator": 2, "viewer": 3}
         normalized = {}
         for transition_id, raw_gate in approval_defaults.items():
             gate = dict(raw_gate)

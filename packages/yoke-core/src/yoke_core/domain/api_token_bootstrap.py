@@ -10,9 +10,7 @@ from yoke_core.domain.db_helpers import instant_parameter
 from yoke_core.domain import db_backend
 from yoke_core.domain.actor_permissions import (
     PROJECT_ROLES,
-    ROLE_ADMIN,
     ROLE_OWNER,
-    grant_actor_org_role,
     grant_actor_project_role,
     role_id_by_name,
     seed_roles_and_permissions,
@@ -119,17 +117,18 @@ def bootstrap_admin_token(
                 "mint the token for an explicit actor instead"
             )
         actor_id = seed_human_actor(conn, actor_name)
+    from yoke_core.domain.actor_owner_protection import seed_bootstrap_owner
+
     if project is None:
         org_id = seed_default_org(conn)
-        grant_actor_org_role(
-            conn,
-            actor_id=actor_id,
-            org_id=org_id,
-            role_name=ROLE_ADMIN,
-            granted_by_actor_id=actor_id,
-        )
     else:
         project_id = resolve_project_id(conn, project)
+        marker = "%s" if db_backend.connection_is_postgres(conn) else "?"
+        org_id = conn.execute(
+            f"SELECT org_id FROM projects WHERE id={marker}", (project_id,)
+        ).fetchone()[0]
+    seed_bootstrap_owner(conn, actor_id, int(org_id))
+    if project is not None:
         grant_actor_project_role(
             conn,
             actor_id=actor_id,
@@ -137,6 +136,7 @@ def bootstrap_admin_token(
             role_name=ROLE_OWNER,
             granted_by_actor_id=actor_id,
         )
+    conn.commit()
     return mint_token(conn, actor_id=actor_id, name=token_name)
 
 

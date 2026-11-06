@@ -70,14 +70,14 @@ def approval_gate(
         and not request_deciders(conn, int(latest["id"]))
     ):
         return _failure(
-            "GATE_DASH_APPROVAL_REQUIRED",
-            "Approval-on-done has no eligible human project owner who can answer.",
-            "Grant the project owner role to a human actor, then resolve the "
-            "Inbox request. Do not assign roles automatically.",
+            "empty_audience_members",
+            "Approval-on-done reaches no active person with owner or admin authority.",
+            "Use --to <person>, choose --audience <name> with reachable people, "
+            "or grant someone a project role, then recreate the gate request.",
         )
     return _failure(
         "GATE_DASH_APPROVAL_REQUIRED",
-        "Approval-on-done is waiting for a project owner decision.",
+        "Approval-on-done is waiting for an owner or admin decision.",
         "Resolve the lifecycle decision request through the Inbox.",
     )
 

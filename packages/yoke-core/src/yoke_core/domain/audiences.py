@@ -7,6 +7,7 @@ from typing import Any, Iterable, Mapping
 from yoke_contracts.refusal_recovery import compose_refusal
 from yoke_core.domain import db_backend
 from yoke_core.domain.actor_state import actor_active_sql
+from yoke_core.domain.actor_effective_roles import role_matches_sql
 from yoke_core.domain.db_savepoint import savepoint
 
 
@@ -189,17 +190,24 @@ def rules_for_audiences(
 
 
 def _matches(conn: Any) -> str:
-    """One live membership predicate, shared by every audience consumer."""
+    """Human membership, with org inheritance and minimum human-role ranks."""
+    role_match = role_matches_sql("ro.name", "r.role_name")
     return f"""a.kind = 'human' AND {actor_active_sql(conn, "a")} AND (
         (r.scope_kind = 'actor' AND r.scope_id = a.id)
         OR (r.scope_kind = 'org' AND EXISTS (
             SELECT 1 FROM actor_org_roles ar JOIN roles ro ON ro.id = ar.role_id
             WHERE ar.actor_id = a.id AND ar.org_id = r.scope_id
-                AND (r.role_name IS NULL OR ro.name = r.role_name)))
-        OR (r.scope_kind = 'project' AND EXISTS (
-            SELECT 1 FROM actor_project_roles ar JOIN roles ro ON ro.id = ar.role_id
-            WHERE ar.actor_id = a.id AND ar.project_id = r.scope_id
-                AND (r.role_name IS NULL OR ro.name = r.role_name))))"""
+                AND {role_match}))
+        OR (r.scope_kind = 'project' AND (
+            EXISTS (SELECT 1 FROM actor_project_roles ar
+                JOIN roles ro ON ro.id = ar.role_id
+                WHERE ar.actor_id = a.id AND ar.project_id = r.scope_id
+                    AND {role_match})
+            OR EXISTS (SELECT 1 FROM projects pr
+                JOIN actor_org_roles ar ON ar.org_id = pr.org_id
+                JOIN roles ro ON ro.id = ar.role_id
+                WHERE pr.id = r.scope_id AND ar.actor_id = a.id
+                    AND {role_match}))))"""
 
 
 def member_matches(
@@ -281,3 +289,14 @@ def member_matches_for_audiences(
     for row in rows:
         result.setdefault(int(row["audience_id"]), []).append(dict(row))
     return result
+
+
+def require_members(conn: Any, audience_id: int) -> None:
+    """Refuse an undeliverable ask before storing or opening a gate."""
+    if not member_matches(conn, audience_id):
+        _refuse(
+            "empty_audience_members",
+            "The audience reaches no active person",
+            "Use --to <person>, choose --audience <name> with reachable people, "
+            "or grant someone a project role",
+        )

@@ -20,14 +20,13 @@ from yoke_core.domain.migration_content_identity_authority import (
     ROLE_MIGRATION_VERIFICATION_CI,
 )
 
-# Project-scoped roles (grantable via ``actor_project_roles``).
+# Human roles are available at both organization and project scope.
 ROLE_OWNER = "owner"
 ROLE_OPERATOR = "operator"
 ROLE_VIEWER = "viewer"
 ROLE_DEPLOYMENT_CI = "deployment_ci"
 ROLE_INFRASTRUCTURE_CI = "infrastructure_ci"
-# Org-scoped role (grantable via ``actor_org_roles``). Renamed from "system":
-# the all-access role belongs at org/instance scope, not on a project.
+
 ROLE_ADMIN = "admin"
 
 # Project-scoped permissions.
@@ -67,16 +66,23 @@ SERVICE_ONLY_PERMISSIONS = (PERM_HOSTED_SERVICE_DELIVER,)
 # person: normal Yoke operations across every project in the org.
 # ``hosted_service`` is seeded but granted only by its own bootstrap, never
 # through member grants or invites.
-ORG_ROLES = (ROLE_ADMIN, ROLE_OPERATOR, ROLE_VIEWER, ROLE_MIGRATION_VERIFICATION_CI)
+ORG_ROLES = (
+    ROLE_OWNER,
+    ROLE_ADMIN,
+    ROLE_OPERATOR,
+    ROLE_VIEWER,
+    ROLE_MIGRATION_VERIFICATION_CI,
+)
 PROJECT_ROLES = (
     ROLE_OWNER,
+    ROLE_ADMIN,
     ROLE_OPERATOR,
     ROLE_VIEWER,
     ROLE_DEPLOYMENT_CI,
     ROLE_INFRASTRUCTURE_CI,
 )
 ROLE_DESCRIPTIONS = {
-    ROLE_OWNER: "Project admin and normal operator work.",
+    ROLE_OWNER: "Full administration, including protected owner changes.",
     ROLE_OPERATOR: "Normal Yoke operations: org-wide at org scope, else one project.",
     ROLE_VIEWER: "Read-only access.",
     ROLE_DEPLOYMENT_CI: (
@@ -89,7 +95,7 @@ ROLE_DESCRIPTIONS = {
         "Verify candidate migration content against the control-plane ledger."
     ),
     ROLE_HOSTED_SERVICE: ROLE_HOSTED_SERVICE_DESCRIPTION,
-    ROLE_ADMIN: "Org-wide administration across all of the org's projects.",
+    ROLE_ADMIN: "Full administration except changing owners.",
 }
 PERMISSION_DESCRIPTIONS = {
     PERM_ITEMS_READ: "Read item data.",
@@ -131,31 +137,11 @@ PERMISSION_DESCRIPTIONS = {
     PERM_HOSTED_SERVICE_DELIVER: PERM_HOSTED_SERVICE_DELIVER_DESCRIPTION,
 }
 
-# Project-scoped permission set carried by the project ``owner`` role.
-_PROJECT_OWNER_PERMS = (
-    PERM_ITEMS_READ,
-    PERM_ITEMS_WRITE,
-    PERM_CLAIMS_ACQUIRE,
-    PERM_CLAIMS_RELEASE,
-    PERM_EVENTS_READ,
-    PERM_EVENTS_WRITE,
-    PERM_HOOKS_EVALUATE,
-    PERM_BOARD_REBUILD,
-    PERM_PROJECT_INSTALL,
-    PERM_PROJECT_RENDER_READ,
-    PERM_PROJECT_ADMIN,
-    PERM_DB_READ_RAW,
-    PERM_GITHUB_ACTIONS_WORKFLOW_DISPATCH,
-    PERM_GITHUB_ACTIONS_RUN_READ,
-    PERM_GITHUB_ACTIONS_VARIABLE_READ,
-    PERM_GITHUB_RELEASE_CREATE,
-    PERM_RELEASE_PIN_RECORD,
-    PERM_RELEASE_OUTPUT_RECORD,
-)
-
 ROLE_PERMISSION_KEYS = {
     # Project roles — org-scoped permissions excluded.
-    ROLE_OWNER: _PROJECT_OWNER_PERMS,
+    ROLE_OWNER: tuple(
+        key for key in PERMISSION_DESCRIPTIONS if key not in SERVICE_ONLY_PERMISSIONS
+    ),
     ROLE_OPERATOR: (
         PERM_ITEMS_READ,
         PERM_ITEMS_WRITE,

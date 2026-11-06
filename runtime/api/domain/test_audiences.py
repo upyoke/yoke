@@ -17,8 +17,8 @@ def conn():
     [
         ({"scope_kind": "org", "scope_id": 1}, (5,)),
         ({"scope_kind": "org", "scope_id": 1, "role_name": "admin"}, (5,)),
-        ({"scope_kind": "project", "scope_id": 10}, (2, 4)),
-        ({"scope_kind": "project", "scope_id": 10, "role_name": "owner"}, (2,)),
+        ({"scope_kind": "project", "scope_id": 10}, (2, 4, 5)),
+        ({"scope_kind": "project", "scope_id": 10, "role_name": "owner"}, (2, 5)),
         ({"scope_kind": "actor", "scope_id": 3}, (3,)),
     ],
 )
@@ -113,3 +113,48 @@ def test_scope_and_name_refusals_and_borrowed_rollback(conn):
     conn.rollback()
     with pytest.raises(ValueError, match="unknown_audience"):
         audiences.audience(conn, audience_id)
+
+
+def test_org_roles_inherit_only_into_their_own_projects(conn):
+    conn.execute("INSERT INTO organizations VALUES (2, 'other', 'Other', 'now')")
+    conn.execute(
+        "INSERT INTO projects VALUES (11, 'second', 'Second', 'SEC', 1, 'now')"
+    )
+    conn.execute("INSERT INTO projects VALUES (12, 'other', 'Other', 'OTH', 2, 'now')")
+    conn.execute("INSERT INTO actor_org_roles VALUES (3, 1, 2, 'now')")
+    for project in (10, 11):
+        for role in ("operator", "viewer"):
+            assert 3 in audiences.rule_actor_ids(
+                conn,
+                {
+                    "scope_kind": "project",
+                    "scope_id": project,
+                    "role_name": role,
+                },
+            )
+        for role in ("owner", "admin"):
+            assert 3 not in audiences.rule_actor_ids(
+                conn,
+                {
+                    "scope_kind": "project",
+                    "scope_id": project,
+                    "role_name": role,
+                },
+            )
+    assert not audiences.rule_actor_ids(
+        conn,
+        {
+            "scope_kind": "project",
+            "scope_id": 12,
+            "role_name": "viewer",
+        },
+    )
+    conn.execute("UPDATE actors SET status='disabled' WHERE id=3")
+    assert 3 not in audiences.rule_actor_ids(
+        conn,
+        {
+            "scope_kind": "project",
+            "scope_id": 10,
+            "role_name": "operator",
+        },
+    )

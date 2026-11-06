@@ -31,7 +31,8 @@ from yoke_core.domain import (
     universe_startup_lock,
     yoke_connected_env,
 )
-from yoke_core.domain.actor_permissions import ROLE_ADMIN
+from yoke_core.domain.actor_owner_protection import require_owner_change_allowed
+from yoke_core.domain.actor_permissions import ROLE_OWNER
 
 
 class LocalUniverseImportError(RuntimeError):
@@ -162,10 +163,10 @@ def _prepare_local_owner(conn: psycopg.Connection) -> dict[str, object]:
     org_id, org_slug = int(organizations[0][0]), str(organizations[0][1])
     role = conn.execute(
         "SELECT id FROM roles WHERE name = %s",
-        (ROLE_ADMIN,),
+        (ROLE_OWNER,),
     ).fetchone()
     if role is None:
-        raise LocalUniverseImportError("the imported universe has no admin role")
+        raise LocalUniverseImportError("the imported universe has no owner role")
 
     name = _machine_owner_name()
     now = utc_now()
@@ -182,6 +183,7 @@ def _prepare_local_owner(conn: psycopg.Connection) -> dict[str, object]:
         )
     name = actors.actor_name(conn, actor_id) or name
 
+    require_owner_change_allowed(conn, actor_id, actor_id, ("org", org_id), "owner")
     conn.execute(
         "INSERT INTO actor_org_roles "
         "(actor_id, org_id, role_id, granted_at, granted_by_actor_id) "

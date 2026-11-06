@@ -57,8 +57,6 @@ def ensure_local_operating_actor(
     """
     from yoke_core.domain import actors
     from yoke_core.domain.actor_permissions import (
-        ROLE_ADMIN,
-        grant_actor_org_role,
         seed_roles_and_permissions,
     )
     from yoke_core.domain.org_schema import seed_default_org
@@ -72,26 +70,22 @@ def ensure_local_operating_actor(
             conn, name or actors.DEFAULT_LOCAL_HUMAN_NAME
         )
     seed_roles_and_permissions(conn)
-    grant_actor_org_role(
-        conn,
-        actor_id=actor_id,
-        org_id=seed_default_org(conn),
-        role_name=ROLE_ADMIN,
-        granted_by_actor_id=actor_id,
-    )
+    from yoke_core.domain.actor_owner_protection import seed_bootstrap_owner
+
+    seed_bootstrap_owner(conn, actor_id, seed_default_org(conn))
+    conn.commit()
     return actor_id, seeded
 
 
 def holds_org_admin(conn: Any, actor_id: int) -> bool:
     """True when *actor_id* holds the org ``admin`` role on this universe."""
     from yoke_core.domain import db_backend
-    from yoke_core.domain.actor_permissions import ROLE_ADMIN
 
     marker = "%s" if db_backend.connection_is_postgres(conn) else "?"
     row = conn.execute(
         "SELECT 1 FROM actor_org_roles aor JOIN roles r ON r.id = aor.role_id "
-        f"WHERE aor.actor_id = {marker} AND r.name = {marker} LIMIT 1",
-        (int(actor_id), ROLE_ADMIN),
+        f"WHERE aor.actor_id = {marker} AND r.name IN ('owner', 'admin') LIMIT 1",
+        (int(actor_id),),
     ).fetchone()
     return row is not None
 

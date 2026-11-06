@@ -1,4 +1,4 @@
-"""approval_on_done enablement requires a live human project owner."""
+"""approval_on_done enablement accepts effective human owner or admin authority."""
 
 from __future__ import annotations
 
@@ -9,8 +9,6 @@ import pytest
 from runtime.api.fixtures.backlog_inserts import insert_item
 from runtime.api.fixtures.pg_testdb import test_database
 from yoke_core.domain.actor_permissions import (
-    ROLE_OWNER,
-    grant_actor_project_role,
     seed_roles_and_permissions,
 )
 from yoke_core.domain.item_posture_amend import amend_item_posture
@@ -42,12 +40,12 @@ def _ensure_human_owner(conn, project_id: int) -> None:
         "INSERT INTO actors (id, kind, system_component, created_at) "
         "VALUES (9101, 'human', NULL, NOW()) ON CONFLICT DO NOTHING"
     )
-    grant_actor_project_role(
-        conn,
-        actor_id=9101,
-        project_id=project_id,
-        role_name=ROLE_OWNER,
+    conn.execute(
+        "INSERT INTO actor_project_roles (actor_id,project_id,role_id,granted_at) "
+        "SELECT 9101,%s,id,NOW() FROM roles WHERE name='owner'",
+        (project_id,),
     )
+    conn.commit()
 
 
 def test_enabling_approval_on_done_accepts_a_human_project_owner() -> None:
@@ -78,7 +76,7 @@ def test_enabling_approval_on_done_refuses_when_only_system_owners_exist() -> No
             (project_id,),
         )
         conn.commit()
-        with pytest.raises(ItemPostureAmendError, match="human project owner"):
+        with pytest.raises(ItemPostureAmendError, match="empty_audience_members"):
             amend_item_posture(
                 conn,
                 item_id=item_id,
@@ -88,21 +86,29 @@ def test_enabling_approval_on_done_refuses_when_only_system_owners_exist() -> No
             )
 
 
-def test_org_admin_alone_does_not_enable_owner_only_approval() -> None:
+def test_org_admin_alone_enables_owner_approval() -> None:
     with test_database() as conn:
         item_id = _dash(conn, item_id=2822)
         project_id = _project_id(conn, item_id)
+        seed_roles_and_permissions(conn)
         conn.execute(
-            "DELETE FROM actor_project_roles WHERE project_id = %s "
-            "AND role_id = (SELECT id FROM roles WHERE name = 'owner')",
+            "DELETE FROM actor_project_roles WHERE project_id=%s", (project_id,)
+        )
+        conn.execute(
+            "INSERT INTO actors (id,kind,created_at) VALUES (9101,'human',NOW())"
+        )
+        conn.execute(
+            "INSERT INTO actor_org_roles (actor_id,org_id,role_id,granted_at) "
+            "SELECT 9101,p.org_id,r.id,NOW() FROM projects p CROSS JOIN roles r "
+            "WHERE p.id=%s AND r.name='admin'",
             (project_id,),
         )
         conn.commit()
-        with pytest.raises(ItemPostureAmendError, match="human project owner"):
-            amend_item_posture(
-                conn,
-                item_id=item_id,
-                key="approval_on_done",
-                value=True,
-                reason="org admin is not the owner-only roster",
-            )
+        result = amend_item_posture(
+            conn,
+            item_id=item_id,
+            key="approval_on_done",
+            value=True,
+            reason="org admin satisfies the effective owner rank",
+        )
+        assert result["after"]["approval_on_done"] is True

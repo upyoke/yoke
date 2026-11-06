@@ -47,15 +47,10 @@ def role_authorities_for(
     org_id: Optional[int],
     role_names: Iterable[str],
 ) -> list[RoleAuthority]:
-    result = []
-    for role_name in sorted({str(value) for value in role_names}):
-        if role_name == "admin":
-            if org_id is None:
-                raise ValueError("org admin approval needs the project's org")
-            result.append(RoleAuthority("org", int(org_id), role_name))
-        else:
-            result.append(RoleAuthority("project", int(project_id), role_name))
-    return result
+    return [
+        RoleAuthority("project", int(project_id), role_name)
+        for role_name in sorted({str(value) for value in role_names})
+    ]
 
 
 def withdraw_stale_pending_request(

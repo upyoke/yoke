@@ -36,7 +36,7 @@ def test_all_mode_counts_rules_and_any_mode_counts_one():
         one_answer = [{"actor_id": 2, "action": "approve", "note": None}]
         progress = evaluate_decisions(conn, request, decisions=one_answer)
         assert (
-            progress.required == 4 and progress.satisfied == 1 and not progress.resolved
+            progress.required == 4 and progress.satisfied == 2 and not progress.resolved
         )
         conn.execute("INSERT INTO actor_project_roles VALUES (2, 10, 2, 'later')")
         assert evaluate_decisions(conn, request, decisions=one_answer).satisfied == 2
@@ -70,3 +70,28 @@ def test_named_audience_id_and_inline_rules_are_exclusive():
                 create_decision_request(
                     value, **filing(audience_id=audience_id, **overrides)
                 )
+
+
+def test_empty_ask_refuses_with_three_recoveries_and_rolls_back():
+    import pytest
+    from runtime.api.domain.decision_request_operator_question_test_support import (
+        filing,
+    )
+    from yoke_core.domain.decision_requests import create_decision_request
+
+    with decision_request_connection() as conn:
+        conn.executescript("""
+            CREATE TABLE harness_sessions (session_id TEXT, actor_id INTEGER,
+                ended_at TEXT, terminated_at TEXT);
+            INSERT INTO harness_sessions VALUES ('worker', 2, NULL, NULL);
+        """)
+        conn.execute("DELETE FROM actor_project_roles")
+        conn.execute("DELETE FROM actor_org_roles")
+        conn.execute("INSERT INTO actor_project_roles VALUES (2,10,4,'now')")
+        conn.commit()
+        with pytest.raises(ValueError, match="empty_audience_members") as refused:
+            create_decision_request(conn, **filing())
+        for recovery in ("--to <person>", "--audience <name>", "project role"):
+            assert recovery in str(refused.value)
+        assert conn.execute("SELECT COUNT(*) FROM decision_requests").fetchone()[0] == 0
+        assert conn.execute("SELECT COUNT(*) FROM audiences").fetchone()[0] == 0

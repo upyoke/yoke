@@ -24,6 +24,7 @@ from yoke_core.domain.actor_permissions import (
     seed_roles_and_permissions,
 )
 from yoke_core.domain.actor_permission_checks import permission_decision
+from yoke_core.domain.actor_role import ActorRoleRefused
 from yoke_core.domain.actor_state import (
     ActorDisabledError,
     ActorStateRefused,
@@ -77,7 +78,7 @@ def test_actor_state_binds_aware_utc_revocation_and_audit_instants(monkeypatch):
     from yoke_core.domain import actor_state
 
     bindings = []
-    rows = iter([[], ("human", None, "active"), None, [(9,)]])
+    rows = iter([[], ("human", None, "active"), [], [(9,)]])
 
     def execute(sql, params=()):
         if sql.startswith("SELECT"):
@@ -202,8 +203,16 @@ def test_disable_retires_personal_and_machine_keys_and_blocks_browser_and_keyles
     assert mint_web_session(test_db, actor_id=subject).actor_id == subject
 
 
-def test_disable_rejects_self_and_last_active_admin(test_db):
-    caller, subject, _ = _people(test_db)
+def test_disable_rejects_self_and_last_active_owner(test_db):
+    caller, subject, org_id = _people(test_db)
+    test_db.execute("DELETE FROM actor_org_roles WHERE org_id=%s", (org_id,))
+    for actor in (caller, subject):
+        test_db.execute(
+            "INSERT INTO actor_org_roles (actor_id,org_id,role_id,granted_at) "
+            "SELECT %s,%s,id,CURRENT_TIMESTAMP FROM roles WHERE name='owner'",
+            (actor, org_id),
+        )
+    test_db.commit()
     with pytest.raises(ActorStateRefused, match="own actor"):
         set_actor_enabled(
             test_db,
@@ -213,17 +222,13 @@ def test_disable_rejects_self_and_last_active_admin(test_db):
             now=utc_now(),
         )
     set_actor_enabled(
-        test_db,
-        actor_id=caller,
-        caller_actor_id=subject,
-        enabled=False,
-        now=utc_now(),
+        test_db, actor_id=caller, caller_actor_id=subject, enabled=False, now=utc_now()
     )
-    with pytest.raises(ActorStateRefused, match="last active admin"):
+    with pytest.raises(ActorRoleRefused, match="last_owner"):
         set_actor_enabled(
             test_db,
             actor_id=subject,
-            caller_actor_id=caller,
+            caller_actor_id=subject,
             enabled=False,
             now=utc_now(),
         )

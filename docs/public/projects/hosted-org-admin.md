@@ -21,7 +21,7 @@ yoke organizations create "Acme Robotics" --slug acme
 ```
 
 Any signed-in member can found a new org with a redeemed beta code; the founder
-becomes its admin. The slug defaults to one derived from the name. Resubmitting
+becomes its owner. The slug defaults to one derived from the name. Resubmitting
 the same slug resumes your own unfinished founding. A retired org does not count
 as unfinished founding; redeem a new beta code to found another org. Refusals:
 `beta_grant_required`, `slug_taken`, `invalid_name`, `invalid_slug`,
@@ -31,13 +31,13 @@ connect a machine to the new org with `yoke setup --connect https://app.upyoke.c
 ## Invite and revoke
 
 ```bash
-yoke invite pat@acme.example --role member   # or admin
+yoke invite pat@acme.example --role member   # or admin; only owners can invite an owner
 yoke invites list
 yoke invites revoke email-7
 ```
 
-The invite CLI requires the org admin role, including its form read. A hosted
-role is `admin` or `member`. Refusals: `hosted_seat_limit_reached` (every seat,
+The invite CLI requires org owner or admin, including its form read. A hosted
+role is `owner`, `admin` or `member`; only owners can invite an owner. Refusals: `hosted_seat_limit_reached` (every seat,
 pending invites included, is used; more seats are contact-only),
 `duplicate_pending_invite`, `invite_not_pending`, and `not_admin`.
 Use the `email-N` reference from the list. Email invites join through sign-in;

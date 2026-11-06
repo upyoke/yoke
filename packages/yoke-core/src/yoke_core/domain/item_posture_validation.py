@@ -133,9 +133,9 @@ def _require_human_project_owner(conn: Any, project_id: int) -> None:
     ):
         return
     raise ItemPostureError(
-        "approval_on_done requires at least one human project owner; this "
-        "project currently has none. Grant the owner role to a human actor, "
-        "then retry. Do not assign roles automatically."
+        "empty_audience_members: approval_on_done requires an active person "
+        "with effective owner or admin authority. Use --to <person>, choose "
+        "--audience <name> with reachable people, or grant someone a project role."
     )
 
 
@@ -156,10 +156,9 @@ def _require_human_candidate_reviewer(conn: Any, project_id: int) -> None:
         ):
             return
     raise ItemPostureError(
-        "merge_candidate_review requires at least one human project owner or "
-        "operator to clear the candidate; this project currently has "
-        "neither. Grant one of those roles to a human actor, then retry. Do "
-        "not assign roles automatically."
+        "empty_audience_members: merge_candidate_review requires an active person "
+        "with effective operator authority or higher. Use --to <person>, choose "
+        "--audience <name> with reachable people, or grant someone a project role."
     )
 
 

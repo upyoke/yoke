@@ -139,7 +139,9 @@ def _handle(request, model, operation) -> HandlerOutcome:
         return HandlerOutcome(primary_success=True, result_payload=result)
     except invites.TeammateInviteError as exc:
         error = FunctionError(code=exc.code, message=exc.detail)
-    except (ValidationError, ActorRoleRefused):
+    except ActorRoleRefused as exc:
+        error = FunctionError(code=exc.code, message=str(exc))
+    except ValidationError:
         error = FunctionError(
             code="payload_invalid",
             message="send a name of 1-80 characters, a person's org role, or a positive invite id as documented",

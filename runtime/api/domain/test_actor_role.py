@@ -96,27 +96,33 @@ def test_member_email_resolves_the_linked_actor(test_db):
     assert "sign in once" in unknown.error.message
 
 
-def test_last_active_admin_cannot_be_demoted(test_db):
+def test_last_active_owner_cannot_be_demoted(test_db):
     org_id = _org(test_db)
-    for (actor_id,) in test_db.execute(
-        "SELECT aor.actor_id FROM actor_org_roles aor JOIN roles r ON r.id = aor.role_id "
-        "WHERE r.name = 'admin'"
-    ).fetchall():
-        test_db.execute("DELETE FROM actor_org_roles WHERE actor_id = %s", (actor_id,))
+    test_db.execute("DELETE FROM actor_org_roles WHERE org_id=%s", (org_id,))
+    owner = seed_human_actor(test_db, "Owner")
+    other = seed_human_actor(test_db, "Other")
+    for actor in (owner, other):
+        test_db.execute(
+            "INSERT INTO actor_org_roles (actor_id,org_id,role_id,granted_at) "
+            "SELECT %s,%s,id,CURRENT_TIMESTAMP FROM roles WHERE name='owner'",
+            (actor, org_id),
+        )
     test_db.commit()
-    admin = _person(test_db, "Admin", "admin", org_id)
-    other = _person(test_db, "Other", "admin", org_id)
     set_actor_enabled(
-        test_db, actor_id=other, caller_actor_id=admin, enabled=False, now=utc_now()
+        test_db, actor_id=other, caller_actor_id=owner, enabled=False, now=utc_now()
     )
-
-    refused = _set(admin, actor_id=admin, role="operator")
-
-    assert refused.error.code == "last_admin"
-    assert "make another active person admin first" in refused.error.message
-    assert _org_roles(test_db, admin, org_id) == ["admin"]
-    with pytest.raises(ActorRoleRefused, match="last active admin"):
-        grant_actor_org_role(test_db, actor_id=admin, org_id=org_id, role_name="viewer")
+    refused = _set(owner, actor_id=owner, role="operator")
+    assert refused.error.code == "last_owner"
+    assert "another active person" in refused.error.message
+    assert _org_roles(test_db, owner, org_id) == ["owner"]
+    with pytest.raises(ActorRoleRefused, match="last_owner"):
+        grant_actor_org_role(
+            test_db,
+            actor_id=owner,
+            org_id=org_id,
+            role_name="viewer",
+            granted_by_actor_id=owner,
+        )
 
 
 @pytest.mark.parametrize(
@@ -124,7 +130,7 @@ def test_last_active_admin_cannot_be_demoted(test_db):
     [
         ("deployment_ci", "machine_only_role"),
         ("migration_verification_ci", "machine_only_role"),
-        ("owner", "role_not_assignable"),
+        ("owner", "owner_protected"),
         ("member", "role_not_assignable"),
     ],
 )
@@ -136,7 +142,9 @@ def test_roles_a_person_cannot_hold_are_refused_by_name(test_db, role, code):
     refused = _set(admin, actor_id=member, role=role)
 
     assert refused.error.code == code
-    assert "admin, operator, viewer" in refused.error.message
+    assert (
+        "Ask an owner" if role == "owner" else "owner, admin, operator, viewer"
+    ) in refused.error.message
     assert org_roles_of(test_db, member, org_id) == ["operator"]
 
 

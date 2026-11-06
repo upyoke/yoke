@@ -107,12 +107,8 @@ def unauthorized_resolution_message(conn: Any, request_id: int, actor_id: int) -
         if deciders
         else "no eligible human currently holds the required authority"
     )
-    owner_only = values and all(row.get("role_name") == "owner" for row in values)
-    admin_note = (
-        " Org admin does not satisfy this owner-only policy." if owner_only else ""
-    )
     return compose_refusal(
-        f"{caller} is not authorized for decision request {request_id}: required {', '.join(required)}. {humans}. Caller is {caller}.{admin_note}",
+        f"{caller} is not authorized for decision request {request_id}: required {', '.join(required)}. {humans}. Caller is {caller}.",
         recovery="Answer from an eligible human Inbox, or grant a required role to a human actor. Do not assign roles automatically",
     )
 

@@ -1,9 +1,20 @@
-// A person's one org role, changed by an org admin from the Team roster.
+// Human roles inherit into projects; only owners may edit owners.
 
 import { callFunction, el } from "./universe_view_support.js";
 
 // `roles` is the roster's person_org_roles; `reload` re-reads the roster once
 // actors.role.set lands. A refusal names its reason and restores the select.
+export function callerIsOwner(roster) {
+  const caller = roster.rows?.find((row) => row.id === roster.current_actor_id);
+  return caller?.status === "active" && caller.kind === "human"
+    && caller.roles?.org?.some((grant) => grant.role === "owner");
+}
+
+export function actorIsOwner(actor) {
+  return actor.roles?.org?.some((grant) => grant.role === "owner")
+    || actor.roles?.projects?.some((grant) => grant.role === "owner");
+}
+
 export function roleControl(documentNode, actor, roles, roster, feedback, reload) {
   // Exactly one role selects it; none, or several left from before the
   // one-role rule, shows what is held and asks for a choice.
@@ -17,12 +28,13 @@ export function roleControl(documentNode, actor, roles, roster, feedback, reload
     none.disabled = true;
     select.appendChild(none);
   }
-  for (const role of roles) {
+  for (const role of roles.filter((role) => role !== "owner" || callerIsOwner(roster))) {
     const option = el(documentNode, "option", null, role);
     option.value = role;
     select.appendChild(option);
   }
   select.value = current;
+  select.disabled = actorIsOwner(actor) && !callerIsOwner(roster);
   select.addEventListener("change", async () => {
     const role = select.value;
     select.disabled = true;
