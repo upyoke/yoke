@@ -11,7 +11,6 @@ from datetime import datetime
 import hmac
 from typing import Any
 
-from yoke_core.domain.session_launch_binding_evidence import late_registration_evidence
 from yoke_core.domain.session_launch_store import (
     attestation_digest,
     begin_mutation,
@@ -58,49 +57,39 @@ def prepare_launch_registration(
         attestation_is_valid = bool(expected) and hmac.compare_digest(
             expected, attestation_digest(attestation)
         )
+        from yoke_core.domain.session_launch_late_acceptance import (
+            accept_late_launch, taken_over,
+        )
+
+        if not attestation_is_valid:
+            if launch.state in {"assigned", "cancelled"} or (
+                launch.registered_session_id and not already_bound_to_session
+            ):
+                taken_over(launch, f"retry or rebound session {launch.registered_session_id or 'not registered'}")
+            raise SessionLaunchError("attestation_invalid", "launch attestation is invalid")
+        recovered = None
+        if launch.state in {"failed", "expired", "cancelled"} or (
+            launch.state == "awaiting_registration"
+            and parse_time(current) >= parse_time(launch.deadline_at)
+        ):
+            if launch.registered_session_id and not already_bound_to_session:
+                taken_over(launch, f"bound session {launch.registered_session_id}")
+            launch = accept_late_launch(conn, launch, session_id=session_id, now=current)
+            recovered = launch.result_evidence
         if already_bound_to_session:
-            if not attestation_is_valid:
-                raise SessionLaunchError(
-                    "attestation_invalid", "launch attestation is invalid"
-                )
             require_registered_session_facts(conn, session_id)
         else:
             recover_missing_identity = (
-                launch.state
-                in {"launching", "awaiting_registration", "outcome_unknown"}
-                and not launch.native_session_id
-                and not launch.registered_session_id
+                launch.state in {"launching", "awaiting_registration", "outcome_unknown"}
+                and not launch.native_session_id and not launch.registered_session_id
             )
             if launch.state != "awaiting_registration" and not recover_missing_identity:
                 raise SessionLaunchError(
-                    "invalid_state",
-                    f"launch in state {launch.state!r} cannot register this session",
+                    "invalid_state", f"launch in state {launch.state!r} cannot register this session",
                     launch_state=launch.state,
                 )
-            if launch.attestation_consumed_at:
-                raise SessionLaunchError(
-                    "attestation_consumed", "attestation is single-use"
-                )
-            if parse_time(current) >= parse_time(launch.deadline_at):
-                update_launch(
-                    conn,
-                    launch_id,
-                    state="failed",
-                    attestation_consumed_at=current,
-                    completed_at=current,
-                    result_code="late_registration",
-                    result_evidence=late_registration_evidence(
-                        conn, launch=launch, session_id=session_id, now=current
-                    ),
-                )
-                conn.commit()
-                raise SessionLaunchError(
-                    "late_registration", "registration deadline passed"
-                )
-            if not attestation_is_valid:
-                raise SessionLaunchError(
-                    "attestation_invalid", "launch attestation is invalid"
-                )
+            if launch.attestation_consumed_at and recovered is None:
+                raise SessionLaunchError("attestation_consumed", "attestation is single-use")
             facts = require_registered_session_facts(conn, session_id)
             if recover_missing_identity:
                 launch = adopt_attested_session_identity(
@@ -121,6 +110,13 @@ def prepare_launch_registration(
                 now=current,
                 wake_after=current,
             )
+        if recovered is not None:
+            from yoke_core.domain.session_relay_evidence import merge_redacted_evidence
+
+            bound = get_launch(conn, launch_id)
+            update_launch(conn, launch_id, result_evidence=merge_redacted_evidence(
+                recovered, bound.result_evidence,
+            ))
         body, body_hash, sender_actor_id = instruction_message(conn, launch.message_id)
         conn.commit()
         return LaunchRegistrationInjection(

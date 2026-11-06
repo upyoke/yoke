@@ -46,7 +46,8 @@ def _launch_recovery(launch: Mapping[str, Any]) -> str | None:
     if launch.get("result_code") == "launch_acknowledgement_missing":
         return (
             "Inspect the registered session and its message receipt; resolve "
-            "any active work claim before retrying this launch."
+            "any active work claim before retrying this launch. The bound worker may "
+            "still acknowledge late if no retry, cancellation or replacement has taken over."
         )
     if launch.get("result_code") == "model_combo_unsupported":
         return (

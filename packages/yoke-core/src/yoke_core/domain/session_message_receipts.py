@@ -43,6 +43,14 @@ def acknowledge_message(
     from yoke_core.domain.session_message_delivery import expire_due_recipients
 
     expire_due_recipients(conn, now=now)
+    from yoke_core.domain.session_launch_types import SessionLaunchError
+    from yoke_core.domain.session_launch_late_acceptance import accept_late_acknowledgement
+
+    try:
+        accept_late_acknowledgement(conn, message_id=message_id, session_id=session_id, now=now)
+    except SessionLaunchError as exc:
+        conn.rollback()
+        raise SessionMessageError(exc.code, str(exc)) from exc
     acknowledged_at = now
     seated = acknowledge_steering_recipient(
         conn,
@@ -91,6 +99,7 @@ def acknowledge_message(
             conn,
             message_id=message_id,
             session_id=session_id,
+            now=now,
             commit=False,
         )
         from yoke_core.domain.session_private_route_qualification import (
