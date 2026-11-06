@@ -14,7 +14,9 @@ export function nextActorText(next) {
   if (!next?.actor) return "";
   const people = (next.people || []).map((person) => person.name).filter(Boolean);
   const who = people.length ? people.join(", ") : LABELS[next.actor] || next.actor;
-  const reason = String(next.reason || "").replaceAll("_", " ");
+  const reason = next.blocking_item
+    ? `waiting for ${next.blocking_item}`
+    : String(next.reason || "").replaceAll("_", " ");
   return `Next: ${who}${reason ? ` · ${reason}` : ""}`;
 }
 

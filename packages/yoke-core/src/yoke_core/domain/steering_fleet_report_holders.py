@@ -60,7 +60,6 @@ class ClaimHolder:
     parked: bool
     last_activity_at: datetime | None
     idle_seconds: int
-    next_actor: dict = field(default_factory=dict)
     quiet_reason: str = ""
     message_delivery: str = DELIVERY_UNKNOWN
     native_process_gone_at: datetime | None = None
@@ -81,6 +80,7 @@ class ClaimHolder:
     #: The item's queued PR landed and the holder has not acted since the
     #: landing notice, so its silence is not yet idleness.
     landing_notice_pending: bool = False
+    next_actor: dict = field(default_factory=dict)
 
     @property
     def requires_immediate_alarm(self) -> bool:
