@@ -192,6 +192,9 @@ def hc_stale_reclaim_collision(conn, args: DoctorArgs, rec: RecordCollector) -> 
         (instant_parameter(conn, look_back_cutoff),),
     ).fetchall()
 
+    from yoke_core.domain.session_display import session_display_names
+
+    labels = session_display_names(conn, [row["session_id"] for row in reclaim_rows])
     issues: list[str] = []
     for row in reclaim_rows:
         sid = row["session_id"] if hasattr(row, "keys") else row[1]
@@ -200,7 +203,9 @@ def hc_stale_reclaim_collision(conn, args: DoctorArgs, rec: RecordCollector) -> 
         if not sid:
             continue
         if reclaimed_at is None:
-            issues.append(f"- session {sid}: missing reclaim clock")
+            issues.append(
+                f"- session {labels.get(sid, 'session unavailable')}: missing reclaim clock"
+            )
             continue
 
         executor_row = conn.execute(
@@ -218,7 +223,9 @@ def hc_stale_reclaim_collision(conn, args: DoctorArgs, rec: RecordCollector) -> 
         try:
             reclaim_dt = parse_instant(reclaimed_at)
         except InvalidInstant as exc:
-            issues.append(f"- session {sid}: reclaim clock refused: {exc}")
+            issues.append(
+                f"- session {labels.get(sid, 'session unavailable')}: reclaim clock refused: {exc}"
+            )
             continue
         window_end = reclaim_dt + timedelta(minutes=ttl_minutes)
 
@@ -246,7 +253,7 @@ def hc_stale_reclaim_collision(conn, args: DoctorArgs, rec: RecordCollector) -> 
         if post_count > 0:
             claim_label = f"claim={claim_id}" if claim_id else "claim=unknown"
             issues.append(
-                f"- session {sid} ({claim_label}) reclaimed at {format_instant(reclaim_dt)}; "
+                f"- session {labels.get(sid, 'session unavailable')} ({claim_label}) reclaimed at {format_instant(reclaim_dt)}; "
                 f"{post_count} tool-call event(s) emitted within {ttl_minutes}m "
                 f"after reclaim (executor={executor})"
             )

@@ -14,7 +14,7 @@ from yoke_contracts.api.function_call import (
 from yoke_core.domain.builtin_workflow_definitions import builtin_workflow_definition
 from yoke_core.domain.handlers import session_launch as handlers
 from yoke_core.domain.session_launch_assignment import (
-    assignment_session_name,
+    assigned_item_id,
     refuse_terminal_assigned_item,
 )
 from yoke_core.domain.session_launch_types import SessionLaunchError
@@ -81,6 +81,7 @@ def _seed_pinned_item(
         "id INTEGER PRIMARY KEY, workflow_id TEXT NOT NULL, version INTEGER, "
         "definition_json TEXT NOT NULL, definition_digest TEXT NOT NULL)"
     )
+    conn.execute("DROP TABLE items")
     conn.execute(
         "CREATE TABLE items ("
         "id INTEGER PRIMARY KEY, project_id INTEGER NOT NULL, "
@@ -300,9 +301,7 @@ def test_composed_replay_still_refuses_after_item_is_terminal(monkeypatch):
 def test_assignment_name_still_names_a_terminal_item():
     conn = launch_connection()
     item = _seed_pinned_item(conn, status="archived", definition=_archived_definition())
-    assert assignment_session_name(conn, public_ref=item, project_id=10) == (
-        "LP-41: Active launch target"
-    )
+    assert assigned_item_id(conn, public_ref=item, project_id=10) == 41
 
 
 def test_refuse_terminal_uses_typed_stage_membership():

@@ -51,7 +51,7 @@ def same_request(conn: Any, launch: LaunchRecord, request: LaunchRequest) -> boo
             launch.project_id == request.project_id,
             *selection,
             launch.requested_machine_id == request.machine_id,
-            launch.session_name == request.session_name,
+            launch.item_id == request.item_id,
             launch.allow_surface_fallback == request.allow_surface_fallback,
             body_hash == sha256_text(request.instructions),
             body == request.instructions,

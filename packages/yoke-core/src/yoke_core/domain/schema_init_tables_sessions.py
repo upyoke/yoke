@@ -54,6 +54,7 @@ def create_session_tables(conn: Any) -> None:
         f"""
         CREATE TABLE IF NOT EXISTS harness_sessions (
           session_id TEXT PRIMARY KEY,
+          harness_title TEXT DEFAULT NULL,
           executor TEXT NOT NULL CHECK(executor IN ({executor_values})),
           executor_surface TEXT DEFAULT NULL
             CHECK(executor_surface IS NULL OR executor_surface IN ({surface_values})),
@@ -161,6 +162,7 @@ def create_session_tables(conn: Any) -> None:
     _add_column_if_not_exists(
         conn, "harness_sessions", "org_id", "INTEGER REFERENCES organizations(id)"
     )
+    _add_column_if_not_exists(conn, "harness_sessions", "harness_title", "TEXT")
     conn.execute(
         "CREATE INDEX IF NOT EXISTS idx_harness_sessions_org ON harness_sessions(org_id)"
     )

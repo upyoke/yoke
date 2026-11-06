@@ -34,6 +34,7 @@ from yoke_core.domain.session_message_recipient_scope import (
     recipient_policy,
 )
 from yoke_core.domain.session_message_types import SessionMessageError
+from yoke_core.domain.session_message_reads import message_details
 from yoke_core.domain.handlers import session_relay as relay
 from yoke_core.domain.handlers import session_relay_poll_upkeep as upkeep
 from yoke_core.domain.handlers.session_relay_idle_hosts import handle_relay_idle_hosts
@@ -288,7 +289,13 @@ def test_operator_notice_org_no_hidden_project(world, surface):
         "SELECT body,sender_actor_id FROM session_messages WHERE message_id=%s",
         (notice,),
     ).fetchone()
-    assert "project" not in stored[0] and "org's message expiry" in stored[0]
+    projected = message_details(conn, notice)["body"]
+    assert "outside a project" in projected
+    assert "configured expiry" in projected
+    assert all(
+        project[0] not in projected
+        for project in conn.execute("SELECT slug FROM projects").fetchall()
+    )
     assert stored[1] is None
     assert (
         conn.execute(

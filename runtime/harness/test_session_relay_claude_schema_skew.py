@@ -59,7 +59,7 @@ def relay_context(monkeypatch: pytest.MonkeyPatch, tmp_path: Path):
     return build
 
 
-def test_job_without_new_optional_field_remains_launchable(relay_context) -> None:
+def test_itemless_job_is_launchable_without_schema_skew(relay_context) -> None:
     context = relay_context(presentation="local")
     invocations = []
 
@@ -74,10 +74,7 @@ def test_job_without_new_optional_field_remains_launchable(relay_context) -> Non
 
     assert result.result_code == "native_created"
     assert "--name" not in invocations[0].argv
-    assert redacted_evidence_document(result.evidence)["probe_detail"] == (
-        "session_name absent: control plane is behind relay; "
-        "deploy control plane to converge launch contract"
-    )
+    assert "probe_detail" not in redacted_evidence_document(result.evidence)
 
 
 def test_required_field_gap_names_skew_and_recovery(relay_context) -> None:

@@ -4,9 +4,6 @@ from dataclasses import fields, is_dataclass
 import re
 from typing import Any
 
-from yoke_core.domain.actor_render import render_actor_names
-from yoke_core.domain import db_backend
-
 
 def session_labels(conn: Any, reports, machine_names):
     ids = set()
@@ -26,23 +23,11 @@ def session_labels(conn: Any, reports, machine_names):
     collect(reports)
     if not ids:
         return ()
-    marker = "%s" if db_backend.connection_is_postgres(conn) else "?"
-    rows = conn.execute(
-        "SELECT session_id, actor_id, machine_id FROM harness_sessions "
-        "WHERE session_id IN (" + ",".join(marker for _ in ids) + ")",
-        tuple(sorted(ids)),
-    ).fetchall()
-    names = render_actor_names(conn, (row["actor_id"] for row in rows))
-    found = {
-        str(
-            row["session_id"]
-        ): f"{names.get(row['actor_id']) or 'person unavailable'} on "
-        f"{machine_names.get(str(row['machine_id'])) or 'machine unavailable'}"
-        for row in rows
-    }
+    from yoke_core.domain.session_display import session_display_names
+
+    found = session_display_names(conn, sorted(ids))
     return tuple(
-        (session, found.get(session, "person unavailable on machine unavailable"))
-        for session in sorted(ids)
+        (session, found.get(session, "session unavailable")) for session in sorted(ids)
     )
 
 
@@ -58,9 +43,7 @@ def label_text(text: str, labels) -> str:
     for line in text.splitlines():
         chunks = line.split("`")
         for index in range(0, len(chunks), 2):
-            chunks[index] = pattern.sub(
-                lambda match: f"{match[0]} ({names[match[0]]})", chunks[index]
-            )
+            chunks[index] = pattern.sub(lambda match: names[match[0]], chunks[index])
         lines.append("`".join(chunks))
     return "\n".join(lines)
 

@@ -28,6 +28,8 @@ from __future__ import annotations
 
 from typing import Any, Mapping
 
+HARNESS_TITLE_KEY = "_yoke_client_harness_title"
+
 FACT_SCHEMA = 1
 
 #: Whether the session runs under a relay launch or resume (headless).
@@ -38,6 +40,7 @@ CAPTURE_FILES_KEY = "_yoke_client_capture_files"
 WRITE_TARGETS_KEY = "_yoke_client_write_targets"
 #: The Yoke source checkout this client's installed code runs from.
 SOURCE_ROOT_KEY = "_yoke_client_yoke_source_root"
+
 
 def client_fact(key: str, value: Any) -> dict[str, Any]:
     """Wrap one observed *value* for the payload under *key*."""
@@ -106,6 +109,7 @@ __all__ = [
     "CAPTURE_FILES_KEY",
     "FACT_SCHEMA",
     "HEADLESS_LAUNCH_KEY",
+    "HARNESS_TITLE_KEY",
     "SOURCE_ROOT_KEY",
     "WRITE_TARGETS_KEY",
     "capture_file_state",

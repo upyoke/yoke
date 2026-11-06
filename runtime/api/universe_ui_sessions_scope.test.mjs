@@ -10,6 +10,7 @@ import { sessionControlCall, SessionControlFailure } from "../../packages/yoke-c
 import { FakeDocument, allNodes, byClass, settle } from "./universe_ui_dom_test_support.mjs";
 
 const orgRow = {
+  display_label: "codex · outside a project", session_label: "codex · outside a project",
   session_id: "org-owner", project_id: null, org_id: 7, scope_kind: "org",
   project: null, liveness: "active", executor: "codex", claims: [],
 };
@@ -222,7 +223,7 @@ test("nullable message recipients and typed controls need no project identity", 
   await settle();
   const recipient = byClass(main, "session-message-party")
     .find((node) => node.getAttribute("data-tooltip") === "Session org-owner");
-  assert.equal(recipient.textContent, "codex");
+  assert.equal(recipient.textContent, "codex · outside a project");
   assert.equal(byClass(main, "error").length, 0);
   assert.equal((await sessionControlCall(context, "session_control.message.get", {})).message.recipients[0].project_id, null);
   const refused = setup(() => denied());

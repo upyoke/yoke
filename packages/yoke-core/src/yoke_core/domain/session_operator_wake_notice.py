@@ -135,19 +135,6 @@ def _hook_already_attempted(conn: Any, *, envelope_id: str, session_id: str) -> 
     return row is not None
 
 
-def _notice_body(
-    *, session_id: str, surface: str, envelope_id: str, scope_name: str
-) -> str:
-    return (
-        f"A message is waiting in your {surface} session {session_id} and "
-        "Yoke will not open it for you: resuming a desktop conversation "
-        "programmatically forks the transcript you are reading, so the wake "
-        "is yours. Open that chat and type anything — the next turn's hook "
-        f"delivers the pending message ({envelope_id}). Nothing is lost "
-        f"while it waits; it expires on the {scope_name}'s message expiry."
-    )
-
-
 def notify_operator_to_wake(
     conn: Any,
     row: Mapping[str, Any],
@@ -178,12 +165,7 @@ def notify_operator_to_wake(
         sender_actor_id=None,
         sender_session_id=None,
         sender_surface=None,
-        body=_notice_body(
-            session_id=session_id,
-            surface=str(row.get("executor_surface") or "desktop"),
-            envelope_id=envelope_id,
-            scope_name="project" if project_id is not None else "org",
-        ),
+        body="A message is waiting in a desktop chat; open that chat and type anything.",
         selector_snapshot={"actors": [str(actor_id)]},
         idempotency_key=notice_idempotency_key(
             envelope_id=envelope_id, session_id=session_id

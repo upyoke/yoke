@@ -23,9 +23,9 @@ def test_only_a_registered_yoke_launch_gets_local_only_wake_policy():
     conn.execute(
         "INSERT INTO session_launches "
         "(launch_id,requester_actor_id,project_id,requested_surface,selected_surface,"
-        "presentation_preference,session_name,allow_surface_fallback,message_id,state,"
+        "presentation_preference,item_id,allow_surface_fallback,message_id,state,"
         "registered_session_id,deadline_at,created_at,origin) "
-        "VALUES ('launch-managed',1,10,'claude-cli','claude-cli','local','Item: title',"
+        "VALUES ('launch-managed',1,10,'claude-cli','claude-cli','local',NULL,"
         "0,'message-managed','succeeded','managed','later','now','operator')"
     )
     conn.commit()

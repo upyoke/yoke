@@ -26,7 +26,6 @@ from __future__ import annotations
 from collections.abc import Mapping
 from typing import Any
 
-from yoke_contracts.session_control.capabilities import operator_wake_instruction
 from yoke_core.domain.post_deploy_verification_answer import (
     NO_OBLIGATION_QA_KIND,
     answer_from_item_detail,
@@ -40,7 +39,14 @@ from yoke_core.domain.qa_item_stage_plan_gate import (
     item_scoped_qa_stage_names,
     stages as normalized_stages,
 )
-from yoke_core.domain.session_message_routing import messageability
+from yoke_core.domain.release_wait_wake import (
+    WAKE_NATIVE,
+    WAKE_OPERATOR,
+    WAKE_NONE,
+    WAKE_UNREAD,
+    session_wake,
+    wake_line as _wake_line,
+)
 
 #: The item has an item-scoped QA stage to answer after the deploy.
 OWES_QA = "item_qa"
@@ -48,15 +54,6 @@ OWES_QA = "item_qa"
 OWES_NOTHING = "none"
 #: What the item owes could not be read, so it is treated as owing.
 OWES_UNREAD = "unread"
-
-#: Yoke resumes this surface natively when a stage needs it.
-WAKE_NATIVE = "native"
-#: Only the person whose window it is may resume it.
-WAKE_OPERATOR = "operator"
-#: The surface declares no stopped-session wake route at all.
-WAKE_NONE = "none"
-#: No session row was read, so wakeability is not established.
-WAKE_UNREAD = "unread"
 
 
 def _project_slug(item: Mapping[str, Any]) -> str:
@@ -157,21 +154,6 @@ def _start_line(block: Mapping[str, Any]) -> list[str]:
     ]
 
 
-def session_wake(session: Any) -> dict[str, Any]:
-    """Whether a stopped session on this registered surface can be woken."""
-    if not isinstance(session, Mapping) or not session.get("executor_surface"):
-        return {"kind": WAKE_UNREAD, "surface": ""}
-    surface = str(session["executor_surface"])
-    routing = messageability(dict(session), liveness="ended", force_stopped_route=True)
-    if str(routing.get("wake_interface") or "none") != "none":
-        kind = WAKE_NATIVE
-    elif routing.get("wake_authority") == WAKE_OPERATOR:
-        kind = WAKE_OPERATOR
-    else:
-        kind = WAKE_NONE
-    return {"kind": kind, "surface": surface}
-
-
 def stage_recipe(obligation: Mapping[str, Any], public_ref: str) -> str:
     """The scoped run each owed stage credits, one per stage."""
     project = obligation.get("project") or "P"
@@ -216,26 +198,6 @@ def _owes_line(obligation: Mapping[str, Any], public_ref: str) -> str:
         f"{obligation.get('detail') or 'the obligation was not read'}; "
         f"treat it as owing until `yoke items detail get {public_ref}` says otherwise"
     )
-
-
-def _wake_line(wake: Mapping[str, Any], parked: str) -> str:
-    kind = wake.get("kind")
-    surface = wake.get("surface") or "this"
-    if kind == WAKE_NATIVE:
-        return f"wake: this {surface} session is woken natively when a stage needs it"
-    if kind == WAKE_OPERATOR:
-        return (
-            f"wake: none will arrive — {operator_wake_instruction(surface)} "
-            "A steering seat may ask the operator to re-enter it"
-        )
-    if kind == WAKE_NONE:
-        return (
-            f"wake: none will arrive — the {surface} surface declares no "
-            "stopped-session wake route, so the operator or a steering seat "
-            "must re-enter this session"
-        )
-    why = parked if parked and parked != "yes" else "the session read named no surface"
-    return f"wake: not established ({why})"
 
 
 def _owed_nothing_lines(work_claim: str, public_ref: str) -> list[str]:

@@ -130,7 +130,7 @@ def test_create_refuses_surface_fallback_under_fixed_policy(monkeypatch) -> None
         connected_until="2026-08-24T12:00:00Z",
     )
     monkeypatch.setattr(
-        "yoke_core.domain.session_launch_assignment.assignment_session_name",
+        "yoke_core.domain.session_launch_assignment.assigned_item_id",
         lambda *_args, **_kwargs: "YOK-41: Surface fallback fixture",
     )
     _wire_handler(monkeypatch, conn)

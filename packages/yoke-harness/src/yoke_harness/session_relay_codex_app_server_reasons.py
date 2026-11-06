@@ -9,7 +9,7 @@ spelled differently depending on which probe happened to fail.
 
 from __future__ import annotations
 
-from yoke_harness.session_relay_codex_app_server_client import CodexAppServerError
+from yoke_harness.session_relay_codex_app_server_errors import CodexAppServerError
 
 
 #: The client's failure codes, translated into the reason an operator reads

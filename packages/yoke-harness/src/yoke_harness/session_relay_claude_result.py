@@ -29,8 +29,6 @@ def _evidence(
     evidence.update({"result_code": code, "surface": context.surface})
     if probe_detail:
         evidence["probe_detail"] = probe_detail
-    elif context.job_kind == "launch" and not getattr(context, "session_name", None):
-        evidence["probe_detail"] = control_plane_schema_skew_detail("session_name")
     if context.presentation == CLAUDE_LOCAL_PRESENTATION:
         evidence["presentation_preference"] = CLAUDE_LOCAL_PRESENTATION
         evidence["presentation_control"] = CLAUDE_REMOTE_CONTROL_SETTING

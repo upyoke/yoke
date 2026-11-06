@@ -49,6 +49,9 @@ def _prepare(conn) -> None:
     conn.execute("ALTER TABLE projects ADD COLUMN public_item_prefix TEXT")
     conn.execute("ALTER TABLE projects ADD COLUMN name TEXT DEFAULT 'Launch'")
     conn.execute("UPDATE projects SET public_item_prefix='LP' WHERE id=10")
+    conn.execute("ALTER TABLE items ADD COLUMN project_id INTEGER")
+    conn.execute("ALTER TABLE items ADD COLUMN project_sequence INTEGER")
+    conn.execute("ALTER TABLE items ADD COLUMN title TEXT")
     conn.execute(
         "CREATE TABLE IF NOT EXISTS items ("
         "id INTEGER PRIMARY KEY, project_id INTEGER NOT NULL, "

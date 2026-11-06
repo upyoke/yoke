@@ -15,8 +15,6 @@ from yoke_core.domain.project_identity import (
 )
 from yoke_core.domain.session_launch_types import SessionLaunchError
 
-MAX_SESSION_NAME_LENGTH = 160
-
 
 def refuse_terminal_assigned_item(
     conn: Any,
@@ -116,12 +114,12 @@ def refuse_held_assigned_item(
         f"CASE WHEN {live_session_sql('s')} THEN s.session_id END AS session_id "
         "FROM session_launches l LEFT JOIN harness_sessions s "
         "ON s.session_id=COALESCE(l.registered_session_id,l.native_session_id) "
-        f"WHERE l.project_id={p} AND l.session_name LIKE {p} "
+        f"WHERE l.project_id={p} AND l.item_id={p} "
         f"{predecessor_filter}"
         f"AND (l.state IN ({holes}) OR l.state='outcome_unknown' "
         f"OR (l.state='succeeded' AND s.session_id IS NOT NULL AND {live_session_sql('s')})) "
         "ORDER BY l.created_at, l.launch_id LIMIT 1",
-        (project_id, f"{ref}: %", *predecessor_params, *states),
+        (project_id, item_id, *predecessor_params, *states),
     ).fetchone()
     if not live_holder and launch is None:
         return
@@ -162,13 +160,13 @@ def refuse_held_assigned_item(
     )
 
 
-def assignment_session_name(
+def assigned_item_id(
     conn: Any,
     *,
     public_ref: str,
     project_id: int,
-) -> str:
-    """Return ``PREFIX-N: title`` from authoritative item columns."""
+) -> int:
+    """Resolve and validate the item stored on a launch."""
     item_id = resolve_item_ref_or_none(conn, public_ref, project=project_id)
     if item_id is None:
         raise SessionLaunchError(
@@ -190,26 +188,11 @@ def assignment_session_name(
             "assignment_title_missing",
             "assignment item needs a title before it can launch a session",
         )
-    name = f"{assignment_name_prefix(render_item_ref(conn, item_id, required=True))} {title}"
-    return name[:MAX_SESSION_NAME_LENGTH]
-
-
-def assignment_ref(session_name: str | None) -> str:
-    """The item ref ``assignment_session_name`` stores ahead of the colon."""
-    name = (session_name or "").strip()
-    return name.split(":", 1)[0].strip() if ":" in name else ""
-
-
-def assignment_name_prefix(ref: str) -> str:
-    """The session-name prefix every launch staffing *ref* starts with."""
-    return f"{ref}:"
+    return item_id
 
 
 __all__ = [
-    "MAX_SESSION_NAME_LENGTH",
-    "assignment_name_prefix",
-    "assignment_ref",
-    "assignment_session_name",
+    "assigned_item_id",
     "lock_assigned_item",
     "refuse_held_assigned_item",
     "refuse_terminal_assigned_item",

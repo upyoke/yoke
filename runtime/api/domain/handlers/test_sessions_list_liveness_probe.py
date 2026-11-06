@@ -51,7 +51,11 @@ class TestSessionIdFilter:
         create_session_control_tables(test_db)
         test_db.commit()
 
-    def test_live_session_projects_the_complete_roster_row(self, test_db):
+    def test_live_session_projects_the_complete_roster_row(self, test_db, monkeypatch):
+        observed_at = datetime.now(timezone.utc)
+        monkeypatch.setattr(
+            "yoke_core.domain.session_display.utc_now", lambda: observed_at
+        )
         from runtime.api.fixtures.backlog import insert_item
 
         insert_item(test_db, id=41, title="Fleet acceptance")

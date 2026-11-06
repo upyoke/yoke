@@ -12,7 +12,6 @@ from yoke_core.domain import db_backend
 from yoke_core.domain.db_helpers import instant_parameter
 from yoke_core.domain.db_savepoint import savepoint
 from yoke_core.domain.project_identity import placeholder, render_item_ref
-from yoke_core.domain.session_launch_assignment import assignment_name_prefix
 from yoke_core.domain.session_launch_delivery_state import IN_FLIGHT_LAUNCH_STATES
 from yoke_core.domain.session_message_anchors import _resolve_item_ref
 from yoke_core.domain.session_message_recipient_rows import insert_session_receipt
@@ -39,9 +38,9 @@ def resolve_item_launch_mail(conn, selector, recipients, *, now, for_update=Fals
     canonical_ref = render_item_ref(conn, item_id, required=True)
     row = conn.execute(
         "SELECT launch_id,state,deadline_at FROM session_launches "
-        f"WHERE project_id={p} AND session_name LIKE {p} AND origin='steering' "
+        f"WHERE project_id={p} AND item_id={p} AND origin='steering' "
         "ORDER BY created_at DESC,launch_id DESC LIMIT 1" + lock,
-        (project_id, f"{assignment_name_prefix(canonical_ref)} %"),
+        (project_id, item_id),
     ).fetchone()
     if row is None:
         return recipients, None

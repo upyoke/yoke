@@ -137,7 +137,7 @@ async function searchSessions(client, query, needle, sessionWindow) {
     if (!sessionId || seen.has(sessionId)) continue;
     const exact = sessionId === query;
     if (!exact && !matches(needle, [
-      sessionId, row.current_item, row.current_item_title, row.actor_label,
+      sessionId, row.harness_title, row.display_label, row.current_item, row.current_item_title, row.actor_label,
       row.executor, row.model, row.requested_model, row.project,
       row.execution_level,
     ])) continue;
@@ -146,7 +146,7 @@ async function searchSessions(client, query, needle, sessionWindow) {
       href: buildUniverseRoute(
         "sessions", row.project_id ? String(row.project_id) : null, sessionId,
       ),
-      label: sessionId,
+      label: row.harness_title || row.display_label || "Session unavailable",
       meta: meta([
         row.project, row.current_item, row.current_item_title, row.actor_label,
       ]),

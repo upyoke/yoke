@@ -16,6 +16,21 @@ from yoke_core.domain.session_relay_types import (
 )
 
 
+def worker_chat_name(conn: Any, item_id: int | None) -> str | None:
+    if item_id is None:
+        return None
+    from yoke_core.domain.project_identity import render_item_ref
+
+    row = conn.execute(
+        f"SELECT title FROM items WHERE id={marker(conn)}", (item_id,)
+    ).fetchone()
+    return (
+        f"{render_item_ref(conn, item_id, required=True)}: {' '.join(row[0].split())}"[
+            :160
+        ]
+    )
+
+
 def _lock(conn: Any, alias: str) -> str:
     if db_backend.connection_is_postgres(conn):
         return f" FOR UPDATE OF {alias} SKIP LOCKED"
@@ -119,7 +134,7 @@ def claim_next_launch(
                 claim.launch.resolved_context_window_tokens
             ),
             presentation=claim.launch.presentation_preference,
-            session_name=claim.launch.session_name,
+            session_name=worker_chat_name(conn, claim.launch.item_id),
             deadline_at=claim.launch.deadline_at,
             launch_attestation=claim.attestation,
         )

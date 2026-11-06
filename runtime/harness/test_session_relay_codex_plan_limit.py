@@ -10,7 +10,7 @@ import pytest
 
 from yoke_contracts.session_control.plan_limits import reading_is_ok
 from yoke_harness import session_relay_codex_plan_limit as codex_limits
-from yoke_harness.session_relay_codex_app_server_client import CodexAppServerError
+from yoke_harness.session_relay_codex_app_server_errors import CodexAppServerError
 from yoke_harness.session_relay_failure_log import FailureReporter
 
 NOW = "2026-08-30T01:00:00.000000Z"

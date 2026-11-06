@@ -8,6 +8,7 @@ from typing import Any
 from yoke_contracts.timestamps import temporal_wire
 from yoke_contracts.session_control.evidence import redacted_evidence_document
 from yoke_core.domain import json_helper
+from yoke_core.domain.item_ref_render import render_item_refs
 from yoke_core.domain.session_launch_types import LaunchRecord
 from yoke_core.domain.session_launch_visibility import launch_visibility
 
@@ -23,7 +24,7 @@ _PUBLIC_FIELDS = (
     "requested_reasoning_effort",
     "requested_context_window_tokens",
     "presentation_preference",
-    "session_name",
+    "item_id",
     "allow_surface_fallback",
     "state",
     "assigned_relay_id",
@@ -63,7 +64,7 @@ def _safe_result_evidence(value: Any) -> dict[str, str | int]:
     return redacted_evidence_document(decoded)
 
 
-def public_launch_record(launch: LaunchRecord) -> dict[str, Any]:
+def public_launch_record(launch: LaunchRecord, conn=None) -> dict[str, Any]:
     """Project one launch without request identity, secrets, or native payloads."""
     result = {field: getattr(launch, field) for field in _PUBLIC_FIELDS}
     result.update(
@@ -75,6 +76,11 @@ def public_launch_record(launch: LaunchRecord) -> dict[str, Any]:
         )
     )
     result["result_evidence"] = _safe_result_evidence(launch.result_evidence)
+    result["item"] = (
+        render_item_refs(conn, [launch.item_id]).get(launch.item_id)
+        if launch.item_id
+        else None
+    )
     result["selection"] = "level" if launch.requested_level else "override"
     result["level_placement"] = _level_placement(launch.level_placement)
     return temporal_wire(result)
@@ -109,26 +115,26 @@ _COMPACT_FIELDS = (
     "created_at",
     "completed_at",
     "registered_session_id",
-    "session_name",
+    "item_id",
 )
 
 
 def compact_launch_record(
-    launch: LaunchRecord, project: str | None = None
+    launch: LaunchRecord, project: str | None = None, items=None
 ) -> dict[str, Any]:
     """Project one launch as a list row, labelled with its project."""
-    from yoke_core.domain.session_launch_assignment import assignment_ref
-
     row = {field: getattr(launch, field) for field in _COMPACT_FIELDS}
-    row["item"] = assignment_ref(launch.session_name) or None
+    row["item"] = (items or {}).get(launch.item_id)
     row["project"] = project
     return temporal_wire(row)
 
 
 def compact_launch_records(
-    launches: Iterable[LaunchRecord], project: str | None = None
+    launches: Iterable[LaunchRecord], project: str | None = None, conn=None
 ) -> list[dict[str, Any]]:
-    return [compact_launch_record(launch, project) for launch in launches]
+    launches = list(launches)
+    items = render_item_refs(conn, [row.item_id for row in launches if row.item_id])
+    return [compact_launch_record(launch, project, items) for launch in launches]
 
 
 __all__ = [

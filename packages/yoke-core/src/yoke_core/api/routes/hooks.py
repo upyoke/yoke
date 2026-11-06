@@ -48,6 +48,7 @@ from yoke_core.hooks.relayed_session_identity import (
 )
 from yoke_core.hooks.remote_entry import evaluate_remote
 from yoke_core.hooks.session_model_attestation_write import confirmed_served_model
+from yoke_core.hooks.session_title import confirmed_title
 from yoke_core.api.routes.hooks_denial_audit import router as _denial_audit_router
 from yoke_core.api.routes.hooks_wire_contract import (
     HOOK_WIRE_SCHEMA,
@@ -68,9 +69,13 @@ def post_hooks_evaluate(
 ) -> JSONResponse:
     """Evaluate one hook event server-side and relay the rendered decision."""
     from yoke_core.domain.retired_protocol_surfaces import retired_surface_reason
+
     retired = retired_surface_reason("hook", request.entrypoint or "")
     if retired:
-        return JSONResponse(status_code=400, content={"error": {"code": "hook_protocol_removed", "message": retired}})
+        return JSONResponse(
+            status_code=400,
+            content={"error": {"code": "hook_protocol_removed", "message": retired}},
+        )
     stamped = _refuse_conversation_shaped(request)
     if stamped is not None:
         return stamped
@@ -146,6 +151,10 @@ def post_hooks_evaluate(
                 degraded=list(result.degraded),
                 outcome=result.outcome,
                 message_probe=result.message_probe,
+                harness_title_confirmation=confirmed_title(
+                    _stdin_payload(request).get("session_id"),
+                    request.payload_extra or {},
+                ),
                 model_confirmation=confirmed_served_model(
                     _stdin_payload(request).get("session_id"), request.model
                 ),

@@ -30,6 +30,7 @@ def request_payload(request: CodexNativeRequest) -> dict[str, object]:
         "requested_reasoning_effort": request.requested_reasoning_effort,
         "requested_context_window_tokens": request.requested_context_window_tokens,
         "presentation": request.presentation,
+        "session_name": request.session_name,
         "target_liveness": request.target_liveness,
         "target_session_id": request.target_session_id,
         "target_thread_id": request.target_thread_id,
@@ -61,6 +62,7 @@ def request_from_payload(payload: object) -> CodexNativeRequest:
             if payload.get("requested_context_window_tokens") is not None
             else None
         ),
+        session_name=payload.get("session_name"),
         presentation=(
             str(payload["presentation"]) if payload.get("presentation") else None
         ),

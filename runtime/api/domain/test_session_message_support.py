@@ -98,7 +98,7 @@ def message_connection(path: str = ":memory:") -> sqlite3.Connection:
         );
         CREATE TABLE items (
             id INTEGER PRIMARY KEY, project_id INTEGER NOT NULL,
-            project_sequence INTEGER NOT NULL
+            project_sequence INTEGER NOT NULL, title TEXT DEFAULT 'Test work'
         );
         CREATE TABLE item_strategy_docs (
             item_id INTEGER PRIMARY KEY, project_id INTEGER NOT NULL,
@@ -113,7 +113,7 @@ def message_connection(path: str = ":memory:") -> sqlite3.Connection:
             item_worktree_id INTEGER, PRIMARY KEY (epic_id, task_num)
         );
         CREATE TABLE harness_sessions (
-            session_id TEXT PRIMARY KEY, project_id INTEGER NOT NULL,
+            session_id TEXT PRIMARY KEY, harness_title TEXT, project_id INTEGER NOT NULL,
             org_id INTEGER,
             actor_id INTEGER,
             workspace TEXT NOT NULL DEFAULT '"""

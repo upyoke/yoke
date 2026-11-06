@@ -22,7 +22,7 @@ from yoke_core.domain.session_launch_cursor import (
 from typing import Any, Optional, Sequence
 
 from yoke_core.domain.project_identity import resolve_project_slug
-from yoke_core.domain.session_launch_assignment import assignment_name_prefix
+from yoke_core.domain.item_ref_resolution import resolve_item_ref_or_none
 from yoke_core.domain.session_launch_delivery_state import IN_FLIGHT_LAUNCH_STATES
 from yoke_core.domain.session_launch_projection import compact_launch_records
 from yoke_core.domain.session_launch_store import (
@@ -68,9 +68,8 @@ def _criteria(
         clauses.append(f"(requested_machine_id = {p} OR assigned_machine_id = {p})")
         params.extend([machine, machine])
     if item:
-        prefix = assignment_name_prefix(item)
-        clauses.append(f"substr(session_name, 1, {p}) = {p}")
-        params.extend([len(prefix), prefix])
+        clauses.append(f"item_id = {p}")
+        params.append(resolve_item_ref_or_none(conn, item, project=project_id) or -1)
     return clauses, params
 
 
@@ -188,9 +187,9 @@ def read_launch_page(
     )
     slug = resolve_project_slug(conn, project_id)
     return {
-        "operational": compact_launch_records(operational, slug),
+        "operational": compact_launch_records(operational, slug, conn),
         "operational_count": operational_count,
-        "history": compact_launch_records(history, slug),
+        "history": compact_launch_records(history, slug, conn),
         "history_matched_count": history_matched_count,
         "next_cursor": next_cursor,
     }

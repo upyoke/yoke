@@ -108,7 +108,9 @@ def render_session_roster_rows(
         now=utc_now(),
     )
     in_flight = live_long_running_calls(
-        conn, [str(row["session_id"]) for row in page], now=now,
+        conn,
+        [str(row["session_id"]) for row in page],
+        now=now,
     )
     result: List[Dict[str, Any]] = []
     empty_holdings = {
@@ -117,6 +119,9 @@ def render_session_roster_rows(
         "previous_remainder": 0,
         "steered": False,
     }
+    from yoke_core.domain.session_display import session_display_details
+
+    display = session_display_details(conn, [row["session_id"] for row in page])
     for row in page:
         activity_at, _parsed = _latest_activity(
             row.get("last_heartbeat"),
@@ -154,6 +159,8 @@ def render_session_roster_rows(
         result.append(
             {
                 "session_id": session_id,
+                "display_label": display.get(session_id, {}).get("label"),
+                "harness_title": display.get(session_id, {}).get("title"),
                 "liveness": state,
                 "ended_cause": cause,
                 "reclaimable": state == LIVENESS_STALE,

@@ -133,7 +133,7 @@ class LaunchRequest:
     reasoning_effort: str | None = None
     context_window_tokens: int | None = None
     presentation: str | None = None
-    session_name: str | None = None
+    item_id: int | None = None
     allow_surface_fallback: bool = False
     deadline_seconds: int = DEFAULT_LAUNCH_DEADLINE_SECONDS
     item: str | None = None
@@ -210,7 +210,7 @@ class LaunchRecord:
     requested_reasoning_effort: str | None
     requested_context_window_tokens: int | None
     presentation_preference: str | None
-    session_name: str | None
+    item_id: int | None
     allow_surface_fallback: bool
     message_id: str
     idempotency_key: str | None

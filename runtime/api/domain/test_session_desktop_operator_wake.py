@@ -27,6 +27,7 @@ from yoke_contracts.session_control.surface_versions import (
 from yoke_core.domain.session_relay_versions import wake_versions_supported
 from yoke_core.domain.actor_message_recipients import ACTOR_KIND
 from yoke_core.domain.session_manual_wake import request_session_wake
+from yoke_core.domain.session_message_reads import message_details
 from yoke_core.domain.session_message_routing import messageability
 from yoke_core.domain.session_message_service import send_message
 from yoke_core.domain.session_message_types import SessionMessageError
@@ -53,9 +54,9 @@ def _add_desktop_session(conn, *, session_id: str = CLAUDE_DESKTOP_SESSION_ID) -
     conn.execute(
         "INSERT INTO harness_sessions ("
         "session_id,project_id,actor_id,executor,executor_surface,"
-        "executor_version,machine_id,execution_level,last_heartbeat,"
+        "harness_title,executor_version,machine_id,execution_level,last_heartbeat,"
         "last_tool_call_at,offered_at) "
-        "VALUES (?,1,10,'claude-code','claude-desktop',?,'m5','direct',?,?,?)",
+        "VALUES (?,1,10,'claude-code','claude-desktop','Desktop plan',?,'m5','direct',?,?,?)",
         (session_id, CLAUDE_DESKTOP_VERSION, NOW_TEXT, NOW_TEXT, NOW_TEXT),
     )
     conn.commit()
@@ -75,18 +76,17 @@ def _send_to(conn, session_id: str) -> str:
 def _operator_notices(conn, *, actor_id: int = 10) -> list[str]:
     """Bodies of every notice standing for one operator.
 
-    Read straight from the stored rows rather than through the Inbox
-    composer: that reader bounds messages by wall-clock expiry, and these
-    fixtures live at a fixed simulated ``NOW``.
+    Project each stored notice without the Inbox wall-clock expiry filter;
+    these fixtures live at a fixed simulated ``NOW``.
     """
     rows = conn.execute(
-        "SELECT m.body FROM actor_message_recipients r "
+        "SELECT m.message_id FROM actor_message_recipients r "
         "JOIN session_messages m ON m.message_id=r.message_id "
         "WHERE r.recipient_kind=? AND r.actor_id=? AND r.state='pending' "
         "ORDER BY m.created_at,m.message_id",
         (ACTOR_KIND, actor_id),
     ).fetchall()
-    return [str(row[0]) for row in rows]
+    return [message_details(conn, row[0])["body"] for row in rows]
 
 
 def _go_quiet(conn, session_id: str, *, when) -> None:
@@ -201,11 +201,11 @@ def test_the_operator_is_told_which_chat_holds_the_waiting_message() -> None:
 
     wake_eligible_recipients(conn, now=STARVED)
 
-    notices = [
-        body for body in _operator_notices(conn) if CLAUDE_DESKTOP_SESSION_ID in body
-    ]
+    notices = [body for body in _operator_notices(conn) if "Desktop plan" in body]
     assert len(notices) == 1
     assert "type anything" in notices[0]
+    assert "Desktop plan · claude-desktop" in notices[0]
+    assert CLAUDE_DESKTOP_SESSION_ID not in notices[0]
     senders = conn.execute(
         "SELECT m.sender_actor_id FROM actor_message_recipients r "
         "JOIN session_messages m ON m.message_id=r.message_id "
@@ -232,7 +232,8 @@ def test_one_waiting_envelope_accepts_a_reworded_operator_notice() -> None:
 
     notices = _operator_notices(conn)
     assert len(notices) == 1
-    assert "claude-desktop" in notices[0]
+    assert "codex-desktop" in notices[0]
+    assert "claude-desktop" not in notices[0]
 
 
 def test_no_notice_before_the_grace_window_closes() -> None:

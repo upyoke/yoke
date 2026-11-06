@@ -70,6 +70,7 @@ class CodexNativeRequest:
     instruction_id: str
     native_instruction: str = field(repr=False)
     launch_attestation: str | None = field(default=None, repr=False)
+    session_name: str | None = None
     target_thread_id: str | None = None
     requested_reasoning_effort: str | None = None
     requested_context_window_tokens: int | None = None
@@ -184,6 +185,7 @@ def _request(context: Any) -> tuple[CodexNativeRequest, str]:
             checkout=Path(context.checkout),
             requested_model=requested_model,
             presentation=presentation,
+            session_name=_text(_extended(context, "session_name")),
             target_liveness=liveness,
             target_session_id=target_session_id,
             wake_mode=wake_mode,

@@ -1,12 +1,7 @@
-"""``machines`` and ``harness_machine_reports`` packet teaching.
+"""Harness inventory, launch assignments and model-setting packet teaching.
 
-Two rows, two questions. ``machines`` answers *which host is this, who owns
-it, and who may spend its capacity*; ``harness_machine_reports`` answers
-*which harnesses are installed and approved for one project on one
-machine*.
-Wrong guesses these exist to catch: ``project_installs`` and
-``harness_installs``, which do not exist; and reading ``machines`` as the
-per-project harness inventory, which is the reports table.
+Machines identify hosts and their capacity owners. Harness reports describe
+project installations; launches store structured work assignments.
 """
 
 from __future__ import annotations
@@ -15,6 +10,26 @@ from yoke_contracts.machine_config.machine_access import OFFERS_ENFORCEMENT_NOTE
 
 
 HARNESS_TABLES: dict[str, dict] = {
+    "session_launches": {
+        "columns": [
+            ("launch_id", "TEXT"),
+            ("project_id", "INTEGER"),
+            ("item_id", "INTEGER"),
+            ("registered_session_id", "TEXT"),
+            ("native_session_id", "TEXT"),
+            ("state", "TEXT"),
+            ("created_at", "TIMESTAMPTZ"),
+        ],
+        "notes": (
+            "item_id is a nullable items.id foreign key scoped to project_id; "
+            "join item_refs on item_id to render the public assignment. "
+            "Wrong guess: session_launches.session_name still stores the item "
+            "or native chat title. That column is removed; the relay job's "
+            "session_name wire field is derived from the current assigned item "
+            "at lease time. Native chat titles belong to harness_sessions.harness_title. "
+            "Read launches with session_control.launch.get or .list."
+        ),
+    },
     "machines": {
         "columns": [
             ("machine_id", "TEXT"),

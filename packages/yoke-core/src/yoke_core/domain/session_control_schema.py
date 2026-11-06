@@ -140,7 +140,7 @@ def create_session_control_tables(conn: Any) -> None:
             requested_reasoning_effort TEXT,
             requested_context_window_tokens INTEGER,
             presentation_preference TEXT,
-            session_name TEXT,
+            item_id INTEGER REFERENCES items(id),
             allow_surface_fallback INTEGER NOT NULL DEFAULT 0,
             message_id TEXT NOT NULL REFERENCES session_messages(message_id),
             idempotency_key TEXT,

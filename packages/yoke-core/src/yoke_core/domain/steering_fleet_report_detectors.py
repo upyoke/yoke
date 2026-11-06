@@ -22,8 +22,6 @@ from typing import Any, Mapping, Sequence
 from yoke_contracts.session_control.evidence import redacted_evidence_document
 from yoke_core.domain import db_backend
 from yoke_core.domain.item_terminal_resources import item_is_terminal
-from yoke_core.domain.item_ref_resolution import resolve_item_ref_or_none
-from yoke_core.domain.session_launch_assignment import assignment_ref
 from yoke_core.domain.session_launch_delivery_state import (
     IN_FLIGHT_LAUNCH_STATES,
     QUEUED_LAUNCH_STATES,
@@ -160,7 +158,7 @@ def unregistered_launches(
                    l.assigned_machine_id, l.requested_machine_id, l.state,
                    l.deadline_at, l.result_code, l.native_session_id,
                    l.native_launch_pid, l.native_launch_phase, l.spawn_duration_ms,
-                   l.result_evidence, l.session_name, l.created_at,
+                   l.result_evidence, l.item_id, l.created_at,
                    s.session_id AS observed_session_id
               FROM session_launches l
               LEFT JOIN harness_sessions s
@@ -183,20 +181,15 @@ def unregistered_launches(
     gaps = []
     for row in rows:
         record = dict(row)
-        reference = assignment_ref(record.get("session_name"))
-        item_id = (
-            resolve_item_ref_or_none(conn, reference, project=project_id)
-            if reference
-            else None
-        )
+        item_id = record["item_id"]
         if item_id is not None:
             if item_is_terminal(conn, item_id) is True:
                 continue
             replacement = conn.execute(
                 "SELECT 1 FROM session_launches "
-                f"WHERE project_id={p} AND session_name LIKE {p} "
+                f"WHERE project_id={p} AND item_id={p} "
                 f"AND created_at>{p} AND registered_session_id IS NOT NULL LIMIT 1",
-                (project_id, f"{reference}: %", record["created_at"]),
+                (project_id, item_id, record["created_at"]),
             ).fetchone()
             if replacement is not None:
                 continue

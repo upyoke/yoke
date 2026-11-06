@@ -196,10 +196,13 @@ def assert_target_under_session_work_authority(
     ):
         return
 
+    from yoke_core.domain.session_display_lookup import session_identity_label
+
+    label = session_identity_label(sid)
     raise RuntimeError(
         f"workspace_authority: refusing write to "
         f"{_resolve_for_display(target_path)!r} -- "
-        f"session {sid!r} holds {len(claims)} active worktree claim(s) but "
+        f"session {label} holds {len(claims)} active worktree claim(s) but "
         f"the target is not under any claimed worktree or free path. "
         f"Authorised authorities: {_format_authority(claims)}"
     )

@@ -15,7 +15,6 @@ from yoke_contracts.session_control.model_selection import (
 from yoke_contracts.session_control.models import LaunchPreviewRequest
 from yoke_contracts.session_control.presentation import CLAUDE_LOCAL_PRESENTATION
 
-from yoke_core.domain.session_launch_assignment import MAX_SESSION_NAME_LENGTH
 from yoke_core.domain.session_launch_types import (
     MAX_LAUNCH_DEADLINE_SECONDS,
     LaunchRequest,
@@ -95,14 +94,6 @@ def _validate_body(request: LaunchRequest, *, max_body_bytes: int) -> LaunchRequ
         raise SessionLaunchError("body_too_large", "instructions exceed the body limit")
     if not request.idempotency_key.strip():
         raise SessionLaunchError("payload_invalid", "idempotency key is required")
-    if request.session_name is not None and (
-        not request.session_name.strip()
-        or len(request.session_name) > MAX_SESSION_NAME_LENGTH
-    ):
-        raise SessionLaunchError(
-            "session_name_invalid",
-            f"session name must be 1-{MAX_SESSION_NAME_LENGTH} characters",
-        )
     if not 60 <= request.deadline_seconds <= MAX_LAUNCH_DEADLINE_SECONDS:
         raise SessionLaunchError(
             "deadline_invalid",

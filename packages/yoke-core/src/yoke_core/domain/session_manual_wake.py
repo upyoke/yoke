@@ -35,6 +35,7 @@ from yoke_core.domain.session_message_store import (
     idempotent_message,
     message_details,
 )
+from yoke_core.domain.session_display import session_display_name
 from yoke_core.domain.session_message_types import (
     ResolvedRecipient,
     SessionMessageError,
@@ -110,7 +111,9 @@ def _stopped_route(
     if not native_wake_supported(surface):
         raise SessionMessageError(
             "operator_wake_required",
-            operator_wake_instruction(surface)
+            operator_wake_instruction(
+                surface, session_display_name(conn, recipient.session_id)
+            )
             + " Send the message instead — `yoke say --session "
             f"{recipient.session_id} --stdin` — and it is delivered by hook "
             "injection on that operator's next turn.",

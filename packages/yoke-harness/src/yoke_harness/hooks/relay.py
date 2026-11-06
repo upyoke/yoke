@@ -274,6 +274,9 @@ def relay_hook_event(
     # Only the control plane's durable-row receipt settles transcript reads.
     # A deferred resident response intentionally carries no confirmation.
     record_model_facts_shipped(payload, response.get(HOOK_MODEL_CONFIRMATION_FIELD))
+    from yoke_harness.hooks.client_session_title import confirm_title
+
+    confirm_title(payload, executor, response.get("harness_title_confirmation"))
     server_fp = response.get("execution_provenance")
     failure_warning = render_failure_warning(response.get("degraded", ()))
     if failure_warning:

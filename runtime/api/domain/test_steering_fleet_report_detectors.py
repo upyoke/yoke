@@ -157,8 +157,13 @@ def test_a_launch_past_its_deadline_with_no_session_is_reported(fleet):
 def test_stored_unregistered_excerpt_reaches_fleet_json_without_a_relay(fleet):
     from yoke_core.domain.steering_fleet_report_projection import _launch_dict
 
-    _launch(fleet, "dead-launch", deadline=LONG_AGO, state="failed",
-            result_code="native_exited_unregistered")
+    _launch(
+        fleet,
+        "dead-launch",
+        deadline=LONG_AGO,
+        state="failed",
+        result_code="native_exited_unregistered",
+    )
     excerpt = "diagnostic context\n" + "é" * 1900 + "\nfinal error"
     fleet.execute(
         "UPDATE session_launches SET result_evidence = %s WHERE launch_id = %s",
@@ -261,7 +266,7 @@ def test_failed_launch_only_remains_visible_when_unsettled(fleet, settlement):
         result_code="native_exited_unregistered",
     )
     fleet.execute(
-        "UPDATE session_launches SET session_name='YOK-1: Some work', "
+        "UPDATE session_launches SET item_id=1, "
         "native_launch_phase='native_running', result_evidence=%s "
         "WHERE launch_id='failed-launch'",
         (json.dumps({"native_exit_at": LONG_AGO, "exit_code": 0}),),
@@ -271,7 +276,7 @@ def test_failed_launch_only_remains_visible_when_unsettled(fleet, settlement):
     elif settlement == "replacement":
         _launch(fleet, "replacement", deadline=NOW)
         fleet.execute(
-            "UPDATE session_launches SET session_name='YOK-1: Renamed work', "
+            "UPDATE session_launches SET item_id=1, "
             "created_at=%s, registered_session_id=%s WHERE launch_id='replacement'",
             (NOW, ANSWERER),
         )
@@ -291,16 +296,18 @@ def test_failed_launch_only_remains_visible_when_unsettled(fleet, settlement):
 
 
 @pytest.mark.parametrize(
-    "registered, later, name",
+    "registered, later, assigned_item",
     [
-        (False, True, "YOK-1: Work"),
-        (True, False, "YOK-1: Work"),
-        (True, True, "YOK-11: Other work"),
+        (False, True, 1),
+        (True, False, 1),
+        (True, True, 2),
     ],
 )
 def test_unregistered_older_or_other_item_launch_does_not_settle_failure(
-    fleet, registered, later, name
+    fleet, registered, later, assigned_item
 ):
+    if assigned_item != 1:
+        insert_item(fleet, id=assigned_item, title="Other work", status="implementing")
     _launch(
         fleet,
         "failed-launch",
@@ -310,13 +317,16 @@ def test_unregistered_older_or_other_item_launch_does_not_settle_failure(
     )
     _launch(fleet, "other-launch", deadline=NOW, state="expired")
     fleet.execute(
-        "UPDATE session_launches SET session_name='YOK-1: Work' "
-        "WHERE launch_id='failed-launch'"
+        "UPDATE session_launches SET item_id=1 WHERE launch_id='failed-launch'"
     )
     fleet.execute(
-        "UPDATE session_launches SET session_name=%s, created_at=%s, "
+        "UPDATE session_launches SET item_id=%s, created_at=%s, "
         "registered_session_id=%s WHERE launch_id='other-launch'",
-        (name, NOW if later else BEFORE_THAT, ANSWERER if registered else None),
+        (
+            assigned_item,
+            NOW if later else BEFORE_THAT,
+            ANSWERER if registered else None,
+        ),
     )
     fleet.commit()
 

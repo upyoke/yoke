@@ -1,5 +1,6 @@
 import { callFunction, el } from "./universe_view_support.js";
 import { relativeTime } from "./universe_time.js";
+import { attachTooltip } from "./universe_tooltip.js";
 import { senderDescription } from "./universe_session_message_actors.js";
 
 // Answering a gate is one act wherever its card is rendered — the Inbox,
@@ -83,12 +84,12 @@ export function appendActorMessageRow(context, body, message, acknowledge) {
   // end of a paragraph and the acknowledgement after that.
   const aside = el(documentNode, "div", "inbox-message-sender");
   const meta = el(documentNode, "div", "inbox-message-meta");
-  meta.appendChild(el(
-    documentNode,
-    "span",
-    null,
+  const sender = el(
+    documentNode, "span", null,
     noticeLabel ? "Informational" : `From ${senderDescription(message)}`,
-  ));
+  );
+  if (message.sender_session_id) attachTooltip(documentNode, sender, `Session ${message.sender_session_id}`);
+  meta.appendChild(sender);
   if (message.created_at) meta.appendChild(relativeTime(documentNode, message.created_at));
   aside.appendChild(meta);
   if (message.actor_receipt?.state === "pending") {

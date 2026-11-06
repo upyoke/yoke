@@ -244,9 +244,11 @@ _LIFECYCLE_DISPATCH: tuple[str, ...] = ("yoke_core.hooks.session_dispatch",)
 _FIRST_HOOK_DISPATCH: tuple[str, ...] = (
     *_LIFECYCLE_DISPATCH,
     "yoke_core.hooks.session_resume_block",
+    "yoke_core.hooks.session_title",
     *_MODEL_DELIVERY,
 )
 _STOP_CHAIN: tuple[str, ...] = (
+    "yoke_core.hooks.session_title",
     "yoke_core.domain.turn_end_promised_work_gate",
     *_TURN_END_DELIVERY,
     "yoke_core.hooks.session_dispatch",

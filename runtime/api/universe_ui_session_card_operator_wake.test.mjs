@@ -24,7 +24,7 @@ test("Message button explains a quiet desktop chat waits on its operator", async
   // The operator owns the wake; hooks deliver the queued message next turn.
   const rows = [
     {
-      session_id: "desk-1", liveness: "stale",
+      session_id: "desk-1", harness_title: "[PILLS]", liveness: "stale",
       execution_level: "ALTMAN", mode: "wait",
       executor: "claude-code", model: "claude-opus-4-8",
       executor_mark: "A", executor_class_name: "h-claude",
@@ -48,6 +48,8 @@ test("Message button explains a quiet desktop chat waits on its operator", async
   state.value = "";
   state.dispatchEvent(new Event("change"));
   assert.equal(byClass(root, "session-message-delivery-note").length, 1);
+  assert.equal(byClass(root, "session-top")[0].getAttribute("data-tooltip"), "[PILLS]");
+  assert.ok(!byClass(root, "session-card")[0].textContent.includes("[PILLS]"));
   const buttons = byClass(byClass(root, "session-card")[0], "item-button");
   assert.deepEqual(buttons.map((button) => button.textContent), ["Message"]);
   assert.equal(

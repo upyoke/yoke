@@ -8,7 +8,6 @@ from yoke_contracts.api.function_call import (
     TargetRef,
 )
 from yoke_core.domain.handlers import session_launch as handlers
-from yoke_core.domain.session_launch_assignment import assignment_ref
 from yoke_core.domain.session_launch_history_page import read_launch_page
 from runtime.api.domain.session_launch_test_support import (
     add_relay,
@@ -19,11 +18,11 @@ from runtime.api.domain.session_launch_test_support import (
 from runtime.api.domain.test_session_launch_history_page import _NoCloseConnection
 
 
-def _named(conn, key: str, session_name: str | None, state: str) -> str:
+def _named(conn, key: str, item_id: int | None, state: str) -> str:
     launch = assigned_launch(conn, key=key)
     conn.execute(
-        "UPDATE session_launches SET session_name=?, state=? WHERE launch_id=?",
-        (session_name, state, launch.launch_id),
+        "UPDATE session_launches SET item_id=?, state=? WHERE launch_id=?",
+        (item_id, state, launch.launch_id),
     )
     conn.commit()
     return launch.launch_id
@@ -39,6 +38,7 @@ def _seeded():
         WHERE id=10;
         INSERT INTO projects (id, slug, name, public_item_prefix)
         VALUES (20, 'other-project', 'Other project', 'OTHER');
+        DROP TABLE items;
         CREATE TABLE items (
             id INTEGER PRIMARY KEY, project_id INTEGER NOT NULL,
             project_sequence INTEGER NOT NULL
@@ -49,18 +49,12 @@ def _seeded():
     )
     add_relay(conn)
     ids = {
-        "staffed": _named(conn, "a", "YOK-12: Fix the thing", "succeeded"),
-        "live": _named(conn, "b", "YOK-12: Fix the thing", "queued"),
-        "longer": _named(conn, "c", "YOK-120: Other work", "succeeded"),
+        "staffed": _named(conn, "a", 312, "succeeded"),
+        "live": _named(conn, "b", 312, "queued"),
+        "longer": _named(conn, "c", 420, "succeeded"),
         "free": _named(conn, "d", None, "succeeded"),
     }
     return conn, ids
-
-
-def test_assignment_ref_reads_the_prefix_ahead_of_the_colon() -> None:
-    assert assignment_ref("YOK-12: Fix the thing") == "YOK-12"
-    assert assignment_ref("free-form name") == ""
-    assert assignment_ref(None) == ""
 
 
 def test_item_filter_keeps_only_launches_staffing_that_item() -> None:
@@ -72,14 +66,14 @@ def test_item_filter_keeps_only_launches_staffing_that_item() -> None:
     assert {row["item"] for row in page["history"]} == {"YOK-12"}
 
 
-def test_unfiltered_rows_carry_item_and_session_name() -> None:
+def test_unfiltered_rows_carry_item_and_item_id() -> None:
     conn, ids = _seeded()
     rows = {
         row["launch_id"]: row
         for row in read_launch_page(conn, project_id=10)["history"]
     }
     assert rows[ids["longer"]]["item"] == "YOK-120"
-    assert rows[ids["longer"]]["session_name"] == "YOK-120: Other work"
+    assert rows[ids["longer"]]["item_id"] == 420
     assert rows[ids["free"]]["item"] is None
 
 

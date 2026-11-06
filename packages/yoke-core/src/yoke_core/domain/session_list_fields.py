@@ -10,6 +10,8 @@ from yoke_contracts.session_usage_display import (
 
 SESSION_LIST_FIELDS = (
     "session_id",
+    "display_label",
+    "harness_title",
     "liveness",
     "ended_cause",
     "activity_at",

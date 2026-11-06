@@ -18,10 +18,12 @@ import tempfile
 import pytest
 
 from yoke_harness import session_relay_codex_app_server_client as client_module
-from yoke_harness.session_relay_codex_app_server_client import (
+from yoke_harness.session_relay_codex_app_server_errors import (
     CodexAppServerError,
+    rpc_error,
+)
+from yoke_harness.session_relay_codex_app_server_client import (
     _Client,
-    _rpc_error,
 )
 from yoke_harness.session_relay_codex_app_server_reasons import (
     app_server_failure_reason,
@@ -30,7 +32,7 @@ from yoke_harness.session_relay_codex_app_server_reasons import (
 
 def test_a_method_not_found_rpc_error_is_the_true_unsupported_signal() -> None:
     """The one peer response that actually means this build lacks the op."""
-    failure = _rpc_error(
+    failure = rpc_error(
         "account/rateLimits/read",
         "handshake",
         {"code": -32601, "message": "no such method"},
@@ -41,7 +43,7 @@ def test_a_method_not_found_rpc_error_is_the_true_unsupported_signal() -> None:
 
 
 def test_an_unrelated_rpc_error_keeps_its_own_code_instead_of_unsupported() -> None:
-    failure = _rpc_error(
+    failure = rpc_error(
         "account/rateLimits/read",
         "handshake",
         {"code": -32001, "message": "Not authenticated"},
@@ -53,7 +55,7 @@ def test_an_unrelated_rpc_error_keeps_its_own_code_instead_of_unsupported() -> N
 
 
 def test_an_rpc_error_with_no_code_still_avoids_the_unsupported_reading() -> None:
-    failure = _rpc_error("account/rateLimits/read", "handshake", {"message": "boom"})
+    failure = rpc_error("account/rateLimits/read", "handshake", {"message": "boom"})
     assert failure.code == "rpc_error"
     assert failure.rpc_error_code is None
     assert app_server_failure_reason(failure) == "app_server_rpc_error"
@@ -61,7 +63,7 @@ def test_an_rpc_error_with_no_code_still_avoids_the_unsupported_reading() -> Non
 
 def test_an_rpc_error_message_is_redacted_before_it_is_surfaced() -> None:
     token = "yoke_v1_" + "a" * 43
-    failure = _rpc_error(
+    failure = rpc_error(
         "account/rateLimits/read",
         "handshake",
         {"code": -32001, "message": f"denied for token {token}"},

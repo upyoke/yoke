@@ -29,6 +29,7 @@ CLAIMS_TABLES: dict[str, dict] = {
             ("session_id", "TEXT"),
             ("executor", "TEXT"),
             ("executor_surface", "TEXT"),
+            ("harness_title", "TEXT"),
             ("presentation_surface", "TEXT"),
             ("presentation_state", "TEXT"),
             ("presentation_mode", "TEXT"),
@@ -76,7 +77,9 @@ CLAIMS_TABLES: dict[str, dict] = {
         ],
         "notes": HARNESS_SESSION_NOTES
         + (
-            " Observed effort is harness_sessions.reasoning_effort, not effort; "
+            " Native chat titles are nullable harness_title; displayed session labels "
+            "are composed from current session, project and work-claim facts at read time. "
+            "Observed effort is harness_sessions.reasoning_effort, not effort; "
             "requested_reasoning_effort records launch intent, not observed selection. "
             "Capacity recovery uses session_resume_in_flight, which reads "
             "harness_sessions.native_process_gone_at (TIMESTAMPTZ), last_tool_call_at "

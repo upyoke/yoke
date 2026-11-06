@@ -6,7 +6,7 @@ import sqlite3
 
 import pytest
 
-from yoke_core.domain.session_launch_assignment import assignment_session_name
+from yoke_core.domain.session_launch_assignment import assigned_item_id
 from yoke_core.domain.session_launch_types import SessionLaunchError
 
 
@@ -21,8 +21,7 @@ def _connection():
         "project_sequence INTEGER, title TEXT)"
     )
     conn.execute(
-        "INSERT INTO projects VALUES "
-        "(1,'yoke','Yoke','YOK'),(2,'app','App','APP')"
+        "INSERT INTO projects VALUES (1,'yoke','Yoke','YOK'),(2,'app','App','APP')"
     )
     conn.execute("INSERT INTO items VALUES (42,1,2580,'Record session presentation')")
     return conn
@@ -31,17 +30,17 @@ def _connection():
 def test_name_comes_from_item_identity_and_title_columns():
     conn = _connection()
     assert (
-        assignment_session_name(
+        assigned_item_id(
             conn,
             public_ref="YOK-2580",
             project_id=1,
         )
-        == "YOK-2580: Record session presentation"
+        == 42
     )
 
 
 def test_cross_project_assignment_is_refused():
     conn = _connection()
     with pytest.raises(SessionLaunchError) as raised:
-        assignment_session_name(conn, public_ref="YOK-2580", project_id=2)
+        assigned_item_id(conn, public_ref="YOK-2580", project_id=2)
     assert raised.value.code == "assignment_project_mismatch"

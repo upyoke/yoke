@@ -5,17 +5,13 @@ from __future__ import annotations
 from typing import Any
 
 from yoke_core.domain.db_helpers import instant_parameter
-from yoke_core.domain.item_ref_resolution import resolve_item_ref_or_none
 from yoke_core.domain.session_launch_store import marker
 from yoke_core.domain.work_claim_target_sql import scope_int_sql
 
 
 def launch_work_entered(conn: Any, launch: Any) -> bool:
     """A released claim still proves entry; a claim on another item does not."""
-    reference, separator, _title = str(launch.session_name or "").partition(": ")
-    if not separator:
-        return True
-    item_id = resolve_item_ref_or_none(conn, reference, project=launch.project_id)
+    item_id = launch.item_id
     if item_id is None:
         return True
     p = marker(conn)
