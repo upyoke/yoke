@@ -25,6 +25,8 @@ Liveness follows the harness manifest's ``agent_wake`` facts
 from __future__ import annotations
 
 import subprocess
+import threading
+import time
 from collections.abc import Mapping, Sequence
 from typing import Any
 
@@ -45,6 +47,21 @@ CAPTURE_PREFIX = "yoke-fleet."
 PROGRESS_CAPTURE_PREFIX = "yoke-fleet.progress."
 
 _MONITOR = "Monitor"
+_PROCESS_LIST_TTL_SECONDS = 2.0
+_process_list_lock = threading.Lock()
+_process_list: tuple[float, tuple[str, ...]] | None = None
+
+
+def _recent_process_cmdlines() -> tuple[str, ...]:
+    """Share a bounded observation across concurrent hooks in the resident."""
+    global _process_list
+    with _process_list_lock:
+        now = time.monotonic()
+        if _process_list and now - _process_list[0] < _PROCESS_LIST_TTL_SECONDS:
+            return _process_list[1]
+        listed = list_process_cmdlines()
+        _process_list = (time.monotonic(), listed) if listed else None
+        return listed
 
 
 def list_process_cmdlines() -> tuple[str, ...]:
@@ -154,7 +171,7 @@ def observe_fleet_watcher(
     harness_id = canonical_harness_id(executor)
     if not _report_can_inject(harness_id, event_name):
         return {}
-    listed = list_process_cmdlines() if cmdlines is None else tuple(cmdlines)
+    listed = _recent_process_cmdlines() if cmdlines is None else tuple(cmdlines)
     if not listed:
         return {}
     live = fleet_watcher_live(session_id, harness_id, listed)

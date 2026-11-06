@@ -1,15 +1,8 @@
 """Portable process-ancestry walk for session identity (shared contract).
 
 Standard library only: macOS ``ps``, Linux procfs, Windows process tokens.
-Both sides of ambient session identity walk this body:
-
-- **Anchor write (hook side):** a Yoke hook runs as a child of the
-  per-session harness agent process, so :func:`find_nearest_harness_anchor`
-  returns the first ancestor whose executable basename is in
-  :data:`HARNESS_PROCESS_BASENAMES`.
-- **Anchor read (shell side):** any Bash subshell the harness spawns shares
-  that ancestor, so :func:`anchor_candidate_pids` enumerates the pids whose
-  registry records may name this process's session.
+Hooks record the nearest per-session harness ancestor. Shells walk that same
+ancestry against the registry written by the hooks.
 
 The harness basename set is deliberately small: the per-session Claude agent
 binary is ``.../claude-code/<version>/claude.app/Contents/MacOS/claude``
@@ -271,6 +264,10 @@ def find_nearest_harness_anchor(
     a multiplexed host before any per-session binary.
     """
     resolve_name = process_command_name if name_of is None else name_of
+    if name_of is None and parents is None:
+        table = process_table()
+        parents = {process: entry[0] for process, entry in table.items()}
+        resolve_name = {process: entry[1] for process, entry in table.items()}.get
     resolve_start = process_start_time if start_time_of is None else start_time_of
     for ancestor in anchor_candidate_pids(
         pid,

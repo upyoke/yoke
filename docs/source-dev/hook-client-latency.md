@@ -14,6 +14,35 @@ an import outside the owning distribution. Source-bound hooks do not need
 `importlib.metadata`. Fallback client-wall reporting loads its machine config
 and transport only when it reports; only Stop loads its circuit breaker.
 
+## Resident observations
+
+Profile `evaluate_inprocess` inside the resident's caller process context as
+well as the short-lived command. Include real fact collection and inspect
+subprocess calls, registry writes and transcript discovery. A mocked HTTP
+answer separates client work from network time; it does not prove the
+Production gap. Exercise concurrent calls and both missing and saved
+transcripts, and preserve which discovery or ancestor selection was mocked.
+
+Claude keeps its per-session ambient anchor walk, including its shared-host
+boundary. Other surfaces without liveness process names skip that walk.
+A failed named lookup also stops there; passing an absent anchor to the
+shared registry would trigger a second, generic ancestry walk. Ancestry is
+cached for two seconds under the caller parent's PID, start token, surface
+names and walk mode. Recheck the parent's start token and any cached anchor's live
+start token on reuse. Registry tenancy is always reread: a clean unchanged
+record needs no write, while a changed transcript or contending session still
+updates the record and runs the existing fail-closed checks.
+
+Concurrent hooks share fleet process listings and Codex transcript path
+discovery for at most two seconds. Failed listings prove nothing and are not
+cached. Transcript caches include the roots and thread id, are bounded, and
+never cache transcript contents or per-turn model/usage facts. Newly created
+or moved transcripts become discoverable at the next refresh. Function calls
+made during resident evaluation, including contender liveness, use that
+request's existing HTTP pool; the context is isolated between threads and
+cleared even when evaluation raises. HTTP status and redirect checks still
+apply.
+
 ## Measure the command
 
 From a claimed lane, capture imports once:
