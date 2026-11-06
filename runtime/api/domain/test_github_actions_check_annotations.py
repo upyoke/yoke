@@ -183,3 +183,44 @@ def test_unreadable_annotations_keep_job_and_block_blind_retry(monkeypatch):
         max_lines=10,
     )
     assert recovery.recovery_blocked(report.output)
+
+
+def test_existing_never_started_run_records_annotation_as_ci_qa_error(
+    tmp_path, monkeypatch
+):
+    import json
+    from unittest.mock import Mock
+    from runtime.api.domain.qa_case_ci_test_helpers import (
+        LANE_HEAD,
+        ci_case,
+        completed_run,
+        wire_ci_case,
+    )
+    from yoke_core.domain import qa_case_ci_covering_run as covering
+    from yoke_core.domain import qa_case_ci_lane, qa_case_ci_run
+
+    checkout, recorder, _ = wire_ci_case(tmp_path, monkeypatch)
+    monkeypatch.setattr(
+        covering,
+        "find_run_for_tree",
+        lambda **kw: completed_run(LANE_HEAD, "ci_job_not_started"),
+    )
+    output = (
+        "failed:ci_job_not_started — "
+        + recovery.OPERATOR_REQUIRED
+        + "\nbuild: failure: Provider refused this job"
+    )
+    monkeypatch.setattr(qa_case_ci_lane, "await_workflow", lambda **kw: (1, output))
+    asked = Mock(return_value=output)
+    monkeypatch.setattr("yoke_core.domain.qa_case_ci_never_started.ask_operator", asked)
+    dispatch = Mock()
+    monkeypatch.setattr(qa_case_ci_lane, "dispatch_workflow", dispatch)
+    result = qa_case_ci_run.execute_ci_case(ci_case(), checkout_path=checkout)
+    assert result["verdict"] == "error"
+    assert result["failure_class"] == "ci_job_not_started"
+    assert result["ci_run_id"] == "77"
+    evidence = json.loads(recorder.payload("qa.run.complete")["raw_result"])
+    assert evidence["failure_class"] == "ci_job_not_started"
+    assert "failure: Provider refused this job" in evidence["ci_diagnostics"]
+    asked.assert_called_once()
+    dispatch.assert_not_called()
