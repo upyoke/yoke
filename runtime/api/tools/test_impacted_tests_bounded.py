@@ -1,8 +1,4 @@
-"""Bounded selection and the fallback telemetry that explains widening.
-
-Decline widening when a later gate covers the full suite, and record why
-selection widened in a shape that can be grouped across runs.
-"""
+"""Bounded selection and fallback telemetry for deferred full coverage."""
 
 from __future__ import annotations
 
@@ -26,6 +22,7 @@ import pytest
 
 pytestmark = pytest.mark.usefixtures("bound_project_context")
 
+
 def test_bounded_selection_declines_to_widen(tmp_path: Path) -> None:
     index = build_import_index(_tiny_repo(tmp_path))
 
@@ -40,6 +37,7 @@ def test_bounded_selection_declines_to_widen(tmp_path: Path) -> None:
     # that runs — never the anchors.
     assert bounded.pytest_paths() == _with_floor()
 
+
 def test_bounded_selection_still_runs_the_computable_subset(tmp_path: Path) -> None:
     index = build_import_index(_tiny_repo(tmp_path))
 
@@ -50,6 +48,7 @@ def test_bounded_selection_still_runs_the_computable_subset(tmp_path: Path) -> N
     # The Python half of the edit is still bounded by reachability, so its
     # reachable test runs rather than being lost with the unbounded half.
     assert "runtime/api/test_middle.py" in bounded.files
+
 
 def test_bounded_test_tooling_change_does_not_reexpand_through_importers(
     tmp_path: Path,
@@ -68,11 +67,12 @@ def test_bounded_test_tooling_change_does_not_reexpand_through_importers(
     assert bounded.files == _with_floor()
     assert "runtime/api/test_watch_consumer.py" not in bounded.files
 
+
 def _near_total_repo(tmp_path: Path) -> Path:
-    """Keep synthetic reachability near-total as the contract floor grows."""
     root = _tiny_repo(tmp_path)
+    index = build_import_index(root)
     unrelated = sum(
-        impacted_tests.is_test_file(path) for path in build_import_index(root).module_of
+        impacted_tests.is_test_file(p, index.test_roots) for p in index.module_of
     )
     count = impacted_tests.MIN_EFFECTIVELY_FULL_FILE_UNIVERSE
     while not impacted_tests.is_effectively_full(count, count + unrelated):
@@ -302,8 +302,6 @@ def test_watcher_footer_reports_collected_items_and_denominator() -> None:
 
 
 def test_fallback_rules_covers_every_rule_the_selector_can_emit() -> None:
-    # The identifiers are the grouping key for captured telemetry, so the
-    # published set and the rule table must not drift apart.
     from_table = {rule for rule, _paths, _why in _impacted_unbounded_paths.PATH_RULES}
     assert from_table <= set(impacted_tests.FALLBACK_RULES)
     assert len(impacted_tests.FALLBACK_RULES) == len(set(impacted_tests.FALLBACK_RULES))
@@ -313,6 +311,7 @@ def test_wrapper_prints_prose_reason_and_telemetry(capsys, monkeypatch) -> None:
     monkeypatch.setattr(project_python, "resolve_test_roots", lambda _: ("tests/",))
     selection = Selection(
         full_sweep=True,
+        test_roots=("tests/",),
         reason="tools/run_tests.py selects or runs the suite itself",
         fallback_rule="test_tooling_module",
         trigger_paths=("tools/run_tests.py",),

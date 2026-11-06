@@ -1,9 +1,5 @@
 """Reverse import graph over the repository's Python sources.
 
-Sibling of :mod:`yoke_core.tools.impacted_tests`, which re-exports every
-name here so callers keep one import site. Split out to keep the selector
-under the authored-file line cap.
-
 The index answers one question: given a module, which files reference it?
 References are ordinary imports plus dotted-path **string literals** — a
 test that spawns ``python3 -m pkg.tool``, patches ``"pkg.helper"`` by
@@ -29,7 +25,7 @@ from yoke_core.engines.doctor_project_checks import (
 )
 from yoke_core.tools.impacted_project_test_roots import (
     YOKE_SEEDED_TEST_ROOTS,
-    current_test_roots,
+    resolve_test_roots,
 )
 from yoke_core.tools._impacted_dispatch_edges import DispatchMap, load_dispatch_map
 from yoke_core.tools._impacted_fixture_graph import FixtureGraph, FixtureGraphBuilder
@@ -56,7 +52,7 @@ _SKIP_DIRECTORIES = frozenset(
 
 #: This checkout's own seeded test roots, for callers that describe a Yoke
 #: sweep rather than resolve one. A live checkout answers through
-#: :func:`current_test_roots`, whose declaration may differ per project.
+#: :func:`resolve_test_roots`, whose declaration may differ per project.
 TEST_ANCHORS = YOKE_SEEDED_TEST_ROOTS
 
 #: A string literal shaped like a dotted module path is treated as a
@@ -67,14 +63,12 @@ TEST_ANCHORS = YOKE_SEEDED_TEST_ROOTS
 _DOTTED_PATH = re.compile(r"^[A-Za-z_]\w*(\.\w+)+$")
 
 
-def is_test_file(rel_path: str) -> bool:
-    anchors = current_test_roots()
+def is_test_file(rel_path: str, roots: tuple[str, ...]) -> bool:
     name = rel_path.rsplit("/", 1)[-1]
     return (
-        bool(anchors)
-        and any(rel_path.startswith(anchor) for anchor in anchors)
-        and name.startswith("test_")
+        name.startswith("test_")
         and name.endswith(".py")
+        and any(rel_path.startswith(root) for root in roots)
     )
 
 
@@ -166,6 +160,7 @@ class ImportIndex:
 
     importers: dict[str, set[str]]
     module_of: dict[str, str]
+    test_roots: tuple[str, ...]
     fixtures: FixtureGraph = field(default_factory=FixtureGraph)
     dispatch: DispatchMap = field(default_factory=DispatchMap)
 
@@ -178,7 +173,9 @@ def direct_changed_tests(changed: Iterable[str], index: ImportIndex) -> frozense
     near-total remainder.
     """
     return frozenset(
-        rel for rel in changed if rel in index.module_of and is_test_file(rel)
+        rel
+        for rel in changed
+        if rel in index.module_of and is_test_file(rel, index.test_roots)
     )
 
 
@@ -189,7 +186,7 @@ def direct_importer_tests(changed: Iterable[str], index: ImportIndex) -> frozens
         importer
         for module in modules
         for importer in index.importers.get(module, ())
-        if is_test_file(importer)
+        if is_test_file(importer, index.test_roots)
     )
 
 
@@ -216,7 +213,11 @@ def reachable_tests(changed: Sequence[str], index: ImportIndex) -> set[str] | No
                 seen_modules.add(importer_module)
                 frontier.append(importer_module)
     # Keep deletions in analysis, but never pass removed tests to pytest.
-    return {rel for rel in reached if rel in index.module_of and is_test_file(rel)}
+    return {
+        rel
+        for rel in reached
+        if rel in index.module_of and is_test_file(rel, index.test_roots)
+    }
 
 
 def tests_importing_tests(tests: Iterable[str], index: ImportIndex) -> frozenset[str]:
@@ -238,7 +239,7 @@ def tests_importing_tests(tests: Iterable[str], index: ImportIndex) -> frozenset
         if module is None:
             continue
         for importer in index.importers.get(module, ()):
-            if importer in closed or not is_test_file(importer):
+            if importer in closed or not is_test_file(importer, index.test_roots):
                 continue
             closed.add(importer)
             frontier.append(importer)
@@ -267,7 +268,7 @@ def bounded_importer_tests(
     modules = {index.module_of.get(rel) or module_name_for(rel) for rel in paths}
     for module in modules:
         for importer in index.importers.get(module, ()):
-            if is_test_file(importer):
+            if is_test_file(importer, index.test_roots):
                 continue
             branch = reachable_tests((importer,), index) or set()
             if is_effectively_full(len(branch), total_files):
@@ -282,6 +283,7 @@ def bounded_importer_tests(
 
 
 def build_import_index(repo_root: Path) -> ImportIndex:
+    test_roots = resolve_test_roots(str(repo_root.resolve()))
     importers: dict[str, set[str]] = {}
     module_of: dict[str, str] = {}
     path_references: list[tuple[str, set[str]]] = []
@@ -300,7 +302,7 @@ def build_import_index(repo_root: Path) -> ImportIndex:
         references = _imported_modules(tree, module) | _string_module_references(tree)
         for referenced in references:
             importers.setdefault(referenced, set()).add(rel)
-        fixtures.observe(rel, module, tree, is_test=is_test_file(rel))
+        fixtures.observe(rel, module, tree, is_test=is_test_file(rel, test_roots))
         named_paths = named_path_references(tree)
         if named_paths:
             path_references.append((rel, named_paths))
@@ -328,6 +330,7 @@ def build_import_index(repo_root: Path) -> ImportIndex:
     return ImportIndex(
         importers=importers,
         module_of=module_of,
+        test_roots=test_roots,
         fixtures=fixtures.build(module_of),
         dispatch=load_dispatch_map(module_of.values()),
     )

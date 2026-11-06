@@ -41,25 +41,30 @@ def _wakeable_watcher_test_caller(monkeypatch: pytest.MonkeyPatch) -> None:
 @pytest.fixture(autouse=True)
 def _synthetic_selector_roots(request, monkeypatch):
     """Import-graph fixtures declare their own test universe explicitly."""
-    if request.module.__name__.rsplit(".", 1)[-1].startswith("test_impacted"):
+    name = request.module.__name__.rsplit(".", 1)[-1]
+    if name.startswith("test_impacted") and name != "test_impacted_project_test_roots":
         from yoke_core.tools import (
-            _impacted_import_index,
-            _impacted_selection,
+            impacted_project_test_roots,
             watch_pytest_project_python,
         )
         from yoke_core.tools.impacted_project_test_roots import YOKE_SEEDED_TEST_ROOTS
 
+        impacted_project_test_roots.resolve_test_roots.cache_clear()
         monkeypatch.setattr(
-            _impacted_import_index, "current_test_roots", lambda: YOKE_SEEDED_TEST_ROOTS
+            impacted_project_test_roots,
+            "default_project_for_directory",
+            lambda _: "fixture",
         )
         monkeypatch.setattr(
-            _impacted_selection, "current_test_roots", lambda: YOKE_SEEDED_TEST_ROOTS
+            impacted_project_test_roots, "_try_read", lambda _: YOKE_SEEDED_TEST_ROOTS
         )
         monkeypatch.setattr(
             watch_pytest_project_python,
             "resolve_test_roots",
             lambda _checkout: YOKE_SEEDED_TEST_ROOTS,
         )
+
+        request.addfinalizer(impacted_project_test_roots.resolve_test_roots.cache_clear)
 
 
 @pytest.fixture(autouse=True)

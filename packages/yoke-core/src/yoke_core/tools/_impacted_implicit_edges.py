@@ -76,7 +76,9 @@ def _dispatch_tests(modules: Iterable[str], index: ImportIndex) -> frozenset[str
     """Tests naming a reached handler's function id, or importing a caller that does."""
     function_ids = function_ids_for(modules, index.dispatch)
     callers = dispatch_caller_files(function_ids, index.importers)
-    adapters = [caller for caller in callers if not is_test_file(caller)]
+    adapters = [
+        caller for caller in callers if not is_test_file(caller, index.test_roots)
+    ]
     return frozenset(callers - set(adapters)) | direct_importer_tests(adapters, index)
 
 

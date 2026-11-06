@@ -55,8 +55,8 @@ def test_editing_a_named_file_reaches_the_roster_test(
     tmp_path: Path, monkeypatch
 ) -> None:
     monkeypatch.setattr(
-        "yoke_core.tools._impacted_import_index.current_test_roots",
-        lambda: ("tests/",),
+        "yoke_core.tools.impacted_project_test_roots._try_read",
+        lambda _: ("tests/",),
     )
     _tree(tmp_path)
     index = build_import_index(tmp_path)
@@ -92,8 +92,8 @@ def test_roster_chain_reaches_the_test_that_guards_it(
     # governed file, a project-local check naming it by path, and the
     # test importing that check by its namespace.
     monkeypatch.setattr(
-        "yoke_core.tools._impacted_import_index.current_test_roots",
-        lambda: ("tests/",),
+        "yoke_core.tools.impacted_project_test_roots._try_read",
+        lambda _: ("tests/",),
     )
     _write(tmp_path, "pkg/__init__.py", "")
     _write(tmp_path, "pkg/governed.py", "VALUE = 1\n")
@@ -158,8 +158,8 @@ def test_editing_an_assembled_subject_reaches_its_reader(
     tmp_path: Path, monkeypatch
 ) -> None:
     monkeypatch.setattr(
-        "yoke_core.tools._impacted_import_index.current_test_roots",
-        lambda: ("tests/",),
+        "yoke_core.tools.impacted_project_test_roots._try_read",
+        lambda _: ("tests/",),
     )
     _assembled_reader_tree(tmp_path)
     index = build_import_index(tmp_path)
@@ -193,8 +193,8 @@ def test_editing_the_installer_reaches_the_test_that_loads_it(
     tmp_path: Path, monkeypatch
 ) -> None:
     monkeypatch.setattr(
-        "yoke_core.tools._impacted_import_index.current_test_roots",
-        lambda: ("tests/",),
+        "yoke_core.tools.impacted_project_test_roots._try_read",
+        lambda _: ("tests/",),
     )
     _installer_tree(tmp_path)
 

@@ -5,8 +5,6 @@ from __future__ import annotations
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 
-from yoke_core.tools.impacted_project_test_roots import current_test_roots
-
 
 MAX_BOUNDED_FILE_FRACTION = 0.8
 MIN_EFFECTIVELY_FULL_FILE_UNIVERSE = 100
@@ -18,6 +16,7 @@ class Selection:
 
     full_sweep: bool
     reason: str
+    test_roots: tuple[str, ...] = ()
     files: tuple[str, ...] = ()
     total_files: int | None = None
     selected_items: int | None = None
@@ -30,7 +29,7 @@ class Selection:
     def pytest_paths(self) -> tuple[str, ...]:
         if not self.full_sweep:
             return self.files
-        return current_test_roots()
+        return self.test_roots
 
     def count_summary(self) -> str:
         selected_files = self.total_files if self.full_sweep else len(self.files)

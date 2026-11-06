@@ -108,7 +108,7 @@ def select(
     reachability could still compute plus the reason its coverage is
     partial, rather than a full sweep the final gate will run anyway.
     """
-    total_files = sum(is_test_file(path) for path in index.module_of)
+    total_files = sum(is_test_file(path, index.test_roots) for path in index.module_of)
     contracts = contract_selection_for(changed)
     session_contracts = session_control_contract_selection(changed)
     contracts = replace(
@@ -126,7 +126,9 @@ def select(
     )
     direct = direct_changed_tests(changed, index)
     implicit = implicit_dependents(changed, index, total_files=total_files)
-    selection = replace(_widened(changed, index), total_files=total_files)
+    selection = replace(
+        _widened(changed, index), total_files=total_files, test_roots=index.test_roots
+    )
     if not selection.full_sweep:
         selection = replace(
             selection,
@@ -150,6 +152,7 @@ def select(
         )
         selection = Selection(
             full_sweep=True,
+            test_roots=index.test_roots,
             reason=f"reachability selected {selected_files} of {total_files} test files",
             total_files=total_files,
             fallback_rule="effectively_full_selection",
@@ -214,6 +217,7 @@ def select(
         trigger_paths=selection.trigger_paths,
         widening_triggers=contracts.widening_triggers,
         bounded_deferral=True,
+        test_roots=index.test_roots,
     )
 
 
