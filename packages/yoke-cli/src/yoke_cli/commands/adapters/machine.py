@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import json
+from functools import partial
 from typing import Any, List
 
 from yoke_contracts.api.function_call import TargetRef
@@ -11,11 +12,13 @@ from yoke_contracts.machine_config.machine_access import OFFERS_ENFORCEMENT_NOTE
 from yoke_contracts.refusal_recovery import compose_refusal
 
 from yoke_cli.commands._helpers import (
+    add_full_arg,
     add_json_arg,
     add_session_arg,
     dispatch_and_emit,
     parse_or_usage_error,
 )
+from yoke_cli.commands.adapters.machine_detail_render import write_machine_detail
 
 MACHINE_REGISTER_USAGE = (
     "yoke machine register [--name NAME] "
@@ -24,7 +27,9 @@ MACHINE_REGISTER_USAGE = (
 )
 MACHINE_LIST_USAGE = "yoke machine list [--mine] [--session-id S] [--json]"
 MACHINE_SHOW_USAGE = "yoke machine show [MACHINE-ID] [--session-id S] [--json]"
-MACHINE_DETAIL_USAGE = "yoke machine detail [MACHINE-ID] [--session-id S] [--json]"
+MACHINE_DETAIL_USAGE = (
+    "yoke machine detail [MACHINE-ID] [--full] [--session-id S] [--json]"
+)
 MACHINE_RETIRE_USAGE = (
     "yoke machine retire [MACHINE-ID] --confirm [--session-id S] [--json]"
 )
@@ -185,6 +190,9 @@ def machine_detail(args: List[str]) -> int:
     parser.add_argument(
         "machine_id", nargs="?", default=None, help="Machine id; default: this machine."
     )
+    add_full_arg(
+        parser, "all native models, observation details, and session/launch rows"
+    )
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, MACHINE_DETAIL_USAGE)
@@ -196,6 +204,7 @@ def machine_detail(args: List[str]) -> int:
         payload={"machine_id": _resolved_machine_id(parsed.machine_id)},
         session_id=parsed.session_id,
         json_mode=parsed.json_mode,
+        human_writer=partial(write_machine_detail, full=parsed.full),
     )
 
 

@@ -56,6 +56,19 @@ this computer a new machine UUID and registers once more (see
 `HC-machine-registry` checks the same fact locally, so an unregistered machine
 is something doctor tells you before a refused launch does.
 
+## Inspecting a machine
+
+Run `yoke machine detail [MACHINE-ID]` for sections covering identity, relay,
+native models, harnesses, projects, test machines, sessions, launches, surface
+policies, token status and credential presence. The default is this machine.
+Each native surface has its own heading with status and model count. Session
+and launch sections show their total count and newest ten entries.
+
+Use `--full` for every model, observation detail and session or launch row.
+Use `--section 'Native models'` to read one section, or combine
+`--section SURFACE --full` to read one surface's complete model observation.
+`--json` keeps the complete server response unchanged.
+
 ## The access document
 
 `access` says who may use the machine's capacity and what it offers:
