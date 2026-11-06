@@ -5,6 +5,10 @@ import sys
 import time
 from yoke_cli.transport.relay_telemetry import TRANSPORT_FAILED_CODE
 from yoke_core.domain.function_connection_loss import CONNECTION_LOST_CODE
+from yoke_core.domain.function_lock_refusal import (
+    LOCK_RETRY_DELAYS_SECONDS,
+    RETRYABLE_LOCK_CODES,
+)
 
 UNKNOWN_CODES = frozenset({TRANSPORT_FAILED_CODE, CONNECTION_LOST_CODE})
 # The self-deploy database door wraps connection exceptions in this code.
@@ -48,29 +52,39 @@ REDISPATCH_DELAYS_SECONDS = (5.0, 15.0)
 
 
 def redispatch_after_connection_loss(call, *, run_id, function_id):
-    """Re-send an idempotent call only while its answer is lost, then stop resumably.
+    """Retry idempotent dispatch on lost answers or bounded lock contention.
 
-    For a call that is safe to repeat -- QA stage dispatch creates
-    requirements only when absent, recomputes its gate and keys its notices --
-    a dropped connection need not end the driver. Only a lost answer is
-    re-sent; a refusal is returned unchanged on its first answer.
+    Busy answers and lost answers consume their own shared retry schedules.
+    Other refusals return immediately; exhaustion leaves the run resumable.
     """
-    for delay in (*REDISPATCH_DELAYS_SECONDS, None):
+    lost_delays = iter(REDISPATCH_DELAYS_SECONDS)
+    busy_delays = iter(LOCK_RETRY_DELAYS_SECONDS)
+    attempts = 0
+    losses = 0
+    while True:
         response = call()
+        attempts += 1
         error = None if response.success else response.error
-        if error is None or error.code not in UNKNOWN_CODES:
+        if error is not None and error.code in RETRYABLE_LOCK_CODES:
+            delay = next(busy_delays, None)
+            if delay is None:
+                raise DeploymentRunStayedBusy(
+                    run_id, function_id, attempts, error.message
+                )
+            diagnostic = f"answered {error.code}; asking again"
+        elif error is not None and error.code in UNKNOWN_CODES:
+            losses += 1
+            delay = next(lost_delays, None)
+            if delay is None:
+                raise DeploymentOutcomeUnknown(
+                    run_id, function_id, response.request_id,
+                    f"{error.message} (lost on all {losses} sends)",
+                )
+            diagnostic = f"lost its answer ({error.code}); sending again"
+        else:
             return response
-        if delay is None:
-            raise DeploymentOutcomeUnknown(
-                run_id,
-                function_id,
-                response.request_id,
-                f"{response.error.message} (lost on all "
-                f"{len(REDISPATCH_DELAYS_SECONDS) + 1} sends)",
-            )
         print(
-            f"{function_id} lost its answer ({response.error.code}); "
-            f"sending again in {delay:g}s",
+            f"{function_id} {diagnostic} in {delay:g}s",
             file=sys.stderr,
             flush=True,
         )

@@ -60,6 +60,14 @@ the self-deploy database door. The server replays a completed successful call;
 QA dispatch is also safe to repeat if the original failed before recording a
 successful result.
 
+A busy dispatch answer (`run_busy`, `qa_plan_busy`,
+`idempotency_request_in_flight`, `lock_timeout` or `statement_cancelled`) returns
+to the deploy driver's shared retry policy for every transport. It retries after
+15, 30, then 60 seconds, with six retries total. HTTPS result recovery also
+returns busy answers to this policy. If every retry stays busy, the driver stops
+with `deployment_run_stayed_busy`, leaving the run and QA stage unchanged;
+resume with `yoke watch deploy -- RUN-ID` once the named holder finishes.
+
 An unanswered recovery reports `qa_dispatch_result_unconfirmed`, leaving the
 run resumable at its QA stage. Read `yoke deployment-runs get RUN-ID` and the
 driver capture before re-driving that same run with `yoke watch deploy -- RUN-ID`. Do not use `--fresh` or the
