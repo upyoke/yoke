@@ -6,6 +6,7 @@ import pytest
 
 from runtime.api.domain.test_epic_amend import _add_row, _finalize_rows
 from yoke_core.domain.epic_amend import task_reassign
+from yoke_core.domain.epic_task_crud import task_upsert
 from yoke_core.domain.epic_dispatch import (
     dispatch_chain_refresh_for_activation,
     dispatch_chain_upsert,
@@ -24,7 +25,7 @@ def _chains(conn):
 def test_reassign_moves_queue_and_allows_activation(test_db, existing_destination):
     item_id = 100
     _add_row(test_db, item_id, 1, "first", worktree="old", status="planned")
-    _add_row(test_db, item_id, 2, "second", worktree="old", status="planned")
+    task_upsert(test_db, str(item_id), 2, "second", worktree="old")
     _add_row(test_db, item_id, 3, "third", worktree="new", status="planned")
     _finalize_rows(test_db, item_id, 1, 2, 3)
     dispatch_chain_upsert(
