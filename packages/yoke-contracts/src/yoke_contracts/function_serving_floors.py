@@ -203,7 +203,7 @@ FUNCTION_ARGUMENT_MINIMUM_SERVING_VERSIONS: dict[str, dict[str, ArgumentFloor]] 
         function_id: {
             name: ArgumentFloor(
                 "next-release",
-                "omit --limit and --offset to use the serving release's unpaged list",
+                "use the CLI release matching the server for its unpaged list",
             )
             for name in ("limit", "offset")
         }
