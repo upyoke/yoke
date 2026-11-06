@@ -71,7 +71,7 @@ def test_selection_names_publish_race_recovery(monkeypatch, capsys, detail):
 
 def test_direct_merge_uses_lane_publisher_and_stops_on_refusal(monkeypatch):
     from yoke_core.engines import merge_worktree, merge_worktree_pr as engine
-    from yoke_core.engines.merge_worktree_context import MergeArgs, MergeContext
+    from yoke_core.domain.merge_context import MergeArgs, MergeContext
 
     ctx = MergeContext(
         MergeArgs(branch="topic", target="trunk"),

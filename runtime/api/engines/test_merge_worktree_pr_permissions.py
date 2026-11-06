@@ -4,7 +4,7 @@ from copy import deepcopy
 
 import pytest
 
-from yoke_core.engines import merge_worktree_pr_check_runs as checks
+from yoke_core.domain import merge_github_check_runs as checks
 from runtime.api.engines.merge_worktree_pr_check_runs_test_support import (
     _auth,
     _check_run,

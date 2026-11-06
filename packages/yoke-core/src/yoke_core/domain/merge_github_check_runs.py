@@ -38,13 +38,13 @@ from yoke_core.domain.gh_rest_transport import (
     request_with_retry,
     split_repo,
 )
-from yoke_core.engines.merge_worktree_pr_queue import (
+from yoke_core.domain.merge_github_queue import (
     PrLandingState,
     graphql_with_auth,
     resolve_auth_detail,
 )
-from yoke_core.engines.merge_worktree_prepare import MergeContext
-from yoke_core.engines.merge_worktree_pr_projection import unreadable_landing_field
+from yoke_core.domain.merge_context import MergeContext
+from yoke_core.domain.merge_github_projection import unreadable_landing_field
 
 _LANDING_READ = {**PR_READ, **CONTENTS_READ, **CHECKS_READ, **STATUSES_READ}
 

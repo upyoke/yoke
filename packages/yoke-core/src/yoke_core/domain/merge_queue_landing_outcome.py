@@ -24,7 +24,7 @@ from yoke_core.domain.merge_queue_close_out import record_landing
 from yoke_core.domain.merge_queue_landed_candidate import landed_candidate_head
 from yoke_core.domain.merge_queue_drift_gate import drift_receipt
 from yoke_core.domain.merge_queue_landing_wait import RECOVERABLE_QUEUE_EXIT_CODE
-from yoke_core.engines.merge_worktree_prepare import MergeContext
+from yoke_core.domain.merge_context import MergeContext
 
 
 @dataclass(frozen=True)

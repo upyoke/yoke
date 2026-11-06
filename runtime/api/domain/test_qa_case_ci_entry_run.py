@@ -12,7 +12,8 @@ import pytest
 
 from runtime.api.domain.qa_case_ci_test_helpers import LANE_HEAD, completed_run
 
-from yoke_core.domain import lane_base_update, qa_case_ci_covering_run
+from yoke_core.engines import lane_base_update
+from yoke_core.domain import qa_case_ci_covering_run
 from yoke_core.domain import qa_case_ci_entry_run as entry_run
 from yoke_core.domain import qa_case_ci_lane
 from yoke_core.domain.qa_case_execution import QaCaseExecutionError

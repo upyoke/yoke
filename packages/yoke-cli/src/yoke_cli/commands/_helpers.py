@@ -318,7 +318,7 @@ def dispatch_and_emit(
     sys.stderr.flush()
     if response.success and cleanup_item is not None:
         cleanup_terminal_item_lanes = importlib.import_module(
-            "yoke_core.domain.terminal_lane_cleanup"
+            "yoke_core.engines.terminal_lane_cleanup"
         ).cleanup_terminal_item_lanes
         result = response.result or {}
         close = cleanup_terminal_item_lanes(

@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from yoke_core.domain import standalone_item_merge_engine as engine_mod
+from yoke_core.engines import standalone_item_merge_engine as engine_mod
 from yoke_core.engines import merge_worktree as mw
 from yoke_core.engines.merge_boundary_ceremony import (
     MERGE_CEREMONY_NONCE_ENV,

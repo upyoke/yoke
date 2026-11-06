@@ -28,9 +28,9 @@ from yoke_core.domain.merge_queue_landing_record_state import PENDING
 
 from yoke_core.domain.session_liveness_pump import SessionLivenessPump
 
-from yoke_core.engines.merge_worktree_pr_queue import QueueMember
+from yoke_core.domain.merge_github_queue import QueueMember
 
-from yoke_core.engines.merge_worktree_pr_train_run import TrainRun
+from yoke_core.domain.merge_github_train_run import TrainRun
 
 from runtime.api.merge_queue_landing_test_helpers import LANE_SHA
 

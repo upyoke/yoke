@@ -15,7 +15,7 @@ from yoke_core.domain.github_app_token_models import (
 from yoke_core.domain.github_actions_run_stall import pending_run_message
 from yoke_core.domain.handlers.github_actions_run import RunGetRequest, _classify
 from yoke_core.domain.project_github_auth_models import ProjectGithubAuth
-from yoke_core.engines import merge_worktree_pr_graphql as graphql
+from yoke_core.domain import merge_github_graphql as graphql
 
 
 @pytest.mark.parametrize("offset", [0, -240, 345])

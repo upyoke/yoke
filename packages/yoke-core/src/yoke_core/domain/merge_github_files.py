@@ -22,11 +22,11 @@ from yoke_contracts.github_app_installation_permissions import (
 )
 
 from yoke_core.domain.gh_rest_transport import split_repo
-from yoke_core.engines.merge_worktree_pr_queue import (
+from yoke_core.domain.merge_github_queue import (
     graphql_with_auth,
     resolve_auth_detail,
 )
-from yoke_core.engines.merge_worktree_prepare import MergeContext
+from yoke_core.domain.merge_context import MergeContext
 
 
 _PR_FILES_QUERY = """

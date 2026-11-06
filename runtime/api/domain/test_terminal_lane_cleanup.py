@@ -16,7 +16,7 @@ from yoke_core.domain import (
 )
 from yoke_core.domain.standalone_item_merge_release_status import CloseOutRoute
 from yoke_core.domain import standalone_item_merge_verify as verify
-from yoke_core.domain import terminal_lane_cleanup
+from yoke_core.engines import terminal_lane_cleanup
 from yoke_core.domain.standalone_item_merge import StandaloneMergeOutcome
 from yoke_core.engines.merge_worktree_safe_prune import WorktreeSweep
 from runtime.api.domain.merge_route_gate_stubs import admit_route_gates

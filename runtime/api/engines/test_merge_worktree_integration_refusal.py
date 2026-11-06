@@ -8,7 +8,7 @@ import pytest
 from yoke_core.engines import merge_worktree as mw
 from yoke_core.engines.merge_worktree_prepare_state import _pre_merge_integration
 from yoke_core.engines.merge_worktree_rebase import do_rebase_or_merge
-from yoke_core.engines.merge_worktree_context import MergeArgs, MergeContext
+from yoke_core.domain.merge_context import MergeArgs, MergeContext
 
 
 @pytest.mark.parametrize("generated_conflict", [False, True])

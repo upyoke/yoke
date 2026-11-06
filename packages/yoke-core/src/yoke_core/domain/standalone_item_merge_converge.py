@@ -47,7 +47,7 @@ def _converge_queue_landing(
         landed_candidate_head,
     )
     from yoke_core.domain.standalone_item_merge import StandaloneMergeOutcome
-    from yoke_core.engines.merge_worktree_prepare import MergeArgs, MergeContext
+    from yoke_core.domain.merge_context import MergeArgs, MergeContext
 
     resolver = landed_candidate_head
     candidate = lane.candidate_sha or lane.commit_sha

@@ -60,7 +60,7 @@ def sweep_mapped_checkouts(*, log: Callable[..., None] = _log) -> None:
     """Sweep each checkout the selected connection maps, naming every outcome."""
     from yoke_contracts.machine_config import runtime as machine_config
     from yoke_contracts.machine_config.schema import mapped_checkouts
-    from yoke_core.domain.terminal_lane_cleanup import sweep_managed_lanes
+    from yoke_core.engines.terminal_lane_cleanup import sweep_managed_lanes
 
     for checkout, project_id in sorted(mapped_checkouts(machine_config.load_config())):
         target, refusal = _default_branch(int(project_id))

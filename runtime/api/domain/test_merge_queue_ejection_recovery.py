@@ -15,13 +15,13 @@ from yoke_core.domain.merge_queue_landing_record import (
 )
 from yoke_core.domain.merge_queue_landing_record_state import CONFLICTED, STALLED
 from yoke_core.domain.merge_queue_landing_wait import _record_refusal
-from yoke_core.engines.merge_worktree_pr_membership import PrQueueMembership
-from yoke_core.engines.merge_worktree_pr_queue import (
+from yoke_core.domain.merge_github_membership import PrQueueMembership
+from yoke_core.domain.merge_github_queue import (
     PrLandingState,
     QueueEntryResult,
     QueueMember,
 )
-from yoke_core.engines.merge_worktree_prepare import MergeArgs, MergeContext
+from yoke_core.domain.merge_context import MergeArgs, MergeContext
 
 
 def facts(*, queued=False, conflicting=False, unmergeable=False):

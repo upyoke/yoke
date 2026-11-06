@@ -29,8 +29,8 @@ from yoke_core.domain.merge_queue_readiness import (
     MERGE_WHEN_READY_ARMED,
     MERGE_WHEN_READY_CONSUMED,
 )
-from yoke_core.engines.merge_worktree_pr_membership import PrQueueMembership
-from yoke_core.engines.merge_worktree_pr_queue import PrLandingState
+from yoke_core.domain.merge_github_membership import PrQueueMembership
+from yoke_core.domain.merge_github_queue import PrLandingState
 
 
 def test_repeated_facts_refresh_observed_at_without_faking_a_state_change():

@@ -10,7 +10,7 @@ adoption :mod:`yoke_core.domain.qa_case_ci_covering_run` already knows how
 to do is reachable only when the pull-request run comes *first*.
 
 Every live CI lane the gate still has to examine is brought current by
-:mod:`yoke_core.domain.lane_base_update`, then the runner publishes it once. For merge-queue
+:mod:`yoke_core.engines.lane_base_update`, then the runner publishes it once. For merge-queue
 projects the gate also opens the pull request and waits for the run that opening it produces. The landing
 step later finds the same pull request open and green and simply enqueues
 it. Per-item cost becomes one entry suite plus the train's amortized share.
@@ -26,13 +26,11 @@ import time
 from pathlib import Path
 from typing import Callable, Optional
 
-from yoke_core.domain import (
-    authored_file_merge_preflight,
-    lane_base_update,
-    qa_case_ci_covering_run,
-    qa_case_ci_lane,
-    qa_case_ci_progress,
-)
+from yoke_core.domain import authored_file_merge_preflight
+from yoke_core.engines import lane_base_update
+from yoke_core.domain import qa_case_ci_covering_run
+from yoke_core.domain import qa_case_ci_lane
+from yoke_core.domain import qa_case_ci_progress
 from yoke_core.domain.qa_case_execution import QaCaseExecutionError
 
 #: How long to wait for GitHub to mint the entry run after the pull request

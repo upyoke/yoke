@@ -1,6 +1,6 @@
 """Merge-engine REST helpers for CI check-runs.
 
-Carved out of :mod:`merge_worktree_pr_rest` to keep each module focused
+Carved out of :mod:`yoke_core.domain.merge_github_rest` to keep each module focused
 and under the authored-file line cap. Exposes :class:`CheckRunsState`
 and the state-translation table consumed by the CI orchestration in
 :mod:`merge_worktree_ci`.
@@ -22,11 +22,11 @@ from yoke_core.domain.gh_rest_transport import (
     RestTransportError,
     request_with_retry,
 )
-from yoke_core.engines.merge_worktree_pr_rest import (
+from yoke_core.domain.merge_github_rest import (
     AuthResolutionFailed,
     resolve_auth,
 )
-from yoke_core.engines.merge_worktree_prepare import MergeContext
+from yoke_core.domain.merge_context import MergeContext
 
 
 class CheckRunsState(NamedTuple):

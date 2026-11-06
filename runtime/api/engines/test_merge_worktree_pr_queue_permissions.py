@@ -6,7 +6,7 @@ from types import SimpleNamespace
 import pytest
 
 from yoke_core.domain.gh_rest_transport_models import RestResponse
-from yoke_core.engines import merge_worktree_pr_queue as queue
+from yoke_core.domain import merge_github_queue as queue
 from runtime.api.engines.merge_worktree_pr_check_runs_test_support import _ctx
 
 

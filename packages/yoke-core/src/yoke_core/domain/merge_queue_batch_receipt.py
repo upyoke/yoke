@@ -32,13 +32,13 @@ from yoke_core.domain.gh_rest_transport import (
     split_repo,
 )
 from yoke_core.domain.json_helper import dumps_compact
-from yoke_core.engines.merge_worktree_pr_queue import resolve_auth_detail
-from yoke_core.engines.merge_worktree_pr_train_run import (
+from yoke_core.domain.merge_github_queue import resolve_auth_detail
+from yoke_core.domain.merge_github_train_run import (
     TrainRunLookupFailure,
     read_train_run,
 )
-from yoke_core.engines.merge_worktree_prepare import MergeContext
-from yoke_core.engines.merge_worktree_tests import resolve_verification
+from yoke_core.domain.merge_context import MergeContext
+from yoke_core.domain.merge_verification import resolve_verification
 
 
 @dataclass(frozen=True)

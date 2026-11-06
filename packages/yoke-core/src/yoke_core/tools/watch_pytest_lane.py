@@ -7,7 +7,7 @@ then happens while the worker iterates, not at the full-CI gate.
 
 Only a lane is updated: a checkout on its project's base branch or on a
 detached HEAD (a CI checkout) runs as it is, and so does a tree no Yoke
-project owns. The update itself is :mod:`yoke_core.domain.lane_base_update`,
+project owns. The update itself is :mod:`yoke_core.engines.lane_base_update`,
 the same one the full-CI gate runs.
 """
 
@@ -41,7 +41,8 @@ def bring_lane_current(root: Path, progress_capture: Path | None) -> str | None:
     A refusal leaves the lane untouched and names the reason and recovery;
     the caller prints it and runs no tests.
     """
-    from yoke_core.domain import lane_base_update, qa_case_ci_entry_run
+    from yoke_core.engines import lane_base_update
+    from yoke_core.domain import qa_case_ci_entry_run
     from yoke_core.domain.project_selection import (
         MissingProjectError,
         required_local_project,

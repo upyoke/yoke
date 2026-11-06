@@ -11,9 +11,9 @@ import pytest
 
 from yoke_contracts.timestamps import parse_instant
 
-from yoke_core.engines import merge_worktree_pr_check_runs as checks_mod
+from yoke_core.domain import merge_github_check_runs as checks_mod
 
-from yoke_core.engines.merge_worktree_prepare import MergeArgs, MergeContext
+from yoke_core.domain.merge_context import MergeArgs, MergeContext
 
 
 def _ctx() -> MergeContext:

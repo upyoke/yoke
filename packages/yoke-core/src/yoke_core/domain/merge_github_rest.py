@@ -35,7 +35,7 @@ from yoke_core.domain.project_github_auth import (
     repair_command_hint,
     resolve_project_github_auth,
 )
-from yoke_core.engines.merge_worktree_prepare import MergeContext
+from yoke_core.domain.merge_context import MergeContext
 
 
 # ---------------------------------------------------------------------------

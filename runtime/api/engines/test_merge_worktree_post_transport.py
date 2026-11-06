@@ -23,7 +23,8 @@ from yoke_core.engines import merge_worktree as mw
 from yoke_core.engines import merge_worktree_post_helpers as post_helpers
 from yoke_core.engines import merge_worktree_post_local as post_local
 from yoke_core.engines import merge_worktree_tests as mtests
-from yoke_core.engines.merge_worktree_prepare import MergeArgs, MergeContext
+from yoke_core.domain import merge_verification
+from yoke_core.domain.merge_context import MergeArgs, MergeContext
 
 # Synthetic fixture id kept off the bare literal so the doc-hygiene drift guard stays clean.
 TEST_ITEM_ID = 42
@@ -201,7 +202,7 @@ class TestPostRebaseRelays:
                 },
             )
 
-        monkeypatch.setattr(mtests, "call_dispatcher", fake)
+        monkeypatch.setattr(merge_verification, "call_dispatcher", fake)
         _no_bare_db(monkeypatch)
 
         ctx = MergeContext(args=MergeArgs(branch=TEST_ITEM_REF), item_id="ITEM-42")
@@ -221,7 +222,7 @@ class TestPostRebaseRelays:
 
     def test_missing_command_response_blocks(self, monkeypatch):
         monkeypatch.setattr(
-            mtests,
+            merge_verification,
             "call_dispatcher",
             lambda **k: _resp("merge.tests.post_rebase_requirement", {"command": None}),
         )
@@ -233,7 +234,7 @@ class TestPostRebaseRelays:
     def test_unparseable_unregistered_item_skips_relay(self, monkeypatch):
         called = []
         monkeypatch.setattr(
-            mtests,
+            merge_verification,
             "call_dispatcher",
             lambda **k: called.append(k) or _resp("x"),
         )
@@ -250,7 +251,7 @@ class TestPostRebaseRelays:
                 code="post_rebase_requirement_failed", message="plan has no cases"
             ),
         )
-        monkeypatch.setattr(mtests, "call_dispatcher", lambda **k: resp)
+        monkeypatch.setattr(merge_verification, "call_dispatcher", lambda **k: resp)
         _no_bare_db(monkeypatch)
         ctx = MergeContext(args=MergeArgs(branch=TEST_ITEM_REF), item_id="ITEM-42")
         with pytest.raises(RuntimeError, match="post_rebase_requirement_failed"):
@@ -265,7 +266,7 @@ class TestPostRebaseRelays:
                 code="actor_session_missing", message="no ambient session"
             ),
         )
-        monkeypatch.setattr(mtests, "call_dispatcher", lambda **k: resp)
+        monkeypatch.setattr(merge_verification, "call_dispatcher", lambda **k: resp)
         _no_bare_db(monkeypatch)
         ctx = MergeContext(args=MergeArgs(branch=TEST_ITEM_REF), item_id="ITEM-42")
         with pytest.raises(RuntimeError, match="actor_session_missing"):

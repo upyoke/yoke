@@ -7,10 +7,10 @@ from yoke_core.domain.merge_queue_enqueue_verification import (
     red_entry_checks_refusal,
     verify_landing_admitted,
 )
-from yoke_core.engines.merge_worktree_pr_check_runs import LandingCheck
-from yoke_core.engines.merge_worktree_pr_membership import PrQueueMembership
-from yoke_core.engines.merge_worktree_pr_queue import PrLandingState
-from yoke_core.engines.merge_worktree_prepare import MergeArgs, MergeContext
+from yoke_core.domain.merge_github_check_runs import LandingCheck
+from yoke_core.domain.merge_github_membership import PrQueueMembership
+from yoke_core.domain.merge_github_queue import PrLandingState
+from yoke_core.domain.merge_context import MergeArgs, MergeContext
 
 
 CTX = MergeContext(args=MergeArgs(branch="ALP-1"), repo_root="", project="alpha")

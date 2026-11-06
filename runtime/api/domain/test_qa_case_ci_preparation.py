@@ -12,17 +12,16 @@ from runtime.api.domain.qa_case_ci_test_helpers import (
     wire_ci_case,
 )
 from runtime.api.domain.qa_case_ci_source_test_support import git
-from yoke_core.domain import (
-    lane_base_update,
-    qa_case_ci_covering_run,
-    qa_case_ci_entry_run,
-    qa_case_ci_lane,
-    qa_case_ci_resume,
-    qa_case_ci_run,
-    verification_tree_binding,
-)
+from yoke_core.engines import lane_base_update as lane_base_update
+from yoke_core.domain import qa_case_ci_covering_run
+from yoke_core.domain import qa_case_ci_entry_run
+from yoke_core.domain import qa_case_ci_lane
+from yoke_core.domain import qa_case_ci_resume
+from yoke_core.domain import qa_case_ci_run
+from yoke_core.domain import verification_tree_binding
 from yoke_core.domain.qa_case_execution import QaCaseExecutionError
-from yoke_core.engines import merge_worktree_pr_discovery, merge_worktree_pr_queue
+from yoke_core.domain import merge_github_discovery as merge_worktree_pr_discovery
+from yoke_core.domain import merge_github_queue as merge_worktree_pr_queue
 
 
 @pytest.mark.parametrize(

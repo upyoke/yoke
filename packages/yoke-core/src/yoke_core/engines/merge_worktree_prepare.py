@@ -11,7 +11,7 @@ from typing import Optional
 
 from yoke_contracts.api.function_call import TargetRef
 from yoke_core.api.service_client_structured_api_adapter import call_dispatcher
-from yoke_core.engines.merge_worktree_context import (
+from yoke_core.domain.merge_context import (
     MergeArgs,
     MergeContext,
     _matches_glob,  # noqa: F401 - preserved public import surface
@@ -27,12 +27,7 @@ from yoke_core.engines.merge_worktree_prepare_state import (  # noqa: F401
     prune_agent_worktrees,
 )
 from yoke_core.domain.project_identity_item_ref import item_ref_for_id
-
-
-def _parent():
-    from yoke_core.engines import merge_worktree as _mw
-
-    return _mw
+from yoke_core.domain.merge_worktree_lookup import _find_worktree
 
 
 @dataclass
@@ -195,20 +190,3 @@ def resolve_context(args: MergeArgs) -> MergeContext:
     return ctx
 
 
-def _find_worktree(branch: str, repo_root: str) -> str:
-    """Find the worktree path for a branch, or fall back to repo root."""
-    mw = _parent()
-    result = mw._run_git(
-        ["worktree", "list", "--porcelain"], cwd=repo_root, capture=True
-    )
-    if result.returncode != 0:
-        return repo_root
-
-    current_wt = ""
-    for line in result.stdout.splitlines():
-        if line.startswith("worktree "):
-            current_wt = line[len("worktree ") :]
-        elif line == f"branch refs/heads/{branch}":
-            return current_wt
-
-    return repo_root

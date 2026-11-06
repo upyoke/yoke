@@ -91,7 +91,7 @@ def test_a_create_failure_is_preserved_when_a_stale_pull_request_is_also_present
     """A hard create failure is the refusal, even if a merged pull request
     for earlier commits is also on the branch. The stale listing is context,
     not a second-merge prohibition, and reset is never recovery."""
-    from yoke_core.engines.merge_worktree_pr_rest import PrCreateResult
+    from yoke_core.domain.merge_github_rest import PrCreateResult
 
     create_detail = "HTTP 422: Validation Failed — Head sha cannot be resolved"
     monkeypatch.setattr(
@@ -124,7 +124,7 @@ def test_a_create_failure_is_preserved_when_a_stale_pull_request_is_also_present
 def test_a_stale_listing_without_a_hard_create_failure_does_not_recommend_reset(
     monkeypatch,
 ):
-    from yoke_core.engines.merge_worktree_pr_rest import PrCreateResult
+    from yoke_core.domain.merge_github_rest import PrCreateResult
 
     monkeypatch.setattr(
         landing_pr_mod,

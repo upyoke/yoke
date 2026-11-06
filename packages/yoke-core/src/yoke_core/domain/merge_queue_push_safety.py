@@ -36,11 +36,11 @@ from pathlib import Path
 from yoke_core.domain.merge_queue_hold import REARM_RECOVERY
 from yoke_core.domain.merge_queue_readiness import read_merge_queue_readiness
 from yoke_core.domain.qa_case_execution import QaCaseExecutionError
-from yoke_core.engines.merge_worktree_pr_discovery import (
+from yoke_core.domain.merge_github_discovery import (
     base_ref,
     list_branch_pull_requests,
 )
-from yoke_core.engines.merge_worktree_prepare import MergeArgs, MergeContext
+from yoke_core.domain.merge_context import MergeArgs, MergeContext
 
 #: The command that makes a live candidate safe to correct.
 HOLD_COMMAND = "yoke github merge-queue hold <item>"

@@ -38,7 +38,7 @@ from yoke_core.domain.standalone_item_merge_checkout import (
     resolve_checkout as _resolve_checkout,
 )
 from yoke_core.domain.standalone_item_merge_lane import active_lanes, lane_path, refresh_recorded_head
-from yoke_core.domain.terminal_lane_cleanup import record_terminal_lane_close_out
+from yoke_core.engines.terminal_lane_cleanup import record_terminal_lane_close_out
 
 
 def _session_holds_claim(item_id: int, session_id: str) -> str:

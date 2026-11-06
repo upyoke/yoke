@@ -24,7 +24,7 @@ from yoke_core.domain.worktree_create_db import (
     prepare_authoritative_item_worktrees,
     provisioning_project,
 )
-from yoke_core.domain.worktree_maintenance import retire_finished_lanes
+from yoke_core.engines.worktree_maintenance import retire_finished_lanes
 from yoke_core.domain.worktree_create_plan import (
     WorktreeCreationEntry,
     dirty_main_error,

@@ -44,12 +44,12 @@ from yoke_core.domain.merge_queue_landing_wait import (
 )
 from yoke_core.domain.merge_queue_drift_gate import drift_check_before_landing
 from yoke_core.domain.session_liveness_pump import SessionLivenessPump
-from yoke_core.engines.merge_worktree_pr_queue import (
+from yoke_core.domain.merge_github_queue import (
     enter_merge_queue,
     read_pr_landing_state,
     read_queue_members,
 )
-from yoke_core.engines.merge_worktree_prepare import MergeContext
+from yoke_core.domain.merge_context import MergeContext
 
 
 def _emit_to_stderr(line: str) -> None:

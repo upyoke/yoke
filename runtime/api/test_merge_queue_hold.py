@@ -18,15 +18,15 @@ from yoke_core.domain.merge_queue_readback_outcomes import (
 from yoke_core.domain.project_github_auth_tokens import (
     bind_local_github_user_token_provider,
 )
-from yoke_core.engines.merge_worktree_pr_rest import (
+from yoke_core.domain.merge_github_rest import (
     GITHUB_AUTHORITY_INSTALLATION,
     GITHUB_AUTHORITY_USER,
 )
-from yoke_core.engines.merge_worktree_pr_queue import (
+from yoke_core.domain.merge_github_queue import (
     PrLandingState,
     QueueEntryResult,
 )
-from yoke_core.engines.merge_worktree_prepare import MergeArgs, MergeContext
+from yoke_core.domain.merge_context import MergeArgs, MergeContext
 
 PR = "42"
 TARGET = "main"

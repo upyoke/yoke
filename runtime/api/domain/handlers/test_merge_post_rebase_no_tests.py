@@ -18,6 +18,7 @@ from yoke_core.domain.actors import seed_human_actor
 from yoke_core.domain.handlers import merge_engine_internal_ops as ops
 from yoke_core.domain.project_verification_posture import attest_no_tests
 from yoke_core.engines import merge_worktree_tests as mod
+from yoke_core.domain import merge_verification
 
 ITEM_ID = 9431
 REASON = "documentation-only project"
@@ -74,7 +75,7 @@ def test_merge_after_attestation_runs_no_suite(
             error=outcome.error,
         )
 
-    monkeypatch.setattr(mod, "call_dispatcher", dispatch)
+    monkeypatch.setattr(merge_verification, "call_dispatcher", dispatch)
     # A package.json must not pull an attested project into legacy detection.
     (tmp_path / "package.json").write_text("{}", encoding="utf-8")
     ctx = SimpleNamespace(item_id=f"YOK-{ITEM_ID}", worktree_path=str(tmp_path))

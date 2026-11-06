@@ -11,7 +11,7 @@ from yoke_core.engines import merge_worktree as mw
 from yoke_core.engines import merge_worktree_landing as landing
 from yoke_core.engines import merge_worktree_pr
 from yoke_core.engines import merge_worktree_queue_landing as queue
-from yoke_core.engines.merge_worktree_context import MergeArgs, MergeContext
+from yoke_core.domain.merge_context import MergeArgs, MergeContext
 
 _HEAD = "a" * 40
 

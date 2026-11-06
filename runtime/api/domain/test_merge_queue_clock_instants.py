@@ -242,7 +242,7 @@ def test_landing_models_format_only_report_clock_owners(clock):
     import json
     from yoke_core.domain.merge_queue_hold import _landed
     from yoke_core.domain.merge_queue_readiness import classify_readiness
-    from yoke_core.engines.merge_worktree_pr_queue import PrLandingState
+    from yoke_core.domain.merge_github_queue import PrLandingState
 
     state = PrLandingState(
         True, True, False, merged_at=clock, merge_commit_sha="opaque"
@@ -269,7 +269,7 @@ def test_landing_models_format_only_report_clock_owners(clock):
     "clock", ["", "2026-10-09", "2026-10-09T10:11:12", "2026-10-09T10:11:12-00:00"]
 )
 def test_landing_model_constructor_refuses_unverifiable_clock(clock):
-    from yoke_core.engines.merge_worktree_pr_queue import PrLandingState
+    from yoke_core.domain.merge_github_queue import PrLandingState
 
     with pytest.raises(InvalidInstant):
         PrLandingState(True, True, False, merged_at=clock)
@@ -280,7 +280,7 @@ def test_landing_model_constructor_refuses_unverifiable_clock(clock):
 )
 def test_graphql_landing_clock_refusal_is_unreadable(monkeypatch, clock):
     from types import SimpleNamespace
-    from yoke_core.engines import merge_worktree_pr_check_runs as checks
+    from yoke_core.domain import merge_github_check_runs as checks
 
     monkeypatch.setattr(
         checks,

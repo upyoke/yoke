@@ -21,7 +21,7 @@ from yoke_core.domain import qa_plan_attachments
 from yoke_core.domain.actors import seed_human_actor
 from yoke_core.domain.handlers import merge_engine_internal_ops as ops
 from yoke_core.domain.merge_queue_route_selection import RouteAdmission
-from yoke_core.engines import merge_worktree_tests
+from yoke_core.domain import merge_verification as merge_worktree_tests
 
 ITEM_ID = 9481
 READY = ("--result", "r", "--verification", "v")

@@ -5,8 +5,8 @@ from types import SimpleNamespace
 
 import pytest
 
-from yoke_core.engines import merge_worktree_pr_files as files
-from yoke_core.engines import merge_worktree_pr_membership as membership
+from yoke_core.domain import merge_github_files as files
+from yoke_core.domain import merge_github_membership as membership
 
 
 def _wire(monkeypatch, module, payload, private):

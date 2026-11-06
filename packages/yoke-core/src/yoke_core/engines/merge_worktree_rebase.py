@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Optional, Tuple
 
 from yoke_core.engines.merge_worktree_conflicts import auto_resolve_conflicts
-from yoke_core.engines.merge_worktree_prepare import MergeContext
+from yoke_core.domain.merge_context import MergeContext
 from yoke_core.engines.merge_worktree_prepare_state import _integration_refused
 
 

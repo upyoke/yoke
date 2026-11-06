@@ -22,7 +22,7 @@ from yoke_core.domain.coordination_claims import get_claim
 from yoke_core.domain import migration_territory_claim
 from yoke_core.engines import merge_worktree as mw
 from yoke_core.engines import merge_worktree_landing as landing
-from yoke_core.engines.merge_worktree_context import MergeArgs, MergeContext
+from yoke_core.domain.merge_context import MergeArgs, MergeContext
 
 
 def _git(root, *args):

@@ -32,7 +32,7 @@ from yoke_core.domain.merge_queue_readback_outcomes import (
     UNREADABLE,
 )
 from yoke_core.domain.session_message_types import row_dict
-from yoke_core.engines.merge_worktree_pr_check_runs import LandingCheck, check_payload
+from yoke_core.domain.merge_github_check_runs import LandingCheck, check_payload
 
 
 @dataclass(frozen=True)

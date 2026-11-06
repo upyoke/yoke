@@ -37,10 +37,10 @@ from yoke_core.domain.standalone_item_merge import (
     StandaloneMergeOutcome,
     merge_standalone_branch,
 )
-from yoke_core.engines.merge_worktree_prepare import (
+from yoke_core.domain.merge_worktree_lookup import _find_worktree
+from yoke_core.domain.merge_context import (
     MergeArgs,
     MergeContext,
-    _find_worktree,
 )
 
 

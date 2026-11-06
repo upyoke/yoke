@@ -14,10 +14,10 @@ from yoke_contracts.github_app_installation_permissions import (
 from yoke_core.domain.gh_rest_transport import RestAuthError
 from yoke_core.domain.gh_rest_transport_models import RestResponse
 from yoke_core.domain.project_github_auth import ProjectGithubAuth
-from yoke_core.engines import merge_worktree_pr_queue as queue_mod
-from yoke_core.engines import merge_worktree_pr_graphql as graphql_mod
-from yoke_core.engines.merge_worktree_pr_rest import AuthResolutionFailed
-from yoke_core.engines.merge_worktree_prepare import MergeArgs, MergeContext
+from yoke_core.domain import merge_github_queue as queue_mod
+from yoke_core.domain import merge_github_graphql as graphql_mod
+from yoke_core.domain.merge_github_rest import AuthResolutionFailed
+from yoke_core.domain.merge_context import MergeArgs, MergeContext
 
 
 def _ctx() -> MergeContext:

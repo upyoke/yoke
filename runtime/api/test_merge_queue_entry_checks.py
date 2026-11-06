@@ -15,9 +15,9 @@ from yoke_core.domain.merge_queue_landing_record_state import (
     ENTRY_CHECKS_FAILED,
     PENDING,
 )
-from yoke_core.engines.merge_worktree_pr_check_runs import LandingCheck
-from yoke_core.engines.merge_worktree_pr_membership import PrQueueMembership
-from yoke_core.engines.merge_worktree_pr_queue import PrLandingState
+from yoke_core.domain.merge_github_check_runs import LandingCheck
+from yoke_core.domain.merge_github_membership import PrQueueMembership
+from yoke_core.domain.merge_github_queue import PrLandingState
 
 RED_ARMED = PrLandingState(
     merged=False,

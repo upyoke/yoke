@@ -11,7 +11,7 @@ from yoke_core.domain.merge_queue_admission import (
     TrainContext,
     evaluate_admission,
 )
-from yoke_core.engines.merge_worktree_pr_queue import QueueMember
+from yoke_core.domain.merge_github_queue import QueueMember
 
 
 def _candidate(ref="YOK-A", targets=(), carrier=False, landed=False):

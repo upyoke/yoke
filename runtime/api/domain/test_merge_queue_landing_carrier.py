@@ -13,7 +13,7 @@ from yoke_core.domain import merge_queue_landing_carrier as carrier_mod
 from yoke_core.domain.gh_rest_transport_errors import RestTransportError
 from yoke_core.domain.gh_rest_transport_models import RestResponse
 from yoke_core.domain.merge_queue_batch_receipt import BatchReceipt
-from yoke_core.engines.merge_worktree_prepare import MergeArgs, MergeContext
+from yoke_core.domain.merge_context import MergeArgs, MergeContext
 
 LANE_SHA = "1" * 40
 LANDING_SHA = "a" * 40

@@ -9,7 +9,7 @@ from yoke_contracts.api.function_call import FunctionCallResponse
 from yoke_core.domain import migration_merge_preflight as migration_gate
 from yoke_core.engines import merge_worktree as mw
 from yoke_core.engines import merge_worktree_prepare_preflight as preflight
-from yoke_core.engines.merge_worktree_prepare import MergeArgs, MergeContext
+from yoke_core.domain.merge_context import MergeArgs, MergeContext
 
 TEST_ITEM_ID = 42
 TEST_ITEM_REF = f"YOK-{TEST_ITEM_ID}"

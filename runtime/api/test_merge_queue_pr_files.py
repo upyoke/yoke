@@ -3,9 +3,9 @@
 from types import SimpleNamespace
 
 from yoke_core.domain.gh_rest_transport_models import RestResponse
-from yoke_core.engines import merge_worktree_pr_files as files_mod
-from yoke_core.engines import merge_worktree_pr_queue as queue_mod
-from yoke_core.engines.merge_worktree_prepare import MergeArgs, MergeContext
+from yoke_core.domain import merge_github_files as files_mod
+from yoke_core.domain import merge_github_queue as queue_mod
+from yoke_core.domain.merge_context import MergeArgs, MergeContext
 
 
 def _ctx() -> MergeContext:

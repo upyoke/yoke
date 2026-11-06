@@ -25,12 +25,12 @@ from yoke_core.domain.merge_queue_entry_checks import (
     describe_failed_checks,
     failed_required_checks,
 )
-from yoke_core.engines.merge_worktree_pr_check_runs import (
+from yoke_core.domain.merge_github_check_runs import (
     LandingCheck,
     read_required_checks,
 )
-from yoke_core.engines.merge_worktree_pr_queue import resolve_auth_detail
-from yoke_core.engines.merge_worktree_prepare import MergeContext
+from yoke_core.domain.merge_github_queue import resolve_auth_detail
+from yoke_core.domain.merge_context import MergeContext
 
 #: How long re-entry waits for the rollup to show the re-run checks.
 REPLACED_CONFIRM_SECONDS = 60

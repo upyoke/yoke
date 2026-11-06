@@ -14,8 +14,8 @@ from yoke_core.domain import merge_queue_landing_outcome as outcome_mod
 from yoke_core.domain import merge_queue_landing_pull_request as landing_pr_mod
 from yoke_core.domain import merge_queue_route as route_mod
 from yoke_core.domain.merge_queue_close_out import QueueCloseOut
-from yoke_core.engines.merge_worktree_pr_queue import QueueEntryResult
-from yoke_core.engines.merge_worktree_pr_rest import PrCreateResult
+from yoke_core.domain.merge_github_queue import QueueEntryResult
+from yoke_core.domain.merge_github_rest import PrCreateResult
 
 
 def test_reentry_with_merged_pr_skips_queue_entry(monkeypatch):

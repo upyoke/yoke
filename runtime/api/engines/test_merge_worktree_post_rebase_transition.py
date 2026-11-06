@@ -7,6 +7,7 @@ from types import SimpleNamespace
 import pytest
 
 from yoke_core.engines import merge_worktree_tests as mod
+from yoke_core.domain import merge_verification
 
 
 _FIXTURE_ITEM_REF = f"YOK-{42}"
@@ -31,7 +32,7 @@ def _patch_dispatcher(monkeypatch, responses):
             raise AssertionError(f"unexpected dispatcher call: {kwargs}")
         return queue.pop(0)
 
-    monkeypatch.setattr(mod, "call_dispatcher", fake)
+    monkeypatch.setattr(merge_verification, "call_dispatcher", fake)
     return calls
 
 
@@ -80,7 +81,7 @@ def test_dispatcher_exception_blocks_registered_project(
     def unavailable(**_kwargs):
         raise OSError("relay unavailable")
 
-    monkeypatch.setattr(mod, "call_dispatcher", unavailable)
+    monkeypatch.setattr(merge_verification, "call_dispatcher", unavailable)
     with pytest.raises(RuntimeError, match="dispatcher failed"):
         mod._registered_verification_command(ctx)
 

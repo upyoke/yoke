@@ -32,12 +32,12 @@ from typing import Optional, Sequence
 
 from yoke_contracts.refusal_recovery import compose_refusal
 
-from yoke_core.engines.merge_worktree_pr_check_runs import LandingCheck
-from yoke_core.engines.merge_worktree_pr_queue import (
+from yoke_core.domain.merge_github_check_runs import LandingCheck
+from yoke_core.domain.merge_github_queue import (
     QueueEntryResult,
     leave_merge_queue,
 )
-from yoke_core.engines.merge_worktree_prepare import MergeContext
+from yoke_core.domain.merge_context import MergeContext
 
 ENTRY_CHECKS_FAILED = "entry_checks_failed"
 

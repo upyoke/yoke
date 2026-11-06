@@ -7,10 +7,10 @@ from unittest.mock import Mock
 
 import pytest
 
-from yoke_core.domain import lane_base_update
+from yoke_core.engines import lane_base_update
 from yoke_core.domain.qa_case_execution import QaCaseExecutionError
 from yoke_core.engines import merge_worktree
-from yoke_core.engines.merge_worktree_context import MergeArgs, MergeContext
+from yoke_core.domain.merge_context import MergeArgs, MergeContext
 from yoke_core.engines.merge_worktree_rebase import do_rebase_or_merge
 
 

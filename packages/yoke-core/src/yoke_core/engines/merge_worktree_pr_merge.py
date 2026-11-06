@@ -3,17 +3,17 @@
 Wraps the REST :func:`merge_pr` helper with the merge-state-aware retry
 the legacy subprocess wrapper provided. Lives in its own module so the
 PR-create / discover / merge-state surface in
-:mod:`merge_worktree_pr_rest` stays focused.
+:mod:`yoke_core.domain.merge_github_rest` stays focused.
 """
 
 from __future__ import annotations
 
-from yoke_core.engines.merge_worktree_pr_rest import (
+from yoke_core.domain.merge_github_rest import (
     PrMergeResult,
     get_pr_merge_state,
     merge_pr,
 )
-from yoke_core.engines.merge_worktree_prepare import MergeContext
+from yoke_core.domain.merge_context import MergeContext
 
 
 def run_pr_merge_with_retry_guard(

@@ -11,7 +11,7 @@ from yoke_core.domain import standalone_item_merge_post_push as completion
 from yoke_core.domain import merge_queue_close_out as queue
 from yoke_core.domain.merge_landing_proof import LandingUnverified, verified_target_sha
 from yoke_core.engines import merge_worktree_post_local as integration
-from yoke_core.engines.merge_worktree_prepare import MergeArgs, MergeContext
+from yoke_core.domain.merge_context import MergeArgs, MergeContext
 
 
 @pytest.fixture

@@ -32,9 +32,9 @@ from yoke_core.domain.merge_queue_readiness import (
     MERGE_WHEN_READY_CONSUMED,
 )
 
-from yoke_core.engines.merge_worktree_pr_membership import PrQueueMembership
+from yoke_core.domain.merge_github_membership import PrQueueMembership
 
-from yoke_core.engines.merge_worktree_pr_queue import PrLandingState
+from yoke_core.domain.merge_github_queue import PrLandingState
 
 
 def _record(state: str, observed_at: str, *, narrative: str) -> LandingRecord:

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from yoke_core.engines.merge_worktree_prepare import MergeContext
+from yoke_core.domain.merge_context import MergeContext
 
 
 def bind_recorded_source(ctx: MergeContext, current_branch_sha: str) -> str:

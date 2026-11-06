@@ -20,7 +20,7 @@ from yoke_core.domain.item_test_results_classify import (
     classify_test_results,
     read_item_test_results,
 )
-from yoke_core.engines.merge_worktree_prepare import MergeContext
+from yoke_core.domain.merge_context import MergeContext
 from yoke_core.engines.merge_worktree_ci_rest import (
     CheckRunsState,
     get_check_runs,
