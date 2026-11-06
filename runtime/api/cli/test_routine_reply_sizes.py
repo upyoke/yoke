@@ -53,7 +53,11 @@ def test_measured_routine_read_sizes(command, budget):
             "rows": [
                 {
                     "session_id": f"00000000-0000-0000-0000-{n:012}",
-                    "liveness": "active",
+                    "presence": "present",
+                    "activity": "between_turns",
+                    "intent": {"state": "none"},
+                    "next_actor": {"actor": "this_session", "reason": "ready"},
+                    "holds": [{"public_ref": "APP-7"}],
                     "executor_surface": "codex-cli",
                     "current_item": "APP-7",
                 }

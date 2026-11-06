@@ -205,6 +205,10 @@ def test_sessions_list_dispatches_filters_and_prints_summary_rows() -> None:
                     {
                         "session_id": "s-1",
                         "presence": "present",
+                        "activity": "working",
+                        "intent": {"state": "none"},
+                        "next_actor": {"actor": "this_session", "reason": "working"},
+                        "holds": [{"public_ref": "YOK-41"}],
                         "mode": "charge",
                         "current_item_ref": "YOK-41",
                     },
@@ -236,9 +240,10 @@ def test_sessions_list_dispatches_filters_and_prints_summary_rows() -> None:
 
     assert rc == 0
     text = out.getvalue()
-    assert "presence | mode | current item ref" in text
-    assert "present | charge | YOK-41" in text
-    assert "yoke sessions get s-1" in text
+    assert "presence | activity | intent | next | holds" in text
+    assert "present | working | none | this_session: working | YOK-41" in text
+    assert "s-1" in text
+    assert "yoke sessions get SESSION" in text
     assert err.getvalue() == ""
     req = _CAPTURED_REQUESTS[-1]
     assert req.function == "sessions.list"

@@ -9,9 +9,6 @@ from __future__ import annotations
 from yoke_cli.commands.adapters.list_paging import add_page_args, dispatch_list
 
 from yoke_cli.transport.human_values import write_human
-from yoke_cli.commands.adapters.session_control_recipient_output import (
-    recipient_project,
-)
 
 import argparse
 from typing import Any, Dict, List
@@ -108,34 +105,41 @@ def sessions_list(args: List[str]) -> int:
         payload=payload,
         session_id=parsed.session_id,
         json_mode=parsed.json_mode,
-        human_writer=write_sessions_result,
+        human_writer=lambda response, out, err: write_sessions_result(response, out, err, full=parsed.full),
     )
 
 
 
-def write_sessions_result(response, stdout, stderr) -> None:
+def write_sessions_result(response, stdout, stderr, *, full=False) -> None:
     result = response.result or {}
-    displayed = [
-        {
-            **row,
-            **session_state_columns(row),
-            "session": row.get("display_label") or "session label unavailable",
-            "next_actor": row.get("next_actor") or (row.get("session_state") or {}).get("next_actor"),
-            "read": f"yoke sessions get {row.get('session_id')}",
-            "project": recipient_project(row),
-        }
-        for row in result.get("rows", [])
-    ]
-    fields = [
-        "session",
-        "read",
-        *(
-            key
-            for key in result.get("fields", [])
-            if key not in {"session_id", "display_label", "harness_title"}
-        ),
-    ]
-    write_human({**result, "fields": fields, "rows": displayed}, stdout)
+    rows = result.get("rows") or []
+    if full:
+        write_human(result, stdout)
+        return
+
+    def description(value, key):
+        if not isinstance(value, dict):
+            return value
+        return ": ".join(str(value[name]) for name in (key, "reason") if value.get(name))
+
+    displayed = []
+    for row in rows:
+        state = session_state_columns(row)
+        holds = state.get("holds") or []
+        label = row.get("display_label")
+        identity = row.get("session_id")
+        displayed.append({
+            "session": f"{label} ({identity})" if label else identity,
+            "presence": state["presence"],
+            "activity": state["activity"],
+            "intent": description(state["intent"], "state"),
+            "next": description(state["next_actor"], "actor"),
+            "holds": ", ".join(str(h.get("public_ref") or h.get("target") or h.get("kind") or "hold") for h in holds),
+        })
+    write_human({"rows": displayed, **{
+        key: result[key] for key in ("offset", "limit", "next_offset") if key in result
+    }}, stdout)
+    print("Details: yoke sessions get SESSION; yoke sessions list --full", file=stdout)
 
 
 def sessions_get(args: List[str]) -> int:
