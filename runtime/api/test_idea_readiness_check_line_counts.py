@@ -113,3 +113,40 @@ class TestVerifyFileBudgetLineCounts:
         issues = verify_file_budget_line_counts(spec, repo_root=stub_repo_root)
 
         assert any(i.code == "STALE_FILE_BUDGET_SIZING" for i in issues)
+
+
+@pytest.mark.parametrize(("spec", "expected_code"), [
+    ("No budget declared.", "MISSING_FILE_BUDGET"),
+    ("## File Budget\n\n| Path | Lines |\n| --- | --- |\n"
+     "| `src/example.py` | 120 |", "MISSING_FILE_BUDGET"),
+    ("## File Budget\n\n- `src/example.py`", "MISSING_FILE_BUDGET_SIZING"),
+    ("## File Budget\n\n- `src/example.py` — current 120 lines; "
+     "remaining headroom 0; at-or-over-limit: true", "STALE_FILE_BUDGET_SIZING"),
+])
+def test_budget_refusals_teach_complete_row_format(
+    spec, expected_code, test_db, stub_repo_root, monkeypatch,
+):
+    import json
+
+    from runtime.api.fixtures.backlog_inserts import insert_item
+    from yoke_core.domain import idea_readiness_check
+
+    item_id = 4951
+    insert_item(
+        test_db, id=item_id, workflow_id="dash", status="idea", spec=spec,
+        workflow_posture=json.dumps({"file_budget": True}),
+    )
+    monkeypatch.setattr(
+        idea_readiness_check, "item_project_checkout", lambda *_: stub_repo_root,
+    )
+    outcome = idea_readiness_check.run_all_checks(test_db, item_id)
+    issue = next(i for i in outcome.issues if i.code == expected_code)
+    for rule in (
+        "dash list", "each path in backticks", "current N lines",
+        "350 minus N", "at-or-over-limit: true|false", "N >= 350",
+        "new files use current 0 lines", "each generated copy as its own row",
+        "every path in the claim when path claims are enabled",
+        "- `src/example.py` — current 120 lines; remaining headroom 230; "
+        "at-or-over-limit: false",
+    ):
+        assert rule in issue.remediation
