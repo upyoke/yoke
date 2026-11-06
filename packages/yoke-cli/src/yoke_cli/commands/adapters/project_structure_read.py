@@ -13,6 +13,7 @@ from yoke_cli.commands._helpers import (
 )
 from yoke_contracts.api.function_call import TargetRef
 from yoke_cli.transport.human_values import write_human
+from yoke_cli.commands.adapters.architecture_draft_render import write_architecture_draft
 
 
 PROJECT_STRUCTURE_DEPLOY_DEFAULTS_GET_USAGE = (
@@ -238,7 +239,7 @@ def architecture_draft_get(args: List[str]) -> int:
         return 2
 
     def _human_writer(response, stdout, stderr) -> None:
-        write_human(response.result, stdout)
+        write_architecture_draft(response.result, stdout)
 
     return dispatch_and_emit(
         function_id="project_structure.architecture_draft.get",
