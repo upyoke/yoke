@@ -320,4 +320,7 @@ def get_setup_command(project_id: str) -> Optional[str]:
     if not response.success:
         raise RuntimeError(str(response.error))
     raw = (response.result or {}).get("settings_json")
-    return (json.loads(raw).get("command") or None) if raw else None
+    command = (json.loads(raw).get("command") or None) if raw else None
+    if command is not None and not isinstance(command, str):
+        raise ValueError("setup_command.command must be a string")
+    return command

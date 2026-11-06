@@ -67,3 +67,20 @@ def test_successful_setup_keeps_json_stdout_parseable(tmp_path, monkeypatch, cap
     captured = capfd.readouterr()
     assert json.loads(captured.out)["setup_command"] == {"status": "ran", "command": command}
     assert "environment ready" in captured.err
+
+
+@pytest.mark.parametrize("settings", ['{"command":42}', '[]', 'invalid'])
+def test_invalid_declaration_is_unreadable(tmp_path, monkeypatch, capsys, settings):
+    from yoke_contracts.api.function_call import FunctionCallResponse
+
+    monkeypatch.setattr(
+        "yoke_core.api.service_client_structured_api_adapter.call_dispatcher",
+        lambda **kwargs: FunctionCallResponse(
+            success=True, function=kwargs["function_id"], version="v1",
+            result={"settings_json": settings},
+        ),
+    )
+    result = {}
+    assert worktree_deps.install_worktree_deps(str(tmp_path), "42", setup_result=result) == 1
+    assert result["status"] == "failed"
+    assert "SETUP-COMMAND-UNREADABLE" in capsys.readouterr().err
