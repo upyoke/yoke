@@ -18,6 +18,7 @@ from yoke_core.domain.session_launch_store import (
     instruction_message,
     marker,
     parse_time,
+    next_attempt_number,
     update_launch,
     utc_now,
     value,
@@ -62,7 +63,7 @@ def prepare_launch_registration(
         )
 
         if not attestation_is_valid:
-            if launch.state in {"assigned", "cancelled"} or (
+            if launch.state in {"assigned", "cancelled"} or next_attempt_number(conn, launch_id) > 2 or (
                 launch.registered_session_id and not already_bound_to_session
             ):
                 taken_over(launch, f"retry or rebound session {launch.registered_session_id or 'not registered'}")

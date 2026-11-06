@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 from yoke_contracts.refusal_recovery import compose_refusal
+from yoke_contracts.session_control.liveness import live_session_sql
 from yoke_core.domain import db_backend
 from yoke_core.domain.db_helpers import instant_parameter
 from yoke_core.domain.session_launch_deadlines import extend_launch_message_expiry
@@ -55,7 +56,10 @@ def accept_late_launch(
             f"SELECT launch_id, registered_session_id FROM session_launches "
             f"WHERE item_id={p} AND launch_id<>{p} AND "
             "(state IN ('queued','assigned','launching','awaiting_registration',"
-            "'outcome_unknown','succeeded') OR created_at>=" + p + ") "
+            "'outcome_unknown') OR (state='succeeded' AND EXISTS ("
+            "SELECT 1 FROM harness_sessions s WHERE s.session_id="
+            "COALESCE(session_launches.registered_session_id,session_launches.native_session_id) "
+            f"AND {live_session_sql('s')})) OR created_at>=" + p + ") "
             "ORDER BY created_at DESC, launch_id LIMIT 1",
             (launch.item_id, launch.launch_id, instant_parameter(conn, launch.created_at)),
         ).fetchone()
