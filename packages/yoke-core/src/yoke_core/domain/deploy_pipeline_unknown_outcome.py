@@ -3,6 +3,7 @@
 from functools import wraps
 import sys
 import time
+from uuid import uuid4
 from yoke_cli.transport.relay_telemetry import TRANSPORT_FAILED_CODE
 from yoke_core.domain.function_connection_loss import CONNECTION_LOST_CODE
 from yoke_core.domain.function_lock_refusal import (
@@ -55,14 +56,16 @@ def redispatch_after_connection_loss(call, *, run_id, function_id):
     """Retry idempotent dispatch on lost answers or bounded lock contention.
 
     Busy answers and lost answers consume their own shared retry schedules.
+    One request identity joins the same execution across every retry.
     Other refusals return immediately; exhaustion leaves the run resumable.
     """
+    request_id = str(uuid4())
     lost_delays = iter(REDISPATCH_DELAYS_SECONDS)
     busy_delays = iter(LOCK_RETRY_DELAYS_SECONDS)
     attempts = 0
     losses = 0
     while True:
-        response = call()
+        response = call(request_id=request_id)
         attempts += 1
         error = None if response.success else response.error
         if error is not None and error.code in RETRYABLE_LOCK_CODES:

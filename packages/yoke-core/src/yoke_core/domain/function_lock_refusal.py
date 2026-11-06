@@ -10,6 +10,9 @@ so each becomes a typed error the caller can retry on instead of a
 - ``qa_plan_busy``: a QA definition or execution lock stayed held for 2 seconds.
 - ``idempotency_request_in_flight``: a duplicate request id is still running;
   the reservation refuses before the handler starts.
+- ``qa_checkin_busy``, ``qa_ownership_busy``, ``deployment_start_lock_busy``
+  and ``deployment_membership_changed``: bounded check-in, takeover, start or
+  admission rolled back; retry the same operation.
 - ``lock_timeout``: any other lock wait outlived a ``lock_timeout``.
 - ``statement_cancelled``: an operator cancelled the statement
   (``pg_cancel_backend``) or a server timeout ended it.
@@ -57,6 +60,12 @@ _RETRY = (
 
 def lock_refusal_outcome(entry: RegistryEntry, exc: BaseException) -> HandlerOutcome | None:
     """The named refusal for *exc*, or ``None`` when it is not a lock answer."""
+    code = str(exc).partition(":")[0] if isinstance(exc, ValueError) else ""
+    if code in RETRYABLE_LOCK_CODES:
+        return HandlerOutcome(
+            primary_success=False,
+            error=FunctionError(code=code, message=str(exc), recovery_hint=_RETRY),
+        )
     if isinstance(exc, QaPlanBusy):
         return HandlerOutcome(
             primary_success=False,
@@ -97,7 +106,13 @@ def name_lock_refusal(
 ) -> Any:
     """Invoke the handler; a lock it could not take becomes a named refusal."""
     try:
-        return invoke(entry, request)
+        outcome = invoke(entry, request)
+        if isinstance(outcome, HandlerOutcome) and not outcome.primary_success and outcome.error:
+            # Some handlers already caught and rolled back the named refusal.
+            code = outcome.error.message.partition(":")[0]
+            if code in RETRYABLE_LOCK_CODES:
+                outcome.error = outcome.error.model_copy(update={"code": code})
+        return outcome
     except Exception as exc:  # noqa: BLE001 -- everything else propagates
         outcome = lock_refusal_outcome(entry, exc)
         if outcome is None:

@@ -60,13 +60,23 @@ the self-deploy database door. The server replays a completed successful call;
 QA dispatch is also safe to repeat if the original failed before recording a
 successful result.
 
-A busy dispatch answer (`run_busy`, `qa_plan_busy`,
-`idempotency_request_in_flight`, `lock_timeout` or `statement_cancelled`) returns
-to the deploy driver's shared retry policy for every transport. It retries after
-15, 30, then 60 seconds, with six retries total. HTTPS result recovery also
-returns busy answers to this policy. If every retry stays busy, the driver stops
-with `deployment_run_stayed_busy`, leaving the run and QA stage unchanged;
-resume with `yoke watch deploy -- RUN-ID` once the named holder finishes.
+An in-flight copy answers `idempotency_request_in_flight` immediately. HTTPS
+result recovery keeps waiting on that same request id within its existing
+limit; those replies do not spend the driver's busy retry budget. The driver
+also keeps one request id across busy and lost-answer retries for a logical
+dispatch. Its next gate check gets a fresh id, so a recorded waiting result
+cannot freeze the stage.
+
+Other busy dispatch answers (`run_busy`, `qa_plan_busy`, `qa_checkin_busy`,
+`qa_ownership_busy`, `deployment_start_lock_busy`, `deployment_membership_changed`,
+`lock_timeout` or `statement_cancelled`) return to the deploy driver's shared
+retry policy for every transport. In-process `idempotency_request_in_flight`
+also uses this policy. It retries after 15, 30, then 60 seconds, with six
+retries total, reusing the same request id. Named check-in, takeover, start and
+admission contention is retryable after its transaction rolls back. If every
+retry stays busy, the driver stops with `deployment_run_stayed_busy`, leaving
+the run and QA stage unchanged; resume with `yoke watch deploy -- RUN-ID` once
+the named holder finishes.
 
 An unanswered recovery reports `qa_dispatch_result_unconfirmed`, leaving the
 run resumable at its QA stage. Read `yoke deployment-runs get RUN-ID` and the
