@@ -227,8 +227,8 @@ def _take_over(conn, new_run_id, *, session_id, actor_id, apply):
         new_id=new_run_id,
         moving=set(ids),
     )
-    # These are established members, including reopened work. Preserve the
-    # admission rather than applying new-member delivery-readiness rules.
+    # Keep established admission and frozen QA; composition checks readiness
+    # only for newly enrolled members, until the successor freezes.
     conn.execute(
         "INSERT INTO deployment_run_items "
         "(run_id,item_id,added_at,delivery_intent,requirement_selection,requirement_snapshot) "
@@ -251,6 +251,7 @@ def _take_over(conn, new_run_id, *, session_id, actor_id, apply):
             reason=reason,
             session_id=session_id,
             actor_id=actor_id,
+            transferred_to_run_id=new_run_id,
         )
     conn.execute(
         f"UPDATE deployment_runs SET {SUPERSEDED_BY_COLUMN}=%s WHERE id=%s",

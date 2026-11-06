@@ -164,3 +164,22 @@ def test_an_inadmissible_new_member_rolls_back_the_whole_takeover(
         (execution_id,),
     ).fetchone()
     assert owner["deployment_run_id"] == takeover.OLD
+
+
+def test_new_member_in_rework_still_fails_composition(test_db, monkeypatch):
+    from yoke_core.domain.deployment_runs_validation import cmd_validate_composition
+
+    _seed(test_db, monkeypatch, flow=None)
+    created = _create()
+    newcomer = 9974
+    insert_item(test_db, id=newcomer, workflow_id="dash", status="implementing")
+    test_db.execute(
+        "INSERT INTO deployment_run_items(run_id,item_id,added_at) VALUES (%s,%s,now())",
+        (created, newcomer),
+    )
+
+    ok, message = cmd_validate_composition(created, connection=test_db)
+
+    assert not ok
+    assert "Items not delivery-ready for their pinned workflow" in message
+    assert "status=implementing" in message

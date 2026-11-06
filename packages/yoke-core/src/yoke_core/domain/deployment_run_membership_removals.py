@@ -88,6 +88,7 @@ def record_membership_removals(
     reason: str,
     session_id: str | None,
     actor_id: int | None,
+    transferred_to_run_id: str | None = None,
 ) -> str:
     """Record these removals in the caller's transaction, replacing earlier ones.
 
@@ -113,6 +114,7 @@ def record_membership_removals(
             "removed_at": removed_at,
             "session_id": session_id,
             "actor_id": actor_id,
+            **({"transferred_to_run_id": transferred_to_run_id} if transferred_to_run_id else {}),
         }
         for item_id in removed
     )

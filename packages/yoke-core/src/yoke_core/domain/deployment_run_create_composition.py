@@ -189,6 +189,13 @@ def compose_run(
         if unlocked and taken_over and takeover_will_succeed(conn, taken_over)
         else None
     )
+    # The unlocked projection deliberately writes no removal audit. Capture
+    # its moved roster before this create enrolls any new members.
+    projected_carried_members = None
+    if unlocked and taken_over:
+        from yoke_core.domain.deployment_run_composition_freeze import member_ids
+
+        projected_carried_members = frozenset(member_ids(conn, run_id))
     with prospective_previous_release(conn, run_id, previous):
         if enroll_item_id is not None:
             enroll_creating_item(conn, run_id, int(enroll_item_id))
@@ -202,6 +209,7 @@ def compose_run(
             require_item_qa_members=enroll_item_id is not None,
             # Only creation refuses a run that would strand dependents.
             refuse_stranded_dependents=True,
+            projected_carried_members=projected_carried_members,
         )
 
 
