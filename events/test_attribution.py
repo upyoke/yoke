@@ -152,7 +152,8 @@ def test_server_cookie_persistence_and_integrity():
     cookie = AttributionCookie("s" * 32, "example.com")
     first, header = cookie.capture("", "https://example.com", "")
     assert all(
-        flag in header for flag in ("HttpOnly", "Secure", "SameSite=Lax", "Max-Age=")
+        flag in header
+        for flag in ("HttpOnly", "Secure", "SameSite=Lax", "Max-Age=34560000")
     )
     second, _ = cookie.capture(header, "https://example.com", "https://google.com")
     assert first["visitor_id"] == second["visitor_id"]

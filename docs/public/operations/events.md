@@ -26,7 +26,8 @@ self-hosted, and hosted — with no consent prompt, banner, or toggle. Events in
 personal data such as the trusted client IP address and visitor identity. Operators
 are responsible for permission before public launch; a consent banner awaits legal
 review. A local or self-hosted web dashboard collects into its own universe. The first load captures the visitor's attribution cookie, and
-that load and each client navigation that changes the path emit `PageViewed`
+the cookie lasts 400 days (the Chromium cap), renewed on every page view.
+That load and each client navigation that changes the path emit `PageViewed`
 with `event_type=page_view`. Query-only, fragment-only, and state-only
 navigation (filters, `?selection=all` rewrites) emits no view. The web dashboard
 names each screen in the browser title before the URL changes, most specific
