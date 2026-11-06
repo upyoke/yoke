@@ -103,3 +103,10 @@ def test_people_cannot_receive_machine_roles_at_project_scope(conn):
 def test_nonowner_edits_do_not_require_owner(conn):
     require_owner_change_allowed(conn, 5, 4, ("project", 10), "operator")
     require_owner_change_allowed(conn, 5, 4, ("project", 10), "unchanged")
+
+
+def test_admin_cannot_change_org_role_of_project_owner(conn):
+    with pytest.raises(ActorRoleRefused, match="owner_protected"):
+        grant_actor_org_role(
+            conn, actor_id=2, org_id=1, role_name="operator", granted_by_actor_id=5
+        )

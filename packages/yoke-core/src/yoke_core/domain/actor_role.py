@@ -148,22 +148,27 @@ def replace_person_role(
     if previous == [role]:
         return previous
     p = _p(conn)
-    conn.execute(
-        f"DELETE FROM actor_org_roles WHERE actor_id = {p} AND org_id = {p}",
-        (actor_id, org_id),
-    )
-    conn.execute(
-        "INSERT INTO actor_org_roles "
-        "(actor_id, org_id, role_id, granted_at, granted_by_actor_id) "
-        f"VALUES ({p}, {p}, {p}, {p}, {p})",
-        (
-            actor_id,
-            org_id,
-            role_id_by_name(conn, role),
-            instant_parameter(conn, parse_instant(now)),
-            granted_by_actor_id,
-        ),
-    )
+    from yoke_core.domain.db_savepoint import savepoint
+
+    if not db_backend.connection_is_postgres(conn) and not conn.in_transaction:
+        conn.execute("BEGIN")
+    with savepoint(conn, "person_role_replace", owns=False):
+        conn.execute(
+            f"DELETE FROM actor_org_roles WHERE actor_id = {p} AND org_id = {p}",
+            (actor_id, org_id),
+        )
+        conn.execute(
+            "INSERT INTO actor_org_roles "
+            "(actor_id, org_id, role_id, granted_at, granted_by_actor_id) "
+            f"VALUES ({p}, {p}, {p}, {p}, {p})",
+            (
+                actor_id,
+                org_id,
+                role_id_by_name(conn, role),
+                instant_parameter(conn, parse_instant(now)),
+                granted_by_actor_id,
+            ),
+        )
     return previous
 
 

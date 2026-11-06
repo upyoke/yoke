@@ -52,6 +52,14 @@ def require_owner_change_allowed(
     target_owner = target in _owners(conn, kind, scope_id, active=False)
     if kind == "project" and org and org[0] is not None:
         target_owner |= target in _owners(conn, "org", int(org[0]), active=False)
+    if kind == "org":
+        project_owner = conn.execute(
+            "SELECT 1 FROM actor_project_roles ar JOIN roles r ON r.id=ar.role_id "
+            "JOIN projects pr ON pr.id=ar.project_id "
+            f"WHERE pr.org_id={p} AND ar.actor_id={p} AND r.name='owner' LIMIT 1",
+            (scope_id, target),
+        ).fetchone()
+        target_owner |= project_owner is not None
     if (target_owner or new_role == "owner") and caller not in governing_owners:
         raise ActorRoleRefused(
             "owner_protected",
@@ -86,29 +94,36 @@ def seed_bootstrap_owner(conn: Any, actor_id: int, org_id: int) -> None:
     from yoke_core.domain.db_helpers import instant_parameter
     from yoke_contracts.timestamps import utc_now
 
-    p = "%s" if db_backend.connection_is_postgres(conn) else "?"
-    lock = " FOR UPDATE" if db_backend.connection_is_postgres(conn) else ""
-    conn.execute(f"SELECT id FROM organizations ORDER BY id{lock}").fetchall()
-    owners = _owners(conn, "org", org_id)
-    if actor_id in owners:
-        require_owner_change_allowed(conn, actor_id, actor_id, ("org", org_id), "owner")
-        return
-    if owners or sole_human_actor_id(conn) != actor_id:
-        raise ActorRoleRefused(
-            "owner_protected",
-            compose_refusal(
-                "owner_protected: initial owner bootstrap requires the sole active person",
-                recovery="Ask an existing owner to grant owner to this person",
-            ),
+    from yoke_core.domain.db_savepoint import savepoint
+
+    if not db_backend.connection_is_postgres(conn) and not conn.in_transaction:
+        conn.execute("BEGIN")
+    with savepoint(conn, "initial_owner", owns=False):
+        p = "%s" if db_backend.connection_is_postgres(conn) else "?"
+        lock = " FOR UPDATE" if db_backend.connection_is_postgres(conn) else ""
+        conn.execute(f"SELECT id FROM organizations ORDER BY id{lock}").fetchall()
+        owners = _owners(conn, "org", org_id)
+        if actor_id in owners:
+            require_owner_change_allowed(
+                conn, actor_id, actor_id, ("org", org_id), "owner"
+            )
+            return
+        if owners or sole_human_actor_id(conn) != actor_id:
+            raise ActorRoleRefused(
+                "owner_protected",
+                compose_refusal(
+                    "owner_protected: initial owner bootstrap requires the sole active person",
+                    recovery="Ask an existing owner to grant owner to this person",
+                ),
+            )
+        conn.execute(
+            f"DELETE FROM actor_org_roles WHERE actor_id={p} AND org_id={p}",
+            (actor_id, org_id),
         )
-    conn.execute(
-        f"DELETE FROM actor_org_roles WHERE actor_id={p} AND org_id={p}",
-        (actor_id, org_id),
-    )
-    conn.execute(
-        "INSERT INTO actor_org_roles "
-        "(actor_id,org_id,role_id,granted_at,granted_by_actor_id) "
-        f"SELECT {p},{p},id,{p},{p} FROM roles WHERE name='owner'",
-        (actor_id, org_id, instant_parameter(conn, utc_now()), actor_id),
-    )
-    require_owner_change_allowed(conn, actor_id, actor_id, ("org", org_id), "owner")
+        conn.execute(
+            "INSERT INTO actor_org_roles "
+            "(actor_id,org_id,role_id,granted_at,granted_by_actor_id) "
+            f"SELECT {p},{p},id,{p},{p} FROM roles WHERE name='owner'",
+            (actor_id, org_id, instant_parameter(conn, utc_now()), actor_id),
+        )
+        require_owner_change_allowed(conn, actor_id, actor_id, ("org", org_id), "owner")
