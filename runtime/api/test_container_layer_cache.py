@@ -67,6 +67,7 @@ def test_dependency_inputs_exclude_source_and_release_identity():
         assert stable in dependencies
         assert stable not in runtime
     assert "YOKE_MACHINE_HOME=/tmp/postgres-bootstrap" in dependencies
+    assert "chown -R yoke:yoke /opt/yoke-postgres" in dependencies
     assert "COPY packages ./packages" not in builder
     assert "COPY runtime ./runtime" not in builder
     assert "--mount=type=bind,source=.,target=/build,rw" in builder

@@ -51,7 +51,8 @@ RUN --mount=type=bind,source=packages/yoke-contracts/src,target=/bootstrap/contr
     --mount=type=bind,source=packages/yoke-cli/src,target=/bootstrap/cli \
     --mount=type=bind,source=packages/yoke-core/src/yoke_core/domain/postgres_binaries.py,target=/bootstrap/postgres_binaries.py \
     PYTHONPATH=/bootstrap/contracts:/bootstrap/cli YOKE_MACHINE_HOME=/tmp/postgres-bootstrap \
-    python -c "import runpy, shutil; binaries = runpy.run_path('/bootstrap/postgres_binaries.py')['ensure_binaries'](); shutil.move(str(binaries.parent), '/opt/yoke-postgres'); shutil.rmtree('/tmp/postgres-bootstrap')"
+    python -c "import runpy, shutil; binaries = runpy.run_path('/bootstrap/postgres_binaries.py')['ensure_binaries'](); shutil.move(str(binaries.parent), '/opt/yoke-postgres'); shutil.rmtree('/tmp/postgres-bootstrap')" \
+    && chown -R yoke:yoke /opt/yoke-postgres
 
 FROM runtime-base AS builder
 
