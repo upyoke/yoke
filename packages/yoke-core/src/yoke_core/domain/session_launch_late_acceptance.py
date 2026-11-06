@@ -82,10 +82,10 @@ def accept_late_launch(
         conn, launch.launch_id, state="awaiting_registration", deadline_at=deadline,
         completed_at=None, result_code="accepted_late",
         result_evidence=merge_redacted_evidence(launch.result_evidence, {
-            "accepted_late": {"session_id": session_id, "previous_state": launch.state,
-                              "previous_result": launch.result_code,
-                              "previous_deadline": parse_time(launch.deadline_at).isoformat(),
-                              "accepted_at": parse_time(now).isoformat()},
+            "accepted_late": parse_time(now).isoformat(),
+            "previous_launch_state": launch.state,
+            "previous_launch_result": launch.result_code,
+            "previous_launch_deadline": parse_time(launch.deadline_at).isoformat(),
         }),
     )
 

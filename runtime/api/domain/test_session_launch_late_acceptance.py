@@ -102,7 +102,7 @@ def test_late_acknowledgement_then_claim_succeeds(context, surface, swept):
     recovered = get_launch(conn, launch.launch_id)
     assert recovered.state == "awaiting_registration"
     assert recovered.deadline_at > parse_instant(LATE)
-    assert json.loads(recovered.result_evidence)["accepted_late"]["session_id"] == session
+    assert parse_instant(json.loads(recovered.result_evidence)["accepted_late"]) == parse_instant(LATE)
     claim(context, session)
     settled = settle_launch_deadlines(conn, launch_id=launch.launch_id, now=LATE)
     assert settled[0].state == "succeeded"
@@ -117,7 +117,7 @@ def test_registration_after_deadline_succeeds(context, surface):
     prepare_launch_registration(conn, launch_id=launch.launch_id, attestation="secret", session_id=session, now=LATE)
     recovered = get_launch(conn, launch.launch_id)
     assert recovered.registered_session_id == session
-    assert json.loads(recovered.result_evidence)["accepted_late"]["previous_result"] == "registration_deadline"
+    assert json.loads(recovered.result_evidence)["previous_launch_result"] == "registration_deadline"
     acknowledge_message(conn, message_id=launch.message_id, session_id=session, now=parse_instant(LATE))
     claim(context, session)
     assert settle_launch_deadlines(conn, launch_id=launch.launch_id, now=LATE)[0].state == "succeeded"

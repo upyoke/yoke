@@ -4,8 +4,6 @@ from __future__ import annotations
 
 import json
 
-import pytest
-
 from yoke_core.domain.session_launch_binding_evidence import (
     bound_registration_evidence,
     record_registration_refusal,
@@ -17,7 +15,6 @@ from yoke_core.domain.session_launch_execution import (
 )
 from yoke_core.domain.session_launch_registration import prepare_launch_registration
 from yoke_core.domain.session_launch_store import get_launch
-from yoke_core.domain.session_launch_types import SessionLaunchError
 from runtime.api.domain.session_launch_test_support import (
     NOW,
     add_relay,
@@ -169,20 +166,14 @@ def test_late_registration_records_what_the_server_could_still_observe() -> None
     launch, claim = _awaiting(conn, key="late-evidence")
     _candidate(conn, session_id="session-late-evidence")
 
-    with pytest.raises(SessionLaunchError):
-        prepare_launch_registration(
-            conn,
-            launch_id=launch.launch_id,
-            attestation=claim.attestation,
-            session_id="session-late-evidence",
-            now="2026-08-22T12:11:00Z",
-        )
-
+    injection = prepare_launch_registration(
+        conn, launch_id=launch.launch_id, attestation=claim.attestation,
+        session_id="session-late-evidence", now="2026-08-22T12:11:00Z",
+    )
+    assert injection.session_id == "session-late-evidence"
     evidence = _evidence(conn, launch.launch_id)
-    assert evidence["result_code"] == "late_registration"
-    assert evidence["closure_reason"] == "registration_after_deadline"
-    assert evidence["launch_phase_reached"] == "awaiting_registration"
-    assert evidence["registration_session_id"] == "session-late-evidence"
+    assert evidence["previous_launch_state"] == "awaiting_registration"
+    assert evidence["accepted_late"].startswith("2026-08-22T12:11:00")
 
 
 def test_registration_deadline_is_never_a_zero_evidence_verdict() -> None:

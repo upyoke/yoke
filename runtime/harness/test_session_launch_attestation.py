@@ -154,7 +154,7 @@ def test_superseded_launch_code_yields_a_stop_context() -> None:
             "invalid_state", launch_state=state
         )
         assert context is not None and "Stop now" in context
-    for code in ("attestation_consumed", "late_registration"):
+    for code in ("attestation_consumed", "launch_taken_over"):
         context = launch_hook._superseded_launch_stop_context(code)
         assert context is not None and "Stop now" in context
     for state in ("launching", "awaiting_registration"):
@@ -285,3 +285,18 @@ def test_session_end_that_records_nothing_names_why(monkeypatch) -> None:
 
         assert decision.outcome == Outcome.AUDIT_ONLY
         assert decision.audit_fields == {"session_launch_end_skipped": skipped}
+
+
+def test_taken_over_launch_names_the_holder_and_stops_opening_worker(monkeypatch) -> None:
+    from yoke_core.domain.session_launch_types import SessionLaunchError
+
+    def refuse(conn, **kwargs):
+        raise SessionLaunchError("launch_taken_over", "active claim belongs to session replacement-worker; stop and coordinate")
+
+    monkeypatch.setattr(launch_hook, "_prepare_or_record_refusal", refuse)
+    for family in ("codex", "claude", "cursor"):
+        decision = launch_hook.evaluate_launch_attestation(
+            _record("SessionStart", family), connect=_Connection,
+        )
+        assert "replacement-worker" in decision.message
+        assert "Stop now" in decision.audit_fields["additionalContext"]

@@ -15,6 +15,10 @@ from yoke_contracts.session_control.launch_registration import (
 _TEXT_FIELDS = frozenset(
     {
         "adapter_revision",
+        "accepted_late",
+        "previous_launch_state",
+        "previous_launch_result",
+        "previous_launch_deadline",
         "background_agent_job_id",
         "background_agent_recovery",
         "background_agent_result",

@@ -110,13 +110,6 @@ def prepare_launch_registration(
                 now=current,
                 wake_after=current,
             )
-        if recovered is not None:
-            from yoke_core.domain.session_relay_evidence import merge_redacted_evidence
-
-            bound = get_launch(conn, launch_id)
-            update_launch(conn, launch_id, result_evidence=merge_redacted_evidence(
-                recovered, bound.result_evidence,
-            ))
         body, body_hash, sender_actor_id = instruction_message(conn, launch.message_id)
         conn.commit()
         return LaunchRegistrationInjection(
