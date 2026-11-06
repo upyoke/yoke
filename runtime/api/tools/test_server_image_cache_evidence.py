@@ -99,6 +99,7 @@ def test_cache_reuse_proof_requires_application_change_without_bootstrap_edit(
         (10, 9, False, 1),
         (10, 10, True, 1),
         (10, 10, "registry-max", 1),
+        (10, 10, "registry-min", 1),
     ],
 )
 def test_command_uses_authenticated_rest_and_requires_ten_runs_and_thirty_seconds(
@@ -132,17 +133,14 @@ def test_command_uses_authenticated_rest_and_requires_ten_runs_and_thirty_second
                 ]
             }
         if "/contents/" in path:
-            return {
-                "content": base64.b64encode(
-                    b"cache-to: type=gha,mode=max,scope=yoke-server-linux/amd64"
-                    if legacy is True
-                    else b"cache-to: type=registry,ref=${{ needs.validate-tag.outputs.repository }}:buildcache-${{ matrix.arch }},mode=min".replace(
-                        b"mode=min", b"mode=max"
-                    )
-                    if legacy == "registry-max"
-                    else b"cache-to: type=registry,ref=${{ needs.validate-tag.outputs.repository }}:buildcache-${{ matrix.arch }},mode=min"
-                ).decode()
-            }
+            workflow = b"cache-to: type=registry,ref=${{ needs.validate-tag.outputs.repository }}:buildcache-product-${{ matrix.arch }},mode=max"
+            if legacy is True:
+                workflow = b"cache-to: type=gha,mode=max,scope=yoke-server-linux/amd64"
+            elif legacy in ("registry-max", "registry-min"):
+                workflow = workflow.replace(b"buildcache-product-", b"buildcache-")
+                if legacy == "registry-min":
+                    workflow = workflow.replace(b"mode=max", b"mode=min")
+            return {"content": base64.b64encode(workflow).decode()}
         if "/compare/" in path:
             return {"files": [{"filename": "runtime/api/server.py"}]}
         assert path.endswith("/jobs")
