@@ -140,7 +140,7 @@ DEPENDENCY_WAIT_TEACHING = (
     '--gate-point integration --satisfaction fact:merged --rationale "needs blocker merged"` '
     "(SOURCE is your active skill). For delivery use closure and fact:deployed:<environment>, "
     "with the blocker's registered environment. Reuse an existing edge only if it records "
-    "that actual wait. Only after the edge succeeds, checkpoint and park with the blocker "
+    "that actual wait. At the held step, and only after the edge succeeds, checkpoint and park with the blocker "
     'named: `yoke sessions touch --mode parked --reason "awaiting <BLOCKER> <gate>"`. Keep '
     "your work claim and lane; do not release or end the session; the notice wakes you as "
     "holder. When the notice says no gates remain, resume at the live stage; when it names "

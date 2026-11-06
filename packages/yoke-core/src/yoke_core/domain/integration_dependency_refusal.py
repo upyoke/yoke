@@ -66,7 +66,7 @@ def integration_dependency_refusal(
                 "notice wakes you as holder. Park with `yoke sessions touch --mode parked "
                 '--reason "awaiting <BLOCKER> integration"`.'
             ),
-            recovery=f"wait for each blocker to merge (the control plane sends a notice when it does), then re-run `{rerun}`. If the dependency is wrong, correct it first with `yoke items dependency update` or `yoke items dependency remove`.",
+            recovery=f"wait for each named dependency condition to clear (the control plane sends a notice when it does), then re-run `{rerun}`. If the dependency is wrong, correct it first with `yoke items dependency update` or `yoke items dependency remove`.",
         )
     )
     return "\n".join(lines)
