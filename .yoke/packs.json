@@ -71,7 +71,7 @@
       "version": "1.1.1"
     },
     "structured-events": {
-      "content_digest": "10c3ae6e8dc79853accaf499882adeb77b8e9415462be4a9b46ff4ad9a303850",
+      "content_digest": "7dda07fffe75e235e78d2584fed6c53819782ec4ec83edf9f5c53e1a3488343d",
       "files": {
         "docs/packs/structured-events/README.md": {
           "mode": 420,
@@ -81,7 +81,7 @@
         "events/README.md": {
           "mode": 420,
           "path": "events/README.md",
-          "sha256": "7701dea1aa3536bbf13e2f47d13033601979a6378b22968c096b94c974f3527e"
+          "sha256": "8dfc26f719fe931265d3e6d609006d6e1216c63c6a7e0f9576c72405f3e708e0"
         },
         "events/api-route.ts": {
           "mode": 420,
@@ -91,7 +91,7 @@
         "events/attribution_rules.json": {
           "mode": 420,
           "path": "events/attribution_rules.json",
-          "sha256": "cf61a4d537db8cd852c9e13130e56fe63bc116c87168585e4b9a4bb53450b0e3"
+          "sha256": "8e667290394bca3475f7c330a003bd9ae68791545b37a2187eaa8e994d64aaa8"
         },
         "events/events.py": {
           "mode": 420,
@@ -191,7 +191,7 @@
         "events/test_attribution.py": {
           "mode": 420,
           "path": "events/test_attribution.py",
-          "sha256": "11f1ae2c58a3f586236937a42c8e1e8977735ca970a1f8508ba77a4b09f35bb2"
+          "sha256": "6b97e7f6d05a3702974226e1664676e938c55311491594cbe32ae666186b2fe0"
         },
         "events/test_browser.mjs": {
           "mode": 420,
@@ -207,6 +207,11 @@
           "mode": 420,
           "path": "events/test_collector_instants.mjs",
           "sha256": "182440620192d2e2710eafef3b30b87400966a777c7abc6b90aebe4355cc9491"
+        },
+        "events/test_cookie_lifetime.py": {
+          "mode": 420,
+          "path": "events/test_cookie_lifetime.py",
+          "sha256": "93c905ab5dd4305ddb454721d5029f67ad536e5297f6fe2d0dc8dbad03060721"
         },
         "events/test_device.py": {
           "mode": 420,
@@ -255,7 +260,7 @@
         "project_name": "yoke"
       },
       "source": {
-        "commit": "443ad25d8983770ad3f31f8d79cf90cd1b040cf0",
+        "commit": "243a483060f30b84fcf6bac94792c60a338eb909",
         "kind": "lane"
       },
       "version": "5.2.0"

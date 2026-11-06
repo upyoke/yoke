@@ -71,7 +71,7 @@ broadcast, lead_nurture and upload never imply paid; netflix.com never matches
 x.com. AI domains and utm_source=chatgpt.com identify ai_assistant.
 
 The server sets a signed __Host-events_attribution cookie containing visitor_id
-and both touches: 30 days, Path=/, Secure, HttpOnly, SameSite=Lax, no Domain.
+and both touches: 400 days, renewed on every capture, Path=/, Secure, HttpOnly, SameSite=Lax, no Domain.
 Python AttributionCookie and TypeScript createAttributionCookie share its wire
 format. Use a private >=32-character signing secret, HTTPS and a same-origin
 attribution endpoint with Cache-Control: no-store. JavaScript never sets it.
