@@ -74,3 +74,13 @@ Waiting lays out unsatisfied dependencies in columns. The first column shows wor
 On hold shows work held for its own reason, such as a freeze or block. Ready shows work available to advance. Active shows ongoing execution. Release and Done show delivery state, including the environment and relevant run.
 
 Project filters retain related items across dependency chains, including items from other projects. Open a card to inspect blockers, dependents, and the item's full context. [Dashboard details](../strategy/frontier.md)
+
+## Who acts next
+
+Session and item rows carry `next_actor` with `actor`, `reason` and `since`.
+Cards show the responsible person or actor beside the waiting reason. Pending
+decisions take priority, followed by unmet dependencies, CI and release runs.
+A decision resolves its audience to active people, including organization roles
+inherited by the project. An empty audience names the steering owner and asks
+for audience repair. The state time comes from the obligation, never a heartbeat.
+Older servers may omit this projection; clients keep their existing state display.

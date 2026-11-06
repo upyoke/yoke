@@ -14,6 +14,7 @@ SESSION_LIST_FIELDS = (
     "harness_title",
     "liveness",
     "session_state",
+    "next_actor",
     "ended_cause",
     "activity_at",
     "last_tool_call_at",

@@ -92,6 +92,7 @@ def sessions_list(args: List[str]) -> int:
             {
                 **row,
                 "session": row.get("display_label") or "session label unavailable",
+                "next_actor": row.get("next_actor") or (row.get("session_state") or {}).get("next_actor"),
                 "read": f"yoke sessions get {row.get('session_id')}",
                 "project": recipient_project(row),
             }

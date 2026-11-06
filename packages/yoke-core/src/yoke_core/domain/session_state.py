@@ -16,6 +16,7 @@ from yoke_contracts.session_queue_posture import (
     session_declared_wait,
 )
 from yoke_contracts.timestamps import as_utc, parse_instant, temporal_wire, utc_now
+from yoke_core.domain.next_actor import session_next_actor
 from yoke_core.domain.session_tool_call_liveness import open_call_predates_park
 from yoke_core.domain.session_reclaim_progress import open_tool_call_is_live
 
@@ -74,11 +75,13 @@ def session_state(
     current = utc_now() if now is None else as_utc(now)
     presence = session_presence(row)
     declared = session_declared_wait(row)
-    awaiting = declared if isinstance(declared, Mapping) else {}
     intent = (
         "awaiting" if declared else "parked" if row.get("mode") == "parked" else "none"
     )
-    reason = awaiting.get("reason") or row.get("quiet_reason")
+    next_action = session_next_actor(row, presence=presence)
+    if next_action["actor"] in {"operator", "another_item", "ci_or_deploy"}:
+        intent = "awaiting"
+    reason = next_action["reason"] if intent == "awaiting" else row.get("quiet_reason")
     tool = (
         parse_instant(row["last_tool_call_at"])
         if row.get("last_tool_call_at")
@@ -96,9 +99,6 @@ def session_state(
         )
     reclaim = automatic_reclaim(row, now=current) if "holds_work_claim" in row else None
     holds = row.get("holds", row.get("claims", []))
-    next_actor = (
-        "this_session" if presence == "present" and intent == "none" else "nobody"
-    )
     return temporal_wire(
         {
             "presence": presence,
@@ -106,7 +106,7 @@ def session_state(
             "intent": {
                 "state": intent,
                 "reason": reason if intent != "none" else None,
-                "awaiting_who": awaiting.get("awaiting_who"),
+                "awaiting_who": next_action["actor"] if intent == "awaiting" else None,
             },
             "custody": {
                 "holds": list(holds),
@@ -114,19 +114,7 @@ def session_state(
                 "reclaimable": reclaim.is_reclaimable if reclaim else None,
                 "reason": reclaim.reason if reclaim else "custody_facts_unavailable",
             },
-            "next_actor": {
-                "actor": next_actor,
-                "reason": "session_can_continue"
-                if next_actor == "this_session"
-                else (
-                    presence if presence != "present" else reason or "declared_pause"
-                ),
-                "since": (row.get("terminated_at") or row.get("ended_at"))
-                if presence == "ended"
-                else row.get("native_process_gone_at")
-                if presence == "gone"
-                else row.get("turn_posture_at"),
-            },
+            "next_actor": next_action,
             "in_flight": in_flight,
         }
     )

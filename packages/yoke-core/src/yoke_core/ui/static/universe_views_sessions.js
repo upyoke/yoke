@@ -1,3 +1,4 @@
+import { appendNextActor } from "./next_actor_display.js";
 import { exactSessionAudience, openSessionMessageCompose } from "./session_message_compose_dialog.js";
 import { sessionCardLink, sessionScopeLabel } from "./universe_session_detail.js";
 import {
@@ -136,11 +137,9 @@ export function sessionCard(
   appendSessionPrimaryStatus(documentNode, state, row);
   appendModel(documentNode, state, row);
   body.appendChild(state);
+  appendNextActor(documentNode, body, row.next_actor || row.session_state?.next_actor);
   appendSessionUsage(documentNode, body, row);
-  // One section sequence for every card. An ended session reaches each
-  // section with the facts it actually has, and a section with nothing to
-  // say stays silent — the card is never rebuilt in a simpler shape, so an
-  // ended session reads against a live one without translation.
+  // Every state uses the same section sequence; empty sections stay silent.
   appendSteeringHoldings(documentNode, body, row, projects);
   appendSessionDeliveryStatus(documentNode, body, row);
   appendSessionPresentation(documentNode, body, row);

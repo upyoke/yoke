@@ -106,7 +106,7 @@ def test_pause_retains_its_reason_and_custody_without_claiming_work():
         "awaiting_who": None,
     }
     assert state["custody"]["holds"] == [{"kind": "item"}]
-    assert state["next_actor"]["actor"] == "nobody"
+    assert state["next_actor"]["actor"] == "parent_or_steering"
 
 
 def test_board_pause_sql_does_not_infer_intent_from_posture():

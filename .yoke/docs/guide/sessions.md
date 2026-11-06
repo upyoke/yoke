@@ -95,3 +95,13 @@ Parking records an intentional pause. A session holding work can remain waiting 
 ### Relay failure and recovery
 
 A disconnected relay can prevent new launches or automatic wakes while server records remain intact. Check the affected machine and the reported diagnostic before restarting services or terminating a session. See [Operations and troubleshooting](operations.md) and [Linux relay supervision](../sessions/linux-relay.md).
+
+## Who acts next
+
+Session and item rows carry `next_actor` with `actor`, `reason` and `since`.
+Cards show the responsible person or actor beside the waiting reason. Pending
+decisions take priority, followed by unmet dependencies, CI and release runs.
+A decision resolves its audience to active people, including organization roles
+inherited by the project. An empty audience names the steering owner and asks
+for audience repair. The state time comes from the obligation, never a heartbeat.
+Older servers may omit this projection; clients keep their existing state display.

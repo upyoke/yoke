@@ -148,6 +148,7 @@ def gating_blockers(
             "item": render_item_ref(conn, dependent),
             "blocking_item": render_item_ref(conn, int(row["blocking_item_id"])),
             "gate_point": str(row["gate_point"]),
+            "since": row["created_at"],
             "blocking_status": str(row["blocking_status"] or ""),
         }
     return blockers

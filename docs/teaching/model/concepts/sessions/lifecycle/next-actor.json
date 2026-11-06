@@ -1,0 +1,7 @@
+{
+ "id": "next-actor",
+ "title": "Who acts next and why",
+ "status": "observed",
+ "summary": "Session and item next_actor projects pending human decisions, dependency waits, CI, releases and session responsibility from batched durable facts. Audience membership resolves active people through inherited project roles.",
+ "source_paths": ["docs/public/guide/glossary.md", "docs/public/guide/sessions.md", "docs/public/guide/frontier.md"]
+}

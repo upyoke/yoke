@@ -8,7 +8,7 @@ module decides only who the holders are.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any
 
@@ -60,6 +60,7 @@ class ClaimHolder:
     parked: bool
     last_activity_at: datetime | None
     idle_seconds: int
+    next_actor: dict = field(default_factory=dict)
     quiet_reason: str = ""
     message_delivery: str = DELIVERY_UNKNOWN
     native_process_gone_at: datetime | None = None
@@ -193,6 +194,12 @@ def claim_holders(
         (session_id for session_id, process in processes.items() if process),
         now=parse_stamp(now),
     )
+    from yoke_core.domain.next_actor_facts import next_actor_facts
+    from yoke_core.domain.next_actor import session_next_actor
+    from yoke_core.domain.session_state import session_presence
+
+    action_facts, _ = next_actor_facts(conn, session_ids=[row["session_id"] for row in rows],
+                                    item_ids=[row["item_id"] for row in rows])
     for row in rows:
         last_activity = parse_stamp(
             row.get("last_tool_call_at")
@@ -220,6 +227,9 @@ def claim_holders(
                     None, row["prefix"], row["project_sequence"]
                 ),
                 mode=mode,
+                next_actor=session_next_actor(
+                    {**row, **action_facts.get(str(row["session_id"]), {})},
+                    presence=session_presence(row)),
                 parked=session_is_parked(mode),
                 last_activity_at=last_activity,
                 idle_seconds=age_seconds(last_activity, now) or 0,

@@ -1,3 +1,4 @@
+import { appendNextActor } from "./next_actor_display.js";
 import { attachTooltip } from "./universe_tooltip.js";
 import { el, labelCellsByColumn, statePill, withProjectColumn } from "./universe_view_support.js";
 import { relativeAgePhrase, relativeTime } from "./universe_time.js";
@@ -87,6 +88,7 @@ export function itemTable(documentNode, rows, rowHref, scope, projects, sort, on
     );
     titleLink.href = href;
     titleCell.appendChild(titleLink);
+    appendNextActor(documentNode, titleCell, row.next_actor);
     if (row.workflow_id !== "task" && row.qa_attention?.verdict === "undetermined") {
       const reason = String(row.qa_attention.verdict_reason || "").trim();
       const attention = el(
