@@ -18,6 +18,15 @@ exists only when a plan attachment or explicit requirement declares it.
 
 ## Action reference
 
+Ask QA missions only for actions a real user takes, using the actions below;
+`yoke qa browser step --help` is the full action list and schema. Set up unusual
+states with fixtures, seeded identities or component tests instead of asking
+walkers to edit DOM text, override responses or measure element widths.
+Keyboard proof needs a declared Test Machine with the required input support.
+For phone checks, use a phone-sized viewport or the iOS Simulator on a macOS
+host. There is no phone Test Machine; a viewport check does not prove real-phone
+touch behavior.
+
 | Action | Required fields | Purpose |
 |---|---|---|
 | `navigate` | `route` | Navigate to a relative or absolute URL; successful results include `status` (HTTP response code, or `0` when no response exists). HTTP 401 or 403 fails as an authentication refusal; HTTP 404 fails as `route_not_found` naming the URL, so correct the route. |
@@ -25,6 +34,8 @@ exists only when a plan attachment or explicit requirement declares it.
 | `download` | `target`, `path` | Click and save a download under scratch; return filename, size and sha256. |
 | `type` | `target`, `value` | Type into an input. |
 | `fill_form` | `fields` | Fill several target/value pairs. |
+| `grant_clipboard` | none | Grant clipboard permissions for the current HTTP or HTTPS origin. |
+| `sign_in` | `site` | Sign in to the named site. |
 | `assert` | `target`, `check` | Evaluate an observable condition. |
 | `screenshot` | `capture: true` | Save screenshot evidence. Optional `label` names the capture, `target` frames it on one element, `fullPage` captures the whole document. |
 | `wait_for` | `target` | Wait for a visible element. |
