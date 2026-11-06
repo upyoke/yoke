@@ -1,11 +1,7 @@
 """Require an explicit foreground timeout on headless Claude watcher calls.
 
-The relay's CLI manifest sets BASH_DEFAULT_TIMEOUT_MS=3600000 before
-Claude starts, inherited by subagents. A per-call timeout of 600000 keeps
-shorter watcher waits foreground; it does not extend a moved command's
-background lifetime. Explicit background calls need their own long timeout.
-Headless scope is observed on the client and sent as HEADLESS_LAUNCH_KEY;
-the evaluating server's process environment is never session evidence.
+Launch settings cover the longest wrapper duration, including moved calls.
+Headless scope comes from the client, never the server's own environment.
 """
 
 from __future__ import annotations
@@ -113,13 +109,14 @@ def _format_reason(timeout_ms: Optional[int], suppression_seen: bool) -> str:
         f"Repair: set timeout: {IN_TURN_WATCHER_TIMEOUT_MS} (milliseconds) "
         "on this headless watcher Bash call, not a blanket Bash rule. "
         "This timeout alone does not extend background lifetime. "
-        "Relay launches set BASH_DEFAULT_TIMEOUT_MS=3600000 before Claude "
-        "starts, inherited by subagents; a text-prompt -p worker without "
-        "that setting kills moved commands after 10 minutes. If the setting "
-        "is missing, have the launcher relaunch the worker with it before "
-        "starting a long wait. Exporting it inside Bash is too late. "
-        "For an explicit background call, use run_in_background: true with "
-        "timeout: 3600000; subagents must use foreground Bash. "
+        "Relay launches set BASH_DEFAULT_TIMEOUT_MS and BASH_MAX_TIMEOUT_MS "
+        "to the longest wrapper duration before Claude starts. Subagents "
+        "inherit both. Without them, text-prompt -p defaults to 10 minutes "
+        "and explicit timeout is capped at 2 hours. Relaunch with the manifest's "
+        "cli.launch_environment if missing; exporting inside Bash is too late. "
+        "For background Bash, pass run_in_background: true and timeout equal "
+        "to the wrapper duration in milliseconds, as printed by its recipe. "
+        "Subagents must use foreground Bash. "
         "See .yoke/docs/agents/rules/claude-long-commands.md. "
         "A moved call is not evidence that its lifetime is sufficient; "
         "never start a duplicate while it is running."

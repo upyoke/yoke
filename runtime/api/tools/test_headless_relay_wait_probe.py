@@ -8,7 +8,8 @@ from runtime.api.tools.headless_relay_wait_probe import WAIT_SECONDS, completion
 def test_completion_requires_both_elapsed_clocks_and_launch_environment():
     proof = {
         "nonce": "probe",
-        "launch_timeout_ms": "3600000",
+        "launch_timeout_ms": "28800000",
+        "launch_max_timeout_ms": "28800000",
         "elapsed_seconds": WAIT_SECONDS,
     }
     assert completion_matches(json.dumps(proof), "probe", WAIT_SECONDS)

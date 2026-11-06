@@ -20,8 +20,11 @@ from yoke_core.domain.fleet_delta_snapshot import (
     read_snapshot,
 )
 
+from yoke_contracts.watch_cli_forms import WATCHER_MAX_DURATION_SECONDS
+
 DEFAULT_INTERVAL_SECONDS = 60
-DEFAULT_DURATION_SECONDS = 8 * 60 * 60
+
+DEFAULT_DURATION_SECONDS = WATCHER_MAX_DURATION_SECONDS
 #: Consecutive failed passes before the probe stops instead of looping
 #: silently against a control plane it cannot reach.
 MAX_CONSECUTIVE_READ_FAILURES = 3

@@ -6,6 +6,7 @@ from dataclasses import dataclass
 import shlex
 
 from yoke_contracts.executor_labels import CANONICAL_HARNESS_IDS
+from yoke_contracts.watch_cli_forms import WATCHER_MAX_DURATION_SECONDS
 
 CLAUDE_AGENTS_MINIMUM_VERSION = "2.1.281"
 
@@ -82,13 +83,18 @@ HARNESS_CLI_MANIFESTS = (
         auth_args=("auth", "status", "--json"),
         auth_signed_in_key="loggedIn",
         login_args=("auth", "login"),
-        launch_environment=(("BASH_DEFAULT_TIMEOUT_MS", "3600000"),),
+        launch_environment=tuple(
+            (name, str(WATCHER_MAX_DURATION_SECONDS * 1000))
+            for name in ("BASH_DEFAULT_TIMEOUT_MS", "BASH_MAX_TIMEOUT_MS")
+        ),
         background_time_limit=(
-            "Unattended text-prompt -p runs default to 10 minutes after "
-            "backgrounding. BASH_DEFAULT_TIMEOUT_MS=3600000 raises the "
-            "default to one hour, including moved foreground commands and "
-            "subagents. Explicit background timeout selects its own lifetime. "
-            "Docs checked 2026-10-20: "
+            "Interactive background Bash has no time limit. Text-prompt -p "
+            "runs default to 10 minutes; explicit timeout selects the lifetime "
+            "up to 2 hours. BASH_MAX_TIMEOUT_MS raises that ceiling; "
+            "BASH_DEFAULT_TIMEOUT_MS raises the default for moved commands. "
+            "Yoke launches set both to the longest wrapper duration; recipes "
+            "pass the wrapper duration as timeout. Limits do not depend on plan. "
+            "Docs checked 2026-11-06: "
             "https://code.claude.com/docs/en/tools-reference"
         ),
     ),

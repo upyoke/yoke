@@ -188,13 +188,17 @@ def test_headless_launch_uses_manifest_environment_over_inherited_timeout() -> N
     from yoke_contracts.harness_cli_manifest import harness_cli_manifest
 
     manifest = harness_cli_manifest("claude-code")
-    assert dict(manifest.launch_environment) == {"BASH_DEFAULT_TIMEOUT_MS": "3600000"}
+    assert dict(manifest.launch_environment) == {
+        "BASH_DEFAULT_TIMEOUT_MS": "28800000",
+        "BASH_MAX_TIMEOUT_MS": "28800000",
+    }
     for executor in ("claude-code", "claude-cli"):
         environment = native_session_environment(
             executor=executor,
             environ={"BASH_DEFAULT_TIMEOUT_MS": "600000"},
         )
-        assert environment["BASH_DEFAULT_TIMEOUT_MS"] == "3600000"
+        assert environment["BASH_DEFAULT_TIMEOUT_MS"] == "28800000"
+        assert environment["BASH_MAX_TIMEOUT_MS"] == "28800000"
 
 
 def test_launch_environment_is_driven_by_the_selected_manifest(monkeypatch) -> None:
@@ -219,6 +223,10 @@ def test_other_harnesses_defer_the_claude_background_limit() -> None:
         assert not manifest.launch_environment
         assert "Designed deferral" in manifest.background_time_limit
         environment = native_session_environment(
-            executor=executor, environ={"BASH_DEFAULT_TIMEOUT_MS": "3600000"}
+            executor=executor,
+            environ={
+                "BASH_DEFAULT_TIMEOUT_MS": "28800000",
+                "BASH_MAX_TIMEOUT_MS": "28800000",
+            },
         )
         assert "BASH_DEFAULT_TIMEOUT_MS" not in environment

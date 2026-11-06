@@ -28,7 +28,12 @@ from yoke_contracts.harness_wake_capability import wake_capability_for_mechanism
 from yoke_contracts.uv_project import uv_project_root
 from yoke_contracts.watch_cli_forms import cli_form
 from yoke_core.tools._watch_digest import TIER_HELP
-from yoke_core.tools._watch_wait_mode import WatchWaitMode, resolve_wait_mode
+from yoke_core.tools._watch_wait_mode import (
+    WatchWaitMode,
+    resolve_wait_mode,
+    caller_is_headless_command,
+)
+from yoke_core.tools._watch_timeout import watcher_timeout_ms
 from yoke_core.tools.watch_tail import WRAPPER_MODULE as WATCH_TAIL_MODULE
 
 
@@ -78,7 +83,9 @@ def _with_connection_env(invocation: str) -> str:
     env = os.environ.get(ENV_OVERRIDE, "").strip()
     if invocation.startswith("yoke "):
         if env:
-            invocation = f"yoke --env {shlex.quote(env)} {invocation.removeprefix('yoke ')}"
+            invocation = (
+                f"yoke --env {shlex.quote(env)} {invocation.removeprefix('yoke ')}"
+            )
         if os.environ.get(SOURCE_DEV_RUN_ROOT_ENV):
             invocation = f"yoke dev run -- {invocation}"
         return invocation
@@ -126,20 +133,10 @@ def print_streaming_pair(
     wake_mechanism: str = "Monitor",
     out: Optional[TextIO] = None,
 ) -> None:
-    """Emit a ready-to-paste background command + progress-tail pair.
+    """Emit an anchored wrapper and its progress subscription without running it.
 
-    The wrapper has already filtered, so the progress command uses
-    ``watch_tail`` against the progress capture. Harnesses can map the
-    first line to their background-command surface and the second line
-    to their streaming/progress surface. Both command lines anchor to
-    the resolved repo root and replay the invoking connection env.
-
-    Wrappers with a ``yoke watch <kind>`` adapter emit that form: the
-    console script always resolves an interpreter that can import
-    ``yoke_core``, and the adapter re-binds a uv-managed project's own
-    environment before running. Wrappers without an adapter keep the
-    ``uv run --frozen python3 -m`` module form, which binds a checkout's
-    locked dependencies where ambient ``python3`` would not.
+    Both commands replay the invoking connection and locked source binding.
+    Registered wrappers use their canonical ``yoke watch`` CLI adapter.
     """
     stream = out or sys.stdout
     raw_q = shlex.quote(str(raw_capture))
@@ -155,6 +152,10 @@ def print_streaming_pair(
     stream.write(f"# watch_{kind}: ready-to-paste streaming pair\n")
     stream.write("\n")
     stream.write("# Background command — wrapper writes raw + progress captures\n")
+    if wake_mechanism == "Monitor":
+        stream.write(
+            f"# Bash: run_in_background: true, timeout: {watcher_timeout_ms(kind, wrapper_args)}\n"
+        )
     stream.write(f"{bash_invocation}\n")
     stream.write("\n")
     if outcome_only:
@@ -165,7 +166,11 @@ def print_streaming_pair(
         stream.write("# The raw capture retains the complete child output.\n")
     mechanism = wake_mechanism or "the configured idle-wake subscription"
     capability = wake_capability_for_mechanism(wake_mechanism)
-    limit = capability.idle_wake_subscription_limit_seconds if capability else None
+    limit = (
+        capability.subscription_limit_seconds(headless=caller_is_headless_command())
+        if capability
+        else None
+    )
     stream.write(f"# Progress tail — arm {mechanism} ONCE against this capture file.\n")
     stream.write("# Paste the background command above VERBATIM: the two lines are a\n")
     stream.write("# matched pair, and its --raw-capture/--progress-capture flags are\n")
@@ -193,12 +198,9 @@ def print_streaming_pair(
             "# subscription is live is the wake-loop bug, denied at PreToolUse.\n"
         )
     else:
-        stream.write(
-            "# for the lifetime of the bg command. Do NOT re-arm to 'continue\n"
-        )
-        stream.write(
-            "# tail' — that is the wake-loop bug and is denied at PreToolUse.\n"
-        )
+        stream.write("# No subscription deadline is established for this harness.\n")
+        stream.write("# Keep this subscription; do not re-arm to 'continue tail'.\n")
+        stream.write("# If a native expiry notice arrives, re-arm the same tail.\n")
     stream.write("# Auto-exits when the wrapper writes its exit sentinel.\n")
     if not outcome_only:
         for tier_line in TIER_HELP.rstrip().splitlines():
@@ -248,6 +250,7 @@ def print_in_turn_invocation(
     stream.write("# hands the call back before it finishes, the command is\n")
     stream.write("# still running: continue that same call rather than\n")
     stream.write("# starting a second one.\n")
+    stream.write(f"# Bash timeout: {watcher_timeout_ms(kind, wrapper_args)}\n")
     if outcome_only:
         stream.write(
             "# Routine progress is suppressed; terminal errors and the final "
@@ -284,7 +287,9 @@ def print_wait_mode_invocation(
     selected = wait_mode or resolve_wait_mode()
     stream.write(f"# watch_{kind} wait_mode={selected.name}\n")
     stream.write(f"# watch_{kind} wait_reason={selected.reason}\n")
-    stream.write("# Subagents use the in-turn foreground form; never background Bash or Monitor.\n")
+    stream.write(
+        "# Subagents use the in-turn foreground form; never background Bash or Monitor.\n"
+    )
     stream.write(
         f"# watch_{kind} printed only — nothing has run; run the command "
         "below to start it.\n"

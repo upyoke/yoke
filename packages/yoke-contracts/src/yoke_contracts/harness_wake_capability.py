@@ -27,7 +27,7 @@ same subscription on the expiry notice, never relaunching what it watches.
 
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, field
 from typing import Literal
 
 
@@ -47,10 +47,18 @@ class HarnessWakeCapability:
     verified_on_surface: str
     evidence: str
     #: Longest an idle-wake subscription lives before the harness ends it;
-    #: ``None`` when a subscription lasts as long as what it watches.
-    idle_wake_subscription_limit_seconds: int | None = None
+    #: ``None`` when no lifetime cap has been established.
+    idle_wake_subscription_limits_seconds: dict[str, int | None] = field(
+        default_factory=lambda: {"interactive": None, "headless": None}
+    )
+    idle_wake_default_timeout_seconds: int | None = None
     #: The arming parameter that sets that deadline, empty without a limit.
     idle_wake_deadline_parameter: str = ""
+
+    def subscription_limit_seconds(self, *, headless: bool) -> int | None:
+        return self.idle_wake_subscription_limits_seconds[
+            "headless" if headless else "interactive"
+        ]
 
     def to_json(self) -> dict[str, object]:
         return asdict(self)
@@ -68,12 +76,14 @@ HARNESS_WAKE_CAPABILITIES: dict[str, HarnessWakeCapability] = {
             "Every stdout line a Monitor filter matches resumes the turn, "
             "which is what the main-session long-command rule is built on. "
             "A Monitor ends at its timeout_ms deadline (default 5 minutes, "
-            "capped at 30) with one expiry notice and its watcher killed; "
+            "capped at 30 interactive or 10 in text-prompt headless runs) "
+            "with one expiry notice and its watcher killed; "
             "re-arming the same tail then continues the watch. "
             "Ending the current turn closes the Monitor reader; see "
             "docs/archive/decisions/monitor-wake-resumes-current-turn.md."
         ),
-        idle_wake_subscription_limit_seconds=1800,
+        idle_wake_subscription_limits_seconds={"interactive": 1800, "headless": 600},
+        idle_wake_default_timeout_seconds=300,
         idle_wake_deadline_parameter="timeout_ms",
     ),
     "codex": HarnessWakeCapability(
@@ -101,7 +111,12 @@ HARNESS_WAKE_CAPABILITIES: dict[str, HarnessWakeCapability] = {
             "Live probe: the session ends its turn after a Shell call with "
             "block_until_ms=0 and a notify_on_output pattern, then receives "
             "system_notification pattern matches while idle — a working "
-            "equivalent of Claude's Monitor. No timer wake was observed."
+            "equivalent of Claude's Monitor. No timer wake was observed. "
+            "Lifetime-cap probe 2026-11-06: installed cursor-agent "
+            "2026.10.22-27dcf5f --help and --version expose no notify_on_output "
+            "deadline parameter or cap. The current Codex surface cannot "
+            "invoke Cursor Shell; both per-mode caps remain null (unverified), "
+            "not evidence of an unlimited subscription."
         ),
     ),
 }

@@ -22,9 +22,6 @@ from yoke_core.domain.session_tool_call_start_reconcile import (
 )
 
 # Bounded command text retained for the PreToolUse lint guardrails.
-# Partially duplicates telemetry's envelope tool_input on purpose: the
-# lints must keep their signal after the events ledger becomes
-# telemetry-only.
 COMMAND_SUMMARY_MAX_CHARS = 500
 
 # Event names that bump ``last_tool_call_at`` / ``tool_call_count``.
@@ -316,6 +313,9 @@ def apply_envelope_state(conn: Any, envelope: Dict[str, Any]) -> None:
                 started_at=observed_at,
                 command_summary=_envelope_command_summary(envelope),
             )
+            from yoke_core.domain.session_monitor_deadline import stamp_monitor_deadline
+
+            stamp_monitor_deadline(conn, envelope)
         return
     if event_name in COMPLETION_EVENT_NAMES:
         tool_use_id = envelope.get("tool_use_id")

@@ -35,6 +35,9 @@ WATCH_CLI_TOKENS: dict[str, tuple[str, ...]] = {
 #: which auto-backgrounds a still-running call.
 IN_TURN_WATCHER_TIMEOUT_MS = 600000
 
+# Longest bounded watcher: the fleet watch runs for eight hours.
+WATCHER_MAX_DURATION_SECONDS = 8 * 60 * 60
+
 
 def cli_form(wrapper_module: str) -> str | None:
     """Return the ``yoke watch <kind>`` invocation, or ``None`` if unmapped.

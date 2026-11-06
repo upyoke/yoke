@@ -79,7 +79,9 @@ def held_projects(session_id: str) -> tuple[str, ...]:
     )
     if not response.success:
         error = response.error
-        raise RuntimeError(f"{error.code}: {error.message}" if error else "no reason given")
+        raise RuntimeError(
+            f"{error.code}: {error.message}" if error else "no reason given"
+        )
     return tuple(
         dict.fromkeys(
             str(claim["scope"]["project_id"])
@@ -88,10 +90,12 @@ def held_projects(session_id: str) -> tuple[str, ...]:
     )
 
 
-def lapsed_tail_nudge(executor_family: str, lapsed_capture: str) -> str:
+def lapsed_tail_nudge(
+    executor_family: str, lapsed_capture: str, *, headless: bool = False
+) -> str:
     """Re-arm a lapsed subscription on the live wrapper's capture, or nothing."""
     wake = wake_capability_for_harness(canonical_harness_id(executor_family))
-    limit = wake.idle_wake_subscription_limit_seconds
+    limit = wake.subscription_limit_seconds(headless=headless)
     if not (lapsed_capture and limit):
         return ""
     return (
@@ -169,10 +173,15 @@ def fleet_watcher_alert(report: str, context: HookContext) -> str:
         or row.get("terminated_at")
     ):
         return ""
+    from yoke_contracts.hook_runner.client_facts import headless_launch
+
     line = lapsed_tail_nudge(
-        context.executor_family, observed_lapsed_tail(context.payload, session_id)
+        context.executor_family,
+        observed_lapsed_tail(context.payload, session_id),
+        headless=headless_launch(context.payload),
     ) or _absent_line(session_id, context)
     return f"{ALERT_BEGIN}\n{line}\n{ALERT_END}"
+
 
 __all__ = [
     "fleet_watcher_absent_nudge",

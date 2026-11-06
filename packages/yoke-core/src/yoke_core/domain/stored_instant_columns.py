@@ -258,6 +258,7 @@ STORED_INSTANT_COLUMNS: tuple[tuple[str, str], ...] = (
     ("session_promised_work_holds", "last_hold_at"),
     ("session_tool_calls", "started_at"),
     ("session_tool_calls", "completed_at"),
+    ("session_tool_calls", "monitor_deadline_at"),
     ("severity_config", "created_at"),
     ("shepherd_verdicts", "created_at"),
     ("sites", "created_at"),

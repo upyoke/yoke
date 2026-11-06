@@ -122,7 +122,8 @@ def create_session_tables(conn: Any) -> None:
           started_at TIMESTAMPTZ NOT NULL,
           completed_at TIMESTAMPTZ,
           outcome TEXT,
-          command_summary TEXT
+          command_summary TEXT,
+          monitor_deadline_at TIMESTAMPTZ
         );
         CREATE UNIQUE INDEX IF NOT EXISTS idx_session_tool_calls_dedup
           ON session_tool_calls(session_id, tool_use_id);
@@ -158,6 +159,9 @@ def create_session_tables(conn: Any) -> None:
           ON work_claims(session_id, released_at);
         CREATE INDEX IF NOT EXISTS idx_work_claims_heartbeat ON work_claims(last_heartbeat);
     """,
+    )
+    _add_column_if_not_exists(
+        conn, "session_tool_calls", "monitor_deadline_at", "TIMESTAMPTZ"
     )
     _add_column_if_not_exists(
         conn, "harness_sessions", "org_id", "INTEGER REFERENCES organizations(id)"

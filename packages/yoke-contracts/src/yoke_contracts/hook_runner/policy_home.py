@@ -106,12 +106,14 @@ _POLICY_HOMES: dict[str, PolicyPlacement] = {
         CLIENT_CLAUDE_JOB_TMP_KEY,
         SOURCE_ROOT_KEY,
     ),
-    _D + "observe_pre": _SERVER,
+    _D + "observe_pre": _facts(HEADLESS_LAUNCH_KEY),
     _D + "path_claim_bash_guard": _facts(
         CLIENT_SCRATCH_ROOT_KEY, CLIENT_MACHINE_HOME_KEY
     ),
     _D + "turn_end_promised_work_gate": _facts(TURN_END_EVIDENCE_KEY),
-    _H + "session_message_delivery": _facts(FLEET_WATCHER_OBSERVATION_KEY),
+    _H + "session_message_delivery": _facts(
+        FLEET_WATCHER_OBSERVATION_KEY, HEADLESS_LAUNCH_KEY
+    ),
     # Server: payload text plus control-plane state only.
     _D + "lint_claim_ownership_mutations": _SERVER,
     _D + "lint_db_cmd": _SERVER,

@@ -137,8 +137,12 @@
     "timer_wake": "none",
     "timer_wake_mechanism": "",
     "verified_on_surface": "cursor-cli",
-    "evidence": "Live probe: the session ends its turn after a Shell call with block_until_ms=0 and a notify_on_output pattern, then receives system_notification pattern matches while idle — a working equivalent of Claude's Monitor. No timer wake was observed.",
-    "idle_wake_subscription_limit_seconds": null,
+    "evidence": "Live probe: the session ends its turn after a Shell call with block_until_ms=0 and a notify_on_output pattern, then receives system_notification pattern matches while idle — a working equivalent of Claude's Monitor. No timer wake was observed. Lifetime-cap probe 2026-11-06: installed cursor-agent 2026.10.22-27dcf5f --help and --version expose no notify_on_output deadline parameter or cap. The current Codex surface cannot invoke Cursor Shell; both per-mode caps remain null (unverified), not evidence of an unlimited subscription.",
+    "idle_wake_subscription_limits_seconds": {
+      "interactive": null,
+      "headless": null
+    },
+    "idle_wake_default_timeout_seconds": null,
     "idle_wake_deadline_parameter": ""
   },
   "parallel_subagents": {

@@ -11,11 +11,18 @@ Use your tier; unsure means subagent.
 - Run `yoke watch <wrapper> --print-streaming-pair ...` first; execute its printed
   recipe: `background-wake` arms the command and tail; `in-turn` uses foreground Bash with
   `timeout: 600000`.
-- Relay launches set `BASH_DEFAULT_TIMEOUT_MS=3600000` before Claude starts; subagents inherit
-  it. Moved commands get one hour; a foreground timeout alone does not extend it.
-  Without it, text-prompt `claude -p` kills moved calls ten minutes after the move. Have the
-  launcher relaunch with the setting before a long wait; exporting inside Bash is too late.
-- Explicit background Bash uses `run_in_background: true, timeout: 3600000`.
+- Monitor defaults to five minutes; its cap is thirty minutes in interactive terminal,
+  desktop and editor sessions, ten minutes in headless text-prompt `-p` runs. These limits
+  do not depend on plan. Recipes choose the run-mode cap from `agent_wake` in the manifest.
+  Re-arm the same tail on expiry; a completed setup call is still a live subscription.
+- Interactive background Bash has no time limit. Headless text-prompt `-p` defaults to ten
+  minutes after backgrounding; an explicit `timeout` selects up to two hours.
+- Relay launches set `BASH_DEFAULT_TIMEOUT_MS` and `BASH_MAX_TIMEOUT_MS` to the longest
+  wrapper duration before Claude starts; subagents inherit them. The first covers moved
+  calls and the second raises the two-hour ceiling. Read `cli.launch_environment` in the
+  manifest; relaunch with those settings if missing. Exporting inside Bash is too late.
+- Explicit background Bash uses `run_in_background: true` and `timeout` equal to the
+  wrapper duration in milliseconds, as printed by the recipe (`--duration` for fleet).
 - Preserve calls and captures without duplication; continue until exit. A background time
   limit means incomplete work. Never end an in-turn wait or poll a capture.
 - Only interrupt a local check past about one minute: stop cleanly, retain its incomplete
