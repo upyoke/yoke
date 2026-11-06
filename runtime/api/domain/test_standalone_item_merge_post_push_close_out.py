@@ -149,7 +149,10 @@ def test_failed_push_refuses_before_stamping_or_recording(monkeypatch) -> None:
     )
     outcome = _complete()
     assert not outcome.ok and not outcome.pushed and not outcome.merge_sha
-    assert "merge_candidate_not_landed" in outcome.error
+    assert "denied" in outcome.error
+    assert "merge_candidate_not_landed" not in outcome.error
+    assert "yoke merge item ITEM-7" in outcome.error
+    assert "denied" in outcome.warnings
 
 
 def test_no_remote_publication_stays_local_only(monkeypatch) -> None:
@@ -203,6 +206,7 @@ def test_cli_refusal_never_reaches_evidence_or_done_transition(
             commit_sha=LANE_SHA,
             merge_sha=MERGE_SHA,
             error="post-push CI failed (https://runs/failing); lane retained",
+            warnings=("publication diagnostic",),
         ),
     )
     monkeypatch.setattr(
@@ -230,6 +234,7 @@ def test_cli_refusal_never_reaches_evidence_or_done_transition(
 
     assert result == 1
     assert "https://runs/failing" in payload["error"]
+    assert payload["warnings"] == ["publication diagnostic"]
 
 
 def test_local_engine_defers_standalone_lane_removal(monkeypatch) -> None:

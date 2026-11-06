@@ -37,7 +37,7 @@ from yoke_core.domain.standalone_item_merge_checkout import (
     ensure_usable_cwd as _ensure_usable_cwd,
     resolve_checkout as _resolve_checkout,
 )
-from yoke_core.domain.standalone_item_merge_lane import active_lanes, lane_path
+from yoke_core.domain.standalone_item_merge_lane import active_lanes, lane_path, refresh_recorded_head
 from yoke_core.domain.terminal_lane_cleanup import record_terminal_lane_close_out
 
 
@@ -83,6 +83,12 @@ def run(argv: List[str]) -> int:
     evidence_workflow = terminal_transition_is_evidence_gated(workflow_id)
     record_evidence = evidence_workflow and bool(args.result and args.verification)
 
+    if not args.check:
+        item, error = refresh_recorded_head(
+            item, lambda: _resolve_item(public_ref, args.project)
+        )
+        if error:
+            return fail(error)
     readiness = readiness_gate.assess(
         item,
         args,
@@ -186,6 +192,7 @@ def run(argv: List[str]) -> int:
         return fail(
             f"{public_ref}: {outcome.error}",
             exit_code=outcome.exit_code,
+            warnings=list(outcome.warnings),
             branch=branch,
             target=target,
         )

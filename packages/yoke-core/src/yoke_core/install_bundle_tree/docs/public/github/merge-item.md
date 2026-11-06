@@ -29,6 +29,16 @@ Provide concrete result and verification text. `--verification-status`
 accepts `approved`, `completed`, `passed`, or `satisfied`.
 Read `yoke merge item --help` for target and pull-request options.
 
+Before readiness on an actual merge, Yoke compares the local lane HEAD with
+its recorded candidate. A missed hook recording is repaired and re-read before
+QA and landing use that candidate. A failed recording names the `project snapshot
+sync --head-only` recovery; `--check` stays read-only.
+
+For a standalone landing, retry the same command after fixing post-push CI.
+Yoke checks the landing commit again before close-out, including when it already
+landed. A new lane correction is recorded, verified, merged and published.
+A failed publication reports the push error and retains the lane for recovery.
+
 A queued landing can return `landing_pending=true`. Keep the lane and
 resume the same command when its landing notice arrives; see
 [Merge queue landings](merge-queue-landings.md).

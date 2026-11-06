@@ -16,6 +16,10 @@ this lane's work, and the one way to make that false again is to land it twice.
 from __future__ import annotations
 
 from yoke_core.domain import item_merge_contributed_commits as contributed
+from yoke_core.domain import standalone_item_merge_post_push as post_push
+from yoke_core.domain.merge_github_authority import (
+    classify_merge_authority, github_merge_enabled,
+)
 from yoke_core.domain import standalone_item_merge_git as git
 from yoke_core.domain import item_merge_receipts as receipts
 from yoke_core.domain.merge_landing_proof import (
@@ -198,20 +202,30 @@ def converge(
             pushed, push_warning = git.publish(repo_root, lane.target)
             if push_warning:
                 warnings.append(push_warning)
+            if not pushed and push_warning:
+                raise LandingUnverified(
+                    f"{push_warning}; repair publication, then retry "
+                    f"`yoke merge item {public_ref or lane.branch}`"
+                )
             merge_sha = verified_target_sha(repo_root, lane.target, lane.commit_sha)
         merge_sha = verified_landing_identity(
             repo_root,
             merge_sha,
             lane.commit_sha,
         )
-    except LandingUnverified as exc:
+        connected = git.has_remote(repo_root) and github_merge_enabled(project)
+    except (LandingUnverified, RuntimeError) as exc:
+        reason = str(exc) if isinstance(exc, LandingUnverified) else (
+            f"github_merge_mode_unreadable: {exc}. Repair the project GitHub "
+            f"binding status read, then retry `yoke merge item {public_ref or lane.branch}`."
+        )
         note = receipts.record_failure(
             item_id,
             branch=lane.branch,
             target=lane.target,
             label="merge_landing_unverified",
             phase="convergence",
-            reason=str(exc),
+            reason=reason,
         )
         if note:
             warnings.append(note)
@@ -220,7 +234,7 @@ def converge(
             exit_code=1,
             already_merged=False,
             commit_sha=lane.commit_sha,
-            error=str(exc),
+            error=reason,
             pushed=pushed,
             warnings=tuple(warnings),
         )
@@ -247,6 +261,20 @@ def converge(
     if receipt_note:
         warnings.append(receipt_note)
 
+    if connected:
+        observed = post_push.await_post_push_checks(
+            project, merge_sha, classify_merge_authority(local_merge=True).authority
+        )
+        if not observed.ok:
+            return StandaloneMergeOutcome(
+                ok=False, exit_code=1, already_merged=True,
+                commit_sha=lane.commit_sha, merge_sha=merge_sha,
+                touched_files=lane.touched_files, pushed=pushed,
+                error=post_push.refusal_message(
+                    observed, merge_sha=merge_sha,
+                    resume_command=f"yoke merge item {public_ref or lane.branch}",
+                ), warnings=tuple(warnings),
+            )
     if git.has_remote(repo_root):
         sync_warning = fast_forward_main_checkout(repo_root, lane.target)
         if sync_warning:
