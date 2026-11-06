@@ -62,6 +62,22 @@ class _Conn:
         return False
 
     def execute(self, sql, params=()):
+        if "v.definition_json" in sql and "FROM items i" in sql:
+            import json
+            from yoke_core.domain.workflow_runtime import builtin_workflow_runtime
+
+            runtime = builtin_workflow_runtime("epic")
+            return _Rows(
+                [
+                    {
+                        "workflow_id": runtime.workflow_id,
+                        "workflow_version_id": 1,
+                        "version": runtime.version,
+                        "definition_json": json.dumps(runtime.definition),
+                        "definition_digest": runtime.definition_digest,
+                    }
+                ]
+            )
         if "p.public_item_prefix AS public_item_prefix" in sql:
             return _Rows([(1, "example", "EX", 41)])
         if "FROM item_worktrees iw JOIN items i" in sql:

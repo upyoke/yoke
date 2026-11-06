@@ -277,6 +277,7 @@ def _handle_already_done(
     )
     print("No cleanup or discovery work needed on idempotent re-run.")
     result.already_completed = True
+    result.new_status = result.old_status
     result.write(result_file)
     print(f"RESULT_FILE={result_file}")
     return 0

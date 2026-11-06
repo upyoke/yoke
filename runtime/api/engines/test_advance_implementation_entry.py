@@ -1,6 +1,7 @@
 """Tests for the advance implementation-entry orchestrator."""
 
 from __future__ import annotations
+from yoke_core.domain.workflow_runtime import builtin_workflow_runtime
 
 import io
 import json
@@ -23,6 +24,9 @@ def _item(item_id=42, status="refined-idea", type_="issue", title="t", project="
         "public_ref": f"YOK-{item_id}",
         "type": type_,
         "status": status,
+        "implementation_started": not builtin_workflow_runtime(
+            type_
+        ).is_before_implementation(status),
         "title": title,
         "project": project,
     }

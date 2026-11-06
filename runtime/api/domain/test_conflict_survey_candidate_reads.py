@@ -31,6 +31,9 @@ def test_historical_content_is_filtered_before_hydration(monkeypatch):
             ],
         ],
     )
+    from runtime.api.workflow_pin_test_support import install_workflow_pin
+
+    install_workflow_pin(conn)
     hydrated = []
     original = blockers._dict_rows
 

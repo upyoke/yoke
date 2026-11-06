@@ -1,6 +1,7 @@
 """Board projection tests for yoke_core.domain.board."""
 
 from __future__ import annotations
+from yoke_core.domain.workflow_runtime import builtin_workflow_runtime
 
 from yoke_contracts.board.status import BOARD_BUCKET_ORDER
 
@@ -24,7 +25,9 @@ class TestItemForBoard:
 
     def test_workflow_id_set(self):
         ifb = ItemForBoard(
-            item={"id": 1}, status="implementing", workflow_id="epic",
+            item={"id": 1},
+            status="implementing",
+            workflow_id="epic",
         )
         assert ifb.workflow_id == "epic"
 
@@ -101,9 +104,9 @@ class TestProjectBoard:
             self._make_item(1, "reviewing-implementation"),  # -> reviewing
             self._make_item(2, "planned"),  # -> refined
             self._make_item(3, "refined-idea"),  # -> refined
-            self._make_item(4, "stopped"),     # -> blocked
-            self._make_item(5, "failed"),      # -> blocked
-            self._make_item(6, "cancelled"),   # -> done
+            self._make_item(4, "stopped"),  # -> blocked
+            self._make_item(5, "failed"),  # -> blocked
+            self._make_item(6, "cancelled"),  # -> done
         ]
         board = project_board(items)
         assert len(board.columns["reviewing"]) == 1
@@ -207,7 +210,12 @@ class TestBoardEdgeCases:
         items = [
             ItemForBoard(item={"id": 1}, status="implementing", frozen_value=0),
             ItemForBoard(item={"id": 2}, status="implementing", frozen_value=1),
-            ItemForBoard(item={"id": 3}, status="done", frozen_value=1),
+            ItemForBoard(
+                item={"id": 3},
+                status="done",
+                frozen_value=1,
+                workflow_definition=builtin_workflow_runtime("issue").definition,
+            ),
         ]
         board = project_board(items)
         # id=1: implementing (not frozen) -> implementing column
@@ -221,7 +229,10 @@ class TestBoardEdgeCases:
         """Verify stats remain correct with many items."""
         items = (
             [ItemForBoard(item={"id": i}, status="done") for i in range(50)]
-            + [ItemForBoard(item={"id": i + 50}, status="implementing") for i in range(30)]
+            + [
+                ItemForBoard(item={"id": i + 50}, status="implementing")
+                for i in range(30)
+            ]
             + [ItemForBoard(item={"id": i + 80}, status="idea") for i in range(20)]
         )
         board = project_board(items)

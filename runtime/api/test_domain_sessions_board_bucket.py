@@ -1,6 +1,7 @@
 """Status-to-bucket mapping tests for yoke_core.domain.board."""
 
 from __future__ import annotations
+from yoke_core.domain.workflow_runtime import builtin_workflow_runtime
 
 from yoke_core.domain.board import (
     FROZEN_BUCKET,
@@ -55,7 +56,14 @@ class TestStatusToBoardBucket:
 
     def test_frozen_done_still_goes_to_done(self):
         """Done items bypass the frozen check."""
-        assert status_to_board_bucket("done", frozen_value=1) == "done"
+        assert (
+            status_to_board_bucket(
+                "done",
+                frozen_value=1,
+                workflow_definition=builtin_workflow_runtime("issue").definition,
+            )
+            == "done"
+        )
 
     def test_frozen_cancelled_still_goes_to_done(self):
         """Cancelled items bypass the frozen check."""

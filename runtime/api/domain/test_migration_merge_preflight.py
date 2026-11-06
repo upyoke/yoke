@@ -1,6 +1,7 @@
 """Pure merge-gate coverage for migration order and item collisions."""
 
 from __future__ import annotations
+from yoke_core.domain.workflow_runtime import builtin_workflow_runtime
 
 from runtime.api.domain.migration_merge_preflight_test_support import (
     _git as _git,
@@ -43,6 +44,7 @@ def _row(item_id: int, status: str, identifier: str) -> dict[str, str]:
     return {
         "id": f"YOK-{item_id}",
         "status": status,
+        "terminal": status in builtin_workflow_runtime("issue").all_terminal_stage_ids,
         "db_mutation_profile": _profile(identifier),
     }
 

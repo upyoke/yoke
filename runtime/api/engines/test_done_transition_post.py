@@ -194,7 +194,7 @@ class TestHandleAlreadyDone:
         project_repo = tmp_path / "repo"
         project_repo.mkdir()
         result_file = str(tmp_path / "result.json")
-        result = done_transition.TransitionResult(item="YOK-9999")
+        result = done_transition.TransitionResult(item="YOK-9999", old_status="done")
 
         with (
             mock.patch.object(done_transition, "_run_git") as mock_git,

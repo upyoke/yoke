@@ -10,6 +10,7 @@ relay functions classify to the ``PROJECT`` authorization scope (not ``DENY``).
 """
 
 from __future__ import annotations
+from yoke_core.domain.workflow_runtime import builtin_workflow_runtime
 
 import pytest
 
@@ -103,9 +104,7 @@ class TestVerifyStatusClaimReadSite:
     def _run(self, *, session_id=None):
         # The bypass path emits an event and returns before any DB query; a
         # dummy conn is never touched. Silence the event emit.
-        return bscv._verify_status_claim(
-            object(), 7, None, session_id=session_id
-        )
+        return bscv._verify_status_claim(object(), 7, None, session_id=session_id)
 
     def test_contextvar_bypass_skips_claim_with_no_env(self, monkeypatch):
         monkeypatch.setattr(bscv._rendering, "_emit_event", lambda *a, **k: None)
@@ -136,24 +135,41 @@ class TestDeliveryReleaseRedirectReadSite:
     """backlog_update_effects._is_delivery_release_redirect precedence."""
 
     def test_non_release_target_never_redirects(self):
-        assert _is_delivery_release_redirect("done") is False
+        assert (
+            _is_delivery_release_redirect("done", builtin_workflow_runtime("dash"))
+            is False
+        )
 
     def test_contextvar_source_marks_release_redirect(self):
         with ctx.status_bypass_override(
             claim_bypass="", status_source="done-transition", task_done_verified=False
         ):
-            assert _is_delivery_release_redirect("release") is True
+            assert (
+                _is_delivery_release_redirect(
+                    "release", builtin_workflow_runtime("dash")
+                )
+                is True
+            )
 
     def test_env_source_fallback_marks_release_redirect(self, monkeypatch):
         monkeypatch.setenv("YOKE_STATUS_SOURCE", "done-transition")
-        assert _is_delivery_release_redirect("release") is True
+        assert (
+            _is_delivery_release_redirect("release", builtin_workflow_runtime("dash"))
+            is True
+        )
 
     def test_deploy_pipeline_env_bypass_still_marks_redirect(self, monkeypatch):
         monkeypatch.setenv("YOKE_CLAIM_BYPASS", "deploy-pipeline:run-1")
-        assert _is_delivery_release_redirect("release") is True
+        assert (
+            _is_delivery_release_redirect("release", builtin_workflow_runtime("dash"))
+            is True
+        )
 
     def test_plain_release_without_source_is_not_redirect(self):
-        assert _is_delivery_release_redirect("release") is False
+        assert (
+            _is_delivery_release_redirect("release", builtin_workflow_runtime("dash"))
+            is False
+        )
 
 
 class TestAuthzClassification:

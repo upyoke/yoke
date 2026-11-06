@@ -7,6 +7,7 @@ dirty-main evaluated against target repo
 """
 
 from __future__ import annotations
+from yoke_core.domain.workflow_runtime import builtin_workflow_runtime
 
 import io
 import json
@@ -37,6 +38,9 @@ def _item(
         "public_ref": f"YOK-{item_id}",
         "type": type_,
         "status": status,
+        "implementation_started": not builtin_workflow_runtime(
+            type_
+        ).is_before_implementation(status),
         "title": title,
         "project": project,
     }

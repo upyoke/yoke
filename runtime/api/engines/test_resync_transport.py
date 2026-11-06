@@ -20,6 +20,7 @@ with no bare ``db_helpers.connect`` on any resync path.
 """
 
 from __future__ import annotations
+from yoke_core.domain.workflow_runtime import builtin_workflow_runtime
 
 import pytest
 
@@ -241,6 +242,9 @@ class TestEpicTaskRepairOrdering:
                         "parent_id": 1246,
                         "parent_ref": "YOK-1246",
                         "task_found": True,
+                        "successful_task_stage_ids": sorted(
+                            builtin_workflow_runtime("epic").successful_task_stage_ids
+                        ),
                         "title": "Task one",
                         "status": status,
                     },
@@ -307,6 +311,9 @@ class TestEpicTaskRepairOrdering:
                         "parent_id": 1246,
                         "parent_ref": "YOK-1246",
                         "task_found": True,
+                        "successful_task_stage_ids": sorted(
+                            builtin_workflow_runtime("epic").successful_task_stage_ids
+                        ),
                         "title": "Task one",
                         "status": "implementing",
                     },

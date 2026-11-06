@@ -200,8 +200,21 @@ def _run_preflight(monkeypatch, responses, *, skip_simulation=False, item_id=Non
 
     def fake(**kwargs):
         calls.append(kwargs)
-        return responses[kwargs["function_id"]]
+        response = responses[kwargs["function_id"]]
+        if (
+            kwargs["function_id"] == "merge.preflight.epic_task_statuses"
+            and response.success
+        ):
+            from yoke_core.domain.workflow_runtime import builtin_workflow_runtime
 
+            response.result["successful_task_stage_ids"] = sorted(
+                builtin_workflow_runtime("epic").successful_task_stage_ids
+            )
+        return response
+
+    monkeypatch.setattr(
+        "yoke_core.engines.merge_task_completeness.call_dispatcher", fake
+    )
     monkeypatch.setattr(pf, "call_dispatcher", fake)
     monkeypatch.setattr(mw, "_run_git", _clean_git)
     _no_bare_db(monkeypatch)
@@ -234,7 +247,7 @@ class TestPreflightRelays:
         )
         result, _ = _run_preflight(monkeypatch, responses)
         assert result is not None
-        assert "FAIL: Incomplete tasks found" in capsys.readouterr().err
+        assert "task_completion_incomplete" in capsys.readouterr().err
 
     def test_missing_simulation_blocks(self, monkeypatch, capsys):
         responses = _pass_responses()

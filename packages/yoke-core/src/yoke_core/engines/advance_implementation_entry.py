@@ -40,18 +40,23 @@ def _parse_item_argument(raw: Any) -> int | str:
 def _read_item(item_id: int) -> Optional[Dict[str, Any]]:
     """Read the item's routing fields through the transport-aware relay.
 
-    Routes ``items.detail.get`` through ``call_dispatcher`` so the read
+    Routes ``done_transition.item_context`` through ``call_dispatcher`` so the read
     works over an https control plane as well as an in-process local
     Postgres connection. Returns ``None`` when the item is not found (or
     the read is refused), matching the previous local-query contract.
     """
     from yoke_core.engines.done_transition_item_context import (
-        load_done_item_context_over_transport,
+        done_item_context_from_payload,
     )
 
-    context = load_done_item_context_over_transport(item_id)
-    if context is None:
+    response = call_dispatcher(
+        function_id="done_transition.item_context",
+        target=public_item_target(item_id),
+        payload={},
+    )
+    if not response.success or not (response.result or {}).get("found"):
         return None
+    context = done_item_context_from_payload(response.result)
     workflow = context.workflow
     return {
         "public_ref": context.public_ref,

@@ -19,6 +19,9 @@ class TestCascadeTaskStatus:
         assert result == "0"
 
     def test_no_eligible_tasks_returns_zero(self, test_db):
+        from runtime.api.conftest import insert_item
+
+        insert_item(test_db, id=42, workflow_id="epic")
         epic.task_upsert(test_db, "42", 1, "Task 1", "", "", "")
         epic.task_update_status(test_db, "42", 1, "implementing")
         # cascade planning -> plan-drafted won't match tasks in implementing

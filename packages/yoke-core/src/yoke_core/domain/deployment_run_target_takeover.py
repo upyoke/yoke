@@ -8,7 +8,7 @@ Ordinary membership removal remains a separate cancellation operation.
 
 from __future__ import annotations
 
-from yoke_core.domain.workflow_runtime import load_item_workflow_runtime
+from yoke_core.domain.frontier_workflow_versions import load_frontier_workflow_versions
 
 from collections.abc import Mapping
 from typing import Any, Optional
@@ -102,7 +102,7 @@ def _waiting_run(conn: Any, new_run: Mapping[str, Any]) -> Optional[dict]:
 def _members(conn: Any, run_id: str) -> list[dict[str, Any]]:
     return query_rows(
         conn,
-        "SELECT dri.item_id,dri.delivery_intent,i.status FROM deployment_run_items dri "
+        "SELECT dri.item_id,dri.delivery_intent,i.status,i.workflow_version_id FROM deployment_run_items dri "
         "JOIN items i ON i.id=dri.item_id WHERE dri.run_id=%s ORDER BY dri.item_id",
         (run_id,),
     )
@@ -110,20 +110,22 @@ def _members(conn: Any, run_id: str) -> list[dict[str, Any]]:
 
 def _moving_members(conn: Any, old: Mapping[str, Any]) -> list[dict]:
     """Every member the older run has not closed; only a closed one stays."""
+    versions = load_frontier_workflow_versions(conn)
     return [
         member
         for member in _members(conn, str(old["id"]))
         if member["status"]
-        not in load_item_workflow_runtime(
-            conn, member["item_id"]
-        ).all_terminal_stage_ids
+        not in versions.runtimes[
+            int(member["workflow_version_id"])
+        ].all_terminal_stage_ids
     ]
 
 
 def _delivered_any(conn: Any, old_id: str) -> bool:
+    versions = load_frontier_workflow_versions(conn)
     return any(
         member["status"]
-        in load_item_workflow_runtime(conn, member["item_id"]).terminal_stage_ids
+        in versions.runtimes[int(member["workflow_version_id"])].terminal_stage_ids
         for member in _members(conn, old_id)
     )
 

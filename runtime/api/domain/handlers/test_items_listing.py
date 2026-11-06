@@ -33,6 +33,7 @@ class TestItemsList:
             "priority",
             "workflow_id",
             "source",
+            "terminal",
         }
 
     def test_fields_projection_and_limit(self, test_db):

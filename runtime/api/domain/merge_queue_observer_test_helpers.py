@@ -139,6 +139,9 @@ def observer_connection():
           merge_queue_enqueued_at='2026-08-27T17:00:00.000000Z' WHERE id=101;
         """
     )
+    from runtime.api.workflow_pin_test_support import install_workflow_pin
+
+    install_workflow_pin(conn)
     ensure_merge_queue_landing_record_schema(conn)
     conn.commit()
     return conn

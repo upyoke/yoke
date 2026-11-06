@@ -14,7 +14,7 @@ from unittest import mock
 
 import pytest
 
-from runtime.api.conftest import insert_epic_task
+from runtime.api.workflow_task_fixture_support import insert_epic_task
 from yoke_core.domain import status_claim_bypass_context as ctx
 from yoke_core.domain import update_status
 
@@ -50,16 +50,24 @@ class TestDoneGuardContextVar:
             test_db, epic_id=42, task_num=1, status="reviewed-implementation"
         )
         out, err = io.StringIO(), io.StringIO()
-        with mock.patch.object(update_status, "_history_insert"), \
-             ctx.status_bypass_override(
-                 claim_bypass=f"done-cascade:{TEST_ITEM_REF}",
-                 status_source="",
-                 task_done_verified=True,
-             ):
+        with (
+            mock.patch.object(update_status, "_history_insert"),
+            ctx.status_bypass_override(
+                claim_bypass=f"done-cascade:{TEST_ITEM_REF}",
+                status_source="",
+                task_done_verified=True,
+            ),
+        ):
             rc = update_status.update_task_status(
-                test_db, "42", "1", "done", "",
-                no_github=True, no_derive=True,
-                stdout=out, stderr=err,
+                test_db,
+                "42",
+                "1",
+                "done",
+                "",
+                no_github=True,
+                no_derive=True,
+                stdout=out,
+                stderr=err,
             )
         assert rc == 0
         assert _task_status(test_db, 42, 1) == "done"
@@ -70,12 +78,20 @@ class TestDoneGuardContextVar:
         )
         monkeypatch.setenv("YOKE_TASK_DONE_VERIFIED", "1")
         out, err = io.StringIO(), io.StringIO()
-        with mock.patch.object(update_status, "_history_insert"), \
-             mock.patch.object(update_status, "_verify_claim"):
+        with (
+            mock.patch.object(update_status, "_history_insert"),
+            mock.patch.object(update_status, "_verify_claim"),
+        ):
             rc = update_status.update_task_status(
-                test_db, "43", "1", "done", "",
-                no_github=True, no_derive=True,
-                stdout=out, stderr=err,
+                test_db,
+                "43",
+                "1",
+                "done",
+                "",
+                no_github=True,
+                no_derive=True,
+                stdout=out,
+                stderr=err,
             )
         assert rc == 0
         assert _task_status(test_db, 43, 1) == "done"
@@ -86,9 +102,15 @@ class TestDoneGuardContextVar:
         )
         out, err = io.StringIO(), io.StringIO()
         rc = update_status.update_task_status(
-            test_db, "44", "1", "done", "",
-            no_github=True, no_derive=True,
-            stdout=out, stderr=err,
+            test_db,
+            "44",
+            "1",
+            "done",
+            "",
+            no_github=True,
+            no_derive=True,
+            stdout=out,
+            stderr=err,
         )
         assert rc == 4
         assert "merge-verified" in err.getvalue()
@@ -120,16 +142,24 @@ class TestTransitionSourceContextVar:
         insert_epic_task(test_db, epic_id=45, task_num=1, status="planned")
         seen = self._capture_source(monkeypatch)
         out, err = io.StringIO(), io.StringIO()
-        with mock.patch.object(update_status, "_history_insert"), \
-             ctx.status_bypass_override(
-                 claim_bypass="done-cascade:YOK-45",
-                 status_source="my-cascade-source",
-                 task_done_verified=False,
-             ):
+        with (
+            mock.patch.object(update_status, "_history_insert"),
+            ctx.status_bypass_override(
+                claim_bypass="done-cascade:YOK-45",
+                status_source="my-cascade-source",
+                task_done_verified=False,
+            ),
+        ):
             update_status.update_task_status(
-                test_db, "45", "1", "implementing", "",
-                no_github=True, no_derive=True,
-                stdout=out, stderr=err,
+                test_db,
+                "45",
+                "1",
+                "implementing",
+                "",
+                no_github=True,
+                no_derive=True,
+                stdout=out,
+                stderr=err,
             )
         assert seen["source"] == "my-cascade-source"
 
@@ -138,12 +168,20 @@ class TestTransitionSourceContextVar:
         seen = self._capture_source(monkeypatch)
         monkeypatch.setenv("YOKE_STATUS_SOURCE", "env-source")
         out, err = io.StringIO(), io.StringIO()
-        with mock.patch.object(update_status, "_history_insert"), \
-             mock.patch.object(update_status, "_verify_claim"):
+        with (
+            mock.patch.object(update_status, "_history_insert"),
+            mock.patch.object(update_status, "_verify_claim"),
+        ):
             update_status.update_task_status(
-                test_db, "46", "1", "implementing", "",
-                no_github=True, no_derive=True,
-                stdout=out, stderr=err,
+                test_db,
+                "46",
+                "1",
+                "implementing",
+                "",
+                no_github=True,
+                no_derive=True,
+                stdout=out,
+                stderr=err,
             )
         assert seen["source"] == "env-source"
 
@@ -151,11 +189,19 @@ class TestTransitionSourceContextVar:
         insert_epic_task(test_db, epic_id=47, task_num=1, status="planned")
         seen = self._capture_source(monkeypatch)
         out, err = io.StringIO(), io.StringIO()
-        with mock.patch.object(update_status, "_history_insert"), \
-             mock.patch.object(update_status, "_verify_claim"):
+        with (
+            mock.patch.object(update_status, "_history_insert"),
+            mock.patch.object(update_status, "_verify_claim"),
+        ):
             update_status.update_task_status(
-                test_db, "47", "1", "implementing", "",
-                no_github=True, no_derive=True,
-                stdout=out, stderr=err,
+                test_db,
+                "47",
+                "1",
+                "implementing",
+                "",
+                no_github=True,
+                no_derive=True,
+                stdout=out,
+                stderr=err,
             )
         assert seen["source"] == "update-status"

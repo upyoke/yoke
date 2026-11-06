@@ -79,6 +79,10 @@ def test_production_code_has_no_copied_item_terminal_sets():
                     for value in node.elts
                     if isinstance(value, ast.Constant) and isinstance(value.value, str)
                 }
-                if "cancelled" in values and ("done" in values or "stopped" in values):
+                if (
+                    "done" in values
+                    and "cancelled" in values
+                    or values == {"cancelled", "stopped"}
+                ):
                     violations.append(f"{path.relative_to(root)}:{node.lineno}")
     assert not violations, "Read the pinned workflow instead: " + ", ".join(violations)

@@ -118,6 +118,7 @@ def task_update_status(
     statuses are blocked unless *pipeline* is True (set by the status
     pipeline, ``yoke_core.domain.update_status``).
     """
+    _require_task_exists(conn, epic_id, task_num)
     if not is_valid_task_status(status) and status not in task_success_statuses(
         conn, int(epic_id)
     ):
@@ -134,8 +135,6 @@ def task_update_status(
             "(python3 -m yoke_core.domain.update_status) so gates and "
             "cascades fire."
         )
-
-    _require_task_exists(conn, epic_id, task_num)
 
     p = _placeholder(conn)
     old_row = conn.execute(

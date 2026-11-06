@@ -39,7 +39,7 @@ from datetime import datetime
 from dataclasses import dataclass
 from typing import Any, Sequence
 
-from yoke_core.domain.item_terminal_resources import item_is_terminal
+from yoke_core.domain.workflow_item_binding_validation import read_pinned_items
 from yoke_core.domain.steering_fleet_report_detectors import age_seconds, marker
 
 
@@ -241,8 +241,14 @@ def _answerability_for(conn: Any, answerers: Sequence[str]) -> dict[str, str]:
             continue
         reasons[answerer] = UNRESOLVED
         live_pairs.append((answerer, item_id))
+    pinned = read_pinned_items(conn, [item_id for _, item_id in live_pairs])
     for answerer, item_id in live_pairs:
-        if item_is_terminal(conn, item_id):
+        item = pinned.get(item_id)
+        if (
+            item is not None
+            and item.runtime is not None
+            and item.status in item.runtime.all_terminal_stage_ids
+        ):
             reasons[answerer] = "answerer's own item is already terminal"
     return reasons
 

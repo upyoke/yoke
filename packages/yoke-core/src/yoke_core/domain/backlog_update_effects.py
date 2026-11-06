@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from yoke_contracts.lifecycle_status import ENGINE_TERMINAL_STAGE_IDS
+
 import os
 from dataclasses import dataclass
 from typing import Any, Optional, TextIO
@@ -11,6 +13,7 @@ from yoke_core.domain.backlog_session_attribution import (
     record_touched_item,
 )
 from yoke_core.domain.project_identity import render_item_ref
+from yoke_core.domain.workflow_runtime import load_item_workflow_runtime
 from yoke_core.domain.status_claim_bypass_context import resolve_claim_bypass
 
 
@@ -92,19 +95,18 @@ def run_transactional_update_effects(
                 commit=False,
             )
 
-    terminal_statuses: frozenset[str] = frozenset()
+    runtime = (
+        load_item_workflow_runtime(conn, int(item_id)) if field == "status" else None
+    )
+    terminal_statuses = (
+        runtime.all_terminal_stage_ids if runtime is not None else frozenset()
+    )
     terminal_holder_session_ids: tuple[str, ...] = ()
     if transitioned:
         from yoke_core.domain.item_terminal_resources import (
             release_for_terminal_transition,
-            terminal_stage_ids,
-        )
-        from yoke_core.domain.workflow_runtime import (
-            load_item_workflow_runtime,
         )
 
-        runtime = load_item_workflow_runtime(conn, int(item_id))
-        terminal_statuses = terminal_stage_ids(runtime)
         terminal_receipt = release_for_terminal_transition(
             conn,
             item_id=item_id,
@@ -150,26 +152,20 @@ def run_transactional_update_effects(
                 disposition = "Archived" if archive.changed else "Already archived"
                 messages.append(f"{disposition} execution document {archive.slug!r}.")
     path_claim_ids_to_propagate: tuple[int, ...] = ()
-    if (
-        field == "status"
-        and value
-        in {
-            "cancelled",
-            "stopped",
-            "release",
-        }
-        | terminal_statuses
+    if field == "status" and (
+        value in terminal_statuses or _is_delivery_release_redirect(value, runtime)
     ):
         cleanup_message, path_claim_ids_to_propagate = _clean_terminal_path_claims(
             conn,
             item_id=item_id,
             target_status=value,
             terminal_statuses=terminal_statuses,
+            runtime=runtime,
         )
         if cleanup_message:
             messages.append(cleanup_message)
 
-    if field == "status" and value == "done":
+    if field == "status" and value in runtime.terminal_stage_ids:
         messages.append(
             f"Done cleanup: {render_item_ref(conn, item_id)} frozen→false, "
             "blocked→false, active worktree lanes→released"
@@ -274,7 +270,7 @@ def run_post_commit_update_effects(
         print(f"Advisory: status-change telemetry deferred: {exc}", file=out)
 
 
-def _is_delivery_release_redirect(target_status: str) -> bool:
+def _is_delivery_release_redirect(target_status: str, runtime) -> bool:
     """True when an item is redirected to the ``release`` delivery stage.
 
     The done-transition redirect (status source ``done-transition``) and the
@@ -283,7 +279,10 @@ def _is_delivery_release_redirect(target_status: str) -> bool:
     claims. The request-scoped override (posted on a ContextVar by the
     done-transition status relay) wins over the env vars.
     """
-    if target_status != "release":
+    if (
+        not runtime.stage_implies_merge(target_status)
+        or target_status in runtime.terminal_stage_ids
+    ):
         return False
     ctx_bypass, ctx_source = resolve_claim_bypass()
     status_source = ctx_source or os.environ.get("YOKE_STATUS_SOURCE", "")
@@ -299,9 +298,10 @@ def _clean_terminal_path_claims(
     item_id: int,
     target_status: str,
     terminal_statuses: frozenset[str] = frozenset(),
+    runtime,
 ) -> tuple[Optional[str], tuple[int, ...]]:
     released_claim_ids: list[int] = []
-    if target_status in {"cancelled", "stopped"}:
+    if target_status in ENGINE_TERMINAL_STAGE_IDS:
         from yoke_core.domain.path_claims_item_hook import (
             cancel_claims_on_item_terminal as hook,
         )
@@ -309,7 +309,7 @@ def _clean_terminal_path_claims(
         verb = "Cancelled"
         hook_kwargs = {}
     elif target_status in terminal_statuses or _is_delivery_release_redirect(
-        target_status
+        target_status, runtime
     ):
         from yoke_core.domain.path_claims_item_hook_release import (
             release_claims_on_item_terminal as hook,

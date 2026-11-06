@@ -107,4 +107,7 @@ def native_clocks(clocks, monkeypatch):
     monkeypatch.setattr(updates, "connect", lambda *_: proxy)
     history.apply(clocks)
     history.invariants(clocks)
+    from runtime.api.workflow_pin_test_support import install_workflow_pin
+
+    install_workflow_pin(clocks)
     yield clocks

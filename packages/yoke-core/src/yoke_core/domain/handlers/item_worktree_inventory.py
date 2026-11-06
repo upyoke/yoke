@@ -110,11 +110,13 @@ def handle_inventory(request: FunctionCallRequest) -> HandlerOutcome:
             return _error("project_not_found", str(exc))
         rows = _rows(conn, int(project_id))
         refs = render_item_refs(conn, [int(row["item_id"]) for row in rows])
-        from yoke_core.domain.item_terminal_resources import item_is_terminal
+        from yoke_core.domain.workflow_item_binding_validation import read_pinned_items
 
+        pinned = read_pinned_items(conn, [int(row["item_id"]) for row in rows])
         terminal = {
-            int(row["item_id"]): bool(item_is_terminal(conn, int(row["item_id"])))
-            for row in rows
+            item_id: item.status
+            in item.require_runtime(conn, item_id).all_terminal_stage_ids
+            for item_id, item in pinned.items()
         }
 
     lanes = [
