@@ -148,7 +148,7 @@ class TestVocabularyRejection:
 class TestMigrationModules:
     def test_rejects_empty_list(self) -> None:
         # Required, non-empty.
-        with pytest.raises(DbMutationProfileError):
+        with pytest.raises(DbMutationProfileError, match="--state none"):
             validate({
                 "state": STATE_DECLARED,
                 "model_name": "primary",
