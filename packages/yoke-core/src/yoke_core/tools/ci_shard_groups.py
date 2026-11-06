@@ -117,7 +117,8 @@ def main(argv=None):
         with args.output.with_suffix(".collection.txt").open("w") as output:
             result = subprocess.run(
                 [sys.executable, "-m", "pytest", *SUITE_PATHS, "--collect-only",
-                 "-q", "-p", "no:xdist", "-p", "yoke_core.tools.ci_shard_groups"],
+                 "--assert=plain", "-qq", "-p", "no:xdist",
+                 "-p", "yoke_core.tools.ci_shard_groups"],
                 env=environment, stdout=output, stderr=subprocess.STDOUT, check=False,
             )
         if result.returncode:

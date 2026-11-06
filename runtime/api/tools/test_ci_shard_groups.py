@@ -121,3 +121,37 @@ def test_workflow_collects_once_alongside_wheels_before_shards():
     assert upload["if"] == "always()"
     downloads = [step.get("with", {}).get("name") for step in jobs["test_shard"]["steps"]]
     assert "ci-shard-groups" in downloads
+
+
+def test_plain_quiet_collection_preserves_fixture_and_marker_facts(tmp_path):
+    import json
+    import os
+    (tmp_path / "test_sample.py").write_text(
+        "import pytest\n"
+        "@pytest.fixture\ndef product_venv(): return None\n"
+        "@pytest.fixture\ndef wrapper(product_venv): return product_venv\n"
+        "def test_wheel(wrapper): assert wrapper is None\n"
+        "@pytest.mark.ci_version_independent\ndef test_marked(): pass\n"
+        "@pytest.mark.parametrize('value', [1, 2], ids=['one', 'two'])\n"
+        "def test_runtime(value): assert value > 0\n"
+    )
+    facts = []
+    for mode in ("rewrite", "plain"):
+        destination = tmp_path / f"{mode}.json"
+        environment = dict(os.environ, YOKE_CI_SHARD_FACTS=str(destination))
+        result = subprocess.run(
+            [sys.executable, "-m", "pytest", "test_sample.py", "--collect-only",
+             f"--assert={mode}", "-qq", "-p", "no:xdist",
+             "-p", "yoke_core.tools.ci_shard_groups"],
+            cwd=tmp_path, env=environment, capture_output=True, text=True,
+        )
+        assert result.returncode == 0, result.stdout + result.stderr
+        facts.append(json.loads(destination.read_text()))
+    assert facts[0] == facts[1]
+    assert len(facts[1]) == 4
+    wheel = next(row for row in facts[1] if row["nodeid"].endswith("test_wheel"))
+    marked = next(row for row in facts[1] if row["nodeid"].endswith("test_marked"))
+    runtime = [row for row in facts[1] if "test_runtime[" in row["nodeid"]]
+    assert wheel["wheel"] and wheel["independent"]
+    assert marked["independent"] and not marked["wheel"]
+    assert all(not row["independent"] and not row["wheel"] for row in runtime)

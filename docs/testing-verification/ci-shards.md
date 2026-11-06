@@ -74,8 +74,9 @@ Use `--reset` with a complete passing report set after changing fixture setup
 or scheduling costs substantially, so obsolete costs do not bias the baseline.
 `ci_shard_groups` runs one collect-only pass without xdist in `repo-contracts`,
 in parallel with portable-wheel construction, using committed weights. It
-records fixture and marker facts and publishes `ci-shard-groups.json` for both
-interpreter scopes. It sums recorded durations per file, gives unmeasured files
+uses plain assertions and suppresses node-ID output to avoid execution-only
+rewriting and terminal work. It records fixture and marker facts and publishes
+`ci-shard-groups.json` for both interpreter scopes. It sums recorded durations per file, gives unmeasured files
 the known mean file weight, and places the heaviest fixture units on the
 lightest shard. Git's tracked-file order breaks equal-weight ties. Files using
 product-wheel fixtures remain one indivisible unit. The grouping log records
