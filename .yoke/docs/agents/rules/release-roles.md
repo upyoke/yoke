@@ -12,10 +12,13 @@ Member runs have two roles. Matrix:
 
 - Each run pins a source commit and a flow. Start it with
   `yoke --env CONTROL-PLANE watch deploy -- RUN-ID`.
-- On CI-gated flows, omit `--source-ref` to bind the gate branch tip: reuse the passed/running
+- For a single run on a CI-gated flow, omit `--source-ref` to bind the gate branch tip: reuse the passed/running
   run on exactly that commit from any branch, dispatch only when it has none,
   or refuse failed/cancelled CI (`release_source_ci_failed`; fix the branch
   or rerun that commit's CI). `--source-ref` selects an explicit `release_lineage`.
+- For a Stage/Production pair, resolve the full passing commit once. Create both runs
+  with the same `--project-repo-path` and `--source-ref`; a moving branch tip can
+  otherwise bind different commits. See the [pair recipe](#create-a-release-pair).
 - Before creating a run, check member flows. Use their flow or reconcile explicitly; never
   change an item's flow silently.
 - Creation enrolls carried ready items. `release_member_not_in_source`: merge the item
@@ -43,6 +46,21 @@ Member runs have two roles. Matrix:
   --satisfaction status:done --rationale R`.
 - The driving seat never runs a member's item cases and never closes a member.
 - Commits outside Yoke ship without an item; `yoke merge-receipt commits attest` is optional.
+
+## Create a release pair
+
+Resolve the intended commit once and verify its CI passed; use that full hash as
+`PINNED_SHA` for both creates. `CHECKOUT` is the same absolute checkout path.
+Respect any declared Stage or physical-QA gate before creating Production.
+
+```sh
+PINNED_SHA=$(git -C "$CHECKOUT" rev-parse HEAD)
+yoke --env CONTROL_PLANE deployment-runs create PROJECT STAGE_FLOW --environment stage --project-repo-path "$CHECKOUT" --source-ref "$PINNED_SHA" --idempotency-key STAGE_KEY
+yoke --env CONTROL_PLANE deployment-runs create PROJECT PROD_FLOW --environment prod --project-repo-path "$CHECKOUT" --source-ref "$PINNED_SHA" --idempotency-key PROD_KEY
+```
+
+If a correction lands, resolve its passing commit and create a new pair; earlier
+Stage proof does not cover it.
 
 ## The member owner owns its item
 
