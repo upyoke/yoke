@@ -108,7 +108,7 @@ test("an epic's detail carries its tasks; an issue's does not", async (t) => {
   assert.deepEqual(epic.tasksTarget, {
     kind: "epic_task", public_ref: "YOK-7", project_id: "1",
   });
-  assert.deepEqual(epic.tasksPayload, {});
+  assert.deepEqual(epic.tasksPayload, { offset: 0 });
   assert.equal(epic.showsTask, true);
   assert.equal(epic.breadcrumbs, 1);
   assert.equal(epic.pageHeads, 1);

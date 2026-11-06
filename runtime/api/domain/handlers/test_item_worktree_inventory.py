@@ -93,7 +93,9 @@ def test_inventory_includes_released_lanes_with_owner_state(monkeypatch) -> None
     conn = _seeded_universe()
     monkeypatch.setattr(db_helpers, "connect", lambda: _KeepOpenConn(conn))
 
-    outcome = item_worktree_inventory.handle_inventory(_request({"project": "platform"}))
+    outcome = item_worktree_inventory.handle_inventory(
+        _request({"project": "platform"})
+    )
 
     assert outcome.primary_success
     lanes = _lanes_by_branch(outcome.result_payload)
