@@ -31,7 +31,7 @@ def install_relay(monkeypatch, result=None, error=None, crash=None):
             raise crash
         return FunctionCallResponse(
             success=error is None, function=kwargs["function_id"], version="v1",
-            result=result, error=error,
+            result=result or {}, error=error,
         )
 
     monkeypatch.setattr(
