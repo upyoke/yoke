@@ -7,7 +7,7 @@
   </style>
 <title>Codebase connected through Yoke to Claude Code, Codex and Cursor</title>
 <g font-family="Fira Code, monospace">
-<path d="M295 226 L420 238 M610 156 L692 105 M610 191 L692 208 M610 226 L692 312" fill="none" stroke="var(--blue)" stroke-width="3"/>
+<path d="M280 226 L504.52 238 M580.61 162.6 L705 100 M515.94 211 L705 210 M530.36 263 L705 320" fill="none" stroke="var(--blue)" stroke-width="3"/>
 <rect x="60" y="145" width="220" height="145" rx="0" fill="var(--surface)"/>
 <text x="88" y="188" fill="var(--ink)" font-size="21" letter-spacing="2">CODEBASE</text>
 <rect x="88" y="215" width="90" height="7" rx="0" fill="var(--muted)"/>
