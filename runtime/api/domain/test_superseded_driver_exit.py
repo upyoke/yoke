@@ -3,7 +3,7 @@
 Takeover settles the older run and records ``superseded_by_run_id``. The
 older run's still-live driver then has its next bookkeeping write refused;
 that refusal carries its own code and points at the successor to watch,
-never at a re-drive of the cancelled run, and the driver exits on it
+never at a re-drive of the cancelled run, and the driver exits successfully
 without a traceback.
 """
 
@@ -115,7 +115,7 @@ def _refusing(code: str):
     return write
 
 
-def _drive(monkeypatch, capsys, code: str) -> tuple[int, str]:
+def _drive(monkeypatch, capsys, code: str) -> tuple[int, str, str]:
     monkeypatch.setattr(control_plane, "update_run_field", _refusing(code))
     monkeypatch.setattr(
         deploy_pipeline_cli, "self_deploy_door", lambda _run: ("", nullcontext())
@@ -126,21 +126,24 @@ def _drive(monkeypatch, capsys, code: str) -> tuple[int, str]:
         return 0
 
     exit_code = deploy_pipeline_cli.main(["run-20261023-007"], runner=runner)
-    return exit_code, capsys.readouterr().err
+    captured = capsys.readouterr()
+    return exit_code, captured.out, captured.err
 
 
 def test_the_superseded_driver_exits_naming_the_successor(monkeypatch, capsys) -> None:
-    exit_code, err = _drive(monkeypatch, capsys, RUN_SUPERSEDED_CODE)
+    exit_code, out, err = _drive(monkeypatch, capsys, RUN_SUPERSEDED_CODE)
 
-    assert exit_code == 1
-    assert f"refused ({RUN_SUPERSEDED_CODE})" in err
-    assert f"watch {SUCCESSOR}" in err
-    assert "re-drive" not in err
-    assert "Traceback" not in err
+    assert exit_code == 0
+    assert "Deployment driver stopped after takeover:" in out
+    assert f"watch {SUCCESSOR}" in out
+    assert "re-drive" not in out
+    assert "Traceback" not in out
+    assert err == ""
 
 
 def test_other_refusals_keep_their_re_drive_recovery(monkeypatch, capsys) -> None:
-    exit_code, err = _drive(monkeypatch, capsys, "update_failed")
+    exit_code, out, err = _drive(monkeypatch, capsys, "update_failed")
 
     assert exit_code == 1
+    assert out == ""
     assert "repair the named cause, then re-drive run-20261023-007" in err
