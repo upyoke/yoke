@@ -133,6 +133,10 @@ class ResidentHttpOpener:
                 )
         except urllib.error.URLError:
             raise
+        except httpx.TimeoutException as exc:
+            raise TimeoutError(
+                f"resident keep-alive request timed out ({type(exc).__name__})"
+            ) from None
         except (httpx.HTTPError, OSError) as exc:
             raise urllib.error.URLError(
                 f"resident keep-alive request failed ({type(exc).__name__})"

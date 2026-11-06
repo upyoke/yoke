@@ -20,7 +20,9 @@ from __future__ import annotations
 __all__ = ["run_remote_session_lifecycle"]
 
 
-def run_remote_session_lifecycle(event_name: str, context) -> None:
+def run_remote_session_lifecycle(
+    event_name: str, context, *, connection_factory=None
+) -> None:
     """Run the lifecycle side effect for one relayed event, never raising."""
     try:
         if event_name in ("Stop", "SessionEnd"):
@@ -28,10 +30,18 @@ def run_remote_session_lifecycle(event_name: str, context) -> None:
                 run_session_end_cleanup_in_process,
             )
 
+            options = (
+                {}
+                if connection_factory is None
+                else {
+                    "_connect": lambda _timeout: connection_factory(),
+                }
+            )
             run_session_end_cleanup_in_process(
                 context.session_id,
                 executor=context.executor_family,
                 event_source=event_name,
+                **options,
             )
         elif event_name == "SessionStart":
             from yoke_core.domain.db_helpers import connect
@@ -39,7 +49,7 @@ def run_remote_session_lifecycle(event_name: str, context) -> None:
                 clean_stale_harness_sessions,
             )
 
-            conn = connect()
+            conn = (connection_factory or connect)()
             try:
                 clean_stale_harness_sessions(conn)
             finally:

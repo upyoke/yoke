@@ -23,6 +23,7 @@ def degrade_to_noop(
     detail: str,
     *,
     preserved_stdout: str = "",
+    cause: str = "unreachable",
 ) -> int:
     """Fail open for hook transport/local harness failures."""
     # A terminal event never carries a continuation out of a failed relay.
@@ -30,7 +31,7 @@ def degrade_to_noop(
     stdout = infrastructure_reply(
         event_name,
         detect_executor(),
-        f"{DEGRADED_MARKER}: hook relay unreachable, server guards skipped ({detail})",
+        f"{DEGRADED_MARKER}: hook relay {cause}, server guards skipped ({detail})",
         preserved,
     )
     print_execution_provenance(fallback_local=True)
