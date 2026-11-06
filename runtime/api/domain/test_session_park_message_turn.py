@@ -16,7 +16,10 @@ from yoke_core.hooks.session_turn_posture_tail import persist_accepted_hook_turn
 @pytest.mark.parametrize(
     "reason", ["awaiting integration dependency", "awaiting parent decision"]
 )
-def test_message_only_turn_keeps_park_and_reason(conn, monkeypatch, reason):
+@pytest.mark.parametrize(
+    "prefix", ["yoke", "yoke --env prod", "/usr/local/bin/yoke --config /tmp/config"]
+)
+def test_message_only_turn_keeps_park_and_reason(conn, monkeypatch, reason, prefix):
     _register(conn)
     _ensure_turn_posture(conn)
     monkeypatch.setattr(conn, "close", lambda: None)
@@ -32,7 +35,7 @@ def test_message_only_turn_keeps_park_and_reason(conn, monkeypatch, reason):
         connection_factory=lambda: conn,
     )
     for index, command in enumerate(
-        ("yoke messages get message", "yoke messages acknowledge message")
+        (f"{prefix} messages get message", f"{prefix} messages acknowledge message")
     ):
         apply_envelope_state(
             conn,

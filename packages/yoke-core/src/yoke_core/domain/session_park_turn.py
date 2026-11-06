@@ -12,6 +12,7 @@ from typing import Any
 
 from yoke_contracts.hook_runner.shell_parse import parse_shell
 from yoke_core.domain.lint_command_extract import extract_command
+from yoke_core.domain.lint_session_cwd_host_command import yoke_subcommand_positionals
 from yoke_core.domain.session_mode import clear_parked_mode
 
 
@@ -39,8 +40,9 @@ def unpark_after_work(conn: Any, envelope: dict[str, Any]) -> bool:
             and all(
                 segment.program == "yoke"
                 and (
-                    tuple(segment.argv[1:3]) in quiet
-                    or tuple(segment.argv[1:4]) == ("sessions", "wake", "schedule")
+                    tuple(yoke_subcommand_positionals(segment.argv, limit=2)) in quiet
+                    or tuple(yoke_subcommand_positionals(segment.argv, limit=3))
+                    == ("sessions", "wake", "schedule")
                 )
                 for segment in parsed.segments
             )
