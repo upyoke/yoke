@@ -224,6 +224,11 @@ def stage_member_close(
             conn=conn,
         )
     if not result.get("success"):
+        if (
+            result.get("error_code") == "WORKFLOW_STATUS_PRECONDITION_FAILED"
+            and _item_status(conn, int(item_id)) == CLOSED_OUT_STATUS
+        ):
+            return StagedMemberClose(item_id=int(item_id), public_ref=public_ref)
         return StagedMemberClose(
             item_id=int(item_id),
             public_ref=public_ref,
