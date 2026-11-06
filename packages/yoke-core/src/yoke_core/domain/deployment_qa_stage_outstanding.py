@@ -201,7 +201,9 @@ def _unselected_reason(
     conn: Any, subject: Mapping[str, Any], *, target: Mapping[str, Any]
 ) -> str | None:
     admitted = member_requirements(conn, subject, target=target)
-    frozen = frozen_stage_plans(conn, subject, target=target, admitted=admitted)
+    frozen = frozen_stage_plans(
+        conn, subject, target=target, admitted=admitted, lock_plans=False
+    )
     if stage_names_cases(conn, subject, frozen_plans=frozen, admitted=admitted):
         return None
     if member_post_deploy_answer(conn, subject).discharges_without_cases:
