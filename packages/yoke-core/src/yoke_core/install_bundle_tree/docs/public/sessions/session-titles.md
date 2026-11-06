@@ -13,7 +13,8 @@ UUIDs remain in commands and secondary session details.
 Session cards retain their usual fields. Hover or tap their identity header
 to reveal the title. Dashboard search matches chat titles.
 
-A prompt or Stop hook observes the name on the machine running the harness:
+A session start, prompt or Stop hook observes the name on the machine running
+the harness. Desktop and CLI surfaces use their harness family's title reader:
 
 - Claude reads the latest `custom-title` record in its transcript tail. If
   no title has been observed, it scans the file forward once.
