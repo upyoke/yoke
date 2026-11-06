@@ -76,7 +76,7 @@ COMBINED_PREAMBLE = (
 
 def _policy_minutes(conn: Any, project_id: int, key: str, default: int) -> int:
     try:
-        return max(1, int(project_policy_value(conn, project_id, key, default)))
+        return max(0, int(project_policy_value(conn, project_id, key, default)))
     except (TypeError, ValueError):
         return default
 

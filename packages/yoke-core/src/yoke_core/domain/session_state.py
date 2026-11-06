@@ -12,7 +12,10 @@ from typing import Any, Mapping
 
 from yoke_contracts.project_contract.project_keys import DEFAULT_SESSION_IDLE_MINUTES
 from yoke_contracts.session_control.liveness import IN_FLIGHT_CEILING_SECONDS
-from yoke_contracts.session_queue_posture import session_pause_declared
+from yoke_contracts.session_queue_posture import (
+    session_declared_wait,
+    session_pause_declared,
+)
 from yoke_contracts.timestamps import as_utc, parse_instant, temporal_wire, utc_now
 from yoke_core.domain.session_tool_call_liveness import session_call_is_live
 
@@ -64,7 +67,7 @@ def session_state(
 
     current = utc_now() if now is None else as_utc(now)
     presence = session_presence(row)
-    declared = row.get("declared_wait")
+    declared = session_declared_wait(row)
     awaiting = declared if isinstance(declared, Mapping) else {}
     intent = (
         "awaiting" if declared else "parked" if row.get("mode") == "parked" else "none"

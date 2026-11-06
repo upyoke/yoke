@@ -146,3 +146,28 @@ def test_roster_uses_the_projects_configured_tool_idle_threshold(test_db):
         test_db.commit()
         result = list_sessions(session_id="configured-idle")[0]
         assert result["session_state"]["activity"] == expected
+
+
+@pytest.mark.parametrize("posture", ["running", "waiting"])
+def test_a_roster_turn_marker_is_activity_rather_than_awaiting_intent(posture):
+    facts = row(turn_posture=posture, declared_wait={"kind": "turn_posture"})
+    assert session_state(facts, now=NOW)["intent"]["state"] == "none"
+    assert session_pause_declared(facts) is False
+
+
+def test_an_explicit_wait_carries_its_reason_and_addressee():
+    facts = row(
+        declared_wait={
+            "kind": "dependency",
+            "reason": "awaiting dependency",
+            "awaiting_who": "another_item",
+        }
+    )
+    state = session_state(facts, now=NOW)
+    assert state["intent"] == {
+        "state": "awaiting",
+        "reason": "awaiting dependency",
+        "awaiting_who": "another_item",
+    }
+    assert state["activity"] != "working"
+    assert session_pause_declared(facts) is True
