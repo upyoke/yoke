@@ -14,6 +14,14 @@ from yoke_contracts.api.function_call import FunctionCallResponse
 pytestmark = pytest.mark.usefixtures("bound_project_context")
 
 
+@pytest.fixture(autouse=True)
+def no_machine_checkout(monkeypatch):
+    from yoke_core.engines import doctor_https_compose
+
+    # These composition tests model a machine with no project checkout.
+    monkeypatch.setattr(doctor_https_compose, "checkout_for_project_slug", lambda _project: None)
+
+
 @pytest.mark.parametrize(
     "scope, remote_only",
     [

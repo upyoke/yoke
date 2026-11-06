@@ -191,6 +191,7 @@ class TestCreateWorktreeMultiWorktree:
             project="yoke",
             repo_root=str(git_repo),
             config_path=_config_path(git_repo),
+            db_path=yoke_db,
         )
         assert result.path.endswith(f".worktrees/{lane_ref}")
         assert result.branch == lane_ref
@@ -254,6 +255,7 @@ class TestCreateWorktreeMultiWorktree:
                 kwargs["repo_root"] = str(git_repo)
             if kwargs.get("config_path") is None:
                 kwargs["config_path"] = _config_path(git_repo)
+            kwargs["db_path"] = yoke_db
             return original(item_num, **kwargs)
 
         monkeypatch.setattr(worktree_cli, "create_worktree", patched_create)

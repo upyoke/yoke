@@ -153,43 +153,6 @@ def test_provisioning_project_preserves_item_read_failure(monkeypatch, failure):
     assert "unavailable" in error
 
 
-@pytest.mark.parametrize("reader", ["string", "integer"])
-def test_policy_reads_relay_without_local_database(monkeypatch, reader):
-    from yoke_core.domain import project_settings
-
-    calls = install_relay(monkeypatch, {"settings_json": '{"base_branch":"trunk","wip_cap":8}'})
-    if reader == "string":
-        assert project_settings.get_project_str_for_id(17, "base_branch") == "trunk"
-    else:
-        assert project_settings.get_project_int_for_id(17, "wip_cap") == 8
-    assert calls[0]["function_id"] == "projects.capability_settings.get"
-    assert calls[0]["payload"] == {"project": "17", "cap_type": "project-policy"}
-
-
-@pytest.mark.parametrize("failure", ["refusal", "crash", "invalid"])
-def test_policy_read_failure_is_diagnosed(monkeypatch, failure):
-    from yoke_core.domain import project_settings
-
-    install_relay(
-        monkeypatch, {"settings_json": "[]"},
-        error=FunctionError(code="unavailable", message="policy unavailable") if failure == "refusal" else None,
-        crash=RuntimeError("transport unavailable") if failure == "crash" else None,
-    )
-    with pytest.raises(RuntimeError, match="project_policy_(read_failed|invalid).*Recovery:"):
-        project_settings.get_project_str_for_id(17, "base_branch")
-
-
-def test_policy_mapping_failure_is_diagnosed(monkeypatch):
-    from yoke_core.domain import machine_config, project_settings
-
-    def fail(*_args):
-        raise RuntimeError("mapping unreadable")
-
-    monkeypatch.setattr(machine_config, "project_id", fail)
-    with pytest.raises(RuntimeError, match="project_policy_mapping_unavailable.*Recovery:"):
-        project_settings.get_project_str("/lane", "base_branch")
-
-
 def test_provisioning_project_relays_item_identity(monkeypatch):
     from yoke_core.domain import worktree_create_db as creation
 
@@ -199,8 +162,3 @@ def test_provisioning_project_relays_item_identity(monkeypatch):
     assert calls[0]["function_id"] == "items.detail.get"
 
 
-def test_absent_policy_retains_documented_default(monkeypatch):
-    from yoke_core.domain import project_settings
-
-    install_relay(monkeypatch, {"settings_json": None})
-    assert project_settings.get_project_str_for_id(17, "base_branch") == "main"

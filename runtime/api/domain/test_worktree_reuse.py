@@ -46,6 +46,7 @@ def test_healthy_worktree_is_preexisting(git_repo: Path, yoke_db: str) -> None:
         project="yoke",
         repo_root=str(git_repo),
         config_path=str(git_repo / "runtime" / "config"),
+        db_path=yoke_db,
     )
     assert first.error is None
     preexisting, err = classify_reusable_worktree(first.branch, first.path)
@@ -63,6 +64,7 @@ def test_empty_index_and_missing_files_are_repaired_on_reuse(
         project="yoke",
         repo_root=str(git_repo),
         config_path=str(git_repo / "runtime" / "config"),
+        db_path=yoke_db,
     )
     assert first.error is None
     wt = first.path
@@ -81,6 +83,7 @@ def test_empty_index_and_missing_files_are_repaired_on_reuse(
         project="yoke",
         repo_root=str(git_repo),
         config_path=str(git_repo / "runtime" / "config"),
+        db_path=yoke_db,
     )
     assert second.error is None
     assert second.created is False

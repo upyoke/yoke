@@ -296,3 +296,22 @@ def test_dash_path_claim_surfaces_survey_ensure_failure(monkeypatch):
     )
 
     assert error == "boom"
+
+
+def test_default_branch_uses_the_items_project(git_repo, yoke_db):
+    from runtime.api.domain.worktree_test_helpers import seed_lane_item
+    from yoke_core.domain.worktree_create import create_worktree
+
+    seed_lane_item(yoke_db, 901)
+    reads = []
+
+    def project_field(project, field):
+        reads.append((project, field))
+        return "main"
+
+    result = create_worktree(
+        901, repo_root=str(git_repo), db_path=yoke_db,
+        project_db_get=project_field,
+    )
+    assert result.error is None, result.error
+    assert reads == [("yoke", "default_branch")]

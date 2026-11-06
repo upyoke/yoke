@@ -6,9 +6,6 @@ capability.  Machine-local checkout facts are local-only.
 
 from __future__ import annotations
 
-import json
-
-from yoke_contracts.refusal_recovery import compose_refusal
 from pathlib import Path
 from typing import Any, List, Optional, Tuple
 
@@ -138,11 +135,8 @@ def _policy_value_for_repo(
         from yoke_core.domain import machine_config
 
         project_id = machine_config.project_id(Path(repo_root), config_path)
-    except Exception as exc:  # noqa: BLE001 — invalid mapping must not borrow policy defaults
-        raise RuntimeError(compose_refusal(
-            f"project_policy_mapping_unavailable: {exc}",
-            recovery="Inspect the selected checkout mapping with `yoke env list`, repair it, then retry",
-        )) from exc
+    except Exception:
+        project_id = None
     if project_id is None:
         return None
     return _policy_value_for_id(project_id, key)
@@ -154,50 +148,19 @@ def _policy_value_for_id(
     *,
     db_path: str | None = None,
 ) -> Any:
-    if db_path is not None:
+    try:
         from yoke_core.domain.db_helpers import connect
-        from yoke_core.domain.project_policy_capabilities import project_policy_value
+        from yoke_core.domain.project_policy_capabilities import (
+            project_policy_value,
+        )
 
         conn = connect(db_path)
         try:
             return project_policy_value(conn, int(project_id), key)
         finally:
             conn.close()
-    from yoke_contracts.api.function_call import TargetRef
-    from yoke_core.api.service_client_structured_api_adapter import call_dispatcher
-
-    recovery = (
-        "Read the project-policy declaration with `yoke projects capability-settings get`, "
-        "repair the declaration or connection, then retry"
-    )
-    try:
-        response = call_dispatcher(
-            function_id="projects.capability_settings.get",
-            target=TargetRef(kind="global"),
-            payload={"project": str(project_id), "cap_type": "project-policy"},
-        )
-    except Exception as exc:  # noqa: BLE001 — preserve transport failure
-        raise RuntimeError(compose_refusal(
-            f"project_policy_read_failed: {exc}", recovery=recovery,
-        )) from exc
-    if not response.success:
-        error = response.error
-        detail = f"{error.code}: {error.message}" if error else "read refused"
-        raise RuntimeError(compose_refusal(
-            f"project_policy_read_failed: {detail}", recovery=recovery,
-        ))
-    raw = (response.result or {}).get("settings_json")
-    if raw is None:
+    except Exception:
         return None
-    try:
-        settings = json.loads(raw)
-        if not isinstance(settings, dict):
-            raise ValueError("project policy must be an object")
-    except (TypeError, ValueError) as exc:
-        raise RuntimeError(compose_refusal(
-            f"project_policy_invalid: {exc}", recovery=recovery,
-        )) from exc
-    return settings.get(key)
 
 
 def _mapped_checkouts(

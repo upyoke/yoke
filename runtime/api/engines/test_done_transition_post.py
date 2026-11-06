@@ -158,6 +158,10 @@ class TestSchemaGate:
     def test_runs_when_schema_files_changed(self, tmp_path):
         conn = mock.MagicMock()
         with (
+            mock.patch(
+                "yoke_cli.config.machine_config.active_connection",
+                return_value={"transport": "local-postgres"},
+            ),
             mock.patch.object(done_transition, "_run_git") as mock_git,
             mock.patch.object(done_transition, "_connect", return_value=conn),
             mock.patch("yoke_core.domain.schema.cmd_init") as schema_init,

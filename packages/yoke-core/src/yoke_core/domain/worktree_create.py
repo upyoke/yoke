@@ -140,18 +140,16 @@ def create_worktree(
     # branch starts the work behind, and nothing says so until the merge. A
     # remote that could not be read at all refuses here rather than falling
     # back to local, which would be that same stale start unannounced.
+    project_for_install, project_error = provisioning_project(item_id, project, db_path)
+    if project_error:
+        return CreateWorktreeResult(
+            path="", branch=fallback_branch, created=False, error=project_error,
+        )
     if base_branch is None:
-        if project:
-            base_branch = (
-                _project_field(project, "default_branch", scripts_dir, project_db_get)
-                or "main"
-            )
-        else:
-            base_branch = project_settings.get_project_str(
-                repo_root,
-                "base_branch",
-                config_path=config_path,
-            )
+        base_branch = (
+            _project_field(project_for_install, "default_branch", scripts_dir, project_db_get)
+            or "main"
+        )
         freshness = refresh_base_branch(repo_root, base_branch)
         if not freshness.verified:
             return CreateWorktreeResult(
@@ -250,14 +248,6 @@ def create_worktree(
 
     # --- Per-worktree provisioning, in the order the sequence owns ---
     os.makedirs(worktrees_dir, exist_ok=True)
-    project_for_install, project_error = provisioning_project(item_id, project, db_path)
-    if project_error:
-        return CreateWorktreeResult(
-            path="",
-            branch=fallback_branch,
-            created=False,
-            error=project_error,
-        )
     provisioned = provision_planned_lanes(
         plan,
         item_id=item_id,
