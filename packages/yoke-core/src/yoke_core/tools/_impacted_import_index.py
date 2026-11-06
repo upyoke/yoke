@@ -1,12 +1,8 @@
 """Reverse import graph over the repository's Python sources.
 
 The index answers one question: given a module, which files reference it?
-References are ordinary imports plus dotted-path **string literals** — a
-test that spawns ``python3 -m pkg.tool``, patches ``"pkg.helper"`` by
-string target, or dispatches through a string-keyed registry names its
-dependency in a string, and only a string — plus the file paths a source
-names, whole or composed, read by
-:mod:`yoke_core.tools._impacted_path_references`. The scan also records
+References include imports, dotted string literals, named source paths and
+source-declared runtime providers. The scan also records
 the fixture facts and the function-registry map that the implicit edges in
 :mod:`yoke_core.tools._impacted_implicit_edges` read.
 """
@@ -19,6 +15,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Iterable, Sequence
 
+from yoke_contracts.runtime_ports.source_providers import runtime_references, source_providers
 from yoke_core.engines.doctor_project_checks import (
     PROJECT_CHECKS_DIR,
     PROJECT_CHECKS_PACKAGE,
@@ -283,6 +280,7 @@ def bounded_importer_tests(
 
 
 def build_import_index(repo_root: Path) -> ImportIndex:
+    declared = source_providers(repo_root)
     test_roots = resolve_test_roots(str(repo_root.resolve()))
     importers: dict[str, set[str]] = {}
     module_of: dict[str, str] = {}
@@ -300,6 +298,8 @@ def build_import_index(repo_root: Path) -> ImportIndex:
         except (SyntaxError, ValueError, OSError):
             continue
         references = _imported_modules(tree, module) | _string_module_references(tree)
+        if module and module.startswith("yoke_contracts.runtime_ports."):
+            references |= runtime_references(tree, declared)
         for referenced in references:
             importers.setdefault(referenced, set()).add(rel)
         fixtures.observe(rel, module, tree, is_test=is_test_file(rel, test_roots))

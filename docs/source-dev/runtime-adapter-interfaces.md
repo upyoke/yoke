@@ -27,3 +27,9 @@ When adding an operation, extend the owning interface and its adapter in the
 same change. Keep pure records and helpers in shared contracts. Tests may
 supply a structural implementation without importing a CLI or harness package;
 the installed metadata remains the runtime composition authority.
+
+Source analysis reads the checkout's entry-point declarations without loading
+installed adapters. Hook-policy reachability follows referenced provider members,
+and impacted-test selection follows provider-to-interface dependencies. These
+runtime implementation relationships remain distinct from direct Python imports
+used by architecture boundary checks.

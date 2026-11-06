@@ -10,7 +10,8 @@ either removed, fed by a client fact, or carries a written reason.
 Reachability is a deliberate over-approximation over the AST: a reached
 function reaches every function, class or module attribute it names
 (including lazy imports in its body), and a reached class reaches all of its
-methods. Calls through runtime values (``obj.method()``) are not followed.
+methods. Declared runtime interface providers are resolved from source metadata; other
+calls through runtime values (``obj.method()``) are not followed.
 """
 
 from __future__ import annotations
@@ -21,6 +22,8 @@ from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
 from typing import Iterable, Iterator
+
+from tests.hook_policy_homes import runtime_providers
 
 REPO = Path(__file__).resolve().parents[2]
 _PACKAGE_ROOTS = {
@@ -187,8 +190,10 @@ def reach(seeds: Iterable[tuple[str, str]]) -> set[tuple[str, str]]:
                 stack.append(alias)  # re-exported name
             continue
         seen.add((name, symbol))
+        bound = runtime_providers.bindings(mod, mod.defs[symbol], REPO, _module)
         for node in ast.walk(mod.defs[symbol]):
             stack.extend(t for t in _targets(mod, node) if t not in seen)
+            stack.extend(runtime_providers.targets(mod, node, bound, REPO, _module))
     return seen
 
 
