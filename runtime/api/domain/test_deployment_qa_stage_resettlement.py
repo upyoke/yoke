@@ -87,6 +87,7 @@ def _blocked_call(conn, execution, callback):
         outcome = callback()
         assert not outcome.primary_success
         assert outcome.error.code == "qa_settlement_pending"
+        assert outcome.error.code in RETRYABLE_LOCK_CODES
         assert "completion is saved" in outcome.error.message
         assert "Rerun the same command" in outcome.error.message
         current = select_plan_execution(conn, str(execution["id"]), lock=False)
