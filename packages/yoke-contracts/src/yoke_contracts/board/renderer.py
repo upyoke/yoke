@@ -45,9 +45,19 @@ def render_board_from_payload(
         for key, rows in data["items"].items()
     }
     counts = {epic["id"]: epic["task_count"] for epic in data["epics"]}
+    if any("completed" not in task for epic in data["epics"] for task in epic["tasks"]):
+        from yoke_contracts.lifecycle_status import workflow_status_metadata_refusal
+
+        raise ValueError(workflow_status_metadata_refusal())
     tasks = {
         epic["id"]: [
-            (row["id"], row["title"], row["status"], row.get("status_glyph"))
+            (
+                row["id"],
+                row["title"],
+                row["status"],
+                row.get("status_glyph"),
+                row["completed"],
+            )
             for row in epic["tasks"]
         ]
         for epic in data["epics"]

@@ -108,6 +108,7 @@ def collect_board_data(
                             "title": row[1],
                             "status": row[2],
                             "status_glyph": row[3],
+                            "completed": row[4],
                         }
                         for row in tasks.get(eid, ())
                     ],

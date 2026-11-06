@@ -52,6 +52,7 @@ def _initialize(conn):
 
     apply_fixture_ddl(conn, _FULL_DDL)
     install_workflow_pin(conn, workflow_id="issue")
+    conn.commit()
 
 
 def _apply_schema() -> None:

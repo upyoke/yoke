@@ -227,7 +227,6 @@ class TestCelebrationPropagatesToSections:
             {},
             {},
             None,
-            completed=True,
         )
         out = "\n".join(lines)
         assert "### ✅ Done" in out
