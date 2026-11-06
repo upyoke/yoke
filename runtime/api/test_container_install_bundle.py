@@ -86,9 +86,11 @@ def test_missing_image_manifest_fails_bundle_gate(image_tree, monkeypatch, relat
 
 def test_docker_build_gates_the_installed_packaged_tree():
     dockerfile = (ROOT / "Dockerfile").read_text()
-    gate = "RUN python -m yoke_core.tools.container_bundle_validation verify\n"
+    gate = "python -m yoke_core.tools.container_bundle_validation verify; bundle_status=$?;"
     assert gate in dockerfile
     assert "stage-source-files" not in dockerfile
+    assert 'test "$bundle_status" -eq 0' in dockerfile
+    assert dockerfile.index("uv pip install") < dockerfile.index(gate)
     assert dockerfile.index(gate) > dockerfile.index(
         "yoke_core.tools.product_wheel_validation"
     )

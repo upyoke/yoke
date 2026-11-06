@@ -7,7 +7,7 @@
 # One ARG so both stages pull the same image without upstream registry quotas.
 ARG PYTHON_IMAGE=ghcr.io/upyoke/python:3.13-slim
 
-FROM ${PYTHON_IMAGE} AS builder
+FROM ${PYTHON_IMAGE} AS dependencies
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1
@@ -15,6 +15,19 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 WORKDIR /build
 
 RUN python -m pip install uv==0.12.1
+
+# Lockfile and manifests alone own third-party dependencies. Workspace source
+# and release clocks must not rebuild or republish this large virtualenv.
+ENV UV_PROJECT_ENVIRONMENT=/opt/yoke-venv
+COPY pyproject.toml ./
+COPY uv.lock ./
+COPY packages/yoke-core/pyproject.toml ./packages/yoke-core/pyproject.toml
+COPY packages/yoke-cli/pyproject.toml ./packages/yoke-cli/pyproject.toml
+COPY packages/yoke-contracts/pyproject.toml ./packages/yoke-contracts/pyproject.toml
+COPY packages/yoke-harness/pyproject.toml ./packages/yoke-harness/pyproject.toml
+RUN uv sync --locked --no-default-groups --no-editable --no-install-workspace
+
+FROM dependencies AS builder
 
 # Fetch checksum-verified PostgreSQL before copying application sources or
 # version metadata. Only the bootstrap module and its package dependencies
@@ -26,16 +39,12 @@ RUN PYTHONPATH=/build/packages/yoke-contracts/src:/build/packages/yoke-cli/src:/
         YOKE_MACHINE_HOME=/var/lib/yoke \
         python -c "import runpy, shutil; binaries = runpy.run_path('/build/packages/yoke-core/src/yoke_core/domain/postgres_binaries.py')['ensure_binaries'](); shutil.copytree(binaries.parent, '/opt/yoke-postgres')"
 
-COPY pyproject.toml ./
-COPY uv.lock ./
 COPY .git_archival.txt ./
 COPY runtime ./runtime
 COPY packages ./packages
 
 ARG YOKE_ENGINE_VERSION=""
 
-# Keep the same absolute virtualenv path in both stages: console scripts embed it.
-ENV UV_PROJECT_ENVIRONMENT=/opt/yoke-venv
 RUN if [ -n "$YOKE_ENGINE_VERSION" ]; then \
         export SETUPTOOLS_SCM_PRETEND_VERSION_FOR_YOKE="$YOKE_ENGINE_VERSION"; \
         export SETUPTOOLS_SCM_PRETEND_VERSION_FOR_YOKE_CONTRACTS="$YOKE_ENGINE_VERSION"; \
@@ -43,19 +52,12 @@ RUN if [ -n "$YOKE_ENGINE_VERSION" ]; then \
         export SETUPTOOLS_SCM_PRETEND_VERSION_FOR_YOKE_HARNESS="$YOKE_ENGINE_VERSION"; \
         export SETUPTOOLS_SCM_PRETEND_VERSION_FOR_YOKE_CORE="$YOKE_ENGINE_VERSION"; \
     fi; \
-    uv sync --locked --no-default-groups --no-editable \
-    && uv build --wheel --package yoke-core --out-dir /wheels \
+    uv build --wheel --all-packages --out-dir /wheels \
     && python packages/yoke-core/src/yoke_core/tools/wheel_module_completeness.py \
         --package-root packages/yoke-core/src/yoke_core \
         --wheel /wheels/yoke_core-*.whl
 
 FROM ${PYTHON_IMAGE} AS runtime
-
-# The commit this image was built from; /v1/health serves it as `build` so
-# deploy gates can assert WHICH code is answering. A full 40-character commit
-# also attributes rendered install bundles (`source_build`) to this build.
-ARG YOKE_BUILD_SHA=""
-ARG YOKE_ENGINE_VERSION=""
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
@@ -63,8 +65,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     YOKE_API_PORT=8765 \
     YOKE_MACHINE_HOME=/var/lib/yoke \
     YOKE_PG_BIN_DIR=/opt/yoke-postgres/bin \
-    PATH=/opt/yoke-venv/bin:$PATH \
-    YOKE_BUILD_SHA=${YOKE_BUILD_SHA}
+    PATH=/opt/yoke-venv/bin:$PATH
 
 WORKDIR /app
 
@@ -80,16 +81,30 @@ RUN addgroup --system yoke \
 # Compose can select another machine home or mount it; clients belong to the image.
 COPY --chown=yoke:yoke --from=builder /opt/yoke-postgres /opt/yoke-postgres
 
-COPY --from=builder /opt/yoke-venv /opt/yoke-venv
+COPY --from=dependencies /opt/yoke-venv /opt/yoke-venv
+
+# Bind mounts keep build tooling/wheels out of the image. Only the small
+# workspace installation changes; the external-dependency layer stays shared.
+RUN --mount=type=bind,from=builder,source=/wheels,target=/wheels \
+    --mount=type=bind,from=dependencies,source=/usr/local/bin/uv,target=/usr/local/bin/uv \
+    uv pip install --python /opt/yoke-venv/bin/python --no-cache --no-deps --no-index /wheels/*.whl
+
+# Commit identity belongs after stable OS, user, PostgreSQL and dependencies.
+ARG YOKE_BUILD_SHA=""
+ARG YOKE_ENGINE_VERSION=""
+ENV YOKE_BUILD_SHA=${YOKE_BUILD_SHA}
 
 # Import every installed core module with the source checkout absent.
 # This deliberately runs after source and wheels have left the runtime stage.
-RUN python -m yoke_core.tools.product_wheel_validation
-
 # The installed wheel's packaged tree is the server tree: install-bundle and
 # Pack routes read it, and its bundles carry this image's build as their
 # receipt `source_build`. Render one project bundle from it here.
-RUN python -m yoke_core.tools.container_bundle_validation verify
+# Independent processes retain both checks and both exit codes. Parallel
+# validation runs both import passes concurrently on the critical path.
+RUN python -m yoke_core.tools.product_wheel_validation & wheel_pid=$!; \
+    python -m yoke_core.tools.container_bundle_validation verify; bundle_status=$?; \
+    wait "$wheel_pid"; wheel_status=$?; \
+    test "$wheel_status" -eq 0 && test "$bundle_status" -eq 0
 
 # Every image consumer inherits this build-time release-identity gate. An
 # explicit release version must match the installed wheel metadata exactly;
