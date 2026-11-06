@@ -19,7 +19,7 @@ from yoke_contracts.harness_cli_releases import (
 )
 from yoke_contracts.machine_qa_execution import GUI_SESSION_CONTEXT
 from yoke_harness.harness_cli_install_program import HOST_PROGRAM
-from yoke_harness.test_machine_types import HostActionResult
+from yoke_contracts.test_machine_types import HostActionResult
 
 GOLDEN_HARNESS_CLIS_SUFFIX = ".harness-clis"
 VERSION_PROBE_TIMEOUT_SECONDS = 120

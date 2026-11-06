@@ -19,7 +19,7 @@ from yoke_cli.transport.bounded_json_http import (
     safe_diagnostic_text,
 )
 from yoke_cli.transport.https import TransportError, resolve_https_connection
-from yoke_cli.transport.response_limits import (
+from yoke_contracts.response_limits import (
     BUNDLE_JSON_RESPONSE_LIMIT_BYTES,
     DEFAULT_JSON_REQUEST_TIMEOUT_SECONDS,
 )

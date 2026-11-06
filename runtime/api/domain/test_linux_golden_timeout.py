@@ -10,7 +10,7 @@ import pytest
 from yoke_harness import ssh_linux_baseline as baseline
 from yoke_harness.ssh_test_machine_transport import SshTestMachineTransport
 from yoke_harness.standard_baseline_probes import standard_probes
-from yoke_harness.test_machine_types import HostActionResult
+from yoke_contracts.test_machine_types import HostActionResult
 
 
 DESTINATION = "/var/lib/goldens/tester"

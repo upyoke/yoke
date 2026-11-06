@@ -13,7 +13,7 @@ from yoke_contracts.machine_qa_execution import (
 from yoke_contracts.machine_qa_failures import bounded_machine_qa_diagnostic
 from yoke_harness.ssh_mac_baseline_probes import reach_user_equivalent_baseline
 from yoke_harness.ssh_mac_full_reset_contract import INSTALLER_TEMP_PATH
-from yoke_harness.test_machine_types import HostActionResult
+from yoke_contracts.test_machine_types import HostActionResult
 
 
 _INSTALLER_CONFIRM_ENV = "YOKE_INSTALL_YES"

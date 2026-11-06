@@ -13,7 +13,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from yoke_cli.filesystem_safety import (
+from yoke_contracts.filesystem_safety import (
     atomic_replace_bytes,
     first_symlink_component,
 )

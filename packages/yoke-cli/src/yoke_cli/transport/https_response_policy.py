@@ -9,12 +9,12 @@ from typing import Any, Iterable
 from yoke_cli.transport.https_request_fields import (
     _SENSITIVE_PAYLOAD_PATHS_BY_FUNCTION,
 )
-from yoke_cli.transport.response_deadline_read import (
+from yoke_contracts.response_deadline_read import (
     ResponseReadDeadlineError,
     ResponseReadError,
     read_response_body,
 )
-from yoke_cli.transport.response_limits import DEFAULT_JSON_RESPONSE_LIMIT_BYTES
+from yoke_contracts.response_limits import DEFAULT_JSON_RESPONSE_LIMIT_BYTES
 from yoke_contracts.api.function_call import (
     FunctionCallRequest,
     FunctionCallResponse,

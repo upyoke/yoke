@@ -14,7 +14,7 @@ from yoke_harness.ssh_linux_host_operations import SshLinuxHostOperations
 from yoke_harness.ssh_linux_terminal import (
     run_linux_terminal_case,
 )
-from yoke_harness.test_machine_types import HostActionResult
+from yoke_contracts.test_machine_types import HostActionResult
 
 
 class SshLinuxHostControl(SshLinuxHostOperations):

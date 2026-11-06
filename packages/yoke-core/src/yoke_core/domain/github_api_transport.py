@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import Any, Callable
 import urllib.request
 
-from yoke_cli.transport import response_deadline_read
+from yoke_contracts import response_deadline_read
 from yoke_cli.transport.response_deadline_open import (
     ResponseOpenDeadlineError,
     open_https_caller_owned,

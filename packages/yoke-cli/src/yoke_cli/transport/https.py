@@ -49,7 +49,7 @@ from yoke_cli.transport.https_credentials import TransportError, resolve_token
 from yoke_cli.transport.response_deadline_errors import (
     ResponseHeadersDeadlineError,
 )
-from yoke_cli.transport.response_deadline_read import deadline_after
+from yoke_contracts.response_deadline_read import deadline_after
 from yoke_contracts.api.function_call import (
     FunctionCallRequest,
     FunctionCallResponse,

@@ -36,7 +36,7 @@ from yoke_harness.ssh_mac_golden_capture_receipt import (
 )
 from yoke_harness.ssh_mac_golden_capture_script import render_golden_capture_script
 from yoke_harness.ssh_mac_sign_in_apps import quit_sign_in_apps
-from yoke_harness.test_machine_types import HostActionResult
+from yoke_contracts.test_machine_types import HostActionResult
 
 
 class CaptureCommandResult(Protocol):

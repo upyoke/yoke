@@ -120,7 +120,7 @@ def record_client_wall(event_id: str, client_wall_ms: int) -> None:
         )
         from yoke_cli.transport.bounded_json_http import request_json
         from yoke_cli.transport.https import resolve_https_connection
-        from yoke_cli.transport.response_limits import (
+        from yoke_contracts.response_limits import (
             SMALL_JSON_RESPONSE_LIMIT_BYTES,
         )
 

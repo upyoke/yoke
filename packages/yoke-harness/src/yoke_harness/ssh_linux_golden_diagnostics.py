@@ -8,7 +8,7 @@ import shutil
 import tempfile
 
 from yoke_contracts.machine_qa_failures import bounded_machine_qa_diagnostic
-from yoke_harness.test_machine_types import HostActionResult
+from yoke_contracts.test_machine_types import HostActionResult
 from yoke_harness.ssh_test_machine_transport import SshTestMachineTransport
 
 

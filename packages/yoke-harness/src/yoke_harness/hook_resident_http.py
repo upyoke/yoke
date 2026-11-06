@@ -11,7 +11,7 @@ from typing import Any
 
 import httpx
 
-from yoke_cli.transport.response_limits import SMALL_JSON_RESPONSE_LIMIT_BYTES
+from yoke_contracts.response_limits import SMALL_JSON_RESPONSE_LIMIT_BYTES
 from yoke_contracts.hook_evaluator_protocol import (
     HOOK_CLIENT_WALL_CAPABILITY,
     HOOK_CLIENT_WALL_PATH,

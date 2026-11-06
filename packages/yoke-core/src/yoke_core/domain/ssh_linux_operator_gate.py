@@ -10,7 +10,7 @@ from yoke_harness.ssh_linux_browser_approval import (
     approve_machine_in_desktop_chromium,
 )
 from yoke_harness.ssh_linux_terminal import LinuxTerminalWindowError
-from yoke_harness.test_machine_types import HostActionResult
+from yoke_contracts.test_machine_types import HostActionResult
 
 
 def checkpoint(control, rows, terminal=None):

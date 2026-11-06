@@ -8,7 +8,7 @@ import pytest
 from runtime.api.domain.machine_qa_terminal_recipe_test_support import recipe
 from yoke_core.domain.ssh_linux_terminal_recipe import execute_linux_recipe
 from yoke_harness import ssh_linux_browser_approval
-from yoke_harness.test_machine_types import HostActionResult
+from yoke_contracts.test_machine_types import HostActionResult
 
 ORIGIN = "https://app.stage.upyoke.com"
 ENTRY = ORIGIN + "/connect?user_code=K7F2"

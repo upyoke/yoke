@@ -47,7 +47,7 @@ from typing import Any, Dict, Optional, Tuple
 
 from yoke_cli.config import github_project_setup
 from yoke_cli.project_install.cursor_permissions import apply_cursor_permissions
-from yoke_cli.filesystem_safety import (
+from yoke_contracts.filesystem_safety import (
     atomic_replace_bytes,
     first_symlink_component,
 )

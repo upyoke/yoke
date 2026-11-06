@@ -9,7 +9,7 @@ from pathlib import Path
 import re
 import subprocess
 
-from yoke_cli.transport.response_evidence import wrapped_lines
+from yoke_contracts.response_evidence import wrapped_lines
 from yoke_contracts.project_contract.docs_corpus_files import CorpusRefusal, refuse_unexpected_file
 from yoke_contracts.project_contract.install_manifest import (
     PACKAGED_INSTALL_BUNDLE_TREE_REL,

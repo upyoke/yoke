@@ -25,7 +25,7 @@ from yoke_harness.ssh_mac_gui_session import (
     classify_macos_session_context_failure,
 )
 from yoke_harness.standard_baseline_probes import standard_probe_failure
-from yoke_harness.test_machine_types import HostActionResult
+from yoke_contracts.test_machine_types import HostActionResult
 
 
 PROBE_LIMIT = 20

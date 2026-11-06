@@ -83,7 +83,7 @@ def _prepare_desktop(settings, key_path, password):
     """Use the same framed WSL transport and XFCE helper as GUI operations."""
     from types import SimpleNamespace
     from yoke_harness.linux_desktop_session import ensure_desktop
-    from yoke_harness.windows_wsl_command import windows_wsl_command, windows_wsl_input
+    from yoke_contracts.windows_wsl_command import windows_wsl_command, windows_wsl_input
 
     target = f"{settings['user']}@{settings['host']}"
 

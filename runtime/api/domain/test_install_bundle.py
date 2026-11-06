@@ -9,7 +9,7 @@ from pathlib import Path
 import pytest
 
 from runtime.api.fixtures import pg_testdb
-from yoke_cli.transport.response_limits import BUNDLE_JSON_RESPONSE_LIMIT_BYTES
+from yoke_contracts.response_limits import BUNDLE_JSON_RESPONSE_LIMIT_BYTES
 from yoke_core.domain import install_bundle
 from yoke_core.domain.strategy_docs_schema import STRATEGY_DOCS_CREATE_TABLE_SQL
 

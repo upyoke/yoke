@@ -8,7 +8,7 @@ from yoke_core.domain.qa_plan_execution_checkin import communication_unknown
 
 import time
 from typing import Any
-from yoke_core.domain.machine_qa_result_safety import redact_machine_qa_value
+from yoke_contracts.machine_qa_result_safety import redact_machine_qa_value
 from yoke_core.domain.machine_qa_setup_exit import marker_exit_code, step_failure
 from yoke_core.domain.ssh_mac_terminal_recipe_support import (
     recipe_assertion_failures,
@@ -26,7 +26,7 @@ from yoke_harness.ssh_linux_terminal import (
     LinuxTerminal,
     LinuxTerminalWindowError,
 )
-from yoke_harness.test_machine_types import HostActionResult
+from yoke_contracts.test_machine_types import HostActionResult
 
 
 def _wait(terminal: LinuxTerminal, expected, deadline, progress_callback):

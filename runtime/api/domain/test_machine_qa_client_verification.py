@@ -24,7 +24,7 @@ from yoke_contracts.machine_qa_execution import (
 )
 from yoke_harness.ssh_mac_full_reset_contract import INSTALLER_TEMP_PATH
 from yoke_harness.ssh_mac_host_operations import SshMacHostOperations
-from yoke_harness.test_machine_types import HostActionResult
+from yoke_contracts.test_machine_types import HostActionResult
 from yoke_harness.test_machine_operations import (
     execute_host_operation_contract,
 )

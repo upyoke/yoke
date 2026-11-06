@@ -24,7 +24,7 @@ from yoke_harness.ssh_mac_host_session_state import (
     read_terminal_window_count,
 )
 from yoke_harness.ssh_mac_terminal_app import run_osascript
-from yoke_harness.test_machine_types import HostActionResult
+from yoke_contracts.test_machine_types import HostActionResult
 
 TERMINAL_APP = "Terminal"
 QUIT_WAIT_SECONDS = 20

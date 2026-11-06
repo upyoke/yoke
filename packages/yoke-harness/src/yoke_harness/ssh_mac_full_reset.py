@@ -31,7 +31,7 @@ from yoke_harness.ssh_mac_full_reset_receipt import (
 )
 from yoke_harness.ssh_mac_full_reset_script import render_full_reset_script
 from yoke_harness.ssh_test_machine_transport import TRANSPORT_FAILURE_EXIT
-from yoke_harness.test_machine_types import HostActionResult
+from yoke_contracts.test_machine_types import HostActionResult
 
 
 TEST_MAC_RESET_ADAPTER_FAILED = "test_mac_reset_adapter_failed"

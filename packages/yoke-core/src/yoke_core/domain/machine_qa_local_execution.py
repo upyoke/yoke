@@ -51,7 +51,7 @@ from yoke_core.domain.machine_qa_phase_heartbeat import (
     check_abort,
     heartbeat_during,
 )
-from yoke_core.domain.machine_qa_result_safety import (
+from yoke_contracts.machine_qa_result_safety import (
     redact_machine_qa_value,
 )
 from yoke_core.domain.machine_qa_submission_artifacts import (

@@ -22,7 +22,7 @@ from yoke_cli.transport.bounded_json_http import (
     request_json,
     safe_diagnostic_text,
 )
-from yoke_cli.transport.response_limits import ONBOARD_JSON_REQUEST_TIMEOUT_SECONDS
+from yoke_contracts.response_limits import ONBOARD_JSON_REQUEST_TIMEOUT_SECONDS
 
 _TIMEOUT_S = ONBOARD_JSON_REQUEST_TIMEOUT_SECONDS
 _IDENTITY_PATH = AUTH_IDENTITY_PATH

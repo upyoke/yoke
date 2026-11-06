@@ -238,7 +238,7 @@ def run_id_receipt(response: Any, stdout: TextIO, stderr: TextIO) -> None:
         {key: value for key, value in result.items() if key != "start_timings"}, stdout
     )
     if timings:
-        from yoke_cli.transport.response_evidence import save_response
+        from yoke_contracts.response_evidence import save_response
 
         try:
             evidence = save_response(response.model_dump(mode="json"), "", "")

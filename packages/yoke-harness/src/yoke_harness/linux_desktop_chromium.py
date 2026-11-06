@@ -11,7 +11,7 @@ from urllib.parse import quote
 from urllib.request import urlopen
 
 from yoke_harness.linux_devtools_page import DevToolsPage  # host: prepended source
-from yoke_harness.machine_browser_approval import CONNECTED_CONFIRMATION
+from yoke_contracts.machine_browser_approval import CONNECTED_CONFIRMATION
 from yoke_harness import linux_chromium_processes as native_processes
 
 CHROMIUM_NAMES = ("chromium", "chromium-browser")

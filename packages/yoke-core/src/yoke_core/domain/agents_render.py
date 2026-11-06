@@ -59,7 +59,7 @@ from yoke_core.domain.workspace_authority import (
     assert_target_under_session_work_authority,
 )
 from yoke_core.domain import agents_render_project_install
-from yoke_cli.filesystem_safety import (
+from yoke_contracts.filesystem_safety import (
     atomic_replace_bytes,
     first_symlink_component,
 )

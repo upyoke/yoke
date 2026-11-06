@@ -35,13 +35,13 @@ from yoke_cli.transport.response_deadline_open import (
     ResponseOpenDeadlineError,
     ResponseOpenError,
 )
-from yoke_cli.transport.response_deadline_read import (
+from yoke_contracts.response_deadline_read import (
     ResponseReadDeadlineError,
     ResponseReadError,
     deadline_after,
     read_response_body,
 )
-from yoke_cli.transport.response_limits import DEFAULT_JSON_RESPONSE_LIMIT_BYTES
+from yoke_contracts.response_limits import DEFAULT_JSON_RESPONSE_LIMIT_BYTES
 
 
 class BoundedJsonHttpError(RuntimeError):

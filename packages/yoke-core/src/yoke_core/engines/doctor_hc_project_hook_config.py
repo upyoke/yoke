@@ -12,7 +12,7 @@ from pathlib import Path
 import stat
 from typing import Any
 
-from yoke_cli.filesystem_safety import first_symlink_component
+from yoke_contracts.filesystem_safety import first_symlink_component
 from yoke_cli.project_install.files import ProjectInstallError
 from yoke_cli.project_install.hook_entries import hook_entry_format
 from yoke_cli.project_install.hook_schema import validate_hooks_subtree

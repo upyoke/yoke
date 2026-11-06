@@ -27,7 +27,7 @@ from yoke_harness.ssh_linux_terminal import (
 )
 from yoke_harness.ssh_mac_full_reset_contract import GOLDEN_PROBES_SUFFIX
 from yoke_harness.ssh_tool_resolution import probe_reset_tools, tools_present
-from yoke_harness.test_machine_types import HostActionResult
+from yoke_contracts.test_machine_types import HostActionResult
 
 
 class SshLinuxHostOperations(SshHostBaselines, SshTestMachineTransport):

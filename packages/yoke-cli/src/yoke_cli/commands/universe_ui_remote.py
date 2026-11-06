@@ -17,7 +17,7 @@ from yoke_cli.transport.bounded_json_http import (
     request_json,
 )
 from yoke_cli.transport.https_credentials import TransportError, resolve_token
-from yoke_cli.transport.response_limits import ONBOARD_JSON_REQUEST_TIMEOUT_SECONDS
+from yoke_contracts.response_limits import ONBOARD_JSON_REQUEST_TIMEOUT_SECONDS
 from yoke_contracts.api_urls import join_api_url
 from yoke_contracts.browser_sign_in import (
     BROWSER_SIGN_IN_MAX_LENGTH,

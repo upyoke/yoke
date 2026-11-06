@@ -34,7 +34,7 @@ from yoke_core.domain.machine_qa_case_result import (
     MachineCaseResult,
     MachineQaLeaseHeld,
 )
-from yoke_core.domain.machine_qa_result_safety import (
+from yoke_contracts.machine_qa_result_safety import (
     redact_machine_qa_value,
 )
 from yoke_core.domain.machine_qa_host_selection import (

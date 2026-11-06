@@ -15,7 +15,7 @@ from yoke_contracts.systemd_service import (
 from yoke_core.domain.agent_mission_preparation import prepare_mission
 from yoke_harness import ssh_linux_baseline as baseline
 from yoke_harness.ssh_linux_reset_cleanup import RESET_WRITERS_PROGRAM
-from yoke_harness.test_machine_types import HostActionResult
+from yoke_contracts.test_machine_types import HostActionResult
 
 
 class Refused(RuntimeError):

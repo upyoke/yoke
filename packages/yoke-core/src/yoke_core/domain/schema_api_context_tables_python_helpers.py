@@ -37,7 +37,7 @@ PYTHON_HELPERS_TABLES: dict[str, dict] = {
             "or environ=; its keyword is env=."
         ),
     },
-    "yoke_cli.transport.response_evidence": {
+    "yoke_contracts.response_evidence": {
         "columns": [("wrapped_lines", "callable"), ("save_response", "callable")],
         "notes": (
             "wrapped_lines measures authored teaching text at80 columns; install "

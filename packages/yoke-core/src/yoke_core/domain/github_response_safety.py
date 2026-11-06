@@ -7,7 +7,7 @@ import unicodedata
 from collections.abc import Callable
 from typing import Any, Iterable
 
-from yoke_cli.transport import response_deadline_read
+from yoke_contracts import response_deadline_read
 
 
 GITHUB_SMALL_RESPONSE_LIMIT_BYTES = 64 * 1024

@@ -40,7 +40,7 @@ from yoke_harness.ssh_mac_host_session_state import (
 )
 from yoke_harness.ssh_mac_terminal_bridge_report import BridgeDiagnosisReport
 from yoke_harness.ssh_mac_terminal_bridge_window_probe import probe_driven_window
-from yoke_harness.test_machine_types import HostActionResult
+from yoke_contracts.test_machine_types import HostActionResult
 
 
 TRANSPORT_CHECK = TERMINAL_BRIDGE_CHECKS[0]

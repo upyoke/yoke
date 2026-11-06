@@ -8,7 +8,7 @@ import urllib.request
 from collections.abc import Callable, Iterable
 from typing import Any
 
-from yoke_cli.transport import response_deadline_read
+from yoke_contracts import response_deadline_read
 from yoke_cli.transport.pre_resolved_https import (
     ResponseOpenDeadlineError,
     ResponseOpenError,

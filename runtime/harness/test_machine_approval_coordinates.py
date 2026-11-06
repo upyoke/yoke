@@ -9,7 +9,7 @@ from yoke_contracts.machine_approval_coordinates import machine_approval_coordin
 from yoke_contracts.machine_authorization import MATCH_CODE_ALPHABET, MATCH_CODE_LENGTH
 from yoke_harness import ssh_linux_browser_approval as chromium
 from yoke_harness import ssh_mac_browser_approval as safari
-from yoke_harness.machine_browser_approval import approval_tab_urls, approval_url
+from yoke_contracts.machine_browser_approval import approval_tab_urls, approval_url
 
 
 @pytest.mark.parametrize("path", ["/connect", "/machine"])

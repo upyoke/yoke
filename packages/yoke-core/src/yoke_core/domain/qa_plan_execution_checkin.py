@@ -156,7 +156,7 @@ def deliver_plan_function(*, function_id, target, payload, actor):
     unknown = QaPlanCommunicationUnknown(
         function_id=function_id, request_id=request_id, attempts=attempts
     )
-    from yoke_cli.transport.response_evidence import save_response
+    from yoke_contracts.response_evidence import save_response
     from yoke_core.domain.machine_qa_submission_artifacts import (
         ensure_secret_free_result,
     )

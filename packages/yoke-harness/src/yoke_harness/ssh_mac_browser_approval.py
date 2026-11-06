@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 
-from yoke_harness.machine_browser_approval import (
+from yoke_contracts.machine_browser_approval import (
     APPROVE_CONTROL_LABEL,
     CONNECTED_CONFIRMATION,
     BrowserApprovalResult,

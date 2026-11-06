@@ -14,7 +14,7 @@ from collections.abc import Callable, Mapping, Sequence
 import json
 from typing import Any
 
-from yoke_harness.machine_browser_approval import BrowserApprovalResult
+from yoke_contracts.machine_browser_approval import BrowserApprovalResult
 from yoke_harness.ssh_mac_browser_approval import approve_machine_in_safari
 
 from yoke_core.domain.machine_qa_admission_gate import (

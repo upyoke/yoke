@@ -25,7 +25,7 @@ from yoke_core.domain.machine_qa_mission_scratch import (
     create_mission_scratch,
     remove_mission_scratch,
 )
-from yoke_core.domain.machine_qa_result_safety import redact_machine_qa_value
+from yoke_contracts.machine_qa_result_safety import redact_machine_qa_value
 from yoke_core.domain.machine_qa_submission_artifacts import ensure_secret_free_result
 
 

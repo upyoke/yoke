@@ -11,7 +11,7 @@ from yoke_core.domain import machine_qa_local_execution as local
 from yoke_core.domain.ssh_linux_host_control import SshLinuxHostControl
 from yoke_core.domain.ssh_windows_host_control import SshWindowsHostControl
 from yoke_harness.test_machine_operations import execute_host_operation_contract
-from yoke_harness.test_machine_types import HostActionResult
+from yoke_contracts.test_machine_types import HostActionResult
 
 PASSWORD = "only-desktop-stdin-secret"
 SETTINGS = {

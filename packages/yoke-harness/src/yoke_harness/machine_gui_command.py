@@ -72,7 +72,7 @@ class _GuiSshControl:
 
     def _run(self, command, *, input_text=None, timeout=60):
         if self.settings["os"] == "windows":
-            from yoke_harness.windows_wsl_command import windows_wsl_command
+            from yoke_contracts.windows_wsl_command import windows_wsl_command
 
             command = windows_wsl_command(command)
         argv = remote_exec_argv(

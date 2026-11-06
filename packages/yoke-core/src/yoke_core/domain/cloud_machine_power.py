@@ -116,7 +116,7 @@ def _readiness_command(os_name: str) -> tuple[str, str | None]:
     """
     if os_name != "windows":
         return "exit", None
-    from yoke_harness.windows_wsl_command import (
+    from yoke_contracts.windows_wsl_command import (
         windows_wsl_command,
         windows_wsl_input,
     )

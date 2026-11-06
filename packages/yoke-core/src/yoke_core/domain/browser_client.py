@@ -44,7 +44,7 @@ from yoke_cli.transport.bounded_json_http import (
     BoundedJsonHttpError,
     request_json,
 )
-from yoke_cli.transport.response_limits import DEFAULT_JSON_RESPONSE_LIMIT_BYTES
+from yoke_contracts.response_limits import DEFAULT_JSON_RESPONSE_LIMIT_BYTES
 from yoke_contracts.browser_daemon_api import (
     DEFAULT_DAEMON_REQUEST_TIMEOUT_SECONDS,
     EXEC_STEP_PATH,
