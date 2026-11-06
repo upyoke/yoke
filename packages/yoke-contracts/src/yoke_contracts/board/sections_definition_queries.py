@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any, List, Optional, Tuple
 
 from yoke_contracts.merge_queue_status import (
+    ITEM_TERMINAL_SQL,
     LABEL_ATTEMPT_JOIN,
     LABEL_ENQUEUED_AT_SQL,
     LABEL_LANDED_AT_SQL,
@@ -14,13 +15,16 @@ from yoke_contracts.merge_queue_status import (
 def _items_sql(
     project_filter: str,
 ) -> str:
-    metadata_columns = """
+    from yoke_contracts.lifecycle_status import ENGINE_TERMINAL_STAGE_IDS
+
+    engine = ",".join("'" + value + "'" for value in sorted(ENGINE_TERMINAL_STAGE_IDS))
+    metadata_columns = f"""
         (SELECT stage->>'glyph'
          FROM jsonb_array_elements(wv.definition_json::jsonb->'stages') stage
          WHERE stage->>'id'=COALESCE(i.status, 'idea') LIMIT 1),
-        (SELECT stage->>'board_bucket'
+        CASE WHEN {ITEM_TERMINAL_SQL} AND i.status NOT IN ({engine}) THEN 'done' ELSE (SELECT stage->>'board_bucket'
          FROM jsonb_array_elements(wv.definition_json::jsonb->'stages') stage
-         WHERE stage->>'id'=COALESCE(i.status, 'idea') LIMIT 1),"""
+         WHERE stage->>'id'=COALESCE(i.status, 'idea') LIMIT 1) END,"""
     queue_columns = f"""
         {LABEL_ENQUEUED_AT_SQL},
         {LABEL_LANDED_AT_SQL},"""

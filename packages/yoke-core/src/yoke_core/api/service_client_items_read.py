@@ -94,7 +94,7 @@ def cmd_item_get(args: list[str]) -> int:
                 (item_id,),
             ).fetchone()
             value = (
-                render_merge_queue_status(row[1], row[2], item_status=row[0])
+                render_merge_queue_status(row[1], row[2], item_terminal=bool(row[0]))
                 if row
                 else ""
             )

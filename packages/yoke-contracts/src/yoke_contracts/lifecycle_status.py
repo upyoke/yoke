@@ -1,13 +1,8 @@
-"""Lifecycle-status vocabulary — pure, client-tier.
-
-The set of statuses that count as terminal success for a workflow task.
-Hosted in yoke_contracts so the board render ships core-free;
-``yoke_core.domain.task_lifecycle`` re-exports it for its callers.
-"""
+"""Pure workflow status membership and display vocabulary for every tier."""
 
 from __future__ import annotations
 
-from typing import FrozenSet, Mapping
+from typing import Mapping
 
 
 LEGACY_STATUS_GLYPHS: Mapping[str, str] = {
@@ -51,19 +46,30 @@ LEGACY_STATUS_BUCKETS: Mapping[str, str] = {
 }
 """Renderer fallback for workflow versions published without stage glyphs."""
 
-TASK_TERMINAL_SUCCESS: FrozenSet[str] = frozenset(
-    {
-        "done",
-        "reviewed-implementation",
-        "polishing-implementation",
-        "implemented",
-        "release",
-    }
-)
+ENGINE_TERMINAL_STAGE_IDS = frozenset({"cancelled", "stopped"})
+ENGINE_WAIT_STAGE_IDS = frozenset({"failed"})
+ENGINE_EXCEPTIONAL_STAGE_IDS = ENGINE_TERMINAL_STAGE_IDS | ENGINE_WAIT_STAGE_IDS
 
 
-__all__ = [
-    "LEGACY_STATUS_BUCKETS",
-    "LEGACY_STATUS_GLYPHS",
-    "TASK_TERMINAL_SUCCESS",
-]
+def terminal_stage_ids(definition: Mapping) -> frozenset[str]:
+    """Successful definition terminals plus engine-owned cancellation terminals."""
+    return frozenset(definition["terminal_stage_ids"]) | ENGINE_TERMINAL_STAGE_IDS
+
+
+def successful_task_stage_ids(definition: Mapping) -> frozenset[str]:
+    """Task success starts at the implementation binding's handoff."""
+    from yoke_contracts.skill_registry import IMPLEMENTATION_SKILL_IDS
+
+    stages = [str(stage["id"]) for stage in definition["stages"]]
+    success = set(definition["terminal_stage_ids"])
+    for binding in definition["skill_bindings"]:
+        if binding["skill_id"] in IMPLEMENTATION_SKILL_IDS:
+            success.update(stages[stages.index(binding["through_stage_id"]) :])
+            break
+    return frozenset(success)
+
+
+def terminal_status_sql(definition: str, status: str) -> str:
+    """PostgreSQL terminal predicate for a joined workflow definition."""
+    engine = ", ".join("'" + value + "'" for value in sorted(ENGINE_TERMINAL_STAGE_IDS))
+    return f"({status} IN ({engine}) OR ({definition})::jsonb->'terminal_stage_ids' ? {status})"

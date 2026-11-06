@@ -7,7 +7,7 @@ from typing import Any, Mapping, Optional, Sequence
 
 from yoke_contracts.public_ref import format_item_ref
 from yoke_core.domain import db_backend
-from yoke_core.domain.conflict_survey_declared_paths import TERMINAL_STATUSES
+from yoke_core.domain.workflow_status_queries import exclude_terminal_items
 from yoke_core.domain.merge_queue_readiness import (
     MergeQueueReadiness,
     read_merge_queue_readiness,
@@ -51,8 +51,7 @@ def _candidates(conn: Any, *, project_id: int) -> list[dict[str, Any]]:
     if not _column_exists(conn, "items", "merge_queue_pr_number"):
         return []
     marker = _marker(conn)
-    terminal = tuple(sorted(TERMINAL_STATUSES))
-    terminal_slots = ",".join(marker for _ in terminal)
+    terminal_filter, terminal_params = exclude_terminal_items(conn)
     # An open re-land attempt is the item's landing in flight; the current
     # landing it would replace is already delivered and is not shown.
     rows = conn.execute(
@@ -69,8 +68,8 @@ def _candidates(conn: Any, *, project_id: int) -> list[dict[str, Any]]:
         f"WHERE i.project_id={marker} "
         "AND (a.item_id IS NOT NULL OR (i.merge_queue_pr_number IS NOT NULL "
         "AND (i.merge_queue_landed_at IS NULL OR i.merge_queue_notified_at IS NULL))) "
-        f"AND i.status NOT IN ({terminal_slots}) ORDER BY i.id",
-        (int(project_id), *terminal),
+        f"{terminal_filter} ORDER BY i.id",
+        (int(project_id), *terminal_params),
     ).fetchall()
     return [row_dict(row) for row in rows]
 

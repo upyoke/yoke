@@ -19,9 +19,6 @@ from yoke_core.domain.workflow_runtime import WorkflowRuntime
 from yoke_core.domain.project_identity import render_item_ref
 
 
-COMPLETED_ITEM_STAGE_ID = "done"
-
-
 def delivery_ready_for_stage(runtime: WorkflowRuntime, status: str) -> bool:
     position = runtime.stage_index(status)
     if position is None:
@@ -78,14 +75,16 @@ def _validate_member_state(
             "only for its own project and the projects its flow stages bind "
             "through input_bindings"
         )
-    if allow_completed and status == COMPLETED_ITEM_STAGE_ID:
+    if allow_completed and status in runtime.terminal_stage_ids:
         return
     from yoke_core.domain.deployment_run_landed_closeout import landed_closeout_members
 
     if allow_completed and frozen:
         # Frozen readiness is owned by deployment_run_reopened_members.
         return
-    if not delivery_ready_for_stage(runtime, status) and item_id not in landed_closeout_members(conn, (item_id,)):
+    if not delivery_ready_for_stage(
+        runtime, status
+    ) and item_id not in landed_closeout_members(conn, (item_id,)):
         raise WorkflowItemBindingError(
             f"{render_item_ref(conn, item_id)} workflow {runtime.workflow_id}@{runtime.version} "
             f"is not delivery-ready at stage {status!r}"
@@ -109,7 +108,6 @@ def attached_binding_runtime_state(
         if (
             pinned is None
             or pinned.runtime is None
-            or pinned.status != COMPLETED_ITEM_STAGE_ID
             or pinned.status not in pinned.runtime.terminal_stage_ids
         ):
             raise
@@ -143,7 +141,9 @@ def validate_run_member(
     member's binding state.
     """
     if frozen is None:
-        from yoke_core.domain.deployment_run_composition_guard import has_frozen_composition
+        from yoke_core.domain.deployment_run_composition_guard import (
+            has_frozen_composition,
+        )
 
         frozen = attached and has_frozen_composition(conn, run_id)
     read_state = attached_binding_runtime_state if attached else binding_runtime_state
@@ -161,7 +161,11 @@ def validate_run_member(
 
 
 def validate_deployment_run_members(
-    conn: Any, *, run_id: str, item_ids: Iterable[int], attached: bool,
+    conn: Any,
+    *,
+    run_id: str,
+    item_ids: Iterable[int],
+    attached: bool,
     frozen: bool | None = None,
 ) -> None:
     """Validate a set of members from one read; the first refusal, in id order, stands."""
@@ -185,7 +189,6 @@ def validate_deployment_run_members(
 
 
 __all__ = [
-    "COMPLETED_ITEM_STAGE_ID",
     "attached_binding_runtime_state",
     "attached_item_binding_runtime_state",
     "delivery_ready_for_stage",

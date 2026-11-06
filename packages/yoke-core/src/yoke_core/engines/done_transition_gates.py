@@ -198,9 +198,9 @@ def _check_empty_branch(
     return None
 
 
-def _check_recovery(old_status: str, lane_branch: str) -> Tuple[bool, bool]:
+def _check_recovery(old_status: str, lane_branch: str, workflow) -> Tuple[bool, bool]:
     """Detect recovery state. Returns (already_done, resume_from_step6)."""
-    if old_status == "done" and not lane_branch:
+    if old_status in workflow.terminal_stage_ids and not lane_branch:
         return True, False
     return False, False
 

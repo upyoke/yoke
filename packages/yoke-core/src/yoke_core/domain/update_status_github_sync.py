@@ -7,7 +7,7 @@ Owns the three GitHub mutations performed on every epic-task status write:
 - ``_github_comment_post`` -- post a status-change comment with optional
   note body.
 - ``_github_close_on_terminal`` -- close the task issue when the new status
-  is in ``TASK_TERMINAL_SUCCESS``, with a verification round-trip and
+  is in ``task_success_statuses``, with a verification round-trip and
   ``GitHubCloseFailure`` event emission on failure.
 
 Each helper honors the dry-run env var and dispatches through the canonical
@@ -20,7 +20,7 @@ typed failures; helpers degrade with a warning for read-side paths.
 from __future__ import annotations
 
 import json
-from typing import Optional, TextIO, Tuple
+from typing import Any, Optional, TextIO, Tuple
 
 from yoke_contracts.github_app_installation_permissions import (
     GITHUB_ISSUES_WRITE_PERMISSION_LEVELS,
@@ -34,7 +34,7 @@ from yoke_core.domain.gh_rest_transport import (
     request_with_retry,
     split_repo,
 )
-from yoke_core.domain.task_lifecycle import TASK_TERMINAL_SUCCESS
+from yoke_core.domain.task_lifecycle import task_success_statuses
 from yoke_core.domain.project_github_auth import (
     ProjectGithubAuthError,
     resolve_project_github_auth,
@@ -80,7 +80,9 @@ def _github_label_sync(
     from yoke_core.domain import update_status as _us  # late lookup honors test patches
 
     if _us._is_dry_run():
-        print(f"[DRY-RUN] Skipping GitHub: label-reconcile for #{issue_num}", file=stderr)
+        print(
+            f"[DRY-RUN] Skipping GitHub: label-reconcile for #{issue_num}", file=stderr
+        )
         return
 
     resolved = _resolve_owner_repo(repo_args, project)
@@ -163,7 +165,9 @@ def _github_label_sync(
                 token=token,
             )
         except RestTransportError:
-            print(f"Warning: failed to add label {new_label} to #{issue_num}", file=stderr)
+            print(
+                f"Warning: failed to add label {new_label} to #{issue_num}", file=stderr
+            )
 
 
 def _github_comment_post(
@@ -211,6 +215,7 @@ def _github_comment_post(
 
 
 def _github_close_on_terminal(
+    conn: Any,
     issue_num: str,
     new_status: str,
     epic_id: str,
@@ -222,7 +227,7 @@ def _github_close_on_terminal(
 ) -> None:
     from yoke_core.domain import update_status as _us  # late lookup honors test patches
 
-    if new_status not in TASK_TERMINAL_SUCCESS:
+    if new_status not in task_success_statuses(conn, int(epic_id)):
         return
 
     if _us._is_dry_run():
@@ -294,6 +299,10 @@ def _github_close_on_terminal(
             epic_id=epic_id,
             task_num=task_num,
             context_json=json.dumps(
-                {"issue": int(issue_num), "action": "close-verify", "state": verify_state}
+                {
+                    "issue": int(issue_num),
+                    "action": "close-verify",
+                    "state": verify_state,
+                }
             ),
         )

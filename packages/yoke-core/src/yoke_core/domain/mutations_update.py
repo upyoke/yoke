@@ -135,14 +135,14 @@ def prepare_update(
 
         # Done-ceremony nonce gate: mutation layer trusts caller assertion
         if (
-            value == "done"
+            value in workflow.terminal_stage_ids
             and workflow.policies["delivery"] in _RELEASE_CEREMONY_DELIVERY_POLICIES
         ):
             if not gate.force and not gate.done_nonce_verified:
                 return MutationResult(
                     success=False,
                     error=(
-                        f"Cannot set {item.ref} to 'done' -- missing done-transition "
+                        f"Cannot set {item.ref} to {value!r} -- missing done-transition "
                         f"ceremony nonce. "
                         f"{_ceremony_recovery(workflow, item)}"
                     ),
@@ -151,7 +151,10 @@ def prepare_update(
                 )
 
         # Epic merge gate: block epics from done without merged_at
-        if value == "done" and workflow.policies["generated_children"] == "epic_tasks":
+        if (
+            value in workflow.terminal_stage_ids
+            and workflow.policies["generated_children"] == "epic_tasks"
+        ):
             if not gate.has_merged_at and not gate.force:
                 return MutationResult(
                     success=False,
@@ -167,7 +170,7 @@ def prepare_update(
         # this item carries. ``cancelled`` and ``stopped`` are named
         # non-settling terminals — they abandon without auto-waiving.
         if (
-            status_settles_blocking_qa(value)
+            status_settles_blocking_qa(value, workflow)
             and gate.unsatisfied_all_blocking > 0
             and not gate.qa_bypass
             and not gate.force
@@ -195,7 +198,7 @@ def prepare_update(
 
         # Done cleanup: clear item posture flags. Lane release is a
         # universal-registry side effect owned by the write adapter.
-        if value == "done":
+        if value in workflow.terminal_stage_ids:
             for k, v in DONE_CLEANUP_FIELDS.items():
                 field_writes[k] = v
             events.append(

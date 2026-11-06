@@ -49,7 +49,6 @@ from yoke_core.engines.doctor_report import (
 from yoke_core.engines.doctor_tree_scan import list_directory
 from yoke_core.engines.doctor_parallel_reads import bounded_read_map
 
-_TERMINAL = ("done", "cancelled")
 _DEPLOY_RUN_RETIRABLE_LABEL = (
     "verified-safe; this check's --fix retires it, as does the relay's lane sweep"
 )
@@ -145,13 +144,13 @@ def hc_worktree_health(_conn, args: DoctorArgs, rec: RecordCollector) -> None:
                 *by_path.get(entry["path"], []),
             ]
         }
-        return [lane for lane in owners.values() if lane.status in _TERMINAL]
+        return [lane for lane in owners.values() if lane.terminal]
 
     stale_branches = [
         lane
         for lane in lanes
         if repo_root
-        and lane.status in _TERMINAL
+        and lane.terminal
         and lane.branch in local_branches
         and lane.branch not in live_branches
     ]
@@ -270,7 +269,7 @@ def hc_worktree_health(_conn, args: DoctorArgs, rec: RecordCollector) -> None:
                 if child_str in registered_paths:
                     continue
                 for owner in by_path.get(child_str, []):
-                    if owner.status in _TERMINAL:
+                    if owner.terminal:
                         stranded.setdefault("unregistered directory", []).append(
                             owner.public_ref
                         )
@@ -295,7 +294,7 @@ def hc_worktree_health(_conn, args: DoctorArgs, rec: RecordCollector) -> None:
 
     # Terminal updates release operational lanes but retain audit history.
     for lane in lanes:
-        if lane.status in _TERMINAL and lane.state == "active":
+        if lane.terminal and lane.state == "active":
             issues.append(
                 f"- Active worktree lane on terminal item: {lane.public_ref} "
                 f"has branch='{lane.branch}' "
@@ -308,7 +307,7 @@ def hc_worktree_health(_conn, args: DoctorArgs, rec: RecordCollector) -> None:
         (Path(e["path"]).name, e.get("branch", ""), owner.target_branch)
         for e in lane_entries
         for owner in by_branch.get(e.get("branch", ""), [])[:1]
-        if owner.status not in _TERMINAL
+        if not owner.terminal
     ]
     checkout = str(repo_root or "")
     note = landed_lanes_note(_git_for_repo(checkout), checkout, open_lanes)

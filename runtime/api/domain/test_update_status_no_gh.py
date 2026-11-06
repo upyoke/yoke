@@ -162,7 +162,10 @@ class TestGithubCommentPostRest:
 
 
 class TestGithubCloseOnTerminalRest:
-    def test_close_on_terminal_patches_issue_state(self, monkeypatch):
+    def test_close_on_terminal_patches_issue_state(self, monkeypatch, test_db):
+        from runtime.api.fixtures.backlog import insert_item
+
+        insert_item(test_db, id=1, title="Epic", workflow_id="epic")
         _mask_path(monkeypatch)
         calls = []
 
@@ -183,6 +186,7 @@ class TestGithubCloseOnTerminalRest:
             ),
         ):
             us._github_close_on_terminal(
+                test_db,
                 "42",
                 "done",
                 "1",

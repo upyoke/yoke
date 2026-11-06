@@ -11,7 +11,6 @@ from typing import Dict, Tuple
 
 from yoke_contracts.board.board_db import BoardDBLike
 from yoke_contracts.board.project_scope import project_filter
-from yoke_contracts.lifecycle_status import TASK_TERMINAL_SUCCESS
 
 # ---------------------------------------------------------------------------
 # Frontier counts
@@ -40,80 +39,63 @@ def frontier_counts(
         ``reviewing``, ``release``, ``implemented``, ``refined``,
         ``idea``, ``planning``, ``total``.
     """
-    pf, params = project_filter(scope, "i")
-    since_filter = f"AND i.id >= {art_frontier_since}" if art_frontier_since > 0 else ""
-    _tts_in = ", ".join(f"'{s}'" for s in sorted(TASK_TERMINAL_SUCCESS))
-
-    # Propagate the item block flag separately from its lifecycle position.
-    sql = f"""
-    WITH task_counts AS (
-        SELECT et.epic_id, et.status AS task_status, COUNT(*) AS cnt
-        FROM epic_tasks et
-        JOIN items i ON i.id = et.epic_id
-        WHERE i.frozen <> 1 AND i.status <> 'cancelled'{pf} {since_filter}
-        GROUP BY et.epic_id, et.status
-    ), item_or_task AS (
-        SELECT CASE
-            WHEN tc.task_status IN ({_tts_in}) THEN tc.task_status
-            WHEN tc.task_status IS NOT NULL THEN i.status
-            ELSE i.status END AS eff_status,
-        i.workflow_id,
-        CASE WHEN i.blocked = 1 THEN 1 ELSE 0 END AS is_blocked_flag,
-        COALESCE(tc.cnt, 1) AS weight
-        FROM items i LEFT JOIN task_counts tc ON tc.epic_id = i.id
-        WHERE i.frozen <> 1 AND i.status <> 'cancelled'{pf} {since_filter}
+    import json
+    from yoke_contracts.lifecycle_status import (
+        ENGINE_TERMINAL_STAGE_IDS,
+        LEGACY_STATUS_BUCKETS,
+        successful_task_stage_ids,
     )
-    SELECT
-        COALESCE(SUM(CASE WHEN eff_status = 'done' THEN weight ELSE 0 END), 0),
-        COALESCE(SUM(CASE WHEN is_blocked_flag = 0 AND eff_status = 'implementing'
-                           OR (is_blocked_flag = 0 AND eff_status = 'reviewing-implementation' AND workflow_id = 'epic')
-                          THEN weight ELSE 0 END), 0),
-        COALESCE(SUM(CASE WHEN is_blocked_flag = 1
-                           OR eff_status IN ('stopped','failed')
-                          THEN weight ELSE 0 END), 0),
-        COALESCE(SUM(CASE WHEN is_blocked_flag = 0 AND (eff_status IN ('reviewed-implementation','polishing-implementation')
-                           OR (eff_status = 'reviewing-implementation' AND workflow_id <> 'epic'))
-                          THEN weight ELSE 0 END), 0),
-        COALESCE(SUM(CASE WHEN is_blocked_flag = 0 AND eff_status = 'release' THEN weight ELSE 0 END), 0),
-        COALESCE(SUM(CASE WHEN is_blocked_flag = 0 AND eff_status = 'implemented' THEN weight ELSE 0 END), 0),
-        COALESCE(SUM(CASE WHEN is_blocked_flag = 0 AND eff_status IN ('planned','refined-idea') AND workflow_id <> 'epic'
-                          THEN weight ELSE 0 END), 0),
-        COALESCE(SUM(CASE WHEN is_blocked_flag = 0 AND eff_status = 'idea' THEN weight ELSE 0 END), 0),
-        COALESCE(SUM(CASE WHEN is_blocked_flag = 0 AND (eff_status IN ('refining-idea','planning','plan-drafted','refining-plan')
-                           OR (eff_status = 'refined-idea' AND workflow_id = 'epic'))
-                          THEN weight ELSE 0 END), 0),
-        COALESCE(SUM(weight), 0)
-    FROM item_or_task
-    """
-    rows = db.query_quiet(sql, (*params, *params))
+    from yoke_contracts.board.status import status_to_board_bucket
 
-    if not rows or not rows[0]:
-        return {
-            "done": 0,
-            "implementing": 0,
-            "blocked": 0,
-            "reviewing": 0,
-            "release": 0,
-            "implemented": 0,
-            "refined": 0,
-            "idea": 0,
-            "planning": 0,
-            "total": 0,
-        }
-
-    r = rows[0]
-    return {
-        "done": int(r[0]),
-        "implementing": int(r[1]),
-        "blocked": int(r[2]),
-        "reviewing": int(r[3]),
-        "release": int(r[4]),
-        "implemented": int(r[5]),
-        "refined": int(r[6]),
-        "idea": int(r[7]),
-        "planning": int(r[8]),
-        "total": int(r[9]),
-    }
+    counts = dict.fromkeys(
+        (
+            "done",
+            "implementing",
+            "blocked",
+            "reviewing",
+            "release",
+            "implemented",
+            "refined",
+            "idea",
+            "planning",
+            "total",
+        ),
+        0,
+    )
+    pf, params = project_filter(scope, "i")
+    since = f" AND i.id >= {int(art_frontier_since)}" if art_frontier_since > 0 else ""
+    rows = db.query_quiet(
+        f"""SELECT i.id, i.status, i.blocked, i.workflow_version_id,
+                   v.definition_json, et.status, COUNT(et.task_num)
+            FROM items i JOIN workflow_versions v ON v.id=i.workflow_version_id
+            LEFT JOIN epic_tasks et ON et.epic_id=i.id
+            WHERE COALESCE(i.frozen,0) <> 1 {pf}{since}
+            GROUP BY i.id, i.status, i.blocked, i.workflow_version_id, v.definition_json, et.status""",
+        params,
+    )
+    definitions = {}
+    for _, status, blocked, version_id, raw, task_status, task_count in rows:
+        if (
+            status in ENGINE_TERMINAL_STAGE_IDS
+            and LEGACY_STATUS_BUCKETS[status] == "done"
+        ):
+            continue
+        if version_id not in definitions:
+            definitions[version_id] = json.loads(raw) if isinstance(raw, str) else raw
+        definition = definitions[version_id]
+        effective = (
+            task_status
+            if task_status in successful_task_stage_ids(definition)
+            else status
+        )
+        bucket = status_to_board_bucket(
+            effective, False, blocked_value=blocked, workflow_definition=definition
+        )
+        weight = int(task_count) or 1
+        counts["total"] += weight
+        if bucket in counts:
+            counts[bucket] += weight
+    return counts
 
 
 # ---------------------------------------------------------------------------

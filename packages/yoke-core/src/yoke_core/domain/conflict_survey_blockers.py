@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from yoke_core.domain.workflow_status_queries import exclude_terminal_items
+
 from typing import Any
 
 from yoke_core.domain import db_backend
@@ -22,7 +24,6 @@ from yoke_core.domain.path_render_overlap import is_render_target_only_overlap
 from yoke_core.domain.schema_common import _table_exists
 
 _NON_TERMINAL_CLAIM_STATES = ("planned", "blocked", "active")
-_TERMINAL_STATUSES = frozenset({"done", "cancelled", "stopped"})
 
 
 def _p(conn: Any) -> str:
@@ -208,8 +209,8 @@ def _item_coordination_blockers(
     params: list[Any] = []
     if budget_join:
         params.append(FILE_BUDGET_SECTION)
-    terminal = tuple(sorted(_TERMINAL_STATUSES))
-    params.extend([int(item["project_id"]), int(item["id"]), *terminal])
+    terminal_filter, terminal_params = exclude_terminal_items(conn)
+    params.extend([int(item["project_id"]), int(item["id"]), *terminal_params])
     rows = _dict_rows(
         conn.execute(
             "SELECT i.id, i.status, COALESCE(i.frozen, 0) AS frozen, "
@@ -218,7 +219,7 @@ def _item_coordination_blockers(
             f" FROM items i"
             f"{worktree_join}{claim_join}{doc_join}{budget_join} "
             f"WHERE i.project_id = {marker} AND i.id <> {marker} "
-            f"AND COALESCE(i.status, '') NOT IN ({', '.join(marker for _ in terminal)}) "
+            f"{terminal_filter} "
             "AND COALESCE(i.frozen, 0) = 0",
             tuple(params),
         )

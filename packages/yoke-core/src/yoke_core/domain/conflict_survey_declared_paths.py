@@ -22,6 +22,8 @@ exactly as its path claims are dormant.
 
 from __future__ import annotations
 
+from yoke_core.domain.workflow_status_queries import exclude_terminal_items
+
 import json
 from dataclasses import dataclass
 from functools import lru_cache
@@ -35,7 +37,6 @@ from yoke_core.domain.schema_common import _column_exists, _table_exists
 CONFLICT_SURVEY_SECTION = "Conflict Survey"
 CONFLICT_SURVEY_ORDERING = 180
 PENDING_REQUEST_KEY = "pending_request"
-TERMINAL_STATUSES = frozenset({"done", "cancelled", "stopped"})
 
 
 @dataclass(frozen=True)
@@ -149,22 +150,21 @@ def declared_surveys(
     if not all(_table_exists(conn, table) for table in ("item_sections", "items")):
         return []
     marker = _p(conn)
-    terminal = tuple(sorted(TERMINAL_STATUSES))
-    terminal_markers = ", ".join(marker for _ in terminal)
+    terminal_filter, terminal_params = exclude_terminal_items(conn)
     frozen_filter = (
         " AND COALESCE(i.frozen, 0) = 0"
         if _column_exists(conn, "items", "frozen")
         else ""
     )
     exclusion = f" AND i.id <> {marker}" if exclude_item_id is not None else ""
-    params: list[Any] = [CONFLICT_SURVEY_SECTION, int(project_id), *terminal]
+    params: list[Any] = [CONFLICT_SURVEY_SECTION, int(project_id), *terminal_params]
     if exclude_item_id is not None:
         params.append(int(exclude_item_id))
     rows = conn.execute(
         "SELECT s.item_id AS item_id, i.status AS status, s.content AS content "
         "FROM item_sections s JOIN items i ON i.id = s.item_id "
         f"WHERE s.section_name = {marker} AND i.project_id = {marker} "
-        f"AND i.status NOT IN ({terminal_markers})"
+        f"{terminal_filter}"
         f"{frozen_filter}{exclusion}",
         tuple(params),
     ).fetchall()
@@ -197,7 +197,6 @@ __all__ = [
     "CONFLICT_SURVEY_ORDERING",
     "CONFLICT_SURVEY_SECTION",
     "PENDING_REQUEST_KEY",
-    "TERMINAL_STATUSES",
     "DeclaredSurvey",
     "classify_survey_payload",
     "clean_path",

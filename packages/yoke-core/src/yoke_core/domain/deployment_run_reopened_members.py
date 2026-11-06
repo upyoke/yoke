@@ -20,18 +20,12 @@ from yoke_core.domain.item_ref_render import render_item_ref_lookup
 from yoke_core.domain.workflow_item_binding_validation import read_pinned_items
 from yoke_core.domain.workflow_registry import WorkflowRegistryError
 from yoke_contracts.public_ref import ITEM_NOT_FOUND
-from yoke_core.domain.schema_common import _column_exists, _get_columns, _table_exists
+from yoke_core.domain.schema_common import _column_exists
 from yoke_core.domain.workflow_delivery_binding_validation import (
-    COMPLETED_ITEM_STAGE_ID,
     delivery_ready_for_stage,
 )
-from yoke_core.domain.workflow_runtime import (
-    ENGINE_TERMINAL_STAGE_IDS,
-)
+from yoke_core.domain.item_terminal_resources import item_is_terminal
 from yoke_core.domain.deployment_run_proposed_membership import run_items
-
-_LEGACY_DELIVERY_READY_STAGES = frozenset({"implemented", "release", "done"})
-_CLOSED_STATUSES = frozenset({"done", "cancelled", "stopped"})
 
 
 def composition_member_readiness(
@@ -80,41 +74,24 @@ def unready_item_ids(
 ) -> list[int]:
     """Items among ``(item_id, status)`` rows not delivery-ready for their pin."""
     rows = list(rows)
-    item_columns = set(_get_columns(conn, "items"))
-    has_workflow_pins = (
-        _table_exists(conn, "workflow_versions")
-        and {
-            "workflow_id",
-            "workflow_version_id",
-        }
-        <= item_columns
-    )
-    pinned = (
-        read_pinned_items(conn, (row[0] for row in rows)) if has_workflow_pins else {}
-    )
+    pinned = read_pinned_items(conn, (row[0] for row in rows))
     from yoke_core.domain.deployment_run_landed_closeout import landed_closeout_members
 
-    closing = landed_closeout_members(conn, (row[0] for row in rows)) if has_workflow_pins else frozenset()
+    closing = landed_closeout_members(conn, (row[0] for row in rows))
     unready: list[int] = []
     for item_id, status in rows:
         status_text = str(status)
-        if has_workflow_pins:
-            item = pinned.get(int(item_id))
-            if item is None:
-                raise WorkflowRegistryError(ITEM_NOT_FOUND)
-            runtime = item.require_runtime(conn, int(item_id))
-            if status_text in runtime.terminal_stage_ids or (
-                status_text in ENGINE_TERMINAL_STAGE_IDS
-            ):
-                ready = (
-                    allow_completed
-                    and status_text == COMPLETED_ITEM_STAGE_ID
-                    and status_text in runtime.terminal_stage_ids
-                )
-            else:
-                ready = delivery_ready_for_stage(runtime, status_text) or int(item_id) in closing
+        item = pinned.get(int(item_id))
+        if item is None:
+            raise WorkflowRegistryError(ITEM_NOT_FOUND)
+        runtime = item.require_runtime(conn, int(item_id))
+        if status_text in runtime.all_terminal_stage_ids:
+            ready = allow_completed and status_text in runtime.terminal_stage_ids
         else:
-            ready = status_text in _LEGACY_DELIVERY_READY_STAGES
+            ready = (
+                delivery_ready_for_stage(runtime, status_text)
+                or int(item_id) in closing
+            )
         if not ready:
             unready.append(int(item_id))
     return unready
@@ -128,7 +105,7 @@ def reopened_members(conn: Any, run_id: str) -> list[dict[str, Any]]:
         "JOIN items i ON dri.item_id = i.id WHERE dri.run_id=%s",
         (run_id,),
     )
-    open_rows = [row for row in rows if str(row[1]) not in _CLOSED_STATUSES]
+    open_rows = [row for row in rows if not item_is_terminal(conn, int(row[0]))]
     return [
         {"item_id": item_id, "reopened": True}
         for item_id in unready_item_ids(conn, open_rows, allow_completed=True)
@@ -150,7 +127,7 @@ def set_aside_reopened_members(
     )
 
     status_of = {int(item_id): str(status) for item_id, status in unready}
-    reopened = [i for i, status in status_of.items() if status not in _CLOSED_STATUSES]
+    reopened = [i for i, status in status_of.items() if not item_is_terminal(conn, i)]
     unproven: dict[int, str] = {}
     released = release_replaced_members(
         conn,
@@ -175,7 +152,7 @@ def set_aside_reopened_members(
     refused += [
         f"{ref(i)} (status={status})"
         for i, status in status_of.items()
-        if status in _CLOSED_STATUSES
+        if item_is_terminal(conn, i)
     ]
     notice = (
         "Set aside reopened members awaiting a later release: " + ", ".join(released)

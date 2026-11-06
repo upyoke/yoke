@@ -41,6 +41,7 @@ def item_field_read_batch(conn, item_ids, fields):
         raise ValueError("item field batch requires an explicitly bound copy authority")
     from yoke_contracts.merge_queue_status import (
         LABEL_ATTEMPT_JOIN,
+        ITEM_TERMINAL_SQL,
         LABEL_ENQUEUED_AT_SQL,
         LABEL_LANDED_AT_SQL,
         render_merge_queue_status,
@@ -51,7 +52,13 @@ def item_field_read_batch(conn, item_ids, fields):
             field
             for field in fields
             if field
-            not in {"id", "deployment_flow", "body", "merge_queue_status", "post_deploy_qa"}
+            not in {
+                "id",
+                "deployment_flow",
+                "body",
+                "merge_queue_status",
+                "post_deploy_qa",
+            }
         )
     )
     expressions = [
@@ -66,7 +73,7 @@ def item_field_read_batch(conn, item_ids, fields):
             [
                 "i.id",
                 *expressions,
-                "i.status",
+                ITEM_TERMINAL_SQL,
                 LABEL_ENQUEUED_AT_SQL,
                 LABEL_LANDED_AT_SQL,
             ]
@@ -85,7 +92,7 @@ def item_field_read_batch(conn, item_ids, fields):
             values[item_id, "merge_queue_status"] = render_merge_queue_status(
                 row[len(columns) + 2],
                 row[len(columns) + 3],
-                item_status=row[len(columns) + 1],
+                item_terminal=bool(row[len(columns) + 1]),
             )
     token = _FIELD_BATCH.set((db_backend.resolve_pg_dsn(), values))
     try:
@@ -139,7 +146,7 @@ def query_item(
                 (item_id,),
             )
             return (
-                render_merge_queue_status(row[1], row[2], item_status=row[0])
+                render_merge_queue_status(row[1], row[2], item_terminal=bool(row[0]))
                 if row is not None
                 else ""
             )

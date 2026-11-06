@@ -81,7 +81,7 @@ planning -> plan-drafted -> refining-plan -> planned -> implementing -> reviewin
 | `planned` | Task is queued for dispatch | No |
 | `implementing` | Task is being worked on by an agent | No |
 | `reviewing-implementation` | Task is being tested/reviewed | No |
-| `reviewed-implementation` | Testing/review passed, awaiting polish | Yes (success) |
+| `reviewed-implementation` | Testing/review passed, awaiting polish | At the built-in epic handoff |
 | `polishing-implementation` | Final polish pass | Yes (success) |
 | `implemented` | Implementation complete, awaiting release | Yes (success) |
 | `release` | In deployment pipeline | Yes (success) |
@@ -90,7 +90,11 @@ planning -> plan-drafted -> refining-plan -> planned -> implementing -> reviewin
 | `blocked` | Waiting on dependency | No |
 | `stopped` | Agent session ended unexpectedly | No |
 
-Terminal success (TASK_TERMINAL_SUCCESS): `{reviewed-implementation, polishing-implementation, implemented, release, done}`.
+Task success comes from the parent item's pinned workflow: the implementation
+binding's `through_stage_id` and every later ordered stage, plus the definition's
+`terminal_stage_ids`. There is no global task-success status list. For the
+built-in epic workflow, that handoff is `reviewed-implementation`; a custom
+workflow can name a different handoff.
 
 ### Valid Transitions
 
@@ -131,7 +135,7 @@ recomputes the task-graph parent item's status from aggregate task states:
 |---|---|
 | All tasks `planning` or `planned` (or + `blocked`) | `planned` |
 | Any task `implementing` or `reviewing-implementation` | `implementing` |
-| All tasks in TASK_TERMINAL_SUCCESS | `reviewing-implementation` |
+| All tasks at or beyond the pinned implementation handoff | `reviewing-implementation` |
 | Mixed terminal: some `failed`/`stopped` + some success | `implementing` (operator intervention needed) |
 
 **Guard:** Auto-derivation only fires when the parent item's current status is
@@ -141,15 +145,18 @@ task updater does not derive it backward.
 
 ### Board Progress
 
-`yoke board rebuild` computes generated-task progress as terminal-success
-tasks (TASK_TERMINAL_SUCCESS: `reviewed-implementation`,
-`polishing-implementation`, `implemented`, `release`, or `done`) out of total
-tasks. These statuses count toward the progress percentage displayed on the
-parent item.
+`yoke board rebuild` and the epic detail page count successful tasks using
+the same pinned implementation handoff. The epic detail page also shows its
+own ordered stages beside the task count: completed planning steps stay
+visible before implementation starts. The current stage is marked separately
+from completed steps.
 
 ### Merge Pre-Flight
 
-The merge pre-flight check PF-3 (owned by `yoke_core.engines.merge_worktree_prepare`) queries for tasks with `status NOT IN ($(_sql_task_terminal_success_list))` — currently `'done','implemented','polishing-implementation','release','reviewed-implementation'`. Any such tasks block the merge.
+The merge pre-flight reads the task statuses and their pinned success membership
+together. Any task outside that set blocks the merge. A serving engine that
+cannot supply the membership refuses with `workflow_status_metadata_unavailable`;
+update that engine before merging generated tasks.
 
 ### Auto-Unblock
 

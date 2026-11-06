@@ -29,18 +29,6 @@ PHASE_FINALIZE = "finalize"
 
 RELEASE_WORKTREE_CREATE_FAILED = "worktree-create-failed"
 
-IMPLEMENTATION_PHASE_STATUSES = frozenset(
-    {
-        "implementing",
-        "reviewing-implementation",
-        "reviewed-implementation",
-        "polishing-implementation",
-        "implemented",
-        "release",
-        "done",
-    }
-)
-
 
 def _parse_item_argument(raw: Any) -> int | str:
     """Retain public selectors on HTTPS; resolve local engine joins locally."""
@@ -57,25 +45,23 @@ def _read_item(item_id: int) -> Optional[Dict[str, Any]]:
     Postgres connection. Returns ``None`` when the item is not found (or
     the read is refused), matching the previous local-query contract.
     """
-    response = call_dispatcher(
-        function_id="items.detail.get",
-        target=public_item_target(item_id),
-        payload={},
+    from yoke_core.engines.done_transition_item_context import (
+        load_done_item_context_over_transport,
     )
-    if not response.success:
+
+    context = load_done_item_context_over_transport(item_id)
+    if context is None:
         return None
-    item = (response.result or {}).get("item") or {}
-    if not item:
-        return None
-    workflow = item.get("workflow") or {}
-    project = item.get("project") or {}
+    workflow = context.workflow
     return {
-        "public_ref": item.get("public_ref"),
-        "workflow_id": workflow.get("id"),
-        "workflow_version_id": workflow.get("version_id"),
-        "status": item.get("status"),
-        "title": item.get("title"),
-        "project": project.get("slug"),
+        "public_ref": context.public_ref,
+        "workflow_id": workflow.workflow_id,
+        "workflow_version_id": workflow.workflow_version_id,
+        "status": context.stage_id,
+        "title": context.title,
+        "project": context.project,
+        "implementation_started": workflow.stage_index(context.stage_id) is not None
+        and not workflow.is_before_implementation(context.stage_id),
     }
 
 

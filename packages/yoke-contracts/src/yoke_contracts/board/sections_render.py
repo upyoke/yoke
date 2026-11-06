@@ -22,7 +22,7 @@ from yoke_contracts.board.sections_classify import (
     precompute_epic_stats,
     status_emoji,
 )
-from yoke_contracts.lifecycle_status import TASK_TERMINAL_SUCCESS
+from yoke_contracts.board.workflow_membership import membership_sql
 
 EpicTaskRow = Tuple[int, str, str] | Tuple[int, str, str, Optional[str]]
 
@@ -44,14 +44,14 @@ def epic_progress(db: BoardDBLike, epic_id: Optional[int]) -> str:
     if epic_id is None:
         return "—"
 
-    _tts_in = ", ".join(f"'{s}'" for s in sorted(TASK_TERMINAL_SUCCESS))
+    _success = membership_sql(db, "et.status")
     row = db.query(
         f"""
         SELECT
             COUNT(*) AS total,
-            SUM(CASE WHEN status IN ({_tts_in}) THEN 1 ELSE 0 END) AS done
-        FROM epic_tasks
-        WHERE epic_id = %s
+            SUM(CASE WHEN {_success} THEN 1 ELSE 0 END) AS done
+        FROM epic_tasks et JOIN items i ON i.id = et.epic_id
+        WHERE et.epic_id = %s
         """,
         (epic_id,),
     )

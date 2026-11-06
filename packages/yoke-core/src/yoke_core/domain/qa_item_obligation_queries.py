@@ -11,9 +11,10 @@ from yoke_core.domain.qa_requirement_pass_currency import has_current_passing_ru
 #: answer plans now; these rows stay readable history and count in no gate.
 def old_plan_copy_sql(alias: str = "") -> str:
     prefix = f"{alias}." if alias else ""
-    return (f"({prefix}item_id IS NOT NULL AND {prefix}plan_id IS NOT NULL "
-            f"AND {prefix}qa_phase='post_deploy' AND {prefix}deployment_run_id IS NULL)")
-
+    return (
+        f"({prefix}item_id IS NOT NULL AND {prefix}plan_id IS NOT NULL "
+        f"AND {prefix}qa_phase='post_deploy' AND {prefix}deployment_run_id IS NULL)"
+    )
 
 
 if TYPE_CHECKING:
@@ -89,7 +90,11 @@ def _score(conn, fetched, *, item_id: int, target_status: str) -> UnsatisfiedBlo
             else has_current_passing_run(conn, int(item["id"]))
         )
         scored.append(item)
-    if status_settles_blocking_qa(target_status):
+    from yoke_core.domain.workflow_runtime import load_item_workflow_runtime
+
+    if status_settles_blocking_qa(
+        target_status, load_item_workflow_runtime(conn, item_id)
+    ):
         unsatisfied = [
             row
             for row in scored

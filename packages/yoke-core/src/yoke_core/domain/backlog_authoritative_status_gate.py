@@ -240,21 +240,20 @@ def _evaluate_qa_verification(
     satisfied or unavailable for this target.
     """
     from yoke_core.domain.qa_gate_definitions import (
-        QA_SETTLING_TERMINAL_STATUSES,
         status_settles_blocking_qa,
     )
 
-    if not definition_selected and target_status not in {
-        "reviewed-implementation",
-        "implemented",
-        "release",
-        *QA_SETTLING_TERMINAL_STATUSES,
-    }:
+    with connect(db_path) as workflow_conn:
+        workflow = load_item_workflow_runtime(workflow_conn, item_id)
+    if (
+        not definition_selected
+        and target_status not in workflow.successful_task_stage_ids
+    ):
         return None
     from yoke_core.domain import qa_gates
 
     gate_target = qa_gates.GateTarget(item_id=int(item_id))
-    if status_settles_blocking_qa(target_status):
+    if status_settles_blocking_qa(target_status, workflow):
         gate_result = qa_gates.check_done_gate(gate_target, db_path)
         error_code = "GATE_QA_DONE"
     else:
@@ -263,7 +262,9 @@ def _evaluate_qa_verification(
             db_path,
             transition_name=target_status,
         )
-        error_code = _QA_VERIFICATION_ERROR_CODES[target_status]
+        error_code = _QA_VERIFICATION_ERROR_CODES.get(
+            target_status, "GATE_QA_VERIFICATION"
+        )
 
     if gate_result.passed:
         return None

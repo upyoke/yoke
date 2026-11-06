@@ -5,7 +5,6 @@ from __future__ import annotations
 import re
 from typing import Any, Dict, List, Tuple
 
-from yoke_core.domain.task_lifecycle import TASK_TERMINAL_SUCCESS
 from yoke_core.engines.resync_detect_compact_mirror import (
     COMPACT_MIRROR_FOOTER,  # noqa: F401 — re-exported for callers
     matches_compact_mirror as _matches_compact_mirror,
@@ -280,10 +279,17 @@ def stage2_compare(
                 drifts.append(_drift(item, "title", local_task_title, gh_title_raw))
 
             # --- State comparison ---
+            if "successful_task_stage_ids" not in local_task:
+                raise ValueError(
+                    "workflow_status_metadata_unavailable: task state comparison requires the next-release serving floor; use the installed CLI matching the serving engine until that engine is upgraded"
+                )
             task_status = local_task.get("status", "") or ""
             gh_state = gh_issue.get("state", "UNKNOWN")
             expected_state = "OPEN"
-            if task_status in TASK_TERMINAL_SUCCESS or task_status == "cancelled":
+            if (
+                task_status in local_task.get("successful_task_stage_ids", [])
+                or task_status == "cancelled"
+            ):
                 expected_state = "CLOSED"
             if gh_state != expected_state:
                 drifts.append(_drift(item, "state", expected_state, gh_state))

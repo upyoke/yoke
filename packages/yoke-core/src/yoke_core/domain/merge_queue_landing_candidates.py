@@ -12,7 +12,7 @@ import json
 from typing import Any, Callable, Iterable
 
 from yoke_core.domain import db_backend
-from yoke_core.domain.conflict_survey_declared_paths import TERMINAL_STATUSES
+from yoke_core.domain.workflow_status_queries import exclude_terminal_items
 from yoke_core.domain.merge_queue_enqueue_verification import (
     LandingReadback,
     admission_facts_for_state,
@@ -49,8 +49,7 @@ def pending_landing_rows(conn: Any, project_ids: Iterable[int]) -> list[dict[str
         return []
     marker = _p(conn)
     slots = ",".join(marker for _ in projects)
-    terminal = sorted(TERMINAL_STATUSES)
-    terminal_slots = ",".join(marker for _ in terminal)
+    terminal_filter, terminal_params = exclude_terminal_items(conn)
     pr = "COALESCE(a.pr_number, i.merge_queue_pr_number)"
     rows = conn.execute(
         f"SELECT i.id, i.project_id, i.project_sequence, {pr} AS merge_queue_pr_number, "
@@ -71,8 +70,8 @@ def pending_landing_rows(conn: Any, project_ids: Iterable[int]) -> list[dict[str
         f"WHERE i.project_id IN ({slots}) "
         "AND (a.item_id IS NOT NULL OR (i.merge_queue_pr_number IS NOT NULL "
         "AND NULLIF(CAST(i.merge_queue_notified_at AS TEXT),'') IS NULL)) "
-        f"AND i.status NOT IN ({terminal_slots}) ORDER BY i.id",
-        (PENDING, MERGE_WHEN_READY_ARMED, ENQUEUED, *projects, *terminal),
+        f"{terminal_filter} ORDER BY i.id",
+        (PENDING, MERGE_WHEN_READY_ARMED, ENQUEUED, *projects, *terminal_params),
     ).fetchall()
     return [row_dict(row) for row in rows]
 

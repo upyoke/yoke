@@ -11,7 +11,11 @@ from __future__ import annotations
 from typing import Any, Mapping, Optional
 
 from yoke_contracts.item_flags import is_blocked, is_frozen
-from yoke_contracts.lifecycle_status import LEGACY_STATUS_BUCKETS
+from yoke_contracts.lifecycle_status import (
+    LEGACY_STATUS_BUCKETS,
+    ENGINE_TERMINAL_STAGE_IDS,
+    ENGINE_WAIT_STAGE_IDS,
+)
 
 # The special "frozen" bucket — excluded from normal board display.
 FROZEN_BUCKET = "frozen"
@@ -118,12 +122,16 @@ def status_to_board_bucket(
         if workflow_definition is not None
         else set()
     )
-    if status in terminal_ids or status in ("done", "cancelled"):
+    if status in ENGINE_TERMINAL_STAGE_IDS:
+        return LEGACY_STATUS_BUCKETS[status]
+    if status in terminal_ids or workflow_stage_bucket == "done":
         return "done"
     if is_frozen(frozen_value):
         return FROZEN_BUCKET
     if is_blocked(blocked_value):
         return BLOCKED_BUCKET
+    if status in ENGINE_WAIT_STAGE_IDS:
+        return LEGACY_STATUS_BUCKETS[status]
     if workflow_stage_bucket:
         bucket = workflow_stage_bucket
     elif workflow_definition is not None:

@@ -15,7 +15,7 @@ from typing import Any, Optional, TextIO
 
 from yoke_core.domain import db_backend
 from yoke_core.domain.db_helpers import query_one, query_rows
-from yoke_core.domain.task_lifecycle import TASK_TERMINAL_SUCCESS
+from yoke_core.domain.task_lifecycle import task_success_statuses
 
 
 def _p(conn: Any) -> str:
@@ -34,7 +34,7 @@ def auto_unblock(
     """Unblock dependent tasks when a task reaches terminal success."""
     stdout = stdout or sys.stdout
 
-    if new_status not in TASK_TERMINAL_SUCCESS:
+    if new_status not in task_success_statuses(conn, int(epic_id)):
         return
 
     p = _p(conn)
@@ -58,7 +58,9 @@ def auto_unblock(
             continue
 
         # Parse dependencies: "001,002" or "001, 002" etc.
-        clean_deps = r_deps.replace("[", "").replace("]", "").replace('"', "").replace("#", "")
+        clean_deps = (
+            r_deps.replace("[", "").replace("]", "").replace('"', "").replace("#", "")
+        )
         dep_list = [d.strip() for d in clean_deps.split(",") if d.strip()]
 
         all_met = True
@@ -71,7 +73,7 @@ def auto_unblock(
             if dep_row is None:
                 all_met = False
                 break
-            if dep_row["status"] not in TASK_TERMINAL_SUCCESS:
+            if dep_row["status"] not in task_success_statuses(conn, int(epic_id)):
                 all_met = False
                 break
 
@@ -90,7 +92,10 @@ def auto_unblock(
                 # `planned → implementing` transition with the matching
                 # "Dispatched by conduct" note when it picks the task up.
                 _us.update_task_status(
-                    conn, epic_id, r_num, "planned",
+                    conn,
+                    epic_id,
+                    r_num,
+                    "planned",
                     note=f"Auto-unblocked: dependency {task_num} completed",
                     stdout=stdout,
                     stderr=stderr,

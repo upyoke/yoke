@@ -225,7 +225,10 @@ class TestSetterEndToEndRelay:
         _patch_adapter(monkeypatch, fake)
         assert (
             dt._update_status_to_done(
-                _FIXTURE_ITEM_REF, skip_qa=True, public_ref=TEST_ITEM_REF
+                _FIXTURE_ITEM_REF,
+                skip_qa=True,
+                public_ref=TEST_ITEM_REF,
+                target_status="done",
             )
             is True
         )
@@ -277,6 +280,7 @@ class TestSetterEndToEndRelay:
             skip_qa=False,
             max_retries=2,
             public_ref=TEST_ITEM_REF,
+            target_status="done",
         )
 
         assert settled is False
@@ -296,7 +300,9 @@ class TestSetterEndToEndRelay:
 
         _patch_adapter(monkeypatch, fake)
         monkeypatch.setattr(status, "_batch_github_sync_tasks", lambda *a, **k: None)
-        dt._cascade_epic_tasks_to_done(_FIXTURE_ITEM_REF, public_ref=TEST_ITEM_REF)
+        dt._cascade_epic_tasks_to_done(
+            _FIXTURE_ITEM_REF, public_ref=TEST_ITEM_REF, target_status="done"
+        )
 
         relays = [
             c

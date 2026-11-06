@@ -133,5 +133,9 @@ def _render_rows(
                 rendered[field] = None if value is None else parse_instant(value)
             else:
                 rendered[field] = "" if value is None else str(value)
+        if ref_position is not None and "status" in fields:
+            from yoke_core.domain.item_terminal_resources import item_is_terminal
+
+            rendered["terminal"] = bool(item_is_terminal(conn, int(row[ref_position])))
         out_rows.append(rendered)
     return out_rows

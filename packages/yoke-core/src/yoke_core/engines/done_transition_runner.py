@@ -86,7 +86,6 @@ def run(
     lane_branch = context.lane_branch
     workflow = context.workflow
     has_task_graph = generates_task_graph(workflow)
-    # A task graph addresses its parent by the resolved public reference.
     task_parent_ref = public_ref if has_task_graph else ""
     item_project = context.project
     result.old_status = result.new_status = old_status
@@ -138,7 +137,9 @@ def run(
             return result.fail(result_file, empty_exit, "2c-empty-branch")
     result.add_step("2c")
 
-    already_done, resume_from_step6 = mw._check_recovery(old_status, lane_branch)
+    already_done, resume_from_step6 = mw._check_recovery(
+        old_status, lane_branch, workflow
+    )
 
     if already_done:
         return _handle_already_done(
@@ -236,6 +237,7 @@ def run(
         merge_ran=merge_ran,
         branch_already_merged=bool(branch_already_merged or resume_from_step6),
         branch_exists=lane_branch_exists,
+        target_status=workflow.completion_stage_id,
     )
     if satisfier_block:
         print(f"\nBlocked: {satisfier_block}", file=sys.stderr)
@@ -285,7 +287,12 @@ def run(
     print("\n=== Step 6: Update status to done ===")
     mw._populate_merged_at(public_ref)
 
-    success = _update_status_to_done(item_id, skip_qa, public_ref=public_ref)
+    success = _update_status_to_done(
+        item_id,
+        skip_qa,
+        public_ref=public_ref,
+        target_status=workflow.completion_stage_id,
+    )
     if not success:
         verify = _query_item_field(public_ref, "status")
         print(
@@ -300,7 +307,7 @@ def run(
         )
         print(f"RESULT_FILE={result_file}")
         return result.fail(result_file, 1)
-    result.new_status = "done"
+    result.new_status = workflow.completion_stage_id
     result.add_step("6")
     lane_authority_block = (
         "another or unknown claim was active" if cleanup_foreign_claim else ""
@@ -317,7 +324,9 @@ def run(
     )
 
     if has_task_graph and task_parent_ref:
-        _cascade_epic_tasks_to_done(item_id, public_ref=public_ref)
+        _cascade_epic_tasks_to_done(
+            item_id, public_ref=public_ref, target_status=workflow.completion_stage_id
+        )
     for _s in ("6b", "6d", "7"):
         result.add_step(_s)
     return finish_done_transition(

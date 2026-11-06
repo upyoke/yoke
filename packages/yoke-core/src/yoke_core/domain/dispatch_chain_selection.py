@@ -16,7 +16,6 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Mapping, Sequence
 
-from yoke_contracts.lifecycle_status import TASK_TERMINAL_SUCCESS
 from yoke_core.domain.db_helpers import query_rows
 from yoke_core.domain.epic_parsing import _placeholder
 
@@ -112,7 +111,10 @@ def load_epic_tasks(conn: Any, epic_id: str) -> dict[int, LaneTask]:
 
 
 def select_next_task(
-    queue: Sequence[str], tasks: Mapping[int, LaneTask], worktree: str
+    queue: Sequence[str],
+    tasks: Mapping[int, LaneTask],
+    worktree: str,
+    success_statuses: frozenset[str],
 ) -> tuple[int, int]:
     """Return ``(queue_index, task_num)`` of the lane's next ready task."""
     queued: list[tuple[int, LaneTask]] = []
@@ -138,11 +140,11 @@ def select_next_task(
 
     def done(task_num: int) -> bool:
         dependency = tasks.get(task_num)
-        return dependency is not None and dependency.status in TASK_TERMINAL_SUCCESS
+        return dependency is not None and dependency.status in success_statuses
 
     waits: list[str] = []
     for index, task in queued:
-        if task.status in TASK_TERMINAL_SUCCESS:
+        if task.status in success_statuses:
             continue
         if task.status != DISPATCHABLE_STATUS:
             waits.append(f"task {task.task_num} is {task.status}")

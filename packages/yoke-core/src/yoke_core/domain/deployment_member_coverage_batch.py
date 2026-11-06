@@ -74,10 +74,7 @@ def final_open_member_ids(conn, run_id):
     from yoke_core.domain.deployment_run_composition_freeze import (
         DELIVERY_INTENT_PROGRESS,
     )
-    from yoke_core.domain.workflow_runtime import ENGINE_TERMINAL_STAGE_IDS
-    from yoke_core.domain.workflow_delivery_binding_validation import (
-        COMPLETED_ITEM_STAGE_ID,
-    )
+    from yoke_core.domain.item_terminal_resources import item_is_terminal
 
     marker = "%s" if db_backend.connection_is_postgres(conn) else "?"
     rows = conn.execute(
@@ -90,5 +87,5 @@ def final_open_member_ids(conn, run_id):
         int(row[0])
         for row in rows
         if str(row[1]) != DELIVERY_INTENT_PROGRESS
-        and str(row[2]) not in ENGINE_TERMINAL_STAGE_IDS | {COMPLETED_ITEM_STAGE_ID}
+        and not item_is_terminal(conn, int(row[0]))
     )

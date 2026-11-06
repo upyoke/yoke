@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from yoke_contracts.lifecycle_status import ENGINE_TERMINAL_STAGE_IDS
+
 from datetime import datetime
 from typing import Any, Dict, Iterable, List, Mapping, NamedTuple, Optional
 
@@ -178,7 +180,8 @@ def classify_item_rows(
             merge_queue_status=render_merge_queue_status(
                 merge_queue_enqueued_at,
                 merge_queue_landed_at,
-                item_status=status,
+                item_terminal=status_bucket == "done"
+                or status in ENGINE_TERMINAL_STAGE_IDS,
             ),
         )
 

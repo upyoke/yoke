@@ -194,12 +194,19 @@ def _cleanup_trial_branches(project_repo: Path, item_id: int | None = None) -> b
                 continue
             trial_item = name
         try:
-            status = _parent()._query_item_field(trial_item, "status")
+            from yoke_core.engines.done_transition_item_context import (
+                load_done_item_context_over_transport,
+            )
+
+            context = load_done_item_context_over_transport(trial_item)
         except (RuntimeError, ValueError) as exc:
             print(f"  Preserving trial branch {ref}: its item is unreadable ({exc}).")
             complete = False
             continue
-        if status != "done":
+        if (
+            context is None
+            or context.stage_id not in context.workflow.terminal_stage_ids
+        ):
             complete = False
             continue
         if _has_foreign_claim(trial_item):

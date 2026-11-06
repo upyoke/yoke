@@ -85,12 +85,12 @@ function renderEpicTasks(context, item, panel, progress) {
     (body, callResult) => {
       const rows = (callResult.envelope.result || {}).tasks || [];
       panel.setCount(rows.length);
-      const completed = rows.filter((row) => (
-        ["done", "completed", "succeeded"].includes(
-          String(row.status || "").toLowerCase(),
-        )
-      )).length;
-      progress.textContent = `${completed} of ${rows.length} done`;
+      const membership = item.workflow.successful_task_stage_ids;
+      const success = new Set(membership || []);
+      const completed = rows.filter((row) => success.has(row.status)).length;
+      progress.textContent = membership
+        ? `tasks ${completed} of ${rows.length} done`
+        : `tasks ${rows.length}; completion unavailable from this engine`;
       renderTable(body, rows, [
         { label: "No", value: (row) => row.task_num, mono: true },
         { label: "Task", value: (row) => row.title },
@@ -112,6 +112,15 @@ function epicPanels(context, documentNode, item) {
     documentNode, "span", "workflow-panel-detail", "loading progress…",
   );
   tasks.children[0].appendChild(progress);
+  const stages = item.workflow.stages || [];
+  const current = stages.findIndex((stage) => stage.id === item.status);
+  const strip = el(documentNode, "div", "workflow-panel-detail");
+  for (const [index, stage] of stages.entries()) {
+    const marker = index < current ? "✓ " : index === current ? "● " : "○ ";
+    strip.appendChild(el(documentNode, "span", null,
+      `${marker}${stage.label || stage.id} `));
+  }
+  tasks.appendChild(strip);
   renderEpicTasks(context, item, tasks, progress);
   const progressLog = progressIfPresent(documentNode, item);
   return detailColumns(

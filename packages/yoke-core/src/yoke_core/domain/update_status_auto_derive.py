@@ -17,7 +17,7 @@ from typing import Any, Optional, TextIO
 from yoke_core.domain import db_backend
 from yoke_core.domain.db_helpers import query_rows, query_scalar
 from yoke_core.domain.project_identity import render_item_ref
-from yoke_core.domain.task_lifecycle import TASK_TERMINAL_SUCCESS, TERMINAL_FAILURE
+from yoke_core.domain.task_lifecycle import task_success_statuses, TERMINAL_FAILURE
 
 
 def _p(conn: Any) -> str:
@@ -58,7 +58,7 @@ def auto_derive_epic_status(
         st = row["status"]
         if st in ("implementing", "reviewing-implementation"):
             in_flight += 1
-        elif st in TASK_TERMINAL_SUCCESS:
+        elif st in task_success_statuses(conn, int(epic_id)):
             terminal_success += 1
         elif st in TERMINAL_FAILURE:
             terminal_failure += 1
@@ -92,7 +92,13 @@ def auto_derive_epic_status(
     # merge/deploy/recovery gates, GitHub sync, and scoped
     # ``YOKE_CLAIM_BYPASS`` stay authoritative -- auto-derive never writes
     # ``items.status='done'`` directly.
-    if parent_status == "release":
+    from yoke_core.domain.workflow_runtime import load_item_workflow_runtime
+
+    runtime = load_item_workflow_runtime(conn, int(epic_id))
+    if (
+        runtime.stage_implies_merge(str(parent_status))
+        and parent_status not in runtime.terminal_stage_ids
+    ):
         _finalize_release_epic_if_ready(
             conn, epic_id, rows, epic_ref=epic_ref, stdout=stdout, stderr=stderr
         )
@@ -102,13 +108,21 @@ def auto_derive_epic_status(
         return
 
     # Guard: only override certain parent statuses
-    if parent_status not in ("planned", "implementing", "reviewing-implementation", "reviewed-implementation"):
+    if parent_status not in (
+        "planned",
+        "implementing",
+        "reviewing-implementation",
+        "reviewed-implementation",
+    ):
         return
 
     if parent_status == derived:
         return
 
-    print(f"Auto-deriving epic {epic_ref} status: {parent_status} -> {derived}", file=stdout)
+    print(
+        f"Auto-deriving epic {epic_ref} status: {parent_status} -> {derived}",
+        file=stdout,
+    )
 
     # direct in-process call to the owned backlog domain.
     from yoke_core.domain import backlog
@@ -210,7 +224,14 @@ def _finalize_release_epic_if_ready(
     if os.environ.get("YOKE_CLAIM_BYPASS", "").startswith("done-cascade:"):
         return
 
-    non_done = [(r["task_num"], r["status"]) for r in rows if r["status"] != "done"]
+    from yoke_core.domain.workflow_runtime import load_item_workflow_runtime
+
+    runtime = load_item_workflow_runtime(conn, int(epic_id))
+    non_done = [
+        (r["task_num"], r["status"])
+        for r in rows
+        if r["status"] not in runtime.terminal_stage_ids
+    ]
     if non_done:
         detail = ", ".join(f"task {tnum}={st}" for tnum, st in non_done)
         print(

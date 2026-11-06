@@ -67,7 +67,12 @@ def _populate_merged_at(public_ref: str) -> None:
 
 
 def _update_status_to_done(
-    item_id: int, skip_qa: bool, max_retries: int = 3, *, public_ref: str
+    item_id: int,
+    skip_qa: bool,
+    max_retries: int = 3,
+    *,
+    public_ref: str,
+    target_status: str,
 ) -> bool:
     """Update item status to done with retry logic.
 
@@ -87,7 +92,7 @@ def _update_status_to_done(
         exit_code = _parent()._update_item_direct(
             item_id,
             "status",
-            "done",
+            target_status,
             env_overrides=env_overrides,
             done_nonce_verified=True,
             qa_bypass=skip_qa,
@@ -103,7 +108,7 @@ def _update_status_to_done(
             file=sys.stderr,
         )
         verify = _parent()._query_item_field(public_ref, "status")
-        if verify == "done":
+        if verify == target_status:
             print(
                 "Status verified: done (exit code was from a non-critical side-effect)",
                 file=sys.stderr,
@@ -121,7 +126,9 @@ def _update_status_to_done(
     return False
 
 
-def _cascade_epic_tasks_to_done(item_id: int, *, public_ref: str) -> None:
+def _cascade_epic_tasks_to_done(
+    item_id: int, *, public_ref: str, target_status: str
+) -> None:
     """Cascade done status to all non-done epic tasks.
 
     ``item_id`` is the internal ``items.id``, which is also the ``epic_id``
@@ -159,7 +166,7 @@ def _cascade_epic_tasks_to_done(item_id: int, *, public_ref: str) -> None:
             continue
         task_num = parts[2].strip()
         task_status = parts[7].strip()
-        if task_status == "done":
+        if task_status == target_status:
             continue
 
         env_overrides = {
@@ -170,7 +177,7 @@ def _cascade_epic_tasks_to_done(item_id: int, *, public_ref: str) -> None:
             _parent()._update_task_status_direct(
                 public_ref,
                 task_num,
-                "done",
+                target_status,
                 f"Auto-promoted: task in done epic {public_ref}",
                 env_overrides=env_overrides,
             )
@@ -180,7 +187,7 @@ def _cascade_epic_tasks_to_done(item_id: int, *, public_ref: str) -> None:
             _parent()._update_task_status_direct(
                 public_ref,
                 task_num,
-                "done",
+                target_status,
                 f"Auto-done: epic {public_ref} marked done",
                 env_overrides=env_overrides,
             )

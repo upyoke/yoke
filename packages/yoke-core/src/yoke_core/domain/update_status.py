@@ -20,7 +20,8 @@ from yoke_core.domain.status_claim_bypass_context import (
     resolve_claim_bypass,
     resolve_task_done_verified,
 )
-from yoke_core.domain.task_lifecycle import is_valid_task_status
+from yoke_core.domain.task_lifecycle import is_valid_task_status, task_success_statuses
+from yoke_core.domain.workflow_runtime import load_item_workflow_runtime
 
 # Re-export shared low-level helpers so existing callers see no change.
 from yoke_core.domain.update_status_helpers import (  # noqa: F401
@@ -108,7 +109,9 @@ def update_task_status(
     p = _p(conn)
 
     # --- Validate status ---
-    if not is_valid_task_status(new_status):
+    if not is_valid_task_status(new_status) and new_status not in task_success_statuses(
+        conn, int(epic_id)
+    ):
         print(f"Error: invalid task status '{new_status}'", file=stderr)
         return 1
 
@@ -139,7 +142,10 @@ def update_task_status(
         resolve_task_done_verified()
         or os.environ.get("YOKE_TASK_DONE_VERIFIED", "0") == "1"
     )
-    if new_status == "done" and not task_done_verified:
+    if (
+        new_status in load_item_workflow_runtime(conn, int(epic_id)).terminal_stage_ids
+        and not task_done_verified
+    ):
         print("Error: epic-task done requires merge-verified context.", file=stderr)
         print(
             "Epic tasks should reach 'reviewed-implementation' via conduct, then 'done' only through:",
@@ -260,7 +266,14 @@ def update_task_status(
         issue_num, old_status, new_status, note, repo_a, gh_project, stderr=stderr
     )
     _github_close_on_terminal(
-        issue_num, new_status, epic_id, task_num, repo_a, gh_project, stderr=stderr
+        conn,
+        issue_num,
+        new_status,
+        epic_id,
+        task_num,
+        repo_a,
+        gh_project,
+        stderr=stderr,
     )
     _update_epic_checkbox(
         conn,

@@ -1,7 +1,8 @@
 {
  "id": "terminal-states",
- "title": "Terminal states",
- "status": "draft-copy",
+ "title": "Definition-owned terminal states and task success",
+ "status": "observed",
  "page": "workflows",
- "position": 4
+ "position": 4,
+ "summary": "The pinned workflow defines successful terminals. Engine cancellation terminals are shared. Generated task success starts at the implementation binding handoff; board counts, dependencies and epic details use that same membership."
 }

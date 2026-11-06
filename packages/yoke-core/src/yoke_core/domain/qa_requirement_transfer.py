@@ -71,11 +71,9 @@ def transfer_requirement(
             "items belong to different projects",
             "Create the receiving project's companion case instead",
         )
-    if source_id == destination_id or dest["status"] in {
-        "done",
-        "cancelled",
-        "stopped",
-    }:
+    from yoke_core.domain.item_terminal_resources import item_is_terminal
+
+    if source_id == destination_id or item_is_terminal(conn, destination_id):
         refuse("destination is the same item or terminal", "Name a different open item")
     for item_id in (source_id, destination_id):
         claim = get_claim_for_work_unit(conn, item_id=str(item_id))

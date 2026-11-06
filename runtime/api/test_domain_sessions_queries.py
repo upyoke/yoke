@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+from yoke_core.domain.workflow_runtime import builtin_workflow_runtime
+
+
 from yoke_core.domain.queries import (
     ItemFilter,
     active_queue_filter,
@@ -11,6 +14,8 @@ from yoke_core.domain.queries import (
     pending_work_filter,
     sql_frozen_filter,
 )
+
+_WORKFLOW = builtin_workflow_runtime("epic")
 
 
 class TestFrozenSemantics:
@@ -167,28 +172,26 @@ class TestAnalysisFilters:
 
     def test_active_queue_filter_defaults(self):
         filt = active_queue_filter()
-        assert filt.exclude_done is True
-        assert filt.exclude_cancelled is True
+        assert filt.exclude_terminal is True
         assert filt.exclude_frozen is True
         assert filt.project is None
 
     def test_active_queue_filter_scoped(self):
         filt = active_queue_filter(project="yoke")
         assert filt.project == "yoke"
-        assert filt.exclude_done is True
-        assert filt.exclude_cancelled is True
+        assert filt.exclude_terminal is True
         assert filt.exclude_frozen is True
 
     def test_active_queue_filter_produces_valid_where(self):
         filt = active_queue_filter(project="yoke")
         clause, params = build_where_clause(filt)
         assert "WHERE" in clause
-        assert "status <> %s" in clause  # exclude done
+        assert "terminal_stage_ids" in clause
         assert "(frozen IS NULL OR frozen = 0)" in clause
         assert "project_id = (" in clause
 
     def test_pending_work_filter_excludes_implemented(self):
-        filt = pending_work_filter()
+        filt = pending_work_filter(_WORKFLOW)
         assert filt.exclude_statuses is not None
         assert "implemented" in filt.exclude_statuses
         assert "done" in filt.exclude_statuses
@@ -200,54 +203,68 @@ class TestClassifyItemState:
     """Test high-level item state classification."""
 
     def test_done_is_done(self):
-        assert classify_item_state("done", 0) == "done"
+        assert classify_item_state("done", 0, workflow=_WORKFLOW) == "done"
 
     def test_cancelled_is_cancelled(self):
-        assert classify_item_state("cancelled", 0) == "cancelled"
+        assert classify_item_state("cancelled", 0, workflow=_WORKFLOW) == "cancelled"
 
     def test_frozen_implementing_is_frozen(self):
-        assert classify_item_state("implementing", 1) == "frozen"
+        assert classify_item_state("implementing", 1, workflow=_WORKFLOW) == "frozen"
 
     def test_frozen_idea_is_frozen(self):
-        assert classify_item_state("idea", 1) == "frozen"
+        assert classify_item_state("idea", 1, workflow=_WORKFLOW) == "frozen"
 
     def test_frozen_done_is_done(self):
         """Done items are done even if frozen flag is set."""
-        assert classify_item_state("done", 1) == "done"
+        assert classify_item_state("done", 1, workflow=_WORKFLOW) == "done"
 
     def test_frozen_cancelled_is_cancelled(self):
-        assert classify_item_state("cancelled", 1) == "cancelled"
+        assert classify_item_state("cancelled", 1, workflow=_WORKFLOW) == "cancelled"
 
     def test_stopped_is_terminal_failure(self):
-        assert classify_item_state("stopped", 0) == "terminal_failure"
+        assert (
+            classify_item_state("stopped", 0, workflow=_WORKFLOW) == "terminal_failure"
+        )
 
     def test_failed_is_terminal_failure(self):
-        assert classify_item_state("failed", 0) == "terminal_failure"
+        assert (
+            classify_item_state("failed", 0, workflow=_WORKFLOW) == "terminal_failure"
+        )
 
     def test_implementing_is_active_work(self):
-        assert classify_item_state("implementing", 0) == "active_work"
+        assert (
+            classify_item_state("implementing", 0, workflow=_WORKFLOW) == "active_work"
+        )
 
     def test_reviewing_implementation_is_active_work(self):
-        assert classify_item_state("reviewing-implementation", 0) == "active_work"
+        assert (
+            classify_item_state("reviewing-implementation", 0, workflow=_WORKFLOW)
+            == "active_work"
+        )
 
     def test_implemented_is_active_work(self):
-        assert classify_item_state("implemented", 0) == "active_work"
+        assert (
+            classify_item_state("implemented", 0, workflow=_WORKFLOW) == "active_work"
+        )
 
     def test_release_is_active_work(self):
-        assert classify_item_state("release", 0) == "active_work"
+        assert classify_item_state("release", 0, workflow=_WORKFLOW) == "active_work"
 
     def test_idea_is_pipeline(self):
-        assert classify_item_state("idea", 0) == "pipeline"
+        assert classify_item_state("idea", 0, workflow=_WORKFLOW) == "pipeline"
 
     def test_refined_idea_is_pipeline(self):
-        assert classify_item_state("refined-idea", 0) == "pipeline"
+        assert classify_item_state("refined-idea", 0, workflow=_WORKFLOW) == "pipeline"
 
     def test_planning_is_pipeline(self):
-        assert classify_item_state("planning", 0) == "pipeline"
+        assert classify_item_state("planning", 0, workflow=_WORKFLOW) == "pipeline"
 
     def test_planned_is_pipeline(self):
-        assert classify_item_state("planned", 0) == "pipeline"
+        assert classify_item_state("planned", 0, workflow=_WORKFLOW) == "pipeline"
 
     def test_null_frozen_is_not_frozen(self):
         """None frozen value = not frozen."""
-        assert classify_item_state("implementing", None) == "active_work"
+        assert (
+            classify_item_state("implementing", None, workflow=_WORKFLOW)
+            == "active_work"
+        )

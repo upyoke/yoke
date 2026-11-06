@@ -29,7 +29,6 @@ from yoke_core.domain.deployment_requirement_snapshots import (
     snapshot_flow_requirements,
 )
 from yoke_core.domain.workflow_delivery_binding_validation import (
-    COMPLETED_ITEM_STAGE_ID,
     attached_binding_runtime_state,
 )
 from yoke_core.domain.workflow_item_binding_validation import (
@@ -72,7 +71,7 @@ def default_delivery_intent(state: tuple[WorkflowRuntime, str] | None) -> str:
     if state is None:
         return DELIVERY_INTENT_FINAL
     runtime, status = state
-    if status == COMPLETED_ITEM_STAGE_ID:
+    if status in runtime.terminal_stage_ids:
         return DELIVERY_INTENT_FINAL
     final_predecessors = {
         str(edge["from_stage_id"])

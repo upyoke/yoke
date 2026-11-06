@@ -70,6 +70,7 @@ def test_merge_evidence_sends_the_facts_only_the_engine_can_see(calls):
             merge_ran=True,
             branch_already_merged=False,
             branch_exists=True,
+            target_status="done",
         )
         is None
     )
@@ -86,6 +87,7 @@ def test_no_branch_and_no_merge_reports_the_attestable_shape(calls):
         merge_ran=False,
         branch_already_merged=False,
         branch_exists=False,
+        target_status="done",
     )
     observed = calls[0]["payload"]["observed"]
     assert observed["observed:no_implementation_branch"]["present"] is True
@@ -97,6 +99,7 @@ def test_an_unmerged_existing_branch_is_not_attestable(calls):
         merge_ran=False,
         branch_already_merged=False,
         branch_exists=True,
+        target_status="done",
     )
     observed = calls[0]["payload"]["observed"]
     assert observed["observed:merge_recorded"]["present"] is False
@@ -120,6 +123,7 @@ def test_a_refusal_comes_back_as_the_narrative_to_block_on(monkeypatch):
         merge_ran=False,
         branch_already_merged=False,
         branch_exists=True,
+        target_status="done",
     )
     assert block == "Merge the lane first."
 
@@ -143,6 +147,7 @@ def test_a_satisfied_resolution_with_no_stamp_still_passes(monkeypatch, capsys):
             merge_ran=True,
             branch_already_merged=False,
             branch_exists=True,
+            target_status="done",
         )
         is None
     )
@@ -161,6 +166,7 @@ def test_a_failed_relay_raises_rather_than_reporting_satisfied(monkeypatch):
             merge_ran=True,
             branch_already_merged=False,
             branch_exists=True,
+            target_status="done",
         )
     assert "relay down" in str(excinfo.value)
     assert "not the same answer" in str(excinfo.value)
@@ -168,7 +174,9 @@ def test_a_failed_relay_raises_rather_than_reporting_satisfied(monkeypatch):
 
 def test_delivery_evidence_reports_the_merge_fact(calls):
     assert (
-        satisfiers.check_delivery_evidence(_FIXTURE_ITEM_REF, merge_recorded=True)
+        satisfiers.check_delivery_evidence(
+            _FIXTURE_ITEM_REF, merge_recorded=True, target_status="done"
+        )
         is None
     )
     observed = calls[0]["payload"]["observed"]
@@ -183,6 +191,7 @@ def test_both_obligations_resolve_in_order(calls):
             merge_ran=True,
             branch_already_merged=False,
             branch_exists=True,
+            target_status="done",
         )
         is None
     )
@@ -206,6 +215,7 @@ def test_delivery_is_not_asked_when_merge_evidence_refuses(monkeypatch):
             merge_ran=False,
             branch_already_merged=False,
             branch_exists=True,
+            target_status="done",
         )
         == "nope"
     )
@@ -223,5 +233,6 @@ def test_a_relay_failure_becomes_a_block_narrative_for_the_runner(monkeypatch):
         merge_ran=True,
         branch_already_merged=False,
         branch_exists=False,
+        target_status="done",
     )
     assert block is not None and "boom" in block

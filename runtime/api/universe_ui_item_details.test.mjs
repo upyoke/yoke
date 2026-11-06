@@ -20,6 +20,13 @@ test("Epic detail reports task completion and its narrower fact spine", async ()
   const documentNode = new FakeDocument();
   const root = documentNode.createElement("div");
   const epic = detailItem("epic");
+  epic.status = "planning";
+  epic.workflow.stages = [
+    { id: "idea", label: "idea" },
+    { id: "planning", label: "planning" },
+    { id: "implementing", label: "implementing" },
+  ];
+  epic.workflow.successful_task_stage_ids = ["reviewed-implementation", "done"];
   epic.qa_plan_attachments[0].materialized_count = 0;
   renderItemDetailView(itemContext(documentNode, async (request) => {
     if (request.function === "items.detail.get") {
@@ -38,7 +45,7 @@ test("Epic detail reports task completion and its narrower fact spine", async ()
           success: true,
           result: {
             tasks: [
-              { task_num: 1, title: "Build shell", status: "done" },
+              { task_num: 1, title: "Build shell", status: "reviewed-implementation" },
               { task_num: 2, title: "Verify shell", status: "planned" },
             ],
           },
@@ -50,7 +57,10 @@ test("Epic detail reports task completion and its narrower fact spine", async ()
   await settle();
 
   const rendered = itemText(root);
-  assert.match(rendered, /Tasks · 2 1 of 2 done/);
+  assert.match(rendered, /Tasks · 2 tasks 1 of 2 done/);
+  assert.match(rendered, /✓ idea/);
+  assert.match(rendered, /● planning/);
+  assert.match(rendered, /○ implementing/);
   assert.match(rendered, /Shepherd verdicts/);
   assert.match(
     rendered,

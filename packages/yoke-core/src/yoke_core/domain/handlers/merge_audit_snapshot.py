@@ -19,7 +19,7 @@ def handle_snapshot(request: FunctionCallRequest) -> HandlerOutcome:
     from yoke_core.domain.epic_resolution import latest_simulation
     from yoke_core.domain.function_target_resolution import resolve_project_context
     from yoke_core.domain.project_identity import render_item_ref
-    from yoke_core.domain.task_lifecycle import TASK_TERMINAL_SUCCESS
+    from yoke_core.domain.task_lifecycle import task_success_statuses
     from yoke_core.domain.yoke_function_registry import lookup
 
     with connect() as conn:
@@ -48,7 +48,7 @@ def handle_snapshot(request: FunctionCallRequest) -> HandlerOutcome:
                 "WHERE t.epic_id=%s ORDER BY t.task_num",
                 (row["id"],),
             )
-            terminal = set(TASK_TERMINAL_SUCCESS)
+            terminal = set(task_success_statuses(conn, int(row["id"])))
             branches = {}
             for task in tasks:
                 if task["state"] == "active" and task["branch"]:

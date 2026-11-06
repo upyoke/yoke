@@ -44,6 +44,7 @@ class InventoryLane(BaseModel):
     item_id: int
     public_ref: str
     status: str
+    terminal: bool
     branch: str
     path: str | None = None
     state: str
@@ -109,12 +110,19 @@ def handle_inventory(request: FunctionCallRequest) -> HandlerOutcome:
             return _error("project_not_found", str(exc))
         rows = _rows(conn, int(project_id))
         refs = render_item_refs(conn, [int(row["item_id"]) for row in rows])
+        from yoke_core.domain.item_terminal_resources import item_is_terminal
+
+        terminal = {
+            int(row["item_id"]): bool(item_is_terminal(conn, int(row["item_id"])))
+            for row in rows
+        }
 
     lanes = [
         InventoryLane(
             item_id=int(row["item_id"]),
             public_ref=refs.get(int(row["item_id"]), ""),
             status=str(row["status"]),
+            terminal=terminal[int(row["item_id"])],
             branch=str(row["branch"]),
             path=str(row["path"]) if row["path"] else None,
             state=str(row["state"]),

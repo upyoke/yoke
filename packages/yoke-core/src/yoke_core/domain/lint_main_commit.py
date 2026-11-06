@@ -57,10 +57,9 @@ def _active_worktree_items() -> Optional[list[str]]:
         rows = (response.result or {}).get("rows") or []
     except Exception:
         return None
-    terminal = {"done", "cancelled"}
     rendered = []
     for row in rows:
-        if not row.get("worktrees") or row.get("status") in terminal:
+        if not row.get("worktrees") or row.get("terminal"):
             continue
         ref = str(row.get("public_ref") or "")
         rendered.append(f"{ref}|{row.get('title') or ''}")

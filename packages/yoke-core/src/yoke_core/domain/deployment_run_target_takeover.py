@@ -8,6 +8,8 @@ Ordinary membership removal remains a separate cancellation operation.
 
 from __future__ import annotations
 
+from yoke_core.domain.workflow_runtime import load_item_workflow_runtime
+
 from collections.abc import Mapping
 from typing import Any, Optional
 
@@ -19,7 +21,6 @@ SUPERSEDED_BY_COLUMN = "superseded_by_run_id"
 SUPERSEDES_COLUMN = "supersedes_run_id"
 NOT_CONTAINED_CODE = "takeover_candidate_not_contained"
 
-_CLOSED_ITEM_STATUSES = frozenset({"done", "cancelled", "stopped"})
 _GATE_RUNNERS = frozenset({"qa", "human-approval"})
 
 
@@ -112,12 +113,19 @@ def _moving_members(conn: Any, old: Mapping[str, Any]) -> list[dict]:
     return [
         member
         for member in _members(conn, str(old["id"]))
-        if member["status"] not in _CLOSED_ITEM_STATUSES
+        if member["status"]
+        not in load_item_workflow_runtime(
+            conn, member["item_id"]
+        ).all_terminal_stage_ids
     ]
 
 
 def _delivered_any(conn: Any, old_id: str) -> bool:
-    return any(member["status"] == "done" for member in _members(conn, old_id))
+    return any(
+        member["status"]
+        in load_item_workflow_runtime(conn, member["item_id"]).terminal_stage_ids
+        for member in _members(conn, old_id)
+    )
 
 
 def takeover_will_succeed(conn: Any, old_id: str) -> bool:
@@ -214,7 +222,9 @@ def _take_over(conn, new_run_id, *, session_id, actor_id, apply):
         "the member's QA continues there"
     )
     ids = [int(member["item_id"]) for member in moving]
-    from yoke_core.domain.workflow_delivery_binding_validation import validate_deployment_run_members
+    from yoke_core.domain.workflow_delivery_binding_validation import (
+        validate_deployment_run_members,
+    )
 
     # Established admission may be reopened, but still needs carried source
     # and a valid workflow pin in the successor.

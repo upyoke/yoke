@@ -234,7 +234,7 @@ def cmd_item_list(args: list[str]) -> int:
                             ).fetchone()
                             out_vals.append(
                                 render_merge_queue_status(
-                                    marker[1], marker[2], item_status=marker[0]
+                                    marker[1], marker[2], item_terminal=bool(marker[0])
                                 )
                                 if marker
                                 else ""

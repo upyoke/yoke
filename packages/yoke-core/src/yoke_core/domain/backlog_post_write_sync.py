@@ -18,7 +18,14 @@ def run_post_db_sync(
 ) -> int:
     """Run GitHub side effects after the authoritative transaction closes."""
     sync_fail_count = 0
-    if field == "status" and value in ("done", "cancelled"):
+    from yoke_core.domain.db_helpers import connect
+    from yoke_core.domain.item_terminal_resources import item_is_terminal
+
+    terminal = False
+    if field == "status":
+        with connect() as conn:
+            terminal = bool(item_is_terminal(conn, item_id))
+    if terminal:
         if not _rendering._close_issue(item_id, out):
             sync_fail_count += 1
 

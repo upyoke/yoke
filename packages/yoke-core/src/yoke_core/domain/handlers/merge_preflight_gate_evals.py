@@ -43,6 +43,7 @@ class EpicTaskStatusesRequest(BaseModel):
 
 
 class EpicTaskStatusesResponse(BaseModel):
+    successful_task_stage_ids: list[str]
     tasks: List[Dict[str, Any]] = Field(default_factory=list)
 
 
@@ -90,9 +91,7 @@ def _placeholder(conn: Any) -> str:
 def handle_epic_task_statuses(request: FunctionCallRequest) -> HandlerOutcome:
     """Return every epic task's ``task_num`` + ``status`` in task-num order.
 
-    The completeness verdict (which statuses count as terminal, and whether
-    any incomplete tasks block the merge) stays in the engine so the terminal
-    success set has a single owner; this read reports raw task state only.
+    Success membership accompanies raw task state from the pinned workflow.
     """
     try:
         body = EpicTaskStatusesRequest.model_validate(request.payload)
@@ -102,6 +101,9 @@ def handle_epic_task_statuses(request: FunctionCallRequest) -> HandlerOutcome:
 
     try:
         with _connect_rw() as conn:
+            from yoke_core.domain.task_lifecycle import task_success_statuses
+
+            success = sorted(task_success_statuses(conn, epic_id))
             p = _placeholder(conn)
             rows = conn.execute(
                 "SELECT task_num, status FROM epic_tasks "
@@ -113,7 +115,7 @@ def handle_epic_task_statuses(request: FunctionCallRequest) -> HandlerOutcome:
 
     tasks = [{"task_num": row[0], "status": row[1]} for row in rows]
     return HandlerOutcome(
-        result_payload={"tasks": tasks},
+        result_payload={"tasks": tasks, "successful_task_stage_ids": success},
         primary_success=True,
     )
 

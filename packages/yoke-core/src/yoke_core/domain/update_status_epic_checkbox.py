@@ -36,7 +36,7 @@ from yoke_core.domain.gh_rest_transport import (
     request_with_retry,
     split_repo,
 )
-from yoke_core.domain.task_lifecycle import TASK_TERMINAL_SUCCESS
+from yoke_core.domain.task_lifecycle import task_success_statuses
 from yoke_core.domain.project_github_auth import (
     ProjectGithubAuthError,
     resolve_project_github_auth,
@@ -65,7 +65,7 @@ def _update_epic_checkbox(
     stdout = stdout or sys.stdout
     stderr = stderr or sys.stderr
 
-    if new_status not in TASK_TERMINAL_SUCCESS:
+    if new_status not in task_success_statuses(conn, int(epic_id)):
         return
     if not github_issue:
         return
@@ -109,7 +109,9 @@ def _update_epic_checkbox(
         return
 
     if _us._is_dry_run():
-        print(f"[DRY-RUN] Skipping GitHub: checkbox update on #{parent_num}", file=stdout)
+        print(
+            f"[DRY-RUN] Skipping GitHub: checkbox update on #{parent_num}", file=stdout
+        )
         return
 
     # Fetch parent issue body via REST
