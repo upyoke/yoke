@@ -103,7 +103,7 @@ def _not_contained_refusal(
     refs = [render_item_ref(conn, int(m["item_id"])) for m in moving]
     lines = [
         compose_refusal(
-            f"run {old_id} on this flow and target is waiting only on item QA, and this candidate ({new_lineage or 'unpinned'}) is not known to contain its candidate ({old['release_lineage'] or 'unpinned'}){detail}. Taking it over would replace a build whose members this candidate may not carry, so nothing was created or changed.",
+            f"run {old_id} on this flow and target is eligible for supersession, and this candidate ({new_lineage or 'unpinned'}) is not known to contain its candidate ({old['release_lineage'] or 'unpinned'}){detail}. Taking it over would replace a build whose members this candidate may not carry, so nothing was created or changed.",
             recovery=f"create from a candidate that contains {old['release_lineage'] or 'the older run'}'s commit, or release its waiting members by hand:",
         ),
     ]

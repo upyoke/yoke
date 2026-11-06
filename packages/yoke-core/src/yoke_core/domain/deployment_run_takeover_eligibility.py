@@ -3,9 +3,29 @@
 from collections.abc import Mapping
 from typing import Any, Optional
 from yoke_core.domain.db_helpers import query_one
-from yoke_core.domain.deployment_run_target_takeover import _waits_only_on_qa
+_GATE_RUNNERS = frozenset({"qa", "human-approval"})
 
-def _waiting_run(conn: Any, new_run: Mapping[str, Any]) -> Optional[dict]:
+def _is_qa(stage: Mapping[str, Any]) -> bool:
+    return stage.get("step_runner") == "qa" and stage.get("scope") in {"item", "run"}
+
+
+def _waits_only_on_qa(row: Mapping[str, Any], stages: list[dict]) -> bool:
+    """Deploy stages are done: the cursor stands on QA, gates follow."""
+    names = [str(stage.get("name") or "") for stage in stages]
+    current = str(row["current_stage"] or "")
+    if row["settling_at"] or current not in names:
+        return False
+    remaining = stages[names.index(current) :]
+    return _is_qa(remaining[0]) and all(
+        stage.get("step_runner") in _GATE_RUNNERS
+        or (stage == stages[-1] and stage.get("step_runner") == "auto")
+        for stage in remaining
+    )
+
+
+
+
+def eligible_predecessor(conn: Any, new_run: Mapping[str, Any]) -> Optional[dict]:
     """Take over only the newest earlier run on this flow and target, if eligible."""
     from yoke_core.domain.deploy_target_occupancy import open_qa_lines
     from yoke_core.domain.deployment_qa_run_acceptance import pinned_stages

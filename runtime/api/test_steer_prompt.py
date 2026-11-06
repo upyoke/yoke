@@ -111,13 +111,11 @@ class TestSteerSkillContract:
         assert "deployment-runs create" in batches
         assert 'PINNED_SHA=$(git -C "$CHECKOUT" rev-parse HEAD)' in batches
         creates = [line for line in batches.splitlines() if "deployment-runs create" in line]
-        assert len(creates) == 2
-        assert any("--environment stage" in line for line in creates)
-        assert any("--environment prod" in line for line in creates)
-        assert all(
-            '--project-repo-path "$CHECKOUT" --source-ref "$PINNED_SHA"' in line
-            for line in creates
-        )
+        assert len(creates) == 1
+        assert "PROJECT FLOW_A FLOW_B" in creates[0]
+        assert '--project-repo-path "$CHECKOUT" --source-ref "$PINNED_SHA"' in creates[0]
+        assert "--idempotency-key RELEASE_KEY" in creates[0]
+        assert "--environment" not in creates[0]
         assert "yoke merge item PREFIX-N --result" in batches
         assert "`--skip-deploy`" in batches
         assert "--item PREFIX-N --stage STAGE" in batches

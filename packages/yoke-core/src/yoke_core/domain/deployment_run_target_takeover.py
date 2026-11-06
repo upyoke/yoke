@@ -21,8 +21,6 @@ SUPERSEDED_BY_COLUMN = "superseded_by_run_id"
 SUPERSEDES_COLUMN = "supersedes_run_id"
 NOT_CONTAINED_CODE = "takeover_candidate_not_contained"
 
-_GATE_RUNNERS = frozenset({"qa", "human-approval"})
-
 
 class TakeoverRefused(DomainRefusal, ValueError):
     """An older run waits on this target, and this creation may not take it."""
@@ -40,9 +38,6 @@ def takeover_available(conn: Any) -> bool:
     )
 
 
-def _is_qa(stage: Mapping[str, Any]) -> bool:
-    return stage.get("step_runner") == "qa" and stage.get("scope") in {"item", "run"}
-
 
 def has_shared_gates(stages: list[dict[str, Any]]) -> bool:
     """Run-level QA or approval holds every member until it passes."""
@@ -50,20 +45,6 @@ def has_shared_gates(stages: list[dict[str, Any]]) -> bool:
         stage.get("step_runner") == "human-approval"
         or (stage.get("step_runner") == "qa" and stage.get("scope") == "run")
         for stage in stages
-    )
-
-
-def _waits_only_on_qa(row: Mapping[str, Any], stages: list[dict]) -> bool:
-    """Deploy stages are done: the cursor stands on QA, gates follow."""
-    names = [str(stage.get("name") or "") for stage in stages]
-    current = str(row["current_stage"] or "")
-    if row["settling_at"] or current not in names:
-        return False
-    remaining = stages[names.index(current) :]
-    return _is_qa(remaining[0]) and all(
-        stage.get("step_runner") in _GATE_RUNNERS
-        or (stage == stages[-1] and stage.get("step_runner") == "auto")
-        for stage in remaining
     )
 
 
@@ -170,9 +151,9 @@ def _take_over(conn, new_run_id, *, session_id, actor_id, apply):
         # A run prepared before its commit exists has no candidate to compare;
         # its start meets the older run's occupancy instead.
         return None
-    from yoke_core.domain.deployment_run_takeover_eligibility import _waiting_run
+    from yoke_core.domain.deployment_run_takeover_eligibility import eligible_predecessor
 
-    old = _waiting_run(conn, new_run)
+    old = eligible_predecessor(conn, new_run)
     if old is None:
         return None
     old_id = str(old["id"])

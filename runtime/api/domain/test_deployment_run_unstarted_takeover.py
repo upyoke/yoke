@@ -64,3 +64,15 @@ def test_set_aside_qa_is_adopted_by_next_enrolling_run(test_db, monkeypatch):
     adopt_set_aside_qa(test_db, NEW, [WAITING])
     assert select_plan_execution(test_db, execution["id"], lock=False) == {**before, "deployment_run_id": NEW}
     assert test_db.execute("SELECT deployment_run_id FROM qa_requirements WHERE id=%s", (cases[WAITING],)).fetchone()[0] == NEW
+
+
+def test_creation_beside_deploying_predecessor_names_the_occupant(test_db, monkeypatch):
+    from yoke_core.domain.deployment_run_create_receipt import continuation_facts
+
+    _seed_old(test_db, run_qa=False)
+    test_db.execute("UPDATE deployment_runs SET current_stage='deploy' WHERE id=%s", (OLD,))
+    _seed_new(test_db)
+    _contains(monkeypatch)
+    assert _take_over(test_db) is None
+    assert _run(test_db, OLD)["status"] == "executing"
+    assert continuation_facts(NEW) == {"supersedes_run_id": None, "waiting_for_run_id": OLD}

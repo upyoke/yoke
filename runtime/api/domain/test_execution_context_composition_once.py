@@ -22,6 +22,7 @@ def _context(*, frozen: bool, compose: Any, frozen_verdict: Any):
         "release_lineage": "a" * 40,
     }
     conn = Mock()
+    conn.execute.return_value.fetchall.return_value = []
     request = FunctionCallRequest(
         function="deployment_runs.execution.context",
         actor=ActorContext(session_id="session"),

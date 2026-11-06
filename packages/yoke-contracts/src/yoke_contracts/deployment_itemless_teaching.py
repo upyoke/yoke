@@ -81,7 +81,7 @@ Itemless environment release (project-generic):
   # A commit off the previous release's lineage is refused
   # (release_source_off_lineage) naming both commits. Read
   # the bound commit with `deployment-runs get RUN-ID release_lineage`
-  # and give the release's paired run that same commit.
+  # List more flows to create a release set on that same commit.
   yoke --env CONTROL-PLANE deployment-runs create PROJECT FLOW \\
     --idempotency-key PROJECT-FLOW-1
   # Use the printed run id as RUN-ID below; --json provides structured receipts.
@@ -120,7 +120,11 @@ RESOLVE_TARGET_DESCRIPTION = (
 )
 
 CREATE_DESCRIPTION = (
-    "Create a deployment run from a flow and candidate. Creation pins bound "
+    "Create a deployment run or an ordered release set from flows and one candidate. "
+    "Multiple flows share one resolved commit and use KEY:FLOW idempotency keys. "
+    "Each flow owns its environment; --environment is refused with multiple flows. "
+    "A later create refusal cancels earlier runs made by this call. "
+    "A single flow keeps its ordinary idempotency key. Creation pins bound "
     "source commits and provisionally composes membership from the candidate. "
     "It reports all detectable blockers, including selected member flow "
     "mismatches, before committing a run ID. On a flow that waits for CI, "

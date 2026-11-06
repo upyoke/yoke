@@ -2,19 +2,21 @@
 
 Workers merge; steering creates runs through the connection owning the project.
 
-Resolve the intended full commit once and verify its CI passed. For a pair,
-use the same checkout and commit for both creates; respect any declared Stage
-or physical-QA gate before creating Production.
+Resolve the intended full commit once and verify its CI passed. Create the
+project's release set in one command, listing its flows in order; each flow
+owns its environment. Respect any declared QA gate before creating a flow
+that it must precede.
 
 ```sh
 PINNED_SHA=$(git -C "$CHECKOUT" rev-parse HEAD)
-yoke --env CONTROL_PLANE deployment-runs create PROJECT STAGE_FLOW --environment stage --project-repo-path "$CHECKOUT" --source-ref "$PINNED_SHA" --idempotency-key STAGE_KEY
-yoke --env CONTROL_PLANE deployment-runs create PROJECT PROD_FLOW --environment prod --project-repo-path "$CHECKOUT" --source-ref "$PINNED_SHA" --idempotency-key PROD_KEY
+yoke --env CONTROL_PLANE deployment-runs create PROJECT FLOW_A FLOW_B --project-repo-path "$CHECKOUT" --source-ref "$PINNED_SHA" --idempotency-key RELEASE_KEY
 yoke --env CONTROL_PLANE watch deploy -- RUN_ID
 ```
 
-A correction needs a new pair on its passing commit; earlier Stage proof does
-not cover it. For single-run tip binding, see `.yoke/docs/agents/rules/release-roles.md`.
+Every run records that commit and key `RELEASE_KEY:FLOW`. A refusal cancels
+runs already made by the call. A correction needs a new set on its passing
+commit; earlier proof does not cover it. For tip binding and the Yoke project's
+release-set example, see `.yoke/docs/agents/rules/release-roles.md`.
 
 Cut while member QA runs; keep the execution ID (`.yoke/docs/deployments/model/run-members.md`).
 
