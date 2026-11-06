@@ -159,6 +159,7 @@ def test_human_draft_groups_paths_with_headings_and_preserves_precedence() -> No
 
     draft = propose_architecture_map([
         "pkg/api.py", "pkg/schema.py", "pkg/plain.py", "pkg/deep/schema.py",
+        "pkg/deep/plain.py",
         "pkg/tests/test_a.py",
     ])
     before = copy.deepcopy(draft)
