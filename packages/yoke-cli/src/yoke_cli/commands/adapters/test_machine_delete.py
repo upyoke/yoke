@@ -10,7 +10,7 @@ from yoke_cli.commands._helpers import (
     dispatch_and_emit,
     parse_or_usage_error,
 )
-from yoke_cli.config.capability_secrets import (
+from yoke_contracts.machine_config.capability_secret_store import (
     MachineCapabilitySecretError,
     delete_machine_capability_secrets,
 )

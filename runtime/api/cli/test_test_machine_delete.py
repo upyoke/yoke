@@ -3,7 +3,7 @@
 import pytest
 
 from yoke_cli.commands.adapters import test_machine_delete as cli
-from yoke_cli.config.capability_secrets import (
+from yoke_contracts.machine_config.capability_secret_store import (
     store_machine_capability_secret,
     read_machine_capability_secret,
     MachineCapabilitySecretError,
