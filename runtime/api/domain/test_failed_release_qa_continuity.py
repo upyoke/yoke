@@ -2,6 +2,8 @@
 
 import json
 
+import pytest
+
 from runtime.api.domain import test_deployment_run_target_takeover as takeover
 from runtime.api.domain.test_deployment_qa_successor_receipt import _arrive
 from runtime.api.fixtures.deployment_scoped_qa_run_fixture import ITEM_QA_STAGE, record_case_verdict
@@ -12,7 +14,8 @@ from yoke_core.domain.qa_deployment_run_settlement import inherited_qa_sql, sett
 from yoke_core.domain.qa_plan_execution_begin import begin_plan_execution
 
 
-def test_failed_successor_keeps_red_sibling_and_live_execution_for_next_release(test_db, monkeypatch):
+@pytest.mark.parametrize("settling", [False, True])
+def test_failed_successor_keeps_red_sibling_and_live_execution_for_next_release(test_db, monkeypatch, settling):
     cases = takeover._seed_old(test_db, run_qa=False)
     timing, red = cases[takeover.WAITING], cases[takeover.PASSED]
     test_db.execute("UPDATE qa_requirements SET wake_path='manual',wake_evidence='two release receipts exist' WHERE id=%s", (timing,))
@@ -33,7 +36,7 @@ def test_failed_successor_keeps_red_sibling_and_live_execution_for_next_release(
     assert target["deployment"]["run_id"] == takeover.NEW
     assert target["deployment"]["starting_run_id"] == takeover.OLD
     assert test_db.execute(f"SELECT ({inherited_qa_sql()}) FROM qa_requirements WHERE id=%s", (timing,)).fetchone()[0]
-    test_db.execute("UPDATE deployment_runs SET status='failed' WHERE id=%s", (takeover.NEW,))
+    test_db.execute("UPDATE deployment_runs SET status='failed',settling_at=CASE WHEN %s THEN now() ELSE NULL END WHERE id=%s", (settling, takeover.NEW))
     assert settle_unsuccessful_run(test_db, takeover.NEW, reason="driver failed")
     assert terminal_run_status(test_db, {"deployment_run_id": takeover.NEW}) is None
     test_db.commit()

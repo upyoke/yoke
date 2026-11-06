@@ -89,7 +89,7 @@ def _waiting_run(conn: Any, new_run: Mapping[str, Any]) -> Optional[dict]:
     for row in rows:
         stages = pinned_stages(conn, str(row["id"]))
         eligible = (
-            row["status"] == "failed" and not row["settling_at"]
+            row["status"] == "failed"
         ) or _waits_only_on_qa(row, stages)
         if eligible and open_qa_lines(conn, str(row["id"]), first_wait=True):
             return {**dict(row), "stages": stages}
