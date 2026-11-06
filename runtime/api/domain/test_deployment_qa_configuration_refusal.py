@@ -29,6 +29,7 @@ from yoke_contracts.public_ref import format_item_ref
 from yoke_core.domain import deploy_pipeline as pipeline
 from yoke_core.domain import deployment_qa_dispatch_wait_notice as wait_notice
 from yoke_core.domain import deployment_qa_stage_dispatch as dispatch
+from yoke_core.domain import deployment_qa_dispatch_gating as gating
 from yoke_core.domain import deployment_qa_stage_gate as gate
 from yoke_core.domain.deploy_pipeline_qa_wait import AWAITING_SCOPED_QA
 from yoke_core.domain.qa_plan_management import QaPlanError
@@ -48,9 +49,10 @@ def _gate_with(error: Exception) -> tuple[int, str, list[int]]:
 
     closed: list[int] = []
     with (
+        patch("yoke_core.domain.deployment_qa_dispatch_settled.settled_member_status", return_value=None),
         patch.object(gate, "deployment_qa_stage_status", side_effect=gated),
-        patch.object(dispatch, "removed_item_ids", return_value=set()),
-        patch.object(dispatch, "report_stage_result"),
+        patch.object(gating, "removed_item_ids", return_value=set()),
+        patch.object(gating, "report_stage_result"),
         patch(
             "yoke_core.domain.deployment_qa_member_acceptance_notice."
             "notify_items_qa_accepted",
@@ -73,9 +75,10 @@ def test_member_configuration_refusal_holds_that_member_while_others_settle() ->
 
     closed: list[int] = []
     with (
+        patch("yoke_core.domain.deployment_qa_dispatch_settled.settled_member_status", return_value=None),
         patch.object(gate, "deployment_qa_stage_status", side_effect=gated),
-        patch.object(dispatch, "removed_item_ids", return_value=set()),
-        patch.object(dispatch, "report_stage_result"),
+        patch.object(gating, "removed_item_ids", return_value=set()),
+        patch.object(gating, "report_stage_result"),
         patch(
             "yoke_core.domain.deployment_qa_member_acceptance_notice."
             "notify_items_qa_accepted",
@@ -103,12 +106,13 @@ def test_member_configuration_refusal_holds_that_member_while_others_settle() ->
 def test_configuration_refusal_wakes_each_held_member_once() -> None:
     wakes: list[tuple[int, str, bool, str]] = []
     with (
+        patch("yoke_core.domain.deployment_qa_dispatch_settled.settled_member_status", return_value=None),
         patch.object(
             gate,
             "deployment_qa_stage_status",
             side_effect=QaPlanError(SNAPSHOT_MISSING),
         ),
-        patch.object(dispatch, "removed_item_ids", return_value=set()),
+        patch.object(gating, "removed_item_ids", return_value=set()),
         patch.object(
             wait_notice,
             "notify_item_scoped_qa_wait",

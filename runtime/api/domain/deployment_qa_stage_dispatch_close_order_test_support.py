@@ -49,6 +49,8 @@ class _Conn:
         self.rollbacks = 0
 
     def execute(self, sql: str, params: tuple = ()) -> _Rows:
+        if "JOIN items i" in sql:
+            return _Rows()
         if "JOIN projects" in sql:
             return _Rows(
                 many=[

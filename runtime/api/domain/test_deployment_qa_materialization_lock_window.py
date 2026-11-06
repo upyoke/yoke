@@ -85,8 +85,8 @@ def test_a_membership_change_during_the_read_is_read_again(test_db, monkeypatch)
     reads = []
     real = module.MaterializationProjection.__init__
 
-    def read(self, conn, run):
-        real(self, conn, run)
+    def read(self, conn, run, **kwargs):
+        real(self, conn, run, **kwargs)
         reads.append(len(self.members()))
         if len(reads) == 1:
             # Committed after the fingerprint, before the run row lock.
@@ -109,7 +109,9 @@ def test_a_membership_change_during_the_read_is_read_again(test_db, monkeypatch)
         ).fetchall()
     }
     assert peer not in owners
-    assert all(members == [first] for members in attached_plans(test_db, run_id).values())
+    assert all(
+        members == [first] for members in attached_plans(test_db, run_id).values()
+    )
 
 
 def test_member_removal_costs_the_same_at_any_run_size(test_db, monkeypatch):
@@ -150,12 +152,8 @@ def _lock_windows(recorder) -> list[int]:
     return windows
 
 
-def test_a_dispatch_writes_its_cohort_under_one_run_lock(test_db):
-    """One lock and one fingerprint check per dispatch, never one per member.
-
-    Under the lock each member costs only its own writes, so the window grows
-    by the same few statements per member and holds no run-wide read.
-    """
+def test_a_dispatch_commits_each_member_under_its_own_run_lock(test_db):
+    """No lock window grows with the cohort; groups form in a separate write."""
     from yoke_core.domain.deployment_qa_run_acceptance import pinned_stages
     from yoke_core.domain.deployment_qa_stage_dispatch import (
         materialize_and_gate_deployment_qa_stage,
@@ -163,19 +161,16 @@ def test_a_dispatch_writes_its_cohort_under_one_run_lock(test_db):
 
     widest = {}
     for run_id, first, size in SIZES:
-        _seed(test_db, run_id, first, size, requirements=1)
+        members = _seed(test_db, run_id, first, size, requirements=1)
+        test_db.execute("UPDATE items SET status='release' WHERE id=ANY(%s)", (list(members),))
+        test_db.commit()
         stage = next(s for s in pinned_stages(test_db, run_id) if s["name"] == STAGE)
         recorder = LockWindowRecorder(test_db)
         materialize_and_gate_deployment_qa_stage(recorder, stage, run_id=run_id)
         windows = _lock_windows(recorder)
-        assert len(windows) == 1, windows
-        locked = [text for held, text in recorder.statements if held]
-        assert sum(text.startswith("SELECT md5(") for text in locked) <= 1
-        assert sum(text.endswith("FOR UPDATE") for text in locked) == 1
-        widest[size] = windows[0]
-    per_member = (widest[33] - widest[3]) / 30
-    assert per_member <= 20, widest
-    assert widest[3] >= 3 * per_member, widest
+        assert len(windows) == size + 1, windows
+        widest[size] = max(windows[:-1])
+    assert widest[33] == widest[3], widest
 
 
 def test_an_interrupted_lock_wait_holds_the_stage_instead_of_failing_the_run(

@@ -160,7 +160,7 @@ def _seed_run(
                 id=item_id,
                 project_sequence=item_id,
                 workflow_id="issue",
-                status="done",
+                status="release",
             )
         member_snapshot = snapshot_member_requirements(
             conn,

@@ -17,7 +17,7 @@ def test_dispatch_run_wide_read_counts_stay_constant(
     test_db, monkeypatch, materialized
 ):
     monkeypatch.setattr(
-        "yoke_core.domain.deployment_qa_stage_dispatch.notify_stage_wait",
+        "yoke_core.domain.deployment_qa_dispatch_gating.notify_stage_wait",
         lambda *a, **k: None,
     )
     monkeypatch.setattr(

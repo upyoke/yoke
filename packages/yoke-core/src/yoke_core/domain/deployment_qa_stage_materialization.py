@@ -136,8 +136,10 @@ def _read_stage(
 
     projection = presentation_read(
         conn,
-        ("qa_materialization_projection", run_id),
-        lambda: MaterializationProjection(conn, run_id),
+        ("qa_materialization_projection", run_id, deployment_member_item_id),
+        lambda: MaterializationProjection(
+            conn, run_id, member_item_id=deployment_member_item_id
+        ),
     )
     subject = stage_subject(
         conn,
@@ -175,7 +177,9 @@ def _read_stage(
         replacement_keys=replacement_keys,
         replacement_scopes=replacement_scopes,
     )
-    from yoke_core.domain.deployment_qa_presentation_facts import subject_requirement_rows
+    from yoke_core.domain.deployment_qa_presentation_facts import (
+        subject_requirement_rows,
+    )
 
     rows = subject_requirement_rows(
         conn, run_id, deployment_stage, deployment_member_item_id
