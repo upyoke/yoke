@@ -17,7 +17,7 @@ def test_dockerfile_uses_wheel_runtime_and_healthcheck() -> None:
     assert "FROM runtime-base AS builder" in dockerfile
     assert "FROM ${PYTHON_IMAGE} AS runtime-base" in dockerfile
     assert "FROM runtime-base AS runtime" in dockerfile
-    assert "--mount=type=bind,source=.,target=/build,rw" in dockerfile
+    assert "--mount=type=bind,source=packages,target=/build/packages,rw" in dockerfile
     assert 'ARG YOKE_ENGINE_VERSION=""' in dockerfile
     assert dockerfile.count('ARG YOKE_ENGINE_VERSION=""') == 2
     assert "SETUPTOOLS_SCM_PRETEND_VERSION_FOR_YOKE_CORE" in dockerfile
@@ -27,8 +27,8 @@ def test_dockerfile_uses_wheel_runtime_and_healthcheck() -> None:
     assert "COPY uv.lock ./" in dockerfile
     assert "uv sync --locked --no-default-groups --no-editable" in dockerfile
     assert "UV_PROJECT_ENVIRONMENT=/opt/yoke-venv" in dockerfile
-    assert "pip install --no-cache-dir" not in dockerfile
-    assert "uv build --wheel --all-packages" in dockerfile
+    assert "pip install --no-cache-dir uv==0.12.1" in dockerfile
+    assert 'uv build --wheel --package "$package"' in dockerfile
     assert "wheel_module_completeness.py" in dockerfile
     assert "postgres_binaries.py" in dockerfile
     assert "['ensure_binaries']()" in dockerfile
@@ -56,7 +56,13 @@ def test_dependency_inputs_exclude_source_and_release_identity():
     assert "ARG YOKE_ENGINE_VERSION" not in dependencies
     for manifest in (ROOT / "packages").glob("yoke-*/pyproject.toml"):
         assert f"COPY {manifest.relative_to(ROOT)} " in dependencies
-    assert builder.count("uv build --wheel --all-packages") == 1
+    assert builder.count("uv build --wheel --package") == 1
+    assert "--all-packages" not in builder
+    for package in ("contracts", "cli", "harness", "core"):
+        assert f"yoke-{package}" in builder
+    assert "source=runtime" not in builder
+    assert "source=.git_archival.txt,target=/build/.git_archival.txt" in builder
+    assert "server image contains development runtime package" in builder
     runtime = builder.split("FROM runtime-base AS runtime", 1)[1]
     identity = runtime.index('ARG YOKE_BUILD_SHA=""')
     assert runtime.index("uv pip install") < identity
@@ -70,8 +76,8 @@ def test_dependency_inputs_exclude_source_and_release_identity():
     assert "chown -R yoke:yoke /opt/yoke-postgres" in dependencies
     assert "COPY packages ./packages" not in builder
     assert "COPY runtime ./runtime" not in builder
-    assert "--mount=type=bind,source=.,target=/build,rw" in builder
-    assert "uv build --wheel --all-packages --out-dir /wheels" in builder
+    assert "--mount=type=bind,source=packages,target=/build/packages,rw" in builder
+    assert "UV_CACHE_DIR=/build/packages/.uv-build-cache" in builder
     assert "source=/wheels,target=/wheels" in runtime
     assert "--mount=type=bind,from=tools" in dependencies
     assert "--mount=type=bind,from=tools" in runtime
@@ -116,3 +122,36 @@ def test_parallel_validation_requires_both_processes_to_succeed(
             "-m yoke_core.tools.container_bundle_validation verify",
         ]
     )
+
+
+@pytest.mark.parametrize("failed_package", ["", "yoke-cli", "yoke-core"])
+def test_image_builds_only_product_wheels_and_stops_on_failure(
+    tmp_path, failed_package
+):
+    uv = tmp_path / "uv"
+    uv.write_text('#!/bin/sh\necho "$4" >> "$CALLS"\ntest "$4" != "$FAILED_PACKAGE"\n')
+    uv.chmod(0o755)
+    command = (
+        "for package in "
+        + (ROOT / "Dockerfile")
+        .read_text()
+        .split("for package in ", 1)[1]
+        .split("done", 1)[0]
+        + "done"
+    )
+    result = subprocess.run(
+        ["sh", "-c", command.replace("\\\n", "")],
+        env={
+            **os.environ,
+            "PATH": str(tmp_path) + os.pathsep + os.environ["PATH"],
+            "CALLS": str(tmp_path / "calls"),
+            "FAILED_PACKAGE": failed_package,
+        },
+        capture_output=True,
+    )
+    products = ["yoke-contracts", "yoke-cli", "yoke-harness", "yoke-core"]
+    expected = (
+        products[: products.index(failed_package) + 1] if failed_package else products
+    )
+    assert (tmp_path / "calls").read_text().splitlines() == expected
+    assert (result.returncode == 0) == (not failed_package)

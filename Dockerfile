@@ -8,7 +8,7 @@
 ARG PYTHON_IMAGE=ghcr.io/upyoke/python:3.13-slim
 
 FROM ${PYTHON_IMAGE} AS tools
-RUN python -m pip install uv==0.12.1
+RUN python -m pip install --no-cache-dir uv==0.12.1
 
 FROM ${PYTHON_IMAGE} AS runtime-base
 
@@ -46,7 +46,7 @@ RUN --mount=type=bind,from=tools,source=/usr/local/bin/uv,target=/usr/local/bin/
 WORKDIR /app
 
 # The checksum-verified PostgreSQL operation is an ancestor of the final image,
-# so mode=min retains it without publishing source or wheel-building layers.
+# so the final image and cache share its downloaded client layer.
 RUN --mount=type=bind,source=packages/yoke-contracts/src,target=/bootstrap/contracts \
     --mount=type=bind,source=packages/yoke-cli/src,target=/bootstrap/cli \
     --mount=type=bind,source=packages/yoke-core/src/yoke_core/domain/postgres_binaries.py,target=/bootstrap/postgres_binaries.py \
@@ -62,16 +62,19 @@ WORKDIR /build
 # cache receives wheels, never another copy of the application source tree.
 ARG YOKE_ENGINE_VERSION=""
 
-RUN --mount=type=bind,source=.,target=/build,rw \
+RUN --mount=type=bind,source=packages,target=/build/packages,rw \
+    --mount=type=bind,source=.git_archival.txt,target=/build/.git_archival.txt \
     --mount=type=bind,from=tools,source=/usr/local/bin/uv,target=/usr/local/bin/uv \
     if [ -n "$YOKE_ENGINE_VERSION" ]; then \
-        export SETUPTOOLS_SCM_PRETEND_VERSION_FOR_YOKE="$YOKE_ENGINE_VERSION"; \
         export SETUPTOOLS_SCM_PRETEND_VERSION_FOR_YOKE_CONTRACTS="$YOKE_ENGINE_VERSION"; \
         export SETUPTOOLS_SCM_PRETEND_VERSION_FOR_YOKE_CLI="$YOKE_ENGINE_VERSION"; \
         export SETUPTOOLS_SCM_PRETEND_VERSION_FOR_YOKE_HARNESS="$YOKE_ENGINE_VERSION"; \
         export SETUPTOOLS_SCM_PRETEND_VERSION_FOR_YOKE_CORE="$YOKE_ENGINE_VERSION"; \
     fi; \
-    uv build --wheel --all-packages --out-dir /wheels \
+    for package in yoke-contracts yoke-cli yoke-harness yoke-core; do \
+        UV_CACHE_DIR=/build/packages/.uv-build-cache \
+        uv build --wheel --package "$package" --out-dir /wheels || exit $?; \
+    done \
     && python packages/yoke-core/src/yoke_core/tools/wheel_module_completeness.py \
         --package-root packages/yoke-core/src/yoke_core \
         --wheel /wheels/yoke_core-*.whl
@@ -106,7 +109,7 @@ RUN python -m yoke_core.tools.product_wheel_validation & wheel_pid=$!; \
 # snapshot/operator builds that omit it still may not ship setuptools-scm's
 # unresolved fallback while advertising a source build SHA.
 RUN YOKE_EXPECTED_ENGINE_VERSION="$YOKE_ENGINE_VERSION" python -c \
-    "import os; from importlib.metadata import version; from yoke_contracts.engine_version import UNRESOLVED_SCM_FALLBACK_VERSION as fallback; actual=version('yoke-core'); expected=os.environ.get('YOKE_EXPECTED_ENGINE_VERSION', ''); build=os.environ.get('YOKE_BUILD_SHA', ''); assert actual and (not expected or actual == expected), f'installed yoke-core version {actual!r} does not match expected {expected!r}'; assert not build or actual != fallback, f'build {build!r} installed unresolved yoke-core fallback {actual!r}'"
+    "import os, importlib.util; from importlib.metadata import version; assert importlib.util.find_spec('runtime') is None, 'server image contains development runtime package'; from yoke_contracts.engine_version import UNRESOLVED_SCM_FALLBACK_VERSION as fallback; actual=version('yoke-core'); expected=os.environ.get('YOKE_EXPECTED_ENGINE_VERSION', ''); build=os.environ.get('YOKE_BUILD_SHA', ''); assert actual and (not expected or actual == expected), f'installed yoke-core version {actual!r} does not match expected {expected!r}'; assert not build or actual != fallback, f'build {build!r} installed unresolved yoke-core fallback {actual!r}'"
 
 # Fail the image build unless the installed product resolver can execute both
 # portability clients with all runtime shared-library dependencies present.
