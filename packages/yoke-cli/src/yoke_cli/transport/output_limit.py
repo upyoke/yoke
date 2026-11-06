@@ -30,7 +30,6 @@ _PROJECTION = {
     "field",
     "include",
     "section",
-    "read_section",
     "detail",
     "view",
 }
@@ -38,6 +37,7 @@ _LIMIT = {"limit", "page_size", "display_limit", "lines"}
 _PAGING = {"offset", "cursor", "page"}
 _NOT_NARROWING = {
     "help",
+    "read_section",
     "full",
     "json",
     "session_id",
@@ -173,12 +173,10 @@ def narrowing_flags(parser: argparse.ArgumentParser) -> dict[str, list[str]]:
     return {kind: flags for kind, flags in groups.items() if flags}
 
 
-def read_recovery(function: str) -> str:
-    """Teach the narrowing flags this read's parser really has."""
-    if requested_section() is not None:
-        command = shlex.join([*_READ_COMMAND.get(), "--full"])
-        return f"Rerun this read with --full: {command}"
-
+def read_command(function: str) -> tuple[str, ...]:
+    """Use the invoked command, with the registry form as a fallback."""
+    if command := _READ_COMMAND.get():
+        return command
     from yoke_cli.commands.registry import SUBCOMMAND_REGISTRY
 
     forms = [
@@ -189,11 +187,43 @@ def read_recovery(function: str) -> str:
         if forms
         else tuple(function.replace("_", "-").split("."))
     )
-    command = "yoke " + " ".join(tokens)
+    return ("yoke", *tokens)
+
+
+def whole_read_recovery(function: str, *, omit_section: bool = False) -> str:
+    """Give exact whole-answer retries without incompatible shared options."""
+    command = read_command(function)
+
+    def retry(option: str) -> str:
+        kept: list[str] = []
+        skip = False
+        for token in command:
+            if skip:
+                skip = False
+            elif _SECTION_SUPPORTED.get() and (omit_section or option == "--json"):
+                if token == "--section":
+                    skip = True
+                elif not token.startswith("--section="):
+                    kept.append(token)
+            else:
+                kept.append(token)
+        kept = [token for token in kept if token not in {"--full", "--json"}]
+        return shlex.join([*kept, option])
+
+    return f"Read the complete reply with {retry('--full')} or {retry('--json')}."
+
+
+def read_recovery(function: str) -> str:
+    """Teach real narrowing flags and exact complete-answer retries."""
+    whole = whole_read_recovery(function)
+    if requested_section() is not None:
+        return whole
+    command = shlex.join(read_command(function))
     parser = _READ_PARSER.get()
     if parser is None:
-        return f"Run {command} --help to find how to narrow this read."
+        return f"Run {command} --help to find how to narrow this read. {whole}"
     groups = narrowing_flags(parser)
-    named = "; ".join(f"{kind} {', '.join(flags)}" for kind, flags in groups.items())
-    narrow = f"Narrow {command} with its {named}"
-    return f"{narrow}; run {command} --help for the exact recipe."
+    if not groups:
+        return whole
+    named = "; ".join(f"{kind}: {', '.join(flags)}" for kind, flags in groups.items())
+    return f"Narrow {command} using {named}; see {command} --help. {whole}"
