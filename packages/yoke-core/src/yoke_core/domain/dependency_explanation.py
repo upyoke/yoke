@@ -7,6 +7,15 @@ from typing import Optional
 from yoke_core.domain.dependency_types import deployed_environment, status_stage_id
 
 
+def unmet_gate_action(gate_point: str) -> str:
+    """Teach the action an unmet gate holds, without changing its evaluation."""
+    return {
+        "activation": "do not start or staff yet",
+        "integration": "work, test and open the pull request now; merge only after it clears",
+        "closure": "work and merge now; close only after it clears",
+    }.get(gate_point, f"wait only at the {gate_point} gate")
+
+
 def satisfaction_description(satisfaction: str) -> str:
     """Render status values, fact:merged, or fact:deployed:<environment-name>."""
     environment = deployed_environment(satisfaction)
@@ -45,9 +54,9 @@ def explain_dependency(
     sat_desc = satisfaction_description(satisfaction)
 
     gate_desc = {
-        "activation": "blocks activation",
-        "integration": "blocks integration (merge ordering)",
-        "closure": "blocks closure",
+        "activation": unmet_gate_action("activation"),
+        "integration": unmet_gate_action("integration"),
+        "closure": unmet_gate_action("closure"),
     }.get(gate_point, f"blocks at {gate_point}")
 
     parts = [blocking_item, gate_desc, f"(satisfied when: {sat_desc})"]
@@ -62,4 +71,5 @@ __all__ = [
     "dependency_wait_summary",
     "explain_dependency",
     "satisfaction_description",
+    "unmet_gate_action",
 ]

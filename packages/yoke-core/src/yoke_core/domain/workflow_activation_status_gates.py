@@ -29,7 +29,7 @@ from __future__ import annotations
 from typing import Any, Optional
 
 from yoke_core.domain.db_helpers import connect
-from yoke_core.domain.dependency_explanation import dependency_wait_summary
+from yoke_core.domain.dependency_explanation import dependency_wait_summary, unmet_gate_action
 from yoke_core.domain.dependency_types import deployed_environment
 from yoke_core.domain.schema_common import _table_exists
 from yoke_core.domain.workflow_gate_absence import record_gate_absence
@@ -114,7 +114,7 @@ def evaluate_check_hard_blocks(
         "error": (
             f"Cannot advance to {target_status!r} — "
             f"{len(blocked)} upstream dependency(ies) gated at {gate_point} "
-            f"remain unsatisfied: {summary}."
+            f"remain unsatisfied: {summary}. {unmet_gate_action(gate_point)}."
         ),
         "remediation_hint": (
             "Satisfy the named dependency condition, or amend the edge with "

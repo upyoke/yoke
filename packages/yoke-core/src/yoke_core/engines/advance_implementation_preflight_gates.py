@@ -104,7 +104,11 @@ def _run_preflight_gates(item_id: int | str, *, force: bool) -> Tuple[bool, str]
         or []
     )
     if blockers:
-        return False, "Blocked by dependencies:\n  " + "\n  ".join(blockers)
+        return False, (
+            "Blocked by dependencies:\n  " + "\n  ".join(blockers)
+            + "\nUnmet activation gate: do not start or staff yet. "
+            "Meet the named condition, then retry implementation entry."
+        )
 
     workflow = _relay_gate("workflows.item.get", item_id)
     policy = workflow["effective_policies"]["file_budget"]

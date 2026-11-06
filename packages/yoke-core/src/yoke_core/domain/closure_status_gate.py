@@ -75,7 +75,8 @@ def evaluate(
         "error_code": _ERROR_CODE,
         "error": (
             f"Cannot complete this item — {len(blockers)} closure "
-            f"dependency(ies) remain unsatisfied: {summaries}."
+            f"dependency(ies) remain unsatisfied: {summaries}. "
+            "Work and merge now; close only after it clears."
         ),
         "remediation_hint": (
             "The wait discharges when the blocker meets its recorded "

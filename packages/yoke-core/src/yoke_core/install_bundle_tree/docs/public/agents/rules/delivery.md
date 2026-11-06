@@ -51,7 +51,10 @@ Records stay on this control plane.
 
 ## Wait on another item's merge or delivery
 
-Record the wait, then park. Use the item skill, not `dash`, or `operator` for steering:
+An unmet activation gate means do not start or staff yet. An integration gate lets you work,
+test and open the pull request now; merge only after it clears. A closure gate lets you work
+and merge now; close only after it clears. Record the wait, then park only at the held step.
+Use the item skill, not `dash`, or `operator` for steering:
 
 ```text
 yoke items dependency list ITEM

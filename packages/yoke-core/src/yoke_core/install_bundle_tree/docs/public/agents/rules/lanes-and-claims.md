@@ -35,7 +35,9 @@ See [cleanup](../harness-discovery.md).
   coordination-decision-build`, then `yoke items dependency add` with a rationale). Engineer
   and Tester report to their parent. No live holder → `/yoke refine`. Unattested overlap stays
   incompatible.
-- On an unmet gate, park with your claim and lane; the blocker's landing notice wakes you.
+- An unmet activation gate means do not start or staff yet. Integration permits work, tests
+  and opening a pull request now; only merge waits. Closure permits work and merge; only
+  closing waits. Park with your claim and lane only at the held step; the notice wakes you.
 - Claims cover physical files, so a symlink claim covers its in-repo target too.
 - Item-owned claims release at merge; register fresh coverage before rework
   ([ending coverage](../../sessions/model/path-claims.md#ending-coverage-and-reopening-work)).
