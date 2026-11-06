@@ -9,12 +9,31 @@ import re
 import statistics
 import base64
 
-from yoke_cli.config.github_local_user_access import (
-    access_token,
-    GitHubLocalUserAccessError,
-)
+import os
+import subprocess
+
 from yoke_core.domain.github_actions_rest import rest_get, RestTransportError
 from yoke_core.domain.github_actions_logs import fetch_job_log
+
+
+def github_token(repository: str) -> str:
+    """Read the configured Git helper without exposing its credential output."""
+    result = subprocess.run(
+        ["git", "credential", "fill"],
+        input=f"protocol=https\nhost=github.com\npath={repository}\n\n",
+        text=True,
+        capture_output=True,
+        timeout=30,
+        env={**os.environ, "GIT_TERMINAL_PROMPT": "0", "GIT_ASKPASS": "false"},
+    )
+    fields = dict(
+        line.split("=", 1) for line in result.stdout.splitlines() if "=" in line
+    )
+    if result.returncode or not fields.get("password"):
+        raise ValueError(
+            "github_read_auth_unavailable: run `yoke github status` and repair the configured Git credential helper, then retry"
+        )
+    return fields["password"]
 
 
 def build_seconds(jobs: list[dict]) -> float:
@@ -72,7 +91,7 @@ def _check() -> int:
             "baseline_sample_invalid: supply ten distinct pre-cache main run ids"
         )
     repository = args.repository
-    token = access_token().access_token
+    token = github_token(repository)
     runs = rest_get(
         f"/repos/{repository}/actions/workflows/yoke-server-image.yml/runs",
         query={
@@ -183,7 +202,7 @@ def main() -> int:
         KeyError,
         TypeError,
         OSError,
-        GitHubLocalUserAccessError,
+        subprocess.TimeoutExpired,
         RestTransportError,
     ) as exc:
         print(

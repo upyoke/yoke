@@ -79,12 +79,9 @@ def test_command_uses_authenticated_rest_and_requires_ten_runs_and_thirty_second
     monkeypatch, cached_seconds, samples, expected, capsys
 ):
     import base64
-    from types import SimpleNamespace
     from yoke_core.tools import server_image_cache_evidence as evidence
 
-    monkeypatch.setattr(
-        evidence, "access_token", lambda: SimpleNamespace(access_token="fixture-token")
-    )
+    monkeypatch.setattr(evidence, "github_token", lambda repository: "fixture-token")
     monkeypatch.setattr(
         "sys.argv",
         ["evidence", "--repository", "owner/repo"]
@@ -131,4 +128,34 @@ def test_command_uses_authenticated_rest_and_requires_ten_runs_and_thirty_second
         ),
     )
     assert evidence.main() == expected
+    assert "fixture-token" not in capsys.readouterr().out
+
+
+@pytest.mark.parametrize(
+    "stdout, code, allowed",
+    [
+        ("username=x-access-token\npassword=fixture-token\n", 0, True),
+        ("", 0, False),
+        ("password=fixture-token\n", 1, False),
+    ],
+)
+def test_git_helper_output_stays_private_and_auth_failure_names_repair(
+    monkeypatch, stdout, code, allowed, capsys
+):
+    from types import SimpleNamespace
+    from yoke_core.tools import server_image_cache_evidence as evidence
+
+    def run(command, **kwargs):
+        assert command == ["git", "credential", "fill"]
+        assert kwargs["capture_output"] is True
+        assert kwargs["env"]["GIT_TERMINAL_PROMPT"] == "0"
+        assert "path=owner/repo" in kwargs["input"]
+        return SimpleNamespace(stdout=stdout, returncode=code)
+
+    monkeypatch.setattr(evidence.subprocess, "run", run)
+    if allowed:
+        assert evidence.github_token("owner/repo") == "fixture-token"
+    else:
+        with pytest.raises(ValueError, match="github_read_auth_unavailable"):
+            evidence.github_token("owner/repo")
     assert "fixture-token" not in capsys.readouterr().out

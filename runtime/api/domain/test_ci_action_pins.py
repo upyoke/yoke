@@ -21,6 +21,8 @@ _EXPECTED_ACTIONS = {
     "actions/upload-artifact",
     "actions/download-artifact",
     "astral-sh/setup-uv",
+    "docker/setup-buildx-action",
+    "docker/build-push-action",
 }
 _WORKFLOWS = (
     "workflows/yoke-ci.yml",

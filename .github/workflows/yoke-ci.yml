@@ -326,7 +326,8 @@ jobs:
           version="$(python -m setuptools_scm --root "$GITHUB_WORKSPACE")"
           echo "YOKE_ENGINE_VERSION=$version" >> "$GITHUB_ENV"
 
-      - uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c
       - name: Pull the base image with bounded transport retries
         run: |
           python_image="$(sed -n 's/^ARG PYTHON_IMAGE=//p' Dockerfile)"
