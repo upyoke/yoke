@@ -42,6 +42,7 @@ def emit_response(
         read_recovery,
         requested_section,
         section_command,
+        whole_read_recovery,
     )
     from yoke_cli.transport.read_sections import section_outline, select_section
 
@@ -91,7 +92,10 @@ def emit_response(
                 "read_section_missing",
                 f"The reply has no section titled {section!r}; nothing was printed.",
                 section_outline(text, section_command)
-                or "The reply has no Markdown headings; drop --section to read it whole.",
+                or (
+                    "The reply has no Markdown headings. "
+                    + whole_read_recovery(response.function, omit_section=True)
+                ),
             )
         stdout = io.StringIO(selected)
     if not json_mode and not machine_mode:

@@ -137,11 +137,12 @@ def test_hint_names_only_flags_the_command_has():
 
     hint = _read_hint("qa.activity.list", configure)
     assert hint.startswith(
-        "Narrow yoke qa activity list with its fields --section; filters "
-        "--deployment-run-id, --item; limit --limit;"
+        "Narrow yoke qa activity list using filters: "
+        "--deployment-run-id, --item; limit: --limit;"
     )
     assert "FIELD" not in hint
-    assert "--json" not in hint
+    assert "--section" not in hint
+    assert "yoke qa activity list --json" in hint
 
 
 def test_hint_names_field_and_paging_flags_when_present():
@@ -151,12 +152,14 @@ def test_hint_names_field_and_paging_flags_when_present():
         parser.add_argument("--cursor")
 
     hint = _read_hint("items.get.run", configure)
-    assert "Narrow yoke items get with its fields FIELD, --section; paging --cursor;" in hint
+    assert "Narrow yoke items get using fields: FIELD, --section; paging: --cursor;" in hint
 
 
-def test_read_without_its_own_narrowing_flags_names_the_shared_section():
+def test_read_without_narrowing_flags_names_complete_answer_commands():
     hint = _read_hint("sessions.identity", lambda parser: None)
-    assert hint.startswith("Narrow yoke sessions identity with its fields --section;")
+    assert "yoke sessions identity --full" in hint
+    assert "yoke sessions identity --json" in hint
+    assert "--section" not in hint
 
 
 def test_hint_without_recorded_parser_points_at_help():
@@ -164,9 +167,51 @@ def test_hint_without_recorded_parser_points_at_help():
 
     with read_output_scope([], "qa.activity.list"):
         hint = read_recovery("qa.activity.list")
-    assert hint == "Run yoke qa activity list --help to find how to narrow this read."
+    assert hint.startswith("Run yoke qa activity list --help to find how to narrow this read.")
+    assert "yoke qa activity list --full" in hint
 
 
 def test_safety_net_below_character_cap():
     assert REPLY_LIMIT_BYTES == 28_000
     assert REPLY_LIMIT_BYTES < 30_000
+
+
+@pytest.mark.parametrize("args", [[], ["--section", "Missing"], ["--section=Missing"]])
+def test_headingless_oversized_read_has_working_complete_retries(capsys, args):
+    import argparse
+    from yoke_cli.commands._helpers import parse_or_usage_error
+
+    route = ("yoke", "qa", "activity", "list")
+    args = ["--item", "example", *args]
+    with read_output_scope(args, "qa.activity.list", route):
+        parser = argparse.ArgumentParser()
+        parser.add_argument("--item")
+        parse_or_usage_error(parser, args, "read")
+        assert emit_response(
+            response("qa.activity.list", {"body": "x" * REPLY_LIMIT_BYTES}),
+            json_mode=False,
+        ) == 1
+    out = capsys.readouterr()
+    assert out.out == ""
+    hint = out.err.split("hint: ", 1)[1]
+    assert "--section" not in hint
+    assert "yoke qa activity list --item example --full" in hint
+    assert "yoke qa activity list --item example --json" in hint
+
+
+def test_deadline_recovery_omits_shared_section(capsys):
+    import argparse
+    from yoke_cli.commands._helpers import parse_or_usage_error
+    from yoke_contracts.api.function_call import FunctionError
+
+    raw = response("qa.activity.list").model_copy(update={
+        "success": False,
+        "error": FunctionError(code="read_deadline_exceeded", message="Read timed out."),
+    })
+    with read_output_scope([], raw.function, ("yoke", "qa", "activity", "list")):
+        parse_or_usage_error(argparse.ArgumentParser(), [], "read")
+        assert emit_response(raw, json_mode=False) == 1
+    hint = capsys.readouterr().err
+    assert "--section" not in hint
+    assert "yoke qa activity list --full" in hint
+    assert "yoke qa activity list --json" in hint

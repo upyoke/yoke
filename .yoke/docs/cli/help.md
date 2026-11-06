@@ -56,7 +56,8 @@ Emitting an event is a side effect, so event-only functions are writes too.
 An unusually large registered human read over 28,000 UTF-8 bytes refuses with
 `read_output_limit_exceeded` before printing any partial answer. Its hint names
 the field, filter, limit and paging flags that command really has; narrow with
-those, or add `--full` to print the complete human reply. This safety
+those, or use its exact `--full` or `--json` command for the complete reply.
+The shared `--section` option appears only when the reply has headings. This safety
 net does not apply to writes, JSON or deliberate machine formats: `--json`
 is never refused for size.
 
@@ -65,7 +66,8 @@ Markdown section under that heading: any level, case-insensitive, up to the
 next heading at the same level or shallower. When an oversized reply has
 headings, the refusal lists them with each section's size and its exact
 `--section` command. A heading the reply lacks refuses with
-`read_section_missing` and the same outline. `--section` narrows human text
+`read_section_missing` and the same outline. Without headings, the hint
+gives exact `--full` and `--json` commands with the shared `--section` removed. `--section` narrows human text
 only, so with `--json` it refuses with `read_section_requires_human_output`.
 `yoke items get` with a field and `yoke items section get` keep their
 own `--section`, which reads inside one stored field or section.
