@@ -1,6 +1,6 @@
-"""Tell a desktop session's operator that a message is waiting on them.
+"""Tell a session's operator that a message is waiting on them.
 
-Yoke never resumes an operator-opened desktop conversation, so a message
+Yoke never resumes an operator-driven conversation, so a message
 addressed to one has exactly one way in: the hook that runs on the
 operator's next turn. That is a fine route while the person is working and
 no route at all while they are away, and nothing in the fleet could tell
@@ -15,8 +15,7 @@ does not become a mailbox full of the same sentence.
 
 A notice is a derived fact, so it lives exactly as long as the absence it
 reports. The envelope's own state ends that absence -- a hook ran, the
-seat acknowledged, the message was cancelled or expired, the conversation
-ended -- and one predicate decides both directions, so the Inbox can never
+seat acknowledged, the message was cancelled or expired, or the conversation was terminated -- and one predicate decides both directions, so the Inbox can never
 keep saying a message is waiting for a message that arrived. Settling
 cancels the notice with the reason that ended it and leaves the row where
 it is: the history stays readable, and nothing dismisses a decision a
@@ -105,7 +104,7 @@ def operator_wake_notice_due(
     grace_seconds: int,
     now: datetime,
 ) -> bool:
-    """Whether this receipt is a desktop message its operator has not seen.
+    """Whether this receipt is an operator-driven message its operator has not seen.
 
     A notice is owed while nothing has settled the envelope and the same
     grace window every other starvation test uses has elapsed.
@@ -144,7 +143,7 @@ def notify_operator_to_wake(
     now: datetime,
     grace_seconds: int | None = None,
 ) -> str | None:
-    """Record one waiting-message notice for a desktop session's operator.
+    """Record one waiting-message notice for a session's operator.
 
     Returns the notice's message id when this call created it, and ``None``
     when no notice is owed or one already stands for the same envelope.
@@ -167,7 +166,7 @@ def notify_operator_to_wake(
         sender_actor_id=None,
         sender_session_id=None,
         sender_surface=None,
-        body="A message is waiting in a desktop chat; open that chat and type anything.",
+        body="A message is waiting in a session you control; open it and type anything.",
         selector_snapshot={"actors": [str(actor_id)]},
         idempotency_key=notice_idempotency_key(
             envelope_id=envelope_id, session_id=session_id
