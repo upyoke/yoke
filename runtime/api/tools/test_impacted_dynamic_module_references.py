@@ -30,19 +30,31 @@ def test_digit_prefixed_dynamic_import_keeps_transitive_contract_test(tmp_path):
         assert consumer in selection.files
 
 
-def test_test_machine_os_contract_selects_its_live_migration_consumer(tmp_path):
+def test_audience_schema_selects_its_live_migration_consumer(tmp_path):
     """Copy the real imports so the regression covers their actual spelling."""
     root = Path(__file__).resolve().parents[3]
     contract = (
-        "packages/yoke-contracts/src/yoke_contracts/machine_config/test_machine.py"
+        "packages/yoke-core/src/yoke_core/domain/audience_schema.py"
     )
     migration = (
-        "packages/yoke-core/src/yoke_core/domain/migrations/0050_test_machine_os.py"
+        "packages/yoke-core/src/yoke_core/domain/migrations/0101_decision_request_audiences.py"
     )
-    consumer = "runtime/api/domain/test_migration_test_machine_os.py"
+    consumer = "runtime/api/domain/test_migration_decision_request_audiences.py"
     for path in (contract, migration, consumer):
         _write(tmp_path, path, (root / path).read_text(encoding="utf-8"))
 
     selection = select([contract], build_import_index(tmp_path), bounded=True)
 
     assert consumer in selection.files
+
+
+def test_history_changes_select_the_table_driven_contract():
+    from yoke_core.tools._impacted_contract_tests import contract_selection_for
+
+    selection = contract_selection_for([
+        "packages/yoke-core/src/yoke_core/domain/migrations/0101_decision_request_audiences.py"
+    ])
+    assert {
+        "runtime/api/domain/test_migration_entry_contract.py",
+        "runtime/api/domain/test_migration_entry_test_policy.py",
+    } <= selection.tests

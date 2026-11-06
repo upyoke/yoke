@@ -66,6 +66,8 @@ AGENT_SKILL_SOURCE_PREFIXES = (
 )
 
 MIGRATION_HISTORY_CONTRACT_TESTS = (
+    "runtime/api/domain/test_migration_entry_contract.py",
+    "runtime/api/domain/test_migration_entry_test_policy.py",
     "runtime/api/domain/test_boot_schema_column_convergence.py",
     "runtime/api/domain/test_universe_portability_migration_content_bridge.py",
     "runtime/api/domain/test_universe_portability_schema_validation.py",

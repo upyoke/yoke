@@ -40,9 +40,6 @@ def test_individual_case_complete_finishes_release_without_plan_walk(test_db):
 
 def test_retry_refuses_old_model_release(test_db):
     import pytest
-    from runtime.api.domain.test_delete_post_deploy_item_qa_copies_migration import (
-        _plan, _member, _copy,
-    )
     from runtime.api.fixtures.backlog_inserts import insert_deployment_run, insert_item
     from yoke_core.domain.qa_deployment_run_settlement import restore_retry_obligations
 
@@ -88,3 +85,28 @@ def test_failed_group_takeover_reuses_passes(test_db):
         plan=SLUG, actor_id="2", session_id="successor-qa")
     assert [row["requirement_id"] for row in fresh["roster"]] == [unpassed]
     assert passed != unpassed
+
+
+def _plan(conn) -> int:
+    return int(conn.execute(
+        "INSERT INTO qa_plans (project_id, slug, name, created_at, updated_at) "
+        "VALUES (1, 'smoke', 'Smoke', now(), now()) RETURNING id"
+    ).fetchone()[0])
+
+
+def _copy(conn, item_id, plan_id, **extra) -> int:
+    from runtime.api.fixtures.backlog_qa_inserts import insert_qa_requirement
+
+    return int(insert_qa_requirement(
+        conn, item_id=item_id, qa_kind="plan_case", qa_phase="post_deploy",
+        plan_id=plan_id, plan_case_key="home", **extra,
+    )["id"])
+
+
+def _member(conn, run_id, item_id, snapshot) -> None:
+    import json
+
+    conn.execute(
+        "INSERT INTO deployment_run_items(run_id,item_id,added_at,requirement_snapshot) "
+        "VALUES (%s,%s,now(),%s)", (run_id, item_id, json.dumps(snapshot)),
+    )
