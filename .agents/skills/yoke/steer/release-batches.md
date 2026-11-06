@@ -2,12 +2,19 @@
 
 Workers merge; steering creates runs through the connection owning the project.
 
-```text
-yoke --env CONTROL_PLANE deployment-runs create {_project} {PROD_FLOW} --environment prod --idempotency-key PROD_KEY
-yoke --env CONTROL_PLANE deployment-runs get {RUN_ID} release_lineage
-yoke --env CONTROL_PLANE deployment-runs create {_project} {FLOW} --environment {ENV} --project-repo-path {CHECKOUT} --source-ref {PINNED_SHA} --idempotency-key STAGE_KEY
-yoke --env CONTROL_PLANE watch deploy -- {RUN_ID}
+Resolve the intended full commit once and verify its CI passed. For a pair,
+use the same checkout and commit for both creates; respect any declared Stage
+or physical-QA gate before creating Production.
+
+```sh
+PINNED_SHA=$(git -C "$CHECKOUT" rev-parse HEAD)
+yoke --env CONTROL_PLANE deployment-runs create PROJECT STAGE_FLOW --environment stage --project-repo-path "$CHECKOUT" --source-ref "$PINNED_SHA" --idempotency-key STAGE_KEY
+yoke --env CONTROL_PLANE deployment-runs create PROJECT PROD_FLOW --environment prod --project-repo-path "$CHECKOUT" --source-ref "$PINNED_SHA" --idempotency-key PROD_KEY
+yoke --env CONTROL_PLANE watch deploy -- RUN_ID
 ```
+
+A correction needs a new pair on its passing commit; earlier Stage proof does
+not cover it. For single-run tip binding, see `.yoke/docs/agents/rules/release-roles.md`.
 
 Cut while member QA runs; keep the execution ID (`.yoke/docs/deployments/model/run-members.md`).
 
