@@ -8,6 +8,8 @@ resolver falls back to the identity-card org for such requests.
 
 from __future__ import annotations
 
+from runtime.api.fixtures.actor_roles import seed_project_role
+
 import pytest
 from pydantic import BaseModel
 
@@ -17,7 +19,6 @@ from yoke_core.domain.actor_permissions import (
     ROLE_ADMIN,
     ROLE_OWNER,
     grant_actor_org_role,
-    grant_actor_project_role,
     seed_roles_and_permissions,
 )
 from yoke_core.domain.auth_schema import create_auth_tables
@@ -144,7 +145,7 @@ def test_org_administration_requires_org_admin(conn, function_id, side_effects):
 def test_project_owner_is_not_enough_for_identity_admin(conn):
     yoke = resolve_project_id(conn, "yoke")
     owner = _new_actor(conn)
-    grant_actor_project_role(
+    seed_project_role(
         conn,
         actor_id=owner,
         project_id=yoke,

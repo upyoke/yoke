@@ -91,9 +91,11 @@ def _resolution(test_db, request_id):
     )
 
 
-def _selected_and_ancillary(test_db, *, selected_flow, selected_run, ancillary_flow,
-                            ancillary_run):
+def _selected_and_ancillary(
+    test_db, *, selected_flow, selected_run, ancillary_flow, ancillary_run
+):
     create_decision_request_tables(test_db)
+    _owner_authority(test_db)
     seed_gate_run(
         test_db,
         flow_id=selected_flow,
@@ -113,7 +115,8 @@ def _selected_and_ancillary(test_db, *, selected_flow, selected_run, ancillary_f
 
 
 def test_an_ancillary_run_still_waits_on_its_own_human_approval(
-    test_db, monkeypatch,
+    test_db,
+    monkeypatch,
 ):
     _selected_and_ancillary(
         test_db,
@@ -125,7 +128,10 @@ def test_an_ancillary_run_still_waits_on_its_own_human_approval(
     _done_member(test_db, 9620, completion_flow="gate-selected")
     _carry(test_db, "run-gate-ancillary", 9620)
     outcome = _evaluate(
-        test_db, monkeypatch, "run-gate-ancillary", "approve-prod",
+        test_db,
+        monkeypatch,
+        "run-gate-ancillary",
+        "approve-prod",
     )
     assert outcome.primary_success is True
     assert outcome.result_payload["satisfied"] is False
@@ -135,7 +141,8 @@ def test_an_ancillary_run_still_waits_on_its_own_human_approval(
 
 
 def test_rejecting_an_ancillary_gate_does_not_reopen_a_done_item(
-    test_db, monkeypatch,
+    test_db,
+    monkeypatch,
 ):
     owner = _owner_authority(test_db)
     _selected_and_ancillary(
@@ -148,7 +155,10 @@ def test_rejecting_an_ancillary_gate_does_not_reopen_a_done_item(
     _done_member(test_db, 9621, completion_flow="gate-selected-stay")
     _carry(test_db, "run-gate-ancillary-reject", 9621)
     pending = _evaluate(
-        test_db, monkeypatch, "run-gate-ancillary-reject", "approve-prod",
+        test_db,
+        monkeypatch,
+        "run-gate-ancillary-reject",
+        "approve-prod",
     )
     resolve_decision_request(
         test_db,
@@ -167,7 +177,8 @@ def test_rejecting_an_ancillary_gate_does_not_reopen_a_done_item(
 
 
 def test_an_already_done_member_needs_a_fresh_approval_on_a_new_ancillary_run(
-    test_db, monkeypatch,
+    test_db,
+    monkeypatch,
 ):
     owner = _owner_authority(test_db)
     _selected_and_ancillary(
@@ -190,7 +201,10 @@ def test_an_already_done_member_needs_a_fresh_approval_on_a_new_ancillary_run(
     _carry(test_db, "run-gate-ancillary-first", 9622)
     _carry(test_db, "run-gate-ancillary-second", 9622)
     first = _evaluate(
-        test_db, monkeypatch, "run-gate-ancillary-first", "approve-prod",
+        test_db,
+        monkeypatch,
+        "run-gate-ancillary-first",
+        "approve-prod",
     )
     resolve_decision_request(
         test_db,
@@ -201,7 +215,10 @@ def test_an_already_done_member_needs_a_fresh_approval_on_a_new_ancillary_run(
     )
     test_db.commit()
     second = _evaluate(
-        test_db, monkeypatch, "run-gate-ancillary-second", "approve-prod",
+        test_db,
+        monkeypatch,
+        "run-gate-ancillary-second",
+        "approve-prod",
     )
     assert second.result_payload["satisfied"] is False
     assert second.result_payload["request_status"] == "pending"

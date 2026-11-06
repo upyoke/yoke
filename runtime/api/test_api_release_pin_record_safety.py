@@ -3,7 +3,12 @@
 
 from __future__ import annotations
 
-from runtime.api.api_release_pin_record_route_test_support import (client as client, release_pin_db as release_pin_db)
+from runtime.api.fixtures.actor_roles import seed_project_role
+
+from runtime.api.api_release_pin_record_route_test_support import (
+    client as client,
+    release_pin_db as release_pin_db,
+)
 
 import json
 
@@ -35,8 +40,7 @@ def test_record_refuses_to_replace_a_configured_container_leaf(
     }
     with connect_test_db(release_pin_db["db_path"]) as conn:
         conn.execute(
-            "UPDATE environments SET settings=%s "
-            "WHERE project_id=1 AND name='stage'",
+            "UPDATE environments SET settings=%s WHERE project_id=1 AND name='stage'",
             (json.dumps(before),),
         )
         conn.commit()
@@ -108,7 +112,7 @@ def test_duplicate_slug_records_only_the_authorized_tenant_environment(
             name="tenant-two-deployment",
         )
         owner_id = seed_human_actor(conn)
-        grant_actor_project_role(
+        seed_project_role(
             conn,
             actor_id=owner_id,
             project_id=42,

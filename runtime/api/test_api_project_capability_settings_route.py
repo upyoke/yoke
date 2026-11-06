@@ -2,13 +2,17 @@
 
 from __future__ import annotations
 
+from runtime.api.fixtures.actor_roles import seed_project_role
+
 import json
 
 import pytest
 
 from runtime.api.api_items_test_helpers import _client_for_db, make_test_db_fixture
 from runtime.api.fixtures.file_test_db import connect_test_db
-from yoke_core.domain.actor_permissions import ROLE_OWNER, grant_actor_project_role
+from yoke_core.domain.actor_permissions import (
+    ROLE_OWNER,
+)
 from yoke_core.domain.actors import seed_human_actor
 from yoke_core.domain.api_tokens import mint_token
 from yoke_core.domain.project_identity import resolve_project_id
@@ -55,7 +59,7 @@ def _project_owner_headers(db_path: str, project: str) -> dict[str, str]:
     conn = connect_test_db(db_path)
     try:
         actor_id = seed_human_actor(conn)
-        grant_actor_project_role(
+        seed_project_role(
             conn,
             actor_id=actor_id,
             project_id=resolve_project_id(conn, project),

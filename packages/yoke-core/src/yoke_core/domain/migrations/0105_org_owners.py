@@ -1,5 +1,6 @@
 """Promote each organization's earliest active human admin to owner."""
 
+from yoke_contracts.refusal_recovery import compose_refusal
 from yoke_core.domain.db_backend import connection_is_postgres
 from yoke_core.domain.migration_serving_version import NEXT_RELEASE
 from yoke_core.domain.schema_common import _table_exists
@@ -44,8 +45,10 @@ def apply(conn):
 def invariants(conn):
     if _candidates(conn):
         raise AssertionError(
-            "org_owner_missing: an org with an active human admin has no owner. "
-            "Recovery: rehearse and apply the org owner migration."
+            compose_refusal(
+                "org_owner_missing: an org with an active human admin has no owner",
+                recovery="Rehearse and apply the org owner migration",
+            )
         )
     if not _table_exists(conn, "actor_org_roles"):
         return
@@ -57,6 +60,8 @@ def invariants(conn):
     ).fetchone()
     if invalid:
         raise AssertionError(
-            "invalid_person_org_role: each person must hold one human role per org. "
-            "Recovery: ask an owner to replace the person's org role."
+            compose_refusal(
+                "invalid_person_org_role: each person must hold one human role per org",
+                recovery="Ask an owner to replace the person's org role",
+            )
         )

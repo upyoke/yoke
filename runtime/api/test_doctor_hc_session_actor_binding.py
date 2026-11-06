@@ -152,7 +152,7 @@ def test_authority_fails_when_the_operating_actor_holds_no_role(conn):
     assert OPERATING_ACTOR_GRANT_REPAIR in record.detail
 
 
-def test_authority_fix_grants_the_org_admin_role(conn):
+def test_authority_fix_grants_the_org_owner_role(conn):
     _auth_schema(conn)
     actor_id = _seed_human(conn)
     _bind(conn, actor_id)
@@ -160,7 +160,7 @@ def test_authority_fix_grants_the_org_admin_role(conn):
     assert record.verdict == "PASS"
     granted = conn.execute(
         "SELECT COUNT(*) FROM actor_org_roles aor JOIN roles r ON r.id = aor.role_id "
-        "WHERE aor.actor_id = %s AND r.name = 'admin'",
+        "WHERE aor.actor_id = %s AND r.name = 'owner'",
         (actor_id,),
     ).fetchone()[0]
     assert granted == 1

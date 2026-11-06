@@ -3,6 +3,8 @@
 
 from __future__ import annotations
 
+from runtime.api.fixtures.actor_roles import seed_org_role, seed_project_role
+
 from typing import Any
 
 from runtime.api.domain.coordination_claim_test_support import (
@@ -14,7 +16,6 @@ from runtime.api.fixtures.backlog_inserts import insert_item
 
 from yoke_core.domain.actor_permissions import (
     ROLE_OWNER,
-    grant_actor_project_role,
     seed_roles_and_permissions,
 )
 
@@ -36,8 +37,14 @@ def _project(conn: Any) -> None:
     actor needs to reach another session in it."""
     seed_project(conn, PROJECT_YOKE, "yoke")
     seed_roles_and_permissions(conn)
-    grant_actor_project_role(
+    seed_project_role(
         conn, actor_id=SESSION_ACTOR_ID, project_id=PROJECT_YOKE, role_name=ROLE_OWNER
+    )
+    row = conn.execute(
+        "SELECT org_id FROM projects WHERE id=%s", (PROJECT_YOKE,)
+    ).fetchone()
+    seed_org_role(
+        conn, actor_id=SESSION_ACTOR_ID, org_id=int(row[0]), role_name="viewer"
     )
 
 

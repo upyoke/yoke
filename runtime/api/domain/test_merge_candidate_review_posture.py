@@ -7,6 +7,8 @@ requests a clearing amendment would strand.
 
 from __future__ import annotations
 
+from runtime.api.fixtures.actor_roles import seed_project_role
+
 import json
 
 import pytest
@@ -15,7 +17,6 @@ from runtime.api.fixtures.backlog_inserts import insert_item
 from runtime.api.fixtures.pg_testdb import test_database
 from yoke_core.domain.actor_permissions import (
     ROLE_OWNER,
-    grant_actor_project_role,
     seed_roles_and_permissions,
 )
 from yoke_contracts.ui_browser_origin import ui_browser_origin
@@ -59,7 +60,7 @@ def _ensure_human_owner(conn, project_id: int) -> None:
         "VALUES (%s, 'human', NULL, NOW()) ON CONFLICT DO NOTHING",
         (REVIEWER,),
     )
-    grant_actor_project_role(
+    seed_project_role(
         conn,
         actor_id=REVIEWER,
         project_id=project_id,

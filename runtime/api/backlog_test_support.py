@@ -11,6 +11,8 @@ child modules via Python import.
 
 from __future__ import annotations
 
+from runtime.api.fixtures.actor_roles import seed_project_role
+
 from runtime.api.domain.path_context_test_support import _p as _p
 
 from unittest import mock
@@ -44,7 +46,6 @@ def _seed_backlog_fixture() -> None:
     from runtime.api.fixtures.backlog import seed_test_canonical_human
     from yoke_core.domain.actor_permissions import (
         ROLE_OWNER,
-        grant_actor_project_role,
         seed_roles_and_permissions,
     )
     from yoke_core.domain.project_seed_test_helpers import (
@@ -57,7 +58,7 @@ def _seed_backlog_fixture() -> None:
         seed_project_identities(conn)
         local_human = seed_test_canonical_human(conn)
         seed_roles_and_permissions(conn)
-        grant_actor_project_role(
+        seed_project_role(
             conn,
             actor_id=local_human,
             project_id=SEED_PROJECT_IDS["yoke"],

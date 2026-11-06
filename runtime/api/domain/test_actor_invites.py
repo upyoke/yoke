@@ -24,8 +24,8 @@ from yoke_core.domain.actor_invites import (
     mark_invite_accepted,
     pending_invite_for_email,
     revoke_invite,
-    serialize_invites,
 )
+from yoke_core.domain.actor_invite_serialization import serialize_invites
 from yoke_core.domain.actor_permissions import seed_roles_and_permissions
 from yoke_core.domain.actors import seed_human_actor
 from yoke_core.domain.auth_schema import create_auth_tables
@@ -238,3 +238,21 @@ def test_public_rows_preserve_fields_and_resolve_catalog_names(conn, role, name)
     expected.update(role=role, invited_by_name=(name or "").strip() or None)
     assert serialize_invites(conn, [stored]) == [expected]
     assert serialize_invites(conn, []) == []
+
+
+def test_admin_cannot_issue_owner_invite(conn):
+    from yoke_core.domain.actor_permissions import grant_actor_org_role, role_id_by_name
+    from yoke_core.domain.actor_role import ActorRoleRefused
+
+    admin = seed_human_actor(conn)
+    org_id = default_org_id(conn)
+    grant_actor_org_role(conn, actor_id=admin, org_id=org_id, role_name="admin")
+    with pytest.raises(ActorRoleRefused, match="owner_protected"):
+        create_invite(
+            conn,
+            email="owner@example.com",
+            org_id=org_id,
+            invited_by_actor_id=admin,
+            role_id=role_id_by_name(conn, "owner"),
+        )
+    assert not list_invites(conn)

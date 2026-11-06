@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from runtime.api.fixtures.actor_roles import seed_project_role
+
 import pytest
 from pydantic import BaseModel
 
@@ -12,7 +14,6 @@ from yoke_contracts.api.function_call import (
 )
 from yoke_core.domain.actor_permissions import (
     ROLE_OWNER,
-    grant_actor_project_role,
     seed_roles_and_permissions,
 )
 from yoke_core.domain.auth_schema import create_auth_tables
@@ -37,9 +38,7 @@ def conn():
     from runtime.api.fixtures import pg_testdb
 
     name = pg_testdb.create_test_database()
-    c = pg_testdb.drop_database_on_close(
-        pg_testdb.connect_test_database(name), name
-    )
+    c = pg_testdb.drop_database_on_close(pg_testdb.connect_test_database(name), name)
     create_core_tables(c)
     seed_project_identities(c)
     create_path_registry_tables(c)
@@ -63,9 +62,12 @@ def _new_actor(conn) -> int:
 
 def _project_owner(conn, project_id: int) -> int:
     actor_id = _new_actor(conn)
-    grant_actor_project_role(
-        conn, actor_id=actor_id, project_id=project_id,
-        role_name=ROLE_OWNER, granted_by_actor_id=actor_id,
+    seed_project_role(
+        conn,
+        actor_id=actor_id,
+        project_id=project_id,
+        role_name=ROLE_OWNER,
+        granted_by_actor_id=actor_id,
     )
     return actor_id
 
@@ -100,7 +102,9 @@ def test_all_scope_uses_actor_visible_projects(conn):
     actor_id = _project_owner(conn, yoke)
 
     allowed = check_dispatch_permission(
-        conn, _entry(), _request(actor_id, {"scope": "all"}),
+        conn,
+        _entry(),
+        _request(actor_id, {"scope": "all"}),
     )
 
     assert allowed.error is None
@@ -112,7 +116,9 @@ def test_all_scope_denies_actor_with_no_readable_projects(conn):
     actor_id = _new_actor(conn)
 
     denied = check_dispatch_permission(
-        conn, _entry(), _request(actor_id, {"scope": "all"}),
+        conn,
+        _entry(),
+        _request(actor_id, {"scope": "all"}),
     )
 
     assert denied.error is not None

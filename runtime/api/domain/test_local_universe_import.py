@@ -9,7 +9,11 @@ from types import SimpleNamespace
 import psycopg
 import pytest
 
-from yoke_contracts.api.function_call import ActorContext, FunctionCallRequest, TargetRef
+from yoke_contracts.api.function_call import (
+    ActorContext,
+    FunctionCallRequest,
+    TargetRef,
+)
 from runtime.api.fixtures.operating_actor import record_fixture_operating_actor
 from yoke_core.domain.actors import seed_human_actor, sole_human_actor_id
 from yoke_core.domain.local_universe import pinned_authority
@@ -85,7 +89,7 @@ def test_local_import_replaces_data_revokes_remote_auth_and_grants_owner(
                     "SELECT COUNT(*) FROM actor_org_roles aor "
                     "JOIN actors a ON a.id = aor.actor_id "
                     "JOIN roles r ON r.id = aor.role_id "
-                    "WHERE a.kind = 'human' AND r.name = 'admin'"
+                    "WHERE a.kind = 'human' AND r.name = 'owner'"
                 ).fetchone() == (1,)
                 assert target.execute(
                     "SELECT COUNT(*) FROM api_tokens WHERE status = 'active'"
@@ -160,24 +164,30 @@ def test_import_skips_disabled_human_and_owner_can_list_tokens(
     with _universe() as (source, source_dsn):
         placeholder = sole_human_actor_id(source, oldest=True)
         assert placeholder == 1
-        source.execute("UPDATE actors SET status = 'disabled' WHERE id = %s", (placeholder,))
+        source.execute(
+            "UPDATE actors SET status = 'disabled' WHERE id = %s", (placeholder,)
+        )
         admin = seed_human_actor(source, "Active admin") if active_human else None
         if admin is not None:
             source.execute(
                 "INSERT INTO actor_org_roles "
                 "(actor_id, org_id, role_id, granted_at, granted_by_actor_id) "
                 "SELECT %s, o.id, r.id, now(), %s "
-                "FROM organizations o CROSS JOIN roles r WHERE r.name = 'admin'",
+                "FROM organizations o CROSS JOIN roles r WHERE r.name = 'owner'",
                 (admin, admin),
             )
         source.commit()
         record_fixture_operating_actor(source, placeholder)
-        archive = Path(universe_export.export_universe(dsn=source_dsn, out=tmp_path)["artifact"])
+        archive = Path(
+            universe_export.export_universe(dsn=source_dsn, out=tmp_path)["artifact"]
+        )
         target_name = pg_testdb.create_test_database()
         target_dsn = pg_testdb.dsn_for_test_database(target_name)
         try:
             if not active_human:
-                with pytest.raises(local_universe_import.LocalUniverseImportError) as refused:
+                with pytest.raises(
+                    local_universe_import.LocalUniverseImportError
+                ) as refused:
                     local_universe_import.import_universe(archive, dsn=target_dsn)
                 assert "local_import_no_active_human" in str(refused.value)
                 assert "enable a human actor" in str(refused.value)
@@ -196,9 +206,12 @@ def test_import_skips_disabled_human_and_owner_can_list_tokens(
             with pinned_authority(target_dsn):
                 response = dispatch(
                     FunctionCallRequest(
-                        function="profile.get", version="v1",
+                        function="profile.get",
+                        version="v1",
                         target=TargetRef(kind="global"),
-                        actor=ActorContext(actor_id=str(binding.actor_id), session_id=""),
+                        actor=ActorContext(
+                            actor_id=str(binding.actor_id), session_id=""
+                        ),
                         payload={},
                     ),
                     ambient_session_id="",

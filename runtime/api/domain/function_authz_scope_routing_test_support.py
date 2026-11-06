@@ -3,6 +3,8 @@
 
 from __future__ import annotations
 
+from runtime.api.fixtures.actor_roles import seed_org_role, seed_project_role
+
 import pytest
 
 from pydantic import BaseModel
@@ -11,8 +13,6 @@ from yoke_core.domain.actor_permissions import (
     ROLE_ADMIN,
     ROLE_INFRASTRUCTURE_CI,
     ROLE_OWNER,
-    grant_actor_org_role,
-    grant_actor_project_role,
     seed_roles_and_permissions,
 )
 
@@ -83,7 +83,7 @@ def _org_of(conn, project_id: int) -> int:
 
 def _project_owner(conn, project_id: int) -> int:
     actor_id = _new_actor(conn)
-    grant_actor_project_role(
+    seed_project_role(
         conn,
         actor_id=actor_id,
         project_id=project_id,
@@ -95,7 +95,7 @@ def _project_owner(conn, project_id: int) -> int:
 
 def _org_admin(conn, org_id: int) -> int:
     actor_id = _new_actor(conn)
-    grant_actor_org_role(
+    seed_org_role(
         conn,
         actor_id=actor_id,
         org_id=org_id,

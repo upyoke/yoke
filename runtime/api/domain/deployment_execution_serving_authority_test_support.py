@@ -3,6 +3,8 @@
 
 from __future__ import annotations
 
+from runtime.api.fixtures.actor_roles import seed_project_role
+
 import json
 
 import pytest
@@ -21,7 +23,6 @@ from yoke_core.api import app_factory
 
 from yoke_core.domain.actor_permissions import (
     ROLE_OWNER,
-    grant_actor_project_role,
     seed_roles_and_permissions,
 )
 
@@ -63,7 +64,7 @@ def _session(conn, actor_id: int, project_id: int, session_id: str) -> None:
 def _project_owner(conn, project: str, session_id: str):
     project_id = resolve_project_id(conn, project)
     actor_id = seed_human_actor(conn, name=f"{project} owner")
-    grant_actor_project_role(
+    seed_project_role(
         conn,
         actor_id=actor_id,
         project_id=project_id,

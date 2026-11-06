@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from runtime.api.fixtures.actor_roles import seed_human_reviewer
+
 from runtime.api.domain.workflow_item_migration_compatibility_test_support import (
     ITEM_ID as ITEM_ID,
     _item_project_id as _item_project_id,
@@ -33,6 +35,7 @@ from yoke_core.domain.work_claim_targets import make_epic_task_target, make_item
 
 
 def _seed_approval(test_db) -> None:
+    seed_human_reviewer(test_db, _item_project_id(test_db))
     verdict = evaluate_lifecycle_approval(
         test_db,
         item_id=ITEM_ID,

@@ -2,6 +2,7 @@
 
 from runtime.api.domain.test_path_claims_gate_boundary import project_repo as project_repo  # noqa: F401
 from runtime.api.domain.test_path_claims_gate_boundary import real_db as real_db  # noqa: F401
+from runtime.api.fixtures.actor_roles import seed_project_role
 
 from contextlib import closing
 from unittest.mock import patch
@@ -22,7 +23,9 @@ from yoke_contracts.public_item_contract import public_item_request_error
 from yoke_core.domain.gate_satisfier_stamp import read_rungs
 from yoke_core.domain.path_claim_boundary_gate_proof import record_boundary_proof
 from yoke_core.domain.workflow_item_binding_lock import lock_item_workflow_bindings
-from yoke_core.domain.actor_permissions import grant_actor_project_role, ROLE_OWNER
+from yoke_core.domain.actor_permissions import (
+    ROLE_OWNER,
+)
 from yoke_core.domain.projects_restart_schema import create_project_registry_tables
 from yoke_core.domain.universe_levels import create_universe_settings_table
 from yoke_core.domain.workflow_execution_instructions_schema import (
@@ -76,7 +79,7 @@ def test_public_boundary_context_observe_prove_round_trip(
         _apply_permission_schema(conn)
     _claim, lane, _context, _proof = _seed_proof_case(project_repo, real_db)
     with closing(connect_test_db(real_db)) as conn:
-        grant_actor_project_role(
+        seed_project_role(
             conn, actor_id=local_human(conn), project_id=1, role_name=ROLE_OWNER
         )
     context = local_dispatch("claims.path.boundary_context")["context"]
@@ -107,7 +110,7 @@ def test_in_process_detail_then_path_claimed_lifecycle_transition(
 ):
     with closing(connect_test_db(real_db)) as conn:
         _apply_permission_schema(conn)
-        grant_actor_project_role(
+        seed_project_role(
             conn, actor_id=local_human(conn), project_id=1, role_name=ROLE_OWNER
         )
     _seed_proof_case(project_repo, real_db)

@@ -3,6 +3,8 @@
 
 from __future__ import annotations
 
+from runtime.api.fixtures.actor_roles import seed_human_reviewer
+
 import pytest
 
 from psycopg.pq import TransactionStatus
@@ -78,6 +80,10 @@ def _materialize_two_cases(conn, *, item_id: int, commit: bool = True) -> list[i
         transition_id="implemented",
         commit=commit,
     )
+    project_id = conn.execute(
+        "SELECT project_id FROM items WHERE id=%s", (item_id,)
+    ).fetchone()[0]
+    seed_human_reviewer(conn, int(project_id), commit=commit)
     return [int(value) for value in materialized["created_requirement_ids"]]
 
 

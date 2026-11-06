@@ -68,7 +68,7 @@ def test_live_role_union_named_priority_and_authorized_resolution(conn):
     admin = pending_requests_for_actor(conn, 5)
     assert owner[0]["authority_reason"] == "project owner"
     assert named[0]["asked_of_you"] is True
-    assert admin[0]["authority_reason"] == "org admin"
+    assert admin[0]["authority_reason"] == "project owner"
     assert pending_requests_for_actor(conn, 4) == []
     assert decision_request_authority_actor_ids(conn, request["id"]) == (2, 3, 5)
 
@@ -248,21 +248,19 @@ def test_unauthorized_resolution_names_roles_humans_and_caller(conn):
     assert "Do not assign roles automatically" in message
 
 
-def test_org_admin_does_not_satisfy_owner_only_policy(conn):
+def test_org_admin_satisfies_owner_approval_rank(conn):
     request, _ = _owner_only_request(conn)
-    with pytest.raises(PermissionError, match="owner-only") as excinfo:
-        resolve_decision_request(conn, request["id"], actor_id=5, action="approve")
-    message = str(excinfo.value)
-    assert "required project owner" in message
-    assert "Org admin does not satisfy this owner-only policy" in message
-    assert "actor 2" in message
+    resolved = resolve_decision_request(
+        conn, request["id"], actor_id=5, action="approve"
+    )
+    assert resolved["status"] == "resolved"
+    assert resolved["resolution_action"] == "approve"
 
 
 def test_owner_only_with_no_human_holders_explains_empty_roster(conn):
-    conn.execute(
-        "DELETE FROM actor_project_roles WHERE actor_id = 2 AND project_id = 10"
-    )
     request, _ = _owner_only_request(conn)
+    conn.execute("DELETE FROM actor_project_roles WHERE actor_id=2 AND project_id=10")
+    conn.execute("DELETE FROM actor_org_roles WHERE actor_id=5 AND org_id=1")
     with pytest.raises(PermissionError, match="no eligible human") as excinfo:
         resolve_decision_request(conn, request["id"], actor_id=4, action="approve")
     assert "Do not assign roles automatically" in str(excinfo.value)

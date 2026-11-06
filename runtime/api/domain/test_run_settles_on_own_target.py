@@ -1,5 +1,7 @@
 """A run settles on its own target; holding is per target environment."""
 
+from runtime.api.fixtures.actor_roles import seed_project_role
+
 import json
 import pytest
 
@@ -21,7 +23,6 @@ from runtime.api.domain.status_transition_preflight_test_support import (
 from runtime.api.fixtures.backlog_inserts import insert_qa_run
 from runtime.api.fixtures.deployment_run_driver_fixture import release_seeded_driver
 from yoke_core.domain.actor_permissions import (
-    grant_actor_project_role,
     seed_roles_and_permissions,
 )
 from yoke_core.domain.deployment_qa_member_acceptance_notice import (
@@ -81,11 +82,11 @@ def test_production_holder_without_a_selection_does_not_hold_stage_obligations(
         test_db, run_id="run-stage", item_ids=(item_id,)
     )
     assert ("run-prod", item_id) not in covering_holder_pairs(
-            test_db,
-            run_id="run-stage",
-            item_ids=(item_id,),
-            holders=({"run_id": "run-prod"},),
-        )
+        test_db,
+        run_id="run-stage",
+        item_ids=(item_id,),
+        holders=({"run_id": "run-prod"},),
+    )
 
 
 def test_production_selection_naming_stage_cases_does_not_hold_them(test_db):
@@ -107,11 +108,11 @@ def test_production_selection_naming_stage_cases_does_not_hold_them(test_db):
     test_db.commit()
 
     assert ("run-prod", item_id) not in covering_holder_pairs(
-            test_db,
-            run_id="run-stage",
-            item_ids=(item_id,),
-            holders=({"run_id": "run-prod"},),
-        )
+        test_db,
+        run_id="run-stage",
+        item_ids=(item_id,),
+        holders=({"run_id": "run-prod"},),
+    )
 
 
 def test_production_run_settles_while_a_member_still_owes_stage(test_db, monkeypatch):
@@ -139,7 +140,7 @@ def test_set_aside_member_holder_gets_one_notice_naming_what_it_owes(
     item_id = 9757
     sources = _production_delivered(test_db, item_id)
     seed_roles_and_permissions(test_db)
-    grant_actor_project_role(test_db, actor_id=1, project_id=1, role_name="owner")
+    seed_project_role(test_db, actor_id=1, project_id=1, role_name="owner")
     seed_session(test_db, "set-aside-holder", project_id=1)
     _claim(
         test_db,

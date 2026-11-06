@@ -68,6 +68,7 @@ def link_external_identity(
     subject: str,
     email: Optional[str] = None,
     created_by_actor_id: Optional[int] = None,
+    commit: bool = True,
 ) -> int:
     """Bind ``(issuer, subject)`` to ``actor_id``; return the link row id.
 
@@ -92,30 +93,40 @@ def link_external_identity(
                 f"actor {existing_actor}"
             )
         return existing_id
-    cur = conn.execute(
-        "INSERT INTO actor_external_identities "
-        "(actor_id, issuer, subject, email, linked_at, created_by_actor_id) "
-        f"VALUES ({p}, {p}, {p}, {p}, {p}, {p}) RETURNING id",
-        (
-            int(actor_id),
-            issuer,
-            subject,
-            (str(email).strip() or None) if email else None,
-            instant_parameter(conn, utc_now()),
-            created_by_actor_id,
-        ),
-    )
-    link_id = int(cur.fetchone()[0])
-    conn.commit()
-    emit_identity_event(
-        EVENT_EXTERNAL_IDENTITY_LINKED,
-        context={
-            "actor_id": int(actor_id),
-            "issuer": issuer,
-            "email": email,
-            "created_by_actor_id": created_by_actor_id,
-        },
-    )
+    from yoke_core.domain.db_savepoint import savepoint
+
+    if (
+        not commit
+        and not db_backend.connection_is_postgres(conn)
+        and not conn.in_transaction
+    ):
+        conn.execute("BEGIN")
+    with savepoint(conn, "identity_link", owns=commit):
+        cur = conn.execute(
+            "INSERT INTO actor_external_identities "
+            "(actor_id, issuer, subject, email, linked_at, created_by_actor_id) "
+            f"VALUES ({p}, {p}, {p}, {p}, {p}, {p}) RETURNING id",
+            (
+                int(actor_id),
+                issuer,
+                subject,
+                (str(email).strip() or None) if email else None,
+                instant_parameter(conn, utc_now()),
+                created_by_actor_id,
+            ),
+        )
+        link_id = int(cur.fetchone()[0])
+    if commit:
+        conn.commit()
+        emit_identity_event(
+            EVENT_EXTERNAL_IDENTITY_LINKED,
+            context={
+                "actor_id": int(actor_id),
+                "issuer": issuer,
+                "email": email,
+                "created_by_actor_id": created_by_actor_id,
+            },
+        )
     return link_id
 
 

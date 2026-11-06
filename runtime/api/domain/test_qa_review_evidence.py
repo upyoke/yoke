@@ -10,6 +10,8 @@ refusing.
 
 from __future__ import annotations
 
+from runtime.api.fixtures.actor_roles import seed_human_reviewer
+
 from yoke_core.domain.decision_requests import (
     RoleAuthority,
     create_decision_request,
@@ -23,10 +25,16 @@ def test_run_not_belonging_to_requirement_returns_empty(test_db):
     """requirementA + a genuinely foreign runB (no capture link at all) must
     not surface runB's own artifacts as requirementA's evidence."""
     seeded_a = _seed_undetermined_review(
-        test_db, item_id=9507, plan_slug="review-proof-guard-a", decider_roles=("owner",)
+        test_db,
+        item_id=9507,
+        plan_slug="review-proof-guard-a",
+        decider_roles=("owner",),
     )
     seeded_b = _seed_undetermined_review(
-        test_db, item_id=9508, plan_slug="review-proof-guard-b", decider_roles=("owner",)
+        test_db,
+        item_id=9508,
+        plan_slug="review-proof-guard-b",
+        decider_roles=("owner",),
     )
 
     result = qa_review_artifact_context(
@@ -47,10 +55,16 @@ def test_pending_read_rejects_mismatched_requirement_run_pairing(test_db):
     request whose frozen subject names one requirement but another
     requirement's run must not read back that other requirement's evidence."""
     seeded_a = _seed_undetermined_review(
-        test_db, item_id=9509, plan_slug="review-proof-guard-c", decider_roles=("owner",)
+        test_db,
+        item_id=9509,
+        plan_slug="review-proof-guard-c",
+        decider_roles=("owner",),
     )
     seeded_b = _seed_undetermined_review(
-        test_db, item_id=9510, plan_slug="review-proof-guard-d", decider_roles=("owner",)
+        test_db,
+        item_id=9510,
+        plan_slug="review-proof-guard-d",
+        decider_roles=("owner",),
     )
     project_id = test_db.execute(
         "SELECT i.project_id FROM qa_requirements q "
@@ -112,10 +126,16 @@ def test_pending_read_rejects_context_requirement_disagreeing_with_subject_key(
     only that those two agree with each other, not with the request itself.
     """
     seeded_a = _seed_undetermined_review(
-        test_db, item_id=9511, plan_slug="review-proof-guard-e", decider_roles=("owner",)
+        test_db,
+        item_id=9511,
+        plan_slug="review-proof-guard-e",
+        decider_roles=("owner",),
     )
     seeded_b = _seed_undetermined_review(
-        test_db, item_id=9512, plan_slug="review-proof-guard-f", decider_roles=("owner",)
+        test_db,
+        item_id=9512,
+        plan_slug="review-proof-guard-f",
+        decider_roles=("owner",),
     )
     project_id = test_db.execute(
         "SELECT i.project_id FROM qa_requirements q "
@@ -176,7 +196,10 @@ def test_pending_read_rejects_requirement_scoped_to_a_different_project(test_db)
     requirement's actually-resolved project, since matching the identifiers
     alone never crosses paths with the project a reader is authorized in."""
     seeded = _seed_undetermined_review(
-        test_db, item_id=9513, plan_slug="review-proof-guard-g", decider_roles=("owner",)
+        test_db,
+        item_id=9513,
+        plan_slug="review-proof-guard-g",
+        decider_roles=("owner",),
     )
     requirement_id = int(seeded["requirement_id"])
     real_project_id = int(
@@ -199,6 +222,7 @@ def test_pending_read_rejects_requirement_scoped_to_a_different_project(test_db)
         "VALUES (%s, 'guard-g', 'Guard G', 'GDG', '2026-07-26T00:00:00Z', %s)",
         (wrong_project_id, wrong_org_id),
     )
+    seed_human_reviewer(test_db, wrong_project_id)
     assert wrong_project_id != real_project_id
 
     request, created = create_decision_request(
@@ -234,7 +258,9 @@ def test_pending_read_rejects_requirement_scoped_to_a_different_project(test_db)
     )
     assert created is True
 
-    [live_request] = list_subject_requests(test_db, "qa_requirement", str(requirement_id))
+    [live_request] = list_subject_requests(
+        test_db, "qa_requirement", str(requirement_id)
+    )
     assert live_request["id"] == request["id"]
     # requirement_id's own run genuinely owns an artifact (seeded by the
     # helper); staying empty proves the guard refused to enrich, not merely

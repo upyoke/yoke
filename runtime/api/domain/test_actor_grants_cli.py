@@ -8,6 +8,8 @@ own ``db_helpers.connect()`` lands there — no connection monkeypatch needed.
 
 from __future__ import annotations
 
+from runtime.api.fixtures.actor_roles import seed_org_role
+
 import pytest
 
 from yoke_core.domain import actor_grants_cli
@@ -36,7 +38,15 @@ def grantdb(test_db):
 def test_grant_org_rejects_project_role(grantdb):
     _, actor_id = grantdb
     rc = actor_grants_cli.main(
-        ["grant-org", "--actor", str(actor_id), "--org", "default", "--role", "owner"]
+        [
+            "grant-org",
+            "--actor",
+            str(actor_id),
+            "--org",
+            "default",
+            "--role",
+            "deployment_ci",
+        ]
     )
     assert rc == 2
 
@@ -51,7 +61,7 @@ def test_grant_project_rejects_org_role(grantdb):
             "--project",
             "yoke",
             "--role",
-            "admin",
+            "migration_verification_ci",
         ]
     )
     assert rc == 2
@@ -144,11 +154,19 @@ def test_grant_org_replaces_a_person_role(grantdb):
 
 
 def test_grant_project_and_list(grantdb, capsys):
-    _, actor_id = grantdb
+    conn, actor_id = grantdb
+    seed_org_role(
+        conn,
+        actor_id=actor_id,
+        org_id=org_id_by_slug(conn, "default"),
+        role_name="owner",
+    )
     assert (
         actor_grants_cli.main(
             [
                 "grant-project",
+                "--granted-by",
+                str(actor_id),
                 "--actor",
                 str(actor_id),
                 "--project",
@@ -166,7 +184,8 @@ def test_grant_project_and_list(grantdb, capsys):
 
 
 def test_revoke_project_is_idempotent(grantdb, capsys):
-    conn, actor_id = grantdb
+    conn, caller = grantdb
+    actor_id = seed_system_actor(conn, "revocation-proof")
     grant = [
         "grant-project",
         "--actor",
@@ -178,6 +197,8 @@ def test_revoke_project_is_idempotent(grantdb, capsys):
     ]
     revoke = [
         "revoke-project",
+        "--caller",
+        str(caller),
         "--actor",
         str(actor_id),
         "--project",
@@ -207,12 +228,14 @@ def test_revoke_project_rejects_org_role(grantdb):
     rc = actor_grants_cli.main(
         [
             "revoke-project",
+            "--caller",
+            str(actor_id),
             "--actor",
             str(actor_id),
             "--project",
             "yoke",
             "--role",
-            "admin",
+            "migration_verification_ci",
         ]
     )
     assert rc == 2

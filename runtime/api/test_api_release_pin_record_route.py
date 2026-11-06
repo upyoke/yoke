@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from runtime.api.fixtures.actor_roles import seed_project_role
+
 from runtime.api.api_release_pin_record_route_test_support import (
     _envelope as _envelope,
     _stored_settings as _stored_settings,
@@ -17,7 +19,6 @@ from runtime.api.fixtures.file_test_db import connect_test_db
 from yoke_core.domain.actor_permissions import (
     ROLE_DEPLOYMENT_CI,
     ROLE_INFRASTRUCTURE_CI,
-    grant_actor_project_role,
 )
 from yoke_core.domain.actors import seed_human_actor
 from yoke_core.domain.api_tokens import mint_token
@@ -40,7 +41,7 @@ def _set_capability(db_path: str, settings: dict) -> None:
 def _token_headers(db_path: str, role_name: str, project: str = "yoke") -> dict:
     with connect_test_db(db_path) as conn:
         actor_id = seed_human_actor(conn)
-        grant_actor_project_role(
+        seed_project_role(
             conn,
             actor_id=actor_id,
             project_id=resolve_project_id(conn, project),

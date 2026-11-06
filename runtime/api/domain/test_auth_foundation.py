@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from runtime.api.fixtures.actor_roles import seed_project_role
+
 from datetime import datetime, timedelta, timezone
 from typing import Any, Iterator
 
@@ -61,7 +63,7 @@ def test_actor_roles_allow_multiple_projects_and_deny_missing_role(conn):
     actor_id = seed_human_actor(conn)
     yoke_id = resolve_project_id(conn, "yoke")
     externalwebapp_id = resolve_project_id(conn, "externalwebapp")
-    grant_actor_project_role(
+    seed_project_role(
         conn,
         actor_id=actor_id,
         project_id=yoke_id,
@@ -178,7 +180,7 @@ def test_token_prefix_is_yoke_branded_and_body_is_dash_free():
         assert "-" not in token, f"token contains a dash (breaks copy): {token!r}"
 
 
-def test_bootstrap_admin_token_grants_org_admin_without_storing_raw_secret(conn):
+def test_bootstrap_admin_token_grants_org_owner_without_storing_raw_secret(conn):
     """Default shape: neutral admin name + all-access org admin grant."""
     from yoke_core.domain.api_tokens import DEFAULT_ADMIN_ACTOR_NAME
 
@@ -194,7 +196,7 @@ def test_bootstrap_admin_token_grants_org_admin_without_storing_raw_secret(conn)
         permission_key=PERM_ITEMS_WRITE,
     )
     assert decision.allowed
-    assert decision.role_names == ("admin",)
+    assert decision.role_names == ("owner",)
     rows = conn.execute(
         "SELECT COUNT(*) FROM api_tokens WHERE token_hash = %s",
         (created.raw_token,),

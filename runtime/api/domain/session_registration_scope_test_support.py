@@ -1,6 +1,8 @@
 # ruff: noqa: F401, E402
 """Shared setup for tests in this directory."""
 
+from runtime.api.fixtures.actor_roles import seed_org_role
+
 from contextlib import closing, contextmanager
 
 import json
@@ -50,7 +52,7 @@ def world(test_db, monkeypatch):
     owner = seed_human_actor(conn, "Registration member")
     stranger = seed_human_actor(conn, "Registration nonmember")
     org = default_org_id(conn)
-    actor_permissions.grant_actor_org_role(
+    actor_permissions.seed_org_role(
         conn, actor_id=owner, org_id=org, role_name="operator"
     )
     conn.commit()

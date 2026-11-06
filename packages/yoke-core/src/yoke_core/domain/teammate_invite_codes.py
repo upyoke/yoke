@@ -264,7 +264,6 @@ def redeem_invite(
                 "invite_machine_owned",
                 "this machine belongs to another actor; reconnect with a fresh machine UUID",
             )
-        require_actor_active(conn, row["invited_by_actor_id"])
         require_owner_change_allowed(
             conn,
             row["invited_by_actor_id"],

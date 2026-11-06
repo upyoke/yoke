@@ -281,8 +281,8 @@ test("approval summaries use display labels while registry ids stay internal", a
   );
 
   const descriptions = classText(root, "workflow-detail-row-description");
-  assert.ok(descriptions.includes("Proving → project owner"));
-  assert.equal(descriptions.includes("prove → project owner"), false);
+  assert.ok(descriptions.includes("Proving → owner"));
+  assert.equal(descriptions.includes("prove → owner"), false);
   mounted.unmount();
 });
 

@@ -9,6 +9,8 @@ is the one that reads a person's name and so the one a schema change breaks.
 
 from __future__ import annotations
 
+from runtime.api.fixtures.actor_roles import seed_human_reviewer
+
 from runtime.api.domain.deployment_stage_approval_operation_test_support import (
     _evaluate as _evaluate,
     _evaluate_request as _evaluate_request,
@@ -68,6 +70,10 @@ def test_the_registered_operation_reports_a_prod_role_gate_as_waiting(
     monkeypatch,
 ):
     create_decision_request_tables(test_db)
+    project_id = test_db.execute(
+        "SELECT id FROM projects WHERE slug='yoke'"
+    ).fetchone()[0]
+    seed_human_reviewer(test_db, int(project_id))
     seed_gate_run(
         test_db,
         flow_id="gate-op-prod",

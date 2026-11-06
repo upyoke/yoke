@@ -115,7 +115,7 @@ test("a non-admin reads roles as text with no seats, Disable or Invite", async (
   const { main, head } = await render({ mode: "hosted", team: { seatsLeft: 3 }, rosterResult: roster({ can_manage_actors: false }) });
   const invites = byClass(main, "actors-invites")[0];
   assert.equal(headerText(invites), "Invites· 0");
-  assert.match(invites.textContent, /Only org admins can invite people\./);
+  assert.match(invites.textContent, /Only org owners and admins can invite people\./);
   assert.equal(button(head, "Invite"), undefined);
   assert.equal(button(main, "Disable"), undefined);
   assert.equal(nodes(main, "SELECT").length, 0);

@@ -9,6 +9,8 @@ authenticated HTTP function-call route, the same shape any real caller
 
 from __future__ import annotations
 
+from runtime.api.fixtures.actor_roles import seed_project_role
+
 import pytest
 from fastapi.testclient import TestClient
 
@@ -79,7 +81,7 @@ def claim_plane():
             ),
         )
         owner_actor_id = seed_human_actor(conn, name="claim-default owner")
-        grant_actor_project_role(
+        seed_project_role(
             conn,
             actor_id=owner_actor_id,
             project_id=project_id,

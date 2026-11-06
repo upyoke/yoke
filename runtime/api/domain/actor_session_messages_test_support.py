@@ -3,6 +3,8 @@
 
 from __future__ import annotations
 
+from runtime.api.fixtures.actor_roles import seed_org_role
+
 import pytest
 
 from yoke_contracts.session_control.sender_surface import CLI_SENDER_SURFACE
@@ -12,7 +14,6 @@ from yoke_core.domain.actor_message_recipients import inbox_actor_messages
 from yoke_core.domain.actor_permissions import (
     ROLE_OPERATOR,
     ROLE_VIEWER,
-    grant_actor_org_role,
 )
 
 from yoke_core.domain.session_message_receipts import (
@@ -33,7 +34,7 @@ from runtime.api.domain.session_message_support_test_support import (
 
 def _members():
     conn = message_connection()
-    grant_actor_org_role(conn, actor_id=10, org_id=1, role_name=ROLE_OPERATOR)
-    grant_actor_org_role(conn, actor_id=11, org_id=1, role_name=ROLE_VIEWER)
+    seed_org_role(conn, actor_id=10, org_id=1, role_name=ROLE_OPERATOR)
+    seed_org_role(conn, actor_id=11, org_id=1, role_name=ROLE_VIEWER)
     conn.commit()
     return conn

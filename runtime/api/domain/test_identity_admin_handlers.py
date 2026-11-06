@@ -136,7 +136,7 @@ def test_invite_create_list_revoke_round_trip(unique, role):
 
 @pytest.mark.parametrize(
     ("role", "reason"),
-    [("owner", "not a person's org role"), ("deployment_ci", "machine-only role")],
+    [("deployment_ci", "machine-only role")],
 )
 def test_invite_create_rejects_a_role_a_person_cannot_hold(unique, role, reason):
     outcome = handle_identity_invite_create(

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from runtime.api.fixtures.actor_roles import seed_org_role
+
 import json
 import sqlite3
 from datetime import datetime, timedelta, timezone
@@ -12,7 +14,6 @@ from yoke_core.domain.actor_permissions import (
     ROLE_ADMIN,
     ROLE_OPERATOR,
     ROLE_VIEWER,
-    grant_actor_org_role,
     grant_actor_project_role,
     seed_roles_and_permissions,
 )
@@ -197,7 +198,7 @@ def message_connection(path: str = ":memory:") -> sqlite3.Connection:
         grant_actor_project_role(
             conn, actor_id=11, project_id=project_id, role_name=ROLE_VIEWER
         )
-    grant_actor_org_role(conn, actor_id=12, org_id=1, role_name=ROLE_ADMIN)
+    seed_org_role(conn, actor_id=12, org_id=1, role_name=ROLE_ADMIN)
     conn.commit()
     return conn
 

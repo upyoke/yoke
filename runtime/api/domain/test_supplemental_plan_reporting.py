@@ -1,5 +1,7 @@
 """All acceptance reports expose plan debt and its target-qualified recovery."""
 
+from runtime.api.fixtures.actor_roles import seed_project_role
+
 import json
 
 from runtime.api.domain.run_settles_plan_on_other_target_test_support import ITEM
@@ -11,7 +13,6 @@ from runtime.api.domain.deployment_qa_stage_wake_delivery_test_support import (
 from runtime.api.fixtures.supplemental_credit import plan_pair, close_group
 from yoke_core.domain.actor_permissions import (
     seed_roles_and_permissions,
-    grant_actor_project_role,
 )
 from yoke_core.domain.deployment_run_other_target_members import (
     OwedRequirement,
@@ -41,7 +42,7 @@ def test_plan_debt_appears_in_notice_blocker_and_gate_summary(
         )
     )
     seed_roles_and_permissions(test_db)
-    grant_actor_project_role(test_db, actor_id=1, project_id=1, role_name="owner")
+    seed_project_role(test_db, actor_id=1, project_id=1, role_name="owner")
     seed_session(test_db, "plan-holder", project_id=1)
     _claim(
         test_db,

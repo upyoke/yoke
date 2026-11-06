@@ -1,5 +1,7 @@
 """The creation dropdown offers writable projects, not every visible project."""
 
+from runtime.api.fixtures.actor_roles import seed_project_role
+
 from yoke_contracts.api.function_call import (
     ActorContext,
     FunctionCallRequest,
@@ -7,7 +9,6 @@ from yoke_contracts.api.function_call import (
 )
 from yoke_core.domain.actors import seed_human_actor
 from yoke_core.domain.actor_permissions import (
-    grant_actor_project_role,
     seed_roles_and_permissions,
 )
 from yoke_core.domain.handlers.projects_get import handle_projects_list
@@ -19,7 +20,7 @@ def test_creation_roster_excludes_viewer_projects(test_db):
     projects = test_db.execute("SELECT id FROM projects ORDER BY id LIMIT 2").fetchall()
     writable, readonly = (int(row[0]) for row in projects)
     for project_id, role in [(writable, "operator"), (readonly, "viewer")]:
-        grant_actor_project_role(
+        seed_project_role(
             test_db, actor_id=actor_id, project_id=project_id, role_name=role
         )
     request = FunctionCallRequest(

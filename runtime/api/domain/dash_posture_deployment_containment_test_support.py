@@ -3,6 +3,8 @@
 
 from __future__ import annotations
 
+from runtime.api.fixtures.actor_roles import seed_project_role
+
 import json
 
 import subprocess
@@ -42,6 +44,12 @@ def dash_db_path(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
                 "(id, kind, system_component, created_at) "
                 "VALUES (901, 'human', NULL, %s) ON CONFLICT DO NOTHING",
                 (iso8601_now(),),
+            )
+            project_id = conn.execute(
+                "SELECT id FROM projects WHERE slug='yoke'"
+            ).fetchone()[0]
+            seed_project_role(
+                conn, actor_id=901, project_id=int(project_id), role_name="owner"
             )
             conn.commit()
         finally:

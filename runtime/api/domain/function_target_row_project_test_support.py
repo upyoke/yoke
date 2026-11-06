@@ -3,7 +3,11 @@
 
 from __future__ import annotations
 
-from runtime.api.domain.coordination_claim_project_authority_test_support import conn as conn
+from runtime.api.fixtures.actor_roles import seed_project_role
+
+from runtime.api.domain.coordination_claim_project_authority_test_support import (
+    conn as conn,
+)
 
 import pytest
 
@@ -15,7 +19,6 @@ from yoke_contracts.api.function_call import (
 
 from yoke_core.domain.actor_permissions import (
     ROLE_OWNER,
-    grant_actor_project_role,
     seed_roles_and_permissions,
 )
 
@@ -61,7 +64,7 @@ def _project_owner(conn, project_id: int) -> int:
         "VALUES ('human', '2026-01-01T00:00:00Z') RETURNING id"
     )
     actor_id = int(cur.fetchone()[0])
-    grant_actor_project_role(
+    seed_project_role(
         conn,
         actor_id=actor_id,
         project_id=project_id,

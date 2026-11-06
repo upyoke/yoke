@@ -23,7 +23,7 @@ def _owners(conn: Any, kind: str, scope_id: int, *, active: bool = True) -> set[
 def require_owner_change_allowed(
     conn: Any,
     caller: int | None,
-    target: int,
+    target: int | None,
     scope: tuple[str, int],
     new_role: str | None,
 ) -> None:
@@ -82,7 +82,9 @@ def require_owner_change_allowed(
         )
 
 
-def seed_bootstrap_owner(conn: Any, actor_id: int, org_id: int) -> None:
+def seed_bootstrap_owner(
+    conn: Any, actor_id: int, scope_id: int, *, scope_kind: str = "org"
+) -> None:
     """Seed the first owner only in a universe with exactly one active person.
 
     Local birth and explicit token bootstrap own this initial authority; normal
@@ -96,16 +98,18 @@ def seed_bootstrap_owner(conn: Any, actor_id: int, org_id: int) -> None:
 
     from yoke_core.domain.db_savepoint import savepoint
 
+    if scope_kind not in ("org", "project"):
+        raise ValueError("owner scope must be org or project")
     if not db_backend.connection_is_postgres(conn) and not conn.in_transaction:
         conn.execute("BEGIN")
     with savepoint(conn, "initial_owner", owns=False):
         p = "%s" if db_backend.connection_is_postgres(conn) else "?"
         lock = " FOR UPDATE" if db_backend.connection_is_postgres(conn) else ""
         conn.execute(f"SELECT id FROM organizations ORDER BY id{lock}").fetchall()
-        owners = _owners(conn, "org", org_id)
+        owners = _owners(conn, scope_kind, scope_id)
         if actor_id in owners:
             require_owner_change_allowed(
-                conn, actor_id, actor_id, ("org", org_id), "owner"
+                conn, actor_id, actor_id, (scope_kind, scope_id), "owner"
             )
             return
         if owners or sole_human_actor_id(conn) != actor_id:
@@ -116,14 +120,17 @@ def seed_bootstrap_owner(conn: Any, actor_id: int, org_id: int) -> None:
                     recovery="Ask an existing owner to grant owner to this person",
                 ),
             )
+        if scope_kind == "org":
+            conn.execute(
+                f"DELETE FROM actor_org_roles WHERE actor_id={p} AND org_id={p}",
+                (actor_id, scope_id),
+            )
         conn.execute(
-            f"DELETE FROM actor_org_roles WHERE actor_id={p} AND org_id={p}",
-            (actor_id, org_id),
-        )
-        conn.execute(
-            "INSERT INTO actor_org_roles "
-            "(actor_id,org_id,role_id,granted_at,granted_by_actor_id) "
+            f"INSERT INTO actor_{scope_kind}_roles "
+            f"(actor_id,{scope_kind}_id,role_id,granted_at,granted_by_actor_id) "
             f"SELECT {p},{p},id,{p},{p} FROM roles WHERE name='owner'",
-            (actor_id, org_id, instant_parameter(conn, utc_now()), actor_id),
+            (actor_id, scope_id, instant_parameter(conn, utc_now()), actor_id),
         )
-        require_owner_change_allowed(conn, actor_id, actor_id, ("org", org_id), "owner")
+        require_owner_change_allowed(
+            conn, actor_id, actor_id, (scope_kind, scope_id), "owner"
+        )
