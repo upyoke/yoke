@@ -263,7 +263,6 @@ class ProducerLiteralCleanupTest(unittest.TestCase):
         # Allow-path rows surface as INFO (no warning when the call
         # passed); deny / fail-open / health-check rows surface as WARN.
         expected = {
-            "SessionCwdMismatchAllowedReadOnly": "INFO",
             "LaneMainWriteEscapeUsed": "INFO",
             "LaneMainWriteStrandedLane": "INFO",
             "LaneMainWriteDenied": "WARN",

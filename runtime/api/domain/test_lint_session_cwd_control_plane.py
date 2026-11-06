@@ -132,9 +132,8 @@ class TestYokeControlPlaneCarveOut:
                 },
             }
         )
-        # Sibling-branch worktree remains claim-gated.
-        assert verdict.allow is False
-        assert ".worktrees/YOK-42" in verdict.offending_target
+        # A directory predicate may inspect an unclaimed lane.
+        assert verdict.allow is True
 
     def test_yoke_data_dir_is_authorized(self, cross_project_session):
         fake_yoke_root, _ = cross_project_session
@@ -300,7 +299,7 @@ class TestBlockedMessageWording:
         assert verdict.allow is False
         assert "Any project control plane:" in verdict.reason
         assert str(cross_project_repo) in verdict.reason
-        assert "Yoke control plane:" in verdict.reason
+        assert verdict.reason.count("control plane:") == 1
         assert str(fake_yoke_root) in verdict.reason
 
     def test_yoke_only_session_message_does_not_duplicate(

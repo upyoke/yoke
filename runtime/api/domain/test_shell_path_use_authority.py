@@ -36,7 +36,6 @@ def isolated_authority(monkeypatch):
     monkeypatch.setattr(authority, "_recorded_repo_roots", lambda _c: [ROOT])
     monkeypatch.setattr(authority, "occupying_claim", lambda *_a, **_k: None)
     monkeypatch.setattr(guard, "emit_deny_and_build_audit", lambda _v: {})
-    monkeypatch.setattr(guard, "emit_mismatch_allowed_read_only", lambda **_k: None)
 
     def unexpected_failure(**facts):
         raise AssertionError(f"Replay attempted a fail-open: {facts}")

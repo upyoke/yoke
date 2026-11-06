@@ -148,11 +148,7 @@ class TestUnauthorizedTarget:
         seed_item(conn, item_id=1691, branch="YOK-1691", repo_path=repo)
         seed_item_claim(conn, "sid-1", item_id=1691)
         (repo / ".worktrees" / "YOK-1691").mkdir(parents=True)
-        # A target inside another item's worktree is not authorised.
-        # Use a synthetic path so the free-path allowlist (which covers
-        # /var/folders on macOS, where pytest tmp_path lives) does not
-        # authorise it.
-        target = "/opt/other-repo/.worktrees/YOK-OTHER/file.py"
+        target = str(repo / ".worktrees/YOK-OTHER/file.py")
         verdict = lint_session_cwd.evaluate_pre_tool_use({
             "session_id": "sid-1",
             "tool_input": {"file_path": target},

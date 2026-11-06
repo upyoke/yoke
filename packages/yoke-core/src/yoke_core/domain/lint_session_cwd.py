@@ -11,7 +11,6 @@ from typing import Any, Mapping, Optional, Sequence
 
 from yoke_contracts.hook_runner.denial_identity import attach_check_id
 from yoke_contracts.hook_runner.shell_parse import ShellParse, parse_shell
-from yoke_core.domain.path_claim_bash_substitution import executable_substitutions
 from yoke_core.domain.lint_lane_main_write_classify import is_write_operation
 from yoke_core.domain.lint_session_cwd_control_plane import (
     SCOPE_MISMATCH_TEMPLATE as SCOPE_MISMATCH_TEMPLATE,
@@ -20,12 +19,7 @@ from yoke_core.domain.lint_session_cwd_control_plane import (
 )
 from yoke_core.domain.lint_session_cwd_emit import (
     emit_fail_open,
-    emit_mismatch_allowed_read_only,
     emit_deny_and_build_audit,
-)
-from yoke_core.domain.lint_session_cwd_read_only_signatures import (
-    _match_simple,
-    match_read_only_signature,
 )
 from yoke_core.domain.lane_occupancy import LaneOccupant
 from yoke_core.domain.lint_session_cwd_identity import (
@@ -65,23 +59,6 @@ class Verdict:
     failure_class: str = "scope_mismatch"
     occupant: Optional[LaneOccupant] = None
     authority_reason: str = ""
-
-
-def _yoke_call_signature(parsed: ShellParse) -> Optional[str]:
-    """``yoke-adapter`` for a call with no path operands whose segments are
-    ``yoke`` calls or reads: the server decides a ``yoke`` call's authority."""
-    segments = parsed.segments
-    if parsed.unparsed or not segments:
-        return None
-    if not any(segment.argv[:1] == ("yoke",) for segment in segments):
-        return None
-    for segment in segments:
-        is_yoke = segment.argv[:1] == ("yoke",) and not executable_substitutions(
-            segment.text
-        )[1]
-        if not (is_yoke or _match_simple(segment)):
-            return None
-    return "yoke-adapter"
 
 
 def _open_conn():
@@ -155,22 +132,6 @@ def evaluate_pre_tool_use(
             claims=outcome.claims,
             repo_roots=outcome.repo_roots,
         )
-
-    # Orientation with no operands may use its established read signature.
-    if not targets:
-        signature = match_read_only_signature(parsed) or _yoke_call_signature(parsed)
-        if signature:
-            emit_mismatch_allowed_read_only(
-                session_id=outcome.session_id,
-                read_only_signature=signature,
-                claim_count=len(outcome.claims),
-            )
-            return Verdict(
-                allow=True,
-                session_id=outcome.session_id,
-                claims=outcome.claims,
-                repo_roots=outcome.repo_roots,
-            )
 
     reason, authority_reason = build_denial_reason(
         outcome,
