@@ -23,6 +23,7 @@ def lock_status_write_precondition(
     observed_workflow_version_id: int,
     expected_status: Optional[str],
     expected_workflow_version_id: Optional[int],
+    commit: bool = True,
 ) -> Optional[dict[str, Any]]:
     """Lock the item and reject validation performed against stale state."""
     lock_item_workflow_bindings(conn, (int(item_id),))
@@ -33,7 +34,8 @@ def lock_status_write_precondition(
     ).fetchone()
     if row is None:
         public_ref = render_item_ref(conn, int(item_id))
-        conn.rollback()
+        if commit:
+            conn.rollback()
         return {
             "success": False,
             "error": f"Item {public_ref} no longer exists",
@@ -51,7 +53,8 @@ def lock_status_write_precondition(
     )
     if live_status == required_status and live_version == required_version:
         return None
-    conn.rollback()
+    if commit:
+        conn.rollback()
     return {
         "success": False,
         "error": (
@@ -74,6 +77,7 @@ def apply_prepared_item_writes(
     field_writes: dict[str, Any],
     expected_status: Optional[str],
     expected_workflow_version_id: Optional[int],
+    commit: bool = True,
 ) -> Optional[dict[str, Any]]:
     """Apply prepared writes behind the final workflow/status comparison."""
     filtered = {
@@ -90,6 +94,7 @@ def apply_prepared_item_writes(
                 observed_workflow_version_id=int(item["workflow_version_id"]),
                 expected_status=expected_status,
                 expected_workflow_version_id=expected_workflow_version_id,
+                commit=commit,
             )
             if stale is not None:
                 return stale

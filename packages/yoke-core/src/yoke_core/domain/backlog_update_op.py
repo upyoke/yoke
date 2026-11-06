@@ -99,6 +99,7 @@ def _execute_update_once(
                 observed_workflow_version_id=int(validated_workflow_version_id),
                 expected_status=expected_status,
                 expected_workflow_version_id=validated_workflow_version_id,
+                commit=owns_conn,
             )
             if stale is not None:
                 return stale
@@ -284,6 +285,7 @@ def _execute_update_once(
             field_writes=mutation_result.field_writes,
             expected_status=expected_status,
             expected_workflow_version_id=validated_workflow_version_id,
+            commit=owns_conn,
         )
         if stale is not None:
             return stale
