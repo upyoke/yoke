@@ -60,15 +60,26 @@ def transfer_qa_on(
     """
     from yoke_core.domain.deployment_qa_plan_groups import group_marker, run_groups
 
-    open_groups = {group.group_id for group in run_groups(conn, old_id) if group.open}
+    groups = run_groups(conn, old_id)
+    open_groups = {group.group_id for group in groups if group.open}
+    adopted_groups = set()
+    if not include_run_qa:
+        from yoke_core.domain.deployment_qa_member_plans import members_plan_ids
+        from yoke_core.domain.deployment_qa_plan_groups import attached_plans
+
+        owed = members_plan_ids(conn, moving, new_id)
+        old_attached = attached_plans(conn, old_id)
+        selected = {plan for plans in owed.values() for plan in plans}
+        adopted_groups = {g.group_id for g in groups
+                          if g.open and g.plan_id in selected and not old_attached.get(g.plan_id)}
 
     def moves(row: Mapping) -> bool:
         member = row["deployment_member_item_id"]
         if member is not None:
             return int(member) in moving
-        if not include_run_qa:
-            return False
         marker = group_marker(row["execution_target_json"])
+        if not include_run_qa:
+            return marker is not None and str(marker["group_id"]) in adopted_groups
         return marker is None or str(marker["group_id"]) in open_groups
 
     from yoke_core.domain.deployment_qa_plan_ownership import transfer_plan_owners

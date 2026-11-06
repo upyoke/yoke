@@ -136,7 +136,7 @@ def test_resume_sets_aside_a_reopened_member_outside_the_lineage(
     assert _members(test_db) == {SIBLING}
     (removal,) = membership_removals(test_db, RUN)
     assert removal["item_id"] == REOPENED
-    assert "awaiting a later release" in removal["reason"]
+    assert "awaiting enrollment in a later release" in removal["reason"]
     assert (
         test_db.execute("SELECT status FROM items WHERE id=%s", (REOPENED,)).fetchone()[
             "status"
@@ -246,5 +246,6 @@ def test_failed_run_start_uses_the_reopened_member_rule(
         candidate_containment_basis(test_db, RUN),
         lambda slug: str(tmp_path / "release-project"), run_id=RUN,
     )
+    test_db.commit()  # The basis set-aside belongs to its caller transaction.
     assert cmd_update(RUN, "status", "executing", candidate_containment=attestation) is None
     assert _members(test_db) == expected_members

@@ -26,9 +26,9 @@ def _waiting_run(conn: Any, new_run: Mapping[str, Any]) -> Optional[dict]:
     )
     if row is not None:
         stages = pinned_stages(conn, str(row["id"]))
-        eligible = not row["settling_at"] and (row["status"] in {"created", "failed"} or (
+        eligible = row["status"] in {"created", "failed"} or (
             row["status"] == "executing" and _waits_only_on_qa(row, stages)
-        ))
+        )
         if eligible and (row["status"] in {"created", "failed"}
                          or open_qa_lines(conn, str(row["id"]), first_wait=True)):
             return {**dict(row), "stages": stages}

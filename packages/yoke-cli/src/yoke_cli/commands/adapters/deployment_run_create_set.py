@@ -59,7 +59,7 @@ def create_release_set(parsed, flows, payload, human_writer):
         for run_id in reversed(made):
             cancelled = call_dispatcher(
                 function_id="deployment_runs.terminalize",
-                target=TargetRef(kind="deployment_run", workflow_run_id=run_id),
+                target=TargetRef(kind="workflow_run", workflow_run_id=run_id),
                 payload={"disposition": "cancelled",
                          "reason": "release set creation refused; cancelling earlier creates"},
                 actor=actor,
