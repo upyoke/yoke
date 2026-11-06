@@ -1,4 +1,4 @@
-"""Queue-order reads need only PR authority and must never hide entries."""
+"""Queue reads and mutations request the permissions their operations need."""
 
 from copy import deepcopy
 from types import SimpleNamespace
@@ -82,3 +82,32 @@ def test_paginated_queue_order_is_incomplete(monkeypatch, private):
     members, error = _read(monkeypatch, payload, private)
     assert members is None
     assert "queue_order_incomplete" in error
+
+
+@pytest.mark.parametrize("operation", [
+    queue.enter_merge_queue, queue.leave_merge_queue, queue.dequeue_pull_request,
+])
+def test_queue_mutations_request_contents_and_pull_requests_write(monkeypatch, operation):
+    permissions = {"pull_requests": "write", "contents": "write"}
+    auth = SimpleNamespace(token="installation", repo="owner/repo")
+    calls = []
+
+    def resolve(ctx, required_permissions, *, required_authority):
+        assert required_permissions == permissions
+        assert required_authority == queue.GITHUB_AUTHORITY_INSTALLATION
+        calls.append("resolve")
+        return auth, None
+
+    def mutate(resolved, *, query, variables, required_permissions):
+        assert resolved is auth
+        assert required_permissions == permissions
+        assert variables == {"pullRequestId": "pr-node"}
+        calls.append(query)
+        return {}, None
+
+    monkeypatch.setattr(queue, "resolve_auth_detail", resolve)
+    monkeypatch.setattr(queue, "_pr_node_id", lambda resolved, number: ("pr-node", None))
+    monkeypatch.setattr(queue, "graphql_with_auth", mutate)
+    result = operation(_ctx(), "42")
+    assert result.success
+    assert len(calls) == 2

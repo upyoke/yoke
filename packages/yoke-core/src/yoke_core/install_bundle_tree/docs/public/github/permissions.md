@@ -150,7 +150,9 @@ are unreadable, rather than proof that no matching work exists.
 **Contents: write** — Delivering your code over git. Pushing the worktree
 branch, pushing the base branch when it is ahead, **merging the PR** (`PUT
 …/pulls/{n}/merge`), committing the done-state, deleting the now-merged branch,
-and pushing preview branches for push-triggered environments. Reading
+and pushing preview branches for push-triggered environments. Arming and
+disarming merge-when-ready, and dequeuing a pull request, request Contents:
+write together with Pull requests: write. Reading
 repository files (e.g. checking a deploy workflow file during setup) rides the
 same grant. Git talks to GitHub over HTTPS using a short-lived token
 (`x-access-token`), and the token is never written to your `.git/config` or the

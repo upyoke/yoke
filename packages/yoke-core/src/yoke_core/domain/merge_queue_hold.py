@@ -62,9 +62,8 @@ _MAX_PASSES = 2
 #: Why a hold can refuse before touching GitHub, and where it can succeed.
 #: Holding a live candidate is an operator act, so this requires the
 #: operator's bound GitHub authorization rather than falling back to the
-#: installation. A relayed hold runs where no such authorization exists
-#: and says so instead of substituting the App, whose attempt was observed
-#: refused with nothing named.
+#: installation. A relayed hold without that authorization refuses rather
+#: than substituting App authority for the operator's decision.
 USER_AUTHORITY_RECOVERY = (
     "holding a live candidate requires bound operator GitHub "
     "authorization, and this process has none; run `yoke github "
