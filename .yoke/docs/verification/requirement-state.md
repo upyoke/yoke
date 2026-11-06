@@ -257,18 +257,17 @@ predecessor when no passing same-scope case exists. Links held by a waived or
 retracted row carry no obligation. The gate and the writer guards read one rule,
 so any change to the scope rule reaches both.
 
-Failing or cancelling a deployment run aborts its live plan executions and
-retracts its unsettled run-bound requirements in the same transaction. Host
-reservations and leases release through execution settlement. An execution
-already under a recorded abort is left to that abort: it keeps its host until
-its own cleanup proof settles it. Current passing
-evidence and standing item plans remain; a later release materializes fresh
-copies. Retraction records the run and reason; it grants no passing verdict.
-Retrying a failed run restores only its automatic retractions and requires a
-new walk; manual retractions and terminal execution histories remain intact.
+A failed deployment run keeps open requirements and in-flight executions,
+including failed cases, until retry or takeover by a later containing release
+on the same flow and target. Requirement and execution IDs, history and host
+custody survive. A rebound target keeps its immutable `deployment.starting_run_id`.
+Cancellation aborts live executions and retracts unsettled requirements in the
+same transaction; passing proof and standing plans remain. An execution
+already under a recorded abort keeps its host until cleanup proof settles it.
 
-Removing a member (`yoke deployment-runs remove-item`, or a run takeover)
-aborts that member's live executions with reason `deployment-member-removed`.
+A takeover moves QA ownership without aborting or retracting it. Ordinary
+member removal (`yoke deployment-runs remove-item`) aborts that member's live
+executions with reason `deployment-member-removed`.
 A runner checked in on a host case, or a mission walk holding its Test Machine,
 instead keeps custody and heartbeat authority under the cooperative abort `yoke
 qa plan abort` records. Its check-in reports `abort_requested`; its cleanup

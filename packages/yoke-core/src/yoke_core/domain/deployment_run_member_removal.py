@@ -187,7 +187,7 @@ def cmd_remove_item(
                 conn,
                 run_id,
                 lambda: read_removal(conn, run_id=run_id, item_ids=(int(item_id),)),
-                holds=lambda answer: answer.projection.holds(conn),
+                holds=lambda answer: answer.holds(conn),
                 items=(int(item_id),),
             )
             if current.refusal is not None:

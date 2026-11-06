@@ -4,7 +4,7 @@ Each row is one open manual-wake requirement of a waiting deployment-run
 member (:mod:`deployment_qa_manual_wake`). The stage driver already woke its
 owner to check the named evidence; the member's own line shows that wake's
 state. A row stays until the case records a run, or is waived, superseded or
-retracted, so a row that lingers is a waiver decision for the operator.
+retracted; missing evidence stays parked for the next release takeover.
 """
 
 from __future__ import annotations
@@ -18,8 +18,8 @@ from yoke_core.domain.steering_fleet_report_deployment_runs import (
 from yoke_core.domain.steering_fleet_report_render_text import SECTION_LIMIT, capped
 
 MANUAL_WAKE_HEADING = (
-    "waiting on manual wake — each owner was woken to check its evidence; if "
-    "this run cannot produce it, ask the operator to waive or remove the case"
+    "waiting on manual wake — Evidence not available on this release yet: "
+    "stay parked; the case rides the next release takeover"
 )
 
 

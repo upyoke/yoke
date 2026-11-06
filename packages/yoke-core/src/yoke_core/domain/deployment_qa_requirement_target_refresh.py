@@ -66,13 +66,19 @@ def rebind_subject(conn, *, subject, target):
                 carried_digest = recorded_execution_target_digest(
                     attempts[requirement_id]["raw_result"]
                 )
+            rebound_target = {**target, "deployment": {
+                **target["deployment"],
+                "starting_run_id": stored["deployment"].get(
+                    "starting_run_id", stored["deployment"]["run_id"]
+                ),
+            }}
             conn.execute(
                 "UPDATE qa_requirements SET execution_target_json=%s,"
                 "execution_target_digest=%s,rebound_from_target_json=%s,"
                 "rebound_from_digest=%s,rebound_at=%s,rebind_rationale=%s WHERE id=%s",
                 (
-                    canonical_target(target),
-                    target_digest(target),
+                    canonical_target(rebound_target),
+                    target_digest(rebound_target),
                     canonical_target(stored),
                     carried_digest,
                     instant_parameter(conn, utc_now()),

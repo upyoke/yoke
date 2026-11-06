@@ -263,9 +263,11 @@ def _acquire(request: int, stream: TextIO) -> tuple[object | None, int | None]:
 def granted_workers(
     pytest_args: Sequence[str],
     env: Mapping[str, str],
-    stream: TextIO = sys.stderr,
+    stream: TextIO | None = None,
 ) -> Iterator[Grant]:
     """Hold this run's share of the machine's workers for its duration."""
+    if stream is None:
+        stream = sys.stderr
     request = requested_workers(pytest_args, env)
     if os.environ.get(HELD_ENV):
         yield Grant(None, request)

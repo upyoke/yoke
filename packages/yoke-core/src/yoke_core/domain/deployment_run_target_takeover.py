@@ -89,7 +89,7 @@ def _waiting_run(conn: Any, new_run: Mapping[str, Any]) -> Optional[dict]:
     for row in rows:
         stages = pinned_stages(conn, str(row["id"]))
         eligible = (
-            row["status"] == "failed" and not row["settling_at"]
+            row["status"] == "failed"
         ) or _waits_only_on_qa(row, stages)
         if eligible and open_qa_lines(conn, str(row["id"]), first_wait=True):
             return {**dict(row), "stages": stages}
@@ -155,10 +155,6 @@ def take_over_waiting_run(
 
 
 def _take_over(conn, new_run_id, *, session_id, actor_id, apply):
-    from yoke_core.domain.deployment_run_member_admission import (
-        MemberAdmission,
-        admit_run_items,
-    )
     from yoke_core.domain.deployment_run_qa_transfer import transfer_qa_on
     from yoke_core.domain.deployment_run_membership_removals import (
         record_membership_removals,
@@ -216,13 +212,12 @@ def _take_over(conn, new_run_id, *, session_id, actor_id, apply):
         "the member's QA continues there"
     )
     ids = [int(member["item_id"]) for member in moving]
-    # Preserve the original admission snapshots and selection. Admission still
-    # validates the successor, but cannot replace the obligations already owed.
-    memberships = query_rows(
-        conn,
-        "SELECT item_id,requirement_selection,requirement_snapshot "
-        "FROM deployment_run_items WHERE run_id=%s AND item_id=ANY(%s) ORDER BY item_id",
-        (old_id, ids),
+    from yoke_core.domain.workflow_delivery_binding_validation import validate_deployment_run_members
+
+    # Established admission may be reopened, but still needs carried source
+    # and a valid workflow pin in the successor.
+    validate_deployment_run_members(
+        conn, run_id=new_run_id, item_ids=ids, attached=True, frozen=True
     )
     transfer_qa_on(
         conn,
@@ -230,29 +225,22 @@ def _take_over(conn, new_run_id, *, session_id, actor_id, apply):
         new_id=new_run_id,
         moving=set(ids),
     )
+    # These are established members, including reopened work. Preserve the
+    # admission rather than applying new-member delivery-readiness rules.
+    conn.execute(
+        "INSERT INTO deployment_run_items "
+        "(run_id,item_id,added_at,delivery_intent,requirement_selection,requirement_snapshot) "
+        "SELECT %s,item_id,added_at,delivery_intent,requirement_selection,requirement_snapshot "
+        "FROM deployment_run_items WHERE run_id=%s AND item_id=ANY(%s) "
+        "ON CONFLICT (run_id,item_id) DO UPDATE SET "
+        "delivery_intent=EXCLUDED.delivery_intent,requirement_selection=EXCLUDED.requirement_selection,"
+        "requirement_snapshot=EXCLUDED.requirement_snapshot",
+        (new_run_id, old_id, ids),
+    )
     conn.execute(
         "DELETE FROM deployment_run_items WHERE run_id=%s AND item_id=ANY(%s)",
         (old_id, ids),
     )
-    admit_run_items(
-        conn,
-        run_id=new_run_id,
-        members=[
-            MemberAdmission(int(m["item_id"]), m["delivery_intent"]) for m in moving
-        ],
-    )
-    if memberships:
-        conn.execute(
-            "UPDATE deployment_run_items m SET requirement_selection=v.selection, "
-            "requirement_snapshot=v.snapshot FROM unnest(%s::bigint[],%s::text[],%s::text[]) "
-            "AS v(item_id,selection,snapshot) WHERE m.run_id=%s AND m.item_id=v.item_id",
-            (
-                ids,
-                [m["requirement_selection"] for m in memberships],
-                [m["requirement_snapshot"] for m in memberships],
-                new_run_id,
-            ),
-        )
     if apply:
         record_membership_removals(
             conn,

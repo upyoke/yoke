@@ -1,4 +1,4 @@
-"""Retrying a failed deployment owes the QA its failure retired."""
+"""Retrying a failed deployment continues its open QA and preserves manual retirements."""
 
 import pytest
 
@@ -18,7 +18,7 @@ from yoke_core.domain.qa_plan_attachment_retract import retract_requirements
 
 
 @pytest.mark.parametrize("manual_source", [None, "operator", "agent"])
-def test_failed_run_retry_owes_a_new_qa_walk(test_db, monkeypatch, manual_source):
+def test_failed_run_retry_continues_its_live_qa_walk(test_db, monkeypatch, manual_source):
     run_id, item_id = "run-retry-retired-qa", 9754
     _seed_run(
         test_db,
@@ -54,12 +54,9 @@ def test_failed_run_retry_owes_a_new_qa_walk(test_db, monkeypatch, manual_source
         session_id="driver",
     )
     test_db.commit()
-    assert (
-        test_db.execute(
-            "SELECT retracted_at FROM qa_requirements WHERE id=%s", (requirement_id,)
-        ).fetchone()[0]
-        is not None
-    )
+    assert (test_db.execute(
+        "SELECT retracted_at FROM qa_requirements WHERE id=%s", (requirement_id,)
+    ).fetchone()[0] is not None) is bool(manual_source)
     # The fixture carries a synthetic revision; Git containment is separately
     # proven by the source-binding tests, not by this QA recovery check.
     monkeypatch.setattr(
@@ -99,11 +96,11 @@ def test_failed_run_retry_owes_a_new_qa_walk(test_db, monkeypatch, manual_source
         actor_id="2",
         session_id="retry-qa",
     )
-    assert after["id"] != before["id"]
+    assert after["id"] == before["id"]
     assert int(after["roster"][0]["requirement_id"]) == requirement_id
     assert (
         test_db.execute(
             "SELECT state FROM qa_plan_executions WHERE id=%s", (before["id"],)
         ).fetchone()[0]
-        == "aborted"
+        == "active"
     )

@@ -108,6 +108,12 @@ class _AdmissionPlan:
 
 def _plan_admission(conn, run_id):
     """Ask every question that grows with the run while no lock is held."""
+    if has_frozen_composition(conn, run_id):
+        from yoke_core.domain.deployment_run_reopened_members import frozen_member_readiness
+
+        refused, _notice = frozen_member_readiness(conn, run_id)
+        if refused:
+            raise ValueError("Items not delivery-ready: " + ", ".join(refused))
     invalidate_run_source_facts(conn, run_id)
     item_ids = member_ids(conn, run_id)
     try:

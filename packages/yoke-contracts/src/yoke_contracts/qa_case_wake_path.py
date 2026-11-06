@@ -7,7 +7,7 @@ then claimed". Run at stage entry, they fail or prove nothing, so they declare
 ``wake_path: "manual"`` and a one-line ``wake_evidence`` naming the evidence a
 registered read can confirm first. The stage driver wakes the owner with one
 notice per open manual case that names the evidence: the owner checks it, runs
-the case if it exists, and otherwise asks the operator for a waiver.
+the case if it exists, and otherwise stays parked for the next release takeover.
 
 The method, runner and verdict path are unchanged: a manual case runs exactly
 like an automatic one once its owner is woken. The field mirrors

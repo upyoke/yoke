@@ -32,17 +32,14 @@ from yoke_core.domain.deployment_runs_lock import RUN_BUSY_CODE, DeploymentRunBu
 from yoke_core.domain.yoke_function_registry import RegistryEntry
 
 from yoke_core.domain.qa_plan_lock import QA_PLAN_BUSY_CODE, QaPlanBusy
-from yoke_core.domain.yoke_function_dispatch_idempotency import IDEMPOTENCY_BUSY_CODE
+from yoke_contracts.lock_retry import RETRYABLE_LOCK_CODES
 
 LOCK_TIMEOUT_CODE = "lock_timeout"
 STATEMENT_CANCELLED_CODE = "statement_cancelled"
 
 #: Codes whose call wrote nothing durable in its open transaction and may be
 #: repeated once the holder finishes.
-RETRYABLE_LOCK_CODES = frozenset(
-    {RUN_BUSY_CODE, QA_PLAN_BUSY_CODE, IDEMPOTENCY_BUSY_CODE,
-     LOCK_TIMEOUT_CODE, STATEMENT_CANCELLED_CODE}
-)
+
 
 #: Pauses before each repeat of a call refused with one of those codes: 15s,
 #: 30s, then 60s capped, six repeats in all (about six minutes) before the

@@ -197,7 +197,7 @@ def _stage_members(
         public_ref = str(member["public_ref"])
         conn.execute(f"SAVEPOINT {_MEMBER_SAVEPOINT}")
         try:
-            written = stage_member_close(conn, item_id=item_id, public_ref=public_ref)
+            written = stage_member_close(conn, item_id=item_id, public_ref=public_ref, run_id=run_id)
         except Exception as exc:  # noqa: BLE001 - named as this member's blocker
             _end_savepoint(conn, public_ref, keep=False, run_id=run_id)
             refusals[item_id] = str(exc) or exc.__class__.__name__

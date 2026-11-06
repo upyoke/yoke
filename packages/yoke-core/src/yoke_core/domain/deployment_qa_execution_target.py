@@ -237,6 +237,11 @@ def _resolve_execution_target(conn: Any, subject: Mapping[str, Any]) -> dict:
         },
         "deployment": {
             "run_id": str(subject["id"]),
+            "starting_run_id": ((frozen or {}).get("deployment") or {}).get(
+                "starting_run_id", ((frozen or {}).get("deployment") or {}).get(
+                    "run_id", str(subject["id"])
+                )
+            ),
             "stage": str(subject["stage"]["name"]),
             "member_item_id": subject.get("member_item_id"),
             "release_lineage": str(subject["release_lineage"]),
@@ -281,7 +286,7 @@ def is_deployment_execution_target(target: Mapping[str, Any]) -> bool:
 
 #: Which release, source and receipt a target was frozen from. QA tests
 #: whatever is deployed, so a successor or newer receipt never gates a write.
-_SOURCE_KEYS = frozenset({"run_id", "release_lineage", "artifact_identity"})
+_SOURCE_KEYS = frozenset({"run_id", "starting_run_id", "release_lineage", "artifact_identity"})
 
 
 def _destination(target: Mapping[str, Any]) -> str:

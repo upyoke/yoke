@@ -249,7 +249,8 @@ def test_report_lists_the_manual_wake_with_evidence_owner_and_run(
     )
     assert wake.run_command() == run_command
     assert f"run: {run_command}" in body
-    assert "each owner was woken to check its evidence" in body
+    assert "stay parked; the case rides the next release takeover" in body
+    assert "waive or remove" not in body
     projected = report_dict(report)
     assert "9801" in str(projected) and "run_command" in str(projected)
 

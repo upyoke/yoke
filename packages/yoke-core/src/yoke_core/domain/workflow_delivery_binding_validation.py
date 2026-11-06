@@ -61,6 +61,7 @@ def _validate_member_state(
     pinned: PinnedItem,
     state: tuple[WorkflowRuntime, str],
     allow_completed: bool,
+    frozen: bool,
 ) -> None:
     runtime, status = state
     # Membership follows the code, not the run's own project row: a run that
@@ -81,6 +82,9 @@ def _validate_member_state(
         return
     from yoke_core.domain.deployment_run_landed_closeout import landed_closeout_members
 
+    if allow_completed and frozen:
+        # Frozen readiness is owned by deployment_run_reopened_members.
+        return
     if not delivery_ready_for_stage(runtime, status) and item_id not in landed_closeout_members(conn, (item_id,)):
         raise WorkflowItemBindingError(
             f"{render_item_ref(conn, item_id)} workflow {runtime.workflow_id}@{runtime.version} "
@@ -130,6 +134,7 @@ def validate_run_member(
     item_id: int,
     pinned: PinnedItem | None,
     attached: bool,
+    frozen: bool | None = None,
 ) -> tuple[WorkflowRuntime, str]:
     """Require project and delivery-stage compatibility for one member.
 
@@ -137,6 +142,10 @@ def validate_run_member(
     established membership without re-admitting completed work. Returns the
     member's binding state.
     """
+    if frozen is None:
+        from yoke_core.domain.deployment_run_composition_guard import has_frozen_composition
+
+        frozen = attached and has_frozen_composition(conn, run_id)
     read_state = attached_binding_runtime_state if attached else binding_runtime_state
     state = read_state(conn, item_id, pinned)
     _validate_member_state(
@@ -146,18 +155,24 @@ def validate_run_member(
         pinned=pinned,
         state=state,
         allow_completed=attached,
+        frozen=frozen,
     )
     return state
 
 
 def validate_deployment_run_members(
-    conn: Any, *, run_id: str, item_ids: Iterable[int], attached: bool
+    conn: Any, *, run_id: str, item_ids: Iterable[int], attached: bool,
+    frozen: bool | None = None,
 ) -> None:
     """Validate a set of members from one read; the first refusal, in id order, stands."""
     if not has_workflow_pin_schema(conn):
         return
     ids = sorted({int(value) for value in item_ids})
     pinned = read_pinned_items(conn, ids)
+    from yoke_core.domain.deployment_run_composition_guard import has_frozen_composition
+
+    if frozen is None:
+        frozen = attached and has_frozen_composition(conn, run_id)
     for item_id in ids:
         validate_run_member(
             conn,
@@ -165,6 +180,7 @@ def validate_deployment_run_members(
             item_id=item_id,
             pinned=pinned.get(item_id),
             attached=attached,
+            frozen=frozen,
         )
 
 

@@ -196,7 +196,7 @@ def member_close_refusal(
 
 
 def stage_member_close(
-    conn: Any, *, item_id: int, public_ref: str
+    conn: Any, *, item_id: int, public_ref: str, run_id: str
 ) -> StagedMemberClose:
     """Write this member's terminal status and claim release, uncommitted.
 
@@ -231,6 +231,12 @@ def stage_member_close(
                 result.get("error") or captured.getvalue() or "close-out refused"
             ),
         )
+    conn.execute(
+        "UPDATE items SET deployed_to=COALESCE(e.name,dr.target_tier) "
+        "FROM deployment_runs dr LEFT JOIN environments e ON e.id=dr.target_environment_id "
+        "WHERE items.id=%s AND dr.id=%s",
+        (int(item_id), run_id),
+    )
     return StagedMemberClose(
         item_id=int(item_id), public_ref=public_ref, receipt=result["effect_receipt"]
     )

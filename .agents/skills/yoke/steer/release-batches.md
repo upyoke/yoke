@@ -31,8 +31,8 @@ Failed QA: `.yoke/docs/verification/failed-item-qa.md`.
 
 ### Manual-wake member QA
 
-Staff owners; `yoke qa plan reconcile` ownerless walks. No evidence: ask
-to waive or remove the case; never waive it.
+Staff owners; `yoke qa plan reconcile` ownerless walks. Evidence not available on this release yet: stay parked;
+the case rides the next release takeover.
 
 Driver runs run-scoped QA:
 

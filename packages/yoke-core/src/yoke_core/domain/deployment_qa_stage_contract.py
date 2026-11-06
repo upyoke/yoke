@@ -140,7 +140,7 @@ def _validate_run_stage(run, run_id, stage_name, *, require_active: bool = False
         raise ValueError(
             "deployment run composition is not frozen; freeze it before scoped QA"
         )
-    if require_active and (status != "executing" or not_at_stage):
+    if require_active and status != "failed" and (status != "executing" or not_at_stage):
         raise ValueError(
             f"deployment run {run_id!r} is {run['status']!r} at stage "
             f"{str(run.get('current_stage') or '')!r}; scoped QA writes require "

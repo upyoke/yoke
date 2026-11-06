@@ -149,7 +149,7 @@ def close_out_satisfied_delivery_member(
         written = (
             None
             if refusal or pending
-            else steps.stage_member_close(conn, item_id=int(item_id), public_ref=named)
+            else steps.stage_member_close(conn, item_id=int(item_id), public_ref=named, run_id=run_id)
         )
     except Exception as exc:  # noqa: BLE001 - never reverse the succeeded run
         try:
