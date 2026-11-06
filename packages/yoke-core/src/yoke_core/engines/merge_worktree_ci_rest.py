@@ -1,6 +1,6 @@
 """Merge-engine REST helpers for CI check-runs.
 
-Carved out of :mod:`merge_worktree_pr_rest` to keep each module focused
+Carved out of :mod:`yoke_core.domain.merge_github_rest` to keep each module focused
 and under the authored-file line cap. Exposes :class:`CheckRunsState`
 and the state-translation table consumed by the CI orchestration in
 :mod:`merge_worktree_ci`.

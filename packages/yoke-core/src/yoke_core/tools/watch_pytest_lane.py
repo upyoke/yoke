@@ -41,7 +41,8 @@ def bring_lane_current(root: Path, progress_capture: Path | None) -> str | None:
     A refusal leaves the lane untouched and names the reason and recovery;
     the caller prints it and runs no tests.
     """
-    from yoke_core.engines import lane_base_update, qa_case_ci_entry_run
+    from yoke_core.engines import lane_base_update
+    from yoke_core.domain import qa_case_ci_entry_run
     from yoke_core.domain.project_selection import (
         MissingProjectError,
         required_local_project,

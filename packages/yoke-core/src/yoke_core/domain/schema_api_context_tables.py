@@ -73,6 +73,9 @@ from yoke_core.domain.schema_api_context_tables_qa import (
 )
 
 
+from yoke_core.domain.schema_api_context_tables_merge_helpers import MERGE_HELPER_TABLES
+
+
 CANONICAL_TABLES: dict[str, dict] = {
     **CORE_TABLES,
     **GATE_SATISFIER_TABLES,
@@ -88,6 +91,7 @@ CANONICAL_TABLES: dict[str, dict] = {
     **PACK_TABLES,
     **GITHUB_APP_TABLES,
     **PYTHON_HELPERS_TABLES,
+    **MERGE_HELPER_TABLES,
 }
 
 
