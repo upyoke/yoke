@@ -8,8 +8,6 @@ from typing import Any, Mapping
 
 CLIENT_SCRATCH_ROOT_KEY = "_yoke_client_scratch_root"
 CLIENT_SCRATCH_ROOT_SCHEMA = 1
-CLIENT_CLAUDE_JOB_TMP_KEY = "_yoke_client_claude_job_tmp"
-CLIENT_CLAUDE_JOB_TMP_SCHEMA = 1
 CLIENT_MACHINE_HOME_KEY = "_yoke_client_machine_home"
 CLIENT_MACHINE_HOME_SCHEMA = 1
 
@@ -81,59 +79,11 @@ def client_machine_home(payload: Mapping[str, Any]) -> str:
     return _valid_machine_home(raw.get("root"))
 
 
-def _valid_claude_job_tmp(root: object) -> str:
-    value = _valid_root(root)
-    if not value:
-        return ""
-    path = Path(value).expanduser().resolve()
-    if (
-        path.name != "tmp"
-        or path.parent.parent.name != "jobs"
-        or path.parent.parent.parent.name != ".claude"
-    ):
-        return ""
-    return str(path)
-
-
-def claude_job_tmp_root(job_dir: object) -> str:
-    """Resolve the harness-owned ``$CLAUDE_JOB_DIR/tmp`` subtree."""
-    value = job_dir.strip() if isinstance(job_dir, str) else ""
-    if not value:
-        return ""
-    return _valid_claude_job_tmp(str(Path(value).expanduser() / "tmp"))
-
-
-def client_claude_job_tmp_fact(job_dir: str) -> dict[str, object]:
-    """Build relayed evidence for one Claude background-job temp root."""
-    root = claude_job_tmp_root(job_dir)
-    if not root:
-        return {}
-    return {
-        CLIENT_CLAUDE_JOB_TMP_KEY: {
-            "schema": CLIENT_CLAUDE_JOB_TMP_SCHEMA,
-            "root": root,
-        }
-    }
-
-
-def client_claude_job_tmp(payload: Mapping[str, Any]) -> str:
-    """Return the client's validated background-job temp root, or ``""``."""
-    raw = payload.get(CLIENT_CLAUDE_JOB_TMP_KEY)
-    if isinstance(raw, Mapping) and raw.get("schema") == CLIENT_CLAUDE_JOB_TMP_SCHEMA:
-        return _valid_claude_job_tmp(raw.get("root"))
-    return ""
-
-
 __all__ = [
-    "CLIENT_CLAUDE_JOB_TMP_KEY",
-    "CLIENT_CLAUDE_JOB_TMP_SCHEMA",
     "CLIENT_MACHINE_HOME_KEY",
     "CLIENT_MACHINE_HOME_SCHEMA",
     "CLIENT_SCRATCH_ROOT_KEY",
     "CLIENT_SCRATCH_ROOT_SCHEMA",
-    "claude_job_tmp_root",
-    "client_claude_job_tmp",
-    "client_claude_job_tmp_fact",
     "client_machine_home",
     "client_machine_home_fact",
     "client_scratch_root",
