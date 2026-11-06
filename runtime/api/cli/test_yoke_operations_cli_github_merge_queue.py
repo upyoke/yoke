@@ -33,7 +33,7 @@ def _declaration() -> dict:
     }
 
 
-@pytest.mark.parametrize("explicit_path", (False, True))
+@pytest.mark.parametrize("explicit_path", (True,))
 def test_https_apply_transports_declaration_content(
     tmp_path: Path,
     explicit_path: bool,
@@ -89,13 +89,6 @@ def test_https_apply_transports_declaration_content(
     with ExitStack() as stack:
         stack.enter_context(
             patch.dict("os.environ", {"YOKE_SESSION_ID": "test-session"})
-        )
-        stack.enter_context(
-            patch(
-                "yoke_cli.commands.adapters.github_merge_queue."
-                "resolve_repo_root_from_cwd",
-                return_value=str(tmp_path),
-            )
         )
         stack.enter_context(patch("yoke_cli.commands._helpers.ensure_handlers_loaded"))
         stack.enter_context(
@@ -199,11 +192,11 @@ def test_readiness_cli_dispatches_the_item_scoped_read() -> None:
     assert call["payload"] == {}
 
 
-def test_real_apply_without_path_uses_gate_without_local_checkout():
+@pytest.mark.parametrize("preview", [False, True])
+def test_apply_without_path_uses_gate_without_local_checkout(preview):
     with (
         patch("yoke_cli.commands.adapters.github_merge_queue.dispatch_and_emit", return_value=0) as dispatch,
-        patch("yoke_cli.commands.adapters.github_merge_queue.resolve_repo_root_from_cwd",
-              side_effect=AssertionError("real apply needs no local checkout")),
     ):
-        assert cli_main(["github", "merge-queue", "apply", "--project", "project"]) == 0
-    assert dispatch.call_args.kwargs["payload"] == {"project": "project", "preview": False}
+        assert cli_main(["github", "merge-queue", "apply", "--project", "project"]
+                        + (["--preview"] if preview else [])) == 0
+    assert dispatch.call_args.kwargs["payload"] == {"project": "project", "preview": preview}

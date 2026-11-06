@@ -73,8 +73,9 @@ def test_unlanded_content_refuses_without_mutating_then_applies_after_landing(ga
     assert gate["apply"].call_args.args == (candidate,)
 
 
-def test_apply_without_content_uses_gate_on_server_without_checkout(gate):
-    outcome = handle_merge_queue_apply(request())
+@pytest.mark.parametrize("preview", [False, True])
+def test_apply_without_content_uses_gate_on_server_without_checkout(gate, preview):
+    outcome = handle_merge_queue_apply(request(preview=preview))
     assert outcome.primary_success
     assert gate["reads"] == [(".yoke/merge-queue.json", "release/stable")]
     assert gate["apply"].call_args.args == (DECLARED,)

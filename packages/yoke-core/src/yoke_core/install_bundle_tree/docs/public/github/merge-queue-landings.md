@@ -14,7 +14,8 @@ fetched from the project's gate branch, never a lane or local checkout.
 A lane adding checks can land while the gate declaration still matches live.
 After it lands, run `yoke github merge-queue apply --project P` to apply the
 landed declaration. Apply requires Administration: write and Contents: read.
-`--preview` may inspect a lane's declaration without changing GitHub.
+`--preview` reads the gate declaration without changing GitHub; add
+`--declaration PATH` to preview a lane's declaration instead.
 A real apply with `--declaration PATH` whose content differs from the gate
 branch refuses `declaration_not_landed`: land the declaration change first,
 then apply. To remove or rename a required check, use two PRs: first land and
