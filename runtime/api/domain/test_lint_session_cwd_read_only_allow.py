@@ -55,7 +55,7 @@ class TestReadOnlySignatureAllowsFromOutsideCwd:
 
         verdict = lint_session_cwd.evaluate_pre_tool_use({
             "session_id": "sid-1",
-            "cwd": "/opt/elsewhere",
+            "cwd": str(repo / ".worktrees/unclaimed"),
             "tool_input": {
                 "command": (
                     'python3 -m yoke_core.cli.db_router '
@@ -71,7 +71,7 @@ class TestReadOnlySignatureAllowsFromOutsideCwd:
 
         verdict = lint_session_cwd.evaluate_pre_tool_use({
             "session_id": "sid-1",
-            "cwd": "/opt/elsewhere",
+            "cwd": str(repo / ".worktrees/unclaimed"),
             "tool_input": {
                 "command": (
                     "python3 -m yoke_core.hooks.sessions_cli "
@@ -175,7 +175,7 @@ class TestNonReadOnlyStillDenies:
 
         verdict = lint_session_cwd.evaluate_pre_tool_use({
             "session_id": "sid-1",
-            "cwd": "/opt/elsewhere",
+            "cwd": str(repo / ".worktrees/unclaimed"),
             "tool_input": {
                 "command": (
                     "python3 -m yoke_core.engines.advance_implementation_entry "
@@ -187,19 +187,14 @@ class TestNonReadOnlyStillDenies:
         assert verdict.allow is False
 
     def test_synthetic_outside_path_still_denies(self, conn, repo):
-        # Cwd-outside-authority regression: command names an
-        # absolute target outside the free-path allowlist and outside
-        # any claimed worktree. ``/opt/elsewhere`` is used (mirroring
-        # ``test_target_outside_authority_denies``) because pytest's
-        # ``tmp_path`` lives under ``/var/folders`` which the lint's
-        # free-path rule authorizes regardless of claim.
+        # A write into an unclaimed governed lane still refuses.
         _seed_claimed_worktree(conn, repo)
 
         verdict = lint_session_cwd.evaluate_pre_tool_use({
             "session_id": "sid-1",
             "cwd": str(repo),
-            "tool_input": {"command": "touch /opt/elsewhere/out.py"},
+            "tool_input": {"command": f"touch {repo}/.worktrees/unclaimed/out.py"},
         })
 
         assert verdict.allow is False
-        assert verdict.offending_target == "/opt/elsewhere/out.py"
+        assert verdict.offending_target == str(repo / ".worktrees/unclaimed/out.py")

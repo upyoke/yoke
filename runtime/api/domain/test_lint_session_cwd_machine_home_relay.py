@@ -236,7 +236,7 @@ def test_server_home_and_client_dot_folder_reads_allow(
     assert _remote_decision("Read", {"file_path": target}) is Outcome.NOOP
 
 
-def test_external_reference_authority_does_not_extend_to_writes(
+def test_external_reference_writes_need_no_repository_claim(
     conn,
     claimed_worktree: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -248,7 +248,7 @@ def test_external_reference_authority_does_not_extend_to_writes(
             "Write",
             {"file_path": str(ICLOUD_DOCUMENT), "content": "changed"},
         )
-        is Outcome.DENY
+        is Outcome.NOOP
     )
 
     assert (
@@ -261,7 +261,7 @@ def test_external_reference_authority_does_not_extend_to_writes(
                 )
             },
         )
-        is Outcome.DENY
+        is Outcome.NOOP
     )
 
 
@@ -271,7 +271,7 @@ def test_external_reference_authority_does_not_extend_to_writes(
 )
 @pytest.mark.parametrize("include_home", [False, True])
 @pytest.mark.parametrize("tool_name", ["Write", "Bash"])
-def test_client_cache_write_requires_home_evidence_and_teaches_cli_update(
+def test_external_cache_write_needs_no_home_evidence(
     conn,
     claimed_worktree,
     monkeypatch,
@@ -295,18 +295,12 @@ def test_client_cache_write_requires_home_evidence_and_teaches_cli_update(
         include_home=include_home,
         client_home=Path(client_home),
     )
-    if include_home:
-        assert decision.outcome is Outcome.NOOP, decision.message
-    else:
-        assert decision.outcome is Outcome.DENY
-        assert lint_session_cwd.CLIENT_HOME_AUTHORITY_UNAVAILABLE in decision.message
-        assert "yoke update" in decision.message
-        assert "client home" in decision.message
+    assert decision.outcome is Outcome.NOOP, decision.message
 
 
 @pytest.mark.parametrize("machine_home", [None, "", str(CLIENT_HOME)])
 @pytest.mark.parametrize("suffix", [".cache/example/wheels", ".cachex/wheels"])
-def test_cache_diagnosis_is_specific_to_missing_home_and_free_suffix(
+def test_external_home_paths_need_no_free_suffix_diagnosis(
     conn,
     claimed_worktree,
     monkeypatch,
@@ -322,9 +316,5 @@ def test_cache_diagnosis_is_specific_to_missing_home_and_free_suffix(
         },
         machine_home=machine_home,
     )
-    assert not verdict.allow
-    expected = not machine_home and suffix.startswith(".cache/")
-    assert (
-        verdict.authority_reason == lint_session_cwd.CLIENT_HOME_AUTHORITY_UNAVAILABLE
-    ) == expected
-    assert ("yoke update" in verdict.reason) == expected
+    assert verdict.allow
+    assert not verdict.authority_reason

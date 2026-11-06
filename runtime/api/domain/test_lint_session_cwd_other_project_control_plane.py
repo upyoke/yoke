@@ -133,7 +133,7 @@ def test_refusal_lists_both_project_roots(conn, fake_yoke_root):
         {
             **_fact(fake_yoke_root),
             "session_id": "sid-a",
-            "tool_input": {"file_path": "/__foreign_target__/file"},
+            "tool_input": {"file_path": str(fake_yoke_root / ".worktrees/unclaimed/file")},
         }
     )
     assert verdict.allow is False

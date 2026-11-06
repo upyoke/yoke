@@ -209,12 +209,7 @@ class TestBashTargetExtraction:
         seed_item(conn, item_id=1691, branch="YOK-1691", repo_path=repo)
         seed_item_claim(conn, "sid-1", item_id=1691)
         (repo / ".worktrees" / "YOK-1691").mkdir(parents=True)
-        # Use a synthetic non-tmp path so the free-path allowlist (which
-        # covers /var/folders on macOS) does not authorise it. The
-        # command must not match the read-only signature classifier
-        # (``ls`` / ``cat`` / etc. all classify as read-only and are
-        # allowed through on the cwd-fallback branch).
-        outside = "/opt/elsewhere"
+        outside = str(repo / ".worktrees" / "unclaimed")
         verdict = lint_session_cwd.evaluate_pre_tool_use({
             "session_id": "sid-1",
             "cwd": outside,
@@ -235,12 +230,12 @@ class TestBashTargetExtraction:
             "session_id": "sid-1",
             "cwd": str(repo),
             "tool_input": {
-                "command": f"cp {claimed_file} /opt/elsewhere/out.py",
+                "command": f"cp {claimed_file} {repo}/.worktrees/unclaimed/out.py",
             },
         })
 
         assert verdict.allow is False
-        assert verdict.offending_target == "/opt/elsewhere/out.py"
+        assert verdict.offending_target == str(repo / ".worktrees/unclaimed/out.py")
 
     def test_env_assignment_with_path_does_not_become_command_target(self):
         targets = extract_command_targets(
@@ -268,7 +263,7 @@ class TestEvaluateTypedEntrypoint:
         seed_item(conn, item_id=1691, branch="YOK-1691", repo_path=repo)
         seed_item_claim(conn, "sid-1", item_id=1691)
         (repo / ".worktrees" / "YOK-1691").mkdir(parents=True)
-        target = "/opt/elsewhere/file.py"
+        target = str(repo / ".worktrees/unclaimed/file.py")
         record = HookContext(
             event_name="PreToolUse", executor_family="claude",
             executor_surface="claude",
