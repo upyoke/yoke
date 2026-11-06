@@ -9,7 +9,7 @@ from yoke_contracts.api_urls import HOSTED_PLATFORM_URL, HOSTED_STAGE_PLATFORM_U
 
 from yoke_cli.config import hosted_machine_authorization
 from yoke_cli.config import setup_browser
-from yoke_cli.config import onboard_destinations
+from yoke_contracts import onboard_destinations as onboard_destinations
 from yoke_cli.config import onboard_wizard_diagnostics
 from yoke_cli.config import onboard_wizard_steps as steps
 from yoke_cli.config import yoke_token_verify
@@ -17,7 +17,7 @@ from yoke_cli.config.onboard_wizard_flow_machine_admission import (
     accept_machine_credential,
     save_machine_credential,
 )
-from yoke_cli.config.onboard_destinations import ENV_STAGE
+from yoke_contracts.onboard_destinations import ENV_STAGE
 from yoke_cli.config.onboard_wizard_widgets import STEP_CONNECT
 from yoke_cli.config.onboard_wizard_hosted_machine_views import (
     HostedMachineApprovalViews,

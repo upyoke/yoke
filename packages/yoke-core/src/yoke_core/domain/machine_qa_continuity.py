@@ -3,7 +3,7 @@
 from typing import Any
 
 from yoke_contracts.machine_qa_failures import HostControlLocalError
-from yoke_harness.qa_continuity_fingerprint import check_continuity
+from yoke_contracts.qa_continuity_fingerprint import check_continuity
 from yoke_core.domain.machine_qa_case_result import MachineCaseResult
 
 

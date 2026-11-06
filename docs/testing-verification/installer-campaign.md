@@ -154,7 +154,7 @@ does not grant approval authority; keep the selected fixture boundary.
 
 With the dedicated-machine approval exception, the visible native browser
 helper (Safari on macOS, the desktop Chromium on a Linux test machine; one
-shared matcher in `yoke_harness.machine_browser_approval`) also accepts the
+shared matcher in `yoke_contracts.machine_browser_approval`) also accepts the
 declared origin's `/orgs/<org>/machine-approval/<code>` redirect from `/connect`.
 The code must match the displayed Match code exactly. The redirect may carry
 one canonical `selection=all` or a comma-separated list of unique positive

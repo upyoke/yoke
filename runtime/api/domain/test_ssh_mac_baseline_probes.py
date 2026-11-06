@@ -14,7 +14,7 @@ from yoke_harness.ssh_mac_baseline_probes import (
     run_baseline_probes,
 )
 from yoke_harness.ssh_mac_gui_session import GUI_SESSION_UNAVAILABLE_REASON
-from yoke_harness.test_machine_types import HostActionResult
+from yoke_contracts.test_machine_types import HostActionResult
 
 
 def _document(**overrides) -> str:

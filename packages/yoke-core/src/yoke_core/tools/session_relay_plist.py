@@ -14,7 +14,7 @@ from typing import Callable, Mapping, Sequence
 
 from yoke_cli.config import machine_config
 from yoke_contracts.direct_database_access import USE_HTTPS_ENV
-from yoke_cli.config.session_relay_instance import (
+from yoke_contracts.machine_config.relay_instance import (
     door_relay_refusal,
     RELAY_BASE_LABEL,
     RelayInstance,

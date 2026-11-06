@@ -108,6 +108,7 @@ PRODUCT_AUTHZ_BY_ID = {
     # item, gated like the other done-transition writes rather than falling
     # through to the side-effecting DENY default.
     "done_transition.delivery_done_notice": AuthzSpec(PROJECT, PERM_ITEMS_WRITE),
+    "done_transition.run_stage_qa_acceptance": AuthzSpec(PROJECT, PERM_ITEMS_WRITE),
     "item_landings.record": AuthzSpec(PROJECT, PERM_ITEMS_WRITE),
     "item_landings.list": AuthzSpec(PROJECT, PERM_ITEMS_READ),
     "merge_receipt.record": AuthzSpec(PROJECT, PERM_ITEMS_WRITE),

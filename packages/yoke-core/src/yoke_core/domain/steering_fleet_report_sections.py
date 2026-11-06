@@ -23,7 +23,7 @@ CLAIMS_HEADING = "live item claims — every other holder; quiet here is no alar
 
 def unlisted_holders(report: FleetReport) -> tuple[ClaimHolder, ...]:
     """Holders no alarm section already named, so no row is printed twice."""
-    named = {h.session_id for h in report.idle}
+    named = {h.session_id for h in (*report.idle, *report.awaiting)}
     named.update(h.session_id for h in report.suspected_orphaned_waiters)
     named.update(call.session_id for call in report.in_flight)
     named.update(entry.session_id for entry in report.stranded)

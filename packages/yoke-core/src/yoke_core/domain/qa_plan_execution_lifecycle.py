@@ -137,6 +137,11 @@ def finish_plan_execution(
         raise QaPlanExecutionStateError(f"invalid final execution state {state!r}")
     current_state = str(execution["state"])
     if current_state == state:
+        if commit and state == "completed":
+            from yoke_core.domain.deployment_qa_resettlement import resettle_execution
+
+            conn.commit()  # Release validation locks before membership/run locks.
+            resettle_execution(conn, execution)
         return
     if current_state in TERMINAL_PLAN_EXECUTION_STATES:
         raise QaPlanExecutionStateError(
@@ -239,11 +244,11 @@ def finish_plan_execution(
             notify_scoped_agent_review(conn, execution)
         conn.commit()
         if state == "completed" and execution.get("deployment_stage"):
-            from yoke_core.domain.deployment_qa_stage_settlement import (
-                settle_execution,
+            from yoke_core.domain.deployment_qa_resettlement import (
+                resettle_execution,
             )
 
-            settle_execution(conn, execution)
+            resettle_execution(conn, execution)
         if terminal_settlement and execution.get("item_id") is not None:
             # This row may be the one thing holding a member's close-out or
             # a settling run open. Its terminalization is the event that

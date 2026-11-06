@@ -17,22 +17,27 @@ blue; Blocked remains visible beside it. Blocked alone colors that segment
 red. Completed and upcoming segments retain their normal colors. A parked or
 idle session does not, by itself, mark its item Frozen or Blocked.
 
-The command selector retains the liveness values `active`, `waiting`, `stale`, or `ended`.
-`stale` means eligible for automatic reclaim, with every work-claim,
-document-holdings, in-flight and episode-progress rule applied. A live active
-work-claim holder never reads stale. An intentional pause declared by mode
-`parked` while holding work is `waiting`, displayed
-as **parked**, however old its activity becomes. Other protected live sessions
-remain active; their activity age is a separate diagnostic. Silence does not
-declare a pause. Ended sessions stay ended.
+The CLI filters the same projection before pagination: `yoke sessions list
+--presence present`, `--activity working`, and `--intent awaiting` can be
+combined. Presence accepts present, gone or ended; activity accepts working,
+between_turns or silent; intent accepts none, parked or awaiting.
+`yoke sessions get SESSION-ID` reads one session. The list command no longer
+accepts `--liveness`; message recipient selection keeps its own `--liveness`
+flag. Protected claims remain held independently of activity and presence.
 
-The roster opens on **Active**, including active, waiting and stale sessions.
-**All** includes ended sessions; **Ended** shows only ended sessions.
-**Reclaim stale** counts exactly the stale sessions in the same scope and
-snapshot. Execution rechecks the shared eligibility decision and reports
-newly protected sessions skipped, with their reason; refresh the roster before
-retrying. Explicit authorized termination is a separate action and can settle
-protected claims. Cleanup reloads the roster so reclaimed rows leave Active.
+The roster opens on **Open**: sessions whose shared presence is present.
+**Working**, **Between turns**, **Parked or awaiting**, **Silent**, **Gone** and
+**Ended** separate the roster into non-overlapping groups. Intentional parks
+and waits take precedence over activity in these groups. Open and All are
+aggregate views; All also loads ended history.
+
+Cards show presence, activity, intent and its reason, next actor, and holdings
+separately. **last tool** uses the last tool call, never a heartbeat; an unknown
+tool clock says unavailable. Machines show working, held and silent counts.
+**Reclaim sessions** uses the server's reclaimable flag and rechecks protection
+before acting; claims remain protected even when their process is gone.
+An older server without the shared projection shows state unavailable; upgrade
+the server and refresh to use the detailed filters.
 
 On the **Frontier**, every claimed item's card carries its holding session's
 chip — surface, park state, and quiet reason — whichever band it lands in.

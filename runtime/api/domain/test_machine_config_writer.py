@@ -8,8 +8,8 @@ from pathlib import Path
 
 import pytest
 
-from yoke_core.domain import machine_config_writer as writer
-from yoke_core.domain.machine_config_writer import MachineConfigWriteError
+from yoke_cli.config import writer as writer
+from yoke_cli.config.writer import MachineConfigWriteError
 from yoke_contracts.machine_config import schema as contract
 
 

@@ -40,19 +40,19 @@ from typing import Any, Dict, Optional
 from yoke_contracts.timestamps import parse_instant
 from urllib.request import Request, urlopen  # patched by tests; see module docstring
 
-from yoke_cli.transport.bounded_json_http import (
+from yoke_contracts.bounded_json_http import (
     BoundedJsonHttpError,
     request_json,
 )
-from yoke_cli.transport.response_limits import DEFAULT_JSON_RESPONSE_LIMIT_BYTES
+from yoke_contracts.response_limits import DEFAULT_JSON_RESPONSE_LIMIT_BYTES
 from yoke_contracts.browser_daemon_api import (
     DEFAULT_DAEMON_REQUEST_TIMEOUT_SECONDS,
     EXEC_STEP_PATH,
     step_request_timeout_seconds,
 )
-from yoke_harness.browser_client_errors import daemon_failure_message
-from yoke_harness import browser_runtime_home
-from yoke_harness.browser_daemon_profile import state_file_path
+from yoke_contracts.browser_client_errors import daemon_failure_message
+from yoke_contracts.runtime_ports.browser_runtime_home import get_browser_runtime_home
+from yoke_contracts.browser_daemon_profile import state_file_path
 from yoke_core.domain.browser_client_cli import run_cli
 from yoke_core.domain.browser_client_lifecycle import (  # noqa: F401
     daemon_start,
@@ -73,6 +73,9 @@ from yoke_core.domain.browser_client_snapshot import (
 # Path resolution
 # ---------------------------------------------------------------------------
 
+
+
+browser_runtime_home = get_browser_runtime_home()
 
 def _browser_dir() -> Path:
     """Return the machine-level browser runtime dir, materializing it."""

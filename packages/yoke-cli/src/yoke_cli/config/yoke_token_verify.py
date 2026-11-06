@@ -13,16 +13,16 @@ from yoke_cli.api_urls import (
     FUNCTIONS_REGISTRY_PATH,
     join_api_url,
 )
-from yoke_cli.config import secrets as machine_secrets
+from yoke_contracts.machine_config import secret_files as machine_secrets
 from yoke_cli.transport import server_reach_failure
-from yoke_cli.transport.bounded_json_http import (
+from yoke_contracts.bounded_json_http import (
     BoundedJsonHttpError,
     BoundedJsonHttpStatusError,
     error_detail,
     request_json,
     safe_diagnostic_text,
 )
-from yoke_cli.transport.response_limits import ONBOARD_JSON_REQUEST_TIMEOUT_SECONDS
+from yoke_contracts.response_limits import ONBOARD_JSON_REQUEST_TIMEOUT_SECONDS
 
 _TIMEOUT_S = ONBOARD_JSON_REQUEST_TIMEOUT_SECONDS
 _IDENTITY_PATH = AUTH_IDENTITY_PATH

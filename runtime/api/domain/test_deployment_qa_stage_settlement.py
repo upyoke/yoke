@@ -182,7 +182,9 @@ def test_run_visual_wait_names_pending_review_and_same_run_recovery():
         names_cases=False,
     )
     assert "driver runs automatic cases" in message
-    assert "Review or manual evidence remains pending (awaiting visual review)" in message
+    assert (
+        "Review or manual evidence remains pending (awaiting visual review)" in message
+    )
     assert "Resolve the named review or evidence requirement" in message
     assert "watch deploy -- run-visual" in message
     assert "deployment-runs get run-visual" in message
@@ -294,3 +296,36 @@ def test_member_pass_notifies_only_on_settlement_or_a_stuck_continuation(
         if waiting is None:
             assert "qa_stage_outstanding_unavailable" in message
             assert "settled passed" not in message
+
+
+def test_blocked_notice_key_ignores_changed_requirement_reasons(monkeypatch):
+    from yoke_core.domain.deployment_qa_stage_settlement import continue_settled_stage
+
+    monkeypatch.setattr(
+        "yoke_core.domain.deployment_qa_stage_settlement.status_project_id",
+        lambda *_: 1,
+    )
+    monkeypatch.setattr(
+        "yoke_core.domain.project_identity.resolve_project",
+        lambda *_: SimpleNamespace(id=1),
+    )
+    with mock.patch(
+        "yoke_core.domain.deployment_run_driver_notice.push_run_scoped_notice",
+        return_value="delivered",
+    ) as notice:
+        for reasons in (["requirement #1 failed"], ["requirement #2 failed"]):
+            continue_settled_stage(
+                mock.Mock(),
+                run_id="run-blocked",
+                stage="item-qa",
+                member=42,
+                status={
+                    "outcome": "blocked",
+                    "target_digest": "frozen",
+                    "reasons": reasons,
+                },
+                released=False,
+            )
+    first, second = notice.call_args_list
+    assert first.kwargs["idempotency_key"] == second.kwargs["idempotency_key"]
+    assert "requirement #2 failed" in second.kwargs["body_for_route"]("driver")

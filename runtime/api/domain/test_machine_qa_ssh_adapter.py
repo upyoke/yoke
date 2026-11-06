@@ -15,11 +15,11 @@ from yoke_core.domain.host_control_runner import (
     TestMachineMaterial as MachineMaterial,
 )
 from runtime.api.domain.ssh_mac_full_reset_test_support import closed_reset_stdout
-from yoke_core.domain.ssh_mac_full_reset_contract import (
+from yoke_contracts.ssh_mac_full_reset_contract import (
     FULL_RESET_REMOTE_PATH,
     resolve_full_reset_path_contract,
 )
-from yoke_core.domain.ssh_mac_full_reset_script import (
+from yoke_harness.ssh_mac_full_reset_script import (
     FULL_RESET_SCRIPT,
     render_full_reset_script,
 )

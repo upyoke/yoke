@@ -9,7 +9,7 @@ import subprocess
 from typing import Callable, Mapping
 
 from yoke_cli.config import machine_config
-from yoke_cli.config.session_relay_instance import (
+from yoke_contracts.machine_config.relay_instance import (
     RelayInstance,
     door_relay_refusal,
     resolve_relay_instance,

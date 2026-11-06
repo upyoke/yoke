@@ -79,12 +79,7 @@ def begin_plan_execution(
     plan: str | None = None,
     requirement_id: int | None = None,
 ) -> dict[str, Any]:
-    """Create or resume the subject's execution after unlocked roster admission.
-
-    The run lock rechecks ``begin_inputs`` after roster reads. A changed
-    member input returns to the router for an unlocked retry. Continuations
-    preserve the stale-settled mission's host without applying a baseline.
-    """
+    """Admit unlocked roster reads under the run lock; resume retained custody."""
     if not str(session_id or "").strip():
         raise QaPlanExecutionStateError(
             "ordered QA plan execution requires an owning session"
@@ -170,6 +165,10 @@ def begin_plan_execution(
     # Every roster read runs before the run lock; it covers the re-check and write.
     prepared = prepare()
     if not isinstance(prepared, PreparedRoster):
+        from yoke_core.domain.deployment_qa_resettlement import resettle_execution
+
+        conn.commit()
+        resettle_execution(conn, prepared)
         return prepared
     if locks_run:
         prepared = admit_current_roster(

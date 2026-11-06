@@ -18,7 +18,7 @@ import json
 
 import pytest
 
-from yoke_core.domain.project_install import ProjectInstallError, apply_bundle
+from yoke_cli.project_install.runner import ProjectInstallError, apply_bundle
 from yoke_core.domain.project_install_test_helpers import (
     DEFAULT_FILES,
     make_bundle,

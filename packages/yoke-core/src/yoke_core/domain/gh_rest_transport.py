@@ -21,7 +21,7 @@ import urllib.error
 import urllib.request
 from typing import Any, Mapping, Optional, Tuple
 
-from yoke_cli.transport.response_deadline_open import ResponseOpenDeadlineError
+from yoke_contracts.response_deadline_open import ResponseOpenDeadlineError
 from yoke_core.domain import gh_retry, github_response_safety
 from yoke_core.domain.gh_rest_transport_fakes import (
     FAKE_DIR_ENV as _FAKE_DIR_ENV,

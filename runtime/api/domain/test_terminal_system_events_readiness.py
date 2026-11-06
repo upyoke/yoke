@@ -5,7 +5,7 @@ import pytest
 from yoke_harness import ssh_mac_transport, ssh_mac_golden_capture
 from yoke_harness.ssh_mac_terminal_automation_probe import TerminalAutomationProbe
 from yoke_harness.test_machine_operations import run_verification_sequence
-from yoke_harness.test_machine_types import HostActionResult
+from yoke_contracts.test_machine_types import HostActionResult
 
 
 @pytest.fixture

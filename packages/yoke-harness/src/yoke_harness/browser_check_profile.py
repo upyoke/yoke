@@ -23,7 +23,7 @@ from yoke_cli.config.browser_profile_cookies import (
 from yoke_contracts.machine_config.directories import create_private_directory
 from yoke_contracts.machine_config.schema import SECRETS_DIR_NAME
 from yoke_contracts.process_ancestry import process_start_time
-from yoke_harness.browser_daemon_profile import profile_scope
+from yoke_contracts.browser_daemon_profile import profile_scope
 
 
 @dataclass

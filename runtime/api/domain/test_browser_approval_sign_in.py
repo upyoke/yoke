@@ -6,7 +6,7 @@ import pytest
 
 from yoke_harness import ssh_linux_browser_approval as linux
 from yoke_harness import ssh_mac_browser_approval as mac
-from yoke_harness.machine_browser_approval import missing_approval_tab
+from yoke_contracts.machine_browser_approval import missing_approval_tab
 
 ORIGIN = "https://app.example"
 CODE = "K7F2"

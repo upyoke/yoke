@@ -16,7 +16,7 @@ from yoke_harness.ssh_mac_terminal_restart import (
     relaunch_terminal_app,
 )
 from yoke_harness.ssh_mac_transport import SshMacTransport
-from yoke_harness.test_machine_types import HostActionResult
+from yoke_contracts.test_machine_types import HostActionResult
 
 
 def _done(returncode: int, stdout: str = "", stderr: str = "") -> SimpleNamespace:

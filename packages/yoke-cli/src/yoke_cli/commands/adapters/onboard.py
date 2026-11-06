@@ -26,7 +26,7 @@ from yoke_cli.commands.adapters.onboard_build_report import (
     build_report as _build_report,  # module global, so a test can patch it
 )
 from yoke_cli.config import onboard as onboard_config
-from yoke_cli.config import onboard_destinations
+from yoke_contracts import onboard_destinations as onboard_destinations
 from yoke_cli.config import github_user_tokens
 from yoke_cli.config import setup_agent_response
 

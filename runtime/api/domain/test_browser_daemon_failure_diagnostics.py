@@ -8,7 +8,7 @@ import pytest
 
 from yoke_core.domain import browser_client as core
 from yoke_harness import browser_client as harness
-from yoke_cli.transport.bounded_json_http import BoundedJsonHttpDeadlineError
+from yoke_contracts.bounded_json_http import BoundedJsonHttpDeadlineError
 
 
 @pytest.mark.parametrize("client", [core, harness])

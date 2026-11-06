@@ -15,6 +15,8 @@ registered host before SSH. Machines without the setting are never touched.
 
 from __future__ import annotations
 
+from yoke_contracts.runtime_ports.test_machine_remote_exec import get_test_machine_remote_exec
+
 import json
 import subprocess
 import sys
@@ -26,7 +28,7 @@ from yoke_contracts.api.function_call import TargetRef
 from yoke_contracts.machine_config.capability_secrets import TEST_MACHINE_CAPABILITY
 from yoke_contracts.designed_wait import announce_designed_wait, poll_every
 from yoke_contracts.machine_qa_failures import SSH_UNAVAILABLE, HostControlLocalError
-from yoke_core.domain.capability_machine_secrets import (
+from yoke_contracts.machine_config.capability_secret_store import (
     machine_capability_secret_path,
 )
 from yoke_core.domain.deploy_remote import (
@@ -116,7 +118,7 @@ def _readiness_command(os_name: str) -> tuple[str, str | None]:
     """
     if os_name != "windows":
         return "exit", None
-    from yoke_harness.windows_wsl_command import (
+    from yoke_contracts.windows_wsl_command import (
         windows_wsl_command,
         windows_wsl_input,
     )
@@ -148,7 +150,7 @@ def wait_for_ssh_login(
     name, host = settings["resource_name"], settings["host"]
     argv = ["ssh", "-i", str(key)]
     argv += [part for option in SSH_PROBE_OPTIONS for part in ("-o", option)]
-    from yoke_harness.test_machine_remote_exec import host_key_options
+    host_key_options = get_test_machine_remote_exec().host_key_options
 
     argv += host_key_options(settings)
     command, probe_input = _readiness_command(settings["os"])

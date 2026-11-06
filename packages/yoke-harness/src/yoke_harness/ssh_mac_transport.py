@@ -49,7 +49,7 @@ from yoke_harness.ssh_mac_terminal_bridge_check import (
     named_failure,
     verify_terminal_app_control,
 )
-from yoke_harness.test_machine_types import HostActionResult
+from yoke_contracts.test_machine_types import HostActionResult
 from yoke_harness.ssh_test_machine_transport import SSH_OPTIONS, SshTestMachineTransport
 
 

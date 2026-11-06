@@ -5,7 +5,7 @@ from types import SimpleNamespace
 import urllib.error
 
 from yoke_cli.transport import https as relay
-from yoke_cli.transport import response_deadline_read
+from yoke_contracts import response_deadline_read
 from yoke_cli.commands.adapters import doctor_https_run as doctor
 from yoke_contracts.api.function_call import FunctionCallResponse, FunctionError
 from runtime.api.cli.https_relay_security_test_support import (

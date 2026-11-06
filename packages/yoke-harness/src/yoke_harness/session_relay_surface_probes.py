@@ -19,7 +19,7 @@ from yoke_cli.config.path_harness_clis import (
     ResolvedNativeCli,
     resolve_native_cli_source,
 )
-from yoke_cli.config.session_relay_instance import strip_relay_owned_python_state
+from yoke_contracts.machine_config.relay_instance import strip_relay_owned_python_state
 from yoke_harness.linux_desktop_apps import read_linux_desktop_version
 
 SURFACE_PROBE_TIMEOUT_SECONDS = 30.0

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from yoke_contracts.runtime_ports.pulumi_stack_config_loader import get_pulumi_stack_config_loader
+
 from dataclasses import dataclass
 import json
 from typing import Any, Dict, Iterable, Mapping, Sequence
@@ -200,9 +202,7 @@ def select_primary_environment(
 
 def load_project_renderer_settings(project: str) -> ProjectRendererSettings:
     """Load renderer settings from the selected control-plane transport."""
-    from yoke_cli.commands.pulumi_stack_config_loader import (
-        load_project_renderer_settings_snapshot,
-    )
+    load_project_renderer_settings_snapshot = get_pulumi_stack_config_loader().load_project_renderer_settings_snapshot
     from yoke_core.domain.project_renderer_settings_snapshot import (
         settings_from_stack_config,
     )

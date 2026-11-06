@@ -14,7 +14,7 @@ from yoke_contracts.browser_identity import (
 from yoke_cli.commands._helpers import ensure_handlers_loaded
 from yoke_cli.config import browser_profile, machine_config
 from yoke_cli.config.project_slug_lookup import ProjectSlugLookupError
-from yoke_cli.config.capability_secrets import read_machine_capability_secret
+from yoke_contracts.machine_config.capability_secret_store import read_machine_capability_secret
 from yoke_contracts.machine_config.test_machine import (
     TestMachineCapabilityError,
     test_machine_capability_type,

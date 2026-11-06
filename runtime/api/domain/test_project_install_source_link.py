@@ -18,11 +18,11 @@ from pathlib import Path
 
 import pytest
 
-from yoke_core.domain import project_install
-from yoke_core.domain import project_install_git_hooks as git_hooks
+from yoke_cli.project_install import runner as project_install
+from yoke_cli.project_install import git_hooks as git_hooks
 from yoke_core.domain import project_install_source_link as source_link
 from yoke_core.domain.agents_render_cursor import render_cursor_hooks_json
-from yoke_core.domain.project_install_files import (
+from yoke_cli.project_install.files import (
     MANIFEST_REL,
     MODE_COPY,
     MODE_KEY,

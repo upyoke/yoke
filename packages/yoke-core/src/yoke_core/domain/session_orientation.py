@@ -10,6 +10,10 @@ file-backed previews that deliver the tail in name only.
 """
 
 from __future__ import annotations
+from yoke_contracts.runtime_ports.identity import get_identity
+from yoke_contracts.runtime_ports.operating_layer_drift import get_operating_layer_drift
+from yoke_contracts.runtime_ports.operator_cli_release_follow import get_operator_cli_release_follow
+from yoke_contracts.runtime_ports.setup_facts_summary import get_setup_facts_summary
 
 import subprocess
 import sys
@@ -78,10 +82,8 @@ def _operating_layer_advisory(root: Path) -> str:
     try:
         import yoke_core
         from yoke_contracts.engine_version import installed_engine_version
-        from yoke_cli.operating_layer_drift import (
-            compare_installed_layer,
-            refresh_command,
-        )
+        compare_installed_layer = get_operating_layer_drift().compare_installed_layer
+        refresh_command = get_operating_layer_drift().refresh_command
 
         comparison = compare_installed_layer(
             root,
@@ -108,7 +110,7 @@ def _advisory_lines(root: Path) -> list[str]:
     )
 
     lines: list[str] = []
-    from yoke_cli.config.operator_cli_release_follow import refresh_skip_lines
+    refresh_skip_lines = get_operator_cli_release_follow().refresh_skip_lines
 
     for block in (
         _operating_layer_advisory(root),
@@ -222,7 +224,7 @@ def _orientation_for_hook(
 ) -> Optional[str]:
     from yoke_core.domain.json_helper import loads_text
 
-    from yoke_harness.hooks.identity import detect_executor
+    detect_executor = get_identity().detect_executor
 
     executor = detect_executor()
     startup_event = session_orientation_event(cursor=cursor, executor=executor)
@@ -285,7 +287,7 @@ def render_scoped_orientation(payload: dict[str, Any], cwd: Path) -> str:
     root = _project_root(cwd)
     if root is None:
         return render_orientation({**payload, _GLOBAL_CONTEXT_KEY: True}, cwd)
-    from yoke_cli.config.setup_facts_summary import orientation_lines
+    orientation_lines = get_setup_facts_summary().orientation_lines
 
     return render_orientation(
         {

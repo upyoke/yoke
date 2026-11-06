@@ -8,7 +8,7 @@ import pytest
 
 from yoke_cli.project_install import transport
 from yoke_cli.project_install.files import ProjectInstallError
-from yoke_cli.transport.bounded_json_http import BoundedJsonHttpStatusError
+from yoke_contracts.bounded_json_http import BoundedJsonHttpStatusError
 
 
 def test_https_bundle_error_surfaces_scrubbed_server_message(

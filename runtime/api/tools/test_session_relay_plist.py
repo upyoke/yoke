@@ -16,7 +16,7 @@ import subprocess
 import pytest
 
 from yoke_cli.config import machine_config
-from yoke_cli.config.session_relay_instance import (
+from yoke_contracts.machine_config.relay_instance import (
     RelayInstanceError,
     resolve_relay_instance,
 )

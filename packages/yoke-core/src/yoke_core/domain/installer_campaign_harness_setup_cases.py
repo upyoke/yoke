@@ -1,5 +1,8 @@
 """Installed-candidate proof of late harness setup, isolated from personal homes."""
 
+from yoke_contracts.runtime_ports.harness_setup_reconcile import get_harness_setup_reconcile
+from yoke_contracts.runtime_ports.session_relay_harness_reconcile import get_session_relay_harness_reconcile
+
 import shlex
 
 
@@ -36,8 +39,8 @@ def run_probe() -> None:
     from tempfile import TemporaryDirectory
     from unittest.mock import patch
 
-    from yoke_harness import harness_setup_reconcile as setup
-    from yoke_harness import session_relay_harness_reconcile as relay
+    setup = get_harness_setup_reconcile()
+    relay = get_session_relay_harness_reconcile()
 
     with TemporaryDirectory(prefix="harness-setup-proof-") as directory:
         root = Path(directory)

@@ -19,7 +19,7 @@ from yoke_cli.config import onboard_apply_resume
 
 from yoke_cli.config import onboard_apply_snapshot
 
-from yoke_cli.config import onboard_destinations
+from yoke_contracts import onboard_destinations as onboard_destinations
 
 from yoke_cli.config import writer
 

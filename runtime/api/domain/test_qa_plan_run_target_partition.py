@@ -120,7 +120,7 @@ def test_live_execution_keeps_its_roster(test_db) -> None:
     assert _ids(resumed) == _ids(live)
 
 
-def test_nothing_owed_refuses_and_names_the_stage_blocker(test_db) -> None:
+def test_nothing_owed_settles_passed_stopped_evidence_inline(test_db) -> None:
     import pytest
 
     from yoke_core.domain.qa_plan_nothing_owed import QaPlanNothingOwed
@@ -139,7 +139,12 @@ def test_nothing_owed_refuses_and_names_the_stage_blocker(test_db) -> None:
 
     test_db.rollback()
     assert "qa_plan_nothing_owed: nothing owed" in str(refused.value)
-    assert "re-drive the deployment run" in str(refused.value)
+    assert "recorded passes have been settled inline" in str(refused.value)
+    from yoke_core.domain.deployment_qa_run_acceptance import (
+        item_qa_acceptance_blockers,
+    )
+
+    assert item_qa_acceptance_blockers(test_db, run_id=RUN, item_id=MEMBER) == []
     assert test_db.execute(count).fetchone()[0] == before
 
 

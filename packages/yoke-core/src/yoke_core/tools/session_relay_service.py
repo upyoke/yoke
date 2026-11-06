@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import sys
-from yoke_cli.config.session_relay_instance import RELAY_LOGOUT_BEHAVIOR
+from yoke_contracts.machine_config.relay_instance import RELAY_LOGOUT_BEHAVIOR
 from typing import Any
 
 from yoke_core.tools import session_relay_plist, session_relay_systemd

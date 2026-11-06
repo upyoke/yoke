@@ -18,7 +18,7 @@ from yoke_contracts.machine_config.capability_secrets import (
     is_machine_local_capability_secret,
 )
 
-from yoke_core.domain import capability_machine_secrets
+from yoke_contracts.machine_config import capability_secret_store as capability_machine_secrets
 from yoke_core.domain.db_helpers import (
     connect,
     instant_parameter,

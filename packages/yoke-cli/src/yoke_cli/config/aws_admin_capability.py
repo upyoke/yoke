@@ -24,7 +24,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from urllib.parse import quote
 
-from yoke_cli.config import capability_secrets, install_binding
+from yoke_cli.config import install_binding
+from yoke_contracts.machine_config import capability_secret_store as capability_secrets
 from yoke_contracts.api_urls import (
     AWS_BOOTSTRAP_TEMPLATE_PROD_URL,
     AWS_BOOTSTRAP_TEMPLATE_STAGE_URL,
@@ -233,7 +234,7 @@ def store_credential(
     """Write both values owner-only under the machine secrets root."""
     try:
         machine_secrets = importlib.import_module(
-            "yoke_core.domain.capability_machine_secrets"
+            "yoke_contracts.machine_config.capability_secret_store"
         )
         return [
             machine_secrets.store_machine_capability_secret(

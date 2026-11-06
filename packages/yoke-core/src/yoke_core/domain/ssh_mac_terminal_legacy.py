@@ -9,20 +9,21 @@ from uuid import uuid4
 
 from yoke_core.domain.host_control_runner import HostActionResult
 from yoke_core.domain.qa_artifact_handle import local_handle
-from yoke_core.domain.ssh_mac_terminal_capture import (
-    RunRemote,
-    capture_screen,
-    close_terminal_session,
-    close_terminal_window,
-    detect_terminal_backend,
-    open_terminal_window,
-    send_terminal_input,
-    wait_for_text,
-)
+from yoke_contracts.runtime_ports.ssh_mac_terminal_capture import get_ssh_mac_terminal_capture
 from yoke_core.domain.terminal_screenshot_quality import (
     TerminalScreenshotRegistry,
 )
 
+
+
+RunRemote = get_ssh_mac_terminal_capture().RunRemote
+capture_screen = get_ssh_mac_terminal_capture().capture_screen
+close_terminal_session = get_ssh_mac_terminal_capture().close_terminal_session
+close_terminal_window = get_ssh_mac_terminal_capture().close_terminal_window
+detect_terminal_backend = get_ssh_mac_terminal_capture().detect_terminal_backend
+open_terminal_window = get_ssh_mac_terminal_capture().open_terminal_window
+send_terminal_input = get_ssh_mac_terminal_capture().send_terminal_input
+wait_for_text = get_ssh_mac_terminal_capture().wait_for_text
 
 def execute_legacy_terminal_case(
     run: RunRemote,

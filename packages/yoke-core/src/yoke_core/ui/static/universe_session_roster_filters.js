@@ -1,5 +1,5 @@
-import { magnifier } from "./universe_search_overlay.js";
 import { sessionIsLive } from "./universe_session_diagnostics.js";
+import { magnifier } from "./universe_search_overlay.js";
 import { attachTooltip } from "./universe_tooltip.js";
 import { el } from "./universe_view_support.js";
 import { sessionScopeLabel } from "./universe_session_detail.js";
@@ -26,7 +26,7 @@ function includes(value, query) {
   return !query || String(value || "").toLowerCase().includes(query);
 }
 
-const DEFAULT_STATE = "active";
+const DEFAULT_STATE = "open";
 const OUTSIDE_PROJECT = "outside-project";
 
 function setOptions(documentNode, control, defaultLabel, values) {
@@ -45,13 +45,12 @@ function setOptionEntries(documentNode, control, defaultLabel, entries) {
     ? selected : "";
 }
 
-function matchesState(row, selected) {
-  const value = String(row.liveness || "").toLowerCase();
-  if (!selected) return true;
-  if (selected === DEFAULT_STATE) return sessionIsLive(row) && !row.native_process_gone_at;
-  if (selected === "parked") return sessionIsLive(row)
-    && (row.mode === "parked" || row.turn_posture === "waiting");
-  return selected === "ended" && value === "ended";
+export function sessionFilterGroup(row) {
+  const state = row.session_state;
+  if (!state) return sessionIsLive(row) ? "unavailable" : "ended";
+  if (state.presence !== "present") return state.presence;
+  if (["parked", "awaiting"].includes(state.intent?.state)) return "parked";
+  return state.activity;
 }
 
 export function sessionRosterFilters(documentNode, onChange) {
@@ -71,7 +70,9 @@ export function sessionRosterFilters(documentNode, onChange) {
   host.appendChild(search.wrapper);
   const state = input(documentNode, "State", "select");
   for (const [value, label] of [
-    ["active", "Active"], ["parked", "Parked"],
+    ["open", "Open"], ["working", "Working"],
+    ["between_turns", "Between turns"], ["parked", "Parked or awaiting"],
+    ["silent", "Silent"], ["gone", "Gone"],
     ["ended", "Ended"], ["", "All"],
   ]) {
     state.control.appendChild(option(documentNode, value, label));
@@ -143,7 +144,11 @@ export function sessionRosterFilters(documentNode, onChange) {
           || includes(row.executor_surface, harness)
           || includes(row.presentation_surface, harness))
         && (includes(row.machine_id, machine) || includes(row.machine_name, machine))
-        && (!includeState || matchesState(row, controls.state.value));
+        && (!includeState || (!controls.state.value
+          || (controls.state.value === DEFAULT_STATE
+            ? (row.session_state ? row.session_state.presence === "present"
+              : sessionIsLive(row) && !row.native_process_exited_at)
+            : sessionFilterGroup(row) === controls.state.value)));
     });
   };
   return {
@@ -257,8 +262,9 @@ export function appendSessionRelay(documentNode, body, row) {
 
 export function sessionMessageDeliveryNote(row) {
   const routing = row.messageability || {};
-  if (String(row.liveness || "") === "active"
-      && row.mode !== "parked" && row.turn_posture !== "waiting") return "";
+  if (row.session_state?.presence === "present"
+      && row.session_state.activity !== "silent"
+      && row.session_state.intent?.state === "none") return "";
   if (routing.wake_authority === "operator") {
     return "Queued — delivered when you wake this session.";
   }

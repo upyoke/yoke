@@ -101,6 +101,7 @@ def run_target_partition(
             roster_size=len(roster),
             deployment_run_id=deployment_run_id,
             deployment_stage=deployment_stage,
+            deployment_member_item_id=deployment_member_item_id,
         )
     if len(open_rows) == len(roster):
         return roster

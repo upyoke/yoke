@@ -17,7 +17,7 @@ from yoke_cli.config import onboard_self_host_server as server  # noqa: E402
 
 from yoke_cli.config import yoke_token_verify  # noqa: E402
 
-from yoke_cli.config.onboard_destinations import DESTINATION_SERVER  # noqa: E402
+from yoke_contracts.onboard_destinations import DESTINATION_SERVER  # noqa: E402
 
 from yoke_cli.config.onboard_wizard import WizardDefaults  # noqa: E402
 

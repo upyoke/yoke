@@ -1,7 +1,7 @@
 {
  "id": "session",
  "term": "Session",
- "definition": "Usually a harness session here; a website sign-in session or browser QA session has a different purpose.",
+ "definition": "A harness conversation with independent presence, tool activity, pause intent, custody and next actor. The Sessions page defaults to present sessions; detailed groups separate working, between turns, parked or awaiting, silent, gone and ended.",
  "status": "draft",
  "sources": ["docs/public/sessions/index.md"]
 }

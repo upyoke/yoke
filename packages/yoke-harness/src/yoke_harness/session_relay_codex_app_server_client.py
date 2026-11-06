@@ -20,7 +20,7 @@ from yoke_harness.session_relay_codex_app_server_errors import (
     CodexAppServerError,
     rpc_error,
 )
-from yoke_cli.config.session_relay_instance import strip_relay_owned_python_state
+from yoke_contracts.machine_config.relay_instance import strip_relay_owned_python_state
 
 # Imported from where it is defined rather than from the inventory module
 # that re-exports it: inventory reads plan limits, and a plan-limit probe

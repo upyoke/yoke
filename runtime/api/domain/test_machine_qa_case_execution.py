@@ -17,7 +17,7 @@ from yoke_core.domain.qa_artifact_handle import local_handle, parse_handle, s3_h
 from yoke_core.domain.qa_case_execution_context import (
     get_case_execution_context,
 )
-from yoke_core.domain.ssh_mac_terminal_capture import (
+from yoke_harness.ssh_mac_terminal_capture import (
     TerminalWaitResult,
     verify_terminal_bridge,
     wait_for_text,

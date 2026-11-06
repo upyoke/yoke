@@ -1,6 +1,6 @@
 """Tests for the .git/hooks/post-commit installer + hook firing.
 
-The installer is owned by :mod:`yoke_core.domain.project_install_git_hooks`
+The installer is owned by :mod:`yoke_cli.project_install.git_hooks`
 (the git-hook layer of ``yoke project install``, shared by both
 delivery strategies).
 
@@ -23,7 +23,7 @@ from pathlib import Path
 
 import pytest
 
-from yoke_core.domain.project_install_git_hooks import (
+from yoke_cli.project_install.git_hooks import (
     POST_COMMIT_MARKER,
     POST_COMMIT_SHIM,
     BootstrapResult,

@@ -81,10 +81,8 @@ class ClaimHolder:
     #: landing notice, so its silence is not yet idleness.
     landing_notice_pending: bool = False
     next_actor: dict = field(default_factory=dict)
-
-    @property
-    def requires_immediate_alarm(self) -> bool:
-        return self.native_process_gone or (self.call_interrupted and not self.parked)
+    state_facts: dict = field(default_factory=dict, repr=False)
+    session_state: dict = field(default_factory=dict)
 
     @property
     def native_process_gone(self) -> bool:
@@ -224,9 +222,8 @@ def claim_holders(
                     None, row["prefix"], row["project_sequence"]
                 ),
                 mode=mode,
-                next_actor=session_next_actor(
-                    row,
-                    presence=session_presence(row)),
+                state_facts=dict(row),
+                next_actor=session_next_actor(row, presence=session_presence(row)),
                 parked=session_is_parked(mode),
                 last_activity_at=last_activity,
                 idle_seconds=age_seconds(last_activity, now) or 0,
@@ -246,19 +243,61 @@ def claim_holders(
     return tuple(holders)
 
 
-def with_next_actor(conn: Any, holders: tuple[ClaimHolder, ...]) -> tuple[ClaimHolder, ...]:
+def with_next_actor(
+    conn: Any, holders: tuple[ClaimHolder, ...]
+) -> tuple[ClaimHolder, ...]:
     """Enrich a report page after the narrow, one-statement holder read."""
     from yoke_core.domain.next_actor_facts import next_actor_facts
     from yoke_core.domain.next_actor import session_next_actor
 
-    facts, _ = next_actor_facts(conn, session_ids=[h.session_id for h in holders],
-                              item_ids=[h.item_id for h in holders])
-    return tuple(replace(holder, next_actor=session_next_actor(
-        {"mode": holder.mode, "quiet_reason": holder.quiet_reason,
-         "turn_posture_at": holder.next_actor.get("since"),
-         "native_process_gone_at": holder.native_process_gone_at,
-         **facts.get(holder.session_id, {})},
-        presence="gone" if holder.native_process_gone else "present")) for holder in holders)
+    facts, _ = next_actor_facts(
+        conn,
+        session_ids=[h.session_id for h in holders],
+        item_ids=[h.item_id for h in holders],
+    )
+    return tuple(
+        replace(
+            holder,
+            state_facts={**holder.state_facts, **facts.get(holder.session_id, {})},
+            next_actor=session_next_actor(
+                {
+                    "mode": holder.mode,
+                    "quiet_reason": holder.quiet_reason,
+                    "turn_posture_at": holder.next_actor.get("since"),
+                    "native_process_gone_at": holder.native_process_gone_at,
+                    **facts.get(holder.session_id, {}),
+                },
+                presence="gone" if holder.native_process_gone else "present",
+            ),
+        )
+        for holder in holders
+    )
 
 
-__all__ = ["ClaimHolder", "claim_holders"]
+def with_session_state(
+    holders: tuple[ClaimHolder, ...], *, now: str | datetime, idle_after_seconds: int
+) -> tuple[ClaimHolder, ...]:
+    """Project complete holder facts with the report's one project idle setting."""
+    from yoke_core.domain.session_state import session_state
+
+    projected = []
+    for holder in holders:
+        facts = {
+            **holder.state_facts,
+            "mode": holder.mode,
+            "quiet_reason": holder.quiet_reason,
+            "last_tool_call_at": holder.state_facts.get(
+                "last_tool_call_at", holder.last_activity_at
+            ),
+            "open_tool_call_at": holder.state_facts.get(OPEN_TOOL_CALL_COLUMN),
+            "holds": [holder.public_ref],
+            "session_idle_minutes": idle_after_seconds / 60,
+        }
+        model = session_state(facts, now=parse_stamp(now))
+        projected.append(
+            replace(holder, session_state=model, next_actor=model["next_actor"])
+        )
+    return tuple(projected)
+
+
+__all__ = ["ClaimHolder", "claim_holders", "with_session_state"]

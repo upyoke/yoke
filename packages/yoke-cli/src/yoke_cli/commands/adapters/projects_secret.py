@@ -14,7 +14,7 @@ from yoke_cli.commands._helpers import (
     parse_or_usage_error,
     usage_error,
 )
-from yoke_cli.config import secrets as machine_secrets
+from yoke_contracts.machine_config import secret_files as machine_secrets
 from yoke_cli.config.project_slug_lookup import resolve_project_slug
 from yoke_contracts.api.function_call import TargetRef
 from yoke_contracts.github_app_tokens import GITHUB_CAPABILITY_TYPE
@@ -155,7 +155,7 @@ def _store_machine_local_secret(parsed: argparse.Namespace, value: str) -> int:
             session_id=parsed.session_id,
         )
         local_secrets = importlib.import_module(
-            "yoke_core.domain.capability_machine_secrets"
+            "yoke_contracts.machine_config.capability_secret_store"
         )
         path = local_secrets.store_machine_capability_secret(
             project_slug,

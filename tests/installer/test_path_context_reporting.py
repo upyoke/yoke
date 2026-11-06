@@ -7,7 +7,7 @@ import pytest
 
 from yoke_cli.commands.adapters import path_doctor as cli
 from yoke_cli.config import path_doctor as doctor
-from yoke_cli.config.path_state_contract import shell_setup_files
+from yoke_contracts.shell_path_state import shell_setup_files
 
 
 @pytest.fixture

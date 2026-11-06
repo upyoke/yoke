@@ -9,7 +9,7 @@ import pytest
 
 from yoke_harness import test_machine_temp_script as program
 from yoke_harness.ssh_mac_baseline_probes import reach_user_equivalent_baseline
-from yoke_harness.test_machine_types import HostActionResult
+from yoke_contracts.test_machine_types import HostActionResult
 from yoke_core.domain.agent_mission_preparation import prepare_mission
 
 

@@ -10,7 +10,7 @@ from typing import Any, Callable, Mapping
 
 from yoke_cli.commands._helpers import ensure_handlers_loaded
 from yoke_cli.transport.dispatcher import call_dispatcher
-from yoke_cli.transport.https_retry_policy import (
+from yoke_contracts.https_retry_policy import (
     error_code_is_terminal_authentication,
 )
 from yoke_contracts.api.function_call import TargetRef

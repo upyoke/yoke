@@ -117,7 +117,7 @@ def test_approval_refuses_noncanonical_or_unrelated_tabs(starting_url) -> None:
 
 @pytest.mark.parametrize("result_url", [ENTRY_URL, REDIRECT_URL])
 def test_visible_connected_confirmation_accepts_only_the_same_allowed_tab(result_url):
-    from yoke_harness.machine_browser_approval import approval_outcome
+    from yoke_contracts.machine_browser_approval import approval_outcome
 
     result = approval_outcome(
         browser="Safari",

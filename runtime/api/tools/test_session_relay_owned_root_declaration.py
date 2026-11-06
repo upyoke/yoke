@@ -15,7 +15,7 @@ import subprocess
 import sys
 import sysconfig
 
-from yoke_cli.config.session_relay_instance import RELAY_STATE_DIR_ENV
+from yoke_contracts.machine_config.relay_instance import RELAY_STATE_DIR_ENV
 from yoke_core.tools.session_relay_release import RELAY_ACTIVE_RELEASE_NAME
 from yoke_core.tools.session_relay_runtime_install import _install_runtime_entrypoint
 

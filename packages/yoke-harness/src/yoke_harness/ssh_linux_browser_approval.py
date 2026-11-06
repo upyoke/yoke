@@ -23,7 +23,7 @@ from yoke_harness import (
     linux_devtools_page,
 )
 from yoke_harness.linux_desktop_session import desktop_command, ensure_desktop
-from yoke_harness.machine_browser_approval import (
+from yoke_contracts.machine_browser_approval import (
     APPROVE_CONTROL_LABEL,
     CONNECTED_CONFIRMATION,
     BrowserApprovalResult,
@@ -33,7 +33,7 @@ from yoke_harness.machine_browser_approval import (
     missing_approval_tab,
 )
 from yoke_harness.ssh_mac_sign_in_apps import SIGN_IN_APP_QUIT_NOT_PROVED
-from yoke_harness.test_machine_types import HostActionResult
+from yoke_contracts.test_machine_types import HostActionResult
 
 BROWSER = "Chromium"
 NO_DESKTOP = "headless_linux_browser_approval_unavailable"
@@ -46,7 +46,7 @@ HELPER_UNREADABLE = "linux_desktop_chromium_unreadable"
 _HOST_TIMEOUT_SECONDS = 90
 _DEVTOOLS_IMPORT = "from yoke_harness.linux_devtools_page import DevToolsPage"
 _CONFIRMATION_IMPORT = (
-    "from yoke_harness.machine_browser_approval import CONNECTED_CONFIRMATION"
+    "from yoke_contracts.machine_browser_approval import CONNECTED_CONFIRMATION"
 )
 
 

@@ -54,6 +54,9 @@ def _holder_rows(holders: Any) -> list[tuple[Any, ...]]:
             holder.native_process_gone,
             holder.hand_started,
             holder.quiet_reason,
+            holder.session_state.get("intent", {}).get("state"),
+            holder.next_actor.get("actor"),
+            holder.next_actor.get("reason"),
         )
         for holder in holders
     )
@@ -65,6 +68,7 @@ def seat_payload(report: "FleetReport") -> dict[str, Any]:
         "available": sorted(entry.item_id for entry in report.available),
         "landing_waits": sorted(wait.item_id for wait in report.landing_waits),
         "idle": _holder_rows(report.idle),
+        "awaiting": _holder_rows(report.awaiting),
         "suspected_orphaned_waiters": _holder_rows(report.suspected_orphaned_waiters),
         "vendor_errors": sorted(
             (entry.session_id, entry.status, entry.attempts)

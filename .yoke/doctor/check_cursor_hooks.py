@@ -25,7 +25,7 @@ from yoke_core.engines.doctor_report import (
     RecordCollector,
     _resolve_repo_root,
 )
-from yoke_cli.filesystem_safety import first_symlink_component
+from yoke_contracts.filesystem_safety import first_symlink_component
 
 
 # Required Cursor-native events in hooks.json. The shell gate rides

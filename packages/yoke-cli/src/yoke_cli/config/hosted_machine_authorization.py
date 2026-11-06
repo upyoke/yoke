@@ -37,7 +37,7 @@ from yoke_cli.config.hosted_machine_browser import (
     BrowserOpenResult,
     open_browser as open_browser,
 )
-from yoke_cli.transport.bounded_json_http import (
+from yoke_contracts.bounded_json_http import (
     BoundedJsonHttpError,
     BoundedJsonHttpStatusError,
     request_json,

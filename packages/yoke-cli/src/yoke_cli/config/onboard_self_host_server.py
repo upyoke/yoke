@@ -9,7 +9,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Sequence
 
-from yoke_cli.config import secrets as machine_secrets
+from yoke_contracts.machine_config import secret_files as machine_secrets
 from yoke_cli.config import server_connect, server_image_repository
 from yoke_cli.config.onboard_docker_prerequisites import (
     DockerPrerequisiteError,

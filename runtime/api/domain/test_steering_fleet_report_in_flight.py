@@ -142,13 +142,13 @@ def test_a_refused_call_is_closed_by_its_refusal_and_never_reads_in_flight(fleet
     assert {holder.session_id for holder in report.idle} == {WORKER_SESSION}
 
 
-def test_an_ordinary_open_row_does_not_suppress_the_idle_alarm(fleet):
+def test_an_ordinary_running_call_uses_the_shared_in_flight_rule(fleet):
     _open_call(fleet, "git -C /repo status --short")
 
     report = _compose(fleet)
 
     assert report.in_flight == ()
-    assert {holder.session_id for holder in report.idle} == {WORKER_SESSION}
+    assert report.idle == ()
 
 
 def test_a_holder_with_no_open_call_at_all_stays_idle(fleet):
@@ -213,7 +213,8 @@ def test_the_newest_open_row_decides_rather_than_any_older_leftover(fleet):
     report = _compose(fleet)
 
     assert report.in_flight == ()
-    assert {holder.session_id for holder in report.idle} == {WORKER_SESSION}
+    assert report.idle == ()
+    assert report.holders[0].session_state["in_flight"] is True
 
 
 def test_the_ceiling_is_the_widest_budget_these_commands_give_themselves():
@@ -262,7 +263,7 @@ def test_native_exit_excludes_even_an_unclosed_running_call(fleet):
     assert _compose(fleet).in_flight == ()
 
 
-def test_a_turn_that_ended_mid_call_alarms_before_the_idle_threshold(fleet):
+def test_a_turn_that_ended_mid_call_uses_the_shared_idle_threshold(fleet):
     just_started = "2026-08-26T11:59:30.000000Z"
     _open_call(fleet, MERGE_WAIT, started_at=just_started)
     fleet.execute(
@@ -273,5 +274,12 @@ def test_a_turn_that_ended_mid_call_alarms_before_the_idle_threshold(fleet):
     fleet.commit()
     report = _compose(fleet)
     assert report.in_flight == ()
-    assert {h.session_id for h in report.idle} == {WORKER_SESSION}
-    assert report.idle[0].idle_seconds == 30
+    assert report.idle == ()
+    holder = next(h for h in report.holders if h.session_id == WORKER_SESSION)
+    assert holder.session_state["activity"] == "between_turns"
+    fleet.execute(
+        "UPDATE harness_sessions SET last_tool_call_at=%s WHERE session_id=%s",
+        ("2026-08-26T11:00:00.000000Z", WORKER_SESSION),
+    )
+    fleet.commit()
+    assert {h.session_id for h in _compose(fleet).idle} == {WORKER_SESSION}

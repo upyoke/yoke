@@ -98,7 +98,7 @@ test("Sessions renders resolved local identity and the exact empty state", async
   ];
   assert.deepEqual(
     filterButtons.map((button) => button.textContent),
-    ["Clear", "Message all", "Reclaim stale", "Load more"],
+    ["Clear", "Message all", "Reclaim sessions", "Load more"],
   );
   assert.equal(
     filterButtons.at(-1).className,
@@ -167,7 +167,7 @@ test("Sessions reports a scoped read failure without presenting cleanup as avail
   assert.equal(byClass(root, "session-card").length, 0);
   assert.equal(
     byClass(root, "item-button").find(
-      (button) => button.textContent === "Reclaim stale",
+      (button) => button.textContent === "Reclaim sessions",
     ).disabled,
     true,
   );

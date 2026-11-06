@@ -9,7 +9,7 @@ import pytest
 
 from yoke_harness import ssh_linux_baseline as baseline
 from yoke_harness import ssh_linux_baseline_desktop as desktop
-from yoke_harness.test_machine_types import HostActionResult
+from yoke_contracts.test_machine_types import HostActionResult
 
 
 @pytest.mark.parametrize(

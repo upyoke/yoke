@@ -3,7 +3,7 @@
 import json
 import urllib.request
 
-from yoke_cli.transport.bounded_json_http import request_json
+from yoke_contracts.bounded_json_http import request_json
 from yoke_contracts.hook_evaluator_protocol import (
     HOOK_CLIENT_WALL_CAPABILITY,
     HOOK_MACHINE_SCOPE_CAPABILITY,

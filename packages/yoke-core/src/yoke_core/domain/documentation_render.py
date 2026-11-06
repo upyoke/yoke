@@ -10,7 +10,7 @@ import tempfile
 from urllib.parse import quote
 
 from markdown_it import MarkdownIt
-from yoke_cli.transport.response_evidence import wrapped_lines
+from yoke_contracts.response_evidence import wrapped_lines
 
 from yoke_core.domain.documentation_navigation import (
     NavigationError,

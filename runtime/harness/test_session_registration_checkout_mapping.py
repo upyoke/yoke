@@ -2,7 +2,7 @@
 
 import pytest
 from yoke_contracts.session_model_facts import SessionModelFacts
-from yoke_core.domain import machine_config_writer
+from yoke_cli.config import writer as machine_config_writer
 from yoke_core.hooks import session_lifecycle_client
 
 

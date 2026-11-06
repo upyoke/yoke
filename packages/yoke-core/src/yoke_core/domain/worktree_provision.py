@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from yoke_contracts.runtime_ports.harness_setup_reconcile import get_harness_setup_reconcile
+
 import sys
 from pathlib import Path
 from typing import Optional
@@ -94,7 +96,7 @@ def create_worktree_lane(
 
 def provision_worktree_harness_setup(worktree_path: str) -> None:
     """Reconcile only this lane and report each failed facet with recovery."""
-    from yoke_harness.harness_setup_reconcile import reconcile_harness_setup
+    reconcile_harness_setup = get_harness_setup_reconcile().reconcile_harness_setup
 
     result = reconcile_harness_setup(paths=[Path(worktree_path)])
     for line in result.lines():

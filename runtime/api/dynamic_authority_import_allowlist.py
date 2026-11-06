@@ -107,17 +107,6 @@ ALLOWED_DYNAMIC_AUTHORITY_IMPORTS = {
         "yoke_core.domain.project_scratch_dir",
     ): ("source_dev_admin", "local scratch resolver helper"),
     (
-        "packages/yoke-cli/src/yoke_cli/commands/adapters/projects_secret.py",
-        "yoke_core.domain.capability_machine_secrets",
-    ): ("source_dev_admin", "local aws-admin capability secret file writer"),
-    (
-        "packages/yoke-cli/src/yoke_cli/config/aws_admin_capability.py",
-        "yoke_core.domain.capability_machine_secrets",
-    ): (
-        "machine_local_credential_custody",
-        "onboarding hosting-credential owner-only file writer",
-    ),
-    (
         "packages/yoke-cli/src/yoke_cli/config/aws_admin_capability.py",
         "yoke_core.domain.aws_machine_caller_identity",
     ): (

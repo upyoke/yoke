@@ -9,15 +9,15 @@ from urllib.parse import urlsplit
 
 from yoke_cli.commands.universe_ui_connection import UniverseUiError
 from yoke_cli.config import machine_config
-from yoke_cli.config.onboard_destinations import is_hosted_url
-from yoke_cli.transport.bounded_json_http import (
+from yoke_contracts.onboard_destinations import is_hosted_url
+from yoke_contracts.bounded_json_http import (
     BoundedJsonHttpError,
     BoundedJsonHttpStatusError,
     error_detail,
     request_json,
 )
 from yoke_cli.transport.https_credentials import TransportError, resolve_token
-from yoke_cli.transport.response_limits import ONBOARD_JSON_REQUEST_TIMEOUT_SECONDS
+from yoke_contracts.response_limits import ONBOARD_JSON_REQUEST_TIMEOUT_SECONDS
 from yoke_contracts.api_urls import join_api_url
 from yoke_contracts.browser_sign_in import (
     BROWSER_SIGN_IN_MAX_LENGTH,

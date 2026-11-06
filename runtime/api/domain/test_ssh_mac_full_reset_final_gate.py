@@ -12,7 +12,7 @@ from runtime.api.domain.ssh_mac_full_reset_test_support import (
     require_zsh,
 )
 from yoke_harness.ssh_mac_full_reset import execute_full_test_machine_reset
-from yoke_harness.ssh_mac_full_reset_contract import (
+from yoke_contracts.ssh_mac_full_reset_contract import (
     FULL_RESET_MARKER,
     RESET_FAILURE_PREFIX,
     RESET_PHASES,

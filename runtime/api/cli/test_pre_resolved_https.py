@@ -8,8 +8,8 @@ import urllib.request
 
 import pytest
 
-from yoke_cli.transport import pre_resolved_https
-from yoke_cli.transport import pre_resolved_https_connection as connection_module
+from yoke_contracts import pre_resolved_https as pre_resolved_https
+from yoke_contracts import pre_resolved_https_connection as connection_module
 
 
 class _MutableClock:

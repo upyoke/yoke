@@ -6,7 +6,7 @@ import json
 import shlex
 
 from yoke_harness.ssh_linux_reset_preconditions import DESKTOP_PROGRAM
-from yoke_harness.test_machine_types import HostActionResult
+from yoke_contracts.test_machine_types import HostActionResult
 
 
 def end_desktop(control) -> HostActionResult:

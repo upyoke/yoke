@@ -6,15 +6,13 @@ import { isInstantRelativeTime, relativeAge, relativeTime } from "./universe_tim
 import { el } from "./universe_view_support.js";
 import { formatInstant } from "./timestamps.js";
 
-// How often the "active now" / "idle Xm/Xh/Xd" text repaints itself so a
-// reader watching the card sees a unit boundary cross without reloading.
+// Refresh tool age as it crosses unit boundaries.
 const ACTIVITY_REFRESH_MS = 5_000;
 
-// Optional observed activity is a strict qualified clock or unknown. Unknown
-// activity says "recently" and supplies no freshness; fallback display text
-// from the shared relative-age formatter never establishes an observation.
+// Only a qualified tool clock supplies recency.
 function activityAge(value, now = Date.now()) {
-  return value == null ? "recently" : relativeAge(value, now);
+  return value == null ? "unavailable"
+    : isInstantRelativeTime(value, now) ? "<1m" : relativeAge(value, now);
 }
 
 function optionalActivityInstant(value) {
@@ -26,31 +24,26 @@ function optionalActivityInstant(value) {
   }
 }
 
-// Recency wording for the observed-activity timestamp, live: "active now"
-// while under a minute old, "idle <age>" once past it, rolling over through
-// the shared minute/hour/day units like every other age on the card. Reuses
-// relativeTime's click/keyboard toggle to absolute time, driven by
-// `activityAge` so toggling back to relative never disagrees with the
-// periodic repaint.
+// Tool recency remains independent of heartbeat and session intent.
 function appendActivityStatus(documentNode, age, timestamp) {
   const activityTimestamp = optionalActivityInstant(timestamp);
+  if (!activityTimestamp) {
+    age.appendChild(el(documentNode, "span", "session-age-prefix", "last tool unavailable"));
+    return;
+  }
   const time = relativeTime(documentNode, activityTimestamp, Date.now(), {
-    instantText: "now", relativeAgeFn: activityAge,
+    instantText: "<1m", relativeAgeFn: activityAge,
   });
-  const prefix = el(documentNode, "span", "session-age-prefix", "");
+  const prefix = el(documentNode, "span", "session-age-prefix", "last tool ");
   const paint = () => {
-    const now = Date.now();
-    const instant = isInstantRelativeTime(activityTimestamp, now);
-    prefix.textContent = instant ? "active " : "idle ";
-    // A reader who toggled the time open to its absolute value is inspecting
-    // it; a repaint must not overwrite that out from under them.
     if (time.getAttribute("aria-pressed") !== "true") {
-      time.textContent = instant ? "now" : activityAge(activityTimestamp, now);
+      time.textContent = activityAge(activityTimestamp, Date.now());
     }
   };
   paint();
   age.appendChild(prefix);
   age.appendChild(time);
+  age.appendChild(el(documentNode, "span", "session-age-suffix", " ago"));
   // Self-disposing: once `age` leaves the live document (its card was
   // replaced by a later render) the next tick clears itself instead of
   // repainting a detached card forever. `.unref()` keeps a Node test runner
@@ -118,9 +111,7 @@ export function appendSessionAge(documentNode, body, row) {
     add(attributed === "lane" ? "worktree attached " : "filed ", row.activity_at);
     age.appendChild(el(documentNode, "span", "session-age-separator", " · "));
   }
-  // Activity recency is duration only. Primary status lives on the identity
-  // pill; this line answers "active now" or "idle <age>" and keeps
-  // answering it as time passes.
-  appendActivityStatus(documentNode, age, row.activity_at);
+  // Tool recency is independent of presence, intent and heartbeat.
+  appendActivityStatus(documentNode, age, row.last_tool_call_at);
   body.appendChild(age);
 }

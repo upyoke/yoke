@@ -6,10 +6,11 @@ import argparse
 import sys
 from collections.abc import Callable, Sequence
 
-from yoke_cli.commands.adapters.deployment_execution_authority import (
-    self_deploy_door,
-)
+from yoke_contracts.runtime_ports.deployment_execution_authority import get_deployment_execution_authority
 
+
+
+self_deploy_door = get_deployment_execution_authority().self_deploy_door
 
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(

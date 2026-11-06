@@ -27,7 +27,7 @@ from yoke_core.domain.deployment_start_timing import timed_call, timing_facts
 from dataclasses import dataclass
 from pathlib import Path
 
-from yoke_cli.config import repo_upstream_git
+from yoke_contracts.runtime_ports.repo_upstream_git import get_repo_upstream_git
 from yoke_contracts.deployment_itemless_teaching import INTERRUPTED_RUN_RECOVERY
 from yoke_core.domain import deploy_pipeline_control_plane as control_plane
 from yoke_core.domain import machine_config
@@ -38,6 +38,9 @@ from yoke_core.engines.deploy_run_worktree_naming import (
     driver_worktree_path as _driver_worktree_path,
 )
 
+
+
+repo_upstream_git = get_repo_upstream_git()
 
 PINNED_RELEASE_ENV = "YOKE_DEPLOY_DRIVER_RELEASE"
 PINNED_SOURCE_ROOT_ENV = "YOKE_DEPLOY_DRIVER_SOURCE_ROOT"

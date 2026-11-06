@@ -33,6 +33,7 @@ function card(documentNode, extras = {}) {
     {
       session_id: "session-1",
       liveness: "active",
+      session_state: extras.session_state,
       mode: extras.mode || "dash",
       executor: "codex",
       current_item: currentItem,
@@ -196,11 +197,13 @@ test("the failed segment carries its failure without a second red line", () => {
 test("parked state and age remain while the lifecycle strip stays item-only", () => {
   const rendered = card(new FakeDocument(), {
     mode: "parked",
+    session_state: { presence: "present", activity: "silent", intent: { state: "parked" } },
   });
   const badge = byClass(rendered, "pill").find(
-    (node) => node.attributes.get("data-state") === "parked",
+    (node) => node.attributes.get("data-state") === "silent",
   );
-  assert.equal(badge.textContent, "parked");
+  assert.equal(badge.textContent, "silent");
+  assert.match(byClass(rendered, "session-intent")[0].textContent, /parked/);
   assert.equal(byClass(rendered, "session-age").length, 1);
   assert.equal(byClass(rendered, "delivery-run-stages").length, 1);
 });

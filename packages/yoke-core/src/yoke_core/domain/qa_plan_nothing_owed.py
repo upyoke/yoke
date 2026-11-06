@@ -42,6 +42,7 @@ def nothing_owed(
     deployment_run_id: str | None,
     deployment_stage: str | None,
     held: Mapping[int, PendingAgentReview] | None = None,
+    deployment_member_item_id: int | None = None,
 ) -> QaPlanNothingOwed:
     """The refusal for a roster with no case left to capture on its target."""
     blockers = _review_blockers(held or {})
@@ -50,13 +51,19 @@ def nothing_owed(
             qa_stage_outstanding,
         )
 
+        from yoke_core.domain.deployment_qa_resettlement import resettle_stage
+
+        resettle_stage(
+            conn,
+            run_id=str(deployment_run_id),
+            stage=str(deployment_stage),
+            member=deployment_member_item_id,
+        )
         outstanding = qa_stage_outstanding(
             conn, run_id=str(deployment_run_id), stage_name=str(deployment_stage)
         )
         if outstanding is not None:
-            blockers.extend(
-                line for line in outstanding.lines if line not in blockers
-            )
+            blockers.extend(line for line in outstanding.lines if line not in blockers)
     scope = (
         f"deployment run {deployment_run_id} stage {deployment_stage!r}"
         if deployment_run_id
@@ -73,8 +80,7 @@ def nothing_owed(
                 "a fully passed roster",
                 evaluated=f"{evaluated}; the stage reports no QA blocker",
                 recovery=(
-                    f"re-drive the deployment run with `yoke watch deploy -- {deployment_run_id}` so the stage settles from the "
-                    f"recorded passes; read `yoke deployment-runs get "
+                    f"recorded passes have been settled inline; read `yoke deployment-runs get "
                     f"{deployment_run_id}` for its current state"
                     if deployment_run_id
                     else "read the results with `yoke qa requirement list`"

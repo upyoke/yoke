@@ -33,7 +33,7 @@ from yoke_cli.config import (
     yoke_token_verify,
 )
 
-from yoke_cli.transport.bounded_json_http import BoundedJsonHttpResponse
+from yoke_contracts.bounded_json_http import BoundedJsonHttpResponse
 
 pytest.importorskip("textual")
 

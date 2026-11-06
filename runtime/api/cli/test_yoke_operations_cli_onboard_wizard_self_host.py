@@ -15,7 +15,7 @@ pytest.importorskip("textual")
 from yoke_cli.config import onboard_docker_prerequisites as docker  # noqa: E402
 from yoke_cli.config import onboard_self_host_server as server  # noqa: E402
 from yoke_cli.config import yoke_token_verify  # noqa: E402
-from yoke_cli.config.onboard_destinations import DESTINATION_SERVER  # noqa: E402
+from yoke_contracts.onboard_destinations import DESTINATION_SERVER  # noqa: E402
 from yoke_cli.config import onboard_wizard_self_host as flow  # noqa: E402
 from yoke_cli.config import onboard_wizard_flow_connect as connect_flow  # noqa: E402
 from yoke_cli.config.onboard_wizard_widgets import (  # noqa: E402

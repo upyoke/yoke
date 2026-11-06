@@ -38,7 +38,7 @@ from yoke_contracts.session_control import capabilities_for_harness
 from yoke_contracts.session_control.model_selection_manifest import (
     launch_model_selection_manifest,
 )
-from yoke_harness.hooks.machine_hooks_render import HOOK_ROOT_EXPRESSIONS
+from yoke_contracts.machine_hooks_render import HOOK_ROOT_EXPRESSIONS
 
 
 def _session_control(harness_id: str) -> dict:

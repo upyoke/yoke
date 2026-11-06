@@ -17,6 +17,7 @@ A source that cannot answer names the reason and recovery.
 """
 
 from __future__ import annotations
+from yoke_contracts.runtime_ports.repo_upstream_git import get_repo_upstream_git
 
 from dataclasses import dataclass
 from datetime import datetime
@@ -160,8 +161,7 @@ class LocalCheckoutSource:
         if self._fetched:
             return False
         self._fetched = True
-        from yoke_cli.config import repo_upstream_git
-
+        repo_upstream_git = get_repo_upstream_git()
         branch = git.git_out(self._repo_root, "branch", "--show-current")
         remote, configured = repo_upstream_git.resolve_remote(self._repo_root, branch)
         if not remote:

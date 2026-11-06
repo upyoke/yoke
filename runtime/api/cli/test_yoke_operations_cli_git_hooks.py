@@ -24,7 +24,7 @@ import pytest
 from yoke_cli.commands import git_hook as mod
 from yoke_contracts.git_hook_markers import HEAD_RECORDING_GIT_HOOKS
 from yoke_cli.main import main as cli_main
-from yoke_core.domain.project_install_git_hooks import (
+from yoke_cli.project_install.git_hooks import (
     PRE_COMMIT_SHIM,
     POST_COMMIT_SHIM,
 )

@@ -12,6 +12,9 @@ secrets and is not QA evidence.
 
 from __future__ import annotations
 
+from yoke_contracts.runtime_ports.browser_profile import get_browser_profile
+from yoke_contracts.runtime_ports.project_slug_lookup import get_project_slug_lookup
+
 from contextvars import ContextVar
 from typing import Any, Dict
 from urllib.parse import urlsplit
@@ -132,8 +135,8 @@ def describe_sign_in(
     is never authenticated. The identity is named so a signed-out capture
     says which persona's sign-in it needed.
     """
-    from yoke_cli.config.browser_profile import resolve_authorized_profile
-    from yoke_cli.config.project_slug_lookup import ProjectSlugLookupError
+    resolve_authorized_profile = get_browser_profile().resolve_authorized_profile
+    ProjectSlugLookupError = get_project_slug_lookup().ProjectSlugLookupError
 
     from yoke_core.domain.browser_qa_step_sign_in import set_case_identity
 

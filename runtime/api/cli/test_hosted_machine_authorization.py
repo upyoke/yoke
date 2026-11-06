@@ -6,7 +6,7 @@ import pytest
 
 from yoke_contracts.machine_authorization import RETRYABLE_POLL_ERRORS
 from yoke_cli.config import hosted_machine_authorization as auth
-from yoke_cli.transport.bounded_json_http import (
+from yoke_contracts.bounded_json_http import (
     BoundedJsonHttpResponse,
     BoundedJsonHttpStatusError,
 )

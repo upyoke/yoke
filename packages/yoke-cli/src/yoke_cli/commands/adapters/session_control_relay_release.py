@@ -24,7 +24,7 @@ def release_status_payload(
     refresh_served: bool,
 ) -> dict[str, Any]:
     """Render this relay's build source beside the launchd lifecycle state."""
-    from yoke_cli.config.session_relay_instance import resolve_relay_instance
+    from yoke_contracts.machine_config.relay_instance import resolve_relay_instance
 
     release = importlib.import_module("yoke_core.tools.session_relay_release")
 
@@ -94,7 +94,7 @@ def serve_release_daemon(*, cycle_maintenance: Callable[[], None] | None = None)
     from yoke_harness.session_relay_inventory import collect_cached_inventory
     from yoke_harness.session_relay_process_restart import exec_relay_release
 
-    from yoke_cli.config.session_relay_instance import (
+    from yoke_contracts.machine_config.relay_instance import (
         RelayInstanceError,
         door_relay_refusal,
         resolve_relay_instance,

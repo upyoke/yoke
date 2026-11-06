@@ -209,7 +209,7 @@ def _import(shell, config_path, *args):
 
 
 def projects(shell) -> list[dict]:
-    from yoke_cli.config.onboard_destinations import DESTINATION_LOCAL
+    from yoke_contracts.onboard_destinations import DESTINATION_LOCAL
 
     if shell.result.destination == DESTINATION_LOCAL:
         payload = existing_project_lookup._call_local_function(

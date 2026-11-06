@@ -26,7 +26,7 @@ from contextlib import contextmanager
 from pathlib import Path
 from typing import Any, Mapping, Optional
 
-from yoke_cli.config import repo_upstream_git
+from yoke_contracts.runtime_ports.repo_upstream_git import get_repo_upstream_git
 from yoke_core.domain.qa_case_execution import QaCaseExecutionError
 from yoke_core.domain.qa_case_tree_binding_scope import (
     candidate_revision,
@@ -37,6 +37,9 @@ from yoke_core.domain.worktree_provision import GIT_WORKTREE_ADD_TIMEOUT_SECONDS
 from yoke_core.domain.worktree_test_environment import provision_test_environment
 
 #: Name prefix of every candidate checkout, so a leftover is recognizable.
+
+repo_upstream_git = get_repo_upstream_git()
+
 CANDIDATE_CHECKOUT_PREFIX = "yoke-qa-candidate-"
 
 

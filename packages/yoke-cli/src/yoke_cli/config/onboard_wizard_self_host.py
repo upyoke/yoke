@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING, Any, Protocol
 from yoke_cli.config import onboard_docker_prerequisites as docker
 from yoke_cli.config import onboard_wizard_image_repository as images
 from yoke_cli.config import onboard_self_host_server as server
-from yoke_cli.config.onboard_destinations import DESTINATION_SERVER
+from yoke_contracts.onboard_destinations import DESTINATION_SERVER
 from yoke_cli.config.onboard_wizard_widgets import STEP_CONNECT
 from yoke_cli.config.setup_prompt import TONE_ERROR, TONE_OK, SelectionRow, SetupPrompt
 from yoke_cli.self_host import first_boot_token

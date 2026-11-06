@@ -14,7 +14,7 @@ from yoke_harness.ssh_mac_full_reset import (
     TEST_MAC_RESET_TRANSPORT_FAILED,
     execute_full_test_machine_reset,
 )
-from yoke_harness.ssh_mac_full_reset_contract import FULL_RESET_REMOTE_PATH
+from yoke_contracts.ssh_mac_full_reset_contract import FULL_RESET_REMOTE_PATH
 from yoke_harness.ssh_test_machine_transport import TRANSPORT_FAILURE_EXIT
 
 HOME = "/Users/tester"

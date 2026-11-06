@@ -2,7 +2,7 @@
 
 One owner for every harness: it reads the per-harness facts from
 :mod:`yoke_contracts.harness_machine_hooks` and the entry shapes from
-:mod:`yoke_harness.hooks.machine_hooks_render`. Setup, project install and
+:mod:`yoke_contracts.machine_hooks_render`. Setup, project install and
 refresh, the per-hook self-heal and uninstall call it; doctor reads through
 :mod:`yoke_harness.hooks.machine_hooks_inspect`.
 
@@ -30,7 +30,7 @@ from yoke_contracts.harness_machine_hooks import (
 )
 from yoke_contracts.refusal_recovery import compose_refusal
 
-from yoke_harness.hooks.machine_hooks_render import (
+from yoke_contracts.machine_hooks_render import (
     is_machine_hook_entry,
     render_user_hook_entries,
 )

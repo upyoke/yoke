@@ -14,7 +14,7 @@ from __future__ import annotations
 import json
 import urllib.request
 
-from yoke_cli.transport.bounded_json_http import request_json
+from yoke_contracts.bounded_json_http import request_json
 from yoke_cli.transport.https import HttpsConnection
 
 DENIAL_AUDIT_PATH = "/v1/hooks/denial-audit"

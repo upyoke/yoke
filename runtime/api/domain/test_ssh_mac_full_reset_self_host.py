@@ -10,7 +10,7 @@ from runtime.api.domain.ssh_mac_full_reset_test_support import (
     function_program as _function_program,
     require_zsh as _require_zsh,
 )
-from yoke_harness.ssh_mac_full_reset_contract import (
+from yoke_contracts.ssh_mac_full_reset_contract import (
     COMPOSE_PROJECT_LABEL,
     RESET_PHASES,
     SELF_HOST_COMPOSE_PROJECT,

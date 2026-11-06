@@ -53,6 +53,8 @@ session was launched; this reader only ever sees what was served.
 
 from __future__ import annotations
 
+from yoke_contracts.runtime_ports.identity_relay import get_identity_relay
+
 from typing import Any, Optional, Tuple
 
 from yoke_contracts.executor_labels import canonical_harness_id
@@ -134,7 +136,7 @@ def local_served_facts(payload: dict[str, Any], executor: str) -> SessionModelFa
     if not executor:
         return SessionModelFacts()
     try:
-        from yoke_harness.hooks.identity_relay import resolve_model_facts
+        resolve_model_facts = get_identity_relay().resolve_model_facts
 
         return _served_only(resolve_model_facts(payload, executor))
     except Exception:  # noqa: BLE001 — identity observation never breaks a hook
@@ -191,7 +193,7 @@ def observed_surface(
     entrypoint = carried.strip() if isinstance(carried, str) else ""
     if not entrypoint and local_evaluation and executor:
         try:
-            from yoke_harness.hooks.identity_relay import client_entrypoint
+            client_entrypoint = get_identity_relay().client_entrypoint
 
             entrypoint = client_entrypoint(executor, payload) or ""
         except Exception:  # noqa: BLE001 — identity probes never break a hook

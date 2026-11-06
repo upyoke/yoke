@@ -21,7 +21,7 @@ from yoke_harness.ssh_linux_baseline import (
 )
 from yoke_harness.ssh_linux_host_operations import SshLinuxHostOperations
 from yoke_harness.ssh_linux_terminal import diagnose_linux_terminal
-from yoke_harness.test_machine_types import HostActionResult
+from yoke_contracts.test_machine_types import HostActionResult
 
 
 SETTINGS = {

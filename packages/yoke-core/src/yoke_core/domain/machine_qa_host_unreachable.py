@@ -10,12 +10,14 @@ the plan. A host with ``cloud_instance_id`` is started before SSH is tried
 
 from __future__ import annotations
 
+from yoke_contracts.runtime_ports.test_machine_operations import get_test_machine_operations
+
 from typing import TYPE_CHECKING, Any
 
 from yoke_contracts.machine_qa_failures import SSH_UNAVAILABLE, HostControlLocalError
 
 if TYPE_CHECKING:
-    from yoke_harness.test_machine_operations import LocalHostControlSubmission
+    LocalHostControlSubmission = get_test_machine_operations().LocalHostControlSubmission
     from yoke_core.domain.machine_qa_execution_contract import (
         HostControlExecutionContract,
     )
@@ -28,7 +30,7 @@ def unreachable_submission(
     contract: "HostControlExecutionContract", error: HostControlLocalError
 ) -> "LocalHostControlSubmission":
     """Report the case unstarted because SSH never reached the host."""
-    from yoke_harness.test_machine_operations import LocalHostControlSubmission
+    LocalHostControlSubmission = get_test_machine_operations().LocalHostControlSubmission
     from yoke_core.domain.machine_qa_submission_artifacts import (
         ensure_secret_free_result,
     )

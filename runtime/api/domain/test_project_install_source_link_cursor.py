@@ -14,7 +14,7 @@ from yoke_contracts.cursor_permissions import (
 )
 from yoke_core.domain import project_install_source_link as source_link
 from yoke_core.domain.agents_render_cursor import render_cursor_hooks_json
-from yoke_core.domain.project_install_files import ProjectInstallError
+from yoke_cli.project_install.files import ProjectInstallError
 
 CONFIGURED_ORIGIN = "control.example.test"
 

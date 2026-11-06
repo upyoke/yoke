@@ -23,7 +23,7 @@ import time
 from typing import Any, Callable
 
 from yoke_cli.config.machine_config import default_yoke_home
-from yoke_cli.config.session_relay_instance import (
+from yoke_contracts.machine_config.relay_instance import (
     LAUNCHD_USER_DOMAIN,
     RELAY_BASE_LABEL,
 )

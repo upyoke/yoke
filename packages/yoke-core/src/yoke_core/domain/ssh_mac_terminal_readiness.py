@@ -6,11 +6,14 @@ from collections.abc import Callable, Sequence
 import time
 
 from yoke_contracts.designed_wait import announce_designed_wait, poll_every
-from yoke_core.domain.ssh_mac_terminal_capture import RunRemote
+from yoke_contracts.runtime_ports.ssh_mac_terminal_capture import get_ssh_mac_terminal_capture
 from yoke_core.domain.ssh_mac_terminal_recipe_support import (
     capture_recipe_transcript,
 )
 
+
+
+RunRemote = get_ssh_mac_terminal_capture().RunRemote
 
 DEFAULT_READY_TIMEOUT_SECONDS = 120.0
 READY_POLL_SECONDS = 1.0

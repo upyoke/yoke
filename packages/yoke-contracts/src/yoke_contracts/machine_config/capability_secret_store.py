@@ -1,0 +1,172 @@
+"""Machine-local storage for project capability secrets."""
+
+from __future__ import annotations
+
+from yoke_contracts.machine_config.directories import create_private_directory
+
+import os
+import tempfile
+from pathlib import Path
+
+from yoke_contracts.machine_config import capability_secrets as contract
+from yoke_contracts.machine_config import schema as machine_contract
+
+from yoke_contracts.machine_config import runtime as machine_config
+
+
+class MachineCapabilitySecretError(RuntimeError):
+    """Machine-local capability secret storage failed."""
+
+
+def machine_capability_secret_path(
+    project_slug: str,
+    cap_type: str,
+    key: str,
+) -> Path:
+    """Return the deterministic local path for a capability secret."""
+    return (
+        machine_config.yoke_home()
+        / machine_contract.SECRETS_DIR_NAME
+        / contract.capability_secret_relative_path(project_slug, cap_type, key)
+    )
+
+
+def read_machine_capability_secret(
+    project_slug: str,
+    cap_type: str,
+    key: str,
+) -> str | None:
+    """Read a machine-local capability secret, or ``None`` when absent."""
+    path = machine_capability_secret_path(project_slug, cap_type, key)
+    if not path.is_file():
+        return None
+    try:
+        value = path.read_text(encoding="utf-8").strip()
+    except OSError as exc:
+        raise MachineCapabilitySecretError(
+            f"{cap_type}.{key} file is unreadable: {path}"
+        ) from exc
+    if not value:
+        raise MachineCapabilitySecretError(f"{cap_type}.{key} file is empty: {path}")
+    return value
+
+
+def store_machine_capability_secret(
+    project_slug: str,
+    cap_type: str,
+    key: str,
+    secret: str,
+) -> Path:
+    """Write a machine-local capability secret with owner-only permissions."""
+    value = str(secret or "").strip()
+    if not value:
+        raise MachineCapabilitySecretError(f"{cap_type}.{key} is empty")
+    path = machine_capability_secret_path(project_slug, cap_type, key)
+    _write_secret(path, value)
+    return path
+
+
+def list_machine_capability_secret_keys(project_slug: str, cap_type: str) -> list[str]:
+    """List present local secret key files for a machine-local capability."""
+    base = (
+        machine_config.yoke_home()
+        / machine_contract.SECRETS_DIR_NAME
+        / contract.capability_secret_directory_relative_path(project_slug, cap_type)
+    )
+    if not base.is_dir():
+        return []
+    return sorted(
+        path.name
+        for path in base.iterdir()
+        if path.is_file()
+        and contract.is_machine_local_capability_secret(cap_type, path.name)
+    )
+
+
+def delete_machine_capability_secrets(project_slug: str, cap_type: str) -> None:
+    """Remove only this project's named test-machine secret directory."""
+    import shutil
+
+    if not cap_type.startswith("test-machine:"):
+        raise MachineCapabilitySecretError(
+            "only named test-machine secrets can be deleted"
+        )
+    directory = (
+        machine_config.yoke_home()
+        / machine_contract.SECRETS_DIR_NAME
+        / contract.capability_secret_directory_relative_path(project_slug, cap_type)
+    )
+    _refuse_unisolated_test_write(directory)
+    try:
+        shutil.rmtree(directory)
+    except FileNotFoundError:
+        pass
+    except OSError as exc:
+        raise MachineCapabilitySecretError(
+            f"local secret cleanup failed for {cap_type}: {directory}"
+        ) from exc
+
+
+def ensure_private_capability_dir(directory: Path) -> Path:
+    """Create a directory under the secrets root with owner-only permissions.
+
+    Every ancestor up to the secrets root is tightened to ``0700`` too, so a
+    directory created before this rule existed does not leave the new one
+    readable through a loose parent.
+    """
+    _refuse_unisolated_test_write(directory)
+    create_private_directory(directory)
+    _chmod_private_dirs(directory)
+    return directory
+
+
+def _write_secret(path: Path, secret: str) -> None:
+    ensure_private_capability_dir(path.parent)
+    descriptor, name = tempfile.mkstemp(prefix=path.name + ".", dir=path.parent)
+    tmp_path = Path(name)
+    try:
+        with os.fdopen(descriptor, "w", encoding="utf-8") as stream:
+            stream.write(secret + "\n")
+        os.replace(tmp_path, path)
+    finally:
+        tmp_path.unlink(missing_ok=True)
+
+
+def _chmod_private_dirs(directory: Path) -> None:
+    secrets_root = (
+        machine_config.yoke_home() / machine_contract.SECRETS_DIR_NAME
+    ).resolve()
+    current = directory.resolve()
+    while True:
+        try:
+            current.relative_to(secrets_root)
+        except ValueError:
+            break
+        current.chmod(0o700)
+        if current == secrets_root:
+            break
+        current = current.parent
+
+
+def _refuse_unisolated_test_write(path: Path) -> None:
+    if not os.environ.get("PYTEST_CURRENT_TEST"):
+        return
+    real_home = (Path.home() / ".yoke").resolve()
+    try:
+        path.resolve().relative_to(real_home)
+    except (ValueError, OSError):
+        return
+    raise MachineCapabilitySecretError(
+        f"refusing to write a secret into the real machine home under test "
+        f"({path}); set YOKE_MACHINE_HOME to a temp dir"
+    )
+
+
+__all__ = [
+    "MachineCapabilitySecretError",
+    "ensure_private_capability_dir",
+    "list_machine_capability_secret_keys",
+    "machine_capability_secret_path",
+    "read_machine_capability_secret",
+    "store_machine_capability_secret",
+]

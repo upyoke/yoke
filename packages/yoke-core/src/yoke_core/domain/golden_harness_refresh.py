@@ -12,6 +12,9 @@ already current costs one record read and no reset, install or capture.
 
 from __future__ import annotations
 
+from yoke_contracts.runtime_ports.golden_harness_clis import get_golden_harness_clis
+from yoke_contracts.runtime_ports.golden_snapshot_retention import get_golden_snapshot_retention
+
 import json
 import sys
 from pathlib import PurePosixPath
@@ -24,8 +27,11 @@ from yoke_contracts.machine_qa_failures import HostControlLocalError
 from yoke_core.domain.machine_qa_golden_destination import (
     timestamped_golden_directory_name,
 )
-from yoke_harness import harness_cli_latest
-from yoke_harness.harness_cli_latest import fetch_release_channel
+from yoke_contracts.runtime_ports.harness_cli_latest import get_harness_cli_latest
+
+
+harness_cli_latest = get_harness_cli_latest()
+fetch_release_channel = get_harness_cli_latest().fetch_release_channel
 
 REFRESH_RECOVERY_SUFFIX = (
     " The plan stopped before its case reset so no QA ran on stale CLIs; "
@@ -83,10 +89,8 @@ def refreshed_case_contract(
     from yoke_core.domain.machine_qa_host_control import (
         register_test_machine_host_control,
     )
-    from yoke_harness.golden_harness_clis import (
-        install_harness_clis,
-        read_golden_harness_clis,
-    )
+    install_harness_clis = get_golden_harness_clis().install_harness_clis
+    read_golden_harness_clis = get_golden_harness_clis().read_golden_harness_clis
 
     latest = latest_harness_cli_versions(fetch)
     machine = key[1]
@@ -172,11 +176,9 @@ def _capture_golden(
         deliver_plan_function,
     )
     from yoke_core.domain.qa_plan_execution_result_state import QaPlanExecutionError
-    from yoke_harness.golden_snapshot_retention import (
-        SnapshotRetentionError,
-        retain_after_verified_capture,
-        retention_summary,
-    )
+    SnapshotRetentionError = get_golden_snapshot_retention().SnapshotRetentionError
+    retain_after_verified_capture = get_golden_snapshot_retention().retain_after_verified_capture
+    retention_summary = get_golden_snapshot_retention().retention_summary
 
     machine = str(contract.settings["resource_name"])
     shape = {

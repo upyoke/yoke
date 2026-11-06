@@ -227,7 +227,7 @@ def test_explicit_launcher_declares_only_creation_bootstrap(argv, bootstrap):
 def test_relay_install_refuses_a_door_whose_https_env_serves_it(tmp_path):
     import json
 
-    from yoke_cli.config.session_relay_instance import (
+    from yoke_contracts.machine_config.relay_instance import (
         door_relay_refusal,
         resolve_relay_instance,
     )
@@ -289,7 +289,7 @@ def test_relay_install_refuses_a_door_whose_https_env_serves_it(tmp_path):
     assert raised.value.code == "use_https_env"
 
     from yoke_cli.commands.adapters import session_control_relay_release
-    from yoke_cli.config import session_relay_instance
+    from yoke_contracts.machine_config import relay_instance as session_relay_instance
 
     with (
         mock.patch.object(

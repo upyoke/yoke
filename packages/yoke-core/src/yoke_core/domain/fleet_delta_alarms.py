@@ -6,11 +6,10 @@ that went quiet, an in-flight item nobody picked back up, an envelope
 that was never delivered. Each is a *level* condition rather than an
 edge, so each fires when it starts and clears once when it stops —
 re-firing every pass is how a report becomes noise the reader skims.
-An unparked idle holder, or a parked one blocking dependents, repeats: work that stays
+A silent holder with no declared wait repeats: work that stays
 stuck for hours must not scroll out of view after its one line.
 
-The thresholds belong to the steering loop; they are restated here as
-the constants the detectors read.
+Session activity uses the shared state and project idle setting.
 """
 
 from __future__ import annotations
@@ -24,12 +23,8 @@ from yoke_core.domain.fleet_delta_snapshot import (
     FleetSnapshot,
     SessionRow,
 )
-from yoke_core.domain.session_mode import session_is_parked
+from yoke_core.domain.session_state import session_needs_idle_alarm, session_state
 
-#: A live work-claim holder silent this long is probed and revived. Its
-#: liveness label stays ``active`` far past this point, so the age of the
-#: latest tool-work activity, including watcher pulses, is the signal.
-IDLE_HOLDER_MINUTES = 20
 #: A still-idle holder's alarm repeats this often until it clears.
 IDLE_HOLDER_REPEAT_MINUTES = 60
 #: A non-terminal item may be momentarily unowned at every lifecycle
@@ -137,32 +132,32 @@ def _holding_sessions(current: FleetSnapshot) -> Iterable[SessionRow]:
     ]
 
 
+def holder_state(row: SessionRow, now: datetime) -> dict:
+    """Read the served projection; older serving builds use the shared model."""
+    return row.session_state or session_state(
+        {
+            "mode": row.mode,
+            "quiet_reason": row.quiet_reason,
+            "last_tool_call_at": row.work_activity_at,
+            "holds": row.claimed_items,
+            "ended_at": now if row.ended else None,
+            "terminated_at": now if row.terminated else None,
+        },
+        now=now,
+    )
+
+
 def idle_holder_candidates(current: FleetSnapshot) -> list[SessionRow]:
-    """Silent live holders classified using the light roster's landing facts."""
+    """The shared state owns activity, intent, custody and the next actor."""
     return [
         row
         for row in _holding_sessions(current)
-        if (minutes_since(row.work_activity_at, current.taken_at) or 0)
-        >= IDLE_HOLDER_MINUTES
+        if session_needs_idle_alarm(holder_state(row, current.taken_at))
     ]
 
 
 def idle_holder_alarms(current: FleetSnapshot, state: DeltaState) -> list[str]:
-    """Live claim holders silent past the idle threshold, parked or not.
-
-    A holder whose item waits on a live source is excluded: an armed,
-    unlanded landing the queue drives, or a pinned release wait a
-    deployment run drives, or an unsatisfied dependency with a satisfaction
-    wake. Once that source is gone the idle threshold
-    applies again.
-
-    A park declares a wait but does not prove the wait is still sound: a
-    parked holder whose blocker cleared, whose question went unanswered or
-    whose process exited stays stuck until someone looks. The line carries
-    mode, park reason and message delivery state so the reader can judge
-    the wait. A parked holder alarms once, since its wait was declared; an
-    unparked one, or a parked one blocking dependents, repeats hourly.
-    """
+    """Alarm only on silent holders with no declared or external wait."""
     lines: list[str] = []
     live: set[str] = set()
     for row in idle_holder_candidates(current):
@@ -175,7 +170,8 @@ def idle_holder_alarms(current: FleetSnapshot, state: DeltaState) -> list[str]:
         key = f"idle-holder:session={identifier(row.session_id)}"
         live.add(key)
         dependents = sorted(
-            item.ref for item in current.items.values()
+            item.ref
+            for item in current.items.values()
             if set(item.blocked_by).intersection(row.claimed_items)
         )
         reason = repr(row.quiet_reason) if row.quiet_reason else "none"
@@ -189,9 +185,6 @@ def idle_holder_alarms(current: FleetSnapshot, state: DeltaState) -> list[str]:
         )
         if dependents:
             line += f" dependents={','.join(dependents)}"
-        if session_is_parked(row.mode) and not dependents:
-            lines.extend(_raise_once(state, key, line))
-            continue
         lines.extend(
             _raise_repeating(
                 state, key, line, current.taken_at, IDLE_HOLDER_REPEAT_MINUTES
@@ -328,7 +321,6 @@ def starved_envelope_alarms(current: FleetSnapshot, state: DeltaState) -> list[s
 __all__ = [
     "BACKLOG_STATUSES",
     "DeltaState",
-    "IDLE_HOLDER_MINUTES",
     "IDLE_HOLDER_REPEAT_MINUTES",
     "LINE_PREFIX",
     "STARVED_ENVELOPE_MINUTES",

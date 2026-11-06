@@ -32,7 +32,7 @@ from yoke_cli.project_install.hook_entries import (
     record_key,
 )
 from yoke_cli.project_install.hook_schema import validate_hooks_subtree
-from yoke_cli.filesystem_safety import (
+from yoke_contracts.filesystem_safety import (
     atomic_replace_bytes,
     first_symlink_component,
 )

@@ -17,8 +17,6 @@ import {
 import {
   appendSessionPrimaryStatus,
   sessionIsLive,
-  sessionHealthState,
-  sessionPrimaryStatus,
 } from "./universe_session_diagnostics.js";
 import { harnessIdentity } from "./universe_session_presentation.js";
 import { el } from "./universe_view_support.js";
@@ -80,11 +78,11 @@ function miniSessionCard(documentNode, row, note) {
     documentNode, "span", "session-executor", harness.label,
   ));
   appendSessionPrimaryStatus(documentNode, button, row);
-  const health = sessionHealthState(row);
-  if (sessionPrimaryStatus(row).state === "parked"
-      && ["process-gone", "resuming"].includes(health?.state)) {
-    button.appendChild(el(documentNode, "span", "item-claimant-process", health.label));
-  }
+  const intent = row.session_state?.intent;
+  if (intent && intent.state !== "none") button.appendChild(el(
+    documentNode, "span", "item-claimant-intent",
+    [intent.state, intent.reason].filter(Boolean).join(" · "),
+  ));
   // Anything else this session holds reads after its status, inside the same
   // chip, because it is a property of the session and not a thing the
   // session is filed under.

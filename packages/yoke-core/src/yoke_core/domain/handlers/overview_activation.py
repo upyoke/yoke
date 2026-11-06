@@ -11,6 +11,8 @@ a dismissal never hides state from other actors.
 
 from __future__ import annotations
 
+from yoke_contracts.runtime_ports.install_advice import get_install_advice
+
 from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel
@@ -105,7 +107,7 @@ def handle_overview_activation_get(
         result = compute_activation(conn, machine_connected, _actor_id(request))
     finally:
         conn.close()
-    from yoke_cli.config.install_advice import install_command
+    install_command = get_install_advice().install_command
 
     result["install_command"] = install_command()
     return HandlerOutcome(result_payload=result, primary_success=True)

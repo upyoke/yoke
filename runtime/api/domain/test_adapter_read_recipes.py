@@ -47,7 +47,7 @@ def test_command_help_stays_within_its_fixed_fixture_budget(
 
     assert main(command.split() + ["--help"]) == 0
     output = capsys.readouterr().out
-    from yoke_cli.transport.response_evidence import wrapped_lines
+    from yoke_contracts.response_evidence import wrapped_lines
 
     assert wrapped_lines(output) <= 350
     print(

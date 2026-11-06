@@ -11,7 +11,7 @@ from yoke_contracts.qa_continuity_fingerprint import (
     require_continuity_state,
 )
 from yoke_contracts.machine_qa_failures import HostControlLocalError
-from yoke_harness.qa_continuity_fingerprint import check_continuity
+from yoke_contracts.qa_continuity_fingerprint import check_continuity
 from yoke_core.domain.machine_qa_continuity import continuity_failure
 from yoke_core.domain.qa_method_config_validation import validate_method_config
 from yoke_core.domain.machine_qa_method_contracts import validate_machine_method_config

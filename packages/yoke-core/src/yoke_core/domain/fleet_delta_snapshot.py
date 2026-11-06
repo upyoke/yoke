@@ -71,6 +71,7 @@ class SessionRow:
     quiet_reason: str = ""  # the park reason, or empty
     message_delivery: str = DELIVERY_UNKNOWN
     in_flight: bool = False
+    session_state: dict[str, Any] = field(default_factory=dict)
 
     @property
     def work_activity_at(self) -> datetime | None:
@@ -181,6 +182,7 @@ def session_rows(result: Mapping[str, Any]) -> dict[str, SessionRow]:
             activity_at=parse_timestamp(raw.get("activity_at")),
             last_tool_call_at=parse_timestamp(raw.get("last_tool_call_at")),
             in_flight=raw.get("in_flight") is True,
+            session_state=dict(raw.get("session_state") or {}),
             claimed_at=min(
                 (
                     stamp

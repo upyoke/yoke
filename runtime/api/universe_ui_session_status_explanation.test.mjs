@@ -10,6 +10,7 @@ function card(extra) {
     session_id: "session-1",
     liveness: "active",
     executor: "codex",
+    session_state: { presence: "present", activity: "working", intent: { state: "none" } },
     claims: [],
     activity_at: new Date().toISOString(),
     activity_quiet_at: "2099-01-01T00:00:00Z",
@@ -18,26 +19,19 @@ function card(extra) {
   }, () => {});
 }
 
-test("one status pill carries the quiet reason instead of a second badge", () => {
-  const rendered = card({ mode: "parked", quiet_reason: "waiting on a blocking claim" });
-  assert.deepEqual(
-    byClass(rendered, "session-status-pill").map((node) => node.textContent),
-    ["parked"],
-  );
-  const explain = byClass(rendered, "tooltip-info")[0];
-  assert.equal(explain.tagName, "BUTTON");
-  assert.equal(explain.getAttribute("aria-label"), "Why parked");
-  assert.match(explain.getAttribute("data-tooltip"), /waiting on a blocking claim$/);
-  // The explanation never joins the pill's own text, which is the state word
-  // and nothing else — the pill is what a glance reads.
-  assert.equal(byClass(rendered, "session-status-pill")[0].textContent, "parked");
+test("intent carries the recorded wait reason separately from activity", () => {
+  const rendered = card({ session_state: { presence: "present", activity: "silent",
+    intent: { state: "parked", reason: "waiting on a blocking claim" } } });
+  assert.equal(byClass(rendered, "session-status-pill")[0].textContent, "silent");
+  assert.equal(byClass(rendered, "session-intent")[0].textContent,
+    "Intentparked · waiting on a blocking claim");
 });
 
 test("a state with nothing to explain shows no affordance", () => {
   const rendered = card({});
   assert.deepEqual(
     byClass(rendered, "session-status-pill").map((node) => node.textContent),
-    ["active"],
+    ["working"],
   );
   assert.equal(byClass(rendered, "tooltip-info").length, 0);
 });

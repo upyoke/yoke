@@ -24,7 +24,7 @@ from typing import Any, Dict, List, Optional
 
 from yoke_contracts.api_urls import join_api_url
 from yoke_contracts.engine_version import ENGINE_VERSION_HEADER
-from yoke_cli.transport.bounded_json_http import (
+from yoke_contracts.bounded_json_http import (
     BoundedJsonHttpError,
     BoundedJsonHttpStatusError,
     request_json,

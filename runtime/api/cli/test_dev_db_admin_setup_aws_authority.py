@@ -15,7 +15,7 @@ from types import SimpleNamespace
 import pytest
 
 from yoke_cli import main as yoke_operations_cli
-from yoke_cli.config.capability_secrets import store_machine_capability_secret
+from yoke_contracts.machine_config.capability_secret_store import store_machine_capability_secret
 from yoke_contracts import control_plane_locality
 from yoke_core.domain import deploy_core_container, deploy_remote
 

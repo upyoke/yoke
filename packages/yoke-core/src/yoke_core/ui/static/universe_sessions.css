@@ -339,3 +339,11 @@
   width: 18px;
   height: 18px;
 }
+
+.universe-app-root .session-state-facts {
+  display: grid; grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: .6rem; margin: .6rem 0;
+}
+.universe-app-root .session-state-facts dt { font-size: .75rem; opacity: .7; }
+.universe-app-root .session-state-facts dd { margin: 0; overflow-wrap: anywhere; }
+@media (max-width: 480px) { .universe-app-root .session-state-facts { grid-template-columns: 1fr; } }

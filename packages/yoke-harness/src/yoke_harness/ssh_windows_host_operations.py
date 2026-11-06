@@ -6,8 +6,8 @@ from pathlib import Path
 
 from yoke_contracts.machine_qa_failures import SSH_UNAVAILABLE, HostControlLocalError
 from yoke_harness.ssh_linux_host_operations import SshLinuxHostOperations
-from yoke_harness.test_machine_types import HostActionResult
-from yoke_harness.windows_wsl_command import windows_wsl_command, windows_wsl_input
+from yoke_contracts.test_machine_types import HostActionResult
+from yoke_contracts.windows_wsl_command import windows_wsl_command, windows_wsl_input
 
 
 class SshWindowsHostOperations(SshLinuxHostOperations):

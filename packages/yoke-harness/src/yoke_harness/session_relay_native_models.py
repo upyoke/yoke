@@ -46,7 +46,7 @@ from yoke_harness.session_relay_codex_app_server_client import (
 from yoke_harness.session_relay_codex_app_server_reasons import (
     app_server_failure_reason,
 )
-from yoke_cli.config.session_relay_instance import strip_relay_owned_python_state
+from yoke_contracts.machine_config.relay_instance import strip_relay_owned_python_state
 from yoke_harness.session_relay_environment import native_session_environment
 from yoke_harness.session_relay_failure_log import FailureReporter
 from yoke_harness.session_relay_schedule import relay_state_dir

@@ -18,6 +18,7 @@ take effect against this caller without rebinding sibling-local names.
 """
 
 from __future__ import annotations
+from yoke_contracts.runtime_ports.browser_check_profile import get_browser_check_profile
 
 import json
 from typing import Dict, Optional
@@ -269,7 +270,7 @@ def execute_scenario(
         print(result.to_json())
         return result
 
-    from yoke_harness.browser_check_profile import check_scope
+    check_scope = get_browser_check_profile().check_scope
 
     # Resolve identities without changing the authoritative sign-in profiles.
     try:

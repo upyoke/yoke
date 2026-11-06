@@ -4,10 +4,13 @@ from __future__ import annotations
 
 import subprocess
 
-from yoke_cli.config import repo_upstream_git as upstream
+from yoke_contracts.runtime_ports.repo_upstream_git import get_repo_upstream_git
 from yoke_core.domain import standalone_item_merge_git as git
 from yoke_core.domain.item_merge_receipts import landing_merge_commit
 
+
+
+upstream = get_repo_upstream_git()
 
 class LandingUnverified(RuntimeError):
     """A landing has no fresh proof; its lane and lifecycle must be retained."""

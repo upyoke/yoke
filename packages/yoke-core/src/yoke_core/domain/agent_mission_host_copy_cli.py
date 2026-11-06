@@ -13,12 +13,15 @@ from yoke_contracts.machine_qa_failures import HostControlLocalError
 from yoke_contracts.qa_artifact_limits import MAX_ARTIFACT_BYTES
 from yoke_contracts.qa_mission_scratch import MISSION_SCRATCH_ROOT
 from yoke_contracts.refusal_recovery import compose_refusal
-from yoke_harness.remote_file_copy import HostCopyRefused
+from yoke_contracts.runtime_ports.remote_file_copy import get_remote_file_copy
 
 from yoke_core.domain.agent_mission_host_command_cli import (
     add_mission_subject_arguments,
     resolve_mission_contract,
 )
+
+
+HostCopyRefused = get_remote_file_copy().HostCopyRefused
 
 PROG = "yoke qa mission host-copy"
 

@@ -10,7 +10,7 @@ from pathlib import Path
 import time
 from typing import Iterator
 
-from yoke_cli.config.session_relay_instance import (
+from yoke_contracts.machine_config.relay_instance import (
     SHARED_RELAY_STATE_DIR_NAME,
     resolve_relay_instance,
 )

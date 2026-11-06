@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from yoke_core.domain import json_helper
-from yoke_core.domain import capability_machine_secrets
+from yoke_contracts.machine_config import capability_secret_store as capability_machine_secrets
 from yoke_core.domain import projects_capabilities as pc
 from runtime.api.domain.projects_capabilities_test_helpers import cap_db
 from runtime.api.fixtures.file_test_db import connect_test_db

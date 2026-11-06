@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from yoke_cli import filesystem_safety
+from yoke_contracts import filesystem_safety
 
 
 def test_atomic_replace_cleans_unique_temporary_after_failure(

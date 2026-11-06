@@ -259,7 +259,7 @@ def _errors():
 
 
 def machine_secret_error():
-    from yoke_cli.config.secrets import MachineSecretError
+    from yoke_contracts.machine_config.secret_files import MachineSecretError
 
     return MachineSecretError
 

@@ -6,7 +6,7 @@ import subprocess
 import sys
 from types import SimpleNamespace
 
-from yoke_harness.test_machine_types import HostActionResult
+from yoke_contracts.test_machine_types import HostActionResult
 
 import pytest
 
@@ -223,7 +223,7 @@ def test_default_capture_stops_before_archive_on_each_failed_standard_check(
 @pytest.mark.parametrize("os_name", ["macos", "linux", "windows"])
 def test_success_seals_exactly_the_proven_default_document(monkeypatch, os_name):
     from yoke_harness import ssh_linux_baseline, ssh_mac_golden_capture
-    from yoke_harness.test_machine_types import HostActionResult
+    from yoke_contracts.test_machine_types import HostActionResult
 
     sealed = {}
     control = SimpleNamespace(
@@ -277,7 +277,7 @@ def test_linux_input_probe_is_replayed_after_the_captured_home_is_reset(
     import pathlib
     import shutil
     from yoke_harness import ssh_linux_baseline
-    from yoke_harness.test_machine_types import HostActionResult
+    from yoke_contracts.test_machine_types import HostActionResult
 
     state = {"input_present": True, "document": None, "reset": False}
     input_calls = []

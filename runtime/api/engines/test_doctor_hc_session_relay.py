@@ -7,7 +7,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from yoke_cli.config.session_relay_instance import RelayInstanceError
+from yoke_contracts.machine_config.relay_instance import RelayInstanceError
 from yoke_core.engines import doctor_hc_session_relay as relay_hc
 from yoke_core.engines.doctor_report import DoctorArgs, RecordCollector
 from yoke_core.tools.session_relay_plist import RelayLaunchdStatus

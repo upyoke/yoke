@@ -6,7 +6,7 @@ import os
 import subprocess
 import sys
 
-from yoke_cli.config.session_relay_instance import (
+from yoke_contracts.machine_config.relay_instance import (
     resolve_relay_instance,
     RELAY_STATE_DIR_ENV,
 )

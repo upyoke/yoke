@@ -13,7 +13,7 @@ from yoke_core.domain.project_identity_item_ref import item_ref_for_id
 def item_worktree_authority_is_https() -> bool:
     """Return whether lane authority is reached through the HTTPS relay."""
     try:
-        from yoke_cli.config import machine_config
+        from yoke_contracts.machine_config import runtime as machine_config
 
         connection = machine_config.active_connection()
     except Exception as exc:  # noqa: BLE001 — routing must not guess local authority

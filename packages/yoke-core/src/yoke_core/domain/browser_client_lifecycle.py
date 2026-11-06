@@ -21,13 +21,19 @@ would bypass the parent's patched names and silently break the test contract.
 
 from __future__ import annotations
 
+from yoke_contracts.runtime_ports.browser_check_profile import get_browser_check_profile
+from yoke_contracts.runtime_ports.browser_client_readiness import get_browser_client_readiness
+from yoke_contracts.runtime_ports.browser_human_gate import get_browser_human_gate
+from yoke_contracts.runtime_ports.browser_node_toolchain import get_browser_node_toolchain
+from yoke_contracts.runtime_ports.browser_setup import get_browser_setup
+
 import os
 import signal
 import sys
 import time
 from typing import Any, Dict, List, Optional
 
-from yoke_harness.browser_daemon_profile import canonical_profile
+from yoke_contracts.browser_daemon_profile import canonical_profile
 
 
 def daemon_start(
@@ -44,11 +50,12 @@ def daemon_start(
 
     Returns JSON status dict.
     """
-    from yoke_cli import browser_node_toolchain
+    browser_node_toolchain = get_browser_node_toolchain()
     from yoke_core.domain import browser_client as _bc
-    from yoke_harness import browser_client_readiness, browser_setup
-    from yoke_harness.browser_human_gate import refuse_during_human_gate
-    from yoke_harness.browser_check_profile import record_daemon_owner
+    browser_client_readiness = get_browser_client_readiness()
+    browser_setup = get_browser_setup()
+    refuse_during_human_gate = get_browser_human_gate().refuse_during_human_gate
+    record_daemon_owner = get_browser_check_profile().record_daemon_owner
 
     refuse_during_human_gate(_bc._browser_dir())
     requested_profile = canonical_profile(profile_dir)
@@ -105,7 +112,7 @@ def daemon_stop(
 ) -> str:
     """Stop the browser daemon.  Returns 'stopped'."""
     from yoke_core.domain import browser_client as _bc
-    from yoke_harness.browser_daemon_profile import process_matches_start
+    from yoke_contracts.browser_daemon_profile import process_matches_start
 
     state_path = _bc._state_file_path(profile_dir)
     state = _bc.DaemonState.load(state_path)

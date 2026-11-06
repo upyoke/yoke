@@ -23,17 +23,19 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Mapping, Optional
 
-from yoke_cli.config.repo_upstream_freshness import (
-    UpstreamFreshness,
-    refresh_base_branch,
-)
+from yoke_contracts.runtime_ports.repo_upstream_freshness import get_repo_upstream_freshness
 from yoke_core.domain.worktree_preflight_steps import (
     BLOCK_UPSTREAM_STALE,
     BLOCK_UPSTREAM_UNVERIFIED,
 )
 
 
+UpstreamFreshness = get_repo_upstream_freshness().UpstreamFreshness
+refresh_base_branch = get_repo_upstream_freshness().refresh_base_branch
+
 @dataclass(frozen=True)
+
+
 class UpstreamGate:
     """The reading, plus the refusal it implies for this preparation."""
 

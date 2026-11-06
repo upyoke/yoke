@@ -5,11 +5,9 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Callable
 
-from yoke_cli.config import path_doctor
+from yoke_contracts import shell_path_state as path_doctor
 from yoke_contracts.machine_qa_execution import HOST_TEST_COMMAND
-from yoke_harness.ssh_mac_baseline_probes import (
-    reach_user_equivalent_baseline,
-)
+from yoke_contracts.runtime_ports.ssh_mac_baseline_probes import get_ssh_mac_baseline_probes
 
 from yoke_core.domain.host_control_runner import HostControl
 from yoke_core.domain.machine_qa_fixture_constants import DISTRIBUTION_URL
@@ -19,7 +17,11 @@ from yoke_core.domain.installer_campaign_recipe_operations import (
 )
 
 
+reach_user_equivalent_baseline = get_ssh_mac_baseline_probes().reach_user_equivalent_baseline
+
 @dataclass(frozen=True)
+
+
 class HostBaselineResult:
     name: str
     ok: bool

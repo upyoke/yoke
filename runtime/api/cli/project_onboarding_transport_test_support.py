@@ -6,7 +6,7 @@ import threading
 from typing import Any
 
 from yoke_cli.transport import https as https_transport
-from yoke_cli.transport.https_urlopen import open_no_redirect
+from yoke_contracts.https_urlopen import open_no_redirect
 
 
 def enable_local_http_function_relay() -> Any:

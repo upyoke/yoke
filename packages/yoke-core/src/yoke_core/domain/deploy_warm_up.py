@@ -16,6 +16,9 @@ what a client experiences.
 
 from __future__ import annotations
 
+from yoke_contracts.runtime_ports.dispatcher import get_dispatcher
+from yoke_contracts.runtime_ports.https import get_https
+
 import time
 from dataclasses import dataclass
 
@@ -68,12 +71,10 @@ def warm_up_environment(
             ),
         )
 
-    from yoke_cli.transport.dispatcher import build_request
-    from yoke_cli.transport.https import (
-        TransportError,
-        relay_https,
-        resolve_https_connection,
-    )
+    build_request = get_dispatcher().build_request
+    TransportError = get_https().TransportError
+    relay_https = get_https().relay_https
+    resolve_https_connection = get_https().resolve_https_connection
     from yoke_contracts.api.function_call import TargetRef
 
     try:

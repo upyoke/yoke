@@ -32,7 +32,7 @@ from typing import Dict, Optional
 
 from yoke_contracts.designed_wait import announce_designed_wait
 
-from yoke_cli.transport.response_deadline_open import (
+from yoke_contracts.response_deadline_open import (
     ResponseOpenDeadlineError,
     open_replay_safe,
 )

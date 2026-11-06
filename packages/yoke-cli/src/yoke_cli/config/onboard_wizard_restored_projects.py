@@ -3,7 +3,7 @@
 from yoke_cli.config import existing_project_lookup, onboard_project
 from yoke_cli.config import onboard_wizard_steps as steps
 from yoke_cli.config import onboard_input_validation as validation
-from yoke_cli.config.onboard_destinations import DESTINATION_LOCAL
+from yoke_contracts.onboard_destinations import DESTINATION_LOCAL
 from yoke_cli.config.onboard_wizard_widgets import STEP_PROJECT
 from yoke_cli.config.setup_prompt import SelectionRow
 

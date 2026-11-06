@@ -9,7 +9,7 @@ from jsonschema import Draft202012Validator
 from yoke_contracts import machine_authorization as wire
 from yoke_contracts.machine_authorization_schema import SCHEMA_RESOURCE, schema_text
 from yoke_cli.config import hosted_machine_authorization as auth
-from yoke_cli.transport.bounded_json_http import BoundedJsonHttpResponse
+from yoke_contracts.bounded_json_http import BoundedJsonHttpResponse
 
 ORIGIN = "https://team.example"
 APPROVED = {"token": "private-token", "org": "team", "api_url": ORIGIN}
@@ -153,7 +153,7 @@ def test_start_schema_rejects_invalid_values(field, value):
 def test_live_cloud_refusals_validate_and_keep_cli_recovery(
     monkeypatch, status, body, http_error
 ):
-    from yoke_cli.transport.bounded_json_http import BoundedJsonHttpStatusError
+    from yoke_contracts.bounded_json_http import BoundedJsonHttpStatusError
 
     schema = json.loads(files("yoke_contracts").joinpath(SCHEMA_RESOURCE).read_text())
     model = (

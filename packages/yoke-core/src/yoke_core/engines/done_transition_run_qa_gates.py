@@ -10,7 +10,7 @@ from yoke_contracts.api.function_call import TargetRef
 from yoke_core.api.service_client_structured_api_adapter import call_dispatcher
 
 
-def _relay_read(
+def _relay_settlement(
     function_id: str, target: TargetRef, payload: Optional[Dict[str, Any]] = None
 ) -> Dict[str, Any]:
     resp = call_dispatcher(
@@ -18,14 +18,14 @@ def _relay_read(
     )
     if not resp.success:
         message = resp.error.message if resp.error else "unknown error"
-        raise RuntimeError(f"{function_id} read failed: {message}")
+        raise RuntimeError(f"{function_id} settlement failed: {message}")
     return resp.result or {}
 
 
 def _scoped_blocking(item_id: int, run_id: str) -> List[str]:
     """Unsatisfied scoped stage verdicts this item still owes in the run."""
     return list(
-        _relay_read(
+        _relay_settlement(
             "done_transition.run_stage_qa_acceptance",
             public_item_target(item_id),
             {"run_id": run_id},

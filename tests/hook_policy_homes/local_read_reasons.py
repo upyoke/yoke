@@ -19,7 +19,7 @@ AUTHORITY_DATABASE = (
     "the retired YOKE_DB token the DB-command guards pass along. The "
     "authority connects to its own database; no client state is involved.",
     (
-        "yoke_cli.config.capability_secrets:read_machine_capability_secret",
+        "yoke_contracts.machine_config.capability_secret_store:read_machine_capability_secret",
         "yoke_contracts.machine_config.directories:create_private_directory",
         "yoke_contracts.machine_config.selection:connection_selection",
         "yoke_contracts.machine_config.selection:checkout_connection",

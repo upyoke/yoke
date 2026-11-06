@@ -7,7 +7,7 @@ import shutil
 import subprocess
 from types import SimpleNamespace
 
-from yoke_harness.test_machine_types import HostActionResult
+from yoke_contracts.test_machine_types import HostActionResult
 
 import pytest
 

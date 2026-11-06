@@ -198,7 +198,7 @@ def test_machine_password_is_read_from_exact_capability_and_added_to_redaction(
 ):
     from yoke_harness.ssh_linux_host_operations import SshLinuxHostOperations
     from yoke_harness.ssh_test_machine_transport import SshTestMachineTransport
-    from yoke_cli.config import capability_secrets
+    from yoke_contracts.machine_config import capability_secret_store as capability_secrets
 
     calls = []
     control = SimpleNamespace(secret_values=("ssh-key",))

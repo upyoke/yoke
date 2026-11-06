@@ -24,9 +24,12 @@ import sys
 from pathlib import Path
 
 from yoke_contracts.git_hook_markers import HEAD_RECORDING_SKIP_ENV
-from yoke_cli.config import credentialed_git
+from yoke_contracts.runtime_ports.credentialed_git import get_credentialed_git
 from yoke_core.domain import lane_head_record, process_group_reaping
 
+
+
+credentialed_git = get_credentialed_git()
 
 class LaneBaseUpdateRefused(Exception):
     """The lane could not be brought current; the message names why and the fix."""

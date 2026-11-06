@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any, Mapping
 
-from yoke_cli.transport.relay_telemetry import TRANSPORT_FAILED_CODE
+from yoke_contracts.runtime_ports.relay_telemetry import get_relay_telemetry
 from yoke_core.domain.deploy_pipeline_unknown_outcome import DeploymentOutcomeUnknown
 from yoke_core.domain import deploy_pipeline_control_plane
 from yoke_core.domain.deployment_run_composition_guard import RUN_SUPERSEDED_CODE
@@ -12,6 +12,9 @@ from yoke_core.domain.deployment_run_settlement_refusal import (
     SETTLEMENT_BLOCKED_CODE,
 )
 from yoke_core.domain.deployment_start_timing import timed_call
+
+
+TRANSPORT_FAILED_CODE = get_relay_telemetry().TRANSPORT_FAILED_CODE
 
 _MAX_START_RETRIES = 3
 _STALE_ATTESTATION = "candidate_containment_attestation_stale"

@@ -28,8 +28,8 @@ from yoke_contracts.machine_config.schema_projects import mapped_checkouts
 
 from yoke_cli.config import project_update, self_update
 from yoke_cli import operating_layer_drift
-from yoke_cli.config.path_state_contract import tool_bin_dir
-from yoke_cli.config.session_relay_instance import strip_relay_owned_python_state
+from yoke_contracts.shell_path_state import tool_bin_dir
+from yoke_contracts.machine_config.relay_instance import strip_relay_owned_python_state
 from yoke_cli.transport.installed_cli_staleness import update_recovery
 
 FOLLOW_RECORD_NAME = "operator-cli-follow.json"
@@ -119,7 +119,7 @@ def _refresh_line(result: dict) -> str:
 def refresh_skip_lines() -> list[str]:
     """Machine-local failed refreshes that still have a stale installed layer."""
     try:
-        from yoke_cli.config.session_relay_instance import resolve_relay_instance
+        from yoke_contracts.machine_config.relay_instance import resolve_relay_instance
 
         instance = resolve_relay_instance(
             environment=machine_config.load_config()["active_env"]

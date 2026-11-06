@@ -14,7 +14,7 @@ from runtime.api.domain.ssh_mac_full_reset_test_support import (
     require_zsh as _require_zsh,
     run_functions as _run_functions,
 )
-from yoke_harness.ssh_mac_full_reset_contract import (
+from yoke_contracts.ssh_mac_full_reset_contract import (
     RELAY_SERVICE_LABEL,
     RELAY_SERVICE_LABEL_PREFIX,
     RESET_RELAY_SERVICE_KIND_UNLOAD_FAILED,

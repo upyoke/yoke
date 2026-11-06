@@ -10,7 +10,7 @@ from pathlib import Path
 import pytest
 
 from yoke_cli import browser_node_toolchain as toolchain_module
-from yoke_cli import resilient_fetch
+from yoke_contracts import resilient_fetch
 from yoke_cli.browser_node_toolchain import (
     MANAGED_NODE_VERSION,
     NodeToolchain,

@@ -15,10 +15,7 @@ import json
 from pathlib import Path
 from typing import Callable, Optional
 
-from yoke_cli.transport.control_plane_payload import (
-    ControlPlanePayloadError,
-    required_field,
-)
+from yoke_contracts.runtime_ports.control_plane_payload import get_control_plane_payload
 from yoke_contracts.api.function_call import ActorContext, TargetRef
 
 from yoke_core.domain import qa_start_bound_authority
@@ -28,6 +25,10 @@ from yoke_core.domain import qa_start_bound_authority
 #: because this module is the call surface every runner reaches it through.
 from yoke_core.domain.qa_command_run_recording import record_command_run
 
+
+
+ControlPlanePayloadError = get_control_plane_payload().ControlPlanePayloadError
+required_field = get_control_plane_payload().required_field
 
 class QaCaseExecutionError(RuntimeError):
     """A case contract is invalid or its runner cannot be run locally."""

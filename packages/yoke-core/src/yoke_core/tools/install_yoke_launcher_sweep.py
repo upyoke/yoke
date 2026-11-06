@@ -19,7 +19,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import List, Mapping, Optional
 
-from yoke_cli.config.path_state_contract import tool_bin_dir
+from yoke_contracts.shell_path_state import tool_bin_dir
 from yoke_core.tools.install_yoke_launcher_cleanup import (
     quarantine_shadow_launcher,
 )

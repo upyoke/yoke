@@ -10,7 +10,7 @@ from uuid import uuid4
 
 from yoke_contracts.machine_screenshot import screenshot_png
 from yoke_contracts.refusal_recovery import compose_refusal
-from yoke_harness.test_machine_types import HostActionResult
+from yoke_contracts.test_machine_types import HostActionResult
 
 
 def _remote_png(control, remote):

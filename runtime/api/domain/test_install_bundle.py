@@ -9,7 +9,7 @@ from pathlib import Path
 import pytest
 
 from runtime.api.fixtures import pg_testdb
-from yoke_cli.transport.response_limits import BUNDLE_JSON_RESPONSE_LIMIT_BYTES
+from yoke_contracts.response_limits import BUNDLE_JSON_RESPONSE_LIMIT_BYTES
 from yoke_core.domain import install_bundle
 from yoke_core.domain.strategy_docs_schema import STRATEGY_DOCS_CREATE_TABLE_SQL
 
@@ -200,7 +200,7 @@ def test_build_bundle_round_trips_through_apply_bundle(conn, tmp_path) -> None:
     # crosses the producer->consumer seam with the REAL rendered bundle so a
     # shape mismatch (e.g. a path apply_bundle's safety guard would reject)
     # cannot hide.
-    from yoke_core.domain.project_install import apply_bundle
+    from yoke_cli.project_install.runner import apply_bundle
 
     bundle = install_bundle.build_bundle(2, conn)
     repo = tmp_path / "proj"

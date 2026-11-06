@@ -1,10 +1,11 @@
-"""Register the internal done-transition control-plane reads.
+"""Register internal done-transition reads, acceptance and notices.
 
-These ``done_transition.*`` functions are pure control-plane reads the
+These ``done_transition.*`` functions expose the control-plane state the
 transport-aware done-transition engine relays to so its context load,
 single-field reads, blocked-flag / preconditions / deployment guards, and
 post-done epic cascade reads run over an https control plane as well as a
-local Postgres connection. They are ``adapter_status='internal'`` (engine
+local Postgres connection. QA acceptance retries saved completion settlement.
+They are ``adapter_status='internal'`` (engine
 glue, never an agent CLI surface), so they need no CLI adapter row.
 """
 
@@ -144,14 +145,18 @@ def register(registry) -> None:
         owner_module=_DEPLOY_MODULE,
         target_kinds=["global"],
     )
-    _register_read(
-        registry,
+    registry.register(
         "done_transition.run_stage_qa_acceptance",
         _dep.handle_run_stage_qa_acceptance,
         _dep.RunStageQaAcceptanceRequest,
         _dep.RunStageQaAcceptanceResponse,
+        stability="stable",
         owner_module=_DEPLOY_MODULE,
         target_kinds=["item"],
+        side_effects=["qa_acceptance_write", "session_message"],
+        guardrails=[],
+        adapter_status="internal",
+        claim_required_kind=None,
     )
     _register_read(
         registry,

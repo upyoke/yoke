@@ -158,14 +158,14 @@ test("a disabled control explains itself through its host", () => {
   const documentNode = new FakeDocument();
   const control = documentNode.createElement("button");
   control.disabled = true;
-  const host = tooltipHost(documentNode, control, "No stale sessions in this scope");
+  const host = tooltipHost(documentNode, control, "No reclaimable sessions in this scope");
 
   assert.equal(host.className, "tooltip-host has-tooltip");
   assert.equal(host.children[0], control);
   // The events land on the host, which is exactly why it exists: a disabled
   // control fires none of them.
   fire(host, "mouseenter");
-  assert.equal(layer(documentNode).textContent, "No stale sessions in this scope");
+  assert.equal(layer(documentNode).textContent, "No reclaimable sessions in this scope");
   host.tooltip.set("Recheck and reclaim 2 stale sessions");
   assert.equal(host.getAttribute("data-tooltip"), "Recheck and reclaim 2 stale sessions");
 });

@@ -8,7 +8,7 @@ from yoke_core.domain.qa_plan_execution_checkin import communication_unknown
 
 import time
 from typing import Any
-from yoke_core.domain.machine_qa_result_safety import redact_machine_qa_value
+from yoke_contracts.machine_qa_result_safety import redact_machine_qa_value
 from yoke_core.domain.machine_qa_setup_exit import marker_exit_code, step_failure
 from yoke_core.domain.ssh_mac_terminal_recipe_support import (
     recipe_assertion_failures,
@@ -21,13 +21,15 @@ from yoke_core.domain.machine_qa_operator_gate_contract import (
     gate_needs_desktop_browser,
 )
 from yoke_core.domain.ssh_linux_operator_gate import checkpoint, run_operator_gate
-from yoke_harness.ssh_linux_browser_approval import prepare_desktop_chromium
-from yoke_harness.ssh_linux_terminal import (
-    LinuxTerminal,
-    LinuxTerminalWindowError,
-)
-from yoke_harness.test_machine_types import HostActionResult
+from yoke_contracts.runtime_ports.ssh_linux_browser_approval import get_ssh_linux_browser_approval
+from yoke_contracts.runtime_ports.ssh_linux_terminal import get_ssh_linux_terminal
+from yoke_contracts.test_machine_types import HostActionResult
 
+
+
+prepare_desktop_chromium = get_ssh_linux_browser_approval().prepare_desktop_chromium
+LinuxTerminal = get_ssh_linux_terminal().LinuxTerminal
+LinuxTerminalWindowError = get_ssh_linux_terminal().LinuxTerminalWindowError
 
 def _wait(terminal: LinuxTerminal, expected, deadline, progress_callback):
     """Return ``(ready, transcript)``; stop early once the command has exited."""

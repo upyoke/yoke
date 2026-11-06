@@ -2,8 +2,8 @@
 
 from pathlib import Path
 
-from yoke_cli.config.path_state_contract import resolve_path_state_contract
-from yoke_harness.ssh_mac_full_reset_path_state import (
+from yoke_contracts.shell_path_state import resolve_path_state_contract
+from yoke_contracts.ssh_mac_full_reset_path_state import (
     canonical_posix_path_state_contract,
 )
 

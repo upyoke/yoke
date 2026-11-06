@@ -12,7 +12,7 @@ import argparse
 import os
 from dataclasses import dataclass
 
-from yoke_cli.config import onboard_destinations
+from yoke_contracts import onboard_destinations as onboard_destinations
 from yoke_cli.config.local_universe_setup import LOCAL_ENV
 from yoke_contracts.machine_config.schema import ENV_OVERRIDE
 

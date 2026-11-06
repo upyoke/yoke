@@ -7,7 +7,7 @@ from typing import Any, Callable, Dict
 
 from yoke_cli.transport.dispatcher import call_dispatcher
 from yoke_cli.transport.https_relay_outcome import is_response_timeout
-from yoke_cli.transport.response_limits import (
+from yoke_contracts.response_limits import (
     DEPLOYMENT_RUN_CREATE_TIMEOUT_SECONDS,
 )
 from yoke_contracts.api.function_call import (

@@ -1,6 +1,7 @@
 """Credential-local execution of server-issued host-control contracts."""
 
 from __future__ import annotations
+from yoke_contracts.runtime_ports.qa_host_package_fixture import get_qa_host_package_fixture
 
 from yoke_core.domain.qa_plan_execution_checkin import communication_unknown
 
@@ -8,13 +9,8 @@ import time
 from collections.abc import Callable
 from typing import Any
 
-from yoke_harness.test_machine_operations import (
-    LocalHostControlSubmission,
-    execute_host_operation_contract as execute_client_host_operation_contract,
-)
-from yoke_harness.ssh_mac_gui_session import (
-    classify_macos_session_context_failure,
-)
+from yoke_contracts.runtime_ports.test_machine_operations import get_test_machine_operations
+from yoke_contracts.runtime_ports.ssh_mac_gui_session import get_ssh_mac_gui_session
 from yoke_contracts.machine_qa_execution import GUI_SESSION_CONTEXT
 from yoke_contracts.machine_qa_failures import SSH_UNAVAILABLE, HostControlLocalError
 from yoke_core.domain.machine_qa_host_unreachable import unreachable_submission
@@ -51,7 +47,7 @@ from yoke_core.domain.machine_qa_phase_heartbeat import (
     check_abort,
     heartbeat_during,
 )
-from yoke_core.domain.machine_qa_result_safety import (
+from yoke_contracts.machine_qa_result_safety import (
     redact_machine_qa_value,
 )
 from yoke_core.domain.machine_qa_submission_artifacts import (
@@ -59,6 +55,10 @@ from yoke_core.domain.machine_qa_submission_artifacts import (
     pack_local_artifacts,
 )
 
+
+LocalHostControlSubmission = get_test_machine_operations().LocalHostControlSubmission
+execute_client_host_operation_contract = get_test_machine_operations().execute_host_operation_contract
+classify_macos_session_context_failure = get_ssh_mac_gui_session().classify_macos_session_context_failure
 
 def _execution(
     contract: HostControlExecutionContract,
@@ -296,7 +296,7 @@ def execute_agent_mission_host_command(
     else:
         contract = _mission_contract(raw_contract)
     execution = _execution(contract)
-    from yoke_harness.qa_host_package_fixture import record_host_packages
+    record_host_packages = get_qa_host_package_fixture().record_host_packages
 
     try:
         completed = execution.control.run_command(

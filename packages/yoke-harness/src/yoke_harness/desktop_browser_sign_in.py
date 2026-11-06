@@ -14,7 +14,7 @@ import httpx
 
 from yoke_harness.browser_sign_in_limits import AUTHORIZATION_LIMIT_MS
 from yoke_harness.ssh_linux_preserved_entries import SNAP_CHROMIUM_HOME_ENTRY
-from yoke_harness.ssh_mac_preserved_state import SAFARI_COOKIE_HOME_ENTRY
+from yoke_contracts.ssh_mac_preserved_state import SAFARI_COOKIE_HOME_ENTRY
 
 
 def browser_kind() -> str:

@@ -190,6 +190,7 @@ def open_unsettled_roster(
                 roster_size=len(roster),
                 deployment_run_id=deployment_run_id,
                 deployment_stage=deployment_stage,
+                deployment_member_item_id=deployment_member_item_id,
                 held=held,
             )
         roster = [{**row, "ordinal": index} for index, row in enumerate(kept)]

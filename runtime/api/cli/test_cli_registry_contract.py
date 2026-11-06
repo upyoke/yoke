@@ -23,7 +23,7 @@ from yoke_cli.commands.command_tree import (
 from yoke_cli.commands.group_help import can_route_group
 from yoke_cli.commands.registry import SUBCOMMAND_REGISTRY, SUBCOMMAND_ALIAS_REGISTRY
 from yoke_cli.main import main
-from yoke_cli.transport.response_evidence import wrapped_lines
+from yoke_contracts.response_evidence import wrapped_lines
 
 
 EXPECTED_DISPATCH = [

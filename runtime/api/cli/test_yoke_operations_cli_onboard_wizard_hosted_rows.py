@@ -10,7 +10,7 @@ pytest.importorskip("textual")
 
 from yoke_cli.config import hosted_machine_authorization  # noqa: E402
 from yoke_cli.config import local_universe_setup  # noqa: E402
-from yoke_cli.config.onboard_destinations import DESTINATION_HOSTED  # noqa: E402
+from yoke_contracts.onboard_destinations import DESTINATION_HOSTED  # noqa: E402
 from yoke_cli.config.onboard_wizard import WizardDefaults  # noqa: E402
 from yoke_cli.config.onboard_wizard_widgets import (  # noqa: E402
     STEP_CONNECT_LABEL,

@@ -8,7 +8,7 @@ import pytest
 
 from yoke_cli.commands.adapters import onboard_github_requests
 from yoke_cli.config import onboard_machine_github
-from yoke_cli.config import onboard_destinations
+from yoke_contracts import onboard_destinations as onboard_destinations
 from yoke_cli.config import onboard_project_github_inputs
 from yoke_cli.config import onboard_reuse_state
 from yoke_cli.config import onboard_wizard_github_state as github_state

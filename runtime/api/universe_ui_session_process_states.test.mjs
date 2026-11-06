@@ -1,52 +1,44 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { sessionRosterFilters } from "../../packages/yoke-core/src/yoke_core/ui/static/universe_session_roster_filters.js";
+import { FakeDocument, allNodes } from "./universe_ui_dom_test_support.mjs";
 
-import {
-  sessionHealthState,
-} from "../../packages/yoke-core/src/yoke_core/ui/static/universe_session_diagnostics.js";
-
-// A recorded native exit is not a dead worker: a headless worker's process
-// exits between turns and the next message resumes it from its transcript.
-// The card names which state a claim holder is in and never offers
-// termination for one a message would bring back.
-
-function holder(nativeProcess) {
-  return {
-    session_id: "session-1",
-    liveness: "active",
-    executor: "claude-code",
-    claims: [{ target_kind: "item", target: "YOK-1" }],
-    activity_at: "2026-08-22T11:00:00Z",
-    activity_quiet_at: "2026-08-22T12:30:00Z",
-    native_process: nativeProcess,
-  };
-}
-
-const NOW = Date.parse("2026-08-22T12:00:00Z");
-
-test("an exited worker a message resumes shows no process state", () => {
-  const exited = sessionHealthState(holder({
-    state: "gone",
-    observed_at: "2026-08-22T11:59:00Z",
-    resumable_from_transcript: true,
-  }), NOW);
-  assert.equal(exited, null);
-
-  const resuming = sessionHealthState(holder({
-    state: "resuming",
-    observed_at: "2026-08-22T11:50:00Z",
-    resume_started_at: "2026-08-22T11:59:00Z",
-  }), NOW);
-  assert.equal(resuming.state, "resuming");
-  assert.doesNotMatch(resuming.detail, /terminate/);
+test("the corrected legacy exit field excludes process-gone rows from Open", () => {
+  const filters = sessionRosterFilters(new FakeDocument(), () => {});
+  assert.deepEqual(filters.apply([
+    { session_id: "present", liveness: "active" },
+    { session_id: "gone", liveness: "active", native_process_exited_at: "2026-11-06T12:00:00Z" },
+  ]).map((row) => row.session_id), ["present"]);
 });
 
-test("an exit no message can resume keeps the deliberate-terminate wording", () => {
-  const gone = sessionHealthState(holder({
-    state: "gone",
-    observed_at: "2026-08-22T11:59:00Z",
-    resumable_from_transcript: false,
-  }), NOW);
-  assert.equal(gone.state, "process-gone");
-  assert.match(gone.detail, /cannot resume by message/);
+test("detailed groups partition the mixed roster without using posture or heartbeat", () => {
+  const document = new FakeDocument();
+  const filters = sessionRosterFilters(document, () => {});
+  const stateControl = allNodes(filters.host).find((node) => node.tagName === "SELECT");
+  const states = [
+    ["present", "working", "none", "working"],
+    ["present", "between_turns", "none", "between_turns"],
+    ["present", "silent", "parked", "parked"],
+    ["present", "between_turns", "awaiting", "parked"],
+    ["present", "silent", "none", "silent"],
+    ["gone", "silent", "none", "gone"],
+    ["ended", "silent", "none", "ended"],
+  ];
+  const rows = states.map(([presence, activity, intent], index) => ({
+    session_id: String(index), liveness: "active", turn_posture: "waiting",
+    native_process_exited_at: "2026-11-06T12:00:00Z",
+    session_state: { presence, activity, intent: { state: intent } },
+  }));
+  assert.equal(filters.apply(rows).length, 5);
+  const selected = [];
+  for (const group of ["working", "between_turns", "parked", "silent", "gone", "ended"]) {
+    stateControl.value = group;
+    const matching = filters.apply(rows);
+    assert.deepEqual(matching.map((row) => row.session_id), states.flatMap(
+      (state, index) => state[3] === group ? [String(index)] : [],
+    ));
+    selected.push(...matching);
+  }
+  assert.equal(new Set(selected).size, rows.length);
+  assert.equal(selected.length, rows.length);
 });

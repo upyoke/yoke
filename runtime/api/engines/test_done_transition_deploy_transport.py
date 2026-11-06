@@ -196,7 +196,7 @@ class TestRunQaGates:
                 }
             ),
         )
-        with pytest.raises(RuntimeError, match="run_stage_qa_acceptance read failed"):
+        with pytest.raises(RuntimeError, match="run_stage_qa_acceptance settlement failed"):
             run_qa_gates.check_run_qa_gates(_FIXTURE_ITEM_REF, "run-1")
 
     def test_empty_run_id_short_circuits(self, monkeypatch):

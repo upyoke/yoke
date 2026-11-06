@@ -21,7 +21,7 @@ from yoke_core.domain.machine_qa_plan_case_execution import (
     MachinePlanCaseDispatchError,
 )
 from yoke_harness import golden_harness_clis, golden_snapshot_retention
-from yoke_harness.test_machine_types import HostActionResult
+from yoke_contracts.test_machine_types import HostActionResult
 
 LATEST = {"claude-code": "2.1.300", "codex": "0.163.0", "cursor": "2026.10.16-e3cb207"}
 

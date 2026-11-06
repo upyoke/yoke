@@ -24,13 +24,13 @@ from runtime.api.domain.ssh_mac_full_reset_test_support import (
     run_functions as _run_functions,
 )
 from yoke_cli.config import path_doctor
-from yoke_harness.ssh_mac_full_reset_contract import (
+from yoke_contracts.ssh_mac_full_reset_contract import (
     GOLDEN_MANIFEST_SUFFIX,
     RESET_FAILURE_PREFIX,
     RESET_PHASES,
     RESET_RESTORE_UNRESTORED_PREFIX,
 )
-from yoke_core.domain.ssh_mac_full_reset_script import FULL_RESET_SCRIPT
+from yoke_harness.ssh_mac_full_reset_script import FULL_RESET_SCRIPT
 
 
 def test_zsh_program_closes_home_validation_failure_to_a_phase_marker(
@@ -240,7 +240,7 @@ def test_restore_retries_a_copy_once_and_reports_persistent_failure(
 
 
 def test_clear_and_restore_preserve_every_declared_live_entry(tmp_path):
-    from yoke_harness.ssh_mac_preserved_state import PRESERVED_HOME_ENTRIES
+    from yoke_contracts.ssh_mac_preserved_state import PRESERVED_HOME_ENTRIES
 
     _require_zsh()
     golden, home = tmp_path / "golden", tmp_path / "live"

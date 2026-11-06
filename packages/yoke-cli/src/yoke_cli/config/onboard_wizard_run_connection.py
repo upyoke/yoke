@@ -15,7 +15,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from yoke_cli.config.onboard_destinations import DESTINATION_SERVER
+from yoke_contracts.onboard_destinations import DESTINATION_SERVER
 from yoke_cli.config.setup_run_facts import CONNECTION
 
 KIND_APPROVED = "approved"

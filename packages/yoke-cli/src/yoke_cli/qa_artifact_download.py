@@ -9,14 +9,14 @@ import urllib.request
 from pathlib import Path
 from typing import Any
 
-from yoke_cli.transport.bounded_http_open_policy import (
+from yoke_contracts.bounded_http_open_policy import (
     HttpFinalUrlError,
     HttpOpenPolicyError,
     open_bounded_request,
     require_requested_final_url,
 )
-from yoke_cli.transport.response_deadline_open import ResponseOpenDeadlineError
-from yoke_cli.transport.response_deadline_read import (
+from yoke_contracts.response_deadline_open import ResponseOpenDeadlineError
+from yoke_contracts.response_deadline_read import (
     ResponseReadError,
     copy_response_body,
     deadline_after,

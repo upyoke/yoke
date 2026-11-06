@@ -14,8 +14,8 @@ from collections.abc import Callable, Mapping, Sequence
 import json
 from typing import Any
 
-from yoke_harness.machine_browser_approval import BrowserApprovalResult
-from yoke_harness.ssh_mac_browser_approval import approve_machine_in_safari
+from yoke_contracts.machine_browser_approval import BrowserApprovalResult
+from yoke_contracts.runtime_ports.ssh_mac_browser_approval import get_ssh_mac_browser_approval
 
 from yoke_core.domain.machine_qa_admission_gate import (
     RunYoke,
@@ -33,13 +33,17 @@ from yoke_core.domain.machine_qa_operator_gate_contract import (
     HUMAN_ACTION,
     MACHINE_BROWSER_APPROVAL,
 )
-from yoke_core.domain.ssh_mac_terminal_capture import RunRemote
+from yoke_contracts.runtime_ports.ssh_mac_terminal_capture import get_ssh_mac_terminal_capture
 from yoke_core.domain.ssh_mac_terminal_recipe_support import (
     capture_recipe_transcript,
     read_recipe_exit_code,
     send_recipe_keys,
 )
 
+
+
+approve_machine_in_safari = get_ssh_mac_browser_approval().approve_machine_in_safari
+RunRemote = get_ssh_mac_terminal_capture().RunRemote
 
 def human_action_instructions(step: str, *, terminal_location: str) -> str:
     """Name the one password entry and where it happens, without any secret."""

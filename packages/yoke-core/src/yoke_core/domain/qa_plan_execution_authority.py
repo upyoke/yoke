@@ -177,6 +177,7 @@ def require_plan_execution_owner(
     actor_id: str | None,
     session_id: str,
     reviewing: bool = False,
+    completed_replay: bool = False,
 ) -> None:
     """Bind every execution mutation to its subject, actor, and session."""
     from yoke_core.domain.qa_plan_execution_store import same_owner
@@ -195,6 +196,8 @@ def require_plan_execution_owner(
             "and run yoke qa plan adopt with the same subject and --execution-id "
             f"{execution.get('id', 'ID')} --reason TEXT, then retry"
         )
+    if completed_replay:
+        return
     from yoke_core.domain.qa_plan_execution_abort_reason import (
         member_removal_pending,
     )
