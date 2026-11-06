@@ -6,8 +6,8 @@ Read the spec and classify the actual governed DB work. Projects without a
 - Real governed mutation: amend the full claim (apply modules need the
   [history AC](body-and-sync-functions.md)), or add
   `## DB Claim Blocker (idea-time)` and do not call `db-claim amend`.
-- No governed mutation, including governance discussion: record a reviewed-none
-  decision with the reason the work does not mutate the governed database.
+- No governed mutation, including a schema-only additive change or governance
+  discussion: record a reviewed-none decision with the reason no governed migration is needed.
 
 ```text
 yoke db-claim amend "$ITEM_REF" --reason "<reason>" --state none

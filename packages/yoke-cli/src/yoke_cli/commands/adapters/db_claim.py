@@ -60,7 +60,8 @@ def db_claim_amend(args: List[str]) -> int:
         "--state",
         choices=("none",),
         default=None,
-        help='Claim no database changes; same as --payload \'{"state":"none"}\'.',
+        help='No governed migration, including a schema-only additive change; '
+        'same as --payload \'{"state":"none"}\'.',
     )
     add_session_arg(parser)
     add_json_arg(parser)

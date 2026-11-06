@@ -102,7 +102,9 @@ def _check_enum(value: Any, *, field: str, vocabulary: Iterable[str]) -> str:
 def _normalize_migration_modules(value: Any) -> List[str]:
     if not isinstance(value, list) or not value:
         raise DbMutationProfileError(
-            "migration_modules must be a non-empty list of slug-shape identifiers"
+            "migration_modules must be a non-empty list of slug-shape identifiers; "
+            "a schema-only additive change has no migration: record "
+            'yoke db-claim amend PREFIX-N --state none --reason "..."'
         )
     normalized: List[str] = []
     for idx, entry in enumerate(value):

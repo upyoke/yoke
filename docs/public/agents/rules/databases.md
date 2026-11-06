@@ -25,7 +25,8 @@ Model: [databases](../../databases/index.md).
 
 - Write the item's DB claim only through `db_claim.amend`
   ([DB claim](../../items/model/items.md#db-claim-the-unified-amendment-workflow)).
-- Net-new tables and columns go in the schema module; boot converges them. No migration needed.
+- Net-new tables and columns go in the schema module; boot converges them. No migration needed;
+  record the DB claim with `--state none`.
 - Drops, backfills, rewrites and bulk data on a declared authoritative DB go only through the
   ordered migration history. Never run ad hoc write SQL there. A new audit-fingerprint
   exception call site needs `docs/archive/decisions/<helper-name>.md` and `exception_reason`.

@@ -87,14 +87,15 @@ The amendment workflow accepts a single flat payload combining both halves:
   "state": "declared",
   "model_name": "primary",
   "mutation_intent": "apply",
-  "migration_modules": ["add_items_due_date"],
+  "migration_modules": ["backfill_items_due_date"],
   "migration_strategy": "additive_only",
-  "migration_strategy_justification": "Adds nullable due_date; existing readers keep working.",
+  "migration_strategy_justification": "Fills missing due_date values; existing readers keep working.",
   "compatibility_class": "pre_merge_safe",
-  "schema_kinds": ["additive"],
+  "schema_kinds": [],
+  "data_kinds": ["fill"],
   "affected_surfaces": [{"table": "items", "columns": ["due_date"]}],
   "pre_merge_readers_writers": [{"path": "src/<package>/items.py", "role": "writer"}],
-  "invariants": ["items.due_date nullable after apply"],
+  "invariants": ["Every items row has due_date after apply"],
   "rehearsal_commands": ["yoke watch pytest -- <project-test-path>"],
   "residual_risk_notes": "none"
 }
@@ -113,6 +114,10 @@ Running this records an **explicit reviewed-none decision** on the stored profil
 Those keys are workflow-managed; amendment payloads cannot supply them.
 The stamps are inert data. The gate checks migration files, so a reviewed-none
 decision does not excuse new migration entries.
+
+A schema-only additive change (a net-new table, index or column in the schema
+module, which boot converges) has no migration entry; record
+`yoke db-claim amend PREFIX-N --state none --reason "..."`.
 
 A successful amendment also records a `DbClaimAmended` telemetry event whose envelope carries the previous and new claim summaries, the actor/session, and the operator-supplied reason. That event is disposable: it is written best-effort alongside the amendment and a severity filter, an events outage, or retention expiry drops it without touching the decision. The event stream is history/audit-only — the reviewed decision lives on the profile:
 
