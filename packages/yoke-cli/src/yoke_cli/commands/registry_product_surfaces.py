@@ -18,6 +18,7 @@ from yoke_cli.commands.adapters import (
     qa_plan_retire,
     test_machine,
     test_machine_desktop,
+    test_machine_delete,
     universe_levels,
     universe_retention,
 )
@@ -118,6 +119,10 @@ TEST_MACHINE_SUBCOMMAND_REGISTRY = {
     ("test-machine", "list"): (
         "test_machine.list",
         test_machine.test_machine_list,
+    ),
+    ("test-machine", "delete"): (
+        "test_machine.delete",
+        test_machine_delete.test_machine_delete,
     ),
     ("test-machine", "get"): (
         "test_machine.get",

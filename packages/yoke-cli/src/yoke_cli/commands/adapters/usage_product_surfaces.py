@@ -29,6 +29,7 @@ from yoke_cli.commands.adapters import (
     strategy_surfaces,
     test_machine,
     test_machine_desktop,
+    test_machine_delete,
     workflow_execution_instructions,
     workflow_mechanics,
     workflows_canon_help,
@@ -88,6 +89,7 @@ USAGE_BY_FUNCTION_ID = {
     **strategy_surfaces.USAGE_BY_FUNCTION_ID,
     **test_machine.USAGE_BY_FUNCTION_ID,
     **test_machine_desktop.USAGE_BY_FUNCTION_ID,
+    **test_machine_delete.USAGE_BY_FUNCTION_ID,
     **workflow_execution_instructions.USAGE_BY_FUNCTION_ID,
     **workflow_mechanics.USAGE_BY_FUNCTION_ID,
 }

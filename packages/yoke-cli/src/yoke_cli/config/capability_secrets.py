@@ -83,6 +83,30 @@ def list_machine_capability_secret_keys(project_slug: str, cap_type: str) -> lis
     )
 
 
+def delete_machine_capability_secrets(project_slug: str, cap_type: str) -> None:
+    """Remove only this project's named test-machine secret directory."""
+    import shutil
+
+    if not cap_type.startswith("test-machine:"):
+        raise MachineCapabilitySecretError(
+            "only named test-machine secrets can be deleted"
+        )
+    directory = (
+        machine_config.yoke_home()
+        / machine_contract.SECRETS_DIR_NAME
+        / contract.capability_secret_directory_relative_path(project_slug, cap_type)
+    )
+    _refuse_unisolated_test_write(directory)
+    try:
+        shutil.rmtree(directory)
+    except FileNotFoundError:
+        pass
+    except OSError as exc:
+        raise MachineCapabilitySecretError(
+            f"local secret cleanup failed for {cap_type}: {directory}"
+        ) from exc
+
+
 def ensure_private_capability_dir(directory: Path) -> Path:
     """Create a directory under the secrets root with owner-only permissions.
 
