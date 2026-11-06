@@ -151,7 +151,8 @@ def test_wake_waits_for_a_hook_and_never_escalates_an_acknowledgement(result) ->
     row = dict(candidate, last_tool_call_at=SWEEP.isoformat())
     assert notify_failed_wake(conn, row, now=later, max_attempts=3) is None
     row.update(
-        last_tool_call_at=later.isoformat(), open_tool_call_since=later.isoformat()
+        last_tool_call_at=later.isoformat(), open_tool_call_since=later.isoformat(),
+        turn_posture="running",
     )
     assert notify_failed_wake(conn, row, now=later, max_attempts=3) is None
     assert conn.execute("SELECT COUNT(*) FROM session_messages").fetchone()[0] == 1

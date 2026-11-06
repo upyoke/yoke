@@ -42,6 +42,7 @@ CREATE TABLE harness_sessions (
     offered_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     last_heartbeat TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     ended_at TIMESTAMPTZ,
+    terminated_at TIMESTAMPTZ,
     offer_envelope TEXT,
     actor_id INTEGER,
     last_chain_step INTEGER,

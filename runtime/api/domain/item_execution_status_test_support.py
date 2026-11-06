@@ -21,6 +21,8 @@ CREATE TABLE item_worktrees (id INTEGER PRIMARY KEY,
     item_id INTEGER NOT NULL, branch TEXT NOT NULL, path TEXT,
     lane_role TEXT NOT NULL, state TEXT NOT NULL DEFAULT 'active',
     created_at TIMESTAMPTZ NOT NULL, updated_at TIMESTAMPTZ NOT NULL, released_at TIMESTAMPTZ);
+CREATE TABLE harness_sessions (session_id TEXT PRIMARY KEY,
+    last_heartbeat TIMESTAMPTZ, ended_at TIMESTAMPTZ, terminated_at TIMESTAMPTZ);
 CREATE TABLE work_claims (id INTEGER PRIMARY KEY, session_id TEXT,
     target_kind TEXT, scope TEXT, claim_type TEXT,
     claimed_at TIMESTAMPTZ, last_heartbeat TIMESTAMPTZ, released_at TIMESTAMPTZ);

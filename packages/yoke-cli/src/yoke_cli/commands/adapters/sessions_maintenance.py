@@ -28,7 +28,8 @@ SESSIONS_RECLAIM_STALE_DESCRIPTION = (
     "Reclaim idle sessions with no active work claim. Strategy-document locks "
     "keep the holdings TTL; an active work claim protects its holder without "
     "an inactivity limit. Ended and terminated sessions are excluded from "
-    "cleanup. To free a held claim explicitly, use "
+    "cleanup. total_reclaimed=0 distinguishes nothing was stale from "
+    "candidates still inside the holdings bound. To free a held claim, use "
     "yoke claims work release --claim-id N --reason R from a steering seat."
 )
 
