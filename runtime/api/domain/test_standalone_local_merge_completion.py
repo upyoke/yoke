@@ -165,7 +165,7 @@ def test_local_merge_item_closes_only_with_target_ancestry_proof(
         refused = capsys.readouterr().out
         assert "publishing 'main' failed" in refused
         assert "No fixture credentials" in refused
-        assert "yoke merge item finished" in refused
+        assert f"yoke merge item {ref}" in refused
         assert lane.is_dir()
         return
     assert exit_code == 0
