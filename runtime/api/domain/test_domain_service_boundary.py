@@ -43,6 +43,7 @@ def test_function_call_interface_retains_the_transport_provider():
 
 
 def test_domain_relay_uses_an_independent_function_call_provider(monkeypatch):
+    from yoke_contracts.runtime_ports import structured_dispatch
     from yoke_core.domain import control_plane_transport
 
     seen = {}
@@ -55,7 +56,7 @@ def test_domain_relay_uses_an_independent_function_call_provider(monkeypatch):
         )
 
     monkeypatch.setattr(
-        control_plane_transport, "get_structured_dispatch",
+        structured_dispatch, "get_structured_dispatch",
         lambda: SimpleNamespace(call_dispatcher=call),
     )
     target = TargetRef(kind="global")
