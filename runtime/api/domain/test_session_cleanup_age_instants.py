@@ -36,7 +36,7 @@ def test_held_session_report_preserves_exact_whole_minutes(
     monkeypatch.setattr(
         cleanup,
         "read_activity_signals",
-        lambda *_a, **_k: SimpleNamespace(activity_at=activity, in_flight=False),
+        lambda *_a, **_k: SimpleNamespace(activity_at=activity, in_flight=False, session_facts={}),
     )
     monkeypatch.setattr(cleanup._sa, "_emit_session_event", lambda *_a, **_k: None)
     row = {"session_id": "held", "executor": "codex", "offered_at": activity}
