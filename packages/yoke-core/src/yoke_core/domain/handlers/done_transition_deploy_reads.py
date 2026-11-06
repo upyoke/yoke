@@ -210,7 +210,7 @@ def handle_run_stage_qa_acceptance(request: FunctionCallRequest) -> HandlerOutco
                 conn, run_id=body.run_id, item_id=item_id
             )
     except Exception as exc:  # noqa: BLE001 - surfaced so the guard aborts
-        return _err("run_stage_qa_acceptance_failed", str(exc))
+        return _err(getattr(exc, "code", "run_stage_qa_acceptance_failed"), str(exc))
 
     return HandlerOutcome(
         result_payload={"blocking": list(blocking)},
