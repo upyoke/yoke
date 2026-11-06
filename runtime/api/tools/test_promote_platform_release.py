@@ -106,6 +106,7 @@ def _input(argv: List[str], key: str) -> str:
 def test_the_followed_revision_is_what_promotion_is_handed(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    monkeypatch.setenv("GITHUB_RUN_ID", "12345")
     calls = _wire(
         monkeypatch,
         follows=[(0, "moved", MOVED)],
@@ -115,6 +116,7 @@ def test_the_followed_revision_is_what_promotion_is_handed(
 
     assert promote.main(ARGS) == 0
     (trigger,) = calls["trigger"]
+    assert _input(trigger, "yoke_bridge_run_id") == "12345"
     assert _input(trigger, "proven_consumer_sha") == MOVED
     assert _input(trigger, "target_environment") == "prod"
     assert trigger[trigger.index("--request-id") + 1] == "bridge:1:1:outer"
