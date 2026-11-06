@@ -7,6 +7,7 @@ from runtime.api.domain.path_context_test_support import (_p as _p)
 
 
 import json
+import pytest
 import sqlite3
 from pathlib import Path
 
@@ -91,10 +92,8 @@ class TestResolveValidationDbPaths:
         )
         conn.commit()
         conn.close()
-        # The validator rejects the unsupported pairing; the helper treats
-        # invalid capability JSON as "no capability" and returns {}.
-        result = resolve_validation_db_paths(tmp_path, "yoke")
-        assert result == {}
+        with pytest.raises(RuntimeError, match="validation_capability_invalid"):
+            resolve_validation_db_paths(tmp_path, "yoke")
 
 
 class TestPromptEnvVarBindings:

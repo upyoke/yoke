@@ -7,32 +7,9 @@ its primary model declares ``external_validation``; this module provisions
 only project-declared ``worktree_local_sqlite`` validation files, such as
 webapp rehearsal DBs.
 
-This module owns:
-
-* :func:`provision_validation_surfaces` — for every declared model
-  whose capability says ``validation_surface.kind = "worktree_local_sqlite"``
-  in the worktree's project, ensure the validation file exists at the
-  declared path and has been seeded by the configured provisioning
-  recipe. Idempotent — returns a summary of what it found / created.
-
-* :func:`resolve_validation_db_paths` — return the per-model
-  ``{env_var, path}`` map implementation/test prompts surface so code
-  running inside the worktree points at the validation target (by setting
-  ``<runner.connection_env_var>=<validation-db-path>``) rather than the
-  authoritative DB.
-
-* :func:`prompt_env_var_bindings` — helper that returns the list of
-  ``(env_var_name, path)`` tuples the implementation prompt should set
-  in the command environment for worktree-local code and tests.
-  ``CANONICAL_YOKE_DB`` (the control-plane token) is always present; one
-  additional entry per declared model whose runner declares a
-  ``connection_env_var``.
-
-Control-plane separation: ``/yoke`` control-plane commands must continue to
-mutate the canonical control-plane DB regardless of declared model.
-Those commands resolve the control-plane token through the connected
-Postgres authority — this module only governs the per-model connection
-env vars, not the control-plane one.
+Provisioning is idempotent, and prompt bindings name each declared model's
+worktree-local validation path. Control-plane commands keep using their
+connected authority.
 """
 
 from __future__ import annotations
@@ -43,14 +20,12 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, List, Mapping, Optional, Tuple
 
-from yoke_core.domain import db_backend
-from yoke_core.domain.db_helpers import connect, query_scalar
+from yoke_contracts.refusal_recovery import compose_refusal
 from yoke_core.domain.migration_model_capability import (
     CAPABILITY_TYPE as MIGRATION_MODEL_CAPABILITY_TYPE,
     MigrationModelCapabilityError,
     validate as validate_capability,
 )
-from yoke_core.domain.project_identity import resolve_project_id
 from yoke_core.domain.schema_common_sqlite_validation import (
     _generic_sqlite_validation_table_exists,
 )
@@ -91,32 +66,57 @@ class ProvisionResult:
         return any(s.error for s in self.surfaces)
 
 
-# ---------------------------------------------------------------------------
-# Capability lookup
-# ---------------------------------------------------------------------------
+def _load_capability(project: str, *, db_path: Optional[str] = None) -> Optional[Dict[str, Any]]:
+    from yoke_contracts.api.function_call import TargetRef
+    from yoke_core.api.service_client_structured_api_adapter import call_dispatcher
 
+    recovery = (
+        f"Read project {project!r}'s migration_model declaration with "
+        "`yoke projects capability-settings get`, correct the declaration or "
+        "connection failure, then retry lane preparation"
+    )
+    if db_path is not None:
+        from yoke_core.domain import db_backend
+        from yoke_core.domain.db_helpers import connect, query_scalar
+        from yoke_core.domain.project_identity import resolve_project_id
 
-def _load_capability(
-    project: str, *, db_path: Optional[str] = None
-) -> Optional[Dict[str, Any]]:
-    conn = connect(db_path)
-    try:
-        marker = "%s" if db_backend.connection_is_postgres(conn) else "?"
-        project_id = resolve_project_id(conn, project)
-        raw = query_scalar(
-            conn,
-            "SELECT COALESCE(settings, '{}') FROM project_capabilities "
-            f"WHERE project_id={marker} AND type={marker}",
-            (project_id, MIGRATION_MODEL_CAPABILITY_TYPE),
-        )
-    finally:
-        conn.close()
-    if not raw:
+        conn = connect(db_path)
+        try:
+            marker = "%s" if db_backend.connection_is_postgres(conn) else "?"
+            raw = query_scalar(
+                conn,
+                "SELECT COALESCE(settings, '{}') FROM project_capabilities "
+                f"WHERE project_id={marker} AND type={marker}",
+                (resolve_project_id(conn, project), MIGRATION_MODEL_CAPABILITY_TYPE),
+            )
+        finally:
+            conn.close()
+    else:
+        try:
+            response = call_dispatcher(
+                function_id="projects.capability_settings.get",
+                target=TargetRef(kind="global"),
+                payload={"project": project, "cap_type": MIGRATION_MODEL_CAPABILITY_TYPE},
+            )
+        except Exception as exc:  # noqa: BLE001 — retain transport failure with recovery
+            raise RuntimeError(compose_refusal(
+                f"validation_capability_read_failed: {exc}", recovery=recovery,
+            )) from exc
+        if not response.success:
+            error = response.error
+            detail = f"{error.code}: {error.message}" if error else "read refused"
+            raise RuntimeError(compose_refusal(
+                f"validation_capability_read_failed: {detail}", recovery=recovery,
+            ))
+        raw = (response.result or {}).get("settings_json")
+    if raw is None:
         return None
     try:
         return validate_capability(json.loads(raw))
-    except (json.JSONDecodeError, MigrationModelCapabilityError):
-        return None
+    except (TypeError, json.JSONDecodeError, MigrationModelCapabilityError) as exc:
+        raise RuntimeError(compose_refusal(
+            f"validation_capability_invalid: {exc}", recovery=recovery,
+        )) from exc
 
 
 def _resolve_env_var(model: Mapping[str, Any]) -> str:
@@ -140,11 +140,6 @@ def _resolve_validation_path(
         path, surface="worktree_local_sqlite validation surface",
     )
     return path
-
-
-# ---------------------------------------------------------------------------
-# Seeding
-# ---------------------------------------------------------------------------
 
 
 def _seed_validation_db(
@@ -189,7 +184,7 @@ def _validation_db_already_seeded(path: Path, recipe: str) -> bool:
     SQLite file (the rehearsal DB a project's migrations run against), and its
     catalog probe is routed through ``schema_common_sqlite_validation``. Contrast
     ``_load_capability`` above, which reads Yoke's own control plane through
-    the backend factory (Postgres authority). Do not replace this with a
+    the registered capability read. Do not replace this with a
     Yoke-authority facade probe.
     """
     if not path.is_file():
@@ -209,11 +204,6 @@ def _validation_db_already_seeded(path: Path, recipe: str) -> bool:
         conn.close()
 
 
-# ---------------------------------------------------------------------------
-# Public API
-# ---------------------------------------------------------------------------
-
-
 def provision_validation_surfaces(
     worktree_path: Path | str,
     project: str,
@@ -228,8 +218,9 @@ def provision_validation_surfaces(
 
     Models whose capability declares a non-``worktree_local_sqlite``
     validation surface are skipped (no entry in the result).  The
-    capability table not existing, or the project not declaring a
-    migration_model capability, is a clean no-op (empty ``surfaces``).
+    project not declaring a migration_model capability is a clean no-op
+    (empty ``surfaces``). Unreadable or invalid declarations raise a
+    diagnosed failure with recovery.
     """
     wt_path = Path(worktree_path) if not isinstance(worktree_path, Path) else worktree_path
     result = ProvisionResult(project=project, worktree_path=wt_path)

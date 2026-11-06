@@ -140,7 +140,14 @@ def _webapp_sqlite_settings() -> dict:
 
 
 @pytest.fixture
-def control_db_env(control_db: str) -> Iterator[str]:
+def control_db_env(control_db: str, monkeypatch) -> Iterator[str]:
+    from yoke_core.domain import worktree_validation_surface as surfaces
+
+    load = surfaces._load_capability
+    monkeypatch.setattr(
+        surfaces, "_load_capability",
+        lambda project, **_kwargs: load(project, db_path=control_db),
+    )
     prior = os.environ.get("YOKE_DB")
     os.environ["YOKE_DB"] = control_db
     try:

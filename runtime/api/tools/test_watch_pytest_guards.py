@@ -241,3 +241,35 @@ class TestExplicitFileSelectionDiagnostics:
         assert rc == 5
         assert "zero-collection selection" in observed["footer"]
         assert "no item matched active filter(s): -k absent" in observed["footer"]
+
+
+def test_ci_streaming_pair_needs_no_local_environment(monkeypatch, tmp_path, capsys):
+    from yoke_core.tools import pytest_remote_selection, watch_pytest_project_python
+
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("YOKE_SCRATCH_ROOT", str(tmp_path))
+    route = pytest_remote_selection.RemoteRoute(
+        root=tmp_path, project="example", workflow="ci.yml", repo="owner/repo",
+        branch="lane", head_sha="a" * 40, base_sha="b" * 40, pytest_args=(),
+    )
+    monkeypatch.setattr(watch_pytest, "_impacted_tree", lambda: tmp_path)
+    monkeypatch.setattr(watch_pytest, "_route", lambda *_: route)
+    monkeypatch.setattr(
+        watch_pytest.verification_tree_binding, "evaluate_run",
+        lambda **_: watch_pytest.verification_tree_binding.TreeBindingVerdict(),
+    )
+    monkeypatch.setattr(
+        watch_pytest._source_pythonpath, "verified_source_environment",
+        lambda _root, env: (dict(env), None),
+    )
+    monkeypatch.setattr(
+        watch_pytest_project_python, "pytest_argv",
+        lambda *_args, **_kwargs: pytest.fail("CI run probed local Python"),
+    )
+    assert not (tmp_path / ".venv").exists()
+    assert watch_pytest.main([
+        "--impacted", "main", "--bounded", "--print-streaming-pair"
+    ]) == 0
+    output = capsys.readouterr()
+    assert "yoke watch pytest" in output.out and "yoke watch tail" in output.out
+    assert "PROJECT-ENVIRONMENT-MISSING" not in output.err

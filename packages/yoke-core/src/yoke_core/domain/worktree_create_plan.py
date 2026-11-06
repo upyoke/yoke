@@ -34,6 +34,7 @@ class WorktreeCreationEntry:
     lane_id: Optional[int] = None
     created: bool = False
     preexisting: bool = False
+    setup_command: dict = field(default_factory=dict)
     error: Optional[str] = None
 
 

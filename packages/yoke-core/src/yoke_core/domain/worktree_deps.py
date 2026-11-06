@@ -7,7 +7,6 @@ import shutil
 import subprocess
 import sys
 from dataclasses import dataclass
-from pathlib import Path
 from typing import List, Optional
 
 from yoke_contracts.playwright_cache import resolve_playwright_cache
@@ -258,19 +257,13 @@ def install_worktree_deps(
     worktree_path: str,
     project_id: Optional[str] = None,
     *,
-    scripts_dir: Optional[str] = None,
+    setup_result: Optional[dict] = None,
+    conventional: bool = True,
 ) -> int:
     """Install project dependencies; return 0 on success, 1 on failure."""
     if not os.path.isdir(worktree_path):
         print(f"Error: worktree path does not exist: {worktree_path}", file=sys.stderr)
         return 1
-
-    if scripts_dir is None:
-        from yoke_core.api.repo_root import find_repo_root
-
-        scripts_dir = str(
-            find_repo_root(Path(__file__)) / ".agents" / "skills" / "yoke" / "scripts"
-        )
 
     # --- Playwright cache isolation ---
     pw_cache = resolve_playwright_cache(project_id, worktree_path)
@@ -283,22 +276,15 @@ def install_worktree_deps(
         DEFAULT_DEPS_INSTALL_TIMEOUT_SECONDS,
     )
 
-    # --- Project capability override ---
-    if project_id:
-        setup_cmd = get_setup_command(project_id, scripts_dir)
-        if setup_cmd:
-            print(
-                f"Installing deps via project setup_command: {setup_cmd}",
-                file=sys.stderr,
-            )
-            r = subprocess.run(
-                setup_cmd,
-                shell=True,
-                cwd=worktree_path,
-                capture_output=False,
-                timeout=install_timeout,
-            )
-            return r.returncode
+    from yoke_core.domain.worktree_setup_command import prepare_setup_command
+
+    result = prepare_setup_command(worktree_path, project_id, install_timeout)
+    if setup_result is not None:
+        setup_result.update(result)
+    if result["status"] != "skipped":
+        return 1 if result["status"] == "failed" else 0
+    if not conventional:
+        return 0
 
     # --- Convention-based detection ---
     specs = detect_deps(worktree_path)
@@ -320,21 +306,18 @@ def install_worktree_deps(
     return exit_code
 
 
-def get_setup_command(project_id: str, scripts_dir: str) -> Optional[str]:
-    """Read the setup_command capability; scripts_dir is an unused caller argument."""
-    from yoke_core.domain import projects
-
-    try:
-        raw = projects.cmd_capability_get_settings(project_id, "setup_command")
-    except Exception:
-        return None
-    if not raw or raw.strip() in ("", "{}"):
-        return None
-    # Extract command from JSON: {"command": "..."}
+def get_setup_command(project_id: str) -> Optional[str]:
+    """Read the declaration through the transport-aware dispatcher."""
     import json
+    from yoke_contracts.api.function_call import TargetRef
+    from yoke_core.api.service_client_structured_api_adapter import call_dispatcher
 
-    try:
-        data = json.loads(raw.strip())
-        return data.get("command")
-    except (json.JSONDecodeError, AttributeError):
-        return None
+    response = call_dispatcher(
+        function_id="projects.capability_settings.get",
+        target=TargetRef(kind="global"),
+        payload={"project": str(project_id), "cap_type": "setup_command"},
+    )
+    if not response.success:
+        raise RuntimeError(str(response.error))
+    raw = (response.result or {}).get("settings_json")
+    return (json.loads(raw).get("command") or None) if raw else None

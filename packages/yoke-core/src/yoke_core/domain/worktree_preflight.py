@@ -269,6 +269,7 @@ def run_preflight(
             out.block_kind = BLOCK_CREATE_FAILED
             out.narrative = f"create_worktree failed: {create_result.error}"
             return out
+        out.setup_command = create_result.setup_command
         out.branch = create_result.branch
         out.worktree_path = create_result.path
         out.actions_taken.append(

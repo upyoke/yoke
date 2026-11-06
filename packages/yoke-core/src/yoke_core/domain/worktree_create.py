@@ -57,6 +57,7 @@ class CreateWorktreeResult:
     created: bool
     error: Optional[str] = None
     worktrees: Tuple[WorktreeCreationEntry, ...] = field(default_factory=tuple)
+    setup_command: dict = field(default_factory=dict)
     failed_branch: str = ""
 
 
@@ -273,6 +274,7 @@ def create_worktree(
         error=provisioned.error or None,
         worktrees=tuple(plan.worktrees),
         failed_branch=provisioned.failed_branch,
+        setup_command=plan.primary.setup_command,
     )
 
 
