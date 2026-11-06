@@ -13,6 +13,8 @@ the table).
 
 from __future__ import annotations
 
+from runtime.api.sessions_test_support import conn as conn  # noqa: F401
+
 from runtime.api.sessions_orphan_tool_call_sweep_test_support import (
     _close_call as _close_call,
     _insert_open_call as _insert_open_call,
@@ -40,8 +42,6 @@ from yoke_core.domain.sessions_orphan_tool_call_sweep import (
 )
 from runtime.api.sessions_orphan_sweep_test_schema import _seed_events
 from runtime.api.sessions_test_support import _insert_claimable_item, _register
-
-pytest_plugins = ("runtime.api.sessions_test_support",)
 
 
 SENTINEL_REASON_FIELDS = frozenset(

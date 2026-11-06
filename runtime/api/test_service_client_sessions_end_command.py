@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from runtime.api.service_client_sessions_helpers_test_support import session_test_db as session_test_db  # noqa: F401
+
 import json
 from datetime import datetime, timezone
 
@@ -11,8 +13,6 @@ from runtime.api.service_client_sessions_helpers_test_support import (
     _pre_register_session,
 )
 from yoke_core.domain.sessions import claim_work
-
-pytest_plugins = ("runtime.api.service_client_sessions_helpers_test_support",)
 
 
 _FRESH_TS = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")

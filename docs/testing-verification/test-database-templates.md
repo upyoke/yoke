@@ -37,6 +37,16 @@ compares every public trigger and table constraint with a freshly initialized
 production database and checks the migration birth ledger. Verdict evidence
 tests exercise the real binding under the immutable-verdict trigger.
 
+Import shared fixtures explicitly into each consuming test module, including
+its autouse fixtures and their fixture dependencies. Use an explicit re-export
+such as `from runtime.api.sessions_test_support import conn as conn` so pytest
+binds that fixture locally and lint recognizes the import. Never declare
+`pytest_plugins` outside `conftest.py`: plugin fixtures are visible throughout
+the pytest session, and two plugins defining `conn` can silently select the
+wrong schema according to collection order. Conftest-registered plugins must
+have distinct fixture names; a conftest may still override a fixture for its
+own directory. `test_fixture_plugin_contract.py` checks this from source.
+
 Seed every foreign-key parent and required clock through the shared helpers.
 When a real constraint exposes a runtime defect, fix the runtime operation;
 removing a task must retire its file scope and bindings in the same transaction.

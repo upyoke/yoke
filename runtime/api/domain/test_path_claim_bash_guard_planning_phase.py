@@ -7,6 +7,8 @@ non-scratch planning writes remain gated.
 
 from __future__ import annotations
 
+from runtime.api.domain.path_claim_bash_guard_planning_phase_fixture import widener_db as widener_db  # noqa: F401
+
 import pytest
 
 from yoke_core.domain import project_scratch_dir as scratch
@@ -23,8 +25,6 @@ from yoke_core.domain.path_claim_bash_guard_planning_phase_test_helpers import (
     _dispatch_target,
     _seed,
 )
-
-pytest_plugins = ("runtime.api.domain.path_claim_bash_guard_planning_phase_fixture",)
 
 
 # ---- Path classifier ----

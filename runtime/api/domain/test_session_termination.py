@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from runtime.api.sessions_test_support import conn as conn  # noqa: F401
+
 from runtime.api.domain.session_termination_test_support import (
     MACHINE_ID as MACHINE_ID,
     NOW as NOW,
@@ -31,9 +33,6 @@ from yoke_core.domain.session_termination import (
 from yoke_core.domain.sessions import SessionError
 from yoke_core.domain.sessions_list_read import list_sessions
 from yoke_core.domain.work_claim_targets import make_steering_target
-
-
-pytest_plugins = ("runtime.api.sessions_test_support",)
 
 
 def test_operator_termination_ends_silences_releases_and_queues_reap(
@@ -202,7 +201,6 @@ def test_termination_ignores_checkpoint_budget(conn) -> None:
 def test_public_terminate_commits_ended_killed_and_releases_claims(
     conn, monkeypatch
 ) -> None:
-    # Not under handlers/: pytest_plugins there shadows path-claim ``conn``.
     _register_operator_and_target(conn)
     _add_target_claim(conn, item_id=910)
     handler_conn = _HandlerConnection(conn)

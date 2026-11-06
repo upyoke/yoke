@@ -12,12 +12,12 @@ Direct runtime-owner tests live in
 
 from __future__ import annotations
 
+from runtime.api.test_worktree_db_resolution_test_helpers import fake_repo as fake_repo  # noqa: F401
+
 from runtime.api.fixtures.machine_config_test import select_machine_config_file
 from unittest import mock
 
 import pytest
-
-pytest_plugins = ("runtime.api.test_worktree_db_resolution_test_helpers",)
 
 
 class TestResolveYokeRootBehavior:

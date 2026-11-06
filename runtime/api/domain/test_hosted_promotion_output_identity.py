@@ -1,5 +1,7 @@
 """Parallel promotions retain their own deployed commit after trunk moves."""
 
+from runtime.api.fixtures.release_output_fixture import release_source as release_source  # noqa: F401
+
 import json
 import pytest
 
@@ -15,8 +17,6 @@ from yoke_core.domain.deployment_run_release_output_record import (
     ReleaseOutputRefused,
     record_release_output,
 )
-
-pytest_plugins = ("runtime.api.fixtures.release_output_fixture",)
 
 
 @pytest.mark.parametrize("order", [("prod", "stage"), ("stage", "prod")])

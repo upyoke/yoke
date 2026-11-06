@@ -1,5 +1,7 @@
 """Explicit termination retries preserve failed physical reap evidence."""
 
+from runtime.api.sessions_test_support import conn as conn  # noqa: F401
+
 import json
 
 import pytest
@@ -10,7 +12,6 @@ from runtime.api.domain.session_termination_test_support import (
     _terminate,
 )
 
-pytest_plugins = ("runtime.api.sessions_test_support",)
 termination_events = termination_support._termination_schema_and_events
 
 

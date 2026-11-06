@@ -6,6 +6,9 @@ client-side cache-write relocation and the no-fabricated-model rule.
 
 from __future__ import annotations
 
+from runtime.api.cli.hook_relay_test_support import https_connection as https_connection  # noqa: F401
+from runtime.api.cli.hook_relay_test_support import local_subset as local_subset  # noqa: F401
+
 from yoke_contracts.session_model_facts import SessionModelFacts
 import io
 import json
@@ -25,7 +28,6 @@ from runtime.api.cli.yoke_operations_cli_hooks_test_support import (
 # ``local_subset`` and ``https_connection`` are fixtures, not values: loading
 # the sibling as a plugin registers them for these tests without importing
 # names that every use as a test parameter then shadows.
-pytest_plugins = ("runtime.api.cli.hook_relay_test_support",)
 
 
 @pytest.fixture(autouse=True)

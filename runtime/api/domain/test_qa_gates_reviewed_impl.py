@@ -7,6 +7,8 @@ hoisted to a directory-wide conftest because they are scoped to qa_gates.
 
 from __future__ import annotations
 
+from runtime.api.domain.qa_gates_reviewed_impl_fixture import qa_db as qa_db  # noqa: F401
+
 from unittest import mock
 
 from runtime.api.domain.qa_gates_reviewed_impl_test_support import (
@@ -22,8 +24,6 @@ from yoke_core.domain.qa_gates import (
     LatestCodeRef,
     check_reviewed_implementation_gate,
 )
-
-pytest_plugins = ("runtime.api.domain.qa_gates_reviewed_impl_fixture",)
 
 
 class TestCheckReviewedImplementationGate:

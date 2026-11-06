@@ -13,8 +13,6 @@ from yoke_core.domain.session_message_types import timestamp, utc_now
 from yoke_core.domain.session_relay_launch_progress import report_launch_progress
 from yoke_core.domain.sessions import claim_work, end_session_if_empty
 
-pytest_plugins = ("runtime.api.sessions_test_support",)
-
 
 def test_ends_claimless_active_session(conn):
     _register(conn, session_id="empty-end")

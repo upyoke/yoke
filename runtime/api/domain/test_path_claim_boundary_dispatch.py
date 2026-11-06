@@ -1,5 +1,8 @@
 """Public proof round trips and in-process lifecycle envelope isolation."""
 
+from runtime.api.domain.test_path_claims_gate_boundary import project_repo as project_repo  # noqa: F401
+from runtime.api.domain.test_path_claims_gate_boundary import real_db as real_db  # noqa: F401
+
 from contextlib import closing
 from unittest.mock import patch
 
@@ -28,7 +31,6 @@ from yoke_core.domain.workflow_execution_instructions_schema import (
 from yoke_core.domain.yoke_function_dispatch import dispatch
 
 
-pytest_plugins = ("runtime.api.domain.test_path_claims_gate_boundary",)
 ITEM_ID = 7777
 ITEM_REF = f"YOK-{ITEM_ID}"
 

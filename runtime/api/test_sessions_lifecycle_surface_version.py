@@ -6,6 +6,8 @@ files stay under the 350-line authored cap.
 
 from __future__ import annotations
 
+from runtime.api.sessions_test_support import conn as conn  # noqa: F401
+
 from yoke_contracts.timestamps import parse_instant
 
 import pytest
@@ -16,8 +18,6 @@ from yoke_core.domain.sessions_lifecycle_identity import (
     resolve_reactivation_executor_version,
 )
 from runtime.api.sessions_test_support import _register
-
-pytest_plugins = ("runtime.api.sessions_test_support",)
 
 
 _APP_VERSION = "1.34493.1"

@@ -20,6 +20,8 @@ underlying tool-call rows.
 
 from __future__ import annotations
 
+from runtime.api.sessions_api_stale_test_helpers import conn as conn  # noqa: F401
+
 import json
 
 import pytest
@@ -32,8 +34,6 @@ from runtime.api.sessions_api_stale_test_helpers import (
     apply_ddl_statements,
 )
 from yoke_core.domain.work_claim_targets import make_item_target
-
-pytest_plugins = ("runtime.api.sessions_api_stale_test_helpers",)
 
 
 # Events table fixture used by cmd_claim's conflict snapshot AND by the

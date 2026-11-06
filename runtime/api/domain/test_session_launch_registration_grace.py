@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from runtime.api.sessions_test_support import conn as conn  # noqa: F401
+
 import json
 
 from yoke_contracts.session_control.launch_bootstrap import (
@@ -30,9 +32,6 @@ from runtime.api.domain.session_launch_test_support import (
     launch_connection,
 )
 from runtime.api.sessions_test_support import _register
-
-
-pytest_plugins = ("runtime.api.sessions_test_support",)
 
 
 WORKER = "launch-grace-worker"

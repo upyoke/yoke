@@ -2,14 +2,14 @@
 
 from __future__ import annotations
 
+from runtime.api.sessions_test_support import conn as conn  # noqa: F401
+
 import pytest
 
 from runtime.api.sessions_test_support import _register
 from yoke_core.domain.session_control_schema import create_session_control_tables
 from yoke_core.domain.session_termination import terminate_session
 
-
-pytest_plugins = ("runtime.api.sessions_test_support",)
 
 NOW = "2026-08-26T12:00:00Z"
 MACHINE_ID = "11111111-1111-4111-8111-111111111111"

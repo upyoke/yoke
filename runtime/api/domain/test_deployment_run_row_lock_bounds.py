@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from runtime.api.deployment_runs_test_db import db_path as db_path  # noqa: F401
+
 import time
 from unittest.mock import Mock
 
@@ -24,7 +26,6 @@ from yoke_core.domain.deployment_runs_lock import (
     lock_run,
 )
 
-pytest_plugins = ["runtime.api.deployment_runs_test_db"]
 
 NOW = parse_instant("2026-09-21T12:00:00Z")
 

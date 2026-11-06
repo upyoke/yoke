@@ -39,20 +39,11 @@ register_project_checks_package(
 # Assertion-rewrite registration for dual-use helper modules
 # ---------------------------------------------------------------------------
 #
-# These modules are BOTH declared as ``pytest_plugins`` by one test module and
-# imported directly (``from ... import _seed_item``) by several others. Plugin
-# registration happens when the declaring test module is collected, so whenever
-# a direct importer is collected first the module is already in ``sys.modules``
-# and pytest emits ``PytestAssertRewriteWarning: Module already imported so
-# cannot be rewritten`` — asserts inside the helper then report bare
-# ``AssertionError`` with no operand introspection. Registering here, before any
-# test module is imported, makes the rewrite collection-order-independent.
-#
-# Helpers whose filename already starts with ``test_`` do not need an entry:
-# pytest collects and rewrites them as test modules regardless of import order.
+# Rewrite shared helper assertions before any test imports them.
 pytest.register_assert_rewrite(
     "runtime.api.backlog_mutations_test_helpers",
     "runtime.api.sessions_api_stale_test_helpers",
+    "runtime.api.domain._path_claims_test_helpers",
 )
 
 # ---------------------------------------------------------------------------
@@ -127,7 +118,6 @@ pytest_plugins = [
     "runtime.api.fixtures.runtime",
     "runtime.api.engines._done_transition_test_helpers",
     "runtime.api.domain._path_claim_guard_test_helpers",
-    "runtime.api.domain._path_claims_test_helpers",
     "runtime.api.domain.worktree_test_helpers",
 ]
 

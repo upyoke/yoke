@@ -9,6 +9,8 @@ participate in overlap.
 
 from __future__ import annotations
 
+from runtime.api.domain._path_claims_test_helpers import conn as conn  # noqa: F401
+
 import pytest
 
 from runtime.api.domain._path_claims_test_helpers import (
@@ -27,8 +29,6 @@ from yoke_core.domain.path_claims_overlap import (
 )
 from yoke_core.domain.path_registry import KIND_FILE
 from yoke_core.domain.path_targets_planning import plan_path_target
-
-pytest_plugins = ("runtime.api.domain._path_claims_test_helpers",)
 
 
 class TestExpandLineage:

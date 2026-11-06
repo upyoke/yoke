@@ -8,6 +8,8 @@ Pytest fixture (dt_db) shared via _done_transition_test_helpers (private module)
 
 from __future__ import annotations
 
+from runtime.api.engines._done_transition_test_helpers import dt_db as dt_db  # noqa: F401
+
 from runtime.api.engines.done_transition_post_test_support import (
     _patch_run_internals as _patch_run_internals,
 )
@@ -22,8 +24,6 @@ from yoke_contracts.api.function_call import FunctionCallResponse
 from yoke_contracts.timestamps import parse_instant
 from yoke_core.engines import done_transition
 from yoke_core.engines import done_transition_status
-
-pytest_plugins = ("runtime.api.engines._done_transition_test_helpers",)
 
 
 def _resp(function_id, result=None):

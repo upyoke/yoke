@@ -7,14 +7,14 @@ refuse; they do not construct a file path.
 
 from __future__ import annotations
 
+from runtime.api.test_worktree_db_resolution_test_helpers import fake_repo as fake_repo  # noqa: F401
+
 import os
 from unittest import mock
 
 import pytest
 
 from yoke_core.domain import db_backend
-
-pytest_plugins = ("runtime.api.test_worktree_db_resolution_test_helpers",)
 
 
 class TestRuntimeOwnerFromWorktree:

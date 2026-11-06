@@ -7,6 +7,8 @@ claim has not yet activated.
 
 from __future__ import annotations
 
+from runtime.api.domain._path_claims_test_helpers import conn as conn  # noqa: F401
+
 import pytest
 
 from runtime.api.domain._path_claims_test_helpers import (
@@ -27,8 +29,6 @@ from yoke_core.domain.path_claims_gate import (
     check_worktree_create_gate,
     gate_state_for_item,
 )
-
-pytest_plugins = ("runtime.api.domain._path_claims_test_helpers",)
 
 
 class TestGateStateForItem:

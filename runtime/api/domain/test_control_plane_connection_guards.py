@@ -12,6 +12,8 @@ terminating a backend by hand.
 
 from __future__ import annotations
 
+from runtime.api.deployment_runs_test_db import db_path as db_path  # noqa: F401
+
 import time
 
 import psycopg
@@ -29,7 +31,6 @@ from yoke_core.domain.postgres_control_plane_connection import (
     guarded_conninfo,
 )
 
-pytest_plugins = ["runtime.api.deployment_runs_test_db"]
 
 #: Well past the shortened bound the reaping test declares, so a loaded cluster
 #: cannot make it flake.

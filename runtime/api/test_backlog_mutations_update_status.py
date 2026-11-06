@@ -8,6 +8,8 @@ session callers.
 
 from __future__ import annotations
 
+from runtime.api.backlog_mutations_test_helpers import tmp_db as tmp_db  # noqa: F401
+
 import io
 import os
 from unittest import mock
@@ -23,8 +25,6 @@ from runtime.api.backlog_mutations_test_helpers import (
 )
 from yoke_core.domain import backlog
 from yoke_core.domain.work_claim_targets import make_item_target
-
-pytest_plugins = ("runtime.api.backlog_mutations_test_helpers",)
 
 
 def _mark_claim_handed_off(db_path, item_id: int) -> None:

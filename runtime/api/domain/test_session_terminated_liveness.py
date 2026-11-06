@@ -7,6 +7,8 @@ move any of them.
 
 from __future__ import annotations
 
+from runtime.api.sessions_test_support import conn as conn  # noqa: F401
+
 from datetime import timedelta
 
 import pytest
@@ -29,9 +31,6 @@ from yoke_core.domain.sessions_ended_recovery import (
     session_ended_message,
     session_registration_state,
 )
-
-
-pytest_plugins = ("runtime.api.sessions_test_support",)
 
 
 def test_ordinary_ended_session_still_reactivates(conn) -> None:

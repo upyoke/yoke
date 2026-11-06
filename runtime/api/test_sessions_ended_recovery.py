@@ -14,6 +14,8 @@ agents actually hit, not just at the renderer.
 
 from __future__ import annotations
 
+from runtime.api.sessions_test_support import conn as conn  # noqa: F401
+
 import pytest
 
 from runtime.api.sessions_test_support import _insert_claimable_item, _register
@@ -30,8 +32,6 @@ from yoke_core.domain.sessions_ended_recovery import (
     session_ended_recovery_command,
     session_registration_state,
 )
-
-pytest_plugins = ("runtime.api.sessions_test_support",)
 
 
 class TestSessionRegistrationState:

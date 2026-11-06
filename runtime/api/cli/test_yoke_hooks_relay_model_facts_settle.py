@@ -13,6 +13,9 @@ Shares the wire fixtures of ``test_yoke_operations_cli_hooks.py`` (the
 
 from __future__ import annotations
 
+from runtime.api.cli.hook_relay_test_support import https_connection as https_connection  # noqa: F401
+from runtime.api.cli.hook_relay_test_support import local_subset as local_subset  # noqa: F401
+
 import io
 import json
 import sys
@@ -24,8 +27,6 @@ from runtime.api.cli.yoke_operations_cli_hooks_test_support import (
 )
 from yoke_contracts.hook_evaluator_protocol import HOOK_MODEL_CONFIRMATION_FIELD
 
-
-pytest_plugins = ("runtime.api.cli.hook_relay_test_support",)
 
 SESSION = "s-relay-model"
 MODEL = "claude-opus-5"

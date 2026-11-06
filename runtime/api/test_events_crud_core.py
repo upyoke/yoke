@@ -3,6 +3,8 @@ severity config, and event-name validation."""
 
 from __future__ import annotations
 
+from runtime.api.events_crud_test_fixtures import db_path as db_path  # noqa: F401
+
 import pytest
 
 from yoke_core.domain import events_crud as ec
@@ -10,9 +12,6 @@ from runtime.api.fixtures.file_test_db import connect_test_db
 from runtime.api.events_crud_test_fixtures import (
     _insert_event,
 )
-
-
-pytest_plugins = ("runtime.api.events_crud_test_fixtures",)
 
 
 class TestInsert:

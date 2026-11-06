@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from runtime.api.sessions_test_support import conn as conn  # noqa: F401
+
 from runtime.api.domain.session_termination_test_support import (_termination_schema_and_events as _termination_fixture)  # noqa: F401
 
 from datetime import datetime, timedelta, timezone
@@ -20,9 +22,6 @@ from yoke_contracts.session_control.resume import RESUME_INACTIVITY_SECONDS
 from yoke_core.domain.handlers.session_termination import handle_session_terminate
 from yoke_core.domain.session_termination import RESUME_IN_FLIGHT_CODE
 from yoke_core.domain.sessions import SessionError
-
-
-pytest_plugins = ("runtime.api.sessions_test_support",)
 
 
 def _stamp(seconds_ago: int) -> str:

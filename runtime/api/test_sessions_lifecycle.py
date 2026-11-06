@@ -6,6 +6,8 @@ Stale detection + handoff + transaction safety → test_sessions_lifecycle_stale
 
 from __future__ import annotations
 
+from runtime.api.sessions_test_support import conn as conn  # noqa: F401
+
 import pytest
 from unittest.mock import patch
 
@@ -21,8 +23,6 @@ from yoke_core.domain.sessions import (
     heartbeat,
     register_session,  # noqa: F401  (re-exported for downstream callers)
 )
-
-pytest_plugins = ("runtime.api.sessions_test_support",)
 
 
 # ---------------------------------------------------------------------------

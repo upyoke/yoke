@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from runtime.api.domain.path_claim_bash_guard_planning_phase_fixture import widener_db as widener_db  # noqa: F401
+
 from typing import Any, Dict
 
 from yoke_contracts.hook_runner.session_cwd import client_scratch_root_fact
@@ -13,8 +15,6 @@ from yoke_core.domain.path_claim_bash_guard_planning_phase_test_helpers import (
     _dispatch_target,
     _seed,
 )
-
-pytest_plugins = ("runtime.api.domain.path_claim_bash_guard_planning_phase_fixture",)
 
 
 def _planned_no_wt_claim(item_id=1844) -> Dict[str, Any]:
