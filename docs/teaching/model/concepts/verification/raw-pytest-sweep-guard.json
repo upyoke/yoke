@@ -1,0 +1,7 @@
+{
+ "id": "raw-pytest-sweep-guard",
+ "title": "Raw pytest sweep admission",
+ "status": "observed",
+ "sources": ["packages/yoke-core/src/yoke_core/domain/lint_raw_pytest_full_suite.py", "runtime/api/domain/test_lint_raw_pytest_full_suite.py"],
+ "summary": "The shared raw-pytest guard denies sweeps covering all declared test anchors and advises on other directory sweeps. Help, version, collection, fixture and marker inspection invocations execute no tests and receive no sweep verdict. Later real sweeps in the same shell command are still classified. Run test sweeps through yoke watch pytest for admission and captured evidence."
+}

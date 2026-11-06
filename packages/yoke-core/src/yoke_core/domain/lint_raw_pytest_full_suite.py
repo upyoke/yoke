@@ -22,6 +22,15 @@ from yoke_core.domain.lint_command_extract import extract_command as _extract_co
 CHECK_ID = "lint-raw-pytest-full-suite"
 SUPPRESSION_TOKEN = "# lint:no-raw-pytest-check"
 
+#: Pytest modes that inspect configuration or collection without running tests.
+_NO_RUN_FLAGS = frozenset(
+    {
+        "-h", "--help", "-V", "--version", "--co", "--collect-only",
+        "--collectonly", "--fixtures", "--funcargs", "--fixtures-per-test",
+        "--markers",
+    }
+)
+
 #: Flags that take a separate value; their operand is not a path.
 _VALUE_FLAGS = frozenset(
     {
@@ -104,6 +113,8 @@ def _classify(command: str | ShellParse) -> Optional[Tuple[str, str]]:
     anchors = full_sweep_anchors()
     advisory = None
     for tokens in raw_pytest_invocations(command):
+        if _NO_RUN_FLAGS.intersection(tokens):
+            continue
         paths = _pytest_paths(tokens)
         if anchors and set(anchors).issubset(set(paths)):
             return ("full", " ".join(anchors))
@@ -134,8 +145,6 @@ def _format_reason(
         "  yoke watch pytest --impacted main --bounded   # iteration default\n"
         "  yoke watch pytest -- <paths>                  # narrower scope\n"
         "  yoke watch pytest --local -- <paths>          # ~1 min targeted check\n"
-        "To enumerate one CI shard without running its tests:\n"
-        "  yoke watch pytest -- <CI shard args> --collect-only -q\n"
         "The item's blocking gate is its QA case run, not a hand-run sweep:\n"
         "  yoke qa case run --requirement-id <id>\n"
         "Admission is per invocation; quoted wrapper names do not exempt raw tests.\n"

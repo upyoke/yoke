@@ -48,8 +48,6 @@ class TestDenyShape(unittest.TestCase):
         self.assertEqual(outcome, "denied")
         self.assertIn("yoke watch pytest", reason)
         self.assertIn("admission slot", reason)
-        self.assertIn("--collect-only", reason)
-        self.assertIn("<CI shard args>", reason)
 
     def test_flag_values_are_not_read_as_paths(self):
         # `-n auto` and `-k expr` must not be mistaken for path operands,
@@ -108,6 +106,26 @@ class TestAdvisoryShape(unittest.TestCase):
 
 
 class TestSilentShapes(unittest.TestCase):
+    def test_no_run_modes_are_not_matched(self):
+        for flag in (
+            "-h", "--help", "-V", "--version", "--co", "--collect-only",
+            "--collectonly", "--fixtures", "--funcargs", "--fixtures-per-test",
+            "--markers",
+        ):
+            for command in (
+                f"python3 -m pytest {flag}",
+                f"pytest runtime/api/cli {flag} -q",
+                f"{_anchor_sweep()} {flag}",
+            ):
+                with self.subTest(command=command):
+                    self.assertIsNone(_eval(command))
+
+    def test_no_run_mode_does_not_hide_a_later_sweep(self):
+        _, outcome = _eval("pytest --help && " + _anchor_sweep())
+        self.assertEqual(outcome, "denied")
+        _, outcome = _eval("pytest --co && pytest runtime/api")
+        self.assertEqual(outcome, "warn")
+
     def test_file_scoped_run_is_not_matched(self):
         self.assertIsNone(
             _eval("python3 -m pytest runtime/api/domain/test_thing.py -k foo")
