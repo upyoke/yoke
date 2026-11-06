@@ -53,3 +53,25 @@ verify the registered user's administrator rights and the stored password.
 
 These procedures ship with Yoke. Run `yoke project refresh` after upgrading
 to receive the current documentation.
+
+## Delete a registration
+
+```text
+yoke test-machine delete --project P --test-machine NAME --confirm
+```
+
+Project administrators can remove one registration, its settings, verification
+status and operation receipts. QA waits, plan executions, runs and artifacts
+remain unchanged. Active leases and waiting or reserved turns on the physical
+host block deletion across all projects; finish or cancel that work first.
+Reset debt also blocks deletion: run the named `yoke test-machine reset`
+recovery before retrying. Deletion refuses if removing a reset receipt would
+expose another project's reset debt.
+
+After the server succeeds, the CLI removes this computer's project-scoped
+`test-machine:NAME` secret directory. It keeps the shared `test-machine`
+SSH key. Other computers keep their local credentials; remove those separately.
+A local cleanup failure says the registration was deleted and names the
+remaining directory. This command does not decommission the physical host.
+A project may have no machines; `settings-replace --new` can register the same
+name again. Generic `projects capability-settings remove` refuses test machines.

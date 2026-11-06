@@ -1,6 +1,7 @@
 {
   "test-machine": "Manage and use registered test machines.",
   "test-machine bridge-diagnose": "Test each Terminal bridge feature and name what fails.",
+  "test-machine delete": "Delete a test machine registration and its local secrets.",
   "test-machine desktop-access": "Open a test machine's remote desktop.",
   "test-machine exec": "Run one command on a test machine over SSH.",
   "test-machine get": "Read one test machine's settings.",
