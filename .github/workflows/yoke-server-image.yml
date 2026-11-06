@@ -118,7 +118,7 @@ jobs:
           context: .
           push: true
           # Only main publishes this cache; queue builds only import it.
-          cache-to: type=registry,ref=${{ needs.validate-tag.outputs.repository }}:buildcache-${{ matrix.arch }},mode=max
+          cache-to: type=registry,ref=${{ needs.validate-tag.outputs.repository }}:buildcache-${{ matrix.arch }},mode=min
           platforms: ${{ matrix.platform }}
           cache-from: type=registry,ref=${{ needs.validate-tag.outputs.repository }}:buildcache-${{ matrix.arch }}
           # Push content-addressed images first without changing human-facing tags;

@@ -1,6 +1,6 @@
 """The container image's source-tree bootstrap resolves every import it makes.
 
-The builder stage runs one module straight from the source tree, before any
+The runtime base runs one module straight from the source tree, before any
 wheel exists, so the interpreter resolves its imports from the ``PYTHONPATH``
 the Dockerfile spells out and nothing else. That list is written by hand and
 has no other reader, so an import added to a bootstrapped module can leave it
@@ -22,39 +22,51 @@ from pathlib import Path
 import subprocess
 import sys
 
+import pytest
+
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
-#: The image builds at /build; every declared path is repo-relative under it.
-_IMAGE_BUILD_ROOT = "/build/"
-
-#: Packages the source tree owns. Everything else is a third-party or stdlib
-#: import the wheel install resolves, not something PYTHONPATH must cover.
+#: Packages the source tree owns; other imports come from Python/dependencies.
 _FIRST_PARTY_PREFIX = "yoke_"
 
-#: The builder's `RUN PYTHONPATH=<roots> ... runpy.run_path('<module>')` step.
 _BOOTSTRAP_STEP = re.compile(
-    r"RUN PYTHONPATH=(?P<roots>\S+)"
-    r"[\s\S]*?runpy\.run_path\('(?P<module>[^']+)'\)"
+    r"^RUN [^\n]*PYTHONPATH=(?P<roots>\S+)"
+    r"[^\n]*runpy\.run_path\('(?P<module>[^']+)'\)",
+    re.M,
 )
 
 
-def _repo_path(declared: str) -> Path:
-    return REPO_ROOT / declared.removeprefix(_IMAGE_BUILD_ROOT)
-
-
-def _parse_bootstrap_step() -> tuple[list[Path], Path]:
-    """Return the bootstrap's PYTHONPATH roots and entry module as repo paths."""
-    dockerfile = (REPO_ROOT / "Dockerfile").read_text(encoding="utf-8")
+def _bootstrap_inputs() -> tuple[list[str], str, dict[str, Path]]:
+    dockerfile = (REPO_ROOT / "Dockerfile").read_text().replace("\\\n", " ")
     step = _BOOTSTRAP_STEP.search(dockerfile)
     assert step is not None, (
         "Dockerfile no longer runs a source-tree bootstrap through "
         "runpy.run_path with an explicit PYTHONPATH. Update this guard to "
-        "match the new shape rather than deleting it -- the failure it "
-        "catches is an unresolvable import inside the image build."
+        "match the new shape rather than deleting the isolated import check."
     )
-    roots = [_repo_path(entry) for entry in step.group("roots").split(":")]
-    return roots, _repo_path(step.group("module"))
+    mounts = {
+        target: REPO_ROOT / source
+        for source, target in re.findall(
+            r"--mount=type=bind,source=([^, ]+),target=([^, ]+)", step.group()
+        )
+    }
+    assert mounts, "bootstrap must declare its source bind mounts"
+    return step.group("roots").split(":"), step.group("module"), mounts
+
+
+def _repo_path(declared: str, mounts: dict[str, Path]) -> Path:
+    for target, source in sorted(mounts.items(), key=lambda entry: -len(entry[0])):
+        if declared == target:
+            return source
+        if declared.startswith(target + "/"):
+            return source / declared.removeprefix(target + "/")
+    raise AssertionError(f"bootstrap path {declared} has no declared source mount")
+
+
+def _parse_bootstrap_step() -> tuple[list[Path], Path]:
+    roots, entry, mounts = _bootstrap_inputs()
+    return [_repo_path(root, mounts) for root in roots], _repo_path(entry, mounts)
 
 
 def _resolve(module_name: str, roots: list[Path]) -> Path | None:
@@ -141,29 +153,26 @@ def test_dockerfile_bootstrap_pythonpath_resolves_core_imports() -> None:
             for name, importer in sorted(missing.items())
         )
         + ". Add the owning packages/yoke-*/src directory to the "
-        "RUN PYTHONPATH= list in the Dockerfile builder stage."
+        "bootstrap PYTHONPATH and source mounts in the Dockerfile."
     )
 
 
-def test_dockerfile_bootstrap_imports_before_dependencies_install(tmp_path) -> None:
-    roots, entry = _parse_bootstrap_step()
-    dockerfile = (REPO_ROOT / "Dockerfile").read_text()
-    before_download = dockerfile.split("RUN PYTHONPATH=", 1)[0]
-    assert "COPY runtime" not in before_download
-    assert "COPY packages ./packages" not in before_download
-    assert "COPY .git_archival.txt" not in before_download
-    # Recreate only files available to the download layer, never the whole
-    # checkout. A new bootstrap dependency must be copied before its RUN.
-    for source, destination in re.findall(r"^COPY (\S+) (\S+)$", before_download, re.M):
-        source_path = REPO_ROOT / source
-        target = tmp_path / destination.removeprefix("./")
+@pytest.mark.parametrize("omit_contracts", [False, True])
+def test_bootstrap_imports_from_only_declared_mounts(tmp_path, omit_contracts) -> None:
+    roots, entry, mounts = _bootstrap_inputs()
+    # Materialize only mounted files, never the whole checkout or installed
+    # workspace. A missing contracts mount must fail the same isolated import.
+    for destination, source in mounts.items():
+        if omit_contracts and destination == "/bootstrap/contracts":
+            continue
+        target = tmp_path / destination.lstrip("/")
         target.parent.mkdir(parents=True, exist_ok=True)
-        if source_path.is_dir():
-            shutil.copytree(source_path, target)
+        if source.is_dir():
+            shutil.copytree(source, target)
         else:
-            shutil.copy2(source_path, target)
-    roots = [tmp_path / root.relative_to(REPO_ROOT) for root in roots]
-    entry = tmp_path / entry.relative_to(REPO_ROOT)
+            shutil.copy2(source, target)
+    roots = [tmp_path / root.lstrip("/") for root in roots]
+    entry = tmp_path / entry.lstrip("/")
     environment = {
         **os.environ,
         "PYTHONPATH": os.pathsep.join(str(root) for root in roots),
@@ -182,4 +191,8 @@ def test_dockerfile_bootstrap_imports_before_dependencies_install(tmp_path) -> N
         text=True,
     )
 
-    assert completed.returncode == 0, completed.stderr
+    if omit_contracts:
+        assert completed.returncode != 0
+        assert "yoke_contracts" in completed.stderr
+    else:
+        assert completed.returncode == 0, completed.stderr

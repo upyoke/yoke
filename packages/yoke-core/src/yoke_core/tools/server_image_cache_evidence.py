@@ -64,7 +64,8 @@ def build_seconds(jobs: list[dict]) -> float:
 
 def postgres_cached(log: str) -> bool:
     steps = re.findall(
-        r"#(\d+) \[builder [^\]]+\] RUN PYTHONPATH=.*postgres_binaries.py", log
+        r"#(\d+) \[(?:builder|runtime-base) [^\]]+\] RUN .*PYTHONPATH=.*postgres_binaries.py",
+        log,
     )
     return any(re.search(rf"#{step} CACHED\b", log) for step in steps)
 
@@ -131,7 +132,7 @@ def _check() -> int:
         )
         workflow = base64.b64decode(source["content"]).decode()
         if (
-            "cache-to: type=registry,ref=${{ needs.validate-tag.outputs.repository }}:buildcache-"
+            "cache-to: type=registry,ref=${{ needs.validate-tag.outputs.repository }}:buildcache-${{ matrix.arch }},mode=min"
             in workflow
         ):
             current.append(

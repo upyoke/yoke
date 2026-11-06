@@ -39,6 +39,9 @@ def test_failed_native_build_cannot_pass_timing():
 def test_cache_hit_must_belong_to_postgres_download_step():
     step = "#12 [builder 5/12] RUN PYTHONPATH=/build/packages/yoke-core/src python -c postgres_binaries.py\n"
     assert postgres_cached(step + "#12 CACHED\n")
+    mounted = "#7 [runtime-base 6/6] RUN --mount=type=bind,source=x,target=/bootstrap PYTHONPATH=/bootstrap python -c postgres_binaries.py\n"
+    assert postgres_cached(mounted + "#7 CACHED\n")
+    assert not postgres_cached(mounted + "#8 CACHED\n#7 DONE 3s\n")
     assert not postgres_cached(step + "#13 CACHED\n#12 DONE 4.0s\n")
     assert not postgres_cached(
         "#12 [builder 4/12] COPY packages ./packages\n#12 CACHED\n"
@@ -90,7 +93,13 @@ def test_cache_reuse_proof_requires_application_change_without_bootstrap_edit(
 
 @pytest.mark.parametrize(
     "cached_seconds, samples, legacy, expected",
-    [(10, 10, False, 0), (11, 10, False, 1), (10, 9, False, 1), (10, 10, True, 1)],
+    [
+        (10, 10, False, 0),
+        (11, 10, False, 1),
+        (10, 9, False, 1),
+        (10, 10, True, 1),
+        (10, 10, "registry-max", 1),
+    ],
 )
 def test_command_uses_authenticated_rest_and_requires_ten_runs_and_thirty_seconds(
     monkeypatch, cached_seconds, samples, legacy, expected, capsys
@@ -126,8 +135,12 @@ def test_command_uses_authenticated_rest_and_requires_ten_runs_and_thirty_second
             return {
                 "content": base64.b64encode(
                     b"cache-to: type=gha,mode=max,scope=yoke-server-linux/amd64"
-                    if legacy
-                    else b"cache-to: type=registry,ref=${{ needs.validate-tag.outputs.repository }}:buildcache-${{ matrix.arch }},mode=max"
+                    if legacy is True
+                    else b"cache-to: type=registry,ref=${{ needs.validate-tag.outputs.repository }}:buildcache-${{ matrix.arch }},mode=min".replace(
+                        b"mode=min", b"mode=max"
+                    )
+                    if legacy == "registry-max"
+                    else b"cache-to: type=registry,ref=${{ needs.validate-tag.outputs.repository }}:buildcache-${{ matrix.arch }},mode=min"
                 ).decode()
             }
         if "/compare/" in path:
