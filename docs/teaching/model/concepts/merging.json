@@ -2,10 +2,10 @@
  "id": "merging",
  "title": "Git integration and landing",
  "status": "draft-copy",
- "sources": ["docs/public/github/merge-queue-landings.md", "docs/public/items/model/landings.md", ".agents/skills/yoke/usher/SKILL.md"],
+ "sources": ["docs/public/github/merge-queue-landings.md", "docs/public/items/model/landings.md", ".agents/skills/yoke/usher/SKILL.md", "packages/yoke-core/src/yoke_core/engines/merge_worktree_prepare_state.py"],
  "commands": ["yoke merge audit", "yoke merge item"],
  "functions": ["merge.lock.acquire", "merge.lock.list", "merge.lock.release", "merge.preflight.blocked_gate", "merge.preflight.dependency_gate", "merge.preflight.epic_task_statuses", "merge.prune.authority_verdict", "merge.prune.authority_verdicts", "merge.tests.post_rebase_requirement", "merge.tests.record_post_rebase_ci_run", "merge.tests.recorded_queue_receipt", "merge.audit.snapshot"],
  "page": "merging",
  "position": 23,
- "note": "The merge audit reads a project-scoped registered snapshot over HTTPS or local dispatch, then checks Git branches, dirt and conflicts on the client. It refuses an unavailable snapshot with a named recovery; source proof does not establish deployed availability. The merge waits for the holding item up to merge_lock_ttl_minutes (default 30 minutes), acquires atomically when clear, and reports the holding item and recovery if the full wait times out. Release-pin-only target advances retry automatically up to twice while preserving unpublished local merges."
+ "note": "The merge audit reads a project-scoped registered snapshot over HTTPS or local dispatch, then checks Git branches, dirt and conflicts on the client. It refuses an unavailable snapshot with a named recovery; source proof does not establish deployed availability. The merge waits for the holding item up to merge_lock_ttl_minutes (default 30 minutes), acquires atomically when clear, and reports the holding item and recovery if the full wait times out. Release-pin-only target advances retry automatically up to twice while preserving unpublished local merges. Merge preparation copies tracked dirty work without changing lane files and retains the exact stash commit id. It never applies the shared stash list top entry. Untracked files remain in the lane; a failed safety copy refuses before cleanup and teaches committing the work before retrying."
 }

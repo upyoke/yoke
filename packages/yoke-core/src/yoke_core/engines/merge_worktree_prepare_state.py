@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from yoke_contracts.refusal_recovery import compose_refusal
 from yoke_core.domain.public_item_target import public_item_target
 from yoke_core.engines.merge_worktree_base import target_ref
 
@@ -202,35 +203,51 @@ def _stash_classify_gate(ctx: MergeContext) -> Optional[Tuple[int, str]]:
     _run_git = mw._run_git
 
     cwd = ctx.worktree_path
+
+    def refuse(result, operation):
+        message = compose_refusal(
+            f"merge_safety_copy_failed: {operation}: {result.stderr or result.stdout}",
+            evaluated="no dirty files were changed",
+            recovery="Commit the lane's work, then retry the item merge",
+        )
+        _print(message, err=True)
+        return (4, message)
+
     status = _run_git(["status", "--porcelain"], cwd=cwd, capture=True)
+    if status.returncode:
+        return refuse(status, "read dirty state")
     if not status.stdout.strip():
         return None
 
-    _print(f"Creating safety stash: yoke-pre-rebase-{ctx.args.branch}")
-    _run_git(
-        [
-            "stash",
-            "push",
-            "--include-untracked",
-            "-m",
-            f"yoke-pre-rebase-{ctx.args.branch}",
-        ],
-        cwd=cwd,
-        capture=True,
-    )
-    _run_git(["stash", "apply"], cwd=cwd, capture=True)
+    # create leaves the index, working tree and shared stash list untouched.
+    created = _run_git(["stash", "create"], cwd=cwd, capture=True)
+    if created.returncode:
+        return refuse(created, "create tracked-work safety copy")
+    safety_sha = created.stdout.strip()
+    if safety_sha:
+        stored = _run_git(
+            ["stash", "store", "-m", f"yoke-pre-rebase-{ctx.args.branch}", safety_sha],
+            cwd=cwd, capture=True,
+        )
+        if stored.returncode:
+            return refuse(stored, f"retain safety copy {safety_sha}")
 
     # Classify
     dirty_tracked = _run_git(["diff", "--name-only"], cwd=cwd, capture=True)
+    dirty_staged = _run_git(
+        ["diff", "--cached", "--name-only"], cwd=cwd, capture=True
+    )
     dirty_untracked = _run_git(
         ["ls-files", "--others", "--exclude-standard"], cwd=cwd, capture=True
     )
 
-    all_tracked = (
-        dirty_tracked.stdout.strip().splitlines()
-        if dirty_tracked.stdout.strip()
-        else []
-    )
+    for result in (dirty_tracked, dirty_staged, dirty_untracked):
+        if result.returncode:
+            return refuse(result, "classify dirty files")
+
+    all_tracked = sorted(set(
+        dirty_tracked.stdout.splitlines() + dirty_staged.stdout.splitlines()
+    ))
     all_untracked = (
         dirty_untracked.stdout.strip().splitlines()
         if dirty_untracked.stdout.strip()
@@ -246,14 +263,25 @@ def _stash_classify_gate(ctx: MergeContext) -> Optional[Tuple[int, str]]:
         _print("Error: Worktree has dirty files that are NOT Yoke-managed.", err=True)
         for uf in user_files:
             _print(f"  - {uf}", err=True)
-        _print(
-            f"Your work is safe in stash: yoke-pre-rebase-{ctx.args.branch}", err=True
-        )
+        if safety_sha:
+            _print(
+                f"Tracked work is safe in stash commit {safety_sha}; "
+                f"restore with git stash apply {safety_sha}.", err=True,
+            )
+        _print("Untracked files remain in the lane; commit them before retrying.", err=True)
         return (4, "user-authored files at risk")
 
     # Discard yoke-managed tracked modifications
     yoke_tracked = [f for f in all_tracked if is_yoke_managed_pattern(f)]
     for sf in yoke_tracked:
-        _run_git(["checkout", "--", sf], cwd=cwd, capture=True)
+        cleaned = _run_git(["checkout", "--", sf], cwd=cwd, capture=True)
+        if cleaned.returncode:
+            message = compose_refusal(
+                f"merge_dirty_cleanup_failed: {sf}: {cleaned.stderr or cleaned.stdout}",
+                evaluated=f"Safety copy: {safety_sha or 'no tracked changes'}",
+                recovery="Inspect the lane, commit its work, then retry the item merge",
+            )
+            _print(message, err=True)
+            return (4, message)
 
     return None
