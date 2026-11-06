@@ -154,7 +154,7 @@ class TestSessionIdFilter:
         test_db.commit()
 
         wrong_liveness = handle_sessions_list(
-            _request({"session_id": "s-live", "liveness": "ended"})
+            _request({"session_id": "s-live", "presence": "ended"})
         )
         assert wrong_liveness.result_payload["rows"] == []
         wrong_project = handle_sessions_list(

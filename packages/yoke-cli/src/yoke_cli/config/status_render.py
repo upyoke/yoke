@@ -147,6 +147,14 @@ def render_human(report: Mapping[str, Any]) -> str:
                 f"--machine {mark.get('machine_id')} "
                 f"--surface {mark.get('surface')}"
             )
+    session = report.get("session")
+    if isinstance(session, Mapping):
+        lines.append("  session state:")
+        for key in ("presence", "activity", "intent", "next_actor", "holds", "custody", "error"):
+            if key in session:
+                lines.append(f"    {key}: {session[key]}")
+    if report.get("item_state"):
+        lines.append(f"  item state: {report['item_state']}")
     return "\n".join(lines) + "\n"
 
 

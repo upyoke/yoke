@@ -200,6 +200,10 @@ _TEST_MACHINE_FLOOR = ArgumentFloor(
 #: ignore them. Payload refusals name this floor; adapters whose writes can be
 #: ignored must also verify the success receipt echoes the requested argument.
 FUNCTION_ARGUMENT_MINIMUM_SERVING_VERSIONS: dict[str, dict[str, ArgumentFloor]] = {
+    "sessions.list": {
+        name: ArgumentFloor("next-release", "an unfiltered sessions list read; update the serving release before filtering state")
+        for name in ("presence", "activity", "intent")
+    },
     **{
         function_id: {
             name: ArgumentFloor(

@@ -1,31 +1,4 @@
-"""Read-only session roster with liveness and held-claims derivation.
-
-The read behind ``sessions.list``: one row per harness session carrying
-the attribution facts (actor id/kind plus the canonical display label),
-what the session holds (its current and previous typed holdings), how alive it
-is, and what Yoke directed it to do (``execution_level`` + ``mode``).
-
-Liveness is derived server-side so no consumer re-encodes TTL numbers:
-
-* ``ended`` — ``ended_at`` or ``terminated_at`` is set. A kill is gone the
-  same way an ordinary end is gone; what separates them is the ``ended_cause``
-  facet below, not a liveness state of its own.
-* ``waiting`` — an intentional pause holding an active work claim. Mode
-  ``parked`` and turn posture ``waiting`` both declare a pause; age never does.
-* ``stale`` — eligible for automatic reclaim, with all holdings and in-flight
-  protections applied. ``reclaimable`` is exactly this same set.
-* ``active`` — another live, protected or fresh session.
-
-The shared automatic decision supplies roster, preview and execution; the
-execution rechecks protection. Activity age remains a separate diagnostic.
-
-Probe sessions never appear at all: a harness startup process that
-registered, did nothing and ended is excluded by the shared predicate in
-:mod:`yoke_core.domain.session_probe`, whatever the caller's filters say.
-
-``ended_cause`` says how an ended session got there — ``killed`` when
-``terminated_at`` is set, ``wound_down`` for an ordinary end.
-"""
+"""Canonical session roster with holdings and state, shared by CLI and web."""
 
 from __future__ import annotations
 
@@ -102,6 +75,9 @@ def list_sessions(
     org_session_actor_id: int | None = None,
     liveness: Optional[str] = None,
     ended_cause: Optional[str] = None,
+    presence: Optional[str] = None,
+    activity: Optional[str] = None,
+    intent: Optional[str] = None,
     limit: int | None = DEFAULT_SESSIONS_LIST_LIMIT,
     offset: int = 0,
     per_project: bool = False,
@@ -109,41 +85,12 @@ def list_sessions(
     session_ids: Optional[Sequence[str]] = None,
     open: bool = False,
 ) -> List[Dict[str, Any]]:
-    """List harness sessions, newest activity first.
+    """List sessions, applying state filters before the requested page."""
+    from yoke_core.domain.session_state_filter import validate_state_filters, state_page
 
-    ``project`` filters on the session's own ``project_id`` binding
-    (slug or id, resolved server-side), OR-ed with an actual live steering
-    claim scoped to that project — a session steers a project it did not
-    start in, and that live claim is a project-membership fact just like
-    the home-project binding is. A released claim or an ended session
-    never adds visibility this way. ``liveness`` filters to one of
-    :data:`LIVENESS_STATES`; the ended/not-ended half of that split
-    prunes in SQL, while the active/waiting/stale split classifies within the
-    ``limit`` window (the TTL is executor-aware, so it cannot live in
-    the WHERE clause).
-
-    ``open`` keeps the complete live set (active, waiting and stale) in SQL before
-    any per-project window, so ended rows cannot crowd holders out of Ready.
-
-    ``ended_cause`` narrows within the ended population to one of
-    :data:`ENDED_CAUSES`. It prunes in SQL and implies ``ended``.
-
-    ``per_project`` only takes effect on the unscoped roster
-    (``project=None``): the fetch window becomes each project's own
-    newest-:data:`PER_PROJECT_SESSIONS_LIST_CAP` slice.
-
-    ``project_ids`` is the same filter over an already-resolved set of
-    internal project ids, for a caller showing several projects at once. It
-    answers in one pass: the roster read is the same question for every
-    project it covers, so running the whole pipeline once per project would
-    re-ask every enrichment the answer shares.
-
-    When both are given, ``project`` resolves only within ``project_ids``.
-    ``None`` retains local authority; an empty set never permits batch reuse.
-
-    ``session_id`` selects exactly one session through the same row renderer
-    and enrichment pipeline.
-    """
+    filters = dict(presence=presence, activity=activity, intent=intent)
+    validate_state_filters(filters)
+    filtered = any(value is not None for value in filters.values()) or liveness is not None
     if liveness is not None and liveness not in LIVENESS_STATES:
         raise ValueError(
             f"liveness must be one of {', '.join(LIVENESS_STATES)}; got {liveness!r}"
@@ -174,7 +121,7 @@ def list_sessions(
         else max(1, min(int(limit), MAX_SESSIONS_LIST_LIMIT))
     )
     windowed = (
-        per_project and not project and not project_ids and not normalized_session_id
+        per_project and not filtered and not project and not project_ids and not normalized_session_id
     )
 
     if offset < 0:
@@ -182,6 +129,7 @@ def list_sessions(
     batch = _READ_BATCH.get()
     if (
         batch is not None
+        and not filtered
         and normalized_session_id
         and session_ids is None
         and project_ids is None
@@ -257,16 +205,16 @@ def list_sessions(
         where = f"WHERE {' AND '.join(clauses)}" if clauses else ""
         query = build_sessions_query(where, windowed=windowed)
         if windowed:
-            params = [*where_params, PER_PROJECT_SESSIONS_LIST_CAP, bounded_limit]
+            params = [*where_params, PER_PROJECT_SESSIONS_LIST_CAP, None if filtered else bounded_limit]
         else:
-            params = [*where_params, bounded_limit]
-        rows = conn.execute(query + " OFFSET %s", (*params, offset)).fetchall()
+            params = [*where_params, None if filtered else bounded_limit]
+        rows = conn.execute(query + " OFFSET %s", (*params, 0 if filtered else offset)).fetchall()
         session_ids = [str(dict(raw)["session_id"]) for raw in rows]
         claims_by_session, roles_by_session = active_claims_by_session(
             conn,
             session_ids=session_ids,
         )
-        return render_session_roster_rows(
+        result = render_session_roster_rows(
             conn,
             rows,
             liveness=liveness,
@@ -282,6 +230,7 @@ def list_sessions(
                 session_ids=session_ids,
             ),
         )
+        return state_page(result, filters, offset, bounded_limit) if filtered else result
     finally:
         conn.close()
 
@@ -300,7 +249,12 @@ def session_summary_result(rows: list[dict], *, offset: int, limit: int | None) 
         "model",
         "execution_level",
         "mode",
-        "liveness",
+        "presence",
+        "activity",
+        "intent",
+        "holds",
+        "custody",
+        "session_state",
         "next_actor",
         "current_item",
         "current_item_title",

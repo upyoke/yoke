@@ -22,7 +22,7 @@ from yoke_contracts.api.function_call import (
 from yoke_core.domain.handlers.sessions_list import handle_sessions_list
 from yoke_core.domain.session_control_roster import SESSION_CONTROL_ROSTER_FIELDS
 from yoke_core.domain.session_control_schema import create_session_control_tables
-from yoke_core.domain.sessions_list_read import LIVENESS_STATES, list_sessions
+from yoke_core.domain.sessions_list_read import list_sessions
 from yoke_core.domain.work_claim_targets import (
     make_epic_task_target,
     make_item_target,
@@ -226,11 +226,11 @@ class TestHandler:
         assert not outcome.primary_success
         assert outcome.error.code == "not_found"
 
-    def test_handler_bad_liveness_is_typed_payload_error(self, test_db):
-        outcome = handle_sessions_list(_request({"liveness": "running"}))
+    def test_handler_bad_presence_is_typed_payload_error(self, test_db):
+        outcome = handle_sessions_list(_request({"presence": "running"}))
         assert not outcome.primary_success
         assert outcome.error.code == "payload_invalid"
-        for state in LIVENESS_STATES:
+        for state in ("present", "gone", "ended"):
             assert state in outcome.error.message
 
     def test_handler_requires_global_target(self):

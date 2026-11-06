@@ -200,11 +200,11 @@ def test_sessions_list_dispatches_filters_and_prints_summary_rows() -> None:
             version=request.version,
             request_id=request.request_id,
             result={
-                "fields": ["session_id", "liveness", "mode", "current_item_ref"],
+                "fields": ["session_id", "presence", "mode", "current_item_ref"],
                 "rows": [
                     {
                         "session_id": "s-1",
-                        "liveness": "active",
+                        "presence": "present",
                         "mode": "charge",
                         "current_item_ref": "YOK-41",
                     },
@@ -227,8 +227,8 @@ def test_sessions_list_dispatches_filters_and_prints_summary_rows() -> None:
                             "list",
                             "--project",
                             "yoke",
-                            "--liveness",
-                            "active",
+                            "--presence",
+                            "present",
                             "--limit",
                             "5",
                         ]
@@ -236,15 +236,15 @@ def test_sessions_list_dispatches_filters_and_prints_summary_rows() -> None:
 
     assert rc == 0
     text = out.getvalue()
-    assert "session id | liveness | mode | current item ref" in text
-    assert "s-1 | active | charge | YOK-41" in text
+    assert "session id | presence | mode | current item ref" in text
+    assert "s-1 | present | charge | YOK-41" in text
     assert err.getvalue() == ""
     req = _CAPTURED_REQUESTS[-1]
     assert req.function == "sessions.list"
     assert req.target.kind == "global"
     assert req.payload == {
         "project": "yoke",
-        "liveness": "active",
+        "presence": "present",
         "limit": 5,
         "detail": "summary",
         "offset": 0,

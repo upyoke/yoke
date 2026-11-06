@@ -49,7 +49,7 @@ class ItemsGetRequest(BaseModel):
 
 class ItemsGetResponse(BaseModel):
     item_id: int
-    fields: Dict[str, str | Dict[str, str]]
+    fields: Dict[str, Any]
     # Delivery instructions are separate from the fields they govern.
     execution_instructions: List[Dict[str, Any]] | None = None
     sections: List[Dict[str, str]] | None = None
@@ -74,6 +74,13 @@ def handle_items_get(request: FunctionCallRequest) -> HandlerOutcome:
         return _items_get_section(item_id, requested, str(section))
     cols = requested or list(DEFAULT_GET_FIELDS)
     out: Dict[str, Any] = {}
+    from yoke_core.domain.item_display_state import STATE_FIELDS, item_display_states
+    state = {}
+    if set(cols).intersection(STATE_FIELDS):
+        from yoke_core.domain.db_helpers import connect
+
+        with connect() as conn:
+            state = item_display_states(conn, [item_id]).get(item_id, {})
     for col in cols:
         if col not in ALLOWED_GET_FIELDS:
             return HandlerOutcome(
@@ -84,7 +91,9 @@ def handle_items_get(request: FunctionCallRequest) -> HandlerOutcome:
                     jsonpath=f"$.payload.fields[{cols.index(col)}]",
                 ),
             )
-        if col == "id":
+        if col in STATE_FIELDS:
+            out[col] = state.get(col)
+        elif col == "id":
             from yoke_core.domain.db_helpers import connect
             from yoke_core.domain.project_identity import render_item_ref
 

@@ -70,7 +70,7 @@ def _validated_list_fields(
 
     fields = [str(f).strip() for f in requested if str(f).strip()]
     if not fields:
-        return list(DEFAULT_LIST_FIELDS), None
+        return [*DEFAULT_LIST_FIELDS, "stage", "home_section", "next_actor", "progress"], None
     if len(set(fields)) != len(fields):
         return [], HandlerOutcome(
             primary_success=False,
@@ -95,7 +95,7 @@ def _validated_list_fields(
                     jsonpath="$.payload.fields",
                 ),
             )
-        if field not in _QI_ALL_FIELDS:
+        if field not in _QI_ALL_FIELDS and field not in {"stage", "home_section", "next_actor", "progress"}:
             return [], HandlerOutcome(
                 primary_success=False,
                 error=FunctionError(
@@ -152,10 +152,12 @@ def handle_items_list(request: FunctionCallRequest) -> HandlerOutcome:
         project=None,
     )
     where_clause, params = queries.build_where_clause(filt, table_prefix="i.")
-    select_cols, needs_project = item_project_join_select(fields, native_instants=True)
+    from yoke_core.domain.item_display_state import STATE_FIELDS, item_display_states
+
+    stored_fields = [field for field in fields if field not in STATE_FIELDS] or ["id"]
+    select_cols, needs_project = item_project_join_select(stored_fields, native_instants=True)
     join = " JOIN projects p ON p.id = i.project_id" if needs_project else ""
-    if "deployment_flow" in fields:
-        select_cols += ", i.id"
+    select_cols += ", i.id"
 
     conn = connect()
     try:
@@ -202,7 +204,12 @@ def handle_items_list(request: FunctionCallRequest) -> HandlerOutcome:
                     sql += " LIMIT %s"
                     sql_params = (*sql_params, limit)
                 rows = conn.execute(sql, sql_params).fetchall()
-                out_rows = _render_rows(conn, fields=fields, rows=rows)
+                out_rows = _render_rows(conn, fields=stored_fields, rows=rows)
+                if set(fields).intersection(STATE_FIELDS):
+                    states = item_display_states(conn, [int(row[-1]) for row in rows])
+                    for raw, rendered in zip(rows, out_rows):
+                        rendered.update({key: states[int(raw[-1])][key]
+                                         for key in fields if key in STATE_FIELDS})
     finally:
         conn.close()
     return HandlerOutcome(

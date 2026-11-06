@@ -53,6 +53,10 @@ FRONTIER_READY_FIELDS = (
     "stage_count",
     "stage_label",
     "priority",
+    "stage",
+    "home_section",
+    "next_actor",
+    "progress",
     "next_step",
     "why_ready",
     "unblocks_count",
@@ -129,6 +133,7 @@ def list_frontier(
     *,
     project: Optional[str] = None,
     wip_cap: Optional[int] = None,
+    include_state: bool = True,
 ) -> Dict[str, Any]:
     """Project the frontier for one project or every registered project.
 
@@ -262,10 +267,19 @@ def list_frontier(
                 )
             )
 
+        if include_state:
+            from yoke_core.domain.item_display_state import item_display_states
+
+            projection = item_display_states(conn, tracked_steps, frontier={
+                "ready_rows": ready_rows, "blocked_rows": blocked_rows,
+            })
+            by_ref = {public_refs[iid]: state for iid, state in projection.items()}
+            for row in [*ready_rows, *blocked_rows]:
+                row.update(by_ref.get(str(row.get("public_ref") or row.get("item_id")), {}))
         return {
             "fields": {
                 "ready": list(FRONTIER_READY_FIELDS),
-                "blocked": list(FRONTIER_BLOCKED_FIELDS),
+                "blocked": [*FRONTIER_BLOCKED_FIELDS, "stage", "home_section", "next_actor", "progress"],
                 "dependency_edges": list(FRONTIER_EDGE_FIELDS),
                 "dependency_cycles": list(FRONTIER_CYCLE_FIELDS),
             },

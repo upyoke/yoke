@@ -24,11 +24,12 @@ from yoke_cli.commands._helpers import (
     parse_or_usage_error,
 )
 from yoke_contracts.api.function_call import TargetRef
-from yoke_contracts.session_control.liveness import ENDED_CAUSES, LIVENESS_STATES
+from yoke_contracts.session_control.liveness import ENDED_CAUSES
+from yoke_contracts.session_state_fields import SESSION_STATE_CHOICES, session_state_columns
 
 
 SESSIONS_LIST_USAGE = (
-    "yoke sessions list [--project P] [--liveness active|waiting|stale|ended] "
+    "yoke sessions list [--project P] [--presence present|gone|ended] [--activity working|between_turns|silent] [--intent none|parked|awaiting] "
     "[--ended-cause killed|wound_down] "
     "[--limit N] [--offset N] [--full] [--session S] [--session-id S] [--json]"
 )
@@ -55,12 +56,11 @@ def sessions_list(args: List[str]) -> int:
         default=None,
         help="Only sessions in this project, excluding outside-project sessions.",
     )
-    parser.add_argument(
-        "--liveness",
-        choices=LIVENESS_STATES,
-        default=None,
-        help="Only sessions in this liveness state.",
-    )
+    for field, choices in SESSION_STATE_CHOICES.items():
+        parser.add_argument(
+            f"--{field}", choices=choices,
+            help=f"Filter canonical {field} before pagination.",
+        )
     parser.add_argument(
         "--ended-cause",
         dest="ended_cause",
@@ -77,7 +77,7 @@ def sessions_list(args: List[str]) -> int:
         "--session",
         default=None,
         dest="session_filter",
-        help="Single-session liveness projection for exactly this id "
+        help="Single-session state projection for exactly this id "
         "(--session-id remains the caller-identity override).",
     )
     add_session_arg(parser)
@@ -91,6 +91,7 @@ def sessions_list(args: List[str]) -> int:
         displayed = [
             {
                 **row,
+                **session_state_columns(row),
                 "session": row.get("display_label") or "session label unavailable",
                 "next_actor": row.get("next_actor") or (row.get("session_state") or {}).get("next_actor"),
                 "read": f"yoke sessions get {row.get('session_id')}",
@@ -113,7 +114,7 @@ def sessions_list(args: List[str]) -> int:
         "detail": "full" if parsed.full else "summary",
         "offset": parsed.offset,
     }
-    for key in ("project", "liveness", "ended_cause"):
+    for key in ("project", *SESSION_STATE_CHOICES, "ended_cause"):
         value = getattr(parsed, key)
         if value is not None:
             payload[key] = value

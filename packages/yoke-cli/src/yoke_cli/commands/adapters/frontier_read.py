@@ -37,7 +37,7 @@ def frontier_list(args: List[str]) -> int:
         usage=FRONTIER_LIST_USAGE,
         description=(
             "List the items ready to start, best first, and the items that\n"
-            "wait, each with the gate that holds it. Changes nothing."
+            "wait, with home_section, next_actor, pinned stage and progress. Changes nothing."
         ),
     )
     parser.add_argument(

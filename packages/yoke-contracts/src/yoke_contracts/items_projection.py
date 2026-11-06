@@ -83,7 +83,7 @@ ADDITIONAL_SCALAR_FIELDS: frozenset[str] = frozenset(
 # Computed on read: the merge queue's state, and whether the item has
 # answered the post-deploy QA question its delivery flow asks.
 ADDITIONAL_VIRTUAL_FIELDS: frozenset[str] = frozenset(
-    {"merge_queue_status", "post_deploy_qa"}
+    {"merge_queue_status", "post_deploy_qa", "stage", "home_section", "next_actor", "progress"}
 )
 
 ALLOWED_GET_FIELDS: frozenset[str] = (

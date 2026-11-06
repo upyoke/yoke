@@ -128,7 +128,7 @@ def _item_rows(conn: Any, item_ids: Sequence[int]) -> dict[int, dict[str, Any]]:
     marker = _p(conn)
     records = conn.execute(
         "SELECT i.id,i.project_id,i.project_sequence,i.status,i.blocked,"
-        "i.blocked_reason,i.merged_at,i.merge_queue_landed_at,i.workflow_id,"
+        "i.blocked_reason,i.frozen,i.merged_at,i.merge_queue_landed_at,i.workflow_id,"
         "i.workflow_version_id,v.version,v.definition_json,v.definition_digest,"
         "p.public_item_prefix FROM items i JOIN workflow_versions v "
         "ON v.id=i.workflow_version_id JOIN projects p ON p.id=i.project_id "

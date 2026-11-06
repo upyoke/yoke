@@ -27,6 +27,10 @@ def compact_item_result(
                 for key in (
                     "title",
                     "status",
+                    "stage",
+                    "home_section",
+                    "next_actor",
+                    "progress",
                     "priority",
                     "workflow_id",
                     "blocked",

@@ -93,6 +93,10 @@ _QI_ALL_FIELDS = {
     "merge_queue_landed_at",
     "merge_queue_notified_at",
     "merge_queue_status",
+    "stage",
+    "home_section",
+    "next_actor",
+    "progress",
 }
 
 # Rendered on demand, not stored in DB.
