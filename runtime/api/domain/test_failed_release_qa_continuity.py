@@ -72,6 +72,11 @@ def test_create_preserves_reopened_member_admission_and_qa(
     from runtime.api.domain import test_deployment_run_create_takeover_enrollment as creation
 
     execution_id = creation._seed(test_db, monkeypatch, flow=None)
+    red = test_db.execute(
+        "SELECT id FROM qa_requirements WHERE deployment_run_id=%s AND deployment_member_item_id=%s",
+        (takeover.OLD, takeover.PASSED),
+    ).fetchone()[0]
+    record_case_verdict(test_db, red, "fail", evidence=True)
     test_db.execute("UPDATE items SET status=%s WHERE id=%s", (status, takeover.WAITING))
     test_db.execute("UPDATE deployment_runs SET status=%s WHERE id=%s", (predecessor_status, takeover.OLD))
     test_db.commit()
@@ -83,6 +88,7 @@ def test_create_preserves_reopened_member_admission_and_qa(
     assert creation._qa_rows(test_db, created) == before
     assert test_db.execute("SELECT deployment_run_id FROM qa_plan_executions WHERE id=%s", (execution_id,)).fetchone()[0] == created
     assert test_db.execute("SELECT count(*) FROM qa_requirements WHERE deployment_run_id=%s AND retracted_at IS NOT NULL", (created,)).fetchone()[0] == 0
+    assert test_db.execute("SELECT count(*) FROM qa_runs WHERE qa_requirement_id=%s AND verdict='fail'", (red,)).fetchone()[0] == 1
 
 
 def test_frozen_carried_member_outside_history_is_set_aside(test_db, tmp_path, monkeypatch):
