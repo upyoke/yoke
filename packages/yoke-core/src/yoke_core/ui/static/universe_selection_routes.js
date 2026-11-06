@@ -7,11 +7,11 @@ import { selectionParam } from "./universe_project_selection.js";
 // selection of whichever screen the link happens to be rewritten from. A
 // detail's project still addresses its resource; an explicit selection on a
 // deep link remains authoritative.
-export function withProjectSelection(href, selections, basePath = "") {
-  href = routeHref(href, basePath) || href;
-  if (!routeHref(href, basePath)) return href;
-  const route = parseUniverseRoute(href, basePath);
-  if (route.selection !== null) return href;
+export function withProjectSelection(href, selections, basePath = "", navigation = []) {
+  href = routeHref(href, basePath, navigation) || href;
+  if (!routeHref(href, basePath, navigation)) return href;
+  const route = parseUniverseRoute(href, basePath, navigation);
+  if (navEntry(route.view, navigation).hostPage || route.selection !== null) return href;
   const selection = selections.selectionFor(route.view);
   const [path, query = ""] = href.split("?");
   const params = new URLSearchParams(query);
@@ -46,18 +46,18 @@ export function selectionRoute(route, selections, project = null, sourceHref = "
   return `${path}?${params.toString().replace(/%2C/g, ",")}`;
 }
 
-export function createSelectionNavigation(root, windowNode, state, basePath = "") {
+export function createSelectionNavigation(root, windowNode, state, basePath = "", navigation = []) {
   const authoredLinks = new WeakMap();
-  const paths = createPathNavigation(windowNode, basePath);
-  const navigate = (href, options) => paths.navigate(withProjectSelection(href, state, basePath), options);
+  const paths = createPathNavigation(windowNode, basePath, navigation);
+  const navigate = (href, options) => paths.navigate(withProjectSelection(href, state, basePath, navigation), options);
   // A capture listener also covers host-owned anchors and modified clicks.
   // The observer makes copied/open-in-new-tab links carry the same context.
   function rewrite(anchor) {
     const href = anchor.getAttribute?.("href") || anchor.href;
-    if (!routeHref(href, basePath)) return;
+    if (!routeHref(href, basePath, navigation)) return;
     const previous = authoredLinks.get(anchor);
     const authored = previous?.rendered === href ? previous.authored : href;
-    const next = withProjectSelection(authored, state, basePath);
+    const next = withProjectSelection(authored, state, basePath, navigation);
     authoredLinks.set(anchor, { authored, rendered: next });
     if (next !== href) anchor.setAttribute("href", next);
   }
@@ -73,7 +73,7 @@ export function createSelectionNavigation(root, windowNode, state, basePath = ""
         if (!anchor) return;
         rewrite(anchor);
         const href = anchor.getAttribute("href");
-        if (!routeHref(href, basePath)) return;
+        if (!routeHref(href, basePath, navigation)) return;
         event.preventDefault();
         event.stopPropagation();
         navigate(href);
@@ -96,7 +96,7 @@ export function createSelectionNavigation(root, windowNode, state, basePath = ""
     const anchor = event.target?.closest?.("a[href]");
     if (!anchor || anchor.hasAttribute("download") || (anchor.target && anchor.target !== "_self")) return;
     const href = anchor.getAttribute("href");
-    if (!routeHref(href, basePath)) return;
+    if (!routeHref(href, basePath, navigation)) return;
     event.preventDefault();
     navigate(href);
   };

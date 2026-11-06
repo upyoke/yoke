@@ -5,6 +5,8 @@
  * published package. A host consumes it from the same pinned Yoke product
  * version whose static app bundle it serves.
  */
+import type { UniverseHostNavGroup } from "./universe-host-navigation.js";
+export type { UniverseHostNavGroup, UniverseHostNavPage, UniverseHostPageContext } from "./universe-host-navigation.js";
 export type JsonPrimitive = string | number | boolean | null;
 export type JsonValue = JsonPrimitive | JsonObject | readonly JsonValue[];
 export interface JsonObject {
@@ -183,6 +185,7 @@ export interface UniverseAppOptions {
      * matching nav entry.
      */
     readonly sections?: UniverseViewSections;
+    readonly navigation?: readonly UniverseHostNavGroup[];
     /** The viewer's actor: an authenticated host's, or the local server's resolved operator. */
     readonly currentActor?: UniverseActor;
     /** Canonical runtime-identity packet; the local and hosted shells pass it so the
@@ -211,7 +214,7 @@ export type UniverseRouteView = "strategy" | "frontier" | "shipping" | "machines
  * Unknown destinations fall back to Strategy without carrying their detail.
  */
 export interface UniverseRoute {
-    readonly view: UniverseRouteView;
+    readonly view: UniverseRouteView | string;
     /** Deployments has flows/runs tabs; other destinations have none. */
     readonly tab: "flows" | "runs" | null;
     /** The drill-in row within the view, when the route names one. */
@@ -231,15 +234,15 @@ export type UniverseScope = "multi" | "single" | "none";
 /** Canonical value; the runtime module is emitted from this source. */
 export declare const UNIVERSE_APP_CONTRACT_VERSION: 11;
 export declare function createHttpFunctionClient(options?: HttpFunctionClientOptions): UniverseFunctionClient;
-export declare function parseUniverseRoute(href: string, basePath?: string): UniverseRoute;
+export declare function parseUniverseRoute(href: string, basePath?: string, navigation?: readonly UniverseHostNavGroup[]): UniverseRoute;
 /** Preserve selection on ordinary host navigation and detail links. Explicit
  * selection wins; project continues to address a detail/focus resource. */
 export declare function withProjectSelection(href: string, selections: {
     selectionFor(view: string): "all" | readonly string[];
-}, basePath?: string): string;
+}, basePath?: string, navigation?: readonly UniverseHostNavGroup[]): string;
 /** `segment` is the view's second path segment: a tab id for a view that
  * declares tabs, a drill-in row for any other view. */
-export declare function buildUniverseRoute(view: UniverseRouteView | string, project?: string | null, segment?: string | null, detail?: string | null, basePath?: string): string;
+export declare function buildUniverseRoute(view: UniverseRouteView | string, project?: string | null, segment?: string | null, detail?: string | null, basePath?: string, navigation?: readonly UniverseHostNavGroup[]): string;
 /**
  * Wires the dismissal every transient surface in the frame shares onto one
  * the host owns: a click outside it closes it, Escape closes it and returns
@@ -261,7 +264,7 @@ export declare function attachMenuDismissal(documentNode: Document, surface: {
     readonly trigger?: Element | (() => Element | null) | null;
 }): () => void;
 /** The scope a view takes: see `UniverseScope`. */
-export declare function universeNavScope(view: string): UniverseScope;
+export declare function universeNavScope(view: string, navigation?: readonly UniverseHostNavGroup[]): UniverseScope;
 /**
  * Mounts the app into `rootNode`. Routes grow with their content and the
  * document scrolls. The header stays sticky and short pages fill at least

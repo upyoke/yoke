@@ -6,12 +6,13 @@
  * version whose static app bundle it serves.
  */
 
+import type { UniverseHostNavGroup } from "./universe-host-navigation.js";
+export type { UniverseHostNavGroup, UniverseHostNavPage, UniverseHostPageContext } from "./universe-host-navigation.js";
 export type JsonPrimitive = string | number | boolean | null;
 export type JsonValue = JsonPrimitive | JsonObject | readonly JsonValue[];
 export interface JsonObject {
   readonly [key: string]: JsonValue;
 }
-
 export type FunctionTargetKind =
   | "item"
   | "epic_task"
@@ -23,7 +24,6 @@ export type FunctionTargetKind =
   | "qa_requirement"
   | "workflow_run"
   | "global";
-
 export interface FunctionTarget {
   readonly kind: FunctionTargetKind;
   readonly item_id?: number;
@@ -38,7 +38,6 @@ export interface FunctionTarget {
   readonly qa_requirement_id?: number;
   readonly workflow_run_id?: string;
 }
-
 export interface FunctionCallRequest<Payload extends JsonObject = JsonObject> {
   readonly function: string;
   readonly payload?: Payload;
@@ -46,21 +45,18 @@ export interface FunctionCallRequest<Payload extends JsonObject = JsonObject> {
   readonly request_id?: string;
   readonly options?: JsonObject;
 }
-
 export interface FunctionWarning {
   readonly code: string;
   readonly step: string;
   readonly detail: string;
   readonly recovery_function?: string | null;
 }
-
 export interface FunctionError {
   readonly code?: string;
   readonly message: string;
   readonly jsonpath?: string | null;
   readonly recovery_hint?: string | null;
 }
-
 export interface FunctionEnvelope<Result = JsonObject> {
   /** Absent on transport-level proxy refusals; truthy only for success. */
   readonly success?: boolean;
@@ -72,12 +68,10 @@ export interface FunctionEnvelope<Result = JsonObject> {
   readonly error?: FunctionError | null;
   readonly event_ids?: readonly number[];
 }
-
 export interface FunctionCallResult<Result = JsonObject> {
   readonly status: number;
   readonly envelope: FunctionEnvelope<Result>;
 }
-
 export interface FunctionCallInit {
   /** Forwards to `fetch` when the default HTTP client is used. */
   readonly signal?: AbortSignal;
@@ -228,6 +222,7 @@ export interface UniverseAppOptions {
    * matching nav entry.
    */
   readonly sections?: UniverseViewSections;
+  readonly navigation?: readonly UniverseHostNavGroup[];
   /** The viewer's actor: an authenticated host's, or the local server's resolved operator. */
   readonly currentActor?: UniverseActor;
   /** Canonical runtime-identity packet; the local and hosted shells pass it so the
@@ -264,7 +259,7 @@ export type UniverseRouteView =
  * Unknown destinations fall back to Strategy without carrying their detail.
  */
 export interface UniverseRoute {
-  readonly view: UniverseRouteView;
+  readonly view: UniverseRouteView | string;
   /** Deployments has flows/runs tabs; other destinations have none. */
   readonly tab: "flows" | "runs" | null;
   /** The drill-in row within the view, when the route names one. */
@@ -290,7 +285,7 @@ export declare function createHttpFunctionClient(
   options?: HttpFunctionClientOptions,
 ): UniverseFunctionClient;
 
-export declare function parseUniverseRoute(href: string, basePath?: string): UniverseRoute;
+export declare function parseUniverseRoute(href: string, basePath?: string, navigation?: readonly UniverseHostNavGroup[]): UniverseRoute;
 
 /** Preserve selection on ordinary host navigation and detail links. Explicit
  * selection wins; project continues to address a detail/focus resource. */
@@ -298,6 +293,7 @@ export declare function withProjectSelection(
   href: string,
   selections: { selectionFor(view: string): "all" | readonly string[] },
   basePath?: string,
+  navigation?: readonly UniverseHostNavGroup[],
 ): string;
 
 /** `segment` is the view's second path segment: a tab id for a view that
@@ -308,6 +304,7 @@ export declare function buildUniverseRoute(
   segment?: string | null,
   detail?: string | null,
   basePath?: string,
+  navigation?: readonly UniverseHostNavGroup[],
 ): string;
 
 /**
@@ -335,7 +332,7 @@ export declare function attachMenuDismissal(
 ): () => void;
 
 /** The scope a view takes: see `UniverseScope`. */
-export declare function universeNavScope(view: string): UniverseScope;
+export declare function universeNavScope(view: string, navigation?: readonly UniverseHostNavGroup[]): UniverseScope;
 
 /**
  * Mounts the app into `rootNode`. Routes grow with their content and the

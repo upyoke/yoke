@@ -230,7 +230,7 @@ export function createHeldScopeController(deps) {
         ? selectionRoute({ view: navItem.id }, scopeSelections, scopeSelections.focusFor(navItem.id))
         : buildUniverseRoute(
         navItem.id,
-        rememberedScopeParam(navItem, projectsRef(), scopeSelections),
+        navItem.hostPage ? null : rememberedScopeParam(navItem, projectsRef(), scopeSelections),
         );
       link.classList.toggle("active", navItem.id === activeId);
       if (navItem.id === activeId) link.setAttribute("aria-current", "page");

@@ -1,7 +1,4 @@
-// Read-only, hand-authored universe app. `mountUniverseApp(rootNode, options?)`
-// accepts same-realm clients, host slots, and sections without forking the UI.
-// Path routes preserve shared selection and independent resource focus. NAV owns
-// the flat destination arc; host-fed Billing contributes only its body.
+// Host-neutral workbench mount; host pages and sections own their content.
 import {
   UNIVERSE_APP_CONTRACT_VERSION,
   createHttpFunctionClient,
@@ -55,6 +52,7 @@ import { createLocationPreference } from "./universe_location_preference.js";
 import { purgeObsoleteItemDrafts } from "./item_draft_storage.js";
 import { mountBuildUpdate } from "./universe_build_update.js";
 import { mountWorkbenchTelemetry } from "./workbench_telemetry.js";
+import { createHostPages } from "./universe_host_pages.js";
 import { prefetchShippingOverview } from "./universe_shipping_prefetch.js";
 export { withProjectSelection } from "./universe_selection_routes.js";
 // A host owns its slot DOM, so it cannot inherit the app's own dismissal —
@@ -81,6 +79,11 @@ export function mountUniverseApp(rootNode, options = {}) {
   purgeObsoleteItemDrafts(windowNode);
   const slots = options.slots || {};
   const hostContentNodes = new Set();
+  const hostNavigation = options.navigation || [];
+  const hostPages = createHostPages(hostNavigation, rootNode, hostContentNodes);
+  const parseRoute = (href, base) => parseUniverseRoute(href, base, hostNavigation);
+  const entryFor = (view) => navEntry(view, hostNavigation);
+  const buildRoute = (view, project, segment, detail, base = options.basePath) => buildUniverseRoute(view, project, segment, detail, base, hostNavigation);
   const resolvedSlots = materializeSlots(slots, rootNode, hostContentNodes);
   const resolvedSections = materializeSections(
     options.sections || {}, rootNode, hostContentNodes,
@@ -96,9 +99,9 @@ export function mountUniverseApp(rootNode, options = {}) {
     () => renderRoute(),
     (viewId, sort) => saveScreenSelection(client, viewId, null, null, sort),
   );
-  const navigation = createSelectionNavigation(rootNode, windowNode, scopeSelections, options.basePath);
+  const navigation = createSelectionNavigation(rootNode, windowNode, scopeSelections, options.basePath, hostNavigation);
   const locationPreference = createLocationPreference({
-    client, windowNode, navigation, selections: scopeSelections, isMounted: () => mounted, onFallback: renderRoute,
+    hostNavigation, client, windowNode, navigation, selections: scopeSelections, isMounted: () => mounted, onFallback: renderRoute,
   });
   const steeringColors = createSteeringGroupColors(client, () => mounted);
   const context = {
@@ -119,7 +122,7 @@ export function mountUniverseApp(rootNode, options = {}) {
     capabilities, screenPreferences: scopeSelections,
   };
   const disposeShippingRead = prefetchShippingOverview(context, windowNode, navigation);
-  const initialRoute = parseUniverseRoute(navigation.current(), navigation.basePath);
+  const initialRoute = parseRoute(navigation.current(), navigation.basePath);
   if (initialRoute.view === "shipping" && !initialRoute.detail) VIEW_RENDERERS.shipping.preload();
   const {
     brand, disposeChrome, header, main, navLinks, orgContext, scopeHost,
@@ -152,8 +155,8 @@ export function mountUniverseApp(rootNode, options = {}) {
 
   const heldScope = createHeldScopeController({
     windowNode, scopeSelections, renderRoute, projectsRef: () => projects,
-    navEntry, serializeScope, parseUniverseRoute,
-    navLinks, nav: NAV, buildUniverseRoute, rememberedScopeParam,
+    navEntry: entryFor, serializeScope, parseUniverseRoute: parseRoute,
+    navLinks, nav: [...NAV, ...hostPages.entries], buildUniverseRoute: buildRoute, rememberedScopeParam,
     resolveRoute,
     refreshLinks: navigation.refresh, navigation, routeInPlace: (route) => context.routeInPlace?.(route),
   });
@@ -161,7 +164,7 @@ export function mountUniverseApp(rootNode, options = {}) {
   function resolveRoute(route, entry) {
     const scope = scopeForEntry(entry, route.project, projects, scopeSelections, route.selection);
     const project = route.detail ? route.project : (entry.scope === SCOPE_SINGLE ? scope : null);
-    navigation.replace(selectionRoute(route, scopeSelections, project, navigation.current()));
+    navigation.replace(entry.hostPage ? buildRoute(entry.id, null, route.detail) : selectionRoute(route, scopeSelections, project, navigation.current()));
     locationPreference.remember();
     beginHostSection(entry, scope, scopeSelections.selectionFor(entry.id));
     return scope;
@@ -173,13 +176,14 @@ export function mountUniverseApp(rootNode, options = {}) {
   }
   function renderView() {
     if (!mounted || !projectsLoaded) return;
+    hostPages.clear();
     replaceViewAbort(context);
     detachMountedSlots(rootNode, sectionNodes());
     heldScope.reset(); // a full render drops any held scoped view
     context.routeInPlace = null;
     setScopeVisible(false);
-    const route = parseUniverseRoute(navigation.current(), navigation.basePath);
-    const entry = navEntry(route.view);
+    const route = parseRoute(navigation.current(), navigation.basePath);
+    const entry = entryFor(route.view);
     const scope = resolveRoute(route, entry);
     const picker = createProjectControls({
       documentNode, windowNode, entry, route, scope, projects, scopeSelections, renderRoute, navigation,
@@ -208,15 +212,10 @@ export function mountUniverseApp(rootNode, options = {}) {
 
     heldScope.refreshNavHrefs(entry.id);
 
+    if (hostPages.render(entry, route, main, context, options.universeId)) return;
     if (entry.hostFed) {
-      // The page head still belongs to the route; only the body is the
-      // host's. A deep link whose host supplied nothing states honestly
-      // that the screen is not here — this mount cannot render it.
       const viewHost = el(documentNode, "div", "view-host");
       main.replaceChildren(createPageHead(documentNode, entry), viewHost);
-      // A host-fed section is the whole body at either placement. Those
-      // destinations are unscoped, so the shared topbar hides the project
-      // selector — it does not filter this body.
       const hostSection = resolvedSections[entry.id];
       if (hostSection) appendViewSection(entry, viewHost);
       else renderStubView(context, viewHost);
@@ -331,7 +330,7 @@ export function mountUniverseApp(rootNode, options = {}) {
 
   return createUnmountHandle(UNIVERSE_APP_CONTRACT_VERSION, () => {
     mounted = false;
-    disposeHostSection();
+    hostPages.clear(); disposeHostSection();
     disposeTelemetry(); disposeSelectionRefresh();
     disposeShippingRead();
     disposeBuildUpdate();

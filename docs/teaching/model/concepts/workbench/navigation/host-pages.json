@@ -1,0 +1,9 @@
+{
+ "id": "host-pages",
+ "title": "Host-declared navigation groups and pages",
+ "status": "observed",
+ "page": "workbench",
+ "position": 6,
+ "summary": "Hosts supply ordered navigation groups and unscoped pages through UniverseAppOptions.navigation; the host owns access and content. Stable base-path routes carry optional detail, and content signals abort on navigation or unmount.",
+ "sources": ["docs/universe-path-routing.md", "packages/yoke-core/src/yoke_core/ui/contracts/universe-host-navigation.ts", "packages/yoke-core/src/yoke_core/ui/static/universe_host_pages.js"]
+}

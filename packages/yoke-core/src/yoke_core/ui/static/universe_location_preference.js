@@ -1,4 +1,4 @@
-import { NAV, parseUniverseRoute, buildUniverseRoute, routePath } from "./universe_navigation.js";
+import { NAV, parseUniverseRoute, buildUniverseRoute, routePath, hostNavEntries } from "./universe_navigation.js";
 import { DETAIL_RENDERERS } from "./universe_views.js";
 import { callFunction } from "./universe_view_support.js";
 
@@ -16,19 +16,19 @@ function withoutScope(href) {
 
 // Only a bare entry spends this read. Resource checks use the same authority
 // as the page itself; a stored route is never evidence of current access.
-export async function locationResolves(client, href, projects, sections = {}, basePath = "") {
+export async function locationResolves(client, href, projects, sections = {}, basePath = "", navigation = []) {
   if (typeof href !== "string" || !href.startsWith("/")) return false;
   const path = routePath(href, basePath).slice(1).split("?")[0].split("/");
-  const entry = NAV.find((candidate) => candidate.id === path[0]);
+  const entry = [...NAV, ...hostNavEntries(navigation)].find((candidate) => candidate.id === path[0]);
   if (!entry || (entry.hostFed && !sections[entry.id])) return false;
   let route;
-  try { route = parseUniverseRoute(href, basePath); } catch { return false; }
+  try { route = parseUniverseRoute(href, basePath, navigation); } catch { return false; }
   if (path.length > (route.tab ? 3 : 2) || path.some((part) => !part)) return false;
   const accessible = (id) => projects.some((row) => String(row.id) === id);
   for (const scope of [route.project, route.selection]) {
     if (scope !== null && scope !== "all" && !scope.split(",").every(accessible)) return false;
   }
-  if (!route.detail) return true;
+  if (entry.hostPage || !route.detail) return true;
   const project = route.project || String(projects[0]?.id || "");
   const detail = route.detail;
   const read = async (functionId, payload = {}, target) => {
@@ -87,7 +87,7 @@ export async function locationResolves(client, href, projects, sections = {}, ba
   } catch { return false; }
 }
 
-export function createLocationPreference({ client, windowNode, navigation, selections, isMounted, onFallback }) {
+export function createLocationPreference({ client, windowNode, navigation, selections, isMounted, onFallback, hostNavigation = [] }) {
   const entryHref = navigation.current();
   let lastSaved = null;
   let writes = Promise.resolve();
@@ -114,7 +114,7 @@ export function createLocationPreference({ client, windowNode, navigation, selec
       if (!bareLocation(entryHref, navigation.basePath) || navigation.current() !== entryHref) return;
       const saved = selections.lastLocation && withoutScope(selections.lastLocation);
       if (!saved) return;
-      const valid = await locationResolves(client, saved, projects, sections);
+      const valid = await locationResolves(client, saved, projects, sections, "", hostNavigation);
       // A navigation or unmount during the resource read wins too.
       if (!isMounted() || navigation.current() !== entryHref) return;
       const href = valid ? saved : buildUniverseRoute(NAV[0].id);
@@ -126,7 +126,7 @@ export function createLocationPreference({ client, windowNode, navigation, selec
       if (restored && withoutScope(routePath(location, navigation.basePath)) !== restored) restored = null;
       if (!selections.ready || !location || location === lastSaved) return;
       lastSaved = location;
-      const { view } = parseUniverseRoute(location, navigation.basePath);
+      const { view } = parseUniverseRoute(location, navigation.basePath, hostNavigation);
       // Serialize navigation writes: an earlier request cannot arrive last
       // and turn Back/Forward or a rapid click sequence into stale state.
       writes = writes.then(async () => {

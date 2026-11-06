@@ -259,6 +259,18 @@
         contentBefore: sampleContentNotice(),
         contentAfter: sampleReservedContentAfter(),
       },
+      navigation: [{ id: "host-tools", label: "Host tools", pages: [
+        { id: "reports", label: "Reports", content: ({ detail, signal }) => {
+          const panel = el("section", "panel");
+          panel.appendChild(el("p", "", `Host report: ${detail || "overview"}`));
+          const link = el("a", "", "Open annual report");
+          link.href = "/reports/annual";
+          panel.appendChild(link);
+          signal.addEventListener("abort", () => { panel.dataset.aborted = "true"; });
+          return panel;
+        } },
+        { id: "exports", label: "Exports", content: () => el("p", "", "Host exports") },
+      ] }],
       sections: {
         members: sampleHostSection(
           "Members",
