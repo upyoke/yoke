@@ -1,4 +1,10 @@
-/** Host-neutral declarations consumed with the same pinned product bundle. */
+/**
+ * Public, host-neutral contract for the wheel-shipped universe app.
+ *
+ * This is declaration-emitting TypeScript source, not a separately
+ * published package. A host consumes it from the same pinned Yoke product
+ * version whose static app bundle it serves.
+ */
 import type { UniverseHostNavGroup } from "./universe-host-navigation.js";
 export type { UniverseHostNavGroup, UniverseHostNavPage, UniverseHostPageContext } from "./universe-host-navigation.js";
 export type JsonPrimitive = string | number | boolean | null;
