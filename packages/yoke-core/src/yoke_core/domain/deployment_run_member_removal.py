@@ -77,13 +77,14 @@ def remove_members_on(
     removed_by: str = "steering",
     preserve_qa: bool = False,
 ) -> dict[int, str]:
-    """Apply the audited removals and retract the members' unsettled run copies.
+    """Audit removals, preserving unfinished QA only for automatic rework set-aside.
 
     Open plan groups no remaining member attaches are retracted with them.
     Every step is one statement for the whole set, so removing many members
     costs what removing one does; only owners owed a notice get one each.
 
-    Caller owns the locks and transaction. Retracted copies keep their verdict history; standing item plans survive
+    Caller owns the locks and transaction. ``preserve_qa`` retains executions
+    and requirements for later enrollment. Retracted copies keep their verdict history; standing item plans survive
     and the next release materializes fresh run-bound copies. Returns each
     removed member's public ref.
     """

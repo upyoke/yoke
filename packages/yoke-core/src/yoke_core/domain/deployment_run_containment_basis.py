@@ -64,12 +64,8 @@ def _delivery_item_ids(conn: Any, project_id: int, since) -> tuple[int, ...]:
     return tuple(sorted(found))
 
 
-def _require_member_landings_closed(conn: Any, run_id: str, item_ids) -> None:
-    """Refuse an open correction landing only for the run's current members.
-
-    A member removed from the run stays in the recorded snapshot and among
-    the project's delivery items, but this run no longer delivers it.
-    """
+def _set_aside_member_rework(conn: Any, run_id: str, item_ids) -> None:
+    """Set aside current members in rework without rewriting frozen history."""
     marker = _p(conn)
     members = {
         int(_cell(row, "item_id", 0))
@@ -112,7 +108,7 @@ def candidate_containment_basis(
         )
 
         snapshot = parse_candidate_containment(stored)
-        _require_member_landings_closed(
+        _set_aside_member_rework(
             conn,
             run_id,
             [
@@ -149,7 +145,7 @@ def candidate_containment_basis(
     projects: list[dict[str, Any]] = []
     for project_id in project_ids:
         item_ids = _delivery_item_ids(conn, project_id, anchor)
-        _require_member_landings_closed(conn, run_id, item_ids)
+        _set_aside_member_rework(conn, run_id, item_ids)
         merges = recorded_merge_shas_for_items(conn, item_ids)
         items = [
             {

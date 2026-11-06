@@ -233,11 +233,14 @@ def _read_prior_stage_refusals(
         if stage.get("scope") == "item":
             from yoke_core.domain.deployment_qa_plan_groups import run_groups
 
-            # A plan group closes only when it is accepted; open means not yet.
+            from yoke_core.domain.deployment_run_set_aside_qa import preserved_qa_selector
+
+            preserved = preserved_qa_selector(conn, run_id)
+            # Detached rework keeps its open QA for the next enrolling run.
             refusals.extend(
                 f"stage {stage['name']!r} plan group {group.group_id} is not accepted"
                 for group in run_groups(conn, run_id, str(stage["name"]))
-                if group.open
+                if group.open and not preserved({"execution_target": group.target})
             )
         for member in subjects:
             rows = conn.execute(

@@ -30,7 +30,7 @@ def adopt_set_aside_qa(conn, run_id, item_ids):
 
 
 def preserved_qa_selector(conn, run_id):
-    """Return the detached member/group identities still awaiting enrollment."""
+    """Select detached member/group QA that still awaits enrollment."""
     from yoke_core.domain.deployment_qa_plan_groups import unattached_open_groups, group_marker
 
     members = {int(e["item_id"]) for e in membership_removals(conn, run_id)

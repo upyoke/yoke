@@ -11,11 +11,11 @@ def _open_group_standings(conn: Any, run_id: str, stage_name: str) -> list[tuple
 
     from yoke_core.domain.deployment_qa_plan_groups import presented_stage_groups
 
-    from yoke_core.domain.deployment_qa_plan_groups import attached_plans
+    from yoke_core.domain.deployment_run_set_aside_qa import preserved_qa_selector
 
-    attached = attached_plans(conn, run_id)
+    preserved = preserved_qa_selector(conn, run_id)
     groups = [g for g in presented_stage_groups(conn, run_id, stage_name)
-              if g.open and attached.get(g.plan_id)]
+              if g.open and not preserved({"execution_target": g.target})]
     slugs = _plan_slugs(conn, {group.plan_id for group in groups})
     found = []
     for group in groups:
