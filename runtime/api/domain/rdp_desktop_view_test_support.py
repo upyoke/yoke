@@ -17,7 +17,7 @@ import subprocess
 
 import pytest
 
-from yoke_cli.config.capability_secrets import store_machine_capability_secret
+from yoke_contracts.machine_config.capability_secret_store import store_machine_capability_secret
 
 from yoke_harness import desktop_access, rdp_desktop_client as viewer
 

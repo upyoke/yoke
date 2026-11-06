@@ -19,8 +19,8 @@ from runtime.api.domain.ssh_mac_full_reset_test_support import (
 )
 from yoke_contracts.browser_identity import LIVE_IDENTITY_STORE_HOME_ENTRY as STORE
 from yoke_harness.ssh_linux_baseline import ABSENT_HOME_PATHS, _ARCHIVE_PROGRAM
-from yoke_harness.ssh_mac_full_reset_contract import YOKE_ABSENT_RELATIVE_DIRECTORIES
-from yoke_harness.ssh_mac_preserved_state import (
+from yoke_contracts.ssh_mac_full_reset_contract import YOKE_ABSENT_RELATIVE_DIRECTORIES
+from yoke_contracts.ssh_mac_preserved_state import (
     LIVE_IDENTITY_HOME_ENTRIES,
     PRESERVED_HOME_ENTRIES,
     REQUIRED_PRESERVED_HOME_ENTRIES,

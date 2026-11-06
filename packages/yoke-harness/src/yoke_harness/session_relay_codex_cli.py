@@ -25,7 +25,7 @@ from yoke_harness.session_relay_codex_invocation import (
     codex_base_command,
     codex_launch_environment,
 )
-from yoke_cli.config.session_relay_instance import strip_relay_owned_python_state
+from yoke_contracts.machine_config.relay_instance import strip_relay_owned_python_state
 from yoke_harness.session_relay_detached_worker import MAX_HANDOFF_BYTES
 from yoke_harness.session_launch_handoff import LAUNCH_CONTEXT_ENV
 from yoke_harness.session_relay_inventory import (

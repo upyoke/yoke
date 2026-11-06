@@ -12,7 +12,7 @@ from yoke_cli.commands.adapters import onboard as onboard_adapter
 from yoke_cli.config import local_universe_setup
 from yoke_cli.config import onboard as onboard_config
 from yoke_cli.config import onboard_apply_report
-from yoke_cli.config import onboard_destinations
+from yoke_contracts import onboard_destinations as onboard_destinations
 from yoke_contracts.api_urls import HOSTED_PROD_API_URL
 from yoke_contracts.machine_config.schema import DEFAULT_TRANSPORT
 

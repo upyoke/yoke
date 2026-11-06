@@ -14,7 +14,7 @@ from yoke_cli.config import onboard_wizard_github_state
 from yoke_cli.config import onboard_wizard_project_details as project_details
 from yoke_cli.config import onboard_wizard_steps as steps
 from yoke_cli.config import yoke_token_verify
-from yoke_cli.config.onboard_destinations import DESTINATION_LOCAL
+from yoke_contracts.onboard_destinations import DESTINATION_LOCAL
 from yoke_cli.config.onboard_wizard import github_connected
 from yoke_cli.config.onboard_wizard_flow_support import WizardShell as _Shell
 from yoke_cli.config.onboard_wizard_widgets import STEP_PROJECT

@@ -9,7 +9,7 @@ import pytest
 pytest.importorskip("textual")
 
 from yoke_cli.config import hosted_machine_authorization  # noqa: E402
-from yoke_cli.config import onboard_destinations  # noqa: E402
+from yoke_contracts import onboard_destinations as onboard_destinations  # noqa: E402
 from yoke_cli.config import onboard_wizard_flow_connect  # noqa: E402
 from yoke_cli.config import onboard_wizard_flow_hosted_machine  # noqa: E402
 from yoke_cli.config import writer  # noqa: E402

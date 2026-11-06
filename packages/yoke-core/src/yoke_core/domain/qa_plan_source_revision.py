@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from yoke_contracts.runtime_ports.repo_upstream_freshness import get_repo_upstream_freshness
+
 from yoke_core.domain.deployment_overview_timing import overview_call
 
 import re
@@ -46,7 +48,7 @@ def require_merged_source(conn: Any, project_id: int, revision: str) -> Any:
             raise ValueError("the project has no declared default branch")
         source = open_carried_work_source(conn, project_id)
         if source.origin == SOURCE_CHECKOUT:
-            from yoke_cli.config.repo_upstream_freshness import refresh_base_branch
+            refresh_base_branch = get_repo_upstream_freshness().refresh_base_branch
 
             reading = refresh_base_branch(source.location, branch, use_cache=False)
             if not reading.verified:

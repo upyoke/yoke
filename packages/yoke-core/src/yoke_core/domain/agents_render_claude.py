@@ -16,7 +16,7 @@ import json
 
 from yoke_core.domain.agents_render_hooks import render_claude_hooks_block
 from yoke_core.domain.agents_render_manifests import CLAUDE_MANIFEST
-from yoke_harness.hooks.shell_command import hook_shell_command
+from yoke_contracts.hook_shell_command import hook_shell_command
 
 
 # Claude permissions — operator-authored static block reproduced here so the

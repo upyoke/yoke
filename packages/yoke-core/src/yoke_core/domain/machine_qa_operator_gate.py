@@ -20,7 +20,7 @@ from yoke_core.domain.machine_qa_phase_heartbeat import (
     emit_heartbeat_line,
 )
 from yoke_core.domain.machine_qa_setup_exit import step_failure
-from yoke_harness.machine_browser_approval import BrowserApprovalResult
+from yoke_contracts.machine_browser_approval import BrowserApprovalResult
 
 
 BROWSER_APPROVAL_NOT_CONFIRMED = "machine_browser_approval_not_confirmed"

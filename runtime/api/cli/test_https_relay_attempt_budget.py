@@ -18,10 +18,10 @@ from runtime.api.cli.https_relay_security_test_support import (
     sensitive_request,
 )
 from yoke_cli.transport import https as relay_module
-from yoke_cli.transport import https_retry_policy
+from yoke_contracts import https_retry_policy as https_retry_policy
 from yoke_cli.transport.https_response_policy import RESPONSE_TIMEOUT_DETAIL
-from yoke_cli.transport.https_retry_policy import CONNECTION_ATTEMPTS, attempt_budget
-from yoke_cli.transport.response_deadline_errors import (
+from yoke_contracts.https_retry_policy import CONNECTION_ATTEMPTS, attempt_budget
+from yoke_contracts.response_deadline_errors import (
     ResponseHeadersDeadlineError,
     ResponseOpenDeadlineError,
 )

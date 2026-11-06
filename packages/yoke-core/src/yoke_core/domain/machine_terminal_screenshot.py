@@ -5,7 +5,7 @@ from __future__ import annotations
 import tempfile
 from pathlib import Path
 
-from yoke_cli.config import machine_config
+from yoke_contracts.machine_config import runtime as machine_config
 from yoke_contracts.machine_screenshot import screenshot_png
 from yoke_core.domain.qa_artifact_handle import local_handle
 

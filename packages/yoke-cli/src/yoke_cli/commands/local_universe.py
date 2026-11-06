@@ -30,7 +30,7 @@ from yoke_cli.commands.local_demo_seed_command import DEMO_SEED_USAGE, local_dem
 from yoke_cli.commands.local_universe_import_command import universe_import
 from yoke_cli.commands.local_universe_usage import IMPORT_USAGE
 from yoke_cli.config import local_universe_setup as setup
-from yoke_cli.config import onboard_destinations
+from yoke_contracts import onboard_destinations as onboard_destinations
 from yoke_cli.config.universe_export_download import (
     UniverseExportDownloadError,
     download_universe,

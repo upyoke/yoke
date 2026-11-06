@@ -37,7 +37,7 @@ from yoke_cli.commands.deployment_lineage import (
     DeploymentLineageResolutionError,
     resolve_commit_lineage,
 )
-from yoke_cli.transport.response_limits import (
+from yoke_contracts.response_limits import (
     DEPLOYMENT_RUN_CREATE_TIMEOUT_SECONDS,
 )
 from yoke_contracts.api.function_call import TargetRef

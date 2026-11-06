@@ -18,8 +18,8 @@ from yoke_contracts.github_app_installation_permissions import (
     GITHUB_ENVIRONMENT_WRITE_PERMISSION_LEVELS,
     GITHUB_SECRETS_WRITE_PERMISSION_LEVELS,
 )
-from yoke_cli.packs import PackClientError, run_pack_operation
-from yoke_cli.packs.receipt import load_receipt
+from yoke_contracts.runtime_ports.packs import get_packs
+from yoke_contracts.runtime_ports.receipt import get_receipt
 from yoke_core.domain import bootstrap_project_helpers as helpers
 from yoke_core.domain import gh_rest_transport, github_secrets_rest
 from yoke_core.domain.bootstrap_project_helpers import (
@@ -38,6 +38,11 @@ from yoke_core.domain.project_github_auth import (
     resolve_project_github_auth,
 )
 
+
+
+PackClientError = get_packs().PackClientError
+run_pack_operation = get_packs().run_pack_operation
+load_receipt = get_receipt().load_receipt
 
 def _run(*args, **kwargs):
     """Delegate to the canonical ``bootstrap_project_helpers._run``.

@@ -18,7 +18,7 @@ from yoke_harness.ssh_mac_host_session_state import (
     SCREEN_SAVER_DISABLE_COMMAND,
     SCREEN_SAVER_READ_COMMAND,
 )
-from yoke_harness.test_machine_types import HostActionResult
+from yoke_contracts.test_machine_types import HostActionResult
 
 CHECKLIST = ".yoke/docs/verification/test-machines/host-provisioning.md"
 #: Saving a sign-in is a recapture: it proves the real requests, quits the apps

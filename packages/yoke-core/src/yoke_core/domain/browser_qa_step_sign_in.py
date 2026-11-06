@@ -3,7 +3,10 @@
 from contextvars import ContextVar
 
 from yoke_contracts.refusal_recovery import compose_refusal
-from yoke_harness.browser_automatic_sign_in import sign_in_entry
+from yoke_contracts.runtime_ports.browser_automatic_sign_in import get_browser_automatic_sign_in
+
+
+sign_in_entry = get_browser_automatic_sign_in().sign_in_entry
 
 _CASE_IDENTITY: ContextVar[tuple] = ContextVar(
     "browser_qa_case_identity", default=("", None)

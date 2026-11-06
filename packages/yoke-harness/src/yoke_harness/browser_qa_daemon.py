@@ -7,7 +7,7 @@ from typing import Any, Dict, Optional
 
 from yoke_harness import browser_client
 from yoke_harness.browser_client_readiness import DAEMON_LOG_NAME
-from yoke_harness.browser_daemon_profile import selected_profile
+from yoke_contracts.browser_daemon_profile import selected_profile
 
 
 def _log(message: str) -> None:

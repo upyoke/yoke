@@ -24,7 +24,7 @@ from dataclasses import dataclass
 from typing import List, Mapping, Optional, Sequence
 
 from yoke_core.domain import json_helper
-from yoke_core.domain import capability_machine_secrets
+from yoke_contracts.machine_config import capability_secret_store as capability_machine_secrets
 from yoke_core.domain.deploy_environment_settings import DeployEnvironment
 from yoke_core.domain.deploy_remote_atomic_file import (
     push_remote_file as push_remote_file,

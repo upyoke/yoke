@@ -6,7 +6,7 @@ from unittest.mock import Mock
 
 import pytest
 
-from yoke_cli.config.session_relay_instance import RelayInstance, RELAY_BASE_LABEL
+from yoke_contracts.machine_config.relay_instance import RelayInstance, RELAY_BASE_LABEL
 from yoke_core.tools import session_relay_shared_retirement as retirement
 from yoke_core.tools import session_relay_plist as launchd
 from yoke_core.tools import session_relay_systemd as systemd

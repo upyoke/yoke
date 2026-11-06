@@ -11,7 +11,7 @@ from yoke_cli.transport.dispatcher import call_dispatcher
 from yoke_contracts.api.function_call import TargetRef
 from yoke_contracts.harness_sandbox_recovery import running_harness_family
 from yoke_contracts.refusal_recovery import compose_refusal
-from yoke_cli.transport.json_error_safety import safe_diagnostic_text
+from yoke_contracts.json_error_safety import safe_diagnostic_text
 
 
 def harness_email(harness=None, home=None):

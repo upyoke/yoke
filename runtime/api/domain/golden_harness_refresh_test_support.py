@@ -25,7 +25,7 @@ from yoke_core.domain.machine_qa_plan_case_execution import (
 
 from yoke_harness import golden_harness_clis, golden_snapshot_retention
 
-from yoke_harness.test_machine_types import HostActionResult
+from yoke_contracts.test_machine_types import HostActionResult
 
 GOLDEN = "/Users/Shared/yoke-golden/testy-home-1"
 

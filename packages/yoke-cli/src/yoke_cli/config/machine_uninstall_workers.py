@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from yoke_cli.config import machine_config, session_relay_instance
+from yoke_cli.config import machine_config
+from yoke_contracts.machine_config import relay_instance as session_relay_instance
 from yoke_cli.config.machine_uninstall_inventory import UninstallError
 
 

@@ -163,7 +163,7 @@ class TestSchemaGate:
         conn = mock.MagicMock()
         with (
             mock.patch(
-                "yoke_cli.config.machine_config.active_connection",
+                "yoke_contracts.machine_config.runtime.active_connection",
                 return_value={"transport": "local-postgres"},
             ),
             mock.patch.object(done_transition, "_run_git") as mock_git,

@@ -23,7 +23,7 @@ from yoke_contracts.session_control.evidence_fetch import (
     EVIDENCE_TAIL_MAX_LINES,
     EvidenceKind,
 )
-from yoke_cli.config.session_relay_instance import RELAY_LOG_FILE_NAMES
+from yoke_contracts.machine_config.relay_instance import RELAY_LOG_FILE_NAMES
 from yoke_contracts.machine_config.scratch_roots import scratch_root_candidates
 from yoke_harness.session_relay_native_diagnostics import (
     NativeDiagnosticError,

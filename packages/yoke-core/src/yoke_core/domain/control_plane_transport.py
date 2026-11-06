@@ -27,12 +27,13 @@ from __future__ import annotations
 
 from typing import Any, Callable, Optional
 
-from yoke_cli.transport.serving_plane import (
-    ServingControlPlaneUnresolved,
-    serving_control_plane_env,
-)
+from yoke_contracts.runtime_ports.serving_plane import get_serving_plane
 from yoke_contracts.control_plane_locality import local_authority_exempt
 
+
+
+ServingControlPlaneUnresolved = get_serving_plane().ServingControlPlaneUnresolved
+serving_control_plane_env = get_serving_plane().serving_control_plane_env
 
 def local_connection_or_none(connect: Callable[[], Any]) -> Optional[Any]:
     """Open a direct connection, or report that there is no local authority.

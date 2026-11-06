@@ -34,7 +34,7 @@ from runtime.api.cli.onboard_wizard_golden_support import (  # noqa: E402
     make_app,
     render,
 )
-from yoke_cli.config.onboard_destinations import (  # noqa: E402
+from yoke_contracts.onboard_destinations import (  # noqa: E402
     DESTINATION_LOCAL,
     DESTINATION_SERVER,
 )

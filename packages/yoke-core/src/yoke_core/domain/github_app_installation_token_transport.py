@@ -7,7 +7,7 @@ from typing import Any, Callable, Mapping
 import urllib.error
 import urllib.request
 
-from yoke_cli.transport.response_deadline_open import ResponseOpenDeadlineError
+from yoke_contracts.response_deadline_open import ResponseOpenDeadlineError
 from yoke_contracts import github_app_tokens as token_contract
 from yoke_contracts.github_origin import GitHubApiEndpoint, GitHubApiOriginError
 

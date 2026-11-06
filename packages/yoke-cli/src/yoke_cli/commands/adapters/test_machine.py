@@ -19,7 +19,7 @@ from yoke_cli.commands._helpers import (
     parse_or_usage_error,
     usage_error,
 )
-from yoke_cli.config.capability_secrets import (
+from yoke_contracts.machine_config.capability_secret_store import (
     list_machine_capability_secret_keys,
 )
 from yoke_contracts.machine_config.desktop_access import DESKTOP_PASSWORD_KEY

@@ -10,7 +10,7 @@ from yoke_harness.ssh_mac_baseline_probes import (
     GOLDEN_PROBES_SUFFIX,
     parse_baseline_probes,
 )
-from yoke_harness.test_machine_types import HostActionResult
+from yoke_contracts.test_machine_types import HostActionResult
 
 # Shared by the read-only admission call and the final check before teardown.
 from yoke_harness import linux_desktop_state

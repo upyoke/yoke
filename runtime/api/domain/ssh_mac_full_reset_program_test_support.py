@@ -21,14 +21,14 @@ from runtime.api.domain.ssh_mac_full_reset_test_support import (
 
 from yoke_cli.config import path_doctor
 
-from yoke_harness.ssh_mac_full_reset_contract import (
+from yoke_contracts.ssh_mac_full_reset_contract import (
     GOLDEN_MANIFEST_SUFFIX,
     RESET_FAILURE_PREFIX,
     RESET_PHASES,
     RESET_RESTORE_UNRESTORED_PREFIX,
 )
 
-from yoke_core.domain.ssh_mac_full_reset_script import FULL_RESET_SCRIPT
+from yoke_harness.ssh_mac_full_reset_script import FULL_RESET_SCRIPT
 
 
 def _write(path: Path, content: str) -> Path:

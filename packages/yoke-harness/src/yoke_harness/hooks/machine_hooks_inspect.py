@@ -18,7 +18,7 @@ from yoke_harness.hooks.machine_hooks import (
     owned_command_check,
     specs_for,
 )
-from yoke_harness.hooks.machine_hooks_render import is_machine_hook_entry
+from yoke_contracts.machine_hooks_render import is_machine_hook_entry
 
 STATE_INSTALLED = "installed"
 STATE_MISSING = "missing"

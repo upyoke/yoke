@@ -13,7 +13,7 @@ offered device codes only with company sign-in, so its absence reads as
 import urllib.request
 from dataclasses import dataclass
 from yoke_cli.transport import server_reach_failure
-from yoke_cli.transport.bounded_json_http import (
+from yoke_contracts.bounded_json_http import (
     BoundedJsonHttpError,
     BoundedJsonHttpStatusError,
     request_json,

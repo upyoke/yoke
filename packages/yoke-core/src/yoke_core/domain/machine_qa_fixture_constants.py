@@ -2,7 +2,7 @@
 
 from pathlib import Path
 
-from yoke_cli.config import path_doctor
+from yoke_contracts import shell_path_state as path_doctor
 from yoke_contracts.api_urls import DISTRIBUTION_PROD_URL, DISTRIBUTION_STAGE_URL
 
 

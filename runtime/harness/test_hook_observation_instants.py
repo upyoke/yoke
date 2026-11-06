@@ -6,7 +6,7 @@ import urllib.request
 
 import pytest
 
-from yoke_cli.transport.https_retry_policy import utc_stamp, write_retry_notice
+from yoke_contracts.https_retry_policy import utc_stamp, write_retry_notice
 from yoke_contracts.timestamps import InvalidInstant, parse_instant
 from yoke_harness import hook_observation_capture
 from yoke_harness.hook_observation_delivery import owned_diagnostic_line

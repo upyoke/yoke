@@ -9,11 +9,11 @@ from yoke_harness._ssh_mac_full_reset_reap_body import REAP_FUNCTIONS
 from yoke_harness._ssh_mac_full_reset_relay_body import RELAY_SERVICE_FUNCTIONS
 from yoke_harness._ssh_mac_full_reset_script_body import SCRIPT_BODY
 from yoke_harness._ssh_mac_full_reset_self_host_body import SELF_HOST_FUNCTIONS
-from yoke_harness.ssh_mac_preserved_state import (
+from yoke_contracts.ssh_mac_preserved_state import (
     OS_MANAGED_INVALID_PREFIX,
     render_preserved_state_contract,
 )
-from yoke_harness.ssh_mac_full_reset_contract import (
+from yoke_contracts.ssh_mac_full_reset_contract import (
     COMPOSE_PROJECT_LABEL,
     CONTAINER_RUNTIME_PATHS,
     CONTAINER_RUNTIME_PROCESS_ANCHOR,

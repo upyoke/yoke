@@ -13,7 +13,7 @@ from yoke_harness.ssh_host_baselines import SshHostBaselines
 from yoke_harness.ssh_mac_baseline_probes import prove_declared_probes
 from yoke_harness.ssh_mac_host_session_state import SCREEN_SAVER_READ_COMMAND
 from yoke_harness.standard_baseline_probes import standard_probes
-from yoke_harness.test_machine_types import HostActionResult
+from yoke_contracts.test_machine_types import HostActionResult
 
 CHECK_UNMET_EXIT = PROBE_EXIT_CODES["probe_check_unmet"]
 

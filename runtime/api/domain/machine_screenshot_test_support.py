@@ -35,7 +35,7 @@ from yoke_core.domain.handlers.machine_qa_operation import handle_operation_subm
 
 from yoke_harness.ssh_machine_screenshot import capture_desktop
 
-from yoke_harness.test_machine_types import HostActionResult
+from yoke_contracts.test_machine_types import HostActionResult
 
 
 def png():

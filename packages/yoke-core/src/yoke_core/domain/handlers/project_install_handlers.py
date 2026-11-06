@@ -13,17 +13,21 @@ from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel
 
-from yoke_core.domain import project_install
+from yoke_contracts.runtime_ports.project_installation import get_project_installation
 from yoke_core.domain.machine_config import MachineConfigError
 from yoke_contracts.machine_config.schema import MachineConfigContractError
-from yoke_core.domain.machine_config_writer import MachineConfigWriteError
-from yoke_core.domain.project_install import ProjectInstallError
+from yoke_contracts.runtime_ports.machine_config_writes import get_machine_config_writes
 from yoke_contracts.api.function_call import (
     FunctionCallRequest,
     FunctionError,
     HandlerOutcome,
 )
 
+
+
+project_install = get_project_installation()
+MachineConfigWriteError = get_machine_config_writes().MachineConfigWriteError
+ProjectInstallError = get_project_installation().ProjectInstallError
 
 class ProjectInstallRequest(BaseModel):
     repo_root: Optional[str] = None

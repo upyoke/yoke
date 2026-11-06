@@ -9,7 +9,7 @@ import urllib.request
 
 import pytest
 
-from yoke_cli.transport import bounded_json_http as transport
+from yoke_contracts import bounded_json_http as transport
 
 
 def test_loopback_post_header_trickle_obeys_absolute_deadline() -> None:

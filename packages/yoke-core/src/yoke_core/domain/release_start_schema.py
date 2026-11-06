@@ -29,6 +29,8 @@ finds the object present.
 
 from __future__ import annotations
 
+from yoke_contracts.runtime_ports.https import get_https
+
 from yoke_contracts.schema_authority import serving_build_authority
 from yoke_core.domain.deployment_runs_lock import RUN_ROW_LOCK_TIMEOUT_MS
 from yoke_core.domain.release_start_schema_lock import (
@@ -66,7 +68,7 @@ def converge_release_start_schema(run_id: str) -> bool:
     requests never queue behind it. A busy table is retried with backoff and
     then refuses by name (:mod:`yoke_core.domain.schema_converge_statements`).
     """
-    from yoke_cli.transport import https as https_transport
+    https_transport = get_https()
 
     if https_transport.resolve_https_connection() is not None:
         return False

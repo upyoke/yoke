@@ -8,7 +8,7 @@ import urllib.error
 import pytest
 
 from yoke_cli.transport import https_relay_outcome as outcome
-from yoke_cli.transport.https_retry_policy import (
+from yoke_contracts.https_retry_policy import (
     connection_refusal_is_conclusive,
     is_sandbox_denial,
     should_retry_connection,

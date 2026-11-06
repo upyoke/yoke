@@ -8,7 +8,7 @@ import plistlib
 import pytest
 
 from yoke_cli.config import machine_config
-from yoke_cli.config.session_relay_instance import RELAY_BASE_LABEL
+from yoke_contracts.machine_config.relay_instance import RELAY_BASE_LABEL
 from yoke_core.engines import doctor_hc_session_relay_orphans as orphans_hc
 from yoke_core.engines.doctor_report import DoctorArgs, RecordCollector
 from yoke_core.tools import launchctl_boundary as boundary

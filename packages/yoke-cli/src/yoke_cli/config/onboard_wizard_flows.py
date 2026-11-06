@@ -12,7 +12,7 @@ from __future__ import annotations
 from typing import Any, Callable
 
 from yoke_cli.config import machine_config
-from yoke_cli.config import onboard_destinations
+from yoke_contracts import onboard_destinations as onboard_destinations
 from yoke_cli.config import onboard_project
 from yoke_cli.config.onboard_wizard import (
     WizardDefaults,

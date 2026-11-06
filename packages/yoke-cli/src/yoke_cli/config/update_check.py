@@ -34,7 +34,7 @@ from yoke_cli.config import (
     release_build,
     self_update,
 )
-from yoke_cli.config.onboard_destinations import destination_for_api_url
+from yoke_contracts.onboard_destinations import destination_for_api_url
 from yoke_contracts.deployment_destination import (
     DESTINATION_HOSTED,
     DESTINATION_LOCAL,

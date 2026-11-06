@@ -11,7 +11,7 @@ from yoke_contracts.harness_hook_approval import (
     HARNESS_HOOK_APPROVAL,
     trust_teaching,
 )
-from yoke_core.domain.project_install import apply_bundle
+from yoke_cli.project_install.runner import apply_bundle
 from yoke_core.domain.project_install_test_helpers import (
     codex_hooks,
     entry,

@@ -9,8 +9,8 @@ from pathlib import Path
 import pytest
 
 from yoke_cli.project_install import checkout_gate
-from yoke_core.domain import project_install
-from yoke_core.domain.project_install import ProjectInstallError, apply_bundle
+from yoke_cli.project_install import runner as project_install
+from yoke_cli.project_install.runner import ProjectInstallError, apply_bundle
 from yoke_core.domain.project_install_test_helpers import DEFAULT_FILES, make_bundle
 
 
@@ -60,7 +60,7 @@ def test_manifest_and_report_record_copy_mode(repo) -> None:
 
 
 def test_copy_install_writes_git_hook_shims(repo) -> None:
-    from yoke_core.domain import project_install_git_hooks as git_hooks
+    from yoke_cli.project_install import git_hooks as git_hooks
 
     _git_init(repo)
 

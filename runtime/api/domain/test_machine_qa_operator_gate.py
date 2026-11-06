@@ -13,7 +13,7 @@ from yoke_core.domain.machine_qa_operator_gate import (
     BROWSER_APPROVAL_NOT_CONFIRMED,
     run_machine_browser_approval_with_io,
 )
-from yoke_harness.machine_browser_approval import BrowserApprovalResult
+from yoke_contracts.machine_browser_approval import BrowserApprovalResult
 from yoke_core.domain.machine_qa_recipe_contracts import (
     MachineQaRecipeError,
     validate_terminal_recipe,

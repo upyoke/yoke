@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from yoke_contracts.runtime_ports.linux_desktop_state import get_linux_desktop_state
+
 import shlex
 from pathlib import Path
 
@@ -9,20 +11,24 @@ from yoke_core.domain.host_control_runner import TestMachineMaterial
 from yoke_core.domain.machine_qa_fixture_operations import (
     MachineQaFixtureOperationRunner,
 )
-from yoke_harness.remote_file_copy import BASH_READER, stream_remote_file
-from yoke_harness.ssh_linux_host_operations import SshLinuxHostOperations
-from yoke_harness.ssh_linux_terminal import (
-    run_linux_terminal_case,
-)
-from yoke_harness.test_machine_types import HostActionResult
+from yoke_contracts.runtime_ports.remote_file_copy import get_remote_file_copy
+from yoke_contracts.runtime_ports.ssh_linux_host_operations import get_ssh_linux_host_operations
+from yoke_contracts.runtime_ports.ssh_linux_terminal import get_ssh_linux_terminal
+from yoke_contracts.test_machine_types import HostActionResult
 
+
+
+BASH_READER = get_remote_file_copy().BASH_READER
+stream_remote_file = get_remote_file_copy().stream_remote_file
+SshLinuxHostOperations = get_ssh_linux_host_operations().SshLinuxHostOperations
+run_linux_terminal_case = get_ssh_linux_terminal().run_linux_terminal_case
 
 class SshLinuxHostControl(SshLinuxHostOperations):
     """Use the existing fixture/receipt protocol with SSH and tmux evidence."""
 
     def __init__(self, material: TestMachineMaterial) -> None:
         from yoke_contracts.machine_config.desktop_access import DESKTOP_PASSWORD_KEY
-        from yoke_harness.linux_desktop_state import RDP_PORT
+        RDP_PORT = get_linux_desktop_state().RDP_PORT
 
         self.material = material
         self.desktop_password = material.secrets.get(DESKTOP_PASSWORD_KEY)

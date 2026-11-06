@@ -8,13 +8,13 @@ import uuid
 from typing import Any, Mapping
 
 from yoke_cli.api_urls import FUNCTIONS_CALL_PATH, join_api_url
-from yoke_cli.transport.bounded_json_http import (
+from yoke_contracts.bounded_json_http import (
     BoundedJsonHttpError,
     BoundedJsonHttpStatusError,
     request_json,
     safe_diagnostic_text,
 )
-from yoke_cli.transport.response_limits import ONBOARD_JSON_REQUEST_TIMEOUT_SECONDS
+from yoke_contracts.response_limits import ONBOARD_JSON_REQUEST_TIMEOUT_SECONDS
 
 _TIMEOUT_S = ONBOARD_JSON_REQUEST_TIMEOUT_SECONDS
 

@@ -16,7 +16,7 @@ from runtime.api.domain.ssh_mac_full_reset_program_test_support import (
     _clear_and_restore,
 )
 from yoke_cli.config import path_doctor
-from yoke_harness.ssh_mac_full_reset_contract import (
+from yoke_contracts.ssh_mac_full_reset_contract import (
     INSTALLER_TEMP_PATH,
     RESET_ABSENT_KIND_LEFTOVER,
     RESET_ABSENT_KIND_LIVE_PROCESS,

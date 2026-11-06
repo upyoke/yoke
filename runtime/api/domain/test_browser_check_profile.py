@@ -8,7 +8,7 @@ import pytest
 
 from yoke_harness import browser_check_profile as checks
 from yoke_harness import browser_client
-from yoke_harness.browser_daemon_profile import selected_profile
+from yoke_contracts.browser_daemon_profile import selected_profile
 
 
 @pytest.fixture()

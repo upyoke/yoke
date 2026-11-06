@@ -30,15 +30,15 @@ from pathlib import Path
 from typing import Callable, Optional
 
 from yoke_contracts.machine_config import runtime as machine_runtime
-from yoke_cli.resilient_fetch import (
-    FetchError,
-    FetchResult,
-    fetch_bytes,
-    fetch_file,
-)
 
 #: The one pinned embedded-engine Postgres version (theseus-rs release tag:
 #: upstream major.minor plus a build suffix).
+
+from yoke_contracts.resilient_fetch import FetchError
+from yoke_contracts.resilient_fetch import FetchResult
+from yoke_contracts.resilient_fetch import fetch_bytes
+from yoke_contracts.resilient_fetch import fetch_file
+
 POSTGRES_VERSION = "17.11.1"
 
 #: LC_BUILD_VERSION minos of the pinned macOS release binaries.

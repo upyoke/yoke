@@ -14,7 +14,7 @@ import urllib.error
 import pytest
 
 from yoke_cli.transport import https as yoke_transport
-from yoke_cli.transport import https_retry_policy
+from yoke_contracts import https_retry_policy as https_retry_policy
 from yoke_cli.transport.https import (
     HttpsConnection,
     TransportError,

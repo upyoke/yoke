@@ -24,7 +24,7 @@ from yoke_cli.transport.https import relay_https
 from yoke_cli.transport.https_response_policy import (
     FUNCTION_RESPONSE_LIMIT_BYTES,
 )
-from yoke_cli.transport.https_urlopen import NoRedirect
+from yoke_contracts.https_urlopen import NoRedirect
 
 
 def _assert_transport_failure(response, message_fragment: str) -> None:

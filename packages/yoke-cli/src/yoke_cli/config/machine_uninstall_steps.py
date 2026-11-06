@@ -18,7 +18,7 @@ import sys
 from pathlib import Path
 
 from yoke_cli.config import machine_uninstall_detached, machine_uninstall_workers
-from yoke_cli.config.path_state_contract import remove_shell_path
+from yoke_contracts.shell_path_state import remove_shell_path
 from yoke_cli.config import machine_config
 from yoke_cli.config.machine_uninstall_inventory import Inventory, UninstallError
 from yoke_cli.config.machine_config_file import remove_file

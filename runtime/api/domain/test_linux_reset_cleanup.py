@@ -13,7 +13,7 @@ def test_remote_reset_program_is_compilable_and_proves_only_yoke_service_removal
     monkeypatch,
 ):
     from yoke_harness.ssh_linux_reset_cleanup import RESET_WRITERS_PROGRAM
-    from yoke_harness.ssh_mac_full_reset_contract import (
+    from yoke_contracts.ssh_mac_full_reset_contract import (
         COMPOSE_PROJECT_LABEL,
         SELF_HOST_COMPOSE_PROJECT,
     )

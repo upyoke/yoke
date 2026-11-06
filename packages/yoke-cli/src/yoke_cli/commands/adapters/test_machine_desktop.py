@@ -85,7 +85,7 @@ def test_machine_desktop_access(args: list[str]) -> int:
         if error.recovery_hint:
             print(f"recovery: {error.recovery_hint}", file=sys.stderr)
         return 1
-    from yoke_cli.config.capability_secrets import MachineCapabilitySecretError
+    from yoke_contracts.machine_config.capability_secret_store import MachineCapabilitySecretError
     from yoke_harness.desktop_access import DesktopAccessError, open_desktop_access
 
     try:

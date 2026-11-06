@@ -5,7 +5,7 @@ from __future__ import annotations
 from types import SimpleNamespace
 
 from yoke_cli.commands.adapters import session_control_relay_release as release_cli
-from yoke_cli.config import session_relay_instance
+from yoke_contracts.machine_config import relay_instance as session_relay_instance
 from yoke_core.tools import session_relay_release
 from yoke_core.tools import session_relay_release_install
 from yoke_harness import session_relay_daemon

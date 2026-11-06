@@ -12,8 +12,8 @@ import json
 
 import pytest
 
-from yoke_core.domain import project_install
-from yoke_core.domain.project_install import ProjectInstallError, apply_bundle
+from yoke_cli.project_install import runner as project_install
+from yoke_cli.project_install.runner import ProjectInstallError, apply_bundle
 from yoke_core.domain.project_install_test_helpers import (
     OMIT_STRATEGY,
     make_bundle,

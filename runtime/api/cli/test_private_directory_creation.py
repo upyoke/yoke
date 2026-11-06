@@ -10,15 +10,9 @@ import stat
 
 import pytest
 
-from yoke_cli.config import (
-    capability_secrets,
-    github_git_credential_file,
-    machine_config_file,
-    onboard_apply_report,
-    onboard_checklist,
-    secrets,
-    universe_ui_daemon_state,
-)
+from yoke_cli.config import github_git_credential_file, machine_config_file, onboard_apply_report, onboard_checklist, universe_ui_daemon_state
+from yoke_contracts.machine_config import capability_secret_store as capability_secrets
+from yoke_contracts.machine_config import secret_files as secrets
 from yoke_cli.local_core import state
 from yoke_contracts.machine_config.directories import create_private_directory
 

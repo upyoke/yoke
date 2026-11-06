@@ -7,7 +7,7 @@ from pathlib import PurePosixPath
 import shlex
 from typing import Callable, Protocol
 
-from yoke_cli.config.path_doctor import (
+from yoke_contracts.shell_path_state import (
     PathStateContract,
     resolve_path_state_contract,
 )

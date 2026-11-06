@@ -11,7 +11,7 @@ import pytest
 from yoke_cli.config import server_connect
 from yoke_cli.config import team_server_authorization as team
 from yoke_cli.transport import server_reach_failure as reach
-from yoke_cli.transport.bounded_json_http import (
+from yoke_contracts.bounded_json_http import (
     BoundedJsonHttpBodyError,
     BoundedJsonHttpDeadlineError,
     BoundedJsonHttpError,

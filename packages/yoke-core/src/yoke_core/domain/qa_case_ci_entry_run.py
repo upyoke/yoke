@@ -22,6 +22,8 @@ train will build; a candidate a run already covers has evidence, so
 
 from __future__ import annotations
 
+from yoke_contracts.runtime_ports.merge_item_local_runtime import get_merge_item_local_runtime
+
 import time
 from pathlib import Path
 from typing import Callable, Optional
@@ -124,9 +126,7 @@ def open_landing_pull_request(
     identical call. Control-plane App credentials are deliberately absent
     here; asking for them is what an unbound call falls through to.
     """
-    from yoke_cli.commands.merge_item_local_runtime import (
-        machine_github_user_authority,
-    )
+    machine_github_user_authority = get_merge_item_local_runtime().machine_github_user_authority
     from yoke_core.domain.merge_queue_landing_pull_request import (
         ensure_landing_pull_request,
     )

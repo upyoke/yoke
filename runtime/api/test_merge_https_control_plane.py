@@ -59,11 +59,11 @@ def _err(code: str, message: str = "", hint: str = "") -> FunctionCallResponse:
 
 def _bind_connection(monkeypatch, *, active: str, config=None) -> None:
     monkeypatch.setattr(
-        "yoke_cli.config.machine_config.load_config",
+        "yoke_contracts.machine_config.runtime.load_config",
         lambda *a, **k: config if config is not None else _PAIRED_CONFIG,
     )
     monkeypatch.setattr(
-        "yoke_cli.config.machine_config.active_env",
+        "yoke_contracts.machine_config.runtime.active_env",
         lambda *a, **k: active,
     )
 

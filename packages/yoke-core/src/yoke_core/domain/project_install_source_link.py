@@ -45,26 +45,27 @@ import os
 from pathlib import Path
 from typing import Any, Dict, Optional, Tuple
 
-from yoke_cli.config import github_project_setup
-from yoke_cli.project_install.cursor_permissions import apply_cursor_permissions
-from yoke_cli.filesystem_safety import (
+from yoke_contracts.runtime_ports.github_project_setup import get_github_project_setup
+from yoke_contracts.runtime_ports.cursor_permissions import get_cursor_permissions
+from yoke_contracts.filesystem_safety import (
     atomic_replace_bytes,
     first_symlink_component,
 )
 from yoke_contracts.cursor_permissions import CURSOR_PERMISSIONS_MANIFEST_KEY
 from yoke_contracts.project_contract.install_bundle import SKILL_DISCOVERY_LINKS
-from yoke_core.domain import project_install_files as files_layer
-from yoke_core.domain.project_install_files import (
-    MODE_COPY,
-    MODE_KEY,
-    MODE_SOURCE_LINK,
-    ProjectInstallError,
-)
-from yoke_core.domain.project_install_git_hooks import (
-    GIT_HOOK_NAMES,
-    BootstrapResult,
-    install_git_hooks,
-)
+from yoke_contracts.runtime_ports.project_install_files import get_project_install_files
+from yoke_contracts.runtime_ports.project_install_git_hooks import get_project_install_git_hooks
+
+github_project_setup = get_github_project_setup()
+apply_cursor_permissions = get_cursor_permissions().apply_cursor_permissions
+files_layer = get_project_install_files()
+MODE_COPY = files_layer.MODE_COPY
+MODE_KEY = files_layer.MODE_KEY
+MODE_SOURCE_LINK = files_layer.MODE_SOURCE_LINK
+ProjectInstallError = files_layer.ProjectInstallError
+GIT_HOOK_NAMES = get_project_install_git_hooks().GIT_HOOK_NAMES
+BootstrapResult = get_project_install_git_hooks().BootstrapResult
+install_git_hooks = get_project_install_git_hooks().install_git_hooks
 
 # Relative symlinks the Yoke source checkout carries so that harness
 # runtimes read the live canonical tree instead of stale copies.

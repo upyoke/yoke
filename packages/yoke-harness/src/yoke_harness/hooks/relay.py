@@ -8,14 +8,14 @@ import sys
 import urllib.request
 from typing import Any, Callable, Optional
 
-from yoke_cli.transport.bounded_json_http import (
+from yoke_contracts.bounded_json_http import (
     BoundedJsonHttpError,
     BoundedJsonHttpStatusError,
     request_json,
     safe_diagnostic_text,
 )
 from yoke_cli.transport.https import HttpsConnection
-from yoke_cli.transport.response_limits import SMALL_JSON_RESPONSE_LIMIT_BYTES
+from yoke_contracts.response_limits import SMALL_JSON_RESPONSE_LIMIT_BYTES
 
 from yoke_contracts.hook_runner.project_scope import resolve_hook_project_scope
 from yoke_contracts.hook_evaluator_protocol import HOOK_MODEL_CONFIRMATION_FIELD

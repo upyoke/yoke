@@ -10,7 +10,7 @@ from collections.abc import Callable
 from pathlib import Path
 
 from yoke_cli import manifest
-from yoke_cli.config.session_relay_instance import RelayInstance, resolve_relay_instance
+from yoke_contracts.machine_config.relay_instance import RelayInstance, resolve_relay_instance
 from yoke_contracts.machine_config.directories import create_private_directory
 from yoke_contracts.refusal_recovery import compose_refusal
 from yoke_contracts.timestamps import iso8601_now

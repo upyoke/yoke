@@ -21,8 +21,8 @@ from yoke_core.domain.machine_qa_host_control import host_control_for
 from yoke_core.domain.ssh_windows_host_control import SshWindowsHostControl
 from yoke_harness.ssh_linux_golden_diagnostics import run_golden_command
 from yoke_harness.ssh_windows_host_operations import SshWindowsHostOperations
-from yoke_harness.test_machine_types import HostActionResult
-from yoke_harness.windows_wsl_command import windows_wsl_command, windows_wsl_input
+from yoke_contracts.test_machine_types import HostActionResult
+from yoke_contracts.windows_wsl_command import windows_wsl_command, windows_wsl_input
 
 
 SETTINGS = {

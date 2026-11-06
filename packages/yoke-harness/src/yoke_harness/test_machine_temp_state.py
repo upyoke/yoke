@@ -8,7 +8,7 @@ from typing import Any
 
 from yoke_contracts.machine_qa_failures import HostControlLocalError
 from yoke_harness import test_machine_temp_script
-from yoke_harness.test_machine_types import HostActionResult
+from yoke_contracts.test_machine_types import HostActionResult
 
 
 RECOVERY = (

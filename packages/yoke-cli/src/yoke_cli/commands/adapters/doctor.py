@@ -30,7 +30,7 @@ from yoke_contracts.deployment_destination import (
 from yoke_contracts.project_defaults import MissingProjectError
 from yoke_cli.config.project_selection import required_project_context
 
-from yoke_cli.config.onboard_destinations import is_hosted_url
+from yoke_contracts.onboard_destinations import is_hosted_url
 
 from yoke_cli.commands._helpers import (
     add_json_arg,

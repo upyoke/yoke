@@ -23,11 +23,11 @@ from yoke_contracts.machine_qa_execution import (
     VERIFY_OPERATION,
 )
 from yoke_harness.host_operations import HostOperations, host_operations_for
-from yoke_harness.machine_qa_result_safety import (
+from yoke_contracts.machine_qa_result_safety import (
     ensure_secret_free_result,
     redact_machine_qa_value,
 )
-from yoke_harness.test_machine_types import HostActionResult
+from yoke_contracts.test_machine_types import HostActionResult
 
 
 from yoke_contracts.machine_qa_host_control import SCREENSHOT_OPERATION

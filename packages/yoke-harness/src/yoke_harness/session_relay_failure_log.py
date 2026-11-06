@@ -15,7 +15,7 @@ import threading
 import time
 from typing import Callable
 
-from yoke_cli.transport.https_retry_policy import utc_stamp
+from yoke_contracts.https_retry_policy import utc_stamp
 from yoke_contracts.timestamps import utc_now
 
 

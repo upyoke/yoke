@@ -28,7 +28,7 @@ from runtime.api.domain.machine_qa_test_support import FakeHostControl, make_con
 from yoke_contracts.machine_screenshot import screenshot_png
 from yoke_core.domain.handlers.machine_qa_operation import handle_operation_submit
 from yoke_harness.ssh_machine_screenshot import capture_desktop
-from yoke_harness.test_machine_types import HostActionResult
+from yoke_contracts.test_machine_types import HostActionResult
 
 
 @pytest.mark.parametrize("value", ["invalid", base64.b64encode(b"not PNG").decode()])

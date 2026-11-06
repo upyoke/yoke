@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+from yoke_contracts.runtime_ports.credentialed_git import get_credentialed_git
+from yoke_contracts.runtime_ports.https import get_https
+
 import json
 import os
 import subprocess
@@ -32,7 +35,7 @@ def _run_cmd(cmd: List[str], timeout: int = 60) -> subprocess.CompletedProcess:
     """
     try:
         if cmd and cmd[0] == "git":
-            from yoke_cli.config import credentialed_git
+            credentialed_git = get_credentialed_git()
 
             return credentialed_git.run(cmd[1:], timeout=timeout)
         return subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
@@ -81,10 +84,8 @@ def _github_actions(
     https = None
     if relay_env:
         try:
-            from yoke_cli.transport.https import (
-                TransportError,
-                resolve_https_connection,
-            )
+            TransportError = get_https().TransportError
+            resolve_https_connection = get_https().resolve_https_connection
 
             https = resolve_https_connection(explicit_env=relay_env)
         except TransportError as exc:

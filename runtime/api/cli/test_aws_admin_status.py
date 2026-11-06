@@ -38,7 +38,7 @@ def _store(*keys: str) -> None:
             access_key_id="AKIAEXAMPLE",
             secret_access_key="secret-value",
         ) if False else None
-    from yoke_cli.config import capability_secrets
+    from yoke_contracts.machine_config import capability_secret_store as capability_secrets
 
     for key in keys:
         capability_secrets.store_machine_capability_secret(

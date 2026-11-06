@@ -28,6 +28,8 @@ recovery and exits 1.
 
 from __future__ import annotations
 
+from yoke_contracts.runtime_ports.hosted_machine_browser import get_hosted_machine_browser
+
 import argparse
 import json
 from pathlib import Path
@@ -119,7 +121,7 @@ def _await_approval(line: dict[str, Any]) -> dict[str, Any] | None:
 
 def _open_link(line: dict[str, Any]) -> None:
     """Open the browser step's link the way an agent with a desktop would."""
-    from yoke_cli.config.hosted_machine_browser import open_url
+    open_url = get_hosted_machine_browser().open_url
 
     url = str((line.get("human") or {}).get("url") or "")
     opened = open_url(url) if url else None

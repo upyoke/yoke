@@ -7,7 +7,7 @@ from runtime.api.fixtures.backlog_inserts import insert_item
 from yoke_contracts.machine_config.capability_secrets import (
     TEST_MACHINE_CAPABILITY,
 )
-from yoke_core.domain.capability_machine_secrets import (
+from yoke_contracts.machine_config.capability_secret_store import (
     store_machine_capability_secret,
 )
 from yoke_core.domain.qa_plan_attachments import (

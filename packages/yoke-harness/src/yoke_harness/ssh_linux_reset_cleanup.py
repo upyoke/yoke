@@ -2,7 +2,7 @@
 
 from yoke_contracts.systemd_service import SERVICE_QUERY_TIMEOUT_SECONDS
 from yoke_harness.ssh_linux_reset_services import RESET_SERVICES_PROGRAM
-from yoke_harness.ssh_mac_full_reset_contract import (
+from yoke_contracts.ssh_mac_full_reset_contract import (
     COMPOSE_PROJECT_LABEL,
     SELF_HOST_COMPOSE_PROJECT,
 )

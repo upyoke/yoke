@@ -18,11 +18,11 @@ from runtime.api.cli.https_relay_security_test_support import (
 )
 from yoke_cli.transport import https as relay
 from yoke_cli.transport import https_relay_outcome as outcome
-from yoke_cli.transport.bounded_json_http import (
+from yoke_contracts.bounded_json_http import (
     BoundedJsonHttpNetworkError,
     request_json,
 )
-from yoke_cli.transport.https_retry_policy import (
+from yoke_contracts.https_retry_policy import (
     CONNECTION_ATTEMPTS,
     is_sandbox_denial,
     should_retry_connection,
@@ -186,7 +186,7 @@ def test_permission_and_transient_budgets_with_and_without_harness(
 
 @pytest.mark.parametrize("wrapped", [False, True])
 def test_default_bounded_relay_open_preserves_certificate(monkeypatch, wrapped):
-    from yoke_cli.transport import bounded_http_open_policy as policy
+    from yoke_contracts import bounded_http_open_policy as policy
 
     failure = certificate_error(10, "certificate has expired")
     if wrapped:

@@ -234,7 +234,7 @@ def test_refusal_retains_partial_state(capsys):
 
 
 def test_authored_teaching_measurement_uses_terminal_cells():
-    from yoke_cli.transport.response_evidence import wrapped_lines
+    from yoke_contracts.response_evidence import wrapped_lines
 
     assert wrapped_lines("界" * 80) == 2
     assert wrapped_lines("\x1b[31m" + "x" * 80 + "\x1b[0m") == 1

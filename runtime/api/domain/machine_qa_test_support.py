@@ -17,7 +17,7 @@ from runtime.api.domain.machine_qa_fixture_test_support import (
 from yoke_core.domain import qa_catalog_schema
 from yoke_core.domain.host_control_runner import HostActionResult
 from yoke_core.domain.machine_verification_schema import ensure_test_machine_schema
-from yoke_core.domain.ssh_mac_full_reset_contract import (
+from yoke_contracts.ssh_mac_full_reset_contract import (
     PRESERVED_HOME_ENTRIES,
     YOKE_ABSENT_RELATIVE_DIRECTORIES,
     YOKE_ABSENT_RELATIVE_FILES,

@@ -5,7 +5,7 @@ from runtime.api.domain.installer_campaign_test_support import (
 )
 from yoke_cli.config import onboard_machine_github
 from yoke_cli.config.onboard_destination_rows import DESTINATION_ROWS
-from yoke_cli.config.onboard_destinations import DESTINATION_HOSTED
+from yoke_contracts.onboard_destinations import DESTINATION_HOSTED
 from yoke_cli.config.onboard_project_modes import PROJECT_MODE_MACHINE_ONLY
 from yoke_cli.config.onboard_wizard_steps import MACHINE_GITHUB_ROWS, MODE_ROWS
 from yoke_contracts.api_urls import (

@@ -14,7 +14,7 @@ import urllib.parse
 from collections.abc import Mapping
 from typing import Any
 
-from yoke_cli.transport.bounded_json_http import (
+from yoke_contracts.bounded_json_http import (
     NETWORK_NAME_UNRESOLVED,
     NETWORK_NOT_HTTP,
     NETWORK_REFUSED,

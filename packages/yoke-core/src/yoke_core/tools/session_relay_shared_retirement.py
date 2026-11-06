@@ -6,7 +6,7 @@ import plistlib
 import shlex
 
 from yoke_cli.config import machine_config
-from yoke_cli.config.session_relay_instance import (
+from yoke_contracts.machine_config.relay_instance import (
     RELAY_BASE_LABEL,
     SHARED_RELAY_STATE_DIR_NAME,
 )

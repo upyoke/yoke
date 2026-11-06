@@ -42,7 +42,7 @@ def local_postgres_authority(monkeypatch):
     # These integration tests own their Postgres fixture, including calls
     # that deliberately omit db_path to exercise connected persistence.
     monkeypatch.setattr(
-        "yoke_cli.config.machine_config.active_connection",
+        "yoke_contracts.machine_config.runtime.active_connection",
         lambda **_kwargs: {"transport": "local-postgres"},
     )
 

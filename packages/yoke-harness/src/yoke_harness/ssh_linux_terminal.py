@@ -7,7 +7,7 @@ import time
 from uuid import uuid4
 from typing import Any, Mapping, Sequence
 
-from yoke_harness.test_machine_types import HostActionResult
+from yoke_contracts.test_machine_types import HostActionResult
 
 
 class LinuxTerminalWindowError(RuntimeError):

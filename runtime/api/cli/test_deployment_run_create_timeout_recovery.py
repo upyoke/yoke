@@ -22,7 +22,7 @@ from yoke_cli.transport.https_response_policy import RESPONSE_TIMEOUT_DETAIL
 from yoke_cli.transport.relay_application_outcome import (
     RESPONSE_TIMEOUT_FAILURE_CLASS,
 )
-from yoke_cli.transport.response_limits import (
+from yoke_contracts.response_limits import (
     DEFAULT_JSON_REQUEST_TIMEOUT_SECONDS,
     DEPLOYMENT_RUN_CREATE_TIMEOUT_SECONDS,
 )

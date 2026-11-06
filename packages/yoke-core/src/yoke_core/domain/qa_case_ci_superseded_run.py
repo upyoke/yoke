@@ -7,6 +7,8 @@ before a newly added control-plane handler has itself been deployed.
 
 from __future__ import annotations
 
+from yoke_contracts.runtime_ports.merge_item_local_runtime import get_merge_item_local_runtime
+
 from typing import Any, Dict, Optional
 
 from yoke_contracts.github_app_installation_permissions import (
@@ -53,10 +55,8 @@ def _superseded_run(
 
 def _machine_token(*, project: str, repo: str) -> str:
     """Resolve Actions-write auth from the machine's bound user authority."""
-    from yoke_cli.commands.merge_item_local_runtime import (
-        LocalMergeGithubAuthorityError,
-        machine_github_user_authority,
-    )
+    LocalMergeGithubAuthorityError = get_merge_item_local_runtime().LocalMergeGithubAuthorityError
+    machine_github_user_authority = get_merge_item_local_runtime().machine_github_user_authority
 
     try:
         with machine_github_user_authority():

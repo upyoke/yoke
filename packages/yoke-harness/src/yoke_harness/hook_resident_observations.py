@@ -18,8 +18,8 @@ import time
 import urllib.request
 from typing import Any
 
-from yoke_cli.transport.bounded_json_http import request_json
-from yoke_cli.transport.response_limits import SMALL_JSON_RESPONSE_LIMIT_BYTES
+from yoke_contracts.bounded_json_http import request_json
+from yoke_contracts.response_limits import SMALL_JSON_RESPONSE_LIMIT_BYTES
 from yoke_contracts.hook_evaluator_protocol import (
     HOOK_BATCH_MODEL_CONFIRMATIONS_FIELD,
 )

@@ -40,6 +40,8 @@ therefore asks for the relay's ordinary deadline instead.
 
 from __future__ import annotations
 
+from yoke_contracts.runtime_ports.project_snapshot import get_project_snapshot
+
 import shlex
 import re
 import subprocess
@@ -87,9 +89,7 @@ def record_lane_head(project: str, checkout_path: str) -> str:
     reads exactly like a deliberate write and is wrong in a way no later
     reader can detect.
     """
-    from yoke_cli.commands.adapters.project_snapshot import (
-        sync_local_snapshot_for_write,
-    )
+    sync_local_snapshot_for_write = get_project_snapshot().sync_local_snapshot_for_write
 
     try:
         resolved = required_project(

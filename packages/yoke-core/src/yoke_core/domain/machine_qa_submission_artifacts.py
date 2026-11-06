@@ -14,7 +14,7 @@ from yoke_core.domain.qa_artifact_handle import (
     parse_handle,
     safe_segment,
 )
-from yoke_harness.machine_qa_result_safety import ensure_secret_free_result
+from yoke_contracts.machine_qa_result_safety import ensure_secret_free_result
 
 
 MAX_SUBMISSION_ARTIFACT_BYTES = 16 * 1024 * 1024

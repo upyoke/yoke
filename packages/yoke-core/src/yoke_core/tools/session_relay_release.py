@@ -15,7 +15,7 @@ from urllib.parse import urlsplit
 from packaging.version import InvalidVersion, Version
 from yoke_cli import manifest
 from yoke_cli.config import distribution, machine_config
-from yoke_cli.config.session_relay_instance import (
+from yoke_contracts.machine_config.relay_instance import (
     RelayInstance,
     resolve_relay_instance,
 )

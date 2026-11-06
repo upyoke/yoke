@@ -4,7 +4,7 @@ from pathlib import Path
 from typing import Any, Dict, Optional
 
 from yoke_cli.config import machine_config, writer
-from yoke_cli.config import secrets as machine_secrets
+from yoke_contracts.machine_config import secret_files as machine_secrets
 from yoke_contracts.machine_config import schema as contract
 
 LOCAL_ENV = "local"

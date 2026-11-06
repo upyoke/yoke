@@ -5,7 +5,7 @@ from unittest.mock import Mock
 
 import pytest
 
-from yoke_cli.config.capability_secrets import store_machine_capability_secret
+from yoke_contracts.machine_config.capability_secret_store import store_machine_capability_secret
 from yoke_contracts.browser_identity import parse_identity_declarations
 from yoke_core.domain import browser_client, browser_qa_steps as steps
 from yoke_core.domain.browser_qa_step_sign_in import set_case_identity

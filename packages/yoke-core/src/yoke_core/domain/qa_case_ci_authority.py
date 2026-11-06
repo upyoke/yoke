@@ -8,6 +8,8 @@ control plane — the https sibling of an owner-only database connection.
 
 from __future__ import annotations
 
+from yoke_contracts.runtime_ports.merge_item_local_runtime import get_merge_item_local_runtime
+
 import contextlib
 import os
 from typing import Iterator
@@ -67,10 +69,8 @@ def machine_github_user_authority() -> Iterator[None]:
     authority. An unbound call falls through to control-plane App credentials
     a workstation does not have.
     """
-    from yoke_cli.commands.merge_item_local_runtime import (
-        LocalMergeGithubAuthorityError,
-        machine_github_user_authority as _bind,
-    )
+    LocalMergeGithubAuthorityError = get_merge_item_local_runtime().LocalMergeGithubAuthorityError
+    _bind = get_merge_item_local_runtime().machine_github_user_authority
     from yoke_core.domain.qa_case_execution import QaCaseExecutionError
 
     try:

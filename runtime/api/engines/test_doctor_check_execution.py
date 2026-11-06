@@ -131,7 +131,7 @@ def test_non_database_connections_reach_the_check_unchanged():
 
 
 def test_http_and_subprocess_timeouts_share_check_deadline(monkeypatch):
-    from yoke_cli.transport.response_deadline_read import deadline_after
+    from yoke_contracts.response_deadline_read import deadline_after
     from yoke_core.engines import doctor_report
 
     monkeypatch.setattr(doctor_budget, "CHECK_BUDGET_S", 0.2)

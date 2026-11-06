@@ -12,7 +12,7 @@ from yoke_contracts.machine_qa_failures import (
     SSH_UNAVAILABLE,
     bounded_machine_qa_diagnostic,
 )
-from yoke_harness.test_machine_types import HostActionResult
+from yoke_contracts.test_machine_types import HostActionResult
 
 
 _MEMORY_PROGRAM = (

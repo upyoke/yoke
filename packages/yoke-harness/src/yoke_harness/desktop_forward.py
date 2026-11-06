@@ -7,7 +7,7 @@ import shutil
 import subprocess
 import tempfile
 
-from yoke_cli.config.capability_secrets import machine_capability_secret_path
+from yoke_contracts.machine_config.capability_secret_store import machine_capability_secret_path
 from yoke_contracts.machine_config.capability_secrets import TEST_MACHINE_CAPABILITY
 from yoke_contracts.machine_config.desktop_access import validate_desktop_settings
 

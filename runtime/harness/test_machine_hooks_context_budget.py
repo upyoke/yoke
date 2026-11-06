@@ -27,7 +27,7 @@ from yoke_core.domain.agents_render_hooks import (
 )
 from yoke_core.hooks.hook_context_compose import composed_additional_context
 from yoke_core.hooks.types import HookDecision, Outcome
-from yoke_harness.hooks.machine_hooks_render import render_user_hook_entries
+from yoke_contracts.machine_hooks_render import render_user_hook_entries
 
 _OWNER = re.compile(r"YOKE_HOOK_CONFIG_OWNER=([\w-]+)")
 _EVALUATE = re.compile(r"yoke hook evaluate (\w+)")

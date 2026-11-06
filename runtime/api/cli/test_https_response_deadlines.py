@@ -13,7 +13,7 @@ from runtime.api.cli.https_relay_security_test_support import (
     sensitive_request,
 )
 from yoke_cli.transport import https as relay_module
-from yoke_cli.transport import response_deadline_read
+from yoke_contracts import response_deadline_read
 
 
 class _MutableClock:

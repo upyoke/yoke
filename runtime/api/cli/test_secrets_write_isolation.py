@@ -10,7 +10,7 @@ from pathlib import Path
 
 import pytest
 
-from yoke_cli.config import secrets
+from yoke_contracts.machine_config import secret_files as secrets
 
 
 def test_refuses_real_home_write_under_test() -> None:

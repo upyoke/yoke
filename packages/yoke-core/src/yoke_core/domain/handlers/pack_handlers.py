@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from yoke_contracts.runtime_ports.packs import get_packs
+
 from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
@@ -224,7 +226,8 @@ def handle_packs_relink(request: FunctionCallRequest) -> HandlerOutcome:
         parsed = PacksRelinkRequest(**(request.payload or {}))
     except ValidationError as exc:
         return _invalid(exc)
-    from yoke_cli.packs import PackClientError, run_pack_relink
+    PackClientError = get_packs().PackClientError
+    run_pack_relink = get_packs().run_pack_relink
 
     try:
         result = run_pack_relink(
@@ -250,7 +253,8 @@ def _handle_pack_operation(
         parsed = PacksOperationRequest(**(request.payload or {}))
     except ValidationError as exc:
         return _invalid(exc)
-    from yoke_cli.packs import PackClientError, run_pack_operation
+    PackClientError = get_packs().PackClientError
+    run_pack_operation = get_packs().run_pack_operation
 
     try:
         result = run_pack_operation(

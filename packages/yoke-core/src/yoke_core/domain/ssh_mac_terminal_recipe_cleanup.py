@@ -6,11 +6,14 @@ from collections.abc import Sequence
 from typing import Any
 
 from yoke_core.domain.host_control_runner import HostActionResult
-from yoke_core.domain.ssh_mac_terminal_capture import RunRemote
+from yoke_contracts.runtime_ports.ssh_mac_terminal_capture import get_ssh_mac_terminal_capture
 from yoke_core.domain.ssh_mac_terminal_recipe_support import (
     cleanup_staged_files,
 )
 
+
+
+RunRemote = get_ssh_mac_terminal_capture().RunRemote
 
 def with_staged_cleanup(
     run: RunRemote,

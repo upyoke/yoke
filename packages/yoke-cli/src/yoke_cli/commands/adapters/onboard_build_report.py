@@ -13,7 +13,7 @@ import sys
 from yoke_cli.commands.adapters import onboard_apply
 from yoke_cli.config import onboard as onboard_config
 from yoke_cli.config import onboard_apply_report
-from yoke_cli.config import onboard_destinations
+from yoke_contracts import onboard_destinations as onboard_destinations
 from yoke_cli.config import onboard_wizard
 from yoke_cli.config.onboard_error_friendly import friendly_permission_error
 from yoke_cli.config.project_clone_support import ClonePlan

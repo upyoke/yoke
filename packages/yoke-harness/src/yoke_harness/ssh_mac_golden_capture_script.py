@@ -5,7 +5,7 @@ from __future__ import annotations
 import shlex
 
 from yoke_harness._ssh_mac_golden_capture_script_body import CAPTURE_SCRIPT_BODY
-from yoke_harness.ssh_mac_full_reset_contract import (
+from yoke_contracts.ssh_mac_full_reset_contract import (
     FULL_DISK_ACCESS_PROBE_PATH,
     FullResetPathContract,
     GOLDEN_MANIFEST_SUFFIX,
@@ -32,7 +32,7 @@ from yoke_harness.ssh_mac_golden_capture_contract import (
     GOLDEN_DIRECTORY_MODE,
     GOLDEN_SIDECAR_MODE,
 )
-from yoke_harness.ssh_mac_preserved_state import render_preserved_state_contract
+from yoke_contracts.ssh_mac_preserved_state import render_preserved_state_contract
 
 
 def _array(values: tuple[str, ...]) -> str:

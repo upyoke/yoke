@@ -10,11 +10,12 @@ from __future__ import annotations
 
 from typing import Optional, Tuple
 
-from yoke_harness.hooks.identity import (
-    canonical_harness_id,
-    compose_executor_from_entrypoint,
-)
+from yoke_contracts.runtime_ports.identity import get_identity
 from yoke_contracts.executor_labels import surface_alias
+
+
+canonical_harness_id = get_identity().canonical_harness_id
+compose_executor_from_entrypoint = get_identity().compose_executor_from_entrypoint
 
 _LEGACY_CLAUDE_ALIAS = "claude"
 

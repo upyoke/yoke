@@ -24,7 +24,7 @@ from yoke_cli.commands import connect
 from yoke_cli.config import hosted_machine_authorization as auth, server_connect
 from yoke_cli.config import teammate_invite_redemption as redemption
 from yoke_cli.config import team_server_authorization as team
-from yoke_cli.transport.bounded_json_http import (
+from yoke_contracts.bounded_json_http import (
     BoundedJsonHttpError,
     BoundedJsonHttpResponse,
     BoundedJsonHttpStatusError,

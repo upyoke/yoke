@@ -9,7 +9,7 @@ from yoke_cli.commands import connect
 from yoke_cli.config import hosted_machine_authorization as auth
 from yoke_cli.config import teammate_invite_redemption as redemption
 from yoke_cli.config import team_server_authorization as team
-from yoke_cli.transport.bounded_json_http import BoundedJsonHttpStatusError
+from yoke_contracts.bounded_json_http import BoundedJsonHttpStatusError
 
 ORIGIN = "https://team.example"
 FLAG = "--invite-code-stdin"

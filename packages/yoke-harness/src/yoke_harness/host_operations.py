@@ -16,7 +16,7 @@ from yoke_contracts.machine_config.test_machine import (
     validate_test_machine_os,
 )
 from yoke_contracts.machine_qa_execution import HostControlExecutionContract
-from yoke_harness.test_machine_types import HostActionResult
+from yoke_contracts.test_machine_types import HostActionResult
 
 
 class HostOperations(Protocol):

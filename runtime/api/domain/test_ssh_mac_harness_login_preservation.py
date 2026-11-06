@@ -15,7 +15,7 @@ from runtime.api.domain.ssh_mac_full_reset_test_support import (
     run_functions,
 )
 from yoke_contracts.browser_identity import LIVE_IDENTITY_STORE_HOME_ENTRY as STORE
-from yoke_harness.ssh_mac_preserved_state import (
+from yoke_contracts.ssh_mac_preserved_state import (
     HARNESS_LOGIN_HOME_ENTRIES,
     PRESERVED_HOME_ENTRIES,
     PRESERVED_MANIFEST_KEY,

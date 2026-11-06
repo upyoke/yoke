@@ -11,6 +11,8 @@ identity provider here for as long as the server lives.
 
 from __future__ import annotations
 
+from yoke_contracts.runtime_ports.machine_config_writes import get_machine_config_writes
+
 import os
 from pathlib import Path
 import signal
@@ -123,7 +125,7 @@ def invite_teammate_identity() -> None:
 
 def run_server(mode: str) -> int:
     """Serve until terminated; always stop the cluster and the provider."""
-    from yoke_cli.config import writer
+    writer = get_machine_config_writes()
     from yoke_core.domain import local_universe
 
     approver = approver_home(mode)

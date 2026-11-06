@@ -9,7 +9,7 @@ import subprocess
 import pytest
 
 from yoke_cli.config import machine_config
-from yoke_cli.config.session_relay_instance import RelayInstance
+from yoke_contracts.machine_config.relay_instance import RelayInstance
 from yoke_core.tools import session_relay_systemd as service
 from yoke_core.tools import session_relay_service as lifecycle
 from yoke_core.tools.session_relay_plist import RelayInstallError

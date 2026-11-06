@@ -23,7 +23,7 @@ from runtime.api.cli.yoke_operations_cli_onboard_wizard_publish_capability_test_
 )
 from yoke_cli.config import hosted_machine_browser
 from yoke_cli.config import onboard_wizard_flow_publish_manual as manual_flow
-from yoke_cli.config import onboard_destinations
+from yoke_contracts import onboard_destinations as onboard_destinations
 
 
 @pytest.fixture(autouse=True)

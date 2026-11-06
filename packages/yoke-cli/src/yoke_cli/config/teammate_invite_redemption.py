@@ -8,8 +8,8 @@ from collections.abc import Mapping
 
 from pydantic import ValidationError
 
-from yoke_cli.config import secrets
-from yoke_cli.transport.bounded_json_http import (
+from yoke_contracts.machine_config import secret_files as secrets
+from yoke_contracts.bounded_json_http import (
     BoundedJsonHttpError,
     BoundedJsonHttpStatusError,
     request_json,

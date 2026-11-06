@@ -12,7 +12,7 @@ import pytest
 from yoke_harness.ssh_linux_host_operations import SshLinuxHostOperations
 from yoke_harness.ssh_tool_resolution import probe_tool_resolution
 from yoke_harness.ssh_windows_host_operations import SshWindowsHostOperations
-from yoke_harness.test_machine_types import HostActionResult
+from yoke_contracts.test_machine_types import HostActionResult
 
 
 def _response(command, *, code="1", path="", exit_code=0, noise="", stderr=""):

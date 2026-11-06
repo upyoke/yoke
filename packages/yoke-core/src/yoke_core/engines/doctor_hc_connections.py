@@ -3,7 +3,8 @@
 from pathlib import Path
 import shlex
 
-from yoke_cli.config import machine_config, secrets
+from yoke_cli.config import machine_config
+from yoke_contracts.machine_config import secret_files as secrets
 from yoke_contracts.machine_config import schema
 from yoke_core.domain import db_backend
 from yoke_core.domain.session_actor_binding import resolve_operating_actor

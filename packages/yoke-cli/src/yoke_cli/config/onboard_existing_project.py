@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 from yoke_cli.config import existing_project_lookup
-from yoke_cli.config.onboard_destinations import DESTINATION_LOCAL
+from yoke_contracts.onboard_destinations import DESTINATION_LOCAL
 from yoke_cli.config.project_github_adoption import GITHUB_ADOPTION_DISABLED
 from yoke_cli.config.project_github_adoption import GITHUB_ADOPTION_APP_BINDING
 from yoke_contracts.project_contract.github_sync_mode import GITHUB_SYNC_ENABLED

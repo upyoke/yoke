@@ -7,7 +7,7 @@ from typing import Any, Dict, List
 from unittest import mock
 
 from yoke_core.domain import browser_qa
-from yoke_harness.browser_daemon_profile import profile_scope as profile_scope_for_test
+from yoke_contracts.browser_daemon_profile import profile_scope as profile_scope_for_test
 from runtime.api.cli.browser_profile_daemons_live_test_support import (
     daemon_runtime as daemon_runtime,
 )
@@ -24,7 +24,7 @@ pytestmark = pytest.mark.usefixtures("bound_project_context")
 
 @pytest.fixture(autouse=True)
 def private_check_scope(tmp_path):
-    from yoke_harness.browser_daemon_profile import profile_scope
+    from yoke_contracts.browser_daemon_profile import profile_scope
 
     with profile_scope(tmp_path / "check-profile"):
         yield
@@ -236,7 +236,7 @@ def test_same_identity_slow_checks_keep_private_pids_and_pages(
     from threading import Barrier, Thread
     from yoke_harness import browser_client
     from yoke_harness.browser_check_profile import check_scope
-    from yoke_harness.browser_daemon_profile import selected_profile
+    from yoke_contracts.browser_daemon_profile import selected_profile
     from runtime.api.cli.browser_profile_daemons_live_test_support import (
         ProbeHandler,
     )

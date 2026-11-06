@@ -9,7 +9,7 @@ from textual.widgets import Static  # noqa: E402
 from yoke_cli.config import onboard_backup as backup  # noqa: E402
 from yoke_cli.config import existing_project_lookup as lookup  # noqa: E402
 from yoke_cli.config.onboard_wizard import WizardDefaults  # noqa: E402
-from yoke_cli.config.onboard_destinations import DESTINATION_LOCAL  # noqa: E402
+from yoke_contracts.onboard_destinations import DESTINATION_LOCAL  # noqa: E402
 from runtime.api.cli.onboard_wizard_test_helpers import (  # noqa: E402
     advance_past_path,
     make_app,

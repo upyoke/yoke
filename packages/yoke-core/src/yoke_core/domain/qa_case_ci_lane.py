@@ -20,6 +20,8 @@ lane stays one import for its callers.
 
 from __future__ import annotations
 
+from yoke_contracts.runtime_ports.credentialed_git import get_credentialed_git
+
 from dataclasses import dataclass
 import json
 import re
@@ -62,7 +64,7 @@ def _git(
     authenticates with the stored GitHub credential, not with whatever the
     shell running the gate happens to carry.
     """
-    from yoke_cli.config import credentialed_git
+    credentialed_git = get_credentialed_git()
 
     return credentialed_git.run(
         ["-C", str(checkout), *args],

@@ -83,7 +83,7 @@ def gate_conn(tmp_path, monkeypatch):
 def recorded_harness_clis(monkeypatch):
     """Capture tests about other steps record fixed harness CLI versions."""
     from yoke_harness import golden_harness_clis
-    from yoke_harness.test_machine_types import HostActionResult
+    from yoke_contracts.test_machine_types import HostActionResult
 
     versions = {"claude-code": "2.1.300", "codex": "0.163.0", "cursor": "2026.10.16"}
     monkeypatch.setattr(

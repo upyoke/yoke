@@ -10,7 +10,7 @@ import subprocess
 
 from yoke_contracts.machine_qa_failures import MACHINE_QA_DIAGNOSTIC_LIMIT
 from yoke_contracts.timestamps import parse_instant
-from yoke_harness.machine_qa_result_safety import ensure_secret_free_result
+from yoke_contracts.machine_qa_result_safety import ensure_secret_free_result
 
 
 def _read(*args: str) -> dict:

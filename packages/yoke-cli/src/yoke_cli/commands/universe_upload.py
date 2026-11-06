@@ -16,14 +16,14 @@ from urllib.request import ProxyHandler, Request, build_opener
 from xml.etree import ElementTree as ET
 
 from yoke_cli.commands._helpers import parse_or_usage_error
-from yoke_cli.config.onboard_destinations import is_hosted_url
+from yoke_contracts.onboard_destinations import is_hosted_url
 from yoke_cli.transport.dispatcher import build_actor
 from yoke_cli.transport.https import (
     TransportError,
     relay_https,
     resolve_https_connection,
 )
-from yoke_cli.transport.https_urlopen import NoRedirect
+from yoke_contracts.https_urlopen import NoRedirect
 from yoke_contracts.api.function_call import FunctionCallRequest, TargetRef
 
 UPLOAD_USAGE = "yoke universe upload ARCHIVE --org SLUG [--json]"

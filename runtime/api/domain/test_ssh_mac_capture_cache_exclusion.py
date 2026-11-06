@@ -15,7 +15,7 @@ from runtime.api.domain.ssh_mac_full_reset_test_support import (
 )
 from runtime.api.domain.ssh_mac_golden_capture_copy_test_support import _run_capture
 from yoke_harness.ssh_mac_golden_capture_receipt import closed_capture_outcomes
-from yoke_harness.ssh_mac_preserved_state import (
+from yoke_contracts.ssh_mac_preserved_state import (
     PRESERVED_HOME_ENTRIES,
     PRESERVED_MANIFEST_KEY,
     PRESERVED_MANIFEST_VALUE,

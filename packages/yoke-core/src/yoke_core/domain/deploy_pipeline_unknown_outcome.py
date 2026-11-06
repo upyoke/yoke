@@ -4,12 +4,15 @@ from functools import wraps
 import sys
 import time
 from uuid import uuid4
-from yoke_cli.transport.relay_telemetry import TRANSPORT_FAILED_CODE
+from yoke_contracts.runtime_ports.relay_telemetry import get_relay_telemetry
 from yoke_core.domain.function_connection_loss import CONNECTION_LOST_CODE
 from yoke_core.domain.function_lock_refusal import (
     LOCK_RETRY_DELAYS_SECONDS,
     RETRYABLE_LOCK_CODES,
 )
+
+
+TRANSPORT_FAILED_CODE = get_relay_telemetry().TRANSPORT_FAILED_CODE
 
 UNKNOWN_CODES = frozenset({TRANSPORT_FAILED_CODE, CONNECTION_LOST_CODE})
 # The self-deploy database door wraps connection exceptions in this code.

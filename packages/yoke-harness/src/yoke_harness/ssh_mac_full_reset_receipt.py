@@ -6,8 +6,8 @@ from collections.abc import Mapping
 
 from pathlib import PurePosixPath
 
-from yoke_harness.ssh_mac_preserved_state import REQUIRED_PRESERVED_HOME_ENTRIES
-from yoke_harness.ssh_mac_full_reset_contract import (
+from yoke_contracts.ssh_mac_preserved_state import REQUIRED_PRESERVED_HOME_ENTRIES
+from yoke_contracts.ssh_mac_full_reset_contract import (
     FULL_DISK_ACCESS_PROBE_PATH,
     FULL_RESET_MARKER,
     FULL_RESET_REMOTE_PATH,

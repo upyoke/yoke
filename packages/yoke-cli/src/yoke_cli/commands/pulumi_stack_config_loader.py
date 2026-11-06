@@ -8,7 +8,7 @@ from urllib.parse import quote
 import urllib.request
 
 from yoke_cli.api_urls import join_api_url
-from yoke_cli.transport.bounded_json_http import request_json
+from yoke_contracts.bounded_json_http import request_json
 from yoke_cli.transport.https import resolve_https_connection
 
 

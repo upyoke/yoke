@@ -15,7 +15,7 @@ from runtime.api.domain.ssh_mac_full_reset_test_support import (
     require_zsh,
     run_functions,
 )
-from yoke_harness.ssh_mac_preserved_state import (
+from yoke_contracts.ssh_mac_preserved_state import (
     PRESERVED_HOME_ENTRIES,
     PRESERVED_MANIFEST_KEY,
     PRESERVED_MANIFEST_VALUE,
@@ -176,7 +176,7 @@ def test_a_failed_exit_probe_is_not_read_as_safari_gone():
 @pytest.mark.usefixtures("recorded_harness_clis")
 def test_capture_quits_safari_after_proving_probes_and_before_copying(monkeypatch):
     from yoke_harness import ssh_mac_golden_capture
-    from yoke_harness.test_machine_types import HostActionResult
+    from yoke_contracts.test_machine_types import HostActionResult
 
     order: list[str] = []
     monkeypatch.setattr(
@@ -216,7 +216,7 @@ def test_capture_quits_safari_after_proving_probes_and_before_copying(monkeypatc
 
 def test_reset_quits_safari_before_the_clear_and_stops_if_it_will_not(monkeypatch):
     from yoke_harness import ssh_mac_transport
-    from yoke_harness.test_machine_types import HostActionResult
+    from yoke_contracts.test_machine_types import HostActionResult
 
     order: list[str] = []
     quit_result = HostActionResult(True, {"sign_in_apps_quit": ["Safari"]})

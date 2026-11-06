@@ -13,7 +13,7 @@ from types import SimpleNamespace
 
 from yoke_harness.ssh_mac_full_reset_script import FULL_RESET_SCRIPT
 
-from yoke_harness.ssh_mac_full_reset_contract import (
+from yoke_contracts.ssh_mac_full_reset_contract import (
     FULL_RESET_MARKER,
     FULL_RESET_REMOTE_PATH,
     RESET_PROCESS_REAPED_PREFIX,

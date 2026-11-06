@@ -14,6 +14,8 @@ so credentials live in host-opened stdin handoffs to private runtime files, neve
 
 from __future__ import annotations
 
+from yoke_contracts.self_host_paths import default_bundle_dir
+
 import secrets
 import ipaddress
 from importlib import resources
@@ -28,7 +30,6 @@ from yoke_cli.self_host.secure_layout import SECRETS_DIR_NAME
 from yoke_cli.self_host.env_template import env_text
 from yoke_contracts.first_admin_name import AdminNameError, validate_admin_name
 from yoke_contracts.self_host_handoff import HANDOFF_TIMEOUT_SECONDS
-from yoke_contracts.machine_config.paths import yoke_home
 
 DEFAULT_API_PORT = 8765
 
@@ -54,9 +55,6 @@ class SelfHostBundleError(RuntimeError):
     """The self-host bundle could not be materialized."""
 
 
-def default_bundle_dir() -> Path:
-    """Keep server infrastructure in the selected machine home."""
-    return yoke_home() / "yoke-server"
 
 
 def bundle_file_paths(target: Path) -> tuple[Path, ...]:
