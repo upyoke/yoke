@@ -187,6 +187,7 @@ def member_machine_partition(
             roster_size=len(roster),
             deployment_run_id=deployment_run_id,
             deployment_stage=deployment_stage,
+            deployment_member_item_id=deployment_member_item_id,
         )
     claimed = {host_group(row) for row in roster if int(row["requirement_id"]) in held}
     free = [

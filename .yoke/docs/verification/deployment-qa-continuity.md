@@ -70,6 +70,15 @@ when the plan's case content also changed. Failed cases keep their correction
 pointers across a target rebind. Existing executions, captures and attempts keep
 their frozen targets; a fresh attempt uses the rebound requirement.
 
+## Credit saved completions
+
+`qa_settlement_pending` means completion or review verdicts are saved, but
+bounded lock contention delayed release credit. Rerun the same complete or
+review-submit command with the same execution ID. The owning session can
+retry after the item closes and releases its work claim. Nothing-owed and
+close-out commands also retry settlement inline; no steering re-drive is needed.
+A retry preserves recorded cases and verdicts.
+
 ## Recover communication on the frozen execution
 
 ```text

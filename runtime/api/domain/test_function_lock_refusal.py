@@ -79,6 +79,7 @@ def test_every_named_code_is_retryable() -> None:
         STATEMENT_CANCELLED_CODE,
         "qa_checkin_busy", "qa_ownership_busy",
         "deployment_start_lock_busy", "deployment_membership_changed",
+        "qa_settlement_pending",
     }
 
 

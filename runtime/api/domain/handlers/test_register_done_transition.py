@@ -3,9 +3,8 @@
 The wiring contract: importing ``_register_done_transition`` in the domain
 import block AND listing it in ``_DOMAIN_REGISTRARS`` must both happen for
 ``register_all_handlers()`` to register the ``done_transition.*`` function
-ids. They are internal (no CLI adapter), and all but the owner delivery
-notice are side-effect-free reads — that one sends a message, and declares
-it.
+ids. They are internal (no CLI adapter). Acceptance retries durable QA
+settlement; acceptance and delivery notices declare their writes.
 """
 
 from __future__ import annotations
@@ -29,7 +28,6 @@ _DONE_TRANSITION_READS = {
     "done_transition.registered_flow_ids": (("global",), _DEPLOY_MODULE),
     "done_transition.latest_deployment_run": (("item",), _DEPLOY_MODULE),
     "done_transition.run_stage": (("global",), _DEPLOY_MODULE),
-    "done_transition.run_stage_qa_acceptance": (("item",), _DEPLOY_MODULE),
     "done_transition.done_preconditions": (("item",), _DEPLOY_MODULE),
 }
 
@@ -50,7 +48,7 @@ def test_all_done_transition_reads_registered() -> None:
 
 
 def test_delivery_notice_declares_the_message_it_sends() -> None:
-    """The one done-transition function that writes says so."""
+    """The delivery notice declares its message write."""
     init_register.register_all_handlers()
     entry = yoke_function_registry.lookup("done_transition.delivery_done_notice")
     assert entry is not None
@@ -72,3 +70,11 @@ def test_done_transition_read_is_internal_claim_free(function_id) -> None:
     assert entry.side_effects == ()
     assert entry.claim_required_kind is None
     assert entry.owner_module == owner_module
+
+
+def test_stage_acceptance_declares_settlement_writes():
+    init_register.register_all_handlers()
+    entry = yoke_function_registry.lookup("done_transition.run_stage_qa_acceptance")
+    assert entry.side_effects == ("qa_acceptance_write", "session_message")
+    assert entry.adapter_status == "internal"
+    assert entry.claim_required_kind is None
