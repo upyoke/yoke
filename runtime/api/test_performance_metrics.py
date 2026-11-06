@@ -150,10 +150,17 @@ def test_real_permission_scope_excludes_unattributed_and_refuses_forged_project(
     assert predicate == "FALSE" and not params
 
 
+@pytest.mark.parametrize("org_role", ["admin", "owner"])
 def test_time_and_project_predicates_query_entire_range_excluding_other_projects(
     test_db,
+    org_role,
 ):
     auth = mint_api_auth_context(test_db)
+    test_db.execute(
+        "UPDATE actor_org_roles SET role_id=(SELECT id FROM roles WHERE name=%s) WHERE actor_id=%s",
+        (org_role, auth.actor_id),
+    )
+    test_db.commit()
     for i, minutes in enumerate([59, 40, 1]):
         insert_event(
             test_db,
@@ -178,6 +185,15 @@ def test_time_and_project_predicates_query_entire_range_excluding_other_projects
     )
     assert {v["event_id"] for v in values} == {"range-0", "range-1", "range-2"}
     assert all(v["project_id"] == auth.project_id for v in values)
+    global_values = read_observations(
+        test_db, auth.actor_id, None, NOW - timedelta(hours=1), NOW
+    )
+    assert {v["event_id"] for v in global_values} == {
+        "range-0",
+        "range-1",
+        "range-2",
+        "unattributed",
+    }
 
 
 def test_budget_refuses_without_partial_success(test_db, monkeypatch):

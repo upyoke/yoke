@@ -7,7 +7,12 @@ from typing import Any
 
 from yoke_contracts.timestamps import as_utc, utc_now
 
-from yoke_core.domain.actor_permissions import PERM_EVENTS_READ, PermissionDenied
+from yoke_core.domain.actor_permissions import (
+    PERM_EVENTS_READ,
+    ROLE_ADMIN,
+    ROLE_OWNER,
+    PermissionDenied,
+)
 from yoke_core.domain.actor_project_visibility import (
     actor_project_ids_with_permission,
     numeric_actor_id,
@@ -41,14 +46,14 @@ def authorized_predicate(
     )
     params: list[Any] = list(selected)
     # Universe-attributed rows are never assigned to a project. They require
-    # an actual org-admin grant, not an owner grant on one visible project.
+    # an actual org owner or admin grant, not an owner grant on one project.
     from yoke_core.domain.actor_state import actor_is_active
 
     if projects is None and actor is not None and actor_is_active(conn, actor):
         rows = conn.execute(
             "SELECT a.org_id FROM actor_org_roles a JOIN roles r ON r.id=a.role_id "
-            "WHERE a.actor_id=%s AND r.name='admin'",
-            (actor,),
+            "WHERE a.actor_id=%s AND r.name IN (%s,%s)",
+            (actor, ROLE_ADMIN, ROLE_OWNER),
         ).fetchall()
         if rows:
             predicate = f"({predicate} OR e.project_id IS NULL)"

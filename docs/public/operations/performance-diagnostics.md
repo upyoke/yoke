@@ -106,7 +106,7 @@ share one set of frozen member snapshots within the overview evaluation. Sharing
 `events.performance.aggregate` and `events.performance.detail` authorize every
 selected project with `events.read` before reading or serializing observations
 and summaries. All contains only accessible projects; universe-attributed rows
-require an actual universe-admin grant and never enter selected-project metrics.
+require an organization owner or admin grant and never enter selected-project metrics.
 The serving connection owns universe identity; the payload accepts no universe,
 actor, org or arbitrary query fields. There is no shared aggregate cache.
 

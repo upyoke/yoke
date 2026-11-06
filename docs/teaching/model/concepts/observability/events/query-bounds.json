@@ -3,5 +3,7 @@
  "title": "Query bounds",
  "status": "draft-copy",
  "page": "observability",
- "position": 5
+ "position": 5,
+ "need": "Without a project filter, active organization owners and admins can read project-less telemetry, including frontend visitor facts. Explicit project filters still exclude global rows; project owner grants alone and disabled actors do not authorize them.",
+ "sources": ["docs/public/operations/events.md", "docs/public/operations/model/events.md", "docs/public/operations/performance-diagnostics.md"]
 }
