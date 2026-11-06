@@ -64,6 +64,14 @@ def test_set_aside_qa_is_adopted_by_next_enrolling_run(test_db, monkeypatch):
     adopt_set_aside_qa(test_db, NEW, [WAITING])
     assert select_plan_execution(test_db, execution["id"], lock=False) == {**before, "deployment_run_id": NEW}
     assert test_db.execute("SELECT deployment_run_id FROM qa_requirements WHERE id=%s", (cases[WAITING],)).fetchone()[0] == NEW
+    from yoke_core.domain import deployment_qa_plan_ownership
+
+    copied = []
+    monkeypatch.setattr(deployment_qa_plan_ownership, "transfer_plan_owners",
+                        lambda *_a, **_k: copied.append(True))
+    adopt_set_aside_qa(test_db, NEW, [WAITING])
+    assert copied == []  # Historical removals cannot re-import already moved selections.
+
 
 
 def test_creation_beside_deploying_predecessor_names_the_occupant(test_db, monkeypatch):
