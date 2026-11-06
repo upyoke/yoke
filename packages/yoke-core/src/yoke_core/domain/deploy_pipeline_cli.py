@@ -6,7 +6,10 @@ import argparse
 import sys
 from collections.abc import Callable, Sequence
 
-from yoke_contracts.runtime_ports.deployment_execution_authority import get_deployment_execution_authority
+from yoke_contracts.runtime_ports.deployment_execution_authority import (
+    get_deployment_execution_authority,
+)
+from yoke_core.domain.deployment_run_composition_guard import RUN_SUPERSEDED_CODE
 
 
 
@@ -65,8 +68,9 @@ def main(
                 product_repo_path=args.product_repo_path,
             )
         except DeployPipelineRunUpdateError as exc:
-            # The message names the refused write and its recovery, such as
-            # the successor run to watch once a takeover cancelled this one.
+            if exc.code == RUN_SUPERSEDED_CODE:
+                print(f"Deployment driver stopped after takeover: {exc}")
+                return 0
             print(f"error: {exc}", file=sys.stderr)
             return 1
 

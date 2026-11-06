@@ -210,7 +210,7 @@ records the current result without manufacturing a green gate or making a
 known baseline failure block every item.
 
 When the project binds CI for quick/full scopes, commit and let the case
-runner push the lane branch; the verdict names the CI run URL and head sha.
+runner publish and open or reuse its landing PR; the verdict names CI and SHA.
 
 ## Local iteration
 

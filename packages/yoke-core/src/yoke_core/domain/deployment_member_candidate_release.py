@@ -172,13 +172,22 @@ def release_replaced_members(
     from yoke_core.domain.deployment_run_member_removal_read import read_removal
     from yoke_core.domain.deployment_runs_lock import lock_run_with_stable_membership
 
+    from yoke_core.domain.deployment_run_member_set_aside import set_aside_reworking_members
+
+    from yoke_core.domain.deployment_landing_guard import reworking_members
+
+    reworking = reworking_members(conn, (m["item_id"] for m in members))
     excluded = candidate_exclusions(
-        conn, run_id, members, include_lane_head=True, unproven=unproven
+        conn, run_id, [m for m in members if int(m["item_id"]) not in reworking],
+        include_lane_head=True, unproven=unproven,
     )
+    read = read_removal(conn, run_id=run_id, guard=False) if excluded else None
+    removed = set_aside_reworking_members(conn, run_id, (m["item_id"] for m in members))
     if not excluded:
-        return []
+        if removed:
+            conn.commit()
+        return list(removed.values())
     reopened = {int(m["item_id"]) for m in members if m.get("reopened")}
-    read = read_removal(conn, run_id=run_id, guard=False)
     status, held = lock_run_with_stable_membership(conn, run_id)
     if status not in {"created", "executing", "failed"}:
         conn.commit()
@@ -192,7 +201,7 @@ def release_replaced_members(
         and item_merge_identity(conn, item_id) == merge
         and active_lane_head(conn, item_id) == head
     ]
-    released: list[str] = []
+    released: list[str] = list(removed.values())
     for removed_by, reason, ids in (
         (REOPENED_REMOVED_BY, REOPENED_REASON, [i for i in current if i in reopened]),
         (

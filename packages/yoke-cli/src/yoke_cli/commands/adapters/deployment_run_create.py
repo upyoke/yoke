@@ -81,7 +81,7 @@ def _execute_connection(run_id: str) -> str:
 
 
 DEPLOYMENT_RUNS_CREATE_USAGE = (
-    "yoke deployment-runs create PROJECT FLOW --idempotency-key KEY "
+    "yoke deployment-runs create PROJECT FLOW [FLOW ...] --idempotency-key KEY "
     "[--environment ENV] "
     "[--project-repo-path PATH --source-ref REF | --retry-of RUN-ID] "
     "[--artifact-json JSON | --artifact-file PATH] "
@@ -98,13 +98,14 @@ def deployment_runs_create(args: List[str]) -> int:
         epilog="Environment release recipe: yoke deployment-runs resolve-target --help",
     )
     parser.add_argument("project", metavar="PROJECT", help="Project to deploy.")
-    parser.add_argument("flow", metavar="FLOW", help="Deployment flow to run.")
+    parser.add_argument("flow", metavar="FLOW", nargs="+",
+                        help="Flows to create in order on one source commit.")
     parser.add_argument(
         "--idempotency-key",
         required=True,
         metavar="KEY",
         help=(
-            "Name for the one run you mean to create. Sending the same "
+            "Name for the run or release set; multiple flows use KEY:FLOW. Sending the same "
             "request with the same key again returns that run instead of "
             "creating another; a new deployment needs a new key."
         ),
@@ -169,6 +170,12 @@ def deployment_runs_create(args: List[str]) -> int:
     parsed = parse_or_usage_error(parser, args, DEPLOYMENT_RUNS_CREATE_USAGE)
     if parsed is None:
         return 2
+    flows = parsed.flow
+    parsed.flow = flows[0]
+    if len(flows) > 1 and parsed.environment is not None:
+        return usage_error("--environment is refused with multiple flows; each flow owns its target")
+    if len(set(flows)) != len(flows):
+        return usage_error("name each flow once in a release set")
     if parsed.retry_of and parsed.project_repo_path:
         return usage_error("--retry-of cannot be combined with --project-repo-path")
     if parsed.retry_of and parsed.source_ref is not None:
@@ -190,9 +197,12 @@ def deployment_runs_create(args: List[str]) -> int:
         result = response.result or {}
         run_id = result.get("run_id")
         if run_id and result.get("replayed"):
-            print(replayed_run_note(run_id, parsed.idempotency_key), file=stderr)
+            print(replayed_run_note(run_id, result.get("idempotency_key") or parsed.idempotency_key), file=stderr)
         if run_id and result.get("supersedes_run_id"):
             print(takeover_note(run_id, result["supersedes_run_id"]), file=stderr)
+        if run_id and result.get("waiting_for_run_id"):
+            print(f"Run {run_id} starts after run {result['waiting_for_run_id']} "
+                  "releases target occupancy; watch that run before starting this one.", file=stderr)
         if run_id:
             authority = _execute_connection(run_id) or "<control-plane-env>"
             print(execute_created_run_note(authority, run_id), file=stderr)
@@ -226,6 +236,10 @@ def deployment_runs_create(args: List[str]) -> int:
         except DeploymentLineageResolutionError as exc:
             print(f"Error: {exc}", file=sys.stderr)
             return 1
+    if len(flows) > 1:
+        from yoke_cli.commands.adapters.deployment_run_create_set import create_release_set
+
+        return create_release_set(parsed, flows, payload, _human_writer)
     if parsed.retry_of is not None or parsed.project_repo_path is not None:
         guard_error = pin_regression_error(parsed)
         if guard_error is not None:

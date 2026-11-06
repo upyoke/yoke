@@ -252,13 +252,13 @@ def test_only_newest_candidate_can_supply_qa(test_db, monkeypatch, newest_status
                         (stale, OLD))
     _contains(monkeypatch)
 
-    expected = OLD if newest_status == "failed" else None
+    expected = OLD if newest_status in {"failed", "created"} else None
     assert _take_over(test_db) == expected
     assert _run(test_db, NEW)["supersedes_run_id"] == expected
     assert _run(test_db, stale)["superseded_by_run_id"] is None
 
 
-def test_cancelled_and_never_started_runs_are_skipped(test_db, monkeypatch):
+def test_newest_never_started_run_is_taken_over_ahead_of_older_qa(test_db, monkeypatch):
     _dated_target(test_db)
     _dated_copy(test_db, "run-cancelled", status="cancelled",
                 created_at="2026-11-03T00:00:00Z")
@@ -266,5 +266,5 @@ def test_cancelled_and_never_started_runs_are_skipped(test_db, monkeypatch):
                 created_at="2026-11-04T00:00:00Z")
     _contains(monkeypatch)
 
-    assert _take_over(test_db) == OLD
-    assert _run(test_db, NEW)["supersedes_run_id"] == OLD
+    assert _take_over(test_db) == "run-never-started"
+    assert _run(test_db, NEW)["supersedes_run_id"] == "run-never-started"

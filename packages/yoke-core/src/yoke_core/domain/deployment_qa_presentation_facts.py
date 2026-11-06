@@ -192,14 +192,20 @@ def run_facts(conn, run_id):
 
     def read():
         from yoke_core.domain.deployment_runs_schema import bound_sources_column
+        from yoke_core.domain.schema_common import _column_exists
 
         markers = ",".join("%s" for _ in runs)
+        removals = (
+            "dr.membership_removals"
+            if _column_exists(conn, "deployment_runs", "membership_removals") else "NULL"
+        )
         rows = query_rows(
             conn,
             "SELECT dr.id,dr.project_id,p.slug AS project_slug,p.name AS project_name,"
             "o.id AS tenant_id,o.slug AS tenant_slug,o.name AS tenant_name,"
             "dr.flow,dr.status,dr.current_stage,dr.release_lineage,"
             "dr.artifact_identity,dr.composition_frozen_at,dr.requirement_snapshot,"
+            f"{removals} AS membership_removals,"
             f"{bound_sources_column('dr', include_preparation_receipt=False)},"
             "df.definition_schema_version,df.stages "
             "FROM deployment_runs dr JOIN deployment_flows df ON df.id=dr.flow "

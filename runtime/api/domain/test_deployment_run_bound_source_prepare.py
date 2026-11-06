@@ -136,7 +136,7 @@ def test_redrive_of_a_dispatched_stage_reattaches_but_a_retry_refuses(
 def test_refresh_after_unrelated_stage_admits_new_member_and_preserves_snapshots(
     test_db: Any, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    release = two_project_release(test_db, tmp_path, monkeypatch)
+    release = two_project_release(test_db, tmp_path, monkeypatch, consumer_status="release")
     record_bound_sources(test_db, "run-candidate")
     assert cmd_validate_composition("run-candidate", connection=test_db)[0]
     from yoke_core.domain.deployment_run_contained_items import (
@@ -176,7 +176,7 @@ def test_refresh_after_unrelated_stage_admits_new_member_and_preserves_snapshots
         project_sequence=9699,
         project=CONSUMER_PROJECT,
         workflow_id="blitz",
-        status="implementing",
+        status="release",
         deployment_flow="consumer-release-flow",
     )
     ref = item_ref(test_db, 9699)

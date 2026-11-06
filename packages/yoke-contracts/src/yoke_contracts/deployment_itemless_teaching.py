@@ -81,7 +81,7 @@ Itemless environment release (project-generic):
   # A commit off the previous release's lineage is refused
   # (release_source_off_lineage) naming both commits. Read
   # the bound commit with `deployment-runs get RUN-ID release_lineage`
-  # and give the release's paired run that same commit.
+  # List more flows to create a release set on that same commit.
   yoke --env CONTROL-PLANE deployment-runs create PROJECT FLOW \\
     --idempotency-key PROJECT-FLOW-1
   # Use the printed run id as RUN-ID below; --json provides structured receipts.
@@ -120,7 +120,10 @@ RESOLVE_TARGET_DESCRIPTION = (
 )
 
 CREATE_DESCRIPTION = (
-    "Create a deployment run from a flow and candidate. Creation pins bound "
+    "Create one run per flow on one commit, in order. Multiple flows use "
+    "KEY:FLOW keys and their own environments (no --environment). "
+    "A refusal cancels earlier runs made by this call; a single flow keeps "
+    "its key. Creation pins bound "
     "source commits and provisionally composes membership from the candidate. "
     "It reports all detectable blockers, including selected member flow "
     "mismatches, before committing a run ID. On a flow that waits for CI, "
@@ -138,9 +141,7 @@ CREATE_DESCRIPTION = (
     "environment: a production holder never blocks needed stage enrollment. "
     "Supplemental proof credits when its recorded item-project commit contains "
     "the current landing; unreadable containment names its reason and recovery. "
-    "Re-merging withdraws proof that lacks the new landing. Stage and Production "
-    "may differ in surrounding code; Production-target obligations still guard "
-    "Production, and other items carry their own QA. A same-environment holder "
+    "Re-merging withdraws proof that lacks the new landing. A same-environment holder "
     "covers the same commit and selection, or an item owing no more QA there. "
     "Failed stage proof enrolls again on a later run. A carried item with an open "
     "dependency on an unshipped blocker is skipped the same way, and a "
@@ -157,15 +158,15 @@ CREATE_DESCRIPTION = (
     "members must take delivery custody, or it is refused "
     "(item_qa_flow_without_delivery_custody), because its members could "
     "never be proven at item QA. "
-    "Takes over a contained same-target run waiting only on item QA "
+    "Takes over the newest same-flow/target predecessor whose source is contained when created, "
+    "failed, or waiting only on item QA; a deploying or settling predecessor "
+    "stays live and is named in the receipt "
     "(agents/rules/delivery.md). "
     "Whether a memberless item-QA run owes a "
     "delivery is asked by validate-composition and before execution, not "
     "here, so add-item can attach to an itemless run. "
     "Choose the items' selected completion flow or deliberately reconcile "
-    "their flow, then revalidate; creation never changes item flows. The same "
-    "create-then-watch path serves an environment release and an item-bound "
-    "batch; the run reports which items it enrolled. Uses the selected "
+    "their flow, then revalidate; creation never changes item flows. Uses the selected "
     "control-plane transport, including HTTPS for ordinary external "
     "delivery. Creation does not execute: the run stays 'created' until an "
     "operator drives it through the same control-plane connection with "

@@ -75,14 +75,16 @@ def remove_members_on(
     session_id: str | None = None,
     actor_id: int | None = None,
     removed_by: str = "steering",
+    preserve_qa: bool = False,
 ) -> dict[int, str]:
-    """Apply the audited removals and retract the members' unsettled run copies.
+    """Audit removals, preserving unfinished QA only for automatic rework set-aside.
 
     Open plan groups no remaining member attaches are retracted with them.
     Every step is one statement for the whole set, so removing many members
     costs what removing one does; only owners owed a notice get one each.
 
-    Caller owns the locks and transaction. Retracted copies keep their verdict history; standing item plans survive
+    Caller owns the locks and transaction. ``preserve_qa`` retains executions
+    and requirements for later enrollment. Retracted copies keep their verdict history; standing item plans survive
     and the next release materializes fresh run-bound copies. Returns each
     removed member's public ref.
     """
@@ -114,11 +116,13 @@ def remove_members_on(
     removed_at = record_membership_removals(
         conn, run_id, ids, reason=reason, session_id=session_id, actor_id=actor_id
     )
-    _stopped, cleaning = abort_removed_member_executions(
-        conn, run_id=run_id, item_ids=ids
-    )
-    cancelled = retract_member_copies(conn, run_id, item_ids=ids, reason=reason)
-    retract_orphaned_shared_copies(conn, run_id=run_id, reason=reason)
+    cleaning, cancelled = frozenset(), {}
+    if not preserve_qa:
+        _stopped, cleaning = abort_removed_member_executions(
+            conn, run_id=run_id, item_ids=ids
+        )
+        cancelled = retract_member_copies(conn, run_id, item_ids=ids, reason=reason)
+        retract_orphaned_shared_copies(conn, run_id=run_id, reason=reason)
     withdraw_deployment_qa_wait_wakes(
         conn, run_id=run_id, item_ids=ids, reason="member_removed"
     )
@@ -132,6 +136,7 @@ def remove_members_on(
             removed_by=removed_by,
             removed_at=removed_at,
             host_cleanup_pending=item_id in cleaning,
+            preserve_qa=preserve_qa,
             cancelled_requirement_ids=cancelled.get(item_id, ()),
         )
     return {item_id: ref(item_id) for item_id in ids}

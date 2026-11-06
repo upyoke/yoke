@@ -162,9 +162,9 @@ def test_reviewed_images_keep_whole_run_contract_and_acceptance_read_only(preser
                 "blockers": list(answer.blockers),
             }
         )
+    from yoke_core.domain.deployment_run_takeover_eligibility import eligible_predecessor
     from yoke_core.domain.deployment_run_target_takeover import (
         _moving_members,
-        _waiting_run,
     )
 
     stages = json.loads(capture_rows("original-flow-definition.json")[0]["stages"])
@@ -185,7 +185,7 @@ def test_reviewed_images_keep_whole_run_contract_and_acceptance_read_only(preser
         assert {row["item_id"] for row in moving} == expected
         compositions.append({"run_id": run["id"], "moving_members": sorted(expected)})
     flow = capture_rows("original-flow-definition.json")[0]
-    waiting = _waiting_run(
+    waiting = eligible_predecessor(
         conn,
         {
             "id": "isolated-successor",

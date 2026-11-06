@@ -1,14 +1,9 @@
-"""Members that left delivery readiness, and their set-aside from a frozen run.
+"""Set active rework aside, retaining frozen containment for other members.
 
-A member can leave its release wait after its run froze: it reopens for
-rework while the run has already deployed the lineage holding its landed
-code. Composition and settlement share one rule for such a member. When its
-recorded merge or active lane head is definitely outside the frozen lineage,
-the run releases it with the audited "awaiting a later release" removal and
-continues. When its candidate is contained, it stays a member: this run
-still delivers exactly what it landed. When containment is undetermined,
-the run refuses by name with the recovery, because releasing or keeping it
-on an unknown answer could misattribute delivery either way.
+Open landings and implementing/reviewing members leave the release without
+retracting their QA. Other members that left readiness still use the frozen
+candidate comparison: definite replacements leave, contained history stays,
+and an unknown comparison names its recovery.
 """
 
 from __future__ import annotations
@@ -179,6 +174,8 @@ def frozen_member_readiness(conn: Any, run_id: str) -> tuple[list[str], str]:
     :func:`set_aside_reopened_members`; both are empty while every member is
     still delivery-ready.
     """
+    from yoke_core.domain.deployment_landing_guard import reworking_members
+
     rows = query_rows(
         conn,
         f"SELECT i.id, i.status FROM {run_items('dri')} "
@@ -186,9 +183,8 @@ def frozen_member_readiness(conn: Any, run_id: str) -> tuple[list[str], str]:
         (run_id,),
     )
     status_of = {int(row[0]): str(row[1]) for row in rows}
-    unready = unready_item_ids(conn, rows, allow_completed=True)
-    if not unready:
-        return [], ""
+    unready = sorted(set(unready_item_ids(conn, rows, allow_completed=True))
+                     | reworking_members(conn, status_of))
     return set_aside_reopened_members(
         conn, run_id, [(item_id, status_of[item_id]) for item_id in unready]
-    )
+    ) if unready else ([], "")

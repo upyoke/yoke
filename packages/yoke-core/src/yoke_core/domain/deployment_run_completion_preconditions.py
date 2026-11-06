@@ -49,7 +49,7 @@ def _unresolved_plan_cases(
     rows = query_rows(
         conn,
         f"""
-        SELECT r.id, r.qa_kind FROM qa_requirements r
+        SELECT r.id, r.qa_kind, r.deployment_member_item_id, r.execution_target_json FROM qa_requirements r
         WHERE r.deployment_run_id = %s
           AND r.blocking_mode = 'blocking'
           AND NOT {settled_obligation_sql(conn, "r")}
@@ -58,6 +58,10 @@ def _unresolved_plan_cases(
         """,
         (run_id, exclude_stage) if exclude_stage else (run_id,),
     )
+    from yoke_core.domain.deployment_run_set_aside_qa import preserved_qa_selector
+
+    preserved = preserved_qa_selector(conn, run_id)
+    rows = [row for row in rows if not preserved(dict(row))]
     passing = current_passing_requirements(conn, (int(row["id"]) for row in rows))
     rows = [row for row in rows if int(row["id"]) not in passing]
     if not rows:
@@ -80,19 +84,16 @@ def blocking_obligation_total(conn: Any, run_id: str) -> int:
     "M of P outstanding" is always a subset relation rather than two
     numbers from two different populations.
     """
-    total = 0
-    if _table_exists(conn, "qa_requirements"):
-        total += int(
-            query_scalar(
-                conn,
-                "SELECT COUNT(*) FROM qa_requirements "
-                "WHERE deployment_run_id=%s AND blocking_mode='blocking' "
-                f"AND NOT {settled_obligation_sql(conn)}",
-                (run_id,),
-            )
-            or 0
-        )
-    return total
+    if not _table_exists(conn, "qa_requirements"):
+        return 0
+    from yoke_core.domain.deployment_run_set_aside_qa import preserved_qa_selector
+
+    preserved = preserved_qa_selector(conn, run_id)
+    rows = query_rows(conn,
+        "SELECT deployment_member_item_id,execution_target_json FROM qa_requirements "
+        "WHERE deployment_run_id=%s AND blocking_mode='blocking' "
+        f"AND NOT {settled_obligation_sql(conn)}", (run_id,))
+    return sum(not preserved(dict(row)) for row in rows)
 
 
 def redrive_recovery(run_id: str, *, unresolved: int) -> str:

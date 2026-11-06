@@ -77,3 +77,18 @@ def require_closed_landings(conn, item_ids):
 
 def require_closed_landing(conn, item_id):
     require_closed_landings(conn, (int(item_id),))
+
+
+def reworking_members(conn, item_ids, *, reconcile=True):
+    """Members with a live landing or actively implementing a correction."""
+    ids = sorted({int(i) for i in item_ids})
+    if not ids:
+        return set()
+    found = set(open_landing_refusals(conn, ids) if reconcile else read_open_attempts(conn, ids))
+    marker = "%s" if db_backend.connection_is_postgres(conn) else "?"
+    slots = ",".join(marker for _ in ids)
+    rows = conn.execute(
+        f"SELECT id,status FROM items WHERE id IN ({slots})", tuple(ids)
+    ).fetchall()
+    return found | {int(row[0]) for row in rows
+                    if row[1] in {"implementing", "reviewing-implementation"}}

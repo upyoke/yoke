@@ -40,7 +40,12 @@ def test_closure_preserves_execution_that_completes_before_its_lock(monkeypatch)
         "lock_plan_execution",
         lambda *args: {"id": "review-finished", "state": "completed"},
     )
-    conn.execute.return_value.fetchone.return_value = ("failed",)
+    def execute(sql, *_args):
+        cursor = Mock()
+        cursor.fetchone.return_value = ("[]",) if "membership_removals" in sql else ("failed",)
+        return cursor
+
+    conn.execute.side_effect = execute
     finish = Mock()
     monkeypatch.setattr(settlement, "finish_plan_execution", finish)
     monkeypatch.setattr(settlement, "retract_requirements", Mock())

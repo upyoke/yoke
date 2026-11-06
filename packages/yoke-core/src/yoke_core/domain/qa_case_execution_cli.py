@@ -90,6 +90,7 @@ def run(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke qa case run",
         description=(
+            "A CI-backed case opens or reuses the item landing pull request. "
             "Execute one materialized test-plan case through its declared "
             "registered runner. A Command case's method_config.command is a "
             "/bin/sh -c line, not a Python module body."

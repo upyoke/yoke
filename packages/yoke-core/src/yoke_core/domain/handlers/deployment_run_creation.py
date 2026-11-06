@@ -57,6 +57,7 @@ class DeploymentRunCreateResponse(BaseModel):
     replayed: bool = False
     idempotency_basis: Optional[str] = None
     supersedes_run_id: Optional[str] = None
+    waiting_for_run_id: Optional[str] = None
 
 
 def _retry_candidate(run_id: str, *, project: str, flow: str) -> tuple[str, str | None]:
@@ -297,7 +298,7 @@ def _created_outcome(
         member_count=len(member_items),
         source_sha=created.get("release_lineage") or "",
     )
-    supersedes = _superseded_run(run_id)
+    from yoke_core.domain.deployment_run_create_receipt import continuation_facts
     return HandlerOutcome(
         result_payload={
             "run_id": run_id,
@@ -314,32 +315,11 @@ def _created_outcome(
             "idempotency_key": key,
             "replayed": replayed,
             "idempotency_basis": basis,
-            "supersedes_run_id": supersedes,
+            **continuation_facts(run_id),
         },
         primary_success=True,
     )
 
-
-def _superseded_run(run_id: str) -> Optional[str]:
-    """The run this creation took over, read back from what it committed."""
-    from yoke_core.domain.db_helpers import connect, query_scalar
-    from yoke_core.domain.deployment_run_target_takeover import (
-        SUPERSEDES_COLUMN,
-        takeover_available,
-    )
-
-    conn = connect(None)
-    try:
-        if not takeover_available(conn):
-            return None
-        value = query_scalar(
-            conn,
-            f"SELECT {SUPERSEDES_COLUMN} FROM deployment_runs WHERE id=%s",
-            (run_id,),
-        )
-        return str(value) if value else None
-    finally:
-        conn.close()
 
 
 __all__ = [

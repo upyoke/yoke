@@ -4,7 +4,7 @@ from __future__ import annotations
 from hashlib import sha256
 from typing import Any, Mapping
 from yoke_core.domain import db_backend
-from yoke_core.domain.deployment_landing_guard import require_closed_landings
+from yoke_core.domain.deployment_run_member_set_aside import set_aside_reworking_members
 from yoke_core.domain.db_helpers import query_rows
 from yoke_core.domain.delivery_landing_custody import merged_open_items
 from yoke_core.domain.deployment_run_bound_sources import (
@@ -64,12 +64,8 @@ def _delivery_item_ids(conn: Any, project_id: int, since) -> tuple[int, ...]:
     return tuple(sorted(found))
 
 
-def _require_member_landings_closed(conn: Any, run_id: str, item_ids) -> None:
-    """Refuse an open correction landing only for the run's current members.
-
-    A member removed from the run stays in the recorded snapshot and among
-    the project's delivery items, but this run no longer delivers it.
-    """
+def _set_aside_member_rework(conn: Any, run_id: str, item_ids) -> None:
+    """Set aside current members in rework without rewriting frozen history."""
     marker = _p(conn)
     members = {
         int(_cell(row, "item_id", 0))
@@ -78,7 +74,7 @@ def _require_member_landings_closed(conn: Any, run_id: str, item_ids) -> None:
             (run_id,),
         ).fetchall()
     }
-    require_closed_landings(conn, members.intersection(int(i) for i in item_ids))
+    set_aside_reworking_members(conn, run_id, members.intersection(int(i) for i in item_ids))
 
 
 def _basis_digest(basis: Mapping[str, Any]) -> str:
@@ -112,7 +108,7 @@ def candidate_containment_basis(
         )
 
         snapshot = parse_candidate_containment(stored)
-        _require_member_landings_closed(
+        _set_aside_member_rework(
             conn,
             run_id,
             [
@@ -146,10 +142,13 @@ def candidate_containment_basis(
         tuple(project_ids),
     )
     slugs = {int(row["id"]): str(row["slug"]) for row in slug_rows}
+    project_items = {project_id: _delivery_item_ids(conn, project_id, anchor)
+                     for project_id in project_ids}
+    _set_aside_member_rework(conn, run_id,
+                            [item for ids in project_items.values() for item in ids])
     projects: list[dict[str, Any]] = []
     for project_id in project_ids:
-        item_ids = _delivery_item_ids(conn, project_id, anchor)
-        _require_member_landings_closed(conn, run_id, item_ids)
+        item_ids = project_items[project_id]
         merges = recorded_merge_shas_for_items(conn, item_ids)
         items = [
             {
