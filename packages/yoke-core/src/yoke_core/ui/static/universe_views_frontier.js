@@ -1,7 +1,7 @@
 // Frontier is the work itself, in the states work is actually in: waiting on
 // other work (drawn as the dependency graph), held for a reason of its own,
 // free to pick up, being worked on right now, merged and waiting on its
-// deployment, and finished in the last day. Deployment runs are their own
+// deployment, and recent or dependency-linked finished work. Runs have their own
 // page — what is shipping is a different question from what is being built,
 // and Release answers only which items are between the two.
 
@@ -35,7 +35,7 @@ export function renderFrontierView(context, main, scope) {
     documentNode, "release", "Release", "Nothing is waiting to ship.",
   );
   const done = workBand(
-    documentNode, "done", "Done (24h)", "Nothing finished in the last 24 hours.",
+    documentNode, "done", "Done", "Nothing finished in the last 24 hours.",
   );
   const dialogHost = el(documentNode, "div", "work-session-dialog-host");
   main.replaceChildren(waiting, onHold, ready, active, release, done, dialogHost);

@@ -239,7 +239,7 @@ test("empty live bands remain visible beside day-zero onboarding", async (t) => 
 
   assert.deepEqual(
     byClass(root, "work-band-title").map((node) => node.textContent),
-    ["Waiting", "On hold", "Ready", "In progress", "Release", "Done (24h)"],
+    ["Waiting", "On hold", "Ready", "In progress", "Release", "Done"],
   );
   const text = allNodes(root).map((node) => node.textContent || "").join(" ");
   assert.ok(text.includes("Nothing is waiting on other work."));

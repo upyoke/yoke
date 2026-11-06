@@ -90,3 +90,34 @@ def test_activation_blocker_wins_over_an_earlier_merge_edge(test_db):
     test_db.commit()
     assert gating_blockers(test_db, [19411])[19411]["gate_point"] == "activation"
     assert frontier_group({"exceptional": True, "dependency_holds_pickup": True})["section"] == "on_hold"
+
+
+def test_older_finished_blocker_retains_a_home_and_finishing_time(test_db):
+    from datetime import timedelta
+    from runtime.api.conftest import insert_item
+    from runtime.api.domain.handlers.items_read_test_support import request_for
+    from yoke_core.domain.handlers.item_page_reads import handle_items_overview_list
+
+    old = utc_now() - timedelta(days=3)
+    insert_item(test_db, id=19421, title="Cancelled blocker", status="cancelled", updated_at=old)
+    insert_item(test_db, id=19422, title="Live dependent", status="idea", spec="Build the dependent behavior after its blocker is done.")
+    test_db.execute(
+        "INSERT INTO item_status_transitions "
+        "(item_id,from_status,to_status,source,created_at) VALUES (%s,'idea','cancelled','test',%s)",
+        (19421, old),
+    )
+    test_db.execute(
+        "INSERT INTO item_dependencies "
+        "(dependent_item_id,blocking_item_id,gate_point,satisfaction,source,created_at) "
+        "VALUES (%s,%s,'activation','status:done','test',%s)",
+        (19422, 19421, old),
+    )
+    test_db.commit()
+    result = handle_items_overview_list(request_for("items.overview.list", {"relevance": "overview"}))
+    assert result.primary_success
+    rows = {row["title"]: row for row in result.result_payload["rows"]}
+    blocker = rows["Cancelled blocker"]
+    assert blocker["frontier_group"]["section"] == "done"
+    assert blocker["next_actor"]["actor"] == "nobody"
+    assert blocker["finished_at"] == old
+    assert rows["Live dependent"]["frontier_group"]["section"] == "waiting"

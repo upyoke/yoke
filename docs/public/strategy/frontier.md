@@ -21,7 +21,7 @@ dependencies. Blocked items stay at their lifecycle stage with a reason;
 frontier routes them to wait until unblocked.
 
 The Frontier page draws six bands, in order: **Waiting**, **On hold**,
-**Ready**, **In progress**, **Release** and **Done (24h)**. Waiting is a graph of
+**Ready**, **In progress**, **Release** and **Done**. Waiting is a graph of
 unsatisfied dependency edges at the start, merge and close gates
 (`coordination_only` edges never block, so they are never drawn). Its first
 column, *Holding work up*, holds every item with no unsatisfied blocker that

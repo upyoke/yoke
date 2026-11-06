@@ -152,6 +152,19 @@ def finished_window_clause(
     return clause, [*finished_params, _cutoff_parameter(conn, window)]
 
 
+def finished_times_for_items(conn: Any, item_ids: List[int]) -> Dict[int, datetime]:
+    """Finishing instants for this roster, including linked older history."""
+    ids = sorted(set(item_ids))
+    if not ids or not _history_present(conn):
+        return {}
+    slots = ", ".join(_marker(conn) for _ in ids)
+    rows = conn.execute(
+        _FINISHING_TRANSITION_SQL.format(cutoff_clause=f"AND i.id IN ({slots}) "),
+        tuple(ids),
+    ).fetchall()
+    return {int(row["item_id"]): parse_instant(row["finished_at"]) for row in rows}
+
+
 def finished_times_in_window(
     conn: Any,
     window: timedelta = FINISHED_WINDOW,
@@ -193,6 +206,7 @@ __all__ = [
     "finished_stage_ids",
     "finished_status_clause",
     "finished_times_in_window",
+    "finished_times_for_items",
     "finished_times_since",
     "finished_window_clause",
     "is_finished",

@@ -45,7 +45,7 @@ test("Frontier is six bands of work under one page heading", async (t) => {
   assert.equal(byClass(root, "title")[0].textContent, "Frontier");
   assert.deepEqual(
     byClass(root, "work-band-title").map(ownTextContent),
-    ["Waiting", "On hold", "Ready", "In progress", "Release", "Done (24h)"],
+    ["Waiting", "On hold", "Ready", "In progress", "Release", "Done"],
   );
   // Shipping is its own page; the Frontier does not draw run cards.
   assert.equal(byClass(root, "shipping-run-card").length, 0);

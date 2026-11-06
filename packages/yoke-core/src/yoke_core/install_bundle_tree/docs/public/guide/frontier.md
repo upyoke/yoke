@@ -81,7 +81,7 @@ Ready shows unclaimed work available to advance. In progress separates
 **Working** from **Held, not working**: a claim protects custody even while
 its holder is parked, between turns, silent or gone. The card names who acts
 next and why; a parked holder is never labelled Working. Release shows items
-at their workflow's delivery stage; Done shows recently finished work.
+at their workflow's delivery stage; Done shows recently finished work and older finished blockers referenced by a live dependency.
 Release and Done include delivery state and the relevant run.
 
 Project filters retain related items across dependency chains, including items from other projects. Open a card to inspect blockers, dependents, and the item's full context. [Dashboard details](../strategy/frontier.md)
