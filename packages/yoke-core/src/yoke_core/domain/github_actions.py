@@ -110,7 +110,7 @@ def cmd_jobs_count(
     token = resolve_token(
         project,
         repo,
-        required_permissions={**GITHUB_ACTIONS_READ_PERMISSION_LEVELS, **GITHUB_CHECKS_READ_PERMISSION_LEVELS},
+        required_permissions=GITHUB_ACTIONS_READ_PERMISSION_LEVELS,
     )
     try:
         data = rest_get(
@@ -190,7 +190,7 @@ def cmd_find_run(
     token = resolve_token(
         project,
         repo,
-        required_permissions={**GITHUB_ACTIONS_READ_PERMISSION_LEVELS, **GITHUB_CHECKS_READ_PERMISSION_LEVELS},
+        required_permissions=GITHUB_ACTIONS_READ_PERMISSION_LEVELS,
     )
     try:
         data = rest_get(

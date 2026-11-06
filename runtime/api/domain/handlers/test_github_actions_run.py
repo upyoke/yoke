@@ -14,6 +14,7 @@ import pytest
 
 from yoke_contracts.github_app_installation_permissions import (
     GITHUB_ACTIONS_READ_PERMISSION_LEVELS,
+    GITHUB_CHECKS_READ_PERMISSION_LEVELS,
 )
 from yoke_core.domain.handlers import github_actions_run
 from yoke_core.domain.handlers.github_actions_run import (
@@ -164,7 +165,7 @@ class TestHandleRunGet:
         assert _auth_resolved == [
             (
                 "yoke",
-                {"required_permissions": GITHUB_ACTIONS_READ_PERMISSION_LEVELS},
+                {"required_permissions": {**GITHUB_ACTIONS_READ_PERMISSION_LEVELS, **GITHUB_CHECKS_READ_PERMISSION_LEVELS}},
             )
         ]
 

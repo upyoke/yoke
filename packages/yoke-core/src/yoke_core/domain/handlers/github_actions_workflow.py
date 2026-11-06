@@ -172,7 +172,7 @@ def handle_run_jobs_count(request: FunctionCallRequest) -> HandlerOutcome:
         request,
         RunJobsCountRequest,
         "github_actions.run.jobs_count",
-        required_permissions={**GITHUB_ACTIONS_READ_PERMISSION_LEVELS, **GITHUB_CHECKS_READ_PERMISSION_LEVELS},
+        required_permissions=GITHUB_ACTIONS_READ_PERMISSION_LEVELS,
     )
     if error is not None:
         return error
