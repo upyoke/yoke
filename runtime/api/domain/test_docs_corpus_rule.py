@@ -53,10 +53,12 @@ def test_unavailable_contract_refuses_with_repair(tmp_path, monkeypatch, content
 
 def test_contract_changes_control_validation(tmp_path, monkeypatch):
     path = tmp_path / "docs-corpus-files.json"
-    path.write_text(json.dumps({
+    value = json.loads(contract.CONTRACT_PATH.read_text())
+    value.update({
         "schemaVersion": 1, "allowedPathPattern": r"docs/.*\.md",
         "identityFiles": ["identity.json"],
-    }))
+    })
+    path.write_text(json.dumps(value))
     monkeypatch.setattr(contract, "CONTRACT_PATH", path)
     rule = contract.load_corpus_rule()
     assert not isinstance(rule, CorpusRefusal)
@@ -64,3 +66,20 @@ def test_contract_changes_control_validation(tmp_path, monkeypatch):
     assert not refuse_unexpected_file("identity.json", rule)
     assert refuse_unexpected_file("index.md", rule)
     assert refuse_unexpected_file("identityXjson", rule)
+
+
+@pytest.mark.parametrize("asset_rule", [
+    None, {}, {"allowedElements": []},
+    {"allowedElements": {"svg": ["svg"], "html": ["div"]}, "refusedStyleTextPattern": "["},
+    {"allowedElements": {"svg": [None], "html": ["div"]}, "refusedStyleTextPattern": "x"},
+])
+def test_malformed_asset_rule_refuses_with_repair(tmp_path, monkeypatch, asset_rule):
+    value = json.loads(contract.CONTRACT_PATH.read_text())
+    value["assetRules"] = asset_rule
+    path = tmp_path / "docs-corpus-files.json"
+    path.write_text(json.dumps(value))
+    monkeypatch.setattr(contract, "CONTRACT_PATH", path)
+    refusal = contract.load_asset_rule()
+    assert isinstance(refusal, CorpusRefusal)
+    assert refusal.code == "DOCS_CORPUS_RULE_MISSING"
+    assert "restore" in refusal.repair
