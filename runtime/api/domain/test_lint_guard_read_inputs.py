@@ -15,7 +15,7 @@ from yoke_core.domain.session_claimed_worktrees import ClaimedWorktree
 
 OWN = "/repo/.worktrees/own"
 FOREIGN = "/repo/.worktrees/other"
-INPUT = "/home/peer/.yoke/scratch/input.json"
+INPUT = "/repo/.worktrees/unclaimed/input.json"
 
 
 @pytest.fixture
@@ -106,4 +106,6 @@ def test_content_file_after_option_terminator_grants_no_read_authority(validate,
 
 
 def test_read_role_without_a_declared_tool_keeps_scope_checks(validate):
-    assert not validate(f"cat {INPUT}", tool_name="").allow
+    assert not validate(
+        f"yoke qa artifact add --content-file {INPUT}", tool_name=""
+    ).allow

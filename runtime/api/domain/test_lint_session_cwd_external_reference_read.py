@@ -163,7 +163,7 @@ class TestReadsAcrossRoots:
 
         assert verdict.allow is True
 
-    def test_a_payload_that_names_no_tool_still_refuses(self, conn, lane, external):
+    def test_external_payload_needs_no_declared_tool(self, conn, lane, external):
         verdict = lint_session_cwd.evaluate_pre_tool_use(
             {
                 "session_id": SESSION,
@@ -172,7 +172,7 @@ class TestReadsAcrossRoots:
             }
         )
 
-        assert verdict.allow is False
+        assert verdict.allow is True
 
     @pytest.mark.parametrize(
         "relative",

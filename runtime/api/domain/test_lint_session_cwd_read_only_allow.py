@@ -141,7 +141,7 @@ class TestReadOnlyAllowEmitsCorrectEvent:
             executor_surface="claude",
             payload={
                 "session_id": "sid-1",
-                "cwd": "/opt/elsewhere",
+                "cwd": str(repo / ".worktrees/unclaimed"),
                 "tool_input": {
                     "command": (
                         'python3 -m yoke_core.cli.db_router '
@@ -149,7 +149,7 @@ class TestReadOnlyAllowEmitsCorrectEvent:
                     ),
                 },
             },
-            tool_name="Bash", cwd="/opt/elsewhere", session_id="sid-1",
+            tool_name="Bash", cwd=str(repo / ".worktrees/unclaimed"), session_id="sid-1",
         )
 
         decision = lint_session_cwd.evaluate(record)

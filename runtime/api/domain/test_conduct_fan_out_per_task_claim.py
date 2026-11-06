@@ -98,10 +98,7 @@ class TestMultiWorktreeFanOutLifecycle:
             )
 
     def test_release_clears_authority_per_task(self, conn, tmp_path):
-        # released_at set; resolver drops the released lane
-        # while sibling lanes remain. (validate_targets cannot assert
-        # denial here because pytest tmp_path lands under the lint's
-        # free-path allowlist; the resolver is the semantic authority.)
+        # Releasing one task drops only its lane authority.
         repo = tmp_path / "repo"
         claims = _seed_fanout(
             conn,
@@ -135,10 +132,8 @@ class TestMultiWorktreeFanOutLifecycle:
             ).allow
             is True
         )
-        # A worktree no claim of the session records and that lives
-        # outside the free-path allowlist still denies — authority comes
-        # only from recorded lanes of claimed targets.
-        rogue = "/opt/other-repo/.worktrees/YOK-1872-rogue/x.py"
+        # An unclaimed lane inside the governed repository still refuses.
+        rogue = str(repo / ".worktrees" / "YOK-1872-rogue" / "x.py")
         verdict = validate_targets(
             conn,
             session_id="sid-orch",

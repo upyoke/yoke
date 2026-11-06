@@ -17,6 +17,7 @@ from yoke_core.hooks.types import HookContext, Outcome
 HOME = "/clients/operator"
 ROOT = "/workspace/product"
 LANE = ROOT + "/.worktrees/active"
+UNCLAIMED = ROOT + "/.worktrees/unclaimed"
 SESSION = "historical-holder"
 
 
@@ -93,15 +94,15 @@ def test_read_shapes_need_no_capacity_exemption(isolated_authority, command):
 @pytest.mark.parametrize(
     "command",
     [
-        f"df -k {HOME}/.yoke && cat .yoke/config-private.json",
-        f"du -sh {HOME}/.yoke",
-        f"cd {HOME}/.yoke && df -k .",
-        f"touch {HOME}/.yoke/out",
-        f"df -k {HOME}/.yoke > {HOME}/.yoke/out",
-        f"df -k {HOME}/.yoke && touch {HOME}/.yoke",
-        f"df -k {HOME}/.yoke && touch $unknown",
-        f"df -k {HOME}/.yoke/*",
-        f"df -k {HOME}/.yoke && bash -c 'opaque action'",
+        f"df -k {UNCLAIMED} && cat .yoke/config-private.json",
+        f"du -sh {UNCLAIMED}",
+        f"cd {UNCLAIMED} && df -k .",
+        f"touch {UNCLAIMED}/out",
+        f"df -k {UNCLAIMED} > {UNCLAIMED}/out",
+        f"df -k {UNCLAIMED} && touch {UNCLAIMED}",
+        f"df -k {UNCLAIMED} && touch $unknown",
+        f"df -k {UNCLAIMED}/*",
+        f"df -k {UNCLAIMED} && bash -c 'opaque action'",
     ],
 )
 def test_inspection_does_not_grant_other_access(isolated_authority, command):
@@ -160,12 +161,12 @@ def test_client_home_never_resolves_against_server_home(
 def test_remote_metadata_keeps_local_output_authority(isolated_authority):
     command = "yoke test-machine exec --project sample --test-machine worker -- df -k /remote/.private"
     assert not analyze_shell_path_use(command).inspection_only
-    assert evaluate(command + f" > {HOME}/.yoke/out").outcome is Outcome.DENY
+    assert evaluate(command + f" > {UNCLAIMED}/out").outcome is Outcome.DENY
 
 
 def test_relative_write_after_leading_cd_uses_the_lane(isolated_authority):
     assert evaluate(f"cd {LANE} && touch out").outcome is Outcome.NOOP
-    assert evaluate(f"cd {HOME}/.yoke && touch out").outcome is Outcome.DENY
+    assert evaluate(f"cd {UNCLAIMED} && touch out").outcome is Outcome.DENY
 
 
 def test_leading_cd_home_is_the_executing_machine(isolated_authority, monkeypatch):
@@ -182,7 +183,7 @@ def test_leading_cd_home_is_the_executing_machine(isolated_authority, monkeypatc
 
 
 def test_embedded_python_write_retains_local_authority(isolated_authority):
-    command = f"python3 - <<'PY'\nfrom pathlib import Path\nPath('{HOME}/.yoke/out').write_text('value')\nPY"
+    command = f"python3 - <<'PY'\nfrom pathlib import Path\nPath('{UNCLAIMED}/out').write_text('value')\nPY"
     assert evaluate(command).outcome is Outcome.DENY
 
 

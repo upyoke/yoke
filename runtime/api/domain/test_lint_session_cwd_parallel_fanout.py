@@ -125,9 +125,7 @@ class TestParallelFanoutLint:
         repo = tmp_path / "repo"
         (repo / ".worktrees").mkdir(parents=True)
         _seed_fanout(conn, repo)
-        # Use a synthetic outside-tmp path so the free-path allowlist
-        # (which covers /var/folders on macOS) does not authorise it.
-        target = "/opt/other-repo/.worktrees/YOK-1684-rogue/file.py"
+        target = str(repo / ".worktrees/YOK-1684-rogue/file.py")
         verdict = validate_targets(
             conn,
             session_id="sid-parent",
@@ -165,9 +163,8 @@ class TestParallelFanoutLint:
         (repo / ".worktrees" / "YOK-1872").mkdir(parents=True)
         seed_item_claim(conn, "sid-orch", item_id=1872)
 
-        # Target outside the free-path allowlist so the claim gate
-        # is the decisive surface: no lane records this path.
-        rogue_target = "/opt/elsewhere/.worktrees/YOK-1872-substrate/x.py"
+        # No held claim records this governed lane.
+        rogue_target = str(repo / ".worktrees/unclaimed/x.py")
         verdict = validate_targets(
             conn,
             session_id="sid-orch",
