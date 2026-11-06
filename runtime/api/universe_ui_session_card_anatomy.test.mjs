@@ -241,11 +241,11 @@ test("Sessions matches the prototype's runtime, assignment, level, and operator 
   // The server-active card can be quiet without being recategorized as stale.
   assert.deepEqual(
     byClass(cards[0], "session-age-prefix").map((node) => node.textContent),
-    ["claim held ", "idle "],
+    ["claim held ", "last tool unavailable"],
   );
   assert.deepEqual(
     byClass(cards[1], "session-age-prefix").map((node) => node.textContent),
-    ["worktree attached ", "idle "],
+    ["worktree attached ", "last tool unavailable"],
   );
 
   const reclaim = byClass(root, "item-button").find(
@@ -268,7 +268,7 @@ test("Sessions matches the prototype's runtime, assignment, level, and operator 
   assert.equal(reclaim.disabled, true);
   assert.equal(
     byClass(root, "sessions-action-status")[0].textContent,
-    "1 stale session reclaimed",
+    "1 reclaimable session reclaimed",
   );
   state.value = "";
   state.dispatchEvent(new Event("change"));

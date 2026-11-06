@@ -263,6 +263,7 @@ export function appendSessionRelay(documentNode, body, row) {
 export function sessionMessageDeliveryNote(row) {
   const routing = row.messageability || {};
   if (row.session_state?.presence === "present"
+      && row.session_state.activity !== "silent"
       && row.session_state.intent?.state === "none") return "";
   if (routing.wake_authority === "operator") {
     return "Queued — delivered when you wake this session.";
