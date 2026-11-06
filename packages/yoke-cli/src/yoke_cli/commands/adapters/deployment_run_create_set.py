@@ -5,7 +5,7 @@ from copy import copy
 
 from yoke_cli.commands._helpers import build_actor, ensure_handlers_loaded, emit_response
 from yoke_cli.transport.dispatcher import call_dispatcher
-from yoke_cli.transport.response_limits import DEPLOYMENT_RUN_CREATE_TIMEOUT_SECONDS
+from yoke_contracts.response_limits import DEPLOYMENT_RUN_CREATE_TIMEOUT_SECONDS
 from yoke_contracts.api.function_call import TargetRef, FunctionError
 from yoke_cli.commands.adapters.deployment_run_create_retry import build_timeout_repeat
 from yoke_cli.commands.adapters.deployment_execution_authority import creation_connection_error
