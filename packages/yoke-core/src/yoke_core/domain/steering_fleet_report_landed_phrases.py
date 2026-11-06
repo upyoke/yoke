@@ -42,7 +42,11 @@ from yoke_core.domain.steering_fleet_report_landed_open import LandedItem
 
 def _holder_is_quiet(entry: LandedItem, idle_after_seconds: int | None) -> bool:
     """True when both holder silence and landing age reach the idle threshold."""
-    if entry.awaiting_release or not entry.holder_session_id or idle_after_seconds is None:
+    if (
+        entry.awaiting_release
+        or not entry.holder_session_id
+        or idle_after_seconds is None
+    ):
         return False
     threshold = int(idle_after_seconds)
     return entry.holder_idle_seconds >= threshold and entry.landed_seconds >= threshold
@@ -105,7 +109,7 @@ def landed_recovery(entry: LandedItem, *, idle_after_seconds: int | None = None)
         if entry.holder_resumable:
             return f"message the holder `yoke say --item {entry.public_ref} --stdin`"
         return f"finish close-out with `{command}` once the claim is free"
-    if entry.status == "release" and not entry.completion_flow_available:
+    if entry.at_release and not entry.completion_flow_available:
         return (
             "no active completion flow; repair the item's deployment flow or "
             "project workflow delivery default, then compose its release"

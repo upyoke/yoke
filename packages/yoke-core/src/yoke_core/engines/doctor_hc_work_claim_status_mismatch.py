@@ -11,6 +11,7 @@ from yoke_core.domain import db_backend
 from yoke_core.domain.project_identity import render_item_ref
 from yoke_core.domain.runtime_settings import get_int
 from yoke_core.domain.work_claim_targets import scope_int_sql
+from yoke_core.domain.workflow_status_queries import release_items_clause
 from yoke_core.engines.doctor_report import DoctorArgs, RecordCollector
 
 
@@ -21,14 +22,17 @@ _DEFAULT_STALE_TTL_MINUTES = 20
 _LIST_PREVIEW = 20
 
 
-def _scan_sql(conn: Any) -> str:
+def _scan_sql(conn: Any) -> tuple[str, list]:
     item_id = scope_int_sql(conn, "wc.scope", "item_id")
-    return f"""
+    release_sql, params = release_items_clause(conn)
+    return (
+        f"""
     SELECT
         wc.id              AS claim_id,
         {item_id}          AS item_id,
         wc.session_id      AS session_id,
         i.status           AS item_status,
+        {release_sql}      AS at_release,
         hs.ended_at        AS session_ended_at,
         hs.last_heartbeat  AS session_last_heartbeat
     FROM work_claims wc
@@ -37,8 +41,10 @@ def _scan_sql(conn: Any) -> str:
     WHERE wc.released_at IS NULL
       AND wc.target_kind = 'item'
       AND {item_id} IS NOT NULL
-      AND i.status IN ('release', 'idea')
-    """
+      AND ({release_sql} OR i.status = 'idea')
+    """,
+        params + params,
+    )
 
 
 def _heartbeat_age_minutes(
@@ -64,7 +70,7 @@ def hc_work_claim_status_mismatch(
     now = utc_now()
 
     try:
-        rows = conn.execute(_scan_sql(conn)).fetchall()
+        rows = conn.execute(*_scan_sql(conn)).fetchall()
     except db_backend.database_error_types(conn) as exc:
         rec.record(
             _HC_NAME, _HC_DESC, "PASS", f"required columns missing — skipping: {exc}"
@@ -92,7 +98,7 @@ def hc_work_claim_status_mismatch(
         public_ref = render_item_ref(conn, int(row["item_id"]))
         recovery = (
             f"/yoke usher {public_ref}"
-            if status == "release"
+            if row["at_release"]
             else "inspect/release the stale draft claim"
         )
         findings.append(

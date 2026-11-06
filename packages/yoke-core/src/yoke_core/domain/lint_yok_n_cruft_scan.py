@@ -20,7 +20,10 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Iterable, Optional, Sequence
 
-from yoke_core.domain.lint_yok_n_cruft_status import load_work_item_statuses
+from yoke_core.domain.lint_yok_n_cruft_status import (
+    WorkItemStatus,
+    load_work_item_statuses,
+)
 
 # ---------------------------------------------------------------------------
 # Scan scope
@@ -215,7 +218,7 @@ def _python_exempt_line_ranges(text: str) -> set[int]:
     return exempt
 
 
-def _line_is_allowed_context(line: str, status: str, work_item: str) -> bool:
+def _line_is_allowed_context(line: str, terminal: bool, work_item: str) -> bool:
     """Decide whether *line* is an allowed context for a YOK-N ref.
 
     Allowed regardless of work-item status: ``def test_sun_N_*`` function names
@@ -230,8 +233,8 @@ def _line_is_allowed_context(line: str, status: str, work_item: str) -> bool:
     if _REGRESSION_GUARD_LINE.search(line):
         return True
     if _TODO_LINE.search(line):
-        return status != "done"
-    return status != "done"
+        return not terminal
+    return not terminal
 
 
 def scan(
@@ -275,13 +278,14 @@ def scan(
     result.work_item_lookups = len(statuses)
 
     for path, line_no, work_item, line in per_file_matches:
-        status = statuses.get(work_item, "unknown")
+        state = statuses.get(work_item, WorkItemStatus("unknown", False))
+        status = state.status
         if status == "unknown":
             result.unknown_work_items.add(work_item)
             continue
-        if status != "done":
+        if not state.terminal:
             continue
-        if _line_is_allowed_context(line, status, work_item):
+        if _line_is_allowed_context(line, state.terminal, work_item):
             continue
         result.hits.append(
             CruftHit(

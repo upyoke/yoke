@@ -26,6 +26,7 @@ class UpdateEffectReceipt:
     messages: tuple[str, ...]
     path_claim_ids_to_propagate: tuple[int, ...] = ()
     terminal_holder_session_ids: tuple[str, ...] = ()
+    successful_terminal: bool = False
 
 
 def run_transactional_update_effects(
@@ -137,7 +138,7 @@ def run_transactional_update_effects(
             )
         if terminal_receipt.migration_territories_released:
             messages.append("Released the item migration territory.")
-        if value == "done" and runtime.workflow_id == "blitz":
+        if value in runtime.terminal_stage_ids and runtime.workflow_id == "blitz":
             from yoke_core.domain.blitz_document_archive import (
                 archive_completed_blitz_document,
             )
@@ -171,6 +172,7 @@ def run_transactional_update_effects(
             "blocked→false, active worktree lanes→released"
         )
     return UpdateEffectReceipt(
+        successful_terminal=runtime is not None and value in runtime.terminal_stage_ids,
         status_event=status_event,
         session_id=session_id,
         messages=tuple(messages),
@@ -191,7 +193,7 @@ def run_post_commit_update_effects(
     if receipt.status_event is None:
         return
     item_id, old_status, new_status, source = receipt.status_event
-    if new_status == "done":
+    if receipt.successful_terminal:
         from yoke_core.domain.settling_run_replay import replay_settling_runs_for_item
 
         try:
@@ -248,7 +250,7 @@ def run_post_commit_update_effects(
                 f"claim {claim_id}: {exc}",
                 file=out,
             )
-    if new_status == "done":
+    if receipt.successful_terminal:
         from yoke_core.domain import dependency_satisfied_notice as notice
 
         _, advisory = notice.notify_after_commit(

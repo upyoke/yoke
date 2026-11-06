@@ -1,6 +1,8 @@
 """Project-scoped control-plane facts for the machine-local merge audit."""
 
 from pydantic import BaseModel, Field
+from yoke_core.domain.workflow_status_queries import completed_items_sql
+from yoke_core.domain.workflow_runtime import load_item_workflow_runtime
 
 from yoke_contracts.api.function_call import FunctionCallRequest, HandlerOutcome
 
@@ -64,6 +66,10 @@ def handle_snapshot(request: FunctionCallRequest) -> HandlerOutcome:
                     "public_ref": render_item_ref(conn, row["id"]),
                     "title": row["title"],
                     "status": row["status"],
+                    "completed": row["status"]
+                    in load_item_workflow_runtime(
+                        conn, int(row["id"])
+                    ).terminal_stage_ids,
                     "total": len(tasks),
                     "done": sum(t["status"] in terminal for t in tasks),
                     "simulation": sim["result"] if sim else "MISSING",
@@ -78,7 +84,7 @@ def handle_snapshot(request: FunctionCallRequest) -> HandlerOutcome:
             rows = query_rows(
                 conn,
                 "SELECT iw.branch, i.id, i.title, i.status FROM item_worktrees iw "
-                "JOIN items i ON i.id=iw.item_id WHERE i.project_id=%s AND i.status='done' "
+                f"JOIN items i ON i.id=iw.item_id WHERE i.project_id=%s AND {completed_items_sql(conn)} "
                 "AND NOT EXISTS (SELECT 1 FROM epic_tasks t WHERE t.epic_id=i.id) "
                 "ORDER BY i.id, iw.id",
                 (project_id,),

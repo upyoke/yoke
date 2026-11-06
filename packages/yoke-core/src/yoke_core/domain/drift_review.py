@@ -190,15 +190,22 @@ def _get_delivered_items(
     # statement no matter how many legacy rows it spans.
     try:
         p = _p(conn)
+        from yoke_core.domain.workflow_status_queries import landed_stages_clause
+
+        landed_sql, landed_params = landed_stages_clause(conn, status="t.to_status")
         rows = conn.execute(
             f"SELECT DISTINCT t.item_id, t.created_at, i.title, i.priority"
             f" FROM item_status_transitions t"
             f" LEFT JOIN items i ON i.id = t.item_id"
             f" WHERE t.task_num IS NULL"
-            f"   AND t.to_status IN ('release', 'done')"
+            f"   AND {landed_sql}"
             f"   AND t.project_id = {p}"
             f"   AND t.created_at > {p}",
-            (project_id, instant_parameter(conn, parse_instant(checkpoint_start))),
+            (
+                *landed_params,
+                project_id,
+                instant_parameter(conn, parse_instant(checkpoint_start)),
+            ),
         ).fetchall()
         for r in rows:
             item_id = r[0]

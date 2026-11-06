@@ -9,6 +9,8 @@ HC-dependency-drift, HC-cancelled-blocker-dependencies
 
 from __future__ import annotations
 
+from yoke_core.domain.workflow_status_queries import terminal_items_sql
+
 from typing import List
 
 from yoke_core.domain import db_backend, machine_config
@@ -29,12 +31,12 @@ def _p(conn) -> str:
 
 def hc_null_project_items(conn, args: DoctorArgs, rec: RecordCollector) -> None:
     """HC-null-project-items: NULL project items."""
-    
+
     rows = query_rows(
         conn,
-        "SELECT id, title FROM items "
+        "SELECT id, title FROM items i "
         "WHERE project_id IS NULL "
-        "AND status NOT IN ('done', 'cancelled') ORDER BY id",
+        f"AND NOT {terminal_items_sql(conn)} ORDER BY id",
     )
     issues = [
         f"- {render_item_ref(conn, r['id'])}: '{r['title']}' has NULL project_id"
@@ -42,22 +44,29 @@ def hc_null_project_items(conn, args: DoctorArgs, rec: RecordCollector) -> None:
     ]
 
     if issues:
-        rec.record("HC-null-project-items", "NULL project items", "FAIL", "\n".join(issues))
+        rec.record(
+            "HC-null-project-items", "NULL project items", "FAIL", "\n".join(issues)
+        )
     else:
         rec.record("HC-null-project-items", "NULL project items", "PASS", "")
-
 
 
 def hc_projects_config_alignment(conn, args: DoctorArgs, rec: RecordCollector) -> None:
     """HC-projects-config-alignment: Projects config alignment."""
     if not _base._table_exists(conn, "projects"):
-        rec.record("HC-projects-config-alignment", "Projects config alignment", "PASS",
-                    "projects table does not exist yet — skipping")
+        rec.record(
+            "HC-projects-config-alignment",
+            "Projects config alignment",
+            "PASS",
+            "projects table does not exist yet — skipping",
+        )
         return
 
     repo_root = _base._resolve_repo_root()
     if not repo_root:
-        rec.record("HC-projects-config-alignment", "Projects config alignment", "PASS", "")
+        rec.record(
+            "HC-projects-config-alignment", "Projects config alignment", "PASS", ""
+        )
         return
 
     issues: List[str] = []
@@ -65,7 +74,8 @@ def hc_projects_config_alignment(conn, args: DoctorArgs, rec: RecordCollector) -
     if project_id is not None:
         p = _p(conn)
         exists = query_scalar(
-            conn, f"SELECT count(*) FROM projects WHERE id={p}",
+            conn,
+            f"SELECT count(*) FROM projects WHERE id={p}",
             (project_id,),
         )
         if not exists or int(exists) == 0:
@@ -74,18 +84,27 @@ def hc_projects_config_alignment(conn, args: DoctorArgs, rec: RecordCollector) -
             )
 
     if issues:
-        rec.record("HC-projects-config-alignment", "Projects config alignment", "WARN",
-                    "\n".join(issues))
+        rec.record(
+            "HC-projects-config-alignment",
+            "Projects config alignment",
+            "WARN",
+            "\n".join(issues),
+        )
     else:
-        rec.record("HC-projects-config-alignment", "Projects config alignment", "PASS", "")
-
+        rec.record(
+            "HC-projects-config-alignment", "Projects config alignment", "PASS", ""
+        )
 
 
 def hc_dependency_drift(conn, args: DoctorArgs, rec: RecordCollector) -> None:
     """HC-dependency-drift: Dependency drift detection (deprecated depends_on column)."""
     if not _base._column_exists(conn, "items", "depends_on"):
-        rec.record("HC-dependency-drift", "Dependency drift detection", "PASS",
-                    "depends_on column already removed")
+        rec.record(
+            "HC-dependency-drift",
+            "Dependency drift detection",
+            "PASS",
+            "depends_on column already removed",
+        )
         return
 
     count = query_scalar(
@@ -93,11 +112,14 @@ def hc_dependency_drift(conn, args: DoctorArgs, rec: RecordCollector) -> None:
         "SELECT COUNT(*) FROM items WHERE depends_on IS NOT NULL AND depends_on <> ''",
     )
     if count and int(count) > 0:
-        rec.record("HC-dependency-drift", "Dependency drift detection", "WARN",
-                    f"{count} item(s) have non-empty depends_on values (column is deprecated)")
+        rec.record(
+            "HC-dependency-drift",
+            "Dependency drift detection",
+            "WARN",
+            f"{count} item(s) have non-empty depends_on values (column is deprecated)",
+        )
     else:
         rec.record("HC-dependency-drift", "Dependency drift detection", "PASS", "")
-
 
 
 def hc_cancelled_blocker_dependencies(

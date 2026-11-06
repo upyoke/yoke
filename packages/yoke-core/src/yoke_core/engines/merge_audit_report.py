@@ -110,7 +110,7 @@ def generate_report(
         warnings: List[str] = []
 
         # All tasks done but item not done
-        if done_tasks == total_tasks and total_tasks > 0 and item_status != "done":
+        if done_tasks == total_tasks and total_tasks > 0 and not epic["completed"]:
             warnings.append(
                 f"- {epic_ref}: All tasks completed but item is `{item_status}`. "
                 f"Run `/yoke usher {epic_ref}` to merge and complete."

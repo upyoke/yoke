@@ -50,6 +50,7 @@ from yoke_core.domain.item_ref_render import render_item_refs
 from yoke_core.domain.runs import RunStatus
 from yoke_core.domain.scheduler_staffable import owes_relanding
 from yoke_core.domain.session_item_stage_rework import items_returned_after_landing
+from yoke_core.domain.workflow_item_binding_validation import read_pinned_items
 from yoke_core.domain.steering_fleet_report_detectors import age_seconds
 from yoke_core.domain.steering_fleet_report_holders import ClaimHolder
 from yoke_core.domain.steering_fleet_report_landed_gate import (
@@ -110,11 +111,12 @@ class LandedItem:
     returned_after_landing: bool = False
     #: What the item's own done gate still waits on, from its gate facts.
     delivery_gate: LandedGate = LandedGate(UNREADABLE)
+    at_release: bool = False
 
     @property
     def relanding_owed(self) -> bool:
         """Rework sent the landed item back before release; it must land again."""
-        return owes_relanding(self.status, self.returned_after_landing)
+        return owes_relanding(self.at_release, self.returned_after_landing)
 
     @property
     def awaiting_release(self) -> bool:
@@ -125,7 +127,7 @@ class LandedItem:
         whether anybody owes a command. Tool silence is expected here.
         """
         return bool(
-            self.status == "release"
+            self.at_release
             and self.delivery_gate.state == AWAITING_RELEASE
             and self.completion_flow_available
         )
@@ -189,6 +191,7 @@ def landed_without_closeout(
     returned = items_returned_after_landing(
         conn, {int(record["id"]): record for record in records}
     )
+    pinned = read_pinned_items(conn, (int(record["id"]) for record in records))
     landed = []
     for record in records:
         stamp = landed_at(record)
@@ -206,6 +209,9 @@ def landed_without_closeout(
         landed.append(
             LandedItem(
                 item_id=item_id,
+                at_release=pinned[item_id]
+                .require_runtime(conn, item_id)
+                .stage_implies_merge(str(record.get("status") or "")),
                 public_ref=refs.get(item_id, str(item_id)),
                 status=str(record.get("status") or ""),
                 landed_at=stamp,

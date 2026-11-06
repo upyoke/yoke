@@ -9,11 +9,20 @@ through the registered items-list read.
 from __future__ import annotations
 
 from collections.abc import Iterable
+from dataclasses import dataclass
+from yoke_core.domain.workflow_status_queries import terminal_items_sql
+from yoke_contracts.lifecycle_status import workflow_status_metadata_refusal
 from typing import Any
 
 from yoke_contracts.public_ref import format_item_ref, parse_public_item_ref
 from yoke_core.domain import control_plane_transport, db_backend
 from yoke_core.domain.db_helpers import connect
+
+
+@dataclass(frozen=True)
+class WorkItemStatus:
+    status: str
+    terminal: bool
 
 
 _ITEMS_LIST_FUNCTION_ID = "items.list.run"
@@ -25,7 +34,7 @@ def load_work_item_statuses(
     work_items: Iterable[str],
     *,
     db_path: str | None = None,
-) -> dict[str, str]:
+) -> dict[str, WorkItemStatus]:
     """Return one status for every valid Yoke public item reference.
 
     Missing rows remain ``unknown``.  A local schema/query mismatch keeps the
@@ -33,7 +42,7 @@ def load_work_item_statuses(
     Doctor executor records an actionable failure instead of a false pass.
     """
     refs = sorted({_normalise_ref(ref) for ref in work_items} - {""})
-    statuses = {ref: "unknown" for ref in refs}
+    statuses = {ref: WorkItemStatus("unknown", False) for ref in refs}
     if not refs:
         return statuses
 
@@ -44,8 +53,6 @@ def load_work_item_statuses(
         return _load_over_relay(statuses)
     try:
         return _load_over_connection(conn, statuses)
-    except Exception:
-        return statuses
     finally:
         try:
             conn.close()
@@ -62,8 +69,8 @@ def _normalise_ref(value: object) -> str:
 
 def _load_over_connection(
     conn: Any,
-    statuses: dict[str, str],
-) -> dict[str, str]:
+    statuses: dict[str, WorkItemStatus],
+) -> dict[str, WorkItemStatus]:
     sequences = [
         sequence
         for ref in statuses
@@ -73,7 +80,7 @@ def _load_over_connection(
     marker = "%s" if db_backend.connection_is_postgres(conn) else "?"
     placeholders = ",".join(marker for _ in sequences)
     rows = conn.execute(
-        f"""SELECT i.project_sequence, i.status
+        f"""SELECT i.project_sequence, i.status, {terminal_items_sql(conn)} AS terminal
             FROM items i
             JOIN projects p ON p.id = i.project_id
             WHERE UPPER(p.public_item_prefix) = {marker}
@@ -85,11 +92,13 @@ def _load_over_connection(
         status = _row_value(row, "status", 1)
         ref = format_item_ref(_PROJECT_SLUG, _PUBLIC_ITEM_PREFIX, sequence)
         if ref in statuses:
-            statuses[ref] = str(status or "unknown")
+            statuses[ref] = WorkItemStatus(
+                str(status or "unknown"), bool(_row_value(row, "terminal", 2))
+            )
     return statuses
 
 
-def _load_over_relay(statuses: dict[str, str]) -> dict[str, str]:
+def _load_over_relay(statuses: dict[str, WorkItemStatus]) -> dict[str, WorkItemStatus]:
     result = control_plane_transport.relay(
         _ITEMS_LIST_FUNCTION_ID,
         {
@@ -102,7 +111,11 @@ def _load_over_relay(statuses: dict[str, str]) -> dict[str, str]:
             continue
         ref = _normalise_ref(row.get("id"))
         if ref in statuses:
-            statuses[ref] = str(row.get("status") or "unknown")
+            if "terminal" not in row:
+                raise ValueError(workflow_status_metadata_refusal())
+            statuses[ref] = WorkItemStatus(
+                str(row.get("status") or "unknown"), bool(row["terminal"])
+            )
     return statuses
 
 

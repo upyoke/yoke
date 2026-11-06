@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from yoke_core.domain.workflow_status_queries import completed_items_sql
+
 import json
 from hashlib import sha256
 from typing import Any
@@ -140,7 +142,9 @@ def profile_snapshot(facts: Any) -> dict[str, Any]:
     """
     if not isinstance(facts, dict):
         return {}
-    return {row_id: facts[row_id] for row_id in PROFILE_INPUT_ROW_IDS if row_id in facts}
+    return {
+        row_id: facts[row_id] for row_id in PROFILE_INPUT_ROW_IDS if row_id in facts
+    }
 
 
 def profile_changed(snapshot: Any, facts: dict[str, dict[str, Any]]) -> bool:
@@ -166,7 +170,7 @@ def first_item_done_fact(
     row = conn.execute(
         "SELECT pr.public_item_prefix, i.project_sequence, i.title "
         "FROM items i JOIN projects pr ON pr.id = i.project_id "
-        f"WHERE i.project_id = {p} AND i.status = 'done' "
+        f"WHERE i.project_id = {p} AND {completed_items_sql(conn)} "
         "ORDER BY i.id LIMIT 1",
         (project_id,),
     ).fetchone()

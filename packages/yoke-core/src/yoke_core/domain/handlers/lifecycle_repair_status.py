@@ -148,13 +148,13 @@ def handle_repair_status(request: FunctionCallRequest) -> HandlerOutcome:
     with status_bypass_override(
         claim_bypass=repair_source,
         status_source=repair_source,
-        task_done_verified=payload.target_status == "done",
+        task_done_verified=payload.target_status in workflow.terminal_stage_ids,
     ):
         result: Dict[str, Any] = backlog.execute_update(
             item_id=item_id,
             field="status",
             value=payload.target_status,
-            done_nonce_verified=payload.target_status == "done",
+            done_nonce_verified=payload.target_status in workflow.terminal_stage_ids,
             qa_bypass=False,
             out=captured,
             expected_status=current,

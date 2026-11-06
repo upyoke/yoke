@@ -10,6 +10,8 @@ HC-epic-task-scope-state
 
 from __future__ import annotations
 
+from yoke_core.domain.workflow_status_queries import terminal_items_sql
+
 from typing import List
 
 from yoke_core.domain.db_helpers import query_rows
@@ -119,7 +121,7 @@ def hc_epic_task_worktree_backfill(
         "JOIN items i ON CAST(i.id AS TEXT) = CAST(et.epic_id AS TEXT) "
         "LEFT JOIN item_worktrees iw ON iw.id = et.item_worktree_id "
         "WHERE (et.item_worktree_id IS NULL OR iw.id IS NULL) "
-        "AND i.status <> 'done' "
+        f"AND NOT {terminal_items_sql(conn)} "
         "ORDER BY et.epic_id, et.task_num",
     )
     for row in rows:

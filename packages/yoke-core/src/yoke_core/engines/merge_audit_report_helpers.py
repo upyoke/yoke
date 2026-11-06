@@ -32,7 +32,12 @@ def load_snapshot(epic_filter: str | None, *, project: str | None = None) -> dic
             f"{error.message if error else 'snapshot refused'}. "
             f"{error.recovery_hint if error and error.recovery_hint else 'Pass --project P; if the function is not served, ask the control-plane operator to serve the carrying release, then retry yoke merge audit.'}"
         )
-    return response.result or {}
+    snapshot = response.result or {}
+    if any("completed" not in epic for epic in snapshot.get("epics", [])):
+        from yoke_contracts.lifecycle_status import workflow_status_metadata_refusal
+
+        raise ValueError(workflow_status_metadata_refusal())
+    return snapshot
 
 
 def _parent():

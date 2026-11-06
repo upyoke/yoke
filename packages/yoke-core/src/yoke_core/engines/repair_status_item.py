@@ -33,7 +33,9 @@ def _validate_item_target_status(
     )
 
 
-def repair_item_status(public_ref: str, new_status: str, *, dry_run: bool, reason: str) -> int:
+def repair_item_status(
+    public_ref: str, new_status: str, *, dry_run: bool, reason: str
+) -> int:
     """Repair a backlog item's status through the canonical owner."""
     # Lazy import: the front door owns ``_connect`` and also imports this module
     # at top level. Importing at function-call time avoids the bidirectional
@@ -107,7 +109,7 @@ def repair_item_status(public_ref: str, new_status: str, *, dry_run: bool, reaso
             item_id=item_id,
             field="status",
             value=new_status,
-            done_nonce_verified=(new_status == "done"),
+            done_nonce_verified=(new_status in workflow.terminal_stage_ids),
             qa_bypass=os.environ.get("YOKE_QA_GATE_BYPASS", "0") == "1",
             out=sys.stdout,
         )

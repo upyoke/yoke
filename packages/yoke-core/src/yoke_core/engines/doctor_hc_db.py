@@ -22,6 +22,11 @@ functions owned by ``doctor_hc_db_qa`` and ``doctor_hc_db_flows`` so the
 
 from __future__ import annotations
 
+from yoke_core.domain.workflow_status_queries import (
+    completed_items_sql,
+    release_items_clause,
+)
+
 from yoke_contracts.timestamps import format_instant
 
 from typing import List
@@ -43,13 +48,15 @@ from yoke_core.engines.doctor_hc_db_qa import (
     hc_smoke_failure_stale,
     hc_validation_no_qa_reqs,
 )
+from yoke_core.engines.doctor_hc_flow_definitions import (
+    hc_flow_stage_json,
+    hc_invalid_item_flows,
+)
 from yoke_core.engines.doctor_hc_db_flows import (
     hc_deploy_stage_integrity,
     hc_flow_stage_environment_input,
-    hc_flow_stage_json,
     hc_flow_workflow_exists,
     hc_incomplete_deploy_stage,
-    hc_invalid_item_flows,
     hc_orphaned_ephemeral,
     hc_preview_occupancy_stale,
     hc_zombie_ephemeral_envs,
@@ -197,16 +204,18 @@ def hc_run_item_status_consistency(
 
     issues: List[str] = []
 
-    # Check 1: Items at release not in any executing run
+    release_sql, release_params = release_items_clause(conn)
+    # Check 1: Delivery-ready items not in any executing run
     rows = query_rows(
         conn,
         "SELECT i.id FROM items i "
-        "WHERE i.status = 'release' "
+        f"WHERE {release_sql} "
         "AND NOT EXISTS ("
         "  SELECT 1 FROM deployment_run_items dri "
         "  JOIN deployment_runs dr ON dr.id = dri.run_id "
         "  WHERE dri.item_id = i.id AND dr.status = 'executing'"
         ") ORDER BY i.id",
+        release_params,
     )
     for row in rows:
         issues.append(
@@ -233,7 +242,7 @@ def hc_run_item_status_consistency(
         "SELECT i.id, dr.id as run_id, dr.status as run_status FROM items i "
         "JOIN deployment_run_items dri ON dri.item_id = i.id "
         "JOIN deployment_runs dr ON dr.id = dri.run_id "
-        "WHERE i.status = 'done' AND dr.status <> 'succeeded' "
+        f"WHERE {completed_items_sql(conn)} AND dr.status <> 'succeeded' "
         "AND NOT EXISTS ("
         "  SELECT 1 FROM deployment_run_items dri2 "
         "  JOIN deployment_runs dr2 ON dr2.id = dri2.run_id "

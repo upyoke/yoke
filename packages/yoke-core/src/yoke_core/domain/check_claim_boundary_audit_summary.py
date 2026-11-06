@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from yoke_core.domain.workflow_status_queries import completed_items_sql
+
 import json
 import re
 
@@ -297,7 +299,7 @@ def audit_summary(conn, *, preview_limit: int = 10) -> tuple[int, int, list]:
     if _table_exists(conn, "items"):
         historical = (
             "f.severity='WARN' AND f.holder IS NULL AND EXISTS "
-            "(SELECT 1 FROM items i WHERE i.id=CASE WHEN abs(f.item_id) < 9223372036854775808 THEN f.item_id::bigint END AND lower(i.status)='done')"
+            f"(SELECT 1 FROM items i WHERE i.id=CASE WHEN abs(f.item_id) < 9223372036854775808 THEN f.item_id::bigint END AND {completed_items_sql(conn)})"
         )
     family_pattern = (
         "(" + "|".join(re.escape(family) for family in _AUDITED_FUNCTION_FAMILIES) + ")"

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import ast
+import re
 from pathlib import Path
 from copy import deepcopy
 
@@ -73,6 +74,26 @@ def test_production_code_has_no_copied_item_terminal_sets():
             ):
                 continue
             for node in ast.walk(ast.parse(path.read_text())):
+                if isinstance(node, ast.Compare):
+                    operands = [node.left, *node.comparators]
+                    if any(
+                        isinstance(value, ast.Constant)
+                        and value.value in ("done", "release")
+                        for value in operands
+                    ) and any(
+                        "status" in ast.unparse(value).lower() for value in operands
+                    ):
+                        violations.append(f"{path.relative_to(root)}:{node.lineno}")
+                if (
+                    isinstance(node, ast.Constant)
+                    and isinstance(node.value, str)
+                    and re.search(
+                        r"\bstatus\s*(?:=|<>|(?:NOT )?IN)\s*(?:\([^)]*)?'(?:done|release)'",
+                        node.value,
+                        re.IGNORECASE,
+                    )
+                ):
+                    violations.append(f"{path.relative_to(root)}:{node.lineno}")
                 if not isinstance(node, (ast.Set, ast.Tuple, ast.List)):
                     continue
                 values = {
