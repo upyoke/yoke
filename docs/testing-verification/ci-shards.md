@@ -31,6 +31,16 @@ while historical blobs are fetched on demand. History is required by
 setuptools-scm package versions, git-based tests and timing-profile lineage;
 the container version job also retains full history.
 
+After interpreter and uv setup, `ci_runner_prepare` overlaps the independent
+host-prerequisite install, locked dependency sync and Docker Postgres startup.
+It imports with `python3 -S` from the checkout before dependencies exist.
+Every task has bounded commands and records its elapsed time; one barrier
+joins all tasks before any later setup or pytest. A failure refuses as
+`ci_runner_setup_failed`, names the task and recovery, and starts no tests.
+The socket cleanup path is published before Docker starts, so the caller's
+always-cleanup still removes resources on failure. Database readiness and
+CREATEDB checks remain required after the barrier.
+
 The full matrix uses sixteen shards per Python endpoint, with four xdist
 workers on the measured hosted runners. `ci_shards.SHARD_COUNT` owns the
 fan-out and selection cap; `.yoke/merge-queue.json` declares every required

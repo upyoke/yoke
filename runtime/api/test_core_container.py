@@ -300,7 +300,7 @@ def test_ci_builds_container_without_registry_push() -> None:
     assert "docker push" not in workflow
 
 
-def test_ci_workflow_preserves_pipe_failures() -> None:
+def test_ci_workflow_checks_port_resolution_without_shell_pipelines() -> None:
     workflow = (REPO_ROOT / ".github" / "workflows" / "yoke-ci.yml").read_text(
         encoding="utf-8"
     )
@@ -308,8 +308,10 @@ def test_ci_workflow_preserves_pipe_failures() -> None:
     action = TEST_RUNNER_ACTION.read_text(encoding="utf-8")
 
     assert "./.github/actions/yoke-test-runner" in workflow
-    assert "set -o pipefail\n        host_port=" in action
-    assert "Postgres host port did not resolve" in action
+    assert "python3 -S -m yoke_core.tools.ci_runner_prepare" in action
+    assert "host_port=" not in action
+    # The coordinator checks subprocess exits and refuses an empty/invalid
+    # port; test_ci_runner_prepare exercises those failure paths directly.
     # The shard's own exit-code fidelity moved to yoke_core.tools.ci_shards,
     # which returns pytest's code directly instead of through a pipeline.
     assert "2>&1 | tee" not in workflow

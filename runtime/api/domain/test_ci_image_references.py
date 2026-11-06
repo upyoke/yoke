@@ -112,11 +112,10 @@ def test_each_ci_image_is_declared_once_per_file() -> None:
 
 def test_ci_steps_retry_mirror_pulls_before_using_the_image() -> None:
     """Retry transient GHCR transport failures before consuming the image."""
-    step = _step_body(_TEST_RUNNER_ACTION, "Start Postgres")
-    assert 'docker pull "$POSTGRES_IMAGE"' in step
-    assert "for attempt in 1 2 3 4 5" in step
-    assert "sleep $((5 + RANDOM % 26))" in step
-    assert step.index('docker pull "$POSTGRES_IMAGE"') < step.index("docker run")
+    step = _step_body(_TEST_RUNNER_ACTION, "Prepare runner prerequisites")
+    # The coordinator's pull-before-run and bounded retry behavior is exercised
+    # with successful pulls and transport failures in test_ci_runner_prepare.
+    assert "python3 -S -m yoke_core.tools.ci_runner_prepare" in step
     for name in ("yoke-ci.yml", "yoke-tests-selection.yml"):
         # The shared runner action pulls the image each caller declares once.
         document = yaml.safe_load((_WORKFLOWS / name).read_text(encoding="utf-8"))
