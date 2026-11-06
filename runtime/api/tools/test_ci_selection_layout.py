@@ -151,4 +151,3 @@ def test_full_ci_checks_and_refresh_run_beside_shared_collection() -> None:
     artifacts = [step["with"]["name"] for step in checks["steps"]
                  if step.get("uses", "").startswith("actions/upload-artifact")]
     assert artifacts.count("ci-test-durations") == 1
-
