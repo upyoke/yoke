@@ -2,7 +2,7 @@
 
 USAGE_BY_FUNCTION_ID = {
     "strategy.surface.list": (
-        "yoke strategy surface list --project P [--session-id S] [--json]"
+        "yoke strategy surface list --project P [--limit N] [--offset N] [--full] [--session-id S] [--json]"
     ),
     "strategy.surface.get": (
         "yoke strategy surface get SLUG --project P [--session-id S] [--json]"

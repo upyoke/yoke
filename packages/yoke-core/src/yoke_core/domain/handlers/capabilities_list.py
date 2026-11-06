@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Optional
 
-from pydantic import BaseModel
+from yoke_contracts.list_paging import ListPageRequest, ListPageResponse, page_result
 
 from yoke_contracts.api.function_call import (
     FunctionCallRequest,
@@ -19,11 +19,11 @@ from yoke_contracts.api.function_call import (
 )
 
 
-class CapabilitiesListRequest(BaseModel):
+class CapabilitiesListRequest(ListPageRequest):
     project: Optional[str] = None
 
 
-class CapabilitiesListResponse(BaseModel):
+class CapabilitiesListResponse(ListPageResponse):
     fields: List[str]
     rows: List[Dict[str, Any]]
 
@@ -65,13 +65,16 @@ def handle_capabilities_list(request: FunctionCallRequest) -> HandlerOutcome:
         rows = list_capabilities(project=project)
     except LookupError as exc:
         return _error(
-            "not_found", str(exc), jsonpath="$.payload.project",
+            "not_found",
+            str(exc),
+            jsonpath="$.payload.project",
         )
     return HandlerOutcome(
-        result_payload={
-            "fields": list(CAPABILITY_LIST_FIELDS),
-            "rows": rows,
-        },
+        result_payload=page_result(
+            {"fields": list(CAPABILITY_LIST_FIELDS), "rows": rows},
+            "rows",
+            payload,
+        ),
         primary_success=True,
     )
 

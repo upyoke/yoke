@@ -1,6 +1,7 @@
 {
  "id": "corpus",
  "title": "Strategy corpus",
+ "summary": "Strategy surface list pages the document corpus with --limit and --offset, preserves document facts and recent write activity, and prints the next-page command.",
  "status": "draft-copy",
  "surface_refs": ["project-hub", "project-orientation", "setup-agent", "skills-roles"],
  "commands": ["yoke strategy seed-defaults", "yoke strategy surface get", "yoke strategy surface list"],

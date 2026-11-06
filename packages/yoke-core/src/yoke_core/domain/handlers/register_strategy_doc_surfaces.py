@@ -29,6 +29,7 @@ from yoke_core.domain.handlers.strategy_doc_surface_models import (
     StrategySurfaceGetRequest,
     StrategySurfaceGetResponse,
     StrategySurfaceListResponse,
+    StrategySurfaceListRequest,
 )
 from yoke_core.domain.strategy_execution_events import (
     COORDINATION_APPENDED_EVENT,
@@ -73,7 +74,7 @@ REGISTRATIONS = [
     _registration(
         "strategy.surface.list",
         reads.handle_surface_list,
-        EmptyRequest,
+        StrategySurfaceListRequest,
         StrategySurfaceListResponse,
         target_kind="global",
         side_effects=[],

@@ -25,6 +25,9 @@ from yoke_cli.commands._helpers import (
     item_target,
     parse_or_usage_error,
 )
+from yoke_cli.commands.adapters.strategy_surface_list import (
+    strategy_surface_list as strategy_surface_list,
+)
 from yoke_cli.commands.adapters.strategy import strategy_target
 from yoke_cli.commands.adapters.strategy_surfaces_usage import USAGE_BY_FUNCTION_ID
 from yoke_contracts.api.function_call import TargetRef
@@ -56,16 +59,6 @@ def _global(
         payload=payload(parsed),
         session_id=parsed.session_id,
         json_mode=parsed.json_mode,
-    )
-
-
-def strategy_surface_list(args: List[str]) -> int:
-    return _global(
-        args,
-        tokens="strategy surface list",
-        configure=None,
-        function_id="strategy.surface.list",
-        payload=lambda _parsed: {},
     )
 
 
