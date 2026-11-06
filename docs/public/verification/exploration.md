@@ -39,6 +39,15 @@ Write territory and an observable outcome; split by machine so separate host
 queues run in parallel. Order a small cross-machine mission after the
 single-machine missions; declare its host set below.
 
+Ask only for actions a real user takes; browser actions must come from the
+[action reference](browser-scenarios.md#action-reference), with the full list in
+`yoke qa browser step --help`. Set up unusual states with fixtures, seeded
+identities or component tests; do not ask walkers to edit DOM text, override
+responses or measure element widths. Keyboard proof needs a declared Test
+Machine with the required input support. For phone checks, use a phone-sized
+viewport or the iOS Simulator on a macOS host; there is no phone Test Machine,
+and a viewport check does not prove real-phone touch behavior.
+
 ```json
 {
   "case_key": "new-user-installation",
