@@ -36,3 +36,24 @@ def test_live_human_credentials_refuse_before_identity_creation():
         with pytest.raises(ValueError, match="retired human credentials"):
             admit(conn)
         assert conn.execute("SELECT count(*) FROM actors").fetchone()[0] == before
+
+
+@pytest.mark.parametrize("kind", ["system", "disabled-human"])
+def test_restored_identity_must_be_an_active_person(kind):
+    from yoke_core.domain.actors import seed_system_actor
+    from yoke_core.domain.external_identities import link_external_identity
+
+    with _canonical_universe() as (conn, _dsn):
+        if kind == "system":
+            actor = seed_system_actor(conn, "import-test-service")
+            message = "human identity"
+        else:
+            actor = seed_human_actor(conn, "Disabled importer")
+            conn.execute("UPDATE actors SET status='disabled' WHERE id=%s", (actor,))
+            message = "actor_disabled"
+        link_external_identity(conn, actor_id=actor, issuer="https://accounts.google.com",
+                               subject="verified-importer", email="importer@example.test")
+        before = conn.execute("SELECT actor_id,org_id,role_id FROM actor_org_roles ORDER BY actor_id,org_id,role_id").fetchall()
+        with pytest.raises(ValueError, match=message):
+            admit(conn)
+        assert conn.execute("SELECT actor_id,org_id,role_id FROM actor_org_roles ORDER BY actor_id,org_id,role_id").fetchall() == before
