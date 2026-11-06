@@ -33,6 +33,11 @@ table:
 | `policies` | Ownership, worktree, task-child, QA, approval, and delivery behavior |
 | `entry_surfaces` | Create surfaces permitted to pin this workflow version |
 
+Board classification reads the pinned definition or its projected stage metadata.
+A stage name or workflow id alone is not completion evidence: without that
+metadata, `done`, `release`, and other definition-owned stages classify as
+`unknown`. Engine cancellation and failure states retain their shared meaning.
+
 `yoke workflows definition get` serves current selections and the gate
 catalog. `yoke workflows item get PREFIX-N` plus
 `yoke workflows version get WORKFLOW VERSION` serves the exact authority for

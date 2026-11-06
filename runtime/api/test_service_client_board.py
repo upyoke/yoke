@@ -17,15 +17,15 @@ from runtime.api.service_client_in_process_test_support import run_client as _ru
 class TestClassifyStatus:
     """Tests for classify-status board bucket mapping."""
 
-    def test_implementing_maps_to_implementing(self):
+    def test_unpinned_implementing_is_unknown(self):
         result = _run_subprocess(["classify-status", "implementing"])
         assert result.returncode == 0
-        assert result.stdout.strip() == "implementing"
+        assert result.stdout.strip() == "unknown"
 
-    def test_done_maps_to_done(self):
+    def test_unpinned_done_is_unknown(self):
         result = _run_client(["classify-status", "done"])
         assert result.returncode == 0
-        assert result.stdout.strip() == "done"
+        assert result.stdout.strip() == "unknown"
 
     def test_cancelled_maps_to_done(self):
         result = _run_client(["classify-status", "cancelled"])
@@ -37,28 +37,27 @@ class TestClassifyStatus:
         assert result.returncode == 0
         assert result.stdout.strip() == "frozen"
 
-    def test_implemented_with_active_run_maps_to_release(self):
+    def test_active_run_does_not_supply_missing_stage_metadata(self):
         result = _run_client(
             ["classify-status", "implemented", "--has-active-run", "1"]
         )
         assert result.returncode == 0
-        assert result.stdout.strip() == "release"
+        assert result.stdout.strip() == "unknown"
 
-
-    def test_reviewing_implementation_maps_to_reviewing(self):
+    def test_unpinned_reviewing_is_unknown(self):
         result = _run_client(["classify-status", "reviewing-implementation"])
         assert result.returncode == 0
-        assert result.stdout.strip() == "reviewing"
+        assert result.stdout.strip() == "unknown"
 
-    def test_idea_maps_to_idea(self):
+    def test_unpinned_idea_is_unknown(self):
         result = _run_client(["classify-status", "idea"])
         assert result.returncode == 0
-        assert result.stdout.strip() == "idea"
+        assert result.stdout.strip() == "unknown"
 
-    def test_planned_maps_to_refined(self):
+    def test_unpinned_planned_is_unknown(self):
         result = _run_client(["classify-status", "planned"])
         assert result.returncode == 0
-        assert result.stdout.strip() == "refined"
+        assert result.stdout.strip() == "unknown"
 
     def test_unknown_maps_to_unknown(self):
         result = _run_client(["classify-status", "bogus"])
@@ -78,7 +77,8 @@ class TestBacklogCli:
 
         calls: list[list[str]] = []
         monkeypatch.setattr(
-            yoke_cli, "main",
+            yoke_cli,
+            "main",
             lambda argv: calls.append(list(argv)) or 0,
         )
 

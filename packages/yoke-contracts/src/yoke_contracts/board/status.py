@@ -35,14 +35,6 @@ BOARD_BUCKET_ORDER = (
     "done",
 )
 
-# Compatibility mapping for context-free clients. Authoritative item reads pass
-# the pinned definition and use ``_definition_bucket`` below.
-_CONTEXT_FREE_STAGE_BUCKETS = dict(LEGACY_STATUS_BUCKETS)
-
-# Private compatibility exports retained for the legacy domain re-export.
-_STATUS_TO_BUCKET = _CONTEXT_FREE_STAGE_BUCKETS
-_WORKFLOW_AWARE_OVERRIDES: dict[tuple[str, str], str] = {}
-
 
 def _definition_bucket(
     status: str,
@@ -60,6 +52,9 @@ def _definition_bucket(
         position = stage_ids.index(status)
     except ValueError:
         return UNKNOWN_BUCKET
+    declared_bucket = stages[position].get("board_bucket")
+    if declared_bucket:
+        return str(declared_bucket)
     if position == 0:
         return "idea"
 
@@ -110,8 +105,8 @@ def status_to_board_bucket(
     3) derive the stage bucket from the pinned definition; 4) upgrade an
     implemented item with an active delivery run to release.
 
-    ``workflow_id`` remains a compatibility argument for client callers, but
-    identity never changes lifecycle semantics.
+    Workflow identity alone never supplies stage semantics; callers pass the
+    pinned definition or its projected stage bucket.
     """
     del workflow_id
     terminal_ids = (
@@ -137,7 +132,7 @@ def status_to_board_bucket(
     elif workflow_definition is not None:
         bucket = _definition_bucket(status, workflow_definition)
     else:
-        bucket = _CONTEXT_FREE_STAGE_BUCKETS.get(status, UNKNOWN_BUCKET)
+        bucket = UNKNOWN_BUCKET
     if bucket == "implemented" and has_active_run:
         return "release"
     return bucket
