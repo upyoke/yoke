@@ -33,6 +33,7 @@ _SESSIONS_AND_CLAIMS_DDL = f"""
             project_id INTEGER NOT NULL DEFAULT 1 REFERENCES projects(id),
             org_id INTEGER,
             mode TEXT DEFAULT 'wait',
+            turn_posture TEXT NOT NULL DEFAULT 'unknown',
             quiet_reason TEXT DEFAULT NULL,
             keepalive_until TIMESTAMPTZ DEFAULT NULL,
             keepalive_reason TEXT DEFAULT NULL,

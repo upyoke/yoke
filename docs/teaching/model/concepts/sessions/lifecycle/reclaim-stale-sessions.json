@@ -4,6 +4,6 @@
  "status": "observed",
  "page": "sessions",
  "position": 5,
- "summary": "Roster, counts, filters, preview and automatic cleanup use one harness-independent decision including holdings retention, in-flight and episode progress protections. Execution rechecks and explains newly protected skips; authorized termination remains separate.",
- "sources": ["docs/public/sessions/inbox.md", "packages/yoke-core/src/yoke_core/domain/session_automatic_reclaim.py", "packages/yoke-core/src/yoke_core/domain/session_staleness.py"]
+ "summary": "One reclaim classifier protects active work claims independently of silence, parking or process death; either terminal stamp makes leftover custody reclaimable. Cleanup selects only unterminated sessions. One bounded, current running-call rule serves reclaim, wakes and fleet alarms.",
+ "sources": ["docs/public/sessions/model/sessions.md", "docs/public/sessions/model/reclaim.md", "packages/yoke-core/src/yoke_core/domain/session_reclaim_activity.py", "packages/yoke-core/src/yoke_core/domain/session_state.py"]
 }

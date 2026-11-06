@@ -9,6 +9,8 @@ belongs in this view at all -- gone recipients, finished receipts, grouping
 
 from __future__ import annotations
 
+from datetime import timedelta
+
 from yoke_contracts.timestamps import parse_instant
 
 import pytest
@@ -229,23 +231,28 @@ def test_an_attempt_still_in_flight_is_waiting_not_failed(fleet):
     assert rows[0].diagnostic == ""
 
 
-def test_a_recipient_inside_an_unreturned_call_waits_for_that_calls_hook(fleet):
+@pytest.mark.parametrize("minutes,state", [(25, TURN_IN_FLIGHT), (180, NEVER_ATTEMPTED)])
+def test_only_a_current_unreturned_call_waits_for_its_hook(fleet, minutes, state):
     """No hook runs until the call returns, so nothing here is stuck."""
+    start = parse_instant(NOW) - timedelta(minutes=minutes)
     seed_message(fleet, "msg-1", sender=ASKER, to=ANSWERER, at=LONG_AGO)
     seed_tool_call(
         fleet,
         ANSWERER,
         tool_use_id="call-1",
-        started_at=LONG_AGO,
+        started_at=start,
         command_summary="yoke watch merge merge-item -- YOK-1 --wait",
     )
     fleet.commit()
 
     rows = undelivered_messages(fleet, project_id=PROJECT_ID, now=NOW)
 
-    assert [entry.delivery_state for entry in rows] == [TURN_IN_FLIGHT]
-    assert rows[0].turn_in_flight_since == parse_instant(LONG_AGO)
-    assert rows[0].needs_seat_action is False
+    assert [entry.delivery_state for entry in rows] == [state]
+    if state == TURN_IN_FLIGHT:
+        assert rows[0].turn_in_flight_since == start
+        assert rows[0].needs_seat_action is False
+    else:
+        assert rows[0].needs_seat_action is True
 
 
 def test_an_open_call_overtakes_an_earlier_failed_attempt(fleet):

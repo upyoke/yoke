@@ -60,6 +60,7 @@ WHERE wc.released_at IS NOT NULL
   AND wc.target_kind = 'item'
   AND {item_expr} IS NOT NULL
   AND hs.ended_at IS NULL
+  AND hs.terminated_at IS NULL
   AND wc.id = (
     SELECT MAX(wc2.id)
     FROM work_claims wc2
@@ -117,7 +118,7 @@ def routed_ownership_exclusions(
     """Map internal ``items.id`` -> defended-item detail dict.
 
     Defended items have a most-recent release inside ``window_s`` whose
-    owner session is still alive (no ``ended_at``, fresh activity also
+    owner session is still alive (no end or termination stamp, fresh activity also
     inside ``window_s``) AND either (a) was released with
     ``release_reason='session_ended'`` or (b) carries a non-terminal
     ``release_reason_intent`` on the claim row. Returns an empty mapping

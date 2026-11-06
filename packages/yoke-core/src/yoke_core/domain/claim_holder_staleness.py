@@ -16,7 +16,7 @@ from yoke_core.domain.schema_common import _get_columns
 #: What :func:`holder_claim_is_stale` reads off a holder's session row. The
 #: process observation needs its own evidence plus the activity that could
 #: supersede it, so the set is wider than mode and ``ended_at``.
-HOLDER_SESSION_COLUMNS = ("session_id", "ended_at")
+HOLDER_SESSION_COLUMNS = ("session_id", "ended_at", "terminated_at")
 
 
 def holder_claim_is_stale(
@@ -28,7 +28,7 @@ def holder_claim_is_stale(
 
     A live session's active claim cannot be reclaimed for inactivity.
     """
-    if row.get("ended_at") is not None:
+    if row.get("ended_at") is not None or row.get("terminated_at") is not None:
         return True
     return False
 

@@ -288,7 +288,7 @@ def compute_schedule(
             conduct_eligible.append(step)
 
     # 10. Select the highest-ranked step a new worker could advance: an
-    #     assignable claim state (CLAIMED_BY_STALE is reclaimable), conduct
+    #     assignable claim state (CLAIMED_BY_ENDED is reclaimable), conduct
     #     inside the WIP cap, and nothing a release or task holder owns.
     staffable = staffable_steps(
         conn,

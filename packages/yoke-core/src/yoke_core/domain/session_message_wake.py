@@ -222,7 +222,7 @@ def wake_eligible_recipients(
             if (
                 not explicit_wake
                 and liveness != "ended"
-                and turn_in_flight(row) is not None
+                and turn_in_flight(row, now=current) is not None
             ):
                 continue
             escalation = ""

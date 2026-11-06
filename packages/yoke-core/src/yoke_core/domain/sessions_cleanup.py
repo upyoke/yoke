@@ -77,9 +77,13 @@ def clean_stale_harness_sessions(
         if name in active_cols:
             select_cols += f", {name}"
 
+    live_where = "ended_at IS NULL"
+    if "terminated_at" in active_cols:
+        live_where += " AND terminated_at IS NULL"
+
     if project_ids is None:
         all_active = conn.execute(
-            f"SELECT {select_cols} FROM harness_sessions WHERE ended_at IS NULL",
+            f"SELECT {select_cols} FROM harness_sessions WHERE {live_where}",
         ).fetchall()
     else:
         scoped_project_ids = sorted({int(value) for value in project_ids})
@@ -88,7 +92,7 @@ def clean_stale_harness_sessions(
             placeholders = ", ".join(marker for _ in scoped_project_ids)
             all_active = conn.execute(
                 f"SELECT {select_cols} FROM harness_sessions "
-                "WHERE ended_at IS NULL "
+                f"WHERE {live_where} "
                 f"AND project_id IN ({placeholders})",
                 tuple(scoped_project_ids),
             ).fetchall()
@@ -113,6 +117,7 @@ def clean_stale_harness_sessions(
         row = dict(raw)
         sid = row["session_id"]
         signals = read_activity_signals(conn, sid)
+        row.update(signals.session_facts)
         if sid not in claims and deploy_drivers is None:
             deploy_drivers = deployment_driver_holds(conn)
         row["holds_work_claim"] = sid in claims or sid in (deploy_drivers or {})
@@ -134,6 +139,8 @@ def clean_stale_harness_sessions(
             "stale_minutes": age_minutes_since(signals.activity_at),
             "reason": decision.reason,
         }
+        if evidence.ended_at is not None:
+            continue
         if not decision.is_reclaimable:
             if decision.reason == "active_work_claim":
                 skipped_between_turns.append(entry)
@@ -180,7 +187,7 @@ def clean_stale_harness_sessions(
                 overrides=executor_ttl_overrides,
                 progress_threshold_minutes=progress_threshold_minutes,
             )
-        if not recheck.is_reclaimable:
+        if recheck.evidence.ended_at is not None or not recheck.is_reclaimable:
             skipped_between_turns.append(
                 {**entry, "reason": recheck.reason, "recheck": True}
             )

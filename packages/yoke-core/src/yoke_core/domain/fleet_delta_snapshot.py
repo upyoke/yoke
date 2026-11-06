@@ -119,7 +119,7 @@ class ItemRow:
 
     @property
     def available(self) -> bool:
-        return self.runnable and self.claim_state in ("unclaimed", "claimed_by_stale")
+        return self.runnable and self.claim_state in ("unclaimed", "claimed_by_ended")
 
 
 @dataclass(frozen=True)

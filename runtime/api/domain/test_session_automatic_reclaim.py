@@ -32,11 +32,11 @@ OLD = NOW - timedelta(days=7)
         ({"mode": "parked"}, "stale"),
         ({"has_active_holdings": True}, "active"),
         ({"has_active_holdings": True, "last_heartbeat": OLD}, "stale"),
-        ({"turn_posture": "running"}, "active"),
+        ({"turn_posture": "running"}, "stale"),
         ({"turn_posture": "running", "last_heartbeat": OLD}, "stale"),
-        ({"open_tool_call_at": QUIET}, "active"),
+        ({"turn_posture": "running", "open_tool_call_at": QUIET}, "active"),
         ({"open_tool_call_at": OLD, "last_tool_call_at": QUIET}, "stale"),
-        ({"open_tool_call_at": OLD}, "active"),
+        ({"open_tool_call_at": OLD}, "stale"),
         ({"open_tool_call_at": OLD, "last_heartbeat": OLD}, "stale"),
         ({"ended_at": QUIET}, "ended"),
         ({"terminated_at": QUIET}, "ended"),
@@ -66,7 +66,7 @@ def test_shared_snapshot_decision(executor, fields, state):
     }
     decision = automatic_reclaim(row, now=NOW)
     assert session_liveness(row, now=NOW) == state
-    assert decision.is_reclaimable == (state == "stale")
+    assert decision.is_reclaimable == (state in {"stale", "ended"})
 
 
 def test_roster_filters_preview_and_execution_agree(test_db):
@@ -138,3 +138,31 @@ def test_execution_explains_a_new_work_claim(test_db, monkeypatch):
         for entry in result["skipped_between_turns"]
     )
     assert list_sessions(session_id="candidate")[0]["liveness"] == "active"
+
+
+@pytest.mark.parametrize("terminal", ["ended_at", "terminated_at"])
+def test_cleanup_skips_a_session_that_ends_after_selection(test_db, monkeypatch, terminal):
+    from yoke_core.domain import sessions_cleanup
+
+    _insert_session(test_db, "candidate", last_heartbeat=instant_ago(10_000))
+    classify = sessions_cleanup.classify_reclaimable
+    stamp = instant_ago(1)
+
+    def end_before_recheck(conn, sid, **kwargs):
+        conn.execute(
+            f"UPDATE harness_sessions SET {terminal}=%s WHERE session_id=%s",
+            (stamp, sid),
+        )
+        return classify(conn, sid, **kwargs)
+
+    monkeypatch.setattr(sessions_cleanup, "classify_reclaimable", end_before_recheck)
+    result = clean_stale_harness_sessions(test_db, project_ids=[1])
+    assert result["total_reclaimed"] == 0
+    assert any(row["reason"] == "ended" and row["recheck"]
+               for row in result["skipped_between_turns"])
+    stored = test_db.execute(
+        "SELECT ended_at, terminated_at FROM harness_sessions WHERE session_id='candidate'"
+    ).fetchone()
+    assert stored[terminal] == stamp
+    if terminal == "terminated_at":
+        assert stored["ended_at"] is None

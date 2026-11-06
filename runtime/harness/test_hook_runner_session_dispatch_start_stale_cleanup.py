@@ -253,7 +253,8 @@ def test_local_session_start_sweeps_only_the_stale_claimless_session(
     # a long command is running, and the base threshold alone must not end it.
     open_call_at = _ago_minutes(25)
     conn.execute(
-        "UPDATE harness_sessions SET last_tool_call_at=%s, tool_call_count=3 "
+        "UPDATE harness_sessions SET last_tool_call_at=%s, tool_call_count=3, "
+        "turn_posture='running' "
         "WHERE session_id='in-flight-session'",
         (open_call_at,),
     )

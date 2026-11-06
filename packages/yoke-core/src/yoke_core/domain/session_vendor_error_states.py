@@ -64,7 +64,7 @@ from yoke_contracts.session_control.vendor_error_signatures import (
     classify_vendor_error,
 )
 from yoke_core.domain import db_backend
-from yoke_core.domain.session_tool_call_liveness import session_call_is_live
+from yoke_core.domain.session_state import session_in_flight
 from yoke_core.domain.session_tool_call_projections import (
     OPEN_TOOL_CALL_COLUMN,
     open_tool_call_select,
@@ -206,7 +206,7 @@ def _decision(
         # No attempt can move this failure, so none is made and the row
         # says so from the first poll rather than after three wasted tries.
         return {**state, "status": "seat_required", "reason": signature.summary}
-    if session_call_is_live(row, started_at=row.get(OPEN_TOOL_CALL_COLUMN)):
+    if session_in_flight({**row, "open_tool_call_at": row.get(OPEN_TOOL_CALL_COLUMN)}, now=now):
         # The turn is executing. Whatever ended the previous one, this
         # session is working now and a resume would fork its conversation.
         return {

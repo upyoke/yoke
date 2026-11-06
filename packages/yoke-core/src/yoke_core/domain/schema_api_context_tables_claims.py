@@ -78,7 +78,9 @@ CLAIMS_TABLES: dict[str, dict] = {
         ],
         "notes": HARNESS_SESSION_NOTES
         + (
-            " launch_origin is yoke after launch binding, otherwise operator; native wakes require yoke origin. "
+            " Terminal reads require ended_at and terminated_at; assuming ended_at alone "
+            "or omitting terminated_at from scheduler fixtures loses terminal custody. "
+            "launch_origin is yoke after launch binding, otherwise operator; native wakes require yoke origin. "
             "Wrong guess: a CLI surface or absent launch row establishes resume authority. "
             "sessions_schema_test_ddl, session_launch_test_support and session_message_support_test_support "
             "and roster diagnostic/resume fixtures must include launch_origin; "
@@ -154,10 +156,11 @@ CLAIMS_TABLES: dict[str, dict] = {
             "loses the fact when telemetry expires. An open row is still "
             "not proof a command is running: a harness that never closes "
             "rows leaves residue the session kept working past (compare "
-            "started_at against harness_sessions.last_tool_call_at via "
-            "session_reclaim_progress.open_tool_call_is_live), which is "
-            "why the steering fleet report can call a quiet holder "
-            "in-flight rather than idle. The newest CLOSED row's "
+            "started_at against harness_sessions.last_tool_call_at). "
+            "session_state.session_in_flight requires a current running call, "
+            "no process exit or terminal stamp, and the shared call ceiling. "
+            "Checking only ended_at wrongly ignores terminated_at; scheduler "
+            "and reclaim readers require both session columns. The newest CLOSED row's "
             "tool_name is how the Stop gate and the orphan-waiter "
             "detector recognise an armed waiter, whichever tool the "
             "session's own harness arms it with "
