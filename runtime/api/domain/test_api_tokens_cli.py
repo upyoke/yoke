@@ -46,7 +46,7 @@ def test_bootstrap_admin_outputs_raw_token_once_and_stores_only_hash(tokendb, ca
     assert raw_stored is None
 
 
-def test_bootstrap_admin_binds_the_universes_human_and_grants_org_admin(
+def test_bootstrap_admin_binds_the_universes_human_and_grants_org_owner(
     tokendb,
     capsys,
 ):
@@ -72,7 +72,7 @@ def test_bootstrap_admin_binds_the_universes_human_and_grants_org_admin(
     assert actor_name(tokendb, existing) == was_called
     row = tokendb.execute(
         "SELECT 1 FROM actor_org_roles aor JOIN roles r ON r.id = aor.role_id "
-        "WHERE aor.actor_id = %s AND r.name = 'admin'",
+        "WHERE aor.actor_id = %s AND r.name = 'owner'",
         (body["actor_id"],),
     ).fetchone()
     assert row is not None
@@ -174,7 +174,7 @@ def test_bootstrap_project_service_rejects_org_role_without_mutation(
     tokendb,
     capsys,
 ):
-    assert api_tokens_cli.main(_service_args(role="admin")) == 1
+    assert api_tokens_cli.main(_service_args(role="migration_verification_ci")) == 1
     assert "not a project-scoped role" in capsys.readouterr().err
     actor = tokendb.execute(
         "SELECT 1 FROM actors WHERE system_component = %s",

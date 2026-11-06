@@ -67,8 +67,7 @@ def question_target(conn, model, session, actor_id):
                 "audience is missing or ambiguous; select one named audience owned by the question scope"
             )
         audience_id, org_id = rows[0]
-        if not audiences.rules_for_audiences(conn, (audience_id,)).get(audience_id):
-            raise invalid("empty_audience: select an audience with at least one rule")
+        audiences.require_members(conn, audience_id)
     elif project_id is None:
         if not recipients:
             raise invalid(

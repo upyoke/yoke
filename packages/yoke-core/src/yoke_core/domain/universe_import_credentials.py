@@ -12,7 +12,7 @@ from typing import Sequence
 import psycopg
 
 from yoke_core.domain import json_helper
-from yoke_core.domain.actor_permissions import ROLE_ADMIN
+from yoke_core.domain.actor_permissions import ROLE_OWNER
 from yoke_core.domain.api_tokens import generate_token, hash_token
 
 
@@ -39,10 +39,10 @@ def _now() -> datetime:
     return utc_now()
 
 
-def _resolve_import_admin(conn: psycopg.Connection) -> int:
+def _resolve_import_owner(conn: psycopg.Connection) -> int:
     """The human actor a restored universe re-issues admin authority to.
 
-    Resolution is by the org-admin role, never by name: the archive is
+    Resolution is by the org-owner role, never by name: the archive is
     somebody's universe, its administrator already holds that grant, and
     a name is neither unique nor guaranteed to have survived a rename in
     the account system that owns it. Exactly one such actor keeps the
@@ -54,21 +54,21 @@ def _resolve_import_admin(conn: psycopg.Connection) -> int:
         "SELECT a.id, a.kind FROM actor_org_roles aor "
         "JOIN roles r ON r.id = aor.role_id "
         "JOIN actors a ON a.id = aor.actor_id "
-        "WHERE r.name = %s AND a.kind = 'human' "
+        "WHERE r.name = %s AND a.kind = 'human' AND a.status = 'active' "
         "ORDER BY a.id LIMIT 2",
-        (ROLE_ADMIN,),
+        (ROLE_OWNER,),
     ).fetchall()
     if len(rows) > 1:
         raise UniverseImportCredentialError(
-            "the archive carries more than one org-admin human actor, so "
+            "the archive carries more than one org-owner human actor, so "
             "which one the import should re-credential is not this "
             "command's decision"
         )
     if not rows:
         raise UniverseImportCredentialError(
-            "the archive carries no org-admin human actor, so the import has "
+            "the archive carries no org-owner human actor, so the import has "
             "nobody to re-credential; export the universe again from a "
-            "control plane whose first admin holds the org admin role"
+            "control plane whose first owner holds the org owner role"
         )
     return int(rows[0][0])
 
@@ -92,11 +92,14 @@ def _resolve_authority(
     org_slug = raw_slug
     role_row = conn.execute(
         "SELECT id FROM roles WHERE name = %s",
-        (ROLE_ADMIN,),
+        (ROLE_OWNER,),
     ).fetchone()
     if role_row is None:
-        raise UniverseImportCredentialError("the imported universe has no admin role")
-    actor_id = _resolve_import_admin(conn)
+        raise UniverseImportCredentialError("the imported universe has no owner role")
+    actor_id = _resolve_import_owner(conn)
+    from yoke_core.domain.actor_owner_protection import require_owner_change_allowed
+
+    require_owner_change_allowed(conn, actor_id, actor_id, ("org", org_id), "owner")
     conn.execute(
         "INSERT INTO actor_org_roles "
         "(actor_id, org_id, role_id, granted_at, granted_by_actor_id) "

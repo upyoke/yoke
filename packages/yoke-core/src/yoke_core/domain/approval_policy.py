@@ -22,9 +22,8 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Any, Iterable, Optional
 
-#: Roles a gate may address. ``admin`` is scoped to the project's org; the
-#: other two are scoped to the project itself.
-APPROVAL_ROLES = frozenset({"owner", "operator", "admin"})
+#: Minimum effective human roles a gate may address at its scope.
+APPROVAL_ROLES = frozenset({"owner", "admin", "operator", "viewer"})
 
 APPROVAL_MODE_ANY = "any"
 APPROVAL_MODE_ALL = "all"
@@ -35,9 +34,10 @@ APPROVAL_POLICY_KEYS = frozenset({"roles", "actors", "mode"})
 
 #: How each addressed role reads to a person deciding.
 APPROVAL_ROLE_LABELS = {
-    "owner": "project owner",
-    "operator": "project operator",
-    "admin": "org admin",
+    "owner": "owner",
+    "operator": "operator",
+    "admin": "admin",
+    "viewer": "viewer",
 }
 
 

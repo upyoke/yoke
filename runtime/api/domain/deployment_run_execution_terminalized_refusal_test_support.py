@@ -3,6 +3,8 @@
 
 from __future__ import annotations
 
+from runtime.api.fixtures.actor_roles import seed_org_role
+
 from runtime.api.domain.deployment_execution_serving_authority_test_support import (
     FLOW,
     PROJECT,
@@ -35,9 +37,11 @@ def _create_and_cancel(client, headers, session_id) -> str:
 
 
 def _terminalize(client, headers, session_id, conn, actor_id, run_id: str) -> None:
-    from yoke_core.domain.actor_permissions import ROLE_ADMIN, grant_actor_org_role
+    from yoke_core.domain.actor_permissions import (
+        ROLE_ADMIN,
+    )
 
-    grant_actor_org_role(conn, actor_id=actor_id, org_id=1, role_name=ROLE_ADMIN)
+    seed_org_role(conn, actor_id=actor_id, org_id=1, role_name=ROLE_ADMIN)
     conn.commit()
     terminalized = _call(
         client,

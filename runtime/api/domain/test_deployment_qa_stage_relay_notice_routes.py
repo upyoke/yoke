@@ -16,6 +16,8 @@ owner, and assert the rows that actually reach people.
 
 from __future__ import annotations
 
+from runtime.api.fixtures.actor_roles import seed_org_role
+
 import json
 from typing import Any
 from unittest import mock
@@ -111,11 +113,11 @@ def _seed(conn: Any, stages_json: str | None = None) -> None:
         members=(),
         existing_members=(ITEM_ID,),
     )
-    from yoke_core.domain.actor_permissions import ROLE_ADMIN, grant_actor_org_role
+    from yoke_core.domain.actor_permissions import ROLE_ADMIN
 
     for row in conn.execute("SELECT org_id FROM projects WHERE id=1").fetchall():
         if row["org_id"] is not None:
-            grant_actor_org_role(
+            seed_org_role(
                 conn,
                 actor_id=SESSION_ACTOR_ID,
                 org_id=int(row["org_id"]),

@@ -11,6 +11,7 @@ from yoke_contracts.timestamps import utc_now
 
 from yoke_core.domain import db_backend, universe_serving_mode
 from yoke_core.domain.actor_permissions import ROLE_OPERATOR
+from yoke_core.domain.actor_owner_protection import require_owner_change_allowed
 from yoke_core.domain.actor_role_grants import grant_actor_org_role
 from yoke_core.domain.actor_state import ActorDisabledError, require_actor_active
 from yoke_core.domain.actors import seed_human_actor
@@ -108,6 +109,9 @@ def _issue(
     inviter_actor_id: int,
     request_id: str | None,
 ) -> CreatedInvite:
+    require_owner_change_allowed(
+        conn, inviter_actor_id, actor_id, ("org", org_id), role
+    )
     now = utc_now()
     code = "yinv_" + base64.b32encode(secrets.token_bytes(20)).decode().lower()
     p = _p(conn)
@@ -174,6 +178,9 @@ def revoke_invite(conn: Any, *, invite_id: int, actor_id: int) -> dict:
     try:
         require_actor_active(conn, actor_id)
         row = _row(conn, "id", invite_id, lock=True)
+        require_owner_change_allowed(
+            conn, actor_id, row["actor_id"], ("org", row["org_id"]), "unchanged"
+        )
         if invite_state(row) == "consumed":
             raise TeammateInviteError(
                 "invite_consumed",
@@ -257,6 +264,13 @@ def redeem_invite(
                 "invite_machine_owned",
                 "this machine belongs to another actor; reconnect with a fresh machine UUID",
             )
+        require_owner_change_allowed(
+            conn,
+            row["invited_by_actor_id"],
+            row["actor_id"],
+            ("org", row["org_id"]),
+            row["role"],
+        )
         p, now = _p(conn), utc_now()
         org = conn.execute(
             f"SELECT slug FROM organizations WHERE id={p}", (row["org_id"],)

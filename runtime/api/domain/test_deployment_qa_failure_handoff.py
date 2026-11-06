@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from runtime.api.fixtures.actor_roles import seed_project_role
+
 from typing import Any
 
 import pytest
@@ -32,7 +34,9 @@ from runtime.api.fixtures.backlog_inserts import (
     insert_qa_requirement,
     insert_qa_run,
 )
-from yoke_core.domain.actor_permissions import ROLE_OWNER, grant_actor_project_role
+from yoke_core.domain.actor_permissions import (
+    ROLE_OWNER,
+)
 from yoke_core.domain.deployment_qa_failure_handoff import (
     failure_handoff_key,
     notify_member_qa_failure,
@@ -192,7 +196,7 @@ def test_missing_holder_uses_member_project_steering_and_can_retry(
             "SELECT project_id FROM items WHERE id=%s", (member,)
         ).fetchone()[0]
     )
-    grant_actor_project_role(
+    seed_project_role(
         test_db, actor_id=1, project_id=other_project_id, role_name=ROLE_OWNER
     )
     requirement = insert_qa_requirement(test_db, item_id=member)
@@ -302,6 +306,9 @@ def test_failure_text_records_a_dependency_only_for_a_finding_in_its_own_item(ca
     )
     assert "shared case" not in help_text and "frozen admissions" not in help_text
     assert "shared plan (two or more attachers at item QA entry)" in help_text
-    assert "--deployment-run-id RUN --plan P as the run's open plan group of P" in help_text
+    assert (
+        "--deployment-run-id RUN --plan P as the run's open plan group of P"
+        in help_text
+    )
     assert "its claim holder runs it with --item PREFIX-N --stage STAGE" in help_text
     assert "run-wide call refuses plan_member_owned" in help_text

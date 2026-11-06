@@ -19,7 +19,10 @@ from runtime.api.domain.deployment_qa_result_notice_test_support import (
 
 from typing import Any
 
-from runtime.api.domain.deployment_qa_stage_wake_delivery_test_support import _project
+from runtime.api.domain.deployment_qa_stage_wake_delivery_test_support import (
+    SESSION_ACTOR_ID,
+    _project,
+)
 from runtime.api.fixtures.backlog_inserts import insert_item
 from yoke_core.domain.actor_permissions import (
     ROLE_OPERATOR,
@@ -92,7 +95,9 @@ def test_item_owners_audience_reaches_the_owner(test_db: Any) -> None:
     assert result["notified"] == [OWNER]
     actors, body = _inbox(
         test_db,
-        qa_result_idempotency_key("run-result", "item-qa", 9970, OUTCOME_PASSED, "digest-1"),
+        qa_result_idempotency_key(
+            "run-result", "item-qa", 9970, OUTCOME_PASSED, "digest-1"
+        ),
     )
     assert actors == [OWNER]
     assert "passed for YOK-9970" in body
@@ -116,7 +121,7 @@ def test_a_role_audience_reaches_its_holders_only(test_db: Any) -> None:
         subject="YOK-9971",
     )
 
-    assert result["notified"] == [OPERATOR]
+    assert result["notified"] == sorted([SESSION_ACTOR_ID, OPERATOR])
 
 
 def test_an_explicit_actor_and_the_owner_are_both_reached(test_db: Any) -> None:
@@ -138,7 +143,9 @@ def test_an_explicit_actor_and_the_owner_are_both_reached(test_db: Any) -> None:
     assert result["notified"] == sorted([OWNER, OPERATOR])
     actors, _body = _inbox(
         test_db,
-        qa_result_idempotency_key("run-result", "item-qa", 9972, OUTCOME_PASSED, "digest-1"),
+        qa_result_idempotency_key(
+            "run-result", "item-qa", 9972, OUTCOME_PASSED, "digest-1"
+        ),
     )
     assert actors == sorted([OWNER, OPERATOR])
 
@@ -160,14 +167,14 @@ def test_a_run_scoped_result_reports_the_whole_batch(test_db: Any) -> None:
         outcome=OUTCOME_REJECTED,
     )
 
-    assert result["notified"] == [OPERATOR]
+    assert result["notified"] == sorted([SESSION_ACTOR_ID, OPERATOR])
     actors, body = _inbox(
         test_db,
         qa_result_idempotency_key(
             "run-result", "release-qa", None, OUTCOME_REJECTED, "digest-1"
         ),
     )
-    assert actors == [OPERATOR]
+    assert actors == sorted([SESSION_ACTOR_ID, OPERATOR])
     assert "was rejected for the whole release batch" in body
 
 
@@ -176,9 +183,7 @@ def test_a_stage_that_configured_nothing_reports_that(test_db: Any) -> None:
     _member(test_db, OWNER, role=ROLE_OWNER)
     _owned_item(test_db, 9973)
 
-    disabled = _notify(
-        test_db, notification={"enabled": False}, member_item_id=9973
-    )
+    disabled = _notify(test_db, notification={"enabled": False}, member_item_id=9973)
     absent = _notify(test_db, notification=None, member_item_id=9973)
 
     for result in (disabled, absent):
@@ -189,6 +194,10 @@ def test_a_stage_that_configured_nothing_reports_that(test_db: Any) -> None:
 def test_an_audience_that_resolves_to_nobody_reports_that(test_db: Any) -> None:
     """A configured role with no holders is an empty audience, not a failure."""
     _project(test_db)
+    test_db.execute(
+        "DELETE FROM actor_project_roles WHERE actor_id=%s AND project_id=1",
+        (SESSION_ACTOR_ID,),
+    )
     _owned_item(test_db, 9974, owner=None)
 
     result = _notify(
@@ -226,7 +235,9 @@ def test_the_same_result_reported_twice_is_one_notice(test_db: Any) -> None:
 
     actors, _body = _inbox(
         test_db,
-        qa_result_idempotency_key("run-result", "item-qa", 9976, OUTCOME_PASSED, "digest-1"),
+        qa_result_idempotency_key(
+            "run-result", "item-qa", 9976, OUTCOME_PASSED, "digest-1"
+        ),
     )
     assert actors == [OWNER]
 

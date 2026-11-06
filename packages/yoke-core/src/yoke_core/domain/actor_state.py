@@ -74,7 +74,7 @@ def set_actor_enabled(
 ) -> int:
     """Change actor authority and revoke all live credentials in one transaction.
 
-    Lock the organization and actor before the last-admin check. Credential
+    Lock the organization and actor before the last-owner check. Credential
     issuance locks the same actor row, so a concurrent mint cannot escape the
     disabling transaction.
     """
@@ -91,6 +91,23 @@ def set_actor_enabled(
         if row is None:
             raise ActorStateRefused(f"actor {actor_id} does not exist; refresh Actors")
         kind, component, status = row
+        from yoke_core.domain.actor_owner_protection import require_owner_change_allowed
+
+        scopes = conn.execute(
+            "SELECT 'org', org_id FROM actor_org_roles WHERE actor_id = "
+            + p
+            + " UNION SELECT 'project', project_id FROM actor_project_roles "
+            f"WHERE actor_id = {p} ORDER BY 1, 2",
+            (actor_id, actor_id),
+        ).fetchall()
+        for scope_kind, scope_id in scopes:
+            require_owner_change_allowed(
+                conn,
+                caller_actor_id,
+                actor_id,
+                (scope_kind, int(scope_id)),
+                "unchanged" if enabled else None,
+            )
         if not enabled and actor_id == caller_actor_id:
             raise ActorStateRefused(
                 "cannot disable your own actor; ask another org admin to do it"
@@ -112,26 +129,6 @@ def set_actor_enabled(
                         "workflow and service references, then retry with "
                         "--confirm-system-retirement"
                     )
-            active_admin = actor_active_sql(conn, "other_actor")
-            last_admin = conn.execute(
-                "SELECT aor.org_id FROM actor_org_roles aor "
-                "JOIN roles r ON r.id = aor.role_id "
-                f"WHERE aor.actor_id = {p} AND r.name = 'admin' "
-                "AND NOT EXISTS ("
-                "SELECT 1 FROM actor_org_roles other "
-                "JOIN roles other_role ON other_role.id = other.role_id "
-                "JOIN actors other_actor ON other_actor.id = other.actor_id "
-                "WHERE other.org_id = aor.org_id AND other.actor_id <> aor.actor_id "
-                "AND other_role.name = 'admin' AND other_actor.kind = 'human' "
-                f"AND {active_admin}) "
-                "LIMIT 1",
-                (actor_id,),
-            ).fetchone()
-            if last_admin is not None:
-                raise ActorStateRefused(
-                    f"actor {actor_id} is the last active admin of org "
-                    f"{last_admin[0]}; grant another active human the admin role first"
-                )
         conn.execute(
             f"UPDATE actors SET status = {p} WHERE id = {p}",
             (desired, actor_id),

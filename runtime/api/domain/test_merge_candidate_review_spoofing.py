@@ -11,6 +11,8 @@ its own dispatch and no envelope can carry.
 
 from __future__ import annotations
 
+from runtime.api.fixtures.actor_roles import seed_project_role
+
 import json
 
 import pytest
@@ -25,7 +27,6 @@ from yoke_contracts.ui_browser_origin import ui_browser_origin
 from yoke_core.domain import lint_claim_ownership_mutations as lint
 from yoke_core.domain.actor_permissions import (
     ROLE_OWNER,
-    grant_actor_project_role,
     seed_roles_and_permissions,
 )
 from yoke_core.domain.db_helpers import iso8601_now
@@ -140,7 +141,7 @@ def _world(conn) -> tuple[int, int]:
         "VALUES (%s, 'human', NULL, NOW()) ON CONFLICT DO NOTHING",
         (REVIEWER,),
     )
-    grant_actor_project_role(
+    seed_project_role(
         conn, actor_id=REVIEWER, project_id=project_id, role_name=ROLE_OWNER
     )
     seed_session(conn, WORKER_SESSION, project_id)

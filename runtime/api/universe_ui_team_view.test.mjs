@@ -166,10 +166,10 @@ test("nonadmins get read-only invites or the permission line alone; older roles 
     const f = await direct((request) => request.function === "actors.roster" ? ok({ ...adminRoster, can_manage_actors: false })
       : denied ? { status: 403, envelope: { success: false } } : ok({ ...nameFact, invites: [inviteRow] }));
     const panel = byClass(f.main, "actors-invites")[0];
-    assert.match(panel.textContent, /Only org admins can invite people\./);
+    assert.match(panel.textContent, /Only org owners and admins can invite people\./);
     assert.equal(nodes(panel, "BUTTON").length, 0);
     assert.equal(button(f.head, "Invite"), undefined);
-    if (denied) assert.equal(byClass(panel, "panel-body")[0].textContent, "Only org admins can invite people.");
+    if (denied) assert.equal(byClass(panel, "panel-body")[0].textContent, "Only org owners and admins can invite people.");
   }
   const f = await direct((request) => request.function === "actors.roster" ? ok({ ...adminRoster, person_org_roles: undefined }) : ok({ ...nameFact, invites: [inviteRow] }));
   assert.equal(nodes(f.main, "SELECT").length, 0);

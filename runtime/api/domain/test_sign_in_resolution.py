@@ -273,8 +273,13 @@ def test_machine_role_invite_is_refused_before_any_admission(conn):
         email="casey@example.com",
         org_id=default_org_id(conn),
         invited_by_actor_id=inviter,
-        role_id=role_id_by_name(conn, "migration_verification_ci"),
+        role_id=role_id_by_name(conn, "viewer"),
     )
+    conn.execute(
+        "UPDATE actor_invites SET role_id=%s WHERE id=%s",
+        (role_id_by_name(conn, "migration_verification_ci"), invite.invite_id),
+    )
+    conn.commit()
     before = _actor_count(conn)
 
     result = resolve_sign_in(conn, _claims())
@@ -288,7 +293,7 @@ def test_machine_role_invite_is_refused_before_any_admission(conn):
     assert resolve_external_identity(conn, issuer=_ISSUER, subject="sub-1") is None
 
 
-def test_invite_demoting_the_last_admin_is_refused(conn):
+def test_stored_invite_demoting_the_last_owner_is_refused(conn):
     org_id = default_org_id(conn)
     admin = seed_human_actor(conn)
     grant_actor_org_role(conn, actor_id=admin, org_id=org_id, role_name=ROLE_ADMIN)
@@ -301,14 +306,18 @@ def test_invite_demoting_the_last_admin_is_refused(conn):
         actor_id=admin,
     )
 
+    from yoke_core.domain.actor_owner_protection import seed_bootstrap_owner
+
+    seed_bootstrap_owner(conn, admin, org_id)
+    conn.commit()
     result = resolve_sign_in(conn, _claims())
 
     assert result.refusal_reason == REFUSAL_INVITE_ROLE_REFUSED
-    assert "last active admin" in result.detail
+    assert "last_owner" in result.detail
     assert get_invite(conn, invite.invite_id).status == INVITE_STATUS_PENDING
     roles = conn.execute(
         "SELECT r.name FROM actor_org_roles aor JOIN roles r ON r.id = aor.role_id "
         "WHERE aor.actor_id = %s",
         (admin,),
     ).fetchall()
-    assert [row[0] for row in roles] == [ROLE_ADMIN]
+    assert [row[0] for row in roles] == ["owner"]

@@ -1,9 +1,10 @@
 import { callFunction } from "./universe_view_support.js";
 
 const ROLE_LABELS = {
-  owner: "project owner",
-  operator: "project operator",
-  admin: "org admin",
+  owner: "owner",
+  operator: "operator",
+  admin: "admin",
+  viewer: "viewer",
 };
 
 export function emptyMechanicsData() {

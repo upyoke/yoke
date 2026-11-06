@@ -79,10 +79,10 @@ def actors_role_set(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke actors role set",
         description=(
-            "Set a person's one org role: admin, operator, or viewer. Name the "
+            "Set a person's one org role: owner, admin, operator, or viewer. Name the "
             "person by ACTOR-ID or by the email of the member linked to an "
-            "actor in this universe. Requires org admin. Refuses demoting the "
-            "last active admin, machine-only roles, and system actors."
+            "actor in this universe. Requires org owner or admin. Only owners may edit owners or grant owner; refuses removing the "
+            "last active owner, machine-only roles, and system actors."
         ),
     )
     parser.add_argument(
@@ -97,7 +97,7 @@ def actors_role_set(args: List[str]) -> int:
         help="Email of the org member whose linked actor to update.",
     )
     parser.add_argument(
-        "--role", required=True, help="Role to set: admin, operator, or viewer."
+        "--role", required=True, help="Role to set: owner, admin, operator, or viewer."
     )
     add_session_arg(parser)
     add_json_arg(parser)

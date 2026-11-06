@@ -2,13 +2,14 @@
 
 from __future__ import annotations
 
+from runtime.api.fixtures.actor_roles import seed_project_role
+
 import sqlite3
 
 from yoke_core.domain.actor_permissions import (
     PERM_ITEMS_WRITE,
     PERM_PROJECT_ADMIN,
     ROLE_OWNER,
-    grant_actor_project_role,
 )
 from yoke_core.domain.session_action_authority import (
     authorize_session_action,
@@ -141,9 +142,7 @@ def test_member_may_not_terminate_another_actors_interactive_session() -> None:
 def test_owner_may_terminate_another_actors_interactive_session() -> None:
     conn = message_connection()
     target = _add_interactive_session(conn, "s-interactive", VIEWER_ACTOR)
-    grant_actor_project_role(
-        conn, actor_id=OPERATOR_ACTOR, project_id=1, role_name=ROLE_OWNER
-    )
+    seed_project_role(conn, actor_id=OPERATOR_ACTOR, project_id=1, role_name=ROLE_OWNER)
     decision = authorize_session_action(
         conn,
         actor_id=OPERATOR_ACTOR,

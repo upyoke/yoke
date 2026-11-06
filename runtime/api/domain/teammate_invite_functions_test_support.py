@@ -1,6 +1,8 @@
 # ruff: noqa: F401, E402
 """Shared setup for tests in this directory."""
 
+from runtime.api.fixtures.actor_roles import seed_org_role
+
 from runtime.api.domain.teammate_invite_codes_test_support import _counts as _counts
 
 import json
@@ -45,7 +47,6 @@ from yoke_core.domain import yoke_function_dispatch_events as events
 from yoke_core.domain import yoke_function_registry as registry
 
 from yoke_core.domain.actor_permissions import (
-    grant_actor_org_role,
     seed_roles_and_permissions,
 )
 
@@ -86,7 +87,7 @@ def calls(test_db, monkeypatch, caplog):
     _mode(monkeypatch)
     seed_roles_and_permissions(test_db)
     admin = seed_human_actor(test_db, "Admin")
-    grant_actor_org_role(
+    seed_org_role(
         test_db, actor_id=admin, org_id=default_org_id(test_db), role_name="admin"
     )
     registry.reset_registry_for_tests()

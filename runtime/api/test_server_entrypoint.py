@@ -318,7 +318,7 @@ def test_first_boot_on_empty_db_births_universe_and_prints_token_once(
             org_admin = conn.execute(
                 "SELECT 1 FROM actor_org_roles aor "
                 "JOIN roles r ON r.id = aor.role_id "
-                "WHERE aor.actor_id = %s AND r.name = 'admin'",
+                "WHERE aor.actor_id = %s AND r.name = 'owner'",
                 (verified.actor_id,),
             ).fetchone()
             assert org_admin is not None

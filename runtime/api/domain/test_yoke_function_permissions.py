@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from runtime.api.fixtures.actor_roles import seed_project_role
+
 
 from runtime.api.domain.function_permission_test_support import (
     _conn,
@@ -26,7 +28,6 @@ from yoke_core.domain.actor_permissions import (
     ROLE_OWNER,
     ROLE_VIEWER,
     PermissionDenied,
-    grant_actor_project_role,
     require_permission,
 )
 from yoke_core.domain.actors import seed_human_actor
@@ -49,7 +50,7 @@ def test_project_scoped_github_write_teaches_omitted_project_context():
     try:
         actor_id = seed_human_actor(conn)
         externalwebapp_id = resolve_project_id(conn, "externalwebapp")
-        grant_actor_project_role(
+        seed_project_role(
             conn,
             actor_id=actor_id,
             project_id=externalwebapp_id,
@@ -97,7 +98,7 @@ def test_ephemeral_env_update_requires_item_write_on_env_project():
         actor_id = seed_human_actor(conn)
         externalwebapp_id = resolve_project_id(conn, "externalwebapp")
         yoke_id = resolve_project_id(conn, "yoke")
-        grant_actor_project_role(
+        seed_project_role(
             conn,
             actor_id=actor_id,
             project_id=externalwebapp_id,
@@ -149,7 +150,7 @@ def test_db_read_run_uses_raw_permission_and_role_boundary():
             (operator_id, ROLE_OPERATOR),
             (viewer_id, ROLE_VIEWER),
         ):
-            grant_actor_project_role(
+            seed_project_role(
                 conn,
                 actor_id=actor_id,
                 project_id=yoke_id,
@@ -191,7 +192,7 @@ def test_process_work_claim_resolves_project_from_payload_target():
     try:
         actor_id = seed_human_actor(conn)
         yoke_id = resolve_project_id(conn, "yoke")
-        grant_actor_project_role(
+        seed_project_role(
             conn,
             actor_id=actor_id,
             project_id=yoke_id,
@@ -229,7 +230,7 @@ def test_exact_process_claim_release_resolves_server_held_project():
     try:
         actor_id = seed_human_actor(conn)
         yoke_id = resolve_project_id(conn, "yoke")
-        grant_actor_project_role(
+        seed_project_role(
             conn,
             actor_id=actor_id,
             project_id=yoke_id,

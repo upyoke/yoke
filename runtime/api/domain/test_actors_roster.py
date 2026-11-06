@@ -43,7 +43,7 @@ def test_roster_reads_every_actor_with_roles_and_linked_identity(test_db):
     assert result.primary_success, result.error
     payload = result.result_payload
     assert payload["current_actor_id"] == human
-    assert payload["person_org_roles"] == ["admin", "operator", "viewer"]
+    assert payload["person_org_roles"] == ["owner", "admin", "operator", "viewer"]
     assert payload["role_descriptions"] == ROLE_DESCRIPTIONS
     assert payload["role_descriptions"]["hosted_service"]
     assert payload["machine_only_roles"] == list(MACHINE_ONLY_ROLES)

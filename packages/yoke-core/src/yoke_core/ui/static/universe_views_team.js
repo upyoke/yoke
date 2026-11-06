@@ -1,3 +1,4 @@
+import { callerIsOwner } from "./actor_role_control.js";
 // Actor authority and nonsecret credential inventory for this universe.
 
 import { normalizeActorSort, sortActors } from "./actor_roster_sort.js";
@@ -118,7 +119,7 @@ export function renderTeamView(context, main, _scope, _detail, chrome = {}) {
     formOpen = true;
     head();
     openInviteForm(context, slot, {
-      fact, roles: roster.person_org_roles, roleDescriptions: roster.role_descriptions || {}, roster: rows, seatsLeft,
+      fact, roles: roster.person_org_roles.filter((role) => role !== "owner" || callerIsOwner(roster)), roleDescriptions: roster.role_descriptions || {}, roster: rows, seatsLeft,
       onCreated: created,
       onCancel: () => { formOpen = false; head(); invite.focus(); },
     });
@@ -178,7 +179,7 @@ export function renderTeamView(context, main, _scope, _detail, chrome = {}) {
     listing.removeAttribute("role");
     const title = el(documentNode, "h2", null, "Invites");
     header.replaceChildren(title);
-    if (!roster.can_manage_actors) listing.appendChild(el(documentNode, "p", "actors-muted", "Only org admins can invite people."));
+    if (!roster.can_manage_actors) listing.appendChild(el(documentNode, "p", "actors-muted", "Only org owners and admins can invite people."));
     if (!success(inviteRead)) {
       if (!roster.can_manage_actors && [401, 403].includes(inviteRead?.status)) return;
       if (isRegistrySkewError(inviteRead?.envelope?.error)) {

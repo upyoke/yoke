@@ -38,24 +38,27 @@ class DecisionKind:
 
 DECISION_KINDS = {
     OPERATOR_QUESTION: DecisionKind(
-        (), "project_or_org", ("owner", "operator"), "session_question"
+        (),
+        "project_or_org",
+        ("owner", "admin", "operator", "viewer"),
+        "session_question",
     ),
     DEPLOYMENT_STAGE_APPROVAL: DecisionKind(
         ("approve", "reject"),
         "project",
-        ("owner", "operator", "admin"),
+        ("owner", "admin", "operator", "viewer"),
         "deployment_stage",
     ),
     QA_NEEDS_REVIEW: DecisionKind(
         ("approve", "reject", "waive"),
         "project",
-        ("owner", "operator"),
+        ("owner", "admin", "operator", "viewer"),
         "qa_requirement",
     ),
     LIFECYCLE_TRANSITION_APPROVAL: DecisionKind(
         ("approve", "reject"),
         "project",
-        ("owner", "operator", "admin"),
+        ("owner", "admin", "operator", "viewer"),
         "item_transition",
     ),
     # Bound to one commit, not to the item: the subject is the exact head a
@@ -64,7 +67,7 @@ DECISION_KINDS = {
     MERGE_CANDIDATE_REVIEW: DecisionKind(
         ("approve", "reject"),
         "project",
-        ("owner", "operator", "admin"),
+        ("owner", "admin", "operator", "viewer"),
         "item_merge_candidate",
     ),
 }

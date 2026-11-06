@@ -14,13 +14,14 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Mapping, Optional
 
-from yoke_core.domain.actor_state import actor_is_active
+from yoke_core.domain.actor_state import ActorDisabledError, actor_is_active
+from yoke_core.domain.actor_role import ActorRoleRefused
+from yoke_core.domain.actor_invites import InviteNotPending
+from yoke_core.domain.sign_in_invite_admission import admit_invited_actor
 from yoke_core.domain.actor_invites import (
-    mark_invite_accepted,
     pending_invite_for_email,
 )
 from yoke_core.domain.sign_in_invite_role import (
-    grant_invite_role,
     invite_role_refusal,
 )
 from yoke_core.domain.actors import seed_human_actor, set_actor_name
@@ -240,35 +241,24 @@ def resolve_sign_in(
         refused = invite_role_refusal(conn, invite)
         if refused is not None:
             return _refuse(issuer, REFUSAL_INVITE_ROLE_REFUSED, refused)
-        if invite.actor_id is not None:
-            actor_id = invite.actor_id
-            if not actor_is_active(conn, actor_id):
-                return _refuse(
-                    issuer,
-                    REFUSAL_ACTOR_DISABLED,
-                    f"actor {actor_id} is disabled; ask an org admin to "
-                    "enable it before accepting this invite",
-                )
-        else:
-            actor_id = _create_named_actor(
+        if invite.actor_id is not None and not actor_is_active(conn, invite.actor_id):
+            return _refuse(
+                issuer,
+                REFUSAL_ACTOR_DISABLED,
+                f"actor {invite.actor_id} is disabled; ask an org admin to enable it",
+            )
+        try:
+            actor_id = admit_invited_actor(
                 conn,
+                invite,
+                issuer=issuer,
+                subject=subject,
                 email=email,
-                name_claim=name_claim,
+                name=_admitted_name(email, name_claim),
                 attribution=attribution,
             )
-        link_external_identity(
-            conn,
-            actor_id=actor_id,
-            issuer=issuer,
-            subject=subject,
-            email=email,
-        )
-        mark_invite_accepted(
-            conn,
-            invite_id=invite.invite_id,
-            accepted_by_actor_id=actor_id,
-        )
-        grant_invite_role(conn, invite, actor_id)
+        except (ActorRoleRefused, ActorDisabledError, InviteNotPending) as exc:
+            return _refuse(issuer, REFUSAL_INVITE_ROLE_REFUSED, str(exc))
         return _succeed(
             conn,
             issuer,

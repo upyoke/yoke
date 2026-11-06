@@ -8,6 +8,8 @@ payload determinism (the CI consumer renders from this byte-for-byte).
 
 from __future__ import annotations
 
+from runtime.api.fixtures.actor_roles import seed_service_actor
+
 import os
 import sys
 
@@ -31,11 +33,9 @@ from yoke_core.domain.actors import seed_human_actor
 from yoke_core.domain.api_tokens import mint_token
 from runtime.api.fixtures.file_test_db import connect_test_db
 
-
 @pytest.fixture()
 def config_db():
     yield from make_test_db_fixture()
-
 
 @pytest.fixture()
 def client(config_db):
@@ -60,7 +60,6 @@ def client(config_db):
             conn.close()
         yield authed
 
-
 def _bare_token_headers(db_path: str) -> dict[str, str]:
     """Mint a real token for a fresh actor that holds NO roles."""
     conn = connect_test_db(db_path)
@@ -71,7 +70,6 @@ def _bare_token_headers(db_path: str) -> dict[str, str]:
     finally:
         conn.close()
     return {"Authorization": f"Bearer {token.raw_token}"}
-
 
 def _viewer_token_headers(db_path: str) -> dict[str, str]:
     """Mint a real token for a fresh actor granted only project viewer."""
@@ -91,7 +89,6 @@ def _viewer_token_headers(db_path: str) -> dict[str, str]:
         conn.close()
     return {"Authorization": f"Bearer {token.raw_token}"}
 
-
 def _infrastructure_ci_token_headers(
     db_path: str,
     *,
@@ -100,7 +97,7 @@ def _infrastructure_ci_token_headers(
     """Mint the exact service role used by the Platform render workflow."""
     conn = connect_test_db(db_path)
     try:
-        actor_id = seed_human_actor(conn)
+        actor_id = seed_service_actor(conn)
         grant_actor_project_role(
             conn,
             actor_id=actor_id,
@@ -114,12 +111,11 @@ def _infrastructure_ci_token_headers(
         conn.close()
     return {"Authorization": f"Bearer {token.raw_token}"}
 
-
 def _deployment_ci_token_headers(db_path: str) -> dict[str, str]:
     """Mint the separate workflow-dispatch identity, which cannot render."""
     conn = connect_test_db(db_path)
     try:
-        actor_id = seed_human_actor(conn)
+        actor_id = seed_service_actor(conn)
         grant_actor_project_role(
             conn,
             actor_id=actor_id,
@@ -132,7 +128,6 @@ def _deployment_ci_token_headers(db_path: str) -> dict[str, str]:
     finally:
         conn.close()
     return {"Authorization": f"Bearer {token.raw_token}"}
-
 
 def _operator_token_headers(db_path: str) -> dict[str, str]:
     """Mint project.install without the dedicated render-read permission."""
@@ -152,7 +147,6 @@ def _operator_token_headers(db_path: str) -> dict[str, str]:
         conn.close()
     return {"Authorization": f"Bearer {token.raw_token}"}
 
-
 def test_stack_config_serves_deterministic_snapshot(client) -> None:
     first = client.get("/v1/projects/yoke/pulumi-stack-config")
     second = client.get("/v1/projects/yoke/pulumi-stack-config")
@@ -168,14 +162,12 @@ def test_stack_config_serves_deterministic_snapshot(client) -> None:
     assert snapshot["capabilities"]["github"]["repo_name"] == "acme"
     assert isinstance(snapshot["environments"], list)
 
-
 def test_stack_config_numeric_id_matches_slug(client) -> None:
     by_slug = client.get("/v1/projects/yoke/pulumi-stack-config")
     by_id = client.get("/v1/projects/1/pulumi-stack-config")
 
     assert by_id.status_code == 200
     assert by_id.json() == by_slug.json()
-
 
 def test_stack_config_requires_auth(client) -> None:
     response = client.get(
@@ -184,7 +176,6 @@ def test_stack_config_requires_auth(client) -> None:
     )
 
     assert response.status_code == 401
-
 
 def test_scoped_stack_config_uses_admin_no_store_boundary(
     client, monkeypatch
@@ -213,7 +204,6 @@ def test_scoped_stack_config_uses_admin_no_store_boundary(
     assert response.status_code == 200
     assert response.json() == payload
     assert response.headers["cache-control"] == "no-store"
-
 
 def test_scoped_stack_config_allows_infrastructure_ci_identity(
     client, config_db, monkeypatch
@@ -245,7 +235,6 @@ def test_scoped_stack_config_allows_infrastructure_ci_identity(
     assert response.json()["stack_name"] == "yoke-infra"
     assert response.headers["cache-control"] == "no-store"
 
-
 def test_scoped_stack_config_denies_viewer_identity(
     client, config_db, monkeypatch
 ) -> None:
@@ -261,7 +250,6 @@ def test_scoped_stack_config_denies_viewer_identity(
         headers=_viewer_token_headers(config_db["db_path"]),
     )
     assert response.status_code == 403
-
 
 def test_stack_config_denies_actor_without_grant(
     client,
@@ -285,7 +273,6 @@ def test_stack_config_denies_actor_without_grant(
     assert response.status_code == 403
     assert response.json()["error"]["code"] == "permission_denied"
 
-
 def test_stack_config_denies_viewer_role(client, config_db) -> None:
     """Viewer carries items.read but not secret-free render authority."""
     headers = _viewer_token_headers(config_db["db_path"])
@@ -296,7 +283,6 @@ def test_stack_config_denies_viewer_role(client, config_db) -> None:
     )
 
     assert response.status_code == 403
-
 
 def test_stack_config_denies_project_install_without_render_read(
     client,
@@ -312,7 +298,6 @@ def test_stack_config_denies_project_install_without_render_read(
     assert response.status_code == 403
     assert response.json()["error"]["code"] == "permission_denied"
 
-
 def test_stack_config_allows_infrastructure_ci_role(client, config_db) -> None:
     headers = _infrastructure_ci_token_headers(config_db["db_path"])
 
@@ -324,7 +309,6 @@ def test_stack_config_allows_infrastructure_ci_role(client, config_db) -> None:
     assert response.status_code == 200
     assert response.json()["project_slug"] == "yoke"
 
-
 def test_stack_config_denies_deployment_ci_role(client, config_db) -> None:
     headers = _deployment_ci_token_headers(config_db["db_path"])
 
@@ -335,7 +319,6 @@ def test_stack_config_denies_deployment_ci_role(client, config_db) -> None:
 
     assert response.status_code == 403
     assert response.json()["error"]["code"] == "permission_denied"
-
 
 def test_stack_config_denies_infrastructure_ci_on_other_project(
     client,
@@ -350,7 +333,6 @@ def test_stack_config_denies_infrastructure_ci_on_other_project(
 
     assert response.status_code == 403
     assert response.json()["error"]["code"] == "permission_denied"
-
 
 def test_stack_config_unknown_project_is_typed_404(client) -> None:
     response = client.get("/v1/projects/999/pulumi-stack-config")

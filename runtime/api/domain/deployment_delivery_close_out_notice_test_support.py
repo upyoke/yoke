@@ -3,6 +3,8 @@
 
 from __future__ import annotations
 
+from runtime.api.fixtures.actor_roles import seed_project_role
+
 from typing import Any
 
 from runtime.api.domain.coordination_claim_test_support import (
@@ -25,7 +27,6 @@ from yoke_core.domain import deployment_delivery_close_out_notice as notice
 
 from yoke_core.domain.actor_permissions import (
     ROLE_OWNER,
-    grant_actor_project_role,
     seed_roles_and_permissions,
 )
 
@@ -50,9 +51,7 @@ COMPLETION_FLOW = "prod-flow"
 def _project(conn: Any) -> None:
     seed_project(conn, PROJECT_YOKE, "yoke")
     seed_roles_and_permissions(conn)
-    grant_actor_project_role(
-        conn, actor_id=1, project_id=PROJECT_YOKE, role_name=ROLE_OWNER
-    )
+    seed_project_role(conn, actor_id=1, project_id=PROJECT_YOKE, role_name=ROLE_OWNER)
 
 
 def _run(conn: Any, run_id: str, *, flow: str, members: tuple[int, ...]) -> None:

@@ -74,21 +74,22 @@ def _validate_scope(
         ).fetchone()
         if project is None:
             raise LookupError(f"project {project_id} does not exist")
-        project_org_id = int(project[0]) if project[0] is not None else None
+        project_org_id = project[0]
     for authority in role_authorities:
         if authority.role_name not in spec.allowed_roles:
             raise ValueError(
                 f"role {authority.role_name!r} is outside {kind}'s role vocabulary"
             )
-        expected_scope = "org" if authority.role_name == "admin" else "project"
-        if authority.scope_kind != expected_scope:
-            raise ValueError(
-                f"role {authority.role_name!r} requires {expected_scope} scope"
-            )
-        expected_id = org_id if expected_scope == "org" else project_id
-        if project_id is not None and expected_scope == "org":
-            expected_id = project_org_id
-        if expected_id is None or authority.scope_id != expected_id:
+        expected_id = (
+            project_id
+            if authority.scope_kind == "project"
+            else org_id
+            if project_id is None
+            else project_org_id
+        )
+        if authority.scope_kind not in ("project", "org") or (
+            expected_id is None or authority.scope_id != expected_id
+        ):
             raise ValueError(
                 f"{authority.role_name!r} authority does not match the subject scope"
             )
@@ -223,6 +224,7 @@ def create_decision_request(
                 ],
                 commit=False,
             )
+            audiences.require_members(conn, selected_audience_id)
             conn.execute(
                 f"UPDATE decision_requests SET audience_id = {p} WHERE id = {p}",
                 (selected_audience_id, request_id),
@@ -252,6 +254,8 @@ def create_decision_request(
             if row is None:
                 raise RuntimeError("decision request idempotency race did not converge")
             request_id = int(row[0])
+            existing = _request_row(conn, request_id)
+            audiences.require_members(conn, int(existing["audience_id"]))
     if commit:
         conn.commit()
     return _request_row(conn, request_id), created

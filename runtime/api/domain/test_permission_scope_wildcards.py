@@ -24,7 +24,6 @@ from yoke_core.domain.actor_permissions import (
     ROLE_ADMIN,
     ROLE_OWNER,
     grant_actor_org_role,
-    grant_actor_project_role,
     org_permission_decision,
     permission_decision,
     require_org_permission,
@@ -47,9 +46,7 @@ def conn():
     from runtime.api.fixtures import pg_testdb
 
     name = pg_testdb.create_test_database()
-    c = pg_testdb.drop_database_on_close(
-        pg_testdb.connect_test_database(name), name
-    )
+    c = pg_testdb.drop_database_on_close(pg_testdb.connect_test_database(name), name)
     create_core_tables(c)
     seed_project_identities(c)
     create_path_registry_tables(c)
@@ -78,6 +75,16 @@ def _org_of(conn, project_id: int) -> int:
     return int(row[0])
 
 
+def _seed_project_role(conn, *, actor_id, project_id, role_name, granted_by_actor_id):
+    """Seed permission fixtures; grant authorization has its own boundary tests."""
+    conn.execute(
+        "INSERT INTO actor_project_roles (actor_id,project_id,role_id,granted_at) "
+        "SELECT %s,%s,id,NOW() FROM roles WHERE name=%s",
+        (actor_id, project_id, role_name),
+    )
+    conn.commit()
+
+
 def _allowed(conn, actor_id, project_id, perm) -> bool:
     return permission_decision(
         conn, actor_id=actor_id, project_id=project_id, permission_key=perm
@@ -89,8 +96,11 @@ def test_org_admin_wildcard_allows_any_permission_any_project(conn):
     externalwebapp = resolve_project_id(conn, "externalwebapp")
     admin = _new_actor(conn)
     grant_actor_org_role(
-        conn, actor_id=admin, org_id=_org_of(conn, yoke),
-        role_name=ROLE_ADMIN, granted_by_actor_id=admin,
+        conn,
+        actor_id=admin,
+        org_id=_org_of(conn, yoke),
+        role_name=ROLE_ADMIN,
+        granted_by_actor_id=admin,
     )
     assert _allowed(conn, admin, yoke, PERM_DB_READ_RAW)
     assert _allowed(conn, admin, externalwebapp, PERM_ITEMS_WRITE)
@@ -102,9 +112,12 @@ def test_project_owner_wildcard_own_project_and_grantable_perms_only(conn):
     yoke = resolve_project_id(conn, "yoke")
     externalwebapp = resolve_project_id(conn, "externalwebapp")
     externalwebapp_owner = _new_actor(conn)
-    grant_actor_project_role(
-        conn, actor_id=externalwebapp_owner, project_id=externalwebapp,
-        role_name=ROLE_OWNER, granted_by_actor_id=externalwebapp_owner,
+    _seed_project_role(
+        conn,
+        actor_id=externalwebapp_owner,
+        project_id=externalwebapp,
+        role_name=ROLE_OWNER,
+        granted_by_actor_id=externalwebapp_owner,
     )
     assert _allowed(conn, externalwebapp_owner, externalwebapp, PERM_ITEMS_WRITE)
     assert _allowed(conn, externalwebapp_owner, externalwebapp, PERM_DB_READ_RAW)
@@ -117,23 +130,34 @@ def test_raw_db_permission_project_grants_do_not_cross_projects(conn):
     yoke = resolve_project_id(conn, "yoke")
     externalwebapp = resolve_project_id(conn, "externalwebapp")
     externalwebapp_owner = _new_actor(conn)
-    grant_actor_project_role(
-        conn, actor_id=externalwebapp_owner, project_id=externalwebapp,
-        role_name=ROLE_OWNER, granted_by_actor_id=externalwebapp_owner,
+    _seed_project_role(
+        conn,
+        actor_id=externalwebapp_owner,
+        project_id=externalwebapp,
+        role_name=ROLE_OWNER,
+        granted_by_actor_id=externalwebapp_owner,
     )
     yoke_owner = _new_actor(conn)
-    grant_actor_project_role(
-        conn, actor_id=yoke_owner, project_id=yoke,
-        role_name=ROLE_OWNER, granted_by_actor_id=yoke_owner,
+    _seed_project_role(
+        conn,
+        actor_id=yoke_owner,
+        project_id=yoke,
+        role_name=ROLE_OWNER,
+        granted_by_actor_id=yoke_owner,
     )
     org_admin = _new_actor(conn)
     grant_actor_org_role(
-        conn, actor_id=org_admin, org_id=_org_of(conn, yoke),
-        role_name=ROLE_ADMIN, granted_by_actor_id=org_admin,
+        conn,
+        actor_id=org_admin,
+        org_id=_org_of(conn, yoke),
+        role_name=ROLE_ADMIN,
+        granted_by_actor_id=org_admin,
     )
-    assert not _allowed(conn, externalwebapp_owner, yoke, PERM_DB_READ_RAW)  # closed hole
-    assert _allowed(conn, yoke_owner, yoke, PERM_DB_READ_RAW)    # case 2
-    assert _allowed(conn, org_admin, yoke, PERM_DB_READ_RAW)       # root
+    assert not _allowed(
+        conn, externalwebapp_owner, yoke, PERM_DB_READ_RAW
+    )  # closed hole
+    assert _allowed(conn, yoke_owner, yoke, PERM_DB_READ_RAW)  # case 2
+    assert _allowed(conn, org_admin, yoke, PERM_DB_READ_RAW)  # root
 
 
 def test_no_role_actor_denied_everything(conn):
@@ -148,13 +172,19 @@ def test_org_target_check_requires_org_admin(conn):
     org_id = _org_of(conn, yoke)
     org_admin = _new_actor(conn)
     grant_actor_org_role(
-        conn, actor_id=org_admin, org_id=org_id,
-        role_name=ROLE_ADMIN, granted_by_actor_id=org_admin,
+        conn,
+        actor_id=org_admin,
+        org_id=org_id,
+        role_name=ROLE_ADMIN,
+        granted_by_actor_id=org_admin,
     )
     yoke_owner = _new_actor(conn)
-    grant_actor_project_role(
-        conn, actor_id=yoke_owner, project_id=yoke,
-        role_name=ROLE_OWNER, granted_by_actor_id=yoke_owner,
+    _seed_project_role(
+        conn,
+        actor_id=yoke_owner,
+        project_id=yoke,
+        role_name=ROLE_OWNER,
+        granted_by_actor_id=yoke_owner,
     )
     assert org_permission_decision(
         conn, actor_id=org_admin, org_id=org_id, permission_key=PERM_ORG_ADMIN
@@ -205,7 +235,9 @@ def test_require_org_permission_falls_back_to_id_for_missing_org(conn):
     missing_org_id = 999999
     with pytest.raises(PermissionDenied) as exc_info:
         require_org_permission(
-            conn, actor_id=nobody, org_id=missing_org_id,
+            conn,
+            actor_id=nobody,
+            org_id=missing_org_id,
             permission_key=PERM_ORG_ADMIN,
         )
     assert f"on org {missing_org_id}" in str(exc_info.value)
@@ -217,7 +249,10 @@ def test_require_permission_denial_names_the_project(conn):
     nobody = _new_actor(conn)
     with pytest.raises(PermissionDenied) as exc_info:
         require_permission(
-            conn, actor_id=nobody, project_id=externalwebapp, permission_key=PERM_ITEMS_WRITE
+            conn,
+            actor_id=nobody,
+            project_id=externalwebapp,
+            permission_key=PERM_ITEMS_WRITE,
         )
     message = str(exc_info.value)
     assert f"actor {nobody} lacks" in message
@@ -232,7 +267,9 @@ def test_require_permission_falls_back_to_id_for_missing_project(conn):
     missing_project_id = 999999
     with pytest.raises(PermissionDenied) as exc_info:
         require_permission(
-            conn, actor_id=nobody, project_id=missing_project_id,
+            conn,
+            actor_id=nobody,
+            project_id=missing_project_id,
             permission_key=PERM_ITEMS_WRITE,
         )
     assert f"on project {missing_project_id}" in str(exc_info.value)

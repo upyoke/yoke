@@ -54,29 +54,29 @@ def _project_scope_label(conn: Any, project_id: int) -> str:
     return f"{name!r} ({slug}, id {project_id})"
 
 
-def _holds_org_admin(conn: Any, *, project_id: int, actor_id: int) -> bool:
-    """True if the actor holds the all-access org ``admin`` role on the project's owning org."""
+def _org_admin_role(conn: Any, *, project_id: int, actor_id: int) -> str | None:
+    """True if the actor holds the all-access org ``owner`` or ``admin`` role on the project's owning org."""
     p = _p(conn)
     row = conn.execute(
-        "SELECT 1 FROM projects pr "
+        "SELECT r.name FROM projects pr "
         "JOIN actor_org_roles aor ON aor.org_id = pr.org_id "
         "JOIN roles r ON r.id = aor.role_id "
-        f"WHERE pr.id = {p} AND aor.actor_id = {p} AND r.name = {p} LIMIT 1",
-        (project_id, actor_id, ROLE_ADMIN),
+        f"WHERE pr.id = {p} AND aor.actor_id = {p} AND r.name IN ({p}, {p}) LIMIT 1",
+        (project_id, actor_id, ROLE_ADMIN, ROLE_OWNER),
     ).fetchone()
-    return row is not None
+    return str(row[0]) if row is not None else None
 
 
-def _holds_project_owner(conn: Any, *, project_id: int, actor_id: int) -> bool:
+def _project_admin_role(conn: Any, *, project_id: int, actor_id: int) -> str | None:
     """True if the actor holds the ``owner`` role directly on ``project_id``."""
     p = _p(conn)
     row = conn.execute(
-        "SELECT 1 FROM actor_project_roles apr "
+        "SELECT r.name FROM actor_project_roles apr "
         "JOIN roles r ON r.id = apr.role_id "
-        f"WHERE apr.actor_id = {p} AND apr.project_id = {p} AND r.name = {p} LIMIT 1",
-        (actor_id, project_id, ROLE_OWNER),
+        f"WHERE apr.actor_id = {p} AND apr.project_id = {p} AND r.name IN ({p}, {p}) LIMIT 1",
+        (actor_id, project_id, ROLE_OWNER, ROLE_ADMIN),
     ).fetchone()
-    return row is not None
+    return str(row[0]) if row is not None else None
 
 
 def permission_decision(
@@ -92,9 +92,9 @@ def permission_decision(
     ``role_permissions`` lookup, so the powerful roles are correct *by
     construction* and cannot be locked out by catalog drift:
 
-    * the org ``admin`` role on the project's owning org carries every
+    * the org ``owner`` or ``admin`` role on the project's owning org carries every
       permission (the root identity); and
-    * a project ``owner`` carries every *project-grantable* permission on its
+    * a project ``owner`` or ``admin`` carries every *project-grantable* permission on its
       own project (org-scoped permissions are never carried by a project role).
 
     Neither wildcard carries a service-only permission: only the role the
@@ -113,28 +113,32 @@ def permission_decision(
         )
     # Wildcard 1 — org admin (all-access), drift-proof: the admin role is defined
     # as every permission, so we never consult role_permissions for it.
-    if permission_key not in SERVICE_ONLY_PERMISSIONS and _holds_org_admin(
-        conn, project_id=project_id, actor_id=actor_id
+    if permission_key not in SERVICE_ONLY_PERMISSIONS and (
+        org_admin_role := _org_admin_role(
+            conn, project_id=project_id, actor_id=actor_id
+        )
     ):
         return PermissionDecision(
             actor_id=actor_id,
             project_id=project_id,
             permission_key=permission_key,
             allowed=True,
-            role_names=(ROLE_ADMIN,),
+            role_names=(org_admin_role,),
         )
     # Wildcard 2 — project owner, limited to project-grantable permissions
     # (org-scoped permissions like org.admin / project.create are never a
     # project role's to grant, so a project owner can never self-escalate to them).
-    if permission_key not in ORG_SCOPED_PERMISSIONS and _holds_project_owner(
-        conn, project_id=project_id, actor_id=actor_id
+    if permission_key not in ORG_SCOPED_PERMISSIONS and (
+        project_admin_role := _project_admin_role(
+            conn, project_id=project_id, actor_id=actor_id
+        )
     ):
         return PermissionDecision(
             actor_id=actor_id,
             project_id=project_id,
             permission_key=permission_key,
             allowed=True,
-            role_names=(ROLE_OWNER,),
+            role_names=(project_admin_role,),
         )
     p = _p(conn)
     # Org scope: roles the actor holds on the project's owning org.
@@ -150,17 +154,21 @@ def permission_decision(
         (project_id, actor_id, permission_key),
     ).fetchall()
     # Project scope: roles granted directly on the project.
-    proj_rows = conn.execute(
-        "SELECT r.name "
-        "FROM actor_project_roles apr "
-        "JOIN roles r ON r.id = apr.role_id "
-        "JOIN role_permissions rp ON rp.role_id = r.id "
-        "JOIN permissions perm ON perm.id = rp.permission_id "
-        f"WHERE apr.actor_id = {p} AND apr.project_id = {p} "
-        f"AND perm.key = {p} "
-        "ORDER BY r.name",
-        (actor_id, project_id, permission_key),
-    ).fetchall()
+    proj_rows = (
+        []
+        if permission_key in ORG_SCOPED_PERMISSIONS
+        else conn.execute(
+            "SELECT r.name "
+            "FROM actor_project_roles apr "
+            "JOIN roles r ON r.id = apr.role_id "
+            "JOIN role_permissions rp ON rp.role_id = r.id "
+            "JOIN permissions perm ON perm.id = rp.permission_id "
+            f"WHERE apr.actor_id = {p} AND apr.project_id = {p} "
+            f"AND perm.key = {p} "
+            "ORDER BY r.name",
+            (actor_id, project_id, permission_key),
+        ).fetchall()
+    )
     names = {str(row[0]) for row in org_rows} | {str(row[0]) for row in proj_rows}
     roles = tuple(sorted(names))
     return PermissionDecision(
@@ -224,10 +232,10 @@ def org_permission_decision(
             org_id=org_id,
         )
     admin_row = conn.execute(
-        "SELECT 1 FROM actor_org_roles aor "
+        "SELECT r.name FROM actor_org_roles aor "
         "JOIN roles r ON r.id = aor.role_id "
-        f"WHERE aor.org_id = {p} AND aor.actor_id = {p} AND r.name = {p} LIMIT 1",
-        (org_id, actor_id, ROLE_ADMIN),
+        f"WHERE aor.org_id = {p} AND aor.actor_id = {p} AND r.name IN ({p}, {p}) LIMIT 1",
+        (org_id, actor_id, ROLE_ADMIN, ROLE_OWNER),
     ).fetchone()
     if admin_row is not None and permission_key not in SERVICE_ONLY_PERMISSIONS:
         return PermissionDecision(
@@ -235,7 +243,7 @@ def org_permission_decision(
             project_id=None,
             permission_key=permission_key,
             allowed=True,
-            role_names=(ROLE_ADMIN,),
+            role_names=(str(admin_row[0]),),
             org_id=org_id,
         )
     rows = conn.execute(

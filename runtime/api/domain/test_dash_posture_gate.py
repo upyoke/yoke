@@ -2,8 +2,13 @@
 
 from __future__ import annotations
 
-from runtime.api.domain.dash_posture_gate_test_support import (_insert_dash as _insert_dash, _insert_session as _insert_session)
-from runtime.api.domain.dash_posture_deployment_containment_test_support import (dash_db_path as dash_db_path)
+from runtime.api.domain.dash_posture_gate_test_support import (
+    _insert_dash as _insert_dash,
+    _insert_session as _insert_session,
+)
+from runtime.api.domain.dash_posture_deployment_containment_test_support import (
+    dash_db_path as dash_db_path,
+)
 
 
 from runtime.api.fixtures.backlog_inserts import (
@@ -262,7 +267,7 @@ def test_approval_on_done_explains_when_no_human_owner_remains(
             session_id="dash-session",
         )
         conn.execute(
-            "UPDATE actors SET kind = 'system' WHERE kind = 'human' AND id IN ("
+            "UPDATE actors SET status = 'disabled' WHERE kind = 'human' AND id IN ("
             "SELECT apr.actor_id FROM actor_project_roles apr "
             "JOIN roles r ON r.id = apr.role_id "
             "WHERE r.name = 'owner')"
@@ -271,6 +276,6 @@ def test_approval_on_done_explains_when_no_human_owner_remains(
     finally:
         conn.close()
     gate = evaluate(item_id=2306, target_status="done", db_path=dash_db_path)
-    assert gate["error_code"] == "GATE_DASH_APPROVAL_REQUIRED"
-    assert "no eligible human" in gate["error"]
-    assert "Do not assign roles automatically" in gate["remediation_hint"]
+    assert gate["error_code"] == "empty_audience_members"
+    assert "no active person" in gate["error"]
+    assert "--audience <name>" in gate["remediation_hint"]

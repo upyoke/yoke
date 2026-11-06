@@ -50,7 +50,9 @@ See [Hosting modes](setup.hosting.md) for the choices and [Self-hosting](self-ho
 
 ## Reconnect machines and verify the destination
 
-Local import binds the machine owner to the oldest active human in the archive and grants that actor admin authority. Disabled humans are never selected. If none is active, `local_import_no_active_human` refuses the import; ask a source org admin to enable a human, export a new archive, and retry.
+Local import binds the oldest active human, who must already be an org owner. Disabled people are excluded; `local_import_no_active_human` means none is active. Ask a source owner to correct access, export again, and retry.
+
+Hosted replacement makes the importing person owner and preserves other members' roles, including existing owners. Normal owner changes require an active owner.
 
 Imported credentials are revoked or rebound as required by the import path. Sign in again, reconnect machines, and confirm the selected Universe before resuming work. Register the appropriate repository folder for each restored project; the archive does not move those folders.
 

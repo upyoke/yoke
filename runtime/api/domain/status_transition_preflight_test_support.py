@@ -3,6 +3,8 @@
 
 from __future__ import annotations
 
+from runtime.api.fixtures.actor_roles import seed_project_role
+
 from copy import deepcopy
 
 from typing import Any
@@ -56,11 +58,23 @@ def _publish_approval_workflow(
     label: str,
     enabled: bool,
 ) -> dict[str, Any]:
-    return publish_workflow_version(
+    published = publish_workflow_version(
         conn,
         workflow_id="issue",
         definition=_approval_definition(label, enabled=enabled),
     )
+
+    if enabled:
+        project_id = conn.execute(
+            "SELECT id FROM projects WHERE slug='yoke'"
+        ).fetchone()[0]
+        seed_project_role(
+            conn,
+            actor_id=_actor_id(conn),
+            project_id=int(project_id),
+            role_name="owner",
+        )
+    return published
 
 
 def _actor_id(conn: Any) -> int:

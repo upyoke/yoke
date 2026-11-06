@@ -2,7 +2,7 @@
  "id": "audiences",
  "title": "Audiences",
  "status": "observed",
- "summary": "An audience combines person, organization and project rules with any. Current active human role membership determines inclusion; audiences describe recipients while consumers own permission and approval policy. Named project audiences can be reused; inline audiences stay out of pickers.",
+ "summary": "Audiences combine active people and org/project rules. Org roles inherit into projects, with minimum rank owner = admin > operator > viewer. Human questions, approvals and QA gates refuse empty_audience_members and name person, audience and project-role recoveries.",
  "commands": ["yoke audiences create", "yoke audiences list"],
  "functions": ["audiences.create", "audiences.list"],
  "sources": ["docs/public/sessions/audiences-and-posts.md", "packages/yoke-core/src/yoke_core/domain/audiences.py"]

@@ -1,7 +1,7 @@
 // One Team roster table: people or machine accounts, with sortable headers.
 
 import { ACTOR_SORT_COLUMNS, actorGrants, projectAccess } from "./actor_roster_sort.js";
-import { roleControl } from "./actor_role_control.js";
+import { actorIsOwner, callerIsOwner, roleControl } from "./actor_role_control.js";
 import { sortHeader } from "./item_roster_sort.js";
 import { callFunction, el, labelCellsByColumn } from "./universe_view_support.js";
 
@@ -43,7 +43,7 @@ function orgRoleCell(documentNode, actor, roster, feedback, reload) {
   const roles = actor.roles?.org || [];
   if (!roles.length) cell.appendChild(el(documentNode, "span", "actors-muted", "—"));
   for (const role of roles) cell.appendChild(pill(
-    documentNode, role.role, role.role === "admin" ? "run" : "idle",
+    documentNode, role.role, ["owner", "admin"].includes(role.role) ? "run" : "idle",
   ));
   return cell;
 }
@@ -144,7 +144,8 @@ function keysCell(documentNode, actor) {
 
 function actionCell(documentNode, actor, roster, feedback, reload) {
   const cell = el(documentNode, "td");
-  if (!roster.can_manage_actors || actor.id === roster.current_actor_id) {
+  if (!roster.can_manage_actors || actor.id === roster.current_actor_id
+      || (actorIsOwner(actor) && !callerIsOwner(roster))) {
     cell.appendChild(el(documentNode, "span", "actors-muted", "—"));
     return cell;
   }

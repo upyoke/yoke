@@ -137,6 +137,7 @@ def cmd_revoke_project(args: argparse.Namespace) -> int:
             actor_id=args.actor,
             project_id=project_id,
             role_name=args.role,
+            caller_actor_id=args.caller,
         )
         verb = "Revoked" if removed else "Already absent"
         print(
@@ -212,6 +213,7 @@ def _build_parser() -> argparse.ArgumentParser:
     r_proj.add_argument(
         "--role", required=True, help=f"one of: {', '.join(PROJECT_ROLES)}"
     )
+    r_proj.add_argument("--caller", type=int, required=True)
     r_proj.set_defaults(func=cmd_revoke_project)
 
     g_list = sub.add_parser("list", help="List an actor's grants")

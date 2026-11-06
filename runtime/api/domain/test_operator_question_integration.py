@@ -5,6 +5,8 @@ from __future__ import annotations
 from runtime.api.domain.operator_question_integration_test_support import _call as _call
 
 
+from runtime.api.fixtures.actor_roles import seed_org_role
+
 import importlib
 
 from runtime.api.domain.deployment_qa_stage_wake_delivery_test_support import (
@@ -199,7 +201,6 @@ def test_question_outcomes_are_delivered_once(test_db):
 
 def _named_question(test_db, monkeypatch, *, project_less):
     from contextlib import contextmanager
-    from yoke_core.domain.actor_role_grants import grant_actor_org_role
     from yoke_core.domain.actors import seed_human_actor
 
     _project(test_db)
@@ -209,8 +210,8 @@ def _named_question(test_db, monkeypatch, *, project_less):
     org = test_db.execute(
         "SELECT org_id FROM projects WHERE id=%s", (PROJECT_YOKE,)
     ).fetchone()[0]
-    grant_actor_org_role(test_db, actor_id=1, org_id=org, role_name="admin")
-    grant_actor_org_role(test_db, actor_id=recipient, org_id=org, role_name="viewer")
+    seed_org_role(test_db, actor_id=1, org_id=org, role_name="admin")
+    seed_org_role(test_db, actor_id=recipient, org_id=org, role_name="viewer")
     if project_less:
         test_db.execute(
             "UPDATE harness_sessions SET project_id=NULL, org_id=%s WHERE session_id=%s",

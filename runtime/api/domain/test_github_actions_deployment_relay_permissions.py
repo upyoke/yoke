@@ -2,6 +2,10 @@
 
 from __future__ import annotations
 
+from runtime.api.fixtures.actor_roles import seed_service_actor
+
+from runtime.api.fixtures.actor_roles import seed_project_role
+
 import sqlite3
 
 from pydantic import BaseModel
@@ -200,7 +204,7 @@ def test_catalog_reseed_converges_release_pin_permission_to_deployment_only() ->
 def test_relay_can_dispatch_and_read_only_deploy_reporting_surfaces() -> None:
     conn = _conn()
     try:
-        actor_id = _actor(conn)
+        actor_id = seed_service_actor(conn)
         externalwebapp_id = resolve_project_id(conn, "externalwebapp")
         grant_actor_project_role(
             conn,
@@ -270,7 +274,7 @@ def test_relay_rejects_conflicting_target_and_payload_when_both_are_authorized()
 ):
     conn = _conn()
     try:
-        actor_id = _actor(conn)
+        actor_id = seed_service_actor(conn)
         for project in ("yoke", "externalwebapp"):
             grant_actor_project_role(
                 conn,
@@ -304,7 +308,7 @@ def test_owner_and_org_admin_retain_all_github_actions_access() -> None:
         externalwebapp_id = resolve_project_id(conn, "externalwebapp")
         owner_id = _actor(conn)
         admin_id = _actor(conn)
-        grant_actor_project_role(
+        seed_project_role(
             conn,
             actor_id=owner_id,
             project_id=externalwebapp_id,

@@ -23,6 +23,8 @@ Without a verified actor every scope is permissive (local/advisory).
 
 from __future__ import annotations
 
+from runtime.api.fixtures.actor_roles import seed_service_actor
+
 from runtime.api.domain.function_authz_scope_routing_test_support import (
     EmptyModel as EmptyModel,
     _entry as _entry,
@@ -73,7 +75,7 @@ def test_projects_list_allows_project_owner_for_actor_visible_handler_filter(con
 
 def test_infrastructure_ci_reads_exact_project_render_inputs(conn):
     yoke = resolve_project_id(conn, "yoke")
-    actor_id = _new_actor(conn)
+    actor_id = seed_service_actor(conn)
     grant_actor_project_role(
         conn,
         actor_id=actor_id,

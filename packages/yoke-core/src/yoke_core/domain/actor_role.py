@@ -19,6 +19,7 @@ from typing import Any
 from yoke_core.domain import db_backend
 from yoke_core.domain.actor_permissions import (
     ROLE_ADMIN,
+    ROLE_OWNER,
     ROLE_DEPLOYMENT_CI,
     ROLE_HOSTED_SERVICE,
     ROLE_INFRASTRUCTURE_CI,
@@ -28,11 +29,10 @@ from yoke_core.domain.actor_permissions import (
     PermissionDenied,
     role_id_by_name,
 )
-from yoke_core.domain.actor_state import actor_active_sql
 from yoke_core.domain.control_plane_authority import resolve_control_plane_org_id
 
 # Org roles a person may hold, most to least authority.
-HUMAN_ORG_ROLES = (ROLE_ADMIN, ROLE_OPERATOR, ROLE_VIEWER)
+HUMAN_ORG_ROLES = (ROLE_OWNER, ROLE_ADMIN, ROLE_OPERATOR, ROLE_VIEWER)
 # Roles that belong only to machine credentials, never to a person.
 MACHINE_ONLY_ROLES = (
     ROLE_DEPLOYMENT_CI,
@@ -114,39 +114,12 @@ def org_roles_of(conn: Any, actor_id: int, org_id: int) -> list[str]:
     return [str(row[0]) for row in rows]
 
 
-def _other_active_human_admin(conn: Any, actor_id: int, org_id: int) -> bool:
-    p = _p(conn)
-    row = conn.execute(
-        "SELECT 1 FROM actor_org_roles aor "
-        "JOIN roles r ON r.id = aor.role_id "
-        "JOIN actors other_actor ON other_actor.id = aor.actor_id "
-        f"WHERE aor.org_id = {p} AND aor.actor_id <> {p} AND r.name = {p} "
-        f"AND other_actor.kind = 'human' AND {actor_active_sql(conn, 'other_actor')} "
-        "LIMIT 1",
-        (org_id, actor_id, ROLE_ADMIN),
-    ).fetchone()
-    return row is not None
-
-
 def check_person_role_change(
     conn: Any, *, actor_id: int, org_id: int, role: str
 ) -> list[str]:
-    """Refuse a person role change by name without writing; return the roles held.
-
-    Demoting the org's last active admin is refused here, so no grant path
-    can strand the org without one. A person still holding several roles
-    from before the one-role rule converges onto ``role`` like any change.
-    """
+    """Validate the human-role vocabulary and return current grants."""
     require_human_org_role(role)
-    previous = org_roles_of(conn, actor_id, org_id)
-    if ROLE_ADMIN in previous and role != ROLE_ADMIN:
-        if not _other_active_human_admin(conn, actor_id, org_id):
-            raise ActorRoleRefused(
-                "last_admin",
-                f"actor {actor_id} is the last active admin of the org; make "
-                "another active person admin first",
-            )
-    return previous
+    return org_roles_of(conn, actor_id, org_id)
 
 
 def replace_person_role(
@@ -161,8 +134,13 @@ def replace_person_role(
     """Make ``role`` the person's only org role; return the roles it replaced.
 
     The caller owns the transaction; ``check_person_role_change`` refuses
-    first, so no grant path can strand the org without an admin.
+    first, so no grant path can strand the org without an owner.
     """
+    from yoke_core.domain.actor_owner_protection import require_owner_change_allowed
+
+    require_owner_change_allowed(
+        conn, granted_by_actor_id, actor_id, ("org", org_id), role
+    )
     now = parse_instant(now)
     previous = check_person_role_change(
         conn, actor_id=actor_id, org_id=org_id, role=role
@@ -170,22 +148,27 @@ def replace_person_role(
     if previous == [role]:
         return previous
     p = _p(conn)
-    conn.execute(
-        f"DELETE FROM actor_org_roles WHERE actor_id = {p} AND org_id = {p}",
-        (actor_id, org_id),
-    )
-    conn.execute(
-        "INSERT INTO actor_org_roles "
-        "(actor_id, org_id, role_id, granted_at, granted_by_actor_id) "
-        f"VALUES ({p}, {p}, {p}, {p}, {p})",
-        (
-            actor_id,
-            org_id,
-            role_id_by_name(conn, role),
-            instant_parameter(conn, parse_instant(now)),
-            granted_by_actor_id,
-        ),
-    )
+    from yoke_core.domain.db_savepoint import savepoint
+
+    if not db_backend.connection_is_postgres(conn) and not conn.in_transaction:
+        conn.execute("BEGIN")
+    with savepoint(conn, "person_role_replace", owns=False):
+        conn.execute(
+            f"DELETE FROM actor_org_roles WHERE actor_id = {p} AND org_id = {p}",
+            (actor_id, org_id),
+        )
+        conn.execute(
+            "INSERT INTO actor_org_roles "
+            "(actor_id, org_id, role_id, granted_at, granted_by_actor_id) "
+            f"VALUES ({p}, {p}, {p}, {p}, {p})",
+            (
+                actor_id,
+                org_id,
+                role_id_by_name(conn, role),
+                instant_parameter(conn, parse_instant(now)),
+                granted_by_actor_id,
+            ),
+        )
     return previous
 
 
@@ -203,6 +186,11 @@ def record_org_grant(
     A person's grant replaces their one org role; a system actor's org roles
     accumulate idempotently.
     """
+    from yoke_core.domain.actor_owner_protection import require_owner_change_allowed
+
+    require_owner_change_allowed(
+        conn, granted_by_actor_id, actor_id, ("org", org_id), role
+    )
     p = _p(conn)
     row = conn.execute(
         f"SELECT kind FROM actors WHERE id = {p}", (actor_id,)
@@ -242,9 +230,9 @@ def set_actor_org_role(
 ) -> ActorRoleChange:
     """Set a person's one org role in a single locked transaction.
 
-    The organization and actor rows are locked before the last-admin check,
+    The organization and actor rows are locked before the last-owner check,
     the same order ``set_actor_enabled`` takes, so a concurrent disable or
-    demotion cannot strand the org without an admin.
+    demotion cannot strand the org without an owner.
     """
     require_human_org_role(role)
     p = _p(conn)

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from runtime.api.fixtures.actor_roles import seed_project_role
+
 import sqlite3
 
 from pydantic import BaseModel
@@ -13,7 +15,6 @@ from yoke_contracts.api.function_call import (
 )
 from yoke_core.domain.actor_permissions import (
     ROLE_OWNER,
-    grant_actor_project_role,
     seed_roles_and_permissions,
 )
 from yoke_core.domain.auth_schema import create_auth_tables
@@ -73,15 +74,14 @@ def _request(actor_id: int, function_id: str, payload: dict) -> FunctionCallRequ
 
 def _actor(conn: sqlite3.Connection) -> int:
     cursor = conn.execute(
-        "INSERT INTO actors (kind, created_at) "
-        "VALUES ('human', '2026-01-01T00:00:00Z')"
+        "INSERT INTO actors (kind, created_at) VALUES ('human', '2026-01-01T00:00:00Z')"
     )
     conn.commit()
     return int(cursor.lastrowid)
 
 
 def _grant_owner(conn: sqlite3.Connection, actor_id: int, project_id: int) -> None:
-    grant_actor_project_role(
+    seed_project_role(
         conn,
         actor_id=actor_id,
         project_id=project_id,

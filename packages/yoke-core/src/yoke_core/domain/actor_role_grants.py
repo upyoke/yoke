@@ -28,7 +28,30 @@ def grant_actor_project_role(
     granted_by_actor_id: int | None = None,
 ) -> None:
     """Grant ``role_name`` to ``actor_id`` in ``project_id`` idempotently."""
+    from yoke_core.domain.actor_owner_protection import require_owner_change_allowed
+    from yoke_core.domain.actor_role import require_human_org_role
+
     catalog = _catalog()
+    p = catalog._p(conn)
+    person = conn.execute(
+        f"SELECT kind FROM actors WHERE id = {p}", (actor_id,)
+    ).fetchone()
+    if person and person[0] == "human":
+        require_human_org_role(role_name)
+    require_owner_change_allowed(
+        conn,
+        granted_by_actor_id,
+        actor_id,
+        ("project", project_id),
+        "owner"
+        if role_name == "owner"
+        or conn.execute(
+            "SELECT 1 FROM actor_project_roles ar JOIN roles r ON r.id=ar.role_id "
+            f"WHERE ar.actor_id={p} AND ar.project_id={p} AND r.name='owner'",
+            (actor_id, project_id),
+        ).fetchone()
+        else role_name,
+    )
     role_id = catalog.role_id_by_name(conn, role_name)
     p = catalog._p(conn)
     conn.execute(
@@ -53,12 +76,22 @@ def revoke_actor_project_role(
     actor_id: int,
     project_id: int,
     role_name: str,
+    caller_actor_id: int,
 ) -> bool:
     """Remove one project role grant, returning whether a row existed.
 
     Absence is success: operators may safely repeat a least-privilege cutover
     after losing the previous command result.
     """
+    from yoke_core.domain.actor_owner_protection import require_owner_change_allowed
+
+    require_owner_change_allowed(
+        conn,
+        caller_actor_id,
+        actor_id,
+        ("project", project_id),
+        None if role_name == "owner" else "unchanged",
+    )
     catalog = _catalog()
     role_id = catalog.role_id_by_name(conn, role_name)
     p = catalog._p(conn)
@@ -95,14 +128,23 @@ def grant_actor_org_role(
         )
     from yoke_core.domain.actor_role import record_org_grant
 
-    record_org_grant(
-        conn,
-        actor_id=actor_id,
-        org_id=org_id,
-        role=role_name,
-        granted_by_actor_id=granted_by_actor_id,
-        now=utc_now(),
-    )
+    from yoke_core.domain.db_savepoint import savepoint
+
+    if (
+        not commit
+        and not catalog.db_backend.connection_is_postgres(conn)
+        and not conn.in_transaction
+    ):
+        conn.execute("BEGIN")
+    with savepoint(conn, "actor_org_grant", owns=commit):
+        record_org_grant(
+            conn,
+            actor_id=actor_id,
+            org_id=org_id,
+            role=role_name,
+            granted_by_actor_id=granted_by_actor_id,
+            now=utc_now(),
+        )
     if commit:
         conn.commit()
 

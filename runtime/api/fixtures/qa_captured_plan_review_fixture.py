@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from runtime.api.fixtures.actor_roles import seed_human_reviewer
 
 from runtime.api.domain.machine_qa_host_test_support import (
     TEST_MACHINE_SETTINGS,
@@ -30,6 +31,8 @@ def captured_plan_review(conn, item_id: int, *, unfinished_case: bool = False):
         title="Inspect captured terminal evidence",
         workflow_id="issue",
     )
+    project_id = conn.execute("SELECT project_id FROM items WHERE id=%s", (item_id,)).fetchone()[0]
+    seed_human_reviewer(conn, project_id)
     replace_test_machine_settings(
         conn,
         project="yoke",

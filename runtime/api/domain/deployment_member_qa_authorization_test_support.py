@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from runtime.api.fixtures.actor_roles import seed_project_role
+
 from types import SimpleNamespace
 import json
 from runtime.api.fixtures.backlog_qa_inserts import insert_qa_requirement
@@ -22,7 +24,6 @@ from yoke_contracts.api.function_call import (
 )
 from yoke_core.domain.actor_permissions import (
     ROLE_OWNER,
-    grant_actor_project_role,
     seed_roles_and_permissions,
 )
 from yoke_core.domain.deployment_run_bound_sources import record_bound_sources
@@ -99,10 +100,19 @@ def _mixed_run(conn, tmp_path, monkeypatch):
     )
     record_bound_sources(conn, RUN)
     enroll_carried_members(conn, RUN)
-    insert_qa_requirement(conn, item_id=CONSUMER_ITEM_ID, qa_phase="post_deploy",
-        target_env="stage", method_id="command", method_name="Command", runner_id="worktree_run",
-        verdict_path="automatic", method_config=json.dumps({"command": "true"}),
-        instructions="Run the consumer smoke command.", expected_outcome="It passes.")
+    insert_qa_requirement(
+        conn,
+        item_id=CONSUMER_ITEM_ID,
+        qa_phase="post_deploy",
+        target_env="stage",
+        method_id="command",
+        method_name="Command",
+        runner_id="worktree_run",
+        verdict_path="automatic",
+        method_config=json.dumps({"command": "true"}),
+        instructions="Run the consumer smoke command.",
+        expected_outcome="It passes.",
+    )
     conn.commit()
     freeze_run_composition(conn, RUN)
     conn.execute(
@@ -151,7 +161,7 @@ def _consumer_actor(conn, project_id: int) -> int:
             "RETURNING id"
         ).fetchone()[0]
     )
-    grant_actor_project_role(
+    seed_project_role(
         conn,
         actor_id=actor_id,
         project_id=project_id,

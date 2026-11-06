@@ -11,6 +11,7 @@ from yoke_contracts.api.function_call import (
 )
 from yoke_core.domain import db_helpers
 from yoke_core.domain.actor_permissions import PERM_ORG_ADMIN, PermissionDenied
+from yoke_core.domain.actor_role import ActorRoleRefused
 from yoke_core.domain.actor_state import ActorStateRefused, set_actor_enabled
 from yoke_core.domain.control_plane_authority import require_control_plane_permission
 
@@ -73,6 +74,8 @@ def handle_actor_state_set(request: FunctionCallRequest) -> HandlerOutcome:
                 now=db_helpers.utc_now(),
                 confirm_system_retirement=confirm_system_retirement,
             )
+        except ActorRoleRefused as exc:
+            return _refuse(exc.code, str(exc))
         except ActorStateRefused as exc:
             return _refuse("actor_state_refused", str(exc))
     return HandlerOutcome(

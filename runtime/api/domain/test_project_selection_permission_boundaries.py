@@ -1,5 +1,7 @@
 """Missing selection teaches only the caller's permitted project roster."""
 
+from runtime.api.fixtures.actor_roles import seed_project_role
+
 import pytest
 
 from runtime.api.domain.function_permission_test_support import _conn, _entry
@@ -8,7 +10,9 @@ from yoke_contracts.api.function_call import (
     FunctionCallRequest,
     TargetRef,
 )
-from yoke_core.domain.actor_permissions import ROLE_OWNER, grant_actor_project_role
+from yoke_core.domain.actor_permissions import (
+    ROLE_OWNER,
+)
 from yoke_core.domain.actors import seed_human_actor
 from yoke_core.domain.project_identity import resolve_project_id
 from yoke_core.domain.yoke_function_permissions import check_dispatch_permission
@@ -28,7 +32,7 @@ def test_missing_selection_names_only_accessible_project(function):
     with _conn() as conn:
         actor_id = seed_human_actor(conn)
         allowed = resolve_project_id(conn, "externalwebapp")
-        grant_actor_project_role(
+        seed_project_role(
             conn,
             actor_id=actor_id,
             project_id=allowed,
@@ -118,7 +122,7 @@ def test_resolver_refusals_keep_their_causes(monkeypatch, reason):
 def test_unknown_capture_does_not_disclose_an_unresolved_subject(run_id):
     with _conn() as conn:
         actor_id = seed_human_actor(conn)
-        grant_actor_project_role(
+        seed_project_role(
             conn,
             actor_id=actor_id,
             project_id=resolve_project_id(conn, "externalwebapp"),

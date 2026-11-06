@@ -64,7 +64,7 @@ def test_import_stream_rotates_every_credential_and_returns_one_admin(tmp_path):
                 assert target.execute(
                     "SELECT COUNT(*) FROM actor_org_roles aor "
                     "JOIN roles r ON r.id = aor.role_id "
-                    "WHERE aor.actor_id = %s AND r.name = 'admin'",
+                    "WHERE aor.actor_id = %s AND r.name = 'owner'",
                     (int(result["actor_id"]),),
                 ).fetchone() == (1,)
                 assert (

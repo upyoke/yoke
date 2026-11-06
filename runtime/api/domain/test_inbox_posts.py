@@ -1,5 +1,7 @@
 """Durable audience-addressed work has one shared completion state."""
 
+from runtime.api.fixtures.actor_roles import seed_project_role
+
 import pytest
 
 from runtime.api.domain.decision_request_test_support import decision_request_connection
@@ -133,7 +135,6 @@ def test_concurrent_done_records_exactly_one_first_person(test_db):
 
     from yoke_core.domain import db_helpers
     from yoke_core.domain.actors import seed_human_actor
-    from yoke_core.domain.actor_permissions import grant_actor_project_role
     from yoke_core.domain.project_identity import resolve_project_id
     from yoke_core.domain.project_seed_test_helpers import seed_project_identities
 
@@ -144,7 +145,7 @@ def test_concurrent_done_records_exactly_one_first_person(test_db):
         for name in ("First reviewer", "Second reviewer")
     ]
     for actor in actors:
-        grant_actor_project_role(
+        seed_project_role(
             test_db, actor_id=actor, project_id=project_id, role_name="owner"
         )
     row = inbox_posts.create_post(

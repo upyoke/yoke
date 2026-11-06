@@ -1,6 +1,8 @@
 # ruff: noqa: F401, E402
 """Shared setup for tests in this directory."""
 
+from runtime.api.fixtures.actor_roles import seed_org_role
+
 from datetime import timedelta
 
 import json
@@ -64,9 +66,7 @@ def org_world(test_db, monkeypatch):
     permissions.grant_actor_project_role(
         conn, actor_id=reader, project_id=1, role_name="viewer"
     )
-    permissions.grant_actor_org_role(
-        conn, actor_id=operator, org_id=org, role_name="operator"
-    )
+    seed_org_role(conn, actor_id=operator, org_id=org, role_name="operator")
     for sid, project, actor in (
         ("project-sender", 1, owner),
         ("org-sender", None, owner),

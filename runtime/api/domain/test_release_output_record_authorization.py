@@ -16,6 +16,8 @@ run.
 
 from __future__ import annotations
 
+from runtime.api.fixtures.actor_roles import seed_service_actor
+
 import sqlite3
 
 from pydantic import BaseModel
@@ -66,11 +68,7 @@ def _conn() -> sqlite3.Connection:
 
 
 def _release_actor(conn: sqlite3.Connection) -> int:
-    cursor = conn.execute(
-        "INSERT INTO actors (kind, created_at) VALUES ('human', '2026-01-01T00:00:00Z')"
-    )
-    conn.commit()
-    actor_id = int(cursor.lastrowid)
+    actor_id = seed_service_actor(conn)
     grant_actor_project_role(
         conn,
         actor_id=actor_id,

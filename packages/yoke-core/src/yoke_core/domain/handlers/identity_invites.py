@@ -13,6 +13,9 @@ sees.
 
 from __future__ import annotations
 
+from yoke_core.domain.actor_role import ActorRoleRefused
+from yoke_core.domain.actor_invite_serialization import serialize_invites
+
 from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel
@@ -105,7 +108,7 @@ def _parse(model, request: FunctionCallRequest):
 def handle_identity_invite_create(request: FunctionCallRequest) -> HandlerOutcome:
     from yoke_core.domain.actor_invites import InviteError, create_invite
     from yoke_core.domain.actor_permissions import role_id_by_name
-    from yoke_core.domain.actor_role import ActorRoleRefused, require_human_org_role
+    from yoke_core.domain.actor_role import require_human_org_role
     from yoke_core.domain.db_helpers import connect
 
     hosted = _hosted_refusal()
@@ -162,6 +165,11 @@ def handle_identity_invite_create(request: FunctionCallRequest) -> HandlerOutcom
                 role_id=role_id,
                 actor_id=target_actor_id,
             )
+        except ActorRoleRefused as exc:
+            return HandlerOutcome(
+                primary_success=False,
+                error=FunctionError(code=exc.code, message=str(exc)),
+            )
         except InviteError as exc:
             return HandlerOutcome(
                 primary_success=False,
@@ -186,7 +194,6 @@ def handle_identity_invite_list(request: FunctionCallRequest) -> HandlerOutcome:
     from yoke_core.domain.actor_invites import (
         InviteError,
         list_invites,
-        serialize_invites,
     )
     from yoke_core.domain.db_helpers import connect
 
@@ -208,6 +215,11 @@ def handle_identity_invite_list(request: FunctionCallRequest) -> HandlerOutcome:
                 status=parsed.status or None,
             )
             rows = serialize_invites(conn, invites)
+        except ActorRoleRefused as exc:
+            return HandlerOutcome(
+                primary_success=False,
+                error=FunctionError(code=exc.code, message=str(exc)),
+            )
         except InviteError as exc:
             return HandlerOutcome(
                 primary_success=False,
@@ -246,6 +258,11 @@ def handle_identity_invite_revoke(request: FunctionCallRequest) -> HandlerOutcom
                 conn,
                 invite_id=parsed.invite_id,
                 revoked_by_actor_id=caller_id,
+            )
+        except ActorRoleRefused as exc:
+            return HandlerOutcome(
+                primary_success=False,
+                error=FunctionError(code=exc.code, message=str(exc)),
             )
         except InviteNotFound as exc:
             return HandlerOutcome(

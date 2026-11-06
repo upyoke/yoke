@@ -174,7 +174,7 @@ test("QA stages say scope, where they run, cases and who decides in plain words"
     Scope: "runs once per admitted item",
     "Runs on": "the preview preview-deploy built",
     Cases: "plan 7 · preview-url-compare",
-    Approval: "human approval required — project owner",
+    Approval: "human approval required — owner",
     Notify: "each item's owner",
   });
   assert.equal(byClass(root, "delivery-flow-stage")[1].classList.contains("is-person"), true);

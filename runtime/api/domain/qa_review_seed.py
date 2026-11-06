@@ -8,6 +8,8 @@ rather than being re-authored per file.
 
 from __future__ import annotations
 
+from runtime.api.fixtures.actor_roles import seed_project_role
+
 from yoke_core.domain.decision_request_schema import (
     create_decision_request_tables,
 )
@@ -128,7 +130,6 @@ def resolve_capture_review(
 ):
     """Exercise the resolved decision that authorizes a provisional judgment."""
     from yoke_core.domain.qa_review_requests import ensure_qa_review_request
-    from yoke_core.domain.actor_role_grants import grant_actor_project_role
     from yoke_core.domain.decision_request_resolution import resolve_decision_request
 
     conn.execute(
@@ -139,7 +140,7 @@ def resolve_capture_review(
             "2026-09-17T00:00:00Z",
         ),
     )
-    grant_actor_project_role(conn, actor_id=actor_id, project_id=1, role_name="owner")
+    seed_project_role(conn, actor_id=actor_id, project_id=1, role_name="owner")
     request, _ = ensure_qa_review_request(
         conn,
         requirement_id=requirement_id,

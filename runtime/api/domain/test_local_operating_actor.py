@@ -79,7 +79,7 @@ def test_birth_grant_is_idempotent_on_a_universe_that_already_has_it(test_db):
     assert seeded is False
     grants = test_db.execute(
         "SELECT COUNT(*) FROM actor_org_roles aor JOIN roles r ON r.id = aor.role_id "
-        "WHERE aor.actor_id = %s AND r.name = 'admin'",
+        "WHERE aor.actor_id = %s AND r.name = 'owner'",
         (actor_id,),
     ).fetchone()[0]
     assert int(grants) == 1

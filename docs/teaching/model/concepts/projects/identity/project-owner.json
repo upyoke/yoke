@@ -1,7 +1,8 @@
 {
  "id": "project-owner",
  "title": "Project owner",
- "status": "draft-copy",
+ "status": "observed",
  "page": "projects",
- "position": 4
+ "position": 4,
+ "summary": "Org and project scopes share owner, admin, operator and viewer. Org roles carry to projects; owner and admin rank equally for audiences and approvals. Only owners can grant owner or change owners; the last active human owner is protected."
 }

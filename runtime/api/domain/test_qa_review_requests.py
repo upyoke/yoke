@@ -161,9 +161,9 @@ def test_all_mode_review_holds_the_qa_verdict_until_every_box_decides(test_db):
     partial = resolve_decision_request(
         test_db,
         int(request["id"]),
-        actor_id=first_decider,
+        actor_id=second_decider,
         action="approve",
-        note="Owner reviewed the evidence.",
+        note="Operator reviewed the evidence.",
     )
     assert partial["status"] == "pending"
     assert partial["approval_progress"]["satisfied"] == 1
@@ -181,9 +181,9 @@ def test_all_mode_review_holds_the_qa_verdict_until_every_box_decides(test_db):
     finished = resolve_decision_request(
         test_db,
         int(request["id"]),
-        actor_id=second_decider,
+        actor_id=first_decider,
         action="approve",
-        note="Operator reviewed the evidence.",
+        note="Owner reviewed the evidence.",
     )
     assert finished["status"] == "resolved"
     assert finished["resolution_action"] == "approve"

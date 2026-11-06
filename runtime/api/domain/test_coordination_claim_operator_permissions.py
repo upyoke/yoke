@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from runtime.api.fixtures.actor_roles import seed_project_role
+
 from runtime.api.domain.yoke_function_permissions_test_support import _conn, _entry
 from yoke_contracts.api.function_call import (
     ActorContext,
@@ -11,7 +13,6 @@ from yoke_contracts.api.function_call import (
 from yoke_core.domain.actor_permissions import (
     PERM_CLAIMS_RELEASE,
     ROLE_OWNER,
-    grant_actor_project_role,
 )
 from yoke_core.domain.actors import seed_human_actor
 from yoke_core.domain.project_identity import resolve_project_id
@@ -23,7 +24,7 @@ def test_coordination_operator_release_is_project_scoped() -> None:
     try:
         actor_id = seed_human_actor(conn)
         yoke_id = resolve_project_id(conn, "yoke")
-        grant_actor_project_role(
+        seed_project_role(
             conn,
             actor_id=actor_id,
             project_id=yoke_id,

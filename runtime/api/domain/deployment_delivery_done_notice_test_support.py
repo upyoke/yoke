@@ -3,6 +3,8 @@
 
 from __future__ import annotations
 
+from runtime.api.fixtures.actor_roles import seed_org_role, seed_project_role
+
 import json
 
 from typing import Any
@@ -20,8 +22,6 @@ from runtime.api.fixtures.backlog_inserts import insert_item
 from yoke_core.domain.actor_permissions import (
     ROLE_ADMIN,
     ROLE_OWNER,
-    grant_actor_org_role,
-    grant_actor_project_role,
 )
 
 from yoke_core.domain.deployment_delivery_done_notice import (
@@ -46,7 +46,7 @@ def _owner(conn: Any, project_id: int = 1) -> int:
         "ON CONFLICT(id) DO NOTHING",
         (OWNER_ACTOR_ID,),
     )
-    grant_actor_project_role(
+    seed_project_role(
         conn,
         actor_id=OWNER_ACTOR_ID,
         project_id=project_id,
@@ -55,7 +55,7 @@ def _owner(conn: Any, project_id: int = 1) -> int:
     # Addressing a human member resolves through shared organization
     # membership, so the owner needs its org role too.
     for org_id in _org_ids(conn, project_id):
-        grant_actor_org_role(
+        seed_org_role(
             conn, actor_id=OWNER_ACTOR_ID, org_id=org_id, role_name=ROLE_ADMIN
         )
     conn.commit()

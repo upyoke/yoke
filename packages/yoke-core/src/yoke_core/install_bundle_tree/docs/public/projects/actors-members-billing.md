@@ -31,9 +31,9 @@ one exists. Disabled actors are hidden by default; **Show disabled (N)** in
 the People header names how many are hidden and reveals them. Every column but Action sorts from its
 header, and the chosen sort is saved to your actor's preferences under the
 actor roster, the same store the Items table uses, so it follows you across
-tabs, browsers, and reloads rather than staying in one browser. An org admin
+tabs, browsers, and reloads rather than staying in one browser. An org owner or admin
 can disable or enable a human actor other than themselves. The last active
-org admin cannot be disabled. A retired system actor can be disabled through
+org owner cannot be disabled. A retired system actor can be disabled through
 `yoke actors state set ACTOR-ID --disable --confirm-system-retirement` after
 checking its live workflow and service references. A deployment actor with an
 active deployment credential
@@ -46,7 +46,7 @@ A local universe has no Invites panel. Its notice, headed **Set up a team
 server to add people**, names `yoke self-host init`; with one human actor it
 also says you are the only actor.
 
-Org admins use **Invite** in the Team page head. The server selects the form:
+Org owners and admins use **Invite** in the Team page head. The server selects the form:
 
 | Universe | Invite field | How the teammate joins |
 |---|---|---|
@@ -87,23 +87,30 @@ names the server operator recovery. See [teammate invitations](../projects/teamm
 Each person holds exactly one org role, and the engine owns it in every mode —
 local, self-hosted, and Hosted beta (upyoke.com) alike:
 
-| Org role | What it allows |
+| Human role at org or project scope | What it allows |
 |---|---|
-| `admin` | Administer the org and every project in it. |
+| `owner` | Full administration, including protected owner changes. |
+| `admin` | Full administration except changing owners. |
 | `operator` | Normal Yoke work across every project in the org. |
 | `viewer` | Read items and events. |
 
-An org admin changes a person's role from the role control in the Team
+An org owner or admin changes a person's role from the role control in the Team
 roster, or with `yoke actors role set ACTOR-ID --role ROLE` (or
 `--member EMAIL` to name the person by the email they sign in with). The new
 role replaces the old one. The change is refused, with the reason named,
-when it would demote the last active admin (make someone else admin first),
+when a non-owner tries to grant owner or change an owner (`owner_protected`),
+or it would remove the last active human owner (`last_owner`; make another person owner first),
 when the role is machine-only (`deployment_ci`, `hosted_service`,
 `infrastructure_ci`, `migration_verification_ci` belong to machine
 credentials), when the role is
-not one of the three above, or when the actor is a system actor. An email
+not one of the four above, or when the actor is a system actor. An email
 with no linked actor is refused until that person signs in once. Project
-roles (`owner`, `operator`, `viewer` on one project) remain separate grants.
+roles use the same four human roles on one project. Org roles carry to every
+project in that org. The effective project role is the higher grant, ranked
+`owner = admin > operator > viewer`; audiences and approval rules include
+people at or above the requested rank. Only an owner may grant owner or
+change, revoke, disable or remove an owner. Owners and admins never receive
+the hosted service delivery permission.
 
 Disable opens a confirmation naming the actor and stating that its API keys
 will be revoked. Cancel changes nothing; a failed confirmation remains retryable.

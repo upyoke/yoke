@@ -6,7 +6,10 @@
 
 An audience names who receives something. Its rules can name a person, an
 organization, an organization role, a project, or a project role. Matching any
-rule includes a person. Membership follows current role grants: joining a role
+rule includes a person. Org roles carry to every project in the org. A role
+rule matches people at or above its rank: `owner = admin > operator > viewer`.
+A higher project grant can raise a person's effective role. Membership follows
+current grants: joining a role
 reveals open work; leaving it removes that work and the right to answer it.
 An audience grants no action by itself. Decision requests keep their own
 approval policy: any needs one answer; all needs an answer for each addressed
@@ -36,8 +39,10 @@ yoke inbox posts done 7
 Other systems use the typed functions `audiences.create`, `audiences.list`,
 `inbox.posts.create` and `inbox.posts.done`. Unknown or empty audiences and
 missing posting permission refuse with a named reason and a recovery step.
-An audience with rules may have no members today; future role members still
-see its open posts. Fleet messages remain individual deliveries with a 24-hour
+Audience definitions and posts may have no members today; future role members still
+see its open posts. Questions, approvals and QA gates refuse
+`empty_audience_members` when nobody can answer: use `--to <person>`, choose
+`--audience <name>` with reachable people, or grant someone a project role. Fleet messages remain individual deliveries with a 24-hour
 expiry. Delivery notices report results and use **Dismiss**; posts ask for
 shared work and use **Done**.
 

@@ -10,12 +10,11 @@ from __future__ import annotations
 from typing import Any, Optional
 
 from yoke_core.domain import db_backend
+from yoke_core.domain.invite_owner_protection import require_invite_owner_change
 from yoke_core.domain.actor_invites import Invite
 from yoke_core.domain.actor_permissions import grant_actor_org_role
 from yoke_core.domain.actor_role import (
     ActorRoleRefused,
-    check_person_role_change,
-    require_human_org_role,
 )
 
 
@@ -41,12 +40,13 @@ def invite_role_refusal(conn: Any, invite: Invite) -> Optional[str]:
     if role is None:
         return None
     try:
-        if invite.actor_id is None:
-            require_human_org_role(role)
-        else:
-            check_person_role_change(
-                conn, actor_id=invite.actor_id, org_id=invite.org_id, role=role
-            )
+        require_invite_owner_change(
+            conn,
+            invite.invited_by_actor_id,
+            invite.actor_id,
+            invite.org_id,
+            invite.role_id,
+        )
     except ActorRoleRefused as exc:
         return (
             f"invite {invite.invite_id} cannot be accepted: {exc}. Ask an org "
@@ -56,7 +56,9 @@ def invite_role_refusal(conn: Any, invite: Invite) -> Optional[str]:
     return None
 
 
-def grant_invite_role(conn: Any, invite: Invite, actor_id: int) -> None:
+def grant_invite_role(
+    conn: Any, invite: Invite, actor_id: int, *, commit: bool = True
+) -> None:
     role = _invite_role(conn, invite)
     if role is not None:
         grant_actor_org_role(
@@ -65,4 +67,5 @@ def grant_invite_role(conn: Any, invite: Invite, actor_id: int) -> None:
             org_id=invite.org_id,
             role_name=role,
             granted_by_actor_id=invite.invited_by_actor_id,
+            commit=commit,
         )

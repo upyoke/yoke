@@ -3,6 +3,8 @@
 
 from __future__ import annotations
 
+from runtime.api.fixtures.actor_roles import seed_project_role
+
 import pytest
 
 from runtime.api.fixtures import pg_testdb
@@ -15,7 +17,6 @@ from yoke_contracts.api.function_call import (
 
 from yoke_core.domain.actor_permissions import (
     ROLE_OWNER,
-    grant_actor_project_role,
     seed_roles_and_permissions,
 )
 
@@ -82,7 +83,7 @@ def _project_owner_actor(database_name: str, project: str) -> str:
             ).fetchone()[0]
         )
         project_id = resolve_project_id(conn, project)
-        grant_actor_project_role(
+        seed_project_role(
             conn,
             actor_id=actor_id,
             project_id=project_id,
