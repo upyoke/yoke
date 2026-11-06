@@ -50,6 +50,9 @@ def sessions_list(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke sessions list",
         usage=SESSIONS_LIST_USAGE,
+        description=("Read presence, activity, intent, next actor and holds from the shared session model. "
+                     "Filters run before pagination. Example: yoke sessions list --presence present. "
+                     "Next: yoke say --help."),
     )
     parser.add_argument(
         "--project",

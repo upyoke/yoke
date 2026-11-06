@@ -11,7 +11,7 @@
   "sessions keepalive": "Keep an idle session from being ended.",
   "sessions keepalive hold": "Keep a session alive while it holds no work.",
   "sessions keepalive release": "Let a held session end when idle again.",
-  "sessions list": "List registered sessions and whether they are live.",
+  "sessions list": "Read session presence, activity, intent, next actor and holds.",
   "sessions reclaim-stale": "End idle sessions and release their claims.",
   "sessions steering": "Read live steering seats.",
   "sessions steering groups": "Read live steering seats.",

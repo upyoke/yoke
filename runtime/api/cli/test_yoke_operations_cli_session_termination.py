@@ -5,7 +5,7 @@ from __future__ import annotations
 from types import SimpleNamespace
 import io
 
-from yoke_cli.commands.adapters import session_control_roster as roster
+from yoke_cli.commands.adapters import sessions_read as roster
 from yoke_cli.commands.adapters import session_control_termination as termination
 from yoke_cli.commands.registry_session_control import (
     SESSION_CONTROL_SUBCOMMAND_ALIAS_REGISTRY,
@@ -86,7 +86,7 @@ def test_sessions_list_narrows_kills_through_ended_cause(monkeypatch) -> None:
         lambda **kwargs: calls.append(kwargs) or 0,
     )
 
-    assert roster.session_control_roster_list(["--ended-cause", "killed"]) == 0
+    assert roster.sessions_list(["--ended-cause", "killed"]) == 0
     assert calls[0]["payload"] == {
         "ended_cause": "killed",
         "detail": "summary",
@@ -95,7 +95,7 @@ def test_sessions_list_narrows_kills_through_ended_cause(monkeypatch) -> None:
 
 
 def test_sessions_list_rejects_terminated_as_a_liveness_peer(capsys) -> None:
-    assert roster.session_control_roster_list(["--liveness", "terminated"]) == 2
+    assert roster.sessions_list(["--liveness", "terminated"]) == 2
     stderr = capsys.readouterr().err
     assert "invalid choice: 'terminated'" in stderr
     assert "--ended-cause killed|wound_down" in stderr

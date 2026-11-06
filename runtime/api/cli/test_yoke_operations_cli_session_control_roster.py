@@ -9,14 +9,13 @@ from types import SimpleNamespace
 import pytest
 
 from runtime.api.constants_test_support import TEST_ITEM_REF
-from yoke_cli.commands.adapters import session_control_roster as roster
+from yoke_cli.commands.adapters import sessions_read as roster
 from yoke_cli.commands.adapters.session_control_human_output import write_roster_result
 from yoke_cli.commands.adapters.session_control_usage import (
     SESSION_CONTROL_USAGE_BY_FUNCTION_ID,
 )
-from yoke_cli.commands.registry_session_control import (
-    SESSION_CONTROL_SUBCOMMAND_REGISTRY,
-)
+from yoke_cli.commands.registry_sessions import SESSIONS_SUBCOMMAND_REGISTRY
+from yoke_cli.commands.registry_session_control import SESSION_CONTROL_SUBCOMMAND_REGISTRY
 from yoke_core.domain.session_control_roster import (
     SESSION_CONTROL_ROSTER_FIELDS,
 )
@@ -82,12 +81,12 @@ def test_full_roster_dispatches_detail_and_prints_every_field(
         "yoke_cli.commands.adapters.list_paging.dispatch_and_emit", _dispatch
     )
     assert (
-        roster.session_control_roster_list(
+        roster.sessions_list(
             [
                 "--project",
                 "yoke",
-                "--liveness",
-                "active",
+                "--presence",
+                "present",
                 "--limit",
                 "5",
                 "--full",
@@ -99,7 +98,7 @@ def test_full_roster_dispatches_detail_and_prints_every_field(
     assert captured["function_id"] == "sessions.list"
     assert captured["payload"] == {
         "project": "yoke",
-        "liveness": "active",
+        "presence": "present",
         "limit": 5,
         "detail": "full",
         "offset": 0,
@@ -163,7 +162,7 @@ def test_roster_point_lookup_dispatches_the_exact_session_filter(monkeypatch) ->
     )
 
     assert (
-        roster.session_control_roster_list(
+        roster.sessions_list(
             ["--project", "yoke", "--session", "session-1", "--json"]
         )
         == 0
@@ -209,9 +208,9 @@ def test_roster_names_a_pending_launch_binding_window() -> None:
 
 
 def test_registry_override_and_usage_map_are_ready_for_aggregation() -> None:
-    function_id, adapter = SESSION_CONTROL_SUBCOMMAND_REGISTRY[("sessions", "list")]
+    function_id, adapter = SESSIONS_SUBCOMMAND_REGISTRY[("sessions", "list")]
     assert function_id == "sessions.list"
-    assert adapter is roster.session_control_roster_list
+    assert adapter is roster.sessions_list
     assert SESSION_CONTROL_USAGE_BY_FUNCTION_ID["sessions.list"].startswith(
         "yoke sessions list"
     )
@@ -221,9 +220,9 @@ def test_registry_override_and_usage_map_are_ready_for_aggregation() -> None:
 
 def test_roster_help_names_the_list_and_say_commands(capsys) -> None:
     with pytest.raises(SystemExit) as exit_info:
-        roster.session_control_roster_list(["--help"])
+        roster.sessions_list(["--help"])
 
     assert exit_info.value.code == 0
     rendered = capsys.readouterr().out
-    assert "yoke sessions list --liveness active" in rendered
+    assert "yoke sessions list --presence present" in rendered
     assert "yoke say --help" in rendered

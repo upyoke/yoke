@@ -20,6 +20,7 @@ from yoke_core.domain.items_projection import (
 
 
 
+
 __all__ = [
     "_QI_ALL_FIELDS",
     "_QI_VIRTUAL_FIELDS",

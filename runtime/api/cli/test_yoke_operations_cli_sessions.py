@@ -236,8 +236,9 @@ def test_sessions_list_dispatches_filters_and_prints_summary_rows() -> None:
 
     assert rc == 0
     text = out.getvalue()
-    assert "session id | presence | mode | current item ref" in text
-    assert "s-1 | present | charge | YOK-41" in text
+    assert "presence | mode | current item ref" in text
+    assert "present | charge | YOK-41" in text
+    assert "yoke sessions get s-1" in text
     assert err.getvalue() == ""
     req = _CAPTURED_REQUESTS[-1]
     assert req.function == "sessions.list"

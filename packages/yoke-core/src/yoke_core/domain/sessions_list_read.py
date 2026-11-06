@@ -254,14 +254,13 @@ def session_summary_result(rows: list[dict], *, offset: int, limit: int | None) 
         "intent",
         "holds",
         "custody",
-        "session_state",
         "next_actor",
         "current_item",
         "current_item_title",
     )
     return {
         "fields": list(fields),
-        "rows": [{key: row.get(key) for key in fields} for row in rows],
+        "rows": [{**{key: row.get(key) for key in fields}, "session_state": row["session_state"]} for row in rows],
         "offset": offset,
         "limit": limit,
         "next_offset": offset + len(rows) if limit and len(rows) == limit else None,
