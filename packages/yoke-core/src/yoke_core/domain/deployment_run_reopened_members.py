@@ -47,7 +47,6 @@ def composition_member_readiness(
     from yoke_core.domain.deployment_run_composition_guard import has_frozen_composition
     from yoke_core.domain.deployment_run_membership_removals import membership_removals
 
-    notice = ""
     frozen = has_frozen_composition(conn, run_id)
     refused, notice = frozen_member_readiness(conn, run_id) if frozen else ([], "")
     rows = query_rows(

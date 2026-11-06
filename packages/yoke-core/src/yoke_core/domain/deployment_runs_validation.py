@@ -3,7 +3,7 @@
 Owns: ``cmd_validate_composition`` (provisional and explicit membership check) and
 ``cmd_check_batch_compatibility`` (pre-creation batch check, in
 :mod:`deployment_runs_batch_compatibility`). Both enforce
-project alignment, item-status floor, and hard-block dependency detection. Selected flow is completion
+project alignment, new-member readiness, and hard-block dependency detection. Selected flow is completion
 authority: a final-delivery release refuses a member it could not close.
 """
 
@@ -78,7 +78,7 @@ def cmd_validate_composition(
 
     Checks:
     1. All items share the run's project
-    2. Every item is delivery-ready under its pinned workflow policy
+    2. New members are delivery-ready; transferred admission holds until freeze
     3. No unsatisfied hard-block dependencies outside the run
     4. Item-scoped QA has custody, and a memberless run owes no delivery
 
