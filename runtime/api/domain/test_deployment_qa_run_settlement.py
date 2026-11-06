@@ -25,6 +25,10 @@ def test_closure_preserves_execution_that_completes_before_its_lock(monkeypatch)
     from unittest.mock import Mock
 
     conn = Mock()
+    monkeypatch.setattr(
+        "yoke_core.domain.deployment_run_set_aside_qa.preserved_qa_selector",
+        lambda *_: lambda _row: False,
+    )
     monkeypatch.setattr(settlement, "preserves_open_qa", lambda *args: False)
     monkeypatch.setattr(settlement, "_table_exists", lambda *args: True)
     monkeypatch.setattr(settlement, "settled_obligation_sql", lambda *args: "FALSE")

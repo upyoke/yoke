@@ -72,6 +72,8 @@ def _add_plan_case(
             CREATE TABLE IF NOT EXISTS qa_requirements (
                 id INTEGER PRIMARY KEY,
                 deployment_run_id TEXT,
+                deployment_member_item_id INTEGER,
+                execution_target_json TEXT,
                 qa_kind TEXT NOT NULL,
                 qa_phase TEXT NOT NULL,
                 blocking_mode TEXT NOT NULL DEFAULT 'blocking',
