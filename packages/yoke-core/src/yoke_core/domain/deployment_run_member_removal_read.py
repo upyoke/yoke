@@ -7,7 +7,7 @@ the run and repeats this read only if the run's fingerprint moved.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any, Iterable
 
 from yoke_core.domain.db_helpers import query_one
@@ -31,6 +31,16 @@ class RemovalRead:
     status: str
     # The guard's named refusal for the first member it refuses, if any.
     refusal: ValueError | None = None
+    candidate_identities: dict[int, tuple[str, str]] = field(default_factory=dict)
+
+    def holds(self, conn):
+        from yoke_core.domain.delivery_evidence_ladder import item_merge_identity
+        from yoke_core.domain.dash_lane_head_staleness import active_lane_head
+
+        return self.projection.holds(conn) and all(
+            identity == (item_merge_identity(conn, item), active_lane_head(conn, item))
+            for item, identity in self.candidate_identities.items()
+        )
 
 
 def read_removal(
@@ -45,7 +55,9 @@ def read_removal(
     if guard:
         try:
             for item_id in item_ids:
-                _require_removable(conn, run_id, int(item_id), read.status)
+                identity = _require_removable(conn, run_id, int(item_id), read.status)
+                if identity is not None:
+                    read.candidate_identities[int(item_id)] = identity
         except ValueError as exc:
             read.refusal = exc
     return read
@@ -60,7 +72,7 @@ def _item_qa_answer(conn: Any, *, run_id: str, **subject: Any) -> Any:
     return current_item_qa(conn, run_id=run_id, **subject)
 
 
-def _require_removable(conn: Any, run_id: str, item_id: int, status: str) -> None:
+def _require_removable(conn: Any, run_id: str, item_id: int, status: str) -> tuple[str, str] | None:
     """Keep ordinary composition mutable; narrow frozen edits to owed item QA."""
     if status == "created":
         if has_frozen_composition(conn, run_id):
@@ -128,10 +140,11 @@ def _require_removable(conn: Any, run_id: str, item_id: int, status: str) -> Non
     from yoke_core.domain.deployment_member_candidate_release import candidate_exclusions
 
     if unready_item_ids(conn, [(item_id, item["status"])], allow_completed=True):
-        if candidate_exclusions(
+        excluded = candidate_exclusions(
             conn, run_id, [{"item_id": item_id, "reopened": True}], include_lane_head=True
-        ):
-            return
+        )
+        if excluded:
+            return excluded[0][1:]
         raise ValueError(
             f"member {render_item_ref(conn, item_id)} still belongs to this frozen "
             "candidate or its containment is undetermined; keep it in the run "
