@@ -48,9 +48,7 @@ from yoke_core.domain.session_claimed_worktrees import ClaimedWorktree
 from yoke_core.hooks.types import HookContext, HookDecision, Next, Outcome
 from yoke_contracts.hook_runner.client_facts import yoke_source_root
 from yoke_contracts.hook_runner.session_cwd import (
-    client_claude_job_tmp,
     client_machine_home,
-    client_scratch_root,
 )
 
 
@@ -95,8 +93,6 @@ def _open_conn():
 def evaluate_pre_tool_use(
     payload: Mapping[str, Any],
     *,
-    watcher_capture_root: str = "",
-    claude_job_tmp_root: str = "",
     machine_home: str | None = None,
     shell: ShellParse | None = None,
 ) -> Verdict:
@@ -138,14 +134,11 @@ def evaluate_pre_tool_use(
                 session_id=session_id,
                 targets=targets,
                 fallback_cwd=fallback_cwd,
-                watcher_capture_root=watcher_capture_root,
-                claude_job_tmp_root=claude_job_tmp_root,
                 machine_home=machine_home,
                 read_only=not write_operation,
                 command=command,
                 tool_name=tool_name,
                 path_uses=path_uses,
-                yoke_root=yoke_root,
             )
     except Exception as exc:
         emit_fail_open(
@@ -208,8 +201,6 @@ def evaluate(record: HookContext) -> HookDecision:
         try:
             verdict = evaluate_pre_tool_use(
                 payload,
-                watcher_capture_root=client_scratch_root(payload),
-                claude_job_tmp_root=client_claude_job_tmp(payload),
                 machine_home=client_machine_home(payload),
                 shell=record.shell,
             )

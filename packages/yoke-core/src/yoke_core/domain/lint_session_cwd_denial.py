@@ -3,7 +3,6 @@
 from typing import Any, Mapping
 
 from yoke_contracts.hook_runner.denial_identity import attach_check_id
-from yoke_contracts.refusal_recovery import compose_refusal
 from yoke_core.domain.lint_session_cwd_control_plane import build_scope_mismatch_block
 from yoke_core.domain.lint_session_cwd_foreign_lane import (
     FAILURE_CLASS as FOREIGN_LANE_FAILURE_CLASS,
@@ -13,7 +12,6 @@ from yoke_core.domain.lint_session_cwd_read_only_signatures import (
     match_read_only_signature,
 )
 from yoke_core.domain.lint_session_cwd_repo_command import repo_command_block
-from yoke_core.domain.lint_session_cwd_home import resembles_home_free_path
 from yoke_core.domain.lint_payload_path_use import UNRESOLVED_HOME_PATH
 from yoke_core.domain.lint_session_cwd_validate import ValidationVerdict
 from yoke_core.domain.lint_session_cwd_wrapped_remote_argv import (
@@ -60,15 +58,6 @@ def build_denial_reason(
         body += wrapped_remote_argv_note(
             command, outcome.offending_target, machine_home
         )
-        if not machine_home and resembles_home_free_path(outcome.offending_target):
-            authority_reason = CLIENT_HOME_AUTHORITY_UNAVAILABLE
-            body += "\nAuthority classification: " + compose_refusal(
-                f"{CLIENT_HOME_AUTHORITY_UNAVAILABLE}: "
-                "the hook payload did not supply a valid client home, so this "
-                "home-derived free path cannot be recognized on the executing machine",
-                recovery="Update the CLI with `yoke update`, then retry so "
-                "the hook relay supplies the canonical client-home fact",
-            )
         tool_name = str(payload.get("tool_name") or payload.get("toolName") or "")
         if (
             machine_home == ""

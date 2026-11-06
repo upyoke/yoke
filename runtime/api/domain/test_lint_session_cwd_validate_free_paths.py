@@ -1,16 +1,4 @@
-"""Free-path allowlist regression coverage for ``lint_session_cwd_validate``.
-
-Covers the S4 expansion: ``/dev/null`` / ``/dev/stderr`` /
-``/dev/stdout``, the ``~/.claude/projects/`` harness-internal
-artifact tree, and the ``~/.codex/sessions/`` plus
-``~/.codex/archived_sessions/`` Codex transcript trees (added so the
-cross-harness transcript audit can walk Codex rollouts from any
-worktree). Also covers watcher-minted capture paths under the live
-machine scratch root's ``watcher-captures/`` subtree. Each free-path
-case must allow regardless of the session's claim set; ``/etc/passwd``
-and similar real repo-tree paths must still deny when the session has
-an active claim.
-"""
+"""External scratch and harness paths need no repository claim."""
 
 from __future__ import annotations
 
@@ -27,9 +15,10 @@ from runtime.api.domain.lint_session_cwd_test_helpers import (
 from runtime.api.fixtures.machine_config_test import register_machine_checkout
 from runtime.api.fixtures.pg_testdb import test_database
 from yoke_core.domain import lint_session_cwd_path_authority
-from yoke_core.domain.lint_session_cwd_path_authority import free_path_prefixes
+from yoke_core.domain.lint_session_cwd_path_authority import (
+    free_path_prefixes, is_yoke_watcher_capture_path,
+)
 from yoke_core.domain.lint_session_cwd_validate import (
-    is_yoke_watcher_capture_path,
     validate_targets,
 )
 from yoke_core.domain.project_scratch_dir import (
@@ -237,8 +226,7 @@ class TestWatcherMintedCapturePairAllowed:
     def test_minted_pair_targets_allowed(
         self, conn, session_with_claim, monkeypatch, tmp_path
     ) -> None:
-        # With the OS temp roots removed from the allowlist, the rule under
-        # test is the watcher-captures one, not OS temp free-paths.
+        # External scratch paths pass without a special allowlist.
         monkeypatch.delenv("TMPDIR", raising=False)
         monkeypatch.setattr(
             lint_session_cwd_path_authority, "_STATIC_FREE_PATH_PREFIXES", ()
@@ -259,7 +247,7 @@ class TestWatcherMintedCapturePairAllowed:
                 )
                 assert verdict.allow, (
                     f"expected minted watcher capture {target} to pass "
-                    f"write-authority via watcher-captures free-path"
+                    f"authority outside governed repositories"
                 )
             dispatch_target = str(
                 dispatch_inputs_dir(
@@ -276,7 +264,7 @@ class TestWatcherMintedCapturePairAllowed:
                 session_id=session_with_claim,
                 targets=[dispatch_target],
             )
-            assert not denied.allow
+            assert denied.allow
         finally:
             shutil.rmtree(scratch, ignore_errors=True)
 
@@ -292,34 +280,31 @@ class TestClaudeJobTmpAllowed:
             conn,
             session_id=session_with_claim,
             targets=[str(target)],
-            claude_job_tmp_root=str(root),
         )
 
         assert verdict.allow
 
-    def test_job_sibling_still_denied(self, conn, session_with_claim) -> None:
+    def test_job_sibling_outside_repositories_allowed(self, conn, session_with_claim) -> None:
         job = Path.home() / ".claude" / "jobs" / "job-123"
         verdict = validate_targets(
             conn,
             session_id=session_with_claim,
             targets=[str(job / "result.json")],
-            claude_job_tmp_root=str(job / "tmp"),
         )
 
-        assert not verdict.allow
+        assert verdict.allow
 
 
 class TestNegativeRegression:
-    """Real repo-tree paths outside the session's claim still deny."""
+    """External paths do not need a repository claim."""
 
-    def test_etc_passwd_still_denied(self, conn, session_with_claim) -> None:
+    def test_etc_passwd_outside_repositories_allowed(self, conn, session_with_claim) -> None:
         verdict = validate_targets(
             conn,
             session_id=session_with_claim,
             targets=["/etc/passwd"],
         )
-        assert not verdict.allow
-        assert "/etc/passwd" in verdict.offending_target
+        assert verdict.allow
 
 
 @pytest.mark.parametrize("tmpdir", ["/run/user/1234/../5678", "relative/tmp", ""])
@@ -344,7 +329,7 @@ def test_absolute_tmpdir_is_canonical_and_shared_with_guard(
     verdict = validate_targets(
         conn, session_id=session_with_claim, targets=[str(target)]
     )
-    assert verdict.allow is accepted
+    assert verdict.allow
     if accepted:
         assert is_free_path(str(target))
         assert not is_free_path(str(root) + "-sibling/capture.log")

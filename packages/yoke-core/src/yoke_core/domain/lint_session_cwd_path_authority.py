@@ -17,13 +17,6 @@ from yoke_core.domain.lint_session_cwd_home import (
 )
 from yoke_core.domain.session_claimed_worktrees import ClaimedWorktree
 
-_ROOT = "/"
-
-
-def _abs(*parts: str) -> str:
-    return os.path.join(_ROOT, *parts)
-
-
 # The free-path allowlist (OS temp dirs, absolute TMPDIR, and discard family) is
 # shared with every writer that must choose a destination the guard will
 # admit, so it lives in ``yoke_contracts.free_paths``. Harness
@@ -44,22 +37,6 @@ def free_path_prefixes(machine_home: str | None = None) -> tuple[str, ...]:
         *machine_free_path_prefixes(_STATIC_FREE_PATH_PREFIXES),
         *home_free_path_prefixes(machine_home),
     )
-
-
-# Standard tool / system binary directories. An extracted target under one
-# of these is an EXECUTED binary, not a write target.
-TOOL_DIR_PREFIXES = (
-    _abs("opt", "homebrew", "bin"),
-    _abs("opt", "homebrew", "sbin"),
-    _abs("opt", "homebrew", "Cellar"),
-    _abs("opt", "homebrew", "opt"),
-    _abs("usr", "local", "bin"),
-    _abs("usr", "local", "sbin"),
-    _abs("usr", "bin"),
-    _abs("usr", "sbin"),
-    _abs("bin"),
-    _abs("sbin"),
-)
 
 
 def is_yoke_watcher_capture_path(
@@ -97,29 +74,6 @@ def is_yoke_watcher_capture_path(
     if parts[5] != "watcher-captures" or not parts[6:]:
         return False
     return not session_id or parts[2] == session_id
-
-
-def is_under_tool_dir(
-    target: str,
-    *,
-    prefixes: Sequence[str] | None = None,
-) -> bool:
-    """Trust tool-directory contents and their individual symlink entries.
-
-    OS packages may link a tool to a private implementation outside the tool
-    directory. Trust that entry without trusting the implementation's directory
-    or descendants reached through a directory symlink.
-    """
-    resolved = resolve_for_display(target)
-    parent = resolve_for_display(str(Path(target).parent))
-    for prefix in prefixes if prefixes is not None else TOOL_DIR_PREFIXES:
-        prefix = resolve_for_display(prefix)
-        if any(
-            candidate == prefix or candidate.startswith(prefix + os.sep)
-            for candidate in (resolved, parent)
-        ):
-            return True
-    return False
 
 
 def is_dev_family_path(target: str) -> bool:
@@ -262,14 +216,12 @@ def _unique_repo_roots(worktree_paths: Iterable[str]) -> List[str]:
 
 __all__ = [
     "DEV_FAMILY_PREFIX",
-    "TOOL_DIR_PREFIXES",
     "derive_repo_roots",
     "free_path_prefixes",
     "is_dev_family_path",
     "is_free_path",
     "is_inside",
     "is_inside_control_plane",
-    "is_under_tool_dir",
     "is_yoke_watcher_capture_path",
     "outside_worktree_lanes",
     "recorded_repo_roots",

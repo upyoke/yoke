@@ -13,8 +13,8 @@ Two layers are covered:
   *safety* tests prove a genuine out-of-claim write target is still surfaced
   (the fixes only narrow false positives — they never hide a real write).
 * **Authorisation** (:func:`validate_targets`) — a claimed session may invoke
-  a standard tool binary (``/opt/homebrew/bin/aws``) while writes outside its
-  claim stay denied, and a session with no claims still passes unconditionally.
+  a standard tool binary (``/opt/homebrew/bin/aws``) while governed lane writes
+  retain claim checks, and a session with no claims still passes unconditionally.
 """
 
 from __future__ import annotations
@@ -30,9 +30,7 @@ from runtime.api.fixtures.pg_testdb import test_database
 from yoke_core.domain.lint_session_cwd_target_extract import (
     extract_command_targets,
 )
-from yoke_core.domain.lint_session_cwd_path_authority import is_under_tool_dir
 from yoke_core.domain.lint_session_cwd_validate import (
-    TOOL_DIR_PREFIXES,
     validate_targets,
 )
 
@@ -219,38 +217,7 @@ def conn(tmp_path):
         yield c
 
 
-class TestToolDirAllowlist:
-    def test_symlinked_tool_entry_does_not_trust_external_directory(self, tmp_path):
-        tools = tmp_path / "usr" / "bin"
-        tools.mkdir(parents=True)
-        implementation = tmp_path / "usr" / "lib" / "cargo" / "bin" / "coreutils"
-        implementation.mkdir(parents=True)
-        binary = implementation / "ls"
-        binary.touch()
-        entry = tools / "ls"
-        entry.symlink_to(binary)
-        alias = tmp_path / "bin"
-        alias.symlink_to(tools, target_is_directory=True)
-        prefixes = (str(tools), str(alias))
-
-        assert is_under_tool_dir(str(entry), prefixes=prefixes)
-        assert is_under_tool_dir(str(alias / "ls"), prefixes=prefixes)
-        assert not is_under_tool_dir(str(binary), prefixes=prefixes)
-        assert not is_under_tool_dir(str(implementation / "other"), prefixes=prefixes)
-
-    def test_directory_symlink_does_not_trust_external_descendants(self, tmp_path):
-        tools = tmp_path / "tools"
-        tools.mkdir()
-        outside = tmp_path / "outside"
-        outside.mkdir()
-        (outside / "arbitrary").touch()
-        (tools / "linked").symlink_to(outside, target_is_directory=True)
-        prefixes = (str(tools),)
-
-        assert not is_under_tool_dir(str(tools / "linked" / "arbitrary"), prefixes=prefixes)
-        assert not is_under_tool_dir(str(tools / ".." / "outside" / "arbitrary"), prefixes=prefixes)
-        assert not is_under_tool_dir(str(tmp_path / "tools-other" / "ls"), prefixes=prefixes)
-
+class TestExternalToolPaths:
     @pytest.mark.parametrize("target", [
         "/opt/homebrew/bin/pulumi",
         "/opt/homebrew/Cellar/pulumi/3.1/bin/pulumi",
@@ -260,17 +227,10 @@ class TestToolDirAllowlist:
     ])
     def test_tool_binary_allowed_for_claimed_session(self, conn, target):
         verdict = validate_targets(conn, session_id="s1", targets=[target])
-        assert verdict.allow, f"expected {target} authorised via tool-dir allowlist"
+        assert verdict.allow, f"expected {target} outside governed repositories"
 
-    def test_tool_dir_prefixes_static_contents(self):
-        # Guard the allowlist against accidental narrowing.
-        assert "/opt/homebrew/bin" in TOOL_DIR_PREFIXES
-        assert "/opt/homebrew/Cellar" in TOOL_DIR_PREFIXES
-        assert "/usr/bin" in TOOL_DIR_PREFIXES
-
-
-class TestOutOfClaimStillDenied:
-    """The tool-dir allowlist must not weaken claim enforcement."""
+class TestExternalPaths:
+    """Paths outside recorded repositories need no claim."""
 
     @pytest.mark.parametrize("target", [
         "/etc/passwd",
@@ -279,10 +239,9 @@ class TestOutOfClaimStillDenied:
         # A path that merely *starts* like a tool dir but is not under one.
         "/opt/homebrew-not-really/bin/evil",
     ])
-    def test_out_of_claim_write_denied(self, conn, target):
+    def test_unrecorded_repository_path_allowed(self, conn, target):
         verdict = validate_targets(conn, session_id="s1", targets=[target])
-        assert not verdict.allow
-        assert target in verdict.offending_target
+        assert verdict.allow
 
     def test_no_claims_session_allows_unconditionally(self, conn):
         # The critical invariant: a session holding no claims is unconstrained.

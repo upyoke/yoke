@@ -46,26 +46,6 @@ _YOKE_INTERNAL_MODULE_PREFIXES: Tuple[str, ...] = (
 )
 
 
-def is_under_yoke_control_plane(target: str, yoke_root: str) -> bool:
-    """Return ``True`` when ``target`` is under the Yoke main repo
-    root AND not under that repo's ``.worktrees/`` subtree.
-
-    Sibling-branch worktrees remain claim-gated; only the Yoke repo's
-    own control-plane content (``runtime/``, ``data/``, ``docs/``,
-    ``.agents/`` and the repo root files) qualifies.
-    """
-    if not yoke_root or not target:
-        return False
-    t = os.path.normpath(target)
-    r = os.path.normpath(yoke_root)
-    if t != r and not t.startswith(r + os.sep):
-        return False
-    worktrees_dir = str(Path(r) / ".worktrees")
-    if t == worktrees_dir or t.startswith(worktrees_dir + os.sep):
-        return False
-    return True
-
-
 def extract_pythonpath_yoke_cwd_override(
     command: str | ShellParse, yoke_root: str
 ) -> Optional[str]:
@@ -243,7 +223,6 @@ __all__ = [
     "SCOPE_MISMATCH_TEMPLATE",
     "build_scope_mismatch_block",
     "extract_pythonpath_yoke_cwd_override",
-    "is_under_yoke_control_plane",
     "render_allowed_block",
     "render_claims_block",
     "resolve_authority_cwd",
