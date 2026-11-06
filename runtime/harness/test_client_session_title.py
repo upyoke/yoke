@@ -200,3 +200,40 @@ def test_cursor_desktop_uses_native_config_root(tmp_path, monkeypatch, platform,
         ("composerData:desktop", json.dumps({"name": "Native title"})),
     )
     assert titles.cursor_title("desktop", tmp_path) == "Native title"
+
+
+@pytest.mark.parametrize("event", ["SessionStart", "UserPromptSubmit", "Stop"])
+@pytest.mark.parametrize("executor", ["claude-desktop", "codex-cli", "cursor-desktop"])
+def test_surface_title_reaches_relay_and_waits_for_confirmation(
+    tmp_path, monkeypatch, event, executor
+):
+    from yoke_harness.hooks import client_facts
+
+    monkeypatch.setattr(
+        titles.machine_config, "effective_temp_root", lambda: str(tmp_path / "cache")
+    )
+    monkeypatch.setattr(titles.Path, "home", lambda: tmp_path)
+    monkeypatch.setenv("CODEX_HOME", str(tmp_path / ".codex"))
+    monkeypatch.setattr(titles.sys, "platform", "darwin")
+    transcript = tmp_path / "chat.jsonl"
+    transcript.write_text(json.dumps({"type": "custom-title", "customTitle": "Native name"}))
+    index = tmp_path / ".codex/session_index.jsonl"
+    index.parent.mkdir()
+    index.write_text(json.dumps({"id": "chat", "thread_name": "Native name"}))
+    desktop = tmp_path / "Library/Application Support/Cursor/User/globalStorage/state.vscdb"
+    database(desktop, "CREATE TABLE cursorDiskKV(key TEXT PRIMARY KEY,value TEXT);")
+    database(
+        desktop,
+        "INSERT INTO cursorDiskKV VALUES (?,?)",
+        ("composerData:chat", json.dumps({"name": "Native name"})),
+    )
+    payload = {"session_id": "chat", "transcript_path": str(transcript)}
+    chain = client_facts.event_chain(event, payload)
+
+    def collect():
+        return client_facts.collect_client_facts(event, payload, executor, chain)
+
+    for _ in range(2):
+        assert read_client_fact(collect(), HARNESS_TITLE_KEY) == "Native name"
+    titles.confirm_title(payload, executor, {"value": "Native name"})
+    assert HARNESS_TITLE_KEY not in collect()
