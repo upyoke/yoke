@@ -1,4 +1,4 @@
-"""Standard user caches bypass claim checks without allowing path escapes."""
+"""External home paths pass; symlinks into governed lanes retain checks."""
 
 from pathlib import Path
 
@@ -52,23 +52,22 @@ def test_cache_reads_and_writes_allowed(
 
 
 @pytest.mark.parametrize("sibling", [".cachex/f", "Library/Cachesx/f", "Documents/f"])
-def test_non_cache_home_paths_still_refused(cache_context, sibling):
+def test_non_cache_external_home_paths_allowed(cache_context, sibling):
     conn, home = cache_context
     target = str(home / sibling)
     verdict = validate_targets(
         conn, session_id="s1", targets=[target], tool_name="Write"
     )
-    assert not verdict.allow
-    assert verdict.offending_target == target
+    assert verdict.allow
 
 
 @pytest.mark.parametrize("cache_root", [".cache", "Library/Caches"])
-def test_cache_symlink_escape_still_refused(cache_context, cache_root):
+def test_cache_symlink_into_unclaimed_lane_refused(cache_context, cache_root):
     conn, home = cache_context
     cache = home / cache_root
     cache.mkdir(parents=True)
-    private = home / "Documents"
-    private.mkdir()
+    private = home.parent / "repo" / ".worktrees" / "unclaimed"
+    private.mkdir(parents=True)
     (cache / "escape").symlink_to(private, target_is_directory=True)
     verdict = validate_targets(
         conn,

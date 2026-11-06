@@ -75,8 +75,11 @@ yoke claims work holder-get PREFIX-N
 `lint_session_cwd` extract targets, validate them and render outcomes. Edit/Read/
 Write carry explicit targets; Bash uses parsed operands such as `-C`, rootdir
 and absolute paths, with declared cwd as a synthetic target when none are found.
-Claimed calls admit held lanes, control-plane roots excluding `.worktrees/`,
-free paths and read-shaped calls. Read-only commands pass without path checks,
+The claim-scope check decides only targets inside recorded repository roots
+and their lanes. Claimed calls there admit held lanes, control-plane roots
+excluding `.worktrees/`, and read-shaped calls. External paths need no claim;
+installed harness and Yoke release trees, including uv releases, remain read-only.
+The separate main-write guard protects main source. Read-only commands pass without path checks,
 including outside home, dot folders, other checkouts and lanes; the harness
 still decides its own read permissions. Known capacity operands inspect totals
 without granting content/mutation. Mutations retain executing-machine home
@@ -88,7 +91,7 @@ Git inspection can inspect another holder's lane; writes, redirects, compound
 mutations and state moves refuse. No-claim operator/maintenance
 contexts retain their defined posture after identity/foreign-lane checks; this
 is not a permission to enter another item's live lane. Client-evidenced machine
-roots and session-scoped watcher scratch preserve the same authority over relay.
+home facts preserve installed-path protection over relay.
 
 Denials name the offending target/claims and recovery: correct the path, acquire
 the intended assigned claim or use its registered control-plane operation.

@@ -25,7 +25,11 @@ DOCTOR_TABLES: dict[str, dict] = {
         ],
         "notes": (
             "Newest `doctor.run.run` receipt. `doctor.last_run.get` and "
-            "`yoke status` read it; never scan events."
+            "`yoke status` read it; never scan events. "
+            "The session-cwd doctor check calls "
+            "yoke_core.domain.lint_session_cwd_validate.validate_targets. "
+            "Wrong guess: its retired yoke_root keyword still exists; "
+            "repository scope now comes only from recorded lane roots."
         ),
     },
 }

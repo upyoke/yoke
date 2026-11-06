@@ -163,7 +163,7 @@ class TestReadsAcrossRoots:
 
         assert verdict.allow is True
 
-    def test_a_payload_that_names_no_tool_still_refuses(self, conn, lane, external):
+    def test_external_payload_needs_no_declared_tool(self, conn, lane, external):
         verdict = lint_session_cwd.evaluate_pre_tool_use(
             {
                 "session_id": SESSION,
@@ -172,7 +172,7 @@ class TestReadsAcrossRoots:
             }
         )
 
-        assert verdict.allow is False
+        assert verdict.allow is True
 
     @pytest.mark.parametrize(
         "relative",
@@ -237,8 +237,8 @@ class TestReadsAcrossRoots:
 # ---------------------------------------------------------------------------
 
 
-class TestWriteShapesStillRefuse:
-    def test_write_tool_to_an_external_path_refuses(self, conn, lane, external):
+class TestExternalWriteShapes:
+    def test_write_tool_to_an_external_path_allows(self, conn, lane, external):
         verdict = lint_session_cwd.evaluate_pre_tool_use(
             {
                 "session_id": SESSION,
@@ -248,9 +248,9 @@ class TestWriteShapesStillRefuse:
             }
         )
 
-        assert verdict.allow is False
+        assert verdict.allow is True
 
-    def test_output_redirect_onto_an_external_path_refuses(
+    def test_output_redirect_onto_an_external_path_allows(
         self,
         conn,
         lane,
@@ -260,16 +260,16 @@ class TestWriteShapesStillRefuse:
             _bash(f"cat {external} > {external.parent}/copy.md", lane)
         )
 
-        assert verdict.allow is False
+        assert verdict.allow is True
 
-    def test_a_mutation_chained_onto_a_read_refuses(self, conn, lane, external):
+    def test_a_mutation_chained_onto_a_read_allows(self, conn, lane, external):
         verdict = lint_session_cwd.evaluate_pre_tool_use(
             _bash(f"cat {external} && cp {external} {external.parent}/copy.md", lane)
         )
 
-        assert verdict.allow is False
+        assert verdict.allow is True
 
-    def test_a_mutating_verb_on_an_external_path_refuses(
+    def test_a_mutating_verb_on_an_external_path_allows(
         self,
         conn,
         lane,
@@ -279,7 +279,7 @@ class TestWriteShapesStillRefuse:
             _bash(f"touch {external.parent}/created.md", lane)
         )
 
-        assert verdict.allow is False
+        assert verdict.allow is True
 
 
 @pytest.mark.parametrize(
@@ -326,10 +326,10 @@ def test_yoke_call_without_operands_allows_from_any_cwd(conn, lane, tmp_path):
         "cat {target}/f > {target}/out", "touch {target}/f",
     ],
 )
-def test_mutating_commands_outside_lane_refuse(conn, lane, repo, external, command):
+def test_mutating_commands_in_governed_roots_refuse(conn, lane, repo, external, command):
     seed_item(conn, item_id=ITEM_ID + 1, branch="YOK-other", repo_path=repo)
     seed_item_claim(conn, "sid-neighbour", item_id=ITEM_ID + 1)
-    for target in (external.parent, repo, repo / ".worktrees/YOK-other"):
+    for target in (repo, repo / ".worktrees/YOK-other"):
         payload = _bash(command.format(target=target), lane)
         verdict = lint_session_cwd.evaluate_pre_tool_use(payload)
         source_verdict = lint_lane_main_write.evaluate_pre_tool_use(payload)

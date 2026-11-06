@@ -92,6 +92,7 @@ def cross_project_session(conn, fake_yoke_root, cross_project_repo):
     tests can reference both roots without re-seeding the DB.
     """
     _seed_claimed_checkout(conn, cross_project_repo, project="externalwebapp")
+    seed_item(conn, item_id=43, branch="unclaimed", repo_path=fake_yoke_root)
     return fake_yoke_root, cross_project_repo
 
 
@@ -131,9 +132,8 @@ class TestYokeControlPlaneCarveOut:
                 },
             }
         )
-        # Sibling-branch worktree remains claim-gated.
-        assert verdict.allow is False
-        assert ".worktrees/YOK-42" in verdict.offending_target
+        # A directory predicate may inspect an unclaimed lane.
+        assert verdict.allow is True
 
     def test_yoke_data_dir_is_authorized(self, cross_project_session):
         fake_yoke_root, _ = cross_project_session
@@ -176,7 +176,7 @@ class TestPythonPathEquivalence:
         cross_project_session,
     ):
         fake_yoke_root, _ = cross_project_session
-        foreign_cwd = Path("/__foreign_cwd__")
+        foreign_cwd = fake_yoke_root / ".worktrees/unclaimed"
         verdict = lint_session_cwd.evaluate_pre_tool_use(
             {
                 **_source_root_fact(fake_yoke_root),
@@ -214,7 +214,7 @@ class TestPythonPathEquivalence:
         cross_project_session,
     ):
         fake_yoke_root, _ = cross_project_session
-        foreign_cwd = Path("/__foreign_cwd__")
+        foreign_cwd = fake_yoke_root / ".worktrees/unclaimed"
         verdict = lint_session_cwd.evaluate_pre_tool_use(
             {
                 **_source_root_fact(fake_yoke_root),
@@ -236,7 +236,7 @@ class TestPythonPathEquivalence:
         cross_project_session,
     ):
         fake_yoke_root, _ = cross_project_session
-        foreign_cwd = Path("/__foreign_cwd__")
+        foreign_cwd = fake_yoke_root / ".worktrees/unclaimed"
         verdict = lint_session_cwd.evaluate_pre_tool_use(
             {
                 **_source_root_fact(fake_yoke_root),
@@ -287,7 +287,7 @@ class TestBlockedMessageWording:
         cross_project_session,
     ):
         fake_yoke_root, cross_project_repo = cross_project_session
-        foreign = Path("/__foreign_target__/file")
+        foreign = fake_yoke_root / ".worktrees/unclaimed/file"
 
         verdict = lint_session_cwd.evaluate_pre_tool_use(
             {
@@ -299,7 +299,7 @@ class TestBlockedMessageWording:
         assert verdict.allow is False
         assert "Any project control plane:" in verdict.reason
         assert str(cross_project_repo) in verdict.reason
-        assert "Yoke control plane:" in verdict.reason
+        assert verdict.reason.count("control plane:") == 1
         assert str(fake_yoke_root) in verdict.reason
 
     def test_yoke_only_session_message_does_not_duplicate(
@@ -324,7 +324,7 @@ class TestBlockedMessageWording:
         )
         seed_item_claim(conn, "sid-yoke", item_id=42)
 
-        foreign = Path("/__foreign_target__/file")
+        foreign = fake_yoke_root / ".worktrees/unclaimed/file"
 
         verdict = lint_session_cwd.evaluate_pre_tool_use(
             {

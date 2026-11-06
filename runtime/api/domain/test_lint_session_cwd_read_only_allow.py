@@ -55,7 +55,7 @@ class TestReadOnlySignatureAllowsFromOutsideCwd:
 
         verdict = lint_session_cwd.evaluate_pre_tool_use({
             "session_id": "sid-1",
-            "cwd": "/opt/elsewhere",
+            "cwd": str(repo / ".worktrees/unclaimed"),
             "tool_input": {
                 "command": (
                     'python3 -m yoke_core.cli.db_router '
@@ -71,7 +71,7 @@ class TestReadOnlySignatureAllowsFromOutsideCwd:
 
         verdict = lint_session_cwd.evaluate_pre_tool_use({
             "session_id": "sid-1",
-            "cwd": "/opt/elsewhere",
+            "cwd": str(repo / ".worktrees/unclaimed"),
             "tool_input": {
                 "command": (
                     "python3 -m yoke_core.hooks.sessions_cli "
@@ -99,69 +99,6 @@ class TestReadOnlySignatureAllowsFromOutsideCwd:
 # ---------------------------------------------------------------------------
 
 
-class TestReadOnlyAllowEmitsCorrectEvent:
-    def test_allowed_signature_calls_allow_emitter_only(
-        self, conn, monkeypatch, repo,
-    ):
-        _seed_claimed_worktree(conn, repo)
-
-        allow_calls: list[dict] = []
-        deny_calls: list[dict] = []
-
-        def _allow(session_id, read_only_signature, claim_count):
-            allow_calls.append({
-                "session_id": session_id,
-                "read_only_signature": read_only_signature,
-                "claim_count": claim_count,
-            })
-
-        def _deny(session_id, offending_target, claim_count):
-            deny_calls.append({
-                "session_id": session_id,
-                "offending_target": offending_target,
-                "claim_count": claim_count,
-            })
-
-        monkeypatch.setattr(
-            lint_session_cwd, "emit_mismatch_allowed_read_only", _allow,
-        )
-        # The deny emit is chosen inside the emit module now, so that is
-        # where it has to be intercepted — patching the policy module
-        # would silently observe nothing and the assertion below would
-        # pass without proving anything.
-        from yoke_core.domain import lint_session_cwd_emit
-        monkeypatch.setattr(
-            lint_session_cwd_emit, "emit_mismatch_denied", _deny,
-        )
-
-        from yoke_core.hooks.types import HookContext, Outcome
-
-        record = HookContext(
-            event_name="PreToolUse", executor_family="claude",
-            executor_surface="claude",
-            payload={
-                "session_id": "sid-1",
-                "cwd": "/opt/elsewhere",
-                "tool_input": {
-                    "command": (
-                        'python3 -m yoke_core.cli.db_router '
-                        'query "SELECT 1"'
-                    ),
-                },
-            },
-            tool_name="Bash", cwd="/opt/elsewhere", session_id="sid-1",
-        )
-
-        decision = lint_session_cwd.evaluate(record)
-
-        assert decision.outcome is Outcome.NOOP
-        # No deny emission.
-        assert deny_calls == []
-        # One allow emission carrying the matched signature label.
-        assert len(allow_calls) == 1
-        assert allow_calls[0]["read_only_signature"] == "db_router-query"
-
-
 # ---------------------------------------------------------------------------
 # A non-read-only command from the same outside cwd still denies
 # ---------------------------------------------------------------------------
@@ -175,7 +112,7 @@ class TestNonReadOnlyStillDenies:
 
         verdict = lint_session_cwd.evaluate_pre_tool_use({
             "session_id": "sid-1",
-            "cwd": "/opt/elsewhere",
+            "cwd": str(repo / ".worktrees/unclaimed"),
             "tool_input": {
                 "command": (
                     "python3 -m yoke_core.engines.advance_implementation_entry "
@@ -187,19 +124,14 @@ class TestNonReadOnlyStillDenies:
         assert verdict.allow is False
 
     def test_synthetic_outside_path_still_denies(self, conn, repo):
-        # Cwd-outside-authority regression: command names an
-        # absolute target outside the free-path allowlist and outside
-        # any claimed worktree. ``/opt/elsewhere`` is used (mirroring
-        # ``test_target_outside_authority_denies``) because pytest's
-        # ``tmp_path`` lives under ``/var/folders`` which the lint's
-        # free-path rule authorizes regardless of claim.
+        # A write into an unclaimed governed lane still refuses.
         _seed_claimed_worktree(conn, repo)
 
         verdict = lint_session_cwd.evaluate_pre_tool_use({
             "session_id": "sid-1",
             "cwd": str(repo),
-            "tool_input": {"command": "touch /opt/elsewhere/out.py"},
+            "tool_input": {"command": f"touch {repo}/.worktrees/unclaimed/out.py"},
         })
 
         assert verdict.allow is False
-        assert verdict.offending_target == "/opt/elsewhere/out.py"
+        assert verdict.offending_target == str(repo / ".worktrees/unclaimed/out.py")

@@ -244,7 +244,7 @@ def test_relay_allows_other_client_scratch_reads(
     )
 
 
-def test_relay_allows_only_the_evidenced_background_job_tmp(
+def test_relay_allows_external_job_paths_without_job_tmp_fact(
     conn,
     claimed_worktree: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -267,7 +267,7 @@ def test_relay_allows_only_the_evidenced_background_job_tmp(
             {"command": f"touch {target}"},
             include_job_tmp=False,
         )
-        is Outcome.DENY
+        is Outcome.NOOP
     )
     assert (
         _remote_decision(
@@ -275,5 +275,5 @@ def test_relay_allows_only_the_evidenced_background_job_tmp(
             {"command": f"touch {CLAUDE_JOB_DIR / 'result.json'}"},
             include_job_tmp=True,
         )
-        is Outcome.DENY
+        is Outcome.NOOP
     )

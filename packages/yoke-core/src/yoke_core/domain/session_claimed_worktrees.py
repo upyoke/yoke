@@ -5,15 +5,14 @@ work_claims**. This helper is the canonical reader: given a session id,
 return the list of ``(item_id, task_num, worktree_path)`` tuples the
 session currently owns through ``work_claims``. The session-cwd lint
 consumes this set per tool call to decide whether a target path lands
-under a claimed worktree, under the main control plane, or under a
-free-path allowlist.
+under a claimed worktree or the main control plane. Paths outside
+recorded repositories need no claim; installed paths remain read-only.
 
 The resolution is small (a handful of worktrees + control plane); no
 caching is required. Released claims are excluded. Items without an
 active recorded lane (e.g. evidence-only items with no worktree)
 contribute no row — the session still holds the work claim, but it has
-no worktree to target, so the lint authorises only control plane and
-free paths.
+no worktree to target.
 
 The path comes from ``item_worktrees.path``, the recorded column,
 never from this machine's checkout-to-project mapping. The evaluator is

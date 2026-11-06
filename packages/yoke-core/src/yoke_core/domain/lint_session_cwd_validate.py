@@ -1,7 +1,8 @@
 """Validate targets against claims, lane occupancy, and machine context.
 
-Read-shaped calls pass without path checks. Mutations retain claim, lane
-and executing-machine authority; calls with no operands use their cwd.
+Read-shaped calls pass without path checks. Repository targets retain claim
+and lane authority; installed paths remain read-only. Calls without operands
+use their cwd.
 """
 
 from __future__ import annotations
@@ -10,19 +11,11 @@ from dataclasses import dataclass, field
 from typing import Any, List, Optional, Sequence
 
 from yoke_core.domain.lane_occupancy import LaneOccupant, occupying_claim
-from yoke_core.domain.lint_session_cwd_control_plane import (
-    is_under_yoke_control_plane,
-)
 from yoke_core.domain.lint_session_cwd_path_authority import (
-    TOOL_DIR_PREFIXES,
     derive_repo_roots as _derive_repo_roots,
-    free_path_prefixes as _free_path_prefixes,
     recorded_repo_roots as _recorded_repo_roots,
     is_inside as _is_inside,
     is_inside_control_plane as _is_inside_control_plane,
-    is_free_path as _path_is_free_path,
-    is_under_tool_dir as _path_is_under_tool_dir,
-    is_yoke_watcher_capture_path,
     resolve_for_display as _resolve_for_display,
 )
 from yoke_core.domain.lint_session_cwd_home import (
@@ -74,14 +67,11 @@ def validate_targets(
     session_id: str,
     targets: Sequence[str],
     fallback_cwd: str = "",
-    watcher_capture_root: str = "",
-    claude_job_tmp_root: str = "",
     machine_home: str | None = None,
     read_only: bool = False,
     command: str = "",
     tool_name: str = "",
     path_uses: tuple[PathUse, ...] = (),
-    yoke_root: str = "",
 ) -> ValidationVerdict:
     """Validate every target path against the session's claim authority.
 
@@ -161,13 +151,9 @@ def validate_targets(
             raw,
             claims=claims,
             repo_roots=repo_roots,
-            session_id=session_id,
-            watcher_capture_root=watcher_capture_root,
-            claude_job_tmp_root=claude_job_tmp_root,
             machine_home=machine_home,
             read_only=read_only,
             path_uses=path_uses,
-            yoke_root=yoke_root,
         ):
             continue
         return ValidationVerdict(
@@ -209,28 +195,14 @@ def _is_target_authorised(
     *,
     claims: Sequence[ClaimedWorktree],
     repo_roots: Sequence[str],
-    session_id: str,
-    watcher_capture_root: str,
-    claude_job_tmp_root: str,
     machine_home: str | None,
     read_only: bool,
     path_uses: tuple[PathUse, ...] = (),
-    yoke_root: str = "",
 ) -> bool:
     roles = {use.role for use in path_uses if use.path == target}
-    if _is_free_path(
-        target,
-        session_id=session_id,
-        watcher_capture_root=watcher_capture_root,
-        claude_job_tmp_root=claude_job_tmp_root,
-        machine_home=machine_home,
-    ):
-        return True
-    if _is_under_tool_dir(target):
-        return True
-    if is_sanctioned_installed_read_path(target, machine_home=machine_home) and (
-        read_only or (roles and PathRole.WRITE not in roles)
-    ):
+    if is_sanctioned_installed_read_path(target, machine_home=machine_home):
+        return bool(read_only or (roles and PathRole.WRITE not in roles))
+    if not any(_is_inside(target, root) for root in repo_roots):
         return True
     for claim in claims:
         if _is_inside(target, claim.worktree_path):
@@ -238,44 +210,11 @@ def _is_target_authorised(
     for root in repo_roots:
         if _is_inside_control_plane(target, root):
             return True
-    # Yoke-control-plane carve-out: any active Yoke session may
-    # read its own control plane (the Yoke main repo root, excluding
-    # its ``.worktrees/`` subtree) regardless of which project's
-    # worktree claim it currently holds. Sibling-branch worktrees stay
-    # claim-gated through ``_is_inside_control_plane``'s `.worktrees`
-    # exclusion.
-    return is_under_yoke_control_plane(target, yoke_root)
-
-
-def _is_free_path(
-    target: str,
-    *,
-    session_id: str,
-    watcher_capture_root: str,
-    claude_job_tmp_root: str,
-    machine_home: str | None,
-) -> bool:
-    prefixes = _free_path_prefixes(machine_home)
-    if _path_is_free_path(target, prefixes=prefixes, machine_home=machine_home):
-        return True
-    if claude_job_tmp_root and _is_inside(target, claude_job_tmp_root):
-        return True
-    own = not watcher_capture_root and machine_home is None  # in-process caller
-    return is_yoke_watcher_capture_path(
-        target,
-        scratch_root=None if own else watcher_capture_root,
-        session_id=session_id,
-    )
-
-
-def _is_under_tool_dir(target: str) -> bool:
-    return _path_is_under_tool_dir(target, prefixes=TOOL_DIR_PREFIXES)
+    return False
 
 
 __all__ = [
     "SCOPE_FAILURE_CLASS",
-    "TOOL_DIR_PREFIXES",
     "ValidationVerdict",
-    "is_yoke_watcher_capture_path",
     "validate_targets",
 ]

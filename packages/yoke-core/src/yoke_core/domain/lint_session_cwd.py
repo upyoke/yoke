@@ -11,7 +11,6 @@ from typing import Any, Mapping, Optional, Sequence
 
 from yoke_contracts.hook_runner.denial_identity import attach_check_id
 from yoke_contracts.hook_runner.shell_parse import ShellParse, parse_shell
-from yoke_core.domain.path_claim_bash_substitution import executable_substitutions
 from yoke_core.domain.lint_lane_main_write_classify import is_write_operation
 from yoke_core.domain.lint_session_cwd_control_plane import (
     SCOPE_MISMATCH_TEMPLATE as SCOPE_MISMATCH_TEMPLATE,
@@ -20,12 +19,7 @@ from yoke_core.domain.lint_session_cwd_control_plane import (
 )
 from yoke_core.domain.lint_session_cwd_emit import (
     emit_fail_open,
-    emit_mismatch_allowed_read_only,
     emit_deny_and_build_audit,
-)
-from yoke_core.domain.lint_session_cwd_read_only_signatures import (
-    _match_simple,
-    match_read_only_signature,
 )
 from yoke_core.domain.lane_occupancy import LaneOccupant
 from yoke_core.domain.lint_session_cwd_identity import (
@@ -48,9 +42,7 @@ from yoke_core.domain.session_claimed_worktrees import ClaimedWorktree
 from yoke_core.hooks.types import HookContext, HookDecision, Next, Outcome
 from yoke_contracts.hook_runner.client_facts import yoke_source_root
 from yoke_contracts.hook_runner.session_cwd import (
-    client_claude_job_tmp,
     client_machine_home,
-    client_scratch_root,
 )
 
 
@@ -69,23 +61,6 @@ class Verdict:
     authority_reason: str = ""
 
 
-def _yoke_call_signature(parsed: ShellParse) -> Optional[str]:
-    """``yoke-adapter`` for a call with no path operands whose segments are
-    ``yoke`` calls or reads: the server decides a ``yoke`` call's authority."""
-    segments = parsed.segments
-    if parsed.unparsed or not segments:
-        return None
-    if not any(segment.argv[:1] == ("yoke",) for segment in segments):
-        return None
-    for segment in segments:
-        is_yoke = segment.argv[:1] == ("yoke",) and not executable_substitutions(
-            segment.text
-        )[1]
-        if not (is_yoke or _match_simple(segment)):
-            return None
-    return "yoke-adapter"
-
-
 def _open_conn():
     from yoke_core.domain import db_helpers
 
@@ -95,8 +70,6 @@ def _open_conn():
 def evaluate_pre_tool_use(
     payload: Mapping[str, Any],
     *,
-    watcher_capture_root: str = "",
-    claude_job_tmp_root: str = "",
     machine_home: str | None = None,
     shell: ShellParse | None = None,
 ) -> Verdict:
@@ -138,14 +111,11 @@ def evaluate_pre_tool_use(
                 session_id=session_id,
                 targets=targets,
                 fallback_cwd=fallback_cwd,
-                watcher_capture_root=watcher_capture_root,
-                claude_job_tmp_root=claude_job_tmp_root,
                 machine_home=machine_home,
                 read_only=not write_operation,
                 command=command,
                 tool_name=tool_name,
                 path_uses=path_uses,
-                yoke_root=yoke_root,
             )
     except Exception as exc:
         emit_fail_open(
@@ -162,22 +132,6 @@ def evaluate_pre_tool_use(
             claims=outcome.claims,
             repo_roots=outcome.repo_roots,
         )
-
-    # Orientation with no operands may use its established read signature.
-    if not targets:
-        signature = match_read_only_signature(parsed) or _yoke_call_signature(parsed)
-        if signature:
-            emit_mismatch_allowed_read_only(
-                session_id=outcome.session_id,
-                read_only_signature=signature,
-                claim_count=len(outcome.claims),
-            )
-            return Verdict(
-                allow=True,
-                session_id=outcome.session_id,
-                claims=outcome.claims,
-                repo_roots=outcome.repo_roots,
-            )
 
     reason, authority_reason = build_denial_reason(
         outcome,
@@ -208,8 +162,6 @@ def evaluate(record: HookContext) -> HookDecision:
         try:
             verdict = evaluate_pre_tool_use(
                 payload,
-                watcher_capture_root=client_scratch_root(payload),
-                claude_job_tmp_root=client_claude_job_tmp(payload),
                 machine_home=client_machine_home(payload),
                 shell=record.shell,
             )

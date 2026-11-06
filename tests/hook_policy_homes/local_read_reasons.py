@@ -189,7 +189,6 @@ CLIENT_PATH_CANONICALIZATION = (
     'policy passes the client\'s facts instead ("" when absent).',
     (
         "yoke_contracts.free_paths:free_path_prefixes",
-        "yoke_contracts.hook_runner.session_cwd:_valid_claude_job_tmp",
         "yoke_contracts.hook_runner.session_cwd:_valid_machine_home",
         "yoke_contracts.hook_runner.session_cwd:_valid_root",
         "yoke_contracts.hook_runner.shell_parse:advance_cwd",

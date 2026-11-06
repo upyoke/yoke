@@ -309,7 +309,7 @@ class TestSanctionedReadPaths:
         assert allowed.allow is True
 
     @pytest.mark.parametrize("target", DOT_READ_TARGETS)
-    def test_excluded_target_stays_refused_beside_a_redirect(self, conn, repo, target):
+    def test_external_dot_target_allows_beside_a_redirect(self, conn, repo, target):
         _seed_lane(conn, repo, session_id="sid-lane")
         command = f"cat {target} > /tmp/log"
-        assert _lane_verdict("Bash", {"command": command}).allow is False
+        assert _lane_verdict("Bash", {"command": command}).allow is True

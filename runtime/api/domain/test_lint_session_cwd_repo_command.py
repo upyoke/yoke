@@ -22,7 +22,7 @@ CURRENT_SESSION = "sid-current"
 HOLDER_SESSION = "sid-holder"
 CURRENT_ITEM = 7301
 HELD_ITEM = 7302
-FOREIGN_CWD = "/__mapped_other_project__"
+FOREIGN_CWD = "/__mapped_other_project__/.worktrees/unclaimed"
 
 
 @pytest.fixture
@@ -32,17 +32,19 @@ def conn():
 
 
 @pytest.fixture
-def repo(tmp_path):
+def repo(tmp_path, conn):
     path = tmp_path / "repo"
     (path / ".worktrees").mkdir(parents=True)
     config_root = tmp_path / "machine-config"
     register_machine_checkout(config_root, path, 1)
     register_machine_checkout(
         config_root,
-        Path(FOREIGN_CWD),
+        Path(FOREIGN_CWD).parent.parent,
         2,
         create_checkout=False,
     )
+    seed_item(conn, item_id=99, branch="unclaimed",
+              repo_path=Path(FOREIGN_CWD).parent.parent)
     return path
 
 

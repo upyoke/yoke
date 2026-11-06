@@ -8,7 +8,9 @@
 
 - Calls start fresh. Use absolute paths, `git -C ABSOLUTE_PATH`, and workdir or `cd`
   for relative writes.
-- Work claims cover their lanes, main control-plane paths and `/tmp` or `/var/folders`.
+- The session-cwd claim check covers recorded repository roots and their lanes.
+  Paths outside those roots need no claim; installed Yoke releases remain read-only.
+  Work claims cover their lanes and main control-plane paths.
   Source guard excludes client-proven Git metadata; main exceptions use
   `# lint:allow-lane-main-write`. See [lane rules](lanes-and-claims.md).
 - Remove tracked generated output with `git -C <lane> rm -r -- <dir>`; use the literal

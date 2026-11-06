@@ -95,6 +95,8 @@ def test_claimed_worker_can_invoke_remote_capture(worker, tool_name):
     ],
 )
 def test_claimed_worker_still_cannot_write_unclaimed_local_path(worker, command):
+    local = str(worker / ".worktrees/unclaimed/capture.txt")
+    command = command.replace(LOCAL, local)
     verdict = lint_session_cwd.evaluate_pre_tool_use(
         {
             "session_id": "capture-worker-session",
@@ -104,7 +106,7 @@ def test_claimed_worker_still_cannot_write_unclaimed_local_path(worker, command)
         }
     )
     assert not verdict.allow
-    assert verdict.offending_target == LOCAL
+    assert verdict.offending_target == local
 
 
 EXEC = "yoke test-machine exec --project yoke"

@@ -217,7 +217,7 @@ class TestSessionCwdBindingHC:
     def test_single_mismatched_session_fails(self, tmp_path, silenced_emit):
         main = tmp_path / "main"
         (main / ".worktrees" / "YOK-9001").mkdir(parents=True)
-        outside = tmp_path / "outside"
+        outside = main / ".worktrees" / "unclaimed"
         outside.mkdir()
         conn = _make_conn()
         _add_project(conn, checkout_path=str(main))
@@ -244,7 +244,7 @@ class TestSessionCwdBindingHC:
         worktree_b = main / ".worktrees" / "YOK-9002"
         worktree_a.mkdir(parents=True)
         worktree_b.mkdir(parents=True)
-        outside = tmp_path / "outside"
+        outside = main / ".worktrees" / "unclaimed"
         outside.mkdir()
         conn = _make_conn()
         _add_project(conn, checkout_path=str(main))

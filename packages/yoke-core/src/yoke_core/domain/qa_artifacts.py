@@ -23,13 +23,8 @@ from yoke_core.domain.qa_artifact_handle import (
     safe_segment,
 )
 
-# A recovery recipe is only as good as its reader's authority to run it.
-# The capture tree lives under the machine scratch root inside the
-# operator's home dot-directories, which the session-cwd guard refuses to
-# read from a session holding a lane claim, so a refusal naming a capture
-# path hands the agent a command its own guard denies. Staged recovery
-# copies therefore land under the shared free temp root, which both guards
-# already treat as a free path.
+# Recovery copies use a private, shared temp destination that both repository
+# writers and per-tool guards admit, independent of capture-machine storage.
 _RECOVERY_COPY_PREFIX = "yoke-qa-evidence."
 
 

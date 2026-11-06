@@ -91,33 +91,6 @@ def emit_mismatch_denied(
     )
 
 
-def emit_mismatch_allowed_read_only(
-    session_id: str,
-    read_only_signature: str,
-    claim_count: int,
-) -> None:
-    """Emit ``SessionCwdMismatchAllowedReadOnly`` for the allow short-circuit.
-
-    Mirrors :func:`emit_mismatch_denied` but lands at ``severity=INFO``
-    and adds a ``read_only_signature`` field naming which classifier
-    pattern matched. The empty-target denial bucket can be split into
-    allow-vs-deny populations with a single ``events`` query that filters
-    by event-name.
-    """
-    context = {
-        "session_id": session_id,
-        "read_only_signature": read_only_signature,
-        "claim_count": int(claim_count),
-    }
-    _emit(
-        name="SessionCwdMismatchAllowedReadOnly",
-        outcome="allowed",
-        context=context,
-        session_id=session_id,
-        severity="INFO",
-    )
-
-
 def emit_foreign_lane_denied(
     session_id: str,
     offending_target: str,
@@ -286,6 +259,5 @@ def emit_health_check_failed(
 __all__ = [
     "emit_fail_open",
     "emit_health_check_failed",
-    "emit_mismatch_allowed_read_only",
     "emit_mismatch_denied",
 ]
