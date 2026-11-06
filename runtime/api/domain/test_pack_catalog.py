@@ -153,7 +153,7 @@ def test_bundle_records_only_used_render_values_and_preserves_github_expressions
     monkeypatch.setattr(
         pack_catalog,
         "gather_pulumi_values",
-        lambda *args: {
+        lambda *args, **kwargs: {
             "project_name": "sample",
             "project_display_name": "Sample App",
             "unused_private_value": "must-not-leak",
@@ -195,7 +195,9 @@ def test_copy_file_remains_project_owned_runtime_template(
     monkeypatch.setattr(
         pack_catalog, "_load_project_renderer_settings", lambda *args: object()
     )
-    monkeypatch.setattr(pack_catalog, "gather_pulumi_values", lambda *args: {})
+    monkeypatch.setattr(
+        pack_catalog, "gather_pulumi_values", lambda *args, **kwargs: {}
+    )
 
     bundle = pack_catalog.build_pack_bundle(object(), project="sample", pack="sample")
 

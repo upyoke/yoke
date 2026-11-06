@@ -3,5 +3,6 @@
  "title": "Pack model",
  "status": "draft-copy",
  "page": "packs",
- "position": 0
+ "position": 0,
+ "summary": "Bundle fetch builds only render value groups required by the selected Pack version; invalid required settings refuse with repair commands, while unrelated incomplete infrastructure settings do not block fetch."
 }

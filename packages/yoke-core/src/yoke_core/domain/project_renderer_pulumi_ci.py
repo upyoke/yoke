@@ -95,7 +95,11 @@ def _stated_strings(values: object, label: str) -> set[str]:
     return {str(value).strip() for value in values if str(value).strip()}
 
 
-def delivery_ci_values(settings: ProjectRendererSettings) -> dict[str, str]:
+def delivery_ci_values(
+    settings: ProjectRendererSettings,
+    *,
+    required_keys: set[str] | None = None,
+) -> dict[str, str]:
     """Return exact distribution resources and App-key deny resources."""
     distribution_buckets: set[str] = set()
     cloudfront_distribution_ids: set[str] = set()
@@ -132,7 +136,7 @@ def delivery_ci_values(settings: ProjectRendererSettings) -> dict[str, str]:
                 str(value).strip() for value in distribution_ids if str(value).strip()
             )
     github = settings.capabilities.get("github", {})
-    return {
+    values = {
         "github_api_url": str(github.get("api_url") or DEFAULT_GITHUB_API_URL).strip(),
         "delivery_distribution_bucket_names_json": (
             json_helper.dumps_compact(sorted(distribution_buckets))
@@ -143,10 +147,12 @@ def delivery_ci_values(settings: ProjectRendererSettings) -> dict[str, str]:
         "github_app_private_key_secret_arns_json": (
             json_helper.dumps_compact(sorted(app_key_secret_arns))
         ),
-        "delivery_authority_json": (
-            json_helper.dumps_compact(_delivery_authority(settings))
-        ),
     }
+    if required_keys is None or "delivery_authority_json" in required_keys:
+        values["delivery_authority_json"] = json_helper.dumps_compact(
+            _delivery_authority(settings)
+        )
+    return values
 
 
 __all__ = [

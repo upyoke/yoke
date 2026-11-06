@@ -62,6 +62,7 @@ def gather_pulumi_values(
     settings: ProjectRendererSettings | None = None,
     *,
     pulumi_stack: str | None = None,
+    required_keys: set[str] | None = None,
 ) -> Dict[str, str]:
     """Preserve the renderer's injectable settings seam for value gathering."""
     selected_settings = settings or load_project_renderer_settings(project)
@@ -70,6 +71,7 @@ def gather_pulumi_values(
         project_root,
         selected_settings,
         pulumi_stack=pulumi_stack,
+        required_keys=required_keys,
     )
 
 
