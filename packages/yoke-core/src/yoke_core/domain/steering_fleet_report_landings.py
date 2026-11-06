@@ -15,7 +15,7 @@ from yoke_core.domain.merge_queue_readiness import (
 from yoke_core.domain.steering_fleet_report_reads import FleetReportReads
 from yoke_core.domain.schema_common import _column_exists
 from yoke_core.domain.session_message_types import row_dict
-from yoke_core.engines.merge_worktree_prepare import MergeArgs, MergeContext
+from yoke_core.domain.merge_context import MergeArgs, MergeContext
 
 
 @dataclass(frozen=True)

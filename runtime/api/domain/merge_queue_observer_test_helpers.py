@@ -21,9 +21,9 @@ from yoke_core.domain.merge_queue_landing_observer import observe_pending_landin
 from yoke_core.domain.merge_queue_landing_record_schema import (
     ensure_merge_queue_landing_record_schema,
 )
-from yoke_core.engines.merge_worktree_pr_check_runs import LandingCheck
-from yoke_core.engines.merge_worktree_pr_membership import PrQueueMembership
-from yoke_core.engines.merge_worktree_pr_queue import PrLandingState
+from yoke_core.domain.merge_github_check_runs import LandingCheck
+from yoke_core.domain.merge_github_membership import PrQueueMembership
+from yoke_core.domain.merge_github_queue import PrLandingState
 
 
 #: When a queued notification is taken to have reached its recipient. Later

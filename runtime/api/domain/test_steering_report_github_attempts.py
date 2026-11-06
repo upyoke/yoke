@@ -10,8 +10,8 @@ from yoke_core.domain.merge_queue_read_reuse import MergeQueueReads
 from yoke_core.domain.merge_queue_readiness import read_merge_queue_readiness
 from yoke_core.domain.project_github_auth import ProjectGithubAuth
 from yoke_core.domain.steering_fleet_report_reads import FleetReportReads
-from yoke_core.engines import merge_worktree_pr_check_runs as checks
-from yoke_core.engines.merge_worktree_prepare import MergeArgs, MergeContext
+from yoke_core.domain import merge_github_check_runs as checks
+from yoke_core.domain.merge_context import MergeArgs, MergeContext
 
 
 def test_report_github_failure_is_unreadable_without_retry_backoff(monkeypatch):

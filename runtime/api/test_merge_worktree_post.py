@@ -15,7 +15,7 @@ from unittest import mock
 
 from yoke_core.engines import merge_worktree as engine
 from yoke_core.engines import merge_worktree_cleanup as cleanup
-from yoke_core.engines.merge_worktree_context import MergeArgs, MergeContext
+from yoke_core.domain.merge_context import MergeArgs, MergeContext
 from yoke_core.engines.remote_branch_cleanup import RemoteBranchDeleteResult
 
 import pytest

@@ -36,8 +36,8 @@ from yoke_core.domain.merge_queue_landing_record import read_landing_record
 from yoke_core.domain.merge_queue_landing_refresh import read_refresh
 from yoke_core.domain.merge_queue_landing_record_state import CONFLICTED
 from yoke_core.domain.merge_queue_ejection_recovery import recover_ejection
-from yoke_core.engines.merge_worktree_pr_membership import PrQueueMembership
-from yoke_core.engines.merge_worktree_pr_queue import QueueMember
+from yoke_core.domain.merge_github_membership import PrQueueMembership
+from yoke_core.domain.merge_github_queue import QueueMember
 
 
 def test_a_dirty_pull_request_tells_the_holder_to_rebase_and_regate():

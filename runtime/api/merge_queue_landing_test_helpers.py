@@ -16,11 +16,11 @@ from yoke_core.domain.merge_queue_readiness import (
     ENQUEUED,
     MERGE_WHEN_READY_CONSUMED,
 )
-from yoke_core.engines.merge_worktree_pr_queue import (
+from yoke_core.domain.merge_github_queue import (
     PrLandingState,
     QueueEntryResult,
 )
-from yoke_core.engines.merge_worktree_prepare import MergeArgs, MergeContext
+from yoke_core.domain.merge_context import MergeArgs, MergeContext
 
 
 LANE_SHA = "1" * 40

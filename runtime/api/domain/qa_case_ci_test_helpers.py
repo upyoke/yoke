@@ -16,13 +16,11 @@ import base64
 from contextlib import nullcontext
 from pathlib import Path
 
-from yoke_core.domain import (
-    lane_base_update,
-    qa_case_ci_covering_run,
-    qa_case_ci_entry_run,
-    qa_case_ci_lane,
-    qa_case_execution,
-)
+from yoke_core.engines import lane_base_update as lane_base_update
+from yoke_core.domain import qa_case_ci_covering_run
+from yoke_core.domain import qa_case_ci_entry_run
+from yoke_core.domain import qa_case_ci_lane
+from yoke_core.domain import qa_case_execution
 from yoke_core.domain.verification_tree_binding import (
     TreeBindingVerdict,
     TreeIdentity,
@@ -109,14 +107,14 @@ def wire_ci_case(tmp_path, monkeypatch) -> tuple[Path, Recorder, Path]:
     """Stub every boundary the runner crosses; return its wiring."""
     checkout = tmp_path / "checkout"
     checkout.mkdir()
-    from yoke_core.engines.merge_worktree_pr_discovery import BranchListing
+    from yoke_core.domain.merge_github_discovery import BranchListing
 
     monkeypatch.setattr(
         "yoke_core.domain.qa_case_ci_authority.machine_github_user_authority",
         nullcontext,
     )
     monkeypatch.setattr(
-        "yoke_core.engines.merge_worktree_pr_discovery.list_branch_pull_requests",
+        "yoke_core.domain.merge_github_discovery.list_branch_pull_requests",
         lambda *a, **k: BranchListing(),
     )
     artifact = tmp_path / "ci-run-output.txt"

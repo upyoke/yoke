@@ -30,13 +30,11 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Mapping, Optional
 
-from yoke_core.domain import (
-    lane_base_update,
-    qa_case_ci_covering_run,
-    qa_case_ci_entry_run,
-    qa_case_ci_lane,
-    qa_case_ci_progress,
-)
+from yoke_core.engines import lane_base_update
+from yoke_core.domain import qa_case_ci_covering_run
+from yoke_core.domain import qa_case_ci_entry_run
+from yoke_core.domain import qa_case_ci_lane
+from yoke_core.domain import qa_case_ci_progress
 from yoke_core.domain.qa_case_execution import QaCaseExecutionError
 
 
@@ -101,8 +99,8 @@ def refuse_conflicting_pull_request(
 ) -> None:
     """Diagnose a missing entry run before attempting to replay the lane."""
     from yoke_core.domain.qa_case_ci_authority import machine_github_user_authority
-    from yoke_core.engines.merge_worktree_pr_discovery import list_branch_pull_requests
-    from yoke_core.engines.merge_worktree_pr_queue import read_pr_landing_state
+    from yoke_core.domain.merge_github_discovery import list_branch_pull_requests
+    from yoke_core.domain.merge_github_queue import read_pr_landing_state
 
     target = qa_case_ci_entry_run.base_branch(project, checkout)
     ctx = lane_base_update.merge_context(

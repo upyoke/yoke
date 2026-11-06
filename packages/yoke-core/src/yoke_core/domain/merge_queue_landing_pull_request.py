@@ -39,17 +39,17 @@ from yoke_core.domain.gh_rest_transport import (
     request_with_retry,
     split_repo,
 )
-from yoke_core.engines.merge_worktree_pr_discovery import (
+from yoke_core.domain.merge_github_discovery import (
     find_landable_pull_request,
 )
-from yoke_core.engines.merge_worktree_pr_queue import read_pr_landing_state
-from yoke_core.engines.merge_worktree_pr_rest import (
+from yoke_core.domain.merge_github_queue import read_pr_landing_state
+from yoke_core.domain.merge_github_rest import (
     AuthResolutionFailed,
     PrCreateResult,
     create_pr,
     resolve_auth,
 )
-from yoke_core.engines.merge_worktree_prepare import MergeContext
+from yoke_core.domain.merge_context import MergeContext
 
 
 def _same_commit(left: str, right: str) -> bool:

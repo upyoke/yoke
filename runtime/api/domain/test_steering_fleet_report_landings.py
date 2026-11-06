@@ -14,11 +14,11 @@ from yoke_core.domain.steering_fleet_report_projection import report_dict
 from yoke_core.domain.steering_fleet_report_render import report_body
 from yoke_core.domain.sessions_lifecycle_claim import claim_work
 from yoke_core.domain.work_claim_targets import make_item_target
-from yoke_core.engines.merge_worktree_pr_check_runs import (
+from yoke_core.domain.merge_github_check_runs import (
     LandingCheck,
     PrLandingProjection,
 )
-from yoke_core.engines.merge_worktree_pr_queue import PrLandingState
+from yoke_core.domain.merge_github_queue import PrLandingState
 
 
 @pytest.fixture

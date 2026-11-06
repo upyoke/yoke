@@ -24,7 +24,7 @@ from runtime.api.domain.status_transition_preflight_test_support import (
     _isolate_status_effects,
 )
 from yoke_core.domain import delivery_member_close_effects as close_effects
-from yoke_core.domain import terminal_lane_cleanup
+from yoke_core.engines import terminal_lane_cleanup
 from yoke_core.domain.db_helpers import connect
 from yoke_core.domain.deployment_runs_crud_mutate import cmd_update
 from yoke_core.domain.project_identity import render_item_ref

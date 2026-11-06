@@ -6,7 +6,7 @@ from types import SimpleNamespace
 
 from yoke_core.domain.item_landings_close_out import close_out_lane
 from yoke_core.domain.item_merge_receipts import landing_merge_commit
-from yoke_core.engines.merge_worktree_context import MergeContext
+from yoke_core.domain.merge_context import MergeContext
 
 
 def record_worktree_landing(

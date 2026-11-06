@@ -14,7 +14,7 @@ import pytest
 
 from yoke_cli.commands import _helpers
 from yoke_contracts.api.function_call import TargetRef
-from yoke_core.domain import terminal_lane_cleanup
+from yoke_core.engines import terminal_lane_cleanup
 
 ITEM = {
     "id": 7,

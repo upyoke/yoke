@@ -11,8 +11,8 @@ from yoke_core.domain.merge_github_authority import (
 )
 from yoke_core.domain.standalone_item_merge_git import has_remote
 from yoke_core.engines.merge_worktree_base import target_ref
-from yoke_core.engines.merge_worktree_pr_rest import validate_github_auth_for_merge
-from yoke_core.engines.merge_worktree_prepare import MergeArgs
+from yoke_core.domain.merge_github_rest import validate_github_auth_for_merge
+from yoke_core.domain.merge_context import MergeArgs
 
 # Exit 6 means the full merge-lock TTL wait timed out, with its holder named.
 RECOVERABLE_MERGE_LOCK_EXIT_CODE = 6

@@ -22,7 +22,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Dict, List
 
-from yoke_core.domain.worktree_maintenance import landed_lanes_note
+from yoke_core.engines.worktree_maintenance import landed_lanes_note
 from yoke_core.engines.deploy_run_worktree_naming import run_id_for_driver_worktree
 from yoke_core.engines.deploy_run_worktree_retirement import (
     assess_deploy_run_worktrees,

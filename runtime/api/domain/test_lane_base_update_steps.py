@@ -12,8 +12,8 @@ from unittest import mock
 import pytest
 
 from yoke_contracts.git_hook_markers import HEAD_RECORDING_SKIP_ENV
-from yoke_core.domain import lane_base_update
-from yoke_core.domain.lane_base_update import LaneBaseUpdateRefused
+from yoke_core.engines import lane_base_update
+from yoke_core.engines.lane_base_update import LaneBaseUpdateRefused
 
 
 @pytest.fixture(autouse=True)

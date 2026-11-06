@@ -52,7 +52,7 @@ def git(checkout: Path, *args: str, timeout: int = 120) -> subprocess.CompletedP
 
 def merge_context(checkout: Path, *, branch: str, target: str, project: str):
     """The merge engine's context for a lane that is its own worktree."""
-    from yoke_core.engines.merge_worktree_prepare import MergeArgs, MergeContext
+    from yoke_core.domain.merge_context import MergeArgs, MergeContext
 
     return MergeContext(
         args=MergeArgs(branch=branch, target=target),

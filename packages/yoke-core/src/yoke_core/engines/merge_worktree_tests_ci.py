@@ -44,7 +44,7 @@ from yoke_core.domain.qa_case_ci_conclusion import (
     failure_verdict,
 )
 from yoke_core.domain.qa_case_execution import QaCaseExecutionError
-from yoke_core.engines.merge_worktree_prepare import MergeContext
+from yoke_core.domain.merge_context import MergeContext
 from yoke_core.engines.merge_worktree_tests_ci_head import (
     covered_head_sha as _covered_head_sha,
 )

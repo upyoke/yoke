@@ -26,9 +26,9 @@ from yoke_core.domain.steering_fleet_report_projection import report_dict
 from yoke_core.domain.steering_fleet_report_reads import FleetReportReads
 from yoke_core.domain.strategy_docs_create import create_doc
 from yoke_core.domain.strategy_docs_defaults import seed_default_docs
-from yoke_core.engines.merge_worktree_pr_check_runs import PrLandingProjection
-from yoke_core.engines.merge_worktree_pr_queue import PrLandingState
-from yoke_core.engines.merge_worktree_prepare import MergeArgs, MergeContext
+from yoke_core.domain.merge_github_check_runs import PrLandingProjection
+from yoke_core.domain.merge_github_queue import PrLandingState
+from yoke_core.domain.merge_context import MergeArgs, MergeContext
 
 
 FIRST_DOCUMENT = "AREA-PLAN-ONE"
@@ -117,7 +117,7 @@ def _wire_github(monkeypatch, *, pr_error: str = "") -> Counter:
         pytest.fail("fleet report must not read the branch queue")
 
     monkeypatch.setattr(reads_mod, "read_pr_landing_and_required_checks", projection)
-    monkeypatch.setattr("yoke_core.engines.merge_worktree_pr_queue.read_queue_members",
+    monkeypatch.setattr("yoke_core.domain.merge_github_queue.read_queue_members",
                         queue_members)
     return calls
 

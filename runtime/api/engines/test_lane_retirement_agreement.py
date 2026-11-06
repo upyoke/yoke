@@ -20,7 +20,7 @@ from runtime.api.engines._merge_prune_test_helpers import (
     _install,
     _repo,
 )
-from yoke_core.domain.terminal_lane_cleanup import cleanup_terminal_item_lanes
+from yoke_core.engines.terminal_lane_cleanup import cleanup_terminal_item_lanes
 from yoke_core.engines.merge_landed_lane_cleanup import prune_landed_lane
 from yoke_core.engines.merge_worktree_safe_prune import (
     WorktreeSweep,

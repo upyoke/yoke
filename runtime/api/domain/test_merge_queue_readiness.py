@@ -12,11 +12,11 @@ from yoke_contracts.api.function_call import (
 from yoke_core.domain import merge_queue_read_reuse as reads_mod
 from yoke_core.domain import merge_queue_readiness as readiness_mod
 from yoke_core.domain.handlers import github_merge_queue_readiness as handler
-from yoke_core.engines.merge_worktree_pr_check_runs import (
+from yoke_core.domain.merge_github_check_runs import (
     LandingCheck,
     PrLandingProjection,
 )
-from yoke_core.engines.merge_worktree_pr_queue import PrLandingState
+from yoke_core.domain.merge_github_queue import PrLandingState
 
 
 def _request() -> FunctionCallRequest:
@@ -295,7 +295,7 @@ def test_two_red_check_urls_appear_once_in_the_readback() -> None:
 def test_failed_pr_read_has_unreadable_queue_entry(monkeypatch) -> None:
     monkeypatch.setattr(reads_mod, "read_pr_landing_and_required_checks",
                         lambda *_a: PrLandingProjection(state_error="read failed"))
-    from yoke_core.engines.merge_worktree_prepare import MergeArgs, MergeContext
+    from yoke_core.domain.merge_context import MergeArgs, MergeContext
     result = readiness_mod.read_merge_queue_readiness(
         MergeContext(args=MergeArgs(branch=""), project="prj"),
         pr_number="42", target="main",
@@ -310,7 +310,7 @@ def test_failed_pr_read_has_unreadable_queue_entry(monkeypatch) -> None:
     ({}, "PRESENT"), (None, "absent"),
 ])
 def test_pr_projection_parses_queue_entry_with_consumed_arming(entry, expected):
-    from yoke_core.engines.merge_worktree_pr_check_runs import _parse_landing_state
+    from yoke_core.domain.merge_github_check_runs import _parse_landing_state
     state = _parse_landing_state({"autoMergeRequest": None, "mergeQueueEntry": entry})
     result = readiness_mod.classify_readiness(pr_number="42", target="main", state=state)
     assert result.queue_entry_state == expected

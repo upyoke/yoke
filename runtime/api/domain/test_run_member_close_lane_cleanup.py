@@ -22,7 +22,7 @@ from runtime.api.domain.shared_gate_two_phase_settlement_test_support import (
 from runtime.api.domain.status_transition_preflight_test_support import (
     _isolate_status_effects,
 )
-from yoke_core.domain import terminal_lane_cleanup
+from yoke_core.engines import terminal_lane_cleanup
 from yoke_core.domain.deployment_runs_crud_mutate import cmd_update
 from yoke_core.domain.item_worktrees import record_item_worktree
 from yoke_core.domain.workflow_behavior import LANE_IMPLEMENTATION

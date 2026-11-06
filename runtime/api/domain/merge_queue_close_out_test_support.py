@@ -11,9 +11,9 @@ from yoke_core.domain.merge_queue_batch_receipt import BatchReceipt
 
 from yoke_core.domain.item_merge_receipts import MergeReceipt
 
-from yoke_core.engines.merge_worktree_pr_train_run import TrainRunLookupFailure
+from yoke_core.domain.merge_github_train_run import TrainRunLookupFailure
 
-from yoke_core.engines.merge_worktree_prepare import MergeArgs, MergeContext
+from yoke_core.domain.merge_context import MergeArgs, MergeContext
 
 LANE_SHA = "1" * 40
 

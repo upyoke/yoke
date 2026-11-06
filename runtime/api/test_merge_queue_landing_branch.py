@@ -26,7 +26,7 @@ from yoke_core.domain import merge_queue_landing_pull_request as landing_pr_mod
 from yoke_core.domain import qa_case_ci_lane
 from yoke_core.domain.merge_queue_declaration_apply import _branch_from_ruleset
 from yoke_core.domain.qa_case_execution import QaCaseExecutionError
-from yoke_core.engines.merge_worktree_pr_rest import PrCreateResult
+from yoke_core.domain.merge_github_rest import PrCreateResult
 
 
 # --- A branch name git accepts, the landing accepts -------------------------

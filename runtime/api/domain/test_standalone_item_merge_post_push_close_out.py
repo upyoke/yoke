@@ -18,7 +18,7 @@ from yoke_core.domain.project_github_auth_models import (
     GITHUB_AUTHORITY_INSTALLATION,
 )
 from yoke_core.engines import merge_worktree_post_local as local_merge
-from yoke_core.engines.merge_worktree_prepare import MergeArgs, MergeContext
+from yoke_core.domain.merge_context import MergeArgs, MergeContext
 from runtime.api.domain.merge_route_gate_stubs import admit_route_gates
 
 

@@ -21,7 +21,7 @@ from runtime.api.domain.ci_no_verdict_redispatch_test_support import (
 from yoke_core.domain import merge_queue_route as route
 from yoke_core.domain import merge_queue_enqueue_verification as admission
 from yoke_core.domain import merge_queue_entry_check_redispatch as recovery
-from yoke_core.engines.merge_worktree_pr_membership import PrQueueMembership
+from yoke_core.domain.merge_github_membership import PrQueueMembership
 
 
 @pytest.mark.parametrize("started", [False, True])

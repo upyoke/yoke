@@ -12,7 +12,7 @@ from pathlib import Path
 from types import SimpleNamespace
 
 from runtime.api.engines._merge_prune_test_helpers import _Conn, _install, _repo
-from yoke_core.domain import terminal_lane_cleanup
+from yoke_core.engines import terminal_lane_cleanup
 from yoke_core.engines.lane_sweep_lock import SWEEP_LOCK_HELD, lane_sweep_lock
 from yoke_core.engines.merge_worktree_safe_prune import prune_managed_worktrees
 from yoke_core.tools import session_relay_lane_sweep as relay_sweep

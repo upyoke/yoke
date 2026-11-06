@@ -9,7 +9,7 @@ from yoke_core.domain.merge_queue_failed_train import (
     unchanged_failed_train_refusal,
 )
 from yoke_core.domain import merge_queue_failed_train as failed_train
-from yoke_core.engines.merge_worktree_pr_train_run import TrainRun
+from yoke_core.domain.merge_github_train_run import TrainRun
 
 BASE_SHA = "3" * 40
 TRAIN_SHA = "4" * 40

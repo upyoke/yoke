@@ -15,7 +15,7 @@ from yoke_core.domain.merge_queue_landed_candidate import landed_candidate_head
 from yoke_core.domain.merge_queue_landing_outcome import close_out
 from yoke_core.domain.merge_queue_landing_record_state import LANDED
 from yoke_core.domain.item_merge_receipts import MergeReceipt
-from yoke_core.engines.merge_worktree_prepare import MergeArgs, MergeContext
+from yoke_core.domain.merge_context import MergeArgs, MergeContext
 
 CACHED = "a" * 40
 REBASED = "b" * 40

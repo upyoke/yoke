@@ -54,7 +54,7 @@ def handle_hold(request: FunctionCallRequest) -> HandlerOutcome:
     from yoke_contracts.merge_queue_status import in_flight_landing
     from yoke_core.domain.item_detail_read import get_item_detail
     from yoke_core.domain.merge_queue_hold import hold_landing
-    from yoke_core.engines.merge_worktree_prepare import MergeArgs, MergeContext
+    from yoke_core.domain.merge_context import MergeArgs, MergeContext
 
     try:
         item = get_item_detail(int(request.target.item_id))

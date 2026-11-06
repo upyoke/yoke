@@ -72,7 +72,7 @@ def test_rebased_lane_within_limit_passes(tmp_path: Path) -> None:
 @pytest.mark.parametrize("local_merge", [True, False])
 def test_non_queue_landing_refuses_exception_growth(tmp_path, monkeypatch, local_merge):
     from yoke_core.engines import merge_worktree as mw
-    from yoke_core.engines.merge_worktree_context import MergeArgs, MergeContext
+    from yoke_core.domain.merge_context import MergeArgs, MergeContext
     from yoke_core.engines.merge_worktree_rebase import do_rebase_or_merge
 
     _rebased_lane(tmp_path, base_lines=400, lane_lines=401)

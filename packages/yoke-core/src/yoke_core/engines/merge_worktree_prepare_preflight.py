@@ -16,7 +16,7 @@ from yoke_contracts.public_ref import unresolved_item_ref
 from yoke_core.domain.project_attribution import resolved_project
 
 if TYPE_CHECKING:  # the cycle-free half of the prepare<->preflight pair
-    from yoke_core.engines.merge_worktree_prepare import MergeContext
+    from yoke_core.domain.merge_context import MergeContext
 
 
 def _parent():

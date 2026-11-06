@@ -19,9 +19,9 @@ from yoke_core.domain.merge_queue_entry_checks import (
     regate_instruction,
 )
 
-from yoke_core.engines.merge_worktree_pr_check_runs import LandingCheck
+from yoke_core.domain.merge_github_check_runs import LandingCheck
 
-from yoke_core.engines.merge_worktree_prepare import MergeArgs, MergeContext
+from yoke_core.domain.merge_context import MergeArgs, MergeContext
 
 RUN_URL = "https://github.com/o/r/actions/runs/37365021162/job/111944546142"
 

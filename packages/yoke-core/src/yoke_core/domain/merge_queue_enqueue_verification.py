@@ -27,19 +27,19 @@ from yoke_core.domain.merge_queue_readback_outcomes import (
     MERGE_WHEN_READY_CLEARED,
     MERGE_WHEN_READY_CONSUMED,
 )
-from yoke_core.engines.merge_worktree_pr_check_runs import (
+from yoke_core.domain.merge_github_check_runs import (
     LandingCheck,
     read_required_checks,
 )
-from yoke_core.engines.merge_worktree_pr_membership import (
+from yoke_core.domain.merge_github_membership import (
     PrQueueMembership,
     read_pr_queue_membership,
 )
-from yoke_core.engines.merge_worktree_pr_queue import (
+from yoke_core.domain.merge_github_queue import (
     PrLandingState,
     read_pr_landing_state,
 )
-from yoke_core.engines.merge_worktree_prepare import MergeContext
+from yoke_core.domain.merge_context import MergeContext
 
 
 #: One bounded admission confirmation, in seconds.

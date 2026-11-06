@@ -42,7 +42,7 @@ ALLOWED_DYNAMIC_AUTHORITY_IMPORTS = {
     ),
     (
         "packages/yoke-cli/src/yoke_cli/commands/_helpers.py",
-        "yoke_core.domain.terminal_lane_cleanup",
+        "yoke_core.engines.terminal_lane_cleanup",
     ): (
         "client_local_machine_state",
         "best-effort physical lane cleanup after a remote terminal transition",

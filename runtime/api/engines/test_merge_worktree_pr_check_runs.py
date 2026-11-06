@@ -16,7 +16,7 @@ from copy import deepcopy
 import pytest
 from yoke_contracts.timestamps import parse_instant
 
-from yoke_core.engines import merge_worktree_pr_check_runs as checks_mod
+from yoke_core.domain import merge_github_check_runs as checks_mod
 
 
 def test_open_armed_pr_and_pending_required_check(monkeypatch) -> None:

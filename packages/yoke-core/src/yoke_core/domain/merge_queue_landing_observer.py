@@ -82,9 +82,9 @@ from yoke_core.domain.dependency_satisfied_notice import (
     EVENT_MERGED,
     notify_after_commit,
 )
-from yoke_core.engines.merge_worktree_pr_check_runs import read_required_checks
-from yoke_core.engines.merge_worktree_pr_membership import read_pr_queue_membership
-from yoke_core.engines.merge_worktree_pr_queue import read_pr_landing_state
+from yoke_core.domain.merge_github_check_runs import read_required_checks
+from yoke_core.domain.merge_github_membership import read_pr_queue_membership
+from yoke_core.domain.merge_github_queue import read_pr_landing_state
 
 
 def _p(conn: Any) -> str:

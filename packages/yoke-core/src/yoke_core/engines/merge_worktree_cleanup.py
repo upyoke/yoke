@@ -11,7 +11,7 @@ from yoke_core.engines.merge_landed_lane_cleanup import release_lane_row
 from yoke_core.engines.merge_worktree_post_helpers import (
     _chdir_out_of_doomed_worktree,
 )
-from yoke_core.engines.merge_worktree_prepare import MergeContext
+from yoke_core.domain.merge_context import MergeContext
 from yoke_core.engines.remote_branch_cleanup import (
     delete_remote_branch_if_merged,
 )

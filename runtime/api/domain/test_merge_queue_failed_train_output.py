@@ -10,7 +10,7 @@ from yoke_core.domain import standalone_item_merge_landed as landed
 from yoke_core.domain import standalone_item_merge_stale_lane as stale_lane
 from yoke_core.domain.merge_queue_failed_train import unchanged_failed_train_refusal
 from yoke_core.domain.merge_queue_landing_outcome import QueueLandingOutcome
-from yoke_core.engines.merge_worktree_pr_train_run import TrainRun
+from yoke_core.domain.merge_github_train_run import TrainRun
 from yoke_core.tools.watch_merge import classify_merge_line
 from yoke_core.tools._watch_throttle import LineClass
 from runtime.api.domain.merge_route_gate_stubs import admit_route_gates

@@ -5,7 +5,7 @@ from __future__ import annotations
 import subprocess
 from pathlib import Path
 
-from yoke_core.domain import worktree_maintenance
+from yoke_core.engines import worktree_maintenance
 
 
 def _git(repo: Path, *args: str) -> None:

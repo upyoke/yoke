@@ -11,9 +11,9 @@ from yoke_core.domain.merge_queue_landing_observation import (
     WAITING,
     classify_pending_landing,
 )
-from yoke_core.engines.merge_worktree_pr_check_runs import LandingCheck
-from yoke_core.engines.merge_worktree_pr_membership import PrQueueMembership
-from yoke_core.engines.merge_worktree_pr_queue import PrLandingState
+from yoke_core.domain.merge_github_check_runs import LandingCheck
+from yoke_core.domain.merge_github_membership import PrQueueMembership
+from yoke_core.domain.merge_github_queue import PrLandingState
 
 
 QUEUED = PrQueueMembership(in_queue=True, entry_state="QUEUED", mergeable="MERGEABLE")
@@ -193,7 +193,7 @@ def test_retained_entry_observes_current_failed_train(
     from yoke_core.domain.merge_queue_enqueue_verification import (
         admission_facts_for_state,
     )
-    from yoke_core.engines.merge_worktree_pr_train_run import TrainRun
+    from yoke_core.domain.merge_github_train_run import TrainRun
 
     base = "3" * 40
     monkeypatch.setattr(

@@ -8,7 +8,7 @@ from typing import Any
 
 from yoke_core.domain import db_backend, item_merge_receipt_document
 from yoke_core.domain.db_helpers import instant_parameter
-from yoke_core.engines.merge_worktree_landing_state import PrLandingState
+from yoke_core.domain.merge_landing_state import PrLandingState
 
 
 def stamp_landing(

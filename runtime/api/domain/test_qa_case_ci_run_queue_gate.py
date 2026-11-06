@@ -20,14 +20,12 @@ from runtime.api.domain.qa_case_ci_test_helpers import (
     wire_ci_case,
 )
 
-from yoke_core.domain import (
-    authored_file_merge_preflight as file_line_preflight,
-    lane_base_update,
-    qa_case_ci_entry_run as entry_run,
-    qa_case_ci_lane,
-    qa_case_ci_run,
-    qa_case_ci_superseded_run,
-)
+from yoke_core.domain import authored_file_merge_preflight as file_line_preflight
+from yoke_core.engines import lane_base_update as lane_base_update
+from yoke_core.domain import qa_case_ci_entry_run as entry_run
+from yoke_core.domain import qa_case_ci_lane
+from yoke_core.domain import qa_case_ci_run
+from yoke_core.domain import qa_case_ci_superseded_run
 from yoke_core.domain.qa_case_execution import QaCaseExecutionError
 from yoke_core.domain.verification_tree_binding import TreeIdentity
 

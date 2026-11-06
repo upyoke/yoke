@@ -11,8 +11,8 @@ from yoke_core.domain.merge_queue_landing_attempt import (
 from yoke_core.domain.merge_queue_landing_identity import stamp_landing
 from yoke_core.domain.merge_queue_landing_marker import promote_landing_attempt
 from yoke_core.domain.item_ref_render import render_item_ref_lookup
-from yoke_core.engines.merge_worktree_prepare import MergeArgs, MergeContext
-from yoke_core.engines.merge_worktree_pr_queue import read_pr_landing_state
+from yoke_core.domain.merge_context import MergeArgs, MergeContext
+from yoke_core.domain.merge_github_queue import read_pr_landing_state
 
 
 def open_landing_refusals(conn, item_ids):

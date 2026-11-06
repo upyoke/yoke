@@ -6,8 +6,8 @@ from types import SimpleNamespace
 
 import pytest
 
-from yoke_core.domain import terminal_lane_cleanup
-from yoke_core.domain.terminal_lane_cleanup import TerminalLaneCloseOut
+from yoke_core.engines import terminal_lane_cleanup
+from yoke_core.engines.terminal_lane_cleanup import TerminalLaneCloseOut
 from yoke_core.engines.merge_worktree_safe_prune import PreservedLane, WorktreeSweep
 
 

@@ -20,7 +20,7 @@ def _stub_ctx_with_project(item_id, branch):
 
 
 def _make_merge_result(success, *, error_detail=None, retryable_signature=None):
-    from yoke_core.engines.merge_worktree_pr_rest import PrMergeResult
+    from yoke_core.domain.merge_github_rest import PrMergeResult
 
     return PrMergeResult(
         success=success,
@@ -30,7 +30,7 @@ def _make_merge_result(success, *, error_detail=None, retryable_signature=None):
 
 
 def _make_state(status, mergeable):
-    from yoke_core.engines.merge_worktree_pr_rest import PrMergeStateResult
+    from yoke_core.domain.merge_github_rest import PrMergeStateResult
 
     return PrMergeStateResult(merge_state_status=status, mergeable=mergeable)
 

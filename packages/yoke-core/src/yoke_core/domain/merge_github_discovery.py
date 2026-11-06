@@ -37,11 +37,11 @@ from yoke_core.domain.gh_rest_transport import (
     RestTransportError,
     request_with_retry,
 )
-from yoke_core.engines.merge_worktree_pr_rest import (
+from yoke_core.domain.merge_github_rest import (
     AuthResolutionFailed,
     resolve_auth,
 )
-from yoke_core.engines.merge_worktree_prepare import MergeContext
+from yoke_core.domain.merge_context import MergeContext
 
 
 @dataclass(frozen=True)

@@ -25,7 +25,7 @@ from yoke_core.domain.merge_queue_landing_record_state import STALLED
 from yoke_core.domain import merge_queue_route_selection as selection_mod
 from yoke_core.domain.merge_queue_route import QueueLandingOutcome
 from yoke_core.domain.item_merge_receipts import MergeReceipt
-from yoke_core.engines.merge_worktree_pr_rest import PrCreateResult
+from yoke_core.domain.merge_github_rest import PrCreateResult
 
 
 ALREADY_MERGED_HEAD = "b" * 40

@@ -46,13 +46,13 @@ from yoke_core.domain.merge_queue_readiness import (
     MergeQueueReadiness,
     read_merge_queue_readiness,
 )
-from yoke_core.engines.merge_worktree_pr_queue import (
+from yoke_core.domain.merge_github_queue import (
     QueueEntryResult,
     dequeue_pull_request,
     leave_merge_queue,
 )
-from yoke_core.engines.merge_worktree_pr_rest import GITHUB_AUTHORITY_USER
-from yoke_core.engines.merge_worktree_prepare import MergeContext
+from yoke_core.domain.merge_github_rest import GITHUB_AUTHORITY_USER
+from yoke_core.domain.merge_context import MergeContext
 
 #: Act, read back, act once more on what the readback showed. A third pass
 #: would be chasing a queue that is moving faster than the hold can read it,

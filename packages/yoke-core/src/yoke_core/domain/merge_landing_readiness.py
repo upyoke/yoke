@@ -60,7 +60,7 @@ from yoke_core.domain.standalone_item_merge_lane import (
 from yoke_core.domain.standalone_item_merge_release_status import (
     stale_mismatch_is_foreign,
 )
-from yoke_core.engines.merge_worktree_tests import resolve_verification
+from yoke_core.domain.merge_verification import resolve_verification
 
 
 @dataclass(frozen=True)

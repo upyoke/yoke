@@ -25,7 +25,7 @@ from yoke_core.domain.merge_queue_readback_outcomes import (
     MERGE_WHEN_READY_ARMED,
 )
 from yoke_core.domain.session_message_types import row_dict
-from yoke_core.engines.merge_worktree_prepare import MergeArgs, MergeContext
+from yoke_core.domain.merge_context import MergeArgs, MergeContext
 
 
 def _p(conn: Any) -> str:

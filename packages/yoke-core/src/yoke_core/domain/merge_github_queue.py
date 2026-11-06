@@ -10,7 +10,7 @@ from dataclasses import dataclass
 from typing import Any, Callable, Mapping, Optional
 
 from yoke_contracts.timestamps import InvalidInstant
-from yoke_core.engines.merge_worktree_landing_state import PrLandingState
+from yoke_core.domain.merge_landing_state import PrLandingState
 
 from yoke_contracts.github_app_installation_permissions import (
     GITHUB_CONTENTS_WRITE_PERMISSION_LEVELS as CONTENTS_WRITE,
@@ -25,16 +25,16 @@ from yoke_core.domain.gh_rest_transport import (
     split_repo,
 )
 from yoke_core.domain.project_github_auth import ProjectGithubAuth
-from yoke_core.engines.merge_worktree_pr_rest import (
+from yoke_core.domain.merge_github_rest import (
     AuthResolutionFailed,
     GITHUB_AUTHORITY_INSTALLATION,
     resolve_auth,
 )
-from yoke_core.engines.merge_worktree_pr_graphql import (
+from yoke_core.domain.merge_github_graphql import (
     graphql_with_auth as _graphql_with_auth,
 )
-from yoke_core.engines.merge_worktree_prepare import MergeContext
-from yoke_core.engines.merge_worktree_pr_queue_projection import (
+from yoke_core.domain.merge_context import MergeContext
+from yoke_core.domain.merge_github_queue_projection import (
     QueueMember, parse_queue_members,
 )
 

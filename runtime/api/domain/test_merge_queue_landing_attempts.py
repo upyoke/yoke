@@ -31,7 +31,7 @@ from yoke_core.domain.merge_queue_landing_attempt import (
 )
 from yoke_core.domain.merge_queue_landing_candidates import pending_landing_rows
 from yoke_core.domain.merge_queue_landing_marker import point_item_at_pull_request
-from yoke_core.engines.merge_worktree_pr_queue import PrLandingState
+from yoke_core.domain.merge_github_queue import PrLandingState
 from yoke_core.domain.merge_queue_landing_record import (
     from_readback,
     read_landing_record,

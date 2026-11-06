@@ -15,7 +15,7 @@ from typing import TYPE_CHECKING, Any, Optional
 from yoke_core.domain.session_ambient_identity import resolve_ambient_session_id
 
 if TYPE_CHECKING:
-    from yoke_core.engines.merge_worktree_context import MergeContext
+    from yoke_core.domain.merge_context import MergeContext
 
 _MERGE_EVENT_SERVICE = "merge_worktree"
 _MERGE_EVENT_KIND = "lifecycle"

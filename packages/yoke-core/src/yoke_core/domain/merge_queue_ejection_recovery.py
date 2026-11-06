@@ -9,8 +9,8 @@ from yoke_contracts.timestamps import parse_instant
 
 from yoke_core.domain.merge_queue_failed_train import unchanged_failed_train_refusal
 from yoke_core.domain.merge_queue_landing_episode import clear_episode, restore_episode
-from yoke_core.engines.merge_worktree_pr_files import read_pr_changed_files
-from yoke_core.engines.merge_worktree_pr_queue import (
+from yoke_core.domain.merge_github_files import read_pr_changed_files
+from yoke_core.domain.merge_github_queue import (
     enter_merge_queue,
     read_queue_members,
 )

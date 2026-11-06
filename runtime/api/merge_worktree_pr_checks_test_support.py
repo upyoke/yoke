@@ -46,7 +46,7 @@ def _arm_pr_merge_environment(
     import subprocess
     from yoke_core.engines import merge_worktree
     from yoke_core.engines import merge_worktree_pr
-    from yoke_core.engines import merge_worktree_pr_rest
+    from yoke_core.domain import merge_github_rest as merge_worktree_pr_rest
 
     emitted: list[tuple[str, dict]] = []
 

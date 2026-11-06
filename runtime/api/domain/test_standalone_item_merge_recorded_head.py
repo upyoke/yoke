@@ -10,7 +10,7 @@ import pytest
 from yoke_core.domain import standalone_item_merge as merge_boundary
 from yoke_core.domain import standalone_item_merge_terminal as terminal
 from yoke_core.domain.standalone_item_merge_landed import LandedLane
-from yoke_core.engines.merge_worktree_prepare import MergeArgs, MergeContext
+from yoke_core.domain.merge_context import MergeArgs, MergeContext
 from yoke_core.engines.merge_worktree_recorded_source import bind_recorded_source
 
 

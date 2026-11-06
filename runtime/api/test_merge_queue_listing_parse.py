@@ -12,8 +12,8 @@ from types import SimpleNamespace
 from yoke_core.domain import merge_queue_push_safety as safety
 from yoke_core.domain.gh_rest_transport_models import RestResponse
 from yoke_core.domain.merge_queue_readiness import classify_readiness
-from yoke_core.engines import merge_worktree_pr_discovery as discovery
-from yoke_core.engines.merge_worktree_pr_queue import PrLandingState
+from yoke_core.domain import merge_github_discovery as discovery
+from yoke_core.domain.merge_github_queue import PrLandingState
 
 PR = "42"
 BRANCH = "PRJ-9"

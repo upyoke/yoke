@@ -57,7 +57,7 @@ def handle_readiness(request: FunctionCallRequest) -> HandlerOutcome:
         not_started,
         read_merge_queue_readiness,
     )
-    from yoke_core.engines.merge_worktree_prepare import MergeArgs, MergeContext
+    from yoke_core.domain.merge_context import MergeArgs, MergeContext
 
     try:
         item = get_item_detail(int(request.target.item_id))

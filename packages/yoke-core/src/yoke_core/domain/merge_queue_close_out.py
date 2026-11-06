@@ -71,8 +71,8 @@ from yoke_core.domain.merge_queue_landing_carrier import (
 )
 from yoke_core.domain.standalone_item_merge import stamp_merged_at
 from yoke_core.engines.main_checkout_sync import fast_forward_main_checkout
-from yoke_core.engines.merge_worktree_pr_files import read_pr_changed_files
-from yoke_core.engines.merge_worktree_prepare import MergeContext
+from yoke_core.domain.merge_github_files import read_pr_changed_files
+from yoke_core.domain.merge_context import MergeContext
 
 
 @dataclass(frozen=True)

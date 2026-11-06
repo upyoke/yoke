@@ -85,7 +85,7 @@ def test_only_an_already_armed_retry_preserves_the_episode(monkeypatch):
 def test_unchanged_failed_train_never_dispatches_or_enters_queue(monkeypatch):
     from runtime.api.merge_queue_landing_test_helpers import LANE_SHA, dispatch_for
     from yoke_core.domain import merge_queue_failed_train as failed
-    from yoke_core.engines.merge_worktree_pr_train_run import TrainRun
+    from yoke_core.domain.merge_github_train_run import TrainRun
 
     wire_happy_path(monkeypatch, landing_states=[UNARMED])
     actions, entries = [], []

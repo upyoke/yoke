@@ -140,7 +140,7 @@ class TestProjectAuthSurface:
             classify_merge_authority,
         )
         from yoke_core.domain.project_github_auth import MissingAppCredentials
-        from yoke_core.engines import merge_worktree_pr_rest
+        from yoke_core.domain import merge_github_rest as merge_worktree_pr_rest
 
         def _raise(*_a, **_kw):
             raise MissingAppCredentials(
@@ -168,7 +168,7 @@ class TestProjectAuthSurface:
         from yoke_core.domain.merge_github_authority import (
             classify_merge_authority,
         )
-        from yoke_core.engines import merge_worktree_pr_rest
+        from yoke_core.domain import merge_github_rest as merge_worktree_pr_rest
 
         ctx = _stub_ctx()  # no project set
         ok, message = merge_worktree_pr_rest.validate_github_auth_for_merge(
@@ -191,7 +191,7 @@ class TestProjectAuthSurface:
             GITHUB_AUTHORITY_USER,
         )
         from yoke_core.domain.project_github_auth import ProjectGithubAuth
-        from yoke_core.engines import merge_worktree_pr_rest
+        from yoke_core.domain import merge_github_rest as merge_worktree_pr_rest
 
         calls = []
 

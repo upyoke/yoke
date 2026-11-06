@@ -1,6 +1,6 @@
 """The ``merge_group`` workflow run that validates one train's combined head.
 
-Separate from :mod:`yoke_core.engines.merge_worktree_pr_queue`, which owns
+Separate from :mod:`yoke_core.domain.merge_github_queue`, which owns
 the pull request's own queue entry and arming. This module answers a
 different question — what GitHub Actions ran for the train the pull request
 was folded into — and reads Actions rather than pull requests to answer it.
@@ -33,8 +33,8 @@ from yoke_core.domain.gh_rest_transport import (
     split_repo,
 )
 from yoke_core.domain.project_ci_workflow import project_ci_workflow_file
-from yoke_core.engines.merge_worktree_pr_queue import resolve_auth_detail
-from yoke_core.engines.merge_worktree_prepare import MergeContext
+from yoke_core.domain.merge_github_queue import resolve_auth_detail
+from yoke_core.domain.merge_context import MergeContext
 
 
 # Every branch the queue builds a train on is named under this prefix.

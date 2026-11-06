@@ -29,7 +29,7 @@ from yoke_core.domain.merge_queue_entry_checks import (
     only_no_verdict,
     regate_instruction,
 )
-from yoke_core.engines.merge_worktree_prepare import MergeArgs, MergeContext
+from yoke_core.domain.merge_context import MergeArgs, MergeContext
 
 CTX = MergeContext(args=MergeArgs(branch="ALP-1"), repo_root="", project="alpha")
 

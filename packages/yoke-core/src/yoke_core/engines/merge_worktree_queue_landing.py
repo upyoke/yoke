@@ -29,7 +29,7 @@ from yoke_core.domain.projects_seed_ci_workflow import MERGE_QUEUE_CAPABILITY_TY
 from yoke_core.domain.session_relay_launch_identity import (
     calling_session_is_relay_launched,
 )
-from yoke_core.engines.merge_worktree_context import MergeContext
+from yoke_core.domain.merge_context import MergeContext
 
 
 @dataclass(frozen=True)

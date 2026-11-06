@@ -22,6 +22,7 @@ from yoke_contracts.api.function_call import (
     TargetRef,
 )
 from yoke_contracts.machine_config.schema import ENV_OVERRIDE
+from yoke_core.domain import merge_verification
 from yoke_core.domain import control_plane_function_degradation as degradation
 from yoke_core.engines import (
     merge_worktree_tests,
@@ -197,12 +198,12 @@ class TestVerificationResolution:
     ) -> None:
         """A merge blocked by skew must say what would unblock it."""
         monkeypatch.setattr(
-            merge_worktree_tests,
+            merge_verification,
             "_post_rebase_transition_candidates",
             lambda _item_id: ["release"],
         )
         monkeypatch.setattr(
-            merge_worktree_tests,
+            merge_verification,
             "_resolve_requirement",
             lambda _item, _transition, _materialize: _err(
                 "function_version_skew",

@@ -4,9 +4,9 @@ from types import SimpleNamespace
 
 from yoke_core.domain.gh_rest_transport import RestUnprocessableError
 from yoke_core.domain.gh_rest_transport_models import RestResponse
-from yoke_core.engines import merge_worktree_pr_discovery as discovery_mod
-from yoke_core.engines import merge_worktree_pr_rest as rest_mod
-from yoke_core.engines.merge_worktree_prepare import MergeArgs, MergeContext
+from yoke_core.domain import merge_github_discovery as discovery_mod
+from yoke_core.domain import merge_github_rest as rest_mod
+from yoke_core.domain.merge_context import MergeArgs, MergeContext
 
 LANE_SHA = "1" * 40
 MERGED_SHA = "2" * 40

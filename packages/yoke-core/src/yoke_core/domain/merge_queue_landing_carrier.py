@@ -42,8 +42,8 @@ from yoke_core.domain.gh_rest_transport import (
 from yoke_core.domain.merge_queue_landing_pending import (
     record_landing_pull_request,
 )
-from yoke_core.engines.merge_worktree_pr_queue import resolve_auth_detail
-from yoke_core.engines.merge_worktree_prepare import MergeContext
+from yoke_core.domain.merge_github_queue import resolve_auth_detail
+from yoke_core.domain.merge_context import MergeContext
 
 # What GitHub writes as the subject of a merge it performed for a pull
 # request, on the ordinary merge route and on a merge-queue train alike.

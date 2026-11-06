@@ -24,7 +24,7 @@ from yoke_core.domain.project_github_auth_models import (
     GITHUB_AUTHORITY_USER,
 )
 from yoke_core.engines import merge_worktree
-from yoke_core.engines import merge_worktree_pr_rest
+from yoke_core.domain import merge_github_rest as merge_worktree_pr_rest
 from yoke_core.engines import merge_worktree_runner
 from yoke_core.engines.merge_worktree import MergeArgs, MergeContext
 

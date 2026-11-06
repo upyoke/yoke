@@ -5,15 +5,15 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Callable, Optional
 
-from yoke_core.engines.merge_worktree_pr_check_runs import (
+from yoke_core.domain.merge_github_check_runs import (
     LandingCheck,
     PrLandingProjection,
     read_pr_landing_and_required_checks,
 )
-from yoke_core.engines.merge_worktree_pr_queue import (
+from yoke_core.domain.merge_github_queue import (
     PrLandingState,
 )
-from yoke_core.engines.merge_worktree_prepare import MergeContext
+from yoke_core.domain.merge_context import MergeContext
 
 
 @dataclass
