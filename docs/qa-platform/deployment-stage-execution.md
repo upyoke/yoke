@@ -61,12 +61,12 @@ frozen receipt and refuses if it was superseded, failed, cancelled, changed
 target, or changed candidate. Historical evidence stays attached to the old
 execution and cannot settle a replacement or satisfy a later-stage prerequisite.
 
-One materialization call reuses schema metadata and one run/stage membership
-projection. It inspects each member's plan selections once per destination,
-then resolves canonical shared groups once if private copies need retirement.
-New and existing cases use the same projection; a later call reads fresh facts,
-including withdrawals. Requirement writes, correction admission, producer
-receipts and source/target identities retain their existing checks and run lock.
+Materialization shares schema and membership reads, inspects plan selections once per destination,
+and resolves shared groups once when retiring private copies. Each call reads fresh withdrawals.
+Dispatch reads unlocked, commits each member under its own short run lock, and forms plan groups separately.
+Member fingerprints advance after writes; peer verdicts do not force a reread. Closed members skip dispatch.
+Stored acceptance skips the ladder only while its target digest and evidence fingerprint match;
+rematerialization, corrections and new verdicts invalidate it. Source/target checks, lock bounds and order stay unchanged.
 Production proof commands resolve the attaching member's project and pass it
 explicitly as `--project`; wire member identities use the current public ref.
 For a member materialization mission, sample run membership and count only
