@@ -38,6 +38,7 @@ from yoke_core.domain.turn_end_session_state import (
     session_parked,
 )
 from yoke_core.domain.turn_end_unfinished_work import (
+    lane_head_landed_sql,
     DIRECTIVE,
     stop_is_legitimate,
 )
@@ -114,6 +115,7 @@ def _live_claim(conn: Any, session_id: str) -> Optional[dict[str, Any]]:
     item_id_scope = scope_int_sql(conn, "wc.scope", "item_id")
     row = conn.execute(
         f"""SELECT i.id AS item_id, i.status, i.merged_at,
+                    {lane_head_landed_sql()} AS lane_head_landed,
                     i.merge_queue_landed_at, i.merge_queue_enqueued_at,
                     {OPEN_ATTEMPT_ENQUEUED_AT},
                     wv.workflow_id, wv.version AS workflow_version
@@ -226,8 +228,11 @@ def evaluate(record: HookContext) -> HookDecision:
         blockers = gating_blockers(conn, [claim["item_id"]], woken_edges_only=True)
         if blocker := blockers.get(claim["item_id"]):
             _emit_deferred(
-                conn=conn, session_id=session_id, item_id=claim["item_id"],
-                reason="dependency_wait", cap_reached=False,
+                conn=conn,
+                session_id=session_id,
+                item_id=claim["item_id"],
+                reason="dependency_wait",
+                cap_reached=False,
                 blocking_item=blocker["blocking_item"],
                 gate_point=blocker["gate_point"],
             )

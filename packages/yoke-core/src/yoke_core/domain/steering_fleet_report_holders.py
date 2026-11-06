@@ -23,6 +23,7 @@ from yoke_core.domain.session_message_reachability import (
     message_reachability,
 )
 from yoke_core.domain.session_mode import session_is_parked
+from yoke_core.domain.turn_end_unfinished_work import lane_head_landed_sql
 from yoke_core.domain.session_tool_call_projections import (
     OPEN_TOOL_CALL_COLUMN,
     open_tool_call_expression,
@@ -130,6 +131,7 @@ def _held_item_rows(conn: Any, *, project_id: int) -> list[dict[str, Any]]:
             "wc.claimed_at AS claimed_at, "
             "i.project_sequence AS project_sequence, i.status AS status, "
             "i.merged_at AS merged_at, "
+            f"{lane_head_landed_sql()} AS lane_head_landed, "
             "i.merge_queue_enqueued_at AS merge_queue_enqueued_at, "
             "i.merge_queue_landed_at AS merge_queue_landed_at, "
             "i.merge_queue_notified_at AS merge_queue_notified_at, "

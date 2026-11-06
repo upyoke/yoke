@@ -95,13 +95,26 @@ def withdraw_deployment_qa_wait_wakes(
     this run's waits and one cancel. ``item_ids`` narrows to those members'
     item-scoped waits. Already-recorded attempts are not rewritten.
     """
+    from yoke_core.domain.deployment_qa_manual_notice import (
+        withdraw_settled_manual_notices,
+    )
+
     stamp = parse_instant(utc_now() if now is None else now)
+    manual = withdraw_settled_manual_notices(
+        conn,
+        item_id=None,
+        reason=reason,
+        now=stamp,
+        run_id=run_id,
+    )
     wanted_items = None if item_ids is None else {int(value) for value in item_ids}
-    return _cancel_matching(
+    return manual + _cancel_matching(
         conn,
         pattern=f"{DEPLOYMENT_QA_STAGE_WAIT_PREFIX}{run_id}:%",
-        keep=lambda parsed: parsed[0] == str(run_id)
-        and (wanted_items is None or parsed[2] in wanted_items),
+        keep=lambda parsed: (
+            parsed[0] == str(run_id)
+            and (wanted_items is None or parsed[2] in wanted_items)
+        ),
         reason=reason,
         now=stamp,
     )
@@ -115,8 +128,15 @@ def withdraw_member_qa_wait_wakes(
     now: datetime | str | None = None,
 ) -> int:
     """Cancel this item's item-scoped QA waits in every run (item closed)."""
+    from yoke_core.domain.deployment_qa_manual_notice import (
+        withdraw_settled_manual_notices,
+    )
+
     stamp = parse_instant(utc_now() if now is None else now)
-    return _cancel_matching(
+    manual = withdraw_settled_manual_notices(
+        conn, item_id=item_id, reason=reason, now=stamp
+    )
+    return manual + _cancel_matching(
         conn,
         pattern=f"{DEPLOYMENT_QA_STAGE_WAIT_PREFIX}%:%:{int(item_id)}:%",
         keep=lambda parsed: parsed[2] == int(item_id),
@@ -129,17 +149,26 @@ def withdraw_plan_group_wait_wakes(
     conn: Any, run_id: str, stage_name: str, *, group_id: str
 ) -> int:
     """A changed group roster withdraws consolidated and per-member notices."""
-    consolidated = _cancel_matching(conn,
+    consolidated = _cancel_matching(
+        conn,
         pattern=f"{DEPLOYMENT_QA_STAGE_WAIT_PREFIX}{run_id}:{stage_name}:plan-groups:%",
         keep=lambda parsed: parsed[:2] == (str(run_id), str(stage_name)),
-        reason="Plan group closed", now=utc_now())
-    return consolidated + _cancel_matching(conn,
+        reason="Plan group closed",
+        now=utc_now(),
+    )
+    return consolidated + _cancel_matching(
+        conn,
         pattern=f"{DEPLOYMENT_QA_STAGE_WAIT_PREFIX}{run_id}:{stage_name}:%:plan-group-%",
-        keep=lambda parsed: parsed[:2] == (str(run_id), str(stage_name))
-        and parsed[2] is not None,
-        key_matches=lambda key: key.split(":", 4)[-1] == f"plan-group-{group_id}"
-        or key.split(":", 4)[-1].startswith(f"plan-group-{group_id}-failure-"),
-        reason="Plan group closed", now=utc_now())
+        keep=lambda parsed: (
+            parsed[:2] == (str(run_id), str(stage_name)) and parsed[2] is not None
+        ),
+        key_matches=lambda key: (
+            key.split(":", 4)[-1] == f"plan-group-{group_id}"
+            or key.split(":", 4)[-1].startswith(f"plan-group-{group_id}-failure-")
+        ),
+        reason="Plan group closed",
+        now=utc_now(),
+    )
 
 
 def _cancel_matching(
@@ -154,7 +183,11 @@ def _cancel_matching(
     message_ids = []
     for stored_id, key in _pending_wait_rows(conn, pattern=pattern):
         parsed = parse_deployment_qa_wait_key(key)
-        if parsed is not None and keep(parsed) and (key_matches is None or key_matches(key)):
+        if (
+            parsed is not None
+            and keep(parsed)
+            and (key_matches is None or key_matches(key))
+        ):
             message_ids.append(stored_id)
     if message_ids:
         cancel_messages(

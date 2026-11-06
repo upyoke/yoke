@@ -41,6 +41,7 @@ from yoke_core.domain.work_claim_targets import make_item_target
 
 HOLDER = "landed-worker"
 LANDED = {
+    "lane_head_landed": True,
     "status": "reviewing-implementation",
     "merge_queue_landed_at": BEFORE_THAT,
     "merge_queue_notified_at": LONG_AGO,
@@ -55,6 +56,7 @@ LANDED = {
         ({"merge_queue_notified_at": None}, False),
         ({"last_tool_call_at": JUST_NOW}, False),
         ({"merge_queue_landed_at": None}, False),
+        ({"lane_head_landed": False}, False),
         ({"status": "done"}, False),
     ],
 )
@@ -116,6 +118,16 @@ def test_an_alarm_is_suppressed_until_the_holder_acts_after_the_notice(
         "merge_queue_pr_number='7', merge_queue_enqueued_at=%s, merge_queue_landed_at=%s, "
         "merge_queue_notified_at=%s WHERE id=1",
         (BEFORE_THAT, BEFORE_THAT, LONG_AGO),
+    )
+    fleet.execute(
+        "INSERT INTO item_worktrees(item_id,lane_role,path,branch,commit_sha,created_at,updated_at) "
+        "VALUES (1,'implementation','/tmp/landed-worker','landed-worker',%s,%s,%s)",
+        ("a" * 40, BEFORE_THAT, BEFORE_THAT),
+    )
+    fleet.execute(
+        "INSERT INTO item_landings(item_id,merge_sha,candidate_sha,route,landed_at) "
+        "VALUES (1,%s,%s,'merge_queue',%s)",
+        ("b" * 40, "a" * 40, BEFORE_THAT),
     )
     _claim(fleet, HOLDER, 1)
 

@@ -20,5 +20,6 @@
   "sessions steering-groups list": "List the live steering seats you can see.",
   "sessions terminate": "End a session for good and release its claims.",
   "sessions touch": "Mark this session as alive and set its mode.",
-  "sessions watcher-activity": "Record that a running watcher did work."
+  "sessions watcher-activity": "Record that a running watcher did work.",
+  "sessions wake schedule": "Schedule a timed evidence recheck for this session."
 }

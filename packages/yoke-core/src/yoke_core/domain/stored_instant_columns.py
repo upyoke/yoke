@@ -242,6 +242,8 @@ STORED_INSTANT_COLUMNS: tuple[tuple[str, str], ...] = (
     ("session_message_recipients", "expired_at"),
     ("session_message_recipients", "cancelled_at"),
     ("session_message_recipients", "last_wake_at"),
+    ("session_scheduled_wakes", "created_at"),
+    ("session_scheduled_wakes", "due_at"),
     ("session_messages", "created_at"),
     ("session_messages", "expires_at"),
     ("session_messages", "cancelled_at"),

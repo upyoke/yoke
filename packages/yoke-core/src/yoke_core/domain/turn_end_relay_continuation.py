@@ -59,8 +59,7 @@ def continuation_notice(ref: str, claim: Mapping[str, Any], attempt: int) -> str
     return (
         f"Your previous turn ended while this session still holds the work "
         f"claim on {ref}, and this surface cannot keep a turn open, so Yoke "
-        "woke you to continue. Nothing about your item, lane or claim "
-        "changed. Read the item's Progress Log, then `git status` and "
+        "woke you to continue. Read the item's Progress Log, then `git status` and "
         "`git log` in your lane, and carry on from your last committed "
         f"state. {recovery_for(dict(claim))} This is automatic continuation "
         f"{attempt}; a worker that keeps stopping is reported to steering "

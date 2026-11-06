@@ -125,6 +125,8 @@ def wake_eligible_recipients(
     """Return redacted wake routes with their scheduler authority."""
     from yoke_core.hooks.session_message_delivery import wake_eligible
 
+    from yoke_core.domain.session_scheduled_wake import enqueue_due_session_wakes
+
     current = parse_instant(utc_now() if now is None else now)
     marker = _p(conn)
     open_attempt_filter = ""
@@ -134,6 +136,7 @@ def wake_eligible_recipients(
         open_attempt_params = (ignore_attempt_id,)
     _begin_mutation(conn)
     try:
+        enqueue_due_session_wakes(conn, now=current)
         _expire_rows(conn, now=current)
         relay_routes = connected_relay_routes(conn, now=current)
         thread_select = (

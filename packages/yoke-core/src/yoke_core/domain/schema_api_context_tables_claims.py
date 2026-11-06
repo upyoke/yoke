@@ -105,6 +105,24 @@ CLAIMS_TABLES: dict[str, dict] = {
             "test_service_client_sessions_helpers._SESSION_SCHEMA_DDL, sessions_api_test_support.ACTIVE_SESSIONS_SCHEMA and api_items_fixture_schema._SCHEMA_DDL. Identity SELECT fixtures have sixteen fields, ending in nullable org_id."
         ),
     },
+    "session_scheduled_wakes": {
+        "columns": [
+            ("wake_id", "TEXT"),
+            ("session_id", "TEXT"),
+            ("actor_id", "INTEGER"),
+            ("due_at", "TIMESTAMPTZ"),
+            ("reason", "TEXT"),
+            ("created_at", "TIMESTAMPTZ"),
+            ("message_id", "TEXT"),
+        ],
+        "notes": (
+            "Durable self-wake timers authored by sessions.wake.schedule. "
+            "A timer has no pending message before due_at; the relay atomically "
+            "creates and links its ordinary explicit Fleet wake when due. "
+            "message_id NULL means not queued. The session, due_at and reason "
+            "deduplicate registration. Timers never clear the session park."
+        ),
+    },
     "session_tool_calls": {
         "columns": [
             ("id", "INTEGER"),

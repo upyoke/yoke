@@ -127,7 +127,11 @@ def _latest_notices(
         f"{DEPLOYMENT_QA_STAGE_WAIT_PREFIX}{run_id}:{stage_name}:": _WAIT,
         f"{FAILURE_HANDOFF_PREFIX}{run_id}:{stage_name}:": _FAILURE_HANDOFF,
     }
-    rows = _notice_rows(conn, run_id=run_id, stage_name=stage_name)
+    from yoke_core.domain.deployment_qa_manual_notice import manual_notice_rows
+
+    rows = list(_notice_rows(conn, run_id=run_id, stage_name=stage_name))
+    rows.extend(manual_notice_rows(conn, run_id=run_id, stage_name=stage_name))
+    rows.sort(key=lambda row: parse_timestamp(_get(row, "sent_at", 2)), reverse=True)
     newest: dict[int, str] = {}
     best: dict[int, tuple[tuple[int, str], tuple[str, datetime | None, str, str]]] = {}
     for row in rows:
@@ -175,10 +179,15 @@ def _describe(notice: tuple[str, datetime | None, str, str]) -> str:
 
 def stalled_qa_notice(conn: Any, run_id: str, stage_name: str) -> bool:
     """No live driver owns the wait; an unreceived or unanswered notice still needs action."""
-    latest = {}
-    for row in _notice_rows(conn, run_id=run_id, stage_name=stage_name):
-        latest.setdefault(str(_get(row, "idempotency_key", 1)), str(_get(row, "state", 4)))
-    active = [state for state in latest.values() if state != "cancelled"]
+    active = [
+        notice[2]
+        for notice in _latest_notices(
+            conn,
+            run_id=run_id,
+            stage_name=stage_name,
+        ).values()
+        if notice[2] != "cancelled"
+    ]
     return not active or any(state != "acknowledged" for state in active)
 
 

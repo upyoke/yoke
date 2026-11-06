@@ -146,7 +146,9 @@ def test_refused_alarm_never_escapes_the_stop(monkeypatch, conn, ledger) -> None
 
 def test_notice_names_the_landed_close_out_recovery() -> None:
     notice = relay.continuation_notice(
-        "YOK-42", {**CLAIM, "merged_at": "2026-10-19T08:00:00Z"}, 2
+        "YOK-42",
+        {**CLAIM, "lane_head_landed": True, "merged_at": "2026-10-19T08:00:00Z"},
+        2,
     )
 
     assert "yoke merge item" in notice

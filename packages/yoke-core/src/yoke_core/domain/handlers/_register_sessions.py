@@ -127,6 +127,22 @@ def register(registry) -> None:
         adapter_status="live",
         claim_required_kind=None,
     )
+    from yoke_core.domain.handlers import sessions_scheduled_wake as _sw
+
+    registry.register(
+        "sessions.wake.schedule",
+        _sw.handle_schedule,
+        _sw.ScheduledWakeRequest,
+        _sw.ScheduledWakeResponse,
+        stability="stable",
+        minimum_serving_version="next-release",
+        owner_module="yoke_core.domain.handlers.sessions_scheduled_wake",
+        target_kinds=["global"],
+        side_effects=["session_messages_insert"],
+        guardrails=["active_session_required"],
+        adapter_status="live",
+        claim_required_kind=None,
+    )
     registry.register(
         "sessions.touch",
         _so.handle_touch,

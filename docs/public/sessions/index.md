@@ -172,6 +172,33 @@ evaluator/client-wall coverage, are labelled incomparable.
 - [Items](../items/index.md)
 - [Inbox and messaging](inbox.md)
 
+
+## Park until something changes
+
+`yoke sessions touch --mode parked --reason "awaiting a decision"` records an
+intentional wait. A prompt or a turn that only reads or acknowledges messages
+keeps that park and reason. Successful work or an explicit `--mode wait` ends
+it. Capacity recovery skips parked sessions.
+
+For time or traffic evidence, schedule the earliest useful recheck before parking:
+`yoke sessions wake schedule --at 2026-12-01T12:00:00Z --reason "check traffic evidence"`.
+The instant must include a UTC offset and be in the future. The durable message
+cannot arrive early through another prompt; when due it follows the surface's
+existing message wake route. A new message or dependency change can still wake
+the holder. A release takeover alone does not repeat an unchanged manual QA notice.
+
+
+## Timed rechecks
+
+`session_scheduled_wakes` stores a calling session's future evidence recheck:
+`wake_id`, `session_id`, `actor_id`, `due_at`, `reason`, `created_at`, and
+nullable `message_id`. Session, due instant, and reason uniquely identify a timer.
+The relay locks due rows and records their Fleet message in the same transaction;
+message delivery owns retries after that. Before the due instant there is no
+pending message, so an older serving process cannot deliver it early.
+`yoke sessions wake schedule --at INSTANT --reason TEXT` returns `wake_id` and
+`scheduled_at`; inspect the durable timer and message link with `yoke db read`.
+
 <!-- yoke:contents -->
 - [Audiences and shared posts](audiences-and-posts.md) — Address live groups and finish shared Inbox work.
 - [Inbox and messaging](inbox.md) — Read decisions and send messages to their intended recipients.

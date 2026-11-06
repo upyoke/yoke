@@ -1,8 +1,8 @@
 """Manual-wake QA notices, delivered for real through the stage driver.
 
 A member with open ``wake_path: manual`` requirements gets one notice per
-requirement, keyed by run, stage, member and requirement, so re-driving the
-same stage never sends a second one. A parked claim holder is still the
+requirement, keyed by requirement, holder and evidence, so a takeover
+never sends a second one. A parked claim holder is still the
 recipient; a member nobody holds reaches the project's steering seat.
 """
 
@@ -33,10 +33,8 @@ from runtime.api.domain.deployment_qa_stage_wake_delivery_test_support import (
 from yoke_core.domain.deployment_qa_stage_dispatch import (
     materialize_and_gate_deployment_qa_stage,
 )
-from yoke_core.domain.deployment_qa_stage_wake import (
-    DEPLOYMENT_QA_STAGE_WAIT_PREFIX,
-    stage_wait_idempotency_key,
-)
+from yoke_core.domain.deployment_qa_manual_wake import ManualWakeRequirement
+from yoke_core.domain.deployment_qa_manual_notice import MANUAL_WAIT_PREFIX
 from yoke_core.domain.project_identity import render_item_ref
 from yoke_core.domain.work_claim_targets import make_item_target, make_steering_target
 
@@ -52,17 +50,25 @@ def _drive(conn: Any, run_id: str) -> int:
     return rc
 
 
-def _manual_key(run_id: str, member: int, requirement_id: int) -> str:
-    return stage_wait_idempotency_key(
-        run_id, "item-qa", member, f"manual-{requirement_id}"
-    )
+def _manual_key(run_id: str, member: int, requirement_id: int, holder=HOLDER_A) -> str:
+    return ManualWakeRequirement(
+        run_id=run_id,
+        stage="item-qa",
+        item_id=member,
+        item_ref="TEST-1",
+        project_slug="example",
+        requirement_id=requirement_id,
+        case_key="real-traffic",
+        wake_evidence=EVIDENCE,
+        owner_session_id=holder,
+    ).idempotency_key()
 
 
 def _wait_keys(conn: Any, run_id: str) -> list[str]:
     rows = conn.execute(
         "SELECT idempotency_key FROM session_messages WHERE idempotency_key LIKE %s "
         "ORDER BY idempotency_key",
-        (f"{DEPLOYMENT_QA_STAGE_WAIT_PREFIX}{run_id}:%",),
+        (f"{MANUAL_WAIT_PREFIX}%",),
     ).fetchall()
     return [row["idempotency_key"] if hasattr(row, "keys") else row[0] for row in rows]
 
@@ -106,10 +112,8 @@ def test_parked_holder_gets_one_wake_per_manual_requirement(test_db: Any) -> Non
         assert f"{ref}'s claim holder" in body
         assert "Check this evidence with a registered read" in body
         assert EVIDENCE in body
-        assert (
-            f"yoke qa plan run --item {ref} --stage item-qa --project yoke"
-        ) in body
-        assert "stay parked; the case rides the next release takeover" in body
+        assert (f"yoke qa plan run --item {ref} --stage item-qa --project yoke") in body
+        assert "set a timed recheck" in body
         assert "waiv" not in body
 
 
@@ -135,7 +139,7 @@ def test_holderless_member_routes_its_manual_wake_to_steering(test_db: Any) -> N
 
     _drive(test_db, "run-manual-wd-2")
 
-    key = _manual_key("run-manual-wd-2", member, 97121)
+    key = _manual_key("run-manual-wd-2", member, 97121, HOLDER_B)
     assert _recipients(test_db, key) == [HOLDER_B]
     [body] = _bodies(test_db, key)
     assert "project steering seat (its claim holder is gone)" in body
@@ -159,5 +163,8 @@ def test_unaddressable_manual_wake_names_the_staffing_step(
 
     out = capsys.readouterr().out
     assert "manual-wake requirement #97131 has no live claim holder" in out
-    assert "Staff the item, then re-drive the run with `yoke watch deploy -- run-manual-wd-3`." in out
+    assert (
+        "Staff the item, then re-drive the run with `yoke watch deploy -- run-manual-wd-3`."
+        in out
+    )
     assert _wait_keys(test_db, "run-manual-wd-3") == []

@@ -157,7 +157,7 @@ owner one notice per open manual case instead of the ordinary stage wake,
 because one stage execution runs the member's whole roster. The notice names
 the evidence: check it with a registered read, run the member's cases if it
 exists. Evidence not available on this release yet: stay parked; the case
-rides the next release takeover. A parked holder is woken; a member with no live holder
+waits for a real change or a timed recheck. A parked holder is woken; a member with no live holder
 reaches the project's steering seat. The steering fleet report lists each open
 one under "waiting on manual wake" with its run, item, requirement, case,
 evidence, owner and run command. To mark an already materialized requirement,
@@ -257,3 +257,10 @@ the serving floor named.
 
 - [Verification](index.md)
 - [QA platform](platform.md)
+
+For evidence that depends on time or traffic, the holder schedules its own recheck:
+`yoke sessions wake schedule --at 2026-12-01T12:00:00Z --reason "check the required traffic evidence"`.
+Choose the earliest instant the evidence can exist. The durable wake uses the same
+manifest-qualified relay as other messages. A release takeover moves the requirement
+and its QA without sending this notice again; changed evidence or a new holder
+gets a fresh notice.

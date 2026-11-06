@@ -6,7 +6,7 @@ production traffic exists. Its stage waits on it, and the stage driver wakes
 the member's owner with one notice per open manual requirement instead of the
 ordinary stage-wait notice. Each notice names the evidence: the owner checks
 it with a registered read, runs the member's cases if it exists, and otherwise
-stays parked until evidence exists on this or a later release takeover. Delivery is :func:`push_notice`, so a parked
+sets a timed recheck for the earliest evidence can exist. Delivery is :func:`push_notice`, so a parked
 holder is woken and a member with no live holder reaches its project's
 steering seat.
 
@@ -19,12 +19,16 @@ from __future__ import annotations
 
 from collections.abc import Iterable
 from dataclasses import dataclass
+from hashlib import sha256
 from typing import Any
 
 from yoke_contracts.qa_case_wake_path import MANUAL
 from yoke_contracts.timestamps import parse_instant, utc_now
-from yoke_core.domain.deployment_qa_stage_wake import stage_wait_idempotency_key
-from yoke_core.domain.merge_queue_landing_notice import HOLDER, push_notice
+from yoke_core.domain.merge_queue_landing_notice import (
+    HOLDER,
+    push_notice,
+    resolve_lane_recipient,
+)
 from yoke_core.domain.qa_plan_execution_store import marker
 from yoke_core.domain.session_staleness import activity_liveness
 from yoke_core.domain.work_claim_targets import scope_int_sql
@@ -55,15 +59,11 @@ class ManualWakeRequirement:
             f"{self.stage} --project {self.project_slug}"
         )
 
-    def idempotency_key(self) -> str:
-        """One uncancelled wake per run, stage, member and requirement.
-
-        It shares the stage-wait prefix, so the fleet report reads it as the
-        member's wake and the settled-wait sweep withdraws it.
-        """
-        return stage_wait_idempotency_key(
-            self.run_id, self.stage, self.item_id, f"manual-{self.requirement_id}"
-        )
+    def idempotency_key(self, session_id: str | None = None) -> str:
+        """One notice per requirement, recipient and evidence, across takeovers."""
+        holder = self.owner_session_id if session_id is None else session_id
+        digest = sha256(self.wake_evidence.encode("utf-8")).hexdigest()
+        return f"deployment-qa-manual-wait:{self.requirement_id}:{holder}:{digest}"
 
     def wake_message(self, route: str) -> str:
         """The notice body, addressed to whoever ``push_notice`` reached."""
@@ -74,7 +74,8 @@ class ManualWakeRequirement:
         )
         holder_instruction = (
             "You hold this item, so run it in this session; do not hand it to a parent or the driver. "
-            if route == HOLDER else ""
+            if route == HOLDER
+            else ""
         )
         return (
             f"Deployment run {self.run_id} stage {self.stage!r} is waiting on "
@@ -85,7 +86,9 @@ class ManualWakeRequirement:
             f"read'): {self.wake_evidence} If it exists, run the member's cases: "
             f"'{self.run_command()}'. {holder_instruction}"
             "Evidence not available on this release yet: stay parked; "
-            "the case rides the next release takeover. Check 'yoke deployment-runs get "
+            "set a timed recheck with `yoke sessions wake schedule --at UTC_INSTANT "
+            '--reason "check the required evidence"` for the earliest evidence '
+            "can exist. A takeover alone does not wake you. Check 'yoke deployment-runs get "
             f"{self.run_id}' for the current state."
         )
 
@@ -232,12 +235,17 @@ def wake_manual_requirement_owners(
     for entry in entries:
         subject = f"manual-wake requirement #{entry.requirement_id}"
         try:
+            recipient, _, _ = resolve_lane_recipient(
+                conn,
+                item_id=entry.item_id,
+                project_id=project_id,
+            )
             delivery = push_notice(
                 conn,
                 item_id=entry.item_id,
                 project_id=project_id,
                 body_for_route=entry.wake_message,
-                idempotency_key=entry.idempotency_key(),
+                idempotency_key=entry.idempotency_key(recipient),
                 now=parse_instant(utc_now()),
             )
             conn.commit()

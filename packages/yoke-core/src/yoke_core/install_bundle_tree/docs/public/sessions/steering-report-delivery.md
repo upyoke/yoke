@@ -65,7 +65,7 @@ not-woken reason (expired/failed/cancelled, no holder/seat, gone/stale driver).
 One notice + at most two addressability reads per run; detailed requirement
 reasons stay on `yoke deployment-runs stages RUN`. Wakes precede empty-member
 close-out; missing wake is a defect, not instruction to message owners manually.
-A member holding an open `wake_path: manual` requirement (no run recorded, not waived/superseded/retracted) gets one wake per open requirement asking its owner to check `wake_evidence`, run the case if it exists, else stay parked; the case rides the next release takeover; its line shows that wake's state. Section "waiting on manual wake" lists run, item, requirement, case, `wake_evidence`, claim-holder session and liveness, and the member's `yoke qa plan run`. Rows enter the fingerprint (requirement, owner) but never `actionable`: evidence can take days.
+A member holding an open `wake_path: manual` requirement (no run recorded, not waived/superseded/retracted) gets one wake per requirement, recipient session and evidence digest asking its owner to check `wake_evidence`, run the case if it exists, else stay parked; schedule a timed recheck for the earliest evidence can exist; its line shows that wake's state. Section "waiting on manual wake" lists run, item, requirement, case, `wake_evidence`, claim-holder session and liveness, and the member's `yoke qa plan run`. Rows enter the fingerprint (requirement, owner) but never `actionable`: evidence can take days.
 
 Waiting-only-to-be-driven means created with no live driver. created + live
 driver may be silent phase; executing does not call for duplicate drive even
@@ -208,3 +208,10 @@ Fleet activity, launch, message, landing, decision, and report-delivery clocks r
 ## Related
 
 - [Steering report](steering-report.md)
+
+For evidence that depends on time or traffic, the holder schedules its own recheck:
+`yoke sessions wake schedule --at 2026-12-01T12:00:00Z --reason "check the required traffic evidence"`.
+Choose the earliest instant the evidence can exist. The durable wake uses the same
+manifest-qualified relay as other messages. A release takeover moves the requirement
+and its QA without sending this notice again; changed evidence or a new holder
+gets a fresh notice.

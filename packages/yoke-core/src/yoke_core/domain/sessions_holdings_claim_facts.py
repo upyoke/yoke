@@ -23,6 +23,7 @@ from yoke_core.domain.merge_queue_landing_attempt import (
 from yoke_core.domain.release_wait_ownership import item_at_release_wait
 from yoke_core.domain.session_control_health_facts import gating_blockers
 from yoke_core.domain.turn_end_unfinished_work import (
+    lane_head_landed_sql,
     landing_notice_pending,
     waiting_on_landing,
 )
@@ -76,6 +77,7 @@ def claimed_item_facts(
             "i.frozen AS frozen, i.blocked AS blocked, "
             "i.blocked_reason AS blocked_reason, "
             "i.workflow_id AS workflow_id, i.merged_at AS merged_at, "
+            f"{lane_head_landed_sql()} AS lane_head_landed, "
             "i.merge_queue_enqueued_at AS merge_queue_enqueued_at, "
             "i.merge_queue_landed_at AS merge_queue_landed_at, "
             "i.merge_queue_notified_at AS merge_queue_notified_at, "

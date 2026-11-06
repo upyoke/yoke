@@ -130,7 +130,7 @@ def _candidate_sessions(
         "SELECT hs.session_id,hs.project_id,hs.org_id,hs.machine_id,hs.executor_surface,"
         "hs.executor_version,hs.model,hs.actor_id,hs.execution_level,hs.last_tool_call_at,hs.turn_posture,"
         "hs.native_turn_end_recorded_at,hs.native_turn_end_observation,"
-        "hs.vendor_resume_episode_key,hs.vendor_resume_attempts"
+        "hs.vendor_resume_episode_key,hs.vendor_resume_attempts,hs.mode"
         f"{open_call} "
         "FROM harness_sessions hs "
         f"WHERE {on_machine}hs.ended_at IS NULL "
@@ -196,6 +196,12 @@ def _decision(
         "attempts": attempts,
         "budget": len(RESUME_BACKOFF_SECONDS) if signature.retryable else 0,
     }
+    if row.get("mode") == "parked":
+        return {
+            **state,
+            "status": "parked",
+            "reason": "session is deliberately parked; wait for its declared wake",
+        }
     if not signature.retryable:
         # No attempt can move this failure, so none is made and the row
         # says so from the first poll rather than after three wasted tries.
