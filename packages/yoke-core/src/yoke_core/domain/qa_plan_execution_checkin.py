@@ -94,9 +94,18 @@ def deliver_plan_function(*, function_id, target, payload, actor):
 
     request_id = str(uuid4())
     attempts = []
-    # Only liveness may retry. The same request id reconciles a late success
-    # through the existing durable ledger before another check-in executes.
-    count = 2 if function_id == "qa.plan_execution.heartbeat" else 1
+    # Safe terminal submissions and liveness recover a late reply from the
+    # durable ledger under the same request id, without pausing the execution.
+    count = (
+        2
+        if function_id
+        in {
+            "qa.plan_execution.heartbeat",
+            "qa.plan_execution.complete",
+            "qa.plan_review.submit",
+        }
+        else 1
+    )
     # A busy answer is definite and ran nothing, so it repeats on the shared
     # backoff under a fresh request id rather than failing the walk.
     busy_delays = iter(LOCK_RETRY_DELAYS_SECONDS)
@@ -145,7 +154,8 @@ def deliver_plan_function(*, function_id, target, payload, actor):
                 flush=True,
             )
             time.sleep(delay)
-            request_id = str(uuid4())
+            if code != "idempotency_request_in_flight":
+                request_id = str(uuid4())
             continue
         if code != "https_transport_failed":
             raise QaPlanExecutionError(
@@ -249,13 +259,11 @@ def paused_result(*, error, call, execution, target, actor, phase, cursor, resul
 def restore_confirmed_pause(path, *, call, target, actor, execution_id, project):
     """Reapply the saved safe pause after connectivity returns, never an action.
 
-    An unusable receipt cannot authorize re-entry, so the refusal names the
-    steering reconciliation that settles the execution instead.
+    An unusable receipt cannot authorize re-entry. Completed verdicts stay
+    saved and the driver credits them without reconciliation.
     """
     import json
     from pathlib import Path
-
-    from yoke_core.domain.qa_plan_execution_reconcile import reconcile_command
 
     try:
         saved = json.loads(Path(path).read_text())
@@ -278,9 +286,10 @@ def restore_confirmed_pause(path, *, call, target, actor, execution_id, project)
     except (OSError, ValueError, KeyError, TypeError) as error:
         raise QaPlanExecutionError(
             f"qa_recovery_receipt_invalid: {error}; this receipt cannot resume "
-            "the execution. Preserve the capture and have a live steering seat "
-            "covering the project run "
-            f"`{reconcile_command(project, execution_id)}`"
+            f"execution {execution_id}. Preserve the capture and inspect its "
+            "durable state. If completed, the verdict is saved and the run "
+            "driver credits it on its next QA check; read "
+            "`yoke deployment-runs get RUN` for that execution's run."
         ) from error
     return call(
         function_id="qa.plan_execution.pause",

@@ -103,8 +103,9 @@ Recover an unknown response on the same execution
 
 The execution supplies its subject, stage and target. Supplied item, source and
 machine hints must agree with its stored authority. A lost reply is an unknown outcome,
-not a failed action. Only a check-in retries briefly with the same request id;
-it uses the durable request ledger to recover a late success. Other operations
+not a failed action. Check-in, completion and review-submit retry briefly with
+the same request id; the durable request ledger recovers a late success.
+Completion and review-submit never pause a saved verdict. Other operations
 never replay automatically. outcome_unknown exits with the waiting status and
 names the execution, phase, request, attempts and saved evidence.
 A confirmed pause retains the cursor, results and machine custody without

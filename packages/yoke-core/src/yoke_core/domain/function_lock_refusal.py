@@ -58,7 +58,9 @@ _RETRY = (
 )
 
 
-def lock_refusal_outcome(entry: RegistryEntry, exc: BaseException) -> HandlerOutcome | None:
+def lock_refusal_outcome(
+    entry: RegistryEntry, exc: BaseException
+) -> HandlerOutcome | None:
     """The named refusal for *exc*, or ``None`` when it is not a lock answer."""
     code = str(exc).partition(":")[0] if isinstance(exc, ValueError) else ""
     if code in RETRYABLE_LOCK_CODES:
@@ -74,7 +76,15 @@ def lock_refusal_outcome(entry: RegistryEntry, exc: BaseException) -> HandlerOut
     if isinstance(exc, DeploymentRunBusy):
         return HandlerOutcome(
             primary_success=False,
-            error=FunctionError(code=RUN_BUSY_CODE, message=str(exc)),
+            error=FunctionError(
+                code=RUN_BUSY_CODE,
+                message=str(exc),
+                recovery_hint=(
+                    f"Wait for pid {exc.holder.pid} ({exc.holder.state}, age {exc.holder.age_seconds}s) to finish; the driver retries."
+                    if exc.holder
+                    else "The deploy driver retries on its next QA check."
+                ),
+            ),
         )
     code = _SQLSTATE_CODES.get(str(getattr(exc, "sqlstate", "") or ""))
     if code is None:
@@ -82,10 +92,10 @@ def lock_refusal_outcome(entry: RegistryEntry, exc: BaseException) -> HandlerOut
     if code == LOCK_TIMEOUT_CODE:
         what = "waited past its lock_timeout for a lock another transaction held"
     else:
-        what = (
-            "had its statement cancelled by an operator or a server timeout"
-        )
-    detail = str(exc).strip().splitlines()[0] if str(exc).strip() else type(exc).__name__
+        what = "had its statement cancelled by an operator or a server timeout"
+    detail = (
+        str(exc).strip().splitlines()[0] if str(exc).strip() else type(exc).__name__
+    )
     return HandlerOutcome(
         primary_success=False,
         error=FunctionError(
@@ -107,7 +117,11 @@ def name_lock_refusal(
     """Invoke the handler; a lock it could not take becomes a named refusal."""
     try:
         outcome = invoke(entry, request)
-        if isinstance(outcome, HandlerOutcome) and not outcome.primary_success and outcome.error:
+        if (
+            isinstance(outcome, HandlerOutcome)
+            and not outcome.primary_success
+            and outcome.error
+        ):
             # Some handlers already caught and rolled back the named refusal.
             code = outcome.error.message.partition(":")[0]
             if code in RETRYABLE_LOCK_CODES:

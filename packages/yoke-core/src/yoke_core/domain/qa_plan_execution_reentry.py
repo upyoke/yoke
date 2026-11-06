@@ -74,6 +74,14 @@ def pause_execution(
     evidence_path=None,
     capture_path=None,
 ):
+    if execution["state"] == "completed":
+        raise QaPlanExecutionStateError(
+            "qa_verdict_saved: the verdict is saved; the run driver credits it "
+            "on its next QA check. Read "
+            f"`yoke deployment-runs get {execution.get('deployment_run_id')}`"
+            if execution.get("deployment_run_id")
+            else "qa_verdict_saved: the execution is completed; its recorded results are durable"
+        )
     if execution["state"] not in {"active", "waiting"}:
         raise QaPlanExecutionStateError(
             "qa_pause_terminal: preserve terminal history; communication cannot revive it"

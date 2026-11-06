@@ -188,6 +188,19 @@ def test_accepted_admitted_copies_auto_close_the_member(
             )
             assert delivery._status(test_db, member) == "release"
     finish_plan_execution(test_db, execution, state="completed", reason="test-complete")
+    assert delivery._status(test_db, member) == "release"
+    from yoke_core.domain.deployment_qa_stage_dispatch import (
+        materialize_and_gate_deployment_qa_stage,
+    )
+    from yoke_core.domain.deployment_qa_run_acceptance import pinned_stages
+
+    stage = next(
+        stage for stage in pinned_stages(test_db, run_id) if stage["name"] == "item-qa"
+    )
+    code, reason = materialize_and_gate_deployment_qa_stage(
+        test_db, stage, run_id=run_id
+    )
+    assert code == -4, reason  # The sibling still owes QA.
     assert delivery._status(test_db, member) == "done"
     assert delivery._status(test_db, delivery.MEMBER_B) == "release"
     for source_id in source_ids:

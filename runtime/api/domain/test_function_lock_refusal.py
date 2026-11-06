@@ -44,22 +44,31 @@ def _raising(exc: BaseException):
 
 
 def test_a_busy_run_row_answers_run_busy_with_its_holder() -> None:
-    busy = DeploymentRunBusy("run-1", RunRowLockHolder(pid=77, state="active", age_seconds=1800))
+    busy = DeploymentRunBusy(
+        "run-1", RunRowLockHolder(pid=77, state="active", age_seconds=1800)
+    )
 
     outcome = name_lock_refusal(_ENTRY, None, _raising(busy))
 
     assert outcome.primary_success is False
     assert outcome.error.code == RUN_BUSY_CODE
     assert outcome.error.message.startswith(f"{RUN_BUSY_CODE}: deployment run 'run-1'")
-    assert "pid 77 has held a deployment_runs lock for 1800s while active" in outcome.error.message
+    assert (
+        "pid 77 has held a deployment_runs lock for 1800s while active"
+        in outcome.error.message
+    )
 
 
 @pytest.mark.parametrize(
     ("sqlstate", "code"),
     [("55P03", LOCK_TIMEOUT_CODE), ("57014", STATEMENT_CANCELLED_CODE)],
 )
-def test_a_lock_timeout_or_cancelled_statement_is_named(sqlstate: str, code: str) -> None:
-    exc = _DatabaseError(sqlstate, "canceling statement due to user request\nCONTEXT: x")
+def test_a_lock_timeout_or_cancelled_statement_is_named(
+    sqlstate: str, code: str
+) -> None:
+    exc = _DatabaseError(
+        sqlstate, "canceling statement due to user request\nCONTEXT: x"
+    )
 
     outcome = name_lock_refusal(_ENTRY, None, _raising(exc))
 
@@ -77,9 +86,10 @@ def test_every_named_code_is_retryable() -> None:
         IDEMPOTENCY_BUSY_CODE,
         LOCK_TIMEOUT_CODE,
         STATEMENT_CANCELLED_CODE,
-        "qa_checkin_busy", "qa_ownership_busy",
-        "deployment_start_lock_busy", "deployment_membership_changed",
-        "qa_settlement_pending",
+        "qa_checkin_busy",
+        "qa_ownership_busy",
+        "deployment_start_lock_busy",
+        "deployment_membership_changed",
     }
 
 
@@ -101,19 +111,27 @@ def test_a_busy_qa_plan_keeps_its_retryable_refusal():
     assert outcome.error.message == str(busy)
 
 
-@pytest.mark.parametrize("code", [
-    "qa_checkin_busy", "qa_ownership_busy",
-    "deployment_start_lock_busy", "deployment_membership_changed",
-])
+@pytest.mark.parametrize(
+    "code",
+    [
+        "qa_checkin_busy",
+        "qa_ownership_busy",
+        "deployment_start_lock_busy",
+        "deployment_membership_changed",
+    ],
+)
 def test_rolled_back_named_refusals_keep_their_code(code):
     from yoke_contracts.api.function_call import FunctionError, HandlerOutcome
 
     message = f"{code}: transaction rolled back; retry the same request"
     raised = name_lock_refusal(_ENTRY, None, _raising(ValueError(message)))
     assert raised.error.code == code
-    wrapped = HandlerOutcome(primary_success=False, error=FunctionError(
-        code="run_create_rejected", message=message, jsonpath="$.payload"
-    ))
+    wrapped = HandlerOutcome(
+        primary_success=False,
+        error=FunctionError(
+            code="run_create_rejected", message=message, jsonpath="$.payload"
+        ),
+    )
     result = name_lock_refusal(_ENTRY, None, lambda entry, request: wrapped)
     assert result.error.code == code
     assert result.error.message == message

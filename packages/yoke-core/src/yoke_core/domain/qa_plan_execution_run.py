@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from yoke_core.domain.qa_plan_execution_result_state import plan_recovery
+
 from yoke_contracts.qa_case_starting_state import needs_test_machine
 from yoke_core.domain.agent_mission_controller import execute_controller_mission
 
@@ -133,10 +135,23 @@ def execute_begun_plan(
                     execute_plan_agent_mission_case,
                 )
 
-                runner = execute_plan_agent_mission_case if needs_test_machine(requirement) else execute_controller_mission
-                options = machine_options if needs_test_machine(requirement) else {"target": target, "call": _call_plan_function}
-                result = runner(requirement, execution_id=execution_id, ordinal=ordinal,
-                                actor=resolved_actor, **options)
+                runner = (
+                    execute_plan_agent_mission_case
+                    if needs_test_machine(requirement)
+                    else execute_controller_mission
+                )
+                options = (
+                    machine_options
+                    if needs_test_machine(requirement)
+                    else {"target": target, "call": _call_plan_function}
+                )
+                result = runner(
+                    requirement,
+                    execution_id=execution_id,
+                    ordinal=ordinal,
+                    actor=resolved_actor,
+                    **options,
+                )
                 advance_result = False
             else:
                 result = None
@@ -285,6 +300,11 @@ def execute_begun_plan(
                 )
         except QaPlanExecutionError as exc:
             if unknown := communication_unknown(exc):
+                if unknown.function_id in {
+                    "qa.plan_execution.complete",
+                    "qa.plan_review.submit",
+                }:
+                    raise
                 return paused_result(
                     error=unknown,
                     call=_call_plan_function,
@@ -317,33 +337,5 @@ def execute_begun_plan(
         "executed_count": len(results),
         "results": results,
         "review_bundle": review_bundle,
-        "recovery": _recovery(state, failed_cases, results, raised=raised),
+        "recovery": plan_recovery(state, failed_cases, results, raised=raised),
     }
-
-
-def _recovery(
-    state: str, failed_cases: list[int], results: list[dict], *, raised: bool
-) -> str | None:
-    if state == "waiting" and results:
-        return results[-1].get("recovery")
-    if state == "removed":
-        return (
-            "The deployment run removed this item while its QA was running, so "
-            "the execution was cancelled with nothing recorded as passed; no "
-            "host needs repair. The item owes its QA in its next release."
-        )
-    if state not in {"failed", "error"}:
-        return None
-    rerun = (
-        "Correct the case or plan and rerun yoke qa plan run; "
-        "no manual abort is needed."
-    )
-    if raised or not failed_cases:
-        return f"QA execution closed after a case raised while running. {rerun}"
-    named = ", ".join(str(requirement_id) for requirement_id in failed_cases)
-    return (
-        f"QA execution ran every independent chain and closed after failed "
-        f"case requirements {named}. Cases chained behind a failed case are "
-        f"recorded blocked (inherited_predecessor_not_passed) and did not run. "
-        f"{rerun}"
-    )

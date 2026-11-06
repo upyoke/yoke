@@ -52,6 +52,8 @@ class PlanReviewBeginResponse(BaseModel):
 
 
 class PlanReviewSubmitResponse(BaseModel):
+    settlement: str | None = None
+    credited_by: str | None = None
     execution_id: str
     bundle_id: str
     state: str

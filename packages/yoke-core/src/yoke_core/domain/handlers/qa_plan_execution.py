@@ -232,10 +232,12 @@ def _finish_execution(
         from yoke_core.domain.qa_plan_execution_stop import stop_plan_execution
 
         if complete:
-            finish_plan_execution(
+            settlement = finish_plan_execution(
                 conn, execution, state="completed", reason="qa-plan-execution-complete"
             )
             result = plan_execution_view(conn, execution)
+            if settlement and settlement.get("settlement") == "deferred":
+                result.update(settlement)
         else:
             result = stop_plan_execution(
                 conn,

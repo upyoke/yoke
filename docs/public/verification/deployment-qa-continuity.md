@@ -72,12 +72,14 @@ their frozen targets; a fresh attempt uses the rebound requirement.
 
 ## Credit saved completions
 
-`qa_settlement_pending` means completion or review verdicts are saved, but
-bounded lock contention delayed release credit. Rerun the same complete or
-review-submit command with the same execution ID. The owning session can
-retry after the item closes and releases its work claim. Nothing-owed and
-close-out commands also retry settlement inline; no steering re-drive is needed.
-A retry preserves recorded cases and verdicts.
+Completion and review-submit return success once the verdict is saved. If a
+bounded settlement attempt is busy, the result says `settlement: deferred` and
+`credited_by: the run driver's next QA check`. The driver credits the saved
+evidence and closes accepted members on its next QA check. Close-out only reads
+acceptance; it never retries settlement under an item lock. Read
+`yoke deployment-runs get RUN` to follow credit. No reconcile is needed.
+A lost completion or review-submit reply replays the same request ID through
+the durable request ledger; it never pauses the saved verdict.
 
 ## Recover communication on the frozen execution
 

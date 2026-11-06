@@ -203,9 +203,6 @@ def handle_run_stage_qa_acceptance(request: FunctionCallRequest) -> HandlerOutco
 
     try:
         with _connect_rw() as conn:
-            from yoke_core.domain.deployment_qa_resettlement import resettle_item
-
-            resettle_item(conn, run_id=body.run_id, item_id=item_id)
             blocking = item_qa_acceptance_blockers(
                 conn, run_id=body.run_id, item_id=item_id
             )

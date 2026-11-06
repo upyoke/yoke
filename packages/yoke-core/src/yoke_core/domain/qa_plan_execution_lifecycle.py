@@ -124,8 +124,9 @@ def finish_plan_execution(
     state: str,
     reason: str,
     commit: bool = True,
-) -> None:
+) -> dict | None:
     """Finalize the execution, retaining a mission lease only for review."""
+    settlement = None
     if state not in {
         "completed",
         "aborted",
@@ -141,7 +142,7 @@ def finish_plan_execution(
             from yoke_core.domain.deployment_qa_resettlement import resettle_execution
 
             conn.commit()  # Release validation locks before membership/run locks.
-            resettle_execution(conn, execution)
+            return resettle_execution(conn, execution)
         return
     if current_state in TERMINAL_PLAN_EXECUTION_STATES:
         raise QaPlanExecutionStateError(
@@ -188,9 +189,10 @@ def finish_plan_execution(
             )
         settle_unreviewed_execution_captures(conn, execution)
         record_inflight_case_failure(conn, execution, reason=reason)
-    retain_lease = state in {"walking", "awaiting_walk_review"} and _mission_needs_retained_lease(
-        execution
-    )
+    retain_lease = state in {
+        "walking",
+        "awaiting_walk_review",
+    } and _mission_needs_retained_lease(execution)
     if not retain_lease:
         from yoke_core.domain.qa_plan_host_leases import release_execution_hosts
 
@@ -204,7 +206,9 @@ def finish_plan_execution(
         )
     placeholder = marker(conn)
     now = utc_now()
-    completed_at = None if state in {"waiting", "walking", "awaiting_walk_review"} else now
+    completed_at = (
+        None if state in {"waiting", "walking", "awaiting_walk_review"} else now
+    )
     conn.execute(
         "UPDATE qa_plan_executions SET state="
         f"{placeholder},completed_at={placeholder},heartbeat_at={placeholder},"
@@ -248,8 +252,12 @@ def finish_plan_execution(
                 resettle_execution,
             )
 
-            resettle_execution(conn, execution)
-        if terminal_settlement and execution.get("item_id") is not None:
+            settlement = resettle_execution(conn, execution)
+        if (
+            terminal_settlement
+            and execution.get("item_id") is not None
+            and not execution.get("deployment_stage")
+        ):
             # This row may be the one thing holding a member's close-out or
             # a settling run open. Its terminalization is the event that
             # unblocks them, so both retry here rather than waiting for a
@@ -259,6 +267,8 @@ def finish_plan_execution(
             )
 
             after_record_settled(conn, item_id=int(execution["item_id"]))
+
+    return settlement
 
 
 def reap_stale_plan_executions(
@@ -275,8 +285,10 @@ def reap_stale_plan_executions(
         return []
     candidates = [
         {
-            "id": str(row[0]), "heartbeat_at": row[1],
-            "session_id": row[2], "state": row[3],
+            "id": str(row[0]),
+            "heartbeat_at": row[1],
+            "session_id": row[2],
+            "state": row[3],
         }
         for row in conn.execute(
             "SELECT id, heartbeat_at, session_id, state FROM qa_plan_executions "

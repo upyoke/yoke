@@ -21,7 +21,7 @@ def _command(execution_id, project="yoke"):
     return f"yoke qa plan reconcile --project {project} --execution-id {execution_id}"
 
 
-def test_invalid_recovery_receipt_names_reconcile(tmp_path):
+def test_invalid_recovery_receipt_preserves_saved_verdict(tmp_path):
     with pytest.raises(QaPlanExecutionError) as refused:
         restore_confirmed_pause(
             str(tmp_path / "missing-receipt.json"),
@@ -32,7 +32,9 @@ def test_invalid_recovery_receipt_names_reconcile(tmp_path):
             project="yoke",
         )
     assert "qa_recovery_receipt_invalid" in str(refused.value)
-    assert _command("execution-1") in str(refused.value)
+    assert "verdict is saved" in str(refused.value)
+    assert "yoke deployment-runs get RUN" in str(refused.value)
+    assert "yoke qa plan reconcile" not in str(refused.value)
 
 
 def test_walk_end_refusal_names_reconcile_only_when_owner_ended(
