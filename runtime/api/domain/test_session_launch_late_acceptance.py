@@ -52,7 +52,7 @@ def seed(context, *, surface="codex-cli", bound=True):
     if db_backend.connection_is_postgres(conn):
         conn.execute(
             "INSERT INTO harness_sessions(session_id,project_id,executor,provider,workspace,"
-            "execution_level,executor_surface,executor_version,model,actor_id,offered_at) "
+            "execution_level,executor_surface,executor_version,model,actor_id,offered_at,last_heartbeat) "
             "VALUES (%s,%s,'codex','openai','/project','SENIOR',%s,%s,'gpt-5',%s,%s,%s)",
             (session, project_id, surface, SESSION_SURFACE_CAPABILITIES[surface].minimum_version, actor_id, NOW, NOW),
         )
