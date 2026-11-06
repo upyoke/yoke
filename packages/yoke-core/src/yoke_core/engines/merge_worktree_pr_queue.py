@@ -163,10 +163,7 @@ def _mutate_pull_request(
     required_authority: str = GITHUB_AUTHORITY_INSTALLATION,
 ) -> QueueEntryResult:
     """Mutate one PR with installation authority unless explicitly overridden."""
-    permissions = (
-        {**PR_WRITE, **CONTENTS_WRITE}
-        if mutation == _ENABLE_AUTO_MERGE_MUTATION else PR_WRITE
-    )
+    permissions = {**PR_WRITE, **CONTENTS_WRITE}
     auth, auth_err = resolve_auth_detail(
         ctx, permissions, required_authority=required_authority
     )

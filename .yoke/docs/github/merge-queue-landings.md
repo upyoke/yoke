@@ -109,8 +109,9 @@ Fix the cause, commit, re-run verification, and re-enter through `yoke merge ite
 An unrelated cause follows the
 [verification policy](../agents/rules/verification.md#failing-or-flaky-tests).
 
-Automatic conflict re-entry requests Contents: write and Pull requests: write on its
-installation token. If GitHub refuses access, restore those App permissions and token
+Arming and disarming merge-when-ready, dequeuing, and automatic conflict re-entry
+request Contents: write and Pull requests: write on their installation tokens.
+The operator hold command uses bound user authority as a policy requirement. If GitHub refuses access, restore those App permissions and token
 scopes, then retry the governed merge. Each accepted automatic request is saved in the
 item's **Queue re-entry receipts** section, including the pull request, head and acceptance
 time; read it with `yoke items section get PREFIX-N --section 'Queue re-entry receipts'`.
