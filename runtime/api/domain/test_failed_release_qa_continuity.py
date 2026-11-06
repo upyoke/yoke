@@ -62,3 +62,50 @@ def test_failed_successor_keeps_red_sibling_and_live_execution_for_next_release(
     assert {row[0] for row in rows} == set(cases.values())
     assert all(row[1] is None for row in rows)
     assert test_db.execute("SELECT count(*) FROM qa_runs WHERE qa_requirement_id=%s AND verdict='fail'", (red,)).fetchone()[0] == 1
+
+
+@pytest.mark.parametrize("status", ["implementing", "reviewing-implementation"])
+@pytest.mark.parametrize("predecessor_status", ["executing", "failed"])
+def test_create_preserves_reopened_member_admission_and_qa(
+    test_db, monkeypatch, status, predecessor_status
+):
+    from runtime.api.domain import test_deployment_run_create_takeover_enrollment as creation
+
+    execution_id = creation._seed(test_db, monkeypatch, flow=None)
+    test_db.execute("UPDATE items SET status=%s WHERE id=%s", (status, takeover.WAITING))
+    test_db.execute("UPDATE deployment_runs SET status=%s WHERE id=%s", (predecessor_status, takeover.OLD))
+    test_db.commit()
+    before = creation._qa_rows(test_db)
+
+    created = creation._create()
+
+    assert takeover._members(test_db, created) == {takeover.PASSED, takeover.WAITING, creation.BLOCKER}
+    assert creation._qa_rows(test_db, created) == before
+    assert test_db.execute("SELECT deployment_run_id FROM qa_plan_executions WHERE id=%s", (execution_id,)).fetchone()[0] == created
+    assert test_db.execute("SELECT count(*) FROM qa_requirements WHERE deployment_run_id=%s AND retracted_at IS NOT NULL", (created,)).fetchone()[0] == 0
+
+
+def test_frozen_carried_member_outside_history_is_set_aside(test_db, tmp_path, monkeypatch):
+    from runtime.api.domain import test_deployment_run_reopened_member_set_aside as frozen
+    from yoke_core.domain.deployment_run_membership_removals import record_membership_removals
+    from yoke_core.domain.deployment_runs_validation import cmd_validate_composition
+
+    frozen._frozen_run_with_reopened_member(test_db, tmp_path, monkeypatch, reopened_sha="correction", settled=True)
+    predecessor = "run-carried-predecessor"
+    test_db.execute(
+        "INSERT INTO deployment_runs(id,project_id,flow,status,created_at) "
+        "SELECT %s,project_id,flow,'cancelled',created_at FROM deployment_runs WHERE id=%s",
+        (predecessor, frozen.RUN),
+    )
+    test_db.execute("UPDATE deployment_runs SET supersedes_run_id=%s WHERE id=%s", (predecessor, frozen.RUN))
+    record_membership_removals(
+        test_db, predecessor, [frozen.REOPENED], reason="QA transferred",
+        session_id=None, actor_id=None, transferred_to_run_id=frozen.RUN,
+    )
+    test_db.commit()
+
+    ok, message = cmd_validate_composition(frozen.RUN)
+
+    assert ok, message
+    assert "Set aside reopened members awaiting a later release" in message
+    assert frozen._members(test_db) == {frozen.SIBLING}

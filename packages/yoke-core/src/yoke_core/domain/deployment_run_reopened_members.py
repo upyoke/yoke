@@ -20,7 +20,7 @@ from yoke_core.domain.item_ref_render import render_item_ref_lookup
 from yoke_core.domain.workflow_item_binding_validation import read_pinned_items
 from yoke_core.domain.workflow_registry import WorkflowRegistryError
 from yoke_contracts.public_ref import ITEM_NOT_FOUND
-from yoke_core.domain.schema_common import _get_columns, _table_exists
+from yoke_core.domain.schema_common import _column_exists, _get_columns, _table_exists
 from yoke_core.domain.workflow_delivery_binding_validation import (
     COMPLETED_ITEM_STAGE_ID,
     delivery_ready_for_stage,
@@ -32,6 +32,48 @@ from yoke_core.domain.deployment_run_proposed_membership import run_items
 
 _LEGACY_DELIVERY_READY_STAGES = frozenset({"implemented", "release", "done"})
 _CLOSED_STATUSES = frozenset({"done", "cancelled", "stopped"})
+
+
+def composition_member_readiness(
+    conn: Any, run_id: str, *, projected_carried_members: frozenset[int] | None = None
+) -> tuple[list[str], str, list[int]]:
+    """Keep transferred admission until freeze; check every newly enrolled item.
+
+    The predecessor's removal record names exactly what this takeover moved.
+    The unlocked create supplies its provisional roster instead: its removal
+    audit is intentionally absent and its transaction will roll back.
+    Frozen composition always applies containment to every reopened member.
+    """
+    from yoke_core.domain.deployment_run_composition_guard import has_frozen_composition
+    from yoke_core.domain.deployment_run_membership_removals import membership_removals
+
+    notice = ""
+    frozen = has_frozen_composition(conn, run_id)
+    refused, notice = frozen_member_readiness(conn, run_id) if frozen else ([], "")
+    rows = query_rows(
+        conn,
+        f"SELECT i.id, i.status FROM {run_items('dri')} "
+        "JOIN items i ON dri.item_id=i.id WHERE dri.run_id=%s",
+        (run_id,),
+    )
+    if not frozen:
+        carried = projected_carried_members
+        if carried is None:
+            predecessor = (
+                conn.execute("SELECT supersedes_run_id FROM deployment_runs WHERE id=%s", (run_id,)).fetchone()
+                if _column_exists(conn, "deployment_runs", "supersedes_run_id") else None
+            )
+            carried = frozenset(
+                int(entry["item_id"])
+                for entry in membership_removals(conn, str(predecessor[0]))
+                if entry.get("transferred_to_run_id") == run_id
+            ) if predecessor and predecessor[0] else frozenset()
+        candidates = [row for row in rows if int(row[0]) not in carried]
+        unready = unready_item_ids(conn, candidates, allow_completed=True)
+        ref = render_item_ref_lookup(conn, unready)
+        statuses = {int(row[0]): str(row[1]) for row in candidates}
+        refused = [f"{ref(item_id)} (status={statuses[item_id]})" for item_id in unready]
+    return refused, notice, [int(row[0]) for row in rows]
 
 
 def unready_item_ids(

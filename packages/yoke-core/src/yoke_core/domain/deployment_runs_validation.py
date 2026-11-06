@@ -32,7 +32,6 @@ from yoke_core.domain.deployment_run_carried_membership_refusal import (
     carried_membership_refusal,
 )
 from yoke_core.domain.deployment_run_carried_work import carried_work_for_enrollment
-from yoke_core.domain.deployment_run_composition_guard import has_frozen_composition
 from yoke_core.domain.deployment_run_enrollment_error import CarriedEnrollmentError
 from yoke_core.domain.deployment_run_item_qa_membership import (
     item_qa_membership_verdict,
@@ -46,7 +45,7 @@ from yoke_core.domain.deployment_run_proposed_membership import (
     run_items,
 )
 from yoke_core.domain.deployment_run_reopened_members import (
-    frozen_member_readiness,
+    composition_member_readiness,
 )
 from yoke_core.domain.deployment_run_stranded_dependents import (
     skipped_candidate_verdict,
@@ -55,7 +54,6 @@ from yoke_core.domain.deployment_run_unheld_candidates import (
     CustodyResolution,
     resolve_candidate_custody,
 )
-from yoke_core.domain.deployment_runs_batch_compatibility import _not_delivery_ready
 from yoke_core.domain.deployment_source_reads import SourcePreparationChanged
 from yoke_core.domain.project_identity import resolve_project_slug
 from yoke_core.domain.item_ref_render import render_item_ref_lookup
@@ -74,6 +72,7 @@ def cmd_validate_composition(
     require_item_qa_members: bool = True,
     custody: CustodyResolution | None = None,
     refuse_stranded_dependents: bool = False,
+    projected_carried_members: frozenset[int] | None = None,
 ) -> Tuple[bool, str]:
     """Validate run composition. Returns (ok, message).
 
@@ -155,6 +154,7 @@ def cmd_validate_composition(
             composition_result=composition_result,
             require_item_qa_members=require_item_qa_members,
             refuse_stranding=refuse_stranded_dependents,
+            projected_carried_members=projected_carried_members,
         )
         if enrollment is None or not enrollment.candidates:
             verdict = judge(
@@ -185,6 +185,7 @@ def judge_composition(
     composition_result: dict[str, Any] | None,
     require_item_qa_members: bool,
     refuse_stranding: bool = False,
+    projected_carried_members: frozenset[int] | None = None,
 ) -> Tuple[bool, str]:
     """Every check after enrollment; membership is read through ``run_items``.
 
@@ -220,27 +221,10 @@ def judge_composition(
             f"{carried_labels}): {items_str}"
         )
 
-    # Check 2: Every item is delivery-ready for its pinned workflow.
-    # A frozen run already deployed its members' landed code; one that
-    # reopened since is set aside or refused by name, never re-admitted.
-    set_aside = ""
-    if has_frozen_composition(conn, run_id):
-        not_passed, set_aside = frozen_member_readiness(conn, run_id)
-        delivery_candidates = query_rows(
-            conn,
-            f"SELECT item_id, '' FROM {run_items()} WHERE run_id=%s",
-            (run_id,),
-        )
-    else:
-        delivery_candidates = query_rows(
-            conn,
-            f"SELECT i.id, i.status FROM {run_items('dri')} "
-            "JOIN items i ON dri.item_id = i.id WHERE dri.run_id=%s",
-            (run_id,),
-        )
-        not_passed = _not_delivery_ready(
-            conn, delivery_candidates, allow_completed=True
-        )
+    # Check 2: New admission requires readiness; carried admission survives rework.
+    not_passed, set_aside, member_item_ids = composition_member_readiness(
+        conn, run_id, projected_carried_members=projected_carried_members
+    )
     if not_passed:
         errors.append(
             "Items not delivery-ready for their pinned workflow: "
@@ -248,7 +232,6 @@ def judge_composition(
         )
 
     # Check 3: Unsatisfied hard-block dependencies
-    member_item_ids = [int(row[0]) for row in delivery_candidates]
     pending_pairs, blocked = split_pending_pair_merges(conn, member_item_ids)
     if pending_pairs and not allow_pending_pair_merges:
         blocked = [
