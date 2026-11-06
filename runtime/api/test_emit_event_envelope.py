@@ -6,6 +6,8 @@ and event metadata through ``yoke_core.domain.emit_event``.
 
 from __future__ import annotations
 
+from runtime.api.emit_event_test_helpers_test_support import (events_db as events_db)
+
 import json
 
 import pytest

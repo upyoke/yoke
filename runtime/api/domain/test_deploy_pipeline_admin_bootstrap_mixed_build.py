@@ -23,6 +23,8 @@ this test is about.
 
 from __future__ import annotations
 
+from runtime.api.domain.deploy_pipeline_admin_bootstrap_test_support import (serving_plane as serving_plane)
+
 import io
 import json
 import subprocess

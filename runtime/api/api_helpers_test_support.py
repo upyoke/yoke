@@ -12,6 +12,8 @@ files; it has no test_ functions, so pytest collects nothing from it.
 
 from __future__ import annotations
 
+from runtime.api.dependency_schema_test_support import (ITEM_DEPENDENCIES_SCHEMA as ITEM_DEPENDENCIES_SCHEMA)
+
 from runtime.api.domain.path_context_test_support import _p as _p
 
 import json

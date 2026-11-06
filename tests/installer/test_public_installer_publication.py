@@ -19,7 +19,7 @@ from public_installer_publication import (
     release_path,
     run_cli,
 )
-from public_installer_test_support import _options
+from tests.installer.public_installer_test_support import _options
 
 
 @pytest.fixture

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from runtime.api.cli.yoke_operations_cli_onboard_wizard_publish_capability_test_support import (_stubs as _stubs)
+
 from functools import partial
 import asyncio
 

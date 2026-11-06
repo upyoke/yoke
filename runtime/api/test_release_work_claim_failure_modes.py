@@ -17,6 +17,8 @@ is covered separately in ``test_service_client_sessions_release_item.py``.
 
 from __future__ import annotations
 
+from runtime.api.sessions_test_support import (conn as conn)
+
 from unittest.mock import patch
 from yoke_contracts.timestamps import parse_instant
 

@@ -3,6 +3,8 @@
 Shared fixtures and helpers live in test_merge_worktree_full.py.
 """
 
+from runtime.api.merge_worktree_full_test_support import (merge_env as merge_env)
+
 # ruff: noqa: F811
 
 from runtime.api.merge_worktree_full_test_support import (

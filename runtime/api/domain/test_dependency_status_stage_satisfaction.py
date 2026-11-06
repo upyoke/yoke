@@ -3,6 +3,8 @@
 
 from __future__ import annotations
 
+from runtime.api.domain.dependency_deployed_satisfaction_test_support import (dependency_conn as dependency_conn)
+
 from typing import Any
 
 import pytest

@@ -2,6 +2,8 @@
 
 """Source bindings require the named item's live lane and matching claim."""
 
+from runtime.api.domain.session_claimed_worktrees_test_support import (conn as conn)
+
 from contextlib import nullcontext
 from pathlib import Path
 

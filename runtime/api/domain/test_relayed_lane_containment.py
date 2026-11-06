@@ -14,6 +14,8 @@ only for the exact pair of commits it names.
 
 from __future__ import annotations
 
+from runtime.api.domain.dash_posture_deployment_containment_test_support import (dash_db_path as dash_db_path)
+
 import json
 import subprocess
 from pathlib import Path

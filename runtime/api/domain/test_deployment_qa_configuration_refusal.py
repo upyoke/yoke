@@ -8,6 +8,8 @@ error still fails the stage as before.
 
 from __future__ import annotations
 
+from runtime.api.domain.deploy_pipeline_scoped_qa_reporting_test_support import (awaiting_driver as awaiting_driver, scoped_run as scoped_run)
+
 from unittest.mock import patch
 
 import pytest

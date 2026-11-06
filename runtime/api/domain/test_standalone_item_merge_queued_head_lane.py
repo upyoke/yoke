@@ -8,6 +8,8 @@ lane is at that head.
 
 from __future__ import annotations
 
+from runtime.api.domain.standalone_item_merge_lane_test_support import (_enter_release_wait_on_close_out as _enter_release_wait_on_close_out)
+
 from pathlib import Path
 
 from yoke_core.domain import standalone_item_merge_cli as merge_cli

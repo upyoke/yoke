@@ -4,6 +4,8 @@
 
 from __future__ import annotations
 
+from runtime.api.domain.session_termination_test_support import (_termination_schema_and_events as _termination_schema_and_events)
+
 import pytest
 
 from runtime.api.domain.claims_work_release_process_paths_test_support import (

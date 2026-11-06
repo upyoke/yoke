@@ -8,6 +8,8 @@ These cases exercise CLI validation and DB writes through
 
 from __future__ import annotations
 
+from runtime.api.emit_event_test_helpers_test_support import (events_db as events_db)
+
 import pytest
 
 from yoke_contracts.session_identity import AMBIENT_ENV_VARS

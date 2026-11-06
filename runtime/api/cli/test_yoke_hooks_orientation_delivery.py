@@ -17,6 +17,9 @@ Shares the wire fixtures of ``test_yoke_operations_cli_hooks.py``.
 
 from __future__ import annotations
 
+from runtime.api.cli.yoke_operations_cli_hooks_test_support import (https_connection as https_connection, local_subset as local_subset)
+from runtime.api.cli.yoke_hooks_relay_orientation_test_support import (oriented as oriented)
+
 import hashlib
 import io
 import json

@@ -15,6 +15,8 @@ The retire and apply variants of the regression both need:
 
 from __future__ import annotations
 
+from runtime.api.backlog_test_support import (tmp_db as tmp_db)
+
 from yoke_contracts.timestamps import parse_instant
 
 import json

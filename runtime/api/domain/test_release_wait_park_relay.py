@@ -14,6 +14,8 @@ asserts the stored ``harness_sessions`` row, end to end.
 
 from __future__ import annotations
 
+from runtime.api.sessions_test_support import (conn as conn)
+
 from types import SimpleNamespace
 from typing import Any
 

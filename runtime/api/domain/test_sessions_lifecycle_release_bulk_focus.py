@@ -10,6 +10,8 @@ that does not also end the session).
 
 from __future__ import annotations
 
+from runtime.api.sessions_test_support import (conn as conn)
+
 from runtime.api.sessions_test_support import _insert_claimable_items, _register
 from yoke_core.domain.sessions import claim_work, release_all_claims
 

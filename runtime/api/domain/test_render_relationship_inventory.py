@@ -1,6 +1,8 @@
 # ruff: noqa: F811
 """Generated inventory outputs resolve to their canonical seed sources."""
 
+from runtime.api.domain.path_context_test_support import (fresh_db as fresh_db)
+
 from runtime.api.domain.path_context_test_support import (
     _seed_target,
     record_render_relationships,

@@ -14,6 +14,8 @@ These tests pin both messages.
 
 from __future__ import annotations
 
+from runtime.api.sessions_test_support import (conn as conn)
+
 import pytest
 
 from runtime.api.fixtures.schema_ddl import apply_fixture_ddl

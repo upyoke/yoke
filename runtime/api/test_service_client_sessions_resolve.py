@@ -7,6 +7,8 @@ Shared fixture/helpers live in ``test_service_client_sessions_helpers.py``.
 
 from __future__ import annotations
 
+from runtime.api.service_client_sessions_helpers_test_support import (session_test_db as session_test_db)
+
 import json
 import os
 import subprocess

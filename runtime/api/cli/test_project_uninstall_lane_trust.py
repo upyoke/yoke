@@ -1,5 +1,7 @@
 """Project uninstall retires the trust Yoke granted to the checkout and its lanes."""
 
+from runtime.api.cli.project_uninstall_owned_cleanup_test_support import (installed as installed)
+
 from pathlib import Path
 
 from yoke_contracts import harness_folder_trust as trust

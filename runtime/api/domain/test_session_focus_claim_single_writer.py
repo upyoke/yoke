@@ -11,6 +11,8 @@ claimed and read as working them.
 
 from __future__ import annotations
 
+from runtime.api.sessions_test_support import (conn as conn)
+
 from runtime.api.sessions_test_support import _insert_claimable_items, _register
 from yoke_core.domain.backlog_session_attribution import record_touched_item
 from yoke_core.domain.db_helpers import iso8601_now

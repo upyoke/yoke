@@ -19,8 +19,8 @@ from yoke_cli.config import machine_config
 from yoke_cli.config import github_binding_auth
 from yoke_cli.config import writer
 
-from .github_user_token_test_support import NOW, FakeResponse, configured_credential
-from .github_binding_test_support import _two_service_config
+from github_user_token_test_support import NOW, FakeResponse, configured_credential
+from github_binding_test_support import _two_service_config
 
 
 def _service_config(config):

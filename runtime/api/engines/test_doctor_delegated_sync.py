@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from runtime.api.engines.doctor_git_github_test_support import (_self_project_is_yoke as _self_project_is_yoke)
+
 from unittest.mock import patch
 
 from yoke_core.engines.doctor import (

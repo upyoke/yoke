@@ -11,6 +11,8 @@ relay leg (applier -> call_dispatcher) is covered by
 
 from __future__ import annotations
 
+from runtime.api.backlog_test_support import (tmp_db as tmp_db)
+
 import os
 from pathlib import Path
 

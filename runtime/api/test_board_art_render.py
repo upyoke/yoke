@@ -8,6 +8,8 @@ Split from ``test_board_art.py``. Covers:
 
 from __future__ import annotations
 
+from runtime.api.board_art_test_helpers_test_support import (art_config as art_config, config_file as config_file)
+
 from yoke_contracts.board.art import (
     BLACK,
     C_DONE,

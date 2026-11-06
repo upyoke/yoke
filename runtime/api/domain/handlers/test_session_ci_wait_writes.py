@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from runtime.api.domain.session_ci_wait_observer_test_support import (waiting_connection as waiting_connection)
+
 import pytest
 
 from yoke_contracts.api.function_call import (

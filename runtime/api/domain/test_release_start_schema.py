@@ -7,6 +7,8 @@ against it in-process, the way ``yoke --env prod-db-admin watch deploy`` does.
 
 from __future__ import annotations
 
+from runtime.api.domain.deploy_pipeline_https_execution_test_support import (serving_plane as serving_plane)
+
 import pytest
 
 from runtime.api.domain.deploy_pipeline_admin_bootstrap_test_support import (

@@ -3,6 +3,8 @@
 
 from __future__ import annotations
 
+from runtime.api.sessions_test_support import (conn as conn)
+
 import contextlib
 import threading
 from datetime import datetime, timezone

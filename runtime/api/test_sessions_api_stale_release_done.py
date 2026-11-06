@@ -3,6 +3,8 @@
 
 from __future__ import annotations
 
+from runtime.api.sessions_test_support import (conn as conn)
+
 from unittest.mock import patch
 
 import pytest

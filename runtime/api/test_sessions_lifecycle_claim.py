@@ -3,6 +3,8 @@
 
 from __future__ import annotations
 
+from runtime.api.sessions_test_support import (conn as conn)
+
 from runtime.api.sessions_lifecycle_claim_test_support import (
     _seed_claim_items as _seed_claim_items,
 )

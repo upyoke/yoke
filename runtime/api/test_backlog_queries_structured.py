@@ -7,6 +7,8 @@ attestation immutability tests live in ``test_backlog_queries_freeze.py``.
 
 from __future__ import annotations
 
+from runtime.api.backlog_test_support import (tmp_db as tmp_db)
+
 import io
 import os
 import tempfile

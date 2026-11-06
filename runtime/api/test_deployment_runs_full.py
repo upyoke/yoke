@@ -15,6 +15,8 @@ The shared fixture ``db_path`` is provided by
 
 from __future__ import annotations
 
+from runtime.api.deployment_runs_full_helpers_test_support import (db_path as db_path)
+
 from concurrent.futures import ThreadPoolExecutor
 
 import pytest

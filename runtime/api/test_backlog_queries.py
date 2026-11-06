@@ -17,6 +17,8 @@ Shared fixtures and seed helpers are imported from ``test_backlog``.
 
 from __future__ import annotations
 
+from runtime.api.backlog_test_support import (tmp_db as tmp_db)
+
 import io
 import os
 from unittest import mock

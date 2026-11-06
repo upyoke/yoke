@@ -6,7 +6,7 @@ import subprocess
 import pytest
 
 from public_installer_helpers import RecordingRunner, load_installer
-from public_installer_test_support import _installed_yoke_path, _options, _status_ok
+from tests.installer.public_installer_test_support import _installed_yoke_path, _options, _status_ok
 
 
 def test_evaluator_failure_never_reports_install_ready(tmp_path, monkeypatch):

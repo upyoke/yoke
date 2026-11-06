@@ -20,7 +20,7 @@ from yoke_core.tools.session_relay_plist import (
     install_relay_launchd,
 )
 
-from session_relay_plist_test_support import _config, _pin_release
+from runtime.api.tools.session_relay_plist_test_support import _config, _pin_release
 
 TARGET = "gui/501/com.upyoke.relay.abc123"
 #: Prints reporting "still loaded" for longer than the former 0.45s wait.

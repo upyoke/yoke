@@ -10,7 +10,7 @@ import pytest
 from yoke_cli.config import github_user_tokens, machine_config
 from yoke_cli.config import github_git_credential_store as credential_store
 
-from .github_user_token_test_support import (
+from github_user_token_test_support import (
     NOW,
     FakeResponse,
     configured_credential,

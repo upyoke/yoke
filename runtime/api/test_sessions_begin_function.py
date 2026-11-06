@@ -16,6 +16,8 @@ bootstrap depends on:
 
 from __future__ import annotations
 
+from runtime.api.service_client_sessions_helpers_test_support import (session_test_db as session_test_db)
+
 import pytest
 
 from yoke_contracts.api.function_call import (

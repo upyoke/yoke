@@ -11,7 +11,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import quote
 
 from public_installer_helpers import PUBLISHED_RELEASE_RECORD, RecordingRunner
-from public_installer_test_support import _options
+from tests.installer.public_installer_test_support import _options
 
 MISSING_VERSION = "0.1.1+launch.999999999"
 
