@@ -94,3 +94,30 @@ def test_durable_deadline_allows_rearm_at_actual_expiry(
         ),
     ):
         assert guard._captures_targeted_in_session("", SESSION, ("/tmp",)) == []
+
+
+def test_observation_and_wake_delivery_request_client_run_mode():
+    from yoke_contracts.hook_runner.policy_home import client_facts_for
+
+    for module in (
+        "yoke_core.domain.observe_pre",
+        "yoke_core.hooks.session_message_delivery",
+    ):
+        assert HEADLESS_LAUNCH_KEY in client_facts_for([module])
+
+
+def test_failed_monitor_setup_does_not_block_a_replacement(test_db):
+    from yoke_core.domain import db_helpers
+
+    test_db.execute(
+        "INSERT INTO session_tool_calls "
+        "(session_id, tool_use_id, tool_name, started_at, outcome, command_summary, "
+        "monitor_deadline_at) VALUES (%s, 'failed-setup', 'Monitor', %s, 'failed', %s, %s)",
+        (SESSION, utc_now(), f"tail -f {CAPTURE}", utc_now() + timedelta(seconds=600)),
+    )
+    test_db.commit()
+    with (
+        patch.object(db_helpers, "connect", return_value=test_db),
+        patch.object(test_db, "close"),
+    ):
+        assert guard._captures_targeted_in_session("", SESSION, ("/tmp",)) == []

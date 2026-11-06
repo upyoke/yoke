@@ -55,7 +55,7 @@ def _captures_targeted_in_session(
                AND tool_name = 'Monitor'
                AND command_summary IS NOT NULL
                AND monitor_deadline_at > %s
-               AND (outcome IS NULL OR outcome <> 'denied')
+               AND (outcome IS NULL OR outcome = 'completed')
              ORDER BY started_at ASC
              LIMIT 200
             """,

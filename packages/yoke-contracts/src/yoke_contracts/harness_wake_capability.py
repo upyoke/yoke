@@ -47,7 +47,7 @@ class HarnessWakeCapability:
     verified_on_surface: str
     evidence: str
     #: Longest an idle-wake subscription lives before the harness ends it;
-    #: ``None`` when a subscription lasts as long as what it watches.
+    #: ``None`` when no lifetime cap has been established.
     idle_wake_subscription_limits_seconds: dict[str, int | None] = field(
         default_factory=lambda: {"interactive": None, "headless": None}
     )
