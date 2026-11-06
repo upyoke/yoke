@@ -164,7 +164,7 @@ def test_browser_check_records_failed_assertion_on_canonical_runner(
         mock.patch.object(
             browser_qa,
             "_record_artifact_file",
-            return_value=8,
+            side_effect=[8, 9],
         ),
     ):
         result = browser_qa.execute_scenario(
@@ -179,7 +179,7 @@ def test_browser_check_records_failed_assertion_on_canonical_runner(
     assert result.runs[0].execution_status == "captured"
     assert "assertion failed" in result.runs[0].errors
     assert "assertion_failure_capture:" not in result.runs[0].errors
-    assert result.runs[0].artifact_ids == [8]
+    assert result.runs[0].artifact_ids == [8, 9]
     assert completed[0][1]["verdict"] == "fail"
     assert completed[0][1]["execution_status"] == "captured"
 
