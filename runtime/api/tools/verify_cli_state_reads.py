@@ -5,9 +5,15 @@ import subprocess
 
 
 def read(*arguments):
-    process = subprocess.run(
-        ["yoke", *arguments, "--json"], capture_output=True, text=True, timeout=60,
-    )
+    try:
+        process = subprocess.run(
+            ["yoke", *arguments, "--json"], capture_output=True, text=True, timeout=60,
+        )
+    except subprocess.TimeoutExpired:
+        raise SystemExit(
+            "cli_state_read_timeout: the registered read exceeded 60 seconds. "
+            "Check control-plane reachability and serving health, then rerun this case."
+        ) from None
     if process.returncode:
         raise SystemExit(
             f"cli_state_read_failed: {' '.join(arguments)}: {process.stderr or process.stdout}. "
