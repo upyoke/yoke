@@ -109,6 +109,7 @@ def test_full_roster_dispatches_detail_and_prints_every_field(
     assert "messageable: yes" in rendered
     assert "chain_pending" in rendered
     assert "effective stale ttl minutes: 60" in rendered
+    assert "liveness:" not in rendered
     assert "2099-08-22T13:00:00Z" in rendered
 
 
