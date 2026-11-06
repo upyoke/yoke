@@ -1,6 +1,5 @@
 """Provision through admin exec and source isolation, then read it in a new run."""
 
-import os
 from pathlib import Path
 import sys
 from types import SimpleNamespace
@@ -12,7 +11,6 @@ from yoke_cli.config import db_admin_dsn_exec
 from yoke_core.domain import connected_env_tunnel_coordination as coordination
 from yoke_core.domain import connected_env_readiness_connector as connector
 from yoke_core.domain import migration_validation_binding as binding
-from yoke_core.domain import postgres_binaries
 from yoke_core.domain.source_python_environment import SourcePythonEnvironment
 from yoke_core.tools import _source_pythonpath, source_dev_run
 
@@ -33,9 +31,6 @@ def test_provisioned_copy_and_binding_survive_the_source_process(
     monkeypatch.setenv("YOKE_MACHINE_HOME", str(home))
     monkeypatch.delenv(binding.YOKE_VALIDATION_DSN_ENV, raising=False)
     monkeypatch.delenv("YOKE_ENV", raising=False)
-    binaries = postgres_binaries.pinned_bin_dir()
-    assert binaries is not None
-    monkeypatch.setenv("PATH", str(binaries) + os.pathsep + os.environ["PATH"])
     root = _source_pythonpath.repo_root(Path(__file__))
     monkeypatch.setattr(
         source_dev_run.source_dev_candidate_binding,
