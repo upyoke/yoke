@@ -71,7 +71,7 @@ Use `--section 'Native models'` to read one section, or combine
 
 ## The access document
 
-`access` says who may use the machine's capacity and what it offers:
+`access` says who may use the machine's capacity:
 
 ```json
 {
@@ -80,12 +80,6 @@ Use `--section 'Native models'` to read one section, or combine
     "actor_ids": [],
     "project_id": null,
     "role": ""
-  },
-  "offers": {
-    "executor_surfaces": [],
-    "models": [],
-    "qa_host": false,
-    "deploys": false
   }
 }
 ```
@@ -94,8 +88,7 @@ Use `--section 'Native models'` to read one section, or combine
 `actor_ids`), `project_role` (holders of `role` on `project_id`), or
 `universe` (every member). The owner and an administrator always may — an
 operator locked out of a machine they own would have no recovery short of the
-database. The `offers` block is reserved for future restrictions and is not
-enforced or consulted today for placement, deploys, or QA host selection.
+database.
 
 Read and change it with:
 

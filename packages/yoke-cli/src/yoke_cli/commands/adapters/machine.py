@@ -8,7 +8,6 @@ from functools import partial
 from typing import Any, List
 
 from yoke_contracts.api.function_call import TargetRef
-from yoke_contracts.machine_config.machine_access import OFFERS_ENFORCEMENT_NOTE
 from yoke_contracts.refusal_recovery import compose_refusal
 
 from yoke_cli.commands._helpers import (
@@ -160,10 +159,7 @@ def machine_list(args: List[str]) -> int:
 def machine_show(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke machine show",
-        description=(
-            "Show one registered machine; defaults to this machine. "
-            f"{OFFERS_ENFORCEMENT_NOTE}"
-        ),
+        description="Show one registered machine; defaults to this machine.",
     )
     parser.add_argument(
         "machine_id", nargs="?", default=None, help="Machine id; default: this machine."
@@ -247,9 +243,7 @@ def machine_access_get(args: List[str]) -> int:
         prog="yoke machine access get",
         description=(
             "Read the machine's access document, or one dotted leaf of it "
-            "(use.mode, use.actor_ids, use.project_id, use.role, "
-            "offers.executor_surfaces, offers.models, offers.qa_host, "
-            f"offers.deploys). {OFFERS_ENFORCEMENT_NOTE}"
+            "(use.mode, use.actor_ids, use.project_id, use.role)."
         ),
     )
     parser.add_argument(
@@ -279,10 +273,10 @@ def machine_access_set(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke machine access set",
         description=(
-            "Replace one dotted leaf of the machine's access document. The "
+            "Replace one dotted leaf (use.mode, use.actor_ids, use.project_id, "
+            "use.role) of the machine's access document. The "
             "value is JSON, so a list is '[1,2]' and a string is '\"universe\"'. "
-            "Only the machine's owner or an administrator may. "
-            f"{OFFERS_ENFORCEMENT_NOTE}"
+            "Only the machine's owner or an administrator may."
         ),
     )
     parser.add_argument(

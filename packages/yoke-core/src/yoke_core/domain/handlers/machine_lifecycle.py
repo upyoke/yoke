@@ -27,7 +27,7 @@ class MachineRegisterResponse(common.MachineRecordResponse):
     credential: Dict[str, Any]
 
 
-class MachineDetailResponse(common.OffersDisclosureResponse):
+class MachineDetailResponse(BaseModel):
     machine: Dict[str, Any]
     relay: Optional[Dict[str, Any]] = None
     harnesses: List[Dict[str, Any]]
@@ -63,13 +63,11 @@ def handle_machine_register(request: FunctionCallRequest) -> HandlerOutcome:
             now=utc_now(),
         )
         return HandlerOutcome(
-            result_payload=common._with_offers_disclosure(
-                {
-                    "machine": record.to_dict(),
-                    "created": created,
-                    "credential": credential.to_dict(),
-                }
-            )
+            result_payload={
+                "machine": record.to_dict(),
+                "created": created,
+                "credential": credential.to_dict(),
+            }
         )
     except Exception as exc:  # noqa: BLE001 - typed function refusal
         return common._refused(exc)
@@ -87,8 +85,8 @@ def handle_machine_detail(request: FunctionCallRequest) -> HandlerOutcome:
 
         record = require_machine(conn, parsed.machine_id)
         return HandlerOutcome(
-            result_payload=common._with_offers_disclosure(
-                machine_detail(conn, record=record, actor_id=common._actor_id(request))
+            result_payload=machine_detail(
+                conn, record=record, actor_id=common._actor_id(request)
             )
         )
     except Exception as exc:  # noqa: BLE001 - typed function refusal
@@ -111,9 +109,7 @@ def handle_machine_retire(request: FunctionCallRequest) -> HandlerOutcome:
             is_admin=common._is_admin(conn, actor_id),
             now=utc_now(),
         )
-        return HandlerOutcome(
-            result_payload=common._with_offers_disclosure({"machine": record.to_dict()})
-        )
+        return HandlerOutcome(result_payload={"machine": record.to_dict()})
     except Exception as exc:  # noqa: BLE001 - typed function refusal
         return common._refused(exc)
     finally:

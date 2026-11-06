@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import pytest
+
 from yoke_contracts.machine_config import machine_access
 from yoke_core.domain import machine_registry
 from yoke_core.domain.machine_access_authority import actor_may_use_machine
@@ -99,8 +101,31 @@ def test_an_unrecognized_mode_admits_nobody_and_says_why():
     assert "not a recognized mode" in decision.reason
 
 
-def test_offer_lists_narrow_only_when_populated():
-    document = {"offers": {"executor_surfaces": ["claude-cli"], "models": []}}
-    assert machine_access.offers_surface(document, "claude-cli") is True
-    assert machine_access.offers_surface(document, "codex-cli") is False
-    assert machine_access.offers_model(document, "anything") is True
+def test_access_normalization_drops_undeclared_keys():
+    document = {"use": {"mode": "universe"}, "offers": {"qa_host": True}}
+    assert machine_access.normalize_access(document) == {
+        "use": {"mode": "universe", "actor_ids": [], "project_id": None, "role": ""}
+    }
+    conn = registry_connection()
+    _register(conn, access=document)
+    assert machine_registry.require_machine(conn, MACHINE_ID).access == (
+        machine_access.normalize_access(document)
+    )
+
+
+@pytest.mark.parametrize("leaf", ["qa_host", "models", "executor_surfaces", "deploys"])
+def test_unknown_access_paths_name_valid_settings(leaf):
+    path = f"offers.{leaf}"
+    from yoke_core.domain.handlers import machine_registry as handlers
+
+    document = machine_access.normalize_access({})
+    for operation in (
+        lambda: handlers._project(document, path),
+        lambda: handlers._assigned(document, path, True),
+    ):
+        with pytest.raises(machine_registry.MachineRegistryError) as refused:
+            operation()
+        assert refused.value.code == "machine_settings_path_unknown"
+        for valid in ("use.mode", "use.actor_ids", "use.project_id", "use.role"):
+            assert valid in str(refused.value)
+        assert "yoke machine access get" in str(refused.value)

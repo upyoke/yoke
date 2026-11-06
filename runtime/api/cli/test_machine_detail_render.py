@@ -56,7 +56,6 @@ def detail():
         ],
         "token": {"status": "active"},
         "credential_presence": {"github": True},
-        "offers_enforcement_note": "Reserved offers are not enforced.",
     }
 
 
@@ -115,7 +114,6 @@ def test_full_keeps_models_metadata_and_all_rows(detail):
         assert f"session-{i:03}" in text
     for i in range(20):
         assert f"launch-{i:03}" in text
-    assert "Reserved offers are not enforced." in text
 
 
 def test_large_read_fits_safety_net_and_json_stays_complete(detail, capsys):

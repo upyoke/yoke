@@ -6,9 +6,6 @@ project installations; launches store structured work assignments.
 
 from __future__ import annotations
 
-from yoke_contracts.machine_config.machine_access import OFFERS_ENFORCEMENT_NOTE
-
-
 HARNESS_TABLES: dict[str, dict] = {
     "session_launches": {
         "columns": [
@@ -50,13 +47,12 @@ HARNESS_TABLES: dict[str, dict] = {
             "hash in api_tokens, bound by api_tokens.machine_id, and returned "
             "raw only by machine.register. Re-registering rotates that bearer. "
             "access is the JSON access document "
-            "(use.mode owner_only|actors|project_role|universe, plus a "
-            "reserved offers block). The use half is enforced by "
+            "(use.mode owner_only|actors|project_role|universe). Access is enforced by "
             "session_control.launch.preview and .create, and it also decides "
             "whether a machine with no project checkout appears in "
             "session_control.relay.list — a checkout is a launch prerequisite, "
             "not a condition of being seen. "
-            f"{OFFERS_ENFORCEMENT_NOTE} Read via machine.list / machine.show / "
+            "Read via machine.list / machine.show / "
             "machine.detail / machine.access.get; write via machine.register, "
             "machine.retire, and machine.access.set — never raw SQL. Retirement "
             "revokes only machine-bound tokens and preserves machine, session, "

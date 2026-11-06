@@ -4,7 +4,7 @@
  "status": "draft-copy",
  "audience": "both",
  "when": "A teammate should be able to run workers on this machine",
- "need": "Machine access.use controls owner-only, selected actors, project-role or universe use. The offers block is reserved and is not enforced for placement, deploys or QA; never treat its presence as a restriction.",
+ "need": "Machine access.use controls owner-only, selected actors, project-role or universe use. The access document contains only use settings.",
  "disclosure": "audit needed",
  "surface": "Machine register/settings help and source contract expose the policy; natural discovery from the dashboard or launch blocker was not traced.",
  "gap": "This is an implemented contract with an untraced human/agent entry cue, not absent support.",

@@ -70,7 +70,6 @@ def test_the_detail_response_carries_the_cross_link() -> None:
         surface_policies=[],
         token={},
         credential_presence={},
-        offers_enforcement_note="",
     )
 
     assert response.model_dump()["test_machines"] == [{"test_machine": "test-mac"}]
