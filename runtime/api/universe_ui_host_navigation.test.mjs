@@ -13,13 +13,14 @@ function group(content) {
     { id: "exports", label: "Exports", content: () => null },
   ] }];
 }
-async function mount(t, href, navigation, client = injectedClient("host")) {
+async function mount(t, href, navigation, client = injectedClient("host"), onWindow = () => {}) {
   const original = globalThis.fetch;
   globalThis.fetch = () => response(200, {});
   t.after(() => { globalThis.fetch = original; });
   const document = new FakeDocument(), window = document.defaultView;
   window.fetch = () => response(503, {});
   window.location.href = href;
+  onWindow(window);
   const root = document.createElement("div");
   const app = mountUniverseApp(root, { basePath, navigation, client, universeId: "sample" });
   t.after(() => app.unmount());
@@ -49,7 +50,7 @@ test("host groups append in order, deep links and reload render unscoped content
     assert.equal(byClass(mounted.root, "title")[0].textContent, "Reports");
     assert.equal(mounted.document.title, "annual report · Reports · Yoke");
     assert.equal(byClass(mounted.root, "scope-bar").length, 0);
-    assert.equal(mounted.window.location.href, `${basePath}/reports/annual%20report`);
+    assert.equal(mounted.window.location.href, `${basePath}/reports/annual%20report?project=1`);
     assert.equal(contexts.at(-1).universeId, "sample");
     assert.equal(contexts.at(-1).scope, null);
     assert.equal(contexts.at(-1).projectSelection, "all");
@@ -58,6 +59,34 @@ test("host groups append in order, deep links and reload render unscoped content
     assert.ok(contexts.at(-1).signal.aborted);
   }
   assert.equal(UNIVERSE_APP_CONTRACT_VERSION, 11);
+});
+
+test("host route resolution preserves opaque queries and fragments on open and reload", async (t) => {
+  const href = `${basePath}/reports/annual%20report?status=new&status=read&project=1&selection=all&opaque=a%2Bb#details`;
+  let reloadedHref = href;
+  for (let reload = 0; reload < 2; reload++) {
+    let contentHref, hostWindow;
+    const mounted = await mount(t, reloadedHref, group(() => {
+      contentHref = hostWindow.location.href;
+      return null;
+    }), undefined, window => { hostWindow = window; });
+    assert.equal(mounted.window.location.href, href);
+    assert.equal(contentHref, href);
+    reloadedHref = mounted.window.location.href;
+    mounted.app.unmount();
+  }
+});
+
+test("built-in route resolution still canonicalizes project selection", async (t) => {
+  const mounted = await mount(t, `${basePath}/items?status=new&project=all#details`, group(() => null));
+  assert.equal(mounted.window.location.href, `${basePath}/items?status=new&project=all`);
+});
+
+test("host pages own fragments that resemble legacy workbench bookmarks", async (t) => {
+  const href = `${basePath}/reports?status=new#/exports?host=owned`;
+  const mounted = await mount(t, href, group(() => null));
+  assert.equal(mounted.window.location.href, href);
+  assert.equal(byClass(mounted.root, "title")[0].textContent, "Reports");
 });
 
 test("host content anchors navigate within the app, aborting outgoing factories", async (t) => {
