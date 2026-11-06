@@ -138,7 +138,7 @@ def register(registry) -> None:
         minimum_serving_version="next-release",
         owner_module="yoke_core.domain.handlers.sessions_scheduled_wake",
         target_kinds=["global"],
-        side_effects=["session_messages_insert"],
+        side_effects=["session_scheduled_wakes_insert"],
         guardrails=["active_session_required"],
         adapter_status="live",
         claim_required_kind=None,

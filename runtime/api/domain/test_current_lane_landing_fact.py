@@ -13,13 +13,17 @@ def test_only_a_receipt_for_the_recorded_head_proves_landing():
     conn = sqlite3.connect(":memory:")
     conn.executescript("""
         CREATE TABLE items(id INTEGER);
-        CREATE TABLE item_worktrees(item_id INTEGER, commit_sha TEXT);
+        CREATE TABLE item_worktrees(id INTEGER PRIMARY KEY, item_id INTEGER, commit_sha TEXT, lane_role TEXT DEFAULT 'implementation', state TEXT DEFAULT 'active');
         CREATE TABLE item_landings(item_id INTEGER, candidate_sha TEXT);
         INSERT INTO items VALUES(1);
-        INSERT INTO item_worktrees VALUES(1,'correction');
+        INSERT INTO item_worktrees(item_id,commit_sha) VALUES(1,'correction');
         INSERT INTO item_landings VALUES(1,'earlier');
     """)
     query = f"SELECT {lane_head_landed_sql()} FROM items i"
+    assert conn.execute(query).fetchone()[0] == 0
+    conn.execute(
+        "INSERT INTO item_worktrees(item_id,commit_sha,state) VALUES(1,'earlier','released')"
+    )
     assert conn.execute(query).fetchone()[0] == 0
     conn.execute("INSERT INTO item_landings VALUES(1,'correction')")
     assert conn.execute(query).fetchone()[0] == 1

@@ -35,9 +35,12 @@ _HOLD_EXEMPT_STATUSES = ENGINE_TERMINAL_STAGE_IDS | ENGINE_WAIT_STAGE_IDS | {"do
 def lane_head_landed_sql(item_alias: str = "i") -> str:
     """A landing proves the recorded lane head, never an older merge stamp."""
     return (
-        "EXISTS (SELECT 1 FROM item_worktrees iw JOIN item_landings il "
-        "ON il.item_id=iw.item_id AND il.candidate_sha=iw.commit_sha "
-        f"WHERE iw.item_id={item_alias}.id AND iw.commit_sha <> '')"
+        "EXISTS (SELECT 1 FROM item_landings il "
+        f"WHERE il.item_id={item_alias}.id AND il.candidate_sha <> '' "
+        "AND il.candidate_sha=(SELECT iw.commit_sha FROM item_worktrees iw "
+        f"WHERE iw.item_id={item_alias}.id "
+        "AND iw.lane_role IN ('implementation','integration') "
+        "ORDER BY CASE WHEN iw.state='active' THEN 0 ELSE 1 END, iw.id DESC LIMIT 1))"
     )
 
 
