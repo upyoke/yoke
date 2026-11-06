@@ -1,3 +1,4 @@
+import { sessionCard } from "../../packages/yoke-core/src/yoke_core/ui/static/universe_views_sessions.js";
 import assert from "node:assert/strict";
 import test from "node:test";
 
@@ -31,7 +32,7 @@ test("Sessions matches the prototype's runtime, assignment, level, and operator 
   const rows = () => {
     const result = [
       {
-        session_id: "a7b4pl", liveness: "active",
+        session_id: "a7b4pl", liveness: "active", session_state: { presence: "present", activity: "working", intent: { state: "none" } },
         execution_level: "ALTMAN", level_label: "Integration", level_glyph: "🧭",
         mode: "resume", executor: "claude-code", model: "claude-opus-4-8",
         executor_mark: "A", executor_class_name: "h-claude",
@@ -62,6 +63,7 @@ test("Sessions matches the prototype's runtime, assignment, level, and operator 
         },
       },
       {
+        session_state: { presence: reclaimed ? "ended" : "present", activity: "silent", intent: { state: "none" } },
         session_id: "v8c2qa", liveness: reclaimed ? "ended" : "stale", reclaimable: !reclaimed,
         execution_level: "DARIUS", mode: "wait",
         executor: "codex", model: "gpt-5.6-sol",
@@ -124,7 +126,7 @@ test("Sessions matches the prototype's runtime, assignment, level, and operator 
   const state = byClass(root, "session-roster-filter").find(
     (field) => field.children[0].textContent === "State",
   ).children[1];
-  assert.equal(state.value, "active");
+  assert.equal(state.value, "open");
   assert.equal(byClass(root, "title")[0].textContent, "Sessions");
   assert.deepEqual(
     byClass(root, "sessions-stats")[0].children
@@ -167,9 +169,9 @@ test("Sessions matches the prototype's runtime, assignment, level, and operator 
   assert.deepEqual(
     byClass(root, "pill").map((pill) => [pill.textContent, pill.className]),
     [
-      ["active", "pill good session-status-pill"],
+      ["working", "pill idle session-status-pill"],
       ["test-mac", "pill good session-relay-pill"],
-      ["stale", "pill warn session-status-pill session-stale-pill"],
+      ["silent", "pill warn session-status-pill"],
       ["machine-2", "pill crit session-relay-pill"],
     ],
   );
@@ -247,7 +249,7 @@ test("Sessions matches the prototype's runtime, assignment, level, and operator 
   );
 
   const reclaim = byClass(root, "item-button").find(
-    (button) => button.textContent === "Reclaim stale",
+    (button) => button.textContent === "Reclaim sessions",
   );
   assert.equal(reclaim.disabled, false);
   reclaim.dispatchEvent(new Event("click"));
@@ -280,68 +282,13 @@ test("Sessions matches the prototype's runtime, assignment, level, and operator 
   mounted.unmount();
 });
 
-test("Sessions cards fold every state signal into one pill", async (t) => {
-  const originalFetch = globalThis.fetch;
-  t.after(() => { globalThis.fetch = originalFetch; });
-  globalThis.fetch = () => response(200, {});
-  const documentNode = new FakeDocument();
-  documentNode.defaultView.location.href = "/sessions?project=1";
-  const root = documentNode.createElement("div");
-  const rows = [
-    {
-      session_id: "parked-1", liveness: "active",
-      execution_level: "DARIUS", mode: "parked",
-      quiet_reason: "waiting on a blocking claim",
-      executor: "codex", model: "gpt-5.6-sol",
-      executor_mark: "X", executor_class_name: "h-codex",
-      actor_id: 2, actor_kind: "human", actor_label: "Ben",
-      project_id: 1, project: "yoke",
-      activity_at: "2026-07-26T11:40:00Z",
-      claims: [],
-    },
-    {
-      session_id: "wait-1", liveness: "active",
-      execution_level: "ALTMAN", mode: "wait",
-      quiet_reason: "Waiting for the merge queue to validate a deliberately long explanation without clipping any of its recovery context.",
-      executor: "claude-code", model: "claude-opus-4-8",
-      executor_mark: "A", executor_class_name: "h-claude",
-      actor_id: 2, actor_kind: "human", actor_label: "Ben",
-      project_id: 1, project: "yoke",
-      activity_at: "2026-07-26T12:04:00Z",
-      claims: [],
-    },
-    { session_id: "cursor-1", liveness: "active", execution_level: "TURING",
-      mode: "dash", quiet_reason: null, executor: "cursor", model: "gpt-5.6-sol",
-      executor_mark: "C", executor_class_name: "h-cursor", project_id: 1,
-      project: "yoke", activity_at: "2026-07-26T12:03:00Z", claims: [] },
-  ];
-  const mounted = mountUniverseApp(root, {
-    client: sessionsClient(rows, []),
-  });
-  await settle();
-  assert.deepEqual(
-    byClass(root, "pill").filter((n) => n.attributes.get("data-state") === "parked")
-      .map((n) => n.textContent),
-    ["parked"],
-  );
-  // One pill each, and the reason each card would have restated underneath
-  // reaches the reader through that pill's own (i).
-  assert.deepEqual(
-    byClass(root, "tooltip-info").map((node) => [
-      node.getAttribute("aria-label"), node.getAttribute("data-tooltip"),
-    ]),
-    [
-      [
-        "Why parked",
-        "parked by the session itself; its next accepted prompt or tool activity after turn end takes it back"
-        + " · waiting on a blocking claim",
-      ],
-      [
-        "Why active",
-        "Waiting for the merge queue to validate a deliberately long explanation without clipping any of its recovery context.",
-      ],
-    ],
-  );
-  assert.deepEqual(byClass(root, "session-harness").map((n) => n.textContent), ["X", "A", "C"]);
-  mounted.unmount();
+test("Sessions cards separate activity, intent and its full reason", () => {
+  const reason = "Waiting for the merge queue without clipping recovery context.";
+  const rendered = sessionCard(new FakeDocument(), {
+    session_id: "waiting", executor: "codex", liveness: "active", session_state: { presence: "present", activity: "working", intent: { state: "none" } },
+    session_state: { presence: "present", activity: "between_turns",
+      intent: { state: "awaiting", reason } },
+  }, () => {});
+  assert.equal(byClass(rendered, "session-status-pill")[0].textContent, "between turns");
+  assert.equal(byClass(rendered, "session-intent")[0].textContent, `Intentawaiting · ${reason}`);
 });

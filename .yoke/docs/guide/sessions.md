@@ -86,7 +86,11 @@ A browser sign-in session is different: it establishes dashboard access and is n
 
 ### Registration and heartbeat
 
-Harness hooks register sessions and report activity. The relay supplies machine and process information. Session liveness, current turn activity, and item state are separate facts; an old activity timestamp does not by itself mean work is abandoned.
+Harness hooks register sessions and report activity. The relay supplies machine and process information. Presence, tool activity, pause intent, holdings and the next actor are separate facts; an old activity timestamp does not by itself mean work is abandoned.
+
+The Sessions page defaults to Open (presence present). Its detailed filters separate
+Working, Between turns, Parked or awaiting, Silent, Gone and Ended. Cards show
+these facts separately, and last tool measures tool activity rather than heartbeat age.
 
 ### Parking and resuming
 

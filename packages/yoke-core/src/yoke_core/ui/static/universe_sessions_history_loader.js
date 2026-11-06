@@ -282,7 +282,7 @@ export function sessionsHistoryLoader(context, scope, filters, onChange) {
     filtersChanged,
     rows() {
       const state = filters.state();
-      if (state === "active" || state === "parked") return visibleOpenRows();
+      if (state && state !== "ended") return visibleOpenRows();
       if (state === "ended") return visibleHistoryRows();
       return [...visibleOpenRows(), ...visibleHistoryRows()];
     },
@@ -293,7 +293,7 @@ export function sessionsHistoryLoader(context, scope, filters, onChange) {
       const state = filters.state();
       const historyMatches = filters.outsideProjectOnly()
         ? visibleHistoryRows().length : matchedCount;
-      if (state === "active" || state === "parked") return visibleOpenRows().length;
+      if (state && state !== "ended") return visibleOpenRows().length;
       if (state === "ended") return historyMatches;
       return visibleOpenRows().length + historyMatches;
     },

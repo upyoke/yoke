@@ -168,10 +168,10 @@ test("a covered worker carries a row naming what it is steered from", () => {
   assert.equal(rendered.getAttribute("data-steering-group"), "seat-1");
 });
 
-test("a stale covered worker keeps both its steered row and its stale class", () => {
+test("a covered worker keeps its steered row without a legacy stale class", () => {
   const rendered = coveredWorkerCard("stale");
   assert.equal(byClass(rendered, "session-steered-row").length, 1);
-  assert.ok(rendered.classList.contains("is-stale"));
+  assert.equal(rendered.classList.contains("is-stale"), false);
 });
 
 test("two session document locks still name the covering claim", () => {

@@ -26,13 +26,19 @@ as **parked**, however old its activity becomes. Other protected live sessions
 remain active; their activity age is a separate diagnostic. Silence does not
 declare a pause. Ended sessions stay ended.
 
-The roster opens on **Active**, including active, waiting and stale sessions.
-**All** includes ended sessions; **Ended** shows only ended sessions.
-**Reclaim stale** counts exactly the stale sessions in the same scope and
-snapshot. Execution rechecks the shared eligibility decision and reports
-newly protected sessions skipped, with their reason; refresh the roster before
-retrying. Explicit authorized termination is a separate action and can settle
-protected claims. Cleanup reloads the roster so reclaimed rows leave Active.
+The roster opens on **Open**: sessions whose shared presence is present.
+**Working**, **Between turns**, **Parked or awaiting**, **Silent**, **Gone** and
+**Ended** separate the roster into non-overlapping groups. Intentional parks
+and waits take precedence over activity in these groups. Open and All are
+aggregate views; All also loads ended history.
+
+Cards show presence, activity, intent and its reason, next actor, and holdings
+separately. **last tool** uses the last tool call, never a heartbeat; an unknown
+tool clock says unavailable. Machines show working, held and silent counts.
+**Reclaim sessions** uses the server's reclaimable flag and rechecks protection
+before acting; claims remain protected even when their process is gone.
+An older server without the shared projection shows state unavailable; upgrade
+the server and refresh to use the detailed filters.
 
 On the **Frontier**, every claimed item's card carries its holding session's
 chip — surface, park state, and quiet reason — whichever band it lands in.

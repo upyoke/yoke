@@ -96,7 +96,7 @@ function cardIds(root) {
   );
 }
 
-test("roster defaults to active and exposes only the supported filters", async (t) => {
+test("roster defaults to Open and exposes only the supported filters", async (t) => {
   const requests = [];
   const rows = [
     sessionRow("active-codex", "active"),
@@ -115,22 +115,20 @@ test("roster defaults to active and exposes only the supported filters", async (
     ["Search", "State", "Project", "Harness", "Machine"],
   );
   const state = fields[1].children[1];
-  assert.equal(state.value, "active");
+  assert.equal(state.value, "open");
   assert.deepEqual(
     state.children.map((entry) => [entry.value, entry.textContent]),
-    [["active", "Active"], ["parked", "Parked"], ["ended", "Ended"], ["", "All"]],
+    [["open", "Open"], ["working", "Working"], ["between_turns", "Between turns"],
+      ["parked", "Parked or awaiting"], ["silent", "Silent"], ["gone", "Gone"],
+      ["ended", "Ended"], ["", "All"]],
   );
   assert.deepEqual(cardIds(root), ["active-codex", "stale-cursor"]);
   const staleCard = byClass(root, "session-card").find(
     (card) => card.getAttribute("data-session-id") === "stale-cursor",
   );
-  assert.equal(staleCard.classList.contains("is-stale"), true);
-  assert.deepEqual(
-    byClass(staleCard, "session-stale-pill").map(
-      (pill) => [pill.textContent, pill.className],
-    ),
-    [["stale", "pill warn session-status-pill session-stale-pill"]],
-  );
+  assert.equal(staleCard.classList.contains("is-stale"), false);
+  assert.deepEqual(byClass(staleCard, "session-status-pill").map((pill) => pill.textContent),
+    ["unavailable"]);
   // One roster read, this view's own scoped load; the page's durable 24h
   // spend read fires beside it, because the window it answers for is not
   // the filtered roster. The app-wide steering-color read
@@ -153,8 +151,8 @@ test("roster defaults to active and exposes only the supported filters", async (
   const anyStaleCard = byClass(root, "session-card").find(
     (card) => card.getAttribute("data-session-id") === "stale-cursor",
   );
-  assert.equal(anyStaleCard.classList.contains("is-stale"), true);
-  assert.equal(byClass(anyStaleCard, "session-stale-pill").length, 1);
+  assert.equal(anyStaleCard.classList.contains("is-stale"), false);
+  assert.equal(byClass(anyStaleCard, "session-stale-pill").length, 0);
   state.value = "ended";
   state.dispatchEvent(new Event("change"));
   await settle();
@@ -175,7 +173,7 @@ test("roster defaults to active and exposes only the supported filters", async (
   );
 
   button(root, "Clear").dispatchEvent(new Event("click"));
-  assert.equal(state.value, "active");
+  assert.equal(state.value, "open");
   assert.equal(harness.value, "");
   assert.deepEqual(cardIds(root), ["active-codex", "stale-cursor"]);
   assert.equal(

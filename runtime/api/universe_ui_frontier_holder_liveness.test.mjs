@@ -48,6 +48,7 @@ test("a parked holder whose process exited stays active with no process chip", a
     ...claimingSession(),
     liveness: "waiting",
     mode: "parked",
+    session_state: { presence: "gone", activity: "silent", intent: { state: "parked" } },
     quiet_reason: "awaiting YOK-9 delivery",
     native_process: { state: "gone", resumable_from_transcript: true },
   });

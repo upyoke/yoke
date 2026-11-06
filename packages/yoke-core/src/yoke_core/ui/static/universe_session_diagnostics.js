@@ -1,16 +1,12 @@
 import { attachTooltip, infoTooltip } from "./universe_tooltip.js";
 import { relativeAge } from "./universe_time.js";
-import { instantFromDate, instantMicros } from "./timestamps.js";
 import { el, statePill } from "./universe_view_support.js";
 
-// The not-ended liveness states, exactly as the server classifies them. A
-// waiting session is parked on its work claim on purpose — a deploy, a
-// landing, a migration slot — and is as live as an active one; only `ended`
-// is gone. Every screen that splits live from gone asks this one question.
-const LIVE_LIVENESS = new Set(["active", "waiting", "stale"]);
-
+// Presence and work ownership are independent, including for gone holders.
 export function sessionIsLive(row) {
-  return LIVE_LIVENESS.has(String(row.liveness || "").toLowerCase());
+  return row.session_state?.presence
+    ? row.session_state.presence !== "ended"
+    : !row.ended_at && !row.terminated_at && row.liveness !== "ended";
 }
 
 const MESSAGE_STATES = new Set([
@@ -44,171 +40,37 @@ export function killExplanation(row) {
   return reason ? `${base} Reason: ${reason}` : base;
 }
 
-// Activity age is diagnostic; eligibility remains the server decision.
-function pastActivityWindow(row, now) {
-  if (!row.activity_quiet_at) return false;
-  const eligible = instantMicros(row.activity_quiet_at);
-  return eligible <= instantMicros(instantFromDate(new Date(now)));
-}
-
-// A declared wait is a state, not a footnote to one. Gating behind another
-// item and holding the turn open for an answer are different situations with
-// different answers, so each names itself in the pill and explains itself in
-// the pill's tooltip.
-function declaredWaitStatus(wait) {
-  if (wait.kind === "dependency") {
-    const status = String(wait.blocking_status || "").trim();
-    const stage = status ? ` (${status})` : "";
-    return {
-      state: "waiting",
-      label: "waiting",
-      detail: `gated on ${wait.blocking_item}${stage}`,
-    };
-  }
-  return {
-    state: "parked",
-    label: "parked",
-    detail: "turn parked for an answer",
-  };
-}
-
-// A session that stamped `parked` about itself is accounted for in exactly
-// the way a declared wait is, so it reads as the same state rather than as a
-// second badge beside whatever the liveness read happened to say.
-function selfParkedStatus(row) {
-  if (String(row.mode || "").toLowerCase() !== "parked") return null;
-  return {
-    state: "parked",
-    label: "parked",
-    detail: "parked by the session itself; its next accepted prompt or tool activity after turn end takes it back",
-  };
-}
-
-// A recorded native exit is not a dead worker. A headless worker's process
-// exits between turns and the next message resumes it from its transcript,
-// so that exit is internal and shows nothing. The card names only the two
-// states an operator acts on: a wake already resuming the worker, and a
-// surface that cannot resume by message.
-
-function processHealth(process) {
-  if (!process) return null;
-  if (process.state === "resuming") {
-    return {
-      state: "resuming",
-      label: "resuming",
-      detail: "a wake is resuming it from its transcript — not dead; let it start",
-    };
-  }
-  if (process.state !== "gone" || process.resumable_from_transcript) return null;
-  return {
-    state: "process-gone",
-    label: "process gone",
-    detail: "claims held; this surface cannot resume by message — terminate deliberately if dead",
-  };
-}
-
-// Health is what the session's own record says about its quiet, and the three
-// answers are not degrees of one another. A session gated behind another item
-// or holding its turn open is waiting by declaration and nothing is wrong with
-// it. A session the stale-alive probe has already asked has a question
-// outstanding, so its silence is being resolved. A quiet claim-holder with
-// neither of those is unaccounted for: protected while its activity age remains a separate diagnostic.
-export function sessionHealthState(row, now = Date.now()) {
-  if (String(row.liveness || "") === "ended") return null;
-  const holdings = row.holdings && Array.isArray(row.holdings.current)
-    ? row.holdings.current : [];
-  if (!(holdings.length || (Array.isArray(row.claims) && row.claims.length))) {
-    return null;
-  }
-  const process = processHealth(row.native_process);
-  if (process) return process;
-  const wait = row.declared_wait;
-  if (wait) return declaredWaitStatus(wait);
-  if (!pastActivityWindow(row, now)) return null;
-  const probe = row.stale_alive_probe;
-  if (probe) {
-    return {
-      state: "probed",
-      label: "probed",
-      detail: `awaiting response · asked ${relativeAge(probe.created_at)}`,
-    };
-  }
-  return {
-    state: "quiet", label: "quiet",
-    detail: "activity is old; held work protects this session from automatic reclaim",
-  };
-}
-
-/**
- * The one state the card shows, whichever state actually applies.
- *
- * A card used to be able to say three things about one silence at once — a
- * `waiting` pill, a `parked` pill beside it, and a sentence underneath that
- * repeated whichever of them was right. The reasons and recovery actions all
- * survived that collapse by moving into `detail`, which the pill's own
- * explanation renders; what did not survive is the second badge.
- *
- * A self-declared park is checked before the quiet reads for the same reason
- * a declared wait is: the session has already accounted for its own silence,
- * so reporting it as quiet would describe a session nobody is
- * missing.
- */
-export function sessionPrimaryStatus(row, now = Date.now()) {
-  const liveness = String(row.liveness || "").toLowerCase();
-  const killed = killExplanation(row);
-  const carrying = (status) => (killed
-    ? { ...status, detail: [status.detail, killed].filter(Boolean).join(" · ") }
-    : status);
-  if (liveness === "ended") {
-    return carrying({ state: "ended", label: "ended", detail: null });
-  }
-  if (liveness === "stale") {
-    return carrying({ state: "stale", label: "stale", detail: null });
-  }
-  const parked = selfParkedStatus(row);
-  if (parked) return carrying(parked);
-  if (row.declared_wait) return carrying(declaredWaitStatus(row.declared_wait));
-  if (liveness === "waiting") {
-    return carrying({ state: "parked", label: "parked", detail: "intentional pause holding its claim; the next message resumes it" });
-  }
-  const health = sessionHealthState(row, now);
-  if (health) return carrying(health);
-  // Recency lives on the timing line as "active now" / "idle Xm"; the
-  // identity pill says only that the session is live.
-  if (liveness === "active") {
-    return carrying({ state: "active", label: "active", detail: null });
-  }
-  return carrying({ state: "unknown", label: "unknown", detail: null });
-}
-
-/**
- * Everything the card knows about why this session reads the way it does.
- *
- * The state's own detail and the session's recorded quiet reason are two
- * halves of one answer, and a session that recorded the same sentence its
- * state already implies says it once.
- */
-export function sessionStatusExplanation(row, now = Date.now()) {
-  const status = sessionPrimaryStatus(row, now);
-  const quiet = String(row.quiet_reason ?? "").trim();
-  const parts = [status.detail, quiet].filter(Boolean);
-  return [...new Set(parts)].join(" · ");
-}
-
-/**
- * The status pill, and — only where there is more to know — the (i) that
- * carries the rest of it on hover, tap and focus.
- */
-export function appendSessionPrimaryStatus(documentNode, host, row, now = Date.now()) {
-  const status = sessionPrimaryStatus(row, now);
-  const pill = statePill(documentNode, status.state, status.label);
-  const confirmed = status.state === "stale" ? " session-stale-pill" : "";
-  pill.className = `${pill.className} session-status-pill${confirmed}`;
+// Render the server projection without another browser-side classifier.
+export function appendSessionPrimaryStatus(documentNode, host, row) {
+  const state = row.session_state;
+  const value = state?.presence === "present"
+    ? state.activity : state?.presence || (sessionIsLive(row) ? "unavailable" : "ended");
+  const pill = statePill(documentNode, value, value.replaceAll("_", " "));
+  pill.className += " session-status-pill";
   host.appendChild(pill);
-  const explanation = infoTooltip(
-    documentNode, sessionStatusExplanation(row, now), `Why ${status.label}`,
-  );
+  const detail = [killExplanation(row), !state && sessionIsLive(row)
+    ? "Session state unavailable; refresh after the server upgrade." : null]
+    .filter(Boolean).join(" · ");
+  const explanation = infoTooltip(documentNode, detail, `Why ${value}`);
   if (explanation) host.appendChild(explanation);
+}
+
+export function appendSessionStateFacts(documentNode, host, row) {
+  const state = row.session_state;
+  const facts = el(documentNode, "dl", "session-state-facts");
+  const add = (label, value, className) => {
+    const column = el(documentNode, "div", className);
+    column.appendChild(el(documentNode, "dt", null, label));
+    column.appendChild(el(documentNode, "dd", null, value));
+    facts.appendChild(column);
+  };
+  add("Presence", state?.presence || "unavailable", "session-presence");
+  add("Activity", (state?.activity || "unavailable").replaceAll("_", " "),
+    "session-activity");
+  const intent = state?.intent;
+  add("Intent", [intent?.state || "unavailable", intent?.reason]
+    .filter(Boolean).join(" · "), "session-intent");
+  host.appendChild(facts);
 }
 
 export function appendSessionMessageLine(

@@ -270,7 +270,7 @@ test("roster keeps exact message actions on every session", async (t) => {
     ).payload.selector,
     { session_ids: ["messageable"] },
   );
-  state.value = "active";
+  state.value = "open";
   state.dispatchEvent(new Event("change"));
   assert.deepEqual(cardIds(), ["messageable", "wakeable"]);
   mounted.unmount();
