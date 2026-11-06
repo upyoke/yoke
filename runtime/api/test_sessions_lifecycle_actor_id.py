@@ -28,16 +28,15 @@ rather than the operator's own machine.
 
 from __future__ import annotations
 
+from runtime.api.sessions_test_support import (conn as conn)
+
 from runtime.api.fixtures.machine_config_test import select_machine_config_file
 import json
 
 import pytest
 
 from yoke_core.domain.sessions import SessionError
-from runtime.api.test_sessions import (
-    conn,  # noqa: F401  (pytest fixture)
-    _register,
-)
+from runtime.api.sessions_test_support import _register
 
 ENV = "local"
 

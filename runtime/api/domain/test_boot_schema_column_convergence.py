@@ -9,15 +9,21 @@ real boot converge restores the complete fresh column map.
 
 from __future__ import annotations
 
+from runtime.api.domain.boot_schema_column_convergence_test_support import (
+    _apply_complete_control_plane_schema as _apply_complete_control_plane_schema,
+    _column_map as _column_map,
+    _record_boot_column_lookups as _record_boot_column_lookups,
+)
+
+
 import hashlib
 from pathlib import Path
 
 from psycopg import Error, sql
 
 from runtime.api.fixtures.file_test_db import connect_test_db, init_test_db
-from yoke_core.domain import deployment_runs_schema, schema, schema_common_postgres
 from yoke_core.domain.migration_restore_point import RESTORE_POINT_ENV
-from yoke_core.domain.schema_common import _get_columns, _get_indexes, _get_tables
+from yoke_core.domain.schema_common import _get_indexes
 from yoke_core.domain.schema_init import converge_core_schema
 
 
@@ -118,29 +124,6 @@ _HISTORY_CONVERGED_COLUMNS = frozenset(
 _BORN_WITH_COLUMN_DIGEST = (
     "518f41bb0e4f4a55b411f6da4d16ab07ba738d647d6850eb71b7185feaf5869f"
 )
-
-
-def _apply_complete_control_plane_schema() -> None:
-    schema.cmd_init()
-    deployment_runs_schema.cmd_init()
-
-
-def _column_map(conn) -> dict[str, frozenset[str]]:
-    return {table: frozenset(_get_columns(conn, table)) for table in _get_tables(conn)}
-
-
-def _record_boot_column_lookups(conn, monkeypatch) -> set[tuple[str, str]]:
-    columns: set[tuple[str, str]] = set()
-    original = schema_common_postgres._postgres_column_row
-
-    def record(connection, table: str, column: str):
-        columns.add((table, column))
-        return original(connection, table, column)
-
-    with monkeypatch.context() as patcher:
-        patcher.setattr(schema_common_postgres, "_postgres_column_row", record)
-        converge_core_schema(conn)
-    return columns
 
 
 def _drop_without_cascade(conn, table: str, column: str) -> bool:

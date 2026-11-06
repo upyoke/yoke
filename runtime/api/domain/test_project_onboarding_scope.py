@@ -2,7 +2,7 @@
 
 import pytest
 
-from runtime.api.domain.test_project_onboarding_runs import _conn
+from runtime.api.domain.project_onboarding_runs_test_support import _conn
 from yoke_core.domain import project_onboarding_runs as runs
 
 

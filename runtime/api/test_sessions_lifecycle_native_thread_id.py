@@ -19,8 +19,10 @@ from __future__ import annotations
 
 import pytest
 
-from runtime.api.test_sessions import _p, _register, conn  # noqa: F401
+from runtime.api.domain.path_context_test_support import (_p)
+from runtime.api.sessions_test_support import (_register, conn)  # noqa: F401
 from yoke_core.domain.sessions import SessionError, end_session
+
 
 class TestRegisterSessionNativeThreadId:
     def test_register_persists_native_thread_id(self, conn):

@@ -8,7 +8,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from runtime.api.test_constants import TEST_ITEM_REF
+from runtime.api.constants_test_support import TEST_ITEM_REF
 from yoke_cli.commands.adapters import session_control_roster as roster
 from yoke_cli.commands.adapters.session_control_human_output import write_roster_result
 from yoke_cli.commands.adapters.session_control_usage import (

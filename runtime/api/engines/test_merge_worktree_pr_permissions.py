@@ -5,8 +5,12 @@ from copy import deepcopy
 import pytest
 
 from yoke_core.engines import merge_worktree_pr_check_runs as checks
-from runtime.api.engines.test_merge_worktree_pr_check_runs import (
-    _auth, _check_run, _ctx, _pr_node, _wire,
+from runtime.api.engines.merge_worktree_pr_check_runs_test_support import (
+    _auth,
+    _check_run,
+    _ctx,
+    _pr_node,
+    _wire,
 )
 
 

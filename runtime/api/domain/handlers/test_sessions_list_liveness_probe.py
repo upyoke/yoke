@@ -22,7 +22,7 @@ from yoke_core.domain.handlers.sessions_list import handle_sessions_list
 from yoke_core.domain.session_control_roster import SESSION_CONTROL_ROSTER_FIELDS
 from yoke_core.domain.session_control_schema import create_session_control_tables
 
-from runtime.api.domain.handlers.test_sessions_list_handler import (
+from runtime.api.domain.handlers.sessions_list_handler_test_support import (
     _insert_item_claim,
     _insert_session,
 )

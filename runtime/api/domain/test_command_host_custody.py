@@ -142,8 +142,8 @@ def test_declared_command_acquires_lease_and_can_begin_nested_operation(
     test_db, tmp_path, monkeypatch, operation
 ):
     from runtime.api.domain.machine_qa_host_test_support import configure_test_machine
-    from runtime.api.domain.test_agent_mission_qa import ACTOR, _request
-    from runtime.api.domain.test_mission_machine_operations import begin
+    from runtime.api.domain.agent_mission_qa_test_support import ACTOR, _request
+    from runtime.api.domain.mission_machine_operations_test_support import begin
     from runtime.api.fixtures.backlog_inserts import insert_item
     from yoke_core.domain.handlers.machine_qa_plan_case import handle_plan_case_begin
     from yoke_core.domain.qa_plan_attachments import (

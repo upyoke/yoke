@@ -1,9 +1,16 @@
 """Manual project plans own fresh snapshots without item or delivery gates."""
 
+from runtime.api.domain.qa_plan_standalone_execution_test_support import (
+    SHA as SHA,
+    _begin as _begin,
+    _plan as _plan,
+)
+
+
 import pytest
 
 from runtime.api.fixtures.pg_testdb import test_database
-from yoke_core.domain.qa_plan_management import create_plan, replace_plan_cases
+from yoke_core.domain.qa_plan_management import replace_plan_cases
 from yoke_core.domain.qa_requirement_snapshot_convergence import (
     assert_requirement_execution_snapshot_invariants,
 )
@@ -19,42 +26,6 @@ from yoke_core.domain.qa_standalone_schema import assert_standalone_subjects
 from yoke_core.domain.qa_plan_detail import get_plan
 from yoke_core.domain.qa_artifact_owner import requirement_storage_owner
 from yoke_core.domain.qa_artifacts import case_artifact_subject
-
-SHA = "a" * 40
-
-
-def _plan(conn):
-    plan = create_plan(conn, project="yoke", slug="manual-proof", name="Manual proof")
-    replace_plan_cases(
-        conn,
-        plan_id=plan["id"],
-        cases=[
-            {
-                "case_key": key,
-                "position": position,
-                "method_id": "command",
-                "instructions": "Run the command",
-                "expected_outcome": "It passes",
-                "method_config": {"command": "true"},
-            }
-            for key, position in (("later", 2), ("first", 1))
-        ],
-    )
-    conn.commit()
-    return plan
-
-
-def _begin(conn, **kwargs):
-    return begin_standalone_execution(
-        conn,
-        plan="manual-proof",
-        project="yoke",
-        actor_id="7",
-        session_id="manual-owner",
-        source_revision=SHA,
-        checkout_path="/tmp/manual-proof",
-        **kwargs,
-    )
 
 
 def test_fresh_manual_runs_keep_order_and_never_acquire_gate_subjects():

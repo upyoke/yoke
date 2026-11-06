@@ -14,7 +14,7 @@ from runtime.api.engines.merge_audit_test_seeds import (
     seed_merge_audit_task,
 )
 from runtime.api.fixtures.file_test_db import connect_test_db
-from .merge_audit_full_test_support import (
+from runtime.api.engines.merge_audit_full_test_support import (
     _add_branch,
     _env,
     fake_repo as fake_repo,

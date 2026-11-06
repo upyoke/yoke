@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 
 from yoke_core.domain.session_relay_read import list_visible_relays
-from runtime.api.domain.test_session_message_support import message_connection
+from runtime.api.domain.session_message_support_test_support import message_connection
 
 
 def _relay(

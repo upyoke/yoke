@@ -20,7 +20,7 @@ import pytest
 # Ensure the repo root is importable
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
 
-from runtime.api.test_dependency_schema import create_dependency_test_db
+from runtime.api.dependency_schema_test_support import create_dependency_test_db
 from yoke_core.domain.dependencies import (
     GatePoint,
     Satisfaction,

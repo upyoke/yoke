@@ -18,13 +18,13 @@ from typing import Any
 
 import pytest
 
-from runtime.api.domain.test_deployment_qa_stage_execution import (
+from runtime.api.domain.deployment_qa_stage_execution_test_support import (
     _complete_case,
     _plan,
     _seed_run,
     _stages,
 )
-from runtime.api.domain.test_deployment_qa_stage_wake_delivery import (
+from runtime.api.domain.deployment_qa_stage_wake_delivery_test_support import (
     _claim,
     _project,
     seed_session,

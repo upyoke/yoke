@@ -15,7 +15,10 @@ from yoke_core.domain.session_action_authority import (
     held_role_names,
     session_is_launched,
 )
-from runtime.api.domain.test_session_message_support import NOW_TEXT, message_connection
+from runtime.api.domain.session_message_support_test_support import (
+    NOW_TEXT,
+    message_connection,
+)
 
 
 MESSAGE = "session_control.message.send"

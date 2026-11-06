@@ -8,7 +8,7 @@ from unittest import mock
 
 from yoke_core.domain import browser_qa
 from yoke_harness.browser_daemon_profile import profile_scope as profile_scope_for_test
-from runtime.api.cli.test_browser_profile_daemons_live import (
+from runtime.api.cli.browser_profile_daemons_live_test_support import (
     daemon_runtime as daemon_runtime,
 )
 
@@ -237,7 +237,9 @@ def test_same_identity_slow_checks_keep_private_pids_and_pages(
     from yoke_harness import browser_client
     from yoke_harness.browser_check_profile import check_scope
     from yoke_harness.browser_daemon_profile import selected_profile
-    from runtime.api.cli.test_browser_profile_daemons_live import ProbeHandler
+    from runtime.api.cli.browser_profile_daemons_live_test_support import (
+        ProbeHandler,
+    )
 
     source = tmp_path / "authoritative"
     source.mkdir()

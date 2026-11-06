@@ -11,7 +11,7 @@ import pytest
 from yoke_core.domain import file_line_check as core
 from yoke_harness.git_hooks import file_line_check as harness
 
-from runtime.api.domain.test_file_line_check import (
+from runtime.api.domain.file_line_check_test_support import (
     _commit_file,
     _init_git_repo,
     _make_lines,

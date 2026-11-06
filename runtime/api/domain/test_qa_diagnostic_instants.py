@@ -5,7 +5,7 @@ from datetime import timedelta
 
 import pytest
 
-from runtime.api.domain.test_qa_simulation_triage import _seed, _record
+from runtime.api.domain.qa_simulation_triage_test_support import _seed, _record
 from yoke_contracts.timestamps import InvalidInstant, parse_instant, format_instant
 from yoke_core.domain import qa_browser_freshness_check as browser
 from yoke_core.domain import qa_requirement_issues as terminal

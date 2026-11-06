@@ -1,48 +1,27 @@
 """A release runs each attached post-deploy plan once, as one plan group."""
 
+from runtime.api.domain.deployment_qa_plan_groups_test_support import (
+    MEMBERS as MEMBERS,
+    RUN as RUN,
+    SLUG as SLUG,
+    _attach as _attach,
+    _begin as _begin,
+    _pass_group as _pass_group,
+    _seed as _seed,
+)
+
+
 import json
 
 import pytest
 
-from runtime.api.domain.test_deployment_qa_stage_execution import (
-    _complete_case,
-    _plan,
-    _seed_run,
-    _stages,
-)
-from yoke_core.domain.deployment_qa_plan_group_dispatch import settle_group
 from yoke_core.domain.deployment_qa_plan_group_writes import (
     ensure_groups,
-    group_subject,
 )
 from yoke_core.domain.deployment_qa_plan_groups import (
     retract_unattached_groups,
     run_groups,
 )
-from yoke_core.domain.qa_plan_execution_state import begin_plan_execution
-
-RUN = "run-plan-groups"
-MEMBERS = (9911, 9912, 9913)
-SLUG = "release-smoke"
-
-
-def _seed(conn, attached=MEMBERS):
-    plan_id = _plan(conn)
-    stages = _stages(plan_id)
-    stages[1].pop("cases")
-    _seed_run(conn, run_id=RUN, stages=stages, members=MEMBERS)
-    for member in attached:
-        _attach(conn, member, plan_id)
-    return plan_id
-
-
-def _attach(conn, member, plan_id):
-    conn.execute(
-        "INSERT INTO qa_plan_item_attachments(item_id,plan_id,transition_id,qa_phase,attached_at) "
-        "VALUES (%s,%s,'release','post_deploy','2026-10-28T00:00:00Z')",
-        (member, plan_id),
-    )
-    conn.commit()
 
 
 def _plan_rows(conn):
@@ -50,29 +29,6 @@ def _plan_rows(conn):
         "SELECT item_id, deployment_member_item_id FROM qa_requirements "
         "WHERE plan_id IS NOT NULL ORDER BY id"
     ).fetchall()
-
-
-def _begin(conn, member=None):
-    return begin_plan_execution(
-        conn,
-        deployment_run_id=RUN,
-        deployment_stage="item-qa",
-        deployment_member_item_id=member,
-        plan=SLUG,
-        actor_id="2",
-        session_id="plan-group-qa",
-    )
-
-
-def _pass_group(conn):
-    execution = _begin(conn)
-    _complete_case(conn, execution)
-    group = run_groups(conn, [RUN], "item-qa")[-1]
-    if not group.closed:
-        settle_group(
-            conn, group_subject(conn, RUN, "item-qa", group, require_active=False)
-        )
-    return execution
 
 
 def test_attachment_writes_no_item_copies_and_dispatch_forms_one_group(test_db):
@@ -287,7 +243,9 @@ def test_old_admission_forms_a_group_for_a_hosted_environment_plan(test_db):
     migration = importlib.import_module(
         "yoke_core.domain.migrations.0094_delete_post_deploy_item_qa_copies"
     )
-    from runtime.api.domain.test_qa_requirement_target_rebind import _hosted_prod_pair
+    from runtime.api.domain.qa_requirement_target_rebind_test_support import (
+        _hosted_prod_pair,
+    )
     from yoke_core.domain.deployment_requirement_snapshots import _plan_snapshot
     from yoke_core.domain.deployment_qa_member_plans import member_plan_ids
 

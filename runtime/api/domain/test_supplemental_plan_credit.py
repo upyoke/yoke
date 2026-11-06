@@ -2,8 +2,10 @@
 
 import pytest
 
-from runtime.api.domain.test_run_settles_plan_on_other_target import ITEM
-from runtime.api.domain.test_status_transition_preflight import _isolate_status_effects
+from runtime.api.domain.run_settles_plan_on_other_target_test_support import ITEM
+from runtime.api.domain.status_transition_preflight_test_support import (
+    _isolate_status_effects,
+)
 from runtime.api.fixtures.supplemental_credit import plan_pair, clone_run, close_group
 from runtime.api.fixtures.carried_release_candidate import (
     git,

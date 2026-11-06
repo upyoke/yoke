@@ -8,7 +8,7 @@ from yoke_contracts.timestamps import parse_instant, utc_now
 
 from fastapi.testclient import TestClient
 
-from runtime.api import test_frontend_events as collector_tests
+from runtime.api import frontend_events_test_support as collector_tests
 from yoke_core.api import app_factory
 from yoke_core.domain.frontend_events_storage import consume_attribution_handoff
 from yoke_core.frontend_events.events_handoff import HANDOFF_SECONDS

@@ -7,15 +7,20 @@ from runtime.api.fixtures.deployment_scoped_qa_run_fixture import (
     ITEM_QA_STAGE,
     seed_member_qa_case,
 )
-from runtime.api.domain.test_deployment_run_member_removal import (
+from runtime.api.domain.deployment_run_member_removal_test_support import (
     ITEM,
     RUN,
     REASON,
     _red_member,
     _still_member,
 )
-from runtime.api.domain.test_deployment_delivery_close_out_notice import _parked_owner
-from runtime.api.domain.test_deployment_qa_stage_wake_delivery import HOLDER_A, _project
+from runtime.api.domain.deployment_delivery_close_out_notice_test_support import (
+    _parked_owner,
+)
+from runtime.api.domain.deployment_qa_stage_wake_delivery_test_support import (
+    HOLDER_A,
+    _project,
+)
 from yoke_core.domain import deployment_member_removal_notice as notice
 from yoke_core.domain.deployment_member_candidate_release import (
     CORRECTION_RELEASE_REMOVED_BY,

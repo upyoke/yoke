@@ -13,7 +13,10 @@ from __future__ import annotations
 from typing import Any
 from unittest import mock
 
-from runtime.api.domain.test_deployment_qa_stage_dispatch_wake import _member, _run
+from runtime.api.domain.deployment_qa_stage_dispatch_wake_test_support import (
+    _member,
+    _run,
+)
 from yoke_core.domain import deployment_qa_result_notice as result_notice_mod
 from yoke_core.domain import deployment_qa_dispatch_wait_notice as wait_notice_mod
 from yoke_core.domain.deployment_qa_result_notice import (

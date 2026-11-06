@@ -11,8 +11,8 @@ from yoke_contracts.api.function_call import FunctionCallResponse, FunctionError
 from yoke_core.domain import cloud_machine_power
 from yoke_core.domain.deploy_remote import CommandResult
 from yoke_core.domain.cloud_machine_power_stop import stop_released
-from runtime.api.domain.test_deploy_remote import FakeRunner
-from runtime.api.domain.test_cloud_machine_power import CLOUD, MAC, OK
+from runtime.api.domain.deploy_remote_test_support import FakeRunner
+from runtime.api.domain.cloud_machine_power_test_support import CLOUD, MAC, OK
 
 RELEASED = [{"project": "yoke", "test_machine": "windows-lab"}]
 

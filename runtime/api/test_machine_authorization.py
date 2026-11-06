@@ -1,13 +1,16 @@
 """A second engineer connects through real OIDC and personal approval."""
 
-import json
-from importlib.resources import files
+from runtime.api.machine_authorization_test_support import (
+    IDENTITY as IDENTITY,
+    MACHINE_ID as MACHINE_ID,
+    _validate_wire as _validate_wire,
+)
+
 
 import pytest
-from jsonschema import Draft202012Validator
 
-from runtime.api import test_web_sign_in_door as door
-from runtime.api.test_self_host_workbench import _call
+from runtime.api import web_sign_in_door_test_support as door
+from runtime.api.self_host_workbench_test_support import _call
 from yoke_contracts.machine_authorization import (
     START_PATH,
     POLL_PATH,
@@ -21,9 +24,6 @@ db_conn = door.db_conn
 client = door.client
 door_env = door.door_env
 provider = door.provider
-
-MACHINE_ID = "762fb8a5-7a6f-43e0-ae85-9665af3fe871"
-IDENTITY = {"machine_id": MACHINE_ID, "machine_name": "Second engineer's laptop"}
 
 
 def test_oidc_member_approves_machine_without_host_minted_token(
@@ -152,17 +152,6 @@ def test_invalid_machine_identity_and_unknown_device_code_are_named(client, door
     unknown = client.post(POLL_PATH, json={"device_code": "unknown", **IDENTITY})
     assert unknown.status_code == 410
     assert unknown.json()["error"] == "authorization_expired"
-
-
-def _validate_wire(response, model):
-    schema = json.loads(
-        files("yoke_contracts")
-        .joinpath("machine_authorization.schema.v2.json")
-        .read_text()
-    )
-    Draft202012Validator({**schema, "$ref": f"#/$defs/{model}"}).validate(
-        response.json()
-    )
 
 
 @pytest.mark.parametrize("error", POLL_OUTCOMES)

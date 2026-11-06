@@ -6,7 +6,7 @@ from io import StringIO
 
 import pytest
 
-from runtime.api.tools.test_pulumi_exec_support import (
+from runtime.api.tools.pulumi_exec_support_test_support import (
     _Child,
     _install_pulumi_project_files,
     _stack_payload,

@@ -2,11 +2,11 @@
 
 from datetime import timedelta
 
-from runtime.api.domain.test_session_message_support import (
+from runtime.api.domain.session_message_support_test_support import (
     NOW_TEXT,
     message_connection,
 )
-from runtime.api.domain.test_session_wake_failure_notice import (
+from runtime.api.domain.session_wake_failure_notice_test_support import (
     SWEEP,
     _fail,
     _parked_recipient,

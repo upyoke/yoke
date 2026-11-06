@@ -46,8 +46,8 @@ def test_custom_callable_builds_once_and_restores_seed_rows(tmp_path):
 @pytest.mark.parametrize(
     "module_name,fixture_name",
     [
-        ("test_sessions", "conn"),
-        ("test_sessions", "ownership_conn"),
+        ("sessions_test_support", "conn"),
+        ("sessions_test_support", "ownership_conn"),
         ("sessions_api_stale_test_helpers", "conn"),
         ("sessions_api_stale_test_helpers", "ownership_conn"),
         ("test_sessions_reactivation_driver_stamp", "conn"),
@@ -210,7 +210,7 @@ def test_production_strategy_is_reused_and_resets_actor_data(tmp_path):
 
 
 def test_cached_session_schema_records_each_fresh_machine_home(tmp_path, monkeypatch):
-    from runtime.api import test_service_client_sessions_helpers as sessions
+    from runtime.api import service_client_sessions_helpers_test_support as sessions
     from yoke_contracts.machine_config.schema_connections import operating_actor_binding
 
     builds = []

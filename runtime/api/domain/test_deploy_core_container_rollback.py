@@ -11,7 +11,7 @@ from yoke_core.domain.deploy_core_container_rollback import (
 )
 from yoke_core.domain.deploy_environment_settings import DeployEnvironment
 from yoke_core.domain.deploy_remote import CommandResult
-from runtime.api.domain.test_deploy_remote import FakeRunner
+from runtime.api.domain.deploy_remote_test_support import FakeRunner
 
 _PRIOR = "123456789012.dkr.ecr.us-east-1.amazonaws.com/yoke-core:prior123"
 _FAILED = "123456789012.dkr.ecr.us-east-1.amazonaws.com/yoke-core:broken456"
@@ -194,7 +194,7 @@ class TestStepRunnerRollbackIntegration:
 
     def _setup(self, monkeypatch):
         from yoke_core.domain import deploy_core_container
-        from runtime.api.domain.test_deploy_core_container import (
+        from runtime.api.domain.deploy_core_container_shared_test_support import (
             patch_executor_boundaries,
         )
 
@@ -210,13 +210,11 @@ class TestStepRunnerRollbackIntegration:
             )
             return False
 
-        monkeypatch.setattr(
-            deploy_core_container, "attempt_rollback", fake_rollback
-        )
+        monkeypatch.setattr(deploy_core_container, "attempt_rollback", fake_rollback)
         return env, invocations
 
     def _unhealthy_runner(self):
-        from runtime.api.domain.test_deploy_core_container import (
+        from runtime.api.domain.deploy_core_container_shared_test_support import (
             _HappyRemoteRunner,
         )
 
@@ -242,12 +240,17 @@ class TestStepRunnerRollbackIntegration:
         from yoke_core.domain.deploy_core_container import (
             exec_core_container_deploy,
         )
-        from runtime.api.domain.test_deploy_core_container import _PRIOR_IMAGE
+        from runtime.api.domain.deploy_core_container_shared_test_support import (
+            _PRIOR_IMAGE,
+        )
 
         env, rollbacks = self._setup(monkeypatch)
         rc = exec_core_container_deploy(
-            "yoke", "prod", repo_path="/repo",
-            runner=self._unhealthy_runner()(), emit=lambda _line: None,
+            "yoke",
+            "prod",
+            repo_path="/repo",
+            runner=self._unhealthy_runner()(),
+            emit=lambda _line: None,
         )
         assert rc == 1
         # The post-swap health failure drove exactly one rollback attempt
@@ -290,7 +293,7 @@ class TestStepRunnerRollbackIntegration:
         from yoke_core.domain.deploy_core_container import (
             exec_core_container_deploy,
         )
-        from runtime.api.domain.test_deploy_core_container import (
+        from runtime.api.domain.deploy_core_container_shared_test_support import (
             _HappyRemoteRunner,
         )
 
@@ -307,7 +310,10 @@ class TestStepRunnerRollbackIntegration:
                                    timeout=timeout)
 
         rc = exec_core_container_deploy(
-            "yoke", "prod", repo_path="/repo", runner=PullFails(),
+            "yoke",
+            "prod",
+            repo_path="/repo",
+            runner=PullFails(),
             emit=lambda _line: None,
         )
         assert rc == 1

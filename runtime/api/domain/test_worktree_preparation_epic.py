@@ -8,10 +8,10 @@ from types import SimpleNamespace
 
 import pytest
 
-from runtime.api.domain.test_worktree_create_multiworktree import (
+from runtime.api.domain.worktree_create_multiworktree_test_support import (
     seed_multiworktree_epic,
 )
-from runtime.api.domain.test_worktree_preflight import _patch_steps
+from runtime.api.domain.worktree_preflight_test_support import _patch_steps
 from yoke_cli.commands import direct_workflow_worktree as adapter
 from yoke_core.domain import worktree_create, worktree_preflight as preflight
 

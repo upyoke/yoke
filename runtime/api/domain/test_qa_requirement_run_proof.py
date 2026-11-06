@@ -1,7 +1,9 @@
 """A deployment pass answers only its own standing obligation."""
 
 import pytest
-from runtime.api.domain.test_dash_post_deploy_review_isolation import _insert_dash
+from runtime.api.domain.dash_post_deploy_review_isolation_test_support import (
+    _insert_dash,
+)
 from runtime.api.fixtures.deployment_admitted_case_fixture import (
     deliver_with_failing_admitted_copy,
 )
@@ -60,7 +62,7 @@ def test_run_scoped_pass_supersedes_standing_source(test_db, plan_backed):
         test_db, item_id=2390, run_id="run-standing-proof", corrected=False
     )
     if plan_backed:
-        from runtime.api.domain.test_deployment_qa_stage_execution import _plan
+        from runtime.api.domain.deployment_qa_stage_execution_test_support import _plan
 
         plan_id = _plan(test_db, "standing-copy-proof")
         test_db.execute(

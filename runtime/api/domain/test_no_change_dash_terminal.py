@@ -1,10 +1,11 @@
 """A no-change merge close-out supplies its terminal transition nonce."""
 
-
 import pytest
 
 
-@pytest.mark.parametrize("local_merge", [False, True], ids=["no-change", "no-github-first-merge"])
+@pytest.mark.parametrize(
+    "local_merge", [False, True], ids=["no-change", "no-github-first-merge"]
+)
 def test_sanctioned_close_out_sets_nonce_from_merge_only_delivery(
     test_db,
     monkeypatch,
@@ -38,11 +39,11 @@ def test_sanctioned_close_out_sets_nonce_from_merge_only_delivery(
 
     from runtime.api.fixtures.session_holdings import insert_item_claim, insert_session
 
-    from runtime.api.domain.test_status_transition_preflight import (
+    from runtime.api.domain.status_transition_preflight_test_support import (
         _isolate_status_effects,
     )
 
-    from runtime.api.domain.test_no_change_dash_close_out import (
+    from runtime.api.domain.no_change_dash_close_out_test_support import (
         _bind_fixture_db,
         _empty_delivery_reads,
         _request,
@@ -59,14 +60,29 @@ def test_sanctioned_close_out_sets_nonce_from_merge_only_delivery(
         ).strip()
 
     git("init", "-b", "main")
-    git("-c", "user.name=Fixture", "-c", "user.email=fixture@example.invalid",
-        "commit", "--allow-empty", "-m", "Initial project")
+    git(
+        "-c",
+        "user.name=Fixture",
+        "-c",
+        "user.email=fixture@example.invalid",
+        "commit",
+        "--allow-empty",
+        "-m",
+        "Initial project",
+    )
     initial = git("rev-parse", "HEAD")
     git("switch", "-c", "first-work")
     (repo / "result.txt").write_text("First useful work\n")
     git("add", "result.txt")
-    git("-c", "user.name=Fixture", "-c", "user.email=fixture@example.invalid",
-        "commit", "-m", "Add first useful work")
+    git(
+        "-c",
+        "user.name=Fixture",
+        "-c",
+        "user.email=fixture@example.invalid",
+        "commit",
+        "-m",
+        "Add first useful work",
+    )
     head = git("rev-parse", "HEAD")
     git("switch", "main")
     git("merge", "--ff-only", "first-work")
@@ -120,8 +136,15 @@ def test_sanctioned_close_out_sets_nonce_from_merge_only_delivery(
     # A serving stage-level handoff must not strand the merge-only close-out.
     monkeypatch.setattr(
         "yoke_core.domain.workflow_level_handoff.item_level_handoff",
-        lambda *_args: ({"reason": "level_change", "stage_id": "release",
-                         "level": "JUNIOR", "next_command": "successor"}, []),
+        lambda *_args: (
+            {
+                "reason": "level_change",
+                "stage_id": "release",
+                "level": "JUNIOR",
+                "next_command": "successor",
+            },
+            [],
+        ),
     )
     runtime = load_item_workflow_runtime(test_db, item_id)
     monkeypatch.setattr(
@@ -183,9 +206,12 @@ def test_sanctioned_close_out_sets_nonce_from_merge_only_delivery(
         item_id=item_id,
         source_status="reviewing-implementation",
         repo_root=str(repo),
-        lane=LandedLane(branch="first-work", target="main",
-                        commit_sha=head if local_merge else "",
-                        merge_sha=head if local_merge else ""),
+        lane=LandedLane(
+            branch="first-work",
+            target="main",
+            commit_sha=head if local_merge else "",
+            merge_sha=head if local_merge else "",
+        ),
         session_id=session_id,
         stages=route.stages,
         delivery_discharged=route.delivery_discharged,

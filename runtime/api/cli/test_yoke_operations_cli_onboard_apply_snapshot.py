@@ -7,7 +7,9 @@ from pathlib import Path
 
 import pytest
 
-from runtime.api.cli.test_yoke_operations_cli_onboard_apply_report import _preview
+from runtime.api.cli.yoke_operations_cli_onboard_apply_report_test_support import (
+    _preview,
+)
 from yoke_cli.config import onboard_apply_report
 from yoke_cli.config.project_clone_support import ClonePlan
 from yoke_cli.config.project_github_adoption import GITHUB_ADOPTION_APP_BINDING

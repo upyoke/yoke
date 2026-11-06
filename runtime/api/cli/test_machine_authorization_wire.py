@@ -1,6 +1,6 @@
 """Short-code connection delivers one credential through the public wire."""
 
-from runtime.api import test_self_host_workbench as workbench
+from runtime.api import self_host_workbench_test_support as workbench
 from yoke_contracts.machine_authorization import (
     MATCH_CODE_ALPHABET,
     MATCH_CODE_LENGTH,

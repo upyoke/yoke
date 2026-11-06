@@ -13,9 +13,9 @@ from yoke_contracts.api.function_call import (
     FunctionCallRequest,
     TargetRef,
 )
-from runtime.api.test_execution_instruction_delivery import seed
+from runtime.api.execution_instruction_delivery_test_support import seed
 from runtime.api.item_page_reads_test_support import _connection
-from runtime.api.test_workflow_execution_instruction_functions import (
+from runtime.api.workflow_execution_instruction_functions_test_support import (
     _UnclosableConnection,
 )
 

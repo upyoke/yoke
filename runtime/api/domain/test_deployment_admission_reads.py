@@ -9,13 +9,13 @@ from types import SimpleNamespace
 
 import pytest
 
-from runtime.api.domain.test_deployment_qa_stage_execution import (
+from runtime.api.domain.deployment_qa_stage_execution_test_support import (
     _plan,
     _seed_run,
     _stages,
 )
-from runtime.api.domain.test_deployment_qa_plan_groups import _attach
-from runtime.api.domain.test_deployment_shipping_reads import CountedConnection
+from runtime.api.domain.deployment_qa_plan_groups_test_support import _attach
+from runtime.api.domain.deployment_shipping_reads_test_support import CountedConnection
 from runtime.api.fixtures.backlog_inserts import insert_qa_requirement
 from yoke_core.domain.deployment_admission_reads import read_snapshot_inputs
 from yoke_core.domain.deployment_member_post_deploy_admission import (

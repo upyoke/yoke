@@ -8,15 +8,13 @@ from unittest.mock import patch
 
 from yoke_core.domain import emit_event, events_crud
 from runtime.api.fixtures.file_test_db import connect_test_db
-from runtime.api.test_emit_event_test_helpers import (
-    TEST_ITEM_ID,
-    TEST_ITEM_REF,
-)
+from runtime.api.emit_event_test_helpers_test_support import TEST_ITEM_ID, TEST_ITEM_REF
 
 
 @pytest.fixture
 def events_db(tmp_path, monkeypatch):
-    from runtime.api.test_emit_event_test_helpers import events_db as fixture
+    from runtime.api.emit_event_test_helpers_test_support import events_db as fixture
+
     yield from fixture.__wrapped__(tmp_path, monkeypatch)
 
 

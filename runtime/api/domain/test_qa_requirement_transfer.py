@@ -1,7 +1,9 @@
 """Ownership transfers keep the case, validate both claims and retain audit."""
 
 import pytest
-from runtime.api.domain.test_dash_post_deploy_review_isolation import _insert_dash
+from runtime.api.domain.dash_post_deploy_review_isolation_test_support import (
+    _insert_dash,
+)
 from runtime.api.fixtures.deployment_admitted_case_fixture import intake_requirement
 from yoke_core.domain import qa_requirement_transfer as transfer
 from yoke_core.domain.item_json_sections import read_json_section

@@ -4,7 +4,7 @@ import os
 import time
 from unittest.mock import patch
 from yoke_core.engines.doctor import hc_orphaned_temp_files
-from runtime.api.engines.test_doctor_git_worktrees import _run_hc
+from runtime.api.engines.doctor_git_worktrees_test_support import _run_hc
 
 
 class TestHcOrphanedTempFiles:

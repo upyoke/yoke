@@ -22,27 +22,26 @@ lists them all.
 
 from __future__ import annotations
 
+from runtime.api.domain.session_env_chain_ownership_test_support import (
+    REPO_ROOT as REPO_ROOT,
+    SOURCE_ROOTS as SOURCE_ROOTS,
+    source_files as source_files,
+)
+
+
 import ast
 from pathlib import Path
-from typing import Iterator, List, Set, Tuple
+from typing import List, Set, Tuple
 
 from yoke_contracts.session_identity import AMBIENT_ENV_VARS
 
 
-REPO_ROOT = Path(__file__).resolve().parents[3]
-
 #: Trees holding code that runs in production, as opposed to test trees.
 #: Each package's declared ``src`` root, so a stale ``build/lib`` copy of
 #: a module — which is output, not source — never becomes a finding.
-SOURCE_ROOTS = (
-    *sorted(REPO_ROOT.glob("packages/*/src")),
-    REPO_ROOT / ".yoke" / "doctor",
-)
 
 #: The chain's single owner, and the one module allowed to spell it out.
-_CHAIN_OWNER = (
-    "packages/yoke-contracts/src/yoke_contracts/harness_family_identity.py"
-)
+_CHAIN_OWNER = "packages/yoke-contracts/src/yoke_contracts/harness_family_identity.py"
 
 #: ``CODEX_THREAD_ID`` here keys a Codex *runtime thread* — which
 #: transcript and cache belong to the process now running — and not a
@@ -55,15 +54,6 @@ _RUNTIME_THREAD_LOOKUPS = (
 _EXEMPT = frozenset((_CHAIN_OWNER, *_RUNTIME_THREAD_LOOKUPS))
 
 _CHAIN = frozenset(AMBIENT_ENV_VARS)
-
-
-def source_files() -> Iterator[Path]:
-    for root in SOURCE_ROOTS:
-        for path in sorted(root.rglob("*.py")):
-            parts = path.parts
-            if "install_bundle_tree" in parts or "__pycache__" in parts:
-                continue
-            yield path
 
 
 def _relative(path: Path) -> str:

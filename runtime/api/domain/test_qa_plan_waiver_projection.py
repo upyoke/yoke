@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from runtime.api.domain.test_qa_simulation_triage import _record, _seed
+from runtime.api.domain.qa_simulation_triage_test_support import _record, _seed
 from runtime.api.fixtures.backlog_inserts import insert_item
 from runtime.api.fixtures.backlog_qa_inserts import insert_qa_requirement, insert_qa_run
 from yoke_core.domain.events_acting_identity import acting_event_identity

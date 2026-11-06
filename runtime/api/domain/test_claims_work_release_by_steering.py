@@ -4,19 +4,20 @@
 
 from __future__ import annotations
 
+from runtime.api.domain.session_termination_test_support import (_termination_schema_and_events as _termination_schema_and_events)
+
 import pytest
 
-from runtime.api.domain.test_claims_work_release_process_paths import (
+from runtime.api.domain.claims_work_release_process_paths_test_support import (
     _seed_linked_path_claim,
     _seed_process_work_claim,
 )
-from runtime.api.domain.test_session_termination import (  # noqa: F401
+from runtime.api.domain.session_termination_test_support import (
     _add_open_message,
-    _termination_schema_and_events,
     _add_target_claim,
     _register_operator_and_target,
 )
-from runtime.api.test_sessions import _register, conn  # noqa: F401
+from runtime.api.sessions_test_support import _register, conn  # noqa: F401
 from yoke_contracts.api.function_call import (
     ActorContext,
     FunctionCallRequest,
@@ -28,7 +29,6 @@ from yoke_core.domain import schema_init_actor_path_claim_tables as path_schema
 from yoke_core.domain.schema_init_path_tables import create_path_registry_tables
 from yoke_core.domain.yoke_function_dispatch_claims import verify_claim
 from yoke_core.domain.yoke_function_registry import lookup, reset_registry_for_tests
-
 
 
 @pytest.fixture(autouse=True)

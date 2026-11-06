@@ -6,8 +6,12 @@ import pytest
 from fastapi.testclient import TestClient
 
 from runtime.api.auth_test_helpers import mint_api_auth_context
-from runtime.api.domain.test_project_github_binding import _verified
-from yoke_contracts.api.function_call import ActorContext, FunctionCallRequest, TargetRef
+from runtime.api.domain.project_github_binding_test_support import _verified
+from yoke_contracts.api.function_call import (
+    ActorContext,
+    FunctionCallRequest,
+    TargetRef,
+)
 from yoke_core.api import app_factory
 from yoke_core.api.http_auth import HttpAuthContext
 from yoke_core.api.routes import functions

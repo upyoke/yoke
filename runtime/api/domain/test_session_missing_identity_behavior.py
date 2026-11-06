@@ -22,7 +22,7 @@ import pytest
 
 from yoke_contracts.session_identity import AMBIENT_ENV_VARS
 from yoke_core.domain import emit_event, epic_cascade
-from runtime.api.domain.test_session_env_chain_ownership import (
+from runtime.api.domain.session_env_chain_ownership_test_support import (
     REPO_ROOT,
     source_files,
 )

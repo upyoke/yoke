@@ -13,7 +13,7 @@ from yoke_core.domain.steering_message_recipients import (
     STATE_AWAITING_SEAT,
     STATE_DELIVERED,
 )
-from runtime.api.domain.test_session_message_support import (
+from runtime.api.domain.session_message_support_test_support import (
     NOW,
     NOW_TEXT,
     message_connection,

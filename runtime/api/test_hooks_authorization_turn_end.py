@@ -9,15 +9,8 @@ from types import SimpleNamespace
 import pytest
 
 from yoke_core.api.routes.hooks import HookEvaluateRequest, post_hooks_evaluate
-from runtime.api.domain.test_session_native_turn_end import (
-    LATER,
-    NOW,
-    _apply,
-    _codex_connection,
-    _posture,
-    _send,
-    _pending,
-)
+from runtime.api.domain.session_native_turn_end_test_support import (LATER, NOW, _apply, _codex_connection, _posture, _pending)
+from runtime.api.domain.session_message_machine_wake_route_test_support import (_send)
 from yoke_core.domain.session_message_wake import wake_eligible_recipients
 from yoke_core.api.http_auth import HttpAuthContext
 

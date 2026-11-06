@@ -11,11 +11,11 @@ from __future__ import annotations
 import pytest
 
 from runtime.api.sessions_api_stale_test_helpers import _ago_minutes
-from runtime.api.test_session_reclaim_activity import (  # noqa: F401
+from runtime.api.session_reclaim_activity_test_support import (
     _emit_tool_event,
     _seed_session,
 )
-from runtime.api.test_sessions import conn  # noqa: F401
+from runtime.api.sessions_test_support import conn  # noqa: F401
 from yoke_core.domain.session_reclaim_activity import (
     REASON_FRESH,
     REASON_HEARTBEAT_STALE,

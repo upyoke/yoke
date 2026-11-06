@@ -6,11 +6,13 @@ import json
 from datetime import datetime, timezone
 
 from runtime.api.fixtures.file_test_db import connect_test_db
-from runtime.api.test_service_client import _run_client
-from runtime.api.test_service_client_sessions_helpers import _pre_register_session
+from runtime.api.service_client_test_support import _run_client
+from runtime.api.service_client_sessions_helpers_test_support import (
+    _pre_register_session,
+)
 from yoke_core.domain.sessions import claim_work
 
-pytest_plugins = ("runtime.api.test_service_client_sessions_helpers",)
+pytest_plugins = ("runtime.api.service_client_sessions_helpers_test_support",)
 
 
 _FRESH_TS = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")

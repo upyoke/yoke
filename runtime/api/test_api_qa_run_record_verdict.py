@@ -8,7 +8,7 @@ from unittest.mock import patch
 from yoke_contracts.api.function_call import TargetRef
 from yoke_core.domain.handlers import qa_run
 
-from runtime.api.test_api_qa_function import _request
+from runtime.api.api_qa_browser_function_test_support import (_request)
 
 
 class TestQaRunRecordVerdict(unittest.TestCase):

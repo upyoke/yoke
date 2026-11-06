@@ -16,7 +16,7 @@ from unittest.mock import patch
 
 import pytest
 
-from runtime.api.domain.test_qa_case_tree_binding_scope import _deployment_case
+from runtime.api.domain.qa_case_tree_binding_scope_test_support import _deployment_case
 from yoke_core.domain.qa_candidate_checkout import (
     CANDIDATE_CHECKOUT_PREFIX,
     candidate_checkout,
@@ -102,7 +102,7 @@ def test_member_case_binds_to_the_candidate_without_flags(moved_checkout) -> Non
 def test_disposable_source_candidate_provisions_its_own_locked_python(
     tmp_path, monkeypatch
 ):
-    from runtime.api.tools.test_source_dev_run_cli_child_binding import (
+    from runtime.api.tools.source_dev_run_cli_child_binding_test_support import (
         _stub_source_tree,
     )
     from yoke_core.domain.qa_environment_declaration import TestEnvironmentDeclaration

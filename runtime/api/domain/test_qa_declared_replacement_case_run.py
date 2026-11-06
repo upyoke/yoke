@@ -19,7 +19,7 @@ from yoke_contracts.api.function_call import (
     TargetRef,
 )
 
-from runtime.api.domain.test_qa_declared_replacement import (
+from runtime.api.domain.qa_declared_replacement_test_support import (
     MEMBER,
     _failed_with_correction,
     _status,

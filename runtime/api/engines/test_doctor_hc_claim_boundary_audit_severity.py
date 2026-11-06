@@ -1,6 +1,6 @@
 """Mixed severity verdicts for claim-boundary audit findings."""
 
-from runtime.api.engines.test_doctor_hc_claim_boundary_audit import (
+from runtime.api.engines.doctor_hc_claim_boundary_audit_test_support import (
     _add_claim,
     _add_event,
     _add_session,

@@ -12,7 +12,7 @@ import pytest
 from yoke_core.tools import watch_merge
 from yoke_core.tools._watch_runner import filter_match
 
-from runtime.api.tools.test_watch_merge import (
+from runtime.api.tools.watch_merge_test_support import (
     FAKE_ITEM,
     FAKE_ITEM_NUM,
     MERGE_WORKTREE_FIXTURE_LINES,

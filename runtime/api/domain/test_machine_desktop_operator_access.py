@@ -120,8 +120,10 @@ def test_access_without_a_seat_remains_bound_to_the_lease_holder(route, session_
 
 @pytest.mark.parametrize("seat_project,allowed", [(1, True), (2, False)])
 def test_live_seat_must_cover_the_machine_project(monkeypatch, seat_project, allowed):
-    from runtime.api.domain.test_session_message_support import message_connection
-    from runtime.api.domain.test_steering_operation_authority import seat
+    from runtime.api.domain.session_message_support_test_support import (
+        message_connection,
+    )
+    from runtime.api.domain.steering_operation_authority_test_support import seat
     from yoke_core.domain import session_steering_authority
 
     conn = message_connection()

@@ -15,7 +15,7 @@ from typing import Any, Dict, List
 
 import pytest
 
-from runtime.api.cli.test_yoke_operations_cli_github_actions_failed_log import (
+from runtime.api.cli.yoke_operations_cli_github_actions_failed_log_test_support import (
     _CAPTURED_REQUESTS,
     _run,
 )

@@ -1,6 +1,6 @@
 """A member removed after its run failed stays retired when the run is retried."""
 
-from runtime.api.domain.test_deployment_run_member_removal import (
+from runtime.api.domain.deployment_run_member_removal_test_support import (
     ITEM,
     ITEM_QA_STAGE,
     REASON,

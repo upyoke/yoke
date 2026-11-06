@@ -2,16 +2,16 @@
 
 from __future__ import annotations
 
-from runtime.api.domain.test_yoke_function_permissions import _entry
+from runtime.api.domain.ouroboros_https_permissions_test_support import (
+    _project_owner as _project_owner,
+)
+
+
+from runtime.api.domain.yoke_function_permissions_test_support import _entry
 from yoke_contracts.api.function_call import (
     ActorContext,
     FunctionCallRequest,
     TargetRef,
-)
-from yoke_core.domain.actor_permissions import (
-    ROLE_OWNER,
-    grant_actor_project_role,
-    seed_roles_and_permissions,
 )
 from yoke_core.domain.function_authz_scope import PROJECT, classify
 from yoke_core.domain.ouroboros_entries import cmd_insert_entry
@@ -34,25 +34,6 @@ def _request(function_id: str, actor_id: int, payload: dict) -> FunctionCallRequ
         target=TargetRef(kind="global"),
         payload=payload,
     )
-
-
-def _project_owner(conn, project_slug: str) -> int:
-    seed_roles_and_permissions(conn)
-    actor_id = int(
-        conn.execute(
-            "INSERT INTO actors (kind, created_at) "
-            "VALUES ('human', '2026-01-01T00:00:00Z') RETURNING id"
-        ).fetchone()[0]
-    )
-    grant_actor_project_role(
-        conn,
-        actor_id=actor_id,
-        project_id=resolve_project_id(conn, project_slug),
-        role_name=ROLE_OWNER,
-        granted_by_actor_id=actor_id,
-    )
-    conn.commit()
-    return actor_id
 
 
 def _seed_entry(conn, body: str, project: str | None) -> int:

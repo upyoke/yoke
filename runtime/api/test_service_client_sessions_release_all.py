@@ -10,8 +10,8 @@ import pytest
 
 from runtime.api.fixtures.file_test_db import connect_test_db
 from runtime.api.fixtures.backlog import insert_item
-from runtime.api.test_service_client import _run_client
-from runtime.api.test_service_client_sessions_helpers import session_test_db  # noqa: F401,F811
+from runtime.api.service_client_test_support import _run_client
+from runtime.api.service_client_sessions_helpers_test_support import session_test_db  # noqa: F401,F811
 from yoke_core.domain.work_claim_targets import make_item_target
 
 

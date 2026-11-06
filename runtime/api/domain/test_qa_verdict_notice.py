@@ -5,7 +5,7 @@ from __future__ import annotations
 import pytest
 
 from runtime.api.domain.qa_review_seed import _seed_undetermined_review
-from runtime.api.domain.test_deployment_qa_stage_wake_delivery import (
+from runtime.api.domain.deployment_qa_stage_wake_delivery_test_support import (
     HOLDER_A,
     HOLDER_B,
     _bodies,

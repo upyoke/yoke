@@ -2,9 +2,16 @@
 
 import pytest
 
-from runtime.api.fixtures.backlog import insert_item, insert_qa_requirement, insert_qa_run
-from runtime.api.domain.test_deployment_qa_stage_execution import _plan
-from yoke_core.domain.qa_terminal_settlement import find_unsettled_records, _blocking_requirement_rows
+from runtime.api.fixtures.backlog import (
+    insert_item,
+    insert_qa_requirement,
+    insert_qa_run,
+)
+from runtime.api.domain.deployment_qa_stage_execution_test_support import _plan
+from yoke_core.domain.qa_terminal_settlement import (
+    find_unsettled_records,
+    _blocking_requirement_rows,
+)
 from yoke_core.domain.post_deploy_verification_answer import answer_for_item, UNANSWERED
 from yoke_core.domain.qa_browser_evidence_check import check_browser_artifact_disk
 

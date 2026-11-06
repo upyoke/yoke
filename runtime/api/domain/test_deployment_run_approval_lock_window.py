@@ -14,8 +14,8 @@ from typing import Any
 
 import pytest
 
-from runtime.api.domain.test_deployment_run_gates import RUN_ID
-from runtime.api.domain.test_deployment_run_member_approvals import _mixed_run
+from runtime.api.domain.deployment_run_gates_test_support import RUN_ID
+from runtime.api.domain.deployment_run_member_approvals_test_support import _mixed_run
 from yoke_core.domain import deployment_approval_requests
 from yoke_core.domain.deployment_approval_requests import (
     evaluate_deployment_stage_approval,

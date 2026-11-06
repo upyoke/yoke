@@ -8,7 +8,9 @@ from yoke_core.domain.schema_fingerprint import (
     fingerprint_portable_postgres_schema,
 )
 from yoke_core.domain.source_authority_receipts import authority_receipt
-from runtime.api.domain.test_universe_portability import _canonical_test_universe
+from runtime.api.domain.universe_portability_test_support import (
+    _canonical_test_universe,
+)
 
 
 def test_inspection_rejects_tampered_real_archive(tmp_path):

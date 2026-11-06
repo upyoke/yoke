@@ -2,6 +2,11 @@
 
 from __future__ import annotations
 
+from runtime.harness.session_relay_native_models_test_support import (
+    CURSOR_OUTPUT as CURSOR_OUTPUT,
+)
+
+
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -30,13 +35,6 @@ from yoke_harness import session_relay_native_models as observer
 
 # Recorded from an installed cursor-agent: prose lines the parser must ignore,
 # a token with no effort suffix, and the effort/speed variants of one model.
-CURSOR_OUTPUT = """Available models
-
-auto - Auto (default)
-cursor-grok-4.6-low - Cursor Grok 4.6 Low
-cursor-grok-4.6-xhigh - Cursor Grok 4.6 Extra High
-cursor-grok-4.6-xhigh-fast - Cursor Grok 4.6 Extra High Fast
-"""
 
 
 def test_absent_cursor_is_unsupported_without_a_relay_failure(monkeypatch, caplog):

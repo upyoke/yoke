@@ -5,14 +5,14 @@ from datetime import datetime, timedelta, timezone
 import pytest
 from psycopg.errors import LockNotAvailable
 
-from runtime.api.domain.test_session_process_liveness_report import (
+from runtime.api.domain.session_process_liveness_report_test_support import (
     EVIDENCE,
     _apply,
     _ghost,
     _session_row,
 )
 from runtime.api.fixtures.pg_testdb import connect_test_database
-from runtime.api.test_sessions import _insert_claimable_items
+from runtime.api.sessions_test_support import _insert_claimable_items
 from yoke_core.domain import session_process_liveness_report as reporter
 from yoke_core.domain.session_native_process_observation import (
     record_native_process_gone,

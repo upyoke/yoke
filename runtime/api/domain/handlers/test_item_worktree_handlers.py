@@ -2,6 +2,11 @@
 
 from __future__ import annotations
 
+from runtime.api.domain.handlers.item_worktree_handlers_test_support import (
+    _request as _request,
+)
+
+
 from contextlib import nullcontext
 
 from runtime.api.fixtures.backlog import insert_item
@@ -23,20 +28,6 @@ from yoke_core.domain.item_worktrees import (
 )
 from yoke_core.domain.workflow_behavior import LANE_IMPLEMENTATION
 from yoke_core.domain.yoke_function_registry import RegistryEntry
-
-
-def _request(
-    function_id: str,
-    *,
-    item_id: int,
-    payload: dict,
-) -> FunctionCallRequest:
-    return FunctionCallRequest(
-        function=function_id,
-        actor=ActorContext(session_id="item-worktree-handler-test"),
-        target=TargetRef(kind="item", item_id=item_id),
-        payload=payload,
-    )
 
 
 def _use_test_connection(monkeypatch, test_db) -> None:

@@ -2,16 +2,17 @@
 
 from __future__ import annotations
 
+from runtime.api.domain.agent_mission_host_access_test_support import (mission as mission)
+
 import hashlib
 import json
 
 import pytest
 
 from runtime.api.domain.machine_qa_test_support import FakeHostControl
-from runtime.api.domain.test_agent_mission_host_access import (  # noqa: F401
+from runtime.api.domain.agent_mission_host_access_test_support import (
     COMPANION,
     DRIVER,
-    mission,
 )
 from yoke_contracts.qa_artifact_limits import MAX_ARTIFACT_BYTES
 from yoke_contracts.qa_mission_scratch import MISSION_SCRATCH_ROOT

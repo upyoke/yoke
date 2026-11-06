@@ -2,7 +2,7 @@
 
 import json
 import pytest
-from runtime.api import test_event_write_path_project_attribution as support
+from runtime.api import event_write_path_project_attribution_test_support as support
 from yoke_core.domain.events import emit_event
 from yoke_core.domain.events_writes import cmd_insert
 from yoke_core.domain.db_helpers import connect

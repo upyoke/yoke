@@ -16,7 +16,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from runtime.api.domain.test_deployment_qa_admission_execution import (
+from runtime.api.domain.deployment_qa_admission_execution_test_support import (
     _original_requirement,
     _seed_selected_requirement_run,
 )

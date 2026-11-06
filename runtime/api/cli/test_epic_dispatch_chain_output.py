@@ -5,7 +5,9 @@ import json
 import pytest
 
 from yoke_contracts.api.function_call import FunctionCallResponse
-from runtime.api.cli.test_yoke_operations_cli_epic_review import _run_capture
+from runtime.api.cli.yoke_operations_cli_epic_review_test_support import (
+    _run_capture,
+)
 
 
 @pytest.mark.parametrize("operation", ["get", "list"])

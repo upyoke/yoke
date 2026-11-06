@@ -2,8 +2,12 @@
 
 import pytest
 
-from runtime.api import test_web_sign_in_door as door
-from runtime.api.test_token_browser_sign_in import _mint, _redeem, context as context
+from runtime.api import web_sign_in_door_test_support as door
+from runtime.api.token_browser_sign_in_test_support import (
+    _mint,
+    _redeem,
+    context as context,
+)
 from runtime.api.universe_ui_server_test_support import _TOKEN, ui_client as ui_client
 from yoke_contracts.machine_authorization import APPROVAL_RETURN_COOKIE
 from yoke_core.api.browser_return import browser_return_path

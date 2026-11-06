@@ -1,21 +1,21 @@
 # ruff: noqa: F811
 """Merge close-out observes an existing pin; explicit recovery retains its guard."""
 
+from runtime.api.prepared_release_continuation_test_support import (db_path as db_path, prepared_run as prepared_run)
+
 from types import SimpleNamespace
 
 from yoke_core.domain import deployment_runs_crud_mutate as mutate
 from yoke_core.domain.deployment_run_lineage_rebind import lineage_of
 from yoke_core.engines import runs_continue_for_item as continuation
 from yoke_core.engines import runs_release_handoff as handoff
-from runtime.api.test_prepared_release_continuation import (  # noqa: F401
+from runtime.api.prepared_release_continuation_test_support import (
     CONSUMER_ITEM,
     MERGE_COMMIT,
     OTHER_COMMIT,
     PRODUCER_ITEM,
     _conn,
     _mark_merged,
-    db_path,
-    prepared_run,
 )
 
 

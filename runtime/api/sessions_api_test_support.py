@@ -22,7 +22,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
 from yoke_core.domain import db_backend
 from runtime.api.auth_test_helpers import mint_api_auth_context
 from runtime.api.fixtures.file_test_db import connect_test_db, init_test_db
-from runtime.api.test_dependency_schema import (
+from runtime.api.dependency_schema_test_support import (
     ITEMS_SCHEMA,
     ITEM_DEPENDENCIES_SCHEMA,
     PROJECTS_SCHEMA,
@@ -269,7 +269,7 @@ def session_test_db(tmp_path, monkeypatch):
             patch("yoke_core.api.main.get_db_readonly", _override_db_readonly),
             patch("yoke_core.api.main.get_db_readwrite", _override_db_readwrite),
         ):
-            from runtime.api.test_service_client_sessions_helpers import (
+            from runtime.api.service_client_sessions_helpers_test_support import (
                 _map_session_workspace_home,
             )
 

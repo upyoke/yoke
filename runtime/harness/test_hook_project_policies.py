@@ -4,8 +4,8 @@ import pytest
 
 from yoke_contracts.field_note_text import DENIAL_FOOTER
 
-from runtime.harness.test_hook_project_scope import project_map as project_map
-from runtime.harness.test_hook_runner import _silence_telemetry
+from runtime.harness.hook_project_scope_test_support import project_map as project_map
+from runtime.harness.hook_runner_test_support import _silence_telemetry
 from yoke_core.hooks.claude_adapter import CAPABILITY as CLAUDE_CAPABILITY
 from yoke_core.hooks import runner as runner_module
 from yoke_core.hooks.adapter_capability import AdapterCapability

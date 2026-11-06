@@ -4,10 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from runtime.api.domain.test_deploy_core_container import (
-    _BINDING,
-    _env,
-)
+from runtime.api.domain.deploy_core_container_shared_test_support import _BINDING, _env
 from runtime.api.domain.deploy_core_container_test_support import (
     install_core_service_project_source,
 )

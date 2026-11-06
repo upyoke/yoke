@@ -15,7 +15,7 @@ from types import ModuleType
 
 import pytest
 
-from runtime.api.cli.test_github_stable_helper_runtime import (
+from runtime.api.cli.github_stable_helper_runtime_test_support import (
     _write_refresh_sitecustomize,
 )
 from runtime.api.cli import github_stable_helper_test_support as helper_support

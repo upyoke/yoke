@@ -11,6 +11,11 @@ enrolled none, is refused at validation and again before execution.
 
 from __future__ import annotations
 
+from runtime.api.domain.deployment_run_item_qa_membership_test_support import (
+    _isolate_candidate_reads as _isolate_candidate_reads,
+)
+
+
 import json
 from typing import Any
 
@@ -195,23 +200,6 @@ def test_flow_without_item_qa_is_never_judged(test_db: Any, custody: int) -> Non
     run_id = _run(test_db, PRODUCTION_FLOW)
     _release_ready_item(test_db, PRODUCTION_FLOW)
     assert item_qa_membership_verdict(test_db, run_id) == ("", "")
-
-
-def _isolate_candidate_reads(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Hold every candidate walk still so only the item-QA verdict varies."""
-    for name, value in (
-        ("record_bound_sources", lambda *_a, **_k: None),
-        ("resolve_candidate_custody", lambda *_a, **_k: None),
-        ("carried_enrollment_blocked", lambda *_a, **_k: "test-fixture"),
-        ("enroll_carried_members", lambda *_a, **_k: ()),
-        ("carried_project_ids", lambda *_a, **_k: (1,)),
-        ("carried_membership_refusal", lambda *_a, **_k: ""),
-        ("unclosable_final_member_refusal", lambda *_a, **_k: ""),
-        ("unadmitted_post_deploy_notice", lambda *_a, **_k: ""),
-        ("inert_membership_notice", lambda *_a, **_k: ""),
-        ("skipped_candidate_verdict", lambda *_a, **_k: ("", "")),
-    ):
-        monkeypatch.setattr(validation, name, value)
 
 
 def test_validate_and_pre_start_refuse_a_run_owing_delivery_without_members(

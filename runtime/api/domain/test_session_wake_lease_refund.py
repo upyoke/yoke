@@ -25,7 +25,7 @@ from yoke_core.domain.session_wake_lease_refund import (
     MAX_REFUNDED_LEASE_EXPIRIES,
     refund_unreported_wake,
 )
-from runtime.api.domain.test_session_relay import (
+from runtime.api.domain.session_relay_test_support import (
     RELAY_ID,
     _add_wake_recipient,
     _clock,

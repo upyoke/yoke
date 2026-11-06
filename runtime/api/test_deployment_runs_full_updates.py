@@ -1,12 +1,10 @@
 # ruff: noqa: F811
 """Deployment-run status update and timestamp tests."""
 
+from runtime.api.deployment_runs_full_helpers_test_support import (_conn as _conn, db_path as db_path)
+from runtime.api.domain.worktree_create_test_support import (_placeholder as _placeholder)
+
 from yoke_core.domain import deployment_runs as dr
-from runtime.api.test_deployment_runs_full_helpers import (  # noqa: F401
-    _conn,
-    _placeholder,
-    db_path,
-)
 
 
 class TestUpdate:

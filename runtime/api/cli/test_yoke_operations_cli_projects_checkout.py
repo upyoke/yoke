@@ -6,13 +6,9 @@ from unittest.mock import patch
 
 import pytest
 
-from runtime.api.cli.test_yoke_operations_cli_projects import (
-    _CAPTURED_REQUESTS,
-    _run,
-    _run_capture,
-    _stub_fail,
-    _stub_ok,
-)
+from runtime.api.cli.yoke_operations_cli_projects_test_support import (_CAPTURED_REQUESTS, _stub_fail, _stub_ok)
+from runtime.api.cli.yoke_operations_cli_epic_task_test_support import (_run)
+from runtime.api.cli.yoke_operations_cli_epic_review_test_support import (_run_capture)
 from yoke_contracts.api.function_call import (
     FunctionCallRequest,
     FunctionCallResponse,

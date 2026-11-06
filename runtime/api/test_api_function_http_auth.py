@@ -2,20 +2,8 @@
 
 from __future__ import annotations
 
-from runtime.api.test_api_yoke_functions import (
-    TOKEN_PREFIX as TOKEN_PREFIX,
-    _ApiSuite as _ApiSuite,
-    _Req as _Req,
-    _Resp as _Resp,
-    _actor_echo_handler as _actor_echo_handler,
-    _envelope as _envelope,
-    _ok_handler as _ok_handler,
-    _stable_kwargs as _stable_kwargs,
-    connect_test_db as connect_test_db,
-    mint_token as mint_token,
-    register as register,
-    revoke_token as revoke_token,
-)
+from runtime.api.api_yoke_functions_test_support import (TOKEN_PREFIX as TOKEN_PREFIX, _ApiSuite as _ApiSuite, _Req as _Req, _Resp as _Resp, _actor_echo_handler as _actor_echo_handler, _envelope as _envelope, _stable_kwargs as _stable_kwargs, connect_test_db as connect_test_db, mint_token as mint_token, register as register, revoke_token as revoke_token)
+from runtime.api.domain.yoke_function_actor_identity_dispatch_test_support import (_ok_handler as _ok_handler)
 
 
 class TestHttpAuthBoundary(_ApiSuite):

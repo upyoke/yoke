@@ -4,7 +4,7 @@ import io
 import json
 from unittest.mock import patch
 
-from runtime.api.test_api_yoke_functions import _ApiSuite
+from runtime.api.api_yoke_functions_test_support import _ApiSuite
 from yoke_cli.commands.adapters.hard_blocks import hard_blocks
 from yoke_cli.transport.https import HttpsConnection
 from yoke_core.domain import yoke_function_registry as registry
@@ -88,4 +88,3 @@ class TestAgentControlPlaneHttp(_ApiSuite):
         assert code == 0
         assert received[0]["function"] == "merge.audit.snapshot"
         assert received[0]["target"]["public_ref"] == f"YOK-{42}"
-

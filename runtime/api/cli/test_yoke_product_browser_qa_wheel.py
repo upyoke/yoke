@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from runtime.api.cli.test_yoke_product_distribution_wheel import (
+from runtime.api.cli.yoke_product_distribution_wheel_test_support import (
     _assert_command,
     _product_env,
 )

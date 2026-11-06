@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from runtime.api.engines.test_resync_ref_divergence import (
+from runtime.api.engines.resync_ref_divergence_test_support import (
     DIVERGENT_ITEM_ID as DIVERGENT_ITEM_ID,
     DIVERGENT_REF as DIVERGENT_REF,
     DIVERGENT_SEQUENCE as DIVERGENT_SEQUENCE,

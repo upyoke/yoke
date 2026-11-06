@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 
-from runtime.api.domain.test_webapp_environment_stack import _environment_stack
+from runtime.api.domain.webapp_environment_stack_test_support import _environment_stack
 
 
 _SECRET_ARN = (

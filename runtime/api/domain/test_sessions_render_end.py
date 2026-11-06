@@ -12,7 +12,7 @@ from __future__ import annotations
 import pytest
 
 from runtime.api.fixtures.backlog import insert_item
-from runtime.api.test_sessions import _register
+from runtime.api.sessions_test_support import _register
 from yoke_core.domain.sessions import (
     claim_work,
     end_session,
@@ -28,7 +28,7 @@ from yoke_core.domain.work_claim_targets import (
     make_epic_task_target,
 )
 
-pytest_plugins = ("runtime.api.test_sessions",)
+pytest_plugins = ("runtime.api.sessions_test_support",)
 
 
 @pytest.fixture(autouse=True)

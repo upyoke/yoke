@@ -2,7 +2,7 @@
 
 import pytest
 
-from runtime.api.domain.test_qa_plan_execution_reconcile import (
+from runtime.api.domain.qa_plan_execution_reconcile_test_support import (
     REASON,
     STEERING,
     _awaiting_review,

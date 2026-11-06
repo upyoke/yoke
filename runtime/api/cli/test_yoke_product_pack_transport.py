@@ -7,7 +7,7 @@ from pathlib import Path
 
 from runtime.api.cli.product_pack_api import PackApi
 from runtime.api.cli.project_onboarding_test_helpers import write_https_config
-from runtime.api.cli.test_yoke_product_distribution_wheel import (
+from runtime.api.cli.yoke_product_distribution_wheel_test_support import (
     _assert_command,
     _product_env,
 )

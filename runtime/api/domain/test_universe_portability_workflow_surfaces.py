@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from runtime.api.domain.test_universe_portability import (
+from runtime.api.domain.universe_portability_test_support import (
     _canonical_test_universe,
 )
 from yoke_core.domain import universe_portability as portability

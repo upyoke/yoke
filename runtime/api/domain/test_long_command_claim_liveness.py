@@ -12,7 +12,7 @@ from runtime.api.sessions_api_stale_test_helpers import (
     _ago_minutes,
     conn,  # noqa: F401 (backend-aware pytest fixture)
 )
-from runtime.api.test_sessions import _insert_claimable_items, _register
+from runtime.api.sessions_test_support import _insert_claimable_items, _register
 from yoke_cli.transport.session_liveness import ClientSessionLiveness
 from yoke_contracts.api.function_call import ActorContext
 from yoke_core.domain import session_liveness_pump

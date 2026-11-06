@@ -5,7 +5,7 @@ from __future__ import annotations
 from contextlib import nullcontext
 from unittest.mock import patch
 
-from runtime.api.domain.test_deployment_qa_stage_execution import _environment
+from runtime.api.domain.deployment_qa_stage_execution_test_support import _environment
 from runtime.api.fixtures.pg_testdb import test_database
 from yoke_contracts.api.function_call import FunctionCallRequest
 from yoke_contracts.qa_plan_case_document import QA_PLAN_CASE_FIELDS

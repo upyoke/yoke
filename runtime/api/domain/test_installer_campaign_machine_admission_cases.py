@@ -5,7 +5,7 @@ from __future__ import annotations
 import inspect
 import re
 
-from runtime.api.domain.test_qa_release_channel_target import _target
+from runtime.api.domain.qa_release_channel_target_test_support import _target
 from yoke_cli.config import (
     onboard_wizard_flow_machine_admission,
     onboard_wizard_flow_team_server,

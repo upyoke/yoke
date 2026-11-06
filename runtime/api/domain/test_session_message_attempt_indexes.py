@@ -3,7 +3,7 @@
 import importlib
 import sqlite3
 
-from runtime.api.domain.test_session_message_support import message_connection
+from runtime.api.domain.session_message_support_test_support import message_connection
 
 migration = importlib.import_module(
     "yoke_core.domain.migrations.0073_session_message_attempt_indexes"

@@ -8,6 +8,8 @@ case touches a live run.
 
 from __future__ import annotations
 
+from runtime.api.deployment_runs_full_helpers_test_support import (db_path as db_path)
+
 import json
 
 from yoke_contracts.timestamps import parse_instant
@@ -16,10 +18,7 @@ import pytest
 
 from yoke_core.domain import deployment_runs as dr
 from yoke_core.domain import deployment_run_completion_preconditions as precond
-from runtime.api.test_deployment_runs_full_helpers import (  # noqa: F401
-    _conn,
-    db_path,
-)
+from runtime.api.deployment_runs_full_helpers_test_support import _conn
 
 FLOW = "externalwebapp-standard"
 PROJECT = "externalwebapp"

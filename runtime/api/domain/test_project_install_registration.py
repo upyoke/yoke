@@ -5,7 +5,7 @@ from __future__ import annotations
 import pytest
 
 from runtime.api.cli.project_install_publication_test_support import local_only_checkout
-from runtime.api.domain.test_project_install import MANIFEST_REL, _tree_bytes
+from runtime.api.domain.project_install_test_support import MANIFEST_REL, _tree_bytes
 from yoke_core.domain import project_install
 from yoke_core.domain.project_install import ProjectInstallError
 from yoke_core.domain.project_install_test_helpers import make_bundle

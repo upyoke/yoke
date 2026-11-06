@@ -20,7 +20,7 @@ from yoke_contracts.read_deadline import (
 )
 from yoke_core.domain import function_read_deadline as deadline
 from yoke_core.domain.bounded_database import BudgetConnection
-from runtime.api.domain.test_yoke_function_dispatch import (
+from runtime.api.domain.yoke_function_dispatch_test_support import (
     _DispatcherTestBase,
     _Req,
     _Resp,

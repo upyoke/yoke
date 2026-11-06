@@ -31,7 +31,7 @@ from runtime.api.domain.session_launch_test_support import (
     authorization,
     launch_connection,
 )
-from runtime.api.domain.test_session_launch_terminal_admission import (
+from runtime.api.domain.session_launch_terminal_admission_test_support import (
     _NoCloseConnection,
     _create_payload,
     _write_counts,

@@ -6,7 +6,7 @@ from unittest.mock import Mock
 
 import pytest
 
-from runtime.api.domain.test_machine_authorization_codes import (
+from runtime.api.domain.machine_authorization_codes_test_support import (
     conn as _conn_fixture,
     pending,
 )

@@ -12,7 +12,7 @@ from runtime.api.domain.session_relay_handler_test_support import (
     claim_payload as _claim_payload,
     relay_request as _request,
 )
-from runtime.api.domain.test_session_message_support import message_connection
+from runtime.api.domain.session_message_support_test_support import message_connection
 
 
 def test_claim_binds_heartbeat_to_dispatcher_verified_actor(monkeypatch) -> None:

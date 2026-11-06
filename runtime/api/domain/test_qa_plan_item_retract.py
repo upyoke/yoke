@@ -2,6 +2,14 @@
 
 from __future__ import annotations
 
+from runtime.api.domain.qa_plan_item_retract_test_support import (
+    RETRACT_REASON as RETRACT_REASON,
+    _attach_post_deploy as _attach_post_deploy,
+    _materialize_item as _materialize_item,
+    _retract as _retract,
+)
+
+
 from contextlib import contextmanager
 from unittest.mock import patch
 
@@ -35,9 +43,6 @@ from yoke_contracts.api.function_call import (
 )
 
 LINEAGE = "f" * 40
-RETRACT_REASON = (
-    "attached a machine-local CLI probe as standing post-deploy verification"
-)
 
 
 @contextmanager
@@ -66,26 +71,6 @@ def _seed_item(conn, *, item_id: int) -> None:
     conn.commit()
 
 
-def _attach_post_deploy(conn, *, item_id: int, slug: str) -> int:
-    from yoke_core.domain.qa_plan_attachments import attach_plan_to_item
-
-    plan_id = create_smoke_plan(conn, project="yoke", slug=slug)
-    attach_plan_to_item(
-        conn,
-        plan_id=int(plan_id),
-        item_id=item_id,
-        transition_id="release",
-        qa_phase="post_deploy",
-    )
-    return int(plan_id)
-
-
-def _materialize_item(conn, *, item_id: int) -> dict:
-    from yoke_core.domain.qa_plan_attachments import materialize_for_item
-
-    return materialize_for_item(conn, item_id=item_id, transition_id="release")
-
-
 def _record_verdict(conn, requirement_id: int, verdict: str) -> None:
     conn.execute(
         "INSERT INTO qa_runs(qa_requirement_id, performed_by, qa_kind, verdict, "
@@ -93,19 +78,6 @@ def _record_verdict(conn, requirement_id: int, verdict: str) -> None:
         (int(requirement_id), verdict),
     )
     conn.commit()
-
-
-def _retract(conn, *, item_id: int, plan_id: int, reason: str = RETRACT_REASON):
-    from yoke_core.domain.qa_plan_attachment_retract import retract_plan_from_item
-
-    return retract_plan_from_item(
-        conn,
-        item_id=item_id,
-        plan_id=int(plan_id),
-        transition_id="release",
-        reason=reason,
-        source="operator",
-    )
 
 
 def _record_no_obligation(item_id: int, reason: str) -> object:

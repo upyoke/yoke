@@ -32,7 +32,10 @@ PROJECT_TABLES: dict[str, dict] = {
             ("created_at", "TIMESTAMPTZ"),
         ],
         "notes": (
-            "Project registry. Creation time is created_at; there is NO updated_at "
+            "Project registry. The function_authz_scope_routing_test_support.conn fixture "
+            "creates projects.org_id; importing only its helpers selects the generic "
+            "conn fixture, which lacks org_id. Wrong guess: generic conn supplies org_id. "
+            "Creation time is created_at; there is NO updated_at "
             "column. Wrong guess: inserting or selecting projects.updated_at. "
             "Nullable retired_at hides a project from default lists "
             "without deleting history. yoke projects retire --project P --reason TEXT; "

@@ -2,24 +2,21 @@
 
 from __future__ import annotations
 
+from runtime.api.domain.actor_session_messages_test_support import _members as _members
+
+
 import pytest
 
 from yoke_contracts.session_control.sender_surface import CLI_SENDER_SURFACE
 from yoke_core.domain.actor_message_recipients import inbox_actor_messages
-from yoke_core.domain.actor_permissions import (
-    ROLE_OPERATOR,
-    ROLE_VIEWER,
-    grant_actor_org_role,
-)
 from yoke_core.domain.session_message_receipts import (
     acknowledge_actor_message,
     acknowledge_message,
 )
 from yoke_core.domain.session_message_service import preview_message, send_message
 from yoke_core.domain.session_message_types import SessionMessageError
-from runtime.api.domain.test_session_message_support import (
+from runtime.api.domain.session_message_support_test_support import (
     NOW,
-    message_connection,
     selector,
 )
 
@@ -29,14 +26,6 @@ def _fixed_actor_inbox_clock(monkeypatch) -> None:
     from yoke_core.domain import actor_message_recipients
 
     monkeypatch.setattr(actor_message_recipients, "utc_now", lambda: NOW)
-
-
-def _members():
-    conn = message_connection()
-    grant_actor_org_role(conn, actor_id=10, org_id=1, role_name=ROLE_OPERATOR)
-    grant_actor_org_role(conn, actor_id=11, org_id=1, role_name=ROLE_VIEWER)
-    conn.commit()
-    return conn
 
 
 def test_actor_anchor_unions_with_session_fanout_and_snapshots_once() -> None:

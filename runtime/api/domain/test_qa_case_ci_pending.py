@@ -10,7 +10,7 @@ from runtime.api.domain.qa_case_ci_test_helpers import (
     in_flight_run,
     wire_ci_case,
 )
-from runtime.api.domain.test_merge_qa_run_identity import _proof
+from runtime.api.domain.merge_qa_run_identity_test_support import _proof
 from runtime.api.fixtures.backlog import (
     insert_item,
     insert_qa_requirement,

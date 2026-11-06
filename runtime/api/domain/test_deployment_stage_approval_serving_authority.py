@@ -13,7 +13,7 @@ import pytest
 
 from yoke_core.domain import control_plane_transport
 from yoke_core.domain import deployment_stage_approval_dispatch as dispatch
-from runtime.api.domain.test_serving_control_plane_env import (
+from runtime.api.domain.serving_control_plane_env_test_support import (
     stub_machine_connections,
 )
 from yoke_core.domain.deployment_approval_requests import (

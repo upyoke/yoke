@@ -13,11 +13,7 @@ from datetime import datetime
 
 import pytest
 
-from runtime.harness.test_session_relay_claude import (
-    CLAUDE,
-    _allow,
-    _context,
-)
+from runtime.harness.session_relay_claude_test_support import CLAUDE, _allow, _context
 from yoke_contracts.session_control.evidence import (
     native_diagnostic_command,
     redacted_evidence_document,

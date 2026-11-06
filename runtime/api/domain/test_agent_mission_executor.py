@@ -11,7 +11,7 @@ from yoke_core.domain.qa_method_config_validation import (
     QaMethodConfigError,
     validate_method_config,
 )
-from runtime.api.domain.test_agent_mission_browser_choice import _walker
+from runtime.api.domain.agent_mission_browser_choice_test_support import _walker
 
 
 @pytest.mark.parametrize(

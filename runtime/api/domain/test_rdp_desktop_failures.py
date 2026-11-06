@@ -4,7 +4,7 @@ from contextlib import contextmanager
 
 import pytest
 
-from runtime.api.domain.test_rdp_desktop_view import (
+from runtime.api.domain.rdp_desktop_view_test_support import (
     Client,
     PASSWORD,
     SETTINGS,

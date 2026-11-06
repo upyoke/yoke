@@ -1,12 +1,13 @@
 # ruff: noqa: F401, F811
 """Boundary tests for worktree-local SQLite validation paths."""
+
 from __future__ import annotations
 
 from pathlib import Path
 
 import pytest
 
-from runtime.api.domain.test_worktree_validation_surface import (
+from runtime.api.domain.worktree_validation_surface_test_support import (
     _seed_capability,
     _webapp_sqlite_settings,
     control_db,

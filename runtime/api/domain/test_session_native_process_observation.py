@@ -17,7 +17,7 @@ from datetime import datetime, timezone
 
 import pytest
 
-from runtime.api.test_sessions import _insert_claimable_items, _register
+from runtime.api.sessions_test_support import _insert_claimable_items, _register
 from yoke_core.domain.session_native_process_observation import (
     current_native_process_observation,
     record_native_process_gone,

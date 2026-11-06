@@ -20,7 +20,7 @@ from yoke_core.domain.session_operator_wake_notice import (
     NOTICE_IDEMPOTENCY_PREFIX,
     settle_operator_wake_notices,
 )
-from runtime.api.domain.test_session_desktop_operator_wake import (
+from runtime.api.domain.session_desktop_operator_wake_test_support import (
     CLAUDE_DESKTOP_SESSION_ID,
     STARVED,
     _add_desktop_session,
@@ -28,7 +28,7 @@ from runtime.api.domain.test_session_desktop_operator_wake import (
     _operator_notices,
     _send_to,
 )
-from runtime.api.domain.test_session_message_support import (
+from runtime.api.domain.session_message_support_test_support import (
     NOW,
     NOW_TEXT,
     message_connection,

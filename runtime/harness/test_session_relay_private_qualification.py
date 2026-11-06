@@ -23,7 +23,7 @@ from yoke_harness import session_relay_private_qualification as qualification
 from yoke_harness.session_relay_claude import run_claude_cli_adapter
 from yoke_harness.session_relay_native_spawn import SupervisedNative
 from yoke_harness.session_relay_runtime import RelayExecutionContext
-from runtime.api.tools.test_session_control_live_acceptance_policy_support import (
+from runtime.api.tools.session_control_live_acceptance_policy_support_test_support import (
     require_exact_cli_idle_policy,
 )
 

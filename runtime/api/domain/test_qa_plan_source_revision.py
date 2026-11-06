@@ -5,7 +5,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from runtime.api.domain.test_installer_campaign_plan_sync import (
+from runtime.api.domain.installer_campaign_plan_sync_test_support import (
     source_checkout as source_checkout,
 )
 from runtime.api.fixtures.deployment_scoped_qa_run_fixture import (
@@ -25,7 +25,6 @@ from yoke_core.domain.qa_plan_management import QaPlanError, replace_plan_cases
 from yoke_core.domain.qa_plan_rematerialize_deployment import (
     rematerialize_for_deployment_stage,
 )
-
 
 @pytest.fixture
 def bound_plan(test_db, source_checkout, monkeypatch):
@@ -304,7 +303,9 @@ def test_overview_uses_recorded_qa_while_admission_still_requires_source(
     from yoke_core.domain.deployment_run_carried_work_source import (
         CarriedWorkSourceUnavailable,
     )
-    from runtime.api.domain.test_deployment_shipping_reads import CountedConnection
+    from runtime.api.domain.deployment_shipping_reads_test_support import (
+        CountedConnection,
+    )
 
     unavailable = Mock(
         side_effect=CarriedWorkSourceUnavailable("offline", "Restore repository access")

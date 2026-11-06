@@ -12,7 +12,7 @@ from unittest.mock import patch
 
 import pytest
 
-from runtime.api.test_sessions import (
+from runtime.api.sessions_test_support import (
     _insert_claimable_items,
     _register,
     conn,
@@ -28,7 +28,7 @@ from yoke_core.domain.sessions import (
     release_claim,
     set_session_mode,
 )
-from runtime.api.test_constants import TEST_MODEL_ID
+from runtime.api.constants_test_support import TEST_MODEL_ID
 from yoke_contracts.session_model_facts import SessionModelFacts
 
 

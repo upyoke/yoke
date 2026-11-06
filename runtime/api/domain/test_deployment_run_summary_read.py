@@ -4,8 +4,10 @@ import json
 
 import pytest
 
-from runtime.api.domain.test_deployment_delivery_close_out_notice import _project
-from runtime.api.domain.test_run_success_member_settlement import _executing_run
+from runtime.api.domain.deployment_delivery_close_out_notice_test_support import (
+    _project,
+)
+from runtime.api.domain.run_success_member_settlement_test_support import _executing_run
 from yoke_core.domain.deployment_run_history_read import decode_cursor
 from yoke_core.domain.deployment_run_summary_read import (
     SUMMARY_FIELDS,
@@ -107,7 +109,7 @@ def test_summary_scope_hides_runs_and_project_filters(test_db, monkeypatch):
 
 
 def test_cli_multi_field_get_and_summary_cursor_dispatch():
-    from runtime.api.cli.test_yoke_operations_cli_deployment import (
+    from runtime.api.cli.yoke_operations_cli_deployment_test_support import (
         _run_capture,
         _CAPTURED_REQUESTS,
     )
@@ -145,7 +147,7 @@ def test_cli_multi_field_get_and_summary_cursor_dispatch():
     ],
 )
 def test_old_serving_contract_refuses_instead_of_returning_unselected_detail(arguments):
-    from runtime.api.cli.test_yoke_operations_cli_deployment import (
+    from runtime.api.cli.yoke_operations_cli_deployment_test_support import (
         _run_capture,
         _stub_ok,
     )

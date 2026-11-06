@@ -9,7 +9,7 @@ from yoke_project_checks.check_progressive_disclosure_direction import HC_SLUG
 from yoke_core.engines.doctor_registry_tier_discipline import (
     REQUIRED_FUNCTION_IDS,
 )
-from .doctor_hc_progressive_disclosure_test_support import (
+from runtime.api.engines.doctor_hc_progressive_disclosure_test_support import (
     _ARCHITECT_AGENT,
     _CONDUCT_SKILL,
     _detail,

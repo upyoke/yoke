@@ -2,6 +2,14 @@
 
 from __future__ import annotations
 
+from runtime.api.domain.probe_reply_rejection_evidence_test_support import (
+    _artifacts as _artifacts,
+    _blocked_result as _blocked_result,
+    _case as _case,
+    _probe_rows as _probe_rows,
+)
+
+
 import json
 import shutil
 import subprocess
@@ -10,22 +18,18 @@ from types import SimpleNamespace
 
 import pytest
 
-from runtime.api.domain.machine_qa_host_test_support import (
-    materialize_installer_campaign,
+from runtime.api.domain.baseline_probe_failure_causes_test_support import (
+    _claude_probe,
 )
-from runtime.api.domain.test_baseline_probe_failure_causes import _claude_probe
 from yoke_core.domain.handlers.machine_qa_case_evidence import (
     record_machine_case_result,
 )
-from yoke_core.domain.machine_qa_execution import MachineCaseResult
 from yoke_core.domain.probe_reply_rejection_evidence import ARTIFACT_TYPE
 from yoke_core.domain.qa_artifact_handle import parse_handle
-from yoke_core.domain.qa_case_execution_context import get_case_execution_context
 from yoke_harness.baseline_probe_failure_causes import (
     PROBE_EXIT_CODES,
     REJECTION_RECORD_MISSING,
 )
-from yoke_harness.ssh_mac_baseline_probes import run_baseline_probes
 
 SECRET = "private-account@example.com"
 UNANSWERED = PROBE_EXIT_CODES["probe_reply_unanswered"]
@@ -47,15 +51,6 @@ def _sealed_stdout(monkeypatch, capsys, reply: str) -> tuple[int, str]:
     with pytest.raises(SystemExit) as exit_info:
         exec(compile(_claude_probe().argv[2], "claude-probe", "exec"), {})
     return exit_info.value.code, capsys.readouterr().out
-
-
-def _probe_rows(code: int, stdout: str) -> dict:
-    return run_baseline_probes(
-        (_claude_probe(),),
-        run_gui_command=lambda argv, timeout: SimpleNamespace(
-            returncode=code, stdout=stdout, stderr=""
-        ),
-    ).evidence
 
 
 def test_a_sealed_rejection_crosses_the_host_as_its_sanitized_record(
@@ -104,41 +99,6 @@ def test_a_missing_or_unsanitized_record_teaches_the_recapture(stdout):
     assert "reply_rejection" not in evidence["probes"][0]
     assert REJECTION_RECORD_MISSING in evidence["reason"]
     assert SECRET not in json.dumps(evidence)
-
-
-def _case(test_db, item_id: int) -> dict:
-    requirement_id = next(
-        int(row["id"])
-        for row in materialize_installer_campaign(test_db, item_id=item_id)
-        if row["plan_case_key"] == "default-add-yoke-to-my-path"
-    )
-    return get_case_execution_context(test_db, requirement_id=requirement_id)
-
-
-def _blocked_result(probe_evidence: dict) -> MachineCaseResult:
-    return MachineCaseResult(
-        case_outcome="blocked_on_precondition",
-        verdict="blocked",
-        evidence={
-            "test_machine": "test-mac",
-            "case_started": False,
-            "starting_state_reset": {
-                "baseline": "fresh-host",
-                "ok": False,
-                "error_code": "baseline_probe_failed",
-                "evidence": {"user_equivalence": probe_evidence},
-            },
-        },
-        error_code="starting_state_reset_failed",
-    )
-
-
-def _artifacts(test_db, run_id: int) -> list:
-    return test_db.execute(
-        "SELECT artifact_type,artifact_handle,metadata FROM qa_artifacts "
-        "WHERE qa_run_id=%s ORDER BY id",
-        (run_id,),
-    ).fetchall()
 
 
 def test_a_rejected_reply_is_an_artifact_and_reason_on_the_case_run(
@@ -254,7 +214,7 @@ def test_a_mission_whose_baseline_rejected_a_reply_names_it_on_its_run(
     from runtime.api.domain.machine_qa_host_test_support import (
         configure_test_machine,
     )
-    from runtime.api.domain.test_agent_mission_qa import (
+    from runtime.api.domain.agent_mission_qa_test_support import (
         ACTOR,
         _materialize_mission,
         _request,

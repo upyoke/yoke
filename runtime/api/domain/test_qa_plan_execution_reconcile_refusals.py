@@ -2,9 +2,9 @@
 
 import pytest
 
-from runtime.api.domain.test_agent_mission_cleanup import removed_mission  # noqa: F401
-from runtime.api.domain.test_agent_mission_qa import ACTOR
-from runtime.api.domain.test_qa_plan_execution_adoption import _adopt, _setup
+from runtime.api.domain.agent_mission_cleanup_test_support import removed_mission  # noqa: F401
+from runtime.api.domain.agent_mission_qa_test_support import ACTOR
+from runtime.api.domain.qa_plan_execution_adoption_test_support import _adopt, _setup
 from runtime.api.fixtures.dispatch_actor import register_session_actor
 from runtime.api.fixtures.pg_testdb import test_database
 from yoke_contracts.api.function_call import TargetRef

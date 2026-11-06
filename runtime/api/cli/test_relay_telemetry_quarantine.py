@@ -16,7 +16,7 @@ import json
 
 import pytest
 
-from runtime.api.cli.test_relay_telemetry_spool import (
+from runtime.api.cli.relay_telemetry_spool_test_support import (
     _emit_response,
     _record_telemetry,
     _spooled,

@@ -6,7 +6,7 @@ from types import SimpleNamespace
 import pytest
 
 from runtime.api.domain.machine_qa_terminal_recipe_test_support import recipe
-from runtime.api.domain.test_linux_desktop_capture import png
+from runtime.api.domain.linux_desktop_capture_test_support import png
 from yoke_core.domain.ssh_linux_terminal_recipe import execute_linux_recipe
 from yoke_harness import ssh_linux_terminal
 from yoke_harness import ssh_machine_screenshot as capture

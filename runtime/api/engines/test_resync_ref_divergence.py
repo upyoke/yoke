@@ -16,6 +16,14 @@ _resync_test_helpers (private module). No live GitHub calls are made.
 
 from __future__ import annotations
 
+from runtime.api.engines.resync_ref_divergence_test_support import (
+    DIVERGENT_ITEM_ID as DIVERGENT_ITEM_ID,
+    DIVERGENT_REF as DIVERGENT_REF,
+    DIVERGENT_SEQUENCE as DIVERGENT_SEQUENCE,
+    _insert_item as _insert_item,
+)
+
+
 from unittest import mock as mock
 
 import yoke_core.engines.resync as resync_mod
@@ -31,45 +39,6 @@ from runtime.api.engines._resync_test_helpers import (
 )
 
 # Internal id and public sequence intentionally differ.
-DIVERGENT_ITEM_ID = 4600
-DIVERGENT_SEQUENCE = 4544
-DIVERGENT_REF = f"YOK-{DIVERGENT_SEQUENCE}"
-
-
-def _insert_item(
-    db_path: str,
-    *,
-    item_id: int,
-    sequence: int,
-    title: str,
-    github_issue,
-    status: str = "implementing",
-    workflow: str = "issue",
-) -> None:
-    conn = connect_test_db(db_path)
-    try:
-        conn.execute(
-            "INSERT INTO items "
-            "(id, title, status, priority, workflow_id, workflow_version_id, "
-            "source, spec, frozen, github_issue, project_id, project_sequence, "
-            "created_at, updated_at) "
-            "VALUES (%s, %s, %s, 'medium', %s, "
-            "(SELECT current_version_id FROM workflows WHERE id = %s), "
-            "'manual', %s, 0, %s, 1, %s, '2026-01-01', '2026-01-01')",
-            (
-                item_id,
-                title,
-                status,
-                workflow,
-                workflow,
-                f"{title} spec",
-                github_issue,
-                sequence,
-            ),
-        )
-        conn.commit()
-    finally:
-        conn.close()
 
 
 class TestStage1RefDivergence:

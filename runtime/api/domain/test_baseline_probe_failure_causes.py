@@ -2,6 +2,11 @@
 
 from __future__ import annotations
 
+from runtime.api.domain.baseline_probe_failure_causes_test_support import (
+    _claude_probe as _claude_probe,
+)
+
+
 import shutil
 import subprocess
 from types import SimpleNamespace
@@ -13,16 +18,8 @@ from yoke_harness.baseline_probe_failure_causes import (
     PROBE_FAILURE_CAUSES,
 )
 from yoke_harness.ssh_mac_baseline_probes import (
-    parse_baseline_probes,
     run_baseline_probes,
 )
-from yoke_harness.standard_baseline_probes import capture_probes_document
-
-
-def _claude_probe() -> dict:
-    document, _ = capture_probes_document("macos", None)
-    probes = parse_baseline_probes(document)
-    return next(p for p in probes if p.name == "Claude real request")
 
 
 def _run_sealed(monkeypatch, *, executable: str | None, run) -> int:

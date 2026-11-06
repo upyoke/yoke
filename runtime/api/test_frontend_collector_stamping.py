@@ -4,7 +4,7 @@ import json
 
 from fastapi.testclient import TestClient
 
-from runtime.api.test_frontend_events import client, database, event, headers
+from runtime.api.frontend_events_test_support import client, database, event, headers
 from yoke_core.api.observability_otel import environment_name
 from yoke_core.domain.actors import seed_human_actor
 

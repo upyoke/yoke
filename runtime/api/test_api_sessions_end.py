@@ -12,7 +12,7 @@ from yoke_core.domain.db_helpers import instant_parameter
 from runtime.api.fixtures.file_test_db import connect_test_db
 from yoke_core.api.main import app
 from runtime.api.sessions_api_test_support import fresh_now
-from runtime.api.test_constants import TEST_MODEL_ID
+from runtime.api.constants_test_support import TEST_MODEL_ID
 from yoke_core.domain.work_claim_targets import make_item_target
 
 pytest_plugins = ("runtime.api.sessions_api_test_support",)

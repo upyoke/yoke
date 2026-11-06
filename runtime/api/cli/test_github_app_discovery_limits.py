@@ -7,7 +7,7 @@ import urllib.error
 
 import pytest
 
-from runtime.api.cli.test_github_app_machine_connection import (
+from runtime.api.cli.github_app_machine_connection_test_support import (
     _Response,
     _permissions,
 )

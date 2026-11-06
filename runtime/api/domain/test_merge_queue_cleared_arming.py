@@ -163,7 +163,7 @@ def test_recovered_arming_episode_is_native_before_sql_binding(
 ):
     from datetime import timedelta, timezone
     from yoke_contracts.timestamps import format_instant
-    from runtime.api.domain.test_session_message_support import NOW
+    from runtime.api.domain.session_message_support_test_support import NOW
 
     conn = never_armed(observer_connection())
     episode = NOW.replace(microsecond=microsecond).astimezone(

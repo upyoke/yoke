@@ -22,13 +22,13 @@ from yoke_core.domain.session_relay_types import RelayHeartbeat
 from yoke_core.domain.session_private_route_qualification import (
     open_qualification_grant,
 )
-from runtime.api.domain.test_session_message_support import (
+from runtime.api.domain.session_message_support_test_support import (
     NOW,
     add_coordination_claim_schema,
     message_connection,
     selector,
 )
-from runtime.api.tools.test_session_control_live_acceptance_policy_support import (
+from runtime.api.tools.session_control_live_acceptance_policy_support_test_support import (
     require_exact_cli_idle_policy,
 )
 
@@ -48,7 +48,9 @@ def _candidate_route_requires_grant(monkeypatch) -> None:
 def _connection(*, target_version: str):
     conn = message_connection()
     add_coordination_claim_schema(conn)
-    from runtime.api.domain.test_session_message_support import seed_steering_seat
+    from runtime.api.domain.session_message_support_test_support import (
+        seed_steering_seat,
+    )
 
     seed_steering_seat(conn, session_id="s1", project_id=1)
     conn.execute("ALTER TABLE harness_sessions ADD COLUMN mode TEXT")

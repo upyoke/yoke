@@ -2,7 +2,7 @@
 
 import json
 
-from runtime.api.domain.test_sign_in_resolution import conn as actor_database
+from runtime.api.domain.sign_in_resolution_test_support import conn as actor_database
 from yoke_core.domain.actor_invites import create_invite
 from yoke_core.domain.actors import seed_human_actor
 from yoke_core.domain.external_identities import default_org_id

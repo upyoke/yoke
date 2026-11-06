@@ -4,12 +4,12 @@ from __future__ import annotations
 
 import pytest
 
-from runtime.api.domain.test_deployment_qa_stage_wake_delivery import (
+from runtime.api.domain.deployment_qa_stage_wake_delivery_test_support import (
     _project,
     seed_session,
 )
-from runtime.api.domain.test_qa_aborted_review_ownership import OWNER, _fail_run
-from runtime.api.domain.test_qa_capture_pending_review import (
+from runtime.api.domain.qa_aborted_review_ownership_test_support import OWNER, _fail_run
+from runtime.api.domain.qa_capture_pending_review_test_support import (
     NOW,
     _seed_pending,
     _submit,

@@ -6,13 +6,13 @@ import json
 
 import pytest
 
-from runtime.api.domain.test_session_org_messages import org_world as org_world
-from runtime.api.domain.test_org_scope_relay_wake_jobs import (
+from runtime.api.domain.session_org_messages_test_support import org_world as org_world
+from runtime.api.domain.org_scope_relay_wake_jobs_test_support import (
     enqueue,
     heartbeat,
     reserve,
 )
-from runtime.api.domain.test_org_scope_relay_reports import NOW, OLD, MACHINE
+from runtime.api.domain.org_scope_relay_reports_test_support import NOW, OLD, MACHINE
 from yoke_contracts.session_control.models import RecipientSelector
 from yoke_core.domain.session_broker_wake import lease_broker_wake_for_hook
 from yoke_core.domain.session_broker_wake_settlement import complete_broker_hook_lease

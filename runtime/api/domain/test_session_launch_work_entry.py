@@ -12,11 +12,13 @@ from yoke_core.domain.session_launch_store import get_launch
 from yoke_core.domain.session_launch_types import SessionLaunchError
 from yoke_core.domain.work_claim_targets import make_item_target
 from runtime.api.domain.session_launch_test_support import add_relay, launch_connection
-from runtime.api.domain.test_session_launch_attested_binding import (
+from runtime.api.domain.session_launch_attested_binding_test_support import (
     bind,
     registered_launch,
 )
-from runtime.api.domain.test_session_launch_terminal_admission import _seed_pinned_item
+from runtime.api.domain.session_launch_terminal_admission_test_support import (
+    _seed_pinned_item,
+)
 
 
 def setup_launch(*, acknowledge=True, bind_hook=True):

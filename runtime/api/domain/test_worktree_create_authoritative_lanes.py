@@ -5,7 +5,7 @@ from __future__ import annotations
 import os
 from types import SimpleNamespace
 
-from runtime.api.domain.test_worktree_create_multiworktree import _config_path
+from runtime.api.domain.worktree_create_multiworktree_test_support import _config_path
 from runtime.api.fixtures.file_test_db import connect_test_db
 from yoke_core.api import service_client_structured_api_adapter
 from yoke_core.domain import (

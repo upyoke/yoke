@@ -13,7 +13,7 @@ from runtime.api.tools.session_control_live_acceptance_contract import (
 from runtime.api.tools.session_control_live_acceptance_wake_route import (
     MACHINE_SELECTED_ROUTE,
 )
-from runtime.api.tools.test_session_control_live_acceptance_policy_support import (
+from runtime.api.tools.session_control_live_acceptance_policy_support_test_support import (
     require_exact_desktop_active_policy,
 )
 

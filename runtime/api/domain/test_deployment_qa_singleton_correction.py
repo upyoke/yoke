@@ -1,17 +1,25 @@
 """Correcting member-owned attached plans preserves their scope and evidence."""
 
+from runtime.api.domain.deployment_qa_singleton_correction_test_support import (
+    _correct as _correct,
+)
+
+
 import json
 
 import pytest
 
-from runtime.api.domain.test_deployment_qa_plan_groups import (
+from runtime.api.domain.deployment_qa_plan_groups_test_support import (
     MEMBERS,
     RUN,
     _attach,
     _seed,
 )
-from runtime.api.domain.test_deployment_qa_shared_plans import _fail
-from runtime.api.domain.test_deployment_qa_stage_execution import _complete_case, _plan
+from runtime.api.domain.deployment_qa_shared_plans_test_support import _fail
+from runtime.api.domain.deployment_qa_stage_execution_test_support import (
+    _complete_case,
+    _plan,
+)
 from yoke_contracts.api.function_call import (
     ActorContext,
     FunctionCallRequest,
@@ -50,23 +58,6 @@ def _single(conn):
     conn.commit()
     materialized = materialize_deployment_qa_stage(conn, **_subject())
     return plan, materialized["created_requirement_ids"][0]
-
-
-def _correct(conn, plan, label="corrected"):
-    replace_plan_cases(
-        conn,
-        plan_id=plan,
-        cases=[
-            {
-                "case_key": "command-smoke",
-                "position": 1,
-                "method_id": "command",
-                "instructions": f"Run the {label} member probe.",
-                "expected_outcome": "The corrected probe passes.",
-                "method_config": {"command": f"echo {label}"},
-            }
-        ],
-    )
 
 
 def _request(conn, plan):

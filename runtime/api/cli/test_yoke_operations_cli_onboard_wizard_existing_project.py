@@ -2,16 +2,17 @@
 
 from __future__ import annotations
 
+from runtime.api.cli.onboard_wizard_github_navigation_safety_test_support import (_body_text as _body_text)
+from runtime.api.cli.yoke_operations_cli_onboard_wizard_existing_project_test_support import (_configure_origin as _configure_origin)
+
+
 import asyncio
 import json
-from pathlib import Path
-import subprocess
 
 import pytest
 
 pytest.importorskip("textual")
 
-from textual.widgets import Static  # noqa: E402
 
 from yoke_cli.config import existing_project_lookup  # noqa: E402
 from yoke_cli.config.onboard_wizard import WizardDefaults  # noqa: E402
@@ -28,44 +29,6 @@ from runtime.api.cli.onboard_wizard_test_helpers import (  # noqa: E402
 @pytest.fixture(autouse=True)
 def _stub_path_doctor(monkeypatch):
     stub_path_doctor(monkeypatch)
-
-
-def _configure_origin(checkout: Path, repo: str) -> None:
-    subprocess.run(
-        ["git", "init", "--initial-branch", "main"],
-        cwd=checkout,
-        check=True,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-    )
-    subprocess.run(
-        [
-            "git",
-            "-c",
-            "user.name=Yoke Test",
-            "-c",
-            "user.email=yoke-test@example.invalid",
-            "commit",
-            "--allow-empty",
-            "-m",
-            "fixture",
-        ],
-        cwd=checkout,
-        check=True,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-    )
-    subprocess.run(
-        [
-            "git",
-            "remote",
-            "add",
-            "origin",
-            f"https://github.com/{repo}.git",
-        ],
-        cwd=checkout,
-        check=True,
-    )
 
 
 def test_local_checkout_manifest_project_id_skips_project_setup(
@@ -278,10 +241,3 @@ def test_existing_project_with_board_art_skips_art_flow(
     assert applied is not None
     assert applied["existing_project_id"] == 37
     assert app.result.board_art_variants == []
-
-
-def _body_text(app) -> str:
-    return " ".join(
-        str(widget.render())
-        for widget in app.query("#onboard-body Static").results(Static)
-    )

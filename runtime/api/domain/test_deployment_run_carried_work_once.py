@@ -15,7 +15,7 @@ from typing import Any
 
 import pytest
 
-from runtime.api.domain.test_deployment_run_source_reads_once import (
+from runtime.api.domain.deployment_run_source_reads_once_test_support import (
     _carrier_tip,
     _release,
 )

@@ -14,7 +14,7 @@ from runtime.api.domain.migration_apply_test_helpers import (  # noqa: F401
     apply_env,
 )
 from runtime.api.fixtures.migration_model_test import TEST_MIGRATION_MODULES_DIR
-from runtime.api.test_backlog import _conn, tmp_db  # noqa: F401
+from runtime.api.backlog_test_support import _conn, tmp_db  # noqa: F401
 from yoke_core.domain.coordination_claims import active_claim
 from yoke_core.domain.db_helpers import connect
 from yoke_core.domain.work_claim_targets import (

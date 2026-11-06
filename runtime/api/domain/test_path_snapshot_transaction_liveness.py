@@ -9,7 +9,7 @@ import pytest
 from psycopg.pq import TransactionStatus
 
 from runtime.api.domain._path_snapshots_test_helpers import path_snapshot_db
-from runtime.api.domain.test_path_snapshot_enrichment import _seed_repo
+from runtime.api.domain.path_snapshot_enrichment_test_support import _seed_repo
 from yoke_core.domain import path_snapshot_enrichment as enrichment
 from yoke_core.domain import path_snapshots
 from yoke_core.domain.path_snapshot_content_rows import ContentlessSnapshotConflict

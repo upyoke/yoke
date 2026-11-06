@@ -4,7 +4,7 @@ import threading
 
 import pytest
 
-from runtime.api.test_secondary_domains_flow_basic import _insert_projects
+from runtime.api.secondary_domains_flow_basic_test_support import _insert_projects
 
 
 class TestFlowBasic:

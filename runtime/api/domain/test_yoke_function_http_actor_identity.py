@@ -11,7 +11,7 @@ from yoke_core.domain.yoke_function_idempotency_scope import (
     idempotency_payload_checksum,
 )
 from yoke_core.domain.yoke_function_registry import register, reset_registry_for_tests
-from runtime.api.domain.test_yoke_function_actor_identity_dispatch import (
+from runtime.api.domain.yoke_function_actor_identity_dispatch_test_support import (
     _IntegrationBase,
     _Recorder,
     _Req,

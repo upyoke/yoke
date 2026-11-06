@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from runtime.api.tools.test_session_control_live_acceptance_policy_support import (
+from runtime.api.tools.session_control_live_acceptance_policy_support_test_support import (
     require_exact_cli_idle_policy,
 )
 from yoke_contracts.api.function_call import FunctionCallRequest
@@ -22,7 +22,7 @@ from yoke_core.domain.handlers import (
     session_qualification,
 )
 from yoke_core.domain import yoke_function_registry
-from runtime.api.domain.test_session_message_support import (
+from runtime.api.domain.session_message_support_test_support import (
     add_coordination_claim_schema,
     message_connection,
 )
@@ -61,7 +61,9 @@ def _connection():
         project_id=1,
         role_name=ROLE_ADMIN,
     )
-    from runtime.api.domain.test_session_message_support import seed_steering_seat
+    from runtime.api.domain.session_message_support_test_support import (
+        seed_steering_seat,
+    )
 
     seed_steering_seat(conn, session_id="s1", project_id=1)
     conn.commit()

@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
-from runtime.api.domain.test_status_transition_preflight import (
+from runtime.api.domain.status_transition_preflight_test_support import (
     _isolate_status_effects,
 )
 from runtime.api.fixtures.backlog import insert_item
-from runtime.api.test_sessions import _register
+from runtime.api.sessions_test_support import _register
 from yoke_core.domain import backlog, backlog_update_op
 from yoke_core.domain.sessions import (
     claim_work,

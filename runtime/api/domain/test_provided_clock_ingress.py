@@ -1,15 +1,21 @@
 """Supplied clocks refuse before action and retain qualified microseconds."""
 
+from runtime.api.domain.provided_clock_ingress_test_support import (
+    BAD_CLOCKS as BAD_CLOCKS,
+    INSTANT as INSTANT,
+    UntouchedConnection as UntouchedConnection,
+    WIRE as WIRE,
+    unused_clock as unused_clock,
+)
+
+
 from datetime import datetime
 from importlib import import_module
 
 import pytest
 
-from yoke_contracts.timestamps import InvalidInstant, parse_instant
+from yoke_contracts.timestamps import InvalidInstant
 
-WIRE = "2026-10-09T15:00:00.123456Z"
-INSTANT = parse_instant(WIRE)
-BAD_CLOCKS = ("", 123, "2026-10-09", datetime(2026, 10, 9), "2026-10-09T15:00:00-00:00")
 
 # Actual public owners; required business arguments are valid independently
 # of the refused clock, so no incidental argument error can hide a write.
@@ -85,13 +91,8 @@ OWNERS = (
 )
 
 
-class UntouchedConnection:
-    def execute(self, *args, **kwargs):
-        raise AssertionError("invalid clock reached SQL")
 
 
-def unused_clock():
-    raise AssertionError("a supplied clock evaluated the default")
 
 
 @pytest.mark.parametrize("clock", [BAD_CLOCKS[0]])

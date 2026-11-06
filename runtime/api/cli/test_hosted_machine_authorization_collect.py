@@ -8,7 +8,7 @@ from pathlib import Path
 import pytest
 
 from runtime.api.cli.setup_agent_test_support import AgentDriver, isolate_agent_setup
-from runtime.api.cli.test_setup_agent_approvals import (
+from runtime.api.cli.setup_agent_approvals_test_support import (
     TOKEN,
     VERIFIED,
     _only_browser,

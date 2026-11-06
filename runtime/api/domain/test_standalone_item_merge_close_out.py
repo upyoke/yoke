@@ -9,6 +9,11 @@ close-out strands the item rather than protecting anything.
 
 from __future__ import annotations
 
+from runtime.api.domain.standalone_item_merge_close_out_test_support import (
+    LANE_SHA as LANE_SHA,
+)
+
+
 from pathlib import Path
 from types import SimpleNamespace as SimpleNamespace
 
@@ -26,7 +31,6 @@ from yoke_core.domain import standalone_item_merge_verify as verify
 from yoke_core.domain.standalone_item_merge import StandaloneMergeOutcome
 from runtime.api.domain.merge_route_gate_stubs import admit_route_gates
 
-LANE_SHA = "1" * 40
 MERGE_SHA = "2" * 40
 LANE = landed.LandedLane(
     branch="ITEM-1",

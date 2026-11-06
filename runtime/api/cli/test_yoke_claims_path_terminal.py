@@ -2,7 +2,10 @@
 
 import pytest
 
-from runtime.api.cli.test_yoke_operations_cli_claims import _CAPTURED, _run
+from runtime.api.cli.yoke_operations_cli_claims_test_support import (
+    _CAPTURED,
+    _run,
+)
 
 
 @pytest.fixture(autouse=True)

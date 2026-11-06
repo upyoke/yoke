@@ -13,7 +13,7 @@ from runtime.api.domain.merge_queue_observer_test_helpers import (
     observe,
     observer_connection,
 )
-from runtime.api.domain.test_session_message_support import NOW
+from runtime.api.domain.session_message_support_test_support import NOW
 from yoke_core.domain import merge_queue_landing_observer as observer
 from yoke_core.domain.merge_queue_enqueue_verification import LandingReadback
 from yoke_core.domain.merge_queue_landing_record import (

@@ -6,8 +6,10 @@ import json
 
 import pytest
 
-from runtime.api.domain.test_session_wake_reconciliation import _add_events_table
-from runtime.api.domain.test_session_relay import (
+from runtime.api.domain.session_wake_reconciliation_test_support import (
+    _add_events_table,
+)
+from runtime.api.domain.session_relay_test_support import (
     RELAY_ID,
     _add_wake_recipient,
     _clock,

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from runtime.api.domain.test_yoke_function_permissions import _conn, _entry
+from runtime.api.domain.yoke_function_permissions_test_support import _conn, _entry
 from yoke_contracts.api.function_call import (
     ActorContext,
     FunctionCallRequest,

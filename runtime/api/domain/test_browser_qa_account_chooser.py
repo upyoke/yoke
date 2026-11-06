@@ -11,7 +11,7 @@ from runtime.api.domain.browser_qa_test_helpers import (
     _seed_item,
     _seed_requirement,
 )
-from runtime.api.domain.test_browser_qa_auth_wall import _raw_result
+from runtime.api.domain.browser_qa_auth_wall_test_support import _raw_result
 from runtime.api.fixtures.file_test_db import init_test_db
 from yoke_contracts.browser_identity import parse_identity_declarations
 from yoke_core.domain.browser_qa_sign_in_evidence import (

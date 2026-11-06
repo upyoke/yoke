@@ -6,7 +6,10 @@ from unittest.mock import patch
 
 import pytest
 
-from runtime.api.domain.test_worktree_create import _seed_item, _seed_project_repo
+from runtime.api.domain.worktree_create_test_support import (
+    _seed_item,
+    _seed_project_repo,
+)
 from runtime.api.domain.worktree_test_helpers import TEST_ITEM_ID, TEST_ITEM_REF
 from runtime.api.fixtures.file_test_db import connect_test_db
 from yoke_core.domain.worktree import resolve_item_worktree

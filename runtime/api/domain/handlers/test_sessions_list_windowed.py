@@ -15,7 +15,7 @@ from yoke_core.domain.sessions_list_read import (
     list_sessions,
 )
 
-from runtime.api.domain.handlers.test_sessions_list_handler import (
+from runtime.api.domain.handlers.sessions_list_handler_test_support import (
     _insert_item_claim,
     _insert_session,
     _iso,

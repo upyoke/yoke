@@ -3,7 +3,7 @@
 import pytest
 from yoke_core.domain.qa_terminal_settlement import blocking_requirement_issues
 from yoke_core.domain.standalone_item_merge_qa import evaluate
-from runtime.api.domain.test_standalone_item_merge_qa import _item, _requirement
+from runtime.api.domain.standalone_item_merge_qa_test_support import _item, _requirement
 
 
 @pytest.mark.parametrize("sha", ["a" * 40, "b" * 40, "", None])

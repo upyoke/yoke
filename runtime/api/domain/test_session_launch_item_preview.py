@@ -10,11 +10,11 @@ from yoke_core.domain.handlers import session_launch as handlers
 from yoke_core.domain.session_launch_requests import create_launch
 
 from runtime.api.domain.session_launch_test_support import NOW, authorization
-from runtime.api.domain.test_session_launch_handler_deadlines import (
+from runtime.api.domain.session_launch_handler_deadlines_test_support import (
     _request,
     _wire_handler,
 )
-from runtime.api.domain.test_workflow_stage_launches import staged_launch
+from runtime.api.domain.workflow_stage_launches_test_support import staged_launch
 
 
 def _preview(monkeypatch, conn, payload: dict):

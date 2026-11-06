@@ -77,7 +77,9 @@ def test_the_reading_the_dead_native_stated_rides_its_report(
         native_diagnostic_path,
         write_native_capture,
     )
-    from runtime.harness.test_cursor_native_result_usage import NATIVE_RESULT_LINE
+    from runtime.harness.cursor_native_result_usage_test_support import (
+        NATIVE_RESULT_LINE,
+    )
 
     home = tmp_path / "yoke-home"
     home.mkdir()

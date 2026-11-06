@@ -78,7 +78,9 @@ def test_unknown_fields_are_reported_for_the_refusal() -> None:
 def test_nonrecipient_reads_recipient_states_without_empty_envelope_fields(monkeypatch):
     import pytest
 
-    from runtime.api.cli.test_yoke_operations_cli_dispatch import _run_capture
+    from runtime.api.cli.yoke_operations_cli_dispatch_test_support import (
+        _run_capture,
+    )
     from yoke_contracts.api.function_call import FunctionCallResponse
     from yoke_core.domain import session_message_queries as queries
     from yoke_core.domain.handlers.session_messages_common import readable_json_message
@@ -99,6 +101,7 @@ def test_nonrecipient_reads_recipient_states_without_empty_envelope_fields(monke
         queries.get_message(None, **caller, fields=("recipients",))
     )
     assert result == {"message": {"recipients": recipients}}
+
     def dispatch(request):
         return FunctionCallResponse(
             success=True,
@@ -108,9 +111,7 @@ def test_nonrecipient_reads_recipient_states_without_empty_envelope_fields(monke
             result=result,
         )
 
-    rc, stdout, stderr = _run_capture(
-        dispatch, "messages", "get", "m-1", "recipients"
-    )
+    rc, stdout, stderr = _run_capture(dispatch, "messages", "get", "m-1", "recipients")
     assert rc == 0, stderr
     assert "acknowledged" in stdout
     assert "message_id" not in stdout

@@ -7,7 +7,7 @@ import subprocess
 import pytest
 
 from public_installer_helpers import RecordingRunner, load_installer, write_channel
-from test_public_installer import _installed_yoke_path, _options, _status_ok
+from tests.installer.public_installer_test_support import _installed_yoke_path, _options, _status_ok
 
 
 @pytest.mark.parametrize("already", [False, True])

@@ -2,9 +2,11 @@
 
 import pytest
 
-from runtime.api.domain.test_deployment_qa_takeover_identity import _execution
-from runtime.api.domain.test_deployment_qa_takeover_identity import _group_execution
-from runtime.api.domain import test_deployment_run_target_takeover as takeover
+from runtime.api.domain.deployment_qa_takeover_identity_test_support import _execution
+from runtime.api.domain.deployment_qa_takeover_identity_test_support import (
+    _group_execution,
+)
+from runtime.api.domain import deployment_run_target_takeover_test_support as takeover
 from runtime.api.fixtures.deployment_scoped_qa_run_fixture import record_case_verdict
 from yoke_core.domain.deployment_qa_stage_materialization import (
     materialize_deployment_qa_stage,
@@ -60,7 +62,9 @@ def test_successor_materialization_keeps_original_requirement_and_verdict(
 def test_successor_reuses_the_moved_group_instead_of_forming_another(
     test_db, monkeypatch
 ):
-    from runtime.api.domain import test_deployment_qa_plan_groups as shared
+    from runtime.api.domain import (
+        deployment_qa_plan_groups_test_support as shared,
+    )
     from yoke_core.domain.deployment_qa_plan_group_writes import ensure_groups
     from yoke_core.domain.deployment_qa_plan_groups import run_groups
 

@@ -8,7 +8,7 @@ from uuid import uuid4
 import pytest
 
 from runtime.api.fixtures.backlog import test_db  # noqa: F401
-from runtime.api.cli.test_yoke_operations_cli_hooks import _FakeResponse
+from runtime.api.cli.yoke_operations_cli_hooks_test_support import _FakeResponse
 from yoke_cli.transport.https import HttpsConnection
 from yoke_contracts.hook_diagnostics import format_hook_diagnostic
 from yoke_contracts.hook_evaluator_protocol import (

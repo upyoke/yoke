@@ -9,7 +9,7 @@ from yoke_cli.transport import https_engine_handshake as yoke_handshake
 from yoke_cli.transport import source_build_skew as skew
 from yoke_cli.transport.https import HttpsConnection, relay_https
 
-from runtime.api.cli.test_yoke_https_engine_handshake import (
+from runtime.api.cli.yoke_https_engine_handshake_test_support import (
     _FakeResponse,
     _ok_envelope,
     _request,

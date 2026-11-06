@@ -5,7 +5,7 @@ from __future__ import annotations
 import threading
 from typing import Any
 
-from runtime.api.domain.test_status_transition_preflight import (
+from runtime.api.domain.status_transition_preflight_test_support import (
     TARGET_STATUS,
     _actor_id,
     _isolate_status_effects,

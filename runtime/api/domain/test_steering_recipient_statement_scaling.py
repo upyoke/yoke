@@ -13,13 +13,13 @@ from __future__ import annotations
 import hashlib
 from datetime import timedelta
 
-from runtime.api.domain.test_session_message_support import (
+from runtime.api.domain.session_message_support_test_support import (
     NOW,
     NOW_TEXT,
     message_connection,
     selector,
 )
-from runtime.api.domain.test_steering_role_addressed_messages import (
+from runtime.api.domain.steering_role_addressed_messages_test_support import (
     PROJECT_SCOPE,
     _end,
     _link_document,

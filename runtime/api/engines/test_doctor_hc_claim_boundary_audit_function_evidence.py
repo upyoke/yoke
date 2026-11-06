@@ -18,14 +18,8 @@ from yoke_core.domain.yoke_function_dispatch_claim_evidence import (
     CLAIM_VERIFICATION_PHASE,
     WORK_CLAIM_AUTHORITY,
 )
-from runtime.api.engines.test_doctor_hc_claim_boundary_audit import (
-    _add_claim,
-    _add_event,
-    _add_session,
-    _p,
-    _run,
-    _sid,
-)
+from runtime.api.engines.doctor_hc_claim_boundary_audit_test_support import (_add_claim, _add_event, _add_session, _run, _sid)
+from runtime.api.domain.path_context_test_support import (_p)
 from runtime.api.fixtures.file_test_db import (
     apply_test_schema,
     connect_test_db,

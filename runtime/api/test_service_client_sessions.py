@@ -22,11 +22,11 @@ from runtime.api.fixtures.level_store import (
     store_project_levels,
     store_universe_levels,
 )
-from runtime.api.test_service_client import _run_client
-from runtime.api.test_service_client_sessions_helpers import (
+from runtime.api.service_client_test_support import _run_client
+from runtime.api.service_client_sessions_helpers_test_support import (
     session_test_db as session_test_db,
 )
-from runtime.api.test_constants import TEST_MODEL_ID
+from runtime.api.constants_test_support import TEST_MODEL_ID
 
 _PROJECT_ID = 1
 _OPUS = "claude-opus-5-5"

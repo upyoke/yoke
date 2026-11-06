@@ -14,7 +14,10 @@ OPAQUE = "2060-10-08T00:00:00+09:00 unchanged"
 
 @pytest.mark.parametrize(
     "module",
-    ["runtime.api.test_sessions", "runtime.api.sessions_api_stale_test_helpers"],
+    [
+        "runtime.api.sessions_test_support",
+        "runtime.api.sessions_api_stale_test_helpers",
+    ],
 )
 @pytest.mark.parametrize("fixture_name", ["conn", "ownership_conn"])
 def test_actual_reclaim_fixtures_declare_native_clocks_and_seed_items(
@@ -44,7 +47,9 @@ def test_actual_reclaim_fixtures_declare_native_clocks_and_seed_items(
             ).fetchone()
             expected = parse_instant("2026-03-01T00:00:00Z")
             assert all(isinstance(v, datetime) and v == expected for v in row[:2])
-            assert row[2] == (100 if module == "runtime.api.test_sessions" else None)
+            assert row[2] == (
+                100 if module == "runtime.api.sessions_test_support" else None
+            )
     finally:
         generator.close()
 
@@ -52,9 +57,7 @@ def test_actual_reclaim_fixtures_declare_native_clocks_and_seed_items(
 @pytest.mark.parametrize("zone", SESSION_ZONES[1:])
 def test_stale_event_schema_binds_native_microseconds(test_db, zone):
     from runtime.api import sessions_api_stale_test_helpers as fixtures
-    from runtime.api.test_sessions_api_stale_reclaim_misc import (
-        TestStaleSessionSweepEvent,
-    )
+    from runtime.api.sessions_api_stale_test_helpers import SWEEP_EVENT_TABLES
 
     test_db.execute("SELECT set_config('TimeZone', %s, false)", (zone,))
     # Verify the actual three event DDL owners on separate empty tables,
@@ -64,7 +67,7 @@ def test_stale_event_schema_binds_native_microseconds(test_db, zone):
         for ddl in [
             fixtures.EVENTS_TABLE_FOR_STALE_DETECTION,
             fixtures._OWNERSHIP_EXTRA_TABLES,
-            TestStaleSessionSweepEvent._SWEEP_EVENT_TABLES,
+            SWEEP_EVENT_TABLES,
         ]:
             fixtures.apply_ddl_statements(test_db, ddl)
             assert test_db.execute("SHOW TimeZone").fetchone()[0] == zone
@@ -108,7 +111,7 @@ def test_stale_and_review_generators_are_strict_native_clocks(monkeypatch):
 
 
 def test_carry_fixture_retains_native_merged_microseconds(monkeypatch):
-    from runtime.api import test_strategize_carry_test_helpers as fixtures
+    from runtime.api import strategize_carry_test_helpers_test_support as fixtures
 
     monkeypatch.setattr(fixtures, "utc_now", lambda: NOW)
     conn = fixtures._make_db()

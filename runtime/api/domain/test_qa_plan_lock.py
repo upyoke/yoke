@@ -6,7 +6,8 @@ import pytest
 
 from runtime.api.fixtures.pg_testdb import connect_test_database
 from yoke_core.domain.deployment_qa_shared_plan_reads import (
-    read_plan_rows, plan_snapshot_row,
+    read_plan_rows,
+    plan_snapshot_row,
 )
 from yoke_core.domain.qa_plan_execution_store import select_plan_execution
 from yoke_core.domain.qa_plan_lock import QaPlanBusy, bounded_plan_lock
@@ -21,12 +22,18 @@ def test_qa_lock_refuses_within_bound_and_preserves_transaction(test_db, table, 
     test_db.commit()
     # Use actual QA tables for table contention; row contention uses a seeded
     # execution/plan from the shared authority fixture below.
-    from runtime.api.domain.test_qa_execution_request_subject import _shared_execution
+    from runtime.api.domain.qa_execution_request_subject_test_support import (
+        _shared_execution,
+    )
 
     execution = _shared_execution(test_db, "run-qa-lock", (9301, 9302))
-    key = execution["id"] if table == "qa_plan_executions" else test_db.execute(
-        "SELECT id FROM qa_plans ORDER BY id LIMIT 1"
-    ).fetchone()[0]
+    key = (
+        execution["id"]
+        if table == "qa_plan_executions"
+        else test_db.execute("SELECT id FROM qa_plans ORDER BY id LIMIT 1").fetchone()[
+            0
+        ]
+    )
     test_db.commit()
     holder = connect_test_database(test_db.info.dbname)
     try:
@@ -39,10 +46,14 @@ def test_qa_lock_refuses_within_bound_and_preserves_transaction(test_db, table, 
         started = monotonic()
         with pytest.raises(QaPlanBusy, match="qa_plan_busy:.*2000ms.*Retry"):
             with bounded_plan_lock(test_db, table):
-                test_db.execute(f"SELECT id FROM {table} WHERE id=%s FOR UPDATE", (key,))
+                test_db.execute(
+                    f"SELECT id FROM {table} WHERE id=%s FOR UPDATE", (key,)
+                )
         assert 1.5 < monotonic() - started < 5
         assert test_db.execute("SHOW lock_timeout").fetchone()[0] == "7s"
-        assert test_db.execute(f"SELECT id FROM lock_fixture_{table}").fetchone()[0] == 2
+        assert (
+            test_db.execute(f"SELECT id FROM lock_fixture_{table}").fetchone()[0] == 2
+        )
     finally:
         holder.rollback()
         holder.close()
@@ -53,10 +64,14 @@ def test_qa_lock_refuses_within_bound_and_preserves_transaction(test_db, table, 
 
 @pytest.mark.parametrize("reader", ["batch", "snapshot", "execution"])
 def test_qa_readers_use_bounded_lock(test_db, reader):
-    from runtime.api.domain.test_qa_execution_request_subject import _shared_execution
+    from runtime.api.domain.qa_execution_request_subject_test_support import (
+        _shared_execution,
+    )
 
     execution = _shared_execution(test_db, "run-qa-reader-lock", (9301, 9302))
-    plan_id = test_db.execute("SELECT id FROM qa_plans ORDER BY id LIMIT 1").fetchone()[0]
+    plan_id = test_db.execute("SELECT id FROM qa_plans ORDER BY id LIMIT 1").fetchone()[
+        0
+    ]
     test_db.commit()
     table = "qa_plan_executions" if reader == "execution" else "qa_plans"
     holder = connect_test_database(test_db.info.dbname)

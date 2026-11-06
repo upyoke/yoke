@@ -6,7 +6,7 @@ from typing import Any
 
 import pytest
 
-from runtime.api.cli.test_github_app_public_profile import (
+from runtime.api.cli.github_app_public_profile_test_support import (
     _advertisement,
     _bundled_profile,
 )

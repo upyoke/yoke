@@ -22,12 +22,12 @@ from yoke_core.domain.session_relay_storage import heartbeat_relay
 from yoke_core.domain.session_relay import claim_relay_job
 from yoke_core.domain.session_relay_types import RelayHeartbeat
 from runtime.api.domain.session_broker_test_support import MACHINE_ID, _seed
-from runtime.api.domain.test_session_message_support import (
+from runtime.api.domain.session_message_support_test_support import (
     NOW,
     NOW_TEXT,
     add_coordination_claim_schema,
 )
-from runtime.api.tools.test_session_control_live_acceptance_policy_support import (
+from runtime.api.tools.session_control_live_acceptance_policy_support_test_support import (
     require_exact_cli_idle_policy,
 )
 
@@ -48,7 +48,9 @@ def _candidate_connection(monkeypatch, *, route: str):
     monkeypatch.setenv("YOKE_BUILD_SHA", RELEASE_SHA)
     conn, message_id = _seed()
     add_coordination_claim_schema(conn)
-    from runtime.api.domain.test_session_message_support import seed_steering_seat
+    from runtime.api.domain.session_message_support_test_support import (
+        seed_steering_seat,
+    )
 
     seed_steering_seat(conn, session_id="s1", project_id=1)
     conn.execute("ALTER TABLE harness_sessions ADD COLUMN mode TEXT")

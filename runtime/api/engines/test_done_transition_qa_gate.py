@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
+from runtime.api.backlog_test_support import (tmp_db as tmp_db)
+
 import os
 from unittest import mock
 
-from runtime.api.test_backlog import (
+from runtime.api.backlog_test_support import (
     _item_field,
     _patch_externals,
     _seed_claim,
@@ -13,7 +15,6 @@ from runtime.api.test_backlog import (
     _seed_qa_requirement,
     _seed_qa_run,
     _seed_session,
-    tmp_db,  # noqa: F401 — fixture re-export
 )
 from yoke_core.engines import done_transition
 

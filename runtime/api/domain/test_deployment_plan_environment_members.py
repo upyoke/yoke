@@ -4,17 +4,27 @@ import json
 
 import pytest
 
-from runtime.api.domain.test_deployment_qa_plan_group_credit import (
-    _stage_and_prod, _misses,
+from runtime.api.domain.deployment_qa_plan_group_credit_test_support import (
+    _stage_and_prod,
+    _misses,
 )
-from runtime.api.domain.test_deployment_qa_plan_groups import MEMBERS, RUN, _pass_group
+from runtime.api.domain.deployment_qa_plan_groups_test_support import (
+    MEMBERS,
+    RUN,
+    _pass_group,
+)
 from yoke_core.domain.deployment_qa_plan_group_writes import ensure_groups
 from yoke_core.domain.deployment_qa_plan_groups import run_groups
 from yoke_core.domain.deployment_run_member_targeting import (
-    needed_member_ids, targeted_requirement_ids,
+    needed_member_ids,
+    targeted_requirement_ids,
 )
 from yoke_core.domain.post_deploy_verification_answer import (
-    NOT_REQUIRED, PLAN_GROUPS, member_post_deploy_answer, answer_for_item, ANSWERED,
+    NOT_REQUIRED,
+    PLAN_GROUPS,
+    member_post_deploy_answer,
+    answer_for_item,
+    ANSWERED,
 )
 
 

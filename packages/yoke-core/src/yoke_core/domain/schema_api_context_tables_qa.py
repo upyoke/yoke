@@ -98,7 +98,7 @@ QA_TABLES: dict[str, dict] = {
             "qa_runs.case_outcome/raw_result for qa_simulation_triage.triage_discharge_sql. "
             "Deployment QA test fixtures use "
             "runtime.api.fixtures.completed_delivery.seed_selected_requirement_run; "
-            "the stage environment fixture is runtime.api.domain.test_deployment_qa_stage_execution._environment, "
+            "the stage environment fixture is runtime.api.domain.deployment_qa_stage_execution_test_support._environment, "
             "not test_deployment_qa_admission_execution._environment. "
             "Plan detail reads use qa_plan_detail.get_plan(conn, plan_id=...), not plan_detail. "
             "covered_item_ids lists members a closed shared plan group answered. "

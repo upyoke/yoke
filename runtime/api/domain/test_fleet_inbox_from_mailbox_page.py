@@ -21,7 +21,7 @@ from yoke_core.domain.fleet_delta_alarms import (
 from yoke_core.domain.fleet_delta_snapshot import ENVELOPES_FUNCTION, read_snapshot
 from yoke_core.domain.session_message_page import read_message_page
 from yoke_core.domain.session_message_service import send_message
-from runtime.api.domain.test_session_message_support import (
+from runtime.api.domain.session_message_support_test_support import (
     NOW,
     message_connection,
     selector,

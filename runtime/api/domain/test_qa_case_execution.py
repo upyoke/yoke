@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+from runtime.api.domain.qa_case_execution_test_support import _case as _case
+
+
 import base64
 import json
 from pathlib import Path
@@ -26,21 +29,6 @@ from yoke_core.domain.qa_plan_attachments import (
     set_project_default,
 )
 from yoke_core.domain.qa_plan_management import create_plan, replace_plan_cases
-
-
-def _case(method_id: str, runner_id: str, config: dict) -> dict:
-    return {
-        "requirement_id": 41,
-        "public_ref": "YOK-9",
-        "plan_id": 5,
-        "case_key": "registered",
-        "method_id": method_id,
-        "runner_id": runner_id,
-        "method_config": config,
-        "project_id": 1,
-        "project": "yoke",
-        "lane_branch": None,
-    }
 
 
 def _materialized_command_requirement(conn) -> int:

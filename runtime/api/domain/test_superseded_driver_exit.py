@@ -11,8 +11,10 @@ from __future__ import annotations
 
 from contextlib import nullcontext
 
-from runtime.api.domain.test_deployment_execution_serving_authority import _call
-from runtime.api.domain.test_deployment_run_execution_terminalized_refusal import (
+from runtime.api.domain.deployment_execution_serving_authority_test_support import (
+    _call,
+)
+from runtime.api.domain.deployment_run_execution_terminalized_refusal_test_support import (
     _create_and_cancel,
     _terminalize,
     serving_plane,

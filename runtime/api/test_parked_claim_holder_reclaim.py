@@ -14,11 +14,11 @@ from runtime.api.sessions_api_stale_test_helpers import (
     _ago_minutes,
     conn,  # noqa: F401  (backend-aware pytest fixture)
 )
-from runtime.api.test_sessions_reclaim_item_claims import (
+from runtime.api.sessions_reclaim_item_claims_test_support import (
     _capture_session_events,
     _claim_row,
     _seed_holder,
-    conn_with_events,  # noqa: F401  (pytest fixture)
+    conn_with_events,
 )
 from yoke_core.domain.session_reclaim_activity import REASON_ACTIVE_WORK_CLAIM
 

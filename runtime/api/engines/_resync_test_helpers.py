@@ -18,7 +18,7 @@ from runtime.api.fixtures.schema_ddl import apply_fixture_ddl
 from runtime.api.api_workflow_test_helpers import (
     install_workflow_registry_and_pin_items,
 )
-from runtime.api.test_dependency_schema import ITEMS_SCHEMA, PROJECTS_SCHEMA
+from runtime.api.dependency_schema_test_support import ITEMS_SCHEMA, PROJECTS_SCHEMA
 
 
 def _apply_resync_schema() -> None:

@@ -17,21 +17,21 @@ from runtime.api.domain.merge_queue_observer_test_helpers import (
     merged,
     unreadable,
 )
-from runtime.api.domain.test_dependency_satisfied_notice import (
+from runtime.api.domain.dependency_satisfied_notice_test_support import (
     BLOCKER,
     DEPENDENT,
     _edge,
     _key,
     _parked_dependent,
 )
-from runtime.api.domain.test_deployment_qa_stage_wake_delivery import (
+from runtime.api.domain.deployment_qa_stage_wake_delivery_test_support import (
     HOLDER_A,
     PROJECT_YOKE,
     _bodies,
     _project,
     _recipients,
 )
-from runtime.api.domain.test_session_message_support import NOW
+from runtime.api.domain.session_message_support_test_support import NOW
 from runtime.api.fixtures.backlog_inserts import insert_item
 from yoke_contracts.api.function_call import (
     ActorContext,

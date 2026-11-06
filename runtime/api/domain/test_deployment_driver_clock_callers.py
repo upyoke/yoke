@@ -3,8 +3,8 @@
 import pytest
 
 from runtime.api.fixtures.session_zones import SESSION_ZONES
-from runtime.api.domain import test_qa_operator_waiver_authority as waivers
-from runtime.api.domain.test_qa_operator_waiver_authority import (
+from runtime.api.domain import qa_operator_waiver_authority_test_support as waivers
+from runtime.api.domain.qa_operator_waiver_authority_test_support import (
     waiver_world as waiver_world,
 )
 from yoke_contracts.timestamps import parse_instant

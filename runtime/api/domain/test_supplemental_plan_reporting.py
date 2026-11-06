@@ -2,8 +2,8 @@
 
 import json
 
-from runtime.api.domain.test_run_settles_plan_on_other_target import ITEM
-from runtime.api.domain.test_deployment_qa_stage_wake_delivery import (
+from runtime.api.domain.run_settles_plan_on_other_target_test_support import ITEM
+from runtime.api.domain.deployment_qa_stage_wake_delivery_test_support import (
     _bodies,
     _claim,
     seed_session,

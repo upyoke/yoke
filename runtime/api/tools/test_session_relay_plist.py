@@ -2,7 +2,12 @@
 
 from __future__ import annotations
 
-import json
+from runtime.api.tools.session_relay_plist_test_support import (
+    _config as _config,
+    _pin_release as _pin_release,
+)
+
+
 import os
 from pathlib import Path
 import plistlib
@@ -27,46 +32,12 @@ from yoke_core.tools.session_relay_plist import (
 from yoke_core.tools.session_relay_release import relay_launch_executable
 
 
-def _config(tmp_path: Path) -> Path:
-    path = tmp_path / ".yoke" / "config.json"
-    path.parent.mkdir(parents=True, exist_ok=True)
-    connections = {}
-    for environment, prod in (("prod", True), ("stage", False)):
-        connections[environment] = {
-            "transport": "https",
-            "prod": prod,
-            "api_url": f"https://{environment}.example.test",
-            "credential_source": {
-                "kind": "token_file",
-                "path": f"~/.yoke/secrets/{environment}.token",
-            },
-        }
-    path.write_text(
-        json.dumps(
-            {
-                "schema_version": 1,
-                "active_env": "prod",
-                "connections": connections,
-                "projects": [],
-            }
-        ),
-        encoding="utf-8",
-    )
-    return path
-
-
 def _instance(tmp_path: Path, environment: str):
     return resolve_relay_instance(
         config_path=_config(tmp_path),
         environment=environment,
         yoke_home=tmp_path / ".yoke",
     )
-
-
-def _pin_release(*, instance) -> None:
-    executable = relay_launch_executable(instance.state_dir)
-    executable.parent.mkdir(parents=True, exist_ok=True)
-    executable.touch()
 
 
 def test_plist_keeps_one_standing_relay_alive_without_scheduling_it(

@@ -7,22 +7,20 @@ behaves on each inherited situation, lives in the sibling
 
 from __future__ import annotations
 
+from runtime.api.tools.gate_admission_test_support import (
+    _scratch_lock_base as _scratch_lock_base,
+)
+
+
 import sys
 import threading
 import time
-import uuid
 
 import psycopg
 import pytest
 
 from yoke_core.domain import qa_gate_timeout
 from yoke_core.tools import gate_admission
-
-
-def _scratch_lock_base() -> int:
-    # Distinct per test so slot scenarios never collide with live gate
-    # slots (or each other) on the shared cluster's global lock space.
-    return int(uuid.uuid4().int % 1_000_000) + 0x7A000000
 
 
 def test_is_heavy_invocation_classification(tmp_path):

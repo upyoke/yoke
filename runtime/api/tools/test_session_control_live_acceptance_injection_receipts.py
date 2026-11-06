@@ -17,7 +17,7 @@ from runtime.api.tools.session_control_live_acceptance_protocol import (
     initial_delivery_message,
     wake_delivery_message,
 )
-from runtime.api.tools.test_session_control_live_acceptance_driver import (
+from runtime.api.tools.session_control_live_acceptance_driver_test_support import (
     _ScenarioClient,
     _driver,
 )

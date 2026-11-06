@@ -5,7 +5,7 @@ Split from test_service_client.py.
 
 from __future__ import annotations
 
-from runtime.api.test_service_client import _run_client as _run_subprocess
+from runtime.api.service_client_test_support import _run_client as _run_subprocess
 from runtime.api.service_client_in_process_test_support import run_client as _run_client
 
 

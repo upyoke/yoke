@@ -17,7 +17,7 @@ from yoke_harness.session_relay_codex import (
     build_codex_relay_adapter,
 )
 
-from runtime.harness.test_session_relay_codex import FakeTransport, context
+from runtime.harness.session_relay_codex_test_support import FakeTransport, context
 
 
 def test_wake_prefers_stored_native_thread_id_over_hand_started_session_id(

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from runtime.api.test_api_items_structured import (
+from runtime.api.api_items_structured_test_support import (
     _ApiSuite as _ApiSuite,
     _envelope as _envelope,
     apply_fixture_ddl as apply_fixture_ddl,

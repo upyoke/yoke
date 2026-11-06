@@ -8,11 +8,11 @@ from runtime.api.fixtures.carried_release_candidate import (
     release_repository,
     serve_repository,
 )
-from runtime.api.domain.test_run_settles_plan_on_other_target import (
+from runtime.api.domain.run_settles_plan_on_other_target_test_support import (
     ITEM,
     _plan_only_pair,
 )
-from runtime.api.domain.test_deployment_qa_stage_execution import _complete_case
+from runtime.api.domain.deployment_qa_stage_execution_test_support import _complete_case
 from yoke_core.domain.deployment_qa_plan_group_writes import ensure_groups
 from yoke_core.domain.qa_plan_execution_state import begin_plan_execution
 

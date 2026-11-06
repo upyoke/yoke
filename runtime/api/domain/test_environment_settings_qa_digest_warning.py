@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from runtime.api.domain.test_qa_requirement_target_rebind import (
+from runtime.api.domain.qa_requirement_target_rebind_test_support import (
     _stamp_requirement,
     _yoke_development,
 )

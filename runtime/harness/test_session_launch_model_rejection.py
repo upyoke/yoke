@@ -2,17 +2,17 @@
 
 from __future__ import annotations
 
-from runtime.harness.test_session_relay_claude import (
+from runtime.harness.session_relay_claude_test_support import (
     CLAUDE,
     _allow,
     _context as claude_context,
     _started,
 )
-from runtime.harness.test_session_relay_codex import (
+from runtime.harness.session_relay_codex_test_support import (
     FakeTransport,
     context as codex_context,
 )
-from runtime.harness.test_session_relay_cursor import (
+from runtime.harness.session_relay_cursor_shared_test_support import (
     FakeSubprocess,
     _adapter as cursor_adapter,
     _launch as cursor_launch,

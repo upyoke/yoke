@@ -17,10 +17,8 @@ from runtime.api.cli.onboard_wizard_test_helpers import (  # noqa: E402
     submit_public_item_prefix,
     type_text,
 )
-from runtime.api.cli.test_yoke_operations_cli_onboard_wizard_existing_project import (  # noqa: E402
-    _body_text,
-    _configure_origin,
-)
+from runtime.api.cli.onboard_wizard_github_navigation_safety_test_support import (_body_text)
+from runtime.api.cli.yoke_operations_cli_onboard_wizard_existing_project_test_support import (_configure_origin)
 from yoke_cli.config import existing_project_lookup  # noqa: E402
 from yoke_cli.config import github_machine  # noqa: E402
 from yoke_cli.config import machine_config  # noqa: E402

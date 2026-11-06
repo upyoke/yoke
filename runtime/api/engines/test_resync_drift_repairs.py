@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from runtime.api.engines.test_resync_repair import (
+from runtime.api.engines.resync_repair_test_support import (
     DriftRecord as DriftRecord,
     PairedItem as PairedItem,
     _auth_resolver as _auth_resolver,

@@ -2,6 +2,11 @@
 
 from __future__ import annotations
 
+from runtime.api.cli.yoke_operations_cli_hooks_test_support import (
+    _FakeResponse as _FakeResponse,
+)
+
+
 import io
 import json
 import sys
@@ -48,23 +53,6 @@ def test_hook_evaluate_missing_event_returns_two() -> None:
 
     assert rc == 2
     hook_main.assert_not_called()
-
-
-class _FakeResponse:
-    def __init__(self, body: bytes) -> None:
-        self._body = body
-
-    def read(self, size: int = -1) -> bytes:
-        return self._body if size < 0 else self._body[:size]
-
-    def geturl(self) -> str:
-        return "https://env.example/v1/hooks/evaluate"
-
-    def __enter__(self) -> "_FakeResponse":
-        return self
-
-    def __exit__(self, *args) -> bool:
-        return False
 
 
 def test_hook_evaluate_https_posts_contract_and_relays(

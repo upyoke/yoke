@@ -9,7 +9,7 @@ from yoke_core.domain.session_wake_drain_cadence import (
     RELAY_DRAIN_POLL_SECONDS,
     wake_work_pending,
 )
-from runtime.api.domain.test_session_message_support import (
+from runtime.api.domain.session_message_support_test_support import (
     NATIVE_WAKE_SESSION_ID,
     NOW,
     NOW_TEXT,

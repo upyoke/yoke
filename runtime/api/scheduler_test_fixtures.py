@@ -9,7 +9,7 @@ from yoke_core.domain import db_backend
 from yoke_core.domain.strategy_docs_defaults import DEFAULT_STRATEGY_DOC_SLUGS
 from runtime.api.fixtures.file_test_db import connect_test_db, init_test_db
 from runtime.api.fixtures.schema_ddl import apply_fixture_ddl
-from runtime.api.test_dependency_schema import (
+from runtime.api.dependency_schema_test_support import (
     ITEMS_SCHEMA,
     ITEM_DEPENDENCIES_SCHEMA,
     PROJECTS_SCHEMA,

@@ -19,6 +19,13 @@ averaging 4,438 of 5,991 characters per call.
 
 from __future__ import annotations
 
+from runtime.api.domain.yoke_function_dispatch_compact_events_test_support import (
+    CompactEventBase as CompactEventBase,
+    _BIG_RESULT as _BIG_RESULT,
+    _big_result_handler as _big_result_handler,
+)
+
+
 import json
 import unittest
 from typing import Any, Dict
@@ -38,7 +45,7 @@ from yoke_contracts.api.function_call import (
     HandlerOutcome,
 )
 
-from runtime.api.domain.test_yoke_function_dispatch import (
+from runtime.api.domain.yoke_function_dispatch_test_support import (
     _DispatcherTestBase,
     _Req,
     _Resp,
@@ -50,13 +57,6 @@ from runtime.api.domain.test_yoke_function_dispatch import (
 
 # One comparable call's result, sized like the production heavy hitters
 # (session_control.relay.list averaged ~19,600 characters per call).
-_BIG_RESULT = {
-    "sessions": [{"session_id": f"s-{n}", "note": "x" * 180} for n in range(100)]
-}
-
-
-def _big_result_handler(_request):
-    return HandlerOutcome(result_payload=dict(_BIG_RESULT), primary_success=True)
 
 
 def _failing_handler(_request):
@@ -84,23 +84,6 @@ def _long_warning_handler(_request):
             )
         ],
     )
-
-
-class CompactEventBase(_DispatcherTestBase):
-    """Dispatch one registered handler and return its called-event context."""
-
-    def _context_for(self, function_id: str, handler: Any, **reg) -> Dict[str, Any]:
-        register(function_id, handler, _Req, _Resp, **_stable_kwargs(**reg))
-        dispatch(_make_request(function_id))
-        return self._called_context()
-
-    def _called_context(self) -> Dict[str, Any]:
-        calls = events_module.emit_event.calls  # type: ignore[attr-defined]
-        called = [
-            c for c in calls if c["args"] and c["args"][0] == "YokeFunctionCalled"
-        ]
-        self.assertEqual(len(called), 1)
-        return called[0]["kwargs"]["context"]
 
 
 class TestResultStaysOutOfRoutineTelemetry(CompactEventBase):

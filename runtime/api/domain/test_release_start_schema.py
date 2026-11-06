@@ -7,18 +7,19 @@ against it in-process, the way ``yoke --env prod-db-admin watch deploy`` does.
 
 from __future__ import annotations
 
+from runtime.api.domain.deploy_pipeline_https_execution_test_support import (serving_plane as serving_plane)
+
 import pytest
 
-from runtime.api.domain.test_deploy_pipeline_admin_bootstrap import (
+from runtime.api.domain.deploy_pipeline_admin_bootstrap_test_support import (
     _bootstrap_admin_env,
 )
-from runtime.api.domain.test_deploy_pipeline_https_execution import (
+from runtime.api.domain.deploy_pipeline_https_execution_test_support import (
     FLOW,
     LINEAGE,
     PROJECT,
     _invoke,
     _replace_flow,
-    serving_plane,  # noqa: F401 - pytest fixture re-export
 )
 from yoke_core.domain import db_helpers, deploy_pipeline
 from yoke_core.domain.release_start_schema import (

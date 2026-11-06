@@ -34,7 +34,7 @@ from runtime.api.fixtures.file_test_db import (
     connect_test_db,
     init_test_db,
 )
-from runtime.api.test_constants import TEST_MODEL_ID
+from runtime.api.constants_test_support import TEST_MODEL_ID
 from yoke_core.api.service_client_sessions_lifecycle_begin import begin_session
 from yoke_core.domain.local_operating_actor import holds_org_admin
 from yoke_core.domain.path_claims_dispatch import cmd_register

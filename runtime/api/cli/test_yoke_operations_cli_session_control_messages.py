@@ -5,7 +5,7 @@ import sys
 
 import pytest
 
-from runtime.api.test_constants import TEST_ITEM_REF
+from runtime.api.constants_test_support import TEST_ITEM_REF
 from yoke_contracts.read_detail import DETAIL_SUMMARY
 from yoke_cli.commands.adapters import session_control_messages as messages
 from yoke_cli.commands.registry_session_control import (

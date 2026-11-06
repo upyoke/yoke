@@ -1,33 +1,15 @@
 """A dispatch shares run-wide gate reads across all its members."""
 
+from runtime.api.domain.deployment_qa_dispatch_reads_test_support import _seed as _seed
+
+
 import pytest
 
 from runtime.api.fixtures.statement_counter import CountingConnection
-from runtime.api.domain.test_deployment_qa_stage_execution import (
-    _plan,
-    _seed_run,
-    _stages,
-)
 from yoke_core.domain.deployment_qa_stage_dispatch import (
     materialize_and_gate_deployment_qa_stage,
 )
-from yoke_core.domain.deployment_qa_stage_materialization import (
-    materialize_deployment_qa_stage,
-)
 from yoke_core.domain.handlers.deployment_run_execution import _member_rows
-
-
-def _seed(conn, run_id, members, *, materialized=True):
-    stages = _stages(_plan(conn, run_id))
-    _seed_run(conn, run_id=run_id, stages=stages, members=members)
-    for member in members if materialized else ():
-        materialize_deployment_qa_stage(
-            conn,
-            deployment_run_id=run_id,
-            deployment_stage="item-qa",
-            deployment_member_item_id=member,
-        )
-    return stages[1]
 
 
 @pytest.mark.parametrize("materialized", [False, True])
@@ -80,7 +62,9 @@ def test_execution_context_member_reads_are_batched(test_db):
 
 
 def test_wait_fingerprint_tracks_execution_completion_and_new_attempts(test_db):
-    from runtime.api.domain.test_deployment_qa_stage_execution import _complete_case
+    from runtime.api.domain.deployment_qa_stage_execution_test_support import (
+        _complete_case,
+    )
     from yoke_core.domain.qa_plan_execution_state import begin_plan_execution
     from yoke_core.domain.deployment_run_qa_fingerprint import run_qa_fingerprint
 
@@ -97,7 +81,7 @@ def test_wait_fingerprint_tracks_execution_completion_and_new_attempts(test_db):
     requirement = _complete_case(test_db, execution)
     after = run_qa_fingerprint(test_db, "run-progress", include_progress=True)
     assert before != after
-    from runtime.api.domain.test_steering_fleet_report_deployment_run_facts import (
+    from runtime.api.domain.steering_fleet_report_deployment_run_facts_test_support import (
         _record_verdict,
     )
 
@@ -106,7 +90,9 @@ def test_wait_fingerprint_tracks_execution_completion_and_new_attempts(test_db):
 
 
 def test_member_closeout_reads_the_acceptance_just_written(test_db, monkeypatch):
-    from runtime.api.domain.test_deployment_qa_stage_execution import _complete_case
+    from runtime.api.domain.deployment_qa_stage_execution_test_support import (
+        _complete_case,
+    )
     from yoke_core.domain.qa_plan_execution_state import begin_plan_execution
     from yoke_core.domain.deployment_qa_presentation_reads import presentation_active
 
@@ -171,7 +157,9 @@ class _FetchedBytes(CountingConnection):
 
 
 def _accept(conn, run_id, members):
-    from runtime.api.domain.test_deployment_qa_stage_execution import _complete_case
+    from runtime.api.domain.deployment_qa_stage_execution_test_support import (
+        _complete_case,
+    )
     from yoke_core.domain.qa_plan_execution_state import begin_plan_execution
 
     for member in members:

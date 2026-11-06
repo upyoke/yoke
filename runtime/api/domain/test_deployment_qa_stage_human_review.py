@@ -1,9 +1,14 @@
 """Human verdict policies follow scoped case evidence, never precede it."""
 
+from runtime.api.domain.deployment_qa_stage_human_review_test_support import (
+    _human_actor as _human_actor,
+)
+
+
 import json
 from unittest import mock
 
-from runtime.api.domain.test_deployment_qa_stage_execution import (
+from runtime.api.domain.deployment_qa_stage_execution_test_support import (
     _complete_case,
     _plan,
     _seed_run,
@@ -21,14 +26,6 @@ from yoke_core.domain.qa_plan_execution_state import (
 from yoke_core.domain.qa_plan_management import create_plan, replace_plan_cases
 from yoke_core.domain.qa_plan_review import begin_plan_review
 from yoke_core.domain.qa_plan_review_submission import submit_plan_review
-
-
-def _human_actor(test_db, actor_id: int) -> None:
-    test_db.execute(
-        "INSERT INTO actors(id,kind,created_at) VALUES "
-        "(%s,'human','2026-09-14T00:00:00Z') ON CONFLICT(id) DO NOTHING",
-        (actor_id,),
-    )
 
 
 def _agent_review_plan(test_db) -> int:

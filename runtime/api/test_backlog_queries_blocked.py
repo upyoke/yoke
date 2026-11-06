@@ -1,6 +1,6 @@
 """Coverage for the blocked-flag query helpers.
 
-Mirrors :mod:`runtime.api.test_backlog_queries_freeze` for the new
+Mirrors :mod:`runtime.api.backlog_test_support_queries_freeze` for the new
 ``items.blocked`` flag. Verifies:
 
 - ``is_blocked`` coercion across SQLite NULL / int / bool / string values.

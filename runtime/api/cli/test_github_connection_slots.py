@@ -1,59 +1,22 @@
 """Connection-isolated GitHub authorization, migration and helper selection."""
 
+from runtime.api.cli.github_connection_slots_test_support import (
+    configured as configured,
+    save as save,
+)
+
+
 import copy
 import json
 from pathlib import Path
 
 import pytest
 
-from runtime.api.cli.test_github_machine_config_concurrency import _seed_connection
 from yoke_cli.config import github_git_credential_helper as helper
 from yoke_cli.config import github_git_credential_store as store
 from yoke_cli.config import github_machine_profile, machine_config, writer
 from yoke_contracts import cursor_permissions, github_app_tokens
 from yoke_contracts.machine_config import schema as contract
-
-
-@pytest.fixture
-def configured(tmp_path, monkeypatch):
-    monkeypatch.setenv("YOKE_MACHINE_HOME", str(tmp_path))
-    monkeypatch.delenv("YOKE_ENV", raising=False)
-    config = tmp_path / "config.json"
-    payload = {
-        "schema_version": 1,
-        "active_env": "prod",
-        "connections": {
-            label: {
-                "transport": "https",
-                "api_url": f"https://{label}.example.test",
-                "protected": False,
-                "credential_source": {
-                    "kind": "token_file",
-                    "path": str(tmp_path / label),
-                },
-            }
-            for label in ("prod", "stage")
-        },
-    }
-    for label in ("prod-db-admin", "local"):
-        payload["connections"][label] = {
-            "transport": "local-postgres",
-            "protected": False,
-            "credential_source": {"kind": "dsn_file", "path": str(tmp_path / label)},
-        }
-    config.write_text(json.dumps(payload))
-    a, a_path = _seed_connection(
-        config, "prod", service_api_url="https://prod.example.test"
-    )
-    b, b_path = _seed_connection(
-        config, "stage", service_api_url="https://stage.example.test"
-    )
-    return config, payload, a, b, a_path, b_path
-
-
-def save(config, payload):
-    config.write_text(json.dumps(payload))
-    config.chmod(0o600)
 
 
 @pytest.mark.parametrize(
@@ -275,7 +238,6 @@ def test_network_permissions_include_every_slot_and_legacy(configured):
     }
 
 
-
 @pytest.mark.parametrize("override", [None, "prod"])
 def test_helper_checks_external_worktrees_primary_registration(
     configured, tmp_path, monkeypatch, override
@@ -304,7 +266,6 @@ def test_helper_checks_external_worktrees_primary_registration(
         assert helper.access_token_for_git_request(config, fields)["access_token"] == "access-stage"
 
 
-
 def test_cli_user_token_uses_checkout_connection(configured, tmp_path, monkeypatch):
     from yoke_cli.config import github_user_tokens
     config, payload, a, b, *_ = configured
@@ -318,7 +279,6 @@ def test_cli_user_token_uses_checkout_connection(configured, tmp_path, monkeypat
         config_path=config, _expected_service_api_url="https://stage.example.test"
     )
     assert token.access_token == "access-stage"
-
 
 
 def test_migrated_legacy_cas_does_not_delete_other_slots_credential(configured, monkeypatch):

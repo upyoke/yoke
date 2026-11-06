@@ -12,14 +12,19 @@ refuse by name rather than proceed when a live walk has already reached it. And 
 
 from __future__ import annotations
 
+from runtime.api.domain.qa_plan_case_currency_test_support import (
+    CORRECTED_INSTRUCTIONS as CORRECTED_INSTRUCTIONS,
+    ORIGINAL_INSTRUCTIONS as ORIGINAL_INSTRUCTIONS,
+    TRANSITION as TRANSITION,
+    _case as _case,
+    _correct_the_case as _correct_the_case,
+    _materialized as _materialized,
+)
+
+
 import pytest
 
-from runtime.api.fixtures.backlog_inserts import insert_item
 from runtime.api.fixtures.pg_testdb import test_database
-from yoke_core.domain.qa_plan_attachments import (
-    materialize_for_item,
-    set_project_default,
-)
 from yoke_core.domain.qa_plan_case_currency import (
     CURRENT,
     ORPHANED,
@@ -32,56 +37,12 @@ from yoke_core.domain.qa_plan_case_currency import (
 from yoke_core.domain.qa_plan_execution_state import begin_plan_execution
 from yoke_core.domain.qa_plan_management import (
     QaPlanError,
-    create_plan,
     replace_plan_cases,
 )
 from yoke_core.domain.qa_plan_execution_roster_correction import (
     ROSTER_CASE_REACHED_CODE,
 )
 from yoke_core.domain.qa_plan_rematerialize import rematerialize_for_item
-
-TRANSITION = "implemented"
-ORIGINAL_INSTRUCTIONS = "Run the target command."
-CORRECTED_INSTRUCTIONS = "Run the target command, then settle before asserting."
-
-
-def _case(**overrides):
-    case = {
-        "case_key": "command",
-        "position": 1,
-        "method_id": "command",
-        "instructions": ORIGINAL_INSTRUCTIONS,
-        "expected_outcome": "The command passes.",
-        "method_config": {"command": "true"},
-    }
-    case.update(overrides)
-    return case
-
-
-def _materialized(conn, *, item_id: int) -> tuple[int, int]:
-    """One item requirement materialized from a one-case plan."""
-    insert_item(conn, id=item_id, title="Run targeted QA", workflow_id="issue")
-    plan = create_plan(
-        conn,
-        project="yoke",
-        slug=f"currency-plan-{item_id}",
-        name="Currency plan",
-    )
-    plan_id = int(plan["id"])
-    replace_plan_cases(conn, plan_id=plan_id, cases=[_case()])
-    set_project_default(
-        conn, plan_id=plan_id, workflow_id="issue", transition_id=TRANSITION
-    )
-    result = materialize_for_item(conn, item_id=item_id, transition_id=TRANSITION)
-    return plan_id, int(result["created_requirement_ids"][0])
-
-
-def _correct_the_case(conn, plan_id: int) -> dict:
-    return replace_plan_cases(
-        conn,
-        plan_id=plan_id,
-        cases=[_case(instructions=CORRECTED_INSTRUCTIONS)],
-    )
 
 
 def _instructions(conn, requirement_id: int) -> str:

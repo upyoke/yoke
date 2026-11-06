@@ -8,8 +8,8 @@ from typing import Any
 import pytest
 
 from runtime.api.domain.machine_qa_test_support import FakeHostControl
-from runtime.api.domain.test_agent_mission_qa import ACTOR, _request
-from runtime.api.domain.test_qa_aborted_mission_review import _recorded_mission
+from runtime.api.domain.agent_mission_qa_test_support import ACTOR, _request
+from runtime.api.domain.qa_aborted_mission_review_test_support import _recorded_mission
 from yoke_core.domain.agent_mission_recording import handle_agent_mission_access
 from yoke_core.domain.coordination_claims import get_claim
 from yoke_core.domain.machine_qa_mission_walk import execute_agent_mission_walk_end

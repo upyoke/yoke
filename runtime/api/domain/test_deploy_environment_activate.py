@@ -17,7 +17,7 @@ from yoke_core.domain.deploy_environment_activate import (
 )
 from yoke_core.domain.deploy_environment_settings import DeployEnvironment
 from yoke_core.domain.deploy_remote import CommandResult
-from runtime.api.domain.test_deploy_remote import FakeRunner
+from runtime.api.domain.deploy_remote_test_support import FakeRunner
 
 
 def _env(**overrides) -> DeployEnvironment:

@@ -12,7 +12,7 @@ from public_installer_helpers import (
     write_channel,
     write_published_release,
 )
-from test_public_installer import _options
+from tests.installer.public_installer_test_support import _options
 from yoke_core.tools import ci_shards
 from packaging.specifiers import SpecifierSet
 

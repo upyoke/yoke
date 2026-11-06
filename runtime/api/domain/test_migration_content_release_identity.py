@@ -7,7 +7,7 @@ import pytest
 from runtime.api.domain.migration_artifact_trust_test_helpers import (
     artifact_verifier_for,
 )
-from runtime.api.domain.test_migration_content_identity import (
+from runtime.api.domain.migration_content_identity_test_support import (
     SOURCE_COMMIT,
     _adoptable_history,
     _connection,

@@ -16,7 +16,7 @@ from runtime.api.cli.onboard_wizard_test_helpers import (  # noqa: E402
     stub_path_doctor,
     type_text,
 )
-from runtime.api.cli.test_yoke_operations_cli_onboard_wizard_inline_validation import (  # noqa: E402
+from runtime.api.cli.yoke_operations_cli_onboard_wizard_inline_validation_test_support import (
     _error_text,
     _pick_mode,
     _skip_machine_github,

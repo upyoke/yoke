@@ -5,7 +5,7 @@ from __future__ import annotations
 import pytest
 
 from runtime.api.fixtures.backlog import insert_item
-from runtime.api.test_sessions import _register
+from runtime.api.sessions_test_support import _register
 from yoke_core.domain import coordination_claims
 from yoke_core.domain.work_claim_targets import make_qa_admission_target
 from yoke_core.domain.sessions import (
@@ -18,7 +18,7 @@ from yoke_core.domain.sessions import (
     release_claim,
 )
 
-pytest_plugins = ("runtime.api.test_sessions",)
+pytest_plugins = ("runtime.api.sessions_test_support",)
 
 
 @pytest.fixture(autouse=True)

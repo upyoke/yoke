@@ -10,8 +10,8 @@ from __future__ import annotations
 
 import pytest
 
-from runtime.api.domain.test_deployment_qa_stage_execution import _plan
-from runtime.api.domain.test_deployment_qa_admission_execution import (
+from runtime.api.domain.deployment_qa_stage_execution_test_support import _plan
+from runtime.api.domain.deployment_qa_admission_execution_test_support import (
     _original_requirement,
     _seed_selected_requirement_run,
 )
@@ -96,7 +96,7 @@ def test_an_agent_admission_does_not_leave_the_stage_open_for_unrelated_plans(te
     """An agent selection freezes into the run, at a run-scoped stage."""
     import json
 
-    from runtime.api.domain.test_deployment_qa_stage_execution import (
+    from runtime.api.domain.deployment_qa_stage_execution_test_support import (
         _seed_run,
         _stages,
     )

@@ -4,8 +4,11 @@ from __future__ import annotations
 
 import pytest
 
-from runtime.api.test_sessions import _register
-from runtime.api.domain.test_session_process_liveness_report import _ghost, _apply
+from runtime.api.sessions_test_support import _register
+from runtime.api.domain.session_process_liveness_report_test_support import (
+    _ghost,
+    _apply,
+)
 from yoke_contracts.session_control.models import RecipientSelector
 from yoke_core.domain.session_message_service import send_message
 from yoke_core.domain.actor_permissions import (

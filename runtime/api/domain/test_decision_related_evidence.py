@@ -78,7 +78,7 @@ def test_unrelated_and_non_screenshot_artifacts_are_not_shown(test_db) -> None:
 
 
 def test_a_no_obligation_answer_expects_no_screenshot(test_db) -> None:
-    from runtime.api.domain.test_no_obligation_member_close_out import (
+    from runtime.api.domain.no_obligation_member_close_out_test_support import (
         _no_obligation,
     )
     from runtime.api.fixtures.backlog_inserts import insert_item

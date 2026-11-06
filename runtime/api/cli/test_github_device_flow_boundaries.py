@@ -5,7 +5,7 @@ from __future__ import annotations
 import pytest
 import urllib.error
 
-from runtime.api.cli.test_github_app_device_flow import _Response
+from runtime.api.cli.github_app_device_flow_test_support import _Response
 from yoke_cli.config import github_device_flow
 
 

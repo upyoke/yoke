@@ -126,7 +126,7 @@ def test_invalid_release_clock_cannot_sort_as_missing(bad):
 
 
 def test_native_run_projection_preserves_nullable_clocks():
-    from runtime.api.domain.test_deployment_run_list_read import _RunRows
+    from runtime.api.domain.deployment_run_list_read_test_support import _RunRows
     from yoke_core.domain.deployment_run_list_read import present_deployment_runs
 
     instant = parse_instant("1969-12-31T23:59:59.999999Z")

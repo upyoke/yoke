@@ -6,7 +6,7 @@ import json
 import pytest
 
 from runtime.api.domain._universe_import_test_helpers import _canonical_universe
-from runtime.api.domain.test_universe_artifact_transfer import Objects, _seed
+from runtime.api.domain.universe_artifact_transfer_test_support import Objects, _seed
 from yoke_core.domain import universe_artifact_store as storage
 from yoke_core.domain import universe_artifact_transfer as transfer
 from yoke_core.domain.qa_artifact_handle import parse_handle, s3_handle

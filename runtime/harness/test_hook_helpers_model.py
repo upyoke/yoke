@@ -19,7 +19,7 @@ from yoke_core.hooks.helpers import (
     _is_placeholder_model,
     detect_requested_model,
 )
-from runtime.api.test_constants import TEST_MODEL_ID
+from runtime.api.constants_test_support import TEST_MODEL_ID
 
 
 # ---------------------------------------------------------------------------

@@ -5,7 +5,7 @@ import json
 from runtime.api.domain.machine_qa_host_test_support import (
     configure_test_machine,
 )
-from runtime.api.domain.test_agent_mission_qa import (
+from runtime.api.domain.agent_mission_qa_test_support import (
     ACTOR,
     _materialize_mission,
     _request,

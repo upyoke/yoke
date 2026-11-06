@@ -4,7 +4,7 @@ from unittest.mock import Mock
 
 import pytest
 
-from runtime.api.domain.test_decision_request_operator_question import (
+from runtime.api.domain.decision_request_operator_question_test_support import (
     conn as conn,
     filing,
 )

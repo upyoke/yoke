@@ -18,10 +18,10 @@ import pytest
 from runtime.api.domain.handlers.deployment_handler_test_support import (
     deployment_request,
 )
-from runtime.api.domain.test_deployment_run_item_qa_membership import (
+from runtime.api.domain.deployment_run_item_qa_membership_test_support import (
     _isolate_candidate_reads,
 )
-from runtime.api.domain.test_release_member_target_enrollment import _pair
+from runtime.api.domain.release_member_target_enrollment_test_support import _pair
 from runtime.api.fixtures.carried_release_candidate import record_landing_receipt
 from yoke_contracts.api.function_call import TargetRef
 from yoke_core.domain import deployment_runs_validation as validation

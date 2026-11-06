@@ -13,7 +13,7 @@ import os
 
 import pytest
 
-from runtime.api.domain.test_worktree_create_multiworktree import _config_path
+from runtime.api.domain.worktree_create_multiworktree_test_support import _config_path
 from runtime.api.fixtures.file_test_db import connect_test_db
 from yoke_core.domain.item_worktree_resolution import (
     resolve_item_id_by_worktree_name,

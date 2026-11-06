@@ -4,13 +4,13 @@ from importlib import import_module
 
 import pytest
 
-from runtime.api.domain.test_provided_clock_ingress import (
+from runtime.api.domain.provided_clock_ingress_test_support import (
     BAD_CLOCKS,
     INSTANT,
     UntouchedConnection,
     unused_clock,
 )
-from runtime.api.domain.test_session_message_support import selector
+from runtime.api.domain.session_message_support_test_support import selector
 from yoke_contracts.timestamps import InvalidInstant, format_instant
 
 OWNERS = (

@@ -8,7 +8,7 @@ from contextlib import contextmanager
 
 import pytest
 
-from runtime.api.domain.test_deployment_qa_stage_wake_delivery import (
+from runtime.api.domain.deployment_qa_stage_wake_delivery_test_support import (
     _project,
     seed_session,
 )

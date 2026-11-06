@@ -5,8 +5,8 @@ from __future__ import annotations
 import pytest
 from unittest.mock import patch
 
-from runtime.api.test_sessions import _insert_claimable_item, _register
-from runtime.api.test_sessions import conn as conn
+from runtime.api.sessions_test_support import _insert_claimable_item, _register
+from runtime.api.sessions_test_support import conn as conn
 from yoke_core.domain.sessions import (
     claim_work,
     end_session,

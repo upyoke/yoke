@@ -17,7 +17,7 @@ from runtime.api.domain.session_launch_test_support import (
     add_relay,
     relay_connection,
 )
-from runtime.api.domain.test_deployment_qa_stage_wake_withdraw import (
+from runtime.api.domain.deployment_qa_stage_wake_withdraw_test_support import (
     NOW,
     RUN_ID,
     STAGE,
@@ -26,7 +26,7 @@ from runtime.api.domain.test_deployment_qa_stage_wake_withdraw import (
     _seed_member,
     _wait,
 )
-from runtime.api.domain.test_deployment_qa_stage_wake_delivery import _project
+from runtime.api.domain.deployment_qa_stage_wake_delivery_test_support import _project
 from runtime.api.fixtures.statement_counter import CountingConnection
 from yoke_core.domain.deployment_qa_stage_wake import (
     DEPLOYMENT_QA_STAGE_WAIT_PREFIX,

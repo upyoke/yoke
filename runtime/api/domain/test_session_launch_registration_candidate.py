@@ -15,7 +15,7 @@ from runtime.api.domain.session_launch_test_support import (
     authorization,
     relay_connection,
 )
-from runtime.api.domain.test_session_launch_attested_binding import (
+from runtime.api.domain.session_launch_attested_binding_test_support import (
     bind,
     registered_launch,
 )

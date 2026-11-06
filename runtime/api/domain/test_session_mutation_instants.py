@@ -6,7 +6,7 @@ from uuid import uuid4
 import pytest
 
 from runtime.api.fixtures.session_zones import SESSION_ZONES
-from runtime.api.domain.test_chain_checkpoint_instants import MOMENT, _session
+from runtime.api.domain.chain_checkpoint_instants_test_support import MOMENT, _session
 from runtime.api.domain.steering_claim_test_support import (
     PROJECT_ALPHA,
     SESSION_ALPHA,

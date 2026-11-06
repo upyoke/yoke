@@ -13,7 +13,7 @@ from pathlib import Path
 
 import pytest
 
-from runtime.api.test_merge_worktree_full import (
+from runtime.api.merge_worktree_full_test_support import (
     TEST_BRANCH,
     MergeEnv,
     _create_epic_tasks_db,

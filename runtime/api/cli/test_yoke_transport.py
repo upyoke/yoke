@@ -2,6 +2,10 @@
 
 from __future__ import annotations
 
+from runtime.api.cli.yoke_transport_test_support import (_FakeResponse as _FakeResponse)
+from runtime.api.cli.yoke_https_engine_handshake_test_support import (_request as _request)
+
+
 import http.client
 import io
 import json
@@ -20,21 +24,6 @@ from yoke_cli.transport.https import (
 from yoke_contracts.machine_config.schema import (
     MachineConfigContractError,
 )
-from yoke_contracts.api.function_call import (
-    ActorContext,
-    FunctionCallRequest,
-    TargetRef,
-)
-
-
-def _request() -> FunctionCallRequest:
-    return FunctionCallRequest(
-        function="events.query.run",
-        actor=ActorContext(session_id="s1"),
-        target=TargetRef(kind="global"),
-        request_id="req-1",
-        payload={"limit": 1},
-    )
 
 
 def _https_config(tmp_path, token="tok-123", api_url="https://api.example"):
@@ -146,14 +135,6 @@ def _ok_envelope() -> bytes:
         "request_id": "req-1",
         "result": {"rows": []},
     }).encode()
-
-
-class _FakeResponse(io.BytesIO):
-    def __enter__(self):
-        return self
-
-    def __exit__(self, *exc):
-        return False
 
 
 class TestRelayHttps:

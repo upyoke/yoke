@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from runtime.api.cli.test_yoke_operations_cli_onboard_resume_cli import _preview
+from runtime.api.cli.yoke_operations_cli_onboard_apply_report_test_support import (_preview)
 from yoke_cli.commands.adapters import onboard as onboard_adapter
 from yoke_cli.config import onboard_apply_report
 

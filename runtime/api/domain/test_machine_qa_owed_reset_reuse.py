@@ -2,7 +2,7 @@
 
 import pytest
 
-from runtime.api.domain.test_machine_qa_chain_restore import _contract, _run
+from runtime.api.domain.machine_qa_chain_restore_test_support import _contract, _run
 
 
 @pytest.mark.parametrize("owed", ["fresh-host", "shell-preconfigured"])
@@ -36,7 +36,7 @@ def test_a_failed_owed_reset_never_starts_the_case(monkeypatch):
 
 def test_reused_reset_receipt_clears_durable_debt(test_db, tmp_path, monkeypatch):
     from runtime.api.domain.machine_qa_host_test_support import configure_test_machine
-    from runtime.api.domain.test_machine_reset_debt import _debt
+    from runtime.api.domain.machine_reset_debt_test_support import _debt
     from yoke_core.domain.machine_reset_debt import record_owed_reset, reset_owed
 
     configure_test_machine(test_db, tmp_path, monkeypatch)

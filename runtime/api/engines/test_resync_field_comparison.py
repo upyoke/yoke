@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from runtime.api.engines.test_resync_compare import (
+from runtime.api.engines.resync_compare_test_support import (
     PairedItem as PairedItem,
     _ComparisonFixtures as _ComparisonFixtures,
     populated_db as populated_db,

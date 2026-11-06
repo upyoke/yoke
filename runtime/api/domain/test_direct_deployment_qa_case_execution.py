@@ -8,11 +8,16 @@ the member holder already has.
 
 from __future__ import annotations
 
+from runtime.api.domain.direct_deployment_qa_case_execution_test_support import (
+    _qa_stages as _qa_stages,
+)
+
+
 import json
 
 import pytest
 
-from runtime.api.domain.test_deployment_qa_stage_execution import _seed_run
+from runtime.api.domain.deployment_qa_stage_execution_test_support import _seed_run
 from runtime.api.fixtures.backlog_inserts import insert_item
 from runtime.api.fixtures.backlog_qa_inserts import insert_qa_requirement
 from yoke_core.domain.deployment_runs_crud_mutate import cmd_add_item
@@ -37,29 +42,6 @@ COMMAND_CASE = {
     "expected_outcome": "the command passes",
     "method_config": {"command": "true"},
 }
-
-
-def _qa_stages() -> list[dict]:
-    return [
-        {
-            "name": "deploy",
-            "step_runner": "auto",
-            "stage_kind": "execution",
-            "scope": "run",
-        },
-        {
-            "name": "item-qa",
-            "step_runner": "qa",
-            "stage_kind": "qa",
-            "scope": "item",
-            "target": {
-                "kind": "persistent_environment",
-                "environment": "stage",
-                "source_stage": "deploy",
-            },
-            "verdict": {"mode": "agent_only"},
-        },
-    ]
 
 
 def _add(run_id: str, payload: dict) -> FunctionCallRequest:
@@ -263,7 +245,7 @@ def test_named_prod_refuses_when_stage_declares_stage_before_receipt(
 def test_unbound_run_attached_case_refuses_at_composition_freeze(
     test_db, monkeypatch
 ) -> None:
-    from runtime.api.domain.test_deployment_run_composition_freeze import (
+    from runtime.api.domain.deployment_run_composition_freeze_test_support import (
         _environment,
         _flow,
         _known_carried,

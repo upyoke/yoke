@@ -7,7 +7,7 @@ import pytest
 from runtime.api.fixtures.session_zones import SESSION_ZONES
 from yoke_contracts.timestamps import format_instant
 from yoke_core.domain.migrations import _native_instant_documents as documents
-from runtime.api.domain.test_native_instant_history import STAMP, history
+from runtime.api.domain.native_instant_history_test_support import STAMP, history
 
 
 @pytest.fixture

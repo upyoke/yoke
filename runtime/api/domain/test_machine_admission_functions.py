@@ -7,10 +7,10 @@ from types import SimpleNamespace
 import pytest
 from pydantic import ValidationError
 
-from runtime.api.cli.test_yoke_transport_function_version_skew import (
+from runtime.api.cli.yoke_transport_function_version_skew_test_support import (
     _dispatch_over_https,
 )
-from runtime.api.domain.test_machine_authorization_codes import (
+from runtime.api.domain.machine_authorization_codes_test_support import (
     conn as _conn_fixture,
     pending as start,
 )

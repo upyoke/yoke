@@ -14,14 +14,15 @@ These tests pin both messages.
 
 from __future__ import annotations
 
+from runtime.api.sessions_test_support import (conn as conn)
+
 import pytest
 
 from runtime.api.fixtures.schema_ddl import apply_fixture_ddl
-from runtime.api.test_sessions import (
+from runtime.api.sessions_test_support import (
     EMIT_PATH_TABLES,
     _insert_claimable_item,
     _register,
-    conn,  # noqa: F401
 )
 from yoke_core.hooks.sessions_claims import (
     WHO_CLAIMS_NON_HOLDER_WARNING_TEMPLATE,

@@ -4,8 +4,8 @@ import json
 
 import pytest
 
-from runtime.api.domain import test_deployment_run_target_takeover as takeover
-from runtime.api.domain.test_deployment_qa_successor_receipt import _arrive
+from runtime.api.domain import deployment_run_target_takeover_test_support as takeover
+from runtime.api.domain.deployment_qa_successor_receipt_test_support import _arrive
 from runtime.api.fixtures.deployment_scoped_qa_run_fixture import (
     ITEM_QA_STAGE,
     record_case_verdict,

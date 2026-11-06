@@ -13,8 +13,8 @@ from yoke_core.domain.deploy_core_container_image import (
     resolve_image_tag,
 )
 from yoke_core.domain.deploy_remote import CommandResult
-from runtime.api.domain.test_deploy_core_container import _env
-from runtime.api.domain.test_deploy_remote import FakeRunner
+from runtime.api.domain.deploy_core_container_shared_test_support import _env
+from runtime.api.domain.deploy_remote_test_support import FakeRunner
 
 _ABSENT = CommandResult(1, "", "ImageNotFoundException")
 

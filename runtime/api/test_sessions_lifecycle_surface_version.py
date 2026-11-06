@@ -15,9 +15,9 @@ from yoke_core.domain.sessions import SessionError, end_session
 from yoke_core.domain.sessions_lifecycle_identity import (
     resolve_reactivation_executor_version,
 )
-from runtime.api.test_sessions import _register
+from runtime.api.sessions_test_support import _register
 
-pytest_plugins = ("runtime.api.test_sessions",)
+pytest_plugins = ("runtime.api.sessions_test_support",)
 
 
 _APP_VERSION = "1.34493.1"

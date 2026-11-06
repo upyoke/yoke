@@ -9,6 +9,11 @@ helpers fixture.
 
 from __future__ import annotations
 
+from runtime.api.domain.path_snapshot_enrichment_test_support import (
+    _seed_repo as _seed_repo,
+)
+
+
 import json
 from pathlib import Path
 
@@ -217,23 +222,6 @@ class TestEnrichEntry:
         assert enrich.as_db_tuple(cols) == (
             10, "python", "x.y", "backend", 0, "[]",
         )
-
-
-def _seed_repo(tmp_path, files):
-    import subprocess as _sp
-    repo = tmp_path / "repo"
-    repo.mkdir()
-    _sp.run(["git", "init", "-q", "-b", "main"], cwd=repo, check=True)
-    _sp.run(["git", "config", "user.email", "t@e.com"],
-            cwd=repo, check=True)
-    _sp.run(["git", "config", "user.name", "T"], cwd=repo, check=True)
-    for rel, body in files.items():
-        f = repo / rel
-        f.parent.mkdir(parents=True, exist_ok=True)
-        f.write_text(body)
-    _sp.run(["git", "add", "-A"], cwd=repo, check=True)
-    _sp.run(["git", "commit", "-q", "-m", "seed"], cwd=repo, check=True)
-    return repo
 
 
 def _p(conn) -> str:

@@ -3,8 +3,10 @@
 from datetime import timedelta
 from unittest.mock import Mock
 
-from runtime.api.domain import test_steering_fleet_report_delivery as delivery_tests
-from runtime.api.domain.test_steering_fleet_report_delivery import (
+from runtime.api.domain import (
+    steering_fleet_report_delivery_test_support as delivery_tests,
+)
+from runtime.api.domain.steering_fleet_report_delivery_test_support import (
     NOW,
     STEERING_SESSION,
 )

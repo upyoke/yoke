@@ -8,7 +8,7 @@ larger fleet changes the answer, not the number of statements behind it.
 
 from __future__ import annotations
 
-from runtime.api.domain.test_steering_fleet_report_deployment_run_facts import (
+from runtime.api.domain.steering_fleet_report_deployment_run_facts_test_support import (
     STAGE_RELEASE,
     _record_verdict,
     _seed_requirement,

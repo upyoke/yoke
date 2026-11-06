@@ -5,7 +5,7 @@ from __future__ import annotations
 import pytest
 
 from yoke_cli.commands.adapters import github_actions_workflow as workflow_mod
-from runtime.api.cli.test_yoke_operations_cli_github_actions_workflow import (
+from runtime.api.cli.yoke_operations_cli_github_actions_workflow_test_support import (
     _CAPTURED_REQUESTS,
     _run,
 )
@@ -13,9 +13,16 @@ from runtime.api.cli.test_yoke_operations_cli_github_actions_workflow import (
 
 _VALID_COMMANDS = [
     (
-        "github-actions", "trigger", "o/r", "ci.yml",
-        "--request-id", "r", "--correlation-input", "yoke_dispatch_id",
-        "--project", "p",
+        "github-actions",
+        "trigger",
+        "o/r",
+        "ci.yml",
+        "--request-id",
+        "r",
+        "--correlation-input",
+        "yoke_dispatch_id",
+        "--project",
+        "p",
     ),
     ("github-actions", "find-run", "o/r", "ci.yml", "abc", "--project", "p"),
     ("github-actions", "poll", "o/r", "7", "--project", "p"),

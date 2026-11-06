@@ -198,20 +198,23 @@ def _build_changed_file(
     base: str | None,
     staged: bool,
     policy,
-) -> ChangedFile:
+) -> ChangedFile | None:
     classification = _classify_path_with_policy(
         path, repo_root=repo_root, policy=policy
     )
+    if classification not in {Classification.AUTHORED, Classification.TEMPORARY_EXCEPTION}:
+        return None
+    new = staged_new_count(path, repo_root=repo_root) if staged else head_new_count(path, repo_root=repo_root)
+    if new <= policy.limit:
+        return None
     if staged:
         old_ref = "HEAD" if head_exists(repo_root) else _EMPTY_TREE
         old = max(
             git_show_line_count(ref, path, repo_root=repo_root)
             for ref in (old_ref, *merge_parent_refs(repo_root))
         )
-        new = staged_new_count(path, repo_root=repo_root)
     else:
         old = git_show_line_count(base or "main", path, repo_root=repo_root)
-        new = head_new_count(path, repo_root=repo_root)
     return ChangedFile(
         path=path,
         classification=classification,
@@ -256,6 +259,8 @@ def changed_files_check(
         change = _build_changed_file(
             path, repo_root=repo_root, base=base, staged=staged, policy=policy
         )
+        if change is None:
+            continue
         is_hard, is_warn, _label = classify_change(
             old=change.old_line_count,
             new=change.new_line_count,

@@ -246,7 +246,7 @@ def test_strict_task_activity_read_does_not_hide_database_failure(monkeypatch):
 
 @pytest.mark.parametrize("holder", [None, "another-session"])
 def test_diagnostics_with_real_postgres_reads(holder, monkeypatch):
-    from runtime.api.test_dependency_schema import create_dependency_test_db
+    from runtime.api.dependency_schema_test_support import create_dependency_test_db
     from yoke_core.domain.work_claim_targets import make_item_target
 
     conn = create_dependency_test_db()

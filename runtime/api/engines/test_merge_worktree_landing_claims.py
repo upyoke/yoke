@@ -7,7 +7,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from runtime.api.test_backlog import tmp_db, _conn  # noqa: F401
+from runtime.api.backlog_test_support import tmp_db, _conn  # noqa: F401
 from runtime.api.domain.migration_apply_test_helpers import _seed_apply_item
 from runtime.api.domain._path_claims_test_helpers import seed_target, seed_claim
 from yoke_contracts.api.function_call import (

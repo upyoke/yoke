@@ -8,7 +8,7 @@ import pytest
 
 from yoke_core.domain import universe_archive as archive
 from yoke_core.domain.universe_archive_artifacts import MANIFEST
-from runtime.api.domain.test_universe_archive import _receipt_for
+from runtime.api.domain.universe_archive_test_support import _receipt_for
 
 
 def _pack(tmp_path, missing_reason="artifact_source_absent", content=b"image bytes"):

@@ -39,7 +39,7 @@ from runtime.api.domain.migration_apply_test_helpers import (  # noqa: F401 — 
     _seed_apply_item,
     apply_env,  # noqa: F401 — fixture registration
 )
-from runtime.api.test_backlog import _conn, tmp_db  # noqa: F401 — reused fixtures
+from runtime.api.backlog_test_support import _conn, tmp_db  # noqa: F401 — reused fixtures
 
 
 class TestDbTargets:

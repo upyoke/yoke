@@ -6,7 +6,7 @@ import pytest
 
 from yoke_contracts.timestamps import format_instant
 
-from runtime.api.domain.test_session_relay import (
+from runtime.api.domain.session_relay_test_support import (
     RELAY_ID,
     _add_wake_recipient,
     _clock,

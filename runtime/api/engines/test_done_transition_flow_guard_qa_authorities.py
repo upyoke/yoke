@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from unittest import mock
 
-from runtime.api.engines.test_done_transition_deployment_flow_guard import (
+from runtime.api.engines.done_transition_deployment_flow_guard_test_support import (
     _patch_latest_run,
     _patch_qa_gates,
     _patch_registered_flows,

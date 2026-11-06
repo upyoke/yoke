@@ -215,7 +215,7 @@ def test_nonzero_with_a_valid_answer_still_has_native_exit_diagnostics():
 def test_quota_diagnosis_is_durable_on_the_blocked_qa_run(
     test_db, tmp_path, monkeypatch
 ):
-    from runtime.api.domain.test_probe_reply_rejection_evidence import (
+    from runtime.api.domain.probe_reply_rejection_evidence_test_support import (
         _artifacts,
         _blocked_result,
         _case,

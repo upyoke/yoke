@@ -11,7 +11,7 @@ from yoke_core.domain.session_message_service import send_message
 from yoke_core.domain.session_message_store import message_details
 from yoke_core.domain.session_message_types import SessionMessageError
 from yoke_core.domain.session_wake_failure_notice import notify_failed_wake
-from runtime.api.domain.test_session_org_messages import (
+from runtime.api.domain.session_org_messages_test_support import (
     NOW,
     engine_notice,
     org_world as org_world,

@@ -14,16 +14,17 @@ only for the exact pair of commits it names.
 
 from __future__ import annotations
 
+from runtime.api.domain.dash_posture_deployment_containment_test_support import (dash_db_path as dash_db_path)
+
 import json
 import subprocess
 from pathlib import Path
 
 import pytest
 
-from runtime.api.domain.test_dash_posture_deployment_containment import (  # noqa: F401
+from runtime.api.domain.dash_posture_deployment_containment_test_support import (
     _deploy_posture_item,
     _git,
-    dash_db_path,
 )
 from runtime.api.fixtures.file_test_db import connect_test_db
 from yoke_core.domain import deployment_run_carried_work_source as sources
@@ -165,7 +166,7 @@ def test_a_lane_verdict_never_overrides_a_host_that_can_see(
     monkeypatch: pytest.MonkeyPatch,
 ):
     """The host answered for itself, so the relay is not consulted at all."""
-    from runtime.api.domain.test_dash_posture_deployment_containment import (
+    from runtime.api.domain.dash_posture_deployment_containment_test_support import (
         _release_history,
     )
 
@@ -182,9 +183,7 @@ def test_a_lane_verdict_never_overrides_a_host_that_can_see(
     with relayed_attestations_bound(
         [_attestation(CONTAINED, candidate=fork, commit=merge)]
     ):
-        refusal = evaluate(
-            item_id=2504, target_status="done", db_path=dash_db_path
-        )
+        refusal = evaluate(item_id=2504, target_status="done", db_path=dash_db_path)
     assert refusal is not None
     assert refusal["error_code"] == "GATE_DASH_DEPLOYMENT_LINEAGE"
 
@@ -281,7 +280,7 @@ def test_a_lane_head_a_rebase_orphaned_is_not_undeployed_work(
     place it. Read literally that is an undetermined containment and the gate
     refuses, stranding an item whose merge the release demonstrably carries.
     """
-    from runtime.api.domain.test_dash_posture_deployment_containment import (
+    from runtime.api.domain.dash_posture_deployment_containment_test_support import (
         _bind_lane_head,
         _release_history,
     )
@@ -298,9 +297,7 @@ def test_a_lane_head_a_rebase_orphaned_is_not_undeployed_work(
 
     from yoke_core.domain.dash_posture_gate import evaluate
 
-    assert evaluate(
-        item_id=2601, target_status="done", db_path=dash_db_path
-    ) is None
+    assert evaluate(item_id=2601, target_status="done", db_path=dash_db_path) is None
 
 
 def test_an_unplaceable_head_still_refuses_when_the_merge_is_unaccounted_for(
@@ -309,7 +306,7 @@ def test_an_unplaceable_head_still_refuses_when_the_merge_is_unaccounted_for(
     monkeypatch: pytest.MonkeyPatch,
 ):
     """Nothing has established that this lane's work shipped at all."""
-    from runtime.api.domain.test_dash_posture_deployment_containment import (
+    from runtime.api.domain.dash_posture_deployment_containment_test_support import (
         _bind_lane_head,
         _release_history,
     )

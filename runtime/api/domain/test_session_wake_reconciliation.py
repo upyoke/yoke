@@ -2,12 +2,17 @@
 
 from __future__ import annotations
 
+from runtime.api.domain.session_wake_reconciliation_test_support import (
+    _add_events_table as _add_events_table,
+)
+
+
 import json
 
 import pytest
 
 from runtime.api.domain.session_launch_test_support import relay_connection
-from runtime.api.domain.test_session_relay import (
+from runtime.api.domain.session_relay_test_support import (
     RELAY_ID,
     _add_wake_recipient,
     _clock,
@@ -30,20 +35,6 @@ from yoke_core.domain.session_relay import claim_relay_job, report_relay_job
 
 
 STARTED = "2026-08-22T12:00:00Z"
-
-
-def _add_events_table(conn) -> None:
-    conn.execute(
-        "CREATE TABLE events ("
-        "event_id TEXT PRIMARY KEY,event_name TEXT,event_kind TEXT,event_type TEXT,"
-        "source_type TEXT,session_id TEXT,severity TEXT,event_outcome TEXT,"
-        "org_id TEXT,environment TEXT,service TEXT,project_id INTEGER,"
-        "actor_id INTEGER,item_id TEXT,task_num INTEGER,agent TEXT,tool_name TEXT,"
-        "duration_ms INTEGER,exit_code INTEGER,trace_id TEXT,anomaly_flags TEXT,"
-        "tool_use_id TEXT,turn_id TEXT,hook_event_name TEXT,client_timing_id TEXT,"
-        "envelope TEXT,"
-        "created_at TEXT)"
-    )
 
 
 def _connection():

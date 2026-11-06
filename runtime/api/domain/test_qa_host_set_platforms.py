@@ -4,7 +4,7 @@ from unittest.mock import Mock
 
 import pytest
 
-from runtime.api.domain import test_qa_member_machine_partitions as support
+from runtime.api.domain import qa_member_machine_partitions_test_support as support
 from runtime.api.domain.machine_qa_host_test_support import TEST_MACHINE_SETTINGS
 from yoke_core.domain.qa_plan_execution_state import lock_plan_execution
 from yoke_core.domain.qa_plan_host_leases import execution_host_leases

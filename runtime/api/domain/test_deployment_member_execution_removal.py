@@ -1,23 +1,26 @@
 """Removing a release member settles its cursors and every queued host turn."""
 
+from runtime.api.domain.deployment_member_execution_removal_test_support import (
+    _execution as _execution,
+    _request as _request,
+)
+
+
 from unittest import mock
-from uuid import uuid4
 
 import pytest
 import psycopg
 
 from runtime.api.domain.machine_qa_session_seed import seed_qa_session
-from runtime.api.domain.test_deployment_qa_stage_member_removal import (
+from runtime.api.domain.deployment_qa_stage_member_removal_test_support import (
     REMOVED,
     REMAINING,
     RUN,
     _ready_run,
 )
-from runtime.api.domain.test_qa_host_turns import _notices
+from runtime.api.domain.qa_host_turns_test_support import _notices
 from runtime.api.domain.deployment_member_qa_authorization_test_support import _entry
 from yoke_contracts.api.function_call import (
-    ActorContext,
-    FunctionCallRequest,
     TargetRef,
 )
 from yoke_core.domain.coordination_claims import acquire, active_claim, release
@@ -33,10 +36,8 @@ from yoke_core.domain.qa_deployment_function_subject import resolve_run_qa_subje
 from yoke_core.domain.qa_execution_request_identity import resolve_execution_request
 from yoke_core.domain.qa_host_turns import (
     host_line,
-    join_host_line,
     reserve_host_turn,
 )
-from yoke_core.domain.qa_plan_execution_store import roster_digest
 from yoke_core.domain.qa_plan_execution_state import begin_plan_execution
 from yoke_core.domain.deployment_runs_lock import lock_run
 from yoke_core.domain.workflow_item_binding_lock import lock_item_workflow_bindings
@@ -44,40 +45,6 @@ from runtime.api.fixtures.pg_testdb import connect_test_database
 from yoke_core.domain.work_claim_targets import make_qa_admission_target
 from yoke_core.domain.yoke_function_dispatch_qa_claims import qa_subject_claim_verdict
 from yoke_core.domain.yoke_function_permissions import check_dispatch_permission
-
-
-def _execution(
-    conn, *, member=REMOVED, state="waiting", stage="item-qa", session="removed-qa"
-):
-    execution = str(uuid4())
-    conn.execute(
-        "INSERT INTO qa_plan_executions(id,deployment_run_id,deployment_stage,"
-        "deployment_member_item_id,session_id,actor_id,roster_digest,roster_json,"
-        "cursor_ordinal,state,created_at,heartbeat_at) "
-        "VALUES(%s,%s,%s,%s,%s,'1',%s,'[]',0,%s,%s,%s)",
-        (
-            execution,
-            RUN,
-            stage,
-            member,
-            session,
-            roster_digest([]),
-            state,
-            "2026-10-01T10:00:00Z",
-            "2026-10-01T10:00:00Z",
-        ),
-    )
-    if state == "waiting":
-        join_host_line(
-            conn,
-            make_qa_admission_target("linux-lab"),
-            session_id=session,
-            actor_id=1,
-            resume_command="resume QA",
-            execution_id=execution,
-        )
-    conn.commit()
-    return execution
 
 
 def _state(conn, execution):
@@ -151,15 +118,6 @@ def test_removal_is_atomic_and_cannot_regrant_another_cursor_of_removed_member(
     release(test_db, lease.id, "host free")
     assert not host_line(test_db, "linux-lab")
     assert active_claim(test_db, target) is None
-
-
-def _request(execution, *, function="qa.plan_execution.abort", session="removed-qa"):
-    return FunctionCallRequest(
-        function=function,
-        actor=ActorContext(actor_id="1", session_id=session),
-        target=TargetRef(kind="global", project_id="yoke"),
-        payload={"execution_id": execution, "reason": "removed member residue"},
-    )
 
 
 def test_removed_holder_can_abort_legacy_residue_but_cannot_continue_it(test_db):

@@ -1,6 +1,6 @@
 """Shared session, work-claim, and tool-call fixture DDL.
 
-Split from ``runtime.api.test_sessions`` (350-line authored cap). Both
+Split from ``runtime.api.sessions_test_support`` (350-line authored cap). Both
 ``_create_schema`` and ``_create_ownership_schema`` embed this one
 definition.
 """

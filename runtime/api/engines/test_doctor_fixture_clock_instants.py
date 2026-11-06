@@ -21,7 +21,7 @@ def test_full_doctor_catalog_clocks_and_audit_rows_are_native(zone, audit_owner)
     try:
         conn.execute("SELECT set_config('TimeZone', %s, true)", (zone,))
         if audit_owner == "dispatch":
-            from runtime.api.engines.test_doctor_hc_meta_full_dispatch import (
+            from runtime.api.engines.doctor_hc_meta_full_dispatch_test_support import (
                 _ensure_migration_audit_table,
             )
         else:

@@ -2,7 +2,7 @@
 
 from runtime.api.backlog_mutations_test_helpers import insert_item
 from yoke_core.domain import backlog
-from runtime.api.test_backlog_mutations_create import _p
+from runtime.api.domain.path_context_test_support import (_p)
 
 
 class TestUpdateItemField:

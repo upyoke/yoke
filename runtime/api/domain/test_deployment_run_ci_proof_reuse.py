@@ -6,7 +6,7 @@ from unittest import mock
 
 import pytest
 
-from runtime.api.domain.test_deployment_run_ci_tested_source import (
+from runtime.api.domain.deployment_run_ci_tested_source_test_support import (
     HEAD,
     MIDDLE,
     OLDEST,
@@ -27,6 +27,7 @@ def gated():
         mock.patch.object(lineage, "previous_release", return_value=None),
     ):
         yield
+
 
 def test_proof_needs_the_exact_commit_and_an_eligible_event():
     assert proof.proves(_run(HEAD, "completed", "success", 1, branch="lane"), HEAD)

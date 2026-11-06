@@ -9,7 +9,7 @@ from yoke_contracts.timestamps import parse_instant
 from yoke_core.domain.session_launch_store import get_launch
 from yoke_core.domain.session_relay import report_relay_job
 from yoke_core.domain.session_relay_types import SessionRelayError
-from runtime.api.domain.test_session_relay_independent_jobs import (
+from runtime.api.domain.session_relay_independent_jobs_test_support import (
     MACHINE_ID,
     NOW,
     RELAY_ID,

@@ -20,7 +20,7 @@ from yoke_core.domain.github_workflow_dispatch_intents import (
     latest_intent,
 )
 from yoke_contracts.github_workflow_dispatch import workflow_dispatch_marker
-from runtime.api.domain.test_github_workflow_dispatch_fixtures import (
+from runtime.api.domain.github_workflow_dispatch_fixtures_test_support import (
     REPO,
     REQUEST_ID,
     WORKFLOW,

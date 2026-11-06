@@ -11,6 +11,8 @@ relay leg (applier -> call_dispatcher) is covered by
 
 from __future__ import annotations
 
+from runtime.api.backlog_test_support import (tmp_db as tmp_db)
+
 import os
 from pathlib import Path
 
@@ -18,11 +20,10 @@ import pytest
 
 from runtime.api.fixtures.backlog_inserts import insert_epic_task, insert_item
 from runtime.api.fixtures.file_test_db import connect_test_db, init_test_db
-from runtime.api.test_backlog import (  # noqa: F401 - shared fixtures/helpers
+from runtime.api.backlog_test_support import (
     _item_field,
     _patch_externals,
     _seed_item,
-    tmp_db,
 )
 from yoke_contracts.api.function_call import (
     ActorContext,

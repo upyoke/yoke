@@ -29,10 +29,10 @@ from runtime.api.domain.session_launch_test_support import (
     assigned_launch,
     launch_connection,
 )
-from runtime.api.test_sessions import _register
+from runtime.api.sessions_test_support import _register
 
 
-pytest_plugins = ("runtime.api.test_sessions",)
+pytest_plugins = ("runtime.api.sessions_test_support",)
 
 
 WORKER = "launch-grace-worker"

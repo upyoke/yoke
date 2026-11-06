@@ -2,6 +2,13 @@
 
 from __future__ import annotations
 
+from runtime.api.domain.machine_qa_multiple_hosts_test_support import (
+    MACHINES as MACHINES,
+    _register_fleet as _register_fleet,
+    _settings as _settings,
+)
+
+
 import json
 
 import pytest
@@ -35,36 +42,6 @@ from yoke_core.domain.qa_test_machine_capability_context import (
 from yoke_core.domain.projects_capability_settings_validation import (
     canonicalize_capability_settings,
 )
-
-
-MACHINES = ("mac-mini-lab", "mac-studio-lab")
-
-
-def _settings(test_machine: str, *, notes: str = "") -> dict[str, str]:
-    return {
-        "resource_name": test_machine,
-        "host": f"{test_machine}.local",
-        "user": "yoke-test",
-        "os": "macos",
-        "operating_notes": notes,
-    }
-
-
-def _register_fleet(conn):
-    first = replace_test_machine_settings(
-        conn,
-        project="yoke",
-        settings=_settings(MACHINES[0]),
-        base_settings=None,
-    )
-    second = replace_test_machine_settings(
-        conn,
-        project="yoke",
-        test_machine=MACHINES[1],
-        settings=_settings(MACHINES[1]),
-        base_settings=None,
-    )
-    return first, second
 
 
 def test_each_machine_has_an_independent_read_and_verification_receipt() -> None:

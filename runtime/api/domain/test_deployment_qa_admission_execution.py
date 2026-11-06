@@ -2,8 +2,12 @@
 
 from __future__ import annotations
 
+from runtime.api.domain.deployment_qa_admission_execution_test_support import (
+    _original_requirement as _original_requirement,
+)
+
+
 import json
-from typing import Any
 
 
 from runtime.api.fixtures.completed_delivery import (
@@ -18,71 +22,6 @@ from yoke_core.domain.deployment_qa_admission_materialization import (
     admitted_requirement_case_key,
 )
 from yoke_core.domain.qa_plan_execution_roster import ordered_plan_requirements
-
-
-def _original_requirement(conn: Any, *, item_id: int, method_id: str | None) -> int:
-    columns = [
-        "item_id",
-        "qa_kind",
-        "qa_phase",
-        "target_env",
-        "blocking_mode",
-        "requirement_source",
-        "instructions",
-        "expected_outcome",
-        "created_at",
-    ]
-    values: list[Any] = [
-        item_id,
-        "visual_acceptance",
-        "post_deploy",
-        "stage",
-        "blocking",
-        "explicit",
-        "Capture the deployed release summary before accepting it.",
-        "The release summary shows the admitted item and running revision.",
-        "2026-09-14T00:00:00Z",
-    ]
-    if method_id is not None:
-        method = conn.execute(
-            "SELECT name,runner_id,required_capability_kinds,verdict_path "
-            "FROM qa_methods WHERE id=%s",
-            (method_id,),
-        ).fetchone()
-        columns.extend(
-            [
-                "method_id",
-                "method_name",
-                "runner_id",
-                "capability_requirements",
-                "verdict_path",
-                "method_config",
-            ]
-        )
-        values.extend(
-            [
-                method_id,
-                method["name"],
-                method["runner_id"],
-                method["required_capability_kinds"],
-                method["verdict_path"],
-                json.dumps(
-                    {
-                        "steps": [
-                            {"action": "navigate", "route": "/releases/current"},
-                            {"action": "screenshot", "capture": True},
-                        ]
-                    }
-                ),
-            ]
-        )
-    row = conn.execute(
-        f"INSERT INTO qa_requirements({','.join(columns)}) VALUES "
-        f"({','.join('%s' for _ in columns)}) RETURNING id",
-        tuple(values),
-    ).fetchone()
-    conn.commit()
-    return int(row["id"])
 
 
 def test_explicit_screenshot_obligation_materializes_before_execution(test_db) -> None:
@@ -130,5 +69,3 @@ def test_explicit_screenshot_obligation_materializes_before_execution(test_db) -
         ).fetchone()["item_id"]
         == item_id
     )
-
-

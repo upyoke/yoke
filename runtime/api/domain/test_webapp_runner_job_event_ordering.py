@@ -6,13 +6,13 @@ import shutil
 import pytest
 
 from yoke_contracts.timestamps import format_instant, utc_now
-from runtime.api.domain.test_webapp_runner_lifecycle import (
+from runtime.api.domain.webapp_runner_lifecycle_test_support import (
     INSTANCE_ID,
     RUNNER_NAME,
     _parameters,
     _driver,
 )
-from runtime.api.domain.test_webapp_runner_github_broker import (
+from runtime.api.domain.webapp_runner_github_broker_test_support import (
     _run_driver,
     _write_node_fixture,
 )

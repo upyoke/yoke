@@ -9,8 +9,10 @@ copy is accepted, both name it.
 
 from __future__ import annotations
 
-from runtime.api.domain.test_status_transition_preflight import _isolate_status_effects
-from runtime.api.domain.test_terminal_post_deploy_settlement import (
+from runtime.api.domain.status_transition_preflight_test_support import (
+    _isolate_status_effects,
+)
+from runtime.api.domain.terminal_post_deploy_settlement_test_support import (
     _accept_member_qa,
     _source_member,
 )

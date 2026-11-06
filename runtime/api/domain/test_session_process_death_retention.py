@@ -16,14 +16,14 @@ import pytest
 from yoke_contracts.timestamps import format_instant
 
 from runtime.api.sessions_api_stale_test_helpers import _ago_minutes
-from runtime.api.domain.test_session_process_liveness_report import (
+from runtime.api.domain.session_process_liveness_report_test_support import (
     ANCHOR_EVIDENCE,
     EVIDENCE,
     MACHINE,
     _apply,
     _session_row,
 )
-from runtime.api.test_sessions import _insert_claimable_items, _register
+from runtime.api.sessions_test_support import _insert_claimable_items, _register
 from yoke_core.domain.session_mode import set_session_mode
 from yoke_core.domain.session_native_process_observation import (
     AWAITING_SEAT_REPLY_STATUS,

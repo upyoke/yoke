@@ -10,8 +10,12 @@ from runtime.api.domain.machine_qa_host_test_support import (
     configure_test_machine,
 )
 from runtime.api.domain.machine_qa_session_seed import seed_qa_session
-from runtime.api.domain.test_deployment_qa_plan_groups import MEMBERS, RUN, _attach
-from runtime.api.domain.test_deployment_qa_stage_execution import (
+from runtime.api.domain.deployment_qa_plan_groups_test_support import (
+    MEMBERS,
+    RUN,
+    _attach,
+)
+from runtime.api.domain.deployment_qa_stage_execution_test_support import (
     _complete_case,
     _seed_run,
     _stages,

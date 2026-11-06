@@ -9,7 +9,7 @@ sweep would act on the session, which an active work claim always prevents.
 
 from __future__ import annotations
 
-from runtime.api.domain.handlers.test_sessions_list_handler import (
+from runtime.api.domain.handlers.sessions_list_handler_test_support import (
     _LONG_AGO_MINUTES,
     _insert_session,
 )

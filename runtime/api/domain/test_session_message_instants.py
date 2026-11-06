@@ -16,7 +16,7 @@ from yoke_core.domain.session_message_page import _select_ids, read_message_page
 from yoke_core.domain.session_message_service import send_message
 from yoke_core.domain.session_message_store import insert_message
 from yoke_core.domain.session_message_types import SessionMessageError, parse_timestamp
-from runtime.api.domain.test_session_message_support import (
+from runtime.api.domain.session_message_support_test_support import (
     NOW,
     message_connection,
     selector,

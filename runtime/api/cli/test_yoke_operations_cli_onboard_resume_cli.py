@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+from runtime.api.cli.yoke_operations_cli_onboard_apply_report_test_support import (_preview as _preview)
+
+
 import json
 from pathlib import Path
 from types import SimpleNamespace
@@ -16,23 +19,6 @@ from yoke_cli.config.project_clone_support import ClonePlan
 from yoke_cli.config.project_publish_support import PublishRequest
 
 pytestmark = pytest.mark.usefixtures("stub_onboard_session_relay")
-
-
-def _preview() -> dict:
-    return {
-        "operation": "onboard",
-        "mode": "quick",
-        "project_mode": "machine-only",
-        "config_path": "/tmp/home/config.json",
-        "plan": {
-            "project": None,
-            "steps": [
-                {"action": "create-or-validate-dir", "target": "/tmp/home"},
-                {"action": "set-active-env", "target": "stage"},
-                {"action": "store-token-reference", "target": "/tmp/token"},
-            ],
-        },
-    }
 
 
 def test_resume_writer_reuses_run_id_and_completed_steps(

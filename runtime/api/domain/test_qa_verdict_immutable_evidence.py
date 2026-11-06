@@ -5,8 +5,8 @@ import json
 import psycopg
 import pytest
 
-from runtime.api.domain.test_deployment_qa_run_settlement import (
-    test_late_recorded_verdict_links_actual_evidence_and_accepts_stage as exercise_late_verdict,
+from runtime.api.domain.deployment_qa_run_settlement_test_support import (
+    exercise_late_verdict,
 )
 from runtime.api.fixtures.qa_captured_plan_review_fixture import captured_plan_review
 from yoke_contracts.api.function_call import (

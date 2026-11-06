@@ -7,7 +7,7 @@ Covers the ``exclude_done``, ``exclude_cancelled``, ``exclude_frozen``, and
 from __future__ import annotations
 
 from runtime.api.fixtures.file_test_db import connect_test_db
-from runtime.api.test_api_helpers import test_db as test_db, client as client
+from runtime.api.api_helpers_test_support import test_db as test_db, client as client
 
 
 class TestQueueFiltering:

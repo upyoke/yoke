@@ -1,0 +1,345 @@
+"""Shared fixture and helpers for the test_service_client_sessions[_*] family."""
+
+from __future__ import annotations
+
+from yoke_core.domain.item_refs_schema import ensure_item_refs_view
+
+import json
+import os
+from pathlib import Path
+
+import pytest
+
+from runtime.api.fixtures.file_test_db import init_test_db
+from runtime.api.dependency_schema_test_support import (
+    ITEMS_SCHEMA,
+    ITEM_DEPENDENCIES_SCHEMA,
+    PROJECTS_SCHEMA,
+)
+from runtime.api.service_client_test_support import _run_client
+from runtime.api.constants_test_support import TEST_MODEL_ID
+from yoke_core.domain.work_claim_target_sql import TARGET_KIND_CHECK_SQL
+from yoke_core.domain.session_turn_posture import TURN_POSTURE_COLUMN_DDL
+from yoke_contracts.machine_config.schema import upsert_project_entry
+
+# Session/claim/event/actor tables the session lifecycle reads. ``actors``
+# is required on Postgres: register_session's validate_actor_id probe queries it
+# (the facade re-raises a missing relation as no-such-table). INTEGER PRIMARY KEY
+# and inline FK clauses are translated/stripped by the facade so the same DDL
+# applies on both backends through backend-routed statement execution.
+_SESSION_SCHEMA_DDL = f"""
+    CREATE TABLE harness_sessions (
+        session_id TEXT PRIMARY KEY,
+        executor TEXT NOT NULL,
+        executor_surface TEXT DEFAULT NULL,
+        provider TEXT NOT NULL,
+        model TEXT DEFAULT NULL,
+        reasoning_effort TEXT DEFAULT NULL,
+        context_window_tokens INTEGER DEFAULT NULL,
+        requested_model TEXT DEFAULT NULL,
+        requested_reasoning_effort TEXT DEFAULT NULL,
+        requested_context_window_tokens INTEGER DEFAULT NULL,
+        execution_level TEXT NOT NULL DEFAULT 'DARIUS',
+        executor_version TEXT, machine_id TEXT,
+        workspace TEXT,
+        project_id INTEGER NOT NULL DEFAULT 1 REFERENCES projects(id),
+        org_id INTEGER,
+        mode TEXT NOT NULL DEFAULT 'wait',
+        offered_at TIMESTAMPTZ NOT NULL,
+        last_heartbeat TIMESTAMPTZ NOT NULL,
+        ended_at TIMESTAMPTZ,
+        terminated_at TIMESTAMPTZ,
+        terminated_by_actor_id INTEGER,
+        terminated_by_session_id TEXT,
+        termination_reason TEXT,
+        offer_envelope TEXT,
+        current_item_id TEXT DEFAULT NULL,
+        current_item_set_at TIMESTAMPTZ DEFAULT NULL,
+        recent_item_id TEXT DEFAULT NULL,
+        recent_item_status TEXT DEFAULT NULL,
+        recent_item_recorded_at TIMESTAMPTZ DEFAULT NULL,
+        actor_id INTEGER DEFAULT NULL,
+        last_tool_call_at TIMESTAMPTZ DEFAULT NULL,
+        tool_call_count INTEGER NOT NULL DEFAULT 0,
+        episode_started_at TIMESTAMPTZ DEFAULT NULL,
+        pending_resume_notice TEXT DEFAULT NULL,
+        last_chain_step INTEGER DEFAULT NULL,
+        turn_posture {TURN_POSTURE_COLUMN_DDL},
+        turn_posture_at TIMESTAMPTZ DEFAULT NULL,
+        last_checkpoint_at TIMESTAMPTZ DEFAULT NULL
+    );
+
+    CREATE TABLE work_claims (
+    id INTEGER PRIMARY KEY,
+    session_id TEXT NOT NULL,
+    target_kind TEXT NOT NULL CHECK({TARGET_KIND_CHECK_SQL}),
+    scope TEXT NOT NULL,
+    claim_type TEXT NOT NULL DEFAULT 'exclusive' CHECK(claim_type='exclusive'),
+    claimed_at TIMESTAMPTZ NOT NULL,
+    last_heartbeat TIMESTAMPTZ NOT NULL,
+    released_at TIMESTAMPTZ,
+    release_reason TEXT CHECK(release_reason IS NULL OR release_reason IN ('completed','released','reclaimed','handed_off','expired','session_ended')),
+    reason TEXT DEFAULT NULL,
+    reason_intent TEXT DEFAULT NULL,
+    release_reason_intent TEXT DEFAULT NULL,
+    FOREIGN KEY (session_id) REFERENCES harness_sessions(session_id)
+);
+
+    CREATE TABLE IF NOT EXISTS path_claims (
+        id INTEGER PRIMARY KEY,
+        owner_kind TEXT,
+        owner_item_id INTEGER,
+        owner_session_id TEXT,
+        owner_work_claim_id INTEGER,
+        state TEXT,
+        mode TEXT,
+        integration_target TEXT,
+        registered_at TIMESTAMPTZ,
+        released_at TIMESTAMPTZ,
+        cancelled_at TIMESTAMPTZ,
+        release_reason TEXT
+    );
+
+    CREATE TABLE IF NOT EXISTS events (
+        id INTEGER PRIMARY KEY,
+        event_id TEXT UNIQUE,
+        event_name TEXT NOT NULL,
+        event_kind TEXT,
+        event_type TEXT,
+        source_type TEXT,
+        session_id TEXT,
+        severity TEXT DEFAULT 'INFO',
+        event_outcome TEXT,
+        org_id TEXT,
+        environment TEXT,
+        service TEXT,
+        project_id INTEGER DEFAULT 1 REFERENCES projects(id),
+        actor_id INTEGER,
+        item_id TEXT,
+        task_num INTEGER,
+        agent TEXT,
+        tool_name TEXT,
+        duration_ms INTEGER,
+        exit_code INTEGER,
+        trace_id TEXT,
+        anomaly_flags TEXT,
+        tool_use_id TEXT,
+        turn_id TEXT,
+        hook_event_name TEXT,
+        client_timing_id TEXT,
+        envelope TEXT,
+        created_at TIMESTAMPTZ NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS actors (status TEXT NOT NULL DEFAULT 'active',
+        id INTEGER PRIMARY KEY,
+        kind TEXT NOT NULL CHECK(kind IN ('human','system')),
+        system_component TEXT,
+        name TEXT NOT NULL DEFAULT '',
+        created_at TIMESTAMPTZ NOT NULL,
+        CHECK (
+            (kind = 'system' AND system_component IS NOT NULL)
+            OR
+            (kind = 'human' AND system_component IS NULL)
+        )
+    );
+"""
+
+
+def _apply_session_schema() -> None:
+    """``init_test_db`` ``apply_schema`` strategy for the session lifecycle family.
+
+    Builds the items / dependencies / session / claim / event / actor schema and
+    seeds the three canonical items on the backend-resolved test DB (``YOKE_DB``
+    on SQLite, the repointed per-test ``YOKE_PG_DSN`` on Postgres). Resolves its
+    own connection through the backend factory, satisfying the zero-arg contract.
+    """
+    from yoke_core.domain import db_backend
+    from yoke_core.domain.local_operating_actor import ensure_local_operating_actor
+    from runtime.api.sessions_api_stale_test_helpers import apply_ddl_statements
+
+    conn = db_backend.connect()
+    try:
+        apply_ddl_statements(
+            conn,
+            PROJECTS_SCHEMA,
+            ITEMS_SCHEMA,
+            ITEM_DEPENDENCIES_SCHEMA,
+            _SESSION_SCHEMA_DDL,
+        )
+        ensure_item_refs_view(conn)
+        # The dispatcher authorizes every mutation against the session's
+        # actor, so this fixture carries the org/role tables a real
+        # universe has and the operator grant that goes with them.
+        from yoke_core.domain.auth_schema import create_auth_tables
+        from yoke_core.domain.org_schema import create_org_tables
+        from yoke_core.domain.schema_init_actor_path_claim_tables import (
+            create_actor_identity_tables,
+        )
+
+        create_actor_identity_tables(conn)
+        create_auth_tables(conn)
+        create_org_tables(conn)
+        from yoke_core.domain.session_control_schema import (
+            create_session_control_tables,
+        )
+
+        create_session_control_tables(conn)
+        ensure_local_operating_actor(conn)
+        from yoke_core.domain.workflow_registry import (
+            converge_builtin_workflows,
+            resolve_current_workflow_pin,
+        )
+        from yoke_core.domain.workflow_schema import ensure_workflow_schema
+        from runtime.api.fixtures.level_store import create_level_store_tables
+
+        ensure_workflow_schema(conn)
+        converge_builtin_workflows(conn)
+        create_level_store_tables(conn)
+
+        # Seed items: one runnable, one done, one blocked
+        conn.execute(
+            """INSERT INTO items
+               (id, title, workflow_id, workflow_version_id, status, priority, project_id, project_sequence,
+                created_at, updated_at, source, frozen)
+               VALUES (10, 'Runnable task', 'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), 'refined-idea', 'high', 1, 10,
+                       '2026-03-01', '2026-03-01', 'user', 0)"""
+        )
+        conn.execute(
+            """INSERT INTO items
+               (id, title, workflow_id, workflow_version_id, status, priority, project_id, project_sequence,
+                created_at, updated_at, source, frozen)
+               VALUES (11, 'Done task', 'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), 'done', 'medium', 1, 11,
+                       '2026-03-01', '2026-03-01', 'user', 0)"""
+        )
+        conn.execute(
+            """INSERT INTO items
+               (id, title, workflow_id, workflow_version_id, status, priority, project_id, project_sequence,
+                created_at, updated_at, source, frozen)
+               VALUES (12, 'Blocked task', 'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), 'idea', 'low', 1, 12,
+                       '2026-03-01', '2026-03-01', 'user', 0)"""
+        )
+        conn.execute(
+            """INSERT INTO item_dependencies
+               (dependent_item_id, blocking_item_id, gate_point, satisfaction, source, rationale, created_at)
+               VALUES (12, 10, 'activation', 'status:done', 'shepherd', 'Task 12 depends on task 10', '2026-04-20T00:00:00Z')"""
+        )
+        workflow_id, workflow_version_id = resolve_current_workflow_pin(
+            conn,
+            "issue",
+        )
+        conn.execute(
+            "UPDATE items SET workflow_id = %s, workflow_version_id = %s",
+            (workflow_id, workflow_version_id),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def _map_session_workspace_home(
+    monkeypatch, workspace: str, project_id: int = 1
+) -> None:
+    """Map the isolated session workspace to the fixture project.
+
+    Registration resolves project identity through machine configuration.
+    Write that mapping for subprocess clients and patch it for in-process calls.
+    """
+    home = str(Path(workspace).resolve())
+    machine_home = Path(os.environ.get("YOKE_MACHINE_HOME") or "")
+    if machine_home:
+        machine_home.mkdir(parents=True, exist_ok=True)
+        config_file = machine_home / "config.json"
+        # Merge: the fixture universe has already recorded its connection
+        # and its operating actor here, and replacing the document drops
+        # the binding registration reads — leaving every session in these
+        # tests unable to name an actor.
+        payload = {}
+        if config_file.is_file():
+            payload = json.loads(config_file.read_text(encoding="utf-8"))
+        payload.setdefault("active_env", "local")
+        groups = payload.setdefault("connection_projects", {})
+        env = payload["active_env"]
+        groups[env] = upsert_project_entry(
+            groups.get(env),
+            checkout=home,
+            project_id=project_id,
+        )
+        config_file.write_text(json.dumps(payload), encoding="utf-8")
+
+    def _project_id(repo_root, path=None):
+        text = str(Path(repo_root).resolve())
+        return project_id if text == home or text.startswith(home + "/") else None
+
+    monkeypatch.setattr("yoke_core.domain.machine_config.project_id", _project_id)
+
+
+@pytest.fixture()
+def session_test_db(tmp_path, monkeypatch):
+    """Backend-aware DB with session tables and items for session lifecycle tests.
+
+    ``tmp_path`` doubles as the workspace: the per-test DB lives at
+    ``tmp_path/yoke.db`` (an ignored placeholder on Postgres — the connection
+    target is the repointed DSN), the SML ``strategy/`` dir and any adjacent
+    ``config`` file the test helpers read live under the same root.
+    """
+    monkeypatch.setenv("TMPDIR", str(tmp_path))
+    monkeypatch.setenv("YOKE_SCRATCH_ROOT", str(tmp_path / "scratch"))
+    with init_test_db(tmp_path, apply_schema=_apply_session_schema) as db_path:
+        from runtime.api.fixtures.operating_actor import record_fixture_operating_actor
+        from runtime.api.fixtures.file_test_db import connect_test_db
+        from yoke_core.domain.actors import sole_human_actor_id
+
+        # Machine homes are per-test, even when schema and seeded rows reuse
+        # a template. Record this checkout's actor before any registration.
+        with connect_test_db(db_path) as conn:
+            record_fixture_operating_actor(conn, sole_human_actor_id(conn, oldest=True))
+        # Create SML files so scheduler sees SML as coherent
+        strategy_dir = os.path.join(str(tmp_path), "strategy")
+        os.makedirs(strategy_dir, exist_ok=True)
+        for sml_file in ("MISSION.md", "LANDSCAPE.md", "VISION.md", "MASTER-PLAN.md"):
+            with open(os.path.join(strategy_dir, sml_file), "w") as f:
+                f.write(f"# {sml_file}\n")
+
+        workspace = str(tmp_path)
+        _map_session_workspace_home(monkeypatch, workspace)
+        yield {"db_path": db_path, "tmp_dir": workspace}
+
+
+def _pre_register_session(
+    db_path: str,
+    session_id: str,
+    executor: str = "claude-code",
+    provider: str = "anthropic",
+    requested_model: str = TEST_MODEL_ID,
+    workspace: str = "/tmp",
+    level: str = "primary",
+):
+    """Pre-register a session in the DB for lifecycle command tests.
+
+    Registration states an ask, so the model goes to ``requested_model``;
+    the served columns stay unattested until a harness artifact fills them.
+    Uses session-begin which is idempotent — safe to call multiple times.
+    """
+    r = _run_client(
+        [
+            "session-begin",
+            "--session-id",
+            session_id,
+            "--executor",
+            executor,
+            "--provider",
+            provider,
+            "--requested-model",
+            requested_model,
+            "--requested-reasoning-effort",
+            "medium",
+            "--workspace",
+            workspace,
+            "--project-id",
+            "1",
+        ],
+        db_path=db_path,
+    )
+    assert r.returncode == 0, f"session-begin failed: {r.stderr}"
+    return r

@@ -23,7 +23,7 @@ from yoke_harness.session_relay_native_diagnostics import (
     read_native_capture,
 )
 from yoke_harness.session_relay_inventory import ResolvedNativeCli
-from runtime.harness.test_session_relay_codex_cli_process import _request
+from runtime.harness.session_relay_codex_cli_process_test_support import _request
 
 
 @pytest.mark.parametrize("attach_capture", [False, True])

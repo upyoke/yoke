@@ -16,7 +16,7 @@ from yoke_core.domain.lint_workspace_repo_root_scan import (
     REPO_ROOT_REFERENCE_ALLOWLIST,
     scan_repo_root_references,
 )
-from runtime.api.domain.test_agents_render_workspace_fixtures import (
+from runtime.api.domain.agents_render_workspace_fixtures_test_support import (
     resolve_live_repo_root,
 )
 

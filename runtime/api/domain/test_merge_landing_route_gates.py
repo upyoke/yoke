@@ -8,7 +8,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from runtime.api.domain.test_merge_landing_readiness import _item, _run, merge  # noqa: F401
+from runtime.api.domain.merge_landing_readiness_test_support import _item, _run, merge  # noqa: F401
 from runtime.api.fixtures.backlog_inserts import insert_item
 from runtime.api.fixtures.file_test_db import connect_test_db, init_test_db
 from yoke_contracts.api.function_call import (

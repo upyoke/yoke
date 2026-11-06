@@ -2,7 +2,7 @@
 
 import pytest
 
-from runtime.api.tools.test_pulumi_exec_support import _stack_payload
+from runtime.api.tools.pulumi_exec_support_test_support import _stack_payload
 from yoke_core.tools import pulumi_exec_authority
 from yoke_core.tools.pulumi_exec import _authority_env
 

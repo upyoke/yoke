@@ -4,7 +4,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from runtime.api.domain.test_golden_harness_refresh import World, contract
+from runtime.api.domain.golden_harness_refresh_test_support import World, contract
 from yoke_contracts.machine_qa_failures import SSH_UNAVAILABLE, HostControlLocalError
 from yoke_core.domain import host_control_runner
 from yoke_core.domain import machine_qa_plan_case_execution as machine
@@ -72,7 +72,7 @@ def test_refresh_contact_flag_matches_step(monkeypatch, step):
 def test_refresh_ssh_failure_submits_unstarted_case_and_waits(
     test_db, tmp_path, monkeypatch
 ):
-    from runtime.api.domain.test_machine_qa_host_unreachable import (
+    from runtime.api.domain.machine_qa_host_unreachable_test_support import (
         _plan,
         _begin,
         _submit,

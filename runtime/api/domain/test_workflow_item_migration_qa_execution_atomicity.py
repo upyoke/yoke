@@ -8,10 +8,10 @@ from typing import Any
 
 import pytest
 
-from runtime.api.domain.test_qa_plan_execution_authority import (
+from runtime.api.domain.qa_plan_execution_authority_test_support import (
     _materialize_two_cases,
 )
-from runtime.api.domain.test_workflow_item_migration_compatibility import (
+from runtime.api.domain.workflow_item_migration_compatibility_test_support import (
     ITEM_ID,
     _pin,
     _seed_path_claim,

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from runtime.harness.test_session_relay_claude import CLAUDE_LOCAL_SETTINGS_JSON
+from runtime.harness.session_relay_claude_test_support import CLAUDE_LOCAL_SETTINGS_JSON
 from yoke_harness.session_relay_claude_native import ClaudeNativeInvocation
 
 

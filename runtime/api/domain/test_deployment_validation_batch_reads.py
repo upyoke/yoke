@@ -5,11 +5,13 @@ from unittest.mock import patch
 import pytest
 
 from runtime.api.fixtures.backlog_inserts import insert_item
-from runtime.api.domain.test_deployment_run_composition_lock_window import (
+from runtime.api.domain.deployment_run_composition_lock_window_test_support import (
     _carrying_run,
     _validate,
 )
-from runtime.api.domain.test_deployment_run_start_lock_window import _known_carried
+from runtime.api.domain.deployment_run_start_lock_window_test_support import (
+    _known_carried,
+)
 from runtime.api.tools.read_query_profile import CountedConnection
 from yoke_core.domain.deployment_runs_batch_compatibility import _not_delivery_ready
 from yoke_core.domain.deployment_run_skipped_candidates import carried_items_in_rework
@@ -93,7 +95,9 @@ def test_pinned_readiness_keeps_terminal_rules(test_db, status, ready):
 
 
 def test_held_candidate_notice_reads_do_not_grow_with_items(test_db):
-    from runtime.api.domain.test_deployment_membership_round_trips import _created_run
+    from runtime.api.domain.deployment_membership_round_trips_test_support import (
+        _created_run,
+    )
     from yoke_core.domain.deployment_run_skipped_candidates import _held_descriptions
     from yoke_core.domain.deployment_run_unheld_candidates import HeldCandidate
 

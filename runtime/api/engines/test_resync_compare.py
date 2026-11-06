@@ -6,6 +6,11 @@ _resync_test_helpers (private module).
 
 from __future__ import annotations
 
+from runtime.api.engines.resync_compare_test_support import (
+    _ComparisonFixtures as _ComparisonFixtures,
+)
+
+
 from typing import Dict, List
 
 # Shared fixture functions intentionally remain module globals for pytest.
@@ -33,15 +38,3 @@ class TestNormalizeBody:
     def test_double_backslash_collapse_multi(self):
         # a\\\\b -> collapse \\\\\\\\ to \\\\ to \\ -> a\b -> backspace
         assert normalize_body_for_compare("a\\\\\\\\b") == "a\x08"
-
-
-class _ComparisonFixtures:
-    def _make_gh_issues(
-        self,
-        items: List[Dict],
-    ) -> Dict[str, Dict[int, Dict]]:
-        """Build gh_by_project from a list of issue dicts."""
-        result: Dict[str, Dict[int, Dict]] = {"yoke": {}}
-        for item in items:
-            result["yoke"][item["number"]] = item
-        return result

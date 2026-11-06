@@ -2,8 +2,12 @@
 
 import pytest
 
-from runtime.api.domain.test_deployment_qa_plan_groups import RUN, _seed
-from runtime.api.domain.test_deployment_qa_stage_execution import _plan, _seed_run, _stages
+from runtime.api.domain.deployment_qa_plan_groups_test_support import RUN, _seed
+from runtime.api.domain.deployment_qa_stage_execution_test_support import (
+    _plan,
+    _seed_run,
+    _stages,
+)
 from runtime.api.fixtures.deployment_scoped_qa_run_fixture import record_case_verdict
 from runtime.api.fixtures.qa_declared_replacement_fixture import corrected_case, declare
 from yoke_core.domain.deployment_qa_pending_plans import pending_stage_plans

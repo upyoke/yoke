@@ -4,7 +4,7 @@ import logging
 
 import pytest
 
-from runtime.api.domain.test_installer_campaign_plan_sync import (
+from runtime.api.domain.installer_campaign_plan_sync_test_support import (
     source_checkout as source_checkout,
 )
 from runtime.api.fixtures.deployment_scoped_qa_run_fixture import create_smoke_plan

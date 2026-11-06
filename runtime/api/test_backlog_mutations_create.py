@@ -11,6 +11,9 @@ Shared fixtures and seed helpers are imported from
 
 from __future__ import annotations
 
+from runtime.api.domain.path_context_test_support import (_p as _p)
+
+
 import io
 import os
 from unittest import mock
@@ -29,10 +32,6 @@ from runtime.api.backlog_mutations_test_helpers import (
 )
 from yoke_core.domain import backlog, db_backend
 from yoke_core.domain.item_entry_surface import ITEM_ENTRY_SURFACE_ENV
-
-
-def _p(conn) -> str:
-    return "%s" if db_backend.connection_is_postgres(conn) else "?"
 
 
 def _issue_pin(conn):

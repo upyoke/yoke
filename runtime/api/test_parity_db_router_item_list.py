@@ -1,5 +1,6 @@
 # ruff: noqa: F811
 """Parity tests — item-list and item-count CLI commands."""
+
 from __future__ import annotations
 
 import os
@@ -10,7 +11,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
 from runtime.api.parity_db_router_test_fixtures import (  # noqa: F401
     item_query_env,
 )
-from runtime.api.test_parity import _run_db_router
+from runtime.api.parity_test_support import _run_db_router
 
 
 class TestItemListCLI:

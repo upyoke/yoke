@@ -3,8 +3,8 @@
 import json
 from datetime import timedelta
 
-from runtime.api.test_sessions import _insert_claimable_item, _register
-from runtime.api.test_sessions import conn as conn
+from runtime.api.sessions_test_support import _insert_claimable_item, _register
+from runtime.api.sessions_test_support import conn as conn
 from yoke_core.domain.session_control_schema import create_session_control_tables
 from yoke_core.domain.session_launch_execution import claim_assigned_launch
 from yoke_core.domain.session_launch_requests import create_launch
@@ -13,7 +13,7 @@ from yoke_core.domain.session_message_types import timestamp, utc_now
 from yoke_core.domain.session_relay_launch_progress import report_launch_progress
 from yoke_core.domain.sessions import claim_work, end_session_if_empty
 
-pytest_plugins = ("runtime.api.test_sessions",)
+pytest_plugins = ("runtime.api.sessions_test_support",)
 
 
 def test_ends_claimless_active_session(conn):

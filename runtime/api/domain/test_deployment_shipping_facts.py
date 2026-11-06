@@ -1,15 +1,15 @@
 """Presentation batching preserves unrun cases and live withdrawal authority."""
 
-from runtime.api.domain.test_deployment_qa_admission_execution import (
+from runtime.api.domain.deployment_qa_admission_execution_test_support import (
     _original_requirement,
 )
-from runtime.api.domain.test_deployment_qa_stage_execution import (
+from runtime.api.domain.deployment_qa_stage_execution_test_support import (
     _plan,
     _seed_run,
     _stages,
 )
-from runtime.api.domain.test_deployment_qa_shared_plans import _attach
-from runtime.api.domain.test_deployment_shipping_reads import CountedConnection
+from runtime.api.domain.deployment_qa_run_sharing_test_support import (_attach)
+from runtime.api.domain.deployment_shipping_reads_test_support import CountedConnection
 from runtime.api.fixtures.backlog_inserts import insert_item
 from yoke_core.domain.deployment_qa_frozen_plan_selection import member_requirements
 from yoke_core.domain.deployment_qa_presentation_reads import presentation_operation
@@ -150,7 +150,7 @@ def test_private_unrun_member_answers_match_scalar_authority(test_db):
 
 
 def test_pending_independent_review_remains_pending_then_refreshes(test_db):
-    from runtime.api.domain.test_qa_capture_pending_review import (
+    from runtime.api.domain.qa_capture_pending_review_test_support import (
         _seed_pending,
         _submit,
         MEMBER,
@@ -170,7 +170,9 @@ def test_pending_independent_review_remains_pending_then_refreshes(test_db):
 
 def test_case_environment_overrides_share_reads_and_refresh_next_request(test_db):
     import json
-    from runtime.api.domain.test_deployment_qa_stage_execution import _environment
+    from runtime.api.domain.deployment_qa_stage_execution_test_support import (
+        _environment,
+    )
     from yoke_core.domain.deployment_qa_member_plans import run_owed_plans
 
     _environment(test_db)
@@ -220,7 +222,9 @@ def test_case_environment_overrides_share_reads_and_refresh_next_request(test_db
 
 
 def test_verdict_projection_keeps_full_attempt_detail_independent(test_db):
-    from runtime.api.domain.test_deployment_qa_stage_execution import _complete_case
+    from runtime.api.domain.deployment_qa_stage_execution_test_support import (
+        _complete_case,
+    )
     from yoke_core.domain.qa_plan_execution_state import begin_plan_execution
     from yoke_core.domain.qa_latest_execution import (
         latest_executions,

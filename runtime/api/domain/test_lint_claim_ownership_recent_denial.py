@@ -18,7 +18,7 @@ from yoke_core.domain import lint_claim_ownership_mutations as lint
 from yoke_contracts.timestamps import utc_now
 from yoke_core.domain.work_claim_targets import make_item_target
 from runtime.api.fixtures.file_test_db import init_test_db
-from runtime.api.domain.test_lint_claim_ownership_mutations import (
+from runtime.api.domain.lint_claim_ownership_mutations_test_support import (
     _AMBIENT,
     _payload,
 )

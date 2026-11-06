@@ -9,11 +9,13 @@ import pytest
 
 from runtime.api.domain.session_launch_level_test_support import LEVEL, pin_live_workers
 from runtime.api.domain.session_launch_test_support import NOW, authorization
-from runtime.api.domain.test_session_launch_level_create import (
+from runtime.api.domain.session_launch_level_create_test_support import (
     _level_request,
     _two_options,
 )
-from runtime.api.domain.test_session_launch_terminal_admission import _create_conn
+from runtime.api.domain.session_launch_terminal_admission_test_support import (
+    _create_conn,
+)
 from runtime.api.fixtures.backlog_inserts import insert_item
 from runtime.api.fixtures.pg_testdb import test_database
 from yoke_contracts.session_control.models import LaunchCreateRequest

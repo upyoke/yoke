@@ -9,6 +9,11 @@ conflict; the re-home and fork remote steps are idempotent on a second run.
 
 from __future__ import annotations
 
+from runtime.api.cli.yoke_operations_cli_project_onboard_resume_test_support import (
+    _allow_local_clone as _allow_local_clone,
+)
+
+
 import json
 import subprocess
 from pathlib import Path
@@ -29,7 +34,6 @@ from yoke_cli.config import github_publish_transport
 from yoke_cli.config import project_clone_resume
 from yoke_cli.config import project_clone_support as clone
 from yoke_cli.config import project_onboard
-from yoke_cli.config import project_onboard_clone
 from yoke_cli.config.project_onboard import ProjectOnboardError
 
 
@@ -67,25 +71,6 @@ def _clone_into(tmp_path: Path, bare: Path, name: str) -> Path:
     _git(target, "config", "user.email", "t@example.com")
     _git(target, "config", "user.name", "Test")
     return target
-
-
-def _allow_local_clone(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Keep local-repo mechanics testable below the GitHub reference boundary."""
-
-    def passthrough(remote_url, **_kwargs):
-        return remote_url
-
-    monkeypatch.setattr(
-        project_onboard_clone,
-        "clean_remote_url",
-        passthrough,
-    )
-    monkeypatch.setattr(clone, "clean_remote_url", passthrough)
-    monkeypatch.setattr(
-        clone,
-        "isolated_remote_config",
-        lambda *args, **kwargs: ("core.askPass=",),
-    )
 
 
 # ── existing_clone_matches / origin_is ───────────────────────────────────

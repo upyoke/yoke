@@ -7,7 +7,7 @@ from unittest.mock import patch
 
 import pytest
 
-from runtime.api.domain.test_qa_plan_item_retract import (
+from runtime.api.domain.qa_plan_item_retract_test_support import (
     _attach_post_deploy,
     _retract,
 )

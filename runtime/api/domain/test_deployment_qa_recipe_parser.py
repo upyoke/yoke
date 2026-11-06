@@ -6,15 +6,28 @@ from unittest.mock import patch
 
 import pytest
 
-from runtime.api.domain.test_deployment_qa_plan_groups import RUN, SLUG, MEMBERS, _seed
-from runtime.api.domain.test_deployment_qa_stage_execution import _seed_run, _stages
-from yoke_core.domain.deployment_qa_plan_group_writes import ensure_groups, group_subject
+from runtime.api.domain.deployment_qa_plan_groups_test_support import (
+    RUN,
+    SLUG,
+    MEMBERS,
+    _seed,
+)
+from runtime.api.domain.deployment_qa_stage_execution_test_support import (
+    _seed_run,
+    _stages,
+)
+from yoke_core.domain.deployment_qa_plan_group_writes import (
+    ensure_groups,
+    group_subject,
+)
 from yoke_core.domain.deployment_qa_plan_groups import run_groups
 from yoke_core.domain.deployment_qa_plan_group_dispatch import _group_lines
 from yoke_core.domain.deployment_qa_plan_credit import _miss
 from yoke_core.domain.deployment_qa_failure_handoff import retry_command_for_stage
 from yoke_core.domain.deployment_qa_shared_execution import _begin_open_group
-from yoke_core.domain.qa_plan_execution_target_snapshot import execution_target_for_roster
+from yoke_core.domain.qa_plan_execution_target_snapshot import (
+    execution_target_for_roster,
+)
 from yoke_core.domain import qa_plan_execution_cli
 
 

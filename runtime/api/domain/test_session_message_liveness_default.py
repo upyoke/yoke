@@ -7,7 +7,7 @@ import json
 import pytest
 from pydantic import ValidationError
 
-from runtime.api.domain.test_session_message_support import (
+from runtime.api.domain.session_message_support_test_support import (
     NOW,
     NOW_TEXT,
     message_connection,

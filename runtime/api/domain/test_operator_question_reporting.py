@@ -2,14 +2,14 @@
 
 from datetime import timedelta
 
-from runtime.api.domain.test_steering_fleet_report_delivery import (
+from runtime.api.domain.steering_fleet_report_delivery_test_support import (
     steering_scope as steering_scope,
     NOW,
     STEERING_SESSION,
     PLAIN_SESSION,
     PROJECT_ID,
 )
-from runtime.api.domain.test_operator_question_integration import _call
+from runtime.api.domain.operator_question_integration_test_support import _call
 from yoke_core.domain.decision_request_question_filing import file_question
 from yoke_core.domain.decision_request_resolution import resolve_decision_request
 from yoke_core.domain.decision_requests import RoleAuthority
@@ -32,7 +32,7 @@ def test_light_poll_finds_hook_seen_answer_and_forces_one_outcome(
     steering_scope, monkeypatch
 ):
     conn = steering_scope
-    from runtime.api.domain.test_deployment_qa_stage_wake_delivery import (
+    from runtime.api.domain.deployment_qa_stage_wake_delivery_test_support import (
         _project,
         seed_session,
     )
@@ -123,7 +123,9 @@ def test_light_poll_finds_hook_seen_answer_and_forces_one_outcome(
 def test_project_less_questions_filter_viewer_in_report_poll_and_outcomes(
     steering_scope, monkeypatch
 ):
-    from runtime.api.domain.test_deployment_qa_stage_wake_delivery import seed_session
+    from runtime.api.domain.deployment_qa_stage_wake_delivery_test_support import (
+        seed_session,
+    )
     from yoke_core.domain.steering_fleet_report_compose import compose_held_reports
     from yoke_core.domain.steering_fleet_report_questions import read_questions
 

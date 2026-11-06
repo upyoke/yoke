@@ -7,8 +7,10 @@ from types import SimpleNamespace
 
 import pytest
 
-from runtime.api.domain import test_project_github_binding_lifecycle as lifecycle
-from runtime.api.domain.test_project_github_binding_lifecycle import (
+from runtime.api.domain import (
+    project_github_binding_lifecycle_test_support as lifecycle,
+)
+from runtime.api.domain.project_github_binding_lifecycle_test_support import (
     _project_owner_actor,
     _verified,
 )

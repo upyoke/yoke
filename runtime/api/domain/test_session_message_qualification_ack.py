@@ -18,12 +18,12 @@ from yoke_core.domain.session_private_route_qualification import (
     consume_qualification_grant,
     open_qualification_grant,
 )
-from runtime.api.domain.test_session_message_support import (
+from runtime.api.domain.session_message_support_test_support import (
     add_coordination_claim_schema,
     message_connection,
     selector,
 )
-from runtime.api.tools.test_session_control_live_acceptance_policy_support import (
+from runtime.api.tools.session_control_live_acceptance_policy_support_test_support import (
     CLAUDE_DESKTOP_EXACT_POLICY_CANDIDATE_VERSION,
     require_exact_desktop_active_policy,
 )
@@ -38,7 +38,9 @@ def _setup(monkeypatch):
     monkeypatch.setenv("YOKE_BUILD_SHA", RELEASE_SHA)
     conn = message_connection()
     add_coordination_claim_schema(conn)
-    from runtime.api.domain.test_session_message_support import seed_steering_seat
+    from runtime.api.domain.session_message_support_test_support import (
+        seed_steering_seat,
+    )
 
     seed_steering_seat(conn, session_id="s1", project_id=1)
     conn.execute("ALTER TABLE harness_sessions ADD COLUMN mode TEXT")

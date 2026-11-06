@@ -51,7 +51,7 @@ def test_editor_tokens_compare_instants_and_keep_microsecond_cas(
 
 @pytest.mark.parametrize("zone", SESSION_ZONES[1:])
 def test_successors_order_native_clocks_then_identity(test_db, zone):
-    from runtime.api.domain.test_deployment_flow_succession import _flow
+    from runtime.api.domain.deployment_flow_succession_test_support import _flow
 
     test_db.execute("SELECT set_config('TimeZone', %s, false)", (zone,))
     _flow(test_db, "clock-root", status="disabled")

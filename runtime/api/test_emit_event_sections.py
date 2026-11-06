@@ -8,15 +8,14 @@ These cases exercise CLI validation and DB writes through
 
 from __future__ import annotations
 
+from runtime.api.emit_event_test_helpers_test_support import (events_db as events_db)
+
 import pytest
 
 from yoke_contracts.session_identity import AMBIENT_ENV_VARS
 from yoke_core.domain import db_backend, emit_event
 from runtime.api.fixtures.file_test_db import connect_test_db
-from runtime.api.test_emit_event_test_helpers import (
-    TEST_ITEM_REF,
-    events_db,  # noqa: F401 — re-exported pytest fixture
-)
+from runtime.api.emit_event_test_helpers_test_support import TEST_ITEM_REF
 
 
 # Section 17: argument validation — every required flag and every enum value

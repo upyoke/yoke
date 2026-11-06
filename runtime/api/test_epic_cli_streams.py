@@ -9,7 +9,7 @@ from unittest.mock import patch
 import pytest
 
 from yoke_core.domain import epic
-from runtime.api.test_epic_tasks import db  # noqa: F401,F811
+from runtime.api.epic_tasks_test_support import db  # noqa: F401,F811
 
 
 @pytest.fixture(autouse=True)

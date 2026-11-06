@@ -2,6 +2,12 @@
 
 from __future__ import annotations
 
+from runtime.api.domain.worktree_preflight_steps_test_support import (
+    _patch_facade as _patch_facade,
+    _resp as _resp,
+)
+
+
 from types import SimpleNamespace
 
 from yoke_contracts.api.function_call import (
@@ -114,22 +120,6 @@ class TestCheckDirtyMain:
         blocked, kind, paths = steps.check_dirty_main("/repo")
         assert blocked is False
         assert (kind, paths) == ("", [])
-
-
-def _resp(function, *, result=None, success=True, error=None):
-    return FunctionCallResponse(
-        success=success,
-        function=function,
-        version="v1",
-        result=result or {},
-        error=error,
-    )
-
-
-def _patch_facade(monkeypatch, router):
-    from yoke_core.api import service_client_structured_api_adapter as facade
-
-    monkeypatch.setattr(facade, "call_dispatcher", router)
 
 
 class TestActivatePathClaims:

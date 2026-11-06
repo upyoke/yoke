@@ -7,7 +7,7 @@ import pytest
 from psycopg.errors import LockNotAvailable
 
 from runtime.api.domain._path_claims_test_helpers import HOLDER_SESSION_ID, local_human
-from runtime.api.domain.test_path_claim_boundary_gate_proof import (
+from runtime.api.domain.path_claim_boundary_gate_proof_test_support import (
     _remote_from,
     _seed_proof_case,
 )

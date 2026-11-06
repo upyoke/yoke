@@ -1,6 +1,6 @@
 """Replay immutability for completed batched agent inspection."""
 
-from runtime.api.domain.test_qa_plan_agent_review import _review_execution
+from runtime.api.domain.qa_plan_agent_review_test_support import _review_execution
 from runtime.api.fixtures.pg_testdb import test_database
 from yoke_core.domain.qa_plan_review import begin_plan_review
 from yoke_core.domain.qa_plan_review_submission import submit_plan_review

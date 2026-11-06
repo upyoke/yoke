@@ -5,7 +5,7 @@ from __future__ import annotations
 import os
 import subprocess
 
-from runtime.api.domain.test_worktree_create_multiworktree import (
+from runtime.api.domain.worktree_create_multiworktree_test_support import (
     _config_path,
     seed_multiworktree_epic,
 )

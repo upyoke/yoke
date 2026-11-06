@@ -4,7 +4,9 @@ from types import SimpleNamespace
 
 import pytest
 
-from runtime.api.domain import test_agent_mission_cleanup as cleanup_support
+from runtime.api.domain import (
+    agent_mission_cleanup_test_support as cleanup_support,
+)
 from yoke_core.domain.agent_mission_recording import handle_agent_mission_access
 
 RUN = cleanup_support.RUN
@@ -81,4 +83,3 @@ def test_walk_end_always_finishes_its_cleanup_lease(
     assert (finish["payload"]["restore"] is None) == local_failure
     output = capsys.readouterr()
     assert "private-token" not in output.out + output.err
-

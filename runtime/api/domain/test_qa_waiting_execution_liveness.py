@@ -5,7 +5,9 @@ from __future__ import annotations
 import pytest
 
 from runtime.api.domain.machine_qa_session_seed import seed_qa_session
-from runtime.api.domain.test_qa_plan_execution_authority import _materialize_two_cases
+from runtime.api.domain.qa_plan_execution_authority_test_support import (
+    _materialize_two_cases,
+)
 from yoke_contracts.timestamps import utc_now
 from yoke_core.domain.qa_plan_execution_authority import (
     plan_execution_abort_authority,

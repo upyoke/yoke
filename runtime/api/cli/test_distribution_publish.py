@@ -7,7 +7,10 @@ from pathlib import Path
 
 import pytest
 
-from runtime.api.cli.test_yoke_package_index import _record, _sample_release
+from runtime.api.cli.yoke_package_index_test_support import (
+    _record,
+    _sample_release,
+)
 from yoke_core.tools import distribution_publish, package_index, release_artifacts
 
 SOURCE_COMMIT = "a" * 40

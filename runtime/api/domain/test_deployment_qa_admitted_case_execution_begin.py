@@ -18,7 +18,7 @@ import pytest
 from runtime.api.domain.machine_qa_host_test_support import (
     configure_test_machine,
 )
-from runtime.api.domain.test_deployment_qa_admission_execution import (
+from runtime.api.domain.deployment_qa_admission_execution_test_support import (
     _seed_selected_requirement_run,
 )
 from runtime.api.fixtures.backlog_inserts import insert_item

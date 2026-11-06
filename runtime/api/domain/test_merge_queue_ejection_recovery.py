@@ -5,7 +5,7 @@ from dataclasses import replace
 import pytest
 
 from runtime.api.domain.merge_queue_observer_test_helpers import observer_connection
-from runtime.api.domain.test_session_message_support import NOW
+from runtime.api.domain.session_message_support_test_support import NOW
 from yoke_core.domain.merge_queue_enqueue_verification import LandingReadback
 from yoke_core.domain.merge_queue_ejection_recovery import recover_ejection
 from yoke_core.domain.merge_queue_landing_record import (

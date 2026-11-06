@@ -217,7 +217,11 @@ def test_a_change_confined_to_the_managed_block_stays_ours(
 
 def test_installer_commit_preserves_already_staged_deletion(tmp_path):
     from yoke_cli.project_install import checkout_gate
-    from runtime.api.cli.test_project_install_recovery import _commit, _file, _git
+    from runtime.api.cli.project_install_recovery_test_support import (
+        _commit,
+        _file,
+        _git,
+    )
 
     _git(tmp_path, "init")
     rel = ".agents/skills/yoke/SKILL.md"
@@ -236,7 +240,11 @@ def test_interrupted_native_link_apply_preserves_canonical_edits(tmp_path):
     import json
     from yoke_cli.project_install import install_recovery as recovery
     from yoke_cli.project_install.files import sha256_text
-    from runtime.api.cli.test_project_install_recovery import _commit, _file, _git
+    from runtime.api.cli.project_install_recovery_test_support import (
+        _commit,
+        _file,
+        _git,
+    )
 
     _git(tmp_path, "init")
     canonical = ".agents/skills/yoke/SKILL.md"

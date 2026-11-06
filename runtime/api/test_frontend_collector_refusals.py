@@ -6,7 +6,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from runtime.api import test_frontend_events as collector_tests
+from runtime.api import frontend_events_test_support as collector_tests
 from yoke_contracts.timestamps import format_instant, parse_instant
 from yoke_core.api import frontend_events_config
 from yoke_core.api.routes import frontend_events

@@ -13,7 +13,7 @@ from yoke_cli.config import github_git_credential_helper
 from yoke_cli.config import github_git_credential_store as credential_store
 from yoke_cli.config import github_machine_operation
 
-from .github_user_token_test_support import NOW, configured_credential
+from runtime.api.cli.github_user_token_test_support import NOW, configured_credential
 
 
 def test_unsafe_operation_lock_parent_names_the_path(tmp_path, monkeypatch):

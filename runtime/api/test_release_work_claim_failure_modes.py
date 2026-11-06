@@ -17,6 +17,8 @@ is covered separately in ``test_service_client_sessions_release_item.py``.
 
 from __future__ import annotations
 
+from runtime.api.sessions_test_support import (conn as conn)
+
 from unittest.mock import patch
 from yoke_contracts.timestamps import parse_instant
 
@@ -32,11 +34,7 @@ from yoke_core.domain.sessions_lifecycle_release_failure import (
     RELEASE_FAILURE_NOT_OWNED,
 )
 from yoke_core.domain.work_claim_targets import make_item_target
-from runtime.api.test_sessions import (
-    _insert_claimable_items,
-    _register,
-    conn,  # noqa: F401
-)
+from runtime.api.sessions_test_support import _insert_claimable_items, _register
 
 
 _FAILED_EVENT = "ItemClaimReleaseFailed"

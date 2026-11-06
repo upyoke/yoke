@@ -1,6 +1,11 @@
 """Permanent conversion preflights owned documents and dependent projections."""
 
-import importlib
+from runtime.api.domain.native_instant_history_test_support import (
+    STAMP as STAMP,
+    history as history,
+)
+
+
 import json
 
 import pytest
@@ -11,11 +16,6 @@ from yoke_contracts.schema_authority import SchemaAuthorityRefused
 from yoke_contracts.timestamps import format_instant
 from yoke_core.domain.migrations import _native_instant_documents as documents
 from yoke_core.domain.stored_instant_columns import STORED_INSTANT_COLUMNS
-
-history = importlib.import_module(
-    "yoke_core.domain.migrations.0070_native_domain_instants"
-)
-STAMP = "2026-10-08T16:30:00.123456Z"
 
 
 @pytest.mark.parametrize("zone", SESSION_ZONES[1:])

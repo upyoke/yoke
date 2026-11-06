@@ -12,7 +12,7 @@ from unittest import mock
 
 from yoke_core.domain import lint_main_commit
 from yoke_harness.hooks import main_commit_client
-from runtime.api.domain.test_lint_main_commit import (
+from runtime.api.domain.lint_main_commit_test_support import (
     TEST_ITEM_REF,
     _evaluate_payload,
     _payload,

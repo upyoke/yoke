@@ -4,7 +4,7 @@ from dataclasses import replace
 
 import pytest
 
-from runtime.api.domain.test_webapp_registry_stack import _Recorder
+from runtime.api.domain.webapp_registry_stack_test_support import _Recorder
 from runtime.api.domain.webapp_runner_fleet_test_support import (
     _authority_envelope,
     _runner_stack,

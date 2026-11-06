@@ -15,7 +15,17 @@ merge is allowed to move the release, and when the lineage may be written.
 
 from __future__ import annotations
 
-import pytest
+from runtime.api.prepared_release_continuation_test_support import (
+    CONSUMER_ITEM as CONSUMER_ITEM,
+    MERGE_COMMIT as MERGE_COMMIT,
+    OTHER_COMMIT as OTHER_COMMIT,
+    PRODUCER_ITEM as PRODUCER_ITEM,
+    _mark_merged as _mark_merged,
+    _pair_edge as _pair_edge,
+    db_path as db_path,
+    prepared_run as prepared_run,
+)
+
 
 from yoke_core.domain import deployment_runs as dr
 from yoke_core.domain import deployment_runs_crud_mutate as mutate
@@ -29,60 +39,15 @@ from yoke_core.domain.deployment_run_pair_obligations import (
     split_runs_by_target_environment,
 )
 from yoke_core.domain.deployment_runs_validation import cmd_validate_composition
-from runtime.api.test_deployment_runs_full_helpers import (  # noqa: F401
+from runtime.api.deployment_runs_full_helpers_test_support import (
     _conn,
     _insert_delivery_ready_item,
-    db_path,
 )
 
 
-PRODUCER_ITEM = 9101
-CONSUMER_ITEM = 9102
 #: The fixture seeds exactly one environment for this project.
 PROD_ENVIRONMENT_ID = 201
 STAGE_ENVIRONMENT_ID = 204
-MERGE_COMMIT = "a" * 40
-OTHER_COMMIT = "b" * 40
-
-
-def _pair_edge(db_path: str, dependent: int, blocker: int) -> None:
-    """Record the delivery-waits-for-that-merge edge the runtime reads."""
-    conn = _conn(db_path)
-    try:
-        conn.execute(
-            "INSERT INTO item_dependencies ("
-            "dependent_item_id, blocking_item_id, gate_point, satisfaction, "
-            "source, rationale, created_at"
-            ") VALUES (%s, %s, 'integration', 'fact:merged', 'operator', "
-            "'breaking contract pair', '2026-07-28T00:00:00Z')",
-            (dependent, blocker),
-        )
-        conn.commit()
-    finally:
-        conn.close()
-
-
-def _mark_merged(db_path: str, item_id: int) -> None:
-    conn = _conn(db_path)
-    try:
-        conn.execute(
-            "UPDATE items SET merged_at='2026-07-28T01:00:00Z' WHERE id=%s",
-            (item_id,),
-        )
-        conn.commit()
-    finally:
-        conn.close()
-
-
-@pytest.fixture
-def prepared_run(db_path):
-    """A run prepared for the producer while the consumer has not merged."""
-    _insert_delivery_ready_item(db_path, PRODUCER_ITEM)
-    _insert_delivery_ready_item(db_path, CONSUMER_ITEM)
-    _pair_edge(db_path, PRODUCER_ITEM, CONSUMER_ITEM)
-    run_id = dr.cmd_create_run("yoke", "yoke-internal", db_path=db_path)
-    mutate.cmd_add_item(run_id, PRODUCER_ITEM, db_path=db_path)
-    return run_id
 
 
 class TestPreparingBeforeThePairLands:

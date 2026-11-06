@@ -16,7 +16,7 @@ from runtime.api.tools.session_control_live_acceptance_contract import (
 from runtime.api.tools.session_control_live_acceptance_roster import (
     waiting_registration_ready,
 )
-from runtime.api.tools.test_session_control_live_acceptance_driver import (
+from runtime.api.tools.session_control_live_acceptance_driver_test_support import (
     _ScenarioClient,
     _driver,
 )

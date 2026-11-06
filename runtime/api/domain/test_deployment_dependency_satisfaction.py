@@ -3,21 +3,20 @@
 
 from __future__ import annotations
 
+from runtime.api.deployment_runs_full_helpers_test_support import (db_path as db_path)
+from runtime.api.domain.dependency_deployed_satisfaction_test_support import (dependency_conn as dependency_conn)
+
 import json
 from typing import Any
 
-from runtime.api.test_deployment_runs_full_helpers import (  # noqa: F401
-    _conn,
-    db_path,
-)
+from runtime.api.deployment_runs_full_helpers_test_support import _conn
 from yoke_core.domain import deployment_runs as dr
 from yoke_core.domain.dependency_satisfaction import evaluate_persisted_satisfaction
 from yoke_core.domain.workflow_registry import resolve_current_workflow_pin
-from runtime.api.domain.test_dependency_deployed_satisfaction import (
+from runtime.api.domain.dependency_deployed_satisfaction_test_support import (
     WORKFLOW,
     _insert_item as insert_dependency_item,
     _insert_run,
-    dependency_conn,  # noqa: F401
 )
 
 

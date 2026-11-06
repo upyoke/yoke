@@ -5,7 +5,9 @@ from types import SimpleNamespace
 
 import pytest
 
-from runtime.api.cli.test_admission_commands import transport as _transport_fixture
+from runtime.api.cli.admission_commands_test_support import (
+    transport as _transport_fixture,
+)
 from yoke_cli.commands import registry
 from yoke_cli.commands.adapters import tokens
 from yoke_cli.commands.adapters.admission_floor_recovery import (

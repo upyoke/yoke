@@ -8,10 +8,7 @@ from __future__ import annotations
 
 import pytest
 
-from runtime.api.test_sessions import (
-    _register,
-    conn as conn,
-)
+from runtime.api.sessions_test_support import _register, conn as conn
 
 
 class TestRegisterCanonicalizesExecutor:

@@ -227,7 +227,9 @@ def test_explicit_empty_project_scope_never_becomes_unscoped(test_db):
 
 
 def test_multi_project_roster_never_widens_unknown_project_scope(test_db):
-    from runtime.api.domain.test_ouroboros_https_permissions import _project_owner
+    from runtime.api.domain.ouroboros_https_permissions_test_support import (
+        _project_owner,
+    )
 
     actor = _project_owner(test_db, "yoke")
     _seed(test_db, timestamp="2026-01-01T00:00:00Z", body="allowed")
@@ -257,8 +259,10 @@ def test_multi_project_roster_respects_explicit_actor_visibility(test_db, monkey
 
 
 def test_focused_roster_authorizes_before_reading_only_its_project(test_db):
-    from runtime.api.domain.test_ouroboros_https_permissions import _project_owner
-    from runtime.api.domain.test_yoke_function_permissions import _entry
+    from runtime.api.domain.ouroboros_https_permissions_test_support import (
+        _project_owner,
+    )
+    from runtime.api.domain.yoke_function_permissions_test_support import _entry
     from yoke_core.domain.yoke_function_permissions import check_dispatch_permission
 
     actor = _project_owner(test_db, "yoke")
@@ -278,7 +282,10 @@ def test_focused_roster_authorizes_before_reading_only_its_project(test_db):
     assert outcome.result_payload["matching_count"] == 1
     assert outcome.result_payload["entries"][0]["preview"] == "allowed"
     request.payload["project"] = "externalwebapp"
-    assert check_dispatch_permission(test_db, _entry(request.function), request).error is None
+    assert (
+        check_dispatch_permission(test_db, _entry(request.function), request).error
+        is None
+    )
     denied = ouroboros_reads.handle_ouroboros_entry_list(request)
     assert not denied.primary_success
     assert not denied.result_payload.get("entries")

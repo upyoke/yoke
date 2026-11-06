@@ -10,7 +10,7 @@ the sender project's own seat still leaves it alone.
 
 from __future__ import annotations
 
-from runtime.api.domain.test_session_message_support import (
+from runtime.api.domain.session_message_support_test_support import (
     IDLE_WAKE_SESSION_ID,
     NOW,
     NOW_TEXT,

@@ -2,23 +2,25 @@
 
 from __future__ import annotations
 
-from runtime.api.domain.test_deployment_qa_stage_wake_delivery import (
+from runtime.api.domain.qa_aborted_review_ownership_test_support import (
+    OWNER as OWNER,
+    _fail_run as _fail_run,
+)
+
+
+from runtime.api.domain.deployment_qa_stage_wake_delivery_test_support import (
     _bodies,
     _claim,
     _project,
     _recipients,
     seed_session,
 )
-from runtime.api.domain.test_qa_capture_pending_review import (
+from runtime.api.domain.qa_capture_pending_review_test_support import (
     MEMBER,
     _acceptance,
     _seed_pending,
 )
 from yoke_core.domain.deployment_qa_stage_acceptance import STAGE_AWAITING_REVIEW
-from yoke_core.domain.qa_deployment_run_settlement import (
-    restore_retry_obligations,
-    settle_unsuccessful_run,
-)
 from yoke_core.domain.qa_pending_agent_review import (
     pending_review_for_requirement,
     pending_review_requirements,
@@ -28,16 +30,7 @@ from yoke_core.domain.qa_plan_settled_review import (
 )
 from yoke_core.domain.work_claim_targets import make_item_target
 
-OWNER = "capture-session"
 HOLDER = "member-holder"
-
-
-def _fail_run(conn, execution):
-    """The incident's stop: the run fails mid-capture, then is retried."""
-    run_id = execution["deployment_run_id"]
-    settle_unsuccessful_run(conn, run_id, reason=f"deployment run {run_id} failed")
-    restore_retry_obligations(conn, run_id)
-    conn.commit()
 
 
 def _review_begin(run_id: str, execution: dict) -> str:
@@ -99,7 +92,7 @@ def test_gone_owner_hands_the_review_to_each_waiting_member(test_db):
 
 
 def test_submitted_review_withdraws_a_member_scoped_wake(test_db):
-    from runtime.api.domain.test_qa_capture_pending_review import _submit
+    from runtime.api.domain.qa_capture_pending_review_test_support import _submit
 
     _project(test_db)
     seed_session(test_db, HOLDER)

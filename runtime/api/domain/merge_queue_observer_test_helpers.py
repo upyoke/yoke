@@ -13,7 +13,10 @@ from datetime import datetime, timezone
 
 from yoke_contracts.timestamps import format_instant
 
-from runtime.api.domain.test_session_message_support import NOW, message_connection
+from runtime.api.domain.session_message_support_test_support import (
+    NOW,
+    message_connection,
+)
 from yoke_core.domain.merge_queue_landing_observer import observe_pending_landings
 from yoke_core.domain.merge_queue_landing_record_schema import (
     ensure_merge_queue_landing_record_schema,

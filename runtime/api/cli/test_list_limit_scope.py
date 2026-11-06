@@ -7,7 +7,7 @@ from unittest.mock import patch
 import pytest
 
 from yoke_contracts.api.function_call import FunctionCallRequest, FunctionCallResponse
-from runtime.api.cli.test_yoke_operations_cli_dispatch import (
+from runtime.api.cli.yoke_operations_cli_dispatch_test_support import (
     _run_capture,
     _stub_dispatch_ok,
 )

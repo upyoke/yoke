@@ -13,7 +13,7 @@ from yoke_contracts.api.function_call import (
     FunctionError,
 )
 
-from runtime.api.cli.test_yoke_operations_cli_dev_db_admin_setup import (
+from runtime.api.cli.yoke_operations_cli_dev_db_admin_setup_test_support import (
     _env,
     _identity_response,
     pytestmark,

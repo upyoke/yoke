@@ -23,8 +23,12 @@ from runtime.api.fixtures.carried_release_candidate import (
     release_repository,
     serve_repository,
 )
-from runtime.api.domain.test_github_actions_rest import _RESOLVED
-from yoke_contracts.api.function_call import ActorContext, FunctionCallRequest, TargetRef
+from runtime.api.domain.github_actions_rest_test_support import _RESOLVED
+from yoke_contracts.api.function_call import (
+    ActorContext,
+    FunctionCallRequest,
+    TargetRef,
+)
 from yoke_core.domain import deployment_run_ci_tested_source as tested
 from yoke_core.domain.deployment_item_delivery_owner import CARRIER_IN_FLIGHT
 from yoke_core.domain.deployment_run_create_write import CreatedRun

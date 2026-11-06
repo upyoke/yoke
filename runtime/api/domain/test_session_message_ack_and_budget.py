@@ -10,7 +10,7 @@ from yoke_core.domain.session_message_delivery import (
 )
 from yoke_core.domain.session_message_queries import get_message
 from yoke_core.domain.session_message_service import send_message
-from runtime.api.domain.test_session_message_support import (
+from runtime.api.domain.session_message_support_test_support import (
     page_rows,
     pin_message_clocks,
     NOW,

@@ -5,7 +5,9 @@ import json
 
 import pytest
 
-from runtime.api.domain import test_agent_mission_cleanup as cleanup_support
+from runtime.api.domain import (
+    agent_mission_cleanup_test_support as cleanup_support,
+)
 from runtime.api.domain.machine_operation_test_support import MACHINE
 from runtime.api.domain.machine_qa_fixture_lifecycle_test_support import case_contract
 from runtime.api.domain.machine_qa_host_test_support import configure_test_machine
@@ -68,7 +70,7 @@ def test_current_mission_restore_records_debt_only_from_its_holder(
 def test_case_capture_persists_unproven_restore_debt(
     test_db, tmp_path, monkeypatch, baseline, restored, error, ends_chain, owed
 ):
-    from runtime.api.domain.test_machine_reset_debt import verified_reset
+    from runtime.api.domain.machine_reset_debt_test_support import verified_reset
 
     configure_test_machine(test_db, tmp_path, monkeypatch)
     verified_reset(test_db, MACHINE, "shell-preconfigured")
@@ -120,7 +122,7 @@ def test_mission_replay_uses_accepted_contract_after_reset_and_new_debt(
     test_db, tmp_path, monkeypatch
 ):
     from runtime.api.domain.machine_qa_test_support import FakeHostControl
-    from runtime.api.domain.test_agent_mission_qa import (
+    from runtime.api.domain.agent_mission_qa_test_support import (
         ACTOR,
         _materialize_mission,
         _request,
@@ -140,7 +142,7 @@ def test_mission_replay_uses_accepted_contract_after_reset_and_new_debt(
     configure_test_machine(test_db, tmp_path, monkeypatch)
     item_id = 7891
     requirement = _materialize_mission(test_db, item_id=item_id)
-    from runtime.api.domain.test_machine_reset_debt import verified_reset
+    from runtime.api.domain.machine_reset_debt_test_support import verified_reset
 
     verified_reset(test_db, MACHINE, "shell-preconfigured")
     record_reset_owed(  # An as-is chain names the host's last verified baseline.

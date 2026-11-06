@@ -9,12 +9,12 @@ import pytest
 from yoke_core.domain.session_message_page import read_message_page
 from yoke_core.domain.session_message_service import send_message
 from yoke_core.domain.session_message_types import SessionMessageError
-from runtime.api.domain.test_session_message_support import (
+from runtime.api.domain.session_message_support_test_support import (
     NOW,
     message_connection,
     selector,
 )
-from runtime.api.domain.test_steering_role_addressed_messages import (
+from runtime.api.domain.steering_role_addressed_messages_test_support import (
     PROJECT_SCOPE,
     _say_steering,
     _seat,

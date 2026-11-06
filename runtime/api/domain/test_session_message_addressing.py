@@ -6,7 +6,7 @@ from yoke_core.domain.actor_permissions import ROLE_ADMIN, grant_actor_org_role
 from yoke_core.domain.session_message_service import preview_message, send_message
 from yoke_core.domain.session_message_selectors import resolve_recipients
 from yoke_core.domain.session_message_types import SessionMessageError
-from runtime.api.domain.test_session_message_support import (
+from runtime.api.domain.session_message_support_test_support import (
     NOW,
     message_connection,
     pin_message_clocks,

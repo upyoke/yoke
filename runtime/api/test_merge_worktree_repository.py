@@ -6,7 +6,7 @@ from pathlib import Path
 import pytest
 
 from runtime.api import merge_worktree_test_repository as repositories
-from runtime.api.test_merge_worktree_full import TEST_BRANCH, _git
+from runtime.api.merge_worktree_full_test_support import TEST_BRANCH, _git
 
 
 def test_module_template_is_built_once_and_copies_are_independent(

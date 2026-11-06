@@ -9,13 +9,10 @@ from __future__ import annotations
 import pytest
 from unittest.mock import patch
 
-from runtime.api.test_constants import TEST_MODEL_ID
+from runtime.api.constants_test_support import TEST_MODEL_ID
 from yoke_contracts.session_model_facts import SessionModelFacts
-from runtime.api.test_sessions import (
-    _insert_claimable_item,
-    _p,
-    _register,
-)
+from runtime.api.sessions_test_support import (_insert_claimable_item, _register)
+from runtime.api.domain.path_context_test_support import (_p)
 from yoke_core.domain.sessions import (
     EVENT_HARNESS_SESSION_STARTED,
     SessionError,
@@ -25,7 +22,7 @@ from yoke_core.domain.sessions import (
     register_session,  # noqa: F401  (re-exported for downstream callers)
 )
 
-pytest_plugins = ("runtime.api.test_sessions",)
+pytest_plugins = ("runtime.api.sessions_test_support",)
 
 
 # ---------------------------------------------------------------------------

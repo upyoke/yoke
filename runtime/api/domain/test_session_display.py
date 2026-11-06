@@ -5,7 +5,7 @@ from yoke_core.domain.decision_request_requester_label import requester_labels
 from yoke_core.domain.session_message_display import project_session_names
 from yoke_core.domain.session_message_list_row import message_list_row
 from yoke_core.domain.steering_fleet_report_labels import label_text
-from runtime.api.domain.test_session_message_support import message_connection, NOW
+from runtime.api.domain.session_message_support_test_support import message_connection, NOW
 
 
 def test_human_title_holds_and_read_time_rename(monkeypatch):
@@ -60,7 +60,7 @@ def test_launched_item_title_and_most_recent_released_claim(monkeypatch):
 def test_roster_and_summary_expose_labels_without_changing_identity():
     from yoke_core.domain.session_control_roster import session_control_roster_result
     from yoke_core.domain.sessions_list_read import session_summary_result
-    from runtime.api.domain.test_session_control_roster import (
+    from runtime.api.domain.session_control_roster_test_support import (
         _connection,
         _add_session,
         _base_row,

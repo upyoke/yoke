@@ -1,14 +1,14 @@
 # ruff: noqa: F811
 """Service-client charge-frontier and charge-schedule tests."""
+
 from __future__ import annotations
+
+from runtime.api.api_deploy_test_helpers_test_support import (frontier_db as frontier_db)
 
 import json
 import os
 
-from runtime.api.test_api_deploy_test_helpers import (
-    frontier_db,  # noqa: F401 — re-exported pytest fixture
-)
-from runtime.api.test_service_client import (
+from runtime.api.service_client_test_support import (
     _REPO_ROOT,
     _service_client_cmd,
     _with_source_pythonpath,

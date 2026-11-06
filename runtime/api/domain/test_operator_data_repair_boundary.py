@@ -1,5 +1,10 @@
 """Steering-seat authorization, review digest and closed SQL grammar boundaries."""
 
+from runtime.api.domain.operator_data_repair_boundary_test_support import (
+    _Unclosed as _Unclosed,
+)
+
+
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -104,19 +109,6 @@ def test_semicolons_in_strings_are_not_statement_boundaries():
     assert stmt.changed_columns == ("body",)
 
 
-class _Unclosed:
-    """Keep the shared test connection open across the handler's close()."""
-
-    def __init__(self, inner):
-        self._inner = inner
-
-    def __getattr__(self, name):
-        return getattr(self._inner, name)
-
-    def close(self):
-        pass
-
-
 def _repair_request(session):
     plan = document()
     return FunctionCallRequest(
@@ -138,8 +130,10 @@ def _repair_request(session):
 def test_steering_seat_on_the_document_project_authorizes_repair(
     session, project, code
 ):
-    from runtime.api.domain.test_session_message_support import message_connection
-    from runtime.api.domain.test_steering_operation_authority import seat
+    from runtime.api.domain.session_message_support_test_support import (
+        message_connection,
+    )
+    from runtime.api.domain.steering_operation_authority_test_support import seat
 
     conn = message_connection()
     seat(conn, project=project)

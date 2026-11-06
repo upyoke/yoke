@@ -3,16 +3,14 @@
 
 from __future__ import annotations
 
+from runtime.api.sessions_test_support import (conn as conn)
+
 from unittest.mock import patch
 
 import pytest
 
-from runtime.api.test_sessions import (
-    _insert_claimable_items,
-    _register,
-    conn,  # noqa: F401
-)
-from runtime.api.test_dependency_schema import ITEMS_SCHEMA
+from runtime.api.sessions_test_support import _insert_claimable_items, _register
+from runtime.api.dependency_schema_test_support import ITEMS_SCHEMA
 from yoke_core.domain.sessions import (
     EVENT_WORK_RELEASED,
     claim_work,

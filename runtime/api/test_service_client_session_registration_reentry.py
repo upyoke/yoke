@@ -4,8 +4,8 @@ import json
 from yoke_contracts.timestamps import parse_instant
 
 from runtime.api.fixtures.file_test_db import connect_test_db
-from runtime.api.test_service_client import _run_client
-from runtime.api.test_service_client_sessions_helpers import (
+from runtime.api.service_client_test_support import _run_client
+from runtime.api.service_client_sessions_helpers_test_support import (
     session_test_db as session_test_db,
 )
 

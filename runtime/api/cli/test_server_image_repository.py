@@ -146,11 +146,8 @@ def test_wizard_repository_choice_validates_and_returns_to_preview(
     tmp_path, monkeypatch
 ):
     import asyncio
-    from runtime.api.cli.test_yoke_operations_cli_onboard_wizard_self_host import (
-        _app,
-        _open_preview,
-        _body_text,
-    )
+    from runtime.api.cli.yoke_operations_cli_onboard_wizard_self_host_test_support import (_app, _open_preview)
+    from runtime.api.cli.yoke_operations_cli_onboard_wizard_publish_capability_test_support import (_body_text)
     from runtime.api.cli.onboard_wizard_test_helpers import stub_path_doctor, type_text
 
     stub_path_doctor(monkeypatch)

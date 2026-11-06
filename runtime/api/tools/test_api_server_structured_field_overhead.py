@@ -16,7 +16,7 @@ from unittest import mock
 from yoke_core.tools import api_server
 import pytest
 
-from runtime.api.tools.test_api_server import (
+from runtime.api.tools.api_server_test_support import (
     DISPATCHER_OVERHEAD_BUDGET_MS,
     DISPATCHER_OVERHEAD_SAMPLES,
     DISPATCHER_OVERHEAD_WARMUP,

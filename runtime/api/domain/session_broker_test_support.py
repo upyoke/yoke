@@ -6,7 +6,7 @@ from yoke_contracts.timestamps import format_instant
 from yoke_core.domain.session_broker_wake import lease_broker_wake_for_hook
 from yoke_core.domain.session_message_service import send_message
 from yoke_core.domain.session_relay_types import RelayHeartbeat
-from runtime.api.domain.test_session_message_support import (
+from runtime.api.domain.session_message_support_test_support import (
     NOW,
     NOW_TEXT,
     message_connection,

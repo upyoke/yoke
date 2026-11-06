@@ -12,13 +12,9 @@ from yoke_core.domain import yoke_function_registry as registry
 from yoke_core.domain.handlers import identity_invites
 from yoke_core.domain.handlers.__init_register__ import register_all_handlers
 
-from runtime.api.domain.test_teammate_invite_functions import (
-    _counts,
-    _dispatch,
-    _mode,
-    _request,
-)
-from runtime.api.domain.test_teammate_invite_functions import calls as calls
+from runtime.api.domain.teammate_invite_codes_test_support import (_counts)
+from runtime.api.domain.teammate_invite_functions_test_support import (_dispatch, _mode, _request)
+from runtime.api.domain.teammate_invite_functions_test_support import calls as calls
 
 
 @pytest.mark.parametrize(

@@ -1,13 +1,16 @@
 """Single-member plans stay with member QA while shared plans stay with the driver."""
 
-from runtime.api.domain.test_deployment_qa_plan_groups import (
+from runtime.api.domain.deployment_qa_plan_groups_test_support import (
     MEMBERS,
     RUN,
     SLUG,
     _attach,
     _seed,
 )
-from runtime.api.domain.test_deployment_qa_stage_execution import _complete_case, _plan
+from runtime.api.domain.deployment_qa_stage_execution_test_support import (
+    _complete_case,
+    _plan,
+)
 from yoke_core.domain.deployment_qa_plan_group_writes import ensure_groups
 from yoke_core.domain.deployment_qa_plan_groups import run_groups
 from yoke_core.domain.deployment_qa_plan_ownership import plan_owners
@@ -31,7 +34,7 @@ def test_dispatch_keeps_single_plan_out_of_driver_capture_and_wakes_holder(test_
     from yoke_core.domain.deployment_qa_stage_dispatch import (
         materialize_and_gate_deployment_qa_stage,
     )
-    from runtime.api.domain.test_deployment_qa_stage_wake_delivery import (
+    from runtime.api.domain.deployment_qa_stage_wake_delivery_test_support import (
         HOLDER_A,
         _claim,
         _project,
@@ -146,7 +149,10 @@ def test_single_member_plan_settles_and_credits_its_item(test_db, monkeypatch):
 
 
 def test_takeover_keeps_member_plan_owner_and_frozen_cases(test_db):
-    from runtime.api.domain.test_deployment_qa_stage_execution import _seed_run, _stages
+    from runtime.api.domain.deployment_qa_stage_execution_test_support import (
+        _seed_run,
+        _stages,
+    )
     from yoke_core.domain.deployment_run_qa_transfer import transfer_qa_on
     from yoke_core.domain.deployment_qa_plan_ownership import _snapshot
 

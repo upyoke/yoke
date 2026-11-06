@@ -2,7 +2,7 @@
 
 import pytest
 
-from runtime.api.test_session_project_scope import _make_disposable_db
+from runtime.api.session_project_scope_test_support import _make_disposable_db
 from yoke_core.domain.session_project_scope import resolve_session_project_scope
 
 

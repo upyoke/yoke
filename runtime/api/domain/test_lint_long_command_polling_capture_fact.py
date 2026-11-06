@@ -16,7 +16,7 @@ import os
 import unittest
 from unittest import mock
 
-from runtime.api.test_watch_capture import CapturePairHelpers, sentinel_line
+from runtime.api.watch_capture_test_support import CapturePairHelpers, sentinel_line
 from yoke_contracts.watch_capture import capture_state
 from yoke_core.domain import lint_long_command_polling_evaluate as lint
 from yoke_core.domain.lint_long_command_polling_extract import (

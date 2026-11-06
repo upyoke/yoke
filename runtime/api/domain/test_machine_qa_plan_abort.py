@@ -4,7 +4,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from runtime.api.domain.test_machine_qa_chain_restore import _contract
+from runtime.api.domain.machine_qa_chain_restore_test_support import _contract
 from yoke_core.domain import machine_qa_local_execution as local
 from yoke_core.domain.machine_qa_phase_heartbeat import (
     MachineQaAborted,
@@ -82,7 +82,7 @@ def test_cleanup_finishes_despite_abort_signal():
 def test_server_retains_lease_until_submitted_restore_proof(
     test_db, tmp_path, monkeypatch, restored, declared_baseline
 ):
-    from runtime.api.domain.test_machine_qa_plan_execution import (
+    from runtime.api.domain.machine_qa_plan_execution_test_support import (
         ACTOR,
         _request,
         _active_lease_count,

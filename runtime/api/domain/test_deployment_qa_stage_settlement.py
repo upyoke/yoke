@@ -8,7 +8,7 @@ from unittest import mock
 import pytest
 
 from runtime.api.fixtures.deployment_run_driver_fixture import release_seeded_driver
-from runtime.api.domain.test_deployment_qa_stage_execution import (
+from runtime.api.domain.deployment_qa_stage_execution_test_support import (
     _complete_case,
     _plan,
     _seed_run,

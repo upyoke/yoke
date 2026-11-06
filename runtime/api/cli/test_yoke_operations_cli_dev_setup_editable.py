@@ -4,7 +4,9 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from runtime.api.cli.test_yoke_operations_cli_dev_setup import _source_checkout
+from runtime.api.cli.yoke_operations_cli_dev_setup_test_support import (
+    _source_checkout,
+)
 from yoke_cli.config import dev_setup
 
 

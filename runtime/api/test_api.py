@@ -11,7 +11,7 @@ Shared schemas + fixtures -> test_api_helpers.py
 from __future__ import annotations
 
 import yoke_core.api.main as api_main
-from runtime.api.test_api_helpers import test_db, client  # noqa: F401
+from runtime.api.api_helpers_test_support import test_db, client  # noqa: F401
 
 
 # ---------------------------------------------------------------------------

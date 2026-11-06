@@ -5,7 +5,7 @@ from __future__ import annotations
 import pytest
 
 from yoke_core.domain.yoke_function_permissions import check_dispatch_permission
-from runtime.api.domain.test_function_authz_scope_routing import (
+from runtime.api.domain.function_authz_scope_routing_test_support import (
     _entry,
     _new_actor,
     _request,

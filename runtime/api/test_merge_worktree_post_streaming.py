@@ -15,9 +15,7 @@ from pathlib import Path
 
 import pytest
 
-from runtime.api.test_merge_worktree_full import (
-    WORKTREE_ROOT,
-)
+from runtime.api.merge_worktree_full_test_support import WORKTREE_ROOT
 
 
 class TestStreamingTestOutput:

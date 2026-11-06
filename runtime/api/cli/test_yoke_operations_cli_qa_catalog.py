@@ -2,50 +2,18 @@
 
 from __future__ import annotations
 
+from runtime.api.cli.yoke_operations_cli_qa_catalog_test_support import _run as _run
+
+
 import base64
 import io
 from contextlib import redirect_stderr, redirect_stdout
 from unittest.mock import patch
 
 from yoke_cli.main import main as cli_main
-from yoke_contracts.api.function_call import (
-    FunctionCallRequest,
-    FunctionCallResponse,
-)
 
 TEST_ITEM_ID = 42
 TEST_ITEM_REF = f"YOK-{TEST_ITEM_ID}"
-
-
-def _run(
-    *argv: str, stdin: str = "", result: dict | None = None
-) -> tuple[int, FunctionCallRequest]:
-    captured: list[FunctionCallRequest] = []
-
-    def dispatch(request: FunctionCallRequest) -> FunctionCallResponse:
-        captured.append(request)
-        return FunctionCallResponse(
-            success=True,
-            function=request.function,
-            request_id=request.request_id,
-            version=request.version,
-            result=dict(result or {}),
-        )
-
-    with (
-        patch.dict("os.environ", {"YOKE_SESSION_ID": "qa-catalog-test"}),
-        patch(
-            "yoke_core.domain.yoke_function_dispatch.dispatch",
-            side_effect=dispatch,
-        ),
-        patch("yoke_cli.commands._helpers.ensure_handlers_loaded"),
-        patch("sys.stdin", io.StringIO(stdin)),
-        redirect_stdout(io.StringIO()),
-        redirect_stderr(io.StringIO()),
-    ):
-        result = cli_main(list(argv))
-    assert captured
-    return result, captured[-1]
 
 
 def test_method_and_plan_reads_keep_project_context_in_payload() -> None:

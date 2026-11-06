@@ -11,12 +11,14 @@ from runtime.api.tools.session_control_live_acceptance_contract import (
     AcceptanceContractError,
 )
 from runtime.api.tools.session_control_live_acceptance_evidence import wait_for_ack
-from runtime.api.tools.test_session_control_live_acceptance_clock import AcceptanceClock
-from runtime.api.tools.test_session_control_live_acceptance_driver import (
+from runtime.api.tools.session_control_live_acceptance_clock_test_support import (
+    AcceptanceClock,
+)
+from runtime.api.tools.session_control_live_acceptance_driver_test_support import (
     _ScenarioClient,
     _driver,
 )
-from runtime.api.tools.test_session_control_live_acceptance_retry_evidence import (
+from runtime.api.tools.session_control_live_acceptance_retry_evidence_test_support import (
     MESSAGE_ID,
     _acknowledged,
     _attempt,

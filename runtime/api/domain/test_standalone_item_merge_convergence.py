@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from runtime.api.domain.test_standalone_item_merge_evidence_truth import (
+from runtime.api.domain.standalone_item_merge_evidence_truth_test_support import (
     MERGE_SHA as MERGE_SHA,
     Path as Path,
     _evidence_content as _evidence_content,

@@ -10,8 +10,8 @@ from yoke_core.domain.session_message_types import parse_timestamp
 from yoke_core.domain.session_relay import claim_relay_job, report_relay_job
 from yoke_core.domain.session_relay_types import RelayHeartbeat, WakeMode
 from runtime.api.domain.session_launch_test_support import add_relay, assigned_launch
-from runtime.api.domain.test_session_message_support import park_session
-from runtime.api.domain.test_session_relay import (
+from runtime.api.domain.session_message_support_test_support import park_session
+from runtime.api.domain.session_relay_test_support import (
     MACHINE_ID,
     NOW,
     RELAY_ID,

@@ -11,8 +11,10 @@ from runtime.api.backlog_mutations_test_helpers import (
     _patch_externals,
     tmp_db,  # noqa: F401
 )
-from runtime.api.cli.test_task_code_project_refusal import remove_code_repository
-from runtime.api.test_items_create_function import _request
+from runtime.api.cli.task_code_project_refusal_test_support import (
+    remove_code_repository,
+)
+from runtime.api.items_create_function_test_support import _request
 from yoke_core.domain.handlers.items_create import handle_item_create
 from yoke_core.domain.items import query_item
 

@@ -7,12 +7,13 @@ from datetime import datetime, timedelta, timezone
 import pytest
 
 from yoke_contracts.session_model_facts import SessionModelFacts
-from runtime.api.test_sessions import _p, _register
+from runtime.api.domain.path_context_test_support import (_p)
+from runtime.api.sessions_test_support import (_register)
 from yoke_core.domain.session_staleness import activity_liveness
 from yoke_core.domain.session_reclaim_activity import latest_activity
 from yoke_core.domain.sessions import SessionError, end_session, heartbeat
 
-pytest_plugins = ("runtime.api.test_sessions",)
+pytest_plugins = ("runtime.api.sessions_test_support",)
 
 _STALE_AT = datetime(2020, 1, 1, tzinfo=timezone.utc)
 

@@ -20,7 +20,7 @@ from runtime.api.domain.session_launch_level_test_support import (
     pin_live_workers,
 )
 from runtime.api.domain.session_launch_test_support import NOW, authorization
-from runtime.api.domain.test_session_launch_capacity import _live_session
+from runtime.api.domain.session_launch_capacity_test_support import _live_session
 
 
 @pytest.fixture(autouse=True)

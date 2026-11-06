@@ -11,6 +11,13 @@ The candidate revision is the authority that is actually true of it.
 
 from __future__ import annotations
 
+from runtime.api.domain.qa_case_tree_binding_scope_test_support import (
+    CANDIDATE as CANDIDATE,
+    RUN_ID as RUN_ID,
+    _deployment_case as _deployment_case,
+)
+
+
 import subprocess
 from pathlib import Path
 from unittest.mock import patch
@@ -25,33 +32,7 @@ from yoke_core.domain.qa_case_tree_binding_scope import (
 )
 from yoke_core.domain.qa_case_worktree_run import execute_worktree_case
 
-RUN_ID = "run-20260101-001"
-CANDIDATE = "a" * 40
 OTHER_REVISION = "b" * 40
-
-
-def _deployment_case(**overrides) -> dict:
-    case = {
-        "requirement_id": 27758,
-        "public_ref": None,
-        "project_id": 1,
-        "project": "yoke",
-        "case_key": "release-health",
-        "deployment_run_id": RUN_ID,
-        "deployment_stage": "item-qa",
-        "method_config": {"command": "true"},
-        "execution_target": {
-            "deployment": {
-                "run_id": RUN_ID,
-                "stage": "item-qa",
-                "release_lineage": CANDIDATE,
-            },
-            "endpoints": {"app_url": "https://app.example.test"},
-            "observed_url": "https://app.example.test",
-        },
-    }
-    case.update(overrides)
-    return case
 
 
 def _repository(root: Path, *, content: str) -> str:

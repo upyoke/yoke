@@ -12,7 +12,10 @@ from yoke_core.domain.session_launch_actor_inheritance import (
 )
 from yoke_core.domain.sessions import SessionError
 from yoke_core.domain.sessions_lifecycle_identity import resolve_session_actor_id
-from runtime.api.domain.test_session_message_support import NOW_TEXT, message_connection
+from runtime.api.domain.session_message_support_test_support import (
+    NOW_TEXT,
+    message_connection,
+)
 
 
 SEAT_ACTOR = 10

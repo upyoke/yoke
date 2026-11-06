@@ -8,12 +8,24 @@ because the preview target has no environment id.
 
 from __future__ import annotations
 
+from runtime.api.domain.deployment_qa_multi_item_scoped_stages_test_support import (
+    LINEAGE as LINEAGE,
+    PREVIEW_QA as PREVIEW_QA,
+    _bind_plan as _bind_plan,
+    _environment_id as _environment_id,
+    _item_qa as _item_qa,
+    _point_run_at_environment as _point_run_at_environment,
+    _preview_producer as _preview_producer,
+    _preview_qa_stages as _preview_qa_stages,
+    _seed_ephemeral_capability as _seed_ephemeral_capability,
+)
+
+
 from typing import Any
 
 import pytest
 
 from runtime.api.fixtures.deployment_scoped_qa_run_fixture import (
-    create_smoke_plan,
     seed_run_standing_on_qa_stage,
 )
 from yoke_core.domain.deployment_qa_plan_group_writes import ensure_groups
@@ -27,9 +39,7 @@ from yoke_core.domain.deployment_qa_stage_prerequisites import (
 )
 from yoke_core.domain.post_deploy_verification_answer import NO_OBLIGATION_QA_KIND
 
-PREVIEW_QA = "preview-item-qa"
 PROD_QA = "prod-item-qa"
-LINEAGE = "d" * 40
 
 
 def _deploy(name: str) -> dict[str, Any]:
@@ -38,32 +48,6 @@ def _deploy(name: str) -> dict[str, Any]:
         "step_runner": "auto",
         "stage_kind": "execution",
         "scope": "run",
-    }
-
-
-def _preview_producer(name: str) -> dict[str, Any]:
-    return {
-        "name": name,
-        "step_runner": "ephemeral-deploy",
-        "stage_kind": "execution",
-        "scope": "run",
-        "target": {"kind": "run_preview", "capability": "ephemeral-env"},
-    }
-
-
-def _item_qa(
-    name: str, *, source_stage: str, kind: str, environment: str = "stage"
-) -> dict[str, Any]:
-    target: dict[str, Any] = {"kind": kind, "source_stage": source_stage}
-    if kind == "persistent_environment":
-        target["environment"] = environment
-    return {
-        "name": name,
-        "step_runner": "qa",
-        "stage_kind": "qa",
-        "scope": "item",
-        "target": target,
-        "verdict": {"mode": "agent_only"},
     }
 
 
@@ -76,36 +60,6 @@ def _two_item_qa_stages() -> list[dict[str, Any]]:
         _deploy("prod-deploy"),
         _item_qa(PROD_QA, source_stage="prod-deploy", kind="persistent_environment"),
     ]
-
-
-def _preview_qa_stages() -> list[dict[str, Any]]:
-    return [
-        _preview_producer("release-preview"),
-        _item_qa(PREVIEW_QA, source_stage="release-preview", kind="run_preview"),
-    ]
-
-
-def _seed_ephemeral_capability(conn: Any) -> None:
-    from yoke_core.domain.project_identity import resolve_project_id
-
-    conn.execute(
-        "INSERT INTO project_capabilities (project_id, type, settings, created_at) "
-        "VALUES (%s, 'ephemeral-env', %s, %s) ON CONFLICT DO NOTHING",
-        (
-            resolve_project_id(conn, "yoke"),
-            '{"trigger":"github-push","preview_domain":"preview.example.com"}',
-            "2026-01-01T00:00:00Z",
-        ),
-    )
-    conn.commit()
-
-
-def _environment_id(conn: Any, name: str = "stage") -> int:
-    row = conn.execute(
-        "SELECT e.id FROM environments e WHERE e.project_id=1 AND e.name=%s",
-        (name,),
-    ).fetchone()
-    return int(row["id"] if hasattr(row, "keys") else row[0])
 
 
 def _ensure_environment(conn: Any, name: str, url: str) -> int:
@@ -130,31 +84,12 @@ def _no_obligation(conn: Any, item_id: int) -> None:
     conn.commit()
 
 
-def _bind_plan(conn: Any, *, slug: str, environment_id: int) -> int:
-    plan_id = create_smoke_plan(conn, project="yoke", slug=slug)
-    conn.execute(
-        "UPDATE qa_plans SET target_environment_id=%s WHERE id=%s",
-        (int(environment_id), int(plan_id)),
-    )
-    conn.commit()
-    return int(plan_id)
-
-
 def _attach_plan(conn: Any, *, item_id: int, plan_id: int) -> None:
     conn.execute(
         "INSERT INTO qa_plan_item_attachments"
         "(item_id,plan_id,transition_id,qa_phase,attached_at)"
         " VALUES (%s,%s,'release','post_deploy',%s)",
         (int(item_id), int(plan_id), "2026-09-21T00:00:00Z"),
-    )
-    conn.commit()
-
-
-def _point_run_at_environment(conn: Any, run_id: str, environment_id: int) -> None:
-    conn.execute(
-        "UPDATE deployment_runs SET target_tier='persistent', "
-        "target_environment_id=%s WHERE id=%s",
-        (int(environment_id), run_id),
     )
     conn.commit()
 

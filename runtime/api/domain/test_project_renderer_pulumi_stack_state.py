@@ -6,7 +6,9 @@ from yoke_core.domain.project_renderer_pulumi_state import (
     _operator_state_lines_from_settings,
 )
 from yoke_core.domain.project_renderer_settings import ProjectRendererSettings
-from runtime.api.domain.test_project_renderer_pulumi import _settings_from_context
+from runtime.api.domain.project_renderer_pulumi_test_support import (
+    _settings_from_context,
+)
 
 
 def test_project_level_stack_state_renders_from_capability_without_site():

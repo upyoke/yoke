@@ -9,7 +9,7 @@ import time
 
 import pytest
 
-from runtime.api.domain.test_deploy_remote import FakeRunner, _env
+from runtime.api.domain.deploy_remote_test_support import FakeRunner, _env
 from yoke_core.domain.deploy_remote import push_remote_file, remove_remote_file
 
 

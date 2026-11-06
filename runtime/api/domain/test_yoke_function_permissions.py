@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+
 from runtime.api.domain.function_permission_test_support import (
     _conn,
     _create_ephemeral_env_table,

@@ -2,17 +2,18 @@
 
 from __future__ import annotations
 
+from runtime.api.domain.session_termination_test_support import (_termination_schema_and_events as _termination_fixture)  # noqa: F401
+
 from datetime import datetime, timedelta, timezone
 
 import pytest
 
-from runtime.api.domain.test_session_termination import (
+from runtime.api.domain.session_termination_test_support import (
     _HandlerConnection,
     _add_open_message,
     _add_target_claim,
     _register_operator_and_target,
     _terminate,
-    _termination_schema_and_events as _termination_fixture,  # noqa: F401 - autouse
 )
 from yoke_contracts.api.function_call import FunctionCallRequest
 from yoke_contracts.session_control.resume import RESUME_INACTIVITY_SECONDS
@@ -21,7 +22,7 @@ from yoke_core.domain.session_termination import RESUME_IN_FLIGHT_CODE
 from yoke_core.domain.sessions import SessionError
 
 
-pytest_plugins = ("runtime.api.test_sessions",)
+pytest_plugins = ("runtime.api.sessions_test_support",)
 
 
 def _stamp(seconds_ago: int) -> str:

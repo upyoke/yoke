@@ -9,10 +9,16 @@ and the row leaves the list once the owner's run is recorded.
 
 from __future__ import annotations
 
+from runtime.api.domain.deployment_qa_manual_wake_test_support import (
+    EVIDENCE as EVIDENCE,
+    _requirement as _requirement,
+)
+
+
 from typing import Any
 from unittest import mock
 
-from runtime.api.domain.test_deployment_qa_stage_dispatch_wake import (
+from runtime.api.domain.deployment_qa_stage_dispatch_wake_test_support import (
     _WAITING,
     _member,
     _run,
@@ -43,8 +49,6 @@ from yoke_core.domain.steering_fleet_report_projection import report_dict
 from yoke_core.domain.steering_fleet_report_render import report_body
 from yoke_core.domain.work_claim_targets import make_item_target
 
-EVIDENCE = "a deployment run with at least 44 members exists after this release"
-
 
 def test_only_holder_wake_requires_execution_in_this_session():
     from yoke_core.domain.deployment_qa_manual_wake import ManualWakeRequirement
@@ -63,34 +67,6 @@ def test_only_holder_wake_requires_execution_in_this_session():
     assert instruction not in entry.wake_message(STEERING)
     for route in (HOLDER, STEERING):
         assert entry.run_command() in entry.wake_message(route)
-
-
-def _requirement(
-    conn: Any,
-    *,
-    requirement_id: int,
-    run_id: str,
-    member: int,
-    wake_path: str | None,
-    stage: str = "item-qa",
-) -> None:
-    conn.execute(
-        "INSERT INTO qa_requirements(id,deployment_run_id,deployment_stage,"
-        "deployment_member_item_id,qa_kind,qa_phase,blocking_mode,"
-        "requirement_source,method_id,plan_case_key,wake_path,wake_evidence,"
-        "created_at) VALUES (%s,%s,%s,%s,'plan_case','post_deploy','blocking',"
-        "'flow_derived','exploratory-mission','real-traffic',%s,%s,%s)",
-        (
-            requirement_id,
-            run_id,
-            stage,
-            member,
-            wake_path,
-            EVIDENCE if wake_path == "manual" else None,
-            iso8601_now(),
-        ),
-    )
-    conn.commit()
 
 
 def _record_run(conn: Any, requirement_id: int, verdict: str = "pass") -> None:

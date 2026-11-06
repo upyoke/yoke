@@ -10,7 +10,7 @@ _REPOSITORY_TEMPLATE = pytest.StashKey[Path]()
 
 
 def _build_repository(root: Path, branch: str) -> None:
-    from runtime.api.test_merge_worktree_full import _git, _write_file
+    from runtime.api.merge_worktree_full_test_support import _git, _write_file
 
     origin, repo, worktree = (
         root / part for part in ("origin.git", "repo", "worktree")

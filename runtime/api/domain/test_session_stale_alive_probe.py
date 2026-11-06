@@ -13,7 +13,7 @@ from runtime.api.fixtures.file_test_db import (
     init_test_db,
 )
 from runtime.api.sessions_api_stale_test_helpers import _ago_minutes
-from runtime.api.test_sessions import _insert_claimable_items, _register
+from runtime.api.sessions_test_support import _insert_claimable_items, _register
 from yoke_core.domain.actor_permissions import (
     ROLE_OPERATOR,
     grant_actor_project_role,

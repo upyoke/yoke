@@ -2,7 +2,7 @@
 
 import io
 
-from runtime.api.domain.test_fleet_delta_probe import (
+from runtime.api.domain.fleet_delta_probe_test_support import (
     _ok,
     _policy,
     _report,

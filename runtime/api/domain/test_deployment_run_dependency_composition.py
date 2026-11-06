@@ -4,7 +4,7 @@ import pytest
 
 from runtime.api.fixtures.backlog_inserts import insert_item
 from runtime.api.fixtures.carried_release_candidate import insert_run, item_ref
-from runtime.api.domain.test_deployment_run_skipped_composition import (
+from runtime.api.domain.deployment_run_skipped_composition_test_support import (
     LANDED_ITEM_ID,
     RELEASE_FLOW,
     _carried_dash_landing,

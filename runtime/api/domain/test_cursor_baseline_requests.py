@@ -7,7 +7,7 @@ import pytest
 from yoke_harness.baseline_harness_requests import REQUEST_WORKSPACE, harness_request
 from yoke_harness.ssh_linux_baseline import prove_linux_probes
 from yoke_harness.ssh_mac_baseline_probes import prove_probes_document
-from runtime.api.domain.test_baseline_harness_requests import _Control
+from runtime.api.domain.baseline_harness_requests_test_support import _Control
 
 
 @pytest.mark.parametrize("program", ["cursor-agent", "agent"])

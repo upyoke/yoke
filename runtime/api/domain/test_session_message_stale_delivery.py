@@ -9,12 +9,12 @@ from yoke_contracts.session_control.surface_versions import machine_wake_surface
 from yoke_core.domain.session_message_delivery import lease_for_hook
 from yoke_core.domain.session_message_lease_complete import complete_hook_lease
 from yoke_core.domain.session_message_wake import wake_eligible_recipients
-from runtime.api.domain.test_session_message_machine_wake_route import (
+from runtime.api.domain.session_message_machine_wake_route_test_support import (
     _register_relay,
     _send,
     _surface_connection,
 )
-from runtime.api.domain.test_session_message_support import NOW
+from runtime.api.domain.session_message_support_test_support import NOW
 
 
 @pytest.mark.parametrize("surface", SESSION_SURFACE_CAPABILITIES)

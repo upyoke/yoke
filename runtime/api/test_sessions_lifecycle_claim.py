@@ -3,6 +3,13 @@
 
 from __future__ import annotations
 
+from runtime.api.sessions_test_support import (conn as conn)
+
+from runtime.api.sessions_lifecycle_claim_test_support import (
+    _seed_claim_items as _seed_claim_items,
+)
+
+
 from datetime import datetime, timedelta, timezone
 
 import pytest
@@ -16,11 +23,7 @@ _STALE_TS_WITH_HOLDINGS = (
     - timedelta(minutes=DEFAULT_STALE_WITH_HOLDINGS_THRESHOLD_MINUTES + 60)
 ).strftime("%Y-%m-%dT%H:%M:%SZ")
 
-from runtime.api.test_sessions import (
-    _apply_session_schema,
-    _register,
-    conn,  # noqa: F401  (pytest fixture)
-)
+from runtime.api.sessions_test_support import _apply_session_schema, _register
 from runtime.api.fixtures.backlog import insert_item, seed_fixture_operating_actor
 from runtime.api.fixtures.file_test_db import connect_test_db, init_test_db
 from runtime.api.sessions_api_stale_test_helpers import (
@@ -37,12 +40,6 @@ from yoke_core.domain.sessions import (
     release_claim,
 )
 from yoke_core.domain.work_claim_targets import make_item_target
-
-
-@pytest.fixture(autouse=True)
-def _seed_claim_items(conn):
-    for item_id in (1, 2, 99, 9999):
-        insert_item(conn, id=item_id, workflow_id="issue")
 
 
 # ---------------------------------------------------------------------------

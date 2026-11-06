@@ -6,7 +6,7 @@ import json
 
 import pytest
 
-from runtime.api.domain.test_deployment_qa_case_discharge import (
+from runtime.api.domain.deployment_qa_case_discharge_test_support import (
     _acceptance,
     _execute_stage,
     _seed,

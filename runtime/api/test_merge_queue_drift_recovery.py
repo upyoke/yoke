@@ -9,7 +9,7 @@ from types import SimpleNamespace
 import pytest
 
 from runtime.api.merge_queue_landing_test_helpers import land, wire_happy_path
-from runtime.api.test_merge_queue_live_drift import DECLARED, _live_rules
+from runtime.api.merge_queue_live_drift_test_support import DECLARED, _live_rules
 from yoke_core.domain import merge_queue_live_drift as drift_mod
 from yoke_core.domain import merge_queue_route as route_mod
 from yoke_core.domain import project_github_auth as auth_mod

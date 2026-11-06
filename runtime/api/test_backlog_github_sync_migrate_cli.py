@@ -3,7 +3,7 @@
 from unittest.mock import patch
 
 from runtime.api.backlog_github_sync_test_helpers import GH_PATCH
-from runtime.api.test_constants import TEST_ITEM_REF
+from runtime.api.constants_test_support import TEST_ITEM_REF
 from yoke_core.domain import backlog_github_sync
 
 

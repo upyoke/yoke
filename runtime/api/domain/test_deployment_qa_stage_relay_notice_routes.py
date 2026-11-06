@@ -27,8 +27,8 @@ from runtime.api.domain.coordination_claim_test_support import (
     PROJECT_YOKE,
     seed_project,
 )
-from runtime.api.domain.test_deployment_qa_stage_execution import _seed_run
-from runtime.api.domain.test_deployment_qa_stage_wake_delivery import (
+from runtime.api.domain.deployment_qa_stage_execution_test_support import _seed_run
+from runtime.api.domain.deployment_qa_stage_wake_delivery_test_support import (
     HOLDER_A,
     SESSION_ACTOR_ID,
     _claim,

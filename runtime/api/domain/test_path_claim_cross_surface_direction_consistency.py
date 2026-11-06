@@ -20,7 +20,7 @@ from runtime.api.domain._path_claims_test_helpers import (  # noqa: F401
     local_human,
     seed_target,
 )
-from runtime.api.domain.test_path_claim_directional_overlap import (
+from runtime.api.domain.path_claim_directional_overlap_test_support import (
     _add_dep_edge,
     _seed_active_claim,
     _seed_item,

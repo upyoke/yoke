@@ -51,7 +51,9 @@ def test_all_mode_counts_rules_and_any_mode_counts_one():
 
 def test_named_audience_id_and_inline_rules_are_exclusive():
     import pytest
-    from runtime.api.domain.test_decision_request_operator_question import filing
+    from runtime.api.domain.decision_request_operator_question_test_support import (
+        filing,
+    )
     from yoke_core.domain.decision_requests import create_decision_request
 
     with decision_request_connection() as value:

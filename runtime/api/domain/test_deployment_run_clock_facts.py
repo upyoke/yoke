@@ -8,7 +8,7 @@ from runtime.api.fixtures.session_zones import SESSION_ZONES
 from pydantic import ValidationError
 from yoke_contracts.timestamps import InvalidInstant, parse_instant, temporal_wire
 from runtime.api.deployment_stage_approval_fixture import OpenConnection
-from runtime.api.domain.test_deployment_run_gates import (
+from runtime.api.domain.deployment_run_gates_test_support import (
     RUN_ID,
     _seed_run_awaiting_approval,
 )

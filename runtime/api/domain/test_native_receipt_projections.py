@@ -255,7 +255,7 @@ def test_worktree_history_updates_and_release_keep_native_precision(
 def test_overview_native_latches_and_machine_order_keep_exact_facts(
     test_db, monkeypatch, zone
 ):
-    from runtime.api.domain.test_overview_machine_activation import (
+    from runtime.api.domain.overview_machine_activation_test_support import (
         MACHINE_A,
         _seed_relay,
         _seed_session,

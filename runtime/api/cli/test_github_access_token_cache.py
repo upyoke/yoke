@@ -17,7 +17,7 @@ from yoke_cli.config import github_git_credential_store as credential_store
 from yoke_contracts import github_app_tokens as token_contract
 from yoke_contracts.timestamps import format_instant
 
-from .github_user_token_test_support import (
+from runtime.api.cli.github_user_token_test_support import (
     NOW,
     FakeResponse,
     configured_credential,

@@ -3,16 +3,16 @@
 
 from __future__ import annotations
 
+from runtime.api.api_release_pin_record_route_test_support import (client as client, release_pin_db as release_pin_db)
+
 import json
 
 import pytest
 
 from runtime.api.fixtures.file_test_db import connect_test_db
-from runtime.api.test_api_release_pin_record_route import (
+from runtime.api.api_release_pin_record_route_test_support import (
     _envelope,
     _stored_settings,
-    client,  # noqa: F401 -- fixture imported for this companion module
-    release_pin_db,  # noqa: F401 -- fixture imported for this companion module
 )
 from yoke_core.domain.actor_permissions import (
     ROLE_DEPLOYMENT_CI,

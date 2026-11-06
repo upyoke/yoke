@@ -11,11 +11,7 @@ from yoke_contracts.api.function_call import (
     TargetRef,
 )
 
-from runtime.api.domain.test_qa_simulation_triage import (
-    _record,
-    _seed,
-    REPORT,
-)
+from runtime.api.domain.qa_simulation_triage_test_support import _record, _seed, REPORT
 from runtime.api.fixtures.pg_testdb import test_database
 from yoke_core.domain.events_acting_identity import acting_event_identity
 from yoke_core.domain.qa_simulation_triage import (

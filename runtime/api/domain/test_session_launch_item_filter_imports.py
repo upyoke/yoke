@@ -9,7 +9,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from runtime.api.domain import test_session_launch_item_filter as item_filter
+from runtime.api.domain import session_launch_item_filter_test_support as item_filter
 from yoke_core import domain
 from yoke_contracts.timestamps import parse_instant
 
@@ -18,8 +18,8 @@ from yoke_contracts.timestamps import parse_instant
 @pytest.mark.parametrize(
     "exercise",
     [
-        item_filter.test_handler_filters_by_the_canonical_item_ref,
-        item_filter.test_handler_refuses_an_item_outside_the_project,
+        item_filter.exercise_canonical_item_filter,
+        item_filter.exercise_foreign_item_filter,
     ],
     ids=["canonical", "missing"],
 )

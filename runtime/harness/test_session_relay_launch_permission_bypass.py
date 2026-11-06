@@ -30,8 +30,10 @@ from yoke_harness.session_relay_native_diagnostics import (
     classify_native_failure,
 )
 
-from runtime.harness.test_session_relay_codex_app_server_wake import FakeAppClient
-from runtime.harness.test_session_relay_codex_cli_process import _request
+from runtime.harness.session_relay_codex_app_server_wake_test_support import (
+    FakeAppClient,
+)
+from runtime.harness.session_relay_codex_cli_process_test_support import _request
 from runtime.harness.session_relay_cursor_test_support import (
     SESSION_ID,
     RunningProcess,

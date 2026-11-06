@@ -4,8 +4,8 @@ import json
 
 import pytest
 
-from runtime.api.domain import test_deployment_run_target_takeover as takeover
-from runtime.api.domain.test_deployment_qa_takeover_identity import _execution
+from runtime.api.domain import deployment_run_target_takeover_test_support as takeover
+from runtime.api.domain.deployment_qa_takeover_identity_test_support import _execution
 from yoke_core.domain.deployment_qa_execution_target import (
     validate_deployment_execution_target,
 )

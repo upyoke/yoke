@@ -26,7 +26,7 @@ from runtime.api.fixtures.migration_model_test import (
 from yoke_core.domain.migration_validation_binding import validation_env_var
 from yoke_core.domain.project_seed_test_helpers import SEED_PROJECT_IDS
 from yoke_core.domain.schema_init_apply import execute_schema_script
-from runtime.api.test_backlog import _conn
+from runtime.api.backlog_test_support import _conn
 from runtime.api.fixtures.machine_config_test import register_machine_checkout
 
 

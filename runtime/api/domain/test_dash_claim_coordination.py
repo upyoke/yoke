@@ -6,7 +6,7 @@ import pytest
 
 from runtime.api.fixtures.pg_testdb import test_database
 from runtime.api.domain._path_claims_test_helpers import seed_target, seed_claim
-from runtime.api.domain.test_item_posture_amend import _dash, _stored
+from runtime.api.domain.item_posture_amend_test_support import _dash, _stored
 from yoke_core.domain.item_dependency import cmd_dependency_add
 from yoke_core.domain.item_posture_amend import amend_item_posture
 from yoke_core.domain.path_claims_overlap import classify_overlap, OverlapClassification

@@ -14,7 +14,7 @@ from runtime.api.domain.session_relay_handler_test_support import (
     claim_payload,
     relay_request,
 )
-from runtime.api.domain.test_session_message_support import message_connection
+from runtime.api.domain.session_message_support_test_support import message_connection
 
 
 MACHINE_ID = "11111111-1111-4111-8111-111111111111"

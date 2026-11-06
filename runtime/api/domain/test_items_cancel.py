@@ -9,6 +9,15 @@ caller with project write permission may cancel from another project.
 
 from __future__ import annotations
 
+from runtime.api.domain.items_cancel_test_support import (
+    SESSION as SESSION,
+    _caller_session as _caller_session,
+    _isolate_write_side_effects as _isolate_write_side_effects,
+    _live_claims as _live_claims,
+    _request as _request,
+)
+
+
 from typing import Any
 
 import pytest
@@ -20,12 +29,6 @@ from runtime.api.fixtures.session_holdings import (
     insert_steering_claim,
     instant_ago,
 )
-from yoke_contracts.api.function_call import (
-    ActorContext,
-    FunctionCallRequest,
-    TargetRef,
-)
-from yoke_core.domain import backlog_close_op, backlog_update_op
 from yoke_core.domain.sessions_lifecycle_claim import claim_work
 from yoke_core.domain.work_claim_targets import make_item_target
 from yoke_core.domain.handlers.items_cancel import handle_cancel
@@ -34,44 +37,6 @@ from yoke_core.domain.item_worktrees import (
     record_item_worktree,
 )
 from yoke_core.domain.workflow_behavior import LANE_IMPLEMENTATION
-
-
-SESSION = "cancel-verb-session"
-
-
-@pytest.fixture(autouse=True)
-def _isolate_write_side_effects(monkeypatch) -> None:
-    monkeypatch.setattr(backlog_update_op, "run_post_db_sync", lambda **_kwargs: 0)
-    monkeypatch.setattr(
-        backlog_close_op._rendering, "_post_comment", lambda *_a, **_k: None
-    )
-    monkeypatch.setattr(
-        backlog_close_op._rendering, "_close_issue", lambda *_a, **_k: None
-    )
-
-
-@pytest.fixture(autouse=True)
-def _caller_session(test_db) -> None:
-    _seed_session(test_db, SESSION)
-
-
-def _live_claims(conn: Any, item_id: int) -> list:
-    target = make_item_target(item_id)
-    rows = conn.execute(
-        "SELECT session_id FROM work_claims "
-        "WHERE target_kind = %s AND scope = %s AND released_at IS NULL",
-        (target.kind, target.scope_json()),
-    ).fetchall()
-    return [str(row["session_id"]) for row in rows]
-
-
-def _request(item_id: int, **payload: Any) -> FunctionCallRequest:
-    return FunctionCallRequest(
-        function="items.cancel.run",
-        actor=ActorContext(actor_id="1", session_id=SESSION),
-        target=TargetRef(kind="item", item_id=item_id),
-        payload=payload,
-    )
 
 
 def _row(conn: Any, item_id: int) -> tuple:
@@ -249,10 +214,11 @@ class TestMergedAbandonment:
     def test_abandonment_dispatch_requires_project_write_permission(
         self, test_db, authorized
     ):
-        from runtime.api.domain.test_function_authz_scope_routing import (
-            _new_actor, _project_owner,
+        from runtime.api.domain.function_authz_scope_routing_test_support import (
+            _new_actor,
+            _project_owner,
         )
-        from runtime.api.domain.test_qa_plan_retire import _handler_uses
+        from runtime.api.domain.qa_plan_retire_test_support import _handler_uses
         from yoke_core.domain.yoke_function_dispatch import dispatch
 
         item_id = 8421
@@ -260,12 +226,16 @@ class TestMergedAbandonment:
         actor_id = _project_owner(test_db, 1) if authorized else _new_actor(test_db)
         if not authorized:
             from yoke_core.domain.actor_permissions import (
-                ROLE_VIEWER, grant_actor_project_role,
+                ROLE_VIEWER,
+                grant_actor_project_role,
             )
 
             grant_actor_project_role(
-                test_db, actor_id=actor_id, project_id=1,
-                role_name=ROLE_VIEWER, granted_by_actor_id=actor_id,
+                test_db,
+                actor_id=actor_id,
+                project_id=1,
+                role_name=ROLE_VIEWER,
+                granted_by_actor_id=actor_id,
             )
         test_db.execute(
             "UPDATE harness_sessions SET actor_id=%s WHERE session_id=%s",

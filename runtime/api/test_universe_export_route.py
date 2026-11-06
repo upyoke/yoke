@@ -209,7 +209,10 @@ def test_artifact_refusal_keeps_reason_resume_and_removes_temp(tmp_path, monkeyp
     import json
     from yoke_core.domain import universe_artifact_store, universe_source_pause
     from runtime.api.domain._universe_import_test_helpers import _canonical_universe
-    from runtime.api.domain.test_universe_artifact_transfer import Objects, _seed
+    from runtime.api.domain.universe_artifact_transfer_test_support import (
+        Objects,
+        _seed,
+    )
 
     monkeypatch.setenv(SERVER_MODE_ENV, SERVER_MODE_SELF_HOST)
     monkeypatch.setenv("YOKE_MACHINE_HOME", str(tmp_path / "machine"))

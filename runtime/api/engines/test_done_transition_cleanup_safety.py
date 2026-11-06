@@ -8,7 +8,7 @@ import pytest
 
 from yoke_core.engines import done_transition, done_transition_cleanup
 from runtime.api.engines._done_transition_test_helpers import dt_db as _shared_dt_db
-from runtime.api.test_backlog import _seed_claim
+from runtime.api.backlog_test_support import _seed_claim
 
 
 TEST_ITEM_ID = 42
@@ -128,7 +128,7 @@ class TestDoneRunnerCleanupIsAdvisory:
         repo_root = db_path.parent
         _insert_item(db_path, TEST_ITEM_ID, status="reviewed-implementation")
 
-        from runtime.api.engines.test_done_transition_post import (
+        from runtime.api.engines.done_transition_post_test_support import (
             _patch_run_internals,
         )
 

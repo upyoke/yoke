@@ -6,7 +6,7 @@ import io
 from unittest.mock import patch
 
 from runtime.api.conftest import insert_epic_task, insert_item
-from runtime.api.test_epic_task_sync import (
+from runtime.api.epic_task_sync_test_support import (
     _seed_progress_note,
     _stub_project_github_auth as _stub_project_github_auth,
     db as db,

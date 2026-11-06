@@ -1,12 +1,17 @@
 """Concurrent launches bind by attestation across every launchable harness."""
 
+from runtime.api.domain.session_launch_attested_binding_test_support import (
+    bind as bind,
+    registered_launch as registered_launch,
+)
+
+
 from uuid import uuid4
 
 import pytest
 
 from yoke_contracts.session_control.capabilities import SESSION_SURFACE_CAPABILITIES
 from yoke_core.domain.session_launch_execution import (
-    claim_assigned_launch,
     report_launch_attempt,
 )
 from yoke_core.domain.session_launch_registration import (
@@ -22,7 +27,6 @@ from yoke_core.domain.session_launch_types import SessionLaunchError
 from runtime.api.domain.session_launch_test_support import (
     NOW,
     add_relay,
-    assigned_launch,
     relay_connection,
 )
 
@@ -32,36 +36,6 @@ LAUNCH_SURFACES = [
     for surface, capability in SESSION_SURFACE_CAPABILITIES.items()
     if capability.create == "supported"
 ]
-
-
-def registered_launch(conn, surface, key):
-    launch = assigned_launch(conn, key=key, surface=surface)
-    claim = claim_assigned_launch(
-        conn,
-        launch_id=launch.launch_id,
-        relay_id="relay-1",
-        machine_id="machine-1",
-        now=NOW,
-    )
-    session = str(uuid4())
-    conn.execute(
-        "INSERT INTO harness_sessions (session_id,project_id,executor_surface,"
-        "executor_version,machine_id,model,workspace,offered_at) "
-        "VALUES (?,10,?,?,'machine-1','gpt-5','/project',?)",
-        (session, surface, SESSION_SURFACE_CAPABILITIES[surface].minimum_version, NOW),
-    )
-    conn.commit()
-    return launch, claim, session
-
-
-def bind(conn, launch, claim, session):
-    return prepare_launch_registration(
-        conn,
-        launch_id=launch.launch_id,
-        attestation=claim.attestation,
-        session_id=session,
-        now="2026-08-22T12:00:02Z",
-    )
 
 
 @pytest.mark.parametrize("surface", LAUNCH_SURFACES)

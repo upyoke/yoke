@@ -7,7 +7,7 @@ from unittest.mock import patch
 import pytest
 
 from runtime.api.conftest import insert_item
-from runtime.api.test_epic_review import db as db
+from runtime.api.epic_review_test_support import db as db
 from yoke_core.domain import epic
 from yoke_core.domain.handlers import workflow_item_epic_task_state as handlers
 from yoke_core.domain.project_identity import render_item_ref

@@ -3,7 +3,9 @@
 import pytest
 
 from yoke_cli.config import db_admin_setup as config
-from runtime.api.cli.test_yoke_operations_cli_dev_db_admin_setup import _env
+from runtime.api.cli.yoke_operations_cli_dev_db_admin_setup_test_support import (
+    _env,
+)
 
 
 @pytest.mark.parametrize("project", [None, "7", "acme"])

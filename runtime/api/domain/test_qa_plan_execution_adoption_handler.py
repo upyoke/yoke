@@ -2,7 +2,7 @@
 
 from psycopg.errors import LockNotAvailable
 
-from runtime.api.domain.test_qa_plan_execution_adoption import _setup
+from runtime.api.domain.qa_plan_execution_adoption_test_support import _setup
 from runtime.api.fixtures.pg_testdb import test_database
 from yoke_contracts.api.function_call import FunctionCallRequest
 from yoke_core.domain.handlers import qa_plan_execution_adoption as handler

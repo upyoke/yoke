@@ -8,7 +8,7 @@ import io
 from yoke_cli import main as yoke_operations_cli
 
 
-from runtime.api.cli.test_yoke_operations_cli_config_write import (
+from runtime.api.cli.yoke_operations_cli_config_write_test_support import (
     cfg as cfg,
     _seed,
     _assert_auth_token_imported,

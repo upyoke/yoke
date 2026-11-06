@@ -29,7 +29,7 @@ from yoke_core.domain.events_function_index import (
 from yoke_core.domain.migration_audit_schema import (
     ensure_migration_audit_table_postgres,
 )
-from runtime.api.engines.test_doctor_hc_claim_boundary_audit import (
+from runtime.api.engines.doctor_hc_claim_boundary_audit_test_support import (
     _add_event,
     _add_session,
     _disable_event_id_cutoff as _disable_event_id_cutoff,

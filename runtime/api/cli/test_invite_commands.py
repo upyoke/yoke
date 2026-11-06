@@ -4,7 +4,9 @@ import json
 
 import pytest
 
-from runtime.api.cli.test_admission_commands import transport as _transport_fixture
+from runtime.api.cli.admission_commands_test_support import (
+    transport as _transport_fixture,
+)
 from yoke_cli.commands import _helpers, registry
 from yoke_cli.commands.adapters import teammate_invites as commands
 from yoke_cli.commands.adapters.admission_floor_recovery import (

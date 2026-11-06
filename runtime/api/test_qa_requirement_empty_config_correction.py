@@ -15,7 +15,7 @@ from yoke_core.domain.qa_requirement_pass_currency import (
 )
 from runtime.api.fixtures.file_test_db import connect_test_db
 from runtime.api.qa_test_helpers import make_qa_db_file
-from runtime.api.test_qa_requirement_config_update import (
+from runtime.api.qa_requirement_config_update_test_support import (
     _NEW_STEPS,
     _insert_unstamped_pass,
     _seed_browser_requirement,

@@ -8,6 +8,15 @@ commit.
 
 from __future__ import annotations
 
+from runtime.api.domain.ci_no_verdict_redispatch_test_support import (
+    CANCELLED_REQUIRED as CANCELLED_REQUIRED,
+    FAILED_REQUIRED as FAILED_REQUIRED,
+    QUEUED_REQUIRED as QUEUED_REQUIRED,
+    RUN_URL as RUN_URL,
+    _rerun_fakes as _rerun_fakes,
+)
+
+
 from types import SimpleNamespace
 
 import pytest
@@ -20,28 +29,9 @@ from yoke_core.domain.merge_queue_entry_checks import (
     only_no_verdict,
     regate_instruction,
 )
-from yoke_core.engines.merge_worktree_pr_check_runs import LandingCheck
 from yoke_core.engines.merge_worktree_prepare import MergeArgs, MergeContext
 
 CTX = MergeContext(args=MergeArgs(branch="ALP-1"), repo_root="", project="alpha")
-RUN_URL = "https://github.com/o/r/actions/runs/37365021162/job/111944546142"
-CANCELLED_REQUIRED = LandingCheck(
-    name="repo-contracts",
-    status="completed",
-    conclusion="cancelled",
-    required=True,
-    url=RUN_URL,
-)
-FAILED_REQUIRED = LandingCheck(
-    name="container",
-    status="completed",
-    conclusion="failure",
-    required=True,
-    url="https://github.com/o/r/actions/runs/37365021163/job/9",
-)
-QUEUED_REQUIRED = LandingCheck(
-    name="repo-contracts", status="queued", required=True, url=RUN_URL
-)
 
 
 def _markers():
@@ -162,56 +152,6 @@ def test_a_real_red_check_keeps_the_lane_fix_recovery():
 
     assert not only_no_verdict((CANCELLED_REQUIRED, FAILED_REQUIRED))
     assert "fix it on the lane" in instruction
-
-
-def _rerun_fakes(monkeypatch, *, post_error=None, started=True):
-    posts = []
-
-    def request(req, *, token, max_attempts=None):
-        if req.method == "POST":
-            assert max_attempts == 1
-            posts.append((req.method, req.path, token))
-            if post_error is not None:
-                raise post_error
-            return SimpleNamespace(status=201, body={})
-        if "/pulls/" in req.path:
-            body = {
-                "state": "open",
-                "head": {"sha": "1" * 40, "ref": "ALP-1", "repo": {"full_name": "o/r"}},
-            }
-        elif req.path.endswith("/jobs"):
-            body = {
-                "jobs": [
-                    {
-                        "runner_name": "runner" if started else "",
-                        "steps": [{}] if started else [],
-                        "conclusion": "cancelled",
-                    }
-                ]
-            }
-        elif "/actions/workflows/" in req.path:
-            body = {"workflow_runs": [{"id": 37365021162}]}
-        else:
-            body = {
-                "id": 37365021162,
-                "workflow_id": 1,
-                "head_sha": "1" * 40,
-                "head_branch": "ALP-1",
-                "status": "completed",
-                "conclusion": "cancelled",
-                "run_attempt": 1,
-            }
-        return SimpleNamespace(status=200, body=body)
-
-    monkeypatch.setattr(
-        merge_queue_entry_check_redispatch,
-        "resolve_auth_detail",
-        lambda _ctx, _perms: (SimpleNamespace(repo="o/r", token="tok"), None),
-    )
-    monkeypatch.setattr(
-        "yoke_core.domain.github_actions_rest.request_with_retry", request
-    )
-    return posts
 
 
 def test_merge_reentry_reruns_cancelled_required_checks_then_arms(monkeypatch):

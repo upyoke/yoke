@@ -6,13 +6,13 @@ import json
 import pytest
 
 from runtime.api.fixtures.session_zones import SESSION_ZONES
-from runtime.api import test_frontend_events as collector_fixtures
+from runtime.api import frontend_events_test_support as collector_fixtures
 
 from yoke_core.domain import frontend_events_storage as storage
 
 from yoke_contracts.timestamps import format_instant, parse_instant
 
-from runtime.api.domain.test_sign_in_resolution import conn as actor_database
+from runtime.api.domain.sign_in_resolution_test_support import conn as actor_database
 from yoke_core.domain.frontend_events_storage import (
     RATE_REQUESTS,
     admit_client,

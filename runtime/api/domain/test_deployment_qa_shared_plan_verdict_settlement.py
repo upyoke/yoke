@@ -2,13 +2,15 @@
 
 from unittest.mock import patch
 
-from runtime.api.domain.test_deployment_qa_plan_groups import (
+from runtime.api.domain.deployment_qa_plan_groups_test_support import (
     MEMBERS,
     RUN,
     _begin,
     _seed,
 )
-from runtime.api.domain.test_deployment_qa_plan_group_execution import _fail_case
+from runtime.api.domain.deployment_qa_plan_group_execution_test_support import (
+    _fail_case,
+)
 from yoke_contracts.api.function_call import (
     ActorContext,
     FunctionCallRequest,

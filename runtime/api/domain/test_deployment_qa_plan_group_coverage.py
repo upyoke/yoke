@@ -1,6 +1,6 @@
 """A later group answers only members missing from prior closed coverage."""
 
-from runtime.api.domain.test_deployment_qa_plan_groups import (
+from runtime.api.domain.deployment_qa_plan_groups_test_support import (
     RUN,
     SLUG,
     MEMBERS,
@@ -61,7 +61,9 @@ def test_item_selector_materializes_group_without_member_copy(test_db):
 
 
 def test_later_plan_edit_does_not_change_credit_or_pending_pinned_cases(test_db):
-    from runtime.api.domain.test_deployment_qa_plan_group_scenarios import _pin_flow
+    from runtime.api.domain.deployment_qa_plan_group_scenarios_test_support import (
+        _pin_flow,
+    )
     from yoke_core.domain.deployment_qa_plan_credit import plan_credit_misses
     from yoke_core.domain.deployment_qa_run_sharing import run_qa_sharing
     from yoke_core.domain.qa_plan_management import replace_plan_cases

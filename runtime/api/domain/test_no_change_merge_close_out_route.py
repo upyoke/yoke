@@ -4,7 +4,10 @@ from __future__ import annotations
 
 import json
 
-from runtime.api.domain.test_standalone_item_merge_close_out_route import _run, _wire
+from runtime.api.domain.standalone_item_merge_close_out_route_test_support import (
+    _run,
+    _wire,
+)
 from yoke_core.domain import standalone_item_merge_cli as merge_cli
 from yoke_core.domain import standalone_item_merge_verify as verify
 from yoke_core.domain.standalone_item_merge import StandaloneMergeOutcome

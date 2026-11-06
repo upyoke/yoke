@@ -24,7 +24,7 @@ from yoke_core.domain.session_message_types import SessionMessageError
 from yoke_core.domain.session_message_wake import wake_eligible_recipients
 from yoke_core.domain.session_relay_types import WakeMode
 from yoke_core.domain.session_relay_wake_claim import claim_wake_attempt
-from runtime.api.domain.test_session_message_support import (
+from runtime.api.domain.session_message_support_test_support import (
     NATIVE_WAKE_SESSION_ID,
     NOW,
     NOW_TEXT,

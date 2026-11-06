@@ -5,12 +5,14 @@ from typing import Any
 
 import pytest
 
-from runtime.api.domain.test_deployment_qa_stage_execution import (
+from runtime.api.domain.deployment_qa_stage_execution_test_support import (
     _plan,
     _seed_run,
     _stages,
 )
-from runtime.api.domain.test_deployment_qa_stage_human_review import _human_actor
+from runtime.api.domain.deployment_qa_stage_human_review_test_support import (
+    _human_actor,
+)
 from yoke_core.domain import qa_evidence_portability
 from yoke_core.domain.deployment_qa_stage_gate import deployment_qa_stage_status
 from yoke_core.domain.deployment_qa_stage_materialization import (

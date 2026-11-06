@@ -7,7 +7,7 @@ from typing import Any
 import pytest
 
 from runtime.api.fixtures.backlog_inserts import insert_item
-from runtime.api.domain.test_deployment_run_composition_freeze import (
+from runtime.api.domain.deployment_run_composition_freeze_test_support import (
     _environment,
     _flow,
     _known_carried,

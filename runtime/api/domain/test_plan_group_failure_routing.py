@@ -2,9 +2,15 @@
 
 import pytest
 
-from runtime.api.domain.test_deployment_qa_plan_group_wait_wakes import _setup
-from runtime.api.domain.test_deployment_qa_plan_groups import MEMBERS, RUN, _begin
-from runtime.api.domain.test_deployment_qa_stage_wake_delivery import (
+from runtime.api.domain.deployment_qa_plan_group_wait_wakes_test_support import (
+    _setup,
+)
+from runtime.api.domain.deployment_qa_plan_groups_test_support import (
+    MEMBERS,
+    RUN,
+    _begin,
+)
+from runtime.api.domain.deployment_qa_stage_wake_delivery_test_support import (
     _claim,
     seed_session,
 )
@@ -178,7 +184,7 @@ def test_failed_group_fleet_recovery_names_pinned_commit(test_db, outcome):
     _setup(test_db, manual=False)
     execution = _begin(test_db)
     if outcome == "failed":
-        from runtime.api.domain.test_deployment_qa_plan_group_execution import (
+        from runtime.api.domain.deployment_qa_plan_group_execution_test_support import (
             _fail_case,
         )
 

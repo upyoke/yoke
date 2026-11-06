@@ -7,7 +7,7 @@ from types import SimpleNamespace
 import pytest
 
 from runtime.api.fixtures.session_zones import SESSION_ZONES
-from runtime.api.domain.test_chain_checkpoint_instants import _session
+from runtime.api.domain.chain_checkpoint_instants_test_support import _session
 from yoke_contracts.timestamps import format_instant, parse_instant
 from yoke_core.domain import migration_harness_core as migration
 from yoke_core.domain.migration_audit_schema import ensure_migration_audit_table

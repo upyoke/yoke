@@ -21,7 +21,7 @@ from yoke_core.domain.agents_render_references import (
     reference_output_path,
     render_reference_text,
 )
-from runtime.api.domain.test_agents_render_workspace_fixtures import (
+from runtime.api.domain.agents_render_workspace_fixtures_test_support import (
     resolve_live_repo_root,
 )
 

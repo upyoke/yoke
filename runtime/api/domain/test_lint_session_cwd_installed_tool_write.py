@@ -2,10 +2,12 @@
 
 import pytest
 
-from runtime.api.domain.test_lint_session_cwd_read_shaped_access import (
+from runtime.api.domain.lint_session_cwd_read_shaped_access_test_support import (
     _seed_lane,
 )
-from runtime.api.domain import test_lint_session_cwd_read_shaped_access as fixtures
+from runtime.api.domain import (
+    lint_session_cwd_read_shaped_access_test_support as fixtures,
+)
 
 from yoke_core.domain import lint_session_cwd
 

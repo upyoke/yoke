@@ -7,6 +7,8 @@ Shared fixture/helpers live in ``test_service_client_sessions_helpers.py``.
 
 from __future__ import annotations
 
+from runtime.api.service_client_sessions_helpers_test_support import (session_test_db as session_test_db)
+
 import json
 import os
 import subprocess
@@ -20,14 +22,11 @@ from yoke_contracts.harness_family_identity import (
 from yoke_contracts.session_identity import AMBIENT_ENV_VARS
 from runtime.api.service_client_in_process_test_support import run_client
 from runtime.api.fixtures.file_test_db import connect_test_db
-from runtime.api.test_service_client import (
+from runtime.api.service_client_test_support import (
     _REPO_ROOT,
     _run_client,
     _service_client_cmd,
     _with_source_pythonpath,
-)
-from runtime.api.test_service_client_sessions_helpers import (
-    session_test_db,  # noqa: F401 — re-exported fixture
 )
 
 

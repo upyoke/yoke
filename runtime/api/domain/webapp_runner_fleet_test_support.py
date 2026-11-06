@@ -9,7 +9,7 @@ import types
 
 import pytest
 
-from runtime.api.domain.test_webapp_registry_stack import (
+from runtime.api.domain.webapp_registry_stack_test_support import (
     _Recorder,
     _load_pack_module,
     _make_resource_class,

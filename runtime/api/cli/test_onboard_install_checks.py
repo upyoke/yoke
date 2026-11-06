@@ -7,7 +7,9 @@ import pytest
 from yoke_cli.config import path_doctor, onboard_apply_path, onboard_path_plan
 from yoke_cli.config.onboard_wizard_path import PathFlow
 from yoke_cli.config.setup_run_facts import RunFacts
-from runtime.api.cli.test_yoke_operations_cli_onboard_wizard_path import _diagnosis
+from runtime.api.cli.yoke_operations_cli_onboard_wizard_path_test_support import (
+    _diagnosis,
+)
 
 
 @pytest.mark.parametrize("tool", path_doctor.TOOLS)

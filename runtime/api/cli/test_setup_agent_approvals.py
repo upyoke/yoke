@@ -2,6 +2,16 @@
 
 from __future__ import annotations
 
+from runtime.api.cli.setup_agent_approvals_test_support import (
+    Server as Server,
+    TOKEN as TOKEN,
+    VERIFIED as VERIFIED,
+    _only_browser as _only_browser,
+    _pending as _pending,
+    _saved as _saved,
+)
+
+
 import json
 import os
 import stat
@@ -17,7 +27,6 @@ from runtime.api.cli.setup_agent_test_support import (
 from yoke_contracts.machine_authorization import (
     HostedMachineAuthorizationDenied,
     HostedMachineCredential,
-    PendingMachineAuthorization,
 )
 from yoke_cli.config import (
     github_device_flow,
@@ -31,47 +40,9 @@ from yoke_cli.transport.bounded_json_http import BoundedJsonHttpResponse
 pytest.importorskip("textual")
 
 APPROVAL_KEY = "connect.hosted_machine_approval"
-TOKEN = "token-never-shown"
 CREDENTIAL = HostedMachineCredential(
     api_url="https://app.upyoke.com/api/orgs/acme", org="acme", token=TOKEN
 )
-VERIFIED = {
-    "ok": True,
-    "actor": {"label": "Test Person"},
-    "orgs": [{"name": "Acme"}],
-    "projects": [],
-}
-
-
-def _pending(code: str) -> PendingMachineAuthorization:
-    return PendingMachineAuthorization(
-        platform_url="https://app.upyoke.com",
-        device_code=f"device-{code}",
-        user_code=code,
-        verification_uri="https://app.upyoke.com/machine",
-        verification_uri_complete=f"https://app.upyoke.com/machine?code={code}",
-        expires_in=600,
-        interval=5,
-    )
-
-
-class Server:
-    """Codes started, and what each one-shot poll answers in turn."""
-
-    def __init__(self) -> None:
-        self.started: list[str] = []
-        self.polls: list[object] = []
-
-    def start(self, *_a, **_k) -> PendingMachineAuthorization:
-        self.started.append(f"CODE-{len(self.started) + 1}")
-        return _pending(self.started[-1])
-
-    def poll_once(self, pending: PendingMachineAuthorization):
-        assert pending.device_code == f"device-{self.started[-1]}"
-        answer = self.polls.pop(0)
-        if isinstance(answer, Exception):
-            raise answer
-        return answer
 
 
 @pytest.fixture
@@ -97,16 +68,6 @@ def server(monkeypatch) -> Server:
 def drive(tmp_path: Path, monkeypatch, capsys) -> AgentDriver:
     isolate_agent_setup(tmp_path, monkeypatch)
     return AgentDriver(capsys)
-
-
-def _saved() -> dict:
-    return json.loads(setup_agent_answers.store_path().read_text(encoding="utf-8"))
-
-
-def _only_browser(result) -> dict:
-    code, lines = result
-    assert (code, [line["state"] for line in lines]) == (0, ["browser"]), lines
-    return lines[0]
 
 
 def test_browser_step_ends_the_call_and_the_next_call_continues(drive, server):

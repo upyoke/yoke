@@ -161,7 +161,7 @@ def _is_scannable(relative_path: str) -> bool:
     if any(relative_path.startswith(prefix) for prefix in _SKIP_PREFIXES):
         return False
     name = relative_path.rsplit("/", 1)[-1]
-    if name.startswith(_TEST_FILE_PREFIX) or name.endswith(_TEST_FILE_SUFFIX):
+    if name.startswith(_TEST_FILE_PREFIX) or name.endswith((_TEST_FILE_SUFFIX, "_test_support.py")):
         return False
     return not any(relative_path == exempt for exempt, _why in _EXEMPTIONS)
 

@@ -8,7 +8,7 @@ import subprocess
 import pytest
 
 from public_installer_helpers import INSTALL_SHIM_PATH, load_installer
-from test_installer_goldens import _run_shim_capture
+from tests.installer.installer_goldens_test_support import _run_shim_capture
 
 
 @pytest.mark.parametrize("colorterm", [None, "", "256color", "truecolor", "24bit"])

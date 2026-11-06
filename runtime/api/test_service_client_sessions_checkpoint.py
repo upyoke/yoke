@@ -7,12 +7,12 @@ from __future__ import annotations
 
 import json
 
-from runtime.api.test_service_client import _run_client
-from runtime.api.test_service_client_sessions_helpers import (
+from runtime.api.service_client_test_support import _run_client
+from runtime.api.service_client_sessions_helpers_test_support import (
     _pre_register_session,
 )
 
-pytest_plugins = ("runtime.api.test_service_client_sessions_helpers",)
+pytest_plugins = ("runtime.api.service_client_sessions_helpers_test_support",)
 
 
 class TestSessionCheckpointCommand:

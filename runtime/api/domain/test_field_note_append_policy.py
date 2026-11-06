@@ -12,7 +12,7 @@ from yoke_core.domain.ouroboros_entries import (
     get_entry_row,
     list_entry_rows,
 )
-from runtime.api.domain.test_ouroboros_field_note import (
+from runtime.api.domain.ouroboros_field_note_test_support import (
     _build_request,
     _ok_emit_result,
 )

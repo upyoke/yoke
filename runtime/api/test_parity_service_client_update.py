@@ -6,7 +6,7 @@ import json
 
 import pytest
 
-from runtime.api.test_parity import _run_service_client as _run_subprocess
+from runtime.api.parity_test_support import _run_service_client as _run_subprocess
 
 from runtime.api.service_client_in_process_test_support import (
     run_parity_client as _run_service_client,

@@ -8,15 +8,8 @@ from typing import Any
 import pytest
 
 from yoke_core.domain import check_claim_boundary_audit_cutoff as _cutoff
-from runtime.api.engines.test_doctor_hc_claim_boundary_audit import (
-    _add_claim,
-    _add_event,
-    _add_session,
-    _p,
-    _run,
-    _sid,
-    env as env,
-)
+from runtime.api.engines.doctor_hc_claim_boundary_audit_test_support import (_add_claim, _add_event, _add_session, _run, _sid, env as env)
+from runtime.api.domain.path_context_test_support import (_p)
 
 
 @pytest.fixture(autouse=True)

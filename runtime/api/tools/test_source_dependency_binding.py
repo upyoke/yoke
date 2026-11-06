@@ -11,7 +11,9 @@ import subprocess
 import zipfile
 from pathlib import Path
 
-from runtime.api.tools.test_source_dev_run_cli_child_binding import _stub_source_tree
+from runtime.api.tools.source_dev_run_cli_child_binding_test_support import (
+    _stub_source_tree,
+)
 from yoke_core.domain import source_python_environment as environment
 from yoke_core.domain.qa_environment_declaration import TestEnvironmentDeclaration
 from yoke_core.tools import (

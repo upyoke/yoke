@@ -2,8 +2,11 @@
 
 from __future__ import annotations
 
-from runtime.api.domain.test_qa_capture_pending_review import _seed_pending, _submit
-from runtime.api.domain.test_qa_plan_agent_review_wake import _owner
+from runtime.api.domain.qa_capture_pending_review_test_support import (
+    _seed_pending,
+    _submit,
+)
+from runtime.api.domain.qa_plan_agent_review_wake_test_support import _owner
 from runtime.api.fixtures.pg_testdb import connect_test_database
 from yoke_core.domain import qa_plan_settled_review
 from yoke_core.domain.qa_plan_settled_review import SETTLED_REVIEW_WAKE_REASON

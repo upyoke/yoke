@@ -5,7 +5,7 @@ from yoke_core.tools._impacted_ci_only_contract_floor import (
 )
 from yoke_core.tools.impacted_tests import ALWAYS_RUN_TESTS, build_import_index, select
 
-from runtime.api.tools.test_impacted_tests import _tiny_repo, _write
+from runtime.api.tools.impacted_tests_test_support import _tiny_repo, _write
 
 
 def test_ci_only_contract_floor_is_on_the_always_run_floor() -> None:

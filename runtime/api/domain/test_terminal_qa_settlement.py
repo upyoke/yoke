@@ -2,56 +2,27 @@
 
 from __future__ import annotations
 
+from runtime.api.domain.terminal_qa_settlement_test_support import (
+    _seed_merging_sha as _seed_merging_sha,
+    _seed_plan_execution as _seed_plan_execution,
+    _terminal_result as _terminal_result,
+    _tree_result as _tree_result,
+)
+
+
 import pytest
 
 from runtime.api.fixtures.backlog import (
     insert_item,
-    insert_item_worktree,
     insert_qa_requirement,
     insert_qa_run,
 )
 from yoke_core.domain.item_merge_receipt_document import record_entry
-from yoke_core.domain.backlog_authoritative_status_gate import (
-    _run_authoritative_status_gate,
-)
 from yoke_core.domain.qa_review_waits import QaReviewWait
 
 
 def _row_id(row) -> int:
     return int(row["id"] if hasattr(row, "keys") else row[0])
-
-
-def _terminal_result(test_db) -> dict:
-    return _run_authoritative_status_gate(
-        item_id=10,
-        target_status="done",
-        db_path="",
-        qa_bypass=True,
-        force=True,
-        conn=test_db,
-    ) or {"success": True}
-
-
-def _seed_plan_execution(test_db, *, state: str) -> None:
-    test_db.execute(
-        "INSERT INTO qa_plan_executions "
-        "(id, item_id, transition_id, session_id, roster_digest, roster_json, "
-        "cursor_ordinal, state, created_at, heartbeat_at) "
-        "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
-        (
-            f"execution-{state}",
-            10,
-            "reviewing-implementation",
-            "session-1",
-            "digest",
-            "[]",
-            0,
-            state,
-            "2026-01-01T00:00:00Z",
-            "2026-01-01T00:00:00Z",
-        ),
-    )
-    test_db.commit()
 
 
 def test_terminal_transition_refuses_pending_run_despite_bypass_flags(test_db):
@@ -120,16 +91,6 @@ def test_terminal_transition_allows_settled_or_waived_records(test_db):
     assert _terminal_result(test_db) == {"success": True}
 
 
-def _seed_merging_sha(test_db, sha: str) -> None:
-    lane = insert_item_worktree(test_db, item_id=10, branch="YOK-10")
-    lane_id = int(lane["id"] if hasattr(lane, "keys") else lane[0])
-    test_db.execute(
-        "UPDATE item_worktrees SET commit_sha = %s WHERE id = %s",
-        (sha, lane_id),
-    )
-    test_db.commit()
-
-
 def test_terminal_transition_refuses_when_nothing_materialized(test_db):
     insert_item(test_db, id=10, status="release")
     result = _terminal_result(test_db)
@@ -192,10 +153,6 @@ def test_terminal_transition_accepts_pass_for_merging_commit(test_db):
         completed_at="2026-01-01T00:00:01Z",
     )
     assert _terminal_result(test_db) == {"success": True}
-
-
-def _tree_result(sha: str) -> str:
-    return '{"verification_tree":{"head_sha":"' + sha + '"}}'
 
 
 def _seed_merge_receipt(test_db, *, landing_sha: str, merge_sha: str) -> None:

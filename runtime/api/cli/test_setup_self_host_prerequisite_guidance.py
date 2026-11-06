@@ -9,13 +9,8 @@ import subprocess
 import pytest
 
 from runtime.api.cli.setup_agent_test_support import AgentDriver, isolate_agent_setup
-from runtime.api.cli.test_yoke_operations_cli_onboard_wizard_self_host import (
-    _app,
-    _body_text,
-    _open_preview,
-    _start,
-    _wait_for_text,
-)
+from runtime.api.cli.yoke_operations_cli_onboard_wizard_self_host_test_support import (_app, _open_preview, _start, _wait_for_text)
+from runtime.api.cli.yoke_operations_cli_onboard_wizard_publish_capability_test_support import (_body_text)
 from yoke_cli.config import onboard_docker_prerequisites as docker
 from yoke_cli.config import onboard_self_host_server as server
 from yoke_cli.self_host import runtime

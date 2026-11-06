@@ -13,7 +13,7 @@ from yoke_contracts.session_control.resume import (
 from yoke_contracts.session_control.wake_delivery import WAKE_DELIVERED_RESULT
 from yoke_core.domain.session_relay import claim_relay_job, report_relay_job
 from yoke_core.domain.session_relay_types import SessionRelayError
-from runtime.api.domain.test_session_relay import (
+from runtime.api.domain.session_relay_test_support import (
     RELAY_ID,
     _add_wake_recipient,
     _clock,

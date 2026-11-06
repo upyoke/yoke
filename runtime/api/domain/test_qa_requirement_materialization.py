@@ -4,21 +4,21 @@ import json
 
 import pytest
 
-from runtime.api.domain.test_deployment_qa_admission_execution import (
+from runtime.api.domain.deployment_qa_admission_execution_test_support import (
     _original_requirement,
 )
-from runtime.api.domain.test_deployment_qa_plan_groups import (
+from runtime.api.domain.deployment_qa_plan_groups_test_support import (
     MEMBERS,
     RUN,
     _begin,
     _seed,
 )
-from runtime.api.domain.test_deployment_qa_stage_execution import _plan
-from runtime.api.domain.test_qa_plan_case_currency import (
+from runtime.api.domain.deployment_qa_stage_execution_test_support import _plan
+from runtime.api.domain.qa_plan_case_currency_test_support import (
     _materialized,
     _correct_the_case,
 )
-from runtime.api.domain.test_qa_plan_standalone_execution import (
+from runtime.api.domain.qa_plan_standalone_execution_test_support import (
     _plan as standalone_plan,
     _begin as standalone_begin,
 )
@@ -68,7 +68,7 @@ def test_methodless_standing_requirement_is_not_copied(test_db):
         item_id=9715,
         requirement_id=source_id,
     )
-    from runtime.api.domain.test_deployment_qa_plan_groups import _attach
+    from runtime.api.domain.deployment_qa_plan_groups_test_support import _attach
     from yoke_core.domain.deployment_qa_plan_group_writes import ensure_groups
 
     _attach(test_db, 9715, plan_id)
@@ -212,7 +212,9 @@ def test_head_sha_cli_reaches_existing_recording_contract(monkeypatch):
 
 
 def test_bound_default_environment_is_stable_across_materialize_and_refresh(test_db):
-    from runtime.api.domain.test_deployment_qa_stage_execution import _environment
+    from runtime.api.domain.deployment_qa_stage_execution_test_support import (
+        _environment,
+    )
     from yoke_core.domain.qa_plan_management import create_plan
     from yoke_core.domain.qa_plan_attachments import set_project_default
     from yoke_core.domain.qa_plan_rematerialize import rematerialize_for_item

@@ -20,7 +20,7 @@ from yoke_core.domain import (
     qa_case_execution_cli,
 )
 
-from runtime.api.domain.test_qa_case_execution import _case
+from runtime.api.domain.qa_case_execution_test_support import _case
 
 
 def _recording_dispatch(calls: list):

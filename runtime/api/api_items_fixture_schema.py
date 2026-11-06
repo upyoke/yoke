@@ -3,7 +3,7 @@
 from yoke_core.domain.projects_restart_schema import _INIT_TABLES_SQL
 from yoke_core.domain.schema_init_apply import iter_schema_statements
 
-from runtime.api.test_dependency_schema import ITEMS_SCHEMA, PROJECTS_SCHEMA
+from runtime.api.dependency_schema_test_support import ITEMS_SCHEMA, PROJECTS_SCHEMA
 from yoke_core.domain.work_claim_target_sql import TARGET_KIND_CHECK_SQL
 
 # Shared schema: ITEMS_SCHEMA (imported) + the family tables the API tests need.

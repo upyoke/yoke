@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from unittest.mock import patch
 
-from runtime.api.test_sessions import _create_schema, _register, conn  # noqa: F401,F811  (Postgres-backed pytest fixture)
+from runtime.api.sessions_test_support import _create_schema, _register, conn  # noqa: F401,F811  (Postgres-backed pytest fixture)
 from yoke_core.domain.sessions_handler_outcome import (
     NON_USEFUL_STEP_OUTCOMES,
     OUTCOME_BLOCKED,

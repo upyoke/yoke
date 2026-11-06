@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from runtime.harness.test_session_relay_claude import (
+from runtime.harness.session_relay_claude_test_support import (
     CHECK_INBOX,
     CLAUDE,
     CLAUDE_LOCAL_SETTINGS_JSON,

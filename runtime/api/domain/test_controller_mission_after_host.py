@@ -4,8 +4,10 @@ import pytest
 
 from runtime.api.domain.machine_qa_host_test_support import configure_test_machine
 from runtime.api.domain.machine_qa_session_seed import seed_qa_session
-from runtime.api.domain.test_agent_mission_controller import _mission
-from runtime.api.domain.test_machine_qa_plan_execution import _execute_begin_contract
+from runtime.api.domain.agent_mission_controller_test_support import _mission
+from runtime.api.domain.machine_qa_plan_execution_test_support import (
+    _execute_begin_contract,
+)
 from yoke_contracts.api.function_call import (
     ActorContext,
     FunctionCallRequest,

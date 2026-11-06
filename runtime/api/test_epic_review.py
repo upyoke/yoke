@@ -4,6 +4,9 @@ cascade-mapping rules, orphan check, review reads, and review/simulation writes.
 
 from __future__ import annotations
 
+from runtime.api.epic_review_test_support import db as db
+
+
 import os
 from unittest.mock import patch
 
@@ -11,27 +14,10 @@ import pytest
 
 from yoke_core.domain import epic
 from runtime.api.conftest import insert_item, insert_epic_task
-from runtime.api.fixtures.file_test_db import (
-    apply_test_schema,
-    connect_test_db,
-    init_test_db,
-)
 
 # Synthetic test epic ID — not a real backlog item reference.
 TEST_ITEM_ID = 42
 TEST_ITEM_REF = f"YOK-{TEST_ITEM_ID}"
-
-
-@pytest.fixture
-def db(tmp_path):
-    # Backend-aware: SQLite file on SQLite, disposable per-test database on
-    # Postgres (YOKE_PG_DSN repointed for the context).
-    with init_test_db(tmp_path, apply_schema=apply_test_schema) as db_path:
-        conn = connect_test_db(db_path)
-        try:
-            yield conn
-        finally:
-            conn.close()
 
 
 @pytest.fixture

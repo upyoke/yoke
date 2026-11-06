@@ -5,14 +5,17 @@ import json
 
 import pytest
 
-from runtime.api.domain.test_session_org_messages import (
+from runtime.api.domain.session_org_messages_test_support import (
     org_world as org_world,
     send,
     relay,
 )
-from runtime.api.domain.test_org_scope_relay_wake_jobs import heartbeat
-from runtime.api.domain.test_org_scope_relay_reports import NOW, MACHINE
-from runtime.api.domain.test_session_action_dispatch_permission import _entry, _request
+from runtime.api.domain.org_scope_relay_wake_jobs_test_support import heartbeat
+from runtime.api.domain.org_scope_relay_reports_test_support import NOW, MACHINE
+from runtime.api.domain.session_action_dispatch_permission_test_support import (
+    _entry,
+    _request,
+)
 from yoke_core.domain import actor_permissions
 from yoke_core.domain.session_action_authority import authorize_session_action
 from yoke_core.domain.session_action_dispatch_permission import (

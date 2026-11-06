@@ -7,12 +7,12 @@ Shared fixtures live in test_merge_worktree_full.py.
 import ast
 from pathlib import Path
 
-from runtime.api.test_merge_worktree_full import (
+from runtime.api.merge_worktree_full_test_support import (
     TEST_BRANCH,
     MergeEnv,
     _git,
     _write_file,
-    merge_env,  # re-export so pytest recognises this fixture
+    merge_env,
     run_merge,
 )
 

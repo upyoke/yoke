@@ -1,5 +1,9 @@
 """Question requester labels delegate to the shared session renderer."""
 
+from runtime.api.domain.decision_request_requester_label_test_support import (
+    add_holdings_schema as add_holdings_schema,
+)
+
 from unittest.mock import Mock
 
 from yoke_core.domain import decision_request_requester_label as labels
@@ -15,7 +19,7 @@ def test_requesters_use_shared_session_labels(monkeypatch):
 
 
 def test_question_page_reads_labels_once(monkeypatch):
-    from runtime.api.domain.test_decision_request_operator_question import (
+    from runtime.api.domain.decision_request_operator_question_test_support import (
         conn as fixture,
         filing,
     )
@@ -56,13 +60,3 @@ def test_question_page_reads_labels_once(monkeypatch):
         generator.close()
 
 
-def add_holdings_schema(conn):
-    conn.executescript("""
-        ALTER TABLE harness_sessions ADD COLUMN machine_id TEXT;
-        ALTER TABLE work_claims ADD COLUMN claimed_at TEXT DEFAULT 'now';
-        ALTER TABLE work_claims ADD COLUMN reason TEXT;
-        CREATE TABLE session_relays (machine_id TEXT, hostname TEXT, last_seen_at TEXT);
-        CREATE TABLE session_launches (launch_id TEXT, registered_session_id TEXT, native_session_id TEXT, item_id INTEGER, created_at TEXT);
-        CREATE TABLE epic_tasks (epic_id INTEGER, task_num INTEGER, item_worktree_id INTEGER);
-        CREATE TABLE item_worktrees (id INTEGER, item_id INTEGER, state TEXT, lane_role TEXT);
-    """)

@@ -8,7 +8,7 @@ import pytest
 from runtime.api.fixtures.session_zones import SESSION_ZONES
 from fastapi.testclient import TestClient
 
-from runtime.api import test_web_sign_in_door as door
+from runtime.api import web_sign_in_door_test_support as door
 from yoke_core.api import app_factory
 from yoke_core.api.http_auth import SIGN_OUT_PATH
 from yoke_core.api.web_session_auth import WEB_SESSION_COOKIE_NAME

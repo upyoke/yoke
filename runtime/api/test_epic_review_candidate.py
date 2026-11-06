@@ -13,7 +13,7 @@ from runtime.api.conftest import insert_item
 from runtime.api.domain.handlers._epic_task_review_state_test_helpers import (
     make_request,
 )
-from runtime.api.test_epic_review_environment import review_db  # noqa: F401
+from runtime.api.epic_review_environment_test_support import review_db  # noqa: F401
 from yoke_core.domain.handlers import workflow_item_epic_task_review as handlers
 from yoke_core.domain.yoke_function_dispatch_claims import verify_claim
 

@@ -11,17 +11,18 @@ one resolved as a path denied a read-only inspection outright.
 
 from __future__ import annotations
 
-from pathlib import Path
+from runtime.api.domain.lint_lane_main_write_shell_redirect_test_support import (
+    _bash as _bash,
+    _seed_lane as _seed_lane,
+    conn as conn,
+    repo as repo,
+)
+
+
 from unittest import mock
 
 import pytest
 
-from runtime.api.domain.lint_session_cwd_test_helpers import (
-    seed_item,
-    seed_item_claim,
-)
-from runtime.api.fixtures.machine_config_test import register_machine_checkout
-from runtime.api.fixtures.pg_testdb import test_database
 from yoke_core.domain import lint_lane_main_write
 from yoke_core.domain.lint_lane_main_write_classify import is_write_operation
 from yoke_core.domain.lint_lane_main_write_messages import ESCAPE_TOKEN
@@ -31,38 +32,6 @@ _CAT_HEREDOC_RELATIVE = (
     "packages/yoke-harness/src/yoke_harness/session_relay_codex_plan_limit.py"
 )
 _APOSTROPHE_BODY = "# don't land this module on main\nfrom pathlib import Path\n"
-
-
-@pytest.fixture
-def conn():
-    with test_database() as c:
-        yield c
-
-
-@pytest.fixture
-def repo(tmp_path):
-    repo_path = tmp_path / "repo"
-    (repo_path / ".worktrees").mkdir(parents=True)
-    return repo_path
-
-
-def _seed_lane(conn, repo, *, session_id="sid-lane", item_id=2013):
-    register_machine_checkout(
-        Path(repo).parent / "machine-config",
-        Path(repo),
-        project_id=1,
-    )
-    seed_item(
-        conn,
-        item_id=item_id,
-        branch=f"YOK-{item_id}",
-        status="implementing",
-        repo_path=repo,
-    )
-    seed_item_claim(conn, session_id, item_id=item_id)
-    worktree = repo / ".worktrees" / f"YOK-{item_id}"
-    worktree.mkdir(parents=True, exist_ok=True)
-    return worktree
 
 
 def _cat_redirect_heredoc(relative: str, *, operator: str = ">") -> str:
@@ -75,15 +44,6 @@ def _tee_heredoc(relative: str) -> str:
 
 def _after_opener_heredoc(relative: str) -> str:
     return f"cat <<PY > {relative}\n{_APOSTROPHE_BODY}PY"
-
-
-def _bash(command: str, *, cwd: str) -> dict:
-    return {
-        "session_id": "sid-lane",
-        "tool_name": "Bash",
-        "cwd": cwd,
-        "tool_input": {"command": command},
-    }
 
 
 @pytest.mark.parametrize(

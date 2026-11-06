@@ -12,7 +12,7 @@ from datetime import datetime, timedelta, timezone
 
 import pytest
 
-from runtime.api.domain.handlers.test_sessions_list_handler import (
+from runtime.api.domain.handlers.sessions_list_handler_test_support import (
     _LONG_AGO_MINUTES,
     _insert_session,
 )

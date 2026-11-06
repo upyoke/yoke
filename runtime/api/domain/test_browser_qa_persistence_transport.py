@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from runtime.api.domain.test_browser_qa_transport import (
+from runtime.api.domain.browser_qa_transport_test_support import (
     ActorContext as ActorContext,
     Any as Any,
     Dict as Dict,

@@ -1,7 +1,12 @@
 """Durable mission hand-back and governed execution-state cutover."""
 
+from runtime.api.domain.qa_execution_walk_states_test_support import (
+    assert_walking_proof as assert_walking_proof,
+    record_handback as record_handback,
+)
+
+
 import importlib
-import base64
 import json
 from unittest.mock import patch
 
@@ -185,24 +190,6 @@ def test_non_restore_artifact_and_ordinary_capture_do_not_start_a_walk(test_db):
     assert post_capture_state(test_db, ordinary) == "awaiting_walk_review"
 
 
-def record_handback(actor, requirement_id, run_id):
-    from yoke_contracts.api.function_call import FunctionCallRequest, TargetRef
-    from yoke_core.domain.handlers.qa_artifact_add import handle_qa_artifact_add
-
-    outcome = handle_qa_artifact_add(FunctionCallRequest(
-        function="qa.artifact.add", actor=actor,
-        target=TargetRef(kind="qa_requirement", qa_requirement_id=requirement_id),
-        payload={
-            "run_id": run_id, "artifact_type": "starting_state_restore",
-            "content_type": "application/json", "filename": "restore.json",
-            "content_base64": base64.b64encode(json.dumps({
-                "restored": True, "baseline": "fresh-host",
-            }).encode()).decode(),
-        },
-    ))
-    assert outcome.primary_success, outcome.error
-
-
 def test_stopped_capture_keeps_the_independent_review_cue(test_db):
     from yoke_core.domain.qa_plan_review import begin_plan_review
     from yoke_core.domain.qa_plan_case_proof import _case_result
@@ -218,15 +205,3 @@ def test_stopped_capture_keeps_the_independent_review_cue(test_db):
         host_baseline=None, deployment_run_id=None,
     )
     assert proof["review"]["state"] == "awaiting_walk_review"
-
-
-def assert_walking_proof(conn, execution):
-    from yoke_core.domain.qa_plan_case_proof import _case_result
-
-    case = execution["roster"][0]
-    proof = _case_result(
-        conn, plan_id=case["plan_id"], case_key=case["case_key"],
-        host_baseline=case["host_baseline"], deployment_run_id=None,
-    )
-    assert execution["state"] == proof["review"]["state"] == "walking"
-    assert proof["review"]["capture_runner"] == "agent_mission"

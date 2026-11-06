@@ -8,7 +8,7 @@ import pytest
 from yoke_contracts.timestamps import InvalidInstant, parse_instant
 from yoke_harness.claude_runtime_records import claude_job_state
 from yoke_harness import session_relay_claude_idle_hosts as idle_hosts
-from runtime.harness.test_session_relay_claude_idle_hosts import (
+from runtime.harness.session_relay_claude_idle_hosts_test_support import (
     NOW,
     _Dispatcher,
     _Inventory,

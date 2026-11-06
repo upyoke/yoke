@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from runtime.api.domain.test_merge_queue_close_out import (
+from runtime.api.domain.merge_queue_close_out_test_support import (
     _wire,
     _ctx,
     MERGE_SHA,

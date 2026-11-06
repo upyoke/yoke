@@ -15,7 +15,7 @@ from yoke_contracts.api.function_call import (
 )
 from yoke_core.domain.handlers import readiness
 
-from runtime.api.domain.handlers.test_readiness_handlers import (
+from runtime.api.domain.handlers.readiness_handlers_test_support import (
     _UNPERFORMED_CHECK,
     _readiness_payload,
 )

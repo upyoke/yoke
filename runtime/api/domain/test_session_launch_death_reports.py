@@ -8,8 +8,12 @@ from uuid import uuid4
 
 import pytest
 
-from runtime.api.domain.test_session_process_liveness_report import (
-    EVIDENCE, MACHINE, _apply, _ghost, conn as conn,
+from runtime.api.domain.session_process_liveness_report_test_support import (
+    EVIDENCE,
+    MACHINE,
+    _apply,
+    _ghost,
+    conn as conn,
 )
 from yoke_core.domain.session_launch_store import get_launch, insert_instruction_message
 
@@ -70,4 +74,3 @@ def test_registered_launch_is_settled_only_for_death_before_work(conn, scenario)
         assert recorded["launch_phase_reached"] == "awaiting_registration"
         assert recorded["exit_code"] == 1
         assert recorded["native_stderr_tail"] == "Selected model is at capacity"
-

@@ -10,7 +10,7 @@ merge-engine wrapper's pre-retry validation behavior.
 
 from __future__ import annotations
 
-from runtime.api.test_merge_worktree_pr_checks_test_helpers import _stub_ctx
+from runtime.api.merge_worktree_pr_checks_test_helpers_test_support import _stub_ctx
 
 
 def _stub_ctx_with_project(item_id, branch):

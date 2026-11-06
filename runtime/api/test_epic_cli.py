@@ -20,8 +20,8 @@ import pytest
 
 from runtime.api.conftest import insert_epic_task, insert_item
 from yoke_core.domain import epic
-from runtime.api.test_epic_cascade_dispatch import db_with_chain  # noqa: F401
-from runtime.api.test_epic_tasks import db, db_with_task  # noqa: F401,F811
+from runtime.api.epic_cascade_dispatch_shared_test_support import db_with_chain  # noqa: F401
+from runtime.api.epic_tasks_test_support import db, db_with_task  # noqa: F401,F811
 
 # Synthetic test epic ID — not a real backlog item reference.
 TEST_ITEM_ID = 42

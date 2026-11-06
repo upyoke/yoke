@@ -2,15 +2,15 @@
 
 import pytest
 
-from runtime.api.domain.test_installer_campaign_plan_sync import (
+from runtime.api.domain.installer_campaign_plan_sync_test_support import (
     source_checkout as source_checkout,
 )
-from runtime.api.domain.test_deployment_qa_stage_execution import (
+from runtime.api.domain.deployment_qa_stage_execution_test_support import (
     _plan,
     _seed_run,
     _stages,
 )
-from runtime.api.domain.test_deployment_qa_shared_plans import _attach
+from runtime.api.domain.deployment_qa_run_sharing_test_support import (_attach)
 from yoke_core.domain import qa_plan_source_revision as source_binding
 from yoke_core.domain.deployment_run_carried_work_source import LocalCheckoutSource
 from yoke_core.domain.deployment_qa_stage_gate import deployment_qa_stage_status

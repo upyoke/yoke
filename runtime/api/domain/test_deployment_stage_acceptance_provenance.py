@@ -13,11 +13,11 @@ from __future__ import annotations
 
 from typing import Any
 
-from runtime.api.domain.test_deployment_qa_run_acceptance import (
+from runtime.api.domain.deployment_qa_run_acceptance_test_support import (
     _acceptance_requirement_id,
     _settle,
 )
-from runtime.api.domain.test_deployment_qa_stage_execution import (
+from runtime.api.domain.deployment_qa_stage_execution_test_support import (
     _plan,
     _seed_run,
     _stages,

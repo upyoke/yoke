@@ -2,19 +2,26 @@
 
 from __future__ import annotations
 
+from runtime.api.domain.qa_plan_run_target_partition_test_support import (
+    _ids as _ids,
+    _pass as _pass,
+)
+
+
 from typing import Any
 
-from runtime.api.domain.test_deployment_qa_stage_execution import _seed_run, _stages
+from runtime.api.domain.deployment_qa_stage_execution_test_support import (
+    _seed_run,
+    _stages,
+)
 from yoke_core.domain.deployment_qa_stage_materialization import (
     materialize_deployment_qa_stage,
 )
 from yoke_core.domain.qa_plan_execution_lifecycle import finish_plan_execution
 from yoke_core.domain.qa_plan_execution_state import (
-    advance_plan_execution,
     begin_plan_execution,
 )
 from yoke_core.domain.qa_plan_management import create_plan, replace_plan_cases
-from yoke_core.domain.qa_requirement_pass_currency import stamp_executed_method_config
 
 RUN = "run-rerun-after-abort"
 MEMBER = 9841
@@ -60,57 +67,6 @@ def _begin(conn: Any) -> dict[str, Any]:
         actor_id="2",
         session_id="rerun-session",
     )
-
-
-def _ids(execution: dict[str, Any]) -> list[int]:
-    return [int(row["requirement_id"]) for row in execution["roster"]]
-
-
-def _pass(
-    conn: Any,
-    execution: dict[str, Any],
-    ordinal: int,
-    digest: str | None = None,
-    *,
-    evidence: bool = True,
-) -> int:
-    requirement_id = _ids(execution)[ordinal]
-    config = conn.execute(
-        "SELECT method_config FROM qa_requirements WHERE id=%s", (requirement_id,)
-    ).fetchone()[0]
-    raw = stamp_executed_method_config(
-        "case passed",
-        config,
-        execution_target_digest=digest,
-        conn=conn,
-        requirement_id=requirement_id,
-    )
-    now = f"2026-09-14T00:0{2 + ordinal}:00Z"
-    run_id = conn.execute(
-        "INSERT INTO qa_runs(qa_requirement_id,performed_by,qa_kind,verdict,"
-        "raw_result,started_at,completed_at,created_at) VALUES "
-        "(%s,'worktree_run','plan_case','pass',%s,%s,%s,%s) RETURNING id",
-        (requirement_id, raw, now, now, now),
-    ).fetchone()[0]
-    if evidence:
-        conn.execute(
-            "INSERT INTO qa_artifacts(qa_run_id,artifact_type,content_type,"
-            "artifact_handle,created_at) VALUES (%s,'log','application/json',%s,%s)",
-            (run_id, f"evidence://case-{requirement_id}", now),
-        )
-    advance_plan_execution(
-        conn,
-        execution,
-        ordinal=ordinal,
-        requirement_id=requirement_id,
-        result={
-            "requirement_id": requirement_id,
-            "verdict": "pass",
-            "case_outcome": "passed",
-            "run_id": int(run_id),
-        },
-    )
-    return requirement_id
 
 
 def _abort(conn: Any, execution: dict[str, Any]) -> None:
@@ -215,7 +171,7 @@ def test_passes_across_stopped_walks_settle_the_stage_without_a_replay(
 def test_multi_host_rerun_after_abort_moves_to_the_next_host(
     test_db, tmp_path, monkeypatch
 ) -> None:
-    from runtime.api.domain import test_qa_member_machine_partitions as hosts
+    from runtime.api.domain import qa_member_machine_partitions_test_support as hosts
 
     hosts._seed(test_db, tmp_path, monkeypatch)
     aborted = hosts._begin(test_db)

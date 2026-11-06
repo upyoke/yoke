@@ -15,7 +15,7 @@ from yoke_core.domain.session_relay_jobs import claim_wake_job
 from yoke_core.domain.session_relay_types import RelayHeartbeat
 from yoke_harness import session_relay_claude as claude
 from yoke_harness.session_relay_native_spawn import SupervisedNative
-from runtime.api.domain.test_session_message_support import (
+from runtime.api.domain.session_message_support_test_support import (
     NATIVE_WAKE_SESSION_ID,
     NOW,
     NOW_TEXT,
@@ -25,7 +25,7 @@ from runtime.api.domain.test_session_message_support import (
     selector,
     stamp_activity,
 )
-from runtime.harness.test_session_relay_claude import CLAUDE, _allow, _context
+from runtime.harness.session_relay_claude_test_support import CLAUDE, _allow, _context
 
 
 def test_each_message_resumes_stored_native_identity_and_is_injected(monkeypatch):

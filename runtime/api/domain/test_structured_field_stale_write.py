@@ -6,7 +6,10 @@ import unittest
 from concurrent.futures import ThreadPoolExecutor
 from unittest import mock
 
-from runtime.api.domain.test_backlog_structured_write_api import _FakeDB, _patched_db
+from runtime.api.domain.backlog_structured_write_api_test_support import (
+    _FakeDB,
+    _patched_db,
+)
 from runtime.api.fixtures.file_test_db import connect_test_db
 from yoke_core.domain import backlog_structured_write_op as writes
 

@@ -13,13 +13,13 @@ from yoke_core.hooks.session_message_delivery_port import (
 )
 from yoke_core.hooks.session_message_rendering import render_lease
 
-from runtime.api.domain.test_deployment_qa_stage_execution import (
+from runtime.api.domain.deployment_qa_stage_execution_test_support import (
     _complete_case,
     _plan,
     _seed_run,
     _stages,
 )
-from runtime.api.domain.test_deployment_qa_stage_wake_delivery import (
+from runtime.api.domain.deployment_qa_stage_wake_delivery_test_support import (
     HOLDER_A,
     _bodies,
     _claim,

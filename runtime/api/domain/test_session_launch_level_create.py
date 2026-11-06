@@ -2,6 +2,14 @@
 
 from __future__ import annotations
 
+from runtime.api.domain.session_launch_level_create_test_support import (
+    NO_EXTRA as NO_EXTRA,
+    _level_request as _level_request,
+    _meters as _meters,
+    _two_options as _two_options,
+)
+
+
 import json
 
 import pytest
@@ -28,20 +36,15 @@ from yoke_core.domain.session_launch_types import LaunchRequest, SessionLaunchEr
 from runtime.api.domain.session_launch_level_test_support import (
     CLAUDE_OPUS,
     CODEX_SOL,
-    EXTRA_OFF,
     LEVEL,
-    add_surface,
-    level_connection,
     pin_live_workers,
-    plan_reading,
-    weekly,
 )
 from runtime.api.domain.session_launch_test_support import (
     NOW,
     assigned_launch,
     authorization,
 )
-from runtime.api.domain.test_session_launch_handler_deadlines import (
+from runtime.api.domain.session_launch_handler_deadlines_test_support import (
     _request,
     _wire_handler,
 )
@@ -50,39 +53,6 @@ from runtime.api.domain.test_session_launch_handler_deadlines import (
 @pytest.fixture(autouse=True)
 def _no_live_workers(monkeypatch):
     pin_live_workers(monkeypatch, {})
-
-
-NO_EXTRA = EXTRA_OFF
-
-
-def _meters(
-    conn, machine_id: str, surface: str, remaining: float, extra=NO_EXTRA
-) -> None:
-    conn.execute(
-        "UPDATE session_relays SET surface_plan_limits = ? WHERE relay_id = ?",
-        (
-            json.dumps({surface: plan_reading([weekly(remaining)], extra)}),
-            f"relay-{machine_id}-{surface}",
-        ),
-    )
-    conn.commit()
-
-
-def _two_options(*, claude: float, codex: float, codex_extra=NO_EXTRA):
-    conn = level_connection(CODEX_SOL, CLAUDE_OPUS)
-    add_surface(conn, "m-codex", "codex-cli", [weekly(codex)], codex_extra)
-    add_surface(conn, "m-claude", "claude-cli", [weekly(claude)], NO_EXTRA)
-    return conn
-
-
-def _level_request(key: str = "level-key", level: str = LEVEL) -> LaunchRequest:
-    return LaunchRequest(
-        project_id=10,
-        executor_surface="",
-        instructions="Report the current evidence.",
-        idempotency_key=key,
-        level=level,
-    )
 
 
 def _create(conn, request: LaunchRequest | None = None):

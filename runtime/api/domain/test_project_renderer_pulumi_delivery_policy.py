@@ -8,7 +8,7 @@ import runpy
 
 from yoke_core.domain import project_renderer_pulumi
 from yoke_core.domain.project_renderer_pulumi import render_pulumi_stack_yaml
-from runtime.api.domain.test_project_renderer_pulumi import (
+from runtime.api.domain.project_renderer_pulumi_test_support import (
     _make_project_root,
     _settings_from_context,
 )

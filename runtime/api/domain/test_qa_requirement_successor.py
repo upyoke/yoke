@@ -1,12 +1,17 @@
 """Supersession and operator reconciliation preserve a coherent correction chain."""
 
+from runtime.api.domain.qa_requirement_successor_test_support import (
+    chain as chain,
+    inconsistent as inconsistent,
+)
+
+
 from datetime import datetime, timezone
 
 import pytest
 
 from runtime.api.fixtures.deployment_scoped_qa_run_fixture import (
     record_case_verdict,
-    seed_member_qa_case,
 )
 from runtime.api.fixtures.qa_declared_replacement_fixture import (
     corrected_case,
@@ -20,18 +25,6 @@ from yoke_core.domain.qa_requirement_replacement import (
     point_at_replacement,
 )
 from yoke_core.domain.deployment_qa_stage_gate import deployment_qa_stage_status
-
-
-def chain(conn):
-    old = seed_member_qa_case(conn, run_id="run-successor-chain", member_item_id=9811)
-    record_case_verdict(conn, old, "fail", evidence=True)
-    middle = corrected_case(conn, failed_id=old, case_key="first-correction")
-    declare(conn, old, "first-correction", [middle])
-    record_case_verdict(conn, middle, "fail", evidence=True)
-    final = corrected_case(conn, failed_id=middle, case_key="final-correction")
-    declare(conn, middle, "final-correction", [final])
-    record_case_verdict(conn, final, "pass", evidence=True)
-    return old, middle, final
 
 
 def test_superseding_chain_moves_both_links_to_terminal_and_settles_gate(test_db):
@@ -54,14 +47,6 @@ def test_superseding_chain_moves_both_links_to_terminal_and_settles_gate(test_db
         test_db, run_id="run-successor-chain", stage_name="item-qa", member_item_id=9811
     )
     assert status["accepted"], status["reasons"]
-
-
-def inconsistent(conn, old, final):
-    conn.execute(
-        "UPDATE qa_requirements SET replacement_requirement_id=(SELECT id FROM qa_requirements WHERE replacement_requirement_id=%s AND id<>%s ORDER BY id DESC LIMIT 1), superseded_by_requirement_id=%s, supersession_rationale=%s, supersession_source='agent', superseded_at=%s WHERE id=%s",
-        (final, old, final, "original correction history", "2026-01-01T00:00:00Z", old),
-    )
-    conn.commit()
 
 
 def test_registered_repair_preserves_history(test_db, monkeypatch):
@@ -176,8 +161,12 @@ def test_reconciliation_authority_uses_verified_session(test_db):
 
 
 def test_repaired_admitted_chain_allows_source_retirement(test_db):
-    from runtime.api.domain.test_dash_post_deploy_review_isolation import _insert_dash
-    from runtime.api.domain.test_qa_source_retirement import _corrected_item_requirement
+    from runtime.api.domain.dash_post_deploy_review_isolation_test_support import (
+        _insert_dash,
+    )
+    from runtime.api.domain.qa_source_retirement_test_support import (
+        _corrected_item_requirement,
+    )
     from runtime.api.fixtures.deployment_admitted_case_fixture import (
         deliver_with_failing_admitted_copy,
     )

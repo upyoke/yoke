@@ -1,5 +1,8 @@
 """Queue-routed landing orchestration: admission, record wait, close-out."""
 
+from runtime.api.merge_queue_route_test_support import stalled_clock as stalled_clock
+
+
 from runtime.api.merge_queue_landing_test_helpers import (
     ARMED,
     HELD_BY_THIS_SESSION,
@@ -44,17 +47,6 @@ class StubPump:
     def wait(self, seconds, *, sleep):
         sleep(seconds)
         self.tick()
-
-
-def stalled_clock(step=40.0):
-    """A monotonic that walks past any deadline the caller sets."""
-    now = {"t": 0.0}
-
-    def monotonic():
-        now["t"] += step
-        return now["t"]
-
-    return monotonic
 
 
 def test_happy_path_lands_and_records(monkeypatch):

@@ -16,8 +16,8 @@ import json
 import pytest
 
 from runtime.api.fixtures.file_test_db import init_test_db
-from runtime.api.test_constants import TEST_MODEL_ID
-from runtime.api.test_sessions import (
+from runtime.api.constants_test_support import TEST_MODEL_ID
+from runtime.api.sessions_test_support import (
     _connect_with_backend_setup,
     _create_schema,
 )

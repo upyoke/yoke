@@ -4,7 +4,7 @@ import json
 
 import pytest
 
-from runtime.api.domain.test_release_member_target_enrollment import _pair
+from runtime.api.domain.release_member_target_enrollment_test_support import _pair
 from runtime.api.fixtures.carried_release_candidate import (
     git,
     item_ref,

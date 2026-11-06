@@ -11,7 +11,7 @@ from __future__ import annotations
 import json
 from typing import Any
 
-from runtime.api.domain.test_decision_member_release_evidence import (
+from runtime.api.domain.decision_member_release_evidence_test_support import (
     _pending_done_approval,
     _seed_earlier_release,
 )

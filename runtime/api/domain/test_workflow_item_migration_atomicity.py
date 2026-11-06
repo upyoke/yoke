@@ -5,14 +5,14 @@ from __future__ import annotations
 import threading
 from typing import Any
 
-from runtime.api.domain.test_workflow_item_migration_compatibility import (
+from runtime.api.domain.workflow_item_migration_compatibility_test_support import (
     ITEM_ID,
     _pin,
     _seed_delivery,
     _seed_path_claim,
     _seed_work_claim,
 )
-from runtime.api.domain.test_workflow_item_migration_obligations import (
+from runtime.api.domain.workflow_item_migration_obligations_test_support import (
     _publish_policy_pair,
 )
 from runtime.api.fixtures.pg_testdb import connect_test_database

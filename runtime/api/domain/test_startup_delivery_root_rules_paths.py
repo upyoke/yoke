@@ -21,7 +21,7 @@ from yoke_core.domain.install_bundle import CLAUDE_RULES_SOURCE
 
 
 def _repo_root() -> Path:
-    from runtime.api.domain.test_agents_render_workspace_fixtures import (
+    from runtime.api.domain.agents_render_workspace_fixtures_test_support import (
         resolve_live_repo_root,
     )
 

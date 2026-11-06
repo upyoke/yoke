@@ -73,7 +73,7 @@ def test_run_start_identity_survives_new_evidence_and_lane_advance(test_db, runn
 
 
 def test_merge_and_terminal_use_identical_machine_proof(test_db):
-    from runtime.api.domain.test_qa_subject_proof import _machine
+    from runtime.api.domain.qa_subject_proof_test_support import _machine
 
     item, requirement, _ = _machine(test_db, runner="agent_mission")
     terminal = {
@@ -115,8 +115,6 @@ def test_start_commit_does_not_replace_served_build_observation(test_db):
     assert recorded_head_sha(raw) == LATER
     assert "verification_tree" not in json.loads(raw)
     assert json.loads(raw)["code_identity"]["sha"] == LATER
-
-
 
 
 def test_start_observation_is_retained_when_finished_evidence_has_no_commit():

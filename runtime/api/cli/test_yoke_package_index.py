@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+from runtime.api.cli.yoke_package_index_test_support import _record as _record
+
+
 import json
 import os
 import re
@@ -206,10 +209,6 @@ def test_validate_release_rejects_invalid_wheel_record(tmp_path: Path) -> None:
 
     with pytest.raises(ValueError, match="duplicate archive member"):
         distribution_publish.validate_release_directory(release_dir)
-
-
-def _record(records: list[dict[str, object]], project: str) -> dict[str, object]:
-    return next(entry for entry in records if entry["project"] == project)
 
 
 def _product_env(*, machine_home: Path, venv_dir: Path) -> dict[str, str]:

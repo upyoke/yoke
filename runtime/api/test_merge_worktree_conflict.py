@@ -5,7 +5,7 @@ for the merge-worktree engine. Shared fixtures live in test_merge_worktree_full.
 
 import json
 
-from runtime.api.test_merge_worktree_full import (
+from runtime.api.merge_worktree_full_test_support import (
     TEST_BRANCH,
     MergeEnv,
     _git,

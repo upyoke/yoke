@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from runtime.api.test_deployment_runs_full_helpers import db_path, _conn  # noqa: F401
+from runtime.api.deployment_runs_full_helpers_test_support import db_path, _conn  # noqa: F401
 from yoke_core.domain import deployment_runs as runs
 from yoke_core.domain.workflow_registry import resolve_current_workflow_pin
 
@@ -39,7 +39,7 @@ def _insert_item(
         conn.close()
 
 
-def test_continuous_slice_implementation_is_delivery_ready(db_path):
+def test_continuous_slice_implementation_is_delivery_ready(db_path):  # noqa: F811
     item_id = 701
     _insert_item(
         db_path,
@@ -56,7 +56,7 @@ def test_continuous_slice_implementation_is_delivery_ready(db_path):
     ) == (True, "OK")
 
 
-def test_preimplementation_stage_is_not_delivery_ready(db_path):
+def test_preimplementation_stage_is_not_delivery_ready(db_path):  # noqa: F811
     item_id = 702
     _insert_item(
         db_path,
@@ -72,7 +72,7 @@ def test_preimplementation_stage_is_not_delivery_ready(db_path):
     assert "YOK-702 (status=refined-idea)" in message
 
 
-def test_external_project_diagnostic_uses_public_reference(db_path):
+def test_external_project_diagnostic_uses_public_reference(db_path):  # noqa: F811
     item_id = 703
     conn = _conn(db_path)
     try:

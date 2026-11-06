@@ -4,7 +4,7 @@ from unittest.mock import patch
 
 import pytest
 
-from runtime.api.domain.test_qa_member_machine_partitions import SESSION, _seed
+from runtime.api.domain.qa_member_machine_partitions_test_support import SESSION, _seed
 from yoke_core.domain.qa_plan_chain_hosts import chain_host_groups
 from yoke_core.domain.qa_plan_execution_store import QaPlanExecutionStateError
 from yoke_core.domain.qa_plan_item_target_partition import item_target_partition
@@ -104,7 +104,7 @@ def test_later_chain_hosts_are_reserved_before_the_first_capture(
         _terminal_recipe,
     )
     from yoke_core.domain.machine_qa_capability import replace_test_machine_settings
-    from runtime.api.domain.test_qa_member_machine_partitions import (
+    from runtime.api.domain.qa_member_machine_partitions_test_support import (
         MACHINES,
         _case_begin,
     )
@@ -214,7 +214,7 @@ def test_later_chain_hosts_are_reserved_before_the_first_capture(
 def test_run_scoped_mission_chain_excludes_later_captures(
     test_db, tmp_path, monkeypatch
 ):
-    from runtime.api.domain.test_qa_member_machine_partitions import (
+    from runtime.api.domain.qa_member_machine_partitions_test_support import (
         MACHINES,
         _begin,
         _case_begin,

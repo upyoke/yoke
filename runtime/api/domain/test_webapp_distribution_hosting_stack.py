@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 
-from runtime.api.domain.test_webapp_registry_stack import (
+from runtime.api.domain.webapp_registry_stack_test_support import (
     _load_pack_module,
     _Recorder,
 )

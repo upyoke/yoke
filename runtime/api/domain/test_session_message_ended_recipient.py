@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from datetime import timedelta
 
-from runtime.api.domain.test_session_message_support import (
+from runtime.api.domain.session_message_support_test_support import (
     NATIVE_WAKE_SESSION_ID,
     NOW,
     NOW_TEXT,

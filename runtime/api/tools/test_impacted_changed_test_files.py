@@ -16,7 +16,11 @@ from yoke_core.tools.impacted_tests import (
     selection_for,
 )
 
-from runtime.api.tools.test_impacted_tests import _tiny_repo, _with_floor, _write
+from runtime.api.tools.impacted_tests_test_support import (
+    _tiny_repo,
+    _with_floor,
+    _write,
+)
 
 
 def _git(repo: Path, *args: str) -> str:

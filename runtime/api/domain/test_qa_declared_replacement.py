@@ -6,6 +6,13 @@ also record automatic predecessor supersession for audit.
 
 from __future__ import annotations
 
+from runtime.api.domain.qa_declared_replacement_test_support import (
+    MEMBER as MEMBER,
+    _failed_with_correction as _failed_with_correction,
+    _status as _status,
+)
+
+
 from typing import Any
 
 import pytest
@@ -20,10 +27,11 @@ from runtime.api.fixtures.qa_declared_replacement_fixture import (
     declare,
     requirement_row,
 )
-from runtime.api.domain.test_status_transition_preflight import _isolate_status_effects
+from runtime.api.domain.status_transition_preflight_test_support import (
+    _isolate_status_effects,
+)
 from runtime.api.fixtures.deployment_run_driver_fixture import release_seeded_driver
 from yoke_core.domain.db_helpers import iso8601_now
-from yoke_core.domain.deployment_qa_stage_gate import deployment_qa_stage_status
 from yoke_core.domain.qa_deployment_case_content_refresh import (
     declare_refreshed_replacements,
 )
@@ -38,8 +46,6 @@ from yoke_core.domain.qa_requirement_replacement import (
     declare_existing_replacement,
 )
 from yoke_core.domain.qa_run_verdict_record import insert_qa_run
-
-MEMBER = 9811
 
 
 def _pass(conn: Any, run_id: str) -> list[int]:
@@ -91,22 +97,6 @@ def _roster(conn: Any, run_id: str) -> list[int]:
             deployment_member_item_id=MEMBER,
         )
     ]
-
-
-def _status(conn: Any, run_id: str) -> dict[str, Any]:
-    return deployment_qa_stage_status(
-        conn, run_id=run_id, stage_name=ITEM_QA_STAGE, member_item_id=MEMBER
-    )
-
-
-def _failed_with_correction(
-    conn: Any, run_id: str, verdict: str = "fail"
-) -> tuple[int, int]:
-    failed_id = seed_member_qa_case(conn, run_id=run_id, member_item_id=MEMBER)
-    record_case_verdict(conn, failed_id, verdict, evidence=True)
-    corrected_id = corrected_case(conn, failed_id=failed_id, case_key="smoke-fixed")
-    declare(conn, failed_id, "smoke-fixed", [corrected_id])
-    return failed_id, corrected_id
 
 
 def test_declared_case_leaves_grading_to_its_pending_successor(test_db) -> None:

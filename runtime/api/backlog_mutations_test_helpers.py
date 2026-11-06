@@ -12,7 +12,7 @@ of reaching back into the original test module from multiple sites.
 from __future__ import annotations
 
 from runtime.api.conftest import insert_item
-from runtime.api.test_backlog import (
+from runtime.api.backlog_test_support import (
     _conn,
     _item_field,
     _patch_externals,
@@ -23,7 +23,7 @@ from runtime.api.test_backlog import (
     _seed_qa_run,
     _seed_session,
     _session_attribution,
-    tmp_db,  # noqa: F401 — re-exported pytest fixture
+    tmp_db,
 )
 
 

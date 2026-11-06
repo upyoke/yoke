@@ -13,7 +13,7 @@ from yoke_core.domain.session_launch_abandonment import (
     abandonment_notice,
 )
 from runtime.api.domain.session_launch_test_support import NOW, add_relay
-from runtime.api.domain.test_session_launch_abandonment import (
+from runtime.api.domain.session_launch_abandonment_test_support import (
     WORKER,
     _delivered_launch,
     _worker_tables,

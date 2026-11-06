@@ -2,14 +2,28 @@
 
 import pytest
 
-from runtime.api.domain.test_deployment_qa_multi_item_scoped_stages import (
-    LINEAGE, PREVIEW_QA, _bind_plan, _environment_id, _point_run_at_environment,
-    _preview_qa_stages, _seed_ephemeral_capability,
+from runtime.api.domain.deployment_qa_multi_item_scoped_stages_test_support import (
+    LINEAGE,
+    PREVIEW_QA,
+    _bind_plan,
+    _environment_id,
+    _point_run_at_environment,
+    _preview_qa_stages,
+    _seed_ephemeral_capability,
 )
-from runtime.api.fixtures.deployment_scoped_qa_run_fixture import record_case_verdict, seed_run_standing_on_qa_stage
-from yoke_core.domain.deployment_qa_stage_materialization import materialize_deployment_qa_stage
+from runtime.api.fixtures.deployment_scoped_qa_run_fixture import (
+    record_case_verdict,
+    seed_run_standing_on_qa_stage,
+)
+from yoke_core.domain.deployment_qa_stage_materialization import (
+    materialize_deployment_qa_stage,
+)
 from yoke_core.domain.qa_requirement_supersession import supersede_requirement
-from yoke_core.domain.qa_requirement_waive_liveness import NOT_LIVE_CODE, RequirementNotLiveError, require_live_for_waiver
+from yoke_core.domain.qa_requirement_waive_liveness import (
+    NOT_LIVE_CODE,
+    RequirementNotLiveError,
+    require_live_for_waiver,
+)
 
 
 def test_plan_case_on_preview_stage_supersedes_the_failed_case(test_db):

@@ -15,7 +15,7 @@ from yoke_core.domain.steering_fleet_report_delivery_states import (
     WAKE_HELD_FOR_NATIVE_TURN,
     delivery_state,
 )
-from runtime.api.domain.test_session_message_support import (
+from runtime.api.domain.session_message_support_test_support import (
     NOW,
     NATIVE_WAKE_SESSION_ID,
     message_connection,

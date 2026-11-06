@@ -16,7 +16,7 @@ import shutil
 from yoke_core.domain.deploy_environment_settings import DeployEnvironment
 from yoke_core.domain.deploy_remote import CommandResult
 from yoke_core.domain.ephemeral_substrate import EphemeralPolicy
-from runtime.api.domain.test_deploy_remote import FakeRunner
+from runtime.api.domain.deploy_remote_test_support import FakeRunner
 
 
 def install_ephemeral_project_source(tmp_path: Path) -> Path:
@@ -136,6 +136,7 @@ def scripted_runner():
             CommandResult(0, "x-request-id: RID", ""),  # slug health (patched id)
         ]
     )
+
 
 __all__ = [
     "PORT",

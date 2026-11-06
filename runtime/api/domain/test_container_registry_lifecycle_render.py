@@ -15,7 +15,7 @@ from yoke_core.domain.project_renderer_pulumi_values import gather_pulumi_values
 from yoke_core.domain.projects_capability_settings_validation import (
     canonicalize_capability_settings,
 )
-from runtime.api.domain.test_project_renderer_pulumi import (
+from runtime.api.domain.project_renderer_pulumi_test_support import (
     _make_project_root,
     _settings_from_context,
     _stub_renderer_settings,

@@ -4,7 +4,7 @@ from contextlib import contextmanager
 
 import pytest
 
-from runtime.api.domain.test_machine_authorization_handoff import (  # noqa: F401
+from runtime.api.domain.machine_authorization_handoff_test_support import (
     conn as _conn_fixture,
     payload,
     registry as _registry_fixture,

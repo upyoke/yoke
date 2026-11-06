@@ -2,7 +2,7 @@
 
 import pytest
 
-from runtime.api.domain.test_release_member_target_enrollment import _pair
+from runtime.api.domain.release_member_target_enrollment_test_support import _pair
 from runtime.api.fixtures.supplemental_credit import topology, pin, clone_run
 from yoke_core.domain.deployment_item_completion_runs import (
     latest_qa_member_run,

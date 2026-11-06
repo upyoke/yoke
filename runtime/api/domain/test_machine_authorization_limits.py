@@ -102,7 +102,7 @@ def test_concurrent_starts_serialize_the_pending_client_cap():
 
 
 def test_boot_restores_legacy_pending_client_column(tmp_path, monkeypatch):
-    from runtime.api.domain import test_boot_schema_column_convergence as boot
+    from runtime.api.domain import boot_schema_column_convergence_test_support as boot
     from runtime.api.fixtures.file_test_db import connect_test_db, init_test_db
     from yoke_core.domain.schema_init import converge_core_schema
 

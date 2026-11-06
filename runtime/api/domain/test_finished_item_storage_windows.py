@@ -5,11 +5,11 @@ from types import SimpleNamespace
 
 import pytest
 
-from runtime.api.domain.test_deployment_composition_clock_filters import (
+from runtime.api.domain.deployment_composition_clock_filters_test_support import (
     STAMP,
     clocks as clocks,
 )
-from runtime.api.domain.test_deployment_clock_reads import (
+from runtime.api.domain.deployment_clock_reads_test_support import (
     native_clocks as native_clocks,
 )
 from yoke_contracts.timestamps import format_instant

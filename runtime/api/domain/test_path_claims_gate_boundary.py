@@ -6,11 +6,17 @@ gate's project-aware path resolution sees an on-disk worktree.
 
 from __future__ import annotations
 
-import os
-import subprocess
+from runtime.api.domain.path_claims_gate_boundary_test_support import (
+    _apply_boundary_schema as _apply_boundary_schema,
+    _commit_in_worktree as _commit_in_worktree,
+    _git as _git,
+    project_repo as project_repo,
+    real_db as real_db,
+)
+
+
 from contextlib import closing
 
-import pytest
 
 from runtime.api.domain._path_claims_test_helpers import (
     local_human,
@@ -18,142 +24,7 @@ from runtime.api.domain._path_claims_test_helpers import (
 )
 from yoke_core.domain.path_claims import register
 from yoke_core.domain.path_claims_gate_boundary import check_boundary_for_item
-from runtime.api.fixtures.file_test_db import connect_test_db, init_test_db
-from runtime.api.fixtures.machine_config_test import register_machine_checkout
-
-
-def _git(repo, *args):
-    full_env = {
-        **os.environ,
-        "GIT_AUTHOR_NAME": "test",
-        "GIT_AUTHOR_EMAIL": "test@x",
-        "GIT_COMMITTER_NAME": "test",
-        "GIT_COMMITTER_EMAIL": "test@x",
-    }
-    proc = subprocess.run(
-        ["git", "-C", str(repo), *args],
-        check=True,
-        capture_output=True,
-        text=True,
-        env=full_env,
-    )
-    return proc.stdout.strip()
-
-
-@pytest.fixture
-def project_repo(tmp_path):
-    """Project repo with a worktree under .worktrees/ for the test item."""
-    repo = tmp_path / "project"
-    repo.mkdir()
-    _git(repo, "init", "-q", "--initial-branch=main")
-    (repo / "README.md").write_text("# repo\n")
-    _git(repo, "add", "README.md")
-    _git(repo, "commit", "-q", "-m", "initial")
-    # Provision the canonical worktree path the gate will discover
-    worktree_dir = repo / ".worktrees" / "YOK-7777"
-    _git(repo, "worktree", "add", "-q", "-b", "YOK-7777", str(worktree_dir))
-    return repo
-
-
-def _apply_boundary_schema(project_repo):
-    """Return an ``init_test_db`` strategy seeding the boundary substrate.
-
-    Builds the same minimal schema the ``conn`` fixture provides (core +
-    events + path registry + actor/path-claim tables + canonical actors)
-    plus the ``projects`` table the gate's project-aware lookup needs,
-    then seeds the project row (pointing at ``project_repo``), item, and
-    universal lane. Resolves its connection through the backend
-    factory so the gate, which re-opens the DB via ``db_helpers.connect``
-    (the same factory), reads the data the test writes on either engine —
-    the VACUUM-INTO-a-SQLite-file path the legacy fixture used was
-    invisible to a Postgres-backed gate.
-    """
-
-    def _apply() -> None:
-        from yoke_core.domain import db_backend
-        from yoke_core.domain.actors import seed_canonical_human
-        from yoke_core.domain.events_schema import _create_events_table
-        from yoke_core.domain.gate_satisfaction_schema import (
-            create_gate_satisfaction_tables,
-        )
-        from yoke_core.domain.schema_init_actor_path_claim_tables import (
-            create_actor_path_claim_tables,
-        )
-        from yoke_core.domain.schema_init_path_tables import (
-            create_path_registry_tables,
-        )
-        from yoke_core.domain.schema_init_tables import create_core_tables
-        from yoke_core.domain.workflow_registry import (
-            converge_builtin_workflows,
-        )
-
-        c = db_backend.connect()
-        try:
-            create_core_tables(c)
-            from runtime.api.fixtures.qa_attempt_history import (
-                ensure_qa_attempt_history,
-            )
-
-            ensure_qa_attempt_history(c)
-            converge_builtin_workflows(c)
-            _create_events_table(c)
-            create_path_registry_tables(c)
-            create_actor_path_claim_tables(c)
-            create_gate_satisfaction_tables(c)
-            seed_canonical_human(c)
-            register_machine_checkout(project_repo.parent, project_repo, 1)
-            c.execute(
-                "INSERT INTO projects "
-                "(id, slug, name, default_branch, github_repo, "
-                "public_item_prefix, created_at) "
-                "VALUES (1, 'yoke', 'Yoke', 'main', 'test/test', "
-                "'YOK', '2026-05-01T00:00:00Z') "
-                "ON CONFLICT (id) DO UPDATE SET slug = EXCLUDED.slug",
-            )
-            c.execute(
-                "INSERT INTO items (id, title, workflow_id, workflow_version_id, status, priority, "
-                "created_at, updated_at, project_id, project_sequence) "
-                "VALUES (7777, 'item', 'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), 'implementing', 'medium', "
-                "'2026-05-01T00:00:00Z', '2026-05-01T00:00:00Z', 1, 7777)",
-            )
-            c.execute(
-                "INSERT INTO item_worktrees "
-                "(item_id, branch, path, lane_role, state, "
-                "created_at, updated_at) "
-                "VALUES (7777, 'YOK-7777', %s, 'implementation', 'active', "
-                "'2026-05-01T00:00:00Z', '2026-05-01T00:00:00Z')",
-                (str(project_repo / ".worktrees" / "YOK-7777"),),
-            )
-            c.commit()
-        finally:
-            c.close()
-
-    return _apply
-
-
-@pytest.fixture
-def real_db(project_repo, tmp_path):
-    """Backend-appropriate DB the gate can re-open via path.
-
-    On SQLite the yielded token is a real file; on Postgres it is a
-    disposable per-test database with the schema applied through the
-    backend factory and ``YOKE_PG_DSN`` repointed for the context, so
-    the factory-routed gate and the test's ``connect_test_db`` writes hit
-    the same database.
-    """
-    with init_test_db(
-        tmp_path, apply_schema=_apply_boundary_schema(project_repo)
-    ) as db_path:
-        yield db_path
-
-
-def _commit_in_worktree(project_repo, *, name: str):
-    worktree = project_repo / ".worktrees" / "YOK-7777"
-    src = worktree / "src"
-    src.mkdir(exist_ok=True)
-    (src / name).write_text("print('x')\n")
-    _git(worktree, "add", f"src/{name}")
-    _git(worktree, "commit", "-q", "-m", f"add src/{name}")
+from runtime.api.fixtures.file_test_db import connect_test_db
 
 
 class TestBoundaryGate:

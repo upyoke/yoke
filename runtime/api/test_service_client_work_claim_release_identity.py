@@ -3,10 +3,10 @@
 import json
 
 from runtime.api.fixtures.file_test_db import connect_test_db
-from runtime.api.test_service_client_sessions_helpers import (
+from runtime.api.service_client_sessions_helpers_test_support import (
     session_test_db as session_test_db,
 )
-from runtime.api.test_service_client_work_claims_identity import (
+from runtime.api.service_client_work_claims_identity_test_support import (
     _open_claim_row,
     _override_event_count,
     _run_with_ambient,

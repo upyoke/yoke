@@ -10,10 +10,16 @@ stays under a per-member statement ceiling.
 
 from __future__ import annotations
 
-from runtime.api.domain.test_deployment_qa_result_notice import OPERATOR, _member
-from runtime.api.domain.test_deployment_qa_stage_execution import _plan, _seed_run
-from runtime.api.domain.test_deployment_qa_stage_ordering import _stages
-from runtime.api.domain.test_deployment_qa_stage_wake_delivery import _project
+from runtime.api.domain.deployment_qa_result_notice_test_support import (
+    OPERATOR,
+    _member,
+)
+from runtime.api.domain.deployment_qa_stage_execution_test_support import (
+    _plan,
+    _seed_run,
+)
+from runtime.api.domain.deployment_qa_stage_ordering_test_support import _stages
+from runtime.api.domain.deployment_qa_stage_wake_delivery_test_support import _project
 from runtime.api.fixtures.statement_counter import CountingConnection
 from yoke_core.domain import deployment_qa_result_notice as result_notice
 from yoke_core.domain.actor_permissions import ROLE_OPERATOR

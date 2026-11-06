@@ -26,7 +26,8 @@ from runtime.api.fixtures.level_store import (
     store_universe_levels,
 )
 from runtime.api.sessions_api_test_support import session_test_db  # noqa: F401
-from runtime.api.test_sessions import _p, _register, conn  # noqa: F401
+from runtime.api.domain.path_context_test_support import (_p)
+from runtime.api.sessions_test_support import (_register, conn)  # noqa: F401
 
 _PROJECT_ID = 1
 _OPUS = "claude-opus-5-5"

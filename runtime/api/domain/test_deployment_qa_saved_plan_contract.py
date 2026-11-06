@@ -8,11 +8,11 @@ import json
 
 import pytest
 
-from runtime.api.domain.test_installer_campaign_plan_sync import (
+from runtime.api.domain.installer_campaign_plan_sync_test_support import (
     source_checkout as source_checkout,
 )
-from runtime.api.domain.test_deployment_qa_plan_groups import _attach
-from runtime.api.domain.test_deployment_qa_stage_execution import (
+from runtime.api.domain.deployment_qa_plan_groups_test_support import _attach
+from runtime.api.domain.deployment_qa_stage_execution_test_support import (
     _complete_case,
     _plan,
     _seed_run,

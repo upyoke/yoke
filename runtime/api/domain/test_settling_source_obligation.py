@@ -4,9 +4,13 @@ from __future__ import annotations
 
 import pytest
 
-from runtime.api.domain.test_dash_post_deploy_done_consumption import _accept_member_qa
-from runtime.api.domain.test_done_gate_admitted_copy_multiplicity import _deliver_intake
-from runtime.api.domain.test_post_deploy_original_pass_needs_admission import (
+from runtime.api.domain.dash_post_deploy_done_consumption_test_support import (
+    _accept_member_qa,
+)
+from runtime.api.domain.done_gate_admitted_copy_multiplicity_test_support import (
+    _deliver_intake,
+)
+from runtime.api.domain.post_deploy_original_pass_needs_admission_test_support import (
     _record_evidence,
 )
 from runtime.api.fixtures.backlog import insert_qa_run
@@ -137,7 +141,7 @@ def test_replaced_failing_copy_settles_the_source(test_db, replaced):
 
 
 def test_accepted_source_closes_the_member_before_run_success(test_db, monkeypatch):
-    from runtime.api.domain.test_status_transition_preflight import (
+    from runtime.api.domain.status_transition_preflight_test_support import (
         _isolate_status_effects,
     )
     from yoke_core.domain.deployment_runs_crud_mutate import cmd_update

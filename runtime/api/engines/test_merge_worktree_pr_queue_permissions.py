@@ -7,7 +7,7 @@ import pytest
 
 from yoke_core.domain.gh_rest_transport_models import RestResponse
 from yoke_core.engines import merge_worktree_pr_queue as queue
-from runtime.api.engines.test_merge_worktree_pr_check_runs import _ctx
+from runtime.api.engines.merge_worktree_pr_check_runs_test_support import _ctx
 
 
 def _payload():

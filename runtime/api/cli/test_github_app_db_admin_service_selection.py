@@ -15,7 +15,7 @@ from typing import Any
 
 import pytest
 
-from runtime.api.cli.test_github_status_merge_path_binding import (
+from runtime.api.cli.github_status_merge_path_binding_test_support import (
     ADMIN_ENV,
     SERVICE_API_URL,
     _admin_sibling_machine,

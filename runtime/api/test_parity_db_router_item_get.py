@@ -18,7 +18,7 @@ from runtime.api.parity_db_router_test_fixtures import (  # noqa: F401
     _LARGE_SPEC_TEXT,
     item_query_env,
 )
-from runtime.api.test_parity import _run_db_router
+from runtime.api.parity_test_support import _run_db_router
 
 
 def _no_view_schema() -> None:
@@ -54,7 +54,6 @@ def _no_view_schema() -> None:
     )
     conn.commit()
     conn.close()
-
 
 
 class TestItemGetCLI:

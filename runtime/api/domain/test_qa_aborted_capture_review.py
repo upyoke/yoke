@@ -21,7 +21,10 @@ def test_closed_deployment_still_authorizes_its_bound_capture_review(
     test_db, disposition
 ):
     import json
-    from runtime.api.domain.test_deployment_qa_stage_execution import _seed_run, _stages
+    from runtime.api.domain.deployment_qa_stage_execution_test_support import (
+        _seed_run,
+        _stages,
+    )
     from yoke_core.domain.deployment_qa_stage_materialization import (
         materialize_deployment_qa_stage,
     )

@@ -13,7 +13,7 @@ from runtime.api.domain.migration_apply_test_helpers import (
     _seed_apply_item,
     apply_env,  # noqa: F401 - fixture registration
 )
-from runtime.api.test_backlog import tmp_db  # noqa: F401 - fixture dependency
+from runtime.api.backlog_test_support import tmp_db  # noqa: F401 - fixture dependency
 from yoke_core.tools import _source_pythonpath, source_dev_run
 
 
@@ -69,7 +69,7 @@ def test_source_runner_rehearses_migration_with_lane_only_import(
 def test_selected_worker_reaches_public_rehearsal_runner(apply_env, monkeypatch):
     from runtime.api.fixtures.backlog import insert_item_worktree
     from runtime.api.fixtures.session_holdings import insert_item_claim
-    from runtime.api.test_backlog import _conn
+    from runtime.api.backlog_test_support import _conn
     from yoke_cli.commands.migration_rehearse import migration_rehearse
     from yoke_contracts.install_binding import SOURCE_DEV_RUN_ROOT_ENV
     from yoke_core.domain import migration_apply

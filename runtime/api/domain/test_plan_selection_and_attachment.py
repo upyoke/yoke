@@ -2,7 +2,7 @@
 
 import pytest
 
-from runtime.api.domain.test_item_posture_amend import _dash, _plan, REVIEW
+from runtime.api.domain.item_posture_amend_test_support import _dash, _plan, REVIEW
 from runtime.api.fixtures.backlog_inserts import insert_qa_run
 from yoke_core.domain.dash_posture_verification_gate import verification_gate
 from yoke_core.domain.item_posture_bindings import bind_item_posture_selection

@@ -3,6 +3,8 @@
 
 from __future__ import annotations
 
+from runtime.api.sessions_test_support import (conn as conn)
+
 import contextlib
 import threading
 from datetime import datetime, timezone
@@ -20,13 +22,12 @@ from yoke_core.domain.schema_common import _get_indexes
 from yoke_core.domain.sessions_analytics import SessionError
 from yoke_core.domain.work_claim_targets import make_epic_task_target, make_item_target
 from runtime.api.fixtures.file_test_db import connect_test_db, init_test_db
-from runtime.api.test_sessions import (
+from runtime.api.sessions_test_support import (
     _apply_session_schema,
     _connect_with_backend_setup,
     _insert_claimable_epic_task,
     _insert_claimable_items,
     _register,
-    conn,  # noqa: F401
 )
 
 

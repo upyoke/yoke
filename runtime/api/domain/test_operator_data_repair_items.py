@@ -5,8 +5,8 @@ from unittest.mock import patch
 
 import pytest
 
-from runtime.api.domain.test_operator_data_repair import execute, receipt
-from runtime.api.domain.test_operator_data_repair_boundary import _Unclosed
+from runtime.api.domain.operator_data_repair_test_support import execute, receipt
+from runtime.api.domain.operator_data_repair_boundary_test_support import _Unclosed
 from runtime.api.fixtures.backlog import insert_item, insert_qa_requirement
 from yoke_contracts.api.function_call import (
     ActorContext,

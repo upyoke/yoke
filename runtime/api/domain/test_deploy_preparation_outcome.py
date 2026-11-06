@@ -2,7 +2,7 @@
 
 from unittest import mock
 import pytest
-from runtime.api.domain.test_deploy_pipeline_stage_receipt import (
+from runtime.api.domain.deploy_pipeline_stage_receipt_test_support import (
     _BASE_KWARGS,
     _control_plane_mocks,
     _qa_stage,

@@ -14,7 +14,7 @@ from runtime.api.domain.session_launch_test_support import (
     assigned_launch,
     authorization,
 )
-from runtime.api.domain.test_session_launch_capacity import (
+from runtime.api.domain.session_launch_capacity_test_support import (
     MACHINE,
     launch_connection,
     _worker_launch,

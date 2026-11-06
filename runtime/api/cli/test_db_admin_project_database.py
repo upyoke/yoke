@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from runtime.api.cli.yoke_operations_cli_dev_db_admin_setup_test_support import (pytestmark as pytestmark)
+
 import json
 from pathlib import Path
 from types import SimpleNamespace
@@ -11,9 +13,8 @@ import pytest
 from yoke_cli import main as yoke_operations_cli
 from yoke_contracts.api.function_call import FunctionCallResponse, FunctionError
 
-from runtime.api.cli.test_yoke_operations_cli_dev_db_admin_setup import (
+from runtime.api.cli.yoke_operations_cli_dev_db_admin_setup_test_support import (
     _env,
-    pytestmark,  # noqa: F401
 )
 
 REGISTRY_SECRET_ARN = "arn:aws:secretsmanager:us-east-1:123456789012:secret:registry"

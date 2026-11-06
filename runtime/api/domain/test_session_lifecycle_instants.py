@@ -6,7 +6,7 @@ from uuid import uuid4
 import pytest
 
 from runtime.api.fixtures.session_zones import SESSION_ZONES
-from runtime.api.test_sessions import _insert_claimable_item, _register
+from runtime.api.sessions_test_support import _insert_claimable_item, _register
 from yoke_contracts.timestamps import InvalidInstant, format_instant, parse_instant
 from yoke_core.domain import sessions_lifecycle_registry as registry
 from yoke_core.domain import sessions_lifecycle_claim as claims

@@ -11,7 +11,7 @@ from pathlib import Path
 
 import pytest
 
-from runtime.api.cli.test_wheel_sibling_pins import (
+from runtime.api.cli.wheel_sibling_pins_test_support import (
     _build_wheelhouse,
     _requires_dist,
     _wheel,

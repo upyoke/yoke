@@ -27,7 +27,7 @@ from yoke_core.domain.strategize_carry import (
     get_candidate_set,
     register_new_landings,
 )
-from runtime.api.test_strategize_carry_test_helpers import (
+from runtime.api.strategize_carry_test_helpers_test_support import (
     _make_db,
     _seed_landed_items,
 )

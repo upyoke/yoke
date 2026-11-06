@@ -3,8 +3,10 @@
 import logging
 from time import perf_counter
 
-from runtime.api.domain.test_architecture_path_context_seed import (
-    _model, _snapshot_with, _write_model,
+from runtime.api.domain.architecture_path_context_seed_test_support import (
+    _model,
+    _snapshot_with,
+    _write_model,
 )
 from runtime.api.path_context_test_helpers import init_minimal_schema
 from yoke_core.domain.project_snapshot_head_refresh import refresh_after_head_change
