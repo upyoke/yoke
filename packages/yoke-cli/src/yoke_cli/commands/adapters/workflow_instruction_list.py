@@ -9,6 +9,9 @@ def instruction_list_writer(args, render_descriptors):
     def write(response, stdout, stderr):
         del stderr
         instructions = (response.result or {}).get("instructions") or []
+        if not instructions:
+            stdout.write(render_descriptors([]))
+            return
         descriptors = []
         for instruction in instructions:
             content = str(instruction.get("content") or "")

@@ -2,6 +2,8 @@
 
 import io
 import json
+
+import pytest
 from contextlib import redirect_stderr, redirect_stdout
 from unittest.mock import patch
 
@@ -75,7 +77,8 @@ def test_json_keeps_content_and_scope(monkeypatch):
     assert "delivery_options" in result
 
 
-def test_empty_instruction_list_is_explicit(monkeypatch):
+@pytest.mark.parametrize("flags", [[], ["--full"]])
+def test_empty_instruction_list_is_explicit(monkeypatch, flags):
     assert "No operator execution instructions" in run_list(
         monkeypatch, instructions=[]
     )

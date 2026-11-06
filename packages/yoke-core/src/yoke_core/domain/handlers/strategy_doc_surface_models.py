@@ -147,5 +147,6 @@ __all__ = [
     "StrategyRevisionRestoreResponse",
     "StrategySurfaceGetRequest",
     "StrategySurfaceGetResponse",
+    "StrategySurfaceListRequest",
     "StrategySurfaceListResponse",
 ]
