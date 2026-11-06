@@ -137,6 +137,9 @@ def _provisioned_project(monkeypatch, tmp_path, **create_kwargs) -> list[str]:
     plan = WorktreeCreationPlan(worktrees=[entry], primary=entry)
 
     monkeypatch.setattr(
+        worktree_create, "_project_field", lambda *_a, **_k: "main"
+    )
+    monkeypatch.setattr(
         worktree_create, "check_path_claim_gate", lambda *_a, **_k: None
     )
     monkeypatch.setattr(

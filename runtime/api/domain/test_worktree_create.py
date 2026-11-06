@@ -17,8 +17,9 @@ from runtime.api.domain.worktree_create_test_support import (
 
 import os
 import subprocess
+from types import SimpleNamespace
 import pytest
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 from yoke_core.domain import worktree_create
 from yoke_core.domain.item_worktrees import (
@@ -43,6 +44,54 @@ def local_postgres_authority(monkeypatch):
     monkeypatch.setattr(
         "yoke_cli.config.machine_config.active_connection",
         lambda **_kwargs: {"transport": "local-postgres"},
+    )
+
+
+@pytest.mark.parametrize("base_kind", ["commit", "branch", "default"])
+@pytest.mark.parametrize("default_branch", ["main", "trunk"])
+def test_creation_sweeps_default_branch_independently_of_lane_base(
+    tmp_path, monkeypatch, base_kind, default_branch
+):
+    commit = "a" * 40
+    requested_base = {"commit": commit, "branch": "feature", "default": None}[base_kind]
+    lane_base = requested_base or commit
+    primary = SimpleNamespace(setup_command={})
+    plan = SimpleNamespace(
+        error=None, pending_worktree_count=1, primary=primary, worktrees=[primary]
+    )
+    provisioned = SimpleNamespace(
+        path=str(tmp_path / "lane"), branch="feature", created=True,
+        error=None, failed_branch="",
+    )
+    patches = {
+        "_normalize_repo_root": str(tmp_path),
+        "provisioning_project": ("project", None),
+        "_project_field": default_branch,
+        "refresh_base_branch": SimpleNamespace(verified=True, lane_base_ref=commit),
+        "check_path_claim_gate": None,
+        "resolve_worktree_lanes_for_item": [],
+        "preflight_worktree_plan": plan,
+        "dirty_main_error": None,
+        "provision_planned_lanes": provisioned,
+    }
+    for name, value in patches.items():
+        monkeypatch.setattr(worktree_create, name, Mock(return_value=value))
+    sweep = Mock()
+    monkeypatch.setattr(worktree_create, "retire_finished_lanes", sweep)
+    monkeypatch.setattr(
+        worktree_create.project_settings, "get_project_str", lambda *a, **k: ".worktrees"
+    )
+
+    result = create_worktree(
+        TEST_ITEM_ID, base_branch=requested_base, repo_root=str(tmp_path),
+        config_path=str(tmp_path / "config"), scripts_dir=str(tmp_path), db_path="fixture",
+    )
+
+    assert result.error is None
+    assert result.created
+    sweep.assert_called_once_with(str(tmp_path), default_branch)
+    assert (
+        worktree_create.provision_planned_lanes.call_args.kwargs["base_branch"] == lane_base
     )
 
 
