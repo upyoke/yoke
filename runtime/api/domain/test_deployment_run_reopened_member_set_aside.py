@@ -223,3 +223,18 @@ def test_settlement_sets_aside_a_reopened_member(test_db, tmp_path, monkeypatch)
         == "done"
     )
     assert _claim_held(test_db, REOPENED)
+
+
+@pytest.mark.parametrize("reopened_sha,expected_members", [
+    ("correction", {SIBLING}), ("frozen", {REOPENED, SIBLING}),
+])
+def test_failed_run_start_uses_the_reopened_member_rule(
+    test_db, tmp_path, monkeypatch, reopened_sha, expected_members
+):
+    _frozen_run_with_reopened_member(
+        test_db, tmp_path, monkeypatch, reopened_sha=reopened_sha, settled=True
+    )
+    test_db.execute("UPDATE deployment_runs SET status='failed' WHERE id=%s", (RUN,))
+    test_db.commit()
+    assert cmd_update(RUN, "status", "executing") is None
+    assert _members(test_db) == expected_members

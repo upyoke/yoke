@@ -9,14 +9,11 @@ from yoke_cli.transport.function_version_skew import (
     ARGUMENT_SKEW_ERROR_CODE, SKEW_ERROR_CODE,
 )
 from yoke_contracts.api.function_call import FunctionError
+from yoke_contracts.lock_retry import RETRYABLE_LOCK_CODES
 
 
 RESULT_WAIT_SECONDS = 60.0
 RESULT_WAIT_ATTEMPTS = 10
-RETRYABLE_LOCK_CODES = frozenset({
-    "idempotency_request_in_flight", "run_busy", "qa_plan_busy",
-    "lock_timeout", "statement_cancelled",
-})
 RESULT_RETRY_SECONDS = 1.0
 
 
@@ -37,7 +34,7 @@ def recover_dispatch_result(request, response, connection, *, relay):
         return response, 0
     print(
         f"Waiting by design: HTTPS QA dispatch request {request.request_id} "
-        f"on {connection.env!r} exceeded its response limit; waiting up to "
+        f"on {connection.env!r} has no confirmed result; waiting up to "
         f"{RESULT_WAIT_SECONDS * RESULT_WAIT_ATTEMPTS:g} seconds for its recorded "
         "result using the same request id in bounded HTTPS waits.",
         file=sys.stderr, flush=True,

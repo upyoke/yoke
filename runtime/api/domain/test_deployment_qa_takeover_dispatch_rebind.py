@@ -87,6 +87,7 @@ def test_takeover_dispatch_rebinds_once_without_restarting_execution(
     assert row["id"] == requirement
     target = json.loads(row["execution_target_json"])
     assert target["deployment"]["run_id"] == takeover.NEW
+    assert target["deployment"]["starting_run_id"] == takeover.OLD
     assert target["observation"]["observed_release_lineage"] == takeover.NEW_LINEAGE
     assert target["deployment"]["release_lineage"] == takeover.NEW_LINEAGE
     assert row["rebound_at"] is not None

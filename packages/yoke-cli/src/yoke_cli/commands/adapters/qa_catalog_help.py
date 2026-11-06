@@ -92,8 +92,8 @@ least 44 members exists after this release". Missing evidence refuses
 wake_evidence_required; evidence on an automatic case refuses
 wake_evidence_without_manual_wake. Method, runner and verdict path are
 unchanged. The stage driver wakes the owner once per open manual case to
-check its evidence: run the case if it exists, otherwise ask the operator for a
-waiver. The fleet report lists open cases under "waiting on manual wake".
+check its evidence: run the case if it exists. Evidence not available on this
+release yet: stay parked; the case rides the next release takeover. The fleet report lists open cases under "waiting on manual wake".
 
 What a Command case's shell is handed
 -------------------------------------

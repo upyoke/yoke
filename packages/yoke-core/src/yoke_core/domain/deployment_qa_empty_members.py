@@ -35,6 +35,8 @@ def _inputs(conn, run_id):
                 f"WHERE p.project_id IN ({projects})", "t.id"),
         _digest("SELECT q.* FROM qa_requirements q WHERE deployment_run_id=%s "
                 f"OR (deployment_run_id IS NULL AND item_id IN ({members}))", "t.id"),
+        _digest(f"SELECT * FROM environments WHERE project_id IN ({projects}) "
+                "OR id IN (SELECT target_environment_id FROM deployment_runs WHERE id=%s)", "t.id"),
         _digest("SELECT * FROM deployment_stage_receipts WHERE run_id=%s", "t.id"),
     ]
     sql = f"SELECT md5(concat_ws(',',{','.join(parts)}))"
