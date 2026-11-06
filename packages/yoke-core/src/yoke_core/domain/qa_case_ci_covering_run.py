@@ -152,7 +152,7 @@ def classify(
     """
     if run is None or not run.head_sha or run.head_sha != head_sha:
         return DISPATCHED
-    if run.status == "completed" and run.conclusion in {"ci_job_not_started", "startup_failure"}:
+    if run.status == "completed" and run.conclusion == "ci_job_not_started":
         # Poll its provider reason before the bounded recovery can dispatch.
         return ATTACHED
     if required_inputs:
