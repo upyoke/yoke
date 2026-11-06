@@ -16,8 +16,10 @@ can say a later failure may still arrive. Rendering lives in
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
+from yoke_core.domain.ci_job_outcome import effective_conclusion, job_never_started
+from yoke_core.domain.github_actions_check_annotations import job_annotations, annotation_text
 from yoke_core.domain.gh_rest_transport import (
     RestAuthError,
     RestNotFoundError,
@@ -40,6 +42,7 @@ JOBS_PAGE_SIZE = 100
 # than paged forever.
 JOBS_PAGE_LIMIT = 50
 
+LOG_NEVER_STARTED = "never_started"
 LOG_AVAILABLE = "available"
 LOG_EXPIRED_OR_MISSING = "expired_or_missing"
 LOG_PERMISSION_DENIED = "permission_denied"
@@ -57,6 +60,8 @@ class FailedJob:
     log_text: str
     log_status: str
     log_detail: str
+    annotations: list[dict] = field(default_factory=list)
+    annotation_error: str = ""
 
 
 @dataclass(frozen=True)
@@ -139,12 +144,13 @@ def collect_failed_jobs(
         _failed_job(repo, job, token=token)
         for job in jobs
         if str(job.get("conclusion") or "") in FAILED_JOB_CONCLUSIONS
+        or job_never_started(job)
     ]
     unfinished = sum(1 for job in jobs if str(job.get("status") or "") != "completed")
     return RunFailures(
         failed=failed,
         unfinished_job_count=unfinished,
-        conclusion=str(run.get("conclusion") or ""),
+        conclusion=effective_conclusion(str(run.get("conclusion") or ""), jobs),
     )
 
 
@@ -157,7 +163,7 @@ def resolve_log_downloads(
     """Map each failed job id to its complete-log download address."""
     downloads: Dict[str, LogDownload] = {}
     for job in jobs:
-        if not job.job_id:
+        if not job.job_id or job.log_status == LOG_NEVER_STARTED:
             continue
         try:
             url = job_log_download_url(repo, job.job_id, token=token)
@@ -169,7 +175,7 @@ def resolve_log_downloads(
     return downloads
 
 
-def _failed_job(repo: str, job: Dict[str, str], *, token: str) -> FailedJob:
+def _failed_job(repo: str, job: Dict[str, Any], *, token: str) -> FailedJob:
     job_id = str(job.get("id") or "")
     name = str(job.get("name") or "").strip() or f"job {job_id or 'unnamed'}"
     fields = {
@@ -178,6 +184,19 @@ def _failed_job(repo: str, job: Dict[str, str], *, token: str) -> FailedJob:
         "conclusion": str(job.get("conclusion") or ""),
         "html_url": str(job.get("html_url") or ""),
     }
+    if job_never_started(job):
+        annotation_error = ""
+        try:
+            annotations = job_annotations(repo, job, token=token)
+        except RestTransportError as exc:
+            annotations = []
+            annotation_error = f"ci_job_annotations_unavailable: {exc}; inspect the GitHub job annotations before retrying"
+        detail = "No runner or steps; this job never started."
+        return FailedJob(
+            **fields, log_text="", log_status=LOG_NEVER_STARTED,
+            log_detail="\n".join(part for part in (detail, annotation_text(annotations), annotation_error) if part),
+            annotations=annotations, annotation_error=annotation_error,
+        )
     if not job_id:
         return FailedJob(
             **fields,

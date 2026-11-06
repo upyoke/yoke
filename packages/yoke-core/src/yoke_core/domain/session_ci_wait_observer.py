@@ -54,6 +54,7 @@ def read_run_conclusion(project: str, repo: str, run_id: str) -> tuple[str, str,
     """
     from yoke_contracts.github_app_installation_permissions import (
         GITHUB_ACTIONS_READ_PERMISSION_LEVELS,
+    GITHUB_CHECKS_READ_PERMISSION_LEVELS,
     )
     from yoke_core.domain.ci_job_outcome import with_effective_conclusion
     from yoke_core.domain.gh_rest_transport import RestTransportError
@@ -63,7 +64,7 @@ def read_run_conclusion(project: str, repo: str, run_id: str) -> tuple[str, str,
     try:
         auth = resolve_project_github_auth(
             project,
-            required_permissions=GITHUB_ACTIONS_READ_PERMISSION_LEVELS,
+            required_permissions={**GITHUB_ACTIONS_READ_PERMISSION_LEVELS, **GITHUB_CHECKS_READ_PERMISSION_LEVELS},
         )
         with suppress_installation_token_receipts():
             data = rest_get(f"/repos/{repo}/actions/runs/{run_id}", token=auth.token)
@@ -228,12 +229,16 @@ def observe_pending_ci_runs(
                 result["concluded"] += 1
             if _wait_already_notified(conn, wait_id):
                 continue
+            diagnostics = ""
+            if conclusion == "ci_job_not_started":
+                diagnostics = read_start_diagnostics(str(row["slug"]), str(row["repo"]), str(row["run_id"]))
             delivery = push_ci_run_notice(
                 conn,
                 session_id=session_id,
                 actor_id=int(row["actor_id"]),
                 body=ci_run_message(
                     conclusion=conclusion,
+                    diagnostics=diagnostics,
                     repo=str(row["repo"]),
                     run_id=str(row["run_id"]),
                     head_sha=str(row.get("head_sha") or ""),
@@ -264,3 +269,21 @@ __all__ = [
     "observe_pending_ci_runs",
     "read_run_conclusion",
 ]
+
+
+def read_start_diagnostics(project: str, repo: str, run_id: str) -> str:
+    """Refresh provider evidence before delivering a no-verdict notice."""
+    from yoke_core.domain.ci_job_outcome import not_started_message
+    from yoke_core.domain.github_actions_check_annotations import never_started_annotations
+    from yoke_core.domain.github_actions_failed_jobs import list_run_jobs
+    from yoke_core.domain.project_github_auth import resolve_project_github_auth
+    from yoke_contracts.github_app_installation_permissions import GITHUB_ACTIONS_READ_PERMISSION_LEVELS, GITHUB_CHECKS_READ_PERMISSION_LEVELS
+
+    try:
+        auth = resolve_project_github_auth(project, required_permissions={**GITHUB_ACTIONS_READ_PERMISSION_LEVELS, **GITHUB_CHECKS_READ_PERMISSION_LEVELS})
+        with suppress_installation_token_receipts():
+            jobs = list_run_jobs(repo, run_id, token=auth.token)
+            annotations = never_started_annotations(repo, jobs, token=auth.token)
+        return not_started_message({"ci_job_annotations": annotations})
+    except Exception as exc:  # noqa: BLE001 - a notice must name missing evidence
+        return f"ci_job_annotations_unavailable: {exc}; restore Checks read access and inspect the run before retrying"

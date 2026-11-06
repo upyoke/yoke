@@ -24,6 +24,7 @@ def checked_run(
     *,
     expected_head: str = "",
     get=rest_get,
+    actor=None,
 ):
     pr = get(f"{root}/pulls/{pr_number}", token=token)
     run = get(f"{root}/actions/runs/{run_id}", token=token)
@@ -115,6 +116,20 @@ def checked_run(
         return _refused(
             "ci_rerun_verdict",
             "Started jobs failed; fix the cause on the lane, commit and rerun verification. No rerun was sent.",
+        )
+    from yoke_core.domain.github_actions_check_annotations import never_started_annotations, annotation_text
+
+    annotations = never_started_annotations(root.removeprefix("/repos/"), jobs, token=token)
+    if any(row["annotation_level"] == "failure" for row in annotations):
+        from yoke_core.domain.ci_job_start_recovery import ask_operator
+
+        return _refused(
+            "ci_job_not_started_requires_operator",
+            ask_operator(
+                repo=root.removeprefix("/repos/"), run_id=run_id,
+                output="GitHub refused to start a job.\n" + annotation_text(annotations),
+                actor=actor,
+            ),
         )
     attempt = run.get("run_attempt")
     if not isinstance(attempt, int) or isinstance(attempt, bool) or attempt < 1:

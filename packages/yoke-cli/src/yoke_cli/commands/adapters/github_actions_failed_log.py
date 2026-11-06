@@ -76,7 +76,10 @@ def github_actions_failed_log(args: List[str]) -> int:
             "is named in place. --full also writes each failed job's "
             "complete log to a local file and prints its path. A job whose "
             "log GitHub cannot hand over (expired, missing, or permission "
-            "denied) is still reported by name with that reason. Pass an "
+            "denied) is still reported by name with that reason. Jobs with no "
+            "runner and no steps report never_started with check-run annotation "
+            "levels and messages; no log download is attempted. A failure "
+            "annotation needs operator action before re-dispatch. Pass an "
             "explicit run id, or omit it and supply --workflow with optional "
             "--head-sha (default: resolved HEAD of the current checkout). "
             "--json adds the per-job structure alongside the report."
@@ -193,7 +196,8 @@ def _emit_with_full_logs(response: Any, *, json_mode: bool) -> int:
             file=sys.stderr,
         )
         return 1
-    captures = capture_full_logs(str(result.get("run_id") or ""), jobs)
+    log_jobs = [job for job in jobs if job.get("log_status") != "never_started"]
+    captures = capture_full_logs(str(result.get("run_id") or ""), log_jobs) if log_jobs else []
     result["full_logs"] = [capture.__dict__ for capture in captures]
     if json_mode:
         emit_response(response, json_mode=True)

@@ -11,6 +11,7 @@ from yoke_contracts.api.function_call import (
 )
 from yoke_contracts.github_app_installation_permissions import (
     GITHUB_ACTIONS_WRITE_PERMISSION_LEVELS,
+    GITHUB_CHECKS_READ_PERMISSION_LEVELS,
     GITHUB_PULL_REQUESTS_READ_PERMISSION_LEVELS,
 )
 from yoke_core.domain import item_field_transform
@@ -94,6 +95,7 @@ def handle_rerun_failed(request: FunctionCallRequest) -> HandlerOutcome:
             project,
             required_permissions={
                 **GITHUB_ACTIONS_WRITE_PERMISSION_LEVELS,
+                **GITHUB_CHECKS_READ_PERMISSION_LEVELS,
                 **GITHUB_PULL_REQUESTS_READ_PERMISSION_LEVELS,
             },
         )
@@ -101,7 +103,7 @@ def handle_rerun_failed(request: FunctionCallRequest) -> HandlerOutcome:
         return _auth_failed(exc, project)
     root = repository_api_path(auth.repo)
     try:
-        run = checked_run(root, pr_number, payload.run_id, auth.token, get=rest_get)
+        run = checked_run(root, pr_number, payload.run_id, auth.token, get=rest_get, actor=request.actor)
     except RestTransportError as exc:
         return _refused(
             "ci_rerun_read_failed",
@@ -129,7 +131,7 @@ def handle_rerun_failed(request: FunctionCallRequest) -> HandlerOutcome:
     # Persisting the intent can take time; refresh identity immediately before POST.
     try:
         refreshed = checked_run(
-            root, pr_number, payload.run_id, auth.token, get=rest_get
+            root, pr_number, payload.run_id, auth.token, get=rest_get, actor=request.actor
         )
     except RestTransportError as exc:
         refreshed = _refused(

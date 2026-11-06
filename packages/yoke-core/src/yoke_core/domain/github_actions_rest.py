@@ -108,7 +108,7 @@ def run_state(repo: str, run_id: str, *, token: str) -> Tuple[int, str]:
         return 1, f"Error: malformed response for run {run_id}"
     from yoke_core.domain.ci_job_outcome import (
         CI_JOB_NOT_STARTED,
-        REDISPATCH_RECOVERY,
+        not_started_message,
         with_effective_conclusion,
     )
 
@@ -121,7 +121,7 @@ def run_state(repo: str, run_id: str, *, token: str) -> Tuple[int, str]:
             return 0, "success"
         failure = conclusion or "unknown"
         if failure == CI_JOB_NOT_STARTED:
-            return 1, f"failed:{failure} — {REDISPATCH_RECOVERY}"
+            return 1, f"failed:{failure} — {not_started_message(data)}"
         return 1, f"failed:{failure}"
     if status in ("queued", "pending", "waiting"):
         return 2, "waiting"

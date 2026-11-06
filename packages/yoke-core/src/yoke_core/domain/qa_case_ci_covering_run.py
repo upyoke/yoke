@@ -150,9 +150,12 @@ def classify(
     evidence, so an unattestable one is never adopted — the only run
     whose inputs are known is one this invocation dispatches itself.
     """
-    if required_inputs:
-        return DISPATCHED
     if run is None or not run.head_sha or run.head_sha != head_sha:
+        return DISPATCHED
+    if run.status == "completed" and run.conclusion == "ci_job_not_started":
+        # Poll its provider reason before the bounded recovery can dispatch.
+        return ATTACHED
+    if required_inputs:
         return DISPATCHED
     if run.status == "completed":
         return ADOPTED if run.conclusion in BINDING_CONCLUSIONS else DISPATCHED

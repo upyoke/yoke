@@ -314,6 +314,7 @@ def execute_ci_case(
         "ci_run_source": ci_run_source,
         "superseded_ci_run_id": superseded_ci_run_id or None,
         "failure_class": failure_class or None,
+        "ci_diagnostics": poll_output,
     }
     raw_result = json.dumps({**evidence, **outcome}, sort_keys=True)
     output = (
@@ -345,6 +346,5 @@ def execute_ci_case(
         **selected_budget.as_record(),
         "verification_tree": tree.as_payload(),
     }
-
 
 __all__ = ["DEFAULT_CI_RUN_TIMEOUT_SECONDS", "EXECUTOR_ID", "execute_ci_case"]

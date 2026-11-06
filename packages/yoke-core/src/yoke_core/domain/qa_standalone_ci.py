@@ -17,7 +17,11 @@ from yoke_core.domain.qa_case_budget import (
     resolve_command_case_budget,
     DEFAULT_CI_RUN_TIMEOUT_SECONDS,
 )
-from yoke_core.domain.qa_case_ci_conclusion import conclusion_from_poll, failure_verdict
+from yoke_core.domain.qa_case_ci_conclusion import (
+    conclusion_from_error,
+    conclusion_from_poll,
+    failure_verdict,
+)
 from yoke_core.domain.qa_case_ci_empty_diff import _record_run
 from yoke_core.domain.verification_tree_binding import TreeIdentity
 
@@ -111,18 +115,22 @@ def execute_standalone_ci(
                 run_id=ci_run_id,
                 timeout_seconds=budget.seconds,
             )
+        from yoke_core.domain.ci_job_start_recovery import (
+            ask_operator,
+            recovery_blocked,
+        )
+
+        if recovery_blocked(output):
+            output = ask_operator(
+                repo=repo, run_id=ci_run_id, output=output, actor=actor
+            )
         conclusion = conclusion_from_poll(exit_code, output)
         verdict, failure_class = (
             ("pass", "") if conclusion == "success" else failure_verdict(conclusion)
         )
     except Exception as exc:
-        output, exit_code, conclusion, verdict, failure_class = (
-            str(exc),
-            2,
-            "error",
-            "error",
-            "infrastructure_transient",
-        )
+        output, exit_code, conclusion = str(exc), 2, conclusion_from_error(exc)
+        verdict, failure_class = failure_verdict(conclusion)
     duration_ms = int((time.monotonic() - started) * 1000)
     outcome = {
         "ci_run_id": ci_run_id or None,
@@ -132,6 +140,7 @@ def execute_standalone_ci(
         else None,
         "exit_code": exit_code,
         "failure_class": failure_class or None,
+        "ci_diagnostics": output,
     }
     run_id, artifact_id = _record_run(
         case,

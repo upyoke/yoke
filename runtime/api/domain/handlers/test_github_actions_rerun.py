@@ -89,6 +89,10 @@ def github(monkeypatch):
             [{"conclusion": "cancelled", "steps": []}],
         ),
     )
+    monkeypatch.setattr(
+        "yoke_core.domain.github_actions_check_annotations.job_annotations",
+        lambda *a, **kw: state.get("annotations", []),
+    )
     monkeypatch.setattr(subject, "rest_post", post)
     monkeypatch.setattr(subject.item_field_transform, "section_append", record)
     return state
@@ -304,3 +308,16 @@ def test_capacity_failure_is_recoverable_only_without_other_failed_steps(
         assert github["posts"] == [
             ("/repos/owner/app/actions/runs/100/rerun-failed-jobs", 1)
         ]
+
+
+def test_failure_annotation_stops_before_attempt_limit_and_asks_operator(github, monkeypatch):
+    github["run"]["run_attempt"] = 3
+    github["annotations"] = [{"job_id": "7", "name": "build", "annotation_level": "failure", "message": "Provider refused this job"}]
+    asked = []
+    monkeypatch.setattr("yoke_core.domain.ci_job_start_recovery.ask_operator", lambda **kw: asked.append(kw) or kw["output"])
+    result = subject.handle_rerun_failed(_request())
+    assert result.error.code == "ci_job_not_started_requires_operator"
+    assert "Provider refused this job" in result.error.message
+    assert asked[0]["output"] == result.error.message
+    assert not github["posts"]
+    assert not github["records"]

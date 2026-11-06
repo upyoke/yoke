@@ -108,3 +108,25 @@ def test_ci_dispatched_run_mismatch_records_error_and_never_waits(
     assert result["verdict"] == "error"
     assert "standalone_ci_run_commit_mismatch" in recorder.call_args.kwargs["output"]
     await_run.assert_not_called()
+
+
+def test_ci_startup_refusal_asks_operator_and_records_provider_reason(tmp_path, monkeypatch):
+    import json
+    from yoke_core.domain import ci_job_start_recovery as recovery
+
+    monkeypatch.setattr(ci, "standalone_ci_target", lambda *args: (tmp_path, "acme/widgets", "proof.yml", "proof-tag", SHA, {}))
+    monkeypatch.setattr(ci.lane, "github_actions_authority", nullcontext)
+    monkeypatch.setattr(ci.lane, "dispatch_workflow", lambda **kw: "123")
+    monkeypatch.setattr(ci.lane, "run_head_sha", lambda **kw: SHA)
+    output = "failed:ci_job_not_started — " + recovery.OPERATOR_REQUIRED + "\nbuild: failure: Provider refused this job"
+    monkeypatch.setattr(ci.lane, "await_workflow", lambda **kw: (1, output))
+    asked = Mock(return_value=output)
+    monkeypatch.setattr(recovery, "ask_operator", asked)
+    recorder = Mock(return_value=(91, 92))
+    monkeypatch.setattr(ci, "_record_run", recorder)
+    result = ci.execute_standalone_ci(_case(tmp_path))
+    assert result["verdict"] == "error"
+    assert result["failure_class"] == "ci_job_not_started"
+    assert asked.call_args.kwargs["output"] == output
+    recorded = json.loads(recorder.call_args.kwargs["raw_result"])
+    assert "failure: Provider refused this job" in recorded["ci_diagnostics"]

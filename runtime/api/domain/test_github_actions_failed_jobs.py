@@ -50,6 +50,8 @@ def _job(
     return {
         "id": 900 + index,
         "name": name,
+        "runner_id": 45,
+        "runner_name": "runner",
         "status": status,
         "conclusion": conclusion,
         "html_url": f"https://github.com/o/r/actions/runs/123/job/{900 + index}",

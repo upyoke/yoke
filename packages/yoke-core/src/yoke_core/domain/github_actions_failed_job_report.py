@@ -18,7 +18,7 @@ from typing import Any, Dict, List, Mapping, Optional
 
 from yoke_contracts.read_detail import REPLY_LIMIT_BYTES
 
-from yoke_core.domain.ci_job_outcome import CANCELLED_RECOVERY, CI_JOB_NOT_STARTED
+from yoke_core.domain.ci_job_outcome import CANCELLED_RECOVERY, CI_JOB_NOT_STARTED, not_started_message
 from yoke_core.domain.github_actions_failed_jobs import (
     LOG_AVAILABLE,
     FailedJob,
@@ -101,6 +101,11 @@ def build_failed_job_report(
         f"run {run_id}: {len(ordered)} failed job(s), {available} with log "
         f"output, {len(ordered) - available} without — {run_url}",
     ]
+    if failures.conclusion == CI_JOB_NOT_STARTED:
+        header_lines.append(not_started_message({
+            "ci_job_annotations": [row for job in ordered for row in job.annotations],
+            "ci_job_annotations_error": "\n".join(job.annotation_error for job in ordered if job.annotation_error),
+        }))
     if still_running:
         header_lines.append(still_running)
     bound_notice = (
@@ -138,6 +143,8 @@ def build_failed_job_report(
                 "html_url": job.html_url,
                 "log_status": job.log_status,
                 "log_detail": job.log_detail,
+                "annotations": job.annotations,
+                "annotation_error": job.annotation_error,
                 "log_line_count": region.log_line_count,
                 "region": region.kind,
                 "region_line_count": region.region_line_count,

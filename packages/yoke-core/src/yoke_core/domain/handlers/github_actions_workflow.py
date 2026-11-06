@@ -17,6 +17,7 @@ from pydantic import BaseModel, Field, model_validator
 from yoke_contracts.api.function_call import FunctionCallRequest, HandlerOutcome
 from yoke_contracts.github_app_installation_permissions import (
     GITHUB_ACTIONS_READ_PERMISSION_LEVELS,
+    GITHUB_CHECKS_READ_PERMISSION_LEVELS,
 )
 from yoke_core.domain.handlers.github_actions_workflow_dispatch import (
     OWNER_MODULE as DISPATCH_OWNER_MODULE,
@@ -102,7 +103,7 @@ def handle_workflow_find_run(request: FunctionCallRequest) -> HandlerOutcome:
         request,
         WorkflowFindRunRequest,
         "github_actions.workflow.find_run",
-        required_permissions=GITHUB_ACTIONS_READ_PERMISSION_LEVELS,
+        required_permissions={**GITHUB_ACTIONS_READ_PERMISSION_LEVELS, **GITHUB_CHECKS_READ_PERMISSION_LEVELS},
     )
     if error is not None:
         return error

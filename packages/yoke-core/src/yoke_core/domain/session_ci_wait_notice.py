@@ -53,6 +53,7 @@ def ci_run_message(
     head_sha: str,
     kind: str,
     continue_command: str,
+    diagnostics: str = "",
 ) -> str:
     """Name the verdict, the run, the commit, and how to continue."""
     what = _WHAT_BY_KIND.get(kind, "CI run")
@@ -62,6 +63,12 @@ def ci_run_message(
         f"has concluded.",
         run_url(repo, run_id),
     ]
+    if diagnostics:
+        lines.append(diagnostics)
+    from yoke_core.domain.ci_job_start_recovery import recovery_blocked
+
+    if recovery_blocked(diagnostics):
+        return "\n".join(lines)
     if conclusion == "cancelled":
         lines.append(f"No verdict: {CANCELLED_RECOVERY}.")
     elif conclusion not in ("success", "failure"):

@@ -9,6 +9,7 @@ from typing import Any, Callable, Dict, Optional
 from yoke_contracts.designed_wait import announce_designed_wait
 from yoke_contracts.github_app_installation_permissions import (
     GITHUB_ACTIONS_READ_PERMISSION_LEVELS,
+    GITHUB_CHECKS_READ_PERMISSION_LEVELS,
 )
 from yoke_core.domain.gh_rest_transport import (
     RestAuthError,
@@ -146,7 +147,7 @@ def failed_log_command(
     token = resolve_token(
         project,
         repo,
-        required_permissions=GITHUB_ACTIONS_READ_PERMISSION_LEVELS,
+        required_permissions={**GITHUB_ACTIONS_READ_PERMISSION_LEVELS, **GITHUB_CHECKS_READ_PERMISSION_LEVELS},
     )
 
     try:

@@ -44,6 +44,7 @@ from yoke_contracts.api.function_call import (
 )
 from yoke_contracts.github_app_installation_permissions import (
     GITHUB_ACTIONS_READ_PERMISSION_LEVELS,
+    GITHUB_CHECKS_READ_PERMISSION_LEVELS,
 )
 from yoke_core.domain.github_actions_identifiers import WorkflowIdentifier
 from yoke_core.domain.handlers.github_actions_set import _auth_failed
@@ -198,7 +199,7 @@ def handle_check_ci(request: FunctionCallRequest) -> HandlerOutcome:
     try:
         resolved = resolve_project_github_auth(
             payload.project,
-            required_permissions=GITHUB_ACTIONS_READ_PERMISSION_LEVELS,
+            required_permissions={**GITHUB_ACTIONS_READ_PERMISSION_LEVELS, **GITHUB_CHECKS_READ_PERMISSION_LEVELS},
         )
     except ProjectGithubAuthError as exc:
         return _auth_failed(exc, payload.project)
