@@ -204,9 +204,13 @@ def verified_dead_sessions(
         if any(record.running for record in records):
             continue
         if running_native_for_session(
-            session_id, custody_state_dir=state_dir, start_time_of=start_time_of,
+            session_id,
+            custody_state_dir=state_dir,
+            start_time_of=start_time_of,
         ) or running_interactive_holder(
-            session_id, custody_state_dir=state_dir, anchors_dir=anchors_dir,
+            session_id,
+            custody_state_dir=state_dir,
+            anchors_dir=anchors_dir,
             start_time_of=start_time_of,
         ):
             continue

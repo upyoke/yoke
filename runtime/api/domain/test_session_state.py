@@ -111,3 +111,38 @@ def test_pause_retains_its_reason_and_custody_without_claiming_work():
 
 def test_board_pause_sql_does_not_infer_intent_from_posture():
     assert "turn_posture" not in session_pause_mode_sql("session")
+
+
+def test_responsive_hooks_do_not_prove_tool_progress_or_hide_process_death():
+    from yoke_core.domain.session_staleness import activity_liveness
+
+    facts = row(last_tool_call_at=NOW - timedelta(hours=1))
+    assert session_state(facts, now=NOW)["activity"] == "silent"
+    assert activity_liveness(facts, now=NOW) == "active"
+    facts["native_process_gone_at"] = NOW - timedelta(minutes=30)
+    assert activity_liveness(facts, now=NOW) == "stale"
+
+
+def test_roster_uses_the_projects_configured_tool_idle_threshold(test_db):
+    import json
+
+    from runtime.api.domain.handlers.sessions_list_handler_test_support import (
+        _insert_session,
+    )
+    from yoke_contracts.timestamps import utc_now
+    from yoke_core.domain.sessions_list_read import list_sessions
+
+    now = utc_now()
+    _insert_session(test_db, "configured-idle", last_heartbeat=now)
+    test_db.execute(
+        "UPDATE harness_sessions SET last_tool_call_at=%s, turn_posture='running' WHERE session_id=%s",
+        (now - timedelta(minutes=10), "configured-idle"),
+    )
+    for minutes, expected in ((5, "silent"), (15, "working")):
+        test_db.execute(
+            "UPDATE project_capabilities SET settings=%s WHERE project_id=1 AND type='project-policy'",
+            (json.dumps({"session_idle_minutes": minutes}),),
+        )
+        test_db.commit()
+        result = list_sessions(session_id="configured-idle")[0]
+        assert result["session_state"]["activity"] == expected

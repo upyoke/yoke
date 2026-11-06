@@ -6,9 +6,8 @@
 
 Schemas and ownership rules for harness sessions and work claims. Read [timestamp discipline](../../databases/migrations.md#timestamp-discipline) for timestamp conventions.
 
-The additive `session_state` roster field projects presence, activity, intent, custody
-and next actor through `yoke_core.domain.session_state.session_state(row, now=...)`.
-See the [session state glossary](../../guide/glossary.md) for the independent facts.
+The additive `session_state` projection is defined in the
+[session state glossary](../../guide/glossary.md).
 
 ## Table: harness_sessions
 
@@ -27,7 +26,9 @@ report `active`. Turn posture never declares a pause. Each row's `reclaimable`
 flag agrees with `liveness=stale`. The shared `automatic_reclaim` decision
 applies holdings retention, in-flight and episode-progress rules to roster,
 preview and execution; execution rechecks protection before mutation.
-Wake routing uses the tool-activity `activity_liveness` projection.
+Wake routing uses `activity_liveness` for hook reachability: a fresh heartbeat
+may keep hooks reachable while tool activity is silent, but never hides a
+recorded native process death.
 
 
 **Stale-session thresholds (canonical reference).** The reclaim windows are config-tunable, not code literals. The sweep first selects an occupancy tier:

@@ -48,16 +48,29 @@ HOLDS_WORK_CLAIM_COLUMN = "holds_work_claim"
 
 
 def activity_liveness(row: Mapping[str, Any], *, now: Optional[datetime] = None) -> str:
-    """Route by tool activity and presence, independently of custody."""
+    """Route by hook reachability, without treating that as working activity.
+
+    Heartbeat may prove responsive hooks while the model reports tool silence.
+    It never supersedes a native process death. Routing TTL is independent of
+    the project's tool-idle threshold.
+    """
     from .session_state import session_state
 
     state = session_state(row, now=now)
     if state["presence"] == "ended":
         return LIVENESS_ENDED
+    if state["presence"] == "gone":
+        return LIVENESS_STALE
+    candidates = [
+        parse_instant(row[key])
+        for key in ("last_heartbeat", "last_tool_call_at", "activity_at")
+        if row.get(key) is not None
+    ]
+    activity_at = max(candidates) if candidates else None
     return (
-        LIVENESS_ACTIVE
-        if state["presence"] == "present" and (state["activity"] != "silent")
-        else LIVENESS_STALE
+        LIVENESS_STALE
+        if activity_is_stale(activity_at, executor=row.get("executor"), now=now)
+        else LIVENESS_ACTIVE
     )
 
 
