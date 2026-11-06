@@ -51,9 +51,9 @@ conditions are unaffected.
 Activation, integration and closure edges have directional meaning: the dependent cannot pass that gate until the blocker satisfies the condition. Coordination-only edges are excluded from blocker evaluation.
 
 **Gate point** (`gate_point`) -- *when* in the dependent's lifecycle the dependency is enforced:
-- `activation` -- do not start the dependent yet (checked before advancing to `implementing`)
-- `integration` -- may work in parallel, but the dependent must land (merge) after the blocker
-- `closure` -- the dependent may not close before the blocker satisfies its condition
+- `activation` -- do not start or staff yet (checked before advancing to `implementing`)
+- `integration` -- work, test and open the pull request now; merge only after the condition clears
+- `closure` -- work and merge now; close only after the condition clears
 - `coordination_only` -- attested independent overlap; no lifecycle wait
 
 **Satisfaction condition** (`satisfaction`) -- *what* must be true about the blocker:

@@ -17,6 +17,7 @@ from typing import Any
 
 from yoke_contracts.timestamps import utc_now
 from yoke_core.domain import db_backend
+from yoke_core.domain.dependency_explanation import unmet_gate_action
 from yoke_core.domain.dependency_satisfaction import evaluate_persisted_satisfaction
 from yoke_core.domain.dependency_types import GateResult, is_activation_gate
 from yoke_core.domain.merge_queue_landing_notice import HOLDER, push_notice
@@ -127,11 +128,12 @@ def satisfied_message(
 ) -> str:
     """Name what the blocker proved, which gate it cleared and what is left."""
     descriptions = [
-        f"{gate['blocker_ref']} {gate['gate_point']} gate {gate['satisfaction']}"
+        f"{gate['blocker_ref']} {gate['gate_point']} gate {gate['satisfaction']}: "
+        f"{unmet_gate_action(gate['gate_point'])}"
         for gate in remaining
     ]
     still = (
-        f" Still unmet: {'; '.join(descriptions)} — keep waiting on those; "
+        f" Still unmet: {'; '.join(descriptions)}; "
         "another notice follows when each clears."
         if remaining
         else " No other dependency gates remain."

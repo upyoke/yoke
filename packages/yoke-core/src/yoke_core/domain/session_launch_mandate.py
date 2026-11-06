@@ -51,7 +51,11 @@ def compose_single_item_mandate(
         "On re-entry, read the Progress Log and lane status/log; preserve existing "
         "work. Before stopping short of done, append a Progress Log checkpoint "
         f"with stage, committed and dirty work, and next action. {close} "
-        "If your claim is swept, reacquire and continue."
+        "If your claim is swept, reacquire and continue. "
+        "Unmet dependency gates hold only their named step: activation means do not "
+        "start or staff yet; integration means work, test and open the pull request "
+        "now, merging only after it clears; closure means work and merge now, "
+        "closing only after it clears. Park only at the held step."
     )
     extra = extras.strip()
     return f"{mandate}\n\n{extra}" if extra else mandate

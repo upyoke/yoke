@@ -50,7 +50,8 @@ def integration_dependency_refusal(
         return ""
     lines = [
         f"integration_dependency_blocked: {ref} may not land until its "
-        "integration dependencies merge:"
+        "integration dependencies clear. Work, test and open the pull request now; "
+        "only the merge is held:"
     ]
     for blocker in result.get("unsatisfied_blockers") or []:
         lines.append(
@@ -61,11 +62,11 @@ def integration_dependency_refusal(
     lines.append(
         compose_refusal(
             (
-                "Keep your work claim and lane; do not release or end the session; the "
+                "At the merge step, keep your work claim and lane; do not release or end the session; the "
                 "notice wakes you as holder. Park with `yoke sessions touch --mode parked "
                 '--reason "awaiting <BLOCKER> integration"`.'
             ),
-            recovery=f"wait for each blocker to merge (the control plane sends a notice when it does), then re-run `{rerun}`. If the dependency is wrong, correct it first with `yoke items dependency update` or `yoke items dependency remove`.",
+            recovery=f"wait for each named dependency condition to clear (the control plane sends a notice when it does), then re-run `{rerun}`. If the dependency is wrong, correct it first with `yoke items dependency update` or `yoke items dependency remove`.",
         )
     )
     return "\n".join(lines)

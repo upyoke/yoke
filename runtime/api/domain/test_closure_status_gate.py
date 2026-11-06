@@ -82,7 +82,7 @@ def test_evaluate_refuses_an_unsatisfied_closure_edge(db_path):
     assert failure is not None
     assert failure["error_code"] == "GATE_CLOSURE_UNSATISFIED"
     assert "YOK-10" in failure["error"]
-    assert "blocks closure" in failure["error"]
+    assert "work and merge now; close only after it clears" in failure["error"]
     assert "status reaches done" in failure["error"]
     assert "items.blocked" in failure["remediation_hint"]
 
