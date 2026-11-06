@@ -146,7 +146,8 @@ def _record_and_compose(
     from yoke_core.domain.deployment_run_context_members import set_aside_context_members
 
     with connect() as conn:
-        set_aside_context_members(conn, run_id_value)
+        if set_aside_context_members(conn, run_id_value):
+            conn.commit()
         bound_sources = timed_call(
             "context_bound_sources", _record_bound_sources, conn, run_id_value
         )

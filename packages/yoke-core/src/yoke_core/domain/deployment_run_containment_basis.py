@@ -142,10 +142,13 @@ def candidate_containment_basis(
         tuple(project_ids),
     )
     slugs = {int(row["id"]): str(row["slug"]) for row in slug_rows}
+    project_items = {project_id: _delivery_item_ids(conn, project_id, anchor)
+                     for project_id in project_ids}
+    _set_aside_member_rework(conn, run_id,
+                            [item for ids in project_items.values() for item in ids])
     projects: list[dict[str, Any]] = []
     for project_id in project_ids:
-        item_ids = _delivery_item_ids(conn, project_id, anchor)
-        _set_aside_member_rework(conn, run_id, item_ids)
+        item_ids = project_items[project_id]
         merges = recorded_merge_shas_for_items(conn, item_ids)
         items = [
             {

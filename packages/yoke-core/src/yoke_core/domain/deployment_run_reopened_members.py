@@ -174,10 +174,8 @@ def frozen_member_readiness(conn: Any, run_id: str) -> tuple[list[str], str]:
     :func:`set_aside_reopened_members`; both are empty while every member is
     still delivery-ready.
     """
-    from yoke_core.domain.deployment_run_member_set_aside import set_aside_reworking_members
+    from yoke_core.domain.deployment_landing_guard import reworking_members
 
-    held = query_rows(conn, "SELECT item_id FROM deployment_run_items WHERE run_id=%s", (run_id,))
-    removed = set_aside_reworking_members(conn, run_id, (row[0] for row in held))
     rows = query_rows(
         conn,
         f"SELECT i.id, i.status FROM {run_items('dri')} "
@@ -185,10 +183,8 @@ def frozen_member_readiness(conn: Any, run_id: str) -> tuple[list[str], str]:
         (run_id,),
     )
     status_of = {int(row[0]): str(row[1]) for row in rows}
-    unready = unready_item_ids(conn, rows, allow_completed=True)
-    refused, notice = set_aside_reopened_members(
+    unready = sorted(set(unready_item_ids(conn, rows, allow_completed=True))
+                     | reworking_members(conn, status_of))
+    return set_aside_reopened_members(
         conn, run_id, [(item_id, status_of[item_id]) for item_id in unready]
     ) if unready else ([], "")
-    if removed:
-        notice = "Set aside reopened members awaiting a later release: " + ", ".join(removed.values())
-    return refused, notice
