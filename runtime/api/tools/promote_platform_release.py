@@ -27,6 +27,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import subprocess
 import sys
 import time
@@ -178,6 +179,7 @@ def promote(args: argparse.Namespace) -> int:
         proven = followed
         run_id, error = dispatch(
             {
+                "yoke_bridge_run_id": os.environ.get("GITHUB_RUN_ID", ""),
                 "target_environment": args.target_environment,
                 "product_ref": args.product_ref,
                 "release_mode": args.release_mode,

@@ -6,11 +6,14 @@ from dataclasses import dataclass
 import re
 from typing import Any, Callable, Iterable
 
-from yoke_core.domain.github_actions_run_stall import STALLED_DISPATCH_TOKEN
+from yoke_core.domain.deployment_failure_trace_scoring import (
+    _GENERIC_ERRORS,
+    clean_lines as _clean_lines,
+    terminal_candidate,
+    terminal_error,
+)
 
 MAX_TRACE_HOPS = 8
-_ANSI = re.compile(r"\x1b\[[0-9;]*[A-Za-z]")
-_TIMESTAMP = re.compile(r"^\ufeff?\d{4}-\d{2}-\d{2}T\S+Z\s+")
 _RUN_URL = re.compile(
     r"https://github\.com/(?P<repo>[^/\s]+/[^/\s]+)/actions/runs/(?P<run>\d+)"
 )
@@ -21,14 +24,6 @@ _RELAY_MARKERS = (
     "observed a downstream failure",
     "downstream run concluded failure",
 )
-_GENERIC_ERRORS = (
-    "process completed with exit code",
-    "hosted train concluded failure",
-    "deployment did not complete",
-    "promotion did not complete",
-)
-_EXCEPTION = re.compile(r"^(?:[A-Za-z_]\w*\.)*[A-Z]\w*: \S")
-_CODED_ERROR = re.compile(r"\berror \([^)]+\):")
 
 
 @dataclass(frozen=True)
@@ -73,13 +68,6 @@ def github_run_ref(repo: str, run_id: str) -> RunRef:
         run_id=identifier,
         url=f"https://github.com/{normalized}/actions/runs/{identifier}",
     )
-
-
-def _clean_lines(log: str) -> list[str]:
-    return [
-        _TIMESTAMP.sub("", _ANSI.sub("", raw)).strip()
-        for raw in str(log or "").splitlines()
-    ]
 
 
 def _unique_refs(refs: Iterable[RunRef], current: RunRef) -> tuple[RunRef, ...]:
@@ -139,61 +127,11 @@ def relay_signal(log: str, current: RunRef, *, run_conclusion=None) -> RelaySign
     return RelaySignal((), (), False)
 
 
-def _error_score(text: str) -> tuple[int, int]:
-    folded = text.casefold()
-    if "stale pair:" in folded:
-        return 95, len(text)
-    if re.search(r"\b" + re.escape(STALLED_DISPATCH_TOKEN) + r"\b", folded):
-        return 95, len(text)
-    if "unauthorized: authentication required" in folded:
-        return 100, len(text)
-    if _EXCEPTION.match(text):
-        return 92, len(text)
-    if "assertionerror:" in folded:
-        return 90, len(text)
-    if "must be the same commit" in folded:
-        return 88, len(text)
-    if "error response from daemon:" in folded:
-        return 85, len(text)
-    if "failed " in folded and " - " in text:
-        return 80, len(text)
-    if re.search(r"\bHTTP 5\d\d\b", text):
-        return 75, len(text)
-    if "error:" in folded or "##[error]" in folded or _CODED_ERROR.search(folded):
-        return 70, len(text)
-    return 0, len(text)
-
-
 def _last_useful_line(log: str) -> str:
     for line in reversed(_clean_lines(log)):
         if line and not any(generic in line.casefold() for generic in _GENERIC_ERRORS):
             return line
     return ""
-
-
-def terminal_error(log: str) -> str | None:
-    """Select the most diagnostic non-relay error line from one job log."""
-    lines = _clean_lines(log)
-    headers = [i for i, line in enumerate(lines) if line == "Traceback (most recent call last):"]
-    if headers:
-        exceptions = [line for line in lines[headers[-1] + 1:] if _EXCEPTION.match(line)]
-        if exceptions:
-            return exceptions[-1]
-    candidates: list[tuple[tuple[int, int], str]] = []
-    for line in lines:
-        annotated = "##[error]" in line
-        text = line.split("##[error]", 1)[-1].strip() if annotated else line
-        folded = text.casefold()
-        if not text or any(generic in folded for generic in _GENERIC_ERRORS):
-            continue
-        score = _error_score(text)
-        if annotated and not score[0]:
-            score = (70, len(text))
-        if score[0]:
-            candidates.append((score, text))
-    if not candidates:
-        return None
-    return max(candidates, key=lambda item: item[0])[1]
 
 
 def _chain_entry(ref: RunRef, job: str = "", job_url: str = "") -> dict[str, str]:
@@ -275,11 +213,10 @@ def walk_failure_chain(
                 relay_refs.append((ref, job.name, job.url))
             if signal.observed and not resolved and not signal.job_ids:
                 relay_without_target.append(job.log_error or job.name)
-            error_text = terminal_error(job.log)
-            if error_text:
-                terminal_candidates.append(
-                    (_error_score(error_text), job.name, error_text, job.url)
-                )
+            candidate = terminal_candidate(job.log)
+            if candidate:
+                score, error_text = candidate
+                terminal_candidates.append((score, job.name, error_text, job.url))
             elif signal.child_not_failed and (useful := _last_useful_line(job.log)):
                 terminal_candidates.append(
                     ((1, len(useful)), job.name, useful, job.url)
