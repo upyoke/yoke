@@ -315,6 +315,6 @@ def test_ci_cache_writes_are_ref_gated_and_pr_builds_only_read():
     assert options["load"] is True
     assert options["cache-from"] == "type=gha,scope=yoke-ci-container"
     assert options["cache-to"] == (
-        "${{ (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/')) "
+        "${{ github.ref == 'refs/heads/main' "
         "&& 'type=gha,mode=max,scope=yoke-ci-container' || '' }}"
     )

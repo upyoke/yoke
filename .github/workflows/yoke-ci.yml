@@ -345,4 +345,4 @@ jobs:
           tags: yoke-core:${{ github.sha }}
           build-args: YOKE_ENGINE_VERSION=${{ env.YOKE_ENGINE_VERSION }}
           cache-from: type=gha,scope=yoke-ci-container
-          cache-to: ${{ (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/')) && 'type=gha,mode=max,scope=yoke-ci-container' || '' }}
+          cache-to: ${{ github.ref == 'refs/heads/main' && 'type=gha,mode=max,scope=yoke-ci-container' || '' }}
