@@ -54,25 +54,6 @@ def _require_member_still_attached(
         raise _member_removed(conn, run_id, member_item_id)
 
 
-def removed_member_refusals(
-    conn: Any, run_id: str, members: Any
-) -> dict[int, LookupError]:
-    """:func:`_require_member_still_attached` for a cohort, in one read."""
-    wanted = sorted(int(member) for member in members if member is not None)
-    if not wanted:
-        return {}
-    rows = conn.execute(
-        "SELECT item_id FROM deployment_run_items WHERE run_id=%s AND item_id=ANY(%s)",
-        (run_id, wanted),
-    ).fetchall()
-    attached = {int(row[0]) for row in rows}
-    return {
-        member: _member_removed(conn, run_id, member)
-        for member in wanted
-        if member not in attached
-    }
-
-
 @dataclass
 class _StageRead:
     """Everything the write needs, read unlocked as one set for the run."""

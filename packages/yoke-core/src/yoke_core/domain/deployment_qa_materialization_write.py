@@ -2,7 +2,8 @@
 
 The read stays outside the lock: a run that changed since it is read again
 unlocked (:func:`lock_current_read`), so no run-wide query, git or HTTP call
-ever runs while this writer holds the run row. Each member commits separately, so workers can settle their QA between writes.
+ever runs while this writer holds the run row. Each member commits separately,
+so workers can settle their QA between writes.
 """
 
 from yoke_core.domain.deployment_qa_transaction_recovery import rollback_after_error
@@ -56,8 +57,7 @@ def write_prepared_stage(
         return reread()
 
     try:
-        # Inside a cohort write the cohort's one check already proved this
-        # read current under the lock this transaction holds.
+        # A dispatch already validated this member under its short run lock.
         if not run_lock_is_held(conn, str(run_id)):
             stage_read = lock_current_read(
                 conn,
@@ -73,6 +73,8 @@ def write_prepared_stage(
             member=member,
             replaced_requirement_ids=replaced_requirement_ids,
         )
+        if not run_lock_is_held(conn, str(run_id)):
+            stage_read.projection.advance(conn)
         if commit:
             conn.commit()
         return result
@@ -101,12 +103,15 @@ def write_prepared_cohort(conn, *, run_id, read, write, reread, then=None):
     """
     from yoke_core.domain.deployment_qa_presentation_reads import uncached_presentation
 
+    from yoke_core.domain.deployment_qa_stage_materialization import _require_member_still_attached
+
     reads, errors = read()
     errors = dict(errors)
     for member, prepared in reads.items():
 
         def read_current():
             with uncached_presentation():
+                _require_member_still_attached(conn, run_id, member)
                 return reread(member)
 
         try:
