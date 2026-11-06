@@ -249,3 +249,19 @@ def test_ambient_anchor_cache_preserves_shared_host_boundary(monkeypatch):
     assert hooks._caller_anchor((), ambient=True) is None
     ambient.assert_called_once()
     named.assert_not_called()
+
+
+def test_ambient_ancestry_reads_one_table_and_keeps_shared_host_boundary(monkeypatch):
+    from yoke_contracts import process_ancestry as ancestry
+
+    table = Mock(return_value={400: (300, "python"), 300: (200, "zsh"),
+                               200: (100, "codex"), 100: (1, "claude")})
+    individual = Mock(side_effect=AssertionError("must use the snapshot names"))
+    monkeypatch.setattr(ancestry, "process_table", table)
+    monkeypatch.setattr(ancestry, "process_command_name", individual)
+    assert ancestry.find_nearest_harness_anchor(400) is None
+    table.assert_called_once()
+    individual.assert_not_called()
+    table.return_value[300] = (200, "claude")
+    anchor = ancestry.find_nearest_harness_anchor(400, start_time_of=lambda pid: "start")
+    assert anchor == ProcessAnchor(300, "start", "claude")
