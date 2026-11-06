@@ -46,7 +46,7 @@ class ItemsListRequest(BaseModel):
         default_factory=list,
         description=(
             "Column projection. Empty -> "
-            "id,title,status,priority,workflow_id,source. ``id`` carries "
+            "id,title,status,priority,workflow_id,source,stage,home_section,next_actor,progress. ``id`` carries "
             "the public PREFIX-N ref; ``source``/``owner`` carry actor "
             "display labels."
         ),
