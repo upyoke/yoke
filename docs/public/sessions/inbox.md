@@ -244,7 +244,8 @@ yoke decision-requests resolve 17 freeform --note "Use violet"
 
 The same durable decision records the person and answering session for either
 path. If steering lacks authority, answer it on the Inbox page. Delivery goes
-to the requesting session, or to the item's current holder if that session ended.
+to the requesting session even while it is idle between turns, or to the item's
+current holder if the requesting session is terminated or removed.
 A failed delivery records `operator_question_undelivered` on the request and in
 the steering report; read the saved answer and relay it to the holder.
 
@@ -260,7 +261,8 @@ Replacement requires a pending operator question from the same requesting
 session; the old request's withdrawal reason names its replacement. Withdrawn
 questions leave both waiting lists and remain in session history. `dispose-ended`
 also withdraws questions when their item reaches a terminal stage, or when a
-requesting session without an item ends.
+requesting session without an item is terminated or removed. Being idle between
+turns keeps the question open until someone answers or withdraws it.
 
 Steering raises every pending Inbox decision in chat, reconciles the report
 against chat whenever it reports, withdraws obsolete questions, replaces changed

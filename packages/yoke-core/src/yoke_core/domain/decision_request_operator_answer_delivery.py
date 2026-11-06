@@ -32,7 +32,7 @@ def _recipient(conn, request):
     p = _p(conn)
     row = conn.execute(
         f"SELECT session_id FROM harness_sessions WHERE session_id={p} "
-        "AND ended_at IS NULL AND terminated_at IS NULL",
+        "AND terminated_at IS NULL",
         (request["requesting_session_id"],),
     ).fetchone()
     if row is not None:
