@@ -13,6 +13,7 @@ HC-reviewed-implementation-epics-no-sim, HC-missing-flow
 from __future__ import annotations
 
 from yoke_core.domain.workflow_status_queries import (
+    implementation_items_clause,
     terminal_items_sql,
     completed_items_sql,
 )
@@ -81,12 +82,14 @@ def hc_orphaned_active_items(conn, args: DoctorArgs, rec: RecordCollector) -> No
             if r2.returncode == 0:
                 main_branch = "master"
 
+        active_sql, active_params = implementation_items_clause(conn)
         wt_rows = query_rows(
             conn,
             "SELECT DISTINCT i.id, i.status, iw.branch FROM items i "
             "JOIN item_worktrees iw ON iw.item_id = i.id "
-            f"WHERE NOT {terminal_items_sql(conn)} "
+            f"WHERE {active_sql} "
             "AND iw.state = 'active' ORDER BY i.id, iw.branch",
+            active_params,
         )
         for row in wt_rows:
             item_id = row["id"]

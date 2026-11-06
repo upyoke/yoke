@@ -115,6 +115,9 @@ def _apply_schema() -> None:
     from yoke_core.domain.flow_init import converge_flow_catalog
 
     with connect() as conn:
+        from runtime.api.workflow_pin_test_support import install_workflow_pin
+
+        install_workflow_pin(conn, workflow_id="issue")
         converge_flow_catalog(conn)
 
 

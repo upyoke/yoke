@@ -22,8 +22,8 @@ class TestPrecomputeEpicTaskRows:
 
         assert result == {
             40: [
-                (1, "Yoke first", "done", "✅"),
-                (2, "Yoke second", "implementing", "🔨"),
+                (1, "Yoke first", "done", "✅", True),
+                (2, "Yoke second", "implementing", "🔨", False),
             ]
         }
 
@@ -65,7 +65,12 @@ class TestRenderSectionPrecomputedEpicTaskRows:
             NoQueryDB(),
             "\U0001f535",
             7,
-            {201: [(1, "Sub task 1", "done"), (2, "Sub task 2", "implementing")]},
+            {
+                201: [
+                    (1, "Sub task 1", "done", "✅", True),
+                    (2, "Sub task 2", "implementing", "🔨", False),
+                ]
+            },
         )
 
         corner_lines = [line for line in result.split("\n") if "└" in line]

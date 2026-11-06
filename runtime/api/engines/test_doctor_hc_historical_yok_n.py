@@ -192,7 +192,13 @@ class TestSelfSkip(unittest.TestCase):
                     lint_yok_n_cruft_status.control_plane_transport,
                     "relay",
                     return_value={
-                        "rows": [{"id": "YOK-200", "status": "implementing"}]
+                        "rows": [
+                            {
+                                "id": "YOK-200",
+                                "status": "implementing",
+                                "terminal": False,
+                            }
+                        ]
                     },
                 ) as relay,
             ):

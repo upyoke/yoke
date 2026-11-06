@@ -162,7 +162,7 @@ class TestResolveCelebration:
 
 class TestStatusEmojiCelebration:
     def test_done_swapped_to_celebration(self):
-        assert status_emoji("done", "🎉") == "🎉 done"
+        assert status_emoji("done", "🎉", completed=True) == "🎉 done"
 
     def test_done_default_is_check(self):
         assert status_emoji("done") == f"{E.DONE_EMOJI} done"
@@ -187,6 +187,7 @@ class TestCelebrationPropagatesToSections:
             None,
             "yoke",
             "",
+            completed=True,
         )
         buckets = {"done": [done_item]}
         lines, _ = render_board_sections(
@@ -216,6 +217,7 @@ class TestCelebrationPropagatesToSections:
             None,
             "yoke",
             "",
+            completed=True,
         )
         lines, _ = render_board_sections(
             test_db,
@@ -225,6 +227,7 @@ class TestCelebrationPropagatesToSections:
             {},
             {},
             None,
+            completed=True,
         )
         out = "\n".join(lines)
         assert "### ✅ Done" in out

@@ -71,6 +71,10 @@ def _load_over_connection(
     conn: Any,
     statuses: dict[str, WorkItemStatus],
 ) -> dict[str, WorkItemStatus]:
+    from yoke_core.domain.schema_common import _table_exists
+
+    if not _table_exists(conn, "items"):
+        return statuses
     sequences = [
         sequence
         for ref in statuses

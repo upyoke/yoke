@@ -36,6 +36,7 @@ class ItemRow(NamedTuple):
     updated_at: datetime | None
     status_glyph: Optional[str] = None
     merge_queue_status: str = ""
+    completed: bool = False
 
 
 # ---------------------------------------------------------------------------
@@ -178,6 +179,8 @@ def classify_item_rows(
             project=project_display,
             updated_at=parse_instant(updated_at) if updated_at is not None else None,
             status_glyph=str(status_glyph) if status_glyph else None,
+            completed=status_bucket == "done"
+            and status not in ENGINE_TERMINAL_STAGE_IDS,
             merge_queue_status=render_merge_queue_status(
                 merge_queue_enqueued_at,
                 merge_queue_landed_at,

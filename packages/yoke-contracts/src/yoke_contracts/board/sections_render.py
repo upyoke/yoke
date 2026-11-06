@@ -260,7 +260,7 @@ def render_section(
             item.status,
             celebration,
             glyph=item.status_glyph,
-            completed=item.workflow_stage_bucket == "done",
+            completed=item.completed,
         )
         lines.append(
             f"| {rid_padded} | {rstat_emoji} | {item.project} | "

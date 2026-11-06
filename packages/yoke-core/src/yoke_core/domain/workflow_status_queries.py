@@ -76,3 +76,17 @@ def landed_stages_clause(conn, *, alias="i", status=None):
         alias=alias,
         status=status,
     )
+
+
+def implementation_items_clause(conn, *, alias="i"):
+    """SQL membership for stages after the pinned implementation entry."""
+    return _membership_clause(
+        conn,
+        lambda runtime: frozenset(
+            stage
+            for stage in runtime.stage_ids
+            if runtime.implementation_has_started(stage)
+            and stage not in runtime.all_terminal_stage_ids
+        ),
+        alias=alias,
+    )

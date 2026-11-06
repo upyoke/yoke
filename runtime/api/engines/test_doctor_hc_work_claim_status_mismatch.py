@@ -47,10 +47,17 @@ def _p(conn) -> str:
     return "%s" if db_backend.connection_is_postgres(conn) else "?"
 
 
+def _initialize(conn):
+    from runtime.api.workflow_pin_test_support import install_workflow_pin
+
+    apply_fixture_ddl(conn, _FULL_DDL)
+    install_workflow_pin(conn, workflow_id="issue")
+
+
 def _apply_schema() -> None:
     conn = db_backend.connect()
     try:
-        apply_fixture_ddl(conn, _FULL_DDL)
+        _initialize(conn)
     finally:
         conn.close()
 

@@ -121,7 +121,7 @@ def _zen_queued_count(db: BoardDBLike, project: str) -> int:
         "WHERE project_id = %s "
         "AND (status IN ('idea','planned','refined-idea','refining-idea') "
         "     OR (frozen = 1 "
-        f"         AND NOT {terminal_item_sql()} AND i.status <> 'failed')))",
+        f"         AND NOT {terminal_item_sql()} AND i.status <> 'failed'))",
         (project_id,),
     )
     return int(val) if val else 0
