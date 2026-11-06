@@ -4,6 +4,6 @@
  "status": "observed",
  "page": "sessions",
  "position": 1,
- "summary": "Project and document steering acquire automatically take over overlapping seats held by exited sessions, release paired document locks, record the old holder, and notify it to reacquire. Live holders keep their seats and can be contacted with yoke say --session; no document-seat detour is needed.",
+ "summary": "Project and document steering acquire automatically take over overlapping seats held by exited sessions, release paired document locks, record the old holder, and notify holders that can resume to reacquire. Live holders keep their seats and can be contacted with yoke say --session; no document-seat detour is needed.",
  "sources": ["packages/yoke-core/src/yoke_core/domain/steering_seat_takeover.py"]
 }
