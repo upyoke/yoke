@@ -13,6 +13,7 @@ import subprocess
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Set
 
+from yoke_core.domain.file_budget_sizing import FILE_BUDGET_REMEDIATION
 from yoke_core.domain.file_budget_paths import (
     extract_file_budget_paths_set,
     has_unresolved_file_budget,
@@ -215,7 +216,7 @@ def run_all_checks(
             Issue(
                 code="MISSING_FILE_BUDGET",
                 message=str(budget_gate["reason"]),
-                remediation="Declare the File Budget required by the pinned workflow.",
+                remediation=FILE_BUDGET_REMEDIATION,
             )
         )
     checkout = item_project_checkout(conn, item_id)

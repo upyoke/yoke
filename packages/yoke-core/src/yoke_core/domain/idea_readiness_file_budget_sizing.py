@@ -8,7 +8,9 @@ from typing import Any, Callable
 
 from yoke_contracts.project_contract.file_line_policy import DEFAULT_LIMIT
 from yoke_core.domain.file_budget_paths import extract_file_budget_paths
-from yoke_core.domain.file_budget_sizing import parse_file_budget_sizing
+from yoke_core.domain.file_budget_sizing import (
+    FILE_BUDGET_REMEDIATION, parse_file_budget_sizing,
+)
 from yoke_core.domain.idea_readiness_results import (
     MISSING_FILE_BUDGET_SIZING,
     MISSING_SIBLING_PLAN,
@@ -37,10 +39,7 @@ def verify_file_budget_sizing(
             issues.append(issue_type(
                 code=MISSING_FILE_BUDGET_SIZING,
                 message=f"File Budget path {rel} has no complete sizing fields",
-                remediation=(
-                    "record current lines, remaining headroom against 350, "
-                    "and the at-or-over-limit flag"
-                ),
+                remediation=FILE_BUDGET_REMEDIATION,
                 context={"path": rel},
             ))
             continue
@@ -80,7 +79,7 @@ def verify_file_budget_sizing(
             issues.append(issue_type(
                 code=STALE_FILE_BUDGET_SIZING,
                 message=f"File Budget sizing facts disagree for {rel}",
-                remediation="recompute headroom and the at-or-over-limit flag",
+                remediation=FILE_BUDGET_REMEDIATION,
                 context={
                     "path": rel, "recorded": entry.current_line_count,
                     "expected_headroom": expected_headroom,

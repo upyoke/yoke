@@ -1,7 +1,8 @@
 {
  "id": "file-budget",
  "title": "File budget",
- "status": "draft-copy",
+ "status": "observed",
  "page": "coordination",
- "position": 3
+ "position": 3,
+ "summary": "Readiness refusals for missing budgets, incomplete sizing and inconsistent sizing share the full dash-list row format and an example. Each backticked physical path records current lines, headroom against 350 and the limit flag; new files start at zero and generated copies have separate rows. Enabled path claims cover every path."
 }
