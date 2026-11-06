@@ -10,6 +10,10 @@ from yoke_core.domain.source_python_environment import SourcePythonEnvironment
 @pytest.fixture(autouse=True)
 def environment(monkeypatch):
     monkeypatch.setattr(
+        "yoke_core.tools.source_git_credentials.snapshot_git_helpers",
+        lambda env, *_args: dict(env),
+    )
+    monkeypatch.setattr(
         source_dev_run.source_python_environment,
         "resolve",
         lambda root, env: SourcePythonEnvironment(sys.executable, dict(env), {}),

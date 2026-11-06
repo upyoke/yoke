@@ -65,6 +65,10 @@ def test_different_root_refuses_before_imports(monkeypatch, tmp_path, capsys):
 
 @pytest.fixture(autouse=True)
 def isolated_environment_probe(monkeypatch):
+    monkeypatch.setattr(
+        "yoke_core.tools.source_git_credentials.snapshot_git_helpers",
+        lambda env, *_args: dict(env),
+    )
     import sys
     from yoke_core.domain.source_python_environment import SourcePythonEnvironment
 

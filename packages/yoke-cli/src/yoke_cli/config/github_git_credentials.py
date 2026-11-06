@@ -5,6 +5,9 @@ from __future__ import annotations
 import shlex
 import sys
 from pathlib import Path
+from yoke_contracts.git_credential_command import (
+    helper_command as render_helper_command,
+)
 from typing import Any, Mapping
 
 from yoke_cli.config import github_git_credential_bundle
@@ -243,17 +246,11 @@ def helper_command(
     selected_helper = (
         Path(helper_path) if helper_path is not None else install_stable_helper()
     )
-    command = [
-        shlex.quote(str(current_release_path(Path(sys.executable)))),
-        shlex.quote(str(current_release_path(selected_helper))),
-    ]
-    command.extend(
-        [
-            "--config",
-            shlex.quote(str(machine_config.config_path(config_path))),
-        ]
+    return render_helper_command(
+        current_release_path(Path(sys.executable)),
+        current_release_path(selected_helper),
+        machine_config.config_path(config_path),
     )
-    return "!" + " ".join(command)
 
 
 def _helper_dir() -> Path:

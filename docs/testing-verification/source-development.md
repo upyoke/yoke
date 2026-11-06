@@ -68,6 +68,11 @@ cache and temp paths. It excludes browser identity `profile` directories under
 `secrets/capability-secrets/*/browser-control/identities/*/`, plus special files
 such as sockets and dangling symlinks anywhere in the copied tree. It does not
 clone caches, runtimes or live relay state.
+Git credential helper commands in the selected lane bound to that config use its private
+copy too. The child receives a Git config overlay that replays the effective
+helper order, including URL scopes and empty resets, while rebinding canonical
+`python helper --config <selected-config>` commands to the snapshot. Other
+helpers and config entries stay intact; no Git config file is written.
 Source config writes affect only the snapshot, which is removed after the
 command finishes or refuses. Watcher captures use the printed separate
 `source evidence root` through `YOKE_SCRATCH_ROOT`, so proof survives snapshot

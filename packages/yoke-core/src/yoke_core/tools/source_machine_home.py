@@ -127,7 +127,7 @@ def _terminate(signum, _frame):
 
 @contextmanager
 def isolated_machine_home(
-    env: Mapping[str, str], *, allow_real: bool = False
+    env: Mapping[str, str], *, allow_real: bool = False, git_root: Path | None = None
 ) -> Iterator[dict[str, str]]:
     """Keep the snapshot alive through probes and the complete child command."""
     resolved = dict(env)
@@ -159,6 +159,11 @@ def isolated_machine_home(
             raise OSError(f"cannot snapshot machine home: {exc}") from exc
         resolved[HOME_ENV] = str(destination)
         resolved.pop(CONFIG_FILE_ENV, None)
+        from yoke_core.tools.source_git_credentials import snapshot_git_helpers
+
+        resolved = snapshot_git_helpers(
+            resolved, selected, destination / "config.json", git_root
+        )
         # Identity must survive moving away from the hook's process registry.
         if not resolved.get("YOKE_SESSION_ID"):
             from yoke_core.domain.session_ambient_identity import (
