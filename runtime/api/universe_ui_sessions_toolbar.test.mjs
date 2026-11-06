@@ -9,6 +9,29 @@ const staticFile = (name) => readFileSync(new URL(
   `../../packages/yoke-core/src/yoke_core/ui/static/${name}`, import.meta.url,
 ), "utf8");
 
+test("session search matches native titles and fallback labels without widening facets", () => {
+  const filters = sessionRosterFilters(new FakeDocument(), () => {});
+  const controls = byClass(filters.host, "session-filter-control");
+  const titled = {
+    session_id: "native-chat", harness_title: "[Release Notes]",
+    project_id: 1, liveness: "active", executor: "codex",
+  };
+  const fallback = {
+    ...titled, session_id: "launched-chat", harness_title: null,
+    display_label: "Review deployment receipts · codex-cli",
+  };
+  const other = { ...titled, session_id: "other-project", project_id: 2 };
+  const ended = { ...titled, session_id: "ended-chat", liveness: "ended" };
+  controls[0].value = "[RELEASE NOTES]";
+  controls[2].value = "1";
+  assert.deepEqual(filters.apply([titled, fallback, other, ended]), [titled]);
+  assert.deepEqual(filters.applyOpen([titled, other, ended]), [titled, ended]);
+  controls[0].value = "deployment receipts";
+  assert.deepEqual(filters.apply([titled, fallback]), [fallback]);
+  controls[0].value = "missing title";
+  assert.deepEqual(filters.apply([titled, fallback]), []);
+});
+
 test("the Sessions toolbar is a search, four filters, and actions led by Clear", () => {
   const filters = sessionRosterFilters(new FakeDocument(), () => {});
   assert.deepEqual(
