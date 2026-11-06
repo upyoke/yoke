@@ -75,6 +75,7 @@ def remove_members_on(
     session_id: str | None = None,
     actor_id: int | None = None,
     removed_by: str = "steering",
+    preserve_qa: bool = False,
 ) -> dict[int, str]:
     """Apply the audited removals and retract the members' unsettled run copies.
 
@@ -114,11 +115,13 @@ def remove_members_on(
     removed_at = record_membership_removals(
         conn, run_id, ids, reason=reason, session_id=session_id, actor_id=actor_id
     )
-    _stopped, cleaning = abort_removed_member_executions(
-        conn, run_id=run_id, item_ids=ids
-    )
-    cancelled = retract_member_copies(conn, run_id, item_ids=ids, reason=reason)
-    retract_orphaned_shared_copies(conn, run_id=run_id, reason=reason)
+    cleaning, cancelled = frozenset(), {}
+    if not preserve_qa:
+        _stopped, cleaning = abort_removed_member_executions(
+            conn, run_id=run_id, item_ids=ids
+        )
+        cancelled = retract_member_copies(conn, run_id, item_ids=ids, reason=reason)
+        retract_orphaned_shared_copies(conn, run_id=run_id, reason=reason)
     withdraw_deployment_qa_wait_wakes(
         conn, run_id=run_id, item_ids=ids, reason="member_removed"
     )

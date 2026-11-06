@@ -131,6 +131,9 @@ def insert_run_items(
             [admission.selections[item_id] for item_id in ids],
         ),
     )
+    from yoke_core.domain.deployment_run_set_aside_qa import adopt_set_aside_qa
+
+    adopt_set_aside_qa(conn, run_id, ids)
     return {item_id: admission.refs[item_id] for item_id in ids}
 
 

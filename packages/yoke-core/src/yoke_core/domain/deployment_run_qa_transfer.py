@@ -47,6 +47,7 @@ def transfer_qa_on(
     old_id: str,
     new_id: str,
     moving: set[int],
+    include_run_qa: bool = True,
 ) -> None:
     """Transfer moving members' QA, open plan groups and run QA on the caller's transaction.
 
@@ -65,6 +66,8 @@ def transfer_qa_on(
         member = row["deployment_member_item_id"]
         if member is not None:
             return int(member) in moving
+        if not include_run_qa:
+            return False
         marker = group_marker(row["execution_target_json"])
         return marker is None or str(marker["group_id"]) in open_groups
 

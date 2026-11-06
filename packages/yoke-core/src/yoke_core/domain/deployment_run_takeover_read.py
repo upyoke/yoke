@@ -33,6 +33,10 @@ def _verdict(conn: Any, new_run: Mapping[str, Any], old_lineage: str) -> Any:
         candidate_contains_commit,
     )
 
+    if not old_lineage:
+        from yoke_core.domain.deployment_run_candidate_containment import ContainmentVerdict, CONTAINED
+
+        return ContainmentVerdict(CONTAINED)
     return candidate_contains_commit(
         conn,
         int(new_run["project_id"]),

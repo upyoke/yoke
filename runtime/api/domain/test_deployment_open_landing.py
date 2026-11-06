@@ -28,7 +28,7 @@ def test_admission_refuses_an_open_unarmed_correction_before_writing_membership(
     require_closed_landing(conn, 101)
 
 
-def test_containment_refuses_an_open_correction_even_for_a_recorded_snapshot(test_db):
+def test_containment_sets_aside_an_open_correction_for_a_recorded_snapshot(test_db):
     import json
     from runtime.api.fixtures.backlog_inserts import insert_item
     from runtime.api.fixtures.carried_release_candidate import insert_run
@@ -60,8 +60,10 @@ def test_containment_refuses_an_open_correction_even_for_a_recorded_snapshot(tes
             "correction-candidate",
         ),
     )
-    with pytest.raises(ValueError, match="item_landing_open:.*#43"):
-        candidate_containment_basis(test_db, "correction-candidate")
+    basis = candidate_containment_basis(test_db, "correction-candidate")
+    assert basis["recorded_snapshot"]["items"] == [{"id": item_id, "project_id": 1}]
+    assert test_db.execute("SELECT count(*) FROM deployment_run_items WHERE run_id=%s",
+                           ("correction-candidate",)).fetchone()[0] == 0
 
 
 def _add_member(conn, run_id, item_id):
@@ -104,11 +106,8 @@ def test_a_removed_member_open_correction_never_blocks_its_recorded_snapshot(tes
         (json.dumps({"items": items, "answers": items}), run_id),
     )
     remove_member_on(test_db, run_id, 9876, reason="rides a later release")
-    with pytest.raises(ValueError, match="item_landing_open:.*#10877") as refused:
-        candidate_containment_basis(test_db, run_id)
-    assert "#10876" not in str(refused.value)
-    close_attempt(test_db, 9877, "10877", "closed without merging")
     basis = candidate_containment_basis(test_db, run_id)
+    assert test_db.execute("SELECT count(*) FROM deployment_run_items WHERE run_id=%s", (run_id,)).fetchone()[0] == 0
     assert basis["recorded_snapshot"]["items"] == items
 
 
@@ -122,10 +121,8 @@ def test_a_removed_member_open_correction_never_blocks_a_fresh_basis(
     _run_with_open_landings(test_db, run_id, (9876, 9877))
     monkeypatch.setattr(basis_module, "_delivery_item_ids", lambda *_args: (9876, 9877))
     remove_member_on(test_db, run_id, 9876, reason="rides a later release")
-    with pytest.raises(ValueError, match="item_landing_open:.*#10877") as refused:
-        basis_module.candidate_containment_basis(test_db, run_id)
-    assert "#10876" not in str(refused.value)
-    close_attempt(test_db, 9877, "10877", "closed without merging")
+    assert basis_module.candidate_containment_basis(test_db, run_id)["projects"]
+    assert test_db.execute("SELECT count(*) FROM deployment_run_items WHERE run_id=%s", (run_id,)).fetchone()[0] == 0
     assert basis_module.candidate_containment_basis(test_db, run_id)["projects"]
 
 

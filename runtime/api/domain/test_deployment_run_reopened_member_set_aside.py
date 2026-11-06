@@ -162,7 +162,7 @@ def test_removal_notice_tells_a_reopened_owner_to_continue_rework():
 
 
 @RESUMES
-def test_resume_keeps_a_reopened_member_whose_candidate_is_contained(
+def test_resume_sets_aside_rework_even_when_previous_candidate_is_contained(
     test_db, tmp_path, monkeypatch, resume
 ):
     _frozen_run_with_reopened_member(
@@ -172,12 +172,12 @@ def test_resume_keeps_a_reopened_member_whose_candidate_is_contained(
     ok, message = resume(test_db)
 
     assert ok, message
-    assert _members(test_db) == {REOPENED, SIBLING}
-    assert not membership_removals(test_db, RUN)
+    assert _members(test_db) == {SIBLING}
+    assert membership_removals(test_db, RUN)
 
 
 @RESUMES
-def test_resume_refuses_a_reopened_member_with_undetermined_containment(
+def test_resume_sets_aside_rework_without_needing_candidate_containment(
     test_db, tmp_path, monkeypatch, resume
 ):
     from yoke_core.domain import deployment_run_candidate_containment as containment
@@ -197,11 +197,9 @@ def test_resume_refuses_a_reopened_member_with_undetermined_containment(
 
     ok, message = resume(test_db)
 
-    assert not ok
-    assert "containment of its current candidate is undetermined" in message
-    assert "restore the checkout mapping and resume" in message
-    assert _members(test_db) == {REOPENED, SIBLING}
-    assert not membership_removals(test_db, RUN)
+    assert ok, message
+    assert _members(test_db) == {SIBLING}
+    assert membership_removals(test_db, RUN)
 
 
 def test_settlement_sets_aside_a_reopened_member(test_db, tmp_path, monkeypatch):
@@ -213,7 +211,7 @@ def test_settlement_sets_aside_a_reopened_member(test_db, tmp_path, monkeypatch)
 
     (removal,) = membership_removals(test_db, RUN)
     assert removal["item_id"] == REOPENED
-    assert "left delivery readiness" in removal["reason"]
+    assert "awaiting enrollment in a later release" in removal["reason"]
     assert (
         test_db.execute(
             "SELECT status FROM deployment_runs WHERE id=%s", (RUN,)
@@ -230,7 +228,7 @@ def test_settlement_sets_aside_a_reopened_member(test_db, tmp_path, monkeypatch)
 
 
 @pytest.mark.parametrize("reopened_sha,expected_members", [
-    ("correction", {SIBLING}), ("frozen", {REOPENED, SIBLING}),
+    ("correction", {SIBLING}), ("frozen", {SIBLING}),
 ])
 def test_failed_run_start_uses_the_reopened_member_rule(
     test_db, tmp_path, monkeypatch, reopened_sha, expected_members

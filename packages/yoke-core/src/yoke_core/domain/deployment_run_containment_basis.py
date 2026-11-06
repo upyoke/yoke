@@ -4,7 +4,7 @@ from __future__ import annotations
 from hashlib import sha256
 from typing import Any, Mapping
 from yoke_core.domain import db_backend
-from yoke_core.domain.deployment_landing_guard import require_closed_landings
+from yoke_core.domain.deployment_run_member_set_aside import set_aside_reworking_members
 from yoke_core.domain.db_helpers import query_rows
 from yoke_core.domain.delivery_landing_custody import merged_open_items
 from yoke_core.domain.deployment_run_bound_sources import (
@@ -78,7 +78,7 @@ def _require_member_landings_closed(conn: Any, run_id: str, item_ids) -> None:
             (run_id,),
         ).fetchall()
     }
-    require_closed_landings(conn, members.intersection(int(i) for i in item_ids))
+    set_aside_reworking_members(conn, run_id, members.intersection(int(i) for i in item_ids))
 
 
 def _basis_digest(basis: Mapping[str, Any]) -> str:
