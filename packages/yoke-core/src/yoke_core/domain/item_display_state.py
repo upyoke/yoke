@@ -14,6 +14,13 @@ def item_display_states(conn, item_ids):
     items = _item_rows(conn, tuple(dict.fromkeys(int(i) for i in item_ids)))
     if not items:
         return {}
+    slots = ",".join(placeholder(conn) for _ in items)
+    facts = conn.execute(
+        "SELECT id,title,spec,frozen,updated_at,created_at FROM items "
+        f"WHERE id IN ({slots})", tuple(items),
+    ).fetchall()
+    for fact in facts:
+        items[int(fact["id"])].update(dict(fact))
     claims = active_item_claims(conn, items)
     runtimes = {int(row["workflow_version_id"]): row["runtime"] for row in items.values()}
     from yoke_core.domain.item_finished_times import is_finished

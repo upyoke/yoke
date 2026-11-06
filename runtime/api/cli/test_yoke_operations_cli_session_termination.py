@@ -94,8 +94,14 @@ def test_sessions_list_narrows_kills_through_ended_cause(monkeypatch) -> None:
     }
 
 
-def test_sessions_list_rejects_terminated_as_a_liveness_peer(capsys) -> None:
-    assert roster.sessions_list(["--liveness", "terminated"]) == 2
+def test_sessions_list_rejects_terminated_as_a_presence_peer(capsys) -> None:
+    assert roster.sessions_list(["--presence", "terminated"]) == 2
     stderr = capsys.readouterr().err
     assert "invalid choice: 'terminated'" in stderr
     assert "--ended-cause killed|wound_down" in stderr
+
+
+def test_sessions_list_removes_the_liveness_flag(capsys) -> None:
+    assert roster.sessions_list(["--liveness", "active"]) == 2
+    stderr = capsys.readouterr().err
+    assert "--presence present|gone|ended" in stderr
