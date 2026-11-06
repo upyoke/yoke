@@ -10,7 +10,6 @@ from yoke_contracts.api.function_call import (
     FunctionError,
     HandlerOutcome,
 )
-from yoke_contracts.machine_config.machine_access import OFFERS_ENFORCEMENT_NOTE
 from yoke_contracts.refusal_recovery import compose_refusal
 
 from yoke_core.domain.actors import ActorError, actor_name
@@ -23,11 +22,7 @@ from yoke_core.domain.machine_registry import (
 from yoke_core.domain.session_relay_storage import utc_now
 
 
-class OffersDisclosureResponse(BaseModel):
-    offers_enforcement_note: str
-
-
-class MachineRecordResponse(OffersDisclosureResponse):
+class MachineRecordResponse(BaseModel):
     machine: Dict[str, Any]
     created: bool = False
 
@@ -37,7 +32,7 @@ class MachineListRequest(BaseModel):
     owned_only: bool = False
 
 
-class MachineListResponse(OffersDisclosureResponse):
+class MachineListResponse(BaseModel):
     machines: List[Dict[str, Any]]
     count: int
 
@@ -53,7 +48,7 @@ class MachineAccessGetRequest(BaseModel):
     path: Optional[str] = None
 
 
-class MachineAccessGetResponse(OffersDisclosureResponse):
+class MachineAccessGetResponse(BaseModel):
     machine_id: str
     path: str
     value: Any
@@ -71,11 +66,6 @@ def _failure(code: str, message: str) -> HandlerOutcome:
         primary_success=False,
         error=FunctionError(code=code, message=message, jsonpath="$.payload"),
     )
-
-
-def _with_offers_disclosure(payload: Dict[str, Any]) -> Dict[str, Any]:
-    """Add the operator-facing note to every response that renders offers."""
-    return {**payload, "offers_enforcement_note": OFFERS_ENFORCEMENT_NOTE}
 
 
 def _parse(model: Any, request: FunctionCallRequest) -> Any:
@@ -117,18 +107,26 @@ def _is_admin(conn: Any, actor_id: int) -> bool:
     return row is not None
 
 
+def _unknown_path(path: str) -> MachineRegistryError:
+    return MachineRegistryError(
+        "machine_settings_path_unknown",
+        compose_refusal(
+            f"access document has no {path!r}.",
+            recovery=(
+                "choose a valid path: use.mode, use.actor_ids, use.project_id, "
+                "use.role; read the document with "
+                "`yoke machine access get MACHINE-ID`."
+            ),
+        ),
+    )
+
+
 def _project(document: Any, path: str) -> Any:
     """Read one dotted leaf out of an access document."""
     cursor: Any = document
     for segment in path.split("."):
         if not isinstance(cursor, dict) or segment not in cursor:
-            raise MachineRegistryError(
-                "machine_settings_path_unknown",
-                compose_refusal(
-                    f"access document has no {path!r}.",
-                    recovery="read the whole document with `yoke machine access get MACHINE-ID`.",
-                ),
-            )
+            raise _unknown_path(path)
         cursor = cursor[segment]
     return cursor
 
@@ -143,16 +141,10 @@ def _assigned(document: Dict[str, Any], path: str, value: Any) -> Dict[str, Any]
     cursor: Any = updated
     for segment in segments[:-1]:
         if not isinstance(cursor, dict) or segment not in cursor:
-            raise MachineRegistryError(
-                "machine_settings_path_unknown",
-                f"access document has no {path!r}",
-            )
+            raise _unknown_path(path)
         cursor = cursor[segment]
     if not isinstance(cursor, dict) or segments[-1] not in cursor:
-        raise MachineRegistryError(
-            "machine_settings_path_unknown",
-            f"access document has no {path!r}",
-        )
+        raise _unknown_path(path)
     cursor[segments[-1]] = value
     return updated
 
@@ -183,12 +175,10 @@ def handle_machine_list(request: FunctionCallRequest) -> HandlerOutcome:
             machine["owner"] = owner_labels[record.owner_actor_id]
             machines.append(machine)
         return HandlerOutcome(
-            result_payload=_with_offers_disclosure(
-                {
-                    "machines": machines,
-                    "count": len(records),
-                }
-            )
+            result_payload={
+                "machines": machines,
+                "count": len(records),
+            }
         )
     except Exception as exc:  # noqa: BLE001 - reported as a typed refusal
         return _refused(exc)
@@ -203,9 +193,7 @@ def handle_machine_show(request: FunctionCallRequest) -> HandlerOutcome:
     conn = _open()
     try:
         record = require_machine(conn, parsed.machine_id)
-        return HandlerOutcome(
-            result_payload=_with_offers_disclosure({"machine": record.to_dict()})
-        )
+        return HandlerOutcome(result_payload={"machine": record.to_dict()})
     except Exception as exc:  # noqa: BLE001 - reported as a typed refusal
         return _refused(exc)
     finally:
@@ -222,13 +210,11 @@ def handle_machine_access_get(request: FunctionCallRequest) -> HandlerOutcome:
         path = (parsed.path or "").strip()
         value = _project(record.access, path) if path else record.access
         return HandlerOutcome(
-            result_payload=_with_offers_disclosure(
-                {
-                    "machine_id": record.machine_id,
-                    "path": path,
-                    "value": value,
-                }
-            )
+            result_payload={
+                "machine_id": record.machine_id,
+                "path": path,
+                "value": value,
+            }
         )
     except Exception as exc:  # noqa: BLE001 - reported as a typed refusal
         return _refused(exc)
@@ -252,9 +238,7 @@ def handle_machine_access_set(request: FunctionCallRequest) -> HandlerOutcome:
             is_admin=_is_admin(conn, actor_id),
             now=utc_now(),
         )
-        return HandlerOutcome(
-            result_payload=_with_offers_disclosure({"machine": updated.to_dict()})
-        )
+        return HandlerOutcome(result_payload={"machine": updated.to_dict()})
     except Exception as exc:  # noqa: BLE001 - reported as a typed refusal
         return _refused(exc)
     finally:
@@ -265,7 +249,6 @@ __all__ = [
     "MachineListRequest",
     "MachineListResponse",
     "MachineRecordResponse",
-    "OffersDisclosureResponse",
     "MachineAccessGetRequest",
     "MachineAccessGetResponse",
     "MachineAccessSetRequest",

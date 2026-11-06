@@ -1,18 +1,14 @@
-"""Who may consume a registered machine's capacity, and its reserved offers.
+"""Who may consume a registered machine's capacity.
 
-A machine is a capacity pool. Many people and many machines share one universe,
-so a machine row carries an access document saying which same-universe actors
-may spend its capacity. The ``use`` half is enforced by :func:`access_permits`.
-The ``offers`` half is reserved for future restrictions and is not enforced or
-consulted today for placement, deploys, or QA host selection. The document is
-pure data with a pure decision function here; resolving an actor's roles and
-admin standing is the control plane's job, and it hands the resolved facts in.
+The access document describes which same-universe actors may spend capacity.
+The control plane resolves actor roles and administrator standing before
+calling the pure access decision function.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Iterable, Mapping, Sequence
+from typing import Any, Iterable, Mapping
 
 
 USE_OWNER_ONLY = "owner_only"
@@ -22,21 +18,8 @@ USE_UNIVERSE = "universe"
 USE_MODES = (USE_OWNER_ONLY, USE_ACTORS, USE_PROJECT_ROLE, USE_UNIVERSE)
 
 USE_SETTING = "access.use.mode"
-OFFERS_ENFORCEMENT_NOTE = (
-    "The offers block is reserved for future restrictions and is not enforced "
-    "or consulted today for placement, deploys, or QA host selection."
-)
-
-# Keep the reserved offers shape normalized, even though placement, deploys,
-# and QA host selection do not enforce or consult these defaults today.
 DEFAULT_ACCESS: dict[str, Any] = {
     "use": {"mode": USE_OWNER_ONLY, "actor_ids": [], "project_id": None, "role": ""},
-    "offers": {
-        "executor_surfaces": [],
-        "models": [],
-        "qa_host": False,
-        "deploys": False,
-    },
 }
 
 
@@ -63,26 +46,10 @@ def _int_list(value: Any) -> list[int]:
     return sorted(out)
 
 
-def _string_list(value: Any) -> list[str]:
-    if not isinstance(value, (list, tuple)):
-        return []
-    out: list[str] = []
-    for item in value:
-        text = str(item).strip()
-        if text and text not in out:
-            out.append(text)
-    return sorted(out)
-
-
 def normalize_access(document: Any) -> dict[str, Any]:
-    """Return the document with every declared key present and typed.
-
-    The offers shape is reserved; placement, deploys, and QA host selection do
-    not enforce or consult it today.
-    """
+    """Return only declared access keys, normalized and typed."""
     raw = document if isinstance(document, Mapping) else {}
     use = raw.get("use") if isinstance(raw.get("use"), Mapping) else {}
-    offers = raw.get("offers") if isinstance(raw.get("offers"), Mapping) else {}
     mode = str(use.get("mode") or USE_OWNER_ONLY).strip()
     project_id: int | None
     try:
@@ -95,12 +62,6 @@ def normalize_access(document: Any) -> dict[str, Any]:
             "actor_ids": _int_list(use.get("actor_ids")),
             "project_id": project_id if project_id and project_id > 0 else None,
             "role": str(use.get("role") or "").strip(),
-        },
-        "offers": {
-            "executor_surfaces": _string_list(offers.get("executor_surfaces")),
-            "models": _string_list(offers.get("models")),
-            "qa_host": bool(offers.get("qa_host", False)),
-            "deploys": bool(offers.get("deploys", False)),
         },
     }
 
@@ -190,22 +151,9 @@ def access_permits(
     )
 
 
-def offers_surface(document: Any, surface: str) -> bool:
-    """Reserved offer filter; no live enforcement path consults this helper."""
-    offered: Sequence[str] = normalize_access(document)["offers"]["executor_surfaces"]
-    return not offered or str(surface).strip() in offered
-
-
-def offers_model(document: Any, model: str) -> bool:
-    """Reserved offer filter; no live enforcement path consults this helper."""
-    offered: Sequence[str] = normalize_access(document)["offers"]["models"]
-    return not offered or str(model).strip() in offered
-
-
 __all__ = [
     "AccessDecision",
     "DEFAULT_ACCESS",
-    "OFFERS_ENFORCEMENT_NOTE",
     "USE_ACTORS",
     "USE_MODES",
     "USE_OWNER_ONLY",
@@ -214,7 +162,5 @@ __all__ = [
     "USE_UNIVERSE",
     "access_permits",
     "normalize_access",
-    "offers_model",
-    "offers_surface",
     "validate_access",
 ]
