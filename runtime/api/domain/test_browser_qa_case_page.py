@@ -37,7 +37,10 @@ def db_path(tmp_path):
 def _artifact_metadata(db_path: str) -> list[dict]:
     conn = connect_test_db(db_path)
     try:
-        rows = conn.execute("SELECT metadata FROM qa_artifacts ORDER BY id").fetchall()
+        rows = conn.execute(
+            "SELECT metadata FROM qa_artifacts "
+            "WHERE artifact_type='screenshot' ORDER BY id"
+        ).fetchall()
     finally:
         conn.close()
     return [json.loads(row[0]) for row in rows]

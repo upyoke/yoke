@@ -182,7 +182,8 @@ class TestAssertionThatMatchedNothing:
 
         conn = connect_test_db(db_path)
         metadata = conn.execute(
-            "SELECT metadata FROM qa_artifacts ORDER BY id DESC LIMIT 1"
+            "SELECT metadata FROM qa_artifacts "
+            "WHERE artifact_type='screenshot' ORDER BY id DESC LIMIT 1"
         ).fetchone()[0]
         conn.close()
         recorded = json.loads(metadata)["vacuous_absences"]

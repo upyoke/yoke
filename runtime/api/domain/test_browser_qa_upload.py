@@ -302,12 +302,13 @@ class TestScenarioRecordsUploadedHandles:
                 p.stop()
 
         assert result.verdict == "pass"
-        assert len(uploads) == 1
-        assert uploads[0][2] == "image/png"
+        assert len(uploads) == 2
+        assert [upload[2] for upload in uploads] == ["image/png", "application/json"]
 
         conn = connect_test_db(db_path)
         row = conn.execute(
-            "SELECT artifact_handle, metadata FROM qa_artifacts ORDER BY id DESC LIMIT 1"
+            "SELECT artifact_handle, metadata FROM qa_artifacts "
+            "WHERE artifact_type='screenshot' ORDER BY id DESC LIMIT 1"
         ).fetchone()
         conn.close()
         assert json.loads(row[1])["clipped"] is True
