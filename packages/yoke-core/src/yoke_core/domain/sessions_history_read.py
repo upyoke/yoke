@@ -29,6 +29,7 @@ from yoke_core.domain.session_list_fields import (
     usage_fields,
 )
 from yoke_core.domain.session_probe import not_probe_session_sql
+from yoke_core.domain.session_state import session_state
 
 
 DEFAULT_HISTORY_LIMIT = 50
@@ -62,6 +63,9 @@ HISTORY_FIELDS = (
     "machine_id",
     "machine_name",
     "activity_at",
+    "last_tool_call_at",
+    "session_state",
+    "next_actor",
     "ended_at",
     "terminated_at",
     "ended_cause",
@@ -193,7 +197,8 @@ def read_ended_session_history(
         "fpr.public_item_prefix, s.actor_id, a.kind AS actor_kind, "
         + actor_label
         + " AS actor_label, s.executor, s.executor_surface, "
-        "s.model, s.requested_model, s.machine_id, "
+        "s.model, s.requested_model, s.machine_id, s.mode, s.quiet_reason, "
+        "s.last_tool_call_at, "
         + _MACHINE_NAME
         + " AS machine_name, "
         + _ACTIVITY
@@ -210,6 +215,7 @@ def read_ended_session_history(
     rendered = []
     for raw in page:
         row = dict(raw)
+        state = session_state(row)
         prefix = row.get("public_item_prefix")
         sequence = row.get("project_sequence")
         recent_item = (
@@ -235,6 +241,9 @@ def read_ended_session_history(
                 "machine_id": row.get("machine_id"),
                 "machine_name": row.get("machine_name"),
                 "activity_at": row.get("activity_at"),
+                "last_tool_call_at": row.get("last_tool_call_at"),
+                "session_state": state,
+                "next_actor": state["next_actor"],
                 "ended_at": row.get("ended_at"),
                 "terminated_at": row.get("terminated_at"),
                 "ended_cause": ENDED_CAUSE_KILLED

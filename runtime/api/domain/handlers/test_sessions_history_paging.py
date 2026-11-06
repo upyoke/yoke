@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
+import pytest
+
 from yoke_contracts.api.function_call import ActorContext, FunctionCallRequest, TargetRef
+from yoke_contracts.timestamps import parse_instant
 from yoke_core.domain.handlers.sessions_list import handle_sessions_list
 from yoke_core.domain.session_control_schema import create_session_control_tables
 from yoke_core.domain.sessions_history_read import HISTORY_FIELDS
@@ -107,6 +110,37 @@ def test_history_is_compact_and_does_not_run_live_enrichment(test_db, monkeypatc
         "health", "current_item_held_by_other_session_id",
     ):
         assert live_only not in row
+
+
+@pytest.mark.parametrize("terminated_at", [None, "2026-09-08T04:00:00Z"])
+def test_history_projects_ended_state_without_inventing_custody(test_db, terminated_at):
+    _prepare(test_db)
+    ended_at = "2026-09-08T03:00:00Z"
+    tool_at = "2026-09-08T02:30:00Z"
+    _insert_session(test_db, "ended", ended_at=ended_at, terminated_at=terminated_at)
+    test_db.execute(
+        "UPDATE harness_sessions SET mode = 'parked', quiet_reason = %s, "
+        "last_tool_call_at = %s WHERE session_id = 'ended'",
+        ("Waiting for review", tool_at),
+    )
+    test_db.commit()
+
+    row = handle_sessions_list(_request({})).result_payload["rows"][0]
+    state = row["session_state"]
+    assert state["presence"] == "ended"
+    assert state["activity"] == "silent"
+    assert state["in_flight"] is False
+    assert state["intent"]["state"] == "parked"
+    assert state["intent"]["reason"] == "Waiting for review"
+    assert state["custody"] == {
+        "holds": [], "holds_work_claim": None, "reclaimable": None,
+        "reason": "custody_facts_unavailable",
+    }
+    assert row["next_actor"] == state["next_actor"]
+    assert row["next_actor"]["actor"] == "nobody"
+    assert row["next_actor"]["reason"] == "session_ended"
+    assert parse_instant(row["next_actor"]["since"]) == parse_instant(terminated_at or ended_at)
+    assert parse_instant(row["last_tool_call_at"]) == parse_instant(tool_at)
 
 
 def test_history_cursor_pages_tied_activity_without_duplicates(test_db):
