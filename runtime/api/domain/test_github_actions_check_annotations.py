@@ -231,3 +231,16 @@ def test_existing_never_started_run_records_annotation_as_ci_qa_error(
     assert "failure: Provider refused this job" in evidence["ci_diagnostics"]
     asked.assert_called_once()
     dispatch.assert_not_called()
+
+
+def test_annotation_url_accepts_case_variants_of_the_bound_repository(monkeypatch):
+    reads = []
+
+    def get(path, **kwargs):
+        reads.append(path)
+        return [ANNOTATION]
+
+    monkeypatch.setattr(rest, "rest_get", get)
+    result = checks.job_annotations("Acme/Widgets", JOB, token="t")
+    assert result[0]["message"] == ANNOTATION["message"]
+    assert reads == ["/repos/Acme/Widgets/check-runs/8/annotations"]

@@ -18,8 +18,8 @@ def job_annotations(repo: str, job: Mapping[str, Any], *, token: str) -> list[di
 
     path = urlsplit(str(job.get("check_run_url") or "")).path
     prefix = f"/repos/{repo}/check-runs/"
-    check_id = path.removeprefix(prefix)
-    if not path.startswith(prefix) or not check_id.isdecimal():
+    check_id = path[len(prefix):]
+    if not path.casefold().startswith(prefix.casefold()) or not check_id.isdecimal():
         raise RestTransportError(
             "ci_job_annotations_unavailable: job has no valid check_run_url; "
             "open its GitHub job page to inspect annotations before retrying"
