@@ -176,7 +176,7 @@ def test_refresh_after_unrelated_stage_admits_new_member_and_preserves_snapshots
         project_sequence=9699,
         project=CONSUMER_PROJECT,
         workflow_id="blitz",
-        status="implementing",
+        status="release",
         deployment_flow="consumer-release-flow",
     )
     ref = item_ref(test_db, 9699)

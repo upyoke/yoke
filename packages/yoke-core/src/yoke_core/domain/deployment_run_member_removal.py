@@ -136,6 +136,7 @@ def remove_members_on(
             removed_by=removed_by,
             removed_at=removed_at,
             host_cleanup_pending=item_id in cleaning,
+            preserve_qa=preserve_qa,
             cancelled_requirement_ids=cancelled.get(item_id, ()),
         )
     return {item_id: ref(item_id) for item_id in ids}

@@ -157,8 +157,11 @@ def test_removal_notice_tells_a_reopened_owner_to_continue_rework():
         reason="awaiting a later release",
         removed_by=REOPENED_REMOVED_BY,
         red=(),
+        preserve_qa=True,
     )
     assert "Continue its rework" in body and "yoke merge item" in body
+    assert "execution IDs remain open" in body
+    assert "was cancelled" not in body
 
 
 @RESUMES

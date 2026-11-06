@@ -80,6 +80,10 @@ def test_set_aside_shared_qa_stays_open_without_holding_the_old_run(test_db):
     test_db.commit()
     assert _retracted(test_db, created) == [False] * len(created)
     assert group_blockers(test_db, RUN, "item-qa") == []
+    from yoke_core.domain.deployment_run_completion_preconditions import unresolved_blocking_qa, blocking_obligation_total
+
+    assert unresolved_blocking_qa(test_db, RUN) == []
+    assert blocking_obligation_total(test_db, RUN) == 0
     successor = "run-shared-after-rework"
     stages = _stages(plan)
     stages[1].pop("cases")

@@ -1,4 +1,4 @@
-"""Tell a released member's owner that this run cancelled its QA."""
+"""Tell a released member owner whether QA was cancelled or preserved."""
 
 from __future__ import annotations
 
@@ -64,6 +64,7 @@ def removal_notice_body(
     reason: str,
     removed_by: str,
     red: tuple[int, ...] | None,
+    preserve_qa: bool = False,
     host_cleanup_pending: bool = False,
 ) -> str:
     """Name the owner's next step and any host cleanup the removal left owed."""
@@ -73,6 +74,7 @@ def removal_notice_body(
         reason=reason,
         removed_by=removed_by,
         red=red,
+        preserve_qa=preserve_qa,
     )
     return body + HOST_CLEANUP_PENDING if host_cleanup_pending else body
 
@@ -84,6 +86,7 @@ def _next_step(
     reason: str,
     removed_by: str,
     red: tuple[int, ...] | None,
+    preserve_qa: bool,
 ) -> str:
     """Pick the owner's next step; ``red=None`` means the verdict read failed.
 
@@ -92,7 +95,9 @@ def _next_step(
     """
     lead = (
         f"{public_ref} was removed from run {run_id} by {removed_by}: {reason}. "
-        "The outstanding run-bound QA was cancelled (not passed). "
+        + ("Unfinished QA and execution IDs remain open for the next enrolling run; "
+           "continue the same execution ID there. " if preserve_qa else
+           "The outstanding run-bound QA was cancelled (not passed). ")
     )
     park = (
         f"`yoke sessions touch --mode parked --reason 'awaiting {public_ref} delivery'`"
@@ -132,6 +137,7 @@ def notify_removed_member(
     reason: str,
     removed_by: str,
     removed_at: str,
+    preserve_qa: bool = False,
     host_cleanup_pending: bool = False,
     cancelled_requirement_ids: Iterable[int] = (),
 ) -> None:
@@ -160,6 +166,7 @@ def notify_removed_member(
                 removed_by=removed_by,
                 red=red,
                 host_cleanup_pending=host_cleanup_pending,
+                preserve_qa=preserve_qa,
             )
             project = query_one(
                 conn, "SELECT project_id FROM items WHERE id=%s", (item_id,)
@@ -181,6 +188,7 @@ def notify_removed_member(
             removed_by=removed_by,
             red=red,
             host_cleanup_pending=host_cleanup_pending,
+            preserve_qa=preserve_qa,
         )
         print(
             f"member_removal_notice_failed: {public_ref} on {run_id}: {exc}. "
