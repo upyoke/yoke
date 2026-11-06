@@ -146,8 +146,7 @@ def _held_item_rows(conn: Any, *, project_id: int) -> list[dict[str, Any]]:
             "hs.native_process_gone_evidence AS native_process_gone_evidence, "
             "hs.executor_surface AS executor_surface, "
             "hs.executor_version AS executor_version, "
-            "EXISTS(SELECT 1 FROM session_launches l "
-            "WHERE l.registered_session_id = hs.session_id) AS launch_recorded "
+            "hs.launch_origin "
             f"{open_call} "
             "FROM work_claims wc "
             f"JOIN items i ON i.id = {item_id} "
@@ -228,7 +227,7 @@ def claim_holders(
                 message_delivery=message_reachability(row, resuming=resume is not None),
                 native_process_gone_at=parse_stamp(process.get("observed_at")),
                 contained_reason=_contained_reason(process),
-                hand_started=not bool(row.get("launch_recorded")),
+                hand_started=row.get("launch_origin") != "yoke",
                 call_interrupted=interrupted,
                 resume_started_at=parse_stamp(resume.started_at) if resume else None,
                 resumable_from_transcript=resumable_from_transcript(

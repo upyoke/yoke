@@ -116,6 +116,7 @@ def message_connection(path: str = ":memory:") -> sqlite3.Connection:
             session_id TEXT PRIMARY KEY, harness_title TEXT, project_id INTEGER NOT NULL,
             org_id INTEGER,
             actor_id INTEGER,
+            launch_origin TEXT NOT NULL DEFAULT 'operator',
             workspace TEXT NOT NULL DEFAULT '"""
         + ALPHA_WORKSPACE
         + """',
@@ -182,6 +183,10 @@ def message_connection(path: str = ":memory:") -> sqlite3.Connection:
             (2,'s2','epic_task','{{"epic_id":101,"task_num":1}}','{NOW_TEXT}'),
             (3,'s3','process','{{"conflict_group":"build-beta","process_key":"build-beta"}}','{NOW_TEXT}');
         """
+    )
+    # These CLI fixtures represent workers launched by Yoke.
+    conn.execute(
+        "UPDATE harness_sessions SET launch_origin='yoke' WHERE session_id IN ('s2','s3','s4')"
     )
     create_session_control_tables(conn)
     seed_roles_and_permissions(conn)

@@ -108,7 +108,7 @@ def _stopped_route(
             "A terminated session cannot be woken; create a new session instead.",
         )
     surface = str(target.get("executor_surface") or "")
-    if not native_wake_supported(surface):
+    if not native_wake_supported(surface, target.get("launch_origin")):
         raise SessionMessageError(
             "operator_wake_required",
             operator_wake_instruction(

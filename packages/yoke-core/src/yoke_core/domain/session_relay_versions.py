@@ -39,11 +39,12 @@ def wake_versions_supported(
     relay_version: str | None,
     wake_mode: str,
     liveness: str,
+    origin: str | None,
 ) -> bool:
     operation = wake_operation(wake_mode, liveness, surface)
     return bool(
         operation
-        and native_wake_supported(surface)
+        and native_wake_supported(surface, origin)
         and surface_operation_supported(surface, target_version, operation)
         and surface_operation_supported(surface, relay_version, operation)
     )
@@ -60,6 +61,7 @@ def wake_candidate_supported(
         relay_versions.get(surface),
         str(candidate.get("wake_mode") or ""),
         str(candidate.get("liveness") or ""),
+        candidate.get("launch_origin"),
     )
 
 
@@ -85,7 +87,9 @@ def wake_execution_surface(
     )
     if operation is None:
         return None
-    return machine_wake_surface(surface, relay_versions, operation)
+    return machine_wake_surface(
+        surface, relay_versions, operation, candidate.get("launch_origin")
+    )
 
 
 __all__ = [

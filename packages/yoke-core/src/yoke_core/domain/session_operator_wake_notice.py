@@ -81,7 +81,9 @@ def wake_notice_settled_reason(row: Mapping[str, Any]) -> str | None:
     ask made of a person; it is never what decides a native escalation,
     which reads the recipient's present silence instead.
     """
-    if native_wake_supported(str(row.get("executor_surface") or "")):
+    if native_wake_supported(
+        str(row.get("executor_surface") or ""), row.get("launch_origin")
+    ):
         return "surface_wakes_natively"
     if row.get("ended_at") or row.get("terminated_at"):
         return "target_session_ended"
@@ -230,7 +232,7 @@ def _noticed_receipt(
     marker = _p(conn)
     row = conn.execute(
         "SELECT r.state AS state, r.injection_count AS injection_count, "
-        "r.executor_surface AS executor_surface, "
+        "r.executor_surface AS executor_surface, hs.launch_origin AS launch_origin, "
         "m.created_at AS message_created_at, m.cancelled_at AS cancelled_at, "
         "m.expires_at AS expires_at, hs.last_tool_call_at AS last_tool_call_at, "
         "hs.ended_at AS ended_at, hs.terminated_at AS terminated_at "

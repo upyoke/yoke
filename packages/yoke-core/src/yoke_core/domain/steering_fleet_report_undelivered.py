@@ -146,7 +146,7 @@ def report_receipts(
                    r.wake_escalation AS wake_escalation,
                    r.wake_attempt_count AS wake_attempt_count,
                    r.routing_snapshot AS routing_snapshot,
-                   s.executor_surface AS executor_surface,
+                   s.executor_surface AS executor_surface, s.launch_origin AS launch_origin,
                    s.last_tool_call_at AS last_tool_call_at,
                    s.last_heartbeat AS last_heartbeat,
                    s.episode_started_at AS episode_started_at,
@@ -261,7 +261,9 @@ def undelivered_messages(
             group.note_held_native(
                 evidence=evidence,
                 observed_at=view.completed_at if view else None,
-                latest_tool_call_at=parse_stamp(record.get("latest_tool_call_started_at")),
+                latest_tool_call_at=parse_stamp(
+                    record.get("latest_tool_call_started_at")
+                ),
                 current=current,
             )
     return tuple(

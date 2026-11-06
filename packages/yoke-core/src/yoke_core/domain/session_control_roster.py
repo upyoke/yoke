@@ -97,6 +97,7 @@ def _wake_route_available(
     surface = str(merged.get("executor_surface") or "")
     candidate = {
         "executor_surface": surface,
+        "launch_origin": merged.get("launch_origin"),
         "executor_version": str(merged.get("executor_version") or ""),
         "wake_mode": (
             WakeMode.WAITING.value
@@ -109,7 +110,10 @@ def _wake_route_available(
         return True
     return bool(
         wake_operation
-        and machine_wake_surface(surface, versions, wake_operation) is not None
+        and machine_wake_surface(
+            surface, versions, wake_operation, merged.get("launch_origin")
+        )
+        is not None
     )
 
 

@@ -107,6 +107,7 @@ from datetime import datetime, timedelta
 from typing import Any, Mapping
 
 from yoke_contracts.harness_wake_capability import wake_capability_for_harness
+from yoke_contracts.session_control.capabilities import native_wake_supported
 from yoke_contracts.session_control.surface_versions import (
     surface_operation_supported,
 )
@@ -194,6 +195,8 @@ def escalated_wake_available(
     The resume spawns a real process; a second one racing the first is the
     failure this guards.
     """
+    if not native_wake_supported(row.get("executor_surface"), row.get("launch_origin")):
+        return False
     if ignore_wake_cooldown:
         return True
     last_wake = parse_timestamp(row.get("last_wake_at"))
@@ -287,6 +290,8 @@ def parked_without_idle_wake(
     if not session_is_parked(row.get("mode")):
         return False
     if wake_capability_for_harness(row.get("executor")).idle_wake != "none":
+        return False
+    if not native_wake_supported(row.get("executor_surface"), row.get("launch_origin")):
         return False
     if not surface_operation_supported(
         str(row.get("executor_surface") or ""),

@@ -25,6 +25,10 @@ from yoke_core.domain.steering_fleet_report_read import (
 def apply_harness_session_columns(conn: Any) -> None:
     """Add the independently evolving harness-session columns."""
     for column, ddl in (
+        (
+            "launch_origin",
+            "TEXT NOT NULL DEFAULT 'operator' CHECK (launch_origin IN ('yoke','operator'))",
+        ),
         ("current_item_id", "TEXT DEFAULT NULL"),
         ("current_item_set_at", "TIMESTAMPTZ DEFAULT NULL"),
         ("recent_item_id", "TEXT DEFAULT NULL"),

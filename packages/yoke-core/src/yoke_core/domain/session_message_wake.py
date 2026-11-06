@@ -27,7 +27,7 @@ from yoke_core.domain.session_message_delivery import (
 from yoke_core.domain.session_message_wake_skip import record_wake_skip
 from yoke_core.domain.session_wake_meter import skip_exhausted_wake
 from yoke_core.domain.session_wake_failure_notice import notify_failed_wake
-from yoke_core.domain.session_operator_wake_notice import notify_operator_to_wake
+from yoke_core.domain.session_operator_wake_route import keep_operator_hook_route
 from yoke_core.domain.session_message_routing import (
     latest_observed_activity,
     messageability,
@@ -77,7 +77,9 @@ def _native_wake_route_available(
     if row.get("terminated_at"):
         return False
     # Resuming an operator-wake surface would fork its desktop transcript.
-    if not native_wake_supported(str(row.get("executor_surface") or "")):
+    if not native_wake_supported(
+        str(row.get("executor_surface") or ""), row.get("launch_origin")
+    ):
         return False
     from yoke_core.domain.session_surface_policy import live_mark
 
@@ -156,7 +158,7 @@ def wake_eligible_recipients(
         open_call_select = open_tool_call_select(conn, session_alias="hs")
         rows = conn.execute(
             "SELECT r.*,m.created_at AS message_created_at,m.expires_at,"
-            "hs.actor_id,hs.executor,hs.execution_level,hs.last_heartbeat,"
+            "hs.actor_id,hs.executor,hs.execution_level,hs.last_heartbeat,hs.launch_origin,"
             "hs.workspace AS session_workspace,"
             "hs.last_tool_call_at,hs.ended_at,hs.terminated_at,hs.turn_posture,"
             f"hs.turn_posture_at{thread_select}{mode_select}"
@@ -213,13 +215,14 @@ def wake_eligible_recipients(
                 continue
             if explicit_wake and attempt_count > 0:
                 continue
-            # Desktop notices are due at grace regardless of their wake route.
-            notify_operator_to_wake(
+            if keep_operator_hook_route(
                 conn,
                 row,
                 now=current,
                 grace_seconds=policy.wake_ack_grace_seconds,
-            )
+                liveness=liveness,
+            ):
+                continue
             # Live calls still owe hooks; ended/orphaned calls can recover.
             if (
                 not explicit_wake

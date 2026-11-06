@@ -34,6 +34,7 @@ from __future__ import annotations
 from datetime import datetime, timedelta
 from typing import Any, Mapping
 
+from yoke_contracts.session_control.capabilities import native_wake_supported
 from yoke_contracts.session_control.surface_versions import (
     surface_operation_supported,
 )
@@ -78,6 +79,8 @@ def native_process_gone(
     if not awaiting_injection(row):
         return False
     if current_native_process_observation(row, include_expected_exit=True) is None:
+        return False
+    if not native_wake_supported(row.get("executor_surface"), row.get("launch_origin")):
         return False
     if not surface_operation_supported(
         str(row.get("executor_surface") or ""),

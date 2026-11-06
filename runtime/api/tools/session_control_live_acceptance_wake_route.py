@@ -29,7 +29,7 @@ def expected_wake_route(
     return (
         "direct"
         if surface_operation_supported(surface, expected_version, "message_stopped")
-        or machine_stopped_wake_supported(surface, machine_versions)
+        or machine_stopped_wake_supported(surface, machine_versions, "yoke")
         else "none"
     )
 

@@ -54,6 +54,7 @@ def create_session_tables(conn: Any) -> None:
         f"""
         CREATE TABLE IF NOT EXISTS harness_sessions (
           session_id TEXT PRIMARY KEY,
+          launch_origin TEXT NOT NULL DEFAULT 'operator' CHECK (launch_origin IN ('yoke','operator')),
           harness_title TEXT DEFAULT NULL,
           executor TEXT NOT NULL CHECK(executor IN ({executor_values})),
           executor_surface TEXT DEFAULT NULL

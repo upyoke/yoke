@@ -95,7 +95,7 @@ def _holder_lines(holders: tuple[ClaimHolder, ...], *, idle: bool = False) -> li
         if holder.quiet_reason:
             line += f", {holder.quiet_reason}"
         if holder.hand_started:
-            line += "  hand-started (no launch record)"
+            line += "  hand-started (operator origin)"
         line += f"  {holder.message_delivery}"
         if idle:
             line += f"  message it `yoke say --item {holder.public_ref} --stdin`"
