@@ -13,7 +13,7 @@ from yoke_core.domain.session_state import session_needs_idle_alarm
 
 def main() -> None:
     result = {"rows": []}
-    for liveness in ("active", "waiting"):
+    for presence in ("present", "gone"):
         command = [
             "yoke",
             "sessions",
@@ -21,8 +21,8 @@ def main() -> None:
             "--project",
             "yoke",
             "--full",
-            "--liveness",
-            liveness,
+            "--presence",
+            presence,
             "--limit",
             "100",
             "--json",
@@ -30,8 +30,8 @@ def main() -> None:
         response = subprocess.run(command, capture_output=True, text=True, timeout=90)
         if response.returncode:
             raise SystemExit(
-                "fleet_roster_read_failed: inspect yoke sessions list --liveness "
-                + liveness
+                "fleet_roster_read_failed: inspect yoke sessions list --presence "
+                + presence
                 + " --limit 100 --full --json"
             )
         payload = json.loads(response.stdout)

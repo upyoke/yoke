@@ -202,7 +202,7 @@ def test_operator_journey_discovers_sends_reads_and_acknowledges() -> None:
 
     result, output, error = _run_cli(
         broker,
-        ["sessions", "list", "--liveness", "active", "--full"],
+        ["sessions", "list", "--presence", "present", "--full"],
         session_id=SENDER_ID,
     )
     assert result == 0 and error == ""
