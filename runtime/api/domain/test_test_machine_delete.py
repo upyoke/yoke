@@ -12,7 +12,7 @@ from yoke_contracts.api.function_call import (
     FunctionCallRequest,
     TargetRef,
 )
-from yoke_core.domain.handlers import test_machine_delete as deletion
+from yoke_core.domain.handlers import machine_qa_delete as deletion
 from yoke_core.domain.machine_qa_capability import (
     host_claim_target,
     replace_test_machine_settings,
