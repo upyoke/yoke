@@ -127,7 +127,8 @@ def test_locked_session_does_not_hold_response_and_background_skips_write(
                 actor_id=3,
             )
             assert time.monotonic() - started < 1
-            assert result.exit_code != 0 or "guard remains denied" in result.stdout
+            assert result.outcome == "denied"
+            assert "guard remains denied" in result.stdout
             assert result.flush_telemetry is not None
             # Exercise the same background connection factory against a real PG row lock.
             started = time.monotonic()
@@ -144,3 +145,34 @@ def test_locked_session_does_not_hold_response_and_background_skips_write(
         finally:
             lock.rollback()
             lock.close()
+
+
+def test_background_tail_keeps_authorized_request_context(monkeypatch):
+    from contextvars import ContextVar
+    from yoke_core.hooks.deferred_tail import deferred_flush
+
+    project = ContextVar("test_authorized_project", default="ambient")
+    observed = []
+    monkeypatch.setattr(
+        "yoke_core.hooks.telemetry.flush_hook_telemetry",
+        lambda *a, **kw: observed.append(project.get()),
+    )
+    monkeypatch.setattr(
+        "yoke_core.hooks.session_turn_posture_tail.persist_accepted_hook_turn_posture",
+        lambda **kw: observed.append(project.get()),
+    )
+    token = project.set("authorized")
+    flush = deferred_flush(
+        [],
+        {},
+        observed_session=None,
+        event_name="Stop",
+        context=SimpleNamespace(session_id="", now=None),
+        final_outcome="deny",
+        timed_out=False,
+        failed=False,
+    )
+    project.reset(token)
+    flush(10)
+    assert observed == ["authorized", "authorized"]
+    assert project.get() == "ambient"

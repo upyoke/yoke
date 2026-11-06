@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from contextvars import copy_context
 from typing import Any, Callable
 
 
@@ -62,4 +63,5 @@ def deferred_flush(
                 connection_factory=bounded_tail_connection,
             )
 
-    return flush
+    scope = copy_context()
+    return lambda server_wall_ms: scope.run(flush, server_wall_ms)
