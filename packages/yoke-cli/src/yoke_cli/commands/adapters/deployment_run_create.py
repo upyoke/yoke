@@ -105,7 +105,7 @@ def deployment_runs_create(args: List[str]) -> int:
         required=True,
         metavar="KEY",
         help=(
-            "Name for the one run you mean to create. Sending the same "
+            "Name for the run or release set; multiple flows use KEY:FLOW. Sending the same "
             "request with the same key again returns that run instead of "
             "creating another; a new deployment needs a new key."
         ),
