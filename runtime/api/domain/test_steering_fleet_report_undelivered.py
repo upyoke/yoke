@@ -311,6 +311,10 @@ def test_a_desktop_recipient_is_flagged_as_its_operators_to_wake(fleet):
         "UPDATE harness_sessions SET executor_surface = %s WHERE session_id = %s",
         ("claude-desktop", ANSWERER),
     )
+    fleet.execute(
+        "UPDATE harness_sessions SET launch_origin='yoke' WHERE session_id=%s",
+        (ASKER,),
+    )
     seed_message(fleet, "msg-1", sender=ASKER, to=ANSWERER, at=LONG_AGO)
     seed_message(fleet, "msg-2", sender=ANSWERER, to=ASKER, at=LONG_AGO)
     fleet.commit()

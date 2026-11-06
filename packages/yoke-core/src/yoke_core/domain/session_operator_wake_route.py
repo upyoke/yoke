@@ -6,6 +6,7 @@ from typing import Any, Mapping
 from yoke_contracts.session_control.capabilities import native_wake_supported
 from yoke_core.domain.session_operator_wake_notice import notify_operator_to_wake
 from yoke_core.domain.session_message_wake_skip import record_wake_skip
+from yoke_core.domain.session_message_starvation import turn_in_flight
 
 
 def keep_operator_hook_route(
@@ -19,12 +20,13 @@ def keep_operator_hook_route(
     if native_wake_supported(row.get("executor_surface"), row.get("launch_origin")):
         return False
     notify_operator_to_wake(conn, row, now=now, grace_seconds=grace_seconds)
-    record_wake_skip(
-        conn,
-        row,
-        operation="message_stopped",
-        relay_versions={},
-        liveness=liveness,
-        now=now,
-    )
+    if turn_in_flight(row) is None:
+        record_wake_skip(
+            conn,
+            row,
+            operation="message_stopped",
+            relay_versions={},
+            liveness=liveness,
+            now=now,
+        )
     return True

@@ -85,7 +85,7 @@ def wake_notice_settled_reason(row: Mapping[str, Any]) -> str | None:
         str(row.get("executor_surface") or ""), row.get("launch_origin")
     ):
         return "surface_wakes_natively"
-    if row.get("ended_at") or row.get("terminated_at"):
+    if row.get("terminated_at"):
         return "target_session_ended"
     if parse_timestamp(row.get("message_created_at")) is None:
         return None

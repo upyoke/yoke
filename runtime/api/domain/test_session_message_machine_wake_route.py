@@ -201,7 +201,7 @@ def test_an_installed_cli_never_wakes_a_desktop_session(
             {"claude-cli": QUALIFIED_CLI},
             False,
             "skipped_operation",
-            "surface_wake_operator_driven",
+            "operator",
         ),
     ),
 )
@@ -239,7 +239,7 @@ def test_capability_refusal_records_one_observable_wake_skip(
     assert evidence["liveness"] == ("ended" if ended else "stale")
     assert details["attempts"][0]["completed_at"] is not None
     assert details["recipients"][0]["wake_attempt_count"] == (
-        0 if reason == "surface_wake_operator_driven" else 1
+        0 if reason == "operator" else 1
     )
 
 

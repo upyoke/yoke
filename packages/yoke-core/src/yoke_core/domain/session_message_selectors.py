@@ -59,7 +59,7 @@ def _session_rows(conn: Any, session_ids) -> dict[str, dict[str, Any]]:
         if name in columns
     )
     rows = conn.execute(
-        "SELECT session_id, project_id, org_id, actor_id, executor, executor_surface, "
+        "SELECT session_id, project_id, org_id, actor_id, executor, executor_surface, launch_origin, "
         f"executor_version, machine_id, execution_level, {mode_select}"
         f"last_heartbeat, last_tool_call_at, ended_at, terminated_at, {extra}"
         f"{holds_work_claim_sql('harness_sessions')} AS holds_work_claim "

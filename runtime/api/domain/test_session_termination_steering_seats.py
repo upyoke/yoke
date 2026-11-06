@@ -29,6 +29,10 @@ from yoke_core.domain.strategy_docs_defaults import NEAR_TERM_PLAN_SLUG
 def steering_world(test_db, monkeypatch):
     create_session_control_tables(test_db)
     seed_standard_steering_world(test_db)
+    test_db.execute(
+        "UPDATE harness_sessions SET launch_origin='yoke' WHERE session_id=%s",
+        (SESSION_GAMMA,),
+    )
     for target in (
         "yoke_core.domain.session_termination.emit_session_terminated",
         "yoke_core.domain.sessions_render_end.emit_release_claims_branch_event",

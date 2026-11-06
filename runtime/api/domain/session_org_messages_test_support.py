@@ -90,6 +90,7 @@ def org_world(test_db, monkeypatch):
                 OLD,
             ),
         )
+    conn.execute("UPDATE harness_sessions SET launch_origin='yoke'")
     conn.commit()
     monkeypatch.setattr(pages, "utc_now", lambda: NOW)
     monkeypatch.setattr(queries, "utc_now", lambda: NOW)

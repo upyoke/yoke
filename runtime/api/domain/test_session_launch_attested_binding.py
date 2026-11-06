@@ -63,6 +63,13 @@ def test_overlapping_launches_bind_their_own_authenticated_sessions(surface):
             lease_id=claim.lease_id,
             now="2026-08-22T12:00:03Z",
         ) == {"status": "registration_bound", "session_id": session}
+        assert (
+            conn.execute(
+                "SELECT launch_origin FROM harness_sessions WHERE session_id=?",
+                (session,),
+            ).fetchone()[0]
+            == "yoke"
+        )
         recipients = conn.execute(
             "SELECT session_id FROM session_message_recipients WHERE message_id=?",
             (launch.message_id,),

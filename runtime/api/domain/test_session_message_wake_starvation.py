@@ -305,6 +305,7 @@ def _parked_row(surface: str, version: str) -> dict:
         "mode": "parked",
         "executor": "codex",
         "executor_surface": surface,
+        "launch_origin": "yoke",
         "executor_version": version,
     }
 

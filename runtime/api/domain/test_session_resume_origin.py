@@ -56,7 +56,8 @@ def test_every_surface_requires_yoke_origin(surface, origin):
 
 
 @pytest.mark.parametrize("surface", ["claude-cli", "codex-cli", "cursor-cli"])
-def test_operator_cli_with_observed_dead_process_keeps_hook_delivery(surface):
+@pytest.mark.parametrize("ended", [False, True])
+def test_operator_cli_with_observed_dead_process_keeps_hook_delivery(surface, ended):
     conn = message_connection()
     capability = SESSION_SURFACE_CAPABILITIES[surface]
     conn.execute(
@@ -73,6 +74,10 @@ def test_operator_cli_with_observed_dead_process_keeps_hook_delivery(surface):
     )
     message_id = _send_to(conn, "s4")
     record_process_gone(conn, when=NOW)
+    if ended:
+        conn.execute(
+            "UPDATE harness_sessions SET ended_at=? WHERE session_id='s4'", (NOW_TEXT,)
+        )
     eligible = wake_eligible_recipients(
         conn,
         now=STARVED,
@@ -119,6 +124,7 @@ def test_backfill_matches_registered_and_native_identities_and_survives_retentio
     }
     migration.apply(conn)
     conn.execute("DELETE FROM session_launches")
+    migration.apply(conn)
     assert session_launch_origin(conn, "folded") == "yoke"
     assert session_was_relay_launched(conn, "registered")
     assert not session_was_relay_launched(conn, "manual")

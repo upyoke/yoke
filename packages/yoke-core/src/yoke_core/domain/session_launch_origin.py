@@ -1,4 +1,4 @@
-"""Derive ``session_launches.origin`` from live steering authority.
+"""Own launch requester context and durable session resume provenance.
 
 Any live steering seat in the project is steering authority, whether it
 covers the whole project or one strategy document inside it. Matching one

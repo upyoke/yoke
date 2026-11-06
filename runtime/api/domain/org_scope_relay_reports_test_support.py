@@ -72,5 +72,6 @@ def world(test_db):
             "'/tmp/relay-fixture',%s,%s,%s,%s,%s,%s,%s,'running')",
             (sid, project, None if project else org, actor, machine, OLD, OLD, OLD),
         )
+    test_db.execute("UPDATE harness_sessions SET launch_origin='yoke'")
     test_db.commit()
     return test_db, owner, foreign

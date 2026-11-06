@@ -83,6 +83,10 @@ def _register_operator_and_target(conn, *, target="worker") -> None:
         machine_id=MACHINE_ID,
         native_thread_id="native-worker-1",
     )
+    conn.execute(
+        "UPDATE harness_sessions SET launch_origin='yoke' WHERE session_id=%s",
+        (target,),
+    )
 
 
 def _add_target_claim(conn, *, session_id="worker", item_id=900) -> None:

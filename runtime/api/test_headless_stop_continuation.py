@@ -22,10 +22,10 @@ from yoke_core.hooks.types import HookContext, HookDecision, Next, Outcome
 
 def test_relay_launch_context_uses_durable_session_correlation() -> None:
     conn = sqlite3.connect(":memory:")
-    conn.execute("CREATE TABLE session_launches (registered_session_id TEXT)")
+    conn.execute("CREATE TABLE harness_sessions (session_id TEXT, launch_origin TEXT)")
 
     assert not session_was_relay_launched(conn, "interactive")
-    conn.execute("INSERT INTO session_launches VALUES ('worker')")
+    conn.execute("INSERT INTO harness_sessions VALUES ('worker','yoke')")
     assert session_was_relay_launched(conn, "worker")
 
 

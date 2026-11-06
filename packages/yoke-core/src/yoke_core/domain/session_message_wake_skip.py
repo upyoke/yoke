@@ -50,9 +50,6 @@ def _wake_skip_result(
     """Return the recorded code, the driver it named, and the rule that fired."""
     surface = str(row.get("executor_surface") or "")
     machine_id = str(row.get("machine_id") or "")
-    if conn is not None and machine_id and surface:
-        if live_mark(conn, machine_id, surface) is not None:
-            return WAKE_SKIP_SURFACE_DISABLED, None, "surface_policy_disabled"
     capability = capability_for_surface(surface)
     if capability is None:
         return "skipped_surface", None, "surface_unknown"
@@ -60,6 +57,9 @@ def _wake_skip_result(
         # Named ahead of every version and driver rule because it outranks
         # them: no upgrade and no installed peer binary opens this route.
         return "skipped_operation", None, "operator"
+    if conn is not None and machine_id and surface:
+        if live_mark(conn, machine_id, surface) is not None:
+            return WAKE_SKIP_SURFACE_DISABLED, None, "surface_policy_disabled"
     if not surface_version_supported(surface, row.get("executor_version")):
         return "skipped_version", None, "surface_version_below_floor"
     if operation is None:

@@ -193,13 +193,21 @@ def wake_eligible_recipients(
         eligible: list[dict[str, Any]] = []
         for raw in rows:
             row = row_dict(raw)
+            policy = recipient_policy(conn, row)
+            liveness = activity_liveness(row, now=current)
+            if keep_operator_hook_route(
+                conn,
+                row,
+                now=current,
+                grace_seconds=policy.wake_ack_grace_seconds,
+                liveness=liveness,
+            ):
+                continue
             if skip_ended_recipient(conn, row, now=current):
                 continue
-            policy = recipient_policy(conn, row)
             notify_failed_wake(
                 conn, row, now=current, max_attempts=policy.max_wake_attempts
             )
-            liveness = activity_liveness(row, now=current)
             explicit_wake = explicit_stopped_wake_requested(row.get("routing_snapshot"))
             attempt_count = int(row["wake_attempt_count"] or 0)
             at_limit = attempt_count >= policy.max_wake_attempts
@@ -214,14 +222,6 @@ def wake_eligible_recipients(
             ):
                 continue
             if explicit_wake and attempt_count > 0:
-                continue
-            if keep_operator_hook_route(
-                conn,
-                row,
-                now=current,
-                grace_seconds=policy.wake_ack_grace_seconds,
-                liveness=liveness,
-            ):
                 continue
             # Live calls still owe hooks; ended/orphaned calls can recover.
             if (
@@ -322,6 +322,7 @@ def wake_eligible_recipients(
                     "machine_id": row["machine_id"],
                     "executor_surface": row["executor_surface"],
                     "executor_version": row["executor_version"],
+                    "launch_origin": row["launch_origin"],
                     "state": str(row["state"]),
                     "wake_mode": wake_mode.value,
                     "wake_escalation": escalation,
