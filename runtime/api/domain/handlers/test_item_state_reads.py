@@ -5,6 +5,7 @@ from yoke_contracts.api.function_call import ActorContext, FunctionCallRequest, 
 from yoke_core.domain.frontier_list_read import list_frontier
 from yoke_core.domain.handlers.items_listing import handle_items_list
 from yoke_core.domain.handlers.reads import handle_items_get
+from yoke_core.domain.item_overview_read import enrich_item_overview_rows
 
 
 def test_item_state_agrees_across_reads(test_db):
@@ -27,6 +28,12 @@ def test_item_state_agrees_across_reads(test_db):
     frontier = next(row for row in list_frontier()["ready_rows"] if row["item_id"].endswith("-81"))
     for key in fields:
         assert get.result_payload["fields"][key] == listed[key] == frontier[key]
+    web_row = dict(test_db.execute("SELECT * FROM items WHERE id=%s", (841,)).fetchone())
+    web_row["internal_id"] = 841
+    overview = enrich_item_overview_rows([web_row])[0]
+    assert listed["home_section"] == overview["frontier_group"]["section"]
+    assert listed["next_actor"] == overview["next_actor"]
+    assert listed["stage"]["label"] == overview["stage_label"]
     assert listed["home_section"] == "ready"
     assert listed["stage"]["id"] == "implementing"
     assert any(step["state"] == "active" for step in listed["progress"]["stages"])
