@@ -210,7 +210,7 @@ def handle_items_list(request: FunctionCallRequest) -> HandlerOutcome:
                     for raw, rendered in zip(rows, out_rows):
                         rendered.update({key: states[int(raw[-1])][key]
                                          for key in fields if key in STATE_FIELDS})
-                    out_rows = [{key: row[key] for key in fields} for row in out_rows]
+                    out_rows = [{key: value for key, value in row.items() if key in fields or key == "terminal"} for row in out_rows]
     finally:
         conn.close()
     return HandlerOutcome(

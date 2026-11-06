@@ -11,7 +11,7 @@ from runtime.api.domain.session_launch_test_support import (
     assigned_launch,
     launch_connection,
 )
-from yoke_contracts.items_projection import DEFAULT_GET_FIELDS
+from yoke_contracts.items_projection import DEFAULT_GET_FIELDS, ADDITIONAL_VIRTUAL_FIELDS
 from yoke_core.domain import db_backend, items_queries, sessions_list_read
 from yoke_core.domain.session_launch_store import get_launch, launch_read_batch
 from yoke_core.domain.session_launch_projection import public_launch_record
@@ -61,7 +61,7 @@ def test_item_batch_keeps_every_default_field_and_discards_on_exit(
     fields = [
         field
         for field in DEFAULT_GET_FIELDS
-        if field not in {"id", "deployment_flow", "post_deploy_qa"}
+        if field not in ({"id", "deployment_flow"} | (ADDITIONAL_VIRTUAL_FIELDS - {"merge_queue_status"}))
     ]
     with db_backend.bound_pg_dsn(db_backend.resolve_pg_dsn()):
         expected = {

@@ -9,6 +9,7 @@ from __future__ import annotations
 from yoke_cli.commands.adapters.list_paging import add_page_args, dispatch_list
 
 from yoke_cli.transport.human_values import write_human
+from yoke_cli.commands.adapters.session_control_recipient_output import recipient_project
 
 import argparse
 from typing import Any, Dict, List
@@ -132,6 +133,7 @@ def write_sessions_result(response, stdout, stderr, *, full=False) -> None:
         identity = row.get("session_id")
         displayed.append({
             "session": f"{label} ({identity})" if label else identity,
+            "project": recipient_project(row),
             "presence": state["presence"],
             "activity": state["activity"],
             "intent": description(state["intent"], "state"),
