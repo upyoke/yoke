@@ -191,14 +191,14 @@ test("Done lists every environment under the item's single flow", async (t) => {
   mounted.unmount();
 });
 
-test("Active is claimed work, and Ready omits what a session holds", async (t) => {
+test("server homes keep claimed work in progress and out of Ready", async (t) => {
   stubFetch(t);
   const { root, mounted } = await mountAt(
     "/frontier?project=1",
     workbenchClient({ homes: { "YOK-9": { section: "in_progress", activity: "working", reason: "session_can_continue" } }, "sessions.list": { rows: [claimingSession()] } }),
   );
 
-  // Active renders the ITEM, not the session card: the grid holds item
+  // In progress renders the ITEM, not the session card: the grid holds item
   // cards, and the only session card in the band is the one a claimant
   // preview reveals.
   assert.deepEqual(
@@ -318,7 +318,7 @@ test("a release item is drawn once, and only in Release", async (t) => {
   mounted.unmount();
 });
 
-test("Release sits between Active and Done", async (t) => {
+test("Release sits between In progress and Done", async (t) => {
   stubFetch(t);
   const { root, mounted } = await mountAt("/frontier?project=1", releasingClient());
 

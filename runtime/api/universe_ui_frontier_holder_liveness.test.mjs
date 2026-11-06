@@ -1,8 +1,5 @@
-// A Frontier card always names who holds its item, and calls the owner
-// unavailable only when that owner is abandoned: not parked, its process
-// gone, and quiet past its activity window. A parked holder is waiting on
-// purpose — a deploy, a landing — and the next message resumes it from its
-// transcript even after its process has exited.
+// Parked and gone holders retain custody in Held, not working, with their
+// actual reason and session chip. Presence never substitutes for progress.
 
 import assert from "node:assert/strict";
 import test from "node:test";
@@ -65,7 +62,7 @@ test("a parked holder stays held with its reason and no process chip", async (t)
   mounted.unmount();
 });
 
-test("an abandoned holder is unavailable and still names itself", async (t) => {
+test("a gone holder stays held and still names itself", async (t) => {
   stubFetch(t);
   const { root, mounted } = await mountFrontier({
     ...claimingSession(),

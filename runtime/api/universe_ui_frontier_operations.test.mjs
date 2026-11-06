@@ -65,10 +65,10 @@ test("a run card names no project-wide lock; Shipping reads no session roster", 
   mounted.unmount();
 });
 
-test("Active membership follows live claims, not lifecycle status", async (t) => {
+test("the served in-progress home retains its holder annotations", async (t) => {
   stubFetch(t);
   // Three sessions focused on the same item: one holds it and is answering,
-  // one holds nothing, and one has ended. Only the first makes it Active.
+  // one holds nothing, and one has ended. Only the first annotates the in-progress card.
   const now = Date.now();
   const base = (sessionId, liveness, secondsAgo) => ({
     session_id: sessionId, liveness,

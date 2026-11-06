@@ -1,7 +1,7 @@
 // The Frontier's bands, painted together from one item roster, one frontier
 // read and one session roster: Waiting (the dependency graph), On hold,
-// Ready, In progress, Release and Done. Which band each item belongs to is decided
-// in frontier_band_rows.js; this module reads, filters and draws.
+// Ready, In progress, Release and Done. Which band each item belongs to comes from
+// the server; frontier_band_rows.js partitions those projected homes.
 //
 // The project filter keeps whole dependency chains: every item in the
 // selected projects, plus every item tied to one through any chain, in any

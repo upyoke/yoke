@@ -49,8 +49,7 @@ export function renderFrontierView(context, main, scope) {
   const onMessage = (sessionId) => openSessionMessageCompose(
     context, dialogHost, { audience: exactSessionAudience([sessionId]) },
   );
-  // Active and Ready answer the same question from opposite sides, so they
-  // read one session roster: Ready omits every item a live session holds.
+  // One session roster annotates home cards with their holders and progress.
   const sessionRoster = settledScopedCalls(context, [{
     functionId: "sessions.list",
     payload: { per_project: true, open: true, detail: "full" },
@@ -74,7 +73,7 @@ export function renderFrontierView(context, main, scope) {
     })),
   );
   // The run roster is handed over as a promise, not awaited. It answers a
-  // different question than the item reads do: Waiting, Ready and Active
+  // different question than the item reads do: Waiting, Ready and In progress
   // draw without it, and Release and Done fill when it settles.
   const deployments = runRoster.then(({ callResults }) => deploymentsByItemId(
     callResults.flatMap((callResult) => successfulResult(callResult)?.rows || []),
