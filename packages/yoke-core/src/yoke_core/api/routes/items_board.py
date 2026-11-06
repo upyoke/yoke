@@ -13,6 +13,7 @@ from fastapi.routing import APIRouter
 
 from yoke_core.domain import board, db_backend, runs
 from yoke_core.domain.project_identity import resolve_project
+from yoke_core.domain.workflow_item_binding_validation import read_pinned_items
 
 # Module-level import so test patches against ``yoke_core.api.main.*`` take effect.
 import yoke_core.api.main as _main
@@ -56,6 +57,7 @@ def get_board(
         ).fetchall()
 
         items_for_board: List[board.ItemForBoard] = []
+        pinned = read_pinned_items(conn, (int(row["id"]) for row in rows))
         for r in rows:
             d = dict(r)
             item_obj = _main._row_to_item(r, include_body=False, conn=conn)
@@ -66,6 +68,10 @@ def get_board(
                     frozen_value=d.get("frozen"),
                     has_active_run=bool(d.get("has_active_run")),
                     workflow_id=d.get("workflow_id"),
+                    workflow_definition=pinned[int(d["id"])]
+                    .require_runtime(conn, int(d["id"]))
+                    .definition,
+                    blocked_value=d.get("blocked"),
                 )
             )
 

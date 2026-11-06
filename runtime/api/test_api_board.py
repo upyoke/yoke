@@ -171,11 +171,12 @@ class TestDomainDelegation:
             (63, "refined-idea", "Refined"),
             (65, "planned", "Planned"),
         ]:
+            workflow_id = "epic" if status == "planned" else "issue"
             conn.execute(
                 f"""INSERT INTO items
                    (id, title, workflow_id, workflow_version_id, status, priority, project_id, project_sequence,
                     created_at, updated_at, source)
-                   VALUES ({item_id}, '{label} item', 'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), '{status}',
+                   VALUES ({item_id}, '{label} item', '{workflow_id}', (SELECT current_version_id FROM workflows WHERE id='{workflow_id}'), '{status}',
                            'medium', 1, {item_id},
                            '2026-03-01T00:00:00Z', '2026-03-01T00:00:00Z', 'user')"""
             )
