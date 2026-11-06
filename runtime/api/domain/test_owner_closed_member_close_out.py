@@ -36,7 +36,6 @@ from yoke_core.domain.deployment_qa_member_acceptance_notice import (
     item_qa_accepted_idempotency_key,
     notify_item_qa_accepted,
 )
-from runtime.api.domain.deployment_qa_stage_wake_delivery_test_support import _bodies
 
 
 OWNER_CLOSED_ITEM = 9831
@@ -133,13 +132,18 @@ def test_status_write_race_only_suppresses_notice_for_done(
     result = notify_item_qa_accepted(test_db, run_id=run_id, item_id=OWNER_CLOSED_ITEM)
 
     key = item_qa_accepted_idempotency_key(OWNER_CLOSED_ITEM, run_id)
+    notices = test_db.execute(
+        "SELECT body FROM session_messages WHERE idempotency_key LIKE %s",
+        (key + "%",),
+    ).fetchall()
     if target == "done":
         assert result == "closed"
-        assert _recipients(test_db, key) == []
+        assert notices == []
         assert _status(test_db, "items", OWNER_CLOSED_ITEM) == "done"
     else:
         assert result in {"delivered", "undelivered"}
-        [body] = _bodies(test_db, key)
+        [row] = notices
+        body = row["body"]
         assert "Automatic close-out failed" in body
         assert "found status='implementing'" in body
 
