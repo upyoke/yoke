@@ -15,7 +15,8 @@ does not become a mailbox full of the same sentence.
 
 A notice is a derived fact, so it lives exactly as long as the absence it
 reports. The envelope's own state ends that absence -- a hook ran, the
-seat acknowledged, the message was cancelled or expired, or the conversation was terminated -- and one predicate decides both directions, so the Inbox can never
+seat acknowledged, the message was cancelled or expired, or the conversation
+was terminated -- and one predicate decides both directions, so the Inbox can never
 keep saying a message is waiting for a message that arrived. Settling
 cancels the notice with the reason that ended it and leaves the row where
 it is: the history stays readable, and nothing dismisses a decision a
