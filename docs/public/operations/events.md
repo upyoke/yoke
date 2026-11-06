@@ -10,14 +10,14 @@ Read web dashboard telemetry, collector admission and durable visitor attributio
 
 Event query, count, anomalies and tail read all retained events the actor may read.
 The checkout does not add a project filter; use `--project P` to select one explicitly.
-A project filter requires `events.read` on that project. Organization admins can also
+A project filter requires `events.read` on that project. Organization owners and admins can also
 read project-less events when no project filter is selected. Event attribution uses
 context project, then item project, then session project for every event type, then
 the supplied project token; unknown ownership stays project-less. Events are disposable
 telemetry and never establish required operational state.
 
 Preview disposable universe records with `yoke universe prune --dry-run`.
-An organization administrator can review defaults with
+An organization owner or admin can review defaults with
 `yoke universe retention get`; [universe retention](../universe-retention.md)
 owns the windows, protections, apply command and interrupted-run recovery.
 
@@ -96,7 +96,7 @@ remains disposable: using Yoke never depends on its successful delivery.
 Each refusal also records one `FrontendCollectorRefused` backend event (reason,
 status, route, truncated Origin, serving host; no body, cookie, key or client
 address), at most once per reason, status and route per minute, so floods stay
-bounded. Organization admins can read these project-less rows with
+bounded. Organization owners and admins can read these project-less rows with
 `yoke events query --event-name FrontendCollectorRefused --limit 20`.
 Accepted frontend events take `created_at` from the collector's receipt time;
 the envelope keeps the client `event_time` with `received_at` and
@@ -174,7 +174,7 @@ show [IP geolocation by DB-IP](https://db-ip.com) wherever location is displayed
 
 Use `yoke events query --visitor-id VISITOR --since "1 day ago" --limit 50`
 for one visitor's frontend rows. The filter does not broaden access:
-project-less frontend rows require organization-admin access.
+project-less frontend rows require organization owner or admin access.
 
 ## Visitor links
 

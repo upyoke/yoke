@@ -5,6 +5,8 @@ from runtime.api.domain.handlers.events_read_authorization_test_support import (
 )
 
 
+import json
+
 import pytest
 from runtime.api.auth_test_helpers import mint_api_auth_context
 from runtime.api.conftest import insert_event
@@ -14,8 +16,15 @@ READS = ["query", "count", "anomalies", "tail"]
 
 
 @pytest.mark.parametrize("verb", READS)
-def test_org_admin_reads_unattributed_but_project_owner_does_not(test_db, verb):
+@pytest.mark.parametrize("org_role", ["admin", "owner"])
+def test_org_administrators_read_unattributed_but_project_owner_does_not(
+    test_db, verb, org_role
+):
     auth = mint_api_auth_context(test_db)
+    test_db.execute(
+        "UPDATE actor_org_roles SET role_id=(SELECT id FROM roles WHERE name=%s) WHERE actor_id=%s",
+        (org_role, auth.actor_id),
+    )
     insert_event(
         test_db, event_id="global", session_id="projectless", anomaly_flags="flag"
     )
@@ -57,8 +66,15 @@ def test_org_admin_reads_unattributed_but_project_owner_does_not(test_db, verb):
 
 
 @pytest.mark.parametrize("history", [False, True])
-def test_projectless_session_query_is_visible_to_admin(test_db, history):
+@pytest.mark.parametrize("org_role", ["admin", "owner"])
+def test_projectless_session_query_is_visible_to_org_administrators(
+    test_db, history, org_role
+):
     auth = mint_api_auth_context(test_db)
+    test_db.execute(
+        "UPDATE actor_org_roles SET role_id=(SELECT id FROM roles WHERE name=%s) WHERE actor_id=%s",
+        (org_role, auth.actor_id),
+    )
     insert_event(test_db, event_id="session-global", session_id="projectless")
     test_db.execute("UPDATE events SET project_id=NULL WHERE event_id='session-global'")
     test_db.commit()
@@ -68,3 +84,32 @@ def test_projectless_session_query_is_visible_to_admin(test_db, history):
     result = events_reads.handle_events_query(request("query", auth.actor_id, payload))
     assert result.primary_success
     assert len(result.result_payload["rows"]) == 1
+
+
+@pytest.mark.parametrize("org_role", ["admin", "owner"])
+def test_org_administrators_can_query_global_browser_visitor(test_db, org_role):
+    auth = mint_api_auth_context(test_db)
+    test_db.execute(
+        "UPDATE actor_org_roles SET role_id=(SELECT id FROM roles WHERE name=%s) WHERE actor_id=%s",
+        (org_role, auth.actor_id),
+    )
+    visitor = "157a3244-a4cd-4495-877d-3290dd9e8729"
+    insert_event(
+        test_db,
+        event_id="browser-view",
+        project_id=None,
+        source_type="frontend",
+        envelope=json.dumps({"visitor_id": visitor, "cpu_cores": 8}),
+    )
+    test_db.commit()
+    payload = {"visitor_id": visitor}
+    result = events_reads.handle_events_query(request("query", auth.actor_id, payload))
+    assert result.primary_success
+    assert [row["event_id"] for row in result.result_payload["rows"]] == [
+        "browser-view"
+    ]
+    test_db.execute("UPDATE actors SET status='disabled' WHERE id=%s", (auth.actor_id,))
+    test_db.commit()
+    result = events_reads.handle_events_query(request("query", auth.actor_id, payload))
+    assert result.primary_success
+    assert result.result_payload["rows"] == []
