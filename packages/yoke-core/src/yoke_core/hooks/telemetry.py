@@ -224,7 +224,12 @@ _HOOK_SOURCE_TYPE = "hook"
 
 
 def flush_hook_telemetry(
-    records, *, deadline=None, ensure_session=None, observed_session=None
+    records,
+    *,
+    deadline=None,
+    ensure_session=None,
+    observed_session=None,
+    connection_factory=None,
 ) -> None:
     """Flush hook telemetry and independent session facts on one connection.
 
@@ -254,7 +259,12 @@ def flush_hook_telemetry(
             records, emitters, conn=None, severity_check=None, deadline=deadline
         )
         return
-    with hook_emit_connection() as conn:
+    connection = (
+        hook_emit_connection()
+        if connection_factory is None
+        else hook_emit_connection(connection_factory=connection_factory)
+    )
+    with connection as conn:
         if conn is not None:
             try:  # session facts are best-effort and never break dispatch
                 from yoke_core.hooks.hook_registration_tail import (

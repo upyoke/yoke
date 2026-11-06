@@ -260,7 +260,7 @@ def test_remote_tail_skips_lifecycle_on_deny(monkeypatch) -> None:
     )
     monkeypatch.setattr(
         "yoke_core.hooks.remote_lifecycle.run_remote_session_lifecycle",
-        lambda event_name, context: lifecycle.append(event_name),
+        lambda event_name, context, **kwargs: lifecycle.append(event_name),
     )
     deadline = SimpleNamespace(telemetry_allowed=lambda: True, budget_ms=1000)
     context = SimpleNamespace(
@@ -282,8 +282,11 @@ def test_remote_tail_skips_lifecycle_on_deny(monkeypatch) -> None:
         telem_records=[],
     )
     flush_run_tail(final_outcome="deny", **kwargs)
+    kwargs["controls"].deferred_telemetry(1)
     assert lifecycle == []
     flush_run_tail(final_outcome="allow", **kwargs)
+    assert lifecycle == []
+    kwargs["controls"].deferred_telemetry(1)
     assert lifecycle == ["Stop"]
 
 

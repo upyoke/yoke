@@ -31,7 +31,7 @@ __all__ = [
 
 
 @contextmanager
-def hook_emit_connection():
+def hook_emit_connection(*, connection_factory=None):
     """Yield one reused connection for batched ``emit_event(conn=...)`` flushes.
 
     The hook runner emits one telemetry row per chain module. A fresh
@@ -54,7 +54,7 @@ def hook_emit_connection():
     """
     conn = None
     try:
-        conn = connect()
+        conn = (connection_factory or connect)()
     except Exception:  # noqa: BLE001 — best-effort; degrade to per-call conns
         conn = None
     try:

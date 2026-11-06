@@ -61,7 +61,7 @@ class RemoteEvaluation:
     # True only when the run leased the session's inbox at an event that can
     # inject on the caller's surface.
     message_probe: bool = False
-    # Writes the run's disposable telemetry rows; called after the response
+    # Persists session bookkeeping and telemetry after the response
     # with the server's request wall time in milliseconds.
     flush_telemetry: Callable[[int], None] = _no_deferred_telemetry
 

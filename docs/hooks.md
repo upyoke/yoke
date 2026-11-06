@@ -133,7 +133,7 @@ A computed deny survives expiry. Otherwise `degraded` includes
 `yoke.hook.wait_ms` and `yoke.hook.requests`, with
 `outcome=completed|timeout|denied` also in the response.
 
-Timeout, unreachable host, non-200 or invalid response degrades only the server
+Timeout (reported as “timed out”), unreachable host, non-200 or invalid response degrades only the server
 half to that warned allow. Already-computed client allow context survives; a client deny never enters that path. Claude's output
 writer sends plain exit-2 denial reasons and guard/environment notices to stderr.
 Codex/Cursor retain stdout verdict envelopes; allow context uses stdout.
@@ -198,9 +198,9 @@ solely to report it.
 the short-lived process imports only the socket client. The resident resolves a
 request's project membership once and keeps each directory's Git main checkout
 for its lifetime. Over https the server opens one database connection before
-the chain (project authorization and scope), writes session registration and
-turn posture before it responds, and writes the telemetry rows after the
-response, adding `server_wall_ms` (auth plus handling) to the dispatch row.
+the chain (project authorization and scope), registers sessions before responding,
+and defers observations, turn posture, lifecycle and telemetry. Background writes use a two-second lock wait; skipped writes never change guards.
+Telemetry adds `server_wall_ms`.
 
 Fallback appends `YOKE_HOOK_PHASE_TIMING` to the machine cache's
 `hook-evaluator/evaluator.log` with `resident_wait_ms`,

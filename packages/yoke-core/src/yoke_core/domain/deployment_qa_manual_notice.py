@@ -97,24 +97,32 @@ def withdraw_settled_manual_notices(
     ):
         return 0
     p = marker(conn)
+    notices = conn.execute(
+        "SELECT message_id, idempotency_key FROM session_messages "
+        f"WHERE idempotency_key LIKE {p} AND cancelled_at IS NULL",
+        (f"{MANUAL_WAIT_PREFIX}%",),
+    ).fetchall()
+    by_requirement: dict[int, list[str]] = {}
+    for row in notices:
+        requirement, separator, _suffix = str(row[1])[
+            len(MANUAL_WAIT_PREFIX) :
+        ].partition(":")
+        if separator and requirement.isascii() and requirement.isdecimal():
+            by_requirement.setdefault(int(requirement), []).append(str(row[0]))
+    if not by_requirement:
+        return 0
     item_clause = f" OR q.deployment_member_item_id={p}" if item_id is not None else ""
     rows = conn.execute(
-        "SELECT m.message_id FROM session_messages m JOIN qa_requirements q "
-        f"ON m.idempotency_key LIKE {p} || CAST(q.id AS TEXT) || {p} "
-        f"WHERE m.cancelled_at IS NULL AND (CAST({p} AS TEXT) IS NULL OR q.deployment_run_id={p}) "
+        "SELECT q.id FROM qa_requirements q "
+        f"WHERE q.id IN ({','.join([p] * len(by_requirement))}) "
+        f"AND (CAST({p} AS TEXT) IS NULL OR q.deployment_run_id={p}) "
         "AND (q.waived_at IS NOT NULL OR q.superseded_at IS NOT NULL OR q.retracted_at IS NOT NULL "
         "OR EXISTS (SELECT 1 FROM qa_runs qr WHERE qr.qa_requirement_id=q.id) "
         + item_clause
         + ")",
-        (
-            MANUAL_WAIT_PREFIX,
-            ":%",
-            run_id,
-            run_id,
-            *((item_id,) if item_id is not None else ()),
-        ),
+        (*by_requirement, run_id, run_id, *((item_id,) if item_id is not None else ())),
     ).fetchall()
-    ids = [str(row[0]) for row in rows]
+    ids = [message for row in rows for message in by_requirement[int(row[0])]]
     if ids:
         cancel_messages(
             conn, message_ids=ids, actor_id=None, reason=reason, cancelled_at=now

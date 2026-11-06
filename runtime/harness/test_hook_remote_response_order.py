@@ -1,9 +1,4 @@
-"""A remote hook persists session facts before it responds; telemetry follows.
-
-Wakes and liveness read the registration and turn posture, so they must be
-durable by the time the client has its answer. The telemetry rows are
-disposable and are written by the flush the route schedules after responding.
-"""
+"""Remote registration precedes response; bookkeeping and telemetry follow."""
 
 from __future__ import annotations
 
@@ -43,7 +38,7 @@ def test_registration_persists_before_response_and_telemetry_after(
     )
     monkeypatch.setattr(
         "yoke_core.hooks.remote_lifecycle.run_remote_session_lifecycle",
-        lambda *_a: writes.append(("lifecycle", None)),
+        lambda *_a, **_kw: writes.append(("lifecycle", None)),
     )
     stdin = json.dumps(
         {
@@ -64,17 +59,24 @@ def test_registration_persists_before_response_and_telemetry_after(
         actor_id=3,
     )
 
-    # Everything the route will respond after: registration, posture, lifecycle.
-    assert [kind for kind, _ in writes] == ["flush", "turn_posture", "lifecycle"]
+    # Registration remains available for launch attestation before response.
+    assert [kind for kind, _ in writes] == ["flush"]
     records, kwargs = writes[0][1]
     assert records == []
     assert kwargs["ensure_session"][0] == "s-order"
 
     result.flush_telemetry(321)
 
-    kind, (records, kwargs) = writes[-1]
+    assert [kind for kind, _ in writes] == [
+        "flush",
+        "flush",
+        "turn_posture",
+        "lifecycle",
+    ]
+    kind, (records, kwargs) = writes[1]
     assert kind == "flush"
     assert "ensure_session" not in kwargs
+    assert kwargs["observed_session"][0] == "s-order"
     dispatch = [fields for record, fields in records if record == "dispatch"]
     assert len(dispatch) == 1
     assert dispatch[0]["extra"]["server_wall_ms"] == 321

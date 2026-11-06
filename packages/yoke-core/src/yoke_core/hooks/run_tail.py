@@ -1,26 +1,14 @@
 """Post-chain tail for ``run_event``: batched telemetry flush + lifecycle.
 
-One budget-gated tail step — the decision is already rendered before this
-runs, so a slow or skipped tail can never suppress a deny. A remote
-(relayed) run writes its telemetry rows after the server responds; the
-session facts below are always written before. Carries the dispatch
-telemetry record, the
-ensure-register-on-first-sight tuple (tool-call hooks are the only
-guaranteed event class; installed engine evaluation registers the DB half —
-with the request executor honored and any verified token actor bound — while
-the hook relay anchors client-side), and the remote session lifecycle
-(Stop / SessionEnd end cleanup + SessionStart stale reap): the relay
-client evaluates ``session_dispatch`` locally, but on no-checkout
-machines that evaluation no-ops (not a Yoke target), so the server-side
-lifecycle remains the DB-effective half there. The relay's client-side
-subset run sets ``flush_tail=False`` and skips this step entirely — the
-server's run owns it for relayed events.
+Remote runs register inline for launch attestation, then persist observations,
+turn posture, lifecycle and telemetry after the response. Local runs persist
+inline. The relay client subset skips this tail; the server owns remote writes.
 """
 
 from __future__ import annotations
 
 import json
-from typing import Any, Callable, Optional
+from typing import Any, Optional
 
 from yoke_contracts.hook_driver_process import (
     DRIVER_PAYLOAD_KEY,
@@ -168,14 +156,7 @@ def flush_run_tail(
     telem_records: list,
     registration_preflight: bool = False,
 ) -> None:
-    """Persist session facts, run remote lifecycle, then flush telemetry.
-
-    Registration, observed-session facts and turn posture are written here,
-    before the caller responds: wakes and liveness read them. A remote run
-    (``controls.remote``) leaves its telemetry rows to
-    ``controls.deferred_telemetry`` so the route writes them after the
-    response; every other caller flushes them here.
-    """
+    """Register inline; defer remote bookkeeping without changing guard results."""
     from yoke_core.hooks import telemetry as _telemetry
     from yoke_core.hooks.session_turn_posture_tail import (
         persist_accepted_hook_turn_posture,
@@ -188,7 +169,8 @@ def flush_run_tail(
         stdin_data=stdin_data,
         controls=controls,
     )
-    if not deadline.telemetry_allowed():
+    defer = controls is not None and controls.remote
+    if not deadline.telemetry_allowed() and not defer:
         _telemetry.flush_hook_telemetry([], observed_session=observed_session)
         persist_accepted_hook_turn_posture(
             event_name=event_name,
@@ -240,15 +222,26 @@ def flush_run_tail(
         preflight_complete=registration_preflight,
         driver=driver,
     )
-    defer = controls is not None and controls.remote
     _telemetry.flush_hook_telemetry(
         [] if defer else telem_records,
         deadline=deadline,
         ensure_session=ensure_session,
-        observed_session=observed_session,
+        observed_session=None if defer else observed_session,
     )
     if defer:
-        controls.deferred_telemetry = _deferred_flush(telem_records, dispatch_extra)
+        from yoke_core.hooks.deferred_tail import deferred_flush
+
+        controls.deferred_telemetry = deferred_flush(
+            telem_records,
+            dispatch_extra,
+            observed_session=observed_session,
+            event_name=event_name,
+            context=context,
+            final_outcome=final_outcome,
+            timed_out=timed_out,
+            failed=failed,
+        )
+        return
     persist_accepted_hook_turn_posture(
         event_name=event_name,
         session_id=context.session_id or "",
@@ -257,36 +250,6 @@ def flush_run_tail(
         timed_out=timed_out,
         failed=failed,
     )
-    if (
-        controls is not None
-        and controls.remote
-        and context.session_id
-        and final_outcome != "deny"
-    ):
-        from yoke_core.hooks.remote_lifecycle import (
-            run_remote_session_lifecycle,
-        )
-
-        run_remote_session_lifecycle(event_name, context)
-
-
-def _deferred_flush(
-    telem_records: list, dispatch_extra: dict[str, Any]
-) -> Callable[[int], None]:
-    """Return the post-response telemetry flush for one remote run.
-
-    The route calls it with the server's whole request wall time, which the
-    dispatch row records beside the chain's own ``hook_wait_ms``. The
-    response is already sent, so no hook budget gates these rows.
-    """
-
-    def flush(server_wall_ms: int) -> None:
-        from yoke_core.hooks import telemetry as _telemetry
-
-        dispatch_extra["server_wall_ms"] = server_wall_ms
-        _telemetry.flush_hook_telemetry(telem_records)
-
-    return flush
 
 
 __all__ = ["flush_run_tail", "preflight_remote_registration"]
