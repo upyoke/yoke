@@ -4,5 +4,7 @@
  "status": "draft-copy",
  "audience": "Maintainers",
  "page": "runtime-evidence",
- "position": 2
+ "position": 2,
+ "need": "Browser context adds optional OS, device, CPU, memory, display, touch, GPU and connection facts. Async Client Hints never hold page views; collectors drop invalid facts and stamp authoritative iOS versions. Facts are disposable telemetry, never operational state.",
+ "sources": ["docs/public/operations/events.md", "docs/public/operations/model/events.md", "events/README.md"]
 }

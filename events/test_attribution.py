@@ -126,7 +126,7 @@ def test_first_touch_never_overwritten_and_last_touch_updates():
 def test_sign_in_and_own_domain_returns_keep_prior_touches():
     site = "example.com"
     landing = capture_touch(
-        "https://www.example.com/", "https://www.google.com/", site, "first"
+        "https://www.example.com/", "https://www.google.com/", site, "2026-01-01T00:00:00.000000Z"
     )
     record = update_attribution(None, landing, "visitor")
     for hop in (
@@ -134,13 +134,13 @@ def test_sign_in_and_own_domain_returns_keep_prior_touches():
         "https://accounts.youtube.com/",
         "https://example.com/pricing",
     ):
-        touch = capture_touch("https://app.example.com/", hop, site, "later")
+        touch = capture_touch("https://app.example.com/", hop, site, "2026-01-02T00:00:00.000000Z")
         assert touch["referrer_domain"] is None
         assert touch["acquisition_channel"] == "direct"
         assert update_attribution(record, touch, "ignored") == record
     # A sign-in hop as the very first visit is a direct first touch.
     first = capture_touch(
-        "https://app.example.com/", "https://accounts.google.com/", site, "first"
+        "https://app.example.com/", "https://accounts.google.com/", site, "2026-01-01T00:00:00.000000Z"
     )
     assert (
         update_attribution(None, first, "v")["first_touch"]["acquisition_channel"]

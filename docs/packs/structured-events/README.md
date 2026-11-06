@@ -1,4 +1,4 @@
-# Structured Events Pack 4.4.0
+# Structured Events Pack 5.2.0
 
 Python and TypeScript envelopes, first/last-touch attribution,
 a signed server-set visitor cookie, SPA views, retrying batches, and an anonymous
@@ -46,3 +46,32 @@ new input preserves microseconds; malformed or offset-free clocks refuse
 before storage. See the installed events guide for exact callback contracts.
 
 UTC conversion outside years 1 through 9999 refuses with `invalid_instant`; valid boundary instants retain all six fractional digits.
+
+
+Optional device facts use standard browser APIs, with no prompts or active
+fingerprinting. Fields are absent when an API is unavailable or its value is
+unusable; a failed lookup never drops the event:
+
+| Field | Source |
+| --- | --- |
+| `os_version` | Client Hints `platformVersion`; collector parses iOS/iPadOS User-Agent and overrides it; no frozen macOS Safari version |
+| `device_model` | Client Hints `model` |
+| `cpu_architecture` | Client Hints `architecture` |
+| `cpu_bitness` | Client Hints `bitness` |
+| `cpu_cores` | `navigator.hardwareConcurrency` |
+| `device_memory_gb` | `navigator.deviceMemory` (browser rounded and capped) |
+| `pixel_ratio` | `window.devicePixelRatio` |
+| `color_depth` | `screen.colorDepth` |
+| `touch_points` | `navigator.maxTouchPoints` |
+| `gpu_renderer` | WebGL `UNMASKED_RENDERER_WEBGL`, including generic values |
+| `connection_type` | `navigator.connection.effectiveType` |
+| `connection_downlink_mbps` | `navigator.connection.downlink` |
+
+Client Hints resolve once per page, never delaying a view; flush fills resolved
+hints into queued events. WebGL is read once from a throwaway context without
+rendering or reading pixels. No canvas image, audio or font probing, hashing or
+combined device identifier is collected. These are disposable telemetry; no
+operational code reads them. The collector drops invalid facts without rejecting
+the event: nonempty strings up to 128 characters; CPU cores integer 1..1024;
+memory >0..1024 GB; pixel ratio >0..16; touch points integer 0..256; color depth
+integer 1..64; downlink 0..100000 Mbps. Other envelope fields still pass through.

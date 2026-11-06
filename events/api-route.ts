@@ -3,7 +3,7 @@ import { formatInstant, instantFromDate } from "./events_timestamps.mjs";
 import { MAX_BATCH_SIZE, MAX_ENVELOPE_BYTES, MAX_REQUEST_BYTES } from './events_types.ts';
 import { sanitizePath, sanitizeUrl } from './events_attribution.ts';
 import { createAttributionCookie } from './events_cookie.ts';
-import { deviceProps } from './events_device.ts';
+import { deviceProps, mergeDeviceProps } from './events_device.ts';
 import { createAttributionHandoff, handoffOrigin } from './events_handoff.ts';
 
 export interface CollectorConfig {
@@ -120,7 +120,7 @@ export function createCollector(config: CollectorConfig) {
         event.page_url = sanitizeUrl(event.page_url || '');
         event.referrer = sanitizeUrl(event.referrer || '');
         if (typeof event.page_path === 'string') event.page_path = sanitizePath(event.page_path);
-        Object.assign(event, device);
+        mergeDeviceProps(event, device);
         delete event.actor_id; delete event.org_id;
         // Order by receipt, never the browser clock; keep event_time as the client's claim.
         event.received_at = instantFromDate(new Date(receivedAt));
