@@ -21,6 +21,16 @@ does not supply host clients. CI does not install embedded-engine libraries:
 fresh Ubuntu 26.04 runners exercise the product's embedded PostgreSQL
 portability. Runner upgrades require full CI on both supported Python endpoints.
 
+The shared runner, full-CI contract job and selection plan install uv through
+commit-pinned `astral-sh/setup-uv`, with its download/build cache enabled and
+keyed on `uv.lock`. `uv sync --all-packages --locked` still creates each job's
+own environment; no virtualenv is cached. Python setup does not cache pip.
+Full-CI `test_shard` and `reuse_coverage` checkouts use `filter: blob:none`
+with `fetch-depth: 0`: current files, all commits and tags remain available,
+while historical blobs are fetched on demand. History is required by
+setuptools-scm package versions, git-based tests and timing-profile lineage;
+the container version job also retains full history.
+
 The full matrix uses sixteen shards per Python endpoint, with four xdist
 workers on the measured hosted runners. `ci_shards.SHARD_COUNT` owns the
 fan-out and selection cap; `.yoke/merge-queue.json` declares every required

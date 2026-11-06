@@ -20,9 +20,11 @@ _EXPECTED_ACTIONS = {
     "actions/setup-python",
     "actions/upload-artifact",
     "actions/download-artifact",
+    "astral-sh/setup-uv",
 }
 _WORKFLOWS = (
     "workflows/yoke-ci.yml",
+    "workflows/yoke-tests-selection.yml",
     "workflows/browser-runtime-tests.yml",
     "actions/yoke-test-runner/action.yml",
 )
