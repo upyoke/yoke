@@ -8,7 +8,7 @@ from unittest.mock import Mock
 import pytest
 
 from runtime.api.merge_queue_live_drift_test_support import DECLARED
-from yoke_contracts.api.function_call import FunctionCallRequest, TargetRef
+from yoke_contracts.api.function_call import ActorContext, FunctionCallRequest, TargetRef
 from yoke_core.domain import db_backend, db_helpers, github_merge_queue_rest as rest
 from yoke_core.domain import merge_queue_declaration_apply, project_github_auth
 from yoke_core.domain.handlers.github_merge_queue_apply import handle_merge_queue_apply
@@ -43,6 +43,7 @@ def gate(monkeypatch):
 def request(declaration=None, *, preview=False):
     return FunctionCallRequest(
         function="github.merge_queue.apply", version="v1",
+        actor=ActorContext(actor_id=None, session_id="test-gate-apply"),
         target=TargetRef(kind="global"),
         payload={"project": "project", "declaration": declaration, "preview": preview},
     )
