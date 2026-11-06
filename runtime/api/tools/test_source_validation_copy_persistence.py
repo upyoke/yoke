@@ -6,21 +6,29 @@ from types import SimpleNamespace
 
 import psycopg
 
-from runtime.api.fixtures import pg_testdb
+from uuid import uuid4
+
+from runtime.api.domain.migration_copy_lifetime_support import (
+    copy_cluster as _copy_cluster,  # noqa: F401 -- registers copy_cluster
+)
 from yoke_cli.config import db_admin_dsn_exec
 from yoke_core.domain import connected_env_tunnel_coordination as coordination
 from yoke_core.domain import connected_env_readiness_connector as connector
 from yoke_core.domain import migration_validation_binding as binding
+from yoke_core.domain import migration_fleet_preflight_transfer as transfer
+from yoke_core.domain import pg_test_db_namespace, postgres_cluster
 from yoke_core.domain.source_python_environment import SourcePythonEnvironment
 from yoke_core.tools import _source_pythonpath, source_dev_run
 
 
 def test_provisioned_copy_and_binding_survive_the_source_process(
-    monkeypatch, tmp_path, capfd
+    monkeypatch, tmp_path, capfd, copy_cluster
 ):
-    authority_name = pg_testdb.create_test_database(pooled=False)
+    authority_name = pg_test_db_namespace.database_name(uuid4().hex[:16])
+    transfer.create_copy(copy_cluster, authority_name)
     validation_name = authority_name + binding.DERIVED_DATABASE_SUFFIX
-    authority_dsn = pg_testdb.dsn_for_test_database(authority_name)
+    authority_dsn = postgres_cluster.dsn(copy_cluster, authority_name)
+    monkeypatch.setenv("YOKE_PG_BIN_DIR", str(copy_cluster.bin_dir))
     home = tmp_path / "machine"
     home.mkdir()
     config = home / "config.json"
@@ -128,5 +136,5 @@ def test_provisioned_copy_and_binding_survive_the_source_process(
         assert authority_dsn not in output.out + output.err
         assert validation_dsn not in output.out + output.err
     finally:
-        pg_testdb.drop_test_database(validation_name, pooled=False)
-        pg_testdb.drop_test_database(authority_name, pooled=False)
+        transfer.drop_copy(copy_cluster, validation_name)
+        transfer.drop_copy(copy_cluster, authority_name)

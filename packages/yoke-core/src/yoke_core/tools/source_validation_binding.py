@@ -6,6 +6,7 @@ import sys
 from pathlib import Path
 from typing import Mapping, Sequence
 
+from yoke_contracts.refusal_recovery import compose_refusal
 from yoke_contracts.machine_config.paths import HOME_ENV
 from yoke_contracts.machine_config.schema import SECRETS_DIR_NAME
 from yoke_core.domain import migration_validation_binding as binding
@@ -35,10 +36,13 @@ def persist(command: Sequence[str], child_env: Mapping[str, str]) -> int:
         binding.write_binding(binding.YOKE_VALIDATION_DSN_ENV, value)
     except (OSError, UnicodeError, RuntimeError):
         print(
-            f"validation_binding_persist_failed: provisioning completed, but its "
-            f"binding could not be saved to {target}. Repair access to the "
-            "machine secrets directory and rerun the provisioning command; "
-            "rehearsal is not ready until the binding is saved.",
+            compose_refusal(
+                "validation_binding_persist_failed: provisioning completed, but "
+                f"its binding could not be saved to {target}",
+                recovery="repair access to the machine secrets directory and "
+                "rerun the provisioning command; rehearsal is not ready until "
+                "the binding is saved",
+            ),
             file=sys.stderr,
         )
         return 1

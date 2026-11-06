@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from yoke_core.domain.postgres_client_runtime import postgres_executable
+
 from pathlib import Path
 import subprocess
 from typing import Sequence
@@ -24,7 +26,7 @@ def write_restore_list_omitting_schemas(
     )
 
     listing = subprocess.run(
-        ["pg_restore", "-l", str(dump)],
+        [postgres_executable("pg_restore"), "-l", str(dump)],
         capture_output=True,
         text=True,
         check=False,
@@ -88,15 +90,12 @@ def prepare_extension_restore(
     with psycopg.connect(validation, autocommit=True) as conn:
         for schema in schemas:
             conn.execute(
-                sql.SQL("CREATE SCHEMA IF NOT EXISTS {}").format(
-                    sql.Identifier(schema)
-                )
+                sql.SQL("CREATE SCHEMA IF NOT EXISTS {}").format(sql.Identifier(schema))
             )
         for name, version, schema in pins:
             conn.execute(
                 sql.SQL(
-                    "CREATE EXTENSION IF NOT EXISTS {} "
-                    "WITH SCHEMA {} VERSION {}"
+                    "CREATE EXTENSION IF NOT EXISTS {} WITH SCHEMA {} VERSION {}"
                 ).format(
                     sql.Identifier(name),
                     sql.Identifier(schema),
