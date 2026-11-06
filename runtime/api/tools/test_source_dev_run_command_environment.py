@@ -41,6 +41,8 @@ def test_run_binds_every_command_shape_to_claimed_lane(
     expected,
 ):
     captured = {}
+    dsn = "host=admin.example dbname=postgres password=child-only"
+    monkeypatch.setenv("YOKE_PG_DSN", dsn)
     monkeypatch.setattr(
         source_dev_run,
         "_claimed_root",
@@ -49,7 +51,7 @@ def test_run_binds_every_command_shape_to_claimed_lane(
     monkeypatch.setattr(
         source_dev_run._source_pythonpath,
         "with_source_pythonpath",
-        lambda _env, _root: {"PYTHONPATH": "lane-roots"},
+        lambda env, _root: {**env, "PYTHONPATH": "lane-roots"},
     )
     monkeypatch.setattr(
         source_dev_run._source_pythonpath,
@@ -67,13 +69,12 @@ def test_run_binds_every_command_shape_to_claimed_lane(
     monkeypatch.setattr(source_dev_run.subprocess, "run", _run)
 
     assert source_dev_run.run(["--", *command]) == 0
-    assert captured == {
+    assert captured["env"]["YOKE_PG_DSN"] == dsn
+    assert captured["env"]["PYTHONPATH"] == "lane-roots"
+    assert captured["env"][SOURCE_DEV_RUN_ROOT_ENV] == str(tmp_path)
+    assert {key: value for key, value in captured.items() if key != "env"} == {
         "args": expected,
         "cwd": str(tmp_path),
-        "env": {
-            "PYTHONPATH": "lane-roots",
-            SOURCE_DEV_RUN_ROOT_ENV: str(tmp_path),
-        },
         "check": False,
     }
 

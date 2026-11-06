@@ -38,18 +38,19 @@ _MISSING = object()
 
 
 @contextmanager
-def _environment_override(environment: str) -> Iterator[None]:
+def selected_environment(environment: str) -> Iterator[None]:
     """Select one env for legacy ambient resolvers, then restore the caller."""
 
-    previous = os.environ.get(contract.ENV_OVERRIDE, _MISSING)
-    os.environ[contract.ENV_OVERRIDE] = environment
-    try:
-        yield
-    finally:
-        if previous is _MISSING:
-            os.environ.pop(contract.ENV_OVERRIDE, None)
-        else:
-            os.environ[contract.ENV_OVERRIDE] = str(previous)
+    with _SELECTION_LOCK:
+        previous = os.environ.get(contract.ENV_OVERRIDE, _MISSING)
+        os.environ[contract.ENV_OVERRIDE] = environment
+        try:
+            yield
+        finally:
+            if previous is _MISSING:
+                os.environ.pop(contract.ENV_OVERRIDE, None)
+            else:
+                os.environ[contract.ENV_OVERRIDE] = str(previous)
 
 
 def activate_selected_postgres(environment: str) -> SelectedPostgresAuthority:
@@ -66,7 +67,7 @@ def activate_selected_postgres(environment: str) -> SelectedPostgresAuthority:
     if not selected:
         raise SelectedPostgresError("name a configured Postgres connection")
 
-    with _SELECTION_LOCK, _environment_override(selected):
+    with selected_environment(selected):
         try:
             active = yoke_connected_env.load_active()
             if active is None or active.environment != selected:
@@ -107,4 +108,5 @@ __all__ = [
     "SelectedPostgresAuthority",
     "SelectedPostgresError",
     "activate_selected_postgres",
+    "selected_environment",
 ]

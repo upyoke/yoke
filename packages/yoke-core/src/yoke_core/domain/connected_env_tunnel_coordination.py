@@ -205,7 +205,7 @@ def use_lease(local_port: int, reason: str) -> Iterator[Path]:
     """
     directory = coordination_dir(local_port) / LEASE_DIR_NAME
     path = directory / f"{os.getpid()}-{uuid4().hex}.json"
-    payload = {"pid": os.getpid(), "reason": reason, "started_at": time.time()}
+    payload = {"pid": os.getpid(), "reason": redact(reason), "started_at": time.time()}
     with lifecycle_lock(local_port):
         create_private_directory(directory)
         descriptor = os.open(path, os.O_RDWR | os.O_CREAT, 0o600)
@@ -224,14 +224,17 @@ def use_lease(local_port: int, reason: str) -> Iterator[Path]:
 
 
 @contextmanager
-def use_lease_for_active_tunnel(reason: str) -> Iterator[None]:
-    """Lease the active managed forward, or do nothing when none is managed.
+def use_lease_for_active_tunnel(reason: str, *, environment: str) -> Iterator[None]:
+    """Lease the selected managed forward, or do nothing when none is managed.
 
     Callers running a long transfer (a fleet rehearsal's copy) hold this for
     the whole operation without having to know whether this machine reaches
     the database through a forward at all.
     """
-    detection = detect()
+    from yoke_core.domain.connected_env_selected_readiness import selected_environment
+
+    with selected_environment(environment):
+        detection = detect()
     if (
         detection.connector_kind != CONNECTOR_LOCAL_SSH_TUNNEL_PG
         or not detection.local_port

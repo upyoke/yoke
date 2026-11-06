@@ -69,15 +69,21 @@ def run(
     dsn = _resolve_dsn(admin_env, source)
     child_env = dict(os.environ)
     child_env[dsn_var] = dsn
-    try:
-        completed = runner(list(command), env=child_env)
-    except OSError as exc:
-        raise DbAdminExecRefusal(
-            "command_not_runnable",
-            f"{command[0]!r} could not be started ({exc.strerror or exc})",
-            "check the command name and that it is on PATH",
-            exit_code=127,
-        ) from None
+    coordination = _engine(
+        lambda: import_module("yoke_core.domain.connected_env_tunnel_coordination")
+    )
+    with coordination.use_lease_for_active_tunnel(
+        f"db-admin exec for {admin_env}", environment=admin_env
+    ):
+        try:
+            completed = runner(list(command), env=child_env)
+        except OSError as exc:
+            raise DbAdminExecRefusal(
+                "command_not_runnable",
+                f"{command[0]!r} could not be started ({exc.strerror or exc})",
+                "check the command name and that it is on PATH",
+                exit_code=127,
+            ) from None
     return int(completed.returncode)
 
 

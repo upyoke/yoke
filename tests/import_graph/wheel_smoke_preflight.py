@@ -37,7 +37,7 @@ connected_env_readiness.activate_selected_postgres = lambda env: SimpleNamespace
 local_universe.ensure_engine_binaries = lambda emit: Path.cwd()
 local_universe.cluster_spec = lambda **kw: SimpleNamespace(sock_dir=Path.cwd() / 'socket')
 local_universe_autostart.ensure_running = lambda *a, **kw: None
-connected_env_tunnel_coordination.use_lease_for_active_tunnel = lambda *a: nullcontext()
+connected_env_tunnel_coordination.use_lease_for_active_tunnel = lambda *a, **kw: nullcontext()
 def rehearse(dsn_for, **kw):
     assert kw['databases'] == ['fixture_copy']
     assert 'dbname=fixture_copy' in dsn_for('fixture_copy')

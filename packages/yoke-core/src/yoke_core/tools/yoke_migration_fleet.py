@@ -8,6 +8,8 @@ source-checkout-only ``runtime`` package.
 
 from __future__ import annotations
 
+from yoke_contracts.migration_rehearsal_teaching import PROVISION_RECIPE
+
 from typing import Callable, List, Sequence, Set, Tuple
 
 from yoke_core.domain.migration_validation_binding import (
@@ -143,8 +145,8 @@ def _report_unreadable_bindings(
             f"could not read a database name from validation binding "
             f"{binding.env_var} ({binding.source}); the database it names "
             "will be rehearsed as a fleet member unless its name carries "
-            f"{DERIVED_DATABASE_SUFFIX!r}. Re-provision it with `python3 -m "
-            "runtime.api.tools.authority_validation_copy`."
+            f"{DERIVED_DATABASE_SUFFIX!r}. Re-provision it with `"
+            f"{PROVISION_RECIPE}`."
         )
 
 
