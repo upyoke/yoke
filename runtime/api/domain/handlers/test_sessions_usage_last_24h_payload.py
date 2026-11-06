@@ -47,7 +47,7 @@ def test_usage_last_24h_cannot_combine_with_other_filters(test_db):
         function="sessions.list",
         actor=ActorContext(actor_id=None, session_id=""),
         target=TargetRef(kind="global"),
-        payload={"usage_last_24h": True, "liveness": "ended"},
+        payload={"usage_last_24h": True, "presence": "ended"},
     )
     outcome = handle_sessions_list(request)
     assert not outcome.primary_success

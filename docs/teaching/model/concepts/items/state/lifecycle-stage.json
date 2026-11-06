@@ -3,5 +3,7 @@
  "title": "Lifecycle stage",
  "status": "draft-copy",
  "page": "items",
+ "summary": "Item and Frontier CLI reads expose the pinned workflow stage, canonical Frontier home, next actor and ordered progress. Epic progress includes planning steps and completed versus total generated tasks. These facts remain distinct from session presence and activity.",
+ "sources": ["docs/public/cli/help.md", "packages/yoke-core/src/yoke_core/domain/item_display_state.py"],
  "position": 0
 }

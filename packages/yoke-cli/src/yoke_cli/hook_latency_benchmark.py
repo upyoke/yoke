@@ -115,7 +115,7 @@ def run_benchmark(sample_count: int, *, run: Run = subprocess.run) -> dict[str, 
     surface = str(identity.get("executor_surface") or harness)
     env["YOKE_EXECUTOR"] = harness
     roster_start = _roster_evidence(
-        _run_json(run, ("sessions", "list", "--liveness", "active"), env).get(
+        _run_json(run, ("sessions", "list", "--presence", "present"), env).get(
             "rows", []
         )
     )
@@ -222,7 +222,7 @@ def run_benchmark(sample_count: int, *, run: Run = subprocess.run) -> dict[str, 
             "incomplete" if incomplete else "pending" if pending else "complete"
         )
     roster_end = _roster_evidence(
-        _run_json(run, ("sessions", "list", "--liveness", "active"), env).get(
+        _run_json(run, ("sessions", "list", "--presence", "present"), env).get(
             "rows", []
         )
     )
@@ -265,7 +265,7 @@ def run_benchmark(sample_count: int, *, run: Run = subprocess.run) -> dict[str, 
         },
         "concurrency_evidence": {
             "definition": (
-                "live roster counts sessions.list active rows; tool-active bucket "
+                "live roster counts sessions.list present rows; tool-active bucket "
                 "proxy counts those rows whose turn_posture is running and does not "
                 "prove simultaneous tool execution"
             ),

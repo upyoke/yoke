@@ -168,6 +168,11 @@ def render_session_roster_rows(
                 "activity_at": activity_at,
                 "in_flight": model["in_flight"],
                 "session_state": model,
+                "presence": model["presence"],
+                "activity": model["activity"],
+                "intent": model["intent"],
+                "holds": model["custody"]["holds"],
+                "custody": model["custody"],
                 "next_actor": model["next_actor"],
                 "last_tool_call_at": (
                     format_instant(row["last_tool_call_at"])

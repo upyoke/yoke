@@ -97,7 +97,8 @@ def config_status(args: List[str]) -> int:
 
 def _status(args: List[str], *, prog: str, usage: str) -> int:
     parser = argparse.ArgumentParser(
-        formatter_class=argparse.RawDescriptionHelpFormatter, prog=prog
+        formatter_class=argparse.RawDescriptionHelpFormatter, prog=prog,
+        description="Show machine health and the current session state from the shared server model.",
     )
     parser.add_argument(
         "--config",
@@ -130,6 +131,10 @@ def _status(args: List[str], *, prog: str, usage: str) -> int:
         repo_root=parsed.repo_root,
         explicit_env=parsed.explicit_env,
     )
+    if prog == "yoke status":
+        from yoke_cli.config.status_session import attach_session_state
+
+        report = attach_session_state(report)
     if parsed.json_mode:
         print(machine_config_status.dumps_json(report), end="")
     else:

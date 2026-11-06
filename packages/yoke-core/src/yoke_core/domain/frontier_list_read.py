@@ -18,7 +18,7 @@ from yoke_core.domain.dependency_planning import (
 )
 from yoke_core.domain.dependency_cycles_read import BLOCKING_GATE_POINTS
 from yoke_core.domain.frontier_blocked_rows import (
-    FRONTIER_BLOCKED_FIELDS,
+    FRONTIER_BLOCKED_FIELDS as _BLOCKED_FIELDS,
     blocked_row,
 )
 from yoke_core.domain.frontier_dependency_edges import (
@@ -53,12 +53,19 @@ FRONTIER_READY_FIELDS = (
     "stage_count",
     "stage_label",
     "priority",
+    "stage",
+    "home_section",
+    "next_actor",
+    "progress",
     "next_step",
     "why_ready",
     "unblocks_count",
     "downstream_depth",
     "created_at",
 )
+
+
+FRONTIER_BLOCKED_FIELDS = (*_BLOCKED_FIELDS, "stage", "home_section", "next_actor", "progress")
 
 
 #: Gate points the frontier computation does not enforce but whose
@@ -262,6 +269,12 @@ def list_frontier(
                 )
             )
 
+        from yoke_core.domain.item_display_state import item_display_states
+
+        projection = item_display_states(conn, tracked_steps)
+        by_ref = {public_refs[iid]: state for iid, state in projection.items()}
+        for row in [*ready_rows, *blocked_rows]:
+            row.update(by_ref.get(str(row.get("public_ref") or row.get("item_id")), {}))
         return {
             "fields": {
                 "ready": list(FRONTIER_READY_FIELDS),

@@ -29,6 +29,7 @@ Pure recipe data: no I/O or database connections.
 from __future__ import annotations
 
 from yoke_contracts.field_note_text import BASIC_RECIPE
+from yoke_contracts.items_projection import ALLOWED_GET_FIELDS
 
 
 CORE_COMMANDS: list[dict] = [
@@ -71,20 +72,8 @@ CORE_COMMANDS: list[dict] = [
             "``items.get.run`` JSON result nests stored values under "
             "``result.fields`` (e.g. ``result.fields.db_mutation_profile``); "
             "the wrong guess of a top-level ``db_mutation_profile`` on that "
-            "result always reads empty. Valid "
-            "fields: architecture_impact, blocked, blocked_reason, body, "
-            "created_at, db_compatibility_attestation, "
-            "db_mutation_profile, deploy_log, deploy_stage, deployed_to, "
-            "deployment_flow, design_spec, frozen, github_issue, id, "
-            "merge_queue_enqueued_at, merge_queue_landed_at, "
-            "merge_queue_notified_at, merge_queue_pr_number, "
-            "merge_queue_status, merged_at, owner, post_deploy_qa, priority, "
-            "project, project_id, "
-            "project_sequence, resolution, resolution_comment, "
-            "resolution_ref, shepherd_caveats, "
-            "source, spec, spec_updated_at, spec_updated_by, status, "
-            "technical_plan, test_results, title, updated_at, workflow_id, "
-            "workflow_version_id, worktree_plan. "
+            "result always reads empty. Valid fields: "
+            + ", ".join(sorted(ALLOWED_GET_FIELDS)) + ". "
             "For body-section filtering, use "
             '`yoke items get PREFIX-N body --section "## File Budget"`.'
         ),

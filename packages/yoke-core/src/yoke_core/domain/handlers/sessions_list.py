@@ -16,7 +16,7 @@ from yoke_core.domain.sessions_visible_roster import (
     resolve_project_ids,
 )
 from yoke_contracts.read_detail import DETAIL_FULL, DETAIL_SUMMARY, ReadDetail
-
+from yoke_contracts.refusal_recovery import compose_refusal
 
 class SessionsHistoryRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
@@ -27,11 +27,12 @@ class SessionsHistoryRequest(BaseModel):
     harnesses: List[str] = Field(default_factory=list)
     machines: List[str] = Field(default_factory=list)
 
-
 class SessionsListRequest(BaseModel):
     project: Optional[str] = None
     projects: List[str] = Field(default_factory=list)
-    liveness: Optional[str] = None
+    presence: Optional[str] = None
+    activity: Optional[str] = None
+    intent: Optional[str] = None
     ended_cause: Optional[str] = None
     limit: Optional[int] = None
     per_project: bool = False
@@ -42,16 +43,13 @@ class SessionsListRequest(BaseModel):
     detail: ReadDetail = DETAIL_SUMMARY
     offset: int = Field(default=0, ge=0)
 
-
 class SessionsListResponse(BaseModel):
     fields: List[str]
     rows: List[Dict[str, Any]]
 
-
 #: Payload keys incompatible with every mutually-exclusive read mode
 #: (``history``, ``usage_last_24h``) besides the mode's own scoping keys.
-_LIVE_ROSTER_KEYS = ("liveness", "ended_cause", "open", "session_id", "per_project")
-
+_LIVE_ROSTER_KEYS = ("presence", "activity", "intent", "ended_cause", "open", "session_id", "per_project")
 
 def _error(
     code: str,
@@ -64,14 +62,12 @@ def _error(
         error=FunctionError(code=code, message=message, jsonpath=jsonpath),
     )
 
-
 def _incompatible_keys(payload: Dict[str, Any], *extra: str) -> List[str]:
     return [
         key
         for key in (*_LIVE_ROSTER_KEYS, *extra)
         if payload.get(key) not in (None, False, "", [])
     ]
-
 
 def _history_error(exc: ValidationError) -> HandlerOutcome:
     issue = exc.errors()[0]
@@ -81,7 +77,6 @@ def _history_error(exc: ValidationError) -> HandlerOutcome:
         f"history request invalid: {issue.get('msg')}; clear the cursor and reload the first history page",
         jsonpath=f"$.payload.history{'.' + path if path else ''}",
     )
-
 
 def _history_result(
     request: FunctionCallRequest,
@@ -121,7 +116,6 @@ def _history_result(
         conn.close()
     return HandlerOutcome(result_payload=result, primary_success=True)
 
-
 def _recent_usage_result(
     request: FunctionCallRequest, project_refs: List[str]
 ) -> HandlerOutcome:
@@ -148,7 +142,6 @@ def _recent_usage_result(
         conn.close()
     return HandlerOutcome(result_payload=result, primary_success=True)
 
-
 def handle_sessions_list(request: FunctionCallRequest) -> HandlerOutcome:
     if request.target.kind != "global":
         return _error(
@@ -157,6 +150,12 @@ def handle_sessions_list(request: FunctionCallRequest) -> HandlerOutcome:
             jsonpath="$.target.kind",
         )
     payload = request.payload or {}
+    if "liveness" in payload:
+        return _error("function_version_skew", compose_refusal(
+            "sessions.list removed liveness; required client floor next-release",
+            recovery="Ask the release operator for the carrying release, update the CLI, "
+                     "then use --presence, --activity or --intent",
+        ), jsonpath="$.payload.liveness")
     detail, offset = payload.get("detail", DETAIL_SUMMARY), payload.get("offset", 0)
     if (
         detail not in (DETAIL_FULL, DETAIL_SUMMARY)
@@ -222,14 +221,14 @@ def handle_sessions_list(request: FunctionCallRequest) -> HandlerOutcome:
         )
     project = payload.get("project")
     projects = payload.get("projects", [])
-    liveness = payload.get("liveness")
+    filters = {key: payload.get(key) for key in ("presence", "activity", "intent")}
     ended_cause = payload.get("ended_cause")
     limit = payload.get("limit")
     per_project = payload.get("per_project", False)
     open_only = payload.get("open", False)
     for key, value in (
         ("project", project),
-        ("liveness", liveness),
+        *filters.items(),
         ("ended_cause", ended_cause),
     ):
         if value is not None and not isinstance(value, str):
@@ -284,6 +283,7 @@ def handle_sessions_list(request: FunctionCallRequest) -> HandlerOutcome:
                 projects or ([project] if project else []),
                 effective_limit,
                 offset,
+                **filters,
             )
         else:
             from yoke_core.domain import db_helpers
@@ -299,7 +299,7 @@ def handle_sessions_list(request: FunctionCallRequest) -> HandlerOutcome:
                 project_ids=sorted(visible) if visible is not None else None,
                 org_session_actor_id=actor if not project else None,
                 project=project,
-                liveness=liveness,
+                **filters,
                 ended_cause=ended_cause,
                 limit=effective_limit,
                 offset=offset,
@@ -315,7 +315,7 @@ def handle_sessions_list(request: FunctionCallRequest) -> HandlerOutcome:
             jsonpath=(
                 "$.payload.ended_cause"
                 if "ended_cause" in str(exc)
-                else "$.payload.liveness"
+                else "$.payload.presence"
             ),
         )
     except LookupError as exc:

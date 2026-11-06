@@ -80,7 +80,7 @@ def items_list(args: List[str]) -> int:
         metavar='"f1,f2,..."',
         help=(
             "Comma-separated columns to print "
-            "(default id,title,status,priority,workflow_id,source)."
+            "(default id,title,status,priority,workflow_id,source,stage,home_section,next_actor,progress)."
         ),
     )
     parser.add_argument(

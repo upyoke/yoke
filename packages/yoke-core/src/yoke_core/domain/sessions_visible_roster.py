@@ -80,6 +80,7 @@ def open_roster_rows(
     project_refs: List[str],
     limit: int | None,
     offset: int = 0,
+    **state_filters,
 ) -> List[Dict[str, Any]]:
     """The live roster for every project this caller can see, grouped by
     project in id order, each session appearing once."""
@@ -100,7 +101,7 @@ def open_roster_rows(
     org_actor = numeric_actor_id(actor) if not project_refs else None
     if project_ids is None:
         return list_sessions(
-            open=True, limit=limit, offset=offset, org_session_actor_id=org_actor
+            open=True, limit=limit, offset=offset, org_session_actor_id=org_actor, **state_filters
         )
     if not project_ids and org_actor is None:
         # No visible project matches nothing, not everything: an unfiltered
@@ -117,6 +118,7 @@ def open_roster_rows(
         limit=limit,
         offset=offset,
         org_session_actor_id=org_actor,
+        **state_filters,
     )
     # A session's live steering claim can name a project other than its own
     # home project, so the same session legitimately belongs to more than one

@@ -34,6 +34,10 @@ class TestItemsList:
             "workflow_id",
             "source",
             "terminal",
+            "stage",
+            "home_section",
+            "next_actor",
+            "progress",
         }
 
     def test_fields_projection_and_limit(self, test_db):

@@ -13,6 +13,7 @@ from contextvars import ContextVar
 from typing import Any, List, Optional
 
 from yoke_core.domain import db_backend
+from yoke_contracts.items_projection import ADDITIONAL_VIRTUAL_FIELDS
 
 from yoke_core.domain.db_helpers import connect, query_one, query_rows, query_scalar
 from yoke_core.domain.items_constants import (
@@ -52,13 +53,7 @@ def item_field_read_batch(conn, item_ids, fields):
             field
             for field in fields
             if field
-            not in {
-                "id",
-                "deployment_flow",
-                "body",
-                "merge_queue_status",
-                "post_deploy_qa",
-            }
+            not in (ADDITIONAL_VIRTUAL_FIELDS | {"id", "deployment_flow", "body"})
         )
     )
     expressions = [

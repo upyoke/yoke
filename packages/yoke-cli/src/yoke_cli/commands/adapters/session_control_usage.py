@@ -28,7 +28,7 @@ from yoke_cli.commands.adapters.session_control_keepalive import (
     SESSION_KEEPALIVE_HOLD_USAGE,
     SESSION_KEEPALIVE_RELEASE_USAGE,
 )
-from yoke_cli.commands.adapters.session_control_roster import SESSION_ROSTER_USAGE
+from yoke_cli.commands.adapters.sessions_read import SESSIONS_LIST_USAGE
 from yoke_cli.commands.adapters.session_control_termination import (
     SESSION_TERMINATE_USAGE,
 )
@@ -66,7 +66,7 @@ SESSION_CONTROL_USAGE_BY_FUNCTION_ID = {
     "session_control.surface_policy.disable": SURFACE_POLICY_DISABLE_USAGE,
     "session_control.surface_policy.enable": SURFACE_POLICY_ENABLE_USAGE,
     "session_control.surface_policy.list": SURFACE_POLICY_LIST_USAGE,
-    "sessions.list": SESSION_ROSTER_USAGE,
+    "sessions.list": SESSIONS_LIST_USAGE,
 }
 
 

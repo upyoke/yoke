@@ -150,7 +150,7 @@ printf '%s\n' 'PEER REQUEST' | yoke say --item PREFIX-N --steering --stdin
 printf '%s\n' 'PEER REPLY' | yoke say --session EXACT-REQUESTING-SESSION-ID --steering --stdin
 printf '%s\n' 'MESSAGE' | yoke say --actor ben --stdin
 printf '%s\n' 'MESSAGE' | yoke say --steering --stdin
-yoke sessions list --liveness active --limit 25
+yoke sessions list --presence present --limit 25
 yoke messages list --recipient-session CURRENT-SESSION-ID --state unacknowledged
 yoke messages get MESSAGE-ID
 yoke messages acknowledge MESSAGE-ID [MESSAGE-ID ...]
@@ -276,5 +276,5 @@ rules, reusable audiences and durable work with one shared Done action.
 
 Bulk sends select present, working/between-turns sessions, including parked
 holders. Silent/gone sessions are excluded despite heartbeats/claims;
-`session_idle_minutes` sets silence. Explicit `--liveness` uses legacy states;
+`session_idle_minutes` sets silence. Message recipient filters with explicit `--liveness` use legacy states;
 previews list the default as `active, waiting`. Named addresses stay deliberate.

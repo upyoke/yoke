@@ -13,6 +13,7 @@ from yoke_core.domain.handlers import reads
 from yoke_core.domain.items_constants import STRUCTURED_FIELDS
 from yoke_contracts.items_projection import (
     ADDITIONAL_SCALAR_FIELDS,
+    ADDITIONAL_VIRTUAL_FIELDS,
     DEFAULT_GET_FIELDS,
 )
 from yoke_contracts.api.function_call import (
@@ -91,7 +92,7 @@ class TestItemsGetDefaultProjection(unittest.TestCase):
             [
                 field
                 for field in DEFAULT_GET_FIELDS
-                if field not in {"id", "deployment_flow", "post_deploy_qa"}
+                if field not in ({"id", "deployment_flow"} | (ADDITIONAL_VIRTUAL_FIELDS - {"merge_queue_status"}))
             ],
         )
         self.assertEqual(fields["post_deploy_qa"], "not owed")

@@ -9,9 +9,7 @@ from __future__ import annotations
 from yoke_cli.commands.adapters.list_paging import add_page_args, dispatch_list
 
 from yoke_cli.transport.human_values import write_human
-from yoke_cli.commands.adapters.session_control_recipient_output import (
-    recipient_project,
-)
+from yoke_cli.commands.adapters.session_control_recipient_output import recipient_project
 
 import argparse
 from typing import Any, Dict, List
@@ -24,11 +22,12 @@ from yoke_cli.commands._helpers import (
     parse_or_usage_error,
 )
 from yoke_contracts.api.function_call import TargetRef
-from yoke_contracts.session_control.liveness import ENDED_CAUSES, LIVENESS_STATES
+from yoke_contracts.session_control.liveness import ENDED_CAUSES
+from yoke_contracts.session_state_fields import SESSION_STATE_CHOICES, session_state_columns
 
 
 SESSIONS_LIST_USAGE = (
-    "yoke sessions list [--project P] [--liveness active|waiting|stale|ended] "
+    "yoke sessions list [--project P] [--presence present|gone|ended] [--activity working|between_turns|silent] [--intent none|parked|awaiting] "
     "[--ended-cause killed|wound_down] "
     "[--limit N] [--offset N] [--full] [--session S] [--session-id S] [--json]"
 )
@@ -49,18 +48,20 @@ def sessions_list(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke sessions list",
         usage=SESSIONS_LIST_USAGE,
+        description=("Read presence, activity, intent, next actor and holds from the shared session model. "
+                     "Filters run before pagination. Example: yoke sessions list --presence present. "
+                     "Next: yoke say --help."),
     )
     parser.add_argument(
         "--project",
         default=None,
         help="Only sessions in this project, excluding outside-project sessions.",
     )
-    parser.add_argument(
-        "--liveness",
-        choices=LIVENESS_STATES,
-        default=None,
-        help="Only sessions in this liveness state.",
-    )
+    for field, choices in SESSION_STATE_CHOICES.items():
+        parser.add_argument(
+            f"--{field}", choices=choices,
+            help=f"Filter canonical {field} before pagination.",
+        )
     parser.add_argument(
         "--ended-cause",
         dest="ended_cause",
@@ -77,7 +78,7 @@ def sessions_list(args: List[str]) -> int:
         "--session",
         default=None,
         dest="session_filter",
-        help="Single-session liveness projection for exactly this id "
+        help="Single-session state projection for exactly this id "
         "(--session-id remains the caller-identity override).",
     )
     add_session_arg(parser)
@@ -86,34 +87,11 @@ def sessions_list(args: List[str]) -> int:
     if parsed is None:
         return 2
 
-    def _human_writer(response, stdout, stderr) -> None:
-        result = response.result or {}
-        displayed = [
-            {
-                **row,
-                "session": row.get("display_label") or "session label unavailable",
-                "next_actor": row.get("next_actor") or (row.get("session_state") or {}).get("next_actor"),
-                "read": f"yoke sessions get {row.get('session_id')}",
-                "project": recipient_project(row),
-            }
-            for row in result.get("rows", [])
-        ]
-        fields = [
-            "session",
-            "read",
-            *(
-                key
-                for key in result.get("fields", [])
-                if key not in {"session_id", "display_label", "harness_title"}
-            ),
-        ]
-        write_human({**result, "fields": fields, "rows": displayed}, stdout)
-
     payload: Dict[str, Any] = {
         "detail": "full" if parsed.full else "summary",
         "offset": parsed.offset,
     }
-    for key in ("project", "liveness", "ended_cause"):
+    for key in ("project", *SESSION_STATE_CHOICES, "ended_cause"):
         value = getattr(parsed, key)
         if value is not None:
             payload[key] = value
@@ -128,8 +106,44 @@ def sessions_list(args: List[str]) -> int:
         payload=payload,
         session_id=parsed.session_id,
         json_mode=parsed.json_mode,
-        human_writer=_human_writer,
+        human_writer=lambda response, out, err: write_sessions_result(response, out, err, full=parsed.full),
     )
+
+
+
+def write_sessions_result(response, stdout, stderr, *, full=False) -> None:
+    result = response.result or {}
+    rows = result.get("rows") or []
+    if full:
+        write_human({**result,
+                     "fields": [field for field in result.get("fields", []) if field != "liveness"],
+                     "rows": [{key: value for key, value in row.items() if key != "liveness"} for row in rows]}, stdout)
+        return
+
+    def description(value, key):
+        if not isinstance(value, dict):
+            return value
+        return ": ".join(str(value[name]) for name in (key, "reason") if value.get(name))
+
+    displayed = []
+    for row in rows:
+        state = session_state_columns(row)
+        holds = state.get("holds") or []
+        label = row.get("display_label")
+        identity = row.get("session_id")
+        displayed.append({
+            "session": f"{label} ({identity})" if label else identity,
+            "project": recipient_project(row),
+            "presence": state["presence"],
+            "activity": state["activity"],
+            "intent": description(state["intent"], "state"),
+            "next": description(state["next_actor"], "actor"),
+            "holds": ", ".join(str(h.get("public_ref") or h.get("target") or h.get("kind") or "hold") for h in holds),
+        })
+    write_human({"rows": displayed, **{
+        key: result[key] for key in ("offset", "limit", "next_offset") if key in result
+    }}, stdout)
+    print("Details: yoke sessions get SESSION; yoke sessions list --full", file=stdout)
 
 
 def sessions_get(args: List[str]) -> int:

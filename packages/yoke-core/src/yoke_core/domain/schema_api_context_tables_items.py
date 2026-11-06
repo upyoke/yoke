@@ -44,6 +44,9 @@ ITEMS_TABLE: dict[str, dict] = {
         "notes": (
             "Backlog row keyed by global bare-integer id for internal joins. "
             "The primary key is `id`; items has NO `item_id` or `public_id` column. "
+            "Wrong guess: home_section, stage, next_actor and progress are not SQL columns. "
+            "Read these computed fields with items.get.run; item_display_state owns their projection. "
+            "Scalar copy batches exclude them. "
             "Read the specification or Dash instruction via items.get spec; items.detail.get serves narrative and execution instructions. "
             "Wrong guesses: description and instruction are not accepted items.get fields. "
             "Wrong guess: execution_evidence is not an items column; Dash evidence is the "

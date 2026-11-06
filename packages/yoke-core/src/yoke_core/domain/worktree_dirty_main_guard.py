@@ -22,7 +22,6 @@ from yoke_core.domain.file_budget_paths import (
     FILE_BUDGET_SECTION,
     extract_file_budget_section_paths,
 )
-from yoke_core.domain.sessions_list_read import LIVENESS_ACTIVE
 from yoke_core.domain.worktree_dirty_main_classify import (
     decide_dirty_main,
     lane_source_root_prefixes,
@@ -190,7 +189,7 @@ def list_main_lane_holders(
         listed = _dispatch(
             "sessions.list",
             TargetRef(kind="global"),
-            {"liveness": LIVENESS_ACTIVE},
+            {"presence": "present", "detail": "full"},
         )
     except Exception:  # noqa: BLE001 - holder lookup is best-effort
         return ()
@@ -281,7 +280,7 @@ def format_dirty_main_narrative(
         lines.append(
             "No live session on this machine is recorded as working on main. "
             "Commit, stash, or drop the files, then retry. "
-            f"Find peers with: yoke sessions list --liveness {LIVENESS_ACTIVE}"
+            "Find peers with: yoke sessions list --presence present"
         )
     return "\n".join(lines)
 
