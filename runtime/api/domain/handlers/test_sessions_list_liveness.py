@@ -100,7 +100,7 @@ class TestLivenessDerivation:
         }
 
         test_db.execute(
-            "UPDATE harness_sessions SET last_heartbeat=%s WHERE session_id=%s",
+            "UPDATE harness_sessions SET last_tool_call_at=%s WHERE session_id=%s",
             (_iso(-1), "s-gone"),
         )
         test_db.commit()
@@ -123,7 +123,7 @@ class TestLivenessDerivation:
         assert row["native_process_exited_at"] == observed
 
         test_db.execute(
-            "UPDATE harness_sessions SET last_heartbeat=%s WHERE session_id=%s",
+            "UPDATE harness_sessions SET last_tool_call_at=%s WHERE session_id=%s",
             (_iso(-1), "s-parked"),
         )
         test_db.commit()

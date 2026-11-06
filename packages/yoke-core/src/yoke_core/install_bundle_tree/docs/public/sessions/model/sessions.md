@@ -6,13 +6,30 @@
 
 Schemas and ownership rules for harness sessions and work claims. Read [timestamp discipline](../../databases/migrations.md#timestamp-discipline) for timestamp conventions.
 
+The additive `session_state` projection is defined in the
+[session state glossary](../../guide/glossary.md).
+
 ## Table: harness_sessions
 
 `yoke universe prune --dry-run` previews disposable completed detail and
 settled agent-only message graphs; it preserves session identity, unresolved
 work and every human-involved message. See [retention](../../universe-retention.md).
 
-Tracks active harness sessions and their registered identity. Sessions with `ended_at IS NULL` are active. A persisted active work claim protects its live holder regardless of heartbeat age, park mode, process presence, or relay restart. The scheduler reports that claim as `claimed_by_other_live`; stale-session reclaim refuse to release it with `reason=active_work_claim`. Explicit release, completion, cancellation, or authorized termination settles ownership. Parking records a delivery wait for wake routing but does not decide retention. Derived liveness (`sessions.list`, `yoke_core.domain.session_staleness.session_liveness`) is `active`, `waiting`, `stale`, or `ended`: a live work-claim holder never reads `stale`; mode `parked` or turn posture `waiting` declares an intentional pause shown as parked (`waiting` on the wire). Wake and message routing key on the activity-only `activity_liveness` instead. Each roster row carries `reclaimable`, exactly equivalent to `liveness=stale`. The shared `session_automatic_reclaim.automatic_reclaim` decision applies holdings retention, in-flight and episode-progress rules to roster, preview and execution; execution rechecks and explains newly protected skips. Activity age is a separate diagnostic.
+Session end stamps, process presence and work ownership are independent.
+Active work claims protect their holders regardless of activity age or process
+presence. Explicit release, completion, cancellation or authorized termination
+settles ownership; automatic reclaim refuses with `reason=active_work_claim`.
+
+The legacy `liveness` selector reports `active`, `waiting`, `stale` or `ended`.
+An explicit parked claim holder reports `waiting`; other protected holders
+report `active`. Turn posture never declares a pause. Each row's `reclaimable`
+flag agrees with `liveness=stale`. The shared `automatic_reclaim` decision
+applies holdings retention, in-flight and episode-progress rules to roster,
+preview and execution; execution rechecks protection before mutation.
+Wake routing uses `activity_liveness` for hook reachability: a fresh heartbeat
+may keep hooks reachable while tool activity is silent, but never hides a
+recorded native process death.
+
 
 **Stale-session thresholds (canonical reference).** The reclaim windows are config-tunable, not code literals. The sweep first selects an occupancy tier:
 
@@ -50,7 +67,7 @@ actor_id INTEGER -- registered acting identity; legacy/additive storage permits 
 
 **Actor binding.** Hand-started sessions bind their operator. Launched sessions inherit the launching actor transitively through `requester_actor_id` at authenticated registration; this outranks OS login and relay bearer identity. An unreadable launch refuses registration. Actions on another session write a `SessionActionPerformed` row into the TARGET session's history carrying the ACTING actor, and is role-checked against the target project (for a session outside any project, its own actor or that org's role) by `yoke_core.domain.session_action_authority`: project membership for messaging, waking, holding alive, and terminating a launched worker; operator-driven sessions refuse termination and name claim release as recovery. Contract: `docs/archive/decisions/session-actor-follows-the-person.md`.
 
-The process-gone columns record machine evidence without ending a claim holder. The reporting machine keeps its record until the control plane ends the session, so a retained session is reported again every poll; the stamp is the native's own exit time where the machine read one (correcting an earlier report's guess), else the time this session's first report about that same process earned, and a report about a different, older process is dropped whole rather than overwriting newer evidence, so later activity can still supersede it. `sessions.list.native_process` exposes the observation until a later heartbeat, tool call, or episode start supersedes it, and drops it when the evidence measured `exit_code` 0 under a session that declared a wait — parked, turn_posture waiting whose `turn_posture_at` is present and not before the current `episode_started_at`, or holding an item armed in the merge queue — because a finished headless command is that wait rather than a disappearance; a non-zero exit and an exit nobody measured still read as gone. `sessions.list.native_process_exited_at` keeps that unsuperseded exit's time even when a declared wait explains it, so a reader asking whether any process is running still sees a parked session's clean exit. The `offer_envelope` column retains checkpoint and skip-memory telemetry.
+The process-gone columns record machine evidence without ending a claim holder. The reporting machine keeps its record until the control plane ends the session, so a retained session is reported again every poll; the stamp is the native's own exit time where the machine read one (correcting an earlier report's guess), else the time this session's first report about that same process earned, and a report about a different, older process is dropped whole rather than overwriting newer evidence, so later activity can still supersede it. `sessions.list.native_process` exposes the observation until a later tool call supersedes it, and drops it when the evidence measured `exit_code` 0 under a session that declared a wait — parked, turn_posture waiting whose `turn_posture_at` is present and not before the current `episode_started_at`, or holding an item armed in the merge queue — because a finished headless command is that wait rather than a disappearance; a non-zero exit and an exit nobody measured still read as gone. `sessions.list.native_process_exited_at` keeps that unsuperseded exit's time even when a declared wait explains it, so a reader asking whether any process is running still sees a parked session's clean exit. The `offer_envelope` column retains checkpoint and skip-memory telemetry.
 
 **Turn ends and project refusals.** A relayed Stop or SessionEnd still records waiting posture for an existing session owned by the authenticated actor when checkout project authorization denies the request. The refusal retains its project restrictions and performs no registration or cleanup. A policy Stop hold asking the agent to continue does not stamp waiting. Codex CLI's relay also reads the newest clean or failed `task_complete` from the rollout tail; later prompts or tool calls invalidate it, and an older observation cannot overwrite a newer running posture. Waiting permits native resume only for Yoke-origin sessions with native surface authority. If a posture write fails, the hook refusal names the failure and recovery alongside the project refusal; restore checkout authorization and retry through `yoke hook evaluate`.
 

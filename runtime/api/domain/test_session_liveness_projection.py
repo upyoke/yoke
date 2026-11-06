@@ -37,7 +37,7 @@ def _row(**fields):
             "active",
         ),
         ({"holds_work_claim": True}, "active", "stale"),
-        ({"holds_work_claim": True, "turn_posture": "waiting"}, "waiting", "stale"),
+        ({"holds_work_claim": True, "turn_posture": "waiting"}, "active", "stale"),
         ({"mode": "parked"}, "stale", "stale"),
         ({"last_heartbeat": FRESH}, "active", "active"),
         (

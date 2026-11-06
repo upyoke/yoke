@@ -17,11 +17,11 @@ blue; Blocked remains visible beside it. Blocked alone colors that segment
 red. Completed and upcoming segments retain their normal colors. A parked or
 idle session does not, by itself, mark its item Frozen or Blocked.
 
-Every session has one liveness: `active`, `waiting`, `stale`, or `ended`.
+The command selector retains the liveness values `active`, `waiting`, `stale`, or `ended`.
 `stale` means eligible for automatic reclaim, with every work-claim,
 document-holdings, in-flight and episode-progress rule applied. A live active
 work-claim holder never reads stale. An intentional pause declared by mode
-`parked` or turn posture `waiting` while holding work is `waiting`, displayed
+`parked` while holding work is `waiting`, displayed
 as **parked**, however old its activity becomes. Other protected live sessions
 remain active; their activity age is a separate diagnostic. Silence does not
 declare a pause. Ended sessions stay ended.

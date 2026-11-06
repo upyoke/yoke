@@ -17,6 +17,7 @@ root:
   - {title: "Yoke web dashboard", summary: "Following and coordinating your work in the web dashboard.", path: "guide/dashboard.md"}
   - {title: "The Frontier", summary: "How strategy becomes filed work and advances in the dashboard.", path: "guide/frontier.md"}
   - {title: "Workflows and work items", summary: "How work is recorded and carried to completion.", path: "guide/work.md"}
+  - {title: "Session state glossary", summary: "Presence, activity, intent, custody and next actor.", path: "guide/glossary.md"}
   - {title: "Steering and fleet control", summary: "Who is working, how work is coordinated and when humans intervene.", path: "guide/sessions.md"}
   - {title: "Yoke CLI and relay", summary: "The command line and relay connecting agent sessions to Yoke.", path: "guide/cli-relay.md"}
   - {title: "Agent guidance", summary: "Where instructions come from and when agents receive them.", path: "guide/guidance.md"}

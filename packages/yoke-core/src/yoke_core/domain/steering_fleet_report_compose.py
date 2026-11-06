@@ -19,7 +19,7 @@ import json
 from typing import Any, Mapping
 
 from yoke_contracts.project_contract.project_keys import (
-    DEFAULT_STEERING_REPORT_IDLE_MINUTES,
+    DEFAULT_SESSION_IDLE_MINUTES,
     DEFAULT_STEERING_REPORT_STAFFING_MINUTES,
 )
 from yoke_core.domain.project_identity import resolve_project_slug, placeholder
@@ -76,7 +76,7 @@ COMBINED_PREAMBLE = (
 
 def _policy_minutes(conn: Any, project_id: int, key: str, default: int) -> int:
     try:
-        return max(1, int(project_policy_value(conn, project_id, key, default)))
+        return max(0, int(project_policy_value(conn, project_id, key, default)))
     except (TypeError, ValueError):
         return default
 
@@ -187,8 +187,8 @@ def compose_held_reports(
                 _policy_minutes(
                     conn,
                     project,
-                    "steering_report_idle_minutes",
-                    DEFAULT_STEERING_REPORT_IDLE_MINUTES,
+                    "session_idle_minutes",
+                    DEFAULT_SESSION_IDLE_MINUTES,
                 ),
             ),
         )

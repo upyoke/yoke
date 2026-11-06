@@ -152,7 +152,7 @@ def test_new_activity_supersedes_the_process_gone_observation(conn):
     _apply(conn, session_id)
     later = datetime.now(timezone.utc) + timedelta(seconds=2)
     conn.execute(
-        "UPDATE harness_sessions SET last_heartbeat=%s, episode_started_at=%s "
+        "UPDATE harness_sessions SET last_tool_call_at=%s, episode_started_at=%s "
         "WHERE session_id=%s",
         (later, later, session_id),
     )

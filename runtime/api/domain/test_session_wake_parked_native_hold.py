@@ -101,10 +101,13 @@ def test_a_parked_session_spent_by_native_hold_is_still_wakeable() -> None:
     stamp_activity(conn, when=NOW + timedelta(seconds=1))
     eligible = wake_eligible_recipients(conn, now=NOW + timedelta(seconds=1))
     assert [row["session_id"] for row in eligible] == [NATIVE_WAKE_SESSION_ID]
-    assert conn.execute(
-        "SELECT mode FROM harness_sessions WHERE session_id=?",
-        (NATIVE_WAKE_SESSION_ID,),
-    ).fetchone()[0] == "parked"
+    assert (
+        conn.execute(
+            "SELECT mode FROM harness_sessions WHERE session_id=?",
+            (NATIVE_WAKE_SESSION_ID,),
+        ).fetchone()[0]
+        == "parked"
+    )
 
 
 def test_an_unparked_session_spent_by_native_hold_stays_at_the_limit() -> None:
@@ -138,5 +141,9 @@ def test_an_observed_exit_reopens_an_unparked_busy_receipt_at_the_limit() -> Non
     assert [row["session_id"] for row in eligible] == [NATIVE_WAKE_SESSION_ID]
     assert eligible[0]["wake_escalation"] == "native_process_gone"
 
-    stamp_activity(conn, when=exited + timedelta(seconds=1))
+    stamp_activity(
+        conn,
+        when=exited + timedelta(seconds=1),
+        tool_call=(exited + timedelta(seconds=1)).isoformat(),
+    )
     assert wake_eligible_recipients(conn, now=exited + timedelta(seconds=1)) == []

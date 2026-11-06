@@ -48,12 +48,12 @@ import json
 from datetime import datetime
 from typing import Any, Dict, Iterable, List, Mapping, Sequence
 
-from yoke_contracts.session_control.liveness import LIVENESS_ENDED, LIVENESS_STALE
 from yoke_core.domain.session_launch_abandonment import (
     settle_and_notify_native_death,
 )
 from yoke_core.domain.session_scope_identity import relay_serves_scope
-from yoke_core.domain.session_staleness import activity_liveness
+from yoke_core.domain.session_staleness import activity_is_stale
+from yoke_core.domain.session_reclaim_progress import newest_activity_stamp
 from yoke_core.domain.session_message_store import cancel_open_recipients
 from yoke_core.domain.session_message_cancellation_notice import (
     notify_cancelled_message_senders,
@@ -165,11 +165,17 @@ def _skip_reason(
     )
     if denial is not None or row is None:
         return denial
-    liveness = activity_liveness(row, now=now)
-    if liveness == LIVENESS_ENDED:
-        return f"liveness_{liveness}"
-    if liveness != LIVENESS_STALE and not launch_named:
-        return f"liveness_{liveness}"
+    if row.get("ended_at") or row.get("terminated_at"):
+        return "liveness_ended"
+    # A death changes reachability immediately; an anchor-only report still
+    # owes its retention TTL rather than borrowing that routing verdict.
+    activity = newest_activity_stamp(
+        row.get("last_heartbeat"), row.get("last_tool_call_at")
+    )
+    if not launch_named and not activity_is_stale(
+        activity, executor=row.get("executor"), now=now
+    ):
+        return "liveness_active"
     return None
 
 

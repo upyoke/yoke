@@ -1,0 +1,126 @@
+"""One projection of session presence, activity, intent, custody and next actor.
+
+Callers supply durable session, holdings and open-call facts, plus the project's
+session_idle_minutes. No heartbeat or telemetry event proves process presence
+or tool progress. Reclaim policy remains with automatic_reclaim.
+"""
+
+from __future__ import annotations
+
+from datetime import datetime, timedelta
+from typing import Any, Mapping
+
+from yoke_contracts.project_contract.project_keys import DEFAULT_SESSION_IDLE_MINUTES
+from yoke_contracts.session_control.liveness import IN_FLIGHT_CEILING_SECONDS
+from yoke_contracts.session_queue_posture import (
+    session_declared_wait,
+    session_pause_declared,
+)
+from yoke_contracts.timestamps import as_utc, parse_instant, temporal_wire, utc_now
+from yoke_core.domain.session_tool_call_liveness import session_call_is_live
+
+
+def session_presence(row: Mapping[str, Any]) -> str:
+    """End stamps win; only a later tool call supersedes a process death."""
+    if row.get("ended_at") or row.get("terminated_at"):
+        return "ended"
+    gone = (
+        parse_instant(row["native_process_gone_at"])
+        if row.get("native_process_gone_at")
+        else None
+    )
+    tool = (
+        parse_instant(row["last_tool_call_at"])
+        if row.get("last_tool_call_at")
+        else None
+    )
+    return "gone" if gone is not None and (tool is None or tool <= gone) else "present"
+
+
+def session_in_flight(row: Mapping[str, Any], *, now: datetime) -> bool:
+    """A current running call is bounded by the shared watcher ceiling."""
+    started = row.get("open_tool_call_at")
+    if (
+        started is None
+        or session_presence(row) != "present"
+        or session_pause_declared(row)
+    ):
+        return False
+    stamp = parse_instant(started)
+    return timedelta(0) <= now - stamp < timedelta(
+        seconds=IN_FLIGHT_CEILING_SECONDS
+    ) and session_call_is_live(row, started_at=stamp)
+
+
+def session_state(
+    row: Mapping[str, Any],
+    *,
+    now: datetime | None = None,
+) -> dict[str, Any]:
+    """Project the five independent facts without inventing missing custody.
+
+    Raw activity-only readers can omit holds_work_claim; custody then stays
+    unknown. Display readers must supply it before asking for reclaimability.
+    ``holds`` is the caller's complete active holdings list, when available.
+    """
+    from yoke_core.domain.session_automatic_reclaim import automatic_reclaim
+
+    current = utc_now() if now is None else as_utc(now)
+    presence = session_presence(row)
+    declared = session_declared_wait(row)
+    awaiting = declared if isinstance(declared, Mapping) else {}
+    intent = (
+        "awaiting" if declared else "parked" if row.get("mode") == "parked" else "none"
+    )
+    reason = awaiting.get("reason") or row.get("quiet_reason")
+    tool = (
+        parse_instant(row["last_tool_call_at"])
+        if row.get("last_tool_call_at")
+        else None
+    )
+    idle_minutes = row.get("session_idle_minutes", DEFAULT_SESSION_IDLE_MINUTES)
+    fresh = tool is not None and tool >= current - timedelta(minutes=idle_minutes)
+    in_flight = session_in_flight(row, now=current)
+    activity = "silent"
+    if presence == "present" and (fresh or in_flight):
+        activity = (
+            "working"
+            if intent == "none" and row.get("turn_posture") == "running"
+            else "between_turns"
+        )
+    reclaim = automatic_reclaim(row, now=current) if "holds_work_claim" in row else None
+    holds = row.get("holds", row.get("claims", []))
+    next_actor = (
+        "this_session" if presence == "present" and intent == "none" else "nobody"
+    )
+    return temporal_wire(
+        {
+            "presence": presence,
+            "activity": activity,
+            "intent": {
+                "state": intent,
+                "reason": reason if intent != "none" else None,
+                "awaiting_who": awaiting.get("awaiting_who"),
+            },
+            "custody": {
+                "holds": list(holds),
+                "holds_work_claim": row.get("holds_work_claim"),
+                "reclaimable": reclaim.is_reclaimable if reclaim else None,
+                "reason": reclaim.reason if reclaim else "custody_facts_unavailable",
+            },
+            "next_actor": {
+                "actor": next_actor,
+                "reason": "session_can_continue"
+                if next_actor == "this_session"
+                else (
+                    presence if presence != "present" else reason or "declared_pause"
+                ),
+                "since": (row.get("terminated_at") or row.get("ended_at"))
+                if presence == "ended"
+                else row.get("native_process_gone_at")
+                if presence == "gone"
+                else row.get("turn_posture_at"),
+            },
+            "in_flight": in_flight,
+        }
+    )

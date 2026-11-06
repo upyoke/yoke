@@ -220,6 +220,7 @@ Ouroboros, Yoke’s learning loop, lets agents record problems as feedback, iden
 - [Yoke web dashboard](guide/dashboard.md) — Following and coordinating your work in the web dashboard.
 - [The Frontier](guide/frontier.md) — How strategy becomes filed work and advances in the dashboard.
 - [Workflows and work items](guide/work.md) — How work is recorded and carried to completion.
+- [Session state glossary](guide/glossary.md) — Presence, activity, intent, custody and next actor.
 - [Steering and fleet control](guide/sessions.md) — Who is working, how work is coordinated and when humans intervene.
 - [Yoke CLI and relay](guide/cli-relay.md) — The command line and relay connecting agent sessions to Yoke.
 - [Agent guidance](guide/guidance.md) — Where instructions come from and when agents receive them.

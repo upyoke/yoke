@@ -69,11 +69,11 @@ RECOGNIZED_PROJECT_KEYS: Dict[str, SettingSpec] = {
         "marks it overdue rather than merely available",
         minimum=0,
     ),
-    "steering_report_idle_minutes": SettingSpec(
+    "session_idle_minutes": SettingSpec(
         20,
         int,
-        "how long a claim holder stays quiet before the steering report "
-        "presumes it stuck",
+        "tool-call silence before a session is silent and a claim holder "
+        "needs attention in the steering report",
         minimum=0,
     ),
     "steering_report_interval_minutes": SettingSpec(
@@ -118,8 +118,8 @@ DEFAULT_WIP_CAP = int(RECOGNIZED_PROJECT_KEYS["wip_cap"].default)
 DEFAULT_STEERING_REPORT_STAFFING_MINUTES = int(
     RECOGNIZED_PROJECT_KEYS["steering_report_staffing_minutes"].default
 )
-DEFAULT_STEERING_REPORT_IDLE_MINUTES = int(
-    RECOGNIZED_PROJECT_KEYS["steering_report_idle_minutes"].default
+DEFAULT_SESSION_IDLE_MINUTES = int(
+    RECOGNIZED_PROJECT_KEYS["session_idle_minutes"].default
 )
 DEFAULT_STEERING_REPORT_INTERVAL_MINUTES = int(
     RECOGNIZED_PROJECT_KEYS["steering_report_interval_minutes"].default

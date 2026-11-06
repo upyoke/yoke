@@ -26,15 +26,18 @@ def _owned_groups(state_dir: Path | None) -> set[int]:
         if record is not None:
             records.append(record)
     return {
-        group for record in records
+        group
+        for record in records
         if isinstance(group := record.get("process_group_id"), int) and group > 0
     }
 
 
-def interactive_holder(
-    context: RelayExecutionContext,
+def running_interactive_holder(
+    session_id: str,
     *,
+    native_thread_id: str | None = None,
     custody_state_dir: Path | None = None,
+    anchors_dir: Path | None = None,
     start_time_of: Callable[[int], str | None] | None = None,
 ) -> RunningNative | None:
     """Find a live anchor outside relay custody, including contended anchors.
@@ -45,14 +48,19 @@ def interactive_holder(
     """
     from yoke_harness.session_relay_native_turn_custody import RunningNative
 
-    wanted = {value for value in (
-        context.target_session_id, context.target_native_thread_id,
-    ) if value}
+    wanted = {
+        value
+        for value in (
+            session_id,
+            native_thread_id,
+        )
+        if value
+    }
     if not wanted:
         return None
     start_time_of = start_time_of or process_start_time
     owned_groups = _owned_groups(custody_state_dir)
-    directory = machine_config.yoke_home() / ANCHORS_DIR_NAME
+    directory = anchors_dir or machine_config.yoke_home() / ANCHORS_DIR_NAME
     for path in sorted(directory.glob("*.json")):
         record = read_local_record(path)
         if record is None:
@@ -78,6 +86,24 @@ def interactive_holder(
         if group in owned_groups:
             continue
         return RunningNative(
-            context.target_session_id or "", pid, str(started), PROCESS_ANCHOR_SOURCE,
+            session_id,
+            pid,
+            str(started),
+            PROCESS_ANCHOR_SOURCE,
         )
     return None
+
+
+def interactive_holder(
+    context: RelayExecutionContext,
+    *,
+    custody_state_dir: Path | None = None,
+    start_time_of: Callable[[int], str | None] | None = None,
+) -> RunningNative | None:
+    """Resolve the holder using a pending wake's session and native identity."""
+    return running_interactive_holder(
+        context.target_session_id or "",
+        native_thread_id=context.target_native_thread_id,
+        custody_state_dir=custody_state_dir,
+        start_time_of=start_time_of,
+    )

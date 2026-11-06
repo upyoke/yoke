@@ -40,7 +40,7 @@ rows sort first. A detector with nothing to say prints nothing.
 
 Three `project-policy` keys tune each scope. `steering_report_staffing_minutes`
 (default 5) is how long runnable unclaimed work may sit before the report
-marks it overdue. `steering_report_idle_minutes` (default 20) is how long a
+marks it overdue. `session_idle_minutes` (default 20) is how long a
 claim holder stays quiet before the report presumes it stuck. And
 `steering_report_interval_minutes` (default 2) is the shortest gap between
 reports appended to one session.

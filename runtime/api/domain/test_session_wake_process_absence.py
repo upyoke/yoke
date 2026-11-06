@@ -28,9 +28,8 @@ from runtime.api.domain.session_message_support_test_support import (
 
 
 #: The native died a minute after its last heartbeat, and the sweep runs a
-#: minute after that. Both clocks matter: the heartbeat is recent enough that
-#: liveness still reads ``active``, and far too recent for the silence window
-#: to have closed, so nothing but the observed death can authorize a wake.
+#: minute after that. The heartbeat is too recent for the silence window,
+#: so only observed death can authorize a wake.
 DIED = NOW + timedelta(seconds=60)
 SWEEP = DIED + timedelta(seconds=60)
 
@@ -68,10 +67,8 @@ def test_an_observed_death_escalates_without_waiting_out_the_window() -> None:
     eligible = wake_eligible_recipients(conn, now=SWEEP)
     assert len(eligible) == 1
     candidate = eligible[0]
-    # Liveness is the whole reason this gap existed: the heartbeat outlives
-    # the process that stopped refreshing it, so the sweep hands an
-    # ``active`` recipient back to a hook route that has no process to run.
-    assert candidate["liveness"] == "active"
+    # Recorded death makes hooks unreachable even with a recent heartbeat.
+    assert candidate["liveness"] == "stale"
     assert candidate["wake_escalation"] == NATIVE_PROCESS_GONE
     assert (
         wake_operation(

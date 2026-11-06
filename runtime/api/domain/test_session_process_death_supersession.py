@@ -38,9 +38,7 @@ def _death(conn, session_id):
     return death
 
 
-@pytest.mark.parametrize(
-    "activity", ["last_heartbeat", "last_tool_call_at", "episode_started_at"]
-)
+@pytest.mark.parametrize("activity", ["last_tool_call_at"])
 def test_repeat_launch_report_cannot_end_resumed_claimless_handoff(conn, activity):
     session_id = _ghost(conn)
     claim_work(conn, session_id=session_id, item_id=9301)
@@ -128,6 +126,17 @@ def test_activity_equal_to_death_still_allows_immediate_settlement(conn):
     conn.execute(
         "UPDATE harness_sessions SET last_tool_call_at=%s WHERE session_id=%s",
         (death, session_id),
+    )
+    conn.commit()
+    assert _apply(conn, session_id)["ended"] == [session_id]
+
+
+def test_heartbeat_does_not_hide_a_recorded_death(conn):
+    session_id = _ghost(conn)
+    death = _death(conn, session_id)
+    conn.execute(
+        "UPDATE harness_sessions SET last_heartbeat=%s WHERE session_id=%s",
+        (death + timedelta(seconds=1), session_id),
     )
     conn.commit()
     assert _apply(conn, session_id)["ended"] == [session_id]

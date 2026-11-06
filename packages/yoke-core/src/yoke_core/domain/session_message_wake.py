@@ -33,6 +33,7 @@ from yoke_core.domain.session_message_routing import (
     messageability,
 )
 from yoke_core.domain.session_staleness import activity_liveness
+from yoke_core.domain.session_state import session_presence
 from yoke_core.domain.session_message_starvation import (
     PARKED_WITHOUT_IDLE_WAKE,
     STARVED_HOOK_ROUTE,
@@ -237,6 +238,7 @@ def wake_eligible_recipients(
                         break
                 if not escalation and (
                     liveness == "active"
+                    or session_presence(row) == "gone"
                     or row.get("wake_escalation") in dict(_HOOK_ROUTE_ABSENCES)
                 ):
                     continue
