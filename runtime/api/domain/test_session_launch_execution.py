@@ -279,24 +279,22 @@ def test_registration_refuses_exact_binding_mismatches(
     assert get_launch(conn, launch.launch_id).attestation_consumed_at is None
 
 
-def test_late_registration_fails_and_preserves_known_native_id() -> None:
+def test_late_registration_recovers_and_preserves_known_native_id() -> None:
     conn = launch_connection()
     add_relay(conn)
     launch, claim = _awaiting_launch(conn, key="late")
     _register_candidate(conn, session_id="session-late")
 
-    with pytest.raises(SessionLaunchError) as refused:
-        prepare_launch_registration(
-            conn,
-            launch_id=launch.launch_id,
-            attestation=claim.attestation,
-            session_id="session-late",
-            now="2026-08-22T12:11:00Z",
-        )
-    assert refused.value.code == "late_registration"
-    failed = get_launch(conn, launch.launch_id)
-    assert failed.state == "failed"
-    assert failed.native_session_id == "session-late"
+    injection = prepare_launch_registration(
+        conn, launch_id=launch.launch_id, attestation=claim.attestation,
+        session_id="session-late", now="2026-08-22T12:11:00Z",
+    )
+    assert injection.session_id == "session-late"
+    recovered = get_launch(conn, launch.launch_id)
+    assert recovered.state == "awaiting_registration"
+    assert recovered.native_session_id == "session-late"
+    assert recovered.registered_session_id == "session-late"
+    assert recovered.deadline_at > launch.deadline_at
 
 
 def test_explicit_failure_is_retryable_but_uncertain_report_is_not() -> None:

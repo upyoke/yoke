@@ -53,8 +53,8 @@ def seed(context, *, surface="codex-cli", bound=True):
         conn.execute(
             "INSERT INTO harness_sessions(session_id,project_id,executor,provider,workspace,"
             "execution_level,executor_surface,executor_version,model,actor_id,offered_at) "
-            "VALUES (%s,%s,'codex','openai','/project','SENIOR',%s,%s,'gpt-5',%s,%s)",
-            (session, project_id, surface, SESSION_SURFACE_CAPABILITIES[surface].minimum_version, actor_id, NOW),
+            "VALUES (%s,%s,'codex','openai','/project','SENIOR',%s,%s,'gpt-5',%s,%s,%s)",
+            (session, project_id, surface, SESSION_SURFACE_CAPABILITIES[surface].minimum_version, actor_id, NOW, NOW),
         )
     else:
         conn.execute(
